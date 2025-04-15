@@ -1,0 +1,18 @@
+[package]
+name = "depin-sdk-core"
+version = "0.1.0"
+edition = "2021"
+description = "Core traits and interfaces for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+log = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+bytes = { workspace = true }
+anyhow = { workspace = true }
+
+[features]
+default = []
+post-quantum = []
+homomorphic = []

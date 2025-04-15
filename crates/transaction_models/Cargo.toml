@@ -1,0 +1,22 @@
+[package]
+name = "depin-sdk-transaction-models"
+version = "0.1.0"
+edition = "2021"
+description = "Transaction model implementations for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+depin-sdk-core = { path = "../core" }
+depin-sdk-commitment-schemes = { path = "../commitment_schemes" }
+depin-sdk-state-trees = { path = "../state_trees" }
+log = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+bytes = { workspace = true }
+anyhow = { workspace = true }
+
+[features]
+default = []
+utxo = []
+account = []
+hybrid = ["utxo", "account"]

@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  guardian:
+    build:
+      context: ../..
+      dockerfile: docker/standard_validator/Dockerfile
+    command: ["guardian"]
+    volumes:
+      - guardian_data:/app/data
+    networks:
+      - validator_net
+
+  orchestration:
+    build:
+      context: ../..
+      dockerfile: docker/standard_validator/Dockerfile
+    command: ["orchestration"]
+    depends_on:
+      - guardian
+    volumes:
+      - orchestration_data:/app/data
+    networks:
+      - validator_net
+
+  workload:
+    build:
+      context: ../..
+      dockerfile: docker/standard_validator/Dockerfile
+    command: ["workload"]
+    depends_on:
+      - orchestration
+    volumes:
+      - workload_data:/app/data
+    networks:
+      - validator_net
+
+networks:
+  validator_net:
+    driver: bridge
+
+volumes:
+  guardian_data:
+  orchestration_data:
+  workload_data:

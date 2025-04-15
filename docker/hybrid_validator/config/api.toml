@@ -1,0 +1,13 @@
+# API container configuration for hybrid validator
+
+[api]
+# API configuration
+listen_addr = "0.0.0.0:9090"
+rate_limit = 100  # requests per second
+max_body_size = "10MB"
+
+[auth]
+# Authentication configuration
+auth_required = true
+jwt_secret_path = "/app/config/jwt/secret.key"
+token_expiry = 86400  # 24 hours in seconds

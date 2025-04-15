@@ -1,0 +1,16 @@
+# Guardian container configuration for hybrid validator
+
+[security]
+# Security settings for attestation and verification
+attestation_enabled = true
+tpm_required = true
+
+[boot]
+# Boot process configuration
+secure_boot_enabled = true
+recovery_mode = false
+
+[updates]
+# Update management
+auto_updates = true
+update_channel = "stable"

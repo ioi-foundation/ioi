@@ -1,0 +1,27 @@
+[package]
+name = "depin-sdk-crypto"
+version = "0.1.0"
+edition = "2021"
+description = "Cryptographic implementations for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+depin-sdk-core = { path = "../core" }
+log = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+ed25519-dalek = { workspace = true }
+pqcrypto = { workspace = true }
+curve25519-dalek = { workspace = true }
+rand = { workspace = true }
+bytes = { workspace = true }
+
+[features]
+default = []
+post-quantum = []
+kyber = ["post-quantum"]
+dilithium = ["post-quantum"]
+falcon = ["post-quantum"]
+sphincs = ["post-quantum"]
+lattice-vc = ["post-quantum"]

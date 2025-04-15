@@ -1,0 +1,24 @@
+[package]
+name = "depin-sdk-commitment-schemes"
+version = "0.1.0"
+edition = "2021"
+description = "Commitment scheme implementations for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+depin-sdk-core = { path = "../core" }
+log = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+bytes = { workspace = true }
+sha2 = { workspace = true }
+curve25519-dalek = { workspace = true }
+rand = { workspace = true }
+
+[features]
+default = []
+merkle = []
+pedersen = ["depin-sdk-core/homomorphic"]
+kzg = []
+lattice = ["depin-sdk-core/post-quantum"]
+iavl = []

@@ -1,0 +1,13 @@
+# Interface container configuration for hybrid validator
+
+[networking]
+# Connection handling configuration
+listen_addr = "0.0.0.0:8080"
+max_concurrent = 1000
+timeout_ms = 30000
+
+[security]
+# Security configuration
+tls_enabled = true
+cert_path = "/app/config/tls/cert.pem"
+key_path = "/app/config/tls/key.pem"

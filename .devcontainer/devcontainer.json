@@ -1,0 +1,25 @@
+{
+    "name": "DePIN SDK Development",
+    "image": "mcr.microsoft.com/devcontainers/rust:latest",
+    "features": {
+        "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "rust-lang.rust-analyzer",
+                "serayuzgur.crates",
+                "tamasfe.even-better-toml",
+                "vadimcn.vscode-lldb",
+                "github.copilot"
+            ],
+            "settings": {
+                "editor.formatOnSave": true,
+                "rust-analyzer.checkOnSave.command": "clippy",
+                "rust-analyzer.cargo.allFeatures": true
+            }
+        }
+    },
+    "remoteUser": "vscode",
+    "postCreateCommand": "rustup component add rustfmt clippy"
+}

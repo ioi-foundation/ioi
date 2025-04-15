@@ -1,0 +1,24 @@
+[package]
+name = "depin-sdk-validator"
+version = "0.1.0"
+edition = "2021"
+description = "Validator implementation with container architecture for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+depin-sdk-core = { path = "../core" }
+log = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+bytes = { workspace = true }
+anyhow = { workspace = true }
+tokio = { version = "1.28", features = ["full"] }
+toml = "0.7"
+
+[[bin]]
+name = "depin-sdk-validator"
+path = "src/bin/validator.rs"
+
+[[bin]]
+name = "depin-sdk-validator-hybrid"
+path = "src/bin/validator_hybrid.rs"

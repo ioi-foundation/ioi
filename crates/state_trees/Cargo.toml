@@ -1,0 +1,20 @@
+[package]
+name = "depin-sdk-state-trees"
+version = "0.1.0"
+edition = "2021"
+description = "State tree implementations for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+depin-sdk-core = { path = "../core" }
+depin-sdk-commitment-schemes = { path = "../commitment_schemes" }
+log = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+bytes = { workspace = true }
+
+[features]
+default = []
+verkle = ["depin-sdk-commitment-schemes/lattice"]
+sparse_merkle = ["depin-sdk-commitment-schemes/merkle"]
+iavl_plus = ["depin-sdk-commitment-schemes/iavl"]

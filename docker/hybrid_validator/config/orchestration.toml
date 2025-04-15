@@ -1,0 +1,17 @@
+# Orchestration container configuration for hybrid validator
+
+[consensus]
+# Consensus mechanism configuration
+mechanism = "tendermint"
+block_time = 5000  # milliseconds
+
+[networking]
+# Networking configuration
+p2p_port = 26656
+max_connections = 50
+peers_file = "/app/data/peers.json"
+
+[resources]
+# Resource management
+cpu_limit = 4
+memory_limit = "4GB"

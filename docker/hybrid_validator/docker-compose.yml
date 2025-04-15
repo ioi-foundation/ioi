@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  guardian:
+    build:
+      context: ../..
+      dockerfile: docker/hybrid_validator/Dockerfile
+    command: ["guardian"]
+    volumes:
+      - guardian_data:/app/data
+    networks:
+      - validator_net
+
+  orchestration:
+    build:
+      context: ../..
+      dockerfile: docker/hybrid_validator/Dockerfile
+    command: ["orchestration"]
+    depends_on:
+      - guardian
+    volumes:
+      - orchestration_data:/app/data
+    networks:
+      - validator_net
+
+  workload:
+    build:
+      context: ../..
+      dockerfile: docker/hybrid_validator/Dockerfile
+    command: ["workload"]
+    depends_on:
+      - orchestration
+    volumes:
+      - workload_data:/app/data
+    networks:
+      - validator_net
+
+  interface:
+    build:
+      context: ../..
+      dockerfile: docker/hybrid_validator/Dockerfile
+    command: ["interface"]
+    depends_on:
+      - orchestration
+    volumes:
+      - interface_data:/app/data
+    networks:
+      - validator_net
+    ports:
+      - "8080:8080"
+
+  api:
+    build:
+      context: ../..
+      dockerfile: docker/hybrid_validator/Dockerfile
+    command: ["api"]
+    depends_on:
+      - interface
+    volumes:
+      - api_data:/app/data
+    networks:
+      - validator_net
+    ports:
+      - "9090:9090"
+
+networks:
+  validator_net:
+    driver: bridge
+
+volumes:
+  guardian_data:
+  orchestration_data:
+  workload_data:
+  interface_data:
+  api_data:

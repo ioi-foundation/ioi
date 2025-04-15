@@ -1,0 +1,13 @@
+# Workload container configuration for hybrid validator
+
+[execution]
+# Execution environment configuration
+vm_isolated = true
+wasm_enabled = true
+
+[storage]
+# Storage configuration
+db_path = "/app/data/blockchain"
+db_backend = "rocksdb"
+pruning_keep_recent = 100
+pruning_interval = 10
