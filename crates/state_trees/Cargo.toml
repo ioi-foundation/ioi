@@ -15,6 +15,6 @@ bytes = { workspace = true }
 
 [features]
 default = []
-verkle = ["depin-sdk-commitment-schemes/lattice"]
-sparse_merkle = ["depin-sdk-commitment-schemes/merkle"]
-iavl_plus = ["depin-sdk-commitment-schemes/iavl"]
+verkle = ["depin-sdk-commitment-schemes/kzg"]
+sparse_merkle = ["depin-sdk-commitment-schemes/hash"]
+iavl = ["depin-sdk-commitment-schemes/hash"]

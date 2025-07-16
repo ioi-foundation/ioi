@@ -17,8 +17,7 @@ rand = { workspace = true }
 
 [features]
 default = []
-merkle = []
-pedersen = ["depin-sdk-core/homomorphic"]
+hash = []
 kzg = []
-lattice = ["depin-sdk-core/post-quantum"]
-iavl = []
+module_lwe = ["depin-sdk-core/post-quantum"]
+elliptical_curve = ["depin-sdk-core/homomorphic"]

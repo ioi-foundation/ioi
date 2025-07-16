@@ -35,28 +35,39 @@ pub trait ClassifiedComponent {
     }
 }
 
-/// Mark a component as fixed
-pub trait Fixed: ClassifiedComponent {}
+/// Marker trait for fixed components
+pub trait Fixed {}
 
-/// Mark a component as adaptable
-pub trait Adaptable: ClassifiedComponent {}
+/// Marker trait for adaptable components
+pub trait Adaptable {}
 
-/// Mark a component as extensible
-pub trait Extensible: ClassifiedComponent {}
+/// Marker trait for extensible components
+pub trait Extensible {}
 
-impl<T: Fixed> ClassifiedComponent for T {
+// Instead of blanket implementations, we'll provide implementation helpers
+
+/// Helper struct for fixed components
+pub struct FixedComponent;
+
+impl ClassifiedComponent for FixedComponent {
     fn classification(&self) -> ComponentClassification {
         ComponentClassification::Fixed
     }
 }
 
-impl<T: Adaptable> ClassifiedComponent for T {
+/// Helper struct for adaptable components
+pub struct AdaptableComponent;
+
+impl ClassifiedComponent for AdaptableComponent {
     fn classification(&self) -> ComponentClassification {
         ComponentClassification::Adaptable
     }
 }
 
-impl<T: Extensible> ClassifiedComponent for T {
+/// Helper struct for extensible components
+pub struct ExtensibleComponent;
+
+impl ClassifiedComponent for ExtensibleComponent {
     fn classification(&self) -> ComponentClassification {
         ComponentClassification::Extensible
     }

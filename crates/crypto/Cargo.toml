@@ -12,16 +12,13 @@ serde = { workspace = true }
 thiserror = { workspace = true }
 sha2 = { workspace = true }
 ed25519-dalek = { workspace = true }
-pqcrypto = { workspace = true }
 curve25519-dalek = { workspace = true }
 rand = { workspace = true }
 bytes = { workspace = true }
+pqcrypto-traits = "0.3.5"
+pqcrypto-kyber = "0.8.1"
+pqcrypto-dilithium = "0.5.0"
+pqcrypto-sphincsplus = "0.7.1"
 
 [features]
 default = []
-post-quantum = []
-kyber = ["post-quantum"]
-dilithium = ["post-quantum"]
-falcon = ["post-quantum"]
-sphincs = ["post-quantum"]
-lattice-vc = ["post-quantum"]

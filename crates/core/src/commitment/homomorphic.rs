@@ -1,4 +1,4 @@
-//! Definition of the HomomorphicCommitmentScheme trait
+// File: crates/core/src/commitment/homomorphic.rs
 
 use crate::commitment::scheme::CommitmentScheme;
 

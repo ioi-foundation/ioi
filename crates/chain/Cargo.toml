@@ -1,0 +1,24 @@
+[package]
+name = "depin-sdk-chain"
+version = "0.1.0"
+edition = "2021"
+description = "Chain implementation components for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+depin-sdk-consensus = { path = "../consensus" }
+depin-sdk-governance = { path = "../governance" }
+depin-sdk-core = { path = "../core" }
+depin-sdk-commitment-schemes = { path = "../commitment_schemes" }
+depin-sdk-state-trees = { path = "../state_trees" }
+depin-sdk-transaction-models = { path = "../transaction_models" }
+depin-sdk-validator = { path = "../validator" }
+log = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+[features]
+default = []
+tendermint = []
+custom-consensus = []

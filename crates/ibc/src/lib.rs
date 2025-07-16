@@ -6,6 +6,7 @@ pub mod proof;
 pub mod translation;
 pub mod light_client;
 pub mod verification;
+pub mod conversion;
 
 use depin_sdk_core::ibc::{ProofTranslator, UniversalProofFormat};
 use depin_sdk_core::commitment::{CommitmentScheme, SchemeIdentifier};

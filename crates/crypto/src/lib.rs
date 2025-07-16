@@ -2,7 +2,21 @@
 //!
 //! Cryptographic implementations for the DePIN SDK including post-quantum algorithms.
 
-pub mod post_quantum;
-pub mod traditional;
+pub mod dilithium;
+pub mod elliptic;
+pub mod falcon;
+pub mod hash;
+pub mod kyber;
+pub mod module_lwe;
+pub mod security;
+pub mod sphincs;
 
-use depin_sdk_core::crypto::{KeyPair, Signature, PublicKey, PrivateKey};
+// Simpler test module structure - don't re-export test modules
+#[cfg(test)]
+mod tests {
+    // Simple canary test to verify test discovery is working
+    #[test]
+    fn test_crypto_canary() {
+        assert!(true, "Basic test discovery is working");
+    }
+}
