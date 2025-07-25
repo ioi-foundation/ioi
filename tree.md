@@ -7,6 +7,7 @@
         - tests/
           - mod.rs
       - lib.rs
+      - upgrade_manager.rs
   - commitment_schemes/
     - Cargo.toml
     - src/
@@ -71,6 +72,8 @@
         - translator.rs
       - lib.rs
       - lib.rs:29:9
+      - services/
+        - mod.rs
       - state/
         - manager.rs
         - mod.rs
@@ -128,12 +131,6 @@
         - mod.rs
         - tests/
           - mod.rs
-  - governance/
-    - Cargo.toml
-    - src/
-      - lib.rs
-      - tests/
-        - mod.rs
   - homomorphic/
     - Cargo.toml
     - src/
@@ -192,6 +189,14 @@
       - verification/
         - mod.rs
         - tests/
+  - services/
+    - Cargo.toml
+    - src/
+      - external_data/
+      - governance/
+        - mod.rs
+      - lib.rs
+      - semantic/
   - state_trees/
     - Cargo.toml
     - src/
@@ -247,6 +252,7 @@
         - validator_hybrid.rs
         - validator.rs
       - common/
+        - attestation.rs
         - guardian.rs
         - mod.rs
         - security.rs

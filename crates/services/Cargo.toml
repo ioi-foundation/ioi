@@ -1,8 +1,8 @@
 [package]
-name = "depin-sdk-governance"
+name = "depin-sdk-services"
 version = "0.1.0"
 edition = "2021"
-description = "Governance for the DePIN SDK"
+description = "Services for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]

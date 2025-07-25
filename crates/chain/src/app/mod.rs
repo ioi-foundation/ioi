@@ -1,7 +1,10 @@
 use depin_sdk_core::commitment::CommitmentScheme;
+use depin_sdk_core::errors::SDKError;
+use depin_sdk_core::services::{ModuleUpgradeManager, ServiceType, UpgradableService};
 use depin_sdk_core::state::{StateManager, StateTree};
 use depin_sdk_core::transaction::TransactionModel;
 use depin_sdk_core::validator::ValidatorModel;
+use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// Block header containing metadata
@@ -41,7 +44,7 @@ pub struct ChainStatus {
     pub is_running: bool,
 }
 
-/// Implementation of sovereign app chain
+/// Implementation of sovereign app chain with runtime-swappable modules
 pub struct SovereignAppChain<CS, ST, TM, VM>
 where
     CS: CommitmentScheme,
@@ -61,6 +64,8 @@ where
     transaction_model: TM,
     /// Validator model
     validator_model: VM,
+    /// Module upgrade manager for runtime-swappable services
+    service_manager: ModuleUpgradeManager,
     /// Chain ID
     chain_id: String,
     /// Current status
@@ -80,13 +85,14 @@ where
     VM: ValidatorModel,
     TM::CommitmentScheme: CommitmentScheme<Commitment = CS::Commitment, Proof = CS::Proof>,
 {
-    /// Create a new sovereign app chain
+    /// Create a new sovereign app chain with runtime-swappable services
     pub fn new(
         commitment_scheme: CS,
         state_tree: ST,
         transaction_model: TM,
         validator_model: VM,
         chain_id: &str,
+        initial_services: Vec<Arc<dyn UpgradableService>>,
     ) -> Self {
         let status = ChainStatus {
             height: 0,
@@ -98,11 +104,18 @@ where
             is_running: false,
         };
 
+        // Initialize the module upgrade manager with initial services
+        let mut service_manager = ModuleUpgradeManager::new();
+        for service in initial_services {
+            service_manager.register_service(service);
+        }
+
         Self {
             commitment_scheme,
             state_tree,
             transaction_model,
             validator_model,
+            service_manager,
             chain_id: chain_id.to_string(),
             status,
             recent_blocks: Vec::new(),
@@ -118,6 +131,68 @@ where
     /// Get the current chain status
     pub fn status(&self) -> &ChainStatus {
         &self.status
+    }
+
+    /// Get a reference to the service manager
+    pub fn service_manager(&self) -> &ModuleUpgradeManager {
+        &self.service_manager
+    }
+
+    /// Get a mutable reference to the service manager
+    pub fn service_manager_mut(&mut self) -> &mut ModuleUpgradeManager {
+        &mut self.service_manager
+    }
+
+    //
+    // Service Interaction Methods
+    //
+
+    /// Get a service by type
+    pub fn get_service(&self, service_type: &ServiceType) -> Option<Arc<dyn UpgradableService>> {
+        self.service_manager.get_service(service_type)
+    }
+
+    /// Submit a governance proposal (if governance service is available)
+    pub fn submit_governance_proposal(&self, proposal_data: &[u8]) -> Result<(), SDKError> {
+        let governance = self
+            .service_manager
+            .get_service(&ServiceType::Governance)
+            .ok_or(SDKError::ServiceNotFound("Governance".to_string()))?;
+
+        // Call the governance service's proposal submission method
+        // Note: This assumes a GovernanceService trait with submit_proposal method
+        // governance.submit_proposal(proposal_data)
+
+        // For now, return Ok as we don't have the actual trait definition
+        Ok(())
+    }
+
+    /// Query external data (if external data service is available)
+    pub fn query_external_data(&self, query: &str) -> Result<Vec<u8>, SDKError> {
+        let external_data = self
+            .service_manager
+            .get_service(&ServiceType::ExternalData)
+            .ok_or(SDKError::ServiceNotFound("ExternalData".to_string()))?;
+
+        // Call the external data service's query method
+        // external_data.fetch_data(query)
+
+        // For now, return placeholder
+        Ok(vec![])
+    }
+
+    /// Execute semantic interpretation (if semantic service is available)
+    pub fn interpret_semantic(&self, input: &str) -> Result<String, SDKError> {
+        let semantic = self
+            .service_manager
+            .get_service(&ServiceType::Semantic)
+            .ok_or(SDKError::ServiceNotFound("Semantic".to_string()))?;
+
+        // Call the semantic service's interpretation method
+        // semantic.interpret(input)
+
+        // For now, return placeholder
+        Ok("Interpretation not implemented".to_string())
     }
 
     //
@@ -254,6 +329,25 @@ where
         let current_state_root = <ST as StateTree>::root_commitment(&self.state_tree);
         block.header.state_root = current_state_root.as_ref().to_vec();
 
+        // Check for and apply any module upgrades scheduled for this block height
+        // This happens after transaction processing but before finalizing the block
+        match self
+            .service_manager
+            .apply_upgrades_at_height(block.header.height)
+        {
+            Ok(upgrades_applied) => {
+                if upgrades_applied > 0 {
+                    println!(
+                        "Applied {} module upgrades at height {}",
+                        upgrades_applied, block.header.height
+                    );
+                }
+            }
+            Err(e) => {
+                return Err(format!("Failed to apply module upgrades: {}", e));
+            }
+        }
+
         // Update chain status
         self.status.height = block.header.height;
         self.status.latest_timestamp = block.header.timestamp;
@@ -323,6 +417,11 @@ where
             .start()
             .map_err(|e| format!("Failed to start validator: {}", e))?;
 
+        // Start all registered services
+        self.service_manager
+            .start_all_services()
+            .map_err(|e| format!("Failed to start services: {}", e))?;
+
         // Initialize state (in a real implementation, would load from persistent storage)
         // For now, we'll just use the existing state
 
@@ -344,6 +443,11 @@ where
     /// Stop the chain
     pub fn stop(&mut self) -> Result<(), String> {
         println!("Stopping sovereign app chain: {}", self.chain_id);
+
+        // Stop all services
+        self.service_manager
+            .stop_all_services()
+            .map_err(|e| format!("Failed to stop services: {}", e))?;
 
         // Stop the validator
         self.validator_model
@@ -372,6 +476,9 @@ where
         if self.status.is_running {
             self.stop()?;
         }
+
+        // Reset service manager
+        self.service_manager.reset()?;
 
         // Reset state (implementation would depend on how ST can be reset)
         // For demonstration purposes, assuming ST has no reset method
@@ -421,5 +528,15 @@ where
     /// Get the validator model
     pub fn validator_model(&self) -> &VM {
         &self.validator_model
+    }
+
+    /// Check service health
+    pub fn check_service_health(&self) -> Vec<(ServiceType, bool)> {
+        self.service_manager.check_all_health()
+    }
+
+    /// Get upgrade history for a service
+    pub fn get_service_history(&self, service_type: &ServiceType) -> Vec<u64> {
+        self.service_manager.get_upgrade_history(service_type)
     }
 }

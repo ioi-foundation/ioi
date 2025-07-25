@@ -4,12 +4,10 @@
 
 pub mod dilithium;
 pub mod elliptic;
-pub mod falcon;
 pub mod hash;
 pub mod kyber;
 pub mod module_lwe;
 pub mod security;
-pub mod sphincs;
 
 // Simpler test module structure - don't re-export test modules
 #[cfg(test)]
