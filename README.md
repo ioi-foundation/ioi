@@ -27,18 +27,6 @@ Enterprise blockchains • DeFi protocols • Gaming infrastructure • IoT netw
 
 ### Quick Setup
 
-1. Clone this repository
-2. Run the setup script:
-
-```bash
-./dev-setup.sh
-```
-
-3. Run the quick start example:
-
-```bash
-./quick-start.sh
-```
 
 ### Development with VS Code Dev Containers
 
@@ -57,7 +45,7 @@ The DePIN SDK follows a "bottom-up" architecture:
 - `crates/state_trees/`: State tree implementations
 - `crates/transaction_models/`: Transaction model implementations
 - `crates/validator/`: Validator implementation with container architecture
-- `crates/ibc/`: Inter-Blockchain Communication implementation
+- `crates/services/`:  
 - `crates/crypto/`: Cryptographic implementations including post-quantum
 - `crates/homomorphic/`: Homomorphic operations implementation
 - `crates/chain/`: Chain implementation components

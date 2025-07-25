@@ -1,53 +1,185 @@
-use depin_sdk_core::services::{BlockchainService, ServiceType, UpgradableService};
+use depin_sdk_core::services::{ServiceType, UpgradableService};
+use depin_sdk_core::error::CoreError;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+/// Manages runtime upgrades of blockchain services
 pub struct ModuleUpgradeManager {
-    // Holds the currently active, concrete service implementations.
+    /// Holds the currently active, concrete service implementations
     active_services: HashMap<ServiceType, Arc<dyn UpgradableService>>,
+    /// Tracks upgrade history for each service type
+    upgrade_history: HashMap<ServiceType, Vec<u64>>,
+    /// Scheduled upgrades by block height
+    scheduled_upgrades: HashMap<u64, Vec<(ServiceType, Vec<u8>)>>,
 }
 
 impl ModuleUpgradeManager {
+    /// Create a new module upgrade manager
     pub fn new() -> Self {
         Self {
             active_services: HashMap::new(),
+            upgrade_history: HashMap::new(),
+            scheduled_upgrades: HashMap::new(),
         }
     }
 
+    /// Register a service with the manager
     pub fn register_service(&mut self, service: Arc<dyn UpgradableService>) {
-        self.active_services.insert(service.service_type(), service);
+        let service_type = service.service_type();
+        self.active_services.insert(service_type.clone(), service);
+        
+        // Initialize upgrade history if not present
+        self.upgrade_history.entry(service_type).or_insert_with(Vec::new);
     }
 
-    pub fn get_service<T: 'static>(&self, service_type: &ServiceType) -> Option<Arc<T>> {
-        self.active_services
-            .get(service_type)
-            .and_then(|service| service.clone().downcast_arc().ok())
+    /// Get a service by type
+    pub fn get_service(&self, service_type: &ServiceType) -> Option<Arc<dyn UpgradableService>> {
+        self.active_services.get(service_type).cloned()
     }
 
-    // Called by the governance module when a SwapModule proposal passes.
+    /// Schedule an upgrade for a specific block height
+    pub fn schedule_upgrade(
+        &mut self,
+        service_type: ServiceType,
+        upgrade_data: Vec<u8>,
+        activation_height: u64,
+    ) -> Result<(), CoreError> {
+        self.scheduled_upgrades
+            .entry(activation_height)
+            .or_insert_with(Vec::new)
+            .push((service_type, upgrade_data));
+        
+        Ok(())
+    }
+
+    /// Apply any upgrades scheduled for the given block height
+    pub fn apply_upgrades_at_height(&mut self, height: u64) -> Result<usize, CoreError> {
+        let upgrades = match self.scheduled_upgrades.remove(&height) {
+            Some(upgrades) => upgrades,
+            None => return Ok(0),
+        };
+
+        let mut applied_count = 0;
+        
+        for (service_type, upgrade_data) in upgrades {
+            match self.execute_upgrade(&service_type, &upgrade_data) {
+                Ok(()) => {
+                    applied_count += 1;
+                    // Record the upgrade in history
+                    if let Some(history) = self.upgrade_history.get_mut(&service_type) {
+                        history.push(height);
+                    }
+                }
+                Err(e) => {
+                    // Log error but continue with other upgrades
+                    eprintln!("Failed to upgrade service {:?}: {}", service_type, e);
+                }
+            }
+        }
+
+        Ok(applied_count)
+    }
+
+    /// Execute an upgrade for a specific service
     pub fn execute_upgrade(
         &mut self,
         service_type: &ServiceType,
         new_module_wasm: &[u8],
-    ) -> Result<(), UpgradeError> {
+    ) -> Result<(), CoreError> {
         let active_service = self
             .active_services
             .get_mut(service_type)
-            .ok_or(UpgradeError::ServiceNotFound)?;
+            .ok_or_else(|| CoreError::ServiceNotFound(format!("{:?}", service_type)))?;
 
-        // 1. Prepare: Get the state snapshot from the current service.
-        let snapshot = active_service.prepare_upgrade(new_module_wasm)?;
+        // 1. Prepare: Get the state snapshot from the current service
+        let snapshot = active_service.prepare_upgrade(new_module_wasm)
+            .map_err(|e| CoreError::UpgradeError(e.to_string()))?;
 
-        // 2. Instantiate new service from WASM (or other format).
-        let mut new_service = load_service_from_wasm(new_module_wasm)?;
+        // 2. TODO: Instantiate new service from WASM (or other format)
+        // This would require a proper WASM loading mechanism
+        // For now, we'll create a placeholder
+        
+        // 3. TODO: Complete the upgrade by migrating state to new service
+        // new_service.complete_upgrade(&snapshot)?;
 
-        // 3. Complete: Migrate the state into the new service instance.
-        new_service.complete_upgrade(&snapshot)?;
+        // 4. TODO: Atomically swap the implementation
+        // self.active_services.insert(service_type.clone(), Arc::new(new_service));
 
-        // 4. Atomically swap the implementation.
-        self.active_services
-            .insert(service_type.clone(), Arc::new(new_service));
-
+        // For now, just return success as this is a stub implementation
         Ok(())
     }
+
+    /// Get upgrade history for a service
+    pub fn get_upgrade_history(&self, service_type: &ServiceType) -> Vec<u64> {
+        self.upgrade_history
+            .get(service_type)
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    /// Check health status of all services
+    pub fn check_all_health(&self) -> Vec<(ServiceType, bool)> {
+        self.active_services
+            .iter()
+            .map(|(service_type, service)| {
+                let is_healthy = match service.health_check() {
+                    Ok(_) => true,
+                    Err(_) => false,
+                };
+                (service_type.clone(), is_healthy)
+            })
+            .collect()
+    }
+
+    /// Start all registered services
+    pub fn start_all_services(&mut self) -> Result<(), CoreError> {
+        for (service_type, service) in &self.active_services {
+            service.start()
+                .map_err(|e| CoreError::Custom(format!(
+                    "Failed to start service {:?}: {}", 
+                    service_type, 
+                    e
+                )))?;
+        }
+        Ok(())
+    }
+
+    /// Stop all registered services
+    pub fn stop_all_services(&mut self) -> Result<(), CoreError> {
+        for (service_type, service) in &self.active_services {
+            service.stop()
+                .map_err(|e| CoreError::Custom(format!(
+                    "Failed to stop service {:?}: {}", 
+                    service_type, 
+                    e
+                )))?;
+        }
+        Ok(())
+    }
+
+    /// Reset the manager to initial state
+    pub fn reset(&mut self) -> Result<(), CoreError> {
+        // Stop all services first
+        self.stop_all_services()?;
+        
+        // Clear all state
+        self.active_services.clear();
+        self.upgrade_history.clear();
+        self.scheduled_upgrades.clear();
+        
+        Ok(())
+    }
+}
+
+/// Helper function to load a service from WASM bytes
+/// TODO: Implement actual WASM loading logic
+fn load_service_from_wasm(_wasm_bytes: &[u8]) -> Result<Box<dyn UpgradableService>, CoreError> {
+    Err(CoreError::Custom("WASM loading not implemented yet".to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // TODO: Add tests when the implementation is complete
 }

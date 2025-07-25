@@ -89,3 +89,28 @@ impl From<StateError> for TransactionError {
         TransactionError::StateAccessFailed(error.to_string())
     }
 }
+
+/// Core error type for the SDK
+#[derive(Debug, thiserror::Error)]
+pub enum CoreError {
+    #[error("Service not found: {0}")]
+    ServiceNotFound(String),
+    
+    #[error("Invalid block: {0}")]
+    InvalidBlock(String),
+    
+    #[error("Consensus error: {0}")]
+    ConsensusError(String),
+    
+    #[error("Cryptographic error: {0}")]
+    CryptoError(String),
+    
+    #[error("Upgrade error: {0}")]
+    UpgradeError(String),
+    
+    #[error("Custom error: {0}")]
+    Custom(String),
+}
+
+/// Result type used throughout the SDK
+pub type Result<T> = std::result::Result<T, CoreError>;

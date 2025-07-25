@@ -6,6 +6,7 @@ description = "Services for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+depin-sdk-core = { path = "../core" }
 log = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
