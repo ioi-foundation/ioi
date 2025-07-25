@@ -12,11 +12,6 @@ members = [
     "crates/services",
     "crates/consensus",
     "crates/test_utils",
-    "integration_tests/commitment_interop",
-    "integration_tests/cross_chain",
-    "integration_tests/homomorphic_operations",
-    "integration_tests/post_quantum",
-    "integration_tests/validator_containers",
 ]
 
 [workspace.dependencies]

@@ -1,9 +1,10 @@
 use depin_sdk_core::commitment::CommitmentScheme;
-use depin_sdk_core::errors::SDKError;
-use depin_sdk_core::services::{ModuleUpgradeManager, ServiceType, UpgradableService};
+use depin_sdk_core::error::CoreError;
+use depin_sdk_core::services::{ServiceType, UpgradableService};
 use depin_sdk_core::state::{StateManager, StateTree};
 use depin_sdk_core::transaction::TransactionModel;
 use depin_sdk_core::validator::ValidatorModel;
+use crate::upgrade_manager::ModuleUpgradeManager;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -153,11 +154,11 @@ where
     }
 
     /// Submit a governance proposal (if governance service is available)
-    pub fn submit_governance_proposal(&self, proposal_data: &[u8]) -> Result<(), SDKError> {
+    pub fn submit_governance_proposal(&self, proposal_data: &[u8]) -> Result<(), CoreError> {
         let governance = self
             .service_manager
             .get_service(&ServiceType::Governance)
-            .ok_or(SDKError::ServiceNotFound("Governance".to_string()))?;
+            .ok_or(CoreError::ServiceNotFound("Governance".to_string()))?;
 
         // Call the governance service's proposal submission method
         // Note: This assumes a GovernanceService trait with submit_proposal method
@@ -168,11 +169,11 @@ where
     }
 
     /// Query external data (if external data service is available)
-    pub fn query_external_data(&self, query: &str) -> Result<Vec<u8>, SDKError> {
+    pub fn query_external_data(&self, query: &str) -> Result<Vec<u8>, CoreError> {
         let external_data = self
             .service_manager
             .get_service(&ServiceType::ExternalData)
-            .ok_or(SDKError::ServiceNotFound("ExternalData".to_string()))?;
+            .ok_or(CoreError::ServiceNotFound("ExternalData".to_string()))?;
 
         // Call the external data service's query method
         // external_data.fetch_data(query)
@@ -182,11 +183,11 @@ where
     }
 
     /// Execute semantic interpretation (if semantic service is available)
-    pub fn interpret_semantic(&self, input: &str) -> Result<String, SDKError> {
+    pub fn interpret_semantic(&self, input: &str) -> Result<String, CoreError> {
         let semantic = self
             .service_manager
             .get_service(&ServiceType::Semantic)
-            .ok_or(SDKError::ServiceNotFound("Semantic".to_string()))?;
+            .ok_or(CoreError::ServiceNotFound("Semantic".to_string()))?;
 
         // Call the semantic service's interpretation method
         // semantic.interpret(input)
@@ -478,7 +479,8 @@ where
         }
 
         // Reset service manager
-        self.service_manager.reset()?;
+        self.service_manager.reset()
+            .map_err(|e| format!("Failed to reset service manager: {}", e))?;
 
         // Reset state (implementation would depend on how ST can be reset)
         // For demonstration purposes, assuming ST has no reset method
@@ -540,3 +542,6 @@ where
         self.service_manager.get_upgrade_history(service_type)
     }
 }
+
+#[cfg(test)]
+mod tests;

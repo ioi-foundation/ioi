@@ -7,7 +7,6 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 depin-sdk-consensus = { path = "../consensus" }
-depin-sdk-governance = { path = "../governance" }
 depin-sdk-core = { path = "../core" }
 depin-sdk-commitment-schemes = { path = "../commitment_schemes" }
 depin-sdk-state-trees = { path = "../state_trees" }

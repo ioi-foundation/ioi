@@ -333,7 +333,6 @@ dependencies = [
  "depin-sdk-commitment-schemes",
  "depin-sdk-consensus",
  "depin-sdk-core",
- "depin-sdk-governance",
  "depin-sdk-state-trees",
  "depin-sdk-transaction-models",
  "depin-sdk-validator",
@@ -395,17 +394,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "depin-sdk-governance"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bytes",
- "log",
- "serde",
- "thiserror",
-]
-
-[[package]]
 name = "depin-sdk-homomorphic"
 version = "0.1.0"
 dependencies = [
@@ -420,68 +408,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "depin-sdk-ibc"
+name = "depin-sdk-services"
 version = "0.1.0"
 dependencies = [
- "depin-sdk-commitment-schemes",
+ "anyhow",
+ "bytes",
  "depin-sdk-core",
  "log",
  "serde",
  "thiserror",
-]
-
-[[package]]
-name = "depin-sdk-integration-commitment-interop"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "depin-sdk-commitment-schemes",
- "depin-sdk-core",
- "depin-sdk-state-trees",
- "log",
-]
-
-[[package]]
-name = "depin-sdk-integration-cross-chain"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "depin-sdk-commitment-schemes",
- "depin-sdk-core",
- "depin-sdk-ibc",
- "log",
-]
-
-[[package]]
-name = "depin-sdk-integration-homomorphic-operations"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "depin-sdk-commitment-schemes",
- "depin-sdk-core",
- "depin-sdk-homomorphic",
- "log",
-]
-
-[[package]]
-name = "depin-sdk-integration-post-quantum"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "depin-sdk-core",
- "depin-sdk-crypto",
- "log",
-]
-
-[[package]]
-name = "depin-sdk-integration-validator-containers"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "depin-sdk-core",
- "depin-sdk-validator",
- "log",
- "tokio",
 ]
 
 [[package]]
