@@ -7,6 +7,7 @@ pub mod crypto;
 pub mod error;
 pub mod homomorphic;
 pub mod ibc;
+pub mod services;
 pub mod state;
 pub mod types;
 
@@ -25,5 +26,5 @@ pub use homomorphic::*;
 pub use ibc::*;
 pub use state::*;
 pub use transaction::*;
-pub use validator::*;
 pub use types::*;
+pub use validator::*;
