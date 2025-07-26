@@ -2,11 +2,9 @@
 //!
 //! Cryptographic implementations for the DePIN SDK including post-quantum algorithms.
 
-pub mod dilithium;
-pub mod elliptic;
-pub mod hash;
-pub mod kyber;
-pub mod module_lwe;
+pub mod algorithms;
+pub mod sign;
+pub mod kem;
 pub mod security;
 
 // Simpler test module structure - don't re-export test modules
