@@ -1,136 +1,16 @@
-# Codebase Snapshot: dilithium
-Created: Fri Jul 25 09:55:57 PM UTC 2025
-Target: /workspaces/depin-sdk/crates/crypto/src/sign/dilithium
-Line threshold for included files: 1500
-
-## Summary Statistics
-
-* Total files: 2
-* Total directories: 2
-
-### Directory: /workspaces/depin-sdk/crates/crypto/src/sign/dilithium
-
-#### Directory: tests
-
-##### File: tests/mod.rs
-##*Size: 4.0K, Lines: 104, Type: ASCII text*
-
-```rust
-use super::*;
-
-#[test]
-fn test_dilithium_level2_sign_verify() {
-    let scheme = DilithiumScheme::new(SecurityLevel::Level2);
-    let keypair = scheme.generate_keypair();
-    
-    let message = b"Test message for Dilithium";
-    let signature = keypair.sign(message);
-    
-    assert!(keypair.public_key().verify(message, &signature));
-    
-    // Test with wrong message
-    let wrong_message = b"Wrong message";
-    assert!(!keypair.public_key().verify(wrong_message, &signature));
-}
-
-#[test]
-fn test_dilithium_level3_sign_verify() {
-    let scheme = DilithiumScheme::new(SecurityLevel::Level3);
-    let keypair = scheme.generate_keypair();
-    
-    let message = b"Test message for Dilithium Level 3";
-    let signature = keypair.sign(message);
-    
-    assert!(keypair.public_key().verify(message, &signature));
-}
-
-#[test]
-fn test_dilithium_level5_sign_verify() {
-    let scheme = DilithiumScheme::new(SecurityLevel::Level5);
-    let keypair = scheme.generate_keypair();
-    
-    let message = b"Test message for Dilithium Level 5";
-    let signature = keypair.sign(message);
-    
-    assert!(keypair.public_key().verify(message, &signature));
-}
-
-#[test]
-fn test_key_serialization() {
-    let scheme = DilithiumScheme::new(SecurityLevel::Level2);
-    let keypair = scheme.generate_keypair();
-    
-    // Test public key serialization
-    let pk_bytes = keypair.public_key().to_bytes();
-    let pk_restored = DilithiumPublicKey::from_bytes(&pk_bytes).unwrap();
-    assert_eq!(pk_bytes, pk_restored.to_bytes());
-    
-    // Test private key serialization
-    let sk_bytes = keypair.private_key().to_bytes();
-    let sk_restored = DilithiumPrivateKey::from_bytes(&sk_bytes).unwrap();
-    assert_eq!(sk_bytes, sk_restored.to_bytes());
-    
-    // Test signature with restored keys
-    let message = b"Test serialization";
-    let signature = scheme.sign(&sk_restored, message);
-    assert!(scheme.verify(&pk_restored, message, &signature));
-}
-
-#[test]
-fn test_signature_serialization() {
-    let scheme = DilithiumScheme::new(SecurityLevel::Level2);
-    let keypair = scheme.generate_keypair();
-    
-    let message = b"Test signature serialization";
-    let signature = keypair.sign(message);
-    
-    // Serialize and deserialize signature
-    let sig_bytes = signature.to_bytes();
-    let sig_restored = DilithiumSignature::from_bytes(&sig_bytes).unwrap();
-    
-    // Verify with restored signature
-    assert!(keypair.public_key().verify(message, &sig_restored));
-}
-
-#[test]
-fn test_wrong_key_size_detection() {
-    // Test with invalid key sizes
-    let invalid_pk = vec![0u8; 1000]; // Invalid size
-    let pk = DilithiumPublicKey::from_bytes(&invalid_pk).unwrap();
-    
-    let message = b"Test";
-    let signature = DilithiumSignature(vec![0u8; 2420]); // Dilithium2 signature size
-    
-    // Should return false for invalid key size
-    assert!(!pk.verify(message, &signature));
-}
-
-#[test]
-fn test_cross_level_verification() {
-    // Generate keys at different levels
-    let scheme2 = DilithiumScheme::new(SecurityLevel::Level2);
-    let keypair2 = scheme2.generate_keypair();
-    
-    let scheme3 = DilithiumScheme::new(SecurityLevel::Level3);
-    let keypair3 = scheme3.generate_keypair();
-    
-    let message = b"Cross level test";
-    let signature2 = keypair2.sign(message);
-    
-    // Level 3 public key should not verify Level 2 signature
-    // (will fail due to key size mismatch detection)
-    assert!(!keypair3.public_key().verify(message, &signature2));
-}```
-
-#### File: mod.rs
-#*Size: 12K, Lines: 272, Type: ASCII text*
-
-```rust
 //! Dilithium signature algorithm (using dcrypt implementation)
 //!
 use crate::security::SecurityLevel;
 use depin_sdk_core::crypto::{KeyPair, PrivateKey, PublicKey, Signature};
-use dcrypt::signature::{Dilithium2, Dilithium3, Dilithium5};
+// Import the trait needed for the signature operations
+use dcrypt::api::Signature as SignatureTrait;
+// Import the Dilithium implementations and types from the correct module path
+use dcrypt::sign::pq::dilithium::{
+    Dilithium2, Dilithium3, Dilithium5, 
+    DilithiumPublicKey as DcryptPublicKey, 
+    DilithiumSecretKey as DcryptSecretKey, 
+    DilithiumSignatureData as DcryptSignatureData
+};
 
 /// Dilithium signature scheme
 pub struct DilithiumScheme {
@@ -223,23 +103,23 @@ impl DilithiumScheme {
     pub fn sign(&self, private_key: &DilithiumPrivateKey, message: &[u8]) -> DilithiumSignature {
         match private_key.level {
             SecurityLevel::Level2 => {
-                let sk = dcrypt::signature::DilithiumSecretKey::from_bytes(&private_key.data).unwrap();
+                let sk = DcryptSecretKey::from_bytes(&private_key.data).unwrap();
                 let signature = Dilithium2::sign(message, &sk).unwrap();
                 DilithiumSignature(signature.to_bytes().to_vec())
             }
             SecurityLevel::Level3 => {
-                let sk = dcrypt::signature::DilithiumSecretKey::from_bytes(&private_key.data).unwrap();
+                let sk = DcryptSecretKey::from_bytes(&private_key.data).unwrap();
                 let signature = Dilithium3::sign(message, &sk).unwrap();
                 DilithiumSignature(signature.to_bytes().to_vec())
             }
             SecurityLevel::Level5 => {
-                let sk = dcrypt::signature::DilithiumSecretKey::from_bytes(&private_key.data).unwrap();
+                let sk = DcryptSecretKey::from_bytes(&private_key.data).unwrap();
                 let signature = Dilithium5::sign(message, &sk).unwrap();
                 DilithiumSignature(signature.to_bytes().to_vec())
             }
             _ => {
                 // Default to Level2
-                let sk = dcrypt::signature::DilithiumSecretKey::from_bytes(&private_key.data).unwrap();
+                let sk = DcryptSecretKey::from_bytes(&private_key.data).unwrap();
                 let signature = Dilithium2::sign(message, &sk).unwrap();
                 DilithiumSignature(signature.to_bytes().to_vec())
             }
@@ -263,18 +143,18 @@ impl DilithiumScheme {
 
         match level {
             SecurityLevel::Level2 => {
-                let pk = dcrypt::signature::DilithiumPublicKey::from_bytes(&public_key.0).unwrap();
-                let sig = dcrypt::signature::DilithiumSignatureData::from_bytes(&signature.0).unwrap();
+                let pk = DcryptPublicKey::from_bytes(&public_key.0).unwrap();
+                let sig = DcryptSignatureData::from_bytes(&signature.0).unwrap();
                 Dilithium2::verify(message, &sig, &pk).is_ok()
             }
             SecurityLevel::Level3 => {
-                let pk = dcrypt::signature::DilithiumPublicKey::from_bytes(&public_key.0).unwrap();
-                let sig = dcrypt::signature::DilithiumSignatureData::from_bytes(&signature.0).unwrap();
+                let pk = DcryptPublicKey::from_bytes(&public_key.0).unwrap();
+                let sig = DcryptSignatureData::from_bytes(&signature.0).unwrap();
                 Dilithium3::verify(message, &sig, &pk).is_ok()
             }
             SecurityLevel::Level5 => {
-                let pk = dcrypt::signature::DilithiumPublicKey::from_bytes(&public_key.0).unwrap();
-                let sig = dcrypt::signature::DilithiumSignatureData::from_bytes(&signature.0).unwrap();
+                let pk = DcryptPublicKey::from_bytes(&public_key.0).unwrap();
+                let sig = DcryptSignatureData::from_bytes(&signature.0).unwrap();
                 Dilithium5::verify(message, &sig, &pk).is_ok()
             }
             _ => false,
@@ -301,23 +181,23 @@ impl KeyPair for DilithiumKeyPair {
     fn sign(&self, message: &[u8]) -> Self::Signature {
         match self.level {
             SecurityLevel::Level2 => {
-                let sk = dcrypt::signature::DilithiumSecretKey::from_bytes(&self.private_key.data).unwrap();
+                let sk = DcryptSecretKey::from_bytes(&self.private_key.data).unwrap();
                 let signature = Dilithium2::sign(message, &sk).unwrap();
                 DilithiumSignature(signature.to_bytes().to_vec())
             }
             SecurityLevel::Level3 => {
-                let sk = dcrypt::signature::DilithiumSecretKey::from_bytes(&self.private_key.data).unwrap();
+                let sk = DcryptSecretKey::from_bytes(&self.private_key.data).unwrap();
                 let signature = Dilithium3::sign(message, &sk).unwrap();
                 DilithiumSignature(signature.to_bytes().to_vec())
             }
             SecurityLevel::Level5 => {
-                let sk = dcrypt::signature::DilithiumSecretKey::from_bytes(&self.private_key.data).unwrap();
+                let sk = DcryptSecretKey::from_bytes(&self.private_key.data).unwrap();
                 let signature = Dilithium5::sign(message, &sk).unwrap();
                 DilithiumSignature(signature.to_bytes().to_vec())
             }
             _ => {
                 // Default to Level2
-                let sk = dcrypt::signature::DilithiumSecretKey::from_bytes(&self.private_key.data).unwrap();
+                let sk = DcryptSecretKey::from_bytes(&self.private_key.data).unwrap();
                 let signature = Dilithium2::sign(message, &sk).unwrap();
                 DilithiumSignature(signature.to_bytes().to_vec())
             }
@@ -339,18 +219,18 @@ impl PublicKey for DilithiumPublicKey {
 
         match level {
             SecurityLevel::Level2 => {
-                let pk = dcrypt::signature::DilithiumPublicKey::from_bytes(&self.0).unwrap();
-                let sig = dcrypt::signature::DilithiumSignatureData::from_bytes(&signature.0).unwrap();
+                let pk = DcryptPublicKey::from_bytes(&self.0).unwrap();
+                let sig = DcryptSignatureData::from_bytes(&signature.0).unwrap();
                 Dilithium2::verify(message, &sig, &pk).is_ok()
             }
             SecurityLevel::Level3 => {
-                let pk = dcrypt::signature::DilithiumPublicKey::from_bytes(&self.0).unwrap();
-                let sig = dcrypt::signature::DilithiumSignatureData::from_bytes(&signature.0).unwrap();
+                let pk = DcryptPublicKey::from_bytes(&self.0).unwrap();
+                let sig = DcryptSignatureData::from_bytes(&signature.0).unwrap();
                 Dilithium3::verify(message, &sig, &pk).is_ok()
             }
             SecurityLevel::Level5 => {
-                let pk = dcrypt::signature::DilithiumPublicKey::from_bytes(&self.0).unwrap();
-                let sig = dcrypt::signature::DilithiumSignatureData::from_bytes(&signature.0).unwrap();
+                let pk = DcryptPublicKey::from_bytes(&self.0).unwrap();
+                let sig = DcryptSignatureData::from_bytes(&signature.0).unwrap();
                 Dilithium5::verify(message, &sig, &pk).is_ok()
             }
             _ => false,
@@ -398,5 +278,4 @@ impl Signature for DilithiumSignature {
 }
 
 #[cfg(test)]
-mod tests;```
-
+mod tests;
