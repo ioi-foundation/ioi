@@ -38,6 +38,13 @@ pub struct UTXOTransaction {
     pub outputs: Vec<UTXOOutput>,
 }
 
+impl UTXOTransaction {
+    /// Check if this is a coinbase transaction (has no inputs)
+    pub fn is_coinbase(&self) -> bool {
+        self.inputs.is_empty()
+    }
+}
+
 /// UTXO proof data
 #[derive(Debug, Clone)]
 pub struct UTXOProof {
@@ -70,6 +77,10 @@ pub struct UTXOConfig {
     pub max_inputs: usize,
     /// Maximum number of outputs per transaction
     pub max_outputs: usize,
+    /// Maximum coinbase value (for block rewards)
+    pub max_coinbase_value: u64,
+    /// Whether to allow coinbase transactions
+    pub allow_coinbase: bool,
 }
 
 impl Default for UTXOConfig {
@@ -78,6 +89,8 @@ impl Default for UTXOConfig {
             min_confirmations: 1,
             max_inputs: 100,
             max_outputs: 100,
+            max_coinbase_value: 50_000_000, // 50 coins with 6 decimal places
+            allow_coinbase: true,
         }
     }
 }
@@ -172,6 +185,33 @@ where
     fn to_value(&self, bytes: &[u8]) -> CS::Value {
         CS::Value::from(bytes.to_vec())
     }
+
+    /// Validate a coinbase transaction
+    fn validate_coinbase(&self, tx: &UTXOTransaction) -> Result<bool, TransactionError> {
+        // Check if coinbase transactions are allowed
+        if !self.config.allow_coinbase {
+            return Ok(false);
+        }
+
+        // Verify total output value doesn't exceed maximum
+        let mut total_output = 0u64;
+        for output in &tx.outputs {
+            total_output = total_output.checked_add(output.value).ok_or_else(|| {
+                TransactionError::InvalidTransaction("Coinbase output value overflow".to_string())
+            })?;
+        }
+
+        if total_output > self.config.max_coinbase_value {
+            return Ok(false);
+        }
+
+        // Additional coinbase validation could go here:
+        // - Check block height for reward schedule
+        // - Verify only one coinbase per block
+        // - Validate special coinbase fields
+
+        Ok(true)
+    }
 }
 
 impl<CS: CommitmentScheme> TransactionModel for UTXOModel<CS>
@@ -190,19 +230,21 @@ where
         > + ?Sized,
     {
         // Check transaction structure
-        if tx.inputs.is_empty() {
-            return Ok(false);
-        }
-
         if tx.outputs.is_empty() {
             return Ok(false);
         }
 
-        if tx.inputs.len() > self.config.max_inputs {
+        if tx.outputs.len() > self.config.max_outputs {
             return Ok(false);
         }
 
-        if tx.outputs.len() > self.config.max_outputs {
+        // Handle coinbase transactions (no inputs)
+        if tx.is_coinbase() {
+            return self.validate_coinbase(tx);
+        }
+
+        // Regular transaction validation
+        if tx.inputs.len() > self.config.max_inputs {
             return Ok(false);
         }
 
@@ -215,6 +257,10 @@ where
             match utxo {
                 Some(output) => {
                     // TODO: Validate signatures
+                    // In a real implementation, you would:
+                    // 1. Check the signature against the lock_script
+                    // 2. Verify the public key matches
+                    // 3. Handle different script types (P2PKH, P2SH, etc.)
 
                     // Add to total input
                     total_input = total_input.checked_add(output.value).ok_or_else(|| {
@@ -234,7 +280,7 @@ where
             })?;
         }
 
-        // Ensure total input >= total output
+        // Ensure total input >= total output (the difference is the fee)
         if total_input < total_output {
             return Ok(false);
         }
@@ -256,15 +302,17 @@ where
             ));
         }
 
-        // Remove spent inputs
-        for input in &tx.inputs {
-            let key = self.create_utxo_key(&input.prev_txid, input.prev_index)?;
-            state
-                .delete(&key)
-                .map_err(|e| TransactionError::StateAccessFailed(e.to_string()))?;
+        // Only remove spent inputs for non-coinbase transactions
+        if !tx.is_coinbase() {
+            for input in &tx.inputs {
+                let key = self.create_utxo_key(&input.prev_txid, input.prev_index)?;
+                state
+                    .delete(&key)
+                    .map_err(|e| TransactionError::StateAccessFailed(e.to_string()))?;
+            }
         }
 
-        // Add new outputs
+        // Add new outputs (for both coinbase and regular transactions)
         for (i, output) in tx.outputs.iter().enumerate() {
             let key = self.create_utxo_key(&tx.txid, i as u32)?;
             let value = self.encode_utxo(output);
@@ -289,6 +337,14 @@ where
         > + ?Sized,
     {
         let mut input_proofs = Vec::with_capacity(tx.inputs.len());
+
+        // Coinbase transactions don't need input proofs
+        if tx.is_coinbase() {
+            return Ok(UTXOProof {
+                input_proofs,
+                metadata: HashMap::new(),
+            });
+        }
 
         for input in &tx.inputs {
             let key = self.create_utxo_key(&input.prev_txid, input.prev_index)?;

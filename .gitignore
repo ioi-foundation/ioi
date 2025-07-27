@@ -2,3 +2,5 @@
 /target/
 target/
 tools/
+Cargo.lock
+codebase_snapshot.md

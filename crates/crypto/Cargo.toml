@@ -12,10 +12,7 @@ serde = { workspace = true }
 thiserror = { workspace = true }
 rand = { workspace = true }
 bytes = { workspace = true }
-dcrypt = { version = "0.9.0-beta.3", features = ["full"] }
-sha2 = "0.10"
-pqcrypto-traits = "0.3"
-pqcrypto-kyber = "0.7"
+dcrypt = { version = "0.12.0-beta.1", features = ["full"] }
 
 [features]
 default = []

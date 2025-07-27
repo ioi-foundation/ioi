@@ -17,7 +17,19 @@ serde = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 
+# Dependencies added for the mvsc binary, made optional
+depin-sdk-crypto = { path = "../crypto", optional = true }
+tokio = { workspace = true, features = ["full"], optional = true }
+hex = { version = "0.4", optional = true }
+
 [features]
 default = []
 tendermint = []
 custom-consensus = []
+# Feature to enable building the binary and its dependencies
+mvsc-bin = ["dep:depin-sdk-crypto", "dep:tokio", "dep:hex"]
+
+[[bin]]
+name = "mvsc"
+path = "src/bin/mvsc.rs"
+required-features = ["mvsc-bin"]

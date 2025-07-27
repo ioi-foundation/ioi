@@ -5,18 +5,34 @@
 //! post-quantum cryptographic primitives, creating a unified interface
 //! for all cryptographic implementations.
 
-#[cfg(test)]
-mod tests;
+// ============================================================================
+// Common traits for all key types
+// ============================================================================
 
-/// Key pair trait - handles key generation and signing operations
-pub trait KeyPair {
-    /// Public key type associated with this key pair
-    type PublicKey: PublicKey<Signature = Self::Signature>;
+/// Base trait for any key that can be serialized
+pub trait SerializableKey {
+    /// Convert to bytes
+    fn to_bytes(&self) -> Vec<u8>;
 
-    /// Private key type associated with this key pair
-    type PrivateKey: PrivateKey;
+    /// Create from bytes
+    fn from_bytes(bytes: &[u8]) -> Result<Self, String>
+    where
+        Self: Sized;
+}
 
-    /// Signature type produced by this key pair
+// ============================================================================
+// Signature-specific traits
+// ============================================================================
+
+/// Key pair trait for signature algorithms
+pub trait SigningKeyPair {
+    /// Public key type for verification
+    type PublicKey: VerifyingKey<Signature = Self::Signature>;
+
+    /// Private key type for signing
+    type PrivateKey: SigningKey<Signature = Self::Signature>;
+
+    /// Signature type produced
     type Signature: Signature;
 
     /// Get the public key
@@ -29,58 +45,74 @@ pub trait KeyPair {
     fn sign(&self, message: &[u8]) -> Self::Signature;
 }
 
-/// Public key trait - handles verification operations
-pub trait PublicKey {
-    /// Signature type that this public key can verify
+/// Public key trait for signature verification
+pub trait VerifyingKey: SerializableKey {
+    /// Signature type that this key can verify
     type Signature: Signature;
 
     /// Verify a signature
     fn verify(&self, message: &[u8], signature: &Self::Signature) -> bool;
-
-    /// Convert to bytes
-    fn to_bytes(&self) -> Vec<u8>;
-
-    /// Create from bytes
-    fn from_bytes(bytes: &[u8]) -> Result<Self, String>
-    where
-        Self: Sized;
 }
 
-/// Private key trait - handles key serialization
-pub trait PrivateKey {
-    /// Convert to bytes
-    fn to_bytes(&self) -> Vec<u8>;
+/// Private key trait for signing operations
+pub trait SigningKey: SerializableKey {
+    /// Signature type that this key produces
+    type Signature: Signature;
 
-    /// Create from bytes
-    fn from_bytes(bytes: &[u8]) -> Result<Self, String>
-    where
-        Self: Sized;
+    /// Sign a message
+    fn sign(&self, message: &[u8]) -> Self::Signature;
 }
 
-/// Signature trait - handles signature serialization
-pub trait Signature {
-    /// Convert to bytes
-    fn to_bytes(&self) -> Vec<u8>;
-
-    /// Create from bytes
-    fn from_bytes(bytes: &[u8]) -> Result<Self, String>
-    where
-        Self: Sized;
+/// Signature trait
+pub trait Signature: SerializableKey {
+    // Signature-specific methods could go here
 }
 
-/// Key encapsulation mechanism trait for both traditional and post-quantum KEMs
+// ============================================================================
+// KEM-specific traits
+// ============================================================================
+
+/// Key pair trait for key encapsulation mechanisms
+pub trait KemKeyPair {
+    /// Public key type for encapsulation
+    type PublicKey: EncapsulationKey;
+
+    /// Private key type for decapsulation
+    type PrivateKey: DecapsulationKey;
+
+    /// Get the public key
+    fn public_key(&self) -> Self::PublicKey;
+
+    /// Get the private key
+    fn private_key(&self) -> Self::PrivateKey;
+}
+
+/// Public key trait for encapsulation
+pub trait EncapsulationKey: SerializableKey {
+    // Encapsulation-specific methods could go here
+}
+
+/// Private key trait for decapsulation
+pub trait DecapsulationKey: SerializableKey {
+    // Decapsulation-specific methods could go here
+}
+
+/// Key encapsulation mechanism trait
 pub trait KeyEncapsulation {
     /// Key pair type
-    type KeyPair: KeyPair<PublicKey = Self::PublicKey, PrivateKey = Self::PrivateKey>;
+    type KeyPair: KemKeyPair<PublicKey = Self::PublicKey, PrivateKey = Self::PrivateKey>;
 
     /// Public key type
-    type PublicKey: PublicKey;
+    type PublicKey: EncapsulationKey;
 
     /// Private key type
-    type PrivateKey: PrivateKey;
+    type PrivateKey: DecapsulationKey;
 
     /// Encapsulated key type
     type Encapsulated: Encapsulated;
+
+    /// Generate a new key pair
+    fn generate_keypair(&self) -> Self::KeyPair;
 
     /// Encapsulate a shared secret using a public key
     fn encapsulate(&self, public_key: &Self::PublicKey) -> Self::Encapsulated;
@@ -93,19 +125,14 @@ pub trait KeyEncapsulation {
     ) -> Option<Vec<u8>>;
 }
 
-/// Encapsulated key trait for both traditional and post-quantum KEMs
-pub trait Encapsulated {
+/// Encapsulated key trait
+pub trait Encapsulated: SerializableKey {
     /// Get the ciphertext
     fn ciphertext(&self) -> &[u8];
 
     /// Get the shared secret
     fn shared_secret(&self) -> &[u8];
-
-    /// Convert to bytes
-    fn to_bytes(&self) -> Vec<u8>;
-
-    /// Create from bytes
-    fn from_bytes(bytes: &[u8]) -> Result<Self, String>
-    where
-        Self: Sized;
 }
+
+#[cfg(test)]
+mod tests;

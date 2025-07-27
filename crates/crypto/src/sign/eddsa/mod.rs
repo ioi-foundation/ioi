@@ -1,7 +1,9 @@
 // crates/crypto/src/traditional/eddsa/mod.rs
 //! Implementation of elliptic curve cryptography using dcrypt
 
-use depin_sdk_core::crypto::{KeyPair, PrivateKey, PublicKey, Signature};
+use depin_sdk_core::crypto::{
+    SerializableKey, Signature, SigningKey, SigningKeyPair, VerifyingKey
+};
 use dcrypt::api::Signature as SignatureTrait;
 use rand::rngs::OsRng;
 
@@ -55,7 +57,7 @@ impl Ed25519KeyPair {
     }
 }
 
-impl KeyPair for Ed25519KeyPair {
+impl SigningKeyPair for Ed25519KeyPair {
     type PublicKey = Ed25519PublicKey;
     type PrivateKey = Ed25519PrivateKey;
     type Signature = Ed25519Signature;
@@ -75,13 +77,15 @@ impl KeyPair for Ed25519KeyPair {
     }
 }
 
-impl PublicKey for Ed25519PublicKey {
+impl VerifyingKey for Ed25519PublicKey {
     type Signature = Ed25519Signature;
 
     fn verify(&self, message: &[u8], signature: &Self::Signature) -> bool {
         eddsa::Ed25519::verify(message, &signature.0, &self.0).is_ok()
     }
+}
 
+impl SerializableKey for Ed25519PublicKey {
     fn to_bytes(&self) -> Vec<u8> {
         self.0.to_bytes().to_vec()
     }
@@ -93,7 +97,17 @@ impl PublicKey for Ed25519PublicKey {
     }
 }
 
-impl PrivateKey for Ed25519PrivateKey {
+impl SigningKey for Ed25519PrivateKey {
+    type Signature = Ed25519Signature;
+
+    fn sign(&self, message: &[u8]) -> Self::Signature {
+        let signature = eddsa::Ed25519::sign(message, &self.0)
+            .expect("Failed to sign message");
+        Ed25519Signature(signature)
+    }
+}
+
+impl SerializableKey for Ed25519PrivateKey {
     fn to_bytes(&self) -> Vec<u8> {
         // Export just the seed (32 bytes)
         self.0.seed().to_vec()
@@ -114,7 +128,7 @@ impl PrivateKey for Ed25519PrivateKey {
     }
 }
 
-impl Signature for Ed25519Signature {
+impl SerializableKey for Ed25519Signature {
     fn to_bytes(&self) -> Vec<u8> {
         self.0.to_bytes().to_vec()
     }
@@ -125,6 +139,8 @@ impl Signature for Ed25519Signature {
             .map_err(|e| format!("Failed to parse signature: {:?}", e))
     }
 }
+
+impl Signature for Ed25519Signature {}
 
 // Additional Ed25519-specific functionality
 impl Ed25519Signature {
