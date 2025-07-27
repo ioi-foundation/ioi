@@ -1,6 +1,4 @@
 - depin-sdk/
-  - bin/
-    - mvsc.rs
   - Cargo.lock
   - Cargo.toml
   - codebase_snapshot.md
@@ -13,6 +11,8 @@
           - mod.rs
           - tests/
             - mod.rs
+        - bin/
+          - mvsc.rs
         - lib.rs
         - upgrade_manager.rs
     - commitment_schemes/
@@ -22,7 +22,6 @@
           - mod.rs
         - hash/
           - mod.rs
-          - mod.rs:159:39
         - kzg/
           - mod.rs
           - mod.rs:108:9
@@ -208,9 +207,6 @@
           - mod.rs
           - mod.rs:6:5
         - lib.rs
-        - lib.rs:17:5
-        - lib.rs:18:5
-        - lib.rs:19:5
         - sparse_merkle/
           - mod.rs
           - mod.rs:6:5
@@ -244,9 +240,6 @@
         - lib.rs
         - utxo/
           - mod.rs
-          - mod.rs:172:8
-          - mod.rs:314:31
-          - mod.rs:314:52
     - validator/
       - Cargo.toml
       - src/

@@ -1,5 +1,6 @@
 // File: crates/core/src/state/tree.rs
 
+use std::any::Any;
 use crate::error::StateError;
 
 /// Generic state tree operations
@@ -58,4 +59,8 @@ pub trait StateTree {
         key: &[u8],
         value: &[u8]
     ) -> bool;
+
+    /// Provide access to the concrete type for downcasting.
+    fn as_any(&self) -> &dyn Any;
+    
 }

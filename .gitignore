@@ -4,3 +4,6 @@ target/
 tools/
 Cargo.lock
 codebase_snapshot.md
+keypair.seed
+state1.json
+state2.json

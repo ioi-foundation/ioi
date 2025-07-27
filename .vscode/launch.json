@@ -1,0 +1,328 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'depin_sdk_core'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=depin-sdk-core"
+                ],
+                "filter": {
+                    "name": "depin_sdk_core",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'depin_sdk_commitment_schemes'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=depin-sdk-commitment-schemes"
+                ],
+                "filter": {
+                    "name": "depin_sdk_commitment_schemes",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'depin_sdk_state_trees'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=depin-sdk-state-trees"
+                ],
+                "filter": {
+                    "name": "depin_sdk_state_trees",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'depin_sdk_transaction_models'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=depin-sdk-transaction-models"
+                ],
+                "filter": {
+                    "name": "depin_sdk_transaction_models",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'depin_sdk_crypto'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=depin-sdk-crypto"
+                ],
+                "filter": {
+                    "name": "depin_sdk_crypto",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'depin_sdk_validator'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=depin-sdk-validator"
+                ],
+                "filter": {
+                    "name": "depin_sdk_validator",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'depin-sdk-validator'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=depin-sdk-validator",
+                    "--package=depin-sdk-validator"
+                ],
+                "filter": {
+                    "name": "depin-sdk-validator",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'depin-sdk-validator'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=depin-sdk-validator",
+                    "--package=depin-sdk-validator"
+                ],
+                "filter": {
+                    "name": "depin-sdk-validator",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'depin-sdk-validator-hybrid'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=depin-sdk-validator-hybrid",
+                    "--package=depin-sdk-validator"
+                ],
+                "filter": {
+                    "name": "depin-sdk-validator-hybrid",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'depin-sdk-validator-hybrid'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=depin-sdk-validator-hybrid",
+                    "--package=depin-sdk-validator"
+                ],
+                "filter": {
+                    "name": "depin-sdk-validator-hybrid",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'depin_sdk_homomorphic'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=depin-sdk-homomorphic"
+                ],
+                "filter": {
+                    "name": "depin_sdk_homomorphic",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'depin_sdk_chain'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=depin-sdk-chain"
+                ],
+                "filter": {
+                    "name": "depin_sdk_chain",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'mvsc'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=mvsc",
+                    "--package=depin-sdk-chain"
+                ],
+                "filter": {
+                    "name": "mvsc",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'mvsc'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=mvsc",
+                    "--package=depin-sdk-chain"
+                ],
+                "filter": {
+                    "name": "mvsc",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'depin_sdk_consensus'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=depin-sdk-consensus"
+                ],
+                "filter": {
+                    "name": "depin_sdk_consensus",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'depin_sdk_services'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=depin-sdk-services"
+                ],
+                "filter": {
+                    "name": "depin_sdk_services",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'depin_sdk_test_utils'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=depin-sdk-test-utils"
+                ],
+                "filter": {
+                    "name": "depin_sdk_test_utils",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

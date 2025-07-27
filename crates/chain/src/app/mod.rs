@@ -5,11 +5,14 @@ use depin_sdk_core::state::{StateManager, StateTree};
 use depin_sdk_core::transaction::TransactionModel;
 use depin_sdk_core::validator::ValidatorModel;
 use crate::upgrade_manager::ModuleUpgradeManager;
+use depin_sdk_state_trees::file::FileStateTree;
+use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
+
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// Block header containing metadata
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct BlockHeader {
     /// Block height
     pub height: u64,
@@ -24,7 +27,7 @@ pub struct BlockHeader {
 }
 
 /// Block structure containing transactions
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Block<T> {
     /// Block header
     pub header: BlockHeader,
@@ -286,7 +289,11 @@ where
     //
 
     /// Process a block
-    pub fn process_block(&mut self, mut block: Block<TM::Transaction>) -> Result<(), String> {
+    pub fn process_block(&mut self, mut block: Block<TM::Transaction>) -> Result<(), String>
+    where
+        CS: Clone,
+        CS::Value: From<Vec<u8>> + AsRef<[u8]> + Clone,
+    {
         // Ensure block is built on current chain state
         if block.header.height != self.status.height + 1 {
             return Err(format!(
@@ -358,6 +365,22 @@ where
         if self.recent_blocks.len() > self.max_recent_blocks {
             self.recent_blocks.remove(0); // Remove oldest block
         }
+
+        // Periodically save state if the state tree supports it (e.g., FileStateTree)
+        if self.status.height % 10 == 0 {
+            // This uses `as_any()` and `downcast_ref` to check if the state tree is a `FileStateTree`
+            // without breaking the generic `ST` constraint. This is a common pattern for
+            // accessing concrete type features from generic code.
+            if let Some(persistable_tree) = self.state_tree.as_any().downcast_ref::<FileStateTree<CS>>() {
+                // Now valid because of the `where` clause on this method
+                if let Err(e) = persistable_tree.save() {
+                    eprintln!("[Warning] Periodic state save failed at height {}: {}", self.status.height, e);
+                } else {
+                    println!("State periodically saved at height {}", self.status.height);
+                }
+            }
+        }
+
 
         Ok(())
     }
