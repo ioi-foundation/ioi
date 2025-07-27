@@ -1,7 +1,9 @@
 //! Dilithium signature algorithm (using dcrypt implementation)
 //!
 use crate::security::SecurityLevel;
-use depin_sdk_core::crypto::{KeyPair, PrivateKey, PublicKey, Signature};
+use depin_sdk_core::crypto::{
+    SerializableKey, Signature, SigningKey, SigningKeyPair, VerifyingKey
+};
 // Import the trait needed for the signature operations
 use dcrypt::api::Signature as SignatureTrait;
 // Import the Dilithium implementations and types from the correct module path
@@ -162,7 +164,7 @@ impl DilithiumScheme {
     }
 }
 
-impl KeyPair for DilithiumKeyPair {
+impl SigningKeyPair for DilithiumKeyPair {
     type PublicKey = DilithiumPublicKey;
     type PrivateKey = DilithiumPrivateKey;
     type Signature = DilithiumSignature;
@@ -205,7 +207,7 @@ impl KeyPair for DilithiumKeyPair {
     }
 }
 
-impl PublicKey for DilithiumPublicKey {
+impl VerifyingKey for DilithiumPublicKey {
     type Signature = DilithiumSignature;
 
     fn verify(&self, message: &[u8], signature: &Self::Signature) -> bool {
@@ -236,7 +238,9 @@ impl PublicKey for DilithiumPublicKey {
             _ => false,
         }
     }
+}
 
+impl SerializableKey for DilithiumPublicKey {
     fn to_bytes(&self) -> Vec<u8> {
         self.0.clone()
     }
@@ -246,7 +250,37 @@ impl PublicKey for DilithiumPublicKey {
     }
 }
 
-impl PrivateKey for DilithiumPrivateKey {
+impl SigningKey for DilithiumPrivateKey {
+    type Signature = DilithiumSignature;
+
+    fn sign(&self, message: &[u8]) -> Self::Signature {
+        match self.level {
+            SecurityLevel::Level2 => {
+                let sk = DcryptSecretKey::from_bytes(&self.data).unwrap();
+                let signature = Dilithium2::sign(message, &sk).unwrap();
+                DilithiumSignature(signature.to_bytes().to_vec())
+            }
+            SecurityLevel::Level3 => {
+                let sk = DcryptSecretKey::from_bytes(&self.data).unwrap();
+                let signature = Dilithium3::sign(message, &sk).unwrap();
+                DilithiumSignature(signature.to_bytes().to_vec())
+            }
+            SecurityLevel::Level5 => {
+                let sk = DcryptSecretKey::from_bytes(&self.data).unwrap();
+                let signature = Dilithium5::sign(message, &sk).unwrap();
+                DilithiumSignature(signature.to_bytes().to_vec())
+            }
+            _ => {
+                // Default to Level2
+                let sk = DcryptSecretKey::from_bytes(&self.data).unwrap();
+                let signature = Dilithium2::sign(message, &sk).unwrap();
+                DilithiumSignature(signature.to_bytes().to_vec())
+            }
+        }
+    }
+}
+
+impl SerializableKey for DilithiumPrivateKey {
     fn to_bytes(&self) -> Vec<u8> {
         self.data.clone()
     }
@@ -267,7 +301,7 @@ impl PrivateKey for DilithiumPrivateKey {
     }
 }
 
-impl Signature for DilithiumSignature {
+impl SerializableKey for DilithiumSignature {
     fn to_bytes(&self) -> Vec<u8> {
         self.0.clone()
     }
@@ -276,6 +310,8 @@ impl Signature for DilithiumSignature {
         Ok(DilithiumSignature(bytes.to_vec()))
     }
 }
+
+impl Signature for DilithiumSignature {}
 
 #[cfg(test)]
 mod tests;

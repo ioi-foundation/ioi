@@ -1,7 +1,7 @@
-// crates/crypto/src/kyber/tests/mod.rs
+// crates/crypto/src/kem/kyber/tests/mod.rs
 use super::*;
 use crate::security::SecurityLevel;
-use depin_sdk_core::crypto::{Encapsulated, KeyEncapsulation, KeyPair, PrivateKey, PublicKey};
+use depin_sdk_core::crypto::{Encapsulated, KeyEncapsulation, KemKeyPair, DecapsulationKey, EncapsulationKey};
 
 #[test]
 fn test_kyber_keypair_generation() {
@@ -153,4 +153,24 @@ fn test_cross_level_compatibility() {
     let shared_secret = kem768.decapsulate(&keypair768.private_key, &encapsulated768);
     assert!(shared_secret.is_some());
     assert_eq!(shared_secret.unwrap(), encapsulated768.shared_secret());
+}
+
+#[test]
+fn test_dcrypt_compatibility() {
+    // Test that the dcrypt wrapper works correctly
+    let kem = KyberKEM::new(SecurityLevel::Level3);
+    let keypair1 = kem.generate_keypair();
+    let keypair2 = kem.generate_keypair();
+
+    // Test encapsulation/decapsulation cycle
+    let encapsulated = kem.encapsulate(&keypair1.public_key);
+    let shared_secret = kem.decapsulate(&keypair1.private_key, &encapsulated);
+    
+    assert!(shared_secret.is_some());
+    assert_eq!(shared_secret.unwrap().len(), 32);
+
+    // Test that using wrong keys produces different results
+    let wrong_secret = kem.decapsulate(&keypair2.private_key, &encapsulated);
+    assert!(wrong_secret.is_some());
+    assert_ne!(wrong_secret.unwrap(), encapsulated.shared_secret());
 }

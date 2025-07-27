@@ -1,7 +1,9 @@
-// crates/crypto/src/traditional/hash/mod.rs
-//! Implementation of cryptographic hash functions
+// crates/crypto/src/algorithms/hash/mod.rs
+//! Cryptographic hash functions using dcrypt
 
-use sha2::{Digest, Sha256, Sha512};
+use dcrypt::algorithms::hash::sha2::{Sha256 as DcryptSha256, Sha512 as DcryptSha512};
+use dcrypt::algorithms::hash::{HashFunction as DcryptHashFunction};
+use dcrypt::algorithms::ByteSerializable;
 
 pub mod tests;
 
@@ -14,21 +16,20 @@ pub trait HashFunction {
     fn digest_size(&self) -> usize;
     
     /// Get the name of the hash function
-    fn name(&self) -> &str {
-        // Default implementation returns a generic name
-        "unknown-hash"
-    }
+    fn name(&self) -> &str;
 }
 
-/// SHA-256 hash function implementation
+/// SHA-256 hash function implementation using dcrypt
 #[derive(Default, Clone)]
 pub struct Sha256Hash;
 
 impl HashFunction for Sha256Hash {
     fn hash(&self, message: &[u8]) -> Vec<u8> {
-        let mut hasher = Sha256::new();
-        hasher.update(message);
-        hasher.finalize().to_vec()
+        // Use dcrypt's SHA-256 implementation
+        match DcryptSha256::digest(message) {
+            Ok(digest) => digest.to_bytes(),
+            Err(_) => panic!("SHA-256 hashing failed"),
+        }
     }
     
     fn digest_size(&self) -> usize {
@@ -40,15 +41,17 @@ impl HashFunction for Sha256Hash {
     }
 }
 
-/// SHA-512 hash function implementation
+/// SHA-512 hash function implementation using dcrypt
 #[derive(Default, Clone)]
 pub struct Sha512Hash;
 
 impl HashFunction for Sha512Hash {
     fn hash(&self, message: &[u8]) -> Vec<u8> {
-        let mut hasher = Sha512::new();
-        hasher.update(message);
-        hasher.finalize().to_vec()
+        // Use dcrypt's SHA-512 implementation
+        match DcryptSha512::digest(message) {
+            Ok(digest) => digest.to_bytes(),
+            Err(_) => panic!("SHA-512 hashing failed"),
+        }
     }
     
     fn digest_size(&self) -> usize {
@@ -88,43 +91,15 @@ impl<H: HashFunction> GenericHasher<H> {
     }
 }
 
-/// Trait for types that can be hashed
-pub trait Hashable {
-    /// Convert this type to bytes for hashing
-    fn to_hashable_bytes(&self) -> Vec<u8>;
-    
-    /// Hash this object with the provided hash function
-    fn hash_with<H: HashFunction>(&self, hash_function: &H) -> Vec<u8> {
-        hash_function.hash(&self.to_hashable_bytes())
-    }
-}
-
-// Implement Hashable for common types
-impl Hashable for [u8] {
-    fn to_hashable_bytes(&self) -> Vec<u8> {
-        self.to_vec()
-    }
-}
-
-impl Hashable for str {
-    fn to_hashable_bytes(&self) -> Vec<u8> {
-        self.as_bytes().to_vec()
-    }
-}
-
-impl Hashable for String {
-    fn to_hashable_bytes(&self) -> Vec<u8> {
-        self.as_bytes().to_vec()
-    }
-}
-
 // Additional convenience functions
-/// Create a SHA-256 hash of any Hashable type
-pub fn sha256<T: Hashable>(data: &T) -> Vec<u8> {
-    data.hash_with(&Sha256Hash::default())
+/// Create a SHA-256 hash of any type that can be referenced as bytes
+pub fn sha256<T: AsRef<[u8]>>(data: T) -> Vec<u8> {
+    let hasher = Sha256Hash::default();
+    hasher.hash(data.as_ref())
 }
 
-/// Create a SHA-512 hash of any Hashable type
-pub fn sha512<T: Hashable>(data: &T) -> Vec<u8> {
-    data.hash_with(&Sha512Hash::default())
+/// Create a SHA-512 hash of any type that can be referenced as bytes
+pub fn sha512<T: AsRef<[u8]>>(data: T) -> Vec<u8> {
+    let hasher = Sha512Hash::default();
+    hasher.hash(data.as_ref())
 }

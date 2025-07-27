@@ -5,7 +5,7 @@ use sha2::{Digest, Sha256};
 use std::fmt::Debug;
 
 /// Hash-based commitment scheme
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HashCommitmentScheme {
     /// Hash function to use (defaults to SHA-256)
     hash_function: HashFunction,
