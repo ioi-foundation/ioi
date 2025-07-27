@@ -1,5 +1,8 @@
 //! UTXO-based transaction model implementation.
 
+use depin_sdk_core::crypto::SerializableKey;
+use depin_sdk_core::crypto::VerifyingKey;
+use depin_sdk_crypto::{algorithms::hash::sha256, sign::eddsa::{Ed25519PublicKey, Ed25519Signature}};
 use depin_sdk_core::commitment::CommitmentScheme;
 use depin_sdk_core::error::TransactionError;
 use depin_sdk_core::state::StateManager;
@@ -8,7 +11,7 @@ use std::any::Any;
 use std::collections::HashMap;
 
 /// UTXO transaction input
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct UTXOInput {
     /// Previous transaction ID
     pub prev_txid: Vec<u8>,
@@ -19,7 +22,7 @@ pub struct UTXOInput {
 }
 
 /// UTXO transaction output
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct UTXOOutput {
     /// Value of the output
     pub value: u64,
@@ -28,7 +31,7 @@ pub struct UTXOOutput {
 }
 
 /// UTXO transaction
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct UTXOTransaction {
     /// Transaction ID
     pub txid: Vec<u8>,
@@ -256,13 +259,18 @@ where
 
             match utxo {
                 Some(output) => {
-                    // TODO: Validate signatures
-                    // In a real implementation, you would:
-                    // 1. Check the signature against the lock_script
-                    // 2. Verify the public key matches
-                    // 3. Handle different script types (P2PKH, P2SH, etc.)
+                    // Reconstruct the digest that was signed.
+                    let mut digest_data = Vec::new();
+                    digest_data.extend_from_slice(&input.prev_txid);
+                    let digest = sha256(&digest_data);
 
-                    // Add to total input
+                    let public_key = Ed25519PublicKey::from_bytes(&output.lock_script).map_err(|e| TransactionError::InvalidSignature(e))?;
+                    let signature = Ed25519Signature::from_bytes(&input.signature).map_err(|e| TransactionError::InvalidSignature(e))?;
+
+                    if !public_key.verify(&digest, &signature) {
+                        return Err(TransactionError::InvalidSignature("Signature verification failed".to_string()));
+                    }
+
                     total_input = total_input.checked_add(output.value).ok_or_else(|| {
                         TransactionError::InvalidTransaction("Input value overflow".to_string())
                     })?;

@@ -6,8 +6,10 @@ pub mod hashmap;
 pub mod iavl;
 pub mod sparse_merkle;
 pub mod verkle;
+pub mod file;
 
 // Re-export concrete implementations for convenience
+pub use file::FileStateTree;
 pub use hashmap::HashMapStateTree;
 pub use iavl::IAVLTree;
 pub use sparse_merkle::SparseMerkleTree;

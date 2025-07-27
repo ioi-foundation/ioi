@@ -1,15 +1,15 @@
 use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, Selector};
 use depin_sdk_core::error::StateError;
 use depin_sdk_core::state::{StateManager, StateTree};
-// Removed unused import: std::any::Any
+use std::any::Any;
 use std::collections::HashMap;
 
 /// HashMap-based state tree implementation
 pub struct HashMapStateTree<CS: CommitmentScheme> {
-    /// Data store
-    data: HashMap<Vec<u8>, CS::Value>,
-    /// Commitment scheme
-    scheme: CS,
+    /// Data store. Made `pub(crate)` to allow the `FileStateTree` wrapper to access it.
+    pub(crate) data: HashMap<Vec<u8>, CS::Value>,
+    /// Commitment scheme. Made `pub(crate)` for consistency.
+    pub(crate) scheme: CS,
 }
 
 impl<CS: CommitmentScheme> HashMapStateTree<CS>
@@ -52,7 +52,14 @@ where
     }
 
     fn root_commitment(&self) -> Self::Commitment {
-        let values: Vec<Option<CS::Value>> = self.data.values().map(|v| Some(v.clone())).collect();
+        // Keys must be sorted to ensure a deterministic commitment.
+        let mut sorted_keys: Vec<_> = self.data.keys().collect();
+        sorted_keys.sort();
+
+        let values: Vec<Option<CS::Value>> = sorted_keys
+            .iter()
+            .map(|key| self.data.get(*key).cloned())
+            .collect();
         self.scheme.commit(&values)
     }
 
@@ -78,6 +85,10 @@ where
 
         self.scheme
             .verify(commitment, proof, &selector, &typed_value, &context)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

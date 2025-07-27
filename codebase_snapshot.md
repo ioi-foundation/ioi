@@ -1,21 +1,1413 @@
-# Codebase Snapshot: commitment_schemes
-Created: Sun Jul 27 01:08:15 PM UTC 2025
-Target: /workspaces/depin-sdk/crates/commitment_schemes
+# Codebase Snapshot: crates
+Created: Sun Jul 27 01:34:13 PM UTC 2025
+Target: /workspaces/depin-sdk/crates
 Line threshold for included files: 1500
 
 ## Summary Statistics
 
-* Total files: 14
-* Total directories: 6
+* Total files: 153
+* Total directories: 110
 
-### Directory: /workspaces/depin-sdk/crates/commitment_schemes
+### Directory: /workspaces/depin-sdk/crates
 
-#### Directory: src
+#### Directory: chain
 
-##### Directory: src/elliptical_curve
+##### Directory: chain/src
 
-###### File: src/elliptical_curve/mod.rs
-###*Size: 16K, Lines: 390, Type: ASCII text*
+###### Directory: chain/src/app
+
+####### Directory: chain/src/app/tests
+
+######## File: chain/src/app/tests/mod.rs
+#####*Size: 12K, Lines: 353, Type: C source, ASCII text*
+
+```rust
+use crate::app::*;
+use depin_sdk_commitment_schemes::merkle::MerkleCommitmentScheme;
+use depin_sdk_core::commitment::CommitmentScheme;
+use depin_sdk_core::error::{StateError, TransactionError};
+use depin_sdk_core::services::{ServiceType, UpgradableService};
+use depin_sdk_core::state::{StateManager, StateTree};
+use depin_sdk_core::transaction::TransactionModel;
+use depin_sdk_core::validator::{ValidatorModel, ValidatorType};
+use std::sync::Arc;
+use std::collections::HashMap;
+
+// Mock state tree implementation for testing
+struct MockStateTree {
+    data: HashMap<Vec<u8>, Vec<u8>>,
+    commitment_scheme: MerkleCommitmentScheme,
+}
+
+impl MockStateTree {
+    fn new(commitment_scheme: MerkleCommitmentScheme) -> Self {
+        Self {
+            data: HashMap::new(),
+            commitment_scheme,
+        }
+    }
+}
+
+impl StateTree for MockStateTree {
+    type Commitment = <MerkleCommitmentScheme as CommitmentScheme>::Commitment;
+    type Proof = <MerkleCommitmentScheme as CommitmentScheme>::Proof;
+
+    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
+        Ok(self.data.get(key).cloned())
+    }
+
+    fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
+        self.data.insert(key.to_vec(), value.to_vec());
+        Ok(())
+    }
+
+    fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
+        self.data.remove(key);
+        Ok(())
+    }
+
+    fn root_commitment(&self) -> Self::Commitment {
+        // Simple implementation for testing
+        let values: Vec<Option<Vec<u8>>> = self.data.values()
+            .map(|v| Some(v.clone()))
+            .collect();
+        self.commitment_scheme.commit(&values)
+    }
+
+    fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
+        None // Simplified for testing
+    }
+
+    fn verify_proof(
+        &self,
+        _commitment: &Self::Commitment,
+        _proof: &Self::Proof,
+        _key: &[u8],
+        _value: &[u8],
+    ) -> bool {
+        true // Simplified for testing
+    }
+}
+
+impl StateManager for MockStateTree {
+    type Commitment = <MerkleCommitmentScheme as CommitmentScheme>::Commitment;
+    type Proof = <MerkleCommitmentScheme as CommitmentScheme>::Proof;
+
+    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
+        <Self as StateTree>::get(self, key)
+    }
+
+    fn set(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
+        <Self as StateTree>::insert(self, key, value)
+    }
+
+    fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
+        <Self as StateTree>::delete(self, key)
+    }
+
+    fn root_commitment(&self) -> Self::Commitment {
+        <Self as StateTree>::root_commitment(self)
+    }
+
+    fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
+        <Self as StateTree>::create_proof(self, key)
+    }
+
+    fn verify_proof(
+        &self,
+        commitment: &Self::Commitment,
+        proof: &Self::Proof,
+        key: &[u8],
+        value: &[u8],
+    ) -> bool {
+        <Self as StateTree>::verify_proof(self, commitment, proof, key, value)
+    }
+}
+
+// Mock transaction model for testing
+struct MockTransactionModel {
+    commitment_scheme: MerkleCommitmentScheme,
+}
+
+impl MockTransactionModel {
+    fn new(commitment_scheme: MerkleCommitmentScheme) -> Self {
+        Self { commitment_scheme }
+    }
+}
+
+#[derive(Clone)]
+struct MockTransaction {
+    id: Vec<u8>,
+}
+
+struct MockProof;
+
+impl TransactionModel for MockTransactionModel {
+    type Transaction = MockTransaction;
+    type Proof = MockProof;
+    type CommitmentScheme = MerkleCommitmentScheme;
+
+    fn validate<S>(&self, _tx: &Self::Transaction, _state: &S) -> Result<bool, TransactionError>
+    where
+        S: StateManager<
+            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof
+        > + ?Sized
+    {
+        Ok(true) // Always valid for testing
+    }
+
+    fn apply<S>(&self, _tx: &Self::Transaction, _state: &mut S) -> Result<(), TransactionError>
+    where
+        S: StateManager<
+            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof
+        > + ?Sized
+    {
+        Ok(()) // No-op for testing
+    }
+
+    fn generate_proof<S>(&self, _tx: &Self::Transaction, _state: &S) -> Result<Self::Proof, TransactionError>
+    where
+        S: StateManager<
+            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof
+        > + ?Sized
+    {
+        Ok(MockProof)
+    }
+
+    fn verify_proof<S>(&self, _proof: &Self::Proof, _state: &S) -> Result<bool, TransactionError>
+    where
+        S: StateManager<
+            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof
+        > + ?Sized
+    {
+        Ok(true)
+    }
+
+    fn serialize_transaction(&self, _tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError> {
+        Ok(vec![])
+    }
+
+    fn deserialize_transaction(&self, _data: &[u8]) -> Result<Self::Transaction, TransactionError> {
+        Ok(MockTransaction { id: vec![] })
+    }
+}
+
+// Mock validator model for testing
+struct MockValidatorModel {
+    running: std::cell::RefCell<bool>,
+}
+
+impl MockValidatorModel {
+    fn new() -> Self {
+        Self {
+            running: std::cell::RefCell::new(false),
+        }
+    }
+}
+
+impl ValidatorModel for MockValidatorModel {
+    fn start(&self) -> Result<(), String> {
+        *self.running.borrow_mut() = true;
+        Ok(())
+    }
+
+    fn stop(&self) -> Result<(), String> {
+        *self.running.borrow_mut() = false;
+        Ok(())
+    }
+
+    fn is_running(&self) -> bool {
+        *self.running.borrow()
+    }
+
+    fn validator_type(&self) -> ValidatorType {
+        ValidatorType::Standard
+    }
+}
+
+// Helper function to create a test chain
+fn create_test_chain() -> SovereignAppChain<
+    MerkleCommitmentScheme,
+    MockStateTree,
+    MockTransactionModel,
+    MockValidatorModel,
+> {
+    let commitment_scheme = MerkleCommitmentScheme;
+    let state_tree = MockStateTree::new(commitment_scheme.clone());
+    let transaction_model = MockTransactionModel::new(commitment_scheme.clone());
+    let validator_model = MockValidatorModel::new();
+
+    SovereignAppChain::new(
+        commitment_scheme,
+        state_tree,
+        transaction_model,
+        validator_model,
+        "test-chain",
+        vec![], // No initial services for testing
+    )
+}
+
+// Helper function to create a sample transaction
+fn create_sample_transaction() -> MockTransaction {
+    MockTransaction {
+        id: vec![1, 2, 3],
+    }
+}
+
+#[test]
+fn test_chain_initialization() {
+    let chain = create_test_chain();
+
+    assert_eq!(chain.chain_id(), "test-chain");
+    assert_eq!(chain.status().height, 0);
+    assert_eq!(chain.status().total_transactions, 0);
+    assert_eq!(chain.status().is_running, false);
+}
+
+#[test]
+fn test_state_operations() {
+    let mut chain = create_test_chain();
+
+    // Test state update
+    let key = b"test-key";
+    let value = b"test-value";
+    chain.update_state(key, value).unwrap();
+
+    // Test state query
+    let retrieved = chain.query_state(key).unwrap();
+    assert_eq!(retrieved.unwrap(), value);
+
+    // Test state deletion
+    chain.delete_state(key).unwrap();
+    assert!(chain.query_state(key).is_none());
+}
+
+#[test]
+fn test_transaction_processing() {
+    let mut chain = create_test_chain();
+
+    let tx = create_sample_transaction();
+
+    // Test processing a single transaction
+    assert!(chain.process_transaction(&tx).is_ok());
+
+    // Test processing a batch of transactions
+    let txs = vec![tx.clone(), tx.clone()];
+    let results = chain.process_transactions(&txs).unwrap();
+
+    assert_eq!(results.len(), 2);
+    for result in results {
+        assert_eq!(result, "Success");
+    }
+}
+
+#[test]
+fn test_block_processing() {
+    let mut chain = create_test_chain();
+
+    // Start the chain
+    chain.start().unwrap();
+
+    // Create a block with transactions
+    let txs = vec![create_sample_transaction(), create_sample_transaction()];
+    let block = chain.create_block(txs);
+
+    // Verify the block height is correct
+    assert_eq!(block.header.height, 1);
+
+    // Process the block
+    assert!(chain.process_block(block).is_ok());
+
+    // Verify chain height increased
+    assert_eq!(chain.status().height, 1);
+
+    // Verify the block is in recent blocks
+    let retrieved_block = chain.get_block(1).unwrap();
+    assert_eq!(retrieved_block.header.height, 1);
+
+    // Verify latest block is accessible
+    let latest = chain.get_latest_block().unwrap();
+    assert_eq!(latest.header.height, 1);
+}
+
+#[test]
+fn test_chain_lifecycle() {
+    let mut chain = create_test_chain();
+
+    // Test start
+    chain.start().unwrap();
+    assert!(chain.status().is_running);
+
+    // Test stop
+    chain.stop().unwrap();
+    assert!(!chain.status().is_running);
+
+    // Test reset
+    chain.update_state(b"key", b"value").unwrap();
+    chain.reset().unwrap();
+    assert_eq!(chain.status().height, 0);
+    assert_eq!(chain.status().total_transactions, 0);
+    assert!(!chain.status().is_running);
+}
+
+#[test]
+fn test_max_recent_blocks() {
+    let mut chain = create_test_chain();
+
+    // Set a small limit
+    chain.set_max_recent_blocks(2);
+
+    // Start the chain
+    chain.start().unwrap();
+
+    // Process several blocks
+    for _ in 0..3 {
+        let txs = vec![create_sample_transaction()];
+        let block = chain.create_block(txs);
+        chain.process_block(block).unwrap();
+    }
+
+    // Verify we only have the latest 2 blocks
+    assert!(chain.get_block(1).is_none()); // Should be removed
+    assert!(chain.get_block(2).is_some()); // Should be present
+    assert!(chain.get_block(3).is_some()); // Should be present
+}```
+
+####### File: chain/src/app/mod.rs
+####*Size: 20K, Lines: 546, Type: ASCII text*
+
+```rust
+use depin_sdk_core::commitment::CommitmentScheme;
+use depin_sdk_core::error::CoreError;
+use depin_sdk_core::services::{ServiceType, UpgradableService};
+use depin_sdk_core::state::{StateManager, StateTree};
+use depin_sdk_core::transaction::TransactionModel;
+use depin_sdk_core::validator::ValidatorModel;
+use crate::upgrade_manager::ModuleUpgradeManager;
+use std::sync::Arc;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+/// Block header containing metadata
+#[derive(Debug, Clone)]
+pub struct BlockHeader {
+    /// Block height
+    pub height: u64,
+    /// Previous block hash
+    pub prev_hash: Vec<u8>,
+    /// State root commitment
+    pub state_root: Vec<u8>,
+    /// Transactions root (e.g., Merkle root of transactions)
+    pub transactions_root: Vec<u8>,
+    /// Block timestamp (Unix timestamp in seconds)
+    pub timestamp: u64,
+}
+
+/// Block structure containing transactions
+#[derive(Debug, Clone)]
+pub struct Block<T> {
+    /// Block header
+    pub header: BlockHeader,
+    /// Transactions included in this block
+    pub transactions: Vec<T>,
+}
+
+/// Chain status information
+#[derive(Debug, Clone)]
+pub struct ChainStatus {
+    /// Current block height
+    pub height: u64,
+    /// Latest block timestamp
+    pub latest_timestamp: u64,
+    /// Number of transactions processed
+    pub total_transactions: u64,
+    /// Chain running status
+    pub is_running: bool,
+}
+
+/// Implementation of sovereign app chain with runtime-swappable modules
+pub struct SovereignAppChain<CS, ST, TM, VM>
+where
+    CS: CommitmentScheme,
+    // Specify that ST implements both StateTree and StateManager with the specific commitment types
+    ST: StateTree<Commitment = CS::Commitment, Proof = CS::Proof>
+        + StateManager<Commitment = CS::Commitment, Proof = CS::Proof>,
+    TM: TransactionModel,
+    VM: ValidatorModel,
+    // Ensure the transaction model's commitment scheme uses the same types
+    TM::CommitmentScheme: CommitmentScheme<Commitment = CS::Commitment, Proof = CS::Proof>,
+{
+    /// Commitment scheme
+    commitment_scheme: CS,
+    /// State tree
+    state_tree: ST,
+    /// Transaction model
+    transaction_model: TM,
+    /// Validator model
+    validator_model: VM,
+    /// Module upgrade manager for runtime-swappable services
+    service_manager: ModuleUpgradeManager,
+    /// Chain ID
+    chain_id: String,
+    /// Current status
+    status: ChainStatus,
+    /// Latest blocks (limited cache)
+    recent_blocks: Vec<Block<TM::Transaction>>,
+    /// Maximum blocks to keep in memory
+    max_recent_blocks: usize,
+}
+
+impl<CS, ST, TM, VM> SovereignAppChain<CS, ST, TM, VM>
+where
+    CS: CommitmentScheme,
+    ST: StateTree<Commitment = CS::Commitment, Proof = CS::Proof>
+        + StateManager<Commitment = CS::Commitment, Proof = CS::Proof>,
+    TM: TransactionModel,
+    VM: ValidatorModel,
+    TM::CommitmentScheme: CommitmentScheme<Commitment = CS::Commitment, Proof = CS::Proof>,
+{
+    /// Create a new sovereign app chain with runtime-swappable services
+    pub fn new(
+        commitment_scheme: CS,
+        state_tree: ST,
+        transaction_model: TM,
+        validator_model: VM,
+        chain_id: &str,
+        initial_services: Vec<Arc<dyn UpgradableService>>,
+    ) -> Self {
+        let status = ChainStatus {
+            height: 0,
+            latest_timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or(Duration::from_secs(0))
+                .as_secs(),
+            total_transactions: 0,
+            is_running: false,
+        };
+
+        // Initialize the module upgrade manager with initial services
+        let mut service_manager = ModuleUpgradeManager::new();
+        for service in initial_services {
+            service_manager.register_service(service);
+        }
+
+        Self {
+            commitment_scheme,
+            state_tree,
+            transaction_model,
+            validator_model,
+            service_manager,
+            chain_id: chain_id.to_string(),
+            status,
+            recent_blocks: Vec::new(),
+            max_recent_blocks: 100, // Default to storing last 100 blocks
+        }
+    }
+
+    /// Get the chain ID
+    pub fn chain_id(&self) -> &str {
+        &self.chain_id
+    }
+
+    /// Get the current chain status
+    pub fn status(&self) -> &ChainStatus {
+        &self.status
+    }
+
+    /// Get a reference to the service manager
+    pub fn service_manager(&self) -> &ModuleUpgradeManager {
+        &self.service_manager
+    }
+
+    /// Get a mutable reference to the service manager
+    pub fn service_manager_mut(&mut self) -> &mut ModuleUpgradeManager {
+        &mut self.service_manager
+    }
+
+    //
+    // Service Interaction Methods
+    //
+
+    /// Get a service by type
+    pub fn get_service(&self, service_type: &ServiceType) -> Option<Arc<dyn UpgradableService>> {
+        self.service_manager.get_service(service_type)
+    }
+
+    /// Submit a governance proposal (if governance service is available)
+    pub fn submit_governance_proposal(&self, proposal_data: &[u8]) -> Result<(), CoreError> {
+        let governance = self
+            .service_manager
+            .get_service(&ServiceType::Governance)
+            .ok_or(CoreError::ServiceNotFound("Governance".to_string()))?;
+
+        // Call the governance service's proposal submission method
+        // Note: This assumes a GovernanceService trait with submit_proposal method
+        // governance.submit_proposal(proposal_data)
+
+        // For now, return Ok as we don't have the actual trait definition
+        Ok(())
+    }
+
+    /// Query external data (if external data service is available)
+    pub fn query_external_data(&self, query: &str) -> Result<Vec<u8>, CoreError> {
+        let external_data = self
+            .service_manager
+            .get_service(&ServiceType::ExternalData)
+            .ok_or(CoreError::ServiceNotFound("ExternalData".to_string()))?;
+
+        // Call the external data service's query method
+        // external_data.fetch_data(query)
+
+        // For now, return placeholder
+        Ok(vec![])
+    }
+
+    /// Execute semantic interpretation (if semantic service is available)
+    pub fn interpret_semantic(&self, input: &str) -> Result<String, CoreError> {
+        let semantic = self
+            .service_manager
+            .get_service(&ServiceType::Semantic)
+            .ok_or(CoreError::ServiceNotFound("Semantic".to_string()))?;
+
+        // Call the semantic service's interpretation method
+        // semantic.interpret(input)
+
+        // For now, return placeholder
+        Ok("Interpretation not implemented".to_string())
+    }
+
+    //
+    // 1. State Management Methods
+    //
+
+    /// Query a value from the state tree
+    pub fn query_state(&self, key: &[u8]) -> Option<Vec<u8>> {
+        // Use expect to handle the Result and extract the Option
+        <ST as StateTree>::get(&self.state_tree, key).expect("State access error")
+    }
+
+    /// Get the current state root commitment
+    pub fn get_state_commitment(&self) -> CS::Commitment {
+        <ST as StateTree>::root_commitment(&self.state_tree)
+    }
+
+    /// Create a proof for a key
+    pub fn create_state_proof(&self, key: &[u8]) -> Option<CS::Proof> {
+        <ST as StateTree>::create_proof(&self.state_tree, key)
+    }
+
+    /// Verify a state proof
+    pub fn verify_state_proof(
+        &self,
+        commitment: &CS::Commitment,
+        proof: &CS::Proof,
+        key: &[u8],
+        value: &[u8],
+    ) -> bool {
+        <ST as StateTree>::verify_proof(&self.state_tree, commitment, proof, key, value)
+    }
+
+    /// Update state directly (administrative function)
+    pub fn update_state(&mut self, key: &[u8], value: &[u8]) -> Result<(), String> {
+        <ST as StateTree>::insert(&mut self.state_tree, key, value)
+            .map_err(|e| format!("State error: {}", e))
+    }
+
+    /// Delete a key from state (administrative function)
+    pub fn delete_state(&mut self, key: &[u8]) -> Result<(), String> {
+        <ST as StateTree>::delete(&mut self.state_tree, key)
+            .map_err(|e| format!("State error: {}", e))
+    }
+
+    //
+    // 2. Transaction Processing Methods
+    //
+
+    /// Process a transaction
+    pub fn process_transaction(&mut self, tx: &TM::Transaction) -> Result<(), String> {
+        // Validate the transaction against current state
+        // Pass the state_tree itself, not just the commitment
+        match self.transaction_model.validate(tx, &self.state_tree) {
+            Ok(valid) => {
+                if !valid {
+                    return Err("Transaction validation failed".to_string());
+                }
+            }
+            Err(e) => return Err(format!("Validation error: {}", e)),
+        }
+
+        // Apply the transaction to state - map error to String
+        match self.transaction_model.apply(tx, &mut self.state_tree) {
+            Ok(_) => {
+                // Update statistics on success
+                self.status.total_transactions += 1;
+                Ok(())
+            }
+            Err(e) => Err(format!("Transaction application failed: {}", e)),
+        }
+    }
+
+    /// Process a batch of transactions
+    pub fn process_transactions(&mut self, txs: &[TM::Transaction]) -> Result<Vec<String>, String> {
+        let mut results = Vec::with_capacity(txs.len());
+
+        for tx in txs {
+            match self.process_transaction(tx) {
+                Ok(()) => results.push("Success".to_string()),
+                Err(e) => results.push(e),
+            }
+        }
+
+        Ok(results)
+    }
+
+    //
+    // 3. Block Processing Methods
+    //
+
+    /// Process a block
+    pub fn process_block(&mut self, mut block: Block<TM::Transaction>) -> Result<(), String> {
+        // Ensure block is built on current chain state
+        if block.header.height != self.status.height + 1 {
+            return Err(format!(
+                "Invalid block height: expected {}, got {}",
+                self.status.height + 1,
+                block.header.height
+            ));
+        }
+
+        // Verify block timestamp is reasonable
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or(Duration::from_secs(0))
+            .as_secs();
+
+        if block.header.timestamp > now + 60 {
+            // Allow 1 minute clock drift
+            return Err("Block timestamp is in the future".to_string());
+        }
+
+        // Validate block using validator_model
+        if !self.validator_model.is_running() {
+            self.validator_model
+                .start()
+                .map_err(|e| format!("Failed to start validator: {}", e))?;
+        }
+
+        // Process all transactions
+        let mut tx_results = Vec::new();
+        for tx in &block.transactions {
+            match self.process_transaction(tx) {
+                Ok(()) => tx_results.push(true),
+                Err(e) => {
+                    tx_results.push(false);
+                    return Err(format!("Transaction processing failed: {}", e));
+                }
+            }
+        }
+
+        // Update state root in block header to match current state
+        let current_state_root = <ST as StateTree>::root_commitment(&self.state_tree);
+        block.header.state_root = current_state_root.as_ref().to_vec();
+
+        // Check for and apply any module upgrades scheduled for this block height
+        // This happens after transaction processing but before finalizing the block
+        match self
+            .service_manager
+            .apply_upgrades_at_height(block.header.height)
+        {
+            Ok(upgrades_applied) => {
+                if upgrades_applied > 0 {
+                    println!(
+                        "Applied {} module upgrades at height {}",
+                        upgrades_applied, block.header.height
+                    );
+                }
+            }
+            Err(e) => {
+                return Err(format!("Failed to apply module upgrades: {}", e));
+            }
+        }
+
+        // Update chain status
+        self.status.height = block.header.height;
+        self.status.latest_timestamp = block.header.timestamp;
+
+        // Add block to recent blocks cache
+        self.recent_blocks.push(block);
+        if self.recent_blocks.len() > self.max_recent_blocks {
+            self.recent_blocks.remove(0); // Remove oldest block
+        }
+
+        Ok(())
+    }
+
+    /// Create a new block (for validators/block producers)
+    pub fn create_block(&self, transactions: Vec<TM::Transaction>) -> Block<TM::Transaction> {
+        let prev_hash = if self.recent_blocks.is_empty() {
+            vec![0; 32] // Genesis block
+        } else {
+            // In a real implementation, this would be the hash of the latest block
+            // For simplicity, we'll use the serialized state root as the prev hash
+            <ST as StateTree>::root_commitment(&self.state_tree)
+                .as_ref()
+                .to_vec()
+        };
+
+        let header = BlockHeader {
+            height: self.status.height + 1,
+            prev_hash,
+            state_root: <ST as StateTree>::root_commitment(&self.state_tree)
+                .as_ref()
+                .to_vec(),
+            transactions_root: vec![0; 32], // Simplified - would compute actual Merkle root
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or(Duration::from_secs(0))
+                .as_secs(),
+        };
+
+        Block {
+            header,
+            transactions,
+        }
+    }
+
+    /// Get a recent block by height
+    pub fn get_block(&self, height: u64) -> Option<&Block<TM::Transaction>> {
+        self.recent_blocks
+            .iter()
+            .find(|block| block.header.height == height)
+    }
+
+    /// Get the latest block
+    pub fn get_latest_block(&self) -> Option<&Block<TM::Transaction>> {
+        self.recent_blocks.last()
+    }
+
+    //
+    // 4. Enhanced Start/Stop Methods
+    //
+
+    /// Start the chain with proper initialization
+    pub fn start(&mut self) -> Result<(), String> {
+        println!("Starting sovereign app chain: {}", self.chain_id);
+
+        // Initialize validator
+        self.validator_model
+            .start()
+            .map_err(|e| format!("Failed to start validator: {}", e))?;
+
+        // Start all registered services
+        self.service_manager
+            .start_all_services()
+            .map_err(|e| format!("Failed to start services: {}", e))?;
+
+        // Initialize state (in a real implementation, would load from persistent storage)
+        // For now, we'll just use the existing state
+
+        // Update status
+        self.status.is_running = true;
+        self.status.latest_timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or(Duration::from_secs(0))
+            .as_secs();
+
+        println!(
+            "Sovereign app chain started successfully: {}",
+            self.chain_id
+        );
+
+        Ok(())
+    }
+
+    /// Stop the chain
+    pub fn stop(&mut self) -> Result<(), String> {
+        println!("Stopping sovereign app chain: {}", self.chain_id);
+
+        // Stop all services
+        self.service_manager
+            .stop_all_services()
+            .map_err(|e| format!("Failed to stop services: {}", e))?;
+
+        // Stop the validator
+        self.validator_model
+            .stop()
+            .map_err(|e| format!("Failed to stop validator: {}", e))?;
+
+        // In a real implementation, we would:
+        // 1. Persist state to storage
+        // 2. Close connections
+        // 3. Shutdown properly
+
+        // Update status
+        self.status.is_running = false;
+
+        println!(
+            "Sovereign app chain stopped successfully: {}",
+            self.chain_id
+        );
+
+        Ok(())
+    }
+
+    /// Reset the chain (for testing purposes)
+    pub fn reset(&mut self) -> Result<(), String> {
+        // Stop the chain if running
+        if self.status.is_running {
+            self.stop()?;
+        }
+
+        // Reset service manager
+        self.service_manager.reset()
+            .map_err(|e| format!("Failed to reset service manager: {}", e))?;
+
+        // Reset state (implementation would depend on how ST can be reset)
+        // For demonstration purposes, assuming ST has no reset method
+
+        // Reset chain status
+        self.status = ChainStatus {
+            height: 0,
+            latest_timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or(Duration::from_secs(0))
+                .as_secs(),
+            total_transactions: 0,
+            is_running: false,
+        };
+
+        // Clear recent blocks
+        self.recent_blocks.clear();
+
+        Ok(())
+    }
+
+    /// Configure the maximum number of recent blocks to keep in memory
+    pub fn set_max_recent_blocks(&mut self, count: usize) {
+        self.max_recent_blocks = count;
+
+        // Trim if needed
+        while self.recent_blocks.len() > self.max_recent_blocks {
+            self.recent_blocks.remove(0);
+        }
+    }
+
+    /// Get the commitment scheme
+    pub fn commitment_scheme(&self) -> &CS {
+        &self.commitment_scheme
+    }
+
+    /// Get the state tree
+    pub fn state_tree(&self) -> &ST {
+        &self.state_tree
+    }
+
+    /// Get the transaction model
+    pub fn transaction_model(&self) -> &TM {
+        &self.transaction_model
+    }
+
+    /// Get the validator model
+    pub fn validator_model(&self) -> &VM {
+        &self.validator_model
+    }
+
+    /// Check service health
+    pub fn check_service_health(&self) -> Vec<(ServiceType, bool)> {
+        self.service_manager.check_all_health()
+    }
+
+    /// Get upgrade history for a service
+    pub fn get_service_history(&self, service_type: &ServiceType) -> Vec<u64> {
+        self.service_manager.get_upgrade_history(service_type)
+    }
+}
+
+#[cfg(test)]
+mod tests;```
+
+###### Directory: chain/src/bin
+
+####### File: chain/src/bin/mvsc.rs
+####*Size: 8.0K, Lines: 212, Type: C source, ASCII text*
+
+```rust
+//! # Minimum Viable Single-Node Chain (MVSC)
+//!
+//! This binary assembles and runs a self-contained, in-memory blockchain
+//! using components from the DePIN SDK. It demonstrates the end-to-end
+//! integration of the state tree, commitment scheme, transaction model,
+//! and the new `dcrypt`-backed crypto layer.
+
+// --- IMPORTS ---
+use depin_sdk_chain::app::SovereignAppChain;
+use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
+use depin_sdk_core::{
+    commitment::CommitmentScheme,
+    crypto::{SerializableKey, SigningKeyPair},
+    state::{StateManager, StateTree},
+    transaction::TransactionModel,
+    validator::{ValidatorModel, ValidatorType},
+};
+use depin_sdk_crypto::algorithms::hash::sha256;
+use depin_sdk_crypto::sign::eddsa::Ed25519KeyPair;
+use depin_sdk_state_trees::hashmap::HashMapStateTree;
+use depin_sdk_transaction_models::utxo::{UTXOInput, UTXOOutput, UTXOTransaction, UTXOModel};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
+
+// --- MOCK VALIDATOR MODEL ---
+// A simple validator model implementation for the in-memory chain.
+// Adapted from `depin-sdk-chain` tests.
+struct MockValidatorModel {
+    running: std::cell::RefCell<bool>,
+}
+
+impl MockValidatorModel {
+    fn new() -> Self {
+        Self {
+            running: std::cell::RefCell::new(false),
+        }
+    }
+}
+
+impl ValidatorModel for MockValidatorModel {
+    fn start(&self) -> Result<(), String> {
+        *self.running.borrow_mut() = true;
+        Ok(())
+    }
+
+    fn stop(&self) -> Result<(), String> {
+        *self.running.borrow_mut() = false;
+        Ok(())
+    }
+
+    fn is_running(&self) -> bool {
+        *self.running.borrow()
+    }
+
+    fn validator_type(&self) -> ValidatorType {
+        ValidatorType::Standard
+    }
+}
+
+// --- TRANSACTION CREATION HELPER ---
+/// Creates a dummy UTXO transaction for demonstration purposes.
+/// Each new transaction spends the output of the previous one.
+fn create_dummy_transaction(
+    keypair: &Ed25519KeyPair,
+    nonce: u64,
+    prev_txid: Vec<u8>,
+) -> UTXOTransaction {
+    let mut tx = UTXOTransaction {
+        txid: Vec::new(), // To be filled after signing
+        inputs: vec![UTXOInput {
+            prev_txid,
+            prev_index: 0,
+            signature: Vec::new(), // To be filled after signing
+        }],
+        outputs: vec![UTXOOutput {
+            value: 100,
+            lock_script: keypair.public_key().to_bytes(), // Lock to our own key for simplicity
+        }],
+    };
+
+    // Create a digest for signing. A real implementation would have a more
+    // robust and standardized serialization format for signing.
+    let mut digest_data = Vec::new();
+    digest_data.extend_from_slice(&tx.inputs[0].prev_txid);
+    digest_data.extend_from_slice(&tx.inputs[0].prev_index.to_le_bytes());
+    digest_data.extend_from_slice(&tx.outputs[0].value.to_le_bytes());
+    digest_data.extend_from_slice(&tx.outputs[0].lock_script);
+    digest_data.extend_from_slice(&nonce.to_le_bytes()); // Add nonce to make each tx hash unique
+    
+    let digest = sha256(&digest_data);
+
+    // Sign the digest using the dcrypt-backed Ed25519 implementation
+    let signature = keypair.sign(&digest);
+    tx.inputs[0].signature = signature.to_bytes();
+
+    // The transaction ID is the hash of the signed transaction data
+    let mut txid_data = Vec::new();
+    txid_data.extend_from_slice(&digest);
+    txid_data.extend_from_slice(&tx.inputs[0].signature);
+    tx.txid = sha256(&txid_data);
+
+    tx
+}
+
+/// Creates a genesis transaction that creates initial UTXOs from nothing
+fn create_genesis_transaction(keypair: &Ed25519KeyPair) -> UTXOTransaction {
+    let mut tx = UTXOTransaction {
+        txid: Vec::new(),
+        inputs: vec![], // No inputs for genesis/coinbase transaction
+        outputs: vec![UTXOOutput {
+            value: 1000000, // Initial supply
+            lock_script: keypair.public_key().to_bytes(),
+        }],
+    };
+
+    // For genesis, we just hash the outputs
+    let mut digest_data = Vec::new();
+    digest_data.extend_from_slice(b"GENESIS");
+    digest_data.extend_from_slice(&tx.outputs[0].value.to_le_bytes());
+    digest_data.extend_from_slice(&tx.outputs[0].lock_script);
+    
+    tx.txid = sha256(&digest_data);
+    tx
+}
+
+// --- MAIN APPLICATION ---
+#[tokio::main]
+async fn main() {
+    println!("Starting Minimum Viable Single-Node Chain (MVSC)...");
+
+    // Step 1: Instantiate Components
+    let commitment_scheme = HashCommitmentScheme::new();
+    let state_tree = HashMapStateTree::new(commitment_scheme.clone());
+    let transaction_model = UTXOModel::new(commitment_scheme.clone());
+    let validator_model = MockValidatorModel::new();
+
+    // Step 2: Instantiate SovereignAppChain
+    let mut chain = SovereignAppChain::new(
+        commitment_scheme,
+        state_tree,
+        transaction_model,
+        validator_model,
+        "mvsc-chain-1",
+        vec![], // No initial services
+    );
+
+    // Start the chain logic
+    if let Err(e) = chain.start() {
+        eprintln!("Failed to start chain: {}", e);
+        return;
+    }
+    println!("Chain started successfully. Producing a new block every 5 seconds.");
+
+    // Create a persistent Ed25519 keypair for signing all dummy transactions
+    let keypair = Ed25519KeyPair::generate();
+    println!("Generated signing keypair for dummy transactions.");
+
+    // Create and process genesis block
+    println!("Creating genesis block...");
+    let genesis_tx = create_genesis_transaction(&keypair);
+    let genesis_txid = genesis_tx.txid.clone();
+    println!("  -> Created genesis transaction with txid: 0x{}", hex::encode(&genesis_txid));
+    
+    let genesis_block = chain.create_block(vec![genesis_tx]);
+    match chain.process_block(genesis_block) {
+        Ok(_) => {
+            let status = chain.status();
+            let state_commitment = chain.get_state_commitment();
+            let state_root_bytes: &[u8] = state_commitment.as_ref();
+            println!(
+                "Processed Genesis Block. New State Root: 0x{}",
+                hex::encode(state_root_bytes)
+            );
+        }
+        Err(e) => {
+            eprintln!("Error processing genesis block: {}", e);
+            return;
+        }
+    }
+
+    let nonce = AtomicU64::new(0);
+    let mut last_txid = genesis_txid; // Start with genesis transaction ID
+
+    // Step 3 & 4: Main Loop for Block Production and Transaction Creation
+    loop {
+        // Wait for 5 seconds to simulate block time
+        tokio::time::sleep(Duration::from_secs(5)).await;
+
+        // Create a dummy transaction that spends the output of the previous one
+        let current_nonce = nonce.fetch_add(1, Ordering::SeqCst);
+        let dummy_tx = create_dummy_transaction(&keypair, current_nonce, last_txid.clone());
+        println!("  -> Created dummy transaction with txid: 0x{}", hex::encode(&dummy_tx.txid));
+        last_txid = dummy_tx.txid.clone(); // Chain to the next transaction
+
+        // Create and process a block containing the new transaction
+        let block = chain.create_block(vec![dummy_tx]);
+        match chain.process_block(block) {
+            Ok(_) => {
+                let status = chain.status();
+                let state_commitment = chain.get_state_commitment();
+                let state_root_bytes: &[u8] = state_commitment.as_ref();
+                println!(
+                    "Processed Block #{}. New State Root: 0x{}",
+                    status.height,
+                    hex::encode(state_root_bytes)
+                );
+            }
+            Err(e) => {
+                eprintln!("Error processing block: {}", e);
+            }
+        }
+    }
+}```
+
+###### File: chain/src/lib.rs
+###*Size: 4.0K, Lines: 14, Type: ASCII text*
+
+```rust
+//! # DePIN SDK Chain
+//!
+//! Chain implementation components for the DePIN SDK.
+
+pub mod app;
+pub mod upgrade_manager;
+
+// Re-export for convenience
+pub use upgrade_manager::ModuleUpgradeManager;
+
+// Re-export consensus from its crate
+pub use depin_sdk_consensus as consensus;
+
+// TODO: Add governance crate when it's implemented
+// pub use depin_sdk_governance as governance;```
+
+###### File: chain/src/upgrade_manager.rs
+###*Size: 8.0K, Lines: 184, Type: ASCII text*
+
+```rust
+use depin_sdk_core::services::{ServiceType, UpgradableService};
+use depin_sdk_core::error::CoreError;
+use std::collections::HashMap;
+use std::sync::Arc;
+
+/// Manages runtime upgrades of blockchain services
+pub struct ModuleUpgradeManager {
+    /// Holds the currently active, concrete service implementations
+    active_services: HashMap<ServiceType, Arc<dyn UpgradableService>>,
+    /// Tracks upgrade history for each service type
+    upgrade_history: HashMap<ServiceType, Vec<u64>>,
+    /// Scheduled upgrades by block height
+    scheduled_upgrades: HashMap<u64, Vec<(ServiceType, Vec<u8>)>>,
+}
+
+impl ModuleUpgradeManager {
+    /// Create a new module upgrade manager
+    pub fn new() -> Self {
+        Self {
+            active_services: HashMap::new(),
+            upgrade_history: HashMap::new(),
+            scheduled_upgrades: HashMap::new(),
+        }
+    }
+
+    /// Register a service with the manager
+    pub fn register_service(&mut self, service: Arc<dyn UpgradableService>) {
+        let service_type = service.service_type();
+        self.active_services.insert(service_type.clone(), service);
+        
+        // Initialize upgrade history if not present
+        self.upgrade_history.entry(service_type).or_insert_with(Vec::new);
+    }
+
+    /// Get a service by type
+    pub fn get_service(&self, service_type: &ServiceType) -> Option<Arc<dyn UpgradableService>> {
+        self.active_services.get(service_type).cloned()
+    }
+
+    /// Schedule an upgrade for a specific block height
+    pub fn schedule_upgrade(
+        &mut self,
+        service_type: ServiceType,
+        upgrade_data: Vec<u8>,
+        activation_height: u64,
+    ) -> Result<(), CoreError> {
+        self.scheduled_upgrades
+            .entry(activation_height)
+            .or_insert_with(Vec::new)
+            .push((service_type, upgrade_data));
+        
+        Ok(())
+    }
+
+    /// Apply any upgrades scheduled for the given block height
+    pub fn apply_upgrades_at_height(&mut self, height: u64) -> Result<usize, CoreError> {
+        let upgrades = match self.scheduled_upgrades.remove(&height) {
+            Some(upgrades) => upgrades,
+            None => return Ok(0),
+        };
+
+        let mut applied_count = 0;
+        
+        for (service_type, upgrade_data) in upgrades {
+            match self.execute_upgrade(&service_type, &upgrade_data) {
+                Ok(()) => {
+                    applied_count += 1;
+                    // Record the upgrade in history
+                    if let Some(history) = self.upgrade_history.get_mut(&service_type) {
+                        history.push(height);
+                    }
+                }
+                Err(e) => {
+                    // Log error but continue with other upgrades
+                    eprintln!("Failed to upgrade service {:?}: {}", service_type, e);
+                }
+            }
+        }
+
+        Ok(applied_count)
+    }
+
+    /// Execute an upgrade for a specific service
+    pub fn execute_upgrade(
+        &mut self,
+        service_type: &ServiceType,
+        new_module_wasm: &[u8],
+    ) -> Result<(), CoreError> {
+        let active_service = self
+            .active_services
+            .get_mut(service_type)
+            .ok_or_else(|| CoreError::ServiceNotFound(format!("{:?}", service_type)))?;
+
+        // 1. Prepare: Get the state snapshot from the current service
+        let snapshot = active_service.prepare_upgrade(new_module_wasm)
+            .map_err(|e| CoreError::UpgradeError(e.to_string()))?;
+
+        // 2. TODO: Instantiate new service from WASM (or other format)
+        // This would require a proper WASM loading mechanism
+        // For now, we'll create a placeholder
+        
+        // 3. TODO: Complete the upgrade by migrating state to new service
+        // new_service.complete_upgrade(&snapshot)?;
+
+        // 4. TODO: Atomically swap the implementation
+        // self.active_services.insert(service_type.clone(), Arc::new(new_service));
+
+        // For now, just return success as this is a stub implementation
+        Ok(())
+    }
+
+    /// Get upgrade history for a service
+    pub fn get_upgrade_history(&self, service_type: &ServiceType) -> Vec<u64> {
+        self.upgrade_history
+            .get(service_type)
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    /// Check health status of all services
+    pub fn check_all_health(&self) -> Vec<(ServiceType, bool)> {
+        self.active_services
+            .iter()
+            .map(|(service_type, service)| {
+                let is_healthy = match service.health_check() {
+                    Ok(_) => true,
+                    Err(_) => false,
+                };
+                (service_type.clone(), is_healthy)
+            })
+            .collect()
+    }
+
+    /// Start all registered services
+    pub fn start_all_services(&mut self) -> Result<(), CoreError> {
+        for (service_type, service) in &self.active_services {
+            service.start()
+                .map_err(|e| CoreError::Custom(format!(
+                    "Failed to start service {:?}: {}", 
+                    service_type, 
+                    e
+                )))?;
+        }
+        Ok(())
+    }
+
+    /// Stop all registered services
+    pub fn stop_all_services(&mut self) -> Result<(), CoreError> {
+        for (service_type, service) in &self.active_services {
+            service.stop()
+                .map_err(|e| CoreError::Custom(format!(
+                    "Failed to stop service {:?}: {}", 
+                    service_type, 
+                    e
+                )))?;
+        }
+        Ok(())
+    }
+
+    /// Reset the manager to initial state
+    pub fn reset(&mut self) -> Result<(), CoreError> {
+        // Stop all services first
+        self.stop_all_services()?;
+        
+        // Clear all state
+        self.active_services.clear();
+        self.upgrade_history.clear();
+        self.scheduled_upgrades.clear();
+        
+        Ok(())
+    }
+}
+
+/// Helper function to load a service from WASM bytes
+/// TODO: Implement actual WASM loading logic
+fn load_service_from_wasm(_wasm_bytes: &[u8]) -> Result<Box<dyn UpgradableService>, CoreError> {
+    Err(CoreError::Custom("WASM loading not implemented yet".to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // TODO: Add tests when the implementation is complete
+}```
+
+##### File: chain/Cargo.toml
+##*Size: 4.0K, Lines: 35, Type: ASCII text*
+
+```toml
+[package]
+name = "depin-sdk-chain"
+version = "0.1.0"
+edition = "2021"
+description = "Chain implementation components for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+depin-sdk-consensus = { path = "../consensus" }
+depin-sdk-core = { path = "../core" }
+depin-sdk-commitment-schemes = { path = "../commitment_schemes" }
+depin-sdk-state-trees = { path = "../state_trees" }
+depin-sdk-transaction-models = { path = "../transaction_models" }
+depin-sdk-validator = { path = "../validator" }
+log = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Dependencies added for the mvsc binary, made optional
+depin-sdk-crypto = { path = "../crypto", optional = true }
+tokio = { workspace = true, features = ["full"], optional = true }
+hex = { version = "0.4", optional = true }
+
+[features]
+default = []
+tendermint = []
+custom-consensus = []
+# Feature to enable building the binary and its dependencies
+mvsc-bin = ["dep:depin-sdk-crypto", "dep:tokio", "dep:hex"]
+
+[[bin]]
+name = "mvsc"
+path = "src/bin/mvsc.rs"
+required-features = ["mvsc-bin"]
+```
+
+#### Directory: commitment_schemes
+
+##### Directory: commitment_schemes/src
+
+###### Directory: commitment_schemes/src/elliptical_curve
+
+####### File: commitment_schemes/src/elliptical_curve/mod.rs
+####*Size: 16K, Lines: 390, Type: ASCII text*
 
 ```rust
 //! Elliptical curve commitment implementation
@@ -410,10 +1802,10 @@ impl EllipticalCurveProof {
 }
 ```
 
-##### Directory: src/hash
+###### Directory: commitment_schemes/src/hash
 
-###### File: src/hash/mod.rs
-###*Size: 12K, Lines: 389, Type: ASCII text*
+####### File: commitment_schemes/src/hash/mod.rs
+####*Size: 12K, Lines: 389, Type: ASCII text*
 
 ```rust
 //! Hash-based commitment scheme implementations
@@ -423,7 +1815,7 @@ use sha2::{Digest, Sha256};
 use std::fmt::Debug;
 
 /// Hash-based commitment scheme
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HashCommitmentScheme {
     /// Hash function to use (defaults to SHA-256)
     hash_function: HashFunction,
@@ -807,15 +2199,10 @@ impl HashProof {
 }
 ```
 
-###### File: src/hash/mod.rs:159:39
-###*Size: 0, Lines: 0, Type: empty*
+###### Directory: commitment_schemes/src/kzg
 
-###*File content not included (exceeds threshold or non-text file)*
-
-##### Directory: src/kzg
-
-###### File: src/kzg/mod.rs
-###*Size: 12K, Lines: 320, Type: Unicode text, UTF-8 text*
+####### File: commitment_schemes/src/kzg/mod.rs
+####*Size: 12K, Lines: 320, Type: Unicode text, UTF-8 text*
 
 ```rust
 //! KZG Polynomial Commitment Scheme Implementation
@@ -1140,45 +2527,45 @@ impl KZGProof {
     }
 }```
 
-###### File: src/kzg/mod.rs:108:9
-###*Size: 0, Lines: 0, Type: empty*
+####### File: commitment_schemes/src/kzg/mod.rs:108:9
+####*Size: 0, Lines: 0, Type: empty*
 
-###*File content not included (exceeds threshold or non-text file)*
+####*File content not included (exceeds threshold or non-text file)*
 
-###### File: src/kzg/mod.rs:110:9
-###*Size: 0, Lines: 0, Type: empty*
+####### File: commitment_schemes/src/kzg/mod.rs:110:9
+####*Size: 0, Lines: 0, Type: empty*
 
-###*File content not included (exceeds threshold or non-text file)*
+####*File content not included (exceeds threshold or non-text file)*
 
-###### File: src/kzg/mod.rs:128:37
-###*Size: 0, Lines: 0, Type: empty*
+####### File: commitment_schemes/src/kzg/mod.rs:128:37
+####*Size: 0, Lines: 0, Type: empty*
 
-###*File content not included (exceeds threshold or non-text file)*
+####*File content not included (exceeds threshold or non-text file)*
 
-###### File: src/kzg/mod.rs:128:65
-###*Size: 0, Lines: 0, Type: empty*
+####### File: commitment_schemes/src/kzg/mod.rs:128:65
+####*Size: 0, Lines: 0, Type: empty*
 
-###*File content not included (exceeds threshold or non-text file)*
+####*File content not included (exceeds threshold or non-text file)*
 
-###### File: src/kzg/mod.rs:55:5
-###*Size: 0, Lines: 0, Type: empty*
+####### File: commitment_schemes/src/kzg/mod.rs:55:5
+####*Size: 0, Lines: 0, Type: empty*
 
-###*File content not included (exceeds threshold or non-text file)*
+####*File content not included (exceeds threshold or non-text file)*
 
-###### File: src/kzg/mod.rs:77:5
-###*Size: 0, Lines: 0, Type: empty*
+####### File: commitment_schemes/src/kzg/mod.rs:77:5
+####*Size: 0, Lines: 0, Type: empty*
 
-###*File content not included (exceeds threshold or non-text file)*
+####*File content not included (exceeds threshold or non-text file)*
 
-###### File: src/kzg/mod.rs:97:37
-###*Size: 0, Lines: 0, Type: empty*
+####### File: commitment_schemes/src/kzg/mod.rs:97:37
+####*Size: 0, Lines: 0, Type: empty*
 
-###*File content not included (exceeds threshold or non-text file)*
+####*File content not included (exceeds threshold or non-text file)*
 
-##### Directory: src/lattice
+###### Directory: commitment_schemes/src/lattice
 
-###### File: src/lattice/mod.rs
-###*Size: 8.0K, Lines: 231, Type: ASCII text*
+####### File: commitment_schemes/src/lattice/mod.rs
+####*Size: 8.0K, Lines: 231, Type: ASCII text*
 
 ```rust
 //! Lattice-based commitment scheme implementation
@@ -1414,8 +2801,8 @@ impl LatticeProof {
 }
 ```
 
-##### File: src/lib.rs
-##*Size: 4.0K, Lines: 8, Type: ASCII text*
+###### File: commitment_schemes/src/lib.rs
+###*Size: 4.0K, Lines: 8, Type: ASCII text*
 
 ```rust
 //! # DePIN SDK Commitment Schemes
@@ -1428,8 +2815,8 @@ pub mod kzg;
 pub mod lattice; // Renamed from module_lwe
 ```
 
-#### File: Cargo.toml
-#*Size: 4.0K, Lines: 23, Type: ASCII text*
+##### File: commitment_schemes/Cargo.toml
+##*Size: 4.0K, Lines: 23, Type: ASCII text*
 
 ```toml
 [package]
@@ -1455,5 +2842,13532 @@ hash = []
 kzg = []
 module_lwe = ["depin-sdk-core/post-quantum"]
 elliptical_curve = ["depin-sdk-core/homomorphic"]
+```
+
+#### Directory: consensus
+
+##### Directory: consensus/src
+
+###### Directory: consensus/src/tests
+
+####### File: consensus/src/tests/mod.rs
+####*Size: 0, Lines: 0, Type: empty*
+
+####*File content not included (exceeds threshold or non-text file)*
+
+###### File: consensus/src/lib.rs
+###*Size: 4.0K, Lines: 120, Type: ASCII text*
+
+```rust
+//! Consensus module implementations for the DePIN SDK
+
+use std::time::Duration;
+
+/// Consensus algorithm types
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConsensusAlgorithm {
+    /// Proof of Stake
+    ProofOfStake,
+    /// Delegated Proof of Stake
+    DelegatedProofOfStake,
+    /// Proof of Authority
+    ProofOfAuthority,
+    /// Custom consensus algorithm
+    Custom(u32),
+}
+
+/// Consensus configuration
+#[derive(Debug, Clone)]
+pub struct ConsensusConfig {
+    /// Consensus algorithm
+    pub algorithm: ConsensusAlgorithm,
+    /// Block time target
+    pub block_time: Duration,
+    /// Number of validators
+    pub validator_count: usize,
+    /// Minimum stake amount
+    pub min_stake: u64,
+}
+
+impl Default for ConsensusConfig {
+    fn default() -> Self {
+        Self {
+            algorithm: ConsensusAlgorithm::ProofOfStake,
+            block_time: Duration::from_secs(5),
+            validator_count: 21,
+            min_stake: 1000,
+        }
+    }
+}
+
+/// Consensus engine interface
+pub trait ConsensusEngine {
+    /// Start the consensus engine
+    fn start(&self) -> Result<(), String>;
+
+    /// Stop the consensus engine
+    fn stop(&self) -> Result<(), String>;
+
+    /// Check if the consensus engine is running
+    fn is_running(&self) -> bool;
+
+    /// Get the consensus configuration
+    fn config(&self) -> &ConsensusConfig;
+}
+
+/// Basic implementation of a consensus engine
+pub struct BasicConsensusEngine {
+    /// Configuration
+    config: ConsensusConfig,
+    /// Running status
+    running: bool,
+}
+
+impl BasicConsensusEngine {
+    /// Create a new basic consensus engine
+    pub fn new(config: ConsensusConfig) -> Self {
+        Self {
+            config,
+            running: false,
+        }
+    }
+}
+
+impl ConsensusEngine for BasicConsensusEngine {
+    fn start(&self) -> Result<(), String> {
+        // In a real implementation, this would start the consensus process
+        Ok(())
+    }
+
+    fn stop(&self) -> Result<(), String> {
+        // In a real implementation, this would stop the consensus process
+        Ok(())
+    }
+
+    fn is_running(&self) -> bool {
+        self.running
+    }
+
+    fn config(&self) -> &ConsensusConfig {
+        &self.config
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_consensus_config_default() {
+        let config = ConsensusConfig::default();
+        assert_eq!(config.algorithm, ConsensusAlgorithm::ProofOfStake);
+        assert_eq!(config.block_time, Duration::from_secs(5));
+        assert_eq!(config.validator_count, 21);
+        assert_eq!(config.min_stake, 1000);
+    }
+
+    #[test]
+    fn test_basic_consensus_engine() {
+        let config = ConsensusConfig::default();
+        let engine = BasicConsensusEngine::new(config);
+
+        assert!(!engine.is_running());
+        assert_eq!(engine.config().algorithm, ConsensusAlgorithm::ProofOfStake);
+
+        // Test start and stop
+        engine.start().unwrap();
+        engine.stop().unwrap();
+    }
+}
+```
+
+##### File: consensus/Cargo.toml
+##*Size: 4.0K, Lines: 16, Type: ASCII text*
+
+```toml
+[package]
+name = "depin-sdk-consensus"
+version = "0.1.0"
+edition = "2021"
+description = "Consensus for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+log = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+bytes = { workspace = true }
+anyhow = { workspace = true }
+
+[features]
+default = []
+```
+
+#### Directory: core
+
+##### Directory: core/src
+
+###### Directory: core/src/commitment
+
+####### Directory: core/src/commitment/tests
+
+######## File: core/src/commitment/tests/commitment_tests.rs
+#####*Size: 8.0K, Lines: 205, Type: ASCII text*
+
+```rust
+//! Tests for the commitment scheme traits
+
+#[cfg(test)]
+mod tests {
+    use crate::commitment::{
+        CommitmentScheme, HomomorphicCommitmentScheme, HomomorphicOperation, ProofContext,
+        SchemeIdentifier, Selector,
+    };
+
+    // Define a mock commitment scheme for testing
+    #[derive(Debug)]
+    struct MockCommitmentScheme;
+
+    #[derive(Debug, Clone)]
+    struct MockCommitment(Vec<u8>);
+
+    impl AsRef<[u8]> for MockCommitment {
+        fn as_ref(&self) -> &[u8] {
+            &self.0
+        }
+    }
+
+    #[derive(Clone)]
+    struct MockProof(Vec<u8>);
+
+    impl CommitmentScheme for MockCommitmentScheme {
+        type Commitment = MockCommitment;
+        type Proof = MockProof;
+        type Value = Vec<u8>; // Added missing Value associated type
+
+        fn commit(&self, values: &[Option<Self::Value>]) -> Self::Commitment {
+            // Simple mock implementation for testing
+            let combined: Vec<u8> = values
+                .iter()
+                .flat_map(|v| v.clone().unwrap_or_default())
+                .collect();
+            MockCommitment(combined)
+        }
+
+        fn create_proof(
+            &self,
+            selector: &Selector,
+            value: &Self::Value,
+        ) -> Result<Self::Proof, String> {
+            // Simple mock implementation for testing
+            Ok(MockProof(value.clone()))
+        }
+
+        fn verify(
+            &self,
+            _commitment: &Self::Commitment,
+            proof: &Self::Proof,
+            _selector: &Selector,
+            value: &Self::Value,
+            _context: &ProofContext, // Added context parameter
+        ) -> bool {
+            // Simple mock implementation for testing
+            proof.0 == *value
+        }
+
+        fn scheme_id() -> SchemeIdentifier {
+            SchemeIdentifier::new("mock")
+        }
+    }
+
+    #[derive(Debug)]
+    struct MockHomomorphicCommitmentScheme;
+
+    impl CommitmentScheme for MockHomomorphicCommitmentScheme {
+        type Commitment = MockCommitment;
+        type Proof = MockProof;
+        type Value = Vec<u8>; // Added missing Value associated type
+
+        fn commit(&self, values: &[Option<Self::Value>]) -> Self::Commitment {
+            // Simple mock implementation for testing
+            let combined: Vec<u8> = values
+                .iter()
+                .flat_map(|v| v.clone().unwrap_or_default())
+                .collect();
+            MockCommitment(combined)
+        }
+
+        fn create_proof(
+            &self,
+            selector: &Selector,
+            value: &Self::Value,
+        ) -> Result<Self::Proof, String> {
+            // Simple mock implementation for testing
+            Ok(MockProof(value.clone()))
+        }
+
+        fn verify(
+            &self,
+            _commitment: &Self::Commitment,
+            proof: &Self::Proof,
+            _selector: &Selector,
+            value: &Self::Value,
+            _context: &ProofContext, // Added context parameter
+        ) -> bool {
+            // Simple mock implementation for testing
+            proof.0 == *value
+        }
+
+        fn scheme_id() -> SchemeIdentifier {
+            SchemeIdentifier::new("mock-homomorphic")
+        }
+    }
+
+    impl HomomorphicCommitmentScheme for MockHomomorphicCommitmentScheme {
+        fn add(
+            &self,
+            a: &Self::Commitment,
+            b: &Self::Commitment,
+        ) -> Result<Self::Commitment, String> {
+            // Simple mock implementation for testing
+            let mut result = a.0.clone();
+            result.extend_from_slice(&b.0);
+            Ok(MockCommitment(result))
+        }
+
+        fn scalar_multiply(
+            &self,
+            a: &Self::Commitment,
+            scalar: i32,
+        ) -> Result<Self::Commitment, String> {
+            // Simple mock implementation for testing
+            if scalar <= 0 {
+                return Err("Scalar must be positive".to_string());
+            }
+
+            let mut result = Vec::new();
+            for _ in 0..scalar {
+                result.extend_from_slice(a.as_ref());
+            }
+
+            Ok(MockCommitment(result))
+        }
+
+        fn supports_operation(&self, operation: HomomorphicOperation) -> bool {
+            // Simple mock implementation for testing
+            match operation {
+                HomomorphicOperation::Addition | HomomorphicOperation::ScalarMultiplication => true,
+                HomomorphicOperation::Custom(_) => false,
+            }
+        }
+    }
+
+    #[test]
+    fn test_commitment_scheme() {
+        let scheme = MockCommitmentScheme;
+
+        // Test commit
+        let values = vec![Some(vec![1, 2, 3]), Some(vec![4, 5, 6])];
+        let commitment = scheme.commit(&values);
+
+        // Test create_proof
+        let proof = scheme
+            .create_proof(&Selector::Position(0), &vec![1, 2, 3])
+            .unwrap();
+
+        // Test verify
+        let context = ProofContext::default();
+        assert!(scheme.verify(
+            &commitment,
+            &proof,
+            &Selector::Position(0),
+            &vec![1, 2, 3],
+            &context
+        ));
+        assert!(!scheme.verify(
+            &commitment,
+            &proof,
+            &Selector::Position(0),
+            &vec![7, 8, 9],
+            &context
+        ));
+
+        // Test scheme_id
+        assert_eq!(MockCommitmentScheme::scheme_id().0, "mock");
+    }
+
+    #[test]
+    fn test_homomorphic_commitment_scheme() {
+        let scheme = MockHomomorphicCommitmentScheme;
+
+        // Test commit
+        let values1 = vec![Some(vec![1, 2, 3])];
+        let values2 = vec![Some(vec![4, 5, 6])];
+        let commitment1 = scheme.commit(&values1);
+        let commitment2 = scheme.commit(&values2);
+
+        // Test add
+        let sum = scheme.add(&commitment1, &commitment2).unwrap();
+        assert_eq!(sum.0, vec![1, 2, 3, 4, 5, 6]);
+
+        // Test scalar_multiply
+        let product = scheme.scalar_multiply(&commitment1, 3).unwrap();
+        assert_eq!(product.0, vec![1, 2, 3, 1, 2, 3, 1, 2, 3]);
+
+        // Test supports_operation
+        assert!(scheme.supports_operation(HomomorphicOperation::Addition));
+        assert!(scheme.supports_operation(HomomorphicOperation::ScalarMultiplication));
+        assert!(!scheme.supports_operation(HomomorphicOperation::Custom(42)));
+    }
+}
+```
+
+######## File: core/src/commitment/tests/mod.rs
+#####*Size: 4.0K, Lines: 3, Type: ASCII text*
+
+```rust
+//! Tests for commitment scheme traits
+
+mod commitment_tests;
+```
+
+####### File: core/src/commitment/homomorphic.rs
+####*Size: 4.0K, Lines: 25, Type: ASCII text*
+
+```rust
+// File: crates/core/src/commitment/homomorphic.rs
+
+use crate::commitment::scheme::CommitmentScheme;
+
+/// Type of homomorphic operation supported
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HomomorphicOperation {
+    /// Addition of two commitments
+    Addition,
+    /// Scalar multiplication
+    ScalarMultiplication,
+    /// Custom operation
+    Custom(u32),
+}
+
+/// Extended trait for commitment schemes supporting homomorphic operations
+pub trait HomomorphicCommitmentScheme: CommitmentScheme {
+    /// Add two commitments
+    fn add(&self, a: &Self::Commitment, b: &Self::Commitment) -> Result<Self::Commitment, String>;
+    
+    /// Multiply a commitment by a scalar
+    fn scalar_multiply(&self, a: &Self::Commitment, scalar: i32) -> Result<Self::Commitment, String>;
+    
+    /// Check if this commitment scheme supports specific homomorphic operations
+    fn supports_operation(&self, operation: HomomorphicOperation) -> bool;
+}```
+
+####### File: core/src/commitment/identifiers.rs
+####*Size: 4.0K, Lines: 12, Type: ASCII text*
+
+```rust
+//! Scheme identifier definitions for different commitment types
+
+/// Identifier for commitment schemes
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SchemeIdentifier(pub String);
+
+impl SchemeIdentifier {
+    /// Create a new scheme identifier
+    pub fn new(value: &str) -> Self {
+        Self(value.to_string())
+    }
+}
+```
+
+####### File: core/src/commitment/mod.rs
+####*Size: 4.0K, Lines: 12, Type: ASCII text*
+
+```rust
+//! Commitment scheme trait definitions
+
+mod scheme;
+mod homomorphic;
+mod identifiers;
+
+#[cfg(test)]
+mod tests;
+
+pub use scheme::*;
+pub use homomorphic::*;
+pub use identifiers::*;
+```
+
+####### File: core/src/commitment/scheme.rs
+####*Size: 4.0K, Lines: 123, Type: ASCII text*
+
+```rust
+// File: crates/core/src/commitment/scheme.rs
+
+use std::fmt::Debug;
+use crate::commitment::identifiers::SchemeIdentifier;
+use std::collections::HashMap;
+
+/// Selector for addressing elements in a commitment
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Selector {
+    /// Index-based position (for ordered commitments like Merkle trees)
+    Position(usize),
+    /// Key-based selector (for map-like commitments)
+    Key(Vec<u8>),
+    /// Predicate-based selector (for advanced schemes)
+    Predicate(Vec<u8>), // Serialized predicate
+    /// No selector (for single-value commitments)
+    None,
+}
+
+/// Context for proof verification
+#[derive(Debug, Clone, Default)]
+pub struct ProofContext {
+    /// Additional data for verification
+    pub data: HashMap<String, Vec<u8>>,
+}
+
+impl ProofContext {
+    /// Create a new empty proof context
+    pub fn new() -> Self {
+        Self {
+            data: HashMap::new(),
+        }
+    }
+
+    /// Add data to the context
+    pub fn add_data(&mut self, key: &str, value: Vec<u8>) {
+        self.data.insert(key.to_string(), value);
+    }
+
+    /// Get data from the context
+    pub fn get_data(&self, key: &str) -> Option<&Vec<u8>> {
+        self.data.get(key)
+    }
+}
+
+/// Core trait for all commitment schemes
+pub trait CommitmentScheme: Debug + Send + Sync + 'static {
+    /// The type of commitment produced
+    type Commitment: AsRef<[u8]> + Clone + Send + Sync + 'static;
+
+    /// The type of proof for this commitment scheme
+    type Proof: Clone + Send + Sync + 'static;
+
+    /// The type of values this scheme commits to
+    type Value: AsRef<[u8]> + Clone + Send + Sync + 'static;
+
+    /// Commit to a vector of values
+    fn commit(&self, values: &[Option<Self::Value>]) -> Self::Commitment;
+
+    /// Create a proof for a specific selector and value
+    fn create_proof(&self, selector: &Selector, value: &Self::Value)
+        -> Result<Self::Proof, String>;
+
+    /// Verify a proof against a commitment
+    fn verify(
+        &self,
+        commitment: &Self::Commitment,
+        proof: &Self::Proof,
+        selector: &Selector,
+        value: &Self::Value,
+        context: &ProofContext,
+    ) -> bool;
+
+    /// Get scheme identifier
+    fn scheme_id() -> SchemeIdentifier;
+
+    /// Create a position-based proof (convenience method)
+    fn create_proof_at_position(
+        &self,
+        position: usize,
+        value: &Self::Value,
+    ) -> Result<Self::Proof, String> {
+        self.create_proof(&Selector::Position(position), value)
+    }
+
+    /// Create a key-based proof (convenience method)
+    fn create_proof_for_key(&self, key: &[u8], value: &Self::Value) -> Result<Self::Proof, String> {
+        self.create_proof(&Selector::Key(key.to_vec()), value)
+    }
+
+    /// Verify a position-based proof (convenience method)
+    fn verify_at_position(
+        &self,
+        commitment: &Self::Commitment,
+        proof: &Self::Proof,
+        position: usize,
+        value: &Self::Value,
+    ) -> bool {
+        self.verify(
+            commitment,
+            proof,
+            &Selector::Position(position),
+            value,
+            &ProofContext::default(),
+        )
+    }
+
+    /// Verify a key-based proof (convenience method)
+    fn verify_for_key(
+        &self,
+        commitment: &Self::Commitment,
+        proof: &Self::Proof,
+        key: &[u8],
+        value: &Self::Value,
+    ) -> bool {
+        self.verify(
+            commitment,
+            proof,
+            &Selector::Key(key.to_vec()),
+            value,
+            &ProofContext::default(),
+        )
+    }
+}```
+
+###### Directory: core/src/component
+
+####### Directory: core/src/component/tests
+
+######## File: core/src/component/tests/mod.rs
+#####*Size: 4.0K, Lines: 58, Type: ASCII text*
+
+```rust
+//! Tests for the component classification system
+
+// Change module definition to avoid "tests::tests" inception
+#[cfg(test)]
+mod component_tests {
+    use crate::component::{
+        Adaptable, AdaptableComponent, ClassifiedComponent, ComponentClassification, Extensible,
+        ExtensibleComponent, Fixed, FixedComponent,
+    };
+
+    // Test struct implementing Fixed trait
+    struct TestFixedComponent;
+    impl Fixed for TestFixedComponent {}
+
+    // Test struct implementing Adaptable trait
+    struct TestAdaptableComponent;
+    impl Adaptable for TestAdaptableComponent {}
+
+    // Test struct implementing Extensible trait
+    struct TestExtensibleComponent;
+    impl Extensible for TestExtensibleComponent {}
+
+    #[test]
+    fn test_fixed_component() {
+        let component = FixedComponent;
+        assert_eq!(component.classification(), ComponentClassification::Fixed);
+        assert!(!component.can_modify());
+        assert!(!component.can_extend());
+    }
+
+    #[test]
+    fn test_adaptable_component() {
+        let component = AdaptableComponent;
+        assert_eq!(
+            component.classification(),
+            ComponentClassification::Adaptable
+        );
+        assert!(component.can_modify());
+        assert!(!component.can_extend());
+    }
+
+    #[test]
+    fn test_extensible_component() {
+        let component = ExtensibleComponent;
+        assert_eq!(
+            component.classification(),
+            ComponentClassification::Extensible
+        );
+        assert!(component.can_modify());
+        assert!(component.can_extend());
+    }
+
+    // TODO: Add more comprehensive tests covering:
+    // - Custom components with the classification system
+    // - Component compatibility checks
+    // - Classification inheritance
+    // - Component composition with mixed classifications
+}
+```
+
+####### File: core/src/component/classification.rs
+####*Size: 4.0K, Lines: 74, Type: ASCII text*
+
+```rust
+//! Fixed/Adaptable/Extensible classification definitions
+
+/// Component classification
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComponentClassification {
+    /// Fixed component - cannot be modified
+    Fixed,
+    
+    /// Adaptable component - can be parameterized within defined bounds
+    Adaptable,
+    
+    /// Extensible component - can be fully customized
+    Extensible,
+}
+
+/// Component with classification
+pub trait ClassifiedComponent {
+    /// Get the component classification
+    fn classification(&self) -> ComponentClassification;
+    
+    /// Check if the component can be modified
+    fn can_modify(&self) -> bool {
+        match self.classification() {
+            ComponentClassification::Fixed => false,
+            ComponentClassification::Adaptable | ComponentClassification::Extensible => true,
+        }
+    }
+    
+    /// Check if the component can be extended
+    fn can_extend(&self) -> bool {
+        match self.classification() {
+            ComponentClassification::Fixed | ComponentClassification::Adaptable => false,
+            ComponentClassification::Extensible => true,
+        }
+    }
+}
+
+/// Marker trait for fixed components
+pub trait Fixed {}
+
+/// Marker trait for adaptable components
+pub trait Adaptable {}
+
+/// Marker trait for extensible components
+pub trait Extensible {}
+
+// Instead of blanket implementations, we'll provide implementation helpers
+
+/// Helper struct for fixed components
+pub struct FixedComponent;
+
+impl ClassifiedComponent for FixedComponent {
+    fn classification(&self) -> ComponentClassification {
+        ComponentClassification::Fixed
+    }
+}
+
+/// Helper struct for adaptable components
+pub struct AdaptableComponent;
+
+impl ClassifiedComponent for AdaptableComponent {
+    fn classification(&self) -> ComponentClassification {
+        ComponentClassification::Adaptable
+    }
+}
+
+/// Helper struct for extensible components
+pub struct ExtensibleComponent;
+
+impl ClassifiedComponent for ExtensibleComponent {
+    fn classification(&self) -> ComponentClassification {
+        ComponentClassification::Extensible
+    }
+}
+```
+
+####### File: core/src/component/mod.rs
+####*Size: 4.0K, Lines: 8, Type: ASCII text*
+
+```rust
+//! Component classification system
+
+mod classification;
+
+#[cfg(test)]
+mod tests;
+
+pub use classification::*;
+```
+
+###### Directory: core/src/crypto
+
+####### Directory: core/src/crypto/tests
+
+######## File: core/src/crypto/tests/mod.rs
+#####*Size: 12K, Lines: 308, Type: ASCII text*
+
+```rust
+//! Tests for cryptographic primitive interfaces
+
+use crate::crypto::{
+        DecapsulationKey, Encapsulated, EncapsulationKey, KemKeyPair, KeyEncapsulation,
+        SerializableKey, Signature, SigningKey, SigningKeyPair, VerifyingKey,
+    };
+    use std::vec::Vec;
+
+    // ============================================================================
+    // Mock implementations for signature algorithms
+    // ============================================================================
+    
+    struct MockSigningKeyPair;
+    struct MockVerifyingKey(Vec<u8>);
+    struct MockSigningKey(Vec<u8>);
+    struct MockSignature(Vec<u8>);
+
+    impl SigningKeyPair for MockSigningKeyPair {
+        type PublicKey = MockVerifyingKey;
+        type PrivateKey = MockSigningKey;
+        type Signature = MockSignature;
+
+        fn public_key(&self) -> Self::PublicKey {
+            MockVerifyingKey(vec![1, 2, 3])
+        }
+
+        fn private_key(&self) -> Self::PrivateKey {
+            MockSigningKey(vec![4, 5, 6])
+        }
+
+        fn sign(&self, message: &[u8]) -> Self::Signature {
+            MockSignature(message.to_vec())
+        }
+    }
+
+    impl SerializableKey for MockVerifyingKey {
+        fn to_bytes(&self) -> Vec<u8> {
+            self.0.clone()
+        }
+
+        fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+            Ok(MockVerifyingKey(bytes.to_vec()))
+        }
+    }
+
+    impl VerifyingKey for MockVerifyingKey {
+        type Signature = MockSignature;
+
+        fn verify(&self, message: &[u8], signature: &Self::Signature) -> bool {
+            message == signature.0
+        }
+    }
+
+    impl SerializableKey for MockSigningKey {
+        fn to_bytes(&self) -> Vec<u8> {
+            self.0.clone()
+        }
+
+        fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+            Ok(MockSigningKey(bytes.to_vec()))
+        }
+    }
+
+    impl SigningKey for MockSigningKey {
+        type Signature = MockSignature;
+
+        fn sign(&self, message: &[u8]) -> Self::Signature {
+            MockSignature(message.to_vec())
+        }
+    }
+
+    impl SerializableKey for MockSignature {
+        fn to_bytes(&self) -> Vec<u8> {
+            self.0.clone()
+        }
+
+        fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+            Ok(MockSignature(bytes.to_vec()))
+        }
+    }
+
+    impl Signature for MockSignature {}
+
+    // ============================================================================
+    // Mock implementations for KEM algorithms
+    // ============================================================================
+
+    struct MockKemKeyPair;
+    struct MockEncapsulationKey(Vec<u8>);
+    struct MockDecapsulationKey(Vec<u8>);
+    struct MockEncapsulated {
+        ciphertext: Vec<u8>,
+        shared_secret: Vec<u8>,
+    }
+
+    impl KemKeyPair for MockKemKeyPair {
+        type PublicKey = MockEncapsulationKey;
+        type PrivateKey = MockDecapsulationKey;
+
+        fn public_key(&self) -> Self::PublicKey {
+            MockEncapsulationKey(vec![7, 8, 9])
+        }
+
+        fn private_key(&self) -> Self::PrivateKey {
+            MockDecapsulationKey(vec![10, 11, 12])
+        }
+    }
+
+    impl SerializableKey for MockEncapsulationKey {
+        fn to_bytes(&self) -> Vec<u8> {
+            self.0.clone()
+        }
+
+        fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+            Ok(MockEncapsulationKey(bytes.to_vec()))
+        }
+    }
+
+    impl EncapsulationKey for MockEncapsulationKey {}
+
+    impl SerializableKey for MockDecapsulationKey {
+        fn to_bytes(&self) -> Vec<u8> {
+            self.0.clone()
+        }
+
+        fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+            Ok(MockDecapsulationKey(bytes.to_vec()))
+        }
+    }
+
+    impl DecapsulationKey for MockDecapsulationKey {}
+
+    impl SerializableKey for MockEncapsulated {
+        fn to_bytes(&self) -> Vec<u8> {
+            let mut bytes = Vec::new();
+            bytes.extend_from_slice(&self.ciphertext);
+            bytes
+        }
+
+        fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+            Ok(MockEncapsulated {
+                ciphertext: bytes.to_vec(),
+                shared_secret: vec![0; 32],
+            })
+        }
+    }
+
+    impl Encapsulated for MockEncapsulated {
+        fn ciphertext(&self) -> &[u8] {
+            &self.ciphertext
+        }
+
+        fn shared_secret(&self) -> &[u8] {
+            &self.shared_secret
+        }
+    }
+
+    struct MockKEM;
+
+    impl KeyEncapsulation for MockKEM {
+        type KeyPair = MockKemKeyPair;
+        type PublicKey = MockEncapsulationKey;
+        type PrivateKey = MockDecapsulationKey;
+        type Encapsulated = MockEncapsulated;
+
+        fn generate_keypair(&self) -> Self::KeyPair {
+            MockKemKeyPair
+        }
+
+        fn encapsulate(&self, _public_key: &Self::PublicKey) -> Self::Encapsulated {
+            MockEncapsulated {
+                ciphertext: vec![7, 8, 9],
+                shared_secret: vec![0; 32],
+            }
+        }
+
+        fn decapsulate(
+            &self,
+            _private_key: &Self::PrivateKey,
+            _encapsulated: &Self::Encapsulated,
+        ) -> Option<Vec<u8>> {
+            Some(vec![0; 32])
+        }
+    }
+
+    // ============================================================================
+    // Tests
+    // ============================================================================
+
+    #[test]
+    fn test_signing_operations() {
+        let keypair = MockSigningKeyPair;
+        let message = b"test message";
+
+        // Test signing
+        let signature = keypair.sign(message);
+        let public_key = keypair.public_key();
+
+        // Test verification
+        assert!(public_key.verify(message, &signature));
+
+        // Test verification with wrong message
+        let wrong_message = b"wrong message";
+        assert!(!public_key.verify(wrong_message, &signature));
+    }
+
+    #[test]
+    fn test_signing_key_serialization() {
+        let keypair = MockSigningKeyPair;
+        let public_key = keypair.public_key();
+        let private_key = keypair.private_key();
+
+        // Test public key serialization
+        let pk_bytes = public_key.to_bytes();
+        let pk_recovered = MockVerifyingKey::from_bytes(&pk_bytes).unwrap();
+        assert_eq!(pk_bytes, pk_recovered.to_bytes());
+
+        // Test private key serialization
+        let sk_bytes = private_key.to_bytes();
+        let sk_recovered = MockSigningKey::from_bytes(&sk_bytes).unwrap();
+        assert_eq!(sk_bytes, sk_recovered.to_bytes());
+    }
+
+    #[test]
+    fn test_signature_serialization() {
+        let keypair = MockSigningKeyPair;
+        let message = b"test message";
+        let signature = keypair.sign(message);
+
+        // Test signature serialization
+        let sig_bytes = signature.to_bytes();
+        let sig_recovered = MockSignature::from_bytes(&sig_bytes).unwrap();
+        assert_eq!(sig_bytes, sig_recovered.to_bytes());
+    }
+
+    #[test]
+    fn test_kem_operations() {
+        let kem = MockKEM;
+        let keypair = kem.generate_keypair();
+        let public_key = keypair.public_key();
+        let private_key = keypair.private_key();
+
+        // Test encapsulation
+        let encapsulated = kem.encapsulate(&public_key);
+        
+        // Test decapsulation
+        let shared_secret = kem.decapsulate(&private_key, &encapsulated);
+        assert!(shared_secret.is_some());
+        assert_eq!(shared_secret.unwrap().len(), 32);
+    }
+
+    #[test]
+    fn test_kem_key_serialization() {
+        let kem = MockKEM;
+        let keypair = kem.generate_keypair();
+        let public_key = keypair.public_key();
+        let private_key = keypair.private_key();
+
+        // Test public key serialization
+        let pk_bytes = public_key.to_bytes();
+        let pk_recovered = MockEncapsulationKey::from_bytes(&pk_bytes).unwrap();
+        assert_eq!(pk_bytes, pk_recovered.to_bytes());
+
+        // Test private key serialization
+        let sk_bytes = private_key.to_bytes();
+        let sk_recovered = MockDecapsulationKey::from_bytes(&sk_bytes).unwrap();
+        assert_eq!(sk_bytes, sk_recovered.to_bytes());
+    }
+
+    #[test]
+    fn test_encapsulated_serialization() {
+        let kem = MockKEM;
+        let keypair = kem.generate_keypair();
+        let public_key = keypair.public_key();
+        let encapsulated = kem.encapsulate(&public_key);
+
+        // Test encapsulated data serialization
+        let enc_bytes = encapsulated.to_bytes();
+        let enc_recovered = MockEncapsulated::from_bytes(&enc_bytes).unwrap();
+        assert_eq!(enc_bytes, enc_recovered.to_bytes());
+    }
+
+    #[test]
+    fn test_independent_signing() {
+        // Test that signing keys can be used independently
+        let signing_key = MockSigningKey(vec![1, 2, 3, 4]);
+        let message = b"test message";
+        
+        let signature = signing_key.sign(message);
+        assert_eq!(signature.0, message.to_vec());
+    }
+
+    #[test]
+    fn test_independent_verification() {
+        // Test that verifying keys can be used independently
+        let verifying_key = MockVerifyingKey(vec![5, 6, 7, 8]);
+        let message = b"test message";
+        let signature = MockSignature(message.to_vec());
+        
+        assert!(verifying_key.verify(message, &signature));
+        assert!(!verifying_key.verify(b"wrong message", &signature));
+    }
+
+    // TODO: Add more comprehensive tests covering:
+    // - Post-quantum algorithm interfaces
+    // - Mixed cryptographic operations
+    // - Security level assertions
+    // - Error cases in serialization/deserialization
+    // - Cross-compatibility between different implementations```
+
+####### File: core/src/crypto/mod.rs
+####*Size: 4.0K, Lines: 137, Type: ASCII text*
+
+```rust
+// core/src/crypto/mod.rs
+//! Cryptographic primitive interfaces
+//!
+//! This module provides trait definitions for both traditional and
+//! post-quantum cryptographic primitives, creating a unified interface
+//! for all cryptographic implementations.
+
+// ============================================================================
+// Common traits for all key types
+// ============================================================================
+
+/// Base trait for any key that can be serialized
+pub trait SerializableKey {
+    /// Convert to bytes
+    fn to_bytes(&self) -> Vec<u8>;
+
+    /// Create from bytes
+    fn from_bytes(bytes: &[u8]) -> Result<Self, String>
+    where
+        Self: Sized;
+}
+
+// ============================================================================
+// Signature-specific traits
+// ============================================================================
+
+/// Key pair trait for signature algorithms
+pub trait SigningKeyPair {
+    /// Public key type for verification
+    type PublicKey: VerifyingKey<Signature = Self::Signature>;
+
+    /// Private key type for signing
+    type PrivateKey: SigningKey<Signature = Self::Signature>;
+
+    /// Signature type produced
+    type Signature: Signature;
+
+    /// Get the public key
+    fn public_key(&self) -> Self::PublicKey;
+
+    /// Get the private key
+    fn private_key(&self) -> Self::PrivateKey;
+
+    /// Sign a message
+    fn sign(&self, message: &[u8]) -> Self::Signature;
+}
+
+/// Public key trait for signature verification
+pub trait VerifyingKey: SerializableKey {
+    /// Signature type that this key can verify
+    type Signature: Signature;
+
+    /// Verify a signature
+    fn verify(&self, message: &[u8], signature: &Self::Signature) -> bool;
+}
+
+/// Private key trait for signing operations
+pub trait SigningKey: SerializableKey {
+    /// Signature type that this key produces
+    type Signature: Signature;
+
+    /// Sign a message
+    fn sign(&self, message: &[u8]) -> Self::Signature;
+}
+
+/// Signature trait
+pub trait Signature: SerializableKey {
+    // Signature-specific methods could go here
+}
+
+// ============================================================================
+// KEM-specific traits
+// ============================================================================
+
+/// Key pair trait for key encapsulation mechanisms
+pub trait KemKeyPair {
+    /// Public key type for encapsulation
+    type PublicKey: EncapsulationKey;
+
+    /// Private key type for decapsulation
+    type PrivateKey: DecapsulationKey;
+
+    /// Get the public key
+    fn public_key(&self) -> Self::PublicKey;
+
+    /// Get the private key
+    fn private_key(&self) -> Self::PrivateKey;
+}
+
+/// Public key trait for encapsulation
+pub trait EncapsulationKey: SerializableKey {
+    // Encapsulation-specific methods could go here
+}
+
+/// Private key trait for decapsulation
+pub trait DecapsulationKey: SerializableKey {
+    // Decapsulation-specific methods could go here
+}
+
+/// Key encapsulation mechanism trait
+pub trait KeyEncapsulation {
+    /// Key pair type
+    type KeyPair: KemKeyPair<PublicKey = Self::PublicKey, PrivateKey = Self::PrivateKey>;
+
+    /// Public key type
+    type PublicKey: EncapsulationKey;
+
+    /// Private key type
+    type PrivateKey: DecapsulationKey;
+
+    /// Encapsulated key type
+    type Encapsulated: Encapsulated;
+
+    /// Generate a new key pair
+    fn generate_keypair(&self) -> Self::KeyPair;
+
+    /// Encapsulate a shared secret using a public key
+    fn encapsulate(&self, public_key: &Self::PublicKey) -> Self::Encapsulated;
+
+    /// Decapsulate a shared secret using a private key
+    fn decapsulate(
+        &self,
+        private_key: &Self::PrivateKey,
+        encapsulated: &Self::Encapsulated,
+    ) -> Option<Vec<u8>>;
+}
+
+/// Encapsulated key trait
+pub trait Encapsulated: SerializableKey {
+    /// Get the ciphertext
+    fn ciphertext(&self) -> &[u8];
+
+    /// Get the shared secret
+    fn shared_secret(&self) -> &[u8];
+}
+
+#[cfg(test)]
+mod tests;```
+
+###### Directory: core/src/error
+
+####### File: core/src/error/mod.rs
+####*Size: 4.0K, Lines: 115, Type: ASCII text*
+
+```rust
+//! Error types for the DePIN SDK Core.
+
+use std::fmt;
+
+/// Error type for transaction operations
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TransactionError {
+    /// Invalid transaction format or data
+    InvalidTransaction(String),
+    
+    /// Failed to access or modify state
+    StateAccessFailed(String),
+    
+    /// Invalid input referenced in transaction
+    InvalidInput(String),
+    
+    /// Insufficient funds for transaction
+    InsufficientFunds(String),
+    
+    /// Invalid signature
+    InvalidSignature(String),
+    
+    /// Invalid nonce value
+    InvalidNonce(String),
+    
+    /// Serialization or deserialization error
+    SerializationError(String),
+    
+    /// Other transaction errors
+    Other(String),
+}
+
+impl fmt::Display for TransactionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TransactionError::InvalidTransaction(msg) => write!(f, "Invalid transaction: {}", msg),
+            TransactionError::StateAccessFailed(msg) => write!(f, "State access failed: {}", msg),
+            TransactionError::InvalidInput(msg) => write!(f, "Invalid input: {}", msg),
+            TransactionError::InsufficientFunds(msg) => write!(f, "Insufficient funds: {}", msg),
+            TransactionError::InvalidSignature(msg) => write!(f, "Invalid signature: {}", msg),
+            TransactionError::InvalidNonce(msg) => write!(f, "Invalid nonce: {}", msg),
+            TransactionError::SerializationError(msg) => write!(f, "Serialization error: {}", msg),
+            TransactionError::Other(msg) => write!(f, "Other error: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for TransactionError {}
+
+/// Error type for state operations
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StateError {
+    /// Key not found in state
+    KeyNotFound(String),
+    
+    /// Failed to read from storage
+    ReadError(String),
+    
+    /// Failed to write to storage
+    WriteError(String),
+    
+    /// Invalid key format
+    InvalidKey(String),
+    
+    /// Invalid value format
+    InvalidValue(String),
+    
+    /// Other state errors
+    Other(String),
+}
+
+impl fmt::Display for StateError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            StateError::KeyNotFound(msg) => write!(f, "Key not found: {}", msg),
+            StateError::ReadError(msg) => write!(f, "Read error: {}", msg),
+            StateError::WriteError(msg) => write!(f, "Write error: {}", msg),
+            StateError::InvalidKey(msg) => write!(f, "Invalid key: {}", msg),
+            StateError::InvalidValue(msg) => write!(f, "Invalid value: {}", msg),
+            StateError::Other(msg) => write!(f, "Other error: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for StateError {}
+
+impl From<StateError> for TransactionError {
+    fn from(error: StateError) -> Self {
+        TransactionError::StateAccessFailed(error.to_string())
+    }
+}
+
+/// Core error type for the SDK
+#[derive(Debug, thiserror::Error)]
+pub enum CoreError {
+    #[error("Service not found: {0}")]
+    ServiceNotFound(String),
+    
+    #[error("Invalid block: {0}")]
+    InvalidBlock(String),
+    
+    #[error("Consensus error: {0}")]
+    ConsensusError(String),
+    
+    #[error("Cryptographic error: {0}")]
+    CryptoError(String),
+    
+    #[error("Upgrade error: {0}")]
+    UpgradeError(String),
+    
+    #[error("Custom error: {0}")]
+    Custom(String),
+}
+
+/// Result type used throughout the SDK
+pub type Result<T> = std::result::Result<T, CoreError>;```
+
+###### Directory: core/src/homomorphic
+
+####### Directory: core/src/homomorphic/tests
+
+######## File: core/src/homomorphic/tests/homorphic_operation_interfaces_tests.rs
+#####*Size: 8.0K, Lines: 165, Type: ASCII text*
+
+```rust
+//! Tests for homomorphic operation interfaces
+
+#[cfg(test)]
+mod tests {
+    use crate::homomorphic::{CommitmentOperation, OperationResult};
+    use std::any::Any;
+    use std::sync::Arc;
+
+    // Simple mock structs for testing
+    #[derive(Clone)]
+    struct MockCommitment(Vec<u8>);
+
+    impl MockCommitment {
+        fn new(value: u8) -> Self {
+            Self(vec![value])
+        }
+
+        fn value(&self) -> u8 {
+            self.0[0]
+        }
+    }
+
+    // Mock implementation of an operation executor
+    struct MockOperationExecutor;
+
+    impl MockOperationExecutor {
+        fn execute(&self, operation: &CommitmentOperation) -> OperationResult {
+            match operation {
+                CommitmentOperation::Add { left, right } => {
+                    let left_commitment = match left.downcast_ref::<MockCommitment>() {
+                        Some(c) => c,
+                        None => {
+                            return OperationResult::Failure(
+                                "Left operand is not a MockCommitment".to_string(),
+                            )
+                        }
+                    };
+
+                    let right_commitment = match right.downcast_ref::<MockCommitment>() {
+                        Some(c) => c,
+                        None => {
+                            return OperationResult::Failure(
+                                "Right operand is not a MockCommitment".to_string(),
+                            )
+                        }
+                    };
+
+                    let result =
+                        MockCommitment::new(left_commitment.value() + right_commitment.value());
+                    OperationResult::Success(Arc::new(result))
+                }
+                CommitmentOperation::ScalarMultiply { commitment, scalar } => {
+                    let commitment = match commitment.downcast_ref::<MockCommitment>() {
+                        Some(c) => c,
+                        None => {
+                            return OperationResult::Failure(
+                                "Commitment is not a MockCommitment".to_string(),
+                            )
+                        }
+                    };
+
+                    if *scalar <= 0 {
+                        return OperationResult::Failure("Scalar must be positive".to_string());
+                    }
+
+                    let result = MockCommitment::new(commitment.value() * (*scalar as u8));
+                    OperationResult::Success(Arc::new(result))
+                }
+                CommitmentOperation::Custom {
+                    operation_id: _,
+                    inputs: _,
+                    parameters: _,
+                } => {
+                    // Just a placeholder for custom operations
+                    OperationResult::Unsupported
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_add_operation() {
+        let executor = MockOperationExecutor;
+
+        let left = Arc::new(MockCommitment::new(5));
+        let right = Arc::new(MockCommitment::new(7));
+
+        let operation = CommitmentOperation::Add { left, right };
+        let result = executor.execute(&operation);
+
+        match result {
+            OperationResult::Success(result_arc) => {
+                let result_commitment = result_arc.downcast_ref::<MockCommitment>().unwrap();
+                assert_eq!(result_commitment.value(), 12);
+            }
+            _ => panic!("Operation failed or unsupported"),
+        }
+    }
+
+    #[test]
+    fn test_scalar_multiply_operation() {
+        let executor = MockOperationExecutor;
+
+        let commitment = Arc::new(MockCommitment::new(5));
+        let scalar = 3;
+
+        let operation = CommitmentOperation::ScalarMultiply { commitment, scalar };
+        let result = executor.execute(&operation);
+
+        match result {
+            OperationResult::Success(result_arc) => {
+                let result_commitment = result_arc.downcast_ref::<MockCommitment>().unwrap();
+                assert_eq!(result_commitment.value(), 15);
+            }
+            _ => panic!("Operation failed or unsupported"),
+        }
+    }
+
+    #[test]
+    fn test_custom_operation() {
+        let executor = MockOperationExecutor;
+
+        let inputs = vec![Arc::new(MockCommitment::new(5)) as Arc<dyn Any + Send + Sync>];
+        let parameters = vec![0, 1, 2];
+
+        let operation = CommitmentOperation::Custom {
+            operation_id: "test_op".to_string(),
+            inputs,
+            parameters,
+        };
+
+        let result = executor.execute(&operation);
+
+        match result {
+            OperationResult::Unsupported => {
+                // Expected behavior for this test
+            }
+            _ => panic!("Custom operation should return Unsupported in this test"),
+        }
+    }
+
+    #[test]
+    fn test_operation_failure() {
+        let executor = MockOperationExecutor;
+
+        let commitment = Arc::new(MockCommitment::new(5));
+        let scalar = -1; // Negative scalar should cause failure
+
+        let operation = CommitmentOperation::ScalarMultiply { commitment, scalar };
+        let result = executor.execute(&operation);
+
+        match result {
+            OperationResult::Failure(error) => {
+                assert_eq!(error, "Scalar must be positive");
+            }
+            _ => panic!("Operation should have failed"),
+        }
+    }
+
+    // TODO: Add more comprehensive tests covering:
+    // - Complex homomorphic operations
+    // - Chained operations
+    // - Operation result handling
+    // - Type safety checks
+}
+```
+
+######## File: core/src/homomorphic/tests/mod.rs
+#####*Size: 4.0K, Lines: 1, Type: ASCII text*
+
+```rust
+pub mod homorphic_operation_interfaces_tests;
+```
+
+####### File: core/src/homomorphic/mod.rs
+####*Size: 4.0K, Lines: 10, Type: ASCII text*
+
+```rust
+//! Homomorphic operation interfaces
+
+mod operations;
+mod result;
+
+#[cfg(test)]
+mod tests;
+
+pub use operations::*;
+pub use result::*;
+```
+
+####### File: core/src/homomorphic/operations.rs
+####*Size: 4.0K, Lines: 73, Type: ASCII text*
+
+```rust
+//! Definition of the CommitmentOperation enum
+
+use std::any::Any;
+use std::fmt;
+use std::sync::Arc;
+
+/// Type for operations on commitments
+pub enum CommitmentOperation {
+    /// Add two commitments
+    Add {
+        left: Arc<dyn Any + Send + Sync>,
+        right: Arc<dyn Any + Send + Sync>,
+    },
+
+    /// Multiply a commitment by a scalar
+    ScalarMultiply {
+        commitment: Arc<dyn Any + Send + Sync>,
+        scalar: i32,
+    },
+
+    /// Apply a custom operation
+    Custom {
+        operation_id: String,
+        inputs: Vec<Arc<dyn Any + Send + Sync>>,
+        parameters: Vec<u8>,
+    },
+}
+
+impl fmt::Debug for CommitmentOperation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Add { .. } => write!(f, "CommitmentOperation::Add {{ .. }}"),
+            Self::ScalarMultiply { scalar, .. } => {
+                write!(
+                    f,
+                    "CommitmentOperation::ScalarMultiply {{ scalar: {}, .. }}",
+                    scalar
+                )
+            }
+            Self::Custom { operation_id, .. } => {
+                write!(
+                    f,
+                    "CommitmentOperation::Custom {{ operation_id: {}, .. }}",
+                    operation_id
+                )
+            }
+        }
+    }
+}
+
+impl Clone for CommitmentOperation {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Add { left, right } => Self::Add {
+                left: Arc::clone(left),
+                right: Arc::clone(right),
+            },
+            Self::ScalarMultiply { commitment, scalar } => Self::ScalarMultiply {
+                commitment: Arc::clone(commitment),
+                scalar: *scalar,
+            },
+            Self::Custom {
+                operation_id,
+                inputs,
+                parameters,
+            } => Self::Custom {
+                operation_id: operation_id.clone(),
+                inputs: inputs.iter().map(Arc::clone).collect(),
+                parameters: parameters.clone(),
+            },
+        }
+    }
+}
+```
+
+####### File: core/src/homomorphic/result.rs
+####*Size: 4.0K, Lines: 37, Type: ASCII text*
+
+```rust
+//! Definition of the OperationResult enum
+
+use std::any::Any;
+use std::fmt;
+use std::sync::Arc;
+
+/// Result of a homomorphic operation
+pub enum OperationResult {
+    /// Successfully computed result
+    Success(Arc<dyn Any + Send + Sync>),
+
+    /// Operation failed
+    Failure(String),
+
+    /// Operation not supported
+    Unsupported,
+}
+
+impl fmt::Debug for OperationResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Success(_) => write!(f, "OperationResult::Success(..)"),
+            Self::Failure(msg) => write!(f, "OperationResult::Failure({})", msg),
+            Self::Unsupported => write!(f, "OperationResult::Unsupported"),
+        }
+    }
+}
+
+impl Clone for OperationResult {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Success(value) => Self::Success(Arc::clone(value)),
+            Self::Failure(msg) => Self::Failure(msg.clone()),
+            Self::Unsupported => Self::Unsupported,
+        }
+    }
+}
+```
+
+###### Directory: core/src/ibc
+
+####### File: core/src/ibc/mod.rs
+####*Size: 4.0K, Lines: 23, Type: ASCII text*
+
+```rust
+// In core/src/ibc/mod.rs
+use crate::services::BlockchainService;
+use crate::error::CoreError as Error; // Or define a specific IBC error type
+
+// Define the missing types
+pub type ChainId = String; // Or use a more specific type
+pub type ProofType = String; // Define based on your requirements
+
+pub struct Packet {
+    pub data: Vec<u8>,
+    pub source: ChainId,
+    pub destination: ChainId,
+    // Add other fields as needed
+}
+
+pub trait CrossChainCommunication: BlockchainService {
+    fn verify_proof(&self, proof: &dyn CrossChainProof) -> Result<bool, Error>;
+    fn create_packet(&self, data: &[u8], destination: ChainId) -> Result<Packet, Error>;
+}
+
+pub trait CrossChainProof {
+    fn source_chain(&self) -> ChainId;
+    fn proof_type(&self) -> ProofType;
+}```
+
+###### Directory: core/src/services
+
+####### File: core/src/services/mod.rs
+####*Size: 4.0K, Lines: 59, Type: ASCII text*
+
+```rust
+use std::any::Any;
+
+// Define the missing error type
+#[derive(Debug, thiserror::Error)]
+pub enum UpgradeError {
+    #[error("Invalid upgrade: {0}")]
+    InvalidUpgrade(String),
+    #[error("State migration failed: {0}")]
+    MigrationFailed(String),
+    #[error("Service not found")]
+    ServiceNotFound,
+    #[error("Health check failed: {0}")]
+    HealthCheckFailed(String),
+    #[error("Service operation failed: {0}")]
+    OperationFailed(String),
+}
+
+/// An identifier for a swappable service.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ServiceType {
+    Governance,
+    Semantic,
+    ExternalData,
+    // ... other standard services
+    Custom(String),
+}
+
+/// The base trait for any service managed by the chain.
+pub trait BlockchainService: Any + Send + Sync {
+    fn service_type(&self) -> ServiceType;
+    // Potentially add methods for health checks, metrics, etc.
+}
+
+/// A trait for services that support runtime upgrades and rollbacks.
+pub trait UpgradableService: BlockchainService {
+    /// Prepares the service for an upgrade by validating the new implementation
+    /// and providing a state snapshot for migration.
+    fn prepare_upgrade(&self, new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError>; // Returns state snapshot
+
+    /// Instantiates a new version of the service from a state snapshot.
+    fn complete_upgrade(&mut self, snapshot: &[u8]) -> Result<(), UpgradeError>;
+    
+    /// Start the service
+    fn start(&self) -> Result<(), UpgradeError> {
+        // Default implementation - services can override if needed
+        Ok(())
+    }
+    
+    /// Stop the service
+    fn stop(&self) -> Result<(), UpgradeError> {
+        // Default implementation - services can override if needed
+        Ok(())
+    }
+    
+    /// Check the health of the service
+    fn health_check(&self) -> Result<(), UpgradeError> {
+        // Default implementation - services can override if needed
+        Ok(())
+    }
+}```
+
+###### Directory: core/src/state
+
+####### Directory: core/src/state/tests
+
+######## File: core/src/state/tests/mod.rs
+#####*Size: 8.0K, Lines: 141, Type: ASCII text*
+
+```rust
+#[cfg(test)]
+mod basic_state_tests {
+    use crate::error::StateError;
+    use crate::state::StateManager;
+    use std::collections::HashMap;
+
+    // Mock commitment and proof types for testing
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct MockCommitment(Vec<u8>);
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct MockProof(Vec<u8>);
+
+    // Mock state manager implementation
+    struct MockStateManager {
+        data: HashMap<Vec<u8>, Vec<u8>>,
+    }
+
+    impl MockStateManager {
+        fn new() -> Self {
+            Self {
+                data: HashMap::new(),
+            }
+        }
+    }
+
+    impl StateManager for MockStateManager {
+        type Commitment = MockCommitment;
+        type Proof = MockProof;
+
+        fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
+            Ok(self.data.get(key).cloned())
+        }
+
+        fn set(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
+            self.data.insert(key.to_vec(), value.to_vec());
+            Ok(())
+        }
+
+        fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
+            self.data.remove(key);
+            Ok(())
+        }
+        
+        fn root_commitment(&self) -> Self::Commitment {
+            // Simple mock implementation
+            let mut combined = Vec::new();
+            for (k, v) in &self.data {
+                combined.extend_from_slice(k);
+                combined.extend_from_slice(v);
+            }
+            MockCommitment(combined)
+        }
+        
+        fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
+            // Simple mock implementation
+            self.get(key).ok().flatten().map(MockProof)
+        }
+        
+        fn verify_proof(
+            &self,
+            _commitment: &Self::Commitment,
+            proof: &Self::Proof,
+            _key: &[u8],
+            value: &[u8],
+        ) -> bool {
+            // Simple mock implementation
+            proof.0 == value
+        }
+    }
+
+    #[test]
+    fn test_basic_state_operations() {
+        let mut state = MockStateManager::new();
+        
+        // Test set and get
+        let key = b"test_key";
+        let value = b"test_value";
+        
+        state.set(key, value).unwrap();
+        assert_eq!(state.get(key).unwrap(), Some(value.to_vec()));
+        
+        // Test delete
+        state.delete(key).unwrap();
+        assert_eq!(state.get(key).unwrap(), None);
+    }
+
+    #[test]
+    fn test_batch_operations() {
+        let mut state = MockStateManager::new();
+        
+        // Test batch set
+        let updates = vec![
+            (b"key1".to_vec(), b"value1".to_vec()),
+            (b"key2".to_vec(), b"value2".to_vec()),
+            (b"key3".to_vec(), b"value3".to_vec()),
+        ];
+        
+        state.batch_set(&updates).unwrap();
+        
+        // Test batch get
+        let keys = vec![
+            b"key1".to_vec(),
+            b"key2".to_vec(),
+            b"key3".to_vec(),
+            b"nonexistent".to_vec(),
+        ];
+        
+        let values = state.batch_get(&keys).unwrap();
+        
+        assert_eq!(values.len(), 4);
+        assert_eq!(values[0], Some(b"value1".to_vec()));
+        assert_eq!(values[1], Some(b"value2".to_vec()));
+        assert_eq!(values[2], Some(b"value3".to_vec()));
+        assert_eq!(values[3], None);
+    }
+    
+    #[test]
+    fn test_commitment_and_proof() {
+        let mut state = MockStateManager::new();
+        
+        // Set up test data
+        let key = b"test_key";
+        let value = b"test_value";
+        state.set(key, value).unwrap();
+        
+        // Test commitment
+        let commitment = state.root_commitment();
+        assert!(!commitment.0.is_empty());
+        
+        // Test proof creation
+        let proof = state.create_proof(key).unwrap();
+        assert_eq!(proof.0, value);
+        
+        // Test proof verification
+        assert!(state.verify_proof(&commitment, &proof, key, value));
+        
+        // Test verification with wrong value
+        let wrong_value = b"wrong_value";
+        assert!(!state.verify_proof(&commitment, &proof, key, wrong_value));
+    }
+}```
+
+######## File: core/src/state/tests/state_tree_tests.rs
+#####*Size: 12K, Lines: 278, Type: ASCII text*
+
+```rust
+//! Tests for state tree interface definitions
+
+#[cfg(test)]
+mod tests {
+    use crate::commitment::{CommitmentScheme, ProofContext, Selector};
+    use crate::state::{StateManager, StateTree};
+    use crate::test_utils::mock_commitment::{
+        helpers, MockCommitment, MockCommitmentScheme, MockProof,
+    };
+    use std::any::Any;
+    use std::collections::HashMap;
+
+    // Mock state tree implementation for testing
+    struct MockStateTree {
+        data: HashMap<Vec<u8>, Vec<u8>>,
+        scheme: MockCommitmentScheme,
+    }
+
+    impl MockStateTree {
+        fn new() -> Self {
+            Self {
+                data: HashMap::new(),
+                scheme: MockCommitmentScheme,
+            }
+        }
+    }
+
+    impl StateTree for MockStateTree {
+        type Commitment = MockCommitment;
+        type Proof = MockProof;
+
+        fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), String> {
+            self.data.insert(key.to_vec(), value.to_vec());
+            Ok(())
+        }
+
+        fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
+            self.data.get(key).cloned()
+        }
+
+        fn delete(&mut self, key: &[u8]) -> Result<(), String> {
+            self.data.remove(key);
+            Ok(())
+        }
+
+        fn root_commitment(&self) -> Self::Commitment {
+            let values: Vec<Option<Vec<u8>>> =
+                self.data.values().map(|v| Some(v.clone())).collect();
+
+            self.scheme.commit(&values)
+        }
+
+        fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
+            let value = self.get(key)?;
+            // Use key-based selector in proof creation
+            let selector = Selector::Key(key.to_vec());
+            self.scheme.create_proof(&selector, &value).ok()
+        }
+
+        fn verify_proof(
+            &self,
+            commitment: &Self::Commitment,
+            proof: &Self::Proof,
+            key: &[u8],
+            value: &[u8],
+        ) -> bool {
+            // Create a context for verification
+            let mut context = ProofContext::default();
+
+            // Regenerate the selector from the key - ensure keys actually match
+            let selector = Selector::Key(key.to_vec());
+
+            // Check if the proof was created with a matching key
+            if let Selector::Key(proof_key) = &proof.selector {
+                if proof_key != key {
+                    return false;
+                }
+            }
+
+            // Convert value to Vec<u8> to match the expected type
+            self.scheme
+                .verify(commitment, proof, &selector, &value.to_vec(), &context)
+        }
+
+        fn commitment_scheme(&self) -> &dyn Any {
+            &self.scheme
+        }
+    }
+
+    // Mock state manager implementation for testing
+    struct MockStateManager {
+        tree: MockStateTree,
+    }
+
+    impl MockStateManager {
+        fn new() -> Self {
+            Self {
+                tree: MockStateTree::new(),
+            }
+        }
+    }
+
+    impl StateManager<MockCommitmentScheme> for MockStateManager {
+        fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
+            self.tree.get(key)
+        }
+
+        fn set(&mut self, key: &[u8], value: &[u8]) -> Result<(), String> {
+            self.tree.insert(key, value)
+        }
+
+        fn delete(&mut self, key: &[u8]) -> Result<(), String> {
+            self.tree.delete(key)
+        }
+
+        fn root_commitment(&self) -> <MockCommitmentScheme as CommitmentScheme>::Commitment {
+            self.tree.root_commitment()
+        }
+
+        fn create_proof(
+            &self,
+            key: &[u8],
+        ) -> Option<<MockCommitmentScheme as CommitmentScheme>::Proof> {
+            self.tree.create_proof(key)
+        }
+
+        fn verify_proof(
+            &self,
+            commitment: &<MockCommitmentScheme as CommitmentScheme>::Commitment,
+            proof: &<MockCommitmentScheme as CommitmentScheme>::Proof,
+            key: &[u8],
+            value: &[u8],
+        ) -> bool {
+            // Delegate to tree's verify_proof method which now uses the key
+            self.tree.verify_proof(commitment, proof, key, value)
+        }
+    }
+
+    #[test]
+    fn test_state_tree_basic_operations() {
+        let mut tree = MockStateTree::new();
+
+        // Test insert and get
+        let key1 = b"key1";
+        let value1 = b"value1";
+
+        tree.insert(key1, value1).unwrap();
+        assert_eq!(tree.get(key1), Some(value1.to_vec()));
+
+        // Test delete
+        tree.delete(key1).unwrap();
+        assert_eq!(tree.get(key1), None);
+    }
+
+    #[test]
+    fn test_state_tree_commitments_and_proofs() {
+        let mut tree = MockStateTree::new();
+
+        let key1 = b"key1";
+        let value1 = b"value1";
+        let key2 = b"key2";
+        let value2 = b"value2";
+
+        tree.insert(key1, value1).unwrap();
+        tree.insert(key2, value2).unwrap();
+
+        // Test root commitment
+        let commitment = tree.root_commitment();
+
+        // Test proof creation
+        let proof = tree.create_proof(key1).unwrap();
+
+        // Test proof verification
+        assert!(tree.verify_proof(&commitment, &proof, key1, value1));
+
+        // Test invalid proof - wrong value
+        let wrong_value = b"wrong_value";
+        assert!(!tree.scheme.verify(
+            &commitment,
+            &proof,
+            &Selector::Key(key1.to_vec()),
+            &wrong_value.to_vec(), // Convert to Vec<u8>
+            &ProofContext::default()
+        ));
+
+        // Test wrong key
+        assert!(!tree.verify_proof(&commitment, &proof, key2, value1));
+    }
+
+    #[test]
+    fn test_proof_context_usage() {
+        let mut tree = MockStateTree::new();
+        let key1 = b"key1";
+        let value1 = b"value1";
+
+        tree.insert(key1, value1).unwrap();
+        let commitment = tree.root_commitment();
+
+        // Get a proof for key1
+        let proof = tree.create_proof(key1).unwrap();
+
+        // Create a context with strict verification enabled
+        let context = helpers::create_context(true);
+
+        // Verify with context - convert value to Vec<u8>
+        assert!(tree.scheme.verify(
+            &commitment,
+            &proof,
+            &Selector::Key(key1.to_vec()),
+            &value1.to_vec(), // Convert to Vec<u8>
+            &context
+        ));
+
+        // Try with wrong key but same value - should fail in strict mode
+        let wrong_key = b"wrong_key".to_vec();
+        assert!(!tree.scheme.verify(
+            &commitment,
+            &proof,
+            &Selector::Key(wrong_key),
+            &value1.to_vec(), // Convert to Vec<u8>
+            &context
+        ));
+    }
+
+    #[test]
+    fn test_state_manager() {
+        let mut manager = MockStateManager::new();
+
+        let key1 = b"key1";
+        let value1 = b"value1";
+
+        // Test set and get
+        manager.set(key1, value1).unwrap();
+        assert_eq!(manager.get(key1), Some(value1.to_vec()));
+
+        // Test root commitment
+        let commitment = manager.root_commitment();
+
+        // Test proof creation and verification
+        let proof = manager.create_proof(key1).unwrap();
+        assert!(manager.verify_proof(&commitment, &proof, key1, value1));
+
+        // Test delete
+        manager.delete(key1).unwrap();
+        assert_eq!(manager.get(key1), None);
+    }
+
+    #[test]
+    fn test_with_helper_functions() {
+        // Test the helper functions from the mock_commitment module
+        let value = b"test_value";
+        let key = b"test_key";
+
+        // Create a commitment
+        let commitment = helpers::create_commitment(value);
+
+        // Create a proof
+        let proof = helpers::create_key_proof(key, value).unwrap();
+
+        // Create a context
+        let context = helpers::create_context(true);
+
+        // Verify the proof - convert value to Vec<u8>
+        let scheme = MockCommitmentScheme;
+        assert!(scheme.verify(
+            &commitment,
+            &proof,
+            &Selector::Key(key.to_vec()),
+            &value.to_vec(), // Convert to Vec<u8>
+            &context
+        ));
+    }
+}
+// TODO: Add more comprehensive tests covering:
+// - Complex state tree operations with multiple keys
+// - Proof verification across different states
+// - State transition validations
+// - Edge cases like empty trees, large values, etc.
+```
+
+####### File: core/src/state/manager.rs
+####*Size: 4.0K, Lines: 78, Type: ASCII text*
+
+```rust
+// File: crates/core/src/state/manager.rs
+
+use crate::error::StateError;
+
+/// State manager interface for the DePIN SDK
+///
+/// The StateManager provides a higher-level interface for state operations,
+/// potentially wrapping one or more state trees or other storage mechanisms.
+/// It provides key-value access with optional commitment scheme capabilities.
+pub trait StateManager {
+    /// The commitment type this manager uses
+    type Commitment;
+    
+    /// The proof type this manager uses
+    type Proof;
+    
+    /// Get a value by key
+    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError>;
+    
+    /// Set a value for a key
+    fn set(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError>;
+    
+    /// Delete a key-value pair
+    fn delete(&mut self, key: &[u8]) -> Result<(), StateError>;
+    
+    /// Set multiple key-value pairs in a single batch operation
+    fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
+        // Default implementation applies updates one by one
+        for (key, value) in updates {
+            self.set(key, value)?;
+        }
+        Ok(())
+    }
+    
+    /// Get multiple values by keys in a single batch operation
+    fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
+        // Default implementation retrieves values one by one
+        let mut values = Vec::with_capacity(keys.len());
+        for key in keys {
+            values.push(self.get(key)?);
+        }
+        Ok(values)
+    }
+    
+    /// Get the current root commitment
+    ///
+    /// # Returns
+    /// * The current root commitment
+    fn root_commitment(&self) -> Self::Commitment;
+    
+    /// Create a proof for a specific key
+    ///
+    /// # Arguments
+    /// * `key` - The key to create a proof for
+    ///
+    /// # Returns
+    /// * `Some(proof)` - If proof creation succeeded
+    /// * `None` - If the key doesn't exist or proof creation isn't supported
+    fn create_proof(&self, key: &[u8]) -> Option<Self::Proof>;
+    
+    /// Verify a proof against the root commitment
+    ///
+    /// # Arguments
+    /// * `commitment` - The commitment to verify against
+    /// * `proof` - The proof to verify
+    /// * `key` - The key the proof is for
+    /// * `value` - The value to verify
+    ///
+    /// # Returns
+    /// * `true` - If the proof is valid
+    /// * `false` - If the proof is invalid or verification isn't supported
+    fn verify_proof(
+        &self,
+        commitment: &Self::Commitment,
+        proof: &Self::Proof,
+        key: &[u8],
+        value: &[u8]
+    ) -> bool;
+}```
+
+####### File: core/src/state/mod.rs
+####*Size: 4.0K, Lines: 24, Type: ASCII text*
+
+```rust
+//! State management interfaces for the DePIN SDK Core.
+
+mod manager;
+mod tree;
+
+#[cfg(test)]
+mod tests;
+
+pub use manager::*;
+pub use tree::*;
+
+use crate::commitment::CommitmentScheme;
+
+/// Type alias for a StateManager compatible with a specific CommitmentScheme
+pub type StateManagerFor<CS> = dyn StateManager<
+    Commitment = <CS as CommitmentScheme>::Commitment,
+    Proof = <CS as CommitmentScheme>::Proof,
+>;
+
+/// Type alias for a StateTree compatible with a specific CommitmentScheme
+pub type StateTreeFor<CS> = dyn StateTree<
+    Commitment = <CS as CommitmentScheme>::Commitment,
+    Proof = <CS as CommitmentScheme>::Proof,
+>;
+```
+
+####### File: core/src/state/tree.rs
+####*Size: 4.0K, Lines: 60, Type: ASCII text*
+
+```rust
+// File: crates/core/src/state/tree.rs
+
+use crate::error::StateError;
+
+/// Generic state tree operations
+///
+/// A StateTree provides key-value storage with optional cryptographic
+/// commitment and proof capabilities. It's the lower-level interface
+/// intended for direct tree implementations (Merkle trees, sparse
+/// Merkle trees, Patricia tries, etc.).
+pub trait StateTree {
+    /// The commitment type this tree uses
+    type Commitment;
+    
+    /// The proof type this tree uses
+    type Proof;
+
+    /// Get a value by key
+    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError>;
+    
+    /// Insert a key-value pair
+    fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError>;
+    
+    /// Delete a key-value pair
+    fn delete(&mut self, key: &[u8]) -> Result<(), StateError>;
+    
+    /// Get the root commitment of the tree
+    ///
+    /// # Returns
+    /// * The current root commitment
+    fn root_commitment(&self) -> Self::Commitment;
+    
+    /// Create a proof for a specific key
+    ///
+    /// # Arguments
+    /// * `key` - The key to create a proof for
+    ///
+    /// # Returns
+    /// * `Some(proof)` - If proof creation succeeded
+    /// * `None` - If the key doesn't exist or proof creation isn't supported
+    fn create_proof(&self, key: &[u8]) -> Option<Self::Proof>;
+    
+    /// Verify a proof against the tree's root commitment
+    ///
+    /// # Arguments
+    /// * `commitment` - The commitment to verify against
+    /// * `proof` - The proof to verify
+    /// * `key` - The key the proof is for
+    /// * `value` - The value to verify
+    ///
+    /// # Returns
+    /// * `true` - If the proof is valid
+    /// * `false` - If the proof is invalid or verification isn't supported
+    fn verify_proof(
+        &self,
+        commitment: &Self::Commitment,
+        proof: &Self::Proof,
+        key: &[u8],
+        value: &[u8]
+    ) -> bool;
+}```
+
+###### Directory: core/src/test_utils
+
+####### File: core/src/test_utils/mock_commitment.rs
+####*Size: 8.0K, Lines: 172, Type: ASCII text*
+
+```rust
+//! Mock commitment scheme for testing
+
+use crate::commitment::{CommitmentScheme, ProofContext, SchemeIdentifier, Selector};
+
+/// Mock commitment scheme implementation for testing
+#[derive(Debug, Clone)]
+pub struct MockCommitmentScheme;
+
+/// Mock commitment for testing
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MockCommitment(pub Vec<u8>);
+
+impl AsRef<[u8]> for MockCommitment {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+/// Mock proof for testing
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MockProof {
+    /// Selector used to create this proof
+    pub selector: Selector,
+    /// Value that this proof is for
+    pub value: Vec<u8>,
+}
+
+impl CommitmentScheme for MockCommitmentScheme {
+    type Commitment = MockCommitment;
+    type Proof = MockProof;
+    type Value = Vec<u8>;
+
+    fn commit(&self, values: &[Option<Self::Value>]) -> Self::Commitment {
+        // Implementation actually combines all values into a single commitment
+        let mut combined = Vec::new();
+        for v in values {
+            if let Some(data) = v {
+                combined.extend_from_slice(data.as_ref());
+            }
+        }
+        MockCommitment(combined)
+    }
+
+    fn create_proof(
+        &self,
+        selector: &Selector,
+        value: &Self::Value,
+    ) -> Result<Self::Proof, String> {
+        // Store both selector and value in the proof
+        Ok(MockProof {
+            selector: selector.clone(),
+            value: value.clone(),
+        })
+    }
+
+    fn verify(
+        &self,
+        commitment: &Self::Commitment,
+        proof: &Self::Proof,
+        selector: &Selector,
+        value: &Self::Value,
+        context: &ProofContext,
+    ) -> bool {
+        // 1. Check that selector types match
+        if !matches!(&proof.selector, selector) {
+            return false;
+        }
+
+        // 2. Check value matches - comparing the raw bytes
+        let value_slice: &[u8] = value.as_ref();
+        if proof.value.as_slice() != value_slice {
+            return false;
+        }
+
+        // 3. Use commitment in verification - in real world this would be cryptographic
+        // For our mock, we'll check if the commitment contains the value
+        let commitment_slice: &[u8] = commitment.as_ref();
+        let contains_value = commitment_slice
+            .windows(value_slice.len())
+            .any(|window| window == value_slice);
+        if !contains_value {
+            return false;
+        }
+
+        // 4. Use context for additional verification parameters
+        // In this mock, we'll check if a special "strict_verify" flag is set
+        if let Some(strict_flag) = context.get_data("strict_verify") {
+            if !strict_flag.is_empty() && strict_flag[0] == 1 {
+                // In strict mode, we also check selector-specific rules
+                match selector {
+                    Selector::Position(pos) => {
+                        // Position-based verification
+                        if let Selector::Position(proof_pos) = &proof.selector {
+                            if pos != proof_pos {
+                                return false;
+                            }
+                        } else {
+                            return false;
+                        }
+                    }
+                    Selector::Key(key) => {
+                        // Key-based verification
+                        if let Selector::Key(proof_key) = &proof.selector {
+                            if key != proof_key {
+                                return false;
+                            }
+                        } else {
+                            return false;
+                        }
+                    }
+                    _ => {
+                        // For other selectors, just ensure they match exactly
+                        if proof.selector != *selector {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+
+        // If we made it here, verification passed
+        true
+    }
+
+    fn scheme_id() -> SchemeIdentifier {
+        SchemeIdentifier::new("mock")
+    }
+}
+
+/// Helper functions for testing with mock commitment scheme
+pub mod helpers {
+    use super::*;
+
+    /// Create a mock commitment from a single value
+    pub fn create_commitment<T: AsRef<[u8]>>(value: T) -> MockCommitment {
+        let scheme = MockCommitmentScheme;
+        // Convert to Vec<u8> since the CommitmentScheme's Value type is Vec<u8>
+        scheme.commit(&[Some(value.as_ref().to_vec())])
+    }
+
+    /// Create a mock proof for a value with position selector
+    pub fn create_position_proof<T: AsRef<[u8]>>(
+        position: usize,
+        value: T,
+    ) -> Result<MockProof, String> {
+        let scheme = MockCommitmentScheme;
+        // Convert to Vec<u8> since the CommitmentScheme's Value type is Vec<u8>
+        scheme.create_proof(&Selector::Position(position), &value.as_ref().to_vec())
+    }
+
+    /// Create a mock proof for a value with key selector
+    pub fn create_key_proof<K: AsRef<[u8]>, V: AsRef<[u8]>>(
+        key: K,
+        value: V,
+    ) -> Result<MockProof, String> {
+        let scheme = MockCommitmentScheme;
+        // Convert to Vec<u8> since the CommitmentScheme's Value type is Vec<u8>
+        scheme.create_proof(
+            &Selector::Key(key.as_ref().to_vec()),
+            &value.as_ref().to_vec(),
+        )
+    }
+
+    /// Create a verification context for testing
+    pub fn create_context(strict: bool) -> ProofContext {
+        let mut context = ProofContext::default();
+        if strict {
+            context.add_data("strict_verify", vec![1]);
+        }
+        context
+    }
+}
+```
+
+####### File: core/src/test_utils/mod.rs
+####*Size: 4.0K, Lines: 3, Type: ASCII text*
+
+```rust
+//! Test utilities for the DePIN SDK Core
+
+pub mod mock_commitment;
+```
+
+###### Directory: core/src/transaction
+
+####### Directory: core/src/transaction/tests
+
+######## File: core/src/transaction/tests/mod.rs
+#####*Size: 4.0K, Lines: 1, Type: ASCII text*
+
+```rust
+mod transaction_model_tests;
+```
+
+######## File: core/src/transaction/tests/transaction_model_tests.rs
+#####*Size: 12K, Lines: 351, Type: ASCII text*
+
+```rust
+//! Tests for transaction model trait definitions
+
+#[cfg(test)]
+mod tests {
+    use crate::commitment::{CommitmentScheme, ProofContext, SchemeIdentifier, Selector};
+    use crate::state::StateManager;
+    use crate::transaction::{Error, TransactionModel};
+    use std::collections::HashMap;
+
+    // Mock commitment scheme implementation for testing
+    #[derive(Debug, Clone)]
+    struct MockCommitmentScheme;
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct MockCommitment(Vec<u8>);
+
+    impl AsRef<[u8]> for MockCommitment {
+        fn as_ref(&self) -> &[u8] {
+            &self.0
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct MockProof {
+        position: usize,
+        value: Vec<u8>,
+    }
+
+    impl CommitmentScheme for MockCommitmentScheme {
+        type Commitment = MockCommitment;
+        type Proof = MockProof;
+        type Value = Vec<u8>; // Still using Vec<u8> but will access via as_ref()
+
+        fn commit(&self, values: &[Option<Self::Value>]) -> Self::Commitment {
+            // Simple implementation for testing
+            let mut combined = Vec::new();
+            for v in values {
+                if let Some(data) = v {
+                    combined.extend_from_slice(data.as_ref());
+                }
+            }
+            MockCommitment(combined)
+        }
+
+        fn create_proof(
+            &self,
+            selector: &Selector,
+            value: &Self::Value,
+        ) -> Result<Self::Proof, String> {
+            // Extract position from selector
+            let position = match selector {
+                Selector::Position(pos) => *pos,
+                _ => 0, // Default to position 0 for other selector types
+            };
+
+            Ok(MockProof {
+                position,
+                value: value.clone(),
+            })
+        }
+
+        fn verify(
+            &self,
+            _commitment: &Self::Commitment,
+            proof: &Self::Proof,
+            selector: &Selector,
+            value: &Self::Value,
+            _context: &ProofContext, // Added context parameter
+        ) -> bool {
+            // Extract position from selector if it's a position-based selector
+            match selector {
+                Selector::Position(pos) => proof.position == *pos && proof.value == *value,
+                Selector::Key(_) => proof.value == *value, // For key-based selectors, only check value
+                _ => false, // Other selector types not supported in this implementation
+            }
+        }
+
+        fn scheme_id() -> SchemeIdentifier {
+            SchemeIdentifier::new("mock")
+        }
+    }
+
+    // Mock state manager implementation for testing
+    struct MockStateManager {
+        state: HashMap<Vec<u8>, Vec<u8>>,
+        scheme: MockCommitmentScheme,
+    }
+
+    impl MockStateManager {
+        fn new() -> Self {
+            Self {
+                state: HashMap::new(),
+                scheme: MockCommitmentScheme,
+            }
+        }
+    }
+
+    impl StateManager<MockCommitmentScheme> for MockStateManager {
+        fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
+            self.state.get(key).cloned()
+        }
+
+        fn set(&mut self, key: &[u8], value: &[u8]) -> Result<(), String> {
+            self.state.insert(key.to_vec(), value.to_vec());
+            Ok(())
+        }
+
+        fn delete(&mut self, key: &[u8]) -> Result<(), String> {
+            self.state.remove(key);
+            Ok(())
+        }
+
+        fn root_commitment(&self) -> <MockCommitmentScheme as CommitmentScheme>::Commitment {
+            let values: Vec<Option<Vec<u8>>> =
+                self.state.values().map(|v| Some(v.clone())).collect();
+
+            self.scheme.commit(&values)
+        }
+
+        fn create_proof(
+            &self,
+            key: &[u8],
+        ) -> Option<<MockCommitmentScheme as CommitmentScheme>::Proof> {
+            let value = self.get(key)?;
+            self.scheme
+                .create_proof(&Selector::Position(0), &value)
+                .ok()
+        }
+
+        fn verify_proof(
+            &self,
+            _commitment: &<MockCommitmentScheme as CommitmentScheme>::Commitment,
+            proof: &<MockCommitmentScheme as CommitmentScheme>::Proof,
+            _key: &[u8],
+            value: &[u8],
+        ) -> bool {
+            // Updated to include context parameter and use Position selector
+            self.scheme.verify(
+                &self.root_commitment(),
+                proof,
+                &Selector::Position(proof.position),
+                &value.to_vec(), // Convert slice to Vec<u8> for Value type
+                &ProofContext::default(),
+            )
+        }
+    }
+
+    // Mock transaction model for testing
+
+    // Mock UTXO-style transaction model
+    #[derive(Debug, Clone)]
+    struct MockUTXOTransaction {
+        txid: Vec<u8>,
+        inputs: Vec<MockUTXOInput>,
+        outputs: Vec<MockUTXOOutput>,
+    }
+
+    #[derive(Debug, Clone)]
+    struct MockUTXOInput {
+        prev_txid: Vec<u8>,
+        prev_index: u32,
+        signature: Vec<u8>,
+    }
+
+    #[derive(Debug, Clone)]
+    struct MockUTXOOutput {
+        value: u64,
+        recipient: Vec<u8>,
+    }
+
+    #[derive(Debug, Clone)]
+    struct MockUTXOProof {
+        proof: MockProof,
+    }
+
+    // Mock transaction model implementation
+    struct MockTransactionModel {
+        scheme: MockCommitmentScheme,
+    }
+
+    impl MockTransactionModel {
+        fn new() -> Self {
+            Self {
+                scheme: MockCommitmentScheme,
+            }
+        }
+
+        // Helper method to create a unique UTXO key from txid and output index
+        fn create_utxo_key(txid: &[u8], output_index: u32) -> Vec<u8> {
+            let mut key = txid.to_vec();
+            key.extend_from_slice(&output_index.to_le_bytes());
+            key
+        }
+    }
+
+    impl TransactionModel<MockCommitmentScheme> for MockTransactionModel {
+        type Transaction = MockUTXOTransaction;
+        type Proof = MockUTXOProof;
+
+        fn validate(&self, tx: &Self::Transaction, _commitment: &MockCommitment) -> bool {
+            // Simple validation for testing
+            !tx.inputs.is_empty() && !tx.outputs.is_empty()
+        }
+
+        fn apply(
+            &self,
+            tx: &Self::Transaction,
+            state: &mut dyn StateManager<MockCommitmentScheme>,
+        ) -> Result<(), String> {
+            // Simple application logic for testing
+            for input in &tx.inputs {
+                // Create a key for the UTXO being spent using the helper method
+                let key = Self::create_utxo_key(&input.prev_txid, input.prev_index);
+                state.delete(&key)?;
+            }
+
+            for (i, output) in tx.outputs.iter().enumerate() {
+                // Create a unique key for each output using the helper method
+                let key = Self::create_utxo_key(&tx.txid, i as u32);
+
+                // Simple manual serialization instead of using bincode
+                let mut value = Vec::new();
+                // Serialize value
+                value.extend_from_slice(&output.value.to_le_bytes());
+                // Serialize recipient length
+                value.extend_from_slice(&(output.recipient.len() as u32).to_le_bytes());
+                // Serialize recipient
+                value.extend_from_slice(&output.recipient);
+
+                state.set(&key, &value)?;
+            }
+
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn test_transaction_validation() {
+        let model = MockTransactionModel::new();
+        let commitment = MockCommitment(vec![0]);
+
+        // Valid transaction
+        let valid_tx = MockUTXOTransaction {
+            txid: vec![1, 2, 3],
+            inputs: vec![MockUTXOInput {
+                prev_txid: vec![4, 5, 6],
+                prev_index: 0,
+                signature: vec![7, 8, 9],
+            }],
+            outputs: vec![MockUTXOOutput {
+                value: 100,
+                recipient: vec![10, 11, 12],
+            }],
+        };
+
+        assert!(model.validate(&valid_tx, &commitment));
+
+        // Invalid transaction - no inputs
+        let invalid_tx = MockUTXOTransaction {
+            txid: vec![1, 2, 3],
+            inputs: vec![],
+            outputs: vec![MockUTXOOutput {
+                value: 100,
+                recipient: vec![10, 11, 12],
+            }],
+        };
+
+        assert!(!model.validate(&invalid_tx, &commitment));
+    }
+
+    #[test]
+    fn test_transaction_application() {
+        let model = MockTransactionModel::new();
+        let mut state = MockStateManager::new();
+
+        // Set up initial state
+        let prev_txid = vec![4, 5, 6];
+        let prev_index = 0;
+
+        // Create the UTXO key using the helper method
+        let prev_utxo_key = MockTransactionModel::create_utxo_key(&prev_txid, prev_index);
+
+        // Simple manual serialization instead of using bincode
+        let mut prev_output = Vec::new();
+        // Serialize value
+        prev_output.extend_from_slice(&100u64.to_le_bytes());
+        // Serialize recipient length
+        prev_output.extend_from_slice(&(3u32).to_le_bytes());
+        // Serialize recipient
+        prev_output.extend_from_slice(&[7, 8, 9]);
+
+        state.set(&prev_utxo_key, &prev_output).unwrap();
+
+        // Create and apply transaction
+        let tx = MockUTXOTransaction {
+            txid: vec![1, 2, 3],
+            inputs: vec![MockUTXOInput {
+                prev_txid: prev_txid.clone(),
+                prev_index,
+                signature: vec![10, 11, 12],
+            }],
+            outputs: vec![
+                MockUTXOOutput {
+                    value: 50,
+                    recipient: vec![13, 14, 15],
+                },
+                MockUTXOOutput {
+                    value: 50,
+                    recipient: vec![16, 17, 18],
+                },
+            ],
+        };
+
+        model.apply(&tx, &mut state).unwrap();
+
+        // Verify state changes
+        assert_eq!(state.get(&prev_utxo_key), None); // Input was spent
+
+        // Check that both outputs were created with their proper keys
+        let output0_key = MockTransactionModel::create_utxo_key(&tx.txid, 0);
+        let output1_key = MockTransactionModel::create_utxo_key(&tx.txid, 1);
+
+        assert!(state.get(&output0_key).is_some()); // First output was created
+        assert!(state.get(&output1_key).is_some()); // Second output was created
+    }
+
+    #[test]
+    fn test_error_handling() {
+        // Test the Error enum formatting
+        let invalid_error = Error::Invalid("test error".to_string());
+        let insufficient_error = Error::InsufficientFunds;
+        let nonce_error = Error::NonceMismatch;
+        let signature_error = Error::InvalidSignature;
+        let other_error = Error::Other("other error".to_string());
+
+        assert_eq!(
+            format!("{}", invalid_error),
+            "Invalid transaction: test error"
+        );
+        assert_eq!(format!("{}", insufficient_error), "Insufficient funds");
+        assert_eq!(format!("{}", nonce_error), "Nonce mismatch");
+        assert_eq!(format!("{}", signature_error), "Invalid signature");
+        assert_eq!(format!("{}", other_error), "Other error: other error");
+    }
+
+    // TODO: Add more comprehensive tests covering:
+    // - Different transaction models (UTXO, account-based)
+    // - Transaction validation rules
+    // - Error cases in transaction application
+    // - Complex state changes
+}
+```
+
+####### File: core/src/transaction/mod.rs
+####*Size: 8.0K, Lines: 170, Type: ASCII text*
+
+```rust
+// File: crates/core/src/transaction/mod.rs
+
+use std::any::Any;
+use crate::error::TransactionError;
+use crate::state::StateManager;
+use crate::commitment::CommitmentScheme;
+
+/// Core transaction model trait that defines the interface for all transaction models.
+///
+/// This trait is intentionally model-agnostic, allowing for different implementations
+/// (UTXO, account-based, hybrid, etc.) while providing a consistent interface.
+pub trait TransactionModel {
+    /// The transaction type for this model
+    type Transaction;
+    
+    /// The proof type for this model
+    type Proof;
+    
+    /// The commitment scheme used by this model
+    type CommitmentScheme: CommitmentScheme;
+
+    /// Validate a transaction against the current state.
+    ///
+    /// # Arguments
+    /// * `tx` - The transaction to validate.
+    /// * `state` - The state to validate against.
+    ///
+    /// # Returns
+    /// * `Ok(true)` - If the transaction is valid.
+    /// * `Ok(false)` - If the transaction is invalid.
+    /// * `Err(TransactionError)` - If an error occurred during validation.
+    fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<bool, TransactionError>
+    where
+        S: StateManager<
+            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof
+        > + ?Sized;
+
+    /// Apply a transaction to the state.
+    ///
+    /// # Arguments
+    /// * `tx` - The transaction to apply.
+    /// * `state` - The state to modify.
+    ///
+    /// # Returns
+    /// * `Ok(())` - If the transaction was successfully applied.
+    /// * `Err(TransactionError)` - If an error occurred during application.
+    fn apply<S>(&self, tx: &Self::Transaction, state: &mut S) -> Result<(), TransactionError>
+    where
+        S: StateManager<
+            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof
+        > + ?Sized;
+    
+    /// Generate a proof for a transaction.
+    ///
+    /// # Arguments
+    /// * `tx` - The transaction to generate a proof for.
+    /// * `state` - The state to generate the proof against.
+    ///
+    /// # Returns
+    /// * `Ok(proof)` - If the proof was successfully generated.
+    /// * `Err(TransactionError)` - If an error occurred during proof generation.
+    fn generate_proof<S>(&self, tx: &Self::Transaction, state: &S) -> Result<Self::Proof, TransactionError>
+    where
+        S: StateManager<
+            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof
+        > + ?Sized;
+    
+    /// Verify a proof for a transaction.
+    ///
+    /// # Arguments
+    /// * `proof` - The proof to verify.
+    /// * `state` - The state to verify against.
+    ///
+    /// # Returns
+    /// * `Ok(true)` - If the proof is valid.
+    /// * `Ok(false)` - If the proof is invalid.
+    /// * `Err(TransactionError)` - If an error occurred during verification.
+    fn verify_proof<S>(&self, proof: &Self::Proof, state: &S) -> Result<bool, TransactionError>
+    where
+        S: StateManager<
+            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof
+        > + ?Sized;
+    
+    /// Serialize a transaction to bytes.
+    ///
+    /// # Arguments
+    /// * `tx` - The transaction to serialize.
+    ///
+    /// # Returns
+    /// * `Ok(bytes)` - The serialized transaction.
+    /// * `Err(TransactionError)` - If an error occurred during serialization.
+    fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError>;
+    
+    /// Deserialize bytes to a transaction.
+    ///
+    /// # Arguments
+    /// * `data` - The serialized transaction.
+    ///
+    /// # Returns
+    /// * `Ok(transaction)` - The deserialized transaction.
+    /// * `Err(TransactionError)` - If an error occurred during deserialization.
+    fn deserialize_transaction(&self, data: &[u8]) -> Result<Self::Transaction, TransactionError>;
+
+    /// Optional extension point for model-specific functionality.
+    ///
+    /// This allows models to expose additional functionality beyond the core interface
+    /// without breaking the common abstraction.
+    ///
+    /// # Returns
+    /// * `Some(extensions)` - A reference to model-specific extensions.
+    /// * `None` - If no extensions are available.
+    fn get_model_extensions(&self) -> Option<&dyn Any> {
+        None
+    }
+}
+
+/// Registry for managing multiple transaction models.
+///
+/// This provides runtime selection capabilities when compile-time selection
+/// through feature flags is not feasible.
+#[derive(Default)]
+pub struct TransactionModelRegistry {
+    models: std::collections::HashMap<String, Box<dyn Any>>,
+}
+
+impl TransactionModelRegistry {
+    /// Create a new empty registry.
+    pub fn new() -> Self {
+        Self {
+            models: std::collections::HashMap::new(),
+        }
+    }
+    
+    /// Register a transaction model.
+    ///
+    /// # Arguments
+    /// * `name` - The name to register the model under.
+    /// * `model` - The model to register.
+    pub fn register<T: TransactionModel + 'static>(&mut self, name: &str, model: T) {
+        self.models.insert(name.to_string(), Box::new(model));
+    }
+    
+    /// Get a registered transaction model.
+    ///
+    /// # Arguments
+    /// * `name` - The name of the model to retrieve.
+    ///
+    /// # Returns
+    /// * `Some(model)` - The requested model.
+    /// * `None` - If no model is registered under the given name.
+    pub fn get<T: 'static>(&self, name: &str) -> Option<&T> {
+        self.models.get(name)
+            .and_then(|model| model.downcast_ref::<T>())
+    }
+    
+    /// Check if a model is registered.
+    ///
+    /// # Arguments
+    /// * `name` - The name to check.
+    ///
+    /// # Returns
+    /// * `true` - If a model is registered under the given name.
+    /// * `false` - Otherwise.
+    pub fn has_model(&self, name: &str) -> bool {
+        self.models.contains_key(name)
+    }
+}```
+
+###### Directory: core/src/types
+
+####### File: core/src/types/mod.rs
+####*Size: 4.0K, Lines: 46, Type: ASCII text*
+
+```rust
+//! Type aliases and common types for the DePIN SDK
+
+use crate::commitment::CommitmentScheme;
+use crate::state::StateManager;
+use crate::transaction::TransactionModel;
+
+/// Type aliases for commitment schemes
+pub mod commitment {
+    use super::*;
+
+    /// The commitment type for a given commitment scheme
+    pub type CommitmentOf<CS> = <CS as CommitmentScheme>::Commitment;
+
+    /// The proof type for a given commitment scheme  
+    pub type ProofOf<CS> = <CS as CommitmentScheme>::Proof;
+
+    /// The value type for a given commitment scheme
+    pub type ValueOf<CS> = <CS as CommitmentScheme>::Value;
+}
+
+/// Type aliases for state management
+pub mod state {
+    use super::*;
+
+    /// Type alias for a state manager that uses a specific commitment scheme
+    pub type StateManagerFor<CS> 
+    where 
+        CS: CommitmentScheme,
+    = dyn StateManager<
+        Commitment = <CS as CommitmentScheme>::Commitment,
+        Proof = <CS as CommitmentScheme>::Proof,
+    >;
+}
+
+/// Type aliases for transaction models
+pub mod transaction {
+    use super::*;
+
+    /// Transaction type for a transaction model
+    pub type TransactionOf<TM> = <TM as TransactionModel>::Transaction;
+
+    /// Proof type for a transaction model
+    pub type ProofOf<TM> = <TM as TransactionModel>::Proof;
+
+    /// Commitment scheme type for a transaction model
+    pub type CommitmentSchemeOf<TM> = <TM as TransactionModel>::CommitmentScheme;
+}```
+
+###### Directory: core/src/validator
+
+####### Directory: core/src/validator/tests
+
+######## File: core/src/validator/tests/mod.rs
+#####*Size: 8.0K, Lines: 241, Type: ASCII text*
+
+```rust
+//! Tests for validator architecture trait definitions
+
+#[cfg(test)]
+mod tests {
+    use crate::validator::container::GuardianContainer;
+    use crate::validator::{Container, ValidatorModel, ValidatorType};
+
+    // Mock container implementation for testing
+    struct MockContainer {
+        id: String,
+        running: bool,
+    }
+
+    impl MockContainer {
+        fn new(id: &str) -> Self {
+            Self {
+                id: id.to_string(),
+                running: false,
+            }
+        }
+    }
+
+    impl Container for MockContainer {
+        fn start(&self) -> Result<(), String> {
+            // In a real implementation, this would start the container
+            Ok(())
+        }
+
+        fn stop(&self) -> Result<(), String> {
+            // In a real implementation, this would stop the container
+            Ok(())
+        }
+
+        fn is_running(&self) -> bool {
+            self.running
+        }
+
+        fn id(&self) -> &str {
+            &self.id
+        }
+    }
+
+    // Mock guardian container implementation for testing
+    struct MockGuardianContainer {
+        container: MockContainer,
+    }
+
+    impl MockGuardianContainer {
+        fn new(id: &str) -> Self {
+            Self {
+                container: MockContainer::new(id),
+            }
+        }
+    }
+
+    impl Container for MockGuardianContainer {
+        fn start(&self) -> Result<(), String> {
+            self.container.start()
+        }
+
+        fn stop(&self) -> Result<(), String> {
+            self.container.stop()
+        }
+
+        fn is_running(&self) -> bool {
+            self.container.is_running()
+        }
+
+        fn id(&self) -> &str {
+            self.container.id()
+        }
+    }
+
+    impl GuardianContainer for MockGuardianContainer {
+        fn start_boot(&self) -> Result<(), String> {
+            // In a real implementation, this would start the boot process
+            Ok(())
+        }
+
+        fn verify_attestation(&self) -> Result<bool, String> {
+            // In a real implementation, this would verify attestation
+            Ok(true)
+        }
+    }
+
+    // Mock validator model implementation for testing
+    struct MockStandardValidator {
+        guardian: MockGuardianContainer,
+        orchestration: MockContainer,
+        workload: MockContainer,
+        running: bool,
+    }
+
+    impl MockStandardValidator {
+        fn new() -> Self {
+            Self {
+                guardian: MockGuardianContainer::new("guardian"),
+                orchestration: MockContainer::new("orchestration"),
+                workload: MockContainer::new("workload"),
+                running: false,
+            }
+        }
+    }
+
+    impl ValidatorModel for MockStandardValidator {
+        fn start(&self) -> Result<(), String> {
+            // In a real implementation, this would start all containers in the correct order
+            self.guardian.start_boot()?;
+            self.orchestration.start()?;
+            self.workload.start()?;
+            Ok(())
+        }
+
+        fn stop(&self) -> Result<(), String> {
+            // In a real implementation, this would stop all containers in the correct order
+            self.workload.stop()?;
+            self.orchestration.stop()?;
+            Ok(())
+        }
+
+        fn is_running(&self) -> bool {
+            self.running
+        }
+
+        fn validator_type(&self) -> ValidatorType {
+            ValidatorType::Standard
+        }
+    }
+
+    // Mock hybrid validator implementation for testing
+    struct MockHybridValidator {
+        guardian: MockGuardianContainer,
+        orchestration: MockContainer,
+        workload: MockContainer,
+        interface: MockContainer,
+        api: MockContainer,
+        running: bool,
+    }
+
+    impl MockHybridValidator {
+        fn new() -> Self {
+            Self {
+                guardian: MockGuardianContainer::new("guardian"),
+                orchestration: MockContainer::new("orchestration"),
+                workload: MockContainer::new("workload"),
+                interface: MockContainer::new("interface"),
+                api: MockContainer::new("api"),
+                running: false,
+            }
+        }
+    }
+
+    impl ValidatorModel for MockHybridValidator {
+        fn start(&self) -> Result<(), String> {
+            // In a real implementation, this would start all containers in the correct order
+            self.guardian.start_boot()?;
+            self.orchestration.start()?;
+            self.workload.start()?;
+            self.interface.start()?;
+            self.api.start()?;
+            Ok(())
+        }
+
+        fn stop(&self) -> Result<(), String> {
+            // In a real implementation, this would stop all containers in the correct order
+            self.api.stop()?;
+            self.interface.stop()?;
+            self.workload.stop()?;
+            self.orchestration.stop()?;
+            Ok(())
+        }
+
+        fn is_running(&self) -> bool {
+            self.running
+        }
+
+        fn validator_type(&self) -> ValidatorType {
+            ValidatorType::Hybrid
+        }
+    }
+
+    #[test]
+    fn test_container() {
+        let container = MockContainer::new("test-container");
+
+        assert_eq!(container.id(), "test-container");
+        assert!(!container.is_running());
+
+        container.start().unwrap();
+        container.stop().unwrap();
+    }
+
+    #[test]
+    fn test_guardian_container() {
+        let guardian = MockGuardianContainer::new("guardian");
+
+        assert_eq!(guardian.id(), "guardian");
+        assert!(!guardian.is_running());
+
+        guardian.start().unwrap();
+        guardian.start_boot().unwrap();
+        assert!(guardian.verify_attestation().unwrap());
+        guardian.stop().unwrap();
+    }
+
+    #[test]
+    fn test_standard_validator() {
+        let validator = MockStandardValidator::new();
+
+        assert_eq!(validator.validator_type(), ValidatorType::Standard);
+        assert!(!validator.is_running());
+
+        validator.start().unwrap();
+        validator.stop().unwrap();
+    }
+
+    #[test]
+    fn test_hybrid_validator() {
+        let validator = MockHybridValidator::new();
+
+        assert_eq!(validator.validator_type(), ValidatorType::Hybrid);
+        assert!(!validator.is_running());
+
+        validator.start().unwrap();
+        validator.stop().unwrap();
+    }
+
+    #[test]
+    fn test_validator_type_comparison() {
+        assert_eq!(ValidatorType::Standard, ValidatorType::Standard);
+        assert_eq!(ValidatorType::Hybrid, ValidatorType::Hybrid);
+        assert_ne!(ValidatorType::Standard, ValidatorType::Hybrid);
+    }
+
+    // TODO: Add more comprehensive tests covering:
+    // - Container lifecycle management
+    // - Error handling in container operations
+    // - Security boundaries between containers
+    // - Container attestation verification
+    // - Complex validator configurations
+}
+```
+
+####### File: core/src/validator/container.rs
+####*Size: 4.0K, Lines: 25, Type: ASCII text*
+
+```rust
+//! Container interface definitions
+
+/// Container interface
+pub trait Container {
+    /// Start the container
+    fn start(&self) -> Result<(), String>;
+    
+    /// Stop the container
+    fn stop(&self) -> Result<(), String>;
+    
+    /// Check if the container is running
+    fn is_running(&self) -> bool;
+    
+    /// Get the container ID
+    fn id(&self) -> &str;
+}
+
+/// Guardian container interface
+pub trait GuardianContainer: Container {
+    /// Start the boot process
+    fn start_boot(&self) -> Result<(), String>;
+    
+    /// Verify attestation
+    fn verify_attestation(&self) -> Result<bool, String>;
+}
+```
+
+####### File: core/src/validator/mod.rs
+####*Size: 4.0K, Lines: 10, Type: ASCII text*
+
+```rust
+//! Validator architecture trait definitions
+
+mod container;
+mod types;
+
+#[cfg(test)]
+mod tests;
+
+pub use container::*;
+pub use types::*;
+```
+
+####### File: core/src/validator/types.rs
+####*Size: 4.0K, Lines: 25, Type: ASCII text*
+
+```rust
+//! Validator type definitions
+
+/// Validator model trait
+pub trait ValidatorModel {
+    /// Start the validator
+    fn start(&self) -> Result<(), String>;
+    
+    /// Stop the validator
+    fn stop(&self) -> Result<(), String>;
+    
+    /// Check if the validator is running
+    fn is_running(&self) -> bool;
+    
+    /// Get the validator type
+    fn validator_type(&self) -> ValidatorType;
+}
+
+/// Validator types
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ValidatorType {
+    /// Standard validator (3 containers)
+    Standard,
+    /// Hybrid validator (5 containers)
+    Hybrid,
+}
+```
+
+###### File: core/src/lib.rs
+###*Size: 4.0K, Lines: 30, Type: ASCII text*
+
+```rust
+//! # DePIN SDK Core
+//!
+//! Core traits and interfaces for the DePIN SDK.
+
+pub mod component;
+pub mod crypto;
+pub mod error;
+pub mod homomorphic;
+pub mod services;
+pub mod commitment;
+pub mod state;
+pub mod types;
+pub mod ibc;
+pub mod transaction;
+pub mod validator;
+
+// Only include test utilities when running tests
+#[cfg(test)]
+pub mod test_utils;
+
+// Re-export key traits and types for convenience
+pub use commitment::*;
+pub use component::*;
+pub use crypto::*;
+pub use error::*;
+pub use homomorphic::*;
+pub use ibc::*;
+pub use services::*;
+pub use state::*;
+pub use transaction::*;
+pub use validator::*;```
+
+##### File: core/Cargo.toml
+##*Size: 4.0K, Lines: 18, Type: ASCII text*
+
+```toml
+[package]
+name = "depin-sdk-core"
+version = "0.1.0"
+edition = "2021"
+description = "Core traits and interfaces for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+log = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+bytes = { workspace = true }
+anyhow = { workspace = true }
+
+[features]
+default = []
+post-quantum = []
+homomorphic = []
+```
+
+#### Directory: crypto
+
+##### Directory: crypto/src
+
+###### Directory: crypto/src/algorithms
+
+####### Directory: crypto/src/algorithms/hash
+
+######## File: crypto/src/algorithms/hash/mod.rs
+#####*Size: 4.0K, Lines: 104, Type: ASCII text*
+
+```rust
+// crates/crypto/src/algorithms/hash/mod.rs
+//! Cryptographic hash functions using dcrypt
+
+use dcrypt::algorithms::hash::sha2::{Sha256 as DcryptSha256, Sha512 as DcryptSha512};
+use dcrypt::algorithms::hash::{HashFunction as DcryptHashFunction};
+use dcrypt::algorithms::ByteSerializable;
+
+pub mod tests;
+
+/// Hash function trait
+pub trait HashFunction {
+    /// Hash a message and return the digest
+    fn hash(&self, message: &[u8]) -> Vec<u8>;
+    
+    /// Get the digest size in bytes
+    fn digest_size(&self) -> usize;
+    
+    /// Get the name of the hash function
+    fn name(&self) -> &str;
+}
+
+/// SHA-256 hash function implementation using dcrypt
+#[derive(Default, Clone)]
+pub struct Sha256Hash;
+
+impl HashFunction for Sha256Hash {
+    fn hash(&self, message: &[u8]) -> Vec<u8> {
+        // Use dcrypt's SHA-256 implementation
+        match DcryptSha256::digest(message) {
+            Ok(digest) => digest.to_bytes(),
+            Err(_) => panic!("SHA-256 hashing failed"),
+        }
+    }
+    
+    fn digest_size(&self) -> usize {
+        32 // 256 bits = 32 bytes
+    }
+    
+    fn name(&self) -> &str {
+        "SHA-256"
+    }
+}
+
+/// SHA-512 hash function implementation using dcrypt
+#[derive(Default, Clone)]
+pub struct Sha512Hash;
+
+impl HashFunction for Sha512Hash {
+    fn hash(&self, message: &[u8]) -> Vec<u8> {
+        // Use dcrypt's SHA-512 implementation
+        match DcryptSha512::digest(message) {
+            Ok(digest) => digest.to_bytes(),
+            Err(_) => panic!("SHA-512 hashing failed"),
+        }
+    }
+    
+    fn digest_size(&self) -> usize {
+        64 // 512 bits = 64 bytes
+    }
+    
+    fn name(&self) -> &str {
+        "SHA-512"
+    }
+}
+
+/// Generic hasher that can use any hash function
+pub struct GenericHasher<H: HashFunction> {
+    /// Hash function implementation
+    hash_function: H,
+}
+
+impl<H: HashFunction> GenericHasher<H> {
+    /// Create a new hasher with the given hash function
+    pub fn new(hash_function: H) -> Self {
+        Self { hash_function }
+    }
+    
+    /// Hash a message
+    pub fn hash(&self, message: &[u8]) -> Vec<u8> {
+        self.hash_function.hash(message)
+    }
+    
+    /// Get the digest size in bytes
+    pub fn digest_size(&self) -> usize {
+        self.hash_function.digest_size()
+    }
+    
+    /// Get the name of the hash function
+    pub fn name(&self) -> &str {
+        self.hash_function.name()
+    }
+}
+
+// Additional convenience functions
+/// Create a SHA-256 hash of any type that can be referenced as bytes
+pub fn sha256<T: AsRef<[u8]>>(data: T) -> Vec<u8> {
+    let hasher = Sha256Hash::default();
+    hasher.hash(data.as_ref())
+}
+
+/// Create a SHA-512 hash of any type that can be referenced as bytes
+pub fn sha512<T: AsRef<[u8]>>(data: T) -> Vec<u8> {
+    let hasher = Sha512Hash::default();
+    hasher.hash(data.as_ref())
+}```
+
+######## File: crypto/src/algorithms/hash/tests.rs
+#####*Size: 4.0K, Lines: 44, Type: ASCII text*
+
+```rust
+//! Tests for hash function implementations
+
+#[cfg(test)]
+mod tests {
+    use super::super::*;
+
+    #[test]
+    fn test_hash_functions() {
+        let message = b"test message";
+
+        let sha256 = Sha256Hash::default();
+        let sha512 = Sha512Hash::default();
+
+        let sha256_hash = sha256.hash(message);
+        let sha512_hash = sha512.hash(message);
+
+        assert_eq!(sha256_hash.len(), sha256.digest_size());
+        assert_eq!(sha512_hash.len(), sha512.digest_size());
+
+        assert_eq!(sha256.digest_size(), 32);
+        assert_eq!(sha512.digest_size(), 64);
+
+        // Verify deterministic behavior
+        assert_eq!(sha256.hash(message), sha256.hash(message));
+        assert_eq!(sha512.hash(message), sha512.hash(message));
+    }
+
+    #[test]
+    fn test_generic_hasher() {
+        let message = b"test message";
+
+        let sha256_hasher = GenericHasher::new(Sha256Hash::default());
+        let sha512_hasher = GenericHasher::new(Sha512Hash::default());
+
+        let sha256_hash = sha256_hasher.hash(message);
+        let sha512_hash = sha512_hasher.hash(message);
+
+        assert_eq!(sha256_hash.len(), sha256_hasher.digest_size());
+        assert_eq!(sha512_hash.len(), sha512_hasher.digest_size());
+
+        assert_eq!(sha256_hasher.digest_size(), 32);
+        assert_eq!(sha512_hasher.digest_size(), 64);
+    }
+}
+```
+
+####### File: crypto/src/algorithms/mod.rs
+####*Size: 4.0K, Lines: 0, Type: ASCII text, with no line terminators*
+
+```rust
+pub mod hash;```
+
+###### Directory: crypto/src/kem
+
+####### Directory: crypto/src/kem/ecdh
+
+######## Directory: crypto/src/kem/ecdh/tests
+
+######### File: crypto/src/kem/ecdh/tests/mod.rs
+######*Size: 8.0K, Lines: 157, Type: ASCII text*
+
+```rust
+// crates/crypto/src/kem/ecdh/tests/mod.rs
+use super::*;
+use crate::security::SecurityLevel;
+use depin_sdk_core::crypto::{Encapsulated, KeyEncapsulation, KemKeyPair, DecapsulationKey, EncapsulationKey};
+
+#[test]
+fn test_ecdh_keypair_generation() {
+    // Test P256 curve (K256)
+    let curve = EcdhCurve::P256;
+    let kem = EcdhKEM::new(curve);
+    let keypair = kem.generate_keypair();
+
+    // Verify key sizes match the expected sizes for K256
+    assert_eq!(keypair.public_key.to_bytes().len(), 33); // Compressed K256 point
+    assert_eq!(keypair.private_key.to_bytes().len(), 32); // K256 scalar
+
+    // Ensure keys are different
+    assert_ne!(
+        keypair.public_key.to_bytes(),
+        keypair.private_key.to_bytes()
+    );
+}
+
+#[test]
+#[should_panic(expected = "P384 and P521 curves are not yet implemented")]
+fn test_ecdh_p384_not_implemented() {
+    let kem = EcdhKEM::new(EcdhCurve::P384);
+    kem.generate_keypair();
+}
+
+#[test]
+#[should_panic(expected = "P384 and P521 curves are not yet implemented")]
+fn test_ecdh_p521_not_implemented() {
+    let kem = EcdhKEM::new(EcdhCurve::P521);
+    kem.generate_keypair();
+}
+
+#[test]
+fn test_ecdh_encapsulation() {
+    let curve = EcdhCurve::P256;
+    let kem = EcdhKEM::new(curve);
+    let keypair = kem.generate_keypair();
+
+    // Encapsulate a key
+    let encapsulated = kem.encapsulate(&keypair.public_key);
+
+    // Verify the encapsulated data sizes
+    assert_eq!(encapsulated.ciphertext().len(), 33); // Compressed K256 point
+    assert_eq!(encapsulated.shared_secret().len(), 32); // SHA-256 output
+
+    // Decapsulate and verify
+    let shared_secret = kem.decapsulate(&keypair.private_key, &encapsulated);
+
+    // We should get a valid shared secret
+    assert!(shared_secret.is_some());
+    let shared_secret = shared_secret.unwrap();
+
+    // The shared secret should match what's in the encapsulated key
+    assert_eq!(shared_secret, encapsulated.shared_secret());
+}
+
+#[test]
+fn test_ecdh_security_level_mapping() {
+    // Test Level1 -> P256
+    let kem = EcdhKEM::with_security_level(SecurityLevel::Level1);
+    assert_eq!(kem.curve, EcdhCurve::P256);
+
+    // Test Level3 -> P384
+    let kem = EcdhKEM::with_security_level(SecurityLevel::Level3);
+    assert_eq!(kem.curve, EcdhCurve::P384);
+
+    // Test Level5 -> P521
+    let kem = EcdhKEM::with_security_level(SecurityLevel::Level5);
+    assert_eq!(kem.curve, EcdhCurve::P521);
+}
+
+#[test]
+fn test_ecdh_serialization() {
+    let kem = EcdhKEM::new(EcdhCurve::P256);
+    let keypair = kem.generate_keypair();
+
+    // Serialize keys
+    let public_key_bytes = keypair.public_key.to_bytes();
+    let private_key_bytes = keypair.private_key.to_bytes();
+
+    // Deserialize keys
+    let restored_public_key = EcdhPublicKey::from_bytes(&public_key_bytes).unwrap();
+    let restored_private_key = EcdhPrivateKey::from_bytes(&private_key_bytes).unwrap();
+
+    // Encapsulate with original key
+    let encapsulated = kem.encapsulate(&keypair.public_key);
+    let ciphertext_bytes = encapsulated.to_bytes();
+
+    // Deserialize ciphertext
+    let restored_encapsulated = EcdhEncapsulated::from_bytes(&ciphertext_bytes).unwrap();
+
+    // Decapsulate with restored key and restored ciphertext
+    let shared_secret = kem.decapsulate(&restored_private_key, &restored_encapsulated);
+
+    // We should still get a valid shared secret
+    assert!(shared_secret.is_some());
+
+    // Verify that different key pairs produce different shared secrets
+    let keypair2 = kem.generate_keypair();
+    let encapsulated2 = kem.encapsulate(&keypair2.public_key);
+
+    // Different key pairs should generate different shared secrets
+    assert_ne!(encapsulated.shared_secret(), encapsulated2.shared_secret());
+
+    // Different public keys should produce different ciphertexts
+    assert_ne!(encapsulated.ciphertext(), encapsulated2.ciphertext());
+
+    // Decapsulating with the wrong private key should produce a different result
+    let wrong_shared_secret = kem.decapsulate(&keypair2.private_key, &encapsulated);
+    assert!(wrong_shared_secret.is_some());
+    assert_ne!(wrong_shared_secret.unwrap(), encapsulated.shared_secret());
+}
+
+#[test]
+fn test_ecdh_dcrypt_compatibility() {
+    // Test that the dcrypt wrapper works correctly
+    let kem = EcdhKEM::new(EcdhCurve::P256);
+    let keypair1 = kem.generate_keypair();
+    let keypair2 = kem.generate_keypair();
+
+    // Test encapsulation/decapsulation cycle
+    let encapsulated = kem.encapsulate(&keypair1.public_key);
+    let shared_secret = kem.decapsulate(&keypair1.private_key, &encapsulated);
+    
+    assert!(shared_secret.is_some());
+    assert_eq!(shared_secret.unwrap().len(), 32); // K256 produces 32-byte shared secrets
+
+    // Test that using wrong keys produces different results
+    let wrong_secret = kem.decapsulate(&keypair2.private_key, &encapsulated);
+    assert!(wrong_secret.is_some());
+    assert_ne!(wrong_secret.unwrap(), encapsulated.shared_secret());
+}
+
+#[test]
+fn test_ecdh_independent_verification() {
+    // Test that keys can be used independently
+    let kem = EcdhKEM::new(EcdhCurve::P256);
+    let keypair = kem.generate_keypair();
+    
+    // Serialize and deserialize to ensure independence
+    let pk_bytes = keypair.public_key.to_bytes();
+    let sk_bytes = keypair.private_key.to_bytes();
+    
+    let pk = EcdhPublicKey::from_bytes(&pk_bytes).unwrap();
+    let sk = EcdhPrivateKey::from_bytes(&sk_bytes).unwrap();
+    
+    // Use the deserialized keys
+    let encapsulated = kem.encapsulate(&pk);
+    let shared_secret = kem.decapsulate(&sk, &encapsulated);
+    
+    assert!(shared_secret.is_some());
+    assert_eq!(shared_secret.unwrap(), encapsulated.shared_secret());
+}```
+
+######## File: crypto/src/kem/ecdh/mod.rs
+#####*Size: 12K, Lines: 276, Type: ASCII text*
+
+```rust
+// crates/crypto/src/kem/ecdh/mod.rs
+//! ECDH key encapsulation mechanism using dcrypt
+
+use crate::security::SecurityLevel;
+use depin_sdk_core::crypto::{
+    DecapsulationKey, Encapsulated, EncapsulationKey, KemKeyPair, KeyEncapsulation,
+    SerializableKey,
+};
+use dcrypt::api::Kem;
+use dcrypt::kem::ecdh::{
+    EcdhK256,
+    EcdhK256Ciphertext,
+    EcdhK256PublicKey,
+    EcdhK256SecretKey,
+    EcdhK256SharedSecret,
+    // Note: dcrypt might not have P384/P521 implementations yet
+    // This is a simplified version using only K256
+};
+use rand::{CryptoRng, RngCore};
+
+/// ECDH curve type
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EcdhCurve {
+    /// NIST P-256 curve (128-bit security) - using K256 (secp256k1) as substitute
+    P256,
+    /// NIST P-384 curve (192-bit security) - not available in dcrypt
+    P384,
+    /// NIST P-521 curve (256-bit security) - not available in dcrypt
+    P521,
+}
+
+impl EcdhCurve {
+    /// Get the appropriate curve for a security level
+    pub fn from_security_level(level: SecurityLevel) -> Self {
+        match level {
+            SecurityLevel::Level1 => EcdhCurve::P256,
+            SecurityLevel::Level3 => EcdhCurve::P384,
+            SecurityLevel::Level5 => EcdhCurve::P521,
+            _ => EcdhCurve::P256, // Default to P256
+        }
+    }
+}
+
+/// ECDH key encapsulation mechanism
+pub struct EcdhKEM {
+    /// The curve to use
+    pub(crate) curve: EcdhCurve,
+}
+
+/// ECDH key pair
+pub struct EcdhKeyPair {
+    /// Public key
+    pub public_key: EcdhPublicKey,
+    /// Private key
+    pub private_key: EcdhPrivateKey,
+    /// Curve type
+    curve: EcdhCurve,
+}
+
+/// ECDH public key wrapper
+#[derive(Clone)]
+pub enum EcdhPublicKey {
+    K256(EcdhK256PublicKey),
+    // P384 and P521 would need their own dcrypt implementations
+    P384(Vec<u8>), // Placeholder
+    P521(Vec<u8>), // Placeholder
+}
+
+/// ECDH private key wrapper
+#[derive(Clone)]
+pub enum EcdhPrivateKey {
+    K256(EcdhK256SecretKey),
+    // P384 and P521 would need their own dcrypt implementations
+    P384(Vec<u8>), // Placeholder
+    P521(Vec<u8>), // Placeholder
+}
+
+/// ECDH encapsulated key
+pub struct EcdhEncapsulated {
+    /// Ciphertext
+    ciphertext: Vec<u8>,
+    /// Shared secret
+    shared_secret: Vec<u8>,
+    /// Curve type
+    curve: EcdhCurve,
+}
+
+impl EcdhKEM {
+    /// Create a new ECDH KEM with the specified curve
+    pub fn new(curve: EcdhCurve) -> Self {
+        Self { curve }
+    }
+
+    /// Create a new ECDH KEM with the specified security level
+    pub fn with_security_level(level: SecurityLevel) -> Self {
+        Self {
+            curve: EcdhCurve::from_security_level(level),
+        }
+    }
+}
+
+impl KeyEncapsulation for EcdhKEM {
+    type KeyPair = EcdhKeyPair;
+    type PublicKey = EcdhPublicKey;
+    type PrivateKey = EcdhPrivateKey;
+    type Encapsulated = EcdhEncapsulated;
+
+    fn generate_keypair(&self) -> Self::KeyPair {
+        let mut rng = rand::thread_rng();
+        
+        match self.curve {
+            EcdhCurve::P256 => {
+                // Use K256 from dcrypt
+                let (pk, sk) = EcdhK256::keypair(&mut rng)
+                    .expect("Failed to generate K256 keypair");
+                EcdhKeyPair {
+                    public_key: EcdhPublicKey::K256(pk),
+                    private_key: EcdhPrivateKey::K256(sk),
+                    curve: self.curve,
+                }
+            }
+            EcdhCurve::P384 | EcdhCurve::P521 => {
+                // Not implemented in dcrypt yet
+                panic!("P384 and P521 curves are not yet implemented in dcrypt");
+            }
+        }
+    }
+
+    fn encapsulate(&self, public_key: &Self::PublicKey) -> Self::Encapsulated {
+        let mut rng = rand::thread_rng();
+        
+        match (self.curve, public_key) {
+            (EcdhCurve::P256, EcdhPublicKey::K256(pk)) => {
+                let (ct, ss) = EcdhK256::encapsulate(&mut rng, pk)
+                    .expect("Failed to encapsulate with K256");
+                
+                EcdhEncapsulated {
+                    ciphertext: ct.to_bytes(),
+                    shared_secret: ss.to_bytes(),
+                    curve: EcdhCurve::P256,
+                }
+            }
+            _ => panic!("Curve mismatch or unsupported curve in encapsulation"),
+        }
+    }
+
+    fn decapsulate(
+        &self,
+        private_key: &Self::PrivateKey,
+        encapsulated: &Self::Encapsulated,
+    ) -> Option<Vec<u8>> {
+        match (self.curve, private_key) {
+            (EcdhCurve::P256, EcdhPrivateKey::K256(sk)) => {
+                // Reconstruct the ciphertext from bytes
+                let ct = EcdhK256Ciphertext::from_bytes(&encapsulated.ciphertext)
+                    .ok()?;
+                
+                let ss = EcdhK256::decapsulate(sk, &ct)
+                    .ok()?;
+                
+                Some(ss.to_bytes())
+            }
+            _ => None,
+        }
+    }
+}
+
+impl KemKeyPair for EcdhKeyPair {
+    type PublicKey = EcdhPublicKey;
+    type PrivateKey = EcdhPrivateKey;
+
+    fn public_key(&self) -> Self::PublicKey {
+        self.public_key.clone()
+    }
+
+    fn private_key(&self) -> Self::PrivateKey {
+        self.private_key.clone()
+    }
+}
+
+// EcdhPublicKey implements the EncapsulationKey trait
+impl SerializableKey for EcdhPublicKey {
+    fn to_bytes(&self) -> Vec<u8> {
+        match self {
+            EcdhPublicKey::K256(pk) => pk.to_bytes(),
+            EcdhPublicKey::P384(bytes) => bytes.clone(),
+            EcdhPublicKey::P521(bytes) => bytes.clone(),
+        }
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+        // Try to determine the curve from the public key size
+        match bytes.len() {
+            33 => {
+                // K256 compressed point
+                let pk = EcdhK256PublicKey::from_bytes(bytes)
+                    .map_err(|e| format!("Failed to deserialize K256 public key: {:?}", e))?;
+                Ok(EcdhPublicKey::K256(pk))
+            }
+            49 => Ok(EcdhPublicKey::P384(bytes.to_vec())),
+            67 => Ok(EcdhPublicKey::P521(bytes.to_vec())),
+            _ => Err(format!("Invalid ECDH public key size: {}", bytes.len())),
+        }
+    }
+}
+
+impl EncapsulationKey for EcdhPublicKey {
+    // EncapsulationKey trait has no additional methods beyond SerializableKey
+}
+
+// EcdhPrivateKey implements the DecapsulationKey trait
+impl SerializableKey for EcdhPrivateKey {
+    fn to_bytes(&self) -> Vec<u8> {
+        match self {
+            EcdhPrivateKey::K256(sk) => sk.to_bytes().to_vec(),
+            EcdhPrivateKey::P384(bytes) => bytes.clone(),
+            EcdhPrivateKey::P521(bytes) => bytes.clone(),
+        }
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+        // Try to determine the curve from the private key size
+        match bytes.len() {
+            32 => {
+                // K256 scalar
+                let sk = EcdhK256SecretKey::from_bytes(bytes)
+                    .map_err(|e| format!("Failed to deserialize K256 private key: {:?}", e))?;
+                Ok(EcdhPrivateKey::K256(sk))
+            }
+            48 => Ok(EcdhPrivateKey::P384(bytes.to_vec())),
+            66 => Ok(EcdhPrivateKey::P521(bytes.to_vec())),
+            _ => Err(format!("Invalid ECDH private key size: {}", bytes.len())),
+        }
+    }
+}
+
+impl DecapsulationKey for EcdhPrivateKey {
+    // DecapsulationKey trait has no additional methods beyond SerializableKey
+}
+
+// EcdhEncapsulated implements the Encapsulated trait
+impl SerializableKey for EcdhEncapsulated {
+    fn to_bytes(&self) -> Vec<u8> {
+        self.ciphertext.clone()
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+        // Try to determine the curve from the ciphertext size
+        let curve = match bytes.len() {
+            33 => EcdhCurve::P256,
+            49 => EcdhCurve::P384,
+            67 => EcdhCurve::P521,
+            _ => return Err(format!("Invalid ECDH ciphertext size: {}", bytes.len())),
+        };
+
+        // We can't recover the shared secret from just the ciphertext
+        // This will need to be decapsulated using a private key to get the shared secret
+        Ok(EcdhEncapsulated {
+            ciphertext: bytes.to_vec(),
+            shared_secret: vec![0; 32], // Placeholder until decapsulated
+            curve,
+        })
+    }
+}
+
+impl Encapsulated for EcdhEncapsulated {
+    fn ciphertext(&self) -> &[u8] {
+        &self.ciphertext
+    }
+
+    fn shared_secret(&self) -> &[u8] {
+        &self.shared_secret
+    }
+}
+
+#[cfg(test)]
+mod tests;```
+
+####### Directory: crypto/src/kem/hybrid
+
+######## Directory: crypto/src/kem/hybrid/tests
+
+######### File: crypto/src/kem/hybrid/tests/mod.rs
+######*Size: 8.0K, Lines: 207, Type: ASCII text*
+
+```rust
+// crates/crypto/src/kem/hybrid/tests/mod.rs
+use super::*;
+use crate::security::SecurityLevel;
+use depin_sdk_core::crypto::{Encapsulated, KeyEncapsulation, KemKeyPair, DecapsulationKey, EncapsulationKey};
+
+#[test]
+fn test_hybrid_keypair_generation() {
+    let kem = HybridKEM::new(SecurityLevel::Level3);
+    let keypair = kem.generate_keypair();
+
+    // Verify key sizes match the expected sizes
+    // ECDH K256 (33) + Kyber768 (1184) = 1217
+    assert_eq!(keypair.public_key.to_bytes().len(), 1217);
+    // ECDH K256 (32) + Kyber768 (2400) = 2432
+    assert_eq!(keypair.private_key.to_bytes().len(), 2432);
+
+    // Ensure keys are different
+    assert_ne!(
+        keypair.public_key.to_bytes(),
+        keypair.private_key.to_bytes()
+    );
+}
+
+#[test]
+#[should_panic(expected = "Hybrid KEM currently only supports Level3 security")]
+fn test_hybrid_unsupported_security_levels() {
+    // Test Level1
+    let _ = HybridKEM::new(SecurityLevel::Level1);
+}
+
+#[test]
+#[should_panic(expected = "Hybrid KEM currently only supports Level3 security")]
+fn test_hybrid_unsupported_security_level5() {
+    // Test Level5
+    let _ = HybridKEM::new(SecurityLevel::Level5);
+}
+
+#[test]
+fn test_hybrid_encapsulation() {
+    let kem = HybridKEM::new(SecurityLevel::Level3);
+    let keypair = kem.generate_keypair();
+
+    // Encapsulate a key
+    let encapsulated = kem.encapsulate(&keypair.public_key);
+
+    // Verify the encapsulated data sizes
+    // ECDH K256 (33) + Kyber768 (1088) = 1121
+    assert_eq!(encapsulated.ciphertext().len(), 1121);
+    // Combined shared secret should be 32 bytes (HKDF output)
+    assert_eq!(encapsulated.shared_secret().len(), 32);
+
+    // Decapsulate and verify
+    let shared_secret = kem.decapsulate(&keypair.private_key, &encapsulated);
+
+    // We should get a valid shared secret
+    assert!(shared_secret.is_some());
+    let shared_secret = shared_secret.unwrap();
+
+    // The shared secret should match what's in the encapsulated key
+    assert_eq!(shared_secret, encapsulated.shared_secret());
+    assert_eq!(shared_secret.len(), 32);
+}
+
+#[test]
+fn test_hybrid_multiple_encapsulations() {
+    let kem = HybridKEM::new(SecurityLevel::Level3);
+    let keypair = kem.generate_keypair();
+
+    // Multiple encapsulations with the same public key should produce different results
+    let encapsulated1 = kem.encapsulate(&keypair.public_key);
+    let encapsulated2 = kem.encapsulate(&keypair.public_key);
+
+    // Ciphertexts should be different due to randomness
+    assert_ne!(encapsulated1.ciphertext(), encapsulated2.ciphertext());
+    // Shared secrets should be different
+    assert_ne!(encapsulated1.shared_secret(), encapsulated2.shared_secret());
+
+    // But both should decapsulate correctly
+    let shared_secret1 = kem.decapsulate(&keypair.private_key, &encapsulated1).unwrap();
+    let shared_secret2 = kem.decapsulate(&keypair.private_key, &encapsulated2).unwrap();
+
+    assert_eq!(shared_secret1, encapsulated1.shared_secret());
+    assert_eq!(shared_secret2, encapsulated2.shared_secret());
+}
+
+#[test]
+fn test_hybrid_wrong_key_decapsulation() {
+    let kem = HybridKEM::new(SecurityLevel::Level3);
+    let keypair1 = kem.generate_keypair();
+    let keypair2 = kem.generate_keypair();
+
+    // Encapsulate with keypair1's public key
+    let encapsulated = kem.encapsulate(&keypair1.public_key);
+
+    // Try to decapsulate with keypair2's private key
+    let wrong_shared_secret = kem.decapsulate(&keypair2.private_key, &encapsulated);
+
+    // Should still produce a result (KEMs don't fail on wrong key)
+    assert!(wrong_shared_secret.is_some());
+    // But it should be different from the correct shared secret
+    assert_ne!(wrong_shared_secret.unwrap(), encapsulated.shared_secret());
+}
+
+#[test]
+fn test_hybrid_serialization() {
+    let kem = HybridKEM::new(SecurityLevel::Level3);
+    let keypair = kem.generate_keypair();
+
+    // Serialize keys
+    let public_key_bytes = keypair.public_key.to_bytes();
+    let private_key_bytes = keypair.private_key.to_bytes();
+
+    // Deserialize keys
+    let restored_public_key = HybridPublicKey::from_bytes(&public_key_bytes).unwrap();
+    let restored_private_key = HybridPrivateKey::from_bytes(&private_key_bytes).unwrap();
+
+    // Encapsulate with original key
+    let encapsulated = kem.encapsulate(&keypair.public_key);
+    let ciphertext_bytes = encapsulated.to_bytes();
+
+    // Deserialize ciphertext
+    let restored_encapsulated = HybridEncapsulated::from_bytes(&ciphertext_bytes).unwrap();
+
+    // Decapsulate with restored key and restored ciphertext
+    let shared_secret = kem.decapsulate(&restored_private_key, &restored_encapsulated);
+
+    // We should still get a valid shared secret
+    assert!(shared_secret.is_some());
+
+    // Verify the original encapsulated ciphertext matches the serialized version
+    assert_eq!(encapsulated.ciphertext(), restored_encapsulated.ciphertext());
+}
+
+#[test]
+fn test_hybrid_invalid_serialization() {
+    // Test invalid public key sizes
+    let too_short_pk = vec![0u8; 100];
+    assert!(HybridPublicKey::from_bytes(&too_short_pk).is_err());
+    
+    let too_long_pk = vec![0u8; 2000];
+    assert!(HybridPublicKey::from_bytes(&too_long_pk).is_err());
+
+    // Test invalid private key sizes
+    let too_short_sk = vec![0u8; 100];
+    assert!(HybridPrivateKey::from_bytes(&too_short_sk).is_err());
+    
+    let too_long_sk = vec![0u8; 3000];
+    assert!(HybridPrivateKey::from_bytes(&too_long_sk).is_err());
+
+    // Test invalid ciphertext sizes
+    let too_short_ct = vec![0u8; 100];
+    assert!(HybridEncapsulated::from_bytes(&too_short_ct).is_err());
+    
+    let too_long_ct = vec![0u8; 2000];
+    assert!(HybridEncapsulated::from_bytes(&too_long_ct).is_err());
+}
+
+#[test]
+fn test_hybrid_security_properties() {
+    let kem = HybridKEM::new(SecurityLevel::Level3);
+    let keypair = kem.generate_keypair();
+
+    // Test that the shared secret is deterministic for a given ciphertext
+    let encapsulated = kem.encapsulate(&keypair.public_key);
+    
+    // Multiple decapsulations of the same ciphertext should produce the same result
+    let shared_secret1 = kem.decapsulate(&keypair.private_key, &encapsulated).unwrap();
+    let shared_secret2 = kem.decapsulate(&keypair.private_key, &encapsulated).unwrap();
+    
+    assert_eq!(shared_secret1, shared_secret2);
+}
+
+#[test]
+fn test_hybrid_default_constructor() {
+    let kem = HybridKEM::default();
+    let keypair = kem.generate_keypair();
+    
+    // Should use Level3 by default
+    assert_eq!(keypair.level, SecurityLevel::Level3);
+    
+    // Should work normally
+    let encapsulated = kem.encapsulate(&keypair.public_key);
+    let shared_secret = kem.decapsulate(&keypair.private_key, &encapsulated);
+    
+    assert!(shared_secret.is_some());
+    assert_eq!(shared_secret.unwrap(), encapsulated.shared_secret());
+}
+
+#[test]
+fn test_hybrid_independent_verification() {
+    // Test that keys can be used independently after serialization
+    let kem = HybridKEM::new(SecurityLevel::Level3);
+    let keypair = kem.generate_keypair();
+    
+    // Serialize and deserialize to ensure independence
+    let pk_bytes = keypair.public_key.to_bytes();
+    let sk_bytes = keypair.private_key.to_bytes();
+    
+    let pk = HybridPublicKey::from_bytes(&pk_bytes).unwrap();
+    let sk = HybridPrivateKey::from_bytes(&sk_bytes).unwrap();
+    
+    // Use the deserialized keys
+    let encapsulated = kem.encapsulate(&pk);
+    let shared_secret = kem.decapsulate(&sk, &encapsulated);
+    
+    assert!(shared_secret.is_some());
+    assert_eq!(shared_secret.unwrap(), encapsulated.shared_secret());
+}```
+
+######## File: crypto/src/kem/hybrid/ecdh_kyber.rs
+#####*Size: 4.0K, Lines: 36, Type: ASCII text*
+
+```rust
+// crates/crypto/src/kem/hybrid/ecdh_kyber.rs
+//! ECDH-Kyber hybrid key encapsulation mechanism
+//! 
+//! This module provides specific hybrid combinations of ECDH and Kyber KEMs.
+
+use super::{HybridKEM, HybridKeyPair, HybridPublicKey, HybridPrivateKey, HybridEncapsulated};
+use crate::security::SecurityLevel;
+use depin_sdk_core::crypto::{KeyEncapsulation, KemKeyPair, Encapsulated};
+
+/// ECDH-P256 + Kyber768 hybrid KEM
+/// 
+/// Provides Level3 security by combining:
+/// - ECDH on P-256 curve (128-bit classical security)
+/// - Kyber768 (192-bit post-quantum security)
+/// 
+/// This is a convenience type alias for HybridKEM configured with Level3 security.
+pub type EcdhP256Kyber768 = HybridKEM;
+
+/// ECDH-P256 + Kyber768 key pair
+pub type EcdhP256Kyber768KeyPair = HybridKeyPair;
+
+/// ECDH-P256 + Kyber768 public key
+pub type EcdhP256Kyber768PublicKey = HybridPublicKey;
+
+/// ECDH-P256 + Kyber768 private key
+pub type EcdhP256Kyber768PrivateKey = HybridPrivateKey;
+
+/// ECDH-P256 + Kyber768 encapsulated ciphertext
+pub type EcdhP256Kyber768Encapsulated = HybridEncapsulated;
+
+// Note: EcdhP256Kyber768 is a type alias for HybridKEM and inherits all its methods.
+// To create an instance, use: HybridKEM::new(SecurityLevel::Level3)
+// or HybridKEM::default() which defaults to Level3.
+
+// Future implementations could include:
+// - EcdhP256Kyber512 for Level1 security
+// - EcdhP521Kyber1024 for Level5 security```
+
+######## File: crypto/src/kem/hybrid/mod.rs
+#####*Size: 12K, Lines: 277, Type: ASCII text*
+
+```rust
+// crates/crypto/src/kem/hybrid/mod.rs
+//! Hybrid key encapsulation mechanism using dcrypt's EcdhKyber768
+
+use crate::security::SecurityLevel;
+use depin_sdk_core::crypto::{
+    DecapsulationKey, Encapsulated, EncapsulationKey, KemKeyPair, KeyEncapsulation,
+    SerializableKey,
+};
+
+// Import from dcrypt - adjust these based on your actual dcrypt dependency structure
+// Option 1: If dcrypt re-exports everything from root
+use dcrypt::api::Kem;
+use dcrypt::kem::ecdh::p256::EcdhP256SecretKey;
+use dcrypt::kem::kyber::KyberSecretKey;
+
+// Option 2: If hybrid is a separate crate, use:
+// use dcrypt_hybrid::kem::ecdh_kyber::{...}
+// 
+// For now, assuming the hybrid module is under dcrypt with proper path:
+use dcrypt::hybrid::kem::ecdh_kyber::{
+    EcdhKyber768, 
+    HybridCiphertext, 
+    HybridPublicKey as DcryptHybridPublicKey,
+    HybridSecretKey as DcryptHybridSecretKey,
+};
+use rand::thread_rng;
+
+/// Hybrid key encapsulation mechanism
+pub struct HybridKEM {
+    /// Security level
+    level: SecurityLevel,
+}
+
+/// Hybrid key pair
+pub struct HybridKeyPair {
+    /// Public key
+    pub public_key: HybridPublicKey,
+    /// Private key
+    pub private_key: HybridPrivateKey,
+    /// Security level
+    level: SecurityLevel,
+}
+
+/// Hybrid public key wrapper
+#[derive(Clone)]
+pub struct HybridPublicKey {
+    /// The underlying dcrypt hybrid public key
+    inner: DcryptHybridPublicKey,
+    /// Security level
+    level: SecurityLevel,
+}
+
+/// Hybrid private key wrapper
+#[derive(Clone)]
+pub struct HybridPrivateKey {
+    /// The underlying dcrypt hybrid secret key
+    inner: DcryptHybridSecretKey,
+    /// Security level
+    level: SecurityLevel,
+}
+
+/// Hybrid encapsulated key
+pub struct HybridEncapsulated {
+    /// The ciphertext bytes
+    ciphertext: Vec<u8>,
+    /// The shared secret
+    shared_secret: Vec<u8>,
+    /// Security level
+    level: SecurityLevel,
+}
+
+impl HybridKEM {
+    /// Create a new hybrid KEM with the specified security level
+    /// 
+    /// Currently only supports Level3 (EcdhKyber768: ECDH P-256 + Kyber768)
+    pub fn new(level: SecurityLevel) -> Self {
+        match level {
+            SecurityLevel::Level3 => Self { level },
+            _ => panic!("Hybrid KEM currently only supports Level3 security"),
+        }
+    }
+
+    /// Create a new hybrid KEM with default security level (Level3)
+    pub fn default() -> Self {
+        Self::new(SecurityLevel::Level3)
+    }
+}
+
+impl KeyEncapsulation for HybridKEM {
+    type KeyPair = HybridKeyPair;
+    type PublicKey = HybridPublicKey;
+    type PrivateKey = HybridPrivateKey;
+    type Encapsulated = HybridEncapsulated;
+
+    fn generate_keypair(&self) -> Self::KeyPair {
+        let mut rng = thread_rng();
+        
+        // Use dcrypt's hybrid KEM to generate keypair
+        let (pk, sk) = EcdhKyber768::keypair(&mut rng)
+            .expect("Failed to generate hybrid keypair");
+
+        HybridKeyPair {
+            public_key: HybridPublicKey {
+                inner: pk,
+                level: self.level,
+            },
+            private_key: HybridPrivateKey {
+                inner: sk,
+                level: self.level,
+            },
+            level: self.level,
+        }
+    }
+
+    fn encapsulate(&self, public_key: &Self::PublicKey) -> Self::Encapsulated {
+        let mut rng = thread_rng();
+        
+        // Use dcrypt's hybrid KEM to encapsulate
+        let (ct, ss) = EcdhKyber768::encapsulate(&mut rng, &public_key.inner)
+            .expect("Failed to encapsulate with hybrid KEM");
+
+        HybridEncapsulated {
+            ciphertext: ct.to_bytes(),
+            shared_secret: ss.to_bytes_zeroizing().to_vec(),
+            level: public_key.level,
+        }
+    }
+
+    fn decapsulate(
+        &self,
+        private_key: &Self::PrivateKey,
+        encapsulated: &Self::Encapsulated,
+    ) -> Option<Vec<u8>> {
+        // Reconstruct the ciphertext from bytes
+        let ct = HybridCiphertext::from_bytes(&encapsulated.ciphertext).ok()?;
+        
+        // Use dcrypt's hybrid KEM to decapsulate
+        let ss = EcdhKyber768::decapsulate(&private_key.inner, &ct)
+            .ok()?;
+
+        Some(ss.to_bytes_zeroizing().to_vec())
+    }
+}
+
+impl KemKeyPair for HybridKeyPair {
+    type PublicKey = HybridPublicKey;
+    type PrivateKey = HybridPrivateKey;
+
+    fn public_key(&self) -> Self::PublicKey {
+        self.public_key.clone()
+    }
+
+    fn private_key(&self) -> Self::PrivateKey {
+        self.private_key.clone()
+    }
+}
+
+// HybridPublicKey implements the EncapsulationKey trait
+impl SerializableKey for HybridPublicKey {
+    fn to_bytes(&self) -> Vec<u8> {
+        // Use dcrypt's built-in to_bytes method
+        self.inner.to_bytes()
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+        // Use dcrypt's built-in from_bytes method
+        let inner = DcryptHybridPublicKey::from_bytes(bytes)
+            .map_err(|e| format!("Failed to deserialize hybrid public key: {:?}", e))?;
+        
+        // For now, we only support Level3
+        Ok(HybridPublicKey { 
+            inner, 
+            level: SecurityLevel::Level3 
+        })
+    }
+}
+
+impl EncapsulationKey for HybridPublicKey {
+    // EncapsulationKey trait has no additional methods beyond SerializableKey
+}
+
+// HybridPrivateKey implements the DecapsulationKey trait
+impl SerializableKey for HybridPrivateKey {
+    fn to_bytes(&self) -> Vec<u8> {
+        // Note: dcrypt's HybridSecretKey doesn't have a direct to_bytes method
+        // We need to serialize the components
+        [
+            self.inner.ecdh_sk.to_bytes().to_vec(),
+            self.inner.kyber_sk.to_bytes_zeroizing().to_vec()
+        ].concat()
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+        // Expected sizes from dcrypt's implementation
+        const ECDH_SK_LEN: usize = 32;  // P-256 scalar
+        const KYBER_SK_LEN: usize = 2400; // Kyber768
+        const TOTAL_LEN: usize = ECDH_SK_LEN + KYBER_SK_LEN;
+
+        if bytes.len() != TOTAL_LEN {
+            return Err(format!(
+                "Invalid hybrid private key size: expected {}, got {}",
+                TOTAL_LEN,
+                bytes.len()
+            ));
+        }
+
+        let (ecdh_bytes, kyber_bytes) = bytes.split_at(ECDH_SK_LEN);
+        
+        let ecdh_sk = EcdhP256SecretKey::from_bytes(ecdh_bytes)
+            .map_err(|e| format!("Failed to deserialize ECDH private key: {:?}", e))?;
+        
+        let kyber_sk = KyberSecretKey::from_bytes(kyber_bytes)
+            .map_err(|e| format!("Failed to deserialize Kyber private key: {:?}", e))?;
+
+        Ok(HybridPrivateKey {
+            inner: DcryptHybridSecretKey { ecdh_sk, kyber_sk },
+            level: SecurityLevel::Level3,
+        })
+    }
+}
+
+impl DecapsulationKey for HybridPrivateKey {
+    // DecapsulationKey trait has no additional methods beyond SerializableKey
+}
+
+// HybridEncapsulated implements the Encapsulated trait
+impl SerializableKey for HybridEncapsulated {
+    fn to_bytes(&self) -> Vec<u8> {
+        // Return the ciphertext bytes
+        self.ciphertext.clone()
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+        // Try to verify this is a valid hybrid ciphertext size
+        // ECDH P-256 (33) + Kyber768 (1088) = 1121
+        const EXPECTED_LEN: usize = 1121;
+        
+        if bytes.len() != EXPECTED_LEN {
+            return Err(format!(
+                "Invalid hybrid ciphertext size: expected {}, got {}",
+                EXPECTED_LEN,
+                bytes.len()
+            ));
+        }
+
+        // We can't recover the shared secret from just the ciphertext
+        // This will need to be decapsulated using a private key to get the shared secret
+        Ok(HybridEncapsulated {
+            ciphertext: bytes.to_vec(),
+            shared_secret: vec![0; 32], // Placeholder until decapsulated
+            level: SecurityLevel::Level3,
+        })
+    }
+}
+
+impl Encapsulated for HybridEncapsulated {
+    fn ciphertext(&self) -> &[u8] {
+        &self.ciphertext
+    }
+
+    fn shared_secret(&self) -> &[u8] {
+        &self.shared_secret
+    }
+}
+
+pub mod ecdh_kyber;
+
+// Re-export commonly used types
+pub use ecdh_kyber::{
+    EcdhP256Kyber768,
+    EcdhP256Kyber768KeyPair,
+    EcdhP256Kyber768PublicKey,
+    EcdhP256Kyber768PrivateKey,
+    EcdhP256Kyber768Encapsulated,
+};
+
+#[cfg(test)]
+mod tests;```
+
+####### Directory: crypto/src/kem/kyber
+
+######## Directory: crypto/src/kem/kyber/tests
+
+######### File: crypto/src/kem/kyber/tests/mod.rs
+######*Size: 8.0K, Lines: 175, Type: ASCII text*
+
+```rust
+// crates/crypto/src/kem/kyber/tests/mod.rs
+use super::*;
+use crate::security::SecurityLevel;
+use depin_sdk_core::crypto::{Encapsulated, KeyEncapsulation, KemKeyPair, DecapsulationKey, EncapsulationKey};
+
+#[test]
+fn test_kyber_keypair_generation() {
+    // Test all security levels
+    let levels = vec![
+        SecurityLevel::Level1,
+        SecurityLevel::Level3,
+        SecurityLevel::Level5,
+    ];
+
+    for level in levels {
+        let kem = KyberKEM::new(level);
+        let keypair = kem.generate_keypair();
+
+        // Verify key sizes match the expected sizes for the security level
+        match level {
+            SecurityLevel::Level1 => {
+                assert_eq!(keypair.public_key.to_bytes().len(), 800); // Kyber512
+                assert_eq!(keypair.private_key.to_bytes().len(), 1632); // Kyber512
+            }
+            SecurityLevel::Level3 => {
+                assert_eq!(keypair.public_key.to_bytes().len(), 1184); // Kyber768
+                assert_eq!(keypair.private_key.to_bytes().len(), 2400); // Kyber768
+            }
+            SecurityLevel::Level5 => {
+                assert_eq!(keypair.public_key.to_bytes().len(), 1568); // Kyber1024
+                assert_eq!(keypair.private_key.to_bytes().len(), 3168); // Kyber1024
+            }
+            _ => panic!("Unexpected security level"),
+        }
+
+        // Ensure keys are different
+        assert_ne!(
+            keypair.public_key.to_bytes(),
+            keypair.private_key.to_bytes()
+        );
+    }
+}
+
+#[test]
+fn test_kyber_encapsulation() {
+    let levels = vec![
+        SecurityLevel::Level1,
+        SecurityLevel::Level3,
+        SecurityLevel::Level5,
+    ];
+
+    for level in levels {
+        let kem = KyberKEM::new(level);
+        let keypair = kem.generate_keypair();
+
+        // Encapsulate a key
+        let encapsulated = kem.encapsulate(&keypair.public_key);
+
+        // Verify the encapsulated data sizes
+        match level {
+            SecurityLevel::Level1 => {
+                assert_eq!(encapsulated.ciphertext().len(), 768); // Kyber512
+            }
+            SecurityLevel::Level3 => {
+                assert_eq!(encapsulated.ciphertext().len(), 1088); // Kyber768
+            }
+            SecurityLevel::Level5 => {
+                assert_eq!(encapsulated.ciphertext().len(), 1568); // Kyber1024
+            }
+            _ => panic!("Unexpected security level"),
+        }
+
+        // Shared secret should always be 32 bytes for all Kyber variants
+        assert_eq!(encapsulated.shared_secret().len(), 32);
+
+        // Decapsulate and verify
+        let shared_secret = kem.decapsulate(&keypair.private_key, &encapsulated);
+
+        // We should get a valid shared secret
+        assert!(shared_secret.is_some());
+        let shared_secret = shared_secret.unwrap();
+
+        // The shared secret should match what's in the encapsulated key
+        assert_eq!(shared_secret, encapsulated.shared_secret());
+
+        // The shared secret should be 32 bytes for all Kyber variants
+        assert_eq!(shared_secret.len(), 32);
+    }
+}
+
+#[test]
+fn test_kyber_serialization() {
+    let kem = KyberKEM::new(SecurityLevel::Level3);
+    let keypair = kem.generate_keypair();
+
+    // Serialize keys
+    let public_key_bytes = keypair.public_key.to_bytes();
+    let private_key_bytes = keypair.private_key.to_bytes();
+
+    // Deserialize keys
+    let restored_public_key = KyberPublicKey::from_bytes(&public_key_bytes).unwrap();
+    let restored_private_key = KyberPrivateKey::from_bytes(&private_key_bytes).unwrap();
+
+    // Encapsulate with original key
+    let encapsulated = kem.encapsulate(&keypair.public_key);
+    let ciphertext_bytes = encapsulated.to_bytes();
+
+    // Deserialize ciphertext
+    let restored_encapsulated = KyberEncapsulated::from_bytes(&ciphertext_bytes).unwrap();
+
+    // Decapsulate with restored key and restored ciphertext
+    let shared_secret = kem.decapsulate(&restored_private_key, &restored_encapsulated);
+
+    // We should still get a valid shared secret
+    assert!(shared_secret.is_some());
+
+    // Verify that different key pairs produce different shared secrets
+    let keypair2 = kem.generate_keypair();
+    let encapsulated2 = kem.encapsulate(&keypair2.public_key);
+
+    // Different key pairs should generate different shared secrets
+    assert_ne!(encapsulated.shared_secret(), encapsulated2.shared_secret());
+
+    // Different public keys should produce different ciphertexts
+    assert_ne!(encapsulated.ciphertext(), encapsulated2.ciphertext());
+
+    // Decapsulating with the wrong private key should still produce a result,
+    // but it won't match the original shared secret
+    let wrong_shared_secret = kem.decapsulate(&keypair2.private_key, &encapsulated);
+    assert!(wrong_shared_secret.is_some());
+    assert_ne!(wrong_shared_secret.unwrap(), encapsulated.shared_secret());
+}
+
+#[test]
+fn test_cross_level_compatibility() {
+    // Test that keys from different security levels can't be mixed
+
+    let kem512 = KyberKEM::new(SecurityLevel::Level1);
+    let kem768 = KyberKEM::new(SecurityLevel::Level3);
+
+    let keypair512 = kem512.generate_keypair();
+    let keypair768 = kem768.generate_keypair();
+
+    // Encapsulate with Level1 public key
+    let encapsulated512 = kem512.encapsulate(&keypair512.public_key);
+
+    // Try to decapsulate Level1 ciphertext with Level3 private key
+    // This should still return a result but it won't be correct
+    let _result = kem768.decapsulate(&keypair768.private_key, &encapsulated512);
+
+    // The correct way is to match security levels
+    let encapsulated768 = kem768.encapsulate(&keypair768.public_key);
+    let shared_secret = kem768.decapsulate(&keypair768.private_key, &encapsulated768);
+    assert!(shared_secret.is_some());
+    assert_eq!(shared_secret.unwrap(), encapsulated768.shared_secret());
+}
+
+#[test]
+fn test_dcrypt_compatibility() {
+    // Test that the dcrypt wrapper works correctly
+    let kem = KyberKEM::new(SecurityLevel::Level3);
+    let keypair1 = kem.generate_keypair();
+    let keypair2 = kem.generate_keypair();
+
+    // Test encapsulation/decapsulation cycle
+    let encapsulated = kem.encapsulate(&keypair1.public_key);
+    let shared_secret = kem.decapsulate(&keypair1.private_key, &encapsulated);
+    
+    assert!(shared_secret.is_some());
+    assert_eq!(shared_secret.unwrap().len(), 32);
+
+    // Test that using wrong keys produces different results
+    let wrong_secret = kem.decapsulate(&keypair2.private_key, &encapsulated);
+    assert!(wrong_secret.is_some());
+    assert_ne!(wrong_secret.unwrap(), encapsulated.shared_secret());
+}```
+
+######## File: crypto/src/kem/kyber/mod.rs
+#####*Size: 12K, Lines: 313, Type: ASCII text*
+
+```rust
+// crates/crypto/src/kem/kyber/mod.rs
+//! Kyber key encapsulation mechanism using dcrypt
+
+use crate::security::SecurityLevel;
+use depin_sdk_core::crypto::{
+    DecapsulationKey, Encapsulated, EncapsulationKey, KemKeyPair, KeyEncapsulation,
+    SerializableKey,
+};
+use dcrypt::api::Kem;
+use dcrypt::kem::kyber::{
+    Kyber512, Kyber768, Kyber1024,
+    KyberCiphertext, KyberPublicKey as DcryptPublicKey, 
+    KyberSecretKey as DcryptSecretKey,
+    KyberSharedSecret,
+};
+use rand::{CryptoRng, RngCore};
+
+/// Kyber key encapsulation mechanism
+pub struct KyberKEM {
+    /// Security level
+    level: SecurityLevel,
+}
+
+/// Kyber key pair
+pub struct KyberKeyPair {
+    /// Public key
+    pub public_key: KyberPublicKey,
+    /// Private key
+    pub private_key: KyberPrivateKey,
+    /// Security level
+    level: SecurityLevel,
+}
+
+/// Kyber public key wrapper
+#[derive(Clone)]
+pub struct KyberPublicKey {
+    /// The underlying dcrypt public key
+    inner: DcryptPublicKey,
+    /// Security level
+    level: SecurityLevel,
+}
+
+/// Kyber private key wrapper
+#[derive(Clone)]
+pub struct KyberPrivateKey {
+    /// The underlying dcrypt secret key
+    inner: DcryptSecretKey,
+    /// Security level
+    level: SecurityLevel,
+}
+
+/// Kyber encapsulated key
+pub struct KyberEncapsulated {
+    /// The ciphertext bytes
+    ciphertext: Vec<u8>,
+    /// The shared secret
+    shared_secret: Vec<u8>,
+    /// Security level
+    level: SecurityLevel,
+}
+
+impl KyberKEM {
+    /// Create a new Kyber KEM with the specified security level
+    pub fn new(level: SecurityLevel) -> Self {
+        Self { level }
+    }
+}
+
+impl KeyEncapsulation for KyberKEM {
+    type KeyPair = KyberKeyPair;
+    type PublicKey = KyberPublicKey;
+    type PrivateKey = KyberPrivateKey;
+    type Encapsulated = KyberEncapsulated;
+
+    fn generate_keypair(&self) -> Self::KeyPair {
+        let mut rng = rand::thread_rng();
+        
+        // Use dcrypt's KEM trait to generate keypair based on security level
+        let (pk, sk) = match self.level {
+            SecurityLevel::Level1 => {
+                let (pk, sk) = Kyber512::keypair(&mut rng)
+                    .expect("Failed to generate Kyber512 keypair");
+                (
+                    KyberPublicKey {
+                        inner: pk,
+                        level: self.level,
+                    },
+                    KyberPrivateKey {
+                        inner: sk,
+                        level: self.level,
+                    },
+                )
+            }
+            SecurityLevel::Level3 => {
+                let (pk, sk) = Kyber768::keypair(&mut rng)
+                    .expect("Failed to generate Kyber768 keypair");
+                (
+                    KyberPublicKey {
+                        inner: pk,
+                        level: self.level,
+                    },
+                    KyberPrivateKey {
+                        inner: sk,
+                        level: self.level,
+                    },
+                )
+            }
+            SecurityLevel::Level5 => {
+                let (pk, sk) = Kyber1024::keypair(&mut rng)
+                    .expect("Failed to generate Kyber1024 keypair");
+                (
+                    KyberPublicKey {
+                        inner: pk,
+                        level: self.level,
+                    },
+                    KyberPrivateKey {
+                        inner: sk,
+                        level: self.level,
+                    },
+                )
+            }
+            _ => {
+                // Default to Level1
+                let (pk, sk) = Kyber512::keypair(&mut rng)
+                    .expect("Failed to generate Kyber512 keypair");
+                (
+                    KyberPublicKey {
+                        inner: pk,
+                        level: SecurityLevel::Level1,
+                    },
+                    KyberPrivateKey {
+                        inner: sk,
+                        level: SecurityLevel::Level1,
+                    },
+                )
+            }
+        };
+
+        KyberKeyPair {
+            public_key: pk,
+            private_key: sk,
+            level: self.level,
+        }
+    }
+
+    fn encapsulate(&self, public_key: &Self::PublicKey) -> Self::Encapsulated {
+        let mut rng = rand::thread_rng();
+        
+        // Use dcrypt's KEM trait to encapsulate based on security level
+        let (ct, ss) = match public_key.level {
+            SecurityLevel::Level1 => {
+                Kyber512::encapsulate(&mut rng, &public_key.inner)
+                    .expect("Failed to encapsulate with Kyber512")
+            }
+            SecurityLevel::Level3 => {
+                Kyber768::encapsulate(&mut rng, &public_key.inner)
+                    .expect("Failed to encapsulate with Kyber768")
+            }
+            SecurityLevel::Level5 => {
+                Kyber1024::encapsulate(&mut rng, &public_key.inner)
+                    .expect("Failed to encapsulate with Kyber1024")
+            }
+            _ => {
+                Kyber512::encapsulate(&mut rng, &public_key.inner)
+                    .expect("Failed to encapsulate with Kyber512")
+            }
+        };
+
+        KyberEncapsulated {
+            ciphertext: ct.to_bytes(),
+            shared_secret: ss.to_bytes_zeroizing().to_vec(),
+            level: public_key.level,
+        }
+    }
+
+    fn decapsulate(
+        &self,
+        private_key: &Self::PrivateKey,
+        encapsulated: &Self::Encapsulated,
+    ) -> Option<Vec<u8>> {
+        // Reconstruct the ciphertext from bytes
+        let ct = KyberCiphertext::from_bytes(&encapsulated.ciphertext).ok()?;
+        
+        // Use dcrypt's KEM trait to decapsulate based on security level
+        let ss = match private_key.level {
+            SecurityLevel::Level1 => {
+                Kyber512::decapsulate(&private_key.inner, &ct)
+                    .ok()?
+            }
+            SecurityLevel::Level3 => {
+                Kyber768::decapsulate(&private_key.inner, &ct)
+                    .ok()?
+            }
+            SecurityLevel::Level5 => {
+                Kyber1024::decapsulate(&private_key.inner, &ct)
+                    .ok()?
+            }
+            _ => {
+                Kyber512::decapsulate(&private_key.inner, &ct)
+                    .ok()?
+            }
+        };
+
+        Some(ss.to_bytes_zeroizing().to_vec())
+    }
+}
+
+impl KemKeyPair for KyberKeyPair {
+    type PublicKey = KyberPublicKey;
+    type PrivateKey = KyberPrivateKey;
+
+    fn public_key(&self) -> Self::PublicKey {
+        self.public_key.clone()
+    }
+
+    fn private_key(&self) -> Self::PrivateKey {
+        self.private_key.clone()
+    }
+}
+
+// KyberPublicKey implements the EncapsulationKey trait
+impl SerializableKey for KyberPublicKey {
+    fn to_bytes(&self) -> Vec<u8> {
+        // Use dcrypt's built-in to_bytes method
+        self.inner.to_bytes()
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+        // Use dcrypt's built-in from_bytes method
+        let inner = DcryptPublicKey::from_bytes(bytes)
+            .map_err(|e| format!("Failed to deserialize Kyber public key: {:?}", e))?;
+        
+        // Try to determine the security level from the public key size
+        let level = match bytes.len() {
+            800 => SecurityLevel::Level1,  // Kyber512
+            1184 => SecurityLevel::Level3, // Kyber768
+            1568 => SecurityLevel::Level5, // Kyber1024
+            _ => return Err(format!("Invalid Kyber public key size: {}", bytes.len())),
+        };
+
+        Ok(KyberPublicKey { inner, level })
+    }
+}
+
+impl EncapsulationKey for KyberPublicKey {
+    // EncapsulationKey trait has no additional methods beyond SerializableKey
+}
+
+// KyberPrivateKey implements the DecapsulationKey trait
+impl SerializableKey for KyberPrivateKey {
+    fn to_bytes(&self) -> Vec<u8> {
+        // Use dcrypt's built-in to_bytes_zeroizing method
+        self.inner.to_bytes_zeroizing().to_vec()
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+        // Use dcrypt's built-in from_bytes method
+        let inner = DcryptSecretKey::from_bytes(bytes)
+            .map_err(|e| format!("Failed to deserialize Kyber private key: {:?}", e))?;
+        
+        // Try to determine the security level from the private key size
+        let level = match bytes.len() {
+            1632 => SecurityLevel::Level1, // Kyber512
+            2400 => SecurityLevel::Level3, // Kyber768
+            3168 => SecurityLevel::Level5, // Kyber1024
+            _ => return Err(format!("Invalid Kyber private key size: {}", bytes.len())),
+        };
+
+        Ok(KyberPrivateKey { inner, level })
+    }
+}
+
+impl DecapsulationKey for KyberPrivateKey {
+    // DecapsulationKey trait has no additional methods beyond SerializableKey
+}
+
+// KyberEncapsulated implements the Encapsulated trait
+impl SerializableKey for KyberEncapsulated {
+    fn to_bytes(&self) -> Vec<u8> {
+        // Return the ciphertext bytes
+        self.ciphertext.clone()
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+        // Try to determine the security level from the ciphertext size
+        let level = match bytes.len() {
+            768 => SecurityLevel::Level1,  // Kyber512
+            1088 => SecurityLevel::Level3, // Kyber768
+            1568 => SecurityLevel::Level5, // Kyber1024
+            _ => return Err(format!("Invalid Kyber ciphertext size: {}", bytes.len())),
+        };
+
+        // We can't recover the shared secret from just the ciphertext
+        // This will need to be decapsulated using a private key to get the shared secret
+        Ok(KyberEncapsulated {
+            ciphertext: bytes.to_vec(),
+            shared_secret: vec![0; 32], // Placeholder until decapsulated
+            level,
+        })
+    }
+}
+
+impl Encapsulated for KyberEncapsulated {
+    fn ciphertext(&self) -> &[u8] {
+        &self.ciphertext
+    }
+
+    fn shared_secret(&self) -> &[u8] {
+        &self.shared_secret
+    }
+}
+
+#[cfg(test)]
+mod tests;```
+
+####### File: crypto/src/kem/mod.rs
+####*Size: 4.0K, Lines: 2, Type: ASCII text*
+
+```rust
+pub mod kyber;
+pub mod ecdh;
+pub mod hybrid;```
+
+###### Directory: crypto/src/sign
+
+####### Directory: crypto/src/sign/dilithium
+
+######## Directory: crypto/src/sign/dilithium/tests
+
+######### File: crypto/src/sign/dilithium/tests/mod.rs
+######*Size: 4.0K, Lines: 104, Type: ASCII text*
+
+```rust
+use super::*;
+
+#[test]
+fn test_dilithium_level2_sign_verify() {
+    let scheme = DilithiumScheme::new(SecurityLevel::Level2);
+    let keypair = scheme.generate_keypair();
+    
+    let message = b"Test message for Dilithium";
+    let signature = keypair.sign(message);
+    
+    assert!(keypair.public_key().verify(message, &signature));
+    
+    // Test with wrong message
+    let wrong_message = b"Wrong message";
+    assert!(!keypair.public_key().verify(wrong_message, &signature));
+}
+
+#[test]
+fn test_dilithium_level3_sign_verify() {
+    let scheme = DilithiumScheme::new(SecurityLevel::Level3);
+    let keypair = scheme.generate_keypair();
+    
+    let message = b"Test message for Dilithium Level 3";
+    let signature = keypair.sign(message);
+    
+    assert!(keypair.public_key().verify(message, &signature));
+}
+
+#[test]
+fn test_dilithium_level5_sign_verify() {
+    let scheme = DilithiumScheme::new(SecurityLevel::Level5);
+    let keypair = scheme.generate_keypair();
+    
+    let message = b"Test message for Dilithium Level 5";
+    let signature = keypair.sign(message);
+    
+    assert!(keypair.public_key().verify(message, &signature));
+}
+
+#[test]
+fn test_key_serialization() {
+    let scheme = DilithiumScheme::new(SecurityLevel::Level2);
+    let keypair = scheme.generate_keypair();
+    
+    // Test public key serialization
+    let pk_bytes = keypair.public_key().to_bytes();
+    let pk_restored = DilithiumPublicKey::from_bytes(&pk_bytes).unwrap();
+    assert_eq!(pk_bytes, pk_restored.to_bytes());
+    
+    // Test private key serialization
+    let sk_bytes = keypair.private_key().to_bytes();
+    let sk_restored = DilithiumPrivateKey::from_bytes(&sk_bytes).unwrap();
+    assert_eq!(sk_bytes, sk_restored.to_bytes());
+    
+    // Test signature with restored keys
+    let message = b"Test serialization";
+    let signature = scheme.sign(&sk_restored, message);
+    assert!(scheme.verify(&pk_restored, message, &signature));
+}
+
+#[test]
+fn test_signature_serialization() {
+    let scheme = DilithiumScheme::new(SecurityLevel::Level2);
+    let keypair = scheme.generate_keypair();
+    
+    let message = b"Test signature serialization";
+    let signature = keypair.sign(message);
+    
+    // Serialize and deserialize signature
+    let sig_bytes = signature.to_bytes();
+    let sig_restored = DilithiumSignature::from_bytes(&sig_bytes).unwrap();
+    
+    // Verify with restored signature
+    assert!(keypair.public_key().verify(message, &sig_restored));
+}
+
+#[test]
+fn test_wrong_key_size_detection() {
+    // Test with invalid key sizes
+    let invalid_pk = vec![0u8; 1000]; // Invalid size
+    let pk = DilithiumPublicKey::from_bytes(&invalid_pk).unwrap();
+    
+    let message = b"Test";
+    let signature = DilithiumSignature(vec![0u8; 2420]); // Dilithium2 signature size
+    
+    // Should return false for invalid key size
+    assert!(!pk.verify(message, &signature));
+}
+
+#[test]
+fn test_cross_level_verification() {
+    // Generate keys at different levels
+    let scheme2 = DilithiumScheme::new(SecurityLevel::Level2);
+    let keypair2 = scheme2.generate_keypair();
+    
+    let scheme3 = DilithiumScheme::new(SecurityLevel::Level3);
+    let keypair3 = scheme3.generate_keypair();
+    
+    let message = b"Cross level test";
+    let signature2 = keypair2.sign(message);
+    
+    // Level 3 public key should not verify Level 2 signature
+    // (will fail due to key size mismatch detection)
+    assert!(!keypair3.public_key().verify(message, &signature2));
+}```
+
+######## File: crypto/src/sign/dilithium/mod.rs
+#####*Size: 12K, Lines: 316, Type: ASCII text*
+
+```rust
+//! Dilithium signature algorithm (using dcrypt implementation)
+//!
+use crate::security::SecurityLevel;
+use depin_sdk_core::crypto::{
+    SerializableKey, Signature, SigningKey, SigningKeyPair, VerifyingKey
+};
+// Import the trait needed for the signature operations
+use dcrypt::api::Signature as SignatureTrait;
+// Import the Dilithium implementations and types from the correct module path
+use dcrypt::sign::pq::dilithium::{
+    Dilithium2, Dilithium3, Dilithium5, 
+    DilithiumPublicKey as DcryptPublicKey, 
+    DilithiumSecretKey as DcryptSecretKey, 
+    DilithiumSignatureData as DcryptSignatureData
+};
+
+/// Dilithium signature scheme
+pub struct DilithiumScheme {
+    /// Security level
+    level: SecurityLevel,
+}
+
+/// Dilithium key pair
+pub struct DilithiumKeyPair {
+    /// Public key
+    public_key: DilithiumPublicKey,
+    /// Private key
+    private_key: DilithiumPrivateKey,
+    /// Security level (needed for signing)
+    level: SecurityLevel,
+}
+
+/// Dilithium public key
+pub struct DilithiumPublicKey(Vec<u8>);
+
+/// Dilithium private key
+pub struct DilithiumPrivateKey {
+    data: Vec<u8>,
+    level: SecurityLevel,
+}
+
+/// Dilithium signature
+pub struct DilithiumSignature(Vec<u8>);
+
+impl DilithiumScheme {
+    /// Create a new Dilithium scheme with the specified security level
+    pub fn new(level: SecurityLevel) -> Self {
+        Self { level }
+    }
+
+    /// Generate a new key pair
+    pub fn generate_keypair(&self) -> DilithiumKeyPair {
+        let mut rng = rand::rngs::OsRng;
+        
+        match self.level {
+            SecurityLevel::Level2 => {
+                let (pk, sk) = Dilithium2::keypair(&mut rng).unwrap();
+                DilithiumKeyPair {
+                    public_key: DilithiumPublicKey(pk.to_bytes().to_vec()),
+                    private_key: DilithiumPrivateKey {
+                        data: sk.to_bytes().to_vec(),
+                        level: self.level,
+                    },
+                    level: self.level,
+                }
+            }
+            SecurityLevel::Level3 => {
+                let (pk, sk) = Dilithium3::keypair(&mut rng).unwrap();
+                DilithiumKeyPair {
+                    public_key: DilithiumPublicKey(pk.to_bytes().to_vec()),
+                    private_key: DilithiumPrivateKey {
+                        data: sk.to_bytes().to_vec(),
+                        level: self.level,
+                    },
+                    level: self.level,
+                }
+            }
+            SecurityLevel::Level5 => {
+                let (pk, sk) = Dilithium5::keypair(&mut rng).unwrap();
+                DilithiumKeyPair {
+                    public_key: DilithiumPublicKey(pk.to_bytes().to_vec()),
+                    private_key: DilithiumPrivateKey {
+                        data: sk.to_bytes().to_vec(),
+                        level: self.level,
+                    },
+                    level: self.level,
+                }
+            }
+            _ => {
+                // Default to Level2 for any other security level
+                let (pk, sk) = Dilithium2::keypair(&mut rng).unwrap();
+                DilithiumKeyPair {
+                    public_key: DilithiumPublicKey(pk.to_bytes().to_vec()),
+                    private_key: DilithiumPrivateKey {
+                        data: sk.to_bytes().to_vec(),
+                        level: SecurityLevel::Level2,
+                    },
+                    level: SecurityLevel::Level2,
+                }
+            }
+        }
+    }
+
+    /// Sign a message
+    pub fn sign(&self, private_key: &DilithiumPrivateKey, message: &[u8]) -> DilithiumSignature {
+        match private_key.level {
+            SecurityLevel::Level2 => {
+                let sk = DcryptSecretKey::from_bytes(&private_key.data).unwrap();
+                let signature = Dilithium2::sign(message, &sk).unwrap();
+                DilithiumSignature(signature.to_bytes().to_vec())
+            }
+            SecurityLevel::Level3 => {
+                let sk = DcryptSecretKey::from_bytes(&private_key.data).unwrap();
+                let signature = Dilithium3::sign(message, &sk).unwrap();
+                DilithiumSignature(signature.to_bytes().to_vec())
+            }
+            SecurityLevel::Level5 => {
+                let sk = DcryptSecretKey::from_bytes(&private_key.data).unwrap();
+                let signature = Dilithium5::sign(message, &sk).unwrap();
+                DilithiumSignature(signature.to_bytes().to_vec())
+            }
+            _ => {
+                // Default to Level2
+                let sk = DcryptSecretKey::from_bytes(&private_key.data).unwrap();
+                let signature = Dilithium2::sign(message, &sk).unwrap();
+                DilithiumSignature(signature.to_bytes().to_vec())
+            }
+        }
+    }
+
+    /// Verify a signature
+    pub fn verify(
+        &self,
+        public_key: &DilithiumPublicKey,
+        message: &[u8],
+        signature: &DilithiumSignature,
+    ) -> bool {
+        // Determine security level from key size
+        let level = match public_key.0.len() {
+            1312 => SecurityLevel::Level2,  // Dilithium2
+            1952 => SecurityLevel::Level3,  // Dilithium3
+            2592 => SecurityLevel::Level5,  // Dilithium5
+            _ => return false,
+        };
+
+        match level {
+            SecurityLevel::Level2 => {
+                let pk = DcryptPublicKey::from_bytes(&public_key.0).unwrap();
+                let sig = DcryptSignatureData::from_bytes(&signature.0).unwrap();
+                Dilithium2::verify(message, &sig, &pk).is_ok()
+            }
+            SecurityLevel::Level3 => {
+                let pk = DcryptPublicKey::from_bytes(&public_key.0).unwrap();
+                let sig = DcryptSignatureData::from_bytes(&signature.0).unwrap();
+                Dilithium3::verify(message, &sig, &pk).is_ok()
+            }
+            SecurityLevel::Level5 => {
+                let pk = DcryptPublicKey::from_bytes(&public_key.0).unwrap();
+                let sig = DcryptSignatureData::from_bytes(&signature.0).unwrap();
+                Dilithium5::verify(message, &sig, &pk).is_ok()
+            }
+            _ => false,
+        }
+    }
+}
+
+impl SigningKeyPair for DilithiumKeyPair {
+    type PublicKey = DilithiumPublicKey;
+    type PrivateKey = DilithiumPrivateKey;
+    type Signature = DilithiumSignature;
+
+    fn public_key(&self) -> Self::PublicKey {
+        DilithiumPublicKey(self.public_key.0.clone())
+    }
+
+    fn private_key(&self) -> Self::PrivateKey {
+        DilithiumPrivateKey {
+            data: self.private_key.data.clone(),
+            level: self.private_key.level,
+        }
+    }
+
+    fn sign(&self, message: &[u8]) -> Self::Signature {
+        match self.level {
+            SecurityLevel::Level2 => {
+                let sk = DcryptSecretKey::from_bytes(&self.private_key.data).unwrap();
+                let signature = Dilithium2::sign(message, &sk).unwrap();
+                DilithiumSignature(signature.to_bytes().to_vec())
+            }
+            SecurityLevel::Level3 => {
+                let sk = DcryptSecretKey::from_bytes(&self.private_key.data).unwrap();
+                let signature = Dilithium3::sign(message, &sk).unwrap();
+                DilithiumSignature(signature.to_bytes().to_vec())
+            }
+            SecurityLevel::Level5 => {
+                let sk = DcryptSecretKey::from_bytes(&self.private_key.data).unwrap();
+                let signature = Dilithium5::sign(message, &sk).unwrap();
+                DilithiumSignature(signature.to_bytes().to_vec())
+            }
+            _ => {
+                // Default to Level2
+                let sk = DcryptSecretKey::from_bytes(&self.private_key.data).unwrap();
+                let signature = Dilithium2::sign(message, &sk).unwrap();
+                DilithiumSignature(signature.to_bytes().to_vec())
+            }
+        }
+    }
+}
+
+impl VerifyingKey for DilithiumPublicKey {
+    type Signature = DilithiumSignature;
+
+    fn verify(&self, message: &[u8], signature: &Self::Signature) -> bool {
+        // Determine security level from key size
+        let level = match self.0.len() {
+            1312 => SecurityLevel::Level2,  // Dilithium2
+            1952 => SecurityLevel::Level3,  // Dilithium3
+            2592 => SecurityLevel::Level5,  // Dilithium5
+            _ => return false,
+        };
+
+        match level {
+            SecurityLevel::Level2 => {
+                let pk = DcryptPublicKey::from_bytes(&self.0).unwrap();
+                let sig = DcryptSignatureData::from_bytes(&signature.0).unwrap();
+                Dilithium2::verify(message, &sig, &pk).is_ok()
+            }
+            SecurityLevel::Level3 => {
+                let pk = DcryptPublicKey::from_bytes(&self.0).unwrap();
+                let sig = DcryptSignatureData::from_bytes(&signature.0).unwrap();
+                Dilithium3::verify(message, &sig, &pk).is_ok()
+            }
+            SecurityLevel::Level5 => {
+                let pk = DcryptPublicKey::from_bytes(&self.0).unwrap();
+                let sig = DcryptSignatureData::from_bytes(&signature.0).unwrap();
+                Dilithium5::verify(message, &sig, &pk).is_ok()
+            }
+            _ => false,
+        }
+    }
+}
+
+impl SerializableKey for DilithiumPublicKey {
+    fn to_bytes(&self) -> Vec<u8> {
+        self.0.clone()
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+        Ok(DilithiumPublicKey(bytes.to_vec()))
+    }
+}
+
+impl SigningKey for DilithiumPrivateKey {
+    type Signature = DilithiumSignature;
+
+    fn sign(&self, message: &[u8]) -> Self::Signature {
+        match self.level {
+            SecurityLevel::Level2 => {
+                let sk = DcryptSecretKey::from_bytes(&self.data).unwrap();
+                let signature = Dilithium2::sign(message, &sk).unwrap();
+                DilithiumSignature(signature.to_bytes().to_vec())
+            }
+            SecurityLevel::Level3 => {
+                let sk = DcryptSecretKey::from_bytes(&self.data).unwrap();
+                let signature = Dilithium3::sign(message, &sk).unwrap();
+                DilithiumSignature(signature.to_bytes().to_vec())
+            }
+            SecurityLevel::Level5 => {
+                let sk = DcryptSecretKey::from_bytes(&self.data).unwrap();
+                let signature = Dilithium5::sign(message, &sk).unwrap();
+                DilithiumSignature(signature.to_bytes().to_vec())
+            }
+            _ => {
+                // Default to Level2
+                let sk = DcryptSecretKey::from_bytes(&self.data).unwrap();
+                let signature = Dilithium2::sign(message, &sk).unwrap();
+                DilithiumSignature(signature.to_bytes().to_vec())
+            }
+        }
+    }
+}
+
+impl SerializableKey for DilithiumPrivateKey {
+    fn to_bytes(&self) -> Vec<u8> {
+        self.data.clone()
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+        // Determine security level from key size
+        let level = match bytes.len() {
+            2560 => SecurityLevel::Level2,  // Dilithium2
+            4032 => SecurityLevel::Level3,  // Dilithium3
+            4896 => SecurityLevel::Level5,  // Dilithium5
+            _ => return Err("Invalid Dilithium private key size".to_string()),
+        };
+        
+        Ok(DilithiumPrivateKey {
+            data: bytes.to_vec(),
+            level,
+        })
+    }
+}
+
+impl SerializableKey for DilithiumSignature {
+    fn to_bytes(&self) -> Vec<u8> {
+        self.0.clone()
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+        Ok(DilithiumSignature(bytes.to_vec()))
+    }
+}
+
+impl Signature for DilithiumSignature {}
+
+#[cfg(test)]
+mod tests;```
+
+####### Directory: crypto/src/sign/eddsa
+
+######## Directory: crypto/src/sign/eddsa/tests
+
+######### File: crypto/src/sign/eddsa/tests/mod.rs
+######*Size: 4.0K, Lines: 98, Type: ASCII text*
+
+```rust
+use super::*;
+
+#[test]
+fn test_keypair_generation() {
+    let keypair = Ed25519KeyPair::generate();
+    let message = b"Test message";
+    
+    // Sign
+    let signature = keypair.sign(message);
+    
+    // Verify
+    let public_key = keypair.public_key();
+    assert!(public_key.verify(message, &signature));
+}
+
+#[test]
+fn test_serialization_roundtrip() {
+    let keypair = Ed25519KeyPair::generate();
+    
+    // Serialize keys
+    let public_bytes = keypair.public_key().to_bytes();
+    let private_bytes = keypair.private_key().to_bytes();
+    
+    // Verify lengths
+    assert_eq!(public_bytes.len(), 32);
+    assert_eq!(private_bytes.len(), 32); // Just the seed
+    
+    // Deserialize
+    let public_key = Ed25519PublicKey::from_bytes(&public_bytes).unwrap();
+    let private_key = Ed25519PrivateKey::from_bytes(&private_bytes).unwrap();
+    
+    // Verify we can derive the same public key from the loaded private key
+    let derived_public = private_key.public_key().unwrap();
+    assert_eq!(public_key.to_bytes(), derived_public.to_bytes());
+}
+
+#[test]
+fn test_sign_verify_with_loaded_keys() {
+    // Generate original keypair
+    let original_keypair = Ed25519KeyPair::generate();
+    let message = b"Test message for persistence";
+    
+    // Sign with original
+    let original_sig = original_keypair.sign(message);
+    
+    // Serialize private key
+    let private_bytes = original_keypair.private_key().to_bytes();
+    
+    // Load private key from bytes
+    let loaded_private = Ed25519PrivateKey::from_bytes(&private_bytes).unwrap();
+    
+    // Reconstruct keypair from loaded private key
+    let reconstructed_keypair = Ed25519KeyPair::from_private_key(&loaded_private);
+    
+    // Sign with reconstructed keypair
+    let new_sig = reconstructed_keypair.sign(message);
+    
+    // Signatures should be deterministic and identical
+    assert_eq!(original_sig.to_bytes(), new_sig.to_bytes());
+    
+    // Verify with both public keys
+    let original_public = original_keypair.public_key();
+    let reconstructed_public = reconstructed_keypair.public_key();
+    
+    assert!(original_public.verify(message, &original_sig));
+    assert!(reconstructed_public.verify(message, &new_sig));
+    assert!(original_public.verify(message, &new_sig));
+    assert!(reconstructed_public.verify(message, &original_sig));
+}
+
+#[test]
+fn test_wrong_signature_fails() {
+    let keypair1 = Ed25519KeyPair::generate();
+    let keypair2 = Ed25519KeyPair::generate();
+    
+    let message = b"Test message";
+    
+    // Sign with keypair1
+    let signature = keypair1.sign(message);
+    
+    // Verify with keypair2's public key should fail
+    let public_key2 = keypair2.public_key();
+    assert!(!public_key2.verify(message, &signature));
+}
+
+#[test]
+fn test_tampered_message_fails() {
+    let keypair = Ed25519KeyPair::generate();
+    let message = b"Original message";
+    let tampered = b"Tampered message";
+    
+    // Sign original
+    let signature = keypair.sign(message);
+    
+    // Verify tampered message with same signature should fail
+    let public_key = keypair.public_key();
+    assert!(public_key.verify(message, &signature));
+    assert!(!public_key.verify(tampered, &signature));
+}```
+
+######## File: crypto/src/sign/eddsa/mod.rs
+#####*Size: 8.0K, Lines: 184, Type: ASCII text*
+
+```rust
+// crates/crypto/src/traditional/eddsa/mod.rs
+//! Implementation of elliptic curve cryptography using dcrypt
+
+use depin_sdk_core::crypto::{
+    SerializableKey, Signature, SigningKey, SigningKeyPair, VerifyingKey
+};
+use dcrypt::api::Signature as SignatureTrait;
+use rand::rngs::OsRng;
+
+// Import dcrypt Ed25519 module with module qualification
+use dcrypt::sign::traditional::eddsa;
+
+/// Ed25519 key pair implementation
+pub struct Ed25519KeyPair {
+    /// Public verification key
+    public_key: eddsa::Ed25519PublicKey,
+    /// Private signing key
+    secret_key: eddsa::Ed25519SecretKey,
+}
+
+/// Ed25519 signature implementation
+pub struct Ed25519Signature(eddsa::Ed25519Signature);
+
+/// Ed25519 public key implementation
+pub struct Ed25519PublicKey(eddsa::Ed25519PublicKey);
+
+/// Ed25519 private key implementation
+pub struct Ed25519PrivateKey(eddsa::Ed25519SecretKey);
+
+impl Ed25519KeyPair {
+    /// Generate a new Ed25519 key pair
+    pub fn generate() -> Self {
+        let mut rng = OsRng;
+        
+        // Generate key pair using dcrypt
+        let (public_key, secret_key) = eddsa::Ed25519::keypair(&mut rng)
+            .expect("Failed to generate Ed25519 key pair");
+
+        Self {
+            public_key,
+            secret_key,
+        }
+    }
+
+    /// Create from an existing private key
+    pub fn from_private_key(private_key: &Ed25519PrivateKey) -> Self {
+        let secret_key = private_key.0.clone();
+        
+        // Use the helper method to derive public key
+        let public_key = secret_key.public_key()
+            .expect("Failed to derive public key from secret key");
+
+        Self {
+            public_key,
+            secret_key,
+        }
+    }
+}
+
+impl SigningKeyPair for Ed25519KeyPair {
+    type PublicKey = Ed25519PublicKey;
+    type PrivateKey = Ed25519PrivateKey;
+    type Signature = Ed25519Signature;
+
+    fn public_key(&self) -> Self::PublicKey {
+        Ed25519PublicKey(self.public_key.clone())
+    }
+
+    fn private_key(&self) -> Self::PrivateKey {
+        Ed25519PrivateKey(self.secret_key.clone())
+    }
+
+    fn sign(&self, message: &[u8]) -> Self::Signature {
+        let signature = eddsa::Ed25519::sign(message, &self.secret_key)
+            .expect("Failed to sign message");
+        Ed25519Signature(signature)
+    }
+}
+
+impl VerifyingKey for Ed25519PublicKey {
+    type Signature = Ed25519Signature;
+
+    fn verify(&self, message: &[u8], signature: &Self::Signature) -> bool {
+        eddsa::Ed25519::verify(message, &signature.0, &self.0).is_ok()
+    }
+}
+
+impl SerializableKey for Ed25519PublicKey {
+    fn to_bytes(&self) -> Vec<u8> {
+        self.0.to_bytes().to_vec()
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+        eddsa::Ed25519PublicKey::from_bytes(bytes)
+            .map(Ed25519PublicKey)
+            .map_err(|e| format!("Failed to parse public key: {:?}", e))
+    }
+}
+
+impl SigningKey for Ed25519PrivateKey {
+    type Signature = Ed25519Signature;
+
+    fn sign(&self, message: &[u8]) -> Self::Signature {
+        let signature = eddsa::Ed25519::sign(message, &self.0)
+            .expect("Failed to sign message");
+        Ed25519Signature(signature)
+    }
+}
+
+impl SerializableKey for Ed25519PrivateKey {
+    fn to_bytes(&self) -> Vec<u8> {
+        // Export just the seed (32 bytes)
+        self.0.seed().to_vec()
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+        if bytes.len() != 32 {
+            return Err("Invalid private key length: expected 32 bytes".to_string());
+        }
+        
+        let mut seed = [0u8; 32];
+        seed.copy_from_slice(bytes);
+        
+        // Use the from_seed method
+        eddsa::Ed25519SecretKey::from_seed(&seed)
+            .map(Ed25519PrivateKey)
+            .map_err(|e| format!("Failed to create secret key from seed: {:?}", e))
+    }
+}
+
+impl SerializableKey for Ed25519Signature {
+    fn to_bytes(&self) -> Vec<u8> {
+        self.0.to_bytes().to_vec()
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+        eddsa::Ed25519Signature::from_bytes(bytes)
+            .map(Ed25519Signature)
+            .map_err(|e| format!("Failed to parse signature: {:?}", e))
+    }
+}
+
+impl Signature for Ed25519Signature {}
+
+// Additional Ed25519-specific functionality
+impl Ed25519Signature {
+    /// Get the raw signature bytes
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0.0  // Access the inner array through the public field
+    }
+}
+
+impl Ed25519PublicKey {
+    /// Get the raw public key bytes
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0.0  // Access the inner array through the public field
+    }
+
+    /// Construct from dcrypt public key
+    pub fn from_dcrypt_key(key: eddsa::Ed25519PublicKey) -> Self {
+        Self(key)
+    }
+}
+
+impl Ed25519PrivateKey {
+    /// Get the raw private key seed bytes (32 bytes)
+    pub fn as_bytes(&self) -> &[u8] {
+        self.0.seed()
+    }
+
+    /// Construct from dcrypt secret key
+    pub fn from_dcrypt_key(key: eddsa::Ed25519SecretKey) -> Self {
+        Self(key)
+    }
+    
+    /// Get the public key corresponding to this private key
+    pub fn public_key(&self) -> Result<Ed25519PublicKey, String> {
+        self.0.public_key()
+            .map(Ed25519PublicKey)
+            .map_err(|e| format!("Failed to derive public key: {:?}", e))
+    }
+}
+
+#[cfg(test)]
+mod tests;```
+
+####### File: crypto/src/sign/mod.rs
+####*Size: 4.0K, Lines: 1, Type: ASCII text*
+
+```rust
+pub mod dilithium;
+pub mod eddsa;```
+
+###### File: crypto/src/lib.rs
+###*Size: 4.0K, Lines: 18, Type: ASCII text*
+
+```rust
+//! # DePIN SDK Cryptography
+//!
+//! Cryptographic implementations for the DePIN SDK including post-quantum algorithms.
+
+pub mod algorithms;
+pub mod sign;
+pub mod kem;
+pub mod security;
+
+// Simpler test module structure - don't re-export test modules
+#[cfg(test)]
+mod tests {
+    // Simple canary test to verify test discovery is working
+    #[test]
+    fn test_crypto_canary() {
+        assert!(true, "Basic test discovery is working");
+    }
+}
+```
+
+###### File: crypto/src/security.rs
+###*Size: 4.0K, Lines: 34, Type: ASCII text*
+
+```rust
+/// Post-quantum security level
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SecurityLevel {
+    /// NIST Level 1 (approximately 128-bit classical security)
+    Level1,
+    /// NIST Level 2
+    Level2,
+    /// NIST Level 3 (approximately 192-bit classical security)
+    Level3,
+    /// NIST Level 5 (approximately 256-bit classical security)
+    Level5,
+}
+
+impl SecurityLevel {
+    /// Get the equivalent classical security bits
+    pub fn classical_bits(&self) -> usize {
+        match self {
+            SecurityLevel::Level1 => 128,
+            SecurityLevel::Level2 => 160,
+            SecurityLevel::Level3 => 192,
+            SecurityLevel::Level5 => 256,
+        }
+    }
+
+    /// Get the equivalent quantum security bits
+    pub fn quantum_bits(&self) -> usize {
+        match self {
+            SecurityLevel::Level1 => 64,
+            SecurityLevel::Level2 => 80,
+            SecurityLevel::Level3 => 96,
+            SecurityLevel::Level5 => 128,
+        }
+    }
+}
+```
+
+##### File: crypto/Cargo.toml
+##*Size: 4.0K, Lines: 18, Type: ASCII text*
+
+```toml
+[package]
+name = "depin-sdk-crypto"
+version = "0.1.0"
+edition = "2021"
+description = "Cryptographic implementations for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+depin-sdk-core = { path = "../core" }
+log = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+rand = { workspace = true }
+bytes = { workspace = true }
+dcrypt = { version = "0.12.0-beta.1", features = ["full"] }
+
+[features]
+default = []
+```
+
+#### Directory: homomorphic
+
+##### Directory: homomorphic/src
+
+###### Directory: homomorphic/src/computation
+
+####### Directory: homomorphic/src/computation/tests
+
+######## File: homomorphic/src/computation/tests/mod.rs
+#####*Size: 8.0K, Lines: 146, Type: ASCII text*
+
+```rust
+use super::*;
+use depin_sdk_commitment_schemes::elliptical_curve::{
+    EllipticalCurveCommitment, EllipticalCurveCommitmentScheme,
+};
+use depin_sdk_core::commitment::CommitmentScheme;
+use std::any::Any;
+
+#[test]
+fn test_computation_engine() {
+    // Create a computation engine with EllipticalCurve commitment scheme
+    let scheme = EllipticalCurveCommitmentScheme::new(5);
+    let computation = HomomorphicComputation::new(scheme.clone());
+
+    // Test add operation
+    let value_a = b"value a";
+    let value_b = b"value b";
+    let commitment_a = scheme.commit(&[Some(value_a.to_vec())]);
+    let commitment_b = scheme.commit(&[Some(value_b.to_vec())]);
+
+    let left: Arc<dyn Any + Send + Sync> = Arc::new(commitment_a.clone());
+    let right: Arc<dyn Any + Send + Sync> = Arc::new(commitment_b.clone());
+
+    let add_op = CommitmentOperation::Add { left, right };
+    let result = computation.execute(&add_op);
+
+    match result {
+        OperationResult::Success(result_arc) => {
+            let sum = result_arc
+                .downcast_ref::<EllipticalCurveCommitment>()
+                .unwrap();
+
+            // Compute expected result directly
+            let expected = scheme.add(&commitment_a, &commitment_b).unwrap();
+            assert_eq!(sum.as_ref(), expected.as_ref());
+
+            // Create a proof for the operation with a selector
+            let selector = Selector::Position(0);
+            let proof = computation
+                .create_proof_with_selector(&add_op, sum, &selector)
+                .unwrap();
+
+            // Verify the proof with context
+            let context = ProofContext::default();
+            let verified = computation
+                .verify_proof_with_context(&proof, &context)
+                .unwrap();
+            assert!(verified);
+        }
+        _ => panic!("Add operation failed or unsupported"),
+    }
+
+    // Test scalar multiply operation
+    let commitment_arc: Arc<dyn Any + Send + Sync> = Arc::new(commitment_a.clone());
+    let scalar = 3;
+
+    let scalar_op = CommitmentOperation::ScalarMultiply {
+        commitment: commitment_arc,
+        scalar,
+    };
+    let result = computation.execute(&scalar_op);
+
+    match result {
+        OperationResult::Success(result_arc) => {
+            let product = result_arc
+                .downcast_ref::<EllipticalCurveCommitment>()
+                .unwrap();
+
+            // Compute expected result directly
+            let expected = scheme.scalar_multiply(&commitment_a, scalar).unwrap();
+            assert_eq!(product.as_ref(), expected.as_ref());
+
+            // Create a proof for the operation with a key selector
+            let key = b"test_key".to_vec();
+            let selector = Selector::Key(key);
+            let proof = computation
+                .create_proof_with_selector(&scalar_op, product, &selector)
+                .unwrap();
+
+            // Create a context with some data
+            let mut context = ProofContext::default();
+            context.add_data("test", vec![1, 2, 3]);
+
+            // Verify the proof with context
+            let verified = computation
+                .verify_proof_with_context(&proof, &context)
+                .unwrap();
+            assert!(verified);
+        }
+        _ => panic!("Scalar multiply operation failed or unsupported"),
+    }
+
+    // Test combined operation and proof generation
+    let key = b"combined_op_key".to_vec();
+    let selector = Selector::Key(key);
+    let (result, proof) = computation.apply_and_prove(&add_op, &selector).unwrap();
+
+    // Verify the result and proof
+    let verified = computation.verify_proof(&proof).unwrap();
+    assert!(verified);
+
+    // The result should match direct computation
+    let expected = scheme.add(&commitment_a, &commitment_b).unwrap();
+    assert_eq!(result.as_ref(), expected.as_ref());
+}
+
+#[test]
+fn test_batch_operations() {
+    // Create a computation engine with Elliptical Curve commitment scheme
+    let scheme = EllipticalCurveCommitmentScheme::new(5);
+    let computation = HomomorphicComputation::new(scheme.clone());
+
+    // Create test commitments
+    let value_a = b"value a";
+    let value_b = b"value b";
+    let commitment_a = scheme.commit(&[Some(value_a.to_vec())]);
+    let commitment_b = scheme.commit(&[Some(value_b.to_vec())]);
+
+    // Create a batch of operations with selectors
+    let operations = vec![
+        (
+            CommitmentOperation::Add {
+                left: Arc::new(commitment_a.clone()),
+                right: Arc::new(commitment_b.clone()),
+            },
+            Selector::Position(0),
+        ),
+        (
+            CommitmentOperation::ScalarMultiply {
+                commitment: Arc::new(commitment_a.clone()),
+                scalar: 3,
+            },
+            Selector::Key(b"test_key".to_vec()),
+        ),
+    ];
+
+    // Apply batch and generate proofs
+    let batch_results = computation.apply_batch_and_prove(&operations).unwrap();
+
+    // Check the batch results
+    assert_eq!(batch_results.len(), 2);
+
+    // Verify all proofs
+    for (_, proof) in &batch_results {
+        let verified = computation.verify_proof(proof).unwrap();
+        assert!(verified);
+    }
+}```
+
+####### File: homomorphic/src/computation/mod.rs
+####*Size: 8.0K, Lines: 175, Type: ASCII text*
+
+```rust
+use crate::error::HomomorphicResult;
+use crate::operations::{
+    execute_add, execute_custom, execute_scalar_multiply, CustomOperationRegistry,
+};
+use crate::operations::{execute_batch, execute_composite, BatchResult, CompositeOperation};
+use crate::proof::{HomomorphicProof, ProofGenerator};
+use depin_sdk_core::commitment::{HomomorphicCommitmentScheme, ProofContext, Selector};
+use depin_sdk_core::homomorphic::{CommitmentOperation, OperationResult};
+use std::sync::Arc;
+
+/// Computation engine for homomorphic operations
+pub struct HomomorphicComputation<CS: HomomorphicCommitmentScheme> {
+    /// Commitment scheme
+    scheme: CS,
+    /// Custom operation registry
+    registry: Arc<CustomOperationRegistry>,
+    /// Proof generator
+    proof_generator: ProofGenerator<CS>,
+}
+
+impl<CS: HomomorphicCommitmentScheme + Clone> HomomorphicComputation<CS> {
+    /// Create a new computation engine with the given scheme
+    pub fn new(scheme: CS) -> Self {
+        let registry = Arc::new(CustomOperationRegistry::new());
+        let proof_generator = ProofGenerator::new(scheme.clone());
+
+        Self {
+            scheme,
+            registry,
+            proof_generator,
+        }
+    }
+
+    /// Execute an operation
+    pub fn execute(&self, operation: &CommitmentOperation) -> OperationResult {
+        match operation {
+            CommitmentOperation::Add { .. } => execute_add(&self.scheme, operation),
+            CommitmentOperation::ScalarMultiply { .. } => {
+                execute_scalar_multiply(&self.scheme, operation)
+            }
+            CommitmentOperation::Custom { .. } => execute_custom(&self.registry, operation),
+        }
+    }
+
+    /// Execute a batch of operations
+    pub fn execute_batch(&self, operations: &[CommitmentOperation]) -> BatchResult {
+        execute_batch(operations, |op| self.execute(op))
+    }
+
+    /// Execute a composite operation
+    pub fn execute_composite(
+        &self,
+        operation: &CompositeOperation,
+    ) -> HomomorphicResult<OperationResult> {
+        execute_composite(operation, |op| self.execute(op))
+    }
+
+    /// Get the custom operation registry
+    pub fn registry(&self) -> Arc<CustomOperationRegistry> {
+        self.registry.clone()
+    }
+
+    /// Get the underlying commitment scheme
+    pub fn scheme(&self) -> &CS {
+        &self.scheme
+    }
+
+    /// Create a proof for an operation
+    pub fn create_proof(
+        &self,
+        operation: &CommitmentOperation,
+        result: &CS::Commitment,
+    ) -> HomomorphicResult<HomomorphicProof<CS>> {
+        // Default to None selector for simple proofs
+        self.create_proof_with_selector(operation, result, &Selector::None)
+    }
+
+    /// Create a proof for an operation with a specific selector
+    pub fn create_proof_with_selector(
+        &self,
+        operation: &CommitmentOperation,
+        result: &CS::Commitment,
+        selector: &Selector,
+    ) -> HomomorphicResult<HomomorphicProof<CS>> {
+        self.proof_generator
+            .prove_operation_with_selector(operation, result, selector)
+    }
+
+    /// Create a proof for an operation with a position selector
+    pub fn create_proof_at_position(
+        &self,
+        operation: &CommitmentOperation,
+        result: &CS::Commitment,
+        position: usize,
+    ) -> HomomorphicResult<HomomorphicProof<CS>> {
+        self.create_proof_with_selector(operation, result, &Selector::Position(position))
+    }
+
+    /// Create a proof for an operation with a key selector
+    pub fn create_proof_for_key(
+        &self,
+        operation: &CommitmentOperation,
+        result: &CS::Commitment,
+        key: &[u8],
+    ) -> HomomorphicResult<HomomorphicProof<CS>> {
+        self.create_proof_with_selector(operation, result, &Selector::Key(key.to_vec()))
+    }
+
+    /// Verify a homomorphic proof
+    pub fn verify_proof(&self, proof: &HomomorphicProof<CS>) -> HomomorphicResult<bool> {
+        // Use default empty context for simple verification
+        self.verify_proof_with_context(proof, &ProofContext::default())
+    }
+
+    /// Verify a homomorphic proof with context
+    pub fn verify_proof_with_context(
+        &self,
+        proof: &HomomorphicProof<CS>,
+        context: &ProofContext,
+    ) -> HomomorphicResult<bool> {
+        self.proof_generator
+            .verify_proof_with_context(proof, context)
+    }
+
+    /// Apply an operation and create a proof with a specific selector
+    pub fn apply_and_prove(
+        &self,
+        operation: &CommitmentOperation,
+        selector: &Selector,
+    ) -> HomomorphicResult<(CS::Commitment, HomomorphicProof<CS>)> {
+        // Execute the operation
+        let result = match self.execute(operation) {
+            OperationResult::Success(result_arc) => {
+                match result_arc.downcast_ref::<CS::Commitment>() {
+                    Some(commitment) => commitment.clone(),
+                    None => {
+                        return Err(crate::error::HomomorphicError::InvalidInput(
+                            "Operation result is not the correct commitment type".into(),
+                        ))
+                    }
+                }
+            }
+            OperationResult::Failure(err) => {
+                return Err(crate::error::HomomorphicError::Custom(err))
+            }
+            OperationResult::Unsupported => {
+                return Err(crate::error::HomomorphicError::UnsupportedOperation(
+                    depin_sdk_core::commitment::HomomorphicOperation::Custom(0),
+                ))
+            }
+        };
+
+        // Create proof for the operation
+        let proof = self.create_proof_with_selector(operation, &result, selector)?;
+
+        Ok((result, proof))
+    }
+
+    /// Apply a batch of operations and create proofs with specified selectors
+    pub fn apply_batch_and_prove(
+        &self,
+        operations: &[(CommitmentOperation, Selector)],
+    ) -> HomomorphicResult<Vec<(CS::Commitment, HomomorphicProof<CS>)>> {
+        let mut results = Vec::with_capacity(operations.len());
+
+        for (operation, selector) in operations {
+            let (commitment, proof) = self.apply_and_prove(operation, selector)?;
+            results.push((commitment, proof));
+        }
+
+        Ok(results)
+    }
+}
+
+#[cfg(test)]
+mod tests;```
+
+###### Directory: homomorphic/src/operations
+
+####### Directory: homomorphic/src/operations/add
+
+######## Directory: homomorphic/src/operations/add/tests
+
+######### File: homomorphic/src/operations/add/tests/mod.rs
+######*Size: 4.0K, Lines: 68, Type: ASCII text*
+
+```rust
+use super::*;
+use depin_sdk_commitment_schemes::elliptical_curve::{
+    EllipticalCurveCommitment, EllipticalCurveCommitmentScheme,
+};
+use crate::operations::{add, execute_add};
+
+use depin_sdk_core::commitment::CommitmentScheme;
+use depin_sdk_core::homomorphic::CommitmentOperation;
+use std::any::Any;
+use std::sync::Arc;
+
+
+#[test]
+fn test_add_operation() {
+    let scheme = EllipticalCurveCommitmentScheme::new(5);
+
+    // Create two commitments
+    let value_a = b"value a";
+    let value_b = b"value b";
+    let commitment_a = scheme.commit(&[Some(value_a.to_vec())]);
+    let commitment_b = scheme.commit(&[Some(value_b.to_vec())]);
+
+    // Test direct add function
+    let sum_result = add(&scheme, &commitment_a, &commitment_b);
+    assert!(sum_result.is_ok());
+
+    // Test execute_add with CommitmentOperation
+    let left: Arc<dyn Any + Send + Sync> = Arc::new(commitment_a.clone());
+    let right: Arc<dyn Any + Send + Sync> = Arc::new(commitment_b.clone());
+
+    let operation = CommitmentOperation::Add { left, right };
+    let result = execute_add(&scheme, &operation);
+
+    match result {
+        OperationResult::Success(result_arc) => {
+            let sum = result_arc
+                .downcast_ref::<EllipticalCurveCommitment>()
+                .unwrap();
+            assert_ne!(sum.as_ref(), commitment_a.as_ref());
+            assert_ne!(sum.as_ref(), commitment_b.as_ref());
+        }
+        _ => panic!("Operation failed or unsupported"),
+    }
+}
+
+#[test]
+fn test_add_invalid_input() {
+    let scheme = EllipticalCurveCommitmentScheme::new(5);
+
+    // Create a valid commitment
+    let value = b"test value";
+    let commitment = scheme.commit(&[Some(value.to_vec())]);
+
+    // Create an invalid right operand
+    let left: Arc<dyn Any + Send + Sync> = Arc::new(commitment);
+    let right: Arc<dyn Any + Send + Sync> = Arc::new("not a commitment");
+
+    let operation = CommitmentOperation::Add { left, right };
+    let result = execute_add(&scheme, &operation);
+
+    match result {
+        OperationResult::Failure(error) => {
+            assert!(error.contains("Right operand is not the correct commitment type"));
+        }
+        _ => panic!("Expected failure for invalid input"),
+    }
+}
+
+```
+
+######## File: homomorphic/src/operations/add/mod.rs
+#####*Size: 4.0K, Lines: 58, Type: ASCII text*
+
+```rust
+use crate::error::{HomomorphicError, HomomorphicResult};
+use depin_sdk_core::commitment::HomomorphicCommitmentScheme;
+use depin_sdk_core::homomorphic::{CommitmentOperation, OperationResult};
+use std::sync::Arc;
+
+/// Add two commitments
+pub fn add<C: HomomorphicCommitmentScheme>(
+    scheme: &C,
+    left: &C::Commitment,
+    right: &C::Commitment,
+) -> HomomorphicResult<C::Commitment> {
+    scheme.add(left, right).map_err(HomomorphicError::from)
+}
+
+/// Execute an add operation
+pub fn execute_add<C: HomomorphicCommitmentScheme>(
+    scheme: &C,
+    operation: &CommitmentOperation,
+) -> OperationResult {
+    match operation {
+        CommitmentOperation::Add { left, right } => {
+            // Try to downcast the Arc<dyn Any> to the correct commitment type
+            let left_commitment = match left.downcast_ref::<C::Commitment>() {
+                Some(c) => c,
+                None => {
+                    return OperationResult::Failure(
+                        HomomorphicError::InvalidInput(
+                            "Left operand is not the correct commitment type".into(),
+                        )
+                        .to_string(),
+                    )
+                }
+            };
+
+            let right_commitment = match right.downcast_ref::<C::Commitment>() {
+                Some(c) => c,
+                None => {
+                    return OperationResult::Failure(
+                        HomomorphicError::InvalidInput(
+                            "Right operand is not the correct commitment type".into(),
+                        )
+                        .to_string(),
+                    )
+                }
+            };
+
+            // Perform the addition
+            match add(scheme, left_commitment, right_commitment) {
+                Ok(result) => OperationResult::Success(Arc::new(result)),
+                Err(e) => OperationResult::Failure(e.to_string()),
+            }
+        }
+        _ => OperationResult::Unsupported,
+    }
+}
+
+#[cfg(test)]
+mod tests;
+```
+
+####### Directory: homomorphic/src/operations/batch
+
+######## Directory: homomorphic/src/operations/batch/tests
+
+######### File: homomorphic/src/operations/batch/tests/mod.rs
+######*Size: 8.0K, Lines: 197, Type: ASCII text*
+
+```rust
+use super::*;
+use depin_sdk_core::homomorphic::OperationResult;
+use std::any::Any;
+
+#[test]
+fn test_batch_execution() {
+    // Create a mock executor
+    let executor = |op: &CommitmentOperation| match op {
+        CommitmentOperation::Custom { operation_id, .. } => {
+            if operation_id == "succeed" {
+                OperationResult::Success(Arc::new(true))
+            } else if operation_id == "fail" {
+                OperationResult::Failure("Operation failed".into())
+            } else {
+                OperationResult::Unsupported
+            }
+        }
+        _ => OperationResult::Unsupported,
+    };
+
+    // Create a batch of operations
+    let operations = vec![
+        CommitmentOperation::Custom {
+            operation_id: "succeed".to_string(),
+            inputs: vec![],
+            parameters: vec![],
+        },
+        CommitmentOperation::Custom {
+            operation_id: "succeed".to_string(),
+            inputs: vec![],
+            parameters: vec![],
+        },
+        CommitmentOperation::Custom {
+            operation_id: "fail".to_string(),
+            inputs: vec![],
+            parameters: vec![],
+        },
+        CommitmentOperation::Custom {
+            operation_id: "unknown".to_string(),
+            inputs: vec![],
+            parameters: vec![],
+        },
+    ];
+
+    // Execute the batch
+    let batch_result = execute_batch(&operations[..], executor);
+
+    // Check the results
+    assert_eq!(batch_result.results.len(), 4);
+    assert_eq!(batch_result.success_count, 2);
+    assert_eq!(batch_result.failure_count, 1);
+    assert_eq!(batch_result.unsupported_count, 1);
+    assert!(!batch_result.all_successful());
+    assert_eq!(batch_result.success_rate(), 50.0);
+}
+
+#[test]
+fn test_composite_sequence() {
+    // Create a mock executor
+    let executor = |op: &CommitmentOperation| match op {
+        CommitmentOperation::Custom { operation_id, .. } => {
+            if operation_id == "succeed" {
+                OperationResult::Success(Arc::new(true))
+            } else {
+                OperationResult::Failure("Operation failed".into())
+            }
+        }
+        _ => OperationResult::Unsupported,
+    };
+
+    // Create a sequence of operations
+    let sequence = CompositeOperation::Sequence(vec![
+        CommitmentOperation::Custom {
+            operation_id: "succeed".to_string(),
+            inputs: vec![],
+            parameters: vec![],
+        },
+        CommitmentOperation::Custom {
+            operation_id: "succeed".to_string(),
+            inputs: vec![],
+            parameters: vec![],
+        },
+    ]);
+
+    // Execute the sequence
+    let result = execute_composite(&sequence, executor).unwrap();
+
+    match result {
+        OperationResult::Success(_) => {} // Expected
+        _ => panic!("Expected successful sequence execution"),
+    }
+
+    // Create a sequence with a failure
+    let sequence_with_failure = CompositeOperation::Sequence(vec![
+        CommitmentOperation::Custom {
+            operation_id: "succeed".to_string(),
+            inputs: vec![],
+            parameters: vec![],
+        },
+        CommitmentOperation::Custom {
+            operation_id: "fail".to_string(),
+            inputs: vec![],
+            parameters: vec![],
+        },
+    ]);
+
+    // Execute the sequence with failure
+    let result = execute_composite(&sequence_with_failure, executor).unwrap();
+
+    match result {
+        OperationResult::Failure(error) => {
+            assert_eq!(error, "Operation failed");
+        }
+        _ => panic!("Expected failure in sequence execution"),
+    }
+}
+
+#[test]
+fn test_composite_conditional() {
+    // Create a mock executor
+    let executor = |op: &CommitmentOperation| match op {
+        CommitmentOperation::Custom { operation_id, .. } => {
+            if operation_id == "condition_true" {
+                OperationResult::Success(Arc::new(true) as Arc<dyn Any + Send + Sync>)
+            } else if operation_id == "condition_false" {
+                OperationResult::Success(Arc::new(false) as Arc<dyn Any + Send + Sync>)
+            } else if operation_id == "true_path" {
+                OperationResult::Success(Arc::new("true_path_result") as Arc<dyn Any + Send + Sync>)
+            } else if operation_id == "false_path" {
+                OperationResult::Success(Arc::new("false_path_result") as Arc<dyn Any + Send + Sync>)
+            } else {
+                OperationResult::Unsupported
+            }
+        }
+        _ => OperationResult::Unsupported,
+    };
+
+    // Create a conditional operation (true condition)
+    let conditional_true = CompositeOperation::Conditional {
+        condition: Box::new(CommitmentOperation::Custom {
+            operation_id: "condition_true".to_string(),
+            inputs: vec![],
+            parameters: vec![],
+        }),
+        if_true: Box::new(CompositeOperation::Single(CommitmentOperation::Custom {
+            operation_id: "true_path".to_string(),
+            inputs: vec![],
+            parameters: vec![],
+        })),
+        if_false: Box::new(CompositeOperation::Single(CommitmentOperation::Custom {
+            operation_id: "false_path".to_string(),
+            inputs: vec![],
+            parameters: vec![],
+        })),
+    };
+
+    // Execute the conditional (true path)
+    let result = execute_composite(&conditional_true, executor).unwrap();
+
+    match result {
+        OperationResult::Success(result_arc) => {
+            let result = result_arc.downcast_ref::<&str>().unwrap();
+            assert_eq!(*result, "true_path_result");
+        }
+        _ => panic!("Expected successful conditional execution (true path)"),
+    }
+
+    // Create a conditional operation (false condition)
+    let conditional_false = CompositeOperation::Conditional {
+        condition: Box::new(CommitmentOperation::Custom {
+            operation_id: "condition_false".to_string(),
+            inputs: vec![],
+            parameters: vec![],
+        }),
+        if_true: Box::new(CompositeOperation::Single(CommitmentOperation::Custom {
+            operation_id: "true_path".to_string(),
+            inputs: vec![],
+            parameters: vec![],
+        })),
+        if_false: Box::new(CompositeOperation::Single(CommitmentOperation::Custom {
+            operation_id: "false_path".to_string(),
+            inputs: vec![],
+            parameters: vec![],
+        })),
+    };
+
+    // Execute the conditional (false path)
+    let result = execute_composite(&conditional_false, executor).unwrap();
+
+    match result {
+        OperationResult::Success(result_arc) => {
+            let result = result_arc.downcast_ref::<&str>().unwrap();
+            assert_eq!(*result, "false_path_result");
+        }
+        _ => panic!("Expected successful conditional execution (false path)"),
+    }
+}
+```
+
+######## File: homomorphic/src/operations/batch/mod.rs
+#####*Size: 12K, Lines: 249, Type: ASCII text*
+
+```rust
+use crate::error::{HomomorphicError, HomomorphicResult};
+use depin_sdk_core::homomorphic::{CommitmentOperation, OperationResult};
+use std::sync::Arc;
+
+/// Composite operation for complex computations
+#[derive(Debug, Clone)]
+pub enum CompositeOperation {
+    /// Execute operations in sequence
+    Sequence(Vec<CommitmentOperation>),
+
+    /// Execute operations in parallel
+    Parallel(Vec<CommitmentOperation>),
+
+    /// Conditional operation based on a boolean condition
+    Conditional {
+        /// Condition operation (expected to return a boolean)
+        condition: Box<CommitmentOperation>,
+        /// Operation to execute if condition is true
+        if_true: Box<CompositeOperation>,
+        /// Operation to execute if condition is false
+        if_false: Box<CompositeOperation>,
+    },
+
+    /// Loop until a condition is met
+    Loop {
+        /// Maximum number of iterations
+        max_iterations: usize,
+        /// Condition operation (expected to return a boolean)
+        condition: Box<CommitmentOperation>,
+        /// Operation to execute in each iteration
+        body: Box<CompositeOperation>,
+    },
+
+    /// Single operation
+    Single(CommitmentOperation),
+}
+
+/// Result of a batch operation
+#[derive(Debug, Clone)]
+pub struct BatchResult {
+    /// Results of individual operations
+    pub results: Vec<OperationResult>,
+    /// Number of successful operations
+    pub success_count: usize,
+    /// Number of failed operations
+    pub failure_count: usize,
+    /// Number of unsupported operations
+    pub unsupported_count: usize,
+}
+
+impl BatchResult {
+    /// Create a new empty batch result
+    pub fn new() -> Self {
+        Self {
+            results: Vec::new(),
+            success_count: 0,
+            failure_count: 0,
+            unsupported_count: 0,
+        }
+    }
+
+    /// Add a result to the batch
+    pub fn add_result(&mut self, result: OperationResult) {
+        match &result {
+            OperationResult::Success(_) => self.success_count += 1,
+            OperationResult::Failure(_) => self.failure_count += 1,
+            OperationResult::Unsupported => self.unsupported_count += 1,
+        }
+
+        self.results.push(result);
+    }
+
+    /// Check if all operations were successful
+    pub fn all_successful(&self) -> bool {
+        self.failure_count == 0 && self.unsupported_count == 0
+    }
+
+    /// Get the success rate as a percentage
+    pub fn success_rate(&self) -> f64 {
+        if self.results.is_empty() {
+            0.0
+        } else {
+            (self.success_count as f64) / (self.results.len() as f64) * 100.0
+        }
+    }
+}
+
+// Add Default implementation for BatchResult
+impl Default for BatchResult {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Execute batch operations
+pub fn execute_batch<F>(operations: &[CommitmentOperation], executor: F) -> BatchResult
+where
+    F: Fn(&CommitmentOperation) -> OperationResult,
+{
+    let mut result = BatchResult::new();
+
+    for op in operations {
+        let op_result = executor(op);
+        result.add_result(op_result);
+    }
+
+    result
+}
+
+/// Execute a composite operation
+pub fn execute_composite<F>(
+    operation: &CompositeOperation,
+    executor: F,
+) -> HomomorphicResult<OperationResult>
+where
+    F: Fn(&CommitmentOperation) -> OperationResult + Copy,
+{
+    match operation {
+        CompositeOperation::Sequence(ops) => {
+            let mut last_result = OperationResult::Success(Arc::new(()));
+
+            for op in ops {
+                last_result = executor(op);
+
+                // If any operation fails, return immediately
+                if let OperationResult::Failure(_) = &last_result {
+                    return Ok(last_result);
+                }
+            }
+
+            Ok(last_result)
+        }
+
+        CompositeOperation::Parallel(ops) => {
+            let batch = execute_batch(ops, executor);
+
+            // If all operations are successful, return the last result
+            if batch.all_successful() && !batch.results.is_empty() {
+                if let Some(last) = batch.results.last() {
+                    return Ok(last.clone());
+                }
+            } else if !batch.all_successful() {
+                // Return the first failure
+                for result in &batch.results {
+                    if let OperationResult::Failure(_) = result {
+                        return Ok(result.clone());
+                    }
+                }
+
+                // If no failures but some unsupported, return unsupported
+                return Ok(OperationResult::Unsupported);
+            }
+
+            // Empty batch
+            Ok(OperationResult::Success(Arc::new(())))
+        }
+
+        CompositeOperation::Conditional {
+            condition,
+            if_true,
+            if_false,
+        } => {
+            // Execute the condition
+            let condition_result = executor(condition);
+
+            match condition_result {
+                OperationResult::Success(result) => {
+                    // Try to downcast to bool
+                    match result.downcast_ref::<bool>() {
+                        Some(&true) => execute_composite(if_true, executor),
+                        Some(&false) => execute_composite(if_false, executor),
+                        None => Err(HomomorphicError::InvalidInput(
+                            "Condition did not return a boolean value".into(),
+                        )),
+                    }
+                }
+                OperationResult::Failure(error) => Ok(OperationResult::Failure(format!(
+                    "Condition failed: {}",
+                    error
+                ))),
+                OperationResult::Unsupported => Ok(OperationResult::Failure(
+                    "Condition operation is unsupported".into(),
+                )),
+            }
+        }
+
+        CompositeOperation::Loop {
+            max_iterations,
+            condition,
+            body,
+        } => {
+            let mut iterations = 0;
+
+            loop {
+                // Check maximum iterations
+                if iterations >= *max_iterations {
+                    return Ok(OperationResult::Success(Arc::new(iterations)));
+                }
+
+                // Evaluate condition
+                let condition_result = executor(condition);
+
+                match condition_result {
+                    OperationResult::Success(result) => {
+                        // Try to downcast to bool
+                        match result.downcast_ref::<bool>() {
+                            Some(&true) => {
+                                // Continue loop, execute body
+                                let body_result = execute_composite(body, executor)?;
+
+                                // If body execution fails, propagate the error
+                                if let OperationResult::Failure(_) = body_result {
+                                    return Ok(body_result);
+                                }
+
+                                // Increment iteration count
+                                iterations += 1;
+                            }
+                            Some(&false) => {
+                                // Exit loop
+                                return Ok(OperationResult::Success(Arc::new(iterations)));
+                            }
+                            None => {
+                                return Err(HomomorphicError::InvalidInput(
+                                    "Loop condition did not return a boolean value".into(),
+                                ));
+                            }
+                        }
+                    }
+                    OperationResult::Failure(error) => {
+                        return Ok(OperationResult::Failure(format!(
+                            "Loop condition failed after {} iterations: {}",
+                            iterations, error
+                        )));
+                    }
+                    OperationResult::Unsupported => {
+                        return Ok(OperationResult::Failure(
+                            "Loop condition operation is unsupported".into(),
+                        ));
+                    }
+                }
+            }
+        }
+
+        CompositeOperation::Single(op) => Ok(executor(op)),
+    }
+}
+
+#[cfg(test)]
+mod tests;```
+
+####### Directory: homomorphic/src/operations/custom
+
+######## Directory: homomorphic/src/operations/custom/tests
+
+######### File: homomorphic/src/operations/custom/tests/mod.rs
+######*Size: 4.0K, Lines: 128, Type: C source, ASCII text*
+
+```rust
+use super::*;
+
+// Mock commitment for testing
+#[derive(Debug, Clone)]
+struct MockCommitment(i32);
+
+#[test]
+fn test_custom_operation_registry() {
+    let registry = CustomOperationRegistry::new();
+
+    // Register a custom operation
+    registry
+        .register("test_op", |inputs, _params| {
+            if inputs.is_empty() {
+                return Err(HomomorphicError::InvalidInput("No inputs provided".into()));
+            }
+
+            // Try to downcast the first input to MockCommitment
+            let input = match inputs[0].downcast_ref::<MockCommitment>() {
+                Some(c) => c,
+                None => return Err(HomomorphicError::InvalidInput("Invalid input type".into())),
+            };
+
+            // Double the value
+            let result = MockCommitment(input.0 * 2);
+
+            Ok(Arc::new(result) as Arc<dyn Any + Send + Sync>)
+        })
+        .unwrap();
+
+    // Check that the operation is registered
+    assert!(registry.has_operation("test_op"));
+    assert_eq!(registry.operation_count(), 1);
+    assert_eq!(registry.list_operations(), vec!["test_op".to_string()]);
+
+    // Test the custom operation
+    let mock_commitment = MockCommitment(5);
+    let inputs = vec![Arc::new(mock_commitment) as Arc<dyn Any + Send + Sync>];
+    let parameters = vec![];
+
+    let operation = CommitmentOperation::Custom {
+        operation_id: "test_op".to_string(),
+        inputs,
+        parameters,
+    };
+
+    let result = execute_custom(&registry, &operation);
+
+    match result {
+        OperationResult::Success(result_arc) => {
+            let result = result_arc.downcast_ref::<MockCommitment>().unwrap();
+            assert_eq!(result.0, 10); // Should be doubled
+        }
+        _ => panic!("Operation failed or unsupported"),
+    }
+
+    // Test an unregistered operation
+    let inputs = vec![Arc::new(MockCommitment(5)) as Arc<dyn Any + Send + Sync>];
+    let parameters = vec![];
+
+    let operation = CommitmentOperation::Custom {
+        operation_id: "unknown_op".to_string(),
+        inputs,
+        parameters,
+    };
+
+    let result = execute_custom(&registry, &operation);
+
+    match result {
+        OperationResult::Unsupported => {} // This is expected
+        _ => panic!("Expected unsupported for unknown operation"),
+    }
+
+    // Unregister the operation
+    let unregistered = registry.unregister("test_op").unwrap();
+    assert!(unregistered);
+    assert_eq!(registry.operation_count(), 0);
+}
+
+#[test]
+fn test_invalid_input_to_custom_operation() {
+    let registry = CustomOperationRegistry::new();
+
+    // Register a custom operation that expects a specific type
+    registry
+        .register("type_check", |inputs, _params| {
+            if inputs.is_empty() {
+                return Err(HomomorphicError::InvalidInput("No inputs provided".into()));
+            }
+
+            // Expect a MockCommitment
+            if inputs[0].downcast_ref::<MockCommitment>().is_none() {
+                return Err(HomomorphicError::InvalidInput(
+                    "Expected MockCommitment".into(),
+                ));
+            }
+
+            Ok(Arc::new(true) as Arc<dyn Any + Send + Sync>)
+        })
+        .unwrap();
+
+    // Test with wrong input type
+    let inputs = vec![Arc::new("not a commitment") as Arc<dyn Any + Send + Sync>];
+    let parameters = vec![];
+
+    let operation = CommitmentOperation::Custom {
+        operation_id: "type_check".to_string(),
+        inputs,
+        parameters,
+    };
+
+    let result = execute_custom(&registry, &operation);
+
+    match result {
+        OperationResult::Failure(error) => {
+            assert!(error.contains("Expected MockCommitment"));
+        }
+        _ => panic!("Expected failure for invalid input type"),
+    }
+}
+
+#[test]
+fn test_default_implementation() {
+    // Test that Default creates a new empty registry
+    let registry = CustomOperationRegistry::default();
+    assert_eq!(registry.operation_count(), 0);
+    assert!(registry.list_operations().is_empty());
+}
+```
+
+######## File: homomorphic/src/operations/custom/mod.rs
+#####*Size: 4.0K, Lines: 133, Type: ASCII text*
+
+```rust
+use crate::error::{HomomorphicError, HomomorphicResult};
+use depin_sdk_core::homomorphic::{CommitmentOperation, OperationResult};
+use std::any::Any;
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
+
+/// Type for custom operation handler
+pub type CustomOperationHandler = Arc<
+    dyn Fn(&[Arc<dyn Any + Send + Sync>], &[u8]) -> HomomorphicResult<Arc<dyn Any + Send + Sync>>
+        + Send
+        + Sync,
+>;
+
+/// Registry for custom operations
+pub struct CustomOperationRegistry {
+    /// Map of operation IDs to handlers
+    pub(crate) handlers: RwLock<HashMap<String, CustomOperationHandler>>,
+}
+
+impl CustomOperationRegistry {
+    /// Create a new custom operation registry
+    pub fn new() -> Self {
+        Self {
+            handlers: RwLock::new(HashMap::new()),
+        }
+    }
+
+    /// Register a custom operation handler
+    pub fn register<F>(&self, operation_id: &str, handler: F) -> HomomorphicResult<()>
+    where
+        F: Fn(
+                &[Arc<dyn Any + Send + Sync>],
+                &[u8],
+            ) -> HomomorphicResult<Arc<dyn Any + Send + Sync>>
+            + Send
+            + Sync
+            + 'static,
+    {
+        let mut handlers = self
+            .handlers
+            .write()
+            .map_err(|_| HomomorphicError::InternalError("Failed to acquire write lock".into()))?;
+
+        handlers.insert(operation_id.to_string(), Arc::new(handler));
+        Ok(())
+    }
+
+    /// Unregister a custom operation handler
+    pub fn unregister(&self, operation_id: &str) -> HomomorphicResult<bool> {
+        let mut handlers = self
+            .handlers
+            .write()
+            .map_err(|_| HomomorphicError::InternalError("Failed to acquire write lock".into()))?;
+
+        Ok(handlers.remove(operation_id).is_some())
+    }
+
+    /// Check if a custom operation is registered
+    pub fn has_operation(&self, operation_id: &str) -> bool {
+        if let Ok(handlers) = self.handlers.read() {
+            handlers.contains_key(operation_id)
+        } else {
+            false
+        }
+    }
+
+    /// Get the number of registered operations
+    pub fn operation_count(&self) -> usize {
+        if let Ok(handlers) = self.handlers.read() {
+            handlers.len()
+        } else {
+            0
+        }
+    }
+
+    /// List all registered operation IDs
+    pub fn list_operations(&self) -> Vec<String> {
+        if let Ok(handlers) = self.handlers.read() {
+            handlers.keys().cloned().collect()
+        } else {
+            Vec::new()
+        }
+    }
+}
+
+impl Default for CustomOperationRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Execute a custom operation
+pub fn execute_custom(
+    registry: &CustomOperationRegistry,
+    operation: &CommitmentOperation,
+) -> OperationResult {
+    match operation {
+        CommitmentOperation::Custom {
+            operation_id,
+            inputs,
+            parameters,
+        } => {
+            // Check if the operation is registered
+            if !registry.has_operation(operation_id) {
+                return OperationResult::Unsupported;
+            }
+
+            // Get the handler
+            let handler = match registry.handlers.read() {
+                Ok(handlers) => match handlers.get(operation_id) {
+                    Some(h) => h.clone(),
+                    None => return OperationResult::Unsupported,
+                },
+                Err(_) => {
+                    return OperationResult::Failure(
+                        HomomorphicError::InternalError("Failed to acquire read lock".into())
+                            .to_string(),
+                    )
+                }
+            };
+
+            // Execute the handler - inputs are already Arc<dyn Any + Send + Sync>
+            match handler(inputs, parameters) {
+                Ok(result) => OperationResult::Success(result),
+                Err(e) => OperationResult::Failure(e.to_string()),
+            }
+        }
+        _ => OperationResult::Unsupported,
+    }
+}
+
+#[cfg(test)]
+mod tests;
+```
+
+####### Directory: homomorphic/src/operations/scalar_multiply
+
+######## Directory: homomorphic/src/operations/scalar_multiply/tests
+
+######### File: homomorphic/src/operations/scalar_multiply/tests/mod.rs
+######*Size: 4.0K, Lines: 108, Type: ASCII text*
+
+```rust
+use super::*;
+use depin_sdk_commitment_schemes::elliptical_curve::{
+    EllipticalCurveCommitment, EllipticalCurveCommitmentScheme,
+};
+use depin_sdk_core::commitment::CommitmentScheme;
+use std::any::Any;
+
+#[test]
+fn test_scalar_multiply() {
+    let scheme = EllipticalCurveCommitmentScheme::new(5);
+
+    // Create a commitment
+    let value = b"test value";
+    let commitment = scheme.commit(&[Some(value.to_vec())]);
+
+    // Test direct scalar_multiply function with valid scalar
+    let scalar = 3;
+    let product_result = scalar_multiply(&scheme, &commitment, scalar);
+    assert!(product_result.is_ok());
+
+    // Test with negative scalar
+    let negative_result = scalar_multiply(&scheme, &commitment, -1);
+    assert!(negative_result.is_err());
+    assert!(matches!(
+        negative_result.unwrap_err(),
+        HomomorphicError::NegativeScalar
+    ));
+}
+
+#[test]
+fn test_execute_scalar_multiply() {
+    let scheme = EllipticalCurveCommitmentScheme::new(5);
+
+    // Create a commitment
+    let value = b"test value";
+    let commitment = scheme.commit(&[Some(value.to_vec())]);
+
+    // Test execute_scalar_multiply with CommitmentOperation
+    let commitment_arc: Arc<dyn Any + Send + Sync> = Arc::new(commitment.clone());
+    let scalar = 3;
+
+    let operation = CommitmentOperation::ScalarMultiply {
+        commitment: commitment_arc,
+        scalar,
+    };
+
+    let result = execute_scalar_multiply(&scheme, &operation);
+
+    match result {
+        OperationResult::Success(result_arc) => {
+            let product = result_arc
+                .downcast_ref::<EllipticalCurveCommitment>()
+                .unwrap();
+            assert_ne!(product.as_ref(), commitment.as_ref());
+        }
+        _ => panic!("Operation failed or unsupported"),
+    }
+}
+
+#[test]
+fn test_scalar_multiply_invalid_input() {
+    let scheme = EllipticalCurveCommitmentScheme::new(5);
+
+    // Create an invalid commitment
+    let commitment_arc: Arc<dyn Any + Send + Sync> = Arc::new("not a commitment");
+    let scalar = 3;
+
+    let operation = CommitmentOperation::ScalarMultiply {
+        commitment: commitment_arc,
+        scalar,
+    };
+
+    let result = execute_scalar_multiply(&scheme, &operation);
+
+    match result {
+        OperationResult::Failure(error) => {
+            assert!(error.contains("Commitment is not the correct type"));
+        }
+        _ => panic!("Expected failure for invalid input"),
+    }
+}
+
+#[test]
+fn test_scalar_multiply_negative_scalar() {
+    let scheme = EllipticalCurveCommitmentScheme::new(5);
+
+    // Create a valid commitment
+    let value = b"test value";
+    let commitment = scheme.commit(&[Some(value.to_vec())]);
+    let commitment_arc: Arc<dyn Any + Send + Sync> = Arc::new(commitment);
+
+    // Use a negative scalar
+    let scalar = -1;
+
+    let operation = CommitmentOperation::ScalarMultiply {
+        commitment: commitment_arc,
+        scalar,
+    };
+
+    let result = execute_scalar_multiply(&scheme, &operation);
+
+    match result {
+        OperationResult::Failure(error) => {
+            assert!(error.contains("Scalar must be positive"));
+        }
+        _ => panic!("Expected failure for negative scalar"),
+    }
+}
+```
+
+######## File: homomorphic/src/operations/scalar_multiply/mod.rs
+#####*Size: 4.0K, Lines: 50, Type: ASCII text*
+
+```rust
+use crate::error::{HomomorphicError, HomomorphicResult};
+use depin_sdk_core::commitment::HomomorphicCommitmentScheme;
+use depin_sdk_core::homomorphic::{CommitmentOperation, OperationResult};
+use std::sync::Arc;
+
+/// Multiply a commitment by a scalar
+pub fn scalar_multiply<C: HomomorphicCommitmentScheme>(
+    scheme: &C,
+    commitment: &C::Commitment,
+    scalar: i32,
+) -> HomomorphicResult<C::Commitment> {
+    if scalar <= 0 {
+        return Err(HomomorphicError::NegativeScalar);
+    }
+
+    scheme
+        .scalar_multiply(commitment, scalar)
+        .map_err(HomomorphicError::from)
+}
+
+/// Execute a scalar multiply operation
+pub fn execute_scalar_multiply<C: HomomorphicCommitmentScheme>(
+    scheme: &C,
+    operation: &CommitmentOperation,
+) -> OperationResult {
+    match operation {
+        CommitmentOperation::ScalarMultiply { commitment, scalar } => {
+            // Try to downcast the Arc<dyn Any> to the correct commitment type
+            let commitment = match commitment.downcast_ref::<C::Commitment>() {
+                Some(c) => c,
+                None => {
+                    return OperationResult::Failure(
+                        HomomorphicError::InvalidInput("Commitment is not the correct type".into())
+                            .to_string(),
+                    )
+                }
+            };
+
+            // Perform the scalar multiplication
+            match scalar_multiply(scheme, commitment, *scalar) {
+                Ok(result) => OperationResult::Success(Arc::new(result)),
+                Err(e) => OperationResult::Failure(e.to_string()),
+            }
+        }
+        _ => OperationResult::Unsupported,
+    }
+}
+
+#[cfg(test)]
+mod tests;
+```
+
+####### Directory: homomorphic/src/operations/tests
+
+######## File: homomorphic/src/operations/tests/mod.rs
+#####*Size: 4.0K, Lines: 1, Type: very short file (no magic)*
+
+#####*File content not included (exceeds threshold or non-text file)*
+
+####### File: homomorphic/src/operations/execute.rs
+####*Size: 4.0K, Lines: 55, Type: ASCII text*
+
+```rust
+use crate::error::{HomomorphicError, HomomorphicResult};
+use depin_sdk_core::commitment::HomomorphicCommitmentScheme;
+use depin_sdk_core::homomorphic::{CommitmentOperation, OperationResult};
+use std::sync::Arc;
+
+/// Add two commitments
+pub fn add<C: HomomorphicCommitmentScheme>(
+    scheme: &C,
+    left: &C::Commitment,
+    right: &C::Commitment,
+) -> HomomorphicResult<C::Commitment> {
+    scheme.add(left, right).map_err(HomomorphicError::from)
+}
+
+/// Execute an add operation
+pub fn execute_add<C: HomomorphicCommitmentScheme>(
+    scheme: &C,
+    operation: &CommitmentOperation,
+) -> OperationResult {
+    match operation {
+        CommitmentOperation::Add { left, right } => {
+            // Try to downcast the Arc<dyn Any> to the correct commitment type
+            let left_commitment = match left.downcast_ref::<C::Commitment>() {
+                Some(c) => c,
+                None => {
+                    return OperationResult::Failure(
+                        HomomorphicError::InvalidInput(
+                            "Left operand is not the correct commitment type".into(),
+                        )
+                        .to_string(),
+                    )
+                }
+            };
+
+            let right_commitment = match right.downcast_ref::<C::Commitment>() {
+                Some(c) => c,
+                None => {
+                    return OperationResult::Failure(
+                        HomomorphicError::InvalidInput(
+                            "Right operand is not the correct commitment type".into(),
+                        )
+                        .to_string(),
+                    )
+                }
+            };
+
+            // Perform the addition
+            match add(scheme, left_commitment, right_commitment) {
+                Ok(result) => OperationResult::Success(Arc::new(result)),
+                Err(e) => OperationResult::Failure(e.to_string()),
+            }
+        }
+        _ => OperationResult::Unsupported,
+    }
+}
+```
+
+####### File: homomorphic/src/operations/mod.rs
+####*Size: 4.0K, Lines: 14, Type: ASCII text*
+
+```rust
+//! Operation implementations on commitments
+
+mod add;
+mod batch;
+mod custom;
+mod scalar_multiply;
+
+#[cfg(test)]
+mod tests;
+
+// Use explicit imports instead of glob imports to avoid ambiguity
+pub use add::{add, execute_add};
+pub use batch::{execute_batch, execute_composite, BatchResult, CompositeOperation};
+pub use custom::{execute_custom, CustomOperationHandler, CustomOperationRegistry};
+pub use scalar_multiply::{execute_scalar_multiply, scalar_multiply};```
+
+###### File: homomorphic/src/error.rs
+###*Size: 4.0K, Lines: 69, Type: ASCII text*
+
+```rust
+use depin_sdk_core::commitment::HomomorphicOperation;
+use std::error::Error;
+use std::fmt;
+
+/// Errors that can occur during homomorphic operations
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HomomorphicError {
+    /// Invalid point in a commitment
+    InvalidPoint(String),
+    /// Negative or zero scalar in scalar multiplication
+    NegativeScalar,
+    /// Position is out of bounds
+    OutOfBounds(usize, usize),
+    /// Operation not supported by the commitment scheme
+    UnsupportedOperation(HomomorphicOperation),
+    /// Proof verification failed
+    VerificationFailure,
+    /// Internal operation error
+    InternalError(String),
+    /// Invalid input for an operation
+    InvalidInput(String),
+    /// Custom error with message
+    Custom(String),
+}
+
+impl fmt::Display for HomomorphicError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            HomomorphicError::InvalidPoint(details) => {
+                write!(f, "Invalid point in commitment: {}", details)
+            }
+            HomomorphicError::NegativeScalar => {
+                write!(f, "Scalar must be positive in scalar multiplication")
+            }
+            HomomorphicError::OutOfBounds(pos, max) => {
+                write!(f, "Position {} out of bounds (max: {})", pos, max)
+            }
+            HomomorphicError::UnsupportedOperation(op) => {
+                write!(f, "Operation not supported: {:?}", op)
+            }
+            HomomorphicError::VerificationFailure => write!(f, "Proof verification failed"),
+            HomomorphicError::InternalError(details) => {
+                write!(f, "Internal operation error: {}", details)
+            }
+            HomomorphicError::InvalidInput(details) => {
+                write!(f, "Invalid input for operation: {}", details)
+            }
+            HomomorphicError::Custom(msg) => write!(f, "{}", msg),
+        }
+    }
+}
+
+impl Error for HomomorphicError {}
+
+/// Convenience type for operation results
+pub type HomomorphicResult<T> = Result<T, HomomorphicError>;
+
+/// Convert string errors to HomomorphicError
+impl From<String> for HomomorphicError {
+    fn from(s: String) -> Self {
+        HomomorphicError::Custom(s)
+    }
+}
+
+/// Convert &str errors to HomomorphicError
+impl From<&str> for HomomorphicError {
+    fn from(s: &str) -> Self {
+        HomomorphicError::Custom(s.to_string())
+    }
+}```
+
+###### File: homomorphic/src/lib.rs
+###*Size: 4.0K, Lines: 23, Type: ASCII text*
+
+```rust
+// homomorphic/src/lib.rs
+//! # DePIN SDK Homomorphic Operations
+//!
+//! Implementation of homomorphic operations on commitments for the DePIN SDK.
+
+pub mod computation;
+pub mod error;
+pub mod operations;
+pub mod proof;
+
+pub use depin_sdk_core::commitment::{
+    CommitmentScheme, HomomorphicCommitmentScheme, HomomorphicOperation,
+};
+pub use depin_sdk_core::homomorphic::{CommitmentOperation, OperationResult};
+
+// Re-export key components for easier access
+pub use computation::HomomorphicComputation;
+pub use error::{HomomorphicError, HomomorphicResult};
+pub use operations::{
+    add, execute_add, execute_batch, execute_composite, execute_custom, execute_scalar_multiply,
+    scalar_multiply, BatchResult, CompositeOperation, CustomOperationRegistry,
+};
+pub use proof::{HomomorphicProof, ProofGenerator};
+```
+
+###### File: homomorphic/src/proof.rs
+###*Size: 16K, Lines: 357, Type: ASCII text*
+
+```rust
+use crate::error::{HomomorphicError, HomomorphicResult};
+use depin_sdk_core::commitment::HomomorphicCommitmentScheme;
+use depin_sdk_core::commitment::HomomorphicOperation;
+use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, Selector};
+use depin_sdk_core::homomorphic::CommitmentOperation;
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::marker::PhantomData;
+
+/// Proof that a commitment is the result of a homomorphic operation
+#[derive(Debug, Clone)]
+pub struct HomomorphicProof<CS: HomomorphicCommitmentScheme> {
+    /// Type of operation
+    operation_type: HomomorphicOperation,
+    /// Input commitments
+    inputs: Vec<CS::Commitment>,
+    /// Result commitment
+    result: CS::Commitment,
+    /// Selector used for this proof
+    selector: Selector,
+    /// Additional data for verification
+    auxiliary_data: Vec<u8>,
+    /// Phantom data for commitment scheme
+    _phantom: PhantomData<CS>,
+}
+
+impl<CS: HomomorphicCommitmentScheme> HomomorphicProof<CS> {
+    /// Create a new homomorphic proof
+    pub fn new(
+        operation_type: HomomorphicOperation,
+        inputs: Vec<CS::Commitment>,
+        result: CS::Commitment,
+        selector: Selector,
+        auxiliary_data: Vec<u8>,
+    ) -> Self {
+        Self {
+            operation_type,
+            inputs,
+            result,
+            selector,
+            auxiliary_data,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Create a new homomorphic proof with default selector (None)
+    pub fn new_simple(
+        operation_type: HomomorphicOperation,
+        inputs: Vec<CS::Commitment>,
+        result: CS::Commitment,
+        auxiliary_data: Vec<u8>,
+    ) -> Self {
+        Self::new(
+            operation_type,
+            inputs,
+            result,
+            Selector::None,
+            auxiliary_data,
+        )
+    }
+
+    /// Get the operation type
+    pub fn operation_type(&self) -> HomomorphicOperation {
+        self.operation_type
+    }
+
+    /// Get the input commitments
+    pub fn inputs(&self) -> &[CS::Commitment] {
+        &self.inputs
+    }
+
+    /// Get the result commitment
+    pub fn result(&self) -> &CS::Commitment {
+        &self.result
+    }
+
+    /// Get the selector used for this proof
+    pub fn selector(&self) -> &Selector {
+        &self.selector
+    }
+
+    /// Get the auxiliary data
+    pub fn auxiliary_data(&self) -> &[u8] {
+        &self.auxiliary_data
+    }
+
+    /// Serialize the proof to bytes
+    pub fn to_bytes(&self) -> HomomorphicResult<Vec<u8>> {
+        // This is a simplified serialization implementation
+        // In a real implementation, we would use a proper serialization format
+
+        let mut result = Vec::new();
+
+        // Serialize operation type
+        match self.operation_type {
+            HomomorphicOperation::Addition => result.push(1),
+            HomomorphicOperation::ScalarMultiplication => result.push(2),
+            HomomorphicOperation::Custom(id) => {
+                result.push(3);
+                result.extend_from_slice(&(id).to_le_bytes());
+            }
+        }
+
+        // Serialize input count
+        result.extend_from_slice(&(self.inputs.len() as u32).to_le_bytes());
+
+        // Serialize inputs
+        for input in &self.inputs {
+            let bytes = input.as_ref().to_vec();
+            result.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
+            result.extend_from_slice(&bytes);
+        }
+
+        // Serialize result
+        let result_bytes = self.result.as_ref().to_vec();
+        result.extend_from_slice(&(result_bytes.len() as u32).to_le_bytes());
+        result.extend_from_slice(&result_bytes);
+
+        // Serialize selector type
+        match &self.selector {
+            Selector::Position(_) => result.push(1),
+            Selector::Key(_) => result.push(2),
+            Selector::Predicate(_) => result.push(3),
+            Selector::None => result.push(0),
+        }
+
+        // Serialize selector data if present
+        match &self.selector {
+            Selector::Position(pos) => {
+                result.extend_from_slice(&(*pos as u64).to_le_bytes());
+            }
+            Selector::Key(key) => {
+                result.extend_from_slice(&(key.len() as u32).to_le_bytes());
+                result.extend_from_slice(key);
+            }
+            Selector::Predicate(data) => {
+                result.extend_from_slice(&(data.len() as u32).to_le_bytes());
+                result.extend_from_slice(data);
+            }
+            Selector::None => {} // No additional data
+        }
+
+        // Serialize auxiliary data
+        result.extend_from_slice(&(self.auxiliary_data.len() as u32).to_le_bytes());
+        result.extend_from_slice(&self.auxiliary_data);
+
+        Ok(result)
+    }
+
+    /// Create from bytes
+    pub fn from_bytes(_bytes: &[u8]) -> HomomorphicResult<Self>
+    where
+        CS::Commitment: From<Vec<u8>>,
+    {
+        // This would be a complete deserialization implementation
+        // For now, we'll just return an error
+        Err(HomomorphicError::Custom(
+            "Deserialization not implemented".to_string(),
+        ))
+    }
+}
+
+/// Generator for homomorphic proofs
+pub struct ProofGenerator<CS: HomomorphicCommitmentScheme> {
+    /// Commitment scheme
+    scheme: CS,
+}
+
+impl<CS: HomomorphicCommitmentScheme> ProofGenerator<CS> {
+    /// Create a new proof generator
+    pub fn new(scheme: CS) -> Self {
+        Self { scheme }
+    }
+
+    /// Generate a proof for an add operation
+    pub fn prove_add(
+        &self,
+        a: &CS::Commitment,
+        b: &CS::Commitment,
+        result: &CS::Commitment,
+        selector: &Selector,
+    ) -> HomomorphicResult<HomomorphicProof<CS>> {
+        // Verify that result = a + b
+        let computed_result = self.scheme.add(a, b)?;
+
+        // Check that the computed result matches the provided result
+        if computed_result.as_ref() != result.as_ref() {
+            return Err(HomomorphicError::VerificationFailure);
+        }
+
+        // Create the proof with the specified selector
+        Ok(HomomorphicProof::new(
+            HomomorphicOperation::Addition,
+            vec![a.clone(), b.clone()],
+            result.clone(),
+            selector.clone(),
+            Vec::new(), // No auxiliary data needed for addition
+        ))
+    }
+
+    /// Generate a proof for a scalar multiply operation
+    pub fn prove_scalar_multiply(
+        &self,
+        a: &CS::Commitment,
+        scalar: i32,
+        result: &CS::Commitment,
+        selector: &Selector,
+    ) -> HomomorphicResult<HomomorphicProof<CS>> {
+        if scalar <= 0 {
+            return Err(HomomorphicError::NegativeScalar);
+        }
+
+        // Verify that result = a * scalar
+        let computed_result = self.scheme.scalar_multiply(a, scalar)?;
+
+        // Check that the computed result matches the provided result
+        if computed_result.as_ref() != result.as_ref() {
+            return Err(HomomorphicError::VerificationFailure);
+        }
+
+        // Create the proof with scalar in auxiliary data
+        let mut auxiliary_data = Vec::new();
+        auxiliary_data.extend_from_slice(&scalar.to_le_bytes());
+
+        Ok(HomomorphicProof::new(
+            HomomorphicOperation::ScalarMultiplication,
+            vec![a.clone()],
+            result.clone(),
+            selector.clone(),
+            auxiliary_data,
+        ))
+    }
+
+    /// Generate a proof for an operation
+    pub fn prove_operation(
+        &self,
+        operation: &CommitmentOperation,
+        result: &CS::Commitment,
+    ) -> HomomorphicResult<HomomorphicProof<CS>> {
+        // Default to None selector for backward compatibility
+        self.prove_operation_with_selector(operation, result, &Selector::None)
+    }
+
+    /// Generate a proof for an operation with a specific selector
+    pub fn prove_operation_with_selector(
+        &self,
+        operation: &CommitmentOperation,
+        result: &CS::Commitment,
+        selector: &Selector,
+    ) -> HomomorphicResult<HomomorphicProof<CS>> {
+        match operation {
+            CommitmentOperation::Add { left, right } => {
+                // Downcast inputs
+                let a = left.downcast_ref::<CS::Commitment>().ok_or_else(|| {
+                    HomomorphicError::InvalidInput(
+                        "Left operand is not the correct commitment type".into(),
+                    )
+                })?;
+                let b = right.downcast_ref::<CS::Commitment>().ok_or_else(|| {
+                    HomomorphicError::InvalidInput(
+                        "Right operand is not the correct commitment type".into(),
+                    )
+                })?;
+
+                self.prove_add(a, b, result, selector)
+            }
+            CommitmentOperation::ScalarMultiply { commitment, scalar } => {
+                // Downcast input
+                let a = commitment.downcast_ref::<CS::Commitment>().ok_or_else(|| {
+                    HomomorphicError::InvalidInput("Commitment is not the correct type".into())
+                })?;
+
+                self.prove_scalar_multiply(a, *scalar, result, selector)
+            }
+            CommitmentOperation::Custom { .. } => Err(HomomorphicError::UnsupportedOperation(
+                HomomorphicOperation::Custom(0),
+            )),
+        }
+    }
+
+    /// Verify a homomorphic proof
+    pub fn verify_proof(&self, proof: &HomomorphicProof<CS>) -> HomomorphicResult<bool> {
+        // Use default empty context for backward compatibility
+        self.verify_proof_with_context(proof, &ProofContext::default())
+    }
+
+    /// Verify a homomorphic proof with context
+    pub fn verify_proof_with_context(
+        &self,
+        proof: &HomomorphicProof<CS>,
+        context: &ProofContext,
+    ) -> HomomorphicResult<bool> {
+        match proof.operation_type() {
+            HomomorphicOperation::Addition => {
+                if proof.inputs().len() != 2 {
+                    return Err(HomomorphicError::InvalidInput(
+                        "Addition proof requires exactly 2 inputs".into(),
+                    ));
+                }
+
+                let a = &proof.inputs()[0];
+                let b = &proof.inputs()[1];
+
+                // Compute a + b
+                let computed_result = self.scheme.add(a, b)?;
+
+                // Check that computed result matches the proof result
+                Ok(computed_result.as_ref() == proof.result().as_ref())
+            }
+            HomomorphicOperation::ScalarMultiplication => {
+                if proof.inputs().len() != 1 {
+                    return Err(HomomorphicError::InvalidInput(
+                        "Scalar multiplication proof requires exactly 1 input".into(),
+                    ));
+                }
+
+                let a = &proof.inputs()[0];
+
+                // Extract scalar from auxiliary data
+                if proof.auxiliary_data().len() < 4 {
+                    return Err(HomomorphicError::InvalidInput(
+                        "Invalid auxiliary data for scalar multiplication".into(),
+                    ));
+                }
+
+                let mut scalar_bytes = [0u8; 4];
+                scalar_bytes.copy_from_slice(&proof.auxiliary_data()[0..4]);
+                let scalar = i32::from_le_bytes(scalar_bytes);
+
+                if scalar <= 0 {
+                    return Err(HomomorphicError::NegativeScalar);
+                }
+
+                // Check the context for any additional verification parameters
+                if let Some(precision_data) = context.get_data("precision") {
+                    if !precision_data.is_empty() {
+                        // Use precision parameter if provided
+                        // This is just an example of how context might be used
+                        let precision = precision_data[0];
+                        if precision > 0 {
+                            // High precision verification logic would go here
+                        }
+                    }
+                }
+
+                // Compute a * scalar
+                let computed_result = self.scheme.scalar_multiply(a, scalar)?;
+
+                // Check that computed result matches the proof result
+                Ok(computed_result.as_ref() == proof.result().as_ref())
+            }
+            HomomorphicOperation::Custom(_) => Err(HomomorphicError::UnsupportedOperation(
+                proof.operation_type(),
+            )),
+        }
+    }
+}
+```
+
+##### File: homomorphic/Cargo.toml
+##*Size: 4.0K, Lines: 19, Type: ASCII text*
+
+```toml
+[package]
+name = "depin-sdk-homomorphic"
+version = "0.1.0"
+edition = "2021"
+description = "Homomorphic operations implementation for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+depin-sdk-core = { path = "../core" }
+depin-sdk-commitment-schemes = { path = "../commitment_schemes" }
+log = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+rand = "0.8"
+sha2 = "0.10"
+curve25519-dalek = "4.0"
+
+[features]
+default = []
+```
+
+#### Directory: services
+
+##### Directory: services/src
+
+###### Directory: services/src/external_data
+
+####### File: services/src/external_data/mod.rs
+####*Size: 4.0K, Lines: 12, Type: ASCII text*
+
+```rust
+//! External data module implementation
+
+use depin_sdk_core::services::{BlockchainService, ServiceType};
+
+pub struct ExternalDataService {
+    // Add your implementation fields here
+}
+
+impl BlockchainService for ExternalDataService {
+    fn service_type(&self) -> ServiceType {
+        ServiceType::ExternalData
+    }
+}```
+
+###### Directory: services/src/governance
+
+####### File: services/src/governance/mod.rs
+####*Size: 4.0K, Lines: 156, Type: ASCII text*
+
+```rust
+//! Governance module implementations for the DePIN SDK
+
+use std::time::Duration;
+
+/// Governance proposal type
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProposalType {
+    /// Parameter change proposal
+    ParameterChange,
+    /// Software upgrade proposal
+    SoftwareUpgrade,
+    /// Text proposal
+    Text,
+    /// Custom proposal type
+    Custom(String),
+}
+
+/// Governance vote option
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VoteOption {
+    /// Yes vote
+    Yes,
+    /// No vote
+    No,
+    /// No with veto vote
+    NoWithVeto,
+    /// Abstain vote
+    Abstain,
+}
+
+/// Governance parameters
+#[derive(Debug, Clone)]
+pub struct GovernanceParams {
+    /// Minimum deposit to submit a proposal
+    pub min_deposit: u64,
+    /// Maximum deposit period
+    pub max_deposit_period: Duration,
+    /// Voting period
+    pub voting_period: Duration,
+    /// Quorum percentage (0-100)
+    pub quorum: u8,
+    /// Threshold percentage (0-100)
+    pub threshold: u8,
+    /// Veto threshold percentage (0-100)
+    pub veto_threshold: u8,
+}
+
+impl Default for GovernanceParams {
+    fn default() -> Self {
+        Self {
+            min_deposit: 10000,
+            max_deposit_period: Duration::from_secs(60 * 60 * 24 * 14), // 14 days
+            voting_period: Duration::from_secs(60 * 60 * 24 * 14),      // 14 days
+            quorum: 33,                                                 // 33%
+            threshold: 50,                                              // 50%
+            veto_threshold: 33,                                         // 33%
+        }
+    }
+}
+
+/// Governance module
+pub struct GovernanceModule {
+    /// Governance parameters
+    params: GovernanceParams,
+}
+
+impl GovernanceModule {
+    /// Create a new governance module
+    pub fn new(params: GovernanceParams) -> Self {
+        Self { params }
+    }
+
+    /// Create a new governance module with default parameters
+    pub fn default() -> Self {
+        Self {
+            params: GovernanceParams::default(),
+        }
+    }
+
+    /// Get the governance parameters
+    pub fn params(&self) -> &GovernanceParams {
+        &self.params
+    }
+
+    /// Submit a proposal
+    pub fn submit_proposal(
+        &self,
+        _proposal_type: ProposalType,
+        _title: &str,
+        _description: &str,
+        _proposer: &[u8],
+        _deposit: u64,
+    ) -> Result<u64, String> {
+        // In a real implementation, this would create and store a proposal
+        // For now, just return a dummy proposal ID
+        Ok(1)
+    }
+
+    /// Vote on a proposal
+    pub fn vote(
+        &self,
+        _proposal_id: u64,
+        _voter: &[u8],
+        _option: VoteOption,
+    ) -> Result<(), String> {
+        // In a real implementation, this would record a vote
+        Ok(())
+    }
+
+    /// Get proposal status
+    pub fn get_proposal_status(&self, _proposal_id: u64) -> Result<String, String> {
+        // In a real implementation, this would fetch the proposal status
+        Ok("Voting".to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_governance_params_default() {
+        let params = GovernanceParams::default();
+        assert_eq!(params.min_deposit, 10000);
+        assert_eq!(params.quorum, 33);
+        assert_eq!(params.threshold, 50);
+        assert_eq!(params.veto_threshold, 33);
+    }
+
+    #[test]
+    fn test_governance_module() {
+        let module = GovernanceModule::default();
+
+        // Test proposal submission
+        let proposal_id = module
+            .submit_proposal(
+                ProposalType::Text,
+                "Test Proposal",
+                "This is a test proposal",
+                &[1, 2, 3, 4],
+                10000,
+            )
+            .unwrap();
+
+        assert_eq!(proposal_id, 1);
+
+        // Test voting
+        module
+            .vote(proposal_id, &[1, 2, 3, 4], VoteOption::Yes)
+            .unwrap();
+
+        // Test status query
+        let status = module.get_proposal_status(proposal_id).unwrap();
+        assert_eq!(status, "Voting");
+    }
+}
+```
+
+###### Directory: services/src/ibc
+
+####### Directory: services/src/ibc/src
+
+######## Directory: services/src/ibc/src/conversion
+
+######### File: services/src/ibc/src/conversion/mod.rs
+######*Size: 4.0K, Lines: 21, Type: ASCII text*
+
+```rust
+//! Value conversion utilities for IBC module
+/// Trait for types that can be converted from/to bytes
+/// This unifies the previously separate ValueConversion and FromBytes traits
+pub trait ByteConvertible: Sized {
+    /// Convert from bytes to this type
+    fn from_bytes(bytes: &[u8]) -> Option<Self>;
+
+    /// Convert this type to bytes
+    fn to_bytes(&self) -> Vec<u8>;
+}
+
+// Implement for Vec<u8> which is the most common value type
+impl ByteConvertible for Vec<u8> {
+    fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        Some(bytes.to_vec())
+    }
+
+    fn to_bytes(&self) -> Vec<u8> {
+        self.clone()
+    }
+}
+```
+
+######## Directory: services/src/ibc/src/light_client
+
+######### Directory: services/src/ibc/src/light_client/tests
+
+######### File: services/src/ibc/src/light_client/mod.rs
+######*Size: 12K, Lines: 341, Type: C source, ASCII text*
+
+```rust
+//! IBC light client implementations
+
+use crate::conversion::ByteConvertible;
+use crate::translation::ProofTranslatorRegistry;
+use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, Selector};
+use depin_sdk_core::ibc::{LightClient, UniversalProofFormat};
+use std::any::Any;
+use std::collections::HashMap;
+
+/// Type-erased commitment scheme wrapper that avoids dynamic dispatch limitations
+struct SchemeWrapper {
+    /// The actual scheme (boxed as Any)
+    inner: Box<dyn Any + Send + Sync>,
+    /// Function pointer for commit operation
+    commit_fn: fn(&dyn Any, &[Option<Vec<u8>>]) -> Box<dyn AsRef<[u8]> + Send + Sync>,
+    /// Function pointer for create_proof operation
+    create_proof_fn: fn(&dyn Any, &Selector, &[u8]) -> Result<Box<dyn Any + Send + Sync>, String>,
+    /// Function pointer for verify operation
+    verify_fn: fn(&dyn Any, &dyn Any, &dyn Any, &Selector, &[u8], &ProofContext) -> bool,
+    /// Scheme identifier
+    id: String,
+}
+
+/// Universal light client that can verify proofs from multiple commitment schemes
+pub struct UniversalLightClient {
+    /// Supported scheme implementations
+    schemes: HashMap<String, SchemeWrapper>,
+    /// Translator registry
+    translators: ProofTranslatorRegistry,
+    /// Default scheme to use
+    default_scheme: Option<String>,
+}
+
+impl UniversalLightClient {
+    /// Create a new universal light client
+    pub fn new() -> Self {
+        Self {
+            schemes: HashMap::new(),
+            translators: ProofTranslatorRegistry::new(),
+            default_scheme: None,
+        }
+    }
+
+    /// Register a commitment scheme
+    pub fn register_scheme<C>(&mut self, scheme_id: &str, scheme: C)
+    where
+        C: CommitmentScheme + 'static,
+        C::Value: ByteConvertible + AsRef<[u8]>, // Using unified trait
+    {
+        // Create type-erased wrapper functions
+        let commit_fn = |any_scheme: &dyn Any,
+                         values: &[Option<Vec<u8>>]|
+         -> Box<dyn AsRef<[u8]> + Send + Sync> {
+            let scheme = any_scheme.downcast_ref::<C>().unwrap();
+            // Convert Vec<u8> to C::Value using ByteConvertible trait
+            let typed_values: Vec<Option<C::Value>> = values
+                .iter()
+                .map(|v| v.as_ref().and_then(|bytes| C::Value::from_bytes(bytes)))
+                .collect();
+
+            let commitment = scheme.commit(&typed_values);
+            Box::new(commitment)
+        };
+
+        let create_proof_fn = |any_scheme: &dyn Any,
+                               selector: &Selector,
+                               value: &[u8]|
+         -> Result<Box<dyn Any + Send + Sync>, String> {
+            let scheme = any_scheme.downcast_ref::<C>().unwrap();
+            // Convert value to C::Value using ByteConvertible trait
+            if let Some(typed_value) = C::Value::from_bytes(value) {
+                scheme
+                    .create_proof(selector, &typed_value)
+                    .map(|proof| Box::new(proof) as Box<dyn Any + Send + Sync>)
+            } else {
+                Err(format!(
+                    "Failed to convert {} bytes to the expected format",
+                    value.len()
+                ))
+            }
+        };
+
+        let verify_fn = |any_scheme: &dyn Any,
+                         any_commitment: &dyn Any,
+                         any_proof: &dyn Any,
+                         selector: &Selector,
+                         value: &[u8],
+                         context: &ProofContext|
+         -> bool {
+            if let Some(scheme) = any_scheme.downcast_ref::<C>() {
+                if let Some(commitment) = any_commitment.downcast_ref::<C::Commitment>() {
+                    if let Some(proof) = any_proof.downcast_ref::<C::Proof>() {
+                        // Convert value to C::Value
+                        if let Some(typed_value) = C::Value::from_bytes(value) {
+                            return scheme.verify(
+                                commitment,
+                                proof,
+                                selector,
+                                &typed_value,
+                                context,
+                            );
+                        }
+                    }
+                }
+            }
+            false
+        };
+
+        let wrapper = SchemeWrapper {
+            inner: Box::new(scheme),
+            commit_fn,
+            create_proof_fn,
+            verify_fn,
+            id: scheme_id.to_string(),
+        };
+
+        self.schemes.insert(scheme_id.to_string(), wrapper);
+        if self.default_scheme.is_none() {
+            self.default_scheme = Some(scheme_id.to_string());
+        }
+    }
+
+    /// Set the default scheme
+    pub fn set_default_scheme(&mut self, scheme_id: &str) -> Result<(), String> {
+        if self.schemes.contains_key(scheme_id) {
+            self.default_scheme = Some(scheme_id.to_string());
+            Ok(())
+        } else {
+            Err(format!("Scheme '{}' not registered", scheme_id))
+        }
+    }
+
+    /// Register a proof translator
+    pub fn register_translator(
+        &mut self,
+        translator: Box<dyn depin_sdk_core::ibc::ProofTranslator>,
+    ) {
+        self.translators.register(translator);
+    }
+
+    /// Get supported schemes
+    pub fn supported_schemes(&self) -> Vec<String> {
+        self.schemes.keys().cloned().collect()
+    }
+
+    /// Helper method to convert native proof bytes to a proof object
+    fn deserialize_proof(
+        &self,
+        scheme_id: &str,
+        proof_bytes: &[u8],
+    ) -> Option<Box<dyn Any + Send + Sync>> {
+        // In a real implementation, this would deserialize from the proper format
+        // based on the scheme's expected proof format
+        let _scheme = self.schemes.get(scheme_id)?;
+
+        // Log the deserialization attempt for debugging
+        log::debug!(
+            "Deserializing proof for scheme {}, {} bytes",
+            scheme_id,
+            proof_bytes.len()
+        );
+
+        // Simply wrap the bytes for now
+        // In a real implementation, you'd have scheme-specific deserialization
+        Some(Box::new(proof_bytes.to_vec()))
+    }
+
+    /// Helper method to extract selector from proof bytes
+    fn extract_selector_from_proof(
+        &self,
+        scheme_id: &str,
+        _proof_bytes: &[u8],
+        fallback_key: &[u8],
+    ) -> Selector {
+        // In a real implementation, this would extract the selector information
+        // from the proof bytes based on the scheme's format
+
+        // Log the extraction attempt
+        log::debug!(
+            "Extracting selector for scheme {}, fallback key: {} bytes",
+            scheme_id,
+            fallback_key.len()
+        );
+
+        // For now, return a key-based selector as a default
+        Selector::Key(fallback_key.to_vec())
+    }
+}
+
+impl LightClient for UniversalLightClient {
+    fn verify_native_proof(
+        &self,
+        commitment: &[u8],
+        proof: &[u8],
+        key: &[u8],
+        value: &[u8],
+    ) -> bool {
+        // Create a default context for internal use
+        let context = ProofContext::default();
+
+        // Use the default scheme if available
+        if let Some(scheme_id) = &self.default_scheme {
+            if let Some(scheme) = self.schemes.get(scheme_id) {
+                // Extract selector from proof (or use key selector as fallback)
+                let selector = self.extract_selector_from_proof(scheme_id, proof, key);
+
+                // Deserialize proof data
+                if let Some(deserialized_proof) = self.deserialize_proof(scheme_id, proof) {
+                    // Attempt to verify with the scheme
+                    // We use the type-erased function to avoid dynamic dispatch limitations
+                    let result = (scheme.verify_fn)(
+                        scheme.inner.as_ref(),
+                        &commitment.to_vec(), // Simple wrapper for commitment bytes
+                        deserialized_proof.as_ref(),
+                        &selector,
+                        value,
+                        &context,
+                    );
+
+                    // Log the verification result
+                    log::debug!(
+                        "Native proof verification result: {}, scheme: {}",
+                        result,
+                        scheme_id
+                    );
+
+                    return result;
+                }
+            }
+        }
+
+        log::warn!("Native proof verification failed, no suitable scheme found");
+        false
+    }
+
+    fn verify_universal_proof(
+        &self,
+        commitment: &[u8],
+        proof: &UniversalProofFormat,
+        key: &[u8],
+        value: &[u8],
+    ) -> bool {
+        let scheme_id = &proof.scheme_id.0;
+
+        // Log received proof information
+        log::debug!(
+            "Verifying universal proof: scheme={}, key={} bytes, provided_key={} bytes",
+            scheme_id,
+            proof.key.len(),
+            key.len()
+        );
+
+        // Create a context from the proof metadata
+        let mut combined_context = ProofContext::new();
+
+        // Migrate metadata from core proof to our context
+        for (key, value) in &proof.metadata {
+            combined_context.add_data(key, value.clone());
+        }
+
+        // Determine which key to use - prefer proof's key if present, otherwise use provided key
+        let key_to_use = if !proof.key.is_empty() {
+            &proof.key
+        } else {
+            key
+        };
+
+        // Create selector based on the key
+        let selector = Selector::Key(key_to_use.to_vec());
+
+        // Log the key decision
+        log::debug!(
+            "Using {} for verification: {} bytes",
+            if key_to_use.as_ptr() == proof.key.as_ptr() {
+                "proof key"
+            } else {
+                "provided key"
+            },
+            key_to_use.len()
+        );
+
+        // If we support this scheme directly, use it
+        if let Some(scheme) = self.schemes.get(scheme_id) {
+            // Deserialize the proof data
+            if let Some(deserialized_proof) = self.deserialize_proof(scheme_id, &proof.proof_data) {
+                // Verify using the scheme
+                let result = (scheme.verify_fn)(
+                    scheme.inner.as_ref(),
+                    &commitment.to_vec(), // Simple wrapper for commitment bytes
+                    deserialized_proof.as_ref(),
+                    &selector,
+                    value,
+                    &combined_context,
+                );
+
+                // Log direct verification result
+                log::debug!("Direct verification result: {}", result);
+
+                return result;
+            }
+        }
+
+        // If we don't support this scheme directly, try to translate it
+        if let Some(default_id) = &self.default_scheme {
+            log::debug!("Attempting translation to scheme: {}", default_id);
+
+            // Attempt to translate the proof to our default scheme
+            if let Some(translated_proof) = self.translators.translate_universal(default_id, proof)
+            {
+                if let Some(scheme) = self.schemes.get(default_id) {
+                    // Verify using the translated proof
+                    let result = (scheme.verify_fn)(
+                        scheme.inner.as_ref(),
+                        &commitment.to_vec(), // Simple wrapper for commitment bytes
+                        translated_proof.as_ref(),
+                        &selector,
+                        value,
+                        &combined_context,
+                    );
+
+                    // Log translation verification result
+                    log::debug!("Translation verification result: {}", result);
+
+                    return result;
+                }
+            } else {
+                log::warn!("Failed to translate proof to scheme: {}", default_id);
+            }
+        }
+
+        log::warn!(
+            "Universal proof verification failed for scheme: {}",
+            scheme_id
+        );
+        false
+    }
+
+    fn supported_schemes(&self) -> Vec<String> {
+        self.schemes.keys().cloned().collect()
+    }
+}
+```
+
+######## Directory: services/src/ibc/src/proof
+
+######### Directory: services/src/ibc/src/proof/tests
+
+######### File: services/src/ibc/src/proof/formats.rs
+######*Size: 4.0K, Lines: 82, Type: ASCII text*
+
+```rust
+// File: crates/ibc/src/proof/formats.rs
+
+use depin_sdk_core::commitment::{ProofContext, Selector};
+use depin_sdk_core::ibc::UniversalProofFormat as CoreProofFormat;
+use std::collections::HashMap;
+
+use crate::proof::UniversalProofFormat as LocalProofFormat;
+
+/// Helper for converting between proof formats
+pub struct ProofFormatConverter;
+
+impl ProofFormatConverter {
+    /// Convert from core to local proof format
+    pub fn core_to_local(core: &CoreProofFormat) -> LocalProofFormat {
+        // Extract selector from key
+        let selector = if core.key.is_empty() {
+            Selector::None
+        } else {
+            Selector::Key(core.key.clone())
+        };
+
+        // Create local proof format
+        let mut local = LocalProofFormat::new(
+            core.scheme_id.clone(),
+            core.proof_data.clone(),
+            selector,
+            core.value.clone(),
+        );
+
+        // Copy metadata
+        for (key, value) in &core.metadata {
+            local.add_metadata(key, value.clone());
+        }
+
+        local
+    }
+
+    /// Convert from local to core proof format
+    pub fn local_to_core(local: &LocalProofFormat) -> CoreProofFormat {
+        // Extract key from selector if available
+        let key = match &local.selector {
+            Selector::Key(k) => k.clone(),
+            _ => local.key.clone(), // Fall back to explicit key field
+        };
+
+        // Create core proof format
+        let mut core = CoreProofFormat {
+            scheme_id: local.scheme_id.clone(),
+            format_version: local.format_version,
+            proof_data: local.proof_data.clone(),
+            metadata: HashMap::new(),
+            key, // Using key directly
+            value: local.value.clone(),
+        };
+
+        // Copy metadata
+        for (key, value) in &local.metadata {
+            core.metadata.insert(key.clone(), value.clone());
+        }
+
+        core
+    }
+
+    /// Create a combined context from proof and additional context
+    pub fn create_combined_context(
+        proof: &LocalProofFormat,
+        additional: Option<&ProofContext>,
+    ) -> ProofContext {
+        let mut combined = proof.context.clone();
+
+        // Add additional context data if provided
+        if let Some(additional_ctx) = additional {
+            for (key, value) in &additional_ctx.data {
+                // Only add if not already present
+                if !combined.data.contains_key(key) {
+                    combined.add_data(key, value.clone());
+                }
+            }
+        }
+
+        combined
+    }
+}```
+
+######### File: services/src/ibc/src/proof/mod.rs
+######*Size: 8.0K, Lines: 194, Type: ASCII text*
+
+```rust
+//! Definition of the UniversalProofFormat
+//! 
+use depin_sdk_core::commitment::{ProofContext, SchemeIdentifier, Selector};
+use std::collections::HashMap;
+
+// Explicitly declare the formats module
+pub mod formats;
+use formats::ProofFormatConverter;
+
+/// Universal proof format that can represent any commitment scheme's proof
+#[derive(Debug, Clone)]
+pub struct UniversalProofFormat {
+    /// Identifier of the commitment scheme that created this proof
+    pub scheme_id: SchemeIdentifier,
+
+    /// Version of the proof format
+    pub format_version: u8,
+
+    /// The serialized proof data
+    pub proof_data: Vec<u8>,
+
+    /// Additional metadata for the proof
+    pub metadata: HashMap<String, Vec<u8>>,
+
+    /// Selector that this proof is for
+    pub selector: Selector,
+
+    /// Key that this proof is for (backward compatibility)
+    pub key: Vec<u8>,
+
+    /// Value this proof is proving (if known)
+    pub value: Option<Vec<u8>>,
+
+    /// Verification context
+    pub context: ProofContext,
+}
+
+impl UniversalProofFormat {
+    /// Create a new universal proof format
+    pub fn new(
+        scheme_id: SchemeIdentifier,
+        proof_data: Vec<u8>,
+        selector: Selector,
+        value: Option<Vec<u8>>,
+    ) -> Self {
+        // For backward compatibility, extract a key from the selector if possible
+        let key = match &selector {
+            Selector::Key(k) => k.clone(),
+            _ => Vec::new(),
+        };
+
+        Self {
+            scheme_id,
+            format_version: 1,
+            proof_data,
+            metadata: HashMap::new(),
+            selector,
+            key,
+            value,
+            context: ProofContext::default(),
+        }
+    }
+
+    /// Add metadata to the proof
+    pub fn add_metadata(&mut self, key: &str, value: Vec<u8>) {
+        self.metadata.insert(key.to_string(), value);
+    }
+
+    /// Get metadata from the proof
+    pub fn get_metadata(&self, key: &str) -> Option<&Vec<u8>> {
+        self.metadata.get(key)
+    }
+
+    /// Add context data
+    pub fn add_context_data(&mut self, key: &str, value: Vec<u8>) {
+        self.context.add_data(key, value);
+    }
+
+    /// Get context data
+    pub fn get_context_data(&self, key: &str) -> Option<&Vec<u8>> {
+        self.context.get_data(key)
+    }
+
+    /// Create a new proof with a position-based selector
+    pub fn with_position(
+        scheme_id: SchemeIdentifier,
+        proof_data: Vec<u8>,
+        position: usize,
+        value: Option<Vec<u8>>,
+    ) -> Self {
+        Self::new(scheme_id, proof_data, Selector::Position(position), value)
+    }
+
+    /// Create a new proof with a key-based selector
+    pub fn with_key(
+        scheme_id: SchemeIdentifier,
+        proof_data: Vec<u8>,
+        key: Vec<u8>,
+        value: Option<Vec<u8>>,
+    ) -> Self {
+        Self::new(scheme_id, proof_data, Selector::Key(key), value)
+    }
+
+    /// Create a new proof with a predicate-based selector
+    pub fn with_predicate(
+        scheme_id: SchemeIdentifier,
+        proof_data: Vec<u8>,
+        predicate: Vec<u8>,
+        value: Option<Vec<u8>>,
+    ) -> Self {
+        Self::new(scheme_id, proof_data, Selector::Predicate(predicate), value)
+    }
+
+    /// Create a new proof with no selector
+    pub fn with_no_selector(
+        scheme_id: SchemeIdentifier,
+        proof_data: Vec<u8>,
+        value: Option<Vec<u8>>,
+    ) -> Self {
+        Self::new(scheme_id, proof_data, Selector::None, value)
+    }
+}
+
+/// Helper functions for working with UniversalProofFormat
+pub struct IBCProofUtils;
+
+impl IBCProofUtils {
+    /// Create a new universal proof format
+    pub fn create_universal_proof(
+        scheme_id: &str,
+        proof_data: Vec<u8>,
+        selector: Selector,
+        value: Option<Vec<u8>>,
+    ) -> UniversalProofFormat {
+        UniversalProofFormat::new(
+            SchemeIdentifier::new(scheme_id),
+            proof_data,
+            selector,
+            value,
+        )
+    }
+
+    /// Get scheme ID from a universal proof
+    pub fn get_scheme_id(proof: &UniversalProofFormat) -> &str {
+        &proof.scheme_id.0
+    }
+
+    /// Get proof data from a universal proof
+    pub fn get_proof_data(proof: &UniversalProofFormat) -> &[u8] {
+        &proof.proof_data
+    }
+
+    /// Get selector from a universal proof
+    pub fn get_selector(proof: &UniversalProofFormat) -> &Selector {
+        &proof.selector
+    }
+
+    /// Get key from a universal proof
+    pub fn get_key(proof: &UniversalProofFormat) -> &[u8] {
+        &proof.key
+    }
+
+    /// Get value from a universal proof
+    ///
+    /// This function returns a borrowed slice of the value stored in the proof,
+    /// if it exists. The lifetime of the returned slice is bound to the lifetime
+    /// of the input `proof`.
+    pub fn get_value<'a>(proof: &'a UniversalProofFormat) -> Option<&'a [u8]> {
+        proof.value.as_ref().map(|v| v.as_slice())
+    }
+
+    /// Add metadata to a universal proof
+    pub fn add_metadata(proof: &mut UniversalProofFormat, key: &str, value: Vec<u8>) {
+        proof.add_metadata(key, value);
+    }
+
+    /// Get metadata from a universal proof
+    pub fn get_metadata<'a>(proof: &'a UniversalProofFormat, key: &str) -> Option<&'a Vec<u8>> {
+        proof.get_metadata(key)
+    }
+
+    /// Add context data to a universal proof
+    pub fn add_context_data(proof: &mut UniversalProofFormat, key: &str, value: Vec<u8>) {
+        proof.add_context_data(key, value);
+    }
+
+    /// Get context data from a universal proof
+    pub fn get_context_data<'a>(proof: &'a UniversalProofFormat, key: &str) -> Option<&'a Vec<u8>> {
+        proof.get_context_data(key)
+    }
+}
+
+/// Serialization utilities for proofs (snipped for brevity)
+pub struct ProofSerialization;
+// Implement serialization methods here...```
+
+######### File: services/src/ibc/src/proof/mod.rs:8:5
+######*Size: 0, Lines: 0, Type: empty*
+
+######*File content not included (exceeds threshold or non-text file)*
+
+######## Directory: services/src/ibc/src/translation
+
+######### Directory: services/src/ibc/src/translation/tests
+
+######### File: services/src/ibc/src/translation/generic.rs
+######*Size: 4.0K, Lines: 115, Type: ASCII text*
+
+```rust
+//! Generic proof translator implementation
+
+use std::any::Any;
+use std::marker::PhantomData;
+
+use crate::conversion::ByteConvertible;
+use depin_sdk_core::commitment::{CommitmentScheme, SchemeIdentifier, Selector};
+use depin_sdk_core::ibc::{ProofTranslator, UniversalProofFormat};
+use std::collections::HashMap;
+
+/// Generic proof translator between two commitment schemes
+pub struct GenericProofTranslator<S, T>
+where
+    S: CommitmentScheme,
+    T: CommitmentScheme,
+{
+    /// Source scheme
+    source_scheme: S,
+    /// Source scheme ID
+    source_id: SchemeIdentifier,
+    /// Target scheme
+    target_scheme: T,
+    /// Target scheme ID
+    target_id: SchemeIdentifier,
+    /// Phantom marker
+    _phantom: PhantomData<(S, T)>,
+}
+
+impl<S, T> GenericProofTranslator<S, T>
+where
+    S: CommitmentScheme,
+    T: CommitmentScheme,
+{
+    /// Create a new generic proof translator
+    pub fn new(
+        source_scheme: S,
+        source_id: SchemeIdentifier,
+        target_scheme: T,
+        target_id: SchemeIdentifier,
+    ) -> Self {
+        Self {
+            source_scheme,
+            source_id,
+            target_scheme,
+            target_id,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<S, T> ProofTranslator for GenericProofTranslator<S, T>
+where
+    S: CommitmentScheme,
+    T: CommitmentScheme,
+    T::Value: ByteConvertible,
+{
+    fn source_scheme(&self) -> SchemeIdentifier {
+        self.source_id.clone()
+    }
+
+    fn target_scheme(&self) -> SchemeIdentifier {
+        self.target_id.clone()
+    }
+
+    fn to_universal(
+        &self,
+        proof: &dyn Any,
+        key: &[u8],
+        value: Option<&[u8]>,
+    ) -> Option<UniversalProofFormat> {
+        // Try to downcast the proof to source scheme's proof type
+        let source_proof = proof.downcast_ref::<S::Proof>()?;
+
+        // Create universal proof format with scheme ID, key, and value
+        Some(UniversalProofFormat {
+            scheme_id: self.source_id.clone(),
+            proof_data: vec![0; 32], // Placeholder - in real code we'd properly serialize
+            metadata: HashMap::new(),
+            key: key.to_vec(),
+            value: value.map(|v| v.to_vec()),
+        })
+    }
+
+    fn from_universal(&self, universal: &UniversalProofFormat) -> Option<Box<dyn Any>> {
+        // Verify scheme ID matches
+        if universal.scheme_id != self.source_id {
+            log::warn!(
+                "Scheme ID mismatch: expected {}, got {}",
+                self.source_id.0,
+                universal.scheme_id.0
+            );
+            return None;
+        }
+
+        // Convert the value to the target scheme's Value type if it exists
+        let value_bytes = universal.value.as_ref()?;
+        let target_value = T::Value::from_bytes(value_bytes)?;
+
+        // Create a proof in the target scheme using a key selector
+        let selector = if universal.key.is_empty() {
+            log::warn!("Empty key in universal proof");
+            None
+        } else {
+            Some(Selector::Key(universal.key.clone()))
+        }?;
+
+        // In a real implementation, we would properly deserialize and convert the proof
+        match self.target_scheme.create_proof(&selector, &target_value) {
+            Ok(target_proof) => Some(Box::new(target_proof)),
+            Err(err) => {
+                log::error!("Failed to create target proof: {}", err);
+                None
+            }
+        }
+    }
+}```
+
+######### File: services/src/ibc/src/translation/mod.rs
+######*Size: 8.0K, Lines: 182, Type: ASCII text*
+
+```rust
+//! IBC proof translation between different commitment schemes
+
+use std::any::Any;
+use std::collections::HashMap;
+
+use crate::conversion::ByteConvertible;
+use crate::proof::formats::ProofFormatConverter;
+use crate::proof::UniversalProofFormat as LocalProofFormat;
+use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, SchemeIdentifier, Selector};
+use depin_sdk_core::ibc::{ProofTranslator, UniversalProofFormat as CoreProofFormat};
+
+/// Registry for proof translators
+pub struct ProofTranslatorRegistry {
+    /// Map from (source, target) scheme IDs to translator instances
+    translators: HashMap<(String, String), Box<dyn ProofTranslator>>,
+}
+
+impl ProofTranslatorRegistry {
+    /// Create a new proof translator registry
+    pub fn new() -> Self {
+        Self {
+            translators: HashMap::new(),
+        }
+    }
+
+    /// Register a proof translator
+    pub fn register(&mut self, translator: Box<dyn ProofTranslator>) {
+        let source = translator.source_scheme().0.clone();
+        let target = translator.target_scheme().0.clone();
+        self.translators.insert((source, target), translator);
+    }
+
+    /// Get a proof translator
+    pub fn get(&self, source: &str, target: &str) -> Option<&dyn ProofTranslator> {
+        self.translators
+            .get(&(source.to_string(), target.to_string()))
+            .map(|t| t.as_ref())
+    }
+
+    /// Translate a proof between schemes
+    pub fn translate(
+        &self,
+        source: &str,
+        target: &str,
+        proof: &dyn Any,
+        key: &[u8],
+        value: Option<&[u8]>,
+    ) -> Option<Box<dyn Any>> {
+        // Get the translator and perform translation
+        let translator = self.get(source, target)?;
+
+        // Log translation attempt
+        log::debug!(
+            "Translating proof: {} -> {}, key: {} bytes",
+            source,
+            target,
+            key.len()
+        );
+
+        translator.translate(proof, key, value)
+    }
+
+    /// Translate with context
+    pub fn translate_with_context(
+        &self,
+        source: &str,
+        target: &str,
+        proof: &dyn Any,
+        key: &[u8],
+        value: Option<&[u8]>,
+        context: &ProofContext,
+    ) -> Option<Box<dyn Any>> {
+        // For translators that don't support context directly,
+        // we'll convert relevant context data to universal proof metadata
+        let translator = self.get(source, target)?;
+
+        // First attempt to use universal format as an intermediate
+        if let Some(universal) = translator.to_universal(proof, key, value) {
+            // Copy context data to metadata
+            let mut enriched = universal;
+            for (key, value) in &context.data {
+                if !enriched.metadata.contains_key(key) {
+                    enriched.metadata.insert(key.clone(), value.clone());
+                }
+            }
+
+            // Then translate from the enriched universal format
+            translator.from_universal(&enriched)
+        } else {
+            // Fall back to direct translation if universal conversion fails
+            translator.translate(proof, key, value)
+        }
+    }
+
+    /// Translate a universal proof to a specific scheme
+    pub fn translate_universal(
+        &self,
+        target: &str,
+        universal: &CoreProofFormat,
+    ) -> Option<Box<dyn Any>> {
+        let source = &universal.scheme_id.0;
+        let translator = self.get(source, target)?;
+
+        // Log translation attempt
+        log::debug!("Translating universal proof: {} -> {}", source, target);
+
+        translator.from_universal(universal)
+    }
+
+    /// Translate a local proof format to a specific scheme
+    pub fn translate_local_universal(
+        &self,
+        target: &str,
+        local_universal: &LocalProofFormat,
+    ) -> Option<Box<dyn Any>> {
+        // Convert local format to core format
+        let core_universal = ProofFormatConverter::local_to_core(local_universal);
+
+        // Then translate using the core format
+        self.translate_universal(target, &core_universal)
+    }
+
+    /// Convert a proof to universal format
+    pub fn to_universal(
+        &self,
+        source: &str,
+        proof: &dyn Any,
+        key: &[u8],
+        value: Option<&[u8]>,
+    ) -> Option<CoreProofFormat> {
+        // Find any translator for this source scheme
+        for ((src, _), translator) in &self.translators {
+            if src == source {
+                return translator.to_universal(proof, key, value);
+            }
+        }
+        None
+    }
+
+    /// Convert a proof to local universal format
+    pub fn to_local_universal(
+        &self,
+        source: &str,
+        proof: &dyn Any,
+        key: &[u8],
+        value: Option<&[u8]>,
+    ) -> Option<LocalProofFormat> {
+        // First convert to core format
+        let core = self.to_universal(source, proof, key, value)?;
+
+        // Then convert to local format
+        Some(ProofFormatConverter::core_to_local(&core))
+    }
+
+    /// List all supported source schemes
+    pub fn source_schemes(&self) -> Vec<String> {
+        let mut schemes = self
+            .translators
+            .keys()
+            .map(|(source, _)| source.clone())
+            .collect::<Vec<_>>();
+        schemes.sort();
+        schemes.dedup();
+        schemes
+    }
+
+    /// List all supported target schemes
+    pub fn target_schemes(&self) -> Vec<String> {
+        let mut schemes = self
+            .translators
+            .keys()
+            .map(|(_, target)| target.clone())
+            .collect::<Vec<_>>();
+        schemes.sort();
+        schemes.dedup();
+        schemes
+    }
+
+    /// List all supported translations
+    pub fn supported_translations(&self) -> Vec<(String, String)> {
+        self.translators.keys().cloned().collect()
+    }
+}```
+
+######### File: services/src/ibc/src/translation/mod.rs:6:5
+######*Size: 0, Lines: 0, Type: empty*
+
+######*File content not included (exceeds threshold or non-text file)*
+
+######### File: services/src/ibc/src/translation/mod.rs:9:66
+######*Size: 0, Lines: 0, Type: empty*
+
+######*File content not included (exceeds threshold or non-text file)*
+
+######## Directory: services/src/ibc/src/verification
+
+######### Directory: services/src/ibc/src/verification/tests
+
+######### File: services/src/ibc/src/verification/mod.rs
+######*Size: 8.0K, Lines: 259, Type: ASCII text*
+
+```rust
+//! IBC verification utilities
+
+use depin_sdk_core::commitment::{ProofContext, Selector};
+use depin_sdk_core::ibc::{LightClient, UniversalProofFormat};
+use std::collections::HashMap;
+use std::sync::Arc;
+
+/// Registry for light clients
+pub struct LightClientRegistry {
+    /// Map from chain ID to light client instance
+    clients: HashMap<String, Arc<dyn LightClient>>,
+}
+
+impl LightClientRegistry {
+    /// Create a new light client registry
+    pub fn new() -> Self {
+        Self {
+            clients: HashMap::new(),
+        }
+    }
+
+    /// Register a light client
+    pub fn register(&mut self, chain_id: &str, client: Arc<dyn LightClient>) {
+        self.clients.insert(chain_id.to_string(), client);
+    }
+
+    /// Get a light client by chain ID
+    pub fn get(&self, chain_id: &str) -> Option<Arc<dyn LightClient>> {
+        self.clients.get(chain_id).cloned()
+    }
+
+    /// Verify a proof against a specific chain
+    pub fn verify(
+        &self,
+        chain_id: &str,
+        commitment: &[u8],
+        proof: &[u8],
+        selector: &Selector,
+        value: &[u8],
+        context: Option<&ProofContext>,
+    ) -> bool {
+        if let Some(client) = self.get(chain_id) {
+            // Extract key bytes from selector
+            let key_bytes = match selector {
+                Selector::Key(key) => key.as_slice(),
+                Selector::Position(pos) => {
+                    // Convert position to bytes if needed
+                    // For now just use empty slice or could use position as bytes
+                    &[]
+                }
+                // Handle other selector types
+                _ => &[],
+            };
+
+            client.verify_native_proof(commitment, proof, key_bytes, value)
+        } else {
+            false
+        }
+    }
+
+    /// Verify a universal proof against a specific chain
+    pub fn verify_universal(
+        &self,
+        chain_id: &str,
+        commitment: &[u8],
+        proof: &UniversalProofFormat,
+        value: &[u8],
+        context: Option<&ProofContext>,
+    ) -> bool {
+        if let Some(client) = self.get(chain_id) {
+            client.verify_universal_proof(commitment, proof, &proof.key, value)
+        } else {
+            false
+        }
+    }
+
+    /// List all registered chain IDs
+    pub fn chain_ids(&self) -> Vec<String> {
+        self.clients.keys().cloned().collect()
+    }
+}
+
+/// Proof verification result
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum VerificationResult {
+    /// Proof verified successfully
+    Success,
+    /// Proof verification failed
+    Failure(String),
+    /// Chain not found
+    ChainNotFound(String),
+    /// Unsupported proof format
+    UnsupportedProofFormat,
+    /// Invalid selector
+    InvalidSelector(String),
+    /// Missing or invalid context
+    InvalidContext(String),
+}
+
+/// Cross-chain proof verifier
+pub struct CrossChainVerifier {
+    /// Light client registry
+    registry: LightClientRegistry,
+    /// Trusted commitments by chain ID and height
+    commitments: HashMap<String, HashMap<u64, Vec<u8>>>,
+    /// Cached proof contexts by chain ID
+    contexts: HashMap<String, ProofContext>,
+}
+
+impl CrossChainVerifier {
+    /// Create a new cross-chain proof verifier
+    pub fn new(registry: LightClientRegistry) -> Self {
+        Self {
+            registry,
+            commitments: HashMap::new(),
+            contexts: HashMap::new(),
+        }
+    }
+
+    /// Add a trusted commitment
+    pub fn add_trusted_commitment(&mut self, chain_id: &str, height: u64, commitment: Vec<u8>) {
+        let chain_commitments = self
+            .commitments
+            .entry(chain_id.to_string())
+            .or_insert_with(HashMap::new);
+
+        chain_commitments.insert(height, commitment);
+    }
+
+    /// Add a proof context for a chain
+    pub fn add_context(&mut self, chain_id: &str, context: ProofContext) {
+        self.contexts.insert(chain_id.to_string(), context);
+    }
+
+    /// Get proof context for a chain
+    pub fn get_context(&self, chain_id: &str) -> Option<&ProofContext> {
+        self.contexts.get(chain_id)
+    }
+
+    /// Get the latest height for a chain
+    pub fn latest_height(&self, chain_id: &str) -> Option<u64> {
+        self.commitments
+            .get(chain_id)
+            .and_then(|commitments| commitments.keys().max().copied())
+    }
+
+    /// Get the commitment at a specific height
+    pub fn get_commitment(&self, chain_id: &str, height: u64) -> Option<&[u8]> {
+        self.commitments
+            .get(chain_id)
+            .and_then(|commitments| commitments.get(&height))
+            .map(|c| c.as_slice())
+    }
+
+    /// Verify a proof against the latest commitment for a chain
+    pub fn verify_proof(
+        &self,
+        chain_id: &str,
+        proof: &[u8],
+        selector: &Selector,
+        value: &[u8],
+    ) -> VerificationResult {
+        // Get the latest height
+        let height = match self.latest_height(chain_id) {
+            Some(h) => h,
+            None => return VerificationResult::ChainNotFound(chain_id.to_string()),
+        };
+
+        // Get the commitment at that height
+        let commitment = match self.get_commitment(chain_id, height) {
+            Some(c) => c,
+            None => {
+                return VerificationResult::Failure(format!(
+                    "No commitment found for chain {} at height {}",
+                    chain_id, height
+                ))
+            }
+        };
+
+        // Get the context for the chain
+        let context = self.get_context(chain_id);
+
+        // Verify the proof
+        if self
+            .registry
+            .verify(chain_id, commitment, proof, selector, value, context)
+        {
+            VerificationResult::Success
+        } else {
+            VerificationResult::Failure(format!(
+                "Proof verification failed for chain {} at height {}",
+                chain_id, height
+            ))
+        }
+    }
+
+    /// Verify a universal proof against the latest commitment for a chain
+    pub fn verify_universal_proof(
+        &self,
+        chain_id: &str,
+        proof: &UniversalProofFormat,
+        value: &[u8],
+    ) -> VerificationResult {
+        // Get the latest height
+        let height = match self.latest_height(chain_id) {
+            Some(h) => h,
+            None => return VerificationResult::ChainNotFound(chain_id.to_string()),
+        };
+
+        // Get the commitment at that height
+        let commitment = match self.get_commitment(chain_id, height) {
+            Some(c) => c,
+            None => {
+                return VerificationResult::Failure(format!(
+                    "No commitment found for chain {} at height {}",
+                    chain_id, height
+                ))
+            }
+        };
+
+        // Get the context for the chain
+        let context = self.get_context(chain_id);
+
+        // Verify the proof
+        if self
+            .registry
+            .verify_universal(chain_id, commitment, proof, value, context)
+        {
+            VerificationResult::Success
+        } else {
+            VerificationResult::Failure(format!(
+                "Proof verification failed for chain {} at height {}",
+                chain_id, height
+            ))
+        }
+    }
+
+    /// List all registered chain IDs
+    pub fn chain_ids(&self) -> Vec<String> {
+        self.registry.chain_ids()
+    }
+
+    /// Create verification context for a chain
+    pub fn create_context(&self, chain_id: &str, height: Option<u64>) -> ProofContext {
+        let mut context = ProofContext::new();
+
+        // Add chain ID to context
+        context.add_data("chain_id", chain_id.as_bytes().to_vec());
+
+        // Add height to context if specified
+        if let Some(h) = height {
+            context.add_data("height", h.to_le_bytes().to_vec());
+        } else if let Some(h) = self.latest_height(chain_id) {
+            context.add_data("height", h.to_le_bytes().to_vec());
+        }
+
+        context
+    }
+}
+```
+
+######## File: services/src/ibc/src/lib.rs
+#####*Size: 4.0K, Lines: 12, Type: ASCII text*
+
+```rust
+//! # DePIN SDK IBC
+//!
+//! Inter-Blockchain Communication implementation for the DePIN SDK.
+
+pub mod proof;
+pub mod translation;
+pub mod light_client;
+pub mod verification;
+pub mod conversion;
+
+use depin_sdk_core::ibc::{ProofTranslator, UniversalProofFormat};
+use depin_sdk_core::commitment::{CommitmentScheme, SchemeIdentifier};
+```
+
+######## File: services/src/ibc/src/lib.rs:11:27
+#####*Size: 0, Lines: 0, Type: empty*
+
+#####*File content not included (exceeds threshold or non-text file)*
+
+######## File: services/src/ibc/src/lib.rs:12:34
+#####*Size: 0, Lines: 0, Type: empty*
+
+#####*File content not included (exceeds threshold or non-text file)*
+
+####### File: services/src/ibc/Cargo.toml
+####*Size: 4.0K, Lines: 13, Type: ASCII text*
+
+```toml
+[package]
+name = "depin-sdk-ibc"
+version = "0.1.0"
+edition = "2021"
+description = "Inter-Blockchain Communication implementation for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+depin-sdk-core = { path = "../core" }
+depin-sdk-commitment-schemes = { path = "../commitment_schemes" }
+log = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+```
+
+###### Directory: services/src/semantic
+
+####### File: services/src/semantic/mod.rs
+####*Size: 4.0K, Lines: 12, Type: ASCII text*
+
+```rust
+//! Semantic module implementation
+
+use depin_sdk_core::services::{BlockchainService, ServiceType};
+
+pub struct SemanticService {
+    // Add your implementation fields here
+}
+
+impl BlockchainService for SemanticService {
+    fn service_type(&self) -> ServiceType {
+        ServiceType::Semantic
+    }
+}```
+
+###### File: services/src/lib.rs
+###*Size: 4.0K, Lines: 3, Type: ASCII text*
+
+```rust
+pub mod external_data;
+pub mod governance;
+pub mod semantic;
+```
+
+##### File: services/Cargo.toml
+##*Size: 4.0K, Lines: 17, Type: ASCII text*
+
+```toml
+[package]
+name = "depin-sdk-services"
+version = "0.1.0"
+edition = "2021"
+description = "Services for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+depin-sdk-core = { path = "../core" }
+log = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+bytes = { workspace = true }
+anyhow = { workspace = true }
+
+[features]
+default = []
+```
+
+#### Directory: state_trees
+
+##### Directory: state_trees/src
+
+###### Directory: state_trees/src/hashmap
+
+####### File: state_trees/src/hashmap/mod.rs
+####*Size: 4.0K, Lines: 120, Type: ASCII text*
+
+```rust
+use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, Selector};
+use depin_sdk_core::error::StateError;
+use depin_sdk_core::state::{StateManager, StateTree};
+// Removed unused import: std::any::Any
+use std::collections::HashMap;
+
+/// HashMap-based state tree implementation
+pub struct HashMapStateTree<CS: CommitmentScheme> {
+    /// Data store
+    data: HashMap<Vec<u8>, CS::Value>,
+    /// Commitment scheme
+    scheme: CS,
+}
+
+impl<CS: CommitmentScheme> HashMapStateTree<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    /// Create a new HashMap-based state tree
+    pub fn new(scheme: CS) -> Self {
+        Self {
+            data: HashMap::new(),
+            scheme,
+        }
+    }
+
+    /// Convert Vec<u8> to Value type
+    fn to_value(&self, bytes: &[u8]) -> CS::Value {
+        CS::Value::from(bytes.to_vec())
+    }
+}
+
+impl<CS: CommitmentScheme> StateTree for HashMapStateTree<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    type Commitment = CS::Commitment;
+    type Proof = CS::Proof;
+
+    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
+        Ok(self.data.get(key).map(|v| v.as_ref().to_vec()))
+    }
+
+    fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
+        self.data.insert(key.to_vec(), self.to_value(value));
+        Ok(())
+    }
+
+    fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
+        self.data.remove(key);
+        Ok(())
+    }
+
+    fn root_commitment(&self) -> Self::Commitment {
+        let values: Vec<Option<CS::Value>> = self.data.values().map(|v| Some(v.clone())).collect();
+        self.scheme.commit(&values)
+    }
+
+    fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
+        // Fixed ambiguous method call by explicitly specifying which trait's method to use
+        let value = <Self as StateTree>::get(self, key)
+            .ok()?
+            .map(|v| self.to_value(&v))?;
+        let selector = Selector::Key(key.to_vec());
+        self.scheme.create_proof(&selector, &value).ok()
+    }
+
+    fn verify_proof(
+        &self,
+        commitment: &Self::Commitment,
+        proof: &Self::Proof,
+        key: &[u8],
+        value: &[u8],
+    ) -> bool {
+        let context = ProofContext::default();
+        let typed_value = self.to_value(value);
+        let selector = Selector::Key(key.to_vec());
+
+        self.scheme
+            .verify(commitment, proof, &selector, &typed_value, &context)
+    }
+}
+
+impl<CS: CommitmentScheme> StateManager for HashMapStateTree<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    type Commitment = CS::Commitment;
+    type Proof = CS::Proof;
+
+    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
+        <Self as StateTree>::get(self, key)
+    }
+
+    fn set(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
+        <Self as StateTree>::insert(self, key, value)
+    }
+
+    fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
+        <Self as StateTree>::delete(self, key)
+    }
+
+    fn root_commitment(&self) -> Self::Commitment {
+        <Self as StateTree>::root_commitment(self)
+    }
+
+    fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
+        <Self as StateTree>::create_proof(self, key)
+    }
+
+    fn verify_proof(
+        &self,
+        commitment: &Self::Commitment,
+        proof: &Self::Proof,
+        key: &[u8],
+        value: &[u8],
+    ) -> bool {
+        <Self as StateTree>::verify_proof(self, commitment, proof, key, value)
+    }
+}
+```
+
+###### Directory: state_trees/src/iavl
+
+####### File: state_trees/src/iavl/mod.rs
+####*Size: 8.0K, Lines: 146, Type: ASCII text*
+
+```rust
+//! IAVL tree implementation
+
+use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, Selector};
+use depin_sdk_core::error::StateError;
+use depin_sdk_core::state::StateTree;
+use std::any::Any;
+use std::collections::HashMap;
+
+/// IAVL tree implementation
+pub struct IAVLTree<CS: CommitmentScheme> {
+    /// Data store
+    data: HashMap<Vec<u8>, CS::Value>,
+    /// Commitment scheme
+    scheme: CS,
+}
+
+impl<CS: CommitmentScheme> IAVLTree<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    /// Create a new IAVL tree
+    pub fn new(scheme: CS) -> Self {
+        Self {
+            data: HashMap::new(),
+            scheme,
+        }
+    }
+
+    /// Get the underlying commitment scheme
+    pub fn scheme(&self) -> &CS {
+        &self.scheme
+    }
+
+    /// Convert a raw byte value to the commitment scheme's value type
+    fn to_value(&self, value: &[u8]) -> CS::Value {
+        CS::Value::from(value.to_vec())
+    }
+}
+
+impl<CS: CommitmentScheme> StateTree for IAVLTree<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    type Commitment = CS::Commitment;
+    type Proof = CS::Proof;
+
+    fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
+        // Convert to the appropriate value type for this commitment scheme
+        let scheme_value = self.to_value(value);
+        self.data.insert(key.to_vec(), scheme_value);
+        Ok(())
+    }
+
+    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
+        Ok(self.data.get(key).map(|v| v.as_ref().to_vec()))
+    }
+
+    fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
+        self.data.remove(key);
+        Ok(())
+    }
+
+    fn root_commitment(&self) -> Self::Commitment {
+        // Convert data to format expected by commitment scheme
+        let values: Vec<Option<CS::Value>> = self.data.values().map(|v| Some(v.clone())).collect();
+        self.scheme.commit(&values)
+    }
+
+    fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
+        let value = self.data.get(key)?;
+
+        // Create a key-based selector for the proof
+        let selector = Selector::Key(key.to_vec());
+
+        // Create the proof using the selector
+        self.scheme.create_proof(&selector, value).ok()
+    }
+
+    fn verify_proof(
+        &self,
+        commitment: &Self::Commitment,
+        proof: &Self::Proof,
+        key: &[u8],
+        value: &[u8],
+    ) -> bool {
+        // Create a key-based selector for verification
+        let selector = Selector::Key(key.to_vec());
+
+        // Create an empty context for now
+        let context = ProofContext::default();
+
+        // Convert the raw value to the scheme's value type
+        let scheme_value = self.to_value(value);
+
+        // Verify the proof using the selector and context
+        self.scheme
+            .verify(commitment, proof, &selector, &scheme_value, &context)
+    }
+}
+
+// Add support for tree-specific operations for IAVL
+impl<CS: CommitmentScheme> IAVLTree<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    /// Get the height of the tree
+    pub fn height(&self) -> usize {
+        // This would be a real implementation in a complete IAVL tree
+        // For now, we just return a placeholder value
+        let size = self.data.len();
+        if size == 0 {
+            0
+        } else {
+            (size as f64).log2().ceil() as usize
+        }
+    }
+
+    /// Get the number of nodes in the tree
+    pub fn size(&self) -> usize {
+        self.data.len()
+    }
+
+    /// Check if the tree is balanced
+    pub fn is_balanced(&self) -> bool {
+        // This would be a real implementation in a complete IAVL tree
+        // For now, we just return true
+        true
+    }
+
+    /// Create a proof with additional path information
+    pub fn create_path_proof(&self, key: &[u8]) -> Option<(CS::Proof, Vec<Vec<u8>>)> {
+        // This would create a proof with the complete path from root to leaf
+        let value = self.data.get(key)?;
+
+        // Create a key-based selector
+        let selector = Selector::Key(key.to_vec());
+
+        // Create the proof
+        let proof = self.scheme.create_proof(&selector, value).ok()?;
+
+        // In a real implementation, we would compute the path
+        // For now, we just return an empty path
+        let path = Vec::new();
+
+        Some((proof, path))
+    }
+}```
+
+####### File: state_trees/src/iavl/mod.rs:6:5
+####*Size: 0, Lines: 0, Type: empty*
+
+####*File content not included (exceeds threshold or non-text file)*
+
+###### Directory: state_trees/src/sparse_merkle
+
+####### File: state_trees/src/sparse_merkle/mod.rs
+####*Size: 4.0K, Lines: 135, Type: ASCII text*
+
+```rust
+//! Sparse Merkle tree implementation
+
+use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, Selector};
+use depin_sdk_core::error::StateError;
+use depin_sdk_core::state::StateTree;
+use std::any::Any;
+use std::collections::HashMap;
+
+/// Sparse Merkle tree implementation
+pub struct SparseMerkleTree<CS: CommitmentScheme> {
+    /// Data store
+    data: HashMap<Vec<u8>, CS::Value>,
+    /// Commitment scheme
+    scheme: CS,
+}
+
+impl<CS: CommitmentScheme> SparseMerkleTree<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    /// Create a new sparse Merkle tree
+    pub fn new(scheme: CS) -> Self {
+        Self {
+            data: HashMap::new(),
+            scheme,
+        }
+    }
+
+    /// Helper to convert raw bytes to the commitment scheme's Value type
+    fn to_value(&self, bytes: &[u8]) -> CS::Value {
+        CS::Value::from(bytes.to_vec())
+    }
+}
+
+impl<CS: CommitmentScheme> StateTree for SparseMerkleTree<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    type Commitment = CS::Commitment;
+    type Proof = CS::Proof;
+
+    fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
+        let value_typed = self.to_value(value);
+        self.data.insert(key.to_vec(), value_typed);
+        Ok(())
+    }
+
+    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
+        Ok(self.data.get(key).map(|v| v.as_ref().to_vec()))
+    }
+
+    fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
+        self.data.remove(key);
+        Ok(())
+    }
+
+    fn root_commitment(&self) -> Self::Commitment {
+        // Convert data to format expected by commitment scheme
+        let values: Vec<Option<CS::Value>> = self.data.values().map(|v| Some(v.clone())).collect();
+        self.scheme.commit(&values)
+    }
+
+    fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
+        // Get the value as an Option<Vec<u8>>
+        let value_result = self.get(key).ok()?;
+        let value = value_result?;
+        
+        // Now convert value to the typed value and create the proof
+        let value_typed = self.to_value(&value);
+
+        // Use key-based selector for sparse Merkle trees
+        self.scheme
+            .create_proof(&Selector::Key(key.to_vec()), &value_typed)
+            .ok()
+    }
+
+    fn verify_proof(
+        &self,
+        commitment: &Self::Commitment,
+        proof: &Self::Proof,
+        key: &[u8],
+        value: &[u8],
+    ) -> bool {
+        let value_typed = self.to_value(value);
+
+        // Create context (empty for now, could be extended with tree-specific data)
+        let context = ProofContext::default();
+
+        // Use key-based selector for verification
+        self.scheme.verify(
+            commitment,
+            proof,
+            &Selector::Key(key.to_vec()),
+            &value_typed,
+            &context,
+        )
+    }
+}
+
+// Add some utility methods for sparse Merkle trees
+impl<CS: CommitmentScheme> SparseMerkleTree<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    /// Get the number of key-value pairs in the tree
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    /// Check if the tree is empty
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
+    /// Get all keys in the tree
+    pub fn keys(&self) -> Vec<Vec<u8>> {
+        self.data.keys().cloned().collect()
+    }
+
+    /// Clear all data in the tree
+    pub fn clear(&mut self) {
+        self.data.clear()
+    }
+
+    /// Create a proof for multiple keys at once
+    pub fn create_multi_proof(&self, keys: &[&[u8]]) -> HashMap<Vec<u8>, Option<CS::Proof>> {
+        let mut proofs = HashMap::new();
+
+        for &key in keys {
+            let proof = self.create_proof(key);
+            proofs.insert(key.to_vec(), proof);
+        }
+
+        proofs
+    }
+}```
+
+####### File: state_trees/src/sparse_merkle/mod.rs:6:5
+####*Size: 0, Lines: 0, Type: empty*
+
+####*File content not included (exceeds threshold or non-text file)*
+
+###### Directory: state_trees/src/verkle
+
+####### File: state_trees/src/verkle/mod.rs
+####*Size: 8.0K, Lines: 144, Type: ASCII text*
+
+```rust
+//! Verkle tree implementation
+
+use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, Selector};
+use depin_sdk_core::error::StateError;
+use depin_sdk_core::state::StateTree;
+use std::any::Any;
+use std::collections::HashMap;
+
+/// Verkle tree implementation
+pub struct VerkleTree<CS: CommitmentScheme> {
+    /// Data store
+    data: HashMap<Vec<u8>, CS::Value>,
+    /// Commitment scheme
+    scheme: CS,
+    /// Branching factor
+    branching_factor: usize,
+}
+
+impl<CS: CommitmentScheme> VerkleTree<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    /// Create a new Verkle tree with the specified branching factor
+    pub fn new(scheme: CS, branching_factor: usize) -> Self {
+        Self {
+            data: HashMap::new(),
+            scheme,
+            branching_factor,
+        }
+    }
+
+    /// Get the branching factor
+    pub fn branching_factor(&self) -> usize {
+        self.branching_factor
+    }
+
+    /// Get the underlying commitment scheme
+    pub fn scheme(&self) -> &CS {
+        &self.scheme
+    }
+
+    /// Get the number of elements stored in the tree
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    /// Check if the tree is empty
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+}
+
+impl<CS: CommitmentScheme> StateTree for VerkleTree<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    type Commitment = CS::Commitment;
+    type Proof = CS::Proof;
+
+    fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
+        // Convert value to the appropriate type for the commitment scheme
+        let cs_value = self
+            .convert_value(value)
+            .map_err(|e| StateError::InvalidValue(e))?;
+        self.data.insert(key.to_vec(), cs_value);
+        Ok(())
+    }
+
+    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
+        // Convert back from CS::Value to Vec<u8>
+        Ok(self.data.get(key).map(|v| self.extract_value(v)))
+    }
+
+    fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
+        self.data.remove(key);
+        Ok(())
+    }
+
+    fn root_commitment(&self) -> Self::Commitment {
+        // Convert data to format expected by commitment scheme
+        let values: Vec<Option<CS::Value>> = self.data.values().map(|v| Some(v.clone())).collect();
+        self.scheme.commit(&values)
+    }
+
+    fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
+        let value = self.data.get(key)?;
+
+        // Create a key-based proof using the new selector API
+        self.scheme
+            .create_proof(&Selector::Key(key.to_vec()), value)
+            .ok()
+    }
+
+    fn verify_proof(
+        &self,
+        commitment: &Self::Commitment,
+        proof: &Self::Proof,
+        key: &[u8],
+        value: &[u8],
+    ) -> bool {
+        // Convert value to the appropriate type
+        if let Ok(cs_value) = self.convert_value(value) {
+            // Create verification context with additional data if needed
+            let mut context = ProofContext::new();
+
+            // For Verkle trees, we might need the branching factor in the context
+            context.add_data(
+                "branching_factor",
+                self.branching_factor.to_le_bytes().to_vec(),
+            );
+
+            // Use Key selector for verification
+            self.scheme.verify(
+                commitment,
+                proof,
+                &Selector::Key(key.to_vec()),
+                &cs_value,
+                &context,
+            )
+        } else {
+            false
+        }
+    }
+}
+
+// Helper methods to convert between Vec<u8> and CS::Value
+impl<CS: CommitmentScheme> VerkleTree<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    /// Convert a Vec<u8> to CS::Value
+    fn convert_value(&self, value: &[u8]) -> Result<CS::Value, String> {
+        Ok(CS::Value::from(value.to_vec()))
+    }
+
+    /// Extract a Vec<u8> from CS::Value
+    fn extract_value(&self, value: &CS::Value) -> Vec<u8> {
+        value.as_ref().to_vec()
+    }
+
+    /// Create a CS::Value from bytes - implement appropriate conversion logic
+    fn create_cs_value(&self, bytes: &[u8]) -> Result<CS::Value, String> {
+        Ok(CS::Value::from(bytes.to_vec()))
+    }
+}```
+
+####### File: state_trees/src/verkle/mod.rs:142:8
+####*Size: 0, Lines: 0, Type: empty*
+
+####*File content not included (exceeds threshold or non-text file)*
+
+####### File: state_trees/src/verkle/mod.rs:6:5
+####*Size: 0, Lines: 0, Type: empty*
+
+####*File content not included (exceeds threshold or non-text file)*
+
+###### File: state_trees/src/lib.rs
+###*Size: 4.0K, Lines: 18, Type: ASCII text*
+
+```rust
+//! # DePIN SDK State Trees
+//!
+//! Implementations of various state tree structures for the DePIN SDK.
+
+pub mod hashmap;
+pub mod iavl;
+pub mod sparse_merkle;
+pub mod verkle;
+
+// Re-export concrete implementations for convenience
+pub use hashmap::HashMapStateTree;
+pub use iavl::IAVLTree;
+pub use sparse_merkle::SparseMerkleTree;
+pub use verkle::VerkleTree;
+
+// Import core traits for use in the implementations
+use depin_sdk_core::commitment::CommitmentScheme;
+use depin_sdk_core::state::StateTree;
+use std::any::Any;```
+
+##### File: state_trees/Cargo.toml
+##*Size: 4.0K, Lines: 20, Type: ASCII text*
+
+```toml
+[package]
+name = "depin-sdk-state-trees"
+version = "0.1.0"
+edition = "2021"
+description = "State tree implementations for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+depin-sdk-core = { path = "../core" }
+depin-sdk-commitment-schemes = { path = "../commitment_schemes" }
+log = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+bytes = { workspace = true }
+
+[features]
+default = []
+verkle = ["depin-sdk-commitment-schemes/kzg"]
+sparse_merkle = ["depin-sdk-commitment-schemes/hash"]
+iavl = ["depin-sdk-commitment-schemes/hash"]
+```
+
+#### Directory: test_utils
+
+##### Directory: test_utils/src
+
+###### Directory: test_utils/src/assertions
+
+####### Directory: test_utils/src/assertions/tests
+
+####### File: test_utils/src/assertions/mod.rs
+####*Size: 4.0K, Lines: 57, Type: ASCII text*
+
+```rust
+//! Assertion utilities for testing
+
+/// Assert that two byte arrays are equal
+#[macro_export]
+macro_rules! assert_bytes_eq {
+    ($left:expr, $right:expr) => {
+        assert_eq!($left.as_ref(), $right.as_ref());
+    };
+    ($left:expr, $right:expr, $($arg:tt)+) => {
+        assert_eq!($left.as_ref(), $right.as_ref(), $($arg)+);
+    };
+}
+
+/// Assert that a result is OK and unwrap it
+#[macro_export]
+macro_rules! assert_ok {
+    ($expr:expr) => {
+        match $expr {
+            Ok(val) => val,
+            Err(err) => panic!("Expected Ok, got Err: {:?}", err),
+        }
+    };
+    ($expr:expr, $($arg:tt)+) => {
+        match $expr {
+            Ok(val) => val,
+            Err(err) => panic!("Expected Ok, got Err: {:?} ({})", err, format!($($arg)+)),
+        }
+    };
+}
+
+/// Assert that a result is Err and unwrap the error
+#[macro_export]
+macro_rules! assert_err {
+    ($expr:expr) => {
+        match $expr {
+            Ok(val) => panic!("Expected Err, got Ok: {:?}", val),
+            Err(err) => err,
+        }
+    };
+    ($expr:expr, $($arg:tt)+) => {
+        match $expr {
+            Ok(val) => panic!("Expected Err, got Ok: {:?} ({})", val, format!($($arg)+)),
+            Err(err) => err,
+        }
+    };
+}
+
+/// Assert that a value is within a specific range
+#[macro_export]
+macro_rules! assert_in_range {
+    ($value:expr, $min:expr, $max:expr) => {
+        assert!($value >= $min && $value <= $max, "{} not in range [{}, {}]", $value, $min, $max);
+    };
+    ($value:expr, $min:expr, $max:expr, $($arg:tt)+) => {
+        assert!($value >= $min && $value <= $max, "{} not in range [{}, {}]: {}", $value, $min, $max, format!($($arg)+));
+    };
+}
+```
+
+###### Directory: test_utils/src/fixtures
+
+####### Directory: test_utils/src/fixtures/tests
+
+####### File: test_utils/src/fixtures/mod.rs
+####*Size: 4.0K, Lines: 118, Type: ASCII text*
+
+```rust
+//! Test fixtures for reproducible tests
+
+use std::fs;
+use std::io;
+use std::path::{Path, PathBuf};
+
+/// Test fixture manager
+pub struct Fixtures {
+    /// Base directory for fixtures
+    base_dir: PathBuf,
+}
+
+impl Fixtures {
+    /// Create a new fixtures manager with the specified base directory
+    pub fn new<P: AsRef<Path>>(base_dir: P) -> io::Result<Self> {
+        let base_dir = base_dir.as_ref().to_path_buf();
+        fs::create_dir_all(&base_dir)?;
+        Ok(Self { base_dir })
+    }
+
+    /// Get a fixture file path
+    pub fn path<P: AsRef<Path>>(&self, relative_path: P) -> PathBuf {
+        self.base_dir.join(relative_path)
+    }
+
+    /// Read a fixture file
+    pub fn read<P: AsRef<Path>>(&self, relative_path: P) -> io::Result<Vec<u8>> {
+        let path = self.path(relative_path);
+        fs::read(path)
+    }
+
+    /// Read a fixture file as a string
+    pub fn read_string<P: AsRef<Path>>(&self, relative_path: P) -> io::Result<String> {
+        let path = self.path(relative_path);
+        fs::read_to_string(path)
+    }
+
+    /// Write data to a fixture file
+    pub fn write<P: AsRef<Path>, C: AsRef<[u8]>>(
+        &self,
+        relative_path: P,
+        contents: C,
+    ) -> io::Result<()> {
+        let path = self.path(relative_path);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(path, contents)
+    }
+
+    /// Create a temporary fixture directory
+    pub fn create_dir<P: AsRef<Path>>(&self, relative_path: P) -> io::Result<PathBuf> {
+        let path = self.path(relative_path);
+        fs::create_dir_all(&path)?;
+        Ok(path)
+    }
+
+    /// Check if a fixture file exists
+    pub fn exists<P: AsRef<Path>>(&self, relative_path: P) -> bool {
+        self.path(relative_path).exists()
+    }
+
+    /// Remove a fixture file or directory
+    pub fn remove<P: AsRef<Path>>(&self, relative_path: P) -> io::Result<()> {
+        let path = self.path(relative_path);
+        if path.is_dir() {
+            fs::remove_dir_all(path)
+        } else {
+            fs::remove_file(path)
+        }
+    }
+}
+
+/// Predefined test fixtures
+pub struct TestFixtures;
+
+impl TestFixtures {
+    /// Get a small sample message for testing
+    pub fn small_message() -> &'static [u8] {
+        b"This is a small test message"
+    }
+
+    /// Get a medium sample message for testing
+    pub fn medium_message() -> Vec<u8> {
+        let mut data = Vec::with_capacity(1024);
+        for i in 0..1024 {
+            data.push((i % 256) as u8);
+        }
+        data
+    }
+
+    /// Get a large sample message for testing
+    pub fn large_message() -> Vec<u8> {
+        let mut data = Vec::with_capacity(65536);
+        for i in 0..65536 {
+            data.push((i % 256) as u8);
+        }
+        data
+    }
+
+    /// Get a sample key pair for testing
+    pub fn sample_keypair() -> (Vec<u8>, Vec<u8>) {
+        // These are just dummy values for testing
+        let public_key = vec![
+            0x04, 0xa3, 0xb2, 0xc1, 0xd0, 0xe5, 0xf4, 0x23, 0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc,
+            0xde, 0xf0, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc,
+            0xdd, 0xee, 0xff, 0x00,
+        ];
+
+        let private_key = vec![
+            0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54,
+            0x32, 0x10, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc,
+            0xdd, 0xee, 0xff, 0x00,
+        ];
+
+        (public_key, private_key)
+    }
+}
+```
+
+###### Directory: test_utils/src/randomness
+
+####### Directory: test_utils/src/randomness/tests
+
+####### File: test_utils/src/randomness/mod.rs
+####*Size: 4.0K, Lines: 52, Type: ASCII text*
+
+```rust
+//! Deterministic randomness for reproducible tests
+
+use rand::rngs::StdRng;
+use rand::{RngCore, SeedableRng};
+
+/// Deterministic random number generator for tests
+pub struct TestRng {
+    /// Internal RNG with fixed seed
+    rng: StdRng,
+}
+
+impl TestRng {
+    /// Create a new test RNG with the specified seed
+    pub fn new(seed: u64) -> Self {
+        // Convert the u64 seed to a [u8; 32] seed array
+        let mut seed_array = [0u8; 32];
+        let seed_bytes = seed.to_le_bytes();
+        // Copy the u64 bytes into the first 8 bytes of the seed array
+        seed_array[..8].copy_from_slice(&seed_bytes);
+
+        Self {
+            rng: StdRng::from_seed(seed_array),
+        }
+    }
+
+    /// Create a test RNG with the default seed 12345
+    pub fn with_default_seed() -> Self {
+        Self::new(12345)
+    }
+
+    /// Fill a buffer with random bytes
+    pub fn fill_bytes(&mut self, dest: &mut [u8]) {
+        self.rng.fill_bytes(dest);
+    }
+
+    /// Generate a random value
+    pub fn next_u32(&mut self) -> u32 {
+        self.rng.next_u32()
+    }
+
+    /// Generate a random value
+    pub fn next_u64(&mut self) -> u64 {
+        self.rng.next_u64()
+    }
+}
+
+// Implement Default trait instead of just a method named default
+impl Default for TestRng {
+    fn default() -> Self {
+        Self::with_default_seed()
+    }
+}
+```
+
+###### File: test_utils/src/lib.rs
+###*Size: 4.0K, Lines: 7, Type: ASCII text*
+
+```rust
+//! # DePIN SDK Test Utilities
+//!
+//! Utilities for testing the DePIN SDK components.
+
+pub mod assertions;
+pub mod fixtures;
+pub mod randomness;
+```
+
+##### File: test_utils/Cargo.toml
+##*Size: 4.0K, Lines: 10, Type: ASCII text*
+
+```toml
+[package]
+name = "depin-sdk-test-utils"
+version = "0.1.0"
+edition = "2021"
+description = "Utilities for testing the DePIN SDK components"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+depin-sdk-core = { path = "../core" }
+rand = { workspace = true }
+```
+
+#### Directory: transaction_models
+
+##### Directory: transaction_models/src
+
+###### Directory: transaction_models/src/account
+
+####### File: transaction_models/src/account/mod.rs
+####*Size: 16K, Lines: 503, Type: ASCII text*
+
+```rust
+//! Account-based transaction model implementation.
+
+
+use depin_sdk_core::commitment::CommitmentScheme;
+use depin_sdk_core::error::TransactionError;
+use depin_sdk_core::state::StateManager;
+use depin_sdk_core::transaction::TransactionModel;
+use std::any::Any;
+use std::collections::HashMap;
+
+/// Account transaction
+#[derive(Debug, Clone)]
+pub struct AccountTransaction {
+    /// Transaction ID
+    pub txid: Vec<u8>,
+    /// Sender account
+    pub from: Vec<u8>,
+    /// Receiver account
+    pub to: Vec<u8>,
+    /// Value to transfer
+    pub value: u64,
+    /// Nonce to prevent replay
+    pub nonce: u64,
+    /// Signature from sender
+    pub signature: Vec<u8>,
+}
+
+/// Account proof for transaction verification
+#[derive(Debug, Clone)]
+pub struct AccountProof {
+    /// Proof for sender's account
+    pub sender_proof: Vec<u8>,
+    /// Proof for sender's nonce
+    pub nonce_proof: Vec<u8>,
+    /// Additional data for verification
+    pub metadata: HashMap<String, Vec<u8>>,
+}
+
+/// Account state stored in the state manager
+#[derive(Debug, Clone)]
+pub struct AccountState {
+    /// Account balance
+    pub balance: u64,
+    /// Account nonce (for replay protection)
+    pub nonce: u64,
+}
+
+/// Account-specific operations
+pub trait AccountOperations {
+    /// Create a key for an account in the state store.
+    ///
+    /// # Arguments
+    /// * `account` - Account identifier.
+    ///
+    /// # Returns
+    /// * `Ok(key)` - The generated key.
+    /// * `Err(TransactionError)` - If key creation failed.
+    fn create_account_key(&self, account: &[u8]) -> Result<Vec<u8>, TransactionError>;
+
+    /// Create a key for an account nonce in the state store.
+    ///
+    /// # Arguments
+    /// * `account` - Account identifier.
+    ///
+    /// # Returns
+    /// * `Ok(key)` - The generated key.
+    /// * `Err(TransactionError)` - If key creation failed.
+    fn create_nonce_key(&self, account: &[u8]) -> Result<Vec<u8>, TransactionError>;
+}
+
+/// Account model configuration
+#[derive(Clone)]
+pub struct AccountConfig {
+    /// Maximum transaction value
+    pub max_value: u64,
+    /// Initial balance for new accounts (if auto-create is enabled)
+    pub initial_balance: u64,
+    /// Whether to automatically create accounts on first receive
+    pub auto_create_accounts: bool,
+}
+
+impl Default for AccountConfig {
+    fn default() -> Self {
+        Self {
+            max_value: u64::MAX,
+            initial_balance: 0,
+            auto_create_accounts: true,
+        }
+    }
+}
+
+/// Account transaction model implementation
+pub struct AccountModel<CS: CommitmentScheme> {
+    /// Model configuration
+    config: AccountConfig,
+    /// Commitment scheme
+    scheme: CS,
+}
+
+impl<CS: CommitmentScheme> AccountModel<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    /// Create a new account model with default configuration.
+    pub fn new(scheme: CS) -> Self {
+        Self {
+            config: AccountConfig::default(),
+            scheme,
+        }
+    }
+
+    /// Create a new account model with custom configuration.
+    pub fn with_config(scheme: CS, config: AccountConfig) -> Self {
+        Self {
+            config,
+            scheme,
+        }
+    }
+
+    /// Get model configuration.
+    pub fn config(&self) -> &AccountConfig {
+        &self.config
+    }
+
+    /// Get the commitment scheme
+    pub fn scheme(&self) -> &CS {
+        &self.scheme
+    }
+
+    /// Convert a value to the commitment scheme's value type
+    fn to_value(&self, bytes: &[u8]) -> CS::Value {
+        CS::Value::from(bytes.to_vec())
+    }
+
+    /// Helper method to get an account from the state.
+    fn get_account<S>(
+        &self,
+        state: &S,
+        account: &[u8],
+    ) -> Result<Option<AccountState>, TransactionError>
+    where
+        S: StateManager<
+            Commitment = CS::Commitment,
+            Proof = CS::Proof,
+        > + ?Sized,
+    {
+        let key = self.create_account_key(account)?;
+        let value = state
+            .get(&key)
+            .map_err(|e| TransactionError::StateAccessFailed(e.to_string()))?;
+
+        match value {
+            Some(data) => self.decode_account(&data),
+            None => Ok(None),
+        }
+    }
+
+    /// Helper method to decode an account from bytes.
+    fn decode_account(&self, data: &[u8]) -> Result<Option<AccountState>, TransactionError> {
+        if data.len() < 16 {
+            return Err(TransactionError::SerializationError(
+                "Account data too short".to_string(),
+            ));
+        }
+
+        let mut balance_bytes = [0u8; 8];
+        balance_bytes.copy_from_slice(&data[0..8]);
+        let balance = u64::from_le_bytes(balance_bytes);
+
+        let mut nonce_bytes = [0u8; 8];
+        nonce_bytes.copy_from_slice(&data[8..16]);
+        let nonce = u64::from_le_bytes(nonce_bytes);
+
+        Ok(Some(AccountState { balance, nonce }))
+    }
+
+    /// Helper method to encode an account to bytes.
+    fn encode_account(&self, account: &AccountState) -> Vec<u8> {
+        let mut data = Vec::with_capacity(16);
+        data.extend_from_slice(&account.balance.to_le_bytes());
+        data.extend_from_slice(&account.nonce.to_le_bytes());
+        data
+    }
+}
+
+impl<CS: CommitmentScheme> TransactionModel for AccountModel<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    type Transaction = AccountTransaction;
+    type Proof = AccountProof;
+    type CommitmentScheme = CS;
+
+    fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<bool, TransactionError>
+    where
+        S: StateManager<
+            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+        > + ?Sized,
+    {
+        // Check transaction structure
+        if tx.value == 0 {
+            return Ok(false);
+        }
+
+        if tx.value > self.config.max_value {
+            return Ok(false);
+        }
+
+        // Get sender account
+        let sender = self.get_account(state, &tx.from)?;
+
+        match sender {
+            Some(account) => {
+                // Check balance
+                if account.balance < tx.value {
+                    return Ok(false);
+                }
+
+                // Check nonce
+                if account.nonce != tx.nonce {
+                    return Ok(false);
+                }
+
+                // TODO: Validate signature
+
+                Ok(true)
+            }
+            None => Ok(false), // Sender doesn't exist
+        }
+    }
+
+    fn apply<S>(&self, tx: &Self::Transaction, state: &mut S) -> Result<(), TransactionError>
+    where
+        S: StateManager<
+            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+        > + ?Sized,
+    {
+        // Validate transaction first
+        if !self.validate(tx, state)? {
+            return Err(TransactionError::InvalidTransaction(
+                "Transaction validation failed".to_string(),
+            ));
+        }
+
+        // Get sender account
+        let sender_key = self.create_account_key(&tx.from)?;
+        let sender = self.get_account(state, &tx.from)?.ok_or_else(|| {
+            TransactionError::InvalidTransaction("Sender account not found".to_string())
+        })?;
+
+        // Update sender account
+        let new_sender = AccountState {
+            balance: sender.balance - tx.value,
+            nonce: sender.nonce + 1,
+        };
+
+        state
+            .set(&sender_key, &self.encode_account(&new_sender))
+            .map_err(|e| TransactionError::StateAccessFailed(e.to_string()))?;
+
+        // Get or create receiver account
+        let receiver_key = self.create_account_key(&tx.to)?;
+        let receiver = match self.get_account(state, &tx.to)? {
+            Some(account) => account,
+            None => {
+                if !self.config.auto_create_accounts {
+                    return Err(TransactionError::InvalidTransaction(
+                        "Receiver account not found".to_string(),
+                    ));
+                }
+
+                AccountState {
+                    balance: self.config.initial_balance,
+                    nonce: 0,
+                }
+            }
+        };
+
+        // Update receiver account
+        let new_receiver = AccountState {
+            balance: receiver.balance.checked_add(tx.value).ok_or_else(|| {
+                TransactionError::InvalidTransaction("Balance overflow".to_string())
+            })?,
+            nonce: receiver.nonce,
+        };
+
+        state
+            .set(&receiver_key, &self.encode_account(&new_receiver))
+            .map_err(|e| TransactionError::StateAccessFailed(e.to_string()))?;
+
+        Ok(())
+    }
+
+    fn generate_proof<S>(
+        &self,
+        tx: &Self::Transaction,
+        state: &S,
+    ) -> Result<Self::Proof, TransactionError>
+    where
+        S: StateManager<
+            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+        > + ?Sized,
+    {
+        let sender_key = self.create_account_key(&tx.from)?;
+        let nonce_key = self.create_nonce_key(&tx.from)?;
+
+        // In a real implementation, we would create cryptographic proofs
+        // For this example, we'll just get the raw account data
+        let sender_data = state
+            .get(&sender_key)
+            .map_err(|e| TransactionError::StateAccessFailed(e.to_string()))?
+            .ok_or_else(|| {
+                TransactionError::InvalidInput("Sender account not found".to_string())
+            })?;
+
+        let nonce_data = state
+            .get(&nonce_key)
+            .map_err(|e| TransactionError::StateAccessFailed(e.to_string()))?
+            .unwrap_or_else(|| vec![0; 8]); // Default nonce is 0
+
+        Ok(AccountProof {
+            sender_proof: sender_data,
+            nonce_proof: nonce_data,
+            metadata: HashMap::new(),
+        })
+    }
+
+    fn verify_proof<S>(&self, proof: &Self::Proof, state: &S) -> Result<bool, TransactionError>
+    where
+        S: StateManager<
+            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+        > + ?Sized,
+    {
+        // In a real implementation, this would verify cryptographic proofs
+        // For this example, we'll just return true
+        Ok(true)
+    }
+
+    fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError> {
+        // Simple manual serialization for demonstration
+        let mut data = Vec::new();
+
+        // Serialize txid
+        data.extend_from_slice(&(tx.txid.len() as u32).to_le_bytes());
+        data.extend_from_slice(&tx.txid);
+
+        // Serialize from
+        data.extend_from_slice(&(tx.from.len() as u32).to_le_bytes());
+        data.extend_from_slice(&tx.from);
+
+        // Serialize to
+        data.extend_from_slice(&(tx.to.len() as u32).to_le_bytes());
+        data.extend_from_slice(&tx.to);
+
+        // Serialize value and nonce
+        data.extend_from_slice(&tx.value.to_le_bytes());
+        data.extend_from_slice(&tx.nonce.to_le_bytes());
+
+        // Serialize signature
+        data.extend_from_slice(&(tx.signature.len() as u32).to_le_bytes());
+        data.extend_from_slice(&tx.signature);
+
+        Ok(data)
+    }
+
+    fn deserialize_transaction(&self, data: &[u8]) -> Result<Self::Transaction, TransactionError> {
+        if data.len() < 4 {
+            return Err(TransactionError::SerializationError(
+                "Data too short".to_string(),
+            ));
+        }
+
+        let mut pos = 0;
+
+        // Deserialize txid
+        let txid_len = read_u32(&data[pos..pos + 4]) as usize;
+        pos += 4;
+
+        if pos + txid_len > data.len() {
+            return Err(TransactionError::SerializationError(
+                "Invalid txid length".to_string(),
+            ));
+        }
+
+        let txid = data[pos..pos + txid_len].to_vec();
+        pos += txid_len;
+
+        // Deserialize from
+        if pos + 4 > data.len() {
+            return Err(TransactionError::SerializationError(
+                "Invalid data format".to_string(),
+            ));
+        }
+
+        let from_len = read_u32(&data[pos..pos + 4]) as usize;
+        pos += 4;
+
+        if pos + from_len > data.len() {
+            return Err(TransactionError::SerializationError(
+                "Invalid from length".to_string(),
+            ));
+        }
+
+        let from = data[pos..pos + from_len].to_vec();
+        pos += from_len;
+
+        // Deserialize to
+        if pos + 4 > data.len() {
+            return Err(TransactionError::SerializationError(
+                "Invalid data format".to_string(),
+            ));
+        }
+
+        let to_len = read_u32(&data[pos..pos + 4]) as usize;
+        pos += 4;
+
+        if pos + to_len > data.len() {
+            return Err(TransactionError::SerializationError(
+                "Invalid to length".to_string(),
+            ));
+        }
+
+        let to = data[pos..pos + to_len].to_vec();
+        pos += to_len;
+
+        // Deserialize value and nonce
+        if pos + 16 > data.len() {
+            return Err(TransactionError::SerializationError(
+                "Invalid data format".to_string(),
+            ));
+        }
+
+        let mut value_bytes = [0u8; 8];
+        value_bytes.copy_from_slice(&data[pos..pos + 8]);
+        let value = u64::from_le_bytes(value_bytes);
+        pos += 8;
+
+        let mut nonce_bytes = [0u8; 8];
+        nonce_bytes.copy_from_slice(&data[pos..pos + 8]);
+        let nonce = u64::from_le_bytes(nonce_bytes);
+        pos += 8;
+
+        // Deserialize signature
+        if pos + 4 > data.len() {
+            return Err(TransactionError::SerializationError(
+                "Invalid data format".to_string(),
+            ));
+        }
+
+        let signature_len = read_u32(&data[pos..pos + 4]) as usize;
+        pos += 4;
+
+        if pos + signature_len > data.len() {
+            return Err(TransactionError::SerializationError(
+                "Invalid signature length".to_string(),
+            ));
+        }
+
+        let signature = data[pos..pos + signature_len].to_vec();
+
+        Ok(AccountTransaction {
+            txid,
+            from,
+            to,
+            value,
+            nonce,
+            signature,
+        })
+    }
+
+    fn get_model_extensions(&self) -> Option<&dyn Any> {
+        Some(self as &dyn Any)
+    }
+}
+
+impl<CS: CommitmentScheme> AccountOperations for AccountModel<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    fn create_account_key(&self, account: &[u8]) -> Result<Vec<u8>, TransactionError> {
+        let mut key = Vec::with_capacity(account.len() + 1);
+        key.push(b'a'); // Prefix 'a' for account
+        key.extend_from_slice(account);
+        Ok(key)
+    }
+
+    fn create_nonce_key(&self, account: &[u8]) -> Result<Vec<u8>, TransactionError> {
+        let mut key = Vec::with_capacity(account.len() + 1);
+        key.push(b'n'); // Prefix 'n' for nonce
+        key.extend_from_slice(account);
+        Ok(key)
+    }
+}
+
+/// Helper function to read a u32 from a byte slice
+fn read_u32(data: &[u8]) -> u32 {
+    let mut bytes = [0u8; 4];
+    bytes.copy_from_slice(data);
+    u32::from_le_bytes(bytes)
+}```
+
+####### File: transaction_models/src/account/mod.rs:131:8
+####*Size: 0, Lines: 0, Type: empty*
+
+####*File content not included (exceeds threshold or non-text file)*
+
+####### File: transaction_models/src/account/mod.rs:331:31
+####*Size: 0, Lines: 0, Type: empty*
+
+####*File content not included (exceeds threshold or non-text file)*
+
+####### File: transaction_models/src/account/mod.rs:331:52
+####*Size: 0, Lines: 0, Type: empty*
+
+####*File content not included (exceeds threshold or non-text file)*
+
+###### Directory: transaction_models/src/hybrid
+
+####### File: transaction_models/src/hybrid/mod.rs
+####*Size: 12K, Lines: 283, Type: ASCII text*
+
+```rust
+// Fixed implementation for hybrid transaction model
+
+use crate::account::{AccountModel, AccountProof, AccountTransaction};
+use crate::utxo::{UTXOModel, UTXOProof, UTXOTransaction};
+use depin_sdk_core::commitment::CommitmentScheme;
+use depin_sdk_core::error::TransactionError;
+use depin_sdk_core::state::StateManager;
+use depin_sdk_core::transaction::TransactionModel;
+use std::any::Any;
+
+/// Hybrid transaction that can be either UTXO or account-based
+#[derive(Debug, Clone)]
+pub enum HybridTransaction {
+    /// UTXO-based transaction
+    UTXO(UTXOTransaction),
+    /// Account-based transaction
+    Account(AccountTransaction),
+}
+
+/// Hybrid proof that can be either UTXO or account-based
+#[derive(Debug, Clone)]
+pub enum HybridProof {
+    /// UTXO-based proof
+    UTXO(UTXOProof),
+    /// Account-based proof
+    Account(AccountProof),
+}
+
+/// Hybrid transaction model configuration
+#[derive(Clone)]
+pub struct HybridConfig {
+    /// UTXO model configuration
+    pub utxo_config: crate::utxo::UTXOConfig,
+    /// Account model configuration
+    pub account_config: crate::account::AccountConfig,
+    /// Whether to enforce fee payment in UTXO mode
+    pub require_fee: bool,
+    /// Minimum fee amount (if required)
+    pub min_fee: u64,
+}
+
+impl Default for HybridConfig {
+    fn default() -> Self {
+        Self {
+            utxo_config: crate::utxo::UTXOConfig::default(),
+            account_config: crate::account::AccountConfig::default(),
+            require_fee: false,
+            min_fee: 0,
+        }
+    }
+}
+
+/// Hybrid-specific operations
+pub trait HybridOperations {
+    /// Get access to the underlying UTXO model.
+    fn utxo_model(&self) -> &UTXOModel<Self::CommitmentScheme>;
+
+    /// Get access to the underlying account model.
+    fn account_model(&self) -> &AccountModel<Self::CommitmentScheme>;
+
+    /// Associated type for the commitment scheme
+    type CommitmentScheme: CommitmentScheme;
+
+    /// Create a cross-model transaction (e.g., UTXO input with account output).
+    ///
+    /// This is a placeholder for more complex hybrid operations that might be
+    /// supported in a real implementation.
+    fn create_cross_model_transaction(&self) -> Result<HybridTransaction, TransactionError> {
+        Err(TransactionError::Other("Not implemented".to_string()))
+    }
+}
+
+/// Hybrid transaction model implementation
+pub struct HybridModel<CS: CommitmentScheme + Clone> {
+    /// UTXO model
+    utxo_model: UTXOModel<CS>,
+    /// Account model
+    account_model: AccountModel<CS>,
+    /// Model configuration
+    config: HybridConfig,
+    /// Commitment scheme
+    scheme: CS,
+}
+
+impl<CS: CommitmentScheme + Clone> HybridModel<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    /// Create a new hybrid model with default configuration.
+    pub fn new(scheme: CS) -> Self {
+        Self {
+            utxo_model: UTXOModel::new(scheme.clone()),
+            account_model: AccountModel::new(scheme.clone()),
+            config: HybridConfig::default(),
+            scheme,
+        }
+    }
+
+    /// Create a new hybrid model with custom configuration.
+    pub fn with_config(scheme: CS, config: HybridConfig) -> Self {
+        Self {
+            utxo_model: UTXOModel::with_config(scheme.clone(), config.utxo_config.clone()),
+            account_model: AccountModel::with_config(scheme.clone(), config.account_config.clone()),
+            config,
+            scheme,
+        }
+    }
+
+    /// Get model configuration.
+    pub fn config(&self) -> &HybridConfig {
+        &self.config
+    }
+
+    /// Get the commitment scheme
+    pub fn scheme(&self) -> &CS {
+        &self.scheme
+    }
+}
+
+impl<CS: CommitmentScheme + Clone> TransactionModel for HybridModel<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    type Transaction = HybridTransaction;
+    type Proof = HybridProof;
+    type CommitmentScheme = CS;
+
+    fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<bool, TransactionError>
+    where
+        S: StateManager<
+                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+            > + ?Sized,
+    {
+        match tx {
+            HybridTransaction::UTXO(utxo_tx) => self.utxo_model.validate(utxo_tx, state),
+            HybridTransaction::Account(account_tx) => {
+                self.account_model.validate(account_tx, state)
+            }
+        }
+    }
+
+    fn apply<S>(&self, tx: &Self::Transaction, state: &mut S) -> Result<(), TransactionError>
+    where
+        S: StateManager<
+                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+            > + ?Sized,
+    {
+        // Additional hybrid-specific validation
+        if self.config.require_fee {
+            // Check if fee is paid (implementation depends on fee model)
+            // This is a placeholder for a real fee verification
+            let _fee_paid = match tx {
+                HybridTransaction::UTXO(_utxo_tx) => {
+                    // For UTXO, fee is implicit (input value - output value)
+                    true
+                }
+                HybridTransaction::Account(_account_tx) => {
+                    // For account, fee might be explicit or implicit
+                    // This is a simplified check
+                    true
+                }
+            };
+        }
+
+        // Delegate to appropriate model
+        match tx {
+            HybridTransaction::UTXO(utxo_tx) => self.utxo_model.apply(utxo_tx, state),
+            HybridTransaction::Account(account_tx) => self.account_model.apply(account_tx, state),
+        }
+    }
+
+    fn generate_proof<S>(
+        &self,
+        tx: &Self::Transaction,
+        state: &S,
+    ) -> Result<Self::Proof, TransactionError>
+    where
+        S: StateManager<
+                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+            > + ?Sized,
+    {
+        match tx {
+            HybridTransaction::UTXO(utxo_tx) => self
+                .utxo_model
+                .generate_proof(utxo_tx, state)
+                .map(HybridProof::UTXO),
+            HybridTransaction::Account(account_tx) => self
+                .account_model
+                .generate_proof(account_tx, state)
+                .map(HybridProof::Account),
+        }
+    }
+
+    fn verify_proof<S>(&self, proof: &Self::Proof, state: &S) -> Result<bool, TransactionError>
+    where
+        S: StateManager<
+                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+            > + ?Sized,
+    {
+        match proof {
+            HybridProof::UTXO(utxo_proof) => self.utxo_model.verify_proof(utxo_proof, state),
+            HybridProof::Account(account_proof) => {
+                self.account_model.verify_proof(account_proof, state)
+            }
+        }
+    }
+
+    fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError> {
+        let mut data = Vec::new();
+
+        match tx {
+            HybridTransaction::UTXO(utxo_tx) => {
+                // Add type byte (0 for UTXO)
+                data.push(0);
+
+                // Serialize UTXO transaction
+                let utxo_data = self.utxo_model.serialize_transaction(utxo_tx)?;
+                data.extend_from_slice(&utxo_data);
+            }
+            HybridTransaction::Account(account_tx) => {
+                // Add type byte (1 for Account)
+                data.push(1);
+
+                // Serialize account transaction
+                let account_data = self.account_model.serialize_transaction(account_tx)?;
+                data.extend_from_slice(&account_data);
+            }
+        }
+
+        Ok(data)
+    }
+
+    fn deserialize_transaction(&self, data: &[u8]) -> Result<Self::Transaction, TransactionError> {
+        if data.is_empty() {
+            return Err(TransactionError::SerializationError(
+                "Empty data".to_string(),
+            ));
+        }
+
+        let tx_type = data[0];
+        let tx_data = &data[1..];
+
+        match tx_type {
+            0 => {
+                // UTXO transaction
+                let utxo_tx = self.utxo_model.deserialize_transaction(tx_data)?;
+                Ok(HybridTransaction::UTXO(utxo_tx))
+            }
+            1 => {
+                // Account transaction
+                let account_tx = self.account_model.deserialize_transaction(tx_data)?;
+                Ok(HybridTransaction::Account(account_tx))
+            }
+            _ => Err(TransactionError::SerializationError(format!(
+                "Unknown transaction type: {}",
+                tx_type
+            ))),
+        }
+    }
+
+    fn get_model_extensions(&self) -> Option<&dyn Any> {
+        Some(self as &dyn Any)
+    }
+}
+
+impl<CS: CommitmentScheme + Clone> HybridOperations for HybridModel<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    type CommitmentScheme = CS;
+
+    fn utxo_model(&self) -> &UTXOModel<Self::CommitmentScheme> {
+        &self.utxo_model
+    }
+
+    fn account_model(&self) -> &AccountModel<Self::CommitmentScheme> {
+        &self.account_model
+    }
+}
+```
+
+###### Directory: transaction_models/src/utxo
+
+####### File: transaction_models/src/utxo/mod.rs
+####*Size: 20K, Lines: 570, Type: ASCII text*
+
+```rust
+//! UTXO-based transaction model implementation.
+
+use depin_sdk_core::commitment::CommitmentScheme;
+use depin_sdk_core::error::TransactionError;
+use depin_sdk_core::state::StateManager;
+use depin_sdk_core::transaction::TransactionModel;
+use std::any::Any;
+use std::collections::HashMap;
+
+/// UTXO transaction input
+#[derive(Debug, Clone)]
+pub struct UTXOInput {
+    /// Previous transaction ID
+    pub prev_txid: Vec<u8>,
+    /// Output index in the previous transaction
+    pub prev_index: u32,
+    /// Signature unlocking the UTXO
+    pub signature: Vec<u8>,
+}
+
+/// UTXO transaction output
+#[derive(Debug, Clone)]
+pub struct UTXOOutput {
+    /// Value of the output
+    pub value: u64,
+    /// Locking script or public key hash
+    pub lock_script: Vec<u8>,
+}
+
+/// UTXO transaction
+#[derive(Debug, Clone)]
+pub struct UTXOTransaction {
+    /// Transaction ID
+    pub txid: Vec<u8>,
+    /// Inputs (references to previous transaction outputs)
+    pub inputs: Vec<UTXOInput>,
+    /// Outputs (new unspent transaction outputs)
+    pub outputs: Vec<UTXOOutput>,
+}
+
+impl UTXOTransaction {
+    /// Check if this is a coinbase transaction (has no inputs)
+    pub fn is_coinbase(&self) -> bool {
+        self.inputs.is_empty()
+    }
+}
+
+/// UTXO proof data
+#[derive(Debug, Clone)]
+pub struct UTXOProof {
+    /// Proofs for transaction inputs
+    pub input_proofs: Vec<Vec<u8>>,
+    /// Additional data needed for verification
+    pub metadata: HashMap<String, Vec<u8>>,
+}
+
+/// UTXO-specific operations
+pub trait UTXOOperations {
+    /// Create a key for a UTXO in the state store.
+    ///
+    /// # Arguments
+    /// * `txid` - Transaction ID.
+    /// * `index` - Output index.
+    ///
+    /// # Returns
+    /// * `Ok(key)` - The generated key.
+    /// * `Err(TransactionError)` - If key creation failed.
+    fn create_utxo_key(&self, txid: &[u8], index: u32) -> Result<Vec<u8>, TransactionError>;
+}
+
+/// Configuration for the UTXO model
+#[derive(Clone)]
+pub struct UTXOConfig {
+    /// Minimum confirmations required for spending
+    pub min_confirmations: u32,
+    /// Maximum number of inputs per transaction
+    pub max_inputs: usize,
+    /// Maximum number of outputs per transaction
+    pub max_outputs: usize,
+    /// Maximum coinbase value (for block rewards)
+    pub max_coinbase_value: u64,
+    /// Whether to allow coinbase transactions
+    pub allow_coinbase: bool,
+}
+
+impl Default for UTXOConfig {
+    fn default() -> Self {
+        Self {
+            min_confirmations: 1,
+            max_inputs: 100,
+            max_outputs: 100,
+            max_coinbase_value: 50_000_000, // 50 coins with 6 decimal places
+            allow_coinbase: true,
+        }
+    }
+}
+
+/// UTXO transaction model implementation
+pub struct UTXOModel<CS: CommitmentScheme> {
+    /// Model configuration
+    config: UTXOConfig,
+    /// The commitment scheme
+    scheme: CS,
+}
+
+impl<CS: CommitmentScheme> UTXOModel<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    /// Create a new UTXO model with default configuration.
+    pub fn new(scheme: CS) -> Self {
+        Self {
+            config: UTXOConfig::default(),
+            scheme,
+        }
+    }
+
+    /// Create a new UTXO model with custom configuration.
+    pub fn with_config(scheme: CS, config: UTXOConfig) -> Self {
+        Self {
+            config,
+            scheme,
+        }
+    }
+
+    /// Get model configuration.
+    pub fn config(&self) -> &UTXOConfig {
+        &self.config
+    }
+
+    /// Get the commitment scheme
+    pub fn scheme(&self) -> &CS {
+        &self.scheme
+    }
+
+    /// Helper method to get a UTXO from the state.
+    fn get_utxo<S>(
+        &self,
+        state: &S,
+        txid: &[u8],
+        index: u32,
+    ) -> Result<Option<UTXOOutput>, TransactionError>
+    where
+        S: StateManager<
+            Commitment = CS::Commitment,
+            Proof = CS::Proof,
+        > + ?Sized,
+    {
+        let key = self.create_utxo_key(txid, index)?;
+        let value = state
+            .get(&key)
+            .map_err(|e| TransactionError::StateAccessFailed(e.to_string()))?;
+
+        match value {
+            Some(data) => self.decode_utxo(&data),
+            None => Ok(None),
+        }
+    }
+
+    /// Helper method to decode a UTXO from bytes.
+    fn decode_utxo(&self, data: &[u8]) -> Result<Option<UTXOOutput>, TransactionError> {
+        if data.len() < 8 {
+            return Err(TransactionError::SerializationError(
+                "UTXO data too short".to_string(),
+            ));
+        }
+
+        let mut value_bytes = [0u8; 8];
+        value_bytes.copy_from_slice(&data[0..8]);
+        let value = u64::from_le_bytes(value_bytes);
+        let lock_script = data[8..].to_vec();
+
+        Ok(Some(UTXOOutput { value, lock_script }))
+    }
+
+    /// Helper method to encode a UTXO to bytes.
+    fn encode_utxo(&self, output: &UTXOOutput) -> Vec<u8> {
+        let mut data = Vec::with_capacity(8 + output.lock_script.len());
+        data.extend_from_slice(&output.value.to_le_bytes());
+        data.extend_from_slice(&output.lock_script);
+        data
+    }
+    
+    /// Convert raw bytes to the commitment scheme's value type
+    fn to_value(&self, bytes: &[u8]) -> CS::Value {
+        CS::Value::from(bytes.to_vec())
+    }
+
+    /// Validate a coinbase transaction
+    fn validate_coinbase(&self, tx: &UTXOTransaction) -> Result<bool, TransactionError> {
+        // Check if coinbase transactions are allowed
+        if !self.config.allow_coinbase {
+            return Ok(false);
+        }
+
+        // Verify total output value doesn't exceed maximum
+        let mut total_output = 0u64;
+        for output in &tx.outputs {
+            total_output = total_output.checked_add(output.value).ok_or_else(|| {
+                TransactionError::InvalidTransaction("Coinbase output value overflow".to_string())
+            })?;
+        }
+
+        if total_output > self.config.max_coinbase_value {
+            return Ok(false);
+        }
+
+        // Additional coinbase validation could go here:
+        // - Check block height for reward schedule
+        // - Verify only one coinbase per block
+        // - Validate special coinbase fields
+
+        Ok(true)
+    }
+}
+
+impl<CS: CommitmentScheme> TransactionModel for UTXOModel<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    type Transaction = UTXOTransaction;
+    type Proof = UTXOProof;
+    type CommitmentScheme = CS;
+
+    fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<bool, TransactionError>
+    where
+        S: StateManager<
+            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+        > + ?Sized,
+    {
+        // Check transaction structure
+        if tx.outputs.is_empty() {
+            return Ok(false);
+        }
+
+        if tx.outputs.len() > self.config.max_outputs {
+            return Ok(false);
+        }
+
+        // Handle coinbase transactions (no inputs)
+        if tx.is_coinbase() {
+            return self.validate_coinbase(tx);
+        }
+
+        // Regular transaction validation
+        if tx.inputs.len() > self.config.max_inputs {
+            return Ok(false);
+        }
+
+        // Validate inputs exist and are unspent
+        let mut total_input = 0u64;
+
+        for input in &tx.inputs {
+            let utxo = self.get_utxo(state, &input.prev_txid, input.prev_index)?;
+
+            match utxo {
+                Some(output) => {
+                    // TODO: Validate signatures
+                    // In a real implementation, you would:
+                    // 1. Check the signature against the lock_script
+                    // 2. Verify the public key matches
+                    // 3. Handle different script types (P2PKH, P2SH, etc.)
+
+                    // Add to total input
+                    total_input = total_input.checked_add(output.value).ok_or_else(|| {
+                        TransactionError::InvalidTransaction("Input value overflow".to_string())
+                    })?;
+                }
+                None => return Ok(false), // Input UTXO not found
+            }
+        }
+
+        // Calculate total output
+        let mut total_output = 0u64;
+
+        for output in &tx.outputs {
+            total_output = total_output.checked_add(output.value).ok_or_else(|| {
+                TransactionError::InvalidTransaction("Output value overflow".to_string())
+            })?;
+        }
+
+        // Ensure total input >= total output (the difference is the fee)
+        if total_input < total_output {
+            return Ok(false);
+        }
+
+        Ok(true)
+    }
+
+    fn apply<S>(&self, tx: &Self::Transaction, state: &mut S) -> Result<(), TransactionError>
+    where
+        S: StateManager<
+            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+        > + ?Sized,
+    {
+        // Validate transaction first
+        if !self.validate(tx, state)? {
+            return Err(TransactionError::InvalidTransaction(
+                "Transaction validation failed".to_string(),
+            ));
+        }
+
+        // Only remove spent inputs for non-coinbase transactions
+        if !tx.is_coinbase() {
+            for input in &tx.inputs {
+                let key = self.create_utxo_key(&input.prev_txid, input.prev_index)?;
+                state
+                    .delete(&key)
+                    .map_err(|e| TransactionError::StateAccessFailed(e.to_string()))?;
+            }
+        }
+
+        // Add new outputs (for both coinbase and regular transactions)
+        for (i, output) in tx.outputs.iter().enumerate() {
+            let key = self.create_utxo_key(&tx.txid, i as u32)?;
+            let value = self.encode_utxo(output);
+
+            state
+                .set(&key, &value)
+                .map_err(|e| TransactionError::StateAccessFailed(e.to_string()))?;
+        }
+
+        Ok(())
+    }
+
+    fn generate_proof<S>(
+        &self,
+        tx: &Self::Transaction,
+        state: &S,
+    ) -> Result<Self::Proof, TransactionError>
+    where
+        S: StateManager<
+            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+        > + ?Sized,
+    {
+        let mut input_proofs = Vec::with_capacity(tx.inputs.len());
+
+        // Coinbase transactions don't need input proofs
+        if tx.is_coinbase() {
+            return Ok(UTXOProof {
+                input_proofs,
+                metadata: HashMap::new(),
+            });
+        }
+
+        for input in &tx.inputs {
+            let key = self.create_utxo_key(&input.prev_txid, input.prev_index)?;
+
+            // In a real implementation, we would create cryptographic proofs
+            // For this example, we'll just get the raw UTXO data
+            let utxo_data = state
+                .get(&key)
+                .map_err(|e| TransactionError::StateAccessFailed(e.to_string()))?
+                .ok_or_else(|| {
+                    TransactionError::InvalidInput("Referenced UTXO not found".to_string())
+                })?;
+
+            input_proofs.push(utxo_data);
+        }
+
+        Ok(UTXOProof {
+            input_proofs,
+            metadata: HashMap::new(),
+        })
+    }
+
+    fn verify_proof<S>(&self, proof: &Self::Proof, state: &S) -> Result<bool, TransactionError>
+    where
+        S: StateManager<
+            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+        > + ?Sized,
+    {
+        // In a real implementation, this would verify cryptographic proofs
+        // For this example, we'll just return true
+        Ok(true)
+    }
+
+    fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError> {
+        // Simple manual serialization for demonstration
+        let mut data = Vec::new();
+
+        // Serialize txid
+        data.extend_from_slice(&(tx.txid.len() as u32).to_le_bytes());
+        data.extend_from_slice(&tx.txid);
+
+        // Serialize inputs
+        data.extend_from_slice(&(tx.inputs.len() as u32).to_le_bytes());
+        for input in &tx.inputs {
+            data.extend_from_slice(&(input.prev_txid.len() as u32).to_le_bytes());
+            data.extend_from_slice(&input.prev_txid);
+            data.extend_from_slice(&input.prev_index.to_le_bytes());
+            data.extend_from_slice(&(input.signature.len() as u32).to_le_bytes());
+            data.extend_from_slice(&input.signature);
+        }
+
+        // Serialize outputs
+        data.extend_from_slice(&(tx.outputs.len() as u32).to_le_bytes());
+        for output in &tx.outputs {
+            data.extend_from_slice(&output.value.to_le_bytes());
+            data.extend_from_slice(&(output.lock_script.len() as u32).to_le_bytes());
+            data.extend_from_slice(&output.lock_script);
+        }
+
+        Ok(data)
+    }
+
+    fn deserialize_transaction(&self, data: &[u8]) -> Result<Self::Transaction, TransactionError> {
+        if data.len() < 4 {
+            return Err(TransactionError::SerializationError(
+                "Data too short".to_string(),
+            ));
+        }
+
+        let mut pos = 0;
+
+        // Deserialize txid
+        let txid_len = read_u32(&data[pos..pos + 4]) as usize;
+        pos += 4;
+
+        if pos + txid_len > data.len() {
+            return Err(TransactionError::SerializationError(
+                "Invalid txid length".to_string(),
+            ));
+        }
+
+        let txid = data[pos..pos + txid_len].to_vec();
+        pos += txid_len;
+
+        // Deserialize inputs
+        if pos + 4 > data.len() {
+            return Err(TransactionError::SerializationError(
+                "Invalid data format".to_string(),
+            ));
+        }
+
+        let input_count = read_u32(&data[pos..pos + 4]) as usize;
+        pos += 4;
+
+        let mut inputs = Vec::with_capacity(input_count);
+        for _ in 0..input_count {
+            if pos + 4 > data.len() {
+                return Err(TransactionError::SerializationError(
+                    "Invalid data format".to_string(),
+                ));
+            }
+
+            let prev_txid_len = read_u32(&data[pos..pos + 4]) as usize;
+            pos += 4;
+
+            if pos + prev_txid_len > data.len() {
+                return Err(TransactionError::SerializationError(
+                    "Invalid prev_txid length".to_string(),
+                ));
+            }
+
+            let prev_txid = data[pos..pos + prev_txid_len].to_vec();
+            pos += prev_txid_len;
+
+            if pos + 4 > data.len() {
+                return Err(TransactionError::SerializationError(
+                    "Invalid data format".to_string(),
+                ));
+            }
+
+            let prev_index = read_u32(&data[pos..pos + 4]);
+            pos += 4;
+
+            if pos + 4 > data.len() {
+                return Err(TransactionError::SerializationError(
+                    "Invalid data format".to_string(),
+                ));
+            }
+
+            let signature_len = read_u32(&data[pos..pos + 4]) as usize;
+            pos += 4;
+
+            if pos + signature_len > data.len() {
+                return Err(TransactionError::SerializationError(
+                    "Invalid signature length".to_string(),
+                ));
+            }
+
+            let signature = data[pos..pos + signature_len].to_vec();
+            pos += signature_len;
+
+            inputs.push(UTXOInput {
+                prev_txid,
+                prev_index,
+                signature,
+            });
+        }
+
+        // Deserialize outputs
+        if pos + 4 > data.len() {
+            return Err(TransactionError::SerializationError(
+                "Invalid data format".to_string(),
+            ));
+        }
+
+        let output_count = read_u32(&data[pos..pos + 4]) as usize;
+        pos += 4;
+
+        let mut outputs = Vec::with_capacity(output_count);
+        for _ in 0..output_count {
+            if pos + 8 > data.len() {
+                return Err(TransactionError::SerializationError(
+                    "Invalid data format".to_string(),
+                ));
+            }
+
+            let mut value_bytes = [0u8; 8];
+            value_bytes.copy_from_slice(&data[pos..pos + 8]);
+            let value = u64::from_le_bytes(value_bytes);
+            pos += 8;
+
+            if pos + 4 > data.len() {
+                return Err(TransactionError::SerializationError(
+                    "Invalid data format".to_string(),
+                ));
+            }
+
+            let lock_script_len = read_u32(&data[pos..pos + 4]) as usize;
+            pos += 4;
+
+            if pos + lock_script_len > data.len() {
+                return Err(TransactionError::SerializationError(
+                    "Invalid lock_script length".to_string(),
+                ));
+            }
+
+            let lock_script = data[pos..pos + lock_script_len].to_vec();
+            pos += lock_script_len;
+
+            outputs.push(UTXOOutput { value, lock_script });
+        }
+
+        Ok(UTXOTransaction {
+            txid,
+            inputs,
+            outputs,
+        })
+    }
+
+    fn get_model_extensions(&self) -> Option<&dyn Any> {
+        Some(self as &dyn Any)
+    }
+}
+
+impl<CS: CommitmentScheme> UTXOOperations for UTXOModel<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    fn create_utxo_key(&self, txid: &[u8], index: u32) -> Result<Vec<u8>, TransactionError> {
+        let mut key = Vec::with_capacity(txid.len() + 5);
+        key.push(b'u'); // Prefix 'u' for UTXO
+        key.extend_from_slice(txid);
+        key.extend_from_slice(&index.to_le_bytes());
+        Ok(key)
+    }
+}
+
+/// Helper function to read a u32 from a byte slice
+fn read_u32(data: &[u8]) -> u32 {
+    let mut bytes = [0u8; 4];
+    bytes.copy_from_slice(data);
+    u32::from_le_bytes(bytes)
+}```
+
+###### File: transaction_models/src/lib.rs
+###*Size: 4.0K, Lines: 29, Type: ASCII text*
+
+```rust
+//! # DePIN SDK Transaction Models
+//!
+//! Implementations of various transaction models for the DePIN SDK.
+//!
+//! This crate provides concrete implementations of the transaction model
+//! interfaces defined in the `depin_sdk_core` crate.
+//!
+//! ## Usage
+//!
+//! Each transaction model is implemented in its own module.
+//! Applications should import the specific model types they wish to use.
+//!
+//! ```rust
+//! // Example: Using the UTXO model
+//! use transaction_models::utxo::{UTXOModel, UTXOProof, UTXOTransaction};
+//!
+//! // Example: Using the account model
+//! use transaction_models::account::{AccountModel, AccountProof, AccountTransaction};
+//! ```
+
+// Modules for each transaction model
+pub mod account;
+pub mod hybrid;
+pub mod utxo;
+
+// Re-export operation traits for convenience
+pub use account::AccountOperations;
+pub use hybrid::HybridOperations;
+pub use utxo::UTXOOperations;
+```
+
+##### File: transaction_models/Cargo.toml
+##*Size: 4.0K, Lines: 21, Type: ASCII text*
+
+```toml
+[package]
+name = "depin-sdk-transaction-models"
+version = "0.1.0"
+edition = "2021"
+description = "Transaction model implementations for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+depin-sdk-core = { path = "../core" }
+log = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+bytes = { workspace = true }
+anyhow = { workspace = true }
+
+
+[features]
+default = []
+utxo-model = []
+account-model = []
+hybrid-model = []
+```
+
+#### Directory: validator
+
+##### Directory: validator/src
+
+###### Directory: validator/src/bin
+
+####### File: validator/src/bin/validator_hybrid.rs
+####*Size: 4.0K, Lines: 88, Type: ASCII text*
+
+```rust
+//! Hybrid validator binary
+
+use std::env;
+use std::path::Path;
+use depin_sdk_validator::hybrid::HybridValidator;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Parse command-line arguments
+    let args: Vec<String> = env::args().collect();
+    let container_type = if args.len() > 1 { &args[1] } else { "all" };
+    
+    // Default config directory is ./config
+    let config_dir = env::var("CONFIG_DIR").unwrap_or_else(|_| "./config".to_string());
+    
+    println!("Starting DePIN SDK Hybrid Validator");
+    println!("Container type: {}", container_type);
+    println!("Config directory: {}", config_dir);
+    
+    match container_type {
+        "guardian" => {
+            // Start only the guardian container
+            let path = Path::new(&config_dir);
+            let guardian = depin_sdk_validator::common::GuardianContainer::new(path.join("guardian.toml"));
+            guardian.start_boot()?;
+            
+            // Keep the process running
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            }
+        },
+        "orchestration" => {
+            // Start only the orchestration container
+            let path = Path::new(&config_dir);
+            let orchestration = depin_sdk_validator::standard::OrchestrationContainer::new(path.join("orchestration.toml"));
+            orchestration.start()?;
+            
+            // Keep the process running
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            }
+        },
+        "workload" => {
+            // Start only the workload container
+            let path = Path::new(&config_dir);
+            let workload = depin_sdk_validator::standard::WorkloadContainer::new(path.join("workload.toml"));
+            workload.start()?;
+            
+            // Keep the process running
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            }
+        },
+        "interface" => {
+            // Start only the interface container
+            let path = Path::new(&config_dir);
+            let interface = depin_sdk_validator::hybrid::InterfaceContainer::new(path.join("interface.toml"));
+            interface.start()?;
+            
+            // Keep the process running
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            }
+        },
+        "api" => {
+            // Start only the API container
+            let path = Path::new(&config_dir);
+            let api = depin_sdk_validator::hybrid::ApiContainer::new(path.join("api.toml"));
+            api.start()?;
+            
+            // Keep the process running
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            }
+        },
+        "all" | _ => {
+            // Start the full validator
+            let path = Path::new(&config_dir);
+            let validator = HybridValidator::new(path)?;
+            validator.start()?;
+            
+            // Keep the process running
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            }
+        },
+    }
+}
+```
+
+####### File: validator/src/bin/validator.rs
+####*Size: 4.0K, Lines: 82, Type: ASCII text*
+
+```rust
+//! Standard validator binary
+
+use depin_sdk_validator::standard::StandardValidator;
+use std::env;
+use std::path::Path;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Parse command-line arguments
+    let args: Vec<String> = env::args().collect();
+    let container_type = if args.len() > 1 { &args[1] } else { "all" };
+
+    // Default config directory is ./config
+    let config_dir = env::var("CONFIG_DIR").unwrap_or_else(|_| "./config".to_string());
+
+    println!("Starting DePIN SDK Standard Validator");
+    println!("Container type: {}", container_type);
+    println!("Config directory: {}", config_dir);
+
+    match container_type {
+        "guardian" => {
+            // Start only the guardian container
+            let path = Path::new(&config_dir);
+            let guardian =
+                depin_sdk_validator::common::GuardianContainer::new(path.join("guardian.toml"));
+            guardian.start_boot()?;
+
+            // Keep the process running
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            }
+        }
+        "orchestration" => {
+            // Start only the orchestration container
+            let path = Path::new(&config_dir);
+            let orchestration = depin_sdk_validator::standard::OrchestrationContainer::new(
+                path.join("orchestration.toml"),
+            );
+            orchestration.start()?;
+
+            // Keep the process running
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            }
+        }
+        "workload" => {
+            // Start only the workload container
+            let path = Path::new(&config_dir);
+            let workload =
+                depin_sdk_validator::standard::WorkloadContainer::new(path.join("workload.toml"));
+            workload.start()?;
+
+            // Keep the process running
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            }
+        }
+        // Fixed: Separate "all" case from wildcard pattern to avoid Clippy warning
+        "all" => {
+            // Start the full validator
+            let path = Path::new(&config_dir);
+            let validator = StandardValidator::new(path)?;
+            validator.start()?;
+
+            // Keep the process running
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            }
+        }
+        _ => {
+            // Default to full validator for any other input
+            let path = Path::new(&config_dir);
+            let validator = StandardValidator::new(path)?;
+            validator.start()?;
+
+            // Keep the process running
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            }
+        }
+    }
+}
+```
+
+###### Directory: validator/src/common
+
+####### Directory: validator/src/common/tests
+
+######## File: validator/src/common/tests/mod.rs
+#####*Size: 4.0K, Lines: 45, Type: ASCII text*
+
+```rust
+//! Tests for common validator components
+
+#[cfg(test)]
+mod tests {
+    use super::super::guardian::{BootStatus, GuardianContainer};
+    use super::super::security::SecurityChannel;
+    use std::path::Path;
+
+    #[test]
+    fn test_guardian_container() {
+        let config_path = Path::new("test_config.toml");
+        let guardian = GuardianContainer::new(config_path);
+
+        // Initial state
+        assert_eq!(guardian.boot_status(), BootStatus::NotStarted);
+
+        // Start boot process
+        guardian.start_boot().unwrap();
+        assert_eq!(guardian.boot_status(), BootStatus::Completed);
+
+        // Verify attestation
+        let attestation_result = guardian.verify_attestation().unwrap();
+        assert!(attestation_result);
+    }
+
+    #[test]
+    fn test_security_channel() {
+        let channel = SecurityChannel::new("test_source", "test_destination");
+
+        assert_eq!(channel.source, "test_source");
+        assert_eq!(channel.destination, "test_destination");
+        assert_eq!(channel.channel_id, "test_source:test_destination");
+
+        // Test establish
+        channel.establish().unwrap();
+
+        // Test send and receive
+        let data = vec![1, 2, 3, 4];
+        channel.send(&data).unwrap();
+
+        let received = channel.receive(10).unwrap();
+        // In our implementation, receive returns empty data for testing
+        assert_eq!(received.len(), 0);
+    }
+}
+```
+
+####### File: validator/src/common/attestation.rs
+####*Size: 16K, Lines: 415, Type: ASCII text*
+
+```rust
+// attestation.rs - Container attestation implementation
+
+use crate::chain::ChainState;
+use crate::crypto::{CryptoProvider, SignatureScheme};
+use serde::{Deserialize, Serialize};
+use std::time::{Duration, SystemTime};
+
+/// Attestation data structure that follows chain's signature evolution
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContainerAttestation {
+    /// Container identifier
+    pub container_id: ContainerId,
+
+    /// Merkle root of measured binaries and memory
+    pub merkle_root: MerkleRoot,
+
+    /// Challenge nonce from Guardian
+    pub nonce: Vec<u8>,
+
+    /// Timestamp of attestation
+    pub timestamp: Timestamp,
+
+    /// Public key for verification (format depends on current scheme)
+    pub public_key: Vec<u8>,
+
+    /// Signature over (nonce || merkle_root || timestamp)
+    /// Uses the chain's current signature scheme
+    pub signature: Vec<u8>,
+
+    /// Metadata about the attestation
+    pub metadata: AttestationMetadata,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AttestationMetadata {
+    /// Which signature scheme was used (for verification)
+    pub signature_scheme: SignatureScheme,
+
+    /// Container version
+    pub container_version: String,
+
+    /// Additional measurements
+    pub extended_measurements: HashMap<String, Vec<u8>>,
+}
+
+/// Attestation manager that handles the protocol
+pub struct AttestationManager {
+    /// Reference to chain state for current signature scheme
+    chain_state: Arc<ChainState>,
+
+    /// Cryptographic provider
+    crypto_provider: Arc<CryptoProvider>,
+
+    /// Container's key pair (format depends on current scheme)
+    key_pair: Arc<RwLock<KeyPair>>,
+
+    /// Configuration
+    config: AttestationConfig,
+
+    /// Attestation history for monitoring
+    history: RwLock<AttestationHistory>,
+}
+
+impl AttestationManager {
+    /// Creates attestation using current chain signature scheme
+    pub async fn create_attestation(
+        &self,
+        nonce: &[u8],
+        measurements: &ContainerMeasurements,
+    ) -> Result<ContainerAttestation, AttestationError> {
+        // Get current signature scheme from chain
+        let current_scheme = self
+            .chain_state
+            .get_active_signature_scheme()
+            .await
+            .map_err(|e| AttestationError::ChainStateError(e))?;
+
+        // Build merkle root from measurements
+        let merkle_root = self.compute_merkle_root(measurements)?;
+
+        // Create attestation message
+        let timestamp = current_time();
+        let message = self.build_attestation_message(nonce, &merkle_root, timestamp)?;
+
+        // Sign using current scheme
+        let key_pair = self.key_pair.read().await;
+        let (signature, public_key) = match current_scheme {
+            SignatureScheme::Ed25519 => {
+                let sig = self
+                    .crypto_provider
+                    .sign_ed25519(&key_pair.ed25519()?, &message)?;
+                let pk = key_pair.ed25519()?.public_key();
+                (sig, pk)
+            }
+            SignatureScheme::Dilithium2 => {
+                let sig = self
+                    .crypto_provider
+                    .sign_dilithium2(&key_pair.dilithium2()?, &message)?;
+                let pk = key_pair.dilithium2()?.public_key();
+                (sig, pk)
+            }
+            SignatureScheme::Falcon512 => {
+                let sig = self
+                    .crypto_provider
+                    .sign_falcon512(&key_pair.falcon512()?, &message)?;
+                let pk = key_pair.falcon512()?.public_key();
+                (sig, pk)
+            }
+            // Add other schemes as needed
+            _ => return Err(AttestationError::UnsupportedScheme(current_scheme)),
+        };
+
+        // Create attestation
+        let attestation = ContainerAttestation {
+            container_id: self.get_container_id(),
+            merkle_root,
+            nonce: nonce.to_vec(),
+            timestamp,
+            public_key,
+            signature,
+            metadata: AttestationMetadata {
+                signature_scheme: current_scheme,
+                container_version: self.get_container_version(),
+                extended_measurements: measurements.extended.clone(),
+            },
+        };
+
+        // Record in history
+        self.history.write().await.record_attestation(&attestation);
+
+        Ok(attestation)
+    }
+
+    /// Handles key rotation when chain signature scheme changes
+    pub async fn handle_signature_rotation(
+        &self,
+        new_scheme: SignatureScheme,
+    ) -> Result<(), RotationError> {
+        info!(
+            "Rotating attestation keys to {:?} following chain rotation",
+            new_scheme
+        );
+
+        // Generate new key pair for the scheme
+        let new_key_pair = match new_scheme {
+            SignatureScheme::Ed25519 => KeyPair::generate_ed25519(&mut self.crypto_provider.rng())?,
+            SignatureScheme::Dilithium2 => {
+                KeyPair::generate_dilithium2(&mut self.crypto_provider.rng())?
+            }
+            SignatureScheme::Falcon512 => {
+                KeyPair::generate_falcon512(&mut self.crypto_provider.rng())?
+            }
+            _ => return Err(RotationError::UnsupportedScheme(new_scheme)),
+        };
+
+        // Atomic key replacement
+        let mut key_pair = self.key_pair.write().await;
+        *key_pair = new_key_pair;
+
+        // Notify Guardian of key rotation
+        self.notify_guardian_of_rotation(new_scheme).await?;
+
+        Ok(())
+    }
+
+    /// Builds the attestation message to be signed
+    fn build_attestation_message(
+        &self,
+        nonce: &[u8],
+        merkle_root: &MerkleRoot,
+        timestamp: Timestamp,
+    ) -> Result<Vec<u8>, AttestationError> {
+        let mut message = Vec::new();
+        message.extend_from_slice(nonce);
+        message.extend_from_slice(merkle_root.as_bytes());
+        message.extend_from_slice(&timestamp.to_be_bytes());
+        Ok(message)
+    }
+
+    /// Monitors chain for signature scheme changes
+    pub async fn monitor_scheme_changes(&self) -> Result<(), Error> {
+        let mut current_scheme = self.chain_state.get_active_signature_scheme().await?;
+
+        loop {
+            // Check every block for scheme changes
+            tokio::time::sleep(self.config.scheme_check_interval).await;
+
+            let new_scheme = self.chain_state.get_active_signature_scheme().await?;
+            if new_scheme != current_scheme {
+                info!(
+                    "Detected signature scheme change: {:?} -> {:?}",
+                    current_scheme, new_scheme
+                );
+
+                // Handle rotation
+                self.handle_signature_rotation(new_scheme).await?;
+                current_scheme = new_scheme;
+            }
+        }
+    }
+}
+
+/// Guardian-side attestation verifier
+pub struct AttestationVerifier {
+    chain_state: Arc<ChainState>,
+    crypto_provider: Arc<CryptoProvider>,
+    config: AttestationConfig,
+    container_registry: Arc<ContainerRegistry>,
+}
+
+impl AttestationVerifier {
+    /// Verifies attestation using the scheme it was created with
+    pub async fn verify_attestation(
+        &self,
+        attestation: &ContainerAttestation,
+    ) -> Result<(), AttestationError> {
+        // Verify timestamp freshness
+        let now = current_time();
+        let age = now.saturating_sub(attestation.timestamp);
+        if age > self.config.max_attestation_age {
+            return Err(AttestationError::StaleAttestation { age });
+        }
+
+        // Check clock skew
+        if attestation.timestamp > now + self.config.max_clock_skew {
+            return Err(AttestationError::ClockSkew);
+        }
+
+        // Verify container is registered
+        let container_info = self
+            .container_registry
+            .get(&attestation.container_id)
+            .await
+            .ok_or(AttestationError::UnknownContainer)?;
+
+        // Build message for verification
+        let message = self.build_attestation_message(
+            &attestation.nonce,
+            &attestation.merkle_root,
+            attestation.timestamp,
+        )?;
+
+        // Verify signature using the scheme specified in metadata
+        match attestation.metadata.signature_scheme {
+            SignatureScheme::Ed25519 => {
+                self.crypto_provider.verify_ed25519(
+                    &attestation.public_key,
+                    &message,
+                    &attestation.signature,
+                )?;
+            }
+            SignatureScheme::Dilithium2 => {
+                self.crypto_provider.verify_dilithium2(
+                    &attestation.public_key,
+                    &message,
+                    &attestation.signature,
+                )?;
+            }
+            SignatureScheme::Falcon512 => {
+                self.crypto_provider.verify_falcon512(
+                    &attestation.public_key,
+                    &message,
+                    &attestation.signature,
+                )?;
+            }
+            _ => {
+                return Err(AttestationError::UnsupportedScheme(
+                    attestation.metadata.signature_scheme,
+                ))
+            }
+        }
+
+        // Verify merkle root matches expected manifest
+        self.verify_merkle_root_integrity(
+            &attestation.merkle_root,
+            &container_info.expected_manifest,
+        )?;
+
+        Ok(())
+    }
+
+    /// Batch verification for efficiency when possible
+    pub async fn verify_attestation_batch(
+        &self,
+        attestations: &[ContainerAttestation],
+    ) -> Result<Vec<Result<(), AttestationError>>, Error> {
+        // Group by signature scheme for batch verification
+        let mut by_scheme: HashMap<SignatureScheme, Vec<&ContainerAttestation>> = HashMap::new();
+
+        for attestation in attestations {
+            by_scheme
+                .entry(attestation.metadata.signature_scheme)
+                .or_default()
+                .push(attestation);
+        }
+
+        let mut results = Vec::with_capacity(attestations.len());
+
+        // Batch verify each scheme group
+        for (scheme, group) in by_scheme {
+            match scheme {
+                SignatureScheme::Ed25519 => {
+                    // Ed25519 supports efficient batch verification
+                    let batch_results = self.batch_verify_ed25519(group).await?;
+                    results.extend(batch_results);
+                }
+                _ => {
+                    // Other schemes: verify individually
+                    for attestation in group {
+                        results.push(self.verify_attestation(attestation).await);
+                    }
+                }
+            }
+        }
+
+        Ok(results)
+    }
+}
+
+/// Attestation monitoring and health tracking
+#[derive(Debug)]
+pub struct AttestationHealth {
+    pub success_rate: f64,
+    pub average_latency: Duration,
+    pub failed_containers: Vec<ContainerId>,
+    pub last_rotation: Option<(SignatureScheme, Timestamp)>,
+}
+
+impl AttestationManager {
+    /// Gets current attestation health metrics
+    pub async fn get_health(&self) -> AttestationHealth {
+        let history = self.history.read().await;
+
+        AttestationHealth {
+            success_rate: history.calculate_success_rate(),
+            average_latency: history.calculate_average_latency(),
+            failed_containers: history.get_failed_containers(),
+            last_rotation: history.get_last_rotation(),
+        }
+    }
+}
+
+/// Errors specific to attestation
+#[derive(Debug, thiserror::Error)]
+pub enum AttestationError {
+    #[error("Unsupported signature scheme: {0:?}")]
+    UnsupportedScheme(SignatureScheme),
+
+    #[error("Stale attestation (age: {age:?})")]
+    StaleAttestation { age: Duration },
+
+    #[error("Clock skew detected")]
+    ClockSkew,
+
+    #[error("Unknown container")]
+    UnknownContainer,
+
+    #[error("Merkle root mismatch")]
+    MerkleRootMismatch,
+
+    #[error("Chain state error: {0}")]
+    ChainStateError(#[from] ChainStateError),
+
+    #[error("Cryptographic error: {0}")]
+    CryptoError(#[from] CryptoError),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_attestation_follows_chain_rotation() {
+        // Setup
+        let chain_state = Arc::new(mock_chain_state());
+        let crypto_provider = Arc::new(CryptoProvider::new());
+        let manager = AttestationManager::new(chain_state.clone(), crypto_provider);
+
+        // Initially using Ed25519
+        chain_state
+            .set_active_scheme(SignatureScheme::Ed25519)
+            .await;
+
+        // Create attestation with Ed25519
+        let attestation1 = manager
+            .create_attestation(b"nonce1", &measurements())
+            .await?;
+        assert_eq!(
+            attestation1.metadata.signature_scheme,
+            SignatureScheme::Ed25519
+        );
+
+        // Chain rotates to Dilithium2
+        chain_state
+            .set_active_scheme(SignatureScheme::Dilithium2)
+            .await;
+        manager
+            .handle_signature_rotation(SignatureScheme::Dilithium2)
+            .await?;
+
+        // New attestation uses Dilithium2
+        let attestation2 = manager
+            .create_attestation(b"nonce2", &measurements())
+            .await?;
+        assert_eq!(
+            attestation2.metadata.signature_scheme,
+            SignatureScheme::Dilithium2
+        );
+
+        // Both attestations can be verified
+        let verifier = AttestationVerifier::new(chain_state, crypto_provider);
+        verifier.verify_attestation(&attestation1).await?;
+        verifier.verify_attestation(&attestation2).await?;
+    }
+}
+```
+
+####### File: validator/src/common/guardian.rs
+####*Size: 4.0K, Lines: 67, Type: ASCII text*
+
+```rust
+//! Implementation of the guardian container
+
+use std::path::Path;
+use std::error::Error;
+use std::sync::{Arc, Mutex};
+
+/// Guardian container for security, boot process, and attestation
+pub struct GuardianContainer {
+    /// Configuration path
+    config_path: String,
+    /// Boot status
+    boot_status: Arc<Mutex<BootStatus>>,
+}
+
+/// Boot status
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BootStatus {
+    /// Not started
+    NotStarted,
+    /// In progress
+    InProgress,
+    /// Completed successfully
+    Completed,
+    /// Failed
+    Failed,
+}
+
+impl GuardianContainer {
+    /// Create a new guardian container
+    pub fn new<P: AsRef<Path>>(config_path: P) -> Self {
+        Self {
+            config_path: config_path.as_ref().to_string_lossy().to_string(),
+            boot_status: Arc::new(Mutex::new(BootStatus::NotStarted)),
+        }
+    }
+    
+    /// Start the boot process
+    pub fn start_boot(&self) -> Result<(), Box<dyn Error>> {
+        let mut status = self.boot_status.lock().unwrap();
+        *status = BootStatus::InProgress;
+        
+        // Perform boot process (simplified for initial setup)
+        println!("Guardian container starting boot process...");
+        
+        // In a real implementation, we would:
+        // 1. Verify hardware attestation
+        // 2. Check secure boot status
+        // 3. Initialize security boundaries
+        
+        *status = BootStatus::Completed;
+        println!("Guardian container boot process completed.");
+        
+        Ok(())
+    }
+    
+    /// Get the current boot status
+    pub fn boot_status(&self) -> BootStatus {
+        *self.boot_status.lock().unwrap()
+    }
+    
+    /// Verify attestation
+    pub fn verify_attestation(&self) -> Result<bool, Box<dyn Error>> {
+        // Simplified attestation verification for initial setup
+        // In a real implementation, we would verify hardware attestation
+        Ok(true)
+    }
+}
+```
+
+####### File: validator/src/common/mod.rs
+####*Size: 4.0K, Lines: 10, Type: ASCII text*
+
+```rust
+//! Common validator components shared by all types
+
+mod guardian;
+mod security;
+
+#[cfg(test)]
+mod tests;
+
+pub use guardian::*;
+pub use security::*;
+```
+
+####### File: validator/src/common/security.rs
+####*Size: 4.0K, Lines: 56, Type: ASCII text*
+
+```rust
+//! Implementation of security boundaries between containers
+
+use std::error::Error;
+
+/// Security channel for communication between containers
+pub struct SecurityChannel {
+    /// Source container ID
+    pub source: String,
+    /// Destination container ID
+    pub destination: String,
+    /// Channel ID
+    pub channel_id: String,
+}
+
+impl SecurityChannel {
+    /// Create a new security channel
+    pub fn new(source: &str, destination: &str) -> Self {
+        let channel_id = format!("{}:{}", source, destination);
+        
+        Self {
+            source: source.to_string(),
+            destination: destination.to_string(),
+            channel_id,
+        }
+    }
+    
+    /// Establish the security channel
+    pub fn establish(&self) -> Result<(), Box<dyn Error>> {
+        // Simplified channel establishment for initial setup
+        // In a real implementation, we would:
+        // 1. Perform mutual authentication
+        // 2. Establish encrypted channel
+        // 3. Set up access controls
+        
+        println!("Establishing security channel: {}", self.channel_id);
+        
+        Ok(())
+    }
+    
+    /// Send data through the security channel
+    pub fn send(&self, data: &[u8]) -> Result<(), Box<dyn Error>> {
+        // Simplified sending for initial setup
+        println!("Sending {} bytes through channel {}", data.len(), self.channel_id);
+        
+        Ok(())
+    }
+    
+    /// Receive data from the security channel
+    pub fn receive(&self, max_size: usize) -> Result<Vec<u8>, Box<dyn Error>> {
+        // Simplified receiving for initial setup
+        println!("Receiving up to {} bytes from channel {}", max_size, self.channel_id);
+        
+        // Return empty data for now
+        Ok(Vec::new())
+    }
+}
+```
+
+###### Directory: validator/src/hybrid
+
+####### Directory: validator/src/hybrid/tests
+
+######## File: validator/src/hybrid/tests/mod.rs
+#####*Size: 4.0K, Lines: 63, Type: ASCII text*
+
+```rust
+//! Tests for hybrid validator components
+
+#[cfg(test)]
+mod tests {
+    use super::super::{ApiContainer, HybridValidator, InterfaceContainer};
+    use std::net::SocketAddr;
+    use std::path::Path;
+
+    #[test]
+    fn test_interface_container() {
+        let config_path = Path::new("test_interface.toml");
+        let interface = InterfaceContainer::new(config_path);
+
+        assert!(!interface.is_running());
+
+        interface.start().unwrap();
+        // Note: in the current implementation, the running state isn't actually updated
+
+        // Test connection handling
+        let addr: SocketAddr = "127.0.0.1:8080".parse().unwrap();
+        let data = vec![1, 2, 3, 4];
+        let result = interface.handle_connection(addr, &data).unwrap();
+        assert_eq!(result, vec![5, 6, 7, 8]); // Should return the mock result defined in the implementation
+
+        interface.stop().unwrap();
+    }
+
+    #[test]
+    fn test_api_container() {
+        let config_path = Path::new("test_api.toml");
+        let api = ApiContainer::new(config_path);
+
+        assert!(!api.is_running());
+
+        api.start().unwrap();
+        // Note: in the current implementation, the running state isn't actually updated
+
+        // Test API request handling
+        let endpoint = "test_endpoint";
+        let params = vec![1, 2, 3, 4];
+        let result = api.handle_request(endpoint, &params).unwrap();
+        assert_eq!(result, vec![9, 10, 11, 12]); // Should return the mock result defined in the implementation
+
+        api.stop().unwrap();
+    }
+
+    #[test]
+    fn test_hybrid_validator() {
+        let temp_dir = std::env::temp_dir();
+
+        // This is just a test, so we're not actually creating these files
+        // In a real test, we might want to create temporary config files
+
+        // Create validator
+        let validator = HybridValidator::new(&temp_dir).unwrap();
+
+        // Start validator - this should start all containers
+        validator.start().unwrap();
+
+        // Stop validator - this should stop all containers
+        validator.stop().unwrap();
+    }
+}
+```
+
+####### File: validator/src/hybrid/api.rs
+####*Size: 4.0K, Lines: 80, Type: ASCII text*
+
+```rust
+//! Implementation of API container
+
+use std::path::Path;
+use std::error::Error;
+use std::sync::{Arc, Mutex};
+
+/// API container for API implementation and state queries
+pub struct ApiContainer {
+    /// Configuration path
+    config_path: String,
+    /// Running status
+    running: Arc<Mutex<bool>>,
+}
+
+impl ApiContainer {
+    /// Create a new API container
+    pub fn new<P: AsRef<Path>>(config_path: P) -> Self {
+        Self {
+            config_path: config_path.as_ref().to_string_lossy().to_string(),
+            running: Arc::new(Mutex::new(false)),
+        }
+    }
+    
+    /// Start the API container
+    pub fn start(&self) -> Result<(), Box<dyn Error>> {
+        let mut running = self.running.lock().unwrap();
+        *running = true;
+        
+        println!("API container starting...");
+        
+        // In a real implementation, we would:
+        // 1. Initialize API endpoints
+        // 2. Connect to state storage
+        // 3. Start serving requests
+        
+        println!("API container started successfully");
+        
+        Ok(())
+    }
+    
+    /// Stop the API container
+    pub fn stop(&self) -> Result<(), Box<dyn Error>> {
+        let mut running = self.running.lock().unwrap();
+        *running = false;
+        
+        println!("API container stopping...");
+        
+        // In a real implementation, we would:
+        // 1. Gracefully shutdown API server
+        // 2. Close state connections
+        // 3. Clean up resources
+        
+        println!("API container stopped successfully");
+        
+        Ok(())
+    }
+    
+    /// Handle an API request
+    pub fn handle_request(&self, endpoint: &str, params: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
+        if !self.is_running() {
+            return Err("API container is not running".into());
+        }
+        
+        // Simplified API handling for initial setup
+        println!("Handling API request to endpoint {}, {} bytes", endpoint, params.len());
+        
+        // In a real implementation, we would:
+        // 1. Parse the request parameters
+        // 2. Execute the appropriate API function
+        // 3. Format and return the response
+        
+        // Return a dummy response for now
+        Ok(vec![9, 10, 11, 12])
+    }
+    
+    /// Check if the container is running
+    pub fn is_running(&self) -> bool {
+        *self.running.lock().unwrap()
+    }
+}
+```
+
+####### File: validator/src/hybrid/interface.rs
+####*Size: 4.0K, Lines: 82, Type: ASCII text*
+
+```rust
+//! Implementation of interface container
+
+use std::path::Path;
+use std::error::Error;
+use std::sync::{Arc, Mutex};
+use std::net::SocketAddr;
+
+/// Interface container for connection handling and protocol routing
+pub struct InterfaceContainer {
+    /// Configuration path
+    config_path: String,
+    /// Running status
+    running: Arc<Mutex<bool>>,
+}
+
+impl InterfaceContainer {
+    /// Create a new interface container
+    pub fn new<P: AsRef<Path>>(config_path: P) -> Self {
+        Self {
+            config_path: config_path.as_ref().to_string_lossy().to_string(),
+            running: Arc::new(Mutex::new(false)),
+        }
+    }
+    
+    /// Start the interface container
+    pub fn start(&self) -> Result<(), Box<dyn Error>> {
+        let mut running = self.running.lock().unwrap();
+        *running = true;
+        
+        println!("Interface container starting...");
+        
+        // In a real implementation, we would:
+        // 1. Start listening for connections
+        // 2. Initialize protocol handlers
+        // 3. Set up routing logic
+        
+        println!("Interface container started successfully");
+        
+        Ok(())
+    }
+    
+    /// Stop the interface container
+    pub fn stop(&self) -> Result<(), Box<dyn Error>> {
+        let mut running = self.running.lock().unwrap();
+        *running = false;
+        
+        println!("Interface container stopping...");
+        
+        // In a real implementation, we would:
+        // 1. Close all connections
+        // 2. Stop listeners
+        // 3. Clean up resources
+        
+        println!("Interface container stopped successfully");
+        
+        Ok(())
+    }
+    
+    /// Handle a client connection
+    pub fn handle_connection(&self, addr: SocketAddr, data: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
+        if !self.is_running() {
+            return Err("Interface container is not running".into());
+        }
+        
+        // Simplified connection handling for initial setup
+        println!("Handling connection from {}, {} bytes", addr, data.len());
+        
+        // In a real implementation, we would:
+        // 1. Identify the protocol
+        // 2. Route to the appropriate handler
+        // 3. Process the request
+        // 4. Return the response
+        
+        // Return a dummy response for now
+        Ok(vec![5, 6, 7, 8])
+    }
+    
+    /// Check if the container is running
+    pub fn is_running(&self) -> bool {
+        *self.running.lock().unwrap()
+    }
+}
+```
+
+####### File: validator/src/hybrid/mod.rs
+####*Size: 4.0K, Lines: 112, Type: ASCII text*
+
+```rust
+//! Hybrid validator implementation (5 containers)
+
+mod interface;
+mod api;
+
+#[cfg(test)]
+mod tests;
+
+pub use interface::*;
+pub use api::*;
+
+use std::error::Error;
+use std::path::Path;
+use crate::common::{GuardianContainer, SecurityChannel};
+use crate::standard::{OrchestrationContainer, WorkloadContainer};
+
+/// Hybrid validator with 5 containers
+pub struct HybridValidator {
+    /// Guardian container
+    pub guardian: GuardianContainer,
+    /// Orchestration container
+    pub orchestration: OrchestrationContainer,
+    /// Workload container
+    pub workload: WorkloadContainer,
+    /// Interface container
+    pub interface: InterfaceContainer,
+    /// API container
+    pub api: ApiContainer,
+    /// Security channels between containers
+    security_channels: Vec<SecurityChannel>,
+}
+
+impl HybridValidator {
+    /// Create a new hybrid validator
+    pub fn new<P: AsRef<Path>>(config_dir: P) -> Result<Self, Box<dyn Error>> {
+        let config_dir = config_dir.as_ref();
+        
+        // Create containers
+        let guardian = GuardianContainer::new(config_dir.join("guardian.toml"));
+        let orchestration = OrchestrationContainer::new(config_dir.join("orchestration.toml"));
+        let workload = WorkloadContainer::new(config_dir.join("workload.toml"));
+        let interface = InterfaceContainer::new(config_dir.join("interface.toml"));
+        let api = ApiContainer::new(config_dir.join("api.toml"));
+        
+        // Create security channels
+        let mut security_channels = Vec::new();
+        
+        // Guardian to Orchestration
+        let channel_g_o = SecurityChannel::new("guardian", "orchestration");
+        channel_g_o.establish()?;
+        security_channels.push(channel_g_o);
+        
+        // Orchestration to Workload
+        let channel_o_w = SecurityChannel::new("orchestration", "workload");
+        channel_o_w.establish()?;
+        security_channels.push(channel_o_w);
+        
+        // Orchestration to Interface
+        let channel_o_i = SecurityChannel::new("orchestration", "interface");
+        channel_o_i.establish()?;
+        security_channels.push(channel_o_i);
+        
+        // Interface to API
+        let channel_i_a = SecurityChannel::new("interface", "api");
+        channel_i_a.establish()?;
+        security_channels.push(channel_i_a);
+        
+        Ok(Self {
+            guardian,
+            orchestration,
+            workload,
+            interface,
+            api,
+            security_channels,
+        })
+    }
+    
+    /// Start the validator
+    pub fn start(&self) -> Result<(), Box<dyn Error>> {
+        // Start Guardian first
+        self.guardian.start_boot()?;
+        
+        // Start Orchestration
+        self.orchestration.start()?;
+        
+        // Start Workload
+        self.workload.start()?;
+        
+        // Start Interface
+        self.interface.start()?;
+        
+        // Start API
+        self.api.start()?;
+        
+        println!("Hybrid validator started successfully");
+        
+        Ok(())
+    }
+    
+    /// Stop the validator
+    pub fn stop(&self) -> Result<(), Box<dyn Error>> {
+        // Stop in reverse order
+        self.api.stop()?;
+        self.interface.stop()?;
+        self.workload.stop()?;
+        self.orchestration.stop()?;
+        
+        println!("Hybrid validator stopped successfully");
+        
+        Ok(())
+    }
+}
+```
+
+###### Directory: validator/src/standard
+
+####### Directory: validator/src/standard/tests
+
+######## File: validator/src/standard/tests/mod.rs
+#####*Size: 4.0K, Lines: 57, Type: ASCII text*
+
+```rust
+//! Tests for standard validator components
+
+#[cfg(test)]
+mod tests {
+    use super::super::{OrchestrationContainer, StandardValidator, WorkloadContainer};
+    use crate::common::GuardianContainer;
+    use std::path::Path;
+
+    #[test]
+    fn test_orchestration_container() {
+        let config_path = Path::new("test_orchestration.toml");
+        let orchestration = OrchestrationContainer::new(config_path);
+
+        assert!(!orchestration.is_running());
+
+        orchestration.start().unwrap();
+        // Note: in the current implementation, the running state isn't actually updated
+        // In a real implementation, we'd expect is_running() to return true here
+
+        orchestration.stop().unwrap();
+    }
+
+    #[test]
+    fn test_workload_container() {
+        let config_path = Path::new("test_workload.toml");
+        let workload = WorkloadContainer::new(config_path);
+
+        assert!(!workload.is_running());
+
+        workload.start().unwrap();
+        // Note: in the current implementation, the running state isn't actually updated
+
+        // Test transaction execution
+        let tx_data = vec![1, 2, 3, 4];
+        let result = workload.execute_transaction(&tx_data).unwrap();
+        assert_eq!(result, vec![1, 2, 3, 4]); // Should return the mock result defined in the implementation
+
+        workload.stop().unwrap();
+    }
+
+    #[test]
+    fn test_standard_validator() {
+        let temp_dir = std::env::temp_dir();
+
+        // This is just a test, so we're not actually creating these files
+        // In a real test, we might want to create temporary config files
+
+        // Create validator
+        let validator = StandardValidator::new(&temp_dir).unwrap();
+
+        // Start validator - this should start all containers
+        validator.start().unwrap();
+
+        // Stop validator - this should stop all containers
+        validator.stop().unwrap();
+    }
+}
+```
+
+####### File: validator/src/standard/mod.rs
+####*Size: 4.0K, Lines: 85, Type: ASCII text*
+
+```rust
+//! Standard validator implementation (3 containers)
+
+mod orchestration;
+mod workload;
+
+#[cfg(test)]
+mod tests;
+
+pub use orchestration::*;
+pub use workload::*;
+
+use std::error::Error;
+use std::path::Path;
+use crate::common::{GuardianContainer, SecurityChannel};
+
+/// Standard validator with 3 containers
+pub struct StandardValidator {
+    /// Guardian container
+    pub guardian: GuardianContainer,
+    /// Orchestration container
+    pub orchestration: OrchestrationContainer,
+    /// Workload container
+    pub workload: WorkloadContainer,
+    /// Security channels between containers
+    security_channels: Vec<SecurityChannel>,
+}
+
+impl StandardValidator {
+    /// Create a new standard validator
+    pub fn new<P: AsRef<Path>>(config_dir: P) -> Result<Self, Box<dyn Error>> {
+        let config_dir = config_dir.as_ref();
+        
+        // Create containers
+        let guardian = GuardianContainer::new(config_dir.join("guardian.toml"));
+        let orchestration = OrchestrationContainer::new(config_dir.join("orchestration.toml"));
+        let workload = WorkloadContainer::new(config_dir.join("workload.toml"));
+        
+        // Create security channels
+        let mut security_channels = Vec::new();
+        
+        // Guardian to Orchestration
+        let channel_g_o = SecurityChannel::new("guardian", "orchestration");
+        channel_g_o.establish()?;
+        security_channels.push(channel_g_o);
+        
+        // Orchestration to Workload
+        let channel_o_w = SecurityChannel::new("orchestration", "workload");
+        channel_o_w.establish()?;
+        security_channels.push(channel_o_w);
+        
+        Ok(Self {
+            guardian,
+            orchestration,
+            workload,
+            security_channels,
+        })
+    }
+    
+    /// Start the validator
+    pub fn start(&self) -> Result<(), Box<dyn Error>> {
+        // Start Guardian first
+        self.guardian.start_boot()?;
+        
+        // Start Orchestration
+        self.orchestration.start()?;
+        
+        // Start Workload
+        self.workload.start()?;
+        
+        println!("Standard validator started successfully");
+        
+        Ok(())
+    }
+    
+    /// Stop the validator
+    pub fn stop(&self) -> Result<(), Box<dyn Error>> {
+        // Stop in reverse order
+        self.workload.stop()?;
+        self.orchestration.stop()?;
+        
+        println!("Standard validator stopped successfully");
+        
+        Ok(())
+    }
+}
+```
+
+####### File: validator/src/standard/orchestration.rs
+####*Size: 4.0K, Lines: 62, Type: ASCII text*
+
+```rust
+//! Implementation of orchestration container
+
+use std::path::Path;
+use std::error::Error;
+use std::sync::{Arc, Mutex};
+
+/// Orchestration container for node functions and consensus
+pub struct OrchestrationContainer {
+    /// Configuration path
+    config_path: String,
+    /// Running status
+    running: Arc<Mutex<bool>>,
+}
+
+impl OrchestrationContainer {
+    /// Create a new orchestration container
+    pub fn new<P: AsRef<Path>>(config_path: P) -> Self {
+        Self {
+            config_path: config_path.as_ref().to_string_lossy().to_string(),
+            running: Arc::new(Mutex::new(false)),
+        }
+    }
+    
+    /// Start the orchestration container
+    pub fn start(&self) -> Result<(), Box<dyn Error>> {
+        let mut running = self.running.lock().unwrap();
+        *running = true;
+        
+        println!("Orchestration container starting...");
+        
+        // In a real implementation, we would:
+        // 1. Initialize consensus mechanism
+        // 2. Connect to peer network
+        // 3. Start block processing
+        
+        println!("Orchestration container started successfully");
+        
+        Ok(())
+    }
+    
+    /// Stop the orchestration container
+    pub fn stop(&self) -> Result<(), Box<dyn Error>> {
+        let mut running = self.running.lock().unwrap();
+        *running = false;
+        
+        println!("Orchestration container stopping...");
+        
+        // In a real implementation, we would:
+        // 1. Gracefully disconnect from network
+        // 2. Stop consensus mechanism
+        // 3. Save state
+        
+        println!("Orchestration container stopped successfully");
+        
+        Ok(())
+    }
+    
+    /// Check if the container is running
+    pub fn is_running(&self) -> bool {
+        *self.running.lock().unwrap()
+    }
+}
+```
+
+####### File: validator/src/standard/workload.rs
+####*Size: 4.0K, Lines: 81, Type: ASCII text*
+
+```rust
+//! Implementation of workload container
+
+use std::path::Path;
+use std::error::Error;
+use std::sync::{Arc, Mutex};
+
+/// Workload container for resource provisioning and execution
+pub struct WorkloadContainer {
+    /// Configuration path
+    config_path: String,
+    /// Running status
+    running: Arc<Mutex<bool>>,
+}
+
+impl WorkloadContainer {
+    /// Create a new workload container
+    pub fn new<P: AsRef<Path>>(config_path: P) -> Self {
+        Self {
+            config_path: config_path.as_ref().to_string_lossy().to_string(),
+            running: Arc::new(Mutex::new(false)),
+        }
+    }
+    
+    /// Start the workload container
+    pub fn start(&self) -> Result<(), Box<dyn Error>> {
+        let mut running = self.running.lock().unwrap();
+        *running = true;
+        
+        println!("Workload container starting...");
+        
+        // In a real implementation, we would:
+        // 1. Initialize execution environment
+        // 2. Allocate resources
+        // 3. Start transaction processing
+        
+        println!("Workload container started successfully");
+        
+        Ok(())
+    }
+    
+    /// Stop the workload container
+    pub fn stop(&self) -> Result<(), Box<dyn Error>> {
+        let mut running = self.running.lock().unwrap();
+        *running = false;
+        
+        println!("Workload container stopping...");
+        
+        // In a real implementation, we would:
+        // 1. Gracefully stop transaction processing
+        // 2. Release resources
+        // 3. Save state
+        
+        println!("Workload container stopped successfully");
+        
+        Ok(())
+    }
+    
+    /// Execute a transaction
+    pub fn execute_transaction(&self, tx_data: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
+        if !self.is_running() {
+            return Err("Workload container is not running".into());
+        }
+        
+        // Simplified transaction execution for initial setup
+        println!("Executing transaction of {} bytes", tx_data.len());
+        
+        // In a real implementation, we would:
+        // 1. Parse the transaction
+        // 2. Verify it against the state
+        // 3. Apply it to the state
+        // 4. Return the result
+        
+        // Return a dummy result for now
+        Ok(vec![1, 2, 3, 4])
+    }
+    
+    /// Check if the container is running
+    pub fn is_running(&self) -> bool {
+        *self.running.lock().unwrap()
+    }
+}
+```
+
+###### File: validator/src/lib.rs
+###*Size: 4.0K, Lines: 10, Type: ASCII text*
+
+```rust
+//! # DePIN SDK Validator
+//!
+//! Validator implementation with container architecture for the DePIN SDK.
+
+pub mod common;
+pub mod standard;
+pub mod hybrid;
+
+use std::error::Error;
+use depin_sdk_core::validator::ValidatorModel;
+```
+
+##### File: validator/Cargo.toml
+##*Size: 4.0K, Lines: 24, Type: ASCII text*
+
+```toml
+[package]
+name = "depin-sdk-validator"
+version = "0.1.0"
+edition = "2021"
+description = "Validator implementation with container architecture for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+depin-sdk-core = { path = "../core" }
+log = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+bytes = { workspace = true }
+anyhow = { workspace = true }
+tokio = { version = "1.28", features = ["full"] }
+toml = "0.7"
+
+[[bin]]
+name = "depin-sdk-validator"
+path = "src/bin/validator.rs"
+
+[[bin]]
+name = "depin-sdk-validator-hybrid"
+path = "src/bin/validator_hybrid.rs"
 ```
 

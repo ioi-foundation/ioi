@@ -2,7 +2,7 @@
 
 use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, Selector};
 use depin_sdk_core::error::StateError;
-use depin_sdk_core::state::StateTree;
+use depin_sdk_core::state::{StateManager, StateTree};
 use std::any::Any;
 use std::collections::HashMap;
 
@@ -94,6 +94,10 @@ where
             &value_typed,
             &context,
         )
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self        
     }
 }
 
