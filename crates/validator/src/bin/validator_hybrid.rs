@@ -3,9 +3,10 @@
 use std::env;
 use std::path::Path;
 use depin_sdk_validator::hybrid::HybridValidator;
+use depin_sdk_core::validator::{Container, ValidatorModel};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Parse command-line arguments
     let args: Vec<String> = env::args().collect();
     let container_type = if args.len() > 1 { &args[1] } else { "all" };
@@ -21,8 +22,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "guardian" => {
             // Start only the guardian container
             let path = Path::new(&config_dir);
-            let guardian = depin_sdk_validator::common::GuardianContainer::new(path.join("guardian.toml"));
-            guardian.start_boot()?;
+            let guardian = depin_sdk_validator::common::GuardianContainer::new(path.join("guardian.toml"))?;
+            guardian.start()?;
             
             // Keep the process running
             loop {
@@ -32,7 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "orchestration" => {
             // Start only the orchestration container
             let path = Path::new(&config_dir);
-            let orchestration = depin_sdk_validator::standard::OrchestrationContainer::new(path.join("orchestration.toml"));
+            let orchestration = depin_sdk_validator::standard::OrchestrationContainer::new(path.join("orchestration.toml"))?;
             orchestration.start()?;
             
             // Keep the process running
@@ -43,7 +44,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "workload" => {
             // Start only the workload container
             let path = Path::new(&config_dir);
-            let workload = depin_sdk_validator::standard::WorkloadContainer::new(path.join("workload.toml"));
+            let workload = depin_sdk_validator::standard::WorkloadContainer::new(path.join("workload.toml"))?;
             workload.start()?;
             
             // Keep the process running
@@ -54,7 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "interface" => {
             // Start only the interface container
             let path = Path::new(&config_dir);
-            let interface = depin_sdk_validator::hybrid::InterfaceContainer::new(path.join("interface.toml"));
+            let interface = depin_sdk_validator::hybrid::InterfaceContainer::new(path.join("interface.toml"))?;
             interface.start()?;
             
             // Keep the process running
@@ -65,7 +66,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "api" => {
             // Start only the API container
             let path = Path::new(&config_dir);
-            let api = depin_sdk_validator::hybrid::ApiContainer::new(path.join("api.toml"));
+            let api = depin_sdk_validator::hybrid::ApiContainer::new(path.join("api.toml"))?;
             api.start()?;
             
             // Keep the process running

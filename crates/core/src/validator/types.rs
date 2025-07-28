@@ -1,12 +1,13 @@
 //! Validator type definitions
+use crate::error::ValidatorError;
 
 /// Validator model trait
 pub trait ValidatorModel {
     /// Start the validator
-    fn start(&self) -> Result<(), String>;
+    fn start(&self) -> Result<(), ValidatorError>;
     
     /// Stop the validator
-    fn stop(&self) -> Result<(), String>;
+    fn stop(&self) -> Result<(), ValidatorError>;
     
     /// Check if the validator is running
     fn is_running(&self) -> bool;

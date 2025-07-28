@@ -1,12 +1,12 @@
 # Codebase Snapshot: crates
-Created: Sun Jul 27 01:34:13 PM UTC 2025
+Created: Sun Jul 27 10:33:24 PM UTC 2025
 Target: /workspaces/depin-sdk/crates
 Line threshold for included files: 1500
 
 ## Summary Statistics
 
-* Total files: 153
-* Total directories: 110
+* Total files: 150
+* Total directories: 111
 
 ### Directory: /workspaces/depin-sdk/crates
 
@@ -378,7 +378,7 @@ fn test_max_recent_blocks() {
 }```
 
 ####### File: chain/src/app/mod.rs
-####*Size: 20K, Lines: 546, Type: ASCII text*
+####*Size: 20K, Lines: 569, Type: ASCII text*
 
 ```rust
 use depin_sdk_core::commitment::CommitmentScheme;
@@ -388,11 +388,14 @@ use depin_sdk_core::state::{StateManager, StateTree};
 use depin_sdk_core::transaction::TransactionModel;
 use depin_sdk_core::validator::ValidatorModel;
 use crate::upgrade_manager::ModuleUpgradeManager;
+use depin_sdk_state_trees::file::FileStateTree;
+use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
+
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// Block header containing metadata
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct BlockHeader {
     /// Block height
     pub height: u64,
@@ -407,7 +410,7 @@ pub struct BlockHeader {
 }
 
 /// Block structure containing transactions
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Block<T> {
     /// Block header
     pub header: BlockHeader,
@@ -669,7 +672,11 @@ where
     //
 
     /// Process a block
-    pub fn process_block(&mut self, mut block: Block<TM::Transaction>) -> Result<(), String> {
+    pub fn process_block(&mut self, mut block: Block<TM::Transaction>) -> Result<(), String>
+    where
+        CS: Clone,
+        CS::Value: From<Vec<u8>> + AsRef<[u8]> + Clone,
+    {
         // Ensure block is built on current chain state
         if block.header.height != self.status.height + 1 {
             return Err(format!(
@@ -741,6 +748,22 @@ where
         if self.recent_blocks.len() > self.max_recent_blocks {
             self.recent_blocks.remove(0); // Remove oldest block
         }
+
+        // Periodically save state if the state tree supports it (e.g., FileStateTree)
+        if self.status.height % 10 == 0 {
+            // This uses `as_any()` and `downcast_ref` to check if the state tree is a `FileStateTree`
+            // without breaking the generic `ST` constraint. This is a common pattern for
+            // accessing concrete type features from generic code.
+            if let Some(persistable_tree) = self.state_tree.as_any().downcast_ref::<FileStateTree<CS>>() {
+                // Now valid because of the `where` clause on this method
+                if let Err(e) = persistable_tree.save() {
+                    eprintln!("[Warning] Periodic state save failed at height {}: {}", self.status.height, e);
+                } else {
+                    println!("State periodically saved at height {}", self.status.height);
+                }
+            }
+        }
+
 
         Ok(())
     }
@@ -932,218 +955,382 @@ mod tests;```
 ###### Directory: chain/src/bin
 
 ####### File: chain/src/bin/mvsc.rs
-####*Size: 8.0K, Lines: 212, Type: C source, ASCII text*
+####*Size: 16K, Lines: 376, Type: C source, ASCII text*
 
 ```rust
 //! # Minimum Viable Single-Node Chain (MVSC)
 //!
-//! This binary assembles and runs a self-contained, in-memory blockchain
-//! using components from the DePIN SDK. It demonstrates the end-to-end
-//! integration of the state tree, commitment scheme, transaction model,
-//! and the new `dcrypt`-backed crypto layer.
+//! Now with persistence and P2P networking!
+//!
+//! This binary runs a blockchain node that can:
+//! 1. Persist its state to `state.json` and resume after a restart.
+//! 2. Discover other nodes on the local network using mDNS.
+//! 3. Gossip new blocks to peers using libp2p.
+//! 4. Process blocks received from peers.
 
-// --- IMPORTS ---
-use depin_sdk_chain::app::SovereignAppChain;
+use clap::Parser;
+use depin_sdk_chain::app::{Block, SovereignAppChain};
 use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
-use depin_sdk_core::{
-    commitment::CommitmentScheme,
-    crypto::{SerializableKey, SigningKeyPair},
-    state::{StateManager, StateTree},
-    transaction::TransactionModel,
-    validator::{ValidatorModel, ValidatorType},
-};
+use depin_sdk_core::crypto::{SerializableKey, SigningKeyPair, SigningKey};
+use depin_sdk_core::validator::{ValidatorModel, ValidatorType};
 use depin_sdk_crypto::algorithms::hash::sha256;
-use depin_sdk_crypto::sign::eddsa::Ed25519KeyPair;
-use depin_sdk_state_trees::hashmap::HashMapStateTree;
-use depin_sdk_transaction_models::utxo::{UTXOInput, UTXOOutput, UTXOTransaction, UTXOModel};
-use std::sync::atomic::{AtomicU64, Ordering};
+use depin_sdk_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
+use depin_sdk_state_trees::file::FileStateTree; // Use our new FileStateTree
+use depin_sdk_transaction_models::utxo::{UTXOInput, UTXOOutput, UTXOTransaction, UTXOModel, UTXOOperations};
+use std::fs;
+
+use futures::stream::StreamExt;
+use libp2p::{gossipsub, mdns, swarm::SwarmEvent};
+use std::hash::{Hash, Hasher};
+use std::sync::{atomic::{AtomicU64, Ordering}, Arc};
 use std::time::Duration;
+use tokio::sync::{mpsc, Mutex, Notify};
+
+
+// --- LIBP2P NETWORKING SETUP ---
+
+// We create a custom network behaviour that combines Gossipsub and Mdns.
+#[derive(libp2p::swarm::NetworkBehaviour)]
+struct MyBehaviour {
+    gossipsub: gossipsub::Behaviour,
+    mdns: mdns::tokio::Behaviour,
+}
+
+const BLOCK_TOPIC: &str = "blocks";
+const KEYPAIR_SEED_FILE: &str = "keypair.seed";
+
+// --- COMMAND LINE ARGUMENTS ---
+
+#[derive(Parser, Debug)]
+#[clap(name = "mvsc", about = "A minimum viable sovereign chain node.")]
+struct Opts {
+    /// Listening port for the p2p network.
+    #[clap(long, default_value = "0")]
+    listen_port: u16,
+
+    /// Flag to indicate if this node should produce blocks.
+    #[clap(long)]
+    is_producer: bool,
+
+    /// Path to the state file.
+    #[clap(long, default_value = "state.json")]
+    state_file: String,
+
+    /// Path to the keypair seed file.
+    #[clap(long, default_value = "keypair.seed")]
+    keypair_file: String,
+}
+
 
 // --- MOCK VALIDATOR MODEL ---
 // A simple validator model implementation for the in-memory chain.
-// Adapted from `depin-sdk-chain` tests.
 struct MockValidatorModel {
     running: std::cell::RefCell<bool>,
 }
 
 impl MockValidatorModel {
-    fn new() -> Self {
-        Self {
-            running: std::cell::RefCell::new(false),
-        }
-    }
+    fn new() -> Self { Self { running: std::cell::RefCell::new(false) } }
 }
 
 impl ValidatorModel for MockValidatorModel {
-    fn start(&self) -> Result<(), String> {
-        *self.running.borrow_mut() = true;
-        Ok(())
-    }
-
-    fn stop(&self) -> Result<(), String> {
-        *self.running.borrow_mut() = false;
-        Ok(())
-    }
-
-    fn is_running(&self) -> bool {
-        *self.running.borrow()
-    }
-
-    fn validator_type(&self) -> ValidatorType {
-        ValidatorType::Standard
-    }
+    fn start(&self) -> Result<(), String> { *self.running.borrow_mut() = true; Ok(()) }
+    fn stop(&self) -> Result<(), String> { *self.running.borrow_mut() = false; Ok(()) }
+    fn is_running(&self) -> bool { *self.running.borrow() }
+    fn validator_type(&self) -> ValidatorType { ValidatorType::Standard }
 }
 
-// --- TRANSACTION CREATION HELPER ---
-/// Creates a dummy UTXO transaction for demonstration purposes.
-/// Each new transaction spends the output of the previous one.
+// --- TRANSACTION CREATION HELPERS ---
 fn create_dummy_transaction(
     keypair: &Ed25519KeyPair,
     nonce: u64,
     prev_txid: Vec<u8>,
 ) -> UTXOTransaction {
     let mut tx = UTXOTransaction {
-        txid: Vec::new(), // To be filled after signing
+        txid: Vec::new(),
         inputs: vec![UTXOInput {
             prev_txid,
             prev_index: 0,
-            signature: Vec::new(), // To be filled after signing
+            signature: Vec::new(),
         }],
         outputs: vec![UTXOOutput {
             value: 100,
-            lock_script: keypair.public_key().to_bytes(), // Lock to our own key for simplicity
+            lock_script: keypair.public_key().to_bytes(),
         }],
     };
-
-    // Create a digest for signing. A real implementation would have a more
-    // robust and standardized serialization format for signing.
     let mut digest_data = Vec::new();
     digest_data.extend_from_slice(&tx.inputs[0].prev_txid);
-    digest_data.extend_from_slice(&tx.inputs[0].prev_index.to_le_bytes());
-    digest_data.extend_from_slice(&tx.outputs[0].value.to_le_bytes());
-    digest_data.extend_from_slice(&tx.outputs[0].lock_script);
-    digest_data.extend_from_slice(&nonce.to_le_bytes()); // Add nonce to make each tx hash unique
     
     let digest = sha256(&digest_data);
-
-    // Sign the digest using the dcrypt-backed Ed25519 implementation
     let signature = keypair.sign(&digest);
     tx.inputs[0].signature = signature.to_bytes();
-
-    // The transaction ID is the hash of the signed transaction data
     let mut txid_data = Vec::new();
     txid_data.extend_from_slice(&digest);
     txid_data.extend_from_slice(&tx.inputs[0].signature);
     tx.txid = sha256(&txid_data);
-
     tx
 }
 
-/// Creates a genesis transaction that creates initial UTXOs from nothing
 fn create_genesis_transaction(keypair: &Ed25519KeyPair) -> UTXOTransaction {
     let mut tx = UTXOTransaction {
         txid: Vec::new(),
-        inputs: vec![], // No inputs for genesis/coinbase transaction
+        inputs: vec![],
         outputs: vec![UTXOOutput {
-            value: 1000000, // Initial supply
+            value: 1_000_000,
             lock_script: keypair.public_key().to_bytes(),
         }],
     };
-
-    // For genesis, we just hash the outputs
     let mut digest_data = Vec::new();
     digest_data.extend_from_slice(b"GENESIS");
     digest_data.extend_from_slice(&tx.outputs[0].value.to_le_bytes());
     digest_data.extend_from_slice(&tx.outputs[0].lock_script);
-    
     tx.txid = sha256(&digest_data);
     tx
 }
 
+/// Loads a keypair from a seed file, or creates a new one if it doesn't exist.
+fn load_or_create_keypair(path: &str) -> Ed25519KeyPair {
+    match fs::read(path) {
+        Ok(seed_bytes) => {
+            log::info!("Loading persistent keypair from {}", path);
+            let private_key = Ed25519PrivateKey::from_bytes(&seed_bytes)
+                .expect("Failed to create private key from seed file");
+            Ed25519KeyPair::from_private_key(&private_key)
+        }
+        Err(_) => {
+            log::info!("No keypair found at {}, creating a new one.", path);
+            let keypair = Ed25519KeyPair::generate();
+            fs::write(path, keypair.private_key().to_bytes())
+                .expect("Failed to write new keypair seed to file");
+            keypair
+        }
+    }
+}
+
+
 // --- MAIN APPLICATION ---
 #[tokio::main]
-async fn main() {
-    println!("Starting Minimum Viable Single-Node Chain (MVSC)...");
+async fn main() -> anyhow::Result<()> {
+    env_logger::builder().filter_level(log::LevelFilter::Info).init();
+    let opts = Opts::parse();
 
-    // Step 1: Instantiate Components
+    // --- CHAIN SETUP ---
+    log::info!("Starting Minimum Viable Sovereign Chain (MVSC)...");
     let commitment_scheme = HashCommitmentScheme::new();
-    let state_tree = HashMapStateTree::new(commitment_scheme.clone());
+    let state_tree = FileStateTree::new(&opts.state_file, commitment_scheme.clone());
     let transaction_model = UTXOModel::new(commitment_scheme.clone());
     let validator_model = MockValidatorModel::new();
 
-    // Step 2: Instantiate SovereignAppChain
-    let mut chain = SovereignAppChain::new(
+    let chain = Arc::new(Mutex::new(SovereignAppChain::new(
         commitment_scheme,
         state_tree,
         transaction_model,
         validator_model,
         "mvsc-chain-1",
-        vec![], // No initial services
-    );
+        vec![],
+    )));
 
-    // Start the chain logic
-    if let Err(e) = chain.start() {
-        eprintln!("Failed to start chain: {}", e);
-        return;
-    }
-    println!("Chain started successfully. Producing a new block every 5 seconds.");
-
-    // Create a persistent Ed25519 keypair for signing all dummy transactions
-    let keypair = Ed25519KeyPair::generate();
-    println!("Generated signing keypair for dummy transactions.");
-
-    // Create and process genesis block
-    println!("Creating genesis block...");
-    let genesis_tx = create_genesis_transaction(&keypair);
-    let genesis_txid = genesis_tx.txid.clone();
-    println!("  -> Created genesis transaction with txid: 0x{}", hex::encode(&genesis_txid));
+    // --- P2P NETWORK SETUP ---
+    let mut swarm = libp2p::SwarmBuilder::with_new_identity()
+        .with_tokio()
+        .with_tcp(
+            libp2p::tcp::Config::default(),
+            libp2p::noise::Config::new,
+            libp2p::yamux::Config::default,
+        )?
+        .with_behaviour(|key| {
+            let message_id_fn = |message: &gossipsub::Message| {
+                let mut s = std::collections::hash_map::DefaultHasher::new();
+                message.data.hash(&mut s);
+                gossipsub::MessageId::from(s.finish().to_string())
+            };
+            let gossipsub_config = gossipsub::ConfigBuilder::default()
+                .message_id_fn(message_id_fn)
+                // For a small test network, we don't need to wait for a mesh to form to publish.
+                .mesh_outbound_min(1)
+                .build()?;
+            Ok(MyBehaviour {
+                gossipsub: gossipsub::Behaviour::new(
+                    gossipsub::MessageAuthenticity::Signed(key.clone()),
+                    gossipsub_config,
+                )?,
+                mdns: mdns::tokio::Behaviour::new(mdns::Config::default(), key.public().to_peer_id())?,
+            })
+        })?
+        .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
+        .build();
     
-    let genesis_block = chain.create_block(vec![genesis_tx]);
-    match chain.process_block(genesis_block) {
-        Ok(_) => {
-            let status = chain.status();
-            let state_commitment = chain.get_state_commitment();
-            let state_root_bytes: &[u8] = state_commitment.as_ref();
-            println!(
-                "Processed Genesis Block. New State Root: 0x{}",
-                hex::encode(state_root_bytes)
-            );
-        }
-        Err(e) => {
-            eprintln!("Error processing genesis block: {}", e);
-            return;
-        }
+    let topic = gossipsub::IdentTopic::new(BLOCK_TOPIC);
+    swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
+
+    let listen_addr = format!("/ip4/0.0.0.0/tcp/{}", opts.listen_port);
+    swarm.listen_on(listen_addr.parse()?)?;
+    log::info!("Local Peer ID: {}", swarm.local_peer_id());
+
+    // Channel for the block producer to send new blocks to the main event loop.
+    let (block_tx, mut block_rx) = mpsc::channel::<Vec<u8>>(32);
+
+    // Notifier to signal the producer task when it's okay to start.
+    let producer_start_signal = Arc::new(Notify::new());
+
+    // --- BLOCK PRODUCTION (if enabled) ---
+    if opts.is_producer {
+        let chain_clone = Arc::clone(&chain);
+        let start_signal_clone = Arc::clone(&producer_start_signal);
+        let keypair_file = opts.keypair_file.clone();
+        tokio::spawn(async move {
+            let keypair = load_or_create_keypair(&keypair_file);
+            let nonce = AtomicU64::new(0);
+            let mut last_txid: Vec<u8>;
+
+            // Create and process genesis block if chain is new
+            {
+                let mut chain_lock = chain_clone.lock().await;
+                if chain_lock.status().height == 0 {
+                    log::info!("Block producer is waiting for the first peer to connect...");
+                    start_signal_clone.notified().await;
+                    
+                    // Give gossipsub a moment to establish the connection fully.
+                    tokio::time::sleep(Duration::from_secs(2)).await;
+                    log::info!("Peer connected! Creating and gossiping genesis block.");
+
+                    log::info!("Chain is at genesis height, creating genesis block...");
+                    let genesis_tx = create_genesis_transaction(&keypair);
+                    last_txid = genesis_tx.txid.clone();
+                    let genesis_block = chain_lock.create_block(vec![genesis_tx]);
+                    chain_lock.process_block(genesis_block.clone()).expect("Failed to process genesis block");
+                    
+                    let block_bytes = serde_json::to_vec(&genesis_block).unwrap();
+                    if let Err(e) = block_tx.send(block_bytes).await {
+                         log::error!("Failed to send genesis block to main loop: {:?}", e);
+                    }
+                } else {
+                    log::info!("Chain is at height {}, resuming block production.", chain_lock.status().height);
+                    // Find the last UTXO owned by this keypair to continue the transaction chain.
+                    // This is a naive scan; a real wallet would use an index.
+                    let tm = chain_lock.transaction_model();
+                    let pk_bytes = keypair.public_key().to_bytes();
+                    
+                    // This is a placeholder for finding the last txid.
+                    // For this demo, we'll restart with a new "coinbase" tx in the next block.
+                    // A proper implementation would require iterating through the state.
+                    let coinbase_tx = create_genesis_transaction(&keypair);
+                    last_txid = coinbase_tx.txid.clone();
+                    let block = chain_lock.create_block(vec![coinbase_tx]);
+                    chain_lock.process_block(block).expect("Failed to create resumption block");
+                }
+            }
+
+
+            let mut interval = tokio::time::interval(Duration::from_secs(5));
+            loop {
+                interval.tick().await;
+                let current_nonce = nonce.fetch_add(1, Ordering::SeqCst);
+                let dummy_tx = create_dummy_transaction(&keypair, current_nonce, last_txid.clone());
+                last_txid = dummy_tx.txid.clone();
+
+                let mut chain_lock = chain_clone.lock().await;
+                let block = chain_lock.create_block(vec![dummy_tx]);
+                
+                log::info!("Producing Block #{}", block.header.height);
+
+                match chain_lock.process_block(block.clone()) {
+                    Ok(_) => {
+                        let status = chain_lock.status();
+                        let state_commitment = chain_lock.get_state_commitment();
+                        let state_root: &[u8] = state_commitment.as_ref();
+                        log::info!(
+                            "Locally processed Block #{}. New State Root: 0x{}",
+                            status.height,
+                            hex::encode(state_root)
+                        );
+
+                        let block_bytes = serde_json::to_vec(&block).unwrap();
+                        if let Err(e) = block_tx.send(block_bytes).await {
+                            log::error!("Failed to send block to main loop: {:?}", e);
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("Error processing locally produced block: {}", e);
+                    }
+                }
+            }
+        });
     }
 
-    let nonce = AtomicU64::new(0);
-    let mut last_txid = genesis_txid; // Start with genesis transaction ID
-
-    // Step 3 & 4: Main Loop for Block Production and Transaction Creation
+    // --- MAIN EVENT LOOP ---
     loop {
-        // Wait for 5 seconds to simulate block time
-        tokio::time::sleep(Duration::from_secs(5)).await;
+        tokio::select! {
+            // Handle events from the p2p network
+            event = swarm.select_next_some() => {
+                match event {
+                    SwarmEvent::Behaviour(MyBehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
+                        for (peer_id, _multiaddr) in list {
+                            log::info!("mDNS discovered a new peer: {}", peer_id);
+                            swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
 
-        // Create a dummy transaction that spends the output of the previous one
-        let current_nonce = nonce.fetch_add(1, Ordering::SeqCst);
-        let dummy_tx = create_dummy_transaction(&keypair, current_nonce, last_txid.clone());
-        println!("  -> Created dummy transaction with txid: 0x{}", hex::encode(&dummy_tx.txid));
-        last_txid = dummy_tx.txid.clone(); // Chain to the next transaction
+                            producer_start_signal.notify_one();
+                        }
+                    }
+                    SwarmEvent::Behaviour(MyBehaviourEvent::Mdns(mdns::Event::Expired(list))) => {
+                        for (peer_id, _multiaddr) in list {
+                            log::info!("mDNS discover peer has expired: {}", peer_id);
+                            swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
+                        }
+                    }
+                    SwarmEvent::Behaviour(MyBehaviourEvent::Gossipsub(gossipsub::Event::Message {
+                        propagation_source: peer_id,
+                        message_id: id,
+                        message,
+                    })) => {
+                        log::info!(
+                            "Got new gossip message with id: {} from peer: {}",
+                            id,
+                            peer_id
+                        );
+                        
+                        type AppBlock = Block<UTXOTransaction>;
+                        match serde_json::from_slice::<AppBlock>(&message.data) {
+                            Ok(block) => {
+                                let mut chain_lock = chain.lock().await;
+                                log::info!("Received Block #{} from network.", block.header.height);
 
-        // Create and process a block containing the new transaction
-        let block = chain.create_block(vec![dummy_tx]);
-        match chain.process_block(block) {
-            Ok(_) => {
-                let status = chain.status();
-                let state_commitment = chain.get_state_commitment();
-                let state_root_bytes: &[u8] = state_commitment.as_ref();
-                println!(
-                    "Processed Block #{}. New State Root: 0x{}",
-                    status.height,
-                    hex::encode(state_root_bytes)
-                );
-            }
-            Err(e) => {
-                eprintln!("Error processing block: {}", e);
+                                if block.header.height <= chain_lock.status().height {
+                                    log::info!("Ignoring old or duplicate block (height {}). Current height is {}.", block.header.height, chain_lock.status().height);
+                                    continue;
+                                }
+
+                                match chain_lock.process_block(block) {
+                                    Ok(_) => {
+                                        let status = chain_lock.status();
+                                        let state_commitment = chain_lock.get_state_commitment();
+                                        let state_root: &[u8] = state_commitment.as_ref();
+                                        log::info!(
+                                            "Processed network Block #{}. New State Root: 0x{}",
+                                            status.height,
+                                            hex::encode(state_root)
+                                        );
+                                    }
+                                    Err(e) => {
+                                        log::error!("Error processing block from network: {}", e);
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                log::error!("Failed to deserialize block: {:?}", e);
+                            }
+                        }
+                    }
+                    SwarmEvent::NewListenAddr { address, .. } => {
+                        log::info!("Local node is listening on {}", address);
+                    }
+                    _ => {}
+                }
+            },
+            // Handle blocks produced locally that need to be gossiped
+            Some(block_to_gossip) = block_rx.recv() => {
+                if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic.clone(), block_to_gossip) {
+                    log::error!("Failed to publish block: {:?}", e);
+                }
             }
         }
     }
@@ -1360,7 +1547,7 @@ mod tests {
 }```
 
 ##### File: chain/Cargo.toml
-##*Size: 4.0K, Lines: 35, Type: ASCII text*
+##*Size: 4.0K, Lines: 57, Type: ASCII text*
 
 ```toml
 [package]
@@ -1378,21 +1565,43 @@ depin-sdk-state-trees = { path = "../state_trees" }
 depin-sdk-transaction-models = { path = "../transaction_models" }
 depin-sdk-validator = { path = "../validator" }
 log = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 
 # Dependencies added for the mvsc binary, made optional
 depin-sdk-crypto = { path = "../crypto", optional = true }
 tokio = { workspace = true, features = ["full"], optional = true }
+futures = { workspace = true, optional = true }
 hex = { version = "0.4", optional = true }
+clap = { version = "4.3", features = ["derive"], optional = true }
+env_logger = { version = "0.10", optional = true }
+libp2p = { version = "0.52", features = [
+    "tokio",
+    "gossipsub",
+    "mdns",
+    "macros",
+    "tcp",
+    "noise",
+    "yamux",
+], optional = true }
+
 
 [features]
 default = []
 tendermint = []
 custom-consensus = []
 # Feature to enable building the binary and its dependencies
-mvsc-bin = ["dep:depin-sdk-crypto", "dep:tokio", "dep:hex"]
+mvsc-bin = [
+    "dep:depin-sdk-crypto",
+    "dep:tokio",
+    "dep:futures",
+    "dep:hex",
+    "dep:clap",
+    "dep:env_logger",
+    "dep:libp2p",
+]
 
 [[bin]]
 name = "mvsc"
@@ -5141,11 +5350,12 @@ pub type StateTreeFor<CS> = dyn StateTree<
 ```
 
 ####### File: core/src/state/tree.rs
-####*Size: 4.0K, Lines: 60, Type: ASCII text*
+####*Size: 4.0K, Lines: 65, Type: ASCII text*
 
 ```rust
 // File: crates/core/src/state/tree.rs
 
+use std::any::Any;
 use crate::error::StateError;
 
 /// Generic state tree operations
@@ -5204,6 +5414,10 @@ pub trait StateTree {
         key: &[u8],
         value: &[u8]
     ) -> bool;
+
+    /// Provide access to the concrete type for downcasting.
+    fn as_any(&self) -> &dyn Any;
+    
 }```
 
 ###### Directory: core/src/test_utils
@@ -12434,24 +12648,213 @@ default = []
 
 ##### Directory: state_trees/src
 
+###### Directory: state_trees/src/file
+
+####### File: state_trees/src/file/mod.rs
+####*Size: 8.0K, Lines: 181, Type: C source, ASCII text*
+
+```rust
+use depin_sdk_core::commitment::CommitmentScheme;
+use depin_sdk_core::error::StateError;
+use depin_sdk_core::state::{StateManager, StateTree};
+use crate::HashMapStateTree;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::any::Any;
+use std::sync::{Arc, RwLock};
+
+// A serializable representation of the state, using hex strings for keys and values.
+#[derive(Serialize, Deserialize, Default)]
+struct SerializableState(HashMap<String, String>);
+
+/// A state tree that persists its state to a JSON file.
+/// It wraps an in-memory HashMapStateTree and adds load/save functionality.
+pub struct FileStateTree<CS: CommitmentScheme + Clone>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]> + Clone,
+{
+    // The inner, in-memory state tree.
+    inner: HashMapStateTree<CS>,
+    // Path to the state file on disk.
+    path: PathBuf,
+    // We use an Arc<RwLock<()>> as a simple, cheap way to prevent saves
+    // from happening concurrently, which could corrupt the file.
+    save_lock: Arc<RwLock<()>>,
+}
+
+impl<CS: CommitmentScheme + Clone> FileStateTree<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]> + Clone,
+{
+    /// Creates a new FileStateTree.
+    ///
+    /// It attempts to load the initial state from the file at `path`.
+    /// If the file doesn't exist, it starts with an empty state.
+    pub fn new<P: AsRef<Path>>(path: P, scheme: CS) -> Self {
+        let mut tree = Self {
+            inner: HashMapStateTree::new(scheme),
+            path: path.as_ref().to_path_buf(),
+            save_lock: Arc::new(RwLock::new(())),
+        };
+
+        if let Err(e) = tree.load() {
+            // Log a warning if loading fails, but don't panic.
+            // This allows the node to start fresh if the state file is corrupted or unreadable.
+            eprintln!("[Warning] Failed to load state from {:?}: {}. Starting with a fresh state.", tree.path, e);
+        }
+        tree
+    }
+
+    /// Loads the state from the JSON file.
+    pub fn load(&mut self) -> Result<(), StateError> {
+        if !self.path.exists() {
+            println!("State file not found at {:?}, starting new state.", self.path);
+            return Ok(());
+        }
+
+        let json_data = fs::read_to_string(&self.path)
+            .map_err(|e| StateError::ReadError(e.to_string()))?;
+            
+        let serializable_map: SerializableState = serde_json::from_str(&json_data)
+            .map_err(|e| StateError::ReadError(format!("JSON deserialization error: {}", e)))?;
+
+        self.inner.data.clear();
+        for (k_hex, v_hex) in serializable_map.0 {
+            let k = hex::decode(&k_hex)
+                .map_err(|e| StateError::InvalidKey(format!("Hex decode error: {}", e)))?;
+            let v_bytes = hex::decode(&v_hex)
+                .map_err(|e| StateError::InvalidValue(format!("Hex decode error: {}", e)))?;
+            
+            self.inner.data.insert(k, CS::Value::from(v_bytes));
+        }
+
+        println!("Successfully loaded state with {} entries from {:?}", self.inner.data.len(), self.path);
+        Ok(())
+    }
+
+    /// Saves the current state to the JSON file.
+    pub fn save(&self) -> Result<(), StateError> {
+        // Acquire a write lock to ensure only one save operation happens at a time.
+        let _lock = self.save_lock.write().unwrap();
+
+        let mut serializable_map = SerializableState::default();
+        for (k, v) in &self.inner.data {
+            serializable_map.0.insert(hex::encode(k), hex::encode(v.as_ref()));
+        }
+
+        let json_data = serde_json::to_string_pretty(&serializable_map)
+            .map_err(|e| StateError::WriteError(e.to_string()))?;
+        
+        fs::write(&self.path, json_data)
+            .map_err(|e| StateError::WriteError(e.to_string()))?;
+
+        Ok(())
+    }
+}
+
+// Delegate StateTree and StateManager traits to the inner HashMapStateTree.
+impl<CS: CommitmentScheme + Clone> StateTree for FileStateTree<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]> + Clone,
+{
+    type Commitment = CS::Commitment;
+    type Proof = CS::Proof;
+
+    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
+        StateTree::get(&self.inner, key)
+    }
+
+    fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
+        StateTree::insert(&mut self.inner, key, value)
+    }
+
+    fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
+        StateTree::delete(&mut self.inner, key)
+    }
+
+    fn root_commitment(&self) -> Self::Commitment {
+        StateTree::root_commitment(&self.inner)
+    }
+
+    fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
+        StateTree::create_proof(&self.inner, key)
+    }
+
+    fn verify_proof(&self, commitment: &Self::Commitment, proof: &Self::Proof, key: &[u8], value: &[u8]) -> bool {
+        StateTree::verify_proof(&self.inner, commitment, proof, key, value)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl<CS: CommitmentScheme + Clone> StateManager for FileStateTree<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]> + Clone,
+{
+    type Commitment = CS::Commitment;
+    type Proof = CS::Proof;
+
+    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
+        <Self as StateTree>::get(self, key)
+    }
+
+    fn set(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
+        <Self as StateTree>::insert(self, key, value)
+    }
+
+    fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
+        <Self as StateTree>::delete(self, key)
+    }
+
+    fn root_commitment(&self) -> Self::Commitment {
+        <Self as StateTree>::root_commitment(self)
+    }
+
+    fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
+        <Self as StateTree>::create_proof(self, key)
+    }
+
+    fn verify_proof(&self, commitment: &Self::Commitment, proof: &Self::Proof, key: &[u8], value: &[u8]) -> bool {
+        <Self as StateTree>::verify_proof(self, commitment, proof, key, value)
+    }
+}
+
+// Automatically save the state when the FileStateTree is dropped.
+// This is a safety net for graceful shutdowns.
+impl<CS: CommitmentScheme + Clone> Drop for FileStateTree<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]> + Clone,
+{
+    fn drop(&mut self) {
+        println!("Shutting down... saving final state to {:?}", self.path);
+        if let Err(e) = self.save() {
+            eprintln!("[Error] Failed to save state on shutdown: {}", e);
+        }
+    }
+}```
+
 ###### Directory: state_trees/src/hashmap
 
 ####### File: state_trees/src/hashmap/mod.rs
-####*Size: 4.0K, Lines: 120, Type: ASCII text*
+####*Size: 4.0K, Lines: 131, Type: ASCII text*
 
 ```rust
 use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, Selector};
 use depin_sdk_core::error::StateError;
 use depin_sdk_core::state::{StateManager, StateTree};
-// Removed unused import: std::any::Any
+use std::any::Any;
 use std::collections::HashMap;
 
 /// HashMap-based state tree implementation
 pub struct HashMapStateTree<CS: CommitmentScheme> {
-    /// Data store
-    data: HashMap<Vec<u8>, CS::Value>,
-    /// Commitment scheme
-    scheme: CS,
+    /// Data store. Made `pub(crate)` to allow the `FileStateTree` wrapper to access it.
+    pub(crate) data: HashMap<Vec<u8>, CS::Value>,
+    /// Commitment scheme. Made `pub(crate)` for consistency.
+    pub(crate) scheme: CS,
 }
 
 impl<CS: CommitmentScheme> HashMapStateTree<CS>
@@ -12494,7 +12897,14 @@ where
     }
 
     fn root_commitment(&self) -> Self::Commitment {
-        let values: Vec<Option<CS::Value>> = self.data.values().map(|v| Some(v.clone())).collect();
+        // Keys must be sorted to ensure a deterministic commitment.
+        let mut sorted_keys: Vec<_> = self.data.keys().collect();
+        sorted_keys.sort();
+
+        let values: Vec<Option<CS::Value>> = sorted_keys
+            .iter()
+            .map(|key| self.data.get(*key).cloned())
+            .collect();
         self.scheme.commit(&values)
     }
 
@@ -12520,6 +12930,10 @@ where
 
         self.scheme
             .verify(commitment, proof, &selector, &typed_value, &context)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -12565,14 +12979,14 @@ where
 ###### Directory: state_trees/src/iavl
 
 ####### File: state_trees/src/iavl/mod.rs
-####*Size: 8.0K, Lines: 146, Type: ASCII text*
+####*Size: 8.0K, Lines: 150, Type: ASCII text*
 
 ```rust
 //! IAVL tree implementation
 
 use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, Selector};
 use depin_sdk_core::error::StateError;
-use depin_sdk_core::state::StateTree;
+use depin_sdk_core::state::{StateManager, StateTree};
 use std::any::Any;
 use std::collections::HashMap;
 
@@ -12666,6 +13080,10 @@ where
         self.scheme
             .verify(commitment, proof, &selector, &scheme_value, &context)
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 // Add support for tree-specific operations for IAVL
@@ -12716,22 +13134,17 @@ where
     }
 }```
 
-####### File: state_trees/src/iavl/mod.rs:6:5
-####*Size: 0, Lines: 0, Type: empty*
-
-####*File content not included (exceeds threshold or non-text file)*
-
 ###### Directory: state_trees/src/sparse_merkle
 
 ####### File: state_trees/src/sparse_merkle/mod.rs
-####*Size: 4.0K, Lines: 135, Type: ASCII text*
+####*Size: 4.0K, Lines: 139, Type: ASCII text*
 
 ```rust
 //! Sparse Merkle tree implementation
 
 use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, Selector};
 use depin_sdk_core::error::StateError;
-use depin_sdk_core::state::StateTree;
+use depin_sdk_core::state::{StateManager, StateTree};
 use std::any::Any;
 use std::collections::HashMap;
 
@@ -12824,6 +13237,10 @@ where
             &context,
         )
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self        
+    }
 }
 
 // Add some utility methods for sparse Merkle trees
@@ -12864,22 +13281,17 @@ where
     }
 }```
 
-####### File: state_trees/src/sparse_merkle/mod.rs:6:5
-####*Size: 0, Lines: 0, Type: empty*
-
-####*File content not included (exceeds threshold or non-text file)*
-
 ###### Directory: state_trees/src/verkle
 
 ####### File: state_trees/src/verkle/mod.rs
-####*Size: 8.0K, Lines: 144, Type: ASCII text*
+####*Size: 8.0K, Lines: 148, Type: ASCII text*
 
 ```rust
 //! Verkle tree implementation
 
 use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, Selector};
 use depin_sdk_core::error::StateError;
-use depin_sdk_core::state::StateTree;
+use depin_sdk_core::state::{StateManager, StateTree};
 use std::any::Any;
 use std::collections::HashMap;
 
@@ -12998,6 +13410,10 @@ where
             false
         }
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self        
+    }
 }
 
 // Helper methods to convert between Vec<u8> and CS::Value
@@ -13021,18 +13437,8 @@ where
     }
 }```
 
-####### File: state_trees/src/verkle/mod.rs:142:8
-####*Size: 0, Lines: 0, Type: empty*
-
-####*File content not included (exceeds threshold or non-text file)*
-
-####### File: state_trees/src/verkle/mod.rs:6:5
-####*Size: 0, Lines: 0, Type: empty*
-
-####*File content not included (exceeds threshold or non-text file)*
-
 ###### File: state_trees/src/lib.rs
-###*Size: 4.0K, Lines: 18, Type: ASCII text*
+###*Size: 4.0K, Lines: 20, Type: ASCII text*
 
 ```rust
 //! # DePIN SDK State Trees
@@ -13043,8 +13449,10 @@ pub mod hashmap;
 pub mod iavl;
 pub mod sparse_merkle;
 pub mod verkle;
+pub mod file;
 
 // Re-export concrete implementations for convenience
+pub use file::FileStateTree;
 pub use hashmap::HashMapStateTree;
 pub use iavl::IAVLTree;
 pub use sparse_merkle::SparseMerkleTree;
@@ -13056,7 +13464,7 @@ use depin_sdk_core::state::StateTree;
 use std::any::Any;```
 
 ##### File: state_trees/Cargo.toml
-##*Size: 4.0K, Lines: 20, Type: ASCII text*
+##*Size: 4.0K, Lines: 22, Type: ASCII text*
 
 ```toml
 [package]
@@ -13073,6 +13481,8 @@ log = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 bytes = { workspace = true }
+serde_json = { workspace = true }
+hex = { workspace = true }
 
 [features]
 default = []
@@ -14195,11 +14605,14 @@ where
 ###### Directory: transaction_models/src/utxo
 
 ####### File: transaction_models/src/utxo/mod.rs
-####*Size: 20K, Lines: 570, Type: ASCII text*
+####*Size: 20K, Lines: 578, Type: ASCII text*
 
 ```rust
 //! UTXO-based transaction model implementation.
 
+use depin_sdk_core::crypto::SerializableKey;
+use depin_sdk_core::crypto::VerifyingKey;
+use depin_sdk_crypto::{algorithms::hash::sha256, sign::eddsa::{Ed25519PublicKey, Ed25519Signature}};
 use depin_sdk_core::commitment::CommitmentScheme;
 use depin_sdk_core::error::TransactionError;
 use depin_sdk_core::state::StateManager;
@@ -14208,7 +14621,7 @@ use std::any::Any;
 use std::collections::HashMap;
 
 /// UTXO transaction input
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct UTXOInput {
     /// Previous transaction ID
     pub prev_txid: Vec<u8>,
@@ -14219,7 +14632,7 @@ pub struct UTXOInput {
 }
 
 /// UTXO transaction output
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct UTXOOutput {
     /// Value of the output
     pub value: u64,
@@ -14228,7 +14641,7 @@ pub struct UTXOOutput {
 }
 
 /// UTXO transaction
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct UTXOTransaction {
     /// Transaction ID
     pub txid: Vec<u8>,
@@ -14456,13 +14869,18 @@ where
 
             match utxo {
                 Some(output) => {
-                    // TODO: Validate signatures
-                    // In a real implementation, you would:
-                    // 1. Check the signature against the lock_script
-                    // 2. Verify the public key matches
-                    // 3. Handle different script types (P2PKH, P2SH, etc.)
+                    // Reconstruct the digest that was signed.
+                    let mut digest_data = Vec::new();
+                    digest_data.extend_from_slice(&input.prev_txid);
+                    let digest = sha256(&digest_data);
 
-                    // Add to total input
+                    let public_key = Ed25519PublicKey::from_bytes(&output.lock_script).map_err(|e| TransactionError::InvalidSignature(e))?;
+                    let signature = Ed25519Signature::from_bytes(&input.signature).map_err(|e| TransactionError::InvalidSignature(e))?;
+
+                    if !public_key.verify(&digest, &signature) {
+                        return Err(TransactionError::InvalidSignature("Signature verification failed".to_string()));
+                    }
+
                     total_input = total_input.checked_add(output.value).ok_or_else(|| {
                         TransactionError::InvalidTransaction("Input value overflow".to_string())
                     })?;
@@ -14806,7 +15224,7 @@ pub use utxo::UTXOOperations;
 ```
 
 ##### File: transaction_models/Cargo.toml
-##*Size: 4.0K, Lines: 21, Type: ASCII text*
+##*Size: 4.0K, Lines: 22, Type: ASCII text*
 
 ```toml
 [package]
@@ -14817,6 +15235,7 @@ description = "Transaction model implementations for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+depin-sdk-crypto = { path = "../crypto", optional = true }
 depin-sdk-core = { path = "../core" }
 log = { workspace = true }
 serde = { workspace = true }
@@ -14826,7 +15245,7 @@ anyhow = { workspace = true }
 
 
 [features]
-default = []
+default = ["dep:depin-sdk-crypto"]
 utxo-model = []
 account-model = []
 hybrid-model = []

@@ -90,6 +90,18 @@ impl From<StateError> for TransactionError {
     }
 }
 
+/// Error type for validator operations.
+#[derive(Debug, thiserror::Error)]
+pub enum ValidatorError {
+    #[error("Container operation failed: {0}")]
+    Container(String),
+    #[error("Configuration error: {0}")]
+    Config(String),
+    #[error("Lifecycle error: {0}")]
+    Lifecycle(String),
+}
+
+
 /// Core error type for the SDK
 #[derive(Debug, thiserror::Error)]
 pub enum CoreError {

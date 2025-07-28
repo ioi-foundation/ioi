@@ -11,6 +11,23 @@ use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+/// Custom error type for chain operations.
+#[derive(Debug, thiserror::Error)]
+pub enum ChainError {
+    #[error("Validator operation failed: {0}")]
+    Validator(String),
+    #[error("Service operation failed: {0}")]
+    Service(String),
+    #[error("State operation failed: {0}")]
+    State(#[from] depin_sdk_core::error::StateError),
+    #[error("Transaction processing failed: {0}")]
+    Transaction(String),
+    #[error("Block processing failed: {0}")]
+    Block(String),
+    #[error("Module upgrade failed: {0}")]
+    Upgrade(String),
+}
+
 /// Block header containing metadata
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct BlockHeader {
@@ -231,15 +248,13 @@ where
     }
 
     /// Update state directly (administrative function)
-    pub fn update_state(&mut self, key: &[u8], value: &[u8]) -> Result<(), String> {
-        <ST as StateTree>::insert(&mut self.state_tree, key, value)
-            .map_err(|e| format!("State error: {}", e))
+    pub fn update_state(&mut self, key: &[u8], value: &[u8]) -> Result<(), ChainError> {
+        <ST as StateTree>::insert(&mut self.state_tree, key, value).map_err(ChainError::from)
     }
 
     /// Delete a key from state (administrative function)
-    pub fn delete_state(&mut self, key: &[u8]) -> Result<(), String> {
-        <ST as StateTree>::delete(&mut self.state_tree, key)
-            .map_err(|e| format!("State error: {}", e))
+    pub fn delete_state(&mut self, key: &[u8]) -> Result<(), ChainError> {
+        <ST as StateTree>::delete(&mut self.state_tree, key).map_err(ChainError::from)
     }
 
     //
@@ -247,16 +262,16 @@ where
     //
 
     /// Process a transaction
-    pub fn process_transaction(&mut self, tx: &TM::Transaction) -> Result<(), String> {
+    pub fn process_transaction(&mut self, tx: &TM::Transaction) -> Result<(), ChainError> {
         // Validate the transaction against current state
         // Pass the state_tree itself, not just the commitment
         match self.transaction_model.validate(tx, &self.state_tree) {
             Ok(valid) => {
                 if !valid {
-                    return Err("Transaction validation failed".to_string());
+                    return Err(ChainError::Transaction("Transaction validation failed".to_string()));
                 }
             }
-            Err(e) => return Err(format!("Validation error: {}", e)),
+            Err(e) => return Err(ChainError::Transaction(format!("Validation error: {}", e))),
         }
 
         // Apply the transaction to state - map error to String
@@ -266,18 +281,18 @@ where
                 self.status.total_transactions += 1;
                 Ok(())
             }
-            Err(e) => Err(format!("Transaction application failed: {}", e)),
+            Err(e) => Err(ChainError::Transaction(format!("Transaction application failed: {}", e))),
         }
     }
 
     /// Process a batch of transactions
-    pub fn process_transactions(&mut self, txs: &[TM::Transaction]) -> Result<Vec<String>, String> {
+    pub fn process_transactions(&mut self, txs: &[TM::Transaction]) -> Result<Vec<String>, ChainError> {
         let mut results = Vec::with_capacity(txs.len());
 
         for tx in txs {
             match self.process_transaction(tx) {
                 Ok(()) => results.push("Success".to_string()),
-                Err(e) => results.push(e),
+                Err(e) => results.push(e.to_string()),
             }
         }
 
@@ -289,18 +304,18 @@ where
     //
 
     /// Process a block
-    pub fn process_block(&mut self, mut block: Block<TM::Transaction>) -> Result<(), String>
+    pub fn process_block(&mut self, mut block: Block<TM::Transaction>) -> Result<(), ChainError>
     where
         CS: Clone,
         CS::Value: From<Vec<u8>> + AsRef<[u8]> + Clone,
     {
         // Ensure block is built on current chain state
         if block.header.height != self.status.height + 1 {
-            return Err(format!(
+            return Err(ChainError::Block(format!(
                 "Invalid block height: expected {}, got {}",
                 self.status.height + 1,
                 block.header.height
-            ));
+            )));
         }
 
         // Verify block timestamp is reasonable
@@ -311,14 +326,14 @@ where
 
         if block.header.timestamp > now + 60 {
             // Allow 1 minute clock drift
-            return Err("Block timestamp is in the future".to_string());
+            return Err(ChainError::Block("Block timestamp is in the future".to_string()));
         }
 
         // Validate block using validator_model
         if !self.validator_model.is_running() {
             self.validator_model
                 .start()
-                .map_err(|e| format!("Failed to start validator: {}", e))?;
+                .map_err(|e| ChainError::Validator(format!("Failed to start validator: {}", e)))?;
         }
 
         // Process all transactions
@@ -328,7 +343,7 @@ where
                 Ok(()) => tx_results.push(true),
                 Err(e) => {
                     tx_results.push(false);
-                    return Err(format!("Transaction processing failed: {}", e));
+                    return Err(ChainError::Transaction(format!("Transaction processing failed: {}", e)));
                 }
             }
         }
@@ -352,7 +367,7 @@ where
                 }
             }
             Err(e) => {
-                return Err(format!("Failed to apply module upgrades: {}", e));
+                return Err(ChainError::Upgrade(format!("Failed to apply module upgrades: {}", e)));
             }
         }
 
@@ -433,18 +448,18 @@ where
     //
 
     /// Start the chain with proper initialization
-    pub fn start(&mut self) -> Result<(), String> {
+    pub fn start(&mut self) -> Result<(), ChainError> {
         println!("Starting sovereign app chain: {}", self.chain_id);
 
         // Initialize validator
         self.validator_model
             .start()
-            .map_err(|e| format!("Failed to start validator: {}", e))?;
+            .map_err(|e| ChainError::Validator(format!("Failed to start validator: {}", e)))?;
 
         // Start all registered services
         self.service_manager
             .start_all_services()
-            .map_err(|e| format!("Failed to start services: {}", e))?;
+            .map_err(|e| ChainError::Service(format!("Failed to start services: {}", e)))?;
 
         // Initialize state (in a real implementation, would load from persistent storage)
         // For now, we'll just use the existing state
@@ -465,18 +480,18 @@ where
     }
 
     /// Stop the chain
-    pub fn stop(&mut self) -> Result<(), String> {
+    pub fn stop(&mut self) -> Result<(), ChainError> {
         println!("Stopping sovereign app chain: {}", self.chain_id);
 
         // Stop all services
         self.service_manager
             .stop_all_services()
-            .map_err(|e| format!("Failed to stop services: {}", e))?;
+            .map_err(|e| ChainError::Service(format!("Failed to stop services: {}", e)))?;
 
         // Stop the validator
         self.validator_model
             .stop()
-            .map_err(|e| format!("Failed to stop validator: {}", e))?;
+            .map_err(|e| ChainError::Validator(format!("Failed to stop validator: {}", e)))?;
 
         // In a real implementation, we would:
         // 1. Persist state to storage
@@ -495,7 +510,7 @@ where
     }
 
     /// Reset the chain (for testing purposes)
-    pub fn reset(&mut self) -> Result<(), String> {
+    pub fn reset(&mut self) -> Result<(), ChainError> {
         // Stop the chain if running
         if self.status.is_running {
             self.stop()?;
@@ -503,7 +518,7 @@ where
 
         // Reset service manager
         self.service_manager.reset()
-            .map_err(|e| format!("Failed to reset service manager: {}", e))?;
+            .map_err(|e| ChainError::Service(format!("Failed to reset service manager: {}", e)))?;
 
         // Reset state (implementation would depend on how ST can be reset)
         // For demonstration purposes, assuming ST has no reset method
