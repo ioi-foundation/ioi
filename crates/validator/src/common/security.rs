@@ -25,7 +25,7 @@ impl SecurityChannel {
     }
     
     /// Establish the security channel
-    pub fn establish(&self) -> Result<(), Box<dyn Error>> {
+    pub fn establish(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         // Simplified channel establishment for initial setup
         // In a real implementation, we would:
         // 1. Perform mutual authentication
@@ -38,7 +38,7 @@ impl SecurityChannel {
     }
     
     /// Send data through the security channel
-    pub fn send(&self, data: &[u8]) -> Result<(), Box<dyn Error>> {
+    pub fn send(&self, data: &[u8]) -> Result<(), Box<dyn Error + Send + Sync>> {
         // Simplified sending for initial setup
         println!("Sending {} bytes through channel {}", data.len(), self.channel_id);
         
@@ -46,7 +46,7 @@ impl SecurityChannel {
     }
     
     /// Receive data from the security channel
-    pub fn receive(&self, max_size: usize) -> Result<Vec<u8>, Box<dyn Error>> {
+    pub fn receive(&self, max_size: usize) -> Result<Vec<u8>, Box<dyn Error + Send + Sync>> {
         // Simplified receiving for initial setup
         println!("Receiving up to {} bytes from channel {}", max_size, self.channel_id);
         

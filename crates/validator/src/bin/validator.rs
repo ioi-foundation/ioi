@@ -1,11 +1,12 @@
 //! Standard validator binary
 
+use depin_sdk_core::validator::{Container, ValidatorModel};
 use depin_sdk_validator::standard::StandardValidator;
 use std::env;
 use std::path::Path;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Parse command-line arguments
     let args: Vec<String> = env::args().collect();
     let container_type = if args.len() > 1 { &args[1] } else { "all" };
@@ -22,8 +23,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Start only the guardian container
             let path = Path::new(&config_dir);
             let guardian =
-                depin_sdk_validator::common::GuardianContainer::new(path.join("guardian.toml"));
-            guardian.start_boot()?;
+                depin_sdk_validator::common::GuardianContainer::new(path.join("guardian.toml"))?;
+            guardian.start()?;
 
             // Keep the process running
             loop {
@@ -35,7 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let path = Path::new(&config_dir);
             let orchestration = depin_sdk_validator::standard::OrchestrationContainer::new(
                 path.join("orchestration.toml"),
-            );
+            )?;
             orchestration.start()?;
 
             // Keep the process running
@@ -47,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Start only the workload container
             let path = Path::new(&config_dir);
             let workload =
-                depin_sdk_validator::standard::WorkloadContainer::new(path.join("workload.toml"));
+                depin_sdk_validator::standard::WorkloadContainer::new(path.join("workload.toml"))?;
             workload.start()?;
 
             // Keep the process running
