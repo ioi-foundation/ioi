@@ -6,6 +6,8 @@ pub mod config;
 pub mod common;
 pub mod standard;
 pub mod hybrid;
+// NEW: Public traits for this crate are defined here.
+pub mod traits;
 
-use std::error::Error;
-use depin_sdk_core::validator::ValidatorModel;
+// Re-export the new public trait.
+pub use traits::WorkloadLogic;

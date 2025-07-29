@@ -1,67 +1,64 @@
-//! Implementation of API container
+// Path: crates/validator/src/hybrid/api.rs
 
-use crate::config::ApiConfig;
 use depin_sdk_core::error::ValidatorError;
 use depin_sdk_core::validator::Container;
-use std::error::Error;
+use serde::Deserialize;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+// FIX: Add imports for atomic state management
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+use toml;
 
-/// API container for API implementation and state queries
+/// Configuration for the API container, loaded from `api.toml`.
+#[derive(Deserialize)]
+pub struct ApiConfig {
+    pub listen_address: String,
+    pub enabled_endpoints: Vec<String>,
+}
+
+/// The ApiContainer is responsible for implementing the public-facing JSON-RPC
+/// or other state-query APIs for a hybrid validator.
 pub struct ApiContainer {
-    /// Parsed configuration for the API container.
     config: ApiConfig,
-    /// Running status
-    running: Arc<Mutex<bool>>,
+    // FIX: Use Arc<AtomicBool> for thread-safe state.
+    running: Arc<AtomicBool>,
 }
 
 impl ApiContainer {
-    /// Create a new API container
-    pub fn new<P: AsRef<Path>>(config_path: P) -> Result<Self, Box<dyn Error + Send + Sync>> {
-        let config_str = std::fs::read_to_string(config_path.as_ref())?;
+    pub fn new(config_path: &Path) -> anyhow::Result<Self> {
+        let config_str = std::fs::read_to_string(config_path)?;
         let config: ApiConfig = toml::from_str(&config_str)?;
-
-        println!("API container config loaded. Listen address: {}", config.listen_address);
-
         Ok(Self {
             config,
-            running: Arc::new(Mutex::new(false)),
+            running: Arc::new(AtomicBool::new(false)),
         })
-    }
-    /// Handle an API request
-    pub fn handle_request(&self, endpoint: &str, params: &[u8]) -> Result<Vec<u8>, Box<dyn Error + Send + Sync>> {
-        if !self.is_running() {
-            return Err("API container is not running".into());
-        }
-        println!("Handling API request to endpoint {}, {} bytes", endpoint, params.len());
-        Ok(vec![9, 10, 11, 12])
-    }
-    /// Check if the container is running
-    pub fn is_running(&self) -> bool {
-        *self.running.lock().unwrap()
     }
 }
 
+#[async_trait::async_trait]
 impl Container for ApiContainer {
-    fn start(&self) -> Result<(), ValidatorError> {
-        let mut running = self.running.lock().unwrap();
-        *running = true;
-        println!("API container started successfully");
+    async fn start(&self) -> Result<(), ValidatorError> {
+        log::info!(
+            "Starting ApiContainer, listening on {}...",
+            self.config.listen_address
+        );
+        self.running.store(true, Ordering::SeqCst);
         Ok(())
     }
 
-    fn stop(&self) -> Result<(), ValidatorError> {
-        let mut running = self.running.lock().unwrap();
-        *running = false;
-        println!("API container stopped successfully");
+    async fn stop(&self) -> Result<(), ValidatorError> {
+        log::info!("Stopping ApiContainer...");
+        self.running.store(false, Ordering::SeqCst);
         Ok(())
     }
 
     fn is_running(&self) -> bool {
-        self.is_running()
+        self.running.load(Ordering::SeqCst)
     }
 
-    fn id(&self) -> &str {
+    fn id(&self) -> &'static str {
         "api"
     }
 }

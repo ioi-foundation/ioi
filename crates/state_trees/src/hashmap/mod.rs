@@ -64,10 +64,7 @@ where
     }
 
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
-        // Fixed ambiguous method call by explicitly specifying which trait's method to use
-        let value = <Self as StateTree>::get(self, key)
-            .ok()?
-            .map(|v| self.to_value(&v))?;
+        let value = self.get(key).ok()?.map(|v| self.to_value(&v))?;
         let selector = Selector::Key(key.to_vec());
         self.scheme.create_proof(&selector, &value).ok()
     }
@@ -96,36 +93,19 @@ impl<CS: CommitmentScheme> StateManager for HashMapStateTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
 {
-    type Commitment = CS::Commitment;
-    type Proof = CS::Proof;
-
-    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
-        <Self as StateTree>::get(self, key)
+    fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
+        for (key, value) in updates {
+            let value_typed = self.to_value(value);
+            self.data.insert(key.to_vec(), value_typed);
+        }
+        Ok(())
     }
 
-    fn set(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
-        <Self as StateTree>::insert(self, key, value)
-    }
-
-    fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
-        <Self as StateTree>::delete(self, key)
-    }
-
-    fn root_commitment(&self) -> Self::Commitment {
-        <Self as StateTree>::root_commitment(self)
-    }
-
-    fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
-        <Self as StateTree>::create_proof(self, key)
-    }
-
-    fn verify_proof(
-        &self,
-        commitment: &Self::Commitment,
-        proof: &Self::Proof,
-        key: &[u8],
-        value: &[u8],
-    ) -> bool {
-        <Self as StateTree>::verify_proof(self, commitment, proof, key, value)
+    fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
+        let mut values = Vec::with_capacity(keys.len());
+        for key in keys {
+            values.push(self.data.get(key).map(|v| v.as_ref().to_vec()));
+        }
+        Ok(values)
     }
 }

@@ -1,67 +1,51 @@
-//! Implementation of workload container
+// Path: crates/validator/src/standard/workload.rs
 
-use crate::config::WorkloadConfig;
+use crate::traits::WorkloadLogic;
+use depin_sdk_core::commitment::CommitmentScheme;
 use depin_sdk_core::error::ValidatorError;
-use depin_sdk_core::validator::Container;
-use std::error::Error;
-use std::path::Path;
-use std::sync::{Arc, Mutex};
+use depin_sdk_core::state::{StateManager, StateTree};
+use depin_sdk_core::transaction::TransactionModel;
+use depin_sdk_core::validator::WorkloadContainer;
 
-/// Workload container for resource provisioning and execution
-pub struct WorkloadContainer {
-    /// Parsed configuration for the Workload container.
-    config: WorkloadConfig,
-    /// Running status
-    running: Arc<Mutex<bool>>,
-}
+impl<ST> WorkloadLogic<ST> for WorkloadContainer<ST>
+where
+    // FIX: The bound must be StateManager (which implies StateTree) and Sized.
+    ST: StateManager + Send + Sync,
+{
+    fn execute_transaction<CS, TM>(
+        &self,
+        tx: &TM::Transaction,
+        model: &TM,
+    ) -> impl std::future::Future<Output = Result<(), ValidatorError>> + Send
+    where
+        CS: CommitmentScheme<
+            Commitment = <ST as StateTree>::Commitment,
+            Proof = <ST as StateTree>::Proof,
+        >,
+        TM: TransactionModel<CommitmentScheme = CS> + Sync,
+        TM::Transaction: Sync,
+        // FIX: The bound `ST: StateManager` is now satisfied by the impl block's bounds.
+        ST: StateManager,
+    {
+        async move {
+            let state_tree_arc = self.state_tree();
+            let mut state = state_tree_arc.lock().await;
 
-impl WorkloadContainer {
-    /// Create a new workload container
-    pub fn new<P: AsRef<Path>>(config_path: P) -> Result<Self, Box<dyn Error + Send + Sync>> {
-        let config_str = std::fs::read_to_string(config_path.as_ref())?;
-        let config: WorkloadConfig = toml::from_str(&config_str)?;
+            let is_valid = model
+                .validate(tx, &*state)
+                .map_err(|e| ValidatorError::Other(e.to_string()))?;
+            if !is_valid {
+                return Err(ValidatorError::Other(
+                    "Transaction validation failed".to_string(),
+                ));
+            }
 
-        println!("Workload config loaded. Enabled VMs: {:?}", config.enabled_vms);
+            model
+                .apply(tx, &mut *state)
+                .map_err(|e| ValidatorError::Other(e.to_string()))?;
 
-        Ok(Self {
-            config,
-            running: Arc::new(Mutex::new(false)),
-        })
-    }
-    /// Execute a transaction
-    pub fn execute_transaction(&self, tx_data: &[u8]) -> Result<Vec<u8>, Box<dyn Error + Send + Sync>> {
-        if !self.is_running() {
-            return Err("Workload container is not running".into());
+            log::info!("Successfully executed transaction and updated state.");
+            Ok(())
         }
-        println!("Executing transaction of {} bytes", tx_data.len());
-        Ok(tx_data.to_vec())
-    }
-    /// Check if the container is running
-    pub fn is_running(&self) -> bool {
-        *self.running.lock().unwrap()
-    }
-}
-
-impl Container for WorkloadContainer {
-    fn start(&self) -> Result<(), ValidatorError> {
-        let mut running = self.running.lock().unwrap();
-        *running = true;
-        println!("Workload container started successfully");
-        Ok(())
-    }
-
-    fn stop(&self) -> Result<(), ValidatorError> {
-        let mut running = self.running.lock().unwrap();
-        *running = false;
-        println!("Workload container stopped successfully");
-        Ok(())
-    }
-
-    fn is_running(&self) -> bool {
-        self.is_running()
-    }
-
-    fn id(&self) -> &str {
-        "workload"
     }
 }

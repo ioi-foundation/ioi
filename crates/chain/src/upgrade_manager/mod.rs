@@ -1,6 +1,7 @@
-use depin_sdk_core::services::{ServiceType, UpgradableService};
 use depin_sdk_core::error::CoreError;
+use depin_sdk_core::services::{ServiceType, UpgradableService};
 use std::collections::HashMap;
+use std::fmt;
 use std::sync::Arc;
 
 /// Manages runtime upgrades of blockchain services
@@ -11,6 +12,18 @@ pub struct ModuleUpgradeManager {
     upgrade_history: HashMap<ServiceType, Vec<u64>>,
     /// Scheduled upgrades by block height
     scheduled_upgrades: HashMap<u64, Vec<(ServiceType, Vec<u8>)>>,
+}
+
+// FIX: Manually implement Debug because Arc<dyn UpgradableService> does not implement Debug.
+// This implementation prints the service types instead of the service objects themselves.
+impl fmt::Debug for ModuleUpgradeManager {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ModuleUpgradeManager")
+            .field("active_services", &self.active_services.keys())
+            .field("upgrade_history", &self.upgrade_history)
+            .field("scheduled_upgrades", &self.scheduled_upgrades)
+            .finish()
+    }
 }
 
 impl ModuleUpgradeManager {
@@ -27,9 +40,11 @@ impl ModuleUpgradeManager {
     pub fn register_service(&mut self, service: Arc<dyn UpgradableService>) {
         let service_type = service.service_type();
         self.active_services.insert(service_type.clone(), service);
-        
+
         // Initialize upgrade history if not present
-        self.upgrade_history.entry(service_type).or_insert_with(Vec::new);
+        self.upgrade_history
+            .entry(service_type)
+            .or_insert_with(Vec::new);
     }
 
     /// Get a service by type
@@ -48,7 +63,7 @@ impl ModuleUpgradeManager {
             .entry(activation_height)
             .or_insert_with(Vec::new)
             .push((service_type, upgrade_data));
-        
+
         Ok(())
     }
 
@@ -60,7 +75,7 @@ impl ModuleUpgradeManager {
         };
 
         let mut applied_count = 0;
-        
+
         for (service_type, upgrade_data) in upgrades {
             match self.execute_upgrade(&service_type, &upgrade_data) {
                 Ok(()) => {
@@ -92,13 +107,14 @@ impl ModuleUpgradeManager {
             .ok_or_else(|| CoreError::ServiceNotFound(format!("{:?}", service_type)))?;
 
         // 1. Prepare: Get the state snapshot from the current service
-        let snapshot = active_service.prepare_upgrade(new_module_wasm)
+        let _snapshot = active_service
+            .prepare_upgrade(new_module_wasm)
             .map_err(|e| CoreError::UpgradeError(e.to_string()))?;
 
         // 2. TODO: Instantiate new service from WASM (or other format)
         // This would require a proper WASM loading mechanism
         // For now, we'll create a placeholder
-        
+
         // 3. TODO: Complete the upgrade by migrating state to new service
         // new_service.complete_upgrade(&snapshot)?;
 
@@ -134,12 +150,12 @@ impl ModuleUpgradeManager {
     /// Start all registered services
     pub fn start_all_services(&mut self) -> Result<(), CoreError> {
         for (service_type, service) in &self.active_services {
-            service.start()
-                .map_err(|e| CoreError::Custom(format!(
-                    "Failed to start service {:?}: {}", 
-                    service_type, 
-                    e
-                )))?;
+            service.start().map_err(|e| {
+                CoreError::Custom(format!(
+                    "Failed to start service {:?}: {}",
+                    service_type, e
+                ))
+            })?;
         }
         Ok(())
     }
@@ -147,12 +163,9 @@ impl ModuleUpgradeManager {
     /// Stop all registered services
     pub fn stop_all_services(&mut self) -> Result<(), CoreError> {
         for (service_type, service) in &self.active_services {
-            service.stop()
-                .map_err(|e| CoreError::Custom(format!(
-                    "Failed to stop service {:?}: {}", 
-                    service_type, 
-                    e
-                )))?;
+            service.stop().map_err(|e| {
+                CoreError::Custom(format!("Failed to stop service {:?}: {}", service_type, e))
+            })?;
         }
         Ok(())
     }
@@ -161,25 +174,21 @@ impl ModuleUpgradeManager {
     pub fn reset(&mut self) -> Result<(), CoreError> {
         // Stop all services first
         self.stop_all_services()?;
-        
+
         // Clear all state
         self.active_services.clear();
         self.upgrade_history.clear();
         self.scheduled_upgrades.clear();
-        
+
         Ok(())
     }
 }
 
 /// Helper function to load a service from WASM bytes
 /// TODO: Implement actual WASM loading logic
+#[allow(dead_code)]
 fn load_service_from_wasm(_wasm_bytes: &[u8]) -> Result<Box<dyn UpgradableService>, CoreError> {
-    Err(CoreError::Custom("WASM loading not implemented yet".to_string()))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // TODO: Add tests when the implementation is complete
+    Err(CoreError::Custom(
+        "WASM loading not implemented yet".to_string(),
+    ))
 }

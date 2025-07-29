@@ -1,128 +1,57 @@
-//! Error types for the DePIN SDK Core.
+// Path: crates/core/src/error/mod.rs
 
-use std::fmt;
+use thiserror::Error;
 
-/// Error type for transaction operations
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TransactionError {
-    /// Invalid transaction format or data
-    InvalidTransaction(String),
-    
-    /// Failed to access or modify state
-    StateAccessFailed(String),
-    
-    /// Invalid input referenced in transaction
-    InvalidInput(String),
-    
-    /// Insufficient funds for transaction
-    InsufficientFunds(String),
-    
-    /// Invalid signature
-    InvalidSignature(String),
-    
-    /// Invalid nonce value
-    InvalidNonce(String),
-    
-    /// Serialization or deserialization error
-    SerializationError(String),
-    
-    /// Other transaction errors
-    Other(String),
-}
-
-impl fmt::Display for TransactionError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            TransactionError::InvalidTransaction(msg) => write!(f, "Invalid transaction: {}", msg),
-            TransactionError::StateAccessFailed(msg) => write!(f, "State access failed: {}", msg),
-            TransactionError::InvalidInput(msg) => write!(f, "Invalid input: {}", msg),
-            TransactionError::InsufficientFunds(msg) => write!(f, "Insufficient funds: {}", msg),
-            TransactionError::InvalidSignature(msg) => write!(f, "Invalid signature: {}", msg),
-            TransactionError::InvalidNonce(msg) => write!(f, "Invalid nonce: {}", msg),
-            TransactionError::SerializationError(msg) => write!(f, "Serialization error: {}", msg),
-            TransactionError::Other(msg) => write!(f, "Other error: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for TransactionError {}
-
-/// Error type for state operations
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Error, Debug)]
 pub enum StateError {
-    /// Key not found in state
+    #[error("Key not found: {0}")]
     KeyNotFound(String),
-    
-    /// Failed to read from storage
-    ReadError(String),
-    
-    /// Failed to write to storage
+    #[error("Validation failed: {0}")]
+    Validation(String),
+    #[error("Apply failed: {0}")]
+    Apply(String),
+    #[error("State backend error: {0}")]
+    Backend(String),
+    // FIX: Add variants for errors that occur in state tree implementations.
+    // The `WriteError` is used by `FileStateTree` when file I/O fails.
+    // The `InvalidValue` is used by `VerkleTree` when a value can't be converted.
+    #[error("State write error: {0}")]
     WriteError(String),
-    
-    /// Invalid key format
-    InvalidKey(String),
-    
-    /// Invalid value format
+    #[error("Invalid value: {0}")]
     InvalidValue(String),
-    
-    /// Other state errors
-    Other(String),
 }
 
-impl fmt::Display for StateError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            StateError::KeyNotFound(msg) => write!(f, "Key not found: {}", msg),
-            StateError::ReadError(msg) => write!(f, "Read error: {}", msg),
-            StateError::WriteError(msg) => write!(f, "Write error: {}", msg),
-            StateError::InvalidKey(msg) => write!(f, "Invalid key: {}", msg),
-            StateError::InvalidValue(msg) => write!(f, "Invalid value: {}", msg),
-            StateError::Other(msg) => write!(f, "Other error: {}", msg),
-        }
-    }
+#[derive(Error, Debug)]
+pub enum TransactionError {
+    #[error("Serialization error: {0}")]
+    Serialization(String),
+    #[error("Deserialization error: {0}")]
+    Deserialization(String),
+    #[error("Invalid transaction: {0}")]
+    Invalid(String),
+    // FIX: Add a variant to wrap StateErrors, which will allow `?` to work.
+    #[error("State error: {0}")]
+    State(#[from] StateError),
 }
 
-impl std::error::Error for StateError {}
-
-impl From<StateError> for TransactionError {
-    fn from(error: StateError) -> Self {
-        TransactionError::StateAccessFailed(error.to_string())
-    }
-}
-
-/// Error type for validator operations.
-#[derive(Debug, thiserror::Error)]
+#[derive(Error, Debug)]
 pub enum ValidatorError {
-    #[error("Container operation failed: {0}")]
-    Container(String),
+    #[error("Container '{0}' is already running")]
+    AlreadyRunning(String),
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
     #[error("Configuration error: {0}")]
     Config(String),
-    #[error("Lifecycle error: {0}")]
-    Lifecycle(String),
+    #[error("Other error: {0}")]
+    Other(String),
 }
 
-
-/// Core error type for the SDK
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Error)]
 pub enum CoreError {
     #[error("Service not found: {0}")]
     ServiceNotFound(String),
-    
-    #[error("Invalid block: {0}")]
-    InvalidBlock(String),
-    
-    #[error("Consensus error: {0}")]
-    ConsensusError(String),
-    
-    #[error("Cryptographic error: {0}")]
-    CryptoError(String),
-    
     #[error("Upgrade error: {0}")]
     UpgradeError(String),
-    
     #[error("Custom error: {0}")]
     Custom(String),
 }
-
-/// Result type used throughout the SDK
-pub type Result<T> = std::result::Result<T, CoreError>;

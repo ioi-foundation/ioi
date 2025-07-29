@@ -1,68 +1,64 @@
-//! Implementation of interface container
+// Path: crates/validator/src/hybrid/interface.rs
 
-use crate::config::InterfaceConfig;
 use depin_sdk_core::error::ValidatorError;
 use depin_sdk_core::validator::Container;
-use std::error::Error;
-use std::net::SocketAddr;
+use serde::Deserialize;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+// FIX: Add imports for atomic state management
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+use toml;
 
-/// Interface container for connection handling and protocol routing
+/// Configuration for the Interface container, loaded from `interface.toml`.
+#[derive(Deserialize)]
+pub struct InterfaceConfig {
+    pub max_connections: u32,
+    pub rate_limit_per_second: u64,
+}
+
+/// The InterfaceContainer manages raw network connections, protocol routing,
+/// and basic DDoS protection for a hybrid validator's public-facing services.
 pub struct InterfaceContainer {
-    /// Parsed configuration for the Interface container.
     config: InterfaceConfig,
-    /// Running status
-    running: Arc<Mutex<bool>>,
+    // FIX: Use Arc<AtomicBool> for thread-safe state.
+    running: Arc<AtomicBool>,
 }
 
 impl InterfaceContainer {
-    /// Create a new interface container
-    pub fn new<P: AsRef<Path>>(config_path: P) -> Result<Self, Box<dyn Error + Send + Sync>> {
-        let config_str = std::fs::read_to_string(config_path.as_ref())?;
+    pub fn new(config_path: &Path) -> anyhow::Result<Self> {
+        let config_str = std::fs::read_to_string(config_path)?;
         let config: InterfaceConfig = toml::from_str(&config_str)?;
-
-        println!("Interface container config loaded. Listen address: {}", config.listen_address);
-
         Ok(Self {
             config,
-            running: Arc::new(Mutex::new(false)),
+            running: Arc::new(AtomicBool::new(false)),
         })
-    }
-    /// Handle a client connection
-    pub fn handle_connection(&self, addr: SocketAddr, data: &[u8]) -> Result<Vec<u8>, Box<dyn Error + Send + Sync>> {
-        if !self.is_running() {
-            return Err("Interface container is not running".into());
-        }
-        println!("Handling connection from {}, {} bytes", addr, data.len());
-        Ok(vec![5, 6, 7, 8])
-    }
-    /// Check if the container is running
-    pub fn is_running(&self) -> bool {
-        *self.running.lock().unwrap()
     }
 }
 
+#[async_trait::async_trait]
 impl Container for InterfaceContainer {
-    fn start(&self) -> Result<(), ValidatorError> {
-        let mut running = self.running.lock().unwrap();
-        *running = true;
-        println!("Interface container started successfully");
+    async fn start(&self) -> Result<(), ValidatorError> {
+        log::info!(
+            "Starting InterfaceContainer with max {} connections...",
+            self.config.max_connections
+        );
+        self.running.store(true, Ordering::SeqCst);
         Ok(())
     }
 
-    fn stop(&self) -> Result<(), ValidatorError> {
-        let mut running = self.running.lock().unwrap();
-        *running = false;
-        println!("Interface container stopped successfully");
+    async fn stop(&self) -> Result<(), ValidatorError> {
+        log::info!("Stopping InterfaceContainer...");
+        self.running.store(false, Ordering::SeqCst);
         Ok(())
     }
 
     fn is_running(&self) -> bool {
-        self.is_running()
+        self.running.load(Ordering::SeqCst)
     }
 
-    fn id(&self) -> &str {
+    fn id(&self) -> &'static str {
         "interface"
     }
 }

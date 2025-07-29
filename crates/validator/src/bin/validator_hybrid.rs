@@ -1,89 +1,74 @@
-//! Hybrid validator binary
+// Path: crates/validator/src/bin/validator_hybrid.rs
 
-use std::env;
-use std::path::Path;
-use depin_sdk_validator::hybrid::HybridValidator;
-use depin_sdk_core::validator::{Container, ValidatorModel};
+use anyhow::anyhow;
+use clap::Parser;
+// FIX: Import WorkloadContainer from its new, correct location in `core`.
+use depin_sdk_core::validator::WorkloadContainer;
+use depin_sdk_core::{config::WorkloadConfig, Container};
+use depin_sdk_state_trees::file::FileStateTree;
+// FIX: Add necessary imports.
+use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
+use depin_sdk_validator::{
+    common::GuardianContainer,
+    hybrid::{ApiContainer, InterfaceContainer},
+    standard::OrchestrationContainer,
+};
+use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
+
+#[derive(Parser, Debug)]
+#[clap(name = "validator_hybrid", about = "A hybrid DePIN SDK validator node with public APIs.")]
+struct Opts {
+    #[clap(long, default_value = "./config")]
+    config_dir: String,
+}
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // Parse command-line arguments
-    let args: Vec<String> = env::args().collect();
-    let container_type = if args.len() > 1 { &args[1] } else { "all" };
+async fn main() -> anyhow::Result<()> {
+    env_logger::builder().filter_level(log::LevelFilter::Info).init();
+    let opts = Opts::parse();
+    let path = PathBuf::from(opts.config_dir);
+
+    log::info!("Initializing Hybrid Validator...");
+
+    // FIX: Pass borrowed paths (`&`) to the `new` constructors.
+    let guardian = GuardianContainer::new(&path.join("guardian.toml"))?;
+
+    let state_tree = FileStateTree::new("state.json", HashCommitmentScheme::new());
+
+    let workload = Arc::new(WorkloadContainer::new(
+        WorkloadConfig::default(),
+        state_tree,
+    ));
+
+    let orchestration = Arc::new(OrchestrationContainer::new(
+        &path.join("orchestration.toml"),
+    )?);
     
-    // Default config directory is ./config
-    let config_dir = env::var("CONFIG_DIR").unwrap_or_else(|_| "./config".to_string());
+    // Wire up a dummy chain for now.
+    orchestration.set_chain_and_workload_ref(Arc::new(Mutex::new(())), workload);
+
+    let interface = InterfaceContainer::new(&path.join("interface.toml"))?;
+    let api = ApiContainer::new(&path.join("api.toml"))?;
+
+
+    log::info!("Starting services...");
+    guardian.start()?;
+    // FIX: The start method is async and must be awaited.
+    orchestration.start().await?;
+    interface.start()?;
+    api.start()?;
+
+    tokio::signal::ctrl_c().await?;
+    log::info!("Shutdown signal received.");
+
+    api.stop()?;
+    interface.stop()?;
+    orchestration.stop().await?;
+    guardian.stop()?;
+    log::info!("Validator stopped gracefully.");
     
-    println!("Starting DePIN SDK Hybrid Validator");
-    println!("Container type: {}", container_type);
-    println!("Config directory: {}", config_dir);
-    
-    match container_type {
-        "guardian" => {
-            // Start only the guardian container
-            let path = Path::new(&config_dir);
-            let guardian = depin_sdk_validator::common::GuardianContainer::new(path.join("guardian.toml"))?;
-            guardian.start()?;
-            
-            // Keep the process running
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        },
-        "orchestration" => {
-            // Start only the orchestration container
-            let path = Path::new(&config_dir);
-            let orchestration = depin_sdk_validator::standard::OrchestrationContainer::new(path.join("orchestration.toml"))?;
-            orchestration.start()?;
-            
-            // Keep the process running
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        },
-        "workload" => {
-            // Start only the workload container
-            let path = Path::new(&config_dir);
-            let workload = depin_sdk_validator::standard::WorkloadContainer::new(path.join("workload.toml"))?;
-            workload.start()?;
-            
-            // Keep the process running
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        },
-        "interface" => {
-            // Start only the interface container
-            let path = Path::new(&config_dir);
-            let interface = depin_sdk_validator::hybrid::InterfaceContainer::new(path.join("interface.toml"))?;
-            interface.start()?;
-            
-            // Keep the process running
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        },
-        "api" => {
-            // Start only the API container
-            let path = Path::new(&config_dir);
-            let api = depin_sdk_validator::hybrid::ApiContainer::new(path.join("api.toml"))?;
-            api.start()?;
-            
-            // Keep the process running
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        },
-        "all" | _ => {
-            // Start the full validator
-            let path = Path::new(&config_dir);
-            let validator = HybridValidator::new(path)?;
-            validator.start()?;
-            
-            // Keep the process running
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        },
-    }
+    Ok(())
 }

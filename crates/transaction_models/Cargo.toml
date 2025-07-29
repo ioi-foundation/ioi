@@ -6,17 +6,14 @@ description = "Transaction model implementations for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-depin-sdk-crypto = { path = "../crypto", optional = true }
 depin-sdk-core = { path = "../core" }
 log = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
-bytes = { workspace = true }
-anyhow = { workspace = true }
-
+sha2 = { workspace = true }
+# FIX: Add the missing 'hex' dependency used for logging UTXO hashes.
+hex = { workspace = true }
 
 [features]
-default = ["dep:depin-sdk-crypto"]
-utxo-model = []
-account-model = []
-hybrid-model = []
+default = []
