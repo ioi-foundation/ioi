@@ -1,9 +1,3 @@
-Of course. A great README is essential for attracting contributors and helping new developers get up to speed. Based on the project's vision, architecture, and current development status, here is a comprehensive `README.md` file for the root directory of the `depin-sdk`.
-
-This README reflects that the project has moved beyond a simple prototype and now has a functional, architecturally sound foundation that new developers can build and run.
-
----
-
 # DePIN SDK
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/your-org/depin-sdk/rust.yml?branch=main)](https://github.com/your-org/depin-sdk/actions)
@@ -48,24 +42,19 @@ For a deep dive into the architecture, please see the [**Architectural Documenta
 
 ### Getting Started
 
-You can build and run a local, multi-node test network right now.
+You can build and run a local, multi-node test network right now to validate the core networking and persistence features.
 
 #### Prerequisites
 
 *   **Rust**: Ensure you have the latest stable version of Rust installed via `rustup`.
 *   **Build Tools**: A C compiler, such as GCC or Clang, is required.
 
-#### 1. Clone & Build
-
-First, clone the repository and build the Minimum Viable Sovereign Chain (MVSC) binary.
+#### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/your-org/depin-sdk.git
 cd depin-sdk
-cargo build --release --features="depin-sdk-chain/mvsc-bin"
 ```
-
-The binary will be available at `./target/release/mvsc`.
 
 #### 2. Create Configuration Files
 
@@ -85,31 +74,62 @@ echo 'consensus_type = "ProofOfStake"' > config/orchestration.toml
 echo 'enabled_vms = ["WASM"]' > config/workload.toml
 ```
 
-#### 3. Run a Single Node
+#### 3. Run the Testnet
 
-This will start one node, which will begin listening for peers.
+The following steps will guide you through running a single node and then a multi-node network. The `cargo run` command will compile the necessary binary (`mvsc`) for you.
+
+#### **Phase 1: Single Node Validation**
+
+**Test 1.1: Clean Start & Block Production**
+
+This test ensures the node can start from a genesis state and begin producing blocks.
 
 ```bash
-./target/release/mvsc --state-file node1.json --config-dir ./config
+# 1. Clean up any previous state
+rm -f state.json
+
+# 2. Run the node binary
+cargo run --release --features="depin-sdk-chain/mvsc-bin" --bin mvsc
 ```
 
-You will see logs indicating that the containers have loaded their configurations and the node is listening on a local IP address.
+**Test 1.2: State Persistence & Loading**
 
-#### 4. Run a Local P2P Network
+This test verifies that the node correctly persists its state to a file and can resume from it after a restart.
 
-To see the nodes interact, open two separate terminals.
-
-**Terminal 1:**
 ```bash
-./target/release/mvsc --state-file node1.json --config-dir ./config --listen-port 9001
-```
+# 1. Run the node for a few blocks, then stop with Ctrl+C
 
-**Terminal 2:**
-```bash
-./target/release/mvsc --state-file node2.json --config-dir ./config --listen-port 9002
-```
+# 2. Inspect the state file to see the saved data
+cat state.json
 
-After a few moments, you will see log messages in each terminal indicating that they have discovered each other via mDNS, confirming that P2P discovery is working.
+# 3. Restart the node
+cargo run --release --features="depin-sdk-chain/mvsc-bin" --bin mvsc
+```
+You should see it resume from the last block height logged before you stopped it.
+
+---
+
+### **Phase 2: Multi-Node Network Test**
+
+This test confirms that two nodes can connect over the network and that blocks produced by one are gossiped to the other. You will need two terminals or a terminal multiplexer like `tmux`.
+
+1.  **Clean up (in both terminals):**
+    ```bash
+    rm -f state_node1.json state_node2.json
+    ```
+2.  **Run Node 1 (in the first terminal):**
+    ```bash
+    cargo run --release --features="depin-sdk-chain/mvsc-bin" --bin mvsc -- --state-file state_node1.json
+    ```
+3.  **Wait for and copy the `New listen address`** from Node 1's output. It will look something like `/ip4/127.0.0.1/tcp/34677`.
+
+4.  **Run Node 2 (in the second terminal, using the copied address):**
+    ```bash
+    # Replace the --peer address with the one you copied from Node 1
+    cargo run --release --features="depin-sdk-chain/mvsc-bin" --bin mvsc -- --state-file state_node2.json --peer /ip4/127.0.0.1/tcp/34677
+    ```
+
+You should now see connection messages in both terminals. As Node 1 produces new blocks, you will see log messages in Node 2 indicating it has received the block gossip, confirming your P2P layer is functional.
 
 ---
 
