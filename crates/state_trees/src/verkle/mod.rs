@@ -58,7 +58,6 @@ where
     type Proof = CS::Proof;
 
     fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
-        // Convert value to the appropriate type for the commitment scheme
         let cs_value = self
             .convert_value(value)
             .map_err(|e| StateError::InvalidValue(e))?;
@@ -67,7 +66,6 @@ where
     }
 
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
-        // Convert back from CS::Value to Vec<u8>
         Ok(self.data.get(key).map(|v| self.extract_value(v)))
     }
 
@@ -77,15 +75,12 @@ where
     }
 
     fn root_commitment(&self) -> Self::Commitment {
-        // Convert data to format expected by commitment scheme
         let values: Vec<Option<CS::Value>> = self.data.values().map(|v| Some(v.clone())).collect();
         self.scheme.commit(&values)
     }
 
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
         let value = self.data.get(key)?;
-
-        // Create a key-based proof using the new selector API
         self.scheme
             .create_proof(&Selector::Key(key.to_vec()), value)
             .ok()
@@ -98,18 +93,12 @@ where
         key: &[u8],
         value: &[u8],
     ) -> bool {
-        // Convert value to the appropriate type
         if let Ok(cs_value) = self.convert_value(value) {
-            // Create verification context with additional data if needed
             let mut context = ProofContext::new();
-
-            // For Verkle trees, we might need the branching factor in the context
             context.add_data(
                 "branching_factor",
                 self.branching_factor.to_le_bytes().to_vec(),
             );
-
-            // Use Key selector for verification
             self.scheme.verify(
                 commitment,
                 proof,
@@ -123,27 +112,40 @@ where
     }
 
     fn as_any(&self) -> &dyn Any {
-        self        
+        self
     }
 }
 
-// Helper methods to convert between Vec<u8> and CS::Value
+// FIX: Implement the StateManager trait.
+impl<CS: CommitmentScheme> StateManager for VerkleTree<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
+        for (key, value) in updates {
+            self.insert(key, value)?;
+        }
+        Ok(())
+    }
+
+    fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
+        let mut results = Vec::with_capacity(keys.len());
+        for key in keys {
+            results.push(self.get(key)?);
+        }
+        Ok(results)
+    }
+}
+
 impl<CS: CommitmentScheme> VerkleTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
 {
-    /// Convert a Vec<u8> to CS::Value
     fn convert_value(&self, value: &[u8]) -> Result<CS::Value, String> {
         Ok(CS::Value::from(value.to_vec()))
     }
 
-    /// Extract a Vec<u8> from CS::Value
     fn extract_value(&self, value: &CS::Value) -> Vec<u8> {
         value.as_ref().to_vec()
-    }
-
-    /// Create a CS::Value from bytes - implement appropriate conversion logic
-    fn create_cs_value(&self, bytes: &[u8]) -> Result<CS::Value, String> {
-        Ok(CS::Value::from(bytes.to_vec()))
     }
 }

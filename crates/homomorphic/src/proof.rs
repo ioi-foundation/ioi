@@ -1,9 +1,9 @@
 use crate::error::{HomomorphicError, HomomorphicResult};
 use depin_sdk_core::commitment::HomomorphicCommitmentScheme;
 use depin_sdk_core::commitment::HomomorphicOperation;
-use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, Selector};
+// FIX: Remove unused imports.
+use depin_sdk_core::commitment::{ProofContext, Selector};
 use depin_sdk_core::homomorphic::CommitmentOperation;
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 

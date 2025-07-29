@@ -11,9 +11,6 @@ depin-sdk-commitment-schemes = { path = "../commitment_schemes" }
 log = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
-rand = "0.8"
-sha2 = "0.10"
-curve25519-dalek = "4.0"
 
 [features]
 default = []

@@ -7,3 +7,6 @@ codebase_snapshot.md
 keypair.seed
 state1.json
 state2.json
+output.txt
+.git
+.gitignore

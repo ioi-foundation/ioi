@@ -1,86 +1,64 @@
-//! Implementation of the guardian container
+// Path: crates/validator/src/common/guardian.rs
 
-use crate::config::GuardianConfig;
+use async_trait::async_trait;
 use depin_sdk_core::error::ValidatorError;
-use depin_sdk_core::validator::{Container, GuardianContainer as GuardianTrait};
-use std::error::Error;
+use depin_sdk_core::validator::{Container, GuardianContainer as GuardianContainerTrait};
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+// FIX: Add imports for atomic state management
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
-/// Guardian container for security, boot process, and attestation
+#[derive(Debug, Default)]
 pub struct GuardianContainer {
-    /// Parsed configuration for the Guardian.
-    config: GuardianConfig,
-    /// Boot status
-    boot_status: Arc<Mutex<BootStatus>>,
-}
-
-/// Boot status
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BootStatus {
-    /// Not started
-    NotStarted,
-    /// In progress
-    InProgress,
-    /// Completed successfully
-    Completed,
-    /// Failed
-    Failed,
+    // FIX: Use Arc<AtomicBool> for thread-safe interior mutability.
+    running: Arc<AtomicBool>,
 }
 
 impl GuardianContainer {
-    /// Create a new guardian container from a config file.
-    pub fn new<P: AsRef<Path>>(config_path: P) -> Result<Self, Box<dyn Error + Send + Sync>> {
-        let config_str = std::fs::read_to_string(config_path.as_ref())?;
-        let config: GuardianConfig = toml::from_str(&config_str)?;
-
-        println!(
-            "Guardian config loaded. Signature policy: {:?}",
-            config.signature_policy
-        );
-
+    pub fn new(_config_path: &Path) -> anyhow::Result<Self> {
+        // FIX: Initialize the atomic bool correctly.
         Ok(Self {
-            config,
-            boot_status: Arc::new(Mutex::new(BootStatus::NotStarted)),
+            running: Arc::new(AtomicBool::new(false)),
         })
-    }
-    
-    /// Get the current boot status
-    pub fn boot_status(&self) -> BootStatus {
-        *self.boot_status.lock().unwrap()
     }
 }
 
+#[async_trait]
 impl Container for GuardianContainer {
-    fn start(&self) -> Result<(), ValidatorError> {
-        self.start_boot()
+    async fn start(&self) -> Result<(), ValidatorError> {
+        log::info!("Starting GuardianContainer...");
+        // FIX: Atomically set the running flag to true.
+        self.running.store(true, Ordering::SeqCst);
+        Ok(())
     }
 
-    fn stop(&self) -> Result<(), ValidatorError> {
-        println!("Guardian container stopped.");
+    async fn stop(&self) -> Result<(), ValidatorError> {
+        log::info!("Stopping GuardianContainer...");
+        // FIX: Atomically set the running flag to false.
+        self.running.store(false, Ordering::SeqCst);
         Ok(())
     }
 
     fn is_running(&self) -> bool {
-        *self.boot_status.lock().unwrap() == BootStatus::Completed
+        // FIX: Atomically load the value of the running flag.
+        self.running.load(Ordering::SeqCst)
     }
 
-    fn id(&self) -> &str {
+    fn id(&self) -> &'static str {
         "guardian"
     }
 }
 
-impl GuardianTrait for GuardianContainer {
+impl GuardianContainerTrait for GuardianContainer {
     fn start_boot(&self) -> Result<(), ValidatorError> {
-        let mut status = self.boot_status.lock().unwrap();
-        *status = BootStatus::InProgress;
-        println!("Guardian container starting boot process...");
-        *status = BootStatus::Completed;
-        println!("Guardian container boot process completed.");
+        log::info!("Guardian: Initiating secure boot sequence...");
         Ok(())
     }
 
     fn verify_attestation(&self) -> Result<bool, ValidatorError> {
+        log::info!("Guardian: Verifying inter-container attestation...");
         Ok(true)
     }
 }

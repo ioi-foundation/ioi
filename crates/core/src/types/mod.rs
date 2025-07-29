@@ -1,30 +1,34 @@
+// Path: crates/core/src/types/mod.rs
+
 //! Type aliases and common types for the DePIN SDK
 
 use crate::commitment::CommitmentScheme;
 use crate::state::StateManager;
 use crate::transaction::TransactionModel;
 
-/// Type aliases for commitment schemes
+/// Type aliases for commitment schemes.
 pub mod commitment {
     use super::*;
 
-    /// The commitment type for a given commitment scheme
+    /// The commitment type for a given commitment scheme.
     pub type CommitmentOf<CS> = <CS as CommitmentScheme>::Commitment;
 
-    /// The proof type for a given commitment scheme  
+    /// The proof type for a given commitment scheme.
     pub type ProofOf<CS> = <CS as CommitmentScheme>::Proof;
 
-    /// The value type for a given commitment scheme
+    /// The value type for a given commitment scheme.
     pub type ValueOf<CS> = <CS as CommitmentScheme>::Value;
 }
 
-/// Type aliases for state management
+/// Type aliases for state management.
 pub mod state {
     use super::*;
 
-    /// Type alias for a state manager that uses a specific commitment scheme
-    pub type StateManagerFor<CS> 
-    where 
+    /// Type alias for a `StateManager` trait object that is compatible with a
+    /// specific `CommitmentScheme`. This is now unambiguous because `StateManager`
+    /// inherits its associated types directly from its `StateTree` supertrait.
+    pub type StateManagerFor<CS>
+    where
         CS: CommitmentScheme,
     = dyn StateManager<
         Commitment = <CS as CommitmentScheme>::Commitment,
@@ -32,16 +36,16 @@ pub mod state {
     >;
 }
 
-/// Type aliases for transaction models
+/// Type aliases for transaction models.
 pub mod transaction {
     use super::*;
 
-    /// Transaction type for a transaction model
+    /// The transaction type for a given transaction model.
     pub type TransactionOf<TM> = <TM as TransactionModel>::Transaction;
 
-    /// Proof type for a transaction model
+    /// The proof type for a given transaction model.
     pub type ProofOf<TM> = <TM as TransactionModel>::Proof;
 
-    /// Commitment scheme type for a transaction model
+    /// The commitment scheme type for a given transaction model.
     pub type CommitmentSchemeOf<TM> = <TM as TransactionModel>::CommitmentScheme;
 }

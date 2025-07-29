@@ -1,83 +1,65 @@
-//! Standard validator binary
+// Path: crates/validator/src/bin/validator.rs
 
-use depin_sdk_core::validator::{Container, ValidatorModel};
-use depin_sdk_validator::standard::StandardValidator;
-use std::env;
-use std::path::Path;
+use anyhow::anyhow;
+use clap::Parser;
+use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
+// FIX: core::Container is now async
+use depin_sdk_core::validator::{Container, WorkloadContainer};
+use depin_sdk_core::WorkloadConfig;
+use depin_sdk_state_trees::file::FileStateTree;
+use depin_sdk_validator::{common::GuardianContainer, standard::OrchestrationContainer};
+use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
+#[derive(Parser, Debug)]
+#[clap(name = "validator", about = "A standard DePIN SDK validator node.")]
+struct Opts {
+    #[clap(long, default_value = "./config")]
+    config_dir: String,
+}
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // Parse command-line arguments
-    let args: Vec<String> = env::args().collect();
-    let container_type = if args.len() > 1 { &args[1] } else { "all" };
+async fn main() -> anyhow::Result<()> {
+    env_logger::builder().filter_level(log::LevelFilter::Info).init();
+    let opts = Opts::parse();
+    let path = PathBuf::from(opts.config_dir);
 
-    // Default config directory is ./config
-    let config_dir = env::var("CONFIG_DIR").unwrap_or_else(|_| "./config".to_string());
+    log::info!("Initializing Standard Validator...");
 
-    println!("Starting DePIN SDK Standard Validator");
-    println!("Container type: {}", container_type);
-    println!("Config directory: {}", config_dir);
+    let guardian = GuardianContainer::new(&path.join("guardian.toml"))?;
 
-    match container_type {
-        "guardian" => {
-            // Start only the guardian container
-            let path = Path::new(&config_dir);
-            let guardian =
-                depin_sdk_validator::common::GuardianContainer::new(path.join("guardian.toml"))?;
-            guardian.start()?;
+    let state_tree = FileStateTree::new("state.json", HashCommitmentScheme::new());
 
-            // Keep the process running
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        }
-        "orchestration" => {
-            // Start only the orchestration container
-            let path = Path::new(&config_dir);
-            let orchestration = depin_sdk_validator::standard::OrchestrationContainer::new(
-                path.join("orchestration.toml"),
-            )?;
-            orchestration.start()?;
+    let workload_config = WorkloadConfig {
+        enabled_vms: vec!["WASM".to_string()],
+    };
 
-            // Keep the process running
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        }
-        "workload" => {
-            // Start only the workload container
-            let path = Path::new(&config_dir);
-            let workload =
-                depin_sdk_validator::standard::WorkloadContainer::new(path.join("workload.toml"))?;
-            workload.start()?;
+    let workload = Arc::new(WorkloadContainer::new(workload_config, state_tree));
 
-            // Keep the process running
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        }
-        // Fixed: Separate "all" case from wildcard pattern to avoid Clippy warning
-        "all" => {
-            // Start the full validator
-            let path = Path::new(&config_dir);
-            let validator = StandardValidator::new(path)?;
-            validator.start()?;
+    // FIX: OrchestrationContainer::new is now async and must be awaited.
+    let orchestration = Arc::new(
+        OrchestrationContainer::<
+            HashCommitmentScheme,
+            (), // Placeholder for TM
+            FileStateTree<HashCommitmentScheme>,
+        >::new(&path.join("orchestration.toml"))
+        .await?,
+    );
 
-            // Keep the process running
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        }
-        _ => {
-            // Default to full validator for any other input
-            let path = Path::new(&config_dir);
-            let validator = StandardValidator::new(path)?;
-            validator.start()?;
+    // Wire up a dummy chain for now. In a real scenario, this would be part of the composition root.
+    // orchestration.set_chain_and_workload_ref(Arc::new(Mutex::new(())), workload);
 
-            // Keep the process running
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        }
-    }
+    log::info!("Starting services...");
+    orchestration.start().await?;
+    guardian.start().await?;
+
+    tokio::signal::ctrl_c().await?;
+    log::info!("Shutdown signal received.");
+
+    orchestration.stop().await?;
+    guardian.stop().await?;
+    log::info!("Validator stopped gracefully.");
+
+    Ok(())
 }

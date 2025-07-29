@@ -1,7 +1,7 @@
 //! Hash-based commitment scheme implementations
 
 use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, SchemeIdentifier, Selector};
-use sha2::{Digest, Sha256};
+use depin_sdk_crypto::algorithms::hash;
 use std::fmt::Debug;
 
 /// Hash-based commitment scheme
@@ -18,8 +18,6 @@ pub enum HashFunction {
     Sha256,
     /// SHA-512
     Sha512,
-    /// Keccak-256
-    Keccak256,
 }
 
 /// Hash-based commitment
@@ -59,19 +57,8 @@ impl HashCommitmentScheme {
     /// Helper function to hash data using the selected hash function
     pub fn hash_data(&self, data: &[u8]) -> Vec<u8> {
         match self.hash_function {
-            HashFunction::Sha256 => {
-                let mut hasher = Sha256::new();
-                hasher.update(data);
-                hasher.finalize().to_vec()
-            }
-            HashFunction::Sha512 => {
-                // Implementation for SHA-512 would go here
-                vec![0; 64] // Placeholder
-            }
-            HashFunction::Keccak256 => {
-                // Implementation for Keccak-256 would go here
-                vec![0; 32] // Placeholder
-            }
+            HashFunction::Sha256 => hash::sha256(data),
+            HashFunction::Sha512 => hash::sha512(data),
         }
     }
 
@@ -85,7 +72,6 @@ impl HashCommitmentScheme {
         match self.hash_function {
             HashFunction::Sha256 => 32,
             HashFunction::Sha512 => 64,
-            HashFunction::Keccak256 => 32,
         }
     }
 }
@@ -155,8 +141,9 @@ impl CommitmentScheme for HashCommitmentScheme {
         value: &Self::Value,
         context: &ProofContext,
     ) -> bool {
-        // Verify that selectors match
-        if !matches!(&proof.selector, selector) {
+        // FIX: The compiler detected that `selector` was being compared to itself.
+        // We need to compare the proof's selector with the one passed to the function.
+        if &proof.selector != selector {
             return false;
         }
 

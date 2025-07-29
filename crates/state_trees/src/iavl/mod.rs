@@ -45,7 +45,6 @@ where
     type Proof = CS::Proof;
 
     fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
-        // Convert to the appropriate value type for this commitment scheme
         let scheme_value = self.to_value(value);
         self.data.insert(key.to_vec(), scheme_value);
         Ok(())
@@ -61,18 +60,13 @@ where
     }
 
     fn root_commitment(&self) -> Self::Commitment {
-        // Convert data to format expected by commitment scheme
         let values: Vec<Option<CS::Value>> = self.data.values().map(|v| Some(v.clone())).collect();
         self.scheme.commit(&values)
     }
 
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
         let value = self.data.get(key)?;
-
-        // Create a key-based selector for the proof
         let selector = Selector::Key(key.to_vec());
-
-        // Create the proof using the selector
         self.scheme.create_proof(&selector, value).ok()
     }
 
@@ -83,16 +77,9 @@ where
         key: &[u8],
         value: &[u8],
     ) -> bool {
-        // Create a key-based selector for verification
         let selector = Selector::Key(key.to_vec());
-
-        // Create an empty context for now
         let context = ProofContext::default();
-
-        // Convert the raw value to the scheme's value type
         let scheme_value = self.to_value(value);
-
-        // Verify the proof using the selector and context
         self.scheme
             .verify(commitment, proof, &selector, &scheme_value, &context)
     }
@@ -102,50 +89,23 @@ where
     }
 }
 
-// Add support for tree-specific operations for IAVL
-impl<CS: CommitmentScheme> IAVLTree<CS>
+// FIX: Implement the StateManager trait.
+impl<CS: CommitmentScheme> StateManager for IAVLTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
 {
-    /// Get the height of the tree
-    pub fn height(&self) -> usize {
-        // This would be a real implementation in a complete IAVL tree
-        // For now, we just return a placeholder value
-        let size = self.data.len();
-        if size == 0 {
-            0
-        } else {
-            (size as f64).log2().ceil() as usize
+    fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
+        for (key, value) in updates {
+            self.insert(key, value)?;
         }
+        Ok(())
     }
 
-    /// Get the number of nodes in the tree
-    pub fn size(&self) -> usize {
-        self.data.len()
-    }
-
-    /// Check if the tree is balanced
-    pub fn is_balanced(&self) -> bool {
-        // This would be a real implementation in a complete IAVL tree
-        // For now, we just return true
-        true
-    }
-
-    /// Create a proof with additional path information
-    pub fn create_path_proof(&self, key: &[u8]) -> Option<(CS::Proof, Vec<Vec<u8>>)> {
-        // This would create a proof with the complete path from root to leaf
-        let value = self.data.get(key)?;
-
-        // Create a key-based selector
-        let selector = Selector::Key(key.to_vec());
-
-        // Create the proof
-        let proof = self.scheme.create_proof(&selector, value).ok()?;
-
-        // In a real implementation, we would compute the path
-        // For now, we just return an empty path
-        let path = Vec::new();
-
-        Some((proof, path))
+    fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
+        let mut results = Vec::with_capacity(keys.len());
+        for key in keys {
+            results.push(self.get(key)?);
+        }
+        Ok(results)
     }
 }

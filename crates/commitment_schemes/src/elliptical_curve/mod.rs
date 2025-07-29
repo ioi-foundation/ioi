@@ -2,12 +2,9 @@
 // File: crates/commitment_schemes/src/elliptical_curve/mod.rs
 //! Elliptical curve commitment implementation
 
-use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
-use curve25519_dalek::scalar::Scalar;
-use curve25519_dalek::traits::Identity;
+use depin_sdk_crypto::algorithms::hash;
+use dcrypt::algorithms::ec::k256::{self as k256, Point, Scalar};
 use rand::{rngs::OsRng, RngCore};
-use sha2::{Digest, Sha512};
-use std::fmt::Debug;
 
 use depin_sdk_core::commitment::{
     CommitmentScheme, HomomorphicCommitmentScheme, HomomorphicOperation, ProofContext,
@@ -18,16 +15,16 @@ use depin_sdk_core::commitment::{
 #[derive(Debug, Clone)]
 pub struct EllipticalCurveCommitmentScheme {
     /// Generator points
-    generators: Vec<RistrettoPoint>,
+    generators: Vec<Point>,
 }
 
 /// Elliptical curve commitment
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EllipticalCurveCommitment(CompressedRistretto);
+pub struct EllipticalCurveCommitment([u8; k256::K256_POINT_COMPRESSED_SIZE]);
 
 impl AsRef<[u8]> for EllipticalCurveCommitment {
     fn as_ref(&self) -> &[u8] {
-        self.0.as_bytes()
+        &self.0
     }
 }
 
@@ -47,39 +44,46 @@ impl EllipticalCurveCommitmentScheme {
     pub fn new(num_generators: usize) -> Self {
         // Generate deterministic generators for reproducible tests
         let mut generators = Vec::with_capacity(num_generators);
+        let g = k256::base_point_g();
         for i in 0..num_generators {
-            // Use a SHA-512 hash to derive each generator point
-            let mut hasher = Sha512::new();
-            hasher.update(format!("generator-{}", i).as_bytes());
-            let hash = hasher.finalize();
-
-            let mut seed = [0u8; 64];
-            seed.copy_from_slice(&hash);
-
-            generators.push(RistrettoPoint::from_uniform_bytes(&seed));
+            // Use a SHA-256 hash to derive a scalar for each generator point
+            let scalar = Self::hash_to_scalar(format!("generator-{}", i).as_bytes());
+            generators.push(g.mul(&scalar).expect("Failed to create generator"));
         }
 
         Self { generators }
     }
 
     /// Generate a random blinding factor
-    fn random_blinding() -> Scalar {
+    fn random_blinding() -> k256::Scalar {
         let mut rng = OsRng;
-        let mut bytes = [0u8; 64];
-        rng.fill_bytes(&mut bytes);
-        Scalar::from_bytes_mod_order_wide(&bytes)
+        loop {
+            let mut bytes = [0u8; 32];
+            rng.fill_bytes(&mut bytes);
+            if let Ok(scalar) = Scalar::new(bytes) {
+                return scalar;
+            }
+        }
     }
 
     /// Convert value to scalar
-    fn value_to_scalar(value: &impl AsRef<[u8]>) -> Scalar {
-        let mut hasher = Sha512::new();
-        hasher.update(value.as_ref());
-        let hash = hasher.finalize();
+    fn value_to_scalar(value: &impl AsRef<[u8]>) -> k256::Scalar {
+        Self::hash_to_scalar(value.as_ref())
+    }
 
-        let mut scalar_bytes = [0u8; 64];
-        scalar_bytes.copy_from_slice(&hash);
-
-        Scalar::from_bytes_mod_order_wide(&scalar_bytes)
+    /// Helper to convert a hash to a valid scalar, retrying if needed.
+    fn hash_to_scalar(data: &[u8]) -> k256::Scalar {
+        let mut hash_bytes = hash::sha256(data);
+        loop {
+            // Create a fixed-size array from the vector's slice to avoid moving hash_bytes.
+            let mut array = [0u8; 32];
+            array.copy_from_slice(&hash_bytes);
+            if let Ok(scalar) = Scalar::new(array) {
+                return scalar;
+            }
+            // Re-hash if the hash corresponds to an invalid scalar (e.g., zero)
+            hash_bytes = hash::sha256(&hash_bytes);
+        }
     }
 }
 
@@ -90,7 +94,7 @@ impl CommitmentScheme for EllipticalCurveCommitmentScheme {
 
     fn commit(&self, values: &[Option<Self::Value>]) -> Self::Commitment {
         // Start with identity point
-        let mut commitment_point = RistrettoPoint::identity();
+        let mut commitment_point = Point::identity();
 
         // Use generators for each value
         for (i, value_opt) in values.iter().enumerate() {
@@ -102,19 +106,21 @@ impl CommitmentScheme for EllipticalCurveCommitmentScheme {
                 // Convert value to scalar
                 let scalar = Self::value_to_scalar(value);
 
-                // Add generator_i * value_scalar to commitment
-                commitment_point += self.generators[i] * scalar;
+                // Add generator_i * value_scalar to the commitment point
+                let term = self.generators[i].mul(&scalar).expect("Scalar mul failed");
+                commitment_point = commitment_point.add(&term);
             }
         }
 
         // Add a random blinding factor with the last generator if we have one
         if !self.generators.is_empty() {
             let blinding = Self::random_blinding();
-            commitment_point += self.generators[self.generators.len() - 1] * blinding;
+            let blinding_term = self.generators[self.generators.len() - 1].mul(&blinding).expect("Blinding failed");
+            commitment_point = commitment_point.add(&blinding_term);
         }
 
-        // Return the compressed point
-        EllipticalCurveCommitment(commitment_point.compress())
+        // Return the compressed point representation
+        EllipticalCurveCommitment(commitment_point.serialize_compressed())
     }
 
     fn create_proof(
@@ -205,17 +211,18 @@ impl CommitmentScheme for EllipticalCurveCommitmentScheme {
         // Convert value to scalar
         let value_scalar = Self::value_to_scalar(value);
 
-        // Create a commitment to this single value with the provided blinding
-        let blinding_generator = self.generators[self.generators.len() - 1];
-        let computed_point =
-            (self.generators[position] * value_scalar) + (blinding_generator * proof.blinding);
+        // Recreate the point for the value and blinding factor
+        let blinding_generator = &self.generators[self.generators.len() - 1];
+        let value_term = self.generators[position].mul(&value_scalar).expect("Scalar mul failed");
+        let blinding_term = blinding_generator.mul(&proof.blinding).expect("Blinding failed");
+        let computed_point = value_term.add(&blinding_term);
 
         // Check if the computed commitment matches the provided one
-        let computed_commitment = EllipticalCurveCommitment(computed_point.compress());
+        let computed_commitment = EllipticalCurveCommitment(computed_point.serialize_compressed());
 
         // This is a simplified check - a real implementation would be more complex
         // for multiple values
-        commitment.0 == computed_commitment.0
+        commitment.as_ref() == computed_commitment.as_ref()
     }
 
     fn scheme_id() -> SchemeIdentifier {
@@ -226,17 +233,13 @@ impl CommitmentScheme for EllipticalCurveCommitmentScheme {
 impl HomomorphicCommitmentScheme for EllipticalCurveCommitmentScheme {
     fn add(&self, a: &Self::Commitment, b: &Self::Commitment) -> Result<Self::Commitment, String> {
         // Decompress points
-        let point_a =
-            a.0.decompress()
-                .ok_or_else(|| "Invalid point in commitment A".to_string())?;
-        let point_b =
-            b.0.decompress()
-                .ok_or_else(|| "Invalid point in commitment B".to_string())?;
+        let point_a = Point::deserialize_compressed(a.as_ref()).map_err(|e| e.to_string())?;
+        let point_b = Point::deserialize_compressed(b.as_ref()).map_err(|e| e.to_string())?;
 
         // Homomorphic addition is point addition
-        let result_point = point_a + point_b;
+        let result_point = point_a.add(&point_b);
 
-        Ok(EllipticalCurveCommitment(result_point.compress()))
+        Ok(EllipticalCurveCommitment(result_point.serialize_compressed()))
     }
 
     fn scalar_multiply(
@@ -249,17 +252,17 @@ impl HomomorphicCommitmentScheme for EllipticalCurveCommitmentScheme {
         }
 
         // Decompress point
-        let point =
-            a.0.decompress()
-                .ok_or_else(|| "Invalid point in commitment".to_string())?;
+        let point = Point::deserialize_compressed(a.as_ref()).map_err(|e| e.to_string())?;
 
-        // Convert i32 to Scalar
-        let s = Scalar::from(scalar as u64);
+        // Convert i32 to Scalar. This is a simplified conversion for small, positive integers.
+        let mut scalar_bytes = [0u8; 32];
+        scalar_bytes[..8].copy_from_slice(&(scalar as u64).to_le_bytes());
+        let s = Scalar::new(scalar_bytes).map_err(|e| e.to_string())?;
 
         // Scalar multiplication
-        let result_point = point * s;
+        let result_point = point.mul(&s).map_err(|e| e.to_string())?;
 
-        Ok(EllipticalCurveCommitment(result_point.compress()))
+        Ok(EllipticalCurveCommitment(result_point.serialize_compressed()))
     }
 
     fn supports_operation(&self, operation: HomomorphicOperation) -> bool {
@@ -273,30 +276,24 @@ impl HomomorphicCommitmentScheme for EllipticalCurveCommitmentScheme {
 // Add utility methods for EllipticalCurveCommitment
 impl EllipticalCurveCommitment {
     /// Create a new EllipticalCurveCommitment from a compressed point
-    pub fn new(point: CompressedRistretto) -> Self {
+    pub fn new(point: [u8; k256::K256_POINT_COMPRESSED_SIZE]) -> Self {
         Self(point)
     }
 
     /// Get the compressed point
-    pub fn point(&self) -> &CompressedRistretto {
+    pub fn point(&self) -> &[u8; k256::K256_POINT_COMPRESSED_SIZE] {
         &self.0
     }
 
     /// Convert to a byte representation
     pub fn to_bytes(&self) -> Vec<u8> {
-        self.0.as_bytes().to_vec()
+        self.0.to_vec()
     }
 
     /// Create from bytes
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
-        if bytes.len() != 32 {
-            return Err("Invalid point length".to_string());
-        }
-
-        let mut array = [0u8; 32];
-        array.copy_from_slice(bytes);
-
-        Ok(Self(CompressedRistretto(array)))
+        let array: [u8; k256::K256_POINT_COMPRESSED_SIZE] = bytes.try_into().map_err(|_| "Invalid point length".to_string())?;
+        Ok(Self(array))
     }
 }
 
@@ -331,7 +328,7 @@ impl EllipticalCurveProof {
         let mut result = Vec::with_capacity(32 + 8 + self.value.len() + 4);
 
         // Serialize blinding factor (32 bytes)
-        result.extend_from_slice(self.blinding.as_bytes());
+        result.extend_from_slice(self.blinding.serialize().as_ref());
 
         // Serialize position (8 bytes)
         result.extend_from_slice(&self.position.to_le_bytes());
@@ -355,12 +352,7 @@ impl EllipticalCurveProof {
         // Read blinding
         let mut blinding_bytes = [0u8; 32];
         blinding_bytes.copy_from_slice(&bytes[pos..pos + 32]);
-        let maybe_blinding = Scalar::from_canonical_bytes(blinding_bytes);
-        let blinding = if maybe_blinding.is_some().into() {
-            maybe_blinding.unwrap()
-        } else {
-            return Err("Invalid blinding factor".to_string());
-        };
+        let blinding = Scalar::new(blinding_bytes).map_err(|e| e.to_string())?;
         pos += 32;
 
         // Read position

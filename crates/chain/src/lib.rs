@@ -1,15 +1,11 @@
 //! # DePIN SDK Chain
 //!
-//! Chain implementation components for the DePIN SDK.
+//! This crate provides the implementation logic for the `SovereignAppChain` state machine.
 
-pub mod app;
+mod app;
 pub mod upgrade_manager;
+pub mod traits;
 
-// Re-export for convenience
+// FIX: Corrected the path to ChainLogic, removing the non-existent 'logic' module.
+pub use app::ChainLogic;
 pub use upgrade_manager::ModuleUpgradeManager;
-
-// Re-export consensus from its crate
-pub use depin_sdk_consensus as consensus;
-
-// TODO: Add governance crate when it's implemented
-// pub use depin_sdk_governance as governance;

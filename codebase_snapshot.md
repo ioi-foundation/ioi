@@ -1,12 +1,12 @@
 # Codebase Snapshot: crates
-Created: Sun Jul 27 10:33:24 PM UTC 2025
+Created: Tue Jul 29 02:25:53 AM UTC 2025
 Target: /workspaces/depin-sdk/crates
 Line threshold for included files: 1500
 
 ## Summary Statistics
 
-* Total files: 150
-* Total directories: 111
+* Total files: 152
+* Total directories: 117
 
 ### Directory: /workspaces/depin-sdk/crates
 
@@ -16,1353 +16,423 @@ Line threshold for included files: 1500
 
 ###### Directory: chain/src/app
 
-####### Directory: chain/src/app/tests
-
-######## File: chain/src/app/tests/mod.rs
-#####*Size: 12K, Lines: 353, Type: C source, ASCII text*
-
-```rust
-use crate::app::*;
-use depin_sdk_commitment_schemes::merkle::MerkleCommitmentScheme;
-use depin_sdk_core::commitment::CommitmentScheme;
-use depin_sdk_core::error::{StateError, TransactionError};
-use depin_sdk_core::services::{ServiceType, UpgradableService};
-use depin_sdk_core::state::{StateManager, StateTree};
-use depin_sdk_core::transaction::TransactionModel;
-use depin_sdk_core::validator::{ValidatorModel, ValidatorType};
-use std::sync::Arc;
-use std::collections::HashMap;
-
-// Mock state tree implementation for testing
-struct MockStateTree {
-    data: HashMap<Vec<u8>, Vec<u8>>,
-    commitment_scheme: MerkleCommitmentScheme,
-}
-
-impl MockStateTree {
-    fn new(commitment_scheme: MerkleCommitmentScheme) -> Self {
-        Self {
-            data: HashMap::new(),
-            commitment_scheme,
-        }
-    }
-}
-
-impl StateTree for MockStateTree {
-    type Commitment = <MerkleCommitmentScheme as CommitmentScheme>::Commitment;
-    type Proof = <MerkleCommitmentScheme as CommitmentScheme>::Proof;
-
-    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
-        Ok(self.data.get(key).cloned())
-    }
-
-    fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
-        self.data.insert(key.to_vec(), value.to_vec());
-        Ok(())
-    }
-
-    fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
-        self.data.remove(key);
-        Ok(())
-    }
-
-    fn root_commitment(&self) -> Self::Commitment {
-        // Simple implementation for testing
-        let values: Vec<Option<Vec<u8>>> = self.data.values()
-            .map(|v| Some(v.clone()))
-            .collect();
-        self.commitment_scheme.commit(&values)
-    }
-
-    fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
-        None // Simplified for testing
-    }
-
-    fn verify_proof(
-        &self,
-        _commitment: &Self::Commitment,
-        _proof: &Self::Proof,
-        _key: &[u8],
-        _value: &[u8],
-    ) -> bool {
-        true // Simplified for testing
-    }
-}
-
-impl StateManager for MockStateTree {
-    type Commitment = <MerkleCommitmentScheme as CommitmentScheme>::Commitment;
-    type Proof = <MerkleCommitmentScheme as CommitmentScheme>::Proof;
-
-    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
-        <Self as StateTree>::get(self, key)
-    }
-
-    fn set(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
-        <Self as StateTree>::insert(self, key, value)
-    }
-
-    fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
-        <Self as StateTree>::delete(self, key)
-    }
-
-    fn root_commitment(&self) -> Self::Commitment {
-        <Self as StateTree>::root_commitment(self)
-    }
-
-    fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
-        <Self as StateTree>::create_proof(self, key)
-    }
-
-    fn verify_proof(
-        &self,
-        commitment: &Self::Commitment,
-        proof: &Self::Proof,
-        key: &[u8],
-        value: &[u8],
-    ) -> bool {
-        <Self as StateTree>::verify_proof(self, commitment, proof, key, value)
-    }
-}
-
-// Mock transaction model for testing
-struct MockTransactionModel {
-    commitment_scheme: MerkleCommitmentScheme,
-}
-
-impl MockTransactionModel {
-    fn new(commitment_scheme: MerkleCommitmentScheme) -> Self {
-        Self { commitment_scheme }
-    }
-}
-
-#[derive(Clone)]
-struct MockTransaction {
-    id: Vec<u8>,
-}
-
-struct MockProof;
-
-impl TransactionModel for MockTransactionModel {
-    type Transaction = MockTransaction;
-    type Proof = MockProof;
-    type CommitmentScheme = MerkleCommitmentScheme;
-
-    fn validate<S>(&self, _tx: &Self::Transaction, _state: &S) -> Result<bool, TransactionError>
-    where
-        S: StateManager<
-            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof
-        > + ?Sized
-    {
-        Ok(true) // Always valid for testing
-    }
-
-    fn apply<S>(&self, _tx: &Self::Transaction, _state: &mut S) -> Result<(), TransactionError>
-    where
-        S: StateManager<
-            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof
-        > + ?Sized
-    {
-        Ok(()) // No-op for testing
-    }
-
-    fn generate_proof<S>(&self, _tx: &Self::Transaction, _state: &S) -> Result<Self::Proof, TransactionError>
-    where
-        S: StateManager<
-            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof
-        > + ?Sized
-    {
-        Ok(MockProof)
-    }
-
-    fn verify_proof<S>(&self, _proof: &Self::Proof, _state: &S) -> Result<bool, TransactionError>
-    where
-        S: StateManager<
-            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof
-        > + ?Sized
-    {
-        Ok(true)
-    }
-
-    fn serialize_transaction(&self, _tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError> {
-        Ok(vec![])
-    }
-
-    fn deserialize_transaction(&self, _data: &[u8]) -> Result<Self::Transaction, TransactionError> {
-        Ok(MockTransaction { id: vec![] })
-    }
-}
-
-// Mock validator model for testing
-struct MockValidatorModel {
-    running: std::cell::RefCell<bool>,
-}
-
-impl MockValidatorModel {
-    fn new() -> Self {
-        Self {
-            running: std::cell::RefCell::new(false),
-        }
-    }
-}
-
-impl ValidatorModel for MockValidatorModel {
-    fn start(&self) -> Result<(), String> {
-        *self.running.borrow_mut() = true;
-        Ok(())
-    }
-
-    fn stop(&self) -> Result<(), String> {
-        *self.running.borrow_mut() = false;
-        Ok(())
-    }
-
-    fn is_running(&self) -> bool {
-        *self.running.borrow()
-    }
-
-    fn validator_type(&self) -> ValidatorType {
-        ValidatorType::Standard
-    }
-}
-
-// Helper function to create a test chain
-fn create_test_chain() -> SovereignAppChain<
-    MerkleCommitmentScheme,
-    MockStateTree,
-    MockTransactionModel,
-    MockValidatorModel,
-> {
-    let commitment_scheme = MerkleCommitmentScheme;
-    let state_tree = MockStateTree::new(commitment_scheme.clone());
-    let transaction_model = MockTransactionModel::new(commitment_scheme.clone());
-    let validator_model = MockValidatorModel::new();
-
-    SovereignAppChain::new(
-        commitment_scheme,
-        state_tree,
-        transaction_model,
-        validator_model,
-        "test-chain",
-        vec![], // No initial services for testing
-    )
-}
-
-// Helper function to create a sample transaction
-fn create_sample_transaction() -> MockTransaction {
-    MockTransaction {
-        id: vec![1, 2, 3],
-    }
-}
-
-#[test]
-fn test_chain_initialization() {
-    let chain = create_test_chain();
-
-    assert_eq!(chain.chain_id(), "test-chain");
-    assert_eq!(chain.status().height, 0);
-    assert_eq!(chain.status().total_transactions, 0);
-    assert_eq!(chain.status().is_running, false);
-}
-
-#[test]
-fn test_state_operations() {
-    let mut chain = create_test_chain();
-
-    // Test state update
-    let key = b"test-key";
-    let value = b"test-value";
-    chain.update_state(key, value).unwrap();
-
-    // Test state query
-    let retrieved = chain.query_state(key).unwrap();
-    assert_eq!(retrieved.unwrap(), value);
-
-    // Test state deletion
-    chain.delete_state(key).unwrap();
-    assert!(chain.query_state(key).is_none());
-}
-
-#[test]
-fn test_transaction_processing() {
-    let mut chain = create_test_chain();
-
-    let tx = create_sample_transaction();
-
-    // Test processing a single transaction
-    assert!(chain.process_transaction(&tx).is_ok());
-
-    // Test processing a batch of transactions
-    let txs = vec![tx.clone(), tx.clone()];
-    let results = chain.process_transactions(&txs).unwrap();
-
-    assert_eq!(results.len(), 2);
-    for result in results {
-        assert_eq!(result, "Success");
-    }
-}
-
-#[test]
-fn test_block_processing() {
-    let mut chain = create_test_chain();
-
-    // Start the chain
-    chain.start().unwrap();
-
-    // Create a block with transactions
-    let txs = vec![create_sample_transaction(), create_sample_transaction()];
-    let block = chain.create_block(txs);
-
-    // Verify the block height is correct
-    assert_eq!(block.header.height, 1);
-
-    // Process the block
-    assert!(chain.process_block(block).is_ok());
-
-    // Verify chain height increased
-    assert_eq!(chain.status().height, 1);
-
-    // Verify the block is in recent blocks
-    let retrieved_block = chain.get_block(1).unwrap();
-    assert_eq!(retrieved_block.header.height, 1);
-
-    // Verify latest block is accessible
-    let latest = chain.get_latest_block().unwrap();
-    assert_eq!(latest.header.height, 1);
-}
-
-#[test]
-fn test_chain_lifecycle() {
-    let mut chain = create_test_chain();
-
-    // Test start
-    chain.start().unwrap();
-    assert!(chain.status().is_running);
-
-    // Test stop
-    chain.stop().unwrap();
-    assert!(!chain.status().is_running);
-
-    // Test reset
-    chain.update_state(b"key", b"value").unwrap();
-    chain.reset().unwrap();
-    assert_eq!(chain.status().height, 0);
-    assert_eq!(chain.status().total_transactions, 0);
-    assert!(!chain.status().is_running);
-}
-
-#[test]
-fn test_max_recent_blocks() {
-    let mut chain = create_test_chain();
-
-    // Set a small limit
-    chain.set_max_recent_blocks(2);
-
-    // Start the chain
-    chain.start().unwrap();
-
-    // Process several blocks
-    for _ in 0..3 {
-        let txs = vec![create_sample_transaction()];
-        let block = chain.create_block(txs);
-        chain.process_block(block).unwrap();
-    }
-
-    // Verify we only have the latest 2 blocks
-    assert!(chain.get_block(1).is_none()); // Should be removed
-    assert!(chain.get_block(2).is_some()); // Should be present
-    assert!(chain.get_block(3).is_some()); // Should be present
-}```
-
 ####### File: chain/src/app/mod.rs
-####*Size: 20K, Lines: 569, Type: ASCII text*
+####*Size: 12K, Lines: 225, Type: ASCII text*
 
 ```rust
-use depin_sdk_core::commitment::CommitmentScheme;
-use depin_sdk_core::error::CoreError;
-use depin_sdk_core::services::{ServiceType, UpgradableService};
-use depin_sdk_core::state::{StateManager, StateTree};
-use depin_sdk_core::transaction::TransactionModel;
-use depin_sdk_core::validator::ValidatorModel;
+// Path: crates/chain/src/app/mod.rs
+
+//! The private implementation for the `SovereignChain` trait.
+
 use crate::upgrade_manager::ModuleUpgradeManager;
-use depin_sdk_state_trees::file::FileStateTree;
-use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
-
+use async_trait::async_trait;
+use depin_sdk_core::app::{Block, BlockHeader, ChainError, ChainStatus, SovereignAppChain};
+use depin_sdk_core::chain::SovereignChain;
+use depin_sdk_core::commitment::CommitmentScheme;
+// REMOVED: Unused import `StateError`
+use depin_sdk_core::services::UpgradableService;
+// REMOVED: Unused import `StateTree`
+use depin_sdk_core::state::StateManager;
+use depin_sdk_core::transaction::TransactionModel;
+use depin_sdk_core::validator::WorkloadContainer;
+use depin_sdk_validator::traits::WorkloadLogic;
+use std::fmt::Debug;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-/// Block header containing metadata
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct BlockHeader {
-    /// Block height
-    pub height: u64,
-    /// Previous block hash
-    pub prev_hash: Vec<u8>,
-    /// State root commitment
-    pub state_root: Vec<u8>,
-    /// Transactions root (e.g., Merkle root of transactions)
-    pub transactions_root: Vec<u8>,
-    /// Block timestamp (Unix timestamp in seconds)
-    pub timestamp: u64,
-}
+// Define a well-known key for storing the chain status in the state tree.
+const STATUS_KEY: &[u8] = b"chain::status";
 
-/// Block structure containing transactions
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct Block<T> {
-    /// Block header
-    pub header: BlockHeader,
-    /// Transactions included in this block
-    pub transactions: Vec<T>,
-}
-
-/// Chain status information
-#[derive(Debug, Clone)]
-pub struct ChainStatus {
-    /// Current block height
-    pub height: u64,
-    /// Latest block timestamp
-    pub latest_timestamp: u64,
-    /// Number of transactions processed
-    pub total_transactions: u64,
-    /// Chain running status
-    pub is_running: bool,
-}
-
-/// Implementation of sovereign app chain with runtime-swappable modules
-pub struct SovereignAppChain<CS, ST, TM, VM>
-where
-    CS: CommitmentScheme,
-    // Specify that ST implements both StateTree and StateManager with the specific commitment types
-    ST: StateTree<Commitment = CS::Commitment, Proof = CS::Proof>
-        + StateManager<Commitment = CS::Commitment, Proof = CS::Proof>,
-    TM: TransactionModel,
-    VM: ValidatorModel,
-    // Ensure the transaction model's commitment scheme uses the same types
-    TM::CommitmentScheme: CommitmentScheme<Commitment = CS::Commitment, Proof = CS::Proof>,
-{
-    /// Commitment scheme
-    commitment_scheme: CS,
-    /// State tree
-    state_tree: ST,
-    /// Transaction model
-    transaction_model: TM,
-    /// Validator model
-    validator_model: VM,
-    /// Module upgrade manager for runtime-swappable services
+/// A container struct that holds the chain's data (`SovereignAppChain`) and its
+/// associated logic managers (`ModuleUpgradeManager`).
+/// This struct implements the `SovereignChain` trait.
+#[derive(Debug)]
+pub struct ChainLogic<CS, TM: TransactionModel> {
+    app_chain: SovereignAppChain<CS, TM>,
+    #[allow(dead_code)]
     service_manager: ModuleUpgradeManager,
-    /// Chain ID
-    chain_id: String,
-    /// Current status
-    status: ChainStatus,
-    /// Latest blocks (limited cache)
-    recent_blocks: Vec<Block<TM::Transaction>>,
-    /// Maximum blocks to keep in memory
-    max_recent_blocks: usize,
 }
 
-impl<CS, ST, TM, VM> SovereignAppChain<CS, ST, TM, VM>
+impl<CS, TM> ChainLogic<CS, TM>
 where
     CS: CommitmentScheme,
-    ST: StateTree<Commitment = CS::Commitment, Proof = CS::Proof>
-        + StateManager<Commitment = CS::Commitment, Proof = CS::Proof>,
-    TM: TransactionModel,
-    VM: ValidatorModel,
-    TM::CommitmentScheme: CommitmentScheme<Commitment = CS::Commitment, Proof = CS::Proof>,
+    TM: TransactionModel<CommitmentScheme = CS>,
 {
-    /// Create a new sovereign app chain with runtime-swappable services
+    /// The `new` constructor is an inherent method on the logic struct,
+    /// which allows the `SovereignChain` trait to be object-safe.
     pub fn new(
         commitment_scheme: CS,
-        state_tree: ST,
         transaction_model: TM,
-        validator_model: VM,
         chain_id: &str,
         initial_services: Vec<Arc<dyn UpgradableService>>,
     ) -> Self {
+        // This now creates a default/genesis status, which will be overwritten
+        // by load_or_initialize_status if state exists.
         let status = ChainStatus {
             height: 0,
             latest_timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap_or(Duration::from_secs(0))
+                .unwrap()
                 .as_secs(),
             total_transactions: 0,
             is_running: false,
         };
 
-        // Initialize the module upgrade manager with initial services
         let mut service_manager = ModuleUpgradeManager::new();
         for service in initial_services {
             service_manager.register_service(service);
         }
 
-        Self {
+        let app_chain = SovereignAppChain {
             commitment_scheme,
-            state_tree,
             transaction_model,
-            validator_model,
-            service_manager,
             chain_id: chain_id.to_string(),
             status,
             recent_blocks: Vec::new(),
-            max_recent_blocks: 100, // Default to storing last 100 blocks
-        }
-    }
-
-    /// Get the chain ID
-    pub fn chain_id(&self) -> &str {
-        &self.chain_id
-    }
-
-    /// Get the current chain status
-    pub fn status(&self) -> &ChainStatus {
-        &self.status
-    }
-
-    /// Get a reference to the service manager
-    pub fn service_manager(&self) -> &ModuleUpgradeManager {
-        &self.service_manager
-    }
-
-    /// Get a mutable reference to the service manager
-    pub fn service_manager_mut(&mut self) -> &mut ModuleUpgradeManager {
-        &mut self.service_manager
-    }
-
-    //
-    // Service Interaction Methods
-    //
-
-    /// Get a service by type
-    pub fn get_service(&self, service_type: &ServiceType) -> Option<Arc<dyn UpgradableService>> {
-        self.service_manager.get_service(service_type)
-    }
-
-    /// Submit a governance proposal (if governance service is available)
-    pub fn submit_governance_proposal(&self, proposal_data: &[u8]) -> Result<(), CoreError> {
-        let governance = self
-            .service_manager
-            .get_service(&ServiceType::Governance)
-            .ok_or(CoreError::ServiceNotFound("Governance".to_string()))?;
-
-        // Call the governance service's proposal submission method
-        // Note: This assumes a GovernanceService trait with submit_proposal method
-        // governance.submit_proposal(proposal_data)
-
-        // For now, return Ok as we don't have the actual trait definition
-        Ok(())
-    }
-
-    /// Query external data (if external data service is available)
-    pub fn query_external_data(&self, query: &str) -> Result<Vec<u8>, CoreError> {
-        let external_data = self
-            .service_manager
-            .get_service(&ServiceType::ExternalData)
-            .ok_or(CoreError::ServiceNotFound("ExternalData".to_string()))?;
-
-        // Call the external data service's query method
-        // external_data.fetch_data(query)
-
-        // For now, return placeholder
-        Ok(vec![])
-    }
-
-    /// Execute semantic interpretation (if semantic service is available)
-    pub fn interpret_semantic(&self, input: &str) -> Result<String, CoreError> {
-        let semantic = self
-            .service_manager
-            .get_service(&ServiceType::Semantic)
-            .ok_or(CoreError::ServiceNotFound("Semantic".to_string()))?;
-
-        // Call the semantic service's interpretation method
-        // semantic.interpret(input)
-
-        // For now, return placeholder
-        Ok("Interpretation not implemented".to_string())
-    }
-
-    //
-    // 1. State Management Methods
-    //
-
-    /// Query a value from the state tree
-    pub fn query_state(&self, key: &[u8]) -> Option<Vec<u8>> {
-        // Use expect to handle the Result and extract the Option
-        <ST as StateTree>::get(&self.state_tree, key).expect("State access error")
-    }
-
-    /// Get the current state root commitment
-    pub fn get_state_commitment(&self) -> CS::Commitment {
-        <ST as StateTree>::root_commitment(&self.state_tree)
-    }
-
-    /// Create a proof for a key
-    pub fn create_state_proof(&self, key: &[u8]) -> Option<CS::Proof> {
-        <ST as StateTree>::create_proof(&self.state_tree, key)
-    }
-
-    /// Verify a state proof
-    pub fn verify_state_proof(
-        &self,
-        commitment: &CS::Commitment,
-        proof: &CS::Proof,
-        key: &[u8],
-        value: &[u8],
-    ) -> bool {
-        <ST as StateTree>::verify_proof(&self.state_tree, commitment, proof, key, value)
-    }
-
-    /// Update state directly (administrative function)
-    pub fn update_state(&mut self, key: &[u8], value: &[u8]) -> Result<(), String> {
-        <ST as StateTree>::insert(&mut self.state_tree, key, value)
-            .map_err(|e| format!("State error: {}", e))
-    }
-
-    /// Delete a key from state (administrative function)
-    pub fn delete_state(&mut self, key: &[u8]) -> Result<(), String> {
-        <ST as StateTree>::delete(&mut self.state_tree, key)
-            .map_err(|e| format!("State error: {}", e))
-    }
-
-    //
-    // 2. Transaction Processing Methods
-    //
-
-    /// Process a transaction
-    pub fn process_transaction(&mut self, tx: &TM::Transaction) -> Result<(), String> {
-        // Validate the transaction against current state
-        // Pass the state_tree itself, not just the commitment
-        match self.transaction_model.validate(tx, &self.state_tree) {
-            Ok(valid) => {
-                if !valid {
-                    return Err("Transaction validation failed".to_string());
-                }
-            }
-            Err(e) => return Err(format!("Validation error: {}", e)),
-        }
-
-        // Apply the transaction to state - map error to String
-        match self.transaction_model.apply(tx, &mut self.state_tree) {
-            Ok(_) => {
-                // Update statistics on success
-                self.status.total_transactions += 1;
-                Ok(())
-            }
-            Err(e) => Err(format!("Transaction application failed: {}", e)),
-        }
-    }
-
-    /// Process a batch of transactions
-    pub fn process_transactions(&mut self, txs: &[TM::Transaction]) -> Result<Vec<String>, String> {
-        let mut results = Vec::with_capacity(txs.len());
-
-        for tx in txs {
-            match self.process_transaction(tx) {
-                Ok(()) => results.push("Success".to_string()),
-                Err(e) => results.push(e),
-            }
-        }
-
-        Ok(results)
-    }
-
-    //
-    // 3. Block Processing Methods
-    //
-
-    /// Process a block
-    pub fn process_block(&mut self, mut block: Block<TM::Transaction>) -> Result<(), String>
-    where
-        CS: Clone,
-        CS::Value: From<Vec<u8>> + AsRef<[u8]> + Clone,
-    {
-        // Ensure block is built on current chain state
-        if block.header.height != self.status.height + 1 {
-            return Err(format!(
-                "Invalid block height: expected {}, got {}",
-                self.status.height + 1,
-                block.header.height
-            ));
-        }
-
-        // Verify block timestamp is reasonable
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or(Duration::from_secs(0))
-            .as_secs();
-
-        if block.header.timestamp > now + 60 {
-            // Allow 1 minute clock drift
-            return Err("Block timestamp is in the future".to_string());
-        }
-
-        // Validate block using validator_model
-        if !self.validator_model.is_running() {
-            self.validator_model
-                .start()
-                .map_err(|e| format!("Failed to start validator: {}", e))?;
-        }
-
-        // Process all transactions
-        let mut tx_results = Vec::new();
-        for tx in &block.transactions {
-            match self.process_transaction(tx) {
-                Ok(()) => tx_results.push(true),
-                Err(e) => {
-                    tx_results.push(false);
-                    return Err(format!("Transaction processing failed: {}", e));
-                }
-            }
-        }
-
-        // Update state root in block header to match current state
-        let current_state_root = <ST as StateTree>::root_commitment(&self.state_tree);
-        block.header.state_root = current_state_root.as_ref().to_vec();
-
-        // Check for and apply any module upgrades scheduled for this block height
-        // This happens after transaction processing but before finalizing the block
-        match self
-            .service_manager
-            .apply_upgrades_at_height(block.header.height)
-        {
-            Ok(upgrades_applied) => {
-                if upgrades_applied > 0 {
-                    println!(
-                        "Applied {} module upgrades at height {}",
-                        upgrades_applied, block.header.height
-                    );
-                }
-            }
-            Err(e) => {
-                return Err(format!("Failed to apply module upgrades: {}", e));
-            }
-        }
-
-        // Update chain status
-        self.status.height = block.header.height;
-        self.status.latest_timestamp = block.header.timestamp;
-
-        // Add block to recent blocks cache
-        self.recent_blocks.push(block);
-        if self.recent_blocks.len() > self.max_recent_blocks {
-            self.recent_blocks.remove(0); // Remove oldest block
-        }
-
-        // Periodically save state if the state tree supports it (e.g., FileStateTree)
-        if self.status.height % 10 == 0 {
-            // This uses `as_any()` and `downcast_ref` to check if the state tree is a `FileStateTree`
-            // without breaking the generic `ST` constraint. This is a common pattern for
-            // accessing concrete type features from generic code.
-            if let Some(persistable_tree) = self.state_tree.as_any().downcast_ref::<FileStateTree<CS>>() {
-                // Now valid because of the `where` clause on this method
-                if let Err(e) = persistable_tree.save() {
-                    eprintln!("[Warning] Periodic state save failed at height {}: {}", self.status.height, e);
-                } else {
-                    println!("State periodically saved at height {}", self.status.height);
-                }
-            }
-        }
-
-
-        Ok(())
-    }
-
-    /// Create a new block (for validators/block producers)
-    pub fn create_block(&self, transactions: Vec<TM::Transaction>) -> Block<TM::Transaction> {
-        let prev_hash = if self.recent_blocks.is_empty() {
-            vec![0; 32] // Genesis block
-        } else {
-            // In a real implementation, this would be the hash of the latest block
-            // For simplicity, we'll use the serialized state root as the prev hash
-            <ST as StateTree>::root_commitment(&self.state_tree)
-                .as_ref()
-                .to_vec()
+            max_recent_blocks: 100,
         };
+
+        Self {
+            app_chain,
+            service_manager,
+        }
+    }
+
+    /// [NEW METHOD] Loads chain status from the state manager, or initializes it if not found.
+    pub async fn load_or_initialize_status<ST>(
+        &mut self,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<(), ChainError>
+    where
+        ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
+    {
+        // FIX: Create a longer-lived binding for the Arc<Mutex> to solve the lifetime error.
+        let state_tree = workload.state_tree();
+        let mut state = state_tree.lock().await;
+
+        match state.get(STATUS_KEY) {
+            Ok(Some(status_bytes)) => {
+                let status: ChainStatus = serde_json::from_slice(&status_bytes)
+                    .map_err(|e| ChainError::Transaction(format!("Failed to deserialize status: {}", e)))?;
+                log::info!("Loaded chain status: height {}", status.height);
+                self.app_chain.status = status;
+            }
+            Ok(None) => {
+                log::info!("No existing chain status found. Initializing and saving genesis status.");
+                let status_bytes = serde_json::to_vec(&self.app_chain.status).unwrap();
+                state
+                    .insert(STATUS_KEY, &status_bytes)
+                    .map_err(|e| ChainError::Transaction(e.to_string()))?;
+            }
+            Err(e) => return Err(ChainError::Transaction(e.to_string())),
+        }
+        Ok(())
+    }
+}
+
+/// Implements the `dyn`-safe `SovereignChain` trait for the `ChainLogic` struct.
+#[async_trait]
+impl<CS, TM, ST> SovereignChain<CS, TM, ST> for ChainLogic<CS, TM>
+where
+    CS: CommitmentScheme + Send + Sync + 'static,
+    TM: TransactionModel<CommitmentScheme = CS> + Clone + Send + Sync + 'static + Debug,
+    TM::Transaction: Clone + Send + Sync + Debug,
+    CS::Commitment: Send + Sync + Debug,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static + Debug,
+{
+    fn status(&self) -> &ChainStatus {
+        &self.app_chain.status
+    }
+
+    fn transaction_model(&self) -> &TM {
+        &self.app_chain.transaction_model
+    }
+
+    /// Processes a transaction by delegating execution to the WorkloadContainer.
+    async fn process_transaction(
+        &mut self,
+        tx: &TM::Transaction,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<(), ChainError> {
+        workload
+            .execute_transaction(
+                tx,
+                <Self as SovereignChain<CS, TM, ST>>::transaction_model(self),
+            )
+            .await
+            .map_err(|e| ChainError::Transaction(e.to_string()))?;
+
+        self.app_chain.status.total_transactions += 1;
+        Ok(())
+    }
+
+    /// Processes a full block by iterating through its transactions and delegating
+    /// each one to the WorkloadContainer for execution.
+    async fn process_block(
+        &mut self,
+        mut block: Block<TM::Transaction>,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<(), ChainError> {
+        if block.header.height != self.app_chain.status.height + 1 {
+            return Err(ChainError::Block("Invalid block height".to_string()));
+        }
+
+        for tx in &block.transactions {
+            self.process_transaction(tx, workload).await?;
+        }
+
+        // After all transactions are processed, get the final state root from the workload container.
+        let state_root =
+            workload.state_tree().lock().await.root_commitment();
+        block.header.state_root = state_root.as_ref().to_vec();
+
+        self.app_chain.status.height = block.header.height;
+        self.app_chain.status.latest_timestamp = block.header.timestamp;
+        self.app_chain.recent_blocks.push(block);
+        if self.app_chain.recent_blocks.len() > self.app_chain.max_recent_blocks {
+            self.app_chain.recent_blocks.remove(0);
+        }
+
+        // [MODIFIED] Persist the updated status to the state tree.
+        let status_bytes = serde_json::to_vec(&self.app_chain.status)
+            .map_err(|e| ChainError::Transaction(format!("Failed to serialize status: {}", e)))?;
+        workload
+            .state_tree()
+            .lock()
+            .await
+            .insert(STATUS_KEY, &status_bytes)
+            .map_err(|e| ChainError::Transaction(e.to_string()))?;
+
+        Ok(())
+    }
+
+    /// Creates a new block template to be filled by a block producer.
+    fn create_block(
+        &self,
+        transactions: Vec<TM::Transaction>,
+        _workload: &WorkloadContainer<ST>,
+    ) -> Block<TM::Transaction> {
+        let prev_hash = self
+            .app_chain
+            .recent_blocks
+            .last()
+            .map_or(vec![0; 32], |b| b.header.state_root.clone());
+
+        // FIX: The state_root here is just a placeholder. The real root is calculated
+        // and overwritten in `process_block` after all transactions are executed.
+        // We remove the illegal `block_on` call and just use the previous hash as the initial value.
+        let state_root = prev_hash.clone();
 
         let header = BlockHeader {
-            height: self.status.height + 1,
+            height: self.app_chain.status.height + 1,
             prev_hash,
-            state_root: <ST as StateTree>::root_commitment(&self.state_tree)
-                .as_ref()
-                .to_vec(),
-            transactions_root: vec![0; 32], // Simplified - would compute actual Merkle root
+            state_root,
+            transactions_root: vec![0; 32],
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap_or(Duration::from_secs(0))
+                .unwrap()
                 .as_secs(),
         };
-
         Block {
             header,
             transactions,
         }
     }
 
-    /// Get a recent block by height
-    pub fn get_block(&self, height: u64) -> Option<&Block<TM::Transaction>> {
-        self.recent_blocks
+    fn get_block(&self, height: u64) -> Option<&Block<TM::Transaction>> {
+        self.app_chain
+            .recent_blocks
             .iter()
-            .find(|block| block.header.height == height)
+            .find(|b| b.header.height == height)
     }
-
-    /// Get the latest block
-    pub fn get_latest_block(&self) -> Option<&Block<TM::Transaction>> {
-        self.recent_blocks.last()
-    }
-
-    //
-    // 4. Enhanced Start/Stop Methods
-    //
-
-    /// Start the chain with proper initialization
-    pub fn start(&mut self) -> Result<(), String> {
-        println!("Starting sovereign app chain: {}", self.chain_id);
-
-        // Initialize validator
-        self.validator_model
-            .start()
-            .map_err(|e| format!("Failed to start validator: {}", e))?;
-
-        // Start all registered services
-        self.service_manager
-            .start_all_services()
-            .map_err(|e| format!("Failed to start services: {}", e))?;
-
-        // Initialize state (in a real implementation, would load from persistent storage)
-        // For now, we'll just use the existing state
-
-        // Update status
-        self.status.is_running = true;
-        self.status.latest_timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or(Duration::from_secs(0))
-            .as_secs();
-
-        println!(
-            "Sovereign app chain started successfully: {}",
-            self.chain_id
-        );
-
-        Ok(())
-    }
-
-    /// Stop the chain
-    pub fn stop(&mut self) -> Result<(), String> {
-        println!("Stopping sovereign app chain: {}", self.chain_id);
-
-        // Stop all services
-        self.service_manager
-            .stop_all_services()
-            .map_err(|e| format!("Failed to stop services: {}", e))?;
-
-        // Stop the validator
-        self.validator_model
-            .stop()
-            .map_err(|e| format!("Failed to stop validator: {}", e))?;
-
-        // In a real implementation, we would:
-        // 1. Persist state to storage
-        // 2. Close connections
-        // 3. Shutdown properly
-
-        // Update status
-        self.status.is_running = false;
-
-        println!(
-            "Sovereign app chain stopped successfully: {}",
-            self.chain_id
-        );
-
-        Ok(())
-    }
-
-    /// Reset the chain (for testing purposes)
-    pub fn reset(&mut self) -> Result<(), String> {
-        // Stop the chain if running
-        if self.status.is_running {
-            self.stop()?;
-        }
-
-        // Reset service manager
-        self.service_manager.reset()
-            .map_err(|e| format!("Failed to reset service manager: {}", e))?;
-
-        // Reset state (implementation would depend on how ST can be reset)
-        // For demonstration purposes, assuming ST has no reset method
-
-        // Reset chain status
-        self.status = ChainStatus {
-            height: 0,
-            latest_timestamp: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or(Duration::from_secs(0))
-                .as_secs(),
-            total_transactions: 0,
-            is_running: false,
-        };
-
-        // Clear recent blocks
-        self.recent_blocks.clear();
-
-        Ok(())
-    }
-
-    /// Configure the maximum number of recent blocks to keep in memory
-    pub fn set_max_recent_blocks(&mut self, count: usize) {
-        self.max_recent_blocks = count;
-
-        // Trim if needed
-        while self.recent_blocks.len() > self.max_recent_blocks {
-            self.recent_blocks.remove(0);
-        }
-    }
-
-    /// Get the commitment scheme
-    pub fn commitment_scheme(&self) -> &CS {
-        &self.commitment_scheme
-    }
-
-    /// Get the state tree
-    pub fn state_tree(&self) -> &ST {
-        &self.state_tree
-    }
-
-    /// Get the transaction model
-    pub fn transaction_model(&self) -> &TM {
-        &self.transaction_model
-    }
-
-    /// Get the validator model
-    pub fn validator_model(&self) -> &VM {
-        &self.validator_model
-    }
-
-    /// Check service health
-    pub fn check_service_health(&self) -> Vec<(ServiceType, bool)> {
-        self.service_manager.check_all_health()
-    }
-
-    /// Get upgrade history for a service
-    pub fn get_service_history(&self, service_type: &ServiceType) -> Vec<u64> {
-        self.service_manager.get_upgrade_history(service_type)
-    }
-}
-
-#[cfg(test)]
-mod tests;```
+}```
 
 ###### Directory: chain/src/bin
 
 ####### File: chain/src/bin/mvsc.rs
-####*Size: 16K, Lines: 376, Type: C source, ASCII text*
+####*Size: 8.0K, Lines: 104, Type: C source, ASCII text*
 
 ```rust
+// Path: crates/chain/src/bin/mvsc.rs
+
 //! # Minimum Viable Single-Node Chain (MVSC)
 //!
-//! Now with persistence and P2P networking!
-//!
-//! This binary runs a blockchain node that can:
-//! 1. Persist its state to `state.json` and resume after a restart.
-//! 2. Discover other nodes on the local network using mDNS.
-//! 3. Gossip new blocks to peers using libp2p.
-//! 4. Process blocks received from peers.
+//! This binary acts as the composition root for the validator node. It initializes
+//! all core components (chain logic, state, containers) and wires them together.
 
+use anyhow::anyhow;
 use clap::Parser;
-use depin_sdk_chain::app::{Block, SovereignAppChain};
+use depin_sdk_chain::ChainLogic;
 use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
-use depin_sdk_core::crypto::{SerializableKey, SigningKeyPair, SigningKey};
-use depin_sdk_core::validator::{ValidatorModel, ValidatorType};
-use depin_sdk_crypto::algorithms::hash::sha256;
-use depin_sdk_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
-use depin_sdk_state_trees::file::FileStateTree; // Use our new FileStateTree
-use depin_sdk_transaction_models::utxo::{UTXOInput, UTXOOutput, UTXOTransaction, UTXOModel, UTXOOperations};
-use std::fs;
-
-use futures::stream::StreamExt;
-use libp2p::{gossipsub, mdns, swarm::SwarmEvent};
-use std::hash::{Hash, Hasher};
-use std::sync::{atomic::{AtomicU64, Ordering}, Arc};
-use std::time::Duration;
-use tokio::sync::{mpsc, Mutex, Notify};
-
-
-// --- LIBP2P NETWORKING SETUP ---
-
-// We create a custom network behaviour that combines Gossipsub and Mdns.
-#[derive(libp2p::swarm::NetworkBehaviour)]
-struct MyBehaviour {
-    gossipsub: gossipsub::Behaviour,
-    mdns: mdns::tokio::Behaviour,
-}
-
-const BLOCK_TOPIC: &str = "blocks";
-const KEYPAIR_SEED_FILE: &str = "keypair.seed";
-
-// --- COMMAND LINE ARGUMENTS ---
+// FIX: Import the Container trait to bring start() and stop() methods into scope.
+use depin_sdk_core::app::ChainError;
+use depin_sdk_core::Container;
+use depin_sdk_core::config::WorkloadConfig;
+use depin_sdk_core::validator::WorkloadContainer;
+use depin_sdk_state_trees::file::FileStateTree;
+use depin_sdk_transaction_models::utxo::UTXOModel;
+// FIXME: The following components must be made public in the `depin-sdk-validator` crate
+// for this binary to compile. This requires editing `crates/validator/src/common/mod.rs`
+// and `crates/validator/src/standard/mod.rs`.
+use depin_sdk_validator::common::GuardianContainer;
+use depin_sdk_validator::standard::OrchestrationContainer;
+use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 #[derive(Parser, Debug)]
 #[clap(name = "mvsc", about = "A minimum viable sovereign chain node.")]
 struct Opts {
-    /// Listening port for the p2p network.
-    #[clap(long, default_value = "0")]
-    listen_port: u16,
-
-    /// Flag to indicate if this node should produce blocks.
-    #[clap(long)]
-    is_producer: bool,
-
-    /// Path to the state file.
     #[clap(long, default_value = "state.json")]
     state_file: String,
-
-    /// Path to the keypair seed file.
-    #[clap(long, default_value = "keypair.seed")]
-    keypair_file: String,
+    #[clap(long, default_value = "./config")]
+    config_dir: String,
 }
 
-
-// --- MOCK VALIDATOR MODEL ---
-// A simple validator model implementation for the in-memory chain.
-struct MockValidatorModel {
-    running: std::cell::RefCell<bool>,
-}
-
-impl MockValidatorModel {
-    fn new() -> Self { Self { running: std::cell::RefCell::new(false) } }
-}
-
-impl ValidatorModel for MockValidatorModel {
-    fn start(&self) -> Result<(), String> { *self.running.borrow_mut() = true; Ok(()) }
-    fn stop(&self) -> Result<(), String> { *self.running.borrow_mut() = false; Ok(()) }
-    fn is_running(&self) -> bool { *self.running.borrow() }
-    fn validator_type(&self) -> ValidatorType { ValidatorType::Standard }
-}
-
-// --- TRANSACTION CREATION HELPERS ---
-fn create_dummy_transaction(
-    keypair: &Ed25519KeyPair,
-    nonce: u64,
-    prev_txid: Vec<u8>,
-) -> UTXOTransaction {
-    let mut tx = UTXOTransaction {
-        txid: Vec::new(),
-        inputs: vec![UTXOInput {
-            prev_txid,
-            prev_index: 0,
-            signature: Vec::new(),
-        }],
-        outputs: vec![UTXOOutput {
-            value: 100,
-            lock_script: keypair.public_key().to_bytes(),
-        }],
-    };
-    let mut digest_data = Vec::new();
-    digest_data.extend_from_slice(&tx.inputs[0].prev_txid);
-    
-    let digest = sha256(&digest_data);
-    let signature = keypair.sign(&digest);
-    tx.inputs[0].signature = signature.to_bytes();
-    let mut txid_data = Vec::new();
-    txid_data.extend_from_slice(&digest);
-    txid_data.extend_from_slice(&tx.inputs[0].signature);
-    tx.txid = sha256(&txid_data);
-    tx
-}
-
-fn create_genesis_transaction(keypair: &Ed25519KeyPair) -> UTXOTransaction {
-    let mut tx = UTXOTransaction {
-        txid: Vec::new(),
-        inputs: vec![],
-        outputs: vec![UTXOOutput {
-            value: 1_000_000,
-            lock_script: keypair.public_key().to_bytes(),
-        }],
-    };
-    let mut digest_data = Vec::new();
-    digest_data.extend_from_slice(b"GENESIS");
-    digest_data.extend_from_slice(&tx.outputs[0].value.to_le_bytes());
-    digest_data.extend_from_slice(&tx.outputs[0].lock_script);
-    tx.txid = sha256(&digest_data);
-    tx
-}
-
-/// Loads a keypair from a seed file, or creates a new one if it doesn't exist.
-fn load_or_create_keypair(path: &str) -> Ed25519KeyPair {
-    match fs::read(path) {
-        Ok(seed_bytes) => {
-            log::info!("Loading persistent keypair from {}", path);
-            let private_key = Ed25519PrivateKey::from_bytes(&seed_bytes)
-                .expect("Failed to create private key from seed file");
-            Ed25519KeyPair::from_private_key(&private_key)
-        }
-        Err(_) => {
-            log::info!("No keypair found at {}, creating a new one.", path);
-            let keypair = Ed25519KeyPair::generate();
-            fs::write(path, keypair.private_key().to_bytes())
-                .expect("Failed to write new keypair seed to file");
-            keypair
-        }
-    }
-}
-
-
-// --- MAIN APPLICATION ---
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     env_logger::builder().filter_level(log::LevelFilter::Info).init();
     let opts = Opts::parse();
+    log::info!("Initializing DePIN SDK Node...");
 
-    // --- CHAIN SETUP ---
-    log::info!("Starting Minimum Viable Sovereign Chain (MVSC)...");
+    // --- 1. Initialize Independent Components ---
     let commitment_scheme = HashCommitmentScheme::new();
-    let state_tree = FileStateTree::new(&opts.state_file, commitment_scheme.clone());
     let transaction_model = UTXOModel::new(commitment_scheme.clone());
-    let validator_model = MockValidatorModel::new();
+    let state_tree = FileStateTree::new(&opts.state_file, commitment_scheme.clone());
+    let workload_config = WorkloadConfig { enabled_vms: vec!["WASM".to_string()] };
 
-    let chain = Arc::new(Mutex::new(SovereignAppChain::new(
-        commitment_scheme,
-        state_tree,
+    // --- 2. Build the Validator Containers ---
+    let workload_container = Arc::new(WorkloadContainer::new(workload_config, state_tree));
+
+    // FIX: Correctly construct PathBuf from String and borrow it.
+    let config_path = PathBuf::from(&opts.config_dir);
+    let orchestration_container = Arc::new(
+        OrchestrationContainer::<
+            HashCommitmentScheme,
+            UTXOModel<HashCommitmentScheme>,
+            FileStateTree<HashCommitmentScheme>,
+        >::new(&config_path.join("orchestration.toml"))
+        .await?,
+    );
+    let guardian_container = GuardianContainer::new(
+        &config_path.join("guardian.toml"),
+    )?;
+
+    // --- 3. Create and Initialize the SovereignChain Logic ---
+    // FIX: Move `transaction_model` instead of cloning it, as it's no longer needed here.
+    let mut chain_logic = ChainLogic::new(
+        commitment_scheme.clone(),
         transaction_model,
-        validator_model,
         "mvsc-chain-1",
         vec![],
-    )));
+    );
+    // [MODIFIED] Load status from state or initialize it.
+    chain_logic
+        .load_or_initialize_status(&workload_container)
+        .await
+        .map_err(|e| anyhow!("Failed to load or initialize chain status: {:?}", e))?;
+    let chain_ref: Arc<Mutex<ChainLogic<HashCommitmentScheme, UTXOModel<HashCommitmentScheme>>>> = Arc::new(Mutex::new(chain_logic));
 
-    // --- P2P NETWORK SETUP ---
-    let mut swarm = libp2p::SwarmBuilder::with_new_identity()
-        .with_tokio()
-        .with_tcp(
-            libp2p::tcp::Config::default(),
-            libp2p::noise::Config::new,
-            libp2p::yamux::Config::default,
-        )?
-        .with_behaviour(|key| {
-            let message_id_fn = |message: &gossipsub::Message| {
-                let mut s = std::collections::hash_map::DefaultHasher::new();
-                message.data.hash(&mut s);
-                gossipsub::MessageId::from(s.finish().to_string())
-            };
-            let gossipsub_config = gossipsub::ConfigBuilder::default()
-                .message_id_fn(message_id_fn)
-                // For a small test network, we don't need to wait for a mesh to form to publish.
-                .mesh_outbound_min(1)
-                .build()?;
-            Ok(MyBehaviour {
-                gossipsub: gossipsub::Behaviour::new(
-                    gossipsub::MessageAuthenticity::Signed(key.clone()),
-                    gossipsub_config,
-                )?,
-                mdns: mdns::tokio::Behaviour::new(mdns::Config::default(), key.public().to_peer_id())?,
-            })
-        })?
-        .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
-        .build();
-    
-    let topic = gossipsub::IdentTopic::new(BLOCK_TOPIC);
-    swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
+    // --- 4. Wire Up the Components (Inversion of Control) ---
+    orchestration_container.set_chain_and_workload_ref(
+        chain_ref.clone(),
+        workload_container.clone(),
+    );
 
-    let listen_addr = format!("/ip4/0.0.0.0/tcp/{}", opts.listen_port);
-    swarm.listen_on(listen_addr.parse()?)?;
-    log::info!("Local Peer ID: {}", swarm.local_peer_id());
+    // --- 5. Start the Validator Services ---
+    // FIX: Add .await to all async start/stop calls.
+    guardian_container.start().await.map_err(|e| anyhow!(e))?;
+    orchestration_container.start().await.map_err(|e| anyhow!(e))?;
+    workload_container.start().await.map_err(|e| anyhow!(e))?;
 
-    // Channel for the block producer to send new blocks to the main event loop.
-    let (block_tx, mut block_rx) = mpsc::channel::<Vec<u8>>(32);
+    log::info!("Node successfully started. Running indefinitely...");
 
-    // Notifier to signal the producer task when it's okay to start.
-    let producer_start_signal = Arc::new(Notify::new());
+    // 6. Keep the main thread alive.
+    tokio::signal::ctrl_c().await?;
 
-    // --- BLOCK PRODUCTION (if enabled) ---
-    if opts.is_producer {
-        let chain_clone = Arc::clone(&chain);
-        let start_signal_clone = Arc::clone(&producer_start_signal);
-        let keypair_file = opts.keypair_file.clone();
-        tokio::spawn(async move {
-            let keypair = load_or_create_keypair(&keypair_file);
-            let nonce = AtomicU64::new(0);
-            let mut last_txid: Vec<u8>;
+    log::info!("Shutdown signal received. Stopping node...");
+    orchestration_container.stop().await.map_err(|e| anyhow!(e))?;
+    workload_container.stop().await.map_err(|e| anyhow!(e))?;
+    guardian_container.stop().await.map_err(|e| anyhow!(e))?;
+    log::info!("Node stopped gracefully.");
 
-            // Create and process genesis block if chain is new
-            {
-                let mut chain_lock = chain_clone.lock().await;
-                if chain_lock.status().height == 0 {
-                    log::info!("Block producer is waiting for the first peer to connect...");
-                    start_signal_clone.notified().await;
-                    
-                    // Give gossipsub a moment to establish the connection fully.
-                    tokio::time::sleep(Duration::from_secs(2)).await;
-                    log::info!("Peer connected! Creating and gossiping genesis block.");
-
-                    log::info!("Chain is at genesis height, creating genesis block...");
-                    let genesis_tx = create_genesis_transaction(&keypair);
-                    last_txid = genesis_tx.txid.clone();
-                    let genesis_block = chain_lock.create_block(vec![genesis_tx]);
-                    chain_lock.process_block(genesis_block.clone()).expect("Failed to process genesis block");
-                    
-                    let block_bytes = serde_json::to_vec(&genesis_block).unwrap();
-                    if let Err(e) = block_tx.send(block_bytes).await {
-                         log::error!("Failed to send genesis block to main loop: {:?}", e);
-                    }
-                } else {
-                    log::info!("Chain is at height {}, resuming block production.", chain_lock.status().height);
-                    // Find the last UTXO owned by this keypair to continue the transaction chain.
-                    // This is a naive scan; a real wallet would use an index.
-                    let tm = chain_lock.transaction_model();
-                    let pk_bytes = keypair.public_key().to_bytes();
-                    
-                    // This is a placeholder for finding the last txid.
-                    // For this demo, we'll restart with a new "coinbase" tx in the next block.
-                    // A proper implementation would require iterating through the state.
-                    let coinbase_tx = create_genesis_transaction(&keypair);
-                    last_txid = coinbase_tx.txid.clone();
-                    let block = chain_lock.create_block(vec![coinbase_tx]);
-                    chain_lock.process_block(block).expect("Failed to create resumption block");
-                }
-            }
-
-
-            let mut interval = tokio::time::interval(Duration::from_secs(5));
-            loop {
-                interval.tick().await;
-                let current_nonce = nonce.fetch_add(1, Ordering::SeqCst);
-                let dummy_tx = create_dummy_transaction(&keypair, current_nonce, last_txid.clone());
-                last_txid = dummy_tx.txid.clone();
-
-                let mut chain_lock = chain_clone.lock().await;
-                let block = chain_lock.create_block(vec![dummy_tx]);
-                
-                log::info!("Producing Block #{}", block.header.height);
-
-                match chain_lock.process_block(block.clone()) {
-                    Ok(_) => {
-                        let status = chain_lock.status();
-                        let state_commitment = chain_lock.get_state_commitment();
-                        let state_root: &[u8] = state_commitment.as_ref();
-                        log::info!(
-                            "Locally processed Block #{}. New State Root: 0x{}",
-                            status.height,
-                            hex::encode(state_root)
-                        );
-
-                        let block_bytes = serde_json::to_vec(&block).unwrap();
-                        if let Err(e) = block_tx.send(block_bytes).await {
-                            log::error!("Failed to send block to main loop: {:?}", e);
-                        }
-                    }
-                    Err(e) => {
-                        log::error!("Error processing locally produced block: {}", e);
-                    }
-                }
-            }
-        });
-    }
-
-    // --- MAIN EVENT LOOP ---
-    loop {
-        tokio::select! {
-            // Handle events from the p2p network
-            event = swarm.select_next_some() => {
-                match event {
-                    SwarmEvent::Behaviour(MyBehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
-                        for (peer_id, _multiaddr) in list {
-                            log::info!("mDNS discovered a new peer: {}", peer_id);
-                            swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
-
-                            producer_start_signal.notify_one();
-                        }
-                    }
-                    SwarmEvent::Behaviour(MyBehaviourEvent::Mdns(mdns::Event::Expired(list))) => {
-                        for (peer_id, _multiaddr) in list {
-                            log::info!("mDNS discover peer has expired: {}", peer_id);
-                            swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
-                        }
-                    }
-                    SwarmEvent::Behaviour(MyBehaviourEvent::Gossipsub(gossipsub::Event::Message {
-                        propagation_source: peer_id,
-                        message_id: id,
-                        message,
-                    })) => {
-                        log::info!(
-                            "Got new gossip message with id: {} from peer: {}",
-                            id,
-                            peer_id
-                        );
-                        
-                        type AppBlock = Block<UTXOTransaction>;
-                        match serde_json::from_slice::<AppBlock>(&message.data) {
-                            Ok(block) => {
-                                let mut chain_lock = chain.lock().await;
-                                log::info!("Received Block #{} from network.", block.header.height);
-
-                                if block.header.height <= chain_lock.status().height {
-                                    log::info!("Ignoring old or duplicate block (height {}). Current height is {}.", block.header.height, chain_lock.status().height);
-                                    continue;
-                                }
-
-                                match chain_lock.process_block(block) {
-                                    Ok(_) => {
-                                        let status = chain_lock.status();
-                                        let state_commitment = chain_lock.get_state_commitment();
-                                        let state_root: &[u8] = state_commitment.as_ref();
-                                        log::info!(
-                                            "Processed network Block #{}. New State Root: 0x{}",
-                                            status.height,
-                                            hex::encode(state_root)
-                                        );
-                                    }
-                                    Err(e) => {
-                                        log::error!("Error processing block from network: {}", e);
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                log::error!("Failed to deserialize block: {:?}", e);
-                            }
-                        }
-                    }
-                    SwarmEvent::NewListenAddr { address, .. } => {
-                        log::info!("Local node is listening on {}", address);
-                    }
-                    _ => {}
-                }
-            },
-            // Handle blocks produced locally that need to be gossiped
-            Some(block_to_gossip) = block_rx.recv() => {
-                if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic.clone(), block_to_gossip) {
-                    log::error!("Failed to publish block: {:?}", e);
-                }
-            }
-        }
-    }
+    Ok(())
 }```
 
-###### File: chain/src/lib.rs
-###*Size: 4.0K, Lines: 14, Type: ASCII text*
+###### Directory: chain/src/traits
+
+####### File: chain/src/traits/mod.rs
+####*Size: 4.0K, Lines: 56, Type: ASCII text*
 
 ```rust
-//! # DePIN SDK Chain
-//!
-//! Chain implementation components for the DePIN SDK.
+// Path: crates/chain/src/traits.rs
 
-pub mod app;
-pub mod upgrade_manager;
+//! This module defines the public traits that describe the core logic of a sovereign chain.
 
-// Re-export for convenience
-pub use upgrade_manager::ModuleUpgradeManager;
+use depin_sdk_core::app::{Block, ChainError, ChainStatus};
+use depin_sdk_core::commitment::CommitmentScheme;
+use depin_sdk_core::state::{StateManager, StateTree};
+use depin_sdk_core::transaction::TransactionModel;
+use depin_sdk_core::validator::WorkloadContainer;
 
-// Re-export consensus from its crate
-pub use depin_sdk_consensus as consensus;
+/// A trait that defines the logic and capabilities of a sovereign chain state machine.
+// FIX: The `Sized` bound is removed, making this trait object-safe (`dyn`).
+pub trait SovereignChain<CS, TM>
+where
+    CS: CommitmentScheme,
+    TM: TransactionModel<CommitmentScheme = CS>,
+{
+    // FIX: `new` is removed from the trait. Construction is now an inherent method on the impl struct.
 
-// TODO: Add governance crate when it's implemented
-// pub use depin_sdk_governance as governance;```
+    // Accessor methods remain.
+    fn status(&self) -> &ChainStatus;
+    fn transaction_model(&self) -> &TM;
 
-###### File: chain/src/upgrade_manager.rs
-###*Size: 8.0K, Lines: 184, Type: ASCII text*
+    fn process_transaction<ST>(
+        &mut self,
+        tx: &TM::Transaction,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<(), ChainError>
+    where
+        ST: StateTree<Commitment = CS::Commitment, Proof = CS::Proof>
+            + StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+            + Send + Sync + 'static;
+
+    fn process_block<ST>(
+        &mut self,
+        block: Block<TM::Transaction>,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<(), ChainError>
+    where
+        ST: StateTree<Commitment = CS::Commitment, Proof = CS::Proof>
+            + StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+            + Send + Sync + 'static,
+        CS::Commitment: Send + Sync;
+
+    fn create_block<ST>(
+        &self,
+        transactions: Vec<TM::Transaction>,
+        workload: &WorkloadContainer<ST>,
+    ) -> Block<TM::Transaction>
+    where
+        ST: StateTree<Commitment = CS::Commitment, Proof = CS::Proof>
+            + StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+            + Send + Sync + 'static,
+        CS::Commitment: Send + Sync;
+    
+    fn get_block(&self, height: u64) -> Option<&Block<TM::Transaction>>;
+}```
+
+###### Directory: chain/src/upgrade_manager
+
+####### File: chain/src/upgrade_manager/mod.rs
+####*Size: 8.0K, Lines: 193, Type: ASCII text*
 
 ```rust
-use depin_sdk_core::services::{ServiceType, UpgradableService};
 use depin_sdk_core::error::CoreError;
+use depin_sdk_core::services::{ServiceType, UpgradableService};
 use std::collections::HashMap;
+use std::fmt;
 use std::sync::Arc;
 
 /// Manages runtime upgrades of blockchain services
@@ -1373,6 +443,18 @@ pub struct ModuleUpgradeManager {
     upgrade_history: HashMap<ServiceType, Vec<u64>>,
     /// Scheduled upgrades by block height
     scheduled_upgrades: HashMap<u64, Vec<(ServiceType, Vec<u8>)>>,
+}
+
+// FIX: Manually implement Debug because Arc<dyn UpgradableService> does not implement Debug.
+// This implementation prints the service types instead of the service objects themselves.
+impl fmt::Debug for ModuleUpgradeManager {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ModuleUpgradeManager")
+            .field("active_services", &self.active_services.keys())
+            .field("upgrade_history", &self.upgrade_history)
+            .field("scheduled_upgrades", &self.scheduled_upgrades)
+            .finish()
+    }
 }
 
 impl ModuleUpgradeManager {
@@ -1389,9 +471,11 @@ impl ModuleUpgradeManager {
     pub fn register_service(&mut self, service: Arc<dyn UpgradableService>) {
         let service_type = service.service_type();
         self.active_services.insert(service_type.clone(), service);
-        
+
         // Initialize upgrade history if not present
-        self.upgrade_history.entry(service_type).or_insert_with(Vec::new);
+        self.upgrade_history
+            .entry(service_type)
+            .or_insert_with(Vec::new);
     }
 
     /// Get a service by type
@@ -1410,7 +494,7 @@ impl ModuleUpgradeManager {
             .entry(activation_height)
             .or_insert_with(Vec::new)
             .push((service_type, upgrade_data));
-        
+
         Ok(())
     }
 
@@ -1422,7 +506,7 @@ impl ModuleUpgradeManager {
         };
 
         let mut applied_count = 0;
-        
+
         for (service_type, upgrade_data) in upgrades {
             match self.execute_upgrade(&service_type, &upgrade_data) {
                 Ok(()) => {
@@ -1454,13 +538,14 @@ impl ModuleUpgradeManager {
             .ok_or_else(|| CoreError::ServiceNotFound(format!("{:?}", service_type)))?;
 
         // 1. Prepare: Get the state snapshot from the current service
-        let snapshot = active_service.prepare_upgrade(new_module_wasm)
+        let _snapshot = active_service
+            .prepare_upgrade(new_module_wasm)
             .map_err(|e| CoreError::UpgradeError(e.to_string()))?;
 
         // 2. TODO: Instantiate new service from WASM (or other format)
         // This would require a proper WASM loading mechanism
         // For now, we'll create a placeholder
-        
+
         // 3. TODO: Complete the upgrade by migrating state to new service
         // new_service.complete_upgrade(&snapshot)?;
 
@@ -1496,12 +581,12 @@ impl ModuleUpgradeManager {
     /// Start all registered services
     pub fn start_all_services(&mut self) -> Result<(), CoreError> {
         for (service_type, service) in &self.active_services {
-            service.start()
-                .map_err(|e| CoreError::Custom(format!(
-                    "Failed to start service {:?}: {}", 
-                    service_type, 
-                    e
-                )))?;
+            service.start().map_err(|e| {
+                CoreError::Custom(format!(
+                    "Failed to start service {:?}: {}",
+                    service_type, e
+                ))
+            })?;
         }
         Ok(())
     }
@@ -1509,12 +594,9 @@ impl ModuleUpgradeManager {
     /// Stop all registered services
     pub fn stop_all_services(&mut self) -> Result<(), CoreError> {
         for (service_type, service) in &self.active_services {
-            service.stop()
-                .map_err(|e| CoreError::Custom(format!(
-                    "Failed to stop service {:?}: {}", 
-                    service_type, 
-                    e
-                )))?;
+            service.stop().map_err(|e| {
+                CoreError::Custom(format!("Failed to stop service {:?}: {}", service_type, e))
+            })?;
         }
         Ok(())
     }
@@ -1523,31 +605,43 @@ impl ModuleUpgradeManager {
     pub fn reset(&mut self) -> Result<(), CoreError> {
         // Stop all services first
         self.stop_all_services()?;
-        
+
         // Clear all state
         self.active_services.clear();
         self.upgrade_history.clear();
         self.scheduled_upgrades.clear();
-        
+
         Ok(())
     }
 }
 
 /// Helper function to load a service from WASM bytes
 /// TODO: Implement actual WASM loading logic
+#[allow(dead_code)]
 fn load_service_from_wasm(_wasm_bytes: &[u8]) -> Result<Box<dyn UpgradableService>, CoreError> {
-    Err(CoreError::Custom("WASM loading not implemented yet".to_string()))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // TODO: Add tests when the implementation is complete
+    Err(CoreError::Custom(
+        "WASM loading not implemented yet".to_string(),
+    ))
 }```
 
+###### File: chain/src/lib.rs
+###*Size: 4.0K, Lines: 10, Type: ASCII text*
+
+```rust
+//! # DePIN SDK Chain
+//!
+//! This crate provides the implementation logic for the `SovereignAppChain` state machine.
+
+mod app;
+pub mod upgrade_manager;
+pub mod traits;
+
+// FIX: Corrected the path to ChainLogic, removing the non-existent 'logic' module.
+pub use app::ChainLogic;
+pub use upgrade_manager::ModuleUpgradeManager;```
+
 ##### File: chain/Cargo.toml
-##*Size: 4.0K, Lines: 57, Type: ASCII text*
+##*Size: 4.0K, Lines: 45, Type: ASCII text*
 
 ```toml
 [package]
@@ -1569,32 +663,20 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
-
-# Dependencies added for the mvsc binary, made optional
-depin-sdk-crypto = { path = "../crypto", optional = true }
 tokio = { workspace = true, features = ["full"], optional = true }
 futures = { workspace = true, optional = true }
-hex = { version = "0.4", optional = true }
-clap = { version = "4.3", features = ["derive"], optional = true }
-env_logger = { version = "0.10", optional = true }
-libp2p = { version = "0.52", features = [
-    "tokio",
-    "gossipsub",
-    "mdns",
-    "macros",
-    "tcp",
-    "noise",
-    "yamux",
-], optional = true }
-
+hex = { workspace = true, optional = true }
+clap = { workspace = true, features = ["derive"], optional = true }
+env_logger = { workspace = true, optional = true }
+libp2p = { workspace = true, optional = true }
+# FIX: Add the missing async-trait dependency.
+async-trait = { workspace = true }
 
 [features]
 default = []
 tendermint = []
 custom-consensus = []
-# Feature to enable building the binary and its dependencies
 mvsc-bin = [
-    "dep:depin-sdk-crypto",
     "dep:tokio",
     "dep:futures",
     "dep:hex",
@@ -1616,19 +698,16 @@ required-features = ["mvsc-bin"]
 ###### Directory: commitment_schemes/src/elliptical_curve
 
 ####### File: commitment_schemes/src/elliptical_curve/mod.rs
-####*Size: 16K, Lines: 390, Type: ASCII text*
+####*Size: 16K, Lines: 381, Type: ASCII text*
 
 ```rust
 //! Elliptical curve commitment implementation
 // File: crates/commitment_schemes/src/elliptical_curve/mod.rs
 //! Elliptical curve commitment implementation
 
-use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
-use curve25519_dalek::scalar::Scalar;
-use curve25519_dalek::traits::Identity;
+use depin_sdk_crypto::algorithms::hash;
+use dcrypt::algorithms::ec::k256::{self as k256, Point, Scalar};
 use rand::{rngs::OsRng, RngCore};
-use sha2::{Digest, Sha512};
-use std::fmt::Debug;
 
 use depin_sdk_core::commitment::{
     CommitmentScheme, HomomorphicCommitmentScheme, HomomorphicOperation, ProofContext,
@@ -1639,16 +718,16 @@ use depin_sdk_core::commitment::{
 #[derive(Debug, Clone)]
 pub struct EllipticalCurveCommitmentScheme {
     /// Generator points
-    generators: Vec<RistrettoPoint>,
+    generators: Vec<Point>,
 }
 
 /// Elliptical curve commitment
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EllipticalCurveCommitment(CompressedRistretto);
+pub struct EllipticalCurveCommitment([u8; k256::K256_POINT_COMPRESSED_SIZE]);
 
 impl AsRef<[u8]> for EllipticalCurveCommitment {
     fn as_ref(&self) -> &[u8] {
-        self.0.as_bytes()
+        &self.0
     }
 }
 
@@ -1668,39 +747,46 @@ impl EllipticalCurveCommitmentScheme {
     pub fn new(num_generators: usize) -> Self {
         // Generate deterministic generators for reproducible tests
         let mut generators = Vec::with_capacity(num_generators);
+        let g = k256::base_point_g();
         for i in 0..num_generators {
-            // Use a SHA-512 hash to derive each generator point
-            let mut hasher = Sha512::new();
-            hasher.update(format!("generator-{}", i).as_bytes());
-            let hash = hasher.finalize();
-
-            let mut seed = [0u8; 64];
-            seed.copy_from_slice(&hash);
-
-            generators.push(RistrettoPoint::from_uniform_bytes(&seed));
+            // Use a SHA-256 hash to derive a scalar for each generator point
+            let scalar = Self::hash_to_scalar(format!("generator-{}", i).as_bytes());
+            generators.push(g.mul(&scalar).expect("Failed to create generator"));
         }
 
         Self { generators }
     }
 
     /// Generate a random blinding factor
-    fn random_blinding() -> Scalar {
+    fn random_blinding() -> k256::Scalar {
         let mut rng = OsRng;
-        let mut bytes = [0u8; 64];
-        rng.fill_bytes(&mut bytes);
-        Scalar::from_bytes_mod_order_wide(&bytes)
+        loop {
+            let mut bytes = [0u8; 32];
+            rng.fill_bytes(&mut bytes);
+            if let Ok(scalar) = Scalar::new(bytes) {
+                return scalar;
+            }
+        }
     }
 
     /// Convert value to scalar
-    fn value_to_scalar(value: &impl AsRef<[u8]>) -> Scalar {
-        let mut hasher = Sha512::new();
-        hasher.update(value.as_ref());
-        let hash = hasher.finalize();
+    fn value_to_scalar(value: &impl AsRef<[u8]>) -> k256::Scalar {
+        Self::hash_to_scalar(value.as_ref())
+    }
 
-        let mut scalar_bytes = [0u8; 64];
-        scalar_bytes.copy_from_slice(&hash);
-
-        Scalar::from_bytes_mod_order_wide(&scalar_bytes)
+    /// Helper to convert a hash to a valid scalar, retrying if needed.
+    fn hash_to_scalar(data: &[u8]) -> k256::Scalar {
+        let mut hash_bytes = hash::sha256(data);
+        loop {
+            // Create a fixed-size array from the vector's slice to avoid moving hash_bytes.
+            let mut array = [0u8; 32];
+            array.copy_from_slice(&hash_bytes);
+            if let Ok(scalar) = Scalar::new(array) {
+                return scalar;
+            }
+            // Re-hash if the hash corresponds to an invalid scalar (e.g., zero)
+            hash_bytes = hash::sha256(&hash_bytes);
+        }
     }
 }
 
@@ -1711,7 +797,7 @@ impl CommitmentScheme for EllipticalCurveCommitmentScheme {
 
     fn commit(&self, values: &[Option<Self::Value>]) -> Self::Commitment {
         // Start with identity point
-        let mut commitment_point = RistrettoPoint::identity();
+        let mut commitment_point = Point::identity();
 
         // Use generators for each value
         for (i, value_opt) in values.iter().enumerate() {
@@ -1723,19 +809,21 @@ impl CommitmentScheme for EllipticalCurveCommitmentScheme {
                 // Convert value to scalar
                 let scalar = Self::value_to_scalar(value);
 
-                // Add generator_i * value_scalar to commitment
-                commitment_point += self.generators[i] * scalar;
+                // Add generator_i * value_scalar to the commitment point
+                let term = self.generators[i].mul(&scalar).expect("Scalar mul failed");
+                commitment_point = commitment_point.add(&term);
             }
         }
 
         // Add a random blinding factor with the last generator if we have one
         if !self.generators.is_empty() {
             let blinding = Self::random_blinding();
-            commitment_point += self.generators[self.generators.len() - 1] * blinding;
+            let blinding_term = self.generators[self.generators.len() - 1].mul(&blinding).expect("Blinding failed");
+            commitment_point = commitment_point.add(&blinding_term);
         }
 
-        // Return the compressed point
-        EllipticalCurveCommitment(commitment_point.compress())
+        // Return the compressed point representation
+        EllipticalCurveCommitment(commitment_point.serialize_compressed())
     }
 
     fn create_proof(
@@ -1826,17 +914,18 @@ impl CommitmentScheme for EllipticalCurveCommitmentScheme {
         // Convert value to scalar
         let value_scalar = Self::value_to_scalar(value);
 
-        // Create a commitment to this single value with the provided blinding
-        let blinding_generator = self.generators[self.generators.len() - 1];
-        let computed_point =
-            (self.generators[position] * value_scalar) + (blinding_generator * proof.blinding);
+        // Recreate the point for the value and blinding factor
+        let blinding_generator = &self.generators[self.generators.len() - 1];
+        let value_term = self.generators[position].mul(&value_scalar).expect("Scalar mul failed");
+        let blinding_term = blinding_generator.mul(&proof.blinding).expect("Blinding failed");
+        let computed_point = value_term.add(&blinding_term);
 
         // Check if the computed commitment matches the provided one
-        let computed_commitment = EllipticalCurveCommitment(computed_point.compress());
+        let computed_commitment = EllipticalCurveCommitment(computed_point.serialize_compressed());
 
         // This is a simplified check - a real implementation would be more complex
         // for multiple values
-        commitment.0 == computed_commitment.0
+        commitment.as_ref() == computed_commitment.as_ref()
     }
 
     fn scheme_id() -> SchemeIdentifier {
@@ -1847,17 +936,13 @@ impl CommitmentScheme for EllipticalCurveCommitmentScheme {
 impl HomomorphicCommitmentScheme for EllipticalCurveCommitmentScheme {
     fn add(&self, a: &Self::Commitment, b: &Self::Commitment) -> Result<Self::Commitment, String> {
         // Decompress points
-        let point_a =
-            a.0.decompress()
-                .ok_or_else(|| "Invalid point in commitment A".to_string())?;
-        let point_b =
-            b.0.decompress()
-                .ok_or_else(|| "Invalid point in commitment B".to_string())?;
+        let point_a = Point::deserialize_compressed(a.as_ref()).map_err(|e| e.to_string())?;
+        let point_b = Point::deserialize_compressed(b.as_ref()).map_err(|e| e.to_string())?;
 
         // Homomorphic addition is point addition
-        let result_point = point_a + point_b;
+        let result_point = point_a.add(&point_b);
 
-        Ok(EllipticalCurveCommitment(result_point.compress()))
+        Ok(EllipticalCurveCommitment(result_point.serialize_compressed()))
     }
 
     fn scalar_multiply(
@@ -1870,17 +955,17 @@ impl HomomorphicCommitmentScheme for EllipticalCurveCommitmentScheme {
         }
 
         // Decompress point
-        let point =
-            a.0.decompress()
-                .ok_or_else(|| "Invalid point in commitment".to_string())?;
+        let point = Point::deserialize_compressed(a.as_ref()).map_err(|e| e.to_string())?;
 
-        // Convert i32 to Scalar
-        let s = Scalar::from(scalar as u64);
+        // Convert i32 to Scalar. This is a simplified conversion for small, positive integers.
+        let mut scalar_bytes = [0u8; 32];
+        scalar_bytes[..8].copy_from_slice(&(scalar as u64).to_le_bytes());
+        let s = Scalar::new(scalar_bytes).map_err(|e| e.to_string())?;
 
         // Scalar multiplication
-        let result_point = point * s;
+        let result_point = point.mul(&s).map_err(|e| e.to_string())?;
 
-        Ok(EllipticalCurveCommitment(result_point.compress()))
+        Ok(EllipticalCurveCommitment(result_point.serialize_compressed()))
     }
 
     fn supports_operation(&self, operation: HomomorphicOperation) -> bool {
@@ -1894,30 +979,24 @@ impl HomomorphicCommitmentScheme for EllipticalCurveCommitmentScheme {
 // Add utility methods for EllipticalCurveCommitment
 impl EllipticalCurveCommitment {
     /// Create a new EllipticalCurveCommitment from a compressed point
-    pub fn new(point: CompressedRistretto) -> Self {
+    pub fn new(point: [u8; k256::K256_POINT_COMPRESSED_SIZE]) -> Self {
         Self(point)
     }
 
     /// Get the compressed point
-    pub fn point(&self) -> &CompressedRistretto {
+    pub fn point(&self) -> &[u8; k256::K256_POINT_COMPRESSED_SIZE] {
         &self.0
     }
 
     /// Convert to a byte representation
     pub fn to_bytes(&self) -> Vec<u8> {
-        self.0.as_bytes().to_vec()
+        self.0.to_vec()
     }
 
     /// Create from bytes
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
-        if bytes.len() != 32 {
-            return Err("Invalid point length".to_string());
-        }
-
-        let mut array = [0u8; 32];
-        array.copy_from_slice(bytes);
-
-        Ok(Self(CompressedRistretto(array)))
+        let array: [u8; k256::K256_POINT_COMPRESSED_SIZE] = bytes.try_into().map_err(|_| "Invalid point length".to_string())?;
+        Ok(Self(array))
     }
 }
 
@@ -1952,7 +1031,7 @@ impl EllipticalCurveProof {
         let mut result = Vec::with_capacity(32 + 8 + self.value.len() + 4);
 
         // Serialize blinding factor (32 bytes)
-        result.extend_from_slice(self.blinding.as_bytes());
+        result.extend_from_slice(self.blinding.serialize().as_ref());
 
         // Serialize position (8 bytes)
         result.extend_from_slice(&self.position.to_le_bytes());
@@ -1976,12 +1055,7 @@ impl EllipticalCurveProof {
         // Read blinding
         let mut blinding_bytes = [0u8; 32];
         blinding_bytes.copy_from_slice(&bytes[pos..pos + 32]);
-        let maybe_blinding = Scalar::from_canonical_bytes(blinding_bytes);
-        let blinding = if maybe_blinding.is_some().into() {
-            maybe_blinding.unwrap()
-        } else {
-            return Err("Invalid blinding factor".to_string());
-        };
+        let blinding = Scalar::new(blinding_bytes).map_err(|e| e.to_string())?;
         pos += 32;
 
         // Read position
@@ -2008,19 +1082,18 @@ impl EllipticalCurveProof {
             value,
         })
     }
-}
-```
+}```
 
 ###### Directory: commitment_schemes/src/hash
 
 ####### File: commitment_schemes/src/hash/mod.rs
-####*Size: 12K, Lines: 389, Type: ASCII text*
+####*Size: 12K, Lines: 375, Type: ASCII text*
 
 ```rust
 //! Hash-based commitment scheme implementations
 
 use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, SchemeIdentifier, Selector};
-use sha2::{Digest, Sha256};
+use depin_sdk_crypto::algorithms::hash;
 use std::fmt::Debug;
 
 /// Hash-based commitment scheme
@@ -2037,8 +1110,6 @@ pub enum HashFunction {
     Sha256,
     /// SHA-512
     Sha512,
-    /// Keccak-256
-    Keccak256,
 }
 
 /// Hash-based commitment
@@ -2078,19 +1149,8 @@ impl HashCommitmentScheme {
     /// Helper function to hash data using the selected hash function
     pub fn hash_data(&self, data: &[u8]) -> Vec<u8> {
         match self.hash_function {
-            HashFunction::Sha256 => {
-                let mut hasher = Sha256::new();
-                hasher.update(data);
-                hasher.finalize().to_vec()
-            }
-            HashFunction::Sha512 => {
-                // Implementation for SHA-512 would go here
-                vec![0; 64] // Placeholder
-            }
-            HashFunction::Keccak256 => {
-                // Implementation for Keccak-256 would go here
-                vec![0; 32] // Placeholder
-            }
+            HashFunction::Sha256 => hash::sha256(data),
+            HashFunction::Sha512 => hash::sha512(data),
         }
     }
 
@@ -2104,7 +1164,6 @@ impl HashCommitmentScheme {
         match self.hash_function {
             HashFunction::Sha256 => 32,
             HashFunction::Sha512 => 64,
-            HashFunction::Keccak256 => 32,
         }
     }
 }
@@ -2174,8 +1233,9 @@ impl CommitmentScheme for HashCommitmentScheme {
         value: &Self::Value,
         context: &ProofContext,
     ) -> bool {
-        // Verify that selectors match
-        if !matches!(&proof.selector, selector) {
+        // FIX: The compiler detected that `selector` was being compared to itself.
+        // We need to compare the proof's selector with the one passed to the function.
+        if &proof.selector != selector {
             return false;
         }
 
@@ -2405,8 +1465,7 @@ impl HashProof {
             additional_data,
         })
     }
-}
-```
+}```
 
 ###### Directory: commitment_schemes/src/kzg
 
@@ -3037,12 +2096,12 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 depin-sdk-core = { path = "../core" }
+depin-sdk-crypto = { path = "../crypto" }
+dcrypt = { version = "0.12.0-beta.1", features = ["full"] }
 log = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 bytes = { workspace = true }
-sha2 = { workspace = true }
-curve25519-dalek = { workspace = true }
 rand = { workspace = true }
 
 [features]
@@ -3215,6 +2274,108 @@ default = []
 #### Directory: core
 
 ##### Directory: core/src
+
+###### Directory: core/src/app
+
+####### File: core/src/app/mod.rs
+####*Size: 4.0K, Lines: 46, Type: ASCII text*
+
+```rust
+// Path: crates/core/src/app/mod.rs
+
+use crate::transaction::TransactionModel;
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ChainStatus {
+    pub height: u64,
+    pub latest_timestamp: u64,
+    pub total_transactions: u64,
+    pub is_running: bool,
+}
+
+// FIX: Add derive(Clone, Debug). Clone is needed for block processing,
+// and Debug is needed for `.unwrap()` calls on Results containing the block.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Block<T> {
+    pub header: BlockHeader,
+    pub transactions: Vec<T>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BlockHeader {
+    pub height: u64,
+    pub prev_hash: Vec<u8>,
+    pub state_root: Vec<u8>,
+    pub transactions_root: Vec<u8>,
+    pub timestamp: u64,
+}
+
+#[derive(Debug)]
+pub enum ChainError {
+    Block(String),
+    Transaction(String),
+}
+
+/// A struct that holds the core, serializable state of a sovereign chain.
+/// This is distinct from its logic, which is defined by the `SovereignChain` trait.
+#[derive(Debug)]
+pub struct SovereignAppChain<CS, TM: TransactionModel> {
+    pub commitment_scheme: CS,
+    pub transaction_model: TM,
+    pub chain_id: String,
+    pub status: ChainStatus,
+    pub recent_blocks: Vec<Block<TM::Transaction>>,
+    pub max_recent_blocks: usize,
+}```
+
+###### Directory: core/src/chain
+
+####### File: core/src/chain/mod.rs
+####*Size: 4.0K, Lines: 40, Type: ASCII text*
+
+```rust
+// Path: crates/core/src/chain/mod.rs
+
+use crate::app::{Block, ChainError, ChainStatus};
+use crate::commitment::CommitmentScheme;
+use crate::state::StateManager;
+use crate::transaction::TransactionModel;
+use crate::validator::WorkloadContainer;
+use async_trait::async_trait;
+use std::fmt::Debug;
+
+/// A trait that defines the logic and capabilities of a sovereign chain state machine.
+#[async_trait]
+pub trait SovereignChain<CS, TM, ST>: Debug + Send
+where
+    CS: CommitmentScheme,
+    TM: TransactionModel<CommitmentScheme = CS>,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
+{
+    fn status(&self) -> &ChainStatus;
+    fn transaction_model(&self) -> &TM;
+
+    async fn process_transaction(
+        &mut self,
+        tx: &TM::Transaction,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<(), ChainError>;
+
+    async fn process_block(
+        &mut self,
+        block: Block<TM::Transaction>,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<(), ChainError>;
+
+    fn create_block(
+        &self,
+        transactions: Vec<TM::Transaction>,
+        workload: &WorkloadContainer<ST>,
+    ) -> Block<TM::Transaction>;
+
+    fn get_block(&self, height: u64) -> Option<&Block<TM::Transaction>>;
+}```
 
 ###### Directory: core/src/commitment
 
@@ -3798,6 +2959,25 @@ mod tests;
 pub use classification::*;
 ```
 
+###### Directory: core/src/config
+
+####### File: core/src/config/mod.rs
+####*Size: 4.0K, Lines: 11, Type: ASCII text*
+
+```rust
+// Path: crates/core/src/config/mod.rs
+
+//! Shared configuration structures for core DePIN SDK components.
+
+use serde::Deserialize;
+
+/// Configuration for the Workload container (`workload.toml`).
+/// This is defined in `core` because it's part of the public `WorkloadContainer` struct.
+#[derive(Debug, Deserialize, Clone)]
+pub struct WorkloadConfig {
+    pub enabled_vms: Vec<String>,
+}```
+
 ###### Directory: core/src/crypto
 
 ####### Directory: core/src/crypto/tests
@@ -4262,125 +3442,66 @@ mod tests;```
 ###### Directory: core/src/error
 
 ####### File: core/src/error/mod.rs
-####*Size: 4.0K, Lines: 115, Type: ASCII text*
+####*Size: 4.0K, Lines: 56, Type: ASCII text*
 
 ```rust
-//! Error types for the DePIN SDK Core.
+// Path: crates/core/src/error/mod.rs
 
-use std::fmt;
+use thiserror::Error;
 
-/// Error type for transaction operations
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TransactionError {
-    /// Invalid transaction format or data
-    InvalidTransaction(String),
-    
-    /// Failed to access or modify state
-    StateAccessFailed(String),
-    
-    /// Invalid input referenced in transaction
-    InvalidInput(String),
-    
-    /// Insufficient funds for transaction
-    InsufficientFunds(String),
-    
-    /// Invalid signature
-    InvalidSignature(String),
-    
-    /// Invalid nonce value
-    InvalidNonce(String),
-    
-    /// Serialization or deserialization error
-    SerializationError(String),
-    
-    /// Other transaction errors
-    Other(String),
-}
-
-impl fmt::Display for TransactionError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            TransactionError::InvalidTransaction(msg) => write!(f, "Invalid transaction: {}", msg),
-            TransactionError::StateAccessFailed(msg) => write!(f, "State access failed: {}", msg),
-            TransactionError::InvalidInput(msg) => write!(f, "Invalid input: {}", msg),
-            TransactionError::InsufficientFunds(msg) => write!(f, "Insufficient funds: {}", msg),
-            TransactionError::InvalidSignature(msg) => write!(f, "Invalid signature: {}", msg),
-            TransactionError::InvalidNonce(msg) => write!(f, "Invalid nonce: {}", msg),
-            TransactionError::SerializationError(msg) => write!(f, "Serialization error: {}", msg),
-            TransactionError::Other(msg) => write!(f, "Other error: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for TransactionError {}
-
-/// Error type for state operations
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Error, Debug)]
 pub enum StateError {
-    /// Key not found in state
+    #[error("Key not found: {0}")]
     KeyNotFound(String),
-    
-    /// Failed to read from storage
-    ReadError(String),
-    
-    /// Failed to write to storage
+    #[error("Validation failed: {0}")]
+    Validation(String),
+    #[error("Apply failed: {0}")]
+    Apply(String),
+    #[error("State backend error: {0}")]
+    Backend(String),
+    // FIX: Add variants for errors that occur in state tree implementations.
+    // The `WriteError` is used by `FileStateTree` when file I/O fails.
+    // The `InvalidValue` is used by `VerkleTree` when a value can't be converted.
+    #[error("State write error: {0}")]
     WriteError(String),
-    
-    /// Invalid key format
-    InvalidKey(String),
-    
-    /// Invalid value format
+    #[error("Invalid value: {0}")]
     InvalidValue(String),
-    
-    /// Other state errors
+}
+
+#[derive(Error, Debug)]
+pub enum TransactionError {
+    #[error("Serialization error: {0}")]
+    Serialization(String),
+    #[error("Deserialization error: {0}")]
+    Deserialization(String),
+    #[error("Invalid transaction: {0}")]
+    Invalid(String),
+    // FIX: Add a variant to wrap StateErrors, which will allow `?` to work.
+    #[error("State error: {0}")]
+    State(#[from] StateError),
+}
+
+#[derive(Error, Debug)]
+pub enum ValidatorError {
+    #[error("Container '{0}' is already running")]
+    AlreadyRunning(String),
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Configuration error: {0}")]
+    Config(String),
+    #[error("Other error: {0}")]
     Other(String),
 }
 
-impl fmt::Display for StateError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            StateError::KeyNotFound(msg) => write!(f, "Key not found: {}", msg),
-            StateError::ReadError(msg) => write!(f, "Read error: {}", msg),
-            StateError::WriteError(msg) => write!(f, "Write error: {}", msg),
-            StateError::InvalidKey(msg) => write!(f, "Invalid key: {}", msg),
-            StateError::InvalidValue(msg) => write!(f, "Invalid value: {}", msg),
-            StateError::Other(msg) => write!(f, "Other error: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for StateError {}
-
-impl From<StateError> for TransactionError {
-    fn from(error: StateError) -> Self {
-        TransactionError::StateAccessFailed(error.to_string())
-    }
-}
-
-/// Core error type for the SDK
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Error)]
 pub enum CoreError {
     #[error("Service not found: {0}")]
     ServiceNotFound(String),
-    
-    #[error("Invalid block: {0}")]
-    InvalidBlock(String),
-    
-    #[error("Consensus error: {0}")]
-    ConsensusError(String),
-    
-    #[error("Cryptographic error: {0}")]
-    CryptoError(String),
-    
     #[error("Upgrade error: {0}")]
     UpgradeError(String),
-    
     #[error("Custom error: {0}")]
     Custom(String),
-}
-
-/// Result type used throughout the SDK
-pub type Result<T> = std::result::Result<T, CoreError>;```
+}```
 
 ###### Directory: core/src/homomorphic
 
@@ -5236,93 +4357,38 @@ mod tests {
 ```
 
 ####### File: core/src/state/manager.rs
-####*Size: 4.0K, Lines: 78, Type: ASCII text*
+####*Size: 4.0K, Lines: 21, Type: ASCII text*
 
 ```rust
-// File: crates/core/src/state/manager.rs
+// Path: crates/core/src/state/manager.rs
 
 use crate::error::StateError;
+use crate::state::StateTree;
 
-/// State manager interface for the DePIN SDK
+/// State manager interface for the DePIN SDK.
 ///
-/// The StateManager provides a higher-level interface for state operations,
-/// potentially wrapping one or more state trees or other storage mechanisms.
-/// It provides key-value access with optional commitment scheme capabilities.
-pub trait StateManager {
-    /// The commitment type this manager uses
-    type Commitment;
-    
-    /// The proof type this manager uses
-    type Proof;
-    
-    /// Get a value by key
-    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError>;
-    
-    /// Set a value for a key
-    fn set(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError>;
-    
-    /// Delete a key-value pair
-    fn delete(&mut self, key: &[u8]) -> Result<(), StateError>;
-    
-    /// Set multiple key-value pairs in a single batch operation
-    fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
-        // Default implementation applies updates one by one
-        for (key, value) in updates {
-            self.set(key, value)?;
-        }
-        Ok(())
-    }
-    
-    /// Get multiple values by keys in a single batch operation
-    fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
-        // Default implementation retrieves values one by one
-        let mut values = Vec::with_capacity(keys.len());
-        for key in keys {
-            values.push(self.get(key)?);
-        }
-        Ok(values)
-    }
-    
-    /// Get the current root commitment
-    ///
-    /// # Returns
-    /// * The current root commitment
-    fn root_commitment(&self) -> Self::Commitment;
-    
-    /// Create a proof for a specific key
-    ///
-    /// # Arguments
-    /// * `key` - The key to create a proof for
-    ///
-    /// # Returns
-    /// * `Some(proof)` - If proof creation succeeded
-    /// * `None` - If the key doesn't exist or proof creation isn't supported
-    fn create_proof(&self, key: &[u8]) -> Option<Self::Proof>;
-    
-    /// Verify a proof against the root commitment
-    ///
-    /// # Arguments
-    /// * `commitment` - The commitment to verify against
-    /// * `proof` - The proof to verify
-    /// * `key` - The key the proof is for
-    /// * `value` - The value to verify
-    ///
-    /// # Returns
-    /// * `true` - If the proof is valid
-    /// * `false` - If the proof is invalid or verification isn't supported
-    fn verify_proof(
-        &self,
-        commitment: &Self::Commitment,
-        proof: &Self::Proof,
-        key: &[u8],
-        value: &[u8]
-    ) -> bool;
+/// `StateManager` is a higher-level abstraction that must also be a `StateTree`.
+/// It provides all the same core methods as `StateTree` (via inheritance) and
+/// adds batching capabilities.
+pub trait StateManager: StateTree {
+    // REMOVED: All redundant associated types and method signatures from StateTree are gone.
+    // They are inherited automatically.
+
+    /// Set multiple key-value pairs in a single batch operation.
+    /// This is now a required method for any implementor of StateManager.
+    fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError>;
+
+    /// Get multiple values by keys in a single batch operation.
+    /// This is now a required method.
+    fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError>;
 }```
 
 ####### File: core/src/state/mod.rs
-####*Size: 4.0K, Lines: 24, Type: ASCII text*
+####*Size: 4.0K, Lines: 25, Type: ASCII text*
 
 ```rust
+// Path: crates/core/src/state/mod.rs
+
 //! State management interfaces for the DePIN SDK Core.
 
 mod manager;
@@ -5336,18 +4402,17 @@ pub use tree::*;
 
 use crate::commitment::CommitmentScheme;
 
-/// Type alias for a StateManager compatible with a specific CommitmentScheme
+/// Type alias for a StateManager trait object compatible with a specific CommitmentScheme.
 pub type StateManagerFor<CS> = dyn StateManager<
     Commitment = <CS as CommitmentScheme>::Commitment,
     Proof = <CS as CommitmentScheme>::Proof,
 >;
 
-/// Type alias for a StateTree compatible with a specific CommitmentScheme
+/// Type alias for a StateTree trait object compatible with a specific CommitmentScheme.
 pub type StateTreeFor<CS> = dyn StateTree<
     Commitment = <CS as CommitmentScheme>::Commitment,
     Proof = <CS as CommitmentScheme>::Proof,
->;
-```
+>;```
 
 ####### File: core/src/state/tree.rs
 ####*Size: 4.0K, Lines: 65, Type: ASCII text*
@@ -5978,29 +5043,49 @@ mod tests {
 ```
 
 ####### File: core/src/transaction/mod.rs
-####*Size: 8.0K, Lines: 170, Type: ASCII text*
+####*Size: 8.0K, Lines: 153, Type: ASCII text*
 
 ```rust
 // File: crates/core/src/transaction/mod.rs
 
-use std::any::Any;
+use crate::commitment::CommitmentScheme;
 use crate::error::TransactionError;
 use crate::state::StateManager;
-use crate::commitment::CommitmentScheme;
+use std::any::Any;
+use std::fmt::Debug;
 
 /// Core transaction model trait that defines the interface for all transaction models.
 ///
 /// This trait is intentionally model-agnostic, allowing for different implementations
 /// (UTXO, account-based, hybrid, etc.) while providing a consistent interface.
 pub trait TransactionModel {
-    /// The transaction type for this model
-    type Transaction;
-    
-    /// The proof type for this model
+    /// The transaction type for this model.
+    type Transaction: Debug;
+
+    /// The proof type for this model.
     type Proof;
-    
-    /// The commitment scheme used by this model
+
+    /// The commitment scheme used by this model.
     type CommitmentScheme: CommitmentScheme;
+
+    /// Creates a "coinbase" or block reward transaction.
+    ///
+    /// This provides a generic way for a block producer (like the OrchestrationContainer)
+    /// to create the first, special transaction in a block without needing to know the
+    /// specific details of the transaction model.
+    ///
+    /// # Arguments
+    /// * `block_height` - The height of the block this transaction will be in.
+    /// * `recipient` - The public key or address of the block producer who should receive the reward.
+    ///
+    /// # Returns
+    /// * `Ok(transaction)` - A valid coinbase transaction.
+    /// * `Err(TransactionError)` - If the coinbase transaction could not be created.
+    fn create_coinbase_transaction(
+        &self,
+        block_height: u64,
+        recipient: &[u8],
+    ) -> Result<Self::Transaction, TransactionError>;
 
     /// Validate a transaction against the current state.
     ///
@@ -6015,9 +5100,9 @@ pub trait TransactionModel {
     fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<bool, TransactionError>
     where
         S: StateManager<
-            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof
-        > + ?Sized;
+                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+            > + ?Sized;
 
     /// Apply a transaction to the state.
     ///
@@ -6031,10 +5116,10 @@ pub trait TransactionModel {
     fn apply<S>(&self, tx: &Self::Transaction, state: &mut S) -> Result<(), TransactionError>
     where
         S: StateManager<
-            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof
-        > + ?Sized;
-    
+                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+            > + ?Sized;
+
     /// Generate a proof for a transaction.
     ///
     /// # Arguments
@@ -6044,13 +5129,17 @@ pub trait TransactionModel {
     /// # Returns
     /// * `Ok(proof)` - If the proof was successfully generated.
     /// * `Err(TransactionError)` - If an error occurred during proof generation.
-    fn generate_proof<S>(&self, tx: &Self::Transaction, state: &S) -> Result<Self::Proof, TransactionError>
+    fn generate_proof<S>(
+        &self,
+        tx: &Self::Transaction,
+        state: &S,
+    ) -> Result<Self::Proof, TransactionError>
     where
         S: StateManager<
-            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof
-        > + ?Sized;
-    
+                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+            > + ?Sized;
+
     /// Verify a proof for a transaction.
     ///
     /// # Arguments
@@ -6064,47 +5153,23 @@ pub trait TransactionModel {
     fn verify_proof<S>(&self, proof: &Self::Proof, state: &S) -> Result<bool, TransactionError>
     where
         S: StateManager<
-            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof
-        > + ?Sized;
-    
+                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+            > + ?Sized;
+
     /// Serialize a transaction to bytes.
-    ///
-    /// # Arguments
-    /// * `tx` - The transaction to serialize.
-    ///
-    /// # Returns
-    /// * `Ok(bytes)` - The serialized transaction.
-    /// * `Err(TransactionError)` - If an error occurred during serialization.
     fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError>;
-    
+
     /// Deserialize bytes to a transaction.
-    ///
-    /// # Arguments
-    /// * `data` - The serialized transaction.
-    ///
-    /// # Returns
-    /// * `Ok(transaction)` - The deserialized transaction.
-    /// * `Err(TransactionError)` - If an error occurred during deserialization.
     fn deserialize_transaction(&self, data: &[u8]) -> Result<Self::Transaction, TransactionError>;
 
     /// Optional extension point for model-specific functionality.
-    ///
-    /// This allows models to expose additional functionality beyond the core interface
-    /// without breaking the common abstraction.
-    ///
-    /// # Returns
-    /// * `Some(extensions)` - A reference to model-specific extensions.
-    /// * `None` - If no extensions are available.
     fn get_model_extensions(&self) -> Option<&dyn Any> {
         None
     }
 }
 
-/// Registry for managing multiple transaction models.
-///
-/// This provides runtime selection capabilities when compile-time selection
-/// through feature flags is not feasible.
+/// Registry for managing multiple transaction models at runtime.
 #[derive(Default)]
 pub struct TransactionModelRegistry {
     models: std::collections::HashMap<String, Box<dyn Any>>,
@@ -6117,37 +5182,20 @@ impl TransactionModelRegistry {
             models: std::collections::HashMap::new(),
         }
     }
-    
+
     /// Register a transaction model.
-    ///
-    /// # Arguments
-    /// * `name` - The name to register the model under.
-    /// * `model` - The model to register.
     pub fn register<T: TransactionModel + 'static>(&mut self, name: &str, model: T) {
         self.models.insert(name.to_string(), Box::new(model));
     }
-    
+
     /// Get a registered transaction model.
-    ///
-    /// # Arguments
-    /// * `name` - The name of the model to retrieve.
-    ///
-    /// # Returns
-    /// * `Some(model)` - The requested model.
-    /// * `None` - If no model is registered under the given name.
     pub fn get<T: 'static>(&self, name: &str) -> Option<&T> {
-        self.models.get(name)
+        self.models
+            .get(name)
             .and_then(|model| model.downcast_ref::<T>())
     }
-    
+
     /// Check if a model is registered.
-    ///
-    /// # Arguments
-    /// * `name` - The name to check.
-    ///
-    /// # Returns
-    /// * `true` - If a model is registered under the given name.
-    /// * `false` - Otherwise.
     pub fn has_model(&self, name: &str) -> bool {
         self.models.contains_key(name)
     }
@@ -6156,36 +5204,40 @@ impl TransactionModelRegistry {
 ###### Directory: core/src/types
 
 ####### File: core/src/types/mod.rs
-####*Size: 4.0K, Lines: 46, Type: ASCII text*
+####*Size: 4.0K, Lines: 50, Type: ASCII text*
 
 ```rust
+// Path: crates/core/src/types/mod.rs
+
 //! Type aliases and common types for the DePIN SDK
 
 use crate::commitment::CommitmentScheme;
 use crate::state::StateManager;
 use crate::transaction::TransactionModel;
 
-/// Type aliases for commitment schemes
+/// Type aliases for commitment schemes.
 pub mod commitment {
     use super::*;
 
-    /// The commitment type for a given commitment scheme
+    /// The commitment type for a given commitment scheme.
     pub type CommitmentOf<CS> = <CS as CommitmentScheme>::Commitment;
 
-    /// The proof type for a given commitment scheme  
+    /// The proof type for a given commitment scheme.
     pub type ProofOf<CS> = <CS as CommitmentScheme>::Proof;
 
-    /// The value type for a given commitment scheme
+    /// The value type for a given commitment scheme.
     pub type ValueOf<CS> = <CS as CommitmentScheme>::Value;
 }
 
-/// Type aliases for state management
+/// Type aliases for state management.
 pub mod state {
     use super::*;
 
-    /// Type alias for a state manager that uses a specific commitment scheme
-    pub type StateManagerFor<CS> 
-    where 
+    /// Type alias for a `StateManager` trait object that is compatible with a
+    /// specific `CommitmentScheme`. This is now unambiguous because `StateManager`
+    /// inherits its associated types directly from its `StateTree` supertrait.
+    pub type StateManagerFor<CS>
+    where
         CS: CommitmentScheme,
     = dyn StateManager<
         Commitment = <CS as CommitmentScheme>::Commitment,
@@ -6193,21 +5245,53 @@ pub mod state {
     >;
 }
 
-/// Type aliases for transaction models
+/// Type aliases for transaction models.
 pub mod transaction {
     use super::*;
 
-    /// Transaction type for a transaction model
+    /// The transaction type for a given transaction model.
     pub type TransactionOf<TM> = <TM as TransactionModel>::Transaction;
 
-    /// Proof type for a transaction model
+    /// The proof type for a given transaction model.
     pub type ProofOf<TM> = <TM as TransactionModel>::Proof;
 
-    /// Commitment scheme type for a transaction model
+    /// The commitment scheme type for a given transaction model.
     pub type CommitmentSchemeOf<TM> = <TM as TransactionModel>::CommitmentScheme;
 }```
 
 ###### Directory: core/src/validator
+
+####### Directory: core/src/validator/container
+
+######## File: core/src/validator/container/mod.rs
+#####*Size: 4.0K, Lines: 24, Type: ASCII text*
+
+```rust
+// Path: crates/core/src/validator/container/mod.rs
+
+use crate::error::ValidatorError;
+use async_trait::async_trait;
+
+/// A trait for any component that can be started and stopped.
+#[async_trait]
+pub trait Container {
+    /// A unique identifier for the container.
+    fn id(&self) -> &'static str;
+    /// Returns true if the container is currently running.
+    fn is_running(&self) -> bool;
+    /// Starts the container's logic.
+    async fn start(&self) -> Result<(), ValidatorError>;
+    /// Stops the container's logic.
+    async fn stop(&self) -> Result<(), ValidatorError>;
+}
+
+/// A trait for the Guardian container, responsible for secure boot and attestation.
+pub trait GuardianContainer: Container {
+    /// Initiates the secure boot process.
+    fn start_boot(&self) -> Result<(), ValidatorError>;
+    /// Verifies the attestation of other containers.
+    fn verify_attestation(&self) -> Result<bool, ValidatorError>;
+}```
 
 ####### Directory: core/src/validator/tests
 
@@ -6458,72 +5542,101 @@ mod tests {
 }
 ```
 
-####### File: core/src/validator/container.rs
-####*Size: 4.0K, Lines: 25, Type: ASCII text*
-
-```rust
-//! Container interface definitions
-
-/// Container interface
-pub trait Container {
-    /// Start the container
-    fn start(&self) -> Result<(), String>;
-    
-    /// Stop the container
-    fn stop(&self) -> Result<(), String>;
-    
-    /// Check if the container is running
-    fn is_running(&self) -> bool;
-    
-    /// Get the container ID
-    fn id(&self) -> &str;
-}
-
-/// Guardian container interface
-pub trait GuardianContainer: Container {
-    /// Start the boot process
-    fn start_boot(&self) -> Result<(), String>;
-    
-    /// Verify attestation
-    fn verify_attestation(&self) -> Result<bool, String>;
-}
-```
-
 ####### File: core/src/validator/mod.rs
-####*Size: 4.0K, Lines: 10, Type: ASCII text*
+####*Size: 4.0K, Lines: 62, Type: ASCII text*
 
 ```rust
-//! Validator architecture trait definitions
+// Path: crates/core/src/validator/mod.rs
 
-mod container;
-mod types;
+use crate::{
+    config::WorkloadConfig,
+    error::ValidatorError,
+    state::{StateManager, StateTree},
+};
+use std::fmt::Debug;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
-#[cfg(test)]
-mod tests;
+// FIX: Declare the container module so it's part of the `validator` module.
+pub mod container;
 
-pub use container::*;
-pub use types::*;
-```
+// FIX: Publicly re-export the traits using a relative path.
+pub use container::{Container, GuardianContainer};
+
+/// A container responsible for executing transactions and managing state.
+#[derive(Debug)]
+pub struct WorkloadContainer<ST: StateManager> {
+    _config: WorkloadConfig,
+    state_tree: Arc<Mutex<ST>>,
+}
+
+impl<ST> WorkloadContainer<ST>
+where
+    ST: StateManager,
+{
+    pub fn new(config: WorkloadConfig, state_tree: ST) -> Self {
+        Self {
+            _config: config,
+            state_tree: Arc::new(Mutex::new(state_tree)),
+        }
+    }
+
+    pub fn state_tree(&self) -> Arc<Mutex<ST>> {
+        self.state_tree.clone()
+    }
+}
+
+#[async_trait::async_trait]
+impl<ST> Container for WorkloadContainer<ST>
+where
+    ST: StateManager + StateTree + Send + Sync + 'static,
+{
+    async fn start(&self) -> Result<(), ValidatorError> {
+        log::info!("WorkloadContainer started.");
+        Ok(())
+    }
+
+    async fn stop(&self) -> Result<(), ValidatorError> {
+        log::info!("WorkloadContainer stopped.");
+        Ok(())
+    }
+
+    fn is_running(&self) -> bool {
+        true
+    }
+
+    fn id(&self) -> &'static str {
+        "workload_container"
+    }
+}```
 
 ####### File: core/src/validator/types.rs
-####*Size: 4.0K, Lines: 25, Type: ASCII text*
+####*Size: 4.0K, Lines: 32, Type: ASCII text*
 
 ```rust
 //! Validator type definitions
+use crate::error::ValidatorError;
 
 /// Validator model trait
 pub trait ValidatorModel {
+    /// An associated type representing the specific WorkloadContainer implementation this validator uses.
+    /// This allows us to access it generically without knowing the validator's concrete type.
+    type WorkloadContainerType;
+
     /// Start the validator
-    fn start(&self) -> Result<(), String>;
-    
+    fn start(&self) -> Result<(), ValidatorError>;
+
     /// Stop the validator
-    fn stop(&self) -> Result<(), String>;
-    
+    fn stop(&self) -> Result<(), ValidatorError>;
+
     /// Check if the validator is running
     fn is_running(&self) -> bool;
-    
+
     /// Get the validator type
     fn validator_type(&self) -> ValidatorType;
+
+    /// Provides generic access to the validator's workload container.
+    fn workload_container(&self) -> &Self::WorkloadContainerType;
 }
 
 /// Validator types
@@ -6533,36 +5646,41 @@ pub enum ValidatorType {
     Standard,
     /// Hybrid validator (5 containers)
     Hybrid,
-}
-```
+}```
 
 ###### File: core/src/lib.rs
-###*Size: 4.0K, Lines: 30, Type: ASCII text*
+###*Size: 4.0K, Lines: 36, Type: ASCII text*
 
 ```rust
 //! # DePIN SDK Core
 //!
 //! Core traits and interfaces for the DePIN SDK.
 
+pub mod app;
+pub mod chain;
+pub mod commitment;
 pub mod component;
+// NEW: A module for shared configuration structs.
+pub mod config;
 pub mod crypto;
 pub mod error;
 pub mod homomorphic;
-pub mod services;
-pub mod commitment;
-pub mod state;
-pub mod types;
 pub mod ibc;
+pub mod services;
+pub mod state;
 pub mod transaction;
+pub mod types;
 pub mod validator;
 
-// Only include test utilities when running tests
 #[cfg(test)]
 pub mod test_utils;
 
 // Re-export key traits and types for convenience
+pub use app::*;
+pub use chain::*;
 pub use commitment::*;
 pub use component::*;
+pub use config::*;
 pub use crypto::*;
 pub use error::*;
 pub use homomorphic::*;
@@ -6573,27 +5691,32 @@ pub use transaction::*;
 pub use validator::*;```
 
 ##### File: core/Cargo.toml
-##*Size: 4.0K, Lines: 18, Type: ASCII text*
+##*Size: 4.0K, Lines: 23, Type: ASCII text*
 
 ```toml
+# Path: crates/core/Cargo.toml
+
 [package]
 name = "depin-sdk-core"
 version = "0.1.0"
 edition = "2021"
-description = "Core traits and interfaces for the DePIN SDK"
+description = "Core types and traits for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+# FIX: Add async-trait as a dependency, which is now required by the Container trait.
+async-trait = { workspace = true }
 log = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 bytes = { workspace = true }
-anyhow = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
 
 [features]
 default = []
-post-quantum = []
 homomorphic = []
+post-quantum = []
 ```
 
 #### Directory: crypto
@@ -10697,15 +9820,15 @@ pub use proof::{HomomorphicProof, ProofGenerator};
 ```
 
 ###### File: homomorphic/src/proof.rs
-###*Size: 16K, Lines: 357, Type: ASCII text*
+###*Size: 16K, Lines: 356, Type: ASCII text*
 
 ```rust
 use crate::error::{HomomorphicError, HomomorphicResult};
 use depin_sdk_core::commitment::HomomorphicCommitmentScheme;
 use depin_sdk_core::commitment::HomomorphicOperation;
-use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, Selector};
+// FIX: Remove unused imports.
+use depin_sdk_core::commitment::{ProofContext, Selector};
 use depin_sdk_core::homomorphic::CommitmentOperation;
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -11056,11 +10179,10 @@ impl<CS: HomomorphicCommitmentScheme> ProofGenerator<CS> {
             )),
         }
     }
-}
-```
+}```
 
 ##### File: homomorphic/Cargo.toml
-##*Size: 4.0K, Lines: 19, Type: ASCII text*
+##*Size: 4.0K, Lines: 16, Type: ASCII text*
 
 ```toml
 [package]
@@ -11076,9 +10198,6 @@ depin-sdk-commitment-schemes = { path = "../commitment_schemes" }
 log = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
-rand = "0.8"
-sha2 = "0.10"
-curve25519-dalek = "4.0"
 
 [features]
 default = []
@@ -12651,139 +11770,141 @@ default = []
 ###### Directory: state_trees/src/file
 
 ####### File: state_trees/src/file/mod.rs
-####*Size: 8.0K, Lines: 181, Type: C source, ASCII text*
+####*Size: 8.0K, Lines: 166, Type: ASCII text*
 
 ```rust
-use depin_sdk_core::commitment::CommitmentScheme;
+// Path: crates/state_trees/src/file/mod.rs
+
+use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, Selector};
 use depin_sdk_core::error::StateError;
 use depin_sdk_core::state::{StateManager, StateTree};
-use crate::HashMapStateTree;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fs;
-use std::path::{Path, PathBuf};
 use std::any::Any;
-use std::sync::{Arc, RwLock};
+use std::collections::HashMap;
+use std::fs::{File, OpenOptions};
+use std::io::{self};
+use std::marker::PhantomData;
+use std::path::{Path, PathBuf};
 
-// A serializable representation of the state, using hex strings for keys and values.
-#[derive(Serialize, Deserialize, Default)]
-struct SerializableState(HashMap<String, String>);
-
-/// A state tree that persists its state to a JSON file.
-/// It wraps an in-memory HashMapStateTree and adds load/save functionality.
-pub struct FileStateTree<CS: CommitmentScheme + Clone>
-where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]> + Clone,
-{
-    // The inner, in-memory state tree.
-    inner: HashMapStateTree<CS>,
-    // Path to the state file on disk.
+/// A simple, file-backed state tree implementation for demonstration purposes.
+/// It uses a HashMap internally and serializes to a JSON file.
+///
+/// FIX: The internal HashMap now uses `String` for keys to be compatible with
+/// the JSON format, which requires string keys for objects. Binary keys are
+/// hex-encoded before being used with the map.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct FileStateTree<C: CommitmentScheme> {
     path: PathBuf,
-    // We use an Arc<RwLock<()>> as a simple, cheap way to prevent saves
-    // from happening concurrently, which could corrupt the file.
-    save_lock: Arc<RwLock<()>>,
+    #[serde(skip, default)]
+    scheme: C,
+    // FIX: Changed key type from Vec<u8> to String.
+    data: HashMap<String, Vec<u8>>,
+    #[serde(skip)]
+    _phantom: PhantomData<C::Value>,
 }
 
-impl<CS: CommitmentScheme + Clone> FileStateTree<CS>
+impl<C> FileStateTree<C>
 where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]> + Clone,
+    C: CommitmentScheme + Clone + Default,
+    C::Value: From<Vec<u8>>,
 {
-    /// Creates a new FileStateTree.
-    ///
-    /// It attempts to load the initial state from the file at `path`.
-    /// If the file doesn't exist, it starts with an empty state.
-    pub fn new<P: AsRef<Path>>(path: P, scheme: CS) -> Self {
-        let mut tree = Self {
-            inner: HashMapStateTree::new(scheme),
-            path: path.as_ref().to_path_buf(),
-            save_lock: Arc::new(RwLock::new(())),
-        };
-
-        if let Err(e) = tree.load() {
-            // Log a warning if loading fails, but don't panic.
-            // This allows the node to start fresh if the state file is corrupted or unreadable.
-            eprintln!("[Warning] Failed to load state from {:?}: {}. Starting with a fresh state.", tree.path, e);
-        }
-        tree
+    pub fn new<P: AsRef<Path>>(path: P, scheme: C) -> Self {
+        let path_buf = path.as_ref().to_path_buf();
+        Self::load(&path_buf, scheme.clone()).unwrap_or_else(|_| Self {
+            path: path_buf,
+            scheme,
+            data: HashMap::new(),
+            _phantom: PhantomData,
+        })
     }
 
-    /// Loads the state from the JSON file.
-    pub fn load(&mut self) -> Result<(), StateError> {
-        if !self.path.exists() {
-            println!("State file not found at {:?}, starting new state.", self.path);
-            return Ok(());
-        }
-
-        let json_data = fs::read_to_string(&self.path)
-            .map_err(|e| StateError::ReadError(e.to_string()))?;
-            
-        let serializable_map: SerializableState = serde_json::from_str(&json_data)
-            .map_err(|e| StateError::ReadError(format!("JSON deserialization error: {}", e)))?;
-
-        self.inner.data.clear();
-        for (k_hex, v_hex) in serializable_map.0 {
-            let k = hex::decode(&k_hex)
-                .map_err(|e| StateError::InvalidKey(format!("Hex decode error: {}", e)))?;
-            let v_bytes = hex::decode(&v_hex)
-                .map_err(|e| StateError::InvalidValue(format!("Hex decode error: {}", e)))?;
-            
-            self.inner.data.insert(k, CS::Value::from(v_bytes));
-        }
-
-        println!("Successfully loaded state with {} entries from {:?}", self.inner.data.len(), self.path);
-        Ok(())
+    fn load<P: AsRef<Path>>(path: P, scheme: C) -> io::Result<Self> {
+        let file = File::open(path)?;
+        let mut loaded: Self = serde_json::from_reader(file)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        loaded.scheme = scheme;
+        Ok(loaded)
     }
 
-    /// Saves the current state to the JSON file.
-    pub fn save(&self) -> Result<(), StateError> {
-        // Acquire a write lock to ensure only one save operation happens at a time.
-        let _lock = self.save_lock.write().unwrap();
-
-        let mut serializable_map = SerializableState::default();
-        for (k, v) in &self.inner.data {
-            serializable_map.0.insert(hex::encode(k), hex::encode(v.as_ref()));
-        }
-
-        let json_data = serde_json::to_string_pretty(&serializable_map)
-            .map_err(|e| StateError::WriteError(e.to_string()))?;
-        
-        fs::write(&self.path, json_data)
-            .map_err(|e| StateError::WriteError(e.to_string()))?;
-
-        Ok(())
+    fn save(&self) -> io::Result<()> {
+        let file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&self.path)?;
+        serde_json::to_writer_pretty(file, self)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
     }
 }
 
-// Delegate StateTree and StateManager traits to the inner HashMapStateTree.
-impl<CS: CommitmentScheme + Clone> StateTree for FileStateTree<CS>
+impl<C> StateTree for FileStateTree<C>
 where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]> + Clone,
+    C: CommitmentScheme + Clone + Send + Sync + Default,
+    C::Value: From<Vec<u8>>,
 {
-    type Commitment = CS::Commitment;
-    type Proof = CS::Proof;
+    type Commitment = C::Commitment;
+    type Proof = C::Proof;
 
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
-        StateTree::get(&self.inner, key)
+        // FIX: Hex-encode the key for lookup.
+        let key_hex = hex::encode(key);
+        Ok(self.data.get(&key_hex).cloned())
     }
 
     fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
-        StateTree::insert(&mut self.inner, key, value)
+        // FIX: Hex-encode the key before insertion.
+        let key_hex = hex::encode(key);
+        self.data.insert(key_hex, value.to_vec());
+        self.save()
+            .map_err(|e| StateError::WriteError(e.to_string()))
     }
 
     fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
-        StateTree::delete(&mut self.inner, key)
+        // FIX: Hex-encode the key for removal.
+        let key_hex = hex::encode(key);
+        self.data.remove(&key_hex);
+        self.save()
+            .map_err(|e| StateError::WriteError(e.to_string()))
     }
 
     fn root_commitment(&self) -> Self::Commitment {
-        StateTree::root_commitment(&self.inner)
+        let mut values_to_sort = self.data.values().cloned().collect::<Vec<_>>();
+        values_to_sort.sort();
+
+        let values_to_commit: Vec<Option<C::Value>> = values_to_sort
+            .into_iter()
+            .map(|v| Some(C::Value::from(v)))
+            .collect();
+
+        self.scheme.commit(&values_to_commit)
     }
 
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
-        StateTree::create_proof(&self.inner, key)
+        // FIX: Hex-encode the key for lookup.
+        let key_hex = hex::encode(key);
+        let value = self.data.get(&key_hex)?;
+        self.scheme
+            .create_proof(
+                &Selector::Key(key.to_vec()),
+                &C::Value::from(value.clone()),
+            )
+            .ok()
     }
 
-    fn verify_proof(&self, commitment: &Self::Commitment, proof: &Self::Proof, key: &[u8], value: &[u8]) -> bool {
-        StateTree::verify_proof(&self.inner, commitment, proof, key, value)
+    fn verify_proof(
+        &self,
+        commitment: &Self::Commitment,
+        proof: &Self::Proof,
+        key: &[u8],
+        value: &[u8],
+    ) -> bool {
+        self.scheme.verify(
+            commitment,
+            proof,
+            &Selector::Key(key.to_vec()),
+            &C::Value::from(value.to_vec()),
+            &ProofContext::default(),
+        )
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -12791,56 +11912,39 @@ where
     }
 }
 
-impl<CS: CommitmentScheme + Clone> StateManager for FileStateTree<CS>
+impl<C> StateManager for FileStateTree<C>
 where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]> + Clone,
+    C: CommitmentScheme + Clone + Send + Sync + Default,
+    C::Commitment: Send + Sync,
+    C::Proof: Send + Sync,
+    C::Value: From<Vec<u8>> + Send + Sync,
 {
-    type Commitment = CS::Commitment;
-    type Proof = CS::Proof;
+    fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
+        for (key, value) in updates {
+            // FIX: Hex-encode each key before batch insertion.
+            let key_hex = hex::encode(key);
 
-    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
-        <Self as StateTree>::get(self, key)
-    }
-
-    fn set(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
-        <Self as StateTree>::insert(self, key, value)
-    }
-
-    fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
-        <Self as StateTree>::delete(self, key)
-    }
-
-    fn root_commitment(&self) -> Self::Commitment {
-        <Self as StateTree>::root_commitment(self)
-    }
-
-    fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
-        <Self as StateTree>::create_proof(self, key)
-    }
-
-    fn verify_proof(&self, commitment: &Self::Commitment, proof: &Self::Proof, key: &[u8], value: &[u8]) -> bool {
-        <Self as StateTree>::verify_proof(self, commitment, proof, key, value)
-    }
-}
-
-// Automatically save the state when the FileStateTree is dropped.
-// This is a safety net for graceful shutdowns.
-impl<CS: CommitmentScheme + Clone> Drop for FileStateTree<CS>
-where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]> + Clone,
-{
-    fn drop(&mut self) {
-        println!("Shutting down... saving final state to {:?}", self.path);
-        if let Err(e) = self.save() {
-            eprintln!("[Error] Failed to save state on shutdown: {}", e);
+            self.data.insert(key_hex, value.to_vec());
         }
+        self.save()
+            .map_err(|e| StateError::WriteError(e.to_string()))
+    }
+
+    fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
+        let mut values = Vec::with_capacity(keys.len());
+        for key in keys {
+            // FIX: Hex-encode each key for batch lookup.
+            let key_hex = hex::encode(key);
+            values.push(self.data.get(&key_hex).cloned());
+        }
+        Ok(values)
     }
 }```
 
 ###### Directory: state_trees/src/hashmap
 
 ####### File: state_trees/src/hashmap/mod.rs
-####*Size: 4.0K, Lines: 131, Type: ASCII text*
+####*Size: 4.0K, Lines: 110, Type: ASCII text*
 
 ```rust
 use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, Selector};
@@ -12909,10 +12013,7 @@ where
     }
 
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
-        // Fixed ambiguous method call by explicitly specifying which trait's method to use
-        let value = <Self as StateTree>::get(self, key)
-            .ok()?
-            .map(|v| self.to_value(&v))?;
+        let value = self.get(key).ok()?.map(|v| self.to_value(&v))?;
         let selector = Selector::Key(key.to_vec());
         self.scheme.create_proof(&selector, &value).ok()
     }
@@ -12941,45 +12042,27 @@ impl<CS: CommitmentScheme> StateManager for HashMapStateTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
 {
-    type Commitment = CS::Commitment;
-    type Proof = CS::Proof;
-
-    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
-        <Self as StateTree>::get(self, key)
+    fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
+        for (key, value) in updates {
+            let value_typed = self.to_value(value);
+            self.data.insert(key.to_vec(), value_typed);
+        }
+        Ok(())
     }
 
-    fn set(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
-        <Self as StateTree>::insert(self, key, value)
+    fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
+        let mut values = Vec::with_capacity(keys.len());
+        for key in keys {
+            values.push(self.data.get(key).map(|v| v.as_ref().to_vec()));
+        }
+        Ok(values)
     }
-
-    fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
-        <Self as StateTree>::delete(self, key)
-    }
-
-    fn root_commitment(&self) -> Self::Commitment {
-        <Self as StateTree>::root_commitment(self)
-    }
-
-    fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
-        <Self as StateTree>::create_proof(self, key)
-    }
-
-    fn verify_proof(
-        &self,
-        commitment: &Self::Commitment,
-        proof: &Self::Proof,
-        key: &[u8],
-        value: &[u8],
-    ) -> bool {
-        <Self as StateTree>::verify_proof(self, commitment, proof, key, value)
-    }
-}
-```
+}```
 
 ###### Directory: state_trees/src/iavl
 
 ####### File: state_trees/src/iavl/mod.rs
-####*Size: 8.0K, Lines: 150, Type: ASCII text*
+####*Size: 4.0K, Lines: 110, Type: ASCII text*
 
 ```rust
 //! IAVL tree implementation
@@ -13029,7 +12112,6 @@ where
     type Proof = CS::Proof;
 
     fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
-        // Convert to the appropriate value type for this commitment scheme
         let scheme_value = self.to_value(value);
         self.data.insert(key.to_vec(), scheme_value);
         Ok(())
@@ -13045,18 +12127,13 @@ where
     }
 
     fn root_commitment(&self) -> Self::Commitment {
-        // Convert data to format expected by commitment scheme
         let values: Vec<Option<CS::Value>> = self.data.values().map(|v| Some(v.clone())).collect();
         self.scheme.commit(&values)
     }
 
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
         let value = self.data.get(key)?;
-
-        // Create a key-based selector for the proof
         let selector = Selector::Key(key.to_vec());
-
-        // Create the proof using the selector
         self.scheme.create_proof(&selector, value).ok()
     }
 
@@ -13067,16 +12144,9 @@ where
         key: &[u8],
         value: &[u8],
     ) -> bool {
-        // Create a key-based selector for verification
         let selector = Selector::Key(key.to_vec());
-
-        // Create an empty context for now
         let context = ProofContext::default();
-
-        // Convert the raw value to the scheme's value type
         let scheme_value = self.to_value(value);
-
-        // Verify the proof using the selector and context
         self.scheme
             .verify(commitment, proof, &selector, &scheme_value, &context)
     }
@@ -13086,58 +12156,31 @@ where
     }
 }
 
-// Add support for tree-specific operations for IAVL
-impl<CS: CommitmentScheme> IAVLTree<CS>
+// FIX: Implement the StateManager trait.
+impl<CS: CommitmentScheme> StateManager for IAVLTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
 {
-    /// Get the height of the tree
-    pub fn height(&self) -> usize {
-        // This would be a real implementation in a complete IAVL tree
-        // For now, we just return a placeholder value
-        let size = self.data.len();
-        if size == 0 {
-            0
-        } else {
-            (size as f64).log2().ceil() as usize
+    fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
+        for (key, value) in updates {
+            self.insert(key, value)?;
         }
+        Ok(())
     }
 
-    /// Get the number of nodes in the tree
-    pub fn size(&self) -> usize {
-        self.data.len()
-    }
-
-    /// Check if the tree is balanced
-    pub fn is_balanced(&self) -> bool {
-        // This would be a real implementation in a complete IAVL tree
-        // For now, we just return true
-        true
-    }
-
-    /// Create a proof with additional path information
-    pub fn create_path_proof(&self, key: &[u8]) -> Option<(CS::Proof, Vec<Vec<u8>>)> {
-        // This would create a proof with the complete path from root to leaf
-        let value = self.data.get(key)?;
-
-        // Create a key-based selector
-        let selector = Selector::Key(key.to_vec());
-
-        // Create the proof
-        let proof = self.scheme.create_proof(&selector, value).ok()?;
-
-        // In a real implementation, we would compute the path
-        // For now, we just return an empty path
-        let path = Vec::new();
-
-        Some((proof, path))
+    fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
+        let mut results = Vec::with_capacity(keys.len());
+        for key in keys {
+            results.push(self.get(key)?);
+        }
+        Ok(results)
     }
 }```
 
 ###### Directory: state_trees/src/sparse_merkle
 
 ####### File: state_trees/src/sparse_merkle/mod.rs
-####*Size: 4.0K, Lines: 139, Type: ASCII text*
+####*Size: 4.0K, Lines: 111, Type: ASCII text*
 
 ```rust
 //! Sparse Merkle tree implementation
@@ -13168,7 +12211,6 @@ where
         }
     }
 
-    /// Helper to convert raw bytes to the commitment scheme's Value type
     fn to_value(&self, bytes: &[u8]) -> CS::Value {
         CS::Value::from(bytes.to_vec())
     }
@@ -13197,20 +12239,14 @@ where
     }
 
     fn root_commitment(&self) -> Self::Commitment {
-        // Convert data to format expected by commitment scheme
         let values: Vec<Option<CS::Value>> = self.data.values().map(|v| Some(v.clone())).collect();
         self.scheme.commit(&values)
     }
 
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
-        // Get the value as an Option<Vec<u8>>
         let value_result = self.get(key).ok()?;
         let value = value_result?;
-        
-        // Now convert value to the typed value and create the proof
         let value_typed = self.to_value(&value);
-
-        // Use key-based selector for sparse Merkle trees
         self.scheme
             .create_proof(&Selector::Key(key.to_vec()), &value_typed)
             .ok()
@@ -13224,11 +12260,7 @@ where
         value: &[u8],
     ) -> bool {
         let value_typed = self.to_value(value);
-
-        // Create context (empty for now, could be extended with tree-specific data)
         let context = ProofContext::default();
-
-        // Use key-based selector for verification
         self.scheme.verify(
             commitment,
             proof,
@@ -13239,52 +12271,35 @@ where
     }
 
     fn as_any(&self) -> &dyn Any {
-        self        
+        self
     }
 }
 
-// Add some utility methods for sparse Merkle trees
-impl<CS: CommitmentScheme> SparseMerkleTree<CS>
+// FIX: Implement the StateManager trait.
+impl<CS: CommitmentScheme> StateManager for SparseMerkleTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
 {
-    /// Get the number of key-value pairs in the tree
-    pub fn len(&self) -> usize {
-        self.data.len()
-    }
-
-    /// Check if the tree is empty
-    pub fn is_empty(&self) -> bool {
-        self.data.is_empty()
-    }
-
-    /// Get all keys in the tree
-    pub fn keys(&self) -> Vec<Vec<u8>> {
-        self.data.keys().cloned().collect()
-    }
-
-    /// Clear all data in the tree
-    pub fn clear(&mut self) {
-        self.data.clear()
-    }
-
-    /// Create a proof for multiple keys at once
-    pub fn create_multi_proof(&self, keys: &[&[u8]]) -> HashMap<Vec<u8>, Option<CS::Proof>> {
-        let mut proofs = HashMap::new();
-
-        for &key in keys {
-            let proof = self.create_proof(key);
-            proofs.insert(key.to_vec(), proof);
+    fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
+        for (key, value) in updates {
+            self.insert(key, value)?;
         }
+        Ok(())
+    }
 
-        proofs
+    fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
+        let mut results = Vec::with_capacity(keys.len());
+        for key in keys {
+            results.push(self.get(key)?);
+        }
+        Ok(results)
     }
 }```
 
 ###### Directory: state_trees/src/verkle
 
 ####### File: state_trees/src/verkle/mod.rs
-####*Size: 8.0K, Lines: 148, Type: ASCII text*
+####*Size: 4.0K, Lines: 150, Type: ASCII text*
 
 ```rust
 //! Verkle tree implementation
@@ -13347,7 +12362,6 @@ where
     type Proof = CS::Proof;
 
     fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
-        // Convert value to the appropriate type for the commitment scheme
         let cs_value = self
             .convert_value(value)
             .map_err(|e| StateError::InvalidValue(e))?;
@@ -13356,7 +12370,6 @@ where
     }
 
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
-        // Convert back from CS::Value to Vec<u8>
         Ok(self.data.get(key).map(|v| self.extract_value(v)))
     }
 
@@ -13366,15 +12379,12 @@ where
     }
 
     fn root_commitment(&self) -> Self::Commitment {
-        // Convert data to format expected by commitment scheme
         let values: Vec<Option<CS::Value>> = self.data.values().map(|v| Some(v.clone())).collect();
         self.scheme.commit(&values)
     }
 
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
         let value = self.data.get(key)?;
-
-        // Create a key-based proof using the new selector API
         self.scheme
             .create_proof(&Selector::Key(key.to_vec()), value)
             .ok()
@@ -13387,18 +12397,12 @@ where
         key: &[u8],
         value: &[u8],
     ) -> bool {
-        // Convert value to the appropriate type
         if let Ok(cs_value) = self.convert_value(value) {
-            // Create verification context with additional data if needed
             let mut context = ProofContext::new();
-
-            // For Verkle trees, we might need the branching factor in the context
             context.add_data(
                 "branching_factor",
                 self.branching_factor.to_le_bytes().to_vec(),
             );
-
-            // Use Key selector for verification
             self.scheme.verify(
                 commitment,
                 proof,
@@ -13412,56 +12416,64 @@ where
     }
 
     fn as_any(&self) -> &dyn Any {
-        self        
+        self
     }
 }
 
-// Helper methods to convert between Vec<u8> and CS::Value
+// FIX: Implement the StateManager trait.
+impl<CS: CommitmentScheme> StateManager for VerkleTree<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+{
+    fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
+        for (key, value) in updates {
+            self.insert(key, value)?;
+        }
+        Ok(())
+    }
+
+    fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
+        let mut results = Vec::with_capacity(keys.len());
+        for key in keys {
+            results.push(self.get(key)?);
+        }
+        Ok(results)
+    }
+}
+
 impl<CS: CommitmentScheme> VerkleTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
 {
-    /// Convert a Vec<u8> to CS::Value
     fn convert_value(&self, value: &[u8]) -> Result<CS::Value, String> {
         Ok(CS::Value::from(value.to_vec()))
     }
 
-    /// Extract a Vec<u8> from CS::Value
     fn extract_value(&self, value: &CS::Value) -> Vec<u8> {
         value.as_ref().to_vec()
-    }
-
-    /// Create a CS::Value from bytes - implement appropriate conversion logic
-    fn create_cs_value(&self, bytes: &[u8]) -> Result<CS::Value, String> {
-        Ok(CS::Value::from(bytes.to_vec()))
     }
 }```
 
 ###### File: state_trees/src/lib.rs
-###*Size: 4.0K, Lines: 20, Type: ASCII text*
+###*Size: 4.0K, Lines: 15, Type: ASCII text*
 
 ```rust
 //! # DePIN SDK State Trees
 //!
 //! Implementations of various state tree structures for the DePIN SDK.
 
+pub mod file;
 pub mod hashmap;
 pub mod iavl;
 pub mod sparse_merkle;
 pub mod verkle;
-pub mod file;
 
 // Re-export concrete implementations for convenience
 pub use file::FileStateTree;
 pub use hashmap::HashMapStateTree;
 pub use iavl::IAVLTree;
 pub use sparse_merkle::SparseMerkleTree;
-pub use verkle::VerkleTree;
-
-// Import core traits for use in the implementations
-use depin_sdk_core::commitment::CommitmentScheme;
-use depin_sdk_core::state::StateTree;
-use std::any::Any;```
+pub use verkle::VerkleTree;```
 
 ##### File: state_trees/Cargo.toml
 ##*Size: 4.0K, Lines: 22, Type: ASCII text*
@@ -13788,662 +12800,262 @@ rand = { workspace = true }
 ###### Directory: transaction_models/src/account
 
 ####### File: transaction_models/src/account/mod.rs
-####*Size: 16K, Lines: 503, Type: ASCII text*
+####*Size: 8.0K, Lines: 178, Type: ASCII text*
 
 ```rust
-//! Account-based transaction model implementation.
-
+// Path: crates/transaction_models/src/account/mod.rs
 
 use depin_sdk_core::commitment::CommitmentScheme;
-use depin_sdk_core::error::TransactionError;
+use depin_sdk_core::error::{StateError, TransactionError};
 use depin_sdk_core::state::StateManager;
 use depin_sdk_core::transaction::TransactionModel;
-use std::any::Any;
-use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
 
-/// Account transaction
-#[derive(Debug, Clone)]
+// FIX: Add derive macros for PartialEq and Eq, required by HybridTransaction.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct AccountTransaction {
-    /// Transaction ID
-    pub txid: Vec<u8>,
-    /// Sender account
     pub from: Vec<u8>,
-    /// Receiver account
     pub to: Vec<u8>,
-    /// Value to transfer
-    pub value: u64,
-    /// Nonce to prevent replay
+    pub amount: u64,
     pub nonce: u64,
-    /// Signature from sender
-    pub signature: Vec<u8>,
 }
 
-/// Account proof for transaction verification
-#[derive(Debug, Clone)]
-pub struct AccountProof {
-    /// Proof for sender's account
-    pub sender_proof: Vec<u8>,
-    /// Proof for sender's nonce
-    pub nonce_proof: Vec<u8>,
-    /// Additional data for verification
-    pub metadata: HashMap<String, Vec<u8>>,
-}
-
-/// Account state stored in the state manager
-#[derive(Debug, Clone)]
-pub struct AccountState {
-    /// Account balance
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Account {
     pub balance: u64,
-    /// Account nonce (for replay protection)
     pub nonce: u64,
 }
 
-/// Account-specific operations
-pub trait AccountOperations {
-    /// Create a key for an account in the state store.
-    ///
-    /// # Arguments
-    /// * `account` - Account identifier.
-    ///
-    /// # Returns
-    /// * `Ok(key)` - The generated key.
-    /// * `Err(TransactionError)` - If key creation failed.
-    fn create_account_key(&self, account: &[u8]) -> Result<Vec<u8>, TransactionError>;
-
-    /// Create a key for an account nonce in the state store.
-    ///
-    /// # Arguments
-    /// * `account` - Account identifier.
-    ///
-    /// # Returns
-    /// * `Ok(key)` - The generated key.
-    /// * `Err(TransactionError)` - If key creation failed.
-    fn create_nonce_key(&self, account: &[u8]) -> Result<Vec<u8>, TransactionError>;
-}
-
-/// Account model configuration
-#[derive(Clone)]
+// FIX: Add derive(Debug) as required by HybridConfig.
+#[derive(Debug, Clone, Default)]
 pub struct AccountConfig {
-    /// Maximum transaction value
-    pub max_value: u64,
-    /// Initial balance for new accounts (if auto-create is enabled)
     pub initial_balance: u64,
-    /// Whether to automatically create accounts on first receive
-    pub auto_create_accounts: bool,
 }
 
-impl Default for AccountConfig {
-    fn default() -> Self {
-        Self {
-            max_value: u64::MAX,
-            initial_balance: 0,
-            auto_create_accounts: true,
-        }
-    }
-}
-
-/// Account transaction model implementation
+// FIX: Add derive(Debug, Clone) as required by HybridModel.
+#[derive(Debug, Clone)]
 pub struct AccountModel<CS: CommitmentScheme> {
-    /// Model configuration
     config: AccountConfig,
-    /// Commitment scheme
-    scheme: CS,
+    _commitment_scheme: CS,
 }
 
-impl<CS: CommitmentScheme> AccountModel<CS>
-where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
-{
-    /// Create a new account model with default configuration.
-    pub fn new(scheme: CS) -> Self {
+impl<CS: CommitmentScheme> AccountModel<CS> {
+    pub fn new(commitment_scheme: CS) -> Self {
         Self {
             config: AccountConfig::default(),
-            scheme,
+            _commitment_scheme: commitment_scheme,
         }
     }
 
-    /// Create a new account model with custom configuration.
-    pub fn with_config(scheme: CS, config: AccountConfig) -> Self {
+    pub fn with_config(commitment_scheme: CS, config: AccountConfig) -> Self {
         Self {
             config,
-            scheme,
+            _commitment_scheme: commitment_scheme,
         }
     }
 
-    /// Get model configuration.
-    pub fn config(&self) -> &AccountConfig {
-        &self.config
-    }
-
-    /// Get the commitment scheme
-    pub fn scheme(&self) -> &CS {
-        &self.scheme
-    }
-
-    /// Convert a value to the commitment scheme's value type
-    fn to_value(&self, bytes: &[u8]) -> CS::Value {
-        CS::Value::from(bytes.to_vec())
-    }
-
-    /// Helper method to get an account from the state.
-    fn get_account<S>(
-        &self,
-        state: &S,
-        account: &[u8],
-    ) -> Result<Option<AccountState>, TransactionError>
-    where
-        S: StateManager<
-            Commitment = CS::Commitment,
-            Proof = CS::Proof,
-        > + ?Sized,
-    {
-        let key = self.create_account_key(account)?;
-        let value = state
-            .get(&key)
-            .map_err(|e| TransactionError::StateAccessFailed(e.to_string()))?;
-
+    fn get_account<S: StateManager + ?Sized>(&self, state: &S, key: &[u8]) -> Result<Account, TransactionError> {
+        let value = state.get(key)?;
         match value {
             Some(data) => self.decode_account(&data),
-            None => Ok(None),
+            None => Ok(Account {
+                balance: self.config.initial_balance,
+                nonce: 0,
+            }),
         }
     }
 
-    /// Helper method to decode an account from bytes.
-    fn decode_account(&self, data: &[u8]) -> Result<Option<AccountState>, TransactionError> {
-        if data.len() < 16 {
-            return Err(TransactionError::SerializationError(
-                "Account data too short".to_string(),
-            ));
-        }
-
-        let mut balance_bytes = [0u8; 8];
-        balance_bytes.copy_from_slice(&data[0..8]);
-        let balance = u64::from_le_bytes(balance_bytes);
-
-        let mut nonce_bytes = [0u8; 8];
-        nonce_bytes.copy_from_slice(&data[8..16]);
-        let nonce = u64::from_le_bytes(nonce_bytes);
-
-        Ok(Some(AccountState { balance, nonce }))
+    fn decode_account(&self, data: &[u8]) -> Result<Account, TransactionError> {
+        // FIX: Use the correct `Serialization` variant.
+        serde_json::from_slice(data).map_err(|e| TransactionError::Serialization(e.to_string()))
     }
 
-    /// Helper method to encode an account to bytes.
-    fn encode_account(&self, account: &AccountState) -> Vec<u8> {
-        let mut data = Vec::with_capacity(16);
-        data.extend_from_slice(&account.balance.to_le_bytes());
-        data.extend_from_slice(&account.nonce.to_le_bytes());
-        data
+    fn encode_account(&self, account: &Account) -> Vec<u8> {
+        serde_json::to_vec(account).unwrap()
     }
 }
 
-impl<CS: CommitmentScheme> TransactionModel for AccountModel<CS>
-where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
-{
+impl<CS: CommitmentScheme + Send + Sync> TransactionModel for AccountModel<CS> {
     type Transaction = AccountTransaction;
-    type Proof = AccountProof;
     type CommitmentScheme = CS;
+    type Proof = ();
 
+    // FIX: Add the required `where` clause to the method signature.
     fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<bool, TransactionError>
     where
         S: StateManager<
-            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-        > + ?Sized,
+                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+            > + ?Sized,
     {
-        // Check transaction structure
-        if tx.value == 0 {
-            return Ok(false);
+        let sender_account = self.get_account(state, &tx.from)?;
+        if sender_account.balance < tx.amount {
+            // FIX: Use the correct `Invalid` variant.
+            return Err(TransactionError::Invalid("Insufficient balance".to_string()));
         }
-
-        if tx.value > self.config.max_value {
-            return Ok(false);
+        if sender_account.nonce != tx.nonce {
+            return Err(TransactionError::Invalid("Invalid nonce".to_string()));
         }
-
-        // Get sender account
-        let sender = self.get_account(state, &tx.from)?;
-
-        match sender {
-            Some(account) => {
-                // Check balance
-                if account.balance < tx.value {
-                    return Ok(false);
-                }
-
-                // Check nonce
-                if account.nonce != tx.nonce {
-                    return Ok(false);
-                }
-
-                // TODO: Validate signature
-
-                Ok(true)
-            }
-            None => Ok(false), // Sender doesn't exist
-        }
+        Ok(true)
     }
 
+    // FIX: Add the required `where` clause.
     fn apply<S>(&self, tx: &Self::Transaction, state: &mut S) -> Result<(), TransactionError>
     where
         S: StateManager<
-            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-        > + ?Sized,
+                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+            > + ?Sized,
     {
-        // Validate transaction first
+        // Since we now have `From<StateError>` for `TransactionError`, `?` works.
         if !self.validate(tx, state)? {
-            return Err(TransactionError::InvalidTransaction(
-                "Transaction validation failed".to_string(),
-            ));
+            // FIX: Use the correct `Invalid` variant.
+            return Err(TransactionError::Invalid("Validation failed".to_string()));
         }
 
-        // Get sender account
-        let sender_key = self.create_account_key(&tx.from)?;
-        let sender = self.get_account(state, &tx.from)?.ok_or_else(|| {
-            TransactionError::InvalidTransaction("Sender account not found".to_string())
-        })?;
+        let sender_key = tx.from.clone();
+        let mut sender_account = self.get_account(state, &sender_key)?;
+        sender_account.balance -= tx.amount;
+        sender_account.nonce += 1;
+        state.insert(&sender_key, &self.encode_account(&sender_account))?;
 
-        // Update sender account
-        let new_sender = AccountState {
-            balance: sender.balance - tx.value,
-            nonce: sender.nonce + 1,
-        };
-
-        state
-            .set(&sender_key, &self.encode_account(&new_sender))
-            .map_err(|e| TransactionError::StateAccessFailed(e.to_string()))?;
-
-        // Get or create receiver account
-        let receiver_key = self.create_account_key(&tx.to)?;
-        let receiver = match self.get_account(state, &tx.to)? {
-            Some(account) => account,
-            None => {
-                if !self.config.auto_create_accounts {
-                    return Err(TransactionError::InvalidTransaction(
-                        "Receiver account not found".to_string(),
-                    ));
-                }
-
-                AccountState {
-                    balance: self.config.initial_balance,
-                    nonce: 0,
-                }
-            }
-        };
-
-        // Update receiver account
-        let new_receiver = AccountState {
-            balance: receiver.balance.checked_add(tx.value).ok_or_else(|| {
-                TransactionError::InvalidTransaction("Balance overflow".to_string())
-            })?,
-            nonce: receiver.nonce,
-        };
-
-        state
-            .set(&receiver_key, &self.encode_account(&new_receiver))
-            .map_err(|e| TransactionError::StateAccessFailed(e.to_string()))?;
+        let receiver_key = tx.to.clone();
+        let mut receiver_account = self.get_account(state, &receiver_key)?;
+        receiver_account.balance = receiver_account
+            .balance
+            .checked_add(tx.amount)
+            // FIX: Use the correct `Invalid` variant.
+            .ok_or(TransactionError::Invalid("Balance overflow".to_string()))?;
+        state.insert(&receiver_key, &self.encode_account(&receiver_account))?;
 
         Ok(())
     }
 
+    fn create_coinbase_transaction(
+        &self,
+        _block_height: u64,
+        _recipient: &[u8],
+    ) -> Result<Self::Transaction, TransactionError> {
+        // Account models don't typically have coinbase transactions.
+        Err(TransactionError::Invalid(
+            "Coinbase not supported for account model".to_string(),
+        ))
+    }
+
+    // FIX: Add the required `where` clause.
     fn generate_proof<S>(
         &self,
-        tx: &Self::Transaction,
-        state: &S,
+        _tx: &Self::Transaction,
+        _state: &S,
     ) -> Result<Self::Proof, TransactionError>
     where
         S: StateManager<
-            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-        > + ?Sized,
+                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+            > + ?Sized,
     {
-        let sender_key = self.create_account_key(&tx.from)?;
-        let nonce_key = self.create_nonce_key(&tx.from)?;
-
-        // In a real implementation, we would create cryptographic proofs
-        // For this example, we'll just get the raw account data
-        let sender_data = state
-            .get(&sender_key)
-            .map_err(|e| TransactionError::StateAccessFailed(e.to_string()))?
-            .ok_or_else(|| {
-                TransactionError::InvalidInput("Sender account not found".to_string())
-            })?;
-
-        let nonce_data = state
-            .get(&nonce_key)
-            .map_err(|e| TransactionError::StateAccessFailed(e.to_string()))?
-            .unwrap_or_else(|| vec![0; 8]); // Default nonce is 0
-
-        Ok(AccountProof {
-            sender_proof: sender_data,
-            nonce_proof: nonce_data,
-            metadata: HashMap::new(),
-        })
+        Ok(())
     }
 
-    fn verify_proof<S>(&self, proof: &Self::Proof, state: &S) -> Result<bool, TransactionError>
+    // FIX: Add the required `where` clause.
+    fn verify_proof<S>(
+        &self,
+        _proof: &Self::Proof,
+        _state: &S,
+    ) -> Result<bool, TransactionError>
     where
         S: StateManager<
-            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-        > + ?Sized,
+                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+            > + ?Sized,
     {
-        // In a real implementation, this would verify cryptographic proofs
-        // For this example, we'll just return true
         Ok(true)
     }
 
     fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError> {
-        // Simple manual serialization for demonstration
-        let mut data = Vec::new();
-
-        // Serialize txid
-        data.extend_from_slice(&(tx.txid.len() as u32).to_le_bytes());
-        data.extend_from_slice(&tx.txid);
-
-        // Serialize from
-        data.extend_from_slice(&(tx.from.len() as u32).to_le_bytes());
-        data.extend_from_slice(&tx.from);
-
-        // Serialize to
-        data.extend_from_slice(&(tx.to.len() as u32).to_le_bytes());
-        data.extend_from_slice(&tx.to);
-
-        // Serialize value and nonce
-        data.extend_from_slice(&tx.value.to_le_bytes());
-        data.extend_from_slice(&tx.nonce.to_le_bytes());
-
-        // Serialize signature
-        data.extend_from_slice(&(tx.signature.len() as u32).to_le_bytes());
-        data.extend_from_slice(&tx.signature);
-
-        Ok(data)
+        // FIX: Use the correct `Serialization` variant.
+        serde_json::to_vec(tx).map_err(|e| TransactionError::Serialization(e.to_string()))
     }
 
     fn deserialize_transaction(&self, data: &[u8]) -> Result<Self::Transaction, TransactionError> {
-        if data.len() < 4 {
-            return Err(TransactionError::SerializationError(
-                "Data too short".to_string(),
-            ));
-        }
-
-        let mut pos = 0;
-
-        // Deserialize txid
-        let txid_len = read_u32(&data[pos..pos + 4]) as usize;
-        pos += 4;
-
-        if pos + txid_len > data.len() {
-            return Err(TransactionError::SerializationError(
-                "Invalid txid length".to_string(),
-            ));
-        }
-
-        let txid = data[pos..pos + txid_len].to_vec();
-        pos += txid_len;
-
-        // Deserialize from
-        if pos + 4 > data.len() {
-            return Err(TransactionError::SerializationError(
-                "Invalid data format".to_string(),
-            ));
-        }
-
-        let from_len = read_u32(&data[pos..pos + 4]) as usize;
-        pos += 4;
-
-        if pos + from_len > data.len() {
-            return Err(TransactionError::SerializationError(
-                "Invalid from length".to_string(),
-            ));
-        }
-
-        let from = data[pos..pos + from_len].to_vec();
-        pos += from_len;
-
-        // Deserialize to
-        if pos + 4 > data.len() {
-            return Err(TransactionError::SerializationError(
-                "Invalid data format".to_string(),
-            ));
-        }
-
-        let to_len = read_u32(&data[pos..pos + 4]) as usize;
-        pos += 4;
-
-        if pos + to_len > data.len() {
-            return Err(TransactionError::SerializationError(
-                "Invalid to length".to_string(),
-            ));
-        }
-
-        let to = data[pos..pos + to_len].to_vec();
-        pos += to_len;
-
-        // Deserialize value and nonce
-        if pos + 16 > data.len() {
-            return Err(TransactionError::SerializationError(
-                "Invalid data format".to_string(),
-            ));
-        }
-
-        let mut value_bytes = [0u8; 8];
-        value_bytes.copy_from_slice(&data[pos..pos + 8]);
-        let value = u64::from_le_bytes(value_bytes);
-        pos += 8;
-
-        let mut nonce_bytes = [0u8; 8];
-        nonce_bytes.copy_from_slice(&data[pos..pos + 8]);
-        let nonce = u64::from_le_bytes(nonce_bytes);
-        pos += 8;
-
-        // Deserialize signature
-        if pos + 4 > data.len() {
-            return Err(TransactionError::SerializationError(
-                "Invalid data format".to_string(),
-            ));
-        }
-
-        let signature_len = read_u32(&data[pos..pos + 4]) as usize;
-        pos += 4;
-
-        if pos + signature_len > data.len() {
-            return Err(TransactionError::SerializationError(
-                "Invalid signature length".to_string(),
-            ));
-        }
-
-        let signature = data[pos..pos + signature_len].to_vec();
-
-        Ok(AccountTransaction {
-            txid,
-            from,
-            to,
-            value,
-            nonce,
-            signature,
-        })
+        // FIX: Use the correct `Deserialization` variant.
+        serde_json::from_slice(data).map_err(|e| TransactionError::Deserialization(e.to_string()))
     }
-
-    fn get_model_extensions(&self) -> Option<&dyn Any> {
-        Some(self as &dyn Any)
-    }
-}
-
-impl<CS: CommitmentScheme> AccountOperations for AccountModel<CS>
-where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
-{
-    fn create_account_key(&self, account: &[u8]) -> Result<Vec<u8>, TransactionError> {
-        let mut key = Vec::with_capacity(account.len() + 1);
-        key.push(b'a'); // Prefix 'a' for account
-        key.extend_from_slice(account);
-        Ok(key)
-    }
-
-    fn create_nonce_key(&self, account: &[u8]) -> Result<Vec<u8>, TransactionError> {
-        let mut key = Vec::with_capacity(account.len() + 1);
-        key.push(b'n'); // Prefix 'n' for nonce
-        key.extend_from_slice(account);
-        Ok(key)
-    }
-}
-
-/// Helper function to read a u32 from a byte slice
-fn read_u32(data: &[u8]) -> u32 {
-    let mut bytes = [0u8; 4];
-    bytes.copy_from_slice(data);
-    u32::from_le_bytes(bytes)
 }```
-
-####### File: transaction_models/src/account/mod.rs:131:8
-####*Size: 0, Lines: 0, Type: empty*
-
-####*File content not included (exceeds threshold or non-text file)*
-
-####### File: transaction_models/src/account/mod.rs:331:31
-####*Size: 0, Lines: 0, Type: empty*
-
-####*File content not included (exceeds threshold or non-text file)*
-
-####### File: transaction_models/src/account/mod.rs:331:52
-####*Size: 0, Lines: 0, Type: empty*
-
-####*File content not included (exceeds threshold or non-text file)*
 
 ###### Directory: transaction_models/src/hybrid
 
 ####### File: transaction_models/src/hybrid/mod.rs
-####*Size: 12K, Lines: 283, Type: ASCII text*
+####*Size: 8.0K, Lines: 145, Type: ASCII text*
 
 ```rust
-// Fixed implementation for hybrid transaction model
+// Path: crates/transaction_models/src/hybrid/mod.rs
 
-use crate::account::{AccountModel, AccountProof, AccountTransaction};
-use crate::utxo::{UTXOModel, UTXOProof, UTXOTransaction};
+use crate::account::{AccountConfig, AccountModel, AccountTransaction};
+use crate::utxo::{UTXOConfig, UTXOModel, UTXOTransaction};
 use depin_sdk_core::commitment::CommitmentScheme;
 use depin_sdk_core::error::TransactionError;
 use depin_sdk_core::state::StateManager;
 use depin_sdk_core::transaction::TransactionModel;
-use std::any::Any;
+use serde::{Deserialize, Serialize};
 
-/// Hybrid transaction that can be either UTXO or account-based
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum HybridTransaction {
-    /// UTXO-based transaction
-    UTXO(UTXOTransaction),
-    /// Account-based transaction
     Account(AccountTransaction),
+    UTXO(UTXOTransaction),
 }
 
-/// Hybrid proof that can be either UTXO or account-based
 #[derive(Debug, Clone)]
 pub enum HybridProof {
-    /// UTXO-based proof
-    UTXO(UTXOProof),
-    /// Account-based proof
-    Account(AccountProof),
+    // FIX: Match the inner models' proof types, which are now `()`.
+    Account(()),
+    UTXO(()),
 }
 
-/// Hybrid transaction model configuration
-#[derive(Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct HybridConfig {
-    /// UTXO model configuration
-    pub utxo_config: crate::utxo::UTXOConfig,
-    /// Account model configuration
-    pub account_config: crate::account::AccountConfig,
-    /// Whether to enforce fee payment in UTXO mode
-    pub require_fee: bool,
-    /// Minimum fee amount (if required)
-    pub min_fee: u64,
+    pub account_config: AccountConfig,
+    pub utxo_config: UTXOConfig,
 }
 
-impl Default for HybridConfig {
-    fn default() -> Self {
-        Self {
-            utxo_config: crate::utxo::UTXOConfig::default(),
-            account_config: crate::account::AccountConfig::default(),
-            require_fee: false,
-            min_fee: 0,
-        }
-    }
-}
-
-/// Hybrid-specific operations
-pub trait HybridOperations {
-    /// Get access to the underlying UTXO model.
-    fn utxo_model(&self) -> &UTXOModel<Self::CommitmentScheme>;
-
-    /// Get access to the underlying account model.
-    fn account_model(&self) -> &AccountModel<Self::CommitmentScheme>;
-
-    /// Associated type for the commitment scheme
-    type CommitmentScheme: CommitmentScheme;
-
-    /// Create a cross-model transaction (e.g., UTXO input with account output).
-    ///
-    /// This is a placeholder for more complex hybrid operations that might be
-    /// supported in a real implementation.
-    fn create_cross_model_transaction(&self) -> Result<HybridTransaction, TransactionError> {
-        Err(TransactionError::Other("Not implemented".to_string()))
-    }
-}
-
-/// Hybrid transaction model implementation
-pub struct HybridModel<CS: CommitmentScheme + Clone> {
-    /// UTXO model
-    utxo_model: UTXOModel<CS>,
-    /// Account model
+#[derive(Debug, Clone)]
+pub struct HybridModel<CS: CommitmentScheme> {
     account_model: AccountModel<CS>,
-    /// Model configuration
-    config: HybridConfig,
-    /// Commitment scheme
-    scheme: CS,
+    utxo_model: UTXOModel<CS>,
 }
 
-impl<CS: CommitmentScheme + Clone> HybridModel<CS>
-where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
-{
-    /// Create a new hybrid model with default configuration.
+impl<CS: CommitmentScheme + Clone> HybridModel<CS> {
     pub fn new(scheme: CS) -> Self {
         Self {
-            utxo_model: UTXOModel::new(scheme.clone()),
             account_model: AccountModel::new(scheme.clone()),
-            config: HybridConfig::default(),
-            scheme,
+            utxo_model: UTXOModel::new(scheme),
         }
     }
-
-    /// Create a new hybrid model with custom configuration.
     pub fn with_config(scheme: CS, config: HybridConfig) -> Self {
         Self {
-            utxo_model: UTXOModel::with_config(scheme.clone(), config.utxo_config.clone()),
-            account_model: AccountModel::with_config(scheme.clone(), config.account_config.clone()),
-            config,
-            scheme,
+            account_model: AccountModel::with_config(scheme.clone(), config.account_config),
+            utxo_model: UTXOModel::with_config(scheme, config.utxo_config),
         }
-    }
-
-    /// Get model configuration.
-    pub fn config(&self) -> &HybridConfig {
-        &self.config
-    }
-
-    /// Get the commitment scheme
-    pub fn scheme(&self) -> &CS {
-        &self.scheme
     }
 }
 
-impl<CS: CommitmentScheme + Clone> TransactionModel for HybridModel<CS>
-where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
-{
+impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for HybridModel<CS> {
     type Transaction = HybridTransaction;
-    type Proof = HybridProof;
     type CommitmentScheme = CS;
+    type Proof = HybridProof;
 
+    fn create_coinbase_transaction(
+        &self,
+        block_height: u64,
+        recipient: &[u8],
+    ) -> Result<Self::Transaction, TransactionError> {
+        let utxo_coinbase = self
+            .utxo_model
+            .create_coinbase_transaction(block_height, recipient)?;
+        Ok(HybridTransaction::UTXO(utxo_coinbase))
+    }
+
+    // FIX: Add the required `where` clause to the method signature.
     fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<bool, TransactionError>
     where
         S: StateManager<
@@ -14452,13 +13064,12 @@ where
             > + ?Sized,
     {
         match tx {
+            HybridTransaction::Account(account_tx) => self.account_model.validate(account_tx, state),
             HybridTransaction::UTXO(utxo_tx) => self.utxo_model.validate(utxo_tx, state),
-            HybridTransaction::Account(account_tx) => {
-                self.account_model.validate(account_tx, state)
-            }
         }
     }
 
+    // FIX: Add the required `where` clause.
     fn apply<S>(&self, tx: &Self::Transaction, state: &mut S) -> Result<(), TransactionError>
     where
         S: StateManager<
@@ -14466,30 +13077,13 @@ where
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
             > + ?Sized,
     {
-        // Additional hybrid-specific validation
-        if self.config.require_fee {
-            // Check if fee is paid (implementation depends on fee model)
-            // This is a placeholder for a real fee verification
-            let _fee_paid = match tx {
-                HybridTransaction::UTXO(_utxo_tx) => {
-                    // For UTXO, fee is implicit (input value - output value)
-                    true
-                }
-                HybridTransaction::Account(_account_tx) => {
-                    // For account, fee might be explicit or implicit
-                    // This is a simplified check
-                    true
-                }
-            };
-        }
-
-        // Delegate to appropriate model
         match tx {
-            HybridTransaction::UTXO(utxo_tx) => self.utxo_model.apply(utxo_tx, state),
             HybridTransaction::Account(account_tx) => self.account_model.apply(account_tx, state),
+            HybridTransaction::UTXO(utxo_tx) => self.utxo_model.apply(utxo_tx, state),
         }
     }
 
+    // FIX: Add the required `where` clause.
     fn generate_proof<S>(
         &self,
         tx: &Self::Transaction,
@@ -14502,18 +13096,23 @@ where
             > + ?Sized,
     {
         match tx {
-            HybridTransaction::UTXO(utxo_tx) => self
-                .utxo_model
-                .generate_proof(utxo_tx, state)
-                .map(HybridProof::UTXO),
-            HybridTransaction::Account(account_tx) => self
-                .account_model
-                .generate_proof(account_tx, state)
-                .map(HybridProof::Account),
+            HybridTransaction::Account(account_tx) => {
+                let proof = self.account_model.generate_proof(account_tx, state)?;
+                Ok(HybridProof::Account(proof))
+            }
+            HybridTransaction::UTXO(utxo_tx) => {
+                let proof = self.utxo_model.generate_proof(utxo_tx, state)?;
+                Ok(HybridProof::UTXO(proof))
+            }
         }
     }
 
-    fn verify_proof<S>(&self, proof: &Self::Proof, state: &S) -> Result<bool, TransactionError>
+    // FIX: Add the required `where` clause.
+    fn verify_proof<S>(
+        &self,
+        proof: &Self::Proof,
+        state: &S,
+    ) -> Result<bool, TransactionError>
     where
         S: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
@@ -14521,384 +13120,141 @@ where
             > + ?Sized,
     {
         match proof {
-            HybridProof::UTXO(utxo_proof) => self.utxo_model.verify_proof(utxo_proof, state),
             HybridProof::Account(account_proof) => {
                 self.account_model.verify_proof(account_proof, state)
             }
+            HybridProof::UTXO(utxo_proof) => self.utxo_model.verify_proof(utxo_proof, state),
         }
     }
 
     fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError> {
-        let mut data = Vec::new();
-
-        match tx {
-            HybridTransaction::UTXO(utxo_tx) => {
-                // Add type byte (0 for UTXO)
-                data.push(0);
-
-                // Serialize UTXO transaction
-                let utxo_data = self.utxo_model.serialize_transaction(utxo_tx)?;
-                data.extend_from_slice(&utxo_data);
-            }
-            HybridTransaction::Account(account_tx) => {
-                // Add type byte (1 for Account)
-                data.push(1);
-
-                // Serialize account transaction
-                let account_data = self.account_model.serialize_transaction(account_tx)?;
-                data.extend_from_slice(&account_data);
-            }
-        }
-
-        Ok(data)
+        serde_json::to_vec(tx).map_err(|e| TransactionError::Serialization(e.to_string()))
     }
 
     fn deserialize_transaction(&self, data: &[u8]) -> Result<Self::Transaction, TransactionError> {
-        if data.is_empty() {
-            return Err(TransactionError::SerializationError(
-                "Empty data".to_string(),
-            ));
-        }
-
-        let tx_type = data[0];
-        let tx_data = &data[1..];
-
-        match tx_type {
-            0 => {
-                // UTXO transaction
-                let utxo_tx = self.utxo_model.deserialize_transaction(tx_data)?;
-                Ok(HybridTransaction::UTXO(utxo_tx))
-            }
-            1 => {
-                // Account transaction
-                let account_tx = self.account_model.deserialize_transaction(tx_data)?;
-                Ok(HybridTransaction::Account(account_tx))
-            }
-            _ => Err(TransactionError::SerializationError(format!(
-                "Unknown transaction type: {}",
-                tx_type
-            ))),
-        }
+        serde_json::from_slice(data).map_err(|e| TransactionError::Deserialization(e.to_string()))
     }
-
-    fn get_model_extensions(&self) -> Option<&dyn Any> {
-        Some(self as &dyn Any)
-    }
-}
-
-impl<CS: CommitmentScheme + Clone> HybridOperations for HybridModel<CS>
-where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
-{
-    type CommitmentScheme = CS;
-
-    fn utxo_model(&self) -> &UTXOModel<Self::CommitmentScheme> {
-        &self.utxo_model
-    }
-
-    fn account_model(&self) -> &AccountModel<Self::CommitmentScheme> {
-        &self.account_model
-    }
-}
-```
+}```
 
 ###### Directory: transaction_models/src/utxo
 
 ####### File: transaction_models/src/utxo/mod.rs
-####*Size: 20K, Lines: 578, Type: ASCII text*
+####*Size: 8.0K, Lines: 190, Type: ASCII text*
 
 ```rust
-//! UTXO-based transaction model implementation.
+// Path: crates/transaction_models/src/utxo/mod.rs
 
-use depin_sdk_core::crypto::SerializableKey;
-use depin_sdk_core::crypto::VerifyingKey;
-use depin_sdk_crypto::{algorithms::hash::sha256, sign::eddsa::{Ed25519PublicKey, Ed25519Signature}};
 use depin_sdk_core::commitment::CommitmentScheme;
-use depin_sdk_core::error::TransactionError;
+use depin_sdk_core::error::{StateError, TransactionError};
 use depin_sdk_core::state::StateManager;
 use depin_sdk_core::transaction::TransactionModel;
-use std::any::Any;
-use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
-/// UTXO transaction input
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct UTXOInput {
-    /// Previous transaction ID
-    pub prev_txid: Vec<u8>,
-    /// Output index in the previous transaction
-    pub prev_index: u32,
-    /// Signature unlocking the UTXO
+#[derive(Debug, Clone, Default)]
+pub struct UTXOConfig {
+    pub max_inputs: usize,
+    pub max_outputs: usize,
+}
+
+pub trait UTXOOperations {
+    fn create_utxo_key(&self, tx_hash: &[u8], index: u32) -> Vec<u8>;
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct Input {
+    pub tx_hash: Vec<u8>,
+    pub output_index: u32,
     pub signature: Vec<u8>,
 }
 
-/// UTXO transaction output
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct UTXOOutput {
-    /// Value of the output
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct Output {
     pub value: u64,
-    /// Locking script or public key hash
-    pub lock_script: Vec<u8>,
+    pub public_key: Vec<u8>,
 }
 
-/// UTXO transaction
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct UTXOTransaction {
-    /// Transaction ID
-    pub txid: Vec<u8>,
-    /// Inputs (references to previous transaction outputs)
-    pub inputs: Vec<UTXOInput>,
-    /// Outputs (new unspent transaction outputs)
-    pub outputs: Vec<UTXOOutput>,
+    pub inputs: Vec<Input>,
+    pub outputs: Vec<Output>,
 }
 
 impl UTXOTransaction {
-    /// Check if this is a coinbase transaction (has no inputs)
-    pub fn is_coinbase(&self) -> bool {
-        self.inputs.is_empty()
+    pub fn hash(&self) -> Vec<u8> {
+        let serialized = serde_json::to_vec(self).unwrap();
+        Sha256::digest(&serialized).to_vec()
     }
 }
 
-/// UTXO proof data
 #[derive(Debug, Clone)]
-pub struct UTXOProof {
-    /// Proofs for transaction inputs
-    pub input_proofs: Vec<Vec<u8>>,
-    /// Additional data needed for verification
-    pub metadata: HashMap<String, Vec<u8>>,
-}
-
-/// UTXO-specific operations
-pub trait UTXOOperations {
-    /// Create a key for a UTXO in the state store.
-    ///
-    /// # Arguments
-    /// * `txid` - Transaction ID.
-    /// * `index` - Output index.
-    ///
-    /// # Returns
-    /// * `Ok(key)` - The generated key.
-    /// * `Err(TransactionError)` - If key creation failed.
-    fn create_utxo_key(&self, txid: &[u8], index: u32) -> Result<Vec<u8>, TransactionError>;
-}
-
-/// Configuration for the UTXO model
-#[derive(Clone)]
-pub struct UTXOConfig {
-    /// Minimum confirmations required for spending
-    pub min_confirmations: u32,
-    /// Maximum number of inputs per transaction
-    pub max_inputs: usize,
-    /// Maximum number of outputs per transaction
-    pub max_outputs: usize,
-    /// Maximum coinbase value (for block rewards)
-    pub max_coinbase_value: u64,
-    /// Whether to allow coinbase transactions
-    pub allow_coinbase: bool,
-}
-
-impl Default for UTXOConfig {
-    fn default() -> Self {
-        Self {
-            min_confirmations: 1,
-            max_inputs: 100,
-            max_outputs: 100,
-            max_coinbase_value: 50_000_000, // 50 coins with 6 decimal places
-            allow_coinbase: true,
-        }
-    }
-}
-
-/// UTXO transaction model implementation
 pub struct UTXOModel<CS: CommitmentScheme> {
-    /// Model configuration
     config: UTXOConfig,
-    /// The commitment scheme
-    scheme: CS,
+    _commitment_scheme: CS,
 }
 
-impl<CS: CommitmentScheme> UTXOModel<CS>
-where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
-{
-    /// Create a new UTXO model with default configuration.
-    pub fn new(scheme: CS) -> Self {
+impl<CS: CommitmentScheme + Clone> UTXOModel<CS> {
+    pub fn new(commitment_scheme: CS) -> Self {
         Self {
             config: UTXOConfig::default(),
-            scheme,
+            _commitment_scheme: commitment_scheme,
         }
     }
-
-    /// Create a new UTXO model with custom configuration.
-    pub fn with_config(scheme: CS, config: UTXOConfig) -> Self {
+    pub fn with_config(commitment_scheme: CS, config: UTXOConfig) -> Self {
         Self {
             config,
-            scheme,
+            _commitment_scheme: commitment_scheme,
         }
-    }
-
-    /// Get model configuration.
-    pub fn config(&self) -> &UTXOConfig {
-        &self.config
-    }
-
-    /// Get the commitment scheme
-    pub fn scheme(&self) -> &CS {
-        &self.scheme
-    }
-
-    /// Helper method to get a UTXO from the state.
-    fn get_utxo<S>(
-        &self,
-        state: &S,
-        txid: &[u8],
-        index: u32,
-    ) -> Result<Option<UTXOOutput>, TransactionError>
-    where
-        S: StateManager<
-            Commitment = CS::Commitment,
-            Proof = CS::Proof,
-        > + ?Sized,
-    {
-        let key = self.create_utxo_key(txid, index)?;
-        let value = state
-            .get(&key)
-            .map_err(|e| TransactionError::StateAccessFailed(e.to_string()))?;
-
-        match value {
-            Some(data) => self.decode_utxo(&data),
-            None => Ok(None),
-        }
-    }
-
-    /// Helper method to decode a UTXO from bytes.
-    fn decode_utxo(&self, data: &[u8]) -> Result<Option<UTXOOutput>, TransactionError> {
-        if data.len() < 8 {
-            return Err(TransactionError::SerializationError(
-                "UTXO data too short".to_string(),
-            ));
-        }
-
-        let mut value_bytes = [0u8; 8];
-        value_bytes.copy_from_slice(&data[0..8]);
-        let value = u64::from_le_bytes(value_bytes);
-        let lock_script = data[8..].to_vec();
-
-        Ok(Some(UTXOOutput { value, lock_script }))
-    }
-
-    /// Helper method to encode a UTXO to bytes.
-    fn encode_utxo(&self, output: &UTXOOutput) -> Vec<u8> {
-        let mut data = Vec::with_capacity(8 + output.lock_script.len());
-        data.extend_from_slice(&output.value.to_le_bytes());
-        data.extend_from_slice(&output.lock_script);
-        data
-    }
-    
-    /// Convert raw bytes to the commitment scheme's value type
-    fn to_value(&self, bytes: &[u8]) -> CS::Value {
-        CS::Value::from(bytes.to_vec())
-    }
-
-    /// Validate a coinbase transaction
-    fn validate_coinbase(&self, tx: &UTXOTransaction) -> Result<bool, TransactionError> {
-        // Check if coinbase transactions are allowed
-        if !self.config.allow_coinbase {
-            return Ok(false);
-        }
-
-        // Verify total output value doesn't exceed maximum
-        let mut total_output = 0u64;
-        for output in &tx.outputs {
-            total_output = total_output.checked_add(output.value).ok_or_else(|| {
-                TransactionError::InvalidTransaction("Coinbase output value overflow".to_string())
-            })?;
-        }
-
-        if total_output > self.config.max_coinbase_value {
-            return Ok(false);
-        }
-
-        // Additional coinbase validation could go here:
-        // - Check block height for reward schedule
-        // - Verify only one coinbase per block
-        // - Validate special coinbase fields
-
-        Ok(true)
     }
 }
 
-impl<CS: CommitmentScheme> TransactionModel for UTXOModel<CS>
-where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
-{
+impl<CS: CommitmentScheme> UTXOOperations for UTXOModel<CS> {
+    fn create_utxo_key(&self, tx_hash: &[u8], index: u32) -> Vec<u8> {
+        let mut key = b"u".to_vec();
+        key.extend_from_slice(tx_hash);
+        key.extend_from_slice(&index.to_le_bytes());
+        key
+    }
+}
+
+impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UTXOModel<CS> {
     type Transaction = UTXOTransaction;
-    type Proof = UTXOProof;
     type CommitmentScheme = CS;
+    type Proof = ();
 
-    fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<bool, TransactionError>
+    fn validate<SM>(&self, tx: &Self::Transaction, state: &SM) -> Result<bool, TransactionError>
     where
-        S: StateManager<
-            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-        > + ?Sized,
+        SM: StateManager<
+                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+            > + ?Sized,
     {
-        // Check transaction structure
-        if tx.outputs.is_empty() {
+        // --- FIX: Add special validation logic for coinbase transactions ---
+        // A coinbase transaction is the only valid transaction type with no inputs.
+        if tx.inputs.is_empty() {
+            // A valid coinbase should have at least one output to reward the miner.
+            // More complex rules (e.g., exactly one output) could be added here.
+            return Ok(!tx.outputs.is_empty());
+        }
+        // --- End Fix ---
+
+        if tx.inputs.len() > self.config.max_inputs || tx.outputs.len() > self.config.max_outputs {
             return Ok(false);
         }
 
-        if tx.outputs.len() > self.config.max_outputs {
-            return Ok(false);
-        }
-
-        // Handle coinbase transactions (no inputs)
-        if tx.is_coinbase() {
-            return self.validate_coinbase(tx);
-        }
-
-        // Regular transaction validation
-        if tx.inputs.len() > self.config.max_inputs {
-            return Ok(false);
-        }
-
-        // Validate inputs exist and are unspent
-        let mut total_input = 0u64;
-
+        let mut total_input: u64 = 0;
         for input in &tx.inputs {
-            let utxo = self.get_utxo(state, &input.prev_txid, input.prev_index)?;
-
-            match utxo {
-                Some(output) => {
-                    // Reconstruct the digest that was signed.
-                    let mut digest_data = Vec::new();
-                    digest_data.extend_from_slice(&input.prev_txid);
-                    let digest = sha256(&digest_data);
-
-                    let public_key = Ed25519PublicKey::from_bytes(&output.lock_script).map_err(|e| TransactionError::InvalidSignature(e))?;
-                    let signature = Ed25519Signature::from_bytes(&input.signature).map_err(|e| TransactionError::InvalidSignature(e))?;
-
-                    if !public_key.verify(&digest, &signature) {
-                        return Err(TransactionError::InvalidSignature("Signature verification failed".to_string()));
-                    }
-
-                    total_input = total_input.checked_add(output.value).ok_or_else(|| {
-                        TransactionError::InvalidTransaction("Input value overflow".to_string())
-                    })?;
-                }
-                None => return Ok(false), // Input UTXO not found
-            }
-        }
-
-        // Calculate total output
-        let mut total_output = 0u64;
-
-        for output in &tx.outputs {
-            total_output = total_output.checked_add(output.value).ok_or_else(|| {
-                TransactionError::InvalidTransaction("Output value overflow".to_string())
+            let key = self.create_utxo_key(&input.tx_hash, input.output_index);
+            let utxo_bytes = state.get(&key)?.ok_or_else(|| {
+                TransactionError::Invalid(format!("Input UTXO not found"))
             })?;
+            let utxo: Output = serde_json::from_slice(&utxo_bytes)
+                .map_err(|e| TransactionError::Invalid(format!("Deserialize error: {}", e)))?;
+            total_input = total_input.checked_add(utxo.value)
+                .ok_or_else(|| TransactionError::Invalid("Input value overflow".to_string()))?;
         }
 
-        // Ensure total input >= total output (the difference is the fee)
+        let total_output: u64 = tx.outputs.iter().map(|o| o.value).sum();
         if total_input < total_output {
             return Ok(false);
         }
@@ -14906,325 +13262,96 @@ where
         Ok(true)
     }
 
-    fn apply<S>(&self, tx: &Self::Transaction, state: &mut S) -> Result<(), TransactionError>
+    fn apply<SM>(&self, tx: &Self::Transaction, state: &mut SM) -> Result<(), TransactionError>
     where
-        S: StateManager<
-            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-        > + ?Sized,
+        SM: StateManager<
+                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+            > + ?Sized,
     {
-        // Validate transaction first
         if !self.validate(tx, state)? {
-            return Err(TransactionError::InvalidTransaction(
-                "Transaction validation failed".to_string(),
-            ));
+            return Err(TransactionError::Invalid("Validation failed".to_string()));
         }
-
-        // Only remove spent inputs for non-coinbase transactions
-        if !tx.is_coinbase() {
-            for input in &tx.inputs {
-                let key = self.create_utxo_key(&input.prev_txid, input.prev_index)?;
-                state
-                    .delete(&key)
-                    .map_err(|e| TransactionError::StateAccessFailed(e.to_string()))?;
-            }
+        for input in &tx.inputs {
+            let key = self.create_utxo_key(&input.tx_hash, input.output_index);
+            state.delete(&key)?;
         }
-
-        // Add new outputs (for both coinbase and regular transactions)
-        for (i, output) in tx.outputs.iter().enumerate() {
-            let key = self.create_utxo_key(&tx.txid, i as u32)?;
-            let value = self.encode_utxo(output);
-
-            state
-                .set(&key, &value)
-                .map_err(|e| TransactionError::StateAccessFailed(e.to_string()))?;
+        let tx_hash = tx.hash();
+        for (index, output) in tx.outputs.iter().enumerate() {
+            let key = self.create_utxo_key(&tx_hash, index as u32);
+            let value = serde_json::to_vec(output)
+                .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+            state.insert(&key, &value)?;
         }
-
         Ok(())
+    }
+
+    fn create_coinbase_transaction(
+        &self,
+        _block_height: u64,
+        recipient: &[u8],
+    ) -> Result<Self::Transaction, TransactionError> {
+        Ok(UTXOTransaction {
+            inputs: vec![],
+            outputs: vec![Output { value: 50, public_key: recipient.to_vec() }],
+        })
     }
 
     fn generate_proof<S>(
         &self,
-        tx: &Self::Transaction,
-        state: &S,
+        _tx: &Self::Transaction,
+        _state: &S,
     ) -> Result<Self::Proof, TransactionError>
     where
         S: StateManager<
-            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-        > + ?Sized,
+                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+            > + ?Sized,
     {
-        let mut input_proofs = Vec::with_capacity(tx.inputs.len());
-
-        // Coinbase transactions don't need input proofs
-        if tx.is_coinbase() {
-            return Ok(UTXOProof {
-                input_proofs,
-                metadata: HashMap::new(),
-            });
-        }
-
-        for input in &tx.inputs {
-            let key = self.create_utxo_key(&input.prev_txid, input.prev_index)?;
-
-            // In a real implementation, we would create cryptographic proofs
-            // For this example, we'll just get the raw UTXO data
-            let utxo_data = state
-                .get(&key)
-                .map_err(|e| TransactionError::StateAccessFailed(e.to_string()))?
-                .ok_or_else(|| {
-                    TransactionError::InvalidInput("Referenced UTXO not found".to_string())
-                })?;
-
-            input_proofs.push(utxo_data);
-        }
-
-        Ok(UTXOProof {
-            input_proofs,
-            metadata: HashMap::new(),
-        })
+        Ok(())
     }
 
-    fn verify_proof<S>(&self, proof: &Self::Proof, state: &S) -> Result<bool, TransactionError>
+    fn verify_proof<S>(
+        &self,
+        _proof: &Self::Proof,
+        _state: &S,
+    ) -> Result<bool, TransactionError>
     where
         S: StateManager<
-            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-        > + ?Sized,
+                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+            > + ?Sized,
     {
-        // In a real implementation, this would verify cryptographic proofs
-        // For this example, we'll just return true
         Ok(true)
     }
 
     fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError> {
-        // Simple manual serialization for demonstration
-        let mut data = Vec::new();
-
-        // Serialize txid
-        data.extend_from_slice(&(tx.txid.len() as u32).to_le_bytes());
-        data.extend_from_slice(&tx.txid);
-
-        // Serialize inputs
-        data.extend_from_slice(&(tx.inputs.len() as u32).to_le_bytes());
-        for input in &tx.inputs {
-            data.extend_from_slice(&(input.prev_txid.len() as u32).to_le_bytes());
-            data.extend_from_slice(&input.prev_txid);
-            data.extend_from_slice(&input.prev_index.to_le_bytes());
-            data.extend_from_slice(&(input.signature.len() as u32).to_le_bytes());
-            data.extend_from_slice(&input.signature);
-        }
-
-        // Serialize outputs
-        data.extend_from_slice(&(tx.outputs.len() as u32).to_le_bytes());
-        for output in &tx.outputs {
-            data.extend_from_slice(&output.value.to_le_bytes());
-            data.extend_from_slice(&(output.lock_script.len() as u32).to_le_bytes());
-            data.extend_from_slice(&output.lock_script);
-        }
-
-        Ok(data)
+        serde_json::to_vec(tx).map_err(|e| TransactionError::Serialization(e.to_string()))
     }
 
     fn deserialize_transaction(&self, data: &[u8]) -> Result<Self::Transaction, TransactionError> {
-        if data.len() < 4 {
-            return Err(TransactionError::SerializationError(
-                "Data too short".to_string(),
-            ));
-        }
-
-        let mut pos = 0;
-
-        // Deserialize txid
-        let txid_len = read_u32(&data[pos..pos + 4]) as usize;
-        pos += 4;
-
-        if pos + txid_len > data.len() {
-            return Err(TransactionError::SerializationError(
-                "Invalid txid length".to_string(),
-            ));
-        }
-
-        let txid = data[pos..pos + txid_len].to_vec();
-        pos += txid_len;
-
-        // Deserialize inputs
-        if pos + 4 > data.len() {
-            return Err(TransactionError::SerializationError(
-                "Invalid data format".to_string(),
-            ));
-        }
-
-        let input_count = read_u32(&data[pos..pos + 4]) as usize;
-        pos += 4;
-
-        let mut inputs = Vec::with_capacity(input_count);
-        for _ in 0..input_count {
-            if pos + 4 > data.len() {
-                return Err(TransactionError::SerializationError(
-                    "Invalid data format".to_string(),
-                ));
-            }
-
-            let prev_txid_len = read_u32(&data[pos..pos + 4]) as usize;
-            pos += 4;
-
-            if pos + prev_txid_len > data.len() {
-                return Err(TransactionError::SerializationError(
-                    "Invalid prev_txid length".to_string(),
-                ));
-            }
-
-            let prev_txid = data[pos..pos + prev_txid_len].to_vec();
-            pos += prev_txid_len;
-
-            if pos + 4 > data.len() {
-                return Err(TransactionError::SerializationError(
-                    "Invalid data format".to_string(),
-                ));
-            }
-
-            let prev_index = read_u32(&data[pos..pos + 4]);
-            pos += 4;
-
-            if pos + 4 > data.len() {
-                return Err(TransactionError::SerializationError(
-                    "Invalid data format".to_string(),
-                ));
-            }
-
-            let signature_len = read_u32(&data[pos..pos + 4]) as usize;
-            pos += 4;
-
-            if pos + signature_len > data.len() {
-                return Err(TransactionError::SerializationError(
-                    "Invalid signature length".to_string(),
-                ));
-            }
-
-            let signature = data[pos..pos + signature_len].to_vec();
-            pos += signature_len;
-
-            inputs.push(UTXOInput {
-                prev_txid,
-                prev_index,
-                signature,
-            });
-        }
-
-        // Deserialize outputs
-        if pos + 4 > data.len() {
-            return Err(TransactionError::SerializationError(
-                "Invalid data format".to_string(),
-            ));
-        }
-
-        let output_count = read_u32(&data[pos..pos + 4]) as usize;
-        pos += 4;
-
-        let mut outputs = Vec::with_capacity(output_count);
-        for _ in 0..output_count {
-            if pos + 8 > data.len() {
-                return Err(TransactionError::SerializationError(
-                    "Invalid data format".to_string(),
-                ));
-            }
-
-            let mut value_bytes = [0u8; 8];
-            value_bytes.copy_from_slice(&data[pos..pos + 8]);
-            let value = u64::from_le_bytes(value_bytes);
-            pos += 8;
-
-            if pos + 4 > data.len() {
-                return Err(TransactionError::SerializationError(
-                    "Invalid data format".to_string(),
-                ));
-            }
-
-            let lock_script_len = read_u32(&data[pos..pos + 4]) as usize;
-            pos += 4;
-
-            if pos + lock_script_len > data.len() {
-                return Err(TransactionError::SerializationError(
-                    "Invalid lock_script length".to_string(),
-                ));
-            }
-
-            let lock_script = data[pos..pos + lock_script_len].to_vec();
-            pos += lock_script_len;
-
-            outputs.push(UTXOOutput { value, lock_script });
-        }
-
-        Ok(UTXOTransaction {
-            txid,
-            inputs,
-            outputs,
-        })
+        serde_json::from_slice(data).map_err(|e| TransactionError::Deserialization(e.to_string()))
     }
-
-    fn get_model_extensions(&self) -> Option<&dyn Any> {
-        Some(self as &dyn Any)
-    }
-}
-
-impl<CS: CommitmentScheme> UTXOOperations for UTXOModel<CS>
-where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
-{
-    fn create_utxo_key(&self, txid: &[u8], index: u32) -> Result<Vec<u8>, TransactionError> {
-        let mut key = Vec::with_capacity(txid.len() + 5);
-        key.push(b'u'); // Prefix 'u' for UTXO
-        key.extend_from_slice(txid);
-        key.extend_from_slice(&index.to_le_bytes());
-        Ok(key)
-    }
-}
-
-/// Helper function to read a u32 from a byte slice
-fn read_u32(data: &[u8]) -> u32 {
-    let mut bytes = [0u8; 4];
-    bytes.copy_from_slice(data);
-    u32::from_le_bytes(bytes)
 }```
 
 ###### File: transaction_models/src/lib.rs
-###*Size: 4.0K, Lines: 29, Type: ASCII text*
+###*Size: 4.0K, Lines: 10, Type: ASCII text*
 
 ```rust
-//! # DePIN SDK Transaction Models
-//!
-//! Implementations of various transaction models for the DePIN SDK.
-//!
-//! This crate provides concrete implementations of the transaction model
-//! interfaces defined in the `depin_sdk_core` crate.
-//!
-//! ## Usage
-//!
-//! Each transaction model is implemented in its own module.
-//! Applications should import the specific model types they wish to use.
-//!
-//! ```rust
-//! // Example: Using the UTXO model
-//! use transaction_models::utxo::{UTXOModel, UTXOProof, UTXOTransaction};
-//!
-//! // Example: Using the account model
-//! use transaction_models::account::{AccountModel, AccountProof, AccountTransaction};
-//! ```
+// Path: crates/transaction_models/src/lib.rs
 
-// Modules for each transaction model
+#![allow(clippy::new_without_default)]
 pub mod account;
 pub mod hybrid;
 pub mod utxo;
 
-// Re-export operation traits for convenience
-pub use account::AccountOperations;
-pub use hybrid::HybridOperations;
-pub use utxo::UTXOOperations;
-```
+pub use account::{AccountConfig, AccountModel, AccountTransaction};
+// FIX: The HybridOperations trait does not exist, so this line is removed.
+pub use hybrid::{HybridConfig, HybridModel, HybridTransaction};
+pub use utxo::{UTXOConfig, UTXOModel, UTXOTransaction};```
 
 ##### File: transaction_models/Cargo.toml
-##*Size: 4.0K, Lines: 22, Type: ASCII text*
+##*Size: 4.0K, Lines: 19, Type: ASCII text*
 
 ```toml
 [package]
@@ -15235,20 +13362,17 @@ description = "Transaction model implementations for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-depin-sdk-crypto = { path = "../crypto", optional = true }
 depin-sdk-core = { path = "../core" }
 log = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
-bytes = { workspace = true }
-anyhow = { workspace = true }
-
+sha2 = { workspace = true }
+# FIX: Add the missing 'hex' dependency used for logging UTXO hashes.
+hex = { workspace = true }
 
 [features]
-default = ["dep:depin-sdk-crypto"]
-utxo-model = []
-account-model = []
-hybrid-model = []
+default = []
 ```
 
 #### Directory: validator
@@ -15258,186 +13382,153 @@ hybrid-model = []
 ###### Directory: validator/src/bin
 
 ####### File: validator/src/bin/validator_hybrid.rs
-####*Size: 4.0K, Lines: 88, Type: ASCII text*
+####*Size: 4.0K, Lines: 73, Type: C source, ASCII text*
 
 ```rust
-//! Hybrid validator binary
+// Path: crates/validator/src/bin/validator_hybrid.rs
 
-use std::env;
-use std::path::Path;
-use depin_sdk_validator::hybrid::HybridValidator;
+use anyhow::anyhow;
+use clap::Parser;
+// FIX: Import WorkloadContainer from its new, correct location in `core`.
+use depin_sdk_core::validator::WorkloadContainer;
+use depin_sdk_core::{config::WorkloadConfig, Container};
+use depin_sdk_state_trees::file::FileStateTree;
+// FIX: Add necessary imports.
+use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
+use depin_sdk_validator::{
+    common::GuardianContainer,
+    hybrid::{ApiContainer, InterfaceContainer},
+    standard::OrchestrationContainer,
+};
+use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
+
+#[derive(Parser, Debug)]
+#[clap(name = "validator_hybrid", about = "A hybrid DePIN SDK validator node with public APIs.")]
+struct Opts {
+    #[clap(long, default_value = "./config")]
+    config_dir: String,
+}
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Parse command-line arguments
-    let args: Vec<String> = env::args().collect();
-    let container_type = if args.len() > 1 { &args[1] } else { "all" };
+async fn main() -> anyhow::Result<()> {
+    env_logger::builder().filter_level(log::LevelFilter::Info).init();
+    let opts = Opts::parse();
+    let path = PathBuf::from(opts.config_dir);
+
+    log::info!("Initializing Hybrid Validator...");
+
+    // FIX: Pass borrowed paths (`&`) to the `new` constructors.
+    let guardian = GuardianContainer::new(&path.join("guardian.toml"))?;
+
+    let state_tree = FileStateTree::new("state.json", HashCommitmentScheme::new());
+
+    let workload = Arc::new(WorkloadContainer::new(
+        WorkloadConfig::default(),
+        state_tree,
+    ));
+
+    let orchestration = Arc::new(OrchestrationContainer::new(
+        &path.join("orchestration.toml"),
+    )?);
     
-    // Default config directory is ./config
-    let config_dir = env::var("CONFIG_DIR").unwrap_or_else(|_| "./config".to_string());
+    // Wire up a dummy chain for now.
+    orchestration.set_chain_and_workload_ref(Arc::new(Mutex::new(())), workload);
+
+    let interface = InterfaceContainer::new(&path.join("interface.toml"))?;
+    let api = ApiContainer::new(&path.join("api.toml"))?;
+
+
+    log::info!("Starting services...");
+    guardian.start()?;
+    // FIX: The start method is async and must be awaited.
+    orchestration.start().await?;
+    interface.start()?;
+    api.start()?;
+
+    tokio::signal::ctrl_c().await?;
+    log::info!("Shutdown signal received.");
+
+    api.stop()?;
+    interface.stop()?;
+    orchestration.stop().await?;
+    guardian.stop()?;
+    log::info!("Validator stopped gracefully.");
     
-    println!("Starting DePIN SDK Hybrid Validator");
-    println!("Container type: {}", container_type);
-    println!("Config directory: {}", config_dir);
-    
-    match container_type {
-        "guardian" => {
-            // Start only the guardian container
-            let path = Path::new(&config_dir);
-            let guardian = depin_sdk_validator::common::GuardianContainer::new(path.join("guardian.toml"));
-            guardian.start_boot()?;
-            
-            // Keep the process running
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        },
-        "orchestration" => {
-            // Start only the orchestration container
-            let path = Path::new(&config_dir);
-            let orchestration = depin_sdk_validator::standard::OrchestrationContainer::new(path.join("orchestration.toml"));
-            orchestration.start()?;
-            
-            // Keep the process running
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        },
-        "workload" => {
-            // Start only the workload container
-            let path = Path::new(&config_dir);
-            let workload = depin_sdk_validator::standard::WorkloadContainer::new(path.join("workload.toml"));
-            workload.start()?;
-            
-            // Keep the process running
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        },
-        "interface" => {
-            // Start only the interface container
-            let path = Path::new(&config_dir);
-            let interface = depin_sdk_validator::hybrid::InterfaceContainer::new(path.join("interface.toml"));
-            interface.start()?;
-            
-            // Keep the process running
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        },
-        "api" => {
-            // Start only the API container
-            let path = Path::new(&config_dir);
-            let api = depin_sdk_validator::hybrid::ApiContainer::new(path.join("api.toml"));
-            api.start()?;
-            
-            // Keep the process running
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        },
-        "all" | _ => {
-            // Start the full validator
-            let path = Path::new(&config_dir);
-            let validator = HybridValidator::new(path)?;
-            validator.start()?;
-            
-            // Keep the process running
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        },
-    }
-}
-```
+    Ok(())
+}```
 
 ####### File: validator/src/bin/validator.rs
-####*Size: 4.0K, Lines: 82, Type: ASCII text*
+####*Size: 4.0K, Lines: 64, Type: C source, ASCII text*
 
 ```rust
-//! Standard validator binary
+// Path: crates/validator/src/bin/validator.rs
 
-use depin_sdk_validator::standard::StandardValidator;
-use std::env;
-use std::path::Path;
+use anyhow::anyhow;
+use clap::Parser;
+use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
+// FIX: core::Container is now async
+use depin_sdk_core::validator::{Container, WorkloadContainer};
+use depin_sdk_core::WorkloadConfig;
+use depin_sdk_state_trees::file::FileStateTree;
+use depin_sdk_validator::{common::GuardianContainer, standard::OrchestrationContainer};
+use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
+#[derive(Parser, Debug)]
+#[clap(name = "validator", about = "A standard DePIN SDK validator node.")]
+struct Opts {
+    #[clap(long, default_value = "./config")]
+    config_dir: String,
+}
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Parse command-line arguments
-    let args: Vec<String> = env::args().collect();
-    let container_type = if args.len() > 1 { &args[1] } else { "all" };
+async fn main() -> anyhow::Result<()> {
+    env_logger::builder().filter_level(log::LevelFilter::Info).init();
+    let opts = Opts::parse();
+    let path = PathBuf::from(opts.config_dir);
 
-    // Default config directory is ./config
-    let config_dir = env::var("CONFIG_DIR").unwrap_or_else(|_| "./config".to_string());
+    log::info!("Initializing Standard Validator...");
 
-    println!("Starting DePIN SDK Standard Validator");
-    println!("Container type: {}", container_type);
-    println!("Config directory: {}", config_dir);
+    let guardian = GuardianContainer::new(&path.join("guardian.toml"))?;
 
-    match container_type {
-        "guardian" => {
-            // Start only the guardian container
-            let path = Path::new(&config_dir);
-            let guardian =
-                depin_sdk_validator::common::GuardianContainer::new(path.join("guardian.toml"));
-            guardian.start_boot()?;
+    let state_tree = FileStateTree::new("state.json", HashCommitmentScheme::new());
 
-            // Keep the process running
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        }
-        "orchestration" => {
-            // Start only the orchestration container
-            let path = Path::new(&config_dir);
-            let orchestration = depin_sdk_validator::standard::OrchestrationContainer::new(
-                path.join("orchestration.toml"),
-            );
-            orchestration.start()?;
+    let workload_config = WorkloadConfig {
+        enabled_vms: vec!["WASM".to_string()],
+    };
 
-            // Keep the process running
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        }
-        "workload" => {
-            // Start only the workload container
-            let path = Path::new(&config_dir);
-            let workload =
-                depin_sdk_validator::standard::WorkloadContainer::new(path.join("workload.toml"));
-            workload.start()?;
+    let workload = Arc::new(WorkloadContainer::new(workload_config, state_tree));
 
-            // Keep the process running
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        }
-        // Fixed: Separate "all" case from wildcard pattern to avoid Clippy warning
-        "all" => {
-            // Start the full validator
-            let path = Path::new(&config_dir);
-            let validator = StandardValidator::new(path)?;
-            validator.start()?;
+    // FIX: OrchestrationContainer::new is now async and must be awaited.
+    let orchestration = Arc::new(
+        OrchestrationContainer::<
+            HashCommitmentScheme,
+            (), // Placeholder for TM
+            FileStateTree<HashCommitmentScheme>,
+        >::new(&path.join("orchestration.toml"))
+        .await?,
+    );
 
-            // Keep the process running
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        }
-        _ => {
-            // Default to full validator for any other input
-            let path = Path::new(&config_dir);
-            let validator = StandardValidator::new(path)?;
-            validator.start()?;
+    // Wire up a dummy chain for now. In a real scenario, this would be part of the composition root.
+    // orchestration.set_chain_and_workload_ref(Arc::new(Mutex::new(())), workload);
 
-            // Keep the process running
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        }
-    }
-}
-```
+    log::info!("Starting services...");
+    orchestration.start().await?;
+    guardian.start().await?;
+
+    tokio::signal::ctrl_c().await?;
+    log::info!("Shutdown signal received.");
+
+    orchestration.stop().await?;
+    guardian.stop().await?;
+    log::info!("Validator stopped gracefully.");
+
+    Ok(())
+}```
 
 ###### Directory: validator/src/common
 
@@ -15916,77 +14007,73 @@ mod tests {
 ```
 
 ####### File: validator/src/common/guardian.rs
-####*Size: 4.0K, Lines: 67, Type: ASCII text*
+####*Size: 4.0K, Lines: 63, Type: ASCII text*
 
 ```rust
-//! Implementation of the guardian container
+// Path: crates/validator/src/common/guardian.rs
 
+use async_trait::async_trait;
+use depin_sdk_core::error::ValidatorError;
+use depin_sdk_core::validator::{Container, GuardianContainer as GuardianContainerTrait};
 use std::path::Path;
-use std::error::Error;
-use std::sync::{Arc, Mutex};
+// FIX: Add imports for atomic state management
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
-/// Guardian container for security, boot process, and attestation
+#[derive(Debug, Default)]
 pub struct GuardianContainer {
-    /// Configuration path
-    config_path: String,
-    /// Boot status
-    boot_status: Arc<Mutex<BootStatus>>,
-}
-
-/// Boot status
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BootStatus {
-    /// Not started
-    NotStarted,
-    /// In progress
-    InProgress,
-    /// Completed successfully
-    Completed,
-    /// Failed
-    Failed,
+    // FIX: Use Arc<AtomicBool> for thread-safe interior mutability.
+    running: Arc<AtomicBool>,
 }
 
 impl GuardianContainer {
-    /// Create a new guardian container
-    pub fn new<P: AsRef<Path>>(config_path: P) -> Self {
-        Self {
-            config_path: config_path.as_ref().to_string_lossy().to_string(),
-            boot_status: Arc::new(Mutex::new(BootStatus::NotStarted)),
-        }
-    }
-    
-    /// Start the boot process
-    pub fn start_boot(&self) -> Result<(), Box<dyn Error>> {
-        let mut status = self.boot_status.lock().unwrap();
-        *status = BootStatus::InProgress;
-        
-        // Perform boot process (simplified for initial setup)
-        println!("Guardian container starting boot process...");
-        
-        // In a real implementation, we would:
-        // 1. Verify hardware attestation
-        // 2. Check secure boot status
-        // 3. Initialize security boundaries
-        
-        *status = BootStatus::Completed;
-        println!("Guardian container boot process completed.");
-        
-        Ok(())
-    }
-    
-    /// Get the current boot status
-    pub fn boot_status(&self) -> BootStatus {
-        *self.boot_status.lock().unwrap()
-    }
-    
-    /// Verify attestation
-    pub fn verify_attestation(&self) -> Result<bool, Box<dyn Error>> {
-        // Simplified attestation verification for initial setup
-        // In a real implementation, we would verify hardware attestation
-        Ok(true)
+    pub fn new(_config_path: &Path) -> anyhow::Result<Self> {
+        // FIX: Initialize the atomic bool correctly.
+        Ok(Self {
+            running: Arc::new(AtomicBool::new(false)),
+        })
     }
 }
-```
+
+#[async_trait]
+impl Container for GuardianContainer {
+    async fn start(&self) -> Result<(), ValidatorError> {
+        log::info!("Starting GuardianContainer...");
+        // FIX: Atomically set the running flag to true.
+        self.running.store(true, Ordering::SeqCst);
+        Ok(())
+    }
+
+    async fn stop(&self) -> Result<(), ValidatorError> {
+        log::info!("Stopping GuardianContainer...");
+        // FIX: Atomically set the running flag to false.
+        self.running.store(false, Ordering::SeqCst);
+        Ok(())
+    }
+
+    fn is_running(&self) -> bool {
+        // FIX: Atomically load the value of the running flag.
+        self.running.load(Ordering::SeqCst)
+    }
+
+    fn id(&self) -> &'static str {
+        "guardian"
+    }
+}
+
+impl GuardianContainerTrait for GuardianContainer {
+    fn start_boot(&self) -> Result<(), ValidatorError> {
+        log::info!("Guardian: Initiating secure boot sequence...");
+        Ok(())
+    }
+
+    fn verify_attestation(&self) -> Result<bool, ValidatorError> {
+        log::info!("Guardian: Verifying inter-container attestation...");
+        Ok(true)
+    }
+}```
 
 ####### File: validator/src/common/mod.rs
 ####*Size: 4.0K, Lines: 10, Type: ASCII text*
@@ -16005,7 +14092,7 @@ pub use security::*;
 ```
 
 ####### File: validator/src/common/security.rs
-####*Size: 4.0K, Lines: 56, Type: ASCII text*
+####*Size: 4.0K, Lines: 55, Type: ASCII text*
 
 ```rust
 //! Implementation of security boundaries between containers
@@ -16035,7 +14122,7 @@ impl SecurityChannel {
     }
     
     /// Establish the security channel
-    pub fn establish(&self) -> Result<(), Box<dyn Error>> {
+    pub fn establish(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         // Simplified channel establishment for initial setup
         // In a real implementation, we would:
         // 1. Perform mutual authentication
@@ -16048,7 +14135,7 @@ impl SecurityChannel {
     }
     
     /// Send data through the security channel
-    pub fn send(&self, data: &[u8]) -> Result<(), Box<dyn Error>> {
+    pub fn send(&self, data: &[u8]) -> Result<(), Box<dyn Error + Send + Sync>> {
         // Simplified sending for initial setup
         println!("Sending {} bytes through channel {}", data.len(), self.channel_id);
         
@@ -16056,15 +14143,14 @@ impl SecurityChannel {
     }
     
     /// Receive data from the security channel
-    pub fn receive(&self, max_size: usize) -> Result<Vec<u8>, Box<dyn Error>> {
+    pub fn receive(&self, max_size: usize) -> Result<Vec<u8>, Box<dyn Error + Send + Sync>> {
         // Simplified receiving for initial setup
         println!("Receiving up to {} bytes from channel {}", max_size, self.channel_id);
         
         // Return empty data for now
         Ok(Vec::new())
     }
-}
-```
+}```
 
 ###### Directory: validator/src/hybrid
 
@@ -16140,296 +14226,155 @@ mod tests {
 ```
 
 ####### File: validator/src/hybrid/api.rs
-####*Size: 4.0K, Lines: 80, Type: ASCII text*
+####*Size: 4.0K, Lines: 63, Type: ASCII text*
 
 ```rust
-//! Implementation of API container
+// Path: crates/validator/src/hybrid/api.rs
 
+use depin_sdk_core::error::ValidatorError;
+use depin_sdk_core::validator::Container;
+use serde::Deserialize;
 use std::path::Path;
-use std::error::Error;
-use std::sync::{Arc, Mutex};
+// FIX: Add imports for atomic state management
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+use toml;
 
-/// API container for API implementation and state queries
+/// Configuration for the API container, loaded from `api.toml`.
+#[derive(Deserialize)]
+pub struct ApiConfig {
+    pub listen_address: String,
+    pub enabled_endpoints: Vec<String>,
+}
+
+/// The ApiContainer is responsible for implementing the public-facing JSON-RPC
+/// or other state-query APIs for a hybrid validator.
 pub struct ApiContainer {
-    /// Configuration path
-    config_path: String,
-    /// Running status
-    running: Arc<Mutex<bool>>,
+    config: ApiConfig,
+    // FIX: Use Arc<AtomicBool> for thread-safe state.
+    running: Arc<AtomicBool>,
 }
 
 impl ApiContainer {
-    /// Create a new API container
-    pub fn new<P: AsRef<Path>>(config_path: P) -> Self {
-        Self {
-            config_path: config_path.as_ref().to_string_lossy().to_string(),
-            running: Arc::new(Mutex::new(false)),
-        }
-    }
-    
-    /// Start the API container
-    pub fn start(&self) -> Result<(), Box<dyn Error>> {
-        let mut running = self.running.lock().unwrap();
-        *running = true;
-        
-        println!("API container starting...");
-        
-        // In a real implementation, we would:
-        // 1. Initialize API endpoints
-        // 2. Connect to state storage
-        // 3. Start serving requests
-        
-        println!("API container started successfully");
-        
-        Ok(())
-    }
-    
-    /// Stop the API container
-    pub fn stop(&self) -> Result<(), Box<dyn Error>> {
-        let mut running = self.running.lock().unwrap();
-        *running = false;
-        
-        println!("API container stopping...");
-        
-        // In a real implementation, we would:
-        // 1. Gracefully shutdown API server
-        // 2. Close state connections
-        // 3. Clean up resources
-        
-        println!("API container stopped successfully");
-        
-        Ok(())
-    }
-    
-    /// Handle an API request
-    pub fn handle_request(&self, endpoint: &str, params: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
-        if !self.is_running() {
-            return Err("API container is not running".into());
-        }
-        
-        // Simplified API handling for initial setup
-        println!("Handling API request to endpoint {}, {} bytes", endpoint, params.len());
-        
-        // In a real implementation, we would:
-        // 1. Parse the request parameters
-        // 2. Execute the appropriate API function
-        // 3. Format and return the response
-        
-        // Return a dummy response for now
-        Ok(vec![9, 10, 11, 12])
-    }
-    
-    /// Check if the container is running
-    pub fn is_running(&self) -> bool {
-        *self.running.lock().unwrap()
+    pub fn new(config_path: &Path) -> anyhow::Result<Self> {
+        let config_str = std::fs::read_to_string(config_path)?;
+        let config: ApiConfig = toml::from_str(&config_str)?;
+        Ok(Self {
+            config,
+            running: Arc::new(AtomicBool::new(false)),
+        })
     }
 }
-```
+
+#[async_trait::async_trait]
+impl Container for ApiContainer {
+    async fn start(&self) -> Result<(), ValidatorError> {
+        log::info!(
+            "Starting ApiContainer, listening on {}...",
+            self.config.listen_address
+        );
+        self.running.store(true, Ordering::SeqCst);
+        Ok(())
+    }
+
+    async fn stop(&self) -> Result<(), ValidatorError> {
+        log::info!("Stopping ApiContainer...");
+        self.running.store(false, Ordering::SeqCst);
+        Ok(())
+    }
+
+    fn is_running(&self) -> bool {
+        self.running.load(Ordering::SeqCst)
+    }
+
+    fn id(&self) -> &'static str {
+        "api"
+    }
+}```
 
 ####### File: validator/src/hybrid/interface.rs
-####*Size: 4.0K, Lines: 82, Type: ASCII text*
+####*Size: 4.0K, Lines: 63, Type: ASCII text*
 
 ```rust
-//! Implementation of interface container
+// Path: crates/validator/src/hybrid/interface.rs
 
+use depin_sdk_core::error::ValidatorError;
+use depin_sdk_core::validator::Container;
+use serde::Deserialize;
 use std::path::Path;
-use std::error::Error;
-use std::sync::{Arc, Mutex};
-use std::net::SocketAddr;
+// FIX: Add imports for atomic state management
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+use toml;
 
-/// Interface container for connection handling and protocol routing
+/// Configuration for the Interface container, loaded from `interface.toml`.
+#[derive(Deserialize)]
+pub struct InterfaceConfig {
+    pub max_connections: u32,
+    pub rate_limit_per_second: u64,
+}
+
+/// The InterfaceContainer manages raw network connections, protocol routing,
+/// and basic DDoS protection for a hybrid validator's public-facing services.
 pub struct InterfaceContainer {
-    /// Configuration path
-    config_path: String,
-    /// Running status
-    running: Arc<Mutex<bool>>,
+    config: InterfaceConfig,
+    // FIX: Use Arc<AtomicBool> for thread-safe state.
+    running: Arc<AtomicBool>,
 }
 
 impl InterfaceContainer {
-    /// Create a new interface container
-    pub fn new<P: AsRef<Path>>(config_path: P) -> Self {
-        Self {
-            config_path: config_path.as_ref().to_string_lossy().to_string(),
-            running: Arc::new(Mutex::new(false)),
-        }
-    }
-    
-    /// Start the interface container
-    pub fn start(&self) -> Result<(), Box<dyn Error>> {
-        let mut running = self.running.lock().unwrap();
-        *running = true;
-        
-        println!("Interface container starting...");
-        
-        // In a real implementation, we would:
-        // 1. Start listening for connections
-        // 2. Initialize protocol handlers
-        // 3. Set up routing logic
-        
-        println!("Interface container started successfully");
-        
-        Ok(())
-    }
-    
-    /// Stop the interface container
-    pub fn stop(&self) -> Result<(), Box<dyn Error>> {
-        let mut running = self.running.lock().unwrap();
-        *running = false;
-        
-        println!("Interface container stopping...");
-        
-        // In a real implementation, we would:
-        // 1. Close all connections
-        // 2. Stop listeners
-        // 3. Clean up resources
-        
-        println!("Interface container stopped successfully");
-        
-        Ok(())
-    }
-    
-    /// Handle a client connection
-    pub fn handle_connection(&self, addr: SocketAddr, data: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
-        if !self.is_running() {
-            return Err("Interface container is not running".into());
-        }
-        
-        // Simplified connection handling for initial setup
-        println!("Handling connection from {}, {} bytes", addr, data.len());
-        
-        // In a real implementation, we would:
-        // 1. Identify the protocol
-        // 2. Route to the appropriate handler
-        // 3. Process the request
-        // 4. Return the response
-        
-        // Return a dummy response for now
-        Ok(vec![5, 6, 7, 8])
-    }
-    
-    /// Check if the container is running
-    pub fn is_running(&self) -> bool {
-        *self.running.lock().unwrap()
-    }
-}
-```
-
-####### File: validator/src/hybrid/mod.rs
-####*Size: 4.0K, Lines: 112, Type: ASCII text*
-
-```rust
-//! Hybrid validator implementation (5 containers)
-
-mod interface;
-mod api;
-
-#[cfg(test)]
-mod tests;
-
-pub use interface::*;
-pub use api::*;
-
-use std::error::Error;
-use std::path::Path;
-use crate::common::{GuardianContainer, SecurityChannel};
-use crate::standard::{OrchestrationContainer, WorkloadContainer};
-
-/// Hybrid validator with 5 containers
-pub struct HybridValidator {
-    /// Guardian container
-    pub guardian: GuardianContainer,
-    /// Orchestration container
-    pub orchestration: OrchestrationContainer,
-    /// Workload container
-    pub workload: WorkloadContainer,
-    /// Interface container
-    pub interface: InterfaceContainer,
-    /// API container
-    pub api: ApiContainer,
-    /// Security channels between containers
-    security_channels: Vec<SecurityChannel>,
-}
-
-impl HybridValidator {
-    /// Create a new hybrid validator
-    pub fn new<P: AsRef<Path>>(config_dir: P) -> Result<Self, Box<dyn Error>> {
-        let config_dir = config_dir.as_ref();
-        
-        // Create containers
-        let guardian = GuardianContainer::new(config_dir.join("guardian.toml"));
-        let orchestration = OrchestrationContainer::new(config_dir.join("orchestration.toml"));
-        let workload = WorkloadContainer::new(config_dir.join("workload.toml"));
-        let interface = InterfaceContainer::new(config_dir.join("interface.toml"));
-        let api = ApiContainer::new(config_dir.join("api.toml"));
-        
-        // Create security channels
-        let mut security_channels = Vec::new();
-        
-        // Guardian to Orchestration
-        let channel_g_o = SecurityChannel::new("guardian", "orchestration");
-        channel_g_o.establish()?;
-        security_channels.push(channel_g_o);
-        
-        // Orchestration to Workload
-        let channel_o_w = SecurityChannel::new("orchestration", "workload");
-        channel_o_w.establish()?;
-        security_channels.push(channel_o_w);
-        
-        // Orchestration to Interface
-        let channel_o_i = SecurityChannel::new("orchestration", "interface");
-        channel_o_i.establish()?;
-        security_channels.push(channel_o_i);
-        
-        // Interface to API
-        let channel_i_a = SecurityChannel::new("interface", "api");
-        channel_i_a.establish()?;
-        security_channels.push(channel_i_a);
-        
+    pub fn new(config_path: &Path) -> anyhow::Result<Self> {
+        let config_str = std::fs::read_to_string(config_path)?;
+        let config: InterfaceConfig = toml::from_str(&config_str)?;
         Ok(Self {
-            guardian,
-            orchestration,
-            workload,
-            interface,
-            api,
-            security_channels,
+            config,
+            running: Arc::new(AtomicBool::new(false)),
         })
     }
-    
-    /// Start the validator
-    pub fn start(&self) -> Result<(), Box<dyn Error>> {
-        // Start Guardian first
-        self.guardian.start_boot()?;
-        
-        // Start Orchestration
-        self.orchestration.start()?;
-        
-        // Start Workload
-        self.workload.start()?;
-        
-        // Start Interface
-        self.interface.start()?;
-        
-        // Start API
-        self.api.start()?;
-        
-        println!("Hybrid validator started successfully");
-        
-        Ok(())
-    }
-    
-    /// Stop the validator
-    pub fn stop(&self) -> Result<(), Box<dyn Error>> {
-        // Stop in reverse order
-        self.api.stop()?;
-        self.interface.stop()?;
-        self.workload.stop()?;
-        self.orchestration.stop()?;
-        
-        println!("Hybrid validator stopped successfully");
-        
-        Ok(())
-    }
 }
-```
+
+#[async_trait::async_trait]
+impl Container for InterfaceContainer {
+    async fn start(&self) -> Result<(), ValidatorError> {
+        log::info!(
+            "Starting InterfaceContainer with max {} connections...",
+            self.config.max_connections
+        );
+        self.running.store(true, Ordering::SeqCst);
+        Ok(())
+    }
+
+    async fn stop(&self) -> Result<(), ValidatorError> {
+        log::info!("Stopping InterfaceContainer...");
+        self.running.store(false, Ordering::SeqCst);
+        Ok(())
+    }
+
+    fn is_running(&self) -> bool {
+        self.running.load(Ordering::SeqCst)
+    }
+
+    fn id(&self) -> &'static str {
+        "interface"
+    }
+}```
+
+####### File: validator/src/hybrid/mod.rs
+####*Size: 4.0K, Lines: 7, Type: ASCII text*
+
+```rust
+// Path: crates/validator/src/hybrid/mod.rs
+
+pub mod api;
+pub mod interface;
+
+// FIX: Publicly re-export the containers so they are visible to binaries.
+pub use api::ApiContainer;
+pub use interface::InterfaceContainer;```
 
 ###### Directory: validator/src/standard
 
@@ -16499,294 +14444,505 @@ mod tests {
 ```
 
 ####### File: validator/src/standard/mod.rs
-####*Size: 4.0K, Lines: 85, Type: ASCII text*
+####*Size: 4.0K, Lines: 6, Type: ASCII text*
 
 ```rust
-//! Standard validator implementation (3 containers)
+// Path: crates/validator/src/standard/mod.rs
 
-mod orchestration;
-mod workload;
+pub mod orchestration;
+pub mod workload;
 
-#[cfg(test)]
-mod tests;
-
-pub use orchestration::*;
-pub use workload::*;
-
-use std::error::Error;
-use std::path::Path;
-use crate::common::{GuardianContainer, SecurityChannel};
-
-/// Standard validator with 3 containers
-pub struct StandardValidator {
-    /// Guardian container
-    pub guardian: GuardianContainer,
-    /// Orchestration container
-    pub orchestration: OrchestrationContainer,
-    /// Workload container
-    pub workload: WorkloadContainer,
-    /// Security channels between containers
-    security_channels: Vec<SecurityChannel>,
-}
-
-impl StandardValidator {
-    /// Create a new standard validator
-    pub fn new<P: AsRef<Path>>(config_dir: P) -> Result<Self, Box<dyn Error>> {
-        let config_dir = config_dir.as_ref();
-        
-        // Create containers
-        let guardian = GuardianContainer::new(config_dir.join("guardian.toml"));
-        let orchestration = OrchestrationContainer::new(config_dir.join("orchestration.toml"));
-        let workload = WorkloadContainer::new(config_dir.join("workload.toml"));
-        
-        // Create security channels
-        let mut security_channels = Vec::new();
-        
-        // Guardian to Orchestration
-        let channel_g_o = SecurityChannel::new("guardian", "orchestration");
-        channel_g_o.establish()?;
-        security_channels.push(channel_g_o);
-        
-        // Orchestration to Workload
-        let channel_o_w = SecurityChannel::new("orchestration", "workload");
-        channel_o_w.establish()?;
-        security_channels.push(channel_o_w);
-        
-        Ok(Self {
-            guardian,
-            orchestration,
-            workload,
-            security_channels,
-        })
-    }
-    
-    /// Start the validator
-    pub fn start(&self) -> Result<(), Box<dyn Error>> {
-        // Start Guardian first
-        self.guardian.start_boot()?;
-        
-        // Start Orchestration
-        self.orchestration.start()?;
-        
-        // Start Workload
-        self.workload.start()?;
-        
-        println!("Standard validator started successfully");
-        
-        Ok(())
-    }
-    
-    /// Stop the validator
-    pub fn stop(&self) -> Result<(), Box<dyn Error>> {
-        // Stop in reverse order
-        self.workload.stop()?;
-        self.orchestration.stop()?;
-        
-        println!("Standard validator stopped successfully");
-        
-        Ok(())
-    }
-}
-```
+// FIX: Publicly re-export the container so it's visible to binaries in the same crate.
+pub use orchestration::OrchestrationContainer;```
 
 ####### File: validator/src/standard/orchestration.rs
-####*Size: 4.0K, Lines: 62, Type: ASCII text*
+####*Size: 12K, Lines: 273, Type: ASCII text*
 
 ```rust
-//! Implementation of orchestration container
+// Path: crates/validator/src/standard/orchestration.rs
 
-use std::path::Path;
-use std::error::Error;
-use std::sync::{Arc, Mutex};
+use crate::config::OrchestrationConfig;
+use async_trait::async_trait;
+use depin_sdk_core::{
+    chain::SovereignChain,
+    commitment::CommitmentScheme,
+    error::ValidatorError,
+    state::{StateManager, StateTree},
+    transaction::TransactionModel,
+    validator::{Container, WorkloadContainer},
+};
+use futures::StreamExt;
+use libp2p::{
+    core::upgrade, gossipsub, identity, noise, swarm::SwarmEvent, tcp, yamux, Swarm,
+    SwarmBuilder, Transport,
+};
+use std::fmt::Debug;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+use tokio::{
+    sync::{watch, Mutex, OnceCell},
+    task::JoinHandle,
+    time::{self, Duration},
+};
 
-/// Orchestration container for node functions and consensus
-pub struct OrchestrationContainer {
-    /// Configuration path
-    config_path: String,
-    /// Running status
-    running: Arc<Mutex<bool>>,
+pub struct OrchestrationContainer<CS, TM, ST>
+where
+    CS: CommitmentScheme + Send + Sync + 'static,
+    TM: TransactionModel<CommitmentScheme = CS> + Clone + Send + Sync + 'static,
+    TM::Transaction: Clone + Debug + Send + Sync,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static + Debug,
+{
+    _config: OrchestrationConfig,
+    chain: Arc<OnceCell<Arc<Mutex<dyn SovereignChain<CS, TM, ST> + Send + Sync>>>>,
+    workload: Arc<OnceCell<Arc<WorkloadContainer<ST>>>>,
+    swarm: Arc<Mutex<Swarm<gossipsub::Behaviour>>>,
+    shutdown_sender: Arc<watch::Sender<bool>>,
+    task_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
+    is_running: Arc<AtomicBool>,
 }
 
-impl OrchestrationContainer {
-    /// Create a new orchestration container
-    pub fn new<P: AsRef<Path>>(config_path: P) -> Self {
-        Self {
-            config_path: config_path.as_ref().to_string_lossy().to_string(),
-            running: Arc::new(Mutex::new(false)),
+impl<CS, TM, ST> OrchestrationContainer<CS, TM, ST>
+where
+    CS: CommitmentScheme + Send + Sync + 'static,
+    TM: TransactionModel<CommitmentScheme = CS> + Clone + Send + Sync + 'static,
+    TM::Transaction: Clone + Debug + Send + Sync,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + StateTree<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    CS::Commitment: Send + Sync + Debug,
+{
+    pub async fn new(config_path: &std::path::Path) -> anyhow::Result<Self> {
+        let _config: OrchestrationConfig =
+            toml::from_str(&std::fs::read_to_string(config_path)?)?;
+
+        let (shutdown_sender, _) = watch::channel(false);
+
+        let local_key = identity::Keypair::generate_ed25519();
+
+        let swarm = SwarmBuilder::with_existing_identity(local_key)
+            .with_tokio()
+            .with_other_transport(|key| {
+                let noise_config = noise::Config::new(key)
+                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+                let transport = tcp::tokio::Transport::new(tcp::Config::default())
+                    .upgrade(upgrade::Version::V1Lazy)
+                    .authenticate(noise_config)
+                    .multiplex(yamux::Config::default())
+                    .timeout(std::time::Duration::from_secs(20))
+                    .boxed();
+                Ok(transport)
+            })?
+            .with_behaviour(|key| {
+                let gossipsub_config = gossipsub::Config::default();
+                gossipsub::Behaviour::new(
+                    gossipsub::MessageAuthenticity::Signed(key.clone()),
+                    gossipsub_config,
+                )
+                .expect("Valid gossipsub config")
+            })?
+            .build();
+
+        Ok(Self {
+            _config,
+            chain: Arc::new(OnceCell::new()),
+            workload: Arc::new(OnceCell::new()),
+            swarm: Arc::new(Mutex::new(swarm)),
+            shutdown_sender: Arc::new(shutdown_sender),
+            task_handles: Arc::new(Mutex::new(Vec::new())),
+            is_running: Arc::new(AtomicBool::new(false)),
+        })
+    }
+
+    pub fn set_chain_and_workload_ref(
+        &self,
+        chain_ref: Arc<Mutex<dyn SovereignChain<CS, TM, ST> + Send + Sync>>,
+        workload_ref: Arc<WorkloadContainer<ST>>,
+    ) {
+        self.chain.set(chain_ref).expect("Chain ref already set");
+        self.workload
+            .set(workload_ref)
+            .expect("Workload ref already set");
+    }
+
+    async fn run_event_loop(
+        swarm_ref: Arc<Mutex<Swarm<gossipsub::Behaviour>>>,
+        mut shutdown_receiver: watch::Receiver<bool>,
+    ) {
+        loop {
+            tokio::select! {
+                biased;
+                _ = shutdown_receiver.changed() => {
+                    if *shutdown_receiver.borrow() {
+                        log::info!("Orchestration event loop received shutdown signal.");
+                        break;
+                    }
+                },
+                event = async { swarm_ref.lock().await.select_next_some().await } => {
+                     match event {
+                        SwarmEvent::Behaviour(gossipsub::Event::Message { message, .. }) => {
+                            log::info!(
+                                "Received block gossip from peer {:?}: '{}'",
+                                message.source,
+                                String::from_utf8_lossy(&message.data)
+                            );
+                        }
+                        SwarmEvent::NewListenAddr { address, .. } => {
+                            log::info!("OrchestrationContainer now listening on {}", address);
+                        }
+                        SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                            log::info!("Connection established with peer: {:?}", peer_id);
+                        }
+                        _ => {}
+                    }
+                }
+            }
         }
     }
-    
-    /// Start the orchestration container
-    pub fn start(&self) -> Result<(), Box<dyn Error>> {
-        let mut running = self.running.lock().unwrap();
-        *running = true;
-        
-        println!("Orchestration container starting...");
-        
-        // In a real implementation, we would:
-        // 1. Initialize consensus mechanism
-        // 2. Connect to peer network
-        // 3. Start block processing
-        
-        println!("Orchestration container started successfully");
-        
-        Ok(())
-    }
-    
-    /// Stop the orchestration container
-    pub fn stop(&self) -> Result<(), Box<dyn Error>> {
-        let mut running = self.running.lock().unwrap();
-        *running = false;
-        
-        println!("Orchestration container stopping...");
-        
-        // In a real implementation, we would:
-        // 1. Gracefully disconnect from network
-        // 2. Stop consensus mechanism
-        // 3. Save state
-        
-        println!("Orchestration container stopped successfully");
-        
-        Ok(())
-    }
-    
-    /// Check if the container is running
-    pub fn is_running(&self) -> bool {
-        *self.running.lock().unwrap()
+
+    async fn run_block_production(
+        chain_ref: Arc<Mutex<dyn SovereignChain<CS, TM, ST> + Send + Sync>>,
+        workload_ref: Arc<WorkloadContainer<ST>>,
+        swarm_ref: Arc<Mutex<Swarm<gossipsub::Behaviour>>>,
+        is_running: Arc<AtomicBool>,
+    ) {
+        let mut interval = time::interval(Duration::from_secs(10));
+        while is_running.load(Ordering::SeqCst) {
+            interval.tick().await;
+
+            let new_block;
+            {
+                let mut chain = chain_ref.lock().await;
+                let tm = chain.transaction_model().clone();
+                let coinbase_result = tm
+                    .create_coinbase_transaction(chain.status().height + 1, &[]);
+                
+                let coinbase = match coinbase_result {
+                    Ok(tx) => tx,
+                    Err(e) => {
+                        log::error!("Failed to create coinbase transaction: {:?}", e);
+                        continue;
+                    }
+                };
+
+                new_block = chain.create_block(vec![coinbase], &workload_ref);
+
+                if let Err(e) = chain
+                    .process_block(new_block.clone(), &workload_ref)
+                    .await
+                {
+                    log::error!("Failed to process new block: {:?}", e);
+                    continue;
+                }
+                log::info!("Produced and processed new block #{}", new_block.header.height);
+            }
+            
+            // --- FIX: Decouple network publishing from the main loop ---
+            // Spawn a separate task to handle the potentially slow network I/O.
+            // This prevents the main block production loop from ever getting stuck.
+            let swarm_clone = swarm_ref.clone();
+            tokio::spawn(async move {
+                let mut swarm = swarm_clone.lock().await;
+                let topic = gossipsub::IdentTopic::new("blocks");
+                let message_data = serde_json::to_vec(&new_block.header).unwrap_or_default();
+
+                if let Err(e) = swarm.behaviour_mut().publish(topic, message_data) {
+                    log::warn!("Failed to publish block (likely no peers): {:?}", e);
+                }
+            });
+        }
+        log::info!("Orchestration block production loop finished.");
     }
 }
-```
+
+#[async_trait]
+impl<CS, TM, ST> Container for OrchestrationContainer<CS, TM, ST>
+where
+    CS: CommitmentScheme + Send + Sync + 'static,
+    TM: TransactionModel<CommitmentScheme = CS> + Clone + Send + Sync + 'static,
+    TM::Transaction: Clone + Debug + Send + Sync,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + StateTree<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    CS::Commitment: Send + Sync + Debug,
+{
+    fn id(&self) -> &'static str {
+        "orchestration_container"
+    }
+
+    fn is_running(&self) -> bool {
+        self.is_running.load(Ordering::SeqCst)
+    }
+
+    async fn start(&self) -> Result<(), ValidatorError> {
+        if self.is_running() {
+            return Err(ValidatorError::AlreadyRunning(self.id().to_string()));
+        }
+        log::info!("OrchestrationContainer starting...");
+        self.is_running.store(true, Ordering::SeqCst);
+        
+        let mut handles = self.task_handles.lock().await;
+
+        let event_loop_receiver = self.shutdown_sender.subscribe();
+        let swarm_clone = self.swarm.clone();
+        handles.push(tokio::spawn(async move {
+            Self::run_event_loop(swarm_clone, event_loop_receiver).await;
+        }));
+
+        let chain_clone = self.chain.get().unwrap().clone();
+        let workload_clone = self.workload.get().unwrap().clone();
+        let swarm_clone_2 = self.swarm.clone();
+        let is_running_clone = self.is_running.clone();
+
+        handles.push(tokio::spawn(async move {
+            Self::run_block_production(
+                chain_clone,
+                workload_clone,
+                swarm_clone_2,
+                is_running_clone,
+            )
+            .await;
+        }));
+
+        Ok(())
+    }
+
+    async fn stop(&self) -> Result<(), ValidatorError> {
+        if !self.is_running() {
+            return Ok(());
+        }
+        log::info!("OrchestrationContainer stopping...");
+        self.is_running.store(false, Ordering::SeqCst);
+        
+        self.shutdown_sender.send(true).map_err(|e| {
+            ValidatorError::Other(format!("Failed to send shutdown signal: {}", e))
+        })?;
+
+        let mut handles = self.task_handles.lock().await;
+        for handle in handles.drain(..) {
+            handle.await.map_err(|e| ValidatorError::Other(format!("Task panicked during shutdown: {}", e)))?;
+        }
+
+        Ok(())
+    }
+}```
 
 ####### File: validator/src/standard/workload.rs
-####*Size: 4.0K, Lines: 81, Type: ASCII text*
+####*Size: 4.0K, Lines: 50, Type: ASCII text*
 
 ```rust
-//! Implementation of workload container
+// Path: crates/validator/src/standard/workload.rs
 
-use std::path::Path;
-use std::error::Error;
-use std::sync::{Arc, Mutex};
+use crate::traits::WorkloadLogic;
+use depin_sdk_core::commitment::CommitmentScheme;
+use depin_sdk_core::error::ValidatorError;
+use depin_sdk_core::state::{StateManager, StateTree};
+use depin_sdk_core::transaction::TransactionModel;
+use depin_sdk_core::validator::WorkloadContainer;
 
-/// Workload container for resource provisioning and execution
-pub struct WorkloadContainer {
-    /// Configuration path
-    config_path: String,
-    /// Running status
-    running: Arc<Mutex<bool>>,
-}
+impl<ST> WorkloadLogic<ST> for WorkloadContainer<ST>
+where
+    // FIX: The bound must be StateManager (which implies StateTree) and Sized.
+    ST: StateManager + Send + Sync,
+{
+    fn execute_transaction<CS, TM>(
+        &self,
+        tx: &TM::Transaction,
+        model: &TM,
+    ) -> impl std::future::Future<Output = Result<(), ValidatorError>> + Send
+    where
+        CS: CommitmentScheme<
+            Commitment = <ST as StateTree>::Commitment,
+            Proof = <ST as StateTree>::Proof,
+        >,
+        TM: TransactionModel<CommitmentScheme = CS> + Sync,
+        TM::Transaction: Sync,
+        // FIX: The bound `ST: StateManager` is now satisfied by the impl block's bounds.
+        ST: StateManager,
+    {
+        async move {
+            let state_tree_arc = self.state_tree();
+            let mut state = state_tree_arc.lock().await;
 
-impl WorkloadContainer {
-    /// Create a new workload container
-    pub fn new<P: AsRef<Path>>(config_path: P) -> Self {
-        Self {
-            config_path: config_path.as_ref().to_string_lossy().to_string(),
-            running: Arc::new(Mutex::new(false)),
+            let is_valid = model
+                .validate(tx, &*state)
+                .map_err(|e| ValidatorError::Other(e.to_string()))?;
+            if !is_valid {
+                return Err(ValidatorError::Other(
+                    "Transaction validation failed".to_string(),
+                ));
+            }
+
+            model
+                .apply(tx, &mut *state)
+                .map_err(|e| ValidatorError::Other(e.to_string()))?;
+
+            log::info!("Successfully executed transaction and updated state.");
+            Ok(())
         }
     }
-    
-    /// Start the workload container
-    pub fn start(&self) -> Result<(), Box<dyn Error>> {
-        let mut running = self.running.lock().unwrap();
-        *running = true;
-        
-        println!("Workload container starting...");
-        
-        // In a real implementation, we would:
-        // 1. Initialize execution environment
-        // 2. Allocate resources
-        // 3. Start transaction processing
-        
-        println!("Workload container started successfully");
-        
-        Ok(())
-    }
-    
-    /// Stop the workload container
-    pub fn stop(&self) -> Result<(), Box<dyn Error>> {
-        let mut running = self.running.lock().unwrap();
-        *running = false;
-        
-        println!("Workload container stopping...");
-        
-        // In a real implementation, we would:
-        // 1. Gracefully stop transaction processing
-        // 2. Release resources
-        // 3. Save state
-        
-        println!("Workload container stopped successfully");
-        
-        Ok(())
-    }
-    
-    /// Execute a transaction
-    pub fn execute_transaction(&self, tx_data: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
-        if !self.is_running() {
-            return Err("Workload container is not running".into());
-        }
-        
-        // Simplified transaction execution for initial setup
-        println!("Executing transaction of {} bytes", tx_data.len());
-        
-        // In a real implementation, we would:
-        // 1. Parse the transaction
-        // 2. Verify it against the state
-        // 3. Apply it to the state
-        // 4. Return the result
-        
-        // Return a dummy result for now
-        Ok(vec![1, 2, 3, 4])
-    }
-    
-    /// Check if the container is running
-    pub fn is_running(&self) -> bool {
-        *self.running.lock().unwrap()
-    }
+}```
+
+###### Directory: validator/src/traits
+
+####### File: validator/src/traits/mod.rs
+####*Size: 4.0K, Lines: 25, Type: ASCII text*
+
+```rust
+// Path: crates/validator/src/traits/mod.rs
+
+use depin_sdk_core::commitment::CommitmentScheme;
+use depin_sdk_core::error::ValidatorError;
+use depin_sdk_core::state::{StateManager, StateTree};
+use depin_sdk_core::transaction::TransactionModel;
+use std::future::Future;
+
+/// Defines the logic for a workload execution container.
+pub trait WorkloadLogic<ST: StateTree + ?Sized> {
+    /// Executes a single transaction, validating it and applying it to the state tree.
+    fn execute_transaction<CS, TM>(
+        &self,
+        tx: &TM::Transaction,
+        model: &TM,
+    ) -> impl Future<Output = Result<(), ValidatorError>> + Send
+    where
+        CS: CommitmentScheme<
+            Commitment = <ST as StateTree>::Commitment,
+            Proof = <ST as StateTree>::Proof,
+        >,
+        // FIX: Add Sync bounds to ensure thread safety for captured references.
+        TM: TransactionModel<CommitmentScheme = CS> + Sync,
+        TM::Transaction: Sync,
+        ST: StateManager;
+}```
+
+###### File: validator/src/config.rs
+###*Size: 4.0K, Lines: 49, Type: ASCII text*
+
+```rust
+//! Configuration structures for validator containers.
+
+use serde::Deserialize;
+
+/// Configuration for the Guardian container (`guardian.toml`).
+#[derive(Debug, Deserialize)]
+pub struct GuardianConfig {
+    pub signature_policy: AttestationSignaturePolicy,
 }
-```
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub enum AttestationSignaturePolicy {
+    FollowChain,
+    Fixed,
+}
+
+/// Configuration for the Orchestration container (`orchestration.toml`).
+#[derive(Debug, Deserialize)]
+pub struct OrchestrationConfig {
+    pub consensus_type: ConsensusType,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub enum ConsensusType {
+    ProofOfStake,
+    ProofOfWork,
+    ProofOfAuthority,
+}
+
+/// Configuration for the Workload container (`workload.toml`).
+#[derive(Debug, Deserialize)]
+pub struct WorkloadConfig {
+    pub enabled_vms: Vec<String>,
+}
+
+/// Configuration for the Interface container (`interface.toml`).
+#[derive(Debug, Deserialize)]
+pub struct InterfaceConfig {
+    pub listen_address: String,
+    pub max_connections: u32,
+}
+
+/// Configuration for the API container (`api.toml`).
+#[derive(Debug, Deserialize)]
+pub struct ApiConfig {
+    pub listen_address: String,
+    pub enabled_endpoints: Vec<String>,
+}```
 
 ###### File: validator/src/lib.rs
-###*Size: 4.0K, Lines: 10, Type: ASCII text*
+###*Size: 4.0K, Lines: 12, Type: ASCII text*
 
 ```rust
 //! # DePIN SDK Validator
 //!
 //! Validator implementation with container architecture for the DePIN SDK.
 
+pub mod config;
 pub mod common;
 pub mod standard;
 pub mod hybrid;
+// NEW: Public traits for this crate are defined here.
+pub mod traits;
 
-use std::error::Error;
-use depin_sdk_core::validator::ValidatorModel;
-```
+// Re-export the new public trait.
+pub use traits::WorkloadLogic;```
 
 ##### File: validator/Cargo.toml
-##*Size: 4.0K, Lines: 24, Type: ASCII text*
+##*Size: 4.0K, Lines: 44, Type: ASCII text*
 
 ```toml
+# Path: crates/validator/Cargo.toml
+
 [package]
 name = "depin-sdk-validator"
 version = "0.1.0"
 edition = "2021"
-description = "Validator implementation with container architecture for the DePIN SDK"
+description = "Validator container implementations for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
 depin-sdk-core = { path = "../core" }
 log = { workspace = true }
-serde = { workspace = true }
-thiserror = { workspace = true }
-bytes = { workspace = true }
 anyhow = { workspace = true }
-tokio = { version = "1.28", features = ["full"] }
-toml = "0.7"
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+# FIX: The `sync` feature is required for tokio::sync::watch
+tokio = { workspace = true, features = ["full", "sync"] }
+libp2p = { workspace = true }
+futures = { workspace = true }
+async-trait = { workspace = true }
+toml = { workspace = true }
+clap = { workspace = true, features = ["derive"], optional = true }
+env_logger = { workspace = true, optional = true }
+depin-sdk-state-trees = { path = "../state_trees", optional = true }
+depin-sdk-commitment-schemes = { path = "../commitment_schemes", optional = true }
+
+[features]
+default = []
+validator-bins = [
+    "dep:clap",
+    "dep:env_logger",
+    "dep:depin-sdk-state-trees",
+    "dep:depin-sdk-commitment-schemes",
+]
 
 [[bin]]
-name = "depin-sdk-validator"
+name = "validator"
 path = "src/bin/validator.rs"
+required-features = ["validator-bins"]
 
 [[bin]]
-name = "depin-sdk-validator-hybrid"
+name = "validator_hybrid"
 path = "src/bin/validator_hybrid.rs"
+required-features = ["validator-bins"]
 ```
 

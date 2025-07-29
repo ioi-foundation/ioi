@@ -1,18 +1,23 @@
+# Path: crates/core/Cargo.toml
+
 [package]
 name = "depin-sdk-core"
 version = "0.1.0"
 edition = "2021"
-description = "Core traits and interfaces for the DePIN SDK"
+description = "Core types and traits for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+# FIX: Add async-trait as a dependency, which is now required by the Container trait.
+async-trait = { workspace = true }
 log = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 bytes = { workspace = true }
-anyhow = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
 
 [features]
 default = []
-post-quantum = []
 homomorphic = []
+post-quantum = []

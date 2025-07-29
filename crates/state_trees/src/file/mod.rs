@@ -1,133 +1,135 @@
-use depin_sdk_core::commitment::CommitmentScheme;
+// Path: crates/state_trees/src/file/mod.rs
+
+use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, Selector};
 use depin_sdk_core::error::StateError;
 use depin_sdk_core::state::{StateManager, StateTree};
-use crate::HashMapStateTree;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fs;
-use std::path::{Path, PathBuf};
 use std::any::Any;
-use std::sync::{Arc, RwLock};
+use std::collections::HashMap;
+use std::fs::{File, OpenOptions};
+use std::io::{self};
+use std::marker::PhantomData;
+use std::path::{Path, PathBuf};
 
-// A serializable representation of the state, using hex strings for keys and values.
-#[derive(Serialize, Deserialize, Default)]
-struct SerializableState(HashMap<String, String>);
-
-/// A state tree that persists its state to a JSON file.
-/// It wraps an in-memory HashMapStateTree and adds load/save functionality.
-pub struct FileStateTree<CS: CommitmentScheme + Clone>
-where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]> + Clone,
-{
-    // The inner, in-memory state tree.
-    inner: HashMapStateTree<CS>,
-    // Path to the state file on disk.
+/// A simple, file-backed state tree implementation for demonstration purposes.
+/// It uses a HashMap internally and serializes to a JSON file.
+///
+/// FIX: The internal HashMap now uses `String` for keys to be compatible with
+/// the JSON format, which requires string keys for objects. Binary keys are
+/// hex-encoded before being used with the map.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct FileStateTree<C: CommitmentScheme> {
     path: PathBuf,
-    // We use an Arc<RwLock<()>> as a simple, cheap way to prevent saves
-    // from happening concurrently, which could corrupt the file.
-    save_lock: Arc<RwLock<()>>,
+    #[serde(skip, default)]
+    scheme: C,
+    // FIX: Changed key type from Vec<u8> to String.
+    data: HashMap<String, Vec<u8>>,
+    #[serde(skip)]
+    _phantom: PhantomData<C::Value>,
 }
 
-impl<CS: CommitmentScheme + Clone> FileStateTree<CS>
+impl<C> FileStateTree<C>
 where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]> + Clone,
+    C: CommitmentScheme + Clone + Default,
+    C::Value: From<Vec<u8>>,
 {
-    /// Creates a new FileStateTree.
-    ///
-    /// It attempts to load the initial state from the file at `path`.
-    /// If the file doesn't exist, it starts with an empty state.
-    pub fn new<P: AsRef<Path>>(path: P, scheme: CS) -> Self {
-        let mut tree = Self {
-            inner: HashMapStateTree::new(scheme),
-            path: path.as_ref().to_path_buf(),
-            save_lock: Arc::new(RwLock::new(())),
-        };
-
-        if let Err(e) = tree.load() {
-            // Log a warning if loading fails, but don't panic.
-            // This allows the node to start fresh if the state file is corrupted or unreadable.
-            eprintln!("[Warning] Failed to load state from {:?}: {}. Starting with a fresh state.", tree.path, e);
-        }
-        tree
+    pub fn new<P: AsRef<Path>>(path: P, scheme: C) -> Self {
+        let path_buf = path.as_ref().to_path_buf();
+        Self::load(&path_buf, scheme.clone()).unwrap_or_else(|_| Self {
+            path: path_buf,
+            scheme,
+            data: HashMap::new(),
+            _phantom: PhantomData,
+        })
     }
 
-    /// Loads the state from the JSON file.
-    pub fn load(&mut self) -> Result<(), StateError> {
-        if !self.path.exists() {
-            println!("State file not found at {:?}, starting new state.", self.path);
-            return Ok(());
-        }
-
-        let json_data = fs::read_to_string(&self.path)
-            .map_err(|e| StateError::ReadError(e.to_string()))?;
-            
-        let serializable_map: SerializableState = serde_json::from_str(&json_data)
-            .map_err(|e| StateError::ReadError(format!("JSON deserialization error: {}", e)))?;
-
-        self.inner.data.clear();
-        for (k_hex, v_hex) in serializable_map.0 {
-            let k = hex::decode(&k_hex)
-                .map_err(|e| StateError::InvalidKey(format!("Hex decode error: {}", e)))?;
-            let v_bytes = hex::decode(&v_hex)
-                .map_err(|e| StateError::InvalidValue(format!("Hex decode error: {}", e)))?;
-            
-            self.inner.data.insert(k, CS::Value::from(v_bytes));
-        }
-
-        println!("Successfully loaded state with {} entries from {:?}", self.inner.data.len(), self.path);
-        Ok(())
+    fn load<P: AsRef<Path>>(path: P, scheme: C) -> io::Result<Self> {
+        let file = File::open(path)?;
+        let mut loaded: Self = serde_json::from_reader(file)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        loaded.scheme = scheme;
+        Ok(loaded)
     }
 
-    /// Saves the current state to the JSON file.
-    pub fn save(&self) -> Result<(), StateError> {
-        // Acquire a write lock to ensure only one save operation happens at a time.
-        let _lock = self.save_lock.write().unwrap();
-
-        let mut serializable_map = SerializableState::default();
-        for (k, v) in &self.inner.data {
-            serializable_map.0.insert(hex::encode(k), hex::encode(v.as_ref()));
-        }
-
-        let json_data = serde_json::to_string_pretty(&serializable_map)
-            .map_err(|e| StateError::WriteError(e.to_string()))?;
-        
-        fs::write(&self.path, json_data)
-            .map_err(|e| StateError::WriteError(e.to_string()))?;
-
-        Ok(())
+    fn save(&self) -> io::Result<()> {
+        let file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&self.path)?;
+        serde_json::to_writer_pretty(file, self)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
     }
 }
 
-// Delegate StateTree and StateManager traits to the inner HashMapStateTree.
-impl<CS: CommitmentScheme + Clone> StateTree for FileStateTree<CS>
+impl<C> StateTree for FileStateTree<C>
 where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]> + Clone,
+    C: CommitmentScheme + Clone + Send + Sync + Default,
+    C::Value: From<Vec<u8>>,
 {
-    type Commitment = CS::Commitment;
-    type Proof = CS::Proof;
+    type Commitment = C::Commitment;
+    type Proof = C::Proof;
 
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
-        StateTree::get(&self.inner, key)
+        // FIX: Hex-encode the key for lookup.
+        let key_hex = hex::encode(key);
+        Ok(self.data.get(&key_hex).cloned())
     }
 
     fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
-        StateTree::insert(&mut self.inner, key, value)
+        // FIX: Hex-encode the key before insertion.
+        let key_hex = hex::encode(key);
+        self.data.insert(key_hex, value.to_vec());
+        self.save()
+            .map_err(|e| StateError::WriteError(e.to_string()))
     }
 
     fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
-        StateTree::delete(&mut self.inner, key)
+        // FIX: Hex-encode the key for removal.
+        let key_hex = hex::encode(key);
+        self.data.remove(&key_hex);
+        self.save()
+            .map_err(|e| StateError::WriteError(e.to_string()))
     }
 
     fn root_commitment(&self) -> Self::Commitment {
-        StateTree::root_commitment(&self.inner)
+        let mut values_to_sort = self.data.values().cloned().collect::<Vec<_>>();
+        values_to_sort.sort();
+
+        let values_to_commit: Vec<Option<C::Value>> = values_to_sort
+            .into_iter()
+            .map(|v| Some(C::Value::from(v)))
+            .collect();
+
+        self.scheme.commit(&values_to_commit)
     }
 
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
-        StateTree::create_proof(&self.inner, key)
+        // FIX: Hex-encode the key for lookup.
+        let key_hex = hex::encode(key);
+        let value = self.data.get(&key_hex)?;
+        self.scheme
+            .create_proof(
+                &Selector::Key(key.to_vec()),
+                &C::Value::from(value.clone()),
+            )
+            .ok()
     }
 
-    fn verify_proof(&self, commitment: &Self::Commitment, proof: &Self::Proof, key: &[u8], value: &[u8]) -> bool {
-        StateTree::verify_proof(&self.inner, commitment, proof, key, value)
+    fn verify_proof(
+        &self,
+        commitment: &Self::Commitment,
+        proof: &Self::Proof,
+        key: &[u8],
+        value: &[u8],
+    ) -> bool {
+        self.scheme.verify(
+            commitment,
+            proof,
+            &Selector::Key(key.to_vec()),
+            &C::Value::from(value.to_vec()),
+            &ProofContext::default(),
+        )
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -135,48 +137,31 @@ where
     }
 }
 
-impl<CS: CommitmentScheme + Clone> StateManager for FileStateTree<CS>
+impl<C> StateManager for FileStateTree<C>
 where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]> + Clone,
+    C: CommitmentScheme + Clone + Send + Sync + Default,
+    C::Commitment: Send + Sync,
+    C::Proof: Send + Sync,
+    C::Value: From<Vec<u8>> + Send + Sync,
 {
-    type Commitment = CS::Commitment;
-    type Proof = CS::Proof;
+    fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
+        for (key, value) in updates {
+            // FIX: Hex-encode each key before batch insertion.
+            let key_hex = hex::encode(key);
 
-    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
-        <Self as StateTree>::get(self, key)
-    }
-
-    fn set(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
-        <Self as StateTree>::insert(self, key, value)
-    }
-
-    fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
-        <Self as StateTree>::delete(self, key)
-    }
-
-    fn root_commitment(&self) -> Self::Commitment {
-        <Self as StateTree>::root_commitment(self)
-    }
-
-    fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
-        <Self as StateTree>::create_proof(self, key)
-    }
-
-    fn verify_proof(&self, commitment: &Self::Commitment, proof: &Self::Proof, key: &[u8], value: &[u8]) -> bool {
-        <Self as StateTree>::verify_proof(self, commitment, proof, key, value)
-    }
-}
-
-// Automatically save the state when the FileStateTree is dropped.
-// This is a safety net for graceful shutdowns.
-impl<CS: CommitmentScheme + Clone> Drop for FileStateTree<CS>
-where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]> + Clone,
-{
-    fn drop(&mut self) {
-        println!("Shutting down... saving final state to {:?}", self.path);
-        if let Err(e) = self.save() {
-            eprintln!("[Error] Failed to save state on shutdown: {}", e);
+            self.data.insert(key_hex, value.to_vec());
         }
+        self.save()
+            .map_err(|e| StateError::WriteError(e.to_string()))
+    }
+
+    fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
+        let mut values = Vec::with_capacity(keys.len());
+        for key in keys {
+            // FIX: Hex-encode each key for batch lookup.
+            let key_hex = hex::encode(key);
+            values.push(self.data.get(&key_hex).cloned());
+        }
+        Ok(values)
     }
 }
