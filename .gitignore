@@ -5,8 +5,9 @@ tools/
 Cargo.lock
 codebase_snapshot.md
 keypair.seed
-state1.json
-state2.json
+state_node1.json
+state_node2.json
 output.txt
 .git
 .gitignore
+output.txt
