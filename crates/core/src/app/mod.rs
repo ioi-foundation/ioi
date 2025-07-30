@@ -11,8 +11,6 @@ pub struct ChainStatus {
     pub is_running: bool,
 }
 
-// FIX: Add derive(Clone, Debug). Clone is needed for block processing,
-// and Debug is needed for `.unwrap()` calls on Results containing the block.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Block<T> {
     pub header: BlockHeader,
@@ -26,6 +24,9 @@ pub struct BlockHeader {
     pub state_root: Vec<u8>,
     pub transactions_root: Vec<u8>,
     pub timestamp: u64,
+    /// The full, sorted list of PeerIds (in bytes) that constituted the validator
+    /// set when this block was created.
+    pub validator_set: Vec<Vec<u8>>,
 }
 
 #[derive(Debug)]

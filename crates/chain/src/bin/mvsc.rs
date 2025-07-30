@@ -12,7 +12,6 @@ use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
 use depin_sdk_core::config::WorkloadConfig;
 use depin_sdk_core::validator::WorkloadContainer;
 use depin_sdk_core::Container;
-// MODIFIED: Import Multiaddr directly from the top-level libp2p crate.
 use libp2p::Multiaddr;
 use depin_sdk_state_trees::file::FileStateTree;
 use depin_sdk_transaction_models::utxo::UTXOModel;
@@ -40,7 +39,6 @@ async fn main() -> anyhow::Result<()> {
     log::info!("Initializing DePIN SDK Node...");
     log::info!("Using state file: {}", &opts.state_file);
 
-    // --- 1. Initialize Independent Components ---
     let commitment_scheme = HashCommitmentScheme::new();
     let transaction_model = UTXOModel::new(commitment_scheme.clone());
     let state_tree = FileStateTree::new(&opts.state_file, commitment_scheme.clone());
@@ -48,7 +46,6 @@ async fn main() -> anyhow::Result<()> {
         enabled_vms: vec!["WASM".to_string()],
     };
 
-    // --- 2. Build the Validator Containers ---
     let workload_container = Arc::new(WorkloadContainer::new(workload_config, state_tree));
 
     let config_path = PathBuf::from(&opts.config_dir);
@@ -62,7 +59,6 @@ async fn main() -> anyhow::Result<()> {
     );
     let guardian_container = GuardianContainer::new(&config_path.join("guardian.toml"))?;
 
-    // --- 3. Create and Initialize the SovereignChain Logic ---
     let mut chain_logic = ChainLogic::new(
         commitment_scheme.clone(),
         transaction_model,
@@ -76,34 +72,25 @@ async fn main() -> anyhow::Result<()> {
     let chain_ref: Arc<Mutex<ChainLogic<HashCommitmentScheme, UTXOModel<HashCommitmentScheme>>>> =
         Arc::new(Mutex::new(chain_logic));
 
-    // --- 4. Wire Up the Components (Inversion of Control) ---
     orchestration_container.set_chain_and_workload_ref(
         chain_ref.clone(),
         workload_container.clone(),
     );
 
-    // --- 5. Start the Validator Services ---
     guardian_container.start().await.map_err(|e| anyhow!(e))?;
     orchestration_container.start().await.map_err(|e| anyhow!(e))?;
     workload_container.start().await.map_err(|e| anyhow!(e))?;
 
-    // --- DIAL PEER IF PROVIDED ---
     if let Some(peer_addr_str) = opts.peer {
         let peer_addr: Multiaddr = peer_addr_str.parse()?;
         log::info!("Attempting to dial peer: {}", peer_addr_str);
         
-        // MODIFIED: Revert to the simple, direct dial call. This now works because
-        // `peer_addr` is of the correct type (`libp2p::Multiaddr`).
-        orchestration_container
-            .swarm
-            .lock()
-            .await
-            .dial(peer_addr)?;
+        // Use the new public method to send a command, instead of locking the swarm.
+        orchestration_container.dial(peer_addr).await;
     }
 
     log::info!("Node successfully started. Running indefinitely...");
 
-    // 6. Keep the main thread alive.
     tokio::signal::ctrl_c().await?;
 
     log::info!("Shutdown signal received. Stopping node...");

@@ -883,7 +883,9 @@ dependencies = [
  "futures",
  "libp2p",
  "log",
+ "rand",
  "serde",
+ "serde_bytes",
  "serde_json",
  "tokio",
  "toml",
@@ -1680,9 +1682,9 @@ dependencies = [
  "libp2p-metrics",
  "libp2p-noise",
  "libp2p-quic",
+ "libp2p-request-response",
  "libp2p-swarm",
  "libp2p-tcp",
- "libp2p-tls",
  "libp2p-upnp",
  "libp2p-yamux",
  "multiaddr",
@@ -1895,6 +1897,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "libp2p-request-response"
+version = "0.25.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8e3b4d67870478db72bac87bfc260ee6641d0734e0e3e275798f089c3fecfd4"
+dependencies = [
+ "async-trait",
+ "futures",
+ "instant",
+ "libp2p-core",
+ "libp2p-identity",
+ "libp2p-swarm",
+ "log",
+ "rand",
+ "smallvec",
+ "void",
+]
+
+[[package]]
 name = "libp2p-swarm"
 version = "0.43.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1907,6 +1927,7 @@ dependencies = [
  "instant",
  "libp2p-core",
  "libp2p-identity",
+ "libp2p-swarm-derive",
  "log",
  "multistream-select",
  "once_cell",
@@ -1914,6 +1935,19 @@ dependencies = [
  "smallvec",
  "tokio",
  "void",
+]
+
+[[package]]
+name = "libp2p-swarm-derive"
+version = "0.33.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c4d5ec2a3df00c7836d7696c136274c9c59705bac69133253696a6c932cd1d74"
+dependencies = [
+ "heck 0.4.1",
+ "proc-macro-warning",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.104",
 ]
 
 [[package]]
@@ -2470,6 +2504,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "proc-macro-warning"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d1eaa7fa0aa1929ffdf7eeb6eac234dde6268914a14ad44d23521ab6a9b258e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.104",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2824,6 +2869,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f0e2c6ed6606019b4e29e69dbaba95b11854410e5347d525002456dbbb786b6"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde_bytes"
+version = "0.11.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8437fd221bde2d4ca316d61b90e337e9e702b3820b87d63caa9ba6c02bd06d96"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

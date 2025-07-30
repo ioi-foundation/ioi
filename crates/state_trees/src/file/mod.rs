@@ -93,12 +93,16 @@ where
     }
 
     fn root_commitment(&self) -> Self::Commitment {
-        let mut values_to_sort = self.data.values().cloned().collect::<Vec<_>>();
-        values_to_sort.sort();
-
-        let values_to_commit: Vec<Option<C::Value>> = values_to_sort
-            .into_iter()
-            .map(|v| Some(C::Value::from(v)))
+        // --- FIX: Ensure deterministic commitment by sorting keys first. ---
+        // This is the most robust pattern for getting a deterministic value set from a HashMap.
+        // 1. Collect all keys.
+        let mut sorted_keys: Vec<_> = self.data.keys().collect();
+        // 2. Sort the keys deterministically.
+        sorted_keys.sort();
+        // 3. Map the sorted keys to their corresponding values.
+        let values_to_commit: Vec<Option<C::Value>> = sorted_keys
+            .iter()
+            .map(|key| self.data.get(*key).map(|v| C::Value::from(v.clone())))
             .collect();
 
         self.scheme.commit(&values_to_commit)
