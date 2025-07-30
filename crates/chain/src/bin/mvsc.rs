@@ -49,12 +49,13 @@ async fn main() -> anyhow::Result<()> {
     let workload_container = Arc::new(WorkloadContainer::new(workload_config, state_tree));
 
     let config_path = PathBuf::from(&opts.config_dir);
+    // MODIFICATION: Pass the state_file path to the constructor.
     let orchestration_container = Arc::new(
         OrchestrationContainer::<
             HashCommitmentScheme,
             UTXOModel<HashCommitmentScheme>,
             FileStateTree<HashCommitmentScheme>,
-        >::new(&config_path.join("orchestration.toml"))
+        >::new(&config_path.join("orchestration.toml"), &opts.state_file)
         .await?,
     );
     let guardian_container = GuardianContainer::new(&config_path.join("guardian.toml"))?;

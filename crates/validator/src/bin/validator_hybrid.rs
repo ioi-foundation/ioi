@@ -2,12 +2,11 @@
 
 use anyhow::anyhow;
 use clap::Parser;
-// FIX: Import WorkloadContainer from its new, correct location in `core`.
-use depin_sdk_core::validator::WorkloadContainer;
-use depin_sdk_core::{config::WorkloadConfig, Container};
-use depin_sdk_state_trees::file::FileStateTree;
-// FIX: Add necessary imports.
 use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
+use depin_sdk_core::config::WorkloadConfig;
+use depin_sdk_core::validator::{Container, WorkloadContainer};
+use depin_sdk_state_trees::file::FileStateTree;
+use depin_sdk_transaction_models::utxo::UTXOModel;
 use depin_sdk_validator::{
     common::GuardianContainer,
     hybrid::{ApiContainer, InterfaceContainer},
@@ -21,6 +20,10 @@ use tokio::sync::Mutex;
 #[derive(Parser, Debug)]
 #[clap(name = "validator_hybrid", about = "A hybrid DePIN SDK validator node with public APIs.")]
 struct Opts {
+    // MODIFICATION: Add state_file argument.
+    #[clap(long, default_value = "state_hybrid.json")]
+    state_file: String,
+
     #[clap(long, default_value = "./config")]
     config_dir: String,
 }
@@ -33,41 +36,52 @@ async fn main() -> anyhow::Result<()> {
 
     log::info!("Initializing Hybrid Validator...");
 
-    // FIX: Pass borrowed paths (`&`) to the `new` constructors.
     let guardian = GuardianContainer::new(&path.join("guardian.toml"))?;
 
-    let state_tree = FileStateTree::new("state.json", HashCommitmentScheme::new());
+    // MODIFICATION: Use the same setup as mvsc.rs for consistency.
+    let commitment_scheme = HashCommitmentScheme::new();
+    let state_tree = FileStateTree::new(&opts.state_file, commitment_scheme.clone());
+    let workload_config = WorkloadConfig {
+        enabled_vms: vec!["WASM".to_string()],
+    };
+    let workload = Arc::new(WorkloadContainer::new(workload_config, state_tree));
 
-    let workload = Arc::new(WorkloadContainer::new(
-        WorkloadConfig::default(),
-        state_tree,
-    ));
-
-    let orchestration = Arc::new(OrchestrationContainer::new(
-        &path.join("orchestration.toml"),
-    )?);
+    // MODIFICATION: Update constructor call with state_file path and correct generic arguments.
+    let orchestration = Arc::new(
+        OrchestrationContainer::<
+            HashCommitmentScheme,
+            UTXOModel<HashCommitmentScheme>,
+            FileStateTree<HashCommitmentScheme>,
+        >::new(&path.join("orchestration.toml"), &opts.state_file)
+        .await?,
+    );
     
-    // Wire up a dummy chain for now.
-    orchestration.set_chain_and_workload_ref(Arc::new(Mutex::new(())), workload);
+    // NOTE: The dummy chain logic from mvsc.rs should eventually be moved here too,
+    // but for now we'll just set dummy refs to get it compiling.
+    orchestration.set_chain_and_workload_ref(
+        Arc::new(Mutex::new(())), // This should be a real ChainLogic instance
+        workload.clone()
+    );
 
     let interface = InterfaceContainer::new(&path.join("interface.toml"))?;
     let api = ApiContainer::new(&path.join("api.toml"))?;
 
 
     log::info!("Starting services...");
-    guardian.start()?;
-    // FIX: The start method is async and must be awaited.
+    guardian.start().await?;
     orchestration.start().await?;
-    interface.start()?;
-    api.start()?;
+    workload.start().await?;
+    interface.start().await?;
+    api.start().await?;
 
     tokio::signal::ctrl_c().await?;
     log::info!("Shutdown signal received.");
 
-    api.stop()?;
-    interface.stop()?;
+    api.stop().await?;
+    interface.stop().await?;
+    workload.stop().await?;
     orchestration.stop().await?;
-    guardian.stop()?;
+    guardian.stop().await?;
     log::info!("Validator stopped gracefully.");
     
     Ok(())
