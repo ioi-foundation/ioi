@@ -29,20 +29,15 @@ For a deep dive into the architecture, please see the [**Architectural Documenta
 
 ### Current Status
 
-> **Note**: The project is currently in an active development phase. The `main` branch contains a functional prototype that demonstrates the core architectural principles.
+> **Note**: The project is currently in an active development phase. The `main` branch contains a functional prototype that demonstrates the core architectural principles, including P2P networking, state persistence, and a basic fault-tolerant consensus mechanism.
 >
-> Phase 3 of our implementation plan is complete. This means:
-> *   The full **Triple-Container Architecture** is scaffolded.
-> *   Validators load their configuration from `.toml` files.
-> *   Nodes can discover each other via P2P networking and persist their state.
->
-> The current focus is on **Phase 4**, which involves implementing the real consensus and transaction processing logic inside the containers. **The software is not yet mainnet-ready.**
+> **The software is not yet mainnet-ready.**
 
 ---
 
 ### Getting Started
 
-You can build and run a local, multi-node test network right now to validate the core networking and persistence features.
+You can build and run a local, multi-node test network to validate the core networking, persistence, and consensus features.
 
 #### Prerequisites
 
@@ -58,78 +53,78 @@ cd depin-sdk
 
 #### 2. Create Configuration Files
 
-The validator requires configuration files for its containers. Create a `config` directory in the project root with the following minimal setup:
+The validator requires configuration files. Create a `config` directory in the project root:
 
 ```bash
 # Create the directory
 mkdir -p config
 
-# Create guardian.toml
+# Create a minimal orchestration.toml. The content can be simple for now.
+echo 'consensus_type = "ProofOfAuthority"' > config/orchestration.toml
+
+# Create a minimal guardian.toml
 echo 'signature_policy = "FollowChain"' > config/guardian.toml
-
-# Create orchestration.toml
-echo 'consensus_type = "ProofOfStake"' > config/orchestration.toml
-
-# Create workload.toml
-echo 'enabled_vms = ["WASM"]' > config/workload.toml
 ```
 
-#### 3. Run the Testnet
+#### 3. Build the Node Binary
 
-The following steps will guide you through running a single node and then a multi-node network. The `cargo run` command will compile the necessary binary (`mvsc`) for you.
-
-#### **Phase 1: Single Node Validation**
-
-**Test 1.1: Clean Start & Block Production**
-
-This test ensures the node can start from a genesis state and begin producing blocks.
+First, compile the project in release mode. This creates the `mvsc` binary we'll use for testing.
 
 ```bash
-# 1. Clean up any previous state
-rm -f state.json
-
-# 2. Run the node binary
-cargo run --release --features="depin-sdk-chain/mvsc-bin" --bin mvsc
+cargo build --release --features="depin-sdk-chain/mvsc-bin"
 ```
 
-**Test 1.2: State Persistence & Loading**
+#### 4. Local Testnet Workflow
 
-This test verifies that the node correctly persists its state to a file and can resume from it after a restart.
+This workflow will guide you through running a two-node network, testing state persistence, and demonstrating the fault-tolerant leader election. You will need two terminals.
+
+**Step 1: Full Reset (Optional)**
+
+To start from a clean slate, you can remove all previous state and identity files. This single command resets everything for both nodes.
 
 ```bash
-# 1. Run the node for a few blocks, then stop with Ctrl+C
-
-# 2. Inspect the state file to see the saved data
-cat state.json
-
-# 3. Restart the node
-cargo run --release --features="depin-sdk-chain/mvsc-bin" --bin mvsc
+rm -f state_node*.json state_node*.json.identity.key
 ```
-You should see it resume from the last block height logged before you stopped it.
 
----
+**Step 2: Run Node 1 (Terminal 1)**
 
-### **Phase 2: Multi-Node Network Test**
+This node will start as the genesis node.
 
-This test confirms that two nodes can connect over the network and that blocks produced by one are gossiped to the other. You will need two terminals or a terminal multiplexer like `tmux`.
+```bash
+target/release/mvsc --state-file state_node1.json
+```
 
-1.  **Clean up (in both terminals):**
+It will create `state_node1.json` for its chain state and `state_node1.json.identity.key` for its permanent network identity. Note the listening address it prints, which will look like `/ip4/127.0.0.1/tcp/34677`.
+
+**Step 3: Run Node 2 (Terminal 2)**
+
+Use the listening address from Node 1 to connect.
+
+```bash
+# Replace the --peer address with the one you copied from Node 1
+target/release/mvsc --state-file state_node2.json --peer /ip4/127.0.0.1/tcp/34677
+```
+
+Node 2 will create its own unique state and identity files. You will see it connect to Node 1 and sync the blocks that Node 1 already produced. The two nodes will now alternate leadership and produce blocks.
+
+**Step 4: Test State Persistence**
+
+1.  Stop **Node 2** (`Ctrl+C`).
+2.  Observe Terminal 1. Node 1 will continue producing blocks for a short time, then it will correctly identify that Node 2 (the leader for an upcoming block) is offline. It will time out, propose a "view change", and take over leadership to ensure the chain doesn't halt.
+3.  Stop **Node 1** (`Ctrl+C`).
+4.  Restart **Node 1**:
     ```bash
-    rm -f state_node1.json state_node2.json
+    target/release/mvsc --state-file state_node1.json
     ```
-2.  **Run Node 1 (in the first terminal):**
-    ```bash
-    cargo run --release --features="depin-sdk-chain/mvsc-bin" --bin mvsc -- --state-file state_node1.json
-    ```
-3.  **Wait for and copy the `New listen address`** from Node 1's output. It will look something like `/ip4/127.0.0.1/tcp/34677`.
+    Observe that it loads its state and identity, resuming from the correct block height. It will now be stalled, as it needs a quorum of 2 validators to produce blocks.
 
-4.  **Run Node 2 (in the second terminal, using the copied address):**
+5.  Restart **Node 2** (using the new listening address from Node 1):
     ```bash
-    # Replace the --peer address with the one you copied from Node 1
-    cargo run --release --features="depin-sdk-chain/mvsc-bin" --bin mvsc -- --state-file state_node2.json --peer /ip4/127.0.0.1/tcp/34677
+    target/release/mvsc --state-file state_node2.json --peer <new_address_from_node1>
     ```
+    Observe that Node 2 reconnects, syncs any blocks it missed, and the network resumes block production.
 
-You should now see connection messages in both terminals. As Node 1 produces new blocks, you will see log messages in Node 2 indicating it has received the block gossip, confirming your P2P layer is functional.
+This workflow validates that node identities are persistent, state is correctly saved and loaded, and the consensus mechanism is tolerant to nodes stopping and restarting.
 
 ---
 
@@ -150,14 +145,13 @@ The SDK is organized into a workspace of several key crates:
 
 Our high-level roadmap is focused on incrementally building out the features defined in our architecture.
 
-*   ✅ **Phase 3: Integrate Real Architecture** - *Complete*
+*   ✅ **Phase 3: Integrate Real Architecture & P2P Networking** - *Complete*
 *   ➡️ **Phase 4: Activate Core Validator Logic** - *In Progress*
-    *   Relocate P2P networking and block production into the `OrchestrationContainer`.
-    *   Implement real transaction execution in the `WorkloadContainer`.
+    *   Implement real transaction execution and mempool logic.
+    *   Refine consensus state machine and error handling.
 *   ▶️ **Phase 5: Mainnet Hardening & Advanced Features**
     *   Implement the Post-Quantum Cryptography migration path and Identity Hub.
     *   Flesh out the Hybrid Validator model and tiered economics.
-    *   Integrate the optional Policy Stack for formal rule enforcement.
 *   ▶️ **Phase 6: Ecosystem Expansion & Evolution**
     *   Develop the DePIN Forge IDE and multi-language SDKs.
     *   Implement IBC and Ethereum compatibility modules.

@@ -11,3 +11,5 @@ output.txt
 .git
 .gitignore
 output.txt
+state_node1.json.identity.key
+state_node2.json.identity.key
