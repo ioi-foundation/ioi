@@ -8,39 +8,17 @@ description = "Chain implementation components for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-depin-sdk-consensus = { path = "../consensus" }
 depin-sdk-core = { path = "../core" }
 depin-sdk-commitment-schemes = { path = "../commitment_schemes" }
-depin-sdk-state-trees = { path = "../state_trees" }
 depin-sdk-transaction-models = { path = "../transaction_models" }
-depin-sdk-validator = { path = "../validator" }
 log = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
-tokio = { workspace = true, features = ["full"], optional = true }
-futures = { workspace = true, optional = true }
-hex = { workspace = true, optional = true }
-clap = { workspace = true, features = ["derive"], optional = true }
-env_logger = { workspace = true, optional = true }
-libp2p = { workspace = true, optional = true }
+hex = { workspace = true }
+libp2p = { workspace = true }
 async-trait = { workspace = true }
 
 [features]
 default = []
-tendermint = []
-custom-consensus = []
-mvsc-bin = [
-    "dep:tokio",
-    "dep:futures",
-    "dep:hex",
-    "dep:clap",
-    "dep:env_logger",
-    "dep:libp2p",
-]
-
-[[bin]]
-name = "mvsc"
-path = "src/bin/mvsc.rs"
-required-features = ["mvsc-bin"]

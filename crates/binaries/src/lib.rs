@@ -1,0 +1,1 @@
+//! This crate contains the binary targets (executables) for the DePIN SDK workspace.

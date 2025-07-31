@@ -1,120 +1,57 @@
 //! Consensus module implementations for the DePIN SDK
 
-use std::time::Duration;
+#[cfg(feature = "round-robin")]
+pub mod round_robin;
+
+use async_trait::async_trait;
+use depin_sdk_core::app::Block;
+use libp2p::PeerId;
+use std::collections::HashSet;
 
 /// Consensus algorithm types
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConsensusAlgorithm {
     /// Proof of Stake
     ProofOfStake,
-    /// Delegated Proof of Stake
-    DelegatedProofOfStake,
     /// Proof of Authority
     ProofOfAuthority,
+    /// Round Robin (deterministic, for testing/PoA)
+    RoundRobin,
     /// Custom consensus algorithm
     Custom(u32),
 }
 
-/// Consensus configuration
-#[derive(Debug, Clone)]
-pub struct ConsensusConfig {
-    /// Consensus algorithm
-    pub algorithm: ConsensusAlgorithm,
-    /// Block time target
-    pub block_time: Duration,
-    /// Number of validators
-    pub validator_count: usize,
-    /// Minimum stake amount
-    pub min_stake: u64,
+/// Represents the decision a node should take in a given consensus round.
+/// This is the primary output of the `ConsensusEngine::decide` method.
+pub enum ConsensusDecision<T> {
+    /// We are the leader and should produce a block with the given transactions.
+    ProduceBlock(Vec<T>),
+    /// We are a follower and should continue waiting for the leader's block.
+    WaitForBlock,
+    /// We have timed out waiting for the leader and should propose a view change.
+    ProposeViewChange,
 }
 
-impl Default for ConsensusConfig {
-    fn default() -> Self {
-        Self {
-            algorithm: ConsensusAlgorithm::ProofOfStake,
-            block_time: Duration::from_secs(5),
-            validator_count: 21,
-            min_stake: 1000,
-        }
-    }
-}
+/// A trait defining the interface for a pluggable consensus engine.
+#[async_trait]
+pub trait ConsensusEngine<T>: Send + Sync {
+    /// Determines the node's action for the current block height and view.
+    async fn decide(
+        &mut self,
+        local_peer_id: &PeerId,
+        height: u64,
+        view: u64,
+        validator_set: &[Vec<u8>],
+        known_peers: &HashSet<PeerId>,
+    ) -> ConsensusDecision<T>;
 
-/// Consensus engine interface
-pub trait ConsensusEngine {
-    /// Start the consensus engine
-    fn start(&self) -> Result<(), String>;
+    /// Handles an incoming block proposal from a peer.
+    async fn handle_block_proposal(&mut self, block: Block<T>) -> Result<(), String>;
 
-    /// Stop the consensus engine
-    fn stop(&self) -> Result<(), String>;
-
-    /// Check if the consensus engine is running
-    fn is_running(&self) -> bool;
-
-    /// Get the consensus configuration
-    fn config(&self) -> &ConsensusConfig;
-}
-
-/// Basic implementation of a consensus engine
-pub struct BasicConsensusEngine {
-    /// Configuration
-    config: ConsensusConfig,
-    /// Running status
-    running: bool,
-}
-
-impl BasicConsensusEngine {
-    /// Create a new basic consensus engine
-    pub fn new(config: ConsensusConfig) -> Self {
-        Self {
-            config,
-            running: false,
-        }
-    }
-}
-
-impl ConsensusEngine for BasicConsensusEngine {
-    fn start(&self) -> Result<(), String> {
-        // In a real implementation, this would start the consensus process
-        Ok(())
-    }
-
-    fn stop(&self) -> Result<(), String> {
-        // In a real implementation, this would stop the consensus process
-        Ok(())
-    }
-
-    fn is_running(&self) -> bool {
-        self.running
-    }
-
-    fn config(&self) -> &ConsensusConfig {
-        &self.config
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_consensus_config_default() {
-        let config = ConsensusConfig::default();
-        assert_eq!(config.algorithm, ConsensusAlgorithm::ProofOfStake);
-        assert_eq!(config.block_time, Duration::from_secs(5));
-        assert_eq!(config.validator_count, 21);
-        assert_eq!(config.min_stake, 1000);
-    }
-
-    #[test]
-    fn test_basic_consensus_engine() {
-        let config = ConsensusConfig::default();
-        let engine = BasicConsensusEngine::new(config);
-
-        assert!(!engine.is_running());
-        assert_eq!(engine.config().algorithm, ConsensusAlgorithm::ProofOfStake);
-
-        // Test start and stop
-        engine.start().unwrap();
-        engine.stop().unwrap();
-    }
+    /// Handles an incoming view change proposal from a peer.
+    async fn handle_view_change(&mut self, from: PeerId, height: u64, new_view: u64) -> Result<(), String>;
+    
+    /// Resets the internal state of the engine for a given height. This is crucial
+    /// when a block is successfully processed, to prevent stale timeout-based actions.
+    fn reset(&mut self, height: u64);
 }

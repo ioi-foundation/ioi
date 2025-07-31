@@ -3,6 +3,7 @@
 use anyhow::anyhow;
 use clap::Parser;
 use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
+use depin_sdk_consensus::round_robin::RoundRobinBftEngine;
 use depin_sdk_core::validator::{Container, WorkloadContainer};
 use depin_sdk_core::WorkloadConfig;
 use depin_sdk_state_trees::file::FileStateTree;
@@ -41,21 +42,28 @@ async fn main() -> anyhow::Result<()> {
     };
     let workload = Arc::new(WorkloadContainer::new(workload_config, state_tree));
 
-    // MODIFICATION: Update constructor call with state_file path and correct generic arguments.
+    // NEW: Instantiate the consensus engine.
+    let consensus_engine = RoundRobinBftEngine::new();
+
+    // MODIFICATION: Update constructor call with state_file path and consensus_engine.
     let orchestration = Arc::new(
         OrchestrationContainer::<
             HashCommitmentScheme,
             UTXOModel<HashCommitmentScheme>, // Use the actual model
             FileStateTree<HashCommitmentScheme>,
-        >::new(&path.join("orchestration.toml"), &opts.state_file)
+        >::new(
+            &path.join("orchestration.toml"),
+            &opts.state_file,
+            consensus_engine,
+        )
         .await?,
     );
 
     // NOTE: This should also be wired up to a real ChainLogic instance like in mvsc.rs
     // For now, setting dummy refs to compile.
     orchestration.set_chain_and_workload_ref(
-        Arc::new(Mutex::new(())), 
-        workload.clone()
+        Arc::new(Mutex::new(())), // This should be a real ChainLogic instance
+        workload.clone(),
     );
 
     log::info!("Starting services...");

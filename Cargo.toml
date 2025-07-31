@@ -3,6 +3,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/binaries",
     "crates/chain",
     "crates/commitment_schemes",
     "crates/consensus",
@@ -11,6 +12,7 @@ members = [
     "crates/homomorphic",
     "crates/services",
     "crates/state_trees",
+    "crates/sync",
     "crates/test_utils",
     "crates/transaction_models",
     "crates/validator",
@@ -18,14 +20,16 @@ members = [
 
 [workspace.dependencies]
 # Networking
-libp2p = { version = "0.52.4", features = [
+libp2p = { version = "0.52", features = [
     "tokio",
+    "gossipsub",
+    "mdns",
+    "macros",
+    "request-response",
+    "identify",
+    "yamux",
     "tcp",
     "noise",
-    "yamux",
-    "gossipsub",
-    "request-response",
-    "macros",
 ] }
 
 # Async
