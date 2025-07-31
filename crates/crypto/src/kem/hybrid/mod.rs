@@ -1,5 +1,5 @@
-// crates/crypto/src/kem/hybrid/mod.rs
-//! Hybrid key encapsulation mechanism using dcrypt's EcdhKyber768
+// Path: crates/crypto/src/kem/hybrid/mod.rs
+// Change: Prefixed unused fields with an underscore.
 
 use crate::security::SecurityLevel;
 use depin_sdk_core::crypto::{
@@ -15,12 +15,10 @@ use dcrypt::kem::kyber::KyberSecretKey;
 
 // Option 2: If hybrid is a separate crate, use:
 // use dcrypt_hybrid::kem::ecdh_kyber::{...}
-// 
+//
 // For now, assuming the hybrid module is under dcrypt with proper path:
 use dcrypt::hybrid::kem::ecdh_kyber::{
-    EcdhKyber768, 
-    HybridCiphertext, 
-    HybridPublicKey as DcryptHybridPublicKey,
+    EcdhKyber768, HybridCiphertext, HybridPublicKey as DcryptHybridPublicKey,
     HybridSecretKey as DcryptHybridSecretKey,
 };
 use rand::thread_rng;
@@ -38,7 +36,7 @@ pub struct HybridKeyPair {
     /// Private key
     pub private_key: HybridPrivateKey,
     /// Security level
-    level: SecurityLevel,
+    _level: SecurityLevel,
 }
 
 /// Hybrid public key wrapper
@@ -56,7 +54,7 @@ pub struct HybridPrivateKey {
     /// The underlying dcrypt hybrid secret key
     inner: DcryptHybridSecretKey,
     /// Security level
-    level: SecurityLevel,
+    _level: SecurityLevel,
 }
 
 /// Hybrid encapsulated key
@@ -66,12 +64,12 @@ pub struct HybridEncapsulated {
     /// The shared secret
     shared_secret: Vec<u8>,
     /// Security level
-    level: SecurityLevel,
+    _level: SecurityLevel,
 }
 
 impl HybridKEM {
     /// Create a new hybrid KEM with the specified security level
-    /// 
+    ///
     /// Currently only supports Level3 (EcdhKyber768: ECDH P-256 + Kyber768)
     pub fn new(level: SecurityLevel) -> Self {
         match level {
@@ -94,7 +92,7 @@ impl KeyEncapsulation for HybridKEM {
 
     fn generate_keypair(&self) -> Self::KeyPair {
         let mut rng = thread_rng();
-        
+
         // Use dcrypt's hybrid KEM to generate keypair
         let (pk, sk) = EcdhKyber768::keypair(&mut rng)
             .expect("Failed to generate hybrid keypair");
@@ -106,15 +104,15 @@ impl KeyEncapsulation for HybridKEM {
             },
             private_key: HybridPrivateKey {
                 inner: sk,
-                level: self.level,
+                _level: self.level,
             },
-            level: self.level,
+            _level: self.level,
         }
     }
 
     fn encapsulate(&self, public_key: &Self::PublicKey) -> Self::Encapsulated {
         let mut rng = thread_rng();
-        
+
         // Use dcrypt's hybrid KEM to encapsulate
         let (ct, ss) = EcdhKyber768::encapsulate(&mut rng, &public_key.inner)
             .expect("Failed to encapsulate with hybrid KEM");
@@ -122,7 +120,7 @@ impl KeyEncapsulation for HybridKEM {
         HybridEncapsulated {
             ciphertext: ct.to_bytes(),
             shared_secret: ss.to_bytes_zeroizing().to_vec(),
-            level: public_key.level,
+            _level: public_key.level,
         }
     }
 
@@ -133,10 +131,9 @@ impl KeyEncapsulation for HybridKEM {
     ) -> Option<Vec<u8>> {
         // Reconstruct the ciphertext from bytes
         let ct = HybridCiphertext::from_bytes(&encapsulated.ciphertext).ok()?;
-        
+
         // Use dcrypt's hybrid KEM to decapsulate
-        let ss = EcdhKyber768::decapsulate(&private_key.inner, &ct)
-            .ok()?;
+        let ss = EcdhKyber768::decapsulate(&private_key.inner, &ct).ok()?;
 
         Some(ss.to_bytes_zeroizing().to_vec())
     }
@@ -166,11 +163,11 @@ impl SerializableKey for HybridPublicKey {
         // Use dcrypt's built-in from_bytes method
         let inner = DcryptHybridPublicKey::from_bytes(bytes)
             .map_err(|e| format!("Failed to deserialize hybrid public key: {:?}", e))?;
-        
+
         // For now, we only support Level3
-        Ok(HybridPublicKey { 
-            inner, 
-            level: SecurityLevel::Level3 
+        Ok(HybridPublicKey {
+            inner,
+            level: SecurityLevel::Level3,
         })
     }
 }
@@ -186,13 +183,14 @@ impl SerializableKey for HybridPrivateKey {
         // We need to serialize the components
         [
             self.inner.ecdh_sk.to_bytes().to_vec(),
-            self.inner.kyber_sk.to_bytes_zeroizing().to_vec()
-        ].concat()
+            self.inner.kyber_sk.to_bytes_zeroizing().to_vec(),
+        ]
+        .concat()
     }
 
     fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
         // Expected sizes from dcrypt's implementation
-        const ECDH_SK_LEN: usize = 32;  // P-256 scalar
+        const ECDH_SK_LEN: usize = 32; // P-256 scalar
         const KYBER_SK_LEN: usize = 2400; // Kyber768
         const TOTAL_LEN: usize = ECDH_SK_LEN + KYBER_SK_LEN;
 
@@ -205,16 +203,16 @@ impl SerializableKey for HybridPrivateKey {
         }
 
         let (ecdh_bytes, kyber_bytes) = bytes.split_at(ECDH_SK_LEN);
-        
+
         let ecdh_sk = EcdhP256SecretKey::from_bytes(ecdh_bytes)
             .map_err(|e| format!("Failed to deserialize ECDH private key: {:?}", e))?;
-        
+
         let kyber_sk = KyberSecretKey::from_bytes(kyber_bytes)
             .map_err(|e| format!("Failed to deserialize Kyber private key: {:?}", e))?;
 
         Ok(HybridPrivateKey {
             inner: DcryptHybridSecretKey { ecdh_sk, kyber_sk },
-            level: SecurityLevel::Level3,
+            _level: SecurityLevel::Level3,
         })
     }
 }
@@ -234,7 +232,7 @@ impl SerializableKey for HybridEncapsulated {
         // Try to verify this is a valid hybrid ciphertext size
         // ECDH P-256 (33) + Kyber768 (1088) = 1121
         const EXPECTED_LEN: usize = 1121;
-        
+
         if bytes.len() != EXPECTED_LEN {
             return Err(format!(
                 "Invalid hybrid ciphertext size: expected {}, got {}",
@@ -248,7 +246,7 @@ impl SerializableKey for HybridEncapsulated {
         Ok(HybridEncapsulated {
             ciphertext: bytes.to_vec(),
             shared_secret: vec![0; 32], // Placeholder until decapsulated
-            level: SecurityLevel::Level3,
+            _level: SecurityLevel::Level3,
         })
     }
 }
@@ -267,11 +265,8 @@ pub mod ecdh_kyber;
 
 // Re-export commonly used types
 pub use ecdh_kyber::{
-    EcdhP256Kyber768,
-    EcdhP256Kyber768KeyPair,
-    EcdhP256Kyber768PublicKey,
-    EcdhP256Kyber768PrivateKey,
-    EcdhP256Kyber768Encapsulated,
+    EcdhP256Kyber768, EcdhP256Kyber768Encapsulated, EcdhP256Kyber768KeyPair,
+    EcdhP256Kyber768PrivateKey, EcdhP256Kyber768PublicKey,
 };
 
 #[cfg(test)]

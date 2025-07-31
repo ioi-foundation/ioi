@@ -1,9 +1,12 @@
+// Path: crates/sync/src/libp2p.rs
+// Change: Prefixed unused fields, removed unreachable match arm.
+
 //! A libp2p-based implementation of the BlockSync trait.
 
 use crate::traits::{BlockSync, NodeState, SyncError};
 use async_trait::async_trait;
 use depin_sdk_core::{
-    app::Block,
+    app::{Block, ProtocolTransaction},
     chain::SovereignChain,
     commitment::CommitmentScheme,
     state::{StateManager, StateTree},
@@ -40,7 +43,7 @@ pub enum SyncRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SyncResponse {
     Status(u64),
-    Blocks(Vec<Block<serde_bytes::ByteBuf>>),
+    Blocks(Vec<Block<ProtocolTransaction>>),
 }
 
 #[derive(Debug, Clone, Default)]
@@ -52,26 +55,54 @@ impl Codec for SyncCodec {
     type Request = SyncRequest;
     type Response = SyncResponse;
 
-    async fn read_request<T>(&mut self, _: &Self::Protocol, io: &mut T) -> std::io::Result<Self::Request>
-    where T: AsyncRead + Unpin + Send {
+    async fn read_request<T>(
+        &mut self,
+        _: &Self::Protocol,
+        io: &mut T,
+    ) -> std::io::Result<Self::Request>
+    where
+        T: AsyncRead + Unpin + Send,
+    {
         let vec = read_length_prefixed(io, 1_000_000).await?;
-        serde_json::from_slice(&vec).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+        serde_json::from_slice(&vec)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
 
-    async fn read_response<T>(&mut self, _: &Self::Protocol, io: &mut T) -> std::io::Result<Self::Response>
-    where T: AsyncRead + Unpin + Send {
+    async fn read_response<T>(
+        &mut self,
+        _: &Self::Protocol,
+        io: &mut T,
+    ) -> std::io::Result<Self::Response>
+    where
+        T: AsyncRead + Unpin + Send,
+    {
         let vec = read_length_prefixed(io, 10_000_000).await?;
-        serde_json::from_slice(&vec).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+        serde_json::from_slice(&vec)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
 
-    async fn write_request<T>(&mut self, _: &Self::Protocol, io: &mut T, req: Self::Request) -> std::io::Result<()>
-    where T: AsyncWrite + Unpin + Send {
+    async fn write_request<T>(
+        &mut self,
+        _: &Self::Protocol,
+        io: &mut T,
+        req: Self::Request,
+    ) -> std::io::Result<()>
+    where
+        T: AsyncWrite + Unpin + Send,
+    {
         let vec = serde_json::to_vec(&req)?;
         write_length_prefixed(io, vec).await
     }
 
-    async fn write_response<T>(&mut self, _: &Self::Protocol, io: &mut T, res: Self::Response) -> std::io::Result<()>
-    where T: AsyncWrite + Unpin + Send {
+    async fn write_response<T>(
+        &mut self,
+        _: &Self::Protocol,
+        io: &mut T,
+        res: Self::Response,
+    ) -> std::io::Result<()>
+    where
+        T: AsyncWrite + Unpin + Send,
+    {
         let vec = serde_json::to_vec(&res)?;
         write_length_prefixed(io, vec).await
     }
@@ -116,7 +147,7 @@ pub enum SwarmCommand {
     SendStatusRequest(PeerId),
     SendBlocksRequest(PeerId, u64),
     SendStatusResponse(ResponseChannel<SyncResponse>, u64),
-    SendBlocksResponse(ResponseChannel<SyncResponse>, Vec<Block<serde_bytes::ByteBuf>>),
+    SendBlocksResponse(ResponseChannel<SyncResponse>, Vec<Block<ProtocolTransaction>>),
 }
 
 #[derive(Debug)]
@@ -127,7 +158,7 @@ enum SwarmEventOut {
     StatusRequest(PeerId, ResponseChannel<SyncResponse>),
     BlocksRequest(PeerId, u64, ResponseChannel<SyncResponse>),
     StatusResponse(PeerId, u64),
-    BlocksResponse(PeerId, Vec<Block<serde_bytes::ByteBuf>>),
+    BlocksResponse(PeerId, Vec<Block<ProtocolTransaction>>),
 }
 
 // --- Libp2pSync Implementation ---
@@ -138,8 +169,8 @@ where
     TM: TransactionModel<CommitmentScheme = CS> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
 {
-    chain: Arc<Mutex<dyn SovereignChain<CS, TM, ST> + Send + Sync>>,
-    workload: Arc<WorkloadContainer<ST>>,
+    _chain: Arc<Mutex<dyn SovereignChain<CS, TM, ST> + Send + Sync>>,
+    _workload: Arc<WorkloadContainer<ST>>,
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
     shutdown_sender: Arc<watch::Sender<bool>>,
     task_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
@@ -152,10 +183,14 @@ impl<CS, TM, ST> Libp2pSync<CS, TM, ST>
 where
     CS: CommitmentScheme + Send + Sync + 'static,
     TM: TransactionModel<CommitmentScheme = CS> + Clone + Send + Sync + 'static,
-    TM::Transaction: Clone + Debug + Send + Sync + for<'de> serde::Deserialize<'de> + serde::Serialize,
+    TM::Transaction:
+        Clone + Debug + Send + Sync + for<'de> serde::Deserialize<'de> + serde::Serialize,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + StateTree<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Send + Sync + 'static + Debug,
+        + Send
+        + Sync
+        + 'static
+        + Debug,
     CS::Commitment: Send + Sync + Debug,
 {
     pub fn new(
@@ -168,7 +203,7 @@ where
         let (shutdown_sender, _) = watch::channel(false);
         let (swarm_command_sender, swarm_command_receiver) = mpsc::channel(100);
         let (swarm_event_sender, swarm_event_receiver) = mpsc::channel(100);
-        
+
         let local_peer_id = local_key.public().to_peer_id();
         let node_state = Arc::new(Mutex::new(NodeState::Initializing));
         let known_peers = Arc::new(Mutex::new(HashSet::new()));
@@ -189,7 +224,7 @@ where
             node_state.clone(),
             known_peers.clone(),
         ));
-        
+
         let initial_cmds_task = tokio::spawn({
             let cmd_sender = swarm_command_sender.clone();
             async move {
@@ -201,8 +236,8 @@ where
         });
 
         Ok(Self {
-            chain,
-            workload,
+            _chain: chain,
+            _workload: workload,
             swarm_command_sender,
             shutdown_sender: Arc::new(shutdown_sender),
             task_handles: Arc::new(Mutex::new(vec![swarm_task, event_task, initial_cmds_task])),
@@ -220,7 +255,9 @@ where
                 let transport = tcp::tokio::Transport::new(tcp::Config::default())
                     .upgrade(Version::V1Lazy)
                     .authenticate(noise_config)
-                    .multiplex(yamux::Config::default()).timeout(Duration::from_secs(20)).boxed();
+                    .multiplex(yamux::Config::default())
+                    .timeout(Duration::from_secs(20))
+                    .boxed();
                 Ok(transport)
             })?
             .with_behaviour(|key| {
@@ -232,7 +269,10 @@ where
                     iter::once(("/depin/sync/1", ProtocolSupport::Full)),
                     request_response::Config::default(),
                 );
-                Ok(SyncBehaviour { gossipsub, request_response })
+                Ok(SyncBehaviour {
+                    gossipsub,
+                    request_response,
+                })
             })?
             .build();
         Ok(swarm)
@@ -271,7 +311,7 @@ where
                                 },
                                 request_response::Message::Response { request_id: _, response } => match response {
                                     SyncResponse::Status(h) => { event_sender.send(SwarmEventOut::StatusResponse(peer, h)).await.ok(); }
-                                    SyncResponse::Blocks(b) => { event_sender.send(SwarmEventOut::BlocksResponse(peer, b)).await.ok(); }
+                                    SyncResponse::Blocks(blocks) => { event_sender.send(SwarmEventOut::BlocksResponse(peer, blocks)).await.ok(); }
                                 }
                             }
                         }
@@ -291,7 +331,7 @@ where
                         SwarmCommand::SendStatusRequest(p) => { swarm.behaviour_mut().request_response.send_request(&p, SyncRequest::GetStatus); }
                         SwarmCommand::SendBlocksRequest(p, h) => { swarm.behaviour_mut().request_response.send_request(&p, SyncRequest::GetBlocks(h)); }
                         SwarmCommand::SendStatusResponse(c, h) => { swarm.behaviour_mut().request_response.send_response(c, SyncResponse::Status(h)).ok(); }
-                        SwarmCommand::SendBlocksResponse(c, b) => { swarm.behaviour_mut().request_response.send_response(c, SyncResponse::Blocks(b)).ok(); }
+                        SwarmCommand::SendBlocksResponse(c, blocks) => { swarm.behaviour_mut().request_response.send_response(c, SyncResponse::Blocks(blocks)).ok(); }
                     },
                     None => {
                         log::info!("[Sync] Swarm command channel closed. Shutting down swarm loop.");
@@ -334,9 +374,7 @@ where
                         known_peers.lock().await.remove(&peer_id);
                     }
                     SwarmEventOut::GossipBlock(data, source) => {
-                        if let Ok(block_bytes) = serde_json::from_slice::<Block<serde_bytes::ByteBuf>>(&data) {
-                            let transactions = block_bytes.transactions.into_iter().map(|b| serde_json::from_slice(&b).unwrap()).collect();
-                            let block = Block { header: block_bytes.header, transactions };
+                        if let Ok(block) = serde_json::from_slice::<Block<ProtocolTransaction>>(&data) {
                             log::info!("[Sync] Received block #{} via gossip from peer {:?}.", block.header.height, source);
                             let mut chain = chain_ref.lock().await;
                             if let Err(e) = chain.process_block(block, &workload_ref).await {
@@ -351,11 +389,7 @@ where
                     }
                     SwarmEventOut::BlocksRequest(peer, since, channel) => {
                         let blocks = chain_ref.lock().await.get_blocks_since(since);
-                        let serializable = blocks.into_iter().map(|b| {
-                            let txs = b.transactions.into_iter().map(|tx| serde_bytes::ByteBuf::from(serde_json::to_vec(&tx).unwrap())).collect();
-                            Block { header: b.header, transactions: txs }
-                        }).collect();
-                        swarm_commander.send(SwarmCommand::SendBlocksResponse(channel, serializable)).await.ok();
+                        swarm_commander.send(SwarmCommand::SendBlocksResponse(channel, blocks)).await.ok();
                         log::info!("[Sync] Responded to GetBlocks request from {} for blocks since {}.", peer, since);
                     }
                     SwarmEventOut::StatusResponse(peer, peer_height) => {
@@ -371,9 +405,8 @@ where
                     SwarmEventOut::BlocksResponse(peer, blocks) => {
                         log::info!("[Sync] Received {} blocks from {} for syncing.", blocks.len(), peer);
                         let mut chain = chain_ref.lock().await;
-                        for block_bytes in blocks {
-                            let txs = block_bytes.transactions.into_iter().map(|b| serde_json::from_slice(&b).unwrap()).collect();
-                            if let Err(e) = chain.process_block(Block { header: block_bytes.header, transactions: txs }, &workload_ref).await {
+                        for block in blocks {
+                            if let Err(e) = chain.process_block(block, &workload_ref).await {
                                 log::error!("[Sync] Error syncing block from {}: {:?}", peer, e);
                                 break;
                             }
@@ -383,7 +416,6 @@ where
                             *node_state.lock().await = NodeState::Synced;
                         }
                     }
-                    _ => {}
                 }}
             }
         }
@@ -396,10 +428,14 @@ impl<CS, TM, ST> BlockSync<CS, TM, ST> for Libp2pSync<CS, TM, ST>
 where
     CS: CommitmentScheme + Send + Sync + 'static,
     TM: TransactionModel<CommitmentScheme = CS> + Clone + Send + Sync + 'static,
-    TM::Transaction: Clone + Debug + Send + Sync + for<'de> serde::Deserialize<'de> + serde::Serialize,
+    TM::Transaction:
+        Clone + Debug + Send + Sync + for<'de> serde::Deserialize<'de> + serde::Serialize,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + StateTree<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Send + Sync + 'static + Debug,
+        + Send
+        + Sync
+        + 'static
+        + Debug,
     CS::Commitment: Send + Sync + Debug,
 {
     async fn start(&self) -> Result<(), SyncError> {
@@ -414,25 +450,22 @@ where
 
         let mut handles = self.task_handles.lock().await;
         for handle in handles.drain(..) {
-            handle.await.map_err(|e| SyncError::Internal(format!("Task panicked: {}", e)))?;
+            handle
+                .await
+                .map_err(|e| SyncError::Internal(format!("Task panicked: {}", e)))?;
         }
         Ok(())
     }
 
-    async fn publish_block(&self, block: &Block<TM::Transaction>) -> Result<(), SyncError> {
-        let serializable_block = {
-            let txs = block.transactions.iter().map(|tx| {
-                let bytes = serde_json::to_vec(tx).map_err(|e| SyncError::Decode(e.to_string()))?;
-                Ok(serde_bytes::ByteBuf::from(bytes))
-            }).collect::<Result<Vec<_>, SyncError>>()?;
-            Block { header: block.header.clone(), transactions: txs }
-        };
-
-        let data = serde_json::to_vec(&serializable_block).map_err(|e| SyncError::Decode(e.to_string()))?;
-        self.swarm_command_sender.send(SwarmCommand::PublishBlock(data)).await
+    async fn publish_block(&self, block: &Block<ProtocolTransaction>) -> Result<(), SyncError> {
+        let data =
+            serde_json::to_vec(block).map_err(|e| SyncError::Decode(e.to_string()))?;
+        self.swarm_command_sender
+            .send(SwarmCommand::PublishBlock(data))
+            .await
             .map_err(|e| SyncError::Network(e.to_string()))
     }
-    
+
     fn get_node_state(&self) -> Arc<Mutex<NodeState>> {
         self.node_state.clone()
     }

@@ -1,18 +1,18 @@
-// crates/crypto/src/kem/hybrid/ecdh_kyber.rs
+// Path: crates/crypto/src/kem/hybrid/ecdh_kyber.rs
+// Change: Removed unused imports.
+
 //! ECDH-Kyber hybrid key encapsulation mechanism
-//! 
+//!
 //! This module provides specific hybrid combinations of ECDH and Kyber KEMs.
 
-use super::{HybridKEM, HybridKeyPair, HybridPublicKey, HybridPrivateKey, HybridEncapsulated};
-use crate::security::SecurityLevel;
-use depin_sdk_core::crypto::{KeyEncapsulation, KemKeyPair, Encapsulated};
+use super::{HybridEncapsulated, HybridKEM, HybridKeyPair, HybridPrivateKey, HybridPublicKey};
 
 /// ECDH-P256 + Kyber768 hybrid KEM
-/// 
+///
 /// Provides Level3 security by combining:
 /// - ECDH on P-256 curve (128-bit classical security)
 /// - Kyber768 (192-bit post-quantum security)
-/// 
+///
 /// This is a convenience type alias for HybridKEM configured with Level3 security.
 pub type EcdhP256Kyber768 = HybridKEM;
 

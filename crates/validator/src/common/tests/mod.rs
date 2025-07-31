@@ -2,25 +2,33 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::guardian::{BootStatus, GuardianContainer};
+    use super::super::guardian::GuardianContainer;
     use super::super::security::SecurityChannel;
+    // FIX: Import the traits to make their methods available.
+    use depin_sdk_core::validator::{Container, GuardianContainer as GuardianContainerTrait};
     use std::path::Path;
 
-    #[test]
-    fn test_guardian_container() {
+    #[tokio::test]
+    async fn test_guardian_container() {
         let config_path = Path::new("test_config.toml");
-        let guardian = GuardianContainer::new(config_path);
+        // FIX: The constructor now returns a Result, so we need to unwrap it.
+        let guardian = GuardianContainer::new(config_path).unwrap();
 
         // Initial state
-        assert_eq!(guardian.boot_status(), BootStatus::NotStarted);
+        assert!(!guardian.is_running());
 
-        // Start boot process
+        // Start the container
+        guardian.start().await.unwrap();
+        assert!(guardian.is_running());
+
+        // Test trait methods
         guardian.start_boot().unwrap();
-        assert_eq!(guardian.boot_status(), BootStatus::Completed);
-
-        // Verify attestation
         let attestation_result = guardian.verify_attestation().unwrap();
         assert!(attestation_result);
+
+        // Stop the container
+        guardian.stop().await.unwrap();
+        assert!(!guardian.is_running());
     }
 
     #[test]

@@ -1,13 +1,13 @@
 use super::*;
-use depin_sdk_commitment_schemes::elliptical_curve::{
-    EllipticalCurveCommitment, EllipticalCurveCommitmentScheme,
+use depin_sdk_commitment_schemes::elliptic_curve::{
+    EllipticCurveCommitment, EllipticCurveCommitmentScheme,
 };
 use depin_sdk_core::commitment::CommitmentScheme;
 use std::any::Any;
 
 #[test]
 fn test_scalar_multiply() {
-    let scheme = EllipticalCurveCommitmentScheme::new(5);
+    let scheme = EllipticCurveCommitmentScheme::new(5);
 
     // Create a commitment
     let value = b"test value";
@@ -29,7 +29,7 @@ fn test_scalar_multiply() {
 
 #[test]
 fn test_execute_scalar_multiply() {
-    let scheme = EllipticalCurveCommitmentScheme::new(5);
+    let scheme = EllipticCurveCommitmentScheme::new(5);
 
     // Create a commitment
     let value = b"test value";
@@ -49,7 +49,7 @@ fn test_execute_scalar_multiply() {
     match result {
         OperationResult::Success(result_arc) => {
             let product = result_arc
-                .downcast_ref::<EllipticalCurveCommitment>()
+                .downcast_ref::<EllipticCurveCommitment>()
                 .unwrap();
             assert_ne!(product.as_ref(), commitment.as_ref());
         }
@@ -59,7 +59,7 @@ fn test_execute_scalar_multiply() {
 
 #[test]
 fn test_scalar_multiply_invalid_input() {
-    let scheme = EllipticalCurveCommitmentScheme::new(5);
+    let scheme = EllipticCurveCommitmentScheme::new(5);
 
     // Create an invalid commitment
     let commitment_arc: Arc<dyn Any + Send + Sync> = Arc::new("not a commitment");
@@ -82,7 +82,7 @@ fn test_scalar_multiply_invalid_input() {
 
 #[test]
 fn test_scalar_multiply_negative_scalar() {
-    let scheme = EllipticalCurveCommitmentScheme::new(5);
+    let scheme = EllipticCurveCommitmentScheme::new(5);
 
     // Create a valid commitment
     let value = b"test value";

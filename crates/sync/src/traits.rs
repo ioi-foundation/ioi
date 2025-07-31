@@ -2,7 +2,10 @@
 
 use async_trait::async_trait;
 use depin_sdk_core::{
-    app::Block, commitment::CommitmentScheme, state::StateManager, transaction::TransactionModel,
+    app::{Block, ProtocolTransaction},
+    commitment::CommitmentScheme,
+    state::StateManager,
+    transaction::TransactionModel,
 };
 use libp2p::PeerId;
 use std::collections::HashSet;
@@ -34,7 +37,6 @@ pub trait BlockSync<CS, TM, ST>: Send + Sync
 where
     CS: CommitmentScheme + Send + Sync + 'static,
     TM: TransactionModel<CommitmentScheme = CS> + Clone + Send + Sync + 'static,
-    TM::Transaction: Clone + Send + Sync,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
 {
     /// Starts the background tasks for gossiping, handling sync requests, etc.
@@ -44,7 +46,7 @@ where
     async fn stop(&self) -> Result<(), SyncError>;
 
     /// Publishes a block produced by the local node to the network.
-    async fn publish_block(&self, block: &Block<TM::Transaction>) -> Result<(), SyncError>;
+    async fn publish_block(&self, block: &Block<ProtocolTransaction>) -> Result<(), SyncError>;
 
     /// Retrieves the current synchronization state of the node.
     fn get_node_state(&self) -> Arc<Mutex<NodeState>>;

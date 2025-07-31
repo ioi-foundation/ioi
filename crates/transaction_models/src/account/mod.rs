@@ -1,7 +1,8 @@
 // Path: crates/transaction_models/src/account/mod.rs
+// Change: Removed unused import `StateError`.
 
 use depin_sdk_core::commitment::CommitmentScheme;
-use depin_sdk_core::error::{StateError, TransactionError};
+use depin_sdk_core::error::TransactionError;
 use depin_sdk_core::state::StateManager;
 use depin_sdk_core::transaction::TransactionModel;
 use serde::{Deserialize, Serialize};

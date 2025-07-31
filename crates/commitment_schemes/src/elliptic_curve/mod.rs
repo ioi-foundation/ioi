@@ -1,6 +1,5 @@
-//! Elliptical curve commitment implementation
-// File: crates/commitment_schemes/src/elliptical_curve/mod.rs
-//! Elliptical curve commitment implementation
+// File: crates/commitment_schemes/src/elliptic_curve/mod.rs
+//! Elliptic curve commitment implementation
 
 use depin_sdk_crypto::algorithms::hash;
 use dcrypt::algorithms::ec::k256::{self as k256, Point, Scalar};
@@ -11,26 +10,26 @@ use depin_sdk_core::commitment::{
     SchemeIdentifier, Selector,
 };
 
-/// Elliptical curve commitment scheme
+/// Elliptic curve commitment scheme
 #[derive(Debug, Clone)]
-pub struct EllipticalCurveCommitmentScheme {
+pub struct EllipticCurveCommitmentScheme {
     /// Generator points
     generators: Vec<Point>,
 }
 
-/// Elliptical curve commitment
+/// Elliptic curve commitment
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EllipticalCurveCommitment([u8; k256::K256_POINT_COMPRESSED_SIZE]);
+pub struct EllipticCurveCommitment([u8; k256::K256_POINT_COMPRESSED_SIZE]);
 
-impl AsRef<[u8]> for EllipticalCurveCommitment {
+impl AsRef<[u8]> for EllipticCurveCommitment {
     fn as_ref(&self) -> &[u8] {
         &self.0
     }
 }
 
-/// Elliptical curve proof
+/// Elliptic curve proof
 #[derive(Debug, Clone)]
-pub struct EllipticalCurveProof {
+pub struct EllipticCurveProof {
     /// Blinding factor
     blinding: Scalar,
     /// Position in the commitment
@@ -39,8 +38,8 @@ pub struct EllipticalCurveProof {
     value: Vec<u8>,
 }
 
-impl EllipticalCurveCommitmentScheme {
-    /// Create a new elliptical curve commitment scheme with the specified number of generators
+impl EllipticCurveCommitmentScheme {
+    /// Create a new elliptic curve commitment scheme with the specified number of generators
     pub fn new(num_generators: usize) -> Self {
         // Generate deterministic generators for reproducible tests
         let mut generators = Vec::with_capacity(num_generators);
@@ -87,9 +86,9 @@ impl EllipticalCurveCommitmentScheme {
     }
 }
 
-impl CommitmentScheme for EllipticalCurveCommitmentScheme {
-    type Commitment = EllipticalCurveCommitment;
-    type Proof = EllipticalCurveProof;
+impl CommitmentScheme for EllipticCurveCommitmentScheme {
+    type Commitment = EllipticCurveCommitment;
+    type Proof = EllipticCurveProof;
     type Value = Vec<u8>;
 
     fn commit(&self, values: &[Option<Self::Value>]) -> Self::Commitment {
@@ -120,7 +119,7 @@ impl CommitmentScheme for EllipticalCurveCommitmentScheme {
         }
 
         // Return the compressed point representation
-        EllipticalCurveCommitment(commitment_point.serialize_compressed())
+        EllipticCurveCommitment(commitment_point.serialize_compressed())
     }
 
     fn create_proof(
@@ -143,7 +142,7 @@ impl CommitmentScheme for EllipticalCurveCommitmentScheme {
         let blinding = Self::random_blinding();
 
         // Return a proof with position, value, and blinding
-        Ok(EllipticalCurveProof {
+        Ok(EllipticCurveProof {
             blinding,
             position,
             value: value.clone(),
@@ -218,7 +217,7 @@ impl CommitmentScheme for EllipticalCurveCommitmentScheme {
         let computed_point = value_term.add(&blinding_term);
 
         // Check if the computed commitment matches the provided one
-        let computed_commitment = EllipticalCurveCommitment(computed_point.serialize_compressed());
+        let computed_commitment = EllipticCurveCommitment(computed_point.serialize_compressed());
 
         // This is a simplified check - a real implementation would be more complex
         // for multiple values
@@ -226,11 +225,11 @@ impl CommitmentScheme for EllipticalCurveCommitmentScheme {
     }
 
     fn scheme_id() -> SchemeIdentifier {
-        SchemeIdentifier::new("elliptical_curve")
+        SchemeIdentifier::new("elliptic_curve")
     }
 }
 
-impl HomomorphicCommitmentScheme for EllipticalCurveCommitmentScheme {
+impl HomomorphicCommitmentScheme for EllipticCurveCommitmentScheme {
     fn add(&self, a: &Self::Commitment, b: &Self::Commitment) -> Result<Self::Commitment, String> {
         // Decompress points
         let point_a = Point::deserialize_compressed(a.as_ref()).map_err(|e| e.to_string())?;
@@ -239,7 +238,7 @@ impl HomomorphicCommitmentScheme for EllipticalCurveCommitmentScheme {
         // Homomorphic addition is point addition
         let result_point = point_a.add(&point_b);
 
-        Ok(EllipticalCurveCommitment(result_point.serialize_compressed()))
+        Ok(EllipticCurveCommitment(result_point.serialize_compressed()))
     }
 
     fn scalar_multiply(
@@ -262,7 +261,7 @@ impl HomomorphicCommitmentScheme for EllipticalCurveCommitmentScheme {
         // Scalar multiplication
         let result_point = point.mul(&s).map_err(|e| e.to_string())?;
 
-        Ok(EllipticalCurveCommitment(result_point.serialize_compressed()))
+        Ok(EllipticCurveCommitment(result_point.serialize_compressed()))
     }
 
     fn supports_operation(&self, operation: HomomorphicOperation) -> bool {
@@ -273,9 +272,9 @@ impl HomomorphicCommitmentScheme for EllipticalCurveCommitmentScheme {
     }
 }
 
-// Add utility methods for EllipticalCurveCommitment
-impl EllipticalCurveCommitment {
-    /// Create a new EllipticalCurveCommitment from a compressed point
+// Add utility methods for EllipticCurveCommitment
+impl EllipticCurveCommitment {
+    /// Create a new EllipticCurveCommitment from a compressed point
     pub fn new(point: [u8; k256::K256_POINT_COMPRESSED_SIZE]) -> Self {
         Self(point)
     }
@@ -297,8 +296,8 @@ impl EllipticalCurveCommitment {
     }
 }
 
-// Utility methods for EllipticalCurveProof
-impl EllipticalCurveProof {
+// Utility methods for EllipticCurveProof
+impl EllipticCurveProof {
     /// Create a new proof
     pub fn new(blinding: Scalar, position: usize, value: Vec<u8>) -> Self {
         Self {

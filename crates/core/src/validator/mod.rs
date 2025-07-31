@@ -18,8 +18,8 @@ pub mod container;
 // FIX: Publicly re-export the traits using a relative path.
 pub use container::{Container, GuardianContainer};
 
-/// Defines the logic for a workload execution container.
-pub trait WorkloadLogic<ST: StateTree + ?Sized> {
+/// Defines the capability of executing transactions against a state tree.
+pub trait TransactionExecutor<ST: StateTree + ?Sized> {
     /// Executes a single transaction, validating it and applying it to the state tree.
     fn execute_transaction<CS, TM>(
         &self,
@@ -85,7 +85,7 @@ where
 }
 
 // THE FIX: Move the implementation from the validator crate to the core crate.
-impl<ST> WorkloadLogic<ST> for WorkloadContainer<ST>
+impl<ST> TransactionExecutor<ST> for WorkloadContainer<ST>
 where
     ST: StateManager + Send + Sync,
 {

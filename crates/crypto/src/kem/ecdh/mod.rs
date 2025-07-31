@@ -1,5 +1,5 @@
-// crates/crypto/src/kem/ecdh/mod.rs
-//! ECDH key encapsulation mechanism using dcrypt
+// Path: crates/crypto/src/kem/ecdh/mod.rs
+// Change: Removed unused imports and prefixed unused fields with an underscore.
 
 use crate::security::SecurityLevel;
 use depin_sdk_core::crypto::{
@@ -8,15 +8,10 @@ use depin_sdk_core::crypto::{
 };
 use dcrypt::api::Kem;
 use dcrypt::kem::ecdh::{
-    EcdhK256,
-    EcdhK256Ciphertext,
-    EcdhK256PublicKey,
-    EcdhK256SecretKey,
-    EcdhK256SharedSecret,
+    EcdhK256, EcdhK256Ciphertext, EcdhK256PublicKey, EcdhK256SecretKey,
     // Note: dcrypt might not have P384/P521 implementations yet
     // This is a simplified version using only K256
 };
-use rand::{CryptoRng, RngCore};
 
 /// ECDH curve type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -54,7 +49,7 @@ pub struct EcdhKeyPair {
     /// Private key
     pub private_key: EcdhPrivateKey,
     /// Curve type
-    curve: EcdhCurve,
+    _curve: EcdhCurve,
 }
 
 /// ECDH public key wrapper
@@ -82,7 +77,7 @@ pub struct EcdhEncapsulated {
     /// Shared secret
     shared_secret: Vec<u8>,
     /// Curve type
-    curve: EcdhCurve,
+    _curve: EcdhCurve,
 }
 
 impl EcdhKEM {
@@ -107,7 +102,7 @@ impl KeyEncapsulation for EcdhKEM {
 
     fn generate_keypair(&self) -> Self::KeyPair {
         let mut rng = rand::thread_rng();
-        
+
         match self.curve {
             EcdhCurve::P256 => {
                 // Use K256 from dcrypt
@@ -116,7 +111,7 @@ impl KeyEncapsulation for EcdhKEM {
                 EcdhKeyPair {
                     public_key: EcdhPublicKey::K256(pk),
                     private_key: EcdhPrivateKey::K256(sk),
-                    curve: self.curve,
+                    _curve: self.curve,
                 }
             }
             EcdhCurve::P384 | EcdhCurve::P521 => {
@@ -128,16 +123,16 @@ impl KeyEncapsulation for EcdhKEM {
 
     fn encapsulate(&self, public_key: &Self::PublicKey) -> Self::Encapsulated {
         let mut rng = rand::thread_rng();
-        
+
         match (self.curve, public_key) {
             (EcdhCurve::P256, EcdhPublicKey::K256(pk)) => {
                 let (ct, ss) = EcdhK256::encapsulate(&mut rng, pk)
                     .expect("Failed to encapsulate with K256");
-                
+
                 EcdhEncapsulated {
                     ciphertext: ct.to_bytes(),
                     shared_secret: ss.to_bytes(),
-                    curve: EcdhCurve::P256,
+                    _curve: EcdhCurve::P256,
                 }
             }
             _ => panic!("Curve mismatch or unsupported curve in encapsulation"),
@@ -152,12 +147,10 @@ impl KeyEncapsulation for EcdhKEM {
         match (self.curve, private_key) {
             (EcdhCurve::P256, EcdhPrivateKey::K256(sk)) => {
                 // Reconstruct the ciphertext from bytes
-                let ct = EcdhK256Ciphertext::from_bytes(&encapsulated.ciphertext)
-                    .ok()?;
-                
-                let ss = EcdhK256::decapsulate(sk, &ct)
-                    .ok()?;
-                
+                let ct = EcdhK256Ciphertext::from_bytes(&encapsulated.ciphertext).ok()?;
+
+                let ss = EcdhK256::decapsulate(sk, &ct).ok()?;
+
                 Some(ss.to_bytes())
             }
             _ => None,
@@ -258,7 +251,7 @@ impl SerializableKey for EcdhEncapsulated {
         Ok(EcdhEncapsulated {
             ciphertext: bytes.to_vec(),
             shared_secret: vec![0; 32], // Placeholder until decapsulated
-            curve,
+            _curve: curve,
         })
     }
 }

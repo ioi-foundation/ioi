@@ -1,3 +1,6 @@
+// Path: crates/commitment_schemes/src/kzg/mod.rs
+// Change: Prefixed unused variables and fields with an underscore.
+
 //! KZG Polynomial Commitment Scheme Implementation
 //!
 //! # Implementation Status
@@ -31,7 +34,7 @@
 //! a structured reference string (SRS) containing powers of a secret value.
 //!
 //! The KZG scheme consists of four main operations:
-//! - Setup: Generate SRS parameters (G₁ᵢ = [τⁱ]G₁ and G₂ᵢ = [τⁱ]G₂) where τ is a secret
+//! - Setup: Generate SRS parameters (G₁ᵢ = [τⁱ]G₁ and G₂ᵢ = [τⁱ]G₂₀) where τ is a secret
 //! - Commit: For a polynomial p(X) = Σᵢ cᵢXⁱ, compute C = Σᵢ cᵢG₁ᵢ
 //! - Prove: For a point z, compute proof π that p(z) = y using the quotient polynomial q(X) = (p(X) - y)/(X - z)
 //! - Verify: Check if e(C - [y]G₁₀, G₂₁) = e(π, G₂₂ - [z]G₂₁)
@@ -52,7 +55,7 @@ pub struct KZGParams {
 #[derive(Debug)]
 pub struct KZGCommitmentScheme {
     /// Cryptographic parameters from trusted setup
-    params: KZGParams,
+    _params: KZGParams,
 }
 
 /// KZG commitment to a polynomial
@@ -74,19 +77,19 @@ pub struct KZGProof {
 #[derive(Debug, Clone)]
 pub struct Polynomial {
     /// Coefficients of the polynomial
-    coefficients: Vec<Vec<u8>>, // Simplified - would be field elements
+    _coefficients: Vec<Vec<u8>>, // Simplified - would be field elements
 }
 
 impl KZGCommitmentScheme {
     /// Create a new KZG commitment scheme with the given parameters
     pub fn new(params: KZGParams) -> Self {
-        Self { params }
+        Self { _params: params }
     }
 
     /// Create a default scheme with dummy parameters (for testing only)
     pub fn default() -> Self {
         Self {
-            params: KZGParams {
+            _params: KZGParams {
                 g1_points: vec![vec![0; 32]; 10], // Dummy parameters
                 g2_points: vec![vec![0; 64]; 10], // Dummy parameters
             },
@@ -94,7 +97,7 @@ impl KZGCommitmentScheme {
     }
 
     /// Commit to a polynomial directly
-    pub fn commit_polynomial(&self, polynomial: &Polynomial) -> KZGCommitment {
+    pub fn commit_polynomial(&self, _polynomial: &Polynomial) -> KZGCommitment {
         // In a real implementation, this would compute:
         // C = ∑ᵢ cᵢ·G₁ᵢ where cᵢ are polynomial coefficients
 
@@ -105,9 +108,9 @@ impl KZGCommitmentScheme {
     /// Create a proof for a polynomial evaluation at a point
     pub fn create_evaluation_proof(
         &self,
-        polynomial: &Polynomial,
+        _polynomial: &Polynomial,
         point: &[u8],
-        commitment: &KZGCommitment,
+        _commitment: &KZGCommitment,
     ) -> Result<KZGProof, String> {
         // In a real implementation, this would:
         // 1. Evaluate the polynomial at the point: y = p(z)
@@ -125,7 +128,7 @@ impl KZGCommitmentScheme {
     }
 
     /// Verify a polynomial evaluation proof
-    pub fn verify_evaluation(&self, commitment: &KZGCommitment, proof: &KZGProof) -> bool {
+    pub fn verify_evaluation(&self, _commitment: &KZGCommitment, _proof: &KZGProof) -> bool {
         // In a real implementation, this would verify:
         // e(C - [y]G₁₀, G₂₁) = e(π, G₂₂ - [z]G₂₁)
 
@@ -150,7 +153,9 @@ impl CommitmentScheme for KZGCommitmentScheme {
         // Convert values to a polynomial
         let coefficients = values.iter().filter_map(|opt| opt.clone()).collect();
 
-        let polynomial = Polynomial { coefficients };
+        let polynomial = Polynomial {
+            _coefficients: coefficients,
+        };
 
         // Use the specialized method for polynomial commitment
         self.commit_polynomial(&polynomial)
@@ -177,7 +182,7 @@ impl CommitmentScheme for KZGCommitmentScheme {
         // We don't have the polynomial here, so we create a dummy proof
         // In practice, create_proof would need access to the original polynomial
         let dummy_polynomial = Polynomial {
-            coefficients: vec![value.clone()], // Not actually correct
+            _coefficients: vec![value.clone()], // Not actually correct
         };
 
         let dummy_commitment = KZGCommitment(vec![0; 32]);

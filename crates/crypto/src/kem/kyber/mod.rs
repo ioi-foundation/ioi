@@ -1,5 +1,5 @@
-// crates/crypto/src/kem/kyber/mod.rs
-//! Kyber key encapsulation mechanism using dcrypt
+// Path: crates/crypto/src/kem/kyber/mod.rs
+// Change: Removed unused imports and prefixed unused fields with an underscore.
 
 use crate::security::SecurityLevel;
 use depin_sdk_core::crypto::{
@@ -8,12 +8,9 @@ use depin_sdk_core::crypto::{
 };
 use dcrypt::api::Kem;
 use dcrypt::kem::kyber::{
-    Kyber512, Kyber768, Kyber1024,
-    KyberCiphertext, KyberPublicKey as DcryptPublicKey, 
+    Kyber1024, Kyber512, Kyber768, KyberCiphertext, KyberPublicKey as DcryptPublicKey,
     KyberSecretKey as DcryptSecretKey,
-    KyberSharedSecret,
 };
-use rand::{CryptoRng, RngCore};
 
 /// Kyber key encapsulation mechanism
 pub struct KyberKEM {
@@ -28,7 +25,7 @@ pub struct KyberKeyPair {
     /// Private key
     pub private_key: KyberPrivateKey,
     /// Security level
-    level: SecurityLevel,
+    _level: SecurityLevel,
 }
 
 /// Kyber public key wrapper
@@ -56,7 +53,7 @@ pub struct KyberEncapsulated {
     /// The shared secret
     shared_secret: Vec<u8>,
     /// Security level
-    level: SecurityLevel,
+    _level: SecurityLevel,
 }
 
 impl KyberKEM {
@@ -74,7 +71,7 @@ impl KeyEncapsulation for KyberKEM {
 
     fn generate_keypair(&self) -> Self::KeyPair {
         let mut rng = rand::thread_rng();
-        
+
         // Use dcrypt's KEM trait to generate keypair based on security level
         let (pk, sk) = match self.level {
             SecurityLevel::Level1 => {
@@ -139,13 +136,13 @@ impl KeyEncapsulation for KyberKEM {
         KyberKeyPair {
             public_key: pk,
             private_key: sk,
-            level: self.level,
+            _level: self.level,
         }
     }
 
     fn encapsulate(&self, public_key: &Self::PublicKey) -> Self::Encapsulated {
         let mut rng = rand::thread_rng();
-        
+
         // Use dcrypt's KEM trait to encapsulate based on security level
         let (ct, ss) = match public_key.level {
             SecurityLevel::Level1 => {
@@ -169,7 +166,7 @@ impl KeyEncapsulation for KyberKEM {
         KyberEncapsulated {
             ciphertext: ct.to_bytes(),
             shared_secret: ss.to_bytes_zeroizing().to_vec(),
-            level: public_key.level,
+            _level: public_key.level,
         }
     }
 
@@ -180,25 +177,19 @@ impl KeyEncapsulation for KyberKEM {
     ) -> Option<Vec<u8>> {
         // Reconstruct the ciphertext from bytes
         let ct = KyberCiphertext::from_bytes(&encapsulated.ciphertext).ok()?;
-        
+
         // Use dcrypt's KEM trait to decapsulate based on security level
         let ss = match private_key.level {
             SecurityLevel::Level1 => {
-                Kyber512::decapsulate(&private_key.inner, &ct)
-                    .ok()?
+                Kyber512::decapsulate(&private_key.inner, &ct).ok()?
             }
             SecurityLevel::Level3 => {
-                Kyber768::decapsulate(&private_key.inner, &ct)
-                    .ok()?
+                Kyber768::decapsulate(&private_key.inner, &ct).ok()?
             }
             SecurityLevel::Level5 => {
-                Kyber1024::decapsulate(&private_key.inner, &ct)
-                    .ok()?
+                Kyber1024::decapsulate(&private_key.inner, &ct).ok()?
             }
-            _ => {
-                Kyber512::decapsulate(&private_key.inner, &ct)
-                    .ok()?
-            }
+            _ => Kyber512::decapsulate(&private_key.inner, &ct).ok()?,
         };
 
         Some(ss.to_bytes_zeroizing().to_vec())
@@ -229,7 +220,7 @@ impl SerializableKey for KyberPublicKey {
         // Use dcrypt's built-in from_bytes method
         let inner = DcryptPublicKey::from_bytes(bytes)
             .map_err(|e| format!("Failed to deserialize Kyber public key: {:?}", e))?;
-        
+
         // Try to determine the security level from the public key size
         let level = match bytes.len() {
             800 => SecurityLevel::Level1,  // Kyber512
@@ -257,7 +248,7 @@ impl SerializableKey for KyberPrivateKey {
         // Use dcrypt's built-in from_bytes method
         let inner = DcryptSecretKey::from_bytes(bytes)
             .map_err(|e| format!("Failed to deserialize Kyber private key: {:?}", e))?;
-        
+
         // Try to determine the security level from the private key size
         let level = match bytes.len() {
             1632 => SecurityLevel::Level1, // Kyber512
@@ -295,7 +286,7 @@ impl SerializableKey for KyberEncapsulated {
         Ok(KyberEncapsulated {
             ciphertext: bytes.to_vec(),
             shared_secret: vec![0; 32], // Placeholder until decapsulated
-            level,
+            _level: level,
         })
     }
 }
