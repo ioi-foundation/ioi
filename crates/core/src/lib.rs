@@ -34,4 +34,4 @@ pub use ibc::*;
 pub use services::*;
 pub use state::*;
 pub use transaction::*;
-pub use validator::*;
+pub use validator::{Container, GuardianContainer, WorkloadContainer, WorkloadLogic};

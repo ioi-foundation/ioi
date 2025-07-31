@@ -68,10 +68,10 @@ echo 'signature_policy = "FollowChain"' > config/guardian.toml
 
 #### 3. Build the Node Binary
 
-First, compile the project in release mode. This creates the `mvsc` binary we'll use for testing.
+First, compile the project in release mode. This creates the `node` binary we'll use for testing. The build command is now simpler as the binary is in its own dedicated crate.
 
 ```bash
-cargo build --release --features="depin-sdk-chain/mvsc-bin"
+cargo build --release -p depin-sdk-binaries
 ```
 
 #### 4. Local Testnet Workflow
@@ -91,7 +91,7 @@ rm -f state_node*.json state_node*.json.identity.key
 This node will start as the genesis node.
 
 ```bash
-target/release/mvsc --state-file state_node1.json
+target/release/node --state-file state_node1.json
 ```
 
 It will create `state_node1.json` for its chain state and `state_node1.json.identity.key` for its permanent network identity. Note the listening address it prints, which will look like `/ip4/127.0.0.1/tcp/34677`.
@@ -102,7 +102,7 @@ Use the listening address from Node 1 to connect.
 
 ```bash
 # Replace the --peer address with the one you copied from Node 1
-target/release/mvsc --state-file state_node2.json --peer /ip4/127.0.0.1/tcp/34677
+target/release/node --state-file state_node2.json --peer /ip4/127.0.0.1/tcp/34677
 ```
 
 Node 2 will create its own unique state and identity files. You will see it connect to Node 1 and sync the blocks that Node 1 already produced. The two nodes will now alternate leadership and produce blocks.
@@ -110,17 +110,17 @@ Node 2 will create its own unique state and identity files. You will see it conn
 **Step 4: Test State Persistence**
 
 1.  Stop **Node 2** (`Ctrl+C`).
-2.  Observe Terminal 1. Node 1 will continue producing blocks for a short time, then it will correctly identify that Node 2 (the leader for an upcoming block) is offline. It will time out, propose a "view change", and take over leadership to ensure the chain doesn't halt.
+2.  Observe Terminal 1. Node 1 will continue producing blocks. If it was Node 2's turn to be leader, Node 1 will correctly time out, propose a "view change", and take over leadership to ensure the chain doesn't halt.
 3.  Stop **Node 1** (`Ctrl+C`).
 4.  Restart **Node 1**:
     ```bash
-    target/release/mvsc --state-file state_node1.json
+    target/release/node --state-file state_node1.json
     ```
     Observe that it loads its state and identity, resuming from the correct block height. It will now be stalled, as it needs a quorum of 2 validators to produce blocks.
 
 5.  Restart **Node 2** (using the new listening address from Node 1):
     ```bash
-    target/release/mvsc --state-file state_node2.json --peer <new_address_from_node1>
+    target/release/node --state-file state_node2.json --peer <new_address_from_node1>
     ```
     Observe that Node 2 reconnects, syncs any blocks it missed, and the network resumes block production.
 
@@ -133,8 +133,11 @@ This workflow validates that node identities are persistent, state is correctly 
 The SDK is organized into a workspace of several key crates:
 
 *   `crates/core`: Defines the core traits and interfaces for all components (e.g., `CommitmentScheme`, `ValidatorModel`, `TransactionModel`).
+*   `crates/binaries`: Contains the main executable targets, such as the `node` binary. This crate is the composition root for the application.
 *   `crates/validator`: Implements the Triple-Container Architecture for both `StandardValidator` and `HybridValidator` models.
-*   `crates/chain`: Contains the `SovereignAppChain` implementation and the `mvsc` binary that hosts the validator.
+*   `crates/chain`: Contains the `SovereignAppChain` implementation, which defines the state machine logic.
+*   `crates/sync`: Implements the `BlockSync` trait for P2P networking and block synchronization.
+*   `crates/consensus`: Implements the `ConsensusEngine` trait for leader election and fault tolerance.
 *   `crates/commitment_schemes`: Implementations of various cryptographic commitment schemes (Merkle, KZG, etc.).
 *   `crates/state_trees`: Implementations of different state storage models (Verkle, IAVL+, file-based).
 *   `crates/transaction_models`: Implementations for UTXO, Account, and Hybrid transaction models.
@@ -147,8 +150,8 @@ Our high-level roadmap is focused on incrementally building out the features def
 
 *   ✅ **Phase 3: Integrate Real Architecture & P2P Networking** - *Complete*
 *   ➡️ **Phase 4: Activate Core Validator Logic** - *In Progress*
+    *   Refine consensus and sync state machines and error handling.
     *   Implement real transaction execution and mempool logic.
-    *   Refine consensus state machine and error handling.
 *   ▶️ **Phase 5: Mainnet Hardening & Advanced Features**
     *   Implement the Post-Quantum Cryptography migration path and Identity Hub.
     *   Flesh out the Hybrid Validator model and tiered economics.

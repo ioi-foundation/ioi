@@ -1,0 +1,27 @@
+[package]
+name = "depin-sdk-binaries"
+version = "0.1.0"
+edition = "2021"
+description = "Binary targets for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+# Workspace Library Crates
+depin-sdk-chain = { path = "../chain" }
+depin-sdk-commitment-schemes = { path = "../commitment_schemes" }
+depin-sdk-consensus = { path = "../consensus", features = ["round-robin"] }
+depin-sdk-core = { path = "../core" }
+depin-sdk-state-trees = { path = "../state_trees" }
+depin-sdk-sync = { path = "../sync" }
+depin-sdk-transaction-models = { path = "../transaction_models" }
+depin-sdk-validator = { path = "../validator" }
+
+# Workspace Dependencies (for binary)
+anyhow = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+env_logger = { workspace = true }
+futures = { workspace = true }
+hex = { workspace = true }
+libp2p = { workspace = true }
+log = { workspace = true }
+tokio = { workspace = true, features = ["full"] }

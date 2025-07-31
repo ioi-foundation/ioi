@@ -7,6 +7,8 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 depin-sdk-core = { path = "../core" }
+depin-sdk-consensus = { path = "../consensus", features = ["round-robin"] }
+depin-sdk-sync = { path = "../sync" }
 log = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
@@ -22,6 +24,7 @@ clap = { workspace = true, features = ["derive"], optional = true }
 env_logger = { workspace = true, optional = true }
 depin-sdk-state-trees = { path = "../state_trees", optional = true }
 depin-sdk-commitment-schemes = { path = "../commitment_schemes", optional = true }
+depin-sdk-transaction-models = { path = "../transaction_models", optional = true }
 rand = { workspace = true }
 
 [features]
@@ -31,6 +34,7 @@ validator-bins = [
     "dep:env_logger",
     "dep:depin-sdk-state-trees",
     "dep:depin-sdk-commitment-schemes",
+    "dep:depin-sdk-transaction-models",
 ]
 
 [[bin]]

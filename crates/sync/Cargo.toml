@@ -1,0 +1,22 @@
+[package]
+name = "depin-sdk-sync"
+version = "0.1.0"
+edition = "2021"
+description = "Block synchronization components for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+depin-sdk-core = { path = "../core" }
+log = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+serde_bytes = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+libp2p = { workspace = true }
+futures = { workspace = true }
+async-trait = { workspace = true }
+
+[features]
+default = []
