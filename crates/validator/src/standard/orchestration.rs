@@ -37,7 +37,8 @@ where
     chain: Arc<OnceCell<Arc<Mutex<dyn SovereignChain<CS, TM, ST> + Send + Sync>>>>,
     workload: Arc<OnceCell<Arc<WorkloadContainer<ST>>>>,
     syncer: Arc<dyn BlockSync<CS, TM, ST>>,
-    consensus_engine: Arc<Mutex<dyn ConsensusEngine<TM::Transaction> + Send + Sync>>,
+    // FIX: The struct field must now hold the Box inside the Mutex.
+    consensus_engine: Arc<Mutex<Box<dyn ConsensusEngine<TM::Transaction> + Send + Sync>>>,
     shutdown_sender: Arc<watch::Sender<bool>>,
     task_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     is_running: Arc<AtomicBool>,
@@ -56,7 +57,8 @@ where
     pub fn new(
         config_path: &std::path::Path,
         syncer: Arc<dyn BlockSync<CS, TM, ST>>,
-        consensus_engine: impl ConsensusEngine<TM::Transaction> + Send + Sync + 'static,
+        // FIX: The signature now accepts a Box<dyn Trait> instead of `impl Trait`.
+        consensus_engine: Box<dyn ConsensusEngine<TM::Transaction> + Send + Sync>,
     ) -> anyhow::Result<Self> {
         let _config: OrchestrationConfig = toml::from_str(&std::fs::read_to_string(config_path)?)?;
         let (shutdown_sender, _) = watch::channel(false);
@@ -66,6 +68,7 @@ where
             chain: Arc::new(OnceCell::new()),
             workload: Arc::new(OnceCell::new()),
             syncer,
+            // This now correctly wraps the Box in a Mutex and Arc.
             consensus_engine: Arc::new(Mutex::new(consensus_engine)),
             shutdown_sender: Arc::new(shutdown_sender),
             task_handles: Arc::new(Mutex::new(Vec::new())),
@@ -86,7 +89,9 @@ where
         chain_ref: Arc<Mutex<dyn SovereignChain<CS, TM, ST> + Send + Sync>>,
         workload_ref: Arc<WorkloadContainer<ST>>,
         mut shutdown_receiver: watch::Receiver<bool>,
-        consensus_engine_ref: Arc<Mutex<dyn ConsensusEngine<TM::Transaction> + Send + Sync>>,
+        // The type of this reference changes, but the usage below remains the same
+        // due to Rust's deref coercion.
+        consensus_engine_ref: Arc<Mutex<Box<dyn ConsensusEngine<TM::Transaction> + Send + Sync>>>,
         syncer: Arc<dyn BlockSync<CS, TM, ST>>,
         node_state: Arc<Mutex<NodeState>>,
         local_peer_id: PeerId,
@@ -112,18 +117,35 @@ where
                     let target_height = chain_height + 1;
                     let current_view = 0; // Simplified for now
 
-                    let validator_set = match chain_ref.lock().await.get_validator_set(&workload_ref).await {
+                    // Fetch the correct node set based on the compile-time feature.
+                    let node_set_for_consensus = {
+                        let chain = chain_ref.lock().await;
+                        
+                        #[cfg(feature = "consensus-round-robin")]
+                        { chain.get_validator_set(&workload_ref).await }
+                        
+                        #[cfg(feature = "consensus-poa")]
+                        { chain.get_authority_set(&workload_ref).await }
+
+                        // This will error at compile time if no consensus feature is enabled.
+                        #[cfg(not(any(feature = "consensus-round-robin", feature = "consensus-poa")))]
+                        { compile_error!("A consensus feature must be enabled in validator/Cargo.toml"); }
+                    };
+
+                    let node_set = match node_set_for_consensus {
                         Ok(vs) => vs,
                         Err(e) => {
-                            log::error!("Could not get validator set: {:?}", e);
+                            log::error!("Could not get node set for consensus: {:?}", e);
                             continue;
                         }
                     };
                     
                     let known_peers = known_peers_ref.lock().await;
                     let decision = {
+                        // This code works without changes because MutexGuard derefs to the Box,
+                        // and the Box derefs to the underlying trait object.
                         let mut engine = consensus_engine_ref.lock().await;
-                        engine.decide(&local_peer_id, target_height, current_view, &validator_set, &known_peers).await
+                        engine.decide(&local_peer_id, target_height, current_view, &node_set, &known_peers).await
                     };
                     drop(known_peers);
 
@@ -135,6 +157,16 @@ where
                         peers_bytes.push(local_peer_id.to_bytes());
                         drop(known_peers);
 
+                        // Retrieve the validator set again for block creation, as it might differ from the
+                        // authority set used in PoA consensus.
+                        let validator_set = match chain_ref.lock().await.get_validator_set(&workload_ref).await {
+                            Ok(vs) => vs,
+                            Err(e) => {
+                                log::error!("Could not get validator set for block creation: {:?}", e);
+                                continue;
+                            }
+                        };
+                        
                         let coinbase = match chain_ref.lock().await.transaction_model().clone().create_coinbase_transaction(target_height, &local_peer_id.to_bytes()) {
                             Ok(tx) => tx,
                             Err(e) => { log::error!("Failed to create coinbase: {:?}", e); continue; }

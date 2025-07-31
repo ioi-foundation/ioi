@@ -54,4 +54,7 @@ where
 
     /// Retrieves the active validator set from the committed state.
     async fn get_validator_set(&self, workload: &WorkloadContainer<ST>) -> Result<Vec<Vec<u8>>, ChainError>;
+
+    /// Retrieves the active authority set from the committed state for PoA.
+    async fn get_authority_set(&self, workload: &WorkloadContainer<ST>) -> Result<Vec<Vec<u8>>, ChainError>;
 }

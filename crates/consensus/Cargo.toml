@@ -18,6 +18,8 @@ tokio = { workspace = true, features = ["time"], optional = true }
 
 [features]
 default = []
+# A feature for each engine
 round-robin = ["dep:libp2p", "dep:async-trait", "dep:tokio"]
+poa = ["dep:libp2p", "dep:async-trait", "dep:tokio"]
 tendermint = []
 custom-consensus = []

@@ -29,7 +29,7 @@ For a deep dive into the architecture, please see the [**Architectural Documenta
 
 ### Current Status
 
-> **Note**: The project is currently in an active development phase. The `main` branch contains a functional prototype that demonstrates the core architectural principles, including P2P networking, state persistence, and a basic fault-tolerant consensus mechanism.
+> **Note**: The project is currently in an active development phase. The `main` branch contains a functional prototype that demonstrates the core architectural principles, including P2P networking, state persistence, and a modular, compile-time selectable consensus mechanism.
 >
 > **The software is not yet mainnet-ready.**
 
@@ -68,15 +68,31 @@ echo 'signature_policy = "FollowChain"' > config/guardian.toml
 
 #### 3. Build the Node Binary
 
-First, compile the project in release mode. This creates the `node` binary we'll use for testing. The build command is now simpler as the binary is in its own dedicated crate.
+First, compile the project in release mode. This creates the `node` binary we'll use for testing.
+
+**Crucially, you must now choose a consensus engine at compile time using a feature flag.** This ensures the final binary is lean and optimized for a specific purpose.
+
+**Option A: Build with Round Robin BFT Consensus**
+
+This engine is suitable for networks where all validators are known and trusted, and it includes logic for fault tolerance (view changes) if a leader goes offline.
 
 ```bash
-cargo build --release -p depin-sdk-binaries
+cargo build --release -p depin-sdk-binaries --features consensus-round-robin
 ```
+
+**Option B: Build with Proof of Authority (PoA) Consensus**
+
+This is a simpler engine that relies on a fixed, on-chain list of authorities. It does not include fault tolerance logic beyond simple leader rotation.
+
+```bash
+cargo build --release -p depin-sdk-binaries --features consensus-poa
+```
+
+The compiled binary will be located at `target/release/node`.
 
 #### 4. Local Testnet Workflow
 
-This workflow will guide you through running a two-node network, testing state persistence, and demonstrating the fault-tolerant leader election. You will need two terminals.
+This workflow will guide you through running a two-node network using the **Round Robin BFT** engine, as it demonstrates the fault-tolerance features. You will need two terminals.
 
 **Step 1: Full Reset (Optional)**
 
@@ -107,7 +123,7 @@ target/release/node --state-file state_node2.json --peer /ip4/127.0.0.1/tcp/3467
 
 Node 2 will create its own unique state and identity files. You will see it connect to Node 1 and sync the blocks that Node 1 already produced. The two nodes will now alternate leadership and produce blocks.
 
-**Step 4: Test State Persistence**
+**Step 4: Test State Persistence & Fault Tolerance**
 
 1.  Stop **Node 2** (`Ctrl+C`).
 2.  Observe Terminal 1. Node 1 will continue producing blocks. If it was Node 2's turn to be leader, Node 1 will correctly time out, propose a "view change", and take over leadership to ensure the chain doesn't halt.
@@ -171,6 +187,3 @@ All participants are expected to follow our [**Code of Conduct**](./CODE_OF_COND
 This project is licensed under either of
 
 *   Apache License, Version 2.0, ([LICENSE-APACHE](./LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-*   MIT license ([LICENSE-MIT](./LICENSE-MIT) or http://opensource.org/licenses/MIT)
-
-at your option.
