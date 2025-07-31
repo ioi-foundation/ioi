@@ -19,6 +19,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 const STATUS_KEY: &[u8] = b"chain::status";
 const VALIDATOR_SET_KEY: &[u8] = b"system::validators";
+const AUTHORITY_SET_KEY: &[u8] = b"system::authorities";
 
 #[derive(Debug)]
 pub struct ChainLogic<CS, TM: TransactionModel> {
@@ -252,6 +253,20 @@ where
             Ok(Some(bytes)) => serde_json::from_slice(&bytes)
                 .map_err(|e| ChainError::Transaction(format!("Failed to deserialize validator set: {}", e))),
             Ok(None) => Ok(Vec::new()), // Not found, return empty set
+            Err(e) => Err(ChainError::Transaction(e.to_string())),
+        }
+    }
+
+    async fn get_authority_set(
+        &self,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<Vec<Vec<u8>>, ChainError> {
+        let state_tree_arc = workload.state_tree();
+        let state = state_tree_arc.lock().await;
+        match state.get(AUTHORITY_SET_KEY) {
+            Ok(Some(bytes)) => serde_json::from_slice(&bytes)
+                .map_err(|e| ChainError::Transaction(format!("Failed to deserialize authority set: {}", e))),
+            Ok(None) => Ok(Vec::new()), // Return an empty set if not found.
             Err(e) => Err(ChainError::Transaction(e.to_string())),
         }
     }

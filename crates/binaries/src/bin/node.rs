@@ -9,13 +9,20 @@ use anyhow::anyhow;
 use clap::Parser;
 use depin_sdk_chain::ChainLogic;
 use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
+
+// --- Consensus Engine Imports ---
+#[cfg(feature = "consensus-poa")]
+use depin_sdk_consensus::proof_of_authority::ProofOfAuthorityEngine;
+#[cfg(feature = "consensus-round-robin")]
 use depin_sdk_consensus::round_robin::RoundRobinBftEngine;
+use depin_sdk_consensus::ConsensusEngine;
+
 use depin_sdk_core::config::WorkloadConfig;
 use depin_sdk_core::validator::WorkloadContainer;
 use depin_sdk_core::Container;
 use depin_sdk_state_trees::file::FileStateTree;
 use depin_sdk_sync::libp2p::Libp2pSync;
-use depin_sdk_transaction_models::utxo::UTXOModel;
+use depin_sdk_transaction_models::utxo::{UTXOModel, UTXOTransaction};
 use depin_sdk_validator::common::GuardianContainer;
 use depin_sdk_validator::standard::OrchestrationContainer;
 use libp2p::{identity, Multiaddr};
@@ -66,7 +73,21 @@ async fn main() -> anyhow::Result<()> {
         .map_err(|e| anyhow!("Failed to load or initialize chain status: {:?}", e))?;
     let chain_ref = Arc::new(Mutex::new(chain_logic));
 
-    let consensus_engine = RoundRobinBftEngine::new();
+    // --- Compile-Time Consensus Engine Selection ---
+    let consensus_engine: Box<dyn ConsensusEngine<UTXOTransaction> + Send + Sync> = {
+        #[cfg(feature = "consensus-poa")]
+        {
+            log::info!("Building with ProofOfAuthorityEngine.");
+            Box::new(ProofOfAuthorityEngine::new())
+        }
+        #[cfg(feature = "consensus-round-robin")]
+        {
+            log::info!("Building with RoundRobinBftEngine.");
+            Box::new(RoundRobinBftEngine::new())
+        }
+        #[cfg(not(any(feature = "consensus-poa", feature = "consensus-round-robin")))]
+        compile_error!("A consensus engine feature must be enabled via --features flag. Use --features consensus-poa or --features consensus-round-robin");
+    };
 
     // Setup libp2p identity
     let key_path = Path::new(&opts.state_file).with_extension("json.identity.key");
@@ -99,7 +120,7 @@ async fn main() -> anyhow::Result<()> {
         >::new(
             &config_path.join("orchestration.toml"),
             syncer,
-            consensus_engine,
+            consensus_engine, // Pass the selected engine's trait object
         )?,
     );
     let guardian_container = GuardianContainer::new(&config_path.join("guardian.toml"))?;

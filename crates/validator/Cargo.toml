@@ -7,7 +7,8 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 depin-sdk-core = { path = "../core" }
-depin-sdk-consensus = { path = "../consensus", features = ["round-robin"] }
+depin-sdk-consensus = { path = "../consensus", features = [
+] } # No features by default
 depin-sdk-sync = { path = "../sync" }
 log = { workspace = true }
 anyhow = { workspace = true }
@@ -36,6 +37,10 @@ validator-bins = [
     "dep:depin-sdk-commitment-schemes",
     "dep:depin-sdk-transaction-models",
 ]
+# NEW: Define features in the validator crate that enable features in the consensus crate.
+consensus-round-robin = ["depin-sdk-consensus/round-robin"]
+consensus-poa = ["depin-sdk-consensus/poa"]
+
 
 [[bin]]
 name = "validator"

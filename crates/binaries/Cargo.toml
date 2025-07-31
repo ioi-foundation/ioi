@@ -9,7 +9,8 @@ license = "MIT OR Apache-2.0"
 # Workspace Library Crates
 depin-sdk-chain = { path = "../chain" }
 depin-sdk-commitment-schemes = { path = "../commitment_schemes" }
-depin-sdk-consensus = { path = "../consensus", features = ["round-robin"] }
+depin-sdk-consensus = { path = "../consensus", features = [
+] } # No features by default
 depin-sdk-core = { path = "../core" }
 depin-sdk-state-trees = { path = "../state_trees" }
 depin-sdk-sync = { path = "../sync" }
@@ -25,3 +26,12 @@ hex = { workspace = true }
 libp2p = { workspace = true }
 log = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+
+[features]
+default = []
+# NEW: Define top-level features for the binary.
+consensus-round-robin = [
+    "depin-sdk-validator/consensus-round-robin",
+    "depin-sdk-consensus/round-robin",
+]
+consensus-poa = ["depin-sdk-validator/consensus-poa", "depin-sdk-consensus/poa"]
