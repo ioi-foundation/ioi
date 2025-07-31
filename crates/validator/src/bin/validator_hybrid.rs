@@ -2,7 +2,7 @@
 
 use anyhow::anyhow;
 use clap::Parser;
-use depin_sdk_chain::ChainLogic;
+use depin_sdk_chain::Chain;
 use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
 use depin_sdk_consensus::round_robin::RoundRobinBftEngine;
 use depin_sdk_core::config::WorkloadConfig;
@@ -54,9 +54,9 @@ async fn main() -> anyhow::Result<()> {
     };
     let workload = Arc::new(WorkloadContainer::new(workload_config, state_tree));
 
-    let mut chain_logic = ChainLogic::new(commitment_scheme.clone(), transaction_model, "hybrid-chain-1", vec![]);
-    chain_logic.load_or_initialize_status(&workload).await?;
-    let chain_ref = Arc::new(Mutex::new(chain_logic));
+    let mut chain = Chain::new(commitment_scheme.clone(), transaction_model, "hybrid-chain-1", vec![]);
+    chain.load_or_initialize_status(&workload).await?;
+    let chain_ref = Arc::new(Mutex::new(chain));
 
     let consensus_engine = RoundRobinBftEngine::new();
 

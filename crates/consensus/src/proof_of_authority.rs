@@ -15,7 +15,7 @@ impl ProofOfAuthorityEngine {
 }
 
 #[async_trait]
-impl<T: Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
+impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
     async fn decide(
         &mut self,
         local_peer_id: &PeerId,

@@ -82,7 +82,7 @@ impl Default for RoundRobinBftEngine {
 }
 
 #[async_trait]
-impl<T: Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
+impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
     async fn decide(&mut self, local_peer_id: &PeerId, height: u64, view: u64, validator_set: &[Vec<u8>], known_peers: &HashSet<PeerId>) -> ConsensusDecision<T> {
         if validator_set.is_empty() {
             // Genesis case: the first node is the leader.

@@ -1,11 +1,11 @@
 // Path: crates/transaction_models/src/utxo/mod.rs
+// Change: Removed unused import of serde::{Deserialize, Serialize}.
 
+pub use depin_sdk_core::app::{Input, Output, UTXOTransaction};
 use depin_sdk_core::commitment::CommitmentScheme;
-use depin_sdk_core::error::{StateError, TransactionError};
+use depin_sdk_core::error::TransactionError;
 use depin_sdk_core::state::StateManager;
 use depin_sdk_core::transaction::TransactionModel;
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 #[derive(Debug, Clone, Default)]
 pub struct UTXOConfig {
@@ -15,32 +15,6 @@ pub struct UTXOConfig {
 
 pub trait UTXOOperations {
     fn create_utxo_key(&self, tx_hash: &[u8], index: u32) -> Vec<u8>;
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct Input {
-    pub tx_hash: Vec<u8>,
-    pub output_index: u32,
-    pub signature: Vec<u8>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct Output {
-    pub value: u64,
-    pub public_key: Vec<u8>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct UTXOTransaction {
-    pub inputs: Vec<Input>,
-    pub outputs: Vec<Output>,
-}
-
-impl UTXOTransaction {
-    pub fn hash(&self) -> Vec<u8> {
-        let serialized = serde_json::to_vec(self).unwrap();
-        Sha256::digest(&serialized).to_vec()
-    }
 }
 
 #[derive(Debug, Clone)]

@@ -1,14 +1,14 @@
 use super::*;
-use depin_sdk_commitment_schemes::elliptical_curve::{
-    EllipticalCurveCommitment, EllipticalCurveCommitmentScheme,
+use depin_sdk_commitment_schemes::elliptic_curve::{
+    EllipticCurveCommitment, EllipticCurveCommitmentScheme,
 };
 use depin_sdk_core::commitment::CommitmentScheme;
 use std::any::Any;
 
 #[test]
 fn test_computation_engine() {
-    // Create a computation engine with EllipticalCurve commitment scheme
-    let scheme = EllipticalCurveCommitmentScheme::new(5);
+    // Create a computation engine with EllipticCurve commitment scheme
+    let scheme = EllipticCurveCommitmentScheme::new(5);
     let computation = HomomorphicComputation::new(scheme.clone());
 
     // Test add operation
@@ -26,7 +26,7 @@ fn test_computation_engine() {
     match result {
         OperationResult::Success(result_arc) => {
             let sum = result_arc
-                .downcast_ref::<EllipticalCurveCommitment>()
+                .downcast_ref::<EllipticCurveCommitment>()
                 .unwrap();
 
             // Compute expected result directly
@@ -62,7 +62,7 @@ fn test_computation_engine() {
     match result {
         OperationResult::Success(result_arc) => {
             let product = result_arc
-                .downcast_ref::<EllipticalCurveCommitment>()
+                .downcast_ref::<EllipticCurveCommitment>()
                 .unwrap();
 
             // Compute expected result directly
@@ -105,8 +105,8 @@ fn test_computation_engine() {
 
 #[test]
 fn test_batch_operations() {
-    // Create a computation engine with Elliptical Curve commitment scheme
-    let scheme = EllipticalCurveCommitmentScheme::new(5);
+    // Create a computation engine with Elliptic Curve commitment scheme
+    let scheme = EllipticCurveCommitmentScheme::new(5);
     let computation = HomomorphicComputation::new(scheme.clone());
 
     // Create test commitments

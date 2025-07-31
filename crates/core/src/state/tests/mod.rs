@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod basic_state_tests {
     use crate::error::StateError;
-    use crate::state::StateManager;
+    use crate::state::{StateManager, StateTree};
     use std::collections::HashMap;
 
     // Mock commitment and proof types for testing
@@ -24,7 +24,8 @@ mod basic_state_tests {
         }
     }
 
-    impl StateManager for MockStateManager {
+    // First, implement the base StateTree trait.
+    impl StateTree for MockStateManager {
         type Commitment = MockCommitment;
         type Proof = MockProof;
 
@@ -32,7 +33,7 @@ mod basic_state_tests {
             Ok(self.data.get(key).cloned())
         }
 
-        fn set(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
+        fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
             self.data.insert(key.to_vec(), value.to_vec());
             Ok(())
         }
@@ -41,9 +42,8 @@ mod basic_state_tests {
             self.data.remove(key);
             Ok(())
         }
-        
+
         fn root_commitment(&self) -> Self::Commitment {
-            // Simple mock implementation
             let mut combined = Vec::new();
             for (k, v) in &self.data {
                 combined.extend_from_slice(k);
@@ -51,12 +51,11 @@ mod basic_state_tests {
             }
             MockCommitment(combined)
         }
-        
+
         fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
-            // Simple mock implementation
             self.get(key).ok().flatten().map(MockProof)
         }
-        
+
         fn verify_proof(
             &self,
             _commitment: &Self::Commitment,
@@ -64,8 +63,29 @@ mod basic_state_tests {
             _key: &[u8],
             value: &[u8],
         ) -> bool {
-            // Simple mock implementation
             proof.0 == value
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+    }
+
+    // Now, implement the StateManager trait, which adds batch operations.
+    impl StateManager for MockStateManager {
+        fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
+            for (key, value) in updates {
+                self.insert(key, value)?;
+            }
+            Ok(())
+        }
+
+        fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
+            let mut results = Vec::new();
+            for key in keys {
+                results.push(self.get(key)?);
+            }
+            Ok(results)
         }
     }
 
@@ -77,7 +97,7 @@ mod basic_state_tests {
         let key = b"test_key";
         let value = b"test_value";
         
-        state.set(key, value).unwrap();
+        state.insert(key, value).unwrap();
         assert_eq!(state.get(key).unwrap(), Some(value.to_vec()));
         
         // Test delete
@@ -122,7 +142,7 @@ mod basic_state_tests {
         // Set up test data
         let key = b"test_key";
         let value = b"test_value";
-        state.set(key, value).unwrap();
+        state.insert(key, value).unwrap();
         
         // Test commitment
         let commitment = state.root_commitment();

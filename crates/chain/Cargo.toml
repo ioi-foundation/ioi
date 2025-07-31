@@ -20,5 +20,9 @@ hex = { workspace = true }
 libp2p = { workspace = true }
 async-trait = { workspace = true }
 
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
+depin-sdk-state-trees = { path = "../state_trees" }
+
 [features]
 default = []

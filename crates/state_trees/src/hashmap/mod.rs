@@ -1,3 +1,5 @@
+// Path: crates/state_trees/src/hashmap/mod.rs
+
 use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, Selector};
 use depin_sdk_core::error::StateError;
 use depin_sdk_core::state::{StateManager, StateTree};
@@ -5,6 +7,7 @@ use std::any::Any;
 use std::collections::HashMap;
 
 /// HashMap-based state tree implementation
+#[derive(Debug)]
 pub struct HashMapStateTree<CS: CommitmentScheme> {
     /// Data store. Made `pub(crate)` to allow the `FileStateTree` wrapper to access it.
     pub(crate) data: HashMap<Vec<u8>, CS::Value>,

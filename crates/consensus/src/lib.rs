@@ -37,7 +37,7 @@ pub enum ConsensusDecision<T> {
 
 /// A trait defining the interface for a pluggable consensus engine.
 #[async_trait]
-pub trait ConsensusEngine<T>: Send + Sync {
+pub trait ConsensusEngine<T: Clone>: Send + Sync {
     /// Determines the node's action for the current block height and view.
     async fn decide(
         &mut self,

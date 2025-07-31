@@ -26,9 +26,25 @@ hex = { workspace = true }
 libp2p = { workspace = true }
 log = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+# FIX: Add dependencies required by genesis loading logic.
+serde_json = { workspace = true }
+bs58 = "0.4"
+
+
+[dev-dependencies]
+anyhow = { workspace = true }
+tempfile = "3.3"
+tokio = { workspace = true, features = ["full"] }
+serde_json = { workspace = true }
+bs58 = "0.4"
+# The test needs access to libp2p types like `identity`.
+libp2p = { workspace = true }
+# The test needs access to core types for building the transaction.
+depin-sdk-core = { path = "../core" }
 
 [features]
-default = []
+# FIX: Set a default feature to make workspace tests and default builds work.
+default = ["consensus-poa"]
 # NEW: Define top-level features for the binary.
 consensus-round-robin = [
     "depin-sdk-validator/consensus-round-robin",
