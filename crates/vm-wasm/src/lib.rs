@@ -192,10 +192,10 @@ impl VirtualMachine for WasmVm {
 
         let allocate_func = instance
             .get_typed_func::<u32, u32>(&mut store, "allocate")
-            .map_err(|e| VmError::FunctionNotFound(format!("'allocate': {}", e)))?;
+            .map_err(|e| VmError::FunctionNotFound(format!("'allocate': {e}")))?;
         let call_func = instance
             .get_typed_func::<(u32, u32), u64>(&mut store, entrypoint)
-            .map_err(|e| VmError::FunctionNotFound(format!("'{}': {}", entrypoint, e)))?;
+            .map_err(|e| VmError::FunctionNotFound(format!("'{entrypoint}': {e}")))?;
 
         let input_ptr = allocate_func
             .call_async(&mut store, input_data.len() as u32)

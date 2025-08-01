@@ -1,8 +1,8 @@
 [package]
-name = "depin-sdk-sync"
+name = "depin-sdk-network"
 version = "0.1.0"
 edition = "2021"
-description = "Block synchronization components for the DePIN SDK"
+description = "Block synchronization and networking components for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]

@@ -93,7 +93,7 @@ impl SerializableKey for Ed25519PublicKey {
     fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
         eddsa::Ed25519PublicKey::from_bytes(bytes)
             .map(Ed25519PublicKey)
-            .map_err(|e| format!("Failed to parse public key: {:?}", e))
+            .map_err(|e| format!("Failed to parse public key: {e:?}"))
     }
 }
 
@@ -124,7 +124,7 @@ impl SerializableKey for Ed25519PrivateKey {
         // Use the from_seed method
         eddsa::Ed25519SecretKey::from_seed(&seed)
             .map(Ed25519PrivateKey)
-            .map_err(|e| format!("Failed to create secret key from seed: {:?}", e))
+            .map_err(|e| format!("Failed to create secret key from seed: {e:?}"))
     }
 }
 
@@ -136,7 +136,7 @@ impl SerializableKey for Ed25519Signature {
     fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
         eddsa::Ed25519Signature::from_bytes(bytes)
             .map(Ed25519Signature)
-            .map_err(|e| format!("Failed to parse signature: {:?}", e))
+            .map_err(|e| format!("Failed to parse signature: {e:?}"))
     }
 }
 
@@ -177,7 +177,7 @@ impl Ed25519PrivateKey {
     pub fn public_key(&self) -> Result<Ed25519PublicKey, String> {
         self.0.public_key()
             .map(Ed25519PublicKey)
-            .map_err(|e| format!("Failed to derive public key: {:?}", e))
+            .map_err(|e| format!("Failed to derive public key: {e:?}"))
     }
 }
 

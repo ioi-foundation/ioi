@@ -80,20 +80,22 @@ pub struct Polynomial {
     _coefficients: Vec<Vec<u8>>, // Simplified - would be field elements
 }
 
-impl KZGCommitmentScheme {
-    /// Create a new KZG commitment scheme with the given parameters
-    pub fn new(params: KZGParams) -> Self {
-        Self { _params: params }
-    }
-
+impl Default for KZGCommitmentScheme {
     /// Create a default scheme with dummy parameters (for testing only)
-    pub fn default() -> Self {
+    fn default() -> Self {
         Self {
             _params: KZGParams {
                 g1_points: vec![vec![0; 32]; 10], // Dummy parameters
                 g2_points: vec![vec![0; 64]; 10], // Dummy parameters
             },
         }
+    }
+}
+
+impl KZGCommitmentScheme {
+    /// Create a new KZG commitment scheme with the given parameters
+    pub fn new(params: KZGParams) -> Self {
+        Self { _params: params }
     }
 
     /// Commit to a polynomial directly

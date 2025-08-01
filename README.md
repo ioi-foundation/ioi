@@ -155,31 +155,39 @@ This workflow validates that node identities are persistent, state is correctly 
 
 ### Development & Testing
 
-This project includes a suite of tests to ensure correctness and stability.
+The project includes a comprehensive suite of tests to ensure correctness and stability. We recommend the following workflow.
 
-#### Running Unit & Integration Tests
+#### 1. Quick Check (Fastest)
 
-To run the standard unit and integration tests for all crates in the workspace, use the following command:
+For rapid feedback while developing, run `cargo check`. It analyzes the code for errors without compiling dependencies or running tests.
+
+```bash
+cargo check --workspace
+```
+
+#### 2. Standard Tests
+
+To run all unit and integration tests across the entire workspace (excluding the slow end-to-end tests), use the standard test command. This is ideal for pre-commit checks.
 
 ```bash
 cargo test --workspace
 ```
 
-#### Running End-to-End (E2E) Tests
+#### 3. Full Test Suite (including E2E)
 
-The repository includes long-running end-to-end tests that simulate a live multi-node network to verify complex lifecycles like governance and staking. These tests are ignored by default to keep the standard test runs fast.
+The repository includes long-running end-to-end (E2E) tests that simulate a live multi-node network to verify complex system lifecycles. These are ignored by default.
 
-To run the E2E tests, use the `--ignored` flag:
+To run the **entire test suite**, including the ignored E2E tests, use this single command:
 
 ```bash
-cargo test -p depin-sdk-binaries -- --ignored
+cargo test --workspace -- --ignored
 ```
 
-This will execute tests such as:
+This command will execute critical E2E scenarios, including:
 *   `test_governance_authority_change_lifecycle`: Simulates a governance-driven change to the Proof-of-Authority validator set.
-*   `test_staking_lifecycle`: Simulates a change in the Proof-of-Stake validator set based on staking and unstaking transactions.
+*   `test_staking_lifecycle`: Simulates a change in the Proof-of-Stake validator set based on `Stake` and `Unstake` transactions.
 
-These tests will compile the necessary node binaries with the appropriate consensus features before running.
+These tests automatically compile the necessary node binaries with the appropriate consensus features before running.
 
 ---
 
@@ -190,8 +198,8 @@ The SDK is organized into a workspace of several key crates:
 *   `crates/core`: Defines the core traits and interfaces for all components (e.g., `CommitmentScheme`, `ValidatorModel`, `TransactionModel`).
 *   `crates/binaries`: Contains the main executable targets, such as the `node` binary. This crate is the composition root for the application.
 *   `crates/validator`: Implements the Triple-Container Architecture for both `StandardValidator` and `HybridValidator` models.
-*   `crates/chain`: Contains the `SovereignAppChain` implementation, which defines the state machine logic.
-*   `crates/sync`: Implements the `BlockSync` trait for P2P networking and block synchronization.
+*   `crates/chain`: Contains the `SovereignChain` implementation, which defines the state machine logic.
+*   `crates/network`: Implements the `BlockSync` and `MempoolGossip` traits for P2P networking.
 *   `crates/consensus`: Implements the `ConsensusEngine` trait for leader election and fault tolerance.
 *   `crates/commitment_schemes`: Implementations of various cryptographic commitment schemes (Merkle, KZG, etc.).
 *   `crates/state_trees`: Implementations of different state storage models (Verkle, IAVL+, file-based).
@@ -226,3 +234,6 @@ All participants are expected to follow our [**Code of Conduct**](./CODE_OF_COND
 This project is licensed under either of
 
 *   Apache License, Version 2.0, ([LICENSE-APACHE](./LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+*   MIT license ([LICENSE-MIT](./LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+at your option.

@@ -1,6 +1,6 @@
-// Path: crates/sync/src/traits.rs
+// Path: crates/network/src/traits.rs
 
-//! Trait definitions for block synchronization.
+//! Trait definitions for networking, including block synchronization and mempool gossip.
 
 use async_trait::async_trait;
 use depin_sdk_core::app::{Block, ProtocolTransaction};
@@ -31,10 +31,10 @@ pub enum NodeState {
 /// A trait for a standalone, pluggable block synchronization engine.
 #[async_trait]
 pub trait BlockSync: Send + Sync {
-    /// Starts the background tasks for gossiping, handling sync requests, etc.
+    /// Starts the background tasks for handling sync requests, etc.
     async fn start(&self) -> Result<(), SyncError>;
 
-    /// Stops all background sync tasks.
+    /// Stops all background networking tasks.
     async fn stop(&self) -> Result<(), SyncError>;
 
     /// Publishes a block produced by the local node to the network.
@@ -48,4 +48,11 @@ pub trait BlockSync: Send + Sync {
 
     /// Retrieves the set of currently known (and likely connected) peers.
     fn get_known_peers(&self) -> Arc<Mutex<HashSet<PeerId>>>;
+}
+
+/// A trait for gossiping transactions to the mempool of other nodes.
+#[async_trait]
+pub trait MempoolGossip: Send + Sync {
+    /// Publishes a transaction to the network's shared mempool.
+    async fn publish_transaction(&self, tx: &ProtocolTransaction) -> Result<(), SyncError>;
 }

@@ -335,7 +335,7 @@ impl HashProof {
                 pos += pred_len;
                 Selector::Predicate(pred)
             }
-            _ => return Err(format!("Unknown selector type: {}", selector_type)),
+            _ => return Err(format!("Unknown selector type: {selector_type}")),
         };
 
         // Deserialize value hash

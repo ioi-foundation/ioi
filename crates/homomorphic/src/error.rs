@@ -27,25 +27,25 @@ impl fmt::Display for HomomorphicError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             HomomorphicError::InvalidPoint(details) => {
-                write!(f, "Invalid point in commitment: {}", details)
+                write!(f, "Invalid point in commitment: {details}")
             }
             HomomorphicError::NegativeScalar => {
                 write!(f, "Scalar must be positive in scalar multiplication")
             }
             HomomorphicError::OutOfBounds(pos, max) => {
-                write!(f, "Position {} out of bounds (max: {})", pos, max)
+                write!(f, "Position {pos} out of bounds (max: {max})")
             }
             HomomorphicError::UnsupportedOperation(op) => {
-                write!(f, "Operation not supported: {:?}", op)
+                write!(f, "Operation not supported: {op:?}")
             }
             HomomorphicError::VerificationFailure => write!(f, "Proof verification failed"),
             HomomorphicError::InternalError(details) => {
-                write!(f, "Internal operation error: {}", details)
+                write!(f, "Internal operation error: {details}")
             }
             HomomorphicError::InvalidInput(details) => {
-                write!(f, "Invalid input for operation: {}", details)
+                write!(f, "Invalid input for operation: {details}")
             }
-            HomomorphicError::Custom(msg) => write!(f, "{}", msg),
+            HomomorphicError::Custom(msg) => write!(f, "{msg}"),
         }
     }
 }

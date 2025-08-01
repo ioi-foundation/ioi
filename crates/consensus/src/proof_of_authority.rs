@@ -8,6 +8,12 @@ use std::collections::HashSet;
 
 pub struct ProofOfAuthorityEngine {}
 
+impl Default for ProofOfAuthorityEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ProofOfAuthorityEngine {
     pub fn new() -> Self {
         Self {}

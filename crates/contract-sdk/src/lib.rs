@@ -3,9 +3,19 @@
 #![allow(dead_code)] // Allow unused functions for this example
 
 extern crate alloc;
-use alloc::vec;
 use alloc::vec::Vec;
+// This is only needed for the panic handler, which is not used in tests.
+#[cfg(not(test))]
 use core::panic::PanicInfo;
+
+// --- FIX START: Add a global allocator for `no_std` heap allocations ---
+// We use `wee_alloc` as a lightweight allocator suitable for WASM.
+// This is enabled by the `wee_alloc` feature in Cargo.toml and solves the
+// "no global memory allocator found" error.
+#[cfg(feature = "wee_alloc")]
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+// --- FIX END ---
 
 /// FFI (Foreign Function Interface) for host functions.
 /// These are the low-level, unsafe functions imported from the blockchain node.
@@ -44,13 +54,8 @@ pub mod state {
         // Allocate a buffer for the host to write the result into.
         // A real SDK would have a more robust max value size handling.
         let mut result_buffer = vec![0u8; 1024];
-        let result_len = unsafe {
-            ffi::state_get(
-                key.as_ptr(),
-                key.len() as u32,
-                result_buffer.as_mut_ptr(),
-            )
-        };
+        let result_len =
+            unsafe { ffi::state_get(key.as_ptr(), key.len() as u32, result_buffer.as_mut_ptr()) };
 
         if result_len > 0 {
             Some(result_buffer[..result_len as usize].to_vec())
@@ -84,6 +89,9 @@ pub extern "C" fn allocate(size: u32) -> *mut u8 {
     ptr
 }
 
+// The panic handler is required for `no_std` builds, but conflicts with
+// the standard library's handler when running tests. We exclude it from test builds.
+#[cfg(not(test))]
 #[panic_handler]
 fn handle_panic(_info: &PanicInfo) -> ! {
     loop {}

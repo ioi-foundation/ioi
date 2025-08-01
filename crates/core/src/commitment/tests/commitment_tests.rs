@@ -39,7 +39,7 @@ mod tests {
 
         fn create_proof(
             &self,
-            selector: &Selector,
+            _selector: &Selector,
             value: &Self::Value,
         ) -> Result<Self::Proof, String> {
             // Simple mock implementation for testing
@@ -82,7 +82,7 @@ mod tests {
 
         fn create_proof(
             &self,
-            selector: &Selector,
+            _selector: &Selector,
             value: &Self::Value,
         ) -> Result<Self::Proof, String> {
             // Simple mock implementation for testing

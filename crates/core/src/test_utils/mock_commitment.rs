@@ -33,10 +33,8 @@ impl CommitmentScheme for MockCommitmentScheme {
     fn commit(&self, values: &[Option<Self::Value>]) -> Self::Commitment {
         // Implementation actually combines all values into a single commitment
         let mut combined = Vec::new();
-        for v in values {
-            if let Some(data) = v {
-                combined.extend_from_slice(data.as_ref());
-            }
+        for data in values.iter().flatten() {
+            combined.extend_from_slice(data.as_ref());
         }
         MockCommitment(combined)
     }
@@ -57,12 +55,12 @@ impl CommitmentScheme for MockCommitmentScheme {
         &self,
         commitment: &Self::Commitment,
         proof: &Self::Proof,
-        selector: &Selector,
+        _selector: &Selector,
         value: &Self::Value,
         context: &ProofContext,
     ) -> bool {
         // 1. Check that selector types match
-        if !matches!(&proof.selector, selector) {
+        if !matches!(&proof.selector, _selector) {
             return false;
         }
 
@@ -87,7 +85,7 @@ impl CommitmentScheme for MockCommitmentScheme {
         if let Some(strict_flag) = context.get_data("strict_verify") {
             if !strict_flag.is_empty() && strict_flag[0] == 1 {
                 // In strict mode, we also check selector-specific rules
-                match selector {
+                match _selector {
                     Selector::Position(pos) => {
                         // Position-based verification
                         if let Selector::Position(proof_pos) = &proof.selector {
@@ -110,7 +108,7 @@ impl CommitmentScheme for MockCommitmentScheme {
                     }
                     _ => {
                         // For other selectors, just ensure they match exactly
-                        if proof.selector != *selector {
+                        if proof.selector != *_selector {
                             return false;
                         }
                     }

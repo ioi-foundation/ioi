@@ -46,7 +46,7 @@ impl EllipticCurveCommitmentScheme {
         let g = k256::base_point_g();
         for i in 0..num_generators {
             // Use a SHA-256 hash to derive a scalar for each generator point
-            let scalar = Self::hash_to_scalar(format!("generator-{}", i).as_bytes());
+            let scalar = Self::hash_to_scalar(format!("generator-{i}").as_bytes());
             generators.push(g.mul(&scalar).expect("Failed to create generator"));
         }
 
@@ -135,7 +135,7 @@ impl CommitmentScheme for EllipticCurveCommitmentScheme {
         };
 
         if position >= self.generators.len() {
-            return Err(format!("Position {} out of bounds", position));
+            return Err(format!("Position {position} out of bounds"));
         }
 
         // Create a random blinding factor

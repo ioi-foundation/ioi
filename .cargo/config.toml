@@ -1,0 +1,7 @@
+# Path: .cargo/config.toml
+# This unstable flag is needed because the root Cargo.toml profile override
+# requests a build with `panic=abort` for the contract-sdk. This forces a
+# recompile of the standard library components to ensure they all use the
+# same panic strategy, resolving linker errors.
+[unstable]
+build-std = ["core", "alloc", "std", "panic_abort"]

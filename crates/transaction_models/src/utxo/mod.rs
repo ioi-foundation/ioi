@@ -76,10 +76,10 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UTXOModel<
         for input in &tx.inputs {
             let key = self.create_utxo_key(&input.tx_hash, input.output_index);
             let utxo_bytes = state.get(&key)?.ok_or_else(|| {
-                TransactionError::Invalid(format!("Input UTXO not found"))
+                TransactionError::Invalid("Input UTXO not found".to_string())
             })?;
             let utxo: Output = serde_json::from_slice(&utxo_bytes)
-                .map_err(|e| TransactionError::Invalid(format!("Deserialize error: {}", e)))?;
+                .map_err(|e| TransactionError::Invalid(format!("Deserialize error: {e}")))?;
             total_input = total_input.checked_add(utxo.value)
                 .ok_or_else(|| TransactionError::Invalid("Input value overflow".to_string()))?;
         }

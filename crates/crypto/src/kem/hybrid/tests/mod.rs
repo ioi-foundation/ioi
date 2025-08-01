@@ -1,7 +1,7 @@
 // crates/crypto/src/kem/hybrid/tests/mod.rs
 use super::*;
 use crate::security::SecurityLevel;
-use depin_sdk_core::crypto::{Encapsulated, KeyEncapsulation, KemKeyPair, DecapsulationKey, EncapsulationKey};
+use depin_sdk_core::crypto::{Encapsulated, KeyEncapsulation};
 
 #[test]
 fn test_hybrid_keypair_generation() {
@@ -76,8 +76,12 @@ fn test_hybrid_multiple_encapsulations() {
     assert_ne!(encapsulated1.shared_secret(), encapsulated2.shared_secret());
 
     // But both should decapsulate correctly
-    let shared_secret1 = kem.decapsulate(&keypair.private_key, &encapsulated1).unwrap();
-    let shared_secret2 = kem.decapsulate(&keypair.private_key, &encapsulated2).unwrap();
+    let shared_secret1 = kem
+        .decapsulate(&keypair.private_key, &encapsulated1)
+        .unwrap();
+    let shared_secret2 = kem
+        .decapsulate(&keypair.private_key, &encapsulated2)
+        .unwrap();
 
     assert_eq!(shared_secret1, encapsulated1.shared_secret());
     assert_eq!(shared_secret2, encapsulated2.shared_secret());
@@ -111,7 +115,7 @@ fn test_hybrid_serialization() {
     let private_key_bytes = keypair.private_key.to_bytes();
 
     // Deserialize keys
-    let restored_public_key = HybridPublicKey::from_bytes(&public_key_bytes).unwrap();
+    let _restored_public_key = HybridPublicKey::from_bytes(&public_key_bytes).unwrap();
     let restored_private_key = HybridPrivateKey::from_bytes(&private_key_bytes).unwrap();
 
     // Encapsulate with original key
@@ -128,7 +132,10 @@ fn test_hybrid_serialization() {
     assert!(shared_secret.is_some());
 
     // Verify the original encapsulated ciphertext matches the serialized version
-    assert_eq!(encapsulated.ciphertext(), restored_encapsulated.ciphertext());
+    assert_eq!(
+        encapsulated.ciphertext(),
+        restored_encapsulated.ciphertext()
+    );
 }
 
 #[test]
@@ -136,21 +143,21 @@ fn test_hybrid_invalid_serialization() {
     // Test invalid public key sizes
     let too_short_pk = vec![0u8; 100];
     assert!(HybridPublicKey::from_bytes(&too_short_pk).is_err());
-    
+
     let too_long_pk = vec![0u8; 2000];
     assert!(HybridPublicKey::from_bytes(&too_long_pk).is_err());
 
     // Test invalid private key sizes
     let too_short_sk = vec![0u8; 100];
     assert!(HybridPrivateKey::from_bytes(&too_short_sk).is_err());
-    
+
     let too_long_sk = vec![0u8; 3000];
     assert!(HybridPrivateKey::from_bytes(&too_long_sk).is_err());
 
     // Test invalid ciphertext sizes
     let too_short_ct = vec![0u8; 100];
     assert!(HybridEncapsulated::from_bytes(&too_short_ct).is_err());
-    
+
     let too_long_ct = vec![0u8; 2000];
     assert!(HybridEncapsulated::from_bytes(&too_long_ct).is_err());
 }
@@ -162,11 +169,15 @@ fn test_hybrid_security_properties() {
 
     // Test that the shared secret is deterministic for a given ciphertext
     let encapsulated = kem.encapsulate(&keypair.public_key);
-    
+
     // Multiple decapsulations of the same ciphertext should produce the same result
-    let shared_secret1 = kem.decapsulate(&keypair.private_key, &encapsulated).unwrap();
-    let shared_secret2 = kem.decapsulate(&keypair.private_key, &encapsulated).unwrap();
-    
+    let shared_secret1 = kem
+        .decapsulate(&keypair.private_key, &encapsulated)
+        .unwrap();
+    let shared_secret2 = kem
+        .decapsulate(&keypair.private_key, &encapsulated)
+        .unwrap();
+
     assert_eq!(shared_secret1, shared_secret2);
 }
 
@@ -174,14 +185,14 @@ fn test_hybrid_security_properties() {
 fn test_hybrid_default_constructor() {
     let kem = HybridKEM::default();
     let keypair = kem.generate_keypair();
-    
+
     // Should use Level3 by default
-    assert_eq!(keypair.level, SecurityLevel::Level3);
-    
+    assert_eq!(keypair.public_key.level, SecurityLevel::Level3);
+
     // Should work normally
     let encapsulated = kem.encapsulate(&keypair.public_key);
     let shared_secret = kem.decapsulate(&keypair.private_key, &encapsulated);
-    
+
     assert!(shared_secret.is_some());
     assert_eq!(shared_secret.unwrap(), encapsulated.shared_secret());
 }
@@ -191,18 +202,18 @@ fn test_hybrid_independent_verification() {
     // Test that keys can be used independently after serialization
     let kem = HybridKEM::new(SecurityLevel::Level3);
     let keypair = kem.generate_keypair();
-    
+
     // Serialize and deserialize to ensure independence
     let pk_bytes = keypair.public_key.to_bytes();
     let sk_bytes = keypair.private_key.to_bytes();
-    
+
     let pk = HybridPublicKey::from_bytes(&pk_bytes).unwrap();
     let sk = HybridPrivateKey::from_bytes(&sk_bytes).unwrap();
-    
+
     // Use the deserialized keys
     let encapsulated = kem.encapsulate(&pk);
     let shared_secret = kem.decapsulate(&sk, &encapsulated);
-    
+
     assert!(shared_secret.is_some());
     assert_eq!(shared_secret.unwrap(), encapsulated.shared_secret());
 }

@@ -1,6 +1,5 @@
 // Path: crates/validator/src/bin/validator.rs
 
-use anyhow::anyhow;
 use clap::Parser;
 use depin_sdk_chain::Chain;
 use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
@@ -8,8 +7,8 @@ use depin_sdk_consensus::{round_robin::RoundRobinBftEngine, ConsensusEngine};
 use depin_sdk_core::app::ProtocolTransaction;
 use depin_sdk_core::validator::{Container, WorkloadContainer};
 use depin_sdk_core::WorkloadConfig;
+use depin_sdk_network::libp2p::Libp2pSync;
 use depin_sdk_state_trees::file::FileStateTree;
-use depin_sdk_sync::libp2p::Libp2pSync;
 use depin_sdk_transaction_models::utxo::UTXOModel;
 use depin_sdk_validator::{common::GuardianContainer, standard::OrchestrationContainer};
 use depin_sdk_vm_wasm::WasmVm;
@@ -35,7 +34,9 @@ struct Opts {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    env_logger::builder().filter_level(log::LevelFilter::Info).init();
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Info)
+        .init();
     let opts = Opts::parse();
     let path = PathBuf::from(opts.config_dir);
 
@@ -48,11 +49,7 @@ async fn main() -> anyhow::Result<()> {
         enabled_vms: vec!["WASM".to_string()],
     };
     let wasm_vm = Box::new(WasmVm::new());
-    let workload = Arc::new(WorkloadContainer::new(
-        workload_config,
-        state_tree,
-        wasm_vm,
-    ));
+    let workload = Arc::new(WorkloadContainer::new(workload_config, state_tree, wasm_vm));
 
     let mut chain = Chain::new(
         commitment_scheme.clone(),
@@ -81,19 +78,17 @@ async fn main() -> anyhow::Result<()> {
     let (syncer, swarm_commander, network_event_receiver) =
         Libp2pSync::new(local_key, opts.listen_address, opts.peer)?;
 
-    let orchestration = Arc::new(
-        OrchestrationContainer::<
-            HashCommitmentScheme,
-            UTXOModel<HashCommitmentScheme>,
-            FileStateTree<HashCommitmentScheme>,
-        >::new(
-            &path.join("orchestration.toml"),
-            syncer,
-            network_event_receiver,
-            swarm_commander,
-            consensus_engine,
-        )?,
-    );
+    let orchestration = Arc::new(OrchestrationContainer::<
+        HashCommitmentScheme,
+        UTXOModel<HashCommitmentScheme>,
+        FileStateTree<HashCommitmentScheme>,
+    >::new(
+        &path.join("orchestration.toml"),
+        syncer,
+        network_event_receiver,
+        swarm_commander,
+        consensus_engine,
+    )?);
 
     orchestration.set_chain_and_workload_ref(chain_ref.clone(), workload.clone());
 

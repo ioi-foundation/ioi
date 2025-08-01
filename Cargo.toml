@@ -1,4 +1,8 @@
 # Path: Cargo.toml
+# Explicitly opt-in to the unstable 'profile-rustflags' feature.
+# This is required by the nightly toolchain to allow setting rustflags
+# on a per-package basis, which is necessary for our mixed std/no_std build.
+cargo-features = ["profile-rustflags"]
 
 [workspace]
 resolver = "2"
@@ -12,13 +16,22 @@ members = [
     "crates/homomorphic",
     "crates/services",
     "crates/state_trees",
-    "crates/sync",
+    "crates/network",
     "crates/test_utils",
     "crates/transaction_models",
     "crates/validator",
     "crates/vm-wasm",
     "crates/contract-sdk",
 ]
+
+# Add these sections to define per-package profiles for the contract-sdk.
+# This uses the stable `rustflags` key to inject the necessary compiler options
+# for only this specific package, resolving all build errors.
+[profile.dev.package.depin-sdk-contract-sdk]
+rustflags = ["-C", "panic=abort"]
+
+[profile.release.package.depin-sdk-contract-sdk]
+rustflags = ["-C", "panic=abort", "-C", "lto=true", "-C", "opt-level=s"]
 
 [workspace.dependencies]
 # Networking

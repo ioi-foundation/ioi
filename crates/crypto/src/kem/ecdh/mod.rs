@@ -187,7 +187,7 @@ impl SerializableKey for EcdhPublicKey {
             33 => {
                 // K256 compressed point
                 let pk = EcdhK256PublicKey::from_bytes(bytes)
-                    .map_err(|e| format!("Failed to deserialize K256 public key: {:?}", e))?;
+                    .map_err(|e| format!("Failed to deserialize K256 public key: {e:?}"))?;
                 Ok(EcdhPublicKey::K256(pk))
             }
             49 => Ok(EcdhPublicKey::P384(bytes.to_vec())),
@@ -217,7 +217,7 @@ impl SerializableKey for EcdhPrivateKey {
             32 => {
                 // K256 scalar
                 let sk = EcdhK256SecretKey::from_bytes(bytes)
-                    .map_err(|e| format!("Failed to deserialize K256 private key: {:?}", e))?;
+                    .map_err(|e| format!("Failed to deserialize K256 private key: {e:?}"))?;
                 Ok(EcdhPrivateKey::K256(sk))
             }
             48 => Ok(EcdhPrivateKey::P384(bytes.to_vec())),

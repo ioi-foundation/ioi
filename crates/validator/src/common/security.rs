@@ -15,7 +15,7 @@ pub struct SecurityChannel {
 impl SecurityChannel {
     /// Create a new security channel
     pub fn new(source: &str, destination: &str) -> Self {
-        let channel_id = format!("{}:{}", source, destination);
+        let channel_id = format!("{source}:{destination}");
         
         Self {
             source: source.to_string(),
