@@ -47,6 +47,8 @@ struct Opts {
     peer: Option<Multiaddr>,
     #[clap(long, default_value = "/ip4/0.0.0.0/tcp/0")]
     listen_address: Multiaddr,
+    #[clap(long, default_value = "127.0.0.1:9944")]
+    rpc_listen_address: String,
 }
 
 /// Populates the state from a genesis file.
@@ -65,7 +67,6 @@ fn populate_state_from_genesis(
     for (key, value) in state {
         log::info!("  - Loading state for key: {}", key);
         let value_bytes = match key.as_str() {
-            // Special handling for authorities which are a list of base58 PeerIds
             "system::authorities" => {
                 let peer_ids_b58: Vec<String> = serde_json::from_value(value.clone())?;
                 let peer_ids_bytes: Vec<Vec<u8>> = peer_ids_b58
@@ -83,7 +84,6 @@ fn populate_state_from_genesis(
                     .collect::<Result<_, _>>()?;
                 serde_json::to_vec(&peer_ids_bytes)?
             }
-            // Special handling for governance key, which is a single base58 public key
             "system::governance_key" => {
                 let key_b58 = value
                     .as_str()
@@ -104,6 +104,7 @@ async fn main() -> anyhow::Result<()> {
     let opts = Opts::parse();
     log::info!("Initializing DePIN SDK Node...");
     log::info!("Using state file: {}", &opts.state_file);
+    log::info!("Using RPC address: {}", &opts.rpc_listen_address);
 
     let commitment_scheme = HashCommitmentScheme::new();
     let transaction_model = UTXOModel::new(commitment_scheme.clone());
@@ -140,7 +141,7 @@ async fn main() -> anyhow::Result<()> {
     let chain_ref = Arc::new(Mutex::new(chain));
 
     // --- Compile-Time Consensus Engine Selection ---
-    let consensus_engine: Box<dyn ConsensusEngine<ProtocolTransaction> + Send + Sync> = {
+    let consensus_engine_box: Box<dyn ConsensusEngine<ProtocolTransaction> + Send + Sync> = {
         #[cfg(feature = "consensus-poa")]
         {
             log::info!("Building with ProofOfAuthorityEngine.");
@@ -154,6 +155,7 @@ async fn main() -> anyhow::Result<()> {
         #[cfg(not(any(feature = "consensus-poa", feature = "consensus-round-robin")))]
         compile_error!("A consensus engine feature must be enabled via --features flag. Use --features consensus-poa or --features consensus-round-robin");
     };
+    let consensus_engine = Arc::new(Mutex::new(consensus_engine_box));
 
     // Setup libp2p identity
     let key_path = Path::new(&opts.state_file).with_extension("json.identity.key");
@@ -168,14 +170,8 @@ async fn main() -> anyhow::Result<()> {
         keypair
     };
 
-    // Instantiate the new Libp2pSync
-    let syncer = Arc::new(Libp2pSync::new(
-        chain_ref.clone(),
-        workload_container.clone(),
-        local_key,
-        opts.listen_address,
-        opts.peer,
-    )?);
+    let (syncer, swarm_commander, network_event_receiver) =
+        Libp2pSync::new(local_key, opts.listen_address, opts.peer)?;
 
     let config_path = PathBuf::from(&opts.config_dir);
     let orchestration_container = Arc::new(
@@ -186,7 +182,9 @@ async fn main() -> anyhow::Result<()> {
         >::new(
             &config_path.join("orchestration.toml"),
             syncer,
-            consensus_engine, // Pass the selected engine's trait object
+            network_event_receiver,
+            swarm_commander,
+            consensus_engine,
         )?,
     );
     let guardian_container = GuardianContainer::new(&config_path.join("guardian.toml"))?;

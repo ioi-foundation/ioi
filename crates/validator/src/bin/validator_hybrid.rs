@@ -4,7 +4,8 @@ use anyhow::anyhow;
 use clap::Parser;
 use depin_sdk_chain::Chain;
 use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
-use depin_sdk_consensus::round_robin::RoundRobinBftEngine;
+use depin_sdk_consensus::{round_robin::RoundRobinBftEngine, ConsensusEngine};
+use depin_sdk_core::app::ProtocolTransaction;
 use depin_sdk_core::config::WorkloadConfig;
 use depin_sdk_core::validator::{Container, WorkloadContainer};
 use depin_sdk_state_trees::file::FileStateTree;
@@ -54,11 +55,18 @@ async fn main() -> anyhow::Result<()> {
     };
     let workload = Arc::new(WorkloadContainer::new(workload_config, state_tree));
 
-    let mut chain = Chain::new(commitment_scheme.clone(), transaction_model, "hybrid-chain-1", vec![]);
+    let mut chain = Chain::new(
+        commitment_scheme.clone(),
+        transaction_model,
+        "hybrid-chain-1",
+        vec![],
+    );
     chain.load_or_initialize_status(&workload).await?;
     let chain_ref = Arc::new(Mutex::new(chain));
 
-    let consensus_engine = RoundRobinBftEngine::new();
+    let consensus_engine_box: Box<dyn ConsensusEngine<ProtocolTransaction> + Send + Sync> =
+        Box::new(RoundRobinBftEngine::new());
+    let consensus_engine = Arc::new(Mutex::new(consensus_engine_box));
 
     let key_path = Path::new(&opts.state_file).with_extension("json.identity.key");
     let local_key = if key_path.exists() {
@@ -71,14 +79,11 @@ async fn main() -> anyhow::Result<()> {
         keypair
     };
 
-    let syncer = Arc::new(Libp2pSync::new(
-        chain_ref.clone(),
-        workload.clone(),
-        local_key,
-        opts.listen_address,
-        opts.peer,
-    )?);
+    // FIX: Update constructor call to match the new signature.
+    let (syncer, swarm_commander, network_event_receiver) =
+        Libp2pSync::new(local_key, opts.listen_address, opts.peer)?;
 
+    // FIX: Update constructor call to match the new signature.
     let orchestration = Arc::new(
         OrchestrationContainer::<
             HashCommitmentScheme,
@@ -87,6 +92,8 @@ async fn main() -> anyhow::Result<()> {
         >::new(
             &path.join("orchestration.toml"),
             syncer,
+            network_event_receiver,
+            swarm_commander,
             consensus_engine,
         )?,
     );
@@ -113,6 +120,6 @@ async fn main() -> anyhow::Result<()> {
     orchestration.stop().await?;
     guardian.stop().await?;
     log::info!("Validator stopped gracefully.");
-    
+
     Ok(())
 }

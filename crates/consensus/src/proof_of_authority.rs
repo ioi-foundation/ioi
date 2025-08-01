@@ -1,4 +1,4 @@
-// In: crates/consensus/src/proof_of_authority.rs
+// Path: crates/consensus/src/proof_of_authority.rs
 
 use crate::{ConsensusDecision, ConsensusEngine};
 use async_trait::async_trait;
@@ -31,6 +31,8 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
         }
 
         let leader_index = ((height + view) % authority_set.len() as u64) as usize;
+
+        // This check is safe because we return early if authority_set is empty.
         let designated_leader = &authority_set[leader_index];
 
         if designated_leader == &local_peer_id.to_bytes() {
@@ -40,7 +42,17 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
         }
     }
 
-    async fn handle_block_proposal(&mut self, _block: Block<T>) -> Result<(), String> { Ok(()) }
-    async fn handle_view_change(&mut self, _from: PeerId, _height: u64, _new_view: u64) -> Result<(), String> { Ok(()) }
-    fn reset(&mut self, _height: u64) {} // Stateless engine, nothing to reset.
+    async fn handle_block_proposal(&mut self, _block: Block<T>) -> Result<(), String> {
+        Ok(())
+    }
+    async fn handle_view_change(
+        &mut self,
+        _from: PeerId,
+        _height: u64,
+        _new_view: u64,
+    ) -> Result<(), String> {
+        Ok(())
+    }
+    
+    fn reset(&mut self, _height: u64) {}
 }
