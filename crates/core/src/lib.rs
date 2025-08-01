@@ -1,3 +1,4 @@
+// Path: crates/core/src/lib.rs
 //! # DePIN SDK Core
 //!
 //! Core traits and interfaces for the DePIN SDK.
@@ -6,7 +7,6 @@ pub mod app;
 pub mod chain;
 pub mod commitment;
 pub mod component;
-// NEW: A module for shared configuration structs.
 pub mod config;
 pub mod crypto;
 pub mod error;
@@ -17,6 +17,7 @@ pub mod state;
 pub mod transaction;
 pub mod types;
 pub mod validator;
+pub mod vm;
 
 #[cfg(test)]
 pub mod test_utils;
@@ -35,3 +36,4 @@ pub use services::*;
 pub use state::*;
 pub use transaction::*;
 pub use validator::{Container, GuardianContainer, TransactionExecutor, WorkloadContainer};
+pub use vm::{ExecutionContext, ExecutionOutput, VirtualMachine};

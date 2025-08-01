@@ -13,9 +13,7 @@ use depin_sdk_core::commitment::CommitmentScheme;
 use depin_sdk_core::services::UpgradableService;
 use depin_sdk_core::state::StateManager;
 use depin_sdk_core::transaction::TransactionModel;
-// --- FIX: Import the TransactionExecutor trait ---
 use depin_sdk_core::validator::TransactionExecutor;
-// --- End Fix ---
 use depin_sdk_core::validator::WorkloadContainer;
 use libp2p::identity::ed25519::PublicKey as Ed25519PublicKey;
 use libp2p::identity::PublicKey as Libp2pPublicKey;
@@ -26,7 +24,6 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub(crate) const STAKES_KEY: &[u8] = b"system::stakes";
-// CORRECTION: The key for the stakes map must be a string for JSON compatibility.
 pub type PublicKey = String;
 pub type StakeAmount = u64;
 pub(crate) const STATUS_KEY: &[u8] = b"chain::status";
@@ -119,9 +116,18 @@ where
 
         match &tx.payload {
             SystemPayload::UpdateAuthorities { new_authorities } => {
-                let governance_pk_bytes = state.get(GOVERNANCE_KEY)?.ok_or_else(|| {
+                let governance_pk_str_bytes = state.get(GOVERNANCE_KEY)?.ok_or_else(|| {
                     ChainError::Transaction("Governance key not found in state".to_string())
                 })?;
+                let governance_pk_str: String = serde_json::from_slice(&governance_pk_str_bytes)
+                    .map_err(|e| {
+                        ChainError::Transaction(format!("Failed to parse governance key string: {}", e))
+                    })?;
+                let governance_pk_bytes = bs58::decode(governance_pk_str)
+                    .into_vec()
+                    .map_err(|e| {
+                        ChainError::Transaction(format!("Failed to decode governance key: {}", e))
+                    })?;
                 let ed25519_pk =
                     libp2p::identity::ed25519::PublicKey::try_from_bytes(&governance_pk_bytes).map_err(
                         |e| ChainError::Transaction(format!("Invalid governance key: {}", e)),
@@ -231,6 +237,30 @@ where
                         .await
                         .map_err(|e| ChainError::Transaction(e.to_string()))?;
                 }
+                ApplicationTransaction::DeployContract { code } => {
+                    // Placeholder for sender context; a real implementation would
+                    // extract this from the transaction signature.
+                    let sender_context = vec![0; 32];
+                    workload
+                        .deploy_contract(code.clone(), sender_context)
+                        .await
+                        .map_err(|e| ChainError::Transaction(e.to_string()))?;
+                }
+                ApplicationTransaction::CallContract {
+                    address,
+                    input_data,
+                } => {
+                    // Placeholder for sender context and other metadata
+                    let context = depin_sdk_core::vm::ExecutionContext {
+                        caller: vec![0; 32],
+                        block_height: self.app_chain.status.height, // Direct access to avoid ambiguity
+                        gas_limit: 10_000_000, // Default gas limit
+                    };
+                    workload
+                        .call_contract(address.clone(), input_data.clone(), context)
+                        .await
+                        .map_err(|e| ChainError::Transaction(e.to_string()))?;
+                }
             },
             ProtocolTransaction::System(sys_tx) => {
                 self.process_system_transaction(sys_tx, workload).await?;
@@ -306,17 +336,12 @@ where
             .last()
             .map_or(vec![0; 32], |b| b.header.state_root.clone());
 
-        // The validator set for the new block should be exactly the authority set
-        // passed in, ensuring it reflects the current consensus state without
-        // incorrectly adding peers. We still parse, sort, and re-serialize to
-        // ensure canonical representation.
         let mut peers: Vec<PeerId> = current_validator_set
             .iter()
             .filter_map(|bytes| PeerId::from_bytes(bytes).ok())
             .collect();
-        peers.sort(); // Ensure deterministic ordering.
-        let validator_set: Vec<Vec<u8>> =
-            peers.iter().map(|p| p.to_bytes()).collect();
+        peers.sort();
+        let validator_set: Vec<Vec<u8>> = peers.iter().map(|p| p.to_bytes()).collect();
 
         let next_height = self.app_chain.status.height + 1;
         let header = BlockHeader {
@@ -405,11 +430,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
     use depin_sdk_core::config::WorkloadConfig;
     use depin_sdk_core::state::StateTree;
-    use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
     use depin_sdk_state_trees::hashmap::HashMapStateTree;
     use depin_sdk_transaction_models::utxo::UTXOModel;
+    use depin_sdk_vm_wasm::WasmVm;
     use libp2p::identity;
     use std::sync::Arc;
 
@@ -418,27 +444,31 @@ mod tests {
         // Setup
         let scheme = HashCommitmentScheme::new();
         let state_tree = HashMapStateTree::new(scheme.clone());
+        let wasm_vm = Box::new(WasmVm::new());
         let workload = Arc::new(WorkloadContainer::new(
             WorkloadConfig {
                 enabled_vms: vec![],
             },
             state_tree,
+            wasm_vm,
         ));
         let mut chain = Chain::new(scheme.clone(), UTXOModel::new(scheme), "test-chain", vec![]);
 
         let gov_keypair = identity::Keypair::generate_ed25519();
-        let gov_pk_bytes = gov_keypair
-            .public()
-            .try_into_ed25519()
-            .unwrap()
-            .to_bytes()
-            .to_vec();
+        let gov_pk_bs58 = bs58::encode(
+            gov_keypair
+                .public()
+                .try_into_ed25519()
+                .unwrap()
+                .to_bytes(),
+        )
+        .into_string();
 
         workload
             .state_tree()
             .lock()
             .await
-            .insert(GOVERNANCE_KEY, &gov_pk_bytes)
+            .insert(GOVERNANCE_KEY, &serde_json::to_vec(&gov_pk_bs58).unwrap())
             .unwrap();
 
         // Create transaction
@@ -475,26 +505,30 @@ mod tests {
         // Setup
         let scheme = HashCommitmentScheme::new();
         let state_tree = HashMapStateTree::new(scheme.clone());
+        let wasm_vm = Box::new(WasmVm::new());
         let workload = Arc::new(WorkloadContainer::new(
             WorkloadConfig {
                 enabled_vms: vec![],
             },
             state_tree,
+            wasm_vm,
         ));
         let mut chain = Chain::new(scheme.clone(), UTXOModel::new(scheme), "test-chain", vec![]);
         let gov_keypair = identity::Keypair::generate_ed25519();
-        let gov_pk_bytes = gov_keypair
-            .public()
-            .try_into_ed25519()
-            .unwrap()
-            .to_bytes()
-            .to_vec();
+        let gov_pk_bs58 = bs58::encode(
+            gov_keypair
+                .public()
+                .try_into_ed25519()
+                .unwrap()
+                .to_bytes(),
+        )
+        .into_string();
 
         workload
             .state_tree()
             .lock()
             .await
-            .insert(GOVERNANCE_KEY, &gov_pk_bytes)
+            .insert(GOVERNANCE_KEY, &serde_json::to_vec(&gov_pk_bs58).unwrap())
             .unwrap();
 
         // Create transaction with invalid signature

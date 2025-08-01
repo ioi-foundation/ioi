@@ -2,6 +2,10 @@
 
 //! State management interfaces for the DePIN SDK Core.
 
+use crate::commitment::CommitmentScheme;
+use crate::error::StateError;
+use async_trait::async_trait;
+
 mod manager;
 mod tree;
 
@@ -11,7 +15,12 @@ mod tests;
 pub use manager::*;
 pub use tree::*;
 
-use crate::commitment::CommitmentScheme;
+/// A dyn-safe trait for the VM to access state, abstracting away the concrete StateManager type.
+#[async_trait]
+pub trait VmStateAccessor: Send + Sync {
+    async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError>;
+    async fn insert(&self, key: &[u8], value: &[u8]) -> Result<(), StateError>;
+}
 
 /// Type alias for a StateManager trait object compatible with a specific CommitmentScheme.
 pub type StateManagerFor<CS> = dyn StateManager<

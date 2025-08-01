@@ -1,0 +1,90 @@
+// Path: crates/contract-sdk/src/lib.rs
+#![no_std]
+#![allow(dead_code)] // Allow unused functions for this example
+
+extern crate alloc;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::panic::PanicInfo;
+
+/// FFI (Foreign Function Interface) for host functions.
+/// These are the low-level, unsafe functions imported from the blockchain node.
+mod ffi {
+    #[link(wasm_import_module = "env")]
+    extern "C" {
+        // State management
+        pub fn state_set(key_ptr: *const u8, key_len: u32, value_ptr: *const u8, value_len: u32);
+        pub fn state_get(key_ptr: *const u8, key_len: u32, result_ptr: *mut u8) -> u32;
+
+        // Context
+        pub fn get_caller(result_ptr: *mut u8) -> u32;
+    }
+}
+
+/// High-level, safe API for interacting with the blockchain state.
+pub mod state {
+    use super::ffi;
+    use alloc::vec;
+    use alloc::vec::Vec;
+
+    /// Stores a key-value pair in the contract's storage.
+    pub fn set(key: &[u8], value: &[u8]) {
+        unsafe {
+            ffi::state_set(
+                key.as_ptr(),
+                key.len() as u32,
+                value.as_ptr(),
+                value.len() as u32,
+            );
+        }
+    }
+
+    /// Retrieves a value from storage by key. Returns `None` if the key doesn't exist.
+    pub fn get(key: &[u8]) -> Option<Vec<u8>> {
+        // Allocate a buffer for the host to write the result into.
+        // A real SDK would have a more robust max value size handling.
+        let mut result_buffer = vec![0u8; 1024];
+        let result_len = unsafe {
+            ffi::state_get(
+                key.as_ptr(),
+                key.len() as u32,
+                result_buffer.as_mut_ptr(),
+            )
+        };
+
+        if result_len > 0 {
+            Some(result_buffer[..result_len as usize].to_vec())
+        } else {
+            None
+        }
+    }
+}
+
+/// High-level API for accessing execution context information.
+pub mod context {
+    use super::ffi;
+    use alloc::vec;
+    use alloc::vec::Vec;
+
+    /// Gets the address of the entity that initiated the contract call.
+    pub fn caller() -> Vec<u8> {
+        let mut result_buffer = vec![0u8; 32]; // Standard address size
+        let result_len = unsafe { ffi::get_caller(result_buffer.as_mut_ptr()) };
+        result_buffer[..result_len as usize].to_vec()
+    }
+}
+
+// --- Memory Management & Panic Handler (Required for WASM no_std) ---
+
+#[no_mangle]
+pub extern "C" fn allocate(size: u32) -> *mut u8 {
+    let mut buffer = Vec::with_capacity(size as usize);
+    let ptr = buffer.as_mut_ptr();
+    core::mem::forget(buffer); // Prevent Rust from dropping the memory
+    ptr
+}
+
+#[panic_handler]
+fn handle_panic(_info: &PanicInfo) -> ! {
+    loop {}
+}

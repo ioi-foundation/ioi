@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
-// --- Existing Types (Unchanged) ---
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ChainStatus {
     pub height: u64,
@@ -42,8 +41,6 @@ pub enum ChainError {
     #[error("State error: {0}")]
     State(#[from] StateError),
 }
-
-// --- New Transaction Hierarchy & Relocated Types ---
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Input {
@@ -82,6 +79,8 @@ pub enum ProtocolTransaction {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum ApplicationTransaction {
     UTXO(UTXOTransaction),
+    DeployContract { code: Vec<u8> },
+    CallContract { address: Vec<u8>, input_data: Vec<u8> },
 }
 
 /// A privileged transaction for performing system-level state changes.
@@ -95,7 +94,6 @@ pub struct SystemTransaction {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum SystemPayload {
     UpdateAuthorities { new_authorities: Vec<Vec<u8>> },
-    // NEW: Add staking operations
     Stake { amount: u64 },
     Unstake { amount: u64 },
 }

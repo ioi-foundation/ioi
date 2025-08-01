@@ -20,9 +20,9 @@ use depin_sdk_sync::libp2p::Libp2pSync;
 use depin_sdk_transaction_models::utxo::UTXOModel;
 use depin_sdk_validator::common::GuardianContainer;
 use depin_sdk_validator::standard::OrchestrationContainer;
-use libp2p::{identity, Multiaddr, PeerId};
+use depin_sdk_vm_wasm::WasmVm;
+use libp2p::{identity, Multiaddr};
 use serde_json::Value;
-use std::collections::BTreeMap;
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -45,8 +45,6 @@ struct Opts {
     peer: Option<Multiaddr>,
     #[clap(long, default_value = "/ip4/0.0.0.0/tcp/0")]
     listen_address: Multiaddr,
-    #[clap(long, default_value = "127.0.0.1:9944")]
-    rpc_listen_address: String,
 }
 
 /// Populates the state from a genesis file.
@@ -94,14 +92,14 @@ fn build_consensus_engine() -> Box<dyn ConsensusEngine<ProtocolTransaction> + Se
     }
 }
 
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    env_logger::builder().filter_level(log::LevelFilter::Info).init();
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Info)
+        .init();
     let opts = Opts::parse();
     log::info!("Initializing DePIN SDK Node...");
     log::info!("Using state file: {}", &opts.state_file);
-    log::info!("Using RPC address: {}", &opts.rpc_listen_address);
 
     let commitment_scheme = HashCommitmentScheme::new();
     let transaction_model = UTXOModel::new(commitment_scheme.clone());
@@ -123,7 +121,12 @@ async fn main() -> anyhow::Result<()> {
         enabled_vms: vec!["WASM".to_string()],
     };
 
-    let workload_container = Arc::new(WorkloadContainer::new(workload_config, state_tree));
+    let wasm_vm = Box::new(WasmVm::new());
+    let workload_container = Arc::new(WorkloadContainer::new(
+        workload_config,
+        state_tree,
+        wasm_vm,
+    ));
 
     let mut chain = Chain::new(
         commitment_scheme.clone(),
@@ -177,7 +180,10 @@ async fn main() -> anyhow::Result<()> {
     );
 
     guardian_container.start().await.map_err(|e| anyhow!(e))?;
-    orchestration_container.start().await.map_err(|e| anyhow!(e))?;
+    orchestration_container
+        .start()
+        .await
+        .map_err(|e| anyhow!(e))?;
     workload_container.start().await.map_err(|e| anyhow!(e))?;
 
     log::info!("Node successfully started. Running indefinitely...");
@@ -185,7 +191,10 @@ async fn main() -> anyhow::Result<()> {
     tokio::signal::ctrl_c().await?;
 
     log::info!("Shutdown signal received. Stopping node...");
-    orchestration_container.stop().await.map_err(|e| anyhow!(e))?;
+    orchestration_container
+        .stop()
+        .await
+        .map_err(|e| anyhow!(e))?;
     workload_container.stop().await.map_err(|e| anyhow!(e))?;
     guardian_container.stop().await.map_err(|e| anyhow!(e))?;
     log::info!("Node stopped gracefully.");
