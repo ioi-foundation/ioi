@@ -1,12 +1,12 @@
 // Path: crates/chain/src/app/mod.rs
-/// The private implementation for the `SovereignChain` trait.
+/// The private implementation for the `AppChain` trait.
 use crate::upgrade_manager::ModuleUpgradeManager;
 use async_trait::async_trait;
 use depin_sdk_core::app::{
-    AppChain, ApplicationTransaction, Block, BlockHeader, ChainError, ChainStatus,
+    ApplicationTransaction, Block, BlockHeader, ChainError, ChainState, ChainStatus,
     ProtocolTransaction, SystemPayload, SystemTransaction, UTXOTransaction,
 };
-use depin_sdk_core::chain::SovereignChain;
+use depin_sdk_core::chain::AppChain;
 use depin_sdk_core::commitment::CommitmentScheme;
 use depin_sdk_core::services::UpgradableService;
 use depin_sdk_core::state::StateManager;
@@ -31,7 +31,7 @@ pub(crate) const GOVERNANCE_KEY: &[u8] = b"system::governance_key";
 
 #[derive(Debug)]
 pub struct Chain<CS, TM: TransactionModel> {
-    app_chain: AppChain<CS, TM>,
+    state: ChainState<CS, TM>,
     #[allow(dead_code)]
     service_manager: ModuleUpgradeManager,
 }
@@ -57,7 +57,7 @@ where
         for service in initial_services {
             service_manager.register_service(service);
         }
-        let app_chain = AppChain {
+        let state = ChainState {
             commitment_scheme,
             transaction_model,
             chain_id: chain_id.to_string(),
@@ -66,7 +66,7 @@ where
             max_recent_blocks: 100,
         };
         Self {
-            app_chain,
+            state,
             service_manager,
         }
     }
@@ -86,13 +86,13 @@ where
                     ChainError::Transaction(format!("Failed to deserialize status: {e}"))
                 })?;
                 log::info!("Loaded chain status: height {}", status.height);
-                self.app_chain.status = status;
+                self.state.status = status;
             }
             Ok(None) => {
                 log::info!(
                     "No existing chain status found. Initializing and saving genesis status."
                 );
-                let status_bytes = serde_json::to_vec(&self.app_chain.status).unwrap();
+                let status_bytes = serde_json::to_vec(&self.state.status).unwrap();
                 state
                     .insert(STATUS_KEY, &status_bytes)
                     .map_err(|e| ChainError::Transaction(e.to_string()))?;
@@ -219,7 +219,7 @@ where
 }
 
 #[async_trait]
-impl<CS, TM, ST> SovereignChain<CS, TM, ST> for Chain<CS, TM>
+impl<CS, TM, ST> AppChain<CS, TM, ST> for Chain<CS, TM>
 where
     CS: CommitmentScheme + Send + Sync + 'static,
     TM: TransactionModel<CommitmentScheme = CS, Transaction = UTXOTransaction>
@@ -236,11 +236,11 @@ where
         + Debug,
 {
     fn status(&self) -> &ChainStatus {
-        &self.app_chain.status
+        &self.state.status
     }
 
     fn transaction_model(&self) -> &TM {
-        &self.app_chain.transaction_model
+        &self.state.transaction_model
     }
 
     async fn process_transaction(
@@ -252,7 +252,7 @@ where
             ProtocolTransaction::Application(app_tx) => match app_tx {
                 ApplicationTransaction::UTXO(utxo_tx) => {
                     workload
-                        .execute_transaction(utxo_tx, &self.app_chain.transaction_model)
+                        .execute_transaction(utxo_tx, &self.state.transaction_model)
                         .await
                         .map_err(|e| ChainError::Transaction(e.to_string()))?;
                 }
@@ -272,8 +272,8 @@ where
                     // Placeholder for sender context and other metadata
                     let context = depin_sdk_core::vm::ExecutionContext {
                         caller: vec![0; 32],
-                        block_height: self.app_chain.status.height, // Direct access to avoid ambiguity
-                        gas_limit: 10_000_000,                      // Default gas limit
+                        block_height: self.state.status.height, // Direct access to avoid ambiguity
+                        gas_limit: 10_000_000,                  // Default gas limit
                     };
                     workload
                         .call_contract(address.clone(), input_data.clone(), context)
@@ -285,7 +285,7 @@ where
                 self.process_system_transaction(sys_tx, workload).await?;
             }
         }
-        self.app_chain.status.total_transactions += 1;
+        self.state.status.total_transactions += 1;
         Ok(())
     }
 
@@ -294,15 +294,15 @@ where
         mut block: Block<ProtocolTransaction>,
         workload: &WorkloadContainer<ST>,
     ) -> Result<Block<ProtocolTransaction>, ChainError> {
-        if block.header.height != self.app_chain.status.height + 1 {
+        if block.header.height != self.state.status.height + 1 {
             return Err(ChainError::Block(format!(
                 "Invalid block height. Expected {}, got {}",
-                self.app_chain.status.height + 1,
+                self.state.status.height + 1,
                 block.header.height
             )));
         }
         let expected_prev_hash = self
-            .app_chain
+            .state
             .recent_blocks
             .last()
             .map_or(vec![0; 32], |b| b.header.state_root.clone());
@@ -317,10 +317,10 @@ where
         for tx in &block.transactions {
             self.process_transaction(tx, workload).await?;
         }
-        self.app_chain.status.height = block.header.height;
-        self.app_chain.status.latest_timestamp = block.header.timestamp;
+        self.state.status.height = block.header.height;
+        self.state.status.latest_timestamp = block.header.timestamp;
 
-        let status_bytes = serde_json::to_vec(&self.app_chain.status)
+        let status_bytes = serde_json::to_vec(&self.state.status)
             .map_err(|e| ChainError::Transaction(format!("Failed to serialize status: {e}")))?;
         let validator_set_bytes = serde_json::to_vec(&block.header.validator_set).map_err(|e| {
             ChainError::Transaction(format!("Failed to serialize validator set: {e}"))
@@ -335,9 +335,9 @@ where
         drop(state);
 
         block.header.state_root = state_root.as_ref().to_vec();
-        self.app_chain.recent_blocks.push(block.clone());
-        if self.app_chain.recent_blocks.len() > self.app_chain.max_recent_blocks {
-            self.app_chain.recent_blocks.remove(0);
+        self.state.recent_blocks.push(block.clone());
+        if self.state.recent_blocks.len() > self.state.max_recent_blocks {
+            self.state.recent_blocks.remove(0);
         }
         Ok(block)
     }
@@ -350,7 +350,7 @@ where
         _known_peers_bytes: &[Vec<u8>],
     ) -> Block<ProtocolTransaction> {
         let prev_hash = self
-            .app_chain
+            .state
             .recent_blocks
             .last()
             .map_or(vec![0; 32], |b| b.header.state_root.clone());
@@ -362,7 +362,7 @@ where
         peers.sort();
         let validator_set: Vec<Vec<u8>> = peers.iter().map(|p| p.to_bytes()).collect();
 
-        let next_height = self.app_chain.status.height + 1;
+        let next_height = self.state.status.height + 1;
         let header = BlockHeader {
             height: next_height,
             prev_hash: prev_hash.clone(),
@@ -381,14 +381,14 @@ where
     }
 
     fn get_block(&self, height: u64) -> Option<&Block<ProtocolTransaction>> {
-        self.app_chain
+        self.state
             .recent_blocks
             .iter()
             .find(|b| b.header.height == height)
     }
 
     fn get_blocks_since(&self, height: u64) -> Vec<Block<ProtocolTransaction>> {
-        self.app_chain
+        self.state
             .recent_blocks
             .iter()
             .filter(|b| b.header.height > height)

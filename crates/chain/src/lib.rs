@@ -1,6 +1,6 @@
 //! # DePIN SDK Chain
 //!
-//! This crate provides the implementation logic for the `SovereignChain` state machine.
+//! This crate provides the implementation logic for the `AppChain` state machine.
 
 mod app;
 pub mod upgrade_manager;

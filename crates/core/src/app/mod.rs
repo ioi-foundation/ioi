@@ -98,10 +98,10 @@ pub enum SystemPayload {
     Unstake { amount: u64 },
 }
 
-/// A struct that holds the core, serializable state of an application chain.
-/// This is distinct from its logic, which is defined by the `SovereignChain` trait.
+/// A struct that holds the core, serializable state of a blockchain.
+/// This is distinct from its logic, which is defined by the `AppChain` trait.
 #[derive(Debug)]
-pub struct AppChain<CS, TM: TransactionModel> {
+pub struct ChainState<CS, TM: TransactionModel> {
     pub commitment_scheme: CS,
     pub transaction_model: TM,
     pub chain_id: String,
