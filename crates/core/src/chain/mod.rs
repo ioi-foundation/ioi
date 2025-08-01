@@ -13,9 +13,9 @@ use std::fmt::Debug;
 pub type PublicKey = String;
 pub type StakeAmount = u64;
 
-/// A trait that defines the logic and capabilities of a sovereign chain state machine.
+/// A trait that defines the logic and capabilities of an application-specific blockchain.
 #[async_trait]
-pub trait SovereignChain<CS, TM, ST>: Debug + Send
+pub trait AppChain<CS, TM, ST>: Debug + Send
 where
     CS: CommitmentScheme,
     TM: TransactionModel<CommitmentScheme = CS>,

@@ -6,7 +6,7 @@ use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
 use depin_sdk_consensus::{ConsensusDecision, ConsensusEngine};
 use depin_sdk_core::app::{ApplicationTransaction, ProtocolTransaction, UTXOTransaction};
 use depin_sdk_core::{
-    chain::SovereignChain,
+    chain::AppChain,
     commitment::CommitmentScheme,
     error::ValidatorError,
     state::{StateManager, StateTree},
@@ -105,7 +105,7 @@ async fn rpc_handler(
     (StatusCode::OK, Json(response))
 }
 
-type ChainFor<CS, TM, ST> = Arc<Mutex<dyn SovereignChain<CS, TM, ST> + Send + Sync>>;
+type ChainFor<CS, TM, ST> = Arc<Mutex<dyn AppChain<CS, TM, ST> + Send + Sync>>;
 
 pub struct OrchestrationContainer<CS, TM, ST>
 where
@@ -147,7 +147,7 @@ where
         + Debug,
     CS::Commitment: Send + Sync + Debug,
 {
-    chain_ref: Arc<Mutex<dyn SovereignChain<CS, TM, ST> + Send + Sync>>,
+    chain_ref: Arc<Mutex<dyn AppChain<CS, TM, ST> + Send + Sync>>,
     workload_ref: Arc<WorkloadContainer<ST>>,
     tx_pool_ref: Arc<Mutex<VecDeque<ProtocolTransaction>>>,
     network_event_receiver: mpsc::Receiver<NetworkEvent>,
@@ -202,7 +202,7 @@ where
 
     pub fn set_chain_and_workload_ref(
         &self,
-        chain_ref: Arc<Mutex<dyn SovereignChain<CS, TM, ST> + Send + Sync>>,
+        chain_ref: Arc<Mutex<dyn AppChain<CS, TM, ST> + Send + Sync>>,
         workload_ref: Arc<WorkloadContainer<ST>>,
     ) {
         self.chain.set(chain_ref).expect("Chain ref already set");

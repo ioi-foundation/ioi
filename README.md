@@ -177,6 +177,10 @@ cargo test --workspace
 
 The repository includes long-running end-to-end (E2E) tests that simulate a live multi-node network to verify complex system lifecycles. These are ignored by default.
 
+```bash
+cargo test -p depin-sdk-binaries --release --test staking_e2e -- --ignored --nocapture
+```
+
 To run the **entire test suite**, including the ignored E2E tests, use this single command:
 
 ```bash
