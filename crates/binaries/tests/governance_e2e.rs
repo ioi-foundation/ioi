@@ -15,11 +15,11 @@
 use anyhow::{anyhow, Result};
 use depin_sdk_core::app::{ProtocolTransaction, SystemPayload, SystemTransaction};
 use libp2p::identity;
+use reqwest::Client;
 use std::process::{Command, Stdio};
 use std::sync::Once;
 use std::time::Duration;
 use tempfile::{tempdir, TempDir};
-// FIX: Add AsyncRead to the imports to make the helper function generic.
 use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
 use tokio::process::Child;
 use tokio::time::timeout;
@@ -58,8 +58,46 @@ struct TestNode {
     _dir: TempDir, // Held for automatic cleanup
 }
 
+async fn submit_transaction(rpc_addr: &str, tx: &ProtocolTransaction) -> Result<()> {
+    let tx_bytes = serde_json::to_vec(tx)?;
+    let tx_hex = hex::encode(tx_bytes);
+
+    let client = Client::new();
+    let request_body = serde_json::json!({
+        "jsonrpc": "2.0",
+        "method": "submit_tx",
+        "params": [tx_hex],
+        "id": 1
+    });
+
+    let rpc_url = format!("http://{}", rpc_addr);
+    println!("Submitting tx to {}", rpc_url);
+
+    let response = client
+        .post(&rpc_url)
+        .json(&request_body)
+        .send()
+        .await?
+        .json::<serde_json::Value>()
+        .await?;
+
+    if let Some(error) = response.get("error") {
+        if !error.is_null() {
+            return Err(anyhow!("RPC error: {}", error));
+        }
+    }
+
+    println!("RPC response: {:?}", response);
+    Ok(())
+}
+
 /// Spawns a node process, assuming its temporary directory and configs are already created.
-async fn spawn_node(key: &identity::Keypair, dir: TempDir, args: &[&str]) -> Result<TestNode> {
+async fn spawn_node(
+    key: &identity::Keypair,
+    dir: TempDir,
+    args: &[&str],
+    rpc_addr: &str,
+) -> Result<TestNode> {
     std::fs::write(
         dir.path().join("state.json.identity.key"),
         key.to_protobuf_encoding()?,
@@ -67,9 +105,17 @@ async fn spawn_node(key: &identity::Keypair, dir: TempDir, args: &[&str]) -> Res
 
     let config_dir = dir.path().join("config");
     std::fs::create_dir_all(&config_dir)?;
+
+    let orchestration_config = format!(
+        r#"
+consensus_type = "ProofOfAuthority"
+rpc_listen_address = "{}"
+"#,
+        rpc_addr
+    );
     std::fs::write(
         config_dir.join("orchestration.toml"),
-        r#"consensus_type = "ProofOfAuthority""#,
+        orchestration_config,
     )?;
     std::fs::write(
         config_dir.join("guardian.toml"),
@@ -79,6 +125,7 @@ async fn spawn_node(key: &identity::Keypair, dir: TempDir, args: &[&str]) -> Res
     let state_file_arg = dir.path().join("state.json").to_string_lossy().to_string();
     let genesis_file_arg = dir.path().join("genesis.json").to_string_lossy().to_string();
     let config_dir_arg = config_dir.to_string_lossy().to_string();
+    let rpc_addr_arg = rpc_addr.to_string();
     let mut cmd_args = vec![
         "--state-file",
         &state_file_arg,
@@ -86,6 +133,8 @@ async fn spawn_node(key: &identity::Keypair, dir: TempDir, args: &[&str]) -> Res
         &genesis_file_arg,
         "--config-dir",
         &config_dir_arg,
+        "--rpc-listen-address",
+        &rpc_addr_arg,
     ];
 
     let args_owned: Vec<String> = args.iter().map(|s| s.to_string()).collect();
@@ -98,11 +147,13 @@ async fn spawn_node(key: &identity::Keypair, dir: TempDir, args: &[&str]) -> Res
         .kill_on_drop(true)
         .spawn()?;
 
-    Ok(TestNode { process, _dir: dir })
+    Ok(TestNode {
+        process,
+        _dir: dir,
+    })
 }
 
 /// Checks a node's log stream for a line containing a specific pattern within a timeout.
-// FIX: Make the log_stream generic to accept either ChildStdout or ChildStderr.
 async fn assert_log_contains<R: AsyncRead + Unpin>(
     label: &str,
     log_stream: &mut tokio::io::Lines<BufReader<R>>,
@@ -123,7 +174,14 @@ async fn assert_log_contains<R: AsyncRead + Unpin>(
         Err(anyhow!("Log stream ended before pattern was found"))
     })
     .await? // Handles timeout error
-    .map_err(|e| anyhow!("[{}] Log assertion failed for pattern '{}': {}", label, pattern, e))
+    .map_err(|e| {
+        anyhow!(
+            "[{}] Log assertion failed for pattern '{}': {}",
+            label,
+            pattern,
+            e
+        )
+    })
 }
 
 // --- The Main E2E Test ---
@@ -166,8 +224,13 @@ async fn test_governance_authority_change_lifecycle() -> Result<()> {
     println!("--- Launching 3-Node Cluster ---");
     let dir1 = tempdir()?;
     std::fs::write(dir1.path().join("genesis.json"), &genesis_string)?;
-    let mut node1 =
-        spawn_node(&key_node1, dir1, &["--listen-address", "/ip4/127.0.0.1/tcp/4001"]).await?;
+    let mut node1 = spawn_node(
+        &key_node1,
+        dir1,
+        &["--listen-address", "/ip4/127.0.0.1/tcp/4001"],
+        "127.0.0.1:9944",
+    )
+    .await?;
 
     tokio::time::sleep(STARTUP_DELAY).await; // Give listener time to bind
     let bootnode_addr = "/ip4/127.0.0.1/tcp/4001";
@@ -183,6 +246,7 @@ async fn test_governance_authority_change_lifecycle() -> Result<()> {
             "--peer",
             bootnode_addr,
         ],
+        "127.0.0.1:9945",
     )
     .await?;
 
@@ -197,15 +261,14 @@ async fn test_governance_authority_change_lifecycle() -> Result<()> {
             "--peer",
             bootnode_addr,
         ],
+        "127.0.0.1:9946",
     )
     .await?;
 
-    // FIX: Read from stderr, where env_logger writes, for assertions.
     let mut logs1 = BufReader::new(node1.process.stderr.take().unwrap()).lines();
     let mut logs2 = BufReader::new(node2.process.stderr.take().unwrap()).lines();
-    let mut _logs3 = BufReader::new(node3.process.stderr.take().unwrap()).lines();
+    let mut logs3 = BufReader::new(node3.process.stderr.take().unwrap()).lines();
 
-    // FIX: Spawn tasks to drain stdout to prevent pipes from filling up and blocking the processes.
     let mut stdout1 = BufReader::new(node1.process.stdout.take().unwrap());
     let mut stdout2 = BufReader::new(node2.process.stdout.take().unwrap());
     let mut stdout3 = BufReader::new(node3.process.stdout.take().unwrap());
@@ -241,11 +304,57 @@ async fn test_governance_authority_change_lifecycle() -> Result<()> {
         payload,
         signature,
     });
-    let _serialized_tx = serde_json::to_vec(&tx)?;
-    println!("--- [SKIPPED] Transaction submission requires a dedicated endpoint in the node. ---");
+
+    submit_transaction("127.0.0.1:9944", &tx).await?;
+    println!("--- Governance transaction submitted successfully. ---");
 
     // --- D. Phase 3: Verify New State (Post-Governance) ---
-    println!("--- [SKIPPED] Phase 3: Verifying New State ---");
+    println!("--- Phase 3: Verifying New State ---");
+
+    // --- FIX START: Wait for ALL relevant nodes to process the state change ---
+    // This synchronizes the test harness with the distributed state of the network,
+    // ensuring Node 2 has processed its own removal before we check its behavior.
+    assert_log_contains(
+        "Node3",
+        &mut logs3,
+        "Successfully updated authority set",
+    )
+    .await?;
+    assert_log_contains(
+        "Node2",
+        &mut logs2,
+        "Successfully updated authority set",
+    )
+    .await?;
+    println!("--- State change confirmed by all nodes. Now verifying roles. ---");
+    // --- FIX END ---
+
+    let phase3_checks = tokio::join!(
+        // Check for new authority activity
+        assert_log_contains("Node3", &mut logs3, "Consensus decision: Produce block"),
+        // Check for old authority inactivity (expect a timeout)
+        async {
+            // Now that the state change is confirmed, we can start the inactivity check.
+            let res = timeout(
+                Duration::from_secs(20), // Wait for a few block cycles
+                assert_log_contains("Node2", &mut logs2, "Consensus decision: Produce block"),
+            )
+            .await;
+
+            match res {
+                Ok(_) => Err(anyhow!(
+                    "Node 2 unexpectedly produced a block after being removed."
+                )),
+                Err(_) => {
+                    println!("--- Inactivity verified: Node 2 correctly stopped producing blocks. ---");
+                    Ok(())
+                }
+            }
+        }
+    );
+    phase3_checks.0?;
+    phase3_checks.1?;
+    println!("--- New state verified: Node 1 & 3 are now authorities. ---");
 
     // --- E. Cleanup ---
     println!("--- Test finished. Cleaning up. ---");

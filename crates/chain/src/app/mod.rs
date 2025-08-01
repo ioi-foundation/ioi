@@ -13,9 +13,12 @@ use depin_sdk_core::commitment::CommitmentScheme;
 use depin_sdk_core::services::UpgradableService;
 use depin_sdk_core::state::StateManager;
 use depin_sdk_core::transaction::TransactionModel;
-use depin_sdk_core::validator::{TransactionExecutor, WorkloadContainer};
+// --- FIX: Import the TransactionExecutor trait ---
+use depin_sdk_core::validator::TransactionExecutor;
+// --- End Fix ---
+use depin_sdk_core::validator::WorkloadContainer;
+use libp2p::identity::PublicKey as Libp2pPublicKey;
 use libp2p::PeerId;
-use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -106,12 +109,26 @@ where
         let state_tree_arc = workload.state_tree();
         let mut state = state_tree_arc.lock().await;
 
-        let _governance_pk = state.get(GOVERNANCE_KEY)?.ok_or_else(|| {
+        let governance_pk_bytes = state.get(GOVERNANCE_KEY)?.ok_or_else(|| {
             ChainError::Transaction("Governance key not found in state".to_string())
         })?;
 
-        let _payload_bytes = serde_json::to_vec(&tx.payload).unwrap();
-        let is_valid_sig = true; // Placeholder for real crypto
+        let ed25519_pk =
+            libp2p::identity::ed25519::PublicKey::try_from_bytes(&governance_pk_bytes).map_err(
+                |e| {
+                    ChainError::Transaction(format!(
+                        "Invalid Ed25519 governance public key in state: {}",
+                        e
+                    ))
+                },
+            )?;
+        let libp2p_pk = Libp2pPublicKey::from(ed25519_pk);
+
+        let payload_bytes = serde_json::to_vec(&tx.payload)
+            .map_err(|e| ChainError::Transaction(format!("Failed to serialize payload: {}", e)))?;
+
+        let is_valid_sig = libp2p_pk.verify(&payload_bytes, &tx.signature);
+
         if !is_valid_sig {
             return Err(ChainError::Transaction(
                 "Invalid governance signature".to_string(),
@@ -135,7 +152,16 @@ where
 
                 let serialized_authorities = serde_json::to_vec(new_authorities).unwrap();
                 state.insert(AUTHORITY_SET_KEY, &serialized_authorities)?;
-                log::info!("Successfully updated authority set to {} authorities via governance.", new_authorities.len());
+                // --- FIX: Also update the validator set to prevent inconsistency. ---
+                // This ensures that even if other parts of the system read the
+                // validator_set key, they will get the correct, up-to-date data
+                // immediately after this transaction is processed.
+                state.insert(VALIDATOR_SET_KEY, &serialized_authorities)?;
+                // --- END FIX ---
+                log::info!(
+                    "Successfully updated authority set to {} authorities via governance.",
+                    new_authorities.len()
+                );
             }
         }
         Ok(())
@@ -146,7 +172,12 @@ where
 impl<CS, TM, ST> SovereignChain<CS, TM, ST> for Chain<CS, TM>
 where
     CS: CommitmentScheme + Send + Sync + 'static,
-    TM: TransactionModel<CommitmentScheme = CS, Transaction = UTXOTransaction> + Clone + Send + Sync + 'static + Debug,
+    TM: TransactionModel<CommitmentScheme = CS, Transaction = UTXOTransaction>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
     CS::Commitment: Send + Sync + Debug,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static + Debug,
 {
@@ -180,7 +211,11 @@ where
         Ok(())
     }
 
-    async fn process_block(&mut self, mut block: Block<ProtocolTransaction>, workload: &WorkloadContainer<ST>) -> Result<Block<ProtocolTransaction>, ChainError> {
+    async fn process_block(
+        &mut self,
+        mut block: Block<ProtocolTransaction>,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<Block<ProtocolTransaction>, ChainError> {
         if block.header.height != self.app_chain.status.height + 1 {
             return Err(ChainError::Block(format!(
                 "Invalid block height. Expected {}, got {}",
@@ -206,17 +241,18 @@ where
         }
         self.app_chain.status.height = block.header.height;
         self.app_chain.status.latest_timestamp = block.header.timestamp;
-        
+
         let status_bytes = serde_json::to_vec(&self.app_chain.status)
             .map_err(|e| ChainError::Transaction(format!("Failed to serialize status: {}", e)))?;
-        let validator_set_bytes = serde_json::to_vec(&block.header.validator_set)
-            .map_err(|e| ChainError::Transaction(format!("Failed to serialize validator set: {}", e)))?;
-        
+        let validator_set_bytes = serde_json::to_vec(&block.header.validator_set).map_err(|e| {
+            ChainError::Transaction(format!("Failed to serialize validator set: {}", e))
+        })?;
+
         let state_tree_arc = workload.state_tree();
         let mut state = state_tree_arc.lock().await;
         state.insert(STATUS_KEY, &status_bytes)?;
         state.insert(VALIDATOR_SET_KEY, &validator_set_bytes)?;
-        
+
         let state_root = state.root_commitment();
         drop(state);
 
@@ -233,7 +269,7 @@ where
         transactions: Vec<ProtocolTransaction>,
         _workload: &WorkloadContainer<ST>,
         current_validator_set: &Vec<Vec<u8>>,
-        known_peers_bytes: &Vec<Vec<u8>>,
+        _known_peers_bytes: &Vec<Vec<u8>>,
     ) -> Block<ProtocolTransaction> {
         let prev_hash = self
             .app_chain
@@ -241,18 +277,17 @@ where
             .last()
             .map_or(vec![0; 32], |b| b.header.state_root.clone());
 
-        let base_validators: HashSet<PeerId> = current_validator_set.iter()
+        // The validator set for the new block should be exactly the authority set
+        // passed in, ensuring it reflects the current consensus state without
+        // incorrectly adding peers. We still parse, sort, and re-serialize to
+        // ensure canonical representation.
+        let mut peers: Vec<PeerId> = current_validator_set
+            .iter()
             .filter_map(|bytes| PeerId::from_bytes(bytes).ok())
             .collect();
-
-        let known_peers: HashSet<PeerId> = known_peers_bytes.iter()
-            .filter_map(|bytes| PeerId::from_bytes(bytes).ok())
-            .collect();
-        
-        let mut new_validator_set_peers: Vec<PeerId> = base_validators.union(&known_peers).cloned().collect();
-        new_validator_set_peers.sort();
-        
-        let validator_set: Vec<Vec<u8>> = new_validator_set_peers.iter().map(|p| p.to_bytes()).collect();
+        peers.sort(); // Ensure deterministic ordering.
+        let validator_set: Vec<Vec<u8>> =
+            peers.iter().map(|p| p.to_bytes()).collect();
 
         let next_height = self.app_chain.status.height + 1;
         let header = BlockHeader {
@@ -295,8 +330,9 @@ where
         let state_tree_arc = workload.state_tree();
         let state = state_tree_arc.lock().await;
         match state.get(VALIDATOR_SET_KEY) {
-            Ok(Some(bytes)) => serde_json::from_slice(&bytes)
-                .map_err(|e| ChainError::Transaction(format!("Failed to deserialize validator set: {}", e))),
+            Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
+                ChainError::Transaction(format!("Failed to deserialize validator set: {}", e))
+            }),
             Ok(None) => Ok(Vec::new()),
             Err(e) => Err(e.into()),
         }
@@ -309,12 +345,14 @@ where
         let state_tree_arc = workload.state_tree();
         let state = state_tree_arc.lock().await;
         match state.get(AUTHORITY_SET_KEY) {
-            Ok(Some(bytes)) => serde_json::from_slice(&bytes)
-                .map_err(|e| ChainError::Transaction(format!("Failed to deserialize authority set: {}", e))),
-            // FIX: If the authority set is not found, it's a critical configuration error.
-            Ok(None) => Err(ChainError::State(depin_sdk_core::error::StateError::KeyNotFound(
-                "system::authorities not found in state. Check genesis file.".to_string(),
-            ))),
+            Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
+                ChainError::Transaction(format!("Failed to deserialize authority set: {}", e))
+            }),
+            Ok(None) => Err(ChainError::State(
+                depin_sdk_core::error::StateError::KeyNotFound(
+                    "system::authorities not found in state. Check genesis file.".to_string(),
+                ),
+            )),
             Err(e) => Err(e.into()),
         }
     }
@@ -328,6 +366,7 @@ mod tests {
     use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
     use depin_sdk_state_trees::hashmap::HashMapStateTree;
     use depin_sdk_transaction_models::utxo::UTXOModel;
+    use libp2p::identity;
     use std::sync::Arc;
 
     #[tokio::test]
@@ -336,17 +375,26 @@ mod tests {
         let scheme = HashCommitmentScheme::new();
         let state_tree = HashMapStateTree::new(scheme.clone());
         let workload = Arc::new(WorkloadContainer::new(
-            WorkloadConfig { enabled_vms: vec![] },
+            WorkloadConfig {
+                enabled_vms: vec![],
+            },
             state_tree,
         ));
         let mut chain = Chain::new(scheme.clone(), UTXOModel::new(scheme), "test-chain", vec![]);
 
-        let gov_pk = b"governance-public-key".to_vec();
+        let gov_keypair = identity::Keypair::generate_ed25519();
+        let gov_pk_bytes = gov_keypair
+            .public()
+            .try_into_ed25519()
+            .unwrap()
+            .to_bytes()
+            .to_vec();
+
         workload
             .state_tree()
             .lock()
             .await
-            .insert(GOVERNANCE_KEY, &gov_pk)
+            .insert(GOVERNANCE_KEY, &gov_pk_bytes)
             .unwrap();
 
         // Create transaction
@@ -354,8 +402,12 @@ mod tests {
         let payload = SystemPayload::UpdateAuthorities {
             new_authorities: new_authorities.clone(),
         };
-        let signature = b"valid-signature".to_vec();
-        let sys_tx = SystemTransaction { payload, signature };
+        let payload_bytes = serde_json::to_vec(&payload).unwrap();
+        let signature = gov_keypair.sign(&payload_bytes).unwrap();
+        let sys_tx = SystemTransaction {
+            payload,
+            signature,
+        };
         let protocol_tx = ProtocolTransaction::System(sys_tx);
 
         // Test
@@ -380,16 +432,25 @@ mod tests {
         let scheme = HashCommitmentScheme::new();
         let state_tree = HashMapStateTree::new(scheme.clone());
         let workload = Arc::new(WorkloadContainer::new(
-            WorkloadConfig { enabled_vms: vec![] },
+            WorkloadConfig {
+                enabled_vms: vec![],
+            },
             state_tree,
         ));
         let mut chain = Chain::new(scheme.clone(), UTXOModel::new(scheme), "test-chain", vec![]);
-        let gov_pk = b"governance-public-key".to_vec();
+        let gov_keypair = identity::Keypair::generate_ed25519();
+        let gov_pk_bytes = gov_keypair
+            .public()
+            .try_into_ed25519()
+            .unwrap()
+            .to_bytes()
+            .to_vec();
+
         workload
             .state_tree()
             .lock()
             .await
-            .insert(GOVERNANCE_KEY, &gov_pk)
+            .insert(GOVERNANCE_KEY, &gov_pk_bytes)
             .unwrap();
 
         // Create transaction with invalid signature
@@ -400,12 +461,11 @@ mod tests {
             signature: b"invalid-signature".to_vec(),
         };
         let protocol_tx = ProtocolTransaction::System(sys_tx);
-        
-        // This test will pass for now, but should fail when real crypto is added.
+
         let result = chain.process_transaction(&protocol_tx, &workload).await;
+        assert!(result.is_err());
         assert!(
-            result.is_ok(),
-            "This test should fail once real signature verification is implemented"
+            matches!(result, Err(ChainError::Transaction(msg)) if msg == "Invalid governance signature")
         );
     }
 }

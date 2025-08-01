@@ -1,12 +1,9 @@
+// Path: crates/sync/src/traits.rs
+
 //! Trait definitions for block synchronization.
 
 use async_trait::async_trait;
-use depin_sdk_core::{
-    app::{Block, ProtocolTransaction},
-    commitment::CommitmentScheme,
-    state::StateManager,
-    transaction::TransactionModel,
-};
+use depin_sdk_core::app::{Block, ProtocolTransaction};
 use libp2p::PeerId;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -33,12 +30,7 @@ pub enum NodeState {
 
 /// A trait for a standalone, pluggable block synchronization engine.
 #[async_trait]
-pub trait BlockSync<CS, TM, ST>: Send + Sync
-where
-    CS: CommitmentScheme + Send + Sync + 'static,
-    TM: TransactionModel<CommitmentScheme = CS> + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
-{
+pub trait BlockSync: Send + Sync {
     /// Starts the background tasks for gossiping, handling sync requests, etc.
     async fn start(&self) -> Result<(), SyncError>;
 

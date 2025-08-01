@@ -1,18 +1,10 @@
 // Path: crates/sync/src/libp2p.rs
-// Change: Prefixed unused fields, removed unreachable match arm.
 
 //! A libp2p-based implementation of the BlockSync trait.
 
 use crate::traits::{BlockSync, NodeState, SyncError};
 use async_trait::async_trait;
-use depin_sdk_core::{
-    app::{Block, ProtocolTransaction},
-    chain::SovereignChain,
-    commitment::CommitmentScheme,
-    state::{StateManager, StateTree},
-    transaction::TransactionModel,
-    validator::WorkloadContainer,
-};
+use depin_sdk_core::app::{Block, ProtocolTransaction};
 use futures::{
     io::{AsyncRead, AsyncWrite},
     StreamExt,
@@ -25,14 +17,14 @@ use libp2p::{
     tcp, yamux, Multiaddr, PeerId, Swarm, SwarmBuilder, Transport,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, fmt::Debug, iter, sync::Arc};
+use std::{collections::HashSet, iter, sync::Arc};
 use tokio::{
     sync::{mpsc, watch, Mutex},
     task::JoinHandle,
-    time::{self, Duration},
+    time::Duration,
 };
 
-// --- Network Protocol Definitions (previously in orchestration.rs) ---
+// --- Network Protocol Definitions ---
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SyncRequest {
@@ -151,7 +143,19 @@ pub enum SwarmCommand {
 }
 
 #[derive(Debug)]
-enum SwarmEventOut {
+pub enum NetworkEvent {
+    ConnectionEstablished(PeerId),
+    ConnectionClosed(PeerId),
+    GossipBlock(Block<ProtocolTransaction>),
+    StatusRequest(PeerId, ResponseChannel<SyncResponse>),
+    BlocksRequest(PeerId, u64, ResponseChannel<SyncResponse>),
+    StatusResponse(PeerId, u64),
+    BlocksResponse(PeerId, Vec<Block<ProtocolTransaction>>),
+}
+
+// Internal event type for swarm -> forwarder communication
+#[derive(Debug)]
+enum SwarmInternalEvent {
     ConnectionEstablished(PeerId),
     ConnectionClosed(PeerId),
     GossipBlock(Vec<u8>, PeerId),
@@ -163,46 +167,29 @@ enum SwarmEventOut {
 
 // --- Libp2pSync Implementation ---
 
-pub struct Libp2pSync<CS, TM, ST>
-where
-    CS: CommitmentScheme + Send + Sync + 'static,
-    TM: TransactionModel<CommitmentScheme = CS> + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
-{
-    _chain: Arc<Mutex<dyn SovereignChain<CS, TM, ST> + Send + Sync>>,
-    _workload: Arc<WorkloadContainer<ST>>,
+pub struct Libp2pSync {
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
     shutdown_sender: Arc<watch::Sender<bool>>,
     task_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
-    pub node_state: Arc<Mutex<NodeState>>,
-    pub known_peers: Arc<Mutex<HashSet<PeerId>>>,
-    pub local_peer_id: PeerId,
+    node_state: Arc<Mutex<NodeState>>,
+    known_peers: Arc<Mutex<HashSet<PeerId>>>,
+    local_peer_id: PeerId,
 }
 
-impl<CS, TM, ST> Libp2pSync<CS, TM, ST>
-where
-    CS: CommitmentScheme + Send + Sync + 'static,
-    TM: TransactionModel<CommitmentScheme = CS> + Clone + Send + Sync + 'static,
-    TM::Transaction:
-        Clone + Debug + Send + Sync + for<'de> serde::Deserialize<'de> + serde::Serialize,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + StateTree<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Send
-        + Sync
-        + 'static
-        + Debug,
-    CS::Commitment: Send + Sync + Debug,
-{
+impl Libp2pSync {
     pub fn new(
-        chain: Arc<Mutex<dyn SovereignChain<CS, TM, ST> + Send + Sync>>,
-        workload: Arc<WorkloadContainer<ST>>,
         local_key: identity::Keypair,
         listen_addr: Multiaddr,
         dial_addr: Option<Multiaddr>,
-    ) -> anyhow::Result<Self> {
+    ) -> anyhow::Result<(
+        Arc<Self>,
+        mpsc::Sender<SwarmCommand>,
+        mpsc::Receiver<NetworkEvent>,
+    )> {
         let (shutdown_sender, _) = watch::channel(false);
         let (swarm_command_sender, swarm_command_receiver) = mpsc::channel(100);
-        let (swarm_event_sender, swarm_event_receiver) = mpsc::channel(100);
+        let (internal_event_sender, mut internal_event_receiver) = mpsc::channel(100);
+        let (network_event_sender, network_event_receiver) = mpsc::channel(100);
 
         let local_peer_id = local_key.public().to_peer_id();
         let node_state = Arc::new(Mutex::new(NodeState::Initializing));
@@ -212,18 +199,38 @@ where
         let swarm_task = tokio::spawn(Self::run_swarm_loop(
             swarm,
             swarm_command_receiver,
-            swarm_event_sender,
+            internal_event_sender,
             shutdown_sender.subscribe(),
         ));
-        let event_task = tokio::spawn(Self::run_event_loop(
-            swarm_command_sender.clone(),
-            swarm_event_receiver,
-            shutdown_sender.subscribe(),
-            chain.clone(),
-            workload.clone(),
-            node_state.clone(),
-            known_peers.clone(),
-        ));
+
+        let event_forwarder_task = tokio::spawn(async move {
+            while let Some(event) = internal_event_receiver.recv().await {
+                let translated_event = match event {
+                    SwarmInternalEvent::ConnectionEstablished(p) => Some(NetworkEvent::ConnectionEstablished(p)),
+                    SwarmInternalEvent::ConnectionClosed(p) => Some(NetworkEvent::ConnectionClosed(p)),
+                    SwarmInternalEvent::StatusRequest(p, c) => Some(NetworkEvent::StatusRequest(p, c)),
+                    SwarmInternalEvent::BlocksRequest(p, h, c) => Some(NetworkEvent::BlocksRequest(p, h, c)),
+                    SwarmInternalEvent::StatusResponse(p, h) => Some(NetworkEvent::StatusResponse(p, h)),
+                    SwarmInternalEvent::BlocksResponse(p, b) => Some(NetworkEvent::BlocksResponse(p, b)),
+                    SwarmInternalEvent::GossipBlock(data, _source) => {
+                        match serde_json::from_slice(&data) {
+                            Ok(block) => Some(NetworkEvent::GossipBlock(block)),
+                            Err(e) => {
+                                log::warn!("Failed to deserialize gossiped block: {}", e);
+                                None
+                            }
+                        }
+                    }
+                };
+
+                if let Some(event) = translated_event {
+                    if network_event_sender.send(event).await.is_err() {
+                        log::info!("[Sync] Network event channel closed. Shutting down forwarder.");
+                        break;
+                    }
+                }
+            }
+        });
 
         let initial_cmds_task = tokio::spawn({
             let cmd_sender = swarm_command_sender.clone();
@@ -235,16 +242,20 @@ where
             }
         });
 
-        Ok(Self {
-            _chain: chain,
-            _workload: workload,
-            swarm_command_sender,
+        let sync_service = Arc::new(Self {
+            swarm_command_sender: swarm_command_sender.clone(),
             shutdown_sender: Arc::new(shutdown_sender),
-            task_handles: Arc::new(Mutex::new(vec![swarm_task, event_task, initial_cmds_task])),
+            task_handles: Arc::new(Mutex::new(vec![
+                swarm_task,
+                event_forwarder_task,
+                initial_cmds_task,
+            ])),
             node_state,
             known_peers,
             local_peer_id,
-        })
+        });
+
+        Ok((sync_service, swarm_command_sender, network_event_receiver))
     }
 
     fn build_swarm(local_key: identity::Keypair) -> anyhow::Result<Swarm<SyncBehaviour>> {
@@ -281,7 +292,7 @@ where
     async fn run_swarm_loop(
         mut swarm: Swarm<SyncBehaviour>,
         mut command_receiver: mpsc::Receiver<SwarmCommand>,
-        event_sender: mpsc::Sender<SwarmEventOut>,
+        event_sender: mpsc::Sender<SwarmInternalEvent>,
         mut shutdown_receiver: watch::Receiver<bool>,
     ) {
         let topic = gossipsub::IdentTopic::new("blocks");
@@ -295,23 +306,23 @@ where
                 },
                 event = swarm.select_next_some() => match event {
                     SwarmEvent::NewListenAddr { address, .. } => { log::info!("[Sync] Swarm listening on {}", address); }
-                    SwarmEvent::ConnectionEstablished { peer_id, .. } => { event_sender.send(SwarmEventOut::ConnectionEstablished(peer_id)).await.ok(); }
-                    SwarmEvent::ConnectionClosed { peer_id, .. } => { event_sender.send(SwarmEventOut::ConnectionClosed(peer_id)).await.ok(); }
+                    SwarmEvent::ConnectionEstablished { peer_id, .. } => { event_sender.send(SwarmInternalEvent::ConnectionEstablished(peer_id)).await.ok(); }
+                    SwarmEvent::ConnectionClosed { peer_id, .. } => { event_sender.send(SwarmInternalEvent::ConnectionClosed(peer_id)).await.ok(); }
                     SwarmEvent::Behaviour(event) => match event {
                         SyncBehaviourEvent::Gossipsub(gossipsub::Event::Message { message, .. }) => {
                             if let Some(source) = message.source {
-                                event_sender.send(SwarmEventOut::GossipBlock(message.data, source)).await.ok();
+                                event_sender.send(SwarmInternalEvent::GossipBlock(message.data, source)).await.ok();
                             }
                         }
                         SyncBehaviourEvent::RequestResponse(request_response::Event::Message { peer, message }) => {
                             match message {
                                 request_response::Message::Request { request, channel, .. } => match request {
-                                    SyncRequest::GetStatus => { event_sender.send(SwarmEventOut::StatusRequest(peer, channel)).await.ok(); }
-                                    SyncRequest::GetBlocks(h) => { event_sender.send(SwarmEventOut::BlocksRequest(peer, h, channel)).await.ok(); }
+                                    SyncRequest::GetStatus => { event_sender.send(SwarmInternalEvent::StatusRequest(peer, channel)).await.ok(); }
+                                    SyncRequest::GetBlocks(h) => { event_sender.send(SwarmInternalEvent::BlocksRequest(peer, h, channel)).await.ok(); }
                                 },
                                 request_response::Message::Response { request_id: _, response } => match response {
-                                    SyncResponse::Status(h) => { event_sender.send(SwarmEventOut::StatusResponse(peer, h)).await.ok(); }
-                                    SyncResponse::Blocks(blocks) => { event_sender.send(SwarmEventOut::BlocksResponse(peer, blocks)).await.ok(); }
+                                    SyncResponse::Status(h) => { event_sender.send(SwarmInternalEvent::StatusResponse(peer, h)).await.ok(); }
+                                    SyncResponse::Blocks(blocks) => { event_sender.send(SwarmInternalEvent::BlocksResponse(peer, blocks)).await.ok(); }
                                 }
                             }
                         }
@@ -342,104 +353,11 @@ where
         }
         log::info!("[Sync] Swarm loop finished.");
     }
-
-    async fn run_event_loop(
-        swarm_commander: mpsc::Sender<SwarmCommand>,
-        mut event_receiver: mpsc::Receiver<SwarmEventOut>,
-        mut shutdown_receiver: watch::Receiver<bool>,
-        chain_ref: Arc<Mutex<dyn SovereignChain<CS, TM, ST> + Send + Sync>>,
-        workload_ref: Arc<WorkloadContainer<ST>>,
-        node_state: Arc<Mutex<NodeState>>,
-        known_peers: Arc<Mutex<HashSet<PeerId>>>,
-    ) {
-        *node_state.lock().await = NodeState::Syncing;
-        let initial_sync_timer = time::sleep(Duration::from_secs(5));
-        tokio::pin!(initial_sync_timer);
-
-        loop {
-            tokio::select! {
-                _ = &mut initial_sync_timer, if *node_state.lock().await == NodeState::Syncing => {
-                    if known_peers.lock().await.is_empty() {
-                         log::info!("[Sync] No peers found after timeout. Assuming genesis node. State -> Synced.");
-                        *node_state.lock().await = NodeState::Synced;
-                    }
-                },
-                _ = shutdown_receiver.changed() => if *shutdown_receiver.borrow() { break; },
-                Some(event) = event_receiver.recv() => { match event {
-                    SwarmEventOut::ConnectionEstablished(peer_id) => {
-                        known_peers.lock().await.insert(peer_id);
-                        swarm_commander.send(SwarmCommand::SendStatusRequest(peer_id)).await.ok();
-                    }
-                    SwarmEventOut::ConnectionClosed(peer_id) => {
-                        known_peers.lock().await.remove(&peer_id);
-                    }
-                    SwarmEventOut::GossipBlock(data, source) => {
-                        if let Ok(block) = serde_json::from_slice::<Block<ProtocolTransaction>>(&data) {
-                            log::info!("[Sync] Received block #{} via gossip from peer {:?}.", block.header.height, source);
-                            let mut chain = chain_ref.lock().await;
-                            if let Err(e) = chain.process_block(block, &workload_ref).await {
-                                log::warn!("[Sync] Failed to process gossiped block from peer {:?}: {:?}", source, e);
-                            }
-                        }
-                    }
-                    SwarmEventOut::StatusRequest(peer, channel) => {
-                        let height = chain_ref.lock().await.status().height;
-                        swarm_commander.send(SwarmCommand::SendStatusResponse(channel, height)).await.ok();
-                        log::info!("[Sync] Responded to GetStatus request from {} with height {}.", peer, height);
-                    }
-                    SwarmEventOut::BlocksRequest(peer, since, channel) => {
-                        let blocks = chain_ref.lock().await.get_blocks_since(since);
-                        swarm_commander.send(SwarmCommand::SendBlocksResponse(channel, blocks)).await.ok();
-                        log::info!("[Sync] Responded to GetBlocks request from {} for blocks since {}.", peer, since);
-                    }
-                    SwarmEventOut::StatusResponse(peer, peer_height) => {
-                        let our_height = chain_ref.lock().await.status().height;
-                        if peer_height > our_height {
-                            log::info!("[Sync] Peer {} has longer chain ({} vs {}). Requesting blocks.", peer, peer_height, our_height);
-                            swarm_commander.send(SwarmCommand::SendBlocksRequest(peer, our_height)).await.ok();
-                        } else if *node_state.lock().await == NodeState::Syncing {
-                            log::info!("[Sync] Synced with peer {}. State -> Synced", peer);
-                            *node_state.lock().await = NodeState::Synced;
-                        }
-                    }
-                    SwarmEventOut::BlocksResponse(peer, blocks) => {
-                        log::info!("[Sync] Received {} blocks from {} for syncing.", blocks.len(), peer);
-                        let mut chain = chain_ref.lock().await;
-                        for block in blocks {
-                            if let Err(e) = chain.process_block(block, &workload_ref).await {
-                                log::error!("[Sync] Error syncing block from {}: {:?}", peer, e);
-                                break;
-                            }
-                        }
-                        if *node_state.lock().await == NodeState::Syncing {
-                            log::info!("[Sync] Finished applying blocks from {}. State -> Synced.", peer);
-                            *node_state.lock().await = NodeState::Synced;
-                        }
-                    }
-                }}
-            }
-        }
-        log::info!("[Sync] Event loop finished.");
-    }
 }
 
 #[async_trait]
-impl<CS, TM, ST> BlockSync<CS, TM, ST> for Libp2pSync<CS, TM, ST>
-where
-    CS: CommitmentScheme + Send + Sync + 'static,
-    TM: TransactionModel<CommitmentScheme = CS> + Clone + Send + Sync + 'static,
-    TM::Transaction:
-        Clone + Debug + Send + Sync + for<'de> serde::Deserialize<'de> + serde::Serialize,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + StateTree<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Send
-        + Sync
-        + 'static
-        + Debug,
-    CS::Commitment: Send + Sync + Debug,
-{
+impl BlockSync for Libp2pSync {
     async fn start(&self) -> Result<(), SyncError> {
-        // The tasks are already started in the constructor, so this is a no-op.
         log::info!("[Sync] Libp2pSync started.");
         Ok(())
     }

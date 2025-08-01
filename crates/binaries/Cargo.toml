@@ -41,6 +41,8 @@ bs58 = "0.4"
 libp2p = { workspace = true }
 # The test needs access to core types for building the transaction.
 depin-sdk-core = { path = "../core" }
+reqwest = { workspace = true }
+hex = { workspace = true }
 
 [features]
 # FIX: Set a default feature to make workspace tests and default builds work.

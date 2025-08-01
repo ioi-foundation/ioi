@@ -19,6 +19,7 @@ pub enum AttestationSignaturePolicy {
 #[derive(Debug, Deserialize)]
 pub struct OrchestrationConfig {
     pub consensus_type: ConsensusType,
+    pub rpc_listen_address: String,
 }
 
 #[derive(Debug, Deserialize)]
