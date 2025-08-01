@@ -6,6 +6,9 @@ pub mod round_robin;
 #[cfg(feature = "poa")]
 pub mod proof_of_authority;
 
+#[cfg(feature = "pos")]
+pub mod proof_of_stake;
+
 use async_trait::async_trait;
 use depin_sdk_core::app::Block;
 use libp2p::PeerId;

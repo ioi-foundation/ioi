@@ -261,27 +261,40 @@ where
                         continue;
                     }
 
-                    let (decision, node_set) = {
+                    let (decision, node_set_for_block) = {
                         let chain = chain_ref.lock().await;
                         let target_height = chain.status().height + 1;
                         let current_view = 0;
 
-                        let node_set = {
-                            #[cfg(feature = "consensus-poa")]
-                            { chain.get_authority_set(&workload_ref).await }
-                            #[cfg(not(feature = "consensus-poa"))]
-                            { chain.get_validator_set(&workload_ref).await }
-                        }.unwrap_or_else(|e| {
-                            log::error!("Could not get node set for consensus: {:?}", e);
-                            vec![]
-                        });
+                        // NEW: Conditionally fetch the correct validator set based on the compiled consensus engine.
+                        let node_set_bytes = if cfg!(feature = "consensus-poa") {
+                            // For PoA, the node set is the list of authority PeerIDs.
+                            chain.get_authority_set(&workload_ref).await.unwrap_or_else(|e| {
+                                log::error!("Could not get authority set for consensus: {:?}", e);
+                                vec![]
+                            })
+                        } else if cfg!(feature = "consensus-pos") {
+                            // For PoS, we fetch the map of stakers and serialize it.
+                            // The PoS engine expects this serialized map as its `validator_set`.
+                            let stakers = chain.get_staked_validators(&workload_ref).await.unwrap_or_default();
+                            // We wrap it in a Vec to match the function signature. A more robust solution
+                            // would be a dedicated enum `NodeSetType`.
+                            vec![serde_json::to_vec(&stakers).unwrap_or_default()]
+                        } else {
+                            // Fallback for other consensus types like RoundRobin
+                            chain.get_validator_set(&workload_ref).await.unwrap_or_else(|e| {
+                                log::error!("Could not get validator set for consensus: {:?}", e);
+                                vec![]
+                            })
+                        };
 
                         let mut engine = consensus_engine_ref.lock().await;
                         let known_peers = known_peers_ref.lock().await;
-                        let decision = engine.decide(&local_peer_id, target_height, current_view, &node_set, &known_peers).await;
-                        (decision, node_set)
+                        let decision = engine.decide(&local_peer_id, target_height, current_view, &node_set_bytes, &known_peers).await;
+                        (decision, node_set_bytes)
                     };
-
+                    
+                    // Use the fetched node set when creating the block.
                     if let ConsensusDecision::ProduceBlock(_) = decision {
                         let target_height = chain_ref.lock().await.status().height + 1;
                         log::info!("Consensus decision: Produce block for height {}.", target_height);
@@ -298,7 +311,8 @@ where
                         peers_bytes.push(local_peer_id.to_bytes());
                         drop(known_peers);
 
-                        let new_block_template = chain_ref.lock().await.create_block(transactions_to_include, &workload_ref, &node_set, &peers_bytes);
+                        // Pass the correct node set (authorities or serialized stakers) to `create_block`.
+                        let new_block_template = chain_ref.lock().await.create_block(transactions_to_include, &workload_ref, &node_set_for_block, &peers_bytes);
 
                         if let Ok(final_block) = chain_ref.lock().await.process_block(new_block_template, &workload_ref).await {
                             log::info!("Produced and processed new block #{}", final_block.header.height);

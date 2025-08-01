@@ -20,6 +20,7 @@ depin-sdk-validator = { path = "../validator" }
 # Workspace Dependencies (for binary)
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
+cfg-if = "1.0"
 env_logger = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true }
@@ -53,3 +54,4 @@ consensus-round-robin = [
     "depin-sdk-consensus/round-robin",
 ]
 consensus-poa = ["depin-sdk-validator/consensus-poa", "depin-sdk-consensus/poa"]
+consensus-pos = ["depin-sdk-validator/consensus-pos", "depin-sdk-consensus/pos"]

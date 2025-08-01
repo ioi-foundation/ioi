@@ -6,7 +6,12 @@ use crate::state::StateManager;
 use crate::transaction::TransactionModel;
 use crate::validator::WorkloadContainer;
 use async_trait::async_trait;
+use std::collections::BTreeMap; // Add this import
 use std::fmt::Debug;
+
+// CORRECTION: The key for the stakes map must be a string for JSON compatibility.
+pub type PublicKey = String;
+pub type StakeAmount = u64;
 
 /// A trait that defines the logic and capabilities of a sovereign chain state machine.
 #[async_trait]
@@ -56,4 +61,11 @@ where
 
     /// Retrieves the active authority set from the committed state for PoA.
     async fn get_authority_set(&self, workload: &WorkloadContainer<ST>) -> Result<Vec<Vec<u8>>, ChainError>;
+
+    // NEW: Add a method to retrieve all staked validators and their stake amounts.
+    /// Retrieves the map of staked validators for PoS.
+    async fn get_staked_validators(
+        &self,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<BTreeMap<PublicKey, StakeAmount>, ChainError>;
 }

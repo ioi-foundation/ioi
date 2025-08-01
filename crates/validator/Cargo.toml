@@ -42,6 +42,7 @@ validator-bins = [
 # NEW: Define features in the validator crate that enable features in the consensus crate.
 consensus-round-robin = ["depin-sdk-consensus/round-robin"]
 consensus-poa = ["depin-sdk-consensus/poa"]
+consensus-pos = ["depin-sdk-consensus/pos"]                 # Add feature
 
 
 [[bin]]

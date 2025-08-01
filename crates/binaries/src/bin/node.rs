@@ -6,6 +6,7 @@
 //! all core components (chain logic, state, containers) and wires them together.
 
 use anyhow::anyhow;
+use cfg_if::cfg_if;
 use clap::Parser;
 use depin_sdk_chain::Chain;
 use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
@@ -21,17 +22,14 @@ use depin_sdk_validator::common::GuardianContainer;
 use depin_sdk_validator::standard::OrchestrationContainer;
 use libp2p::{identity, Multiaddr, PeerId};
 use serde_json::Value;
+use std::collections::BTreeMap;
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-// --- Consensus Engine Imports ---
-#[cfg(feature = "consensus-poa")]
-use depin_sdk_consensus::proof_of_authority::ProofOfAuthorityEngine;
-#[cfg(feature = "consensus-round-robin")]
-use depin_sdk_consensus::round_robin::RoundRobinBftEngine;
+// Only import the top-level trait here. Specific engines will be imported inside cfg_if.
 use depin_sdk_consensus::ConsensusEngine;
 
 #[derive(Parser, Debug)]
@@ -66,37 +64,36 @@ fn populate_state_from_genesis(
 
     for (key, value) in state {
         log::info!("  - Loading state for key: {}", key);
-        let value_bytes = match key.as_str() {
-            "system::authorities" => {
-                let peer_ids_b58: Vec<String> = serde_json::from_value(value.clone())?;
-                let peer_ids_bytes: Vec<Vec<u8>> = peer_ids_b58
-                    .into_iter()
-                    .map(|s| {
-                        bs58::decode(s)
-                            .into_vec()
-                            .map_err(|e| anyhow!("Invalid base58 in peer id: {}", e))
-                            .and_then(|bytes| {
-                                PeerId::from_bytes(&bytes)
-                                    .map(|p| p.to_bytes())
-                                    .map_err(|e| anyhow!("Invalid PeerId bytes: {}", e))
-                            })
-                    })
-                    .collect::<Result<_, _>>()?;
-                serde_json::to_vec(&peer_ids_bytes)?
-            }
-            "system::governance_key" => {
-                let key_b58 = value
-                    .as_str()
-                    .ok_or_else(|| anyhow!("governance_key must be a string"))?;
-                bs58::decode(key_b58).into_vec()?
-            }
-            // All other keys are assumed to be simple values that can be serialized
-            _ => serde_json::to_vec(value)?,
-        };
+        // All values in genesis are serialized to JSON bytes, including the stakes map.
+        let value_bytes = serde_json::to_vec(value)?;
         state_tree.insert(key.as_bytes(), &value_bytes)?;
     }
     Ok(())
 }
+
+// --- Compile-Time Consensus Engine Selection ---
+
+/// Builds the consensus engine based on compile-time features.
+fn build_consensus_engine() -> Box<dyn ConsensusEngine<ProtocolTransaction> + Send + Sync> {
+    cfg_if! {
+        if #[cfg(feature = "consensus-poa")] {
+            use depin_sdk_consensus::proof_of_authority::ProofOfAuthorityEngine;
+            log::info!("Building with ProofOfAuthorityEngine.");
+            Box::new(ProofOfAuthorityEngine::new())
+        } else if #[cfg(feature = "consensus-pos")] {
+            use depin_sdk_consensus::proof_of_stake::ProofOfStakeEngine;
+            log::info!("Building with ProofOfStakeEngine.");
+            Box::new(ProofOfStakeEngine::new())
+        } else if #[cfg(feature = "consensus-round-robin")] {
+            use depin_sdk_consensus::round_robin::RoundRobinBftEngine;
+            log::info!("Building with RoundRobinBftEngine.");
+            Box::new(RoundRobinBftEngine::new())
+        } else {
+            compile_error!("A consensus engine feature must be enabled via --features flag. Use --features consensus-poa, --features consensus-pos, or --features consensus-round-robin");
+        }
+    }
+}
+
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -140,22 +137,7 @@ async fn main() -> anyhow::Result<()> {
         .map_err(|e| anyhow!("Failed to load or initialize chain status: {:?}", e))?;
     let chain_ref = Arc::new(Mutex::new(chain));
 
-    // --- Compile-Time Consensus Engine Selection ---
-    let consensus_engine_box: Box<dyn ConsensusEngine<ProtocolTransaction> + Send + Sync> = {
-        #[cfg(feature = "consensus-poa")]
-        {
-            log::info!("Building with ProofOfAuthorityEngine.");
-            Box::new(ProofOfAuthorityEngine::new())
-        }
-        #[cfg(feature = "consensus-round-robin")]
-        {
-            log::info!("Building with RoundRobinBftEngine.");
-            Box::new(RoundRobinBftEngine::new())
-        }
-        #[cfg(not(any(feature = "consensus-poa", feature = "consensus-round-robin")))]
-        compile_error!("A consensus engine feature must be enabled via --features flag. Use --features consensus-poa or --features consensus-round-robin");
-    };
-    let consensus_engine = Arc::new(Mutex::new(consensus_engine_box));
+    let consensus_engine = Arc::new(Mutex::new(build_consensus_engine()));
 
     // Setup libp2p identity
     let key_path = Path::new(&opts.state_file).with_extension("json.identity.key");
