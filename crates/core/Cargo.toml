@@ -8,7 +8,6 @@ description = "Core types and traits for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-# FIX: Add async-trait as a dependency, which is now required by the Container trait.
 async-trait = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
@@ -18,6 +17,7 @@ bytes = { workspace = true }
 libp2p = { workspace = true }
 sha2 = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
+hex = { workspace = true }
 
 [features]
 default = []

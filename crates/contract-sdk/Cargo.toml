@@ -1,0 +1,13 @@
+# Path: crates/contract-sdk/Cargo.toml
+[package]
+name = "depin-sdk-contract-sdk"
+version = "0.1.0"
+edition = "2021"
+description = "SDK for writing smart contracts for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# This SDK is for the WASM environment, so it doesn't have host-side dependencies.

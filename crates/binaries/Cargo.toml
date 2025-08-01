@@ -9,13 +9,13 @@ license = "MIT OR Apache-2.0"
 # Workspace Library Crates
 depin-sdk-chain = { path = "../chain" }
 depin-sdk-commitment-schemes = { path = "../commitment_schemes" }
-depin-sdk-consensus = { path = "../consensus", features = [
-] } # No features by default
+depin-sdk-consensus = { path = "../consensus", default-features = false }
 depin-sdk-core = { path = "../core" }
 depin-sdk-state-trees = { path = "../state_trees" }
 depin-sdk-sync = { path = "../sync" }
 depin-sdk-transaction-models = { path = "../transaction_models" }
-depin-sdk-validator = { path = "../validator" }
+depin-sdk-validator = { path = "../validator", default-features = false }
+depin-sdk-vm-wasm = { path = "../vm-wasm" }
 
 # Workspace Dependencies (for binary)
 anyhow = { workspace = true }
@@ -27,10 +27,8 @@ hex = { workspace = true }
 libp2p = { workspace = true }
 log = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
-# FIX: Add dependencies required by genesis loading logic.
 serde_json = { workspace = true }
 bs58 = "0.4"
-
 
 [dev-dependencies]
 anyhow = { workspace = true }
@@ -46,9 +44,9 @@ reqwest = { workspace = true }
 hex = { workspace = true }
 
 [features]
-# FIX: Set a default feature to make workspace tests and default builds work.
 default = ["consensus-poa"]
-# NEW: Define top-level features for the binary.
+# These features enable the corresponding features in our direct dependencies.
+# This allows the cfg_if! macro in node.rs to work correctly.
 consensus-round-robin = [
     "depin-sdk-validator/consensus-round-robin",
     "depin-sdk-consensus/round-robin",

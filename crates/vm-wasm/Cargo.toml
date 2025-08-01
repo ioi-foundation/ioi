@@ -1,0 +1,15 @@
+# Path: crates/vm-wasm/Cargo.toml
+[package]
+name = "depin-sdk-vm-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "Wasmtime-based VM for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+depin-sdk-core = { path = "../core" }
+wasmtime = { workspace = true }                   # This now correctly inherits version 19.0.1
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+thiserror = { workspace = true }

@@ -12,9 +12,6 @@ pub enum StateError {
     Apply(String),
     #[error("State backend error: {0}")]
     Backend(String),
-    // FIX: Add variants for errors that occur in state tree implementations.
-    // The `WriteError` is used by `FileStateTree` when file I/O fails.
-    // The `InvalidValue` is used by `VerkleTree` when a value can't be converted.
     #[error("State write error: {0}")]
     WriteError(String),
     #[error("Invalid value: {0}")]
@@ -29,7 +26,6 @@ pub enum TransactionError {
     Deserialization(String),
     #[error("Invalid transaction: {0}")]
     Invalid(String),
-    // FIX: Add a variant to wrap StateErrors, which will allow `?` to work.
     #[error("State error: {0}")]
     State(#[from] StateError),
 }
@@ -54,4 +50,20 @@ pub enum CoreError {
     UpgradeError(String),
     #[error("Custom error: {0}")]
     Custom(String),
+}
+
+#[derive(Error, Debug)]
+pub enum VmError {
+    #[error("VM initialization failed: {0}")]
+    Initialization(String),
+    #[error("Invalid bytecode: {0}")]
+    InvalidBytecode(String),
+    #[error("Execution trapped (out of gas, memory access error, etc.): {0}")]
+    ExecutionTrap(String),
+    #[error("Function not found in contract: {0}")]
+    FunctionNotFound(String),
+    #[error("Host function error: {0}")]
+    HostError(String),
+    #[error("Memory allocation/access error in VM: {0}")]
+    MemoryError(String),
 }

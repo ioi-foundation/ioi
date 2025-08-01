@@ -19,10 +19,12 @@ anyhow = { workspace = true }
 hex = { workspace = true }
 libp2p = { workspace = true }
 async-trait = { workspace = true }
+bs58 = "0.4"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
 depin-sdk-state-trees = { path = "../state_trees" }
+depin-sdk-vm-wasm = { path = "../vm-wasm" }
 
 [features]
 default = []

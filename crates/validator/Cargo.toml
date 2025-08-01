@@ -10,6 +10,7 @@ depin-sdk-core = { path = "../core" }
 depin-sdk-consensus = { path = "../consensus", features = [
 ] } # No features by default
 depin-sdk-sync = { path = "../sync" }
+depin-sdk-vm-wasm = { path = "../vm-wasm", optional = true }
 log = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
@@ -17,7 +18,6 @@ serde_bytes = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["full", "sync"] }
 axum = { workspace = true }
-# Just use workspace libp2p, all features are already specified there
 libp2p = { workspace = true }
 futures = { workspace = true }
 async-trait = { workspace = true }
@@ -38,12 +38,11 @@ validator-bins = [
     "dep:depin-sdk-state-trees",
     "dep:depin-sdk-commitment-schemes",
     "dep:depin-sdk-transaction-models",
+    "dep:depin-sdk-vm-wasm",
 ]
-# NEW: Define features in the validator crate that enable features in the consensus crate.
 consensus-round-robin = ["depin-sdk-consensus/round-robin"]
 consensus-poa = ["depin-sdk-consensus/poa"]
-consensus-pos = ["depin-sdk-consensus/pos"]                 # Add feature
-
+consensus-pos = ["depin-sdk-consensus/pos"]
 
 [[bin]]
 name = "validator"

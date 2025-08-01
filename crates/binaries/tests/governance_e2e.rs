@@ -1,5 +1,3 @@
-// Path: crates/binaries/tests/governance_e2e.rs
-
 //! End-to-End Test: Governance-driven Authority Set Change
 //!
 //! This test simulates a live network to verify the entire lifecycle of an
@@ -125,7 +123,6 @@ rpc_listen_address = "{}"
     let state_file_arg = dir.path().join("state.json").to_string_lossy().to_string();
     let genesis_file_arg = dir.path().join("genesis.json").to_string_lossy().to_string();
     let config_dir_arg = config_dir.to_string_lossy().to_string();
-    let rpc_addr_arg = rpc_addr.to_string();
     let mut cmd_args = vec![
         "--state-file",
         &state_file_arg,
@@ -133,8 +130,6 @@ rpc_listen_address = "{}"
         &genesis_file_arg,
         "--config-dir",
         &config_dir_arg,
-        "--rpc-listen-address",
-        &rpc_addr_arg,
     ];
 
     let args_owned: Vec<String> = args.iter().map(|s| s.to_string()).collect();

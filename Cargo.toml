@@ -16,6 +16,8 @@ members = [
     "crates/test_utils",
     "crates/transaction_models",
     "crates/validator",
+    "crates/vm-wasm",
+    "crates/contract-sdk",
 ]
 
 [workspace.dependencies]
@@ -61,3 +63,6 @@ env_logger = "0.10"
 # Error Handling
 thiserror = "1.0"
 anyhow = "1.0"
+
+# Fix: Upgrade wasmtime to a modern version.
+wasmtime = { version = "19.0.1" }

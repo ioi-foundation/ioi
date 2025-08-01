@@ -16,6 +16,7 @@ use depin_sdk_validator::{
     hybrid::{ApiContainer, InterfaceContainer},
     standard::OrchestrationContainer,
 };
+use depin_sdk_vm_wasm::WasmVm;
 use libp2p::{identity, Multiaddr};
 use std::fs;
 use std::io::{Read, Write};
@@ -53,7 +54,12 @@ async fn main() -> anyhow::Result<()> {
     let workload_config = WorkloadConfig {
         enabled_vms: vec!["WASM".to_string()],
     };
-    let workload = Arc::new(WorkloadContainer::new(workload_config, state_tree));
+    let wasm_vm = Box::new(WasmVm::new());
+    let workload = Arc::new(WorkloadContainer::new(
+        workload_config,
+        state_tree,
+        wasm_vm,
+    ));
 
     let mut chain = Chain::new(
         commitment_scheme.clone(),
@@ -79,11 +85,9 @@ async fn main() -> anyhow::Result<()> {
         keypair
     };
 
-    // FIX: Update constructor call to match the new signature.
     let (syncer, swarm_commander, network_event_receiver) =
         Libp2pSync::new(local_key, opts.listen_address, opts.peer)?;
 
-    // FIX: Update constructor call to match the new signature.
     let orchestration = Arc::new(
         OrchestrationContainer::<
             HashCommitmentScheme,
