@@ -17,12 +17,18 @@ use depin_sdk_core::transaction::TransactionModel;
 use depin_sdk_core::validator::TransactionExecutor;
 // --- End Fix ---
 use depin_sdk_core::validator::WorkloadContainer;
+use libp2p::identity::ed25519::PublicKey as Ed25519PublicKey;
 use libp2p::identity::PublicKey as Libp2pPublicKey;
 use libp2p::PeerId;
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+pub(crate) const STAKES_KEY: &[u8] = b"system::stakes";
+// CORRECTION: The key for the stakes map must be a string for JSON compatibility.
+pub type PublicKey = String;
+pub type StakeAmount = u64;
 pub(crate) const STATUS_KEY: &[u8] = b"chain::status";
 pub(crate) const VALIDATOR_SET_KEY: &[u8] = b"system::validators";
 pub(crate) const AUTHORITY_SET_KEY: &[u8] = b"system::authorities";
@@ -108,37 +114,27 @@ where
     {
         let state_tree_arc = workload.state_tree();
         let mut state = state_tree_arc.lock().await;
-
-        let governance_pk_bytes = state.get(GOVERNANCE_KEY)?.ok_or_else(|| {
-            ChainError::Transaction("Governance key not found in state".to_string())
-        })?;
-
-        let ed25519_pk =
-            libp2p::identity::ed25519::PublicKey::try_from_bytes(&governance_pk_bytes).map_err(
-                |e| {
-                    ChainError::Transaction(format!(
-                        "Invalid Ed25519 governance public key in state: {}",
-                        e
-                    ))
-                },
-            )?;
-        let libp2p_pk = Libp2pPublicKey::from(ed25519_pk);
-
         let payload_bytes = serde_json::to_vec(&tx.payload)
             .map_err(|e| ChainError::Transaction(format!("Failed to serialize payload: {}", e)))?;
 
-        let is_valid_sig = libp2p_pk.verify(&payload_bytes, &tx.signature);
-
-        if !is_valid_sig {
-            return Err(ChainError::Transaction(
-                "Invalid governance signature".to_string(),
-            ));
-        }
-
         match &tx.payload {
             SystemPayload::UpdateAuthorities { new_authorities } => {
-                if new_authorities.is_empty() {
+                let governance_pk_bytes = state.get(GOVERNANCE_KEY)?.ok_or_else(|| {
+                    ChainError::Transaction("Governance key not found in state".to_string())
+                })?;
+                let ed25519_pk =
+                    libp2p::identity::ed25519::PublicKey::try_from_bytes(&governance_pk_bytes).map_err(
+                        |e| ChainError::Transaction(format!("Invalid governance key: {}", e)),
+                    )?;
+                let libp2p_pk = Libp2pPublicKey::from(ed25519_pk);
+
+                if !libp2p_pk.verify(&payload_bytes, &tx.signature) {
                     return Err(ChainError::Transaction(
+                        "Invalid governance signature for UpdateAuthorities".to_string(),
+                    ));
+                }
+                if new_authorities.is_empty() {
+                     return Err(ChainError::Transaction(
                         "Authority set cannot be empty".to_string(),
                     ));
                 }
@@ -149,19 +145,52 @@ where
                         ));
                     }
                 }
-
                 let serialized_authorities = serde_json::to_vec(new_authorities).unwrap();
                 state.insert(AUTHORITY_SET_KEY, &serialized_authorities)?;
-                // --- FIX: Also update the validator set to prevent inconsistency. ---
-                // This ensures that even if other parts of the system read the
-                // validator_set key, they will get the correct, up-to-date data
-                // immediately after this transaction is processed.
                 state.insert(VALIDATOR_SET_KEY, &serialized_authorities)?;
-                // --- END FIX ---
-                log::info!(
-                    "Successfully updated authority set to {} authorities via governance.",
-                    new_authorities.len()
-                );
+                log::info!("Successfully updated authority set via governance.");
+            }
+            SystemPayload::Stake { amount } => {
+                let signer_pk_bytes = tx.signature.get(0..32).map(|s| s.to_vec()).ok_or_else(|| ChainError::Transaction("Invalid signature length for stake".to_string()))?;
+                let ed25519_pk = Ed25519PublicKey::try_from_bytes(&signer_pk_bytes).map_err(|e| ChainError::Transaction(format!("Invalid public key bytes: {}", e)))?;
+                let libp2p_pk = Libp2pPublicKey::from(ed25519_pk);
+                let peer_id = PeerId::from_public_key(&libp2p_pk);
+                let signer_pk_b58 = peer_id.to_base58();
+
+                let mut stakes: BTreeMap<PublicKey, StakeAmount> = match state.get(STAKES_KEY)? {
+                    Some(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
+                    None => BTreeMap::new(),
+                };
+                let current_stake = stakes.entry(signer_pk_b58).or_insert(0);
+                *current_stake += amount;
+                
+                log::info!("Processed stake of {} for validator.", amount);
+
+                let stakes_bytes = serde_json::to_vec(&stakes).unwrap();
+                state.insert(STAKES_KEY, &stakes_bytes)?;
+            }
+            SystemPayload::Unstake { amount } => {
+                let signer_pk_bytes = tx.signature.get(0..32).map(|s| s.to_vec()).ok_or_else(|| ChainError::Transaction("Invalid signature length for unstake".to_string()))?;
+                let ed25519_pk = Ed25519PublicKey::try_from_bytes(&signer_pk_bytes).map_err(|e| ChainError::Transaction(format!("Invalid public key bytes: {}", e)))?;
+                let libp2p_pk = Libp2pPublicKey::from(ed25519_pk);
+                let peer_id = PeerId::from_public_key(&libp2p_pk);
+                let signer_pk_b58 = peer_id.to_base58();
+
+                let mut stakes: BTreeMap<PublicKey, StakeAmount> = match state.get(STAKES_KEY)? {
+                    Some(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
+                    None => BTreeMap::new(),
+                };
+                
+                if let Some(current_stake) = stakes.get_mut(&signer_pk_b58) {
+                    *current_stake = current_stake.saturating_sub(*amount);
+                    if *current_stake == 0 {
+                        stakes.remove(&signer_pk_b58);
+                    }
+                    log::info!("Processed unstake of {} for validator.", amount);
+                }
+
+                let stakes_bytes = serde_json::to_vec(&stakes).unwrap();
+                state.insert(STAKES_KEY, &stakes_bytes)?;
             }
         }
         Ok(())
@@ -356,6 +385,21 @@ where
             Err(e) => Err(e.into()),
         }
     }
+
+    async fn get_staked_validators(
+        &self,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<BTreeMap<PublicKey, StakeAmount>, ChainError> {
+        let state_tree_arc = workload.state_tree();
+        let state = state_tree_arc.lock().await;
+        match state.get(STAKES_KEY) {
+            Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
+                ChainError::Transaction(format!("Failed to deserialize stakes map: {}", e))
+            }),
+            Ok(None) => Ok(BTreeMap::new()), // Return empty map if key not found
+            Err(e) => Err(e.into()),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -465,7 +509,7 @@ mod tests {
         let result = chain.process_transaction(&protocol_tx, &workload).await;
         assert!(result.is_err());
         assert!(
-            matches!(result, Err(ChainError::Transaction(msg)) if msg == "Invalid governance signature")
+            matches!(result, Err(ChainError::Transaction(msg)) if msg.contains("Invalid governance signature"))
         );
     }
 }

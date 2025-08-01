@@ -95,6 +95,9 @@ pub struct SystemTransaction {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum SystemPayload {
     UpdateAuthorities { new_authorities: Vec<Vec<u8>> },
+    // NEW: Add staking operations
+    Stake { amount: u64 },
+    Unstake { amount: u64 },
 }
 
 /// A struct that holds the core, serializable state of an application chain.

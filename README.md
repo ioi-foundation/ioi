@@ -60,6 +60,7 @@ The validator requires configuration files. Create a `config` directory in the p
 mkdir -p config
 
 # Create a minimal orchestration.toml. The content can be simple for now.
+# Note: The RPC address is now configured inside the node binary itself.
 echo 'consensus_type = "ProofOfAuthority"' > config/orchestration.toml
 
 # Create a minimal guardian.toml
@@ -86,6 +87,14 @@ This is a simpler engine that relies on a fixed, on-chain list of authorities. I
 
 ```bash
 cargo build --release -p depin-sdk-binaries --features consensus-poa
+```
+
+**Option C: Build with Proof of Stake (PoS) Consensus**
+
+This engine selects block producers based on their staked token amount, providing a decentralized and permissionless security model.
+
+```bash
+cargo build --release -p depin-sdk-binaries --features consensus-pos
 ```
 
 The compiled binary will be located at `target/release/node`.
@@ -141,6 +150,36 @@ Node 2 will create its own unique state and identity files. You will see it conn
     Observe that Node 2 reconnects, syncs any blocks it missed, and the network resumes block production.
 
 This workflow validates that node identities are persistent, state is correctly saved and loaded, and the consensus mechanism is tolerant to nodes stopping and restarting.
+
+---
+
+### Development & Testing
+
+This project includes a suite of tests to ensure correctness and stability.
+
+#### Running Unit & Integration Tests
+
+To run the standard unit and integration tests for all crates in the workspace, use the following command:
+
+```bash
+cargo test --workspace
+```
+
+#### Running End-to-End (E2E) Tests
+
+The repository includes long-running end-to-end tests that simulate a live multi-node network to verify complex lifecycles like governance and staking. These tests are ignored by default to keep the standard test runs fast.
+
+To run the E2E tests, use the `--ignored` flag:
+
+```bash
+cargo test -p depin-sdk-binaries -- --ignored
+```
+
+This will execute tests such as:
+*   `test_governance_authority_change_lifecycle`: Simulates a governance-driven change to the Proof-of-Authority validator set.
+*   `test_staking_lifecycle`: Simulates a change in the Proof-of-Stake validator set based on staking and unstaking transactions.
+
+These tests will compile the necessary node binaries with the appropriate consensus features before running.
 
 ---
 

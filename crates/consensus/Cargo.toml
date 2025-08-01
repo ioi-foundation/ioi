@@ -7,8 +7,10 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 depin-sdk-core = { path = "../core" }
+depin-sdk-crypto = { path = "../crypto", optional = true }
 log = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true, optional = true }
 thiserror = { workspace = true }
 bytes = { workspace = true }
 anyhow = { workspace = true }
@@ -21,5 +23,6 @@ default = []
 # A feature for each engine
 round-robin = ["dep:tokio"]
 poa = ["dep:tokio"]
+pos = ["dep:tokio", "dep:depin-sdk-crypto", "dep:serde_json"]
 tendermint = []
 custom-consensus = []
