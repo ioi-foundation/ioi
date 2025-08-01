@@ -60,7 +60,7 @@ where
     fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
         let cs_value = self
             .convert_value(value)
-            .map_err(|e| StateError::InvalidValue(e))?;
+            .map_err(StateError::InvalidValue)?;
         self.data.insert(key.to_vec(), cs_value);
         Ok(())
     }

@@ -9,7 +9,8 @@ license = "MIT OR Apache-2.0"
 depin-sdk-core = { path = "../core" }
 depin-sdk-consensus = { path = "../consensus", features = [
 ] } # No features by default
-depin-sdk-sync = { path = "../sync" }
+depin-sdk-network = { path = "../network" }
+depin-sdk-chain = { path = "../chain" }
 depin-sdk-vm-wasm = { path = "../vm-wasm", optional = true }
 log = { workspace = true }
 anyhow = { workspace = true }

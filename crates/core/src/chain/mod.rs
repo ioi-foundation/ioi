@@ -48,8 +48,8 @@ where
         &self,
         transactions: Vec<ProtocolTransaction>,
         workload: &WorkloadContainer<ST>,
-        current_validator_set: &Vec<Vec<u8>>,
-        known_peers_bytes: &Vec<Vec<u8>>,
+        current_validator_set: &[Vec<u8>],
+        known_peers_bytes: &[Vec<u8>],
     ) -> Block<ProtocolTransaction>;
 
     fn get_block(&self, height: u64) -> Option<&Block<ProtocolTransaction>>;
@@ -57,10 +57,16 @@ where
     fn get_blocks_since(&self, height: u64) -> Vec<Block<ProtocolTransaction>>;
 
     /// Retrieves the active validator set from the committed state.
-    async fn get_validator_set(&self, workload: &WorkloadContainer<ST>) -> Result<Vec<Vec<u8>>, ChainError>;
+    async fn get_validator_set(
+        &self,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<Vec<Vec<u8>>, ChainError>;
 
     /// Retrieves the active authority set from the committed state for PoA.
-    async fn get_authority_set(&self, workload: &WorkloadContainer<ST>) -> Result<Vec<Vec<u8>>, ChainError>;
+    async fn get_authority_set(
+        &self,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<Vec<Vec<u8>>, ChainError>;
 
     // NEW: Add a method to retrieve all staked validators and their stake amounts.
     /// Retrieves the map of staked validators for PoS.

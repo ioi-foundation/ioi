@@ -175,8 +175,7 @@ where
                     }
                 }
                 OperationResult::Failure(error) => Ok(OperationResult::Failure(format!(
-                    "Condition failed: {}",
-                    error
+                    "Condition failed: {error}"
                 ))),
                 OperationResult::Unsupported => Ok(OperationResult::Failure(
                     "Condition operation is unsupported".into(),
@@ -229,8 +228,7 @@ where
                     }
                     OperationResult::Failure(error) => {
                         return Ok(OperationResult::Failure(format!(
-                            "Loop condition failed after {} iterations: {}",
-                            iterations, error
+                            "Loop condition failed after {iterations} iterations: {error}"
                         )));
                     }
                     OperationResult::Unsupported => {

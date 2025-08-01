@@ -1,7 +1,7 @@
 // crates/crypto/src/kem/kyber/tests/mod.rs
 use super::*;
 use crate::security::SecurityLevel;
-use depin_sdk_core::crypto::{Encapsulated, KeyEncapsulation, KemKeyPair, DecapsulationKey, EncapsulationKey};
+use depin_sdk_core::crypto::{Encapsulated, KeyEncapsulation};
 
 #[test]
 fn test_kyber_keypair_generation() {
@@ -98,7 +98,7 @@ fn test_kyber_serialization() {
     let private_key_bytes = keypair.private_key.to_bytes();
 
     // Deserialize keys
-    let restored_public_key = KyberPublicKey::from_bytes(&public_key_bytes).unwrap();
+    let _restored_public_key = KyberPublicKey::from_bytes(&public_key_bytes).unwrap();
     let restored_private_key = KyberPrivateKey::from_bytes(&private_key_bytes).unwrap();
 
     // Encapsulate with original key
@@ -165,7 +165,7 @@ fn test_dcrypt_compatibility() {
     // Test encapsulation/decapsulation cycle
     let encapsulated = kem.encapsulate(&keypair1.public_key);
     let shared_secret = kem.decapsulate(&keypair1.private_key, &encapsulated);
-    
+
     assert!(shared_secret.is_some());
     assert_eq!(shared_secret.unwrap().len(), 32);
 

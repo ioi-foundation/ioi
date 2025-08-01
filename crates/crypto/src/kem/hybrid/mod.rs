@@ -3,20 +3,13 @@
 
 use crate::security::SecurityLevel;
 use depin_sdk_core::crypto::{
-    DecapsulationKey, Encapsulated, EncapsulationKey, KemKeyPair, KeyEncapsulation,
-    SerializableKey,
+    DecapsulationKey, Encapsulated, EncapsulationKey, KemKeyPair, KeyEncapsulation, SerializableKey,
 };
 
-// Import from dcrypt - adjust these based on your actual dcrypt dependency structure
-// Option 1: If dcrypt re-exports everything from root
 use dcrypt::api::Kem;
 use dcrypt::kem::ecdh::p256::EcdhP256SecretKey;
 use dcrypt::kem::kyber::KyberSecretKey;
 
-// Option 2: If hybrid is a separate crate, use:
-// use dcrypt_hybrid::kem::ecdh_kyber::{...}
-//
-// For now, assuming the hybrid module is under dcrypt with proper path:
 use dcrypt::hybrid::kem::ecdh_kyber::{
     EcdhKyber768, HybridCiphertext, HybridPublicKey as DcryptHybridPublicKey,
     HybridSecretKey as DcryptHybridSecretKey,
@@ -77,9 +70,11 @@ impl HybridKEM {
             _ => panic!("Hybrid KEM currently only supports Level3 security"),
         }
     }
+}
 
+impl Default for HybridKEM {
     /// Create a new hybrid KEM with default security level (Level3)
-    pub fn default() -> Self {
+    fn default() -> Self {
         Self::new(SecurityLevel::Level3)
     }
 }
@@ -94,8 +89,7 @@ impl KeyEncapsulation for HybridKEM {
         let mut rng = thread_rng();
 
         // Use dcrypt's hybrid KEM to generate keypair
-        let (pk, sk) = EcdhKyber768::keypair(&mut rng)
-            .expect("Failed to generate hybrid keypair");
+        let (pk, sk) = EcdhKyber768::keypair(&mut rng).expect("Failed to generate hybrid keypair");
 
         HybridKeyPair {
             public_key: HybridPublicKey {
@@ -162,7 +156,7 @@ impl SerializableKey for HybridPublicKey {
     fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
         // Use dcrypt's built-in from_bytes method
         let inner = DcryptHybridPublicKey::from_bytes(bytes)
-            .map_err(|e| format!("Failed to deserialize hybrid public key: {:?}", e))?;
+            .map_err(|e| format!("Failed to deserialize hybrid public key: {e:?}"))?;
 
         // For now, we only support Level3
         Ok(HybridPublicKey {
@@ -205,10 +199,10 @@ impl SerializableKey for HybridPrivateKey {
         let (ecdh_bytes, kyber_bytes) = bytes.split_at(ECDH_SK_LEN);
 
         let ecdh_sk = EcdhP256SecretKey::from_bytes(ecdh_bytes)
-            .map_err(|e| format!("Failed to deserialize ECDH private key: {:?}", e))?;
+            .map_err(|e| format!("Failed to deserialize ECDH private key: {e:?}"))?;
 
         let kyber_sk = KyberSecretKey::from_bytes(kyber_bytes)
-            .map_err(|e| format!("Failed to deserialize Kyber private key: {:?}", e))?;
+            .map_err(|e| format!("Failed to deserialize Kyber private key: {e:?}"))?;
 
         Ok(HybridPrivateKey {
             inner: DcryptHybridSecretKey { ecdh_sk, kyber_sk },

@@ -26,6 +26,12 @@ impl fmt::Debug for ModuleUpgradeManager {
     }
 }
 
+impl Default for ModuleUpgradeManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ModuleUpgradeManager {
     /// Create a new module upgrade manager
     pub fn new() -> Self {
@@ -44,7 +50,7 @@ impl ModuleUpgradeManager {
         // Initialize upgrade history if not present
         self.upgrade_history
             .entry(service_type)
-            .or_insert_with(Vec::new);
+            .or_default();
     }
 
     /// Get a service by type
@@ -61,7 +67,7 @@ impl ModuleUpgradeManager {
     ) -> Result<(), CoreError> {
         self.scheduled_upgrades
             .entry(activation_height)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push((service_type, upgrade_data));
 
         Ok(())
@@ -87,7 +93,7 @@ impl ModuleUpgradeManager {
                 }
                 Err(e) => {
                     // Log error but continue with other upgrades
-                    eprintln!("Failed to upgrade service {:?}: {}", service_type, e);
+                    eprintln!("Failed to upgrade service {service_type:?}: {e}");
                 }
             }
         }
@@ -104,7 +110,7 @@ impl ModuleUpgradeManager {
         let active_service = self
             .active_services
             .get_mut(service_type)
-            .ok_or_else(|| CoreError::ServiceNotFound(format!("{:?}", service_type)))?;
+            .ok_or_else(|| CoreError::ServiceNotFound(format!("{service_type:?}")))?;
 
         // 1. Prepare: Get the state snapshot from the current service
         let _snapshot = active_service
@@ -138,10 +144,7 @@ impl ModuleUpgradeManager {
         self.active_services
             .iter()
             .map(|(service_type, service)| {
-                let is_healthy = match service.health_check() {
-                    Ok(_) => true,
-                    Err(_) => false,
-                };
+                let is_healthy = service.health_check().is_ok();
                 (service_type.clone(), is_healthy)
             })
             .collect()
@@ -152,8 +155,7 @@ impl ModuleUpgradeManager {
         for (service_type, service) in &self.active_services {
             service.start().map_err(|e| {
                 CoreError::Custom(format!(
-                    "Failed to start service {:?}: {}",
-                    service_type, e
+                    "Failed to start service {service_type:?}: {e}"
                 ))
             })?;
         }
@@ -164,7 +166,7 @@ impl ModuleUpgradeManager {
     pub fn stop_all_services(&mut self) -> Result<(), CoreError> {
         for (service_type, service) in &self.active_services {
             service.stop().map_err(|e| {
-                CoreError::Custom(format!("Failed to stop service {:?}: {}", service_type, e))
+                CoreError::Custom(format!("Failed to stop service {service_type:?}: {e}"))
             })?;
         }
         Ok(())

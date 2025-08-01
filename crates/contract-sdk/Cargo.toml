@@ -11,3 +11,10 @@ crate-type = ["cdylib"]
 
 [dependencies]
 # This SDK is for the WASM environment, so it doesn't have host-side dependencies.
+# FIX: Add wee_alloc to provide a global memory allocator for this no_std crate.
+wee_alloc = { version = "0.4.5", optional = true }
+
+[features]
+# By default, enable the allocator. This allows consumers to disable it if they
+# want to provide their own allocator.
+default = ["wee_alloc"]

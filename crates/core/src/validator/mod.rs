@@ -138,7 +138,7 @@ where
                 context,
             )
             .await
-            .map_err(|e| ValidatorError::Other(format!("VM Error: {}", e)))?;
+            .map_err(|e| ValidatorError::Other(format!("VM Error: {e}")))?;
 
         log::info!(
             "Contract call successful. Gas used: {}. Return data size: {}",

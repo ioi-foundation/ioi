@@ -62,10 +62,8 @@ impl CommitmentScheme for LatticeCommitmentScheme {
 
         // Simplified implementation for now
         let mut combined = Vec::new();
-        for maybe_value in values {
-            if let Some(value) = maybe_value {
-                combined.extend_from_slice(value.as_ref());
-            }
+        for value in values.iter().flatten() {
+            combined.extend_from_slice(value.as_ref());
         }
 
         // Add some "randomness" based on the dimension

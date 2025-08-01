@@ -1,7 +1,5 @@
 // Path: crates/chain/src/app/mod.rs
-
 /// The private implementation for the `SovereignChain` trait.
-
 use crate::upgrade_manager::ModuleUpgradeManager;
 use async_trait::async_trait;
 use depin_sdk_core::app::{
@@ -84,13 +82,16 @@ where
         let mut state = state_tree.lock().await;
         match state.get(STATUS_KEY) {
             Ok(Some(status_bytes)) => {
-                let status: ChainStatus = serde_json::from_slice(&status_bytes)
-                    .map_err(|e| ChainError::Transaction(format!("Failed to deserialize status: {}", e)))?;
+                let status: ChainStatus = serde_json::from_slice(&status_bytes).map_err(|e| {
+                    ChainError::Transaction(format!("Failed to deserialize status: {e}"))
+                })?;
                 log::info!("Loaded chain status: height {}", status.height);
                 self.app_chain.status = status;
             }
             Ok(None) => {
-                log::info!("No existing chain status found. Initializing and saving genesis status.");
+                log::info!(
+                    "No existing chain status found. Initializing and saving genesis status."
+                );
                 let status_bytes = serde_json::to_vec(&self.app_chain.status).unwrap();
                 state
                     .insert(STATUS_KEY, &status_bytes)
@@ -112,7 +113,7 @@ where
         let state_tree_arc = workload.state_tree();
         let mut state = state_tree_arc.lock().await;
         let payload_bytes = serde_json::to_vec(&tx.payload)
-            .map_err(|e| ChainError::Transaction(format!("Failed to serialize payload: {}", e)))?;
+            .map_err(|e| ChainError::Transaction(format!("Failed to serialize payload: {e}")))?;
 
         match &tx.payload {
             SystemPayload::UpdateAuthorities { new_authorities } => {
@@ -121,17 +122,19 @@ where
                 })?;
                 let governance_pk_str: String = serde_json::from_slice(&governance_pk_str_bytes)
                     .map_err(|e| {
-                        ChainError::Transaction(format!("Failed to parse governance key string: {}", e))
+                        ChainError::Transaction(format!(
+                            "Failed to parse governance key string: {e}"
+                        ))
                     })?;
-                let governance_pk_bytes = bs58::decode(governance_pk_str)
-                    .into_vec()
-                    .map_err(|e| {
-                        ChainError::Transaction(format!("Failed to decode governance key: {}", e))
+                let governance_pk_bytes =
+                    bs58::decode(governance_pk_str).into_vec().map_err(|e| {
+                        ChainError::Transaction(format!("Failed to decode governance key: {e}"))
                     })?;
                 let ed25519_pk =
-                    libp2p::identity::ed25519::PublicKey::try_from_bytes(&governance_pk_bytes).map_err(
-                        |e| ChainError::Transaction(format!("Invalid governance key: {}", e)),
-                    )?;
+                    libp2p::identity::ed25519::PublicKey::try_from_bytes(&governance_pk_bytes)
+                        .map_err(|e| {
+                            ChainError::Transaction(format!("Invalid governance key: {e}"))
+                        })?;
                 let libp2p_pk = Libp2pPublicKey::from(ed25519_pk);
 
                 if !libp2p_pk.verify(&payload_bytes, &tx.signature) {
@@ -140,7 +143,7 @@ where
                     ));
                 }
                 if new_authorities.is_empty() {
-                     return Err(ChainError::Transaction(
+                    return Err(ChainError::Transaction(
                         "Authority set cannot be empty".to_string(),
                     ));
                 }
@@ -157,8 +160,14 @@ where
                 log::info!("Successfully updated authority set via governance.");
             }
             SystemPayload::Stake { amount } => {
-                let signer_pk_bytes = tx.signature.get(0..32).map(|s| s.to_vec()).ok_or_else(|| ChainError::Transaction("Invalid signature length for stake".to_string()))?;
-                let ed25519_pk = Ed25519PublicKey::try_from_bytes(&signer_pk_bytes).map_err(|e| ChainError::Transaction(format!("Invalid public key bytes: {}", e)))?;
+                let signer_pk_bytes =
+                    tx.signature.get(0..32).map(|s| s.to_vec()).ok_or_else(|| {
+                        ChainError::Transaction("Invalid signature length for stake".to_string())
+                    })?;
+                let ed25519_pk =
+                    Ed25519PublicKey::try_from_bytes(&signer_pk_bytes).map_err(|e| {
+                        ChainError::Transaction(format!("Invalid public key bytes: {e}"))
+                    })?;
                 let libp2p_pk = Libp2pPublicKey::from(ed25519_pk);
                 let peer_id = PeerId::from_public_key(&libp2p_pk);
                 let signer_pk_b58 = peer_id.to_base58();
@@ -169,15 +178,21 @@ where
                 };
                 let current_stake = stakes.entry(signer_pk_b58).or_insert(0);
                 *current_stake += amount;
-                
-                log::info!("Processed stake of {} for validator.", amount);
+
+                log::info!("Processed stake of {amount} for validator.");
 
                 let stakes_bytes = serde_json::to_vec(&stakes).unwrap();
                 state.insert(STAKES_KEY, &stakes_bytes)?;
             }
             SystemPayload::Unstake { amount } => {
-                let signer_pk_bytes = tx.signature.get(0..32).map(|s| s.to_vec()).ok_or_else(|| ChainError::Transaction("Invalid signature length for unstake".to_string()))?;
-                let ed25519_pk = Ed25519PublicKey::try_from_bytes(&signer_pk_bytes).map_err(|e| ChainError::Transaction(format!("Invalid public key bytes: {}", e)))?;
+                let signer_pk_bytes =
+                    tx.signature.get(0..32).map(|s| s.to_vec()).ok_or_else(|| {
+                        ChainError::Transaction("Invalid signature length for unstake".to_string())
+                    })?;
+                let ed25519_pk =
+                    Ed25519PublicKey::try_from_bytes(&signer_pk_bytes).map_err(|e| {
+                        ChainError::Transaction(format!("Invalid public key bytes: {e}"))
+                    })?;
                 let libp2p_pk = Libp2pPublicKey::from(ed25519_pk);
                 let peer_id = PeerId::from_public_key(&libp2p_pk);
                 let signer_pk_b58 = peer_id.to_base58();
@@ -186,13 +201,13 @@ where
                     Some(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
                     None => BTreeMap::new(),
                 };
-                
+
                 if let Some(current_stake) = stakes.get_mut(&signer_pk_b58) {
                     *current_stake = current_stake.saturating_sub(*amount);
                     if *current_stake == 0 {
                         stakes.remove(&signer_pk_b58);
                     }
-                    log::info!("Processed unstake of {} for validator.", amount);
+                    log::info!("Processed unstake of {amount} for validator.");
                 }
 
                 let stakes_bytes = serde_json::to_vec(&stakes).unwrap();
@@ -214,7 +229,11 @@ where
         + 'static
         + Debug,
     CS::Commitment: Send + Sync + Debug,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static + Debug,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug,
 {
     fn status(&self) -> &ChainStatus {
         &self.app_chain.status
@@ -254,7 +273,7 @@ where
                     let context = depin_sdk_core::vm::ExecutionContext {
                         caller: vec![0; 32],
                         block_height: self.app_chain.status.height, // Direct access to avoid ambiguity
-                        gas_limit: 10_000_000, // Default gas limit
+                        gas_limit: 10_000_000,                      // Default gas limit
                     };
                     workload
                         .call_contract(address.clone(), input_data.clone(), context)
@@ -302,9 +321,9 @@ where
         self.app_chain.status.latest_timestamp = block.header.timestamp;
 
         let status_bytes = serde_json::to_vec(&self.app_chain.status)
-            .map_err(|e| ChainError::Transaction(format!("Failed to serialize status: {}", e)))?;
+            .map_err(|e| ChainError::Transaction(format!("Failed to serialize status: {e}")))?;
         let validator_set_bytes = serde_json::to_vec(&block.header.validator_set).map_err(|e| {
-            ChainError::Transaction(format!("Failed to serialize validator set: {}", e))
+            ChainError::Transaction(format!("Failed to serialize validator set: {e}"))
         })?;
 
         let state_tree_arc = workload.state_tree();
@@ -327,8 +346,8 @@ where
         &self,
         transactions: Vec<ProtocolTransaction>,
         _workload: &WorkloadContainer<ST>,
-        current_validator_set: &Vec<Vec<u8>>,
-        _known_peers_bytes: &Vec<Vec<u8>>,
+        current_validator_set: &[Vec<u8>],
+        _known_peers_bytes: &[Vec<u8>],
     ) -> Block<ProtocolTransaction> {
         let prev_hash = self
             .app_chain
@@ -385,7 +404,7 @@ where
         let state = state_tree_arc.lock().await;
         match state.get(VALIDATOR_SET_KEY) {
             Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
-                ChainError::Transaction(format!("Failed to deserialize validator set: {}", e))
+                ChainError::Transaction(format!("Failed to deserialize validator set: {e}"))
             }),
             Ok(None) => Ok(Vec::new()),
             Err(e) => Err(e.into()),
@@ -400,7 +419,7 @@ where
         let state = state_tree_arc.lock().await;
         match state.get(AUTHORITY_SET_KEY) {
             Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
-                ChainError::Transaction(format!("Failed to deserialize authority set: {}", e))
+                ChainError::Transaction(format!("Failed to deserialize authority set: {e}"))
             }),
             Ok(None) => Err(ChainError::State(
                 depin_sdk_core::error::StateError::KeyNotFound(
@@ -419,7 +438,7 @@ where
         let state = state_tree_arc.lock().await;
         match state.get(STAKES_KEY) {
             Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
-                ChainError::Transaction(format!("Failed to deserialize stakes map: {}", e))
+                ChainError::Transaction(format!("Failed to deserialize stakes map: {e}"))
             }),
             Ok(None) => Ok(BTreeMap::new()), // Return empty map if key not found
             Err(e) => Err(e.into()),
@@ -455,14 +474,8 @@ mod tests {
         let mut chain = Chain::new(scheme.clone(), UTXOModel::new(scheme), "test-chain", vec![]);
 
         let gov_keypair = identity::Keypair::generate_ed25519();
-        let gov_pk_bs58 = bs58::encode(
-            gov_keypair
-                .public()
-                .try_into_ed25519()
-                .unwrap()
-                .to_bytes(),
-        )
-        .into_string();
+        let gov_pk_bs58 =
+            bs58::encode(gov_keypair.public().try_into_ed25519().unwrap().to_bytes()).into_string();
 
         workload
             .state_tree()
@@ -478,10 +491,7 @@ mod tests {
         };
         let payload_bytes = serde_json::to_vec(&payload).unwrap();
         let signature = gov_keypair.sign(&payload_bytes).unwrap();
-        let sys_tx = SystemTransaction {
-            payload,
-            signature,
-        };
+        let sys_tx = SystemTransaction { payload, signature };
         let protocol_tx = ProtocolTransaction::System(sys_tx);
 
         // Test
@@ -515,14 +525,8 @@ mod tests {
         ));
         let mut chain = Chain::new(scheme.clone(), UTXOModel::new(scheme), "test-chain", vec![]);
         let gov_keypair = identity::Keypair::generate_ed25519();
-        let gov_pk_bs58 = bs58::encode(
-            gov_keypair
-                .public()
-                .try_into_ed25519()
-                .unwrap()
-                .to_bytes(),
-        )
-        .into_string();
+        let gov_pk_bs58 =
+            bs58::encode(gov_keypair.public().try_into_ed25519().unwrap().to_bytes()).into_string();
 
         workload
             .state_tree()

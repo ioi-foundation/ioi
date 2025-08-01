@@ -3,6 +3,7 @@
 use crate::config::OrchestrationConfig;
 use async_trait::async_trait;
 use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
+use depin_sdk_consensus::{ConsensusDecision, ConsensusEngine};
 use depin_sdk_core::app::{ApplicationTransaction, ProtocolTransaction, UTXOTransaction};
 use depin_sdk_core::{
     chain::SovereignChain,
@@ -12,10 +13,9 @@ use depin_sdk_core::{
     transaction::TransactionModel,
     validator::{Container, WorkloadContainer},
 };
-use depin_sdk_consensus::{ConsensusDecision, ConsensusEngine};
-use depin_sdk_sync::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
-use depin_sdk_sync::traits::NodeState;
-use depin_sdk_sync::BlockSync;
+use depin_sdk_network::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
+use depin_sdk_network::traits::NodeState;
+use depin_sdk_network::BlockSync;
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashSet, VecDeque};
@@ -53,7 +53,7 @@ async fn rpc_handler(
 ) -> (StatusCode, Json<JsonRpcResponse>) {
     let response = match payload.method.as_str() {
         "submit_tx" => {
-            if let Some(tx_hex) = payload.params.get(0) {
+            if let Some(tx_hex) = payload.params.first() {
                 match hex::decode(tx_hex) {
                     Ok(tx_bytes) => {
                         match serde_json::from_slice::<ProtocolTransaction>(&tx_bytes) {
@@ -74,7 +74,7 @@ async fn rpc_handler(
                             Err(e) => JsonRpcResponse {
                                 jsonrpc: "2.0".to_string(),
                                 result: None,
-                                error: Some(format!("Failed to deserialize transaction: {}", e)),
+                                error: Some(format!("Failed to deserialize transaction: {e}")),
                                 id: payload.id,
                             },
                         }
@@ -82,7 +82,7 @@ async fn rpc_handler(
                     Err(e) => JsonRpcResponse {
                         jsonrpc: "2.0".to_string(),
                         result: None,
-                        error: Some(format!("Invalid hex in transaction: {}", e)),
+                        error: Some(format!("Invalid hex in transaction: {e}")),
                         id: payload.id,
                     },
                 }
@@ -105,15 +105,21 @@ async fn rpc_handler(
     (StatusCode::OK, Json(response))
 }
 
+type ChainFor<CS, TM, ST> = Arc<Mutex<dyn SovereignChain<CS, TM, ST> + Send + Sync>>;
+
 pub struct OrchestrationContainer<CS, TM, ST>
 where
     CS: CommitmentScheme + Send + Sync + 'static,
     TM: TransactionModel<CommitmentScheme = CS> + Clone + Send + Sync + 'static,
     TM::Transaction: Clone + Debug + Send + Sync,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static + Debug,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug,
 {
     _config: OrchestrationConfig,
-    chain: Arc<OnceCell<Arc<Mutex<dyn SovereignChain<CS, TM, ST> + Send + Sync>>>>,
+    chain: Arc<OnceCell<ChainFor<CS, TM, ST>>>,
     workload: Arc<OnceCell<Arc<WorkloadContainer<ST>>>>,
     tx_pool: Arc<Mutex<VecDeque<ProtocolTransaction>>>,
     syncer: Arc<Libp2pSync>,
@@ -123,6 +129,34 @@ where
     shutdown_sender: Arc<watch::Sender<bool>>,
     task_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     is_running: Arc<AtomicBool>,
+}
+
+struct MainLoopContext<CS, TM, ST>
+where
+    CS: CommitmentScheme + Send + Sync + 'static,
+    TM: TransactionModel<CommitmentScheme = CS, Transaction = UTXOTransaction>
+        + Clone
+        + Send
+        + Sync
+        + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + StateTree<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    CS::Commitment: Send + Sync + Debug,
+{
+    chain_ref: Arc<Mutex<dyn SovereignChain<CS, TM, ST> + Send + Sync>>,
+    workload_ref: Arc<WorkloadContainer<ST>>,
+    tx_pool_ref: Arc<Mutex<VecDeque<ProtocolTransaction>>>,
+    network_event_receiver: mpsc::Receiver<NetworkEvent>,
+    swarm_commander: mpsc::Sender<SwarmCommand>,
+    shutdown_receiver: watch::Receiver<bool>,
+    consensus_engine_ref: Arc<Mutex<Box<dyn ConsensusEngine<ProtocolTransaction> + Send + Sync>>>,
+    node_state: Arc<Mutex<NodeState>>,
+    local_peer_id: PeerId,
+    known_peers_ref: Arc<Mutex<HashSet<PeerId>>>,
 }
 
 impl<CS, TM, ST> OrchestrationContainer<CS, TM, ST>
@@ -177,153 +211,146 @@ where
             .expect("Workload ref already set");
     }
 
-    async fn run_main_loop(
-        chain_ref: Arc<Mutex<dyn SovereignChain<CS, TM, ST> + Send + Sync>>,
-        workload_ref: Arc<WorkloadContainer<ST>>,
-        tx_pool_ref: Arc<Mutex<VecDeque<ProtocolTransaction>>>,
-        mut network_event_receiver: mpsc::Receiver<NetworkEvent>,
-        swarm_commander: mpsc::Sender<SwarmCommand>,
-        mut shutdown_receiver: watch::Receiver<bool>,
-        consensus_engine_ref: Arc<
-            Mutex<Box<dyn ConsensusEngine<ProtocolTransaction> + Send + Sync>>,
-        >,
-        node_state: Arc<Mutex<NodeState>>,
-        local_peer_id: PeerId,
-        known_peers_ref: Arc<Mutex<HashSet<PeerId>>>,
-    ) {
+    async fn run_main_loop(mut context: MainLoopContext<CS, TM, ST>) {
         let mut block_production_interval = time::interval(Duration::from_secs(5));
         block_production_interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
 
         let sync_timeout = time::sleep(Duration::from_secs(5));
         tokio::pin!(sync_timeout);
 
-        *node_state.lock().await = NodeState::Syncing;
+        *context.node_state.lock().await = NodeState::Syncing;
 
         loop {
             tokio::select! {
                 biased;
 
-                Some(event) = network_event_receiver.recv() => {
+                Some(event) = context.network_event_receiver.recv() => {
                     match event {
                         NetworkEvent::ConnectionEstablished(peer_id) => {
-                            known_peers_ref.lock().await.insert(peer_id);
-                            swarm_commander.send(SwarmCommand::SendStatusRequest(peer_id)).await.ok();
+                            context.known_peers_ref.lock().await.insert(peer_id);
+                            context.swarm_commander.send(SwarmCommand::SendStatusRequest(peer_id)).await.ok();
                         }
                         NetworkEvent::ConnectionClosed(peer_id) => {
-                            known_peers_ref.lock().await.remove(&peer_id);
+                            context.known_peers_ref.lock().await.remove(&peer_id);
                         }
                         NetworkEvent::GossipBlock(block) => {
-                            let mut chain = chain_ref.lock().await;
-                            if let Err(e) = chain.process_block(block, &workload_ref).await {
-                                log::warn!("[Orchestrator] Failed to process gossiped block: {:?}", e);
+                            let mut chain = context.chain_ref.lock().await;
+                            if let Err(e) = chain.process_block(block, &context.workload_ref).await {
+                                log::warn!("[Orchestrator] Failed to process gossiped block: {e:?}");
                             }
+                        },
+                        NetworkEvent::GossipTransaction(tx) => {
+                            let mut pool = context.tx_pool_ref.lock().await;
+                            // In a real implementation, we would validate the tx before adding it.
+                            pool.push_back(tx);
+                            log::info!("[Orchestrator] Received transaction via gossip. Pool size: {}", pool.len());
                         }
                         NetworkEvent::StatusRequest(_peer, channel) => {
-                            let height = chain_ref.lock().await.status().height;
-                            swarm_commander.send(SwarmCommand::SendStatusResponse(channel, height)).await.ok();
+                            let height = context.chain_ref.lock().await.status().height;
+                            context.swarm_commander.send(SwarmCommand::SendStatusResponse(channel, height)).await.ok();
                         }
                         NetworkEvent::BlocksRequest(_, since, channel) => {
-                            let blocks = chain_ref.lock().await.get_blocks_since(since);
-                            swarm_commander.send(SwarmCommand::SendBlocksResponse(channel, blocks)).await.ok();
+                            let blocks = context.chain_ref.lock().await.get_blocks_since(since);
+                            context.swarm_commander.send(SwarmCommand::SendBlocksResponse(channel, blocks)).await.ok();
                         }
                         NetworkEvent::StatusResponse(peer, peer_height) => {
-                            let our_height = chain_ref.lock().await.status().height;
+                            let our_height = context.chain_ref.lock().await.status().height;
                             if peer_height > our_height {
-                                swarm_commander.send(SwarmCommand::SendBlocksRequest(peer, our_height)).await.ok();
-                            } else if *node_state.lock().await == NodeState::Syncing {
-                                *node_state.lock().await = NodeState::Synced;
+                                context.swarm_commander.send(SwarmCommand::SendBlocksRequest(peer, our_height)).await.ok();
+                            } else if *context.node_state.lock().await == NodeState::Syncing {
+                                *context.node_state.lock().await = NodeState::Synced;
                             }
                         }
                         NetworkEvent::BlocksResponse(_, blocks) => {
-                            let mut chain = chain_ref.lock().await;
+                            let mut chain = context.chain_ref.lock().await;
                             for block in blocks {
-                                if chain.process_block(block, &workload_ref).await.is_err() {
+                                if chain.process_block(block, &context.workload_ref).await.is_err() {
                                     break;
                                 }
                             }
-                            if *node_state.lock().await == NodeState::Syncing {
-                                *node_state.lock().await = NodeState::Synced;
+                            if *context.node_state.lock().await == NodeState::Syncing {
+                                *context.node_state.lock().await = NodeState::Synced;
                             }
                         }
                     }
                     continue;
                 }
 
-                _ = &mut sync_timeout, if *node_state.lock().await == NodeState::Syncing => {
-                    if known_peers_ref.lock().await.is_empty() {
+                _ = &mut sync_timeout, if *context.node_state.lock().await == NodeState::Syncing => {
+                    if context.known_peers_ref.lock().await.is_empty() {
                          log::info!("[Orchestrator] No peers found after timeout. Assuming genesis node. State -> Synced.");
-                        *node_state.lock().await = NodeState::Synced;
+                        *context.node_state.lock().await = NodeState::Synced;
                     }
                 },
 
                 _ = block_production_interval.tick() => {
-                    if *node_state.lock().await != NodeState::Synced {
+                    if *context.node_state.lock().await != NodeState::Synced {
                         continue;
                     }
 
                     let (decision, node_set_for_block) = {
-                        let chain = chain_ref.lock().await;
+                        let chain = context.chain_ref.lock().await;
                         let target_height = chain.status().height + 1;
                         let current_view = 0;
 
                         // NEW: Conditionally fetch the correct validator set based on the compiled consensus engine.
                         let node_set_bytes = if cfg!(feature = "consensus-poa") {
                             // For PoA, the node set is the list of authority PeerIDs.
-                            chain.get_authority_set(&workload_ref).await.unwrap_or_else(|e| {
-                                log::error!("Could not get authority set for consensus: {:?}", e);
+                            chain.get_authority_set(&context.workload_ref).await.unwrap_or_else(|e| {
+                                log::error!("Could not get authority set for consensus: {e:?}");
                                 vec![]
                             })
                         } else if cfg!(feature = "consensus-pos") {
                             // For PoS, we fetch the map of stakers and serialize it.
                             // The PoS engine expects this serialized map as its `validator_set`.
-                            let stakers = chain.get_staked_validators(&workload_ref).await.unwrap_or_default();
+                            let stakers = chain.get_staked_validators(&context.workload_ref).await.unwrap_or_default();
                             // We wrap it in a Vec to match the function signature. A more robust solution
                             // would be a dedicated enum `NodeSetType`.
                             vec![serde_json::to_vec(&stakers).unwrap_or_default()]
                         } else {
                             // Fallback for other consensus types like RoundRobin
-                            chain.get_validator_set(&workload_ref).await.unwrap_or_else(|e| {
-                                log::error!("Could not get validator set for consensus: {:?}", e);
+                            chain.get_validator_set(&context.workload_ref).await.unwrap_or_else(|e| {
+                                log::error!("Could not get validator set for consensus: {e:?}");
                                 vec![]
                             })
                         };
 
-                        let mut engine = consensus_engine_ref.lock().await;
-                        let known_peers = known_peers_ref.lock().await;
-                        let decision = engine.decide(&local_peer_id, target_height, current_view, &node_set_bytes, &known_peers).await;
+                        let mut engine = context.consensus_engine_ref.lock().await;
+                        let known_peers = context.known_peers_ref.lock().await;
+                        let decision = engine.decide(&context.local_peer_id, target_height, current_view, &node_set_bytes, &known_peers).await;
                         (decision, node_set_bytes)
                     };
-                    
+
                     // Use the fetched node set when creating the block.
                     if let ConsensusDecision::ProduceBlock(_) = decision {
-                        let target_height = chain_ref.lock().await.status().height + 1;
-                        log::info!("Consensus decision: Produce block for height {}.", target_height);
+                        let target_height = context.chain_ref.lock().await.status().height + 1;
+                        log::info!("Consensus decision: Produce block for height {target_height}.");
 
-                        let mut tx_pool = tx_pool_ref.lock().await;
+                        let mut tx_pool = context.tx_pool_ref.lock().await;
                         let mut transactions_to_include = tx_pool.drain(..).collect::<Vec<_>>();
                         drop(tx_pool);
 
-                        let coinbase = chain_ref.lock().await.transaction_model().clone().create_coinbase_transaction(target_height, &local_peer_id.to_bytes()).unwrap();
+                        let coinbase = context.chain_ref.lock().await.transaction_model().clone().create_coinbase_transaction(target_height, &context.local_peer_id.to_bytes()).unwrap();
                         transactions_to_include.insert(0, ProtocolTransaction::Application(ApplicationTransaction::UTXO(coinbase)));
 
-                        let known_peers = known_peers_ref.lock().await;
+                        let known_peers = context.known_peers_ref.lock().await;
                         let mut peers_bytes: Vec<Vec<u8>> = known_peers.iter().map(|p| p.to_bytes()).collect();
-                        peers_bytes.push(local_peer_id.to_bytes());
+                        peers_bytes.push(context.local_peer_id.to_bytes());
                         drop(known_peers);
 
                         // Pass the correct node set (authorities or serialized stakers) to `create_block`.
-                        let new_block_template = chain_ref.lock().await.create_block(transactions_to_include, &workload_ref, &node_set_for_block, &peers_bytes);
+                        let new_block_template = context.chain_ref.lock().await.create_block(transactions_to_include, &context.workload_ref, &node_set_for_block, &peers_bytes);
 
-                        if let Ok(final_block) = chain_ref.lock().await.process_block(new_block_template, &workload_ref).await {
+                        if let Ok(final_block) = context.chain_ref.lock().await.process_block(new_block_template, &context.workload_ref).await {
                             log::info!("Produced and processed new block #{}", final_block.header.height);
                             let data = serde_json::to_vec(&final_block).unwrap();
-                            swarm_commander.send(SwarmCommand::PublishBlock(data)).await.ok();
+                            context.swarm_commander.send(SwarmCommand::PublishBlock(data)).await.ok();
                         }
                     }
                 }
 
-                _ = shutdown_receiver.changed() => {
-                    if *shutdown_receiver.borrow() {
+                _ = context.shutdown_receiver.changed() => {
+                    if *context.shutdown_receiver.borrow() {
                         log::info!("Orchestration main loop received shutdown signal.");
                         break;
                     }
@@ -412,18 +439,20 @@ where
             "Network event receiver already taken".to_string(),
         ))?;
 
-        handles.push(tokio::spawn(Self::run_main_loop(
-            chain,
-            workload,
-            self.tx_pool.clone(),
-            receiver,
-            self.swarm_command_sender.clone(),
-            self.shutdown_sender.subscribe(),
-            self.consensus_engine.clone(),
-            self.syncer.get_node_state(),
-            self.syncer.get_local_peer_id(),
-            self.syncer.get_known_peers(),
-        )));
+        let context = MainLoopContext::<CS, TM, ST> {
+            chain_ref: chain,
+            workload_ref: workload,
+            tx_pool_ref: self.tx_pool.clone(),
+            network_event_receiver: receiver,
+            swarm_commander: self.swarm_command_sender.clone(),
+            shutdown_receiver: self.shutdown_sender.subscribe(),
+            consensus_engine_ref: self.consensus_engine.clone(),
+            node_state: self.syncer.get_node_state(),
+            local_peer_id: self.syncer.get_local_peer_id(),
+            known_peers_ref: self.syncer.get_known_peers(),
+        };
+
+        handles.push(tokio::spawn(Self::run_main_loop(context)));
 
         self.is_running.store(true, Ordering::SeqCst);
         Ok(())
@@ -449,7 +478,7 @@ where
         for handle in handles.drain(..) {
             handle
                 .await
-                .map_err(|e| ValidatorError::Other(format!("Task panicked: {}", e)))?;
+                .map_err(|e| ValidatorError::Other(format!("Task panicked: {e}")))?;
         }
         Ok(())
     }

@@ -219,7 +219,7 @@ impl SerializableKey for KyberPublicKey {
     fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
         // Use dcrypt's built-in from_bytes method
         let inner = DcryptPublicKey::from_bytes(bytes)
-            .map_err(|e| format!("Failed to deserialize Kyber public key: {:?}", e))?;
+            .map_err(|e| format!("Failed to deserialize Kyber public key: {e:?}"))?;
 
         // Try to determine the security level from the public key size
         let level = match bytes.len() {
@@ -247,7 +247,7 @@ impl SerializableKey for KyberPrivateKey {
     fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
         // Use dcrypt's built-in from_bytes method
         let inner = DcryptSecretKey::from_bytes(bytes)
-            .map_err(|e| format!("Failed to deserialize Kyber private key: {:?}", e))?;
+            .map_err(|e| format!("Failed to deserialize Kyber private key: {e:?}"))?;
 
         // Try to determine the security level from the private key size
         let level = match bytes.len() {

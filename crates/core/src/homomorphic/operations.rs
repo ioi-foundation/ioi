@@ -33,15 +33,13 @@ impl fmt::Debug for CommitmentOperation {
             Self::ScalarMultiply { scalar, .. } => {
                 write!(
                     f,
-                    "CommitmentOperation::ScalarMultiply {{ scalar: {}, .. }}",
-                    scalar
+                    "CommitmentOperation::ScalarMultiply {{ scalar: {scalar}, .. }}"
                 )
             }
             Self::Custom { operation_id, .. } => {
                 write!(
                     f,
-                    "CommitmentOperation::Custom {{ operation_id: {}, .. }}",
-                    operation_id
+                    "CommitmentOperation::Custom {{ operation_id: {operation_id}, .. }}"
                 )
             }
         }

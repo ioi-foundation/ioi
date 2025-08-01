@@ -64,17 +64,19 @@ pub struct GovernanceModule {
     params: GovernanceParams,
 }
 
+impl Default for GovernanceModule {
+    /// Create a new governance module with default parameters
+    fn default() -> Self {
+        Self {
+            params: GovernanceParams::default(),
+        }
+    }
+}
+
 impl GovernanceModule {
     /// Create a new governance module
     pub fn new(params: GovernanceParams) -> Self {
         Self { params }
-    }
-
-    /// Create a new governance module with default parameters
-    pub fn default() -> Self {
-        Self {
-            params: GovernanceParams::default(),
-        }
     }
 
     /// Get the governance parameters

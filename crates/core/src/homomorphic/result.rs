@@ -20,7 +20,7 @@ impl fmt::Debug for OperationResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Success(_) => write!(f, "OperationResult::Success(..)"),
-            Self::Failure(msg) => write!(f, "OperationResult::Failure({})", msg),
+            Self::Failure(msg) => write!(f, "OperationResult::Failure({msg})"),
             Self::Unsupported => write!(f, "OperationResult::Unsupported"),
         }
     }

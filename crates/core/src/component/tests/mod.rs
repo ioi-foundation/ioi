@@ -4,21 +4,9 @@
 #[cfg(test)]
 mod component_tests {
     use crate::component::{
-        Adaptable, AdaptableComponent, ClassifiedComponent, ComponentClassification, Extensible,
-        ExtensibleComponent, Fixed, FixedComponent,
+        AdaptableComponent, ClassifiedComponent, ComponentClassification, ExtensibleComponent,
+        FixedComponent,
     };
-
-    // Test struct implementing Fixed trait
-    struct TestFixedComponent;
-    impl Fixed for TestFixedComponent {}
-
-    // Test struct implementing Adaptable trait
-    struct TestAdaptableComponent;
-    impl Adaptable for TestAdaptableComponent {}
-
-    // Test struct implementing Extensible trait
-    struct TestExtensibleComponent;
-    impl Extensible for TestExtensibleComponent {}
 
     #[test]
     fn test_fixed_component() {

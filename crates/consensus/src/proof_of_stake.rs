@@ -15,6 +15,12 @@ pub type StakeAmount = u64;
 /// lottery to select a block producer for each round.
 pub struct ProofOfStakeEngine {}
 
+impl Default for ProofOfStakeEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ProofOfStakeEngine {
     pub fn new() -> Self {
         Self {}
@@ -50,7 +56,7 @@ impl ProofOfStakeEngine {
                 return Some(validator_pk_b58.clone());
             }
         }
-        
+
         // Fallback in case of rounding errors, though it should not be reached.
         stakers.keys().last().cloned()
     }
@@ -70,7 +76,7 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
     ) -> ConsensusDecision<T> {
         // The staked_validators list is assumed to be a serialized BTreeMap for this PoS engine.
         let stakers: BTreeMap<PublicKey, StakeAmount> =
-            serde_json::from_slice(staked_validators.get(0).unwrap_or(&vec![]))
+            serde_json::from_slice(staked_validators.first().unwrap_or(&vec![]))
                 .unwrap_or_default();
 
         if stakers.is_empty() {
@@ -98,7 +104,7 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
         // Validation logic is handled by the chain.
         Ok(())
     }
-    
+
     async fn handle_view_change(
         &mut self,
         _from: PeerId,
@@ -107,7 +113,7 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
     ) -> Result<(), String> {
         Ok(())
     }
-    
+
     fn reset(&mut self, _height: u64) {
         // No height-specific state to reset in this simple implementation.
     }

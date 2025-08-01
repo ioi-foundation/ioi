@@ -106,12 +106,12 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for HybridMode
     {
         match tx {
             HybridTransaction::Account(account_tx) => {
-                let proof = self.account_model.generate_proof(account_tx, state)?;
-                Ok(HybridProof::Account(proof))
+                self.account_model.generate_proof(account_tx, state)?;
+                Ok(HybridProof::Account(()))
             }
             HybridTransaction::UTXO(utxo_tx) => {
-                let proof = self.utxo_model.generate_proof(utxo_tx, state)?;
-                Ok(HybridProof::UTXO(proof))
+                self.utxo_model.generate_proof(utxo_tx, state)?;
+                Ok(HybridProof::UTXO(()))
             }
         }
     }
