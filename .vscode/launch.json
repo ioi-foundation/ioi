@@ -32,7 +32,7 @@
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=depin-sdk-commitment-schemes"
+                    "--package=depin-sdk-commitment"
                 ],
                 "filter": {
                     "name": "depin_sdk_commitment_schemes",
@@ -51,7 +51,7 @@
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=depin-sdk-state-trees"
+                    "--package=depin-sdk-state-tree"
                 ],
                 "filter": {
                     "name": "depin_sdk_state_trees",

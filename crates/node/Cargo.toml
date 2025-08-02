@@ -14,9 +14,9 @@ license = "MIT OR Apache-2.0"
 depin-sdk-api = { path = "../api" }
 depin-sdk-types = { path = "../types" }
 depin-sdk-chain = { path = "../chain" }
-depin-sdk-commitment-schemes = { path = "../commitment_schemes" }
+depin-sdk-commitment = { path = "../commitment" }
 depin-sdk-consensus = { path = "../consensus", default-features = false }
-depin-sdk-state-trees = { path = "../state_trees" }
+depin-sdk-state-tree = { path = "../state-tree" }
 depin-sdk-network = { path = "../network" }
 depin-sdk-transaction-models = { path = "../transaction_models" }
 depin-sdk-validator = { path = "../validator", default-features = false }

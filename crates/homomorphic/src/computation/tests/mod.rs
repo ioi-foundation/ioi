@@ -2,9 +2,10 @@
 use super::*;
 use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, Selector};
 use depin_sdk_api::homomorphic::{CommitmentOperation, OperationResult};
-use depin_sdk_commitment_schemes::elliptic_curve::{
+use depin_sdk_commitment::elliptic_curve::{
     EllipticCurveCommitment, EllipticCurveCommitmentScheme,
 };
+
 use std::any::Any;
 
 #[test]

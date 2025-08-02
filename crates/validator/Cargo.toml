@@ -26,8 +26,8 @@ async-trait = { workspace = true }
 toml = { workspace = true }
 clap = { workspace = true, features = ["derive"], optional = true }
 env_logger = { workspace = true, optional = true }
-depin-sdk-state-trees = { path = "../state_trees", optional = true }
-depin-sdk-commitment-schemes = { path = "../commitment_schemes", optional = true }
+depin-sdk-state-tree = { path = "../state-tree", optional = true }
+depin-sdk-commitment = { path = "../commitment", optional = true }
 depin-sdk-transaction-models = { path = "../transaction_models", optional = true }
 rand = { workspace = true }
 hex = { workspace = true }
@@ -37,8 +37,8 @@ default = []
 validator-bins = [
     "dep:clap",
     "dep:env_logger",
-    "dep:depin-sdk-state-trees",
-    "dep:depin-sdk-commitment-schemes",
+    "dep:depin-sdk-state-tree",
+    "dep:depin-sdk-commitment",
     "dep:depin-sdk-transaction-models",
     "dep:depin-sdk-vm-wasm",
 ]

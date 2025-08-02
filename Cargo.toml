@@ -17,7 +17,7 @@ members = [
 
     # Core SDK library crates
     "crates/chain",
-    "crates/commitment_schemes",
+    "crates/commitment",
     "crates/consensus",
     "crates/api",
     "crates/types",
@@ -25,7 +25,7 @@ members = [
     "crates/homomorphic",
     "crates/network",
     "crates/services",
-    "crates/state_trees",
+    "crates/state-tree",
     "crates/test_utils",
     "crates/transaction_models",
     "crates/validator",

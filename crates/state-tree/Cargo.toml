@@ -1,6 +1,6 @@
 # Path: crates/state_trees/Cargo.toml
 [package]
-name = "depin-sdk-state-trees"
+name = "depin-sdk-state-tree"
 version = "0.1.0"
 edition = "2021"
 description = "State tree implementations for the DePIN SDK"
@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 depin-sdk-api = { path = "../api" }
 depin-sdk-types = { path = "../types" }
-depin-sdk-commitment-schemes = { path = "../commitment_schemes" }
+depin-sdk-commitment = { path = "../commitment" }
 log = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
@@ -19,6 +19,6 @@ hex = { workspace = true }
 
 [features]
 default = []
-verkle = ["depin-sdk-commitment-schemes/kzg"]
-sparse_merkle = ["depin-sdk-commitment-schemes/hash"]
-iavl = ["depin-sdk-commitment-schemes/hash"]
+verkle = ["depin-sdk-commitment/kzg"]
+sparse_merkle = ["depin-sdk-commitment/hash"]
+iavl = ["depin-sdk-commitment/hash"]

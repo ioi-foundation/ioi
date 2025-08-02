@@ -481,8 +481,8 @@ where
 mod tests {
     use super::*;
     use depin_sdk_api::state::StateTree;
-    use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
-    use depin_sdk_state_trees::hashmap::HashMapStateTree;
+    use depin_sdk_commitment::hash::HashCommitmentScheme;
+    use depin_sdk_state_tree::hashmap::HashMapStateTree;
     use depin_sdk_transaction_models::utxo::UTXOModel;
     use depin_sdk_types::config::WorkloadConfig;
     use depin_sdk_vm_wasm::WasmVm;
