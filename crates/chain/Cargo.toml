@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 depin-sdk-api = { path = "../api" }
 depin-sdk-types = { path = "../types" }
-depin-sdk-commitment-schemes = { path = "../commitment_schemes" }
+depin-sdk-commitment = { path = "../commitment" }
 depin-sdk-transaction-models = { path = "../transaction_models" }
 log = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
@@ -23,7 +23,7 @@ bs58 = "0.4"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
-depin-sdk-state-trees = { path = "../state_trees" }
+depin-sdk-state-tree = { path = "../state-tree" }
 depin-sdk-vm-wasm = { path = "../vm/wasm" }
 
 [features]

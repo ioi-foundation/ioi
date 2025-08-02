@@ -1,9 +1,9 @@
-# Path: crates/commitment_schemes/Cargo.toml
+# Path: crates/commitment/Cargo.toml
 [package]
-name = "depin-sdk-commitment-schemes"
+name = "depin-sdk-commitment"
 version = "0.1.0"
 edition = "2021"
-description = "Commitment scheme implementations for the DePIN SDK"
+description = "Cryptographic commitment scheme implementations for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]

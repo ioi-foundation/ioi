@@ -4,10 +4,10 @@
 use clap::Parser;
 use depin_sdk_api::validator::{Container, WorkloadContainer}; // Corrected import
 use depin_sdk_chain::Chain;
-use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
+use depin_sdk_commitment::hash::HashCommitmentScheme;
 use depin_sdk_consensus::{round_robin::RoundRobinBftEngine, ConsensusEngine};
 use depin_sdk_network::libp2p::Libp2pSync;
-use depin_sdk_state_trees::file::FileStateTree;
+use depin_sdk_state_tree::file::FileStateTree;
 use depin_sdk_transaction_models::utxo::UTXOModel;
 use depin_sdk_types::app::ProtocolTransaction;
 use depin_sdk_types::config::WorkloadConfig; // Corrected import

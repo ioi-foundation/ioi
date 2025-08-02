@@ -1,7 +1,7 @@
 // Path: crates/homomorphic/src/operations/scalar_multiply/tests/mod.rs
 use super::*;
 use depin_sdk_api::commitment::CommitmentScheme;
-use depin_sdk_commitment_schemes::elliptic_curve::{
+use depin_sdk_commitment::elliptic_curve::{
     EllipticCurveCommitment, EllipticCurveCommitmentScheme,
 };
 use std::any::Any;

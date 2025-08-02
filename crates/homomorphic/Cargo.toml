@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 depin-sdk-api = { path = "../api" }
-depin-sdk-commitment-schemes = { path = "../commitment_schemes" }
+depin-sdk-commitment = { path = "../commitment" }
 log = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
