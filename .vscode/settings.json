@@ -1,5 +1,9 @@
 {
-    "rust-analyzer.cargo.features": [
+    "rust-analyzer.check.features": [
+        "validator-bins",
+        "vm-wasm",
+        "consensus-poa",
+        "consensus-pos",
         "consensus-round-robin"
     ]
 }

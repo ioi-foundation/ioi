@@ -11,7 +11,7 @@ depin-sdk-consensus = { path = "../consensus", features = [
 ] } # No features by default
 depin-sdk-network = { path = "../network" }
 depin-sdk-chain = { path = "../chain" }
-depin-sdk-vm-wasm = { path = "../vm-wasm", optional = true }
+depin-sdk-vm-wasm = { path = "../vm/wasm", optional = true }
 log = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

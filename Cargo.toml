@@ -20,7 +20,7 @@ members = [
     "crates/test_utils",
     "crates/transaction_models",
     "crates/validator",
-    "crates/vm-wasm",
+    "crates/vm/wasm",
     "crates/contract-sdk",
 ]
 

@@ -43,7 +43,7 @@ fn build_pos_node_binary() {
                 "--release",
                 "--no-default-features",
                 "--features",
-                "consensus-pos",
+                "consensus-pos,vm-wasm", // <-- FIX: Add vm-wasm feature
             ])
             .status()
             .expect("Failed to execute cargo build command");

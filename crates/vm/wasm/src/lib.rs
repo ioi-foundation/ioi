@@ -1,4 +1,4 @@
-// Path: crates/vm-wasm/src/lib.rs
+// Path: crates/vm/wasm/src/lib.rs
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use depin_sdk_core::error::VmError;

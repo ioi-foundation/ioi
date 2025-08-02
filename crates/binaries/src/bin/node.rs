@@ -14,13 +14,13 @@ use depin_sdk_core::app::ProtocolTransaction;
 use depin_sdk_core::config::WorkloadConfig;
 use depin_sdk_core::state::StateTree;
 use depin_sdk_core::validator::WorkloadContainer;
+use depin_sdk_core::vm::VirtualMachine;
 use depin_sdk_core::Container;
 use depin_sdk_network::libp2p::Libp2pSync;
 use depin_sdk_state_trees::file::FileStateTree;
 use depin_sdk_transaction_models::utxo::UTXOModel;
 use depin_sdk_validator::common::GuardianContainer;
 use depin_sdk_validator::standard::OrchestrationContainer;
-use depin_sdk_vm_wasm::WasmVm;
 use libp2p::{identity, Multiaddr};
 use serde_json::Value;
 use std::fs;
@@ -92,6 +92,19 @@ fn build_consensus_engine() -> Box<dyn ConsensusEngine<ProtocolTransaction> + Se
     }
 }
 
+// --- Compile-Time VM Selection ---
+fn build_virtual_machine() -> Box<dyn VirtualMachine + Send + Sync> {
+    cfg_if! {
+        if #[cfg(feature = "vm-wasm")] {
+            use depin_sdk_vm_wasm::WasmVm;
+            log::info!("Building with WasmVm.");
+            Box::new(WasmVm::new())
+        } else {
+            compile_error!("A VM feature must be enabled via --features flag. Use --features vm-wasm");
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     env_logger::builder()
@@ -121,12 +134,8 @@ async fn main() -> anyhow::Result<()> {
         enabled_vms: vec!["WASM".to_string()],
     };
 
-    let wasm_vm = Box::new(WasmVm::new());
-    let workload_container = Arc::new(WorkloadContainer::new(
-        workload_config,
-        state_tree,
-        wasm_vm,
-    ));
+    let vm = build_virtual_machine();
+    let workload_container = Arc::new(WorkloadContainer::new(workload_config, state_tree, vm));
 
     let mut chain = Chain::new(
         commitment_scheme.clone(),
