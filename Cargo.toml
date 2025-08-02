@@ -1,4 +1,5 @@
 # Path: Cargo.toml
+
 # Explicitly opt-in to the unstable 'profile-rustflags' feature.
 # This is required by the nightly toolchain to allow setting rustflags
 # on a per-package basis, which is necessary for our mixed std/no_std build.
@@ -7,30 +8,36 @@ cargo-features = ["profile-rustflags"]
 [workspace]
 resolver = "2"
 members = [
-    "crates/binaries",
+    # Renamed from "binaries"
+    "crates/node",
+    # New developer toolkit and E2E test crate
+    "crates/forge",
+    # Renamed from "contract-sdk"
+    "crates/contract",
+
+    # Core SDK library crates
     "crates/chain",
     "crates/commitment_schemes",
     "crates/consensus",
     "crates/core",
     "crates/crypto",
     "crates/homomorphic",
+    "crates/network",
     "crates/services",
     "crates/state_trees",
-    "crates/network",
     "crates/test_utils",
     "crates/transaction_models",
     "crates/validator",
     "crates/vm/wasm",
-    "crates/contract-sdk",
 ]
 
-# Add these sections to define per-package profiles for the contract-sdk.
+# Per-package profiles for the `no_std` contract SDK.
 # This uses the stable `rustflags` key to inject the necessary compiler options
-# for only this specific package, resolving all build errors.
-[profile.dev.package.depin-sdk-contract-sdk]
+# for only this specific package, resolving build errors.
+[profile.dev.package.depin-sdk-contract]
 rustflags = ["-C", "panic=abort"]
 
-[profile.release.package.depin-sdk-contract-sdk]
+[profile.release.package.depin-sdk-contract]
 rustflags = ["-C", "panic=abort", "-C", "lto=true", "-C", "opt-level=s"]
 
 [workspace.dependencies]
@@ -77,5 +84,5 @@ env_logger = "0.10"
 thiserror = "1.0"
 anyhow = "1.0"
 
-# Fix: Upgrade wasmtime to a modern version.
+# VM
 wasmtime = { version = "19.0.1" }

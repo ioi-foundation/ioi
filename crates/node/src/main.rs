@@ -1,4 +1,4 @@
-// Path: crates/binaries/src/bin/node.rs
+// Path: crates/node/src/main.rs
 
 //! # DePIN SDK Node
 //!
@@ -62,14 +62,11 @@ fn populate_state_from_genesis(
 
     for (key, value) in state {
         log::info!("  - Loading state for key: {}", key);
-        // All values in genesis are serialized to JSON bytes, including the stakes map.
         let value_bytes = serde_json::to_vec(value)?;
         state_tree.insert(key.as_bytes(), &value_bytes)?;
     }
     Ok(())
 }
-
-// --- Compile-Time Consensus Engine Selection ---
 
 /// Builds the consensus engine based on compile-time features.
 fn build_consensus_engine() -> Box<dyn ConsensusEngine<ProtocolTransaction> + Send + Sync> {
@@ -87,12 +84,12 @@ fn build_consensus_engine() -> Box<dyn ConsensusEngine<ProtocolTransaction> + Se
             log::info!("Building with RoundRobinBftEngine.");
             Box::new(RoundRobinBftEngine::new())
         } else {
-            compile_error!("A consensus engine feature must be enabled via --features flag. Use --features consensus-poa, --features consensus-pos, or --features consensus-round-robin");
+            compile_error!("A consensus engine feature must be enabled via --features flag.");
         }
     }
 }
 
-// --- Compile-Time VM Selection ---
+/// Builds the virtual machine based on compile-time features.
 fn build_virtual_machine() -> Box<dyn VirtualMachine + Send + Sync> {
     cfg_if! {
         if #[cfg(feature = "vm-wasm")] {
@@ -127,7 +124,7 @@ async fn main() -> anyhow::Result<()> {
         populate_state_from_genesis(&mut state_tree, &genesis_path)
             .map_err(|e| anyhow!("Failed to load genesis state: {}", e))?;
     } else if is_new_state {
-        log::warn!("Starting with a fresh state, but no genesis file was found at {:?}. Node may not function correctly.", genesis_path);
+        log::warn!("Starting with a fresh state, but no genesis file was found at {:?}.", genesis_path);
     }
 
     let workload_config = WorkloadConfig {
@@ -151,7 +148,6 @@ async fn main() -> anyhow::Result<()> {
 
     let consensus_engine = Arc::new(Mutex::new(build_consensus_engine()));
 
-    // Setup libp2p identity
     let key_path = Path::new(&opts.state_file).with_extension("json.identity.key");
     let local_key = if key_path.exists() {
         let mut bytes = Vec::new();
@@ -200,10 +196,7 @@ async fn main() -> anyhow::Result<()> {
     tokio::signal::ctrl_c().await?;
 
     log::info!("Shutdown signal received. Stopping node...");
-    orchestration_container
-        .stop()
-        .await
-        .map_err(|e| anyhow!(e))?;
+    orchestration_container.stop().await.map_err(|e| anyhow!(e))?;
     workload_container.stop().await.map_err(|e| anyhow!(e))?;
     guardian_container.stop().await.map_err(|e| anyhow!(e))?;
     log::info!("Node stopped gracefully.");

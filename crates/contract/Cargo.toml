@@ -1,6 +1,6 @@
-# Path: crates/contract-sdk/Cargo.toml
+# Path: crates/contract/Cargo.toml
 [package]
-name = "depin-sdk-contract-sdk"
+name = "depin-sdk-contract"
 version = "0.1.0"
 edition = "2021"
 description = "SDK for writing smart contracts for the DePIN SDK"
