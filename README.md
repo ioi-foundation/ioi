@@ -32,6 +32,16 @@ For a deep dive into the architecture, please see the [**Architectural Documenta
 > **Note**: The project is currently in an active development phase. The `main` branch contains a functional prototype that demonstrates the core architectural principles, including P2P networking, state persistence, and a modular, compile-time selectable consensus mechanism.
 >
 > **The software is not yet mainnet-ready.**
+>
+> **Implementation Status: Phase 3 - Integrated Architecture**
+> *   ✅ **Core Traits & Types**: `depin-sdk-core` provides a stable foundation for traits.
+> *   ✅ **Modular Crates**: Logic is decoupled into specialized crates (`chain`, `consensus`, `network`, etc.).
+> *   ✅ **Node & Forge Separation**: The `node` crate acts as the production binary, while the `forge` crate provides a developer toolkit and houses all E2E tests.
+> *   ✅ **P2P Networking**: `libp2p` integration is functional for peer discovery, block gossip, and state sync requests.
+> *   ✅ **Consensus Engines**: Compile-time selectable consensus engines (PoA, PoS, Round Robin) are implemented and validated via E2E tests.
+> *   ✅ **State Persistence**: A file-based state tree (`FileStateTree`) provides durable state for nodes.
+>
+> The next phase focuses on activating the core validator logic, including robust mempool management and transaction execution.
 
 ---
 
@@ -59,9 +69,9 @@ The validator requires configuration files. Create a `config` directory in the p
 # Create the directory
 mkdir -p config
 
-# Create a minimal orchestration.toml. The content can be simple for now.
-# Note: The RPC address is now configured inside the node binary itself.
+# Create a minimal orchestration.toml. The RPC address is now configured here.
 echo 'consensus_type = "ProofOfAuthority"' > config/orchestration.toml
+echo 'rpc_listen_address = "127.0.0.1:9944"' >> config/orchestration.toml
 
 # Create a minimal guardian.toml
 echo 'signature_policy = "FollowChain"' > config/guardian.toml
@@ -78,7 +88,7 @@ First, compile the project in release mode. This creates the `node` binary we'll
 This engine is suitable for networks where all validators are known and trusted, and it includes logic for fault tolerance (view changes) if a leader goes offline.
 
 ```bash
-cargo build --release -p depin-sdk-binaries --features consensus-round-robin
+cargo build --release -p depin-sdk-node --features consensus-round-robin,vm-wasm
 ```
 
 **Option B: Build with Proof of Authority (PoA) Consensus**
@@ -86,7 +96,7 @@ cargo build --release -p depin-sdk-binaries --features consensus-round-robin
 This is a simpler engine that relies on a fixed, on-chain list of authorities. It does not include fault tolerance logic beyond simple leader rotation.
 
 ```bash
-cargo build --release -p depin-sdk-binaries --features consensus-poa
+cargo build --release -p depin-sdk-node --features consensus-poa,vm-wasm
 ```
 
 **Option C: Build with Proof of Stake (PoS) Consensus**
@@ -94,18 +104,18 @@ cargo build --release -p depin-sdk-binaries --features consensus-poa
 This engine selects block producers based on their staked token amount, providing a decentralized and permissionless security model.
 
 ```bash
-cargo build --release -p depin-sdk-binaries --features consensus-pos
+cargo build --release -p depin-sdk-node --features consensus-pos,vm-wasm
 ```
 
 The compiled binary will be located at `target/release/node`.
 
 #### 4. Local Testnet Workflow
 
-This workflow will guide you through running a two-node network using the **Round Robin BFT** engine, as it demonstrates the fault-tolerance features. You will need two terminals.
+This workflow will guide you through running a two-node network. You will need two terminals.
 
 **Step 1: Full Reset (Optional)**
 
-To start from a clean slate, you can remove all previous state and identity files. This single command resets everything for both nodes.
+To start from a clean slate, you can remove all previous state and identity files.
 
 ```bash
 rm -f state_node*.json state_node*.json.identity.key
@@ -130,32 +140,13 @@ Use the listening address from Node 1 to connect.
 target/release/node --state-file state_node2.json --peer /ip4/127.0.0.1/tcp/34677
 ```
 
-Node 2 will create its own unique state and identity files. You will see it connect to Node 1 and sync the blocks that Node 1 already produced. The two nodes will now alternate leadership and produce blocks.
-
-**Step 4: Test State Persistence & Fault Tolerance**
-
-1.  Stop **Node 2** (`Ctrl+C`).
-2.  Observe Terminal 1. Node 1 will continue producing blocks. If it was Node 2's turn to be leader, Node 1 will correctly time out, propose a "view change", and take over leadership to ensure the chain doesn't halt.
-3.  Stop **Node 1** (`Ctrl+C`).
-4.  Restart **Node 1**:
-    ```bash
-    target/release/node --state-file state_node1.json
-    ```
-    Observe that it loads its state and identity, resuming from the correct block height. It will now be stalled, as it needs a quorum of 2 validators to produce blocks.
-
-5.  Restart **Node 2** (using the new listening address from Node 1):
-    ```bash
-    target/release/node --state-file state_node2.json --peer <new_address_from_node1>
-    ```
-    Observe that Node 2 reconnects, syncs any blocks it missed, and the network resumes block production.
-
-This workflow validates that node identities are persistent, state is correctly saved and loaded, and the consensus mechanism is tolerant to nodes stopping and restarting.
+Node 2 will create its own unique state and identity files. You will see it connect to Node 1 and sync the blocks that Node 1 already produced.
 
 ---
 
 ### Development & Testing
 
-The project includes a comprehensive suite of tests to ensure correctness and stability. We recommend the following workflow.
+The project includes a comprehensive suite of tests to ensure correctness and stability. The new `forge` crate is central to this workflow.
 
 #### 1. Quick Check (Fastest)
 
@@ -173,25 +164,27 @@ To run all unit and integration tests across the entire workspace (excluding the
 cargo test --workspace
 ```
 
-#### 3. Full Test Suite (including E2E)
+#### 3. Full E2E Test Suite
 
-The repository includes long-running end-to-end (E2E) tests that simulate a live multi-node network to verify complex system lifecycles. These are ignored by default.
+The repository includes long-running end-to-end (E2E) tests that simulate a live multi-node network. **These tests now live in the `forge` crate** and are ignored by default.
 
-```bash
-cargo test -p depin-sdk-binaries --release --test staking_e2e -- --ignored --nocapture
-```
-
-To run the **entire test suite**, including the ignored E2E tests, use this single command:
+To run the **entire E2E test suite**, use this single command:
 
 ```bash
-cargo test --workspace -- --ignored
+cargo test -p depin-sdk-forge -- --ignored
 ```
 
-This command will execute critical E2E scenarios, including:
+To run a **specific E2E test** (e.g., the staking lifecycle test):
+
+```bash
+cargo test -p depin-sdk-forge --test staking_e2e -- --ignored --nocapture
+```
+
+These commands will execute critical E2E scenarios, including:
 *   `test_governance_authority_change_lifecycle`: Simulates a governance-driven change to the Proof-of-Authority validator set.
 *   `test_staking_lifecycle`: Simulates a change in the Proof-of-Stake validator set based on `Stake` and `Unstake` transactions.
 
-These tests automatically compile the necessary node binaries with the appropriate consensus features before running.
+These tests automatically compile the necessary `node` binaries with the appropriate consensus features before running.
 
 ---
 
@@ -199,17 +192,13 @@ These tests automatically compile the necessary node binaries with the appropria
 
 The SDK is organized into a workspace of several key crates:
 
-*   `crates/core`: Defines the core traits and interfaces for all components (e.g., `CommitmentScheme`, `ValidatorModel`, `TransactionModel`).
-*   `crates/binaries`: Contains the main executable targets, such as the `node` binary. This crate is the composition root for the application.
-*   `crates/validator`: Implements the Triple-Container Architecture for both `StandardValidator` and `HybridValidator` models.
-*   `crates/chain`: Contains the `SovereignChain` implementation, which defines the state machine logic.
-*   `crates/network`: Implements the `BlockSync` and `MempoolGossip` traits for P2P networking.
-*   `crates/consensus`: Implements the `ConsensusEngine` trait for leader election and fault tolerance.
-*   `crates/commitment_schemes`: Implementations of various cryptographic commitment schemes (Merkle, KZG, etc.).
-*   `crates/state_trees`: Implementations of different state storage models (Verkle, IAVL+, file-based).
-*   `crates/transaction_models`: Implementations for UTXO, Account, and Hybrid transaction models.
-*   `crates/services`: Implementations of standard, pluggable services like Governance and the Semantic Layer.
-*   `crates/crypto`: Low-level cryptographic primitives, including post-quantum algorithms.
+*   `crates/core`: Defines the core traits and interfaces for all components.
+*   `crates/node`: Contains the main executable for the production validator. This crate is the composition root for the application.
+*   `crates/forge`: A developer toolkit that provides a CLI and a library with helpers for E2E testing. It is the primary consumer of the SDK's public APIs.
+*   `crates/contract`: The `no_std` SDK for writing smart contracts that compile to WASM.
+*   `crates/validator`: Implements the Triple-Container Architecture for validator models.
+*   `crates/chain`: Contains the `Chain` implementation, which defines the state machine logic.
+*   ... and other specialized implementation crates.
 
 ### Roadmap
 
@@ -223,7 +212,7 @@ Our high-level roadmap is focused on incrementally building out the features def
     *   Implement the Post-Quantum Cryptography migration path and Identity Hub.
     *   Flesh out the Hybrid Validator model and tiered economics.
 *   ▶️ **Phase 6: Ecosystem Expansion & Evolution**
-    *   Develop the DePIN Forge IDE and multi-language SDKs.
+    *   Develop the `forge` CLI and multi-language SDKs.
     *   Implement IBC and Ethereum compatibility modules.
     *   Integrate production-ready distributed AI models.
 
@@ -238,6 +227,4 @@ All participants are expected to follow our [**Code of Conduct**](./CODE_OF_COND
 This project is licensed under either of
 
 *   Apache License, Version 2.0, ([LICENSE-APACHE](./LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-*   MIT license ([LICENSE-MIT](./LICENSE-MIT) or http://opensource.org/licenses/MIT)
-
 at your option.
