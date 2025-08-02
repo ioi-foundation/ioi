@@ -71,9 +71,7 @@ hex = "0.4"
 serde_bytes = "0.11"
 
 # Cryptography
-sha2 = "0.10"
 rand = "0.8"
-curve2f519-dalek = "4.0"
 dcrypt = { version = "0.12.0-beta.1", features = ["full"] }
 
 # CLI & Logging
