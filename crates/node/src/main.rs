@@ -1,4 +1,6 @@
 // Path: crates/node/src/main.rs
+#![forbid(unsafe_code)]
+
 //! # DePIN SDK Node
 //!
 //! This binary acts as the composition root for the validator node. It initializes

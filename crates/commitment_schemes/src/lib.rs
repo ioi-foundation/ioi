@@ -1,4 +1,5 @@
 // Path: crates/commitment_schemes/src/lib.rs
+#![forbid(unsafe_code)]
 //! # DePIN SDK Commitment Schemes
 //!
 //! Implementations of various commitment schemes for the DePIN SDK.

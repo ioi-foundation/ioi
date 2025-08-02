@@ -1,3 +1,6 @@
+// Path: crates/test_utils/src/lib.rs
+#![forbid(unsafe_code)]
+
 //! # DePIN SDK Test Utilities
 //!
 //! Utilities for testing the DePIN SDK components.

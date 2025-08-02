@@ -1,4 +1,5 @@
 // Path: crates/consensus/src/lib.rs
+#![forbid(unsafe_code)]
 //! Consensus module implementations for the DePIN SDK
 
 #[cfg(feature = "round-robin")]

@@ -1,4 +1,5 @@
 // Path: crates/validator/src/bin/validator.rs
+#![forbid(unsafe_code)]
 
 use clap::Parser;
 use depin_sdk_api::validator::{Container, WorkloadContainer}; // Corrected import

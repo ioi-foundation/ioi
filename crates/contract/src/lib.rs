@@ -1,4 +1,12 @@
 // Path: crates/contract/src/lib.rs
+#![allow(unsafe_code)]
+//
+// This crate is an exception to the `#![forbid(unsafe_code)]` policy.
+// It defines the Foreign Function Interface (FFI) boundary between a smart contract
+// (WASM) and the host runtime. All `unsafe` blocks herein are necessary to cross
+// this boundary and must be rigorously audited to ensure they uphold the safety
+// invariants required by the safe wrapper functions they implement.
+//
 #![no_std]
 #![allow(dead_code)] // Allow unused functions for this example
 

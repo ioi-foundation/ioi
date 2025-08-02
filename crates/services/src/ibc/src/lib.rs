@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! # DePIN SDK IBC
 //!
 //! Inter-Blockchain Communication implementation for the DePIN SDK.

@@ -1,5 +1,7 @@
 // Path: crates/transaction_models/src/lib.rs
+#![forbid(unsafe_code)]
 #![allow(clippy::new_without_default)]
+
 pub mod account;
 pub mod hybrid;
 pub mod utxo;

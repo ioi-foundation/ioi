@@ -1,4 +1,6 @@
 // Path: crates/vm/wasm/src/lib.rs
+#![forbid(unsafe_code)]
+
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use depin_sdk_api::state::VmStateAccessor;

@@ -1,4 +1,6 @@
 // Path: crates/forge/src/lib.rs
+#![forbid(unsafe_code)]
+
 //! # DePIN SDK Forge Library
 //!
 //! This library provides high-level APIs and helper functions to facilitate
