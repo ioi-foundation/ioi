@@ -1,4 +1,5 @@
 // Path: crates/api/src/lib.rs
+#![forbid(unsafe_code)]
 #![deny(missing_docs)]
 //! # DePIN SDK API
 //!

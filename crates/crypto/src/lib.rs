@@ -1,4 +1,5 @@
 // Path: crates/crypto/src/lib.rs
+#![forbid(unsafe_code)]
 //! # DePIN SDK Cryptography
 //!
 //! Cryptographic implementations for the DePIN SDK including post-quantum algorithms.

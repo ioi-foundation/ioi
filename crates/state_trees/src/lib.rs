@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! # DePIN SDK State Trees
 //!
 //! Implementations of various state tree structures for the DePIN SDK.

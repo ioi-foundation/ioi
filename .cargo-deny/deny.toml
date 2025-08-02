@@ -1,0 +1,40 @@
+# deny.toml - Configuration for cargo-deny
+# This file enforces security and dependency hygiene policies for the DePIN SDK.
+# To check for violations, run `cargo deny check` in the workspace root.
+
+# Check for security vulnerabilities in all dependencies.
+# Fails the build if a dependency has a known security vulnerability.
+[advisories]
+vulnerability = "deny"
+unmaintained = "warn"
+ignore = []
+
+# Define a strict policy for allowed licenses.
+# We only allow permissive licenses to avoid copyleft entanglements.
+[licenses]
+unlicensed = "deny"
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Unicode-DFS-2016", # Common dependency of unicode-ident
+]
+# Explicitly deny all copyleft licenses.
+copyleft = "deny"
+
+# Ban specific crates, versions, or dependency patterns.
+[bans]
+# Warn if multiple versions of the same crate are used.
+multiple-versions = "warn"
+# Deny wildcard dependencies (e.g., `*`) to ensure deterministic builds.
+wildcards = "deny"
+# Skip specific crates if needed (e.g., for known false positives).
+skip = []
+
+# Control where crates can be sourced from to prevent dependency confusion attacks.
+[sources]
+# Deny any crates not sourced from an allowed registry.
+unknown-registry = "deny"
+# Deny any crates sourced from a git repository.
+unknown-git = "deny"
+# Explicitly allow-list specific git repositories if necessary.
+allow-git = []

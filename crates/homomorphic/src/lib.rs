@@ -1,4 +1,6 @@
 // Path: crates/homomorphic/src/lib.rs
+#![forbid(unsafe_code)]
+
 //! # DePIN SDK Homomorphic Operations
 //!
 //! Implementation of homomorphic operations on commitments for the DePIN SDK.

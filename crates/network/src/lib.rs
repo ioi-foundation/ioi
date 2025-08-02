@@ -1,4 +1,5 @@
 // Path: crates/network/src/lib.rs
+#![forbid(unsafe_code)]
 
 //! # DePIN SDK Network
 //!
