@@ -160,15 +160,26 @@ where
                 log::info!("Successfully updated authority set via governance.");
             }
             SystemPayload::Stake { amount } => {
-                let signer_pk_bytes =
-                    tx.signature.get(0..32).map(|s| s.to_vec()).ok_or_else(|| {
-                        ChainError::Transaction("Invalid signature length for stake".to_string())
-                    })?;
-                let ed25519_pk =
-                    Ed25519PublicKey::try_from_bytes(&signer_pk_bytes).map_err(|e| {
-                        ChainError::Transaction(format!("Invalid public key bytes: {e}"))
-                    })?;
-                let libp2p_pk = Libp2pPublicKey::from(ed25519_pk);
+                // VULNERABILITY FIX: The signature field is expected to be [32-byte pubkey | 64-byte signature].
+                // The original code extracted the pubkey but NEVER verified the signature.
+                if tx.signature.len() < 96 {
+                    return Err(ChainError::Transaction(
+                        "Invalid signature length for stake".to_string(),
+                    ));
+                }
+                let (signer_pk_bytes, signature_bytes) = tx.signature.split_at(32);
+
+                let ed25519_pk = Ed25519PublicKey::try_from_bytes(signer_pk_bytes)
+                    .map_err(|e| ChainError::Transaction(format!("Invalid public key: {e}")))?;
+                let libp2p_pk = Libp2pPublicKey::from(ed25519_pk.clone());
+
+                // Perform the actual signature verification.
+                if !libp2p_pk.verify(&payload_bytes, signature_bytes) {
+                    return Err(ChainError::Transaction(
+                        "Invalid signature for Stake transaction".to_string(),
+                    ));
+                }
+
                 let peer_id = PeerId::from_public_key(&libp2p_pk);
                 let signer_pk_b58 = peer_id.to_base58();
 
@@ -176,6 +187,7 @@ where
                     Some(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
                     None => BTreeMap::new(),
                 };
+
                 let current_stake = stakes.entry(signer_pk_b58).or_insert(0);
                 *current_stake += amount;
 
@@ -185,15 +197,24 @@ where
                 state.insert(STAKES_KEY, &stakes_bytes)?;
             }
             SystemPayload::Unstake { amount } => {
-                let signer_pk_bytes =
-                    tx.signature.get(0..32).map(|s| s.to_vec()).ok_or_else(|| {
-                        ChainError::Transaction("Invalid signature length for unstake".to_string())
-                    })?;
-                let ed25519_pk =
-                    Ed25519PublicKey::try_from_bytes(&signer_pk_bytes).map_err(|e| {
-                        ChainError::Transaction(format!("Invalid public key bytes: {e}"))
-                    })?;
-                let libp2p_pk = Libp2pPublicKey::from(ed25519_pk);
+                // VULNERABILITY FIX: Same verification logic as for Stake.
+                if tx.signature.len() < 96 {
+                    return Err(ChainError::Transaction(
+                        "Invalid signature length for unstake".to_string(),
+                    ));
+                }
+                let (signer_pk_bytes, signature_bytes) = tx.signature.split_at(32);
+
+                let ed25519_pk = Ed25519PublicKey::try_from_bytes(signer_pk_bytes)
+                    .map_err(|e| ChainError::Transaction(format!("Invalid public key: {e}")))?;
+                let libp2p_pk = Libp2pPublicKey::from(ed25519_pk.clone());
+
+                if !libp2p_pk.verify(&payload_bytes, signature_bytes) {
+                    return Err(ChainError::Transaction(
+                        "Invalid signature for Unstake transaction".to_string(),
+                    ));
+                }
+
                 let peer_id = PeerId::from_public_key(&libp2p_pk);
                 let signer_pk_b58 = peer_id.to_base58();
 
