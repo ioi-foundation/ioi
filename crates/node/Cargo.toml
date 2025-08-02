@@ -12,7 +12,7 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 # Workspace Library Crates
 depin-sdk-api = { path = "../api" }
-depin-sdk-core = { path = "../core" }
+depin-sdk-types = { path = "../types" }
 depin-sdk-chain = { path = "../chain" }
 depin-sdk-commitment-schemes = { path = "../commitment_schemes" }
 depin-sdk-consensus = { path = "../consensus", default-features = false }

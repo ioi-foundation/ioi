@@ -4,7 +4,7 @@
 
 use crate::traits::{MempoolGossip, SyncError};
 use async_trait::async_trait;
-use depin_sdk_core::app::ProtocolTransaction;
+use depin_sdk_types::app::ProtocolTransaction;
 
 use super::{Libp2pSync, SwarmCommand};
 

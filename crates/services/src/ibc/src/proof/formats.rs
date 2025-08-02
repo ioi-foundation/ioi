@@ -1,7 +1,7 @@
 // File: crates/ibc/src/proof/formats.rs
 
-use depin_sdk_core::commitment::{ProofContext, Selector};
-use depin_sdk_core::ibc::UniversalProofFormat as CoreProofFormat;
+use depin_sdk_api::commitment::{ProofContext, Selector};
+use depin_sdk_api::ibc::UniversalProofFormat as CoreProofFormat;
 use std::collections::HashMap;
 
 use crate::proof::UniversalProofFormat as LocalProofFormat;

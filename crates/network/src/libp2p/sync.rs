@@ -4,7 +4,7 @@
 
 use crate::traits::{BlockSync, NodeState, SyncError};
 use async_trait::async_trait;
-use depin_sdk_core::app::{Block, ProtocolTransaction};
+use depin_sdk_types::app::{Block, ProtocolTransaction};
 use futures::io::{AsyncRead, AsyncWrite};
 use libp2p::{
     core::upgrade::{read_length_prefixed, write_length_prefixed},
@@ -40,19 +40,39 @@ impl Codec for SyncCodec {
     type Request = SyncRequest;
     type Response = SyncResponse;
 
-    async fn read_request<T: AsyncRead + Unpin + Send>(&mut self, _: &Self::Protocol, io: &mut T) -> std::io::Result<Self::Request> {
+    async fn read_request<T: AsyncRead + Unpin + Send>(
+        &mut self,
+        _: &Self::Protocol,
+        io: &mut T,
+    ) -> std::io::Result<Self::Request> {
         let vec = read_length_prefixed(io, 1_000_000).await?;
-        serde_json::from_slice(&vec).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+        serde_json::from_slice(&vec)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
-    async fn read_response<T: AsyncRead + Unpin + Send>(&mut self, _: &Self::Protocol, io: &mut T) -> std::io::Result<Self::Response> {
+    async fn read_response<T: AsyncRead + Unpin + Send>(
+        &mut self,
+        _: &Self::Protocol,
+        io: &mut T,
+    ) -> std::io::Result<Self::Response> {
         let vec = read_length_prefixed(io, 10_000_000).await?;
-        serde_json::from_slice(&vec).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+        serde_json::from_slice(&vec)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
-    async fn write_request<T: AsyncWrite + Unpin + Send>(&mut self, _: &Self::Protocol, io: &mut T, req: Self::Request) -> std::io::Result<()> {
+    async fn write_request<T: AsyncWrite + Unpin + Send>(
+        &mut self,
+        _: &Self::Protocol,
+        io: &mut T,
+        req: Self::Request,
+    ) -> std::io::Result<()> {
         let vec = serde_json::to_vec(&req)?;
         write_length_prefixed(io, vec).await
     }
-    async fn write_response<T: AsyncWrite + Unpin + Send>(&mut self, _: &Self::Protocol, io: &mut T, res: Self::Response) -> std::io::Result<()> {
+    async fn write_response<T: AsyncWrite + Unpin + Send>(
+        &mut self,
+        _: &Self::Protocol,
+        io: &mut T,
+        res: Self::Response,
+    ) -> std::io::Result<()> {
         let vec = serde_json::to_vec(&res)?;
         write_length_prefixed(io, vec).await
     }

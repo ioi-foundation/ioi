@@ -1,7 +1,7 @@
 // Path: crates/api/src/services/mod.rs
 //! Traits for pluggable, upgradable blockchain services.
 
-use depin_sdk_core::error::UpgradeError;
+use depin_sdk_types::error::UpgradeError;
 use std::any::Any;
 use std::hash::Hash;
 

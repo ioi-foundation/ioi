@@ -1,6 +1,6 @@
-# Path: crates/core/Cargo.toml
+# Path: crates/types/Cargo.toml
 [package]
-name = "depin-sdk-core"
+name = "depin-sdk-types"
 version = "0.1.0"
 edition = "2021"
 description = "Core data structures and error types for the DePIN SDK"

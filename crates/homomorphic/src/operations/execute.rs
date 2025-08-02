@@ -1,6 +1,6 @@
 use crate::error::{HomomorphicError, HomomorphicResult};
-use depin_sdk_core::commitment::HomomorphicCommitmentScheme;
-use depin_sdk_core::homomorphic::{CommitmentOperation, OperationResult};
+use depin_sdk_api::commitment::HomomorphicCommitmentScheme;
+use depin_sdk_api::homomorphic::{CommitmentOperation, OperationResult};
 use std::sync::Arc;
 
 /// Add two commitments

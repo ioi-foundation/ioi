@@ -6,8 +6,8 @@ use std::collections::HashMap;
 use crate::conversion::ByteConvertible;
 use crate::proof::formats::ProofFormatConverter;
 use crate::proof::UniversalProofFormat as LocalProofFormat;
-use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, SchemeIdentifier, Selector};
-use depin_sdk_core::ibc::{ProofTranslator, UniversalProofFormat as CoreProofFormat};
+use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, SchemeIdentifier, Selector};
+use depin_sdk_api::ibc::{ProofTranslator, UniversalProofFormat as CoreProofFormat};
 
 /// Registry for proof translators
 pub struct ProofTranslatorRegistry {

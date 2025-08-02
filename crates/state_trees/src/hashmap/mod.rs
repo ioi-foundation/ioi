@@ -1,7 +1,7 @@
 // Path: crates/state_trees/src/hashmap/mod.rs
 use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, Selector};
 use depin_sdk_api::state::{StateManager, StateTree};
-use depin_sdk_core::error::StateError;
+use depin_sdk_types::error::StateError;
 use std::any::Any;
 use std::collections::HashMap;
 

@@ -3,7 +3,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use depin_sdk_api::state::VmStateAccessor;
 use depin_sdk_api::vm::{ExecutionContext, ExecutionOutput, VirtualMachine};
-use depin_sdk_core::error::VmError;
+use depin_sdk_types::error::VmError;
 use std::sync::Arc;
 use wasmtime::*;
 

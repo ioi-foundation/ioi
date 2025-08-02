@@ -11,7 +11,7 @@ pub mod proof_of_authority;
 pub mod proof_of_stake;
 
 use async_trait::async_trait;
-use depin_sdk_core::app::Block;
+use depin_sdk_types::app::Block;
 use libp2p::PeerId;
 use std::collections::HashSet;
 

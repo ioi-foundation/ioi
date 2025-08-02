@@ -2,7 +2,7 @@
 //! Trait definitions for networking, including block synchronization and mempool gossip.
 
 use async_trait::async_trait;
-use depin_sdk_core::app::{Block, ProtocolTransaction};
+use depin_sdk_types::app::{Block, ProtocolTransaction};
 use libp2p::PeerId;
 use std::collections::HashSet;
 use std::sync::Arc;

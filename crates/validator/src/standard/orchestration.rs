@@ -10,13 +10,13 @@ use depin_sdk_api::{
     validator::{Container, WorkloadContainer},
 };
 use depin_sdk_consensus::{ConsensusDecision, ConsensusEngine};
-use depin_sdk_core::{
-    app::{ApplicationTransaction, ProtocolTransaction, UTXOTransaction},
-    error::ValidatorError,
-};
 use depin_sdk_network::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_network::BlockSync;
+use depin_sdk_types::{
+    app::{ApplicationTransaction, ProtocolTransaction, UTXOTransaction},
+    error::ValidatorError,
+};
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashSet, VecDeque};

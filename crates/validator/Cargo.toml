@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 depin-sdk-api = { path = "../api" }
-depin-sdk-core = { path = "../core" }
+depin-sdk-types = { path = "../types" }
 depin-sdk-consensus = { path = "../consensus", default-features = false }
 depin-sdk-network = { path = "../network" }
 depin-sdk-chain = { path = "../chain" }

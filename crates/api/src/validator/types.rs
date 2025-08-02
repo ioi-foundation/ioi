@@ -1,7 +1,7 @@
 // Path: crates/api/src/validator/types.rs
 //! Defines validator model types and traits.
 
-use depin_sdk_core::error::ValidatorError;
+use depin_sdk_types::error::ValidatorError;
 
 /// A trait representing a complete validator model.
 pub trait ValidatorModel {
