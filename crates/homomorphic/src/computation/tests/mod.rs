@@ -1,8 +1,10 @@
+// Path: crates/homomorphic/src/computation/tests/mod.rs
 use super::*;
+use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, Selector};
+use depin_sdk_api::homomorphic::{CommitmentOperation, OperationResult};
 use depin_sdk_commitment_schemes::elliptic_curve::{
     EllipticCurveCommitment, EllipticCurveCommitmentScheme,
 };
-use depin_sdk_core::commitment::CommitmentScheme;
 use std::any::Any;
 
 #[test]

@@ -1,9 +1,10 @@
+// Path: crates/commitment_schemes/src/lattice/mod.rs
 //! Lattice-based commitment scheme implementation
 //!
 //! This module implements a lattice-based commitment scheme using
 //! cryptographic primitives from lattice-based cryptography.
 
-use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, SchemeIdentifier, Selector};
+use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, SchemeIdentifier, Selector};
 use std::fmt::Debug;
 
 /// Lattice-based commitment scheme
@@ -55,12 +56,6 @@ impl CommitmentScheme for LatticeCommitmentScheme {
     type Value = Vec<u8>;
 
     fn commit(&self, values: &[Option<Self::Value>]) -> Self::Commitment {
-        // In a real implementation, this would:
-        // 1. Convert values to polynomial coefficients
-        // 2. Generate a random lattice-based commitment
-        // 3. Return the commitment
-
-        // Simplified implementation for now
         let mut combined = Vec::new();
         for value in values.iter().flatten() {
             combined.extend_from_slice(value.as_ref());
@@ -84,12 +79,6 @@ impl CommitmentScheme for LatticeCommitmentScheme {
             _ => return Err("Only position-based selectors are supported".to_string()),
         };
 
-        // In a real implementation, this would:
-        // 1. Generate a zero-knowledge proof that the value at position
-        //    is correctly committed to in the commitment
-        // 2. Use lattice-based techniques to create the proof
-
-        // For now, return a simple proof that just wraps the value and position
         let mut proof_data = Vec::new();
         proof_data.extend_from_slice(value.as_ref());
         proof_data.extend_from_slice(&position.to_le_bytes());
@@ -119,11 +108,6 @@ impl CommitmentScheme for LatticeCommitmentScheme {
             return false;
         }
 
-        // In a real implementation, this would:
-        // 1. Verify the zero-knowledge proof against the commitment
-        // 2. Check that the proof correctly authenticates the value
-
-        // For this simplified implementation, we'll check if the proof contains the value
         let mut expected_data = Vec::new();
         expected_data.extend_from_slice(value.as_ref());
         expected_data.extend_from_slice(&position.to_le_bytes());

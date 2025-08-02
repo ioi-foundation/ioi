@@ -1,8 +1,6 @@
 // Path: crates/crypto/src/kem/hybrid/mod.rs
-// Change: Prefixed unused fields with an underscore.
-
 use crate::security::SecurityLevel;
-use depin_sdk_core::crypto::{
+use depin_sdk_api::crypto::{
     DecapsulationKey, Encapsulated, EncapsulationKey, KemKeyPair, KeyEncapsulation, SerializableKey,
 };
 
@@ -166,9 +164,7 @@ impl SerializableKey for HybridPublicKey {
     }
 }
 
-impl EncapsulationKey for HybridPublicKey {
-    // EncapsulationKey trait has no additional methods beyond SerializableKey
-}
+impl EncapsulationKey for HybridPublicKey {}
 
 // HybridPrivateKey implements the DecapsulationKey trait
 impl SerializableKey for HybridPrivateKey {
@@ -211,9 +207,7 @@ impl SerializableKey for HybridPrivateKey {
     }
 }
 
-impl DecapsulationKey for HybridPrivateKey {
-    // DecapsulationKey trait has no additional methods beyond SerializableKey
-}
+impl DecapsulationKey for HybridPrivateKey {}
 
 // HybridEncapsulated implements the Encapsulated trait
 impl SerializableKey for HybridEncapsulated {

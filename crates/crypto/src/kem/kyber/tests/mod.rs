@@ -1,7 +1,7 @@
-// crates/crypto/src/kem/kyber/tests/mod.rs
+// Path: crates/crypto/src/kem/kyber/tests/mod.rs
 use super::*;
 use crate::security::SecurityLevel;
-use depin_sdk_core::crypto::{Encapsulated, KeyEncapsulation};
+use depin_sdk_api::crypto::{Encapsulated, KeyEncapsulation};
 
 #[test]
 fn test_kyber_keypair_generation() {

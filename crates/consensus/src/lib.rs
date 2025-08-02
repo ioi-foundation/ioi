@@ -1,3 +1,4 @@
+// Path: crates/consensus/src/lib.rs
 //! Consensus module implementations for the DePIN SDK
 
 #[cfg(feature = "round-robin")]
@@ -55,8 +56,13 @@ pub trait ConsensusEngine<T: Clone>: Send + Sync {
     async fn handle_block_proposal(&mut self, block: Block<T>) -> Result<(), String>;
 
     /// Handles an incoming view change proposal from a peer.
-    async fn handle_view_change(&mut self, from: PeerId, height: u64, new_view: u64) -> Result<(), String>;
-    
+    async fn handle_view_change(
+        &mut self,
+        from: PeerId,
+        height: u64,
+        new_view: u64,
+    ) -> Result<(), String>;
+
     /// Resets the internal state of the engine for a given height. This is crucial
     /// when a block is successfully processed, to prevent stale timeout-based actions.
     fn reset(&mut self, height: u64);

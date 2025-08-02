@@ -1,5 +1,4 @@
 // Path: crates/forge/tests/governance_e2e.rs
-
 use anyhow::{anyhow, Result};
 use depin_sdk_core::app::{ProtocolTransaction, SystemPayload, SystemTransaction};
 use depin_sdk_forge::testing::{
@@ -51,7 +50,6 @@ async fn test_governance_authority_change_lifecycle() -> Result<()> {
     )
     .await?;
 
-    // FIX: Use the format! macro for robust string construction.
     let bootnode_addr = format!("/ip4/127.0.0.1/tcp/4001/p2p/{}", peer_id_node1);
 
     let mut node2 = spawn_node(

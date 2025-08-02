@@ -1,3 +1,4 @@
+// Path: crates/crypto/src/security.rs
 /// Post-quantum security level
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SecurityLevel {

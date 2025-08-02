@@ -1,3 +1,4 @@
+# Path: crates/node/Cargo.toml
 [package]
 name = "depin-sdk-node"
 version = "0.1.0"
@@ -10,10 +11,11 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 # Workspace Library Crates
+depin-sdk-api = { path = "../api" }
+depin-sdk-core = { path = "../core" }
 depin-sdk-chain = { path = "../chain" }
 depin-sdk-commitment-schemes = { path = "../commitment_schemes" }
 depin-sdk-consensus = { path = "../consensus", default-features = false }
-depin-sdk-core = { path = "../core" }
 depin-sdk-state-trees = { path = "../state_trees" }
 depin-sdk-network = { path = "../network" }
 depin-sdk-transaction-models = { path = "../transaction_models" }

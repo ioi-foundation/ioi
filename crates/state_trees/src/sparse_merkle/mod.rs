@@ -1,8 +1,9 @@
+// Path: crates/state_trees/src/sparse_merkle/mod.rs
 //! Sparse Merkle tree implementation
 
-use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, Selector};
+use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, Selector};
+use depin_sdk_api::state::{StateManager, StateTree};
 use depin_sdk_core::error::StateError;
-use depin_sdk_core::state::{StateManager, StateTree};
 use std::any::Any;
 use std::collections::HashMap;
 
@@ -35,8 +36,8 @@ impl<CS: CommitmentScheme> StateTree for SparseMerkleTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
 {
-    type Commitment = CS::Commitment;
-    type Proof = CS::Proof;
+    type Commitment = <CS as CommitmentScheme>::Commitment;
+    type Proof = <CS as CommitmentScheme>::Proof;
 
     fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
         let value_typed = self.to_value(value);
@@ -90,7 +91,6 @@ where
     }
 }
 
-// FIX: Implement the StateManager trait.
 impl<CS: CommitmentScheme> StateManager for SparseMerkleTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,

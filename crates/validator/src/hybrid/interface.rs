@@ -1,10 +1,9 @@
 // Path: crates/validator/src/hybrid/interface.rs
-
+use async_trait::async_trait;
+use depin_sdk_api::validator::Container;
 use depin_sdk_core::error::ValidatorError;
-use depin_sdk_core::validator::Container;
 use serde::Deserialize;
 use std::path::Path;
-// FIX: Add imports for atomic state management
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -22,7 +21,6 @@ pub struct InterfaceConfig {
 /// and basic DDoS protection for a hybrid validator's public-facing services.
 pub struct InterfaceContainer {
     config: InterfaceConfig,
-    // FIX: Use Arc<AtomicBool> for thread-safe state.
     running: Arc<AtomicBool>,
 }
 
@@ -37,7 +35,7 @@ impl InterfaceContainer {
     }
 }
 
-#[async_trait::async_trait]
+#[async_trait]
 impl Container for InterfaceContainer {
     async fn start(&self) -> Result<(), ValidatorError> {
         log::info!(

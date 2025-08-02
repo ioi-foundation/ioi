@@ -1,16 +1,9 @@
 // Path: crates/crypto/src/kem/ecdh/mod.rs
-// Change: Removed unused imports and prefixed unused fields with an underscore.
-
 use crate::security::SecurityLevel;
-use depin_sdk_core::crypto::{
-    DecapsulationKey, Encapsulated, EncapsulationKey, KemKeyPair, KeyEncapsulation,
-    SerializableKey,
-};
 use dcrypt::api::Kem;
-use dcrypt::kem::ecdh::{
-    EcdhK256, EcdhK256Ciphertext, EcdhK256PublicKey, EcdhK256SecretKey,
-    // Note: dcrypt might not have P384/P521 implementations yet
-    // This is a simplified version using only K256
+use dcrypt::kem::ecdh::{EcdhK256, EcdhK256Ciphertext, EcdhK256PublicKey, EcdhK256SecretKey};
+use depin_sdk_api::crypto::{
+    DecapsulationKey, Encapsulated, EncapsulationKey, KemKeyPair, KeyEncapsulation, SerializableKey,
 };
 
 /// ECDH curve type
@@ -106,8 +99,8 @@ impl KeyEncapsulation for EcdhKEM {
         match self.curve {
             EcdhCurve::P256 => {
                 // Use K256 from dcrypt
-                let (pk, sk) = EcdhK256::keypair(&mut rng)
-                    .expect("Failed to generate K256 keypair");
+                let (pk, sk) =
+                    EcdhK256::keypair(&mut rng).expect("Failed to generate K256 keypair");
                 EcdhKeyPair {
                     public_key: EcdhPublicKey::K256(pk),
                     private_key: EcdhPrivateKey::K256(sk),
@@ -126,8 +119,8 @@ impl KeyEncapsulation for EcdhKEM {
 
         match (self.curve, public_key) {
             (EcdhCurve::P256, EcdhPublicKey::K256(pk)) => {
-                let (ct, ss) = EcdhK256::encapsulate(&mut rng, pk)
-                    .expect("Failed to encapsulate with K256");
+                let (ct, ss) =
+                    EcdhK256::encapsulate(&mut rng, pk).expect("Failed to encapsulate with K256");
 
                 EcdhEncapsulated {
                     ciphertext: ct.to_bytes(),

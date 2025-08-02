@@ -1,3 +1,4 @@
+# Path: crates/commitment_schemes/Cargo.toml
 [package]
 name = "depin-sdk-commitment-schemes"
 version = "0.1.0"
@@ -6,6 +7,7 @@ description = "Commitment scheme implementations for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+depin-sdk-api = { path = "../api" }
 depin-sdk-core = { path = "../core" }
 depin-sdk-crypto = { path = "../crypto" }
 dcrypt = { version = "0.12.0-beta.1", features = ["full"] }
@@ -19,5 +21,5 @@ rand = { workspace = true }
 default = []
 hash = []
 kzg = []
-module_lwe = ["depin-sdk-core/post-quantum"]
-elliptic_curve = ["depin-sdk-core/homomorphic"]
+module_lwe = ["depin-sdk-api/post-quantum"]
+elliptic_curve = ["depin-sdk-api/homomorphic"]

@@ -1,0 +1,25 @@
+# Path: crates/api/Cargo.toml
+[package]
+name = "depin-sdk-api"
+version = "0.1.0"
+edition = "2021"
+description = "Core traits and APIs for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+depin-sdk-core = { path = "../core" }
+async-trait = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+bytes = { workspace = true }
+libp2p = { workspace = true }
+dcrypt = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+hex = { workspace = true }
+
+[features]
+default = []
+homomorphic = []
+post-quantum = ["depin-sdk-core/experimental-pqc"]

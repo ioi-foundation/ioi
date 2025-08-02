@@ -1,3 +1,4 @@
+// Path: crates/consensus/src/round_robin.rs
 //! An implementation of the `ConsensusEngine` trait that uses a simple, deterministic
 //! round-robin leader election schedule. This engine extracts the logic that was
 //! previously hardcoded in the `OrchestrationContainer`.
@@ -83,7 +84,14 @@ impl Default for RoundRobinBftEngine {
 
 #[async_trait]
 impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
-    async fn decide(&mut self, local_peer_id: &PeerId, height: u64, view: u64, validator_set: &[Vec<u8>], known_peers: &HashSet<PeerId>) -> ConsensusDecision<T> {
+    async fn decide(
+        &mut self,
+        local_peer_id: &PeerId,
+        height: u64,
+        view: u64,
+        validator_set: &[Vec<u8>],
+        known_peers: &HashSet<PeerId>,
+    ) -> ConsensusDecision<T> {
         if validator_set.is_empty() {
             // Genesis case: the first node is the leader.
             return ConsensusDecision::ProduceBlock(vec![]);
@@ -116,7 +124,12 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
         Ok(())
     }
 
-    async fn handle_view_change(&mut self, _from: PeerId, _height: u64, _new_view: u64) -> Result<(), String> {
+    async fn handle_view_change(
+        &mut self,
+        _from: PeerId,
+        _height: u64,
+        _new_view: u64,
+    ) -> Result<(), String> {
         // The OrchestrationContainer handles vote aggregation. The engine itself
         // doesn't need to do anything with individual view change messages in this model.
         Ok(())

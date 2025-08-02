@@ -1,3 +1,4 @@
+// Path: crates/commitment_schemes/src/lib.rs
 //! # DePIN SDK Commitment Schemes
 //!
 //! Implementations of various commitment schemes for the DePIN SDK.

@@ -1,17 +1,18 @@
 // Path: crates/validator/src/standard/orchestration.rs
-
 use crate::config::OrchestrationConfig;
 use async_trait::async_trait;
 use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
-use depin_sdk_consensus::{ConsensusDecision, ConsensusEngine};
-use depin_sdk_core::app::{ApplicationTransaction, ProtocolTransaction, UTXOTransaction};
-use depin_sdk_core::{
+use depin_sdk_api::{
     chain::AppChain,
     commitment::CommitmentScheme,
-    error::ValidatorError,
     state::{StateManager, StateTree},
     transaction::TransactionModel,
     validator::{Container, WorkloadContainer},
+};
+use depin_sdk_consensus::{ConsensusDecision, ConsensusEngine};
+use depin_sdk_core::{
+    app::{ApplicationTransaction, ProtocolTransaction, UTXOTransaction},
+    error::ValidatorError,
 };
 use depin_sdk_network::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use depin_sdk_network::traits::NodeState;
@@ -293,22 +294,15 @@ where
                         let target_height = chain.status().height + 1;
                         let current_view = 0;
 
-                        // NEW: Conditionally fetch the correct validator set based on the compiled consensus engine.
                         let node_set_bytes = if cfg!(feature = "consensus-poa") {
-                            // For PoA, the node set is the list of authority PeerIDs.
                             chain.get_authority_set(&context.workload_ref).await.unwrap_or_else(|e| {
                                 log::error!("Could not get authority set for consensus: {e:?}");
                                 vec![]
                             })
                         } else if cfg!(feature = "consensus-pos") {
-                            // For PoS, we fetch the map of stakers and serialize it.
-                            // The PoS engine expects this serialized map as its `validator_set`.
                             let stakers = chain.get_staked_validators(&context.workload_ref).await.unwrap_or_default();
-                            // We wrap it in a Vec to match the function signature. A more robust solution
-                            // would be a dedicated enum `NodeSetType`.
                             vec![serde_json::to_vec(&stakers).unwrap_or_default()]
                         } else {
-                            // Fallback for other consensus types like RoundRobin
                             chain.get_validator_set(&context.workload_ref).await.unwrap_or_else(|e| {
                                 log::error!("Could not get validator set for consensus: {e:?}");
                                 vec![]
@@ -321,7 +315,6 @@ where
                         (decision, node_set_bytes)
                     };
 
-                    // Use the fetched node set when creating the block.
                     if let ConsensusDecision::ProduceBlock(_) = decision {
                         let target_height = context.chain_ref.lock().await.status().height + 1;
                         log::info!("Consensus decision: Produce block for height {target_height}.");
@@ -338,13 +331,13 @@ where
                         peers_bytes.push(context.local_peer_id.to_bytes());
                         drop(known_peers);
 
-                        // Pass the correct node set (authorities or serialized stakers) to `create_block`.
                         let new_block_template = context.chain_ref.lock().await.create_block(transactions_to_include, &context.workload_ref, &node_set_for_block, &peers_bytes);
 
                         if let Ok(final_block) = context.chain_ref.lock().await.process_block(new_block_template, &context.workload_ref).await {
                             log::info!("Produced and processed new block #{}", final_block.header.height);
                             let data = serde_json::to_vec(&final_block).unwrap();
                             context.swarm_commander.send(SwarmCommand::PublishBlock(data)).await.ok();
+                            context.consensus_engine_ref.lock().await.reset(final_block.header.height);
                         }
                     }
                 }

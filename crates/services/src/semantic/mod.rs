@@ -1,6 +1,8 @@
+// Path: crates/services/src/semantic/mod.rs
 //! Semantic module implementation
 
-use depin_sdk_core::services::{BlockchainService, ServiceType};
+// FIX: Updated use statement to point to depin-sdk-api
+use depin_sdk_api::services::{BlockchainService, ServiceType};
 
 pub struct SemanticService {
     // Add your implementation fields here

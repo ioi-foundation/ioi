@@ -1,3 +1,4 @@
+# Path: crates/transaction_models/Cargo.toml
 [package]
 name = "depin-sdk-transaction-models"
 version = "0.1.0"
@@ -6,13 +7,13 @@ description = "Transaction model implementations for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+depin-sdk-api = { path = "../api" }
 depin-sdk-core = { path = "../core" }
 log = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 sha2 = { workspace = true }
-# FIX: Add the missing 'hex' dependency used for logging UTXO hashes.
 hex = { workspace = true }
 
 [features]

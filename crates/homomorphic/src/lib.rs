@@ -1,4 +1,4 @@
-// homomorphic/src/lib.rs
+// Path: crates/homomorphic/src/lib.rs
 //! # DePIN SDK Homomorphic Operations
 //!
 //! Implementation of homomorphic operations on commitments for the DePIN SDK.
@@ -8,10 +8,10 @@ pub mod error;
 pub mod operations;
 pub mod proof;
 
-pub use depin_sdk_core::commitment::{
+pub use depin_sdk_api::commitment::{
     CommitmentScheme, HomomorphicCommitmentScheme, HomomorphicOperation,
 };
-pub use depin_sdk_core::homomorphic::{CommitmentOperation, OperationResult};
+pub use depin_sdk_api::homomorphic::{CommitmentOperation, OperationResult};
 
 // Re-export key components for easier access
 pub use computation::HomomorphicComputation;

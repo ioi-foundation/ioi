@@ -1,6 +1,8 @@
+// Path: crates/services/src/external_data/mod.rs
 //! External data module implementation
 
-use depin_sdk_core::services::{BlockchainService, ServiceType};
+// FIX: Updated use statement to point to depin-sdk-api
+use depin_sdk_api::services::{BlockchainService, ServiceType};
 
 pub struct ExternalDataService {
     // Add your implementation fields here

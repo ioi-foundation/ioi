@@ -1,15 +1,11 @@
-// File: crates/consensus/src/proof_of_stake.rs
-
+// Path: crates/consensus/src/proof_of_stake.rs
 use crate::{ConsensusDecision, ConsensusEngine};
 use async_trait::async_trait;
+use depin_sdk_api::chain::{PublicKey, StakeAmount};
 use depin_sdk_core::app::Block;
 use depin_sdk_crypto::algorithms::hash::sha256;
 use libp2p::PeerId;
 use std::collections::{BTreeMap, HashSet};
-
-// CORRECTION: The key for the stakes map must be a string for JSON compatibility.
-pub type PublicKey = String;
-pub type StakeAmount = u64;
 
 /// A Proof of Stake consensus engine that uses a deterministic, stake-weighted
 /// lottery to select a block producer for each round.

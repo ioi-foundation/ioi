@@ -1,11 +1,12 @@
+// Path: crates/homomorphic/src/computation/mod.rs
 use crate::error::HomomorphicResult;
 use crate::operations::{
     execute_add, execute_custom, execute_scalar_multiply, CustomOperationRegistry,
 };
 use crate::operations::{execute_batch, execute_composite, BatchResult, CompositeOperation};
 use crate::proof::{HomomorphicProof, ProofGenerator};
-use depin_sdk_core::commitment::{HomomorphicCommitmentScheme, ProofContext, Selector};
-use depin_sdk_core::homomorphic::{CommitmentOperation, OperationResult};
+use depin_sdk_api::commitment::{HomomorphicCommitmentScheme, ProofContext, Selector};
+use depin_sdk_api::homomorphic::{CommitmentOperation, OperationResult};
 use std::sync::Arc;
 
 /// Computation engine for homomorphic operations
@@ -145,7 +146,7 @@ impl<CS: HomomorphicCommitmentScheme + Clone> HomomorphicComputation<CS> {
             }
             OperationResult::Unsupported => {
                 return Err(crate::error::HomomorphicError::UnsupportedOperation(
-                    depin_sdk_core::commitment::HomomorphicOperation::Custom(0),
+                    depin_sdk_api::commitment::HomomorphicOperation::Custom(0),
                 ))
             }
         };

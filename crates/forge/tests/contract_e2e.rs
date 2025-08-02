@@ -1,5 +1,4 @@
 // Path: crates/forge/tests/contract_e2e.rs
-
 //! End-to-End Test: Smart Contract Execution Lifecycle
 
 use anyhow::Result;
@@ -10,13 +9,6 @@ use depin_sdk_forge::testing::{
 use libp2p::identity;
 use tempfile::tempdir;
 use tokio::io::{AsyncBufReadExt, BufReader};
-
-// A helper to query contract state would be added to `forge::testing` in the future.
-// For now, this is a placeholder.
-// async fn query_contract_state(rpc_addr: &str, contract_address: &[u8], input_data: &[u8]) -> Result<Vec<u8>> {
-//     // ... implementation for an RPC `query` method ...
-//     Ok(vec![1]) // Placeholder
-// }
 
 #[tokio::test]
 #[ignore] // This test is long-running and requires a build script and RPC query support.
@@ -61,24 +53,12 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     // 4. VERIFY DEPLOYMENT
     // We would need a way to get the contract address, e.g., from RPC or logs.
     assert_log_contains("Node", &mut logs, "Deployed contract at address:").await?;
-    // In a real test, we would parse the address from the log line.
-    // let contract_address = ...;
 
     // 5. CALL INCREMENT (Placeholder)
-    // let increment_input = vec![...]; // The ABI-encoded call to increment()
-    // let call_tx_1 = ProtocolTransaction::Application(
-    //     ApplicationTransaction::CallContract {
-    //         address: contract_address.clone(),
-    //         input_data: increment_input
-    //     }
-    // );
-    // submit_transaction("127.0.0.1:9964", &call_tx_1).await?;
-    // assert_log_contains(&mut logs, "Contract call successful").await?;
+    // ...
 
     // 6. CALL GET AND VERIFY (Placeholder)
-    // let get_input = vec![...]; // The ABI-encoded call to get()
-    // let counter_value = query_contract_state("127.0.0.1:9964", &contract_address, &get_input).await?;
-    // assert_eq!(counter_value, vec![1]);
+    // ...
 
     println!("--- E2E Contract Test Placeholder ---");
     Ok(())

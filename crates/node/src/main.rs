@@ -1,5 +1,4 @@
 // Path: crates/node/src/main.rs
-
 //! # DePIN SDK Node
 //!
 //! This binary acts as the composition root for the validator node. It initializes
@@ -8,14 +7,14 @@
 use anyhow::anyhow;
 use cfg_if::cfg_if;
 use clap::Parser;
+use depin_sdk_api::state::StateTree;
+use depin_sdk_api::validator::{Container, WorkloadContainer}; // Import Container trait
+use depin_sdk_api::vm::VirtualMachine;
 use depin_sdk_chain::Chain;
 use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
+use depin_sdk_consensus::ConsensusEngine;
 use depin_sdk_core::app::ProtocolTransaction;
 use depin_sdk_core::config::WorkloadConfig;
-use depin_sdk_core::state::StateTree;
-use depin_sdk_core::validator::WorkloadContainer;
-use depin_sdk_core::vm::VirtualMachine;
-use depin_sdk_core::Container;
 use depin_sdk_network::libp2p::Libp2pSync;
 use depin_sdk_state_trees::file::FileStateTree;
 use depin_sdk_transaction_models::utxo::UTXOModel;
@@ -28,9 +27,6 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-
-// Only import the top-level trait here. Specific engines will be imported inside cfg_if.
-use depin_sdk_consensus::ConsensusEngine;
 
 #[derive(Parser, Debug)]
 #[clap(name = "node", about = "A minimum viable sovereign chain node.")]
@@ -131,7 +127,10 @@ async fn main() -> anyhow::Result<()> {
         populate_state_from_genesis(&mut state_tree, &genesis_path)
             .map_err(|e| anyhow!("Failed to load genesis state: {}", e))?;
     } else if is_new_state {
-        log::warn!("Starting with a fresh state, but no genesis file was found at {:?}.", genesis_path);
+        log::warn!(
+            "Starting with a fresh state, but no genesis file was found at {:?}.",
+            genesis_path
+        );
     }
 
     let workload_config = WorkloadConfig {
@@ -171,31 +170,28 @@ async fn main() -> anyhow::Result<()> {
         Libp2pSync::new(local_key, opts.listen_address, opts.peer)?;
 
     let config_path = PathBuf::from(&opts.config_dir);
-    let orchestration_container = Arc::new(
-        OrchestrationContainer::<
-            HashCommitmentScheme,
-            UTXOModel<HashCommitmentScheme>,
-            FileStateTree<HashCommitmentScheme>,
-        >::new(
-            &config_path.join("orchestration.toml"),
-            syncer,
-            network_event_receiver,
-            swarm_commander,
-            consensus_engine,
-        )?,
-    );
+    let orchestration_container = Arc::new(OrchestrationContainer::<
+        HashCommitmentScheme,
+        UTXOModel<HashCommitmentScheme>,
+        FileStateTree<HashCommitmentScheme>,
+    >::new(
+        &config_path.join("orchestration.toml"),
+        syncer,
+        network_event_receiver,
+        swarm_commander,
+        consensus_engine,
+    )?);
     let guardian_container = GuardianContainer::new(&config_path.join("guardian.toml"))?;
 
-    orchestration_container.set_chain_and_workload_ref(
-        chain_ref.clone(),
-        workload_container.clone(),
-    );
+    orchestration_container
+        .set_chain_and_workload_ref(chain_ref.clone(), workload_container.clone());
 
     guardian_container.start().await.map_err(|e| anyhow!(e))?;
     orchestration_container
         .start()
         .await
         .map_err(|e| anyhow!(e))?;
+    // FIX: Call start() on the Arc<WorkloadContainer> by dereferencing it.
     workload_container.start().await.map_err(|e| anyhow!(e))?;
 
     log::info!("Node successfully started. Running indefinitely...");
@@ -203,7 +199,11 @@ async fn main() -> anyhow::Result<()> {
     tokio::signal::ctrl_c().await?;
 
     log::info!("Shutdown signal received. Stopping node...");
-    orchestration_container.stop().await.map_err(|e| anyhow!(e))?;
+    orchestration_container
+        .stop()
+        .await
+        .map_err(|e| anyhow!(e))?;
+    // FIX: Call stop() on the Arc<WorkloadContainer> by dereferencing it.
     workload_container.stop().await.map_err(|e| anyhow!(e))?;
     guardian_container.stop().await.map_err(|e| anyhow!(e))?;
     log::info!("Node stopped gracefully.");

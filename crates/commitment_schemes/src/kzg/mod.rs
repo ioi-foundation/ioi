@@ -1,45 +1,11 @@
 // Path: crates/commitment_schemes/src/kzg/mod.rs
-// Change: Prefixed unused variables and fields with an underscore.
-
 //! KZG Polynomial Commitment Scheme Implementation
 //!
 //! # Implementation Status
 //!
 //! IMPORTANT: This is still a placeholder implementation with dummy cryptographic operations.
-//! A full implementation would require:
-//!
-//! 1. Integration with an elliptic curve library for bilinear pairings
-//!    - Need a pairing-friendly curve like BLS12-381
-//!    - Requires efficient implementation of the bilinear map e: G₁ × G₂ → GT
-//!
-//! 2. Proper finite field arithmetic
-//!    - Field operations in Fp for polynomial coefficients
-//!    - Polynomial arithmetic (addition, multiplication, division)
-//!    - Evaluation at arbitrary points
-//!
-//! 3. Structured reference string generation or loading
-//!    - Implementation of trusted setup ceremony or loading from trusted source
-//!    - Secure handling of setup parameters
-//!    - Verification of SRS integrity
-//!
-//! 4. Complete polynomial evaluation logic
-//!    - Division by (X - z) to create quotient polynomial
-//!    - Batch verification techniques for efficiency
-//!    - Handling edge cases and potential attack vectors
-//!
-//! # Mathematical Background
-//!
-//! KZG polynomial commitments use a bilinear pairing e: G₁ × G₂ → GT over elliptic curve groups
-//! to create and verify commitments to polynomials. The scheme requires a trusted setup to generate
-//! a structured reference string (SRS) containing powers of a secret value.
-//!
-//! The KZG scheme consists of four main operations:
-//! - Setup: Generate SRS parameters (G₁ᵢ = [τⁱ]G₁ and G₂ᵢ = [τⁱ]G₂₀) where τ is a secret
-//! - Commit: For a polynomial p(X) = Σᵢ cᵢXⁱ, compute C = Σᵢ cᵢG₁ᵢ
-//! - Prove: For a point z, compute proof π that p(z) = y using the quotient polynomial q(X) = (p(X) - y)/(X - z)
-//! - Verify: Check if e(C - [y]G₁₀, G₂₁) = e(π, G₂₂ - [z]G₂₁)
 
-use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, SchemeIdentifier, Selector};
+use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, SchemeIdentifier, Selector};
 use std::fmt::Debug;
 
 /// Structured Reference String (from trusted setup)
@@ -102,8 +68,6 @@ impl KZGCommitmentScheme {
     pub fn commit_polynomial(&self, _polynomial: &Polynomial) -> KZGCommitment {
         // In a real implementation, this would compute:
         // C = ∑ᵢ cᵢ·G₁ᵢ where cᵢ are polynomial coefficients
-
-        // For now, return a dummy commitment
         KZGCommitment(vec![0; 32])
     }
 
@@ -114,12 +78,6 @@ impl KZGCommitmentScheme {
         point: &[u8],
         _commitment: &KZGCommitment,
     ) -> Result<KZGProof, String> {
-        // In a real implementation, this would:
-        // 1. Evaluate the polynomial at the point: y = p(z)
-        // 2. Compute the quotient polynomial q(X) = (p(X) - y) / (X - z)
-        // 3. Commit to the quotient polynomial
-
-        // For now, return a dummy proof
         let value = vec![0; 32]; // Dummy evaluation result
 
         Ok(KZGProof {
@@ -133,8 +91,6 @@ impl KZGCommitmentScheme {
     pub fn verify_evaluation(&self, _commitment: &KZGCommitment, _proof: &KZGProof) -> bool {
         // In a real implementation, this would verify:
         // e(C - [y]G₁₀, G₂₁) = e(π, G₂₂ - [z]G₂₁)
-
-        // For now, always return true
         true
     }
 }
@@ -297,7 +253,9 @@ impl KZGProof {
         pos += quotient_len;
 
         // Read point
-        len_bytes = [0u8; 4];
+        if pos + 4 > bytes.len() {
+            return Err("Invalid proof format: point truncated".to_string());
+        }
         len_bytes.copy_from_slice(&bytes[pos..pos + 4]);
         pos += 4;
         let point_len = u32::from_le_bytes(len_bytes) as usize;
@@ -309,7 +267,9 @@ impl KZGProof {
         pos += point_len;
 
         // Read value
-        len_bytes = [0u8; 4];
+        if pos + 4 > bytes.len() {
+            return Err("Invalid proof format: value truncated".to_string());
+        }
         len_bytes.copy_from_slice(&bytes[pos..pos + 4]);
         pos += 4;
         let value_len = u32::from_le_bytes(len_bytes) as usize;

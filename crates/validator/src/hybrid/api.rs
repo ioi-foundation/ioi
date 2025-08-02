@@ -1,10 +1,9 @@
 // Path: crates/validator/src/hybrid/api.rs
-
+use async_trait::async_trait;
+use depin_sdk_api::validator::Container;
 use depin_sdk_core::error::ValidatorError;
-use depin_sdk_core::validator::Container;
 use serde::Deserialize;
 use std::path::Path;
-// FIX: Add imports for atomic state management
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -22,7 +21,6 @@ pub struct ApiConfig {
 /// or other state-query APIs for a hybrid validator.
 pub struct ApiContainer {
     config: ApiConfig,
-    // FIX: Use Arc<AtomicBool> for thread-safe state.
     running: Arc<AtomicBool>,
 }
 
@@ -37,7 +35,7 @@ impl ApiContainer {
     }
 }
 
-#[async_trait::async_trait]
+#[async_trait]
 impl Container for ApiContainer {
     async fn start(&self) -> Result<(), ValidatorError> {
         log::info!(

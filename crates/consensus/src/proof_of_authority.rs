@@ -1,5 +1,4 @@
 // Path: crates/consensus/src/proof_of_authority.rs
-
 use crate::{ConsensusDecision, ConsensusEngine};
 use async_trait::async_trait;
 use depin_sdk_core::app::Block;
@@ -59,6 +58,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
     ) -> Result<(), String> {
         Ok(())
     }
-    
+
     fn reset(&mut self, _height: u64) {}
 }

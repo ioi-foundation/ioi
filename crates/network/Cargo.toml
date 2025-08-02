@@ -1,3 +1,4 @@
+# Path: crates/network/Cargo.toml
 [package]
 name = "depin-sdk-network"
 version = "0.1.0"
@@ -6,10 +7,9 @@ description = "Block synchronization and networking components for the DePIN SDK
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+depin-sdk-api = { path = "../api" }
 depin-sdk-core = { path = "../core" }
-# --- FIX: Add the consensus crate as a dependency ---
 depin-sdk-consensus = { path = "../consensus" }
-# --- End Fix ---
 log = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }

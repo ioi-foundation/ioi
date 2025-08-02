@@ -1,8 +1,9 @@
+// Path: crates/state_trees/src/verkle/mod.rs
 //! Verkle tree implementation
 
-use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, Selector};
+use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, Selector};
+use depin_sdk_api::state::{StateManager, StateTree};
 use depin_sdk_core::error::StateError;
-use depin_sdk_core::state::{StateManager, StateTree};
 use std::any::Any;
 use std::collections::HashMap;
 
@@ -48,14 +49,22 @@ where
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
+
+    fn convert_value(&self, value: &[u8]) -> Result<CS::Value, String> {
+        Ok(CS::Value::from(value.to_vec()))
+    }
+
+    fn extract_value(&self, value: &CS::Value) -> Vec<u8> {
+        value.as_ref().to_vec()
+    }
 }
 
 impl<CS: CommitmentScheme> StateTree for VerkleTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
 {
-    type Commitment = CS::Commitment;
-    type Proof = CS::Proof;
+    type Commitment = <CS as CommitmentScheme>::Commitment;
+    type Proof = <CS as CommitmentScheme>::Proof;
 
     fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
         let cs_value = self
@@ -116,7 +125,6 @@ where
     }
 }
 
-// FIX: Implement the StateManager trait.
 impl<CS: CommitmentScheme> StateManager for VerkleTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
@@ -134,18 +142,5 @@ where
             results.push(self.get(key)?);
         }
         Ok(results)
-    }
-}
-
-impl<CS: CommitmentScheme> VerkleTree<CS>
-where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
-{
-    fn convert_value(&self, value: &[u8]) -> Result<CS::Value, String> {
-        Ok(CS::Value::from(value.to_vec()))
-    }
-
-    fn extract_value(&self, value: &CS::Value) -> Vec<u8> {
-        value.as_ref().to_vec()
     }
 }

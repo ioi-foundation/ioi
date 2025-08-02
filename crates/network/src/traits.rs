@@ -1,5 +1,4 @@
 // Path: crates/network/src/traits.rs
-
 //! Trait definitions for networking, including block synchronization and mempool gossip.
 
 use async_trait::async_trait;

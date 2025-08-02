@@ -2,17 +2,18 @@
 /// The private implementation for the `AppChain` trait.
 use crate::upgrade_manager::ModuleUpgradeManager;
 use async_trait::async_trait;
+use depin_sdk_api::chain::{AppChain, PublicKey, StakeAmount};
+use depin_sdk_api::commitment::CommitmentScheme;
+use depin_sdk_api::services::UpgradableService;
+use depin_sdk_api::state::StateManager;
+use depin_sdk_api::transaction::TransactionModel;
+use depin_sdk_api::validator::{TransactionExecutor, WorkloadContainer};
+use depin_sdk_api::vm::ExecutionContext;
 use depin_sdk_core::app::{
-    ApplicationTransaction, Block, BlockHeader, ChainError, ChainState, ChainStatus,
-    ProtocolTransaction, SystemPayload, SystemTransaction, UTXOTransaction,
+    ApplicationTransaction, Block, BlockHeader, ChainStatus, ProtocolTransaction, SystemPayload,
+    SystemTransaction, UTXOTransaction,
 };
-use depin_sdk_core::chain::AppChain;
-use depin_sdk_core::commitment::CommitmentScheme;
-use depin_sdk_core::services::UpgradableService;
-use depin_sdk_core::state::StateManager;
-use depin_sdk_core::transaction::TransactionModel;
-use depin_sdk_core::validator::TransactionExecutor;
-use depin_sdk_core::validator::WorkloadContainer;
+use depin_sdk_core::error::{ChainError, StateError};
 use libp2p::identity::ed25519::PublicKey as Ed25519PublicKey;
 use libp2p::identity::PublicKey as Libp2pPublicKey;
 use libp2p::PeerId;
@@ -22,12 +23,28 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub(crate) const STAKES_KEY: &[u8] = b"system::stakes";
-pub type PublicKey = String;
-pub type StakeAmount = u64;
 pub(crate) const STATUS_KEY: &[u8] = b"chain::status";
 pub(crate) const VALIDATOR_SET_KEY: &[u8] = b"system::validators";
 pub(crate) const AUTHORITY_SET_KEY: &[u8] = b"system::authorities";
 pub(crate) const GOVERNANCE_KEY: &[u8] = b"system::governance_key";
+
+/// A struct that holds the core, serializable state of a blockchain.
+#[derive(Debug)]
+#[allow(dead_code)] // FIX: Allow dead code for fields kept for future use.
+pub struct ChainState<CS, TM: TransactionModel> {
+    /// The commitment scheme in use.
+    pub commitment_scheme: CS,
+    /// The transaction model in use.
+    pub transaction_model: TM,
+    /// The unique identifier for the chain.
+    pub chain_id: String,
+    /// The current status of the chain.
+    pub status: ChainStatus,
+    /// A list of recent blocks.
+    pub recent_blocks: Vec<Block<ProtocolTransaction>>,
+    /// The maximum number of recent blocks to keep.
+    pub max_recent_blocks: usize,
+}
 
 #[derive(Debug)]
 pub struct Chain<CS, TM: TransactionModel> {
@@ -160,8 +177,6 @@ where
                 log::info!("Successfully updated authority set via governance.");
             }
             SystemPayload::Stake { amount } => {
-                // VULNERABILITY FIX: The signature field is expected to be [32-byte pubkey | 64-byte signature].
-                // The original code extracted the pubkey but NEVER verified the signature.
                 if tx.signature.len() < 96 {
                     return Err(ChainError::Transaction(
                         "Invalid signature length for stake".to_string(),
@@ -173,7 +188,6 @@ where
                     .map_err(|e| ChainError::Transaction(format!("Invalid public key: {e}")))?;
                 let libp2p_pk = Libp2pPublicKey::from(ed25519_pk.clone());
 
-                // Perform the actual signature verification.
                 if !libp2p_pk.verify(&payload_bytes, signature_bytes) {
                     return Err(ChainError::Transaction(
                         "Invalid signature for Stake transaction".to_string(),
@@ -197,7 +211,6 @@ where
                 state.insert(STAKES_KEY, &stakes_bytes)?;
             }
             SystemPayload::Unstake { amount } => {
-                // VULNERABILITY FIX: Same verification logic as for Stake.
                 if tx.signature.len() < 96 {
                     return Err(ChainError::Transaction(
                         "Invalid signature length for unstake".to_string(),
@@ -255,6 +268,8 @@ where
         + Sync
         + 'static
         + Debug,
+    // FIX: This now matches the (corrected) trait definition perfectly.
+    WorkloadContainer<ST>: TransactionExecutor<ST>,
 {
     fn status(&self) -> &ChainStatus {
         &self.state.status
@@ -278,8 +293,6 @@ where
                         .map_err(|e| ChainError::Transaction(e.to_string()))?;
                 }
                 ApplicationTransaction::DeployContract { code } => {
-                    // Placeholder for sender context; a real implementation would
-                    // extract this from the transaction signature.
                     let sender_context = vec![0; 32];
                     workload
                         .deploy_contract(code.clone(), sender_context)
@@ -290,11 +303,10 @@ where
                     address,
                     input_data,
                 } => {
-                    // Placeholder for sender context and other metadata
-                    let context = depin_sdk_core::vm::ExecutionContext {
+                    let context = ExecutionContext {
                         caller: vec![0; 32],
-                        block_height: self.state.status.height, // Direct access to avoid ambiguity
-                        gas_limit: 10_000_000,                  // Default gas limit
+                        block_height: self.state.status.height,
+                        gas_limit: 10_000_000,
                     };
                     workload
                         .call_contract(address.clone(), input_data.clone(), context)
@@ -442,11 +454,9 @@ where
             Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
                 ChainError::Transaction(format!("Failed to deserialize authority set: {e}"))
             }),
-            Ok(None) => Err(ChainError::State(
-                depin_sdk_core::error::StateError::KeyNotFound(
-                    "system::authorities not found in state. Check genesis file.".to_string(),
-                ),
-            )),
+            Ok(None) => Err(ChainError::State(StateError::KeyNotFound(
+                "system::authorities not found in state. Check genesis file.".to_string(),
+            ))),
             Err(e) => Err(e.into()),
         }
     }
@@ -461,7 +471,7 @@ where
             Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
                 ChainError::Transaction(format!("Failed to deserialize stakes map: {e}"))
             }),
-            Ok(None) => Ok(BTreeMap::new()), // Return empty map if key not found
+            Ok(None) => Ok(BTreeMap::new()),
             Err(e) => Err(e.into()),
         }
     }
@@ -470,9 +480,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use depin_sdk_api::state::StateTree;
     use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
     use depin_sdk_core::config::WorkloadConfig;
-    use depin_sdk_core::state::StateTree;
     use depin_sdk_state_trees::hashmap::HashMapStateTree;
     use depin_sdk_transaction_models::utxo::UTXOModel;
     use depin_sdk_vm_wasm::WasmVm;

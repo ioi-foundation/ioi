@@ -1,13 +1,10 @@
 // Path: crates/transaction_models/src/account/mod.rs
-// Change: Removed unused import `StateError`.
-
-use depin_sdk_core::commitment::CommitmentScheme;
+use depin_sdk_api::commitment::CommitmentScheme;
+use depin_sdk_api::state::StateManager;
+use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_core::error::TransactionError;
-use depin_sdk_core::state::StateManager;
-use depin_sdk_core::transaction::TransactionModel;
 use serde::{Deserialize, Serialize};
 
-// FIX: Add derive macros for PartialEq and Eq, required by HybridTransaction.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct AccountTransaction {
     pub from: Vec<u8>,
@@ -22,13 +19,11 @@ pub struct Account {
     pub nonce: u64,
 }
 
-// FIX: Add derive(Debug) as required by HybridConfig.
 #[derive(Debug, Clone, Default)]
 pub struct AccountConfig {
     pub initial_balance: u64,
 }
 
-// FIX: Add derive(Debug, Clone) as required by HybridModel.
 #[derive(Debug, Clone)]
 pub struct AccountModel<CS: CommitmentScheme> {
     config: AccountConfig,
@@ -50,7 +45,11 @@ impl<CS: CommitmentScheme> AccountModel<CS> {
         }
     }
 
-    fn get_account<S: StateManager + ?Sized>(&self, state: &S, key: &[u8]) -> Result<Account, TransactionError> {
+    fn get_account<S: StateManager + ?Sized>(
+        &self,
+        state: &S,
+        key: &[u8],
+    ) -> Result<Account, TransactionError> {
         let value = state.get(key)?;
         match value {
             Some(data) => self.decode_account(&data),
@@ -62,7 +61,6 @@ impl<CS: CommitmentScheme> AccountModel<CS> {
     }
 
     fn decode_account(&self, data: &[u8]) -> Result<Account, TransactionError> {
-        // FIX: Use the correct `Serialization` variant.
         serde_json::from_slice(data).map_err(|e| TransactionError::Serialization(e.to_string()))
     }
 
@@ -76,7 +74,6 @@ impl<CS: CommitmentScheme + Send + Sync> TransactionModel for AccountModel<CS> {
     type CommitmentScheme = CS;
     type Proof = ();
 
-    // FIX: Add the required `where` clause to the method signature.
     fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<bool, TransactionError>
     where
         S: StateManager<
@@ -86,8 +83,9 @@ impl<CS: CommitmentScheme + Send + Sync> TransactionModel for AccountModel<CS> {
     {
         let sender_account = self.get_account(state, &tx.from)?;
         if sender_account.balance < tx.amount {
-            // FIX: Use the correct `Invalid` variant.
-            return Err(TransactionError::Invalid("Insufficient balance".to_string()));
+            return Err(TransactionError::Invalid(
+                "Insufficient balance".to_string(),
+            ));
         }
         if sender_account.nonce != tx.nonce {
             return Err(TransactionError::Invalid("Invalid nonce".to_string()));
@@ -95,7 +93,6 @@ impl<CS: CommitmentScheme + Send + Sync> TransactionModel for AccountModel<CS> {
         Ok(true)
     }
 
-    // FIX: Add the required `where` clause.
     fn apply<S>(&self, tx: &Self::Transaction, state: &mut S) -> Result<(), TransactionError>
     where
         S: StateManager<
@@ -103,9 +100,7 @@ impl<CS: CommitmentScheme + Send + Sync> TransactionModel for AccountModel<CS> {
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
             > + ?Sized,
     {
-        // Since we now have `From<StateError>` for `TransactionError`, `?` works.
         if !self.validate(tx, state)? {
-            // FIX: Use the correct `Invalid` variant.
             return Err(TransactionError::Invalid("Validation failed".to_string()));
         }
 
@@ -120,7 +115,6 @@ impl<CS: CommitmentScheme + Send + Sync> TransactionModel for AccountModel<CS> {
         receiver_account.balance = receiver_account
             .balance
             .checked_add(tx.amount)
-            // FIX: Use the correct `Invalid` variant.
             .ok_or(TransactionError::Invalid("Balance overflow".to_string()))?;
         state.insert(&receiver_key, &self.encode_account(&receiver_account))?;
 
@@ -132,13 +126,11 @@ impl<CS: CommitmentScheme + Send + Sync> TransactionModel for AccountModel<CS> {
         _block_height: u64,
         _recipient: &[u8],
     ) -> Result<Self::Transaction, TransactionError> {
-        // Account models don't typically have coinbase transactions.
         Err(TransactionError::Invalid(
             "Coinbase not supported for account model".to_string(),
         ))
     }
 
-    // FIX: Add the required `where` clause.
     fn generate_proof<S>(
         &self,
         _tx: &Self::Transaction,
@@ -153,12 +145,7 @@ impl<CS: CommitmentScheme + Send + Sync> TransactionModel for AccountModel<CS> {
         Ok(())
     }
 
-    // FIX: Add the required `where` clause.
-    fn verify_proof<S>(
-        &self,
-        _proof: &Self::Proof,
-        _state: &S,
-    ) -> Result<bool, TransactionError>
+    fn verify_proof<S>(&self, _proof: &Self::Proof, _state: &S) -> Result<bool, TransactionError>
     where
         S: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
@@ -169,12 +156,10 @@ impl<CS: CommitmentScheme + Send + Sync> TransactionModel for AccountModel<CS> {
     }
 
     fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError> {
-        // FIX: Use the correct `Serialization` variant.
         serde_json::to_vec(tx).map_err(|e| TransactionError::Serialization(e.to_string()))
     }
 
     fn deserialize_transaction(&self, data: &[u8]) -> Result<Self::Transaction, TransactionError> {
-        // FIX: Use the correct `Deserialization` variant.
         serde_json::from_slice(data).map_err(|e| TransactionError::Deserialization(e.to_string()))
     }
 }
