@@ -67,14 +67,14 @@ The validator requires configuration files. Create a `config` directory in the p
 
 ```bash
 # Create the directory
-mkdir -p config
+mkdir -p examples/config
 
 # Create a minimal orchestration.toml. The RPC address is now configured here.
-echo 'consensus_type = "ProofOfAuthority"' > config/orchestration.toml
-echo 'rpc_listen_address = "127.0.0.1:9944"' >> config/orchestration.toml
+echo 'consensus_type = "ProofOfAuthority"' > examples/config/orchestration.toml
+echo 'rpc_listen_address = "127.0.0.1:9944"' >> examples/config/orchestration.toml
 
 # Create a minimal guardian.toml
-echo 'signature_policy = "FollowChain"' > config/guardian.toml
+echo 'signature_policy = "FollowChain"' > examples/config/guardian.toml
 ```
 
 #### 3. Build the Node Binary

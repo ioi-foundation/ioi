@@ -31,7 +31,14 @@ use tokio::sync::Mutex;
 struct Opts {
     #[clap(long, default_value = "state_hybrid.json")]
     state_file: String,
-    #[clap(long, default_value = "./config")]
+    #[clap(
+        long,
+        default_value = "./config",
+        help = "Path to the validator's configuration directory.",
+        long_help = "Path to the directory containing orchestration.toml, guardian.toml, etc. \
+                     If not provided, defaults to './config'. \
+                     You can create this by copying the template from 'examples/config'."
+    )]
     config_dir: String,
     #[clap(long)]
     peer: Option<Multiaddr>,
