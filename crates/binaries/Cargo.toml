@@ -15,7 +15,7 @@ depin-sdk-state-trees = { path = "../state_trees" }
 depin-sdk-network = { path = "../network" }
 depin-sdk-transaction-models = { path = "../transaction_models" }
 depin-sdk-validator = { path = "../validator", default-features = false }
-depin-sdk-vm-wasm = { path = "../vm-wasm" }
+depin-sdk-vm-wasm = { path = "../vm/wasm", optional = true }
 
 # Workspace Dependencies (for binary)
 anyhow = { workspace = true }
@@ -44,7 +44,7 @@ reqwest = { workspace = true }
 hex = { workspace = true }
 
 [features]
-default = ["consensus-poa"]
+default = ["consensus-poa", "vm-wasm"]
 # These features enable the corresponding features in our direct dependencies.
 # This allows the cfg_if! macro in node.rs to work correctly.
 consensus-round-robin = [
@@ -53,3 +53,6 @@ consensus-round-robin = [
 ]
 consensus-poa = ["depin-sdk-validator/consensus-poa", "depin-sdk-consensus/poa"]
 consensus-pos = ["depin-sdk-validator/consensus-pos", "depin-sdk-consensus/pos"]
+
+# VM Features
+vm-wasm = ["dep:depin-sdk-vm-wasm"]

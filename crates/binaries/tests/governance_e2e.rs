@@ -42,7 +42,7 @@ fn build_node_binary() {
                 "--release",
                 "--no-default-features",
                 "--features",
-                "consensus-poa",
+                "consensus-poa,vm-wasm", // <-- FIX: Add vm-wasm feature
             ])
             .status()
             .expect("Failed to execute cargo build command");
@@ -111,17 +111,18 @@ rpc_listen_address = "{}"
 "#,
         rpc_addr
     );
-    std::fs::write(
-        config_dir.join("orchestration.toml"),
-        orchestration_config,
-    )?;
+    std::fs::write(config_dir.join("orchestration.toml"), orchestration_config)?;
     std::fs::write(
         config_dir.join("guardian.toml"),
         r#"signature_policy = "FollowChain""#,
     )?;
 
     let state_file_arg = dir.path().join("state.json").to_string_lossy().to_string();
-    let genesis_file_arg = dir.path().join("genesis.json").to_string_lossy().to_string();
+    let genesis_file_arg = dir
+        .path()
+        .join("genesis.json")
+        .to_string_lossy()
+        .to_string();
     let config_dir_arg = config_dir.to_string_lossy().to_string();
     let mut cmd_args = vec![
         "--state-file",
@@ -142,10 +143,7 @@ rpc_listen_address = "{}"
         .kill_on_drop(true)
         .spawn()?;
 
-    Ok(TestNode {
-        process,
-        _dir: dir,
-    })
+    Ok(TestNode { process, _dir: dir })
 }
 
 /// Checks a node's log stream for a line containing a specific pattern within a timeout.
@@ -295,10 +293,7 @@ async fn test_governance_authority_change_lifecycle() -> Result<()> {
     };
     let payload_bytes = serde_json::to_vec(&payload)?;
     let signature = governance_keypair.sign(&payload_bytes)?;
-    let tx = ProtocolTransaction::System(SystemTransaction {
-        payload,
-        signature,
-    });
+    let tx = ProtocolTransaction::System(SystemTransaction { payload, signature });
 
     submit_transaction("127.0.0.1:9944", &tx).await?;
     println!("--- Governance transaction submitted successfully. ---");
@@ -309,18 +304,8 @@ async fn test_governance_authority_change_lifecycle() -> Result<()> {
     // --- FIX START: Wait for ALL relevant nodes to process the state change ---
     // This synchronizes the test harness with the distributed state of the network,
     // ensuring Node 2 has processed its own removal before we check its behavior.
-    assert_log_contains(
-        "Node3",
-        &mut logs3,
-        "Successfully updated authority set",
-    )
-    .await?;
-    assert_log_contains(
-        "Node2",
-        &mut logs2,
-        "Successfully updated authority set",
-    )
-    .await?;
+    assert_log_contains("Node3", &mut logs3, "Successfully updated authority set").await?;
+    assert_log_contains("Node2", &mut logs2, "Successfully updated authority set").await?;
     println!("--- State change confirmed by all nodes. Now verifying roles. ---");
     // --- FIX END ---
 
@@ -341,7 +326,9 @@ async fn test_governance_authority_change_lifecycle() -> Result<()> {
                     "Node 2 unexpectedly produced a block after being removed."
                 )),
                 Err(_) => {
-                    println!("--- Inactivity verified: Node 2 correctly stopped producing blocks. ---");
+                    println!(
+                        "--- Inactivity verified: Node 2 correctly stopped producing blocks. ---"
+                    );
                     Ok(())
                 }
             }
