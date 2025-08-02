@@ -1,6 +1,6 @@
 // Path: crates/chain/src/upgrade_manager/mod.rs
 use depin_sdk_api::services::{ServiceType, UpgradableService};
-use depin_sdk_core::error::CoreError;
+use depin_sdk_types::error::CoreError;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;

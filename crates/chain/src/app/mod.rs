@@ -9,11 +9,11 @@ use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::{TransactionExecutor, WorkloadContainer};
 use depin_sdk_api::vm::ExecutionContext;
-use depin_sdk_core::app::{
+use depin_sdk_types::app::{
     ApplicationTransaction, Block, BlockHeader, ChainStatus, ProtocolTransaction, SystemPayload,
     SystemTransaction, UTXOTransaction,
 };
-use depin_sdk_core::error::{ChainError, StateError};
+use depin_sdk_types::error::{ChainError, StateError};
 use libp2p::identity::ed25519::PublicKey as Ed25519PublicKey;
 use libp2p::identity::PublicKey as Libp2pPublicKey;
 use libp2p::PeerId;
@@ -482,9 +482,9 @@ mod tests {
     use super::*;
     use depin_sdk_api::state::StateTree;
     use depin_sdk_commitment_schemes::hash::HashCommitmentScheme;
-    use depin_sdk_core::config::WorkloadConfig;
     use depin_sdk_state_trees::hashmap::HashMapStateTree;
     use depin_sdk_transaction_models::utxo::UTXOModel;
+    use depin_sdk_types::config::WorkloadConfig;
     use depin_sdk_vm_wasm::WasmVm;
     use libp2p::identity;
     use std::sync::Arc;

@@ -2,7 +2,7 @@
 //! Defines the core traits and types for virtual machines.
 use crate::state::VmStateAccessor;
 use async_trait::async_trait;
-use depin_sdk_core::error::VmError;
+use depin_sdk_types::error::VmError;
 use std::sync::Arc;
 
 /// A trait representing a sandboxed execution environment for smart contracts.

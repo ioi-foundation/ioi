@@ -4,8 +4,8 @@ use std::any::Any;
 use std::marker::PhantomData;
 
 use crate::conversion::ByteConvertible;
-use depin_sdk_core::commitment::{CommitmentScheme, SchemeIdentifier, Selector};
-use depin_sdk_core::ibc::{ProofTranslator, UniversalProofFormat};
+use depin_sdk_api::commitment::{CommitmentScheme, SchemeIdentifier, Selector};
+use depin_sdk_api::ibc::{ProofTranslator, UniversalProofFormat};
 use std::collections::HashMap;
 
 /// Generic proof translator between two commitment schemes

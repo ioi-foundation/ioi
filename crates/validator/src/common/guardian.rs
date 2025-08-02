@@ -1,7 +1,7 @@
 // Path: crates/validator/src/common/guardian.rs
 use async_trait::async_trait;
 use depin_sdk_api::validator::{Container, GuardianContainer as GuardianContainerTrait};
-use depin_sdk_core::error::ValidatorError;
+use depin_sdk_types::error::ValidatorError;
 use std::path::Path;
 use std::sync::{
     atomic::{AtomicBool, Ordering},

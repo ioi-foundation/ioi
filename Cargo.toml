@@ -20,7 +20,7 @@ members = [
     "crates/commitment_schemes",
     "crates/consensus",
     "crates/api",
-    "crates/core",
+    "crates/types",
     "crates/crypto",
     "crates/homomorphic",
     "crates/network",

@@ -23,7 +23,7 @@ use tokio::{
 
 // Re-export concrete types from submodules for a cleaner public API.
 pub use self::sync::{SyncCodec, SyncRequest, SyncResponse};
-use depin_sdk_core::app::{Block, ProtocolTransaction};
+use depin_sdk_types::app::{Block, ProtocolTransaction};
 
 // --- Core Network Behaviour and Event/Command Types ---
 
@@ -61,7 +61,10 @@ pub enum SwarmCommand {
     SendStatusRequest(PeerId),
     SendBlocksRequest(PeerId, u64),
     SendStatusResponse(ResponseChannel<SyncResponse>, u64),
-    SendBlocksResponse(ResponseChannel<SyncResponse>, Vec<Block<ProtocolTransaction>>),
+    SendBlocksResponse(
+        ResponseChannel<SyncResponse>,
+        Vec<Block<ProtocolTransaction>>,
+    ),
 }
 
 #[derive(Debug)]
@@ -130,12 +133,24 @@ impl Libp2pSync {
         let event_forwarder_task = tokio::spawn(async move {
             while let Some(event) = internal_event_receiver.recv().await {
                 let translated_event = match event {
-                    SwarmInternalEvent::ConnectionEstablished(p) => Some(NetworkEvent::ConnectionEstablished(p)),
-                    SwarmInternalEvent::ConnectionClosed(p) => Some(NetworkEvent::ConnectionClosed(p)),
-                    SwarmInternalEvent::StatusRequest(p, c) => Some(NetworkEvent::StatusRequest(p, c)),
-                    SwarmInternalEvent::BlocksRequest(p, h, c) => Some(NetworkEvent::BlocksRequest(p, h, c)),
-                    SwarmInternalEvent::StatusResponse(p, h) => Some(NetworkEvent::StatusResponse(p, h)),
-                    SwarmInternalEvent::BlocksResponse(p, b) => Some(NetworkEvent::BlocksResponse(p, b)),
+                    SwarmInternalEvent::ConnectionEstablished(p) => {
+                        Some(NetworkEvent::ConnectionEstablished(p))
+                    }
+                    SwarmInternalEvent::ConnectionClosed(p) => {
+                        Some(NetworkEvent::ConnectionClosed(p))
+                    }
+                    SwarmInternalEvent::StatusRequest(p, c) => {
+                        Some(NetworkEvent::StatusRequest(p, c))
+                    }
+                    SwarmInternalEvent::BlocksRequest(p, h, c) => {
+                        Some(NetworkEvent::BlocksRequest(p, h, c))
+                    }
+                    SwarmInternalEvent::StatusResponse(p, h) => {
+                        Some(NetworkEvent::StatusResponse(p, h))
+                    }
+                    SwarmInternalEvent::BlocksResponse(p, b) => {
+                        Some(NetworkEvent::BlocksResponse(p, b))
+                    }
                     SwarmInternalEvent::GossipBlock(data, _source) => {
                         match serde_json::from_slice(&data) {
                             Ok(block) => Some(NetworkEvent::GossipBlock(block)),
@@ -144,7 +159,7 @@ impl Libp2pSync {
                                 None
                             }
                         }
-                    },
+                    }
                     SwarmInternalEvent::GossipTransaction(data, _source) => {
                         match serde_json::from_slice(&data) {
                             Ok(tx) => Some(NetworkEvent::GossipTransaction(tx)),
@@ -168,7 +183,10 @@ impl Libp2pSync {
         let initial_cmds_task = tokio::spawn({
             let cmd_sender = swarm_command_sender.clone();
             async move {
-                cmd_sender.send(SwarmCommand::Listen(listen_addr)).await.ok();
+                cmd_sender
+                    .send(SwarmCommand::Listen(listen_addr))
+                    .await
+                    .ok();
                 if let Some(addr) = dial_addr {
                     cmd_sender.send(SwarmCommand::Dial(addr)).await.ok();
                 }
@@ -230,8 +248,16 @@ impl Libp2pSync {
     ) {
         let block_topic = gossipsub::IdentTopic::new("blocks");
         let tx_topic = gossipsub::IdentTopic::new("transactions");
-        swarm.behaviour_mut().gossipsub.subscribe(&block_topic).unwrap();
-        swarm.behaviour_mut().gossipsub.subscribe(&tx_topic).unwrap();
+        swarm
+            .behaviour_mut()
+            .gossipsub
+            .subscribe(&block_topic)
+            .unwrap();
+        swarm
+            .behaviour_mut()
+            .gossipsub
+            .subscribe(&tx_topic)
+            .unwrap();
 
         loop {
             tokio::select! {

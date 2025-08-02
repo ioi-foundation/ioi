@@ -2,7 +2,7 @@
 //! Defines traits for Inter-Blockchain Communication (IBC).
 
 use crate::services::BlockchainService;
-use depin_sdk_core::error::CoreError as Error;
+use depin_sdk_types::error::CoreError as Error;
 
 /// A unique identifier for a blockchain.
 pub type ChainId = String;

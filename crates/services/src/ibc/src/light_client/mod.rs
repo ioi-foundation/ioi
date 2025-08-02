@@ -2,8 +2,8 @@
 
 use crate::conversion::ByteConvertible;
 use crate::translation::ProofTranslatorRegistry;
-use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, Selector};
-use depin_sdk_core::ibc::{LightClient, UniversalProofFormat};
+use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, Selector};
+use depin_sdk_api::ibc::{LightClient, UniversalProofFormat};
 use std::any::Any;
 use std::collections::HashMap;
 
@@ -133,7 +133,7 @@ impl UniversalLightClient {
     /// Register a proof translator
     pub fn register_translator(
         &mut self,
-        translator: Box<dyn depin_sdk_core::ibc::ProofTranslator>,
+        translator: Box<dyn depin_sdk_api::ibc::ProofTranslator>,
     ) {
         self.translators.register(translator);
     }

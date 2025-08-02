@@ -1,9 +1,9 @@
 // Path: crates/forge/tests/governance_e2e.rs
 use anyhow::{anyhow, Result};
-use depin_sdk_core::app::{ProtocolTransaction, SystemPayload, SystemTransaction};
 use depin_sdk_forge::testing::{
     assert_log_contains, build_node_binary, spawn_node, submit_transaction,
 };
+use depin_sdk_types::app::{ProtocolTransaction, SystemPayload, SystemTransaction};
 use libp2p::identity;
 use std::time::Duration;
 use tempfile::tempdir;

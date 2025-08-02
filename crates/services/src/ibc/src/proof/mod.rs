@@ -1,6 +1,6 @@
 //! Definition of the UniversalProofFormat
-//! 
-use depin_sdk_core::commitment::{ProofContext, SchemeIdentifier, Selector};
+//!
+use depin_sdk_api::commitment::{ProofContext, SchemeIdentifier, Selector};
 use std::collections::HashMap;
 
 // Explicitly declare the formats module

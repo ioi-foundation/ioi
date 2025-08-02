@@ -3,7 +3,7 @@
 
 use crate::commitment::CommitmentScheme;
 use async_trait::async_trait;
-use depin_sdk_core::error::StateError;
+use depin_sdk_types::error::StateError;
 
 mod manager;
 mod tree;

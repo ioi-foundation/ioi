@@ -5,7 +5,7 @@
 
 use crate::{ConsensusDecision, ConsensusEngine};
 use async_trait::async_trait;
-use depin_sdk_core::app::Block;
+use depin_sdk_types::app::Block;
 use libp2p::PeerId;
 use std::collections::{HashMap, HashSet};
 use tokio::time::{Duration, Instant};

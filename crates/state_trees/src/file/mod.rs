@@ -1,7 +1,7 @@
 // Path: crates/state_trees/src/file/mod.rs
 use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, Selector};
 use depin_sdk_api::state::{StateManager, StateTree};
-use depin_sdk_core::error::StateError;
+use depin_sdk_types::error::StateError;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::HashMap;
@@ -95,10 +95,7 @@ where
         let key_hex = hex::encode(key);
         let value = self.data.get(&key_hex)?;
         self.scheme
-            .create_proof(
-                &Selector::Key(key.to_vec()),
-                &C::Value::from(value.clone()),
-            )
+            .create_proof(&Selector::Key(key.to_vec()), &C::Value::from(value.clone()))
             .ok()
     }
 

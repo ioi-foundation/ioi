@@ -1,7 +1,7 @@
 // Path: crates/validator/src/hybrid/api.rs
 use async_trait::async_trait;
 use depin_sdk_api::validator::Container;
-use depin_sdk_core::error::ValidatorError;
+use depin_sdk_types::error::ValidatorError;
 use serde::Deserialize;
 use std::path::Path;
 use std::sync::{

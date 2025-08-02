@@ -12,7 +12,7 @@ use dcrypt::algorithms::{
     hash::{sha2::Sha256 as DcryptSha256, HashFunction},
     ByteSerializable,
 };
-use depin_sdk_core::{config::WorkloadConfig, error::ValidatorError};
+use depin_sdk_types::{config::WorkloadConfig, error::ValidatorError};
 use std::fmt::{self, Debug};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -66,7 +66,7 @@ struct StateAccessorWrapper<ST: StateManager> {
 
 #[async_trait]
 impl<ST: StateManager + Send + Sync> VmStateAccessor for StateAccessorWrapper<ST> {
-    async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, depin_sdk_core::error::StateError> {
+    async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, depin_sdk_types::error::StateError> {
         self.state_tree.lock().await.get(key)
     }
 
@@ -74,7 +74,7 @@ impl<ST: StateManager + Send + Sync> VmStateAccessor for StateAccessorWrapper<ST
         &self,
         key: &[u8],
         value: &[u8],
-    ) -> Result<(), depin_sdk_core::error::StateError> {
+    ) -> Result<(), depin_sdk_types::error::StateError> {
         self.state_tree.lock().await.insert(key, value)
     }
 }

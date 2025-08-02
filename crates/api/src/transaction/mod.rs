@@ -3,7 +3,7 @@
 
 use crate::commitment::CommitmentScheme;
 use crate::state::StateManager;
-use depin_sdk_core::error::TransactionError;
+use depin_sdk_types::error::TransactionError;
 use std::any::Any;
 use std::fmt::Debug;
 

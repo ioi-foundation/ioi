@@ -2,7 +2,7 @@
 //! Defines the `StateManager` trait, a higher-level abstraction over `StateTree`.
 
 use crate::state::StateTree;
-use depin_sdk_core::error::StateError;
+use depin_sdk_types::error::StateError;
 
 /// The state manager interface for the DePIN SDK.
 ///

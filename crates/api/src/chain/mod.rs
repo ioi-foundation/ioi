@@ -2,8 +2,8 @@
 //! Defines the core `AppChain` trait for blockchain state machines.
 
 use async_trait::async_trait;
-use depin_sdk_core::app::{Block, ChainStatus, ProtocolTransaction};
-use depin_sdk_core::error::ChainError;
+use depin_sdk_types::app::{Block, ChainStatus, ProtocolTransaction};
+use depin_sdk_types::error::ChainError;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 

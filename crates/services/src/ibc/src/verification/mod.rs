@@ -1,7 +1,7 @@
 //! IBC verification utilities
 
-use depin_sdk_core::commitment::{ProofContext, Selector};
-use depin_sdk_core::ibc::{LightClient, UniversalProofFormat};
+use depin_sdk_api::commitment::{ProofContext, Selector};
+use depin_sdk_api::ibc::{LightClient, UniversalProofFormat};
 use std::collections::HashMap;
 use std::sync::Arc;
 

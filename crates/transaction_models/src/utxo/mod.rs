@@ -1,9 +1,9 @@
 // Path: crates/transaction_models/src/utxo/mod.rs
-pub use depin_sdk_core::app::{Input, Output, UTXOTransaction};
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::TransactionModel;
-use depin_sdk_core::error::TransactionError;
+pub use depin_sdk_types::app::{Input, Output, UTXOTransaction};
+use depin_sdk_types::error::TransactionError;
 
 #[derive(Debug, Clone, Default)]
 pub struct UTXOConfig {
@@ -71,9 +71,9 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UTXOModel<
         let mut total_input: u64 = 0;
         for input in &tx.inputs {
             let key = self.create_utxo_key(&input.tx_hash, input.output_index);
-            let utxo_bytes = state.get(&key)?.ok_or_else(|| {
-                TransactionError::Invalid("Input UTXO not found".to_string())
-            })?;
+            let utxo_bytes = state
+                .get(&key)?
+                .ok_or_else(|| TransactionError::Invalid("Input UTXO not found".to_string()))?;
             let utxo: Output = serde_json::from_slice(&utxo_bytes)
                 .map_err(|e| TransactionError::Invalid(format!("Deserialize error: {e}")))?;
             total_input = total_input
@@ -141,11 +141,7 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UTXOModel<
         Ok(())
     }
 
-    fn verify_proof<S>(
-        &self,
-        _proof: &Self::Proof,
-        _state: &S,
-    ) -> Result<bool, TransactionError>
+    fn verify_proof<S>(&self, _proof: &Self::Proof, _state: &S) -> Result<bool, TransactionError>
     where
         S: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,

@@ -4,7 +4,7 @@
 //! SDK to write their own integration tests with the same tooling.
 
 use anyhow::{anyhow, Result};
-use depin_sdk_core::app::ProtocolTransaction;
+use depin_sdk_types::app::ProtocolTransaction;
 use libp2p::identity;
 use reqwest::Client;
 use std::process::{Command, Stdio};

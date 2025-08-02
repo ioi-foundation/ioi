@@ -2,10 +2,10 @@
 //! End-to-End Test: Smart Contract Execution Lifecycle
 
 use anyhow::Result;
-use depin_sdk_core::app::{ApplicationTransaction, ProtocolTransaction};
 use depin_sdk_forge::testing::{
     assert_log_contains, build_node_binary, spawn_node, submit_transaction,
 };
+use depin_sdk_types::app::{ApplicationTransaction, ProtocolTransaction};
 use libp2p::identity;
 use tempfile::tempdir;
 use tokio::io::{AsyncBufReadExt, BufReader};
