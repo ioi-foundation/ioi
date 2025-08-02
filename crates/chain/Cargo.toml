@@ -1,5 +1,4 @@
 # Path: crates/chain/Cargo.toml
-
 [package]
 name = "depin-sdk-chain"
 version = "0.1.0"
@@ -8,6 +7,7 @@ description = "Chain implementation components for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+depin-sdk-api = { path = "../api" }
 depin-sdk-core = { path = "../core" }
 depin-sdk-commitment-schemes = { path = "../commitment_schemes" }
 depin-sdk-transaction-models = { path = "../transaction_models" }

@@ -1,3 +1,4 @@
+// Path: crates/homomorphic/src/operations/mod.rs
 //! Operation implementations on commitments
 
 mod add;

@@ -1,5 +1,4 @@
 // Path: crates/forge/tests/staking_e2e.rs
-
 //! End-to-End Test: Proof of Stake and Dynamic Staking
 
 use anyhow::{anyhow, Result};
@@ -50,7 +49,6 @@ async fn test_staking_lifecycle() -> Result<()> {
     )
     .await?;
 
-    // FIX: Use the format! macro for robust string construction.
     let bootnode_addr = format!("/ip4/127.0.0.1/tcp/4011/p2p/{}", peer_id_node1);
 
     let mut node2 = spawn_node(

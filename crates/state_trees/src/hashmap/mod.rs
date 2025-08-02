@@ -1,17 +1,16 @@
 // Path: crates/state_trees/src/hashmap/mod.rs
-
-use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, Selector};
+use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, Selector};
+use depin_sdk_api::state::{StateManager, StateTree};
 use depin_sdk_core::error::StateError;
-use depin_sdk_core::state::{StateManager, StateTree};
 use std::any::Any;
 use std::collections::HashMap;
 
 /// HashMap-based state tree implementation
 #[derive(Debug)]
 pub struct HashMapStateTree<CS: CommitmentScheme> {
-    /// Data store. Made `pub(crate)` to allow the `FileStateTree` wrapper to access it.
+    /// Data store.
     pub(crate) data: HashMap<Vec<u8>, CS::Value>,
-    /// Commitment scheme. Made `pub(crate)` for consistency.
+    /// Commitment scheme.
     pub(crate) scheme: CS,
 }
 
@@ -37,8 +36,8 @@ impl<CS: CommitmentScheme> StateTree for HashMapStateTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
 {
-    type Commitment = CS::Commitment;
-    type Proof = CS::Proof;
+    type Commitment = <CS as CommitmentScheme>::Commitment;
+    type Proof = <CS as CommitmentScheme>::Proof;
 
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
         Ok(self.data.get(key).map(|v| v.as_ref().to_vec()))
@@ -55,7 +54,6 @@ where
     }
 
     fn root_commitment(&self) -> Self::Commitment {
-        // Keys must be sorted to ensure a deterministic commitment.
         let mut sorted_keys: Vec<_> = self.data.keys().collect();
         sorted_keys.sort();
 

@@ -1,15 +1,16 @@
+// Path: crates/validator/src/common/tests/mod.rs
 //! Tests for common validator components
 
 use super::guardian::GuardianContainer;
 use super::security::SecurityChannel;
-// FIX: Import the traits to make their methods available.
-use depin_sdk_core::validator::{Container, GuardianContainer as GuardianContainerTrait};
+use depin_sdk_api::validator::{Container, GuardianContainer as GuardianContainerTrait};
 use std::path::Path;
 
 #[tokio::test]
 async fn test_guardian_container() {
     let config_path = Path::new("test_config.toml");
-    // FIX: The constructor now returns a Result, so we need to unwrap it.
+    // Create a dummy file for the test
+    std::fs::File::create(config_path).unwrap();
     let guardian = GuardianContainer::new(config_path).unwrap();
 
     // Initial state
@@ -27,6 +28,9 @@ async fn test_guardian_container() {
     // Stop the container
     guardian.stop().await.unwrap();
     assert!(!guardian.is_running());
+
+    // Clean up dummy file
+    std::fs::remove_file(config_path).unwrap();
 }
 
 #[test]

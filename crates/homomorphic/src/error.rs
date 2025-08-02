@@ -1,4 +1,5 @@
-use depin_sdk_core::commitment::HomomorphicOperation;
+// Path: crates/homomorphic/src/error.rs
+use depin_sdk_api::commitment::HomomorphicOperation;
 use std::error::Error;
 use std::fmt;
 

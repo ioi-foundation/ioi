@@ -1,3 +1,4 @@
+// Path: crates/forge/src/lib.rs
 //! # DePIN SDK Forge Library
 //!
 //! This library provides high-level APIs and helper functions to facilitate
@@ -11,8 +12,8 @@
 //! to a strict architectural boundary:
 //!
 //! 1.  **Public API Only:** `forge` must **only** depend on the public APIs
-//!     exposed by the other `depin-sdk-*` library crates (e.g., `depin-sdk-core`,
-//!     `depin-sdk-chain`). It should never use `pub(crate)` visibility or other
+//!     exposed by the other `depin-sdk-*` library crates (e.g., `depin-sdk-api`,
+//!     `depin-sdk-core`). It should never use `pub(crate)` visibility or other
 //!     tricks to access internal implementation details.
 //!
 //! 2.  **No Core Logic:** `forge` should not contain any core protocol logic.

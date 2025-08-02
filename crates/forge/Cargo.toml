@@ -1,3 +1,4 @@
+# Path: crates/forge/Cargo.toml
 [package]
 name = "depin-sdk-forge"
 version = "0.1.0"
@@ -21,6 +22,7 @@ hex = { workspace = true }
 
 # Workspace library crates (Forge consumes the SDK as a user would)
 depin-sdk-core = { path = "../core" }
+depin-sdk-api = { path = "../api" }
 
 # Dependencies for testing helpers that are now part of the library
 reqwest = { workspace = true }

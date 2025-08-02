@@ -1,14 +1,13 @@
-// File: crates/commitment_schemes/src/elliptic_curve/mod.rs
+// Path: crates/commitment_schemes/src/elliptic_curve/mod.rs
 //! Elliptic curve commitment implementation
 
-use depin_sdk_crypto::algorithms::hash;
-use dcrypt::algorithms::ec::k256::{self as k256, Point, Scalar};
-use rand::{rngs::OsRng, RngCore};
-
-use depin_sdk_core::commitment::{
+use depin_sdk_api::commitment::{
     CommitmentScheme, HomomorphicCommitmentScheme, HomomorphicOperation, ProofContext,
     SchemeIdentifier, Selector,
 };
+use depin_sdk_crypto::algorithms::hash;
+use dcrypt::algorithms::ec::k256::{self as k256, Point, Scalar};
+use rand::{rngs::OsRng, RngCore};
 
 /// Elliptic curve commitment scheme
 #[derive(Debug, Clone)]
@@ -114,7 +113,9 @@ impl CommitmentScheme for EllipticCurveCommitmentScheme {
         // Add a random blinding factor with the last generator if we have one
         if !self.generators.is_empty() {
             let blinding = Self::random_blinding();
-            let blinding_term = self.generators[self.generators.len() - 1].mul(&blinding).expect("Blinding failed");
+            let blinding_term = self.generators[self.generators.len() - 1]
+                .mul(&blinding)
+                .expect("Blinding failed");
             commitment_point = commitment_point.add(&blinding_term);
         }
 
@@ -174,22 +175,6 @@ impl CommitmentScheme for EllipticCurveCommitmentScheme {
             return false;
         }
 
-        // Use context to check for verification flags or parameters
-        // This is a placeholder implementation to demonstrate context usage
-
-        /* The context parameter in a real-world scenario might include:
-         * 1. Cryptographic domain separation parameters to prevent cross-protocol attacks
-         * 2. Chain-specific verification rules (e.g., specific validation rules per blockchain)
-         * 3. Security level parameters (e.g., required bit security level)
-         * 4. Curve-specific parameters or optimizations
-         * 5. Batch verification settings to optimize multiple proof verifications
-         * 6. Time bounds for time-sensitive commitments
-         * 7. Circuit-specific parameters for zero-knowledge proofs
-         * 8. Public parameters needed for verification
-         * 9. Reusable values to prevent recomputation across multiple verifications
-         * 10. Context-specific verification flags like the one demonstrated below
-         */
-
         let strict_verification = context
             .get_data("strict_verification")
             .map(|v| !v.is_empty() && v[0] == 1)
@@ -212,8 +197,12 @@ impl CommitmentScheme for EllipticCurveCommitmentScheme {
 
         // Recreate the point for the value and blinding factor
         let blinding_generator = &self.generators[self.generators.len() - 1];
-        let value_term = self.generators[position].mul(&value_scalar).expect("Scalar mul failed");
-        let blinding_term = blinding_generator.mul(&proof.blinding).expect("Blinding failed");
+        let value_term = self.generators[position]
+            .mul(&value_scalar)
+            .expect("Scalar mul failed");
+        let blinding_term = blinding_generator
+            .mul(&proof.blinding)
+            .expect("Blinding failed");
         let computed_point = value_term.add(&blinding_term);
 
         // Check if the computed commitment matches the provided one
@@ -238,7 +227,9 @@ impl HomomorphicCommitmentScheme for EllipticCurveCommitmentScheme {
         // Homomorphic addition is point addition
         let result_point = point_a.add(&point_b);
 
-        Ok(EllipticCurveCommitment(result_point.serialize_compressed()))
+        Ok(EllipticCurveCommitment(
+            result_point.serialize_compressed(),
+        ))
     }
 
     fn scalar_multiply(
@@ -261,7 +252,9 @@ impl HomomorphicCommitmentScheme for EllipticCurveCommitmentScheme {
         // Scalar multiplication
         let result_point = point.mul(&s).map_err(|e| e.to_string())?;
 
-        Ok(EllipticCurveCommitment(result_point.serialize_compressed()))
+        Ok(EllipticCurveCommitment(
+            result_point.serialize_compressed(),
+        ))
     }
 
     fn supports_operation(&self, operation: HomomorphicOperation) -> bool {
@@ -291,7 +284,9 @@ impl EllipticCurveCommitment {
 
     /// Create from bytes
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
-        let array: [u8; k256::K256_POINT_COMPRESSED_SIZE] = bytes.try_into().map_err(|_| "Invalid point length".to_string())?;
+        let array: [u8; k256::K256_POINT_COMPRESSED_SIZE] = bytes
+            .try_into()
+            .map_err(|_| "Invalid point length".to_string())?;
         Ok(Self(array))
     }
 }

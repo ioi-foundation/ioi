@@ -1,6 +1,7 @@
+// Path: crates/commitment_schemes/src/hash/mod.rs
 //! Hash-based commitment scheme implementations
 
-use depin_sdk_core::commitment::{CommitmentScheme, ProofContext, SchemeIdentifier, Selector};
+use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, SchemeIdentifier, Selector};
 use depin_sdk_crypto::algorithms::hash;
 use std::fmt::Debug;
 
@@ -141,8 +142,6 @@ impl CommitmentScheme for HashCommitmentScheme {
         value: &Self::Value,
         context: &ProofContext,
     ) -> bool {
-        // FIX: The compiler detected that `selector` was being compared to itself.
-        // We need to compare the proof's selector with the one passed to the function.
         if &proof.selector != selector {
             return false;
         }
@@ -174,8 +173,6 @@ impl CommitmentScheme for HashCommitmentScheme {
                     }
                 }
 
-                // Simple verification - not suitable for complex structures
-                // In practice, state trees would implement proper verification
                 key_value_hash == commitment.as_ref()
             }
             _ => {

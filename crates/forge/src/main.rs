@@ -1,3 +1,4 @@
+// Path: crates/forge/src/main.rs
 //! # DePIN SDK Forge CLI
 //!
 //! This is the command-line interface for `forge`, the primary developer

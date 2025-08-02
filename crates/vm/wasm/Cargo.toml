@@ -7,8 +7,9 @@ description = "Wasmtime-based VM for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+depin-sdk-api = { path = "../../api" }
 depin-sdk-core = { path = "../../core" }
-wasmtime = { workspace = true }                   # This now correctly inherits version 19.0.1
+wasmtime = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }

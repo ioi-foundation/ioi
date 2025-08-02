@@ -1,9 +1,9 @@
+// Path: crates/homomorphic/src/proof.rs
 use crate::error::{HomomorphicError, HomomorphicResult};
-use depin_sdk_core::commitment::HomomorphicCommitmentScheme;
-use depin_sdk_core::commitment::HomomorphicOperation;
-// FIX: Remove unused imports.
-use depin_sdk_core::commitment::{ProofContext, Selector};
-use depin_sdk_core::homomorphic::CommitmentOperation;
+use depin_sdk_api::commitment::HomomorphicCommitmentScheme;
+use depin_sdk_api::commitment::HomomorphicOperation;
+use depin_sdk_api::commitment::{ProofContext, Selector};
+use depin_sdk_api::homomorphic::CommitmentOperation;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -86,9 +86,6 @@ impl<CS: HomomorphicCommitmentScheme> HomomorphicProof<CS> {
 
     /// Serialize the proof to bytes
     pub fn to_bytes(&self) -> HomomorphicResult<Vec<u8>> {
-        // This is a simplified serialization implementation
-        // In a real implementation, we would use a proper serialization format
-
         let mut result = Vec::new();
 
         // Serialize operation type
@@ -152,8 +149,6 @@ impl<CS: HomomorphicCommitmentScheme> HomomorphicProof<CS> {
     where
         CS::Commitment: From<Vec<u8>>,
     {
-        // This would be a complete deserialization implementation
-        // For now, we'll just return an error
         Err(HomomorphicError::Custom(
             "Deserialization not implemented".to_string(),
         ))

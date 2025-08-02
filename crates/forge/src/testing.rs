@@ -1,3 +1,4 @@
+// Path: crates/forge/src/testing.rs
 //! Contains helper functions for building and running end-to-end tests.
 //! These functions are exposed as a public library to allow users of the
 //! SDK to write their own integration tests with the same tooling.
@@ -9,9 +10,7 @@ use reqwest::Client;
 use std::process::{Command, Stdio};
 use std::sync::Once;
 use std::time::Duration;
-// FIX: Only import the `TempDir` type, as the `tempdir` function is not used here.
 use tempfile::TempDir;
-// FIX: `AsyncBufReadExt` is only needed by the *caller* of `assert_log_contains`, not the definition.
 use tokio::io::{AsyncRead, BufReader};
 use tokio::process::Child;
 use tokio::time::timeout;
@@ -27,7 +26,10 @@ static BUILD: Once = Once::new();
 /// Builds the node binary with specified consensus features. This is run only once per test run.
 pub fn build_node_binary(features: &str) {
     BUILD.call_once(|| {
-        println!("--- Building Node Binary for E2E Test (Features: {}) ---", features);
+        println!(
+            "--- Building Node Binary for E2E Test (Features: {}) ---",
+            features
+        );
         let status = Command::new("cargo")
             .args([
                 "build",
@@ -55,7 +57,6 @@ pub struct TestNode {
 
 /// Submits a transaction to a node's RPC endpoint.
 pub async fn submit_transaction(rpc_addr: &str, tx: &ProtocolTransaction) -> Result<()> {
-    // ... function body remains the same ...
     let tx_bytes = serde_json::to_vec(tx)?;
     let tx_hex = hex::encode(tx_bytes);
 
@@ -96,7 +97,6 @@ pub async fn spawn_node(
     rpc_addr: &str,
     consensus_type: &str,
 ) -> Result<TestNode> {
-    // ... function body remains the same ...
     std::fs::write(dir.path().join("genesis.json"), genesis_content)?;
     std::fs::write(
         dir.path().join("state.json.identity.key"),
@@ -120,13 +120,20 @@ rpc_listen_address = "{}"
     )?;
 
     let state_file_arg = dir.path().join("state.json").to_string_lossy().to_string();
-    let genesis_file_arg = dir.path().join("genesis.json").to_string_lossy().to_string();
+    let genesis_file_arg = dir
+        .path()
+        .join("genesis.json")
+        .to_string_lossy()
+        .to_string();
     let config_dir_arg = config_dir.to_string_lossy().to_string();
 
     let mut cmd_args = vec![
-        "--state-file", &state_file_arg,
-        "--genesis-file", &genesis_file_arg,
-        "--config-dir", &config_dir_arg,
+        "--state-file",
+        &state_file_arg,
+        "--genesis-file",
+        &genesis_file_arg,
+        "--config-dir",
+        &config_dir_arg,
     ];
 
     let args_owned: Vec<String> = args.iter().map(|s| s.to_string()).collect();
@@ -150,7 +157,6 @@ pub async fn assert_log_contains<R: AsyncRead + Unpin>(
     log_stream: &mut tokio::io::Lines<BufReader<R>>,
     pattern: &str,
 ) -> Result<()> {
-    // ... function body remains the same ...
     timeout(LOG_ASSERT_TIMEOUT, async {
         while let Some(line_result) = log_stream.next_line().await.transpose() {
             match line_result {
@@ -166,5 +172,12 @@ pub async fn assert_log_contains<R: AsyncRead + Unpin>(
         Err(anyhow!("Log stream ended before pattern was found"))
     })
     .await?
-    .map_err(|e| anyhow!("[{}] Log assertion failed for pattern '{}': {}", label, pattern, e))
+    .map_err(|e| {
+        anyhow!(
+            "[{}] Log assertion failed for pattern '{}': {}",
+            label,
+            pattern,
+            e
+        )
+    })
 }

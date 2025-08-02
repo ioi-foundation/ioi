@@ -1,5 +1,6 @@
+// Path: crates/homomorphic/src/operations/batch/mod.rs
 use crate::error::{HomomorphicError, HomomorphicResult};
-use depin_sdk_core::homomorphic::{CommitmentOperation, OperationResult};
+use depin_sdk_api::homomorphic::{CommitmentOperation, OperationResult};
 use std::sync::Arc;
 
 /// Composite operation for complex computations

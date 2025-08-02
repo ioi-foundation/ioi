@@ -1,9 +1,7 @@
-// crates/crypto/src/traditional/eddsa/mod.rs
+// Path: crates/crypto/src/sign/eddsa/mod.rs
 //! Implementation of elliptic curve cryptography using dcrypt
 
-use depin_sdk_core::crypto::{
-    SerializableKey, Signature, SigningKey, SigningKeyPair, VerifyingKey
-};
+use depin_sdk_api::crypto::{SerializableKey, Signature, SigningKey, SigningKeyPair, VerifyingKey};
 use dcrypt::api::Signature as SignatureTrait;
 use rand::rngs::OsRng;
 
@@ -31,7 +29,7 @@ impl Ed25519KeyPair {
     /// Generate a new Ed25519 key pair
     pub fn generate() -> Self {
         let mut rng = OsRng;
-        
+
         // Generate key pair using dcrypt
         let (public_key, secret_key) = eddsa::Ed25519::keypair(&mut rng)
             .expect("Failed to generate Ed25519 key pair");
@@ -45,9 +43,10 @@ impl Ed25519KeyPair {
     /// Create from an existing private key
     pub fn from_private_key(private_key: &Ed25519PrivateKey) -> Self {
         let secret_key = private_key.0.clone();
-        
+
         // Use the helper method to derive public key
-        let public_key = secret_key.public_key()
+        let public_key = secret_key
+            .public_key()
             .expect("Failed to derive public key from secret key");
 
         Self {
@@ -117,10 +116,10 @@ impl SerializableKey for Ed25519PrivateKey {
         if bytes.len() != 32 {
             return Err("Invalid private key length: expected 32 bytes".to_string());
         }
-        
+
         let mut seed = [0u8; 32];
         seed.copy_from_slice(bytes);
-        
+
         // Use the from_seed method
         eddsa::Ed25519SecretKey::from_seed(&seed)
             .map(Ed25519PrivateKey)
@@ -146,14 +145,14 @@ impl Signature for Ed25519Signature {}
 impl Ed25519Signature {
     /// Get the raw signature bytes
     pub fn as_bytes(&self) -> &[u8] {
-        &self.0.0  // Access the inner array through the public field
+        &self.0 .0 // Access the inner array through the public field
     }
 }
 
 impl Ed25519PublicKey {
     /// Get the raw public key bytes
     pub fn as_bytes(&self) -> &[u8] {
-        &self.0.0  // Access the inner array through the public field
+        &self.0 .0 // Access the inner array through the public field
     }
 
     /// Construct from dcrypt public key
@@ -172,10 +171,11 @@ impl Ed25519PrivateKey {
     pub fn from_dcrypt_key(key: eddsa::Ed25519SecretKey) -> Self {
         Self(key)
     }
-    
+
     /// Get the public key corresponding to this private key
     pub fn public_key(&self) -> Result<Ed25519PublicKey, String> {
-        self.0.public_key()
+        self.0
+            .public_key()
             .map(Ed25519PublicKey)
             .map_err(|e| format!("Failed to derive public key: {e:?}"))
     }

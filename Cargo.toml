@@ -19,6 +19,7 @@ members = [
     "crates/chain",
     "crates/commitment_schemes",
     "crates/consensus",
+    "crates/api",
     "crates/core",
     "crates/crypto",
     "crates/homomorphic",

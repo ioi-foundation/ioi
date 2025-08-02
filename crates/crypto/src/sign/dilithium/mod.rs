@@ -1,17 +1,14 @@
+// Path: crates/crypto/src/sign/dilithium/mod.rs
 //! Dilithium signature algorithm (using dcrypt implementation)
 //!
 use crate::security::SecurityLevel;
-use depin_sdk_core::crypto::{
-    SerializableKey, Signature, SigningKey, SigningKeyPair, VerifyingKey
-};
+use depin_sdk_api::crypto::{SerializableKey, Signature, SigningKey, SigningKeyPair, VerifyingKey};
 // Import the trait needed for the signature operations
 use dcrypt::api::Signature as SignatureTrait;
 // Import the Dilithium implementations and types from the correct module path
 use dcrypt::sign::pq::dilithium::{
-    Dilithium2, Dilithium3, Dilithium5, 
-    DilithiumPublicKey as DcryptPublicKey, 
-    DilithiumSecretKey as DcryptSecretKey, 
-    DilithiumSignatureData as DcryptSignatureData
+    Dilithium2, Dilithium3, Dilithium5, DilithiumPublicKey as DcryptPublicKey,
+    DilithiumSecretKey as DcryptSecretKey, DilithiumSignatureData as DcryptSignatureData,
 };
 
 /// Dilithium signature scheme
@@ -51,7 +48,7 @@ impl DilithiumScheme {
     /// Generate a new key pair
     pub fn generate_keypair(&self) -> DilithiumKeyPair {
         let mut rng = rand::rngs::OsRng;
-        
+
         match self.level {
             SecurityLevel::Level2 => {
                 let (pk, sk) = Dilithium2::keypair(&mut rng).unwrap();
@@ -137,9 +134,9 @@ impl DilithiumScheme {
     ) -> bool {
         // Determine security level from key size
         let level = match public_key.0.len() {
-            1312 => SecurityLevel::Level2,  // Dilithium2
-            1952 => SecurityLevel::Level3,  // Dilithium3
-            2592 => SecurityLevel::Level5,  // Dilithium5
+            1312 => SecurityLevel::Level2, // Dilithium2
+            1952 => SecurityLevel::Level3, // Dilithium3
+            2592 => SecurityLevel::Level5, // Dilithium5
             _ => return false,
         };
 
@@ -213,9 +210,9 @@ impl VerifyingKey for DilithiumPublicKey {
     fn verify(&self, message: &[u8], signature: &Self::Signature) -> bool {
         // Determine security level from key size
         let level = match self.0.len() {
-            1312 => SecurityLevel::Level2,  // Dilithium2
-            1952 => SecurityLevel::Level3,  // Dilithium3
-            2592 => SecurityLevel::Level5,  // Dilithium5
+            1312 => SecurityLevel::Level2, // Dilithium2
+            1952 => SecurityLevel::Level3, // Dilithium3
+            2592 => SecurityLevel::Level5, // Dilithium5
             _ => return false,
         };
 
@@ -288,12 +285,12 @@ impl SerializableKey for DilithiumPrivateKey {
     fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
         // Determine security level from key size
         let level = match bytes.len() {
-            2560 => SecurityLevel::Level2,  // Dilithium2
-            4032 => SecurityLevel::Level3,  // Dilithium3
-            4896 => SecurityLevel::Level5,  // Dilithium5
+            2560 => SecurityLevel::Level2, // Dilithium2
+            4032 => SecurityLevel::Level3, // Dilithium3
+            4896 => SecurityLevel::Level5, // Dilithium5
             _ => return Err("Invalid Dilithium private key size".to_string()),
         };
-        
+
         Ok(DilithiumPrivateKey {
             data: bytes.to_vec(),
             level,

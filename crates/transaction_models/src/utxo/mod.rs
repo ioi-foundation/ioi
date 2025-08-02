@@ -1,11 +1,9 @@
 // Path: crates/transaction_models/src/utxo/mod.rs
-// Change: Removed unused import of serde::{Deserialize, Serialize}.
-
 pub use depin_sdk_core::app::{Input, Output, UTXOTransaction};
-use depin_sdk_core::commitment::CommitmentScheme;
+use depin_sdk_api::commitment::CommitmentScheme;
+use depin_sdk_api::state::StateManager;
+use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_core::error::TransactionError;
-use depin_sdk_core::state::StateManager;
-use depin_sdk_core::transaction::TransactionModel;
 
 #[derive(Debug, Clone, Default)]
 pub struct UTXOConfig {
@@ -59,16 +57,14 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UTXOModel<
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
             > + ?Sized,
     {
-        // --- FIX: Add special validation logic for coinbase transactions ---
-        // A coinbase transaction is the only valid transaction type with no inputs.
         if tx.inputs.is_empty() {
-            // A valid coinbase should have at least one output to reward the miner.
-            // More complex rules (e.g., exactly one output) could be added here.
             return Ok(!tx.outputs.is_empty());
         }
-        // --- End Fix ---
 
-        if tx.inputs.len() > self.config.max_inputs || tx.outputs.len() > self.config.max_outputs {
+        if self.config.max_inputs > 0 && tx.inputs.len() > self.config.max_inputs {
+            return Ok(false);
+        }
+        if self.config.max_outputs > 0 && tx.outputs.len() > self.config.max_outputs {
             return Ok(false);
         }
 
@@ -80,7 +76,8 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UTXOModel<
             })?;
             let utxo: Output = serde_json::from_slice(&utxo_bytes)
                 .map_err(|e| TransactionError::Invalid(format!("Deserialize error: {e}")))?;
-            total_input = total_input.checked_add(utxo.value)
+            total_input = total_input
+                .checked_add(utxo.value)
                 .ok_or_else(|| TransactionError::Invalid("Input value overflow".to_string()))?;
         }
 
@@ -123,7 +120,10 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UTXOModel<
     ) -> Result<Self::Transaction, TransactionError> {
         Ok(UTXOTransaction {
             inputs: vec![],
-            outputs: vec![Output { value: 50, public_key: recipient.to_vec() }],
+            outputs: vec![Output {
+                value: 50,
+                public_key: recipient.to_vec(),
+            }],
         })
     }
 

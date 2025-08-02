@@ -1,3 +1,4 @@
+# Path: crates/validator/Cargo.toml
 [package]
 name = "depin-sdk-validator"
 version = "0.1.0"
@@ -6,9 +7,9 @@ description = "Validator container implementations for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+depin-sdk-api = { path = "../api" }
 depin-sdk-core = { path = "../core" }
-depin-sdk-consensus = { path = "../consensus", features = [
-] } # No features by default
+depin-sdk-consensus = { path = "../consensus", default-features = false }
 depin-sdk-network = { path = "../network" }
 depin-sdk-chain = { path = "../chain" }
 depin-sdk-vm-wasm = { path = "../vm/wasm", optional = true }

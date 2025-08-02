@@ -1,11 +1,10 @@
 // Path: crates/transaction_models/src/hybrid/mod.rs
-
 use crate::account::{AccountConfig, AccountModel, AccountTransaction};
 use crate::utxo::{UTXOConfig, UTXOModel, UTXOTransaction};
-use depin_sdk_core::commitment::CommitmentScheme;
+use depin_sdk_api::commitment::CommitmentScheme;
+use depin_sdk_api::state::StateManager;
+use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_core::error::TransactionError;
-use depin_sdk_core::state::StateManager;
-use depin_sdk_core::transaction::TransactionModel;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -16,7 +15,6 @@ pub enum HybridTransaction {
 
 #[derive(Debug, Clone)]
 pub enum HybridProof {
-    // FIX: Match the inner models' proof types, which are now `()`.
     Account(()),
     UTXO(()),
 }
@@ -64,7 +62,6 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for HybridMode
         Ok(HybridTransaction::UTXO(utxo_coinbase))
     }
 
-    // FIX: Add the required `where` clause to the method signature.
     fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<bool, TransactionError>
     where
         S: StateManager<
@@ -73,12 +70,13 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for HybridMode
             > + ?Sized,
     {
         match tx {
-            HybridTransaction::Account(account_tx) => self.account_model.validate(account_tx, state),
+            HybridTransaction::Account(account_tx) => {
+                self.account_model.validate(account_tx, state)
+            }
             HybridTransaction::UTXO(utxo_tx) => self.utxo_model.validate(utxo_tx, state),
         }
     }
 
-    // FIX: Add the required `where` clause.
     fn apply<S>(&self, tx: &Self::Transaction, state: &mut S) -> Result<(), TransactionError>
     where
         S: StateManager<
@@ -92,7 +90,6 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for HybridMode
         }
     }
 
-    // FIX: Add the required `where` clause.
     fn generate_proof<S>(
         &self,
         tx: &Self::Transaction,
@@ -116,12 +113,7 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for HybridMode
         }
     }
 
-    // FIX: Add the required `where` clause.
-    fn verify_proof<S>(
-        &self,
-        proof: &Self::Proof,
-        state: &S,
-    ) -> Result<bool, TransactionError>
+    fn verify_proof<S>(&self, proof: &Self::Proof, state: &S) -> Result<bool, TransactionError>
     where
         S: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,

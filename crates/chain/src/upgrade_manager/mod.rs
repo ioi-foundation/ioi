@@ -1,5 +1,6 @@
+// Path: crates/chain/src/upgrade_manager/mod.rs
+use depin_sdk_api::services::{ServiceType, UpgradableService};
 use depin_sdk_core::error::CoreError;
-use depin_sdk_core::services::{ServiceType, UpgradableService};
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
@@ -48,9 +49,7 @@ impl ModuleUpgradeManager {
         self.active_services.insert(service_type.clone(), service);
 
         // Initialize upgrade history if not present
-        self.upgrade_history
-            .entry(service_type)
-            .or_default();
+        self.upgrade_history.entry(service_type).or_default();
     }
 
     /// Get a service by type
@@ -154,9 +153,7 @@ impl ModuleUpgradeManager {
     pub fn start_all_services(&mut self) -> Result<(), CoreError> {
         for (service_type, service) in &self.active_services {
             service.start().map_err(|e| {
-                CoreError::Custom(format!(
-                    "Failed to start service {service_type:?}: {e}"
-                ))
+                CoreError::Custom(format!("Failed to start service {service_type:?}: {e}"))
             })?;
         }
         Ok(())
