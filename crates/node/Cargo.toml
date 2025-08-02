@@ -1,9 +1,12 @@
 [package]
-name = "depin-sdk-binaries"
+name = "depin-sdk-node"
 version = "0.1.0"
 edition = "2021"
-description = "Binary targets for the DePIN SDK"
+description = "The primary validator node binary for the DePIN SDK"
 license = "MIT OR Apache-2.0"
+
+# This crate is a binary, so it doesn't need a lib section.
+# The `main.rs` is automatically detected.
 
 [dependencies]
 # Workspace Library Crates
@@ -30,23 +33,10 @@ tokio = { workspace = true, features = ["full"] }
 serde_json = { workspace = true }
 bs58 = "0.4"
 
-[dev-dependencies]
-anyhow = { workspace = true }
-tempfile = "3.3"
-tokio = { workspace = true, features = ["full"] }
-serde_json = { workspace = true }
-bs58 = "0.4"
-# The test needs access to libp2p types like `identity`.
-libp2p = { workspace = true }
-# The test needs access to core types for building the transaction.
-depin-sdk-core = { path = "../core" }
-reqwest = { workspace = true }
-hex = { workspace = true }
-
 [features]
 default = ["consensus-poa", "vm-wasm"]
-# These features enable the corresponding features in our direct dependencies.
-# This allows the cfg_if! macro in node.rs to work correctly.
+
+# Consensus engine features
 consensus-round-robin = [
     "depin-sdk-validator/consensus-round-robin",
     "depin-sdk-consensus/round-robin",

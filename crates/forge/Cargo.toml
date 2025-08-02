@@ -1,0 +1,38 @@
+[package]
+name = "depin-sdk-forge"
+version = "0.1.0"
+edition = "2021"
+description = "A development toolkit and end-to-end testing library for the DePIN SDK."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+# CLI framework
+clap = { workspace = true, features = ["derive", "cargo"] }
+
+# Async runtime
+tokio = { workspace = true, features = ["full"] }
+
+# Error handling and utilities
+anyhow = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+serde_json = { workspace = true }
+hex = { workspace = true }
+
+# Workspace library crates (Forge consumes the SDK as a user would)
+depin-sdk-core = { path = "../core" }
+
+# Dependencies for testing helpers that are now part of the library
+reqwest = { workspace = true }
+tempfile = "3.3"
+bs58 = "0.4"
+libp2p = { workspace = true }
+
+# The library exposes helpers, the binary provides the CLI
+[lib]
+name = "depin_sdk_forge"
+path = "src/lib.rs"
+
+[[bin]]
+name = "forge"
+path = "src/main.rs"

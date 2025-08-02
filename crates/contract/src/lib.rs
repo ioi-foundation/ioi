@@ -1,4 +1,4 @@
-// Path: crates/contract-sdk/src/lib.rs
+// Path: crates/contract/src/lib.rs
 #![no_std]
 #![allow(dead_code)] // Allow unused functions for this example
 
