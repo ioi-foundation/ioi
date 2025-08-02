@@ -9,7 +9,10 @@ use crate::{
     vm::{ExecutionContext, VirtualMachine},
 };
 use async_trait::async_trait;
-use sha2::{Digest, Sha256};
+use dcrypt::algorithms::{
+    hash::{sha2::Sha256 as DcryptSha256, HashFunction},
+    ByteSerializable,
+};
 use std::fmt::{self, Debug};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -93,11 +96,12 @@ where
         sender: Vec<u8>,
     ) -> Result<Vec<u8>, ValidatorError> {
         let mut state = self.state_tree.lock().await;
-        // Generate a deterministic contract address
-        let mut hasher = Sha256::new();
-        hasher.update(&sender);
-        hasher.update(&code);
-        let address = hasher.finalize().to_vec();
+        // Generate a deterministic contract address using dcrypt
+        let data_to_hash = [sender, code.clone()].concat();
+        let address = DcryptSha256::digest(&data_to_hash)
+            .unwrap()
+            .to_bytes()
+            .to_vec();
 
         let code_key = [b"contract_code::".as_ref(), &address].concat();
         state

@@ -2,8 +2,9 @@
 
 use crate::error::StateError;
 use crate::transaction::TransactionModel;
+use dcrypt::algorithms::hash::{sha2::Sha256 as DcryptSha256, HashFunction};
+use dcrypt::algorithms::ByteSerializable;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -64,7 +65,7 @@ pub struct UTXOTransaction {
 impl UTXOTransaction {
     pub fn hash(&self) -> Vec<u8> {
         let serialized = serde_json::to_vec(self).unwrap();
-        Sha256::digest(&serialized).to_vec()
+        DcryptSha256::digest(&serialized).unwrap().to_bytes()
     }
 }
 
@@ -79,8 +80,13 @@ pub enum ProtocolTransaction {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum ApplicationTransaction {
     UTXO(UTXOTransaction),
-    DeployContract { code: Vec<u8> },
-    CallContract { address: Vec<u8>, input_data: Vec<u8> },
+    DeployContract {
+        code: Vec<u8>,
+    },
+    CallContract {
+        address: Vec<u8>,
+        input_data: Vec<u8>,
+    },
 }
 
 /// A privileged transaction for performing system-level state changes.

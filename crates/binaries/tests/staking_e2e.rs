@@ -112,17 +112,18 @@ rpc_listen_address = "{}"
 "#,
         rpc_addr
     );
-    std::fs::write(
-        config_dir.join("orchestration.toml"),
-        orchestration_config,
-    )?;
+    std::fs::write(config_dir.join("orchestration.toml"), orchestration_config)?;
     std::fs::write(
         config_dir.join("guardian.toml"),
         r#"signature_policy = "FollowChain""#,
     )?;
 
     let state_file_arg = dir.path().join("state.json").to_string_lossy().to_string();
-    let genesis_file_arg = dir.path().join("genesis.json").to_string_lossy().to_string();
+    let genesis_file_arg = dir
+        .path()
+        .join("genesis.json")
+        .to_string_lossy()
+        .to_string();
     let config_dir_arg = config_dir.to_string_lossy().to_string();
     let mut cmd_args = vec![
         "--state-file",
@@ -143,10 +144,7 @@ rpc_listen_address = "{}"
         .kill_on_drop(true)
         .spawn()?;
 
-    Ok(TestNode {
-        process,
-        _dir: dir,
-    })
+    Ok(TestNode { process, _dir: dir })
 }
 
 /// Checks a node's log stream for a line containing a specific pattern within a timeout.
@@ -264,35 +262,35 @@ async fn test_staking_lifecycle() -> Result<()> {
     println!("--- Phase 2: Submitting Staking Transactions ---");
     // Tx 1: Node 1 unstakes everything
     let unstake_payload = SystemPayload::Unstake { amount: 100000 };
-    // FIX: The chain logic expects the first 32 bytes of the signature to be the
-    // raw Ed25519 public key to identify the signer.
+    let unstake_payload_bytes = serde_json::to_vec(&unstake_payload)?;
     let pubkey1_bytes = key_node1
         .public()
         .try_into_ed25519()
         .expect("test key is ed25519")
         .to_bytes()
         .to_vec();
-    let mut fake_sig1 = pubkey1_bytes;
-    fake_sig1.resize(64, 0); // Pad to typical signature length
+    let signature1 = key_node1.sign(&unstake_payload_bytes)?;
+    let combined_sig1 = [pubkey1_bytes, signature1].concat();
     let unstake_tx = ProtocolTransaction::System(SystemTransaction {
         payload: unstake_payload,
-        signature: fake_sig1,
+        signature: combined_sig1,
     });
     submit_transaction("127.0.0.1:9944", &unstake_tx).await?;
 
     // Tx 2: Node 2 stakes
     let stake_payload = SystemPayload::Stake { amount: 100000 };
+    let stake_payload_bytes = serde_json::to_vec(&stake_payload)?;
     let pubkey2_bytes = key_node2
         .public()
         .try_into_ed25519()
         .expect("test key is ed25519")
         .to_bytes()
         .to_vec();
-    let mut fake_sig2 = pubkey2_bytes;
-    fake_sig2.resize(64, 0);
+    let signature2 = key_node2.sign(&stake_payload_bytes)?;
+    let combined_sig2 = [pubkey2_bytes, signature2].concat();
     let stake_tx = ProtocolTransaction::System(SystemTransaction {
         payload: stake_payload,
-        signature: fake_sig2,
+        signature: combined_sig2,
     });
     submit_transaction("127.0.0.1:9944", &stake_tx).await?;
     println!("--- Staking transactions submitted successfully. ---");
@@ -300,11 +298,26 @@ async fn test_staking_lifecycle() -> Result<()> {
     // --- D. Phase 3: Verify New State (Post-Staking Change) ---
     println!("--- Phase 3: Verifying New State ---");
     // Wait for Node 1 (the current leader) to process both transactions in a block.
-    assert_log_contains("Node1", &mut logs1, "Processed unstake of 100000 for validator.").await?;
-    assert_log_contains("Node1", &mut logs1, "Processed stake of 100000 for validator.").await?;
+    assert_log_contains(
+        "Node1",
+        &mut logs1,
+        "Processed unstake of 100000 for validator.",
+    )
+    .await?;
+    assert_log_contains(
+        "Node1",
+        &mut logs1,
+        "Processed stake of 100000 for validator.",
+    )
+    .await?;
 
     // Wait for Node 2 to process the block, confirming the state has propagated.
-    assert_log_contains("Node2", &mut logs2, "Processed stake of 100000 for validator.").await?;
+    assert_log_contains(
+        "Node2",
+        &mut logs2,
+        "Processed stake of 100000 for validator.",
+    )
+    .await?;
     println!("--- State change confirmed by nodes. Now verifying new leader. ---");
 
     // Check that Node 2 is now producing blocks
@@ -317,12 +330,18 @@ async fn test_staking_lifecycle() -> Result<()> {
     )
     .await;
     match node1_inactive_check {
-        Ok(_) => return Err(anyhow!("Node 1 unexpectedly produced a block after unstaking.")),
-        Err(_) => println!("--- Inactivity verified: Node 1 correctly stopped producing blocks. ---"),
+        Ok(_) => {
+            return Err(anyhow!(
+                "Node 1 unexpectedly produced a block after unstaking."
+            ))
+        }
+        Err(_) => {
+            println!("--- Inactivity verified: Node 1 correctly stopped producing blocks. ---")
+        }
     }
 
     println!("--- New state verified: Node 2 is now the sole staker. ---");
-    
+
     // --- E. Cleanup ---
     println!("--- Test finished. Cleaning up. ---");
     Ok(())
