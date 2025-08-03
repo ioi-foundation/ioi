@@ -12,7 +12,6 @@ use depin_sdk_transaction_models::protocol::ProtocolModel;
 use depin_sdk_types::app::{Block, BlockHeader, ChainStatus, ProtocolTransaction};
 use depin_sdk_types::error::{ChainError, StateError};
 use depin_sdk_types::keys::*;
-use libp2p::PeerId;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -205,12 +204,10 @@ where
             .last()
             .map_or(vec![0; 32], |b| b.header.state_root.clone());
 
-        let mut peers: Vec<PeerId> = current_validator_set
-            .iter()
-            .filter_map(|bytes| PeerId::from_bytes(bytes).ok())
-            .collect();
-        peers.sort();
-        let validator_set: Vec<Vec<u8>> = peers.iter().map(|p| p.to_bytes()).collect();
+        // The input `current_validator_set` is now a correctly formatted list of PeerID bytes.
+        // We just need to sort it for a deterministic header.
+        let mut validator_set_bytes = current_validator_set.to_vec();
+        validator_set_bytes.sort();
 
         let next_height = self.state.status.height + 1;
         let header = BlockHeader {
@@ -222,7 +219,7 @@ where
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_secs(),
-            validator_set,
+            validator_set: validator_set_bytes,
         };
         Block {
             header,
@@ -304,7 +301,8 @@ mod tests {
     use depin_sdk_types::app::{SystemPayload, SystemTransaction};
     use depin_sdk_types::config::WorkloadConfig;
     use depin_sdk_vm_wasm::WasmVm;
-    use libp2p::identity;
+    use libp2p::identity::{self, Keypair};
+    use libp2p::PeerId;
     use std::sync::Arc;
 
     #[tokio::test]
@@ -327,7 +325,7 @@ mod tests {
             vec![],
         );
 
-        let gov_keypair = identity::Keypair::generate_ed25519();
+        let gov_keypair = Keypair::generate_ed25519();
         let gov_pk_bs58 =
             bs58::encode(gov_keypair.public().try_into_ed25519().unwrap().to_bytes()).into_string();
 
@@ -383,7 +381,7 @@ mod tests {
             "test-chain",
             vec![],
         );
-        let gov_keypair = identity::Keypair::generate_ed25519();
+        let gov_keypair = Keypair::generate_ed25519();
         let gov_pk_bs58 =
             bs58::encode(gov_keypair.public().try_into_ed25519().unwrap().to_bytes()).into_string();
 

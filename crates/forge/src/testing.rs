@@ -128,6 +128,7 @@ pub async fn spawn_node(
         r#"
 consensus_type = "{}"
 rpc_listen_address = "{}"
+initial_sync_timeout_secs = 15
 "#,
         consensus_type, rpc_addr
     );

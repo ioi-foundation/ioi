@@ -10,9 +10,10 @@ use depin_sdk_api::vm::ExecutionContext;
 use depin_sdk_types::app::{
     ApplicationTransaction, ProtocolTransaction, StateEntry, SystemPayload,
 };
-use depin_sdk_types::error::TransactionError;
-use depin_sdk_types::keys::{AUTHORITY_SET_KEY, GOVERNANCE_KEY};
+use depin_sdk_types::error::{StateError, TransactionError};
+use depin_sdk_types::keys::{AUTHORITY_SET_KEY, GOVERNANCE_KEY, STAKES_KEY};
 use libp2p::identity::PublicKey as Libp2pPublicKey;
+use std::collections::BTreeMap;
 
 /// A unified transaction model that handles all `ProtocolTransaction` variants.
 #[derive(Clone, Debug)]
@@ -172,47 +173,130 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for ProtocolMo
                 }
             },
             ProtocolTransaction::System(sys_tx) => {
-                // 1. Fetch governance key from state
                 let state_tree_arc = workload.state_tree();
                 let mut state = state_tree_arc.lock().await;
-                let gov_key_bs58_bytes = state.get(GOVERNANCE_KEY)?.ok_or_else(|| {
-                    TransactionError::Invalid("Governance key not found in state".into())
-                })?;
-                let gov_key_bs58: String =
-                    serde_json::from_slice(&gov_key_bs58_bytes).map_err(|_| {
-                        TransactionError::Invalid("Failed to deserialize governance key".into())
-                    })?;
-
-                // 2. Decode public key
-                let gov_pk_bytes = bs58::decode(gov_key_bs58).into_vec().map_err(|_| {
-                    TransactionError::Invalid("Invalid base58 for governance key".into())
-                })?;
-                let ed25519_pk =
-                    libp2p::identity::ed25519::PublicKey::try_from_bytes(&gov_pk_bytes).map_err(
-                        |_| TransactionError::Invalid("Could not decode Ed25519 public key".into()),
-                    )?;
-                let pubkey = Libp2pPublicKey::from(ed25519_pk);
-
-                // 3. Verify signature
                 let payload_bytes = serde_json::to_vec(&sys_tx.payload)
                     .map_err(|e| TransactionError::Serialization(e.to_string()))?;
-                if !pubkey.verify(&payload_bytes, &sys_tx.signature) {
-                    return Err(TransactionError::Invalid(
-                        "Invalid governance signature".into(),
-                    ));
-                }
 
-                // 4. Apply state change
                 match &sys_tx.payload {
                     SystemPayload::UpdateAuthorities { new_authorities } => {
+                        // 1. Fetch governance key from state
+                        let gov_key_bs58_bytes = state.get(GOVERNANCE_KEY)?.ok_or_else(|| {
+                            TransactionError::Invalid("Governance key not found in state".into())
+                        })?;
+                        let gov_key_bs58: String = serde_json::from_slice(&gov_key_bs58_bytes)
+                            .map_err(|_| {
+                                TransactionError::Invalid(
+                                    "Failed to deserialize governance key".into(),
+                                )
+                            })?;
+
+                        // 2. Decode public key
+                        let gov_pk_bytes = bs58::decode(gov_key_bs58).into_vec().map_err(|_| {
+                            TransactionError::Invalid("Invalid base58 for governance key".into())
+                        })?;
+                        let ed25519_pk =
+                            libp2p::identity::ed25519::PublicKey::try_from_bytes(&gov_pk_bytes)
+                                .map_err(|_| {
+                                    TransactionError::Invalid(
+                                        "Could not decode Ed25519 public key".into(),
+                                    )
+                                })?;
+                        let pubkey = Libp2pPublicKey::from(ed25519_pk);
+
+                        // 3. Verify signature
+                        if !pubkey.verify(&payload_bytes, &sys_tx.signature) {
+                            return Err(TransactionError::Invalid(
+                                "Invalid governance signature".into(),
+                            ));
+                        }
+
+                        // 4. Apply state change
                         let serialized = serde_json::to_vec(new_authorities).unwrap();
                         state.insert(AUTHORITY_SET_KEY, &serialized)?;
                         log::info!("Applied verified authority set update.");
                     }
-                    _ => {
-                        return Err(TransactionError::Invalid(
-                            "Unsupported system transaction".into(),
-                        ))
+                    SystemPayload::Stake { amount } => {
+                        const ED25519_PUBKEY_LEN: usize = 32;
+                        if sys_tx.signature.len() < ED25519_PUBKEY_LEN {
+                            return Err(TransactionError::Invalid(
+                                "Invalid signature format".into(),
+                            ));
+                        }
+                        let (pubkey_bytes, sig_bytes) =
+                            sys_tx.signature.split_at(ED25519_PUBKEY_LEN);
+                        let ed25519_pk =
+                            libp2p::identity::ed25519::PublicKey::try_from_bytes(pubkey_bytes)
+                                .map_err(|_| {
+                                    TransactionError::Invalid(
+                                        "Could not decode ed25519 public key from signature".into(),
+                                    )
+                                })?;
+                        let pubkey = Libp2pPublicKey::from(ed25519_pk);
+
+                        if !pubkey.verify(&payload_bytes, sig_bytes) {
+                            return Err(TransactionError::Invalid(
+                                "Invalid signature for stake".into(),
+                            ));
+                        }
+
+                        let validator_pk_b58 = pubkey.to_peer_id().to_base58();
+                        let stakes_bytes = state.get(STAKES_KEY)?.unwrap_or_else(|| b"{}".to_vec());
+                        let mut stakes: BTreeMap<String, u64> =
+                            serde_json::from_slice(&stakes_bytes).map_err(|e| {
+                                TransactionError::State(StateError::InvalidValue(e.to_string()))
+                            })?;
+                        let current_stake = stakes.entry(validator_pk_b58.clone()).or_insert(0);
+                        *current_stake = current_stake.checked_add(*amount).ok_or_else(|| {
+                            TransactionError::Invalid("Stake amount overflow".to_string())
+                        })?;
+                        log::info!(
+                            "Processed stake of {} for validator {}.",
+                            amount,
+                            validator_pk_b58
+                        );
+                        let new_stakes_bytes = serde_json::to_vec(&stakes).unwrap();
+                        state.insert(STAKES_KEY, &new_stakes_bytes)?;
+                    }
+                    SystemPayload::Unstake { amount } => {
+                        const ED25519_PUBKEY_LEN: usize = 32;
+                        if sys_tx.signature.len() < ED25519_PUBKEY_LEN {
+                            return Err(TransactionError::Invalid(
+                                "Invalid signature format".into(),
+                            ));
+                        }
+                        let (pubkey_bytes, sig_bytes) =
+                            sys_tx.signature.split_at(ED25519_PUBKEY_LEN);
+                        let ed25519_pk =
+                            libp2p::identity::ed25519::PublicKey::try_from_bytes(pubkey_bytes)
+                                .map_err(|_| {
+                                    TransactionError::Invalid(
+                                        "Could not decode ed25519 public key from signature".into(),
+                                    )
+                                })?;
+                        let pubkey = Libp2pPublicKey::from(ed25519_pk);
+
+                        if !pubkey.verify(&payload_bytes, sig_bytes) {
+                            return Err(TransactionError::Invalid(
+                                "Invalid signature for unstake".into(),
+                            ));
+                        }
+
+                        let validator_pk_b58 = pubkey.to_peer_id().to_base58();
+                        let stakes_bytes = state.get(STAKES_KEY)?.unwrap_or_else(|| b"{}".to_vec());
+                        let mut stakes: BTreeMap<String, u64> =
+                            serde_json::from_slice(&stakes_bytes).map_err(|e| {
+                                TransactionError::State(StateError::InvalidValue(e.to_string()))
+                            })?;
+                        let current_stake = stakes.entry(validator_pk_b58.clone()).or_insert(0);
+                        *current_stake = current_stake.saturating_sub(*amount);
+                        log::info!(
+                            "Processed unstake of {} for validator {}.",
+                            amount,
+                            validator_pk_b58
+                        );
+                        let new_stakes_bytes = serde_json::to_vec(&stakes).unwrap();
+                        state.insert(STAKES_KEY, &new_stakes_bytes)?;
                     }
                 }
                 Ok(())

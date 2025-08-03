@@ -13,10 +13,7 @@ use depin_sdk_consensus::{ConsensusDecision, ConsensusEngine};
 use depin_sdk_network::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_network::BlockSync;
-use depin_sdk_types::{
-    app::ProtocolTransaction,
-    error::ValidatorError,
-};
+use depin_sdk_types::{app::ProtocolTransaction, error::ValidatorError};
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashSet, VecDeque};
@@ -135,7 +132,8 @@ where
                         .query_contract(address, input_data, context)
                         .await
                     {
-                        // FIX: Access the `.return_data` field before encoding.
+                        // The client expects only the raw return data, not the
+                        // entire ExecutionOutput struct. Extract it before encoding.
                         Ok(output) => JsonRpcResponse {
                             jsonrpc: "2.0".to_string(),
                             result: Some(hex::encode(output.return_data)),
@@ -181,7 +179,7 @@ where
         + 'static
         + Debug,
 {
-    _config: OrchestrationConfig,
+    config: OrchestrationConfig,
     chain: Arc<OnceCell<ChainFor<CS, TM, ST>>>,
     workload: Arc<OnceCell<Arc<WorkloadContainer<ST>>>>,
     tx_pool: Arc<Mutex<VecDeque<ProtocolTransaction>>>,
@@ -216,6 +214,7 @@ where
     node_state: Arc<Mutex<NodeState>>,
     local_peer_id: PeerId,
     known_peers_ref: Arc<Mutex<HashSet<PeerId>>>,
+    config: OrchestrationConfig,
 }
 
 impl<CS, TM, ST> OrchestrationContainer<CS, TM, ST>
@@ -241,11 +240,11 @@ where
         swarm_command_sender: mpsc::Sender<SwarmCommand>,
         consensus_engine: Arc<Mutex<Box<dyn ConsensusEngine<ProtocolTransaction> + Send + Sync>>>,
     ) -> anyhow::Result<Self> {
-        let _config: OrchestrationConfig = toml::from_str(&std::fs::read_to_string(config_path)?)?;
+        let config: OrchestrationConfig = toml::from_str(&std::fs::read_to_string(config_path)?)?;
         let (shutdown_sender, _) = watch::channel(false);
 
         Ok(Self {
-            _config,
+            config,
             chain: Arc::new(OnceCell::new()),
             workload: Arc::new(OnceCell::new()),
             tx_pool: Arc::new(Mutex::new(VecDeque::new())),
@@ -274,7 +273,9 @@ where
         let mut block_production_interval = time::interval(Duration::from_secs(5));
         block_production_interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
 
-        let sync_timeout = time::sleep(Duration::from_secs(5));
+        let sync_timeout = time::sleep(Duration::from_secs(
+            context.config.initial_sync_timeout_secs,
+        ));
         tokio::pin!(sync_timeout);
 
         *context.node_state.lock().await = NodeState::Syncing;
@@ -296,6 +297,11 @@ where
                             let mut chain = context.chain_ref.lock().await;
                             if let Err(e) = chain.process_block(block, &context.workload_ref).await {
                                 log::warn!("[Orchestrator] Failed to process gossiped block: {e:?}");
+                            }
+                            // We are caught up as soon as we process *any* valid block while
+                            // still in the Syncing state.
+                            if *context.node_state.lock().await == NodeState::Syncing {
+                                *context.node_state.lock().await = NodeState::Synced;
                             }
                         },
                         NetworkEvent::GossipTransaction(tx) => {
@@ -347,30 +353,38 @@ where
                         continue;
                     }
 
-                    let (decision, node_set_for_block) = {
+                    let (decision, node_set_for_header) = {
                         let chain = context.chain_ref.lock().await;
                         let target_height = chain.status().height + 1;
                         let current_view = 0;
 
-                        let node_set_bytes = if cfg!(feature = "consensus-poa") {
-                            chain.get_authority_set(&context.workload_ref).await.unwrap_or_else(|e| {
+                        let (consensus_data, header_data) = if cfg!(feature = "consensus-pos") {
+                            let stakers = chain.get_staked_validators(&context.workload_ref).await.unwrap_or_default();
+                            let header_peer_ids = stakers.iter()
+                                .filter(|(_, &stake)| stake > 0)
+                                .filter_map(|(id_b58, _)| id_b58.parse::<PeerId>().ok())
+                                .map(|id| id.to_bytes())
+                                .collect();
+                            let consensus_blob = vec![serde_json::to_vec(&stakers).unwrap_or_default()];
+                            (consensus_blob, header_peer_ids)
+                        } else if cfg!(feature = "consensus-poa") {
+                            let authorities = chain.get_authority_set(&context.workload_ref).await.unwrap_or_else(|e| {
                                 log::error!("Could not get authority set for consensus: {e:?}");
                                 vec![]
-                            })
-                        } else if cfg!(feature = "consensus-pos") {
-                            let stakers = chain.get_staked_validators(&context.workload_ref).await.unwrap_or_default();
-                            vec![serde_json::to_vec(&stakers).unwrap_or_default()]
+                            });
+                            (authorities.clone(), authorities)
                         } else {
-                            chain.get_validator_set(&context.workload_ref).await.unwrap_or_else(|e| {
+                            let validators = chain.get_validator_set(&context.workload_ref).await.unwrap_or_else(|e| {
                                 log::error!("Could not get validator set for consensus: {e:?}");
                                 vec![]
-                            })
+                            });
+                            (validators.clone(), validators)
                         };
 
                         let mut engine = context.consensus_engine_ref.lock().await;
                         let known_peers = context.known_peers_ref.lock().await;
-                        let decision = engine.decide(&context.local_peer_id, target_height, current_view, &node_set_bytes, &known_peers).await;
-                        (decision, node_set_bytes)
+                        let decision = engine.decide(&context.local_peer_id, target_height, current_view, &consensus_data, &known_peers).await;
+                        (decision, header_data)
                     };
 
                     if let ConsensusDecision::ProduceBlock(_) = decision {
@@ -389,7 +403,7 @@ where
                         peers_bytes.push(context.local_peer_id.to_bytes());
                         drop(known_peers);
 
-                        let new_block_template = context.chain_ref.lock().await.create_block(transactions_to_include, &context.workload_ref, &node_set_for_block, &peers_bytes);
+                        let new_block_template = context.chain_ref.lock().await.create_block(transactions_to_include, &context.workload_ref, &node_set_for_header, &peers_bytes);
 
                         if let Ok(final_block) = context.chain_ref.lock().await.process_block(new_block_template, &context.workload_ref).await {
                             log::info!("Produced and processed new block #{}", final_block.header.height);
@@ -471,7 +485,7 @@ where
             .route("/", post(rpc_handler::<ST>))
             .with_state(rpc_app_state);
 
-        let addr = self._config.rpc_listen_address.parse().unwrap();
+        let addr = self.config.rpc_listen_address.parse().unwrap();
         log::info!("RPC server listening on {}", addr);
 
         let mut shutdown_rx = self.shutdown_sender.subscribe();
@@ -505,6 +519,7 @@ where
             node_state: self.syncer.get_node_state(),
             local_peer_id: self.syncer.get_local_peer_id(),
             known_peers_ref: self.syncer.get_known_peers(),
+            config: self.config.clone(),
         };
 
         handles.push(tokio::spawn(Self::run_main_loop(context)));

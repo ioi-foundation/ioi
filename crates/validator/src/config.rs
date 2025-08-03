@@ -16,13 +16,19 @@ pub enum AttestationSignaturePolicy {
 }
 
 /// Configuration for the Orchestration container (`orchestration.toml`).
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct OrchestrationConfig {
     pub consensus_type: ConsensusType,
     pub rpc_listen_address: String,
+    #[serde(default = "default_sync_timeout_secs")]
+    pub initial_sync_timeout_secs: u64,
 }
 
-#[derive(Debug, Deserialize)]
+fn default_sync_timeout_secs() -> u64 {
+    5
+}
+
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub enum ConsensusType {
     ProofOfStake,

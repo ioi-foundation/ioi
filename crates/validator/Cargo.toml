@@ -46,6 +46,9 @@ consensus-round-robin = ["depin-sdk-consensus/round-robin"]
 consensus-poa = ["depin-sdk-consensus/poa"]
 consensus-pos = ["depin-sdk-consensus/pos"]
 
+# VM Features
+vm-wasm = ["dep:depin-sdk-vm-wasm"]
+
 [[bin]]
 name = "validator"
 path = "src/bin/validator.rs"

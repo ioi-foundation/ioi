@@ -3,6 +3,7 @@
 pub mod api;
 pub mod interface;
 
-// FIX: Publicly re-export the containers so they are visible to binaries.
+// Re-export for downstream (binaries & tests) so `use depin_sdk_validator::hybrid::*`
+// works as expected without causing private module errors.
 pub use api::ApiContainer;
 pub use interface::InterfaceContainer;
