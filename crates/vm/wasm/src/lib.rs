@@ -24,7 +24,7 @@ impl WasmVm {
     pub fn new() -> Self {
         let mut config = Config::new();
         config.async_support(true);
-        config.consume_fuel(true); // Enable gas metering
+        config.consume_fuel(true);
         Self {
             engine: Engine::new(&config).unwrap(),
         }
@@ -36,6 +36,11 @@ struct HostState {
     state_accessor: Arc<dyn VmStateAccessor>,
     context: ExecutionContext,
     memory: Option<Memory>,
+}
+
+/// Centralized key namespacing to prevent inconsistencies.
+fn get_namespaced_key(contract_address: &[u8], key: &[u8]) -> Vec<u8> {
+    [contract_address, b"::", key].concat()
 }
 
 /// Host Function: Write a key-value pair to the state tree.
@@ -58,10 +63,7 @@ async fn host_state_set(
         memory.data(&caller)[key_ptr as usize..(key_ptr + key_len) as usize].to_vec();
     let value = memory.data(&caller)[value_ptr as usize..(value_ptr + value_len) as usize].to_vec();
 
-    // --- NAMESPACING LOGIC ---
-    let contract_address = &caller.data().context.contract_address;
-    let namespaced_key = [contract_address.as_slice(), b"::", &contract_key].concat();
-    // --- END NAMESPACING LOGIC ---
+    let namespaced_key = get_namespaced_key(&caller.data().context.contract_address, &contract_key);
 
     let cost = (namespaced_key.len() + value.len()) as u64 * 10;
     let fuel = caller.get_fuel()?;
@@ -70,7 +72,7 @@ async fn host_state_set(
     caller
         .data()
         .state_accessor
-        .insert(&namespaced_key, &value) // Use the namespaced key
+        .insert(&namespaced_key, &value)
         .await
         .map_err(|_| anyhow!("State write failed"))?;
 
@@ -95,10 +97,7 @@ async fn host_state_get(
     let contract_key =
         memory.data(&caller)[key_ptr as usize..(key_ptr + key_len) as usize].to_vec();
 
-    // --- NAMESPACING LOGIC ---
-    let contract_address = &caller.data().context.contract_address;
-    let namespaced_key = [contract_address.as_slice(), b"::", &contract_key].concat();
-    // --- END NAMESPACING LOGIC ---
+    let namespaced_key = get_namespaced_key(&caller.data().context.contract_address, &contract_key);
 
     let cost = namespaced_key.len() as u64 * 5;
     let fuel = caller.get_fuel()?;
@@ -107,7 +106,7 @@ async fn host_state_get(
     let value = caller
         .data()
         .state_accessor
-        .get(&namespaced_key) // Use the namespaced key
+        .get(&namespaced_key)
         .await
         .map_err(|_| anyhow!("State read failed"))?;
 

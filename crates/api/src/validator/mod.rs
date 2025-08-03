@@ -5,14 +5,16 @@ use crate::{
     commitment::CommitmentScheme,
     state::{StateManager, StateTree, VmStateAccessor},
     transaction::TransactionModel,
-    vm::{ExecutionContext, VirtualMachine},
+    vm::{ExecutionContext, ExecutionOutput, VirtualMachine, VmStateOverlay},
 };
 use async_trait::async_trait;
 use dcrypt::algorithms::{
     hash::{sha2::Sha256 as DcryptSha256, HashFunction},
     ByteSerializable,
 };
+use depin_sdk_types::app::StateEntry;
 use depin_sdk_types::{config::WorkloadConfig, error::ValidatorError};
+use std::collections::HashMap;
 use std::fmt::{self, Debug};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -59,17 +61,21 @@ impl<ST: StateManager + Debug> Debug for WorkloadContainer<ST> {
     }
 }
 
-/// A private wrapper to provide a dyn-safe view of the generic StateManager for the VM.
+/// A private wrapper to provide a dyn-safe, `Arc`-able view of a generic `StateManager`
+/// for the VM. Its lifetime is managed by `Arc`, ensuring it lives as long as the VM
+/// execution context that holds a reference to it.
 struct StateAccessorWrapper<ST: StateManager> {
     state_tree: Arc<Mutex<ST>>,
 }
 
 #[async_trait]
 impl<ST: StateManager + Send + Sync> VmStateAccessor for StateAccessorWrapper<ST> {
+    /// Delegates the `get` call to the underlying state manager, handling the lock.
     async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, depin_sdk_types::error::StateError> {
         self.state_tree.lock().await.get(key)
     }
 
+    /// Delegates the `insert` call to the underlying state manager, handling the lock.
     async fn insert(
         &self,
         key: &[u8],
@@ -97,14 +103,14 @@ where
         self.state_tree.clone()
     }
 
-    /// Deploys a new smart contract to the state.
+    /// Prepares the deployment of a new smart contract.
+    /// Returns the deterministic address and a map of state changes to be applied.
     pub async fn deploy_contract(
         &self,
         code: Vec<u8>,
         sender: Vec<u8>,
-    ) -> Result<Vec<u8>, ValidatorError> {
-        let mut state = self.state_tree.lock().await;
-        // Generate a deterministic contract address using dcrypt
+    ) -> Result<(Vec<u8>, HashMap<Vec<u8>, Vec<u8>>), ValidatorError> {
+        let mut state_changes = HashMap::new();
         let data_to_hash = [sender, code.clone()].concat();
         let address = DcryptSha256::digest(&data_to_hash)
             .unwrap()
@@ -112,62 +118,98 @@ where
             .to_vec();
 
         let code_key = [b"contract_code::".as_ref(), &address].concat();
-        state
-            .insert(&code_key, &code)
-            .map_err(|e| ValidatorError::Other(e.to_string()))?;
+        state_changes.insert(code_key, code);
 
-        log::info!("Deployed contract at address: {}", hex::encode(&address));
-        Ok(address)
+        log::info!(
+            "Prepared deployment for contract at address: {}",
+            hex::encode(&address)
+        );
+        Ok((address, state_changes))
     }
 
-    /// Calls an existing smart contract.
+    /// Executes a contract call and returns the execution output and state delta.
+    /// This method is now read-only with respect to the canonical state.
     pub async fn call_contract(
         &self,
         address: Vec<u8>,
         input_data: Vec<u8>,
         mut context: ExecutionContext,
-    ) -> Result<Vec<u8>, ValidatorError> {
-        let state = self.state_tree.lock().await;
-        let code_key = [b"contract_code::".as_ref(), &address].concat();
-        let code = state
-            .get(&code_key)
-            .map_err(|e| ValidatorError::Other(e.to_string()))?
-            .ok_or_else(|| ValidatorError::Other("Contract not found".to_string()))?;
-        drop(state); // Drop lock before calling VM
+    ) -> Result<(ExecutionOutput, HashMap<Vec<u8>, Vec<u8>>), ValidatorError> {
+        let code = {
+            let state = self.state_tree.lock().await;
+            let code_key = [b"contract_code::".as_ref(), &address].concat();
+            let stored_bytes = state
+                .get(&code_key)?
+                .ok_or_else(|| ValidatorError::Other("Contract not found".to_string()))?;
+            let stored_entry: StateEntry = serde_json::from_slice(&stored_bytes).map_err(|e| {
+                ValidatorError::State(depin_sdk_types::error::StateError::InvalidValue(
+                    e.to_string(),
+                ))
+            })?;
+            stored_entry.value
+        };
 
-        // Populate the contract_address field in the context before execution
         context.contract_address = address.clone();
 
-        let accessor = Arc::new(StateAccessorWrapper {
+        let parent_accessor = Arc::new(StateAccessorWrapper {
             state_tree: self.state_tree.clone(),
         });
+        let overlay = VmStateOverlay::new(parent_accessor);
+        let overlay_arc = Arc::new(overlay);
 
         let output = self
             .vm
-            .execute(&code, "call", &input_data, accessor, context)
-            .await
-            .map_err(|e| ValidatorError::Other(format!("VM Error: {e}")))?;
+            .execute(&code, "call", &input_data, overlay_arc.clone(), context)
+            .await?;
+
+        let state_delta = Arc::try_unwrap(overlay_arc)
+            .expect("Arc should have only one strong reference")
+            .into_writes();
 
         log::info!(
-            "Contract call successful. Gas used: {}. Return data size: {}",
+            "Contract call successful. Gas used: {}. Return data size: {}. State changes: {}",
             output.gas_used,
-            output.return_data.len()
+            output.return_data.len(),
+            state_delta.len()
         );
 
-        Ok(output.return_data)
+        Ok((output, state_delta))
     }
 
-    /// Queries an existing smart contract without persisting state changes.
+    /// Queries an existing smart contract without persisting state changes. Now truly read-only.
     pub async fn query_contract(
         &self,
         address: Vec<u8>,
         input_data: Vec<u8>,
-        context: ExecutionContext,
-    ) -> Result<Vec<u8>, ValidatorError> {
-        // Note: This implementation is simple. A production version would use a
-        // temporary, in-memory state overlay that is discarded after the query.
-        // For now, this is sufficient for read-only queries.
-        self.call_contract(address, input_data, context).await
+        mut context: ExecutionContext,
+    ) -> Result<ExecutionOutput, ValidatorError> {
+        let code = {
+            let state = self.state_tree.lock().await;
+            let code_key = [b"contract_code::".as_ref(), &address].concat();
+            let stored_bytes = state
+                .get(&code_key)?
+                .ok_or_else(|| ValidatorError::Other("Contract not found".to_string()))?;
+            let stored_entry: StateEntry = serde_json::from_slice(&stored_bytes).map_err(|e| {
+                ValidatorError::State(depin_sdk_types::error::StateError::InvalidValue(
+                    e.to_string(),
+                ))
+            })?;
+            stored_entry.value
+        };
+
+        context.contract_address = address.clone();
+
+        let parent_accessor = Arc::new(StateAccessorWrapper {
+            state_tree: self.state_tree.clone(),
+        });
+        let overlay = VmStateOverlay::new(parent_accessor);
+
+        let output = self
+            .vm
+            .execute(&code, "call", &input_data, Arc::new(overlay), context)
+            .await?;
+
+        Ok(output)
     }
 }
 
@@ -187,8 +229,6 @@ where
     }
 
     fn is_running(&self) -> bool {
-        // For simplicity, we assume it's always running once created.
-        // A more complex implementation could track state.
         true
     }
 
@@ -215,20 +255,28 @@ where
         TM: TransactionModel<CommitmentScheme = CS> + Sync,
         TM::Transaction: Sync,
     {
-        let state_tree_arc = self.state_tree();
-        let mut state = state_tree_arc.lock().await;
+        // Phase 1: Validate under lock, then drop the lock to prevent deadlocks
+        // during transaction application (which may need its own lock for VM calls).
+        {
+            let state = self.state_tree.lock().await;
+            let is_valid = model
+                .validate(tx, &*state)
+                .map_err(|e| ValidatorError::Other(e.to_string()))?;
+            if !is_valid {
+                return Err(ValidatorError::Other(
+                    "Transaction validation failed".to_string(),
+                ));
+            }
+        } // Lock is dropped here.
 
-        let is_valid = model
-            .validate(tx, &*state)
-            .map_err(|e| ValidatorError::Other(e.to_string()))?;
-        if !is_valid {
-            return Err(ValidatorError::Other(
-                "Transaction validation failed".to_string(),
-            ));
-        }
-
+        // Phase 2: Apply the transaction. The `apply` method is now expected to handle
+        // its own state locking, which is safe because we no longer hold the lock here.
+        // NOTE: This change assumes the TransactionModel::apply trait signature has been
+        // updated to no longer require `&mut state` and instead uses the workload
+        // container to access state.
         model
-            .apply(tx, &mut *state)
+            .apply(tx, self, 0)
+            .await
             .map_err(|e| ValidatorError::Other(e.to_string()))?;
 
         log::info!("Successfully executed transaction and updated state.");

@@ -1,7 +1,9 @@
 // Path: crates/transaction_models/src/utxo/mod.rs
+use async_trait::async_trait;
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::TransactionModel;
+use depin_sdk_api::validator::WorkloadContainer;
 pub use depin_sdk_types::app::{Input, Output, UTXOTransaction};
 use depin_sdk_types::error::TransactionError;
 
@@ -45,14 +47,15 @@ impl<CS: CommitmentScheme> UTXOOperations for UTXOModel<CS> {
     }
 }
 
+#[async_trait]
 impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UTXOModel<CS> {
     type Transaction = UTXOTransaction;
     type CommitmentScheme = CS;
     type Proof = ();
 
-    fn validate<SM>(&self, tx: &Self::Transaction, state: &SM) -> Result<bool, TransactionError>
+    fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<bool, TransactionError>
     where
-        SM: StateManager<
+        S: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
             > + ?Sized,
@@ -89,14 +92,23 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UTXOModel<
         Ok(true)
     }
 
-    fn apply<SM>(&self, tx: &Self::Transaction, state: &mut SM) -> Result<(), TransactionError>
+    async fn apply<ST>(
+        &self,
+        tx: &Self::Transaction,
+        workload: &WorkloadContainer<ST>,
+        _block_height: u64,
+    ) -> Result<(), TransactionError>
     where
-        SM: StateManager<
+        ST: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + ?Sized,
+            > + Send
+            + Sync
+            + 'static,
     {
-        if !self.validate(tx, state)? {
+        let state_tree_arc = workload.state_tree();
+        let mut state = state_tree_arc.lock().await;
+        if !self.validate(tx, &*state)? {
             return Err(TransactionError::Invalid("Validation failed".to_string()));
         }
         for input in &tx.inputs {

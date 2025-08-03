@@ -1,4 +1,4 @@
-// Path: crates/core/src/error.rs
+// Path: crates/types/src/error/mod.rs
 //! Core error types for the DePIN SDK.
 
 use thiserror::Error;
@@ -43,51 +43,6 @@ pub enum TransactionError {
     State(#[from] StateError),
 }
 
-/// Errors related to the validator and its containers.
-#[derive(Error, Debug)]
-pub enum ValidatorError {
-    /// The container is already running.
-    #[error("Container '{0}' is already running")]
-    AlreadyRunning(String),
-    /// An I/O error occurred.
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-    /// A configuration error occurred.
-    #[error("Configuration error: {0}")]
-    Config(String),
-    /// A generic error occurred.
-    #[error("Other error: {0}")]
-    Other(String),
-}
-
-/// Errors related to blockchain-level processing.
-#[derive(Debug, Error)]
-pub enum ChainError {
-    /// An error occurred during block processing.
-    #[error("Block processing error: {0}")]
-    Block(String),
-    /// An error occurred during transaction processing.
-    #[error("Transaction processing error: {0}")]
-    Transaction(String),
-    /// An error occurred while interacting with the state.
-    #[error("State error: {0}")]
-    State(#[from] StateError),
-}
-
-/// General errors for core SDK services.
-#[derive(Debug, Error)]
-pub enum CoreError {
-    /// The requested service was not found.
-    #[error("Service not found: {0}")]
-    ServiceNotFound(String),
-    /// An error occurred during a service upgrade.
-    #[error("Upgrade error: {0}")]
-    UpgradeError(String),
-    /// A custom, descriptive error.
-    #[error("Custom error: {0}")]
-    Custom(String),
-}
-
 /// Errors related to the virtual machine and contract execution.
 #[derive(Error, Debug)]
 pub enum VmError {
@@ -109,6 +64,64 @@ pub enum VmError {
     /// A memory allocation or access error occurred within the VM.
     #[error("Memory allocation/access error in VM: {0}")]
     MemoryError(String),
+}
+
+/// Errors related to the validator and its containers.
+#[derive(Error, Debug)]
+pub enum ValidatorError {
+    /// The container is already running.
+    #[error("Container '{0}' is already running")]
+    AlreadyRunning(String),
+    /// An I/O error occurred.
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    /// A configuration error occurred.
+    #[error("Configuration error: {0}")]
+    Config(String),
+    /// A VM execution error occurred.
+    #[error("VM execution error: {0}")]
+    Vm(#[from] VmError),
+    /// An error occurred while interacting with the state.
+    #[error("State error: {0}")]
+    State(#[from] StateError),
+    /// A generic error occurred.
+    #[error("Other error: {0}")]
+    Other(String),
+}
+
+/// Errors related to blockchain-level processing.
+#[derive(Debug, Error)]
+pub enum ChainError {
+    /// An error occurred during block processing.
+    #[error("Block processing error: {0}")]
+    Block(String),
+    /// An error occurred during transaction processing.
+    #[error("Transaction processing error: {0}")]
+    Transaction(String),
+    /// An error occurred while interacting with the state.
+    #[error("State error: {0}")]
+    State(#[from] StateError),
+}
+
+/// Implement the conversion from TransactionError to ChainError.
+impl From<TransactionError> for ChainError {
+    fn from(err: TransactionError) -> Self {
+        ChainError::Transaction(err.to_string())
+    }
+}
+
+/// General errors for core SDK services.
+#[derive(Debug, Error)]
+pub enum CoreError {
+    /// The requested service was not found.
+    #[error("Service not found: {0}")]
+    ServiceNotFound(String),
+    /// An error occurred during a service upgrade.
+    #[error("Upgrade error: {0}")]
+    UpgradeError(String),
+    /// A custom, descriptive error.
+    #[error("Custom error: {0}")]
+    Custom(String),
 }
 
 /// Errors related to service upgrades.

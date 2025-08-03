@@ -14,7 +14,7 @@ use depin_sdk_network::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_network::BlockSync;
 use depin_sdk_types::{
-    app::{ApplicationTransaction, ProtocolTransaction, UTXOTransaction},
+    app::ProtocolTransaction,
     error::ValidatorError,
 };
 use libp2p::PeerId;
@@ -135,9 +135,10 @@ where
                         .query_contract(address, input_data, context)
                         .await
                     {
-                        Ok(return_data) => JsonRpcResponse {
+                        // FIX: Access the `.return_data` field before encoding.
+                        Ok(output) => JsonRpcResponse {
                             jsonrpc: "2.0".to_string(),
-                            result: Some(hex::encode(return_data)),
+                            result: Some(hex::encode(output.return_data)),
                             error: None,
                             id: payload.id,
                         },
@@ -196,11 +197,7 @@ where
 struct MainLoopContext<CS, TM, ST>
 where
     CS: CommitmentScheme + Send + Sync + 'static,
-    TM: TransactionModel<CommitmentScheme = CS, Transaction = UTXOTransaction>
-        + Clone
-        + Send
-        + Sync
-        + 'static,
+    TM: TransactionModel<CommitmentScheme = CS> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + StateTree<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
@@ -224,7 +221,7 @@ where
 impl<CS, TM, ST> OrchestrationContainer<CS, TM, ST>
 where
     CS: CommitmentScheme + Send + Sync + 'static,
-    TM: TransactionModel<CommitmentScheme = CS, Transaction = UTXOTransaction>
+    TM: TransactionModel<CommitmentScheme = CS, Transaction = ProtocolTransaction>
         + Clone
         + Send
         + Sync
@@ -385,7 +382,7 @@ where
                         drop(tx_pool);
 
                         let coinbase = context.chain_ref.lock().await.transaction_model().clone().create_coinbase_transaction(target_height, &context.local_peer_id.to_bytes()).unwrap();
-                        transactions_to_include.insert(0, ProtocolTransaction::Application(ApplicationTransaction::UTXO(coinbase)));
+                        transactions_to_include.insert(0, coinbase);
 
                         let known_peers = context.known_peers_ref.lock().await;
                         let mut peers_bytes: Vec<Vec<u8>> = known_peers.iter().map(|p| p.to_bytes()).collect();
@@ -419,7 +416,7 @@ where
 impl<CS, TM, ST> Container for OrchestrationContainer<CS, TM, ST>
 where
     CS: CommitmentScheme + Send + Sync + 'static,
-    TM: TransactionModel<CommitmentScheme = CS, Transaction = UTXOTransaction>
+    TM: TransactionModel<CommitmentScheme = CS, Transaction = ProtocolTransaction>
         + Clone
         + Send
         + Sync

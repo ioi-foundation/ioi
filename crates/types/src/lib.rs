@@ -1,4 +1,4 @@
-// Path: crates/core/src/lib.rs
+// Path: crates/types/src/lib.rs
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
@@ -7,3 +7,4 @@
 pub mod app;
 pub mod config;
 pub mod error;
+pub mod keys;

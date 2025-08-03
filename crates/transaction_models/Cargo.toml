@@ -14,6 +14,9 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 hex = { workspace = true }
+async-trait = { workspace = true }
+libp2p = { workspace = true }
+bs58 = "0.4"
 
 [features]
 default = []

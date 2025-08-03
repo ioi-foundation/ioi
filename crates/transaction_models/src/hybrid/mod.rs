@@ -1,9 +1,11 @@
 // Path: crates/transaction_models/src/hybrid/mod.rs
 use crate::account::{AccountConfig, AccountModel, AccountTransaction};
 use crate::utxo::{UTXOConfig, UTXOModel, UTXOTransaction};
+use async_trait::async_trait;
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::TransactionModel;
+use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_types::error::TransactionError;
 use serde::{Deserialize, Serialize};
 
@@ -46,6 +48,7 @@ impl<CS: CommitmentScheme + Clone> HybridModel<CS> {
     }
 }
 
+#[async_trait]
 impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for HybridModel<CS> {
     type Transaction = HybridTransaction;
     type CommitmentScheme = CS;
@@ -77,16 +80,31 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for HybridMode
         }
     }
 
-    fn apply<S>(&self, tx: &Self::Transaction, state: &mut S) -> Result<(), TransactionError>
+    async fn apply<ST>(
+        &self,
+        tx: &Self::Transaction,
+        workload: &WorkloadContainer<ST>,
+        block_height: u64,
+    ) -> Result<(), TransactionError>
     where
-        S: StateManager<
+        ST: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + ?Sized,
+            > + Send
+            + Sync
+            + 'static,
     {
         match tx {
-            HybridTransaction::Account(account_tx) => self.account_model.apply(account_tx, state),
-            HybridTransaction::UTXO(utxo_tx) => self.utxo_model.apply(utxo_tx, state),
+            HybridTransaction::Account(account_tx) => {
+                self.account_model
+                    .apply(account_tx, workload, block_height)
+                    .await
+            }
+            HybridTransaction::UTXO(utxo_tx) => {
+                self.utxo_model
+                    .apply(utxo_tx, workload, block_height)
+                    .await
+            }
         }
     }
 

@@ -12,6 +12,8 @@ depin-sdk-types = { path = "../types" }
 depin-sdk-consensus = { path = "../consensus", default-features = false }
 depin-sdk-network = { path = "../network" }
 depin-sdk-chain = { path = "../chain" }
+# FIX: Add the missing dependency
+depin-sdk-transaction-models = { path = "../transaction_models" }
 depin-sdk-vm-wasm = { path = "../vm/wasm", optional = true }
 log = { workspace = true }
 anyhow = { workspace = true }
@@ -28,7 +30,6 @@ clap = { workspace = true, features = ["derive"], optional = true }
 env_logger = { workspace = true, optional = true }
 depin-sdk-state-tree = { path = "../state-tree", optional = true }
 depin-sdk-commitment = { path = "../commitment", optional = true }
-depin-sdk-transaction-models = { path = "../transaction_models", optional = true }
 rand = { workspace = true }
 hex = { workspace = true }
 
@@ -39,7 +40,6 @@ validator-bins = [
     "dep:env_logger",
     "dep:depin-sdk-state-tree",
     "dep:depin-sdk-commitment",
-    "dep:depin-sdk-transaction-models",
     "dep:depin-sdk-vm-wasm",
 ]
 consensus-round-robin = ["depin-sdk-consensus/round-robin"]

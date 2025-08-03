@@ -7,7 +7,4 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-# Inherit the dependency from the workspace for robust resolution.
 depin-sdk-contract = { workspace = true, features = ["wee_alloc"] }
-
-# FIX: Ensure the local profile is removed, as it's now handled by the workspace root.

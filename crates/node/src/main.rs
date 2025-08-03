@@ -10,14 +10,14 @@ use anyhow::anyhow;
 use cfg_if::cfg_if;
 use clap::Parser;
 use depin_sdk_api::state::StateTree;
-use depin_sdk_api::validator::{Container, WorkloadContainer}; // Import Container trait
+use depin_sdk_api::validator::{Container, WorkloadContainer};
 use depin_sdk_api::vm::VirtualMachine;
 use depin_sdk_chain::Chain;
 use depin_sdk_commitment::hash::HashCommitmentScheme;
 use depin_sdk_consensus::ConsensusEngine;
 use depin_sdk_network::libp2p::Libp2pSync;
 use depin_sdk_state_tree::file::FileStateTree;
-use depin_sdk_transaction_models::utxo::UTXOModel;
+use depin_sdk_transaction_models::protocol::ProtocolModel;
 use depin_sdk_types::app::ProtocolTransaction;
 use depin_sdk_types::config::WorkloadConfig;
 use depin_sdk_validator::common::GuardianContainer;
@@ -117,7 +117,7 @@ async fn main() -> anyhow::Result<()> {
     log::info!("Using state file: {}", &opts.state_file);
 
     let commitment_scheme = HashCommitmentScheme::new();
-    let transaction_model = UTXOModel::new(commitment_scheme.clone());
+    let transaction_model = ProtocolModel::new(commitment_scheme.clone());
 
     let state_path = PathBuf::from(&opts.state_file);
     let genesis_path = PathBuf::from(&opts.genesis_file);
@@ -174,7 +174,7 @@ async fn main() -> anyhow::Result<()> {
     let config_path = PathBuf::from(&opts.config_dir);
     let orchestration_container = Arc::new(OrchestrationContainer::<
         HashCommitmentScheme,
-        UTXOModel<HashCommitmentScheme>,
+        ProtocolModel<HashCommitmentScheme>,
         FileStateTree<HashCommitmentScheme>,
     >::new(
         &config_path.join("orchestration.toml"),
@@ -193,7 +193,6 @@ async fn main() -> anyhow::Result<()> {
         .start()
         .await
         .map_err(|e| anyhow!(e))?;
-    // FIX: Call start() on the Arc<WorkloadContainer> by dereferencing it.
     workload_container.start().await.map_err(|e| anyhow!(e))?;
 
     log::info!("Node successfully started. Running indefinitely...");
@@ -205,7 +204,6 @@ async fn main() -> anyhow::Result<()> {
         .stop()
         .await
         .map_err(|e| anyhow!(e))?;
-    // FIX: Call stop() on the Arc<WorkloadContainer> by dereferencing it.
     workload_container.stop().await.map_err(|e| anyhow!(e))?;
     guardian_container.stop().await.map_err(|e| anyhow!(e))?;
     log::info!("Node stopped gracefully.");

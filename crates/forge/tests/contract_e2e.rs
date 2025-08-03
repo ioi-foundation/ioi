@@ -86,9 +86,12 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     let key = Keypair::generate_ed25519();
     let peer_id = key.public().to_peer_id();
 
+    // FIX: Use the byte representation of the Peer ID, not the Base58 string.
+    // This ensures the data format in the genesis state matches what the
+    // chain logic expects to deserialize (`Vec<Vec<u8>>`).
     let genesis_content = serde_json::json!({
       "genesis_state": {
-        "system::authorities": [peer_id.to_base58()]
+        "system::authorities": [peer_id.to_bytes()]
       }
     });
     let genesis_string = genesis_content.to_string();
@@ -114,9 +117,14 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     submit_transaction("127.0.0.1:9964", &deploy_tx).await?;
 
     // 4. PARSE LOGS TO GET CONTRACT ADDRESS
-    let log_line =
-        assert_log_contains_and_return_line("Node", &mut logs, "Deployed contract at address:")
-            .await?;
+    // FIX: The log message was updated in the node implementation. Adjust the
+    // assertion to match the actual output.
+    let log_line = assert_log_contains_and_return_line(
+        "Node",
+        &mut logs,
+        "Applied contract deployment at address:",
+    )
+    .await?;
     let address_hex = log_line.split("address: ").last().unwrap().trim();
 
     // 5. QUERY INITIAL STATE

@@ -4,8 +4,10 @@
 
 pub mod account;
 pub mod hybrid;
+pub mod protocol;
 pub mod utxo;
 
 pub use account::{AccountConfig, AccountModel, AccountTransaction};
 pub use hybrid::{HybridConfig, HybridModel, HybridTransaction};
+pub use protocol::ProtocolModel;
 pub use utxo::{UTXOConfig, UTXOModel, UTXOTransaction};
