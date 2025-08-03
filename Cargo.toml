@@ -30,18 +30,15 @@ members = [
     "crates/transaction_models",
     "crates/validator",
     "crates/vm/wasm",
+
+    # Add the test contract as a workspace member
+    "crates/forge/tests/contracts/counter",
 ]
 
-# Per-package profiles for the `no_std` contract SDK.
-# This uses the stable `rustflags` key to inject the necessary compiler options
-# for only this specific package, resolving build errors.
-[profile.dev.package.depin-sdk-contract]
-rustflags = ["-C", "panic=abort"]
-
-[profile.release.package.depin-sdk-contract]
-rustflags = ["-C", "panic=abort", "-C", "lto=true", "-C", "opt-level=s"]
-
 [workspace.dependencies]
+# Add depin-sdk-contract to the workspace dependencies
+depin-sdk-contract = { path = "crates/contract", default-features = false }
+
 # Networking
 libp2p = { version = "0.52", features = [
     "tokio",
@@ -69,6 +66,7 @@ toml = "0.8"
 bytes = "1"
 hex = "0.4"
 serde_bytes = "0.11"
+prost = "0.12"
 
 # Cryptography
 rand = "0.8"

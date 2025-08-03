@@ -7,11 +7,11 @@ description = "SDK for writing smart contracts for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [lib]
-crate-type = ["cdylib"]
+# FIX: Change crate-type to "rlib" to make it a linkable Rust library.
+crate-type = ["rlib"]
 
 [dependencies]
 # This SDK is for the WASM environment, so it doesn't have host-side dependencies.
-# FIX: Add wee_alloc to provide a global memory allocator for this no_std crate.
 wee_alloc = { version = "0.4.5", optional = true }
 
 [features]

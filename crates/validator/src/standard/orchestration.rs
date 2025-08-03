@@ -48,10 +48,18 @@ struct JsonRpcResponse {
     id: u64,
 }
 
-async fn rpc_handler(
-    State(app_state): State<Arc<Mutex<VecDeque<ProtocolTransaction>>>>,
+struct RpcAppState<ST: StateManager + Send + Sync + 'static> {
+    tx_pool: Arc<Mutex<VecDeque<ProtocolTransaction>>>,
+    workload: Arc<WorkloadContainer<ST>>,
+}
+
+async fn rpc_handler<ST>(
+    State(app_state): State<Arc<RpcAppState<ST>>>,
     Json(payload): Json<JsonRpcRequest>,
-) -> (StatusCode, Json<JsonRpcResponse>) {
+) -> (StatusCode, Json<JsonRpcResponse>)
+where
+    ST: StateManager + StateTree + Send + Sync + 'static + Debug,
+{
     let response = match payload.method.as_str() {
         "submit_tx" => {
             if let Some(tx_hex) = payload.params.first() {
@@ -59,7 +67,7 @@ async fn rpc_handler(
                     Ok(tx_bytes) => {
                         match serde_json::from_slice::<ProtocolTransaction>(&tx_bytes) {
                             Ok(tx) => {
-                                let mut pool = app_state.lock().await;
+                                let mut pool = app_state.tx_pool.lock().await;
                                 pool.push_back(tx);
                                 log::info!(
                                     "Accepted transaction into pool. Pool size: {}",
@@ -94,6 +102,59 @@ async fn rpc_handler(
                     error: Some("Missing transaction parameter".to_string()),
                     id: payload.id,
                 }
+            }
+        }
+        "query_contract" => {
+            if payload.params.len() != 2 {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(JsonRpcResponse {
+                        jsonrpc: "2.0".to_string(),
+                        result: None,
+                        error: Some(
+                            "query_contract requires 2 params: [address_hex, input_data_hex]"
+                                .to_string(),
+                        ),
+                        id: payload.id,
+                    }),
+                );
+            }
+            let address_res = hex::decode(&payload.params[0]);
+            let input_data_res = hex::decode(&payload.params[1]);
+
+            match (address_res, input_data_res) {
+                (Ok(address), Ok(input_data)) => {
+                    let context = depin_sdk_api::vm::ExecutionContext {
+                        caller: vec![],
+                        block_height: 0,
+                        gas_limit: 1_000_000_000,
+                        contract_address: vec![],
+                    };
+                    match app_state
+                        .workload
+                        .query_contract(address, input_data, context)
+                        .await
+                    {
+                        Ok(return_data) => JsonRpcResponse {
+                            jsonrpc: "2.0".to_string(),
+                            result: Some(hex::encode(return_data)),
+                            error: None,
+                            id: payload.id,
+                        },
+                        Err(e) => JsonRpcResponse {
+                            jsonrpc: "2.0".to_string(),
+                            result: None,
+                            error: Some(format!("Contract query failed: {}", e)),
+                            id: payload.id,
+                        },
+                    }
+                }
+                _ => JsonRpcResponse {
+                    jsonrpc: "2.0".to_string(),
+                    result: None,
+                    error: Some("Failed to decode hex parameters".to_string()),
+                    id: payload.id,
+                },
             }
         }
         _ => JsonRpcResponse {
@@ -404,10 +465,14 @@ where
             })?
             .clone();
 
-        let tx_pool_for_rpc = self.tx_pool.clone();
+        let rpc_app_state = Arc::new(RpcAppState {
+            tx_pool: self.tx_pool.clone(),
+            workload: workload.clone(),
+        });
+
         let app = Router::new()
-            .route("/", post(rpc_handler))
-            .with_state(tx_pool_for_rpc);
+            .route("/", post(rpc_handler::<ST>))
+            .with_state(rpc_app_state);
 
         let addr = self._config.rpc_listen_address.parse().unwrap();
         log::info!("RPC server listening on {}", addr);

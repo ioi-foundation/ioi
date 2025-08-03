@@ -1,7 +1,7 @@
 // Path: crates/forge/tests/governance_e2e.rs
 use anyhow::{anyhow, Result};
 use depin_sdk_forge::testing::{
-    assert_log_contains, build_node_binary, spawn_node, submit_transaction,
+    assert_log_contains, build_test_artifacts, spawn_node, submit_transaction,
 };
 use depin_sdk_types::app::{ProtocolTransaction, SystemPayload, SystemTransaction};
 use libp2p::identity;
@@ -14,7 +14,7 @@ use tokio::time::timeout;
 #[ignore]
 async fn test_governance_authority_change_lifecycle() -> Result<()> {
     println!("--- Building Node Binary for Governance Test ---");
-    build_node_binary("consensus-poa,vm-wasm");
+    build_test_artifacts("consensus-poa,vm-wasm");
 
     // Identities and Genesis setup...
     let key_node1 = identity::Keypair::generate_ed25519();

@@ -16,21 +16,22 @@ use tokio::process::Child;
 use tokio::time::timeout;
 
 // --- Test Configuration ---
-const NODE_BINARY_REL_PATH: &str = "../../target/release/node";
+const NODE_BINARY_REL_PATH: &str = "../../target/release/depin-sdk-node";
 const LOG_ASSERT_TIMEOUT: Duration = Duration::from_secs(45);
 const STARTUP_DELAY: Duration = Duration::from_secs(5);
 
 // --- One-Time Build ---
 static BUILD: Once = Once::new();
 
-/// Builds the node binary with specified consensus features. This is run only once per test run.
-pub fn build_node_binary(features: &str) {
+/// Builds all required binaries for testing (node, contracts) exactly once.
+/// This function is idempotent and thread-safe.
+pub fn build_test_artifacts(node_features: &str) {
     BUILD.call_once(|| {
-        println!(
-            "--- Building Node Binary for E2E Test (Features: {}) ---",
-            features
-        );
-        let status = Command::new("cargo")
+        println!("--- Building Test Artifacts (one-time setup) ---");
+
+        // 1. Build the node binary with specified consensus features.
+        println!("Building Node Binary (Features: {})", node_features);
+        let status_node = Command::new("cargo")
             .args([
                 "build",
                 "-p",
@@ -38,11 +39,28 @@ pub fn build_node_binary(features: &str) {
                 "--release",
                 "--no-default-features",
                 "--features",
-                features,
+                node_features,
             ])
             .status()
-            .expect("Failed to execute cargo build command");
-        assert!(status.success(), "Node binary build failed");
+            .expect("Failed to execute cargo build for node");
+        assert!(status_node.success(), "Node binary build failed");
+
+        // 2. Build the test WASM contract.
+        println!("Building 'counter-contract' (WASM)");
+        let status_contract = Command::new("cargo")
+            .args([
+                "build",
+                "--release",
+                "--target",
+                "wasm32-unknown-unknown",
+                "-p",
+                "counter-contract",
+            ])
+            .status()
+            .expect("Failed to build counter contract");
+        assert!(status_contract.success(), "Counter contract build failed");
+
+        println!("--- Test Artifacts built successfully ---");
     });
 }
 
@@ -164,6 +182,37 @@ pub async fn assert_log_contains<R: AsyncRead + Unpin>(
                     println!("[LOGS-{}] {}", label, line);
                     if line.contains(pattern) {
                         return Ok(());
+                    }
+                }
+                Err(e) => return Err(anyhow!("Error reading log line: {}", e)),
+            }
+        }
+        Err(anyhow!("Log stream ended before pattern was found"))
+    })
+    .await?
+    .map_err(|e| {
+        anyhow!(
+            "[{}] Log assertion failed for pattern '{}': {}",
+            label,
+            pattern,
+            e
+        )
+    })
+}
+
+/// Checks a node's log stream for a line containing a specific pattern and returns it.
+pub async fn assert_log_contains_and_return_line<R: AsyncRead + Unpin>(
+    label: &str,
+    log_stream: &mut tokio::io::Lines<BufReader<R>>,
+    pattern: &str,
+) -> Result<String> {
+    timeout(LOG_ASSERT_TIMEOUT, async {
+        while let Some(line_result) = log_stream.next_line().await.transpose() {
+            match line_result {
+                Ok(line) => {
+                    println!("[LOGS-{}] {}", label, line);
+                    if line.contains(pattern) {
+                        return Ok(line);
                     }
                 }
                 Err(e) => return Err(anyhow!("Error reading log line: {}", e)),

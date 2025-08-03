@@ -54,17 +54,23 @@ async fn host_state_set(
         .memory
         .ok_or_else(|| anyhow!("Memory not found"))?;
 
-    let key = memory.data(&caller)[key_ptr as usize..(key_ptr + key_len) as usize].to_vec();
+    let contract_key =
+        memory.data(&caller)[key_ptr as usize..(key_ptr + key_len) as usize].to_vec();
     let value = memory.data(&caller)[value_ptr as usize..(value_ptr + value_len) as usize].to_vec();
 
-    let cost = (key.len() + value.len()) as u64 * 10;
+    // --- NAMESPACING LOGIC ---
+    let contract_address = &caller.data().context.contract_address;
+    let namespaced_key = [contract_address.as_slice(), b"::", &contract_key].concat();
+    // --- END NAMESPACING LOGIC ---
+
+    let cost = (namespaced_key.len() + value.len()) as u64 * 10;
     let fuel = caller.get_fuel()?;
     caller.set_fuel(fuel.saturating_sub(cost))?;
 
     caller
         .data()
         .state_accessor
-        .insert(&key, &value)
+        .insert(&namespaced_key, &value) // Use the namespaced key
         .await
         .map_err(|_| anyhow!("State write failed"))?;
 
@@ -86,16 +92,22 @@ async fn host_state_get(
         .memory
         .ok_or_else(|| anyhow!("Memory not found"))?;
 
-    let key = memory.data(&caller)[key_ptr as usize..(key_ptr + key_len) as usize].to_vec();
+    let contract_key =
+        memory.data(&caller)[key_ptr as usize..(key_ptr + key_len) as usize].to_vec();
 
-    let cost = key.len() as u64 * 5;
+    // --- NAMESPACING LOGIC ---
+    let contract_address = &caller.data().context.contract_address;
+    let namespaced_key = [contract_address.as_slice(), b"::", &contract_key].concat();
+    // --- END NAMESPACING LOGIC ---
+
+    let cost = namespaced_key.len() as u64 * 5;
     let fuel = caller.get_fuel()?;
     caller.set_fuel(fuel.saturating_sub(cost))?;
 
     let value = caller
         .data()
         .state_accessor
-        .get(&key)
+        .get(&namespaced_key) // Use the namespaced key
         .await
         .map_err(|_| anyhow!("State read failed"))?;
 
