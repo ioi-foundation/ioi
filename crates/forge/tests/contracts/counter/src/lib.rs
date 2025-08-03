@@ -5,7 +5,7 @@ extern crate alloc;
 // FIX: Import the vec macro from alloc
 use alloc::vec;
 use alloc::vec::Vec;
-// FIX: Use the crate name directly as specified in its Cargo.toml
+// Use the crate name directly as specified in its Cargo.toml
 use depin_sdk_contract::{self as sdk, state};
 
 // A simple ABI: the first byte of the input data determines the function.
@@ -37,16 +37,14 @@ pub extern "C" fn call(input_ptr: *const u8, input_len: u32) -> u64 {
 }
 
 fn get_count() -> Vec<u8> {
-    // FIX: Use the vec! macro which is now in scope
-    let value = state::get(b"count").unwrap_or_else(|| vec![0]);
-    value
+    // `vec!` macro now resolves correctly.
+    state::get(b"count").unwrap_or_else(|| vec![0])
 }
 
 fn increment_count() -> Vec<u8> {
     let mut count = state::get(b"count").map(|v| v[0]).unwrap_or(0);
     count += 1;
     state::set(b"count", &[count]);
-    // FIX: Use the vec! macro which is now in scope
     vec![count]
 }
 

@@ -46,8 +46,8 @@ struct Opts {
                      You can create this by copying the template from 'examples/config'."
     )]
     config_dir: String,
-    #[clap(long)]
-    peer: Option<Multiaddr>,
+    #[clap(long, help = "A peer to connect to on startup (e.g., a bootnode).")]
+    bootnode: Option<Multiaddr>,
     #[clap(long, default_value = "/ip4/0.0.0.0/tcp/0")]
     listen_address: Multiaddr,
 }
@@ -169,7 +169,7 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let (syncer, swarm_commander, network_event_receiver) =
-        Libp2pSync::new(local_key, opts.listen_address, opts.peer)?;
+        Libp2pSync::new(local_key, opts.listen_address, opts.bootnode)?;
 
     let config_path = PathBuf::from(&opts.config_dir);
     let orchestration_container = Arc::new(OrchestrationContainer::<

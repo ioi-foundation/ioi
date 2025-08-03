@@ -171,13 +171,18 @@ The repository includes long-running end-to-end (E2E) tests that simulate a live
 To run the **entire E2E test suite**, use this single command:
 
 ```bash
-cargo test -p depin-sdk-forge -- --ignored
+cargo test -p depin-sdk-forge
 ```
 
-To run a **specific E2E test** (e.g., the staking lifecycle test):
+To run a **specific E2E test** (e.g., the staking lifecycle test, or the smart contract environment test):
 
 ```bash
-cargo test -p depin-sdk-forge --test staking_e2e -- --ignored --nocapture
+ cargo test -p depin-sdk-forge --test staking_e2e -- --nocapture
+```
+OR 
+
+```bash
+cargo test -p depin-sdk-forge --test contract_e2e -- --nocapture
 ```
 
 These commands will execute critical E2E scenarios, including:
