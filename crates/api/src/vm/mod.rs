@@ -5,6 +5,9 @@ use async_trait::async_trait;
 use depin_sdk_types::error::VmError;
 use std::sync::Arc;
 
+mod overlay;
+pub use overlay::VmStateOverlay;
+
 /// A trait representing a sandboxed execution environment for smart contracts.
 #[async_trait]
 pub trait VirtualMachine: Send + Sync {

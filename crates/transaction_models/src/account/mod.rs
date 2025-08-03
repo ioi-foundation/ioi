@@ -1,7 +1,9 @@
 // Path: crates/transaction_models/src/account/mod.rs
+use async_trait::async_trait;
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::TransactionModel;
+use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_types::error::TransactionError;
 use serde::{Deserialize, Serialize};
 
@@ -69,6 +71,7 @@ impl<CS: CommitmentScheme> AccountModel<CS> {
     }
 }
 
+#[async_trait]
 impl<CS: CommitmentScheme + Send + Sync> TransactionModel for AccountModel<CS> {
     type Transaction = AccountTransaction;
     type CommitmentScheme = CS;
@@ -93,25 +96,34 @@ impl<CS: CommitmentScheme + Send + Sync> TransactionModel for AccountModel<CS> {
         Ok(true)
     }
 
-    fn apply<S>(&self, tx: &Self::Transaction, state: &mut S) -> Result<(), TransactionError>
+    async fn apply<ST>(
+        &self,
+        tx: &Self::Transaction,
+        workload: &WorkloadContainer<ST>,
+        _block_height: u64,
+    ) -> Result<(), TransactionError>
     where
-        S: StateManager<
+        ST: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + ?Sized,
+            > + Send
+            + Sync
+            + 'static,
     {
-        if !self.validate(tx, state)? {
+        let state_tree_arc = workload.state_tree();
+        let mut state = state_tree_arc.lock().await;
+        if !self.validate(tx, &*state)? {
             return Err(TransactionError::Invalid("Validation failed".to_string()));
         }
 
         let sender_key = tx.from.clone();
-        let mut sender_account = self.get_account(state, &sender_key)?;
+        let mut sender_account = self.get_account(&*state, &sender_key)?;
         sender_account.balance -= tx.amount;
         sender_account.nonce += 1;
         state.insert(&sender_key, &self.encode_account(&sender_account))?;
 
         let receiver_key = tx.to.clone();
-        let mut receiver_account = self.get_account(state, &receiver_key)?;
+        let mut receiver_account = self.get_account(&*state, &receiver_key)?;
         receiver_account.balance = receiver_account
             .balance
             .checked_add(tx.amount)

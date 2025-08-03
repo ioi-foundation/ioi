@@ -8,7 +8,7 @@ use depin_sdk_commitment::hash::HashCommitmentScheme;
 use depin_sdk_consensus::{round_robin::RoundRobinBftEngine, ConsensusEngine};
 use depin_sdk_network::libp2p::Libp2pSync;
 use depin_sdk_state_tree::file::FileStateTree;
-use depin_sdk_transaction_models::utxo::UTXOModel;
+use depin_sdk_transaction_models::protocol::ProtocolModel;
 use depin_sdk_types::app::ProtocolTransaction;
 use depin_sdk_types::config::WorkloadConfig; // Corrected import
 use depin_sdk_validator::{
@@ -58,7 +58,7 @@ async fn main() -> anyhow::Result<()> {
     log::info!("Initializing Hybrid Validator...");
 
     let commitment_scheme = HashCommitmentScheme::new();
-    let transaction_model = UTXOModel::new(commitment_scheme.clone());
+    let transaction_model = ProtocolModel::new(commitment_scheme.clone());
     let state_tree = FileStateTree::new(&opts.state_file, commitment_scheme.clone());
     let workload_config = WorkloadConfig {
         enabled_vms: vec!["WASM".to_string()],
@@ -95,7 +95,7 @@ async fn main() -> anyhow::Result<()> {
 
     let orchestration = Arc::new(OrchestrationContainer::<
         HashCommitmentScheme,
-        UTXOModel<HashCommitmentScheme>,
+        ProtocolModel<HashCommitmentScheme>,
         FileStateTree<HashCommitmentScheme>,
     >::new(
         &path.join("orchestration.toml"),

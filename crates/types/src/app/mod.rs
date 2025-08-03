@@ -1,9 +1,19 @@
-// Path: crates/core/src/app/mod.rs
+// Path: crates/types/src/app/mod.rs
 //! Core application-level data structures like Blocks and Transactions.
 
 use dcrypt::algorithms::hash::{sha2::Sha256 as DcryptSha256, HashFunction};
 use dcrypt::algorithms::ByteSerializable;
 use serde::{Deserialize, Serialize};
+
+/// A versioned entry in the state tree, containing the actual value
+/// along with metadata about when it was last modified.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct StateEntry {
+    /// The raw value stored by the application or contract.
+    pub value: Vec<u8>,
+    /// The block height at which this entry was last updated.
+    pub block_height: u64,
+}
 
 /// Represents the current status of the blockchain.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]

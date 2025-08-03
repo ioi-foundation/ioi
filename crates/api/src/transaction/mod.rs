@@ -3,14 +3,17 @@
 
 use crate::commitment::CommitmentScheme;
 use crate::state::StateManager;
+use crate::validator::WorkloadContainer;
+use async_trait::async_trait;
 use depin_sdk_types::error::TransactionError;
 use std::any::Any;
 use std::fmt::Debug;
 
 /// The core trait that defines the interface for all transaction models.
-pub trait TransactionModel {
+#[async_trait]
+pub trait TransactionModel: Send + Sync {
     /// The transaction type for this model.
-    type Transaction: Debug;
+    type Transaction: Debug + Send + Sync;
     /// The proof type for this model.
     type Proof;
     /// The commitment scheme used by this model.
@@ -30,12 +33,19 @@ pub trait TransactionModel {
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
             > + ?Sized;
     /// Applies a transaction to the state.
-    fn apply<S>(&self, tx: &Self::Transaction, state: &mut S) -> Result<(), TransactionError>
+    async fn apply<ST>(
+        &self,
+        tx: &Self::Transaction,
+        workload: &WorkloadContainer<ST>,
+        block_height: u64,
+    ) -> Result<(), TransactionError>
     where
-        S: StateManager<
+        ST: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + ?Sized;
+            > + Send
+            + Sync
+            + 'static;
     /// Generates a proof for a transaction.
     fn generate_proof<S>(
         &self,
