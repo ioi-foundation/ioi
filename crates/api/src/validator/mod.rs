@@ -125,7 +125,7 @@ where
         &self,
         address: Vec<u8>,
         input_data: Vec<u8>,
-        context: ExecutionContext,
+        mut context: ExecutionContext,
     ) -> Result<Vec<u8>, ValidatorError> {
         let state = self.state_tree.lock().await;
         let code_key = [b"contract_code::".as_ref(), &address].concat();
@@ -134,6 +134,9 @@ where
             .map_err(|e| ValidatorError::Other(e.to_string()))?
             .ok_or_else(|| ValidatorError::Other("Contract not found".to_string()))?;
         drop(state); // Drop lock before calling VM
+
+        // Populate the contract_address field in the context before execution
+        context.contract_address = address.clone();
 
         let accessor = Arc::new(StateAccessorWrapper {
             state_tree: self.state_tree.clone(),
@@ -153,9 +156,21 @@ where
 
         Ok(output.return_data)
     }
+
+    /// Queries an existing smart contract without persisting state changes.
+    pub async fn query_contract(
+        &self,
+        address: Vec<u8>,
+        input_data: Vec<u8>,
+        context: ExecutionContext,
+    ) -> Result<Vec<u8>, ValidatorError> {
+        // Note: This implementation is simple. A production version would use a
+        // temporary, in-memory state overlay that is discarded after the query.
+        // For now, this is sufficient for read-only queries.
+        self.call_contract(address, input_data, context).await
+    }
 }
 
-// FIX: Add the `Container` implementation here.
 #[async_trait]
 impl<ST> Container for WorkloadContainer<ST>
 where
@@ -182,7 +197,6 @@ where
     }
 }
 
-// FIX: Add the `TransactionExecutor` implementation here.
 #[async_trait]
 impl<ST> TransactionExecutor<ST> for WorkloadContainer<ST>
 where

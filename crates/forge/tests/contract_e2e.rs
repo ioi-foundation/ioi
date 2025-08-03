@@ -1,29 +1,89 @@
 // Path: crates/forge/tests/contract_e2e.rs
 //! End-to-End Test: Smart Contract Execution Lifecycle
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use depin_sdk_forge::testing::{
-    assert_log_contains, build_node_binary, spawn_node, submit_transaction,
+    assert_log_contains, assert_log_contains_and_return_line, build_test_artifacts, spawn_node,
+    submit_transaction,
 };
 use depin_sdk_types::app::{ApplicationTransaction, ProtocolTransaction};
-use libp2p::identity;
+use libp2p::identity::Keypair;
+use reqwest::Client;
 use tempfile::tempdir;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
+// Helper function to create a signed transaction
+fn create_signed_tx(keypair: &Keypair, tx: ApplicationTransaction) -> ProtocolTransaction {
+    let payload = tx.to_signature_payload();
+    let signature = keypair.sign(&payload).unwrap();
+    let signer_pubkey = keypair.public().encode_protobuf();
+
+    let signed_tx = match tx {
+        ApplicationTransaction::DeployContract { code, .. } => {
+            ApplicationTransaction::DeployContract {
+                code,
+                signer_pubkey,
+                signature,
+            }
+        }
+        ApplicationTransaction::CallContract {
+            address,
+            input_data,
+            gas_limit,
+            ..
+        } => ApplicationTransaction::CallContract {
+            address,
+            input_data,
+            gas_limit,
+            signer_pubkey,
+            signature,
+        },
+        _ => panic!("Unsupported tx type for signing"),
+    };
+    ProtocolTransaction::Application(signed_tx)
+}
+
+// Helper for query_contract RPC
+async fn query_contract(rpc_addr: &str, address_hex: &str, input: &[u8]) -> Result<Vec<u8>> {
+    let client = Client::new();
+    let request_body = serde_json::json!({
+        "jsonrpc": "2.0",
+        "method": "query_contract",
+        "params": [address_hex, hex::encode(input)],
+        "id": 1
+    });
+
+    let rpc_url = format!("http://{}", rpc_addr);
+    let response: serde_json::Value = client
+        .post(&rpc_url)
+        .json(&request_body)
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    if let Some(error) = response.get("error") {
+        if !error.is_null() {
+            return Err(anyhow!("RPC error: {}", error));
+        }
+    }
+
+    let result_hex = response["result"]
+        .as_str()
+        .ok_or_else(|| anyhow!("Missing result field in RPC response"))?;
+    let result_bytes = hex::decode(result_hex)?;
+    Ok(result_bytes)
+}
+
 #[tokio::test]
-#[ignore] // This test is long-running and requires a build script and RPC query support.
 async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
-    // 1. COMPILE CONTRACT
-    // In a real scenario, a build.rs script in `forge` or a `forge build`
-    // command would compile the contract WASM.
-    // For this test, we'll assume a dummy wasm binary.
-    let contract_wasm = b"\0asm\x01\0\0\0".to_vec(); // Dummy WASM header
+    // 1. SETUP & BUILD
+    build_test_artifacts("consensus-poa,vm-wasm");
+    let counter_wasm =
+        std::fs::read("../../target/wasm32-unknown-unknown/release/counter_contract.wasm")?;
 
     // 2. SETUP NETWORK
-    println!("--- Building Node Binary for Contract Test ---");
-    build_node_binary("consensus-poa,vm-wasm");
-
-    let key = identity::Keypair::generate_ed25519();
+    let key = Keypair::generate_ed25519();
     let peer_id = key.public().to_peer_id();
 
     let genesis_content = serde_json::json!({
@@ -45,21 +105,42 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     let mut logs = BufReader::new(node.process.stderr.take().unwrap()).lines();
 
     // 3. DEPLOY CONTRACT
-    let deploy_tx = ProtocolTransaction::Application(ApplicationTransaction::DeployContract {
-        code: contract_wasm,
-    });
+    let deploy_tx_unsigned = ApplicationTransaction::DeployContract {
+        code: counter_wasm,
+        signer_pubkey: vec![],
+        signature: vec![],
+    };
+    let deploy_tx = create_signed_tx(&key, deploy_tx_unsigned);
     submit_transaction("127.0.0.1:9964", &deploy_tx).await?;
 
-    // 4. VERIFY DEPLOYMENT
-    // We would need a way to get the contract address, e.g., from RPC or logs.
-    assert_log_contains("Node", &mut logs, "Deployed contract at address:").await?;
+    // 4. PARSE LOGS TO GET CONTRACT ADDRESS
+    let log_line =
+        assert_log_contains_and_return_line("Node", &mut logs, "Deployed contract at address:")
+            .await?;
+    let address_hex = log_line.split("address: ").last().unwrap().trim();
 
-    // 5. CALL INCREMENT (Placeholder)
-    // ...
+    // 5. QUERY INITIAL STATE
+    let get_input = vec![0]; // ABI for get()
+    let initial_value_bytes = query_contract("127.0.0.1:9964", address_hex, &get_input).await?;
+    assert_eq!(initial_value_bytes, vec![0], "Initial count should be 0");
 
-    // 6. CALL GET AND VERIFY (Placeholder)
-    // ...
+    // 6. CALL INCREMENT
+    let increment_input = vec![1]; // ABI for increment()
+    let call_tx_unsigned = ApplicationTransaction::CallContract {
+        address: hex::decode(address_hex)?,
+        input_data: increment_input,
+        gas_limit: 1_000_000,
+        signer_pubkey: vec![],
+        signature: vec![],
+    };
+    let call_tx = create_signed_tx(&key, call_tx_unsigned);
+    submit_transaction("127.0.0.1:9964", &call_tx).await?;
+    assert_log_contains("Node", &mut logs, "Contract call successful").await?;
 
-    println!("--- E2E Contract Test Placeholder ---");
+    // 7. VERIFY FINAL STATE
+    let final_value_bytes = query_contract("127.0.0.1:9964", address_hex, &get_input).await?;
+    assert_eq!(final_value_bytes, vec![1], "Final count should be 1");
+
+    println!("--- E2E Contract Test Successful ---");
     Ok(())
 }

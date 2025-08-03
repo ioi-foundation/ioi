@@ -268,7 +268,6 @@ where
         + Sync
         + 'static
         + Debug,
-    // FIX: This now matches the (corrected) trait definition perfectly.
     WorkloadContainer<ST>: TransactionExecutor<ST>,
 {
     fn status(&self) -> &ChainStatus {
@@ -285,35 +284,74 @@ where
         workload: &WorkloadContainer<ST>,
     ) -> Result<(), ChainError> {
         match tx {
-            ProtocolTransaction::Application(app_tx) => match app_tx {
-                ApplicationTransaction::UTXO(utxo_tx) => {
-                    workload
-                        .execute_transaction(utxo_tx, &self.state.transaction_model)
-                        .await
-                        .map_err(|e| ChainError::Transaction(e.to_string()))?;
-                }
-                ApplicationTransaction::DeployContract { code } => {
-                    let sender_context = vec![0; 32];
-                    workload
-                        .deploy_contract(code.clone(), sender_context)
-                        .await
-                        .map_err(|e| ChainError::Transaction(e.to_string()))?;
-                }
-                ApplicationTransaction::CallContract {
-                    address,
-                    input_data,
-                } => {
-                    let context = ExecutionContext {
-                        caller: vec![0; 32],
-                        block_height: self.state.status.height,
-                        gas_limit: 10_000_000,
+            ProtocolTransaction::Application(app_tx) => {
+                // --- VERIFY SIGNATURE for contract transactions ---
+                let signer_pubkey_bytes = match app_tx {
+                    ApplicationTransaction::DeployContract { signer_pubkey, .. } => signer_pubkey,
+                    ApplicationTransaction::CallContract { signer_pubkey, .. } => signer_pubkey,
+                    _ => &vec![], // UTXO handled by workload
+                };
+
+                if !signer_pubkey_bytes.is_empty() {
+                    let signature = match app_tx {
+                        ApplicationTransaction::DeployContract { signature, .. } => signature,
+                        ApplicationTransaction::CallContract { signature, .. } => signature,
+                        _ => &vec![],
                     };
-                    workload
-                        .call_contract(address.clone(), input_data.clone(), context)
-                        .await
-                        .map_err(|e| ChainError::Transaction(e.to_string()))?;
+                    let payload = app_tx.to_signature_payload();
+                    // FIX: Use try_decode_protobuf instead of try_from_protobuf_encoding
+                    let pubkey = Libp2pPublicKey::try_decode_protobuf(signer_pubkey_bytes)
+                        .map_err(|_| {
+                            ChainError::Transaction("Invalid public key format".to_string())
+                        })?;
+
+                    if !pubkey.verify(&payload, signature) {
+                        return Err(ChainError::Transaction(
+                            "Invalid transaction signature".to_string(),
+                        ));
+                    }
                 }
-            },
+                // --- END VERIFICATION ---
+
+                match app_tx {
+                    ApplicationTransaction::UTXO(utxo_tx) => {
+                        workload
+                            .execute_transaction(utxo_tx, &self.state.transaction_model)
+                            .await
+                            .map_err(|e| ChainError::Transaction(e.to_string()))?;
+                    }
+                    ApplicationTransaction::DeployContract {
+                        code,
+                        signer_pubkey,
+                        ..
+                    } => {
+                        // Use the verified signer's public key as the sender context
+                        workload
+                            .deploy_contract(code.clone(), signer_pubkey.clone())
+                            .await
+                            .map_err(|e| ChainError::Transaction(e.to_string()))?;
+                    }
+                    ApplicationTransaction::CallContract {
+                        address,
+                        input_data,
+                        gas_limit,
+                        signer_pubkey,
+                        ..
+                    } => {
+                        // Populate context with the verified caller and dynamic gas limit
+                        let context = ExecutionContext {
+                            caller: signer_pubkey.clone(),
+                            block_height: self.status().height,
+                            gas_limit: *gas_limit,
+                            contract_address: vec![], // Will be populated by workload
+                        };
+                        workload
+                            .call_contract(address.clone(), input_data.clone(), context)
+                            .await
+                            .map_err(|e| ChainError::Transaction(e.to_string()))?;
+                    }
+                }
+            }
             ProtocolTransaction::System(sys_tx) => {
                 self.process_system_transaction(sys_tx, workload).await?;
             }

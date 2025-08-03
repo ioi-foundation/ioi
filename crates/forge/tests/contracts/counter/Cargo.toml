@@ -1,0 +1,13 @@
+[package]
+name = "counter-contract"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# Inherit the dependency from the workspace for robust resolution.
+depin-sdk-contract = { workspace = true, features = ["wee_alloc"] }
+
+# FIX: Ensure the local profile is removed, as it's now handled by the workspace root.

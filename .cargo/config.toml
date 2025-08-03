@@ -1,7 +1,12 @@
-# Path: .cargo/config.toml
-# This unstable flag is needed because the root Cargo.toml profile override
-# requests a build with `panic=abort` for the contract. This forces a
-# recompile of the standard library components to ensure they all use the
-# same panic strategy, resolving linker errors.
-[unstable]
-build-std = ["core", "alloc", "std", "panic_abort"]
+# .cargo/config.toml
+
+# Only when building for wasm32 do we:
+#  1. Pass `-C panic=abort`
+#  2. Turn on `-Z build-std` and `-Z build-std-features`
+[target.'cfg(target_arch = "wasm32")']
+rustflags = ["-C", "panic=abort"]
+
+[target.'cfg(target_arch = "wasm32")'.unstable]
+# Note: these must be comma-separated strings, not TOML arrays
+build-std = "core,compiler_builtins,alloc"
+build-std-features = "panic_immediate_abort"

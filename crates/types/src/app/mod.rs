@@ -100,6 +100,10 @@ pub enum ApplicationTransaction {
     DeployContract {
         /// The bytecode of the contract.
         code: Vec<u8>,
+        /// The signer's public key for signature verification.
+        signer_pubkey: Vec<u8>,
+        /// The transaction signature.
+        signature: Vec<u8>,
     },
     /// A transaction to call a method on an existing smart contract.
     CallContract {
@@ -107,7 +111,41 @@ pub enum ApplicationTransaction {
         address: Vec<u8>,
         /// The ABI-encoded input data for the contract call.
         input_data: Vec<u8>,
+        /// The maximum gas allowed for this transaction.
+        gas_limit: u64,
+        /// The signer's public key for signature verification.
+        signer_pubkey: Vec<u8>,
+        /// The transaction signature.
+        signature: Vec<u8>,
     },
+}
+
+impl ApplicationTransaction {
+    /// Creates a stable, serializable payload for signing by clearing signature fields.
+    pub fn to_signature_payload(&self) -> Vec<u8> {
+        let mut temp = self.clone();
+        // Clear signature fields before serializing to create a stable payload
+        match &mut temp {
+            ApplicationTransaction::DeployContract {
+                signer_pubkey,
+                signature,
+                ..
+            } => {
+                signer_pubkey.clear();
+                signature.clear();
+            }
+            ApplicationTransaction::CallContract {
+                signer_pubkey,
+                signature,
+                ..
+            } => {
+                signer_pubkey.clear();
+                signature.clear();
+            }
+            ApplicationTransaction::UTXO(_) => {} // UTXO has its own signing mechanism
+        }
+        serde_json::to_vec(&temp).unwrap()
+    }
 }
 
 /// A privileged transaction for performing system-level state changes.

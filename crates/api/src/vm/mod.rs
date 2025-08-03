@@ -44,4 +44,6 @@ pub struct ExecutionContext {
     pub block_height: u64,
     /// The gas limit for the execution.
     pub gas_limit: u64,
+    /// The address of the contract being executed.
+    pub contract_address: Vec<u8>,
 }

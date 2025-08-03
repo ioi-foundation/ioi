@@ -29,6 +29,7 @@ reqwest = { workspace = true }
 tempfile = "3.3"
 bs58 = "0.4"
 libp2p = { workspace = true }
+prost = { workspace = true }
 
 # The library exposes helpers, the binary provides the CLI
 [lib]
