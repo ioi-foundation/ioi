@@ -8,3 +8,4 @@
 pub mod assertions;
 pub mod fixtures;
 pub mod randomness;
+pub mod semantic_mock;

@@ -65,6 +65,8 @@ pub enum SwarmCommand {
         ResponseChannel<SyncResponse>,
         Vec<Block<ProtocolTransaction>>,
     ),
+    BroadcastToCommittee(Vec<PeerId>, String), // For semantic consensus
+    SimulateSemanticTx,                        // For E2E test
 }
 
 #[derive(Debug)]
@@ -306,6 +308,13 @@ impl Libp2pSync {
                         SwarmCommand::SendBlocksRequest(p, h) => { swarm.behaviour_mut().request_response.send_request(&p, SyncRequest::GetBlocks(h)); }
                         SwarmCommand::SendStatusResponse(c, h) => { swarm.behaviour_mut().request_response.send_response(c, SyncResponse::Status(h)).ok(); }
                         SwarmCommand::SendBlocksResponse(c, blocks) => { swarm.behaviour_mut().request_response.send_response(c, SyncResponse::Blocks(blocks)).ok(); }
+                        SwarmCommand::SimulateSemanticTx => {
+                            // This is a test-only command to trigger a log cascade.
+                            // It does not interact with the network.
+                        }
+                        SwarmCommand::BroadcastToCommittee(_, _) => {
+                            // Placeholder for real broadcast logic
+                        }
                     },
                     None => { return; }
                 }

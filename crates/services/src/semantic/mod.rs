@@ -4,6 +4,9 @@
 // FIX: Updated use statement to point to depin-sdk-api
 use depin_sdk_api::services::{BlockchainService, ServiceType};
 
+pub mod normaliser;
+pub mod prompt_wrapper;
+
 pub struct SemanticService {
     // Add your implementation fields here
 }
