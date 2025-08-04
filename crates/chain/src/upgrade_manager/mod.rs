@@ -1,4 +1,6 @@
 // Path: crates/chain/src/upgrade_manager/mod.rs
+// Change: Removed unused `mut` keyword from `active_service` variable declaration.
+
 use depin_sdk_api::services::{ServiceType, UpgradableService};
 use depin_sdk_types::error::CoreError;
 use std::collections::HashMap;
@@ -13,6 +15,11 @@ pub struct ModuleUpgradeManager {
     upgrade_history: HashMap<ServiceType, Vec<u64>>,
     /// Scheduled upgrades by block height
     scheduled_upgrades: HashMap<u64, Vec<(ServiceType, Vec<u8>)>>,
+    /// A factory function to instantiate services from "WASM" blobs.
+    /// In a real system, this would use a WASM runtime. Here, it's a stub
+    /// for testing that deserializes markers to instantiate pre-compiled objects.
+    service_factory:
+        Box<dyn Fn(&[u8]) -> Result<Arc<dyn UpgradableService>, CoreError> + Send + Sync>,
 }
 
 // FIX: Manually implement Debug because Arc<dyn UpgradableService> does not implement Debug.
@@ -27,25 +34,25 @@ impl fmt::Debug for ModuleUpgradeManager {
     }
 }
 
-impl Default for ModuleUpgradeManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl ModuleUpgradeManager {
     /// Create a new module upgrade manager
-    pub fn new() -> Self {
+    pub fn new(
+        service_factory: Box<
+            dyn Fn(&[u8]) -> Result<Arc<dyn UpgradableService>, CoreError> + Send + Sync,
+        >,
+    ) -> Self {
         Self {
             active_services: HashMap::new(),
             upgrade_history: HashMap::new(),
             scheduled_upgrades: HashMap::new(),
+            service_factory,
         }
     }
 
     /// Register a service with the manager
     pub fn register_service(&mut self, service: Arc<dyn UpgradableService>) {
         let service_type = service.service_type();
+        log::info!("Registering service: {:?}", service_type);
         self.active_services.insert(service_type.clone(), service);
 
         // Initialize upgrade history if not present
@@ -106,27 +113,45 @@ impl ModuleUpgradeManager {
         service_type: &ServiceType,
         new_module_wasm: &[u8],
     ) -> Result<(), CoreError> {
+        // 1. Get active service.
         let active_service = self
             .active_services
-            .get_mut(service_type)
-            .ok_or_else(|| CoreError::ServiceNotFound(format!("{service_type:?}")))?;
+            .get(service_type) // We only need an immutable borrow here
+            .ok_or_else(|| CoreError::ServiceNotFound(format!("{:?}", service_type)))?;
 
-        // 1. Prepare: Get the state snapshot from the current service
-        let _snapshot = active_service
+        // 2. Call active_service.prepare_upgrade to get state snapshot.
+        let snapshot = active_service
             .prepare_upgrade(new_module_wasm)
             .map_err(|e| CoreError::UpgradeError(e.to_string()))?;
+        log::info!(
+            "Prepared upgrade for {:?}, state snapshot size: {}",
+            service_type,
+            snapshot.len()
+        );
 
-        // 2. TODO: Instantiate new service from WASM (or other format)
-        // This would require a proper WASM loading mechanism
-        // For now, we'll create a placeholder
+        // 3. Load the new service from the WASM blob (simulated via factory).
+        let mut new_service_arc = (self.service_factory)(new_module_wasm)?;
+        log::info!(
+            "Successfully instantiated new service module for {:?}",
+            service_type
+        );
 
-        // 3. TODO: Complete the upgrade by migrating state to new service
-        // new_service.complete_upgrade(&snapshot)?;
+        // 4. Instantiate the new service and call new_service.complete_upgrade.
+        // We need a mutable reference, so we use Arc::get_mut. This is safe as we
+        // hold the only strong reference before inserting it into the map.
+        let new_service = Arc::get_mut(&mut new_service_arc).ok_or_else(|| {
+            CoreError::UpgradeError("Failed to get mutable reference to new service".to_string())
+        })?;
+        new_service
+            .complete_upgrade(&snapshot)
+            .map_err(|e| CoreError::UpgradeError(e.to_string()))?;
+        log::info!("Completed state migration for service {:?}", service_type);
 
-        // 4. TODO: Atomically swap the implementation
-        // self.active_services.insert(service_type.clone(), Arc::new(new_service));
+        // 5. Atomically replace the service in the `active_services` map.
+        self.active_services
+            .insert(service_type.clone(), new_service_arc);
+        log::info!("Successfully swapped active service for {:?}", service_type);
 
-        // For now, just return success as this is a stub implementation
         Ok(())
     }
 
@@ -181,13 +206,4 @@ impl ModuleUpgradeManager {
 
         Ok(())
     }
-}
-
-/// Helper function to load a service from WASM bytes
-/// TODO: Implement actual WASM loading logic
-#[allow(dead_code)]
-fn load_service_from_wasm(_wasm_bytes: &[u8]) -> Result<Box<dyn UpgradableService>, CoreError> {
-    Err(CoreError::Custom(
-        "WASM loading not implemented yet".to_string(),
-    ))
 }

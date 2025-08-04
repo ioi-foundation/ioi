@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 
 use clap::Parser;
+use depin_sdk_api::services::UpgradableService;
 use depin_sdk_api::validator::{Container, WorkloadContainer}; // Corrected import
 use depin_sdk_chain::Chain;
 use depin_sdk_commitment::hash::HashCommitmentScheme;
@@ -11,6 +12,7 @@ use depin_sdk_state_tree::file::FileStateTree;
 use depin_sdk_transaction_models::protocol::ProtocolModel;
 use depin_sdk_types::app::ProtocolTransaction;
 use depin_sdk_types::config::WorkloadConfig; // Corrected import
+use depin_sdk_types::error::CoreError;
 use depin_sdk_validator::{
     common::GuardianContainer,
     hybrid::{ApiContainer, InterfaceContainer},
@@ -47,6 +49,12 @@ struct Opts {
     listen_address: Multiaddr,
 }
 
+fn placeholder_service_factory(_wasm_blob: &[u8]) -> Result<Arc<dyn UpgradableService>, CoreError> {
+    Err(CoreError::UpgradeError(
+        "WASM module loading is not implemented in this build.".to_string(),
+    ))
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     env_logger::builder()
@@ -71,6 +79,7 @@ async fn main() -> anyhow::Result<()> {
         transaction_model,
         "hybrid-chain-1",
         vec![],
+        Box::new(placeholder_service_factory),
     );
     chain.load_or_initialize_status(&workload).await?;
     let chain_ref = Arc::new(Mutex::new(chain));
