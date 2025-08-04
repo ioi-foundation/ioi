@@ -1,16 +1,18 @@
 // Path: crates/chain/src/app/mod.rs
+// Change: Added a loop in `process_block` to explicitly schedule module upgrades from system transactions.
+
 /// The private implementation for the `AppChain` trait.
 use crate::upgrade_manager::ModuleUpgradeManager;
 use async_trait::async_trait;
 use depin_sdk_api::chain::{AppChain, PublicKey, StakeAmount};
 use depin_sdk_api::commitment::CommitmentScheme;
-use depin_sdk_api::services::UpgradableService;
+use depin_sdk_api::services::{ServiceType, UpgradableService};
 use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::{TransactionExecutor, WorkloadContainer};
 use depin_sdk_transaction_models::protocol::ProtocolModel;
-use depin_sdk_types::app::{Block, BlockHeader, ChainStatus, ProtocolTransaction};
-use depin_sdk_types::error::{ChainError, StateError};
+use depin_sdk_types::app::{Block, BlockHeader, ChainStatus, ProtocolTransaction, SystemPayload};
+use depin_sdk_types::error::{ChainError, CoreError, StateError};
 use depin_sdk_types::keys::*;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
@@ -32,8 +34,7 @@ pub struct ChainState<CS: CommitmentScheme + Clone> {
 #[derive(Debug)]
 pub struct Chain<CS: CommitmentScheme + Clone> {
     state: ChainState<CS>,
-    #[allow(dead_code)]
-    service_manager: ModuleUpgradeManager,
+    pub service_manager: ModuleUpgradeManager,
 }
 
 impl<CS> Chain<CS>
@@ -45,6 +46,9 @@ where
         transaction_model: ProtocolModel<CS>,
         chain_id: &str,
         initial_services: Vec<Arc<dyn UpgradableService>>,
+        service_factory: Box<
+            dyn Fn(&[u8]) -> Result<Arc<dyn UpgradableService>, CoreError> + Send + Sync,
+        >,
     ) -> Self {
         let status = ChainStatus {
             height: 0,
@@ -52,7 +56,7 @@ where
             total_transactions: 0,
             is_running: false,
         };
-        let mut service_manager = ModuleUpgradeManager::new();
+        let mut service_manager = ModuleUpgradeManager::new(service_factory);
         for service in initial_services {
             service_manager.register_service(service);
         }
@@ -163,9 +167,66 @@ where
                 hex::encode(&block.header.prev_hash)
             )));
         }
+
+        // **FIX**: Explicitly handle scheduling of module swaps before general processing.
+        for tx in &block.transactions {
+            if let ProtocolTransaction::System(sys_tx) = tx {
+                if let SystemPayload::SwapModule {
+                    service_type,
+                    module_wasm,
+                    activation_height,
+                } = &sys_tx.payload
+                {
+                    // For now, we only handle Custom service types from proposals.
+                    // A more robust implementation would parse this properly.
+                    let service_type_enum = ServiceType::Custom(service_type.clone());
+                    log::info!(
+                        "Scheduling module upgrade for {:?} at height {}",
+                        service_type_enum,
+                        activation_height
+                    );
+                    self.service_manager
+                        .schedule_upgrade(
+                            service_type_enum,
+                            module_wasm.clone(),
+                            *activation_height,
+                        )
+                        .map_err(|e| {
+                            ChainError::Block(format!("Failed to schedule upgrade: {}", e))
+                        })?;
+                }
+            }
+        }
+
         for tx in &block.transactions {
             self.process_transaction(tx, workload).await?;
         }
+
+        // ** WIRING FOR FORKLESS UPGRADES **
+        // Apply any scheduled upgrades at the end of block processing.
+        match self
+            .service_manager
+            .apply_upgrades_at_height(block.header.height)
+        {
+            Ok(count) if count > 0 => {
+                log::info!(
+                    "Successfully applied {} module upgrade(s) at height {}",
+                    count,
+                    block.header.height
+                );
+            }
+            Ok(_) => (), // No upgrades, do nothing.
+            Err(e) => {
+                // In a production system, this would be a critical failure.
+                log::error!(
+                    "CRITICAL: Failed to apply scheduled module upgrade at height {}: {:?}",
+                    block.header.height,
+                    e
+                );
+                return Err(ChainError::Block(format!("Module upgrade failed: {}", e)));
+            }
+        }
+
         self.state.status.height = block.header.height;
         self.state.status.latest_timestamp = block.header.timestamp;
 
@@ -305,6 +366,10 @@ mod tests {
     use libp2p::PeerId;
     use std::sync::Arc;
 
+    fn placeholder_factory(_: &[u8]) -> Result<Arc<dyn UpgradableService>, CoreError> {
+        unimplemented!("WASM loading not needed for this test")
+    }
+
     #[tokio::test]
     async fn test_process_system_transaction_update_authorities() {
         // Setup
@@ -323,6 +388,7 @@ mod tests {
             ProtocolModel::new(scheme),
             "test-chain",
             vec![],
+            Box::new(placeholder_factory),
         );
 
         let gov_keypair = Keypair::generate_ed25519();
@@ -380,6 +446,7 @@ mod tests {
             ProtocolModel::new(scheme),
             "test-chain",
             vec![],
+            Box::new(placeholder_factory),
         );
         let gov_keypair = Keypair::generate_ed25519();
         let gov_pk_bs58 =

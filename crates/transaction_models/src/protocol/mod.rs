@@ -298,6 +298,12 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for ProtocolMo
                         let new_stakes_bytes = serde_json::to_vec(&stakes).unwrap();
                         state.insert(STAKES_KEY, &new_stakes_bytes)?;
                     }
+                    SystemPayload::SwapModule { .. } => {
+                        // This transaction type is handled by the Chain itself, which will call
+                        // the ModuleUpgradeManager to schedule the upgrade. This model doesn't
+                        // need to do anything with the state tree for this payload.
+                        log::debug!("SwapModule transaction observed in ProtocolModel, taking no action as it is handled by the Chain.");
+                    }
                 }
                 Ok(())
             }

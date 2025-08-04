@@ -1,4 +1,6 @@
 // Path: crates/node/src/main.rs
+// Change: Removed unused `use std::any::Any;` import.
+
 #![forbid(unsafe_code)]
 
 //! # DePIN SDK Node
@@ -9,6 +11,7 @@
 use anyhow::anyhow;
 use cfg_if::cfg_if;
 use clap::Parser;
+use depin_sdk_api::services::{BlockchainService, ServiceType, UpgradableService};
 use depin_sdk_api::state::StateTree;
 use depin_sdk_api::validator::{Container, WorkloadContainer};
 use depin_sdk_api::vm::VirtualMachine;
@@ -20,6 +23,7 @@ use depin_sdk_state_tree::file::FileStateTree;
 use depin_sdk_transaction_models::protocol::ProtocolModel;
 use depin_sdk_types::app::ProtocolTransaction;
 use depin_sdk_types::config::WorkloadConfig;
+use depin_sdk_types::error::{CoreError, UpgradeError};
 use depin_sdk_validator::common::GuardianContainer;
 use depin_sdk_validator::standard::OrchestrationContainer;
 use libp2p::{identity, Multiaddr};
@@ -29,6 +33,54 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::Mutex;
+
+// --- Test Service Definitions for Forkless Upgrade E2E Test ---
+#[derive(Debug)]
+struct FeeCalculatorV1;
+impl BlockchainService for FeeCalculatorV1 {
+    fn service_type(&self) -> ServiceType {
+        ServiceType::Custom("fee".to_string())
+    }
+}
+impl UpgradableService for FeeCalculatorV1 {
+    fn prepare_upgrade(&self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
+        Ok(Vec::new()) // Stateless
+    }
+    fn complete_upgrade(&mut self, _snapshot: &[u8]) -> Result<(), UpgradeError> {
+        Ok(()) // Stateless
+    }
+}
+
+#[derive(Debug)]
+struct FeeCalculatorV2;
+impl BlockchainService for FeeCalculatorV2 {
+    fn service_type(&self) -> ServiceType {
+        ServiceType::Custom("fee".to_string())
+    }
+}
+impl UpgradableService for FeeCalculatorV2 {
+    fn prepare_upgrade(&self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
+        Ok(Vec::new()) // Stateless
+    }
+    fn complete_upgrade(&mut self, _snapshot: &[u8]) -> Result<(), UpgradeError> {
+        Ok(()) // Stateless
+    }
+}
+
+// Simulated WASM loader/factory for the test node.
+fn service_factory(wasm_blob: &[u8]) -> Result<Arc<dyn UpgradableService>, CoreError> {
+    let marker = std::str::from_utf8(wasm_blob)
+        .map_err(|_| CoreError::UpgradeError("Invalid WASM blob marker".to_string()))?;
+
+    match marker {
+        "FEE_CALCULATOR_V1" => Ok(Arc::new(FeeCalculatorV1)),
+        "FEE_CALCULATOR_V2" => Ok(Arc::new(FeeCalculatorV2)),
+        _ => Err(CoreError::UpgradeError(format!(
+            "Unknown service marker: {}",
+            marker
+        ))),
+    }
+}
 
 #[derive(Parser, Debug)]
 #[clap(name = "node", about = "A minimum viable sovereign chain node.")]
@@ -142,11 +194,13 @@ async fn main() -> anyhow::Result<()> {
     let vm = build_virtual_machine();
     let workload_container = Arc::new(WorkloadContainer::new(workload_config, state_tree, vm));
 
+    let initial_services: Vec<Arc<dyn UpgradableService>> = vec![Arc::new(FeeCalculatorV1)];
     let mut chain = Chain::new(
         commitment_scheme.clone(),
         transaction_model,
         "mvsc-chain-1",
-        vec![],
+        initial_services,
+        Box::new(service_factory),
     );
     chain
         .load_or_initialize_status(&workload_container)

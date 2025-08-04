@@ -185,4 +185,13 @@ pub enum SystemPayload {
         /// The amount to unstake.
         amount: u64,
     },
+    /// Schedules a forkless upgrade of a core service module.
+    SwapModule {
+        /// The type of service to upgrade (e.g., Governance, Custom("fee")).
+        service_type: String, // Using String for simplicity in proposals
+        /// The new WASM blob for the module.
+        module_wasm: Vec<u8>,
+        /// The block height at which the upgrade becomes active.
+        activation_height: u64,
+    },
 }

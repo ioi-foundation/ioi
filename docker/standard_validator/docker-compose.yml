@@ -1,3 +1,4 @@
+# Path: docker/standard_validator/docker-compose.yml
 version: '3.8'
 
 services:
@@ -5,41 +6,37 @@ services:
     build:
       context: ../..
       dockerfile: docker/standard_validator/Dockerfile
-    command: ["guardian"]
-    volumes:
-      - guardian_data:/app/data
+    # The main binary accepts the container role as the first argument.
+    command: [ "guardian" ]
+    container_name: guardian
     networks:
-      - validator_net
+      - depin-internal
 
   orchestration:
     build:
       context: ../..
       dockerfile: docker/standard_validator/Dockerfile
-    command: ["orchestration"]
+    command: [ "orchestration", "--listen-address", "/ip4/0.0.0.0/tcp/4001", "--config-dir", "/app/config" ]
+    container_name: orchestration
     depends_on:
       - guardian
-    volumes:
-      - orchestration_data:/app/data
+    ports:
+      - "9944:9944" # RPC
+      - "4001:4001" # P2P
     networks:
-      - validator_net
+      - depin-internal
 
   workload:
     build:
       context: ../..
       dockerfile: docker/standard_validator/Dockerfile
-    command: ["workload"]
+    command: [ "workload" ]
+    container_name: workload
     depends_on:
-      - orchestration
-    volumes:
-      - workload_data:/app/data
+      - guardian
     networks:
-      - validator_net
+      - depin-internal
 
 networks:
-  validator_net:
+  depin-internal:
     driver: bridge
-
-volumes:
-  guardian_data:
-  orchestration_data:
-  workload_data:
