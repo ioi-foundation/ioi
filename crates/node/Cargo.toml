@@ -1,13 +1,13 @@
 # Path: crates/node/Cargo.toml
+# Change: Added a `build-bins` feature that correctly enables the `validator-bins`
+# feature on the `depin-sdk-validator` dependency.
+
 [package]
 name = "depin-sdk-node"
 version = "0.1.0"
 edition = "2021"
 description = "The primary validator node binary for the DePIN SDK"
 license = "MIT OR Apache-2.0"
-
-# This crate is a binary, so it doesn't need a lib section.
-# The `main.rs` is automatically detected.
 
 [dependencies]
 # Workspace Library Crates
@@ -37,6 +37,10 @@ bs58 = "0.4"
 
 [features]
 default = ["consensus-poa", "vm-wasm"]
+
+# This new feature will be used by Docker to build the node binary correctly.
+# It enables the `validator-bins` feature on the `depin-sdk-validator` crate.
+build-bins = ["depin-sdk-validator/validator-bins"]
 
 # Consensus engine features
 consensus-round-robin = [

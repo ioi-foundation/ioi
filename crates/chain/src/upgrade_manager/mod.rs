@@ -1,11 +1,15 @@
 // Path: crates/chain/src/upgrade_manager/mod.rs
-// Change: Removed unused `mut` keyword from `active_service` variable declaration.
+// Final Version: This file includes fixes for unused mutability and clippy::type_complexity warnings.
 
 use depin_sdk_api::services::{ServiceType, UpgradableService};
 use depin_sdk_types::error::CoreError;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
+
+/// A type alias for the factory function that instantiates services from WASM blobs.
+type ServiceFactory =
+    Box<dyn Fn(&[u8]) -> Result<Arc<dyn UpgradableService>, CoreError> + Send + Sync>;
 
 /// Manages runtime upgrades of blockchain services
 pub struct ModuleUpgradeManager {
@@ -16,14 +20,9 @@ pub struct ModuleUpgradeManager {
     /// Scheduled upgrades by block height
     scheduled_upgrades: HashMap<u64, Vec<(ServiceType, Vec<u8>)>>,
     /// A factory function to instantiate services from "WASM" blobs.
-    /// In a real system, this would use a WASM runtime. Here, it's a stub
-    /// for testing that deserializes markers to instantiate pre-compiled objects.
-    service_factory:
-        Box<dyn Fn(&[u8]) -> Result<Arc<dyn UpgradableService>, CoreError> + Send + Sync>,
+    service_factory: ServiceFactory,
 }
 
-// FIX: Manually implement Debug because Arc<dyn UpgradableService> does not implement Debug.
-// This implementation prints the service types instead of the service objects themselves.
 impl fmt::Debug for ModuleUpgradeManager {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ModuleUpgradeManager")
@@ -36,11 +35,7 @@ impl fmt::Debug for ModuleUpgradeManager {
 
 impl ModuleUpgradeManager {
     /// Create a new module upgrade manager
-    pub fn new(
-        service_factory: Box<
-            dyn Fn(&[u8]) -> Result<Arc<dyn UpgradableService>, CoreError> + Send + Sync,
-        >,
-    ) -> Self {
+    pub fn new(service_factory: ServiceFactory) -> Self {
         Self {
             active_services: HashMap::new(),
             upgrade_history: HashMap::new(),
@@ -116,7 +111,7 @@ impl ModuleUpgradeManager {
         // 1. Get active service.
         let active_service = self
             .active_services
-            .get(service_type) // We only need an immutable borrow here
+            .get(service_type)
             .ok_or_else(|| CoreError::ServiceNotFound(format!("{:?}", service_type)))?;
 
         // 2. Call active_service.prepare_upgrade to get state snapshot.

@@ -184,12 +184,21 @@ OR
 ```bash
 cargo test -p depin-sdk-forge --test contract_e2e -- --nocapture
 ```
+```bash
+cargo test -p depin-sdk-forge --test container_e2e -- --nocapture
+```
 
 These commands will execute critical E2E scenarios, including:
 *   `test_governance_authority_change_lifecycle`: Simulates a governance-driven change to the Proof-of-Authority validator set.
 *   `test_staking_lifecycle`: Simulates a change in the Proof-of-Stake validator set based on `Stake` and `Unstake` transactions.
 
 These tests automatically compile the necessary `node` binaries with the appropriate consensus features before running.
+
+Here are the most effective terminal commands to clear Docker engine disk usage:
+Quick cleanup command (recommended):
+```bash
+bashdocker system prune -a --volumes
+```
 
 ---
 

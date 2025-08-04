@@ -1,4 +1,6 @@
 # Path: crates/validator/Cargo.toml
+# Change: Added the "ring" feature to rustls to enable the default crypto provider.
+
 [package]
 name = "depin-sdk-validator"
 version = "0.1.0"
@@ -12,7 +14,6 @@ depin-sdk-types = { path = "../types" }
 depin-sdk-consensus = { path = "../consensus", default-features = false }
 depin-sdk-network = { path = "../network" }
 depin-sdk-chain = { path = "../chain" }
-# FIX: Add the missing dependency
 depin-sdk-transaction-models = { path = "../transaction_models" }
 depin-sdk-vm-wasm = { path = "../vm/wasm", optional = true }
 log = { workspace = true }
@@ -33,6 +34,12 @@ depin-sdk-commitment = { path = "../commitment", optional = true }
 rand = { workspace = true }
 hex = { workspace = true }
 
+# Added for mTLS implementation
+tokio-rustls = "0.25.0"
+rustls = { version = "0.22.2", features = ["ring"] }
+rcgen = "0.12.0"
+webpki-roots = "0.26.0"
+
 [features]
 default = []
 validator-bins = [
@@ -50,11 +57,6 @@ consensus-pos = ["depin-sdk-consensus/pos"]
 vm-wasm = ["dep:depin-sdk-vm-wasm"]
 
 [[bin]]
-name = "validator"
+name = "depin-sdk-node"                # Unified binary name
 path = "src/bin/validator.rs"
-required-features = ["validator-bins"]
-
-[[bin]]
-name = "validator_hybrid"
-path = "src/bin/validator_hybrid.rs"
 required-features = ["validator-bins"]

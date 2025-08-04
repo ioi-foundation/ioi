@@ -1,39 +1,44 @@
 # Path: docker/standard_validator/docker-compose.yml
-version: '3.8'
+# Change: Removed obsolete 'version' key.
 
 services:
   guardian:
     build:
-      context: ../..
+      context: ../../
       dockerfile: docker/standard_validator/Dockerfile
-    # The main binary accepts the container role as the first argument.
     command: [ "guardian" ]
     container_name: guardian
     networks:
       - depin-internal
+    ports:
+      - "8443:8443"
 
   orchestration:
     build:
-      context: ../..
+      context: ../../
       dockerfile: docker/standard_validator/Dockerfile
-    command: [ "orchestration", "--listen-address", "/ip4/0.0.0.0/tcp/4001", "--config-dir", "/app/config" ]
+    command: [ "orchestration" ]
     container_name: orchestration
     depends_on:
       - guardian
+    environment:
+      - GUARDIAN_ADDR=guardian:8443
     ports:
-      - "9944:9944" # RPC
-      - "4001:4001" # P2P
+      - "9944:9944"
+      - "4001:4001"
     networks:
       - depin-internal
 
   workload:
     build:
-      context: ../..
+      context: ../../
       dockerfile: docker/standard_validator/Dockerfile
     command: [ "workload" ]
     container_name: workload
     depends_on:
       - guardian
+    environment:
+      - GUARDIAN_ADDR=guardian:8443
     networks:
       - depin-internal
 
