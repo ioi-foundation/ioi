@@ -146,7 +146,9 @@ initial_sync_timeout_secs = 15
         .to_string();
     let config_dir_arg = config_dir.to_string_lossy().to_string();
 
+    // FIX: Add the "node" subcommand as the first argument to match the CLI definition.
     let mut cmd_args = vec![
+        "node",
         "--state-file",
         &state_file_arg,
         "--genesis-file",
