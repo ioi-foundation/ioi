@@ -16,11 +16,13 @@ depin-sdk-network = { path = "../network" }
 depin-sdk-chain = { path = "../chain" }
 depin-sdk-transaction-models = { path = "../transaction_models" }
 depin-sdk-vm-wasm = { path = "../vm/wasm", optional = true }
+depin-sdk-crypto = { path = "../crypto" }
 log = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_bytes = { workspace = true }
 serde_json = { workspace = true }
+serde_jcs = "0.1.0"
 tokio = { workspace = true, features = ["full", "sync"] }
 axum = { workspace = true }
 libp2p = { workspace = true }

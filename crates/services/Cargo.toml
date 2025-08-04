@@ -14,6 +14,12 @@ serde = { workspace = true }
 thiserror = { workspace = true }
 bytes = { workspace = true }
 anyhow = { workspace = true }
+depin-sdk-crypto = { path = "../crypto" }
+hex = { workspace = true }
+serde_json = { workspace = true }
+serde_jcs = "0.1.0"
 
 [features]
 default = []
+gas-escrow = []
+semantic = ["gas-escrow"]

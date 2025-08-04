@@ -133,10 +133,11 @@ initial_sync_timeout_secs = 15
         consensus_type, rpc_addr
     );
     std::fs::write(config_dir.join("orchestration.toml"), orchestration_config)?;
-    std::fs::write(
-        config_dir.join("guardian.toml"),
-        r#"signature_policy = "FollowChain""#,
-    )?;
+
+    // Create a unique guardian port for each test to avoid conflicts.
+    let guardian_port = portpicker::pick_unused_port().unwrap_or(8443);
+    let guardian_config = format!(r#"listen_addr = "0.0.0.0:{}""#, guardian_port);
+    std::fs::write(config_dir.join("guardian.toml"), guardian_config)?;
 
     let state_file_arg = dir.path().join("state.json").to_string_lossy().to_string();
     let genesis_file_arg = dir

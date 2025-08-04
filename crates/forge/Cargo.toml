@@ -19,10 +19,12 @@ log = { workspace = true }
 env_logger = { workspace = true }
 serde_json = { workspace = true }
 hex = { workspace = true }
+serde_jcs = "0.1.0"
 
 # Workspace library crates (Forge consumes the SDK as a user would)
 depin-sdk-types = { path = "../types" }
 depin-sdk-api = { path = "../api" }
+depin-sdk-crypto = { path = "../crypto" }
 
 # Dependencies for testing helpers that are now part of the library
 reqwest = { workspace = true }
@@ -30,6 +32,7 @@ tempfile = "3.3"
 bs58 = "0.4"
 libp2p = { workspace = true }
 prost = { workspace = true }
+portpicker = "0.1.1"
 
 # The library exposes helpers, the binary provides the CLI
 [lib]
