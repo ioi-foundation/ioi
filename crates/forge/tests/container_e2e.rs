@@ -4,7 +4,7 @@ use anyhow::Result;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::Command as TokioCommand; // Use Tokio's Command
+use tokio::process::Command as TokioCommand;
 use tokio::time::timeout;
 
 struct DockerCompose {
@@ -17,7 +17,6 @@ impl DockerCompose {
             file_path: file_path.to_string(),
         }
     }
-
     fn up(&self) -> Result<()> {
         let status = Command::new("docker-compose")
             .arg("-f")
@@ -29,11 +28,9 @@ impl DockerCompose {
         if !status.success() {
             anyhow::bail!("docker-compose up failed");
         }
-        // Give containers time to start up fully
         std::thread::sleep(Duration::from_secs(10));
         Ok(())
     }
-
     fn down(&self) -> Result<()> {
         Command::new("docker-compose")
             .arg("-f")
@@ -57,14 +54,15 @@ async fn tail_logs_for_pattern(
     pattern: &str,
     timeout_duration: Duration,
 ) -> Result<()> {
-    let mut child = TokioCommand::new("docker") // Use Tokio's Command
-        .args(&["logs", "-f", container_name])
+    let mut child = TokioCommand::new("docker")
+        .args(["logs", "-f", container_name])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()?;
 
-    let stdout = child.stdout.take().unwrap();
-    let mut reader = BufReader::new(stdout).lines();
+    // FIX: Read from stderr instead of stdout
+    let stderr = child.stderr.take().unwrap();
+    let mut reader = BufReader::new(stderr).lines();
 
     timeout(timeout_duration, async {
         while let Ok(Some(line)) = reader.next_line().await {
@@ -76,41 +74,52 @@ async fn tail_logs_for_pattern(
         Err(anyhow::anyhow!("Log stream ended before pattern found"))
     })
     .await??;
-
-    child.kill().await?; // Await the kill future
+    child.kill().await?;
     Ok(())
 }
 
 #[tokio::test]
-#[ignore] // This test requires Docker and is best run in CI or manually.
 async fn test_container_attestation_and_communication() -> Result<()> {
     // 1. LAUNCH the three-container validator
     let compose = DockerCompose::new("../../docker/standard_validator/docker-compose.yml");
     compose.up()?;
 
-    // 2. TAIL logs and assert startup and mTLS setup
+    // 2. ASSERT startup and attestation server
     tail_logs_for_pattern(
         "guardian",
-        "Establishing secure mTLS channel to Orchestration container... SUCCESS",
+        "mTLS attestation server listening on 0.0.0.0:8443",
         Duration::from_secs(20),
     )
     .await?;
 
-    // 3. ASSERT periodic attestation
+    // 3. ASSERT that both containers connect and attest
     tail_logs_for_pattern(
-        "guardian",
-        "Guardian: Verifying inter-container attestation... SUCCESS",
-        Duration::from_secs(45), // Wait longer to ensure the 30s interval fires
+        "orchestration",
+        "Successfully attested to Guardian",
+        Duration::from_secs(20),
+    )
+    .await?;
+    tail_logs_for_pattern(
+        "workload",
+        "Successfully attested to Guardian",
+        Duration::from_secs(20),
     )
     .await?;
 
-    // 4. SEND command requiring inter-container communication
-    // For this P1 test, confirming the containers start, communicate via logs,
-    // and attest (stubbed) is sufficient. A direct RPC call test is deferred
-    // to a later stage when the RPC interface is more mature. The log assertions
-    // prove the scaffolding is functional.
-
-    // 5. TEARDOWN is handled automatically by the `Drop` impl of `DockerCompose`.
+    // 4. ASSERT that the Guardian received the connections
+    // We expect two successful handshakes.
+    tail_logs_for_pattern(
+        "guardian",
+        "Received successful attestation handshake",
+        Duration::from_secs(20),
+    )
+    .await?;
+    tail_logs_for_pattern(
+        "guardian",
+        "Received successful attestation handshake",
+        Duration::from_secs(20),
+    )
+    .await?;
 
     Ok(())
 }

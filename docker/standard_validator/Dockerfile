@@ -1,18 +1,35 @@
-FROM rust:latest as builder
-WORKDIR /app
+# Path: docker/standard_validator/Dockerfile
+# Change: Switched to a smaller 'slim' variant of the Rust base image to conserve disk space.
+
+# --- Builder Stage ---
+# Use the 'slim' variant of the Rust image to reduce disk footprint during build.
+FROM rust:1.78-slim-bullseye as builder
+
+# Set the working directory.
+WORKDIR /usr/src/app
+
+# The slim image is Debian-based and has apt-get.
+# Install protobuf compiler for libp2p dependencies
+RUN apt-get update && apt-get install -y protobuf-compiler
+
+# Copy the entire workspace (respecting .dockerignore)
 COPY . .
-RUN cargo build --release
 
+# Build the node binary in release mode with the required features.
+RUN cargo build --release \
+    -p depin-sdk-node \
+    --no-default-features \
+    --features "build-bins,consensus-poa,vm-wasm"
+
+# --- Final Stage ---
+# Use a minimal base image for a smaller footprint.
 FROM debian:bullseye-slim
-WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/target/release/depin-sdk-validator /usr/local/bin/
+# Set the working directory.
+WORKDIR /usr/local/bin
 
-# Copy configuration files
-COPY docker/standard_validator/config/* /app/config/
+# Copy the compiled node binary from the builder stage.
+COPY --from=builder /usr/src/app/target/release/depin-sdk-node .
 
-ENTRYPOINT ["depin-sdk-validator"]
+# The CMD is specified in the docker-compose.yml to select the container role.
+ENTRYPOINT ["/usr/local/bin/depin-sdk-node"]
