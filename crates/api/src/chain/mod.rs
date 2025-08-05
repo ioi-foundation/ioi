@@ -2,7 +2,7 @@
 //! Defines the core `AppChain` trait for blockchain state machines.
 
 use async_trait::async_trait;
-use depin_sdk_types::app::{Block, ChainStatus, ProtocolTransaction};
+use depin_sdk_types::app::{Block, ChainStatus, ChainTransaction};
 use depin_sdk_types::error::ChainError;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
@@ -33,16 +33,16 @@ where
     /// Processes a single transaction against the current state.
     async fn process_transaction(
         &mut self,
-        tx: &ProtocolTransaction,
+        tx: &ChainTransaction,
         workload: &WorkloadContainer<ST>,
     ) -> Result<(), ChainError>;
 
     /// Processes a full block of transactions, updating the chain state.
     async fn process_block(
         &mut self,
-        block: Block<ProtocolTransaction>,
+        block: Block<ChainTransaction>,
         workload: &WorkloadContainer<ST>,
-    ) -> Result<Block<ProtocolTransaction>, ChainError>;
+    ) -> Result<Block<ChainTransaction>, ChainError>;
 
     /// Creates a new block template to be filled by a block producer.
     ///
@@ -54,17 +54,17 @@ where
     ///   used to propose an updated validator set for the new block.
     fn create_block(
         &self,
-        transactions: Vec<ProtocolTransaction>,
+        transactions: Vec<ChainTransaction>,
         workload: &WorkloadContainer<ST>,
         current_validator_set: &[Vec<u8>],
         known_peers_bytes: &[Vec<u8>],
-    ) -> Block<ProtocolTransaction>;
+    ) -> Block<ChainTransaction>;
 
     /// Retrieves a block by its height.
-    fn get_block(&self, height: u64) -> Option<&Block<ProtocolTransaction>>;
+    fn get_block(&self, height: u64) -> Option<&Block<ChainTransaction>>;
 
     /// Retrieves all blocks since a given height.
-    fn get_blocks_since(&self, height: u64) -> Vec<Block<ProtocolTransaction>>;
+    fn get_blocks_since(&self, height: u64) -> Vec<Block<ChainTransaction>>;
 
     /// Retrieves the active validator set from the committed state.
     async fn get_validator_set(

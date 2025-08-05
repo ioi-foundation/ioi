@@ -2,7 +2,7 @@
 //! Trait definitions for networking, including block synchronization and mempool gossip.
 
 use async_trait::async_trait;
-use depin_sdk_types::app::{Block, ProtocolTransaction};
+use depin_sdk_types::app::{Block, ChainTransaction};
 use libp2p::PeerId;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -37,7 +37,7 @@ pub trait BlockSync: Send + Sync {
     async fn stop(&self) -> Result<(), SyncError>;
 
     /// Publishes a block produced by the local node to the network.
-    async fn publish_block(&self, block: &Block<ProtocolTransaction>) -> Result<(), SyncError>;
+    async fn publish_block(&self, block: &Block<ChainTransaction>) -> Result<(), SyncError>;
 
     /// Retrieves the current synchronization state of the node.
     fn get_node_state(&self) -> Arc<Mutex<NodeState>>;
@@ -53,5 +53,5 @@ pub trait BlockSync: Send + Sync {
 #[async_trait]
 pub trait MempoolGossip: Send + Sync {
     /// Publishes a transaction to the network's shared mempool.
-    async fn publish_transaction(&self, tx: &ProtocolTransaction) -> Result<(), SyncError>;
+    async fn publish_transaction(&self, tx: &ChainTransaction) -> Result<(), SyncError>;
 }

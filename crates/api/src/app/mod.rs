@@ -71,7 +71,7 @@ impl UTXOTransaction {
 
 /// A top-level enum representing any transaction the chain can process.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub enum ProtocolTransaction {
+pub enum ChainTransaction {
     Application(ApplicationTransaction),
     System(SystemTransaction),
 }
@@ -112,6 +112,6 @@ pub struct ChainState<CS, TM: TransactionModel> {
     pub transaction_model: TM,
     pub chain_id: String,
     pub status: ChainStatus,
-    pub recent_blocks: Vec<Block<ProtocolTransaction>>,
+    pub recent_blocks: Vec<Block<ChainTransaction>>,
     pub max_recent_blocks: usize,
 }

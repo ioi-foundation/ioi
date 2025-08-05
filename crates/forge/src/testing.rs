@@ -4,7 +4,7 @@
 //! SDK to write their own integration tests with the same tooling.
 
 use anyhow::{anyhow, Result};
-use depin_sdk_types::app::ProtocolTransaction;
+use depin_sdk_types::app::ChainTransaction;
 use libp2p::identity;
 use reqwest::Client;
 use std::process::{Command, Stdio};
@@ -74,7 +74,7 @@ pub struct TestNode {
 }
 
 /// Submits a transaction to a node's RPC endpoint.
-pub async fn submit_transaction(rpc_addr: &str, tx: &ProtocolTransaction) -> Result<()> {
+pub async fn submit_transaction(rpc_addr: &str, tx: &ChainTransaction) -> Result<()> {
     let tx_bytes = serde_json::to_vec(tx)?;
     let tx_hex = hex::encode(tx_bytes);
 

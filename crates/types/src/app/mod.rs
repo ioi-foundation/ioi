@@ -94,7 +94,7 @@ impl UTXOTransaction {
 
 /// A top-level enum representing any transaction the chain can process.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub enum ProtocolTransaction {
+pub enum ChainTransaction {
     /// A transaction initiated by a user or application.
     Application(ApplicationTransaction),
     /// A privileged transaction for system-level changes.

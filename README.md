@@ -207,7 +207,7 @@ bashdocker system prune -a --volumes
 The SDK is organized into a workspace of several key crates:
 
 *   `crates/api`: Defines the stable, public traits and interfaces for all components. This is the primary crate for plugin and implementation developers.
-*   `crates/core`: Contains shared, concrete data structures (e.g., `Block`, `ProtocolTransaction`) and error types. This crate is designed for maximum stability.
+*   `crates/core`: Contains shared, concrete data structures (e.g., `Block`, `ChainTransaction`) and error types. This crate is designed for maximum stability.
 *   `crates/node`: Contains the main executable for the production validator. This crate is the composition root for the application.
 *   `crates/forge`: A developer toolkit that provides a CLI and a library with helpers for E2E testing. It is the primary consumer of the SDK's public APIs.
 *   `crates/contract`: The `no_std` SDK for writing smart contracts that compile to WASM.

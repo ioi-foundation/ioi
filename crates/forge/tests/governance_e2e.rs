@@ -3,7 +3,7 @@ use anyhow::{anyhow, Result};
 use depin_sdk_forge::testing::{
     assert_log_contains, build_test_artifacts, spawn_node, submit_transaction,
 };
-use depin_sdk_types::app::{ProtocolTransaction, SystemPayload, SystemTransaction};
+use depin_sdk_types::app::{ChainTransaction, SystemPayload, SystemTransaction};
 use libp2p::identity;
 use std::time::Duration;
 use tempfile::tempdir;
@@ -99,7 +99,7 @@ async fn test_governance_authority_change_lifecycle() -> Result<()> {
     };
     let payload_bytes = serde_json::to_vec(&payload)?;
     let signature = governance_keypair.sign(&payload_bytes)?;
-    let tx = ProtocolTransaction::System(SystemTransaction { payload, signature });
+    let tx = ChainTransaction::System(SystemTransaction { payload, signature });
     submit_transaction("127.0.0.1:9944", &tx).await?;
 
     // Phase 3: Verify New State...
