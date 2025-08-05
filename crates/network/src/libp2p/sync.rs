@@ -4,7 +4,7 @@
 
 use crate::traits::{BlockSync, NodeState, SyncError};
 use async_trait::async_trait;
-use depin_sdk_types::app::{Block, ProtocolTransaction};
+use depin_sdk_types::app::{Block, ChainTransaction};
 use futures::io::{AsyncRead, AsyncWrite};
 use libp2p::{
     core::upgrade::{read_length_prefixed, write_length_prefixed},
@@ -28,7 +28,7 @@ pub enum SyncRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SyncResponse {
     Status(u64),
-    Blocks(Vec<Block<ProtocolTransaction>>),
+    Blocks(Vec<Block<ChainTransaction>>),
 }
 
 #[derive(Debug, Clone, Default)]
@@ -100,7 +100,7 @@ impl BlockSync for Libp2pSync {
         Ok(())
     }
 
-    async fn publish_block(&self, block: &Block<ProtocolTransaction>) -> Result<(), SyncError> {
+    async fn publish_block(&self, block: &Block<ChainTransaction>) -> Result<(), SyncError> {
         let data = serde_json::to_vec(block).map_err(|e| SyncError::Decode(e.to_string()))?;
         self.swarm_command_sender
             .send(SwarmCommand::PublishBlock(data))

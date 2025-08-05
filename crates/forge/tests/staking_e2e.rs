@@ -5,7 +5,7 @@ use anyhow::{anyhow, Result};
 use depin_sdk_forge::testing::{
     assert_log_contains, build_test_artifacts, spawn_node, submit_transaction,
 };
-use depin_sdk_types::app::{ProtocolTransaction, SystemPayload, SystemTransaction};
+use depin_sdk_types::app::{ChainTransaction, SystemPayload, SystemTransaction};
 use libp2p::identity;
 use std::time::Duration;
 use tempfile::tempdir;
@@ -106,7 +106,7 @@ async fn test_staking_lifecycle() -> Result<()> {
     let pubkey1_bytes = key_node1.public().try_into_ed25519()?.to_bytes().to_vec();
     let signature1 = key_node1.sign(&unstake_payload_bytes)?;
     let combined_sig1 = [pubkey1_bytes, signature1].concat();
-    let unstake_tx = ProtocolTransaction::System(SystemTransaction {
+    let unstake_tx = ChainTransaction::System(SystemTransaction {
         payload: unstake_payload,
         signature: combined_sig1,
     });
@@ -118,7 +118,7 @@ async fn test_staking_lifecycle() -> Result<()> {
     let pubkey2_bytes = key_node2.public().try_into_ed25519()?.to_bytes().to_vec();
     let signature2 = key_node2.sign(&stake_payload_bytes)?;
     let combined_sig2 = [pubkey2_bytes, signature2].concat();
-    let stake_tx = ProtocolTransaction::System(SystemTransaction {
+    let stake_tx = ChainTransaction::System(SystemTransaction {
         payload: stake_payload,
         signature: combined_sig2,
     });

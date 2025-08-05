@@ -23,8 +23,8 @@ use depin_sdk_services::{
 };
 use depin_sdk_state_tree::file::FileStateTree;
 use depin_sdk_test_utils::semantic_mock::mock_llm;
-use depin_sdk_transaction_models::protocol::ProtocolModel;
-use depin_sdk_types::app::ProtocolTransaction;
+use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
+use depin_sdk_types::app::ChainTransaction;
 use depin_sdk_types::config::WorkloadConfig;
 use depin_sdk_types::error::{CoreError, UpgradeError};
 use depin_sdk_types::keys::STATE_KEY_SEMANTIC_MODEL_HASH;
@@ -153,7 +153,7 @@ fn populate_state_from_genesis(
     Ok(())
 }
 
-fn build_consensus_engine() -> Box<dyn ConsensusEngine<ProtocolTransaction> + Send + Sync> {
+fn build_consensus_engine() -> Box<dyn ConsensusEngine<ChainTransaction> + Send + Sync> {
     cfg_if! {
         if #[cfg(feature = "consensus-poa")] {
             Box::new(depin_sdk_consensus::proof_of_authority::ProofOfAuthorityEngine::new())
@@ -185,7 +185,7 @@ async fn run_semantic_simulation(
     orchestration_container: Arc<
         OrchestrationContainer<
             HashCommitmentScheme,
-            ProtocolModel<HashCommitmentScheme>,
+            UnifiedTransactionModel<HashCommitmentScheme>,
             FileStateTree<HashCommitmentScheme>,
         >,
     >,
@@ -248,7 +248,7 @@ async fn run_semantic_simulation(
 async fn run_full_node(opts: NodeOpts) -> anyhow::Result<()> {
     log::info!("Initializing DePIN SDK Node (Full Mode)...");
     let commitment_scheme = HashCommitmentScheme::new();
-    let transaction_model = ProtocolModel::new(commitment_scheme.clone());
+    let transaction_model = UnifiedTransactionModel::new(commitment_scheme.clone());
     let state_path = PathBuf::from(&opts.state_file);
     let genesis_path = PathBuf::from(&opts.genesis_file);
     let mut state_tree = FileStateTree::new(&state_path, commitment_scheme.clone());

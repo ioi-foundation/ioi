@@ -9,8 +9,8 @@ use depin_sdk_commitment::hash::HashCommitmentScheme;
 use depin_sdk_consensus::{round_robin::RoundRobinBftEngine, ConsensusEngine}; // Corrected import
 use depin_sdk_network::libp2p::Libp2pSync;
 use depin_sdk_state_tree::file::FileStateTree;
-use depin_sdk_transaction_models::protocol::ProtocolModel;
-use depin_sdk_types::app::ProtocolTransaction;
+use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
+use depin_sdk_types::app::ChainTransaction;
 use depin_sdk_types::config::WorkloadConfig; // Corrected import
 use depin_sdk_types::error::CoreError;
 use depin_sdk_validator::{common::GuardianContainer, standard::OrchestrationContainer};
@@ -42,9 +42,7 @@ struct Opts {
     listen_address: Multiaddr,
 }
 
-fn placeholder_service_factory(
-    _wasm_blob: &[u8],
-) -> Result<Arc<dyn UpgradableService>, CoreError> {
+fn placeholder_service_factory(_wasm_blob: &[u8]) -> Result<Arc<dyn UpgradableService>, CoreError> {
     Err(CoreError::UpgradeError(
         "WASM module loading is not implemented in this build.".to_string(),
     ))
@@ -61,7 +59,7 @@ async fn main() -> anyhow::Result<()> {
     log::info!("Initializing Standard Validator...");
 
     let commitment_scheme = HashCommitmentScheme::new();
-    let transaction_model = ProtocolModel::new(commitment_scheme.clone());
+    let transaction_model = UnifiedTransactionModel::new(commitment_scheme.clone());
     let state_tree = FileStateTree::new(&opts.state_file, commitment_scheme.clone());
     let workload_config = WorkloadConfig {
         enabled_vms: vec!["WASM".to_string()],
@@ -79,7 +77,7 @@ async fn main() -> anyhow::Result<()> {
     chain.load_or_initialize_status(&workload).await?;
     let chain_ref = Arc::new(Mutex::new(chain));
 
-    let consensus_engine_box: Box<dyn ConsensusEngine<ProtocolTransaction> + Send + Sync> =
+    let consensus_engine_box: Box<dyn ConsensusEngine<ChainTransaction> + Send + Sync> =
         Box::new(RoundRobinBftEngine::new());
     let consensus_engine = Arc::new(Mutex::new(consensus_engine_box));
 
@@ -99,7 +97,7 @@ async fn main() -> anyhow::Result<()> {
 
     let orchestration = Arc::new(OrchestrationContainer::<
         HashCommitmentScheme,
-        ProtocolModel<HashCommitmentScheme>,
+        UnifiedTransactionModel<HashCommitmentScheme>,
         FileStateTree<HashCommitmentScheme>,
     >::new(
         &path.join("orchestration.toml"),

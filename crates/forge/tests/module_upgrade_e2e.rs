@@ -6,7 +6,7 @@ use depin_sdk_api::services::{BlockchainService, ServiceType, UpgradableService}
 use depin_sdk_forge::testing::{
     assert_log_contains, build_test_artifacts, spawn_node, submit_transaction,
 };
-use depin_sdk_types::app::{ProtocolTransaction, SystemPayload, SystemTransaction};
+use depin_sdk_types::app::{ChainTransaction, SystemPayload, SystemTransaction};
 use depin_sdk_types::error::{CoreError, UpgradeError};
 use libp2p::identity::Keypair;
 use std::sync::Arc;
@@ -104,7 +104,7 @@ async fn test_fee_calculator_upgrade() -> Result<()> {
     // In a real scenario, this would be signed by the governance key.
     // For this test, we allow any system tx.
     let signature = key.sign(&payload_bytes)?;
-    let tx = ProtocolTransaction::System(SystemTransaction { payload, signature });
+    let tx = ChainTransaction::System(SystemTransaction { payload, signature });
     submit_transaction("127.0.0.1:9988", &tx).await?;
 
     // 4. WAIT for activation height and assert upgrade happens

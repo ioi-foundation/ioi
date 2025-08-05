@@ -6,14 +6,14 @@ use depin_sdk_forge::testing::{
     assert_log_contains, assert_log_contains_and_return_line, build_test_artifacts, spawn_node,
     submit_transaction,
 };
-use depin_sdk_types::app::{ApplicationTransaction, ProtocolTransaction};
+use depin_sdk_types::app::{ApplicationTransaction, ChainTransaction};
 use libp2p::identity::Keypair;
 use reqwest::Client;
 use tempfile::tempdir;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
 // Helper function to create a signed transaction
-fn create_signed_tx(keypair: &Keypair, tx: ApplicationTransaction) -> ProtocolTransaction {
+fn create_signed_tx(keypair: &Keypair, tx: ApplicationTransaction) -> ChainTransaction {
     let payload = tx.to_signature_payload();
     let signature = keypair.sign(&payload).unwrap();
     let signer_pubkey = keypair.public().encode_protobuf();
@@ -40,7 +40,7 @@ fn create_signed_tx(keypair: &Keypair, tx: ApplicationTransaction) -> ProtocolTr
         },
         _ => panic!("Unsupported tx type for signing"),
     };
-    ProtocolTransaction::Application(signed_tx)
+    ChainTransaction::Application(signed_tx)
 }
 
 // Helper for query_contract RPC

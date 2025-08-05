@@ -11,8 +11,8 @@ use depin_sdk_api::services::{ServiceType, UpgradableService};
 use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::{TransactionExecutor, WorkloadContainer};
-use depin_sdk_transaction_models::protocol::ProtocolModel;
-use depin_sdk_types::app::{Block, BlockHeader, ChainStatus, ProtocolTransaction, SystemPayload};
+use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
+use depin_sdk_types::app::{Block, BlockHeader, ChainStatus, ChainTransaction, SystemPayload};
 use depin_sdk_types::error::{ChainError, CoreError, StateError};
 use depin_sdk_types::keys::*;
 use std::collections::BTreeMap;
@@ -29,10 +29,10 @@ type ServiceFactory =
 #[allow(dead_code)]
 pub struct ChainState<CS: CommitmentScheme + Clone> {
     pub commitment_scheme: CS,
-    pub transaction_model: ProtocolModel<CS>,
+    pub transaction_model: UnifiedTransactionModel<CS>,
     pub chain_id: String,
     pub status: ChainStatus,
-    pub recent_blocks: Vec<Block<ProtocolTransaction>>,
+    pub recent_blocks: Vec<Block<ChainTransaction>>,
     pub max_recent_blocks: usize,
 }
 
@@ -48,7 +48,7 @@ where
 {
     pub fn new(
         commitment_scheme: CS,
-        transaction_model: ProtocolModel<CS>,
+        transaction_model: UnifiedTransactionModel<CS>,
         chain_id: &str,
         initial_services: Vec<Arc<dyn UpgradableService>>,
         service_factory: ServiceFactory,
@@ -110,7 +110,7 @@ where
 }
 
 #[async_trait]
-impl<CS, ST> AppChain<CS, ProtocolModel<CS>, ST> for Chain<CS>
+impl<CS, ST> AppChain<CS, UnifiedTransactionModel<CS>, ST> for Chain<CS>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -125,13 +125,13 @@ where
         &self.state.status
     }
 
-    fn transaction_model(&self) -> &ProtocolModel<CS> {
+    fn transaction_model(&self) -> &UnifiedTransactionModel<CS> {
         &self.state.transaction_model
     }
 
     async fn process_transaction(
         &mut self,
-        tx: &ProtocolTransaction,
+        tx: &ChainTransaction,
         workload: &WorkloadContainer<ST>,
     ) -> Result<(), ChainError> {
         self.state
@@ -144,9 +144,9 @@ where
 
     async fn process_block(
         &mut self,
-        mut block: Block<ProtocolTransaction>,
+        mut block: Block<ChainTransaction>,
         workload: &WorkloadContainer<ST>,
-    ) -> Result<Block<ProtocolTransaction>, ChainError> {
+    ) -> Result<Block<ChainTransaction>, ChainError> {
         if block.header.height != self.state.status.height + 1 {
             return Err(ChainError::Block(format!(
                 "Invalid block height. Expected {}, got {}",
@@ -170,7 +170,7 @@ where
 
         // **FIX**: Explicitly handle scheduling of module swaps before general processing.
         for tx in &block.transactions {
-            if let ProtocolTransaction::System(sys_tx) = tx {
+            if let ChainTransaction::System(sys_tx) = tx {
                 if let SystemPayload::SwapModule {
                     service_type,
                     module_wasm,
@@ -251,11 +251,11 @@ where
 
     fn create_block(
         &self,
-        transactions: Vec<ProtocolTransaction>,
+        transactions: Vec<ChainTransaction>,
         _workload: &WorkloadContainer<ST>,
         current_validator_set: &[Vec<u8>],
         _known_peers_bytes: &[Vec<u8>],
-    ) -> Block<ProtocolTransaction> {
+    ) -> Block<ChainTransaction> {
         let prev_hash = self
             .state
             .recent_blocks
@@ -283,14 +283,14 @@ where
         }
     }
 
-    fn get_block(&self, height: u64) -> Option<&Block<ProtocolTransaction>> {
+    fn get_block(&self, height: u64) -> Option<&Block<ChainTransaction>> {
         self.state
             .recent_blocks
             .iter()
             .find(|b| b.header.height == height)
     }
 
-    fn get_blocks_since(&self, height: u64) -> Vec<Block<ProtocolTransaction>> {
+    fn get_blocks_since(&self, height: u64) -> Vec<Block<ChainTransaction>> {
         self.state
             .recent_blocks
             .iter()
@@ -353,7 +353,7 @@ mod tests {
     use depin_sdk_api::state::StateTree;
     use depin_sdk_commitment::hash::HashCommitmentScheme;
     use depin_sdk_state_tree::hashmap::HashMapStateTree;
-    use depin_sdk_transaction_models::protocol::ProtocolModel;
+    use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
     use depin_sdk_types::app::{SystemPayload, SystemTransaction};
     use depin_sdk_types::config::WorkloadConfig;
     use depin_sdk_vm_wasm::WasmVm;
@@ -380,7 +380,7 @@ mod tests {
         ));
         let mut chain = Chain::new(
             scheme.clone(),
-            ProtocolModel::new(scheme),
+            UnifiedTransactionModel::new(scheme),
             "test-chain",
             vec![],
             Box::new(placeholder_factory),
@@ -405,7 +405,7 @@ mod tests {
         let payload_bytes = serde_json::to_vec(&payload).unwrap();
         let signature = gov_keypair.sign(&payload_bytes).unwrap();
         let sys_tx = SystemTransaction { payload, signature };
-        let protocol_tx = ProtocolTransaction::System(sys_tx);
+        let protocol_tx = ChainTransaction::System(sys_tx);
 
         // Test
         let result = chain.process_transaction(&protocol_tx, &workload).await;
@@ -438,7 +438,7 @@ mod tests {
         ));
         let mut chain = Chain::new(
             scheme.clone(),
-            ProtocolModel::new(scheme),
+            UnifiedTransactionModel::new(scheme),
             "test-chain",
             vec![],
             Box::new(placeholder_factory),
@@ -461,7 +461,7 @@ mod tests {
             payload,
             signature: b"invalid-signature".to_vec(),
         };
-        let protocol_tx = ProtocolTransaction::System(sys_tx);
+        let protocol_tx = ChainTransaction::System(sys_tx);
 
         let result = chain.process_transaction(&protocol_tx, &workload).await;
         assert!(result.is_err());

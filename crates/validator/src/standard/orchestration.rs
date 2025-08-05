@@ -13,7 +13,7 @@ use depin_sdk_consensus::{ConsensusDecision, ConsensusEngine};
 use depin_sdk_network::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_network::BlockSync;
-use depin_sdk_types::{app::ProtocolTransaction, error::ValidatorError};
+use depin_sdk_types::{app::ChainTransaction, error::ValidatorError};
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -46,7 +46,7 @@ struct JsonRpcResponse {
 }
 
 struct RpcAppState<ST: StateManager + Send + Sync + 'static> {
-    tx_pool: Arc<Mutex<VecDeque<ProtocolTransaction>>>,
+    tx_pool: Arc<Mutex<VecDeque<ChainTransaction>>>,
     workload: Arc<WorkloadContainer<ST>>,
 }
 
@@ -62,7 +62,7 @@ where
             if let Some(tx_hex) = payload.params.first() {
                 match hex::decode(tx_hex) {
                     Ok(tx_bytes) => {
-                        match serde_json::from_slice::<ProtocolTransaction>(&tx_bytes) {
+                        match serde_json::from_slice::<ChainTransaction>(&tx_bytes) {
                             Ok(tx) => {
                                 let mut pool = app_state.tx_pool.lock().await;
                                 pool.push_back(tx);
@@ -182,11 +182,11 @@ where
     config: OrchestrationConfig,
     chain: Arc<OnceCell<ChainFor<CS, TM, ST>>>,
     workload: Arc<OnceCell<Arc<WorkloadContainer<ST>>>>,
-    tx_pool: Arc<Mutex<VecDeque<ProtocolTransaction>>>,
+    tx_pool: Arc<Mutex<VecDeque<ChainTransaction>>>,
     pub syncer: Arc<Libp2pSync>,
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
     network_event_receiver: Mutex<Option<mpsc::Receiver<NetworkEvent>>>,
-    consensus_engine: Arc<Mutex<Box<dyn ConsensusEngine<ProtocolTransaction> + Send + Sync>>>,
+    consensus_engine: Arc<Mutex<Box<dyn ConsensusEngine<ChainTransaction> + Send + Sync>>>,
     shutdown_sender: Arc<watch::Sender<bool>>,
     task_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     is_running: Arc<AtomicBool>,
@@ -207,11 +207,11 @@ where
 {
     chain_ref: Arc<Mutex<dyn AppChain<CS, TM, ST> + Send + Sync>>,
     workload_ref: Arc<WorkloadContainer<ST>>,
-    tx_pool_ref: Arc<Mutex<VecDeque<ProtocolTransaction>>>,
+    tx_pool_ref: Arc<Mutex<VecDeque<ChainTransaction>>>,
     network_event_receiver: mpsc::Receiver<NetworkEvent>,
     swarm_commander: mpsc::Sender<SwarmCommand>,
     shutdown_receiver: watch::Receiver<bool>,
-    consensus_engine_ref: Arc<Mutex<Box<dyn ConsensusEngine<ProtocolTransaction> + Send + Sync>>>,
+    consensus_engine_ref: Arc<Mutex<Box<dyn ConsensusEngine<ChainTransaction> + Send + Sync>>>,
     node_state: Arc<Mutex<NodeState>>,
     local_peer_id: PeerId,
     known_peers_ref: Arc<Mutex<HashSet<PeerId>>>,
@@ -222,7 +222,7 @@ where
 impl<CS, TM, ST> OrchestrationContainer<CS, TM, ST>
 where
     CS: CommitmentScheme + Send + Sync + 'static,
-    TM: TransactionModel<CommitmentScheme = CS, Transaction = ProtocolTransaction>
+    TM: TransactionModel<CommitmentScheme = CS, Transaction = ChainTransaction>
         + Clone
         + Send
         + Sync
@@ -240,7 +240,7 @@ where
         syncer: Arc<Libp2pSync>,
         network_event_receiver: mpsc::Receiver<NetworkEvent>,
         swarm_command_sender: mpsc::Sender<SwarmCommand>,
-        consensus_engine: Arc<Mutex<Box<dyn ConsensusEngine<ProtocolTransaction> + Send + Sync>>>,
+        consensus_engine: Arc<Mutex<Box<dyn ConsensusEngine<ChainTransaction> + Send + Sync>>>,
     ) -> anyhow::Result<Self> {
         let config: OrchestrationConfig = toml::from_str(&std::fs::read_to_string(config_path)?)?;
         let (shutdown_sender, _) = watch::channel(false);
@@ -507,7 +507,7 @@ where
 impl<CS, TM, ST> Container for OrchestrationContainer<CS, TM, ST>
 where
     CS: CommitmentScheme + Send + Sync + 'static,
-    TM: TransactionModel<CommitmentScheme = CS, Transaction = ProtocolTransaction>
+    TM: TransactionModel<CommitmentScheme = CS, Transaction = ChainTransaction>
         + Clone
         + Send
         + Sync

@@ -1,4 +1,4 @@
-// Path: crates/transaction_models/src/protocol/mod.rs
+// Path: crates/transaction_models/src/unified/mod.rs
 use crate::utxo::UTXOModel;
 use async_trait::async_trait;
 use bs58;
@@ -8,20 +8,20 @@ use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_api::vm::ExecutionContext;
 use depin_sdk_types::app::{
-    ApplicationTransaction, ProtocolTransaction, StateEntry, SystemPayload,
+    ApplicationTransaction, ChainTransaction, StateEntry, SystemPayload,
 };
 use depin_sdk_types::error::{StateError, TransactionError};
 use depin_sdk_types::keys::{AUTHORITY_SET_KEY, GOVERNANCE_KEY, STAKES_KEY};
 use libp2p::identity::PublicKey as Libp2pPublicKey;
 use std::collections::BTreeMap;
 
-/// A unified transaction model that handles all `ProtocolTransaction` variants.
+/// A unified transaction model that handles all `ChainTransaction` variants.
 #[derive(Clone, Debug)]
-pub struct ProtocolModel<CS: CommitmentScheme + Clone> {
+pub struct UnifiedTransactionModel<CS: CommitmentScheme + Clone> {
     utxo_model: UTXOModel<CS>,
 }
 
-impl<CS: CommitmentScheme + Clone> ProtocolModel<CS> {
+impl<CS: CommitmentScheme + Clone> UnifiedTransactionModel<CS> {
     pub fn new(scheme: CS) -> Self {
         Self {
             utxo_model: UTXOModel::new(scheme),
@@ -30,8 +30,8 @@ impl<CS: CommitmentScheme + Clone> ProtocolModel<CS> {
 }
 
 #[async_trait]
-impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for ProtocolModel<CS> {
-    type Transaction = ProtocolTransaction;
+impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UnifiedTransactionModel<CS> {
+    type Transaction = ChainTransaction;
     type CommitmentScheme = CS;
     type Proof = (); // Proofs are not yet implemented for this model.
 
@@ -43,7 +43,7 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for ProtocolMo
         let utxo_tx = self
             .utxo_model
             .create_coinbase_transaction(block_height, recipient)?;
-        Ok(ProtocolTransaction::Application(
+        Ok(ChainTransaction::Application(
             ApplicationTransaction::UTXO(utxo_tx),
         ))
     }
@@ -56,7 +56,7 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for ProtocolMo
             > + ?Sized,
     {
         match tx {
-            ProtocolTransaction::Application(app_tx) => match app_tx {
+            ChainTransaction::Application(app_tx) => match app_tx {
                 ApplicationTransaction::UTXO(utxo_tx) => self.utxo_model.validate(utxo_tx, state),
                 ApplicationTransaction::DeployContract {
                     signer_pubkey,
@@ -79,7 +79,7 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for ProtocolMo
                     Ok(true)
                 }
             },
-            ProtocolTransaction::System(_) => {
+            ChainTransaction::System(_) => {
                 // Defer more complex validation (like checking governance key) to the async `apply` method.
                 Ok(true)
             }
@@ -101,7 +101,7 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for ProtocolMo
             + 'static,
     {
         match tx {
-            ProtocolTransaction::Application(app_tx) => match app_tx {
+            ChainTransaction::Application(app_tx) => match app_tx {
                 ApplicationTransaction::UTXO(utxo_tx) => {
                     self.utxo_model.apply(utxo_tx, workload, block_height).await
                 }
@@ -172,7 +172,7 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for ProtocolMo
                     Ok(())
                 }
             },
-            ProtocolTransaction::System(sys_tx) => {
+            ChainTransaction::System(sys_tx) => {
                 let state_tree_arc = workload.state_tree();
                 let mut state = state_tree_arc.lock().await;
                 let payload_bytes = serde_json::to_vec(&sys_tx.payload)
@@ -302,7 +302,7 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for ProtocolMo
                         // This transaction type is handled by the Chain itself, which will call
                         // the ModuleUpgradeManager to schedule the upgrade. This model doesn't
                         // need to do anything with the state tree for this payload.
-                        log::debug!("SwapModule transaction observed in ProtocolModel, taking no action as it is handled by the Chain.");
+                        log::debug!("SwapModule transaction observed in UnifiedTransactionModel, taking no action as it is handled by the Chain.");
                     }
                 }
                 Ok(())

@@ -23,7 +23,7 @@ use tokio::{
 
 // Re-export concrete types from submodules for a cleaner public API.
 pub use self::sync::{SyncCodec, SyncRequest, SyncResponse};
-use depin_sdk_types::app::{Block, ProtocolTransaction};
+use depin_sdk_types::app::{Block, ChainTransaction};
 
 // --- Core Network Behaviour and Event/Command Types ---
 
@@ -63,7 +63,7 @@ pub enum SwarmCommand {
     SendStatusResponse(ResponseChannel<SyncResponse>, u64),
     SendBlocksResponse(
         ResponseChannel<SyncResponse>,
-        Vec<Block<ProtocolTransaction>>,
+        Vec<Block<ChainTransaction>>,
     ),
     BroadcastToCommittee(Vec<PeerId>, String), // For semantic consensus
     SimulateSemanticTx,                        // For E2E test
@@ -73,12 +73,12 @@ pub enum SwarmCommand {
 pub enum NetworkEvent {
     ConnectionEstablished(PeerId),
     ConnectionClosed(PeerId),
-    GossipBlock(Block<ProtocolTransaction>),
-    GossipTransaction(ProtocolTransaction), // New event for mempool gossip
+    GossipBlock(Block<ChainTransaction>),
+    GossipTransaction(ChainTransaction), // New event for mempool gossip
     StatusRequest(PeerId, ResponseChannel<SyncResponse>),
     BlocksRequest(PeerId, u64, ResponseChannel<SyncResponse>),
     StatusResponse(PeerId, u64),
-    BlocksResponse(PeerId, Vec<Block<ProtocolTransaction>>),
+    BlocksResponse(PeerId, Vec<Block<ChainTransaction>>),
 }
 
 // Internal event type for swarm -> forwarder communication
@@ -91,7 +91,7 @@ enum SwarmInternalEvent {
     StatusRequest(PeerId, ResponseChannel<SyncResponse>),
     BlocksRequest(PeerId, u64, ResponseChannel<SyncResponse>),
     StatusResponse(PeerId, u64),
-    BlocksResponse(PeerId, Vec<Block<ProtocolTransaction>>),
+    BlocksResponse(PeerId, Vec<Block<ChainTransaction>>),
 }
 
 // --- Libp2pSync Implementation ---
