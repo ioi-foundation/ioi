@@ -1,10 +1,24 @@
-// Path: crates/commitment_schemes/src/lib.rs
+// Path: crates/commitment/src/lib.rs
 #![forbid(unsafe_code)]
-//! # DePIN SDK Commitment Schemes
+//! # DePIN SDK Commitment
 //!
-//! Implementations of various commitment schemes for the DePIN SDK.
+//! This crate provides a unified interface and implementations for state commitments,
+//! including both cryptographic primitives and the state trees that use them.
 
-pub mod elliptic_curve;
-pub mod hash;
-pub mod kzg;
-pub mod lattice; // Renamed from module_lwe
+pub mod primitives;
+pub mod tree;
+
+/// A prelude for easily importing the most common types.
+pub mod prelude {
+    pub use crate::primitives::{
+        elliptic_curve::EllipticCurveCommitmentScheme, hash::HashCommitmentScheme,
+        kzg::KZGCommitmentScheme,
+    };
+    pub use crate::tree::{
+        file::FileStateTree as FileCommitment,
+        hashmap::HashMapStateTree as HashMapCommitment, // Alias for clarity
+                                                        // ... other trees
+    };
+    // Re-export the core API trait, which now lives in the API crate
+    pub use depin_sdk_api::state::StateCommitment;
+}

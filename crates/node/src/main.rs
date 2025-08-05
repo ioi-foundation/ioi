@@ -5,11 +5,12 @@ use anyhow::anyhow;
 use cfg_if::cfg_if;
 use clap::{Parser, Subcommand};
 use depin_sdk_api::services::{BlockchainService, ServiceType, UpgradableService};
-use depin_sdk_api::state::StateTree;
+use depin_sdk_api::state::StateCommitment;
 use depin_sdk_api::validator::{Container, WorkloadContainer};
 use depin_sdk_api::vm::VirtualMachine;
 use depin_sdk_chain::Chain;
-use depin_sdk_commitment::hash::HashCommitmentScheme;
+use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
+use depin_sdk_commitment::tree::file::FileStateTree;
 use depin_sdk_consensus::ConsensusEngine;
 use depin_sdk_network::libp2p::Libp2pSync;
 use depin_sdk_network::traits::NodeState;
@@ -21,7 +22,6 @@ use depin_sdk_services::{
         prompt_wrapper::{PolicyGuardrails, PromptWrapper},
     },
 };
-use depin_sdk_state_tree::file::FileStateTree;
 use depin_sdk_test_utils::semantic_mock::mock_llm;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::ChainTransaction;
@@ -128,7 +128,7 @@ struct NodeOpts {
 struct ContainerOpts {}
 
 fn populate_state_from_genesis(
-    state_tree: &mut FileStateTree<HashCommitmentScheme>,
+    state_commitment: &mut FileStateTree<HashCommitmentScheme>,
     genesis_path: &Path,
 ) -> anyhow::Result<()> {
     let genesis_content = fs::read_to_string(genesis_path)?;
@@ -148,7 +148,7 @@ fn populate_state_from_genesis(
         } else {
             serde_json::to_vec(value)?
         };
-        state_tree.insert(key_bytes, &value_bytes)?;
+        state_commitment.insert(key_bytes, &value_bytes)?;
     }
     Ok(())
 }

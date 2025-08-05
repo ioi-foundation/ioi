@@ -1,4 +1,4 @@
-// Path: crates/commitment_schemes/src/lattice/mod.rs
+// Path: crates/commitment/src/primitives/lattice/mod.rs
 //! Lattice-based commitment scheme implementation
 //!
 //! This module implements a lattice-based commitment scheme using

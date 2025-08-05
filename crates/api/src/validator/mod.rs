@@ -3,7 +3,7 @@
 
 use crate::{
     commitment::CommitmentScheme,
-    state::{StateManager, StateTree, VmStateAccessor},
+    state::{StateCommitment, StateManager, VmStateAccessor},
     transaction::TransactionModel,
     vm::{ExecutionContext, ExecutionOutput, VirtualMachine, VmStateOverlay},
 };
@@ -27,7 +27,7 @@ pub use types::ValidatorModel;
 
 /// A trait for any component that can execute transactions against a state tree.
 #[async_trait]
-pub trait TransactionExecutor<ST: StateTree + ?Sized> {
+pub trait TransactionExecutor<ST: StateCommitment + ?Sized> {
     /// Executes a single transaction, validating it and applying it to the state tree.
     async fn execute_transaction<CS, TM>(
         &self,
@@ -36,8 +36,8 @@ pub trait TransactionExecutor<ST: StateTree + ?Sized> {
     ) -> Result<(), ValidatorError>
     where
         CS: CommitmentScheme<
-            Commitment = <ST as StateTree>::Commitment,
-            Proof = <ST as StateTree>::Proof,
+            Commitment = <ST as StateCommitment>::Commitment,
+            Proof = <ST as StateCommitment>::Proof,
         >,
         TM: TransactionModel<CommitmentScheme = CS> + Sync,
         TM::Transaction: Sync,
@@ -240,7 +240,7 @@ where
 #[async_trait]
 impl<ST> TransactionExecutor<ST> for WorkloadContainer<ST>
 where
-    ST: StateManager + StateTree + Send + Sync + 'static,
+    ST: StateManager + StateCommitment + Send + Sync + 'static,
 {
     async fn execute_transaction<CS, TM>(
         &self,
@@ -249,8 +249,8 @@ where
     ) -> Result<(), ValidatorError>
     where
         CS: CommitmentScheme<
-            Commitment = <ST as StateTree>::Commitment,
-            Proof = <ST as StateTree>::Proof,
+            Commitment = <ST as StateCommitment>::Commitment,
+            Proof = <ST as StateCommitment>::Proof,
         >,
         TM: TransactionModel<CommitmentScheme = CS> + Sync,
         TM::Transaction: Sync,
@@ -259,14 +259,11 @@ where
         // during transaction application (which may need its own lock for VM calls).
         {
             let state = self.state_tree.lock().await;
-            let is_valid = model
-                .validate(tx, &*state)
-                .map_err(|e| ValidatorError::Other(e.to_string()))?;
-            if !is_valid {
+            if let Err(_e) = model.validate(tx, &*state) {
                 return Err(ValidatorError::Other(
                     "Transaction validation failed".to_string(),
                 ));
-            }
+            };
         } // Lock is dropped here.
 
         // Phase 2: Apply the transaction. The `apply` method is now expected to handle

@@ -77,7 +77,7 @@ impl<CS: CommitmentScheme + Send + Sync> TransactionModel for AccountModel<CS> {
     type CommitmentScheme = CS;
     type Proof = ();
 
-    fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<bool, TransactionError>
+    fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<(), TransactionError>
     where
         S: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
@@ -93,7 +93,7 @@ impl<CS: CommitmentScheme + Send + Sync> TransactionModel for AccountModel<CS> {
         if sender_account.nonce != tx.nonce {
             return Err(TransactionError::Invalid("Invalid nonce".to_string()));
         }
-        Ok(true)
+        Ok(())
     }
 
     async fn apply<ST>(
@@ -112,9 +112,7 @@ impl<CS: CommitmentScheme + Send + Sync> TransactionModel for AccountModel<CS> {
     {
         let state_tree_arc = workload.state_tree();
         let mut state = state_tree_arc.lock().await;
-        if !self.validate(tx, &*state)? {
-            return Err(TransactionError::Invalid("Validation failed".to_string()));
-        }
+        self.validate(tx, &*state)?;
 
         let sender_key = tx.from.clone();
         let mut sender_account = self.get_account(&*state, &sender_key)?;

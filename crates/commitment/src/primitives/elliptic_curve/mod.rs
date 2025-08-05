@@ -1,4 +1,4 @@
-// Path: crates/commitment_schemes/src/elliptic_curve/mod.rs
+// Path: crates/commitment/src/primitives/elliptic_curve/mod.rs
 //! Elliptic curve commitment implementation
 
 use depin_sdk_api::commitment::{

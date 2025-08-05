@@ -3,7 +3,7 @@ use super::*;
 use crate::operations::{add, execute_add};
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::homomorphic::CommitmentOperation;
-use depin_sdk_commitment::elliptic_curve::{
+use depin_sdk_commitment::primitives::elliptic_curve::{
     EllipticCurveCommitment, EllipticCurveCommitmentScheme,
 };
 use std::any::Any;

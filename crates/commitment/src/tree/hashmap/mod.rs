@@ -1,6 +1,6 @@
-// Path: crates/state_trees/src/hashmap/mod.rs
+// Path: crates/commitment/src/trees/hashmap/mod.rs
 use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, Selector};
-use depin_sdk_api::state::{StateManager, StateTree};
+use depin_sdk_api::state::{StateCommitment, StateManager};
 use depin_sdk_types::error::StateError;
 use std::any::Any;
 use std::collections::HashMap;
@@ -32,7 +32,7 @@ where
     }
 }
 
-impl<CS: CommitmentScheme> StateTree for HashMapStateTree<CS>
+impl<CS: CommitmentScheme + Default> StateCommitment for HashMapStateTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
 {
@@ -71,18 +71,16 @@ where
     }
 
     fn verify_proof(
-        &self,
         commitment: &Self::Commitment,
         proof: &Self::Proof,
         key: &[u8],
         value: &[u8],
     ) -> bool {
         let context = ProofContext::default();
-        let typed_value = self.to_value(value);
+        let typed_value = CS::Value::from(value.to_vec());
         let selector = Selector::Key(key.to_vec());
 
-        self.scheme
-            .verify(commitment, proof, &selector, &typed_value, &context)
+        CS::default().verify(commitment, proof, &selector, &typed_value, &context)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -90,7 +88,7 @@ where
     }
 }
 
-impl<CS: CommitmentScheme> StateManager for HashMapStateTree<CS>
+impl<CS: CommitmentScheme + Default> StateManager for HashMapStateTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
 {

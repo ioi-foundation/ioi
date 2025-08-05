@@ -1,4 +1,4 @@
-// Path: crates/commitment_schemes/src/kzg/mod.rs
+// Path: crates/commitment/src/primitives/kzg/mod.rs
 //! KZG Polynomial Commitment Scheme Implementation
 //!
 //! # Implementation Status

@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     use crate::commitment::{CommitmentScheme, ProofContext, Selector};
-    use crate::state::{StateManager, StateTree};
+    use crate::state::{StateCommitment, StateManager};
     use crate::test_utils::mock_commitment::{
         helpers, MockCommitment, MockCommitmentScheme, MockProof,
     };
@@ -13,19 +13,17 @@ mod tests {
     // Mock state tree implementation for testing
     struct MockStateTree {
         data: HashMap<Vec<u8>, Vec<u8>>,
-        scheme: MockCommitmentScheme,
     }
 
     impl MockStateTree {
         fn new() -> Self {
             Self {
                 data: HashMap::new(),
-                scheme: MockCommitmentScheme,
             }
         }
     }
 
-    impl StateTree for MockStateTree {
+    impl StateCommitment for MockStateTree {
         type Commitment = MockCommitment;
         type Proof = MockProof;
 
@@ -47,25 +45,24 @@ mod tests {
             let values: Vec<Option<Vec<u8>>> =
                 self.data.values().map(|v| Some(v.clone())).collect();
 
-            self.scheme.commit(&values)
+            MockCommitmentScheme.commit(&values)
         }
 
         fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
             let value = self.get(key)?;
             // Use key-based selector in proof creation
             let selector = Selector::Key(key.to_vec());
-            self.scheme.create_proof(&selector, &value).ok()
+            MockCommitmentScheme.create_proof(&selector, &value).ok()
         }
 
         fn verify_proof(
-            &self,
             commitment: &Self::Commitment,
             proof: &Self::Proof,
             key: &[u8],
             value: &[u8],
         ) -> bool {
             // Create a context for verification
-            let mut context = ProofContext::default();
+            let context = ProofContext::default();
 
             // Regenerate the selector from the key - ensure keys actually match
             let selector = Selector::Key(key.to_vec());
@@ -78,12 +75,11 @@ mod tests {
             }
 
             // Convert value to Vec<u8> to match the expected type
-            self.scheme
-                .verify(commitment, proof, &selector, &value.to_vec(), &context)
+            MockCommitmentScheme.verify(commitment, proof, &selector, &value.to_vec(), &context)
         }
 
         fn commitment_scheme(&self) -> &dyn Any {
-            &self.scheme
+            &MockCommitmentScheme
         }
     }
 
@@ -131,8 +127,7 @@ mod tests {
             key: &[u8],
             value: &[u8],
         ) -> bool {
-            // Delegate to tree's verify_proof method which now uses the key
-            self.tree.verify_proof(commitment, proof, key, value)
+            MockStateTree::verify_proof(commitment, proof, key, value)
         }
     }
 
@@ -171,11 +166,11 @@ mod tests {
         let proof = tree.create_proof(key1).unwrap();
 
         // Test proof verification
-        assert!(tree.verify_proof(&commitment, &proof, key1, value1));
+        assert!(MockStateTree::verify_proof(&commitment, &proof, key1, value1));
 
         // Test invalid proof - wrong value
         let wrong_value = b"wrong_value";
-        assert!(!tree.scheme.verify(
+        assert!(!MockCommitmentScheme.verify(
             &commitment,
             &proof,
             &Selector::Key(key1.to_vec()),
@@ -184,7 +179,7 @@ mod tests {
         ));
 
         // Test wrong key
-        assert!(!tree.verify_proof(&commitment, &proof, key2, value1));
+        assert!(!MockStateTree::verify_proof(&commitment, &proof, key2, value1));
     }
 
     #[test]
@@ -203,7 +198,7 @@ mod tests {
         let context = helpers::create_context(true);
 
         // Verify with context - convert value to Vec<u8>
-        assert!(tree.scheme.verify(
+        assert!(MockCommitmentScheme.verify(
             &commitment,
             &proof,
             &Selector::Key(key1.to_vec()),
@@ -213,7 +208,7 @@ mod tests {
 
         // Try with wrong key but same value - should fail in strict mode
         let wrong_key = b"wrong_key".to_vec();
-        assert!(!tree.scheme.verify(
+        assert!(!MockCommitmentScheme.verify(
             &commitment,
             &proof,
             &Selector::Key(wrong_key),

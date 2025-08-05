@@ -53,7 +53,7 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UTXOModel<
     type CommitmentScheme = CS;
     type Proof = ();
 
-    fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<bool, TransactionError>
+    fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<(), TransactionError>
     where
         S: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
@@ -61,14 +61,19 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UTXOModel<
             > + ?Sized,
     {
         if tx.inputs.is_empty() {
-            return Ok(!tx.outputs.is_empty());
+            if tx.outputs.is_empty() {
+                return Err(TransactionError::Invalid(
+                    "Coinbase transaction must have outputs".to_string(),
+                ));
+            }
+            return Ok(()); // Coinbase transaction
         }
 
         if self.config.max_inputs > 0 && tx.inputs.len() > self.config.max_inputs {
-            return Ok(false);
+            return Err(TransactionError::Invalid("Too many inputs".to_string()));
         }
         if self.config.max_outputs > 0 && tx.outputs.len() > self.config.max_outputs {
-            return Ok(false);
+            return Err(TransactionError::Invalid("Too many outputs".to_string()));
         }
 
         let mut total_input: u64 = 0;
@@ -86,10 +91,10 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UTXOModel<
 
         let total_output: u64 = tx.outputs.iter().map(|o| o.value).sum();
         if total_input < total_output {
-            return Ok(false);
+            return Err(TransactionError::Invalid("Insufficient funds".to_string()));
         }
 
-        Ok(true)
+        Ok(())
     }
 
     async fn apply<ST>(
@@ -108,9 +113,7 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UTXOModel<
     {
         let state_tree_arc = workload.state_tree();
         let mut state = state_tree_arc.lock().await;
-        if !self.validate(tx, &*state)? {
-            return Err(TransactionError::Invalid("Validation failed".to_string()));
-        }
+        self.validate(tx, &*state)?;
         for input in &tx.inputs {
             let key = self.create_utxo_key(&input.tx_hash, input.output_index);
             state.delete(&key)?;

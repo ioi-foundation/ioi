@@ -1,6 +1,6 @@
 // Path: crates/state_trees/src/file/mod.rs
 use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, Selector};
-use depin_sdk_api::state::{StateManager, StateTree};
+use depin_sdk_api::state::{StateCommitment, StateManager};
 use depin_sdk_types::error::StateError;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
@@ -54,7 +54,7 @@ where
     }
 }
 
-impl<C> StateTree for FileStateTree<C>
+impl<C> StateCommitment for FileStateTree<C>
 where
     C: CommitmentScheme + Clone + Send + Sync + Default,
     C::Value: From<Vec<u8>>,
@@ -100,13 +100,12 @@ where
     }
 
     fn verify_proof(
-        &self,
         commitment: &Self::Commitment,
         proof: &Self::Proof,
         key: &[u8],
         value: &[u8],
     ) -> bool {
-        self.scheme.verify(
+        C::default().verify(
             commitment,
             proof,
             &Selector::Key(key.to_vec()),

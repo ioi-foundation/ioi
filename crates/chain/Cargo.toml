@@ -23,7 +23,7 @@ bs58 = "0.4"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
-depin-sdk-state-tree = { path = "../state-tree" }
+depin-sdk-commitment = { path = "../commitment", features = ["tree-hashmap"] }
 depin-sdk-vm-wasm = { path = "../vm/wasm" }
 
 [features]

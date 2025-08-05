@@ -1,4 +1,4 @@
-// Path: crates/core/src/config/mod.rs
+// Path: crates/api/src/config/mod.rs
 
 //! Shared configuration structures for core DePIN SDK components.
 

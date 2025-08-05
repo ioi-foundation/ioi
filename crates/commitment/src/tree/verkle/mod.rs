@@ -1,8 +1,8 @@
-// Path: crates/state_trees/src/verkle/mod.rs
+// Path: crates/commitment/src/tree/verkle/mod.rs
 //! Verkle tree implementation
 
 use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, Selector};
-use depin_sdk_api::state::{StateManager, StateTree};
+use depin_sdk_api::state::{StateCommitment, StateManager};
 use depin_sdk_types::error::StateError;
 use std::any::Any;
 use std::collections::HashMap;
@@ -50,8 +50,8 @@ where
         self.data.is_empty()
     }
 
-    fn convert_value(&self, value: &[u8]) -> Result<CS::Value, String> {
-        Ok(CS::Value::from(value.to_vec()))
+    fn convert_value(&self, value: &[u8]) -> CS::Value {
+        CS::Value::from(value.to_vec())
     }
 
     fn extract_value(&self, value: &CS::Value) -> Vec<u8> {
@@ -59,7 +59,7 @@ where
     }
 }
 
-impl<CS: CommitmentScheme> StateTree for VerkleTree<CS>
+impl<CS: CommitmentScheme + Default> StateCommitment for VerkleTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
 {
@@ -67,9 +67,7 @@ where
     type Proof = <CS as CommitmentScheme>::Proof;
 
     fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
-        let cs_value = self
-            .convert_value(value)
-            .map_err(StateError::InvalidValue)?;
+        let cs_value = self.convert_value(value);
         self.data.insert(key.to_vec(), cs_value);
         Ok(())
     }
@@ -96,28 +94,23 @@ where
     }
 
     fn verify_proof(
-        &self,
         commitment: &Self::Commitment,
         proof: &Self::Proof,
         key: &[u8],
         value: &[u8],
     ) -> bool {
-        if let Ok(cs_value) = self.convert_value(value) {
-            let mut context = ProofContext::new();
-            context.add_data(
-                "branching_factor",
-                self.branching_factor.to_le_bytes().to_vec(),
-            );
-            self.scheme.verify(
-                commitment,
-                proof,
-                &Selector::Key(key.to_vec()),
-                &cs_value,
-                &context,
-            )
-        } else {
-            false
-        }
+        let cs_value = CS::Value::from(value.to_vec());
+        let mut context = ProofContext::new();
+        // NOTE: This assumes a fixed branching factor for static verification.
+        // A more dynamic approach would require the branching factor to be part of the proof/context.
+        context.add_data("branching_factor", 256_usize.to_le_bytes().to_vec());
+        CS::default().verify(
+            commitment,
+            proof,
+            &Selector::Key(key.to_vec()),
+            &cs_value,
+            &context,
+        )
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -125,7 +118,7 @@ where
     }
 }
 
-impl<CS: CommitmentScheme> StateManager for VerkleTree<CS>
+impl<CS: CommitmentScheme + Default> StateManager for VerkleTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
 {
