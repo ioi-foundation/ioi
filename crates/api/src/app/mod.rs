@@ -1,4 +1,4 @@
-// Path: crates/core/src/app/mod.rs
+// Path: crates/api/src/app/mod.rs
 
 use crate::error::StateError;
 use crate::transaction::TransactionModel;

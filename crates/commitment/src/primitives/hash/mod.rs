@@ -1,4 +1,4 @@
-// Path: crates/commitment_schemes/src/hash/mod.rs
+// Path: crates/commitment/src/primitives/hash/mod.rs
 //! Hash-based commitment scheme implementations
 
 use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, SchemeIdentifier, Selector};

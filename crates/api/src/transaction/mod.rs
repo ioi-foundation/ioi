@@ -26,7 +26,7 @@ pub trait TransactionModel: Send + Sync {
         recipient: &[u8],
     ) -> Result<Self::Transaction, TransactionError>;
     /// Validates a transaction against the current state.
-    fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<bool, TransactionError>
+    fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<(), TransactionError>
     where
         S: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,

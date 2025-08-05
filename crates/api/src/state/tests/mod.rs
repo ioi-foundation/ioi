@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod basic_state_tests {
     use crate::error::StateError;
-    use crate::state::{StateManager, StateTree};
+    use crate::state::{StateCommitment, StateManager};
     use std::collections::HashMap;
 
     // Mock commitment and proof types for testing
@@ -24,8 +24,8 @@ mod basic_state_tests {
         }
     }
 
-    // First, implement the base StateTree trait.
-    impl StateTree for MockStateManager {
+    // First, implement the base StateCommitment trait.
+    impl StateCommitment for MockStateManager {
         type Commitment = MockCommitment;
         type Proof = MockProof;
 
@@ -57,13 +57,12 @@ mod basic_state_tests {
         }
 
         fn verify_proof(
-            &self,
             _commitment: &Self::Commitment,
             proof: &Self::Proof,
             _key: &[u8],
             value: &[u8],
         ) -> bool {
-            proof.0 == value
+            proof.0 == *value
         }
 
         fn as_any(&self) -> &dyn std::any::Any {
@@ -153,10 +152,10 @@ mod basic_state_tests {
         assert_eq!(proof.0, value);
         
         // Test proof verification
-        assert!(state.verify_proof(&commitment, &proof, key, value));
+        assert!(MockStateManager::verify_proof(&commitment, &proof, key, value));
         
         // Test verification with wrong value
         let wrong_value = b"wrong_value";
-        assert!(!state.verify_proof(&commitment, &proof, key, wrong_value));
+        assert!(!MockStateManager::verify_proof(&commitment, &proof, key, wrong_value));
     }
 }

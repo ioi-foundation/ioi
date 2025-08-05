@@ -4,7 +4,7 @@
 
 use anyhow::Result;
 use async_trait::async_trait;
-use depin_sdk_api::state::StateTree;
+use depin_sdk_api::state::StateCommitment;
 use depin_sdk_api::validator::{Container, GuardianContainer as GuardianContainerTrait};
 use depin_sdk_crypto::algorithms::hash::sha256;
 use depin_sdk_types::error::ValidatorError;
@@ -97,7 +97,7 @@ impl GuardianContainer {
 impl GuardianContainer {
     /// Periodically computes the Merkle root of the on-disk AI model weights
     /// and compares it against the expected hash from the chain's state.
-    pub async fn attest_weights<ST: StateTree>(
+    pub async fn attest_weights<ST: StateCommitment>(
         &self,
         model_path: &Path,
         state_tree: Arc<Mutex<ST>>,

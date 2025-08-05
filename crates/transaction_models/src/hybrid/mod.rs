@@ -65,7 +65,7 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for HybridMode
         Ok(HybridTransaction::UTXO(utxo_coinbase))
     }
 
-    fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<bool, TransactionError>
+    fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<(), TransactionError>
     where
         S: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
@@ -101,9 +101,7 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for HybridMode
                     .await
             }
             HybridTransaction::UTXO(utxo_tx) => {
-                self.utxo_model
-                    .apply(utxo_tx, workload, block_height)
-                    .await
+                self.utxo_model.apply(utxo_tx, workload, block_height).await
             }
         }
     }

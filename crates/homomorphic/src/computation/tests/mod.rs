@@ -2,7 +2,7 @@
 use super::*;
 use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, Selector};
 use depin_sdk_api::homomorphic::{CommitmentOperation, OperationResult};
-use depin_sdk_commitment::elliptic_curve::{
+use depin_sdk_commitment::primitives::elliptic_curve::{
     EllipticCurveCommitment, EllipticCurveCommitmentScheme,
 };
 

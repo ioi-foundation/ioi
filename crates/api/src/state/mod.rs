@@ -1,15 +1,15 @@
 // Path: crates/api/src/state/mod.rs
-//! Core traits for state management, including `StateTree` and `StateManager`.
+//! Core traits for state management, including `StateCommitment` and `StateManager`.
 
 use crate::commitment::CommitmentScheme;
 use async_trait::async_trait;
 use depin_sdk_types::error::StateError;
 
+mod commitment; // Renamed from tree
 mod manager;
-mod tree;
 
+pub use commitment::*; // Renamed from tree
 pub use manager::*;
-pub use tree::*;
 
 /// A dyn-safe trait for the VM to access state, abstracting away the concrete StateManager type.
 #[async_trait]
@@ -26,8 +26,8 @@ pub type StateManagerFor<CS> = dyn StateManager<
     Proof = <CS as CommitmentScheme>::Proof,
 >;
 
-/// Type alias for a `StateTree` trait object compatible with a specific `CommitmentScheme`.
-pub type StateTreeFor<CS> = dyn StateTree<
+/// Type alias for a `StateCommitment` trait object compatible with a specific `CommitmentScheme`.
+pub type StateCommitmentFor<CS> = dyn StateCommitment<
     Commitment = <CS as CommitmentScheme>::Commitment,
     Proof = <CS as CommitmentScheme>::Proof,
 >;

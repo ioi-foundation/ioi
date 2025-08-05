@@ -1,4 +1,4 @@
-// Path: crates/core/src/error/mod.rs
+// Path: crates/api/src/error/mod.rs
 
 use thiserror::Error;
 

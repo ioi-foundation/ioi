@@ -350,9 +350,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use depin_sdk_api::state::StateTree;
-    use depin_sdk_commitment::hash::HashCommitmentScheme;
-    use depin_sdk_state_tree::hashmap::HashMapStateTree;
+    use depin_sdk_api::state::StateCommitment;
+    use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
+    use depin_sdk_commitment::tree::hashmap::HashMapStateTree;
     use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
     use depin_sdk_types::app::{SystemPayload, SystemTransaction};
     use depin_sdk_types::config::WorkloadConfig;

@@ -1,4 +1,4 @@
-// Path: crates/core/src/types/mod.rs
+// Path: crates/api/src/types/mod.rs
 // Change: Removed the `where` clause from the StateManagerFor type alias.
 
 //! Type aliases and common types for the DePIN SDK
@@ -27,7 +27,7 @@ pub mod state {
 
     /// Type alias for a `StateManager` trait object that is compatible with a
     /// specific `CommitmentScheme`. This is now unambiguous because `StateManager`
-    /// inherits its associated types directly from its `StateTree` supertrait.
+    /// inherits its associated types directly from its `StateCommitment` supertrait.
     pub type StateManagerFor<CS> = dyn StateManager<
         Commitment = <CS as CommitmentScheme>::Commitment,
         Proof = <CS as CommitmentScheme>::Proof,

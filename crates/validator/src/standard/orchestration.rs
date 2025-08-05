@@ -5,7 +5,7 @@ use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
 use depin_sdk_api::{
     chain::AppChain,
     commitment::CommitmentScheme,
-    state::{StateManager, StateTree},
+    state::{StateCommitment, StateManager},
     transaction::TransactionModel,
     validator::{Container, WorkloadContainer},
 };
@@ -55,36 +55,31 @@ async fn rpc_handler<ST>(
     Json(payload): Json<JsonRpcRequest>,
 ) -> (StatusCode, Json<JsonRpcResponse>)
 where
-    ST: StateManager + StateTree + Send + Sync + 'static + Debug,
+    ST: StateManager + StateCommitment + Send + Sync + 'static + Debug,
 {
     let response = match payload.method.as_str() {
         "submit_tx" => {
             if let Some(tx_hex) = payload.params.first() {
                 match hex::decode(tx_hex) {
-                    Ok(tx_bytes) => {
-                        match serde_json::from_slice::<ChainTransaction>(&tx_bytes) {
-                            Ok(tx) => {
-                                let mut pool = app_state.tx_pool.lock().await;
-                                pool.push_back(tx);
-                                log::info!(
-                                    "Accepted transaction into pool. Pool size: {}",
-                                    pool.len()
-                                );
-                                JsonRpcResponse {
-                                    jsonrpc: "2.0".to_string(),
-                                    result: Some("Transaction accepted".to_string()),
-                                    error: None,
-                                    id: payload.id,
-                                }
-                            }
-                            Err(e) => JsonRpcResponse {
+                    Ok(tx_bytes) => match serde_json::from_slice::<ChainTransaction>(&tx_bytes) {
+                        Ok(tx) => {
+                            let mut pool = app_state.tx_pool.lock().await;
+                            pool.push_back(tx);
+                            log::info!("Accepted transaction into pool. Pool size: {}", pool.len());
+                            JsonRpcResponse {
                                 jsonrpc: "2.0".to_string(),
-                                result: None,
-                                error: Some(format!("Failed to deserialize transaction: {e}")),
+                                result: Some("Transaction accepted".to_string()),
+                                error: None,
                                 id: payload.id,
-                            },
+                            }
                         }
-                    }
+                        Err(e) => JsonRpcResponse {
+                            jsonrpc: "2.0".to_string(),
+                            result: None,
+                            error: Some(format!("Failed to deserialize transaction: {e}")),
+                            id: payload.id,
+                        },
+                    },
                     Err(e) => JsonRpcResponse {
                         jsonrpc: "2.0".to_string(),
                         result: None,
@@ -198,7 +193,7 @@ where
     CS: CommitmentScheme + Send + Sync + 'static,
     TM: TransactionModel<CommitmentScheme = CS> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + StateTree<Commitment = CS::Commitment, Proof = CS::Proof>
+        + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
         + 'static
@@ -228,7 +223,7 @@ where
         + Sync
         + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + StateTree<Commitment = CS::Commitment, Proof = CS::Proof>
+        + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
         + 'static
@@ -513,7 +508,7 @@ where
         + Sync
         + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + StateTree<Commitment = CS::Commitment, Proof = CS::Proof>
+        + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
         + 'static

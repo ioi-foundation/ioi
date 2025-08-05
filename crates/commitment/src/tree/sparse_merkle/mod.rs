@@ -1,25 +1,25 @@
-// Path: crates/state_trees/src/iavl/mod.rs
-//! IAVL tree implementation
+// Path: crates/commitment/src/tree/sparse_merkle/mod.rs
+//! Sparse Merkle tree implementation
 
 use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, Selector};
-use depin_sdk_api::state::{StateManager, StateTree};
+use depin_sdk_api::state::{StateCommitment, StateManager};
 use depin_sdk_types::error::StateError;
 use std::any::Any;
 use std::collections::HashMap;
 
-/// IAVL tree implementation
-pub struct IAVLTree<CS: CommitmentScheme> {
+/// Sparse Merkle tree implementation
+pub struct SparseMerkleTree<CS: CommitmentScheme> {
     /// Data store
     data: HashMap<Vec<u8>, CS::Value>,
     /// Commitment scheme
     scheme: CS,
 }
 
-impl<CS: CommitmentScheme> IAVLTree<CS>
+impl<CS: CommitmentScheme> SparseMerkleTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
 {
-    /// Create a new IAVL tree
+    /// Create a new sparse Merkle tree
     pub fn new(scheme: CS) -> Self {
         Self {
             data: HashMap::new(),
@@ -27,18 +27,12 @@ where
         }
     }
 
-    /// Get the underlying commitment scheme
-    pub fn scheme(&self) -> &CS {
-        &self.scheme
-    }
-
-    /// Convert a raw byte value to the commitment scheme's value type
-    fn to_value(&self, value: &[u8]) -> CS::Value {
-        CS::Value::from(value.to_vec())
+    fn to_value(&self, bytes: &[u8]) -> CS::Value {
+        CS::Value::from(bytes.to_vec())
     }
 }
 
-impl<CS: CommitmentScheme> StateTree for IAVLTree<CS>
+impl<CS: CommitmentScheme + Default> StateCommitment for SparseMerkleTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
 {
@@ -46,8 +40,8 @@ where
     type Proof = <CS as CommitmentScheme>::Proof;
 
     fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
-        let scheme_value = self.to_value(value);
-        self.data.insert(key.to_vec(), scheme_value);
+        let value_typed = self.to_value(value);
+        self.data.insert(key.to_vec(), value_typed);
         Ok(())
     }
 
@@ -66,23 +60,29 @@ where
     }
 
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
-        let value = self.data.get(key)?;
-        let selector = Selector::Key(key.to_vec());
-        self.scheme.create_proof(&selector, value).ok()
+        let value_result = self.get(key).ok()?;
+        let value = value_result?;
+        let value_typed = self.to_value(&value);
+        self.scheme
+            .create_proof(&Selector::Key(key.to_vec()), &value_typed)
+            .ok()
     }
 
     fn verify_proof(
-        &self,
         commitment: &Self::Commitment,
         proof: &Self::Proof,
         key: &[u8],
         value: &[u8],
     ) -> bool {
-        let selector = Selector::Key(key.to_vec());
+        let value_typed = CS::Value::from(value.to_vec());
         let context = ProofContext::default();
-        let scheme_value = self.to_value(value);
-        self.scheme
-            .verify(commitment, proof, &selector, &scheme_value, &context)
+        CS::default().verify(
+            commitment,
+            proof,
+            &Selector::Key(key.to_vec()),
+            &value_typed,
+            &context,
+        )
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -90,7 +90,7 @@ where
     }
 }
 
-impl<CS: CommitmentScheme> StateManager for IAVLTree<CS>
+impl<CS: CommitmentScheme + Default> StateManager for SparseMerkleTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
 {

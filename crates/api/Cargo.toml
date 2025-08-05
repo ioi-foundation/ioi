@@ -23,4 +23,4 @@ dashmap = "5.5"
 [features]
 default = []
 homomorphic = []
-post-quantum = ["depin-sdk-types/experimental-pqc"]
+post-quantum = []

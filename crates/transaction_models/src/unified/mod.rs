@@ -48,7 +48,7 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UnifiedTra
         ))
     }
 
-    fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<bool, TransactionError>
+    fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<(), TransactionError>
     where
         S: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
@@ -76,12 +76,12 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UnifiedTra
                     if !pubkey.verify(&payload, signature) {
                         return Err(TransactionError::Invalid("Invalid signature".into()));
                     }
-                    Ok(true)
+                    Ok(())
                 }
             },
             ChainTransaction::System(_) => {
                 // Defer more complex validation (like checking governance key) to the async `apply` method.
-                Ok(true)
+                Ok(())
             }
         }
     }

@@ -24,7 +24,7 @@ pub mod prelude {
     pub use crate::commitment::{CommitmentScheme, HomomorphicCommitmentScheme};
     // No change needed for consensus as it's not part of the API crate.
     pub use crate::services::{BlockchainService, UpgradableService};
-    pub use crate::state::{StateManager, StateTree};
+    pub use crate::state::{StateCommitment, StateManager};
     pub use crate::transaction::TransactionModel;
     // FIX: Corrected the paths for validator traits.
     pub use crate::validator::container::{Container, GuardianContainer};
