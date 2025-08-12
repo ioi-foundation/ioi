@@ -6,7 +6,7 @@ use depin_sdk_api::crypto::{SerializableKey, Signature, SigningKey, SigningKeyPa
 // Import the trait needed for the signature operations
 use dcrypt::api::Signature as SignatureTrait;
 // Import the Dilithium implementations and types from the correct module path
-use dcrypt::sign::pq::dilithium::{
+use dcrypt::sign::dilithium::{
     Dilithium2, Dilithium3, Dilithium5, DilithiumPublicKey as DcryptPublicKey,
     DilithiumSecretKey as DcryptSecretKey, DilithiumSignatureData as DcryptSignatureData,
 };

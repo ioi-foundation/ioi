@@ -34,12 +34,20 @@ impl AsRef<[u8]> for HashCommitment {
 /// Hash-based proof
 #[derive(Debug, Clone)]
 pub struct HashProof {
-    /// Value hash
-    pub value_hash: Vec<u8>,
+    /// The value this proof corresponds to (e.g., serialized Merkle proof data)
+    pub value: Vec<u8>,
     /// Selector used for this proof
     pub selector: Selector,
     /// Additional proof data
     pub additional_data: Vec<u8>,
+}
+
+// FIX: Implement the missing trait bound that caused all the compiler errors.
+// This allows state trees to get the raw proof data they need for verification.
+impl AsRef<[u8]> for HashProof {
+    fn as_ref(&self) -> &[u8] {
+        &self.value
+    }
 }
 
 impl HashCommitmentScheme {
@@ -111,9 +119,6 @@ impl CommitmentScheme for HashCommitmentScheme {
         selector: &Selector,
         value: &Self::Value,
     ) -> Result<Self::Proof, String> {
-        // Calculate the hash of the value
-        let value_hash = self.hash_data(value);
-
         // Create additional data based on selector type
         let additional_data = match selector {
             Selector::Key(key) => {
@@ -127,8 +132,9 @@ impl CommitmentScheme for HashCommitmentScheme {
             _ => Vec::new(),
         };
 
+        // FIX: Store the raw value in the proof instead of its hash.
         Ok(HashProof {
-            value_hash,
+            value: value.clone(),
             selector: selector.clone(),
             additional_data,
         })
@@ -142,13 +148,8 @@ impl CommitmentScheme for HashCommitmentScheme {
         value: &Self::Value,
         context: &ProofContext,
     ) -> bool {
-        if &proof.selector != selector {
-            return false;
-        }
-
-        // Verify that the value hash matches
-        let computed_hash = self.hash_data(value);
-        if computed_hash != proof.value_hash {
+        // FIX: The logic here needs to be updated to reflect the new structure of HashProof
+        if &proof.selector != selector || &proof.value != value {
             return false;
         }
 
@@ -156,7 +157,7 @@ impl CommitmentScheme for HashCommitmentScheme {
         match selector {
             Selector::None => {
                 // For a single value, directly compare the hash
-                proof.value_hash == commitment.as_ref()
+                self.hash_data(value) == commitment.as_ref()
             }
             Selector::Key(key) => {
                 // For a key-value pair, hash the combination
@@ -217,9 +218,9 @@ impl HashCommitment {
 // Additional utility methods for HashProof
 impl HashProof {
     /// Create a new proof
-    pub fn new(value_hash: Vec<u8>, selector: Selector, additional_data: Vec<u8>) -> Self {
+    pub fn new(value: Vec<u8>, selector: Selector, additional_data: Vec<u8>) -> Self {
         Self {
-            value_hash,
+            value,
             selector,
             additional_data,
         }
@@ -230,9 +231,9 @@ impl HashProof {
         &self.selector
     }
 
-    /// Get the value hash
-    pub fn value_hash(&self) -> &[u8] {
-        &self.value_hash
+    /// Get the value
+    pub fn value(&self) -> &[u8] {
+        &self.value
     }
 
     /// Get the additional data
@@ -266,9 +267,9 @@ impl HashProof {
             }
         }
 
-        // Serialize value hash
-        result.extend_from_slice(&(self.value_hash.len() as u32).to_le_bytes());
-        result.extend_from_slice(&self.value_hash);
+        // Serialize value
+        result.extend_from_slice(&(self.value.len() as u32).to_le_bytes());
+        result.extend_from_slice(&self.value);
 
         // Serialize additional data
         result.extend_from_slice(&(self.additional_data.len() as u32).to_le_bytes());
@@ -335,20 +336,20 @@ impl HashProof {
             _ => return Err(format!("Unknown selector type: {selector_type}")),
         };
 
-        // Deserialize value hash
+        // Deserialize value
         if pos + 4 > bytes.len() {
-            return Err("Invalid value hash length".to_string());
+            return Err("Invalid value length".to_string());
         }
         let mut len_bytes = [0u8; 4];
         len_bytes.copy_from_slice(&bytes[pos..pos + 4]);
         pos += 4;
-        let hash_len = u32::from_le_bytes(len_bytes) as usize;
+        let value_len = u32::from_le_bytes(len_bytes) as usize;
 
-        if pos + hash_len > bytes.len() {
-            return Err("Invalid hash length".to_string());
+        if pos + value_len > bytes.len() {
+            return Err("Invalid value length".to_string());
         }
-        let value_hash = bytes[pos..pos + hash_len].to_vec();
-        pos += hash_len;
+        let value = bytes[pos..pos + value_len].to_vec();
+        pos += value_len;
 
         // Deserialize additional data
         if pos + 4 > bytes.len() {
@@ -365,7 +366,7 @@ impl HashProof {
         let additional_data = bytes[pos..pos + add_len].to_vec();
 
         Ok(HashProof {
-            value_hash,
+            value,
             selector,
             additional_data,
         })
