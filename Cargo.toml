@@ -69,7 +69,7 @@ prost = "0.12"
 
 # Cryptography
 rand = "0.8"
-dcrypt = { version = "0.12.0-beta.1", features = ["full"] }
+dcrypt = { version = "0.13.0-beta.2", features = ["full"] }
 
 # CLI & Logging
 clap = { version = "4", features = ["derive"] }

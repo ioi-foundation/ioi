@@ -1,12 +1,12 @@
 // Path: crates/crypto/src/sign/eddsa/mod.rs
 //! Implementation of elliptic curve cryptography using dcrypt
 
-use depin_sdk_api::crypto::{SerializableKey, Signature, SigningKey, SigningKeyPair, VerifyingKey};
 use dcrypt::api::Signature as SignatureTrait;
+use depin_sdk_api::crypto::{SerializableKey, Signature, SigningKey, SigningKeyPair, VerifyingKey};
 use rand::rngs::OsRng;
 
 // Import dcrypt Ed25519 module with module qualification
-use dcrypt::sign::traditional::eddsa;
+use dcrypt::sign::eddsa;
 
 /// Ed25519 key pair implementation
 pub struct Ed25519KeyPair {
@@ -31,8 +31,8 @@ impl Ed25519KeyPair {
         let mut rng = OsRng;
 
         // Generate key pair using dcrypt
-        let (public_key, secret_key) = eddsa::Ed25519::keypair(&mut rng)
-            .expect("Failed to generate Ed25519 key pair");
+        let (public_key, secret_key) =
+            eddsa::Ed25519::keypair(&mut rng).expect("Failed to generate Ed25519 key pair");
 
         Self {
             public_key,
@@ -70,8 +70,8 @@ impl SigningKeyPair for Ed25519KeyPair {
     }
 
     fn sign(&self, message: &[u8]) -> Self::Signature {
-        let signature = eddsa::Ed25519::sign(message, &self.secret_key)
-            .expect("Failed to sign message");
+        let signature =
+            eddsa::Ed25519::sign(message, &self.secret_key).expect("Failed to sign message");
         Ed25519Signature(signature)
     }
 }
@@ -100,8 +100,7 @@ impl SigningKey for Ed25519PrivateKey {
     type Signature = Ed25519Signature;
 
     fn sign(&self, message: &[u8]) -> Self::Signature {
-        let signature = eddsa::Ed25519::sign(message, &self.0)
-            .expect("Failed to sign message");
+        let signature = eddsa::Ed25519::sign(message, &self.0).expect("Failed to sign message");
         Ed25519Signature(signature)
     }
 }

@@ -357,7 +357,7 @@ mod tests {
     use depin_sdk_types::app::{SystemPayload, SystemTransaction};
     use depin_sdk_types::config::WorkloadConfig;
     use depin_sdk_vm_wasm::WasmVm;
-    use libp2p::identity::{self, Keypair};
+    use libp2p::identity::Keypair;
     use libp2p::PeerId;
     use std::sync::Arc;
 
