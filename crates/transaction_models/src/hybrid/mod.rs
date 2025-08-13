@@ -1,6 +1,7 @@
 // Path: crates/transaction_models/src/hybrid/mod.rs
-use crate::account::{AccountConfig, AccountModel, AccountTransaction};
-use crate::utxo::{UTXOConfig, UTXOModel, UTXOTransaction};
+// UPDATE: Add imports for the new proof structs and serde
+use crate::account::{AccountConfig, AccountModel, AccountTransaction, AccountTransactionProof};
+use crate::utxo::{UTXOConfig, UTXOModel, UTXOTransaction, UTXOTransactionProof};
 use async_trait::async_trait;
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::StateManager;
@@ -15,10 +16,11 @@ pub enum HybridTransaction {
     UTXO(UTXOTransaction),
 }
 
-#[derive(Debug, Clone)]
-pub enum HybridProof {
-    Account(()),
-    UTXO(()),
+// UPDATE: Change HybridProof from a struct to a generic enum.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum HybridProof<AP, UP> {
+    Account(AccountTransactionProof<AP>),
+    UTXO(UTXOTransactionProof<UP>),
 }
 
 #[derive(Debug, Clone, Default)]
@@ -49,10 +51,15 @@ impl<CS: CommitmentScheme + Clone> HybridModel<CS> {
 }
 
 #[async_trait]
-impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for HybridModel<CS> {
+impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for HybridModel<CS>
+where
+    // Add this bound so we can serialize the proof
+    <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de> + Clone,
+{
     type Transaction = HybridTransaction;
     type CommitmentScheme = CS;
-    type Proof = HybridProof;
+    // UPDATE: Use our new generic proof enum.
+    type Proof = HybridProof<CS::Proof, CS::Proof>;
 
     fn create_coinbase_transaction(
         &self,
@@ -106,6 +113,7 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for HybridMode
         }
     }
 
+    // IMPLEMENT: generate_proof
     fn generate_proof<S>(
         &self,
         tx: &Self::Transaction,
@@ -119,16 +127,17 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for HybridMode
     {
         match tx {
             HybridTransaction::Account(account_tx) => {
-                self.account_model.generate_proof(account_tx, state)?;
-                Ok(HybridProof::Account(()))
+                let account_proof = self.account_model.generate_proof(account_tx, state)?;
+                Ok(HybridProof::Account(account_proof))
             }
             HybridTransaction::UTXO(utxo_tx) => {
-                self.utxo_model.generate_proof(utxo_tx, state)?;
-                Ok(HybridProof::UTXO(()))
+                let utxo_proof = self.utxo_model.generate_proof(utxo_tx, state)?;
+                Ok(HybridProof::UTXO(utxo_proof))
             }
         }
     }
 
+    // IMPLEMENT: verify_proof
     fn verify_proof<S>(&self, proof: &Self::Proof, state: &S) -> Result<bool, TransactionError>
     where
         S: StateManager<

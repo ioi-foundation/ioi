@@ -1,5 +1,6 @@
 // Path: crates/transaction_models/src/unified/mod.rs
-use crate::utxo::UTXOModel;
+// UPDATE: Add imports for proof structs and serde
+use crate::utxo::{UTXOModel, UTXOTransactionProof};
 use async_trait::async_trait;
 use bs58;
 use depin_sdk_api::commitment::CommitmentScheme;
@@ -7,13 +8,22 @@ use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_api::vm::ExecutionContext;
-use depin_sdk_types::app::{
-    ApplicationTransaction, ChainTransaction, StateEntry, SystemPayload,
-};
+use depin_sdk_types::app::{ApplicationTransaction, ChainTransaction, StateEntry, SystemPayload};
 use depin_sdk_types::error::{StateError, TransactionError};
 use depin_sdk_types::keys::{AUTHORITY_SET_KEY, GOVERNANCE_KEY, STAKES_KEY};
 use libp2p::identity::PublicKey as Libp2pPublicKey;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+
+// NEW: Define a proof enum for the unified model.
+// For now, it only handles UTXO proofs. We can extend it later.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum UnifiedProof<P> {
+    UTXO(UTXOTransactionProof<P>),
+    // We can add variants for contract calls, system txs, etc. later
+    Application,
+    System,
+}
 
 /// A unified transaction model that handles all `ChainTransaction` variants.
 #[derive(Clone, Debug)]
@@ -30,10 +40,15 @@ impl<CS: CommitmentScheme + Clone> UnifiedTransactionModel<CS> {
 }
 
 #[async_trait]
-impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UnifiedTransactionModel<CS> {
+impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UnifiedTransactionModel<CS>
+where
+    // Add this bound so we can serialize the proof
+    <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de> + Clone,
+{
     type Transaction = ChainTransaction;
     type CommitmentScheme = CS;
-    type Proof = (); // Proofs are not yet implemented for this model.
+    // UPDATE: Use our new generic proof enum.
+    type Proof = UnifiedProof<CS::Proof>;
 
     fn create_coinbase_transaction(
         &self,
@@ -43,9 +58,9 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UnifiedTra
         let utxo_tx = self
             .utxo_model
             .create_coinbase_transaction(block_height, recipient)?;
-        Ok(ChainTransaction::Application(
-            ApplicationTransaction::UTXO(utxo_tx),
-        ))
+        Ok(ChainTransaction::Application(ApplicationTransaction::UTXO(
+            utxo_tx,
+        )))
     }
 
     fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<(), TransactionError>
@@ -310,10 +325,11 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UnifiedTra
         }
     }
 
+    // IMPLEMENT: generate_proof
     fn generate_proof<S>(
         &self,
-        _tx: &Self::Transaction,
-        _state: &S,
+        tx: &Self::Transaction,
+        state: &S,
     ) -> Result<Self::Proof, TransactionError>
     where
         S: StateManager<
@@ -321,17 +337,34 @@ impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UnifiedTra
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
             > + ?Sized,
     {
-        Ok(())
+        match tx {
+            ChainTransaction::Application(ApplicationTransaction::UTXO(utxo_tx)) => self
+                .utxo_model
+                .generate_proof(utxo_tx, state)
+                .map(UnifiedProof::UTXO),
+            // For now, other types return a simple placeholder proof.
+            // A full implementation would prove contract state reads or signer account state.
+            ChainTransaction::Application(_) => Ok(UnifiedProof::Application),
+            ChainTransaction::System(_) => Ok(UnifiedProof::System),
+        }
     }
-    fn verify_proof<S>(&self, _proof: &Self::Proof, _state: &S) -> Result<bool, TransactionError>
+
+    // IMPLEMENT: verify_proof
+    fn verify_proof<S>(&self, proof: &Self::Proof, state: &S) -> Result<bool, TransactionError>
     where
         S: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
             > + ?Sized,
     {
-        Ok(true)
+        match proof {
+            UnifiedProof::UTXO(utxo_proof) => self.utxo_model.verify_proof(utxo_proof, state),
+            // For now, other types are considered valid by default.
+            UnifiedProof::Application => Ok(true),
+            UnifiedProof::System => Ok(true),
+        }
     }
+
     fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError> {
         serde_json::to_vec(tx).map_err(|e| TransactionError::Serialization(e.to_string()))
     }

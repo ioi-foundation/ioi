@@ -3,6 +3,7 @@
 
 use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, SchemeIdentifier, Selector};
 use depin_sdk_crypto::algorithms::hash;
+use serde::{Deserialize, Serialize}; // Add this line
 use std::fmt::Debug;
 
 /// Hash-based commitment scheme
@@ -32,7 +33,8 @@ impl AsRef<[u8]> for HashCommitment {
 }
 
 /// Hash-based proof
-#[derive(Debug, Clone)]
+// UPDATE: Add Serialize and Deserialize
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HashProof {
     /// The value this proof corresponds to (e.g., serialized Merkle proof data)
     pub value: Vec<u8>,
