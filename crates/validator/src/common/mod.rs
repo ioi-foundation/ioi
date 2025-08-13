@@ -4,6 +4,7 @@
 
 pub mod attestation;
 mod guardian;
+pub mod ipc;
 pub mod security;
 
 #[cfg(test)]

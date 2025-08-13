@@ -1,6 +1,4 @@
 // Path: crates/chain/src/app/mod.rs
-// Final Version: This file includes the critical fix for scheduling module upgrades
-// and resolves all associated clippy warnings.
 
 /// The private implementation for the `AppChain` trait.
 use crate::upgrade_manager::ModuleUpgradeManager;
@@ -40,7 +38,8 @@ pub struct ChainState<CS: CommitmentScheme + Clone> {
 
 #[derive(Debug)]
 pub struct Chain<CS: CommitmentScheme + Clone> {
-    state: ChainState<CS>,
+    // MODIFICATION: The `state` field is now public.
+    pub state: ChainState<CS>,
     pub service_manager: ModuleUpgradeManager,
 }
 
