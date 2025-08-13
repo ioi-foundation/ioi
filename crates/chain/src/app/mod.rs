@@ -16,6 +16,7 @@ use depin_sdk_types::app::{Block, BlockHeader, ChainStatus, ChainTransaction, Sy
 use depin_sdk_types::error::{ChainError, CoreError, StateError};
 use depin_sdk_types::keys::*;
 use libp2p::identity::Keypair; // Add this import for signing
+use serde::{Deserialize, Serialize}; // Add this line
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -114,6 +115,9 @@ where
 impl<CS, ST> AppChain<CS, UnifiedTransactionModel<CS>, ST> for Chain<CS>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    // UPDATE: Add the required trait bounds for the proof type
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync

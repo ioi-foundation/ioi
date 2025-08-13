@@ -2,11 +2,13 @@
 //! Defines the core `CommitmentScheme` trait and related types.
 
 use crate::commitment::identifiers::SchemeIdentifier;
+use serde::{Deserialize, Serialize}; // Add this line
 use std::collections::HashMap;
 use std::fmt::Debug;
 
 /// Selects an element or set of elements within a commitment.
-#[derive(Debug, Clone, PartialEq, Eq)]
+// UPDATE: Add Serialize and Deserialize
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Selector {
     /// Selects by an index-based position (for ordered commitments like Merkle trees).
     Position(usize),

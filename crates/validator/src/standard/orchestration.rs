@@ -191,7 +191,10 @@ where
 
 struct MainLoopContext<CS, ST, CE>
 where
+    // UPDATE: Add the where clause here
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
@@ -219,6 +222,9 @@ where
 impl<CS, ST, CE> OrchestrationContainer<CS, ST, CE>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    // UPDATE: Also add the bounds to the main impl block for consistency
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
@@ -502,6 +508,9 @@ where
 impl<CS, ST, CE> Container for OrchestrationContainer<CS, ST, CE>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    // UPDATE: And finally, add the bounds here too for the Container trait impl
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send

@@ -21,6 +21,17 @@ pub struct Account {
     pub nonce: u64,
 }
 
+// NEW: Define the proof structure for an account-based transaction.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AccountTransactionProof<P> {
+    /// The state key for the sender's account.
+    pub account_key: Vec<u8>,
+    /// The serialized `Account` state *before* the transaction.
+    pub account_value: Vec<u8>,
+    /// The cryptographic inclusion proof from the state manager.
+    pub inclusion_proof: P,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct AccountConfig {
     pub initial_balance: u64,
@@ -72,10 +83,15 @@ impl<CS: CommitmentScheme> AccountModel<CS> {
 }
 
 #[async_trait]
-impl<CS: CommitmentScheme + Send + Sync> TransactionModel for AccountModel<CS> {
+impl<CS: CommitmentScheme + Send + Sync> TransactionModel for AccountModel<CS>
+where
+    // Add this bound so we can serialize the proof
+    <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de>,
+{
     type Transaction = AccountTransaction;
     type CommitmentScheme = CS;
-    type Proof = ();
+    // UPDATE: Use our new generic proof structure.
+    type Proof = AccountTransactionProof<CS::Proof>;
 
     fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<(), TransactionError>
     where
@@ -141,10 +157,11 @@ impl<CS: CommitmentScheme + Send + Sync> TransactionModel for AccountModel<CS> {
         ))
     }
 
+    // IMPLEMENT: generate_proof
     fn generate_proof<S>(
         &self,
-        _tx: &Self::Transaction,
-        _state: &S,
+        tx: &Self::Transaction,
+        state: &S,
     ) -> Result<Self::Proof, TransactionError>
     where
         S: StateManager<
@@ -152,17 +169,48 @@ impl<CS: CommitmentScheme + Send + Sync> TransactionModel for AccountModel<CS> {
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
             > + ?Sized,
     {
-        Ok(())
+        // 1. Get the sender's account key.
+        let key = tx.from.clone();
+
+        // 2. Fetch the sender's account state from the state manager.
+        let value = state.get(&key)?.ok_or_else(|| {
+            TransactionError::Invalid(
+                "Sender account for proof generation not found".to_string(),
+            )
+        })?;
+
+        // 3. Create the inclusion proof for that key-value pair.
+        let inclusion_proof = state.create_proof(&key).ok_or_else(|| {
+            TransactionError::Invalid("Failed to create inclusion proof for account".to_string())
+        })?;
+
+        Ok(AccountTransactionProof {
+            account_key: key,
+            account_value: value,
+            inclusion_proof,
+        })
     }
 
-    fn verify_proof<S>(&self, _proof: &Self::Proof, _state: &S) -> Result<bool, TransactionError>
+    // IMPLEMENT: verify_proof
+    fn verify_proof<S>(&self, proof: &Self::Proof, state: &S) -> Result<bool, TransactionError>
     where
         S: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
             > + ?Sized,
     {
-        Ok(true)
+        // 1. Get the state root we are verifying against.
+        let root_commitment = state.root_commitment();
+
+        // 2. Verify the account's inclusion proof.
+        let is_valid = S::verify_proof(
+            &root_commitment,
+            &proof.inclusion_proof,
+            &proof.account_key,
+            &proof.account_value,
+        );
+
+        Ok(is_valid)
     }
 
     fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError> {
