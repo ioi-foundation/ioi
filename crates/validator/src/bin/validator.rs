@@ -7,7 +7,7 @@ use depin_sdk_api::validator::{Container, WorkloadContainer}; // Corrected impor
 use depin_sdk_chain::Chain;
 use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
 use depin_sdk_commitment::tree::file::FileStateTree;
-use depin_sdk_consensus::{round_robin::RoundRobinBftEngine, ConsensusEngine}; // Corrected import
+use depin_sdk_consensus::Consensus; // Corrected import
 use depin_sdk_network::libp2p::Libp2pSync;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::ChainTransaction;
@@ -77,9 +77,8 @@ async fn main() -> anyhow::Result<()> {
     chain.load_or_initialize_status(&workload).await?;
     let chain_ref = Arc::new(Mutex::new(chain));
 
-    let consensus_engine_box: Box<dyn ConsensusEngine<ChainTransaction> + Send + Sync> =
-        Box::new(RoundRobinBftEngine::new());
-    let consensus_engine = Arc::new(Mutex::new(consensus_engine_box));
+    let consensus_engine =
+        Consensus::RoundRobin(depin_sdk_consensus::round_robin::RoundRobinBftEngine::new());
 
     let key_path = Path::new(&opts.state_file).with_extension("json.identity.key");
     let local_key = if key_path.exists() {
@@ -93,18 +92,19 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let (syncer, swarm_commander, network_event_receiver) =
-        Libp2pSync::new(local_key, opts.listen_address, opts.peer)?;
+        Libp2pSync::new(local_key.clone(), opts.listen_address, opts.peer)?;
 
     let orchestration = Arc::new(OrchestrationContainer::<
         HashCommitmentScheme,
-        UnifiedTransactionModel<HashCommitmentScheme>,
         FileStateTree<HashCommitmentScheme>,
+        Consensus<ChainTransaction>,
     >::new(
         &path.join("orchestration.toml"),
         syncer,
         network_event_receiver,
         swarm_commander,
         consensus_engine,
+        local_key,
     )?);
 
     orchestration.set_chain_and_workload_ref(chain_ref.clone(), workload.clone());

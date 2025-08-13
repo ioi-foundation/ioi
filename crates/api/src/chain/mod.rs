@@ -4,6 +4,7 @@
 use async_trait::async_trait;
 use depin_sdk_types::app::{Block, ChainStatus, ChainTransaction};
 use depin_sdk_types::error::ChainError;
+use libp2p::identity::Keypair;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 
@@ -52,12 +53,14 @@ where
     /// * `current_validator_set` - The validator set from the last committed state.
     /// * `known_peers_bytes` - The current set of known validator peer IDs, as bytes,
     ///   used to propose an updated validator set for the new block.
+    /// * `producer_keypair` - The keypair of the node producing the block, used for signing.
     fn create_block(
         &self,
         transactions: Vec<ChainTransaction>,
         workload: &WorkloadContainer<ST>,
         current_validator_set: &[Vec<u8>],
         known_peers_bytes: &[Vec<u8>],
+        producer_keypair: &Keypair,
     ) -> Block<ChainTransaction>;
 
     /// Retrieves a block by its height.

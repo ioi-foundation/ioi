@@ -11,7 +11,7 @@ use depin_sdk_api::vm::VirtualMachine;
 use depin_sdk_chain::Chain;
 use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
 use depin_sdk_commitment::tree::file::FileStateTree;
-use depin_sdk_consensus::ConsensusEngine;
+use depin_sdk_consensus::Consensus;
 use depin_sdk_network::libp2p::Libp2pSync;
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_network::BlockSync;
@@ -152,14 +152,14 @@ fn populate_state_from_genesis(
     Ok(())
 }
 
-fn build_consensus_engine() -> Box<dyn ConsensusEngine<ChainTransaction> + Send + Sync> {
+fn build_consensus_engine() -> Consensus<ChainTransaction> {
     cfg_if! {
         if #[cfg(feature = "consensus-poa")] {
-            Box::new(depin_sdk_consensus::proof_of_authority::ProofOfAuthorityEngine::new())
+            Consensus::ProofOfAuthority(depin_sdk_consensus::proof_of_authority::ProofOfAuthorityEngine::new())
         } else if #[cfg(feature = "consensus-pos")] {
-            Box::new(depin_sdk_consensus::proof_of_stake::ProofOfStakeEngine::new())
+            Consensus::ProofOfStake(depin_sdk_consensus::proof_of_stake::ProofOfStakeEngine::new())
         } else if #[cfg(feature = "consensus-round-robin")] {
-            Box::new(depin_sdk_consensus::round_robin::RoundRobinBftEngine::new())
+            Consensus::RoundRobin(depin_sdk_consensus::round_robin::RoundRobinBftEngine::new())
         } else {
             compile_error!("A consensus engine feature must be enabled.");
         }
@@ -184,8 +184,8 @@ async fn run_semantic_simulation(
     orchestration_container: Arc<
         OrchestrationContainer<
             HashCommitmentScheme,
-            UnifiedTransactionModel<HashCommitmentScheme>,
             FileStateTree<HashCommitmentScheme>,
+            Consensus<ChainTransaction>,
         >,
     >,
 ) {
@@ -270,7 +270,7 @@ async fn run_full_node(opts: NodeOpts) -> anyhow::Result<()> {
     );
     chain.load_or_initialize_status(&workload_container).await?;
     let chain_ref = Arc::new(Mutex::new(chain));
-    let consensus_engine = Arc::new(Mutex::new(build_consensus_engine()));
+    let consensus_engine = build_consensus_engine();
     let key_path = Path::new(&opts.state_file).with_extension("json.identity.key");
     let local_key = if key_path.exists() {
         let mut bytes = Vec::new();
@@ -282,7 +282,7 @@ async fn run_full_node(opts: NodeOpts) -> anyhow::Result<()> {
         keypair
     };
     let (syncer, swarm_commander, network_event_receiver) =
-        Libp2pSync::new(local_key, opts.listen_address, opts.bootnode)?;
+        Libp2pSync::new(local_key.clone(), opts.listen_address, opts.bootnode)?;
     let config_path = PathBuf::from(&opts.config_dir);
     let orchestration_container = Arc::new(OrchestrationContainer::new(
         &config_path.join("orchestration.toml"),
@@ -290,6 +290,7 @@ async fn run_full_node(opts: NodeOpts) -> anyhow::Result<()> {
         network_event_receiver,
         swarm_commander,
         consensus_engine,
+        local_key,
     )?);
     let guardian_container = GuardianContainer::new(&config_path.join("guardian.toml"))?;
     orchestration_container

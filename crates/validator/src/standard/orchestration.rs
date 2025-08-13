@@ -13,8 +13,9 @@ use depin_sdk_consensus::{ConsensusDecision, ConsensusEngine};
 use depin_sdk_network::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_network::BlockSync;
+use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::{app::ChainTransaction, error::ValidatorError};
-use libp2p::PeerId;
+use libp2p::{identity, PeerId};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::Debug;
@@ -161,37 +162,36 @@ where
     (StatusCode::OK, Json(response))
 }
 
-type ChainFor<CS, TM, ST> = Arc<Mutex<dyn AppChain<CS, TM, ST> + Send + Sync>>;
+type ChainFor<CS, ST> = Arc<Mutex<dyn AppChain<CS, UnifiedTransactionModel<CS>, ST> + Send + Sync>>;
 
-pub struct OrchestrationContainer<CS, TM, ST>
+pub struct OrchestrationContainer<CS, ST, CE>
 where
-    CS: CommitmentScheme + Send + Sync + 'static,
-    TM: TransactionModel<CommitmentScheme = CS> + Clone + Send + Sync + 'static,
-    TM::Transaction: Clone + Debug + Send + Sync,
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
         + 'static
         + Debug,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
 {
     config: OrchestrationConfig,
-    chain: Arc<OnceCell<ChainFor<CS, TM, ST>>>,
+    chain: Arc<OnceCell<ChainFor<CS, ST>>>,
     workload: Arc<OnceCell<Arc<WorkloadContainer<ST>>>>,
     tx_pool: Arc<Mutex<VecDeque<ChainTransaction>>>,
     pub syncer: Arc<Libp2pSync>,
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
     network_event_receiver: Mutex<Option<mpsc::Receiver<NetworkEvent>>>,
-    consensus_engine: Arc<Mutex<Box<dyn ConsensusEngine<ChainTransaction> + Send + Sync>>>,
+    consensus_engine: Arc<Mutex<CE>>,
+    local_keypair: identity::Keypair,
     shutdown_sender: Arc<watch::Sender<bool>>,
     task_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     is_running: Arc<AtomicBool>,
     is_quarantined: Arc<AtomicBool>,
 }
 
-struct MainLoopContext<CS, TM, ST>
+struct MainLoopContext<CS, ST, CE>
 where
-    CS: CommitmentScheme + Send + Sync + 'static,
-    TM: TransactionModel<CommitmentScheme = CS> + Clone + Send + Sync + 'static,
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
@@ -199,29 +199,26 @@ where
         + 'static
         + Debug,
     CS::Commitment: Send + Sync + Debug,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
 {
-    chain_ref: Arc<Mutex<dyn AppChain<CS, TM, ST> + Send + Sync>>,
+    chain_ref: Arc<Mutex<dyn AppChain<CS, UnifiedTransactionModel<CS>, ST> + Send + Sync>>,
     workload_ref: Arc<WorkloadContainer<ST>>,
     tx_pool_ref: Arc<Mutex<VecDeque<ChainTransaction>>>,
     network_event_receiver: mpsc::Receiver<NetworkEvent>,
     swarm_commander: mpsc::Sender<SwarmCommand>,
     shutdown_receiver: watch::Receiver<bool>,
-    consensus_engine_ref: Arc<Mutex<Box<dyn ConsensusEngine<ChainTransaction> + Send + Sync>>>,
+    consensus_engine_ref: Arc<Mutex<CE>>,
     node_state: Arc<Mutex<NodeState>>,
     local_peer_id: PeerId,
+    local_keypair: identity::Keypair,
     known_peers_ref: Arc<Mutex<HashSet<PeerId>>>,
     config: OrchestrationConfig,
     is_quarantined: Arc<AtomicBool>,
 }
 
-impl<CS, TM, ST> OrchestrationContainer<CS, TM, ST>
+impl<CS, ST, CE> OrchestrationContainer<CS, ST, CE>
 where
-    CS: CommitmentScheme + Send + Sync + 'static,
-    TM: TransactionModel<CommitmentScheme = CS, Transaction = ChainTransaction>
-        + Clone
-        + Send
-        + Sync
-        + 'static,
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
@@ -229,13 +226,15 @@ where
         + 'static
         + Debug,
     CS::Commitment: Send + Sync + Debug,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
 {
     pub fn new(
         config_path: &std::path::Path,
         syncer: Arc<Libp2pSync>,
         network_event_receiver: mpsc::Receiver<NetworkEvent>,
         swarm_command_sender: mpsc::Sender<SwarmCommand>,
-        consensus_engine: Arc<Mutex<Box<dyn ConsensusEngine<ChainTransaction> + Send + Sync>>>,
+        consensus_engine: CE,
+        local_keypair: identity::Keypair,
     ) -> anyhow::Result<Self> {
         let config: OrchestrationConfig = toml::from_str(&std::fs::read_to_string(config_path)?)?;
         let (shutdown_sender, _) = watch::channel(false);
@@ -248,7 +247,8 @@ where
             syncer,
             swarm_command_sender,
             network_event_receiver: Mutex::new(Some(network_event_receiver)),
-            consensus_engine,
+            consensus_engine: Arc::new(Mutex::new(consensus_engine)),
+            local_keypair,
             shutdown_sender: Arc::new(shutdown_sender),
             task_handles: Arc::new(Mutex::new(Vec::new())),
             is_running: Arc::new(AtomicBool::new(false)),
@@ -258,7 +258,7 @@ where
 
     pub fn set_chain_and_workload_ref(
         &self,
-        chain_ref: Arc<Mutex<dyn AppChain<CS, TM, ST> + Send + Sync>>,
+        chain_ref: Arc<Mutex<dyn AppChain<CS, UnifiedTransactionModel<CS>, ST> + Send + Sync>>,
         workload_ref: Arc<WorkloadContainer<ST>>,
     ) {
         self.chain.set(chain_ref).expect("Chain ref already set");
@@ -333,7 +333,7 @@ where
         Err("Semantic consensus failed".to_string())
     }
 
-    async fn run_main_loop(mut context: MainLoopContext<CS, TM, ST>) {
+    async fn run_main_loop(mut context: MainLoopContext<CS, ST, CE>) {
         let mut block_production_interval = time::interval(Duration::from_secs(5));
         block_production_interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
 
@@ -475,7 +475,7 @@ where
                         peers_bytes.push(context.local_peer_id.to_bytes());
                         drop(known_peers);
 
-                        let new_block_template = context.chain_ref.lock().await.create_block(transactions_to_include, &context.workload_ref, &node_set_for_header, &peers_bytes);
+                        let new_block_template = context.chain_ref.lock().await.create_block(transactions_to_include, &context.workload_ref, &node_set_for_header, &peers_bytes, &context.local_keypair);
 
                         if let Ok(final_block) = context.chain_ref.lock().await.process_block(new_block_template, &context.workload_ref).await {
                             log::info!("Produced and processed new block #{}", final_block.header.height);
@@ -499,14 +499,9 @@ where
 }
 
 #[async_trait]
-impl<CS, TM, ST> Container for OrchestrationContainer<CS, TM, ST>
+impl<CS, ST, CE> Container for OrchestrationContainer<CS, ST, CE>
 where
-    CS: CommitmentScheme + Send + Sync + 'static,
-    TM: TransactionModel<CommitmentScheme = CS, Transaction = ChainTransaction>
-        + Clone
-        + Send
-        + Sync
-        + 'static,
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
@@ -514,6 +509,7 @@ where
         + 'static
         + Debug,
     CS::Commitment: Send + Sync + Debug,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
 {
     fn id(&self) -> &'static str {
         "orchestration_container"
@@ -580,7 +576,7 @@ where
             "Network event receiver already taken".to_string(),
         ))?;
 
-        let context = MainLoopContext::<CS, TM, ST> {
+        let context = MainLoopContext::<CS, ST, CE> {
             chain_ref: chain,
             workload_ref: workload,
             tx_pool_ref: self.tx_pool.clone(),
@@ -590,6 +586,7 @@ where
             consensus_engine_ref: self.consensus_engine.clone(),
             node_state: self.syncer.get_node_state(),
             local_peer_id: self.syncer.get_local_peer_id(),
+            local_keypair: self.local_keypair.clone(),
             known_peers_ref: self.syncer.get_known_peers(),
             config: self.config.clone(),
             is_quarantined: self.is_quarantined.clone(),

@@ -53,6 +53,21 @@ pub struct BlockHeader {
     /// The full, sorted list of PeerIds (in bytes) that constituted the validator
     /// set when this block was created.
     pub validator_set: Vec<Vec<u8>>,
+    /// The public key (in bytes) of the block producer.
+    pub producer: Vec<u8>,
+    /// The signature of the block header's hash, signed by the producer.
+    pub signature: Vec<u8>,
+}
+
+impl BlockHeader {
+    /// Creates a hash of the header's core fields for signing.
+    pub fn hash_for_signing(&self) -> Vec<u8> {
+        let mut temp = self.clone();
+        // Clear the signature before hashing to create a stable payload.
+        temp.signature = vec![];
+        let serialized = serde_json::to_vec(&temp).unwrap();
+        DcryptSha256::digest(&serialized).unwrap().to_bytes()
+    }
 }
 
 /// An input for a UTXO transaction, pointing to a previous output.
