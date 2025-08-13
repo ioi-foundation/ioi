@@ -1,14 +1,15 @@
 // Path: crates/homomorphic/src/operations/scalar_multiply/tests/mod.rs
 use super::*;
+use crate::error::HomomorphicError;
 use depin_sdk_api::commitment::CommitmentScheme;
-use depin_sdk_commitment::primitives::elliptic_curve::{
-    EllipticCurveCommitment, EllipticCurveCommitmentScheme,
-};
+use depin_sdk_api::homomorphic::CommitmentOperation;
+use depin_sdk_commitment::primitives::pedersen::{PedersenCommitment, PedersenCommitmentScheme};
 use std::any::Any;
+use std::sync::Arc;
 
 #[test]
 fn test_scalar_multiply() {
-    let scheme = EllipticCurveCommitmentScheme::new(5);
+    let scheme = PedersenCommitmentScheme::new(5);
 
     // Create a commitment
     let value = b"test value";
@@ -30,7 +31,7 @@ fn test_scalar_multiply() {
 
 #[test]
 fn test_execute_scalar_multiply() {
-    let scheme = EllipticCurveCommitmentScheme::new(5);
+    let scheme = PedersenCommitmentScheme::new(5);
 
     // Create a commitment
     let value = b"test value";
@@ -49,9 +50,7 @@ fn test_execute_scalar_multiply() {
 
     match result {
         OperationResult::Success(result_arc) => {
-            let product = result_arc
-                .downcast_ref::<EllipticCurveCommitment>()
-                .unwrap();
+            let product = result_arc.downcast_ref::<PedersenCommitment>().unwrap();
             assert_ne!(product.as_ref(), commitment.as_ref());
         }
         _ => panic!("Operation failed or unsupported"),
@@ -60,7 +59,7 @@ fn test_execute_scalar_multiply() {
 
 #[test]
 fn test_scalar_multiply_invalid_input() {
-    let scheme = EllipticCurveCommitmentScheme::new(5);
+    let scheme = PedersenCommitmentScheme::new(5);
 
     // Create an invalid commitment
     let commitment_arc: Arc<dyn Any + Send + Sync> = Arc::new("not a commitment");
@@ -83,7 +82,7 @@ fn test_scalar_multiply_invalid_input() {
 
 #[test]
 fn test_scalar_multiply_negative_scalar() {
-    let scheme = EllipticCurveCommitmentScheme::new(5);
+    let scheme = PedersenCommitmentScheme::new(5);
 
     // Create a valid commitment
     let value = b"test value";
