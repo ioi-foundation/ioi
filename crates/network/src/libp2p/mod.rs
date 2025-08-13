@@ -61,12 +61,11 @@ pub enum SwarmCommand {
     SendStatusRequest(PeerId),
     SendBlocksRequest(PeerId, u64),
     SendStatusResponse(ResponseChannel<SyncResponse>, u64),
-    SendBlocksResponse(
-        ResponseChannel<SyncResponse>,
-        Vec<Block<ChainTransaction>>,
-    ),
+    SendBlocksResponse(ResponseChannel<SyncResponse>, Vec<Block<ChainTransaction>>),
     BroadcastToCommittee(Vec<PeerId>, String), // For semantic consensus
-    SimulateSemanticTx,                        // For E2E test
+    // [NEW] Command to send the acknowledgement
+    SendSemanticAck(ResponseChannel<SyncResponse>),
+    SimulateSemanticTx, // For E2E test
 }
 
 #[derive(Debug)]
@@ -79,6 +78,8 @@ pub enum NetworkEvent {
     BlocksRequest(PeerId, u64, ResponseChannel<SyncResponse>),
     StatusResponse(PeerId, u64),
     BlocksResponse(PeerId, Vec<Block<ChainTransaction>>),
+    // [NEW] Event for the orchestrator, containing the received prompt and its sender.
+    SemanticPrompt { from: PeerId, prompt: String },
 }
 
 // Internal event type for swarm -> forwarder communication
@@ -92,6 +93,12 @@ enum SwarmInternalEvent {
     BlocksRequest(PeerId, u64, ResponseChannel<SyncResponse>),
     StatusResponse(PeerId, u64),
     BlocksResponse(PeerId, Vec<Block<ChainTransaction>>),
+    // [NEW] Internal event to carry the prompt and the response channel for the ACK.
+    SemanticPrompt {
+        from: PeerId,
+        prompt: String,
+        channel: ResponseChannel<SyncResponse>,
+    },
 }
 
 // --- Libp2pSync Implementation ---
@@ -132,8 +139,30 @@ impl Libp2pSync {
             shutdown_sender.subscribe(),
         ));
 
+        let swarm_command_sender_clone = swarm_command_sender.clone();
         let event_forwarder_task = tokio::spawn(async move {
             while let Some(event) = internal_event_receiver.recv().await {
+                if let SwarmInternalEvent::SemanticPrompt {
+                    from,
+                    prompt,
+                    channel,
+                } = event
+                {
+                    let translated_event = NetworkEvent::SemanticPrompt { from, prompt };
+                    if network_event_sender.send(translated_event).await.is_err() {
+                        log::info!("[Sync] Network event channel closed. Shutting down forwarder.");
+                        break;
+                    }
+                    if swarm_command_sender_clone
+                        .send(SwarmCommand::SendSemanticAck(channel))
+                        .await
+                        .is_err()
+                    {
+                        log::warn!("[Sync] Failed to send SemanticAck command to swarm.");
+                    }
+                    continue;
+                }
+
                 let translated_event = match event {
                     SwarmInternalEvent::ConnectionEstablished(p) => {
                         Some(NetworkEvent::ConnectionEstablished(p))
@@ -171,6 +200,7 @@ impl Libp2pSync {
                             }
                         }
                     }
+                    SwarmInternalEvent::SemanticPrompt { .. } => unreachable!(),
                 };
 
                 if let Some(event) = translated_event {
@@ -283,10 +313,17 @@ impl Libp2pSync {
                                 request_response::Message::Request { request, channel, .. } => match request {
                                     SyncRequest::GetStatus => { event_sender.send(SwarmInternalEvent::StatusRequest(peer, channel)).await.ok(); }
                                     SyncRequest::GetBlocks(h) => { event_sender.send(SwarmInternalEvent::BlocksRequest(peer, h, channel)).await.ok(); }
+                                    SyncRequest::SemanticPrompt(prompt) => {
+                                        log::info!("[Sync] Received SemanticPrompt from peer {}", peer);
+                                        event_sender.send(SwarmInternalEvent::SemanticPrompt { from: peer, prompt, channel }).await.ok();
+                                    }
                                 },
                                 request_response::Message::Response { response, .. } => match response {
                                     SyncResponse::Status(h) => { event_sender.send(SwarmInternalEvent::StatusResponse(peer, h)).await.ok(); }
                                     SyncResponse::Blocks(blocks) => { event_sender.send(SwarmInternalEvent::BlocksResponse(peer, blocks)).await.ok(); }
+                                    SyncResponse::SemanticAck => {
+                                        log::info!("[Sync] Received SemanticAck from peer {}", peer);
+                                    }
                                 }
                             }
                         }
@@ -312,8 +349,15 @@ impl Libp2pSync {
                             // This is a test-only command to trigger a log cascade.
                             // It does not interact with the network.
                         }
-                        SwarmCommand::BroadcastToCommittee(_, _) => {
-                            // Placeholder for real broadcast logic
+                        SwarmCommand::BroadcastToCommittee(peers, prompt) => {
+                            log::info!("[Sync] Broadcasting prompt to committee of {} peers.", peers.len());
+                            for peer_id in peers {
+                                let request = SyncRequest::SemanticPrompt(prompt.clone());
+                                swarm.behaviour_mut().request_response.send_request(&peer_id, request);
+                            }
+                        }
+                        SwarmCommand::SendSemanticAck(channel) => {
+                            swarm.behaviour_mut().request_response.send_response(channel, SyncResponse::SemanticAck).ok();
                         }
                     },
                     None => { return; }
