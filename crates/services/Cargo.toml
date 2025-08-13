@@ -9,6 +9,7 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 # FIX: Changed dependency from depin-sdk-core to depin-sdk-api
 depin-sdk-api = { path = "../api" }
+depin-sdk-types = { path = "../types" }
 log = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }

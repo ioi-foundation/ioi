@@ -13,3 +13,15 @@ pub const AUTHORITY_SET_KEY: &[u8] = b"system::authorities";
 pub const GOVERNANCE_KEY: &[u8] = b"system::governance_key";
 /// The state key for the governance-approved semantic AI model hash.
 pub const STATE_KEY_SEMANTIC_MODEL_HASH: &[u8] = b"system::semantic_model_hash";
+
+/// The state key prefix for user account data.
+pub const ACCOUNT_KEY_PREFIX: &[u8] = b"account::";
+/// The state key prefix for gas escrow entries.
+pub const GAS_ESCROW_KEY_PREFIX: &[u8] = b"escrow::gas::";
+
+/// The state key for the next available proposal ID.
+pub const GOVERNANCE_NEXT_PROPOSAL_ID_KEY: &[u8] = b"gov::next_id";
+/// The state key prefix for storing proposals by ID.
+pub const GOVERNANCE_PROPOSAL_KEY_PREFIX: &[u8] = b"gov::proposal::";
+/// The state key prefix for storing votes.
+pub const GOVERNANCE_VOTE_KEY_PREFIX: &[u8] = b"gov::vote::";

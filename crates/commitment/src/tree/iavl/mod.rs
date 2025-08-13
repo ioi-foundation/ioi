@@ -1,5 +1,4 @@
 // Path: crates/commitment/src/tree/iavl/mod.rs
-
 //! IAVL (Immutable AVL) tree implementation with cryptographic security
 
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
@@ -514,6 +513,16 @@ where
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StateError> {
+        let results = self
+            .cache
+            .iter()
+            .filter(|(key, _)| key.starts_with(prefix))
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect();
+        Ok(results)
     }
 }
 

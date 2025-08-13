@@ -4,6 +4,11 @@
 use depin_sdk_types::error::StateError;
 use std::any::Any;
 
+/// A key-value pair from the state.
+pub type StateKVPair = (Vec<u8>, Vec<u8>);
+/// The result type for a prefix scan operation.
+pub type StateScanResult = Result<Vec<StateKVPair>, StateError>;
+
 /// A trait for generic state commitment operations.
 ///
 /// A `StateCommitment` provides a key-value storage interface that can produce a
@@ -33,4 +38,7 @@ pub trait StateCommitment {
     ) -> bool;
     /// Provides access to the concrete type for downcasting.
     fn as_any(&self) -> &dyn Any;
+
+    /// Scans for all key-value pairs starting with the given prefix.
+    fn prefix_scan(&self, prefix: &[u8]) -> StateScanResult;
 }

@@ -10,7 +10,11 @@ use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_api::vm::ExecutionContext;
 use depin_sdk_types::app::{ApplicationTransaction, ChainTransaction, StateEntry, SystemPayload};
 use depin_sdk_types::error::{StateError, TransactionError};
-use depin_sdk_types::keys::{AUTHORITY_SET_KEY, GOVERNANCE_KEY, STAKES_KEY};
+// --- FIX: Import keys directly from types, not services ---
+use depin_sdk_types::keys::{
+    AUTHORITY_SET_KEY, GOVERNANCE_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, GOVERNANCE_VOTE_KEY_PREFIX,
+    STAKES_KEY,
+};
 use libp2p::identity::PublicKey as Libp2pPublicKey;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -105,7 +109,7 @@ where
         &self,
         tx: &Self::Transaction,
         workload: &WorkloadContainer<ST>,
-        block_height: u64,
+        _block_height: u64,
     ) -> Result<(), TransactionError>
     where
         ST: StateManager<
@@ -118,7 +122,9 @@ where
         match tx {
             ChainTransaction::Application(app_tx) => match app_tx {
                 ApplicationTransaction::UTXO(utxo_tx) => {
-                    self.utxo_model.apply(utxo_tx, workload, block_height).await
+                    self.utxo_model
+                        .apply(utxo_tx, workload, _block_height)
+                        .await
                 }
                 ApplicationTransaction::DeployContract {
                     code,
@@ -138,7 +144,7 @@ where
                             .map(|(key, value)| {
                                 let entry = StateEntry {
                                     value,
-                                    block_height,
+                                    block_height: _block_height,
                                 };
                                 (key, serde_json::to_vec(&entry).unwrap())
                             })
@@ -160,7 +166,7 @@ where
                 } => {
                     let context = ExecutionContext {
                         caller: signer_pubkey.clone(),
-                        block_height,
+                        block_height: _block_height,
                         gas_limit: *gas_limit,
                         contract_address: address.clone(),
                     };
@@ -177,7 +183,7 @@ where
                             .map(|(key, value)| {
                                 let entry = StateEntry {
                                     value,
-                                    block_height,
+                                    block_height: _block_height,
                                 };
                                 (key, serde_json::to_vec(&entry).unwrap())
                             })
@@ -318,6 +324,56 @@ where
                         // the ModuleUpgradeManager to schedule the upgrade. This model doesn't
                         // need to do anything with the state tree for this payload.
                         log::debug!("SwapModule transaction observed in UnifiedTransactionModel, taking no action as it is handled by the Chain.");
+                    }
+                    SystemPayload::Vote {
+                        proposal_id,
+                        option,
+                    } => {
+                        // --- FIX: Logic moved from GovernanceModule::vote to here ---
+                        // 1. Extract voter identity from signature
+                        const ED25519_PUBKEY_LEN: usize = 32;
+                        if sys_tx.signature.len() < ED25519_PUBKEY_LEN {
+                            return Err(TransactionError::Invalid(
+                                "Invalid signature format for vote".into(),
+                            ));
+                        }
+                        let (pubkey_bytes, _sig_bytes) =
+                            sys_tx.signature.split_at(ED25519_PUBKEY_LEN);
+
+                        // 2. Validate that the proposal exists and is in the voting period.
+                        let proposal_key =
+                            [GOVERNANCE_PROPOSAL_KEY_PREFIX, &proposal_id.to_le_bytes()].concat();
+                        let proposal_bytes = state.get(&proposal_key)?.ok_or_else(|| {
+                            TransactionError::Invalid("Proposal does not exist".into())
+                        })?;
+                        let proposal: serde_json::Value = serde_json::from_slice(&proposal_bytes)
+                            .map_err(|_| {
+                            TransactionError::Invalid("Failed to parse proposal".into())
+                        })?;
+
+                        if proposal["status"] != "VotingPeriod" {
+                            return Err(TransactionError::Invalid(
+                                "Proposal is not in voting period".into(),
+                            ));
+                        }
+                        if _block_height > proposal["voting_end_height"].as_u64().unwrap_or(0) {
+                            return Err(TransactionError::Invalid(
+                                "Voting period has ended".into(),
+                            ));
+                        }
+
+                        // 3. Write the vote to the state.
+                        let vote_key = [
+                            GOVERNANCE_VOTE_KEY_PREFIX,
+                            &proposal_id.to_le_bytes(),
+                            b"::",
+                            pubkey_bytes,
+                        ]
+                        .concat();
+                        let vote_bytes = serde_json::to_vec(option).unwrap();
+                        state.insert(&vote_key, &vote_bytes)?;
+
+                        log::info!("Applied vote for proposal {}.", proposal_id);
                     }
                 }
                 Ok(())
