@@ -6,6 +6,8 @@
 //! Core traits and interfaces for the DePIN SDK. This crate defines the
 //! stable contract for all modular components.
 
+/// Core application-level data structures like Blocks and Transactions.
+pub mod app;
 pub mod chain;
 pub mod commitment;
 pub mod component;

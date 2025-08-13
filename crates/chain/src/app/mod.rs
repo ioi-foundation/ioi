@@ -15,6 +15,7 @@ use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{Block, BlockHeader, ChainStatus, ChainTransaction, SystemPayload};
 use depin_sdk_types::error::{ChainError, CoreError, StateError};
 use depin_sdk_types::keys::*;
+use libp2p::identity::Keypair; // Add this import for signing
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -255,7 +256,10 @@ where
         _workload: &WorkloadContainer<ST>,
         current_validator_set: &[Vec<u8>],
         _known_peers_bytes: &[Vec<u8>],
+        // ---- ADD SIGNING KEYPAIR PARAMETER ----
+        producer_keypair: &Keypair,
     ) -> Block<ChainTransaction> {
+        // ... existing logic to calculate prev_hash, validator_set_bytes, next_height ...
         let prev_hash = self
             .state
             .recent_blocks
@@ -266,17 +270,28 @@ where
         validator_set_bytes.sort();
 
         let next_height = self.state.status.height + 1;
-        let header = BlockHeader {
+
+        let producer_pubkey_bytes = producer_keypair.public().encode_protobuf();
+
+        let mut header = BlockHeader {
             height: next_height,
             prev_hash: prev_hash.clone(),
-            state_root: prev_hash,
-            transactions_root: vec![0; 32],
+            state_root: prev_hash,          // Placeholder until processed
+            transactions_root: vec![0; 32], // Placeholder
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_secs(),
             validator_set: validator_set_bytes,
+            // ---- SET NEW FIELDS ----
+            producer: producer_pubkey_bytes,
+            signature: vec![], // Placeholder for signing
         };
+
+        // Sign the header hash
+        let header_hash = header.hash_for_signing();
+        header.signature = producer_keypair.sign(&header_hash).unwrap();
+
         Block {
             header,
             transactions,
