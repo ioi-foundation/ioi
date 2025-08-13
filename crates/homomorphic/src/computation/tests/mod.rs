@@ -2,21 +2,21 @@
 use super::*;
 use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, Selector};
 use depin_sdk_api::homomorphic::{CommitmentOperation, OperationResult};
-use depin_sdk_commitment::primitives::elliptic_curve::{
-    EllipticCurveCommitment, EllipticCurveCommitmentScheme,
-};
+use depin_sdk_commitment::primitives::pedersen::{PedersenCommitment, PedersenCommitmentScheme};
 
 use std::any::Any;
 
 #[test]
 fn test_computation_engine() {
-    // Create a computation engine with EllipticCurve commitment scheme
-    let scheme = EllipticCurveCommitmentScheme::new(5);
+    // Create a computation engine with Pedersen commitment scheme
+    let scheme = PedersenCommitmentScheme::new(5);
     let computation = HomomorphicComputation::new(scheme.clone());
 
     // Test add operation
     let value_a = b"value a";
     let value_b = b"value b";
+    // NOTE: This commit is flawed as it doesn't return the blinding factor.
+    // A real application would need a way to manage this.
     let commitment_a = scheme.commit(&[Some(value_a.to_vec())]);
     let commitment_b = scheme.commit(&[Some(value_b.to_vec())]);
 
@@ -28,9 +28,7 @@ fn test_computation_engine() {
 
     match result {
         OperationResult::Success(result_arc) => {
-            let sum = result_arc
-                .downcast_ref::<EllipticCurveCommitment>()
-                .unwrap();
+            let sum = result_arc.downcast_ref::<PedersenCommitment>().unwrap();
 
             // Compute expected result directly
             let expected = scheme.add(&commitment_a, &commitment_b).unwrap();
@@ -64,9 +62,7 @@ fn test_computation_engine() {
 
     match result {
         OperationResult::Success(result_arc) => {
-            let product = result_arc
-                .downcast_ref::<EllipticCurveCommitment>()
-                .unwrap();
+            let product = result_arc.downcast_ref::<PedersenCommitment>().unwrap();
 
             // Compute expected result directly
             let expected = scheme.scalar_multiply(&commitment_a, scalar).unwrap();
@@ -108,8 +104,8 @@ fn test_computation_engine() {
 
 #[test]
 fn test_batch_operations() {
-    // Create a computation engine with Elliptic Curve commitment scheme
-    let scheme = EllipticCurveCommitmentScheme::new(5);
+    // Create a computation engine with Pedersen commitment scheme
+    let scheme = PedersenCommitmentScheme::new(5);
     let computation = HomomorphicComputation::new(scheme.clone());
 
     // Create test commitments

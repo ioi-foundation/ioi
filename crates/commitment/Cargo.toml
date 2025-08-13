@@ -28,7 +28,7 @@ default = []
 primitive-hash = []
 primitive-kzg = []
 primitive-lattice = []
-primitive-elliptic-curve = ["depin-sdk-api/homomorphic"]
+primitive-pedersen = ["depin-sdk-api/homomorphic"]
 
 # Trees (depend on primitives)
 tree-hashmap = ["primitive-hash"]

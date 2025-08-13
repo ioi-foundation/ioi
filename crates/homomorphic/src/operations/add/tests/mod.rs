@@ -3,15 +3,13 @@ use super::*;
 use crate::operations::{add, execute_add};
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::homomorphic::CommitmentOperation;
-use depin_sdk_commitment::primitives::elliptic_curve::{
-    EllipticCurveCommitment, EllipticCurveCommitmentScheme,
-};
+use depin_sdk_commitment::primitives::pedersen::{PedersenCommitment, PedersenCommitmentScheme};
 use std::any::Any;
 use std::sync::Arc;
 
 #[test]
 fn test_add_operation() {
-    let scheme = EllipticCurveCommitmentScheme::new(5);
+    let scheme = PedersenCommitmentScheme::new(5);
 
     // Create two commitments
     let value_a = b"value a";
@@ -32,9 +30,7 @@ fn test_add_operation() {
 
     match result {
         OperationResult::Success(result_arc) => {
-            let sum = result_arc
-                .downcast_ref::<EllipticCurveCommitment>()
-                .unwrap();
+            let sum = result_arc.downcast_ref::<PedersenCommitment>().unwrap();
             assert_ne!(sum.as_ref(), commitment_a.as_ref());
             assert_ne!(sum.as_ref(), commitment_b.as_ref());
         }
@@ -44,7 +40,7 @@ fn test_add_operation() {
 
 #[test]
 fn test_add_invalid_input() {
-    let scheme = EllipticCurveCommitmentScheme::new(5);
+    let scheme = PedersenCommitmentScheme::new(5);
 
     // Create a valid commitment
     let value = b"test value";
