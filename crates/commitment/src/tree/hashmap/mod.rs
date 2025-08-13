@@ -1,3 +1,4 @@
+// Path: crates/commitment/src/tree/hashmap/mod.rs
 //! HashMap-based state tree implementation with Merkle tree security
 
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
@@ -72,10 +73,10 @@ where
             let mut next_level = Vec::new();
             for i in (0..current_level.len()).step_by(2) {
                 let left = &current_level[i];
-                let right = if i + 1 < current_level.len() { 
-                    &current_level[i + 1] 
-                } else { 
-                    left 
+                let right = if i + 1 < current_level.len() {
+                    &current_level[i + 1]
+                } else {
+                    left
                 };
                 let mut data = Vec::new();
                 data.push(0x01);
@@ -111,21 +112,21 @@ where
         while current_level.len() > 1 {
             let is_right = current_index % 2 == 1;
             path.push(is_right);
-            let sibling_index = if is_right { 
-                current_index - 1 
-            } else if current_index + 1 < current_level.len() { 
-                current_index + 1 
-            } else { 
-                current_index 
+            let sibling_index = if is_right {
+                current_index - 1
+            } else if current_index + 1 < current_level.len() {
+                current_index + 1
+            } else {
+                current_index
             };
             siblings.push(current_level[sibling_index].clone());
             let mut next_level = Vec::new();
             for i in (0..current_level.len()).step_by(2) {
                 let left = &current_level[i];
-                let right = if i + 1 < current_level.len() { 
-                    &current_level[i + 1] 
-                } else { 
-                    left 
+                let right = if i + 1 < current_level.len() {
+                    &current_level[i + 1]
+                } else {
+                    left
                 };
                 let mut data = Vec::new();
                 data.push(0x01);
@@ -140,7 +141,12 @@ where
     }
 
     /// **[COMPLETED]** Verify a Merkle proof. Made static to be called from the trait impl.
-    pub fn verify_merkle_proof_static(root: &[u8], key: &[u8], value: &[u8], proof: &MerkleProof) -> bool {
+    pub fn verify_merkle_proof_static(
+        root: &[u8],
+        key: &[u8],
+        value: &[u8],
+        proof: &MerkleProof,
+    ) -> bool {
         let mut leaf_data = Vec::new();
         leaf_data.push(0x00);
         leaf_data.extend_from_slice(&(key.len() as u32).to_le_bytes());
@@ -194,7 +200,11 @@ where
     }
 
     fn root_commitment(&self) -> Self::Commitment {
-        let root = self.cached_root.as_ref().cloned().unwrap_or_else(|| self.compute_merkle_root());
+        let root = self
+            .cached_root
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(|| self.compute_merkle_root());
         let value = self.to_value(&root);
         self.scheme.commit(&[Some(value)])
     }
@@ -207,7 +217,12 @@ where
         self.scheme.create_proof(&selector, &value).ok()
     }
 
-    fn verify_proof(commitment: &Self::Commitment, proof: &Self::Proof, key: &[u8], value: &[u8]) -> bool {
+    fn verify_proof(
+        commitment: &Self::Commitment,
+        proof: &Self::Proof,
+        key: &[u8],
+        value: &[u8],
+    ) -> bool {
         let root_hash = commitment.as_ref();
         let proof_data = proof.as_ref();
 
@@ -221,6 +236,16 @@ where
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StateError> {
+        let results = self
+            .data
+            .range(prefix.to_vec()..)
+            .take_while(|(key, _)| key.starts_with(prefix))
+            .map(|(key, value)| (key.clone(), value.as_ref().to_vec()))
+            .collect();
+        Ok(results)
     }
 }
 

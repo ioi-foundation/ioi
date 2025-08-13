@@ -1,5 +1,4 @@
 // Path: crates/commitment/src/tree/sparse_merkle/mod.rs
-
 //! Sparse Merkle tree implementation with cryptographic security
 
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
@@ -281,7 +280,7 @@ where
         };
 
         let mut current_hash = leaf_hash;
-        let mut proof_siblings = proof.siblings.iter();
+        let mut proof_siblings = proof.siblings.iter().rev();
 
         for depth in (0..TREE_HEIGHT).rev() {
             let sibling_hash = if let Some(sibling) = proof_siblings.next() {
@@ -365,6 +364,16 @@ where
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StateError> {
+        let results = self
+            .cache
+            .iter()
+            .filter(|(key, _)| key.starts_with(prefix))
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect();
+        Ok(results)
     }
 }
 

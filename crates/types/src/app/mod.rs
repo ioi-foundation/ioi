@@ -1,7 +1,8 @@
 // Path: crates/types/src/app/mod.rs
 //! Core application-level data structures like Blocks and Transactions.
 
-use dcrypt::algorithms::hash::{sha2::Sha256 as DcryptSha256, HashFunction};
+// --- FIX: Corrected the import path for DcryptSha256 ---
+use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
 use dcrypt::algorithms::ByteSerializable;
 use serde::{Deserialize, Serialize};
 
@@ -182,6 +183,19 @@ pub struct SystemTransaction {
     pub signature: Vec<u8>,
 }
 
+/// A voting option for a governance proposal.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VoteOption {
+    /// A vote in favor of the proposal.
+    Yes,
+    /// A vote against the proposal.
+    No,
+    /// A stronger vote against, indicating a potential veto.
+    NoWithVeto,
+    /// A vote to abstain, which counts towards quorum but not the threshold.
+    Abstain,
+}
+
 /// The specific action being requested by a SystemTransaction.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum SystemPayload {
@@ -208,5 +222,12 @@ pub enum SystemPayload {
         module_wasm: Vec<u8>,
         /// The block height at which the upgrade becomes active.
         activation_height: u64,
+    },
+    /// Casts a vote on a governance proposal.
+    Vote {
+        /// The unique identifier of the proposal being voted on.
+        proposal_id: u64,
+        /// The voter's chosen option.
+        option: VoteOption,
     },
 }

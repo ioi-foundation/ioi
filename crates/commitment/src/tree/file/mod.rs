@@ -1,3 +1,4 @@
+// Path: crates/commitment/src/tree/file/mod.rs
 //! File-backed state tree with Merkle tree security
 
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
@@ -308,6 +309,18 @@ where
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StateError> {
+        let prefix_hex = hex::encode(prefix);
+        let results = self
+            .state
+            .data
+            .range(prefix_hex.clone()..)
+            .take_while(|(key, _)| key.starts_with(&prefix_hex))
+            .filter_map(|(key, value)| hex::decode(key).ok().map(|k| (k, value.clone())))
+            .collect();
+        Ok(results)
     }
 }
 

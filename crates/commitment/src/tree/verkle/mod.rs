@@ -1,5 +1,4 @@
 // Path: crates/commitment/src/tree/verkle/mod.rs
-
 //! Verkle tree implementation with cryptographic security
 
 use crate::primitives::kzg::{KZGCommitment, KZGCommitmentScheme, KZGParams, KZGProof};
@@ -347,6 +346,16 @@ where
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StateError> {
+        let results = self
+            .cache
+            .iter()
+            .filter(|(key, _)| key.starts_with(prefix))
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect();
+        Ok(results)
     }
 }
 
