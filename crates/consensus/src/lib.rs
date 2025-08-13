@@ -1,4 +1,5 @@
 // Path: crates/consensus/src/lib.rs
+
 #![forbid(unsafe_code)]
 //! Consensus module implementations for the DePIN SDK
 
@@ -59,7 +60,7 @@ pub enum ConsensusDecision<T> {
 /// issues with `dyn Trait` compatibility.
 pub enum Consensus<T: Clone> {
     #[cfg(feature = "round-robin")]
-    RoundRobin(RoundRobinBftEngine),
+    RoundRobin(Box<RoundRobinBftEngine>),
     #[cfg(feature = "poa")]
     ProofOfAuthority(ProofOfAuthorityEngine),
     #[cfg(feature = "pos")]
@@ -132,7 +133,7 @@ where
             #[cfg(feature = "round-robin")]
             Consensus::RoundRobin(e) => {
                 ConsensusEngine::<T>::decide(
-                    e,
+                    e.as_mut(),
                     local_peer_id,
                     height,
                     view,
@@ -188,7 +189,7 @@ where
         match self {
             #[cfg(feature = "round-robin")]
             Consensus::RoundRobin(e) => {
-                ConsensusEngine::<T>::handle_block_proposal(e, block, chain, workload).await
+                ConsensusEngine::<T>::handle_block_proposal(e.as_mut(), block, chain, workload).await
             }
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(e) => {
@@ -211,7 +212,7 @@ where
         match self {
             #[cfg(feature = "round-robin")]
             Consensus::RoundRobin(e) => {
-                ConsensusEngine::<T>::handle_view_change(e, from, height, new_view).await
+                ConsensusEngine::<T>::handle_view_change(e.as_mut(), from, height, new_view).await
             }
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(e) => {
@@ -228,7 +229,7 @@ where
     fn reset(&mut self, height: u64) {
         match self {
             #[cfg(feature = "round-robin")]
-            Consensus::RoundRobin(e) => ConsensusEngine::<T>::reset(e, height),
+            Consensus::RoundRobin(e) => ConsensusEngine::<T>::reset(e.as_mut(), height),
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(e) => ConsensusEngine::<T>::reset(e, height),
             #[cfg(feature = "pos")]

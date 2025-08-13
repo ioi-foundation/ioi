@@ -1,3 +1,5 @@
+// Path: crates/commitment/src/tree/iavl/mod.rs
+
 //! IAVL (Immutable AVL) tree implementation with cryptographic security
 
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
@@ -304,7 +306,7 @@ impl IAVLNode {
     fn find_min(node: &Arc<IAVLNode>) -> Arc<IAVLNode> {
         node.left
             .as_ref()
-            .map_or_else(|| node.clone(), |left| Self::find_min(left))
+            .map_or_else(|| node.clone(), Self::find_min)
     }
 
     /// Get a value by key

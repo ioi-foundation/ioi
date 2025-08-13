@@ -1,4 +1,5 @@
 // Path: crates/validator/src/common/tests/mod.rs
+
 //! Tests for common validator components
 
 use super::guardian::GuardianContainer;
@@ -40,7 +41,7 @@ async fn test_guardian_container() {
 async fn test_security_channel_e2e() {
     // 1. Set up a mock TLS server.
     let (server_addr, server_task) = {
-        use rcgen::{Certificate, CertificateParams, SanType};
+        use rcgen::{Certificate, CertificateParams};
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         use tokio_rustls::rustls::{
             pki_types::{CertificateDer, PrivateKeyDer},

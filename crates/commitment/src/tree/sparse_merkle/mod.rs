@@ -1,3 +1,5 @@
+// Path: crates/commitment/src/tree/sparse_merkle/mod.rs
+
 //! Sparse Merkle tree implementation with cryptographic security
 
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
@@ -92,10 +94,14 @@ where
     }
 
     /// Update the tree with a new key-value pair
+    #[allow(clippy::only_used_in_recursion)]
     fn update_node(&self, node: &Node, key: &[u8], value: Option<&[u8]>, depth: usize) -> Node {
         if depth >= TREE_HEIGHT {
             return if let Some(v) = value {
-                Node::Leaf { key: key.to_vec(), value: v.to_vec() }
+                Node::Leaf {
+                    key: key.to_vec(),
+                    value: v.to_vec(),
+                }
             } else {
                 Node::Empty
             };
@@ -104,7 +110,10 @@ where
         match node {
             Node::Empty => {
                 if let Some(v) = value {
-                    let mut new_node = Node::Leaf { key: key.to_vec(), value: v.to_vec() };
+                    let mut new_node = Node::Leaf {
+                        key: key.to_vec(),
+                        value: v.to_vec(),
+                    };
                     for d in (0..depth).rev() {
                         let bit = Self::get_bit(key, d);
                         let (left, right) = if bit {
@@ -113,17 +122,27 @@ where
                             (new_node, Node::Empty)
                         };
                         let hash = Node::compute_branch_hash(&left, &right);
-                        new_node = Node::Branch { left: Box::new(left), right: Box::new(right), hash };
+                        new_node = Node::Branch {
+                            left: Box::new(left),
+                            right: Box::new(right),
+                            hash,
+                        };
                     }
                     new_node
                 } else {
                     Node::Empty
                 }
             }
-            Node::Leaf { key: leaf_key, value: leaf_value } => {
+            Node::Leaf {
+                key: leaf_key,
+                value: leaf_value,
+            } => {
                 if leaf_key == key {
                     return if let Some(v) = value {
-                        Node::Leaf { key: key.to_vec(), value: v.to_vec() }
+                        Node::Leaf {
+                            key: key.to_vec(),
+                            value: v.to_vec(),
+                        }
                     } else {
                         Node::Empty
                     };
@@ -141,9 +160,15 @@ where
                     let hash = Node::compute_branch_hash(&left, &right);
                     Node::Branch { left, right, hash }
                 } else {
-                    let old_leaf = Node::Leaf { key: leaf_key.clone(), value: leaf_value.clone() };
+                    let old_leaf = Node::Leaf {
+                        key: leaf_key.clone(),
+                        value: leaf_value.clone(),
+                    };
                     let new_leaf = if let Some(v) = value {
-                        Node::Leaf { key: key.to_vec(), value: v.to_vec() }
+                        Node::Leaf {
+                            key: key.to_vec(),
+                            value: v.to_vec(),
+                        }
                     } else {
                         Node::Empty
                     };
@@ -160,21 +185,30 @@ where
             Node::Branch { left, right, .. } => {
                 let bit = Self::get_bit(key, depth);
                 let (new_left, new_right) = if bit {
-                    (left.as_ref().clone(), self.update_node(right, key, value, depth + 1))
+                    (
+                        left.as_ref().clone(),
+                        self.update_node(right, key, value, depth + 1),
+                    )
                 } else {
-                    (self.update_node(left, key, value, depth + 1), right.as_ref().clone())
+                    (
+                        self.update_node(left, key, value, depth + 1),
+                        right.as_ref().clone(),
+                    )
                 };
 
                 if new_left == Node::Empty && new_right == Node::Empty {
                     Node::Empty
                 } else {
                     let hash = Node::compute_branch_hash(&new_left, &new_right);
-                    Node::Branch { left: Box::new(new_left), right: Box::new(new_right), hash }
+                    Node::Branch {
+                        left: Box::new(new_left),
+                        right: Box::new(new_right),
+                        hash,
+                    }
                 }
             }
         }
     }
-
 
     /// Generate a proof for a key
     fn generate_proof(&self, key: &[u8]) -> SparseMerkleProof {
@@ -206,21 +240,36 @@ where
                 }
             }
         }
-        
-        let leaf = if let Node::Leaf { key: leaf_key, value } = current {
+
+        let leaf = if let Node::Leaf {
+            key: leaf_key,
+            value,
+        } = current
+        {
             if leaf_key == key {
                 Some((leaf_key.clone(), value.clone()))
-            } else { None }
-        } else { None };
+            } else {
+                None
+            }
+        } else {
+            None
+        };
 
         SparseMerkleProof { siblings, leaf }
     }
 
     /// **[COMPLETED]** Verify a proof against a root hash. Made static.
-    pub fn verify_proof_static(root_hash: &[u8], key: &[u8], value: Option<&[u8]>, proof: &SparseMerkleProof) -> bool {
+    pub fn verify_proof_static(
+        root_hash: &[u8],
+        key: &[u8],
+        value: Option<&[u8]>,
+        proof: &SparseMerkleProof,
+    ) -> bool {
         let leaf_hash = match (&proof.leaf, value) {
             (Some((proof_key, proof_value)), Some(val)) => {
-                if proof_key != key || proof_value != val { return false; }
+                if proof_key != key || proof_value != val {
+                    return false;
+                }
                 let mut data = Vec::new();
                 data.push(0x00);
                 data.extend_from_slice(proof_key);
@@ -230,20 +279,20 @@ where
             (None, None) => vec![0u8; 32],
             _ => return false,
         };
-    
+
         let mut current_hash = leaf_hash;
         let mut proof_siblings = proof.siblings.iter();
-    
+
         for depth in (0..TREE_HEIGHT).rev() {
             let sibling_hash = if let Some(sibling) = proof_siblings.next() {
                 sibling.clone()
             } else {
                 vec![0u8; 32] // Default hash for empty paths
             };
-    
+
             let mut data = Vec::new();
             data.push(0x01);
-    
+
             if Self::get_bit(key, depth) {
                 data.extend_from_slice(&sibling_hash);
                 data.extend_from_slice(&current_hash);
@@ -253,7 +302,7 @@ where
             }
             current_hash = hash::sha256(&data);
         }
-    
+
         current_hash == root_hash
     }
 }
@@ -292,13 +341,20 @@ where
         let merkle_proof = self.generate_proof(key);
         let proof_data = serde_json::to_vec(&merkle_proof).ok()?;
         let value_typed = self.to_value(&proof_data);
-        self.scheme.create_proof(&Selector::Key(key.to_vec()), &value_typed).ok()
+        self.scheme
+            .create_proof(&Selector::Key(key.to_vec()), &value_typed)
+            .ok()
     }
 
-    fn verify_proof(commitment: &Self::Commitment, proof: &Self::Proof, key: &[u8], value: &[u8]) -> bool {
+    fn verify_proof(
+        commitment: &Self::Commitment,
+        proof: &Self::Proof,
+        key: &[u8],
+        value: &[u8],
+    ) -> bool {
         let root_hash = commitment.as_ref();
         let proof_data = proof.as_ref();
-        
+
         let smt_proof: SparseMerkleProof = match serde_json::from_slice(proof_data) {
             Ok(p) => p,
             Err(_) => return false,

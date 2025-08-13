@@ -1,4 +1,5 @@
 // Path: crates/commitment/src/tree/verkle/mod.rs
+
 //! Verkle tree implementation with cryptographic security
 
 use crate::primitives::kzg::{KZGCommitment, KZGCommitmentScheme, KZGParams, KZGProof};
@@ -27,6 +28,7 @@ enum VerkleNode {
 }
 
 impl VerkleNode {
+    #[allow(clippy::useless_vec)]
     fn commitment(&self) -> Vec<u8> {
         match self {
             VerkleNode::Empty => vec![0u8; 32],
@@ -47,7 +49,7 @@ impl VerkleNode {
             if let Some(child) = children.get(&i) {
                 commitments.extend_from_slice(&child.commitment());
             } else {
-                commitments.extend_from_slice(&vec![0u8; 32]);
+                commitments.extend_from_slice(&[0u8; 32]);
             }
         }
         let mut data = Vec::new();
@@ -69,7 +71,7 @@ pub struct VerkleProof {
 pub struct VerkleTree<CS: CommitmentScheme> {
     root: VerkleNode,
     scheme: CS,
-    branching_factor: usize,
+    _branching_factor: usize,
     cache: HashMap<Vec<u8>, Vec<u8>>,
 }
 
@@ -81,7 +83,7 @@ where
         Self {
             root: VerkleNode::Empty,
             scheme,
-            branching_factor,
+            _branching_factor: branching_factor,
             cache: HashMap::new(),
         }
     }
@@ -91,6 +93,7 @@ where
     }
 
     /// Update the tree with a new key-value pair
+    #[allow(clippy::only_used_in_recursion)]
     fn update_node(
         &self,
         node: &VerkleNode,

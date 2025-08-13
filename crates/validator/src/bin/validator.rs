@@ -1,4 +1,5 @@
 // Path: crates/validator/src/bin/validator.rs
+
 #![forbid(unsafe_code)]
 
 use clap::Parser;
@@ -77,8 +78,9 @@ async fn main() -> anyhow::Result<()> {
     chain.load_or_initialize_status(&workload).await?;
     let chain_ref = Arc::new(Mutex::new(chain));
 
-    let consensus_engine =
-        Consensus::RoundRobin(depin_sdk_consensus::round_robin::RoundRobinBftEngine::new());
+    let consensus_engine = Consensus::RoundRobin(Box::new(
+        depin_sdk_consensus::round_robin::RoundRobinBftEngine::new(),
+    ));
 
     let key_path = Path::new(&opts.state_file).with_extension("json.identity.key");
     let local_key = if key_path.exists() {
