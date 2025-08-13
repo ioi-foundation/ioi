@@ -415,6 +415,9 @@ where
                                 *context.node_state.lock().await = NodeState::Synced;
                             }
                         }
+                        NetworkEvent::SemanticPrompt { from, prompt } => {
+                            log::info!("[Orchestrator] Received SemanticPrompt from peer {}: '{}'", from, prompt);
+                        }
                     }
                     continue;
                 }
