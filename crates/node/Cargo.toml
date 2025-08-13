@@ -1,7 +1,4 @@
 # Path: crates/node/Cargo.toml
-# Change: Added a `build-bins` feature that correctly enables the `validator-bins`
-# feature on the `depin-sdk-validator` dependency.
-
 [package]
 name = "depin-sdk-node"
 version = "0.1.0"
@@ -19,7 +16,7 @@ depin-sdk-consensus = { path = "../consensus", default-features = false }
 depin-sdk-network = { path = "../network" }
 depin-sdk-transaction-models = { path = "../transaction_models" }
 depin-sdk-validator = { path = "../validator", default-features = false }
-depin-sdk-crypto = { path = "../crypto" }                                   # <-- FIX: This line is added
+depin-sdk-crypto = { path = "../crypto" }
 depin-sdk-vm-wasm = { path = "../vm/wasm", optional = true }
 depin-sdk-services = { path = "../services" }
 depin-sdk-test-utils = { path = "../test_utils" }
@@ -34,11 +31,14 @@ hex = { workspace = true }
 libp2p = { workspace = true }
 log = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+tokio-rustls = { workspace = true }
+rcgen = { workspace = true }
 serde_json = { workspace = true }
 bs58 = "0.4"
 
 [features]
-default = ["consensus-poa", "vm-wasm"]
+# MODIFICATION: Added "consensus-round-robin" to the default features.
+default = ["consensus-poa", "vm-wasm", "consensus-round-robin"]
 
 # This new feature will be used by Docker to build the node binary correctly.
 # It enables the `validator-bins` feature on the `depin-sdk-validator` crate.

@@ -3,6 +3,7 @@
 use crate::state::VmStateAccessor;
 use async_trait::async_trait;
 use depin_sdk_types::error::VmError;
+use serde::{Deserialize, Serialize}; // Add this import
 use std::sync::Arc;
 
 mod overlay;
@@ -30,7 +31,7 @@ pub trait VirtualMachine: Send + Sync {
 }
 
 /// Contains the results of a successful contract execution.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)] // Add Serialize and Deserialize
 pub struct ExecutionOutput {
     /// The amount of gas consumed by the execution.
     pub gas_used: u64,
@@ -39,7 +40,7 @@ pub struct ExecutionOutput {
 }
 
 /// Provides contextual information to the smart contract during execution.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)] // Add Serialize and Deserialize
 pub struct ExecutionContext {
     /// The address of the entity that initiated the contract call.
     pub caller: Vec<u8>,
