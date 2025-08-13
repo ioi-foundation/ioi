@@ -1,6 +1,4 @@
 # Path: crates/validator/Cargo.toml
-# Change: Added the "ring" feature to rustls to enable the default crypto provider.
-
 [package]
 name = "depin-sdk-validator"
 version = "0.1.0"
@@ -36,13 +34,14 @@ rand = { workspace = true }
 hex = { workspace = true }
 
 # Added for mTLS implementation
-tokio-rustls = "0.25.0"
-rustls = { version = "0.22.2", features = ["ring"] }
-rcgen = "0.12.0"
-webpki-roots = "0.26.0"
+tokio-rustls = { workspace = true }
+rustls = { workspace = true, features = ["ring"] }
+rcgen = { workspace = true }
+webpki-roots = { workspace = true }
 
 [features]
 default = []
+# This new feature will be used by Docker to build the node binary correctly.
 validator-bins = [
     "dep:clap",
     "dep:env_logger",

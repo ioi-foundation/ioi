@@ -19,6 +19,7 @@ depin-sdk-consensus = { path = "../consensus", default-features = false }
 depin-sdk-network = { path = "../network" }
 depin-sdk-transaction-models = { path = "../transaction_models" }
 depin-sdk-validator = { path = "../validator", default-features = false }
+depin-sdk-crypto = { path = "../crypto" }                                   # <-- FIX: This line is added
 depin-sdk-vm-wasm = { path = "../vm/wasm", optional = true }
 depin-sdk-services = { path = "../services" }
 depin-sdk-test-utils = { path = "../test_utils" }
