@@ -4,7 +4,7 @@
 
 pub mod attestation;
 mod guardian;
-mod security;
+pub mod security;
 
 #[cfg(test)]
 mod tests;

@@ -57,10 +57,10 @@ async fn tail_logs_for_pattern(
     let mut child = TokioCommand::new("docker")
         .args(["logs", "-f", container_name])
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::piped()) // Capture stderr
         .spawn()?;
 
-    // FIX: Read from stderr instead of stdout
+    // FIX: Read from stderr where the application logs are.
     let stderr = child.stderr.take().unwrap();
     let mut reader = BufReader::new(stderr).lines();
 
@@ -79,47 +79,42 @@ async fn tail_logs_for_pattern(
 }
 
 #[tokio::test]
-async fn test_container_attestation_and_communication() -> Result<()> {
+async fn test_secure_channel_and_attestation_flow() -> Result<()> {
     // 1. LAUNCH the three-container validator
     let compose = DockerCompose::new("../../docker/standard_validator/docker-compose.yml");
     compose.up()?;
 
-    // 2. ASSERT startup and attestation server
-    tail_logs_for_pattern(
-        "guardian",
-        "mTLS attestation server listening on 0.0.0.0:8443",
-        Duration::from_secs(20),
-    )
-    .await?;
+    // 2. ASSERT Guardian server starts
+    tail_logs_for_pattern("guardian", "Guardian: mTLS server listening", Duration::from_secs(20)).await?;
 
-    // 3. ASSERT that both containers connect and attest
+    // 3. ASSERT Orchestration connects and establishes channel
     tail_logs_for_pattern(
         "orchestration",
-        "Successfully attested to Guardian",
+        "Security channel from 'orchestration' to 'guardian' established",
         Duration::from_secs(20),
     )
     .await?;
-    tail_logs_for_pattern(
-        "workload",
-        "Successfully attested to Guardian",
-        Duration::from_secs(20),
-    )
-    .await?;
+    
+    // 4. ASSERT Workload connects and establishes channel
+    tail_logs_for_pattern("workload", "Security channel from 'workload' to 'guardian' established", Duration::from_secs(20)).await?;
 
-    // 4. ASSERT that the Guardian received the connections
-    // We expect two successful handshakes.
-    tail_logs_for_pattern(
-        "guardian",
-        "Received successful attestation handshake",
-        Duration::from_secs(20),
-    )
-    .await?;
-    tail_logs_for_pattern(
-        "guardian",
-        "Received successful attestation handshake",
-        Duration::from_secs(20),
-    )
-    .await?;
+    // 5. ASSERT Guardian accepts both connections
+    tail_logs_for_pattern("guardian", "Security channel from 'guardian' to 'orchestration' accepted", Duration::from_secs(20)).await?;
+    tail_logs_for_pattern("guardian", "Security channel from 'guardian' to 'workload' accepted", Duration::from_secs(20)).await?;
+    
+    // --- NEW: VERIFY ATTESTATION FLOW ---
+
+    // 6. ASSERT Orchestration sends its report
+    tail_logs_for_pattern("orchestration", "Attestation report sent", Duration::from_secs(20)).await?;
+
+    // 7. ASSERT Guardian validates the Orchestration report
+    tail_logs_for_pattern("guardian", "Attestation from 'orchestration' is VALID", Duration::from_secs(20)).await?;
+    
+    // 8. ASSERT Workload sends its report
+    tail_logs_for_pattern("workload", "Attestation report sent", Duration::from_secs(20)).await?;
+
+    // 9. ASSERT Guardian validates the Workload report
+    tail_logs_for_pattern("guardian", "Attestation from 'workload' is VALID", Duration::from_secs(20)).await?;
 
     Ok(())
 }
