@@ -1,7 +1,11 @@
 // Path: crates/crypto/src/kem/ecdh/mod.rs
 use crate::security::SecurityLevel;
 use dcrypt::api::Kem;
-use dcrypt::kem::ecdh::{EcdhK256, EcdhK256Ciphertext, EcdhK256PublicKey, EcdhK256SecretKey};
+use dcrypt::kem::ecdh::{
+    p384::{EcdhP384, EcdhP384Ciphertext, EcdhP384PublicKey, EcdhP384SecretKey},
+    p521::{EcdhP521, EcdhP521Ciphertext, EcdhP521PublicKey, EcdhP521SecretKey},
+    EcdhK256, EcdhK256Ciphertext, EcdhK256PublicKey, EcdhK256SecretKey,
+};
 use depin_sdk_api::crypto::{
     DecapsulationKey, Encapsulated, EncapsulationKey, KemKeyPair, KeyEncapsulation, SerializableKey,
 };
@@ -11,9 +15,9 @@ use depin_sdk_api::crypto::{
 pub enum EcdhCurve {
     /// NIST P-256 curve (128-bit security) - using K256 (secp256k1) as substitute
     P256,
-    /// NIST P-384 curve (192-bit security) - not available in dcrypt
+    /// NIST P-384 curve (192-bit security)
     P384,
-    /// NIST P-521 curve (256-bit security) - not available in dcrypt
+    /// NIST P-521 curve (256-bit security)
     P521,
 }
 
@@ -48,19 +52,17 @@ pub struct EcdhKeyPair {
 /// ECDH public key wrapper
 #[derive(Clone)]
 pub enum EcdhPublicKey {
-    K256(EcdhK256PublicKey),
-    // P384 and P521 would need their own dcrypt implementations
-    P384(Vec<u8>), // Placeholder
-    P521(Vec<u8>), // Placeholder
+    P256(EcdhK256PublicKey),
+    P384(EcdhP384PublicKey),
+    P521(EcdhP521PublicKey),
 }
 
 /// ECDH private key wrapper
 #[derive(Clone)]
 pub enum EcdhPrivateKey {
-    K256(EcdhK256SecretKey),
-    // P384 and P521 would need their own dcrypt implementations
-    P384(Vec<u8>), // Placeholder
-    P521(Vec<u8>), // Placeholder
+    P256(EcdhK256SecretKey),
+    P384(EcdhP384SecretKey),
+    P521(EcdhP521SecretKey),
 }
 
 /// ECDH encapsulated key
@@ -98,18 +100,31 @@ impl KeyEncapsulation for EcdhKEM {
 
         match self.curve {
             EcdhCurve::P256 => {
-                // Use K256 from dcrypt
                 let (pk, sk) =
                     EcdhK256::keypair(&mut rng).expect("Failed to generate K256 keypair");
                 EcdhKeyPair {
-                    public_key: EcdhPublicKey::K256(pk),
-                    private_key: EcdhPrivateKey::K256(sk),
+                    public_key: EcdhPublicKey::P256(pk),
+                    private_key: EcdhPrivateKey::P256(sk),
                     _curve: self.curve,
                 }
             }
-            EcdhCurve::P384 | EcdhCurve::P521 => {
-                // Not implemented in dcrypt yet
-                panic!("P384 and P521 curves are not yet implemented in dcrypt");
+            EcdhCurve::P384 => {
+                let (pk, sk) =
+                    EcdhP384::keypair(&mut rng).expect("Failed to generate P384 keypair");
+                EcdhKeyPair {
+                    public_key: EcdhPublicKey::P384(pk),
+                    private_key: EcdhPrivateKey::P384(sk),
+                    _curve: self.curve,
+                }
+            }
+            EcdhCurve::P521 => {
+                let (pk, sk) =
+                    EcdhP521::keypair(&mut rng).expect("Failed to generate P521 keypair");
+                EcdhKeyPair {
+                    public_key: EcdhPublicKey::P521(pk),
+                    private_key: EcdhPrivateKey::P521(sk),
+                    _curve: self.curve,
+                }
             }
         }
     }
@@ -118,14 +133,32 @@ impl KeyEncapsulation for EcdhKEM {
         let mut rng = rand::thread_rng();
 
         match (self.curve, public_key) {
-            (EcdhCurve::P256, EcdhPublicKey::K256(pk)) => {
+            (EcdhCurve::P256, EcdhPublicKey::P256(pk)) => {
                 let (ct, ss) =
                     EcdhK256::encapsulate(&mut rng, pk).expect("Failed to encapsulate with K256");
 
                 EcdhEncapsulated {
                     ciphertext: ct.to_bytes(),
-                    shared_secret: ss.to_bytes(),
+                    shared_secret: ss.to_bytes().to_vec(), // FIX: Convert Zeroizing Vec
                     _curve: EcdhCurve::P256,
+                }
+            }
+            (EcdhCurve::P384, EcdhPublicKey::P384(pk)) => {
+                let (ct, ss) =
+                    EcdhP384::encapsulate(&mut rng, pk).expect("Failed to encapsulate with P384");
+                EcdhEncapsulated {
+                    ciphertext: ct.to_bytes(),
+                    shared_secret: ss.to_bytes().to_vec(), // FIX: Convert Zeroizing Vec
+                    _curve: self.curve,
+                }
+            }
+            (EcdhCurve::P521, EcdhPublicKey::P521(pk)) => {
+                let (ct, ss) =
+                    EcdhP521::encapsulate(&mut rng, pk).expect("Failed to encapsulate with P521");
+                EcdhEncapsulated {
+                    ciphertext: ct.to_bytes(),
+                    shared_secret: ss.to_bytes().to_vec(), // FIX: Convert Zeroizing Vec
+                    _curve: self.curve,
                 }
             }
             _ => panic!("Curve mismatch or unsupported curve in encapsulation"),
@@ -138,13 +171,23 @@ impl KeyEncapsulation for EcdhKEM {
         encapsulated: &Self::Encapsulated,
     ) -> Option<Vec<u8>> {
         match (self.curve, private_key) {
-            (EcdhCurve::P256, EcdhPrivateKey::K256(sk)) => {
-                // Reconstruct the ciphertext from bytes
+            (EcdhCurve::P256, EcdhPrivateKey::P256(sk)) => {
                 let ct = EcdhK256Ciphertext::from_bytes(&encapsulated.ciphertext).ok()?;
-
-                let ss = EcdhK256::decapsulate(sk, &ct).ok()?;
-
-                Some(ss.to_bytes())
+                EcdhK256::decapsulate(sk, &ct)
+                    .ok()
+                    .map(|ss| ss.to_bytes().to_vec()) // FIX: Convert Zeroizing Vec
+            }
+            (EcdhCurve::P384, EcdhPrivateKey::P384(sk)) => {
+                let ct = EcdhP384Ciphertext::from_bytes(&encapsulated.ciphertext).ok()?;
+                EcdhP384::decapsulate(sk, &ct)
+                    .ok()
+                    .map(|ss| ss.to_bytes().to_vec()) // FIX: Convert Zeroizing Vec
+            }
+            (EcdhCurve::P521, EcdhPrivateKey::P521(sk)) => {
+                let ct = EcdhP521Ciphertext::from_bytes(&encapsulated.ciphertext).ok()?;
+                EcdhP521::decapsulate(sk, &ct)
+                    .ok()
+                    .map(|ss| ss.to_bytes().to_vec()) // FIX: Convert Zeroizing Vec
             }
             _ => None,
         }
@@ -164,74 +207,66 @@ impl KemKeyPair for EcdhKeyPair {
     }
 }
 
-// EcdhPublicKey implements the EncapsulationKey trait
 impl SerializableKey for EcdhPublicKey {
     fn to_bytes(&self) -> Vec<u8> {
         match self {
-            EcdhPublicKey::K256(pk) => pk.to_bytes(),
-            EcdhPublicKey::P384(bytes) => bytes.clone(),
-            EcdhPublicKey::P521(bytes) => bytes.clone(),
+            EcdhPublicKey::P256(pk) => pk.to_bytes(),
+            EcdhPublicKey::P384(pk) => pk.to_bytes(),
+            EcdhPublicKey::P521(pk) => pk.to_bytes(),
         }
     }
 
     fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
-        // Try to determine the curve from the public key size
         match bytes.len() {
-            33 => {
-                // K256 compressed point
-                let pk = EcdhK256PublicKey::from_bytes(bytes)
-                    .map_err(|e| format!("Failed to deserialize K256 public key: {e:?}"))?;
-                Ok(EcdhPublicKey::K256(pk))
-            }
-            49 => Ok(EcdhPublicKey::P384(bytes.to_vec())),
-            67 => Ok(EcdhPublicKey::P521(bytes.to_vec())),
+            33 => Ok(EcdhPublicKey::P256(
+                EcdhK256PublicKey::from_bytes(bytes).map_err(|e| e.to_string())?,
+            )),
+            49 => Ok(EcdhPublicKey::P384(
+                EcdhP384PublicKey::from_bytes(bytes).map_err(|e| e.to_string())?,
+            )),
+            67 => Ok(EcdhPublicKey::P521(
+                EcdhP521PublicKey::from_bytes(bytes).map_err(|e| e.to_string())?,
+            )),
             _ => Err(format!("Invalid ECDH public key size: {}", bytes.len())),
         }
     }
 }
 
-impl EncapsulationKey for EcdhPublicKey {
-    // EncapsulationKey trait has no additional methods beyond SerializableKey
-}
+impl EncapsulationKey for EcdhPublicKey {}
 
-// EcdhPrivateKey implements the DecapsulationKey trait
 impl SerializableKey for EcdhPrivateKey {
     fn to_bytes(&self) -> Vec<u8> {
         match self {
-            EcdhPrivateKey::K256(sk) => sk.to_bytes().to_vec(),
-            EcdhPrivateKey::P384(bytes) => bytes.clone(),
-            EcdhPrivateKey::P521(bytes) => bytes.clone(),
+            EcdhPrivateKey::P256(sk) => sk.to_bytes().to_vec(), // FIX: Convert Zeroizing Vec
+            EcdhPrivateKey::P384(sk) => sk.to_bytes().to_vec(), // FIX: Convert Zeroizing Vec
+            EcdhPrivateKey::P521(sk) => sk.to_bytes().to_vec(), // FIX: Convert Zeroizing Vec
         }
     }
 
     fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
-        // Try to determine the curve from the private key size
         match bytes.len() {
-            32 => {
-                // K256 scalar
-                let sk = EcdhK256SecretKey::from_bytes(bytes)
-                    .map_err(|e| format!("Failed to deserialize K256 private key: {e:?}"))?;
-                Ok(EcdhPrivateKey::K256(sk))
-            }
-            48 => Ok(EcdhPrivateKey::P384(bytes.to_vec())),
-            66 => Ok(EcdhPrivateKey::P521(bytes.to_vec())),
+            32 => Ok(EcdhPrivateKey::P256(
+                EcdhK256SecretKey::from_bytes(bytes).map_err(|e| e.to_string())?,
+            )),
+            48 => Ok(EcdhPrivateKey::P384(
+                EcdhP384SecretKey::from_bytes(bytes).map_err(|e| e.to_string())?,
+            )),
+            66 => Ok(EcdhPrivateKey::P521(
+                EcdhP521SecretKey::from_bytes(bytes).map_err(|e| e.to_string())?,
+            )),
             _ => Err(format!("Invalid ECDH private key size: {}", bytes.len())),
         }
     }
 }
 
-impl DecapsulationKey for EcdhPrivateKey {
-    // DecapsulationKey trait has no additional methods beyond SerializableKey
-}
+impl DecapsulationKey for EcdhPrivateKey {}
 
-// EcdhEncapsulated implements the Encapsulated trait
 impl SerializableKey for EcdhEncapsulated {
     fn to_bytes(&self) -> Vec<u8> {
         self.ciphertext.clone()
     }
 
     fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
-        // Try to determine the curve from the ciphertext size
         let curve = match bytes.len() {
             33 => EcdhCurve::P256,
             49 => EcdhCurve::P384,
@@ -239,11 +274,9 @@ impl SerializableKey for EcdhEncapsulated {
             _ => return Err(format!("Invalid ECDH ciphertext size: {}", bytes.len())),
         };
 
-        // We can't recover the shared secret from just the ciphertext
-        // This will need to be decapsulated using a private key to get the shared secret
         Ok(EcdhEncapsulated {
             ciphertext: bytes.to_vec(),
-            shared_secret: vec![0; 32], // Placeholder until decapsulated
+            shared_secret: vec![],
             _curve: curve,
         })
     }
