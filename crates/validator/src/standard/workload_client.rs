@@ -5,7 +5,8 @@ use crate::common::{
 };
 use anyhow::Result;
 use depin_sdk_api::vm::{ExecutionContext, ExecutionOutput};
-use std::collections::HashMap;
+use depin_sdk_types::app::ChainTransaction;
+use std::collections::{BTreeMap, HashMap};
 
 /// A client-side proxy for communicating with the remote Workload container.
 #[derive(Debug, Clone)]
@@ -16,8 +17,6 @@ pub struct WorkloadClient {
 impl WorkloadClient {
     pub fn new(workload_addr: &str) -> Result<Self> {
         let channel = SecurityChannel::new("orchestration", "workload");
-        // We establish the connection here, but in a real-world scenario,
-        // this might be lazy or have retry logic.
         tokio::spawn({
             let channel = channel.clone();
             let workload_addr = workload_addr.to_string();
@@ -32,15 +31,28 @@ impl WorkloadClient {
         Ok(Self { channel })
     }
 
-    async fn send_and_receive(
-        &self,
-        request: WorkloadRequest,
-    ) -> Result<WorkloadResponse> {
+    async fn send_and_receive(&self, request: WorkloadRequest) -> Result<WorkloadResponse> {
         let request_bytes = serde_json::to_vec(&request)?;
         self.channel.send(&request_bytes).await?;
         let response_bytes = self.channel.receive().await?;
         let response = serde_json::from_slice(&response_bytes)?;
         Ok(response)
+    }
+
+    pub async fn execute_transaction(&self, tx: ChainTransaction) -> Result<()> {
+        let request = WorkloadRequest::ExecuteTransaction(tx);
+        match self.send_and_receive(request).await? {
+            WorkloadResponse::ExecuteTransaction(res) => res.map_err(|e| anyhow::anyhow!(e)),
+            _ => Err(anyhow::anyhow!("Invalid response type from workload")),
+        }
+    }
+
+    pub async fn get_staked_validators(&self) -> Result<BTreeMap<String, u64>> {
+        let request = WorkloadRequest::GetStakes;
+        match self.send_and_receive(request).await? {
+            WorkloadResponse::GetStakes(res) => res.map_err(|e| anyhow::anyhow!(e)),
+            _ => Err(anyhow::anyhow!("Invalid response type from workload")),
+        }
     }
 
     pub async fn deploy_contract(
