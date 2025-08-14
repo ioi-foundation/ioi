@@ -114,7 +114,6 @@ where
 impl<CS, ST> AppChain<CS, UnifiedTransactionModel<CS>, ST> for Chain<CS>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    // UPDATE: Add the required trait bounds for the proof type
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -172,7 +171,6 @@ where
             )));
         }
 
-        // **FIX**: Explicitly handle scheduling of module swaps before general processing.
         for tx in &block.transactions {
             if let ChainTransaction::System(sys_tx) = tx {
                 if let SystemPayload::SwapModule {
@@ -204,8 +202,6 @@ where
             self.process_transaction(tx, workload).await?;
         }
 
-        // ** WIRING FOR FORKLESS UPGRADES **
-        // Apply any scheduled upgrades at the end of block processing.
         match self
             .service_manager
             .apply_upgrades_at_height(block.header.height)
@@ -217,7 +213,7 @@ where
                     block.header.height
                 );
             }
-            Ok(_) => (), // No upgrades, do nothing.
+            Ok(_) => (),
             Err(e) => {
                 log::error!(
                     "CRITICAL: Failed to apply scheduled module upgrade at height {}: {:?}",
@@ -259,10 +255,8 @@ where
         _workload: &WorkloadContainer<ST>,
         current_validator_set: &[Vec<u8>],
         _known_peers_bytes: &[Vec<u8>],
-        // ---- ADD SIGNING KEYPAIR PARAMETER ----
         producer_keypair: &Keypair,
     ) -> Block<ChainTransaction> {
-        // ... existing logic to calculate prev_hash, validator_set_bytes, next_height ...
         let prev_hash = self
             .state
             .recent_blocks
@@ -279,19 +273,17 @@ where
         let mut header = BlockHeader {
             height: next_height,
             prev_hash: prev_hash.clone(),
-            state_root: prev_hash,          // Placeholder until processed
-            transactions_root: vec![0; 32], // Placeholder
+            state_root: prev_hash,
+            transactions_root: vec![0; 32],
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_secs(),
             validator_set: validator_set_bytes,
-            // ---- SET NEW FIELDS ----
             producer: producer_pubkey_bytes,
-            signature: vec![], // Placeholder for signing
+            signature: vec![],
         };
 
-        // Sign the header hash
         let header_hash = header.hash_for_signing();
         header.signature = producer_keypair.sign(&header_hash).unwrap();
 

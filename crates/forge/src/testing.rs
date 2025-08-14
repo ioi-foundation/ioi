@@ -5,20 +5,23 @@
 
 use anyhow::{anyhow, Result};
 use depin_sdk_types::app::ChainTransaction;
-use libp2p::identity;
+use libp2p::{identity, Multiaddr, PeerId};
 use reqwest::Client;
+use serde_json::Value;
+use std::fs;
+use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::Once;
 use std::time::Duration;
 use tempfile::TempDir;
-use tokio::io::{AsyncRead, BufReader};
-use tokio::process::Child;
+use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
+use tokio::process::{Child, Command as TokioCommand};
 use tokio::time::timeout;
 
 // --- Test Configuration ---
 const NODE_BINARY_REL_PATH: &str = "../../target/release/depin-sdk-node";
 const LOG_ASSERT_TIMEOUT: Duration = Duration::from_secs(45);
-const STARTUP_DELAY: Duration = Duration::from_secs(5);
+const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(10);
 
 // --- One-Time Build ---
 static BUILD: Once = Once::new();
@@ -43,7 +46,9 @@ pub fn build_test_artifacts(node_features: &str) {
             ])
             .status()
             .expect("Failed to execute cargo build for node");
-        assert!(status_node.success(), "Node binary build failed");
+        if !status_node.success() {
+            panic!("Node binary build failed");
+        }
 
         // 2. Build the test WASM contract.
         println!("Building 'counter-contract' (WASM)");
@@ -58,20 +63,15 @@ pub fn build_test_artifacts(node_features: &str) {
             ])
             .status()
             .expect("Failed to build counter contract");
-        assert!(status_contract.success(), "Counter contract build failed");
+        if !status_contract.success() {
+            panic!("Counter contract build failed");
+        }
 
         println!("--- Test Artifacts built successfully ---");
     });
 }
 
 // --- Helper Structs & Functions ---
-
-/// Represents a running node process in a test environment.
-/// Held for automatic cleanup when it goes out of scope.
-pub struct TestNode {
-    pub process: Child,
-    _dir: TempDir,
-}
 
 /// Submits a transaction to a node's RPC endpoint.
 pub async fn submit_transaction(rpc_addr: &str, tx: &ChainTransaction) -> Result<()> {
@@ -104,73 +104,6 @@ pub async fn submit_transaction(rpc_addr: &str, tx: &ChainTransaction) -> Result
     }
 
     Ok(())
-}
-
-/// Spawns a node process in a temporary directory with specified configurations.
-pub async fn spawn_node(
-    key: &identity::Keypair,
-    dir: TempDir,
-    genesis_content: &str,
-    args: &[&str],
-    rpc_addr: &str,
-    consensus_type: &str,
-) -> Result<TestNode> {
-    std::fs::write(dir.path().join("genesis.json"), genesis_content)?;
-    std::fs::write(
-        dir.path().join("state.json.identity.key"),
-        key.to_protobuf_encoding()?,
-    )?;
-
-    let config_dir = dir.path().join("config");
-    std::fs::create_dir_all(&config_dir)?;
-
-    let orchestration_config = format!(
-        r#"
-consensus_type = "{}"
-rpc_listen_address = "{}"
-initial_sync_timeout_secs = 15
-"#,
-        consensus_type, rpc_addr
-    );
-    std::fs::write(config_dir.join("orchestration.toml"), orchestration_config)?;
-
-    // Create a unique guardian port for each test to avoid conflicts.
-    let guardian_port = portpicker::pick_unused_port().unwrap_or(8443);
-    let guardian_config = format!(r#"listen_addr = "0.0.0.0:{}""#, guardian_port);
-    std::fs::write(config_dir.join("guardian.toml"), guardian_config)?;
-
-    let state_file_arg = dir.path().join("state.json").to_string_lossy().to_string();
-    let genesis_file_arg = dir
-        .path()
-        .join("genesis.json")
-        .to_string_lossy()
-        .to_string();
-    let config_dir_arg = config_dir.to_string_lossy().to_string();
-
-    // FIX: Add the "node" subcommand as the first argument to match the CLI definition.
-    let mut cmd_args = vec![
-        "node",
-        "--state-file",
-        &state_file_arg,
-        "--genesis-file",
-        &genesis_file_arg,
-        "--config-dir",
-        &config_dir_arg,
-    ];
-
-    let args_owned: Vec<String> = args.iter().map(|s| s.to_string()).collect();
-    cmd_args.extend(args_owned.iter().map(|s| s.as_str()));
-
-    let process = tokio::process::Command::new(NODE_BINARY_REL_PATH)
-        .args(&cmd_args)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true)
-        .spawn()?;
-
-    tokio::time::sleep(STARTUP_DELAY).await;
-
-    Ok(TestNode { process, _dir: dir })
 }
 
 /// Checks a node's log stream for a line containing a specific pattern within a timeout.
@@ -233,4 +166,208 @@ pub async fn assert_log_contains_and_return_line<R: AsyncRead + Unpin>(
             e
         )
     })
+}
+
+// --- New Test Harness Implementation ---
+
+/// Represents a complete, logical validator node, including all its container processes.
+pub struct TestValidator {
+    pub keypair: identity::Keypair,
+    pub peer_id: PeerId,
+    pub orchestration_process: Child,
+    pub workload_process: Child,
+    pub rpc_addr: String,
+    pub p2p_addr: Multiaddr,
+    _temp_dir: TempDir,
+}
+
+impl Drop for TestValidator {
+    fn drop(&mut self) {
+        let _ = self.orchestration_process.kill();
+        let _ = self.workload_process.kill();
+    }
+}
+
+impl TestValidator {
+    pub async fn launch(
+        keypair: identity::Keypair,
+        genesis_content: String,
+        base_port: u16,
+        bootnode_addr: Option<&Multiaddr>,
+    ) -> Result<Self> {
+        let peer_id = keypair.public().to_peer_id();
+        let temp_dir = tempfile::tempdir()?;
+        let state_file_path = temp_dir.path().join("state.json");
+
+        let p2p_port = portpicker::pick_unused_port().unwrap_or(base_port);
+        let rpc_port = portpicker::pick_unused_port().unwrap_or(base_port + 1);
+        let ipc_port = portpicker::pick_unused_port().unwrap_or(base_port + 2);
+
+        let p2p_addr_str = format!("/ip4/127.0.0.1/tcp/{}", p2p_port);
+        let rpc_addr = format!("127.0.0.1:{}", rpc_port);
+        let ipc_addr = format!("127.0.0.1:{}", ipc_port);
+
+        fs::write(temp_dir.path().join("genesis.json"), genesis_content)?;
+
+        let identity_key_path = Path::new(&state_file_path).with_extension("json.identity.key");
+        fs::write(identity_key_path, keypair.to_protobuf_encoding()?)?;
+
+        let config_dir = temp_dir.path().join("config");
+        fs::create_dir_all(&config_dir)?;
+
+        let orchestration_config = format!(
+            r#"
+consensus_type = "ProofOfStake"
+rpc_listen_address = "127.0.0.1:9999"
+"#
+        );
+        fs::write(config_dir.join("orchestration.toml"), orchestration_config)?;
+        fs::write(config_dir.join("guardian.toml"), "")?;
+
+        let workload_state_file = temp_dir.path().join("workload_state.json");
+        let mut workload_process = TokioCommand::new(NODE_BINARY_REL_PATH)
+            .args([
+                "workload",
+                "--genesis-file",
+                &temp_dir.path().join("genesis.json").to_string_lossy(),
+                "--state-file",
+                &workload_state_file.to_string_lossy(),
+            ])
+            .env("IPC_SERVER_ADDR", &ipc_addr)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true)
+            .spawn()?;
+
+        let workload_stderr = workload_process.stderr.take().unwrap();
+        let mut reader = BufReader::new(workload_stderr).lines();
+
+        let readiness_probe = async {
+            let ready_signal = format!("WORKLOAD_IPC_LISTENING_ON_{}", ipc_addr);
+            while let Some(line) = reader.next_line().await? {
+                if line.contains(&ready_signal) {
+                    return Ok(());
+                }
+            }
+            Err(anyhow!("Workload stderr stream ended before ready signal."))
+        };
+
+        timeout(WORKLOAD_READY_TIMEOUT, readiness_probe).await??;
+
+        let mut orch_args = vec![
+            "orchestration".to_string(),
+            "--state-file".to_string(),
+            state_file_path.to_string_lossy().to_string(),
+            "--genesis-file".to_string(),
+            temp_dir
+                .path()
+                .join("genesis.json")
+                .to_string_lossy()
+                .to_string(),
+            "--config-dir".to_string(),
+            config_dir.to_string_lossy().to_string(),
+            "--listen-address".to_string(),
+            p2p_addr_str.clone(),
+            "--rpc-listen-address".to_string(),
+            rpc_addr.clone(),
+        ];
+
+        if let Some(addr) = bootnode_addr {
+            orch_args.push("--bootnode".to_string());
+            orch_args.push(addr.to_string());
+        }
+
+        let orchestration_process = TokioCommand::new(NODE_BINARY_REL_PATH)
+            .args(&orch_args)
+            .env("WORKLOAD_IPC_ADDR", &ipc_addr)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true)
+            .spawn()?;
+
+        Ok(TestValidator {
+            keypair,
+            peer_id,
+            orchestration_process,
+            workload_process,
+            rpc_addr,
+            p2p_addr: p2p_addr_str.parse()?,
+            _temp_dir: temp_dir,
+        })
+    }
+}
+
+pub struct TestCluster {
+    pub validators: Vec<TestValidator>,
+    pub genesis_content: String,
+}
+
+impl TestCluster {
+    pub fn new() -> TestClusterBuilder {
+        TestClusterBuilder::new()
+    }
+}
+
+pub struct TestClusterBuilder {
+    num_validators: usize,
+    genesis_modifiers: Vec<Box<dyn FnOnce(&mut Value, &Vec<identity::Keypair>)>>,
+}
+
+impl TestClusterBuilder {
+    pub fn new() -> Self {
+        Self {
+            num_validators: 1,
+            genesis_modifiers: Vec::new(),
+        }
+    }
+
+    pub fn with_validators(mut self, count: usize) -> Self {
+        self.num_validators = count;
+        self
+    }
+
+    pub fn with_genesis_modifier<F>(mut self, modifier: F) -> Self
+    where
+        F: FnOnce(&mut Value, &Vec<identity::Keypair>) + 'static,
+    {
+        self.genesis_modifiers.push(Box::new(modifier));
+        self
+    }
+
+    pub async fn build(mut self) -> Result<TestCluster> {
+        let validator_keys: Vec<identity::Keypair> = (0..self.num_validators)
+            .map(|_| identity::Keypair::generate_ed25519())
+            .collect();
+
+        let mut genesis = serde_json::json!({ "genesis_state": {} });
+
+        for modifier in self.genesis_modifiers.drain(..) {
+            modifier(&mut genesis, &validator_keys);
+        }
+        let genesis_content = genesis.to_string();
+
+        let mut validators = Vec::new();
+        let mut bootnode_addr = None;
+
+        for (i, key) in validator_keys.iter().enumerate() {
+            let base_port = 5000 + (i * 10);
+            let validator = TestValidator::launch(
+                key.clone(),
+                genesis_content.clone(),
+                base_port as u16,
+                bootnode_addr.as_ref(),
+            )
+            .await?;
+
+            if i == 0 {
+                bootnode_addr = Some(validator.p2p_addr.clone());
+            }
+            validators.push(validator);
+        }
+
+        Ok(TestCluster {
+            validators,
+            genesis_content,
+        })
+    }
 }

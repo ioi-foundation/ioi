@@ -23,7 +23,7 @@ depin-sdk-test-utils = { path = "../test_utils" }
 
 # Workspace Dependencies (for binary)
 anyhow = { workspace = true }
-clap = { workspace = true, features = ["derive"] }
+clap = { workspace = true, features = ["derive", "cargo", "env"] }
 cfg-if = "1.0"
 env_logger = { workspace = true }
 futures = { workspace = true }
@@ -35,13 +35,14 @@ tokio-rustls = { workspace = true }
 rcgen = { workspace = true }
 serde_json = { workspace = true }
 bs58 = "0.4"
+toml = { workspace = true }
+# FIX: Add the axum dependency for the RPC server.
+axum = { workspace = true }
+serde = { workspace = true }
 
 [features]
-# MODIFICATION: Added "consensus-round-robin" to the default features.
 default = ["consensus-poa", "vm-wasm", "consensus-round-robin"]
 
-# This new feature will be used by Docker to build the node binary correctly.
-# It enables the `validator-bins` feature on the `depin-sdk-validator` crate.
 build-bins = ["depin-sdk-validator/validator-bins"]
 
 # Consensus engine features

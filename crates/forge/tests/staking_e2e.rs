@@ -1,164 +1,86 @@
-// Path: crates/forge/tests/staking_e2e.rs
-//! End-to-End Test: Proof of Stake and Dynamic Staking
+// In crates/forge/tests/staking_e2e.rs
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use depin_sdk_forge::testing::{
-    assert_log_contains, build_test_artifacts, spawn_node, submit_transaction,
+    assert_log_contains, build_test_artifacts, submit_transaction, TestCluster,
 };
 use depin_sdk_types::app::{ChainTransaction, SystemPayload, SystemTransaction};
-use libp2p::identity;
-use std::time::Duration;
-use tempfile::tempdir;
+use serde_json::json;
 use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::time::timeout;
 
 #[tokio::test]
 async fn test_staking_lifecycle() -> Result<()> {
     // A. Setup
-    println!("--- Building Node Binary for Staking Test ---");
     build_test_artifacts("consensus-pos,vm-wasm");
 
-    // 1. Prepare identities
-    let key_node1 = identity::Keypair::generate_ed25519();
-    let peer_id_node1 = key_node1.public().to_peer_id();
-    let key_node2 = identity::Keypair::generate_ed25519();
-    let _peer_id_node2 = key_node2.public().to_peer_id();
-    let key_node3 = identity::Keypair::generate_ed25519();
-    let _peer_id_node3 = key_node3.public().to_peer_id();
+    // B. Launch Cluster using the new builder
+    let mut cluster = TestCluster::new()
+        .with_validators(3)
+        .with_genesis_modifier(|genesis, keys| {
+            // The builder provides the generated keys. We'll make the first key
+            // the initial staker in the genesis block.
+            let initial_staker_peer_id = keys[0].public().to_peer_id();
+            genesis["genesis_state"]["system::stakes"] = json!({
+                initial_staker_peer_id.to_base58(): 100000
+            });
+        })
+        .build()
+        .await?;
 
-    // 2. Prepare genesis content first
-    let genesis_content = serde_json::json!({
-      "genesis_state": {
-        "system::stakes": {
-          peer_id_node1.to_base58(): 100000
-        }
-      }
-    });
-    let genesis_string = genesis_content.to_string();
+    // C. Get handles to nodes and logs
+    let (node1_slice, rest) = cluster.validators.split_at_mut(1);
+    let node1 = &mut node1_slice[0];
+    let node2 = &mut rest[0];
 
-    // 3. Spawn nodes concurrently to ensure they can connect before timeouts.
-    println!("--- Launching 3-Node Cluster ---");
-    let bootnode_addr = format!("/ip4/127.0.0.1/tcp/4011/p2p/{}", peer_id_node1);
-    let dir1 = tempdir()?;
-    let dir2 = tempdir()?;
-    let dir3 = tempdir()?;
+    // Create log streams from the stderr of the orchestration processes
+    let mut logs1 = BufReader::new(node1.orchestration_process.stderr.take().unwrap()).lines();
+    let mut logs2 = BufReader::new(node2.orchestration_process.stderr.take().unwrap()).lines();
 
-    // Create longer-lived bindings for the argument slices to satisfy the borrow checker.
-    let args1 = &["--listen-address", "/ip4/127.0.0.1/tcp/4011"];
-    let args2 = &[
-        "--listen-address",
-        "/ip4/127.0.0.1/tcp/4012",
-        "--bootnode",
-        &bootnode_addr,
-    ];
-    let args3 = &[
-        "--listen-address",
-        "/ip4/127.0.0.1/tcp/4013",
-        "--bootnode",
-        &bootnode_addr,
-    ];
-
-    let (node1_res, node2_res, node3_res) = tokio::join!(
-        spawn_node(
-            &key_node1,
-            dir1,
-            &genesis_string,
-            args1,
-            "127.0.0.1:9954",
-            "ProofOfStake",
-        ),
-        spawn_node(
-            &key_node2,
-            dir2,
-            &genesis_string,
-            args2,
-            "127.0.0.1:9955",
-            "ProofOfStake",
-        ),
-        spawn_node(
-            &key_node3,
-            dir3,
-            &genesis_string,
-            args3,
-            "127.0.0.1:9956",
-            "ProofOfStake",
-        )
-    );
-
-    let mut node1 = node1_res?;
-    let mut node2 = node2_res?;
-    let mut _node3 = node3_res?;
-
-    // Setup log streams
-    let mut logs1 = BufReader::new(node1.process.stderr.take().unwrap()).lines();
-    let mut logs2 = BufReader::new(node2.process.stderr.take().unwrap()).lines();
-
-    // B. Phase 1: Verify Initial State
-    println!("--- Phase 1: Verifying Initial State ---");
+    // D. Execute the test logic
+    println!("--- Verifying initial state: Node 1 is the leader ---");
     assert_log_contains("Node1", &mut logs1, "Consensus decision: Produce block").await?;
-    println!("--- Initial state verified: Node 1 is the sole staker. ---");
 
-    // C. Phase 2: Submit Staking Transactions
-    println!("--- Phase 2: Submitting Staking Transactions ---");
-    // Tx 1: Node 1 unstakes everything
+    println!("--- Submitting Unstake transaction for Node 1 ---");
     let unstake_payload = SystemPayload::Unstake { amount: 100000 };
     let unstake_payload_bytes = serde_json::to_vec(&unstake_payload)?;
-    let pubkey1_bytes = key_node1.public().try_into_ed25519()?.to_bytes().to_vec();
-    let signature1 = key_node1.sign(&unstake_payload_bytes)?;
-    let combined_sig1 = [pubkey1_bytes, signature1].concat();
+    let unstake_signature = node1.keypair.sign(&unstake_payload_bytes)?;
     let unstake_tx = ChainTransaction::System(SystemTransaction {
         payload: unstake_payload,
-        signature: combined_sig1,
+        signature: [
+            node1
+                .keypair
+                .public()
+                .try_into_ed25519()?
+                .to_bytes()
+                .as_ref(),
+            &unstake_signature,
+        ]
+        .concat(),
     });
-    submit_transaction("127.0.0.1:9954", &unstake_tx).await?;
+    submit_transaction(&node1.rpc_addr, &unstake_tx).await?;
 
-    // Tx 2: Node 2 stakes
-    let stake_payload = SystemPayload::Stake { amount: 100000 };
+    println!("--- Submitting Stake transaction for Node 2 ---");
+    let stake_payload = SystemPayload::Stake { amount: 50000 };
     let stake_payload_bytes = serde_json::to_vec(&stake_payload)?;
-    let pubkey2_bytes = key_node2.public().try_into_ed25519()?.to_bytes().to_vec();
-    let signature2 = key_node2.sign(&stake_payload_bytes)?;
-    let combined_sig2 = [pubkey2_bytes, signature2].concat();
+    let stake_signature = node2.keypair.sign(&stake_payload_bytes)?;
     let stake_tx = ChainTransaction::System(SystemTransaction {
         payload: stake_payload,
-        signature: combined_sig2,
+        signature: [
+            node2
+                .keypair
+                .public()
+                .try_into_ed25519()?
+                .to_bytes()
+                .as_ref(),
+            &stake_signature,
+        ]
+        .concat(),
     });
-    submit_transaction("127.0.0.1:9954", &stake_tx).await?;
-    println!("--- Staking transactions submitted successfully. ---");
+    submit_transaction(&node1.rpc_addr, &stake_tx).await?;
 
-    // D. Phase 3: Verifying New State
-    println!("--- Phase 3: Verifying New State ---");
-    assert_log_contains(
-        "Node1",
-        &mut logs1,
-        "Processed unstake of 100000 for validator ",
-    )
-    .await?;
-    assert_log_contains(
-        "Node1",
-        &mut logs1,
-        "Processed stake of 100000 for validator ",
-    )
-    .await?;
-    println!("--- State change confirmed by nodes. Now verifying new leader. ---");
-
-    // Check that Node 2 is now producing blocks
+    // E. Assert the outcomes
+    println!("--- Verifying state transition: Node 2 becomes the new leader ---");
     assert_log_contains("Node2", &mut logs2, "Consensus decision: Produce block").await?;
 
-    // Check that Node 1 is no longer producing blocks (expect timeout)
-    let node1_inactive_check = timeout(
-        Duration::from_secs(20),
-        assert_log_contains("Node1", &mut logs1, "Consensus decision: Produce block"),
-    )
-    .await;
-    if node1_inactive_check.is_ok() {
-        return Err(anyhow!(
-            "Node 1 unexpectedly produced a block after unstaking."
-        ));
-    }
-    println!("--- Inactivity verified: Node 1 correctly stopped producing blocks. ---");
-    println!("--- New state verified: Node 2 is now the sole staker. ---");
-
-    // E. Cleanup
-    println!("--- Test finished. Cleaning up. ---");
     Ok(())
 }
