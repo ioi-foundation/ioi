@@ -22,17 +22,43 @@ fn test_ecdh_keypair_generation() {
 }
 
 #[test]
-#[should_panic(expected = "P384 and P521 curves are not yet implemented")]
-fn test_ecdh_p384_not_implemented() {
+fn test_ecdh_p384_round_trip() {
     let kem = EcdhKEM::new(EcdhCurve::P384);
-    kem.generate_keypair();
+    let keypair = kem.generate_keypair();
+
+    // Check sizes
+    assert_eq!(keypair.public_key.to_bytes().len(), 49);
+    assert_eq!(keypair.private_key.to_bytes().len(), 48);
+
+    let encapsulated = kem.encapsulate(&keypair.public_key);
+    assert_eq!(encapsulated.ciphertext().len(), 49);
+    assert_eq!(encapsulated.shared_secret().len(), 48); // P384 shared secret is 48 bytes
+
+    let decapsulated_secret = kem
+        .decapsulate(&keypair.private_key, &encapsulated)
+        .unwrap();
+
+    assert_eq!(decapsulated_secret, encapsulated.shared_secret());
 }
 
 #[test]
-#[should_panic(expected = "P384 and P521 curves are not yet implemented")]
-fn test_ecdh_p521_not_implemented() {
+fn test_ecdh_p521_round_trip() {
     let kem = EcdhKEM::new(EcdhCurve::P521);
-    kem.generate_keypair();
+    let keypair = kem.generate_keypair();
+
+    // Check sizes
+    assert_eq!(keypair.public_key.to_bytes().len(), 67);
+    assert_eq!(keypair.private_key.to_bytes().len(), 66);
+
+    let encapsulated = kem.encapsulate(&keypair.public_key);
+    assert_eq!(encapsulated.ciphertext().len(), 67);
+    assert_eq!(encapsulated.shared_secret().len(), 66); // P521 shared secret is 66 bytes
+
+    let decapsulated_secret = kem
+        .decapsulate(&keypair.private_key, &encapsulated)
+        .unwrap();
+
+    assert_eq!(decapsulated_secret, encapsulated.shared_secret());
 }
 
 #[test]

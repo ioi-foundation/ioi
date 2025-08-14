@@ -13,7 +13,7 @@ serde = { workspace = true }
 thiserror = { workspace = true }
 rand = { workspace = true }
 bytes = { workspace = true }
-dcrypt = { version = "0.13.0-beta.2", features = ["full"] }
+dcrypt = { version = "0.14.0-beta.3", features = ["full"] }
 
 [features]
 default = []

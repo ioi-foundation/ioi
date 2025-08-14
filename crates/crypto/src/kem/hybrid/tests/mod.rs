@@ -4,61 +4,68 @@ use crate::security::SecurityLevel;
 use depin_sdk_api::crypto::{Encapsulated, KeyEncapsulation};
 
 #[test]
-fn test_hybrid_keypair_generation() {
-    let kem = HybridKEM::new(SecurityLevel::Level3);
+fn test_hybrid_level1_roundtrip() {
+    let kem = HybridKEM::new(SecurityLevel::Level1);
     let keypair = kem.generate_keypair();
 
-    // Verify key sizes match the expected sizes
-    // ECDH K256 (33) + Kyber768 (1184) = 1217
-    assert_eq!(keypair.public_key.to_bytes().len(), 1217);
-    // ECDH K256 (32) + Kyber768 (2400) = 2432
-    assert_eq!(keypair.private_key.to_bytes().len(), 2432);
+    // Verify key sizes for Level 1 (P256 + Kyber512)
+    assert_eq!(keypair.public_key.to_bytes().len(), 833);
+    assert_eq!(keypair.private_key.to_bytes().len(), 1664);
+    assert_eq!(keypair.public_key.level, SecurityLevel::Level1);
 
-    // Ensure keys are different
-    assert_ne!(
-        keypair.public_key.to_bytes(),
-        keypair.private_key.to_bytes()
-    );
-}
-
-#[test]
-#[should_panic(expected = "Hybrid KEM currently only supports Level3 security")]
-fn test_hybrid_unsupported_security_levels() {
-    // Test Level1
-    let _ = HybridKEM::new(SecurityLevel::Level1);
-}
-
-#[test]
-#[should_panic(expected = "Hybrid KEM currently only supports Level3 security")]
-fn test_hybrid_unsupported_security_level5() {
-    // Test Level5
-    let _ = HybridKEM::new(SecurityLevel::Level5);
-}
-
-#[test]
-fn test_hybrid_encapsulation() {
-    let kem = HybridKEM::new(SecurityLevel::Level3);
-    let keypair = kem.generate_keypair();
-
-    // Encapsulate a key
+    // Encapsulate and verify sizes
     let encapsulated = kem.encapsulate(&keypair.public_key);
-
-    // Verify the encapsulated data sizes
-    // ECDH K256 (33) + Kyber768 (1088) = 1121
-    assert_eq!(encapsulated.ciphertext().len(), 1121);
-    // Combined shared secret should be 32 bytes (HKDF output)
+    assert_eq!(encapsulated.ciphertext().len(), 801);
     assert_eq!(encapsulated.shared_secret().len(), 32);
 
     // Decapsulate and verify
-    let shared_secret = kem.decapsulate(&keypair.private_key, &encapsulated);
-
-    // We should get a valid shared secret
-    assert!(shared_secret.is_some());
-    let shared_secret = shared_secret.unwrap();
-
-    // The shared secret should match what's in the encapsulated key
+    let shared_secret = kem
+        .decapsulate(&keypair.private_key, &encapsulated)
+        .unwrap();
     assert_eq!(shared_secret, encapsulated.shared_secret());
-    assert_eq!(shared_secret.len(), 32);
+}
+
+#[test]
+fn test_hybrid_level3_roundtrip() {
+    let kem = HybridKEM::new(SecurityLevel::Level3);
+    let keypair = kem.generate_keypair();
+
+    // Verify key sizes for Level 3 (P256 + Kyber768)
+    assert_eq!(keypair.public_key.to_bytes().len(), 1217);
+    assert_eq!(keypair.private_key.to_bytes().len(), 2432);
+
+    // Encapsulate and verify sizes
+    let encapsulated = kem.encapsulate(&keypair.public_key);
+    assert_eq!(encapsulated.ciphertext().len(), 1121);
+    assert_eq!(encapsulated.shared_secret().len(), 32);
+
+    // Decapsulate and verify
+    let shared_secret = kem
+        .decapsulate(&keypair.private_key, &encapsulated)
+        .unwrap();
+    assert_eq!(shared_secret, encapsulated.shared_secret());
+}
+
+#[test]
+fn test_hybrid_level5_roundtrip() {
+    let kem = HybridKEM::new(SecurityLevel::Level5);
+    let keypair = kem.generate_keypair();
+
+    // Verify key sizes for Level 5 (P384 + Kyber1024)
+    assert_eq!(keypair.public_key.to_bytes().len(), 1617);
+    assert_eq!(keypair.private_key.to_bytes().len(), 3216);
+    assert_eq!(keypair.public_key.level, SecurityLevel::Level5);
+
+    // Encapsulate and verify sizes
+    let encapsulated = kem.encapsulate(&keypair.public_key);
+    assert_eq!(encapsulated.ciphertext().len(), 1617);
+    assert_eq!(encapsulated.shared_secret().len(), 32);
+
+    // Decapsulate and verify
+    let shared_secret = kem
+        .decapsulate(&keypair.private_key, &encapsulated)
+        .unwrap();
+    assert_eq!(shared_secret, encapsulated.shared_secret());
 }
 
 #[test]

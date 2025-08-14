@@ -1,37 +1,53 @@
 // Path: crates/crypto/src/kem/hybrid/ecdh_kyber.rs
-// Change: Removed unused imports.
 
 //! ECDH-Kyber hybrid key encapsulation mechanism
 //!
-//! This module provides specific hybrid combinations of ECDH and Kyber KEMs.
+//! This module provides specific, named type aliases for the generalized HybridKEM,
+//! mapping them to different NIST security levels.
 
 use super::{HybridEncapsulated, HybridKEM, HybridKeyPair, HybridPrivateKey, HybridPublicKey};
 
-/// ECDH-P256 + Kyber768 hybrid KEM
+// --- NIST Level 1 ---
+
+/// ECDH-P256 + Kyber512 hybrid KEM (NIST Level 1).
 ///
-/// Provides Level3 security by combining:
-/// - ECDH on P-256 curve (128-bit classical security)
-/// - Kyber768 (192-bit post-quantum security)
+/// A convenience type alias for `HybridKEM` configured with `SecurityLevel::Level1`.
+pub type EcdhP256Kyber512 = HybridKEM;
+/// A key pair for the `EcdhP256Kyber512` scheme.
+pub type EcdhP256Kyber512KeyPair = HybridKeyPair;
+/// A public key for the `EcdhP256Kyber512` scheme.
+pub type EcdhP256Kyber512PublicKey = HybridPublicKey;
+/// A private key for the `EcdhP256Kyber512` scheme.
+pub type EcdhP256Kyber512PrivateKey = HybridPrivateKey;
+/// An encapsulated ciphertext for the `EcdhP256Kyber512` scheme.
+pub type EcdhP256Kyber512Encapsulated = HybridEncapsulated;
+
+// --- NIST Level 3 ---
+
+/// ECDH-P256 + Kyber768 hybrid KEM (NIST Level 3).
 ///
-/// This is a convenience type alias for HybridKEM configured with Level3 security.
+/// A convenience type alias for `HybridKEM` configured with `SecurityLevel::Level3`.
 pub type EcdhP256Kyber768 = HybridKEM;
-
-/// ECDH-P256 + Kyber768 key pair
+/// A key pair for the `EcdhP256Kyber768` scheme.
 pub type EcdhP256Kyber768KeyPair = HybridKeyPair;
-
-/// ECDH-P256 + Kyber768 public key
+/// A public key for the `EcdhP256Kyber768` scheme.
 pub type EcdhP256Kyber768PublicKey = HybridPublicKey;
-
-/// ECDH-P256 + Kyber768 private key
+/// A private key for the `EcdhP256Kyber768` scheme.
 pub type EcdhP256Kyber768PrivateKey = HybridPrivateKey;
-
-/// ECDH-P256 + Kyber768 encapsulated ciphertext
+/// An encapsulated ciphertext for the `EcdhP256Kyber768` scheme.
 pub type EcdhP256Kyber768Encapsulated = HybridEncapsulated;
 
-// Note: EcdhP256Kyber768 is a type alias for HybridKEM and inherits all its methods.
-// To create an instance, use: HybridKEM::new(SecurityLevel::Level3)
-// or HybridKEM::default() which defaults to Level3.
+// --- NIST Level 5 ---
 
-// Future implementations could include:
-// - EcdhP256Kyber512 for Level1 security
-// - EcdhP521Kyber1024 for Level5 security
+/// ECDH-P384 + Kyber1024 hybrid KEM (NIST Level 5).
+///
+/// A convenience type alias for `HybridKEM` configured with `SecurityLevel::Level5`.
+pub type EcdhP384Kyber1024 = HybridKEM;
+/// A key pair for the `EcdhP384Kyber1024` scheme.
+pub type EcdhP384Kyber1024KeyPair = HybridKeyPair;
+/// A public key for the `EcdhP384Kyber1024` scheme.
+pub type EcdhP384Kyber1024PublicKey = HybridPublicKey;
+/// A private key for the `EcdhP384Kyber1024` scheme.
+pub type EcdhP384Kyber1024PrivateKey = HybridPrivateKey;
+/// An encapsulated ciphertext for the `EcdhP384Kyber1024` scheme.
+pub type EcdhP384Kyber1024Encapsulated = HybridEncapsulated;
