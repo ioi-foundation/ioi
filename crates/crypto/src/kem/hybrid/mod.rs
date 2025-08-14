@@ -6,17 +6,9 @@ use depin_sdk_api::crypto::{
     DecapsulationKey, Encapsulated, EncapsulationKey, KemKeyPair, KeyEncapsulation, SerializableKey,
 };
 
-// Import the concrete generic structs and KEMs directly.
-use dcrypt::hybrid::kem::{
-    engine::{
-        HybridCiphertext as DcryptHybridCiphertext, HybridSecretKey as DcryptHybridSecretKey,
-    },
-    EcdhP256Kyber512, EcdhP256Kyber768, EcdhP384Kyber1024,
-};
-use dcrypt::kem::{
-    ecdh::{EcdhP256, EcdhP256SecretKey, EcdhP384, EcdhP384SecretKey},
-    kyber::{Kyber1024, Kyber512, Kyber768, KyberSecretKey},
-};
+// --- FIX: NO LONGER IMPORT FROM `engine` ---
+// We only import the concrete, public KEMs and their associated types.
+use dcrypt::hybrid::kem::{EcdhP256Kyber512, EcdhP256Kyber768, EcdhP384Kyber1024};
 use rand::thread_rng;
 
 /// Hybrid key encapsulation mechanism
@@ -150,54 +142,36 @@ impl KeyEncapsulation for HybridKEM {
     ) -> Option<Vec<u8>> {
         let ss_bytes = match private_key._level {
             SecurityLevel::Level1 => {
-                const P256_SK_LEN: usize = 32;
-                let (ecdh_bytes, kyber_bytes) = private_key.bytes.split_at(P256_SK_LEN);
-                let ecdh_sk = EcdhP256SecretKey::from_bytes(ecdh_bytes).ok()?;
-                let kyber_sk = KyberSecretKey::from_bytes(kyber_bytes).ok()?;
-                let sk = DcryptHybridSecretKey::<EcdhP256, Kyber512> {
-                    classical_sk: ecdh_sk,
-                    post_quantum_sk: kyber_sk,
-                };
-                let ct = DcryptHybridCiphertext::<EcdhP256, Kyber512>::from_bytes(
-                    &encapsulated.ciphertext,
-                )
-                .ok()?;
+                // FIX: Use the now-functional from_bytes methods from dcrypt's public API
+                let sk =
+                    <EcdhP256Kyber512 as Kem>::SecretKey::from_bytes(&private_key.bytes).ok()?;
+                let ct =
+                    <EcdhP256Kyber512 as Kem>::Ciphertext::from_bytes(&encapsulated.ciphertext)
+                        .ok()?;
                 EcdhP256Kyber512::decapsulate(&sk, &ct)
                     .ok()?
                     .to_bytes_zeroizing()
                     .to_vec()
             }
             SecurityLevel::Level3 => {
-                const P256_SK_LEN: usize = 32;
-                let (ecdh_bytes, kyber_bytes) = private_key.bytes.split_at(P256_SK_LEN);
-                let ecdh_sk = EcdhP256SecretKey::from_bytes(ecdh_bytes).ok()?;
-                let kyber_sk = KyberSecretKey::from_bytes(kyber_bytes).ok()?;
-                let sk = DcryptHybridSecretKey::<EcdhP256, Kyber768> {
-                    classical_sk: ecdh_sk,
-                    post_quantum_sk: kyber_sk,
-                };
-                let ct = DcryptHybridCiphertext::<EcdhP256, Kyber768>::from_bytes(
-                    &encapsulated.ciphertext,
-                )
-                .ok()?;
+                // FIX: Use the now-functional from_bytes methods from dcrypt's public API
+                let sk =
+                    <EcdhP256Kyber768 as Kem>::SecretKey::from_bytes(&private_key.bytes).ok()?;
+                let ct =
+                    <EcdhP256Kyber768 as Kem>::Ciphertext::from_bytes(&encapsulated.ciphertext)
+                        .ok()?;
                 EcdhP256Kyber768::decapsulate(&sk, &ct)
                     .ok()?
                     .to_bytes_zeroizing()
                     .to_vec()
             }
             SecurityLevel::Level5 => {
-                const P384_SK_LEN: usize = 48;
-                let (ecdh_bytes, kyber_bytes) = private_key.bytes.split_at(P384_SK_LEN);
-                let ecdh_sk = EcdhP384SecretKey::from_bytes(ecdh_bytes).ok()?;
-                let kyber_sk = KyberSecretKey::from_bytes(kyber_bytes).ok()?;
-                let sk = DcryptHybridSecretKey::<EcdhP384, Kyber1024> {
-                    classical_sk: ecdh_sk,
-                    post_quantum_sk: kyber_sk,
-                };
-                let ct = DcryptHybridCiphertext::<EcdhP384, Kyber1024>::from_bytes(
-                    &encapsulated.ciphertext,
-                )
-                .ok()?;
+                // FIX: Use the now-functional from_bytes methods from dcrypt's public API
+                let sk =
+                    <EcdhP384Kyber1024 as Kem>::SecretKey::from_bytes(&private_key.bytes).ok()?;
+                let ct =
+                    <EcdhP384Kyber1024 as Kem>::Ciphertext::from_bytes(&encapsulated.ciphertext)
+                        .ok()?;
                 EcdhP384Kyber1024::decapsulate(&sk, &ct)
                     .ok()?
                     .to_bytes_zeroizing()
@@ -229,8 +203,11 @@ impl SerializableKey for HybridPublicKey {
 
     fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
         let level = match bytes.len() {
+            // EcdhP256 (33) + Kyber512 (800)
             833 => SecurityLevel::Level1,
+            // EcdhP256 (33) + Kyber768 (1184)
             1217 => SecurityLevel::Level3,
+            // EcdhP384 (49) + Kyber1024 (1568)
             1617 => SecurityLevel::Level5,
             _ => return Err(format!("Invalid hybrid public key size: {}", bytes.len())),
         };
@@ -250,8 +227,11 @@ impl SerializableKey for HybridPrivateKey {
 
     fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
         let level = match bytes.len() {
+            // EcdhP256 (32) + Kyber512 (1632)
             1664 => SecurityLevel::Level1,
+            // EcdhP256 (32) + Kyber768 (2400)
             2432 => SecurityLevel::Level3,
+            // EcdhP384 (48) + Kyber1024 (3168)
             3216 => SecurityLevel::Level5,
             _ => return Err(format!("Invalid hybrid private key size: {}", bytes.len())),
         };
@@ -271,8 +251,11 @@ impl SerializableKey for HybridEncapsulated {
 
     fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
         let level = match bytes.len() {
+            // EcdhP256 (33) + Kyber512 (768)
             801 => SecurityLevel::Level1,
+            // EcdhP256 (33) + Kyber768 (1088)
             1121 => SecurityLevel::Level3,
+            // EcdhP384 (49) + Kyber1024 (1568)
             1617 => SecurityLevel::Level5,
             _ => return Err(format!("Invalid hybrid ciphertext size: {}", bytes.len())),
         };
