@@ -52,7 +52,8 @@ fn test_ecdh_p521_round_trip() {
 
     let encapsulated = kem.encapsulate(&keypair.public_key);
     assert_eq!(encapsulated.ciphertext().len(), 67);
-    assert_eq!(encapsulated.shared_secret().len(), 66); // P521 shared secret is 66 bytes
+    // FIX: The shared secret is passed through HKDF-SHA512, resulting in a 64-byte secret.
+    assert_eq!(encapsulated.shared_secret().len(), 64);
 
     let decapsulated_secret = kem
         .decapsulate(&keypair.private_key, &encapsulated)
