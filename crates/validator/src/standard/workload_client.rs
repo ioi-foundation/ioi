@@ -5,7 +5,8 @@ use crate::common::{
 };
 use anyhow::Result;
 use depin_sdk_api::vm::{ExecutionContext, ExecutionOutput};
-use depin_sdk_types::app::ChainTransaction;
+// FIX: Add Block and ChainStatus to imports
+use depin_sdk_types::app::{Block, ChainStatus, ChainTransaction};
 use std::collections::{BTreeMap, HashMap};
 
 /// A client-side proxy for communicating with the remote Workload container.
@@ -37,6 +38,31 @@ impl WorkloadClient {
         let response_bytes = self.channel.receive().await?;
         let response = serde_json::from_slice(&response_bytes)?;
         Ok(response)
+    }
+
+    // FIX: Add process_block method
+    pub async fn process_block(
+        &self,
+        block: Block<ChainTransaction>,
+    ) -> Result<Block<ChainTransaction>> {
+        let request = WorkloadRequest::ProcessBlock(block);
+        match self.send_and_receive(request).await? {
+            WorkloadResponse::ProcessBlock(res) => res.map_err(|e| anyhow::anyhow!(e)),
+            _ => Err(anyhow::anyhow!(
+                "Invalid response type from workload for ProcessBlock"
+            )),
+        }
+    }
+
+    // FIX: Add get_status method
+    pub async fn get_status(&self) -> Result<ChainStatus> {
+        let request = WorkloadRequest::GetStatus;
+        match self.send_and_receive(request).await? {
+            WorkloadResponse::GetStatus(res) => res.map_err(|e| anyhow::anyhow!(e)),
+            _ => Err(anyhow::anyhow!(
+                "Invalid response type from workload for GetStatus"
+            )),
+        }
     }
 
     pub async fn execute_transaction(&self, tx: ChainTransaction) -> Result<()> {
@@ -81,6 +107,55 @@ impl WorkloadClient {
         match self.send_and_receive(request).await? {
             WorkloadResponse::CallContract(res) => res.map_err(|e| anyhow::anyhow!(e)),
             _ => Err(anyhow::anyhow!("Invalid response type from workload")),
+        }
+    }
+
+    pub async fn query_contract(
+        &self,
+        address: Vec<u8>,
+        input_data: Vec<u8>,
+        context: ExecutionContext,
+    ) -> Result<ExecutionOutput> {
+        let request = WorkloadRequest::QueryContract {
+            address,
+            input_data,
+            context,
+        };
+        match self.send_and_receive(request).await? {
+            WorkloadResponse::QueryContract(res) => res.map_err(|e| anyhow::anyhow!(e)),
+            _ => Err(anyhow::anyhow!(
+                "Invalid response type from workload for QueryContract"
+            )),
+        }
+    }
+
+    pub async fn get_authority_set(&self) -> Result<Vec<Vec<u8>>> {
+        let request = WorkloadRequest::GetAuthoritySet;
+        match self.send_and_receive(request).await? {
+            WorkloadResponse::GetAuthoritySet(res) => res.map_err(|e| anyhow::anyhow!(e)),
+            _ => Err(anyhow::anyhow!(
+                "Invalid response type from workload for GetAuthoritySet"
+            )),
+        }
+    }
+
+    pub async fn get_validator_set(&self) -> Result<Vec<Vec<u8>>> {
+        let request = WorkloadRequest::GetValidatorSet;
+        match self.send_and_receive(request).await? {
+            WorkloadResponse::GetValidatorSet(res) => res.map_err(|e| anyhow::anyhow!(e)),
+            _ => Err(anyhow::anyhow!(
+                "Invalid response type from workload for GetValidatorSet"
+            )),
+        }
+    }
+
+    pub async fn get_state_root(&self) -> Result<Vec<u8>> {
+        let request = WorkloadRequest::GetStateRoot;
+        match self.send_and_receive(request).await? {
+            WorkloadResponse::GetStateRoot(res) => res.map_err(|e| anyhow::anyhow!(e)),
+            _ => Err(anyhow::anyhow!(
+                "Invalid response type from workload for GetStateRoot"
+            )),
         }
     }
 }

@@ -49,7 +49,6 @@ where
     ///
     /// # Arguments
     /// * `transactions` - A vector of protocol-level transactions to include in the block.
-    /// * `workload` - A reference to the workload container.
     /// * `current_validator_set` - The validator set from the last committed state.
     /// * `known_peers_bytes` - The current set of known validator peer IDs, as bytes,
     ///   used to propose an updated validator set for the new block.
@@ -57,7 +56,6 @@ where
     fn create_block(
         &self,
         transactions: Vec<ChainTransaction>,
-        workload: &WorkloadContainer<ST>,
         current_validator_set: &[Vec<u8>],
         known_peers_bytes: &[Vec<u8>],
         producer_keypair: &Keypair,

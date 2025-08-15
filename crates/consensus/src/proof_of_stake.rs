@@ -13,8 +13,6 @@ use libp2p::PeerId;
 use std::collections::{BTreeMap, HashSet};
 use std::fmt::Debug;
 
-/// A Proof of Stake consensus engine that uses a deterministic, stake-weighted
-/// lottery to select a block producer for each round.
 pub struct ProofOfStakeEngine {}
 
 impl Default for ProofOfStakeEngine {
@@ -28,8 +26,6 @@ impl ProofOfStakeEngine {
         Self {}
     }
 
-    /// Selects a leader from a map of stakers.
-    /// The selection is deterministic based on the height and total stake.
     fn select_leader(
         &self,
         height: u64,
@@ -41,16 +37,13 @@ impl ProofOfStakeEngine {
 
         let total_stake = stakers.values().sum::<StakeAmount>();
         if total_stake == 0 {
-            // If total stake is zero, fall back to the first staker to avoid division by zero.
             return stakers.keys().next().cloned();
         }
 
-        // Create a deterministic "winning ticket" number for this height.
         let seed = height.to_le_bytes();
         let hash = sha256(seed);
         let winning_ticket = u64::from_le_bytes(hash[0..8].try_into().unwrap()) % total_stake;
 
-        // Find which staker "owns" the winning ticket.
         let mut cumulative_stake = 0;
         for (validator_pk_b58, stake) in stakers {
             cumulative_stake += stake;
@@ -59,7 +52,6 @@ impl ProofOfStakeEngine {
             }
         }
 
-        // Fallback in case of rounding errors, though it should not be reached.
         stakers.keys().last().cloned()
     }
 }
@@ -71,12 +63,9 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
         local_peer_id: &PeerId,
         height: u64,
         _view: u64,
-        // For PoS, this `validator_set` parameter is interpreted as the *staked validators*.
-        // The OrchestrationContainer will be responsible for fetching and passing this data.
         staked_validators: &[Vec<u8>],
         _known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
-        // The staked_validators list is assumed to be a serialized BTreeMap for this PoS engine.
         let stakers: BTreeMap<PublicKey, StakeAmount> =
             serde_json::from_slice(staked_validators.first().unwrap_or(&vec![]))
                 .unwrap_or_default();
@@ -111,10 +100,13 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
     where
         CS: CommitmentScheme + Send + Sync,
         TM: TransactionModel<CommitmentScheme = CS> + Send + Sync,
-        ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static + Debug,
+        ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+            + Send
+            + Sync
+            + 'static
+            + Debug,
         CS::Commitment: Send + Sync + Debug,
     {
-        // 1. Basic structural validation
         if block.header.height != chain.status().height + 1 {
             return Err(format!(
                 "Invalid block height. Expected {}, got {}",
@@ -123,24 +115,25 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             ));
         }
 
-        // 2. Verify Producer Signature
         let producer_pubkey = Libp2pPublicKey::try_decode_protobuf(&block.header.producer)
             .map_err(|e| format!("Failed to decode producer public key: {}", e))?;
-        let header_hash = block.header.hash_for_signing();
+        let header_hash = block.header.hash();
         if !producer_pubkey.verify(&header_hash, &block.header.signature) {
             return Err("Invalid block signature".to_string());
         }
 
-        // 3. Verify Producer was the valid leader for this height
-        let stakers = chain.get_staked_validators(workload).await
+        let stakers = chain
+            .get_staked_validators(workload)
+            .await
             .map_err(|e| format!("Could not get staked validators: {}", e))?;
         if stakers.is_empty() {
             return Err("Cannot validate block, no stakers found".to_string());
         }
 
-        let expected_leader_b58 = self.select_leader(block.header.height, &stakers)
+        let expected_leader_b58 = self
+            .select_leader(block.header.height, &stakers)
             .ok_or("Leader selection failed for received block")?;
-        
+
         let producer_peer_id_b58 = producer_pubkey.to_peer_id().to_base58();
 
         if producer_peer_id_b58 != expected_leader_b58 {
@@ -150,23 +143,21 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             ));
         }
 
-        log::info!("Block proposal from valid PoS leader {} verified.", producer_peer_id_b58);
+        log::info!(
+            "Block proposal from valid PoS leader {} verified.",
+            producer_peer_id_b58
+        );
         Ok(())
     }
-    
+
     async fn handle_view_change(
         &mut self,
         _from: PeerId,
         _height: u64,
         _new_view: u64,
     ) -> Result<(), String> {
-        // This stake-weighted lottery model is not a BFT-style protocol and does not
-        // have a concept of view changes. Leader failure is handled by the network
-        // simply waiting for the next block slot, where a new leader will be chosen.
         Ok(())
     }
 
-    fn reset(&mut self, _height: u64) {
-        // This engine is stateless, so there is no round-specific state to clear.
-    }
+    fn reset(&mut self, _height: u64) {}
 }

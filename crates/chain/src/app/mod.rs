@@ -8,13 +8,14 @@ use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::services::{ServiceType, UpgradableService};
 use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::TransactionModel;
-use depin_sdk_api::validator::{TransactionExecutor, WorkloadContainer};
+// FIX: Remove unused import for TransactionExecutor
+use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{Block, BlockHeader, ChainStatus, ChainTransaction, SystemPayload};
 use depin_sdk_types::error::{ChainError, CoreError, StateError};
 use depin_sdk_types::keys::*;
-use libp2p::identity::Keypair; // Add this import for signing
-use serde::{Deserialize, Serialize}; // Add this line
+use libp2p::identity::Keypair;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -38,7 +39,6 @@ pub struct ChainState<CS: CommitmentScheme + Clone> {
 
 #[derive(Debug)]
 pub struct Chain<CS: CommitmentScheme + Clone> {
-    // MODIFICATION: The `state` field is now public.
     pub state: ChainState<CS>,
     pub service_manager: ModuleUpgradeManager,
 }
@@ -110,6 +110,7 @@ where
     }
 }
 
+// FIX: Add ST back to the impl signature to match the trait definition.
 #[async_trait]
 impl<CS, ST> AppChain<CS, UnifiedTransactionModel<CS>, ST> for Chain<CS>
 where
@@ -121,7 +122,6 @@ where
         + Sync
         + 'static
         + Debug,
-    WorkloadContainer<ST>: TransactionExecutor<ST>,
     CS::Commitment: Send + Sync + Debug,
 {
     fn status(&self) -> &ChainStatus {
@@ -161,7 +161,7 @@ where
             .state
             .recent_blocks
             .last()
-            .map_or(vec![0; 32], |b| b.header.state_root.clone());
+            .map_or(vec![0; 32], |b| b.header.hash());
         if block.header.prev_hash != expected_prev_hash {
             return Err(ChainError::Block(format!(
                 "Invalid prev_hash for block {}. Expected {}, got {}",
@@ -252,7 +252,6 @@ where
     fn create_block(
         &self,
         transactions: Vec<ChainTransaction>,
-        _workload: &WorkloadContainer<ST>,
         current_validator_set: &[Vec<u8>],
         _known_peers_bytes: &[Vec<u8>],
         producer_keypair: &Keypair,
@@ -261,7 +260,7 @@ where
             .state
             .recent_blocks
             .last()
-            .map_or(vec![0; 32], |b| b.header.state_root.clone());
+            .map_or(vec![0; 32], |b| b.header.hash());
 
         let mut validator_set_bytes = current_validator_set.to_vec();
         validator_set_bytes.sort();
@@ -272,8 +271,8 @@ where
 
         let mut header = BlockHeader {
             height: next_height,
-            prev_hash: prev_hash.clone(),
-            state_root: prev_hash,
+            prev_hash,
+            state_root: vec![], // Placeholder; will be calculated in process_block
             transactions_root: vec![0; 32],
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -284,7 +283,7 @@ where
             signature: vec![],
         };
 
-        let header_hash = header.hash_for_signing();
+        let header_hash = header.hash();
         header.signature = producer_keypair.sign(&header_hash).unwrap();
 
         Block {

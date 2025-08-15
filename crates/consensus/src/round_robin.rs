@@ -165,7 +165,8 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
         // 2. Verify Producer Signature
         let producer_pubkey = PublicKey::try_decode_protobuf(&block.header.producer)
             .map_err(|e| format!("Failed to decode producer public key: {}", e))?;
-        let header_hash = block.header.hash_for_signing();
+        // FIX: Use the renamed hash() method
+        let header_hash = block.header.hash();
         if !producer_pubkey.verify(&header_hash, &block.header.signature) {
             return Err("Invalid block signature".to_string());
         }

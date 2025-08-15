@@ -6,7 +6,6 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_types::app::{ChainTransaction, SystemPayload, SystemTransaction};
 use serde_json::json;
-use tokio::io::{AsyncBufReadExt, BufReader};
 
 #[tokio::test]
 async fn test_staking_lifecycle() -> Result<()> {
@@ -16,6 +15,8 @@ async fn test_staking_lifecycle() -> Result<()> {
     // B. Launch Cluster using the new builder
     let mut cluster = TestCluster::new()
         .with_validators(3)
+        // FIX: Explicitly set the consensus type for clarity
+        .with_consensus_type("ProofOfStake")
         .with_genesis_modifier(|genesis, keys| {
             let initial_staker_peer_id = keys[0].public().to_peer_id();
             genesis["genesis_state"]["system::stakes"] = json!({
@@ -30,8 +31,6 @@ async fn test_staking_lifecycle() -> Result<()> {
     let node1 = &mut node1_slice[0];
     let node2 = &mut rest[0];
 
-    // FIX: Get the log streams from the new field in TestValidator.
-    // Also, fix the unused variable warning for logs1, as it's not needed.
     let _logs1 = node1.orch_log_stream.lock().await.take().unwrap();
     let mut logs2 = node2.orch_log_stream.lock().await.take().unwrap();
 

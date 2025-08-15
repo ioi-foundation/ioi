@@ -10,10 +10,8 @@ use depin_sdk_types::app::{ApplicationTransaction, ChainTransaction};
 use libp2p::identity::Keypair;
 use reqwest::Client;
 use serde_json::json;
-use tokio::io::{AsyncBufReadExt, BufReader};
 
 // Helper function to create a signed transaction
-// This remains unchanged as its logic is independent of the node setup.
 fn create_signed_tx(keypair: &Keypair, tx: ApplicationTransaction) -> ChainTransaction {
     let payload = tx.to_signature_payload();
     let signature = keypair.sign(&payload).unwrap();
@@ -45,7 +43,6 @@ fn create_signed_tx(keypair: &Keypair, tx: ApplicationTransaction) -> ChainTrans
 }
 
 // Helper for query_contract RPC
-// This also remains unchanged.
 async fn query_contract(rpc_addr: &str, address_hex: &str, input: &[u8]) -> Result<Vec<u8>> {
     let client = Client::new();
     let request_body = serde_json::json!({
@@ -87,9 +84,8 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     // 2. SETUP NETWORK using the TestCluster harness
     let mut cluster = TestCluster::new()
         .with_validators(1)
+        .with_consensus_type("ProofOfAuthority")
         .with_genesis_modifier(|genesis, keys| {
-            // The builder provides the generated keys, so we can use them
-            // to configure the genesis state correctly.
             let authority_peer_id = keys[0].public().to_peer_id();
             genesis["genesis_state"]["system::authorities"] = json!([authority_peer_id.to_bytes()]);
         })
@@ -100,7 +96,9 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     let node = &mut cluster.validators[0];
     let rpc_addr = &node.rpc_addr;
     let keypair = &node.keypair;
-    let mut logs = BufReader::new(node.orchestration_process.stderr.take().unwrap()).lines();
+    // FIX: Listen to the workload container's log stream, not the orchestrator's.
+    let mut workload_logs = node.workload_log_stream.lock().await.take().unwrap();
+    let mut orch_logs = node.orch_log_stream.lock().await.take().unwrap();
 
     // 3. DEPLOY CONTRACT
     let deploy_tx_unsigned = ApplicationTransaction::DeployContract {
@@ -112,9 +110,10 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     submit_transaction(rpc_addr, &deploy_tx).await?;
 
     // 4. PARSE LOGS TO GET CONTRACT ADDRESS
+    // The "Applied" log now comes from the Workload container when the block is processed.
     let log_line = assert_log_contains_and_return_line(
-        "Node",
-        &mut logs,
+        "Workload",
+        &mut workload_logs,
         "Applied contract deployment at address:",
     )
     .await?;
@@ -136,7 +135,7 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     };
     let call_tx = create_signed_tx(keypair, call_tx_unsigned);
     submit_transaction(rpc_addr, &call_tx).await?;
-    assert_log_contains("Node", &mut logs, "Contract call successful").await?;
+    assert_log_contains("Workload", &mut workload_logs, "Contract call successful").await?;
 
     // 7. VERIFY FINAL STATE
     let final_value_bytes = query_contract(rpc_addr, address_hex, &get_input).await?;
