@@ -3,7 +3,7 @@ use crate::common::{
     ipc::{WorkloadRequest, WorkloadResponse},
     security::SecurityChannel,
 };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use depin_sdk_api::vm::{ExecutionContext, ExecutionOutput};
 // FIX: Add Block and ChainStatus to imports
 use depin_sdk_types::app::{Block, ChainStatus, ChainTransaction};
@@ -155,6 +155,26 @@ impl WorkloadClient {
             WorkloadResponse::GetStateRoot(res) => res.map_err(|e| anyhow::anyhow!(e)),
             _ => Err(anyhow::anyhow!(
                 "Invalid response type from workload for GetStateRoot"
+            )),
+        }
+    }
+
+    /// Asks the Workload container to scan for concluded proposals, tally them,
+    /// and return a log of the outcomes.
+    pub async fn check_and_tally_proposals(&self, current_height: u64) -> Result<Vec<String>> {
+        let request = WorkloadRequest::CallService {
+            service_id: "governance".to_string(),
+            method_id: "check_and_tally_proposals".to_string(),
+            params: serde_json::json!({ "current_height": current_height }),
+        };
+        match self.send_and_receive(request).await? {
+            WorkloadResponse::CallService(res) => {
+                let value = res.map_err(|e| anyhow!(e))?;
+                serde_json::from_value(value)
+                    .map_err(|e| anyhow!("Failed to deserialize tally outcomes: {}", e))
+            }
+            _ => Err(anyhow!(
+                "Invalid response type from workload for CallService"
             )),
         }
     }

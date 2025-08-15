@@ -1,4 +1,4 @@
-# Path: crates/node/Cargo.toml
+# Path: crates/validator/Cargo.toml
 [package]
 name = "depin-sdk-node"
 version = "0.1.0"
@@ -39,6 +39,7 @@ toml = { workspace = true }
 # FIX: Add the axum dependency for the RPC server.
 axum = { workspace = true }
 serde = { workspace = true }
+base64 = { workspace = true }
 
 [features]
 default = ["consensus-poa", "vm-wasm", "consensus-round-robin"]

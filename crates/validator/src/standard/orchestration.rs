@@ -343,8 +343,6 @@ where
                         if let Ok(final_block) = context.chain_ref.lock().await.process_block(new_block_template, &context.workload_ref).await {
                             log::info!("Produced and processed new block #{}", final_block.header.height);
 
-                            log::info!("Checked for finished governance proposals at height {}.", final_block.header.height);
-
                             let data = serde_json::to_vec(&final_block).unwrap();
                             context.swarm_commander.send(SwarmCommand::PublishBlock(data)).await.ok();
                             context.consensus_engine_ref.lock().await.reset(final_block.header.height);

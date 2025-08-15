@@ -34,6 +34,10 @@ libp2p = { workspace = true }
 prost = { workspace = true }
 portpicker = "0.1.1"
 
+[dev-dependencies]
+depin-sdk-services = { path = "../services" }
+base64 = { workspace = true }
+
 # The library exposes helpers, the binary provides the CLI
 [lib]
 name = "depin_sdk_forge"
