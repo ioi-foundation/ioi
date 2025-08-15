@@ -15,13 +15,15 @@ use std::sync::Once;
 use std::time::Duration;
 use tempfile::TempDir;
 use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
-use tokio::process::{Child, Command as TokioCommand};
+use tokio::process::{Child, ChildStderr, Command as TokioCommand};
+use tokio::sync::Mutex;
 use tokio::time::timeout;
 
 // --- Test Configuration ---
 const NODE_BINARY_REL_PATH: &str = "../../target/release/depin-sdk-node";
 const LOG_ASSERT_TIMEOUT: Duration = Duration::from_secs(45);
 const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(10);
+const ORCHESTRATION_READY_TIMEOUT: Duration = Duration::from_secs(10);
 
 // --- One-Time Build ---
 static BUILD: Once = Once::new();
@@ -179,6 +181,8 @@ pub struct TestValidator {
     pub rpc_addr: String,
     pub p2p_addr: Multiaddr,
     _temp_dir: TempDir,
+    // FIX: Add a field to hold the log stream for the test to consume.
+    pub orch_log_stream: Mutex<Option<tokio::io::Lines<BufReader<ChildStderr>>>>,
 }
 
 impl Drop for TestValidator {
@@ -219,6 +223,7 @@ impl TestValidator {
             r#"
 consensus_type = "ProofOfStake"
 rpc_listen_address = "127.0.0.1:9999"
+initial_sync_timeout_secs = 2
 "#
         );
         fs::write(config_dir.join("orchestration.toml"), orchestration_config)?;
@@ -240,11 +245,11 @@ rpc_listen_address = "127.0.0.1:9999"
             .spawn()?;
 
         let workload_stderr = workload_process.stderr.take().unwrap();
-        let mut reader = BufReader::new(workload_stderr).lines();
+        let mut workload_reader = BufReader::new(workload_stderr).lines();
 
-        let readiness_probe = async {
+        let workload_ready_probe = async {
             let ready_signal = format!("WORKLOAD_IPC_LISTENING_ON_{}", ipc_addr);
-            while let Some(line) = reader.next_line().await? {
+            while let Some(line) = workload_reader.next_line().await? {
                 if line.contains(&ready_signal) {
                     return Ok(());
                 }
@@ -252,7 +257,7 @@ rpc_listen_address = "127.0.0.1:9999"
             Err(anyhow!("Workload stderr stream ended before ready signal."))
         };
 
-        timeout(WORKLOAD_READY_TIMEOUT, readiness_probe).await??;
+        timeout(WORKLOAD_READY_TIMEOUT, workload_ready_probe).await??;
 
         let mut orch_args = vec![
             "orchestration".to_string(),
@@ -277,13 +282,32 @@ rpc_listen_address = "127.0.0.1:9999"
             orch_args.push(addr.to_string());
         }
 
-        let orchestration_process = TokioCommand::new(NODE_BINARY_REL_PATH)
+        let mut orchestration_process = TokioCommand::new(NODE_BINARY_REL_PATH)
             .args(&orch_args)
             .env("WORKLOAD_IPC_ADDR", &ipc_addr)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true)
             .spawn()?;
+
+        let orch_stderr = orchestration_process.stderr.take().unwrap();
+        // FIX: Create the Lines iterator here...
+        let mut orch_reader = BufReader::new(orch_stderr).lines();
+
+        let orch_ready_probe = async {
+            let ready_signal = format!("ORCHESTRATION_RPC_LISTENING_ON_{}", rpc_addr);
+            // ...use a mutable reference to it in the probe...
+            while let Some(line) = orch_reader.next_line().await? {
+                if line.contains(&ready_signal) {
+                    return Ok(());
+                }
+            }
+            Err(anyhow!(
+                "Orchestration stderr stream ended before RPC ready signal."
+            ))
+        };
+
+        timeout(ORCHESTRATION_READY_TIMEOUT, orch_ready_probe).await??;
 
         Ok(TestValidator {
             keypair,
@@ -293,6 +317,8 @@ rpc_listen_address = "127.0.0.1:9999"
             rpc_addr,
             p2p_addr: p2p_addr_str.parse()?,
             _temp_dir: temp_dir,
+            // FIX: ...and then store the partially-consumed iterator in the struct.
+            orch_log_stream: Mutex::new(Some(orch_reader)),
         })
     }
 }
@@ -311,6 +337,12 @@ impl TestCluster {
 pub struct TestClusterBuilder {
     num_validators: usize,
     genesis_modifiers: Vec<Box<dyn FnOnce(&mut Value, &Vec<identity::Keypair>)>>,
+}
+
+impl Default for TestClusterBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TestClusterBuilder {
@@ -350,11 +382,11 @@ impl TestClusterBuilder {
         let mut bootnode_addr = None;
 
         for (i, key) in validator_keys.iter().enumerate() {
-            let base_port = 5000 + (i * 10);
+            let base_port = 5000 + (i * 10) as u16;
             let validator = TestValidator::launch(
                 key.clone(),
                 genesis_content.clone(),
-                base_port as u16,
+                base_port,
                 bootnode_addr.as_ref(),
             )
             .await?;

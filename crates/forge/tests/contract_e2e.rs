@@ -3,16 +3,17 @@
 
 use anyhow::{anyhow, Result};
 use depin_sdk_forge::testing::{
-    assert_log_contains, assert_log_contains_and_return_line, build_test_artifacts, spawn_node,
-    submit_transaction,
+    assert_log_contains, assert_log_contains_and_return_line, build_test_artifacts,
+    submit_transaction, TestCluster,
 };
 use depin_sdk_types::app::{ApplicationTransaction, ChainTransaction};
 use libp2p::identity::Keypair;
 use reqwest::Client;
-use tempfile::tempdir;
+use serde_json::json;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
 // Helper function to create a signed transaction
+// This remains unchanged as its logic is independent of the node setup.
 fn create_signed_tx(keypair: &Keypair, tx: ApplicationTransaction) -> ChainTransaction {
     let payload = tx.to_signature_payload();
     let signature = keypair.sign(&payload).unwrap();
@@ -44,6 +45,7 @@ fn create_signed_tx(keypair: &Keypair, tx: ApplicationTransaction) -> ChainTrans
 }
 
 // Helper for query_contract RPC
+// This also remains unchanged.
 async fn query_contract(rpc_addr: &str, address_hex: &str, input: &[u8]) -> Result<Vec<u8>> {
     let client = Client::new();
     let request_body = serde_json::json!({
@@ -82,30 +84,23 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     let counter_wasm =
         std::fs::read("../../target/wasm32-unknown-unknown/release/counter_contract.wasm")?;
 
-    // 2. SETUP NETWORK
-    let key = Keypair::generate_ed25519();
-    let peer_id = key.public().to_peer_id();
+    // 2. SETUP NETWORK using the TestCluster harness
+    let mut cluster = TestCluster::new()
+        .with_validators(1)
+        .with_genesis_modifier(|genesis, keys| {
+            // The builder provides the generated keys, so we can use them
+            // to configure the genesis state correctly.
+            let authority_peer_id = keys[0].public().to_peer_id();
+            genesis["genesis_state"]["system::authorities"] = json!([authority_peer_id.to_bytes()]);
+        })
+        .build()
+        .await?;
 
-    // FIX: Use the byte representation of the Peer ID, not the Base58 string.
-    // This ensures the genesis state matches what the chain expects to
-    // deserialize (`Vec<Vec<u8>>`) for the PoA authority set.
-    let genesis_content = serde_json::json!({
-      "genesis_state": {
-        "system::authorities": [peer_id.to_bytes()]
-      }
-    });
-    let genesis_string = genesis_content.to_string();
-
-    let mut node = spawn_node(
-        &key,
-        tempdir()?,
-        &genesis_string,
-        &["--listen-address", "/ip4/127.0.0.1/tcp/4021"],
-        "127.0.0.1:9964",
-        "ProofOfAuthority",
-    )
-    .await?;
-    let mut logs = BufReader::new(node.process.stderr.take().unwrap()).lines();
+    // Get a mutable handle to the single validator node and its resources.
+    let node = &mut cluster.validators[0];
+    let rpc_addr = &node.rpc_addr;
+    let keypair = &node.keypair;
+    let mut logs = BufReader::new(node.orchestration_process.stderr.take().unwrap()).lines();
 
     // 3. DEPLOY CONTRACT
     let deploy_tx_unsigned = ApplicationTransaction::DeployContract {
@@ -113,12 +108,10 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
         signer_pubkey: vec![],
         signature: vec![],
     };
-    let deploy_tx = create_signed_tx(&key, deploy_tx_unsigned);
-    submit_transaction("127.0.0.1:9964", &deploy_tx).await?;
+    let deploy_tx = create_signed_tx(keypair, deploy_tx_unsigned);
+    submit_transaction(rpc_addr, &deploy_tx).await?;
 
     // 4. PARSE LOGS TO GET CONTRACT ADDRESS
-    // The node now logs the *application* of a contract immediately after
-    // block import. We must match that new format to find the address.
     let log_line = assert_log_contains_and_return_line(
         "Node",
         &mut logs,
@@ -129,7 +122,7 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
 
     // 5. QUERY INITIAL STATE
     let get_input = vec![0]; // ABI for get()
-    let initial_value_bytes = query_contract("127.0.0.1:9964", address_hex, &get_input).await?;
+    let initial_value_bytes = query_contract(rpc_addr, address_hex, &get_input).await?;
     assert_eq!(initial_value_bytes, vec![0], "Initial count should be 0");
 
     // 6. CALL INCREMENT
@@ -141,12 +134,12 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
         signer_pubkey: vec![],
         signature: vec![],
     };
-    let call_tx = create_signed_tx(&key, call_tx_unsigned);
-    submit_transaction("127.0.0.1:9964", &call_tx).await?;
+    let call_tx = create_signed_tx(keypair, call_tx_unsigned);
+    submit_transaction(rpc_addr, &call_tx).await?;
     assert_log_contains("Node", &mut logs, "Contract call successful").await?;
 
     // 7. VERIFY FINAL STATE
-    let final_value_bytes = query_contract("127.0.0.1:9964", address_hex, &get_input).await?;
+    let final_value_bytes = query_contract(rpc_addr, address_hex, &get_input).await?;
     assert_eq!(final_value_bytes, vec![1], "Final count should be 1");
 
     println!("--- E2E Contract Test Successful ---");
