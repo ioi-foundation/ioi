@@ -13,15 +13,15 @@ pub mod proof_of_authority;
 pub mod proof_of_stake;
 
 use async_trait::async_trait;
-use depin_sdk_api::chain::AppChain; // Add this
-use depin_sdk_api::commitment::CommitmentScheme; // Add this
-use depin_sdk_api::state::StateManager; // Add this
-use depin_sdk_api::transaction::TransactionModel; // Add this
-use depin_sdk_api::validator::WorkloadContainer; // Add this
+use depin_sdk_api::chain::AppChain;
+use depin_sdk_api::commitment::CommitmentScheme;
+use depin_sdk_api::state::StateManager;
+use depin_sdk_api::transaction::TransactionModel;
+use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_types::app::Block;
 use libp2p::PeerId;
 use std::collections::HashSet;
-use std::fmt::Debug; // Add this
+use std::fmt::Debug;
 
 // Re-export the concrete engine types for use in the enum.
 #[cfg(feature = "poa")]
@@ -189,7 +189,8 @@ where
         match self {
             #[cfg(feature = "round-robin")]
             Consensus::RoundRobin(e) => {
-                ConsensusEngine::<T>::handle_block_proposal(e.as_mut(), block, chain, workload).await
+                ConsensusEngine::<T>::handle_block_proposal(e.as_mut(), block, chain, workload)
+                    .await
             }
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(e) => {

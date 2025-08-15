@@ -181,14 +181,16 @@ pub struct TestValidator {
     pub rpc_addr: String,
     pub p2p_addr: Multiaddr,
     _temp_dir: TempDir,
-    // FIX: Add a field to hold the log stream for the test to consume.
     pub orch_log_stream: Mutex<Option<tokio::io::Lines<BufReader<ChildStderr>>>>,
+    // FIX: Add a log stream for the workload container.
+    pub workload_log_stream: Mutex<Option<tokio::io::Lines<BufReader<ChildStderr>>>>,
 }
 
 impl Drop for TestValidator {
     fn drop(&mut self) {
-        let _ = self.orchestration_process.kill();
-        let _ = self.workload_process.kill();
+        // Use kill() to ensure the processes are terminated immediately.
+        let _ = self.orchestration_process.start_kill();
+        let _ = self.workload_process.start_kill();
     }
 }
 
@@ -198,6 +200,7 @@ impl TestValidator {
         genesis_content: String,
         base_port: u16,
         bootnode_addr: Option<&Multiaddr>,
+        consensus_type: &str,
     ) -> Result<Self> {
         let peer_id = keypair.public().to_peer_id();
         let temp_dir = tempfile::tempdir()?;
@@ -221,14 +224,16 @@ impl TestValidator {
 
         let orchestration_config = format!(
             r#"
-consensus_type = "ProofOfStake"
-rpc_listen_address = "127.0.0.1:9999"
+consensus_type = "{}"
+rpc_listen_address = "127.0.0.1:9999" # This will be overridden by CLI/env
 initial_sync_timeout_secs = 2
-"#
+"#,
+            consensus_type
         );
         fs::write(config_dir.join("orchestration.toml"), orchestration_config)?;
         fs::write(config_dir.join("guardian.toml"), "")?;
 
+        // --- Launch Workload Container ---
         let workload_state_file = temp_dir.path().join("workload_state.json");
         let mut workload_process = TokioCommand::new(NODE_BINARY_REL_PATH)
             .args([
@@ -247,18 +252,21 @@ initial_sync_timeout_secs = 2
         let workload_stderr = workload_process.stderr.take().unwrap();
         let mut workload_reader = BufReader::new(workload_stderr).lines();
 
+        // Wait for workload to signal it's ready.
         let workload_ready_probe = async {
             let ready_signal = format!("WORKLOAD_IPC_LISTENING_ON_{}", ipc_addr);
             while let Some(line) = workload_reader.next_line().await? {
+                // Print workload logs for debugging during test setup
+                println!("[SETUP-LOGS-Workload] {}", line);
                 if line.contains(&ready_signal) {
                     return Ok(());
                 }
             }
             Err(anyhow!("Workload stderr stream ended before ready signal."))
         };
-
         timeout(WORKLOAD_READY_TIMEOUT, workload_ready_probe).await??;
 
+        // --- Launch Orchestration Container ---
         let mut orch_args = vec![
             "orchestration".to_string(),
             "--state-file".to_string(),
@@ -291,13 +299,14 @@ initial_sync_timeout_secs = 2
             .spawn()?;
 
         let orch_stderr = orchestration_process.stderr.take().unwrap();
-        // FIX: Create the Lines iterator here...
         let mut orch_reader = BufReader::new(orch_stderr).lines();
 
+        // Wait for orchestration to signal it's ready.
         let orch_ready_probe = async {
             let ready_signal = format!("ORCHESTRATION_RPC_LISTENING_ON_{}", rpc_addr);
-            // ...use a mutable reference to it in the probe...
             while let Some(line) = orch_reader.next_line().await? {
+                // Print orchestration logs for debugging during test setup
+                println!("[SETUP-LOGS-Orchestration] {}", line);
                 if line.contains(&ready_signal) {
                     return Ok(());
                 }
@@ -306,7 +315,6 @@ initial_sync_timeout_secs = 2
                 "Orchestration stderr stream ended before RPC ready signal."
             ))
         };
-
         timeout(ORCHESTRATION_READY_TIMEOUT, orch_ready_probe).await??;
 
         Ok(TestValidator {
@@ -317,8 +325,9 @@ initial_sync_timeout_secs = 2
             rpc_addr,
             p2p_addr: p2p_addr_str.parse()?,
             _temp_dir: temp_dir,
-            // FIX: ...and then store the partially-consumed iterator in the struct.
             orch_log_stream: Mutex::new(Some(orch_reader)),
+            // FIX: Store the workload log reader in the new field.
+            workload_log_stream: Mutex::new(Some(workload_reader)),
         })
     }
 }
@@ -337,6 +346,7 @@ impl TestCluster {
 pub struct TestClusterBuilder {
     num_validators: usize,
     genesis_modifiers: Vec<Box<dyn FnOnce(&mut Value, &Vec<identity::Keypair>)>>,
+    consensus_type: String,
 }
 
 impl Default for TestClusterBuilder {
@@ -350,11 +360,17 @@ impl TestClusterBuilder {
         Self {
             num_validators: 1,
             genesis_modifiers: Vec::new(),
+            consensus_type: "ProofOfAuthority".to_string(),
         }
     }
 
     pub fn with_validators(mut self, count: usize) -> Self {
         self.num_validators = count;
+        self
+    }
+
+    pub fn with_consensus_type(mut self, consensus: &str) -> Self {
+        self.consensus_type = consensus.to_string();
         self
     }
 
@@ -388,6 +404,7 @@ impl TestClusterBuilder {
                 genesis_content.clone(),
                 base_port,
                 bootnode_addr.as_ref(),
+                &self.consensus_type,
             )
             .await?;
 

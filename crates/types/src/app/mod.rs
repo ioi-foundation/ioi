@@ -62,7 +62,7 @@ pub struct BlockHeader {
 
 impl BlockHeader {
     /// Creates a hash of the header's core fields for signing.
-    pub fn hash_for_signing(&self) -> Vec<u8> {
+    pub fn hash(&self) -> Vec<u8> {
         let mut temp = self.clone();
         // Clear the signature before hashing to create a stable payload.
         temp.signature = vec![];

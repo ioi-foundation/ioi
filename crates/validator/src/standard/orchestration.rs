@@ -1,7 +1,6 @@
 // Path: crates/validator/src/standard/orchestration.rs
 use crate::config::OrchestrationConfig;
 use async_trait::async_trait;
-use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
 use depin_sdk_api::{
     chain::AppChain,
     commitment::CommitmentScheme,
@@ -28,139 +27,6 @@ use tokio::{
     task::JoinHandle,
     time::{self, Duration},
 };
-
-#[derive(Deserialize, Debug)]
-struct JsonRpcRequest {
-    #[allow(dead_code)]
-    jsonrpc: String,
-    method: String,
-    params: Vec<String>,
-    id: u64,
-}
-
-#[derive(Serialize, Debug)]
-struct JsonRpcResponse {
-    jsonrpc: String,
-    result: Option<String>,
-    error: Option<String>,
-    id: u64,
-}
-
-struct RpcAppState<ST: StateManager + Send + Sync + 'static> {
-    tx_pool: Arc<Mutex<VecDeque<ChainTransaction>>>,
-    workload: Arc<WorkloadContainer<ST>>,
-}
-
-async fn rpc_handler<ST>(
-    State(app_state): State<Arc<RpcAppState<ST>>>,
-    Json(payload): Json<JsonRpcRequest>,
-) -> (StatusCode, Json<JsonRpcResponse>)
-where
-    ST: StateManager + StateCommitment + Send + Sync + 'static + Debug,
-{
-    let response = match payload.method.as_str() {
-        "submit_tx" => {
-            if let Some(tx_hex) = payload.params.first() {
-                match hex::decode(tx_hex) {
-                    Ok(tx_bytes) => match serde_json::from_slice::<ChainTransaction>(&tx_bytes) {
-                        Ok(tx) => {
-                            let mut pool = app_state.tx_pool.lock().await;
-                            pool.push_back(tx);
-                            log::info!("Accepted transaction into pool. Pool size: {}", pool.len());
-                            JsonRpcResponse {
-                                jsonrpc: "2.0".to_string(),
-                                result: Some("Transaction accepted".to_string()),
-                                error: None,
-                                id: payload.id,
-                            }
-                        }
-                        Err(e) => JsonRpcResponse {
-                            jsonrpc: "2.0".to_string(),
-                            result: None,
-                            error: Some(format!("Failed to deserialize transaction: {e}")),
-                            id: payload.id,
-                        },
-                    },
-                    Err(e) => JsonRpcResponse {
-                        jsonrpc: "2.0".to_string(),
-                        result: None,
-                        error: Some(format!("Invalid hex in transaction: {e}")),
-                        id: payload.id,
-                    },
-                }
-            } else {
-                JsonRpcResponse {
-                    jsonrpc: "2.0".to_string(),
-                    result: None,
-                    error: Some("Missing transaction parameter".to_string()),
-                    id: payload.id,
-                }
-            }
-        }
-        "query_contract" => {
-            if payload.params.len() != 2 {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(JsonRpcResponse {
-                        jsonrpc: "2.0".to_string(),
-                        result: None,
-                        error: Some(
-                            "query_contract requires 2 params: [address_hex, input_data_hex]"
-                                .to_string(),
-                        ),
-                        id: payload.id,
-                    }),
-                );
-            }
-            let address_res = hex::decode(&payload.params[0]);
-            let input_data_res = hex::decode(&payload.params[1]);
-
-            match (address_res, input_data_res) {
-                (Ok(address), Ok(input_data)) => {
-                    let context = depin_sdk_api::vm::ExecutionContext {
-                        caller: vec![],
-                        block_height: 0,
-                        gas_limit: 1_000_000_000,
-                        contract_address: vec![],
-                    };
-                    match app_state
-                        .workload
-                        .query_contract(address, input_data, context)
-                        .await
-                    {
-                        // The client expects only the raw return data, not the
-                        // entire ExecutionOutput struct. Extract it before encoding.
-                        Ok(output) => JsonRpcResponse {
-                            jsonrpc: "2.0".to_string(),
-                            result: Some(hex::encode(output.return_data)),
-                            error: None,
-                            id: payload.id,
-                        },
-                        Err(e) => JsonRpcResponse {
-                            jsonrpc: "2.0".to_string(),
-                            result: None,
-                            error: Some(format!("Contract query failed: {}", e)),
-                            id: payload.id,
-                        },
-                    }
-                }
-                _ => JsonRpcResponse {
-                    jsonrpc: "2.0".to_string(),
-                    result: None,
-                    error: Some("Failed to decode hex parameters".to_string()),
-                    id: payload.id,
-                },
-            }
-        }
-        _ => JsonRpcResponse {
-            jsonrpc: "2.0".to_string(),
-            result: None,
-            error: Some(format!("Method '{}' not found", payload.method)),
-            id: payload.id,
-        },
-    };
-    (StatusCode::OK, Json(response))
-}
 
 type ChainFor<CS, ST> = Arc<Mutex<dyn AppChain<CS, UnifiedTransactionModel<CS>, ST> + Send + Sync>>;
 
@@ -191,7 +57,6 @@ where
 
 struct MainLoopContext<CS, ST, CE>
 where
-    // UPDATE: Add the where clause here
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
@@ -222,7 +87,6 @@ where
 impl<CS, ST, CE> OrchestrationContainer<CS, ST, CE>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    // UPDATE: Also add the bounds to the main impl block for consistency
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -273,14 +137,12 @@ where
             .expect("Workload ref already set");
     }
 
-    /// Selects a deterministic, pseudorandom committee for a given task using a VRF.
     pub async fn select_inference_committee(
         &self,
         height: u64,
         committee_size: usize,
     ) -> Result<Vec<PeerId>, String> {
         let chain = self.chain.get().unwrap().lock().await;
-        // Fetch the active validator set from the chain state
         let validator_set_bytes = chain
             .get_validator_set(self.workload.get().unwrap())
             .await
@@ -290,8 +152,6 @@ where
             return Err("Cannot select committee from empty validator set.".to_string());
         }
 
-        // In a real implementation, a VRF would be used here.
-        // For now, we simulate a deterministic selection based on the block height.
         let start_index = (height as usize) % validator_set_bytes.len();
 
         let committee_members = validator_set_bytes
@@ -305,17 +165,12 @@ where
         Ok(committee_members)
     }
 
-    /// Orchestrates the 'Consensus Mode' execution for a semantic transaction.
     pub async fn execute_semantic_consensus(
         &self,
         _prompt: String,
         committee: Vec<PeerId>,
     ) -> Result<Vec<u8>, String> {
-        // This is a simulation for the E2E test. In a real system, this would involve
-        // broadcasting, collecting votes via NetworkEvent, and tallying.
         let mut votes: HashMap<Vec<u8>, usize> = HashMap::new();
-        // The mock LLM will produce different JSON but the normaliser will produce the same hash.
-        // This hash is derived from the canonical JSON of the mock output.
         let canonical_json_bytes = serde_jcs::to_vec(&serde_json::json!({
             "gas_ceiling":100000,
             "operation_id":"token_transfer",
@@ -327,7 +182,7 @@ where
         .unwrap();
         let correct_hash = depin_sdk_crypto::algorithms::hash::sha256(&canonical_json_bytes);
 
-        votes.insert(correct_hash.clone(), 3); // Simulate a super-majority
+        votes.insert(correct_hash.clone(), 3);
 
         let required_votes = (committee.len() * 2) / 3 + 1;
         for (hash, count) in votes {
@@ -351,10 +206,8 @@ where
         *context.node_state.lock().await = NodeState::Syncing;
 
         loop {
-            // Quarantine check at the start of every loop iteration.
             if context.is_quarantined.load(Ordering::SeqCst) {
                 log::warn!("Node is quarantined, skipping consensus participation.");
-                // Sleep to prevent a tight loop while quarantined.
                 tokio::time::sleep(Duration::from_secs(10)).await;
                 continue;
             }
@@ -376,15 +229,12 @@ where
                             if let Err(e) = chain.process_block(block, &context.workload_ref).await {
                                 log::warn!("[Orchestrator] Failed to process gossiped block: {e:?}");
                             }
-                            // We are caught up as soon as we process *any* valid block while
-                            // still in the Syncing state.
                             if *context.node_state.lock().await == NodeState::Syncing {
                                 *context.node_state.lock().await = NodeState::Synced;
                             }
                         },
                         NetworkEvent::GossipTransaction(tx) => {
                             let mut pool = context.tx_pool_ref.lock().await;
-                            // In a real implementation, we would validate the tx before adding it.
                             pool.push_back(tx);
                             log::info!("[Orchestrator] Received transaction via gossip. Pool size: {}", pool.len());
                         }
@@ -472,9 +322,7 @@ where
                         let target_height = context.chain_ref.lock().await.status().height + 1;
                         log::info!("Consensus decision: Produce block for height {target_height}.");
 
-                        let mut tx_pool = context.tx_pool_ref.lock().await;
-                        let mut transactions_to_include = tx_pool.drain(..).collect::<Vec<_>>();
-                        drop(tx_pool);
+                        let mut transactions_to_include = context.tx_pool_ref.lock().await.drain(..).collect::<Vec<_>>();
 
                         let coinbase = context.chain_ref.lock().await.transaction_model().clone().create_coinbase_transaction(target_height, &context.local_peer_id.to_bytes()).unwrap();
                         transactions_to_include.insert(0, coinbase);
@@ -484,15 +332,17 @@ where
                         peers_bytes.push(context.local_peer_id.to_bytes());
                         drop(known_peers);
 
-                        let new_block_template = context.chain_ref.lock().await.create_block(transactions_to_include, &context.workload_ref, &node_set_for_header, &peers_bytes, &context.local_keypair);
+                        // FIX: Remove the extra `workload_ref` argument
+                        let new_block_template = context.chain_ref.lock().await.create_block(
+                            transactions_to_include,
+                            &node_set_for_header,
+                            &peers_bytes,
+                            &context.local_keypair,
+                        );
 
                         if let Ok(final_block) = context.chain_ref.lock().await.process_block(new_block_template, &context.workload_ref).await {
                             log::info!("Produced and processed new block #{}", final_block.header.height);
 
-                            // NEW: Tally and execute finished proposals
-                            // In reality, this would be a shared service
-                            // let governance_module = GovernanceModule::default();
-                            // governance_module.tally_and_execute_proposals(&mut state, final_block.header.height);
                             log::info!("Checked for finished governance proposals at height {}.", final_block.header.height);
 
                             let data = serde_json::to_vec(&final_block).unwrap();
@@ -518,7 +368,6 @@ where
 impl<CS, ST, CE> Container for OrchestrationContainer<CS, ST, CE>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    // UPDATE: And finally, add the bounds here too for the Container trait impl
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -563,33 +412,6 @@ where
             })?
             .clone();
 
-        let rpc_app_state = Arc::new(RpcAppState {
-            tx_pool: self.tx_pool.clone(),
-            workload: workload.clone(),
-        });
-
-        let app = Router::new()
-            .route("/", post(rpc_handler::<ST>))
-            .with_state(rpc_app_state);
-
-        let addr = self.config.rpc_listen_address.parse().unwrap();
-        log::info!("RPC server listening on {}", addr);
-
-        let mut shutdown_rx = self.shutdown_sender.subscribe();
-        let rpc_server_handle = tokio::spawn(async move {
-            axum::Server::bind(&addr)
-                .serve(app.into_make_service())
-                .with_graceful_shutdown(async {
-                    shutdown_rx.changed().await.ok();
-                    log::info!("RPC server shutting down.");
-                })
-                .await
-                .unwrap();
-        });
-
-        let mut handles = self.task_handles.lock().await;
-        handles.push(rpc_server_handle);
-
         let mut receiver_opt = self.network_event_receiver.lock().await;
         let receiver = receiver_opt.take().ok_or(ValidatorError::Other(
             "Network event receiver already taken".to_string(),
@@ -611,6 +433,7 @@ where
             is_quarantined: self.is_quarantined.clone(),
         };
 
+        let mut handles = self.task_handles.lock().await;
         handles.push(tokio::spawn(Self::run_main_loop(context)));
 
         self.is_running.store(true, Ordering::SeqCst);
