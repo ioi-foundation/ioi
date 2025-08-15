@@ -363,11 +363,21 @@ where
                         }
 
                         // 3. Write the vote to the state.
+                        let ed25519_pk =
+                            libp2p::identity::ed25519::PublicKey::try_from_bytes(pubkey_bytes)
+                                .map_err(|_| {
+                                    TransactionError::Invalid(
+                                        "Could not decode ed25519 pubkey".into(),
+                                    )
+                                })?;
+                        let voter_peer_id = Libp2pPublicKey::from(ed25519_pk).to_peer_id();
+                        let voter_bs58 = voter_peer_id.to_base58();
+
                         let vote_key = [
                             GOVERNANCE_VOTE_KEY_PREFIX,
                             &proposal_id.to_le_bytes(),
                             b"::",
-                            pubkey_bytes,
+                            voter_bs58.as_bytes(),
                         ]
                         .concat();
                         let vote_bytes = serde_json::to_vec(option).unwrap();

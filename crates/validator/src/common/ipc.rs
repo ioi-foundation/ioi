@@ -46,6 +46,12 @@ pub enum WorkloadRequest {
     GetAuthoritySet,
     GetValidatorSet,
     GetStateRoot,
+    /// A generic request to call a method on a runtime service.
+    CallService {
+        service_id: String,
+        method_id: String,
+        params: serde_json::Value,
+    },
 }
 
 /// A response sent from the Workload container back to the Orchestration container.
@@ -63,6 +69,8 @@ pub enum WorkloadResponse {
     GetAuthoritySet(VecVecResult),
     GetValidatorSet(VecVecResult),
     GetStateRoot(StateRootResult),
+    /// The response from a generic service call.
+    CallService(Result<serde_json::Value, String>),
 }
 
 impl From<ValidatorError> for WorkloadResponse {

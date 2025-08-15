@@ -4,6 +4,7 @@
 
 use anyhow::Result;
 use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use cfg_if::cfg_if;
 use clap::{Parser, Subcommand};
 use depin_sdk_api::chain::AppChain;
@@ -18,6 +19,10 @@ use depin_sdk_consensus::{Consensus, ConsensusDecision, ConsensusEngine};
 use depin_sdk_network::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_network::BlockSync;
+// *** BEGIN: PHASE 2.1 IMPORTS ***
+use depin_sdk_services::governance::{GovernanceModule, Proposal, ProposalStatus};
+use depin_sdk_types::keys::GOVERNANCE_PROPOSAL_KEY_PREFIX;
+// *** END: PHASE 2.1 IMPORTS ***
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{Block, BlockHeader, ChainStatus, ChainTransaction};
 use depin_sdk_types::config::WorkloadConfig;
@@ -29,11 +34,11 @@ use depin_sdk_validator::common::security::SecurityChannel;
 use depin_sdk_validator::config::{ConsensusType, OrchestrationConfig}; // --- FIX: Import ConsensusType ---
 use depin_sdk_validator::standard::workload_client::WorkloadClient;
 use depin_sdk_vm_wasm::WasmVm;
-use libp2p::{identity, Multiaddr, PeerId};
+use libp2p::{identity, Multiaddr};
 use rcgen::{Certificate, CertificateParams, SanType};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;
@@ -463,7 +468,7 @@ async fn main() -> Result<()> {
                                         let stakers = workload_client.get_staked_validators().await?;
                                         let header_peer_ids = stakers.iter()
                                             .filter(|(_, &stake)| stake > 0)
-                                            .filter_map(|(id_b58, _)| id_b58.parse::<PeerId>().ok())
+                                            .filter_map(|(id_b58, _)| id_b58.parse::<libp2p::PeerId>().ok())
                                             .map(|id| id.to_bytes())
                                             .collect();
                                         let consensus_blob = vec![serde_json::to_vec(&stakers)?];
@@ -549,6 +554,23 @@ async fn main() -> Result<()> {
                                     status_guard.latest_timestamp = final_block.header.timestamp;
                                     recent_blocks.lock().await.push(final_block.clone());
 
+                                    // After a block is successfully processed, check for concluded proposals.
+                                    let new_height = final_block.header.height;
+                                    match workload_client.check_and_tally_proposals(new_height).await {
+                                        Ok(outcomes) => {
+                                            for outcome in outcomes {
+                                                // The log output for our test assertion.
+                                                log::info!("{}", outcome);
+                                                // TODO: In a future phase, parse `outcome` and if a proposal
+                                                // passed that requires execution (e.g., a software upgrade),
+                                                // create and submit a new SystemTransaction here.
+                                            }
+                                        }
+                                        Err(e) => {
+                                            log::error!("Failed to check/tally proposals: {}", e);
+                                        }
+                                    }
+
                                     let data = serde_json::to_vec(&final_block).unwrap();
                                     swarm_commander.send(SwarmCommand::PublishBlock(data)).await.ok();
                                 }
@@ -597,10 +619,25 @@ async fn main() -> Result<()> {
                     .get("genesis_state")
                     .and_then(|s| s.as_object())
                 {
-                    for (key, value) in genesis_state {
-                        let value_bytes = serde_json::to_vec(value)?;
-                        log::info!("  -> Writing genesis key: {}", key);
-                        state_tree.insert(key.as_bytes(), &value_bytes)?;
+                    for (key_str, value) in genesis_state {
+                        let key_bytes = if key_str.starts_with("b64:") {
+                            BASE64_STANDARD.decode(key_str.strip_prefix("b64:").unwrap())?
+                        } else {
+                            key_str.as_bytes().to_vec()
+                        };
+
+                        let value_bytes = if let Some(s) = value.as_str() {
+                            if s.starts_with("b64:") {
+                                BASE64_STANDARD.decode(s.strip_prefix("b64:").unwrap())?
+                            } else {
+                                serde_json::to_vec(value)?
+                            }
+                        } else {
+                            serde_json::to_vec(value)?
+                        };
+
+                        log::info!("  -> Writing genesis key: {}", hex::encode(&key_bytes));
+                        state_tree.insert(&key_bytes, &value_bytes)?;
                     }
                     log::info!("Genesis state successfully loaded into workload state tree.");
                 } else {
@@ -735,6 +772,109 @@ async fn main() -> Result<()> {
                             .query_contract(address, input_data, context)
                             .await;
                         WorkloadResponse::QueryContract(res.map_err(|e| e.to_string()))
+                    }
+                    WorkloadRequest::CallService {
+                        service_id,
+                        method_id,
+                        params,
+                    } => {
+                        if service_id == "governance" && method_id == "check_and_tally_proposals" {
+                            match serde_json::from_value::<HashMap<String, u64>>(params) {
+                                Ok(p) => {
+                                    let current_height =
+                                        p.get("current_height").cloned().unwrap_or(0);
+                                    let state_tree_arc = workload_container.state_tree();
+                                    let mut state = state_tree_arc.lock().await;
+                                    let governance_module = GovernanceModule::default();
+
+                                    match state.prefix_scan(GOVERNANCE_PROPOSAL_KEY_PREFIX) {
+                                        Ok(proposals_kv) => {
+                                            let mut outcomes = Vec::new();
+                                            for (_key, value_bytes) in proposals_kv {
+                                                if let Ok(proposal) =
+                                                    serde_json::from_slice::<Proposal>(&value_bytes)
+                                                {
+                                                    if proposal.status
+                                                        == ProposalStatus::VotingPeriod
+                                                        && current_height
+                                                            > proposal.voting_end_height
+                                                    {
+                                                        log::info!(
+                                                            "Tallying proposal {}",
+                                                            proposal.id
+                                                        );
+                                                        let stakes = match state.get(STAKES_KEY) {
+                                                            Ok(Some(bytes)) => {
+                                                                serde_json::from_slice(&bytes)
+                                                                    .unwrap_or_default()
+                                                            }
+                                                            _ => BTreeMap::new(),
+                                                        };
+                                                        if let Err(e) = governance_module
+                                                            .tally_proposal(
+                                                                &mut *state,
+                                                                proposal.id,
+                                                                &stakes,
+                                                            )
+                                                        {
+                                                            log::error!(
+                                                                "Failed to tally proposal {}: {}",
+                                                                proposal.id,
+                                                                e
+                                                            );
+                                                            continue;
+                                                        }
+                                                        let updated_key =
+                                                            GovernanceModule::proposal_key(
+                                                                proposal.id,
+                                                            );
+                                                        if let Ok(Some(updated_bytes)) =
+                                                            state.get(&updated_key)
+                                                        {
+                                                            if let Ok(updated_proposal) =
+                                                                serde_json::from_slice::<Proposal>(
+                                                                    &updated_bytes,
+                                                                )
+                                                            {
+                                                                let outcome_msg = format!(
+                                                                    "Proposal {} tallied: {:?}",
+                                                                    updated_proposal.id,
+                                                                    updated_proposal.status
+                                                                );
+                                                                log::info!("{}", outcome_msg);
+                                                                outcomes.push(outcome_msg);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            let response_value =
+                                                serde_json::to_value(outcomes).unwrap();
+                                            WorkloadResponse::CallService(Ok(response_value))
+                                        }
+                                        Err(e) => {
+                                            let err_msg =
+                                                format!("Failed to scan for proposals: {}", e);
+                                            log::error!("{}", err_msg);
+                                            WorkloadResponse::CallService(Err(err_msg))
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    let err_msg = format!(
+                                        "Invalid params for check_and_tally_proposals: {}",
+                                        e
+                                    );
+                                    log::error!("{}", err_msg);
+                                    WorkloadResponse::CallService(Err(err_msg))
+                                }
+                            }
+                        } else {
+                            WorkloadResponse::CallService(Err(format!(
+                                "Service or method not found: {}/{}",
+                                service_id, method_id
+                            )))
+                        }
                     }
                     _ => WorkloadResponse::ExecuteTransaction(Err(
                         "Request type not implemented".to_string()
