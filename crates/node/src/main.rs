@@ -11,6 +11,7 @@ use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_chain::Chain;
 use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
 use depin_sdk_commitment::tree::file::FileStateTree;
+#[cfg(feature = "consensus-pos")]
 use depin_sdk_consensus::proof_of_stake::ProofOfStakeEngine;
 use depin_sdk_consensus::{Consensus, ConsensusDecision, ConsensusEngine};
 use depin_sdk_network::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
@@ -302,6 +303,9 @@ async fn main() -> Result<()> {
                 .with_state(rpc_app_state);
             let addr = config.rpc_listen_address.parse()?;
             log::info!("RPC server listening on {}", addr);
+            // FIX START: Add the readiness signal here.
+            eprintln!("ORCHESTRATION_RPC_LISTENING_ON_{}", addr);
+            // FIX END
             let mut rpc_shutdown_rx = shutdown_sender.subscribe();
             tokio::spawn(async move {
                 axum::Server::bind(&addr)
