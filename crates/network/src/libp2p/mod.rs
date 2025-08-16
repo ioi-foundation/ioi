@@ -62,7 +62,8 @@ pub enum SwarmCommand {
     SendBlocksRequest(PeerId, u64),
     SendStatusResponse(ResponseChannel<SyncResponse>, u64),
     SendBlocksResponse(ResponseChannel<SyncResponse>, Vec<Block<ChainTransaction>>),
-    BroadcastToCommittee(Vec<PeerId>, String), // For semantic consensus
+    BroadcastToCommittee(Vec<PeerId>, String), // NEW: For semantic consensus
+    SemanticConsensusVote(String, Vec<u8>),      // NEW: For semantic consensus
     // [NEW] Command to send the acknowledgement
     SendSemanticAck(ResponseChannel<SyncResponse>),
     SimulateSemanticTx, // For E2E test
@@ -79,7 +80,16 @@ pub enum NetworkEvent {
     StatusResponse(PeerId, u64),
     BlocksResponse(PeerId, Vec<Block<ChainTransaction>>),
     // [NEW] Event for the orchestrator, containing the received prompt and its sender.
-    SemanticPrompt { from: PeerId, prompt: String },
+    SemanticPrompt {
+        from: PeerId,
+        prompt: String,
+    },
+    SemanticConsensusVote {
+        // NEW
+        from: PeerId,
+        prompt_hash: String,
+        vote_hash: Vec<u8>,
+    },
 }
 
 // Internal event type for swarm -> forwarder communication
@@ -98,6 +108,12 @@ enum SwarmInternalEvent {
         from: PeerId,
         prompt: String,
         channel: ResponseChannel<SyncResponse>,
+    },
+    // NEW: Add internal event for votes
+    SemanticConsensusVote {
+        from: PeerId,
+        prompt_hash: String,
+        vote_hash: Vec<u8>,
     },
 }
 
@@ -162,6 +178,24 @@ impl Libp2pSync {
                     }
                     continue;
                 }
+                // NEW: Handle votes separately to avoid deserialization issues
+                if let SwarmInternalEvent::SemanticConsensusVote {
+                    from,
+                    prompt_hash,
+                    vote_hash,
+                } = event
+                {
+                    let translated_event = NetworkEvent::SemanticConsensusVote {
+                        from,
+                        prompt_hash,
+                        vote_hash,
+                    };
+                    if network_event_sender.send(translated_event).await.is_err() {
+                        log::info!("[Sync] Network event channel closed. Shutting down forwarder.");
+                        break;
+                    }
+                    continue;
+                }
 
                 let translated_event = match event {
                     SwarmInternalEvent::ConnectionEstablished(p) => {
@@ -201,6 +235,7 @@ impl Libp2pSync {
                         }
                     }
                     SwarmInternalEvent::SemanticPrompt { .. } => unreachable!(),
+                    SwarmInternalEvent::SemanticConsensusVote { .. } => unreachable!(), // NEW
                 };
 
                 if let Some(event) = translated_event {
@@ -280,6 +315,8 @@ impl Libp2pSync {
     ) {
         let block_topic = gossipsub::IdentTopic::new("blocks");
         let tx_topic = gossipsub::IdentTopic::new("transactions");
+        // NEW: Add a topic for semantic consensus votes
+        let semantic_vote_topic = gossipsub::IdentTopic::new("semantic-votes");
         swarm
             .behaviour_mut()
             .gossipsub
@@ -289,6 +326,12 @@ impl Libp2pSync {
             .behaviour_mut()
             .gossipsub
             .subscribe(&tx_topic)
+            .unwrap();
+        // NEW: Subscribe to the vote topic
+        swarm
+            .behaviour_mut()
+            .gossipsub
+            .subscribe(&semantic_vote_topic)
             .unwrap();
 
         loop {
@@ -305,6 +348,12 @@ impl Libp2pSync {
                                     event_sender.send(SwarmInternalEvent::GossipBlock(message.data, source)).await.ok();
                                 } else if message.topic == tx_topic.hash() {
                                     event_sender.send(SwarmInternalEvent::GossipTransaction(message.data, source)).await.ok();
+                                }
+                                // NEW: Handle semantic vote gossip
+                                else if message.topic == semantic_vote_topic.hash() {
+                                    if let Ok((prompt_hash, vote_hash)) = serde_json::from_slice::<(String, Vec<u8>)>(&message.data) {
+                                        event_sender.send(SwarmInternalEvent::SemanticConsensusVote { from: source, prompt_hash, vote_hash }).await.ok();
+                                    }
                                 }
                             }
                         }
@@ -355,6 +404,11 @@ impl Libp2pSync {
                                 let request = SyncRequest::SemanticPrompt(prompt.clone());
                                 swarm.behaviour_mut().request_response.send_request(&peer_id, request);
                             }
+                        }
+                        // NEW: Handle sending votes
+                        SwarmCommand::SemanticConsensusVote(prompt_hash, vote_hash) => {
+                            let data = serde_json::to_vec(&(prompt_hash, vote_hash)).unwrap();
+                            swarm.behaviour_mut().gossipsub.publish(semantic_vote_topic.clone(), data).ok();
                         }
                         SwarmCommand::SendSemanticAck(channel) => {
                             swarm.behaviour_mut().request_response.send_response(channel, SyncResponse::SemanticAck).ok();

@@ -9,6 +9,7 @@ use depin_sdk_api::{
     validator::{Container, WorkloadContainer},
 };
 use depin_sdk_consensus::{ConsensusDecision, ConsensusEngine};
+use depin_sdk_crypto::algorithms::hash::sha256;
 use depin_sdk_network::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_network::BlockSync;
@@ -25,10 +26,17 @@ use std::sync::{
 use tokio::{
     sync::{mpsc, watch, Mutex, OnceCell},
     task::JoinHandle,
-    time::{self, Duration},
+    time::{self, Duration, Instant},
 };
 
 type ChainFor<CS, ST> = Arc<Mutex<dyn AppChain<CS, UnifiedTransactionModel<CS>, ST> + Send + Sync>>;
+
+// NEW: State for tallying semantic consensus votes
+#[derive(Debug)]
+struct TallyState {
+    votes: HashMap<Vec<u8>, Vec<PeerId>>, // Key: Vote Hash, Value: List of voters
+    start_time: Instant,
+}
 
 pub struct OrchestrationContainer<CS, ST, CE>
 where
@@ -53,6 +61,7 @@ where
     task_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     is_running: Arc<AtomicBool>,
     is_quarantined: Arc<AtomicBool>,
+    pending_consensus: Arc<Mutex<HashMap<String, TallyState>>>, // NEW
 }
 
 struct MainLoopContext<CS, ST, CE>
@@ -82,6 +91,7 @@ where
     known_peers_ref: Arc<Mutex<HashSet<PeerId>>>,
     config: OrchestrationConfig,
     is_quarantined: Arc<AtomicBool>,
+    pending_consensus: Arc<Mutex<HashMap<String, TallyState>>>, // NEW
 }
 
 impl<CS, ST, CE> OrchestrationContainer<CS, ST, CE>
@@ -123,6 +133,7 @@ where
             task_handles: Arc::new(Mutex::new(Vec::new())),
             is_running: Arc::new(AtomicBool::new(false)),
             is_quarantined: Arc::new(AtomicBool::new(false)),
+            pending_consensus: Arc::new(Mutex::new(HashMap::new())), // NEW
         })
     }
 
@@ -159,7 +170,7 @@ where
             .cycle()
             .skip(start_index)
             .take(committee_size)
-            .map(|bytes| PeerId::from_bytes(bytes).unwrap())
+            .filter_map(|bytes| PeerId::from_bytes(bytes).ok())
             .collect();
 
         Ok(committee_members)
@@ -167,31 +178,61 @@ where
 
     pub async fn execute_semantic_consensus(
         &self,
-        _prompt: String,
+        prompt: String,
         committee: Vec<PeerId>,
     ) -> Result<Vec<u8>, String> {
-        let mut votes: HashMap<Vec<u8>, usize> = HashMap::new();
-        let canonical_json_bytes = serde_jcs::to_vec(&serde_json::json!({
-            "gas_ceiling":100000,
-            "operation_id":"token_transfer",
-            "params":{
-                "amount":50,
-                "to":"0xabcde12345"
-            }
-        }))
-        .unwrap();
-        let correct_hash = depin_sdk_crypto::algorithms::hash::sha256(&canonical_json_bytes);
+        let prompt_hash_str = hex::encode(sha256(prompt.as_bytes()));
 
-        votes.insert(correct_hash.clone(), 3);
+        // 1. Broadcast prompt to the committee
+        self.swarm_command_sender
+            .send(SwarmCommand::BroadcastToCommittee(
+                committee.clone(),
+                prompt,
+            ))
+            .await
+            .map_err(|e| e.to_string())?;
 
-        let required_votes = (committee.len() * 2) / 3 + 1;
-        for (hash, count) in votes {
-            if count >= required_votes {
-                log::info!("Semantic consensus reached on hash: {}", hex::encode(&hash));
-                return Ok(hash);
+        // 2. Initialize tally state
+        let mut pending = self.pending_consensus.lock().await;
+        pending.insert(
+            prompt_hash_str.clone(),
+            TallyState {
+                votes: HashMap::new(),
+                start_time: Instant::now(),
+            },
+        );
+        drop(pending);
+
+        // 3. Wait for consensus or timeout
+        let consensus_timeout = Duration::from_secs(30);
+        loop {
+            // Check for timeout
+            let pending = self.pending_consensus.lock().await;
+            if let Some(tally) = pending.get(&prompt_hash_str) {
+                if tally.start_time.elapsed() > consensus_timeout {
+                    self.pending_consensus.lock().await.remove(&prompt_hash_str);
+                    return Err("Semantic consensus timed out".to_string());
+                }
+
+                // Check for supermajority
+                for (vote_hash, voters) in &tally.votes {
+                    if voters.len() >= (committee.len() * 2 / 3) {
+                        log::info!(
+                            "Semantic consensus reached on hash: {}",
+                            hex::encode(vote_hash)
+                        );
+                        self.pending_consensus.lock().await.remove(&prompt_hash_str);
+                        return Ok(vote_hash.clone());
+                    }
+                }
+            } else {
+                // Tally state was removed, maybe by another thread that succeeded.
+                return Err("Consensus process cancelled or already completed".to_string());
             }
+
+            drop(pending);
+            tokio::time::sleep(Duration::from_millis(500)).await;
         }
-        Err("Semantic consensus failed".to_string())
     }
 
     async fn run_main_loop(mut context: MainLoopContext<CS, ST, CE>) {
@@ -268,6 +309,16 @@ where
                         NetworkEvent::SemanticPrompt { from, prompt } => {
                             log::info!("[Orchestrator] Received SemanticPrompt from peer {}: '{}'", from, prompt);
                         }
+                        // FIX: Add the missing match arm
+                        NetworkEvent::SemanticConsensusVote { from, prompt_hash, vote_hash } => {
+                            let mut pending = context.pending_consensus.lock().await;
+                            if let Some(tally) = pending.get_mut(&prompt_hash) {
+                                log::info!("[Orchestrator] Tallying vote from {} for prompt hash {}", from, prompt_hash);
+                                tally.votes.entry(vote_hash).or_default().push(from);
+                            } else {
+                                log::warn!("[Orchestrator] Received vote for unknown/expired consensus round: {}", prompt_hash);
+                            }
+                        }
                     }
                     continue;
                 }
@@ -332,7 +383,6 @@ where
                         peers_bytes.push(context.local_peer_id.to_bytes());
                         drop(known_peers);
 
-                        // FIX: Remove the extra `workload_ref` argument
                         let new_block_template = context.chain_ref.lock().await.create_block(
                             transactions_to_include,
                             &node_set_for_header,
@@ -429,6 +479,7 @@ where
             known_peers_ref: self.syncer.get_known_peers(),
             config: self.config.clone(),
             is_quarantined: self.is_quarantined.clone(),
+            pending_consensus: self.pending_consensus.clone(), // NEW
         };
 
         let mut handles = self.task_handles.lock().await;
