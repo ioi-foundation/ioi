@@ -32,6 +32,7 @@ members = [
 
     # Add the test contract as a workspace member
     "crates/forge/tests/contracts/counter",
+    "crates/forge/tests/contracts/test-service",
 ]
 
 [workspace.dependencies]

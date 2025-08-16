@@ -28,7 +28,9 @@ pub trait BlockchainService: Any + Send + Sync {
 pub trait UpgradableService: BlockchainService {
     /// Prepares the service for an upgrade by validating the new implementation
     /// and returning a state snapshot for migration.
-    fn prepare_upgrade(&self, new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError>;
+    // FIX: Change the receiver from `&self` to `&mut self` to accommodate
+    // the implementation requirements of wasmtime.
+    fn prepare_upgrade(&mut self, new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError>;
 
     /// Completes the upgrade by instantiating a new version of the service from a state snapshot.
     fn complete_upgrade(&mut self, snapshot: &[u8]) -> Result<(), UpgradeError>;

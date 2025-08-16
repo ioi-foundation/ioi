@@ -10,6 +10,7 @@ use clap::{Parser, Subcommand};
 use depin_sdk_api::chain::AppChain;
 use depin_sdk_api::state::StateCommitment;
 use depin_sdk_api::transaction::TransactionModel;
+use depin_sdk_chain::wasm_loader::load_service_from_wasm;
 use depin_sdk_chain::Chain;
 use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
 use depin_sdk_commitment::tree::file::FileStateTree;
@@ -26,7 +27,8 @@ use depin_sdk_types::keys::GOVERNANCE_PROPOSAL_KEY_PREFIX;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{Block, BlockHeader, ChainStatus, ChainTransaction};
 use depin_sdk_types::config::WorkloadConfig;
-use depin_sdk_types::error::CoreError;
+// FIX: Remove unused import
+// use depin_sdk_types::error::CoreError;
 use depin_sdk_types::keys::{AUTHORITY_SET_KEY, STAKES_KEY, VALIDATOR_SET_KEY};
 use depin_sdk_validator::common::attestation::{ContainerAttestation, SignatureSuite};
 use depin_sdk_validator::common::ipc::{WorkloadRequest, WorkloadResponse};
@@ -54,6 +56,7 @@ use tokio_rustls::{
     TlsAcceptor,
 };
 
+// ... (structs and rpc_handler remain the same) ...
 #[derive(Parser, Debug)]
 #[clap(name = "depin-sdk-node", about = "A sovereign chain node.")]
 struct Cli {
@@ -425,18 +428,38 @@ async fn main() -> Result<()> {
             loop {
                 tokio::select! {
                     Some(event) = network_event_receiver.recv() => {
-                        if let NetworkEvent::GossipBlock(block) = event {
-                            log::info!("[Orchestrator] Received gossiped block #{}. Forwarding to workload...", block.header.height);
-                            match workload_client.process_block(block).await {
-                                Ok(processed_block) => {
-                                    let mut status_guard = status.lock().await;
-                                    status_guard.height = processed_block.header.height;
-                                    status_guard.latest_timestamp = processed_block.header.timestamp;
-                                    recent_blocks.lock().await.push(processed_block);
-                                    log::info!("[Orchestrator] Workload processed block successfully.");
-                                }
-                                Err(e) => {
-                                    log::error!("[Orchestrator] Workload failed to process gossiped block: {}", e);
+                        match event {
+                            NetworkEvent::ConnectionEstablished(peer_id) => {
+                                log::info!("[Orchestrator] Connection established with peer {}", peer_id);
+                                // --- START FIX ---
+                                let known_peers_arc = syncer.get_known_peers();
+                                let mut known_peers = known_peers_arc.lock().await;
+                                known_peers.insert(peer_id);
+                                // --- END FIX ---
+                                swarm_commander.send(SwarmCommand::SendStatusRequest(peer_id)).await.ok();
+                            }
+                            NetworkEvent::ConnectionClosed(peer_id) => {
+                                // --- START FIX ---
+                                let known_peers_arc = syncer.get_known_peers();
+                                let mut known_peers = known_peers_arc.lock().await;
+                                known_peers.remove(&peer_id);
+                                // --- END FIX ---
+                            }
+                            _ => {
+                                if let NetworkEvent::GossipBlock(block) = event {
+                                    log::info!("[Orchestrator] Received gossiped block #{}. Forwarding to workload...", block.header.height);
+                                    match workload_client.process_block(block).await {
+                                        Ok(processed_block) => {
+                                            let mut status_guard = status.lock().await;
+                                            status_guard.height = processed_block.header.height;
+                                            status_guard.latest_timestamp = processed_block.header.timestamp;
+                                            recent_blocks.lock().await.push(processed_block);
+                                            log::info!("[Orchestrator] Workload processed block successfully.");
+                                        }
+                                        Err(e) => {
+                                            log::error!("[Orchestrator] Workload failed to process gossiped block: {}", e);
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -669,7 +692,7 @@ async fn main() -> Result<()> {
                 UnifiedTransactionModel::new(HashCommitmentScheme::new()),
                 "depin-chain-1",
                 vec![],
-                Box::new(|_| Err(CoreError::Custom("Not implemented".to_string()))),
+                Box::new(load_service_from_wasm),
             );
             chain.load_or_initialize_status(&workload_container).await?;
             let chain_arc = Arc::new(Mutex::new(chain));
