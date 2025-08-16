@@ -69,6 +69,23 @@ pub fn build_test_artifacts(node_features: &str) {
             panic!("Counter contract build failed");
         }
 
+        // 3. Build the test WASM service for upgrades.
+        println!("Building 'test-service-v2' (WASM)");
+        let status_service = Command::new("cargo")
+            .args([
+                "build",
+                "--release",
+                "--target",
+                "wasm32-unknown-unknown",
+                "-p",
+                "test-service-v2",
+            ])
+            .status()
+            .expect("Failed to build test service v2");
+        if !status_service.success() {
+            panic!("Test service v2 build failed");
+        }
+
         println!("--- Test Artifacts built successfully ---");
     });
 }

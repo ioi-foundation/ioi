@@ -1,117 +1,81 @@
 // Path: crates/forge/tests/module_upgrade_e2e.rs
-// Change: Added "vm-wasm" feature to build_test_artifacts call to ensure the node compiles correctly.
 
 use anyhow::Result;
-use depin_sdk_api::services::{BlockchainService, ServiceType, UpgradableService};
 use depin_sdk_forge::testing::{
-    assert_log_contains, build_test_artifacts, spawn_node, submit_transaction,
+    assert_log_contains, build_test_artifacts, submit_transaction, TestCluster,
 };
 use depin_sdk_types::app::{ChainTransaction, SystemPayload, SystemTransaction};
-use depin_sdk_types::error::{CoreError, UpgradeError};
-use libp2p::identity::Keypair;
-use std::sync::Arc;
-use tempfile::tempdir;
-use tokio::io::{AsyncBufReadExt, BufReader};
-
-// --- Test Service Definitions ---
-
-#[derive(Debug)]
-#[allow(dead_code)]
-struct FeeCalculatorV1;
-impl BlockchainService for FeeCalculatorV1 {
-    fn service_type(&self) -> ServiceType {
-        ServiceType::Custom("fee".to_string())
-    }
-}
-impl UpgradableService for FeeCalculatorV1 {
-    fn prepare_upgrade(&self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
-        Ok(Vec::new()) // Stateless, no state to snapshot
-    }
-    fn complete_upgrade(&mut self, _snapshot: &[u8]) -> Result<(), UpgradeError> {
-        Ok(()) // Stateless, no state to restore
-    }
-}
-
-#[derive(Debug)]
-#[allow(dead_code)]
-struct FeeCalculatorV2;
-impl BlockchainService for FeeCalculatorV2 {
-    fn service_type(&self) -> ServiceType {
-        ServiceType::Custom("fee".to_string())
-    }
-}
-impl UpgradableService for FeeCalculatorV2 {
-    fn prepare_upgrade(&self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
-        Ok(Vec::new()) // Stateless
-    }
-    fn complete_upgrade(&mut self, _snapshot: &[u8]) -> Result<(), UpgradeError> {
-        Ok(()) // Stateless
-    }
-}
-
-// Simulated WASM loader/factory for the test node.
-#[allow(dead_code)]
-fn test_service_factory(wasm_blob: &[u8]) -> Result<Arc<dyn UpgradableService>, CoreError> {
-    let marker = std::str::from_utf8(wasm_blob)
-        .map_err(|_| CoreError::UpgradeError("Invalid WASM blob marker".to_string()))?;
-
-    match marker {
-        "FEE_CALCULATOR_V1" => Ok(Arc::new(FeeCalculatorV1)),
-        "FEE_CALCULATOR_V2" => Ok(Arc::new(FeeCalculatorV2)),
-        _ => Err(CoreError::UpgradeError(format!(
-            "Unknown service marker: {}",
-            marker
-        ))),
-    }
-}
+// FIX: Remove unused import
+// use libp2p::identity::Keypair;
+use serde_json::json;
 
 #[tokio::test]
-async fn test_fee_calculator_upgrade() -> Result<()> {
-    // 1. SETUP
+async fn test_forkless_module_upgrade() -> Result<()> {
+    // 1. SETUP & BUILD
+    // Ensure the node and our test WASM service are built.
     build_test_artifacts("consensus-poa,vm-wasm");
-    let key = Keypair::generate_ed25519();
-    let peer_id = key.public().to_peer_id();
-    let genesis_content = serde_json::json!({
-      "genesis_state": { "system::authorities": [peer_id.to_bytes()] }
-    })
-    .to_string();
+    let service_v2_wasm =
+        std::fs::read("../../target/wasm32-unknown-unknown/release/test_service_v2.wasm")?;
 
-    // 2. START CHAIN with V1 of the service
-    // We achieve this by modifying the node's `main.rs` to accept our test factory.
-    // For this guide, we assume the node is pre-configured to use FeeCalculatorV1 at genesis.
-    // The log assertion will confirm this.
-    let mut node = spawn_node(
-        &key,
-        tempdir()?,
-        &genesis_content,
-        &[], // No extra args
-        "127.0.0.1:9988",
-        "ProofOfAuthority",
-    )
-    .await?;
-    let mut logs = BufReader::new(node.process.stderr.take().unwrap()).lines();
-    // This assertion implicitly confirms V1 is active.
-    assert_log_contains("Node", &mut logs, "Registering service: Custom(\"fee\")").await?;
+    // 2. LAUNCH CLUSTER
+    // Start a single-node cluster. The genesis state makes the node its own authority.
+    let mut cluster = TestCluster::new()
+        .with_validators(1)
+        .with_consensus_type("ProofOfAuthority")
+        .with_genesis_modifier(|genesis, keys| {
+            let authority_peer_id = keys[0].public().to_peer_id();
+            genesis["genesis_state"]["system::authorities"] = json!([authority_peer_id.to_bytes()]);
+        })
+        .build()
+        .await?;
 
-    // 3. SUBMIT GOVERNANCE PROPOSAL to swap to V2
+    // 3. GET HANDLES
+    // Get a mutable handle to the node, its RPC address, keypair, and log stream.
+    let node = &mut cluster.validators[0];
+    let rpc_addr = &node.rpc_addr;
+    let keypair = &node.keypair;
+    // FIX: The upgrade logs are emitted by the Workload container, not the Orchestration one.
+    let mut workload_logs = node.workload_log_stream.lock().await.take().unwrap();
+
+    // The node starts with no services registered. The upgrade will be the first one.
+
+    // 4. SUBMIT UPGRADE TRANSACTION
+    // The upgrade is scheduled to activate at block height 5.
     let activation_height = 5;
     let payload = SystemPayload::SwapModule {
-        service_type: "fee".to_string(),
-        module_wasm: b"FEE_CALCULATOR_V2".to_vec(), // Our simulated WASM blob
+        service_type: "fee_calculator_v2".to_string(), // This MUST match the string returned by the WASM's `service_type` function
+        module_wasm: service_v2_wasm,
         activation_height,
     };
-    let payload_bytes = serde_json::to_vec(&payload)?;
-    // In a real scenario, this would be signed by the governance key.
-    // For this test, we allow any system tx.
-    let signature = key.sign(&payload_bytes)?;
-    let tx = ChainTransaction::System(SystemTransaction { payload, signature });
-    submit_transaction("127.0.0.1:9988", &tx).await?;
 
-    // 4. WAIT for activation height and assert upgrade happens
-    // The test relies on the orchestrator logging the successful upgrade.
+    let payload_bytes = serde_json::to_vec(&payload)?;
+    // In a real network, this tx must be signed by the governance authority.
+    // In our test setup, the validator is the authority, so its signature is valid.
+    let signature = keypair.sign(&payload_bytes)?;
+    let tx = ChainTransaction::System(SystemTransaction { payload, signature });
+
+    submit_transaction(rpc_addr, &tx).await?;
+
+    // Assert that the transaction was accepted and the upgrade was scheduled.
+    // FIX: Listen to the Workload logs for the scheduling message.
     assert_log_contains(
-        "Node",
-        &mut logs,
+        "Workload",
+        &mut workload_logs,
+        &format!(
+            "Scheduling module upgrade for Custom(\"fee_calculator_v2\") at height {}",
+            activation_height
+        ),
+    )
+    .await?;
+
+    // 5. WAIT & ASSERT
+    // The test will now wait for the node to produce blocks until it reaches the activation height.
+    // The `assert_log_contains` has a generous timeout to allow for this.
+    // We expect to see a log message confirming the upgrade was successfully applied.
+    // FIX: Listen to the Workload logs for the apply message.
+    assert_log_contains(
+        "Workload",
+        &mut workload_logs,
         &format!(
             "Successfully applied 1 module upgrade(s) at height {}",
             activation_height
@@ -119,9 +83,7 @@ async fn test_fee_calculator_upgrade() -> Result<()> {
     )
     .await?;
 
-    // The log proves the core architectural vision is viable. A subsequent transaction
-    // would confirm the fee logic changed, but for this P1 test, validating the swap
-    // mechanism itself is the primary goal.
+    println!("--- Forkless Module Upgrade E2E Test Successful ---");
 
     Ok(())
 }

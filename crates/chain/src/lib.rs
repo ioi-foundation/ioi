@@ -6,6 +6,7 @@
 
 mod app;
 pub mod upgrade_manager;
+pub mod wasm_loader;
 
 pub use crate::app::Chain;
 pub use upgrade_manager::ModuleUpgradeManager;

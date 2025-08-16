@@ -20,6 +20,8 @@ hex = { workspace = true }
 libp2p = { workspace = true }
 async-trait = { workspace = true }
 bs58 = "0.4"
+# Add wasmtime
+wasmtime = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
