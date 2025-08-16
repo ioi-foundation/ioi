@@ -24,6 +24,7 @@ const NODE_BINARY_REL_PATH: &str = "../../target/release/depin-sdk-node";
 const LOG_ASSERT_TIMEOUT: Duration = Duration::from_secs(45);
 const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(10);
 const ORCHESTRATION_READY_TIMEOUT: Duration = Duration::from_secs(10);
+const GUARDIAN_READY_TIMEOUT: Duration = Duration::from_secs(5);
 
 // --- One-Time Build ---
 static BUILD: Once = Once::new();
@@ -195,19 +196,22 @@ pub struct TestValidator {
     pub peer_id: PeerId,
     pub orchestration_process: Child,
     pub workload_process: Child,
+    pub guardian_process: Option<Child>,
     pub rpc_addr: String,
     pub p2p_addr: Multiaddr,
     _temp_dir: TempDir,
     pub orch_log_stream: Mutex<Option<tokio::io::Lines<BufReader<ChildStderr>>>>,
-    // FIX: Add a log stream for the workload container.
     pub workload_log_stream: Mutex<Option<tokio::io::Lines<BufReader<ChildStderr>>>>,
+    pub guardian_log_stream: Mutex<Option<tokio::io::Lines<BufReader<ChildStderr>>>>,
 }
 
 impl Drop for TestValidator {
     fn drop(&mut self) {
-        // Use kill() to ensure the processes are terminated immediately.
         let _ = self.orchestration_process.start_kill();
         let _ = self.workload_process.start_kill();
+        if let Some(mut guardian) = self.guardian_process.take() {
+            let _ = guardian.start_kill();
+        }
     }
 }
 
@@ -218,6 +222,7 @@ impl TestValidator {
         base_port: u16,
         bootnode_addr: Option<&Multiaddr>,
         consensus_type: &str,
+        semantic_model_path: Option<&str>,
     ) -> Result<Self> {
         let peer_id = keypair.public().to_peer_id();
         let temp_dir = tempfile::tempdir()?;
@@ -225,11 +230,15 @@ impl TestValidator {
 
         let p2p_port = portpicker::pick_unused_port().unwrap_or(base_port);
         let rpc_port = portpicker::pick_unused_port().unwrap_or(base_port + 1);
-        let ipc_port = portpicker::pick_unused_port().unwrap_or(base_port + 2);
+        let ipc_port_workload = portpicker::pick_unused_port().unwrap_or(base_port + 2);
+        let ipc_port_guardian = portpicker::pick_unused_port().unwrap_or(base_port + 3);
+        let ipc_port_orch = portpicker::pick_unused_port().unwrap_or(base_port + 4);
 
         let p2p_addr_str = format!("/ip4/127.0.0.1/tcp/{}", p2p_port);
         let rpc_addr = format!("127.0.0.1:{}", rpc_port);
-        let ipc_addr = format!("127.0.0.1:{}", ipc_port);
+        let ipc_addr_workload = format!("127.0.0.1:{}", ipc_port_workload);
+        let guardian_addr = format!("127.0.0.1:{}", ipc_port_guardian);
+        let orch_addr_for_guardian = format!("127.0.0.1:{}", ipc_port_orch);
 
         fs::write(temp_dir.path().join("genesis.json"), genesis_content)?;
 
@@ -242,17 +251,55 @@ impl TestValidator {
         let orchestration_config = format!(
             r#"
 consensus_type = "{}"
-rpc_listen_address = "127.0.0.1:9999" # This will be overridden by CLI/env
+rpc_listen_address = "127.0.0.1:9999"
 initial_sync_timeout_secs = 2
 "#,
             consensus_type
         );
         fs::write(config_dir.join("orchestration.toml"), orchestration_config)?;
-        fs::write(config_dir.join("guardian.toml"), "")?;
+        let guardian_config = format!(r#"listen_addr = "{}""#, guardian_addr);
+        fs::write(config_dir.join("guardian.toml"), guardian_config)?;
+
+        // --- Launch Guardian Container (if needed) ---
+        let (guardian_process, guardian_log_stream) = if let Some(model_path) = semantic_model_path
+        {
+            let mut process = TokioCommand::new(NODE_BINARY_REL_PATH)
+                .args([
+                    "guardian",
+                    "--config-dir",
+                    &config_dir.to_string_lossy(),
+                    "--semantic-model-path",
+                    model_path,
+                ])
+                .env("WORKLOAD_IPC_ADDR", &ipc_addr_workload)
+                .env("ORCHESTRATION_IPC_ADDR", &orch_addr_for_guardian)
+                .stderr(Stdio::piped())
+                .kill_on_drop(true)
+                .spawn()?;
+            let stderr = process.stderr.take().unwrap();
+            let mut log_stream = BufReader::new(stderr).lines();
+
+            // Wait for guardian to be ready by checking its listening log
+            timeout(GUARDIAN_READY_TIMEOUT, async {
+                while let Some(line) = log_stream.next_line().await? {
+                    println!("[SETUP-LOGS-Guardian] {}", line);
+                    if line.contains("Guardian: mTLS server listening on") {
+                        return Ok(());
+                    }
+                }
+                Err(anyhow!("Guardian stream ended before ready signal"))
+            })
+            .await??;
+
+            (Some(process), Mutex::new(Some(log_stream)))
+        } else {
+            (None, Mutex::new(None))
+        };
 
         // --- Launch Workload Container ---
         let workload_state_file = temp_dir.path().join("workload_state.json");
-        let mut workload_process = TokioCommand::new(NODE_BINARY_REL_PATH)
+        let mut workload_cmd = TokioCommand::new(NODE_BINARY_REL_PATH);
+        workload_cmd
             .args([
                 "workload",
                 "--genesis-file",
@@ -260,28 +307,31 @@ initial_sync_timeout_secs = 2
                 "--state-file",
                 &workload_state_file.to_string_lossy(),
             ])
-            .env("IPC_SERVER_ADDR", &ipc_addr)
+            .env("IPC_SERVER_ADDR", &ipc_addr_workload)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .kill_on_drop(true)
-            .spawn()?;
+            .kill_on_drop(true);
+
+        if semantic_model_path.is_some() {
+            workload_cmd.env("GUARDIAN_ADDR", &guardian_addr);
+        }
+
+        let mut workload_process = workload_cmd.spawn()?;
 
         let workload_stderr = workload_process.stderr.take().unwrap();
         let mut workload_reader = BufReader::new(workload_stderr).lines();
 
-        // Wait for workload to signal it's ready.
-        let workload_ready_probe = async {
-            let ready_signal = format!("WORKLOAD_IPC_LISTENING_ON_{}", ipc_addr);
+        timeout(WORKLOAD_READY_TIMEOUT, async {
+            let ready_signal = format!("WORKLOAD_IPC_LISTENING_ON_{}", ipc_addr_workload);
             while let Some(line) = workload_reader.next_line().await? {
-                // Print workload logs for debugging during test setup
                 println!("[SETUP-LOGS-Workload] {}", line);
                 if line.contains(&ready_signal) {
                     return Ok(());
                 }
             }
             Err(anyhow!("Workload stderr stream ended before ready signal."))
-        };
-        timeout(WORKLOAD_READY_TIMEOUT, workload_ready_probe).await??;
+        })
+        .await??;
 
         // --- Launch Orchestration Container ---
         let mut orch_args = vec![
@@ -307,22 +357,26 @@ initial_sync_timeout_secs = 2
             orch_args.push(addr.to_string());
         }
 
-        let mut orchestration_process = TokioCommand::new(NODE_BINARY_REL_PATH)
+        let mut orch_cmd = TokioCommand::new(NODE_BINARY_REL_PATH);
+        orch_cmd
             .args(&orch_args)
-            .env("WORKLOAD_IPC_ADDR", &ipc_addr)
+            .env("WORKLOAD_IPC_ADDR", &ipc_addr_workload)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .kill_on_drop(true)
-            .spawn()?;
+            .kill_on_drop(true);
+
+        if semantic_model_path.is_some() {
+            orch_cmd.env("GUARDIAN_ADDR", &guardian_addr);
+        }
+
+        let mut orchestration_process = orch_cmd.spawn()?;
 
         let orch_stderr = orchestration_process.stderr.take().unwrap();
         let mut orch_reader = BufReader::new(orch_stderr).lines();
 
-        // Wait for orchestration to signal it's ready.
-        let orch_ready_probe = async {
+        timeout(ORCHESTRATION_READY_TIMEOUT, async {
             let ready_signal = format!("ORCHESTRATION_RPC_LISTENING_ON_{}", rpc_addr);
             while let Some(line) = orch_reader.next_line().await? {
-                // Print orchestration logs for debugging during test setup
                 println!("[SETUP-LOGS-Orchestration] {}", line);
                 if line.contains(&ready_signal) {
                     return Ok(());
@@ -331,20 +385,21 @@ initial_sync_timeout_secs = 2
             Err(anyhow!(
                 "Orchestration stderr stream ended before RPC ready signal."
             ))
-        };
-        timeout(ORCHESTRATION_READY_TIMEOUT, orch_ready_probe).await??;
+        })
+        .await??;
 
         Ok(TestValidator {
             keypair,
             peer_id,
             orchestration_process,
             workload_process,
+            guardian_process,
             rpc_addr,
             p2p_addr: p2p_addr_str.parse()?,
             _temp_dir: temp_dir,
             orch_log_stream: Mutex::new(Some(orch_reader)),
-            // FIX: Store the workload log reader in the new field.
             workload_log_stream: Mutex::new(Some(workload_reader)),
+            guardian_log_stream,
         })
     }
 }
@@ -364,6 +419,7 @@ pub struct TestClusterBuilder {
     num_validators: usize,
     genesis_modifiers: Vec<Box<dyn FnOnce(&mut Value, &Vec<identity::Keypair>)>>,
     consensus_type: String,
+    semantic_model_path: Option<String>,
 }
 
 impl Default for TestClusterBuilder {
@@ -378,6 +434,7 @@ impl TestClusterBuilder {
             num_validators: 1,
             genesis_modifiers: Vec::new(),
             consensus_type: "ProofOfAuthority".to_string(),
+            semantic_model_path: None,
         }
     }
 
@@ -388,6 +445,11 @@ impl TestClusterBuilder {
 
     pub fn with_consensus_type(mut self, consensus: &str) -> Self {
         self.consensus_type = consensus.to_string();
+        self
+    }
+
+    pub fn with_semantic_model_path(mut self, path: &str) -> Self {
+        self.semantic_model_path = Some(path.to_string());
         self
     }
 
@@ -415,13 +477,14 @@ impl TestClusterBuilder {
         let mut bootnode_addr = None;
 
         for (i, key) in validator_keys.iter().enumerate() {
-            let base_port = 5000 + (i * 10) as u16;
+            let base_port = 5000 + (i * 20) as u16;
             let validator = TestValidator::launch(
                 key.clone(),
                 genesis_content.clone(),
                 base_port,
                 bootnode_addr.as_ref(),
                 &self.consensus_type,
+                self.semantic_model_path.as_deref(),
             )
             .await?;
 

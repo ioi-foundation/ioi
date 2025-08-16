@@ -27,6 +27,7 @@ pub enum WorkloadRequest {
     // FIX: Add new request variants
     ProcessBlock(Block<ChainTransaction>),
     GetStatus,
+    GetExpectedModelHash, // NEW
     ExecuteTransaction(ChainTransaction),
     DeployContract {
         code: Vec<u8>,
@@ -61,6 +62,7 @@ pub enum WorkloadResponse {
     // FIX: Add new response variants
     ProcessBlock(ProcessBlockResult),
     GetStatus(StatusResult),
+    GetExpectedModelHash(Result<Vec<u8>, String>), // NEW
     ExecuteTransaction(TxResult),
     DeployContract(DeployResult),
     CallContract(CallResult),

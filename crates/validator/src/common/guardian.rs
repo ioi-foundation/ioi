@@ -1,10 +1,12 @@
 // Path: crates/validator/src/common/guardian.rs
 
 use crate::common::attestation::{ContainerAttestation, SignatureSuite};
+use crate::common::ipc::{WorkloadRequest, WorkloadResponse};
 use crate::common::security::SecurityChannel;
 use anyhow::Result;
 use async_trait::async_trait;
 use depin_sdk_api::validator::{Container, GuardianContainer as GuardianContainerTrait};
+use depin_sdk_crypto::algorithms::hash::sha256;
 use depin_sdk_types::error::ValidatorError;
 use rand::RngCore;
 use rcgen::{Certificate, CertificateParams, SanType};
@@ -56,8 +58,8 @@ fn create_server_config() -> Result<Arc<ServerConfig>> {
 pub struct GuardianContainer {
     running: Arc<AtomicBool>,
     config: GuardianConfig,
-    orchestration_channel: SecurityChannel,
-    workload_channel: SecurityChannel,
+    pub orchestration_channel: SecurityChannel,
+    pub workload_channel: SecurityChannel,
 }
 
 impl GuardianContainer {
@@ -76,7 +78,58 @@ impl GuardianContainer {
             workload_channel: SecurityChannel::new("guardian", "workload"),
         })
     }
-    
+
+    pub async fn attest_weights(&self, model_path: &str) -> Result<(), String> {
+        // 1. Read the local model file and compute its hash.
+        let model_bytes = std::fs::read(model_path)
+            .map_err(|e| format!("Failed to read semantic model file: {}", e))?;
+        let local_hash = sha256(&model_bytes);
+        log::info!("[Guardian] Local model hash: {}", hex::encode(&local_hash));
+
+        // 2. Ask the Workload container for the correct hash from the chain state.
+        let request = WorkloadRequest::GetExpectedModelHash;
+        let request_bytes = serde_json::to_vec(&request).unwrap();
+        self.workload_channel
+            .send(&request_bytes)
+            .await
+            .map_err(|e| e.to_string())?;
+        let response_bytes = self
+            .workload_channel
+            .receive()
+            .await
+            .map_err(|e| e.to_string())?;
+        let response: WorkloadResponse = serde_json::from_slice(&response_bytes).unwrap();
+
+        let expected_hash = match response {
+            WorkloadResponse::GetExpectedModelHash(res) => res?,
+            _ => return Err("Invalid IPC response type for GetExpectedModelHash".to_string()),
+        };
+        log::info!(
+            "[Guardian] Expected model hash from chain state: {}",
+            hex::encode(&expected_hash)
+        );
+
+        // 3. Compare hashes and signal quarantine on mismatch.
+        if local_hash == expected_hash {
+            log::info!("[Guardian] Guardian::attest_weights() check passed.");
+            Ok(())
+        } else {
+            let err_msg = format!(
+                "Model Integrity Failure! Local hash {} does not match expected hash {}",
+                hex::encode(&local_hash),
+                hex::encode(&expected_hash)
+            );
+            log::error!("[Guardian] {}", err_msg);
+
+            // Signal quarantine to Orchestrator (simplest way is a dedicated message)
+            self.orchestration_channel
+                .send(b"QUARANTINE")
+                .await
+                .map_err(|e| e.to_string())?;
+            Err(err_msg)
+        }
+    }
+
     /// Verifies a received container attestation. This is the core of the on-chain logic.
     pub async fn verify_container_attestation(
         &self,
@@ -85,7 +138,10 @@ impl GuardianContainer {
         log::info!("Verifying attestation from '{}'...", attestation.container_id);
         let chain_active_scheme = SignatureSuite::Ed25519; // Placeholder
         if attestation.signature_suite != chain_active_scheme {
-            log::error!("Attestation from '{}' used wrong signature suite.", attestation.container_id);
+            log::error!(
+                "Attestation from '{}' used wrong signature suite.",
+                attestation.container_id
+            );
             return Ok(false);
         }
         let mut message = Vec::new();
@@ -94,7 +150,7 @@ impl GuardianContainer {
 
         let pub_key = libp2p::identity::PublicKey::try_decode_protobuf(&attestation.public_key)
             .map_err(|e| ValidatorError::Other(format!("Invalid public key: {}", e)))?;
-        
+
         let is_valid = pub_key.verify(&message, &attestation.signature);
         if is_valid {
             log::info!("✅ Attestation from '{}' is VALID.", attestation.container_id);
@@ -134,10 +190,16 @@ impl Container for GuardianContainer {
     async fn start(&self) -> Result<(), ValidatorError> {
         log::info!("Starting GuardianContainer...");
         self.running.store(true, Ordering::SeqCst);
-        let server_config = create_server_config().map_err(|e| ValidatorError::Other(e.to_string()))?;
+        let server_config =
+            create_server_config().map_err(|e| ValidatorError::Other(e.to_string()))?;
         let acceptor = TlsAcceptor::from(server_config);
-        let listener = TcpListener::bind(&self.config.listen_addr).await.map_err(ValidatorError::Io)?;
-        log::info!("Guardian: mTLS server listening on {}", self.config.listen_addr);
+        let listener = TcpListener::bind(&self.config.listen_addr)
+            .await
+            .map_err(ValidatorError::Io)?;
+        log::info!(
+            "Guardian: mTLS server listening on {}",
+            self.config.listen_addr
+        );
         let running = self.running.clone();
         let orch_channel = self.orchestration_channel.clone();
         let work_channel = self.workload_channel.clone();
@@ -147,7 +209,11 @@ impl Container for GuardianContainer {
             while running.load(Ordering::SeqCst) && connections < 2 {
                 if let Ok((stream, _)) = listener.accept().await {
                     let acceptor_clone = acceptor.clone();
-                    let channel_to_use = if connections == 0 { orch_channel.clone() } else { work_channel.clone() };
+                    let channel_to_use = if connections == 0 {
+                        orch_channel.clone()
+                    } else {
+                        work_channel.clone()
+                    };
                     tokio::spawn(async move {
                         match acceptor_clone.accept(stream).await {
                             Ok(tls_stream) => {
@@ -182,11 +248,19 @@ impl Container for GuardianContainer {
         self.running.store(false, Ordering::SeqCst);
         Ok(())
     }
-    fn is_running(&self) -> bool { self.running.load(Ordering::SeqCst) }
-    fn id(&self) -> &'static str { "guardian" }
+    fn is_running(&self) -> bool {
+        self.running.load(Ordering::SeqCst)
+    }
+    fn id(&self) -> &'static str {
+        "guardian"
+    }
 }
 
 impl GuardianContainerTrait for GuardianContainer {
-    fn start_boot(&self) -> Result<(), ValidatorError> { Ok(()) }
-    fn verify_attestation(&self) -> Result<bool, ValidatorError> { Ok(true) }
+    fn start_boot(&self) -> Result<(), ValidatorError> {
+        Ok(())
+    }
+    fn verify_attestation(&self) -> Result<bool, ValidatorError> {
+        Ok(true)
+    }
 }

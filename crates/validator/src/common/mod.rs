@@ -3,7 +3,7 @@
 //! Common validator components shared by all types
 
 pub mod attestation;
-mod guardian;
+pub mod guardian; // FIX: Make the module public
 pub mod ipc;
 pub mod security;
 

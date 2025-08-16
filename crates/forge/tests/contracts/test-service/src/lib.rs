@@ -4,7 +4,6 @@
 extern crate alloc;
 
 use alloc::string::String;
-use alloc::vec::Vec;
 use depin_sdk_contract as sdk;
 
 /// Helper to return a byte slice from a WASM function.
