@@ -126,6 +126,11 @@ impl SecurityChannel {
         );
     }
 
+    /// Checks if the channel stream has been established.
+    pub async fn is_established(&self) -> bool {
+        self.stream.lock().await.is_some()
+    }
+
     /// Sends data over the established secure channel.
     /// Messages are framed with a 4-byte (u32) length prefix.
     pub async fn send(&self, data: &[u8]) -> Result<()> {
