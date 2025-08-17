@@ -5,7 +5,6 @@ use crate::common::{
 };
 use anyhow::{anyhow, Result};
 use depin_sdk_api::vm::{ExecutionContext, ExecutionOutput};
-// FIX: Add Block and ChainStatus to imports
 use depin_sdk_types::app::{Block, ChainStatus, ChainTransaction};
 use std::collections::{BTreeMap, HashMap};
 
@@ -13,6 +12,7 @@ use std::collections::{BTreeMap, HashMap};
 #[derive(Debug, Clone)]
 pub struct WorkloadClient {
     channel: SecurityChannel,
+    workload_addr: String, // Store the connection address
 }
 
 impl WorkloadClient {
@@ -29,7 +29,15 @@ impl WorkloadClient {
             }
         });
 
-        Ok(Self { channel })
+        Ok(Self {
+            channel,
+            workload_addr: workload_addr.to_string(),
+        })
+    }
+
+    /// Returns the network address of the Workload container this client connects to.
+    pub fn destination_addr(&self) -> &str {
+        &self.workload_addr
     }
 
     async fn send_and_receive(&self, request: WorkloadRequest) -> Result<WorkloadResponse> {
@@ -40,7 +48,6 @@ impl WorkloadClient {
         Ok(response)
     }
 
-    // FIX: Add process_block method
     pub async fn process_block(
         &self,
         block: Block<ChainTransaction>,
@@ -54,7 +61,6 @@ impl WorkloadClient {
         }
     }
 
-    // FIX: Add get_status method
     pub async fn get_status(&self) -> Result<ChainStatus> {
         let request = WorkloadRequest::GetStatus;
         match self.send_and_receive(request).await? {
@@ -155,6 +161,16 @@ impl WorkloadClient {
             WorkloadResponse::GetStateRoot(res) => res.map_err(|e| anyhow::anyhow!(e)),
             _ => Err(anyhow::anyhow!(
                 "Invalid response type from workload for GetStateRoot"
+            )),
+        }
+    }
+
+    pub async fn get_expected_model_hash(&self) -> Result<Vec<u8>> {
+        let request = WorkloadRequest::GetExpectedModelHash;
+        match self.send_and_receive(request).await? {
+            WorkloadResponse::GetExpectedModelHash(res) => res.map_err(|e| anyhow!(e)),
+            _ => Err(anyhow!(
+                "Invalid response type from workload for GetExpectedModelHash"
             )),
         }
     }

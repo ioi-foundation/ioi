@@ -10,6 +10,7 @@ use clap::{Parser, Subcommand};
 use depin_sdk_api::chain::AppChain;
 use depin_sdk_api::state::StateCommitment;
 use depin_sdk_api::transaction::TransactionModel;
+use depin_sdk_api::validator::Container;
 use depin_sdk_chain::wasm_loader::load_service_from_wasm;
 use depin_sdk_chain::Chain;
 use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
@@ -26,7 +27,8 @@ use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{Block, BlockHeader, ChainStatus, ChainTransaction};
 use depin_sdk_types::config::WorkloadConfig;
 use depin_sdk_types::keys::{
-    AUTHORITY_SET_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, STAKES_KEY, VALIDATOR_SET_KEY,
+    AUTHORITY_SET_KEY, GOVERNANCE_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, GOVERNANCE_VOTE_KEY_PREFIX,
+    STAKES_KEY, VALIDATOR_SET_KEY,
 };
 use depin_sdk_validator::common::attestation::{ContainerAttestation, SignatureSuite};
 use depin_sdk_validator::common::guardian::GuardianContainer;
@@ -34,8 +36,6 @@ use depin_sdk_validator::common::ipc::{WorkloadRequest, WorkloadResponse};
 use depin_sdk_validator::common::security::SecurityChannel;
 use depin_sdk_validator::config::{ConsensusType, OrchestrationConfig};
 use depin_sdk_validator::standard::workload_client::WorkloadClient;
-// --- FIX: Add the missing trait import ---
-use depin_sdk_api::validator::Container;
 use depin_sdk_vm_wasm::WasmVm;
 use libp2p::{identity, Multiaddr, PeerId};
 use rcgen::{Certificate, CertificateParams, SanType};
@@ -140,6 +140,7 @@ struct RpcAppState {
 #[derive(Debug)]
 struct TallyState {
     votes: HashMap<Vec<u8>, Vec<PeerId>>, // Key: Vote Hash, Value: List of voters
+    #[allow(dead_code)]
     start_time: tokio::time::Instant,
 }
 
@@ -343,33 +344,83 @@ async fn main() -> Result<()> {
 
             let guardian_addr = std::env::var("GUARDIAN_ADDR").unwrap_or_default();
             let is_quarantined = Arc::new(AtomicBool::new(false));
+            let workload_client = {
+                let workload_ipc_addr = std::env::var("WORKLOAD_IPC_ADDR")
+                    .unwrap_or_else(|_| "127.0.0.1:8555".to_string());
+                WorkloadClient::new(&workload_ipc_addr)?
+            };
+            log::info!(
+                "Orchestration: WorkloadClient ready to connect to {}",
+                workload_client.destination_addr()
+            );
             if !guardian_addr.is_empty() {
-                let guardian_channel = SecurityChannel::new("orchestration", "guardian");
-                guardian_channel
-                    .establish_client(&guardian_addr, "guardian")
-                    .await?;
-                let keypair_for_attestation = libp2p::identity::Keypair::generate_ed25519();
-                run_attestation_client(
-                    "orchestration",
-                    &guardian_channel,
-                    &keypair_for_attestation,
-                )
-                .await?;
-                log::info!("Orchestration: Attestation with Guardian complete.");
-
+                // Spawn the entire client-side logic for Guardian interaction into a background task.
                 let is_quarantined_clone = is_quarantined.clone();
+                let workload_client_clone = workload_client.clone();
                 tokio::spawn(async move {
-                    loop {
-                        if let Ok(msg) = guardian_channel.receive().await {
-                            if msg == b"QUARANTINE" {
-                                log::warn!(
-                                    "[Orchestrator] Received QUARANTINE signal from Guardian!"
-                                );
-                                is_quarantined_clone.store(true, Ordering::SeqCst);
-                                break; // Stop listening after quarantine
+                    // Give the Guardian a moment to start its server
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                    let guardian_channel = SecurityChannel::new("orchestration", "guardian");
+                    if let Err(e) = guardian_channel
+                        .establish_client(&guardian_addr, "guardian")
+                        .await
+                    {
+                        log::error!("[orchestration] Failed to connect to Guardian: {}", e);
+                        return;
+                    }
+
+                    let keypair_for_attestation = libp2p::identity::Keypair::generate_ed25519();
+                    if let Err(e) = run_attestation_client(
+                        "orchestration",
+                        &guardian_channel,
+                        &keypair_for_attestation,
+                    )
+                    .await
+                    {
+                        log::error!("[orchestration] Attestation with Guardian failed: {}", e);
+                        return;
+                    }
+                    log::info!("Orchestration: Attestation with Guardian complete.");
+
+                    // --- NEW LOGIC: Wait for and verify the semantic attestation report ---
+                    log::info!(
+                        "[Orchestrator] Waiting for semantic attestation report from Guardian..."
+                    );
+                    match guardian_channel.receive().await {
+                        Ok(report_bytes) => {
+                            let report: Result<Vec<u8>, String> =
+                                serde_json::from_slice(&report_bytes).unwrap();
+                            match report {
+                                Ok(local_hash) => {
+                                    log::info!("[Orchestrator] Received local model hash from Guardian: {}", hex::encode(&local_hash));
+                                    match workload_client_clone.get_expected_model_hash().await {
+                                        Ok(expected_hash) => {
+                                            if local_hash == expected_hash {
+                                                log::info!("[Orchestrator] Semantic model hash matches on-chain state. Node is healthy.");
+                                            } else {
+                                                log::error!("[Orchestrator] Model Integrity Failure! Local hash {} != on-chain hash {}. Quarantining node.", hex::encode(local_hash), hex::encode(expected_hash));
+                                                is_quarantined_clone.store(true, Ordering::SeqCst);
+                                            }
+                                        }
+                                        Err(e) => {
+                                            log::error!("[Orchestrator] Failed to get expected model hash from Workload: {}. Quarantining node.", e);
+                                            is_quarantined_clone.store(true, Ordering::SeqCst);
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    log::error!("[Orchestrator] Guardian reported an error during local hashing: {}. Quarantining node.", e);
+                                    is_quarantined_clone.store(true, Ordering::SeqCst);
+                                }
                             }
                         }
+                        Err(e) => {
+                            log::error!("[Orchestrator] Failed to receive semantic report from Guardian: {}. Quarantining node.", e);
+                            is_quarantined_clone.store(true, Ordering::SeqCst);
+                        }
                     }
+                    // This log message now serves as our definitive "ready" signal for tests.
+                    log::info!("[Orchestrator] Semantic attestation sequence complete.");
                 });
             } else {
                 log::warn!("GUARDIAN_ADDR not set, skipping Guardian attestation.");
@@ -391,7 +442,7 @@ async fn main() -> Result<()> {
             let (syncer, swarm_commander, mut network_event_receiver) =
                 Libp2pSync::new(local_key.clone(), opts.listen_address, opts.bootnode)?;
 
-            let mut consensus_engine: Consensus<ChainTransaction>;
+            let consensus_engine: Consensus<ChainTransaction>;
             cfg_if! {
                 if #[cfg(feature = "consensus-pos")] {
                     log::info!("Using ProofOfStake consensus engine.");
@@ -408,14 +459,6 @@ async fn main() -> Result<()> {
                     compile_error!("A consensus engine feature must be enabled (e.g., 'consensus-pos', 'consensus-poa', 'consensus-round-robin').");
                 }
             }
-
-            let workload_ipc_addr =
-                std::env::var("WORKLOAD_IPC_ADDR").unwrap_or_else(|_| "127.0.0.1:8555".to_string());
-            let workload_client = WorkloadClient::new(&workload_ipc_addr)?;
-            log::info!(
-                "Orchestration: WorkloadClient ready to connect to {}",
-                workload_ipc_addr
-            );
 
             let status = Arc::new(Mutex::new(ChainStatus {
                 height: 0,
@@ -686,17 +729,6 @@ async fn main() -> Result<()> {
         }
         Command::Workload(opts) => {
             log::info!("Workload container starting up...");
-            let guardian_addr = std::env::var("GUARDIAN_ADDR").unwrap_or_default();
-            if !guardian_addr.is_empty() {
-                let guardian_channel = SecurityChannel::new("workload", "guardian");
-                guardian_channel
-                    .establish_client(&guardian_addr, "guardian")
-                    .await?;
-
-                let keypair = libp2p::identity::Keypair::generate_ed25519();
-                run_attestation_client("workload", &guardian_channel, &keypair).await?;
-                log::info!("Workload: Attestation with Guardian complete.");
-            }
 
             let commitment_scheme = HashCommitmentScheme::new();
             let mut state_tree = FileStateTree::new(&opts.state_file, commitment_scheme.clone());
@@ -775,6 +807,31 @@ async fn main() -> Result<()> {
             let listener = tokio::net::TcpListener::bind(&ipc_server_addr).await?;
             log::info!("Workload: IPC server listening on {}", ipc_server_addr);
             eprintln!("WORKLOAD_IPC_LISTENING_ON_{}", ipc_server_addr);
+
+            // Spawn the Guardian attestation logic in a background task
+            let guardian_addr = std::env::var("GUARDIAN_ADDR").unwrap_or_default();
+            if !guardian_addr.is_empty() {
+                tokio::spawn(async move {
+                    // Give the Guardian a moment to start its server
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                    let guardian_channel = SecurityChannel::new("workload", "guardian");
+                    if let Err(e) = guardian_channel
+                        .establish_client(&guardian_addr, "guardian")
+                        .await
+                    {
+                        log::error!("[workload] Failed to connect to Guardian: {}", e);
+                        return;
+                    }
+                    let keypair = libp2p::identity::Keypair::generate_ed25519();
+                    if let Err(e) =
+                        run_attestation_client("workload", &guardian_channel, &keypair).await
+                    {
+                        log::error!("[workload] Attestation with Guardian failed: {}", e);
+                        return;
+                    }
+                    log::info!("Workload: Attestation with Guardian complete.");
+                });
+            }
 
             let server_config = create_ipc_server_config()?;
             let acceptor = TlsAcceptor::from(server_config);
@@ -1015,59 +1072,44 @@ async fn main() -> Result<()> {
         Command::Guardian(opts) => {
             log::info!("Guardian container starting up...");
             let config_path = Path::new(&opts.config_dir).join("guardian.toml");
-            // Wrap GuardianContainer in an Arc to share it between tasks
             let guardian = Arc::new(GuardianContainer::new(&config_path)?);
 
-            // Start the Guardian's mTLS server immediately.
-            // This will print the "listening" log message that the test harness waits for.
             guardian.start().await?;
 
-            // In a separate task, perform the client-side logic after a short delay
-            // to give the other containers a chance to start their servers.
             let guardian_clone = guardian.clone();
             tokio::spawn(async move {
-                // Allow time for workload/orchestration to start their servers
-                tokio::time::sleep(Duration::from_secs(3)).await;
-
-                // These environment variables are set by the test harness.
-                let workload_ipc_addr =
-                    std::env::var("WORKLOAD_IPC_ADDR").expect("WORKLOAD_IPC_ADDR not set");
-                let orch_ipc_addr = std::env::var("ORCHESTRATION_IPC_ADDR")
-                    .expect("ORCHESTRATION_IPC_ADDR not set");
-
-                // Establish client connections. The Guardian acts as a client for this specific check.
-                if let Err(e) = guardian_clone
-                    .workload_channel
-                    .establish_client(&workload_ipc_addr, "workload")
-                    .await
+                log::info!("[Guardian] Waiting for incoming container connections before starting attestation...");
+                while !guardian_clone.workload_channel.is_established().await
+                    || !guardian_clone.orchestration_channel.is_established().await
                 {
-                    log::error!("[Guardian] Failed to connect to Workload: {}", e);
-                    // In a real scenario, we might retry or enter a degraded state.
+                    tokio::time::sleep(Duration::from_millis(250)).await;
+                }
+                log::info!("[Guardian] Both container connections established. Proceeding with hardware attestation.");
+
+                if let Err(e) = guardian_clone.run_attestation_protocol().await {
+                    log::error!("Hardware attestation protocol failed: {}", e);
                     return;
                 }
-                // Orchestration connection is optional in the original logic, so we keep .ok()
-                guardian_clone
-                    .orchestration_channel
-                    .establish_client(&orch_ipc_addr, "orchestration")
-                    .await
-                    .ok();
-                log::info!("[Guardian] IPC client channels established.");
 
-                // Perform the semantic model hash check (attest_weights).
-                if let Err(e) = guardian_clone
+                let local_hash_result = guardian_clone
                     .attest_weights(&opts.semantic_model_path)
+                    .await;
+
+                let report_bytes = serde_json::to_vec(&local_hash_result).unwrap();
+                if let Err(e) = guardian_clone
+                    .orchestration_channel
+                    .send(&report_bytes)
                     .await
                 {
                     log::error!(
-                        "[Guardian] Attestation failed: {}. Node may be quarantined.",
+                        "[Guardian] Failed to send semantic attestation report to Orchestrator: {}",
                         e
                     );
                 } else {
-                    log::info!("[Guardian] Model hash attestation check successful.");
+                    log::info!("[Guardian] Sent semantic attestation report to Orchestrator.");
                 }
             });
 
-            // Keep the main guardian process alive until a shutdown signal is received.
             tokio::signal::ctrl_c().await?;
             guardian.stop().await?;
             log::info!("Guardian stopped.");

@@ -20,9 +20,9 @@ async fn test_secure_semantic_consensus_e2e() -> Result<()> {
     fs::write(&good_model_path, "correct_model_data")?;
     let correct_model_hash = hex::encode(sha256(b"correct_model_data"));
 
-    // Launch a 1-node cluster, configured with the correct model and genesis state
+    // Launch a 3-node cluster to meet the committee size requirement
     let mut cluster = TestCluster::new()
-        .with_validators(1)
+        .with_validators(3)
         .with_consensus_type("ProofOfAuthority")
         .with_genesis_modifier(move |genesis, keys| {
             // Set authorities for PoA consensus
@@ -37,36 +37,29 @@ async fn test_secure_semantic_consensus_e2e() -> Result<()> {
             )
             .unwrap()] = json!(correct_model_hash);
         })
-        .with_semantic_model_path(good_model_path.to_str().unwrap()) // NEW: Pass model path to builder
+        .with_semantic_model_path(good_model_path.to_str().unwrap())
         .build()
         .await?;
 
     // Get handles for one of the nodes to check logs
     let node0 = &mut cluster.validators[0];
-    let mut _workload_logs = node0.workload_log_stream.lock().await.take().unwrap();
-    let mut guardian_logs = node0.guardian_log_stream.lock().await.take().unwrap();
     let mut orch_logs = node0.orch_log_stream.lock().await.take().unwrap();
 
-    // Action: Submit a semantic transaction (this part needs a new RPC endpoint or test hook)
-    // For now, the test just verifies the startup attestation and mock consensus.
-
-    // Assertions: Check logs in order to verify the entire pipeline
+    // Assertions: Check the Orchestrator's log to verify the semantic attestation passed.
     assert_log_contains(
-        "Guardian",
-        &mut guardian_logs,
-        "Guardian::attest_weights() check passed.",
+        "Orchestration",
+        &mut orch_logs,
+        "Semantic model hash matches on-chain state. Node is healthy.",
     )
     .await?;
+
+    // This assertion can remain as a placeholder for the next phase of semantic consensus implementation.
     assert_log_contains(
         "Orchestration",
         &mut orch_logs,
         "Semantic consensus reached on hash:",
     )
     .await?;
-    // The following logs would be asserted after a real semantic transaction is submitted
-    // assert_log_contains("Workload", &mut workload_logs, "GasEscrowHandler::bond() called").await?;
-    // assert_log_contains("Workload", &mut workload_logs, "Executed semantic operation: token_transfer").await?;
-    // assert_log_contains("Workload", &mut workload_logs, "GasEscrowHandler::settle() called").await?;
 
     Ok(())
 }
@@ -104,7 +97,10 @@ async fn test_mismatched_model_quarantine() -> Result<()> {
         Some(good_model_path.to_str().unwrap()),
     )
     .await?;
-    let mut bad_node = TestValidator::launch(
+
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+    let bad_node = TestValidator::launch(
         keys[1].clone(),
         genesis_content.clone(),
         5010,
@@ -114,21 +110,35 @@ async fn test_mismatched_model_quarantine() -> Result<()> {
     )
     .await?;
 
-    // Action: No action needed. The failure happens on startup.
+    let mut node0_logs = node0.orch_log_stream.lock().await.take().unwrap();
+    let mut bad_node_logs = bad_node.orch_log_stream.lock().await.take().unwrap();
 
-    // Assertions: Check the logs of the "bad" node for the failure and quarantine messages.
-    let mut bad_guardian_logs = bad_node.guardian_log_stream.lock().await.take().unwrap();
-    let mut bad_orch_logs = bad_node.orch_log_stream.lock().await.take().unwrap();
-
+    // Assert that the bad node connects to the good node
     assert_log_contains(
-        "Guardian",
-        &mut bad_guardian_logs,
+        "BadNode",
+        &mut bad_node_logs,
+        &format!("Connection established with peer {}", node0.peer_id),
+    )
+    .await?;
+
+    // Assert that the good node sees the connection from the bad node
+    assert_log_contains(
+        "Node0",
+        &mut node0_logs,
+        &format!("Connection established with peer {}", bad_node.peer_id),
+    )
+    .await?;
+
+    // Assertions: Check the logs of the "bad" node's Orchestrator for the failure and quarantine messages.
+    assert_log_contains(
+        "Orchestration",
+        &mut bad_node_logs,
         "Model Integrity Failure!",
     )
     .await?;
     assert_log_contains(
         "Orchestration",
-        &mut bad_orch_logs,
+        &mut bad_node_logs,
         "Node is quarantined, skipping consensus participation.",
     )
     .await?;

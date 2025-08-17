@@ -375,15 +375,26 @@ initial_sync_timeout_secs = 2
         let mut orch_reader = BufReader::new(orch_stderr).lines();
 
         timeout(ORCHESTRATION_READY_TIMEOUT, async {
-            let ready_signal = format!("ORCHESTRATION_RPC_LISTENING_ON_{}", rpc_addr);
+            let mut rpc_ready = false;
+            let mut semantic_ready = semantic_model_path.is_none(); // If no model, it's ready by default.
+
+            let rpc_signal = format!("ORCHESTRATION_RPC_LISTENING_ON_{}", rpc_addr);
+            let semantic_signal = "Semantic attestation sequence complete.";
+
             while let Some(line) = orch_reader.next_line().await? {
                 println!("[SETUP-LOGS-Orchestration] {}", line);
-                if line.contains(&ready_signal) {
+                if !rpc_ready && line.contains(&rpc_signal) {
+                    rpc_ready = true;
+                }
+                if !semantic_ready && line.contains(semantic_signal) {
+                    semantic_ready = true;
+                }
+                if rpc_ready && semantic_ready {
                     return Ok(());
                 }
             }
             Err(anyhow!(
-                "Orchestration stderr stream ended before RPC ready signal."
+                "Orchestration stderr stream ended before all ready signals were found."
             ))
         })
         .await??;
