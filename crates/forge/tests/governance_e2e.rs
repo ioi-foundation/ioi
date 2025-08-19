@@ -7,7 +7,9 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_services::governance::{Proposal, ProposalStatus, ProposalType};
 use depin_sdk_types::app::{ChainTransaction, SystemPayload, SystemTransaction, VoteOption};
-use depin_sdk_types::keys::{GOVERNANCE_PROPOSAL_KEY_PREFIX, STAKES_KEY};
+// FIX START: Import the correct stake key constants
+use depin_sdk_types::keys::{GOVERNANCE_PROPOSAL_KEY_PREFIX, STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
+// FIX END
 use libp2p::identity;
 use serde_json::json;
 use std::collections::BTreeMap;
@@ -38,10 +40,13 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
             let mut stakes = BTreeMap::new();
             stakes.insert(validator_peer_id.to_base58(), 1_000_000u64);
             let stakes_bytes = serde_json::to_vec(&stakes).unwrap();
-            let stakes_key_str = std::str::from_utf8(STAKES_KEY).unwrap();
-            // Encode the value as b64 to ensure bytes are preserved
-            genesis["genesis_state"][stakes_key_str] =
-                json!(format!("b64:{}", BASE64_STANDARD.encode(stakes_bytes)));
+            // FIX START: Use the correct keys and set both current and next stakes
+            let stakes_b64 = format!("b64:{}", BASE64_STANDARD.encode(stakes_bytes));
+            let stakes_key_current_str = std::str::from_utf8(STAKES_KEY_CURRENT).unwrap();
+            let stakes_key_next_str = std::str::from_utf8(STAKES_KEY_NEXT).unwrap();
+            genesis["genesis_state"][stakes_key_current_str] = json!(stakes_b64.clone());
+            genesis["genesis_state"][stakes_key_next_str] = json!(stakes_b64);
+            // FIX END
 
             // D. Create a pre-funded proposal that will end soon
             let proposal = Proposal {
