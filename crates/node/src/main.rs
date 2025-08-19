@@ -937,9 +937,13 @@ async fn main() -> Result<()> {
                             let state_tree_arc = workload_container.state_tree();
                             let state = state_tree_arc.lock().await;
                             match state.get(depin_sdk_types::keys::STATE_KEY_SEMANTIC_MODEL_HASH) {
-                                Ok(Some(hex_bytes)) => {
-                                    let hex_str =
-                                        String::from_utf8(hex_bytes).map_err(|e| e.to_string())?;
+                                Ok(Some(json_bytes)) => {
+                                    // --- FIX START: First, deserialize from JSON to get the raw hex string ---
+                                    let hex_str: String = serde_json::from_slice(&json_bytes)
+                                        .map_err(|e| format!("Failed to deserialize model hash from state JSON: {}", e))?;
+                                    // --- FIX END ---
+
+                                    // Now, hex::decode will work correctly
                                     hex::decode(hex_str).map_err(|e| e.to_string())
                                 }
                                 Ok(None) => {
