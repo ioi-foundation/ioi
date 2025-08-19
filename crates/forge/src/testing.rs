@@ -379,7 +379,8 @@ initial_sync_timeout_secs = 2
             let mut semantic_ready = semantic_model_path.is_none(); // If no model, it's ready by default.
 
             let rpc_signal = format!("ORCHESTRATION_RPC_LISTENING_ON_{}", rpc_addr);
-            let semantic_signal = "Semantic attestation sequence complete.";
+            // FIX: Wait for the more definitive ready signal.
+            let semantic_signal = "[Orchestrator] Semantic attestation sequence complete.";
 
             while let Some(line) = orch_reader.next_line().await? {
                 println!("[SETUP-LOGS-Orchestration] {}", line);

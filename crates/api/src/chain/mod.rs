@@ -39,11 +39,13 @@ where
     ) -> Result<(), ChainError>;
 
     /// Processes a full block of transactions, updating the chain state.
+    // --- FIX START: Update the return type to match the implementation ---
     async fn process_block(
         &mut self,
         block: Block<ChainTransaction>,
         workload: &WorkloadContainer<ST>,
-    ) -> Result<Block<ChainTransaction>, ChainError>;
+    ) -> Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError>;
+    // --- FIX END ---
 
     /// Creates a new block template to be filled by a block producer.
     ///

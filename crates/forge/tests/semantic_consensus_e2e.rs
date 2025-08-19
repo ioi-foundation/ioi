@@ -30,7 +30,9 @@ async fn test_secure_semantic_consensus_e2e() -> Result<()> {
                 .iter()
                 .map(|k| k.public().to_peer_id().to_bytes())
                 .collect();
-            genesis["genesis_state"]["system::authorities"] = json!(authorities);
+            genesis["genesis_state"]["system::authorities"] = json!(authorities.clone());
+            // FIX: Also set the validator set, which the test's mock logic uses to find the committee.
+            genesis["genesis_state"]["system::validators"] = json!(authorities);
             // Set the correct model hash in the genesis state
             genesis["genesis_state"][std::str::from_utf8(
                 depin_sdk_types::keys::STATE_KEY_SEMANTIC_MODEL_HASH,

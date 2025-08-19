@@ -16,18 +16,12 @@ pub struct WorkloadClient {
 }
 
 impl WorkloadClient {
-    pub fn new(workload_addr: &str) -> Result<Self> {
+    pub async fn new(workload_addr: &str) -> Result<Self> {
         let channel = SecurityChannel::new("orchestration", "workload");
-        tokio::spawn({
-            let channel = channel.clone();
-            let workload_addr = workload_addr.to_string();
-            async move {
-                channel
-                    .establish_client(&workload_addr, "workload")
-                    .await
-                    .expect("Failed to connect to Workload container");
-            }
-        });
+        channel
+            .establish_client(workload_addr, "workload")
+            .await
+            .expect("Failed to connect to Workload container");
 
         Ok(Self {
             channel,
@@ -51,7 +45,7 @@ impl WorkloadClient {
     pub async fn process_block(
         &self,
         block: Block<ChainTransaction>,
-    ) -> Result<Block<ChainTransaction>> {
+    ) -> Result<(Block<ChainTransaction>, Vec<Vec<u8>>)> {
         let request = WorkloadRequest::ProcessBlock(block);
         match self.send_and_receive(request).await? {
             WorkloadResponse::ProcessBlock(res) => res.map_err(|e| anyhow::anyhow!(e)),
@@ -71,6 +65,16 @@ impl WorkloadClient {
         }
     }
 
+    pub async fn get_last_block_hash(&self) -> Result<Vec<u8>> {
+        let request = WorkloadRequest::GetLastBlockHash;
+        match self.send_and_receive(request).await? {
+            WorkloadResponse::GetLastBlockHash(res) => res.map_err(|e| anyhow::anyhow!(e)),
+            _ => Err(anyhow::anyhow!(
+                "Invalid response type from workload for GetLastBlockHash"
+            )),
+        }
+    }
+
     pub async fn execute_transaction(&self, tx: ChainTransaction) -> Result<()> {
         let request = WorkloadRequest::ExecuteTransaction(tx);
         match self.send_and_receive(request).await? {
@@ -79,6 +83,7 @@ impl WorkloadClient {
         }
     }
 
+    // --- FIX: Revert return type to use String keys ---
     pub async fn get_staked_validators(&self) -> Result<BTreeMap<String, u64>> {
         let request = WorkloadRequest::GetStakes;
         match self.send_and_receive(request).await? {
@@ -86,6 +91,17 @@ impl WorkloadClient {
             _ => Err(anyhow::anyhow!("Invalid response type from workload")),
         }
     }
+
+    pub async fn get_next_staked_validators(&self) -> Result<BTreeMap<String, u64>> {
+        let request = WorkloadRequest::GetNextStakes;
+        match self.send_and_receive(request).await? {
+            WorkloadResponse::GetNextStakes(res) => res.map_err(|e| anyhow::anyhow!(e)),
+            _ => Err(anyhow::anyhow!(
+                "Invalid response type from workload for GetNextStakes"
+            )),
+        }
+    }
+    // --- FIX END ---
 
     pub async fn deploy_contract(
         &self,

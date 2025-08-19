@@ -1,6 +1,5 @@
 // Path: crates/chain/src/app/mod.rs
 
-/// The private implementation for the `AppChain` trait.
 use crate::upgrade_manager::ModuleUpgradeManager;
 use async_trait::async_trait;
 use depin_sdk_api::chain::{AppChain, PublicKey, StakeAmount};
@@ -8,7 +7,6 @@ use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::services::{ServiceType, UpgradableService};
 use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::TransactionModel;
-// FIX: Remove unused import for TransactionExecutor
 use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{Block, BlockHeader, ChainStatus, ChainTransaction, SystemPayload};
@@ -21,13 +19,10 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// A type alias for the factory function that instantiates services from WASM blobs.
 type ServiceFactory =
     Box<dyn Fn(&[u8]) -> Result<Arc<dyn UpgradableService>, CoreError> + Send + Sync>;
 
-/// A struct that holds the core, serializable state of a blockchain.
 #[derive(Debug)]
-#[allow(dead_code)]
 pub struct ChainState<CS: CommitmentScheme + Clone> {
     pub commitment_scheme: CS,
     pub transaction_model: UnifiedTransactionModel<CS>,
@@ -108,9 +103,36 @@ where
         }
         Ok(())
     }
+
+    async fn get_validator_set_from_key<ST>(
+        &self,
+        workload: &WorkloadContainer<ST>,
+        key: &[u8],
+    ) -> Result<Vec<Vec<u8>>, ChainError>
+    where
+        ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
+    {
+        let state_tree_arc = workload.state_tree();
+        let state = state_tree_arc.lock().await;
+        match state.get(key) {
+            Ok(Some(bytes)) => {
+                let stakers: BTreeMap<String, u64> = serde_json::from_slice(&bytes)
+                    .map_err(|e| ChainError::State(StateError::InvalidValue(e.to_string())))?;
+                let mut active_stakers: Vec<Vec<u8>> = stakers
+                    .into_iter()
+                    .filter(|(_, stake)| *stake > 0)
+                    .filter_map(|(key, _)| bs58::decode(key).into_vec().ok())
+                    .collect();
+                // --- FIX: Sort the set for canonical representation ---
+                active_stakers.sort();
+                Ok(active_stakers)
+            }
+            Ok(None) => Ok(Vec::new()),
+            Err(e) => Err(e.into()),
+        }
+    }
 }
 
-// FIX: Add ST back to the impl signature to match the trait definition.
 #[async_trait]
 impl<CS, ST> AppChain<CS, UnifiedTransactionModel<CS>, ST> for Chain<CS>
 where
@@ -149,14 +171,30 @@ where
         &mut self,
         mut block: Block<ChainTransaction>,
         workload: &WorkloadContainer<ST>,
-    ) -> Result<Block<ChainTransaction>, ChainError> {
-        if block.header.height != self.state.status.height + 1 {
+    ) -> Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError> {
+        let is_producing = block.header.signature.is_empty();
+        let height = block.header.height;
+
+        if height != self.state.status.height + 1 {
             return Err(ChainError::Block(format!(
                 "Invalid block height. Expected {}, got {}",
                 self.state.status.height + 1,
-                block.header.height
+                height
             )));
         }
+
+        // --- FIX START: Simplify state promotion at the start of block processing ---
+        if height > 0 {
+            let state_tree_arc = workload.state_tree();
+            let mut state = state_tree_arc.lock().await;
+            // Promote NEXT from the previous block to become CURRENT for this block.
+            let next_stakes_bytes = state
+                .get(STAKES_KEY_NEXT)?
+                .unwrap_or_else(|| b"{}".to_vec());
+            state.insert(STAKES_KEY_CURRENT, &next_stakes_bytes)?;
+        }
+        // --- FIX END ---
+
         let expected_prev_hash = self
             .state
             .recent_blocks
@@ -165,7 +203,7 @@ where
         if block.header.prev_hash != expected_prev_hash {
             return Err(ChainError::Block(format!(
                 "Invalid prev_hash for block {}. Expected {}, got {}",
-                block.header.height,
+                height,
                 hex::encode(&expected_prev_hash),
                 hex::encode(&block.header.prev_hash)
             )));
@@ -180,11 +218,6 @@ where
                 } = &sys_tx.payload
                 {
                     let service_type_enum = ServiceType::Custom(service_type.clone());
-                    log::info!(
-                        "Scheduling module upgrade for {:?} at height {}",
-                        service_type_enum,
-                        activation_height
-                    );
                     self.service_manager
                         .schedule_upgrade(
                             service_type_enum,
@@ -202,51 +235,66 @@ where
             self.process_transaction(tx, workload).await?;
         }
 
-        match self
-            .service_manager
-            .apply_upgrades_at_height(block.header.height)
-        {
-            Ok(count) if count > 0 => {
-                log::info!(
-                    "Successfully applied {} module upgrade(s) at height {}",
-                    count,
-                    block.header.height
-                );
-            }
-            Ok(_) => (),
-            Err(e) => {
-                log::error!(
-                    "CRITICAL: Failed to apply scheduled module upgrade at height {}: {:?}",
-                    block.header.height,
-                    e
-                );
-                return Err(ChainError::Block(format!("Module upgrade failed: {}", e)));
+        if let Ok(count) = self.service_manager.apply_upgrades_at_height(height) {
+            if count > 0 {
+                log::info!("Applied {} module upgrade(s) at height {}", count, height);
             }
         }
 
-        self.state.status.height = block.header.height;
+        self.state.status.height = height;
         self.state.status.latest_timestamp = block.header.timestamp;
+
+        let validator_set_for_h_plus_1 = self
+            .get_validator_set_from_key(workload, STAKES_KEY_NEXT)
+            .await?;
 
         let status_bytes = serde_json::to_vec(&self.state.status)
             .map_err(|e| ChainError::Transaction(format!("Failed to serialize status: {e}")))?;
-        let validator_set_bytes = serde_json::to_vec(&block.header.validator_set).map_err(|e| {
-            ChainError::Transaction(format!("Failed to serialize validator set: {e}"))
-        })?;
-
         let state_tree_arc = workload.state_tree();
         let mut state = state_tree_arc.lock().await;
         state.insert(STATUS_KEY, &status_bytes)?;
-        state.insert(VALIDATOR_SET_KEY, &validator_set_bytes)?;
-
-        let state_root = state.root_commitment();
+        let new_state_root = state.root_commitment().as_ref().to_vec();
         drop(state);
 
-        block.header.state_root = state_root.as_ref().to_vec();
+        if is_producing {
+            block.header.state_root = new_state_root;
+            // --- FIX START: Sort the validator set before putting it in the header ---
+            let mut set = self
+                .get_validator_set_from_key(workload, STAKES_KEY_CURRENT)
+                .await?;
+            set.sort();
+            block.header.validator_set = set;
+            // --- FIX END ---
+        } else {
+            if block.header.state_root != new_state_root {
+                return Err(ChainError::Block(format!(
+                    "State root mismatch. Expected {}, got {}",
+                    hex::encode(&block.header.state_root),
+                    hex::encode(&new_state_root)
+                )));
+            }
+            // --- FIX START: Sort both sets before comparing ---
+            let mut current_validator_set = self
+                .get_validator_set_from_key(workload, STAKES_KEY_CURRENT)
+                .await?;
+            current_validator_set.sort();
+            let mut header_set = block.header.validator_set.clone();
+            header_set.sort();
+
+            if header_set != current_validator_set {
+                return Err(ChainError::Block(
+                    "Validator set mismatch in received block".to_string(),
+                ));
+            }
+            // --- FIX END ---
+        }
+
         self.state.recent_blocks.push(block.clone());
         if self.state.recent_blocks.len() > self.state.max_recent_blocks {
             self.state.recent_blocks.remove(0);
         }
-        Ok(block)
+
+        Ok((block, validator_set_for_h_plus_1))
     }
 
     fn create_block(
@@ -265,26 +313,19 @@ where
         let mut validator_set_bytes = current_validator_set.to_vec();
         validator_set_bytes.sort();
 
-        let next_height = self.state.status.height + 1;
-
-        let producer_pubkey_bytes = producer_keypair.public().encode_protobuf();
-
-        let mut header = BlockHeader {
-            height: next_height,
+        let header = BlockHeader {
+            height: self.state.status.height + 1,
             prev_hash,
-            state_root: vec![], // Placeholder; will be calculated in process_block
+            state_root: vec![],
             transactions_root: vec![0; 32],
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_secs(),
             validator_set: validator_set_bytes,
-            producer: producer_pubkey_bytes,
+            producer: producer_keypair.public().encode_protobuf(),
             signature: vec![],
         };
-
-        let header_hash = header.hash();
-        header.signature = producer_keypair.sign(&header_hash).unwrap();
 
         Block {
             header,
@@ -314,12 +355,19 @@ where
     ) -> Result<Vec<Vec<u8>>, ChainError> {
         let state_tree_arc = workload.state_tree();
         let state = state_tree_arc.lock().await;
-        match state.get(VALIDATOR_SET_KEY) {
-            Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
-                ChainError::Transaction(format!("Failed to deserialize validator set: {e}"))
-            }),
-            Ok(None) => Ok(Vec::new()),
-            Err(e) => Err(e.into()),
+
+        if state.get(STAKES_KEY_CURRENT)?.is_some() || state.get(STAKES_KEY_NEXT)?.is_some() {
+            drop(state);
+            self.get_validator_set_from_key(workload, STAKES_KEY_CURRENT)
+                .await
+        } else {
+            match state.get(AUTHORITY_SET_KEY) {
+                Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
+                    ChainError::Transaction(format!("Failed to deserialize authority set: {e}"))
+                }),
+                Ok(None) => Ok(Vec::new()),
+                Err(e) => Err(e.into()),
+            }
         }
     }
 
@@ -346,10 +394,19 @@ where
     ) -> Result<BTreeMap<PublicKey, StakeAmount>, ChainError> {
         let state_tree_arc = workload.state_tree();
         let state = state_tree_arc.lock().await;
-        match state.get(STAKES_KEY) {
-            Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
-                ChainError::Transaction(format!("Failed to deserialize stakes map: {e}"))
-            }),
+        match state.get(STAKES_KEY_CURRENT) {
+            Ok(Some(bytes)) => {
+                let raw_map: BTreeMap<String, u64> =
+                    serde_json::from_slice(&bytes).map_err(|e| {
+                        ChainError::Transaction(format!("Failed to deserialize stakes map: {e}"))
+                    })?;
+
+                let stakes_map: BTreeMap<PublicKey, StakeAmount> = raw_map
+                    .into_iter()
+                    .filter(|(_, stake)| *stake > 0)
+                    .collect();
+                Ok(stakes_map)
+            }
             Ok(None) => Ok(BTreeMap::new()),
             Err(e) => Err(e.into()),
         }
