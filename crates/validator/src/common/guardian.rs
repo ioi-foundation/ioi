@@ -15,6 +15,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
+use tokio::io::AsyncReadExt;
 use tokio::net::TcpListener;
 use tokio_rustls::{
     rustls::{
@@ -131,28 +132,18 @@ impl GuardianContainer {
         Ok(is_valid)
     }
 
-    /// The main attestation loop run by the Guardian.
-    pub async fn run_attestation_protocol(&self) -> Result<()> {
-        log::info!("Guardian starting attestation protocol...");
-        // The `accept_server_connection` in the `start` method already handles
-        // waiting for connections. The protocol can proceed as soon as it's spawned.
-
-        // Challenge Orchestration
+    /// Runs the hardware attestation handshake on a single channel.
+    pub async fn run_attestation_handshake_on_channel(
+        &self,
+        channel: &SecurityChannel,
+    ) -> Result<ContainerAttestation> {
         let mut nonce = vec![0u8; 32];
         rand::thread_rng().fill_bytes(&mut nonce);
-        self.orchestration_channel.send(&nonce).await?;
-        let response_bytes = self.orchestration_channel.receive().await?;
+        channel.send(&nonce).await?;
+        let response_bytes = channel.receive().await?;
         let report: ContainerAttestation = serde_json::from_slice(&response_bytes)?;
         self.verify_container_attestation(&report).await?;
-
-        // Challenge Workload
-        rand::thread_rng().fill_bytes(&mut nonce);
-        self.workload_channel.send(&nonce).await?;
-        let response_bytes = self.workload_channel.receive().await?;
-        let report: ContainerAttestation = serde_json::from_slice(&response_bytes)?;
-        self.verify_container_attestation(&report).await?;
-
-        Ok(())
+        Ok(report)
     }
 }
 
@@ -177,37 +168,52 @@ impl Container for GuardianContainer {
         let self_clone = self.clone();
 
         tokio::spawn(async move {
-            let mut connections = 0;
-            while running.load(Ordering::SeqCst) && connections < 2 {
+            while running.load(Ordering::SeqCst) {
                 if let Ok((stream, _)) = listener.accept().await {
                     let acceptor_clone = acceptor.clone();
-                    let channel_to_use = if connections == 0 {
-                        orch_channel.clone()
-                    } else {
-                        work_channel.clone()
-                    };
+                    let orch_ch = orch_channel.clone();
+                    let work_ch = work_channel.clone();
+                    let guardian = self_clone.clone();
+
                     tokio::spawn(async move {
                         match acceptor_clone.accept(stream).await {
-                            Ok(tls_stream) => {
+                            Ok(mut tls_stream) => {
+                                let client_id = match tls_stream.read_u8().await {
+                                    Ok(1) => "orchestration",
+                                    Ok(2) => "workload",
+                                    _ => {
+                                        log::error!("Guardian: Received unknown client ID.");
+                                        return;
+                                    }
+                                };
+
+                                let channel_to_use = if client_id == "orchestration" {
+                                    orch_ch
+                                } else {
+                                    work_ch
+                                };
+
                                 channel_to_use
                                     .accept_server_connection(tokio_rustls::TlsStream::Server(
                                         tls_stream,
                                     ))
+                                    .await;
+
+                                if let Err(e) = guardian
+                                    .run_attestation_handshake_on_channel(&channel_to_use)
                                     .await
+                                {
+                                    log::error!(
+                                        "Guardian: Attestation handshake with '{}' failed: {}",
+                                        client_id,
+                                        e
+                                    );
+                                }
                             }
                             Err(e) => log::error!("Guardian: TLS handshake failed: {}", e),
                         }
                     });
-                    connections += 1;
                 }
-            }
-            log::info!("Guardian has accepted all expected container connections.");
-            if running.load(Ordering::SeqCst) {
-                tokio::spawn(async move {
-                    if let Err(e) = self_clone.run_attestation_protocol().await {
-                        log::error!("Attestation protocol failed: {}", e);
-                    }
-                });
             }
         });
 

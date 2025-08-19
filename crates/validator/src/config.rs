@@ -1,3 +1,4 @@
+// Path: crates/validator/src/config.rs
 //! Configuration structures for validator containers.
 
 use serde::Deserialize;
@@ -32,7 +33,8 @@ fn default_sync_timeout_secs() -> u64 {
 #[serde(rename_all = "PascalCase")]
 pub enum ConsensusType {
     ProofOfStake,
-    ProofOfWork,
+    // --- FIX: Remove unused variant to make match statements exhaustive ---
+    // ProofOfWork,
     ProofOfAuthority,
 }
 

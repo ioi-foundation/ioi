@@ -1,8 +1,7 @@
 // Path: crates/node/src/main.rs
-
 #![forbid(unsafe_code)]
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use cfg_if::cfg_if;
@@ -24,11 +23,11 @@ use depin_sdk_network::traits::NodeState;
 use depin_sdk_network::BlockSync;
 use depin_sdk_services::governance::{GovernanceModule, Proposal, ProposalStatus};
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-use depin_sdk_types::app::{Block, BlockHeader, ChainStatus, ChainTransaction};
+use depin_sdk_types::app::{Block, BlockHeader, ChainTransaction};
 use depin_sdk_types::config::WorkloadConfig;
 use depin_sdk_types::keys::{
     AUTHORITY_SET_KEY, GOVERNANCE_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, GOVERNANCE_VOTE_KEY_PREFIX,
-    STAKES_KEY, VALIDATOR_SET_KEY,
+    STAKES_KEY_CURRENT, STAKES_KEY_NEXT, VALIDATOR_SET_KEY,
 };
 use depin_sdk_validator::common::attestation::{ContainerAttestation, SignatureSuite};
 use depin_sdk_validator::common::guardian::GuardianContainer;
@@ -40,7 +39,6 @@ use depin_sdk_vm_wasm::WasmVm;
 use libp2p::{identity, Multiaddr, PeerId};
 use rcgen::{Certificate, CertificateParams, SanType};
 use serde::{Deserialize, Serialize};
-use serde_jcs;
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fs;
@@ -51,6 +49,7 @@ use std::sync::{
     Arc,
 };
 use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::io::AsyncReadExt; // <-- Add this import for read_u8
 use tokio::sync::{watch, Mutex};
 use tokio::time::{self, Duration, Instant};
 use tokio_rustls::{
@@ -116,7 +115,6 @@ struct WorkloadOpts {
     state_file: String,
 }
 
-// --- RPC Server Types and Handler ---
 #[derive(Deserialize, Debug)]
 struct JsonRpcRequest {
     method: String,
@@ -139,7 +137,7 @@ struct RpcAppState {
 
 #[derive(Debug)]
 struct TallyState {
-    votes: HashMap<Vec<u8>, Vec<PeerId>>, // Key: Vote Hash, Value: List of voters
+    votes: HashMap<Vec<u8>, Vec<PeerId>>,
     #[allow(dead_code)]
     start_time: tokio::time::Instant,
 }
@@ -347,18 +345,16 @@ async fn main() -> Result<()> {
             let workload_client = {
                 let workload_ipc_addr = std::env::var("WORKLOAD_IPC_ADDR")
                     .unwrap_or_else(|_| "127.0.0.1:8555".to_string());
-                WorkloadClient::new(&workload_ipc_addr)?
+                WorkloadClient::new(&workload_ipc_addr).await?
             };
             log::info!(
                 "Orchestration: WorkloadClient ready to connect to {}",
                 workload_client.destination_addr()
             );
             if !guardian_addr.is_empty() {
-                // Spawn the entire client-side logic for Guardian interaction into a background task.
                 let is_quarantined_clone = is_quarantined.clone();
                 let workload_client_clone = workload_client.clone();
                 tokio::spawn(async move {
-                    // Give the Guardian a moment to start its server
                     tokio::time::sleep(Duration::from_millis(500)).await;
                     let guardian_channel = SecurityChannel::new("orchestration", "guardian");
                     if let Err(e) = guardian_channel
@@ -382,7 +378,6 @@ async fn main() -> Result<()> {
                     }
                     log::info!("Orchestration: Attestation with Guardian complete.");
 
-                    // --- NEW LOGIC: Wait for and verify the semantic attestation report ---
                     log::info!(
                         "[Orchestrator] Waiting for semantic attestation report from Guardian..."
                     );
@@ -419,7 +414,6 @@ async fn main() -> Result<()> {
                             is_quarantined_clone.store(true, Ordering::SeqCst);
                         }
                     }
-                    // This log message now serves as our definitive "ready" signal for tests.
                     log::info!("[Orchestrator] Semantic attestation sequence complete.");
                 });
             } else {
@@ -439,8 +433,11 @@ async fn main() -> Result<()> {
                 }
             };
 
-            let (syncer, swarm_commander, mut network_event_receiver) =
-                Libp2pSync::new(local_key.clone(), opts.listen_address, opts.bootnode)?;
+            let (syncer, swarm_commander, mut network_event_receiver) = Libp2pSync::new(
+                local_key.clone(),
+                opts.listen_address,
+                opts.bootnode.clone(),
+            )?;
 
             let consensus_engine: Consensus<ChainTransaction>;
             cfg_if! {
@@ -459,14 +456,6 @@ async fn main() -> Result<()> {
                     compile_error!("A consensus engine feature must be enabled (e.g., 'consensus-pos', 'consensus-poa', 'consensus-round-robin').");
                 }
             }
-
-            let status = Arc::new(Mutex::new(ChainStatus {
-                height: 0,
-                latest_timestamp: 0,
-                total_transactions: 0,
-                is_running: false,
-            }));
-            let recent_blocks = Arc::new(Mutex::new(Vec::<Block<ChainTransaction>>::new()));
 
             tokio::time::sleep(Duration::from_secs(2)).await;
 
@@ -496,15 +485,21 @@ async fn main() -> Result<()> {
             });
 
             log::info!("Orchestration container entering main event loop.");
-            let mut block_production_interval = time::interval(Duration::from_secs(10));
+            let mut block_production_interval = time::interval(Duration::from_secs(5));
             block_production_interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
 
             let node_state_arc = syncer.get_node_state();
-            let mut node_state = node_state_arc.lock().await;
-            *node_state = NodeState::Syncing;
-            drop(node_state);
+            if opts.bootnode.is_none() {
+                *node_state_arc.lock().await = NodeState::Synced;
+                log::info!("[Orchestrator] No bootnodes configured. Assuming genesis node. State -> Synced.");
+            } else {
+                *node_state_arc.lock().await = NodeState::Syncing;
+            }
 
             let consensus_engine = Arc::new(Mutex::new(consensus_engine));
+
+            let sync_timeout = time::sleep(Duration::from_secs(config.initial_sync_timeout_secs));
+            tokio::pin!(sync_timeout);
 
             loop {
                 if is_quarantined.load(Ordering::SeqCst) {
@@ -527,35 +522,68 @@ async fn main() -> Result<()> {
                                 let mut known_peers = known_peers_arc.lock().await;
                                 known_peers.remove(&peer_id);
                             }
+                            NetworkEvent::GossipBlock(block) => {
+                                log::info!("[Orchestrator] Received gossiped block #{}. Forwarding to workload...", block.header.height);
+                                if let Err(e) = workload_client.process_block(block).await {
+                                     log::error!("[Orchestrator] Workload failed to process gossiped block: {}", e);
+                                } else {
+                                    log::info!("[Orchestrator] Workload processed block successfully.");
+                                    let mut node_state = node_state_arc.lock().await;
+                                    if *node_state == NodeState::Syncing {
+                                        *node_state = NodeState::Synced;
+                                    }
+                                }
+                            }
+                            NetworkEvent::StatusResponse(peer, peer_height) => {
+                                let our_height = workload_client.get_status().await.map_or(0, |s| s.height);
+                                if peer_height > our_height {
+                                    swarm_commander.send(SwarmCommand::SendBlocksRequest(peer, our_height)).await.ok();
+                                } else {
+                                    let mut node_state = node_state_arc.lock().await;
+                                    if *node_state == NodeState::Syncing {
+                                        *node_state = NodeState::Synced;
+                                        log::info!("[Orchestrator] Synced with peer {}.", peer);
+                                    }
+                                }
+                            }
+                            NetworkEvent::BlocksResponse(_, blocks) => {
+                                for block in blocks {
+                                    if workload_client.process_block(block).await.is_err() {
+                                        log::error!("[Orchestrator] Workload failed to process synced block.");
+                                        break;
+                                    }
+                                }
+                                let mut node_state = node_state_arc.lock().await;
+                                if *node_state == NodeState::Syncing {
+                                    *node_state = NodeState::Synced;
+                                    log::info!("[Orchestrator] Finished processing blocks. State -> Synced.");
+                                }
+                            }
                             NetworkEvent::SemanticConsensusVote { from, prompt_hash, vote_hash } => {
                                 let mut pending = pending_consensus.lock().await;
                                 if let Some(tally) = pending.get_mut(&prompt_hash) {
                                     tally.votes.entry(vote_hash).or_default().push(from);
                                 }
                             }
-                            _ => {
-                                if let NetworkEvent::GossipBlock(block) = event {
-                                    log::info!("[Orchestrator] Received gossiped block #{}. Forwarding to workload...", block.header.height);
-                                    match workload_client.process_block(block).await {
-                                        Ok(processed_block) => {
-                                            let mut status_guard = status.lock().await;
-                                            status_guard.height = processed_block.header.height;
-                                            status_guard.latest_timestamp = processed_block.header.timestamp;
-                                            recent_blocks.lock().await.push(processed_block);
-                                            log::info!("[Orchestrator] Workload processed block successfully.");
-                                        }
-                                        Err(e) => {
-                                            log::error!("[Orchestrator] Workload failed to process gossiped block: {}", e);
-                                        }
-                                    }
-                                }
-                            }
+                            _ => {}
+                        }
+                    },
+                     _ = &mut sync_timeout, if *node_state_arc.lock().await == NodeState::Syncing => {
+                        if opts.bootnode.is_none() {
+                            log::info!("[Orchestrator] No bootnodes configured. Assuming genesis node. State -> Synced.");
+                            *node_state_arc.lock().await = NodeState::Synced;
                         }
                     },
                     _ = block_production_interval.tick() => {
+                        let node_state = node_state_arc.lock().await;
+                        if *node_state != NodeState::Synced {
+                            log::trace!("[Orchestrator] Still in syncing state, skipping block production tick.");
+                            continue;
+                        }
+                        drop(node_state);
+
                         if opts.semantic_model_path.is_some() {
-                             // This is a mock trigger for the test
-                            let prompt = "test prompt".to_string();
+                             let prompt = "test prompt".to_string();
                              let prompt_hash_str = hex::encode(sha256(prompt.as_bytes()));
                              let committee_size = 3;
                              let committee = workload_client.get_validator_set().await.unwrap_or_default()
@@ -571,7 +599,6 @@ async fn main() -> Result<()> {
                                      TallyState { votes: HashMap::new(), start_time: Instant::now() },
                                  );
                                  drop(pending);
-                                 // Mock receiving a vote to satisfy the test
                                 let canonical_json_bytes = serde_jcs::to_vec(&serde_json::json!({ "gas_ceiling":100000, "operation_id":"token_transfer", "params":{ "amount":50, "to":"0xabcde12345" } })).unwrap();
                                 let correct_hash = sha256(&canonical_json_bytes);
 
@@ -586,35 +613,58 @@ async fn main() -> Result<()> {
                              }
                         }
 
-                        let node_state_arc = syncer.get_node_state();
-                        let mut node_state = node_state_arc.lock().await;
-                        if *node_state != NodeState::Synced {
-                             *node_state = NodeState::Synced;
-                             log::info!("[Orchestrator] No peers found. Assuming genesis node. State -> Synced.");
-                        }
-                        drop(node_state);
-
                         let known_peers_arc = syncer.get_known_peers();
                         let known_peers_guard = known_peers_arc.lock().await;
 
-                        let mut status_guard = status.lock().await;
-                        if let Ok(latest_status) = workload_client.get_status().await {
-                            *status_guard = latest_status;
-                        }
-                        let target_height = status_guard.height + 1;
-                        drop(status_guard);
+                        let current_status = match workload_client.get_status().await {
+                            Ok(s) => s,
+                            Err(e) => {
+                                log::error!("Failed to get status from workload: {}. Skipping block production.", e);
+                                continue;
+                            }
+                        };
+                        let target_height = current_status.height + 1;
 
                         let (consensus_data, header_data) = match config.consensus_type {
                             ConsensusType::ProofOfStake => {
                                 cfg_if! {
                                     if #[cfg(feature = "consensus-pos")] {
-                                        let stakers = workload_client.get_staked_validators().await?;
-                                        let header_peer_ids = stakers.iter()
-                                            .filter(|(_, &stake)| stake > 0)
-                                            .filter_map(|(id_b58, _)| id_b58.parse::<libp2p::PeerId>().ok())
-                                            .map(|id| id.to_bytes())
+                                        // Fetch CURRENT for leader selection (active for target_height)
+                                        let stakers_current: BTreeMap<String, u64> =
+                                            match workload_client.get_staked_validators().await {
+                                                Ok(m) => m,
+                                                Err(e) => {
+                                                    log::error!("[Orch] CRITICAL: Failed to fetch CURRENT stakes for block height {}: {}. Skipping block production.", target_height, e);
+                                                    continue;
+                                                }
+                                            };
+
+                                        // Optionally fetch NEXT just for visibility (NOT used for leader selection)
+                                        let stakers_next: BTreeMap<String, u64> =
+                                            workload_client.get_next_staked_validators().await.unwrap_or_default();
+
+                                        let local_id = syncer.get_local_peer_id();
+                                        let local_in_cur = stakers_current.contains_key(&local_id.to_base58());
+                                        let local_in_next = stakers_next.contains_key(&local_id.to_base58());
+                                        log::info!(
+                                            "[Orch] tick h={} local={} CURRENT={:?} NEXT={:?} local_in_current={} local_in_next={}",
+                                            target_height,
+                                            local_id,
+                                            stakers_current.keys().collect::<Vec<_>>(),
+                                            stakers_next.keys().collect::<Vec<_>>(),
+                                            local_in_cur,
+                                            local_in_next
+                                        );
+
+                                        let consensus_blob = vec![serde_json::to_vec(&stakers_current)?];
+
+                                        let mut header_peer_ids: Vec<Vec<u8>> = stakers_current
+                                            .keys()
+                                            .filter_map(|s| s.parse::<libp2p::PeerId>().ok())
+                                            .map(|p| p.to_bytes())
                                             .collect();
-                                        let consensus_blob = vec![serde_json::to_vec(&stakers)?];
+                                        header_peer_ids.sort();
+
                                         (consensus_blob, header_peer_ids)
                                     } else {
                                         panic!("Node configured for ProofOfStake, but not compiled with the 'consensus-pos' feature.");
@@ -624,18 +674,21 @@ async fn main() -> Result<()> {
                             ConsensusType::ProofOfAuthority => {
                                 cfg_if! {
                                     if #[cfg(feature = "consensus-poa")] {
-                                        let authorities = workload_client.get_authority_set().await?;
+                                        let mut authorities = workload_client.get_authority_set().await?;
+                                        authorities.sort();
                                         (authorities.clone(), authorities)
                                     } else {
                                         panic!("Node configured for ProofOfAuthority, but not compiled with the 'consensus-poa' feature.");
                                     }
                                 }
                             },
-                            _ => {
-                                let validators = workload_client.get_validator_set().await?;
-                                (validators.clone(), validators)
-                            }
                         };
+
+                        log::info!(
+                            "[Orch] Calling consensus for height {} with staker set: {:?}",
+                            target_height,
+                            consensus_data
+                        );
 
                         let decision = consensus_engine.lock().await.decide(
                             &syncer.get_local_peer_id(),
@@ -664,16 +717,11 @@ async fn main() -> Result<()> {
                             let mut peers_bytes: Vec<Vec<u8>> = known_peers_guard.iter().map(|p| p.to_bytes()).collect();
                             peers_bytes.push(local_key.public().to_peer_id().to_bytes());
 
-                            let (prev_hash, current_height) = {
-                                let blocks_guard = recent_blocks.lock().await;
-                                let status_guard = status.lock().await;
-                                let ph = blocks_guard.last().map_or(vec![0;32], |b| b.header.hash());
-                                (ph, status_guard.height)
-                            };
+                            let prev_hash = workload_client.get_last_block_hash().await.unwrap_or_default();
 
-                            let mut new_block_template = Block {
+                            let new_block_template = Block {
                                 header: BlockHeader {
-                                    height: current_height + 1,
+                                    height: target_height,
                                     prev_hash,
                                     state_root: vec![],
                                     transactions_root: vec![0;32],
@@ -684,35 +732,29 @@ async fn main() -> Result<()> {
                                 },
                                 transactions: txs,
                             };
-                            let header_hash = new_block_template.header.hash();
-                            new_block_template.header.signature = local_key.sign(&header_hash)?;
 
-                            match workload_client.process_block(new_block_template).await {
-                                Ok(final_block) => {
-                                    log::info!("Produced and processed new block #{}", final_block.header.height);
-                                    let mut status_guard = status.lock().await;
-                                    status_guard.height = final_block.header.height;
-                                    status_guard.latest_timestamp = final_block.header.timestamp;
-                                    recent_blocks.lock().await.push(final_block.clone());
+                            if let Ok((mut final_block, _new_validator_set)) = workload_client.process_block(new_block_template).await {
+                                log::info!("Produced and processed new block #{}", final_block.header.height);
 
-                                    let new_height = final_block.header.height;
-                                    match workload_client.check_and_tally_proposals(new_height).await {
-                                        Ok(outcomes) => {
-                                            for outcome in outcomes {
-                                                log::info!("{}", outcome);
-                                            }
-                                        }
-                                        Err(e) => {
-                                            log::error!("Failed to check/tally proposals: {}", e);
+                                let header_hash = final_block.header.hash();
+                                final_block.header.signature = local_key.sign(&header_hash).unwrap();
+
+                                let new_height = final_block.header.height;
+                                match workload_client.check_and_tally_proposals(new_height).await {
+                                    Ok(outcomes) => {
+                                        for outcome in outcomes {
+                                            log::info!("{}", outcome);
                                         }
                                     }
+                                    Err(e) => {
+                                        log::error!("Failed to check/tally proposals: {}", e);
+                                    }
+                                }
 
-                                    let data = serde_json::to_vec(&final_block).unwrap();
-                                    swarm_commander.send(SwarmCommand::PublishBlock(data)).await.ok();
-                                }
-                                Err(e) => {
-                                    log::error!("Workload failed to process new block: {}", e);
-                                }
+                                let data = serde_json::to_vec(&final_block).unwrap();
+                                swarm_commander.send(SwarmCommand::PublishBlock(data)).await.ok();
+                            } else {
+                                log::error!("Workload failed to process new block");
                             }
                         }
                     },
@@ -761,8 +803,14 @@ async fn main() -> Result<()> {
                             serde_json::to_vec(value)?
                         };
 
-                        log::info!("  -> Writing genesis key: {}", hex::encode(&key_bytes));
-                        state_tree.insert(&key_bytes, &value_bytes)?;
+                        if key_bytes == b"system::stakes" {
+                            log::info!("  -> Found legacy 'system::stakes' key. Migrating to 'current' and 'next'.");
+                            state_tree.insert(STAKES_KEY_CURRENT, &value_bytes)?;
+                            state_tree.insert(STAKES_KEY_NEXT, &value_bytes)?;
+                        } else {
+                            log::info!("  -> Writing genesis key: {}", hex::encode(&key_bytes));
+                            state_tree.insert(&key_bytes, &value_bytes)?;
+                        }
                     }
                     log::info!("Genesis state successfully loaded into workload state tree.");
                 } else {
@@ -808,11 +856,9 @@ async fn main() -> Result<()> {
             log::info!("Workload: IPC server listening on {}", ipc_server_addr);
             eprintln!("WORKLOAD_IPC_LISTENING_ON_{}", ipc_server_addr);
 
-            // Spawn the Guardian attestation logic in a background task
             let guardian_addr = std::env::var("GUARDIAN_ADDR").unwrap_or_default();
             if !guardian_addr.is_empty() {
                 tokio::spawn(async move {
-                    // Give the Guardian a moment to start its server
                     tokio::time::sleep(Duration::from_millis(500)).await;
                     let guardian_channel = SecurityChannel::new("workload", "guardian");
                     if let Err(e) = guardian_channel
@@ -836,7 +882,16 @@ async fn main() -> Result<()> {
             let server_config = create_ipc_server_config()?;
             let acceptor = TlsAcceptor::from(server_config);
             let (stream, _) = listener.accept().await?;
-            let tls_stream = acceptor.accept(stream).await?;
+            let mut tls_stream = acceptor.accept(stream).await?;
+
+            // --- START FIX: Consume the client ID byte ---
+            let client_id_byte = tls_stream.read_u8().await?;
+            log::info!(
+                "Workload: Accepted IPC connection from client type: {}",
+                client_id_byte
+            );
+            // --- END FIX ---
+
             ipc_channel
                 .accept_server_connection(tokio_rustls::TlsStream::Server(tls_stream))
                 .await;
@@ -867,8 +922,17 @@ async fn main() -> Result<()> {
                         let res = Ok(chain.state.status.clone());
                         WorkloadResponse::GetStatus(res)
                     }
+                    WorkloadRequest::GetLastBlockHash => {
+                        let chain = chain_arc.lock().await;
+                        let hash = chain
+                            .state
+                            .recent_blocks
+                            .last()
+                            .map(|b| b.header.hash())
+                            .unwrap_or_else(|| vec![0; 32]);
+                        WorkloadResponse::GetLastBlockHash(Ok(hash))
+                    }
                     WorkloadRequest::GetExpectedModelHash => {
-                        // FIX: Explicitly type the closure's return value.
                         let handler = async {
                             let state_tree_arc = workload_container.state_tree();
                             let state = state_tree_arc.lock().await;
@@ -897,13 +961,74 @@ async fn main() -> Result<()> {
                     WorkloadRequest::GetStakes => {
                         let state_tree_arc = workload_container.state_tree();
                         let state = state_tree_arc.lock().await;
-                        let res = match state.get(STAKES_KEY) {
-                            Ok(Some(bytes)) => serde_json::from_slice(&bytes)
-                                .map_err(|e| format!("Deserialization error: {}", e)),
+                        let res = match state.get(STAKES_KEY_CURRENT) {
+                            Ok(Some(bytes)) => {
+                                if let Ok(m) =
+                                    serde_json::from_slice::<BTreeMap<String, u64>>(&bytes)
+                                {
+                                    Ok(m.into_iter().filter(|(_, s)| *s > 0).collect())
+                                } else {
+                                    let m2: BTreeMap<Vec<u8>, u64> = serde_json::from_slice(&bytes).context(
+                                        "Deserializing CURRENT stakes map as Vec<u8>-keyed failed",
+                                    )?;
+                                    let converted: BTreeMap<String, u64> = m2
+                                        .into_iter()
+                                        .filter_map(|(k, v)| {
+                                            PeerId::from_bytes(&k)
+                                                .ok()
+                                                .map(|pid| (pid.to_base58(), v))
+                                        })
+                                        .filter(|(_, s)| *s > 0)
+                                        .collect();
+                                    Ok(converted)
+                                }
+                            }
                             Ok(None) => Ok(BTreeMap::new()),
                             Err(e) => Err(format!("State error: {}", e)),
                         };
+
+                        match &res {
+                            Ok(stakes) => log::info!(
+                                "[Workload] Responding to GetStakes request with: {:?}",
+                                stakes.keys()
+                            ),
+                            Err(e) => {
+                                log::error!("[Workload] Error processing GetStakes request: {}", e)
+                            }
+                        }
+
                         WorkloadResponse::GetStakes(res)
+                    }
+                    WorkloadRequest::GetNextStakes => {
+                        let state_tree_arc = workload_container.state_tree();
+                        let state = state_tree_arc.lock().await;
+                        let res = match state.get(STAKES_KEY_NEXT) {
+                            Ok(Some(bytes)) => {
+                                if let Ok(m) =
+                                    serde_json::from_slice::<BTreeMap<String, u64>>(&bytes)
+                                {
+                                    Ok(m.into_iter().filter(|(_, s)| *s > 0).collect())
+                                } else {
+                                    let m2: BTreeMap<Vec<u8>, u64> = serde_json::from_slice(&bytes)
+                                        .context(
+                                            "Deserializing NEXT stakes map as Vec<u8>-keyed failed",
+                                        )?;
+                                    let converted: BTreeMap<String, u64> = m2
+                                        .into_iter()
+                                        .filter_map(|(k, v)| {
+                                            PeerId::from_bytes(&k)
+                                                .ok()
+                                                .map(|pid| (pid.to_base58(), v))
+                                        })
+                                        .filter(|(_, s)| *s > 0)
+                                        .collect();
+                                    Ok(converted)
+                                }
+                            }
+                            Ok(None) => Ok(BTreeMap::new()),
+                            Err(e) => Err(format!("State error: {}", e)),
+                        };
+                        WorkloadResponse::GetNextStakes(res)
                     }
                     WorkloadRequest::GetAuthoritySet => {
                         let state_tree_arc = workload_container.state_tree();
@@ -991,13 +1116,14 @@ async fn main() -> Result<()> {
                                                             "Tallying proposal {}",
                                                             proposal.id
                                                         );
-                                                        let stakes = match state.get(STAKES_KEY) {
-                                                            Ok(Some(bytes)) => {
-                                                                serde_json::from_slice(&bytes)
-                                                                    .unwrap_or_default()
-                                                            }
-                                                            _ => BTreeMap::new(),
-                                                        };
+                                                        let stakes =
+                                                            match state.get(STAKES_KEY_CURRENT) {
+                                                                Ok(Some(bytes)) => {
+                                                                    serde_json::from_slice(&bytes)
+                                                                        .unwrap_or_default()
+                                                                }
+                                                                _ => BTreeMap::new(),
+                                                            };
                                                         if let Err(e) = governance_module
                                                             .tally_proposal(
                                                                 &mut *state,
@@ -1078,18 +1204,15 @@ async fn main() -> Result<()> {
 
             let guardian_clone = guardian.clone();
             tokio::spawn(async move {
-                log::info!("[Guardian] Waiting for incoming container connections before starting attestation...");
+                log::info!("[Guardian] Waiting for container connections to be established...");
                 while !guardian_clone.workload_channel.is_established().await
                     || !guardian_clone.orchestration_channel.is_established().await
                 {
                     tokio::time::sleep(Duration::from_millis(250)).await;
                 }
-                log::info!("[Guardian] Both container connections established. Proceeding with hardware attestation.");
-
-                if let Err(e) = guardian_clone.run_attestation_protocol().await {
-                    log::error!("Hardware attestation protocol failed: {}", e);
-                    return;
-                }
+                log::info!(
+                    "[Guardian] Both container connections and hardware attestations are complete."
+                );
 
                 let local_hash_result = guardian_clone
                     .attest_weights(&opts.semantic_model_path)

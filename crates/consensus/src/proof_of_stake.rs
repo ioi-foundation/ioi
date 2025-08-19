@@ -1,7 +1,8 @@
 // Path: crates/consensus/src/proof_of_stake.rs
 use crate::{ConsensusDecision, ConsensusEngine};
 use async_trait::async_trait;
-use depin_sdk_api::chain::{AppChain, PublicKey, StakeAmount};
+use bs58;
+use depin_sdk_api::chain::{AppChain, StakeAmount};
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::TransactionModel;
@@ -12,6 +13,7 @@ use libp2p::identity::PublicKey as Libp2pPublicKey;
 use libp2p::PeerId;
 use std::collections::{BTreeMap, HashSet};
 use std::fmt::Debug;
+use std::str::FromStr;
 
 pub struct ProofOfStakeEngine {}
 
@@ -29,15 +31,14 @@ impl ProofOfStakeEngine {
     fn select_leader(
         &self,
         height: u64,
-        stakers: &BTreeMap<PublicKey, StakeAmount>,
-    ) -> Option<PublicKey> {
-        if stakers.is_empty() {
-            return None;
-        }
+        stakers: &BTreeMap<Vec<u8>, StakeAmount>,
+    ) -> Option<Vec<u8>> {
+        let active_stakers_iter = stakers.iter().filter(|(_, stake)| **stake > 0);
 
-        let total_stake = stakers.values().sum::<StakeAmount>();
+        let total_stake: u64 = active_stakers_iter.clone().map(|(_, stake)| *stake).sum();
+
         if total_stake == 0 {
-            return stakers.keys().next().cloned();
+            return None;
         }
 
         let seed = height.to_le_bytes();
@@ -45,14 +46,14 @@ impl ProofOfStakeEngine {
         let winning_ticket = u64::from_le_bytes(hash[0..8].try_into().unwrap()) % total_stake;
 
         let mut cumulative_stake = 0;
-        for (validator_pk_b58, stake) in stakers {
-            cumulative_stake += stake;
+        for (validator_pk_bytes, stake) in active_stakers_iter.clone() {
+            cumulative_stake += *stake;
             if winning_ticket < cumulative_stake {
-                return Some(validator_pk_b58.clone());
+                return Some(validator_pk_bytes.clone());
             }
         }
 
-        stakers.keys().last().cloned()
+        active_stakers_iter.last().map(|(key, _)| key.clone())
     }
 }
 
@@ -64,27 +65,78 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
         height: u64,
         _view: u64,
         staked_validators: &[Vec<u8>],
-        _known_peers: &HashSet<PeerId>,
+        known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
-        let stakers: BTreeMap<PublicKey, StakeAmount> =
-            serde_json::from_slice(staked_validators.first().unwrap_or(&vec![]))
-                .unwrap_or_default();
+        // --- ENHANCED LOGGING ---
+        log::info!(
+            "[PoS Engine] Decide called for height {}. Received staker data blob size: {} bytes.",
+            height,
+            staked_validators.get(0).map_or(0, |v| v.len())
+        );
+        // --- END LOGGING ---
 
-        if stakers.is_empty() {
-            log::warn!("PoS `decide` called with no staked validators.");
-            return ConsensusDecision::WaitForBlock;
-        }
+        let empty_vec = vec![];
+        let staker_bytes = staked_validators.first().unwrap_or(&empty_vec);
 
-        let local_pk_b58 = local_peer_id.to_base58();
-        if !stakers.contains_key(&local_pk_b58) {
-            log::trace!("Not a staker, waiting for block.");
-            return ConsensusDecision::WaitForBlock;
-        }
+        let stakers: BTreeMap<Vec<u8>, StakeAmount> =
+            if let Ok(m) = serde_json::from_slice::<BTreeMap<String, u64>>(staker_bytes) {
+                // SAFER: parse as PeerId, then use .to_bytes() for exact canonical bytes
+                m.into_iter()
+                    .filter(|(_, v)| *v > 0)
+                    .filter_map(|(k, v)| PeerId::from_str(&k).ok().map(|pid| (pid.to_bytes(), v)))
+                    .collect()
+            } else if let Ok(m) = serde_json::from_slice::<BTreeMap<Vec<u8>, u64>>(staker_bytes) {
+                m.into_iter().filter(|(_, v)| *v > 0).collect()
+            } else {
+                if !staker_bytes.is_empty() {
+                    log::error!(
+                        "[PoS] failed to decode staker map ({} bytes)",
+                        staker_bytes.len()
+                    );
+                }
+                BTreeMap::new()
+            };
 
-        let designated_leader = self.select_leader(height, &stakers);
+        let local_b58 = local_peer_id.to_base58();
+        let decoded_b58: Vec<String> = stakers
+            .keys()
+            .map(|k| bs58::encode(k).into_string())
+            .collect();
+        log::info!(
+            "[PoS] height={} local={} stakers={:?}",
+            height,
+            local_b58,
+            decoded_b58
+        );
 
-        if designated_leader.as_deref() == Some(local_pk_b58.as_str()) {
-            log::info!("Consensus decision: Produce block for height {}.", height);
+        let designated_bytes = match self.select_leader(height, &stakers) {
+            Some(winner_bytes) => {
+                log::info!(
+                    "[PoS] leader@{} = {}",
+                    height,
+                    bs58::encode(&winner_bytes).into_string()
+                );
+                winner_bytes
+            }
+            None => {
+                // Fallback when total stake == 0: pick lowest PeerId deterministically to prevent stall.
+                let mut everyone = known_peers.iter().cloned().collect::<Vec<_>>();
+                if !everyone.contains(local_peer_id) {
+                    everyone.push(*local_peer_id);
+                }
+                everyone.sort();
+                let fallback_leader = everyone.first().cloned().unwrap_or(*local_peer_id);
+                let fallback_bytes = fallback_leader.to_bytes();
+                log::warn!(
+                    "[PoS] zero/empty stake at height {}, fallback leader={}",
+                    height,
+                    fallback_leader.to_base58()
+                );
+                fallback_bytes
+            }
+        };
+
+        if designated_bytes.as_slice() == local_peer_id.to_bytes().as_slice() {
             ConsensusDecision::ProduceBlock(vec![])
         } else {
             ConsensusDecision::WaitForBlock
@@ -122,30 +174,38 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             return Err("Invalid block signature".to_string());
         }
 
-        let stakers = chain
+        let stakers_string_map = chain
             .get_staked_validators(workload)
             .await
             .map_err(|e| format!("Could not get staked validators: {}", e))?;
-        if stakers.is_empty() {
+        if stakers_string_map.is_empty() {
             return Err("Cannot validate block, no stakers found".to_string());
         }
 
-        let expected_leader_b58 = self
+        // --- FIX: Use robust PeerId parsing for verification, matching the producer side ---
+        let stakers: BTreeMap<Vec<u8>, u64> = stakers_string_map
+            .into_iter()
+            .filter_map(|(k, v)| PeerId::from_str(&k).ok().map(|pid| (pid.to_bytes(), v)))
+            .collect();
+
+        let expected_leader_bytes = self
             .select_leader(block.header.height, &stakers)
             .ok_or("Leader selection failed for received block")?;
 
-        let producer_peer_id_b58 = producer_pubkey.to_peer_id().to_base58();
+        let producer_peer_id_bytes = producer_pubkey.to_peer_id().to_bytes();
 
-        if producer_peer_id_b58 != expected_leader_b58 {
+        if producer_peer_id_bytes != expected_leader_bytes {
             return Err(format!(
                 "Block producer {} is not the designated PoS leader for height {}. Expected {}.",
-                producer_peer_id_b58, block.header.height, expected_leader_b58
+                producer_pubkey.to_peer_id(),
+                block.header.height,
+                bs58::encode(&expected_leader_bytes).into_string()
             ));
         }
 
         log::info!(
             "Block proposal from valid PoS leader {} verified.",
-            producer_peer_id_b58
+            producer_pubkey.to_peer_id()
         );
         Ok(())
     }

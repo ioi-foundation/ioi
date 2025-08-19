@@ -390,8 +390,13 @@ where
                             &context.local_keypair,
                         );
 
-                        if let Ok(final_block) = context.chain_ref.lock().await.process_block(new_block_template, &context.workload_ref).await {
+                        if let Ok((mut final_block, new_validator_set)) = context.chain_ref.lock().await.process_block(new_block_template, &context.workload_ref).await {
                             log::info!("Produced and processed new block #{}", final_block.header.height);
+
+                             // Update the block header with the *new* validator set before signing
+                            final_block.header.validator_set = new_validator_set;
+                            let header_hash = final_block.header.hash();
+                            final_block.header.signature = context.local_keypair.sign(&header_hash).unwrap();
 
                             let data = serde_json::to_vec(&final_block).unwrap();
                             context.swarm_commander.send(SwarmCommand::PublishBlock(data)).await.ok();

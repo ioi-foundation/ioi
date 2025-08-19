@@ -106,7 +106,18 @@ impl SecurityChannel {
         let domain = ServerName::try_from(server_name.to_string())?;
 
         let tls_stream = connector.connect(domain, stream).await?;
-        *self.stream.lock().await = Some(tokio_rustls::TlsStream::Client(tls_stream));
+        let mut secure_stream = tokio_rustls::TlsStream::Client(tls_stream);
+
+        // NEW: Send an identification byte to the Guardian.
+        // 1 = Orchestration, 2 = Workload. This helps the Guardian route the connection.
+        let id_byte = if self.source == "orchestration" {
+            1u8
+        } else {
+            2u8
+        };
+        secure_stream.write_u8(id_byte).await?;
+
+        *self.stream.lock().await = Some(secure_stream);
 
         log::info!(
             "✅ Security channel from '{}' to '{}' established.",
