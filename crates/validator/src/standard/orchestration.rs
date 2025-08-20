@@ -309,7 +309,6 @@ where
                         NetworkEvent::SemanticPrompt { from, prompt } => {
                             log::info!("[Orchestrator] Received SemanticPrompt from peer {}: '{}'", from, prompt);
                         }
-                        // FIX: Add the missing match arm
                         NetworkEvent::SemanticConsensusVote { from, prompt_hash, vote_hash } => {
                             let mut pending = context.pending_consensus.lock().await;
                             if let Some(tally) = pending.get_mut(&prompt_hash) {
@@ -335,43 +334,47 @@ where
                         continue;
                     }
 
-                    let (decision, node_set_for_header) = {
+                    // --- REFACTOR START ---
+                    let decision = {
                         let chain = context.chain_ref.lock().await;
-                        let target_height = chain.status().height + 1;
-                        let current_view = 0;
-
-                        let (consensus_data, header_data) = if cfg!(feature = "consensus-pos") {
-                            let stakers = chain.get_staked_validators(&context.workload_ref).await.unwrap_or_default();
-                            let header_peer_ids = stakers.iter()
-                                .filter(|(_, &stake)| stake > 0)
-                                .filter_map(|(id_b58, _)| id_b58.parse::<PeerId>().ok())
-                                .map(|id| id.to_bytes())
-                                .collect();
-                            let consensus_blob = vec![serde_json::to_vec(&stakers).unwrap_or_default()];
-                            (consensus_blob, header_peer_ids)
-                        } else if cfg!(feature = "consensus-poa") {
-                            let authorities = chain.get_authority_set(&context.workload_ref).await.unwrap_or_else(|e| {
-                                log::error!("Could not get authority set for consensus: {e:?}");
-                                vec![]
-                            });
-                            (authorities.clone(), authorities)
-                        } else {
-                            let validators = chain.get_validator_set(&context.workload_ref).await.unwrap_or_else(|e| {
-                                log::error!("Could not get validator set for consensus: {e:?}");
-                                vec![]
-                            });
-                            (validators.clone(), validators)
-                        };
-
                         let mut engine = context.consensus_engine_ref.lock().await;
                         let known_peers = context.known_peers_ref.lock().await;
-                        let decision = engine.decide(&context.local_peer_id, target_height, current_view, &consensus_data, &known_peers).await;
-                        (decision, header_data)
+
+                        let target_height = chain.status().height + 1;
+                        let current_view = 0; // View changes are handled by the engine
+
+                        // Step 1: Generically fetch the data the consensus engine needs.
+                        let consensus_data = match engine.get_validator_data(&*chain, &context.workload_ref).await {
+                            Ok(data) => data,
+                            Err(e) => {
+                                log::error!("[Orch] Could not get validator data for consensus: {e}");
+                                continue;
+                            }
+                        };
+
+                        // Step 2: Make a decision using the fetched data.
+                        engine.decide(
+                            &context.local_peer_id,
+                            target_height,
+                            current_view,
+                            &consensus_data,
+                            &known_peers,
+                        ).await
                     };
+                    // --- REFACTOR END ---
 
                     if let ConsensusDecision::ProduceBlock(_) = decision {
                         let target_height = context.chain_ref.lock().await.status().height + 1;
                         log::info!("Consensus decision: Produce block for height {target_height}.");
+
+                        // Step 3: Generically fetch the validator set required for the block header.
+                        let header_data = match context.chain_ref.lock().await.get_validator_set(&context.workload_ref).await {
+                            Ok(data) => data,
+                            Err(e) => {
+                                log::error!("[Orch] Could not get validator set for block header: {e}");
+                                continue;
+                            }
+                        };
 
                         let mut transactions_to_include = context.tx_pool_ref.lock().await.drain(..).collect::<Vec<_>>();
 
@@ -385,7 +388,7 @@ where
 
                         let new_block_template = context.chain_ref.lock().await.create_block(
                             transactions_to_include,
-                            &node_set_for_header,
+                            &header_data,
                             &peers_bytes,
                             &context.local_keypair,
                         );
@@ -393,16 +396,8 @@ where
                         if let Ok((mut final_block, _new_validator_set)) = context.chain_ref.lock().await.process_block(new_block_template, &context.workload_ref).await {
                             log::info!("Produced and processed new block #{}", final_block.header.height);
 
-                            // *** START FIX: Remove incorrect header overwrite ***
-                            // The `final_block` returned from `process_block` already has the correct
-                            // validator set for the current height. The `_new_validator_set` is for H+1.
-                            //
-                            // ❌ BUGGY LINE REMOVED: final_block.header.validator_set = new_validator_set;
-
-                            // The header is now correct, proceed with signing.
                             let header_hash = final_block.header.hash();
                             final_block.header.signature = context.local_keypair.sign(&header_hash).unwrap();
-                            // *** END FIX ***
 
                             let data = serde_json::to_vec(&final_block).unwrap();
                             context.swarm_commander.send(SwarmCommand::PublishBlock(data)).await.ok();
