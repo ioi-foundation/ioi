@@ -18,8 +18,10 @@ use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
+use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::Block;
 use libp2p::PeerId;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt::Debug;
 
@@ -73,13 +75,28 @@ pub enum Consensus<T: Clone> {
 /// A trait defining the interface for a pluggable consensus engine.
 #[async_trait]
 pub trait ConsensusEngine<T: Clone>: Send + Sync {
-    /// Determines the node's action for the current block height and view.
+    /// Fetches and serializes the specific validator data this engine needs for a decision.
+    async fn get_validator_data<CS, ST>(
+        &self,
+        chain: &(dyn AppChain<CS, UnifiedTransactionModel<CS>, ST> + Send + Sync),
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<Vec<Vec<u8>>, String>
+    where
+        CS: CommitmentScheme + Clone,
+        <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de> + Clone,
+        ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+            + Send
+            + Sync
+            + 'static
+            + Debug;
+
+    /// The `decide` method now receives this opaque, pre-fetched data.
     async fn decide(
         &mut self,
         local_peer_id: &PeerId,
         height: u64,
         view: u64,
-        validator_set: &[Vec<u8>],
+        validator_data: &[Vec<u8>],
         known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T>;
 
@@ -121,50 +138,60 @@ impl<T> ConsensusEngine<T> for Consensus<T>
 where
     T: Clone + Send + Sync + 'static,
 {
+    async fn get_validator_data<CS, ST>(
+        &self,
+        chain: &(dyn AppChain<CS, UnifiedTransactionModel<CS>, ST> + Send + Sync),
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<Vec<Vec<u8>>, String>
+    where
+        CS: CommitmentScheme + Clone,
+        <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de> + Clone,
+        ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+            + Send
+            + Sync
+            + 'static
+            + Debug,
+    {
+        match self {
+            #[cfg(feature = "round-robin")]
+            Consensus::RoundRobin(e) => {
+                ConsensusEngine::<T>::get_validator_data(e.as_ref(), chain, workload).await
+            }
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(e) => {
+                ConsensusEngine::<T>::get_validator_data(e, chain, workload).await
+            }
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(e) => {
+                ConsensusEngine::<T>::get_validator_data(e, chain, workload).await
+            }
+            Consensus::_Phantom(_) => panic!("No consensus engine feature is enabled."),
+        }
+    }
+
     async fn decide(
         &mut self,
         local_peer_id: &PeerId,
         height: u64,
         view: u64,
-        validator_set: &[Vec<u8>],
+        validator_data: &[Vec<u8>],
         known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
         match self {
             #[cfg(feature = "round-robin")]
             Consensus::RoundRobin(e) => {
-                ConsensusEngine::<T>::decide(
-                    e.as_mut(),
-                    local_peer_id,
-                    height,
-                    view,
-                    validator_set,
-                    known_peers,
-                )
-                .await
+                e.decide(local_peer_id, height, view, validator_data, known_peers)
+                    .await
             }
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(e) => {
-                ConsensusEngine::<T>::decide(
-                    e,
-                    local_peer_id,
-                    height,
-                    view,
-                    validator_set,
-                    known_peers,
-                )
-                .await
+                e.decide(local_peer_id, height, view, validator_data, known_peers)
+                    .await
             }
             #[cfg(feature = "pos")]
             Consensus::ProofOfStake(e) => {
-                ConsensusEngine::<T>::decide(
-                    e,
-                    local_peer_id,
-                    height,
-                    view,
-                    validator_set,
-                    known_peers,
-                )
-                .await
+                e.decide(local_peer_id, height, view, validator_data, known_peers)
+                    .await
             }
             Consensus::_Phantom(_) => panic!("No consensus engine feature is enabled."),
         }

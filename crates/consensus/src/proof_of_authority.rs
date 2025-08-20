@@ -6,9 +6,11 @@ use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
+use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::Block;
 use libp2p::identity::PublicKey;
 use libp2p::PeerId;
+use serde::{Deserialize, Serialize}; // <-- ADD THIS LINE
 use std::collections::HashSet;
 use std::fmt::Debug;
 
@@ -28,20 +30,43 @@ impl ProofOfAuthorityEngine {
 
 #[async_trait]
 impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
+    async fn get_validator_data<CS, ST>(
+        &self,
+        chain: &(dyn AppChain<CS, UnifiedTransactionModel<CS>, ST> + Send + Sync),
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<Vec<Vec<u8>>, String>
+    where
+        CS: CommitmentScheme + Clone,
+        <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de> + Clone,
+        ST: StateManager<
+                Commitment = <CS as CommitmentScheme>::Commitment,
+                Proof = <CS as CommitmentScheme>::Proof,
+            >
+            + Send
+            + Sync
+            + 'static
+            + Debug,
+    {
+        chain
+            .get_authority_set(workload)
+            .await
+            .map_err(|e| e.to_string())
+    }
+
     async fn decide(
         &mut self,
         local_peer_id: &PeerId,
         height: u64,
         view: u64,
-        authority_set: &[Vec<u8>],
+        validator_data: &[Vec<u8>],
         _known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
-        if authority_set.is_empty() {
+        if validator_data.is_empty() {
             return ConsensusDecision::ProduceBlock(vec![]);
         }
 
-        let leader_index = ((height + view) % authority_set.len() as u64) as usize;
-        let designated_leader = &authority_set[leader_index];
+        let leader_index = ((height + view) % validator_data.len() as u64) as usize;
+        let designated_leader = &validator_data[leader_index];
 
         if designated_leader == &local_peer_id.to_bytes() {
             ConsensusDecision::ProduceBlock(vec![])
@@ -76,7 +101,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
 
         let producer_pubkey = PublicKey::try_decode_protobuf(&block.header.producer)
             .map_err(|e| format!("Failed to decode producer public key: {}", e))?;
-        // FIX: Use the renamed hash() method
         let header_hash = block.header.hash();
         if !producer_pubkey.verify(&header_hash, &block.header.signature) {
             return Err("Invalid block signature".to_string());

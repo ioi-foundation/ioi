@@ -10,9 +10,11 @@ use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
+use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::Block;
 use libp2p::identity::PublicKey;
 use libp2p::PeerId;
+use serde::{Deserialize, Serialize}; // <-- ADD THIS LINE
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use tokio::time::{Duration, Instant};
@@ -99,32 +101,55 @@ impl Default for RoundRobinBftEngine {
 
 #[async_trait]
 impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
+    async fn get_validator_data<CS, ST>(
+        &self,
+        chain: &(dyn AppChain<CS, UnifiedTransactionModel<CS>, ST> + Send + Sync),
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<Vec<Vec<u8>>, String>
+    where
+        CS: CommitmentScheme + Clone,
+        <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de> + Clone,
+        ST: StateManager<
+                Commitment = <CS as CommitmentScheme>::Commitment,
+                Proof = <CS as CommitmentScheme>::Proof,
+            >
+            + Send
+            + Sync
+            + 'static
+            + Debug,
+    {
+        chain
+            .get_validator_set(workload)
+            .await
+            .map_err(|e| e.to_string())
+    }
+
     async fn decide(
         &mut self,
         local_peer_id: &PeerId,
         height: u64,
         _view: u64, // The view is managed internally by this engine.
-        validator_set: &[Vec<u8>],
+        validator_data: &[Vec<u8>],
         known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
         // Cache the validator set for this height so `handle_view_change` can use it for quorum checks.
         self.validator_set_cache
             .entry(height)
-            .or_insert_with(|| validator_set.to_vec());
+            .or_insert_with(|| validator_data.to_vec());
 
         // Use our own state for the current view, as this engine manages view changes internally.
         let view = *self.current_views.entry(height).or_insert(0);
 
-        if validator_set.is_empty() {
+        if validator_data.is_empty() {
             return ConsensusDecision::ProduceBlock(vec![]);
         }
 
-        let leader_index = ((height + view) % validator_set.len() as u64) as usize;
-        let designated_leader = &validator_set[leader_index];
+        let leader_index = ((height + view) % validator_data.len() as u64) as usize;
+        let designated_leader = &validator_data[leader_index];
 
         if designated_leader == &local_peer_id.to_bytes() {
             self.view_start_times.remove(&(height, view));
-            if has_quorum(validator_set, known_peers, local_peer_id) {
+            if has_quorum(validator_data, known_peers, local_peer_id) {
                 ConsensusDecision::ProduceBlock(vec![])
             } else {
                 ConsensusDecision::WaitForBlock
@@ -165,7 +190,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
         // 2. Verify Producer Signature
         let producer_pubkey = PublicKey::try_decode_protobuf(&block.header.producer)
             .map_err(|e| format!("Failed to decode producer public key: {}", e))?;
-        // FIX: Use the renamed hash() method
         let header_hash = block.header.hash();
         if !producer_pubkey.verify(&header_hash, &block.header.signature) {
             return Err("Invalid block signature".to_string());

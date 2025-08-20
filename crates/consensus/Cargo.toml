@@ -9,6 +9,7 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 depin-sdk-api = { path = "../api" }
 depin-sdk-types = { path = "../types" }
+depin-sdk-transaction-models = { path = "../transaction_models" }  # <-- ADD THIS LINE
 depin-sdk-crypto = { path = "../crypto", optional = true }
 log = { workspace = true }
 serde = { workspace = true }
@@ -19,7 +20,6 @@ anyhow = { workspace = true }
 libp2p = { workspace = true }
 async-trait = { workspace = true }
 tokio = { workspace = true, features = ["time"], optional = true }
-# --- FIX: Add the missing bs58 dependency ---
 bs58 = "0.4"
 
 [features]

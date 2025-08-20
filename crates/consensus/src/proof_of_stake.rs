@@ -8,9 +8,11 @@ use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_crypto::algorithms::hash::sha256;
+use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::Block;
 use libp2p::identity::PublicKey as Libp2pPublicKey;
 use libp2p::PeerId;
+use serde::{Deserialize, Serialize}; // <-- ADD THIS LINE
 use std::collections::{BTreeMap, HashSet};
 use std::fmt::Debug;
 use std::str::FromStr;
@@ -42,7 +44,7 @@ impl ProofOfStakeEngine {
         }
 
         let seed = height.to_le_bytes();
-        let hash = sha256(seed);
+        let hash = sha256(&seed);
         let winning_ticket = u64::from_le_bytes(hash[0..8].try_into().unwrap()) % total_stake;
 
         let mut cumulative_stake = 0;
@@ -59,48 +61,50 @@ impl ProofOfStakeEngine {
 
 #[async_trait]
 impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
+    async fn get_validator_data<CS, ST>(
+        &self,
+        chain: &(dyn AppChain<CS, UnifiedTransactionModel<CS>, ST> + Send + Sync),
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<Vec<Vec<u8>>, String>
+    where
+        CS: CommitmentScheme + Clone,
+        <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de> + Clone,
+        ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+            + Send
+            + Sync
+            + 'static
+            + Debug,
+    {
+        let staker_map = chain
+            .get_staked_validators(workload)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let serialized_map =
+            serde_json::to_vec(&staker_map).map_err(|e| format!("Serialization failed: {}", e))?;
+
+        Ok(vec![serialized_map])
+    }
+
     async fn decide(
         &mut self,
         local_peer_id: &PeerId,
         height: u64,
         _view: u64,
-        staked_validators: &[Vec<u8>],
+        validator_data: &[Vec<u8>],
         known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
-        log::info!(
-            "[PoS Engine] Decide called for height {}. Received staker data blob size: {} bytes.",
-            height,
-            staked_validators.get(0).map_or(0, |v| v.len())
-        );
-
         let empty_vec = vec![];
-        let staker_bytes = staked_validators.first().unwrap_or(&empty_vec);
+        let staker_bytes = validator_data.first().unwrap_or(&empty_vec);
 
-        // *** START FIX: Robustly parse either Map or Vec format ***
-        let stakers: BTreeMap<Vec<u8>, StakeAmount> =
-            if let Ok(m) = serde_json::from_slice::<BTreeMap<String, u64>>(staker_bytes) {
-                // Handle the legacy map format
-                m.into_iter()
-                    .filter(|(_, v)| *v > 0)
-                    .filter_map(|(k, v)| PeerId::from_str(&k).ok().map(|pid| (pid.to_bytes(), v)))
-                    .collect()
-            } else if let Ok(v) = serde_json::from_slice::<Vec<Vec<u8>>>(staker_bytes) {
-                // Handle the new canonical vector format, assuming stake=1 for each
-                log::info!("[PoS] Decoded staker set as canonical Vec<Vec<u8>>.");
-                v.into_iter().map(|id_bytes| (id_bytes, 1)).collect()
-            } else if let Ok(m) = serde_json::from_slice::<BTreeMap<Vec<u8>, u64>>(staker_bytes) {
-                // Handle raw bytes map format as a fallback
-                m.into_iter().filter(|(_, v)| *v > 0).collect()
-            } else {
-                if !staker_bytes.is_empty() {
-                    log::error!(
-                        "[PoS] failed to decode staker map ({} bytes)",
-                        staker_bytes.len()
-                    );
-                }
-                BTreeMap::new()
-            };
-        // *** END FIX ***
+        let stakers_string_map: BTreeMap<String, StakeAmount> =
+            serde_json::from_slice(staker_bytes).unwrap_or_default();
+
+        let stakers: BTreeMap<Vec<u8>, StakeAmount> = stakers_string_map
+            .into_iter()
+            .filter(|(_, v)| *v > 0)
+            .filter_map(|(k, v)| PeerId::from_str(&k).ok().map(|pid| (pid.to_bytes(), v)))
+            .collect();
 
         let local_b58 = local_peer_id.to_base58();
         let decoded_b58: Vec<String> = stakers
