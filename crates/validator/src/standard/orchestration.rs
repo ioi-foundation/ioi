@@ -390,13 +390,19 @@ where
                             &context.local_keypair,
                         );
 
-                        if let Ok((mut final_block, new_validator_set)) = context.chain_ref.lock().await.process_block(new_block_template, &context.workload_ref).await {
+                        if let Ok((mut final_block, _new_validator_set)) = context.chain_ref.lock().await.process_block(new_block_template, &context.workload_ref).await {
                             log::info!("Produced and processed new block #{}", final_block.header.height);
 
-                             // Update the block header with the *new* validator set before signing
-                            final_block.header.validator_set = new_validator_set;
+                            // *** START FIX: Remove incorrect header overwrite ***
+                            // The `final_block` returned from `process_block` already has the correct
+                            // validator set for the current height. The `_new_validator_set` is for H+1.
+                            //
+                            // ❌ BUGGY LINE REMOVED: final_block.header.validator_set = new_validator_set;
+
+                            // The header is now correct, proceed with signing.
                             let header_hash = final_block.header.hash();
                             final_block.header.signature = context.local_keypair.sign(&header_hash).unwrap();
+                            // *** END FIX ***
 
                             let data = serde_json::to_vec(&final_block).unwrap();
                             context.swarm_commander.send(SwarmCommand::PublishBlock(data)).await.ok();

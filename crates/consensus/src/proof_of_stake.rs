@@ -67,25 +67,29 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
         staked_validators: &[Vec<u8>],
         known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
-        // --- ENHANCED LOGGING ---
         log::info!(
             "[PoS Engine] Decide called for height {}. Received staker data blob size: {} bytes.",
             height,
             staked_validators.get(0).map_or(0, |v| v.len())
         );
-        // --- END LOGGING ---
 
         let empty_vec = vec![];
         let staker_bytes = staked_validators.first().unwrap_or(&empty_vec);
 
+        // *** START FIX: Robustly parse either Map or Vec format ***
         let stakers: BTreeMap<Vec<u8>, StakeAmount> =
             if let Ok(m) = serde_json::from_slice::<BTreeMap<String, u64>>(staker_bytes) {
-                // SAFER: parse as PeerId, then use .to_bytes() for exact canonical bytes
+                // Handle the legacy map format
                 m.into_iter()
                     .filter(|(_, v)| *v > 0)
                     .filter_map(|(k, v)| PeerId::from_str(&k).ok().map(|pid| (pid.to_bytes(), v)))
                     .collect()
+            } else if let Ok(v) = serde_json::from_slice::<Vec<Vec<u8>>>(staker_bytes) {
+                // Handle the new canonical vector format, assuming stake=1 for each
+                log::info!("[PoS] Decoded staker set as canonical Vec<Vec<u8>>.");
+                v.into_iter().map(|id_bytes| (id_bytes, 1)).collect()
             } else if let Ok(m) = serde_json::from_slice::<BTreeMap<Vec<u8>, u64>>(staker_bytes) {
+                // Handle raw bytes map format as a fallback
                 m.into_iter().filter(|(_, v)| *v > 0).collect()
             } else {
                 if !staker_bytes.is_empty() {
@@ -96,6 +100,7 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
                 }
                 BTreeMap::new()
             };
+        // *** END FIX ***
 
         let local_b58 = local_peer_id.to_base58();
         let decoded_b58: Vec<String> = stakers
@@ -182,7 +187,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             return Err("Cannot validate block, no stakers found".to_string());
         }
 
-        // --- FIX: Use robust PeerId parsing for verification, matching the producer side ---
         let stakers: BTreeMap<Vec<u8>, u64> = stakers_string_map
             .into_iter()
             .filter_map(|(k, v)| PeerId::from_str(&k).ok().map(|pid| (pid.to_bytes(), v)))

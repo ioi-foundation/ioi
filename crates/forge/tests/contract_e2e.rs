@@ -96,9 +96,9 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     let node = &mut cluster.validators[0];
     let rpc_addr = &node.rpc_addr;
     let keypair = &node.keypair;
-    // FIX: Listen to the workload container's log stream, not the orchestrator's.
     let mut workload_logs = node.workload_log_stream.lock().await.take().unwrap();
-    let mut orch_logs = node.orch_log_stream.lock().await.take().unwrap();
+    // FIX: Clean up unused variable warning by prefixing with an underscore.
+    let _orch_logs = node.orch_log_stream.lock().await.take().unwrap();
 
     // 3. DEPLOY CONTRACT
     let deploy_tx_unsigned = ApplicationTransaction::DeployContract {
@@ -110,7 +110,6 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     submit_transaction(rpc_addr, &deploy_tx).await?;
 
     // 4. PARSE LOGS TO GET CONTRACT ADDRESS
-    // The "Applied" log now comes from the Workload container when the block is processed.
     let log_line = assert_log_contains_and_return_line(
         "Workload",
         &mut workload_logs,

@@ -2,7 +2,7 @@
 
 //! Tests for common validator components
 
-use super::guardian::GuardianContainer;
+use super::guardian::{GuardianConfig, GuardianContainer};
 use super::security::SecurityChannel;
 use depin_sdk_api::validator::{Container, GuardianContainer as GuardianContainerTrait};
 use std::path::Path;
@@ -15,7 +15,10 @@ async fn test_guardian_container() {
     let config_content = r#"listen_addr = "127.0.0.1:0""#;
     std::fs::write(config_path, config_content).unwrap();
 
-    let guardian = GuardianContainer::new(config_path).unwrap();
+    // --- FIX START: Load config struct before passing to constructor ---
+    let config: GuardianConfig = toml::from_str(config_content).unwrap();
+    let guardian = GuardianContainer::new(config).unwrap();
+    // --- FIX END ---
 
     // Initial state
     assert!(!guardian.is_running());

@@ -26,8 +26,8 @@ use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{Block, BlockHeader, ChainTransaction};
 use depin_sdk_types::config::WorkloadConfig;
 use depin_sdk_types::keys::{
-    AUTHORITY_SET_KEY, GOVERNANCE_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, GOVERNANCE_VOTE_KEY_PREFIX,
-    STAKES_KEY_CURRENT, STAKES_KEY_NEXT, VALIDATOR_SET_KEY,
+    AUTHORITY_SET_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, STAKES_KEY_CURRENT, STAKES_KEY_NEXT,
+    VALIDATOR_SET_KEY,
 };
 use depin_sdk_validator::common::attestation::{ContainerAttestation, SignatureSuite};
 use depin_sdk_validator::common::guardian::GuardianContainer;
@@ -49,8 +49,8 @@ use std::sync::{
     Arc,
 };
 use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::io::AsyncReadExt; // <-- Add this import for read_u8
-use tokio::sync::{watch, Mutex};
+use tokio::io::AsyncReadExt;
+use tokio::sync::{mpsc, watch, Mutex};
 use tokio::time::{self, Duration, Instant};
 use tokio_rustls::{
     rustls::{
@@ -80,6 +80,12 @@ struct GuardianOpts {
     config_dir: String,
     #[clap(long)]
     semantic_model_path: String,
+    #[clap(
+        long,
+        env = "GUARDIAN_LISTEN_ADDR",
+        help = "Overrides listen_addr in guardian.toml"
+    )]
+    listen_addr: Option<String>,
 }
 
 #[derive(Parser, Debug)]
@@ -115,24 +121,45 @@ struct WorkloadOpts {
     state_file: String,
 }
 
+#[derive(Deserialize, Debug, Clone, Serialize)]
+#[serde(untagged)]
+enum JsonId {
+    Num(u64),
+    Str(String),
+    Null,
+}
+impl Default for JsonId {
+    fn default() -> Self {
+        JsonId::Null
+    }
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(untagged)]
+enum Params {
+    Array(Vec<serde_json::Value>),
+    Object(serde_json::Map<String, serde_json::Value>),
+    None,
+}
+impl Default for Params {
+    fn default() -> Self {
+        Params::None
+    }
+}
+
 #[derive(Deserialize, Debug)]
 struct JsonRpcRequest {
     method: String,
-    params: Vec<Value>,
-    id: u64,
-}
-
-#[derive(Serialize, Debug)]
-struct JsonRpcResponse {
-    jsonrpc: String,
-    result: Option<Value>,
-    error: Option<Value>,
-    id: u64,
+    #[serde(default)]
+    params: Params,
+    #[serde(default)]
+    id: JsonId,
 }
 
 struct RpcAppState {
     tx_pool: Arc<Mutex<VecDeque<ChainTransaction>>>,
     workload_client: WorkloadClient,
+    swarm_command_sender: mpsc::Sender<SwarmCommand>,
 }
 
 #[derive(Debug)]
@@ -142,88 +169,154 @@ struct TallyState {
     start_time: tokio::time::Instant,
 }
 
+fn extract_tx_param(params: &Params) -> Option<serde_json::Value> {
+    match params {
+        Params::Array(v) => v.get(0).cloned(),
+        Params::Object(m) => m
+            .get("tx")
+            .cloned()
+            .or_else(|| m.get("transaction").cloned()),
+        Params::None => None,
+    }
+}
+
 async fn rpc_handler(
     State(app_state): State<Arc<RpcAppState>>,
     Json(payload): Json<JsonRpcRequest>,
-) -> (StatusCode, Json<JsonRpcResponse>) {
-    let response = match payload.method.as_str() {
-        "submit_tx" => {
-            if let Some(tx_hex_val) = payload.params.first() {
-                if let Some(tx_hex) = tx_hex_val.as_str() {
-                    match hex::decode(tx_hex) {
-                        Ok(tx_bytes) => match serde_json::from_slice::<ChainTransaction>(&tx_bytes)
-                        {
-                            Ok(tx) => {
-                                let mut pool = app_state.tx_pool.lock().await;
-                                pool.push_back(tx);
-                                log::info!(
-                                    "Accepted transaction into pool. Pool size: {}",
-                                    pool.len()
-                                );
-                                JsonRpcResponse {
-                                    jsonrpc: "2.0".to_string(),
-                                    result: Some(json!("Transaction accepted")),
-                                    error: None,
-                                    id: payload.id,
-                                }
-                            }
-                            Err(e) => JsonRpcResponse {
-                                jsonrpc: "2.0".to_string(),
-                                result: None,
-                                error: Some(
-                                    json!({ "code": -32602, "message": format!("Failed to deserialize transaction: {e}") }),
-                                ),
-                                id: payload.id,
-                            },
-                        },
-                        Err(e) => JsonRpcResponse {
-                            jsonrpc: "2.0".to_string(),
-                            result: None,
-                            error: Some(
-                                json!({ "code": -32602, "message": format!("Invalid hex in transaction: {e}") }),
-                            ),
-                            id: payload.id,
-                        },
-                    }
-                } else {
-                    JsonRpcResponse {
-                        jsonrpc: "2.0".to_string(),
-                        result: None,
-                        error: Some(
-                            json!({ "code": -32602, "message": "Transaction param must be a string" }),
-                        ),
-                        id: payload.id,
-                    }
-                }
-            } else {
-                JsonRpcResponse {
-                    jsonrpc: "2.0".to_string(),
-                    result: None,
-                    error: Some(
-                        json!({ "code": -32602, "message": "Missing transaction parameter" }),
-                    ),
-                    id: payload.id,
-                }
-            }
-        }
-        "query_contract" => {
-            if payload.params.len() != 2 {
+) -> (StatusCode, Json<serde_json::Value>) {
+    let make_ok = |id: &JsonId, result: serde_json::Value| {
+        Json(serde_json::json!({"jsonrpc":"2.0","id": id, "result": result}))
+    };
+    let make_err = |id: &JsonId, code: i64, msg: String| {
+        Json(serde_json::json!({"jsonrpc":"2.0","id": id, "error": {"code": code, "message": msg}}))
+    };
+
+    match payload.method.as_str() {
+        "submit_tx" | "broadcast_tx" | "sendTransaction" => {
+            let Some(tx_val) = extract_tx_param(&payload.params) else {
                 return (
-                    StatusCode::BAD_REQUEST,
-                    Json(JsonRpcResponse {
-                        jsonrpc: "2.0".to_string(),
-                        result: None,
-                        error: Some(
-                            json!({ "code": -32602, "message": "query_contract requires 2 params: [address_hex, input_data_hex]" }),
-                        ),
-                        id: payload.id,
-                    }),
+                    StatusCode::OK,
+                    make_err(&payload.id, -32602, "Missing transaction parameter".into()),
+                );
+            };
+
+            let parse_tx = |bytes: &[u8]| serde_json::from_slice::<ChainTransaction>(bytes);
+
+            let tx: ChainTransaction = match tx_val {
+                serde_json::Value::String(s) => {
+                    let try_hex = || {
+                        if let Some(stripped) = s.strip_prefix("0x") {
+                            hex::decode(stripped)
+                        } else {
+                            hex::decode(&s)
+                        }
+                    };
+                    let bytes = try_hex()
+                        .or_else(|_| BASE64_STANDARD.decode(&s))
+                        .unwrap_or_else(|_| s.as_bytes().to_vec());
+                    match parse_tx(&bytes) {
+                        Ok(t) => t,
+                        Err(e) => {
+                            return (
+                                StatusCode::OK,
+                                make_err(
+                                    &payload.id,
+                                    -32602,
+                                    format!("Failed to deserialize transaction: {e}"),
+                                ),
+                            );
+                        }
+                    }
+                }
+                other_json => {
+                    let bytes = match serde_json::to_vec(&other_json) {
+                        Ok(b) => b,
+                        Err(e) => {
+                            return (
+                                StatusCode::OK,
+                                make_err(
+                                    &payload.id,
+                                    -32602,
+                                    format!("Invalid transaction JSON: {e}"),
+                                ),
+                            );
+                        }
+                    };
+                    match parse_tx(&bytes) {
+                        Ok(t) => t,
+                        Err(e) => {
+                            return (
+                                StatusCode::OK,
+                                make_err(
+                                    &payload.id,
+                                    -32602,
+                                    format!("Failed to deserialize transaction: {e}"),
+                                ),
+                            );
+                        }
+                    }
+                }
+            };
+
+            // 1) Push locally so this node can include it if/when it’s leader
+            {
+                let pool_id = Arc::as_ptr(&app_state.tx_pool) as usize;
+                let mut pool = app_state.tx_pool.lock().await;
+                let before = pool.len();
+                pool.push_back(tx.clone());
+                log::info!(
+                    "[RPC] tx_pool id = {:#x}. Pushed tx. size: {} -> {}",
+                    pool_id,
+                    before,
+                    pool.len()
                 );
             }
-            let address_res = payload.params[0].as_str().and_then(|s| hex::decode(s).ok());
-            let input_data_res = payload.params[1].as_str().and_then(|s| hex::decode(s).ok());
 
-            match (address_res, input_data_res) {
+            // 2) Re-serialize to canonical JSON for gossip
+            let wire = serde_json::to_vec(&tx).unwrap();
+            if let Err(e) = app_state
+                .swarm_command_sender
+                .send(SwarmCommand::PublishTransaction(wire))
+                .await
+            {
+                log::warn!("[RPC] Failed to publish tx via gossip: {}", e);
+            } else {
+                log::info!("[RPC] Published transaction via gossip.");
+            }
+
+            (
+                StatusCode::OK,
+                make_ok(&payload.id, serde_json::json!("Transaction accepted")),
+            )
+        }
+        "query_contract" => {
+            let (address_opt, input_opt) = match &payload.params {
+                Params::Array(v) => {
+                    let a = v
+                        .get(0)
+                        .and_then(|x| x.as_str())
+                        .and_then(|s| hex::decode(s).ok());
+                    let b = v
+                        .get(1)
+                        .and_then(|x| x.as_str())
+                        .and_then(|s| hex::decode(s).ok());
+                    (a, b)
+                }
+                Params::Object(m) => {
+                    let a = m
+                        .get("address")
+                        .and_then(|x| x.as_str())
+                        .and_then(|s| hex::decode(s).ok());
+                    let b = m
+                        .get("input_data")
+                        .and_then(|x| x.as_str())
+                        .and_then(|s| hex::decode(s).ok());
+                    (a, b)
+                }
+                Params::None => (None, None),
+            };
+
+            match (address_opt, input_opt) {
                 (Some(address), Some(input_data)) => {
                     let context = depin_sdk_api::vm::ExecutionContext {
                         caller: vec![],
@@ -236,42 +329,38 @@ async fn rpc_handler(
                         .query_contract(address, input_data, context)
                         .await
                     {
-                        Ok(output) => JsonRpcResponse {
-                            jsonrpc: "2.0".to_string(),
-                            result: Some(json!(hex::encode(output.return_data))),
-                            error: None,
-                            id: payload.id,
-                        },
-                        Err(e) => JsonRpcResponse {
-                            jsonrpc: "2.0".to_string(),
-                            result: None,
-                            error: Some(
-                                json!({ "code": -32000, "message": format!("Contract query failed: {}", e) }),
+                        Ok(output) => (
+                            StatusCode::OK,
+                            make_ok(
+                                &payload.id,
+                                serde_json::json!(hex::encode(output.return_data)),
                             ),
-                            id: payload.id,
-                        },
+                        ),
+                        Err(e) => (
+                            StatusCode::OK,
+                            make_err(&payload.id, -32000, format!("Contract query failed: {}", e)),
+                        ),
                     }
                 }
-                _ => JsonRpcResponse {
-                    jsonrpc: "2.0".to_string(),
-                    result: None,
-                    error: Some(
-                        json!({ "code": -32602, "message": "Failed to decode hex parameters" }),
+                _ => (
+                    StatusCode::OK,
+                    make_err(
+                        &payload.id,
+                        -32602,
+                        "Failed to decode hex parameters".into(),
                     ),
-                    id: payload.id,
-                },
+                ),
             }
         }
-        _ => JsonRpcResponse {
-            jsonrpc: "2.0".to_string(),
-            result: None,
-            error: Some(
-                json!({ "code": -32601, "message": format!("Method '{}' not found", payload.method) }),
+        _ => (
+            StatusCode::OK,
+            make_err(
+                &payload.id,
+                -32601,
+                format!("Method '{}' not found", payload.method),
             ),
-            id: payload.id,
-        },
-    };
-    (StatusCode::OK, Json(response))
+        ),
+    }
 }
 
 fn create_ipc_server_config() -> Result<Arc<ServerConfig>> {
@@ -466,9 +555,11 @@ async fn main() -> Result<()> {
             let rpc_app_state = Arc::new(RpcAppState {
                 tx_pool: tx_pool.clone(),
                 workload_client: workload_client.clone(),
+                swarm_command_sender: swarm_commander.clone(),
             });
             let app = Router::new()
                 .route("/", post(rpc_handler))
+                .route("/rpc", post(rpc_handler))
                 .with_state(rpc_app_state);
             let addr = config.rpc_listen_address.parse()?;
             log::info!("RPC server listening on {}", addr);
@@ -523,16 +614,26 @@ async fn main() -> Result<()> {
                                 known_peers.remove(&peer_id);
                             }
                             NetworkEvent::GossipBlock(block) => {
-                                log::info!("[Orchestrator] Received gossiped block #{}. Forwarding to workload...", block.header.height);
+                                let block_height = block.header.height;
+                                log::info!("[Orchestrator] Received gossiped block #{}. Forwarding to workload...", block_height);
                                 if let Err(e) = workload_client.process_block(block).await {
-                                     log::error!("[Orchestrator] Workload failed to process gossiped block: {}", e);
+                                     log::error!("[Orchestrator] Workload failed to process gossiped block #{}: {}", block_height, e);
                                 } else {
+                                    let current = workload_client.get_staked_validators().await.unwrap_or_default();
+                                    let next = workload_client.get_next_staked_validators().await.unwrap_or_default();
+                                    log::info!("[Orch] after processing #{}: CURRENT={:?}", block_height, current.keys().collect::<Vec<_>>());
+                                    log::info!("[Orch] after processing #{}: NEXT={:?}", block_height, next.keys().collect::<Vec<_>>());
                                     log::info!("[Orchestrator] Workload processed block successfully.");
                                     let mut node_state = node_state_arc.lock().await;
                                     if *node_state == NodeState::Syncing {
                                         *node_state = NodeState::Synced;
                                     }
                                 }
+                            }
+                            NetworkEvent::GossipTransaction(tx) => {
+                                let mut pool = tx_pool.lock().await;
+                                pool.push_back(tx);
+                                log::info!("[Orchestrator] Received transaction via gossip. Pool size: {}", pool.len());
                             }
                             NetworkEvent::StatusResponse(peer, peer_height) => {
                                 let our_height = workload_client.get_status().await.map_or(0, |s| s.height);
@@ -629,7 +730,6 @@ async fn main() -> Result<()> {
                             ConsensusType::ProofOfStake => {
                                 cfg_if! {
                                     if #[cfg(feature = "consensus-pos")] {
-                                        // Fetch CURRENT for leader selection (active for target_height)
                                         let stakers_current: BTreeMap<String, u64> =
                                             match workload_client.get_staked_validators().await {
                                                 Ok(m) => m,
@@ -639,31 +739,25 @@ async fn main() -> Result<()> {
                                                 }
                                             };
 
-                                        // Optionally fetch NEXT just for visibility (NOT used for leader selection)
-                                        let stakers_next: BTreeMap<String, u64> =
-                                            workload_client.get_next_staked_validators().await.unwrap_or_default();
-
-                                        let local_id = syncer.get_local_peer_id();
-                                        let local_in_cur = stakers_current.contains_key(&local_id.to_base58());
-                                        let local_in_next = stakers_next.contains_key(&local_id.to_base58());
-                                        log::info!(
-                                            "[Orch] tick h={} local={} CURRENT={:?} NEXT={:?} local_in_current={} local_in_next={}",
-                                            target_height,
-                                            local_id,
-                                            stakers_current.keys().collect::<Vec<_>>(),
-                                            stakers_next.keys().collect::<Vec<_>>(),
-                                            local_in_cur,
-                                            local_in_next
-                                        );
+                                        let mut header_peer_ids: Vec<Vec<u8>> = stakers_current
+                                            .iter()
+                                            .filter(|(_, &stake)| stake > 0)
+                                            .filter_map(|(id_b58, _)| id_b58.parse::<PeerId>().ok().map(|p| p.to_bytes()))
+                                            .collect();
+                                        header_peer_ids.sort();
 
                                         let consensus_blob = vec![serde_json::to_vec(&stakers_current)?];
 
-                                        let mut header_peer_ids: Vec<Vec<u8>> = stakers_current
-                                            .keys()
-                                            .filter_map(|s| s.parse::<libp2p::PeerId>().ok())
-                                            .map(|p| p.to_bytes())
-                                            .collect();
-                                        header_peer_ids.sort();
+                                        let stakers_next: BTreeMap<String, u64> =
+                                            workload_client.get_next_staked_validators().await.unwrap_or_default();
+
+                                        log::info!(
+                                            "[Orch] tick h={} local={} CURRENT={:?} NEXT={:?}",
+                                            target_height,
+                                            syncer.get_local_peer_id(),
+                                            stakers_current.keys().collect::<Vec<_>>(),
+                                            stakers_next.keys().collect::<Vec<_>>(),
+                                        );
 
                                         (consensus_blob, header_peer_ids)
                                     } else {
@@ -685,9 +779,9 @@ async fn main() -> Result<()> {
                         };
 
                         log::info!(
-                            "[Orch] Calling consensus for height {} with staker set: {:?}",
+                            "[Orch] Calling consensus for height {} with staker set ({} bytes)",
                             target_height,
-                            consensus_data
+                            consensus_data.get(0).map_or(0, |v| v.len())
                         );
 
                         let decision = consensus_engine.lock().await.decide(
@@ -700,8 +794,9 @@ async fn main() -> Result<()> {
                         drop(known_peers_guard);
 
                         if let ConsensusDecision::ProduceBlock(_) = decision {
-                            log::info!("Consensus decision: Produce block for height {target_height}.");
-
+                            let pool_id = Arc::as_ptr(&tx_pool) as usize;
+                            let pool_len = tx_pool.lock().await.len();
+                            log::info!("[Orch] tick tx_pool id = {:#x}. Draining {} txs.", pool_id, pool_len);
                             let mut txs = tx_pool.lock().await.drain(..).collect::<Vec<_>>();
 
                             let coinbase = UnifiedTransactionModel::new(HashCommitmentScheme::new())
@@ -711,6 +806,14 @@ async fn main() -> Result<()> {
                                 )
                                 .unwrap();
                             txs.insert(0, coinbase);
+
+                            log::info!("[Orch] assembling block #{} with {} transactions (incl. coinbase)", target_height, txs.len());
+                            for (i, tx) in txs.iter().enumerate() {
+                                match tx {
+                                    ChainTransaction::System(s) => log::info!("[Orch] tx[{}]: System::{:?}", i, s.payload),
+                                    ChainTransaction::Application(a) => log::info!("[Orch] tx[{}]: App::{:?}", i, a),
+                                }
+                            }
 
                             let known_peers = syncer.get_known_peers();
                             let known_peers_guard = known_peers.lock().await;
@@ -884,13 +987,11 @@ async fn main() -> Result<()> {
             let (stream, _) = listener.accept().await?;
             let mut tls_stream = acceptor.accept(stream).await?;
 
-            // --- START FIX: Consume the client ID byte ---
             let client_id_byte = tls_stream.read_u8().await?;
             log::info!(
                 "Workload: Accepted IPC connection from client type: {}",
                 client_id_byte
             );
-            // --- END FIX ---
 
             ipc_channel
                 .accept_server_connection(tokio_rustls::TlsStream::Server(tls_stream))
@@ -938,12 +1039,9 @@ async fn main() -> Result<()> {
                             let state = state_tree_arc.lock().await;
                             match state.get(depin_sdk_types::keys::STATE_KEY_SEMANTIC_MODEL_HASH) {
                                 Ok(Some(json_bytes)) => {
-                                    // --- FIX START: First, deserialize from JSON to get the raw hex string ---
                                     let hex_str: String = serde_json::from_slice(&json_bytes)
                                         .map_err(|e| format!("Failed to deserialize model hash from state JSON: {}", e))?;
-                                    // --- FIX END ---
 
-                                    // Now, hex::decode will work correctly
                                     hex::decode(hex_str).map_err(|e| e.to_string())
                                 }
                                 Ok(None) => {
@@ -1201,8 +1299,16 @@ async fn main() -> Result<()> {
         }
         Command::Guardian(opts) => {
             log::info!("Guardian container starting up...");
-            let config_path = Path::new(&opts.config_dir).join("guardian.toml");
-            let guardian = Arc::new(GuardianContainer::new(&config_path)?);
+            let mut config: depin_sdk_validator::common::GuardianConfig = toml::from_str(
+                &fs::read_to_string(Path::new(&opts.config_dir).join("guardian.toml"))?,
+            )?;
+
+            if let Some(addr) = opts.listen_addr {
+                log::info!("Overriding Guardian listen address from CLI: {}", addr);
+                config.listen_addr = addr;
+            }
+
+            let guardian = Arc::new(GuardianContainer::new(config)?);
 
             guardian.start().await?;
 
