@@ -1,4 +1,4 @@
-// Path: crates/forge/tests/semantic_consensus_e2e.rs
+// In crates/forge/tests/semantic_consensus_e2e.rs
 
 use anyhow::Result;
 use depin_sdk_crypto::algorithms::hash::sha256;
@@ -76,6 +76,7 @@ async fn test_mismatched_model_quarantine() -> Result<()> {
         None,
         "ProofOfAuthority",
         Some(bad_model_path.to_str().unwrap()),
+        false, // Explicitly use the process backend
     )
     .await?;
 

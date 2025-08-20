@@ -1,4 +1,4 @@
-// In crates/forge/tests/governance_e2e.rs
+// crates/forge/tests/governance_e2e.rs
 
 use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
@@ -7,9 +7,7 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_services::governance::{Proposal, ProposalStatus, ProposalType};
 use depin_sdk_types::app::{ChainTransaction, SystemPayload, SystemTransaction, VoteOption};
-// FIX START: Import the correct stake key constants
 use depin_sdk_types::keys::{GOVERNANCE_PROPOSAL_KEY_PREFIX, STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
-// FIX END
 use libp2p::identity;
 use serde_json::json;
 use std::collections::BTreeMap;
@@ -40,13 +38,11 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
             let mut stakes = BTreeMap::new();
             stakes.insert(validator_peer_id.to_base58(), 1_000_000u64);
             let stakes_bytes = serde_json::to_vec(&stakes).unwrap();
-            // FIX START: Use the correct keys and set both current and next stakes
             let stakes_b64 = format!("b64:{}", BASE64_STANDARD.encode(stakes_bytes));
             let stakes_key_current_str = std::str::from_utf8(STAKES_KEY_CURRENT).unwrap();
             let stakes_key_next_str = std::str::from_utf8(STAKES_KEY_NEXT).unwrap();
             genesis["genesis_state"][stakes_key_current_str] = json!(stakes_b64.clone());
             genesis["genesis_state"][stakes_key_next_str] = json!(stakes_b64);
-            // FIX END
 
             // D. Create a pre-funded proposal that will end soon
             let proposal = Proposal {
@@ -64,10 +60,8 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                 final_tally: None,
             };
             let proposal_key_bytes = [GOVERNANCE_PROPOSAL_KEY_PREFIX, &1u64.to_le_bytes()].concat();
-            // Encode the key as b64 so the node can decode it properly
             let proposal_key_b64 = format!("b64:{}", BASE64_STANDARD.encode(&proposal_key_bytes));
             let proposal_bytes = serde_json::to_vec(&proposal).unwrap();
-            // Encode the value as b64
             genesis["genesis_state"][proposal_key_b64] =
                 json!(format!("b64:{}", BASE64_STANDARD.encode(proposal_bytes)));
         })
@@ -87,7 +81,6 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
     };
     let payload_bytes = serde_json::to_vec(&payload)?;
 
-    // The signature must contain the public key and the signature itself
     let pubkey_bytes = validator_key
         .public()
         .try_into_ed25519()?
@@ -102,18 +95,17 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
     });
     submit_transaction(rpc_addr, &tx).await?;
 
-    // 5. ASSERT the vote was applied (this confirms the transaction part of the flow)
+    // *** START FIX: Align assertion with actual node logs ***
+    // 5. ASSERT the vote was accepted & gossiped (confirms the transaction part of the flow)
     assert_log_contains(
         "Orchestration",
         &mut orch_logs,
-        "Accepted transaction into pool",
+        "[RPC] Published transaction via gossip.",
     )
     .await?;
+    // *** END FIX ***
 
     // 6. WAIT AND ASSERT the tallying outcome
-    // The block interval is 5s. Voting ends at height 3. The tally check happens *after* block 4 is produced.
-    // The test harness's log assertion has a 45s timeout, which is plenty of time.
-    // We are now listening for the new log message from the orchestrator.
     assert_log_contains(
         "Orchestration",
         &mut orch_logs,

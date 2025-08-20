@@ -10,7 +10,6 @@ use depin_sdk_types::error::ValidatorError;
 use rand::RngCore;
 use rcgen::{Certificate, CertificateParams, SanType};
 use serde::Deserialize;
-use std::path::Path;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -63,14 +62,7 @@ pub struct GuardianContainer {
 }
 
 impl GuardianContainer {
-    pub fn new(config_path: &Path) -> anyhow::Result<Self> {
-        let config: GuardianConfig = if config_path.exists() {
-            toml::from_str(&std::fs::read_to_string(config_path)?)?
-        } else {
-            GuardianConfig {
-                listen_addr: "0.0.0.0:8443".to_string(),
-            }
-        };
+    pub fn new(config: GuardianConfig) -> anyhow::Result<Self> {
         Ok(Self {
             running: Arc::new(AtomicBool::new(false)),
             config,
@@ -80,7 +72,6 @@ impl GuardianContainer {
     }
 
     pub async fn attest_weights(&self, model_path: &str) -> Result<Vec<u8>, String> {
-        // 1. Read the local model file and compute its hash.
         let model_bytes = std::fs::read(model_path)
             .map_err(|e| format!("Failed to read semantic model file: {}", e))?;
         let local_hash = sha256(&model_bytes);
@@ -88,8 +79,6 @@ impl GuardianContainer {
             "[Guardian] Computed local model hash: {}",
             hex::encode(&local_hash)
         );
-
-        // 2. Return the hash instead of making an IPC call. The Orchestrator will verify it.
         Ok(local_hash)
     }
 

@@ -1,4 +1,5 @@
-# Path: crates/forge/Cargo.toml
+# crates/forge/Cargo.toml
+
 [package]
 name = "depin-sdk-forge"
 version = "0.1.0"
@@ -33,6 +34,14 @@ bs58 = "0.4"
 libp2p = { workspace = true }
 prost = { workspace = true }
 portpicker = "0.1.1"
+# --- NEW DEPENDENCIES ---
+bollard = "0.15"
+futures-util = "0.3"
+async-trait = { workspace = true }
+uuid = { version = "1.8.0", features = ["v4"] }
+tar = "0.4"
+hyper = "0.14"
+
 
 [dev-dependencies]
 depin-sdk-services = { path = "../services" }
@@ -46,3 +55,15 @@ path = "src/lib.rs"
 [[bin]]
 name = "forge"
 path = "src/main.rs"
+
+# --- FIX START ---
+# Add dummy features to satisfy the test runner/clippy which incorrectly applies
+# node features to the forge crate during testing.
+[features]
+default = []
+validator-bins = []
+vm-wasm = []
+consensus-round-robin = []
+consensus-poa = []
+consensus-pos = []
+# --- FIX END ---

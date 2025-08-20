@@ -15,7 +15,7 @@ use depin_sdk_types::app::ChainTransaction;
 use depin_sdk_types::config::WorkloadConfig; // Corrected import
 use depin_sdk_types::error::CoreError;
 use depin_sdk_validator::{
-    common::GuardianContainer,
+    common::{guardian::GuardianConfig, GuardianContainer},
     hybrid::{ApiContainer, InterfaceContainer},
     standard::OrchestrationContainer,
 };
@@ -118,7 +118,12 @@ async fn main() -> anyhow::Result<()> {
 
     orchestration.set_chain_and_workload_ref(chain_ref.clone(), workload.clone());
 
-    let guardian = GuardianContainer::new(&path.join("guardian.toml"))?;
+    // --- FIX START: Load config struct before passing to constructor ---
+    let guardian_config: GuardianConfig =
+        toml::from_str(&fs::read_to_string(path.join("guardian.toml"))?)?;
+    let guardian = GuardianContainer::new(guardian_config)?;
+    // --- FIX END ---
+
     let interface = InterfaceContainer::new(&path.join("interface.toml"))?;
     let api = ApiContainer::new(&path.join("api.toml"))?;
 

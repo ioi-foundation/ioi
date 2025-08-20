@@ -1,4 +1,5 @@
-// Path: crates/forge/src/lib.rs
+// crates/forge/src/lib.rs
+
 #![forbid(unsafe_code)]
 
 //! # DePIN SDK Forge Library
