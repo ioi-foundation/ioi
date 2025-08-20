@@ -5,9 +5,10 @@ use dcrypt::algorithms::ec::k256::{self as k256, Point, Scalar};
 use dcrypt::algorithms::hash::{sha2::Sha256 as dcrypt_sha256, HashFunction};
 use dcrypt::algorithms::ByteSerializable;
 use depin_sdk_api::commitment::{
-    CommitmentScheme, HomomorphicCommitmentScheme, HomomorphicOperation, ProofContext,
-    SchemeIdentifier, Selector,
+    CommitmentScheme, CommitmentStructure, HomomorphicCommitmentScheme, HomomorphicOperation,
+    ProofContext, SchemeIdentifier, Selector,
 };
+use depin_sdk_crypto::algorithms::hash::sha256;
 use rand::{rngs::OsRng, RngCore};
 
 /// A Pedersen commitment scheme over the k256 curve.
@@ -96,6 +97,22 @@ impl PedersenCommitmentScheme {
             }
             hash_bytes = dcrypt_sha256::digest(&hash_bytes).unwrap().to_bytes();
         }
+    }
+}
+
+impl CommitmentStructure for PedersenCommitmentScheme {
+    fn commit_leaf(key: &[u8], value: &[u8]) -> Vec<u8> {
+        let mut data = vec![0x00]; // Leaf prefix
+        data.extend_from_slice(key);
+        data.extend_from_slice(value);
+        sha256(&data)
+    }
+
+    fn commit_branch(left: &[u8], right: &[u8]) -> Vec<u8> {
+        let mut data = vec![0x01]; // Branch prefix
+        data.extend_from_slice(left);
+        data.extend_from_slice(right);
+        sha256(&data)
     }
 }
 

@@ -11,9 +11,7 @@ pub mod tree;
 /// A prelude for easily importing the most common types.
 pub mod prelude {
     pub use crate::primitives::{
-        hash::HashCommitmentScheme,
-        kzg::KZGCommitmentScheme,
-        pedersen::PedersenCommitmentScheme,
+        hash::HashCommitmentScheme, kzg::KZGCommitmentScheme, pedersen::PedersenCommitmentScheme,
     };
     pub use crate::tree::{
         file::FileStateTree as FileCommitment,

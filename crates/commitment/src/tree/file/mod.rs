@@ -1,7 +1,7 @@
 // Path: crates/commitment/src/tree/file/mod.rs
 //! File-backed state tree with Merkle tree security
 
-use depin_sdk_api::commitment::{CommitmentScheme, Selector};
+use depin_sdk_api::commitment::{CommitmentScheme, CommitmentStructure, Selector};
 use depin_sdk_api::state::{StateCommitment, StateManager};
 use depin_sdk_crypto::algorithms::hash; // Uses dcrypt::hash::sha2 underneath
 use depin_sdk_types::error::StateError;
@@ -23,19 +23,19 @@ struct PersistedState {
 
 /// A file-backed state tree implementation with Merkle tree security
 #[derive(Debug)]
-pub struct FileStateTree<C: CommitmentScheme> {
+pub struct FileStateTree<CS: CommitmentScheme> {
     path: PathBuf,
-    scheme: C,
+    scheme: CS,
     state: PersistedState,
-    _phantom: PhantomData<C::Value>,
+    _phantom: PhantomData<CS::Value>,
 }
 
-impl<C> FileStateTree<C>
+impl<CS> FileStateTree<CS>
 where
-    C: CommitmentScheme + Clone + Default,
-    C::Value: From<Vec<u8>> + AsRef<[u8]>,
+    CS: CommitmentScheme + Clone + Default,
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
 {
-    pub fn new<P: AsRef<Path>>(path: P, scheme: C) -> Self {
+    pub fn new<P: AsRef<Path>>(path: P, scheme: CS) -> Self {
         let path_buf = path.as_ref().to_path_buf();
         let state = Self::load_state(&path_buf).unwrap_or_else(|_| PersistedState {
             data: BTreeMap::new(),
@@ -74,14 +74,7 @@ where
             .state
             .data
             .iter()
-            .map(|(key, value)| {
-                let mut data = Vec::new();
-                data.push(0x00); // Leaf marker
-                data.extend_from_slice(key.as_bytes());
-                data.extend_from_slice(&(value.len() as u32).to_le_bytes());
-                data.extend_from_slice(value);
-                hash::sha256(&data)
-            })
+            .map(|(key, value)| CS::commit_leaf(key.as_bytes(), value))
             .collect();
 
         self.build_merkle_tree(&leaves)
@@ -104,11 +97,7 @@ where
                 } else {
                     left
                 };
-                let mut data = Vec::new();
-                data.push(0x01); // Branch marker
-                data.extend_from_slice(left);
-                data.extend_from_slice(right);
-                next_level.push(hash::sha256(&data));
+                next_level.push(CS::commit_branch(left, right));
             }
             current_level = next_level;
         }
@@ -251,14 +240,14 @@ where
     }
 }
 
-impl<C> StateCommitment for FileStateTree<C>
+impl<CS> StateCommitment for FileStateTree<CS>
 where
-    C: CommitmentScheme + Clone + Send + Sync + Default,
-    C::Value: From<Vec<u8>> + AsRef<[u8]>,
-    C::Proof: AsRef<[u8]>, // Added this constraint to fix the compiler error
+    CS: CommitmentScheme + Clone + Send + Sync + Default,
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+    CS::Proof: AsRef<[u8]>, // Added this constraint to fix the compiler error
 {
-    type Commitment = <C as CommitmentScheme>::Commitment;
-    type Proof = <C as CommitmentScheme>::Proof;
+    type Commitment = <CS as CommitmentScheme>::Commitment;
+    type Proof = <CS as CommitmentScheme>::Proof;
 
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
         let key_hex = hex::encode(key);
@@ -282,14 +271,14 @@ where
     }
 
     fn root_commitment(&self) -> Self::Commitment {
-        let value = C::Value::from(self.state.merkle_root.clone());
+        let value = CS::Value::from(self.state.merkle_root.clone());
         self.scheme.commit(&[Some(value)])
     }
 
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
         let key_hex = hex::encode(key);
         let proof_data = self.generate_merkle_proof(&key_hex)?;
-        let value = C::Value::from(proof_data);
+        let value = CS::Value::from(proof_data);
         self.scheme
             .create_proof(&Selector::Key(key.to_vec()), &value)
             .ok()
@@ -324,11 +313,11 @@ where
     }
 }
 
-impl<C> StateManager for FileStateTree<C>
+impl<CS> StateManager for FileStateTree<CS>
 where
-    C: CommitmentScheme + Clone + Send + Sync + Default,
-    C::Value: From<Vec<u8>> + Send + Sync + AsRef<[u8]>,
-    C::Proof: AsRef<[u8]>, // Added this constraint for consistency
+    CS: CommitmentScheme + Clone + Send + Sync + Default,
+    CS::Value: From<Vec<u8>> + Send + Sync + AsRef<[u8]>,
+    CS::Proof: AsRef<[u8]>, // Added this constraint for consistency
 {
     fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
         for (key, value) in updates {

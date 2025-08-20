@@ -6,7 +6,10 @@
 //! The polynomial arithmetic (interpolation, division) is represented by placeholder
 //! logic and helper functions, which can be swapped with a dedicated polynomial library.
 
-use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, SchemeIdentifier, Selector};
+use depin_sdk_api::commitment::{
+    CommitmentScheme, CommitmentStructure, ProofContext, SchemeIdentifier, Selector,
+};
+use depin_sdk_crypto::algorithms::hash::sha256;
 use std::fmt::Debug;
 use std::path::Path;
 
@@ -149,6 +152,22 @@ fn poly_div_linear(
     }
 
     Ok(quotient)
+}
+
+impl CommitmentStructure for KZGCommitmentScheme {
+    fn commit_leaf(key: &[u8], value: &[u8]) -> Vec<u8> {
+        let mut data = vec![0x00]; // Leaf prefix
+        data.extend_from_slice(key);
+        data.extend_from_slice(value);
+        sha256(&data)
+    }
+
+    fn commit_branch(left: &[u8], right: &[u8]) -> Vec<u8> {
+        let mut data = vec![0x01]; // Branch prefix
+        data.extend_from_slice(left);
+        data.extend_from_slice(right);
+        sha256(&data)
+    }
 }
 
 impl CommitmentScheme for KZGCommitmentScheme {

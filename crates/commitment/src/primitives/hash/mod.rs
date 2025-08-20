@@ -1,8 +1,10 @@
 // Path: crates/commitment/src/primitives/hash/mod.rs
 //! Hash-based commitment scheme implementations
 
-use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, SchemeIdentifier, Selector};
-use depin_sdk_crypto::algorithms::hash;
+use depin_sdk_api::commitment::{
+    CommitmentScheme, CommitmentStructure, ProofContext, SchemeIdentifier, Selector,
+};
+use depin_sdk_crypto::algorithms::hash::{self, sha256};
 use serde::{Deserialize, Serialize}; // Add this line
 use std::fmt::Debug;
 
@@ -84,6 +86,22 @@ impl HashCommitmentScheme {
             HashFunction::Sha256 => 32,
             HashFunction::Sha512 => 64,
         }
+    }
+}
+
+impl CommitmentStructure for HashCommitmentScheme {
+    fn commit_leaf(key: &[u8], value: &[u8]) -> Vec<u8> {
+        let mut data = vec![0x00]; // Leaf prefix
+        data.extend_from_slice(key);
+        data.extend_from_slice(value);
+        sha256(&data)
+    }
+
+    fn commit_branch(left: &[u8], right: &[u8]) -> Vec<u8> {
+        let mut data = vec![0x01]; // Branch prefix
+        data.extend_from_slice(left);
+        data.extend_from_slice(right);
+        sha256(&data)
     }
 }
 

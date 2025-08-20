@@ -6,6 +6,16 @@ use serde::{Deserialize, Serialize}; // Add this line
 use std::collections::HashMap;
 use std::fmt::Debug;
 
+/// Defines the cryptographic methods for building a verifiable data structure,
+/// such as a Merkle or Verkle tree.
+pub trait CommitmentStructure {
+    /// Creates a commitment for a leaf node from its key and value.
+    fn commit_leaf(key: &[u8], value: &[u8]) -> Vec<u8>;
+
+    /// Creates a commitment for an internal (branch) node from its children's commitments.
+    fn commit_branch(left: &[u8], right: &[u8]) -> Vec<u8>;
+}
+
 /// Selects an element or set of elements within a commitment.
 // UPDATE: Add Serialize and Deserialize
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -47,7 +57,7 @@ impl ProofContext {
 }
 
 /// The core trait for all commitment schemes.
-pub trait CommitmentScheme: Debug + Send + Sync + 'static {
+pub trait CommitmentScheme: CommitmentStructure + Debug + Send + Sync + 'static {
     /// The type of commitment produced by this scheme.
     type Commitment: AsRef<[u8]> + Clone + Send + Sync + 'static;
 
