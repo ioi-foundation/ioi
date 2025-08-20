@@ -1,7 +1,7 @@
 // Path: crates/commitment/src/tree/hashmap/mod.rs
 //! HashMap-based state tree implementation with Merkle tree security
 
-use depin_sdk_api::commitment::{CommitmentScheme, Selector};
+use depin_sdk_api::commitment::{CommitmentScheme, CommitmentStructure, Selector};
 use depin_sdk_api::state::{StateCommitment, StateManager};
 use depin_sdk_crypto::algorithms::hash; // Uses dcrypt::hash::sha2 underneath
 use depin_sdk_types::error::StateError;
@@ -48,15 +48,7 @@ where
         let leaves: Vec<Vec<u8>> = self
             .data
             .iter()
-            .map(|(key, value)| {
-                let mut data = Vec::new();
-                data.push(0x00);
-                data.extend_from_slice(&(key.len() as u32).to_le_bytes());
-                data.extend_from_slice(key);
-                data.extend_from_slice(&(value.as_ref().len() as u32).to_le_bytes());
-                data.extend_from_slice(value.as_ref());
-                hash::sha256(&data)
-            })
+            .map(|(key, value)| CS::commit_leaf(key, value.as_ref()))
             .collect();
         self.build_merkle_tree(&leaves)
     }
@@ -78,11 +70,7 @@ where
                 } else {
                     left
                 };
-                let mut data = Vec::new();
-                data.push(0x01);
-                data.extend_from_slice(left);
-                data.extend_from_slice(right);
-                next_level.push(hash::sha256(&data));
+                next_level.push(CS::commit_branch(left, right));
             }
             current_level = next_level;
         }

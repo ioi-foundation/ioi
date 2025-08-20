@@ -35,11 +35,12 @@ use depin_sdk_validator::common::ipc::{WorkloadRequest, WorkloadResponse};
 use depin_sdk_validator::common::security::SecurityChannel;
 use depin_sdk_validator::config::{ConsensusType, OrchestrationConfig};
 use depin_sdk_validator::standard::workload_client::WorkloadClient;
+#[cfg(feature = "vm-wasm")]
 use depin_sdk_vm_wasm::WasmVm;
 use libp2p::{identity, Multiaddr, PeerId};
 use rcgen::{Certificate, CertificateParams, SanType};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fs;
 use std::io::{Read, Write};
@@ -872,6 +873,7 @@ async fn main() -> Result<()> {
             log::info!("Orchestration main loop finished.");
             syncer.stop().await?;
         }
+        #[cfg(feature = "vm-wasm")]
         Command::Workload(opts) => {
             log::info!("Workload container starting up...");
 
@@ -1037,18 +1039,20 @@ async fn main() -> Result<()> {
                         let handler = async {
                             let state_tree_arc = workload_container.state_tree();
                             let state = state_tree_arc.lock().await;
-                            match state.get(depin_sdk_types::keys::STATE_KEY_SEMANTIC_MODEL_HASH) {
-                                Ok(Some(json_bytes)) => {
+                            match state
+                                .get(depin_sdk_types::keys::STATE_KEY_SEMANTIC_MODEL_HASH)
+                                .map_err(|e| e.to_string())?
+                            {
+                                Some(json_bytes) => {
                                     let hex_str: String = serde_json::from_slice(&json_bytes)
                                         .map_err(|e| format!("Failed to deserialize model hash from state JSON: {}", e))?;
 
                                     hex::decode(hex_str).map_err(|e| e.to_string())
                                 }
-                                Ok(None) => {
+                                None => {
                                     Err("STATE_KEY_SEMANTIC_MODEL_HASH not found in state"
                                         .to_string())
                                 }
-                                Err(e) => Err(format!("State error: {}", e)),
                             }
                         };
                         WorkloadResponse::GetExpectedModelHash(handler.await)
@@ -1063,8 +1067,8 @@ async fn main() -> Result<()> {
                     WorkloadRequest::GetStakes => {
                         let state_tree_arc = workload_container.state_tree();
                         let state = state_tree_arc.lock().await;
-                        let res = match state.get(STAKES_KEY_CURRENT) {
-                            Ok(Some(bytes)) => {
+                        let res = match state.get(STAKES_KEY_CURRENT)? {
+                            Some(bytes) => {
                                 if let Ok(m) =
                                     serde_json::from_slice::<BTreeMap<String, u64>>(&bytes)
                                 {
@@ -1085,8 +1089,7 @@ async fn main() -> Result<()> {
                                     Ok(converted)
                                 }
                             }
-                            Ok(None) => Ok(BTreeMap::new()),
-                            Err(e) => Err(format!("State error: {}", e)),
+                            None => Ok(BTreeMap::new()),
                         };
 
                         match &res {
@@ -1104,8 +1107,8 @@ async fn main() -> Result<()> {
                     WorkloadRequest::GetNextStakes => {
                         let state_tree_arc = workload_container.state_tree();
                         let state = state_tree_arc.lock().await;
-                        let res = match state.get(STAKES_KEY_NEXT) {
-                            Ok(Some(bytes)) => {
+                        let res = match state.get(STAKES_KEY_NEXT)? {
+                            Some(bytes) => {
                                 if let Ok(m) =
                                     serde_json::from_slice::<BTreeMap<String, u64>>(&bytes)
                                 {
@@ -1127,30 +1130,27 @@ async fn main() -> Result<()> {
                                     Ok(converted)
                                 }
                             }
-                            Ok(None) => Ok(BTreeMap::new()),
-                            Err(e) => Err(format!("State error: {}", e)),
+                            None => Ok(BTreeMap::new()),
                         };
                         WorkloadResponse::GetNextStakes(res)
                     }
                     WorkloadRequest::GetAuthoritySet => {
                         let state_tree_arc = workload_container.state_tree();
                         let state = state_tree_arc.lock().await;
-                        let res = match state.get(AUTHORITY_SET_KEY) {
-                            Ok(Some(bytes)) => serde_json::from_slice(&bytes)
+                        let res = match state.get(AUTHORITY_SET_KEY)? {
+                            Some(bytes) => serde_json::from_slice(&bytes)
                                 .map_err(|e| format!("Deserialization error: {}", e)),
-                            Ok(None) => Ok(Vec::new()),
-                            Err(e) => Err(format!("State error: {}", e)),
+                            None => Ok(Vec::new()),
                         };
                         WorkloadResponse::GetAuthoritySet(res)
                     }
                     WorkloadRequest::GetValidatorSet => {
                         let state_tree_arc = workload_container.state_tree();
                         let state = state_tree_arc.lock().await;
-                        let res = match state.get(VALIDATOR_SET_KEY) {
-                            Ok(Some(bytes)) => serde_json::from_slice(&bytes)
+                        let res = match state.get(VALIDATOR_SET_KEY)? {
+                            Some(bytes) => serde_json::from_slice(&bytes)
                                 .map_err(|e| format!("Deserialization error: {}", e)),
-                            Ok(None) => Ok(Vec::new()),
-                            Err(e) => Err(format!("State error: {}", e)),
+                            None => Ok(Vec::new()),
                         };
                         WorkloadResponse::GetValidatorSet(res)
                     }
@@ -1202,8 +1202,8 @@ async fn main() -> Result<()> {
                                     let mut state = state_tree_arc.lock().await;
                                     let governance_module = GovernanceModule::default();
 
-                                    match state.prefix_scan(GOVERNANCE_PROPOSAL_KEY_PREFIX) {
-                                        Ok(proposals_kv) => {
+                                    match state.prefix_scan(GOVERNANCE_PROPOSAL_KEY_PREFIX)? {
+                                        proposals_kv => {
                                             let mut outcomes = Vec::new();
                                             for (_key, value_bytes) in proposals_kv {
                                                 if let Ok(proposal) =
@@ -1219,8 +1219,8 @@ async fn main() -> Result<()> {
                                                             proposal.id
                                                         );
                                                         let stakes =
-                                                            match state.get(STAKES_KEY_CURRENT) {
-                                                                Ok(Some(bytes)) => {
+                                                            match state.get(STAKES_KEY_CURRENT)? {
+                                                                Some(bytes) => {
                                                                     serde_json::from_slice(&bytes)
                                                                         .unwrap_or_default()
                                                                 }
@@ -1244,8 +1244,8 @@ async fn main() -> Result<()> {
                                                             GovernanceModule::proposal_key(
                                                                 proposal.id,
                                                             );
-                                                        if let Ok(Some(updated_bytes)) =
-                                                            state.get(&updated_key)
+                                                        if let Some(updated_bytes) =
+                                                            state.get(&updated_key)?
                                                         {
                                                             if let Ok(updated_proposal) =
                                                                 serde_json::from_slice::<Proposal>(
@@ -1267,12 +1267,6 @@ async fn main() -> Result<()> {
                                             let response_value =
                                                 serde_json::to_value(outcomes).unwrap();
                                             WorkloadResponse::CallService(Ok(response_value))
-                                        }
-                                        Err(e) => {
-                                            let err_msg =
-                                                format!("Failed to scan for proposals: {}", e);
-                                            log::error!("{}", err_msg);
-                                            WorkloadResponse::CallService(Err(err_msg))
                                         }
                                     }
                                 }
@@ -1296,6 +1290,12 @@ async fn main() -> Result<()> {
                 let response_bytes = serde_json::to_vec(&response)?;
                 ipc_channel.send(&response_bytes).await?;
             }
+        }
+        #[cfg(not(feature = "vm-wasm"))]
+        Command::Workload(_) => {
+            log::error!("The 'workload' command requires the 'vm-wasm' feature.");
+            log::error!("Please re-compile the node with this feature enabled.");
+            std::process::exit(1);
         }
         Command::Guardian(opts) => {
             log::info!("Guardian container starting up...");

@@ -45,14 +45,15 @@ For a deep dive into the architecture, please see the [**Architectural Documenta
 
 ---
 
-### Getting Started
+### Running a Manual Testnet
 
-You can build and run a local, multi-node test network to validate the core networking, persistence, and consensus features.
+While the automated E2E tests in the `forge` crate are the recommended way to test changes, you can still run a manual multi-node network for experimentation.
 
 #### Prerequisites
 
 *   **Rust**: Ensure you have the latest stable version of Rust installed via `rustup`.
 *   **Build Tools**: A C compiler, such as GCC or Clang, is required.
+*   **(Optional) Docker**: Required if you wish to run tests using the Docker backend.
 
 #### 1. Clone the Repository
 
@@ -61,61 +62,27 @@ git clone https://github.com/your-org/depin-sdk.git
 cd depin-sdk
 ```
 
-#### 2. Create Configuration Files
+#### 2. Build the Node Binary
 
-The validator requires configuration files. Create a `config` directory in the project root:
-
-```bash
-# Create the directory
-mkdir -p examples/config
-
-# Create a minimal orchestration.toml. The RPC address is now configured here.
-echo 'consensus_type = "ProofOfAuthority"' > examples/config/orchestration.toml
-echo 'rpc_listen_address = "127.0.0.1:9944"' >> examples/config/orchestration.toml
-
-# Create a minimal guardian.toml
-echo 'signature_policy = "FollowChain"' > examples/config/guardian.toml
-```
-
-#### 3. Build the Node Binary
-
-First, compile the project in release mode. This creates the `node` binary we'll use for testing.
-
-**Crucially, you must now choose a consensus engine at compile time using a feature flag.** This ensures the final binary is lean and optimized for a specific purpose.
-
-**Option A: Build with Round Robin BFT Consensus**
-
-This engine is suitable for networks where all validators are known and trusted, and it includes logic for fault tolerance (view changes) if a leader goes offline.
+First, compile the node binary in release mode. You must choose a consensus engine at compile time using a feature flag.
 
 ```bash
-cargo build --release -p depin-sdk-node --features consensus-round-robin,vm-wasm
+# Example: Build with Proof of Authority
+cargo build --release -p depin-sdk-node --features "build-bins,consensus-poa,vm-wasm"
+
+# Example: Build with Proof of Stake
+# cargo build --release -p depin-sdk-node --features "build-bins,consensus-pos,vm-wasm"
 ```
 
-**Option B: Build with Proof of Authority (PoA) Consensus**
+The compiled binary will be located at `target/release/depin-sdk-node`.
 
-This is a simpler engine that relies on a fixed, on-chain list of authorities. It does not include fault tolerance logic beyond simple leader rotation.
+#### 3. Run a Multi-Node Network
 
-```bash
-cargo build --release -p depin-sdk-node --features consensus-poa,vm-wasm
-```
-
-**Option C: Build with Proof of Stake (PoS) Consensus**
-
-This engine selects block producers based on their staked token amount, providing a decentralized and permissionless security model.
-
-```bash
-cargo build --release -p depin-sdk-node --features consensus-pos,vm-wasm
-```
-
-The compiled binary will be located at `target/release/node`.
-
-#### 4. Local Testnet Workflow
-
-This workflow will guide you through running a two-node network. You will need two terminals.
+This workflow uses two terminals to run a two-node network.
 
 **Step 1: Full Reset (Optional)**
 
-To start from a clean slate, you can remove all previous state and identity files.
+To start from a clean slate, you can remove previous state and identity files.
 
 ```bash
 rm -f state_node*.json state_node*.json.identity.key
@@ -123,21 +90,29 @@ rm -f state_node*.json state_node*.json.identity.key
 
 **Step 2: Run Node 1 (Terminal 1)**
 
-This node will start as the genesis node.
+This node will start as the genesis node. It will create state and identity files and print its listening address.
 
 ```bash
-target/release/node --state-file state_node1.json
+./target/release/depin-sdk-node orchestration \
+    --config-dir ./crates/validator/config/templates \
+    --state-file state_node1.json \
+    --genesis-file ./crates/validator/config/templates/genesis.json
 ```
 
-It will create `state_node1.json` for its chain state and `state_node1.json.identity.key` for its permanent network identity. Note the listening address it prints, which will look like `/ip4/127.0.0.1/tcp/34677`.
+Note the listening address it prints, which will look like `/ip4/127.0.0.1/tcp/34677`.
 
 **Step 3: Run Node 2 (Terminal 2)**
 
-Use the listening address from Node 1 to connect.
+Use the listening address from Node 1 as a bootnode to connect.
 
 ```bash
-# Replace the --peer address with the one you copied from Node 1
-target/release/node --state-file state_node2.json --peer /ip4/127.0.0.1/tcp/34677
+# Replace the --bootnode address with the one you copied from Node 1
+./target/release/depin-sdk-node orchestration \
+    --config-dir ./crates/validator/config/templates \
+    --state-file state_node2.json \
+    --genesis-file ./crates/validator/config/templates/genesis.json \
+    --listen-address /ip4/0.0.0.0/tcp/0 \
+    --bootnode /ip4/127.0.0.1/tcp/34677
 ```
 
 Node 2 will create its own unique state and identity files. You will see it connect to Node 1 and sync the blocks that Node 1 already produced.
@@ -146,58 +121,68 @@ Node 2 will create its own unique state and identity files. You will see it conn
 
 ### Development & Testing
 
-The project includes a comprehensive suite of tests to ensure correctness and stability. The new `forge` crate is central to this workflow.
+The project includes a comprehensive suite of tests managed by the **`forge`** crate. This is the **recommended workflow** for all testing.
 
 #### 1. Quick Check (Fastest)
 
 For rapid feedback while developing, run `cargo check`. It analyzes the code for errors without compiling dependencies or running tests.
 
 ```bash
-cargo check --workspace
-```
+cargo check --workspace```
 
-#### 2. Standard Tests
+#### 2. Unit & Integration Tests
 
-To run all unit and integration tests across the entire workspace (excluding the slow end-to-end tests), use the standard test command. This is ideal for pre-commit checks.
+To run all unit and integration tests across the workspace (excluding the slower E2E tests), use the standard test command. This is ideal for pre-commit checks.
 
 ```bash
 cargo test --workspace
 ```
 
-#### 3. Full E2E Test Suite
+#### 3. Full End-to-End (E2E) Test Suite
 
-The repository includes long-running end-to-end (E2E) tests that simulate a live multi-node network. **These tests now live in the `forge` crate** and are ignored by default.
+The `forge` crate contains the full E2E test suite, which programmatically builds and orchestrates multi-node clusters to simulate live network conditions.
 
-To run the **entire E2E test suite**, use this single command:
+**Key Feature**: The test harness **automatically builds all required artifacts** (node binaries, WASM contracts) with the correct features before the tests run.
+
+**Run the Entire E2E Suite:**
+
+This single command will execute all E2E tests. By default, it runs nodes as local processes for speed.
 
 ```bash
-cargo test -p depin-sdk-forge
+cargo test -p depin-sdk-forge -- --test-threads=1
 ```
 
-To run a **specific E2E test** (e.g., the staking lifecycle test, or the smart contract environment test):
+**Run a Specific E2E Test File:**
+
+To focus on a specific scenario, you can run a single test file. The `-- --nocapture` flag is recommended to see the detailed log output from the nodes.
 
 ```bash
- cargo test -p depin-sdk-forge --test staking_e2e -- --nocapture
-```
-OR 
+# Run the staking and leader rotation test
+cargo test -p depin-sdk-forge --test staking_e2e -- --nocapture
 
-```bash
+# Run the smart contract deployment and execution test
 cargo test -p depin-sdk-forge --test contract_e2e -- --nocapture
+
+# Run the governance and proposal tallying test
+cargo test -p depin-sdk-forge --test governance_e2e -- --nocapture
 ```
+
+**Running Tests with Docker:**
+
+The test harness can also run nodes in Docker containers for a more isolated environment.
+
 ```bash
+#in case previous tests interupted 
+docker rm -f guardian orchestration workload
+
+#if any changes were made to node bin
+docker rmi depin-sdk-node:e2e
+
+# First, build (or rebuild) the test image
+docker build -t depin-sdk-node:e2e -f crates/node/Dockerfile .
+
+# Then, run a specific test that uses the Docker backend
 cargo test -p depin-sdk-forge --test container_e2e -- --nocapture
-```
-
-These commands will execute critical E2E scenarios, including:
-*   `test_governance_authority_change_lifecycle`: Simulates a governance-driven change to the Proof-of-Authority validator set.
-*   `test_staking_lifecycle`: Simulates a change in the Proof-of-Stake validator set based on `Stake` and `Unstake` transactions.
-
-These tests automatically compile the necessary `node` binaries with the appropriate consensus features before running.
-
-Here are the most effective terminal commands to clear Docker engine disk usage:
-Quick cleanup command (recommended):
-```bash
-bashdocker system prune -a --volumes
 ```
 
 ---
@@ -207,7 +192,7 @@ bashdocker system prune -a --volumes
 The SDK is organized into a workspace of several key crates:
 
 *   `crates/api`: Defines the stable, public traits and interfaces for all components. This is the primary crate for plugin and implementation developers.
-*   `crates/core`: Contains shared, concrete data structures (e.g., `Block`, `ChainTransaction`) and error types. This crate is designed for maximum stability.
+*   `crates/types`: Contains shared, concrete data structures (e.g., `Block`, `ChainTransaction`) and error types.
 *   `crates/node`: Contains the main executable for the production validator. This crate is the composition root for the application.
 *   `crates/forge`: A developer toolkit that provides a CLI and a library with helpers for E2E testing. It is the primary consumer of the SDK's public APIs.
 *   `crates/contract`: The `no_std` SDK for writing smart contracts that compile to WASM.
@@ -239,6 +224,6 @@ All participants are expected to follow our [**Code of Conduct**](./CODE_OF_COND
 
 ### License
 
-This project is licensed under either of
+This project is licensed under
 
-*   Apache License, Version 2.0, ([LICENSE-APACHE](./LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+*   Apache License, Version 2.0, ([LICENSE-APACHE](./LICENSE-APACHE) http://www.apache.org/licenses/LICENSE-2.0)

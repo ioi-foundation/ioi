@@ -4,7 +4,10 @@
 //! This module implements a lattice-based commitment scheme using
 //! cryptographic primitives from lattice-based cryptography.
 
-use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, SchemeIdentifier, Selector};
+use depin_sdk_api::commitment::{
+    CommitmentScheme, CommitmentStructure, ProofContext, SchemeIdentifier, Selector,
+};
+use depin_sdk_crypto::algorithms::hash::sha256;
 use std::fmt::Debug;
 
 /// Lattice-based commitment scheme
@@ -47,6 +50,22 @@ impl LatticeCommitmentScheme {
     /// Default parameters suitable for 128-bit security
     pub fn default_params() -> Self {
         Self { dimension: 512 }
+    }
+}
+
+impl CommitmentStructure for LatticeCommitmentScheme {
+    fn commit_leaf(key: &[u8], value: &[u8]) -> Vec<u8> {
+        let mut data = vec![0x00]; // Leaf prefix
+        data.extend_from_slice(key);
+        data.extend_from_slice(value);
+        sha256(&data)
+    }
+
+    fn commit_branch(left: &[u8], right: &[u8]) -> Vec<u8> {
+        let mut data = vec![0x01]; // Branch prefix
+        data.extend_from_slice(left);
+        data.extend_from_slice(right);
+        sha256(&data)
     }
 }
 
