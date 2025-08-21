@@ -1,7 +1,7 @@
 // Path: crates/commitment/src/tree/hashmap/mod.rs
 //! HashMap-based state tree implementation with Merkle tree security
 
-use depin_sdk_api::commitment::{CommitmentScheme, CommitmentStructure, Selector};
+use depin_sdk_api::commitment::{CommitmentScheme, Selector};
 use depin_sdk_api::state::{StateCommitment, StateManager};
 use depin_sdk_crypto::algorithms::hash; // Uses dcrypt::hash::sha2 underneath
 use depin_sdk_types::error::StateError;

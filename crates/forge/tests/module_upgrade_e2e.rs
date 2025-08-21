@@ -15,7 +15,7 @@ async fn test_forkless_module_upgrade() -> Result<()> {
         std::fs::read("../../target/wasm32-unknown-unknown/release/test_service_v2.wasm")?;
 
     // 2. LAUNCH CLUSTER
-    let mut cluster = TestCluster::new()
+    let mut cluster = TestCluster::builder()
         .with_validators(1)
         .with_consensus_type("ProofOfAuthority")
         .with_genesis_modifier(|genesis, keys| {

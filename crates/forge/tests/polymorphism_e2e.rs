@@ -28,7 +28,7 @@ async fn l1_polymorphism_e2e() -> Result<()> {
     // and others now implement CommitmentStructure, a developer *could* compile a node
     // with `FileStateTree<PedersenCommitmentScheme>` and it would work. This test
     // validates the runtime aspect of the default configuration.
-    let mut cluster = TestCluster::new()
+    let mut cluster = TestCluster::builder()
         .with_validators(1)
         .with_consensus_type("ProofOfAuthority")
         .with_genesis_modifier(|genesis, keys| {

@@ -312,7 +312,7 @@ impl TestBackend for DockerBackend {
         {
             Box::pin(s.map(|res| match res {
                 Ok(log_output) => Ok(log_output.to_string()),
-                Err(e) => Err(io::Error::new(io::ErrorKind::Other, e.to_string())),
+                Err(e) => Err(io::Error::other(e)),
             }))
         }
 

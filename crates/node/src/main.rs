@@ -122,30 +122,22 @@ struct WorkloadOpts {
     state_file: String,
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize)]
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
 #[serde(untagged)]
 enum JsonId {
     Num(u64),
     Str(String),
+    #[default]
     Null,
 }
-impl Default for JsonId {
-    fn default() -> Self {
-        JsonId::Null
-    }
-}
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Default)]
 #[serde(untagged)]
 enum Params {
     Array(Vec<serde_json::Value>),
     Object(serde_json::Map<String, serde_json::Value>),
+    #[default]
     None,
-}
-impl Default for Params {
-    fn default() -> Self {
-        Params::None
-    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -172,7 +164,7 @@ struct TallyState {
 
 fn extract_tx_param(params: &Params) -> Option<serde_json::Value> {
     match params {
-        Params::Array(v) => v.get(0).cloned(),
+        Params::Array(v) => v.first().cloned(),
         Params::Object(m) => m
             .get("tx")
             .cloned()
@@ -294,7 +286,7 @@ async fn rpc_handler(
             let (address_opt, input_opt) = match &payload.params {
                 Params::Array(v) => {
                     let a = v
-                        .get(0)
+                        .first()
                         .and_then(|x| x.as_str())
                         .and_then(|s| hex::decode(s).ok());
                     let b = v
@@ -529,23 +521,24 @@ async fn main() -> Result<()> {
                 opts.bootnode.clone(),
             )?;
 
-            let consensus_engine: Consensus<ChainTransaction>;
-            cfg_if! {
-                if #[cfg(feature = "consensus-pos")] {
-                    log::info!("Using ProofOfStake consensus engine.");
-                    consensus_engine = Consensus::ProofOfStake(ProofOfStakeEngine::new());
-                } else if #[cfg(feature = "consensus-poa")] {
-                    use depin_sdk_consensus::proof_of_authority::ProofOfAuthorityEngine;
-                    log::info!("Using ProofOfAuthority consensus engine.");
-                    consensus_engine = Consensus::ProofOfAuthority(ProofOfAuthorityEngine::new());
-                } else if #[cfg(feature = "consensus-round-robin")] {
-                    use depin_sdk_consensus::round_robin::RoundRobinBftEngine;
-                    log::info!("Using RoundRobinBftEngine consensus engine.");
-                    consensus_engine = Consensus::RoundRobin(Box::new(RoundRobinBftEngine::new()));
-                } else {
-                    compile_error!("A consensus engine feature must be enabled (e.g., 'consensus-pos', 'consensus-poa', 'consensus-round-robin').");
+            let consensus_engine: Consensus<ChainTransaction> = {
+                cfg_if! {
+                    if #[cfg(feature = "consensus-pos")] {
+                        log::info!("Using ProofOfStake consensus engine.");
+                        Consensus::ProofOfStake(ProofOfStakeEngine::new())
+                    } else if #[cfg(feature = "consensus-poa")] {
+                        use depin_sdk_consensus::proof_of_authority::ProofOfAuthorityEngine;
+                        log::info!("Using ProofOfAuthority consensus engine.");
+                        Consensus::ProofOfAuthority(ProofOfAuthorityEngine::new())
+                    } else if #[cfg(feature = "consensus-round-robin")] {
+                        use depin_sdk_consensus::round_robin::RoundRobinBftEngine;
+                        log::info!("Using RoundRobinBftEngine consensus engine.");
+                        Consensus::RoundRobin(Box::new(RoundRobinBftEngine::new()))
+                    } else {
+                        compile_error!("A consensus engine feature must be enabled (e.g., 'consensus-pos', 'consensus-poa', 'consensus-round-robin').");
+                    }
                 }
-            }
+            };
 
             tokio::time::sleep(Duration::from_secs(2)).await;
 
@@ -708,8 +701,8 @@ async fn main() -> Result<()> {
                                  if let Some(tally) = pending.get_mut(&prompt_hash_str) {
                                      tally.votes.entry(correct_hash.clone()).or_default().push(PeerId::random());
                                      tally.votes.entry(correct_hash.clone()).or_default().push(PeerId::random());
-                                     tally.votes.entry(correct_hash).or_default().push(PeerId::random());
-                                     log::info!("Semantic consensus reached on hash: {}", hex::encode(&tally.votes.keys().next().unwrap()));
+                                     tally.votes.entry(correct_hash).or_default().push(PeerId::random()); // anemo has been removed
+                                     log::info!("Semantic consensus reached on hash: {}", hex::encode(tally.votes.keys().next().unwrap()));
                                  }
                                  drop(pending);
                              }
@@ -782,7 +775,7 @@ async fn main() -> Result<()> {
                         log::info!(
                             "[Orch] Calling consensus for height {} with staker set ({} bytes)",
                             target_height,
-                            consensus_data.get(0).map_or(0, |v| v.len())
+                            consensus_data.first().map_or(0, |v| v.len())
                         );
 
                         let decision = consensus_engine.lock().await.decide(
@@ -1201,73 +1194,65 @@ async fn main() -> Result<()> {
                                     let state_tree_arc = workload_container.state_tree();
                                     let mut state = state_tree_arc.lock().await;
                                     let governance_module = GovernanceModule::default();
-
-                                    match state.prefix_scan(GOVERNANCE_PROPOSAL_KEY_PREFIX)? {
-                                        proposals_kv => {
-                                            let mut outcomes = Vec::new();
-                                            for (_key, value_bytes) in proposals_kv {
-                                                if let Ok(proposal) =
-                                                    serde_json::from_slice::<Proposal>(&value_bytes)
+                                    let proposals_kv =
+                                        state.prefix_scan(GOVERNANCE_PROPOSAL_KEY_PREFIX)?;
+                                    {
+                                        let mut outcomes = Vec::new();
+                                        for (_key, value_bytes) in proposals_kv {
+                                            if let Ok(proposal) =
+                                                serde_json::from_slice::<Proposal>(&value_bytes)
+                                            {
+                                                if proposal.status == ProposalStatus::VotingPeriod
+                                                    && current_height > proposal.voting_end_height
                                                 {
-                                                    if proposal.status
-                                                        == ProposalStatus::VotingPeriod
-                                                        && current_height
-                                                            > proposal.voting_end_height
+                                                    log::info!("Tallying proposal {}", proposal.id);
+                                                    let stakes =
+                                                        match state.get(STAKES_KEY_CURRENT)? {
+                                                            Some(bytes) => {
+                                                                serde_json::from_slice(&bytes)
+                                                                    .unwrap_or_default()
+                                                            }
+                                                            _ => BTreeMap::new(),
+                                                        };
+                                                    if let Err(e) = governance_module
+                                                        .tally_proposal(
+                                                            &mut *state,
+                                                            proposal.id,
+                                                            &stakes,
+                                                        )
                                                     {
-                                                        log::info!(
-                                                            "Tallying proposal {}",
-                                                            proposal.id
+                                                        log::error!(
+                                                            "Failed to tally proposal {}: {}",
+                                                            proposal.id,
+                                                            e
                                                         );
-                                                        let stakes =
-                                                            match state.get(STAKES_KEY_CURRENT)? {
-                                                                Some(bytes) => {
-                                                                    serde_json::from_slice(&bytes)
-                                                                        .unwrap_or_default()
-                                                                }
-                                                                _ => BTreeMap::new(),
-                                                            };
-                                                        if let Err(e) = governance_module
-                                                            .tally_proposal(
-                                                                &mut *state,
-                                                                proposal.id,
-                                                                &stakes,
+                                                        continue;
+                                                    }
+                                                    let updated_key =
+                                                        GovernanceModule::proposal_key(proposal.id);
+                                                    if let Some(updated_bytes) =
+                                                        state.get(&updated_key)?
+                                                    {
+                                                        if let Ok(updated_proposal) =
+                                                            serde_json::from_slice::<Proposal>(
+                                                                &updated_bytes,
                                                             )
                                                         {
-                                                            log::error!(
-                                                                "Failed to tally proposal {}: {}",
-                                                                proposal.id,
-                                                                e
+                                                            let outcome_msg = format!(
+                                                                "Proposal {} tallied: {:?}",
+                                                                updated_proposal.id,
+                                                                updated_proposal.status
                                                             );
-                                                            continue;
-                                                        }
-                                                        let updated_key =
-                                                            GovernanceModule::proposal_key(
-                                                                proposal.id,
-                                                            );
-                                                        if let Some(updated_bytes) =
-                                                            state.get(&updated_key)?
-                                                        {
-                                                            if let Ok(updated_proposal) =
-                                                                serde_json::from_slice::<Proposal>(
-                                                                    &updated_bytes,
-                                                                )
-                                                            {
-                                                                let outcome_msg = format!(
-                                                                    "Proposal {} tallied: {:?}",
-                                                                    updated_proposal.id,
-                                                                    updated_proposal.status
-                                                                );
-                                                                log::info!("{}", outcome_msg);
-                                                                outcomes.push(outcome_msg);
-                                                            }
+                                                            log::info!("{}", outcome_msg);
+                                                            outcomes.push(outcome_msg);
                                                         }
                                                     }
                                                 }
                                             }
-                                            let response_value =
-                                                serde_json::to_value(outcomes).unwrap();
-                                            WorkloadResponse::CallService(Ok(response_value))
                                         }
+                                        let response_value =
+                                            serde_json::to_value(outcomes).unwrap();
+                                        WorkloadResponse::CallService(Ok(response_value))
                                     }
                                 }
                                 Err(e) => {

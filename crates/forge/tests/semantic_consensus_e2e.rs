@@ -26,7 +26,7 @@ async fn test_secure_semantic_consensus_e2e() -> Result<()> {
     // is only printed after the "Node is healthy" message. Therefore, if build()
     // returns Ok, we have already implicitly verified that the nodes passed their
     // health checks. No further assertions are needed.
-    let _cluster = TestCluster::new()
+    let _cluster = TestCluster::builder()
         .with_validators(3)
         .with_consensus_type("ProofOfAuthority")
         .with_genesis_modifier(move |genesis, keys| {
