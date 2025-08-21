@@ -109,9 +109,9 @@ async fn ensure_docker_image_exists() -> Result<()> {
             );
             return Ok(());
         }
-        Err(bollard::errors::Error::DockerResponseServerError { status_code, .. })
-            if status_code == 404 =>
-        {
+        Err(bollard::errors::Error::DockerResponseServerError {
+            status_code: 404, ..
+        }) => {
             println!(
                 "--- Docker image '{}' not found. Building... ---",
                 DOCKER_IMAGE_TAG
@@ -341,7 +341,7 @@ impl TestValidator {
             config_dir_path.join("orchestration.toml"),
             orchestration_config,
         )?;
-        let guardian_config = format!(r#"listen_addr = "0.0.0.0:8443""#);
+        let guardian_config = r#"listen_addr = "0.0.0.0:8443""#.to_string();
         std::fs::write(config_dir_path.join("guardian.toml"), guardian_config)?;
 
         let mut backend: Box<dyn TestBackend> = if use_docker {
@@ -525,14 +525,17 @@ pub struct TestCluster {
 }
 
 impl TestCluster {
-    pub fn new() -> TestClusterBuilder {
+    pub fn builder() -> TestClusterBuilder {
         TestClusterBuilder::new()
     }
 }
 
+/// A type alias for a closure that modifies the genesis state.
+type GenesisModifier = Box<dyn FnOnce(&mut Value, &Vec<identity::Keypair>)>;
+
 pub struct TestClusterBuilder {
     num_validators: usize,
-    genesis_modifiers: Vec<Box<dyn FnOnce(&mut Value, &Vec<identity::Keypair>)>>,
+    genesis_modifiers: Vec<GenesisModifier>,
     consensus_type: String,
     semantic_model_path: Option<String>,
     use_docker: bool,

@@ -82,7 +82,7 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
         std::fs::read("../../target/wasm32-unknown-unknown/release/counter_contract.wasm")?;
 
     // 2. SETUP NETWORK using the TestCluster harness
-    let mut cluster = TestCluster::new()
+    let mut cluster = TestCluster::builder()
         .with_validators(1)
         .with_consensus_type("ProofOfAuthority")
         .with_genesis_modifier(|genesis, keys| {

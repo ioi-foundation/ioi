@@ -21,7 +21,7 @@ async fn test_secure_channel_and_attestation_flow_docker() -> Result<()> {
     // readiness checks have passed. This implicitly verifies that all containers
     // have started, connected, and performed their initial attestations.
     // The successful completion of this line is the entire test.
-    let _cluster = TestCluster::new()
+    let _cluster = TestCluster::builder()
         .with_validators(1)
         .use_docker_backend(true)
         .with_semantic_model_path(model_path.to_str().unwrap())

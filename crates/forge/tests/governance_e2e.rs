@@ -21,7 +21,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
         bs58::encode(governance_key.public().try_into_ed25519()?.to_bytes()).into_string();
 
     // 2. LAUNCH CLUSTER with a custom genesis state
-    let mut cluster = TestCluster::new()
+    let mut cluster = TestCluster::builder()
         .with_validators(1)
         .with_consensus_type("ProofOfAuthority")
         .with_genesis_modifier(move |genesis, keys| {

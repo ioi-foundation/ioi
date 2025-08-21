@@ -15,7 +15,7 @@ async fn test_staking_lifecycle() -> Result<()> {
     build_test_artifacts("consensus-pos,vm-wasm");
 
     // 2) Launch 3-node PoS cluster with Node0 as initial staker
-    let mut cluster = TestCluster::new()
+    let mut cluster = TestCluster::builder()
         .with_validators(3)
         .with_consensus_type("ProofOfStake")
         .with_genesis_modifier(|genesis, keys| {

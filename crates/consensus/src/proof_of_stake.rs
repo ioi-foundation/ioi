@@ -35,7 +35,8 @@ impl ProofOfStakeEngine {
         height: u64,
         stakers: &BTreeMap<Vec<u8>, StakeAmount>,
     ) -> Option<Vec<u8>> {
-        let active_stakers_iter = stakers.iter().filter(|(_, stake)| **stake > 0);
+        // --- FIX: Make iterator mutable for `.next_back()` ---
+        let mut active_stakers_iter = stakers.iter().filter(|(_, stake)| **stake > 0);
 
         let total_stake: u64 = active_stakers_iter.clone().map(|(_, stake)| *stake).sum();
 
@@ -44,7 +45,8 @@ impl ProofOfStakeEngine {
         }
 
         let seed = height.to_le_bytes();
-        let hash = sha256(&seed);
+        // --- FIX: Remove unnecessary borrow ---
+        let hash = sha256(seed);
         let winning_ticket = u64::from_le_bytes(hash[0..8].try_into().unwrap()) % total_stake;
 
         let mut cumulative_stake = 0;
@@ -55,7 +57,8 @@ impl ProofOfStakeEngine {
             }
         }
 
-        active_stakers_iter.last().map(|(key, _)| key.clone())
+        // --- FIX: Use `.next_back()` for efficiency on a DoubleEndedIterator ---
+        active_stakers_iter.next_back().map(|(key, _)| key.clone())
     }
 }
 
