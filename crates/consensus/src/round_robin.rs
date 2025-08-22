@@ -9,14 +9,13 @@ use depin_sdk_api::chain::AppChain;
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::TransactionModel;
-use depin_sdk_api::validator::WorkloadContainer;
-use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
+use depin_sdk_client::WorkloadClient;
 use depin_sdk_types::app::Block;
 use libp2p::identity::PublicKey;
 use libp2p::PeerId;
-use serde::{Deserialize, Serialize}; // <-- ADD THIS LINE
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
+use std::sync::Arc;
 use tokio::time::{Duration, Instant};
 
 /// Checks if a sufficient number of validators (quorum) are connected.
@@ -101,25 +100,12 @@ impl Default for RoundRobinBftEngine {
 
 #[async_trait]
 impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
-    async fn get_validator_data<CS, ST>(
+    async fn get_validator_data(
         &self,
-        chain: &(dyn AppChain<CS, UnifiedTransactionModel<CS>, ST> + Send + Sync),
-        workload: &WorkloadContainer<ST>,
-    ) -> Result<Vec<Vec<u8>>, String>
-    where
-        CS: CommitmentScheme + Clone,
-        <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de> + Clone,
-        ST: StateManager<
-                Commitment = <CS as CommitmentScheme>::Commitment,
-                Proof = <CS as CommitmentScheme>::Proof,
-            >
-            + Send
-            + Sync
-            + 'static
-            + Debug,
-    {
-        chain
-            .get_validator_set(workload)
+        workload_client: &Arc<WorkloadClient>,
+    ) -> Result<Vec<Vec<u8>>, String> {
+        workload_client
+            .get_validator_set()
             .await
             .map_err(|e| e.to_string())
     }
@@ -132,12 +118,10 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
         validator_data: &[Vec<u8>],
         known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
-        // Cache the validator set for this height so `handle_view_change` can use it for quorum checks.
         self.validator_set_cache
             .entry(height)
             .or_insert_with(|| validator_data.to_vec());
 
-        // Use our own state for the current view, as this engine manages view changes internally.
         let view = *self.current_views.entry(height).or_insert(0);
 
         if validator_data.is_empty() {
@@ -164,8 +148,8 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
     async fn handle_block_proposal<CS, TM, ST>(
         &mut self,
         block: Block<T>,
-        chain: &mut (dyn AppChain<CS, TM, ST> + Send + Sync),
-        workload: &WorkloadContainer<ST>,
+        _chain: &mut (dyn AppChain<CS, TM, ST> + Send + Sync),
+        workload_client: &Arc<WorkloadClient>,
     ) -> Result<(), String>
     where
         CS: CommitmentScheme + Send + Sync,
@@ -178,16 +162,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
         CS::Commitment: Send + Sync + Debug,
     {
         let height = block.header.height;
-        // 1. Basic structural validation
-        if height != chain.status().height + 1 {
-            return Err(format!(
-                "Invalid block height. Expected {}, got {}",
-                chain.status().height + 1,
-                height
-            ));
-        }
-
-        // 2. Verify Producer Signature
         let producer_pubkey = PublicKey::try_decode_protobuf(&block.header.producer)
             .map_err(|e| format!("Failed to decode producer public key: {}", e))?;
         let header_hash = block.header.hash();
@@ -195,9 +169,8 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
             return Err("Invalid block signature".to_string());
         }
 
-        // 3. Verify Producer is the leader for the current view at this height
-        let validator_set = chain
-            .get_validator_set(workload)
+        let validator_set = workload_client
+            .get_validator_set()
             .await
             .map_err(|e| format!("Could not get validator set: {}", e))?;
         if validator_set.is_empty() {
@@ -223,8 +196,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
             view
         );
 
-        // A valid block proposal means a leader was successful. Reset our internal state
-        // for that height to prevent outdated timers from causing a spurious view change.
         ConsensusEngine::<T>::reset(self, height);
         Ok(())
     }
@@ -279,8 +250,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
     }
 
     fn reset(&mut self, height: u64) {
-        // Remove all state related to the given height. This is called after a block
-        // is successfully committed, ensuring a clean slate for the next round.
         self.view_start_times.retain(|(h, _), _| *h != height);
         self.current_views.remove(&height);
         self.view_change_votes.retain(|(h, _), _| *h != height);

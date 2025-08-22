@@ -1,8 +1,6 @@
-// Path: crates/validator/src/standard/workload_client.rs
-use crate::common::{
-    ipc::{WorkloadRequest, WorkloadResponse},
-    security::SecurityChannel,
-};
+// Path: crates/client/src/workload_client.rs
+use crate::ipc::{WorkloadRequest, WorkloadResponse};
+use crate::security::SecurityChannel;
 use anyhow::{anyhow, Result};
 use depin_sdk_api::vm::{ExecutionContext, ExecutionOutput};
 use depin_sdk_types::app::{Block, ChainStatus, ChainTransaction};
@@ -48,8 +46,8 @@ impl WorkloadClient {
     ) -> Result<(Block<ChainTransaction>, Vec<Vec<u8>>)> {
         let request = WorkloadRequest::ProcessBlock(block);
         match self.send_and_receive(request).await? {
-            WorkloadResponse::ProcessBlock(res) => res.map_err(|e| anyhow::anyhow!(e)),
-            _ => Err(anyhow::anyhow!(
+            WorkloadResponse::ProcessBlock(res) => res.map_err(|e: String| anyhow!(e)),
+            _ => Err(anyhow!(
                 "Invalid response type from workload for ProcessBlock"
             )),
         }
@@ -58,18 +56,16 @@ impl WorkloadClient {
     pub async fn get_status(&self) -> Result<ChainStatus> {
         let request = WorkloadRequest::GetStatus;
         match self.send_and_receive(request).await? {
-            WorkloadResponse::GetStatus(res) => res.map_err(|e| anyhow::anyhow!(e)),
-            _ => Err(anyhow::anyhow!(
-                "Invalid response type from workload for GetStatus"
-            )),
+            WorkloadResponse::GetStatus(res) => res.map_err(|e: String| anyhow!(e)),
+            _ => Err(anyhow!("Invalid response type from workload for GetStatus")),
         }
     }
 
     pub async fn get_last_block_hash(&self) -> Result<Vec<u8>> {
         let request = WorkloadRequest::GetLastBlockHash;
         match self.send_and_receive(request).await? {
-            WorkloadResponse::GetLastBlockHash(res) => res.map_err(|e| anyhow::anyhow!(e)),
-            _ => Err(anyhow::anyhow!(
+            WorkloadResponse::GetLastBlockHash(res) => res.map_err(|e: String| anyhow!(e)),
+            _ => Err(anyhow!(
                 "Invalid response type from workload for GetLastBlockHash"
             )),
         }
@@ -78,30 +74,28 @@ impl WorkloadClient {
     pub async fn execute_transaction(&self, tx: ChainTransaction) -> Result<()> {
         let request = WorkloadRequest::ExecuteTransaction(tx);
         match self.send_and_receive(request).await? {
-            WorkloadResponse::ExecuteTransaction(res) => res.map_err(|e| anyhow::anyhow!(e)),
-            _ => Err(anyhow::anyhow!("Invalid response type from workload")),
+            WorkloadResponse::ExecuteTransaction(res) => res.map_err(|e: String| anyhow!(e)),
+            _ => Err(anyhow!("Invalid response type from workload")),
         }
     }
 
-    // --- FIX: Revert return type to use String keys ---
     pub async fn get_staked_validators(&self) -> Result<BTreeMap<String, u64>> {
         let request = WorkloadRequest::GetStakes;
         match self.send_and_receive(request).await? {
-            WorkloadResponse::GetStakes(res) => res.map_err(|e| anyhow::anyhow!(e)),
-            _ => Err(anyhow::anyhow!("Invalid response type from workload")),
+            WorkloadResponse::GetStakes(res) => res.map_err(|e: String| anyhow!(e)),
+            _ => Err(anyhow!("Invalid response type from workload")),
         }
     }
 
     pub async fn get_next_staked_validators(&self) -> Result<BTreeMap<String, u64>> {
         let request = WorkloadRequest::GetNextStakes;
         match self.send_and_receive(request).await? {
-            WorkloadResponse::GetNextStakes(res) => res.map_err(|e| anyhow::anyhow!(e)),
-            _ => Err(anyhow::anyhow!(
+            WorkloadResponse::GetNextStakes(res) => res.map_err(|e: String| anyhow!(e)),
+            _ => Err(anyhow!(
                 "Invalid response type from workload for GetNextStakes"
             )),
         }
     }
-    // --- FIX END ---
 
     pub async fn deploy_contract(
         &self,
@@ -110,8 +104,8 @@ impl WorkloadClient {
     ) -> Result<(Vec<u8>, HashMap<Vec<u8>, Vec<u8>>)> {
         let request = WorkloadRequest::DeployContract { code, sender };
         match self.send_and_receive(request).await? {
-            WorkloadResponse::DeployContract(res) => res.map_err(|e| anyhow::anyhow!(e)),
-            _ => Err(anyhow::anyhow!("Invalid response type from workload")),
+            WorkloadResponse::DeployContract(res) => res.map_err(|e: String| anyhow!(e)),
+            _ => Err(anyhow!("Invalid response type from workload")),
         }
     }
 
@@ -127,8 +121,8 @@ impl WorkloadClient {
             context,
         };
         match self.send_and_receive(request).await? {
-            WorkloadResponse::CallContract(res) => res.map_err(|e| anyhow::anyhow!(e)),
-            _ => Err(anyhow::anyhow!("Invalid response type from workload")),
+            WorkloadResponse::CallContract(res) => res.map_err(|e: String| anyhow!(e)),
+            _ => Err(anyhow!("Invalid response type from workload")),
         }
     }
 
@@ -144,8 +138,8 @@ impl WorkloadClient {
             context,
         };
         match self.send_and_receive(request).await? {
-            WorkloadResponse::QueryContract(res) => res.map_err(|e| anyhow::anyhow!(e)),
-            _ => Err(anyhow::anyhow!(
+            WorkloadResponse::QueryContract(res) => res.map_err(|e: String| anyhow!(e)),
+            _ => Err(anyhow!(
                 "Invalid response type from workload for QueryContract"
             )),
         }
@@ -154,8 +148,8 @@ impl WorkloadClient {
     pub async fn get_authority_set(&self) -> Result<Vec<Vec<u8>>> {
         let request = WorkloadRequest::GetAuthoritySet;
         match self.send_and_receive(request).await? {
-            WorkloadResponse::GetAuthoritySet(res) => res.map_err(|e| anyhow::anyhow!(e)),
-            _ => Err(anyhow::anyhow!(
+            WorkloadResponse::GetAuthoritySet(res) => res.map_err(|e: String| anyhow!(e)),
+            _ => Err(anyhow!(
                 "Invalid response type from workload for GetAuthoritySet"
             )),
         }
@@ -164,8 +158,8 @@ impl WorkloadClient {
     pub async fn get_validator_set(&self) -> Result<Vec<Vec<u8>>> {
         let request = WorkloadRequest::GetValidatorSet;
         match self.send_and_receive(request).await? {
-            WorkloadResponse::GetValidatorSet(res) => res.map_err(|e| anyhow::anyhow!(e)),
-            _ => Err(anyhow::anyhow!(
+            WorkloadResponse::GetValidatorSet(res) => res.map_err(|e: String| anyhow!(e)),
+            _ => Err(anyhow!(
                 "Invalid response type from workload for GetValidatorSet"
             )),
         }
@@ -174,8 +168,8 @@ impl WorkloadClient {
     pub async fn get_state_root(&self) -> Result<Vec<u8>> {
         let request = WorkloadRequest::GetStateRoot;
         match self.send_and_receive(request).await? {
-            WorkloadResponse::GetStateRoot(res) => res.map_err(|e| anyhow::anyhow!(e)),
-            _ => Err(anyhow::anyhow!(
+            WorkloadResponse::GetStateRoot(res) => res.map_err(|e: String| anyhow!(e)),
+            _ => Err(anyhow!(
                 "Invalid response type from workload for GetStateRoot"
             )),
         }
@@ -184,25 +178,19 @@ impl WorkloadClient {
     pub async fn get_expected_model_hash(&self) -> Result<Vec<u8>> {
         let request = WorkloadRequest::GetExpectedModelHash;
         match self.send_and_receive(request).await? {
-            WorkloadResponse::GetExpectedModelHash(res) => res.map_err(|e| anyhow!(e)),
+            WorkloadResponse::GetExpectedModelHash(res) => res.map_err(|e: String| anyhow!(e)),
             _ => Err(anyhow!(
                 "Invalid response type from workload for GetExpectedModelHash"
             )),
         }
     }
 
-    /// Asks the Workload container to scan for concluded proposals, tally them,
-    /// and return a log of the outcomes.
     pub async fn check_and_tally_proposals(&self, current_height: u64) -> Result<Vec<String>> {
-        let request = WorkloadRequest::CallService {
-            service_id: "governance".to_string(),
-            method_id: "check_and_tally_proposals".to_string(),
-            params: serde_json::json!({ "current_height": current_height }),
-        };
+        let request = WorkloadRequest::CheckAndTallyProposals { current_height };
         match self.send_and_receive(request).await? {
-            WorkloadResponse::CallService(res) => {
-                let value = res.map_err(|e| anyhow!(e))?;
-                serde_json::from_value(value)
+            WorkloadResponse::CheckAndTallyProposals(res) => {
+                let value = res.map_err(|e: String| anyhow!(e))?;
+                serde_json::from_value(serde_json::to_value(value)?)
                     .map_err(|e| anyhow!("Failed to deserialize tally outcomes: {}", e))
             }
             _ => Err(anyhow!(

@@ -15,6 +15,8 @@ depin-sdk-chain = { path = "../chain" }
 depin-sdk-transaction-models = { path = "../transaction_models" }
 depin-sdk-vm-wasm = { path = "../vm/wasm", optional = true }
 depin-sdk-crypto = { path = "../crypto" }
+depin-sdk-services = { path = "../services" }
+depin-sdk-client = { path = "../client" }                                 # <-- ADDED
 log = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
@@ -32,6 +34,7 @@ env_logger = { workspace = true, optional = true }
 depin-sdk-commitment = { path = "../commitment", optional = true }
 rand = { workspace = true }
 hex = { workspace = true }
+base64 = { workspace = true }
 
 # Added for mTLS implementation
 tokio-rustls = { workspace = true }
@@ -57,11 +60,16 @@ consensus-pos = ["depin-sdk-consensus/pos"]
 vm-wasm = ["dep:depin-sdk-vm-wasm"]
 
 [[bin]]
-name = "depin-sdk-node"
-path = "src/bin/validator.rs"
+name = "orchestration"
+path = "src/bin/orchestration.rs"
 required-features = ["validator-bins"]
 
 [[bin]]
-name = "validator_hybrid"
-path = "src/bin/validator_hybrid.rs"
+name = "workload"
+path = "src/bin/workload.rs"
+required-features = ["validator-bins", "vm-wasm"]
+
+[[bin]]
+name = "guardian"
+path = "src/bin/guardian.rs"
 required-features = ["validator-bins"]

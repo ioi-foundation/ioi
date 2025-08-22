@@ -41,7 +41,6 @@ pub trait TestBackend: Send {
 }
 
 // --- ProcessBackend Implementation ---
-// ... (This section is correct and requires no changes) ...
 pub struct ProcessBackend {
     pub orchestration_process: Option<Child>,
     pub workload_process: Option<Child>,
@@ -149,7 +148,6 @@ pub struct DockerBackend {
     _keypair_path: PathBuf,
     _genesis_path: PathBuf,
     config_dir_path: PathBuf,
-    // FIX: Add fields to hold the log streams after the readiness check.
     orch_stream: Option<LogStream>,
     work_stream: Option<LogStream>,
     guard_stream: Option<LogStream>,
@@ -186,7 +184,6 @@ impl DockerBackend {
             _keypair_path: keypair_path,
             _genesis_path: genesis_path,
             config_dir_path,
-            // FIX: Initialize streams as None.
             orch_stream: None,
             work_stream: None,
             guard_stream: None,
@@ -231,7 +228,6 @@ impl TestBackend for DockerBackend {
             .get_or_try_init(ensure_docker_image_exists)
             .await?;
 
-        // ... (container launch logic is unchanged) ...
         let container_config_dir = "/tmp/test-data/config";
         let container_genesis_path = "/tmp/test-data/genesis.json";
         let container_state_path = "/tmp/test-data/state.json";
@@ -255,10 +251,7 @@ impl TestBackend for DockerBackend {
                 "--semantic-model-path",
                 &container_model_path,
             ];
-            let guardian_env = vec![
-                "WORKLOAD_IPC_ADDR=workload:8555",
-                "ORCHESTRATION_IPC_ADDR=orchestration:8556",
-            ];
+            let guardian_env = vec![];
             self.launch_container("guardian", guardian_cmd, guardian_env, guardian_binds)
                 .await?;
         }
@@ -275,12 +268,11 @@ impl TestBackend for DockerBackend {
         }
         self.launch_container("workload", workload_cmd, workload_env, base_binds.clone())
             .await?;
+
         let orch_cmd = vec![
             "orchestration",
             "--state-file",
             container_state_path,
-            "--genesis-file",
-            container_genesis_path,
             "--config-dir",
             container_config_dir,
             "--listen-address",
@@ -295,7 +287,6 @@ impl TestBackend for DockerBackend {
         self.launch_container("orchestration", orch_cmd, orch_env, base_binds)
             .await?;
 
-        // FIX: Create the log streams ONCE and use them for both readiness checks and the test itself.
         let ready_timeout = Duration::from_secs(45);
         let log_options = Some(LogsOptions::<String> {
             follow: true,
@@ -326,7 +317,7 @@ impl TestBackend for DockerBackend {
             let mut guard_stream = convert_stream(self.docker.logs("guardian", log_options));
             timeout(ready_timeout, async {
                 while let Some(Ok(log)) = guard_stream.next().await {
-                    if log.contains("Guardian: mTLS server listening on") {
+                    if log.contains("Guardian container started (mock).") {
                         return Ok(());
                     }
                 }
@@ -337,20 +328,9 @@ impl TestBackend for DockerBackend {
         }
 
         timeout(ready_timeout, async {
-            let mut rpc_ready = false;
-            let mut semantic_ready = self.semantic_model_path.is_none();
-            let rpc_signal = "RPC server listening on";
-            let semantic_signal = "[Orchestrator] Semantic attestation sequence complete.";
-
+            let ready_signal = "ORCHESTRATION_RPC_LISTENING_ON_0.0.0.0:9999";
             while let Some(Ok(log)) = orch_stream.next().await {
-                let line = log.to_string();
-                if !rpc_ready && line.contains(rpc_signal) {
-                    rpc_ready = true;
-                }
-                if !semantic_ready && line.contains(semantic_signal) {
-                    semantic_ready = true;
-                }
-                if rpc_ready && semantic_ready {
+                if log.contains(ready_signal) {
                     return Ok(());
                 }
             }
@@ -368,7 +348,6 @@ impl TestBackend for DockerBackend {
     }
 
     fn get_log_streams(&mut self) -> Result<(LogStream, LogStream, Option<LogStream>)> {
-        // FIX: Instead of creating new streams, take the ones we already created.
         let orch = self
             .orch_stream
             .take()

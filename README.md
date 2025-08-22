@@ -172,16 +172,17 @@ cargo test -p depin-sdk-forge --test governance_e2e -- --nocapture
 The test harness can also run nodes in Docker containers for a more isolated environment.
 
 ```bash
-#in case previous tests interupted 
+# 1. Clean up containers and networks
 docker rm -f guardian orchestration workload
+docker network prune -f
 
-#if any changes were made to node bin
+# 2. IMPORTANT: Remove the old image
 docker rmi depin-sdk-node:e2e
 
-# First, build (or rebuild) the test image
+# 3. Rebuild the image with the latest binaries
 docker build -t depin-sdk-node:e2e -f crates/node/Dockerfile .
 
-# Then, run a specific test that uses the Docker backend
+# 4. Run the test
 cargo test -p depin-sdk-forge --test container_e2e -- --nocapture
 ```
 

@@ -1,3 +1,4 @@
+// Path: crates/validator/src/lib.rs
 #![forbid(unsafe_code)]
 
 //! # DePIN SDK Validator
@@ -6,5 +7,5 @@
 
 pub mod common;
 pub mod config;
-pub mod hybrid;
+pub mod rpc;
 pub mod standard;

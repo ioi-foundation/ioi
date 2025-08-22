@@ -6,64 +6,37 @@ use depin_sdk_api::{
     commitment::CommitmentScheme,
     state::{StateCommitment, StateManager},
     transaction::TransactionModel,
-    validator::{Container, WorkloadContainer},
+    validator::Container,
 };
+use depin_sdk_client::WorkloadClient;
+use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
 use depin_sdk_consensus::{ConsensusDecision, ConsensusEngine};
-use depin_sdk_crypto::algorithms::hash::sha256;
 use depin_sdk_network::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_network::BlockSync;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-use depin_sdk_types::{app::ChainTransaction, error::ValidatorError};
+use depin_sdk_types::{
+    app::{Block, BlockHeader, ChainTransaction},
+    error::ValidatorError,
+};
 use libp2p::{identity, PeerId};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashSet, VecDeque};
 use std::fmt::Debug;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::{
     sync::{mpsc, watch, Mutex, OnceCell},
     task::JoinHandle,
-    time::{self, Duration, Instant},
+    time::{self, Duration},
 };
 
 type ChainFor<CS, ST> = Arc<Mutex<dyn AppChain<CS, UnifiedTransactionModel<CS>, ST> + Send + Sync>>;
 
-// NEW: State for tallying semantic consensus votes
-#[derive(Debug)]
-struct TallyState {
-    votes: HashMap<Vec<u8>, Vec<PeerId>>, // Key: Vote Hash, Value: List of voters
-    start_time: Instant,
-}
-
-pub struct OrchestrationContainer<CS, ST, CE>
-where
-    CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Send
-        + Sync
-        + 'static
-        + Debug,
-    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
-{
-    config: OrchestrationConfig,
-    chain: Arc<OnceCell<ChainFor<CS, ST>>>,
-    workload: Arc<OnceCell<Arc<WorkloadContainer<ST>>>>,
-    tx_pool: Arc<Mutex<VecDeque<ChainTransaction>>>,
-    pub syncer: Arc<Libp2pSync>,
-    swarm_command_sender: mpsc::Sender<SwarmCommand>,
-    network_event_receiver: Mutex<Option<mpsc::Receiver<NetworkEvent>>>,
-    consensus_engine: Arc<Mutex<CE>>,
-    local_keypair: identity::Keypair,
-    shutdown_sender: Arc<watch::Sender<bool>>,
-    task_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
-    is_running: Arc<AtomicBool>,
-    is_quarantined: Arc<AtomicBool>,
-    pending_consensus: Arc<Mutex<HashMap<String, TallyState>>>, // NEW
-}
-
+/// Main state for the Orchestration Container's event loop.
 struct MainLoopContext<CS, ST, CE>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -78,8 +51,8 @@ where
     CS::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
 {
-    chain_ref: Arc<Mutex<dyn AppChain<CS, UnifiedTransactionModel<CS>, ST> + Send + Sync>>,
-    workload_ref: Arc<WorkloadContainer<ST>>,
+    chain_ref: ChainFor<CS, ST>,
+    workload_client: Arc<WorkloadClient>,
     tx_pool_ref: Arc<Mutex<VecDeque<ChainTransaction>>>,
     network_event_receiver: mpsc::Receiver<NetworkEvent>,
     swarm_commander: mpsc::Sender<SwarmCommand>,
@@ -91,7 +64,31 @@ where
     known_peers_ref: Arc<Mutex<HashSet<PeerId>>>,
     config: OrchestrationConfig,
     is_quarantined: Arc<AtomicBool>,
-    pending_consensus: Arc<Mutex<HashMap<String, TallyState>>>, // NEW
+}
+
+pub struct OrchestrationContainer<CS, ST, CE>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+{
+    config: OrchestrationConfig,
+    chain: Arc<OnceCell<ChainFor<CS, ST>>>,
+    workload_client: Arc<OnceCell<Arc<WorkloadClient>>>,
+    pub tx_pool: Arc<Mutex<VecDeque<ChainTransaction>>>,
+    pub syncer: Arc<Libp2pSync>,
+    swarm_command_sender: mpsc::Sender<SwarmCommand>,
+    network_event_receiver: Mutex<Option<mpsc::Receiver<NetworkEvent>>>,
+    consensus_engine: Arc<Mutex<CE>>,
+    local_keypair: identity::Keypair,
+    shutdown_sender: Arc<watch::Sender<bool>>,
+    task_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
+    is_running: Arc<AtomicBool>,
+    is_quarantined: Arc<AtomicBool>,
 }
 
 impl<CS, ST, CE> OrchestrationContainer<CS, ST, CE>
@@ -115,6 +112,7 @@ where
         swarm_command_sender: mpsc::Sender<SwarmCommand>,
         consensus_engine: CE,
         local_keypair: identity::Keypair,
+        is_quarantined: Arc<AtomicBool>,
     ) -> anyhow::Result<Self> {
         let config: OrchestrationConfig = toml::from_str(&std::fs::read_to_string(config_path)?)?;
         let (shutdown_sender, _) = watch::channel(false);
@@ -122,7 +120,7 @@ where
         Ok(Self {
             config,
             chain: Arc::new(OnceCell::new()),
-            workload: Arc::new(OnceCell::new()),
+            workload_client: Arc::new(OnceCell::new()),
             tx_pool: Arc::new(Mutex::new(VecDeque::new())),
             syncer,
             swarm_command_sender,
@@ -132,107 +130,19 @@ where
             shutdown_sender: Arc::new(shutdown_sender),
             task_handles: Arc::new(Mutex::new(Vec::new())),
             is_running: Arc::new(AtomicBool::new(false)),
-            is_quarantined: Arc::new(AtomicBool::new(false)),
-            pending_consensus: Arc::new(Mutex::new(HashMap::new())), // NEW
+            is_quarantined,
         })
     }
 
-    pub fn set_chain_and_workload_ref(
+    pub fn set_chain_and_workload_client(
         &self,
-        chain_ref: Arc<Mutex<dyn AppChain<CS, UnifiedTransactionModel<CS>, ST> + Send + Sync>>,
-        workload_ref: Arc<WorkloadContainer<ST>>,
+        chain_ref: ChainFor<CS, ST>,
+        workload_client_ref: Arc<WorkloadClient>,
     ) {
         self.chain.set(chain_ref).expect("Chain ref already set");
-        self.workload
-            .set(workload_ref)
-            .expect("Workload ref already set");
-    }
-
-    pub async fn select_inference_committee(
-        &self,
-        height: u64,
-        committee_size: usize,
-    ) -> Result<Vec<PeerId>, String> {
-        let chain = self.chain.get().unwrap().lock().await;
-        let validator_set_bytes = chain
-            .get_validator_set(self.workload.get().unwrap())
-            .await
-            .map_err(|e| e.to_string())?;
-
-        if validator_set_bytes.is_empty() {
-            return Err("Cannot select committee from empty validator set.".to_string());
-        }
-
-        let start_index = (height as usize) % validator_set_bytes.len();
-
-        let committee_members = validator_set_bytes
-            .iter()
-            .cycle()
-            .skip(start_index)
-            .take(committee_size)
-            .filter_map(|bytes| PeerId::from_bytes(bytes).ok())
-            .collect();
-
-        Ok(committee_members)
-    }
-
-    pub async fn execute_semantic_consensus(
-        &self,
-        prompt: String,
-        committee: Vec<PeerId>,
-    ) -> Result<Vec<u8>, String> {
-        let prompt_hash_str = hex::encode(sha256(prompt.as_bytes()));
-
-        // 1. Broadcast prompt to the committee
-        self.swarm_command_sender
-            .send(SwarmCommand::BroadcastToCommittee(
-                committee.clone(),
-                prompt,
-            ))
-            .await
-            .map_err(|e| e.to_string())?;
-
-        // 2. Initialize tally state
-        let mut pending = self.pending_consensus.lock().await;
-        pending.insert(
-            prompt_hash_str.clone(),
-            TallyState {
-                votes: HashMap::new(),
-                start_time: Instant::now(),
-            },
-        );
-        drop(pending);
-
-        // 3. Wait for consensus or timeout
-        let consensus_timeout = Duration::from_secs(30);
-        loop {
-            // Check for timeout
-            let pending = self.pending_consensus.lock().await;
-            if let Some(tally) = pending.get(&prompt_hash_str) {
-                if tally.start_time.elapsed() > consensus_timeout {
-                    self.pending_consensus.lock().await.remove(&prompt_hash_str);
-                    return Err("Semantic consensus timed out".to_string());
-                }
-
-                // Check for supermajority
-                for (vote_hash, voters) in &tally.votes {
-                    if voters.len() >= (committee.len() * 2 / 3) {
-                        log::info!(
-                            "Semantic consensus reached on hash: {}",
-                            hex::encode(vote_hash)
-                        );
-                        self.pending_consensus.lock().await.remove(&prompt_hash_str);
-                        return Ok(vote_hash.clone());
-                    }
-                }
-            } else {
-                // Tally state was removed, maybe by another thread that succeeded.
-                return Err("Consensus process cancelled or already completed".to_string());
-            }
-
-            drop(pending);
-            tokio::time::sleep(Duration::from_millis(500)).await;
-        }
+        self.workload_client
+            .set(workload_client_ref)
+            .expect("Workload client ref already set");
     }
 
     async fn run_main_loop(mut context: MainLoopContext<CS, ST, CE>) {
@@ -245,6 +155,7 @@ where
         tokio::pin!(sync_timeout);
 
         *context.node_state.lock().await = NodeState::Syncing;
+        log::info!("[Orchestrator] State -> Syncing.");
 
         loop {
             if context.is_quarantined.load(Ordering::SeqCst) {
@@ -259,6 +170,7 @@ where
                 Some(event) = context.network_event_receiver.recv() => {
                     match event {
                         NetworkEvent::ConnectionEstablished(peer_id) => {
+                            log::info!("[Orchestrator] Connection established with peer {}", peer_id);
                             context.known_peers_ref.lock().await.insert(peer_id);
                             context.swarm_commander.send(SwarmCommand::SendStatusRequest(peer_id)).await.ok();
                         }
@@ -266,13 +178,29 @@ where
                             context.known_peers_ref.lock().await.remove(&peer_id);
                         }
                         NetworkEvent::GossipBlock(block) => {
-                            let mut chain = context.chain_ref.lock().await;
-                            if let Err(e) = chain.process_block(block, &context.workload_ref).await {
-                                log::warn!("[Orchestrator] Failed to process gossiped block: {e:?}");
-                            }
-                            if *context.node_state.lock().await == NodeState::Syncing {
-                                *context.node_state.lock().await = NodeState::Synced;
-                            }
+                             let block_height = block.header.height;
+                             log::info!("[Orchestrator] Received gossiped block #{}. Verifying...", block_height);
+
+                             let mut engine = context.consensus_engine_ref.lock().await;
+                             let mut chain = context.chain_ref.lock().await;
+
+                             if let Err(e) = engine.handle_block_proposal(block.clone(), &mut *chain, &context.workload_client).await {
+                                 log::warn!("[Orchestrator] Invalid gossiped block #{}: {}", block_height, e);
+                                 continue;
+                             }
+                             drop(engine);
+                             drop(chain);
+
+                             log::info!("[Orchestrator] Block #{} is valid. Forwarding to workload...", block_height);
+                             if let Err(e) = context.workload_client.process_block(block).await {
+                                  log::error!("[Orchestrator] Workload failed to process gossiped block #{}: {}", block_height, e);
+                             } else {
+                                 log::info!("[Orchestrator] Workload processed block successfully.");
+                                 if *context.node_state.lock().await == NodeState::Syncing {
+                                     *context.node_state.lock().await = NodeState::Synced;
+                                      log::info!("[Orchestrator] State -> Synced.");
+                                 }
+                             }
                         },
                         NetworkEvent::GossipTransaction(tx) => {
                             let mut pool = context.tx_pool_ref.lock().await;
@@ -280,7 +208,7 @@ where
                             log::info!("[Orchestrator] Received transaction via gossip. Pool size: {}", pool.len());
                         }
                         NetworkEvent::StatusRequest(_peer, channel) => {
-                            let height = context.chain_ref.lock().await.status().height;
+                            let height = context.workload_client.get_status().await.map_or(0, |s| s.height);
                             context.swarm_commander.send(SwarmCommand::SendStatusResponse(channel, height)).await.ok();
                         }
                         NetworkEvent::BlocksRequest(_, since, channel) => {
@@ -288,36 +216,27 @@ where
                             context.swarm_commander.send(SwarmCommand::SendBlocksResponse(channel, blocks)).await.ok();
                         }
                         NetworkEvent::StatusResponse(peer, peer_height) => {
-                            let our_height = context.chain_ref.lock().await.status().height;
+                            let our_height = context.workload_client.get_status().await.map_or(0, |s| s.height);
                             if peer_height > our_height {
                                 context.swarm_commander.send(SwarmCommand::SendBlocksRequest(peer, our_height)).await.ok();
                             } else if *context.node_state.lock().await == NodeState::Syncing {
                                 *context.node_state.lock().await = NodeState::Synced;
+                                log::info!("[Orchestrator] Synced with peer {}. State -> Synced.", peer);
                             }
                         }
                         NetworkEvent::BlocksResponse(_, blocks) => {
-                            let mut chain = context.chain_ref.lock().await;
                             for block in blocks {
-                                if chain.process_block(block, &context.workload_ref).await.is_err() {
+                                if context.workload_client.process_block(block).await.is_err() {
+                                    log::error!("[Orchestrator] Workload failed to process synced block.");
                                     break;
                                 }
                             }
                             if *context.node_state.lock().await == NodeState::Syncing {
                                 *context.node_state.lock().await = NodeState::Synced;
+                                log::info!("[Orchestrator] Finished processing blocks. State -> Synced.");
                             }
                         }
-                        NetworkEvent::SemanticPrompt { from, prompt } => {
-                            log::info!("[Orchestrator] Received SemanticPrompt from peer {}: '{}'", from, prompt);
-                        }
-                        NetworkEvent::SemanticConsensusVote { from, prompt_hash, vote_hash } => {
-                            let mut pending = context.pending_consensus.lock().await;
-                            if let Some(tally) = pending.get_mut(&prompt_hash) {
-                                log::info!("[Orchestrator] Tallying vote from {} for prompt hash {}", from, prompt_hash);
-                                tally.votes.entry(vote_hash).or_default().push(from);
-                            } else {
-                                log::warn!("[Orchestrator] Received vote for unknown/expired consensus round: {}", prompt_hash);
-                            }
-                        }
+                        _ => {}
                     }
                     continue;
                 }
@@ -334,25 +253,18 @@ where
                         continue;
                     }
 
-                    // --- REFACTOR START ---
                     let decision = {
-                        let chain = context.chain_ref.lock().await;
                         let mut engine = context.consensus_engine_ref.lock().await;
                         let known_peers = context.known_peers_ref.lock().await;
 
-                        let target_height = chain.status().height + 1;
-                        let current_view = 0; // View changes are handled by the engine
+                        let target_height = context.workload_client.get_status().await.map_or(0, |s| s.height) + 1;
+                        let current_view = 0;
 
-                        // Step 1: Generically fetch the data the consensus engine needs.
-                        let consensus_data = match engine.get_validator_data(&*chain, &context.workload_ref).await {
-                            Ok(data) => data,
-                            Err(e) => {
-                                log::error!("[Orch] Could not get validator data for consensus: {e}");
-                                continue;
-                            }
+                        let consensus_data = match engine.get_validator_data(&context.workload_client).await {
+                             Ok(data) => data,
+                             Err(e) => { log::error!("[Orch] Could not get validator data for consensus: {e}"); continue; }
                         };
 
-                        // Step 2: Make a decision using the fetched data.
                         engine.decide(
                             &context.local_peer_id,
                             target_height,
@@ -361,47 +273,57 @@ where
                             &known_peers,
                         ).await
                     };
-                    // --- REFACTOR END ---
 
                     if let ConsensusDecision::ProduceBlock(_) = decision {
-                        let target_height = context.chain_ref.lock().await.status().height + 1;
+                        let target_height = context.workload_client.get_status().await.map_or(0, |s| s.height) + 1;
                         log::info!("Consensus decision: Produce block for height {target_height}.");
 
-                        // Step 3: Generically fetch the validator set required for the block header.
-                        let header_data = match context.chain_ref.lock().await.get_validator_set(&context.workload_ref).await {
+                        let header_data = match context.workload_client.get_validator_set().await {
                             Ok(data) => data,
-                            Err(e) => {
-                                log::error!("[Orch] Could not get validator set for block header: {e}");
-                                continue;
-                            }
+                            Err(e) => { log::error!("[Orch] Could not get validator set for block header: {e}"); continue; }
                         };
 
                         let mut transactions_to_include = context.tx_pool_ref.lock().await.drain(..).collect::<Vec<_>>();
-
-                        let coinbase = context.chain_ref.lock().await.transaction_model().clone().create_coinbase_transaction(target_height, &context.local_peer_id.to_bytes()).unwrap();
+                        let coinbase = UnifiedTransactionModel::new(HashCommitmentScheme::new()).create_coinbase_transaction(target_height, &context.local_peer_id.to_bytes()).unwrap();
                         transactions_to_include.insert(0, coinbase);
 
-                        let known_peers = context.known_peers_ref.lock().await;
-                        let mut peers_bytes: Vec<Vec<u8>> = known_peers.iter().map(|p| p.to_bytes()).collect();
-                        peers_bytes.push(context.local_peer_id.to_bytes());
-                        drop(known_peers);
+                        let prev_hash = context
+                            .workload_client
+                            .get_last_block_hash()
+                            .await
+                            .unwrap_or_else(|_| vec![0; 32]);
 
-                        let new_block_template = context.chain_ref.lock().await.create_block(
-                            transactions_to_include,
-                            &header_data,
-                            &peers_bytes,
-                            &context.local_keypair,
-                        );
+                        let new_block_template = Block {
+                            header: BlockHeader {
+                                height: target_height,
+                                prev_hash,
+                                state_root: vec![],
+                                transactions_root: vec![0; 32],
+                                timestamp: SystemTime::now()
+                                    .duration_since(UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_secs(),
+                                validator_set: header_data,
+                                producer: context.local_keypair.public().encode_protobuf(),
+                                signature: vec![],
+                            },
+                            transactions: transactions_to_include,
+                        };
 
-                        if let Ok((mut final_block, _new_validator_set)) = context.chain_ref.lock().await.process_block(new_block_template, &context.workload_ref).await {
-                            log::info!("Produced and processed new block #{}", final_block.header.height);
+                        match context.workload_client.process_block(new_block_template).await {
+                            Ok((mut final_block, _)) => {
+                                log::info!("Produced and processed new block #{}", final_block.header.height);
+                                let header_hash = final_block.header.hash();
+                                final_block.header.signature = context.local_keypair.sign(&header_hash).unwrap();
+                                let data = serde_json::to_vec(&final_block).unwrap();
+                                context.swarm_commander.send(SwarmCommand::PublishBlock(data)).await.ok();
+                                context.consensus_engine_ref.lock().await.reset(final_block.header.height);
 
-                            let header_hash = final_block.header.hash();
-                            final_block.header.signature = context.local_keypair.sign(&header_hash).unwrap();
-
-                            let data = serde_json::to_vec(&final_block).unwrap();
-                            context.swarm_commander.send(SwarmCommand::PublishBlock(data)).await.ok();
-                            context.consensus_engine_ref.lock().await.reset(final_block.header.height);
+                                if let Ok(outcomes) = context.workload_client.check_and_tally_proposals(final_block.header.height).await {
+                                    for outcome in outcomes { log::info!("{}", outcome); }
+                                }
+                            },
+                            Err(e) => log::error!("Workload failed to process new block: {}", e),
                         }
                     }
                 }
@@ -458,11 +380,13 @@ where
                 ValidatorError::Other("Chain ref not initialized before start".to_string())
             })?
             .clone();
-        let workload = self
-            .workload
+        let workload_client = self
+            .workload_client
             .get()
             .ok_or_else(|| {
-                ValidatorError::Other("Workload ref not initialized before start".to_string())
+                ValidatorError::Other(
+                    "Workload client ref not initialized before start".to_string(),
+                )
             })?
             .clone();
 
@@ -473,7 +397,7 @@ where
 
         let context = MainLoopContext::<CS, ST, CE> {
             chain_ref: chain,
-            workload_ref: workload,
+            workload_client,
             tx_pool_ref: self.tx_pool.clone(),
             network_event_receiver: receiver,
             swarm_commander: self.swarm_command_sender.clone(),
@@ -485,7 +409,6 @@ where
             known_peers_ref: self.syncer.get_known_peers(),
             config: self.config.clone(),
             is_quarantined: self.is_quarantined.clone(),
-            pending_consensus: self.pending_consensus.clone(), // NEW
         };
 
         let mut handles = self.task_handles.lock().await;

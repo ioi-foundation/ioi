@@ -5,14 +5,13 @@ use depin_sdk_api::chain::AppChain;
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::TransactionModel;
-use depin_sdk_api::validator::WorkloadContainer;
-use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
+use depin_sdk_client::WorkloadClient;
 use depin_sdk_types::app::Block;
 use libp2p::identity::PublicKey;
 use libp2p::PeerId;
-use serde::{Deserialize, Serialize}; // <-- ADD THIS LINE
 use std::collections::HashSet;
 use std::fmt::Debug;
+use std::sync::Arc;
 
 pub struct ProofOfAuthorityEngine {}
 
@@ -30,25 +29,12 @@ impl ProofOfAuthorityEngine {
 
 #[async_trait]
 impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
-    async fn get_validator_data<CS, ST>(
+    async fn get_validator_data(
         &self,
-        chain: &(dyn AppChain<CS, UnifiedTransactionModel<CS>, ST> + Send + Sync),
-        workload: &WorkloadContainer<ST>,
-    ) -> Result<Vec<Vec<u8>>, String>
-    where
-        CS: CommitmentScheme + Clone,
-        <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de> + Clone,
-        ST: StateManager<
-                Commitment = <CS as CommitmentScheme>::Commitment,
-                Proof = <CS as CommitmentScheme>::Proof,
-            >
-            + Send
-            + Sync
-            + 'static
-            + Debug,
-    {
-        chain
-            .get_authority_set(workload)
+        workload_client: &Arc<WorkloadClient>,
+    ) -> Result<Vec<Vec<u8>>, String> {
+        workload_client
+            .get_authority_set()
             .await
             .map_err(|e| e.to_string())
     }
@@ -78,8 +64,8 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
     async fn handle_block_proposal<CS, TM, ST>(
         &mut self,
         block: Block<T>,
-        chain: &mut (dyn AppChain<CS, TM, ST> + Send + Sync),
-        workload: &WorkloadContainer<ST>,
+        _chain: &mut (dyn AppChain<CS, TM, ST> + Send + Sync),
+        workload_client: &Arc<WorkloadClient>,
     ) -> Result<(), String>
     where
         CS: CommitmentScheme + Send + Sync,
@@ -91,14 +77,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
             + Debug,
         CS::Commitment: Send + Sync + Debug,
     {
-        if block.header.height != chain.status().height + 1 {
-            return Err(format!(
-                "Invalid block height. Expected {}, got {}",
-                chain.status().height + 1,
-                block.header.height
-            ));
-        }
-
         let producer_pubkey = PublicKey::try_decode_protobuf(&block.header.producer)
             .map_err(|e| format!("Failed to decode producer public key: {}", e))?;
         let header_hash = block.header.hash();
@@ -106,8 +84,8 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
             return Err("Invalid block signature".to_string());
         }
 
-        let authority_set = chain
-            .get_authority_set(workload)
+        let authority_set = workload_client
+            .get_authority_set()
             .await
             .map_err(|e| format!("Could not get authority set: {}", e))?;
         if authority_set.is_empty() {

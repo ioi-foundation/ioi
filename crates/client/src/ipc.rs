@@ -1,5 +1,4 @@
-// Path: crates/validator/src/common/ipc.rs
-
+// Path: crates/client/src/ipc.rs
 //! Defines the Inter-Process Communication (IPC) protocol between the
 //! Orchestration and Workload containers.
 
@@ -13,14 +12,13 @@ type DeployResult = Result<(Vec<u8>, std::collections::HashMap<Vec<u8>, Vec<u8>>
 type CallResult = Result<(ExecutionOutput, std::collections::HashMap<Vec<u8>, Vec<u8>>), String>;
 type QueryResult = Result<ExecutionOutput, String>;
 type TxResult = Result<(), String>;
-// --- FIX: Revert to using String keys for JSON compatibility over IPC ---
 type StakesResult = Result<BTreeMap<String, u64>, String>;
-// --- FIX END ---
 type VecVecResult = Result<Vec<Vec<u8>>, String>;
 type StateRootResult = Result<Vec<u8>, String>;
 type ProcessBlockResult = Result<(Block<ChainTransaction>, Vec<Vec<u8>>), String>;
 type StatusResult = Result<ChainStatus, String>;
 type BlockHashResult = Result<Vec<u8>, String>;
+type TallyResult = Result<Vec<String>, String>;
 
 /// A command sent from the Orchestration container to the Workload container.
 #[derive(Debug, Serialize, Deserialize)]
@@ -49,7 +47,9 @@ pub enum WorkloadRequest {
     GetValidatorSet,
     GetStateRoot,
     GetLastBlockHash,
-    /// A generic request to call a method on a runtime service.
+    CheckAndTallyProposals {
+        current_height: u64,
+    },
     CallService {
         service_id: String,
         method_id: String,
@@ -58,7 +58,6 @@ pub enum WorkloadRequest {
 }
 
 /// A response sent from the Workload container back to the Orchestration container.
-/// It wraps a `Result` to transport success or failure information across the wire.
 #[derive(Debug, Serialize, Deserialize)]
 pub enum WorkloadResponse {
     ProcessBlock(ProcessBlockResult),
@@ -74,7 +73,7 @@ pub enum WorkloadResponse {
     GetValidatorSet(VecVecResult),
     GetStateRoot(StateRootResult),
     GetLastBlockHash(BlockHashResult),
-    /// The response from a generic service call.
+    CheckAndTallyProposals(TallyResult),
     CallService(Result<serde_json::Value, String>),
 }
 

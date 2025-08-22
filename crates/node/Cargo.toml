@@ -1,4 +1,4 @@
-# Path: crates/validator/Cargo.toml
+# Path: crates/node/Cargo.toml
 [package]
 name = "depin-sdk-node"
 version = "0.1.0"
@@ -20,7 +20,9 @@ depin-sdk-crypto = { path = "../crypto" }
 depin-sdk-vm-wasm = { path = "../vm/wasm", optional = true }
 depin-sdk-services = { path = "../services" }
 depin-sdk-test-utils = { path = "../test_utils" }
+depin-sdk-client = { path = "../client" }
 
+async-trait = { workspace = true }
 # Workspace Dependencies (for binary)
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive", "cargo", "env"] }
@@ -36,11 +38,10 @@ rcgen = { workspace = true }
 serde_json = { workspace = true }
 bs58 = "0.4"
 toml = { workspace = true }
-# FIX: Add the axum dependency for the RPC server.
 axum = { workspace = true }
 serde = { workspace = true }
 base64 = { workspace = true }
-serde_jcs = "0.1.0"           # FIX: Add the missing dependency
+serde_jcs = "0.1.0"
 
 [features]
 default = ["consensus-poa", "vm-wasm", "consensus-round-robin"]
@@ -57,3 +58,18 @@ consensus-pos = ["depin-sdk-validator/consensus-pos", "depin-sdk-consensus/pos"]
 
 # VM Features
 vm-wasm = ["dep:depin-sdk-vm-wasm"]
+
+[[bin]]
+name = "orchestration"
+path = "src/bin/orchestration.rs"
+required-features = ["build-bins"]
+
+[[bin]]
+name = "workload"
+path = "src/bin/workload.rs"
+required-features = ["build-bins", "vm-wasm"]
+
+[[bin]]
+name = "guardian"
+path = "src/bin/guardian.rs"
+required-features = ["build-bins"]
