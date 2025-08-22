@@ -1,0 +1,196 @@
+// crates/node/src/bin/orchestration.rs
+#![forbid(unsafe_code)]
+
+use anyhow::Result;
+use clap::Parser;
+use depin_sdk_api::validator::container::Container;
+use depin_sdk_chain::Chain;
+use depin_sdk_client::security::SecurityChannel; // Added for attestation client
+use depin_sdk_client::WorkloadClient;
+use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
+use depin_sdk_commitment::tree::file::FileStateTree;
+use depin_sdk_consensus::util::engine_from_config;
+use depin_sdk_network::libp2p::Libp2pSync;
+use depin_sdk_validator::{
+    config::OrchestrationConfig, rpc::run_rpc_server, standard::OrchestrationContainer,
+};
+use libp2p::{identity, Multiaddr};
+use std::fs;
+use std::io::{Read, Write};
+use std::path::Path;
+use std::sync::{
+    atomic::{AtomicBool, Ordering}, // Added for quarantine flag
+    Arc,
+};
+use tokio::sync::Mutex;
+use tokio::time::Duration; // Added for attestation task delay
+
+#[derive(Parser, Debug)]
+struct OrchestrationOpts {
+    #[clap(long)]
+    state_file: String,
+    #[clap(
+        long,
+        help = "Path to the configuration directory (e.g., for orchestration.toml)."
+    )]
+    config_dir: String,
+    #[clap(long, env = "LISTEN_ADDRESS")]
+    listen_address: Multiaddr,
+    #[clap(long, env = "BOOTNODE")]
+    bootnode: Option<Multiaddr>,
+    #[clap(
+        long,
+        env = "RPC_LISTEN_ADDR",
+        help = "Overrides rpc_listen_address in orchestration.toml"
+    )]
+    rpc_listen_address: Option<String>,
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Info)
+        .init();
+    let opts = OrchestrationOpts::parse();
+    log::info!("Orchestration container starting up...");
+
+    let mut config: OrchestrationConfig = toml::from_str(&fs::read_to_string(
+        Path::new(&opts.config_dir).join("orchestration.toml"),
+    )?)?;
+    if let Some(rpc_addr) = opts.rpc_listen_address {
+        config.rpc_listen_address = rpc_addr;
+    }
+
+    let local_key = {
+        let key_path = Path::new(&opts.state_file).with_extension("json.identity.key");
+        if key_path.exists() {
+            let mut bytes = Vec::new();
+            fs::File::open(&key_path)?.read_to_end(&mut bytes)?;
+            identity::Keypair::from_protobuf_encoding(&bytes)?
+        } else {
+            let keypair = identity::Keypair::generate_ed25519();
+            fs::File::create(&key_path)?.write_all(&keypair.to_protobuf_encoding()?)?;
+            keypair
+        }
+    };
+
+    let (syncer, swarm_commander, network_event_receiver) =
+        Libp2pSync::new(local_key.clone(), opts.listen_address, opts.bootnode)?;
+
+    let consensus_engine = engine_from_config(&config.consensus_type)?;
+
+    // START FIX: Re-add the quarantine flag and attestation logic
+    let is_quarantined = Arc::new(AtomicBool::new(false));
+
+    let orchestration = Arc::new(OrchestrationContainer::<
+        HashCommitmentScheme,
+        FileStateTree<HashCommitmentScheme>,
+        _,
+    >::new(
+        &Path::new(&opts.config_dir).join("orchestration.toml"),
+        syncer,
+        network_event_receiver,
+        swarm_commander.clone(),
+        consensus_engine,
+        local_key,
+        is_quarantined.clone(), // Pass the flag to the container
+    )?);
+
+    let workload_client = {
+        let workload_ipc_addr =
+            std::env::var("WORKLOAD_IPC_ADDR").unwrap_or_else(|_| "127.0.0.1:8555".to_string());
+        Arc::new(WorkloadClient::new(&workload_ipc_addr).await?)
+    };
+
+    let guardian_addr = std::env::var("GUARDIAN_ADDR").unwrap_or_default();
+    if !guardian_addr.is_empty() {
+        let is_quarantined_clone = is_quarantined.clone();
+        let workload_client_clone = workload_client.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(500)).await; // Give guardian time to start
+            let guardian_channel = SecurityChannel::new("orchestration", "guardian");
+            if let Err(e) = guardian_channel
+                .establish_client(&guardian_addr, "guardian")
+                .await
+            {
+                log::error!(
+                    "[Orchestration] Failed to connect to Guardian: {}. Quarantining.",
+                    e
+                );
+                is_quarantined_clone.store(true, Ordering::SeqCst);
+                return;
+            }
+            log::info!("[Orchestration] Attestation channel to Guardian established.");
+
+            log::info!("[Orchestrator] Waiting for semantic attestation report from Guardian...");
+            match guardian_channel.receive().await {
+                Ok(report_bytes) => {
+                    let report: Result<Vec<u8>, String> =
+                        serde_json::from_slice(&report_bytes).unwrap();
+                    match report {
+                        Ok(local_hash) => {
+                            log::info!(
+                                "[Orchestrator] Received local model hash from Guardian: {}",
+                                hex::encode(&local_hash)
+                            );
+                            match workload_client_clone.get_expected_model_hash().await {
+                                Ok(expected_hash) => {
+                                    if local_hash == expected_hash {
+                                        log::info!("[Orchestrator] Semantic model hash matches on-chain state. Node is healthy.");
+                                    } else {
+                                        log::error!("[Orchestrator] Model Integrity Failure! Local hash {} != on-chain hash {}. Quarantining node.", hex::encode(local_hash), hex::encode(expected_hash));
+                                        is_quarantined_clone.store(true, Ordering::SeqCst);
+                                    }
+                                }
+                                Err(e) => {
+                                    log::error!("[Orchestrator] Failed to get expected model hash from Workload: {}. Quarantining node.", e);
+                                    is_quarantined_clone.store(true, Ordering::SeqCst);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            log::error!("[Orchestrator] Guardian reported an error during local hashing: {}. Quarantining node.", e);
+                            is_quarantined_clone.store(true, Ordering::SeqCst);
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::error!("[Orchestrator] Failed to receive semantic report from Guardian: {}. Quarantining node.", e);
+                    is_quarantined_clone.store(true, Ordering::SeqCst);
+                }
+            }
+        });
+    } else {
+        log::warn!("GUARDIAN_ADDR not set, skipping Guardian attestation.");
+    }
+    // END FIX
+
+    let chain_ref = Arc::new(Mutex::new(
+        Chain::<HashCommitmentScheme>::new_for_orchestrator(),
+    ));
+    orchestration.set_chain_and_workload_client(chain_ref, workload_client.clone());
+
+    let rpc_handle = run_rpc_server(
+        &config.rpc_listen_address,
+        orchestration.tx_pool.clone(),
+        workload_client,
+        swarm_commander,
+    )
+    .await?;
+
+    orchestration.start().await?;
+
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {
+            log::info!("Ctrl-C received, initiating shutdown.");
+        }
+    }
+
+    log::info!("Shutdown signal received.");
+
+    orchestration.stop().await?;
+    rpc_handle.abort();
+    log::info!("Orchestration container stopped gracefully.");
+
+    Ok(())
+}

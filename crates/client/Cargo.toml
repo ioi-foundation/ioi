@@ -1,0 +1,19 @@
+# Path: crates/client/Cargo.toml
+[package]
+name = "depin-sdk-client"
+version = "0.1.0"
+edition = "2021"
+description = "IPC Client for DePIN SDK validator containers"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+depin-sdk-api = { path = "../api" }
+depin-sdk-types = { path = "../types" }
+anyhow = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tokio-rustls = { workspace = true }
+rustls = { workspace = true, features = ["ring"] }
+rcgen = { workspace = true }

@@ -3,6 +3,9 @@
 
 use serde::Deserialize;
 
+pub mod consensus;
+pub use consensus::*;
+
 /// Configuration for the Workload container (`workload.toml`).
 /// This is defined in `core` because it's part of the public `WorkloadContainer` struct.
 #[derive(Debug, Deserialize, Clone)]

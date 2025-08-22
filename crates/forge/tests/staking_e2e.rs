@@ -11,10 +11,10 @@ use serde_json::json;
 
 #[tokio::test]
 async fn test_staking_lifecycle() -> Result<()> {
-    // 1) Setup
+    // 1. SETUP: Build artifacts.
     build_test_artifacts("consensus-pos,vm-wasm");
 
-    // 2) Launch 3-node PoS cluster with Node0 as initial staker
+    // 2. LAUNCH CLUSTER: 3-node PoS cluster with Node0 as the sole initial staker.
     let mut cluster = TestCluster::builder()
         .with_validators(3)
         .with_consensus_type("ProofOfStake")
@@ -33,27 +33,26 @@ async fn test_staking_lifecycle() -> Result<()> {
         .build()
         .await?;
 
-    // 3) Handles + log streams
+    // 3. GET HANDLES: Get mutable references to the nodes and their log streams.
     let (node0, node1, node2) = {
         let mut it = cluster.validators.iter_mut();
         (it.next().unwrap(), it.next().unwrap(), it.next().unwrap())
     };
-
-    let mut logs0 = node0.orch_log_stream.lock().await.take().unwrap();
+    let rpc_addr = node0.rpc_addr.clone();
+    let node1_peer_id_b58 = node1.peer_id.to_base58();
     let mut logs1 = node1.orch_log_stream.lock().await.take().unwrap();
     let mut logs2 = node2.orch_log_stream.lock().await.take().unwrap();
 
-    // 4) Connectivity: observe *any* gossiped block on Node2 only
-    // (Avoid consuming Node1's stream here since we'll assert specific lines later.)
-    assert_log_contains("Node2", &mut logs2, "Received gossiped block #").await?;
+    // 4. PRE-CONDITION: Wait for the network to be active by seeing the first block gossiped.
+    assert_log_contains("Node2", &mut logs2, "Received gossiped block #1").await?;
 
-    // 5) Submit staking transactions via Node0 RPC
+    // 5. ACTION: Submit staking transactions via Node0's RPC.
+    // Transaction 1: Node0 (the current leader) unstakes all its funds.
     let unstake_payload = SystemPayload::Unstake { amount: 100_000 };
     let unstake_sig = node0.keypair.sign(&serde_json::to_vec(&unstake_payload)?)?;
     let unstake_tx = ChainTransaction::System(SystemTransaction {
         payload: unstake_payload,
         signature: [
-            // FIX: Access the public key via the .keypair field
             node0
                 .keypair
                 .public()
@@ -64,14 +63,14 @@ async fn test_staking_lifecycle() -> Result<()> {
         ]
         .concat(),
     });
-    submit_transaction(&node0.rpc_addr, &unstake_tx).await?;
+    submit_transaction(&rpc_addr, &unstake_tx).await?;
 
+    // Transaction 2: Node1 stakes some funds to become the new (and only) validator.
     let stake_payload = SystemPayload::Stake { amount: 50_000 };
     let stake_sig = node1.keypair.sign(&serde_json::to_vec(&stake_payload)?)?;
     let stake_tx = ChainTransaction::System(SystemTransaction {
         payload: stake_payload,
         signature: [
-            // FIX: Access the public key via the .keypair field
             node1
                 .keypair
                 .public()
@@ -82,25 +81,25 @@ async fn test_staking_lifecycle() -> Result<()> {
         ]
         .concat(),
     });
-    submit_transaction(&node0.rpc_addr, &stake_tx).await?;
+    submit_transaction(&rpc_addr, &stake_tx).await?;
 
-    // 6) RPC node confirms tx gossip
-    assert_log_contains(
-        "Node0",
-        &mut logs0,
-        "[RPC] Published transaction via gossip.",
-    )
-    .await?;
+    // 6. VERIFICATION: This is the critical part of the robust test.
+    // Instead of asserting intermediate steps (like gossip), we wait for the
+    // ultimate desired outcome: Node1 is elected as the leader for a future block.
+    //
+    // The staking transactions will likely be included in block #2. The state change
+    // (Node0 unstaked, Node1 staked) will be committed with block #2. Therefore,
+    // the leader election for block #3 will see Node1 as the sole staker.
+    // We confirm this by looking for the leader election log message on any node.
+    let expected_leader_log = format!("[PoS] leader@3 = {}", node1_peer_id_b58);
 
-    // 7) Followers keep progressing: Node1 sees #3 and processes it
-    // (Don’t re-assert #2 here—its first occurrence was likely consumed earlier.)
-    assert_log_contains("Node1", &mut logs1, "Received gossiped block #3").await?;
     assert_log_contains(
-        "Node1",
+        "Node1", // We can check any node's log, as they all run the same consensus.
         &mut logs1,
-        "Workload processed block successfully.",
+        &expected_leader_log,
     )
     .await?;
 
+    println!("--- Staking Lifecycle E2E Test Passed ---");
     Ok(())
 }

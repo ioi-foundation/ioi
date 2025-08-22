@@ -6,16 +6,15 @@ use depin_sdk_api::chain::{AppChain, StakeAmount};
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::TransactionModel;
-use depin_sdk_api::validator::WorkloadContainer;
+use depin_sdk_client::WorkloadClient;
 use depin_sdk_crypto::algorithms::hash::sha256;
-use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::Block;
 use libp2p::identity::PublicKey as Libp2pPublicKey;
 use libp2p::PeerId;
-use serde::{Deserialize, Serialize}; // <-- ADD THIS LINE
 use std::collections::{BTreeMap, HashSet};
 use std::fmt::Debug;
 use std::str::FromStr;
+use std::sync::Arc;
 
 pub struct ProofOfStakeEngine {}
 
@@ -35,9 +34,7 @@ impl ProofOfStakeEngine {
         height: u64,
         stakers: &BTreeMap<Vec<u8>, StakeAmount>,
     ) -> Option<Vec<u8>> {
-        // --- FIX: Make iterator mutable for `.next_back()` ---
         let mut active_stakers_iter = stakers.iter().filter(|(_, stake)| **stake > 0);
-
         let total_stake: u64 = active_stakers_iter.clone().map(|(_, stake)| *stake).sum();
 
         if total_stake == 0 {
@@ -45,7 +42,6 @@ impl ProofOfStakeEngine {
         }
 
         let seed = height.to_le_bytes();
-        // --- FIX: Remove unnecessary borrow ---
         let hash = sha256(seed);
         let winning_ticket = u64::from_le_bytes(hash[0..8].try_into().unwrap()) % total_stake;
 
@@ -56,36 +52,24 @@ impl ProofOfStakeEngine {
                 return Some(validator_pk_bytes.clone());
             }
         }
-
-        // --- FIX: Use `.next_back()` for efficiency on a DoubleEndedIterator ---
         active_stakers_iter.next_back().map(|(key, _)| key.clone())
     }
 }
 
 #[async_trait]
 impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
-    async fn get_validator_data<CS, ST>(
+    async fn get_validator_data(
         &self,
-        chain: &(dyn AppChain<CS, UnifiedTransactionModel<CS>, ST> + Send + Sync),
-        workload: &WorkloadContainer<ST>,
-    ) -> Result<Vec<Vec<u8>>, String>
-    where
-        CS: CommitmentScheme + Clone,
-        <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de> + Clone,
-        ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-            + Send
-            + Sync
-            + 'static
-            + Debug,
-    {
-        let staker_map = chain
-            .get_staked_validators(workload)
+        workload_client: &Arc<WorkloadClient>,
+    ) -> Result<Vec<Vec<u8>>, String> {
+        // To elect the leader for the upcoming block (H), we must use the validator
+        // set that will become active at that height. This is the 'next' set.
+        let staker_map = workload_client
+            .get_next_staked_validators()
             .await
             .map_err(|e| e.to_string())?;
-
         let serialized_map =
             serde_json::to_vec(&staker_map).map_err(|e| format!("Serialization failed: {}", e))?;
-
         Ok(vec![serialized_map])
     }
 
@@ -131,7 +115,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
                 winner_bytes
             }
             None => {
-                // Fallback when total stake == 0: pick lowest PeerId deterministically to prevent stall.
                 let mut everyone = known_peers.iter().cloned().collect::<Vec<_>>();
                 if !everyone.contains(local_peer_id) {
                     everyone.push(*local_peer_id);
@@ -158,8 +141,8 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
     async fn handle_block_proposal<CS, TM, ST>(
         &mut self,
         block: Block<T>,
-        chain: &mut (dyn AppChain<CS, TM, ST> + Send + Sync),
-        workload: &WorkloadContainer<ST>,
+        _chain: &mut (dyn AppChain<CS, TM, ST> + Send + Sync),
+        workload_client: &Arc<WorkloadClient>,
     ) -> Result<(), String>
     where
         CS: CommitmentScheme + Send + Sync,
@@ -171,14 +154,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             + Debug,
         CS::Commitment: Send + Sync + Debug,
     {
-        if block.header.height != chain.status().height + 1 {
-            return Err(format!(
-                "Invalid block height. Expected {}, got {}",
-                chain.status().height + 1,
-                block.header.height
-            ));
-        }
-
         let producer_pubkey = Libp2pPublicKey::try_decode_protobuf(&block.header.producer)
             .map_err(|e| format!("Failed to decode producer public key: {}", e))?;
         let header_hash = block.header.hash();
@@ -186,8 +161,11 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             return Err("Invalid block signature".to_string());
         }
 
-        let stakers_string_map = chain
-            .get_staked_validators(workload)
+        // When verifying a block from the past (height H), we must use the validator
+        // set that was active at that time. This is the 'current' set. The 'next' set is
+        // only used for electing the leader for the *next* block (H+1).
+        let stakers_string_map = workload_client
+            .get_staked_validators()
             .await
             .map_err(|e| format!("Could not get staked validators: {}", e))?;
         if stakers_string_map.is_empty() {

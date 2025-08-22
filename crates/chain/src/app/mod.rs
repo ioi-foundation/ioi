@@ -8,6 +8,7 @@ use depin_sdk_api::services::{ServiceType, UpgradableService};
 use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
+use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{Block, BlockHeader, ChainStatus, ChainTransaction, SystemPayload};
 use depin_sdk_types::error::{ChainError, CoreError, StateError};
@@ -73,6 +74,36 @@ where
         }
     }
 
+    /// Creates a lightweight, "dummy" Chain instance for the OrchestrationContainer.
+    /// It doesn't need a state backend or service manager, as it will delegate
+    /// all stateful operations to the Workload container via IPC. It only needs
+    /// access to stateless methods like `create_block`.
+    pub fn new_for_orchestrator() -> Chain<HashCommitmentScheme> {
+        // Since this instance is stateless, we can use placeholder/default values.
+        let scheme = HashCommitmentScheme::new();
+        let tm = UnifiedTransactionModel::new(scheme.clone());
+        Chain {
+            state: ChainState {
+                commitment_scheme: scheme,
+                transaction_model: tm,
+                chain_id: "orchestrator-dummy".to_string(),
+                status: ChainStatus {
+                    height: 0,
+                    latest_timestamp: 0,
+                    total_transactions: 0,
+                    is_running: false,
+                },
+                recent_blocks: Vec::new(),
+                max_recent_blocks: 0,
+            },
+            service_manager: ModuleUpgradeManager::new(Box::new(|_| {
+                Err(CoreError::Custom(
+                    "Service factory not implemented for orchestrator's dummy chain".to_string(),
+                ))
+            })),
+        }
+    }
+
     pub async fn load_or_initialize_status<ST>(
         &mut self,
         workload: &WorkloadContainer<ST>,
@@ -123,7 +154,6 @@ where
                     .filter(|(_, stake)| *stake > 0)
                     .filter_map(|(key, _)| bs58::decode(key).into_vec().ok())
                     .collect();
-                // --- FIX: Sort the set for canonical representation ---
                 active_stakers.sort();
                 Ok(active_stakers)
             }
@@ -183,17 +213,14 @@ where
             )));
         }
 
-        // --- FIX START: Simplify state promotion at the start of block processing ---
         if height > 0 {
             let state_tree_arc = workload.state_tree();
             let mut state = state_tree_arc.lock().await;
-            // Promote NEXT from the previous block to become CURRENT for this block.
             let next_stakes_bytes = state
                 .get(STAKES_KEY_NEXT)?
                 .unwrap_or_else(|| b"{}".to_vec());
             state.insert(STAKES_KEY_CURRENT, &next_stakes_bytes)?;
         }
-        // --- FIX END ---
 
         let expected_prev_hash = self
             .state
@@ -258,13 +285,11 @@ where
 
         if is_producing {
             block.header.state_root = new_state_root;
-            // --- FIX START: Sort the validator set before putting it in the header ---
             let mut set = self
                 .get_validator_set_from_key(workload, STAKES_KEY_CURRENT)
                 .await?;
             set.sort();
             block.header.validator_set = set;
-            // --- FIX END ---
         } else {
             if block.header.state_root != new_state_root {
                 return Err(ChainError::Block(format!(
@@ -273,7 +298,6 @@ where
                     hex::encode(&new_state_root)
                 )));
             }
-            // --- FIX START: Sort both sets before comparing ---
             let mut current_validator_set = self
                 .get_validator_set_from_key(workload, STAKES_KEY_CURRENT)
                 .await?;
@@ -286,7 +310,6 @@ where
                     "Validator set mismatch in received block".to_string(),
                 ));
             }
-            // --- FIX END ---
         }
 
         self.state.recent_blocks.push(block.clone());

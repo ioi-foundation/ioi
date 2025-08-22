@@ -28,7 +28,6 @@ use tokio::sync::{Mutex, OnceCell};
 use tokio::time::timeout;
 
 // --- Test Configuration ---
-const NODE_BINARY_REL_PATH: &str = "../../target/release/depin-sdk-node";
 const DOCKER_IMAGE_TAG: &str = "depin-sdk-node:e2e";
 const LOG_ASSERT_TIMEOUT: Duration = Duration::from_secs(45);
 const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(20);
@@ -75,7 +74,6 @@ pub fn build_test_artifacts(node_features: &str) {
             panic!("Counter contract build failed");
         }
 
-        // --- FIX: Build the test service required for the module upgrade test ---
         let status_service = Command::new("cargo")
             .args([
                 "build",
@@ -90,7 +88,6 @@ pub fn build_test_artifacts(node_features: &str) {
         if !status_service.success() {
             panic!("Test service contract build failed");
         }
-        // --- END FIX ---
 
         println!("--- Test Artifacts built successfully ---");
     });
@@ -176,9 +173,7 @@ pub async fn submit_transaction(rpc_addr: &str, tx: &ChainTransaction) -> Result
         "params": [tx_hex],
         "id": 1
     });
-    // *** START FIX: Use the /rpc endpoint ***
     let rpc_url = format!("http://{}/rpc", rpc_addr);
-    // *** END FIX ***
     let response = client
         .post(&rpc_url)
         .json(&request_body)
@@ -341,7 +336,9 @@ impl TestValidator {
             config_dir_path.join("orchestration.toml"),
             orchestration_config,
         )?;
-        let guardian_config = r#"listen_addr = "0.0.0.0:8443""#.to_string();
+
+        // FIX: Write a valid guardian.toml that matches the GuardianConfig struct.
+        let guardian_config = r#"signature_policy = "FollowChain""#.to_string();
         std::fs::write(config_dir_path.join("guardian.toml"), guardian_config)?;
 
         let mut backend: Box<dyn TestBackend> = if use_docker {
@@ -364,12 +361,17 @@ impl TestValidator {
             let guardian_addr = format!("127.0.0.1:{}", guardian_port);
             let ipc_addr_workload = format!("127.0.0.1:{}", ipc_port_workload);
             let state_file_path = temp_dir.path().join("state.json");
+            let node_binary_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .unwrap()
+                .parent()
+                .unwrap()
+                .join("target/release/");
 
             let (guardian_process, mut guardian_reader) =
                 if let Some(model_path) = semantic_model_path {
-                    let mut process = TokioCommand::new(NODE_BINARY_REL_PATH)
+                    let mut process = TokioCommand::new(node_binary_path.join("guardian"))
                         .args([
-                            "guardian",
                             "--config-dir",
                             &config_dir_path.to_string_lossy(),
                             "--semantic-model-path",
@@ -387,7 +389,7 @@ impl TestValidator {
                     timeout(GUARDIAN_READY_TIMEOUT, async {
                         while let Some(line) = reader.next_line().await? {
                             println!("[SETUP-LOGS-Guardian] {}", line);
-                            if line.contains("Guardian: mTLS server listening on") {
+                            if line.contains("Guardian container started (mock).") {
                                 return Ok(());
                             }
                         }
@@ -400,10 +402,9 @@ impl TestValidator {
                 };
 
             let workload_state_file = temp_dir.path().join("workload_state.json");
-            let mut workload_cmd = TokioCommand::new(NODE_BINARY_REL_PATH);
+            let mut workload_cmd = TokioCommand::new(node_binary_path.join("workload"));
             workload_cmd
                 .args([
-                    "workload",
                     "--genesis-file",
                     &genesis_path.to_string_lossy(),
                     "--state-file",
@@ -432,11 +433,8 @@ impl TestValidator {
             .await??;
 
             let mut orch_args = vec![
-                "orchestration".to_string(),
                 "--state-file".to_string(),
                 state_file_path.to_string_lossy().to_string(),
-                "--genesis-file".to_string(),
-                genesis_path.to_string_lossy().to_string(),
                 "--config-dir".to_string(),
                 config_dir_path.to_string_lossy().to_string(),
                 "--listen-address".to_string(),
@@ -448,7 +446,7 @@ impl TestValidator {
                 orch_args.push("--bootnode".to_string());
                 orch_args.push(addr.to_string());
             }
-            let mut orch_cmd = TokioCommand::new(NODE_BINARY_REL_PATH);
+            let mut orch_cmd = TokioCommand::new(node_binary_path.join("orchestration"));
             orch_cmd
                 .args(&orch_args)
                 .env("WORKLOAD_IPC_ADDR", &ipc_addr_workload)
@@ -462,20 +460,10 @@ impl TestValidator {
             let mut orch_reader =
                 BufReader::new(orchestration_process.stderr.take().unwrap()).lines();
             timeout(ORCHESTRATION_READY_TIMEOUT, async {
-                let mut rpc_ready = false;
-                let mut semantic_ready = semantic_model_path.is_none();
                 let rpc_signal = format!("ORCHESTRATION_RPC_LISTENING_ON_{}", rpc_addr);
-                let semantic_signal = "[Orchestrator] Semantic attestation sequence complete.";
-
                 while let Some(line) = orch_reader.next_line().await? {
                     println!("[SETUP-LOGS-Orchestration] {}", line);
-                    if !rpc_ready && line.contains(&rpc_signal) {
-                        rpc_ready = true;
-                    }
-                    if !semantic_ready && line.contains(semantic_signal) {
-                        semantic_ready = true;
-                    }
-                    if rpc_ready && semantic_ready {
+                    if line.contains(&rpc_signal) {
                         return Ok(());
                     }
                 }

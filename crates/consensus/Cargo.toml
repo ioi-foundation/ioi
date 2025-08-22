@@ -9,7 +9,9 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 depin-sdk-api = { path = "../api" }
 depin-sdk-types = { path = "../types" }
-depin-sdk-transaction-models = { path = "../transaction_models" }  # <-- ADD THIS LINE
+depin-sdk-transaction-models = { path = "../transaction_models" }
+depin-sdk-client = { path = "../client" }                          # <-- CHANGED
+depin-sdk-commitment = { path = "../commitment" }
 depin-sdk-crypto = { path = "../crypto", optional = true }
 log = { workspace = true }
 serde = { workspace = true }
@@ -21,6 +23,7 @@ libp2p = { workspace = true }
 async-trait = { workspace = true }
 tokio = { workspace = true, features = ["time"], optional = true }
 bs58 = "0.4"
+cfg-if = "1.0"
 
 [features]
 default = []
