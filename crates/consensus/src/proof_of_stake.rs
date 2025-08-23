@@ -161,13 +161,15 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             return Err("Invalid block signature".to_string());
         }
 
-        // When verifying a block from the past (height H), we must use the validator
-        // set that was active at that time. This is the 'current' set. The 'next' set is
-        // only used for electing the leader for the *next* block (H+1).
+        // --- FIX START ---
+        // When verifying a block for height H, we must use the validator set that
+        // was scheduled to be active at H. From the perspective of our current
+        // state (H-1), this is the 'next' validator set.
         let stakers_string_map = workload_client
-            .get_staked_validators()
+            .get_next_staked_validators() // CORRECT: Use the 'next' set
             .await
             .map_err(|e| format!("Could not get staked validators: {}", e))?;
+        // --- FIX END ---
         if stakers_string_map.is_empty() {
             return Err("Cannot validate block, no stakers found".to_string());
         }
