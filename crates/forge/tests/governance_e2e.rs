@@ -1,4 +1,8 @@
-// crates/forge/tests/governance_e2e.rs
+// Path: crates/forge/tests/governance_e2e.rs
+
+// --- FIX START: Add the cfg attribute to gate the test ---
+#![cfg(all(feature = "consensus-poa", feature = "vm-wasm"))]
+// --- FIX END ---
 
 use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
@@ -15,7 +19,9 @@ use std::collections::BTreeMap;
 #[tokio::test]
 async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
     // 1. SETUP: Build artifacts and define keypairs
-    build_test_artifacts("consensus-poa,vm-wasm");
+    // --- FIX START: Add the missing state backend features ---
+    build_test_artifacts("consensus-poa,vm-wasm,tree-file,primitive-hash");
+    // --- FIX END ---
     let governance_key = identity::Keypair::generate_ed25519();
     let governance_pubkey_b58 =
         bs58::encode(governance_key.public().try_into_ed25519()?.to_bytes()).into_string();

@@ -1,11 +1,12 @@
 // crates/node/src/bin/orchestration.rs
+
 #![forbid(unsafe_code)]
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::Parser;
 use depin_sdk_api::validator::container::Container;
 use depin_sdk_chain::Chain;
-use depin_sdk_client::security::SecurityChannel; // Added for attestation client
+use depin_sdk_client::security::SecurityChannel;
 use depin_sdk_client::WorkloadClient;
 use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
 use depin_sdk_commitment::tree::file::FileStateTree;
@@ -17,33 +18,24 @@ use depin_sdk_validator::{
 use libp2p::{identity, Multiaddr};
 use std::fs;
 use std::io::{Read, Write};
-use std::path::Path;
+use std::path::PathBuf;
 use std::sync::{
-    atomic::{AtomicBool, Ordering}, // Added for quarantine flag
+    atomic::{AtomicBool, Ordering},
     Arc,
 };
 use tokio::sync::Mutex;
-use tokio::time::Duration; // Added for attestation task delay
+use tokio::time::Duration;
 
 #[derive(Parser, Debug)]
 struct OrchestrationOpts {
-    #[clap(long)]
-    state_file: String,
-    #[clap(
-        long,
-        help = "Path to the configuration directory (e.g., for orchestration.toml)."
-    )]
-    config_dir: String,
+    #[clap(long, help = "Path to the orchestration.toml configuration file.")]
+    config: PathBuf,
+    #[clap(long, help = "Path to the identity keypair file.")]
+    identity_key_file: PathBuf,
     #[clap(long, env = "LISTEN_ADDRESS")]
     listen_address: Multiaddr,
     #[clap(long, env = "BOOTNODE")]
     bootnode: Option<Multiaddr>,
-    #[clap(
-        long,
-        env = "RPC_LISTEN_ADDR",
-        help = "Overrides rpc_listen_address in orchestration.toml"
-    )]
-    rpc_listen_address: Option<String>,
 }
 
 #[tokio::main]
@@ -52,24 +44,34 @@ async fn main() -> Result<()> {
         .filter_level(log::LevelFilter::Info)
         .init();
     let opts = OrchestrationOpts::parse();
-    log::info!("Orchestration container starting up...");
+    log::info!(
+        "Orchestration container starting up with config: {:?}",
+        opts.config
+    );
 
-    let mut config: OrchestrationConfig = toml::from_str(&fs::read_to_string(
-        Path::new(&opts.config_dir).join("orchestration.toml"),
-    )?)?;
-    if let Some(rpc_addr) = opts.rpc_listen_address {
-        config.rpc_listen_address = rpc_addr;
-    }
+    let config_path = opts.config.clone();
+    let config_str = fs::read_to_string(&config_path).map_err(|e| {
+        anyhow!(
+            "Failed to read orchestration config file at {:?}: {}",
+            config_path,
+            e
+        )
+    })?;
+    let config: OrchestrationConfig = toml::from_str(&config_str)
+        .map_err(|e| anyhow!("Failed to parse orchestration.toml: {}", e))?;
 
     let local_key = {
-        let key_path = Path::new(&opts.state_file).with_extension("json.identity.key");
+        let key_path = &opts.identity_key_file;
         if key_path.exists() {
             let mut bytes = Vec::new();
-            fs::File::open(&key_path)?.read_to_end(&mut bytes)?;
+            fs::File::open(key_path)?.read_to_end(&mut bytes)?;
             identity::Keypair::from_protobuf_encoding(&bytes)?
         } else {
             let keypair = identity::Keypair::generate_ed25519();
-            fs::File::create(&key_path)?.write_all(&keypair.to_protobuf_encoding()?)?;
+            if let Some(parent) = key_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            fs::File::create(key_path)?.write_all(&keypair.to_protobuf_encoding()?)?;
             keypair
         }
     };
@@ -79,7 +81,6 @@ async fn main() -> Result<()> {
 
     let consensus_engine = engine_from_config(&config.consensus_type)?;
 
-    // START FIX: Re-add the quarantine flag and attestation logic
     let is_quarantined = Arc::new(AtomicBool::new(false));
 
     let orchestration = Arc::new(OrchestrationContainer::<
@@ -87,13 +88,13 @@ async fn main() -> Result<()> {
         FileStateTree<HashCommitmentScheme>,
         _,
     >::new(
-        &Path::new(&opts.config_dir).join("orchestration.toml"),
+        &config_path,
         syncer,
         network_event_receiver,
         swarm_commander.clone(),
         consensus_engine,
         local_key,
-        is_quarantined.clone(), // Pass the flag to the container
+        is_quarantined.clone(),
     )?);
 
     let workload_client = {
@@ -107,7 +108,7 @@ async fn main() -> Result<()> {
         let is_quarantined_clone = is_quarantined.clone();
         let workload_client_clone = workload_client.clone();
         tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(500)).await; // Give guardian time to start
+            tokio::time::sleep(Duration::from_millis(500)).await;
             let guardian_channel = SecurityChannel::new("orchestration", "guardian");
             if let Err(e) = guardian_channel
                 .establish_client(&guardian_addr, "guardian")
@@ -163,7 +164,6 @@ async fn main() -> Result<()> {
     } else {
         log::warn!("GUARDIAN_ADDR not set, skipping Guardian attestation.");
     }
-    // END FIX
 
     let chain_ref = Arc::new(Mutex::new(
         Chain::<HashCommitmentScheme>::new_for_orchestrator(),
@@ -187,7 +187,6 @@ async fn main() -> Result<()> {
     }
 
     log::info!("Shutdown signal received.");
-
     orchestration.stop().await?;
     rpc_handle.abort();
     log::info!("Orchestration container stopped gracefully.");

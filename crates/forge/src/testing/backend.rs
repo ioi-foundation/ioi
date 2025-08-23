@@ -1,4 +1,4 @@
-// crates/forge/src/testing/backend.rs
+// Path: crates/forge/src/testing/backend.rs
 
 use super::{ensure_docker_image_exists, DOCKER_BUILD_CHECK, DOCKER_IMAGE_TAG};
 use anyhow::{anyhow, Result};
@@ -64,6 +64,7 @@ impl ProcessBackend {
 #[async_trait]
 impl TestBackend for ProcessBackend {
     async fn launch(&mut self) -> Result<()> {
+        // The actual process spawning is handled in TestValidator::launch
         Ok(())
     }
 
@@ -145,8 +146,6 @@ pub struct DockerBackend {
     p2p_addr: Multiaddr,
     semantic_model_path: Option<PathBuf>,
     _temp_dir: Arc<TempDir>,
-    _keypair_path: PathBuf,
-    _genesis_path: PathBuf,
     config_dir_path: PathBuf,
     orch_stream: Option<LogStream>,
     work_stream: Option<LogStream>,
@@ -159,8 +158,8 @@ impl DockerBackend {
         p2p_addr: Multiaddr,
         semantic_model_path: Option<PathBuf>,
         temp_dir: Arc<TempDir>,
-        keypair_path: PathBuf,
-        genesis_path: PathBuf,
+        _keypair_path: PathBuf,
+        _genesis_path: PathBuf,
         config_dir_path: PathBuf,
     ) -> Result<Self> {
         let docker = Docker::connect_with_local_defaults()?;
@@ -181,8 +180,6 @@ impl DockerBackend {
             p2p_addr,
             semantic_model_path,
             _temp_dir: temp_dir,
-            _keypair_path: keypair_path,
-            _genesis_path: genesis_path,
             config_dir_path,
             orch_stream: None,
             work_stream: None,
@@ -228,40 +225,43 @@ impl TestBackend for DockerBackend {
             .get_or_try_init(ensure_docker_image_exists)
             .await?;
 
-        let container_config_dir = "/tmp/test-data/config";
-        let container_genesis_path = "/tmp/test-data/genesis.json";
-        let container_state_path = "/tmp/test-data/state.json";
+        // Define paths as they will appear inside the containers
+        let container_data_dir = "/tmp/test-data";
+        let container_workload_config = "/tmp/test-data/workload.toml";
+        let container_orch_config = "/tmp/test-data/orchestration.toml";
+        let container_identity_key = "/tmp/test-data/identity.key";
 
+        // Base volume mount for all generated configs and keys
         let base_binds = vec![format!(
-            "{}:/tmp/test-data",
-            self.config_dir_path.parent().unwrap().to_string_lossy()
+            "{}:{}",
+            self.config_dir_path.to_string_lossy(),
+            container_data_dir
         )];
 
         if let Some(model_path) = &self.semantic_model_path {
             let model_dir = model_path.parent().unwrap().to_string_lossy();
             let model_file_name = model_path.file_name().unwrap().to_string_lossy();
             let container_model_path = format!("/models/{}", model_file_name);
+
             let mut guardian_binds = base_binds.clone();
             guardian_binds.push(format!("{}:/models", model_dir));
 
+            // --- FIX START: Point the config dir to the root of the mounted volume ---
             let guardian_cmd = vec![
                 "guardian",
                 "--config-dir",
-                container_config_dir,
+                container_data_dir, // Use the root mount path directly
                 "--semantic-model-path",
                 &container_model_path,
             ];
+            // --- FIX END ---
+
             let guardian_env = vec![];
             self.launch_container("guardian", guardian_cmd, guardian_env, guardian_binds)
                 .await?;
         }
-        let workload_cmd = vec![
-            "workload",
-            "--genesis-file",
-            container_genesis_path,
-            "--state-file",
-            "/tmp/test-data/workload_state.json",
-        ];
+
+        let workload_cmd = vec!["workload", "--config", container_workload_config];
         let mut workload_env = vec!["IPC_SERVER_ADDR=0.0.0.0:8555"];
         if self.semantic_model_path.is_some() {
             workload_env.push("GUARDIAN_ADDR=guardian:8443");
@@ -271,14 +271,12 @@ impl TestBackend for DockerBackend {
 
         let orch_cmd = vec![
             "orchestration",
-            "--state-file",
-            container_state_path,
-            "--config-dir",
-            container_config_dir,
+            "--config",
+            container_orch_config,
+            "--identity-key-file",
+            container_identity_key,
             "--listen-address",
             "/ip4/0.0.0.0/tcp/9000",
-            "--rpc-listen-address",
-            "0.0.0.0:9999",
         ];
         let mut orch_env = vec!["WORKLOAD_IPC_ADDR=workload:8555"];
         if self.semantic_model_path.is_some() {
@@ -317,7 +315,7 @@ impl TestBackend for DockerBackend {
             let mut guard_stream = convert_stream(self.docker.logs("guardian", log_options));
             timeout(ready_timeout, async {
                 while let Some(Ok(log)) = guard_stream.next().await {
-                    if log.contains("Guardian container started (mock).") {
+                    if log.contains("Guardian container started") {
                         return Ok(());
                     }
                 }
@@ -339,7 +337,6 @@ impl TestBackend for DockerBackend {
         .await??;
 
         self.orch_stream = Some(orch_stream);
-
         Ok(())
     }
 
@@ -357,7 +354,6 @@ impl TestBackend for DockerBackend {
             .take()
             .ok_or_else(|| anyhow!("Workload stream already taken"))?;
         let guard = self.guard_stream.take();
-
         Ok((orch, work, guard))
     }
 

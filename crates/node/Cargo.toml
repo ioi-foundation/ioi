@@ -1,4 +1,5 @@
-# Path: crates/node/Cargo.toml
+# crates/node/Cargo.toml
+
 [package]
 name = "depin-sdk-node"
 version = "0.1.0"
@@ -11,7 +12,7 @@ license = "MIT OR Apache-2.0"
 depin-sdk-api = { path = "../api" }
 depin-sdk-types = { path = "../types" }
 depin-sdk-chain = { path = "../chain" }
-depin-sdk-commitment = { path = "../commitment", features = ["tree-file"] }
+depin-sdk-commitment = { path = "../commitment" }
 depin-sdk-consensus = { path = "../consensus", default-features = false }
 depin-sdk-network = { path = "../network" }
 depin-sdk-transaction-models = { path = "../transaction_models" }
@@ -47,6 +48,15 @@ serde_jcs = "0.1.0"
 default = ["consensus-poa", "vm-wasm", "consensus-round-robin"]
 
 build-bins = ["depin-sdk-validator/validator-bins"]
+
+# --- START: Added Feature Propagation ---
+tree-file = ["depin-sdk-commitment/tree-file"]
+tree-hashmap = ["depin-sdk-commitment/tree-hashmap"]
+tree-iavl = ["depin-sdk-commitment/tree-iavl"]
+tree-sparse-merkle = ["depin-sdk-commitment/tree-sparse-merkle"]
+primitive-hash = ["depin-sdk-commitment/primitive-hash"]
+primitive-pedersen = ["depin-sdk-commitment/primitive-pedersen"]
+# --- END: Added Feature Propagation ---
 
 # Consensus engine features
 consensus-round-robin = [

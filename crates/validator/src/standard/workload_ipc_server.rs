@@ -1,4 +1,5 @@
-// crates/validator/src/standard/workload_ipc_server.rs
+// Path: crates/validator/src/standard/workload_ipc_server.rs
+
 use anyhow::Result;
 use depin_sdk_api::{
     chain::AppChain, commitment::CommitmentScheme, transaction::TransactionModel,
@@ -9,16 +10,15 @@ use depin_sdk_client::{
     ipc::{WorkloadRequest, WorkloadResponse},
     security::SecurityChannel,
 };
-use depin_sdk_commitment::primitives::hash::{HashCommitment, HashCommitmentScheme, HashProof};
 use depin_sdk_services::governance::{GovernanceModule, Proposal, ProposalStatus};
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-use depin_sdk_types::keys::{
-    AUTHORITY_SET_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, STAKES_KEY_CURRENT, STAKES_KEY_NEXT,
-};
-use libp2p::PeerId;
+use depin_sdk_types::keys::{GOVERNANCE_PROPOSAL_KEY_PREFIX, STAKES_KEY_CURRENT};
 use rcgen::{Certificate, CertificateParams, SanType};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, str::FromStr, sync::Arc};
+// --- FIX START ---
+use std::net::Ipv4Addr;
+// --- FIX END ---
+use std::{collections::BTreeMap, sync::Arc};
 use tokio::{io::AsyncReadExt, sync::Mutex};
 use tokio_rustls::{
     rustls::{
@@ -30,10 +30,12 @@ use tokio_rustls::{
 
 fn create_ipc_server_config() -> Result<Arc<ServerConfig>> {
     let mut server_params = CertificateParams::new(vec!["workload".to_string()]);
+    // --- FIX START: Replace fallible string parsing with an infallible constant. ---
     server_params.subject_alt_names = vec![
         SanType::DnsName("workload".to_string()),
-        SanType::IpAddress("127.0.0.1".parse().unwrap()),
+        SanType::IpAddress(Ipv4Addr::LOCALHOST.into()),
     ];
+    // --- FIX END ---
     let server_cert = Certificate::from_params(server_params)?;
     let server_der = server_cert.serialize_der()?;
     let server_key = server_cert.serialize_private_key_der();
@@ -61,18 +63,22 @@ where
     chain_arc: Arc<Mutex<Chain<CS>>>,
 }
 
-impl<ST> WorkloadIpcServer<ST, HashCommitmentScheme>
+impl<ST, CS> WorkloadIpcServer<ST, CS>
 where
-    ST: depin_sdk_api::state::StateManager<Commitment = HashCommitment, Proof = HashProof>
+    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
         + 'static
         + std::fmt::Debug,
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    CS::Commitment: std::fmt::Debug,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
 {
     pub async fn new(
         address: String,
         workload_container: Arc<WorkloadContainer<ST>>,
-        chain_arc: Arc<Mutex<Chain<HashCommitmentScheme>>>,
+        chain_arc: Arc<Mutex<Chain<CS>>>,
     ) -> Result<Self> {
         Ok(Self {
             address,
@@ -171,8 +177,8 @@ where
                 WorkloadResponse::GetExpectedModelHash(handler.await.map_err(|e| e.to_string()))
             }
             WorkloadRequest::ExecuteTransaction(tx) => {
-                let transaction_model =
-                    Arc::new(UnifiedTransactionModel::new(HashCommitmentScheme::new()));
+                let cs = self.chain_arc.lock().await.state.commitment_scheme.clone();
+                let transaction_model = Arc::new(UnifiedTransactionModel::new(cs));
                 let res = transaction_model
                     .apply(&tx, &self.workload_container, 0)
                     .await
@@ -180,59 +186,35 @@ where
                 WorkloadResponse::ExecuteTransaction(res)
             }
             WorkloadRequest::GetStakes => {
-                let state_tree_arc = self.workload_container.state_tree();
-                let state = state_tree_arc.lock().await;
-                let res: Result<_, String> = match state.get(STAKES_KEY_CURRENT) {
-                    Ok(Some(bytes)) => serde_json::from_slice::<BTreeMap<String, u64>>(&bytes)
-                        .map_err(|e| e.to_string()),
-                    Ok(None) => Ok(BTreeMap::new()),
-                    Err(e) => Err(e.to_string()),
-                };
+                let chain = self.chain_arc.lock().await;
+                let res = chain
+                    .get_staked_validators(&self.workload_container)
+                    .await
+                    .map_err(|e| e.to_string());
                 WorkloadResponse::GetStakes(res)
             }
             WorkloadRequest::GetNextStakes => {
-                let state_tree_arc = self.workload_container.state_tree();
-                let state = state_tree_arc.lock().await;
-                let res: Result<_, String> = match state.get(STAKES_KEY_NEXT) {
-                    Ok(Some(bytes)) => serde_json::from_slice::<BTreeMap<String, u64>>(&bytes)
-                        .map_err(|e| e.to_string()),
-                    Ok(None) => Ok(BTreeMap::new()),
-                    Err(e) => Err(e.to_string()),
-                };
+                let chain = self.chain_arc.lock().await;
+                let res = chain
+                    .get_next_staked_validators(&self.workload_container)
+                    .await
+                    .map_err(|e| e.to_string());
                 WorkloadResponse::GetNextStakes(res)
             }
             WorkloadRequest::GetAuthoritySet => {
-                let state_tree_arc = self.workload_container.state_tree();
-                let state = state_tree_arc.lock().await;
-                let res = (|| -> Result<Vec<Vec<u8>>, String> {
-                    match state.get(AUTHORITY_SET_KEY) {
-                        Ok(Some(bytes)) => serde_json::from_slice(&bytes)
-                            .map_err(|e| format!("Deserialization error: {}", e)),
-                        Ok(None) => Ok(Vec::new()),
-                        Err(e) => Err(e.to_string()),
-                    }
-                })();
+                let chain = self.chain_arc.lock().await;
+                let res = chain
+                    .get_authority_set(&self.workload_container)
+                    .await
+                    .map_err(|e| e.to_string());
                 WorkloadResponse::GetAuthoritySet(res)
             }
             WorkloadRequest::GetValidatorSet => {
-                let state_tree_arc = self.workload_container.state_tree();
-                let state = state_tree_arc.lock().await;
-                let res = match state.get(STAKES_KEY_CURRENT) {
-                    Ok(Some(bytes)) => {
-                        match serde_json::from_slice::<BTreeMap<String, u64>>(&bytes) {
-                            Ok(stakers) => Ok(stakers
-                                .into_iter()
-                                .filter(|(_, stake)| *stake > 0)
-                                .filter_map(|(key, _)| {
-                                    PeerId::from_str(&key).ok().map(|p| p.to_bytes())
-                                })
-                                .collect()),
-                            Err(e) => Err(e.to_string()),
-                        }
-                    }
-                    Ok(None) => Ok(Vec::new()),
-                    Err(e) => Err(e.to_string()),
-                };
+                let chain = self.chain_arc.lock().await;
+                let res = chain
+                    .get_validator_set(&self.workload_container)
+                    .await
+                    .map_err(|e| e.to_string());
                 WorkloadResponse::GetValidatorSet(res)
             }
             WorkloadRequest::GetStateRoot => {

@@ -1,4 +1,5 @@
-# Path: crates/commitment/Cargo.toml
+# crates/commitment/Cargo.toml
+
 [package]
 name = "depin-sdk-commitment"
 version = "0.1.0"
@@ -10,7 +11,6 @@ license = "MIT OR Apache-2.0"
 depin-sdk-api = { path = "../api" }
 depin-sdk-types = { path = "../types" }
 depin-sdk-crypto = { path = "../crypto" }
-# ... other dependencies like serde, log, etc.
 dcrypt = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
@@ -19,7 +19,7 @@ thiserror = { workspace = true }
 bytes = { workspace = true }
 rand = { workspace = true }
 hex = { workspace = true }
-lazy_static = "1.4.0"                               # Needed for SMT EMPTY_HASH
+lazy_static = "1.4.0"
 
 [features]
 default = []
@@ -31,9 +31,8 @@ primitive-lattice = []
 primitive-pedersen = ["depin-sdk-api/homomorphic"]
 
 # Trees (depend on primitives)
-tree-hashmap = ["primitive-hash"]
 tree-file = ["primitive-hash"]
-tree-verkle = ["primitive-kzg"]
-tree-sparse-merkle = ["primitive-hash"]
+tree-hashmap = ["primitive-hash"]
 tree-iavl = ["primitive-hash"]
-# ... add features for the full shopping list
+tree-sparse-merkle = ["primitive-hash"]
+tree-verkle = ["primitive-kzg"]

@@ -77,7 +77,9 @@ async fn query_contract(rpc_addr: &str, address_hex: &str, input: &[u8]) -> Resu
 #[tokio::test]
 async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     // 1. SETUP & BUILD
-    build_test_artifacts("consensus-poa,vm-wasm");
+    // --- FIX START: Add the missing features for the default state backend. ---
+    build_test_artifacts("consensus-poa,vm-wasm,tree-file,primitive-hash");
+    // --- FIX END ---
     let counter_wasm =
         std::fs::read("../../target/wasm32-unknown-unknown/release/counter_contract.wasm")?;
 

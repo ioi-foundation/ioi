@@ -1,4 +1,4 @@
-// crates/forge/src/testing/mod.rs
+// Path: crates/forge/src/testing/mod.rs
 
 //! Contains helper functions for building and running end-to-end tests.
 //! These functions are exposed as a public library to allow users of the
@@ -11,6 +11,8 @@ use backend::{DockerBackend, LogStream, ProcessBackend, TestBackend};
 use bollard::image::BuildImageOptions;
 use bollard::Docker;
 use depin_sdk_types::app::ChainTransaction;
+use depin_sdk_types::config::{CommitmentSchemeType, ConsensusType, StateTreeType, WorkloadConfig};
+use depin_sdk_validator::config::OrchestrationConfig;
 use futures_util::StreamExt;
 use hyper::Body;
 use libp2p::{identity, Multiaddr, PeerId};
@@ -94,8 +96,6 @@ pub fn build_test_artifacts(node_features: &str) {
 }
 
 /// Checks if the test Docker image exists and builds it if it doesn't.
-/// This function is designed to be called within a `OnceCell` to ensure it
-/// only runs once per test execution.
 async fn ensure_docker_image_exists() -> Result<()> {
     let docker = Docker::connect_with_local_defaults()?;
     match docker.inspect_image(DOCKER_IMAGE_TAG).await {
@@ -119,11 +119,11 @@ async fn ensure_docker_image_exists() -> Result<()> {
 
     let context_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
-        .unwrap() // -> forge
+        .unwrap()
         .parent()
-        .unwrap() // -> crates
+        .unwrap()
         .parent()
-        .unwrap(); // -> workspace root
+        .unwrap();
 
     let tar_bytes = {
         let mut bytes = Vec::new();
@@ -249,8 +249,6 @@ pub async fn assert_log_contains_and_return_line(
     })
 }
 
-// --- New Test Harness Implementation ---
-
 /// Represents a complete, logical validator node, abstracting over its execution backend.
 pub struct TestValidator {
     pub keypair: identity::Keypair,
@@ -275,7 +273,6 @@ impl Drop for TestValidator {
     }
 }
 
-// Dummy backend for drop
 struct NullBackend;
 #[async_trait::async_trait]
 impl TestBackend for NullBackend {
@@ -294,12 +291,15 @@ impl TestBackend for NullBackend {
 }
 
 impl TestValidator {
+    #[allow(clippy::too_many_arguments)]
     pub async fn launch(
         keypair: identity::Keypair,
         genesis_content: String,
         base_port: u16,
         bootnode_addr: Option<&Multiaddr>,
         consensus_type: &str,
+        state_tree_type: &str,
+        commitment_scheme_type: &str,
         semantic_model_path: Option<&str>,
         use_docker: bool,
     ) -> Result<Self> {
@@ -311,33 +311,75 @@ impl TestValidator {
         let p2p_addr_str = format!("/ip4/127.0.0.1/tcp/{}", p2p_port);
         let rpc_addr = format!("127.0.0.1:{}", rpc_port);
 
-        let keypair_path = temp_dir.path().join("state.json.identity.key");
+        let keypair_path = temp_dir.path().join("identity.key");
         std::fs::write(&keypair_path, keypair.to_protobuf_encoding()?)?;
 
         let genesis_path = temp_dir.path().join("genesis.json");
         std::fs::write(&genesis_path, genesis_content)?;
 
-        let config_dir_path = temp_dir.path().join("config");
-        std::fs::create_dir_all(&config_dir_path)?;
-        let orchestration_config = format!(
-            r#"
-            consensus_type = "{}"
-            rpc_listen_address = "{}"
-            initial_sync_timeout_secs = 2
-            "#,
-            consensus_type,
-            if use_docker {
-                format!("0.0.0.0:{}", 9999)
+        let config_dir_path = temp_dir.path().to_path_buf();
+
+        // --- FIX START: Replace error-prone string formatting with struct serialization ---
+        let consensus_enum = match consensus_type {
+            "ProofOfAuthority" => ConsensusType::ProofOfAuthority,
+            "ProofOfStake" => ConsensusType::ProofOfStake,
+            _ => return Err(anyhow!("Unsupported consensus type: {}", consensus_type)),
+        };
+
+        let state_tree_enum = match state_tree_type {
+            "File" => StateTreeType::File,
+            "HashMap" => StateTreeType::HashMap,
+            "IAVL" => StateTreeType::IAVL,
+            "SparseMerkle" => StateTreeType::SparseMerkle,
+            "Verkle" => StateTreeType::Verkle,
+            _ => return Err(anyhow!("Unsupported state tree type: {}", state_tree_type)),
+        };
+
+        let commitment_scheme_enum = match commitment_scheme_type {
+            "Hash" => CommitmentSchemeType::Hash,
+            "Pedersen" => CommitmentSchemeType::Pedersen,
+            "KZG" => CommitmentSchemeType::KZG,
+            "Lattice" => CommitmentSchemeType::Lattice,
+            _ => {
+                return Err(anyhow!(
+                    "Unsupported commitment scheme: {}",
+                    commitment_scheme_type
+                ))
+            }
+        };
+
+        let orch_config_path = config_dir_path.join("orchestration.toml");
+        let orchestration_config = OrchestrationConfig {
+            consensus_type: consensus_enum,
+            rpc_listen_address: if use_docker {
+                "0.0.0.0:9999".to_string()
             } else {
                 rpc_addr.clone()
-            }
-        );
-        std::fs::write(
-            config_dir_path.join("orchestration.toml"),
-            orchestration_config,
-        )?;
+            },
+            initial_sync_timeout_secs: 2,
+        };
+        std::fs::write(&orch_config_path, toml::to_string(&orchestration_config)?)?;
 
-        // FIX: Write a valid guardian.toml that matches the GuardianConfig struct.
+        let workload_config_path = config_dir_path.join("workload.toml");
+        let workload_state_file = temp_dir.path().join("workload_state.json");
+        let workload_config = WorkloadConfig {
+            enabled_vms: vec!["WASM".to_string()],
+            state_tree: state_tree_enum,
+            commitment_scheme: commitment_scheme_enum,
+            genesis_file: if use_docker {
+                "/tmp/test-data/genesis.json".to_string()
+            } else {
+                genesis_path.to_string_lossy().replace('\\', "/")
+            },
+            state_file: if use_docker {
+                "/tmp/test-data/workload_state.json".to_string()
+            } else {
+                workload_state_file.to_string_lossy().replace('\\', "/")
+            },
+        };
+        std::fs::write(&workload_config_path, toml::to_string(&workload_config)?)?;
+        // --- FIX END ---
+
         let guardian_config = r#"signature_policy = "FollowChain""#.to_string();
         std::fs::write(config_dir_path.join("guardian.toml"), guardian_config)?;
 
@@ -355,12 +397,10 @@ impl TestValidator {
                 .await?,
             )
         } else {
-            // ProcessBackend launch logic
             let ipc_port_workload = portpicker::pick_unused_port().unwrap_or(base_port + 2);
             let guardian_port = portpicker::pick_unused_port().unwrap_or(base_port + 3);
             let guardian_addr = format!("127.0.0.1:{}", guardian_port);
             let ipc_addr_workload = format!("127.0.0.1:{}", ipc_port_workload);
-            let state_file_path = temp_dir.path().join("state.json");
             let node_binary_path = Path::new(env!("CARGO_MANIFEST_DIR"))
                 .parent()
                 .unwrap()
@@ -377,19 +417,14 @@ impl TestValidator {
                             "--semantic-model-path",
                             model_path,
                         ])
-                        .env("WORKLOAD_IPC_ADDR", &ipc_addr_workload)
                         .env("GUARDIAN_LISTEN_ADDR", &guardian_addr)
                         .stderr(Stdio::piped())
                         .kill_on_drop(true)
                         .spawn()?;
-
-                    let stderr = process.stderr.take().unwrap();
-                    let mut reader = BufReader::new(stderr).lines();
-
+                    let mut reader = BufReader::new(process.stderr.take().unwrap()).lines();
                     timeout(GUARDIAN_READY_TIMEOUT, async {
                         while let Some(line) = reader.next_line().await? {
-                            println!("[SETUP-LOGS-Guardian] {}", line);
-                            if line.contains("Guardian container started (mock).") {
+                            if line.contains("Guardian container started") {
                                 return Ok(());
                             }
                         }
@@ -401,29 +436,22 @@ impl TestValidator {
                     (None, None)
                 };
 
-            let workload_state_file = temp_dir.path().join("workload_state.json");
             let mut workload_cmd = TokioCommand::new(node_binary_path.join("workload"));
             workload_cmd
-                .args([
-                    "--genesis-file",
-                    &genesis_path.to_string_lossy(),
-                    "--state-file",
-                    &workload_state_file.to_string_lossy(),
-                ])
+                .args(["--config", &workload_config_path.to_string_lossy()])
                 .env("IPC_SERVER_ADDR", &ipc_addr_workload)
                 .stderr(Stdio::piped())
                 .kill_on_drop(true);
-
             if semantic_model_path.is_some() {
                 workload_cmd.env("GUARDIAN_ADDR", &guardian_addr);
             }
+
             let mut workload_process = workload_cmd.spawn()?;
             let mut workload_reader =
                 BufReader::new(workload_process.stderr.take().unwrap()).lines();
             timeout(WORKLOAD_READY_TIMEOUT, async {
                 let ready_signal = format!("WORKLOAD_IPC_LISTENING_ON_{}", ipc_addr_workload);
                 while let Some(line) = workload_reader.next_line().await? {
-                    println!("[SETUP-LOGS-Workload] {}", line);
                     if line.contains(&ready_signal) {
                         return Ok(());
                     }
@@ -433,14 +461,12 @@ impl TestValidator {
             .await??;
 
             let mut orch_args = vec![
-                "--state-file".to_string(),
-                state_file_path.to_string_lossy().to_string(),
-                "--config-dir".to_string(),
-                config_dir_path.to_string_lossy().to_string(),
+                "--config".to_string(),
+                orch_config_path.to_string_lossy().to_string(),
+                "--identity-key-file".to_string(),
+                keypair_path.to_string_lossy().to_string(),
                 "--listen-address".to_string(),
                 p2p_addr_str.clone(),
-                "--rpc-listen-address".to_string(),
-                rpc_addr.clone(),
             ];
             if let Some(addr) = bootnode_addr {
                 orch_args.push("--bootnode".to_string());
@@ -452,23 +478,22 @@ impl TestValidator {
                 .env("WORKLOAD_IPC_ADDR", &ipc_addr_workload)
                 .stderr(Stdio::piped())
                 .kill_on_drop(true);
-
             if semantic_model_path.is_some() {
                 orch_cmd.env("GUARDIAN_ADDR", &guardian_addr);
             }
+
             let mut orchestration_process = orch_cmd.spawn()?;
             let mut orch_reader =
                 BufReader::new(orchestration_process.stderr.take().unwrap()).lines();
             timeout(ORCHESTRATION_READY_TIMEOUT, async {
                 let rpc_signal = format!("ORCHESTRATION_RPC_LISTENING_ON_{}", rpc_addr);
                 while let Some(line) = orch_reader.next_line().await? {
-                    println!("[SETUP-LOGS-Orchestration] {}", line);
                     if line.contains(&rpc_signal) {
                         return Ok(());
                     }
                 }
                 Err(anyhow!(
-                    "Orchestration stderr stream ended before all ready signals were found."
+                    "Orchestration stderr stream ended before ready signal."
                 ))
             })
             .await??;
@@ -477,7 +502,6 @@ impl TestValidator {
             pb.orchestration_process = Some(orchestration_process);
             pb.workload_process = Some(workload_process);
             pb.guardian_process = guardian_process;
-
             pb.orchestration_process.as_mut().unwrap().stderr =
                 Some(orch_reader.into_inner().into_inner());
             pb.workload_process.as_mut().unwrap().stderr =
@@ -485,7 +509,6 @@ impl TestValidator {
             if let (Some(g), Some(gr)) = (pb.guardian_process.as_mut(), guardian_reader.take()) {
                 g.stderr = Some(gr.into_inner().into_inner());
             }
-
             Box::new(pb)
         };
 
@@ -519,7 +542,7 @@ impl TestCluster {
 }
 
 /// A type alias for a closure that modifies the genesis state.
-type GenesisModifier = Box<dyn FnOnce(&mut Value, &Vec<identity::Keypair>)>;
+type GenesisModifier = Box<dyn FnOnce(&mut Value, &Vec<identity::Keypair>) + Send>;
 
 pub struct TestClusterBuilder {
     num_validators: usize,
@@ -527,23 +550,27 @@ pub struct TestClusterBuilder {
     consensus_type: String,
     semantic_model_path: Option<String>,
     use_docker: bool,
+    state_tree: String,
+    commitment_scheme: String,
 }
 
 impl Default for TestClusterBuilder {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl TestClusterBuilder {
-    pub fn new() -> Self {
         Self {
             num_validators: 1,
             genesis_modifiers: Vec::new(),
             consensus_type: "ProofOfAuthority".to_string(),
             semantic_model_path: None,
             use_docker: false,
+            state_tree: "File".to_string(),
+            commitment_scheme: "Hash".to_string(),
         }
+    }
+}
+
+impl TestClusterBuilder {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn with_validators(mut self, count: usize) -> Self {
@@ -561,6 +588,16 @@ impl TestClusterBuilder {
         self
     }
 
+    pub fn with_state_tree(mut self, state: &str) -> Self {
+        self.state_tree = state.to_string();
+        self
+    }
+
+    pub fn with_commitment_scheme(mut self, scheme: &str) -> Self {
+        self.commitment_scheme = scheme.to_string();
+        self
+    }
+
     pub fn with_semantic_model_path(mut self, path: &str) -> Self {
         self.semantic_model_path = Some(path.to_string());
         self
@@ -568,7 +605,7 @@ impl TestClusterBuilder {
 
     pub fn with_genesis_modifier<F>(mut self, modifier: F) -> Self
     where
-        F: FnOnce(&mut Value, &Vec<identity::Keypair>) + 'static,
+        F: FnOnce(&mut Value, &Vec<identity::Keypair>) + Send + 'static,
     {
         self.genesis_modifiers.push(Box::new(modifier));
         self
@@ -594,6 +631,8 @@ impl TestClusterBuilder {
                 base_port,
                 bootnode_addr.as_ref(),
                 &self.consensus_type,
+                &self.state_tree,
+                &self.commitment_scheme,
                 self.semantic_model_path.as_deref(),
                 self.use_docker,
             )

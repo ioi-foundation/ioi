@@ -4,7 +4,6 @@
 use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_api::state::StateManager;
-use depin_sdk_types::keys::{STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
 use serde_json::Value;
 use std::fs;
 
@@ -37,16 +36,8 @@ pub fn load_state_from_genesis_file<S: StateManager + ?Sized>(
                 serde_json::to_vec(value)?
             };
 
-            if key_bytes == b"system::stakes" {
-                log::info!(
-                    "  -> Found legacy 'system::stakes' key. Migrating to 'current' and 'next'."
-                );
-                state_manager.insert(STAKES_KEY_CURRENT, &value_bytes)?;
-                state_manager.insert(STAKES_KEY_NEXT, &value_bytes)?;
-            } else {
-                log::info!("  -> Writing genesis key: {}", hex::encode(&key_bytes));
-                state_manager.insert(&key_bytes, &value_bytes)?;
-            }
+            log::info!("  -> Writing genesis key: {}", hex::encode(&key_bytes));
+            state_manager.insert(&key_bytes, &value_bytes)?;
         }
         log::info!("Genesis state successfully loaded into state tree.");
     } else {

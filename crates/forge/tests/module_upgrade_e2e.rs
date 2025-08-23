@@ -1,5 +1,9 @@
 // Path: crates/forge/tests/module_upgrade_e2e.rs
 
+// --- FIX START: Add the cfg attribute to gate the test ---
+#![cfg(all(feature = "consensus-poa", feature = "vm-wasm"))]
+// --- FIX END ---
+
 use anyhow::Result;
 use depin_sdk_forge::testing::{
     assert_log_contains, build_test_artifacts, submit_transaction, TestCluster,
@@ -10,7 +14,9 @@ use serde_json::json;
 #[tokio::test]
 async fn test_forkless_module_upgrade() -> Result<()> {
     // 1. SETUP & BUILD
-    build_test_artifacts("consensus-poa,vm-wasm");
+    // --- FIX START: Add the missing state backend features ---
+    build_test_artifacts("consensus-poa,vm-wasm,tree-file,primitive-hash");
+    // --- FIX END ---
     let service_v2_wasm =
         std::fs::read("../../target/wasm32-unknown-unknown/release/test_service_v2.wasm")?;
 

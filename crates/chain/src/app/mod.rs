@@ -74,12 +74,7 @@ where
         }
     }
 
-    /// Creates a lightweight, "dummy" Chain instance for the OrchestrationContainer.
-    /// It doesn't need a state backend or service manager, as it will delegate
-    /// all stateful operations to the Workload container via IPC. It only needs
-    /// access to stateless methods like `create_block`.
     pub fn new_for_orchestrator() -> Chain<HashCommitmentScheme> {
-        // Since this instance is stateless, we can use placeholder/default values.
         let scheme = HashCommitmentScheme::new();
         let tm = UnifiedTransactionModel::new(scheme.clone());
         Chain {
@@ -205,21 +200,13 @@ where
         let is_producing = block.header.signature.is_empty();
         let height = block.header.height;
 
+        // --- Phase 1: Validation (read-only operations against current state H-1) ---
         if height != self.state.status.height + 1 {
             return Err(ChainError::Block(format!(
                 "Invalid block height. Expected {}, got {}",
                 self.state.status.height + 1,
                 height
             )));
-        }
-
-        if height > 0 {
-            let state_tree_arc = workload.state_tree();
-            let mut state = state_tree_arc.lock().await;
-            let next_stakes_bytes = state
-                .get(STAKES_KEY_NEXT)?
-                .unwrap_or_else(|| b"{}".to_vec());
-            state.insert(STAKES_KEY_CURRENT, &next_stakes_bytes)?;
         }
 
         let expected_prev_hash = self
@@ -236,6 +223,22 @@ where
             )));
         }
 
+        let mut current_validator_set = self.get_validator_set(workload).await?;
+        current_validator_set.sort();
+        let mut header_set = block.header.validator_set.clone();
+        header_set.sort();
+        if header_set != current_validator_set {
+            return Err(ChainError::Block(format!(
+                "Validator set mismatch in received block. Header: {:?}, State: {:?}",
+                header_set.iter().map(hex::encode).collect::<Vec<_>>(),
+                current_validator_set
+                    .iter()
+                    .map(hex::encode)
+                    .collect::<Vec<_>>()
+            )));
+        }
+
+        // --- Phase 2: Application (write operations to transition from H-1 to H) ---
         for tx in &block.transactions {
             if let ChainTransaction::System(sys_tx) = tx {
                 if let SystemPayload::SwapModule {
@@ -268,12 +271,18 @@ where
             }
         }
 
+        // --- Phase 3: End-of-Block State Transitions (e.g., PoS rollover) ---
+        if height > 0 {
+            let state_tree_arc = workload.state_tree();
+            let mut state = state_tree_arc.lock().await;
+            if let Some(next_stakes_bytes) = state.get(STAKES_KEY_NEXT)? {
+                state.insert(STAKES_KEY_CURRENT, &next_stakes_bytes)?;
+            }
+        }
+
+        // --- Phase 4: Finalization ---
         self.state.status.height = height;
         self.state.status.latest_timestamp = block.header.timestamp;
-
-        let validator_set_for_h_plus_1 = self
-            .get_validator_set_from_key(workload, STAKES_KEY_NEXT)
-            .await?;
 
         let status_bytes = serde_json::to_vec(&self.state.status)
             .map_err(|e| ChainError::Transaction(format!("Failed to serialize status: {e}")))?;
@@ -285,32 +294,17 @@ where
 
         if is_producing {
             block.header.state_root = new_state_root;
-            let mut set = self
-                .get_validator_set_from_key(workload, STAKES_KEY_CURRENT)
-                .await?;
-            set.sort();
-            block.header.validator_set = set;
         } else {
             if block.header.state_root != new_state_root {
                 return Err(ChainError::Block(format!(
                     "State root mismatch. Expected {}, got {}",
+                    hex::encode(&new_state_root),
                     hex::encode(&block.header.state_root),
-                    hex::encode(&new_state_root)
                 )));
             }
-            let mut current_validator_set = self
-                .get_validator_set_from_key(workload, STAKES_KEY_CURRENT)
-                .await?;
-            current_validator_set.sort();
-            let mut header_set = block.header.validator_set.clone();
-            header_set.sort();
-
-            if header_set != current_validator_set {
-                return Err(ChainError::Block(
-                    "Validator set mismatch in received block".to_string(),
-                ));
-            }
         }
+
+        let validator_set_for_h_plus_1 = self.get_next_validator_set(workload).await?;
 
         self.state.recent_blocks.push(block.clone());
         if self.state.recent_blocks.len() > self.state.max_recent_blocks {
@@ -379,9 +373,31 @@ where
         let state_tree_arc = workload.state_tree();
         let state = state_tree_arc.lock().await;
 
-        if state.get(STAKES_KEY_CURRENT)?.is_some() || state.get(STAKES_KEY_NEXT)?.is_some() {
+        if state.get(STAKES_KEY_CURRENT)?.is_some() {
             drop(state);
             self.get_validator_set_from_key(workload, STAKES_KEY_CURRENT)
+                .await
+        } else {
+            match state.get(AUTHORITY_SET_KEY) {
+                Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
+                    ChainError::Transaction(format!("Failed to deserialize authority set: {e}"))
+                }),
+                Ok(None) => Ok(Vec::new()),
+                Err(e) => Err(e.into()),
+            }
+        }
+    }
+
+    async fn get_next_validator_set(
+        &self,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<Vec<Vec<u8>>, ChainError> {
+        let state_tree_arc = workload.state_tree();
+        let state = state_tree_arc.lock().await;
+
+        if state.get(STAKES_KEY_NEXT)?.is_some() {
+            drop(state);
+            self.get_validator_set_from_key(workload, STAKES_KEY_NEXT)
                 .await
         } else {
             match state.get(AUTHORITY_SET_KEY) {
@@ -434,6 +450,33 @@ where
             Err(e) => Err(e.into()),
         }
     }
+
+    // --- FIX START: Implement the new trait method ---
+    async fn get_next_staked_validators(
+        &self,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<BTreeMap<PublicKey, StakeAmount>, ChainError> {
+        let state_tree_arc = workload.state_tree();
+        let state = state_tree_arc.lock().await;
+        match state.get(STAKES_KEY_NEXT) {
+            Ok(Some(bytes)) => {
+                let raw_map: BTreeMap<String, u64> =
+                    serde_json::from_slice(&bytes).map_err(|e| {
+                        ChainError::Transaction(format!(
+                            "Failed to deserialize next stakes map: {e}"
+                        ))
+                    })?;
+                let stakes_map: BTreeMap<PublicKey, StakeAmount> = raw_map
+                    .into_iter()
+                    .filter(|(_, stake)| *stake > 0)
+                    .collect();
+                Ok(stakes_map)
+            }
+            Ok(None) => Ok(BTreeMap::new()),
+            Err(e) => Err(e.into()),
+        }
+    }
+    // --- FIX END ---
 }
 
 #[cfg(test)]
@@ -444,7 +487,7 @@ mod tests {
     use depin_sdk_commitment::tree::hashmap::HashMapStateTree;
     use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
     use depin_sdk_types::app::{SystemPayload, SystemTransaction};
-    use depin_sdk_types::config::WorkloadConfig;
+    use depin_sdk_types::config::{CommitmentSchemeType, StateTreeType, WorkloadConfig};
     use depin_sdk_vm_wasm::WasmVm;
     use libp2p::identity::Keypair;
     use libp2p::PeerId;
@@ -460,13 +503,14 @@ mod tests {
         let scheme = HashCommitmentScheme::new();
         let state_tree = HashMapStateTree::new(scheme.clone());
         let wasm_vm = Box::new(WasmVm::new());
-        let workload = Arc::new(WorkloadContainer::new(
-            WorkloadConfig {
-                enabled_vms: vec![],
-            },
-            state_tree,
-            wasm_vm,
-        ));
+        let workload_config = WorkloadConfig {
+            enabled_vms: vec![],
+            state_tree: StateTreeType::HashMap,
+            commitment_scheme: CommitmentSchemeType::Hash,
+            genesis_file: "".to_string(),
+            state_file: "".to_string(),
+        };
+        let workload = Arc::new(WorkloadContainer::new(workload_config, state_tree, wasm_vm));
         let mut chain = Chain::new(
             scheme.clone(),
             UnifiedTransactionModel::new(scheme),
@@ -518,13 +562,14 @@ mod tests {
         let scheme = HashCommitmentScheme::new();
         let state_tree = HashMapStateTree::new(scheme.clone());
         let wasm_vm = Box::new(WasmVm::new());
-        let workload = Arc::new(WorkloadContainer::new(
-            WorkloadConfig {
-                enabled_vms: vec![],
-            },
-            state_tree,
-            wasm_vm,
-        ));
+        let workload_config = WorkloadConfig {
+            enabled_vms: vec![],
+            state_tree: StateTreeType::HashMap,
+            commitment_scheme: CommitmentSchemeType::Hash,
+            genesis_file: "".to_string(),
+            state_file: "".to_string(),
+        };
+        let workload = Arc::new(WorkloadContainer::new(workload_config, state_tree, wasm_vm));
         let mut chain = Chain::new(
             scheme.clone(),
             UnifiedTransactionModel::new(scheme),

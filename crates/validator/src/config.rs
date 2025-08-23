@@ -2,16 +2,16 @@
 //! Configuration structures for validator containers.
 
 use depin_sdk_types::config::ConsensusType;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize}; // <-- Add Serialize here
 
 /// Configuration for the Guardian container (`guardian.toml`).
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)] // <-- Add Serialize
 pub struct GuardianConfig {
     pub signature_policy: AttestationSignaturePolicy,
 }
 
 /// The signature policy for container attestation.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)] // <-- Add Serialize
 #[serde(rename_all = "PascalCase")]
 pub enum AttestationSignaturePolicy {
     /// The signature suite used for attestation should follow the active on-chain policy.
@@ -21,7 +21,7 @@ pub enum AttestationSignaturePolicy {
 }
 
 /// Configuration for the Orchestration container (`orchestration.toml`).
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)] // <-- Add Serialize
 pub struct OrchestrationConfig {
     pub consensus_type: ConsensusType,
     pub rpc_listen_address: String,
@@ -36,20 +36,20 @@ fn default_sync_timeout_secs() -> u64 {
 // ConsensusType enum has been moved to `depin-sdk-types` to break a circular dependency.
 
 /// Configuration for the Workload container (`workload.toml`).
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)] // <-- Add Serialize
 pub struct WorkloadConfig {
     pub enabled_vms: Vec<String>,
 }
 
 /// Configuration for the Interface container (`interface.toml`).
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)] // <-- Add Serialize
 pub struct InterfaceConfig {
     pub listen_address: String,
     pub max_connections: u32,
 }
 
 /// Configuration for the API container (`api.toml`).
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)] // <-- Add Serialize
 pub struct ApiConfig {
     pub listen_address: String,
     pub enabled_endpoints: Vec<String>,

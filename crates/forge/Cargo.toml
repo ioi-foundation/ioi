@@ -1,4 +1,4 @@
-# crates/forge/Cargo.toml
+# Path: crates/forge/Cargo.toml
 
 [package]
 name = "depin-sdk-forge"
@@ -22,11 +22,13 @@ serde_json = { workspace = true }
 hex = { workspace = true }
 serde_jcs = "0.1.0"
 
+
 # Workspace library crates (Forge consumes the SDK as a user would)
 depin-sdk-types = { path = "../types" }
 depin-sdk-api = { path = "../api" }
 depin-sdk-crypto = { path = "../crypto" }
-
+depin-sdk-validator = { path = "../validator" }
+toml = { workspace = true }
 # Dependencies for testing helpers that are now part of the library
 reqwest = { workspace = true }
 tempfile = "3.3"
@@ -34,14 +36,12 @@ bs58 = "0.4"
 libp2p = { workspace = true }
 prost = { workspace = true }
 portpicker = "0.1.1"
-# --- NEW DEPENDENCIES ---
 bollard = "0.15"
 futures-util = "0.3"
 async-trait = { workspace = true }
 uuid = { version = "1.8.0", features = ["v4"] }
 tar = "0.4"
 hyper = "0.14"
-
 
 [dev-dependencies]
 depin-sdk-services = { path = "../services" }
@@ -56,14 +56,17 @@ path = "src/lib.rs"
 name = "forge"
 path = "src/main.rs"
 
-# --- FIX START ---
-# Add dummy features to satisfy the test runner/clippy which incorrectly applies
-# node features to the forge crate during testing.
 [features]
 default = []
+# These features are now defined directly on the forge crate.
+# When we run `cargo test --features "..."`, these flags will be active
+# for the `cfg` attributes in the test files.
 validator-bins = []
 vm-wasm = []
 consensus-round-robin = []
 consensus-poa = []
 consensus-pos = []
-# --- FIX END ---
+tree-file = []
+tree-hashmap = []
+primitive-hash = []
+primitive-pedersen = []

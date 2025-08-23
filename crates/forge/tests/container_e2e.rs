@@ -1,16 +1,20 @@
-// In crates/forge/tests/container_e2e.rs
+// Path: crates/forge/tests/container_e2e.rs
+
+// Gate the test to only compile when the necessary features are enabled for the forge crate.
+#![cfg(all(feature = "consensus-poa", feature = "vm-wasm"))]
 
 use anyhow::Result;
 use depin_sdk_crypto::algorithms::hash::sha256;
-// FIX: Remove unused import `assert_log_contains`
 use depin_sdk_forge::testing::{build_test_artifacts, TestCluster};
 use serde_json::json;
 use tempfile::tempdir;
 
 #[tokio::test]
 async fn test_secure_channel_and_attestation_flow_docker() -> Result<()> {
-    // 1. SETUP
-    build_test_artifacts("consensus-poa,vm-wasm");
+    // 1. SETUP: Build the node binaries with all features required by the test.
+    // The TestClusterBuilder defaults to a FileStateTree + HashCommitmentScheme backend,
+    // so we must include the `tree-file` and `primitive-hash` features.
+    build_test_artifacts("consensus-poa,vm-wasm,tree-file,primitive-hash");
     let temp_dir = tempdir()?;
     let model_path = temp_dir.path().join("model.bin");
     std::fs::write(&model_path, "dummy_model_data_for_docker_test")?;
@@ -19,7 +23,8 @@ async fn test_secure_channel_and_attestation_flow_docker() -> Result<()> {
     // 2. LAUNCH CLUSTER
     // The .build().await? call will not return until the test harness's internal
     // readiness checks have passed. This implicitly verifies that all containers
-    // have started, connected, and performed their initial attestations.
+    // (guardian, workload, orchestration) have started, connected, and that the
+    // orchestration container has passed its semantic attestation check.
     // The successful completion of this line is the entire test.
     let _cluster = TestCluster::builder()
         .with_validators(1)
@@ -35,9 +40,7 @@ async fn test_secure_channel_and_attestation_flow_docker() -> Result<()> {
         .await?;
 
     // 3. CLEANUP & FINISH
-    // If we reach this point without `build()` returning an error, the test has passed.
-    // The previous assertions were redundant because the test harness already
-    // waits for log signals that confirm the entire flow was successful.
+    // If we reach this point without `build()` returning a timeout error, the test has passed.
 
     println!("--- Secure Channel and Attestation E2E Test Passed ---");
     Ok(())
