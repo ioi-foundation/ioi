@@ -1,4 +1,9 @@
-// crates/forge/tests/staking_e2e.rs
+// Path: crates/forge/tests/staking_e2e.rs
+
+// This attribute ensures the test binary is only compiled when both the
+// ProofOfStake consensus engine and the WASM VM features are enabled for the
+// `depin-sdk-forge` crate.
+#![cfg(all(feature = "consensus-pos", feature = "vm-wasm"))]
 
 use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
@@ -11,13 +16,19 @@ use serde_json::json;
 
 #[tokio::test]
 async fn test_staking_lifecycle() -> Result<()> {
-    // 1. SETUP: Build artifacts.
-    build_test_artifacts("consensus-pos,vm-wasm");
+    // 1. SETUP: Build artifacts with the specific features needed for the spawned binaries.
+    // This tells the test harness to build the node binaries with PoS and WASM support.
+    // --- FIX START: Add the missing features for the state backend. ---
+    build_test_artifacts("consensus-pos,vm-wasm,tree-file,primitive-hash");
+    // --- FIX END ---
 
     // 2. LAUNCH CLUSTER: 3-node PoS cluster with Node0 as the sole initial staker.
+    // The `with_consensus_type` now directly corresponds to the feature we built with.
     let mut cluster = TestCluster::builder()
         .with_validators(3)
         .with_consensus_type("ProofOfStake")
+        // NOTE: This test implicitly uses the builder's default state_tree ("File")
+        // and commitment_scheme ("Hash"), which is why the features above are needed.
         .with_genesis_modifier(|genesis, keys| {
             let initial_staker_peer_id = keys[0].public().to_peer_id();
             let stakes = json!({ initial_staker_peer_id.to_base58(): 100_000u64 });
@@ -83,14 +94,10 @@ async fn test_staking_lifecycle() -> Result<()> {
     });
     submit_transaction(&rpc_addr, &stake_tx).await?;
 
-    // 6. VERIFICATION: This is the critical part of the robust test.
-    // Instead of asserting intermediate steps (like gossip), we wait for the
-    // ultimate desired outcome: Node1 is elected as the leader for a future block.
-    //
-    // The staking transactions will likely be included in block #2. The state change
-    // (Node0 unstaked, Node1 staked) will be committed with block #2. Therefore,
-    // the leader election for block #3 will see Node1 as the sole staker.
-    // We confirm this by looking for the leader election log message on any node.
+    // 6. VERIFICATION: Wait for the ultimate desired outcome: Node1 is elected as the leader.
+    // The staking transactions will be included in block #2. The state change
+    // will be committed with block #2. Therefore, the leader election for block #3
+    // will see Node1 as the sole staker.
     let expected_leader_log = format!("[PoS] leader@3 = {}", node1_peer_id_b58);
 
     assert_log_contains(

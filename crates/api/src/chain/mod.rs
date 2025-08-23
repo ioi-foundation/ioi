@@ -39,22 +39,13 @@ where
     ) -> Result<(), ChainError>;
 
     /// Processes a full block of transactions, updating the chain state.
-    // --- FIX START: Update the return type to match the implementation ---
     async fn process_block(
         &mut self,
         block: Block<ChainTransaction>,
         workload: &WorkloadContainer<ST>,
     ) -> Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError>;
-    // --- FIX END ---
 
     /// Creates a new block template to be filled by a block producer.
-    ///
-    /// # Arguments
-    /// * `transactions` - A vector of protocol-level transactions to include in the block.
-    /// * `current_validator_set` - The validator set from the last committed state.
-    /// * `known_peers_bytes` - The current set of known validator peer IDs, as bytes,
-    ///   used to propose an updated validator set for the new block.
-    /// * `producer_keypair` - The keypair of the node producing the block, used for signing.
     fn create_block(
         &self,
         transactions: Vec<ChainTransaction>,
@@ -75,6 +66,12 @@ where
         workload: &WorkloadContainer<ST>,
     ) -> Result<Vec<Vec<u8>>, ChainError>;
 
+    /// Retrieves the validator set that will be active for the next block (H+1).
+    async fn get_next_validator_set(
+        &self,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<Vec<Vec<u8>>, ChainError>;
+
     /// Retrieves the active authority set from the committed state for PoA.
     async fn get_authority_set(
         &self,
@@ -86,4 +83,12 @@ where
         &self,
         workload: &WorkloadContainer<ST>,
     ) -> Result<BTreeMap<PublicKey, StakeAmount>, ChainError>;
+
+    // --- FIX START: Add the new trait method for next stakes ---
+    /// Retrieves the map of staked validators for the next epoch for PoS.
+    async fn get_next_staked_validators(
+        &self,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<BTreeMap<PublicKey, StakeAmount>, ChainError>;
+    // --- FIX END ---
 }

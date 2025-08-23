@@ -29,110 +29,126 @@ For a deep dive into the architecture, please see the [**Architectural Documenta
 
 ### Current Status
 
-> **Note**: The project is currently in an active development phase. The `main` branch contains a functional prototype that demonstrates the core architectural principles, including P2P networking, state persistence, and a modular, compile-time selectable consensus mechanism.
+> **Note**: The project is currently in a rapid, prototyping phase. The `main` branch contains a functional implementation of the polymorphic framework.
 >
 > **The software is not yet mainnet-ready.**
 >
-> **Implementation Status: Phase 3 - API Boundary Refactoring**
-> *   ✅ **Clear API Boundary**: The core logic has been split into `depin-sdk-api` (stable traits) and `depin-sdk-core` (concrete data types), creating a compiler-enforced boundary.
-> *   ✅ **Modular Crates**: Logic is decoupled into specialized crates (`chain`, `consensus`, `network`, etc.).
-> *   ✅ **Node & Forge Separation**: The `node` crate acts as the production binary, while the `forge` crate provides a developer toolkit and houses all E2E tests.
-> *   ✅ **P2P Networking**: `libp2p` integration is functional for peer discovery, block gossip, and state sync requests.
-> *   ✅ **Consensus Engines**: Compile-time selectable consensus engines (PoA, PoS, Round Robin) are implemented and validated via E2E tests.
-> *   ✅ **State Persistence**: A file-based state tree (`FileStateTree`) provides durable state for nodes.
+> **Implementation Status: Phase 4 - Polymorphic Framework & Core Logic**
+> *   ✅ **Polymorphic Consensus:** The `orchestration` binary now dynamically loads its consensus engine (PoA, PoS) based on its configuration file.
+> *   ✅ **Polymorphic State Management:** The `workload` binary acts as a factory, instantiating its state tree and commitment scheme (e.g., `FileStateTree<HashCommitmentScheme>`) based on its configuration file.
+> *   ✅ **Feature-Gated Components:** Compile-time features (`consensus-pos`, `tree-file`, etc.) are used to include only the necessary backend implementations, producing lean, specialized binaries.
+> *   ✅ **Dynamic Test Harness:** The `forge` crate's `TestClusterBuilder` can now declaratively build and launch clusters with different architectures (PoA on File vs. PoS on HashMap, etc.).
+> *   ✅ **Comprehensive E2E Validation:** The core polymorphic capabilities are validated by an E2E test that runs two architecturally distinct chains concurrently, proving the success of the refactor.
 >
-> The next phase focuses on activating the core validator logic, including robust mempool management and transaction execution.
+> The project has successfully established its core polymorphic architecture. The next phase will focus on hardening this foundation, refining the transaction lifecycle, and implementing more advanced features.
 
 ---
 
 ### Running a Manual Testnet
 
-While the automated E2E tests in the `forge` crate are the recommended way to test changes, you can still run a manual multi-node network for experimentation.
+**Note:** The recommended method for testing is the automated E2E suite in the `forge` crate. The following instructions are for manual experimentation and demonstrate the new configuration-based workflow.
 
 #### Prerequisites
 
 *   **Rust**: Ensure you have the latest stable version of Rust installed via `rustup`.
-*   **Build Tools**: A C compiler, such as GCC or Clang, is required.
-*   **(Optional) Docker**: Required if you wish to run tests using the Docker backend.
+*   **Build Tools**: A C compiler, such as GCC or Clang.
 
-#### 1. Clone the Repository
+#### 1. Build the Node Binaries
 
-```bash
-git clone https://github.com/your-org/depin-sdk.git
-cd depin-sdk
-```
-
-#### 2. Build the Node Binary
-
-First, compile the node binary in release mode. You must choose a consensus engine at compile time using a feature flag.
+Compile the node binaries in release mode. You must enable the features for the components you wish to use.
 
 ```bash
-# Example: Build with Proof of Authority
-cargo build --release -p depin-sdk-node --features "build-bins,consensus-poa,vm-wasm"
-
-# Example: Build with Proof of Stake
-# cargo build --release -p depin-sdk-node --features "build-bins,consensus-pos,vm-wasm"
+# Example: Build with PoA consensus and the File state tree
+cargo build -p depin-sdk-node --release --no-default-features \
+    --features "build-bins,consensus-poa,vm-wasm,tree-file,primitive-hash"
 ```
 
-The compiled binary will be located at `target/release/depin-sdk-node`.
+The compiled binaries (`orchestration`, `workload`) will be in `target/release/`.
 
-#### 3. Run a Multi-Node Network
+#### 2. Configure and Run a Two-Node Network
 
-This workflow uses two terminals to run a two-node network.
+This workflow requires four terminals to run a two-node network (one `orchestration` and one `workload` process per node).
 
-**Step 1: Full Reset (Optional)**
+**Step 1: Create Shared Configs and Genesis**
 
-To start from a clean slate, you can remove previous state and identity files.
+Create the following three files in your project root.
 
-```bash
-rm -f state_node*.json state_node*.json.identity.key
-```
+1.  **`genesis.json`** (Replace with your actual authority PeerIDs)
+    ```json
+    {
+      "genesis_state": {
+        "system::authorities": [
+          [2, ...], 
+          [2, ...]
+        ]
+      }
+    }
+    ```
 
-**Step 2: Run Node 1 (Terminal 1)**
+2.  **`workload.toml`**
+    ```toml
+    enabled_vms = ["WASM"]
+    state_tree = "File"
+    commitment_scheme = "Hash"
+    genesis_file = "genesis.json"
+    state_file = "state.json" 
+    ```
 
-This node will start as the genesis node. It will create state and identity files and print its listening address.
+3.  **`orchestration.toml`**
+    ```toml
+    consensus_type = "ProofOfAuthority"
+    rpc_listen_address = "127.0.0.1:9944"
+    initial_sync_timeout_secs = 5
+    ```
 
-```bash
-./target/release/depin-sdk-node orchestration \
-    --config-dir ./crates/validator/config/templates \
-    --state-file state_node1.json \
-    --genesis-file ./crates/validator/config/templates/genesis.json
-```
+**Step 2: Run Node 1**
 
-Note the listening address it prints, which will look like `/ip4/127.0.0.1/tcp/34677`.
+*   **Terminal 1 (Workload 1):**
+    ```bash
+    WORKLOAD_IPC_ADDR=127.0.0.1:8555 ./target/release/workload --config ./workload.toml
+    ```
+*   **Terminal 2 (Orchestration 1):**
+    ```bash
+    WORKLOAD_IPC_ADDR=127.0.0.1:8555 ./target/release/orchestration \
+        --config ./orchestration.toml \
+        --identity-key-file ./node1.key \
+        --listen-address /ip4/127.0.0.1/tcp/0
+    ```
+    Note the listening address it prints, e.g., `/ip4/127.0.0.1/tcp/51234`.
 
-**Step 3: Run Node 2 (Terminal 2)**
+**Step 3: Run Node 2**
 
-Use the listening address from Node 1 as a bootnode to connect.
-
-```bash
-# Replace the --bootnode address with the one you copied from Node 1
-./target/release/depin-sdk-node orchestration \
-    --config-dir ./crates/validator/config/templates \
-    --state-file state_node2.json \
-    --genesis-file ./crates/validator/config/templates/genesis.json \
-    --listen-address /ip4/0.0.0.0/tcp/0 \
-    --bootnode /ip4/127.0.0.1/tcp/34677
-```
-
-Node 2 will create its own unique state and identity files. You will see it connect to Node 1 and sync the blocks that Node 1 already produced.
+*   **Terminal 3 (Workload 2):** Use a different IPC address.
+    ```bash
+    WORKLOAD_IPC_ADDR=127.0.0.1:8556 ./target/release/workload --config ./workload.toml
+    ```
+*   **Terminal 4 (Orchestration 2):** Use the address from Node 1 as a bootnode.
+    ```bash
+    # Replace the --bootnode address with the one from Terminal 2
+    WORKLOAD_IPC_ADDR=127.0.0.1:8556 ./target/release/orchestration \
+        --config ./orchestration.toml \
+        --identity-key-file ./node2.key \
+        --listen-address /ip4/0.0.0.0/tcp/0 \
+        --bootnode /ip4/127.0.0.1/tcp/51234
+    ```
 
 ---
 
 ### Development & Testing
 
-The project includes a comprehensive suite of tests managed by the **`forge`** crate. This is the **recommended workflow** for all testing.
+The project's testing workflow is centered around the **`forge`** crate, which provides a powerful, declarative E2E testing harness. This is the **recommended workflow** for all testing.
 
 #### 1. Quick Check (Fastest)
 
-For rapid feedback while developing, run `cargo check`. It analyzes the code for errors without compiling dependencies or running tests.
+For rapid feedback while developing, run `cargo check`.
 
 ```bash
-cargo check --workspace```
+cargo check --workspace
+```
 
 #### 2. Unit & Integration Tests
 
-To run all unit and integration tests across the workspace (excluding the slower E2E tests), use the standard test command. This is ideal for pre-commit checks.
+To run all fast tests across the workspace (excluding E2E tests), use:
 
 ```bash
 cargo test --workspace
@@ -140,36 +156,79 @@ cargo test --workspace
 
 #### 3. Full End-to-End (E2E) Test Suite
 
-The `forge` crate contains the full E2E test suite, which programmatically builds and orchestrates multi-node clusters to simulate live network conditions.
+The `forge` crate contains the E2E test suite. The key change is that **you must now specify which features to test via the `--features` flag.**
 
 **Key Feature**: The test harness **automatically builds all required artifacts** (node binaries, WASM contracts) with the correct features before the tests run.
 
-**Run the Entire E2E Suite:**
+**Run a Specific E2E Test (New Workflow):**
 
-This single command will execute all E2E tests. By default, it runs nodes as local processes for speed.
+You must provide the features that the test file requires. The `-- --nocapture` flag is recommended to see detailed log output from the nodes.
 
-```bash
-cargo test -p depin-sdk-forge -- --test-threads=1
+
+---
+
+#### 1. `staking_e2e.rs`
+
+*   **New Command:**
+    ```bash
+    cargo test -p depin-sdk-forge --release \
+    --features "consensus-pos,vm-wasm,tree-file,primitive-hash" \
+    --test staking_e2e -- --nocapture
+    ```
+
+---
+
+#### 2. `contract_e2e.rs`
+
+*   **New Command:**
+    ```bash
+    cargo test -p depin-sdk-forge --release \
+    --features "consensus-poa,vm-wasm,tree-file,primitive-hash" \
+    --test contract_e2e -- --nocapture
+    ```
+
+---
+
+#### 3. `governance_e2e.rs`
+
+*   **New Command:**
+    ```bash
+    cargo test -p depin-sdk-forge --release \
+    --features "consensus-poa,vm-wasm,tree-file,primitive-hash" \
+    --test governance_e2e -- --nocapture    
 ```
 
-**Run a Specific E2E Test File:**
+---
 
-To focus on a specific scenario, you can run a single test file. The `-- --nocapture` flag is recommended to see the detailed log output from the nodes.
+#### 4. `module_upgrade_e2e.rs`
 
-```bash
-# Run the staking and leader rotation test
-cargo test -p depin-sdk-forge --test staking_e2e -- --nocapture
+*   **New Command:**
+    ```bash
+    cargo test -p depin-sdk-forge --release \
+    --features "consensus-poa,vm-wasm,tree-file,primitive-hash" \
+    --test module_upgrade_e2e -- --nocapture
+    ```
 
-# Run the smart contract deployment and execution test
-cargo test -p depin-sdk-forge --test contract_e2e -- --nocapture
+---
 
-# Run the governance and proposal tallying test
-cargo test -p depin-sdk-forge --test governance_e2e -- --nocapture
-```
+#### 5. `semantic_consensus_e2e.rs`
 
-**Running Tests with Docker:**
+*   **New Commands:**
+    ```bash
+    # For container_e2e
+    cargo test -p depin-sdk-forge --release \
+    --features "consensus-poa,vm-wasm" \
+    --test container_e2e -- --nocapture
 
-The test harness can also run nodes in Docker containers for a more isolated environment.
+    # For semantic_consensus_e2e
+cargo test -p depin-sdk-forge --release \
+--features "consensus-poa,vm-wasm,tree-file,primitive-hash" \
+--test semantic_consensus_e2e -- --nocapture
+    ```
+
+#### Running Tests with Docker:
+
+#### The test harness can also run nodes in Docker containers for a more isolated environment.
 
 ```bash
 # 1. Clean up containers and networks
@@ -179,11 +238,27 @@ docker network prune -f
 # 2. IMPORTANT: Remove the old image
 docker rmi depin-sdk-node:e2e
 
-# 3. Rebuild the image with the latest binaries
-docker build -t depin-sdk-node:e2e -f crates/node/Dockerfile .
+# 3. Rebuild the image with the correct features for the test
+#    Note the new --build-arg flag!
+docker build \
+  --build-arg FEATURES="build-bins,consensus-poa,vm-wasm,tree-file,primitive-hash" \
+  -t depin-sdk-node:e2e \
+  -f crates/node/Dockerfile .
 
-# 4. Run the test
-cargo test -p depin-sdk-forge --test container_e2e -- --nocapture
+# 4. Run the test (this command remains the same)
+cargo test -p depin-sdk-forge --release \
+  --features "consensus-poa,vm-wasm,tree-file,primitive-hash" \
+  --test container_e2e -- --nocapture
+    ```
+
+**Run All E2E Tests:**
+
+To run the entire suite, you must enable all features that the tests depend on.
+
+```bash
+cargo test -p depin-sdk-forge --release \
+    --features "consensus-poa,consensus-pos,vm-wasm,tree-file,tree-hashmap,primitive-hash" \
+    -- --nocapture --test-threads=1
 ```
 
 ---
@@ -192,30 +267,28 @@ cargo test -p depin-sdk-forge --test container_e2e -- --nocapture
 
 The SDK is organized into a workspace of several key crates:
 
-*   `crates/api`: Defines the stable, public traits and interfaces for all components. This is the primary crate for plugin and implementation developers.
-*   `crates/types`: Contains shared, concrete data structures (e.g., `Block`, `ChainTransaction`) and error types.
-*   `crates/node`: Contains the main executable for the production validator. This crate is the composition root for the application.
-*   `crates/forge`: A developer toolkit that provides a CLI and a library with helpers for E2E testing. It is the primary consumer of the SDK's public APIs.
+*   `crates/api`: Defines the stable, public traits and interfaces for all components.
+*   `crates/types`: Contains shared, concrete data structures (e.g., `Block`, `ChainTransaction`) and configuration structs.
+*   `crates/node`: Contains the main executables (`orchestration`, `workload`, `guardian`). This crate is the composition root for the application.
+*   `crates/forge`: A developer toolkit providing a library with helpers for E2E testing. It is the primary consumer of the SDK's public APIs.
 *   `crates/contract`: The `no_std` SDK for writing smart contracts that compile to WASM.
 *   `crates/validator`: Implements the Triple-Container Architecture for validator models.
 *   `crates/chain`: Contains the `Chain` implementation, which defines the state machine logic.
-*   ... and other specialized implementation crates.
+*   ... and other specialized implementation crates (`consensus`, `network`, `commitment`, etc.).
 
 ### Roadmap
 
 Our high-level roadmap is focused on incrementally building out the features defined in our architecture.
 
-*   ✅ **Phase 3: Integrate Real Architecture & P2P Networking** - *Complete*
-*   ➡️ **Phase 4: Activate Core Validator Logic** - *In Progress*
-    *   Refine consensus and sync state machines and error handling.
-    *   Implement real transaction execution and mempool logic.
-*   ▶️ **Phase 5: Mainnet Hardening & Advanced Features**
-    *   Implement the Post-Quantum Cryptography migration path and Identity Hub.
-    *   Flesh out the Hybrid Validator model and tiered economics.
+*   ✅ **Phase 4: Polymorphic Framework & Core Logic** - *Complete*
+*   ➡️ **Phase 5: Mainnet Hardening & Advanced Features** - *In Progress*
+    *   Implement robust mempool, transaction validation, and state proof logic.
+    *   Flesh out the Post-Quantum Cryptography migration path and Identity Hub.
+    *   Develop the Hybrid Validator model and tiered economics.
 *   ▶️ **Phase 6: Ecosystem Expansion & Evolution**
     *   Develop the `forge` CLI and multi-language SDKs.
     *   Implement IBC and Ethereum compatibility modules.
-    *   Integrate production-ready distributed AI models.
+    *   Integrate production-ready distributed AI models for the Semantic Layer.
 
 ### Contributing
 
@@ -225,6 +298,7 @@ All participants are expected to follow our [**Code of Conduct**](./CODE_OF_COND
 
 ### License
 
-This project is licensed under
+This project is licensed under either of:
 
-*   Apache License, Version 2.0, ([LICENSE-APACHE](./LICENSE-APACHE) http://www.apache.org/licenses/LICENSE-2.0)
+*   Apache License, Version 2.0, ([LICENSE-APACHE](./LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+*   MIT license ([LICENSE-MIT](./LICENSE-MIT) or http://opensource.org/licenses/MIT)

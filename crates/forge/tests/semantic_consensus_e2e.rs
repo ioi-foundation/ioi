@@ -1,4 +1,8 @@
-// In crates/forge/tests/semantic_consensus_e2e.rs
+// Path: crates/forge/tests/semantic_consensus_e2e.rs
+
+// --- FIX START: Add the cfg attribute to gate the test ---
+#![cfg(all(feature = "consensus-poa", feature = "vm-wasm"))]
+// --- FIX END ---
 
 use anyhow::Result;
 use depin_sdk_crypto::algorithms::hash::sha256;
@@ -12,7 +16,9 @@ use tempfile::tempdir;
 
 #[tokio::test]
 async fn test_secure_semantic_consensus_e2e() -> Result<()> {
-    build_test_artifacts("consensus-poa,vm-wasm");
+    // --- FIX START: Add missing state backend features ---
+    build_test_artifacts("consensus-poa,vm-wasm,tree-file,primitive-hash");
+    // --- FIX END ---
 
     // Setup: Create model file and calculate its hash
     let temp_dir_models = tempdir()?;
@@ -20,12 +26,12 @@ async fn test_secure_semantic_consensus_e2e() -> Result<()> {
     fs::write(&good_model_path, "correct_model_data")?;
     let correct_model_hash = hex::encode(sha256(b"correct_model_data"));
 
-    // --- FIX: The successful build of the cluster is the test itself. ---
+    // The successful build of the cluster is the test itself.
     // The TestCluster::build() function internally calls TestValidator::launch, which
     // waits for the "Semantic attestation sequence complete." log message. This message
     // is only printed after the "Node is healthy" message. Therefore, if build()
     // returns Ok, we have already implicitly verified that the nodes passed their
-    // health checks. No further assertions are needed.
+    // health checks.
     let _cluster = TestCluster::builder()
         .with_validators(3)
         .with_consensus_type("ProofOfAuthority")
@@ -50,7 +56,9 @@ async fn test_secure_semantic_consensus_e2e() -> Result<()> {
 
 #[tokio::test]
 async fn test_mismatched_model_quarantine() -> Result<()> {
-    build_test_artifacts("consensus-poa,vm-wasm");
+    // --- FIX START: Add missing state backend features ---
+    build_test_artifacts("consensus-poa,vm-wasm,tree-file,primitive-hash");
+    // --- FIX END ---
 
     // Setup: Create two different model files
     let temp_dir_models = tempdir()?;
@@ -72,18 +80,19 @@ async fn test_mismatched_model_quarantine() -> Result<()> {
     let bad_node = TestValidator::launch(
         key.clone(),
         genesis_content.clone(),
-        6000, // Use a different port to avoid conflicts in parallel test runners
+        6000,
         None,
         "ProofOfAuthority",
+        "File",
+        "Hash",
         Some(bad_model_path.to_str().unwrap()),
-        false, // Explicitly use the process backend
+        false,
     )
     .await?;
 
     let mut bad_node_logs = bad_node.orch_log_stream.lock().await.take().unwrap();
 
     // Assert that the node correctly identifies itself as quarantined after starting up.
-    // This is the most important and robust check for this test case.
     assert_log_contains(
         "BadNode",
         &mut bad_node_logs,

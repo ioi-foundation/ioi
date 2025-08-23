@@ -6,10 +6,16 @@ FROM rust:1.78-slim-bullseye as builder
 WORKDIR /usr/src/depin-sdk
 RUN apt-get update && apt-get install -y protobuf-compiler build-essential
 
+# Add a build argument to accept features from the command line.
+# The default value ensures that if no arg is provided, it still builds the base bins.
+ARG FEATURES="build-bins"
+
 COPY . .
 
-# Build the node package, which now produces multiple binaries
-RUN cargo build --release --package depin-sdk-node --features build-bins
+# Build the node package with the specified features.
+# This allows building specialized images for different test configurations.
+# Example: docker build --build-arg FEATURES="build-bins,consensus-poa,tree-file" ...
+RUN cargo build --release --package depin-sdk-node --features "$FEATURES"
 
 # Stage 2: Create the final, smaller image
 FROM debian:bullseye-slim
