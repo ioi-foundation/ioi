@@ -66,12 +66,11 @@ pub struct RoundRobinBftEngine {
 }
 
 impl RoundRobinBftEngine {
-    /// Creates a new `RoundRobinBftEngine` with default settings.
-    pub fn new() -> Self {
+    /// Creates a new `RoundRobinBftEngine` with a specified view timeout.
+    pub fn new(view_timeout: Duration) -> Self {
         Self {
             view_start_times: HashMap::new(),
-            // This timeout should be longer than the block production interval.
-            view_timeout: Duration::from_secs(20),
+            view_timeout,
             current_views: HashMap::new(),
             view_change_votes: HashMap::new(),
             validator_set_cache: HashMap::new(),
@@ -95,7 +94,8 @@ impl RoundRobinBftEngine {
 
 impl Default for RoundRobinBftEngine {
     fn default() -> Self {
-        Self::new()
+        // This default is used when the feature is enabled but no config is provided.
+        Self::new(Duration::from_secs(20))
     }
 }
 

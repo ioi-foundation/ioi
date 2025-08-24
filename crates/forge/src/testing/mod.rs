@@ -11,7 +11,9 @@ use backend::{DockerBackend, LogStream, ProcessBackend, TestBackend};
 use bollard::image::BuildImageOptions;
 use bollard::Docker;
 use depin_sdk_types::app::ChainTransaction;
-use depin_sdk_types::config::{CommitmentSchemeType, ConsensusType, StateTreeType, WorkloadConfig};
+use depin_sdk_types::config::{
+    CommitmentSchemeType, ConsensusType, StateTreeType, VmFuelCosts, WorkloadConfig,
+};
 use depin_sdk_validator::config::OrchestrationConfig;
 use futures_util::StreamExt;
 use hyper::Body;
@@ -319,7 +321,6 @@ impl TestValidator {
 
         let config_dir_path = temp_dir.path().to_path_buf();
 
-        // --- FIX START: Replace error-prone string formatting with struct serialization ---
         let consensus_enum = match consensus_type {
             "ProofOfAuthority" => ConsensusType::ProofOfAuthority,
             "ProofOfStake" => ConsensusType::ProofOfStake,
@@ -357,6 +358,9 @@ impl TestValidator {
                 rpc_addr.clone()
             },
             initial_sync_timeout_secs: 2,
+            block_production_interval_secs: 5,
+            round_robin_view_timeout_secs: 20,
+            default_query_gas_limit: 1_000_000_000,
         };
         std::fs::write(&orch_config_path, toml::to_string(&orchestration_config)?)?;
 
@@ -376,9 +380,9 @@ impl TestValidator {
             } else {
                 workload_state_file.to_string_lossy().replace('\\', "/")
             },
+            fuel_costs: VmFuelCosts::default(),
         };
         std::fs::write(&workload_config_path, toml::to_string(&workload_config)?)?;
-        // --- FIX END ---
 
         let guardian_config = r#"signature_policy = "FollowChain""#.to_string();
         std::fs::write(config_dir_path.join("guardian.toml"), guardian_config)?;

@@ -1,6 +1,7 @@
 // crates/validator/src/rpc.rs
 //! The JSON-RPC server for the Orchestration container.
 
+use crate::config::OrchestrationConfig;
 use anyhow::Result;
 use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
@@ -46,6 +47,7 @@ struct RpcAppState {
     tx_pool: Arc<Mutex<VecDeque<ChainTransaction>>>,
     workload_client: Arc<WorkloadClient>,
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
+    config: OrchestrationConfig,
 }
 
 fn extract_tx_param(params: &Params) -> Option<serde_json::Value> {
@@ -81,11 +83,9 @@ async fn rpc_handler(
 
             let tx: ChainTransaction = match tx_val {
                 serde_json::Value::String(s) => {
-                    // Client likely sent a hex-encoded string of the JSON bytes.
                     let bytes = match hex::decode(&s) {
                         Ok(b) => b,
                         Err(_) => {
-                            // Fallback for non-hex strings (e.g., base64, raw JSON string)
                             BASE64_STANDARD
                                 .decode(&s)
                                 .unwrap_or_else(|_| s.into_bytes())
@@ -106,22 +106,19 @@ async fn rpc_handler(
                         }
                     }
                 }
-                other_json => {
-                    // Client sent the transaction as a JSON object directly.
-                    match serde_json::from_value(other_json) {
-                        Ok(t) => t,
-                        Err(e) => {
-                            return (
-                                StatusCode::OK,
-                                make_err(
-                                    &payload.id,
-                                    -32602,
-                                    format!("Failed to deserialize transaction object: {}", e),
-                                ),
-                            );
-                        }
+                other_json => match serde_json::from_value(other_json) {
+                    Ok(t) => t,
+                    Err(e) => {
+                        return (
+                            StatusCode::OK,
+                            make_err(
+                                &payload.id,
+                                -32602,
+                                format!("Failed to deserialize transaction object: {}", e),
+                            ),
+                        );
                     }
-                }
+                },
             };
 
             app_state.tx_pool.lock().await.push_back(tx.clone());
@@ -162,7 +159,7 @@ async fn rpc_handler(
                     let context = depin_sdk_api::vm::ExecutionContext {
                         caller: vec![],
                         block_height: 0,
-                        gas_limit: 1_000_000_000,
+                        gas_limit: app_state.config.default_query_gas_limit,
                         contract_address: vec![],
                     };
                     match app_state
@@ -209,11 +206,13 @@ pub async fn run_rpc_server(
     tx_pool: Arc<Mutex<VecDeque<ChainTransaction>>>,
     workload_client: Arc<WorkloadClient>,
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
+    config: OrchestrationConfig,
 ) -> Result<JoinHandle<()>> {
     let app_state = Arc::new(RpcAppState {
         tx_pool,
         workload_client,
         swarm_command_sender,
+        config,
     });
 
     let app = Router::new()
@@ -223,7 +222,6 @@ pub async fn run_rpc_server(
 
     let addr = listen_address.parse()?;
     log::info!("RPC server listening on {}", addr);
-    // This eprintln is a signal for the test harness to know the RPC server is ready.
     eprintln!("ORCHESTRATION_RPC_LISTENING_ON_{}", addr);
 
     let handle = tokio::spawn(async move {

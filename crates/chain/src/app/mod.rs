@@ -232,7 +232,8 @@ where
         }
 
         // --- Phase 2: Application (write operations to transition from H-1 to H) ---
-        if let Some(tx) = block.transactions.first() {
+        // Pre-processing loop for special system transactions handled by the chain itself.
+        for tx in &block.transactions {
             if let ChainTransaction::System(sys_tx) = tx {
                 if let depin_sdk_types::app::SystemPayload::SwapModule {
                     service_type,
@@ -254,6 +255,7 @@ where
             }
         }
 
+        // Main transaction application loop (delegates to the transaction model).
         for tx in &block.transactions {
             self.process_transaction(tx, workload, height).await?;
         }
@@ -481,7 +483,9 @@ mod tests {
     use depin_sdk_commitment::tree::hashmap::HashMapStateTree;
     use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
     use depin_sdk_types::app::{SystemPayload, SystemTransaction};
-    use depin_sdk_types::config::{CommitmentSchemeType, StateTreeType, WorkloadConfig};
+    use depin_sdk_types::config::{
+        CommitmentSchemeType, StateTreeType, VmFuelCosts, WorkloadConfig,
+    };
     use depin_sdk_vm_wasm::WasmVm;
     use libp2p::identity::Keypair;
     use libp2p::PeerId;
@@ -496,13 +500,14 @@ mod tests {
         // Setup
         let scheme = HashCommitmentScheme::new();
         let state_tree = HashMapStateTree::new(scheme.clone());
-        let wasm_vm = Box::new(WasmVm::new());
+        let wasm_vm = Box::new(WasmVm::new(VmFuelCosts::default()));
         let workload_config = WorkloadConfig {
             enabled_vms: vec![],
             state_tree: StateTreeType::HashMap,
             commitment_scheme: CommitmentSchemeType::Hash,
             genesis_file: "".to_string(),
             state_file: "".to_string(),
+            fuel_costs: VmFuelCosts::default(),
         };
         let workload = Arc::new(WorkloadContainer::new(workload_config, state_tree, wasm_vm));
         let mut chain = Chain::new(
@@ -555,13 +560,14 @@ mod tests {
         // Setup
         let scheme = HashCommitmentScheme::new();
         let state_tree = HashMapStateTree::new(scheme.clone());
-        let wasm_vm = Box::new(WasmVm::new());
+        let wasm_vm = Box::new(WasmVm::new(VmFuelCosts::default()));
         let workload_config = WorkloadConfig {
             enabled_vms: vec![],
             state_tree: StateTreeType::HashMap,
             commitment_scheme: CommitmentSchemeType::Hash,
             genesis_file: "".to_string(),
             state_file: "".to_string(),
+            fuel_costs: VmFuelCosts::default(),
         };
         let workload = Arc::new(WorkloadContainer::new(workload_config, state_tree, wasm_vm));
         let mut chain = Chain::new(

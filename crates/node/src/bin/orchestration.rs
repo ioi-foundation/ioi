@@ -12,9 +12,8 @@ use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
 use depin_sdk_commitment::tree::file::FileStateTree;
 use depin_sdk_consensus::util::engine_from_config;
 use depin_sdk_network::libp2p::Libp2pSync;
-use depin_sdk_validator::{
-    config::OrchestrationConfig, rpc::run_rpc_server, standard::OrchestrationContainer,
-};
+use depin_sdk_types::config::OrchestrationConfig;
+use depin_sdk_validator::{rpc::run_rpc_server, standard::OrchestrationContainer};
 use libp2p::{identity, Multiaddr};
 use std::fs;
 use std::io::{Read, Write};
@@ -79,7 +78,7 @@ async fn main() -> Result<()> {
     let (syncer, swarm_commander, network_event_receiver) =
         Libp2pSync::new(local_key.clone(), opts.listen_address, opts.bootnode)?;
 
-    let consensus_engine = engine_from_config(&config.consensus_type)?;
+    let consensus_engine = engine_from_config(&config)?;
 
     let is_quarantined = Arc::new(AtomicBool::new(false));
 
@@ -175,6 +174,7 @@ async fn main() -> Result<()> {
         orchestration.tx_pool.clone(),
         workload_client,
         swarm_commander,
+        config.clone(),
     )
     .await?;
 

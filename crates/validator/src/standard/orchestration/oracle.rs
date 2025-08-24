@@ -16,7 +16,7 @@ use depin_sdk_types::{
 };
 use libp2p::{identity::PublicKey as Libp2pPublicKey, PeerId};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::time::{SystemTime, UNIX_EPOCH};
 
