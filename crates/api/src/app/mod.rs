@@ -4,7 +4,6 @@ use crate::transaction::TransactionModel;
 use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
 use dcrypt::algorithms::ByteSerializable;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
 /// Represents the current status of the blockchain.
 #[derive(Serialize, Deserialize, Debug)]

@@ -5,12 +5,11 @@ use crate::Consensus;
 use anyhow::Result;
 use cfg_if::cfg_if;
 use depin_sdk_types::app::ChainTransaction;
-use depin_sdk_types::config::ConsensusType;
+use depin_sdk_types::config::{ConsensusType, OrchestrationConfig};
 
 /// Creates a concrete consensus engine instance based on the configuration enum.
-pub fn engine_from_config(config_type: &ConsensusType) -> Result<Consensus<ChainTransaction>> {
-    // --- FIX START: Move the Ok() wrapper inside each match arm ---
-    match config_type {
+pub fn engine_from_config(config: &OrchestrationConfig) -> Result<Consensus<ChainTransaction>> {
+    match &config.consensus_type {
         ConsensusType::ProofOfStake => {
             cfg_if! {
                 if #[cfg(feature = "pos")] {
@@ -18,7 +17,7 @@ pub fn engine_from_config(config_type: &ConsensusType) -> Result<Consensus<Chain
                     log::info!("Using ProofOfStake consensus engine.");
                     Ok(Consensus::ProofOfStake(ProofOfStakeEngine::new()))
                 } else {
-                    Err(anyhow::anyhow!("Node configured for ProofOfStake, but not compiled with the 'consensus-pos' feature."))
+                    Err(anyhow::anyhow!("Node configured for ProofOfStake, but not compiled with the 'pos' feature."))
                 }
             }
         }
@@ -29,10 +28,25 @@ pub fn engine_from_config(config_type: &ConsensusType) -> Result<Consensus<Chain
                     log::info!("Using ProofOfAuthority consensus engine.");
                     Ok(Consensus::ProofOfAuthority(ProofOfAuthorityEngine::new()))
                 } else {
-                    Err(anyhow::anyhow!("Node configured for ProofOfAuthority, but not compiled with the 'consensus-poa' feature."))
+                    Err(anyhow::anyhow!("Node configured for ProofOfAuthority, but not compiled with the 'poa' feature."))
+                }
+            }
+        }
+        // This pattern allows adding new consensus types that might require config.
+        // Example for RoundRobin:
+        #[allow(unreachable_patterns)] // This is okay as it depends on features
+        ConsensusType::ProofOfAuthority => {
+            cfg_if! {
+                if #[cfg(feature = "round-robin")] {
+                    use crate::round_robin::RoundRobinBftEngine;
+                    use std::time::Duration;
+                    log::info!("Using RoundRobinBft consensus engine.");
+                    let timeout = Duration::from_secs(config.round_robin_view_timeout_secs);
+                    Ok(Consensus::RoundRobin(RoundRobinBftEngine::new(timeout)))
+                } else {
+                     Err(anyhow::anyhow!("Node configured for RoundRobinBFT, but not compiled with the 'round-robin' feature."))
                 }
             }
         }
     }
-    // --- FIX END: The Ok(engine) line is removed from here ---
 }

@@ -122,7 +122,8 @@ where
     }
 
     async fn run_main_loop(mut context: MainLoopContext<CS, ST, CE>) {
-        let mut block_production_interval = time::interval(Duration::from_secs(5));
+        let interval_secs = context.config.block_production_interval_secs;
+        let mut block_production_interval = time::interval(Duration::from_secs(interval_secs));
         block_production_interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
 
         let sync_timeout = time::sleep(Duration::from_secs(

@@ -5,28 +5,24 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use depin_sdk_api::state::VmStateAccessor;
 use depin_sdk_api::vm::{ExecutionContext, ExecutionOutput, VirtualMachine};
-use depin_sdk_types::error::VmError;
+use depin_sdk_types::{config::VmFuelCosts, error::VmError};
 use std::sync::Arc;
 use wasmtime::*;
 
 /// A Wasmtime-based virtual machine for executing WASM smart contracts.
 pub struct WasmVm {
     engine: Engine,
-}
-
-impl Default for WasmVm {
-    fn default() -> Self {
-        Self::new()
-    }
+    fuel_costs: VmFuelCosts,
 }
 
 impl WasmVm {
-    pub fn new() -> Self {
+    pub fn new(fuel_costs: VmFuelCosts) -> Self {
         let mut config = Config::new();
         config.async_support(true);
         config.consume_fuel(true);
         Self {
             engine: Engine::new(&config).unwrap(),
+            fuel_costs,
         }
     }
 }
@@ -36,6 +32,7 @@ struct HostState {
     state_accessor: Arc<dyn VmStateAccessor>,
     context: ExecutionContext,
     memory: Option<Memory>,
+    fuel_costs: VmFuelCosts,
 }
 
 /// Centralized key namespacing to prevent inconsistencies.
@@ -52,7 +49,7 @@ async fn host_state_set(
     value_len: u32,
 ) -> Result<()> {
     let fuel = caller.get_fuel()?;
-    caller.set_fuel(fuel.saturating_sub(1000))?;
+    caller.set_fuel(fuel.saturating_sub(caller.data().fuel_costs.base_cost))?;
 
     let memory = caller
         .data()
@@ -65,7 +62,8 @@ async fn host_state_set(
 
     let namespaced_key = get_namespaced_key(&caller.data().context.contract_address, &contract_key);
 
-    let cost = (namespaced_key.len() + value.len()) as u64 * 10;
+    let cost = (namespaced_key.len() + value.len()) as u64
+        * caller.data().fuel_costs.state_set_per_byte;
     let fuel = caller.get_fuel()?;
     caller.set_fuel(fuel.saturating_sub(cost))?;
 
@@ -87,7 +85,7 @@ async fn host_state_get(
     result_ptr: u32,
 ) -> Result<u32> {
     let fuel = caller.get_fuel()?;
-    caller.set_fuel(fuel.saturating_sub(1000))?;
+    caller.set_fuel(fuel.saturating_sub(caller.data().fuel_costs.base_cost))?;
 
     let memory = caller
         .data()
@@ -99,7 +97,7 @@ async fn host_state_get(
 
     let namespaced_key = get_namespaced_key(&caller.data().context.contract_address, &contract_key);
 
-    let cost = namespaced_key.len() as u64 * 5;
+    let cost = namespaced_key.len() as u64 * caller.data().fuel_costs.state_get_per_byte;
     let fuel = caller.get_fuel()?;
     caller.set_fuel(fuel.saturating_sub(cost))?;
 
@@ -111,7 +109,7 @@ async fn host_state_get(
         .map_err(|_| anyhow!("State read failed"))?;
 
     if let Some(data) = value {
-        let cost = data.len() as u64 * 5;
+        let cost = data.len() as u64 * caller.data().fuel_costs.state_get_per_byte;
         let fuel = caller.get_fuel()?;
         caller.set_fuel(fuel.saturating_sub(cost))?;
         memory
@@ -126,7 +124,7 @@ async fn host_state_get(
 /// Host Function: Get the address of the contract caller.
 async fn host_get_caller(mut caller: Caller<'_, HostState>, result_ptr: u32) -> Result<u32> {
     let fuel = caller.get_fuel()?;
-    caller.set_fuel(fuel.saturating_sub(100))?;
+    caller.set_fuel(fuel.saturating_sub(caller.data().fuel_costs.base_cost))?;
 
     let memory = caller
         .data()
@@ -185,6 +183,7 @@ impl VirtualMachine for WasmVm {
             state_accessor,
             context: execution_context.clone(),
             memory: None,
+            fuel_costs: self.fuel_costs.clone(),
         };
         let mut store = Store::new(&self.engine, host_state);
         store

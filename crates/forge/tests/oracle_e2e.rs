@@ -21,7 +21,6 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
     // 1. SETUP: Build artifacts and launch a 4-node PoS cluster.
     build_test_artifacts("consensus-pos,vm-wasm,tree-file,primitive-hash");
 
-    // FIX: Remove unused `mut`
     let cluster = TestCluster::builder()
         .with_validators(4)
         .with_consensus_type("ProofOfStake")
@@ -73,13 +72,23 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
 
     // 2. SUBMIT ORACLE REQUEST TRANSACTION
     let request_id = 101;
+    let payload = SystemPayload::RequestOracleData {
+        url: "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
+            .to_string(),
+        request_id,
+    };
+    let payload_bytes = serde_json::to_vec(&payload)?;
+    let signature_bytes = cluster.validators[0].keypair.sign(&payload_bytes)?;
+    let pubkey_bytes = cluster.validators[0]
+        .keypair
+        .public()
+        .try_into_ed25519()?
+        .to_bytes()
+        .to_vec();
+
     let request_tx = ChainTransaction::System(SystemTransaction {
-        payload: SystemPayload::RequestOracleData {
-            url: "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
-                .to_string(),
-            request_id,
-        },
-        signature: vec![],
+        payload,
+        signature: [pubkey_bytes, signature_bytes].concat(),
     });
     submit_transaction(node0_rpc, &request_tx).await?;
 

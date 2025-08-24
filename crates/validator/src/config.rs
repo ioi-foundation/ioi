@@ -1,17 +1,20 @@
 // Path: crates/validator/src/config.rs
 //! Configuration structures for validator containers.
 
-use depin_sdk_types::config::ConsensusType;
-use serde::{Deserialize, Serialize}; // <-- Add Serialize here
+use serde::{Deserialize, Serialize};
+
+// Re-export core config types from the central `types` crate
+// to avoid circular dependencies and establish a single source of truth.
+pub use depin_sdk_types::config::{ConsensusType, OrchestrationConfig, WorkloadConfig};
 
 /// Configuration for the Guardian container (`guardian.toml`).
-#[derive(Debug, Serialize, Deserialize)] // <-- Add Serialize
+#[derive(Debug, Serialize, Deserialize)]
 pub struct GuardianConfig {
     pub signature_policy: AttestationSignaturePolicy,
 }
 
 /// The signature policy for container attestation.
-#[derive(Debug, Serialize, Deserialize)] // <-- Add Serialize
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub enum AttestationSignaturePolicy {
     /// The signature suite used for attestation should follow the active on-chain policy.
@@ -20,36 +23,15 @@ pub enum AttestationSignaturePolicy {
     Fixed,
 }
 
-/// Configuration for the Orchestration container (`orchestration.toml`).
-#[derive(Debug, Serialize, Deserialize, Clone)] // <-- Add Serialize
-pub struct OrchestrationConfig {
-    pub consensus_type: ConsensusType,
-    pub rpc_listen_address: String,
-    #[serde(default = "default_sync_timeout_secs")]
-    pub initial_sync_timeout_secs: u64,
-}
-
-fn default_sync_timeout_secs() -> u64 {
-    5
-}
-
-// ConsensusType enum has been moved to `depin-sdk-types` to break a circular dependency.
-
-/// Configuration for the Workload container (`workload.toml`).
-#[derive(Debug, Serialize, Deserialize)] // <-- Add Serialize
-pub struct WorkloadConfig {
-    pub enabled_vms: Vec<String>,
-}
-
 /// Configuration for the Interface container (`interface.toml`).
-#[derive(Debug, Serialize, Deserialize)] // <-- Add Serialize
+#[derive(Debug, Serialize, Deserialize)]
 pub struct InterfaceConfig {
     pub listen_address: String,
     pub max_connections: u32,
 }
 
 /// Configuration for the API container (`api.toml`).
-#[derive(Debug, Serialize, Deserialize)] // <-- Add Serialize
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ApiConfig {
     pub listen_address: String,
     pub enabled_endpoints: Vec<String>,

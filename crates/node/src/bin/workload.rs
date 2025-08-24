@@ -4,11 +4,9 @@
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
-// --- FIX START: Correct the typo from CommitScheme to CommitmentScheme ---
 use depin_sdk_api::{
     commitment::CommitmentScheme, state::StateManager, validator::WorkloadContainer,
 };
-// --- FIX END ---
 use depin_sdk_chain::util::load_state_from_genesis_file;
 use depin_sdk_chain::wasm_loader::load_service_from_wasm;
 use depin_sdk_chain::Chain;
@@ -63,7 +61,7 @@ where
     }
 
     // This logic is now generic and works with any StateManager/CommitmentScheme combination.
-    let wasm_vm = Box::new(WasmVm::new());
+    let wasm_vm = Box::new(WasmVm::new(config.fuel_costs.clone()));
     let workload_container = Arc::new(WorkloadContainer::new(config, state_tree, wasm_vm));
 
     let mut chain = Chain::new(
