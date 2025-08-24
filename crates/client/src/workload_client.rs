@@ -198,4 +198,14 @@ impl WorkloadClient {
             )),
         }
     }
+
+    pub async fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        let request = WorkloadRequest::PrefixScan(prefix.to_vec());
+        match self.send_and_receive(request).await? {
+            WorkloadResponse::PrefixScan(res) => res.map_err(|e: String| anyhow!(e)),
+            _ => Err(anyhow!(
+                "Invalid response type from workload for PrefixScan"
+            )),
+        }
+    }
 }

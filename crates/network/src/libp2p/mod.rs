@@ -23,7 +23,7 @@ use tokio::{
 
 // Re-export concrete types from submodules for a cleaner public API.
 pub use self::sync::{SyncCodec, SyncRequest, SyncResponse};
-use depin_sdk_types::app::{Block, ChainTransaction};
+use depin_sdk_types::app::{Block, ChainTransaction, OracleAttestation};
 
 // --- Core Network Behaviour and Event/Command Types ---
 
@@ -63,10 +63,11 @@ pub enum SwarmCommand {
     SendStatusResponse(ResponseChannel<SyncResponse>, u64),
     SendBlocksResponse(ResponseChannel<SyncResponse>, Vec<Block<ChainTransaction>>),
     BroadcastToCommittee(Vec<PeerId>, String), // NEW: For semantic consensus
-    SemanticConsensusVote(String, Vec<u8>),      // NEW: For semantic consensus
+    SemanticConsensusVote(String, Vec<u8>),    // NEW: For semantic consensus
     // [NEW] Command to send the acknowledgement
     SendSemanticAck(ResponseChannel<SyncResponse>),
     SimulateSemanticTx, // For E2E test
+    GossipOracleAttestation(Vec<u8>),
 }
 
 #[derive(Debug)]
@@ -89,6 +90,10 @@ pub enum NetworkEvent {
         from: PeerId,
         prompt_hash: String,
         vote_hash: Vec<u8>,
+    },
+    OracleAttestationReceived {
+        from: PeerId,
+        attestation: OracleAttestation,
     },
 }
 
@@ -115,6 +120,7 @@ enum SwarmInternalEvent {
         prompt_hash: String,
         vote_hash: Vec<u8>,
     },
+    GossipOracleAttestation(Vec<u8>, PeerId),
 }
 
 // --- Libp2pSync Implementation ---
@@ -197,6 +203,24 @@ impl Libp2pSync {
                     continue;
                 }
 
+                if let SwarmInternalEvent::GossipOracleAttestation(data, from) = event {
+                    match serde_json::from_slice::<OracleAttestation>(&data) {
+                        Ok(attestation) => {
+                            if network_event_sender
+                                .send(NetworkEvent::OracleAttestationReceived { from, attestation })
+                                .await
+                                .is_err()
+                            {
+                                break;
+                            }
+                        }
+                        Err(e) => {
+                            log::warn!("Failed to deserialize gossiped oracle attestation: {}", e)
+                        }
+                    }
+                    continue;
+                }
+
                 let translated_event = match event {
                     SwarmInternalEvent::ConnectionEstablished(p) => {
                         Some(NetworkEvent::ConnectionEstablished(p))
@@ -236,6 +260,7 @@ impl Libp2pSync {
                     }
                     SwarmInternalEvent::SemanticPrompt { .. } => unreachable!(),
                     SwarmInternalEvent::SemanticConsensusVote { .. } => unreachable!(), // NEW
+                    SwarmInternalEvent::GossipOracleAttestation(..) => unreachable!(),
                 };
 
                 if let Some(event) = translated_event {
@@ -315,6 +340,7 @@ impl Libp2pSync {
     ) {
         let block_topic = gossipsub::IdentTopic::new("blocks");
         let tx_topic = gossipsub::IdentTopic::new("transactions");
+        let oracle_attestations_topic = gossipsub::IdentTopic::new("oracle-attestations");
         // NEW: Add a topic for semantic consensus votes
         let semantic_vote_topic = gossipsub::IdentTopic::new("semantic-votes");
         swarm
@@ -326,6 +352,11 @@ impl Libp2pSync {
             .behaviour_mut()
             .gossipsub
             .subscribe(&tx_topic)
+            .unwrap();
+        swarm
+            .behaviour_mut()
+            .gossipsub
+            .subscribe(&oracle_attestations_topic)
             .unwrap();
         // NEW: Subscribe to the vote topic
         swarm
@@ -348,6 +379,9 @@ impl Libp2pSync {
                                     event_sender.send(SwarmInternalEvent::GossipBlock(message.data, source)).await.ok();
                                 } else if message.topic == tx_topic.hash() {
                                     event_sender.send(SwarmInternalEvent::GossipTransaction(message.data, source)).await.ok();
+                                }
+                                else if message.topic == oracle_attestations_topic.hash() {
+                                    event_sender.send(SwarmInternalEvent::GossipOracleAttestation(message.data, source)).await.ok();
                                 }
                                 // NEW: Handle semantic vote gossip
                                 else if message.topic == semantic_vote_topic.hash() {
@@ -389,6 +423,9 @@ impl Libp2pSync {
                         }
                         SwarmCommand::PublishTransaction(data) => {
                              swarm.behaviour_mut().gossipsub.publish(tx_topic.clone(), data).ok();
+                        }
+                        SwarmCommand::GossipOracleAttestation(data) => {
+                             swarm.behaviour_mut().gossipsub.publish(oracle_attestations_topic.clone(), data).ok();
                         }
                         SwarmCommand::SendStatusRequest(p) => { swarm.behaviour_mut().request_response.send_request(&p, SyncRequest::GetStatus); }
                         SwarmCommand::SendBlocksRequest(p, h) => { swarm.behaviour_mut().request_response.send_request(&p, SyncRequest::GetBlocks(h)); }

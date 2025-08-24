@@ -15,9 +15,7 @@ use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::keys::{GOVERNANCE_PROPOSAL_KEY_PREFIX, STAKES_KEY_CURRENT};
 use rcgen::{Certificate, CertificateParams, SanType};
 use serde::{Deserialize, Serialize};
-// --- FIX START ---
 use std::net::Ipv4Addr;
-// --- FIX END ---
 use std::{collections::BTreeMap, sync::Arc};
 use tokio::{io::AsyncReadExt, sync::Mutex};
 use tokio_rustls::{
@@ -30,12 +28,10 @@ use tokio_rustls::{
 
 fn create_ipc_server_config() -> Result<Arc<ServerConfig>> {
     let mut server_params = CertificateParams::new(vec!["workload".to_string()]);
-    // --- FIX START: Replace fallible string parsing with an infallible constant. ---
     server_params.subject_alt_names = vec![
         SanType::DnsName("workload".to_string()),
         SanType::IpAddress(Ipv4Addr::LOCALHOST.into()),
     ];
-    // --- FIX END ---
     let server_cert = Certificate::from_params(server_params)?;
     let server_der = server_cert.serialize_der()?;
     let server_key = server_cert.serialize_private_key_der();
@@ -298,6 +294,12 @@ where
                     }
                 }
                 WorkloadResponse::CheckAndTallyProposals(Ok(outcomes))
+            }
+            WorkloadRequest::PrefixScan(prefix) => {
+                let state_tree_arc = self.workload_container.state_tree();
+                let state = state_tree_arc.lock().await;
+                let res = state.prefix_scan(&prefix).map_err(|e| e.to_string());
+                WorkloadResponse::PrefixScan(res)
             }
             _ => WorkloadResponse::CallService(Err("Unsupported service call".to_string())),
         };

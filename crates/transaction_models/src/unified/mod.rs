@@ -11,11 +11,11 @@ use depin_sdk_types::app::{ApplicationTransaction, ChainTransaction, StateEntry,
 use depin_sdk_types::error::{StateError, TransactionError};
 use depin_sdk_types::keys::{
     AUTHORITY_SET_KEY, GOVERNANCE_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, GOVERNANCE_VOTE_KEY_PREFIX,
-    STAKES_KEY_NEXT,
+    ORACLE_DATA_PREFIX, ORACLE_PENDING_REQUEST_PREFIX, STAKES_KEY_CURRENT, STAKES_KEY_NEXT,
 };
 use libp2p::identity::PublicKey as Libp2pPublicKey;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum UnifiedProof<P> {
@@ -90,9 +90,7 @@ where
                     Ok(())
                 }
             },
-            ChainTransaction::System(_) => {
-                Ok(())
-            }
+            ChainTransaction::System(_) => Ok(()),
         }
     }
 
@@ -249,7 +247,9 @@ where
                         }
 
                         let validator_pk_b58 = pubkey.to_peer_id().to_base58();
-                        let stakes_bytes = state.get(STAKES_KEY_NEXT)?.unwrap_or_else(|| b"{}".to_vec());
+                        let stakes_bytes = state
+                            .get(STAKES_KEY_NEXT)?
+                            .unwrap_or_else(|| b"{}".to_vec());
                         let mut stakes: BTreeMap<String, u64> =
                             serde_json::from_slice(&stakes_bytes).map_err(|e| {
                                 TransactionError::State(StateError::InvalidValue(e.to_string()))
@@ -291,7 +291,9 @@ where
                         }
 
                         let validator_pk_b58 = pubkey.to_peer_id().to_base58();
-                        let stakes_bytes = state.get(STAKES_KEY_NEXT)?.unwrap_or_else(|| b"{}".to_vec());
+                        let stakes_bytes = state
+                            .get(STAKES_KEY_NEXT)?
+                            .unwrap_or_else(|| b"{}".to_vec());
                         let mut stakes: BTreeMap<String, u64> =
                             serde_json::from_slice(&stakes_bytes).map_err(|e| {
                                 TransactionError::State(StateError::InvalidValue(e.to_string()))
@@ -364,6 +366,104 @@ where
                         state.insert(&vote_key, &vote_bytes)?;
 
                         log::info!("Applied vote for proposal {}.", proposal_id);
+                    }
+                    SystemPayload::RequestOracleData { url, request_id } => {
+                        let key =
+                            [ORACLE_PENDING_REQUEST_PREFIX, &request_id.to_le_bytes()].concat();
+                        let entry = StateEntry {
+                            value: serde_json::to_vec(url).unwrap(),
+                            block_height: _block_height,
+                        };
+                        let value = serde_json::to_vec(&entry).unwrap();
+                        state.insert(&key, &value)?;
+                        log::info!("Applied oracle data request for id: {}", request_id);
+                    }
+                    SystemPayload::SubmitOracleData {
+                        request_id,
+                        final_value,
+                        consensus_proof,
+                    } => {
+                        // This is the critical security verification step.
+
+                        // 1. Verify the pending request exists and then delete it.
+                        let pending_key =
+                            [ORACLE_PENDING_REQUEST_PREFIX, &request_id.to_le_bytes()].concat();
+                        if state.get(&pending_key)?.is_none() {
+                            return Err(TransactionError::Invalid(
+                                "Oracle request not found or already processed".into(),
+                            ));
+                        }
+
+                        // 2. Fetch the current validator stakes for quorum verification.
+                        let stakes_bytes = state.get(STAKES_KEY_CURRENT)?.ok_or_else(|| {
+                            TransactionError::Invalid("Validator stakes not found in state".into())
+                        })?;
+                        let stakes: BTreeMap<String, u64> =
+                            serde_json::from_slice(&stakes_bytes).unwrap_or_default();
+                        if stakes.is_empty() {
+                            return Err(TransactionError::Invalid(
+                                "Validator stake set is empty".into(),
+                            ));
+                        }
+
+                        // 3. Verify the signatures in the consensus proof.
+                        let total_stake: u64 = stakes.values().sum();
+                        let quorum_threshold = (total_stake * 2) / 3 + 1;
+                        let mut attested_stake: u64 = 0;
+                        let mut verified_signers = HashSet::new();
+
+                        for attestation in &consensus_proof.attestations {
+                            let payload_to_verify = serde_json::to_vec(&(
+                                &attestation.request_id,
+                                &attestation.value,
+                                &attestation.timestamp,
+                            ))
+                            .unwrap();
+
+                            let mut signer_pk_b58: Option<String> = None;
+
+                            // Find which validator this signature belongs to.
+                            for (pk_b58, _) in &stakes {
+                                if let Ok(pk_bytes) = bs58::decode(pk_b58).into_vec() {
+                                    if let Ok(pubkey) =
+                                        Libp2pPublicKey::try_decode_protobuf(&pk_bytes)
+                                    {
+                                        if pubkey.verify(&payload_to_verify, &attestation.signature)
+                                        {
+                                            signer_pk_b58 = Some(pk_b58.clone());
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+
+                            if let Some(pk_b58) = signer_pk_b58 {
+                                // Ensure we don't count the same validator's stake twice.
+                                if verified_signers.insert(pk_b58.clone()) {
+                                    attested_stake += stakes.get(&pk_b58).unwrap_or(&0);
+                                }
+                            } else {
+                                return Err(TransactionError::Invalid(
+                                    "Consensus proof contains an invalid or unknown signature"
+                                        .into(),
+                                ));
+                            }
+                        }
+
+                        // 4. Check if the total stake of verified signers meets the quorum.
+                        if attested_stake < quorum_threshold {
+                            return Err(TransactionError::Invalid(format!(
+                                "Oracle quorum not met. Attested stake: {}, Required: {}",
+                                attested_stake, quorum_threshold
+                            )));
+                        }
+
+                        // 5. All checks passed. Write the final data to the state.
+                        state.delete(&pending_key)?;
+                        let final_key = [ORACLE_DATA_PREFIX, &request_id.to_le_bytes()].concat();
+                        state.insert(&final_key, final_value)?;
+
+                        log::info!("Applied and verified oracle data for id: {}", request_id);
                     }
                 }
                 Ok(())
