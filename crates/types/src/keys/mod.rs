@@ -27,3 +27,8 @@ pub const GOVERNANCE_NEXT_PROPOSAL_ID_KEY: &[u8] = b"gov::next_id";
 pub const GOVERNANCE_PROPOSAL_KEY_PREFIX: &[u8] = b"gov::proposal::";
 /// The state key prefix for storing votes.
 pub const GOVERNANCE_VOTE_KEY_PREFIX: &[u8] = b"gov::vote::";
+
+/// The state key prefix for pending oracle requests, keyed by request_id.
+pub const ORACLE_PENDING_REQUEST_PREFIX: &[u8] = b"oracle::pending::";
+/// The state key prefix for finalized oracle data, keyed by request_id.
+pub const ORACLE_DATA_PREFIX: &[u8] = b"oracle::data::";

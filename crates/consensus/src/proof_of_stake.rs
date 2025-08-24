@@ -1,7 +1,6 @@
 // Path: crates/consensus/src/proof_of_stake.rs
 use crate::{ConsensusDecision, ConsensusEngine};
 use async_trait::async_trait;
-use bs58;
 use depin_sdk_api::chain::{AppChain, StakeAmount};
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::StateManager;
@@ -42,7 +41,7 @@ impl ProofOfStakeEngine {
         }
 
         let seed = height.to_le_bytes();
-        let hash = sha256(seed);
+        let hash = sha256(&seed);
         let winning_ticket = u64::from_le_bytes(hash[0..8].try_into().unwrap()) % total_stake;
 
         let mut cumulative_stake = 0;
@@ -62,8 +61,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
         &self,
         workload_client: &Arc<WorkloadClient>,
     ) -> Result<Vec<Vec<u8>>, String> {
-        // To elect the leader for the upcoming block (H), we must use the validator
-        // set that will become active at that height. This is the 'next' set.
         let staker_map = workload_client
             .get_next_staked_validators()
             .await
@@ -96,7 +93,7 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
         let local_b58 = local_peer_id.to_base58();
         let decoded_b58: Vec<String> = stakers
             .keys()
-            .map(|k| bs58::encode(k).into_string())
+            .filter_map(|k| PeerId::from_bytes(k).ok().map(|p| p.to_base58()))
             .collect();
         log::info!(
             "[PoS] height={} local={} stakers={:?}",
@@ -107,15 +104,14 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
 
         let designated_bytes = match self.select_leader(height, &stakers) {
             Some(winner_bytes) => {
-                log::info!(
-                    "[PoS] leader@{} = {}",
-                    height,
-                    bs58::encode(&winner_bytes).into_string()
-                );
+                let winner_peer_id = PeerId::from_bytes(&winner_bytes)
+                    .map(|p| p.to_base58())
+                    .unwrap_or_else(|_| "unknown".to_string());
+                log::info!("[PoS] leader@{} = {}", height, winner_peer_id);
                 winner_bytes
             }
             None => {
-                let mut everyone = known_peers.iter().cloned().collect::<Vec<_>>();
+                let mut everyone: Vec<_> = known_peers.iter().cloned().collect();
                 if !everyone.contains(local_peer_id) {
                     everyone.push(*local_peer_id);
                 }
@@ -131,7 +127,7 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             }
         };
 
-        if designated_bytes.as_slice() == local_peer_id.to_bytes().as_slice() {
+        if designated_bytes == local_peer_id.to_bytes() {
             ConsensusDecision::ProduceBlock(vec![])
         } else {
             ConsensusDecision::WaitForBlock
@@ -161,15 +157,11 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             return Err("Invalid block signature".to_string());
         }
 
-        // --- FIX START ---
-        // When verifying a block for height H, we must use the validator set that
-        // was scheduled to be active at H. From the perspective of our current
-        // state (H-1), this is the 'next' validator set.
         let stakers_string_map = workload_client
-            .get_next_staked_validators() // CORRECT: Use the 'next' set
+            .get_next_staked_validators()
             .await
             .map_err(|e| format!("Could not get staked validators: {}", e))?;
-        // --- FIX END ---
+
         if stakers_string_map.is_empty() {
             return Err("Cannot validate block, no stakers found".to_string());
         }
@@ -183,20 +175,21 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             .select_leader(block.header.height, &stakers)
             .ok_or("Leader selection failed for received block")?;
 
-        let producer_peer_id_bytes = producer_pubkey.to_peer_id().to_bytes();
+        let producer_peer_id = producer_pubkey.to_peer_id();
 
-        if producer_peer_id_bytes != expected_leader_bytes {
+        if producer_peer_id.to_bytes() != expected_leader_bytes {
+            let expected_leader_peer_id = PeerId::from_bytes(&expected_leader_bytes)
+                .map(|p| p.to_base58())
+                .unwrap_or_else(|_| "unknown".to_string());
             return Err(format!(
                 "Block producer {} is not the designated PoS leader for height {}. Expected {}.",
-                producer_pubkey.to_peer_id(),
-                block.header.height,
-                bs58::encode(&expected_leader_bytes).into_string()
+                producer_peer_id, block.header.height, expected_leader_peer_id
             ));
         }
 
         log::info!(
             "Block proposal from valid PoS leader {} verified.",
-            producer_pubkey.to_peer_id()
+            producer_peer_id
         );
         Ok(())
     }

@@ -215,16 +215,21 @@ You must provide the features that the test file requires. The `-- --nocapture` 
 
 *   **New Commands:**
     ```bash
-    # For container_e2e
-    cargo test -p depin-sdk-forge --release \
-    --features "consensus-poa,vm-wasm" \
-    --test container_e2e -- --nocapture
 
     # For semantic_consensus_e2e
 cargo test -p depin-sdk-forge --release \
 --features "consensus-poa,vm-wasm,tree-file,primitive-hash" \
 --test semantic_consensus_e2e -- --nocapture
     ```
+
+#### 6. `oracle_e2e.rs`
+
+*   **New Commands:**
+    ```bash
+    # For oracle_e2e
+cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-file,primitive-hash" --test oracle_e2e -- --nocapture --test-threads=1
+    ```
+
 
 #### Running Tests with Docker:
 

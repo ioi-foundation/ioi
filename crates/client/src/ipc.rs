@@ -12,6 +12,7 @@ type DeployResult = Result<(Vec<u8>, std::collections::HashMap<Vec<u8>, Vec<u8>>
 type CallResult = Result<(ExecutionOutput, std::collections::HashMap<Vec<u8>, Vec<u8>>), String>;
 type QueryResult = Result<ExecutionOutput, String>;
 type TxResult = Result<(), String>;
+type ScanResult = Result<Vec<(Vec<u8>, Vec<u8>)>, String>;
 type StakesResult = Result<BTreeMap<String, u64>, String>;
 type VecVecResult = Result<Vec<Vec<u8>>, String>;
 type StateRootResult = Result<Vec<u8>, String>;
@@ -55,6 +56,7 @@ pub enum WorkloadRequest {
         method_id: String,
         params: serde_json::Value,
     },
+    PrefixScan(Vec<u8>),
 }
 
 /// A response sent from the Workload container back to the Orchestration container.
@@ -75,6 +77,7 @@ pub enum WorkloadResponse {
     GetLastBlockHash(BlockHashResult),
     CheckAndTallyProposals(TallyResult),
     CallService(Result<serde_json::Value, String>),
+    PrefixScan(ScanResult),
 }
 
 impl From<ValidatorError> for WorkloadResponse {

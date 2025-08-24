@@ -36,6 +36,7 @@ depin-sdk-commitment = { path = "../commitment" }
 rand = { workspace = true }
 hex = { workspace = true }
 base64 = { workspace = true }
+bs58 = "0.4"
 
 # Added for mTLS implementation
 tokio-rustls = { workspace = true }

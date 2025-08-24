@@ -196,6 +196,27 @@ pub enum VoteOption {
     Abstain,
 }
 
+/// An off-chain attestation signed by a single validator for an oracle request.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct OracleAttestation {
+    /// The ID of the on-chain request this attestation is for.
+    pub request_id: u64,
+    /// The data value fetched by the validator.
+    pub value: Vec<u8>,
+    /// The UNIX timestamp of when the data was fetched.
+    pub timestamp: u64,
+    /// The validator's signature over `(request_id, value, timestamp)`.
+    pub signature: Vec<u8>,
+}
+
+/// A verifiable proof of off-chain consensus, submitted with the final oracle result.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct OracleConsensusProof {
+    /// A collection of individual `OracleAttestation`s from a quorum of validators.
+    /// Future versions may replace this with an aggregate signature.
+    pub attestations: Vec<OracleAttestation>,
+}
+
 /// The specific action being requested by a SystemTransaction.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum SystemPayload {
@@ -229,5 +250,21 @@ pub enum SystemPayload {
         proposal_id: u64,
         /// The voter's chosen option.
         option: VoteOption,
+    },
+    /// Submits a request for external data to be brought on-chain by the oracle.
+    RequestOracleData {
+        /// The URL or identifier for the data to be fetched.
+        url: String,
+        /// A unique ID for this request, specified by the user.
+        request_id: u64,
+    },
+    /// Submits the final, tallied result and consensus proof for an oracle request.
+    SubmitOracleData {
+        /// The ID of the request being fulfilled.
+        request_id: u64,
+        /// The final, aggregated value for the oracle data.
+        final_value: Vec<u8>,
+        /// The cryptographic proof of consensus from the validator set.
+        consensus_proof: OracleConsensusProof,
     },
 }

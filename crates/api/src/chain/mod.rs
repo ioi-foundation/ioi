@@ -36,6 +36,7 @@ where
         &mut self,
         tx: &ChainTransaction,
         workload: &WorkloadContainer<ST>,
+        block_height: u64,
     ) -> Result<(), ChainError>;
 
     /// Processes a full block of transactions, updating the chain state.

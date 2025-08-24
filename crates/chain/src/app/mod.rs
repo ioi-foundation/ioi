@@ -183,10 +183,11 @@ where
         &mut self,
         tx: &ChainTransaction,
         workload: &WorkloadContainer<ST>,
+        block_height: u64,
     ) -> Result<(), ChainError> {
         self.state
             .transaction_model
-            .apply(tx, workload, self.state.status.height)
+            .apply(tx, workload, block_height)
             .await?;
         self.state.status.total_transactions += 1;
         Ok(())
@@ -262,7 +263,7 @@ where
         }
 
         for tx in &block.transactions {
-            self.process_transaction(tx, workload).await?;
+            self.process_transaction(tx, workload, height).await?;
         }
 
         if let Ok(count) = self.service_manager.apply_upgrades_at_height(height) {
@@ -281,16 +282,9 @@ where
         }
 
         // --- Phase 4: Finalization ---
-        self.state.status.height = height;
-        self.state.status.latest_timestamp = block.header.timestamp;
-
-        let status_bytes = serde_json::to_vec(&self.state.status)
-            .map_err(|e| ChainError::Transaction(format!("Failed to serialize status: {e}")))?;
         let state_tree_arc = workload.state_tree();
         let mut state = state_tree_arc.lock().await;
-        state.insert(STATUS_KEY, &status_bytes)?;
         let new_state_root = state.root_commitment().as_ref().to_vec();
-        drop(state);
 
         if is_producing {
             block.header.state_root = new_state_root;
@@ -303,6 +297,15 @@ where
                 )));
             }
         }
+
+        // --- ATOMIC UPDATE: Only update in-memory state after all checks have passed ---
+        self.state.status.height = height;
+        self.state.status.latest_timestamp = block.header.timestamp;
+
+        let status_bytes = serde_json::to_vec(&self.state.status)
+            .map_err(|e| ChainError::Transaction(format!("Failed to serialize status: {e}")))?;
+        state.insert(STATUS_KEY, &status_bytes)?;
+        drop(state); // Release lock
 
         let validator_set_for_h_plus_1 = self.get_next_validator_set(workload).await?;
 
@@ -451,7 +454,6 @@ where
         }
     }
 
-    // --- FIX START: Implement the new trait method ---
     async fn get_next_staked_validators(
         &self,
         workload: &WorkloadContainer<ST>,
@@ -476,7 +478,6 @@ where
             Err(e) => Err(e.into()),
         }
     }
-    // --- FIX END ---
 }
 
 #[cfg(test)]
@@ -541,7 +542,7 @@ mod tests {
         let protocol_tx = ChainTransaction::System(sys_tx);
 
         // Test
-        let result = chain.process_transaction(&protocol_tx, &workload).await;
+        let result = chain.process_transaction(&protocol_tx, &workload, 1).await;
         assert!(result.is_ok());
 
         // Verify
@@ -597,7 +598,7 @@ mod tests {
         };
         let protocol_tx = ChainTransaction::System(sys_tx);
 
-        let result = chain.process_transaction(&protocol_tx, &workload).await;
+        let result = chain.process_transaction(&protocol_tx, &workload, 1).await;
         assert!(result.is_err());
         assert!(
             matches!(result, Err(ChainError::Transaction(msg)) if msg.contains("Invalid governance signature"))
