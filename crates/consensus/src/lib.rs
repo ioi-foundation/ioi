@@ -21,6 +21,7 @@ use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_client::WorkloadClient;
 use depin_sdk_types::app::Block;
+use depin_sdk_types::error::ConsensusError;
 use libp2p::PeerId;
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -60,7 +61,7 @@ pub trait ConsensusEngine<T: Clone>: Send + Sync {
     async fn get_validator_data(
         &self,
         workload_client: &Arc<WorkloadClient>,
-    ) -> Result<Vec<Vec<u8>>, String>;
+    ) -> Result<Vec<Vec<u8>>, ConsensusError>;
 
     /// Makes a consensus decision for the current round.
     async fn decide(
@@ -78,7 +79,7 @@ pub trait ConsensusEngine<T: Clone>: Send + Sync {
         block: Block<T>,
         chain: &mut (dyn AppChain<CS, TM, ST> + Send + Sync),
         workload_client: &Arc<WorkloadClient>,
-    ) -> Result<(), String>
+    ) -> Result<(), ConsensusError>
     where
         CS: CommitmentScheme + Send + Sync,
         TM: TransactionModel<CommitmentScheme = CS> + Send + Sync,
@@ -95,7 +96,7 @@ pub trait ConsensusEngine<T: Clone>: Send + Sync {
         from: PeerId,
         height: u64,
         new_view: u64,
-    ) -> Result<(), String>;
+    ) -> Result<(), ConsensusError>;
 
     /// Resets the internal state of the engine for a given height.
     fn reset(&mut self, height: u64);
@@ -110,7 +111,7 @@ where
     async fn get_validator_data(
         &self,
         _workload_client: &Arc<WorkloadClient>,
-    ) -> Result<Vec<Vec<u8>>, String> {
+    ) -> Result<Vec<Vec<u8>>, ConsensusError> {
         match self {
             #[cfg(feature = "round-robin")]
             Consensus::RoundRobin(e) => {
@@ -182,7 +183,7 @@ where
         _block: Block<T>,
         _chain: &mut (dyn AppChain<CS, TM, ST> + Send + Sync),
         _workload_client: &Arc<WorkloadClient>,
-    ) -> Result<(), String>
+    ) -> Result<(), ConsensusError>
     where
         CS: CommitmentScheme + Send + Sync,
         TM: TransactionModel<CommitmentScheme = CS> + Send + Sync,
@@ -218,7 +219,7 @@ where
         _from: PeerId,
         _height: u64,
         _new_view: u64,
-    ) -> Result<(), String> {
+    ) -> Result<(), ConsensusError> {
         match self {
             #[cfg(feature = "round-robin")]
             Consensus::RoundRobin(e) => {

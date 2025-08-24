@@ -11,6 +11,7 @@ use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_client::WorkloadClient;
 use depin_sdk_types::app::Block;
+use depin_sdk_types::error::ConsensusError;
 use libp2p::identity::PublicKey;
 use libp2p::PeerId;
 use std::collections::{HashMap, HashSet};
@@ -103,11 +104,11 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
     async fn get_validator_data(
         &self,
         workload_client: &Arc<WorkloadClient>,
-    ) -> Result<Vec<Vec<u8>>, String> {
+    ) -> Result<Vec<Vec<u8>>, ConsensusError> {
         workload_client
             .get_validator_set()
             .await
-            .map_err(|e| e.to_string())
+            .map_err(|e| ConsensusError::ClientError(e.to_string()))
     }
 
     async fn decide(
@@ -150,7 +151,7 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
         block: Block<T>,
         _chain: &mut (dyn AppChain<CS, TM, ST> + Send + Sync),
         workload_client: &Arc<WorkloadClient>,
-    ) -> Result<(), String>
+    ) -> Result<(), ConsensusError>
     where
         CS: CommitmentScheme + Send + Sync,
         TM: TransactionModel<CommitmentScheme = CS> + Send + Sync,
@@ -162,36 +163,45 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
         CS::Commitment: Send + Sync + Debug,
     {
         let height = block.header.height;
-        let producer_pubkey = PublicKey::try_decode_protobuf(&block.header.producer)
-            .map_err(|e| format!("Failed to decode producer public key: {}", e))?;
+        let producer_pubkey =
+            PublicKey::try_decode_protobuf(&block.header.producer).map_err(|e| {
+                ConsensusError::BlockVerificationFailed(format!(
+                    "Failed to decode producer public key: {}",
+                    e
+                ))
+            })?;
         let header_hash = block.header.hash();
         if !producer_pubkey.verify(&header_hash, &block.header.signature) {
-            return Err("Invalid block signature".to_string());
+            return Err(ConsensusError::InvalidSignature);
         }
 
-        let validator_set = workload_client
-            .get_validator_set()
-            .await
-            .map_err(|e| format!("Could not get validator set: {}", e))?;
+        let validator_set = workload_client.get_validator_set().await.map_err(|e| {
+            ConsensusError::ClientError(format!("Could not get validator set: {}", e))
+        })?;
         if validator_set.is_empty() {
-            return Err("Cannot validate block, validator set is empty".to_string());
+            return Err(ConsensusError::BlockVerificationFailed(
+                "Cannot validate block, validator set is empty".to_string(),
+            ));
         }
 
         let view = *self.current_views.entry(height).or_insert(0);
         let leader_index = ((height + view) % validator_set.len() as u64) as usize;
         let expected_leader_bytes = &validator_set[leader_index];
-        let producer_peer_id = producer_pubkey.to_peer_id();
+        let got = producer_pubkey.to_peer_id();
 
-        if &producer_peer_id.to_bytes() != expected_leader_bytes {
-            return Err(format!(
-                "Block producer {} is not the designated leader for height {} view {}.",
-                producer_peer_id, height, view
-            ));
+        if &got.to_bytes() != expected_leader_bytes {
+            let expected = PeerId::from_bytes(expected_leader_bytes).map_err(|e| {
+                ConsensusError::BlockVerificationFailed(format!(
+                    "Could not decode expected leader PeerId: {}",
+                    e
+                ))
+            })?;
+            return Err(ConsensusError::InvalidLeader { expected, got });
         }
 
         log::info!(
             "Block proposal from valid leader {} for (h:{}, v:{}) verified.",
-            producer_peer_id,
+            got,
             height,
             view
         );
@@ -205,7 +215,7 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
         from: PeerId,
         height: u64,
         new_view: u64,
-    ) -> Result<(), String> {
+    ) -> Result<(), ConsensusError> {
         let current_view = *self.current_views.entry(height).or_insert(0);
 
         if new_view <= current_view {

@@ -1,6 +1,7 @@
 // Path: crates/types/src/error/mod.rs
 //! Core error types for the DePIN SDK.
 
+use libp2p::PeerId;
 use thiserror::Error;
 
 /// Errors related to the state tree or state manager.
@@ -26,6 +27,129 @@ pub enum StateError {
     InvalidValue(String),
 }
 
+/// Errors related to block processing.
+#[derive(Debug, Error)]
+pub enum BlockError {
+    /// The block's height is incorrect.
+    #[error("Invalid block height. Expected {expected}, got {got}")]
+    InvalidHeight {
+        /// The expected block height.
+        expected: u64,
+        /// The height of the received block.
+        got: u64,
+    },
+    /// The block's `prev_hash` does not match the hash of the previous block.
+    #[error("Mismatched previous block hash. Expected {expected}, got {got}")]
+    MismatchedPrevHash {
+        /// The expected hash of the previous block.
+        expected: String,
+        /// The `prev_hash` from the received block.
+        got: String,
+    },
+    /// The validator set in the block header does not match the expected set.
+    #[error("Mismatched validator set")]
+    MismatchedValidatorSet,
+    /// The state root in the block header does not match the calculated state root.
+    #[error("Mismatched state root. Expected {expected}, got {got}")]
+    MismatchedStateRoot {
+        /// The expected state root hash.
+        expected: String,
+        /// The state root from the received block.
+        got: String,
+    },
+}
+
+/// Errors related to the consensus engine.
+#[derive(Debug, Error)]
+pub enum ConsensusError {
+    /// A proposed block failed verification.
+    #[error("Block verification failed: {0}")]
+    BlockVerificationFailed(String),
+    /// The producer of a block was not the expected leader for the current round.
+    #[error("Invalid block producer. Expected {expected}, got {got}")]
+    InvalidLeader {
+        /// The `PeerId` of the expected leader.
+        expected: PeerId,
+        /// The `PeerId` of the peer who produced the block.
+        got: PeerId,
+    },
+    /// An error occurred while accessing the state.
+    #[error("State access error: {0}")]
+    StateAccess(#[from] StateError),
+    /// An error occurred in the workload client.
+    #[error("Workload client error: {0}")]
+    ClientError(String),
+    /// A signature in a consensus message was invalid.
+    #[error("Invalid signature in consensus message")]
+    InvalidSignature,
+}
+
+/// Errors related to the oracle service.
+#[derive(Debug, Error)]
+pub enum OracleError {
+    /// The specified oracle request was not found or has already been processed.
+    #[error("Oracle request not found or already processed: {0}")]
+    RequestNotFound(u64),
+    /// The total stake of validators who submitted attestations did not meet the required quorum.
+    #[error("Quorum not met. Attested stake: {attested_stake}, Required: {required}")]
+    QuorumNotMet {
+        /// The total stake that attested.
+        attested_stake: u64,
+        /// The required stake for quorum.
+        required: u64,
+    },
+    /// An attestation from a validator was invalid.
+    #[error("Invalid attestation from signer {signer}: {reason}")]
+    InvalidAttestation {
+        /// The `PeerId` of the validator who sent the invalid attestation.
+        signer: PeerId,
+        /// The reason the attestation was considered invalid.
+        reason: String,
+    },
+    /// Failed to fetch data from an external source.
+    #[error("Failed to fetch external data: {0}")]
+    DataFetchFailed(String),
+}
+
+/// Errors related to the governance service.
+#[derive(Debug, Error)]
+pub enum GovernanceError {
+    /// The specified proposal ID does not exist.
+    #[error("Proposal with ID {0} not found")]
+    ProposalNotFound(u64),
+    /// The proposal is not currently in its voting period.
+    #[error("Proposal is not in its voting period")]
+    NotVotingPeriod,
+    /// A signature on a governance transaction (e.g., a vote) was invalid.
+    #[error("Invalid signature from signer {signer}: {error}")]
+    InvalidSignature {
+        /// The `PeerId` of the signer.
+        signer: PeerId,
+        /// A description of the signature error.
+        error: String,
+    },
+    /// The signer's public key could not be determined from the provided signature.
+    #[error("Signer's public key could not be determined from the provided signature")]
+    InvalidSigner,
+    /// The governance key, required to authorize certain actions, was not found in the state.
+    #[error("Governance key not found in state")]
+    GovernanceKeyNotFound,
+}
+
+/// Errors related to the JSON-RPC server.
+#[derive(Debug, Error)]
+pub enum RpcError {
+    /// The parameters provided in the RPC request were invalid.
+    #[error("Invalid parameters: {0}")]
+    InvalidParams(String),
+    /// An internal error occurred while processing the RPC request.
+    #[error("Internal RPC error: {0}")]
+    InternalError(String),
+    /// The transaction submitted via RPC was rejected.
+    #[error("Transaction submission failed: {0}")]
+    TransactionSubmissionFailed(String),
+}
+
 /// Errors related to transaction processing.
 #[derive(Error, Debug)]
 pub enum TransactionError {
@@ -38,7 +162,13 @@ pub enum TransactionError {
     /// The transaction is invalid for a model-specific reason.
     #[error("Invalid transaction: {0}")]
     Invalid(String),
-    /// An error occurred while interacting with the state.
+    /// An error originating from the governance module.
+    #[error("Governance error: {0}")]
+    Governance(#[from] GovernanceError),
+    /// An error originating from the oracle module.
+    #[error("Oracle error: {0}")]
+    Oracle(#[from] OracleError),
+    /// An error originating from the state manager.
     #[error("State error: {0}")]
     State(#[from] StateError),
 }
@@ -58,7 +188,7 @@ pub enum VmError {
     /// The requested function was not found in the contract.
     #[error("Function not found in contract: {0}")]
     FunctionNotFound(String),
-    /// An error occurred in a host function call.
+    /// An error occurred within a host function called by the contract.
     #[error("Host function error: {0}")]
     HostError(String),
     /// A memory allocation or access error occurred within the VM.
@@ -78,13 +208,13 @@ pub enum ValidatorError {
     /// A configuration error occurred.
     #[error("Configuration error: {0}")]
     Config(String),
-    /// A VM execution error occurred.
+    /// An error occurred during VM execution.
     #[error("VM execution error: {0}")]
     Vm(#[from] VmError),
-    /// An error occurred while interacting with the state.
+    /// An error occurred in the state manager.
     #[error("State error: {0}")]
     State(#[from] StateError),
-    /// A generic error occurred.
+    /// A miscellaneous validator error.
     #[error("Other error: {0}")]
     Other(String),
 }
@@ -94,11 +224,11 @@ pub enum ValidatorError {
 pub enum ChainError {
     /// An error occurred during block processing.
     #[error("Block processing error: {0}")]
-    Block(String),
+    Block(#[from] BlockError),
     /// An error occurred during transaction processing.
     #[error("Transaction processing error: {0}")]
     Transaction(String),
-    /// An error occurred while interacting with the state.
+    /// An error occurred in the state manager.
     #[error("State error: {0}")]
     State(#[from] StateError),
 }
@@ -119,7 +249,7 @@ pub enum CoreError {
     /// An error occurred during a service upgrade.
     #[error("Upgrade error: {0}")]
     UpgradeError(String),
-    /// A custom, descriptive error.
+    /// A custom, unspecified error.
     #[error("Custom error: {0}")]
     Custom(String),
 }
@@ -127,19 +257,19 @@ pub enum CoreError {
 /// Errors related to service upgrades.
 #[derive(Debug, thiserror::Error)]
 pub enum UpgradeError {
-    /// The proposed upgrade is invalid.
+    /// The provided upgrade data (e.g., WASM blob) was invalid.
     #[error("Invalid upgrade: {0}")]
     InvalidUpgrade(String),
-    /// State migration to the new service version failed.
+    /// The service failed to migrate its state to the new version.
     #[error("State migration failed: {0}")]
     MigrationFailed(String),
-    /// The requested service was not found.
+    /// The service to be upgraded was not found.
     #[error("Service not found")]
     ServiceNotFound,
-    /// The service's health check failed.
+    /// The service's health check failed after an upgrade.
     #[error("Health check failed: {0}")]
     HealthCheckFailed(String),
-    /// An operation on the service failed.
+    /// A service operation (e.g., start, stop) failed.
     #[error("Service operation failed: {0}")]
     OperationFailed(String),
 }

@@ -8,6 +8,7 @@ use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_client::WorkloadClient;
 use depin_sdk_crypto::algorithms::hash::sha256;
 use depin_sdk_types::app::Block;
+use depin_sdk_types::error::ConsensusError;
 use libp2p::identity::PublicKey as Libp2pPublicKey;
 use libp2p::PeerId;
 use std::collections::{BTreeMap, HashSet};
@@ -60,13 +61,14 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
     async fn get_validator_data(
         &self,
         workload_client: &Arc<WorkloadClient>,
-    ) -> Result<Vec<Vec<u8>>, String> {
+    ) -> Result<Vec<Vec<u8>>, ConsensusError> {
         let staker_map = workload_client
             .get_next_staked_validators()
             .await
-            .map_err(|e| e.to_string())?;
-        let serialized_map =
-            serde_json::to_vec(&staker_map).map_err(|e| format!("Serialization failed: {}", e))?;
+            .map_err(|e| ConsensusError::ClientError(e.to_string()))?;
+        let serialized_map = serde_json::to_vec(&staker_map).map_err(|e| {
+            ConsensusError::BlockVerificationFailed(format!("Serialization failed: {}", e))
+        })?;
         Ok(vec![serialized_map])
     }
 
@@ -139,7 +141,7 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
         block: Block<T>,
         _chain: &mut (dyn AppChain<CS, TM, ST> + Send + Sync),
         workload_client: &Arc<WorkloadClient>,
-    ) -> Result<(), String>
+    ) -> Result<(), ConsensusError>
     where
         CS: CommitmentScheme + Send + Sync,
         TM: TransactionModel<CommitmentScheme = CS> + Send + Sync,
@@ -151,19 +153,29 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
         CS::Commitment: Send + Sync + Debug,
     {
         let producer_pubkey = Libp2pPublicKey::try_decode_protobuf(&block.header.producer)
-            .map_err(|e| format!("Failed to decode producer public key: {}", e))?;
+            .map_err(|e| {
+                ConsensusError::BlockVerificationFailed(format!(
+                    "Failed to decode producer public key: {}",
+                    e
+                ))
+            })?;
         let header_hash = block.header.hash();
         if !producer_pubkey.verify(&header_hash, &block.header.signature) {
-            return Err("Invalid block signature".to_string());
+            return Err(ConsensusError::InvalidSignature);
         }
 
-        let stakers_string_map = workload_client
-            .get_next_staked_validators()
-            .await
-            .map_err(|e| format!("Could not get staked validators: {}", e))?;
+        let stakers_string_map =
+            workload_client
+                .get_next_staked_validators()
+                .await
+                .map_err(|e| {
+                    ConsensusError::ClientError(format!("Could not get staked validators: {}", e))
+                })?;
 
         if stakers_string_map.is_empty() {
-            return Err("Cannot validate block, no stakers found".to_string());
+            return Err(ConsensusError::BlockVerificationFailed(
+                "Cannot validate block, no stakers found".to_string(),
+            ));
         }
 
         let stakers: BTreeMap<Vec<u8>, u64> = stakers_string_map
@@ -171,26 +183,25 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             .filter_map(|(k, v)| PeerId::from_str(&k).ok().map(|pid| (pid.to_bytes(), v)))
             .collect();
 
-        let expected_leader_bytes = self
-            .select_leader(block.header.height, &stakers)
-            .ok_or("Leader selection failed for received block")?;
+        let expected_leader_bytes = self.select_leader(block.header.height, &stakers).ok_or(
+            ConsensusError::BlockVerificationFailed(
+                "Leader selection failed for received block".to_string(),
+            ),
+        )?;
 
-        let producer_peer_id = producer_pubkey.to_peer_id();
+        let got = producer_pubkey.to_peer_id();
 
-        if producer_peer_id.to_bytes() != expected_leader_bytes {
-            let expected_leader_peer_id = PeerId::from_bytes(&expected_leader_bytes)
-                .map(|p| p.to_base58())
-                .unwrap_or_else(|_| "unknown".to_string());
-            return Err(format!(
-                "Block producer {} is not the designated PoS leader for height {}. Expected {}.",
-                producer_peer_id, block.header.height, expected_leader_peer_id
-            ));
+        if got.to_bytes() != expected_leader_bytes {
+            let expected = PeerId::from_bytes(&expected_leader_bytes).map_err(|e| {
+                ConsensusError::BlockVerificationFailed(format!(
+                    "Could not decode expected leader PeerId: {}",
+                    e
+                ))
+            })?;
+            return Err(ConsensusError::InvalidLeader { expected, got });
         }
 
-        log::info!(
-            "Block proposal from valid PoS leader {} verified.",
-            producer_peer_id
-        );
+        log::info!("Block proposal from valid PoS leader {} verified.", got);
         Ok(())
     }
 
@@ -199,7 +210,7 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
         _from: PeerId,
         _height: u64,
         _new_view: u64,
-    ) -> Result<(), String> {
+    ) -> Result<(), ConsensusError> {
         Ok(())
     }
 
