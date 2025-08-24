@@ -12,6 +12,7 @@ serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 dcrypt = { workspace = true }
 serde_json = { workspace = true }                   # FIX: Added the missing dependency
+libp2p = { workspace = true }
 
 [features]
 default = []

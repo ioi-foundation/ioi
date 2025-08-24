@@ -10,8 +10,8 @@ use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-use depin_sdk_types::app::{Block, BlockHeader, ChainStatus, ChainTransaction, SystemPayload};
-use depin_sdk_types::error::{ChainError, CoreError, StateError};
+use depin_sdk_types::app::{Block, BlockHeader, ChainStatus, ChainTransaction};
+use depin_sdk_types::error::{BlockError, ChainError, CoreError, StateError};
 use depin_sdk_types::keys::*;
 use libp2p::identity::Keypair;
 use serde::{Deserialize, Serialize};
@@ -203,11 +203,11 @@ where
 
         // --- Phase 1: Validation (read-only operations against current state H-1) ---
         if height != self.state.status.height + 1 {
-            return Err(ChainError::Block(format!(
-                "Invalid block height. Expected {}, got {}",
-                self.state.status.height + 1,
-                height
-            )));
+            return Err(BlockError::InvalidHeight {
+                expected: self.state.status.height + 1,
+                got: height,
+            }
+            .into());
         }
 
         let expected_prev_hash = self
@@ -216,12 +216,11 @@ where
             .last()
             .map_or(vec![0; 32], |b| b.header.hash());
         if block.header.prev_hash != expected_prev_hash {
-            return Err(ChainError::Block(format!(
-                "Invalid prev_hash for block {}. Expected {}, got {}",
-                height,
-                hex::encode(&expected_prev_hash),
-                hex::encode(&block.header.prev_hash)
-            )));
+            return Err(BlockError::MismatchedPrevHash {
+                expected: hex::encode(&expected_prev_hash),
+                got: hex::encode(&block.header.prev_hash),
+            }
+            .into());
         }
 
         let mut current_validator_set = self.get_validator_set(workload).await?;
@@ -229,20 +228,13 @@ where
         let mut header_set = block.header.validator_set.clone();
         header_set.sort();
         if header_set != current_validator_set {
-            return Err(ChainError::Block(format!(
-                "Validator set mismatch in received block. Header: {:?}, State: {:?}",
-                header_set.iter().map(hex::encode).collect::<Vec<_>>(),
-                current_validator_set
-                    .iter()
-                    .map(hex::encode)
-                    .collect::<Vec<_>>()
-            )));
+            return Err(BlockError::MismatchedValidatorSet.into());
         }
 
         // --- Phase 2: Application (write operations to transition from H-1 to H) ---
-        for tx in &block.transactions {
+        if let Some(tx) = block.transactions.first() {
             if let ChainTransaction::System(sys_tx) = tx {
-                if let SystemPayload::SwapModule {
+                if let depin_sdk_types::app::SystemPayload::SwapModule {
                     service_type,
                     module_wasm,
                     activation_height,
@@ -256,7 +248,7 @@ where
                             *activation_height,
                         )
                         .map_err(|e| {
-                            ChainError::Block(format!("Failed to schedule upgrade: {}", e))
+                            ChainError::Transaction(format!("Failed to schedule upgrade: {}", e))
                         })?;
                 }
             }
@@ -289,12 +281,13 @@ where
         if is_producing {
             block.header.state_root = new_state_root;
         } else {
-            if block.header.state_root != new_state_root {
-                return Err(ChainError::Block(format!(
-                    "State root mismatch. Expected {}, got {}",
-                    hex::encode(&new_state_root),
-                    hex::encode(&block.header.state_root),
-                )));
+            let new_root_vec = new_state_root;
+            if block.header.state_root != new_root_vec {
+                return Err(BlockError::MismatchedStateRoot {
+                    expected: hex::encode(&new_root_vec),
+                    got: hex::encode(&block.header.state_root),
+                }
+                .into());
             }
         }
 

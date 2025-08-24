@@ -1,9 +1,8 @@
 // Path: crates/api/src/app/mod.rs
 
 use crate::transaction::TransactionModel;
-use dcrypt::algorithms::hash::{sha2::Sha256 as DcryptSha256, HashFunction};
+use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
 use dcrypt::algorithms::ByteSerializable;
-use depin_sdk_types::error::StateError;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -60,20 +59,6 @@ impl BlockHeader {
         let serialized = serde_json::to_vec(&temp).unwrap();
         DcryptSha256::digest(&serialized).unwrap().to_bytes()
     }
-}
-
-/// Errors related to blockchain-level processing.
-#[derive(Debug, Error)]
-pub enum ChainError {
-    /// An error occurred during block processing.
-    #[error("Block processing error: {0}")]
-    Block(String),
-    /// An error occurred during transaction processing.
-    #[error("Transaction processing error: {0}")]
-    Transaction(String),
-    /// An error occurred while interacting with the state.
-    #[error("State error: {0}")]
-    State(#[from] StateError),
 }
 
 /// An input for a UTXO transaction, pointing to a previous output.

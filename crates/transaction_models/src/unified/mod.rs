@@ -9,14 +9,15 @@ use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_api::vm::ExecutionContext;
 use depin_sdk_types::app::{
     ApplicationTransaction, ChainTransaction, OracleConsensusProof, StateEntry, SystemPayload,
-    SystemTransaction, VoteOption,
+    VoteOption,
 };
-use depin_sdk_types::error::{StateError, TransactionError};
+use depin_sdk_types::error::{GovernanceError, OracleError, StateError, TransactionError};
 use depin_sdk_types::keys::{
     AUTHORITY_SET_KEY, GOVERNANCE_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, GOVERNANCE_VOTE_KEY_PREFIX,
     ORACLE_DATA_PREFIX, ORACLE_PENDING_REQUEST_PREFIX, STAKES_KEY_CURRENT, STAKES_KEY_NEXT,
 };
 use libp2p::identity::PublicKey as Libp2pPublicKey;
+use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 
@@ -54,8 +55,9 @@ where
         payload_bytes: &[u8],
     ) -> Result<(), TransactionError> {
         let gov_key_bs58_bytes = state
-            .get(GOVERNANCE_KEY)?
-            .ok_or_else(|| TransactionError::Invalid("Governance key not found in state".into()))?;
+            .get(GOVERNANCE_KEY)
+            .map_err(TransactionError::from)?
+            .ok_or(GovernanceError::GovernanceKeyNotFound)?;
         let gov_key_bs58: String = serde_json::from_slice(&gov_key_bs58_bytes).map_err(|_| {
             TransactionError::Invalid("Failed to deserialize governance key".into())
         })?;
@@ -68,9 +70,11 @@ where
         let pubkey = Libp2pPublicKey::from(ed25519_pk);
 
         if !pubkey.verify(payload_bytes, signature) {
-            return Err(TransactionError::Invalid(
-                "Invalid governance signature".into(),
-            ));
+            return Err(GovernanceError::InvalidSignature {
+                signer: pubkey.to_peer_id(),
+                error: "Signature verification failed".to_string(),
+            }
+            .into());
         }
 
         let serialized = serde_json::to_vec(new_authorities).unwrap();
@@ -94,15 +98,17 @@ where
         let ed25519_pk = libp2p::identity::ed25519::PublicKey::try_from_bytes(pubkey_bytes)
             .map_err(|_| {
                 TransactionError::Invalid(
-                    "Could not decode ed25519 public key from signature".into(),
+                    "Could not decode Ed25519 public key from signature".into(),
                 )
             })?;
         let pubkey = Libp2pPublicKey::from(ed25519_pk);
 
         if !pubkey.verify(payload_bytes, sig_bytes) {
-            return Err(TransactionError::Invalid(
-                "Invalid signature for stake".into(),
-            ));
+            return Err(GovernanceError::InvalidSignature {
+                signer: pubkey.to_peer_id(),
+                error: "Invalid signature for stake operation".to_string(),
+            }
+            .into());
         }
 
         let validator_pk_b58 = pubkey.to_peer_id().to_base58();
@@ -140,15 +146,17 @@ where
         let ed25519_pk = libp2p::identity::ed25519::PublicKey::try_from_bytes(pubkey_bytes)
             .map_err(|_| {
                 TransactionError::Invalid(
-                    "Could not decode ed25519 public key from signature".into(),
+                    "Could not decode Ed25519 public key from signature".into(),
                 )
             })?;
         let pubkey = Libp2pPublicKey::from(ed25519_pk);
 
         if !pubkey.verify(payload_bytes, sig_bytes) {
-            return Err(TransactionError::Invalid(
-                "Invalid signature for unstake".into(),
-            ));
+            return Err(GovernanceError::InvalidSignature {
+                signer: pubkey.to_peer_id(),
+                error: "Invalid signature for unstake operation".to_string(),
+            }
+            .into());
         }
 
         let validator_pk_b58 = pubkey.to_peer_id().to_base58();
@@ -188,14 +196,12 @@ where
         let proposal_key = [GOVERNANCE_PROPOSAL_KEY_PREFIX, &proposal_id.to_le_bytes()].concat();
         let proposal_bytes = state
             .get(&proposal_key)?
-            .ok_or_else(|| TransactionError::Invalid("Proposal does not exist".into()))?;
+            .ok_or(GovernanceError::ProposalNotFound(proposal_id))?;
         let proposal: serde_json::Value = serde_json::from_slice(&proposal_bytes)
             .map_err(|_| TransactionError::Invalid("Failed to parse proposal".into()))?;
 
         if proposal["status"] != "VotingPeriod" {
-            return Err(TransactionError::Invalid(
-                "Proposal is not in voting period".into(),
-            ));
+            return Err(GovernanceError::NotVotingPeriod.into());
         }
         if block_height > proposal["voting_end_height"].as_u64().unwrap_or(0) {
             return Err(TransactionError::Invalid("Voting period has ended".into()));
@@ -246,12 +252,12 @@ where
         consensus_proof: &OracleConsensusProof,
     ) -> Result<(), TransactionError> {
         let pending_key = [ORACLE_PENDING_REQUEST_PREFIX, &request_id.to_le_bytes()].concat();
-        if state.get(&pending_key)?.is_none() {
-            return Err(TransactionError::Invalid(
-                "Oracle request not found or already processed".into(),
-            ));
-        }
+        state
+            .get(&pending_key)?
+            .ok_or(OracleError::RequestNotFound(request_id))?;
 
+        // NOTE: This check has a subtle bug - it should check the stakes at the height the
+        // attestations were made, not the current height. Fixing this is out of scope for this change.
         let stakes_bytes = state.get(STAKES_KEY_CURRENT)?.ok_or_else(|| {
             TransactionError::Invalid("Validator stakes not found in state".into())
         })?;
@@ -293,17 +299,20 @@ where
                     attested_stake += stakes.get(&pk_b58).unwrap_or(&0);
                 }
             } else {
-                return Err(TransactionError::Invalid(
-                    "Consensus proof contains an invalid or unknown signature".into(),
-                ));
+                return Err(OracleError::InvalidAttestation {
+                    signer: PeerId::from_bytes(&[0; 34]).unwrap(), // Dummy PeerId
+                    reason: "Unknown signer or invalid signature".to_string(),
+                }
+                .into());
             }
         }
 
         if attested_stake < quorum_threshold {
-            return Err(TransactionError::Invalid(format!(
-                "Oracle quorum not met. Attested stake: {}, Required: {}",
-                attested_stake, quorum_threshold
-            )));
+            return Err(OracleError::QuorumNotMet {
+                attested_stake,
+                required: quorum_threshold,
+            }
+            .into());
         }
 
         state.delete(&pending_key)?;

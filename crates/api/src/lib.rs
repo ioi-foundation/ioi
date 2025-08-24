@@ -8,23 +8,38 @@
 
 /// Core application-level data structures like Blocks and Transactions.
 pub mod app;
+/// Core traits for the blockchain state machine.
 pub mod chain;
+/// Core traits and types for cryptographic commitment schemes.
 pub mod commitment;
+/// Defines the component classification system (Fixed, Adaptable, Extensible).
 pub mod component;
+/// Defines unified traits for cryptographic primitives.
 pub mod crypto;
+/// Re-exports all core error types from the central `depin-sdk-types` crate.
+pub mod error; // <-- ADD THIS LINE
+/// Defines the core enums for representing homomorphic operations and their results.
 pub mod homomorphic;
+/// Defines traits for Inter-Blockchain Communication (IBC).
 pub mod ibc;
+/// Traits for pluggable, upgradable blockchain services.
 pub mod services;
+/// Core traits for state management, including `StateCommitment` and `StateManager`.
 pub mod state;
+/// Defines the core `TransactionModel` trait.
 pub mod transaction;
+/// Defines the core traits and structures for the validator architecture.
 pub mod validator;
+/// Defines the core traits and types for virtual machines.
 pub mod vm;
 
 /// A curated set of the most commonly used traits and types.
 pub mod prelude {
     pub use crate::chain::AppChain;
     pub use crate::commitment::{CommitmentScheme, HomomorphicCommitmentScheme};
-    // No change needed for consensus as it's not part of the API crate.
+    // Re-export common errors for convenience
+    pub use crate::error::{ChainError, CoreError, StateError, TransactionError, ValidatorError}; // <-- ADD THIS LINE
+                                                                                                 // No change needed for consensus as it's not part of the API crate.
     pub use crate::services::{BlockchainService, UpgradableService};
     pub use crate::state::{StateCommitment, StateManager};
     pub use crate::transaction::TransactionModel;
