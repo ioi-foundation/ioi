@@ -120,7 +120,7 @@ where
                 log::info!("Produced and processed new block #{}", block_height);
                 // --- FIX: Add explicit generic arguments to the function call ---
                 handle_newly_processed_block::<CS, ST, CE>(
-                    &context,
+                    context,
                     block_height,
                     &context.external_data_service,
                 )

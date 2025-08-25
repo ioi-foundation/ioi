@@ -85,11 +85,9 @@ async fn rpc_handler(
                 serde_json::Value::String(s) => {
                     let bytes = match hex::decode(&s) {
                         Ok(b) => b,
-                        Err(_) => {
-                            BASE64_STANDARD
-                                .decode(&s)
-                                .unwrap_or_else(|_| s.into_bytes())
-                        }
+                        Err(_) => BASE64_STANDARD
+                            .decode(&s)
+                            .unwrap_or_else(|_| s.into_bytes()),
                     };
 
                     match serde_json::from_slice::<ChainTransaction>(&bytes) {
@@ -145,7 +143,7 @@ async fn rpc_handler(
         "query_contract" => {
             let (address_opt, input_opt) = match &payload.params {
                 Params::Array(v) => (
-                    v.get(0)
+                    v.first()
                         .and_then(|x| x.as_str())
                         .and_then(|s| hex::decode(s).ok()),
                     v.get(1)
