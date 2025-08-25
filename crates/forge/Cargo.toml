@@ -43,6 +43,9 @@ uuid = { version = "1.8.0", features = ["v4"] }
 tar = "0.4"
 hyper = "0.14"
 
+# Add node as a dependency to propagate features
+depin-sdk-node = { path = "../node", default-features = false }
+
 [dev-dependencies]
 depin-sdk-services = { path = "../services" }
 base64 = { workspace = true }
@@ -58,15 +61,18 @@ path = "src/main.rs"
 
 [features]
 default = []
-# These features are now defined directly on the forge crate.
-# When we run `cargo test --features "..."`, these flags will be active
-# for the `cfg` attributes in the test files.
-validator-bins = []
-vm-wasm = []
-consensus-round-robin = []
-consensus-poa = []
-consensus-pos = []
-tree-file = []
-tree-hashmap = []
-primitive-hash = []
-primitive-pedersen = []
+# Features propagate to the node crate
+tree-file = ["depin-sdk-node/tree-file"]
+tree-hashmap = ["depin-sdk-node/tree-hashmap"]
+tree-iavl = ["depin-sdk-node/tree-iavl"]
+tree-sparse-merkle = ["depin-sdk-node/tree-sparse-merkle"]
+tree-verkle = ["depin-sdk-node/tree-verkle"]
+primitive-hash = ["depin-sdk-node/primitive-hash"]
+primitive-kzg = ["depin-sdk-node/primitive-kzg"]
+
+# Other features also propagate
+validator-bins = ["depin-sdk-node/build-bins"]
+vm-wasm = ["depin-sdk-node/vm-wasm"]
+consensus-round-robin = ["depin-sdk-node/consensus-round-robin"]
+consensus-poa = ["depin-sdk-node/consensus-poa"]
+consensus-pos = ["depin-sdk-node/consensus-pos"]
