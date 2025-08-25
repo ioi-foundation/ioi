@@ -80,6 +80,14 @@ pub async fn handle_newly_processed_block<CS, ST, CE>(
 
             match external_data_service.fetch(&url).await {
                 Ok(value) => {
+                    let Ok(ed25519_pk) = context.local_keypair.public().try_into_ed25519() else {
+                        log::error!(
+                            "Oracle: Local keypair is not Ed25519, cannot create attestation."
+                        );
+                        continue;
+                    };
+                    let pubkey_bytes = ed25519_pk.to_bytes();
+
                     let mut attestation = OracleAttestation {
                         request_id,
                         value,
@@ -96,7 +104,8 @@ pub async fn handle_newly_processed_block<CS, ST, CE>(
                         &attestation.timestamp,
                     ))
                     .unwrap();
-                    attestation.signature = context.local_keypair.sign(&payload_to_sign).unwrap();
+                    let signature_bytes = context.local_keypair.sign(&payload_to_sign).unwrap();
+                    attestation.signature = [pubkey_bytes.as_ref(), &signature_bytes].concat();
 
                     let attestation_bytes = serde_json::to_vec(&attestation).unwrap();
                     context
@@ -138,10 +147,54 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE>(
         attestation.request_id,
         from
     );
+
+    const ED25519_PUBKEY_LEN: usize = 32;
+    if attestation.signature.len() <= ED25519_PUBKEY_LEN {
+        log::warn!(
+            "Oracle: Received attestation with malformed signature (too short) from {}",
+            from
+        );
+        return;
+    }
+    let (pubkey_bytes, sig_bytes) = attestation.signature.split_at(ED25519_PUBKEY_LEN);
+
+    let pubkey = match libp2p::identity::ed25519::PublicKey::try_from_bytes(pubkey_bytes) {
+        Ok(pk) => Libp2pPublicKey::from(pk),
+        Err(_) => {
+            log::warn!(
+                "Oracle: Failed to decode Ed25519 public key from attestation from {}",
+                from
+            );
+            return;
+        }
+    };
+
+    if pubkey.to_peer_id() != from {
+        log::warn!(
+            "Oracle: Attestation signer PeerId {} does not match gossip source PeerId {}. This could indicate a relay, but signature must be valid.",
+            pubkey.to_peer_id(), from
+        );
+    }
+
     let validator_stakes = match context.workload_client.get_staked_validators().await {
         Ok(vs) => vs,
-        Err(_) => return,
+        Err(e) => {
+            log::error!(
+                "Oracle: Could not get validator stakes for verification: {}",
+                e
+            );
+            return;
+        }
     };
+
+    let pk_b58 = pubkey.to_peer_id().to_base58();
+    if !validator_stakes.contains_key(&pk_b58) {
+        log::warn!(
+            "Oracle: Received attestation from non-staker {}, disregarding.",
+            from
+        );
+        return;
+    }
 
     let payload_to_verify = serde_json::to_vec(&(
         &attestation.request_id,
@@ -149,21 +202,8 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE>(
         &attestation.timestamp,
     ))
     .unwrap();
-    let mut is_valid_signature = false;
-    for (pk_b58, _) in &validator_stakes {
-        if let Ok(pk_bytes) = bs58::decode(pk_b58).into_vec() {
-            if let Ok(pubkey) = Libp2pPublicKey::try_decode_protobuf(&pk_bytes) {
-                if pubkey.to_peer_id() == from
-                    && pubkey.verify(&payload_to_verify, &attestation.signature)
-                {
-                    is_valid_signature = true;
-                    break;
-                }
-            }
-        }
-    }
 
-    if !is_valid_signature {
+    if !pubkey.verify(&payload_to_verify, sig_bytes) {
         log::warn!(
             "Oracle: Received attestation with invalid signature from {}",
             from
@@ -218,19 +258,25 @@ pub async fn check_quorum_and_submit<CS, ST, CE>(
     let mut unique_signers = HashSet::new();
     let mut valid_attestations_for_quorum = Vec::new();
 
+    const ED25519_PUBKEY_LEN: usize = 32;
     for att in attestations {
-        for (pk_b58, _) in &validator_stakes {
-            if let Ok(pk_bytes) = bs58::decode(pk_b58).into_vec() {
-                if let Ok(pubkey) = Libp2pPublicKey::try_decode_protobuf(&pk_bytes) {
-                    let payload_to_verify =
-                        serde_json::to_vec(&(&att.request_id, &att.value, &att.timestamp)).unwrap();
-                    if pubkey.verify(&payload_to_verify, &att.signature)
-                        && unique_signers.insert(pk_b58.clone())
-                    {
-                        valid_attestations_for_quorum.push((att.clone(), pk_b58));
-                        break;
-                    }
-                }
+        if att.signature.len() <= ED25519_PUBKEY_LEN {
+            continue;
+        }
+        let (pubkey_bytes, sig_bytes) = att.signature.split_at(ED25519_PUBKEY_LEN);
+
+        let pubkey = match libp2p::identity::ed25519::PublicKey::try_from_bytes(pubkey_bytes) {
+            Ok(pk) => Libp2pPublicKey::from(pk),
+            Err(_) => continue,
+        };
+
+        let pk_b58 = pubkey.to_peer_id().to_base58();
+        if validator_stakes.contains_key(&pk_b58) {
+            let payload_to_verify =
+                serde_json::to_vec(&(&att.request_id, &att.value, &att.timestamp)).unwrap();
+            if pubkey.verify(&payload_to_verify, sig_bytes) && unique_signers.insert(pk_b58.clone())
+            {
+                valid_attestations_for_quorum.push((att.clone(), pk_b58));
             }
         }
     }
@@ -238,7 +284,7 @@ pub async fn check_quorum_and_submit<CS, ST, CE>(
 
     let attested_stake: u64 = valid_attestations_for_quorum
         .iter()
-        .filter_map(|(_, pk_b58)| validator_stakes.get(*pk_b58))
+        .filter_map(|(_, pk_b58)| validator_stakes.get(pk_b58))
         .sum();
 
     if attested_stake >= quorum_threshold {

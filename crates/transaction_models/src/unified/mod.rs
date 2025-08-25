@@ -318,26 +318,44 @@ where
             ))
             .unwrap();
 
-            let mut signer_pk_b58: Option<String> = None;
-            for pk_b58 in stakes.keys() {
-                if let Ok(pk_bytes) = bs58::decode(pk_b58).into_vec() {
-                    if let Ok(pubkey) = Libp2pPublicKey::try_decode_protobuf(&pk_bytes) {
-                        if pubkey.verify(&payload_to_verify, &attestation.signature) {
-                            signer_pk_b58 = Some(pk_b58.clone());
-                            break;
-                        }
-                    }
+            const ED25519_PUBKEY_LEN: usize = 32;
+            if attestation.signature.len() <= ED25519_PUBKEY_LEN {
+                return Err(OracleError::InvalidAttestation {
+                    signer: PeerId::from_bytes(&[0; 34]).unwrap(), // Dummy
+                    reason: "Malformed signature (too short)".to_string(),
                 }
+                .into());
+            }
+            let (pubkey_bytes, sig_bytes) = attestation.signature.split_at(ED25519_PUBKEY_LEN);
+
+            let pubkey = match libp2p::identity::ed25519::PublicKey::try_from_bytes(pubkey_bytes) {
+                Ok(pk) => Libp2pPublicKey::from(pk),
+                Err(_) => {
+                    return Err(OracleError::InvalidAttestation {
+                        signer: PeerId::from_bytes(&[0; 34]).unwrap(), // Dummy
+                        reason: "Could not decode public key from signature".to_string(),
+                    }
+                    .into());
+                }
+            };
+
+            let signer_pk_b58 = pubkey.to_peer_id().to_base58();
+            if !stakes.contains_key(&signer_pk_b58) {
+                return Err(OracleError::InvalidAttestation {
+                    signer: pubkey.to_peer_id(),
+                    reason: "Signer is not a current staker".to_string(),
+                }
+                .into());
             }
 
-            if let Some(pk_b58) = signer_pk_b58 {
-                if verified_signers.insert(pk_b58.clone()) {
-                    attested_stake += stakes.get(&pk_b58).unwrap_or(&0);
+            if pubkey.verify(&payload_to_verify, sig_bytes) {
+                if verified_signers.insert(signer_pk_b58.clone()) {
+                    attested_stake += stakes.get(&signer_pk_b58).unwrap_or(&0);
                 }
             } else {
                 return Err(OracleError::InvalidAttestation {
-                    signer: PeerId::from_bytes(&[0; 34]).unwrap(), // Dummy PeerId
-                    reason: "Unknown signer or invalid signature".to_string(),
+                    signer: pubkey.to_peer_id(),
+                    reason: "Signature verification failed".to_string(),
                 }
                 .into());
             }
