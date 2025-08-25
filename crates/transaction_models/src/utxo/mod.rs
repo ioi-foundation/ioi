@@ -216,7 +216,8 @@ where
 
         // 2. Verify each input's inclusion proof against the root.
         for input_proof in &proof.input_proofs {
-            let is_valid = S::verify_proof(
+            let is_valid = state.verify_proof(
+                // <-- FIX: Call verify_proof as a method on the state object
                 &root_commitment,
                 &input_proof.inclusion_proof,
                 &input_proof.utxo_key,

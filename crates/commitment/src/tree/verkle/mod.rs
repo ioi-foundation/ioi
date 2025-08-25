@@ -67,6 +67,7 @@ pub struct VerkleProof {
 }
 
 /// Verkle tree implementation
+#[derive(Debug)]
 pub struct VerkleTree<CS: CommitmentScheme> {
     root: VerkleNode,
     scheme: CS,
@@ -291,9 +292,10 @@ where
     }
 }
 
-impl<CS: CommitmentScheme + Default> StateCommitment for VerkleTree<CS>
+impl<CS: CommitmentScheme> StateCommitment for VerkleTree<CS>
+// <-- FIX: Removed Default
 where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+    CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
     CS::Proof: AsRef<[u8]>,
 {
     type Commitment = CS::Commitment;
@@ -331,6 +333,7 @@ where
     }
 
     fn verify_proof(
+        &self,
         commitment: &Self::Commitment,
         proof: &Self::Proof,
         key: &[u8],
@@ -359,9 +362,10 @@ where
     }
 }
 
-impl<CS: CommitmentScheme + Default> StateManager for VerkleTree<CS>
+impl<CS: CommitmentScheme> StateManager for VerkleTree<CS>
+// <-- FIX: Removed Default
 where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+    CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
     CS::Proof: AsRef<[u8]>,
 {
     fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {

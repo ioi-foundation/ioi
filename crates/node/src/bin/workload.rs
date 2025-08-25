@@ -22,10 +22,18 @@ use tokio::sync::Mutex;
 // Imports for concrete types used in the factory
 #[cfg(feature = "primitive-hash")]
 use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
+#[cfg(feature = "primitive-kzg")]
+use depin_sdk_commitment::primitives::kzg::{KZGCommitmentScheme, KZGParams};
 #[cfg(feature = "tree-file")]
 use depin_sdk_commitment::tree::file::FileStateTree;
 #[cfg(feature = "tree-hashmap")]
 use depin_sdk_commitment::tree::hashmap::HashMapStateTree;
+#[cfg(feature = "tree-iavl")]
+use depin_sdk_commitment::tree::iavl::IAVLTree;
+#[cfg(feature = "tree-sparse-merkle")]
+use depin_sdk_commitment::tree::sparse_merkle::SparseMerkleTree;
+#[cfg(feature = "tree-verkle")]
+use depin_sdk_commitment::tree::verkle::VerkleTree;
 
 #[derive(Parser, Debug)]
 struct WorkloadOpts {
@@ -33,26 +41,31 @@ struct WorkloadOpts {
     config: PathBuf,
 }
 
+// Add a type alias for the boxed trait object for clarity
+type BoxedStateManager<CS> = Box<
+    dyn StateManager<
+            Commitment = <CS as CommitmentScheme>::Commitment,
+            Proof = <CS as CommitmentScheme>::Proof,
+        > + Send
+        + Sync,
+>;
+
 /// Generic function containing all logic after component instantiation.
-async fn run_workload<ST, CS>(
-    mut state_tree: ST,
+async fn run_workload<CS>(
+    mut state_tree: BoxedStateManager<CS>, // The parameter is now the boxed trait object
     commitment_scheme: CS,
     config: WorkloadConfig,
 ) -> Result<()>
 where
-    CS: CommitmentScheme + Clone + Default + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Send
-        + Sync
-        + 'static
-        + std::fmt::Debug,
-    CS::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync,
+    CS: CommitmentScheme + Clone + Send + Sync + 'static, // <-- FIX: Removed `Default` bound
+    CS::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug, // <-- FIX: Added Debug bound
     CS::Proof: AsRef<[u8]> + serde::Serialize + for<'de> serde::Deserialize<'de>,
     CS::Commitment: std::fmt::Debug,
 {
     // Initialize state from genesis if the state file doesn't exist.
+    // This now works because Box<dyn StateManager> implements StateManager.
     if !Path::new(&config.state_file).exists() {
-        load_state_from_genesis_file(&mut state_tree, &config.genesis_file)?;
+        load_state_from_genesis_file(&mut *state_tree, &config.genesis_file)?;
     } else {
         log::info!(
             "Found existing state file at '{}'. Skipping genesis initialization.",
@@ -60,8 +73,8 @@ where
         );
     }
 
-    // This logic is now generic and works with any StateManager/CommitmentScheme combination.
     let wasm_vm = Box::new(WasmVm::new(config.fuel_costs.clone()));
+    // WorkloadContainer is generic over ST, which is now correctly inferred as Box<dyn StateManager<...>>
     let workload_container = Arc::new(WorkloadContainer::new(config.clone(), state_tree, wasm_vm));
 
     let mut chain = Chain::new(
@@ -104,7 +117,10 @@ async fn main() -> Result<()> {
         (StateTreeType::File, CommitmentSchemeType::Hash) => {
             log::info!("Instantiating state backend: FileStateTree<HashCommitmentScheme>");
             let commitment_scheme = HashCommitmentScheme::new();
-            let state_tree = FileStateTree::new(&config.state_file, commitment_scheme.clone());
+            let state_tree = Box::new(FileStateTree::new(
+                &config.state_file,
+                commitment_scheme.clone(),
+            ));
             run_workload(state_tree, commitment_scheme, config).await
         }
 
@@ -112,7 +128,32 @@ async fn main() -> Result<()> {
         (StateTreeType::HashMap, CommitmentSchemeType::Hash) => {
             log::info!("Instantiating state backend: HashMapStateTree<HashCommitmentScheme>");
             let commitment_scheme = HashCommitmentScheme::new();
-            let state_tree = HashMapStateTree::new(commitment_scheme.clone());
+            let state_tree = Box::new(HashMapStateTree::new(commitment_scheme.clone()));
+            run_workload(state_tree, commitment_scheme, config).await
+        }
+
+        #[cfg(all(feature = "tree-iavl", feature = "primitive-hash"))]
+        (StateTreeType::IAVL, CommitmentSchemeType::Hash) => {
+            log::info!("Instantiating state backend: IAVLTree<HashCommitmentScheme>");
+            let commitment_scheme = HashCommitmentScheme::new();
+            let state_tree = Box::new(IAVLTree::new(commitment_scheme.clone()));
+            run_workload(state_tree, commitment_scheme, config).await
+        }
+
+        #[cfg(all(feature = "tree-sparse-merkle", feature = "primitive-hash"))]
+        (StateTreeType::SparseMerkle, CommitmentSchemeType::Hash) => {
+            log::info!("Instantiating state backend: SparseMerkleTree<HashCommitmentScheme>");
+            let commitment_scheme = HashCommitmentScheme::new();
+            let state_tree = Box::new(SparseMerkleTree::new(commitment_scheme.clone()));
+            run_workload(state_tree, commitment_scheme, config).await
+        }
+
+        #[cfg(all(feature = "tree-verkle", feature = "primitive-kzg"))]
+        (StateTreeType::Verkle, CommitmentSchemeType::KZG) => {
+            log::info!("Instantiating state backend: VerkleTree<KZGCommitmentScheme>");
+            let params = KZGParams::new_insecure_for_testing(12345, 256);
+            let commitment_scheme = KZGCommitmentScheme::new(params);
+            let state_tree = Box::new(VerkleTree::new(commitment_scheme.clone(), 256));
             run_workload(state_tree, commitment_scheme, config).await
         }
 

@@ -32,7 +32,7 @@ pub struct FileStateTree<CS: CommitmentScheme> {
 
 impl<CS> FileStateTree<CS>
 where
-    CS: CommitmentScheme + Clone + Default,
+    CS: CommitmentScheme + Clone, // <-- FIX: Removed Default
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
 {
     pub fn new<P: AsRef<Path>>(path: P, scheme: CS) -> Self {
@@ -242,9 +242,9 @@ where
 
 impl<CS> StateCommitment for FileStateTree<CS>
 where
-    CS: CommitmentScheme + Clone + Send + Sync + Default,
-    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
-    CS::Proof: AsRef<[u8]>, // Added this constraint to fix the compiler error
+    CS: CommitmentScheme + Clone + Send + Sync, // <-- FIX: Removed Default
+    CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
+    CS::Proof: AsRef<[u8]>,
 {
     type Commitment = <CS as CommitmentScheme>::Commitment;
     type Proof = <CS as CommitmentScheme>::Proof;
@@ -285,13 +285,14 @@ where
     }
 
     fn verify_proof(
+        &self,
         commitment: &Self::Commitment,
         proof: &Self::Proof,
         key: &[u8],
         value: &[u8],
     ) -> bool {
         let root_hash = commitment.as_ref();
-        let proof_data = proof.as_ref(); // This line (290) was causing the error
+        let proof_data = proof.as_ref();
         let key_hex = hex::encode(key);
         Self::verify_merkle_proof_internal(root_hash, &key_hex, value, proof_data)
     }
@@ -315,9 +316,9 @@ where
 
 impl<CS> StateManager for FileStateTree<CS>
 where
-    CS: CommitmentScheme + Clone + Send + Sync + Default,
-    CS::Value: From<Vec<u8>> + Send + Sync + AsRef<[u8]>,
-    CS::Proof: AsRef<[u8]>, // Added this constraint for consistency
+    CS: CommitmentScheme + Clone + Send + Sync, // <-- FIX: Removed Default
+    CS::Value: From<Vec<u8>> + Send + Sync + AsRef<[u8]> + std::fmt::Debug,
+    CS::Proof: AsRef<[u8]>,
 {
     fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
         for (key, value) in updates {

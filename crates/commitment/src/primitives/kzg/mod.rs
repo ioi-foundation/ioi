@@ -10,6 +10,7 @@ use depin_sdk_api::commitment::{
     CommitmentScheme, CommitmentStructure, ProofContext, SchemeIdentifier, Selector,
 };
 use depin_sdk_crypto::algorithms::hash::sha256;
+use serde::{Deserialize, Serialize}; // <-- Import serde derives
 use std::fmt::Debug;
 use std::path::Path;
 
@@ -81,7 +82,7 @@ impl KZGParams {
 }
 
 /// A KZG commitment to a polynomial, which is a point in G1.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)] // <-- FIX: Add Serialize, Deserialize
 pub struct KZGCommitment(pub Vec<u8>);
 
 impl AsRef<[u8]> for KZGCommitment {
@@ -92,7 +93,7 @@ impl AsRef<[u8]> for KZGCommitment {
 
 /// A KZG proof, which is a commitment to the quotient polynomial (a point in G1).
 /// This represents the witness `W`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)] // <-- FIX: Add Serialize, Deserialize
 pub struct KZGProof(pub Vec<u8>);
 
 impl AsRef<[u8]> for KZGProof {

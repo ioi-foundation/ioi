@@ -360,6 +360,7 @@ mod tests {
             None
         }
         fn verify_proof(
+            &self, // <-- FIX: Add &self
             _commitment: &Self::Commitment,
             _proof: &Self::Proof,
             _key: &[u8],

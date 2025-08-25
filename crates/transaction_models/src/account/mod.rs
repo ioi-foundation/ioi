@@ -174,9 +174,7 @@ where
 
         // 2. Fetch the sender's account state from the state manager.
         let value = state.get(&key)?.ok_or_else(|| {
-            TransactionError::Invalid(
-                "Sender account for proof generation not found".to_string(),
-            )
+            TransactionError::Invalid("Sender account for proof generation not found".to_string())
         })?;
 
         // 3. Create the inclusion proof for that key-value pair.
@@ -203,7 +201,8 @@ where
         let root_commitment = state.root_commitment();
 
         // 2. Verify the account's inclusion proof.
-        let is_valid = S::verify_proof(
+        let is_valid = state.verify_proof(
+            // <-- FIX: Call verify_proof as a method on the state object
             &root_commitment,
             &proof.inclusion_proof,
             &proof.account_key,

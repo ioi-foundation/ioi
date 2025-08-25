@@ -336,6 +336,7 @@ pub struct IAVLProofNode {
 }
 
 /// IAVL tree implementation
+#[derive(Debug)]
 pub struct IAVLTree<CS: CommitmentScheme> {
     root: Option<Arc<IAVLNode>>,
     version: u64,
@@ -446,9 +447,10 @@ where
     }
 }
 
-impl<CS: CommitmentScheme + Default> StateCommitment for IAVLTree<CS>
+impl<CS: CommitmentScheme> StateCommitment for IAVLTree<CS>
+// <-- FIX: Removed Default
 where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+    CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
     CS::Proof: AsRef<[u8]>,
 {
     type Commitment = CS::Commitment;
@@ -497,6 +499,7 @@ where
     }
 
     fn verify_proof(
+        &self,
         commitment: &Self::Commitment,
         proof: &Self::Proof,
         key: &[u8],
@@ -526,9 +529,10 @@ where
     }
 }
 
-impl<CS: CommitmentScheme + Default> StateManager for IAVLTree<CS>
+impl<CS: CommitmentScheme> StateManager for IAVLTree<CS>
+// <-- FIX: Removed Default
 where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+    CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
     CS::Proof: AsRef<[u8]>,
 {
     fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
