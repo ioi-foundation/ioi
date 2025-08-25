@@ -42,7 +42,7 @@ pub fn engine_from_config(config: &OrchestrationConfig) -> Result<Consensus<Chai
                     use std::time::Duration;
                     log::info!("Using RoundRobinBft consensus engine.");
                     let timeout = Duration::from_secs(config.round_robin_view_timeout_secs);
-                    Ok(Consensus::RoundRobin(RoundRobinBftEngine::new(timeout)))
+                    Ok(Consensus::RoundRobin(Box::new(RoundRobinBftEngine::new(timeout))))
                 } else {
                      Err(anyhow::anyhow!("Node configured for RoundRobinBFT, but not compiled with the 'round-robin' feature."))
                 }
