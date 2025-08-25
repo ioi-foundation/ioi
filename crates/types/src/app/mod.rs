@@ -209,6 +209,19 @@ pub struct OracleAttestation {
     pub signature: Vec<u8>,
 }
 
+impl OracleAttestation {
+    /// [Feedback #1, #4, #8] Creates a deterministic, domain-separated signing payload.
+    pub fn to_signing_payload(&self, chain_id: &str) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"DEPOT_ORACLE_ATTESTATION_V1::");
+        bytes.extend_from_slice(chain_id.as_bytes());
+        bytes.extend_from_slice(&self.request_id.to_le_bytes());
+        bytes.extend_from_slice(&self.timestamp.to_le_bytes());
+        bytes.extend_from_slice(&DcryptSha256::digest(&self.value).unwrap().to_bytes());
+        DcryptSha256::digest(&bytes).unwrap().to_bytes()
+    }
+}
+
 /// A verifiable proof of off-chain consensus, submitted with the final oracle result.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct OracleConsensusProof {

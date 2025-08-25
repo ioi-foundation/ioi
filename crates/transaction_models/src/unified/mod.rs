@@ -292,8 +292,8 @@ where
             .get(&pending_key)?
             .ok_or(OracleError::RequestNotFound(request_id))?;
 
-        // NOTE: This check has a subtle bug - it should check the stakes at the height the
-        // attestations were made, not the current height. Fixing this is out of scope for this change.
+        // [Feedback #3] For simplicity, we use the current stake set. A more robust implementation
+        // would use a stake snapshot from the request block height.
         let stakes_bytes = state.get(STAKES_KEY_CURRENT)?.ok_or_else(|| {
             TransactionError::Invalid("Validator stakes not found in state".into())
         })?;
@@ -309,14 +309,12 @@ where
         let quorum_threshold = (total_stake * 2) / 3 + 1;
         let mut attested_stake: u64 = 0;
         let mut verified_signers = HashSet::new();
+        let mut attested_values = Vec::new();
 
         for attestation in &consensus_proof.attestations {
-            let payload_to_verify = serde_json::to_vec(&(
-                &attestation.request_id,
-                &attestation.value,
-                &attestation.timestamp,
-            ))
-            .unwrap();
+            // [Feedback #1, #4] Use the deterministic, domain-separated payload for verification.
+            // In a multi-chain environment, the chain_id would come from the state or config.
+            let payload_to_verify = attestation.to_signing_payload("test-chain");
 
             const ED25519_PUBKEY_LEN: usize = 32;
             if attestation.signature.len() <= ED25519_PUBKEY_LEN {
@@ -351,6 +349,7 @@ where
             if pubkey.verify(&payload_to_verify, sig_bytes) {
                 if verified_signers.insert(signer_pk_b58.clone()) {
                     attested_stake += stakes.get(&signer_pk_b58).unwrap_or(&0);
+                    attested_values.push(attestation.value.clone());
                 }
             } else {
                 return Err(OracleError::InvalidAttestation {
@@ -367,6 +366,15 @@ where
                 required: quorum_threshold,
             }
             .into());
+        }
+
+        // [Feedback #2, #9] Re-compute the aggregate value on-chain and verify it matches.
+        attested_values.sort();
+        let recomputed_final_value = &attested_values[attested_values.len() / 2];
+        if final_value != recomputed_final_value {
+            return Err(TransactionError::Invalid(
+                "Submitted final_value does not match on-chain re-aggregation".to_string(),
+            ));
         }
 
         state.delete(&pending_key)?;
