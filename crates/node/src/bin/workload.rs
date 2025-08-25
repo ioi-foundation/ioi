@@ -62,7 +62,7 @@ where
 
     // This logic is now generic and works with any StateManager/CommitmentScheme combination.
     let wasm_vm = Box::new(WasmVm::new(config.fuel_costs.clone()));
-    let workload_container = Arc::new(WorkloadContainer::new(config, state_tree, wasm_vm));
+    let workload_container = Arc::new(WorkloadContainer::new(config.clone(), state_tree, wasm_vm));
 
     let mut chain = Chain::new(
         commitment_scheme.clone(),
@@ -70,6 +70,7 @@ where
         "depin-chain-1",
         vec![],
         Box::new(load_service_from_wasm),
+        config.consensus_type.clone(),
     );
     chain.load_or_initialize_status(&workload_container).await?;
     let chain_arc = Arc::new(Mutex::new(chain));

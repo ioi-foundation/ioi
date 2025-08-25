@@ -81,6 +81,9 @@ pub struct WorkloadConfig {
     pub state_tree: StateTreeType,
     /// The cryptographic commitment scheme to pair with the state tree.
     pub commitment_scheme: CommitmentSchemeType,
+    /// The consensus engine type. This is needed by the Chain logic to correctly
+    /// interpret validator sets (PoS stakes vs PoA authorities).
+    pub consensus_type: ConsensusType,
     /// The path to the genesis file for initial state.
     pub genesis_file: String,
     /// The path to the backing file or database for the state tree.
