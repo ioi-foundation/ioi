@@ -287,4 +287,4 @@ This project is dual-licensed under:
 
 ---
 
-*Building the future of Web4, one node binary at a time.* 🚀
+*Building the future of Web4, one compiled binary at a time.* 🚀
