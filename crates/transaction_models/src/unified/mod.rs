@@ -319,7 +319,7 @@ where
             .unwrap();
 
             let mut signer_pk_b58: Option<String> = None;
-            for (pk_b58, _) in &stakes {
+            for pk_b58 in stakes.keys() {
                 if let Ok(pk_bytes) = bs58::decode(pk_b58).into_vec() {
                     if let Ok(pubkey) = Libp2pPublicKey::try_decode_protobuf(&pk_bytes) {
                         if pubkey.verify(&payload_to_verify, &attestation.signature) {
