@@ -184,6 +184,7 @@ where
         option: &VoteOption,
         signature: &[u8],
         block_height: u64,
+        payload_bytes: &[u8],
     ) -> Result<(), TransactionError> {
         const ED25519_PUBKEY_LEN: usize = 32;
         if signature.len() < ED25519_PUBKEY_LEN {
@@ -191,7 +192,23 @@ where
                 "Invalid signature format for vote".into(),
             ));
         }
-        let (pubkey_bytes, _sig_bytes) = signature.split_at(ED25519_PUBKEY_LEN);
+        let (pubkey_bytes, sig_bytes) = signature.split_at(ED25519_PUBKEY_LEN);
+
+        let ed25519_pk = libp2p::identity::ed25519::PublicKey::try_from_bytes(pubkey_bytes)
+            .map_err(|_| {
+                TransactionError::Invalid(
+                    "Could not decode Ed25519 public key from signature".into(),
+                )
+            })?;
+        let pubkey = Libp2pPublicKey::from(ed25519_pk);
+
+        if !pubkey.verify(payload_bytes, sig_bytes) {
+            return Err(GovernanceError::InvalidSignature {
+                signer: pubkey.to_peer_id(),
+                error: "Invalid signature for vote operation".to_string(),
+            }
+            .into());
+        }
 
         let proposal_key = [GOVERNANCE_PROPOSAL_KEY_PREFIX, &proposal_id.to_le_bytes()].concat();
         let proposal_bytes = state
@@ -207,9 +224,7 @@ where
             return Err(TransactionError::Invalid("Voting period has ended".into()));
         }
 
-        let ed25519_pk = libp2p::identity::ed25519::PublicKey::try_from_bytes(pubkey_bytes)
-            .map_err(|_| TransactionError::Invalid("Could not decode ed25519 pubkey".into()))?;
-        let voter_peer_id = Libp2pPublicKey::from(ed25519_pk).to_peer_id();
+        let voter_peer_id = pubkey.to_peer_id();
         let voter_bs58 = voter_peer_id.to_base58();
 
         let vote_key = [
@@ -232,7 +247,28 @@ where
         url: &str,
         request_id: u64,
         block_height: u64,
+        signature: &[u8],
+        payload_bytes: &[u8],
     ) -> Result<(), TransactionError> {
+        const ED25519_PUBKEY_LEN: usize = 32;
+        if signature.len() < ED25519_PUBKEY_LEN {
+            return Err(TransactionError::Invalid(
+                "Invalid signature format for oracle request".into(),
+            ));
+        }
+        let (pubkey_bytes, sig_bytes) = signature.split_at(ED25519_PUBKEY_LEN);
+        let ed25519_pk = libp2p::identity::ed25519::PublicKey::try_from_bytes(pubkey_bytes)
+            .map_err(|_| {
+                TransactionError::Invalid(
+                    "Could not decode Ed25519 public key from signature".into(),
+                )
+            })?;
+        let pubkey = Libp2pPublicKey::from(ed25519_pk);
+        if !pubkey.verify(payload_bytes, sig_bytes) {
+            return Err(TransactionError::Invalid(
+                "Invalid signature for oracle data request".to_string(),
+            ));
+        }
         let key = [ORACLE_PENDING_REQUEST_PREFIX, &request_id.to_le_bytes()].concat();
         let entry = StateEntry {
             value: serde_json::to_vec(url).unwrap(),
@@ -507,12 +543,20 @@ where
                             option,
                             &sys_tx.signature,
                             block_height,
+                            &payload_bytes,
                         )
                         .await
                     }
                     SystemPayload::RequestOracleData { url, request_id } => {
-                        self.apply_request_oracle_data(&mut *state, url, *request_id, block_height)
-                            .await
+                        self.apply_request_oracle_data(
+                            &mut *state,
+                            url,
+                            *request_id,
+                            block_height,
+                            &sys_tx.signature,
+                            &payload_bytes,
+                        )
+                        .await
                     }
                     SystemPayload::SubmitOracleData {
                         request_id,

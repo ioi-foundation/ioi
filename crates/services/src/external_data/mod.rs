@@ -5,6 +5,12 @@ use depin_sdk_types::error::UpgradeError;
 #[derive(Debug, Clone)]
 pub struct ExternalDataService;
 
+impl Default for ExternalDataService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ExternalDataService {
     pub fn new() -> Self {
         Self
