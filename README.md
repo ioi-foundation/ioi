@@ -4,306 +4,287 @@
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-**The Framework for Sovereign Web4 Blockchains.**
+**The Framework for Sovereign Web4 Blockchains**
 
-The DePIN SDK is a next-generation blockchain framework, written entirely in Rust, designed to build high-performance, sovereign, and secure decentralized networks. It evolves beyond the Web3 paradigm of "read, write, own" to enable **Web4**: chains that can also **understand** user intent through a native, distributed AI semantic layer.
+The DePIN SDK is a next-generation blockchain framework written entirely in Rust, designed to build high-performance, sovereign, and secure decentralized networks. It evolves beyond the Web3 paradigm of "read, write, own" to enable **Web4**: chains that can also **understand** user intent through a native, distributed AI semantic layer.
 
-Our mission is to provide the tools to build chains that are not just decentralized ledgers, but intelligent, autonomous partners in achieving complex goals.
+> 🎯 **Mission**: Provide the tools to build chains that are not just decentralized ledgers, but intelligent, autonomous partners in achieving complex goals.
 
----
+## Table of Contents
 
-### Core Features
+- [Core Features](#core-features)
+- [Architectural Overview](#architectural-overview)
+- [Current Status](#current-status)
+- [Quick Start](#quick-start)
+- [Running a Manual Testnet](#running-a-manual-testnet)
+- [Development & Testing](#development--testing)
+- [Project Structure](#project-structure)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
 
-*   🧠 **Web4 Semantic Layer**: A native, distributed AI infrastructure that allows blockchains to interpret natural language, understand user intent, and execute complex semantic operations.
-*   🛡️ **Post-Quantum Security**: A pragmatic, forward-thinking cryptographic architecture that is quantum-resistant from day one, featuring hybrid KEMs for transport security and a clear, non-disruptive migration path for on-chain signatures.
-*   ⛓️ **True Sovereignty & Forkless Upgrades**: Chains achieve sovereignty through compile-time module scaffolding, creating dependency-free binaries. A powerful runtime upgrade manager allows for hot-swapping any core service—including governance—without network halts.
-*   🦀 **Modular, Rust-Native Architecture**: Built from the ground up in Rust for maximum safety, performance, and modularity. Every component, from consensus to the VM, is a pluggable service behind a standard trait.
-*   🏛️ **Triple-Container Validator Model**: A defense-in-depth architecture that isolates responsibilities into a **Guardian Container** (security), **Orchestration Container** (consensus/networking), and **Workload Container** (VM/transaction execution).
-*   🌐 **Consensus-Agnostic Security**: A robust security model that provides strong guarantees through cryptography, reputation, and quarantine mechanisms, without relying solely on economic slashing. This makes the SDK adaptable to Proof-of-Stake, Proof-of-Work, Proof-of-Authority, and custom consensus models.
+## Core Features
 
-### Architectural Overview
+### 🧠 Web4 Semantic Layer
+A native, distributed AI infrastructure that allows blockchains to interpret natural language, understand user intent, and execute complex semantic operations.
 
-The DePIN SDK is designed with an SDK-first methodology. The core components are provided as a set of composable Rust crates, allowing developers to build custom, sovereign chains tailored to their specific use case. The foundation of this design is the **Triple-Container Architecture**, which ensures a strict separation of concerns and enhances security.
+### 🛡️ Post-Quantum Security
+A pragmatic, forward-thinking cryptographic architecture that is quantum-resistant from day one, featuring hybrid KEMs for transport security and a clear, non-disruptive migration path for on-chain signatures.
 
-For a deep dive into the architecture, please see the [**Architectural Documentation**](./docs).
+### ⛓️ True Sovereignty & Forkless Upgrades
+Chains achieve sovereignty through compile-time module scaffolding, creating dependency-free binaries. A powerful runtime upgrade manager allows for hot-swapping any core service—including governance—without network halts.
 
-### Current Status
+### 🦀 Modular, Rust-Native Architecture
+Built from the ground up in Rust for maximum safety, performance, and modularity. Every component, from consensus to the VM, is a pluggable service behind a standard trait.
 
-> **Note**: The project is currently in a rapid, prototyping phase. The `main` branch contains a functional implementation of the polymorphic framework.
+### 🏛️ Triple-Container Validator Model
+A defense-in-depth architecture that isolates responsibilities into:
+- **Guardian Container** (security)
+- **Orchestration Container** (consensus/networking) 
+- **Workload Container** (VM/transaction execution)
+
+### 🌐 Consensus-Agnostic Security
+A robust security model that provides strong guarantees through cryptography, reputation, and quarantine mechanisms, without relying solely on economic slashing. Adaptable to Proof-of-Stake, Proof-of-Work, Proof-of-Authority, and custom consensus models.
+
+## Architectural Overview
+
+The DePIN SDK follows an SDK-first methodology. Core components are provided as composable Rust crates, allowing developers to build custom, sovereign chains tailored to their specific use case. The foundation is the **Triple-Container Architecture**, ensuring strict separation of concerns and enhanced security.
+
+📖 **For detailed architecture information, see the [Architectural Documentation](./docs)**
+
+## Current Status
+
+> ⚠️ **Important**: The project is currently in rapid prototyping phase. The `main` branch contains a functional implementation of the polymorphic framework.
 >
 > **The software is not yet mainnet-ready.**
->
-> **Implementation Status: Phase 4 - Polymorphic Framework & Core Logic**
-> *   ✅ **Polymorphic Consensus:** The `orchestration` binary now dynamically loads its consensus engine (PoA, PoS) based on its configuration file.
-> *   ✅ **Polymorphic State Management:** The `workload` binary acts as a factory, instantiating its state tree and commitment scheme (e.g., `FileStateTree<HashCommitmentScheme>`) based on its configuration file.
-> *   ✅ **Feature-Gated Components:** Compile-time features (`consensus-pos`, `tree-file`, etc.) are used to include only the necessary backend implementations, producing lean, specialized binaries.
-> *   ✅ **Dynamic Test Harness:** The `forge` crate's `TestClusterBuilder` can now declaratively build and launch clusters with different architectures (PoA on File vs. PoS on HashMap, etc.).
-> *   ✅ **Comprehensive E2E Validation:** The core polymorphic capabilities are validated by an E2E test that runs two architecturally distinct chains concurrently, proving the success of the refactor.
->
-> The project has successfully established its core polymorphic architecture. The next phase will focus on hardening this foundation, refining the transaction lifecycle, and implementing more advanced features.
 
----
+### Implementation Status: Phase 4 - Polymorphic Framework & Core Logic
 
-### Running a Manual Testnet
+| Component | Status | Description |
+|-----------|--------|-------------|
+| ✅ Polymorphic Consensus | Complete | `orchestration` binary dynamically loads consensus engines (PoA, PoS) |
+| ✅ Polymorphic State Management | Complete | `workload` binary acts as factory for state trees and commitment schemes |
+| ✅ Feature-Gated Components | Complete | Compile-time features produce lean, specialized binaries |
+| ✅ Dynamic Test Harness | Complete | `forge` crate builds clusters with different architectures |
+| ✅ Comprehensive E2E Validation | Complete | Core polymorphic capabilities validated by concurrent chain tests |
 
-**Note:** The recommended method for testing is the automated E2E suite in the `forge` crate. The following instructions are for manual experimentation and demonstrate the new configuration-based workflow.
+**Next Phase**: Hardening foundation, refining transaction lifecycle, implementing advanced features.
 
-#### Prerequisites
+## Quick Start
 
-*   **Rust**: Ensure you have the latest stable version of Rust installed via `rustup`.
-*   **Build Tools**: A C compiler, such as GCC or Clang.
+### Prerequisites
 
-#### 1. Build the Node Binaries
+- **Rust**: Latest stable version via `rustup`
+- **Build Tools**: C compiler (GCC or Clang)
 
-Compile the node binaries in release mode. You must enable the features for the components you wish to use.
+### Build Example
 
 ```bash
-# Example: Build with PoA consensus and the File state tree
+# Build with PoA consensus and File state tree
 cargo build -p depin-sdk-node --release --no-default-features \
     --features "build-bins,consensus-poa,vm-wasm,tree-file,primitive-hash"
 ```
 
-The compiled binaries (`orchestration`, `workload`) will be in `target/release/`.
+Compiled binaries (`orchestration`, `workload`) will be in `target/release/`.
 
-#### 2. Configure and Run a Two-Node Network
+## Running a Manual Testnet
 
-This workflow requires four terminals to run a two-node network (one `orchestration` and one `workload` process per node).
+> 💡 **Recommended**: Use the automated E2E suite in the `forge` crate for testing. Manual setup is for experimentation.
 
-**Step 1: Create Shared Configs and Genesis**
+### Step 1: Create Configuration Files
 
-Create the following three files in your project root.
+Create these files in your project root:
 
-1.  **`genesis.json`** (Replace with your actual authority PeerIDs)
-    ```json
-    {
-      "genesis_state": {
-        "system::authorities": [
-          [2, ...], 
-          [2, ...]
-        ]
-      }
-    }
-    ```
+**`genesis.json`** (Replace with actual authority PeerIDs):
+```json
+{
+  "genesis_state": {
+    "system::authorities": [
+      [2, ...], 
+      [2, ...]
+    ]
+  }
+}
+```
 
-2.  **`workload.toml`**
-    ```toml
-    enabled_vms = ["WASM"]
-    state_tree = "File"
-    commitment_scheme = "Hash"
-    genesis_file = "genesis.json"
-    state_file = "state.json" 
-    ```
+**`workload.toml`**:
+```toml
+enabled_vms = ["WASM"]
+state_tree = "File"
+commitment_scheme = "Hash"
+genesis_file = "genesis.json"
+state_file = "state.json" 
+```
 
-3.  **`orchestration.toml`**
-    ```toml
-    consensus_type = "ProofOfAuthority"
-    rpc_listen_address = "127.0.0.1:9944"
-    initial_sync_timeout_secs = 5
-    ```
+**`orchestration.toml`**:
+```toml
+consensus_type = "ProofOfAuthority"
+rpc_listen_address = "127.0.0.1:9944"
+initial_sync_timeout_secs = 5
+```
 
-**Step 2: Run Node 1**
+### Step 2: Launch Two-Node Network
 
-*   **Terminal 1 (Workload 1):**
-    ```bash
-    WORKLOAD_IPC_ADDR=127.0.0.1:8555 ./target/release/workload --config ./workload.toml
-    ```
-*   **Terminal 2 (Orchestration 1):**
-    ```bash
-    WORKLOAD_IPC_ADDR=127.0.0.1:8555 ./target/release/orchestration \
-        --config ./orchestration.toml \
-        --identity-key-file ./node1.key \
-        --listen-address /ip4/127.0.0.1/tcp/0
-    ```
-    Note the listening address it prints, e.g., `/ip4/127.0.0.1/tcp/51234`.
+You'll need **4 terminals** for a two-node network:
 
-**Step 3: Run Node 2**
+#### Node 1
+**Terminal 1 (Workload 1):**
+```bash
+WORKLOAD_IPC_ADDR=127.0.0.1:8555 ./target/release/workload --config ./workload.toml
+```
 
-*   **Terminal 3 (Workload 2):** Use a different IPC address.
-    ```bash
-    WORKLOAD_IPC_ADDR=127.0.0.1:8556 ./target/release/workload --config ./workload.toml
-    ```
-*   **Terminal 4 (Orchestration 2):** Use the address from Node 1 as a bootnode.
-    ```bash
-    # Replace the --bootnode address with the one from Terminal 2
-    WORKLOAD_IPC_ADDR=127.0.0.1:8556 ./target/release/orchestration \
-        --config ./orchestration.toml \
-        --identity-key-file ./node2.key \
-        --listen-address /ip4/0.0.0.0/tcp/0 \
-        --bootnode /ip4/127.0.0.1/tcp/51234
-    ```
+**Terminal 2 (Orchestration 1):**
+```bash
+WORKLOAD_IPC_ADDR=127.0.0.1:8555 ./target/release/orchestration \
+    --config ./orchestration.toml \
+    --identity-key-file ./node1.key \
+    --listen-address /ip4/127.0.0.1/tcp/0
+```
+> 📝 Note the listening address it prints (e.g., `/ip4/127.0.0.1/tcp/51234`)
 
----
+#### Node 2
+**Terminal 3 (Workload 2):**
+```bash
+WORKLOAD_IPC_ADDR=127.0.0.1:8556 ./target/release/workload --config ./workload.toml
+```
 
-### Development & Testing
+**Terminal 4 (Orchestration 2):**
+```bash
+# Replace bootnode address with output from Terminal 2
+WORKLOAD_IPC_ADDR=127.0.0.1:8556 ./target/release/orchestration \
+    --config ./orchestration.toml \
+    --identity-key-file ./node2.key \
+    --listen-address /ip4/0.0.0.0/tcp/0 \
+    --bootnode /ip4/127.0.0.1/tcp/51234
+```
 
-The project's testing workflow is centered around the **`forge`** crate, which provides a powerful, declarative E2E testing harness. This is the **recommended workflow** for all testing.
+## Development & Testing
 
-#### 1. Quick Check (Fastest)
+Testing centers around the **`forge`** crate, providing powerful declarative E2E testing.
 
-For rapid feedback while developing, run `cargo check`.
-
+### 1. Quick Check (Fastest)
 ```bash
 cargo check --workspace
 ```
 
-#### 2. Unit & Integration Tests
-
-To run all fast tests across the workspace (excluding E2E tests), use:
-
+### 2. Unit & Integration Tests
 ```bash
 cargo test --workspace
 ```
 
-#### 3. Full End-to-End (E2E) Test Suite
+### 3. End-to-End Test Suite
 
-The `forge` crate contains the E2E test suite. The key change is that **you must now specify which features to test via the `--features` flag.**
+> 🔧 **Key Change**: You must specify features via `--features` flag. The harness automatically builds required artifacts.
 
-**Key Feature**: The test harness **automatically builds all required artifacts** (node binaries, WASM contracts) with the correct features before the tests run.
+#### Individual E2E Tests
 
-**Run a Specific E2E Test (New Workflow):**
+| Test | Command |
+|------|---------|
+| **Staking** | `cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-file,primitive-hash" --test staking_e2e -- --nocapture` |
+| **Contract** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test contract_e2e -- --nocapture` |
+| **Governance** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test governance_e2e -- --nocapture` |
+| **Module Upgrade** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test module_upgrade_e2e -- --nocapture` |
+| **Semantic Consensus** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test semantic_consensus_e2e -- --nocapture` |
+| **Oracle** | `cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-file,primitive-hash" --test oracle_e2e -- --nocapture --test-threads=1` |
 
-You must provide the features that the test file requires. The `-- --nocapture` flag is recommended to see detailed log output from the nodes.
+#### State Tree Backend Tests
 
+| Backend | Command |
+|---------|---------|
+| **IAVL Tree** | `cargo test -p depin-sdk-forge --test state_iavl_e2e --no-default-features -F "consensus-poa,vm-wasm,tree-iavl,primitive-hash" -- --nocapture` |
+| **Sparse Merkle** | `cargo test -p depin-sdk-forge --test state_sparse_merkle_e2e --no-default-features -F "consensus-poa,vm-wasm,tree-sparse-merkle,primitive-hash" -- --nocapture` |
+| **Verkle Tree** | `cargo test -p depin-sdk-forge --test state_verkle_e2e --no-default-features -F "consensus-poa,vm-wasm,tree-verkle" -- --nocapture` |
 
----
-
-#### 1. `staking_e2e.rs`
-
-*   **New Command:**
-    ```bash
-    cargo test -p depin-sdk-forge --release \
-    --features "consensus-pos,vm-wasm,tree-file,primitive-hash" \
-    --test staking_e2e -- --nocapture
-    ```
-
----
-
-#### 2. `contract_e2e.rs`
-
-*   **New Command:**
-    ```bash
-    cargo test -p depin-sdk-forge --release \
-    --features "consensus-poa,vm-wasm,tree-file,primitive-hash" \
-    --test contract_e2e -- --nocapture
-    ```
-
----
-
-#### 3. `governance_e2e.rs`
-
-*   **New Command:**
-    ```bash
-    cargo test -p depin-sdk-forge --release \
-    --features "consensus-poa,vm-wasm,tree-file,primitive-hash" \
-    --test governance_e2e -- --nocapture    
-```
-
----
-
-#### 4. `module_upgrade_e2e.rs`
-
-*   **New Command:**
-    ```bash
-    cargo test -p depin-sdk-forge --release \
-    --features "consensus-poa,vm-wasm,tree-file,primitive-hash" \
-    --test module_upgrade_e2e -- --nocapture
-    ```
-
----
-
-#### 5. `semantic_consensus_e2e.rs`
-
-*   **New Commands:**
-    ```bash
-
-    # For semantic_consensus_e2e
-cargo test -p depin-sdk-forge --release \
---features "consensus-poa,vm-wasm,tree-file,primitive-hash" \
---test semantic_consensus_e2e -- --nocapture
-    ```
-
-#### 6. `oracle_e2e.rs`
-
-*   **New Commands:**
-    ```bash
-    # For oracle_e2e
-cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-file,primitive-hash" --test oracle_e2e -- --nocapture --test-threads=1
-    ```
-
-
-#### Running Tests with Docker:
-
-#### The test harness can also run nodes in Docker containers for a more isolated environment.
-
-```bash
-# 1. Clean up containers and networks
-docker rm -f guardian orchestration workload
-docker network prune -f
-
-# 2. IMPORTANT: Remove the old image
-docker rmi depin-sdk-node:e2e
-
-# 3. Rebuild the image with the correct features for the test
-#    Note the new --build-arg flag!
-docker build \
-  --build-arg FEATURES="build-bins,consensus-poa,vm-wasm,tree-file,primitive-hash" \
-  -t depin-sdk-node:e2e \
-  -f crates/node/Dockerfile .
-
-# 4. Run the test (this command remains the same)
-cargo test -p depin-sdk-forge --release \
-  --features "consensus-poa,vm-wasm,tree-file,primitive-hash" \
-  --test container_e2e -- --nocapture
-    ```
-
-**Run All E2E Tests:**
-
-To run the entire suite, you must enable all features that the tests depend on.
-
+#### Run All E2E Tests
 ```bash
 cargo test -p depin-sdk-forge --release \
     --features "consensus-poa,consensus-pos,vm-wasm,tree-file,tree-hashmap,primitive-hash" \
     -- --nocapture --test-threads=1
 ```
 
+### Docker Testing
+
+For isolated testing environment:
+
+```bash
+# 1. Clean up
+docker rm -f guardian orchestration workload
+docker network prune -f
+
+# 2. Remove old image
+docker rmi depin-sdk-node:e2e
+
+# 3. Rebuild with correct features
+docker build \
+  --build-arg FEATURES="build-bins,consensus-poa,vm-wasm,tree-file,primitive-hash" \
+  -t depin-sdk-node:e2e \
+  -f crates/node/Dockerfile .
+
+# 4. Run test
+cargo test -p depin-sdk-forge --release \
+  --features "consensus-poa,vm-wasm,tree-file,primitive-hash" \
+  --test container_e2e -- --nocapture
+```
+
+## Project Structure
+
+```
+crates/
+├── api/              # Public traits and interfaces
+├── types/            # Shared data structures and configs
+├── node/             # Main executables (orchestration, workload, guardian)
+├── forge/            # E2E testing harness and developer toolkit
+├── contract/         # no_std SDK for WASM smart contracts
+├── validator/        # Triple-Container Architecture implementation
+├── chain/            # Chain state machine logic
+└── ...              # Specialized implementation crates
+```
+
+### Key Crates
+
+- **`api`**: Stable, public traits and interfaces
+- **`types`**: Concrete data structures (`Block`, `ChainTransaction`) and configs
+- **`node`**: Main executables and composition root
+- **`forge`**: Developer toolkit and E2E testing library
+- **`contract`**: Smart contract SDK for WASM compilation
+- **`validator`**: Triple-Container Architecture
+- **`chain`**: State machine implementation
+
+## Roadmap
+
+### ✅ Phase 4: Polymorphic Framework & Core Logic
+*Complete* - Established polymorphic architecture and validation
+
+### ➡️ Phase 5: Mainnet Hardening & Advanced Features
+*In Progress*
+- Robust mempool and transaction validation
+- State proof logic implementation
+- Post-Quantum Cryptography migration path
+- Identity Hub development
+- Hybrid Validator model and tiered economics
+
+### ▶️ Phase 6: Ecosystem Expansion & Evolution
+*Planned*
+- `forge` CLI and multi-language SDKs
+- IBC and Ethereum compatibility modules
+- Production-ready distributed AI for Semantic Layer
+
+## Contributing
+
+We welcome community contributions! 🎉
+
+- 📖 Read our [Contributing Guide](./CONTRIBUTING.md)
+- 📋 Follow our [Code of Conduct](./CODE_OF_CONDUCT.md)
+- 🐛 Report issues on GitHub
+- 💡 Propose new features via discussions
+
+## License
+
+This project is dual-licensed under:
+
+- **Apache License 2.0** ([LICENSE-APACHE](./LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+- **MIT License** ([LICENSE-MIT](./LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
 ---
 
-### Project Structure
-
-The SDK is organized into a workspace of several key crates:
-
-*   `crates/api`: Defines the stable, public traits and interfaces for all components.
-*   `crates/types`: Contains shared, concrete data structures (e.g., `Block`, `ChainTransaction`) and configuration structs.
-*   `crates/node`: Contains the main executables (`orchestration`, `workload`, `guardian`). This crate is the composition root for the application.
-*   `crates/forge`: A developer toolkit providing a library with helpers for E2E testing. It is the primary consumer of the SDK's public APIs.
-*   `crates/contract`: The `no_std` SDK for writing smart contracts that compile to WASM.
-*   `crates/validator`: Implements the Triple-Container Architecture for validator models.
-*   `crates/chain`: Contains the `Chain` implementation, which defines the state machine logic.
-*   ... and other specialized implementation crates (`consensus`, `network`, `commitment`, etc.).
-
-### Roadmap
-
-Our high-level roadmap is focused on incrementally building out the features defined in our architecture.
-
-*   ✅ **Phase 4: Polymorphic Framework & Core Logic** - *Complete*
-*   ➡️ **Phase 5: Mainnet Hardening & Advanced Features** - *In Progress*
-    *   Implement robust mempool, transaction validation, and state proof logic.
-    *   Flesh out the Post-Quantum Cryptography migration path and Identity Hub.
-    *   Develop the Hybrid Validator model and tiered economics.
-*   ▶️ **Phase 6: Ecosystem Expansion & Evolution**
-    *   Develop the `forge` CLI and multi-language SDKs.
-    *   Implement IBC and Ethereum compatibility modules.
-    *   Integrate production-ready distributed AI models for the Semantic Layer.
-
-### Contributing
-
-We welcome contributions from the community! If you're interested in helping build the future of Web4, please read our [**Contributing Guide**](./CONTRIBUTING.md) to get started.
-
-All participants are expected to follow our [**Code of Conduct**](./CODE_OF_CONDUCT.md).
-
-### License
-
-This project is licensed under either of:
-
-*   Apache License, Version 2.0, ([LICENSE-APACHE](./LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-*   MIT license ([LICENSE-MIT](./LICENSE-MIT) or http://opensource.org/licenses/MIT)
+*Building the future of Web4, one node binary at a time.* 🚀
