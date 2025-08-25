@@ -42,7 +42,7 @@ impl ProofOfStakeEngine {
         }
 
         let seed = height.to_le_bytes();
-        let hash = sha256(&seed);
+        let hash = sha256(seed);
         let winning_ticket = u64::from_le_bytes(hash[0..8].try_into().unwrap()) % total_stake;
 
         let mut cumulative_stake = 0;
