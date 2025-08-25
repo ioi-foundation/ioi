@@ -61,7 +61,7 @@ pub async fn handle_newly_processed_block<CS, ST, CE>(
     };
 
     let our_id_bytes = context.local_peer_id.to_bytes();
-    if !validator_set.iter().any(|v| *v == our_id_bytes) {
+    if !validator_set.contains(&our_id_bytes) {
         return;
     }
 

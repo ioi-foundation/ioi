@@ -130,7 +130,7 @@ pub async fn handle_gossip_block<CS, ST, CE>(
                 );
             }
             drop(pool);
-            handle_newly_processed_block(&context, block_height, &context.external_data_service)
+            handle_newly_processed_block(context, block_height, &context.external_data_service)
                 .await;
             if *context.node_state.lock().await == NodeState::Syncing {
                 *context.node_state.lock().await = NodeState::Synced;
