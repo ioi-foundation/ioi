@@ -68,7 +68,12 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
         .unwrap();
 
     // Wait for network to stabilize
-    assert_log_contains("Node 3", &mut orch_logs3, "Received gossiped block #1").await?;
+    assert_log_contains(
+        "Node 3",
+        &mut orch_logs3,
+        "Oracle: This node is in the validator set, checking for new tasks...",
+    )
+    .await?;
 
     // 2. SUBMIT ORACLE REQUEST TRANSACTION
     let request_id = 101;
