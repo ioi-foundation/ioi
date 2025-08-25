@@ -45,7 +45,7 @@ pub enum ConsensusDecision<T> {
 /// An enum that wraps the various consensus engine implementations.
 pub enum Consensus<T: Clone> {
     #[cfg(feature = "round-robin")]
-    RoundRobin(RoundRobinBftEngine),
+    RoundRobin(Box<RoundRobinBftEngine>),
     #[cfg(feature = "poa")]
     ProofOfAuthority(ProofOfAuthorityEngine),
     #[cfg(feature = "pos")]
@@ -115,7 +115,7 @@ where
         match self {
             #[cfg(feature = "round-robin")]
             Consensus::RoundRobin(e) => {
-                ConsensusEngine::<T>::get_validator_data(e, _workload_client).await
+                ConsensusEngine::<T>::get_validator_data(e.as_ref(), _workload_client).await
             }
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(e) => {
@@ -141,7 +141,7 @@ where
             #[cfg(feature = "round-robin")]
             Consensus::RoundRobin(e) => {
                 ConsensusEngine::<T>::decide(
-                    e,
+                    e.as_mut(),
                     _local_peer_id,
                     _height,
                     _view,
@@ -197,8 +197,13 @@ where
         match self {
             #[cfg(feature = "round-robin")]
             Consensus::RoundRobin(e) => {
-                ConsensusEngine::<T>::handle_block_proposal(e, _block, _chain, _workload_client)
-                    .await
+                ConsensusEngine::<T>::handle_block_proposal(
+                    e.as_mut(),
+                    _block,
+                    _chain,
+                    _workload_client,
+                )
+                .await
             }
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(e) => {
@@ -223,7 +228,8 @@ where
         match self {
             #[cfg(feature = "round-robin")]
             Consensus::RoundRobin(e) => {
-                ConsensusEngine::<T>::handle_view_change(e, _from, _height, _new_view).await
+                ConsensusEngine::<T>::handle_view_change(e.as_mut(), _from, _height, _new_view)
+                    .await
             }
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(e) => {
@@ -240,7 +246,7 @@ where
     fn reset(&mut self, _height: u64) {
         match self {
             #[cfg(feature = "round-robin")]
-            Consensus::RoundRobin(e) => ConsensusEngine::<T>::reset(e, _height),
+            Consensus::RoundRobin(e) => ConsensusEngine::<T>::reset(e.as_mut(), _height),
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(e) => ConsensusEngine::<T>::reset(e, _height),
             #[cfg(feature = "pos")]
