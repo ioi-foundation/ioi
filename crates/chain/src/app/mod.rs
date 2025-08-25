@@ -11,6 +11,7 @@ use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{Block, BlockHeader, ChainStatus, ChainTransaction};
+use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::{BlockError, ChainError, CoreError, StateError};
 use depin_sdk_types::keys::*;
 use libp2p::identity::Keypair;
@@ -37,6 +38,8 @@ pub struct ChainState<CS: CommitmentScheme + Clone> {
 pub struct Chain<CS: CommitmentScheme + Clone> {
     pub state: ChainState<CS>,
     pub service_manager: ModuleUpgradeManager,
+    /// The consensus mechanism used by the chain (e.g., PoS or PoA).
+    pub consensus_type: ConsensusType,
 }
 
 impl<CS> Chain<CS>
@@ -49,6 +52,7 @@ where
         chain_id: &str,
         initial_services: Vec<Arc<dyn UpgradableService>>,
         service_factory: ServiceFactory,
+        consensus_type: ConsensusType,
     ) -> Self {
         let status = ChainStatus {
             height: 0,
@@ -71,6 +75,7 @@ where
         Self {
             state,
             service_manager,
+            consensus_type,
         }
     }
 
@@ -96,6 +101,7 @@ where
                     "Service factory not implemented for orchestrator's dummy chain".to_string(),
                 ))
             })),
+            consensus_type: ConsensusType::ProofOfAuthority, // Default for dummy
         }
     }
 
@@ -368,20 +374,21 @@ where
         &self,
         workload: &WorkloadContainer<ST>,
     ) -> Result<Vec<Vec<u8>>, ChainError> {
-        let state_tree_arc = workload.state_tree();
-        let state = state_tree_arc.lock().await;
-
-        if state.get(STAKES_KEY_CURRENT)?.is_some() {
-            drop(state);
-            self.get_validator_set_from_key(workload, STAKES_KEY_CURRENT)
-                .await
-        } else {
-            match state.get(AUTHORITY_SET_KEY) {
-                Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
-                    ChainError::Transaction(format!("Failed to deserialize authority set: {e}"))
-                }),
-                Ok(None) => Ok(Vec::new()),
-                Err(e) => Err(e.into()),
+        match self.consensus_type {
+            ConsensusType::ProofOfStake => {
+                self.get_validator_set_from_key(workload, STAKES_KEY_CURRENT)
+                    .await
+            }
+            ConsensusType::ProofOfAuthority => {
+                let state_tree_arc = workload.state_tree();
+                let state = state_tree_arc.lock().await;
+                match state.get(AUTHORITY_SET_KEY) {
+                    Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
+                        ChainError::Transaction(format!("Failed to deserialize authority set: {e}"))
+                    }),
+                    Ok(None) => Ok(Vec::new()),
+                    Err(e) => Err(e.into()),
+                }
             }
         }
     }
@@ -390,20 +397,21 @@ where
         &self,
         workload: &WorkloadContainer<ST>,
     ) -> Result<Vec<Vec<u8>>, ChainError> {
-        let state_tree_arc = workload.state_tree();
-        let state = state_tree_arc.lock().await;
-
-        if state.get(STAKES_KEY_NEXT)?.is_some() {
-            drop(state);
-            self.get_validator_set_from_key(workload, STAKES_KEY_NEXT)
-                .await
-        } else {
-            match state.get(AUTHORITY_SET_KEY) {
-                Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
-                    ChainError::Transaction(format!("Failed to deserialize authority set: {e}"))
-                }),
-                Ok(None) => Ok(Vec::new()),
-                Err(e) => Err(e.into()),
+        match self.consensus_type {
+            ConsensusType::ProofOfStake => {
+                self.get_validator_set_from_key(workload, STAKES_KEY_NEXT)
+                    .await
+            }
+            ConsensusType::ProofOfAuthority => {
+                let state_tree_arc = workload.state_tree();
+                let state = state_tree_arc.lock().await;
+                match state.get(AUTHORITY_SET_KEY) {
+                    Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
+                        ChainError::Transaction(format!("Failed to deserialize authority set: {e}"))
+                    }),
+                    Ok(None) => Ok(Vec::new()),
+                    Err(e) => Err(e.into()),
+                }
             }
         }
     }
@@ -484,7 +492,7 @@ mod tests {
     use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
     use depin_sdk_types::app::{SystemPayload, SystemTransaction};
     use depin_sdk_types::config::{
-        CommitmentSchemeType, StateTreeType, VmFuelCosts, WorkloadConfig,
+        CommitmentSchemeType, ConsensusType, StateTreeType, VmFuelCosts, WorkloadConfig,
     };
     use depin_sdk_vm_wasm::WasmVm;
     use libp2p::identity::Keypair;
@@ -505,6 +513,7 @@ mod tests {
             enabled_vms: vec![],
             state_tree: StateTreeType::HashMap,
             commitment_scheme: CommitmentSchemeType::Hash,
+            consensus_type: ConsensusType::ProofOfAuthority,
             genesis_file: "".to_string(),
             state_file: "".to_string(),
             fuel_costs: VmFuelCosts::default(),
@@ -516,6 +525,7 @@ mod tests {
             "test-chain",
             vec![],
             Box::new(placeholder_factory),
+            ConsensusType::ProofOfAuthority,
         );
 
         let gov_keypair = Keypair::generate_ed25519();
@@ -565,6 +575,7 @@ mod tests {
             enabled_vms: vec![],
             state_tree: StateTreeType::HashMap,
             commitment_scheme: CommitmentSchemeType::Hash,
+            consensus_type: ConsensusType::ProofOfAuthority,
             genesis_file: "".to_string(),
             state_file: "".to_string(),
             fuel_costs: VmFuelCosts::default(),
@@ -576,6 +587,7 @@ mod tests {
             "test-chain",
             vec![],
             Box::new(placeholder_factory),
+            ConsensusType::ProofOfAuthority,
         );
         let gov_keypair = Keypair::generate_ed25519();
         let gov_pk_bs58 =

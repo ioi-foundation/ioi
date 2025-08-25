@@ -1,3 +1,4 @@
+// Path: services/src/ibc/src/light_client/mod.rs
 //! IBC light client implementations
 
 use crate::conversion::ByteConvertible;
@@ -7,7 +8,27 @@ use depin_sdk_api::ibc::{LightClient, UniversalProofFormat};
 use std::any::Any;
 use std::collections::HashMap;
 
-/// Type-erased commitment scheme wrapper that avoids dynamic dispatch limitations
+/// A type-erased wrapper for a `CommitmentScheme`.
+///
+/// ### Why this pattern is used:
+///
+/// This struct is a form of manual "type erasure". It is necessary because the
+/// `CommitmentScheme` trait cannot be made into a standard trait object (`dyn CommitmentScheme`)
+/// due to its use of associated types (`Commitment`, `Proof`, `Value`).
+///
+/// Rust's object safety rules prevent creating a trait object from a trait where
+/// associated types are used as arguments or return types in methods (e.g., `verify` takes
+/// `&Self::Commitment` and `&Self::Proof`). A simple `Box<dyn CommitmentScheme>` would
+/// not know the concrete sizes or types for these associated types at compile time.
+///
+/// To overcome this, `SchemeWrapper` "erases" the specific `CommitmentScheme` implementation
+/// by storing it as a `Box<dyn Any>` and holding function pointers to its methods.
+/// At registration time (`UniversalLightClient::register_scheme`), we capture the concrete
+/// `commit`, `create_proof`, and `verify` methods for a specific type `C: CommitmentScheme`
+/// inside closures, which are then stored as function pointers with a unified, type-erased
+/// signature. This allows the `UniversalLightClient` to store a collection of different
+/// schemes in a `HashMap` and call their methods through a single, uniform interface,
+/// effectively achieving dynamic dispatch without a `dyn Trait` object.
 struct SchemeWrapper {
     /// The actual scheme (boxed as Any)
     inner: Box<dyn Any + Send + Sync>,

@@ -351,7 +351,7 @@ impl TestValidator {
 
         let orch_config_path = config_dir_path.join("orchestration.toml");
         let orchestration_config = OrchestrationConfig {
-            consensus_type: consensus_enum,
+            consensus_type: consensus_enum.clone(),
             rpc_listen_address: if use_docker {
                 "0.0.0.0:9999".to_string()
             } else {
@@ -370,6 +370,7 @@ impl TestValidator {
             enabled_vms: vec!["WASM".to_string()],
             state_tree: state_tree_enum,
             commitment_scheme: commitment_scheme_enum,
+            consensus_type: consensus_enum.clone(),
             genesis_file: if use_docker {
                 "/tmp/test-data/genesis.json".to_string()
             } else {
