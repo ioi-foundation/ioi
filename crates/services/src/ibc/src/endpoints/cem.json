@@ -1,0 +1,9 @@
+[
+    {
+        "source_chain_id": "eth-mainnet",
+        "source_identifier": "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+        "canonical_endpoint_id": "token.transfer@1.0",
+        "schema_hash": "blake3:...",
+        "notes": "ERC20 Transfer(address,address,uint256) event"
+    }
+]
