@@ -20,6 +20,9 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+// [Feedback #4] Define a reasonable time-to-live for attestations.
+const ATTESTATION_TTL_SECS: u64 = 300; // 5 minutes
+
 pub async fn handle_newly_processed_block<CS, ST, CE>(
     context: &MainLoopContext<CS, ST, CE>,
     _block_height: u64,
@@ -98,12 +101,9 @@ pub async fn handle_newly_processed_block<CS, ST, CE>(
                         signature: vec![],
                     };
 
-                    let payload_to_sign = serde_json::to_vec(&(
-                        &attestation.request_id,
-                        &attestation.value,
-                        &attestation.timestamp,
-                    ))
-                    .unwrap();
+                    // [Feedback #1] Use the new deterministic signing payload.
+                    // For testing, we use a fixed chain_id. In production, this would come from config.
+                    let payload_to_sign = attestation.to_signing_payload("test-chain");
                     let signature_bytes = context.local_keypair.sign(&payload_to_sign).unwrap();
                     attestation.signature = [pubkey_bytes.as_ref(), &signature_bytes].concat();
 
@@ -147,6 +147,19 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE>(
         attestation.request_id,
         from
     );
+
+    // [Feedback #4] Check for stale attestations.
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    if now.saturating_sub(attestation.timestamp) > ATTESTATION_TTL_SECS {
+        log::warn!(
+            "Oracle: Received stale attestation from {}, disregarding.",
+            from
+        );
+        return;
+    }
 
     const ED25519_PUBKEY_LEN: usize = 32;
     if attestation.signature.len() <= ED25519_PUBKEY_LEN {
@@ -196,12 +209,8 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE>(
         return;
     }
 
-    let payload_to_verify = serde_json::to_vec(&(
-        &attestation.request_id,
-        &attestation.value,
-        &attestation.timestamp,
-    ))
-    .unwrap();
+    // [Feedback #1] Use the deterministic signing payload for verification.
+    let payload_to_verify = attestation.to_signing_payload("test-chain");
 
     if !pubkey.verify(&payload_to_verify, sig_bytes) {
         log::warn!(
@@ -215,7 +224,18 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE>(
         .pending_attestations
         .entry(attestation.request_id)
         .or_default();
-    if !entry.iter().any(|a| a.signature == attestation.signature) {
+
+    // [Feedback #5] Deduplicate by signer identity (PeerId).
+    let signer_peer_id = pubkey.to_peer_id();
+    if !entry.iter().any(|a| {
+        if a.signature.len() > ED25519_PUBKEY_LEN {
+            let (pk_bytes, _) = a.signature.split_at(ED25519_PUBKEY_LEN);
+            if let Ok(pk) = libp2p::identity::ed25519::PublicKey::try_from_bytes(pk_bytes) {
+                return Libp2pPublicKey::from(pk).to_peer_id() == signer_peer_id;
+            }
+        }
+        false
+    }) {
         entry.push(attestation.clone());
     }
 
@@ -272,8 +292,7 @@ pub async fn check_quorum_and_submit<CS, ST, CE>(
 
         let pk_b58 = pubkey.to_peer_id().to_base58();
         if validator_stakes.contains_key(&pk_b58) {
-            let payload_to_verify =
-                serde_json::to_vec(&(&att.request_id, &att.value, &att.timestamp)).unwrap();
+            let payload_to_verify = att.to_signing_payload("test-chain");
             if pubkey.verify(&payload_to_verify, sig_bytes) && unique_signers.insert(pk_b58.clone())
             {
                 valid_attestations_for_quorum.push((att.clone(), pk_b58));
@@ -295,6 +314,7 @@ pub async fn check_quorum_and_submit<CS, ST, CE>(
             total_stake
         );
 
+        // [Feedback #9] Aggregate the final value deterministically (median).
         let mut values: Vec<Vec<u8>> = valid_attestations_for_quorum
             .iter()
             .map(|(a, _)| a.value.clone())
