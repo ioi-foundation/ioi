@@ -1,0 +1,11 @@
+[
+    {
+        "source": "eth-mpt-keccak256",
+        "target": "snark-plonk-bls12_381",
+        "proof_target": "Receipts",
+        "translator_id": "MPTReceiptsToSNARKV1",
+        "kind": "zk-wrap",
+        "vk_hash": "0xabc123...",
+        "code_hash": "blake3:f00d..."
+    }
+]

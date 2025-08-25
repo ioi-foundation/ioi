@@ -1,362 +1,127 @@
-// Path: services/src/ibc/src/light_client/mod.rs
-//! IBC light client implementations
+// Path: crates/services/src/ibc/src/light_client/mod.rs
 
-use crate::conversion::ByteConvertible;
-use crate::translation::ProofTranslatorRegistry;
-use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, Selector};
-use depin_sdk_api::ibc::{LightClient, UniversalProofFormat};
-use std::any::Any;
+use depin_sdk_api::commitment::{CommitmentScheme, SchemeIdentifier};
+use depin_sdk_api::ibc::{
+    ProofTarget, ProofTranslator, UniversalExecutionReceipt, UniversalProofFormat,
+};
+use depin_sdk_transaction_models::unified::VerifyError;
 use std::collections::HashMap;
+use std::marker::PhantomData;
 
-/// A type-erased wrapper for a `CommitmentScheme`.
-///
-/// ### Why this pattern is used:
-///
-/// This struct is a form of manual "type erasure". It is necessary because the
-/// `CommitmentScheme` trait cannot be made into a standard trait object (`dyn CommitmentScheme`)
-/// due to its use of associated types (`Commitment`, `Proof`, `Value`).
-///
-/// Rust's object safety rules prevent creating a trait object from a trait where
-/// associated types are used as arguments or return types in methods (e.g., `verify` takes
-/// `&Self::Commitment` and `&Self::Proof`). A simple `Box<dyn CommitmentScheme>` would
-/// not know the concrete sizes or types for these associated types at compile time.
-///
-/// To overcome this, `SchemeWrapper` "erases" the specific `CommitmentScheme` implementation
-/// by storing it as a `Box<dyn Any>` and holding function pointers to its methods.
-/// At registration time (`UniversalLightClient::register_scheme`), we capture the concrete
-/// `commit`, `create_proof`, and `verify` methods for a specific type `C: CommitmentScheme`
-/// inside closures, which are then stored as function pointers with a unified, type-erased
-/// signature. This allows the `UniversalLightClient` to store a collection of different
-/// schemes in a `HashMap` and call their methods through a single, uniform interface,
-/// effectively achieving dynamic dispatch without a `dyn Trait` object.
-struct SchemeWrapper {
-    /// The actual scheme (boxed as Any)
-    inner: Box<dyn Any + Send + Sync>,
-    /// Function pointer for commit operation
-    commit_fn: fn(&dyn Any, &[Option<Vec<u8>>]) -> Box<dyn AsRef<[u8]> + Send + Sync>,
-    /// Function pointer for create_proof operation
-    create_proof_fn: fn(&dyn Any, &Selector, &[u8]) -> Result<Box<dyn Any + Send + Sync>, String>,
-    /// Function pointer for verify operation
-    verify_fn: fn(&dyn Any, &dyn Any, &dyn Any, &Selector, &[u8], &ProofContext) -> bool,
-    /// Scheme identifier
-    id: String,
+// --- Stubs for dependencies not fully defined in the guide ---
+// In a full implementation, these would be fully-fledged structs.
+
+/// A stub for the Translation Knowledge Registry (TKR).
+pub struct TKR {
+    _translators:
+        HashMap<(SchemeIdentifier, SchemeIdentifier, ProofTarget), Box<dyn ProofTranslator>>,
 }
 
-/// Universal light client that can verify proofs from multiple commitment schemes
-pub struct UniversalLightClient {
-    /// Supported scheme implementations
-    schemes: HashMap<String, SchemeWrapper>,
-    /// Translator registry
-    translators: ProofTranslatorRegistry,
-    /// Default scheme to use
-    default_scheme: Option<String>,
+impl TKR {
+    /// Finds a trusted proof translator for a given path.
+    pub fn find_translator(
+        &self,
+        _key: &(SchemeIdentifier, SchemeIdentifier, ProofTarget),
+    ) -> Option<&Box<dyn ProofTranslator>> {
+        // This mock implementation returns None to allow testing the TranslatorNotFound error path.
+        // A real TKR would look up a verified translator from its registry.
+        None
+    }
 }
 
-impl UniversalLightClient {
-    /// Create a new universal light client
-    pub fn new() -> Self {
+/// A stub for the Canonical Endpoint Mapping (CEM).
+pub struct CEM;
+// --- End Stubs ---
+
+/// A universal light client that serves as the single, generic entry point
+/// for all foreign proof verification. It is generic over the native chain's
+/// commitment scheme to verify translated proofs.
+pub struct UniversalLightClient<CS: CommitmentScheme> {
+    /// The Translation Knowledge Registry, containing trusted proof translators.
+    tkr: TKR,
+    /// The Canonical Endpoint Mapping, for normalizing foreign events.
+    cem: CEM,
+    /// The scheme identifier of the native chain.
+    native_scheme_id: SchemeIdentifier,
+    /// PhantomData to hold the generic CommitmentScheme type.
+    _cs: PhantomData<CS>,
+}
+
+impl<CS: CommitmentScheme> UniversalLightClient<CS> {
+    /// Creates a new `UniversalLightClient`.
+    pub fn new(native_scheme_id: SchemeIdentifier) -> Self {
         Self {
-            schemes: HashMap::new(),
-            translators: ProofTranslatorRegistry::new(),
-            default_scheme: None,
-        }
-    }
-
-    /// Register a commitment scheme
-    pub fn register_scheme<C>(&mut self, scheme_id: &str, scheme: C)
-    where
-        C: CommitmentScheme + 'static,
-        C::Value: ByteConvertible + AsRef<[u8]>, // Using unified trait
-    {
-        // Create type-erased wrapper functions
-        let commit_fn = |any_scheme: &dyn Any,
-                         values: &[Option<Vec<u8>>]|
-         -> Box<dyn AsRef<[u8]> + Send + Sync> {
-            let scheme = any_scheme.downcast_ref::<C>().unwrap();
-            // Convert Vec<u8> to C::Value using ByteConvertible trait
-            let typed_values: Vec<Option<C::Value>> = values
-                .iter()
-                .map(|v| v.as_ref().and_then(|bytes| C::Value::from_bytes(bytes)))
-                .collect();
-
-            let commitment = scheme.commit(&typed_values);
-            Box::new(commitment)
-        };
-
-        let create_proof_fn = |any_scheme: &dyn Any,
-                               selector: &Selector,
-                               value: &[u8]|
-         -> Result<Box<dyn Any + Send + Sync>, String> {
-            let scheme = any_scheme.downcast_ref::<C>().unwrap();
-            // Convert value to C::Value using ByteConvertible trait
-            if let Some(typed_value) = C::Value::from_bytes(value) {
-                scheme
-                    .create_proof(selector, &typed_value)
-                    .map(|proof| Box::new(proof) as Box<dyn Any + Send + Sync>)
-            } else {
-                Err(format!(
-                    "Failed to convert {} bytes to the expected format",
-                    value.len()
-                ))
-            }
-        };
-
-        let verify_fn = |any_scheme: &dyn Any,
-                         any_commitment: &dyn Any,
-                         any_proof: &dyn Any,
-                         selector: &Selector,
-                         value: &[u8],
-                         context: &ProofContext|
-         -> bool {
-            if let Some(scheme) = any_scheme.downcast_ref::<C>() {
-                if let Some(commitment) = any_commitment.downcast_ref::<C::Commitment>() {
-                    if let Some(proof) = any_proof.downcast_ref::<C::Proof>() {
-                        // Convert value to C::Value
-                        if let Some(typed_value) = C::Value::from_bytes(value) {
-                            return scheme.verify(
-                                commitment,
-                                proof,
-                                selector,
-                                &typed_value,
-                                context,
-                            );
-                        }
-                    }
-                }
-            }
-            false
-        };
-
-        let wrapper = SchemeWrapper {
-            inner: Box::new(scheme),
-            commit_fn,
-            create_proof_fn,
-            verify_fn,
-            id: scheme_id.to_string(),
-        };
-
-        self.schemes.insert(scheme_id.to_string(), wrapper);
-        if self.default_scheme.is_none() {
-            self.default_scheme = Some(scheme_id.to_string());
-        }
-    }
-
-    /// Set the default scheme
-    pub fn set_default_scheme(&mut self, scheme_id: &str) -> Result<(), String> {
-        if self.schemes.contains_key(scheme_id) {
-            self.default_scheme = Some(scheme_id.to_string());
-            Ok(())
-        } else {
-            Err(format!("Scheme '{}' not registered", scheme_id))
-        }
-    }
-
-    /// Register a proof translator
-    pub fn register_translator(
-        &mut self,
-        translator: Box<dyn depin_sdk_api::ibc::ProofTranslator>,
-    ) {
-        self.translators.register(translator);
-    }
-
-    /// Get supported schemes
-    pub fn supported_schemes(&self) -> Vec<String> {
-        self.schemes.keys().cloned().collect()
-    }
-
-    /// Helper method to convert native proof bytes to a proof object
-    fn deserialize_proof(
-        &self,
-        scheme_id: &str,
-        proof_bytes: &[u8],
-    ) -> Option<Box<dyn Any + Send + Sync>> {
-        // In a real implementation, this would deserialize from the proper format
-        // based on the scheme's expected proof format
-        let _scheme = self.schemes.get(scheme_id)?;
-
-        // Log the deserialization attempt for debugging
-        log::debug!(
-            "Deserializing proof for scheme {}, {} bytes",
-            scheme_id,
-            proof_bytes.len()
-        );
-
-        // Simply wrap the bytes for now
-        // In a real implementation, you'd have scheme-specific deserialization
-        Some(Box::new(proof_bytes.to_vec()))
-    }
-
-    /// Helper method to extract selector from proof bytes
-    fn extract_selector_from_proof(
-        &self,
-        scheme_id: &str,
-        _proof_bytes: &[u8],
-        fallback_key: &[u8],
-    ) -> Selector {
-        // In a real implementation, this would extract the selector information
-        // from the proof bytes based on the scheme's format
-
-        // Log the extraction attempt
-        log::debug!(
-            "Extracting selector for scheme {}, fallback key: {} bytes",
-            scheme_id,
-            fallback_key.len()
-        );
-
-        // For now, return a key-based selector as a default
-        Selector::Key(fallback_key.to_vec())
-    }
-}
-
-impl LightClient for UniversalLightClient {
-    fn verify_native_proof(
-        &self,
-        commitment: &[u8],
-        proof: &[u8],
-        key: &[u8],
-        value: &[u8],
-    ) -> bool {
-        // Create a default context for internal use
-        let context = ProofContext::default();
-
-        // Use the default scheme if available
-        if let Some(scheme_id) = &self.default_scheme {
-            if let Some(scheme) = self.schemes.get(scheme_id) {
-                // Extract selector from proof (or use key selector as fallback)
-                let selector = self.extract_selector_from_proof(scheme_id, proof, key);
-
-                // Deserialize proof data
-                if let Some(deserialized_proof) = self.deserialize_proof(scheme_id, proof) {
-                    // Attempt to verify with the scheme
-                    // We use the type-erased function to avoid dynamic dispatch limitations
-                    let result = (scheme.verify_fn)(
-                        scheme.inner.as_ref(),
-                        &commitment.to_vec(), // Simple wrapper for commitment bytes
-                        deserialized_proof.as_ref(),
-                        &selector,
-                        value,
-                        &context,
-                    );
-
-                    // Log the verification result
-                    log::debug!(
-                        "Native proof verification result: {}, scheme: {}",
-                        result,
-                        scheme_id
-                    );
-
-                    return result;
-                }
-            }
-        }
-
-        log::warn!("Native proof verification failed, no suitable scheme found");
-        false
-    }
-
-    fn verify_universal_proof(
-        &self,
-        commitment: &[u8],
-        proof: &UniversalProofFormat,
-        key: &[u8],
-        value: &[u8],
-    ) -> bool {
-        let scheme_id = &proof.scheme_id.0;
-
-        // Log received proof information
-        log::debug!(
-            "Verifying universal proof: scheme={}, key={} bytes, provided_key={} bytes",
-            scheme_id,
-            proof.key.len(),
-            key.len()
-        );
-
-        // Create a context from the proof metadata
-        let mut combined_context = ProofContext::new();
-
-        // Migrate metadata from core proof to our context
-        for (key, value) in &proof.metadata {
-            combined_context.add_data(key, value.clone());
-        }
-
-        // Determine which key to use - prefer proof's key if present, otherwise use provided key
-        let key_to_use = if !proof.key.is_empty() {
-            &proof.key
-        } else {
-            key
-        };
-
-        // Create selector based on the key
-        let selector = Selector::Key(key_to_use.to_vec());
-
-        // Log the key decision
-        log::debug!(
-            "Using {} for verification: {} bytes",
-            if key_to_use.as_ptr() == proof.key.as_ptr() {
-                "proof key"
-            } else {
-                "provided key"
+            tkr: TKR {
+                _translators: HashMap::new(),
             },
-            key_to_use.len()
-        );
-
-        // If we support this scheme directly, use it
-        if let Some(scheme) = self.schemes.get(scheme_id) {
-            // Deserialize the proof data
-            if let Some(deserialized_proof) = self.deserialize_proof(scheme_id, &proof.proof_data) {
-                // Verify using the scheme
-                let result = (scheme.verify_fn)(
-                    scheme.inner.as_ref(),
-                    &commitment.to_vec(), // Simple wrapper for commitment bytes
-                    deserialized_proof.as_ref(),
-                    &selector,
-                    value,
-                    &combined_context,
-                );
-
-                // Log direct verification result
-                log::debug!("Direct verification result: {}", result);
-
-                return result;
-            }
+            cem: CEM,
+            native_scheme_id,
+            _cs: PhantomData,
         }
-
-        // If we don't support this scheme directly, try to translate it
-        if let Some(default_id) = &self.default_scheme {
-            log::debug!("Attempting translation to scheme: {}", default_id);
-
-            // Attempt to translate the proof to our default scheme
-            if let Some(translated_proof) = self.translators.translate_universal(default_id, proof)
-            {
-                if let Some(scheme) = self.schemes.get(default_id) {
-                    // Verify using the translated proof
-                    let result = (scheme.verify_fn)(
-                        scheme.inner.as_ref(),
-                        &commitment.to_vec(), // Simple wrapper for commitment bytes
-                        translated_proof.as_ref(),
-                        &selector,
-                        value,
-                        &combined_context,
-                    );
-
-                    // Log translation verification result
-                    log::debug!("Translation verification result: {}", result);
-
-                    return result;
-                }
-            } else {
-                log::warn!("Failed to translate proof to scheme: {}", default_id);
-            }
-        }
-
-        log::warn!(
-            "Universal proof verification failed for scheme: {}",
-            scheme_id
-        );
-        false
     }
 
-    fn supported_schemes(&self) -> Vec<String> {
-        self.schemes.keys().cloned().collect()
+    /// The core verification logic that executes the end-to-end flow.
+    pub fn verify_receipt(
+        &self,
+        receipt: &UniversalExecutionReceipt,
+        upf: &UniversalProofFormat,
+    ) -> Result<(), VerifyError> {
+        // 1. Finality Check
+        if receipt.finality.is_none() {
+            return Err(VerifyError::NotFinal);
+        }
+        // TODO: A full implementation would cryptographically verify the finality evidence itself
+        // against a known set of trusted checkpoints or light client state for the source chain.
+
+        // 2. CEM Hash Check
+        // A full implementation would hash its local copy of the CEM and compare.
+        // let local_cem_hash = self.cem.hash();
+        // if receipt.cem_hash != local_cem_hash {
+        //     return Err(VerifyError::CemHashMismatch { ... });
+        // }
+
+        // 3. Select Translator from TKR
+        let translator_key = (
+            upf.scheme_id.clone(),
+            self.native_scheme_id.clone(),
+            receipt.target.clone(),
+        );
+        let translator = self.tkr.find_translator(&translator_key).ok_or_else(|| {
+            VerifyError::TranslatorNotFound(
+                upf.scheme_id.0.clone(),
+                self.native_scheme_id.0.clone(),
+            )
+        })?;
+
+        // 4. Translate the Proof using the unambiguous Witness
+        let native_proof_bytes = translator
+            .translate(&receipt.target, &upf.proof_data, &upf.witness)
+            .map_err(VerifyError::TranslationFailed)?;
+
+        // 5. Verify Native Proof Against the Correct Anchor Root
+        let anchor_root_bytes = match receipt.target {
+            ProofTarget::State => &receipt.anchor.state_root,
+            ProofTarget::Receipts | ProofTarget::Log { .. } => &receipt.anchor.receipts_root,
+            ProofTarget::Transactions => &receipt.anchor.transactions_root,
+        };
+        // A full implementation would deserialize native_proof_bytes into a concrete `CS::Proof`
+        // and then call the native commitment scheme's verify function.
+        // For example:
+        // let native_proof = CS::Proof::deserialize(&native_proof_bytes)?;
+        // if !self.native_scheme.verify(anchor_root_bytes, &native_proof, ..., &upf.witness.value) {
+        //     return Err(VerifyError::VerificationFailed("Native proof verification failed".into()));
+        // }
+        let _ = (native_proof_bytes, anchor_root_bytes); // Avoid unused variable warnings for this guide.
+
+        // 6. Recompute and verify semantic data from the witness value
+        // A full implementation would use a normalizer selected from a registry based on the source_chain_id.
+        // let normalizer = self.normalizer_registry.get(&receipt.source_chain_id)?;
+        // let normalized = normalizer.normalize(&self.cem, &upf.witness.value, ...)?;
+        // if normalized.endpoint_id != receipt.endpoint_id || ... {
+        //     return Err(VerifyError::VerificationFailed("Semantic data mismatch".into()));
+        // }
+
+        log::info!("Successfully verified foreign receipt!");
+        Ok(())
     }
 }

@@ -42,6 +42,7 @@ async-trait = { workspace = true }
 uuid = { version = "1.8.0", features = ["v4"] }
 tar = "0.4"
 hyper = "0.14"
+dcrypt = { workspace = true }
 
 # Add node as a dependency to propagate features
 depin-sdk-node = { path = "../node", default-features = false }

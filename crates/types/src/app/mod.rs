@@ -1,7 +1,7 @@
 // Path: crates/types/src/app/mod.rs
 //! Core application-level data structures like Blocks and Transactions.
 
-// --- FIX: Corrected the import path for DcryptSha256 ---
+use crate::ibc::{UniversalExecutionReceipt, UniversalProofFormat};
 use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
 use dcrypt::algorithms::ByteSerializable;
 use serde::{Deserialize, Serialize};
@@ -210,7 +210,7 @@ pub struct OracleAttestation {
 }
 
 impl OracleAttestation {
-    /// [Feedback #1, #4, #8] Creates a deterministic, domain-separated signing payload.
+    /// Creates a deterministic, domain-separated signing payload.
     pub fn to_signing_payload(&self, chain_id: &str) -> Vec<u8> {
         let mut bytes = Vec::new();
         bytes.extend_from_slice(b"DEPOT_ORACLE_ATTESTATION_V1::");
@@ -279,5 +279,12 @@ pub enum SystemPayload {
         final_value: Vec<u8>,
         /// The cryptographic proof of consensus from the validator set.
         consensus_proof: OracleConsensusProof,
+    },
+    /// Verifies a receipt from a foreign chain.
+    VerifyForeignReceipt {
+        /// The universal receipt containing the canonical operation data.
+        receipt: UniversalExecutionReceipt,
+        /// The universal proof format containing the cryptographic proof and witness.
+        proof: UniversalProofFormat,
     },
 }

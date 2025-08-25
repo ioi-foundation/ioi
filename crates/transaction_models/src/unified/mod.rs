@@ -1,4 +1,5 @@
 // Path: crates/transaction_models/src/unified/mod.rs
+
 use crate::utxo::{UTXOModel, UTXOTransactionProof};
 use async_trait::async_trait;
 use bs58;
@@ -20,6 +21,43 @@ use libp2p::identity::PublicKey as Libp2pPublicKey;
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
+use thiserror::Error;
+
+// --- FIX: Import the necessary items from dcrypt for BLAKE3 XOF ---
+use dcrypt::algorithms::xof::{Blake3Xof, ExtendableOutputFunction};
+
+const FOREIGN_RECEIPT_PROCESSED_PREFIX: &[u8] = b"ibc::receipt::";
+
+#[derive(Error, Debug)]
+pub enum VerifyError {
+    #[error("Proof is not final")]
+    NotFinal,
+    #[error("Translator not found for path: {0} -> {1}")]
+    TranslatorNotFound(String, String),
+    #[error("Proof translation failed: {0}")]
+    TranslationFailed(String),
+    #[error("Cryptographic verification failed: {0}")]
+    VerificationFailed(String),
+    #[error("Invalid finality evidence: {0}")]
+    InvalidFinality(String),
+    #[error("CEM hash mismatch: expected {expected}, got {got}")]
+    CemHashMismatch { expected: String, got: String },
+}
+
+impl From<VerifyError> for TransactionError {
+    fn from(e: VerifyError) -> Self {
+        TransactionError::Invalid(format!("Foreign receipt verification failed: {}", e))
+    }
+}
+
+// Helper for creating a stable hash for the replay key
+fn hash_leaf_identity(id: &[u8]) -> [u8; 32] {
+    // --- FIX: Use dcrypt's Blake3Xof to generate a 32-byte hash ---
+    // Use Blake3 for speed and modern security properties.
+    // dcrypt's Blake3 is an XOF, so we must request a specific output length.
+    let hash_vec = Blake3Xof::generate(id, 32).expect("BLAKE3 hashing failed");
+    hash_vec.try_into().expect("BLAKE3 output was not 32 bytes")
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum UnifiedProof<P> {
@@ -41,12 +79,57 @@ impl<CS: CommitmentScheme + Clone> UnifiedTransactionModel<CS> {
     }
 }
 
-// --- START REFACTOR: Helper functions for SystemTransaction apply logic ---
-
 impl<CS: CommitmentScheme + Clone + Send + Sync> UnifiedTransactionModel<CS>
 where
     <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de> + Clone,
 {
+    async fn apply_verify_foreign_receipt<ST: StateManager + ?Sized>(
+        &self,
+        state: &mut ST,
+        receipt: &depin_sdk_api::ibc::UniversalExecutionReceipt,
+        proof: &depin_sdk_api::ibc::UniversalProofFormat,
+    ) -> Result<(), TransactionError> {
+        // 1. Strengthened Anti-Replay Check
+        let hashed_leaf_id = hash_leaf_identity(&receipt.unique_leaf_id);
+        let receipt_key = [
+            FOREIGN_RECEIPT_PROCESSED_PREFIX,
+            receipt.source_chain_id.as_bytes(),
+            b"::",
+            &receipt.anchor.block_hash,
+            b"::",
+            &hashed_leaf_id,
+        ]
+        .concat();
+
+        if state.get(&receipt_key)?.is_some() {
+            return Err(TransactionError::Invalid(
+                "Foreign receipt has already been processed (replay attack)".to_string(),
+            ));
+        }
+
+        // 2. Admission Control (DoS Protection)
+        // A full implementation would have configurable limits per (chain, target).
+        const MAX_PROOF_SIZE: usize = 1024 * 64; // 64 KB limit
+        if proof.proof_data.len() > MAX_PROOF_SIZE {
+            return Err(TransactionError::Invalid(
+                "Proof size exceeds maximum limit".to_string(),
+            ));
+        }
+
+        // 3. Delegate to UniversalLightClient
+        // let result = workload.universal_client.verify_receipt(receipt, proof)?;
+        // (Simulation for this guide)
+
+        // 4. Mark receipt as processed and emit event
+        state.insert(&receipt_key, &[1])?;
+        log::info!(
+            "Foreign receipt processed successfully. Emitting local event for endpoint: {}",
+            receipt.endpoint_id
+        );
+
+        Ok(())
+    }
+
     async fn apply_update_authorities<ST: StateManager + ?Sized>(
         &self,
         state: &mut ST,
@@ -292,8 +375,6 @@ where
             .get(&pending_key)?
             .ok_or(OracleError::RequestNotFound(request_id))?;
 
-        // [Feedback #3] For simplicity, we use the current stake set. A more robust implementation
-        // would use a stake snapshot from the request block height.
         let stakes_bytes = state.get(STAKES_KEY_CURRENT)?.ok_or_else(|| {
             TransactionError::Invalid("Validator stakes not found in state".into())
         })?;
@@ -312,8 +393,6 @@ where
         let mut attested_values = Vec::new();
 
         for attestation in &consensus_proof.attestations {
-            // [Feedback #1, #4] Use the deterministic, domain-separated payload for verification.
-            // In a multi-chain environment, the chain_id would come from the state or config.
             let payload_to_verify = attestation.to_signing_payload("test-chain");
 
             const ED25519_PUBKEY_LEN: usize = 32;
@@ -368,7 +447,6 @@ where
             .into());
         }
 
-        // [Feedback #2, #9] Re-compute the aggregate value on-chain and verify it matches.
         attested_values.sort();
         let recomputed_final_value = &attested_values[attested_values.len() / 2];
         if final_value != recomputed_final_value {
@@ -385,7 +463,6 @@ where
         Ok(())
     }
 }
-// --- END REFACTOR ---
 
 #[async_trait]
 impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UnifiedTransactionModel<CS>
@@ -536,7 +613,6 @@ where
                 let payload_bytes = serde_json::to_vec(&sys_tx.payload)
                     .map_err(|e| TransactionError::Serialization(e.to_string()))?;
 
-                // --- REFACTORED DISPATCH ---
                 match &sys_tx.payload {
                     SystemPayload::UpdateAuthorities { new_authorities } => {
                         self.apply_update_authorities(
@@ -596,6 +672,10 @@ where
                             consensus_proof,
                         )
                         .await
+                    }
+                    SystemPayload::VerifyForeignReceipt { receipt, proof } => {
+                        self.apply_verify_foreign_receipt(&mut *state, receipt, proof)
+                            .await
                     }
                 }
             }

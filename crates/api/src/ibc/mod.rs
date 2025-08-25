@@ -1,36 +1,40 @@
 // Path: crates/api/src/ibc/mod.rs
-//! Defines traits for Inter-Blockchain Communication (IBC).
+//! Defines traits and re-exports types for Inter-Blockchain Communication (IBC).
 
-use crate::services::BlockchainService;
-use depin_sdk_types::error::CoreError as Error;
+// Re-export core data structures from the `types` crate.
+pub use depin_sdk_types::ibc::{
+    BlockAnchor, DigestAlgo, FinalityEvidence, KeyCodec, MembershipWitness, ProofTarget,
+    UniversalExecutionReceipt, UniversalProofFormat,
+};
 
-/// A unique identifier for a blockchain.
-pub type ChainId = String;
-/// An identifier for a proof type.
-pub type ProofType = String;
+use crate::commitment::SchemeIdentifier;
+use thiserror::Error;
 
-/// Represents a data packet for cross-chain communication.
-pub struct Packet {
-    /// The payload of the packet.
-    pub data: Vec<u8>,
-    /// The source chain's identifier.
-    pub source: ChainId,
-    /// The destination chain's identifier.
-    pub destination: ChainId,
+/// Errors that can occur during proof translation.
+#[derive(Error, Debug)]
+pub enum TranslateError {
+    /// The proof target (e.g., State, Log) is not supported by the translator.
+    #[error("Unsupported proof target")]
+    UnsupportedTarget,
+    /// The source proof data is malformed or invalid.
+    #[error("Invalid source proof data: {0}")]
+    InvalidSourceProof(String),
+    /// An unexpected error occurred during the translation process.
+    #[error("Internal translation error: {0}")]
+    Internal(String),
 }
 
-/// A trait for services that handle cross-chain communication.
-pub trait CrossChainCommunication: BlockchainService {
-    /// Verifies a proof from another chain.
-    fn verify_proof(&self, proof: &dyn CrossChainProof) -> Result<bool, Error>;
-    /// Creates a packet to be sent to another chain.
-    fn create_packet(&self, data: &[u8], destination: ChainId) -> Result<Packet, Error>;
-}
-
-/// A trait for a proof that can be verified across chains.
-pub trait CrossChainProof {
-    /// The identifier of the source chain that generated the proof.
-    fn source_chain(&self) -> ChainId;
-    /// The type of the proof.
-    fn proof_type(&self) -> ProofType;
+/// A trait for components that can translate a proof from one cryptographic scheme to another.
+pub trait ProofTranslator: Send + Sync {
+    /// Returns the identifier of the source commitment scheme.
+    fn source_scheme(&self) -> SchemeIdentifier;
+    /// Returns the identifier of the target (native) commitment scheme.
+    fn target_scheme(&self) -> SchemeIdentifier;
+    /// Translates a foreign proof into the native proof format.
+    fn translate(
+        &self,
+        target: &ProofTarget,
+        proof_data: &[u8],
+        witness: &MembershipWitness,
+    ) -> Result<Vec<u8>, TranslateError>;
 }
