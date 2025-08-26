@@ -1,4 +1,5 @@
-// crates/services/src/semantic/prompt_wrapper.rs
+// Path: crates/services/src/semantic/prompt_wrapper.rs
+use depin_sdk_api::impl_service_base;
 use depin_sdk_api::services::{BlockchainService, ServiceType};
 
 // A placeholder for on-chain policy definitions.
@@ -14,6 +15,8 @@ impl BlockchainService for PromptWrapper {
         ServiceType::Custom("PromptWrapper".to_string())
     }
 }
+
+impl_service_base!(PromptWrapper);
 
 impl PromptWrapper {
     /// Constructs the canonical prompt sent to all inference committee members.

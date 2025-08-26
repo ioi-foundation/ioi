@@ -4,6 +4,7 @@
 
 pub mod account;
 pub mod hybrid;
+pub mod system; // Add this module
 pub mod unified;
 pub mod utxo;
 

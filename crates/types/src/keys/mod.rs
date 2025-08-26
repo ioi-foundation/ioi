@@ -18,6 +18,8 @@ pub const STATE_KEY_SEMANTIC_MODEL_HASH: &[u8] = b"system::semantic_model_hash";
 
 /// The state key prefix for user account data.
 pub const ACCOUNT_KEY_PREFIX: &[u8] = b"account::";
+/// The state key prefix for a user's transaction nonce.
+pub const ACCOUNT_NONCE_PREFIX: &[u8] = b"account::nonce::";
 /// The state key prefix for gas escrow entries.
 pub const GAS_ESCROW_KEY_PREFIX: &[u8] = b"escrow::gas::";
 
@@ -32,3 +34,11 @@ pub const GOVERNANCE_VOTE_KEY_PREFIX: &[u8] = b"gov::vote::";
 pub const ORACLE_PENDING_REQUEST_PREFIX: &[u8] = b"oracle::pending::";
 /// The state key prefix for finalized oracle data, keyed by request_id.
 pub const ORACLE_DATA_PREFIX: &[u8] = b"oracle::data::";
+
+// --- Identity Hub Keys ---
+/// State key prefix for an account's credentials array.
+pub const IDENTITY_CREDENTIALS_PREFIX: &[u8] = b"identity::creds::";
+/// State key prefix for an account's rotation nonce.
+pub const IDENTITY_ROTATION_NONCE_PREFIX: &[u8] = b"identity::nonce::rotation::";
+/// State key prefix for indexing credential promotions by block height.
+pub const IDENTITY_PROMOTION_INDEX_PREFIX: &[u8] = b"identity::index::promotion::";

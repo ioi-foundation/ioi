@@ -12,16 +12,54 @@ use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_forge::testing::{
     assert_log_contains, build_test_artifacts, submit_transaction, TestCluster,
 };
-use depin_sdk_types::app::{ChainTransaction, SystemPayload, SystemTransaction};
+use depin_sdk_types::app::{
+    AccountId, ChainTransaction, SignHeader, SignatureProof, SignatureSuite, SystemPayload,
+    SystemTransaction,
+};
 use depin_sdk_types::keys::{STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
+use libp2p::identity::Keypair;
 use serde_json::json;
+
+// Helper function to create a signed system transaction
+fn create_system_tx(
+    keypair: &Keypair,
+    payload: SystemPayload,
+    nonce: u64,
+) -> Result<ChainTransaction> {
+    let public_key = keypair.public().encode_protobuf();
+    let account_id: AccountId = depin_sdk_crypto::algorithms::hash::sha256(&public_key)
+        .try_into()
+        .unwrap();
+
+    let header = SignHeader {
+        account_id,
+        nonce,
+        chain_id: 1, // Matches chain default
+        tx_version: 1,
+    };
+
+    let mut tx_to_sign = SystemTransaction {
+        header,
+        payload,
+        signature_proof: SignatureProof::default(),
+    };
+    let sign_bytes = tx_to_sign.to_sign_bytes()?;
+    let signature = keypair.sign(&sign_bytes)?;
+
+    tx_to_sign.signature_proof = SignatureProof {
+        suite: SignatureSuite::Ed25519,
+        public_key,
+        signature,
+    };
+    Ok(ChainTransaction::System(tx_to_sign))
+}
 
 #[tokio::test]
 async fn test_validator_native_oracle_e2e() -> Result<()> {
     // 1. SETUP: Build artifacts and launch a 4-node PoS cluster.
     build_test_artifacts("consensus-pos,vm-wasm,tree-file,primitive-hash");
 
-    let cluster = TestCluster::builder()
+    let mut cluster = TestCluster::builder()
         .with_validators(4)
         .with_consensus_type("ProofOfStake")
         .with_genesis_modifier(|genesis, keys| {
@@ -82,19 +120,11 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
             .to_string(),
         request_id,
     };
-    let payload_bytes = serde_json::to_vec(&payload)?;
-    let signature_bytes = cluster.validators[0].keypair.sign(&payload_bytes)?;
-    let pubkey_bytes = cluster.validators[0]
-        .keypair
-        .public()
-        .try_into_ed25519()?
-        .to_bytes()
-        .to_vec();
 
-    let request_tx = ChainTransaction::System(SystemTransaction {
-        payload,
-        signature: [pubkey_bytes, signature_bytes].concat(),
-    });
+    // Since this test doesn't enable the IdentityHub, the nonce won't be checked,
+    // but the transaction must still conform to the new signed structure.
+    let signer_keypair = &cluster.validators[0].keypair;
+    let request_tx = create_system_tx(signer_keypair, payload, 0)?;
     submit_transaction(node0_rpc, &request_tx).await?;
 
     // 3. ASSERT ATTESTATION GOSSIP

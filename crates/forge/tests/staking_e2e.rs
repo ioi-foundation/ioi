@@ -1,8 +1,5 @@
 // Path: crates/forge/tests/staking_e2e.rs
 
-// This attribute ensures the test binary is only compiled when both the
-// ProofOfStake consensus engine and the WASM VM features are enabled for the
-// `depin-sdk-forge` crate.
 #![cfg(all(feature = "consensus-pos", feature = "vm-wasm"))]
 
 use anyhow::Result;
@@ -10,25 +7,68 @@ use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_forge::testing::{
     assert_log_contains, build_test_artifacts, submit_transaction, TestCluster,
 };
-use depin_sdk_types::app::{ChainTransaction, SystemPayload, SystemTransaction};
-use depin_sdk_types::keys::{STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
+use depin_sdk_types::{
+    app::{
+        AccountId, ChainTransaction, SignHeader, SignatureProof, SignatureSuite, SystemPayload,
+        SystemTransaction,
+    },
+    config::InitialServiceConfig,
+    keys::{STAKES_KEY_CURRENT, STAKES_KEY_NEXT},
+    service_configs::MigrationConfig,
+};
+use libp2p::identity::Keypair;
 use serde_json::json;
+
+// Helper function to create a signed system transaction
+fn create_system_tx(
+    keypair: &Keypair,
+    payload: SystemPayload,
+    nonce: u64,
+) -> Result<ChainTransaction> {
+    let public_key = keypair.public().encode_protobuf();
+    let account_id: AccountId = depin_sdk_crypto::algorithms::hash::sha256(&public_key)
+        .try_into()
+        .unwrap();
+
+    let header = SignHeader {
+        account_id,
+        nonce,
+        chain_id: 1, // Matches chain default
+        tx_version: 1,
+    };
+
+    let mut tx_to_sign = SystemTransaction {
+        header,
+        payload,
+        signature_proof: SignatureProof::default(),
+    };
+    let sign_bytes = tx_to_sign.to_sign_bytes()?;
+    let signature = keypair.sign(&sign_bytes)?;
+
+    tx_to_sign.signature_proof = SignatureProof {
+        suite: SignatureSuite::Ed25519,
+        public_key,
+        signature,
+    };
+    Ok(ChainTransaction::System(tx_to_sign))
+}
 
 #[tokio::test]
 async fn test_staking_lifecycle() -> Result<()> {
     // 1. SETUP: Build artifacts with the specific features needed for the spawned binaries.
-    // This tells the test harness to build the node binaries with PoS and WASM support.
-    // --- FIX START: Add the missing features for the state backend. ---
     build_test_artifacts("consensus-pos,vm-wasm,tree-file,primitive-hash");
-    // --- FIX END ---
 
     // 2. LAUNCH CLUSTER: 3-node PoS cluster with Node0 as the sole initial staker.
-    // The `with_consensus_type` now directly corresponds to the feature we built with.
     let mut cluster = TestCluster::builder()
         .with_validators(3)
         .with_consensus_type("ProofOfStake")
-        // NOTE: This test implicitly uses the builder's default state_tree ("File")
-        // and commitment_scheme ("Hash"), which is why the features above are needed.
+        .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
+            grace_period_blocks: 5,
+            accept_staged_during_grace: true,
+            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            allow_downgrade: false,
+            chain_id: 1,
+        }))
         .with_genesis_modifier(|genesis, keys| {
             let initial_staker_peer_id = keys[0].public().to_peer_id();
             let stakes = json!({ initial_staker_peer_id.to_base58(): 100_000u64 });
@@ -60,44 +100,16 @@ async fn test_staking_lifecycle() -> Result<()> {
     // 5. ACTION: Submit staking transactions via Node0's RPC.
     // Transaction 1: Node0 (the current leader) unstakes all its funds.
     let unstake_payload = SystemPayload::Unstake { amount: 100_000 };
-    let unstake_sig = node0.keypair.sign(&serde_json::to_vec(&unstake_payload)?)?;
-    let unstake_tx = ChainTransaction::System(SystemTransaction {
-        payload: unstake_payload,
-        signature: [
-            node0
-                .keypair
-                .public()
-                .try_into_ed25519()?
-                .to_bytes()
-                .as_ref(),
-            &unstake_sig,
-        ]
-        .concat(),
-    });
+    let unstake_tx = create_system_tx(&node0.keypair, unstake_payload, 0)?;
     submit_transaction(&rpc_addr, &unstake_tx).await?;
 
     // Transaction 2: Node1 stakes some funds to become the new (and only) validator.
     let stake_payload = SystemPayload::Stake { amount: 50_000 };
-    let stake_sig = node1.keypair.sign(&serde_json::to_vec(&stake_payload)?)?;
-    let stake_tx = ChainTransaction::System(SystemTransaction {
-        payload: stake_payload,
-        signature: [
-            node1
-                .keypair
-                .public()
-                .try_into_ed25519()?
-                .to_bytes()
-                .as_ref(),
-            &stake_sig,
-        ]
-        .concat(),
-    });
+    let stake_tx = create_system_tx(&node1.keypair, stake_payload, 0)?;
     submit_transaction(&rpc_addr, &stake_tx).await?;
 
     // 6. VERIFICATION: Wait for the ultimate desired outcome: Node1 is elected as the leader.
-    // The staking transactions will be included in block #2. The state change
-    // will be committed with block #2. Therefore, the leader election for block #3
-    // will see Node1 as the sole staker.
+    // The state transition happens at the end of block 2, so the new leader is for block 3.
     let expected_leader_log = format!("[PoS] leader@3 = {}", node1_peer_id_b58);
 
     assert_log_contains(

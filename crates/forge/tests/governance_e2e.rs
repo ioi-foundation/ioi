@@ -1,8 +1,6 @@
 // Path: crates/forge/tests/governance_e2e.rs
 
-// --- FIX START: Add the cfg attribute to gate the test ---
 #![cfg(all(feature = "consensus-poa", feature = "vm-wasm"))]
-// --- FIX END ---
 
 use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
@@ -10,18 +8,37 @@ use depin_sdk_forge::testing::{
     assert_log_contains, build_test_artifacts, submit_transaction, TestCluster,
 };
 use depin_sdk_services::governance::{Proposal, ProposalStatus, ProposalType};
-use depin_sdk_types::app::{ChainTransaction, SystemPayload, SystemTransaction, VoteOption};
+use depin_sdk_types::app::{
+    ChainTransaction, SignHeader, SignatureProof, SystemPayload, SystemTransaction, VoteOption,
+};
 use depin_sdk_types::keys::{GOVERNANCE_PROPOSAL_KEY_PREFIX, STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
-use libp2p::identity;
+use libp2p::identity::{self, Keypair};
 use serde_json::json;
 use std::collections::BTreeMap;
+
+// Helper function to create a signed system transaction
+fn create_system_tx(keypair: &Keypair, payload: SystemPayload) -> Result<ChainTransaction> {
+    let mut tx_to_sign = SystemTransaction {
+        header: SignHeader::default(),
+        payload,
+        signature_proof: SignatureProof::default(),
+    };
+    let sign_bytes = tx_to_sign.to_sign_bytes()?;
+    let signature = keypair.sign(&sign_bytes)?;
+    let public_key = keypair.public().encode_protobuf();
+
+    tx_to_sign.signature_proof = SignatureProof {
+        suite: Default::default(),
+        public_key,
+        signature,
+    };
+    Ok(ChainTransaction::System(tx_to_sign))
+}
 
 #[tokio::test]
 async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
     // 1. SETUP: Build artifacts and define keypairs
-    // --- FIX START: Add the missing state backend features ---
     build_test_artifacts("consensus-poa,vm-wasm,tree-file,primitive-hash");
-    // --- FIX END ---
     let governance_key = identity::Keypair::generate_ed25519();
     let governance_pubkey_b58 =
         bs58::encode(governance_key.public().try_into_ed25519()?.to_bytes()).into_string();
@@ -85,23 +102,9 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
         proposal_id: 1,
         option: VoteOption::Yes,
     };
-    let payload_bytes = serde_json::to_vec(&payload)?;
-
-    let pubkey_bytes = validator_key
-        .public()
-        .try_into_ed25519()?
-        .to_bytes()
-        .to_vec();
-    let signature_bytes = validator_key.sign(&payload_bytes)?;
-    let full_signature = [pubkey_bytes, signature_bytes].concat();
-
-    let tx = ChainTransaction::System(SystemTransaction {
-        payload,
-        signature: full_signature,
-    });
+    let tx = create_system_tx(validator_key, payload)?;
     submit_transaction(rpc_addr, &tx).await?;
 
-    // *** START FIX: Align assertion with actual node logs ***
     // 5. ASSERT the vote was accepted & gossiped (confirms the transaction part of the flow)
     assert_log_contains(
         "Orchestration",
@@ -109,7 +112,6 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
         "[RPC] Published transaction via gossip.",
     )
     .await?;
-    // *** END FIX ***
 
     // 6. WAIT AND ASSERT the tallying outcome
     assert_log_contains(

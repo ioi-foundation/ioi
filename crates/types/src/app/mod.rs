@@ -71,6 +71,78 @@ impl BlockHeader {
     }
 }
 
+// --- NEW/MODIFIED DATA STRUCTURES FOR IDENTITY AND TRANSACTIONS ---
+
+/// A unique identifier for an on-chain account, derived from the initial public key hash. This address is stable and does not change.
+pub type AccountId = [u8; 32];
+
+/// Defines the cryptographic algorithm suite used for a key or signature.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SignatureSuite {
+    /// The Ed25519 signature scheme.
+    #[default]
+    Ed25519,
+    /// The CRYSTALS-Dilithium2 post-quantum signature scheme.
+    Dilithium2,
+}
+
+/// A cryptographic credential defining an account's active key.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct Credential {
+    /// The algorithm used by this credential.
+    pub suite: SignatureSuite,
+    /// The SHA-256 hash of the public key.
+    pub public_key_hash: [u8; 32],
+    /// The block height at which this credential becomes active.
+    pub activation_height: u64,
+    /// Optional location of the full public key on a Layer 2 or DA layer.
+    pub l2_location: Option<String>,
+}
+
+/// A cryptographic proof required to execute a key rotation.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct RotationProof {
+    /// The full public key of the key being rotated.
+    pub old_public_key: Vec<u8>,
+    /// A signature from the old key over the rotation challenge.
+    pub old_signature: Vec<u8>,
+    /// The full public key of the new key being staged.
+    pub new_public_key: Vec<u8>,
+    /// A signature from the new key over the rotation challenge.
+    pub new_signature: Vec<u8>,
+    /// The signature suite of the new key.
+    pub target_suite: SignatureSuite,
+    /// Optional location of the new public key on a Layer 2 or DA layer.
+    pub l2_location: Option<String>,
+}
+
+/// The header containing all data required for a valid, replay-protected signature.
+/// This data is part of the canonical sign bytes.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct SignHeader {
+    /// The stable identifier of the signing account.
+    pub account_id: AccountId,
+    /// The per-account transaction nonce for replay protection.
+    pub nonce: u64,
+    /// The ID of the target chain to prevent cross-chain replays.
+    pub chain_id: u32,
+    /// The version of the transaction format.
+    pub tx_version: u8,
+}
+
+/// A generic structure holding the signature and related data.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
+pub struct SignatureProof {
+    /// The signature suite used.
+    pub suite: SignatureSuite,
+    /// The full public key of the signer.
+    pub public_key: Vec<u8>,
+    /// The cryptographic signature.
+    pub signature: Vec<u8>,
+}
+
+// --- UTXO-related structs ---
+
 /// An input for a UTXO transaction, pointing to a previous output.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Input {
@@ -108,6 +180,8 @@ impl UTXOTransaction {
     }
 }
 
+// --- EVOLVED TRANSACTION ENUMS ---
+
 /// A top-level enum representing any transaction the chain can process.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum ChainTransaction {
@@ -124,63 +198,67 @@ pub enum ApplicationTransaction {
     UTXO(UTXOTransaction),
     /// A transaction to deploy a new smart contract.
     DeployContract {
+        /// The header containing replay protection data.
+        header: SignHeader,
         /// The bytecode of the contract.
         code: Vec<u8>,
-        /// The signer's public key for signature verification.
-        signer_pubkey: Vec<u8>,
-        /// The transaction signature.
-        signature: Vec<u8>,
+        /// The signature and public key of the deployer.
+        signature_proof: SignatureProof,
     },
     /// A transaction to call a method on an existing smart contract.
     CallContract {
+        /// The header containing replay protection data.
+        header: SignHeader,
         /// The address of the contract to call.
         address: Vec<u8>,
         /// The ABI-encoded input data for the contract call.
         input_data: Vec<u8>,
         /// The maximum gas allowed for this transaction.
         gas_limit: u64,
-        /// The signer's public key for signature verification.
-        signer_pubkey: Vec<u8>,
-        /// The transaction signature.
-        signature: Vec<u8>,
+        /// The signature and public key of the caller.
+        signature_proof: SignatureProof,
     },
 }
 
 impl ApplicationTransaction {
     /// Creates a stable, serializable payload for signing by clearing signature fields.
-    pub fn to_signature_payload(&self) -> Vec<u8> {
+    /// This MUST use a canonical binary encoding like BCS to prevent malleability.
+    pub fn to_sign_bytes(&self) -> Result<Vec<u8>, bcs::Error> {
         let mut temp = self.clone();
-        // Clear signature fields before serializing to create a stable payload
         match &mut temp {
             ApplicationTransaction::DeployContract {
-                signer_pubkey,
-                signature,
-                ..
-            } => {
-                signer_pubkey.clear();
-                signature.clear();
+                signature_proof, ..
             }
-            ApplicationTransaction::CallContract {
-                signer_pubkey,
-                signature,
-                ..
+            | ApplicationTransaction::CallContract {
+                signature_proof, ..
             } => {
-                signer_pubkey.clear();
-                signature.clear();
+                *signature_proof = SignatureProof::default();
             }
-            ApplicationTransaction::UTXO(_) => {} // UTXO has its own signing mechanism
+            ApplicationTransaction::UTXO(_) => {}
         }
-        serde_json::to_vec(&temp).unwrap()
+        bcs::to_bytes(&temp)
     }
 }
 
 /// A privileged transaction for performing system-level state changes.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct SystemTransaction {
+    /// The header containing replay protection data.
+    pub header: SignHeader,
     /// The specific action being requested.
     pub payload: SystemPayload,
-    /// A signature authorizing the action.
-    pub signature: Vec<u8>,
+    /// The signature and public key of the caller.
+    pub signature_proof: SignatureProof,
+}
+
+impl SystemTransaction {
+    /// Creates a stable, serializable payload for signing by clearing signature fields.
+    /// This MUST use a canonical binary encoding like BCS to prevent malleability.
+    pub fn to_sign_bytes(&self) -> Result<Vec<u8>, bcs::Error> {
+        let mut temp = self.clone();
+        temp.signature_proof = SignatureProof::default();
+        bcs::to_bytes(&temp)
+    }
 }
 
 /// A voting option for a governance proposal.
@@ -287,4 +365,6 @@ pub enum SystemPayload {
         /// The universal proof format containing the cryptographic proof and witness.
         proof: UniversalProofFormat,
     },
+    /// Initiates a key rotation for the transaction's signer.
+    RotateKey(RotationProof),
 }

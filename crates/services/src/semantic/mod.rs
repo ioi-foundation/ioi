@@ -1,7 +1,7 @@
 // Path: crates/services/src/semantic/mod.rs
 //! Semantic module implementation
 
-// FIX: Updated use statement to point to depin-sdk-api
+use depin_sdk_api::impl_service_base;
 use depin_sdk_api::services::{BlockchainService, ServiceType};
 
 pub mod normaliser;
@@ -16,3 +16,5 @@ impl BlockchainService for SemanticService {
         ServiceType::Semantic
     }
 }
+
+impl_service_base!(SemanticService);

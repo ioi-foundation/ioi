@@ -9,6 +9,8 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 depin-sdk-api = { path = "../api" }
 depin-sdk-types = { path = "../types" }
+depin-sdk-services = { path = "../services" }
+depin-sdk-crypto = { path = "../crypto" }
 dcrypt = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

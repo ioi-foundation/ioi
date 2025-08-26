@@ -1,17 +1,16 @@
 // Path: crates/validator/src/standard/workload_ipc_server.rs
 
 use anyhow::Result;
-use depin_sdk_api::{
-    chain::AppChain, commitment::CommitmentScheme, transaction::TransactionModel,
-    validator::WorkloadContainer,
-};
+use depin_sdk_api::{chain::AppChain, commitment::CommitmentScheme, validator::WorkloadContainer};
+// --- FIX START: Add the missing trait import ---
+use depin_sdk_api::transaction::TransactionModel;
+// --- FIX END ---
 use depin_sdk_chain::Chain;
 use depin_sdk_client::{
     ipc::{WorkloadRequest, WorkloadResponse},
     security::SecurityChannel,
 };
 use depin_sdk_services::governance::{GovernanceModule, Proposal, ProposalStatus};
-use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::keys::{GOVERNANCE_PROPOSAL_KEY_PREFIX, STAKES_KEY_CURRENT};
 use rcgen::{Certificate, CertificateParams, SanType};
 use serde::{Deserialize, Serialize};
@@ -173,11 +172,13 @@ where
                 WorkloadResponse::GetExpectedModelHash(handler.await.map_err(|e| e.to_string()))
             }
             WorkloadRequest::ExecuteTransaction(tx) => {
-                let cs = self.chain_arc.lock().await.state.commitment_scheme.clone();
-                let transaction_model = Arc::new(UnifiedTransactionModel::new(cs));
-                let res = transaction_model
-                    .apply(&tx, &self.workload_container, 0)
-                    .await
+                // IMPORTANT: The mempool path must NOT change consensus state.
+                // Only run stateless checks to gate obviously invalid transactions.
+                let chain = self.chain_arc.lock().await;
+                let res = chain
+                    .state
+                    .transaction_model
+                    .validate_stateless(&tx)
                     .map_err(|e| e.to_string());
                 WorkloadResponse::ExecuteTransaction(res)
             }

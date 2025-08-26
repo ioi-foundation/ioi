@@ -2,11 +2,11 @@
 
 use depin_sdk_api::services::{ServiceType, UpgradableService};
 use depin_sdk_types::error::CoreError;
+use std::any::Any;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 
-// ... (ServiceFactory, ModuleUpgradeManager struct, Debug impl, new() are unchanged) ...
 type ServiceFactory =
     Box<dyn Fn(&[u8]) -> Result<Arc<dyn UpgradableService>, CoreError> + Send + Sync>;
 
@@ -46,6 +46,16 @@ impl ModuleUpgradeManager {
 
     pub fn get_service(&self, service_type: &ServiceType) -> Option<Arc<dyn UpgradableService>> {
         self.active_services.get(service_type).cloned()
+    }
+
+    /// Gets a service and attempts to downcast it to a concrete type reference.
+    pub fn get_service_as<T: Any>(&self) -> Option<&T> {
+        for service in self.active_services.values() {
+            if let Some(downcasted) = service.as_any().downcast_ref::<T>() {
+                return Some(downcasted);
+            }
+        }
+        None
     }
 
     pub fn schedule_upgrade(
@@ -88,25 +98,18 @@ impl ModuleUpgradeManager {
         service_type: &ServiceType,
         new_module_wasm: &[u8],
     ) -> Result<(), CoreError> {
-        // --- START FIX: HANDLE NEW INSTALLATIONS ---
-
-        // Check if a service of this type already exists.
         if !self.active_services.contains_key(service_type) {
-            // Case 1: New Service Installation
             log::info!(
                 "No active service found for {:?}. Treating as new installation.",
                 service_type
             );
             let new_service_arc = (self.service_factory)(new_module_wasm)?;
-            // The WASM loader ensures the service_type in the blob matches what we expect.
-            // A more robust implementation might double-check here.
             self.register_service(new_service_arc);
             log::info!("Successfully installed new service {:?}", service_type);
             return Ok(());
         }
 
-        // Case 2: Existing Service Upgrade (the original logic)
-        let mut active_service_arc = self.active_services.remove(service_type).unwrap(); // We just checked existence, so unwrap is safe.
+        let mut active_service_arc = self.active_services.remove(service_type).unwrap();
 
         let upgrade_result = (|| {
             let active_service = Arc::get_mut(&mut active_service_arc).ok_or_else(|| {
@@ -159,16 +162,15 @@ impl ModuleUpgradeManager {
                 Err(e)
             }
         }
-        // --- END FIX ---
     }
 
-    // ... (rest of the impl is unchanged) ...
     pub fn get_upgrade_history(&self, service_type: &ServiceType) -> Vec<u64> {
         self.upgrade_history
             .get(service_type)
             .cloned()
             .unwrap_or_default()
     }
+
     pub fn check_all_health(&self) -> Vec<(ServiceType, bool)> {
         self.active_services
             .iter()
@@ -178,6 +180,7 @@ impl ModuleUpgradeManager {
             })
             .collect()
     }
+
     pub fn start_all_services(&mut self) -> Result<(), CoreError> {
         for (service_type, service) in &self.active_services {
             service.start().map_err(|e| {
@@ -186,6 +189,7 @@ impl ModuleUpgradeManager {
         }
         Ok(())
     }
+
     pub fn stop_all_services(&mut self) -> Result<(), CoreError> {
         for (service_type, service) in &self.active_services {
             service.stop().map_err(|e| {
@@ -194,6 +198,7 @@ impl ModuleUpgradeManager {
         }
         Ok(())
     }
+
     pub fn reset(&mut self) -> Result<(), CoreError> {
         self.stop_all_services()?;
         self.active_services.clear();

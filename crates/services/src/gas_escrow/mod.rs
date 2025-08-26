@@ -1,4 +1,5 @@
-// crates/services/src/gas_escrow/mod.rs
+// Path: crates/services/src/gas_escrow/mod.rs
+use depin_sdk_api::impl_service_base;
 use depin_sdk_api::services::{BlockchainService, ServiceType};
 use depin_sdk_api::state::StateManager;
 use depin_sdk_types::keys::{ACCOUNT_KEY_PREFIX, GAS_ESCROW_KEY_PREFIX};
@@ -16,7 +17,6 @@ pub struct EscrowEntry {
     pub account: Vec<u8>,
     pub amount: u64,
 }
-
 
 // --- Trait Definition ---
 
@@ -38,7 +38,6 @@ pub trait GasEscrowHandler: BlockchainService {
         quality_score: f32,
     ) -> Result<(), String>;
 }
-
 
 // --- Service Implementation ---
 
@@ -62,7 +61,10 @@ impl GasEscrowService {
         user_account: &[u8],
     ) -> Result<Account, String> {
         let key = Self::account_key(user_account);
-        let bytes = state.get(&key).map_err(|e| e.to_string())?.unwrap_or_default();
+        let bytes = state
+            .get(&key)
+            .map_err(|e| e.to_string())?
+            .unwrap_or_default();
         serde_json::from_slice(&bytes).or(Ok(Account::default()))
     }
 }
@@ -72,6 +74,8 @@ impl BlockchainService for GasEscrowService {
         ServiceType::Custom("GasEscrow".to_string())
     }
 }
+
+impl_service_base!(GasEscrowService);
 
 impl GasEscrowHandler for GasEscrowService {
     fn bond<S: StateManager + ?Sized>(
@@ -85,7 +89,7 @@ impl GasEscrowHandler for GasEscrowService {
             hex::encode(user_account),
             max_gas
         );
-        
+
         // 1. Get user's current account balance.
         let mut account = self.get_account(state, user_account)?;
 
@@ -105,10 +109,10 @@ impl GasEscrowHandler for GasEscrowService {
 
         // 4. Atomically update state: decrease balance, create escrow.
         account.balance -= max_gas;
-        
+
         let account_bytes = serde_json::to_vec(&account).unwrap();
         let escrow_bytes = serde_json::to_vec(&escrow_entry).unwrap();
-        
+
         let updates = &[
             (Self::account_key(user_account), account_bytes),
             (Self::escrow_key(user_account), escrow_bytes),
@@ -140,8 +144,9 @@ impl GasEscrowHandler for GasEscrowService {
             .map_err(|e| e.to_string())?
             .ok_or("No escrow found for user")?;
         state.delete(&escrow_key).map_err(|e| e.to_string())?;
-        
-        let escrow: EscrowEntry = serde_json::from_slice(&escrow_bytes).map_err(|e| e.to_string())?;
+
+        let escrow: EscrowEntry =
+            serde_json::from_slice(&escrow_bytes).map_err(|e| e.to_string())?;
 
         // 2. Calculate refund and fees.
         if gas_used > escrow.amount {
@@ -155,7 +160,9 @@ impl GasEscrowHandler for GasEscrowService {
         let mut account = self.get_account(state, user_account)?;
         account.balance += refund;
         let account_bytes = serde_json::to_vec(&account).unwrap();
-        state.insert(&Self::account_key(user_account), &account_bytes).map_err(|e| e.to_string())?;
+        state
+            .insert(&Self::account_key(user_account), &account_bytes)
+            .map_err(|e| e.to_string())?;
 
         Ok(())
     }

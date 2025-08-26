@@ -9,8 +9,8 @@ use depin_sdk_network::libp2p::SwarmCommand;
 use depin_sdk_services::external_data::ExternalDataService;
 use depin_sdk_types::{
     app::{
-        ChainTransaction, OracleAttestation, OracleConsensusProof, StateEntry, SystemPayload,
-        SystemTransaction,
+        ChainTransaction, OracleAttestation, OracleConsensusProof, SignHeader, SignatureProof,
+        StateEntry, SystemPayload, SystemTransaction,
     },
     keys::ORACLE_PENDING_REQUEST_PREFIX,
 };
@@ -335,10 +335,20 @@ pub async fn check_quorum_and_submit<CS, ST, CE>(
             consensus_proof,
         };
 
+        // The oracle submission is authorized by the consensus_proof inside the payload.
+        // The outer signature fields are placeholders. The validation logic for this
+        // specific payload in `UnifiedTransactionModel::apply` will bypass the signature check.
         let tx = ChainTransaction::System(SystemTransaction {
             payload,
-            signature: vec![],
+            header: SignHeader {
+                account_id: [0; 32],
+                nonce: 0,
+                chain_id: 0, // Placeholder, a real chain would use its ID
+                tx_version: 1,
+            },
+            signature_proof: SignatureProof::default(),
         });
+
         context.tx_pool_ref.lock().await.push_back(tx);
         log::info!(
             "Oracle: Submitted finalization transaction for request_id {} to local mempool.",

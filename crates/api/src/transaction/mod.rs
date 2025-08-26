@@ -3,11 +3,15 @@
 
 use crate::commitment::CommitmentScheme;
 use crate::state::StateManager;
+use crate::transaction::context::TxContext;
 use crate::validator::WorkloadContainer;
 use async_trait::async_trait;
 use depin_sdk_types::error::TransactionError;
 use std::any::Any;
 use std::fmt::Debug;
+
+pub mod context;
+pub mod decorator;
 
 /// The core trait that defines the interface for all transaction models.
 #[async_trait]
@@ -25,19 +29,17 @@ pub trait TransactionModel: Send + Sync {
         block_height: u64,
         recipient: &[u8],
     ) -> Result<Self::Transaction, TransactionError>;
-    /// Validates a transaction against the current state.
-    fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<(), TransactionError>
-    where
-        S: StateManager<
-                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + ?Sized;
-    /// Applies a transaction to the state.
-    async fn apply<ST>(
+
+    /// Validates static properties of a transaction that do not require state access.
+    fn validate_stateless(&self, tx: &Self::Transaction) -> Result<(), TransactionError>;
+
+    /// Applies the core state transition logic of a transaction's payload.
+    /// This is called *after* all `TxDecorator` handlers have passed.
+    async fn apply_payload<ST>(
         &self,
         tx: &Self::Transaction,
         workload: &WorkloadContainer<ST>,
-        block_height: u64,
+        ctx: TxContext<'_>,
     ) -> Result<(), TransactionError>
     where
         ST: StateManager<
@@ -46,6 +48,7 @@ pub trait TransactionModel: Send + Sync {
             > + Send
             + Sync
             + 'static;
+
     /// Generates a proof for a transaction.
     fn generate_proof<S>(
         &self,
@@ -57,6 +60,7 @@ pub trait TransactionModel: Send + Sync {
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
             > + ?Sized;
+
     /// Verifies a proof for a transaction.
     fn verify_proof<S>(&self, proof: &Self::Proof, state: &S) -> Result<bool, TransactionError>
     where
@@ -64,10 +68,13 @@ pub trait TransactionModel: Send + Sync {
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
             > + ?Sized;
+
     /// Serializes a transaction to bytes.
     fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError>;
+
     /// Deserializes bytes to a transaction.
     fn deserialize_transaction(&self, data: &[u8]) -> Result<Self::Transaction, TransactionError>;
+
     /// Provides an optional extension point for model-specific functionality.
     fn get_model_extensions(&self) -> Option<&dyn Any> {
         None

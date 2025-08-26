@@ -1,10 +1,10 @@
 // Path: crates/transaction_models/src/hybrid/mod.rs
-// UPDATE: Add imports for the new proof structs and serde
 use crate::account::{AccountConfig, AccountModel, AccountTransaction, AccountTransactionProof};
 use crate::utxo::{UTXOConfig, UTXOModel, UTXOTransaction, UTXOTransactionProof};
 use async_trait::async_trait;
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::StateManager;
+use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_types::error::TransactionError;
@@ -16,7 +16,6 @@ pub enum HybridTransaction {
     UTXO(UTXOTransaction),
 }
 
-// UPDATE: Change HybridProof from a struct to a generic enum.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum HybridProof<AP, UP> {
     Account(AccountTransactionProof<AP>),
@@ -53,12 +52,10 @@ impl<CS: CommitmentScheme + Clone> HybridModel<CS> {
 #[async_trait]
 impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for HybridModel<CS>
 where
-    // Add this bound so we can serialize the proof
     <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de> + Clone,
 {
     type Transaction = HybridTransaction;
     type CommitmentScheme = CS;
-    // UPDATE: Use our new generic proof enum.
     type Proof = HybridProof<CS::Proof, CS::Proof>;
 
     fn create_coinbase_transaction(
@@ -72,26 +69,20 @@ where
         Ok(HybridTransaction::UTXO(utxo_coinbase))
     }
 
-    fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<(), TransactionError>
-    where
-        S: StateManager<
-                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + ?Sized,
-    {
+    fn validate_stateless(&self, tx: &Self::Transaction) -> Result<(), TransactionError> {
         match tx {
             HybridTransaction::Account(account_tx) => {
-                self.account_model.validate(account_tx, state)
+                self.account_model.validate_stateless(account_tx)
             }
-            HybridTransaction::UTXO(utxo_tx) => self.utxo_model.validate(utxo_tx, state),
+            HybridTransaction::UTXO(utxo_tx) => self.utxo_model.validate_stateless(utxo_tx),
         }
     }
 
-    async fn apply<ST>(
+    async fn apply_payload<ST>(
         &self,
         tx: &Self::Transaction,
         workload: &WorkloadContainer<ST>,
-        block_height: u64,
+        ctx: TxContext<'_>,
     ) -> Result<(), TransactionError>
     where
         ST: StateManager<
@@ -104,16 +95,15 @@ where
         match tx {
             HybridTransaction::Account(account_tx) => {
                 self.account_model
-                    .apply(account_tx, workload, block_height)
+                    .apply_payload(account_tx, workload, ctx)
                     .await
             }
             HybridTransaction::UTXO(utxo_tx) => {
-                self.utxo_model.apply(utxo_tx, workload, block_height).await
+                self.utxo_model.apply_payload(utxo_tx, workload, ctx).await
             }
         }
     }
 
-    // IMPLEMENT: generate_proof
     fn generate_proof<S>(
         &self,
         tx: &Self::Transaction,
@@ -137,7 +127,6 @@ where
         }
     }
 
-    // IMPLEMENT: verify_proof
     fn verify_proof<S>(&self, proof: &Self::Proof, state: &S) -> Result<bool, TransactionError>
     where
         S: StateManager<

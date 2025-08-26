@@ -5,10 +5,12 @@ use crate::commitment::CommitmentScheme;
 use async_trait::async_trait;
 use depin_sdk_types::error::StateError;
 
-mod commitment; // Renamed from tree
+mod accessor;
+mod commitment;
 mod manager;
 
-pub use commitment::*; // Renamed from tree
+pub use accessor::*;
+pub use commitment::*;
 pub use manager::*;
 
 /// A dyn-safe trait for the VM to access state, abstracting away the concrete StateManager type.

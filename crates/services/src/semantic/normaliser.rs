@@ -1,4 +1,5 @@
-// crates/services/src/semantic/normaliser.rs
+// Path: crates/services/src/semantic/normaliser.rs
+use depin_sdk_api::impl_service_base;
 use depin_sdk_api::services::{BlockchainService, ServiceType};
 use depin_sdk_crypto::algorithms::hash::sha256;
 use serde_jcs::to_vec;
@@ -11,6 +12,8 @@ impl BlockchainService for OutputNormaliser {
         ServiceType::Custom("OutputNormaliser".to_string())
     }
 }
+
+impl_service_base!(OutputNormaliser);
 
 impl OutputNormaliser {
     /// Normalises a raw JSON string according to RFC 8785 and computes its SHA-256 hash.

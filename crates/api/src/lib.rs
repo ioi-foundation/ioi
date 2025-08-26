@@ -17,11 +17,13 @@ pub mod component;
 /// Defines unified traits for cryptographic primitives.
 pub mod crypto;
 /// Re-exports all core error types from the central `depin-sdk-types` crate.
-pub mod error; // <-- ADD THIS LINE
+pub mod error;
 /// Defines the core enums for representing homomorphic operations and their results.
 pub mod homomorphic;
 /// Defines traits for Inter-Blockchain Communication (IBC).
 pub mod ibc;
+/// Defines traits for services that hook into the block processing lifecycle.
+pub mod lifecycle;
 /// Traits for pluggable, upgradable blockchain services.
 pub mod services;
 /// Core traits for state management, including `StateCommitment` and `StateManager`.
@@ -37,13 +39,14 @@ pub mod vm;
 pub mod prelude {
     pub use crate::chain::AppChain;
     pub use crate::commitment::{CommitmentScheme, HomomorphicCommitmentScheme};
-    // Re-export common errors for convenience
-    pub use crate::error::{ChainError, CoreError, StateError, TransactionError, ValidatorError}; // <-- ADD THIS LINE
-                                                                                                 // No change needed for consensus as it's not part of the API crate.
+    pub use crate::error::{ChainError, CoreError, StateError, TransactionError, ValidatorError};
+    pub use crate::lifecycle::OnEndBlock;
+    pub use crate::services::access::{Service, ServiceDirectory};
     pub use crate::services::{BlockchainService, UpgradableService};
     pub use crate::state::{StateCommitment, StateManager};
+    pub use crate::transaction::context::TxContext;
+    pub use crate::transaction::decorator::TxDecorator;
     pub use crate::transaction::TransactionModel;
-    // FIX: Corrected the paths for validator traits.
     pub use crate::validator::container::{Container, GuardianContainer};
     pub use crate::validator::TransactionExecutor;
     pub use crate::vm::VirtualMachine;

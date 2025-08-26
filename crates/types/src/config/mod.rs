@@ -2,6 +2,7 @@
 
 //! Shared configuration structures for core DePIN SDK components.
 
+use crate::service_configs::MigrationConfig;
 use serde::{Deserialize, Serialize};
 
 pub mod consensus;
@@ -72,6 +73,14 @@ impl Default for VmFuelCosts {
     }
 }
 
+/// Enum to represent the configuration of an initial service.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "name")]
+pub enum InitialServiceConfig {
+    /// Configuration for the Identity Hub service.
+    IdentityHub(MigrationConfig),
+}
+
 /// Configuration for the Workload container (`workload.toml`).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WorkloadConfig {
@@ -91,6 +100,9 @@ pub struct WorkloadConfig {
     /// Defines the fuel costs for VM operations.
     #[serde(default)]
     pub fuel_costs: VmFuelCosts,
+    /// A list of services to instantiate at startup.
+    #[serde(default)]
+    pub initial_services: Vec<InitialServiceConfig>,
 }
 
 /// Configuration for the Orchestration container (`orchestration.toml`).
