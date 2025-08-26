@@ -163,7 +163,7 @@ impl GovernanceModule {
         &self,
         state: &mut S,
         proposal_id: u64,
-        voter: &[u8],
+        voter_b58: &str,
         option: VoteOption,
         current_height: u64,
     ) -> Result<(), String> {
@@ -183,7 +183,7 @@ impl GovernanceModule {
         }
 
         // In a real implementation, we would check the voter's voting power (stake).
-        let vote_key = Self::vote_key(proposal_id, voter);
+        let vote_key = Self::vote_key(proposal_id, voter_b58.as_bytes());
         let vote_bytes = serde_json::to_vec(&option).unwrap();
         state
             .insert(&vote_key, &vote_bytes)

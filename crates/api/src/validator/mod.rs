@@ -3,8 +3,9 @@
 
 use crate::{
     commitment::CommitmentScheme,
+    services::access::ServiceDirectory,
     state::{StateCommitment, StateManager, VmStateAccessor},
-    transaction::TransactionModel,
+    transaction::{context::TxContext, TransactionModel},
     vm::{ExecutionContext, ExecutionOutput, VirtualMachine, VmStateOverlay},
 };
 use async_trait::async_trait;
@@ -49,6 +50,7 @@ pub struct WorkloadContainer<ST: StateManager> {
     _config: WorkloadConfig,
     state_tree: Arc<Mutex<ST>>,
     vm: Box<dyn VirtualMachine>,
+    services: ServiceDirectory,
 }
 
 impl<ST: StateManager + Debug> Debug for WorkloadContainer<ST> {
@@ -57,6 +59,7 @@ impl<ST: StateManager + Debug> Debug for WorkloadContainer<ST> {
             .field("_config", &self._config)
             .field("state_tree", &self.state_tree)
             .field("vm", &"Box<dyn VirtualMachine>")
+            .field("services", &"ServiceDirectory")
             .finish()
     }
 }
@@ -90,17 +93,28 @@ where
     ST: StateManager + Send + Sync + 'static,
 {
     /// Creates a new `WorkloadContainer`.
-    pub fn new(config: WorkloadConfig, state_tree: ST, vm: Box<dyn VirtualMachine>) -> Self {
+    pub fn new(
+        config: WorkloadConfig,
+        state_tree: ST,
+        vm: Box<dyn VirtualMachine>,
+        services: ServiceDirectory,
+    ) -> Self {
         Self {
             _config: config,
             state_tree: Arc::new(Mutex::new(state_tree)),
             vm,
+            services,
         }
     }
 
     /// Returns a thread-safe handle to the state tree.
     pub fn state_tree(&self) -> Arc<Mutex<ST>> {
         self.state_tree.clone()
+    }
+
+    /// Returns a read-only directory of available services.
+    pub fn services(&self) -> &ServiceDirectory {
+        &self.services
     }
 
     /// Prepares the deployment of a new smart contract.
@@ -255,24 +269,19 @@ where
         TM: TransactionModel<CommitmentScheme = CS> + Sync,
         TM::Transaction: Sync,
     {
-        // Phase 1: Validate under lock, then drop the lock to prevent deadlocks
-        // during transaction application (which may need its own lock for VM calls).
-        {
-            let state = self.state_tree.lock().await;
-            if let Err(_e) = model.validate(tx, &*state) {
-                return Err(ValidatorError::Other(
-                    "Transaction validation failed".to_string(),
-                ));
-            };
-        } // Lock is dropped here.
-
-        // Phase 2: Apply the transaction. The `apply` method is now expected to handle
-        // its own state locking, which is safe because we no longer hold the lock here.
-        // NOTE: This change assumes the TransactionModel::apply trait signature has been
-        // updated to no longer require `&mut state` and instead uses the workload
-        // container to access state.
         model
-            .apply(tx, self, 0)
+            .validate_stateless(tx)
+            .map_err(|e| ValidatorError::Other(e.to_string()))?;
+
+        // A minimal context for the now-legacy executor trait.
+        let ctx = TxContext {
+            block_height: 0, // Height is not known in this context
+            chain_id: 1,     // Placeholder
+            services: self.services(),
+        };
+
+        model
+            .apply_payload(tx, self, ctx)
             .await
             .map_err(|e| ValidatorError::Other(e.to_string()))?;
 

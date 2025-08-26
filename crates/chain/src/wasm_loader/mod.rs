@@ -1,5 +1,6 @@
-// Path: crates/chain/src/wasm_loader.rs
+// Path: crates/chain/src/wasm_loader/mod.rs
 
+use depin_sdk_api::impl_service_base;
 use depin_sdk_api::services::{BlockchainService, ServiceType, UpgradableService};
 use depin_sdk_types::error::{CoreError, UpgradeError};
 use std::fmt::{self, Debug};
@@ -10,7 +11,6 @@ use wasmtime::*;
 pub struct WasmService {
     service_type: ServiceType,
     instance: Instance,
-    // FIX: Removed the `mut` keyword from the field declaration.
     store: Store<()>,
 }
 
@@ -88,6 +88,8 @@ impl BlockchainService for WasmService {
         self.service_type.clone()
     }
 }
+
+impl_service_base!(WasmService);
 
 impl UpgradableService for WasmService {
     fn prepare_upgrade(&mut self, new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {

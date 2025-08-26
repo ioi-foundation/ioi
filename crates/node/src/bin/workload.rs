@@ -10,9 +10,16 @@ use depin_sdk_api::{
 use depin_sdk_chain::util::load_state_from_genesis_file;
 use depin_sdk_chain::wasm_loader::load_service_from_wasm;
 use depin_sdk_chain::Chain;
-use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-use depin_sdk_types::config::{CommitmentSchemeType, StateTreeType, WorkloadConfig};
 use depin_sdk_validator::standard::WorkloadIpcServer;
+// FIX: Add new necessary imports
+use depin_sdk_api::services::access::{Service, ServiceDirectory};
+use depin_sdk_services::identity::IdentityHub;
+use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
+// --- FIX START: Add missing imports for config enums ---
+use depin_sdk_types::config::{
+    CommitmentSchemeType, InitialServiceConfig, StateTreeType, WorkloadConfig,
+};
+// --- FIX END ---
 use depin_sdk_vm_wasm::WasmVm;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -57,8 +64,8 @@ async fn run_workload<CS>(
     config: WorkloadConfig,
 ) -> Result<()>
 where
-    CS: CommitmentScheme + Clone + Send + Sync + 'static, // <-- FIX: Removed `Default` bound
-    CS::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug, // <-- FIX: Added Debug bound
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    CS::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
     CS::Proof: AsRef<[u8]> + serde::Serialize + for<'de> serde::Deserialize<'de>,
     CS::Commitment: std::fmt::Debug,
 {
@@ -74,14 +81,39 @@ where
     }
 
     let wasm_vm = Box::new(WasmVm::new(config.fuel_costs.clone()));
-    // WorkloadContainer is generic over ST, which is now correctly inferred as Box<dyn StateManager<...>>
-    let workload_container = Arc::new(WorkloadContainer::new(config.clone(), state_tree, wasm_vm));
+
+    // FIX: Instantiate services and create the ServiceDirectory before the WorkloadContainer
+    let mut initial_services = Vec::new();
+    for service_config in &config.initial_services {
+        match service_config {
+            InitialServiceConfig::IdentityHub(migration_config) => {
+                log::info!("[Workload] Instantiating initial service: IdentityHub");
+                let hub = IdentityHub::new(migration_config.clone());
+                initial_services
+                    .push(Arc::new(hub) as Arc<dyn depin_sdk_api::services::UpgradableService>);
+            }
+        }
+    }
+
+    let services_for_dir: Vec<Arc<dyn Service>> = initial_services
+        .iter()
+        .map(|s| s.clone() as Arc<dyn Service>)
+        .collect();
+    let service_directory = ServiceDirectory::new(services_for_dir);
+
+    // FIX: Pass the new ServiceDirectory argument to the constructor
+    let workload_container = Arc::new(WorkloadContainer::new(
+        config.clone(),
+        state_tree,
+        wasm_vm,
+        service_directory,
+    ));
 
     let mut chain = Chain::new(
         commitment_scheme.clone(),
         UnifiedTransactionModel::new(commitment_scheme),
         "depin-chain-1",
-        vec![],
+        initial_services,
         Box::new(load_service_from_wasm),
         config.consensus_type.clone(),
     );

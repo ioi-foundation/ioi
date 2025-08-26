@@ -173,6 +173,18 @@ pub enum TransactionError {
     State(#[from] StateError),
 }
 
+impl From<bcs::Error> for TransactionError {
+    fn from(e: bcs::Error) -> Self {
+        TransactionError::Serialization(e.to_string())
+    }
+}
+
+impl From<serde_json::Error> for TransactionError {
+    fn from(e: serde_json::Error) -> Self {
+        TransactionError::Serialization(e.to_string())
+    }
+}
+
 /// Errors related to the virtual machine and contract execution.
 #[derive(Error, Debug)]
 pub enum VmError {

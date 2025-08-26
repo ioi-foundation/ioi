@@ -10,3 +10,4 @@ pub mod config;
 pub mod error;
 pub mod ibc;
 pub mod keys;
+pub mod service_configs;

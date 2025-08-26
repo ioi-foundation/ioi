@@ -11,8 +11,9 @@ license = "MIT OR Apache-2.0"
 serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 dcrypt = { workspace = true }
-serde_json = { workspace = true }                   # FIX: Added the missing dependency
+serde_json = { workspace = true }
 libp2p = { workspace = true }
+bcs = "0.1"                                         # Added for canonical binary signing
 
 [features]
 default = []

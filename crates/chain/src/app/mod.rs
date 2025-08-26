@@ -4,13 +4,16 @@ use crate::upgrade_manager::ModuleUpgradeManager;
 use async_trait::async_trait;
 use depin_sdk_api::chain::{AppChain, PublicKey, StakeAmount};
 use depin_sdk_api::commitment::CommitmentScheme;
+use depin_sdk_api::services::access::{Service, ServiceDirectory};
 use depin_sdk_api::services::{ServiceType, UpgradableService};
 use depin_sdk_api::state::StateManager;
+use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
+use depin_sdk_transaction_models::system::nonce::check_and_bump_tx_nonce;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-use depin_sdk_types::app::{Block, BlockHeader, ChainStatus, ChainTransaction};
+use depin_sdk_types::app::{Block, BlockHeader, ChainStatus, ChainTransaction, SystemPayload};
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::{BlockError, ChainError, CoreError, StateError};
 use depin_sdk_types::keys::*;
@@ -37,8 +40,8 @@ pub struct ChainState<CS: CommitmentScheme + Clone> {
 #[derive(Debug)]
 pub struct Chain<CS: CommitmentScheme + Clone> {
     pub state: ChainState<CS>,
-    pub service_manager: ModuleUpgradeManager,
-    /// The consensus mechanism used by the chain (e.g., PoS or PoA).
+    pub services: ServiceDirectory,
+    pub _service_manager: ModuleUpgradeManager, // Kept for upgrade logic
     pub consensus_type: ConsensusType,
 }
 
@@ -60,10 +63,18 @@ where
             total_transactions: 0,
             is_running: false,
         };
+
+        let services_for_dir: Vec<Arc<dyn Service>> = initial_services
+            .iter()
+            .map(|s| s.clone() as Arc<dyn Service>)
+            .collect();
+        let service_directory = ServiceDirectory::new(services_for_dir);
+
         let mut service_manager = ModuleUpgradeManager::new(service_factory);
         for service in initial_services {
             service_manager.register_service(service);
         }
+
         let state = ChainState {
             commitment_scheme,
             transaction_model,
@@ -72,9 +83,11 @@ where
             recent_blocks: Vec::new(),
             max_recent_blocks: 100,
         };
+
         Self {
             state,
-            service_manager,
+            services: service_directory,
+            _service_manager: service_manager,
             consensus_type,
         }
     }
@@ -82,6 +95,11 @@ where
     pub fn new_for_orchestrator() -> Chain<HashCommitmentScheme> {
         let scheme = HashCommitmentScheme::new();
         let tm = UnifiedTransactionModel::new(scheme.clone());
+        let service_factory: ServiceFactory = Box::new(|_| {
+            Err(CoreError::Custom(
+                "Service factory not implemented for orchestrator's dummy chain".to_string(),
+            ))
+        });
         Chain {
             state: ChainState {
                 commitment_scheme: scheme,
@@ -96,12 +114,9 @@ where
                 recent_blocks: Vec::new(),
                 max_recent_blocks: 0,
             },
-            service_manager: ModuleUpgradeManager::new(Box::new(|_| {
-                Err(CoreError::Custom(
-                    "Service factory not implemented for orchestrator's dummy chain".to_string(),
-                ))
-            })),
-            consensus_type: ConsensusType::ProofOfAuthority, // Default for dummy
+            services: ServiceDirectory::default(),
+            _service_manager: ModuleUpgradeManager::new(service_factory),
+            consensus_type: ConsensusType::ProofOfAuthority,
         }
     }
 
@@ -191,10 +206,93 @@ where
         workload: &WorkloadContainer<ST>,
         block_height: u64,
     ) -> Result<(), ChainError> {
+        let chain_id = self.state.chain_id.parse().unwrap_or(1);
+        let ctx = TxContext {
+            block_height,
+            chain_id,
+            services: &self.services,
+        };
+
+        // Handle special system transactions that need access to the Chain struct itself.
+        if let ChainTransaction::System(sys_tx) = tx {
+            if let SystemPayload::SwapModule {
+                service_type,
+                module_wasm,
+                activation_height,
+            } = &sys_tx.payload
+            {
+                // 1. Authorize against governance key
+                let state_tree_arc = workload.state_tree();
+                let state = state_tree_arc.lock().await;
+                let gov_pk_bs58_val = state
+                    .get(GOVERNANCE_KEY)?
+                    .ok_or_else(|| ChainError::Transaction("Governance key not set".into()))?;
+                let gov_pk_bs58: String = serde_json::from_slice(&gov_pk_bs58_val).unwrap();
+                let gov_pk_bytes = bs58::decode(gov_pk_bs58).into_vec().unwrap();
+
+                let signer_pk = libp2p::identity::PublicKey::try_decode_protobuf(
+                    &sys_tx.signature_proof.public_key,
+                )
+                .map_err(|_| {
+                    ChainError::Transaction("Invalid public key in signature proof".into())
+                })?;
+                // --- FIX: Clone `signer_pk` before the move ---
+                let signer_ed_pk = signer_pk.clone().try_into_ed25519().unwrap();
+
+                if gov_pk_bytes != signer_ed_pk.to_bytes() {
+                    return Err(ChainError::Transaction(
+                        "Transaction not signed by governance key".into(),
+                    ));
+                }
+
+                let sign_bytes = sys_tx.to_sign_bytes().unwrap();
+                if !signer_pk.verify(&sign_bytes, &sys_tx.signature_proof.signature) {
+                    return Err(ChainError::Transaction(
+                        "Invalid governance signature for SwapModule".into(),
+                    ));
+                }
+                drop(state);
+
+                // 2. Schedule the upgrade
+                log::info!(
+                    "[Chain] Scheduling module upgrade for service '{}' at height {}",
+                    service_type,
+                    activation_height
+                );
+                self._service_manager
+                    .schedule_upgrade(
+                        ServiceType::Custom(service_type.clone()),
+                        module_wasm.clone(),
+                        *activation_height,
+                    )
+                    .map_err(|e| ChainError::Transaction(e.to_string()))?;
+                self.state.status.total_transactions += 1;
+                return Ok(());
+            }
+        }
+        let state_tree_arc = workload.state_tree();
+        let mut state = state_tree_arc.lock().await;
+
+        // 1) Stateless checks first
+        self.state.transaction_model.validate_stateless(tx)?;
+
+        // 2) Ante handlers (signature/authorization, fees, etc.) next
+        for service in self.services.services() {
+            if let Some(decorator) = service.as_tx_decorator() {
+                decorator.ante_handle(&mut *state, tx, &ctx)?;
+            }
+        }
+
+        // 3) Only now mutate replay protection state
+        check_and_bump_tx_nonce(&mut *state, tx)?;
+
+        drop(state);
+
         self.state
             .transaction_model
-            .apply(tx, workload, block_height)
+            .apply_payload(tx, workload, ctx)
             .await?;
+
         self.state.status.total_transactions += 1;
         Ok(())
     }
@@ -207,7 +305,6 @@ where
         let is_producing = block.header.signature.is_empty();
         let height = block.header.height;
 
-        // --- Phase 1: Validation (read-only operations against current state H-1) ---
         if height != self.state.status.height + 1 {
             return Err(BlockError::InvalidHeight {
                 expected: self.state.status.height + 1,
@@ -215,7 +312,6 @@ where
             }
             .into());
         }
-
         let expected_prev_hash = self
             .state
             .recent_blocks
@@ -229,6 +325,32 @@ where
             .into());
         }
 
+        // Apply any scheduled module upgrades for this height.
+        if height > 0 {
+            let applied_count = self
+                ._service_manager
+                .apply_upgrades_at_height(height)
+                .map_err(|e| ChainError::Transaction(e.to_string()))?;
+            if applied_count > 0 {
+                log::info!(
+                    "[Workload] Applied {} module upgrade(s) at height {}",
+                    applied_count,
+                    height
+                );
+            }
+        }
+
+        // Promote stakes at the BEGINNING of block processing
+        if height > 0 {
+            let state_tree_arc = workload.state_tree();
+            let mut state = state_tree_arc.lock().await;
+
+            // Promote the NEXT stakes from the PREVIOUS block to be CURRENT for THIS block
+            if let Some(next_stakes_bytes) = state.get(STAKES_KEY_NEXT)? {
+                state.insert(STAKES_KEY_CURRENT, &next_stakes_bytes)?;
+            }
+        }
+
         let mut current_validator_set = self.get_validator_set(workload).await?;
         current_validator_set.sort();
         let mut header_set = block.header.validator_set.clone();
@@ -237,76 +359,47 @@ where
             return Err(BlockError::MismatchedValidatorSet.into());
         }
 
-        // --- Phase 2: Application (write operations to transition from H-1 to H) ---
-        // Pre-processing loop for special system transactions handled by the chain itself.
-        for tx in &block.transactions {
-            if let ChainTransaction::System(sys_tx) = tx {
-                if let depin_sdk_types::app::SystemPayload::SwapModule {
-                    service_type,
-                    module_wasm,
-                    activation_height,
-                } = &sys_tx.payload
-                {
-                    let service_type_enum = ServiceType::Custom(service_type.clone());
-                    self.service_manager
-                        .schedule_upgrade(
-                            service_type_enum,
-                            module_wasm.clone(),
-                            *activation_height,
-                        )
-                        .map_err(|e| {
-                            ChainError::Transaction(format!("Failed to schedule upgrade: {}", e))
-                        })?;
-                }
-            }
-        }
-
-        // Main transaction application loop (delegates to the transaction model).
         for tx in &block.transactions {
             self.process_transaction(tx, workload, height).await?;
         }
 
-        if let Ok(count) = self.service_manager.apply_upgrades_at_height(height) {
-            if count > 0 {
-                log::info!("Applied {} module upgrade(s) at height {}", count, height);
-            }
-        }
-
-        // --- Phase 3: End-of-Block State Transitions (e.g., PoS rollover) ---
         if height > 0 {
             let state_tree_arc = workload.state_tree();
-            let mut state = state_tree_arc.lock().await;
-            if let Some(next_stakes_bytes) = state.get(STAKES_KEY_NEXT)? {
-                state.insert(STAKES_KEY_CURRENT, &next_stakes_bytes)?;
+            let ctx = TxContext {
+                block_height: height,
+                chain_id: self.state.chain_id.parse().unwrap_or(1),
+                services: &self.services,
+            };
+            for service in self.services.services() {
+                if let Some(hook) = service.as_on_end_block() {
+                    let mut state = state_tree_arc.lock().await;
+                    if let Err(e) = hook.on_end_block(&mut *state, &ctx) {
+                        log::error!("End-of-block hook for a service failed: {}", e);
+                    }
+                }
             }
         }
 
-        // --- Phase 4: Finalization ---
         let state_tree_arc = workload.state_tree();
         let mut state = state_tree_arc.lock().await;
         let new_state_root = state.root_commitment().as_ref().to_vec();
 
         if is_producing {
             block.header.state_root = new_state_root;
-        } else {
-            let new_root_vec = new_state_root;
-            if block.header.state_root != new_root_vec {
-                return Err(BlockError::MismatchedStateRoot {
-                    expected: hex::encode(&new_root_vec),
-                    got: hex::encode(&block.header.state_root),
-                }
-                .into());
+        } else if block.header.state_root != new_state_root {
+            return Err(BlockError::MismatchedStateRoot {
+                expected: hex::encode(&new_state_root),
+                got: hex::encode(&block.header.state_root),
             }
+            .into());
         }
 
-        // --- ATOMIC UPDATE: Only update in-memory state after all checks have passed ---
         self.state.status.height = height;
         self.state.status.latest_timestamp = block.header.timestamp;
-
         let status_bytes = serde_json::to_vec(&self.state.status)
             .map_err(|e| ChainError::Transaction(format!("Failed to serialize status: {e}")))?;
         state.insert(STATUS_KEY, &status_bytes)?;
-        drop(state); // Release lock
+        drop(state);
 
         let validator_set_for_h_plus_1 = self.get_next_validator_set(workload).await?;
 
@@ -490,7 +583,7 @@ mod tests {
     use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
     use depin_sdk_commitment::tree::hashmap::HashMapStateTree;
     use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-    use depin_sdk_types::app::{SystemPayload, SystemTransaction};
+    use depin_sdk_types::app::{SignHeader, SignatureProof, SystemPayload, SystemTransaction};
     use depin_sdk_types::config::{
         CommitmentSchemeType, ConsensusType, StateTreeType, VmFuelCosts, WorkloadConfig,
     };
@@ -517,8 +610,15 @@ mod tests {
             genesis_file: "".to_string(),
             state_file: "".to_string(),
             fuel_costs: VmFuelCosts::default(),
+            initial_services: vec![], // FIX: Add missing field
         };
-        let workload = Arc::new(WorkloadContainer::new(workload_config, state_tree, wasm_vm));
+        // FIX: Add missing ServiceDirectory argument
+        let workload = Arc::new(WorkloadContainer::new(
+            workload_config,
+            state_tree,
+            wasm_vm,
+            ServiceDirectory::default(),
+        ));
         let mut chain = Chain::new(
             scheme.clone(),
             UnifiedTransactionModel::new(scheme),
@@ -544,10 +644,18 @@ mod tests {
         let payload = SystemPayload::UpdateAuthorities {
             new_authorities: new_authorities.clone(),
         };
-        let payload_bytes = serde_json::to_vec(&payload).unwrap();
-        let signature = gov_keypair.sign(&payload_bytes).unwrap();
-        let sys_tx = SystemTransaction { payload, signature };
-        let protocol_tx = ChainTransaction::System(sys_tx);
+
+        // FIX: Construct the transaction using the new structure
+        let mut tx_to_sign = SystemTransaction {
+            header: SignHeader::default(),
+            payload,
+            signature_proof: SignatureProof::default(),
+        };
+        let sign_bytes = tx_to_sign.to_sign_bytes().unwrap();
+        let signature = gov_keypair.sign(&sign_bytes).unwrap();
+        tx_to_sign.signature_proof.signature = signature;
+
+        let protocol_tx = ChainTransaction::System(tx_to_sign);
 
         // Test
         let result = chain.process_transaction(&protocol_tx, &workload, 1).await;
@@ -579,8 +687,15 @@ mod tests {
             genesis_file: "".to_string(),
             state_file: "".to_string(),
             fuel_costs: VmFuelCosts::default(),
+            initial_services: vec![], // FIX: Add missing field
         };
-        let workload = Arc::new(WorkloadContainer::new(workload_config, state_tree, wasm_vm));
+        // FIX: Add missing ServiceDirectory argument
+        let workload = Arc::new(WorkloadContainer::new(
+            workload_config,
+            state_tree,
+            wasm_vm,
+            ServiceDirectory::default(),
+        ));
         let mut chain = Chain::new(
             scheme.clone(),
             UnifiedTransactionModel::new(scheme),
@@ -603,9 +718,14 @@ mod tests {
         // Create transaction with invalid signature
         let new_authorities = vec![PeerId::random().to_bytes()];
         let payload = SystemPayload::UpdateAuthorities { new_authorities };
+        // FIX: Construct transaction with the new structure
         let sys_tx = SystemTransaction {
+            header: SignHeader::default(),
             payload,
-            signature: b"invalid-signature".to_vec(),
+            signature_proof: SignatureProof {
+                signature: b"invalid-signature".to_vec(),
+                ..Default::default()
+            },
         };
         let protocol_tx = ChainTransaction::System(sys_tx);
 

@@ -2,24 +2,20 @@
 use async_trait::async_trait;
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::StateManager;
+use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
 pub use depin_sdk_types::app::{Input, Output, UTXOTransaction};
 use depin_sdk_types::error::TransactionError;
-use serde::{Deserialize, Serialize}; // Add this line
+use serde::{Deserialize, Serialize};
 
-// NEW: Define a structure to hold a proof for a single input UTXO.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InputProof<P> {
-    /// The state key of the UTXO being spent.
     pub utxo_key: Vec<u8>,
-    /// The serialized `Output` data (the value) that is being proven.
     pub utxo_value: Vec<u8>,
-    /// The cryptographic inclusion proof from the state manager.
     pub inclusion_proof: P,
 }
 
-// NEW: Define the complete proof structure for a UTXO transaction.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UTXOTransactionProof<P> {
     pub input_proofs: Vec<InputProof<P>>,
@@ -68,63 +64,27 @@ impl<CS: CommitmentScheme> UTXOOperations for UTXOModel<CS> {
 #[async_trait]
 impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UTXOModel<CS>
 where
-    // Add this bound so we can serialize the proof
     <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de>,
 {
     type Transaction = UTXOTransaction;
     type CommitmentScheme = CS;
-    // UPDATE: Use our new generic proof structure.
     type Proof = UTXOTransactionProof<CS::Proof>;
 
-    fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<(), TransactionError>
-    where
-        S: StateManager<
-                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + ?Sized,
-    {
-        if tx.inputs.is_empty() {
-            if tx.outputs.is_empty() {
-                return Err(TransactionError::Invalid(
-                    "Coinbase transaction must have outputs".to_string(),
-                ));
-            }
-            return Ok(()); // Coinbase transaction
-        }
-
+    fn validate_stateless(&self, tx: &Self::Transaction) -> Result<(), TransactionError> {
         if self.config.max_inputs > 0 && tx.inputs.len() > self.config.max_inputs {
             return Err(TransactionError::Invalid("Too many inputs".to_string()));
         }
         if self.config.max_outputs > 0 && tx.outputs.len() > self.config.max_outputs {
             return Err(TransactionError::Invalid("Too many outputs".to_string()));
         }
-
-        let mut total_input: u64 = 0;
-        for input in &tx.inputs {
-            let key = self.create_utxo_key(&input.tx_hash, input.output_index);
-            let utxo_bytes = state
-                .get(&key)?
-                .ok_or_else(|| TransactionError::Invalid("Input UTXO not found".to_string()))?;
-            let utxo: Output = serde_json::from_slice(&utxo_bytes)
-                .map_err(|e| TransactionError::Invalid(format!("Deserialize error: {e}")))?;
-            total_input = total_input
-                .checked_add(utxo.value)
-                .ok_or_else(|| TransactionError::Invalid("Input value overflow".to_string()))?;
-        }
-
-        let total_output: u64 = tx.outputs.iter().map(|o| o.value).sum();
-        if total_input < total_output {
-            return Err(TransactionError::Invalid("Insufficient funds".to_string()));
-        }
-
         Ok(())
     }
 
-    async fn apply<ST>(
+    async fn apply_payload<ST>(
         &self,
         tx: &Self::Transaction,
         workload: &WorkloadContainer<ST>,
-        _block_height: u64,
+        _ctx: TxContext<'_>,
     ) -> Result<(), TransactionError>
     where
         ST: StateManager<
@@ -136,7 +96,34 @@ where
     {
         let state_tree_arc = workload.state_tree();
         let mut state = state_tree_arc.lock().await;
-        self.validate(tx, &*state)?;
+
+        // Stateful validation
+        if tx.inputs.is_empty() {
+            if tx.outputs.is_empty() {
+                return Err(TransactionError::Invalid(
+                    "Coinbase transaction must have outputs".to_string(),
+                ));
+            }
+        } else {
+            let mut total_input: u64 = 0;
+            for input in &tx.inputs {
+                let key = self.create_utxo_key(&input.tx_hash, input.output_index);
+                let utxo_bytes = state.get(&key)?.ok_or_else(|| {
+                    TransactionError::Invalid("Input UTXO not found".to_string())
+                })?;
+                let utxo: Output = serde_json::from_slice(&utxo_bytes)
+                    .map_err(|e| TransactionError::Invalid(format!("Deserialize error: {e}")))?;
+                total_input = total_input.checked_add(utxo.value).ok_or_else(|| {
+                    TransactionError::Invalid("Input value overflow".to_string())
+                })?;
+            }
+            let total_output: u64 = tx.outputs.iter().map(|o| o.value).sum();
+            if total_input < total_output {
+                return Err(TransactionError::Invalid("Insufficient funds".to_string()));
+            }
+        }
+
+        // Apply state changes
         for input in &tx.inputs {
             let key = self.create_utxo_key(&input.tx_hash, input.output_index);
             state.delete(&key)?;
@@ -165,7 +152,6 @@ where
         })
     }
 
-    // IMPLEMENT: generate_proof
     fn generate_proof<S>(
         &self,
         tx: &Self::Transaction,
@@ -178,32 +164,23 @@ where
             > + ?Sized,
     {
         let mut input_proofs = Vec::with_capacity(tx.inputs.len());
-
         for input in &tx.inputs {
-            // 1. Construct the state key for the input UTXO.
             let key = self.create_utxo_key(&input.tx_hash, input.output_index);
-
-            // 2. Fetch the value (the `Output` struct) from the state. This is required for verification.
             let value = state.get(&key)?.ok_or_else(|| {
                 TransactionError::Invalid("Input UTXO for proof generation not found".to_string())
             })?;
-
-            // 3. Create the inclusion proof for that key-value pair.
             let inclusion_proof = state.create_proof(&key).ok_or_else(|| {
                 TransactionError::Invalid("Failed to create inclusion proof for input".to_string())
             })?;
-
             input_proofs.push(InputProof {
                 utxo_key: key,
                 utxo_value: value,
                 inclusion_proof,
             });
         }
-
         Ok(UTXOTransactionProof { input_proofs })
     }
 
-    // IMPLEMENT: verify_proof
     fn verify_proof<S>(&self, proof: &Self::Proof, state: &S) -> Result<bool, TransactionError>
     where
         S: StateManager<
@@ -211,24 +188,18 @@ where
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
             > + ?Sized,
     {
-        // 1. Get the state root we are verifying against.
         let root_commitment = state.root_commitment();
-
-        // 2. Verify each input's inclusion proof against the root.
         for input_proof in &proof.input_proofs {
             let is_valid = state.verify_proof(
-                // <-- FIX: Call verify_proof as a method on the state object
                 &root_commitment,
                 &input_proof.inclusion_proof,
                 &input_proof.utxo_key,
                 &input_proof.utxo_value,
             );
-
             if !is_valid {
-                return Ok(false); // If any proof fails, the entire transaction proof is invalid.
+                return Ok(false);
             }
         }
-
         Ok(true)
     }
 

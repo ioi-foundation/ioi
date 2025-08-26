@@ -2,44 +2,70 @@
 //! End-to-End Test: Smart Contract Execution Lifecycle
 
 use anyhow::{anyhow, Result};
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_forge::testing::{
     assert_log_contains, assert_log_contains_and_return_line, build_test_artifacts,
     submit_transaction, TestCluster,
 };
-use depin_sdk_types::app::{ApplicationTransaction, ChainTransaction};
+use depin_sdk_types::{
+    app::{
+        AccountId, ApplicationTransaction, ChainTransaction, Credential, SignHeader,
+        SignatureProof, SignatureSuite,
+    },
+    config::InitialServiceConfig,
+    keys::IDENTITY_CREDENTIALS_PREFIX,
+    service_configs::MigrationConfig,
+};
 use libp2p::identity::Keypair;
 use reqwest::Client;
 use serde_json::json;
 
-// Helper function to create a signed transaction
-fn create_signed_tx(keypair: &Keypair, tx: ApplicationTransaction) -> ChainTransaction {
-    let payload = tx.to_signature_payload();
-    let signature = keypair.sign(&payload).unwrap();
-    let signer_pubkey = keypair.public().encode_protobuf();
+// Helper function to create a signed transaction with proper nonce and account_id
+fn create_signed_app_tx(
+    keypair: &Keypair,
+    mut tx: ApplicationTransaction,
+    nonce: u64,
+) -> ChainTransaction {
+    let public_key = keypair.public().encode_protobuf();
+    let account_id: AccountId = depin_sdk_crypto::algorithms::hash::sha256(&public_key)
+        .try_into()
+        .unwrap();
 
-    let signed_tx = match tx {
-        ApplicationTransaction::DeployContract { code, .. } => {
-            ApplicationTransaction::DeployContract {
-                code,
-                signer_pubkey,
-                signature,
-            }
-        }
-        ApplicationTransaction::CallContract {
-            address,
-            input_data,
-            gas_limit,
-            ..
-        } => ApplicationTransaction::CallContract {
-            address,
-            input_data,
-            gas_limit,
-            signer_pubkey,
-            signature,
-        },
-        _ => panic!("Unsupported tx type for signing"),
+    let header = SignHeader {
+        account_id,
+        nonce,
+        chain_id: 1, // Must match the chain's config
+        tx_version: 1,
     };
-    ChainTransaction::Application(signed_tx)
+
+    // Set header before creating sign bytes
+    match &mut tx {
+        ApplicationTransaction::DeployContract { header: h, .. } => *h = header,
+        ApplicationTransaction::CallContract { header: h, .. } => *h = header,
+        _ => panic!("Unsupported tx type"),
+    }
+
+    let payload_bytes = tx.to_sign_bytes().unwrap();
+    let signature = keypair.sign(&payload_bytes).unwrap();
+
+    let proof = SignatureProof {
+        suite: SignatureSuite::Ed25519,
+        public_key,
+        signature,
+    };
+
+    // Set signature proof after signing
+    match &mut tx {
+        ApplicationTransaction::DeployContract {
+            signature_proof, ..
+        } => *signature_proof = proof,
+        ApplicationTransaction::CallContract {
+            signature_proof, ..
+        } => *signature_proof = proof,
+        _ => panic!("Unsupported tx type"),
+    }
+
+    ChainTransaction::Application(tx)
 }
 
 // Helper for query_contract RPC
@@ -77,19 +103,51 @@ async fn query_contract(rpc_addr: &str, address_hex: &str, input: &[u8]) -> Resu
 #[tokio::test]
 async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     // 1. SETUP & BUILD
-    // --- FIX START: Add the missing features for the default state backend. ---
     build_test_artifacts("consensus-poa,vm-wasm,tree-file,primitive-hash");
-    // --- FIX END ---
     let counter_wasm =
         std::fs::read("../../target/wasm32-unknown-unknown/release/counter_contract.wasm")?;
+    let mut nonce = 0; // Initialize nonce for the test signer
 
     // 2. SETUP NETWORK using the TestCluster harness
     let mut cluster = TestCluster::builder()
         .with_validators(1)
         .with_consensus_type("ProofOfAuthority")
+        .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
+            grace_period_blocks: 5,
+            accept_staged_during_grace: true,
+            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            allow_downgrade: false,
+            chain_id: 1,
+        }))
         .with_genesis_modifier(|genesis, keys| {
-            let authority_peer_id = keys[0].public().to_peer_id();
+            let keypair = &keys[0];
+            let authority_peer_id = keypair.public().to_peer_id();
             genesis["genesis_state"]["system::authorities"] = json!([authority_peer_id.to_bytes()]);
+
+            // --- FIX START: Add initial credential for the validator to genesis ---
+            let public_key = keypair.public().encode_protobuf();
+            let account_id: AccountId = depin_sdk_crypto::algorithms::hash::sha256(&public_key)
+                .try_into()
+                .unwrap();
+            let public_key_hash: [u8; 32] = account_id;
+
+            let initial_cred = Credential {
+                suite: SignatureSuite::Ed25519,
+                public_key_hash,
+                activation_height: 0,
+                l2_location: None,
+            };
+
+            let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
+            let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
+            let creds_key = [IDENTITY_CREDENTIALS_PREFIX, &account_id as &[u8]].concat();
+
+            // The genesis loader expects binary keys/values to be base64-encoded
+            let creds_key_b64 = format!("b64:{}", BASE64_STANDARD.encode(&creds_key));
+            let creds_val_b64 = format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes));
+
+            genesis["genesis_state"][creds_key_b64] = json!(creds_val_b64);
+            // --- FIX END ---
         })
         .build()
         .await?;
@@ -99,16 +157,16 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     let rpc_addr = &node.rpc_addr;
     let keypair = &node.keypair;
     let mut workload_logs = node.workload_log_stream.lock().await.take().unwrap();
-    // FIX: Clean up unused variable warning by prefixing with an underscore.
     let _orch_logs = node.orch_log_stream.lock().await.take().unwrap();
 
     // 3. DEPLOY CONTRACT
     let deploy_tx_unsigned = ApplicationTransaction::DeployContract {
+        header: Default::default(),
         code: counter_wasm,
-        signer_pubkey: vec![],
-        signature: vec![],
+        signature_proof: Default::default(),
     };
-    let deploy_tx = create_signed_tx(keypair, deploy_tx_unsigned);
+    let deploy_tx = create_signed_app_tx(keypair, deploy_tx_unsigned, nonce);
+    nonce += 1; // Increment nonce for the next transaction
     submit_transaction(rpc_addr, &deploy_tx).await?;
 
     // 4. PARSE LOGS TO GET CONTRACT ADDRESS
@@ -128,17 +186,19 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     // 6. CALL INCREMENT
     let increment_input = vec![1]; // ABI for increment()
     let call_tx_unsigned = ApplicationTransaction::CallContract {
+        header: Default::default(),
         address: hex::decode(address_hex)?,
         input_data: increment_input,
         gas_limit: 1_000_000,
-        signer_pubkey: vec![],
-        signature: vec![],
+        signature_proof: Default::default(),
     };
-    let call_tx = create_signed_tx(keypair, call_tx_unsigned);
+    let call_tx = create_signed_app_tx(keypair, call_tx_unsigned, nonce);
+    // nonce += 1; // Increment if more transactions were to follow
     submit_transaction(rpc_addr, &call_tx).await?;
     assert_log_contains("Workload", &mut workload_logs, "Contract call successful").await?;
 
     // 7. VERIFY FINAL STATE
+    tokio::time::sleep(std::time::Duration::from_secs(6)).await; // Wait for block processing
     let final_value_bytes = query_contract(rpc_addr, address_hex, &get_input).await?;
     assert_eq!(final_value_bytes, vec![1], "Final count should be 1");
 

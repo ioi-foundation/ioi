@@ -12,7 +12,8 @@ use bollard::image::BuildImageOptions;
 use bollard::Docker;
 use depin_sdk_types::app::ChainTransaction;
 use depin_sdk_types::config::{
-    CommitmentSchemeType, ConsensusType, StateTreeType, VmFuelCosts, WorkloadConfig,
+    CommitmentSchemeType, ConsensusType, InitialServiceConfig, StateTreeType, VmFuelCosts,
+    WorkloadConfig,
 };
 use depin_sdk_validator::config::OrchestrationConfig;
 use futures_util::StreamExt;
@@ -304,6 +305,7 @@ impl TestValidator {
         commitment_scheme_type: &str,
         semantic_model_path: Option<&str>,
         use_docker: bool,
+        initial_services: Vec<InitialServiceConfig>,
     ) -> Result<Self> {
         let peer_id = keypair.public().to_peer_id();
         let temp_dir = Arc::new(tempfile::tempdir()?);
@@ -382,6 +384,7 @@ impl TestValidator {
                 workload_state_file.to_string_lossy().replace('\\', "/")
             },
             fuel_costs: VmFuelCosts::default(),
+            initial_services,
         };
         std::fs::write(&workload_config_path, toml::to_string(&workload_config)?)?;
 
@@ -557,6 +560,7 @@ pub struct TestClusterBuilder {
     use_docker: bool,
     state_tree: String,
     commitment_scheme: String,
+    initial_services: Vec<InitialServiceConfig>,
 }
 
 impl Default for TestClusterBuilder {
@@ -569,6 +573,7 @@ impl Default for TestClusterBuilder {
             use_docker: false,
             state_tree: "File".to_string(),
             commitment_scheme: "Hash".to_string(),
+            initial_services: Vec::new(),
         }
     }
 }
@@ -608,6 +613,11 @@ impl TestClusterBuilder {
         self
     }
 
+    pub fn with_initial_service(mut self, service_config: InitialServiceConfig) -> Self {
+        self.initial_services.push(service_config);
+        self
+    }
+
     pub fn with_genesis_modifier<F>(mut self, modifier: F) -> Self
     where
         F: FnOnce(&mut Value, &Vec<identity::Keypair>) + Send + 'static,
@@ -640,6 +650,7 @@ impl TestClusterBuilder {
                 &self.commitment_scheme,
                 self.semantic_model_path.as_deref(),
                 self.use_docker,
+                self.initial_services.clone(),
             )
             .await?;
             if i == 0 {

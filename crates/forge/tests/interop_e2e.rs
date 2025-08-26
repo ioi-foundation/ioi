@@ -1,15 +1,25 @@
 // Path: crates/forge/tests/interop_e2e.rs
 
-#![cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "tree-file", feature = "primitive-hash"))]
+#![cfg(all(
+    feature = "consensus-poa",
+    feature = "vm-wasm",
+    feature = "tree-file",
+    feature = "primitive-hash"
+))]
 
 use anyhow::Result;
 use depin_sdk_api::commitment::SchemeIdentifier;
-use depin_sdk_api::ibc::{BlockAnchor, DigestAlgo, FinalityEvidence, KeyCodec, MembershipWitness, ProofTarget, UniversalExecutionReceipt, UniversalProofFormat};
-use depin_sdk_forge::testing::{assert_log_contains, build_test_artifacts, submit_transaction, TestCluster};
+use depin_sdk_api::ibc::{
+    BlockAnchor, DigestAlgo, FinalityEvidence, KeyCodec, MembershipWitness, ProofTarget,
+    UniversalExecutionReceipt, UniversalProofFormat,
+};
+use depin_sdk_forge::testing::{
+    assert_log_contains, build_test_artifacts, submit_transaction, TestCluster,
+};
 use depin_sdk_types::app::{ChainTransaction, SystemPayload, SystemTransaction};
 use serde_json::json;
 // FIX: Use dcrypt's Blake3 XOF for hashing.
-use dcrypt::algorithms::xof::{Blake3Xof, ExtendableOutputFunction};
+use dcrypt::algorithms::xof::Blake3Xof;
 
 #[tokio::test]
 async fn test_universal_verification_e2e() -> Result<()> {
@@ -55,8 +65,14 @@ async fn test_universal_verification_e2e() -> Result<()> {
     let mock_receipt = UniversalExecutionReceipt {
         source_chain_id: "eth-mainnet".to_string(),
         anchor: mock_anchor,
-        target: ProofTarget::Log { tx_index: 1, log_index: 0 },
-        finality: Some(FinalityEvidence::TrustedCheckpoint { checkpoint_id: "test-ckpt".into(), sigs: vec![1,2,3] }),
+        target: ProofTarget::Log {
+            tx_index: 1,
+            log_index: 0,
+        },
+        finality: Some(FinalityEvidence::TrustedCheckpoint {
+            checkpoint_id: "test-ckpt".into(),
+            sigs: vec![1, 2, 3],
+        }),
         unique_leaf_id,
         endpoint_id: "token.transfer@1.0".to_string(),
         params_jcs: serde_jcs::to_vec(&json!({"from": "0xaaa", "to": "0xbbb", "amount": "100"}))?,
@@ -72,8 +88,17 @@ async fn test_universal_verification_e2e() -> Result<()> {
     };
 
     // 4. SUBMIT THE VERIFICATION TRANSACTION
-    let payload = SystemPayload::VerifyForeignReceipt { receipt: mock_receipt.clone(), proof: mock_proof.clone() };
-    let tx = ChainTransaction::System(SystemTransaction { payload, signature: vec![] });
+    let payload = SystemPayload::VerifyForeignReceipt {
+        receipt: mock_receipt.clone(),
+        proof: mock_proof.clone(),
+    };
+    // --- FIX START: Use the correct struct definition ---
+    let tx = ChainTransaction::System(SystemTransaction {
+        payload,
+        header: Default::default(),
+        signature_proof: Default::default(),
+    });
+    // --- FIX END ---
     submit_transaction(rpc_addr, &tx).await?;
 
     // 5. ASSERT SUCCESS
@@ -86,7 +111,10 @@ async fn test_universal_verification_e2e() -> Result<()> {
     // 6. TEST ANTI-REPLAY
     // Submit the same transaction again. The RPC call will succeed because it only adds to the mempool.
     let replay_result = submit_transaction(rpc_addr, &tx).await;
-    assert!(replay_result.is_ok(), "Submitting a replay transaction to the mempool should succeed initially");
+    assert!(
+        replay_result.is_ok(),
+        "Submitting a replay transaction to the mempool should succeed initially"
+    );
 
     // Now, assert that when the node tries to process the block containing the replay, it fails.
     // This error is logged by the Orchestration container, which coordinates block processing.
@@ -95,7 +123,6 @@ async fn test_universal_verification_e2e() -> Result<()> {
         &mut orch_logs,
         "Workload failed to process new block: Transaction processing error: Invalid transaction: Foreign receipt has already been processed (replay attack)",
     ).await?;
-
 
     println!("--- Universal Interoperability E2E Test Passed ---");
     Ok(())

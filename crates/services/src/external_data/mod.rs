@@ -1,4 +1,5 @@
 // Path: crates/services/src/external_data/mod.rs
+use depin_sdk_api::impl_service_base;
 use depin_sdk_api::services::{BlockchainService, ServiceType, UpgradableService};
 use depin_sdk_types::error::UpgradeError;
 
@@ -37,6 +38,8 @@ impl BlockchainService for ExternalDataService {
         ServiceType::ExternalData
     }
 }
+
+impl_service_base!(ExternalDataService);
 
 impl UpgradableService for ExternalDataService {
     fn prepare_upgrade(&mut self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {

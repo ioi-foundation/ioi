@@ -189,6 +189,8 @@ cargo test --workspace
 | **Oracle** | `cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-file,primitive-hash" --test oracle_e2e -- --nocapture --test-threads=1` |
 | **Interoperability** | `cargo test -p depin-sdk-forge test_universal_verification_e2e --features "consensus-poa,vm-wasm,tree-file,primitive-hash" -- --nocapture` |
 
+cargo test -p depin-sdk-forge --test pqc_migration_e2e test_pqc_identity_migration_lifecycle --features "consensus-poa,vm-wasm,tree-file,primitive-hash" -- --nocapture
+
 #### State Tree Backend Tests
 
 | Backend | Command |

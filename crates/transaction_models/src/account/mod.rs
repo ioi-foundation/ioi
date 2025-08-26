@@ -2,6 +2,7 @@
 use async_trait::async_trait;
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::StateManager;
+use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_types::error::TransactionError;
@@ -21,14 +22,10 @@ pub struct Account {
     pub nonce: u64,
 }
 
-// NEW: Define the proof structure for an account-based transaction.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AccountTransactionProof<P> {
-    /// The state key for the sender's account.
     pub account_key: Vec<u8>,
-    /// The serialized `Account` state *before* the transaction.
     pub account_value: Vec<u8>,
-    /// The cryptographic inclusion proof from the state manager.
     pub inclusion_proof: P,
 }
 
@@ -85,38 +82,21 @@ impl<CS: CommitmentScheme> AccountModel<CS> {
 #[async_trait]
 impl<CS: CommitmentScheme + Send + Sync> TransactionModel for AccountModel<CS>
 where
-    // Add this bound so we can serialize the proof
     <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de>,
 {
     type Transaction = AccountTransaction;
     type CommitmentScheme = CS;
-    // UPDATE: Use our new generic proof structure.
     type Proof = AccountTransactionProof<CS::Proof>;
 
-    fn validate<S>(&self, tx: &Self::Transaction, state: &S) -> Result<(), TransactionError>
-    where
-        S: StateManager<
-                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + ?Sized,
-    {
-        let sender_account = self.get_account(state, &tx.from)?;
-        if sender_account.balance < tx.amount {
-            return Err(TransactionError::Invalid(
-                "Insufficient balance".to_string(),
-            ));
-        }
-        if sender_account.nonce != tx.nonce {
-            return Err(TransactionError::Invalid("Invalid nonce".to_string()));
-        }
+    fn validate_stateless(&self, _tx: &Self::Transaction) -> Result<(), TransactionError> {
         Ok(())
     }
 
-    async fn apply<ST>(
+    async fn apply_payload<ST>(
         &self,
         tx: &Self::Transaction,
         workload: &WorkloadContainer<ST>,
-        _block_height: u64,
+        _ctx: TxContext<'_>,
     ) -> Result<(), TransactionError>
     where
         ST: StateManager<
@@ -128,21 +108,30 @@ where
     {
         let state_tree_arc = workload.state_tree();
         let mut state = state_tree_arc.lock().await;
-        self.validate(tx, &*state)?;
 
-        let sender_key = tx.from.clone();
-        let mut sender_account = self.get_account(&*state, &sender_key)?;
-        sender_account.balance -= tx.amount;
-        sender_account.nonce += 1;
-        state.insert(&sender_key, &self.encode_account(&sender_account))?;
+        // Perform stateful validation just-in-time
+        let sender_account = self.get_account(&*state, &tx.from)?;
+        if sender_account.balance < tx.amount {
+            return Err(TransactionError::Invalid(
+                "Insufficient balance".to_string(),
+            ));
+        }
+        if sender_account.nonce != tx.nonce {
+            return Err(TransactionError::Invalid("Invalid nonce".to_string()));
+        }
 
-        let receiver_key = tx.to.clone();
-        let mut receiver_account = self.get_account(&*state, &receiver_key)?;
+        // Apply state changes
+        let mut new_sender_account = sender_account;
+        new_sender_account.balance -= tx.amount;
+        new_sender_account.nonce += 1;
+        state.insert(&tx.from, &self.encode_account(&new_sender_account))?;
+
+        let mut receiver_account = self.get_account(&*state, &tx.to)?;
         receiver_account.balance = receiver_account
             .balance
             .checked_add(tx.amount)
             .ok_or(TransactionError::Invalid("Balance overflow".to_string()))?;
-        state.insert(&receiver_key, &self.encode_account(&receiver_account))?;
+        state.insert(&tx.to, &self.encode_account(&receiver_account))?;
 
         Ok(())
     }
@@ -157,7 +146,6 @@ where
         ))
     }
 
-    // IMPLEMENT: generate_proof
     fn generate_proof<S>(
         &self,
         tx: &Self::Transaction,
@@ -169,19 +157,13 @@ where
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
             > + ?Sized,
     {
-        // 1. Get the sender's account key.
         let key = tx.from.clone();
-
-        // 2. Fetch the sender's account state from the state manager.
         let value = state.get(&key)?.ok_or_else(|| {
             TransactionError::Invalid("Sender account for proof generation not found".to_string())
         })?;
-
-        // 3. Create the inclusion proof for that key-value pair.
         let inclusion_proof = state.create_proof(&key).ok_or_else(|| {
             TransactionError::Invalid("Failed to create inclusion proof for account".to_string())
         })?;
-
         Ok(AccountTransactionProof {
             account_key: key,
             account_value: value,
@@ -189,7 +171,6 @@ where
         })
     }
 
-    // IMPLEMENT: verify_proof
     fn verify_proof<S>(&self, proof: &Self::Proof, state: &S) -> Result<bool, TransactionError>
     where
         S: StateManager<
@@ -197,18 +178,13 @@ where
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
             > + ?Sized,
     {
-        // 1. Get the state root we are verifying against.
         let root_commitment = state.root_commitment();
-
-        // 2. Verify the account's inclusion proof.
         let is_valid = state.verify_proof(
-            // <-- FIX: Call verify_proof as a method on the state object
             &root_commitment,
             &proof.inclusion_proof,
             &proof.account_key,
             &proof.account_value,
         );
-
         Ok(is_valid)
     }
 

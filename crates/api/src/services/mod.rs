@@ -1,9 +1,11 @@
 // Path: crates/api/src/services/mod.rs
 //! Traits for pluggable, upgradable blockchain services.
 
+use crate::services::access::Service;
 use depin_sdk_types::error::UpgradeError;
-use std::any::Any;
 use std::hash::Hash;
+
+pub mod access;
 
 /// An identifier for a swappable service.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -19,7 +21,7 @@ pub enum ServiceType {
 }
 
 /// The base trait for any service managed by the chain.
-pub trait BlockchainService: Any + Send + Sync {
+pub trait BlockchainService: Service {
     /// Returns the unique type identifier for the service.
     fn service_type(&self) -> ServiceType;
 }
@@ -28,8 +30,6 @@ pub trait BlockchainService: Any + Send + Sync {
 pub trait UpgradableService: BlockchainService {
     /// Prepares the service for an upgrade by validating the new implementation
     /// and returning a state snapshot for migration.
-    // FIX: Change the receiver from `&self` to `&mut self` to accommodate
-    // the implementation requirements of wasmtime.
     fn prepare_upgrade(&mut self, new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError>;
 
     /// Completes the upgrade by instantiating a new version of the service from a state snapshot.
