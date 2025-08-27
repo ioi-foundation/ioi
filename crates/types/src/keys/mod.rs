@@ -1,4 +1,4 @@
-// Path: crates/types/src/keys.rs
+// Path: crates/types/src/keys/mod.rs
 //! Defines constants for well-known state keys.
 
 /// The state key for the map of validator stakes active for the CURRENT block height.
@@ -34,6 +34,11 @@ pub const GOVERNANCE_VOTE_KEY_PREFIX: &[u8] = b"gov::vote::";
 pub const ORACLE_PENDING_REQUEST_PREFIX: &[u8] = b"oracle::pending::";
 /// The state key prefix for finalized oracle data, keyed by request_id.
 pub const ORACLE_DATA_PREFIX: &[u8] = b"oracle::data::";
+
+// --- FIX START: Add new key for IBC anti-replay ---
+/// The state key prefix for storing processed foreign receipt IDs to prevent replays.
+pub const IBC_PROCESSED_RECEIPT_PREFIX: &[u8] = b"ibc::receipt::";
+// --- FIX END ---
 
 // --- Identity Hub Keys ---
 /// State key prefix for an account's credentials array.

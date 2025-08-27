@@ -6,7 +6,6 @@ version = "0.1.0"
 edition = "2021"
 description = "The primary validator node binary for the DePIN SDK"
 license = "MIT OR Apache-2.0"
-build = "build.rs"
 
 [dependencies]
 # Workspace Library Crates

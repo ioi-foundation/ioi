@@ -2,7 +2,7 @@
 //! Core, non-optional system logic for transaction nonce management.
 
 use depin_sdk_api::state::StateManager;
-use depin_sdk_types::app::{AccountId, ChainTransaction};
+use depin_sdk_types::app::{AccountId, ChainTransaction, SystemPayload};
 use depin_sdk_types::error::TransactionError;
 use depin_sdk_types::keys::ACCOUNT_NONCE_PREFIX;
 
@@ -25,7 +25,17 @@ pub fn check_and_bump_tx_nonce<S: StateManager + ?Sized>(
     tx: &ChainTransaction,
 ) -> Result<(), TransactionError> {
     let (account_id, nonce) = match tx {
-        ChainTransaction::System(sys_tx) => (sys_tx.header.account_id, sys_tx.header.nonce),
+        ChainTransaction::System(sys_tx) => {
+            // --- FIX START: Bypass nonce check for non-account-based system calls ---
+            // These transactions are authorized by other means (e.g., governance key, IBC proof).
+            match sys_tx.payload {
+                SystemPayload::VerifyForeignReceipt { .. }
+                | SystemPayload::UpdateAuthorities { .. }
+                | SystemPayload::SubmitOracleData { .. } => return Ok(()),
+                _ => (sys_tx.header.account_id, sys_tx.header.nonce),
+            }
+            // --- FIX END ---
+        }
         ChainTransaction::Application(app_tx) => match app_tx {
             depin_sdk_types::app::ApplicationTransaction::DeployContract { header, .. }
             | depin_sdk_types::app::ApplicationTransaction::CallContract { header, .. } => {

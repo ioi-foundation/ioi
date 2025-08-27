@@ -4,22 +4,19 @@
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
+use depin_sdk_api::services::access::{Service, ServiceDirectory};
 use depin_sdk_api::{
     commitment::CommitmentScheme, state::StateManager, validator::WorkloadContainer,
 };
 use depin_sdk_chain::util::load_state_from_genesis_file;
 use depin_sdk_chain::wasm_loader::load_service_from_wasm;
 use depin_sdk_chain::Chain;
-use depin_sdk_validator::standard::WorkloadIpcServer;
-// FIX: Add new necessary imports
-use depin_sdk_api::services::access::{Service, ServiceDirectory};
 use depin_sdk_services::identity::IdentityHub;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-// --- FIX START: Add missing imports for config enums ---
 use depin_sdk_types::config::{
     CommitmentSchemeType, InitialServiceConfig, StateTreeType, WorkloadConfig,
 };
-// --- FIX END ---
+use depin_sdk_validator::standard::WorkloadIpcServer;
 use depin_sdk_vm_wasm::WasmVm;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -48,7 +45,6 @@ struct WorkloadOpts {
     config: PathBuf,
 }
 
-// Add a type alias for the boxed trait object for clarity
 type BoxedStateManager<CS> = Box<
     dyn StateManager<
             Commitment = <CS as CommitmentScheme>::Commitment,
@@ -59,7 +55,7 @@ type BoxedStateManager<CS> = Box<
 
 /// Generic function containing all logic after component instantiation.
 async fn run_workload<CS>(
-    mut state_tree: BoxedStateManager<CS>, // The parameter is now the boxed trait object
+    mut state_tree: BoxedStateManager<CS>,
     commitment_scheme: CS,
     config: WorkloadConfig,
 ) -> Result<()>
@@ -69,8 +65,6 @@ where
     CS::Proof: AsRef<[u8]> + serde::Serialize + for<'de> serde::Deserialize<'de>,
     CS::Commitment: std::fmt::Debug,
 {
-    // Initialize state from genesis if the state file doesn't exist.
-    // This now works because Box<dyn StateManager> implements StateManager.
     if !Path::new(&config.state_file).exists() {
         load_state_from_genesis_file(&mut *state_tree, &config.genesis_file)?;
     } else {
@@ -82,7 +76,6 @@ where
 
     let wasm_vm = Box::new(WasmVm::new(config.fuel_costs.clone()));
 
-    // FIX: Instantiate services and create the ServiceDirectory before the WorkloadContainer
     let mut initial_services = Vec::new();
     for service_config in &config.initial_services {
         match service_config {
@@ -101,7 +94,6 @@ where
         .collect();
     let service_directory = ServiceDirectory::new(services_for_dir);
 
-    // FIX: Pass the new ServiceDirectory argument to the constructor
     let workload_container = Arc::new(WorkloadContainer::new(
         config.clone(),
         state_tree,
@@ -130,8 +122,35 @@ where
     Ok(())
 }
 
+fn check_features() {
+    let mut enabled_features = Vec::new();
+    if cfg!(feature = "tree-file") {
+        enabled_features.push("tree-file");
+    }
+    if cfg!(feature = "tree-hashmap") {
+        enabled_features.push("tree-hashmap");
+    }
+    if cfg!(feature = "tree-iavl") {
+        enabled_features.push("tree-iavl");
+    }
+    if cfg!(feature = "tree-sparse-merkle") {
+        enabled_features.push("tree-sparse-merkle");
+    }
+    if cfg!(feature = "tree-verkle") {
+        enabled_features.push("tree-verkle");
+    }
+
+    if enabled_features.len() > 1 {
+        panic!("Error: Please enable exactly one 'tree-*' feature for the depin-sdk-node crate. Found: {:?}", enabled_features);
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
+    // --- FIX START: Move build-time check to runtime ---
+    check_features();
+    // --- FIX END ---
+
     env_logger::builder()
         .filter_level(log::LevelFilter::Info)
         .init();
