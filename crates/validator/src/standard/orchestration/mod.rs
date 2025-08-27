@@ -196,7 +196,9 @@ async fn handle_network_event<CS, ST, CE>(
             peer_management::handle_connection_closed(context, peer_id).await
         }
         NetworkEvent::GossipBlock(block) => gossip::handle_gossip_block(context, block).await,
-        NetworkEvent::GossipTransaction(tx) => gossip::handle_gossip_transaction(context, tx).await,
+        NetworkEvent::GossipTransaction(tx) => {
+            gossip::handle_gossip_transaction(context, *tx).await
+        }
         NetworkEvent::StatusRequest(peer, channel) => {
             sync::handle_status_request(context, peer, channel).await
         }

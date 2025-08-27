@@ -75,7 +75,7 @@ pub enum NetworkEvent {
     ConnectionEstablished(PeerId),
     ConnectionClosed(PeerId),
     GossipBlock(Block<ChainTransaction>),
-    GossipTransaction(ChainTransaction), // New event for mempool gossip
+    GossipTransaction(Box<ChainTransaction>), // New event for mempool gossip
     StatusRequest(PeerId, ResponseChannel<SyncResponse>),
     BlocksRequest(PeerId, u64, ResponseChannel<SyncResponse>),
     StatusResponse(PeerId, u64),
@@ -251,7 +251,7 @@ impl Libp2pSync {
                     }
                     SwarmInternalEvent::GossipTransaction(data, _source) => {
                         match serde_json::from_slice(&data) {
-                            Ok(tx) => Some(NetworkEvent::GossipTransaction(tx)),
+                            Ok(tx) => Some(NetworkEvent::GossipTransaction(Box::new(tx))),
                             Err(e) => {
                                 log::warn!("Failed to deserialize gossiped transaction: {e}");
                                 None

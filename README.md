@@ -25,8 +25,8 @@ The DePIN SDK is a next-generation blockchain framework written entirely in Rust
 
 ## Core Features
 
-### 🧠 Web4 agentic Layer
-A native, distributed AI infrastructure that allows blockchains to interpret natural language, understand user intent, and execute complex agentic operations.
+### 🧠 Web4 Agentic Layer
+A validator native, distributed AI infrastructure that allows blockchains to interpret natural language, understand user intent, and execute complex agentic operations.
 
 ### 🛡️ Post-Quantum Security
 A pragmatic, forward-thinking cryptographic architecture that is quantum-resistant from day one, featuring hybrid KEMs for transport security and a clear, non-disruptive migration path for on-chain signatures.

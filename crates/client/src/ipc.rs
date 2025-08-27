@@ -27,7 +27,7 @@ pub enum WorkloadRequest {
     ProcessBlock(Block<ChainTransaction>),
     GetStatus,
     GetExpectedModelHash,
-    ExecuteTransaction(ChainTransaction),
+    ExecuteTransaction(Box<ChainTransaction>),
     DeployContract {
         code: Vec<u8>,
         sender: Vec<u8>,
