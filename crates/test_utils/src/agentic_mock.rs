@@ -1,4 +1,4 @@
-// crates/test_utils/src/semantic_mock.rs
+// crates/test_utils/src/agentic_mock.rs
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use serde_json::{json, Value};

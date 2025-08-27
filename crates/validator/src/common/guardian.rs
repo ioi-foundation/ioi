@@ -30,7 +30,7 @@ impl GuardianContainer {
     }
     pub async fn attest_weights(&self, model_path: &str) -> Result<Vec<u8>, String> {
         let model_bytes = std::fs::read(model_path)
-            .map_err(|e| format!("Failed to read semantic model file: {}", e))?;
+            .map_err(|e| format!("Failed to read agentic model file: {}", e))?;
         let local_hash = sha256(&model_bytes);
         log::info!(
             "[Guardian] Computed local model hash: {}",

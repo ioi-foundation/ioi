@@ -144,7 +144,7 @@ pub struct DockerBackend {
     container_ids: Vec<String>,
     rpc_addr: String,
     p2p_addr: Multiaddr,
-    semantic_model_path: Option<PathBuf>,
+    agentic_model_path: Option<PathBuf>,
     _temp_dir: Arc<TempDir>,
     config_dir_path: PathBuf,
     orch_stream: Option<LogStream>,
@@ -156,7 +156,7 @@ impl DockerBackend {
     pub async fn new(
         rpc_addr: String,
         p2p_addr: Multiaddr,
-        semantic_model_path: Option<PathBuf>,
+        agentic_model_path: Option<PathBuf>,
         temp_dir: Arc<TempDir>,
         _keypair_path: PathBuf,
         _genesis_path: PathBuf,
@@ -178,7 +178,7 @@ impl DockerBackend {
             container_ids: Vec::new(),
             rpc_addr,
             p2p_addr,
-            semantic_model_path,
+            agentic_model_path,
             _temp_dir: temp_dir,
             config_dir_path,
             orch_stream: None,
@@ -238,7 +238,7 @@ impl TestBackend for DockerBackend {
             container_data_dir
         )];
 
-        if let Some(model_path) = &self.semantic_model_path {
+        if let Some(model_path) = &self.agentic_model_path {
             let model_dir = model_path.parent().unwrap().to_string_lossy();
             let model_file_name = model_path.file_name().unwrap().to_string_lossy();
             let container_model_path = format!("/models/{}", model_file_name);
@@ -251,7 +251,7 @@ impl TestBackend for DockerBackend {
                 "guardian",
                 "--config-dir",
                 container_data_dir, // Use the root mount path directly
-                "--semantic-model-path",
+                "--agentic-model-path",
                 &container_model_path,
             ];
             // --- FIX END ---
@@ -263,7 +263,7 @@ impl TestBackend for DockerBackend {
 
         let workload_cmd = vec!["workload", "--config", container_workload_config];
         let mut workload_env = vec!["IPC_SERVER_ADDR=0.0.0.0:8555"];
-        if self.semantic_model_path.is_some() {
+        if self.agentic_model_path.is_some() {
             workload_env.push("GUARDIAN_ADDR=guardian:8443");
         }
         self.launch_container("workload", workload_cmd, workload_env, base_binds.clone())
@@ -279,7 +279,7 @@ impl TestBackend for DockerBackend {
             "/ip4/0.0.0.0/tcp/9000",
         ];
         let mut orch_env = vec!["WORKLOAD_IPC_ADDR=workload:8555"];
-        if self.semantic_model_path.is_some() {
+        if self.agentic_model_path.is_some() {
             orch_env.push("GUARDIAN_ADDR=guardian:8443");
         }
         self.launch_container("orchestration", orch_cmd, orch_env, base_binds)
@@ -311,7 +311,7 @@ impl TestBackend for DockerBackend {
             self.docker.logs("workload", log_options.clone()),
         ));
 
-        if self.semantic_model_path.is_some() {
+        if self.agentic_model_path.is_some() {
             let mut guard_stream = convert_stream(self.docker.logs("guardian", log_options));
             timeout(ready_timeout, async {
                 while let Some(Ok(log)) = guard_stream.next().await {

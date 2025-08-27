@@ -179,7 +179,7 @@
               - lib.rs
         - governance_e2e.rs
         - module_upgrade_e2e.rs
-        - semantic_consensus_e2e.rs
+        - agentic_consensus_e2e.rs
         - staking_e2e.rs
     - homomorphic/
       - Cargo.toml
@@ -260,7 +260,7 @@
         - identity/
           - mod.rs
         - lib.rs
-        - semantic/
+        - agentic/
           - mod.rs
           - normaliser.rs
           - prompt_wrapper.rs
@@ -277,7 +277,7 @@
         - randomness/
           - mod.rs
           - tests/
-        - semantic_mock.rs
+        - agentic_mock.rs
     - transaction_models/
       - Cargo.toml
       - src/

@@ -1,4 +1,4 @@
-// Path: crates/services/src/semantic/normaliser.rs
+// Path: crates/services/src/agentic/normaliser.rs
 use depin_sdk_api::impl_service_base;
 use depin_sdk_api::services::{BlockchainService, ServiceType};
 use depin_sdk_crypto::algorithms::hash::sha256;

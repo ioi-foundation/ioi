@@ -15,7 +15,7 @@ struct GuardianOpts {
     #[clap(long)]
     config_dir: String,
     #[clap(long)]
-    semantic_model_path: String,
+    agentic_model_path: String,
     #[clap(
         long,
         env = "GUARDIAN_LISTEN_ADDR",
@@ -51,7 +51,7 @@ async fn main() -> Result<()> {
         log::info!("[Guardian] Both container connections and hardware attestations are complete.");
 
         let local_hash_result = guardian_clone
-            .attest_weights(&opts.semantic_model_path)
+            .attest_weights(&opts.agentic_model_path)
             .await;
         let report_bytes = serde_json::to_vec(&local_hash_result).unwrap();
         if let Err(e) = guardian_clone
@@ -60,11 +60,11 @@ async fn main() -> Result<()> {
             .await
         {
             log::error!(
-                "[Guardian] Failed to send semantic attestation report to Orchestrator: {}",
+                "[Guardian] Failed to send agentic attestation report to Orchestrator: {}",
                 e
             );
         } else {
-            log::info!("[Guardian] Sent semantic attestation report to Orchestrator.");
+            log::info!("[Guardian] Sent agentic attestation report to Orchestrator.");
         }
     });
 

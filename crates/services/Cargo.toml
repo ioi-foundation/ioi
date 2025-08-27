@@ -25,4 +25,4 @@ libp2p = { workspace = true }
 [features]
 default = []
 gas-escrow = []
-semantic = ["gas-escrow"]
+agentic = ["gas-escrow"]

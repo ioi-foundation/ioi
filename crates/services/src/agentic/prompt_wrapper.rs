@@ -1,4 +1,4 @@
-// Path: crates/services/src/semantic/prompt_wrapper.rs
+// Path: crates/services/src/agentic/prompt_wrapper.rs
 use depin_sdk_api::impl_service_base;
 use depin_sdk_api::services::{BlockchainService, ServiceType};
 
