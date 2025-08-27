@@ -12,8 +12,8 @@ pub mod access;
 pub enum ServiceType {
     /// A service for on-chain governance.
     Governance,
-    /// A service for semantic data processing or validation.
-    Semantic,
+    /// A service for agentic data processing or validation.
+    Agentic,
     /// A service for interacting with external data sources.
     ExternalData,
     /// A custom service type.

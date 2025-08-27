@@ -24,12 +24,12 @@ async fn test_secure_channel_and_attestation_flow_docker() -> Result<()> {
     // The .build().await? call will not return until the test harness's internal
     // readiness checks have passed. This implicitly verifies that all containers
     // (guardian, workload, orchestration) have started, connected, and that the
-    // orchestration container has passed its semantic attestation check.
+    // orchestration container has passed its agentic attestation check.
     // The successful completion of this line is the entire test.
     let _cluster = TestCluster::builder()
         .with_validators(1)
         .use_docker_backend(true)
-        .with_semantic_model_path(model_path.to_str().unwrap())
+        .with_agentic_model_path(model_path.to_str().unwrap())
         .with_genesis_modifier(move |genesis, _keys| {
             genesis["genesis_state"][std::str::from_utf8(
                 depin_sdk_types::keys::STATE_KEY_SEMANTIC_MODEL_HASH,

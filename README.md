@@ -6,7 +6,7 @@
 
 **The Framework for Sovereign Web4 Blockchains**
 
-The DePIN SDK is a next-generation blockchain framework written entirely in Rust, designed to build high-performance, sovereign, and secure decentralized networks. It evolves beyond the Web3 paradigm of "read, write, own" to enable **Web4**: chains that can also **understand** user intent through a native, distributed AI semantic layer.
+The DePIN SDK is a next-generation blockchain framework written entirely in Rust, designed to build high-performance, sovereign, and secure decentralized networks. It evolves beyond the Web3 paradigm of "read, write, own" to enable **Web4**: chains that can also **understand** user intent through a native, distributed AI agentic layer.
 
 > 🎯 **Mission**: Provide the tools to build chains that are not just decentralized ledgers, but intelligent, autonomous partners in achieving complex goals.
 
@@ -25,8 +25,8 @@ The DePIN SDK is a next-generation blockchain framework written entirely in Rust
 
 ## Core Features
 
-### 🧠 Web4 Semantic Layer
-A native, distributed AI infrastructure that allows blockchains to interpret natural language, understand user intent, and execute complex semantic operations.
+### 🧠 Web4 agentic Layer
+A native, distributed AI infrastructure that allows blockchains to interpret natural language, understand user intent, and execute complex agentic operations.
 
 ### 🛡️ Post-Quantum Security
 A pragmatic, forward-thinking cryptographic architecture that is quantum-resistant from day one, featuring hybrid KEMs for transport security and a clear, non-disruptive migration path for on-chain signatures.
@@ -185,7 +185,7 @@ cargo test --workspace
 | **Contract** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test contract_e2e -- --nocapture` |
 | **Governance** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test governance_e2e -- --nocapture` |
 | **Module Upgrade** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test module_upgrade_e2e -- --nocapture` |
-| **Semantic Consensus** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test semantic_consensus_e2e -- --nocapture` |
+| **agentic Consensus** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test agentic_consensus_e2e -- --nocapture` |
 | **Oracle** | `cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-file,primitive-hash" --test oracle_e2e -- --nocapture --test-threads=1` |
 | **Interoperability** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test interop_e2e -- --nocapture` |
 
@@ -265,7 +265,7 @@ crates/
 *Planned*
 - `forge` CLI and multi-language SDKs
 - IBC and Ethereum compatibility modules
-- Production-ready distributed AI for Semantic Layer
+- Production-ready distributed AI for agentic Layer
 
 ## Contributing
 

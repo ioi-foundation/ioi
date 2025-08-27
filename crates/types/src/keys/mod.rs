@@ -13,8 +13,8 @@ pub const VALIDATOR_SET_KEY: &[u8] = b"system::validators";
 pub const AUTHORITY_SET_KEY: &[u8] = b"system::authorities";
 /// The state key for the governance public key.
 pub const GOVERNANCE_KEY: &[u8] = b"system::governance_key";
-/// The state key for the governance-approved semantic AI model hash.
-pub const STATE_KEY_SEMANTIC_MODEL_HASH: &[u8] = b"system::semantic_model_hash";
+/// The state key for the governance-approved agentic AI model hash.
+pub const STATE_KEY_SEMANTIC_MODEL_HASH: &[u8] = b"system::agentic_model_hash";
 
 /// The state key prefix for user account data.
 pub const ACCOUNT_KEY_PREFIX: &[u8] = b"account::";

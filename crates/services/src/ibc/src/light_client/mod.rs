@@ -113,12 +113,12 @@ impl<CS: CommitmentScheme> UniversalLightClient<CS> {
         // }
         let _ = (native_proof_bytes, anchor_root_bytes); // Avoid unused variable warnings for this guide.
 
-        // 6. Recompute and verify semantic data from the witness value
+        // 6. Recompute and verify agentic data from the witness value
         // A full implementation would use a normalizer selected from a registry based on the source_chain_id.
         // let normalizer = self.normalizer_registry.get(&receipt.source_chain_id)?;
         // let normalized = normalizer.normalize(&self.cem, &upf.witness.value, ...)?;
         // if normalized.endpoint_id != receipt.endpoint_id || ... {
-        //     return Err(VerifyError::VerificationFailed("Semantic data mismatch".into()));
+        //     return Err(VerifyError::VerificationFailed("agentic data mismatch".into()));
         // }
 
         log::info!("Successfully verified foreign receipt!");

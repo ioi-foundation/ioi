@@ -5,7 +5,7 @@
 //!
 //! Utilities for testing the DePIN SDK components.
 
+pub mod agentic_mock;
 pub mod assertions;
 pub mod fixtures;
 pub mod randomness;
-pub mod semantic_mock;

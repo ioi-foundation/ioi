@@ -1,4 +1,4 @@
-// Path: crates/forge/tests/semantic_consensus_e2e.rs
+// Path: crates/forge/tests/agentic_consensus_e2e.rs
 
 #![cfg(all(feature = "consensus-poa", feature = "vm-wasm"))]
 
@@ -13,7 +13,7 @@ use std::fs;
 use tempfile::tempdir;
 
 #[tokio::test]
-async fn test_secure_semantic_consensus_e2e() -> Result<()> {
+async fn test_secure_agentic_consensus_e2e() -> Result<()> {
     build_test_artifacts("consensus-poa,vm-wasm,tree-file,primitive-hash");
 
     // Setup: Create model file and calculate its hash
@@ -37,7 +37,7 @@ async fn test_secure_semantic_consensus_e2e() -> Result<()> {
             )
             .unwrap()] = json!(correct_model_hash);
         })
-        .with_semantic_model_path(good_model_path.to_str().unwrap())
+        .with_agentic_model_path(good_model_path.to_str().unwrap())
         .build()
         .await?;
 

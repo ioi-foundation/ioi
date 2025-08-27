@@ -303,7 +303,7 @@ impl TestValidator {
         consensus_type: &str,
         state_tree_type: &str,
         commitment_scheme_type: &str,
-        semantic_model_path: Option<&str>,
+        agentic_model_path: Option<&str>,
         use_docker: bool,
         initial_services: Vec<InitialServiceConfig>,
     ) -> Result<Self> {
@@ -396,7 +396,7 @@ impl TestValidator {
                 DockerBackend::new(
                     rpc_addr.clone(),
                     p2p_addr_str.parse()?,
-                    semantic_model_path.map(std::path::PathBuf::from),
+                    agentic_model_path.map(std::path::PathBuf::from),
                     temp_dir.clone(),
                     keypair_path.clone(),
                     genesis_path.clone(),
@@ -417,12 +417,12 @@ impl TestValidator {
                 .join("target/release/");
 
             let (guardian_process, mut guardian_reader) =
-                if let Some(model_path) = semantic_model_path {
+                if let Some(model_path) = agentic_model_path {
                     let mut process = TokioCommand::new(node_binary_path.join("guardian"))
                         .args([
                             "--config-dir",
                             &config_dir_path.to_string_lossy(),
-                            "--semantic-model-path",
+                            "--agentic-model-path",
                             model_path,
                         ])
                         .env("GUARDIAN_LISTEN_ADDR", &guardian_addr)
@@ -450,7 +450,7 @@ impl TestValidator {
                 .env("IPC_SERVER_ADDR", &ipc_addr_workload)
                 .stderr(Stdio::piped())
                 .kill_on_drop(true);
-            if semantic_model_path.is_some() {
+            if agentic_model_path.is_some() {
                 workload_cmd.env("GUARDIAN_ADDR", &guardian_addr);
             }
 
@@ -486,7 +486,7 @@ impl TestValidator {
                 .env("WORKLOAD_IPC_ADDR", &ipc_addr_workload)
                 .stderr(Stdio::piped())
                 .kill_on_drop(true);
-            if semantic_model_path.is_some() {
+            if agentic_model_path.is_some() {
                 orch_cmd.env("GUARDIAN_ADDR", &guardian_addr);
             }
 
@@ -556,7 +556,7 @@ pub struct TestClusterBuilder {
     num_validators: usize,
     genesis_modifiers: Vec<GenesisModifier>,
     consensus_type: String,
-    semantic_model_path: Option<String>,
+    agentic_model_path: Option<String>,
     use_docker: bool,
     state_tree: String,
     commitment_scheme: String,
@@ -569,7 +569,7 @@ impl Default for TestClusterBuilder {
             num_validators: 1,
             genesis_modifiers: Vec::new(),
             consensus_type: "ProofOfAuthority".to_string(),
-            semantic_model_path: None,
+            agentic_model_path: None,
             use_docker: false,
             state_tree: "File".to_string(),
             commitment_scheme: "Hash".to_string(),
@@ -608,8 +608,8 @@ impl TestClusterBuilder {
         self
     }
 
-    pub fn with_semantic_model_path(mut self, path: &str) -> Self {
-        self.semantic_model_path = Some(path.to_string());
+    pub fn with_agentic_model_path(mut self, path: &str) -> Self {
+        self.agentic_model_path = Some(path.to_string());
         self
     }
 
@@ -648,7 +648,7 @@ impl TestClusterBuilder {
                 &self.consensus_type,
                 &self.state_tree,
                 &self.commitment_scheme,
-                self.semantic_model_path.as_deref(),
+                self.agentic_model_path.as_deref(),
                 self.use_docker,
                 self.initial_services.clone(),
             )

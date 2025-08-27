@@ -1,5 +1,5 @@
-// Path: crates/services/src/semantic/mod.rs
-//! Semantic module implementation
+// Path: crates/services/src/Agentic/mod.rs
+//! Agentic module implementation
 
 use depin_sdk_api::impl_service_base;
 use depin_sdk_api::services::{BlockchainService, ServiceType};
@@ -7,14 +7,14 @@ use depin_sdk_api::services::{BlockchainService, ServiceType};
 pub mod normaliser;
 pub mod prompt_wrapper;
 
-pub struct SemanticService {
+pub struct AgenticService {
     // Add your implementation fields here
 }
 
-impl BlockchainService for SemanticService {
+impl BlockchainService for AgenticService {
     fn service_type(&self) -> ServiceType {
-        ServiceType::Semantic
+        ServiceType::Agentic
     }
 }
 
-impl_service_base!(SemanticService);
+impl_service_base!(AgenticService);

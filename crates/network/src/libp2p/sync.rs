@@ -23,16 +23,16 @@ use super::{Libp2pSync, SwarmCommand};
 pub enum SyncRequest {
     GetStatus,
     GetBlocks(u64),
-    // [NEW] Add a variant to carry a semantic prompt to a peer.
-    SemanticPrompt(String),
+    // [NEW] Add a variant to carry a agentic prompt to a peer.
+    AgenticPrompt(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SyncResponse {
     Status(u64),
     Blocks(Vec<Block<ChainTransaction>>),
-    // [NEW] Add a simple acknowledgement for semantic prompts.
-    SemanticAck,
+    // [NEW] Add a simple acknowledgement for agentic prompts.
+    AgenticAck,
 }
 
 #[derive(Debug, Clone, Default)]

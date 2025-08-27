@@ -122,7 +122,7 @@ async fn main() -> Result<()> {
             }
             log::info!("[Orchestration] Attestation channel to Guardian established.");
 
-            log::info!("[Orchestrator] Waiting for semantic attestation report from Guardian...");
+            log::info!("[Orchestrator] Waiting for agentic attestation report from Guardian...");
             match guardian_channel.receive().await {
                 Ok(report_bytes) => {
                     let report: Result<Vec<u8>, String> =
@@ -136,7 +136,7 @@ async fn main() -> Result<()> {
                             match workload_client_clone.get_expected_model_hash().await {
                                 Ok(expected_hash) => {
                                     if local_hash == expected_hash {
-                                        log::info!("[Orchestrator] Semantic model hash matches on-chain state. Node is healthy.");
+                                        log::info!("[Orchestrator] agentic model hash matches on-chain state. Node is healthy.");
                                     } else {
                                         log::error!("[Orchestrator] Model Integrity Failure! Local hash {} != on-chain hash {}. Quarantining node.", hex::encode(local_hash), hex::encode(expected_hash));
                                         is_quarantined_clone.store(true, Ordering::SeqCst);
@@ -155,7 +155,7 @@ async fn main() -> Result<()> {
                     }
                 }
                 Err(e) => {
-                    log::error!("[Orchestrator] Failed to receive semantic report from Guardian: {}. Quarantining node.", e);
+                    log::error!("[Orchestrator] Failed to receive agentic report from Guardian: {}. Quarantining node.", e);
                     is_quarantined_clone.store(true, Ordering::SeqCst);
                 }
             }
