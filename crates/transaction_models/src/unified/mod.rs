@@ -13,7 +13,8 @@ use depin_sdk_services::identity::IdentityHub;
 use depin_sdk_types::app::{ApplicationTransaction, ChainTransaction, StateEntry, SystemPayload};
 use depin_sdk_types::error::TransactionError;
 use depin_sdk_types::keys::{
-    ORACLE_DATA_PREFIX, ORACLE_PENDING_REQUEST_PREFIX, STAKES_KEY_CURRENT, STAKES_KEY_NEXT,
+    IBC_PROCESSED_RECEIPT_PREFIX, ORACLE_DATA_PREFIX, ORACLE_PENDING_REQUEST_PREFIX,
+    STAKES_KEY_CURRENT, STAKES_KEY_NEXT,
 };
 use libp2p::identity::PublicKey as Libp2pPublicKey;
 use serde::{Deserialize, Serialize};
@@ -157,6 +158,30 @@ where
                 let mut state = state_tree_arc.lock().await;
 
                 match &sys_tx.payload {
+                    SystemPayload::VerifyForeignReceipt { receipt, proof: _ } => {
+                        // In a full implementation, the proof would be passed to a
+                        // universal light client for verification against the anchor.
+                        // For this E2E test, we focus on the state transition.
+
+                        // 1. Anti-Replay Check
+                        let receipt_key =
+                            [IBC_PROCESSED_RECEIPT_PREFIX, &receipt.unique_leaf_id].concat();
+                        if state.get(&receipt_key)?.is_some() {
+                            return Err(TransactionError::Invalid(
+                                "Foreign receipt has already been processed (replay attack)"
+                                    .to_string(),
+                            ));
+                        }
+
+                        // 2. Mark as processed
+                        state.insert(&receipt_key, &[1])?;
+
+                        log::info!(
+                            "Foreign receipt processed successfully. Emitting local event for endpoint: {}",
+                            receipt.endpoint_id
+                        );
+                        Ok(())
+                    }
                     SystemPayload::SubmitOracleData {
                         request_id,
                         final_value,

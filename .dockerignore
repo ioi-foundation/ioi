@@ -1,15 +1,19 @@
 # Path: .dockerignore
 
-# Ignore the entire target directory, which contains large build artifacts.
-# The builder container will create its own clean target directory.
-target/
+# Ignore build artifacts
+**/target/
+**/Cargo.lock
 
-# Ignore the Git directory.
+# Ignore Git history
 .git/
 
-# Ignore IDE/editor-specific files.
+# Ignore editor and environment-specific files
 .vscode/
+.vscode-server/
+.devcontainer/
 .idea/
 
-# Ignore local environment files.
+# Ignore specific files
+.gitignore
+.dockerignore
 .env

@@ -187,7 +187,7 @@ cargo test --workspace
 | **Module Upgrade** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test module_upgrade_e2e -- --nocapture` |
 | **Semantic Consensus** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test semantic_consensus_e2e -- --nocapture` |
 | **Oracle** | `cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-file,primitive-hash" --test oracle_e2e -- --nocapture --test-threads=1` |
-| **Interoperability** | `cargo test -p depin-sdk-forge test_universal_verification_e2e --features "consensus-poa,vm-wasm,tree-file,primitive-hash" -- --nocapture` |
+| **Interoperability** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test interop_e2e -- --nocapture` |
 
 cargo test -p depin-sdk-forge --test pqc_migration_e2e test_pqc_identity_migration_lifecycle --features "consensus-poa,vm-wasm,tree-file,primitive-hash" -- --nocapture
 
@@ -199,12 +199,6 @@ cargo test -p depin-sdk-forge --test pqc_migration_e2e test_pqc_identity_migrati
 | **Sparse Merkle** | `cargo test -p depin-sdk-forge --test state_sparse_merkle_e2e --no-default-features -F "consensus-poa,vm-wasm,tree-sparse-merkle,primitive-hash" -- --nocapture` |
 | **Verkle Tree** | `cargo test -p depin-sdk-forge --test state_verkle_e2e --no-default-features -F "consensus-poa,vm-wasm,tree-verkle" -- --nocapture` |
 
-#### Run All E2E Tests
-```bash
-cargo test -p depin-sdk-forge --release \
-    --features "consensus-poa,consensus-pos,vm-wasm,tree-file,tree-hashmap,primitive-hash" \
-    -- --nocapture --test-threads=1
-```
 
 ### Docker Testing
 
