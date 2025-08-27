@@ -140,7 +140,7 @@ fn check_features() {
         enabled_features.push("tree-verkle");
     }
 
-    if enabled_features.len() > 1 {
+    if enabled_features.len() != 1 {
         panic!("Error: Please enable exactly one 'tree-*' feature for the depin-sdk-node crate. Found: {:?}", enabled_features);
     }
 }

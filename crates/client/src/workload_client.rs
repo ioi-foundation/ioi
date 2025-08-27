@@ -72,7 +72,7 @@ impl WorkloadClient {
     }
 
     pub async fn execute_transaction(&self, tx: ChainTransaction) -> Result<()> {
-        let request = WorkloadRequest::ExecuteTransaction(tx);
+        let request = WorkloadRequest::ExecuteTransaction(Box::new(tx));
         match self.send_and_receive(request).await? {
             WorkloadResponse::ExecuteTransaction(res) => res.map_err(|e: String| anyhow!(e)),
             _ => Err(anyhow!("Invalid response type from workload")),
