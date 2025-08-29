@@ -2,7 +2,9 @@
 
 use crate::upgrade_manager::ModuleUpgradeManager;
 use async_trait::async_trait;
-use depin_sdk_api::chain::{AppChain, PublicKey, StakeAmount};
+// --- MODIFICATION START: Import the new ChainView trait ---
+use depin_sdk_api::chain::{AppChain, ChainView, PublicKey, StakeAmount};
+// --- MODIFICATION END ---
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::services::access::{Service, ServiceDirectory};
 use depin_sdk_api::services::{ServiceType, UpgradableService};
@@ -179,6 +181,55 @@ where
     }
 }
 
+// --- MODIFICATION START: Implement the new ChainView trait for Chain ---
+#[async_trait]
+impl<CS, ST> ChainView<CS, ST> for Chain<CS>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
+{
+    async fn get_validator_set(
+        &self,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<Vec<Vec<u8>>, ChainError> {
+        match self.consensus_type {
+            ConsensusType::ProofOfStake => {
+                self.get_validator_set_from_key(workload, STAKES_KEY_CURRENT)
+                    .await
+            }
+            ConsensusType::ProofOfAuthority => {
+                let state_tree_arc = workload.state_tree();
+                let state = state_tree_arc.lock().await;
+                match state.get(AUTHORITY_SET_KEY) {
+                    Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
+                        ChainError::Transaction(format!("Failed to deserialize authority set: {e}"))
+                    }),
+                    Ok(None) => Ok(Vec::new()),
+                    Err(e) => Err(e.into()),
+                }
+            }
+        }
+    }
+
+    async fn get_authority_set(
+        &self,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<Vec<Vec<u8>>, ChainError> {
+        let state_tree_arc = workload.state_tree();
+        let state = state_tree_arc.lock().await;
+        match state.get(AUTHORITY_SET_KEY) {
+            Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
+                ChainError::Transaction(format!("Failed to deserialize authority set: {e}"))
+            }),
+            Ok(None) => Err(ChainError::State(StateError::KeyNotFound(
+                "system::authorities not found in state. Check genesis file.".to_string(),
+            ))),
+            Err(e) => Err(e.into()),
+        }
+    }
+}
+// --- MODIFICATION END ---
+
 #[async_trait]
 impl<CS, ST> AppChain<CS, UnifiedTransactionModel<CS>, ST> for Chain<CS>
 where
@@ -213,7 +264,6 @@ where
             services: &self.services,
         };
 
-        // Handle special system transactions that need access to the Chain struct itself.
         if let ChainTransaction::System(sys_tx) = tx {
             if let SystemPayload::SwapModule {
                 service_type,
@@ -221,7 +271,6 @@ where
                 activation_height,
             } = &sys_tx.payload
             {
-                // 1. Authorize against governance key
                 let state_tree_arc = workload.state_tree();
                 let state = state_tree_arc.lock().await;
                 let gov_pk_bs58_val = state
@@ -236,7 +285,6 @@ where
                 .map_err(|_| {
                     ChainError::Transaction("Invalid public key in signature proof".into())
                 })?;
-                // --- FIX: Clone `signer_pk` before the move ---
                 let signer_ed_pk = signer_pk.clone().try_into_ed25519().unwrap();
 
                 if gov_pk_bytes != signer_ed_pk.to_bytes() {
@@ -253,7 +301,6 @@ where
                 }
                 drop(state);
 
-                // 2. Schedule the upgrade
                 log::info!(
                     "[Chain] Scheduling module upgrade for service '{}' at height {}",
                     service_type,
@@ -273,24 +320,21 @@ where
         let state_tree_arc = workload.state_tree();
         let mut state = state_tree_arc.lock().await;
 
-        // 1) Stateless checks first
         self.state.transaction_model.validate_stateless(tx)?;
 
-        // 2) Ante handlers (signature/authorization, fees, etc.) next
         for service in self.services.services() {
             if let Some(decorator) = service.as_tx_decorator() {
                 decorator.ante_handle(&mut *state, tx, &ctx)?;
             }
         }
 
-        // 3) Only now mutate replay protection state
         check_and_bump_tx_nonce(&mut *state, tx)?;
 
         drop(state);
 
         self.state
             .transaction_model
-            .apply_payload(tx, workload, ctx)
+            .apply_payload(self, tx, workload, ctx)
             .await?;
 
         self.state.status.total_transactions += 1;
@@ -325,7 +369,6 @@ where
             .into());
         }
 
-        // Apply any scheduled module upgrades for this height.
         if height > 0 {
             let applied_count = self
                 ._service_manager
@@ -340,12 +383,10 @@ where
             }
         }
 
-        // Promote stakes at the BEGINNING of block processing
         if height > 0 {
             let state_tree_arc = workload.state_tree();
             let mut state = state_tree_arc.lock().await;
 
-            // Promote the NEXT stakes from the PREVIOUS block to be CURRENT for THIS block
             if let Some(next_stakes_bytes) = state.get(STAKES_KEY_NEXT)? {
                 state.insert(STAKES_KEY_CURRENT, &next_stakes_bytes)?;
             }
@@ -463,29 +504,6 @@ where
             .collect()
     }
 
-    async fn get_validator_set(
-        &self,
-        workload: &WorkloadContainer<ST>,
-    ) -> Result<Vec<Vec<u8>>, ChainError> {
-        match self.consensus_type {
-            ConsensusType::ProofOfStake => {
-                self.get_validator_set_from_key(workload, STAKES_KEY_CURRENT)
-                    .await
-            }
-            ConsensusType::ProofOfAuthority => {
-                let state_tree_arc = workload.state_tree();
-                let state = state_tree_arc.lock().await;
-                match state.get(AUTHORITY_SET_KEY) {
-                    Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
-                        ChainError::Transaction(format!("Failed to deserialize authority set: {e}"))
-                    }),
-                    Ok(None) => Ok(Vec::new()),
-                    Err(e) => Err(e.into()),
-                }
-            }
-        }
-    }
-
     async fn get_next_validator_set(
         &self,
         workload: &WorkloadContainer<ST>,
@@ -506,23 +524,6 @@ where
                     Err(e) => Err(e.into()),
                 }
             }
-        }
-    }
-
-    async fn get_authority_set(
-        &self,
-        workload: &WorkloadContainer<ST>,
-    ) -> Result<Vec<Vec<u8>>, ChainError> {
-        let state_tree_arc = workload.state_tree();
-        let state = state_tree_arc.lock().await;
-        match state.get(AUTHORITY_SET_KEY) {
-            Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
-                ChainError::Transaction(format!("Failed to deserialize authority set: {e}"))
-            }),
-            Ok(None) => Err(ChainError::State(StateError::KeyNotFound(
-                "system::authorities not found in state. Check genesis file.".to_string(),
-            ))),
-            Err(e) => Err(e.into()),
         }
     }
 

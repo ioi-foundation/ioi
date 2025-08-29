@@ -20,8 +20,8 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_types::{
     app::{
-        AccountId, ChainTransaction, Credential, SignHeader, SignatureProof, SignatureSuite,
-        SystemPayload, SystemTransaction,
+        account_id_from_pubkey, AccountId, ChainTransaction, Credential, SignHeader,
+        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
     },
     config::InitialServiceConfig,
     keys::IDENTITY_CREDENTIALS_PREFIX,
@@ -37,9 +37,7 @@ fn create_signed_system_tx(
     nonce: u64,
 ) -> Result<ChainTransaction> {
     let public_key = keypair.public().encode_protobuf();
-    let account_id: AccountId = depin_sdk_crypto::algorithms::hash::sha256(&public_key)
-        .try_into()
-        .unwrap();
+    let account_id = account_id_from_pubkey(&keypair.public());
 
     let header = SignHeader {
         account_id,
@@ -84,21 +82,18 @@ async fn test_universal_verification_e2e() -> Result<()> {
             let authority = keypair.public().to_peer_id().to_bytes();
             genesis["genesis_state"]["system::authorities"] = json!([authority]);
 
-            let public_key = keypair.public().encode_protobuf();
-            let account_id: AccountId = depin_sdk_crypto::algorithms::hash::sha256(&public_key)
-                .try_into()
-                .unwrap();
+            let account_id = account_id_from_pubkey(&keypair.public());
 
             let initial_cred = Credential {
                 suite: SignatureSuite::Ed25519,
-                public_key_hash: account_id,
+                public_key_hash: account_id.0,
                 activation_height: 0,
                 l2_location: None,
             };
 
             let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
             let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
-            let creds_key = [IDENTITY_CREDENTIALS_PREFIX, &account_id as &[u8]].concat();
+            let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
             let creds_key_b64 = format!("b64:{}", BASE64_STANDARD.encode(&creds_key));
             genesis["genesis_state"][creds_key_b64] =
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes)));

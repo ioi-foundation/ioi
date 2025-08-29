@@ -18,12 +18,37 @@ pub type PublicKey = String;
 /// The amount of stake a validator has.
 pub type StakeAmount = u64;
 
-/// A trait that defines the logic and capabilities of an application-specific blockchain.
+// --- MODIFICATION START: Introduce a new trait for context needed by transactions ---
+/// A trait providing a read-only "view" of chain-level context that transaction models may need.
+/// This trait is not generic over the transaction model, allowing it to be passed through
+/// composed transaction models without type conflicts.
 #[async_trait]
-pub trait AppChain<CS, TM, ST>: Debug + Send
+pub trait ChainView<CS, ST>: Debug + Send
 where
     CS: CommitmentScheme,
-    TM: TransactionModel<CommitmentScheme = CS>,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
+{
+    /// Retrieves the active validator set from the committed state.
+    async fn get_validator_set(
+        &self,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<Vec<Vec<u8>>, ChainError>;
+
+    /// Retrieves the active authority set from the committed state for PoA.
+    async fn get_authority_set(
+        &self,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<Vec<Vec<u8>>, ChainError>;
+}
+// --- MODIFICATION END ---
+
+
+/// A trait that defines the logic and capabilities of an application-specific blockchain.
+#[async_trait]
+pub trait AppChain<CS, TM, ST>: ChainView<CS, ST>
+where
+    CS: CommitmentScheme,
+    TM: TransactionModel<CommitmentScheme = CS> + ?Sized,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
 {
     /// Returns the current status of the chain.
@@ -61,20 +86,8 @@ where
     /// Retrieves all blocks since a given height.
     fn get_blocks_since(&self, height: u64) -> Vec<Block<ChainTransaction>>;
 
-    /// Retrieves the active validator set from the committed state.
-    async fn get_validator_set(
-        &self,
-        workload: &WorkloadContainer<ST>,
-    ) -> Result<Vec<Vec<u8>>, ChainError>;
-
     /// Retrieves the validator set that will be active for the next block (H+1).
     async fn get_next_validator_set(
-        &self,
-        workload: &WorkloadContainer<ST>,
-    ) -> Result<Vec<Vec<u8>>, ChainError>;
-
-    /// Retrieves the active authority set from the committed state for PoA.
-    async fn get_authority_set(
         &self,
         workload: &WorkloadContainer<ST>,
     ) -> Result<Vec<Vec<u8>>, ChainError>;
@@ -84,12 +97,10 @@ where
         &self,
         workload: &WorkloadContainer<ST>,
     ) -> Result<BTreeMap<PublicKey, StakeAmount>, ChainError>;
-
-    // --- FIX START: Add the new trait method for next stakes ---
+    
     /// Retrieves the map of staked validators for the next epoch for PoS.
     async fn get_next_staked_validators(
         &self,
         workload: &WorkloadContainer<ST>,
     ) -> Result<BTreeMap<PublicKey, StakeAmount>, ChainError>;
-    // --- FIX END ---
 }

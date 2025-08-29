@@ -9,8 +9,8 @@ use depin_sdk_network::libp2p::SwarmCommand;
 use depin_sdk_services::external_data::ExternalDataService;
 use depin_sdk_types::{
     app::{
-        ChainTransaction, OracleAttestation, OracleConsensusProof, SignHeader, SignatureProof,
-        StateEntry, SystemPayload, SystemTransaction,
+        AccountId, ChainTransaction, OracleAttestation, OracleConsensusProof, SignHeader,
+        SignatureProof, StateEntry, SystemPayload, SystemTransaction,
     },
     keys::ORACLE_PENDING_REQUEST_PREFIX,
 };
@@ -20,9 +20,10 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-// [Feedback #4] Define a reasonable time-to-live for attestations.
+// Time-to-live for attestations to prevent replay of old, potentially invalid data.
 const ATTESTATION_TTL_SECS: u64 = 300; // 5 minutes
 
+/// Checks for pending oracle requests after a block is processed and initiates data fetching.
 pub async fn handle_newly_processed_block<CS, ST, CE>(
     context: &MainLoopContext<CS, ST, CE>,
     _block_height: u64,
@@ -101,8 +102,6 @@ pub async fn handle_newly_processed_block<CS, ST, CE>(
                         signature: vec![],
                     };
 
-                    // [Feedback #1] Use the new deterministic signing payload.
-                    // For testing, we use a fixed chain_id. In production, this would come from config.
                     let payload_to_sign = attestation.to_signing_payload("test-chain");
                     let signature_bytes = context.local_keypair.sign(&payload_to_sign).unwrap();
                     attestation.signature = [pubkey_bytes.as_ref(), &signature_bytes].concat();
@@ -125,6 +124,7 @@ pub async fn handle_newly_processed_block<CS, ST, CE>(
     }
 }
 
+/// Handles a received oracle attestation from a peer validator.
 pub async fn handle_oracle_attestation_received<CS, ST, CE>(
     context: &mut MainLoopContext<CS, ST, CE>,
     from: PeerId,
@@ -148,7 +148,6 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE>(
         from
     );
 
-    // [Feedback #4] Check for stale attestations.
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -209,7 +208,6 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE>(
         return;
     }
 
-    // [Feedback #1] Use the deterministic signing payload for verification.
     let payload_to_verify = attestation.to_signing_payload("test-chain");
 
     if !pubkey.verify(&payload_to_verify, sig_bytes) {
@@ -225,7 +223,6 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE>(
         .entry(attestation.request_id)
         .or_default();
 
-    // [Feedback #5] Deduplicate by signer identity (PeerId).
     let signer_peer_id = pubkey.to_peer_id();
     if !entry.iter().any(|a| {
         if a.signature.len() > ED25519_PUBKEY_LEN {
@@ -242,6 +239,7 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE>(
     check_quorum_and_submit(context, attestation.request_id).await;
 }
 
+/// Checks if a quorum of attestations has been reached for a request and submits a finalization transaction if so.
 pub async fn check_quorum_and_submit<CS, ST, CE>(
     context: &mut MainLoopContext<CS, ST, CE>,
     request_id: u64,
@@ -314,7 +312,6 @@ pub async fn check_quorum_and_submit<CS, ST, CE>(
             total_stake
         );
 
-        // [Feedback #9] Aggregate the final value deterministically (median).
         let mut values: Vec<Vec<u8>> = valid_attestations_for_quorum
             .iter()
             .map(|(a, _)| a.value.clone())
@@ -335,15 +332,12 @@ pub async fn check_quorum_and_submit<CS, ST, CE>(
             consensus_proof,
         };
 
-        // The oracle submission is authorized by the consensus_proof inside the payload.
-        // The outer signature fields are placeholders. The validation logic for this
-        // specific payload in `UnifiedTransactionModel::apply` will bypass the signature check.
         let tx = ChainTransaction::System(SystemTransaction {
             payload,
             header: SignHeader {
-                account_id: [0; 32],
+                account_id: AccountId([0; 32]),
                 nonce: 0,
-                chain_id: 0, // Placeholder, a real chain would use its ID
+                chain_id: 0,
                 tx_version: 1,
             },
             signature_proof: SignatureProof::default(),

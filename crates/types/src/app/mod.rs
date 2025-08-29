@@ -1,6 +1,15 @@
 // Path: crates/types/src/app/mod.rs
 //! Core application-level data structures like Blocks and Transactions.
 
+// --- MODIFICATION START ---
+// Expose the new submodules for identity and penalty data structures.
+pub mod identity;
+pub mod penalties;
+
+pub use identity::*;
+pub use penalties::*;
+// --- MODIFICATION END ---
+
 use crate::ibc::{UniversalExecutionReceipt, UniversalProofFormat};
 use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
 use dcrypt::algorithms::ByteSerializable;
@@ -72,9 +81,6 @@ impl BlockHeader {
 }
 
 // --- NEW/MODIFIED DATA STRUCTURES FOR IDENTITY AND TRANSACTIONS ---
-
-/// A unique identifier for an on-chain account, derived from the initial public key hash. This address is stable and does not change.
-pub type AccountId = [u8; 32];
 
 /// Defines the cryptographic algorithm suite used for a key or signature.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -329,12 +335,19 @@ pub enum SystemPayload {
     /// Schedules a forkless upgrade of a core service module.
     SwapModule {
         /// The type of service to upgrade (e.g., Governance, Custom("fee")).
-        service_type: String, // Using String for simplicity in proposals
+        service_type: String,
         /// The new WASM blob for the module.
         module_wasm: Vec<u8>,
         /// The block height at which the upgrade becomes active.
         activation_height: u64,
     },
+    // --- MODIFICATION START ---
+    /// Reports misbehavior by another agentic component, providing verifiable evidence.
+    ReportMisbehavior {
+        /// The full report, including the offender, facts, and proof.
+        report: FailureReport,
+    },
+    // --- MODIFICATION END ---
     /// Casts a vote on a governance proposal.
     Vote {
         /// The unique identifier of the proposal being voted on.

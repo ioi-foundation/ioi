@@ -1,5 +1,10 @@
 // Path: crates/types/src/keys/mod.rs
 //! Defines constants for well-known state keys.
+//!
+//! These constants provide a single source of truth for the keys used to store
+//! critical system data in the state manager. Using these constants prevents
+//! typos and ensures consistency across different modules that need to access
+//! the same state entries.
 
 /// The state key for the map of validator stakes active for the CURRENT block height.
 pub const STAKES_KEY_CURRENT: &[u8] = b"system::stakes::current";
@@ -35,10 +40,18 @@ pub const ORACLE_PENDING_REQUEST_PREFIX: &[u8] = b"oracle::pending::";
 /// The state key prefix for finalized oracle data, keyed by request_id.
 pub const ORACLE_DATA_PREFIX: &[u8] = b"oracle::data::";
 
-// --- FIX START: Add new key for IBC anti-replay ---
 /// The state key prefix for storing processed foreign receipt IDs to prevent replays.
 pub const IBC_PROCESSED_RECEIPT_PREFIX: &[u8] = b"ibc::receipt::";
-// --- FIX END ---
+
+// --- MODIFICATION START ---
+/// The state key for the set of all evidence that has already been processed.
+/// Stores a `BTreeSet<[u8; 32]>` of evidence IDs, providing replay protection.
+pub const EVIDENCE_REGISTRY_KEY: &[u8] = b"system::penalties::evidence";
+/// The state key for the set of quarantined PoA validators.
+/// Stores a `BTreeSet<AccountId>`, representing authorities that are temporarily
+/// barred from consensus participation.
+pub const QUARANTINED_VALIDATORS_KEY: &[u8] = b"system::penalties::quarantined_poa";
+// --- MODIFICATION END ---
 
 // --- Identity Hub Keys ---
 /// State key prefix for an account's credentials array.

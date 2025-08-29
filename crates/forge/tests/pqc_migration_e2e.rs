@@ -16,13 +16,13 @@ use depin_sdk_crypto::sign::eddsa::Ed25519KeyPair;
 use depin_sdk_forge::testing::{submit_transaction, TestCluster};
 use depin_sdk_types::{
     app::{
-        AccountId, ChainTransaction, Credential, RotationProof, SignHeader, SignatureProof,
-        SignatureSuite, SystemPayload, SystemTransaction,
+        account_id_from_pubkey, AccountId, ChainTransaction, Credential, RotationProof, SignHeader,
+        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
     },
     config::InitialServiceConfig,
     service_configs::MigrationConfig,
 };
-use serde_json::json;
+use serde_json::json; // --- FIX: Import the json! macro ---
 use std::time::Duration;
 use tokio::time::sleep;
 
@@ -30,6 +30,7 @@ use tokio::time::sleep;
 trait TestSigner {
     fn public_bytes(&self) -> Vec<u8>;
     fn sign(&self, msg: &[u8]) -> Vec<u8>;
+    fn account_id(&self) -> AccountId;
 }
 
 impl TestSigner for Ed25519KeyPair {
@@ -39,6 +40,22 @@ impl TestSigner for Ed25519KeyPair {
     fn sign(&self, msg: &[u8]) -> Vec<u8> {
         SigningKeyPair::sign(self, msg).to_bytes()
     }
+    fn account_id(&self) -> AccountId {
+        // --- FIX START: Perform explicit type conversion ---
+        // 1. Get the raw bytes from our crypto crate's public key wrapper.
+        let pk_bytes = self.public_key().to_bytes();
+
+        // 2. Construct the specific libp2p Ed25519 public key type from the raw bytes.
+        let libp2p_ed25519_pk = libp2p::identity::ed25519::PublicKey::try_from_bytes(&pk_bytes)
+            .expect("Failed to create libp2p key from bytes");
+
+        // 3. Convert the specific key type into the generic libp2p::identity::PublicKey.
+        let libp2p_pk = libp2p::identity::PublicKey::from(libp2p_ed25519_pk);
+
+        // 4. Now, call the canonical function with the correct type.
+        account_id_from_pubkey(&libp2p_pk)
+        // --- FIX END ---
+    }
 }
 
 impl TestSigner for DilithiumKeyPair {
@@ -47,6 +64,10 @@ impl TestSigner for DilithiumKeyPair {
     }
     fn sign(&self, msg: &[u8]) -> Vec<u8> {
         SigningKeyPair::sign(self, msg).to_bytes()
+    }
+    fn account_id(&self) -> AccountId {
+        let pk_hash = depin_sdk_crypto::algorithms::hash::sha256(&self.public_bytes());
+        AccountId(pk_hash.try_into().unwrap())
     }
 }
 
@@ -79,10 +100,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     let ed25519_key = Ed25519KeyPair::generate();
     let dilithium_scheme = DilithiumScheme::new(SecurityLevel::Level2);
     let dilithium_key = dilithium_scheme.generate_keypair();
-    let account_id: AccountId =
-        depin_sdk_crypto::algorithms::hash::sha256(&ed25519_key.public_key().to_bytes())
-            .try_into()
-            .unwrap();
+    let account_id = ed25519_key.account_id();
     let mut nonce = 0;
     let grace_period_blocks = 5u64;
     let chain_id = 1u32;
@@ -102,13 +120,13 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
                 json!([keys[0].public().to_peer_id().to_bytes()]);
             let initial_cred = Credential {
                 suite: SignatureSuite::Ed25519,
-                public_key_hash: account_id,
+                public_key_hash: account_id.0,
                 activation_height: 0,
                 l2_location: None,
             };
             let creds: [Option<Credential>; 2] = [Some(initial_cred), None];
             let creds_bytes = serde_json::to_vec(&creds).unwrap();
-            let creds_key = [b"identity::creds::", &account_id as &[u8]].concat();
+            let creds_key = [b"identity::creds::", account_id.as_ref()].concat();
             genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&creds_key))] =
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes)));
         })
@@ -117,7 +135,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     let rpc_addr = &cluster.validators[0].rpc_addr;
 
     // 3. INITIAL TX (Ed25519) - Verifies nonce=0 works
-    sleep(Duration::from_secs(6)).await; // Wait for first block
+    sleep(Duration::from_secs(6)).await;
     let header = SignHeader {
         account_id,
         nonce,
@@ -138,7 +156,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     let challenge = {
         let mut preimage = b"DePIN-PQ-MIGRATE/v1".to_vec();
         preimage.extend_from_slice(&chain_id.to_le_bytes());
-        preimage.extend_from_slice(&account_id);
+        preimage.extend_from_slice(account_id.as_ref());
         preimage.extend_from_slice(&0u64.to_le_bytes()); // First rotation nonce is 0
         depin_sdk_crypto::algorithms::hash::sha256(&preimage)
     };
@@ -207,9 +225,8 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     }
 
     // 6. TEST POST-GRACE PERIOD (Wait for promotion to happen)
-    sleep(Duration::from_secs(18)).await; // Wait for more blocks to pass activation height
+    sleep(Duration::from_secs(18)).await;
 
-    // Old key should now fail. We submit it, but the node will reject it during block processing.
     let old_key_header = SignHeader {
         account_id,
         nonce,
@@ -223,11 +240,8 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
         SystemPayload::Stake { amount: 1 },
     )?;
 
-    // The RPC will accept the transaction into the mempool, but it will be rejected
-    // during block processing. The nonce for this invalid transaction will not be consumed.
     submit_transaction(rpc_addr, &old_key_tx).await?;
 
-    // New key should succeed with the same nonce.
     let new_key_header = SignHeader {
         account_id,
         nonce,

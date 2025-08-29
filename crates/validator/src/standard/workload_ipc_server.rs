@@ -1,10 +1,12 @@
 // Path: crates/validator/src/standard/workload_ipc_server.rs
 
 use anyhow::Result;
-use depin_sdk_api::{chain::AppChain, commitment::CommitmentScheme, validator::WorkloadContainer};
-// --- FIX START: Add the missing trait import ---
 use depin_sdk_api::transaction::TransactionModel;
-// --- FIX END ---
+use depin_sdk_api::{
+    chain::{AppChain, ChainView},
+    commitment::CommitmentScheme,
+    validator::WorkloadContainer,
+};
 use depin_sdk_chain::Chain;
 use depin_sdk_client::{
     ipc::{WorkloadRequest, WorkloadResponse},
@@ -132,6 +134,22 @@ where
                     .map_err(|e| e.to_string());
                 WorkloadResponse::ProcessBlock(res)
             }
+            // --- MODIFICATION START: Correctly handle ExecuteTransaction ---
+            WorkloadRequest::ExecuteTransaction(tx) => {
+                // IMPORTANT: This is the mempool pre-check path.
+                // It MUST NOT change consensus state and MUST respond quickly.
+                // We only run fast, stateless checks here. Stateful checks
+                // are performed during block processing.
+                let chain = self.chain_arc.lock().await;
+                let res = chain
+                    .state
+                    .transaction_model
+                    .validate_stateless(&tx)
+                    .map_err(|e| e.to_string());
+                log::debug!("Workload IPC: ExecuteTransaction precheck responded.");
+                WorkloadResponse::ExecuteTransaction(res)
+            }
+            // --- MODIFICATION END ---
             WorkloadRequest::GetStatus => {
                 let chain = self.chain_arc.lock().await;
                 let res = Ok(chain.state.status.clone());
@@ -170,17 +188,6 @@ where
                     }
                 };
                 WorkloadResponse::GetExpectedModelHash(handler.await.map_err(|e| e.to_string()))
-            }
-            WorkloadRequest::ExecuteTransaction(tx) => {
-                // IMPORTANT: The mempool path must NOT change consensus state.
-                // Only run stateless checks to gate obviously invalid transactions.
-                let chain = self.chain_arc.lock().await;
-                let res = chain
-                    .state
-                    .transaction_model
-                    .validate_stateless(&tx)
-                    .map_err(|e| e.to_string());
-                WorkloadResponse::ExecuteTransaction(res)
             }
             WorkloadRequest::GetStakes => {
                 let chain = self.chain_arc.lock().await;

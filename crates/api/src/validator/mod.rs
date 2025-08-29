@@ -1,20 +1,21 @@
 // Path: crates/api/src/validator/mod.rs
 //! Defines the core traits and structures for the validator architecture.
 
+// --- MODIFICATION START: Removed unused imports ---
 use crate::{
-    commitment::CommitmentScheme,
     services::access::ServiceDirectory,
-    state::{StateCommitment, StateManager, VmStateAccessor},
-    transaction::{context::TxContext, TransactionModel},
+    state::{StateManager, VmStateAccessor},
     vm::{ExecutionContext, ExecutionOutput, VirtualMachine, VmStateOverlay},
 };
+// --- MODIFICATION END ---
 use async_trait::async_trait;
 use dcrypt::algorithms::{
     hash::{sha2::Sha256 as DcryptSha256, HashFunction},
     ByteSerializable,
 };
 use depin_sdk_types::app::StateEntry;
-use depin_sdk_types::{config::WorkloadConfig, error::ValidatorError};
+use depin_sdk_types::config::WorkloadConfig;
+use depin_sdk_types::error::ValidatorError;
 use std::collections::HashMap;
 use std::fmt::{self, Debug};
 use std::sync::Arc;
@@ -26,28 +27,11 @@ pub mod types;
 pub use container::{Container, GuardianContainer};
 pub use types::ValidatorModel;
 
-/// A trait for any component that can execute transactions against a state tree.
-#[async_trait]
-pub trait TransactionExecutor<ST: StateCommitment + ?Sized> {
-    /// Executes a single transaction, validating it and applying it to the state tree.
-    async fn execute_transaction<CS, TM>(
-        &self,
-        tx: &TM::Transaction,
-        model: &TM,
-    ) -> Result<(), ValidatorError>
-    where
-        CS: CommitmentScheme<
-            Commitment = <ST as StateCommitment>::Commitment,
-            Proof = <ST as StateCommitment>::Proof,
-        >,
-        TM: TransactionModel<CommitmentScheme = CS> + Sync,
-        TM::Transaction: Sync,
-        ST: StateManager;
-}
+// The legacy TransactionExecutor trait has been removed.
 
 /// A container responsible for executing transactions, smart contracts, and managing state.
 pub struct WorkloadContainer<ST: StateManager> {
-    _config: WorkloadConfig,
+    config: WorkloadConfig,
     state_tree: Arc<Mutex<ST>>,
     vm: Box<dyn VirtualMachine>,
     services: ServiceDirectory,
@@ -56,7 +40,7 @@ pub struct WorkloadContainer<ST: StateManager> {
 impl<ST: StateManager + Debug> Debug for WorkloadContainer<ST> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("WorkloadContainer")
-            .field("_config", &self._config)
+            .field("config", &self.config)
             .field("state_tree", &self.state_tree)
             .field("vm", &"Box<dyn VirtualMachine>")
             .field("services", &"ServiceDirectory")
@@ -100,11 +84,16 @@ where
         services: ServiceDirectory,
     ) -> Self {
         Self {
-            _config: config,
+            config,
             state_tree: Arc::new(Mutex::new(state_tree)),
             vm,
             services,
         }
+    }
+
+    /// Returns a reference to the workload's configuration.
+    pub fn config(&self) -> &WorkloadConfig {
+        &self.config
     }
 
     /// Returns a thread-safe handle to the state tree.
@@ -248,44 +237,5 @@ where
 
     fn id(&self) -> &'static str {
         "workload_container"
-    }
-}
-
-#[async_trait]
-impl<ST> TransactionExecutor<ST> for WorkloadContainer<ST>
-where
-    ST: StateManager + StateCommitment + Send + Sync + 'static,
-{
-    async fn execute_transaction<CS, TM>(
-        &self,
-        tx: &TM::Transaction,
-        model: &TM,
-    ) -> Result<(), ValidatorError>
-    where
-        CS: CommitmentScheme<
-            Commitment = <ST as StateCommitment>::Commitment,
-            Proof = <ST as StateCommitment>::Proof,
-        >,
-        TM: TransactionModel<CommitmentScheme = CS> + Sync,
-        TM::Transaction: Sync,
-    {
-        model
-            .validate_stateless(tx)
-            .map_err(|e| ValidatorError::Other(e.to_string()))?;
-
-        // A minimal context for the now-legacy executor trait.
-        let ctx = TxContext {
-            block_height: 0, // Height is not known in this context
-            chain_id: 1,     // Placeholder
-            services: self.services(),
-        };
-
-        model
-            .apply_payload(tx, self, ctx)
-            .await
-            .map_err(|e| ValidatorError::Other(e.to_string()))?;
-
-        log::info!("Successfully executed transaction and updated state.");
-        Ok(())
     }
 }

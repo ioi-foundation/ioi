@@ -9,7 +9,7 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_types::{
     app::{
-        AccountId, ApplicationTransaction, ChainTransaction, Credential, SignHeader,
+        account_id_from_pubkey, ApplicationTransaction, ChainTransaction, Credential, SignHeader,
         SignatureProof, SignatureSuite,
     },
     config::InitialServiceConfig,
@@ -27,9 +27,7 @@ fn create_signed_app_tx(
     nonce: u64,
 ) -> ChainTransaction {
     let public_key = keypair.public().encode_protobuf();
-    let account_id: AccountId = depin_sdk_crypto::algorithms::hash::sha256(&public_key)
-        .try_into()
-        .unwrap();
+    let account_id = account_id_from_pubkey(&keypair.public());
 
     let header = SignHeader {
         account_id,
@@ -106,9 +104,9 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     build_test_artifacts("consensus-poa,vm-wasm,tree-file,primitive-hash");
     let counter_wasm =
         std::fs::read("../../target/wasm32-unknown-unknown/release/counter_contract.wasm")?;
-    let mut nonce = 0; // Initialize nonce for the test signer
+    let mut nonce = 0;
 
-    // 2. SETUP NETWORK using the TestCluster harness
+    // 2. SETUP NETWORK
     let mut cluster = TestCluster::builder()
         .with_validators(1)
         .with_consensus_type("ProofOfAuthority")
@@ -124,12 +122,8 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
             let authority_peer_id = keypair.public().to_peer_id();
             genesis["genesis_state"]["system::authorities"] = json!([authority_peer_id.to_bytes()]);
 
-            // --- FIX START: Add initial credential for the validator to genesis ---
-            let public_key = keypair.public().encode_protobuf();
-            let account_id: AccountId = depin_sdk_crypto::algorithms::hash::sha256(&public_key)
-                .try_into()
-                .unwrap();
-            let public_key_hash: [u8; 32] = account_id;
+            let account_id = account_id_from_pubkey(&keypair.public());
+            let public_key_hash: [u8; 32] = account_id.0;
 
             let initial_cred = Credential {
                 suite: SignatureSuite::Ed25519,
@@ -140,19 +134,16 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
 
             let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
             let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
-            let creds_key = [IDENTITY_CREDENTIALS_PREFIX, &account_id as &[u8]].concat();
+            let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
 
-            // The genesis loader expects binary keys/values to be base64-encoded
             let creds_key_b64 = format!("b64:{}", BASE64_STANDARD.encode(&creds_key));
             let creds_val_b64 = format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes));
 
             genesis["genesis_state"][creds_key_b64] = json!(creds_val_b64);
-            // --- FIX END ---
         })
         .build()
         .await?;
 
-    // Get a mutable handle to the single validator node and its resources.
     let node = &mut cluster.validators[0];
     let rpc_addr = &node.rpc_addr;
     let keypair = &node.keypair;
@@ -166,7 +157,7 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
         signature_proof: Default::default(),
     };
     let deploy_tx = create_signed_app_tx(keypair, deploy_tx_unsigned, nonce);
-    nonce += 1; // Increment nonce for the next transaction
+    nonce += 1;
     submit_transaction(rpc_addr, &deploy_tx).await?;
 
     // 4. PARSE LOGS TO GET CONTRACT ADDRESS
@@ -193,12 +184,11 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
         signature_proof: Default::default(),
     };
     let call_tx = create_signed_app_tx(keypair, call_tx_unsigned, nonce);
-    // nonce += 1; // Increment if more transactions were to follow
     submit_transaction(rpc_addr, &call_tx).await?;
     assert_log_contains("Workload", &mut workload_logs, "Contract call successful").await?;
 
     // 7. VERIFY FINAL STATE
-    tokio::time::sleep(std::time::Duration::from_secs(6)).await; // Wait for block processing
+    tokio::time::sleep(std::time::Duration::from_secs(6)).await;
     let final_value_bytes = query_contract(rpc_addr, address_hex, &get_input).await?;
     assert_eq!(final_value_bytes, vec![1], "Final count should be 1");
 
