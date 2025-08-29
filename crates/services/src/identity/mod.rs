@@ -9,14 +9,24 @@ use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::decorator::TxDecorator;
 use depin_sdk_crypto::sign::{dilithium::DilithiumPublicKey, eddsa::Ed25519PublicKey};
 use depin_sdk_types::app::{
-    AccountId, ChainTransaction, Credential, RotationProof, SignatureSuite, SystemPayload,
+    // --- FIX START: Add required imports ---
+    account_id_from_pubkey,
+    // --- FIX END ---
+    AccountId,
+    ChainTransaction,
+    Credential,
+    RotationProof,
+    SignatureSuite,
+    SystemPayload,
 };
 use depin_sdk_types::error::{StateError, TransactionError, UpgradeError};
 use depin_sdk_types::keys::{
     IDENTITY_CREDENTIALS_PREFIX, IDENTITY_PROMOTION_INDEX_PREFIX, IDENTITY_ROTATION_NONCE_PREFIX,
 };
 use depin_sdk_types::service_configs::MigrationConfig;
+// --- FIX START: Add required import ---
 use libp2p::identity::PublicKey as Libp2pPublicKey;
+// --- FIX END ---
 
 #[derive(Debug, Clone)]
 pub struct IdentityHub {
@@ -36,13 +46,13 @@ impl IdentityHub {
     }
 
     fn get_credentials_key(account_id: &AccountId) -> Vec<u8> {
-        [IDENTITY_CREDENTIALS_PREFIX, &account_id[..]].concat()
+        [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat()
     }
     fn get_index_key(height: u64) -> Vec<u8> {
         [IDENTITY_PROMOTION_INDEX_PREFIX, &height.to_le_bytes()].concat()
     }
     fn get_nonce_key(account_id: &AccountId) -> Vec<u8> {
-        [IDENTITY_ROTATION_NONCE_PREFIX, &account_id[..]].concat()
+        [IDENTITY_ROTATION_NONCE_PREFIX, account_id.as_ref()].concat()
     }
 
     pub fn get_credentials(
@@ -120,7 +130,7 @@ impl IdentityHub {
         let nonce = u64_from_le_bytes(state.get(&Self::get_nonce_key(account_id))?.as_ref());
         let mut preimage = b"DePIN-PQ-MIGRATE/v1".to_vec();
         preimage.extend_from_slice(&self.config.chain_id.to_le_bytes());
-        preimage.extend_from_slice(account_id);
+        preimage.extend_from_slice(account_id.as_ref());
         preimage.extend_from_slice(&nonce.to_le_bytes());
         Ok(depin_sdk_crypto::algorithms::hash::sha256(&preimage)
             .try_into()
@@ -286,9 +296,18 @@ impl TxDecorator for IdentityHub {
             },
         };
 
-        let pk_hash: [u8; 32] = depin_sdk_crypto::algorithms::hash::sha256(&proof.public_key)
-            .try_into()
-            .unwrap();
+        // --- FIX START: Use the canonical AccountId derivation function ---
+        let pk = Libp2pPublicKey::try_decode_protobuf(&proof.public_key)
+            .map_err(|_| TransactionError::Invalid("Malformed public key in proof".into()))?;
+        let derived_account_id = account_id_from_pubkey(&pk);
+        if derived_account_id != header.account_id {
+            return Err(TransactionError::Invalid(
+                "AccountId in header does not match public key in proof".into(),
+            ));
+        }
+        let pk_hash = derived_account_id.0; // Use the inner [u8; 32] for comparison
+                                            // --- FIX END ---
+
         let creds = self.get_credentials(state, &header.account_id)?;
 
         // First-use bootstrap if the account has no credentials at all

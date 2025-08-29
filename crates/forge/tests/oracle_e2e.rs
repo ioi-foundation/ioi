@@ -13,8 +13,8 @@ use depin_sdk_forge::testing::{
     assert_log_contains, build_test_artifacts, submit_transaction, TestCluster,
 };
 use depin_sdk_types::app::{
-    AccountId, ChainTransaction, SignHeader, SignatureProof, SignatureSuite, SystemPayload,
-    SystemTransaction,
+    account_id_from_pubkey, AccountId, ChainTransaction, SignHeader, SignatureProof,
+    SignatureSuite, SystemPayload, SystemTransaction,
 };
 use depin_sdk_types::keys::{STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
 use libp2p::identity::Keypair;
@@ -27,9 +27,7 @@ fn create_system_tx(
     nonce: u64,
 ) -> Result<ChainTransaction> {
     let public_key = keypair.public().encode_protobuf();
-    let account_id: AccountId = depin_sdk_crypto::algorithms::hash::sha256(&public_key)
-        .try_into()
-        .unwrap();
+    let account_id = account_id_from_pubkey(&keypair.public());
 
     let header = SignHeader {
         account_id,

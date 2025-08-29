@@ -7,15 +7,15 @@ use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_forge::testing::{
     assert_log_contains, build_test_artifacts, submit_transaction, TestCluster,
 };
-use depin_sdk_types::{
-    app::{
-        AccountId, ChainTransaction, SignHeader, SignatureProof, SignatureSuite, SystemPayload,
-        SystemTransaction,
-    },
-    config::InitialServiceConfig,
-    keys::{STAKES_KEY_CURRENT, STAKES_KEY_NEXT},
-    service_configs::MigrationConfig,
+// --- MODIFICATION START: Add account_id_from_pubkey import ---
+use depin_sdk_types::app::{
+    account_id_from_pubkey, AccountId, ChainTransaction, SignHeader, SignatureProof,
+    SignatureSuite, SystemPayload, SystemTransaction,
 };
+// --- MODIFICATION END ---
+use depin_sdk_types::config::InitialServiceConfig;
+use depin_sdk_types::keys::{STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
+use depin_sdk_types::service_configs::MigrationConfig;
 use libp2p::identity::Keypair;
 use serde_json::json;
 
@@ -25,10 +25,10 @@ fn create_system_tx(
     payload: SystemPayload,
     nonce: u64,
 ) -> Result<ChainTransaction> {
-    let public_key = keypair.public().encode_protobuf();
-    let account_id: AccountId = depin_sdk_crypto::algorithms::hash::sha256(&public_key)
-        .try_into()
-        .unwrap();
+    let public_key_bytes = keypair.public().encode_protobuf();
+    // --- MODIFICATION START: Use the canonical function ---
+    let account_id = account_id_from_pubkey(&keypair.public());
+    // --- MODIFICATION END ---
 
     let header = SignHeader {
         account_id,
@@ -47,7 +47,7 @@ fn create_system_tx(
 
     tx_to_sign.signature_proof = SignatureProof {
         suite: SignatureSuite::Ed25519,
-        public_key,
+        public_key: public_key_bytes,
         signature,
     };
     Ok(ChainTransaction::System(tx_to_sign))

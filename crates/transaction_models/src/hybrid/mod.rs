@@ -2,6 +2,7 @@
 use crate::account::{AccountConfig, AccountModel, AccountTransaction, AccountTransactionProof};
 use crate::utxo::{UTXOConfig, UTXOModel, UTXOTransaction, UTXOTransactionProof};
 use async_trait::async_trait;
+use depin_sdk_api::chain::AppChain;
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::context::TxContext;
@@ -80,6 +81,7 @@ where
 
     async fn apply_payload<ST>(
         &self,
+        chain: &(dyn depin_sdk_api::chain::ChainView<Self::CommitmentScheme, ST> + Send + Sync),
         tx: &Self::Transaction,
         workload: &WorkloadContainer<ST>,
         ctx: TxContext<'_>,
@@ -95,11 +97,13 @@ where
         match tx {
             HybridTransaction::Account(account_tx) => {
                 self.account_model
-                    .apply_payload(account_tx, workload, ctx)
+                    .apply_payload(chain, account_tx, workload, ctx)
                     .await
             }
             HybridTransaction::UTXO(utxo_tx) => {
-                self.utxo_model.apply_payload(utxo_tx, workload, ctx).await
+                self.utxo_model
+                    .apply_payload(chain, utxo_tx, workload, ctx)
+                    .await
             }
         }
     }

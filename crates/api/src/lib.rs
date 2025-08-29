@@ -48,6 +48,7 @@ pub mod prelude {
     pub use crate::transaction::decorator::TxDecorator;
     pub use crate::transaction::TransactionModel;
     pub use crate::validator::container::{Container, GuardianContainer};
-    pub use crate::validator::TransactionExecutor;
+    // --- MODIFICATION: Removed the line below ---
+    // pub use crate::validator::TransactionExecutor;
     pub use crate::vm::VirtualMachine;
 }

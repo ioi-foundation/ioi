@@ -1,6 +1,7 @@
 // Path: crates/api/src/transaction/mod.rs
 //! Defines the core `TransactionModel` trait.
 
+use crate::chain::ChainView;
 use crate::commitment::CommitmentScheme;
 use crate::state::StateManager;
 use crate::transaction::context::TxContext;
@@ -37,6 +38,7 @@ pub trait TransactionModel: Send + Sync {
     /// This is called *after* all `TxDecorator` handlers have passed.
     async fn apply_payload<ST>(
         &self,
+        chain: &(dyn ChainView<Self::CommitmentScheme, ST> + Send + Sync),
         tx: &Self::Transaction,
         workload: &WorkloadContainer<ST>,
         ctx: TxContext<'_>,

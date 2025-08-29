@@ -1,5 +1,6 @@
 // Path: crates/transaction_models/src/utxo/mod.rs
 use async_trait::async_trait;
+use depin_sdk_api::chain::AppChain;
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::context::TxContext;
@@ -82,6 +83,7 @@ where
 
     async fn apply_payload<ST>(
         &self,
+        _chain: &(dyn depin_sdk_api::chain::ChainView<Self::CommitmentScheme, ST> + Send + Sync),
         tx: &Self::Transaction,
         workload: &WorkloadContainer<ST>,
         _ctx: TxContext<'_>,

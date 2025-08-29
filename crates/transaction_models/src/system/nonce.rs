@@ -15,7 +15,8 @@ fn u64_from_le_bytes(bytes: Option<&Vec<u8>>) -> u64 {
 }
 
 fn get_tx_nonce_key(account_id: &AccountId) -> Vec<u8> {
-    [ACCOUNT_NONCE_PREFIX, &account_id[..]].concat()
+    // --- FIX: Use .as_ref() to convert AccountId to &[u8] ---
+    [ACCOUNT_NONCE_PREFIX, account_id.as_ref()].concat()
 }
 
 /// A core system function to check and atomically bump a transaction nonce.
@@ -25,17 +26,12 @@ pub fn check_and_bump_tx_nonce<S: StateManager + ?Sized>(
     tx: &ChainTransaction,
 ) -> Result<(), TransactionError> {
     let (account_id, nonce) = match tx {
-        ChainTransaction::System(sys_tx) => {
-            // --- FIX START: Bypass nonce check for non-account-based system calls ---
-            // These transactions are authorized by other means (e.g., governance key, IBC proof).
-            match sys_tx.payload {
-                SystemPayload::VerifyForeignReceipt { .. }
-                | SystemPayload::UpdateAuthorities { .. }
-                | SystemPayload::SubmitOracleData { .. } => return Ok(()),
-                _ => (sys_tx.header.account_id, sys_tx.header.nonce),
-            }
-            // --- FIX END ---
-        }
+        ChainTransaction::System(sys_tx) => match sys_tx.payload {
+            SystemPayload::VerifyForeignReceipt { .. }
+            | SystemPayload::UpdateAuthorities { .. }
+            | SystemPayload::SubmitOracleData { .. } => return Ok(()),
+            _ => (sys_tx.header.account_id, sys_tx.header.nonce),
+        },
         ChainTransaction::Application(app_tx) => match app_tx {
             depin_sdk_types::app::ApplicationTransaction::DeployContract { header, .. }
             | depin_sdk_types::app::ApplicationTransaction::CallContract { header, .. } => {
