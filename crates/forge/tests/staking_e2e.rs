@@ -7,14 +7,17 @@ use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_forge::testing::{
     assert_log_contains, build_test_artifacts, submit_transaction, TestCluster,
 };
-// --- MODIFICATION START: Add account_id_from_pubkey import ---
 use depin_sdk_types::app::{
-    account_id_from_pubkey, AccountId, ChainTransaction, SignHeader, SignatureProof,
-    SignatureSuite, SystemPayload, SystemTransaction,
+    account_id_from_pubkey, ChainTransaction, SignHeader, SignatureProof, SignatureSuite,
+    SystemPayload, SystemTransaction,
 };
-// --- MODIFICATION END ---
+// --- FIX START: Add necessary imports ---
+use depin_sdk_types::app::AccountId;
+use depin_sdk_types::codec;
+use std::collections::BTreeMap;
+// --- FIX END ---
 use depin_sdk_types::config::InitialServiceConfig;
-use depin_sdk_types::keys::{STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
+use depin_sdk_types::keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
 use depin_sdk_types::service_configs::MigrationConfig;
 use libp2p::identity::Keypair;
 use serde_json::json;
@@ -26,9 +29,7 @@ fn create_system_tx(
     nonce: u64,
 ) -> Result<ChainTransaction> {
     let public_key_bytes = keypair.public().encode_protobuf();
-    // --- MODIFICATION START: Use the canonical function ---
     let account_id = account_id_from_pubkey(&keypair.public());
-    // --- MODIFICATION END ---
 
     let header = SignHeader {
         account_id,
@@ -53,7 +54,7 @@ fn create_system_tx(
     Ok(ChainTransaction::System(tx_to_sign))
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_staking_lifecycle() -> Result<()> {
     // 1. SETUP: Build artifacts with the specific features needed for the spawned binaries.
     build_test_artifacts("consensus-pos,vm-wasm,tree-file,primitive-hash");
@@ -70,16 +71,27 @@ async fn test_staking_lifecycle() -> Result<()> {
             chain_id: 1,
         }))
         .with_genesis_modifier(|genesis, keys| {
-            let initial_staker_peer_id = keys[0].public().to_peer_id();
-            let stakes = json!({ initial_staker_peer_id.to_base58(): 100_000u64 });
-            let stakes_b64 = format!(
-                "b64:{}",
-                BASE64_STANDARD.encode(serde_json::to_vec(&stakes).unwrap())
-            );
+            let mut stakes = BTreeMap::new();
+            let initial_staker_account_id = account_id_from_pubkey(&keys[0].public());
+            stakes.insert(initial_staker_account_id, 100_000u64);
+
+            let stakes_bytes = codec::to_bytes_canonical(&stakes);
+            let stakes_b64 = format!("b64:{}", BASE64_STANDARD.encode(&stakes_bytes));
+
             genesis["genesis_state"][std::str::from_utf8(STAKES_KEY_CURRENT).unwrap()] =
                 json!(stakes_b64.clone());
             genesis["genesis_state"][std::str::from_utf8(STAKES_KEY_NEXT).unwrap()] =
                 json!(stakes_b64);
+
+            // Populate the pubkey lookup map for the initial staker
+            let pubkey_map_key = [
+                ACCOUNT_ID_TO_PUBKEY_PREFIX,
+                initial_staker_account_id.as_ref(),
+            ]
+            .concat();
+            let pubkey_bytes = keys[0].public().encode_protobuf();
+            genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key))] =
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&pubkey_bytes)));
         })
         .build()
         .await?;
@@ -90,7 +102,7 @@ async fn test_staking_lifecycle() -> Result<()> {
         (it.next().unwrap(), it.next().unwrap(), it.next().unwrap())
     };
     let rpc_addr = node0.rpc_addr.clone();
-    let node1_peer_id_b58 = node1.peer_id.to_base58();
+    let node1_account_id_hex = hex::encode(account_id_from_pubkey(&node1.keypair.public()));
     let mut logs1 = node1.orch_log_stream.lock().await.take().unwrap();
     let mut logs2 = node2.orch_log_stream.lock().await.take().unwrap();
 
@@ -103,14 +115,19 @@ async fn test_staking_lifecycle() -> Result<()> {
     let unstake_tx = create_system_tx(&node0.keypair, unstake_payload, 0)?;
     submit_transaction(&rpc_addr, &unstake_tx).await?;
 
+    // --- FIX START: Add the public_key field to the Stake payload ---
     // Transaction 2: Node1 stakes some funds to become the new (and only) validator.
-    let stake_payload = SystemPayload::Stake { amount: 50_000 };
+    let stake_payload = SystemPayload::Stake {
+        public_key: node1.keypair.public().encode_protobuf(),
+        amount: 50_000,
+    };
+    // --- FIX END ---
     let stake_tx = create_system_tx(&node1.keypair, stake_payload, 0)?;
     submit_transaction(&rpc_addr, &stake_tx).await?;
 
     // 6. VERIFICATION: Wait for the ultimate desired outcome: Node1 is elected as the leader.
     // The state transition happens at the end of block 2, so the new leader is for block 3.
-    let expected_leader_log = format!("[PoS] leader@3 = {}", node1_peer_id_b58);
+    let expected_leader_log = format!("[PoS] Leader for height 3: {}", node1_account_id_hex);
 
     assert_log_contains(
         "Node1", // We can check any node's log, as they all run the same consensus.

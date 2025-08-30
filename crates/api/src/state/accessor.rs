@@ -1,12 +1,12 @@
 // Path: crates/api/src/state/accessor.rs
 //! A dyn-safe trait for state access within decorators and hooks.
 
-use crate::state::StateManager; // Add this import
+use crate::state::StateManager;
 use depin_sdk_types::error::StateError;
 
 /// A dyn-safe trait that erases the generic `StateManager` type, allowing
 /// services to interact with state without knowing its concrete implementation.
-pub trait StateAccessor {
+pub trait StateAccessor: Send {
     /// Gets a value by key.
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError>;
     /// Inserts a key-value pair.
@@ -18,7 +18,7 @@ pub trait StateAccessor {
 }
 
 // Blanket implementation to allow any `StateManager` to be used as a `StateAccessor`.
-impl<T: StateManager + ?Sized> StateAccessor for T {
+impl<T: StateManager + Send + ?Sized> StateAccessor for T {
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
         // Since we can't call T::get directly on a trait object `self`,
         // we must call the methods defined in the StateCommitment supertrait.

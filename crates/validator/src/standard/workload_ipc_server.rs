@@ -13,6 +13,7 @@ use depin_sdk_client::{
     security::SecurityChannel,
 };
 use depin_sdk_services::governance::{GovernanceModule, Proposal, ProposalStatus};
+use depin_sdk_types::app::AccountId;
 use depin_sdk_types::keys::{GOVERNANCE_PROPOSAL_KEY_PREFIX, STAKES_KEY_CURRENT};
 use rcgen::{Certificate, CertificateParams, SanType};
 use serde::{Deserialize, Serialize};
@@ -134,7 +135,6 @@ where
                     .map_err(|e| e.to_string());
                 WorkloadResponse::ProcessBlock(res)
             }
-            // --- MODIFICATION START: Correctly handle ExecuteTransaction ---
             WorkloadRequest::ExecuteTransaction(tx) => {
                 // IMPORTANT: This is the mempool pre-check path.
                 // It MUST NOT change consensus state and MUST respond quickly.
@@ -149,7 +149,6 @@ where
                 log::debug!("Workload IPC: ExecuteTransaction precheck responded.");
                 WorkloadResponse::ExecuteTransaction(res)
             }
-            // --- MODIFICATION END ---
             WorkloadRequest::GetStatus => {
                 let chain = self.chain_arc.lock().await;
                 let res = Ok(chain.state.status.clone());
@@ -221,6 +220,14 @@ where
                     .map_err(|e| e.to_string());
                 WorkloadResponse::GetValidatorSet(res)
             }
+            WorkloadRequest::GetStakedValidators => {
+                let chain = self.chain_arc.lock().await;
+                let res = chain
+                    .get_staked_validators(&self.workload_container)
+                    .await
+                    .map_err(|e| e.to_string());
+                WorkloadResponse::GetStakedValidators(res)
+            }
             WorkloadRequest::GetStateRoot => {
                 let state_tree_arc = self.workload_container.state_tree();
                 let state = state_tree_arc.lock().await;
@@ -271,10 +278,15 @@ where
                             && current_height > proposal.voting_end_height
                         {
                             log::info!("[Workload] Tallying proposal {}", proposal.id);
-                            let stakes = match state.get(STAKES_KEY_CURRENT)? {
-                                Some(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
+                            // --- FIX START: Use canonical codec and AccountId key for stakes ---
+                            let stakes: BTreeMap<AccountId, u64> = match state
+                                .get(STAKES_KEY_CURRENT)?
+                            {
+                                Some(bytes) => depin_sdk_types::codec::from_bytes_canonical(&bytes)
+                                    .unwrap_or_default(),
                                 _ => BTreeMap::new(),
                             };
+                            // --- FIX END ---
                             if let Err(e) =
                                 governance_module.tally_proposal(&mut *state, proposal.id, &stakes)
                             {
@@ -308,6 +320,12 @@ where
                 let state = state_tree_arc.lock().await;
                 let res = state.prefix_scan(&prefix).map_err(|e| e.to_string());
                 WorkloadResponse::PrefixScan(res)
+            }
+            WorkloadRequest::QueryRawState(key) => {
+                let state_tree_arc = self.workload_container.state_tree();
+                let state = state_tree_arc.lock().await;
+                let res = state.get(&key).map_err(|e| e.to_string());
+                WorkloadResponse::QueryRawState(res)
             }
             _ => WorkloadResponse::CallService(Err("Unsupported service call".to_string())),
         };

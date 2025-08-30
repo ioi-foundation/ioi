@@ -3,9 +3,9 @@ use super::context::MainLoopContext;
 use super::oracle::handle_newly_processed_block;
 use depin_sdk_api::{
     commitment::CommitmentScheme,
+    consensus::ConsensusEngine,
     state::{StateCommitment, StateManager},
 };
-use depin_sdk_consensus::ConsensusEngine;
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_types::app::{Block, ChainTransaction, SystemPayload, SystemTransaction};
 use serde::{Deserialize, Serialize};
@@ -60,10 +60,9 @@ pub async fn handle_gossip_block<CS, ST, CE>(
     );
 
     let mut engine = context.consensus_engine_ref.lock().await;
-    let mut chain = context.chain_ref.lock().await;
 
     if let Err(e) = engine
-        .handle_block_proposal(block.clone(), &mut *chain, &context.workload_client)
+        .handle_block_proposal(block.clone(), context.workload_client.as_ref())
         .await
     {
         log::warn!(
@@ -74,7 +73,6 @@ pub async fn handle_gossip_block<CS, ST, CE>(
         return;
     }
     drop(engine);
-    drop(chain);
 
     log::info!(
         "[Orchestrator] Block #{} is valid. Forwarding to workload...",

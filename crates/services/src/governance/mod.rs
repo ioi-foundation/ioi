@@ -2,7 +2,7 @@
 //! Governance module implementations for the DePIN SDK
 
 use depin_sdk_api::state::StateManager;
-use depin_sdk_types::app::VoteOption;
+use depin_sdk_types::app::{AccountId, VoteOption};
 use depin_sdk_types::keys::{
     GOVERNANCE_NEXT_PROPOSAL_ID_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, GOVERNANCE_VOTE_KEY_PREFIX,
 };
@@ -114,12 +114,12 @@ impl GovernanceModule {
         [GOVERNANCE_PROPOSAL_KEY_PREFIX, &id.to_le_bytes()].concat()
     }
 
-    pub fn vote_key(proposal_id: u64, voter: &[u8]) -> Vec<u8> {
+    pub fn vote_key(proposal_id: u64, voter: &AccountId) -> Vec<u8> {
         [
             GOVERNANCE_VOTE_KEY_PREFIX,
             &proposal_id.to_le_bytes(),
             b"::",
-            voter,
+            voter.as_ref(),
         ]
         .concat()
     }
@@ -163,7 +163,7 @@ impl GovernanceModule {
         &self,
         state: &mut S,
         proposal_id: u64,
-        voter_b58: &str,
+        voter: &AccountId,
         option: VoteOption,
         current_height: u64,
     ) -> Result<(), String> {
@@ -183,7 +183,7 @@ impl GovernanceModule {
         }
 
         // In a real implementation, we would check the voter's voting power (stake).
-        let vote_key = Self::vote_key(proposal_id, voter_b58.as_bytes());
+        let vote_key = Self::vote_key(proposal_id, voter);
         let vote_bytes = serde_json::to_vec(&option).unwrap();
         state
             .insert(&vote_key, &vote_bytes)
@@ -197,7 +197,7 @@ impl GovernanceModule {
         &self,
         state: &mut S,
         proposal_id: u64,
-        stakes: &BTreeMap<String, u64>, // The map of staker pubkey (bs58) -> stake amount
+        stakes: &BTreeMap<AccountId, u64>, // The map of staker AccountId -> stake amount
     ) -> Result<(), String> {
         let key = Self::proposal_key(proposal_id);
         let proposal_bytes = state
@@ -205,8 +205,6 @@ impl GovernanceModule {
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "Tally failed: Proposal not found".to_string())?;
         let mut proposal: Proposal = serde_json::from_slice(&proposal_bytes).unwrap();
-
-        // --- START REPLACEMENT ---
 
         // 1. Calculate total voting power from the stakes map.
         let total_voting_power: u64 = stakes.values().sum();
@@ -239,14 +237,16 @@ impl GovernanceModule {
             let option: VoteOption = serde_json::from_slice(&vote_bytes)
                 .map_err(|_| "Failed to deserialize vote".to_string())?;
 
-            // 4. Extract the voter's public key (as base58 string) from the state key.
-            // The key is formatted as: "gov::vote::<proposal_id>::<voter_pubkey_bs58>"
+            // 4. Extract the voter's AccountId from the state key.
+            // The key is formatted as: "gov::vote::<proposal_id>::<voter_account_id>"
             let prefix_len = vote_key_prefix.len();
-            let voter_pubkey_bs58 = String::from_utf8(vote_key[prefix_len..].to_vec())
-                .map_err(|_| "Invalid voter pubkey in state key".to_string())?;
+            let voter_account_id_bytes: [u8; 32] = vote_key[prefix_len..]
+                .try_into()
+                .map_err(|_| "Invalid voter AccountId in state key".to_string())?;
+            let voter_account_id = AccountId(voter_account_id_bytes);
 
             // 5. Get the voter's power from the stakes map. Default to 0 if not a staker.
-            let voting_power = stakes.get(&voter_pubkey_bs58).copied().unwrap_or(0);
+            let voting_power = stakes.get(&voter_account_id).copied().unwrap_or(0);
 
             // 6. Tally the vote with its corresponding power.
             match option {
@@ -259,11 +259,9 @@ impl GovernanceModule {
             total_voted_power += voting_power;
         }
 
-        // --- END REPLACEMENT ---
-
         proposal.final_tally = Some(tally.clone());
 
-        // 2. Apply Governance Rules (this logic remains the same, but now uses real data)
+        // 2. Apply Governance Rules
         let quorum_threshold = (total_voting_power * self.params.quorum as u64) / 100;
         let total_power_excluding_abstain = tally.yes + tally.no + tally.no_with_veto;
 
@@ -431,15 +429,18 @@ mod tests {
         let proposal_id = setup_proposal(&mut state, ProposalStatus::VotingPeriod);
         let module = GovernanceModule::default(); // Quorum: 33%, Threshold: 50%, Veto: 33%
 
+        let voter1_id = AccountId([1; 32]);
+        let voter2_id = AccountId([2; 32]);
+
         // Setup stakes: Voter1 has 600, Voter2 has 400. Total power = 1000.
         let mut stakes = BTreeMap::new();
-        stakes.insert("voter1_pubkey".to_string(), 600);
-        stakes.insert("voter2_pubkey".to_string(), 400);
+        stakes.insert(voter1_id, 600);
+        stakes.insert(voter2_id, 400);
 
         // Setup votes: Voter1 votes YES. Total voted power = 600.
         state
             .insert(
-                &GovernanceModule::vote_key(proposal_id, b"voter1_pubkey"),
+                &GovernanceModule::vote_key(proposal_id, &voter1_id),
                 &serde_json::to_vec(&VoteOption::Yes).unwrap(),
             )
             .unwrap();
@@ -460,14 +461,17 @@ mod tests {
         let proposal_id = setup_proposal(&mut state, ProposalStatus::VotingPeriod);
         let module = GovernanceModule::default();
 
+        let voter1_id = AccountId([1; 32]);
+        let voter2_id = AccountId([2; 32]);
+
         let mut stakes = BTreeMap::new();
-        stakes.insert("voter1_pubkey".to_string(), 1000); // Total power = 1000
+        stakes.insert(voter1_id, 1000); // Total power = 1300
+        stakes.insert(voter2_id, 300);
 
         // Only one voter with 300 power votes.
-        stakes.insert("voter2_pubkey".to_string(), 300);
         state
             .insert(
-                &GovernanceModule::vote_key(proposal_id, b"voter2_pubkey"),
+                &GovernanceModule::vote_key(proposal_id, &voter2_id),
                 &serde_json::to_vec(&VoteOption::Yes).unwrap(),
             )
             .unwrap();
@@ -486,20 +490,23 @@ mod tests {
         let proposal_id = setup_proposal(&mut state, ProposalStatus::VotingPeriod);
         let module = GovernanceModule::default();
 
+        let voter1_id = AccountId([1; 32]);
+        let voter2_id = AccountId([2; 32]);
+
         let mut stakes = BTreeMap::new();
-        stakes.insert("voter1_pubkey".to_string(), 400);
-        stakes.insert("voter2_pubkey".to_string(), 600); // Total power = 1000
+        stakes.insert(voter1_id, 400);
+        stakes.insert(voter2_id, 600); // Total power = 1000
 
         // Both vote, so quorum is met. Voter1 votes YES, Voter2 votes NO.
         state
             .insert(
-                &GovernanceModule::vote_key(proposal_id, b"voter1_pubkey"),
+                &GovernanceModule::vote_key(proposal_id, &voter1_id),
                 &serde_json::to_vec(&VoteOption::Yes).unwrap(),
             )
             .unwrap();
         state
             .insert(
-                &GovernanceModule::vote_key(proposal_id, b"voter2_pubkey"),
+                &GovernanceModule::vote_key(proposal_id, &voter2_id),
                 &serde_json::to_vec(&VoteOption::No).unwrap(),
             )
             .unwrap();
@@ -519,19 +526,22 @@ mod tests {
         let proposal_id = setup_proposal(&mut state, ProposalStatus::VotingPeriod);
         let module = GovernanceModule::default();
 
+        let voter1_id = AccountId([1; 32]);
+        let voter2_id = AccountId([2; 32]);
+
         let mut stakes = BTreeMap::new();
-        stakes.insert("voter1_pubkey".to_string(), 600); // Majority Yes
-        stakes.insert("voter2_pubkey".to_string(), 400); // Veto power
+        stakes.insert(voter1_id, 600); // Majority Yes
+        stakes.insert(voter2_id, 400); // Veto power
 
         state
             .insert(
-                &GovernanceModule::vote_key(proposal_id, b"voter1_pubkey"),
+                &GovernanceModule::vote_key(proposal_id, &voter1_id),
                 &serde_json::to_vec(&VoteOption::Yes).unwrap(),
             )
             .unwrap();
         state
             .insert(
-                &GovernanceModule::vote_key(proposal_id, b"voter2_pubkey"),
+                &GovernanceModule::vote_key(proposal_id, &voter2_id),
                 &serde_json::to_vec(&VoteOption::NoWithVeto).unwrap(),
             )
             .unwrap();

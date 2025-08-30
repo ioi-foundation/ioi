@@ -11,10 +11,11 @@ use depin_sdk_api::{
 use depin_sdk_chain::util::load_state_from_genesis_file;
 use depin_sdk_chain::wasm_loader::load_service_from_wasm;
 use depin_sdk_chain::Chain;
+use depin_sdk_consensus::util::engine_from_config;
 use depin_sdk_services::identity::IdentityHub;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::config::{
-    CommitmentSchemeType, InitialServiceConfig, StateTreeType, WorkloadConfig,
+    CommitmentSchemeType, InitialServiceConfig, OrchestrationConfig, StateTreeType, WorkloadConfig,
 };
 use depin_sdk_validator::standard::WorkloadIpcServer;
 use depin_sdk_vm_wasm::WasmVm;
@@ -101,13 +102,26 @@ where
         service_directory,
     ));
 
+    // The Workload's Chain instance needs a consensus engine to handle penalty
+    // logic correctly, but it doesn't need orchestration-specific parameters
+    // like timeouts. We create a temporary config to satisfy the factory function.
+    let temp_orch_config = OrchestrationConfig {
+        consensus_type: config.consensus_type.clone(),
+        rpc_listen_address: String::new(),
+        initial_sync_timeout_secs: 0,
+        block_production_interval_secs: 0,
+        round_robin_view_timeout_secs: 0,
+        default_query_gas_limit: 0,
+    };
+    let consensus_engine = engine_from_config(&temp_orch_config)?;
+
     let mut chain = Chain::new(
         commitment_scheme.clone(),
         UnifiedTransactionModel::new(commitment_scheme),
         "depin-chain-1",
         initial_services,
         Box::new(load_service_from_wasm),
-        config.consensus_type.clone(),
+        consensus_engine,
     );
     chain.load_or_initialize_status(&workload_container).await?;
     let chain_arc = Arc::new(Mutex::new(chain));
@@ -147,9 +161,7 @@ fn check_features() {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // --- FIX START: Move build-time check to runtime ---
     check_features();
-    // --- FIX END ---
 
     env_logger::builder()
         .filter_level(log::LevelFilter::Info)

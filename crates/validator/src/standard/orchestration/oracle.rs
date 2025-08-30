@@ -2,9 +2,9 @@
 use super::context::MainLoopContext;
 use depin_sdk_api::{
     commitment::CommitmentScheme,
+    consensus::ConsensusEngine,
     state::{StateCommitment, StateManager},
 };
-use depin_sdk_consensus::ConsensusEngine;
 use depin_sdk_network::libp2p::SwarmCommand;
 use depin_sdk_services::external_data::ExternalDataService;
 use depin_sdk_types::{
@@ -16,7 +16,7 @@ use depin_sdk_types::{
 };
 use libp2p::{identity::PublicKey as Libp2pPublicKey, PeerId};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::fmt::Debug;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -53,18 +53,30 @@ pub async fn handle_newly_processed_block<CS, ST, CE>(
         }
     };
 
-    let validator_set = match context.workload_client.get_validator_set().await {
+    // --- FIX START ---
+    // Get the stakes map, which uses AccountId as the key.
+    let validator_stakes = match context.workload_client.get_staked_validators().await {
         Ok(vs) => vs,
         Err(e) => {
-            log::error!("Oracle: Could not get validator set: {}", e);
+            log::error!("Oracle: Could not get validator stakes: {}", e);
             return;
         }
     };
 
-    let our_id_bytes = context.local_peer_id.to_bytes();
-    if !validator_set.contains(&our_id_bytes) {
-        return;
+    // Convert the BTreeMap<String, u64> back to BTreeMap<AccountId, u64>
+    let validator_account_ids: HashSet<AccountId> = validator_stakes
+        .keys()
+        .filter_map(|hex_str| hex::decode(hex_str).ok())
+        .filter_map(|bytes| bytes.try_into().ok().map(AccountId))
+        .collect();
+
+    // Derive our own AccountId to check for membership.
+    let our_account_id =
+        depin_sdk_types::app::account_id_from_pubkey(&context.local_keypair.public());
+    if !validator_account_ids.contains(&our_account_id) {
+        return; // This node is not a staked validator, so it shouldn't perform oracle tasks.
     }
+    // --- FIX END ---
 
     log::info!("Oracle: This node is in the validator set, checking for new tasks...");
 
@@ -199,14 +211,18 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE>(
         }
     };
 
-    let pk_b58 = pubkey.to_peer_id().to_base58();
-    if !validator_stakes.contains_key(&pk_b58) {
+    // --- FIX START: Verify against the correct key format (AccountId hex) ---
+    let signer_account_id = depin_sdk_types::app::account_id_from_pubkey(&pubkey);
+    let signer_account_id_hex = hex::encode(signer_account_id);
+
+    if !validator_stakes.contains_key(&signer_account_id_hex) {
         log::warn!(
             "Oracle: Received attestation from non-staker {}, disregarding.",
             from
         );
         return;
     }
+    // --- FIX END ---
 
     let payload_to_verify = attestation.to_signing_payload("test-chain");
 
@@ -288,12 +304,16 @@ pub async fn check_quorum_and_submit<CS, ST, CE>(
             Err(_) => continue,
         };
 
-        let pk_b58 = pubkey.to_peer_id().to_base58();
-        if validator_stakes.contains_key(&pk_b58) {
+        // --- FIX START: Verify against AccountId hex ---
+        let signer_account_id_hex =
+            hex::encode(depin_sdk_types::app::account_id_from_pubkey(&pubkey));
+        if validator_stakes.contains_key(&signer_account_id_hex) {
+            // --- FIX END ---
             let payload_to_verify = att.to_signing_payload("test-chain");
-            if pubkey.verify(&payload_to_verify, sig_bytes) && unique_signers.insert(pk_b58.clone())
+            if pubkey.verify(&payload_to_verify, sig_bytes)
+                && unique_signers.insert(signer_account_id_hex.clone())
             {
-                valid_attestations_for_quorum.push((att.clone(), pk_b58));
+                valid_attestations_for_quorum.push((att.clone(), signer_account_id_hex));
             }
         }
     }
@@ -301,7 +321,7 @@ pub async fn check_quorum_and_submit<CS, ST, CE>(
 
     let attested_stake: u64 = valid_attestations_for_quorum
         .iter()
-        .filter_map(|(_, pk_b58)| validator_stakes.get(pk_b58))
+        .filter_map(|(_, account_id_hex)| validator_stakes.get(account_id_hex))
         .sum();
 
     if attested_stake >= quorum_threshold {

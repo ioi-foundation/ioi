@@ -1,18 +1,14 @@
 // Path: crates/consensus/src/proof_of_authority.rs
-use crate::{ConsensusDecision, ConsensusEngine};
+use crate::{ConsensusDecision, ConsensusEngine, PenaltyMechanism};
 use async_trait::async_trait;
-use depin_sdk_api::chain::AppChain;
-use depin_sdk_api::commitment::CommitmentScheme;
-use depin_sdk_api::state::StateManager;
-use depin_sdk_api::transaction::TransactionModel;
-use depin_sdk_client::WorkloadClient;
-use depin_sdk_types::app::Block;
-use depin_sdk_types::error::ConsensusError;
+use depin_sdk_api::consensus::ChainStateReader;
+use depin_sdk_api::state::StateAccessor;
+use depin_sdk_types::app::{AccountId, Block, FailureReport};
+use depin_sdk_types::error::{ConsensusError, StateError, TransactionError};
+use depin_sdk_types::keys::{AUTHORITY_SET_KEY, QUARANTINED_VALIDATORS_KEY};
 use libp2p::identity::PublicKey;
 use libp2p::PeerId;
-use std::collections::HashSet;
-use std::fmt::Debug;
-use std::sync::Arc;
+use std::collections::{BTreeSet, HashSet};
 
 pub struct ProofOfAuthorityEngine {}
 
@@ -29,20 +25,64 @@ impl ProofOfAuthorityEngine {
 }
 
 #[async_trait]
+impl PenaltyMechanism for ProofOfAuthorityEngine {
+    async fn apply_penalty(
+        &self,
+        state: &mut dyn StateAccessor, // CHANGED: Receive StateAccessor directly
+        report: &FailureReport,
+    ) -> Result<(), TransactionError> {
+        const MIN_LIVE_AUTHORITIES: usize = 3;
+
+        let authorities_bytes = state.get(AUTHORITY_SET_KEY)?.ok_or_else(|| {
+            TransactionError::State(StateError::KeyNotFound(
+                "Authority set not found in state".into(),
+            ))
+        })?;
+        let authorities: Vec<Vec<u8>> = serde_json::from_slice(&authorities_bytes)?;
+
+        let quarantined: BTreeSet<AccountId> = state
+            .get(QUARANTINED_VALIDATORS_KEY)?
+            .map(|b| {
+                depin_sdk_types::codec::from_bytes_canonical(&b)
+                    .map_err(|e| StateError::InvalidValue(e))
+            })
+            .transpose()?
+            .unwrap_or_default();
+
+        if !quarantined.contains(&report.offender)
+            && (authorities.len() - quarantined.len() - 1) < MIN_LIVE_AUTHORITIES
+        {
+            return Err(TransactionError::Invalid(
+                "Quarantine would jeopardize network liveness".into(),
+            ));
+        }
+
+        let mut new_quarantined = quarantined;
+        if new_quarantined.insert(report.offender) {
+            state.insert(
+                QUARANTINED_VALIDATORS_KEY,
+                &depin_sdk_types::codec::to_bytes_canonical(&new_quarantined),
+            )?;
+        }
+        Ok(())
+    }
+}
+
+#[async_trait]
 impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
     async fn get_validator_data(
         &self,
-        workload_client: &Arc<WorkloadClient>,
+        state_reader: &dyn ChainStateReader,
     ) -> Result<Vec<Vec<u8>>, ConsensusError> {
-        workload_client
+        state_reader
             .get_authority_set()
             .await
-            .map_err(|e| ConsensusError::ClientError(e.to_string()))
+            .map_err(|e| ConsensusError::ClientError(e))
     }
 
     async fn decide(
         &mut self,
-        local_peer_id: &PeerId,
+        local_public_key: &PublicKey,
         height: u64,
         view: u64,
         validator_data: &[Vec<u8>],
@@ -52,32 +92,22 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
             return ConsensusDecision::ProduceBlock(vec![]);
         }
 
+        let local_peer_id_bytes = local_public_key.to_peer_id().to_bytes();
         let leader_index = ((height + view) % validator_data.len() as u64) as usize;
-        let designated_leader = &validator_data[leader_index];
+        let designated_leader_bytes = &validator_data[leader_index];
 
-        if designated_leader == &local_peer_id.to_bytes() {
+        if designated_leader_bytes == &local_peer_id_bytes {
             ConsensusDecision::ProduceBlock(vec![])
         } else {
             ConsensusDecision::WaitForBlock
         }
     }
 
-    async fn handle_block_proposal<CS, TM, ST>(
+    async fn handle_block_proposal(
         &mut self,
         block: Block<T>,
-        _chain: &mut (dyn AppChain<CS, TM, ST> + Send + Sync),
-        workload_client: &Arc<WorkloadClient>,
-    ) -> Result<(), ConsensusError>
-    where
-        CS: CommitmentScheme + Send + Sync,
-        TM: TransactionModel<CommitmentScheme = CS> + Send + Sync,
-        ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-            + Send
-            + Sync
-            + 'static
-            + Debug,
-        CS::Commitment: Send + Sync + Debug,
-    {
+        state_reader: &dyn ChainStateReader,
+    ) -> Result<(), ConsensusError> {
         let producer_pubkey =
             PublicKey::try_decode_protobuf(&block.header.producer).map_err(|e| {
                 ConsensusError::BlockVerificationFailed(format!("Invalid producer key: {}", e))
@@ -87,10 +117,10 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
             return Err(ConsensusError::InvalidSignature);
         }
 
-        let authority_set = workload_client
+        let authority_set = state_reader
             .get_authority_set()
             .await
-            .map_err(|e| ConsensusError::ClientError(e.to_string()))?;
+            .map_err(|e| ConsensusError::ClientError(e))?;
         if authority_set.is_empty() {
             return Err(ConsensusError::BlockVerificationFailed(
                 "Authority set is empty".to_string(),

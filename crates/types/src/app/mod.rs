@@ -324,6 +324,9 @@ pub enum SystemPayload {
     },
     /// Stakes a certain amount for a validator.
     Stake {
+        /// The protobuf-encoded libp2p public key of the staker.
+        /// This is required to build the AccountId -> PubKey lookup map.
+        public_key: Vec<u8>,
         /// The amount to stake.
         amount: u64,
     },

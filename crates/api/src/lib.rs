@@ -14,6 +14,8 @@ pub mod chain;
 pub mod commitment;
 /// Defines the component classification system (Fixed, Adaptable, Extensible).
 pub mod component;
+/// Defines the core `ConsensusEngine` trait for pluggable consensus algorithms.
+pub mod consensus;
 /// Defines unified traits for cryptographic primitives.
 pub mod crypto;
 /// Re-exports all core error types from the central `depin-sdk-types` crate.

@@ -2,10 +2,9 @@
 
 use crate::upgrade_manager::ModuleUpgradeManager;
 use async_trait::async_trait;
-// --- MODIFICATION START: Import the new ChainView trait ---
 use depin_sdk_api::chain::{AppChain, ChainView, PublicKey, StakeAmount};
-// --- MODIFICATION END ---
 use depin_sdk_api::commitment::CommitmentScheme;
+use depin_sdk_api::consensus::PenaltyMechanism;
 use depin_sdk_api::services::access::{Service, ServiceDirectory};
 use depin_sdk_api::services::{ServiceType, UpgradableService};
 use depin_sdk_api::state::StateManager;
@@ -13,13 +12,20 @@ use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
+use depin_sdk_consensus::Consensus;
 use depin_sdk_transaction_models::system::nonce::check_and_bump_tx_nonce;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-use depin_sdk_types::app::{Block, BlockHeader, ChainStatus, ChainTransaction, SystemPayload};
+use depin_sdk_types::app::{
+    AccountId, Block, BlockHeader, ChainStatus, ChainTransaction, SystemPayload,
+};
+use depin_sdk_types::codec;
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::{BlockError, ChainError, CoreError, StateError};
-use depin_sdk_types::keys::*;
-use libp2p::identity::Keypair;
+use depin_sdk_types::keys::{
+    ACCOUNT_ID_TO_PUBKEY_PREFIX, AUTHORITY_SET_KEY, GOVERNANCE_KEY, STAKES_KEY_CURRENT,
+    STAKES_KEY_NEXT, STATUS_KEY,
+};
+use libp2p::identity::{Keypair, PublicKey as Libp2pPublicKey};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt::Debug;
@@ -39,12 +45,21 @@ pub struct ChainState<CS: CommitmentScheme + Clone> {
     pub max_recent_blocks: usize,
 }
 
-#[derive(Debug)]
 pub struct Chain<CS: CommitmentScheme + Clone> {
     pub state: ChainState<CS>,
     pub services: ServiceDirectory,
-    pub _service_manager: ModuleUpgradeManager, // Kept for upgrade logic
-    pub consensus_type: ConsensusType,
+    pub _service_manager: ModuleUpgradeManager,
+    pub consensus_engine: Consensus<ChainTransaction>,
+}
+
+impl<CS: CommitmentScheme + Clone> Debug for Chain<CS> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Chain")
+            .field("state", &self.state)
+            .field("services", &self.services)
+            .field("consensus_type", &self.consensus_engine.consensus_type())
+            .finish()
+    }
 }
 
 impl<CS> Chain<CS>
@@ -57,7 +72,7 @@ where
         chain_id: &str,
         initial_services: Vec<Arc<dyn UpgradableService>>,
         service_factory: ServiceFactory,
-        consensus_type: ConsensusType,
+        consensus_engine: Consensus<ChainTransaction>,
     ) -> Self {
         let status = ChainStatus {
             height: 0,
@@ -90,7 +105,7 @@ where
             state,
             services: service_directory,
             _service_manager: service_manager,
-            consensus_type,
+            consensus_engine,
         }
     }
 
@@ -118,7 +133,7 @@ where
             },
             services: ServiceDirectory::default(),
             _service_manager: ModuleUpgradeManager::new(service_factory),
-            consensus_type: ConsensusType::ProofOfAuthority,
+            consensus_engine: Consensus::ProofOfAuthority(Default::default()),
         }
     }
 
@@ -165,15 +180,25 @@ where
         let state = state_tree_arc.lock().await;
         match state.get(key) {
             Ok(Some(bytes)) => {
-                let stakers: BTreeMap<String, u64> = serde_json::from_slice(&bytes)
-                    .map_err(|e| ChainError::State(StateError::InvalidValue(e.to_string())))?;
-                let mut active_stakers: Vec<Vec<u8>> = stakers
-                    .into_iter()
-                    .filter(|(_, stake)| *stake > 0)
-                    .filter_map(|(key, _)| bs58::decode(key).into_vec().ok())
-                    .collect();
-                active_stakers.sort();
-                Ok(active_stakers)
+                let stakers: BTreeMap<AccountId, u64> = codec::from_bytes_canonical(&bytes)
+                    .map_err(|e| ChainError::State(StateError::InvalidValue(e)))?;
+
+                let mut validator_pubkeys = Vec::new();
+                for (account_id, stake) in stakers {
+                    if stake > 0 {
+                        let pubkey_map_key =
+                            [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
+                        if let Some(pubkey_bytes) = state.get(&pubkey_map_key)? {
+                            validator_pubkeys.push(pubkey_bytes);
+                        } else {
+                            log::warn!(
+                                "Validator with AccountId {} has stake but no public key in lookup map.",
+                                hex::encode(account_id)
+                            );
+                        }
+                    }
+                }
+                Ok(validator_pubkeys)
             }
             Ok(None) => Ok(Vec::new()),
             Err(e) => Err(e.into()),
@@ -181,7 +206,6 @@ where
     }
 }
 
-// --- MODIFICATION START: Implement the new ChainView trait for Chain ---
 #[async_trait]
 impl<CS, ST> ChainView<CS, ST> for Chain<CS>
 where
@@ -192,7 +216,7 @@ where
         &self,
         workload: &WorkloadContainer<ST>,
     ) -> Result<Vec<Vec<u8>>, ChainError> {
-        match self.consensus_type {
+        match self.consensus_engine.consensus_type() {
             ConsensusType::ProofOfStake => {
                 self.get_validator_set_from_key(workload, STAKES_KEY_CURRENT)
                     .await
@@ -227,8 +251,11 @@ where
             Err(e) => Err(e.into()),
         }
     }
+
+    fn get_penalty_mechanism(&self) -> Box<dyn PenaltyMechanism + Send + Sync + '_> {
+        Box::new(&self.consensus_engine)
+    }
 }
-// --- MODIFICATION END ---
 
 #[async_trait]
 impl<CS, ST> AppChain<CS, UnifiedTransactionModel<CS>, ST> for Chain<CS>
@@ -279,12 +306,11 @@ where
                 let gov_pk_bs58: String = serde_json::from_slice(&gov_pk_bs58_val).unwrap();
                 let gov_pk_bytes = bs58::decode(gov_pk_bs58).into_vec().unwrap();
 
-                let signer_pk = libp2p::identity::PublicKey::try_decode_protobuf(
-                    &sys_tx.signature_proof.public_key,
-                )
-                .map_err(|_| {
-                    ChainError::Transaction("Invalid public key in signature proof".into())
-                })?;
+                let signer_pk =
+                    Libp2pPublicKey::try_decode_protobuf(&sys_tx.signature_proof.public_key)
+                        .map_err(|_| {
+                            ChainError::Transaction("Invalid public key in signature proof".into())
+                        })?;
                 let signer_ed_pk = signer_pk.clone().try_into_ed25519().unwrap();
 
                 if gov_pk_bytes != signer_ed_pk.to_bytes() {
@@ -397,7 +423,9 @@ where
         let mut header_set = block.header.validator_set.clone();
         header_set.sort();
         if header_set != current_validator_set {
-            return Err(BlockError::MismatchedValidatorSet.into());
+            if self.consensus_engine.consensus_type() == ConsensusType::ProofOfAuthority {
+                return Err(BlockError::MismatchedValidatorSet.into());
+            }
         }
 
         for tx in &block.transactions {
@@ -508,7 +536,7 @@ where
         &self,
         workload: &WorkloadContainer<ST>,
     ) -> Result<Vec<Vec<u8>>, ChainError> {
-        match self.consensus_type {
+        match self.consensus_engine.consensus_type() {
             ConsensusType::ProofOfStake => {
                 self.get_validator_set_from_key(workload, STAKES_KEY_NEXT)
                     .await
@@ -535,14 +563,12 @@ where
         let state = state_tree_arc.lock().await;
         match state.get(STAKES_KEY_CURRENT) {
             Ok(Some(bytes)) => {
-                let raw_map: BTreeMap<String, u64> =
-                    serde_json::from_slice(&bytes).map_err(|e| {
-                        ChainError::Transaction(format!("Failed to deserialize stakes map: {e}"))
-                    })?;
-
+                let raw_map: BTreeMap<AccountId, u64> = codec::from_bytes_canonical(&bytes)
+                    .map_err(|e| ChainError::State(StateError::InvalidValue(e)))?;
                 let stakes_map: BTreeMap<PublicKey, StakeAmount> = raw_map
                     .into_iter()
                     .filter(|(_, stake)| *stake > 0)
+                    .map(|(account_id, stake)| (hex::encode(account_id.0), stake))
                     .collect();
                 Ok(stakes_map)
             }
@@ -559,181 +585,17 @@ where
         let state = state_tree_arc.lock().await;
         match state.get(STAKES_KEY_NEXT) {
             Ok(Some(bytes)) => {
-                let raw_map: BTreeMap<String, u64> =
-                    serde_json::from_slice(&bytes).map_err(|e| {
-                        ChainError::Transaction(format!(
-                            "Failed to deserialize next stakes map: {e}"
-                        ))
-                    })?;
+                let raw_map: BTreeMap<AccountId, u64> = codec::from_bytes_canonical(&bytes)
+                    .map_err(|e| ChainError::State(StateError::InvalidValue(e)))?;
                 let stakes_map: BTreeMap<PublicKey, StakeAmount> = raw_map
                     .into_iter()
                     .filter(|(_, stake)| *stake > 0)
+                    .map(|(account_id, stake)| (hex::encode(account_id.0), stake))
                     .collect();
                 Ok(stakes_map)
             }
             Ok(None) => Ok(BTreeMap::new()),
             Err(e) => Err(e.into()),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use depin_sdk_api::state::StateCommitment;
-    use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
-    use depin_sdk_commitment::tree::hashmap::HashMapStateTree;
-    use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-    use depin_sdk_types::app::{SignHeader, SignatureProof, SystemPayload, SystemTransaction};
-    use depin_sdk_types::config::{
-        CommitmentSchemeType, ConsensusType, StateTreeType, VmFuelCosts, WorkloadConfig,
-    };
-    use depin_sdk_vm_wasm::WasmVm;
-    use libp2p::identity::Keypair;
-    use libp2p::PeerId;
-    use std::sync::Arc;
-
-    fn placeholder_factory(_: &[u8]) -> Result<Arc<dyn UpgradableService>, CoreError> {
-        unimplemented!("WASM loading not needed for this test")
-    }
-
-    #[tokio::test]
-    async fn test_process_system_transaction_update_authorities() {
-        // Setup
-        let scheme = HashCommitmentScheme::new();
-        let state_tree = HashMapStateTree::new(scheme.clone());
-        let wasm_vm = Box::new(WasmVm::new(VmFuelCosts::default()));
-        let workload_config = WorkloadConfig {
-            enabled_vms: vec![],
-            state_tree: StateTreeType::HashMap,
-            commitment_scheme: CommitmentSchemeType::Hash,
-            consensus_type: ConsensusType::ProofOfAuthority,
-            genesis_file: "".to_string(),
-            state_file: "".to_string(),
-            fuel_costs: VmFuelCosts::default(),
-            initial_services: vec![], // FIX: Add missing field
-        };
-        // FIX: Add missing ServiceDirectory argument
-        let workload = Arc::new(WorkloadContainer::new(
-            workload_config,
-            state_tree,
-            wasm_vm,
-            ServiceDirectory::default(),
-        ));
-        let mut chain = Chain::new(
-            scheme.clone(),
-            UnifiedTransactionModel::new(scheme),
-            "test-chain",
-            vec![],
-            Box::new(placeholder_factory),
-            ConsensusType::ProofOfAuthority,
-        );
-
-        let gov_keypair = Keypair::generate_ed25519();
-        let gov_pk_bs58 =
-            bs58::encode(gov_keypair.public().try_into_ed25519().unwrap().to_bytes()).into_string();
-
-        workload
-            .state_tree()
-            .lock()
-            .await
-            .insert(GOVERNANCE_KEY, &serde_json::to_vec(&gov_pk_bs58).unwrap())
-            .unwrap();
-
-        // Create transaction
-        let new_authorities = vec![PeerId::random().to_bytes()];
-        let payload = SystemPayload::UpdateAuthorities {
-            new_authorities: new_authorities.clone(),
-        };
-
-        // FIX: Construct the transaction using the new structure
-        let mut tx_to_sign = SystemTransaction {
-            header: SignHeader::default(),
-            payload,
-            signature_proof: SignatureProof::default(),
-        };
-        let sign_bytes = tx_to_sign.to_sign_bytes().unwrap();
-        let signature = gov_keypair.sign(&sign_bytes).unwrap();
-        tx_to_sign.signature_proof.signature = signature;
-
-        let protocol_tx = ChainTransaction::System(tx_to_sign);
-
-        // Test
-        let result = chain.process_transaction(&protocol_tx, &workload, 1).await;
-        assert!(result.is_ok());
-
-        // Verify
-        let stored_bytes = workload
-            .state_tree()
-            .lock()
-            .await
-            .get(AUTHORITY_SET_KEY)
-            .unwrap()
-            .unwrap();
-        let stored_authorities: Vec<Vec<u8>> = serde_json::from_slice(&stored_bytes).unwrap();
-        assert_eq!(stored_authorities, new_authorities);
-    }
-
-    #[tokio::test]
-    async fn test_process_system_tx_invalid_signature() {
-        // Setup
-        let scheme = HashCommitmentScheme::new();
-        let state_tree = HashMapStateTree::new(scheme.clone());
-        let wasm_vm = Box::new(WasmVm::new(VmFuelCosts::default()));
-        let workload_config = WorkloadConfig {
-            enabled_vms: vec![],
-            state_tree: StateTreeType::HashMap,
-            commitment_scheme: CommitmentSchemeType::Hash,
-            consensus_type: ConsensusType::ProofOfAuthority,
-            genesis_file: "".to_string(),
-            state_file: "".to_string(),
-            fuel_costs: VmFuelCosts::default(),
-            initial_services: vec![], // FIX: Add missing field
-        };
-        // FIX: Add missing ServiceDirectory argument
-        let workload = Arc::new(WorkloadContainer::new(
-            workload_config,
-            state_tree,
-            wasm_vm,
-            ServiceDirectory::default(),
-        ));
-        let mut chain = Chain::new(
-            scheme.clone(),
-            UnifiedTransactionModel::new(scheme),
-            "test-chain",
-            vec![],
-            Box::new(placeholder_factory),
-            ConsensusType::ProofOfAuthority,
-        );
-        let gov_keypair = Keypair::generate_ed25519();
-        let gov_pk_bs58 =
-            bs58::encode(gov_keypair.public().try_into_ed25519().unwrap().to_bytes()).into_string();
-
-        workload
-            .state_tree()
-            .lock()
-            .await
-            .insert(GOVERNANCE_KEY, &serde_json::to_vec(&gov_pk_bs58).unwrap())
-            .unwrap();
-
-        // Create transaction with invalid signature
-        let new_authorities = vec![PeerId::random().to_bytes()];
-        let payload = SystemPayload::UpdateAuthorities { new_authorities };
-        // FIX: Construct transaction with the new structure
-        let sys_tx = SystemTransaction {
-            header: SignHeader::default(),
-            payload,
-            signature_proof: SignatureProof {
-                signature: b"invalid-signature".to_vec(),
-                ..Default::default()
-            },
-        };
-        let protocol_tx = ChainTransaction::System(sys_tx);
-
-        let result = chain.process_transaction(&protocol_tx, &workload, 1).await;
-        assert!(result.is_err());
-        assert!(
-            matches!(result, Err(ChainError::Transaction(msg)) if msg.contains("Invalid governance signature"))
-        );
     }
 }

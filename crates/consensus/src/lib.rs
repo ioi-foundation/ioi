@@ -15,17 +15,15 @@ pub mod proof_of_stake;
 pub mod util;
 
 use async_trait::async_trait;
-use depin_sdk_api::chain::AppChain;
-use depin_sdk_api::commitment::CommitmentScheme;
-use depin_sdk_api::state::StateManager;
-use depin_sdk_api::transaction::TransactionModel;
-use depin_sdk_client::WorkloadClient;
-use depin_sdk_types::app::Block;
-use depin_sdk_types::error::ConsensusError;
-use libp2p::PeerId;
+use depin_sdk_api::consensus::{
+    ChainStateReader, ConsensusDecision, ConsensusEngine, PenaltyMechanism,
+};
+use depin_sdk_api::state::StateAccessor;
+use depin_sdk_types::app::{Block, FailureReport};
+use depin_sdk_types::config::ConsensusType;
+use depin_sdk_types::error::{ConsensusError, TransactionError};
+use libp2p::{identity::PublicKey, PeerId};
 use std::collections::HashSet;
-use std::fmt::Debug;
-use std::sync::Arc;
 
 // Re-export the concrete engine types for use in the enum.
 #[cfg(feature = "poa")]
@@ -34,13 +32,6 @@ use proof_of_authority::ProofOfAuthorityEngine;
 use proof_of_stake::ProofOfStakeEngine;
 #[cfg(feature = "round-robin")]
 use round_robin::RoundRobinBftEngine;
-
-/// Represents the decision a node should take in a given consensus round.
-pub enum ConsensusDecision<T> {
-    ProduceBlock(Vec<T>),
-    WaitForBlock,
-    ProposeViewChange,
-}
 
 /// An enum that wraps the various consensus engine implementations.
 pub enum Consensus<T: Clone> {
@@ -54,52 +45,41 @@ pub enum Consensus<T: Clone> {
     _Phantom(std::marker::PhantomData<T>),
 }
 
-/// A trait defining the interface for a pluggable consensus engine.
+impl<T: Clone> Consensus<T> {
+    /// Returns the `ConsensusType` enum variant corresponding to the active engine.
+    pub fn consensus_type(&self) -> ConsensusType {
+        match self {
+            #[cfg(feature = "round-robin")]
+            Consensus::RoundRobin(_) => ConsensusType::ProofOfAuthority,
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(_) => ConsensusType::ProofOfAuthority,
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(_) => ConsensusType::ProofOfStake,
+            Consensus::_Phantom(_) => panic!("No consensus engine feature is enabled."),
+        }
+    }
+}
+
 #[async_trait]
-pub trait ConsensusEngine<T: Clone>: Send + Sync {
-    /// Fetches the specific validator data this engine needs for a decision.
-    async fn get_validator_data(
+impl<T> PenaltyMechanism for Consensus<T>
+where
+    T: Clone + Send + Sync + 'static,
+{
+    async fn apply_penalty(
         &self,
-        workload_client: &Arc<WorkloadClient>,
-    ) -> Result<Vec<Vec<u8>>, ConsensusError>;
-
-    /// Makes a consensus decision for the current round.
-    async fn decide(
-        &mut self,
-        local_peer_id: &PeerId,
-        height: u64,
-        view: u64,
-        validator_data: &[Vec<u8>],
-        known_peers: &HashSet<PeerId>,
-    ) -> ConsensusDecision<T>;
-
-    /// Handles an incoming block proposal from a peer.
-    async fn handle_block_proposal<CS, TM, ST>(
-        &mut self,
-        block: Block<T>,
-        chain: &mut (dyn AppChain<CS, TM, ST> + Send + Sync),
-        workload_client: &Arc<WorkloadClient>,
-    ) -> Result<(), ConsensusError>
-    where
-        CS: CommitmentScheme + Send + Sync,
-        TM: TransactionModel<CommitmentScheme = CS> + Send + Sync,
-        ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-            + Send
-            + Sync
-            + 'static
-            + Debug,
-        CS::Commitment: Send + Sync + Debug;
-
-    /// Handles an incoming view change proposal from a peer.
-    async fn handle_view_change(
-        &mut self,
-        from: PeerId,
-        height: u64,
-        new_view: u64,
-    ) -> Result<(), ConsensusError>;
-
-    /// Resets the internal state of the engine for a given height.
-    fn reset(&mut self, height: u64);
+        state: &mut dyn StateAccessor, // CHANGED: Update signature
+        report: &FailureReport,
+    ) -> Result<(), TransactionError> {
+        match self {
+            #[cfg(feature = "round-robin")]
+            Consensus::RoundRobin(e) => e.as_ref().apply_penalty(state, report).await,
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(e) => e.apply_penalty(state, report).await,
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(e) => e.apply_penalty(state, report).await,
+            Consensus::_Phantom(_) => panic!("No consensus engine feature is enabled."),
+        }
+    }
 }
 
 #[async_trait]
@@ -107,23 +87,22 @@ impl<T> ConsensusEngine<T> for Consensus<T>
 where
     T: Clone + Send + Sync + 'static,
 {
-    // --- FIX START: Prefix unused variables with an underscore ---
     async fn get_validator_data(
         &self,
-        _workload_client: &Arc<WorkloadClient>,
+        state_reader: &dyn ChainStateReader,
     ) -> Result<Vec<Vec<u8>>, ConsensusError> {
         match self {
             #[cfg(feature = "round-robin")]
             Consensus::RoundRobin(e) => {
-                ConsensusEngine::<T>::get_validator_data(e.as_ref(), _workload_client).await
+                ConsensusEngine::<T>::get_validator_data(e.as_ref(), state_reader).await
             }
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(e) => {
-                ConsensusEngine::<T>::get_validator_data(e, _workload_client).await
+                ConsensusEngine::<T>::get_validator_data(e, state_reader).await
             }
             #[cfg(feature = "pos")]
             Consensus::ProofOfStake(e) => {
-                ConsensusEngine::<T>::get_validator_data(e, _workload_client).await
+                ConsensusEngine::<T>::get_validator_data(e, state_reader).await
             }
             Consensus::_Phantom(_) => panic!("No consensus engine feature is enabled."),
         }
@@ -131,128 +110,112 @@ where
 
     async fn decide(
         &mut self,
-        _local_peer_id: &PeerId,
-        _height: u64,
-        _view: u64,
-        _validator_data: &[Vec<u8>],
-        _known_peers: &HashSet<PeerId>,
+        local_public_key: &PublicKey,
+        height: u64,
+        view: u64,
+        validator_data: &[Vec<u8>],
+        known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
         match self {
             #[cfg(feature = "round-robin")]
             Consensus::RoundRobin(e) => {
-                ConsensusEngine::<T>::decide(
+                <RoundRobinBftEngine as ConsensusEngine<T>>::decide(
                     e.as_mut(),
-                    _local_peer_id,
-                    _height,
-                    _view,
-                    _validator_data,
-                    _known_peers,
+                    local_public_key,
+                    height,
+                    view,
+                    validator_data,
+                    known_peers,
                 )
                 .await
             }
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(e) => {
-                ConsensusEngine::<T>::decide(
-                    e,
-                    _local_peer_id,
-                    _height,
-                    _view,
-                    _validator_data,
-                    _known_peers,
-                )
-                .await
+                e.decide(local_public_key, height, view, validator_data, known_peers)
+                    .await
             }
             #[cfg(feature = "pos")]
             Consensus::ProofOfStake(e) => {
-                ConsensusEngine::<T>::decide(
-                    e,
-                    _local_peer_id,
-                    _height,
-                    _view,
-                    _validator_data,
-                    _known_peers,
-                )
-                .await
+                e.decide(local_public_key, height, view, validator_data, known_peers)
+                    .await
             }
             Consensus::_Phantom(_) => panic!("No consensus engine feature is enabled."),
         }
     }
 
-    async fn handle_block_proposal<CS, TM, ST>(
+    async fn handle_block_proposal(
         &mut self,
-        _block: Block<T>,
-        _chain: &mut (dyn AppChain<CS, TM, ST> + Send + Sync),
-        _workload_client: &Arc<WorkloadClient>,
-    ) -> Result<(), ConsensusError>
-    where
-        CS: CommitmentScheme + Send + Sync,
-        TM: TransactionModel<CommitmentScheme = CS> + Send + Sync,
-        ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-            + Send
-            + Sync
-            + 'static
-            + Debug,
-        CS::Commitment: Send + Sync + Debug,
-    {
+        block: Block<T>,
+        state_reader: &dyn ChainStateReader,
+    ) -> Result<(), ConsensusError> {
         match self {
             #[cfg(feature = "round-robin")]
             Consensus::RoundRobin(e) => {
-                ConsensusEngine::<T>::handle_block_proposal(
+                <RoundRobinBftEngine as ConsensusEngine<T>>::handle_block_proposal(
                     e.as_mut(),
-                    _block,
-                    _chain,
-                    _workload_client,
+                    block,
+                    state_reader,
                 )
                 .await
             }
             #[cfg(feature = "poa")]
-            Consensus::ProofOfAuthority(e) => {
-                ConsensusEngine::<T>::handle_block_proposal(e, _block, _chain, _workload_client)
-                    .await
-            }
+            Consensus::ProofOfAuthority(e) => e.handle_block_proposal(block, state_reader).await,
             #[cfg(feature = "pos")]
-            Consensus::ProofOfStake(e) => {
-                ConsensusEngine::<T>::handle_block_proposal(e, _block, _chain, _workload_client)
-                    .await
-            }
+            Consensus::ProofOfStake(e) => e.handle_block_proposal(block, state_reader).await,
             Consensus::_Phantom(_) => panic!("No consensus engine feature is enabled."),
         }
     }
 
     async fn handle_view_change(
         &mut self,
-        _from: PeerId,
-        _height: u64,
-        _new_view: u64,
+        from: PeerId,
+        height: u64,
+        new_view: u64,
     ) -> Result<(), ConsensusError> {
         match self {
             #[cfg(feature = "round-robin")]
             Consensus::RoundRobin(e) => {
-                ConsensusEngine::<T>::handle_view_change(e.as_mut(), _from, _height, _new_view)
-                    .await
+                <RoundRobinBftEngine as ConsensusEngine<T>>::handle_view_change(
+                    e.as_mut(),
+                    from,
+                    height,
+                    new_view,
+                )
+                .await
             }
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(e) => {
-                ConsensusEngine::<T>::handle_view_change(e, _from, _height, _new_view).await
+                <ProofOfAuthorityEngine as ConsensusEngine<T>>::handle_view_change(
+                    e, from, height, new_view,
+                )
+                .await
             }
             #[cfg(feature = "pos")]
             Consensus::ProofOfStake(e) => {
-                ConsensusEngine::<T>::handle_view_change(e, _from, _height, _new_view).await
+                <ProofOfStakeEngine as ConsensusEngine<T>>::handle_view_change(
+                    e, from, height, new_view,
+                )
+                .await
             }
             Consensus::_Phantom(_) => panic!("No consensus engine feature is enabled."),
         }
     }
 
-    fn reset(&mut self, _height: u64) {
+    fn reset(&mut self, height: u64) {
         match self {
             #[cfg(feature = "round-robin")]
-            Consensus::RoundRobin(e) => ConsensusEngine::<T>::reset(e.as_mut(), _height),
+            Consensus::RoundRobin(e) => {
+                <RoundRobinBftEngine as ConsensusEngine<T>>::reset(e.as_mut(), height)
+            }
             #[cfg(feature = "poa")]
-            Consensus::ProofOfAuthority(e) => ConsensusEngine::<T>::reset(e, _height),
+            Consensus::ProofOfAuthority(e) => {
+                <ProofOfAuthorityEngine as ConsensusEngine<T>>::reset(e, height)
+            }
             #[cfg(feature = "pos")]
-            Consensus::ProofOfStake(e) => ConsensusEngine::<T>::reset(e, _height),
+            Consensus::ProofOfStake(e) => {
+                <ProofOfStakeEngine as ConsensusEngine<T>>::reset(e, height)
+            }
             Consensus::_Phantom(_) => panic!("No consensus engine feature is enabled."),
         }
     }
-    // --- FIX END ---
 }

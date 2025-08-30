@@ -22,7 +22,8 @@ use depin_sdk_types::{
     config::InitialServiceConfig,
     service_configs::MigrationConfig,
 };
-use serde_json::json; // --- FIX: Import the json! macro ---
+use libp2p::identity::Keypair;
+use serde_json::json;
 use std::time::Duration;
 use tokio::time::sleep;
 
@@ -31,6 +32,8 @@ trait TestSigner {
     fn public_bytes(&self) -> Vec<u8>;
     fn sign(&self, msg: &[u8]) -> Vec<u8>;
     fn account_id(&self) -> AccountId;
+    // Add a method to get the libp2p-compatible public key bytes for staking
+    fn libp2p_public_bytes(&self) -> Vec<u8>;
 }
 
 impl TestSigner for Ed25519KeyPair {
@@ -41,20 +44,19 @@ impl TestSigner for Ed25519KeyPair {
         SigningKeyPair::sign(self, msg).to_bytes()
     }
     fn account_id(&self) -> AccountId {
-        // --- FIX START: Perform explicit type conversion ---
-        // 1. Get the raw bytes from our crypto crate's public key wrapper.
         let pk_bytes = self.public_key().to_bytes();
-
-        // 2. Construct the specific libp2p Ed25519 public key type from the raw bytes.
         let libp2p_ed25519_pk = libp2p::identity::ed25519::PublicKey::try_from_bytes(&pk_bytes)
             .expect("Failed to create libp2p key from bytes");
-
-        // 3. Convert the specific key type into the generic libp2p::identity::PublicKey.
         let libp2p_pk = libp2p::identity::PublicKey::from(libp2p_ed25519_pk);
-
-        // 4. Now, call the canonical function with the correct type.
         account_id_from_pubkey(&libp2p_pk)
-        // --- FIX END ---
+    }
+    fn libp2p_public_bytes(&self) -> Vec<u8> {
+        // Need to convert our specific key type to the generic libp2p key to encode
+        let pk_bytes = self.public_key().to_bytes();
+        let libp2p_ed25519_pk =
+            libp2p::identity::ed25519::PublicKey::try_from_bytes(&pk_bytes).unwrap();
+        let libp2p_pk = libp2p::identity::PublicKey::from(libp2p_ed25519_pk);
+        libp2p_pk.encode_protobuf()
     }
 }
 
@@ -68,6 +70,11 @@ impl TestSigner for DilithiumKeyPair {
     fn account_id(&self) -> AccountId {
         let pk_hash = depin_sdk_crypto::algorithms::hash::sha256(&self.public_bytes());
         AccountId(pk_hash.try_into().unwrap())
+    }
+    fn libp2p_public_bytes(&self) -> Vec<u8> {
+        // Dilithium isn't a libp2p key, but we can use its raw bytes for the payload.
+        // The IdentityHub logic can handle this.
+        self.public_bytes()
     }
 }
 
@@ -146,7 +153,10 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
         &ed25519_key,
         SignatureSuite::Ed25519,
         header,
-        SystemPayload::Stake { amount: 10 },
+        SystemPayload::Stake {
+            public_key: ed25519_key.libp2p_public_bytes(), // <-- FIX
+            amount: 10,
+        },
     )?;
     submit_transaction(rpc_addr, &initial_tx).await?;
     nonce += 1;
@@ -198,7 +208,10 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
                 &ed25519_key,
                 SignatureSuite::Ed25519,
                 ed_header,
-                SystemPayload::Stake { amount: 1 },
+                SystemPayload::Stake {
+                    public_key: ed25519_key.libp2p_public_bytes(), // <-- FIX
+                    amount: 1,
+                },
             )?,
         )
         .await?;
@@ -216,7 +229,10 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
                 &dilithium_key,
                 SignatureSuite::Dilithium2,
                 dil_header,
-                SystemPayload::Stake { amount: 1 },
+                SystemPayload::Stake {
+                    public_key: dilithium_key.libp2p_public_bytes(), // <-- FIX
+                    amount: 1,
+                },
             )?,
         )
         .await?;
@@ -237,7 +253,10 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
         &ed25519_key,
         SignatureSuite::Ed25519,
         old_key_header,
-        SystemPayload::Stake { amount: 1 },
+        SystemPayload::Stake {
+            public_key: ed25519_key.libp2p_public_bytes(), // <-- FIX
+            amount: 1,
+        },
     )?;
 
     submit_transaction(rpc_addr, &old_key_tx).await?;
@@ -252,7 +271,10 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
         &dilithium_key,
         SignatureSuite::Dilithium2,
         new_key_header,
-        SystemPayload::Stake { amount: 1 },
+        SystemPayload::Stake {
+            public_key: dilithium_key.libp2p_public_bytes(), // <-- FIX
+            amount: 1,
+        },
     )?;
     submit_transaction(rpc_addr, &new_key_tx).await?;
 

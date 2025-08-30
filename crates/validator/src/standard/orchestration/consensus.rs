@@ -3,10 +3,10 @@ use super::context::MainLoopContext;
 use super::oracle::handle_newly_processed_block;
 use depin_sdk_api::{
     commitment::CommitmentScheme,
+    consensus::{ConsensusDecision, ConsensusEngine},
     state::{StateCommitment, StateManager},
     transaction::TransactionModel,
 };
-use depin_sdk_consensus::{ConsensusDecision, ConsensusEngine};
 use depin_sdk_network::libp2p::SwarmCommand;
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
@@ -44,7 +44,10 @@ where
             .map_or(0, |s| s.height)
             + 1;
         let current_view = 0;
-        let consensus_data = match engine.get_validator_data(&context.workload_client).await {
+        let consensus_data = match engine
+            .get_validator_data(context.workload_client.as_ref())
+            .await
+        {
             Ok(data) => data,
             Err(e) => {
                 log::error!("[Orch] Could not get validator data for consensus: {e}");
@@ -53,7 +56,7 @@ where
         };
         engine
             .decide(
-                &context.local_peer_id,
+                &context.local_keypair.public(),
                 target_height,
                 current_view,
                 &consensus_data,
@@ -118,7 +121,6 @@ where
             Ok((mut final_block, _)) => {
                 let block_height = final_block.header.height;
                 log::info!("Produced and processed new block #{}", block_height);
-                // --- FIX: Add explicit generic arguments to the function call ---
                 handle_newly_processed_block::<CS, ST, CE>(
                     context,
                     block_height,

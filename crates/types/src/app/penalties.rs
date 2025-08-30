@@ -9,7 +9,7 @@
 //! alternative but equally valid proofs for the same underlying incident.
 
 use crate::app::identity::AccountId;
-use dcrypt::algorithms::xof::{Blake3Xof, ExtendableOutputFunction};
+use dcrypt::algorithms::xof::Blake3Xof;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 

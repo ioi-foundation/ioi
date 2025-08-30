@@ -1,8 +1,9 @@
 // Path: crates/validator/src/standard/orchestration/context.rs
 use crate::config::OrchestrationConfig;
-use depin_sdk_api::{chain::AppChain, commitment::CommitmentScheme, state::StateManager};
+use depin_sdk_api::{
+    chain::AppChain, commitment::CommitmentScheme, consensus::ConsensusEngine, state::StateManager,
+};
 use depin_sdk_client::WorkloadClient;
-use depin_sdk_consensus::ConsensusEngine;
 use depin_sdk_network::{
     libp2p::{NetworkEvent, SwarmCommand},
     traits::NodeState,

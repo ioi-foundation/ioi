@@ -1,6 +1,11 @@
 // Path: crates/api/src/chain/mod.rs
 //! Defines the core `AppChain` trait for blockchain state machines.
 
+use crate::commitment::CommitmentScheme;
+use crate::consensus::PenaltyMechanism;
+use crate::state::StateManager;
+use crate::transaction::TransactionModel;
+use crate::validator::WorkloadContainer;
 use async_trait::async_trait;
 use depin_sdk_types::app::{Block, ChainStatus, ChainTransaction};
 use depin_sdk_types::error::ChainError;
@@ -8,22 +13,18 @@ use libp2p::identity::Keypair;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 
-use crate::commitment::CommitmentScheme;
-use crate::state::StateManager;
-use crate::transaction::TransactionModel;
-use crate::validator::WorkloadContainer;
-
 /// The public key of a validator, represented as a Base58 string.
 pub type PublicKey = String;
 /// The amount of stake a validator has.
 pub type StakeAmount = u64;
 
-// --- MODIFICATION START: Introduce a new trait for context needed by transactions ---
 /// A trait providing a read-only "view" of chain-level context that transaction models may need.
-/// This trait is not generic over the transaction model, allowing it to be passed through
-/// composed transaction models without type conflicts.
+///
+/// This acts as a facade, decoupling the `TransactionModel` from the concrete `AppChain` implementation.
+/// It provides access to state-dependent data (like validator sets) and core mechanisms (like penalties)
+/// without exposing mutable state or the full `AppChain` interface.
 #[async_trait]
-pub trait ChainView<CS, ST>: Debug + Send
+pub trait ChainView<CS, ST>: Debug + Send + Sync
 where
     CS: CommitmentScheme,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
@@ -39,9 +40,11 @@ where
         &self,
         workload: &WorkloadContainer<ST>,
     ) -> Result<Vec<Vec<u8>>, ChainError>;
-}
-// --- MODIFICATION END ---
 
+    /// Provides access to the consensus-specific penalty mechanism.
+    /// This now returns a Box<dyn Trait> to be object-safe.
+    fn get_penalty_mechanism(&self) -> Box<dyn PenaltyMechanism + Send + Sync + '_>;
+}
 
 /// A trait that defines the logic and capabilities of an application-specific blockchain.
 #[async_trait]
