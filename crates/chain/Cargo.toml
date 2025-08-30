@@ -12,6 +12,7 @@ depin-sdk-types = { path = "../types" }
 depin-sdk-commitment = { path = "../commitment" }
 depin-sdk-transaction-models = { path = "../transaction_models" }
 depin-sdk-services = { path = "../services" }
+depin-sdk-consensus = { path = "../consensus", features = ["poa", "pos"] }
 log = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

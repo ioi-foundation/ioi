@@ -9,17 +9,31 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_services::governance::{Proposal, ProposalStatus, ProposalType};
 use depin_sdk_types::app::{
-    ChainTransaction, SignHeader, SignatureProof, SystemPayload, SystemTransaction, VoteOption,
+    account_id_from_pubkey, AccountId, ChainTransaction, SignHeader, SignatureProof, SystemPayload,
+    SystemTransaction, VoteOption,
 };
+use depin_sdk_types::codec;
 use depin_sdk_types::keys::{GOVERNANCE_PROPOSAL_KEY_PREFIX, STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
 use libp2p::identity::{self, Keypair};
 use serde_json::json;
 use std::collections::BTreeMap;
 
 // Helper function to create a signed system transaction
-fn create_system_tx(keypair: &Keypair, payload: SystemPayload) -> Result<ChainTransaction> {
+fn create_system_tx(
+    keypair: &Keypair,
+    payload: SystemPayload,
+    nonce: u64,
+) -> Result<ChainTransaction> {
+    let account_id = account_id_from_pubkey(&keypair.public());
+    let header = SignHeader {
+        account_id,
+        nonce,
+        chain_id: 1, // Default chain_id for tests
+        tx_version: 1,
+    };
+
     let mut tx_to_sign = SystemTransaction {
-        header: SignHeader::default(),
+        header,
         payload,
         signature_proof: SignatureProof::default(),
     };
@@ -50,6 +64,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
         .with_genesis_modifier(move |genesis, keys| {
             let validator_key = &keys[0];
             let validator_peer_id = validator_key.public().to_peer_id();
+            let validator_account_id = account_id_from_pubkey(&validator_key.public());
 
             // A. Set the validator as the authority
             genesis["genesis_state"]["system::authorities"] = json!([validator_peer_id.to_bytes()]);
@@ -58,9 +73,10 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
             genesis["genesis_state"]["system::governance_key"] = json!(governance_pubkey_b58);
 
             // C. Give the validator some stake so their vote has power
+            //    using the NEW format: BTreeMap<AccountId, u64> and canonical codec.
             let mut stakes = BTreeMap::new();
-            stakes.insert(validator_peer_id.to_base58(), 1_000_000u64);
-            let stakes_bytes = serde_json::to_vec(&stakes).unwrap();
+            stakes.insert(validator_account_id, 1_000_000u64);
+            let stakes_bytes = codec::to_bytes_canonical(&stakes);
             let stakes_b64 = format!("b64:{}", BASE64_STANDARD.encode(stakes_bytes));
             let stakes_key_current_str = std::str::from_utf8(STAKES_KEY_CURRENT).unwrap();
             let stakes_key_next_str = std::str::from_utf8(STAKES_KEY_NEXT).unwrap();
@@ -102,7 +118,8 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
         proposal_id: 1,
         option: VoteOption::Yes,
     };
-    let tx = create_system_tx(validator_key, payload)?;
+    // Use nonce 0 for the validator's first transaction
+    let tx = create_system_tx(validator_key, payload, 0)?;
     submit_transaction(rpc_addr, &tx).await?;
 
     // 5. ASSERT the vote was accepted & gossiped (confirms the transaction part of the flow)

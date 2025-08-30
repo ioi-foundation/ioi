@@ -13,10 +13,9 @@ thiserror = { workspace = true }
 dcrypt = { workspace = true }
 serde_json = { workspace = true }
 libp2p = { workspace = true }
-bcs = "0.1"                                         # Added for canonical binary signing
-# --- MODIFICATION START ---
+bcs = "0.1"
 parity-scale-codec = { workspace = true }
-# --- MODIFICATION END ---
+prost = { workspace = true }                        # <-- FIX: Add prost dependency
 
 [features]
 default = []

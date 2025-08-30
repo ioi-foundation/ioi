@@ -17,3 +17,9 @@ tokio = { workspace = true, features = ["full"] }
 tokio-rustls = { workspace = true }
 rustls = { workspace = true, features = ["ring"] }
 rcgen = { workspace = true }
+
+# --- FIX START: Add missing dependencies ---
+libp2p = { workspace = true }
+async-trait = { workspace = true }
+hex = { workspace = true }
+# --- FIX END ---

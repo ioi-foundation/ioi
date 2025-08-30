@@ -1,7 +1,8 @@
 // Path: crates/validator/src/standard/orchestration/peer_management.rs
 use super::context::MainLoopContext;
-use depin_sdk_api::{commitment::CommitmentScheme, state::StateManager};
-use depin_sdk_consensus::ConsensusEngine;
+use depin_sdk_api::{
+    commitment::CommitmentScheme, consensus::ConsensusEngine, state::StateManager,
+};
 use depin_sdk_network::libp2p::SwarmCommand;
 use depin_sdk_types::app::ChainTransaction;
 use libp2p::PeerId;

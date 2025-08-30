@@ -36,20 +36,21 @@ pub trait TransactionModel: Send + Sync {
 
     /// Applies the core state transition logic of a transaction's payload.
     /// This is called *after* all `TxDecorator` handlers have passed.
-    async fn apply_payload<ST>(
+    async fn apply_payload<ST, CV>(
         &self,
-        chain: &(dyn ChainView<Self::CommitmentScheme, ST> + Send + Sync),
+        chain: &CV,
         tx: &Self::Transaction,
         workload: &WorkloadContainer<ST>,
         ctx: TxContext<'_>,
     ) -> Result<(), TransactionError>
     where
         ST: StateManager<
-                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + Send
+            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+        > + Send
             + Sync
-            + 'static;
+            + 'static,
+        CV: ChainView<Self::CommitmentScheme, ST> + Send + Sync + ?Sized;
 
     /// Generates a proof for a transaction.
     fn generate_proof<S>(

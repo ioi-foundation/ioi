@@ -50,7 +50,12 @@ async fn l1_polymorphism_e2e() -> Result<()> {
     let mut orch_logs = node.orch_log_stream.lock().await.take().unwrap();
 
     // 3. SUBMIT A TRANSACTION to trigger block production
-    let payload = SystemPayload::Stake { amount: 100 };
+    // --- FIX START: Add the public_key field to the Stake payload ---
+    let payload = SystemPayload::Stake {
+        public_key: node.keypair.public().encode_protobuf(),
+        amount: 100,
+    };
+    // --- FIX END ---
     let tx = create_system_tx(&node.keypair, payload)?;
 
     submit_transaction(rpc_addr, &tx).await?;

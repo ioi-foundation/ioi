@@ -16,9 +16,12 @@ use depin_sdk_types::app::{
     account_id_from_pubkey, AccountId, ChainTransaction, SignHeader, SignatureProof,
     SignatureSuite, SystemPayload, SystemTransaction,
 };
-use depin_sdk_types::keys::{STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
+use depin_sdk_types::codec;
+use depin_sdk_types::keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
 use libp2p::identity::Keypair;
+use reqwest::Client;
 use serde_json::json;
+use std::collections::BTreeMap;
 
 // Helper function to create a signed system transaction
 fn create_system_tx(
@@ -57,22 +60,31 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
     // 1. SETUP: Build artifacts and launch a 4-node PoS cluster.
     build_test_artifacts("consensus-pos,vm-wasm,tree-file,primitive-hash");
 
-    let mut cluster = TestCluster::builder()
+    let cluster = TestCluster::builder()
         .with_validators(4)
         .with_consensus_type("ProofOfStake")
         .with_genesis_modifier(|genesis, keys| {
-            let stakes: serde_json::Value = keys
+            // Setup initial stakes using the correct AccountId key and canonical codec
+            let stakes: BTreeMap<_, _> = keys
                 .iter()
-                .map(|k| (k.public().to_peer_id().to_base58(), json!(100_000)))
+                .map(|k| (account_id_from_pubkey(&k.public()), 100_000u64))
                 .collect();
-            let stakes_b64 = format!(
-                "b64:{}",
-                BASE64_STANDARD.encode(serde_json::to_vec(&stakes).unwrap())
-            );
+            let stakes_bytes = codec::to_bytes_canonical(&stakes);
+            let stakes_b64 = format!("b64:{}", BASE64_STANDARD.encode(&stakes_bytes));
             genesis["genesis_state"][std::str::from_utf8(STAKES_KEY_CURRENT).unwrap()] =
-                json!(stakes_b64.clone());
+                json!(&stakes_b64);
             genesis["genesis_state"][std::str::from_utf8(STAKES_KEY_NEXT).unwrap()] =
-                json!(stakes_b64);
+                json!(&stakes_b64);
+
+            // Populate the pubkey lookup map required for signature verification
+            for keypair in keys {
+                let account_id = account_id_from_pubkey(&keypair.public());
+                let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
+                let pubkey_bytes = keypair.public().encode_protobuf();
+                genesis["genesis_state"]
+                    [format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key))] =
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pubkey_bytes)));
+            }
         })
         .build()
         .await?;

@@ -60,3 +60,5 @@ pub const IDENTITY_CREDENTIALS_PREFIX: &[u8] = b"identity::creds::";
 pub const IDENTITY_ROTATION_NONCE_PREFIX: &[u8] = b"identity::nonce::rotation::";
 /// State key prefix for indexing credential promotions by block height.
 pub const IDENTITY_PROMOTION_INDEX_PREFIX: &[u8] = b"identity::index::promotion::";
+/// State key prefix for the AccountId -> libp2p PublicKey mapping.
+pub const ACCOUNT_ID_TO_PUBKEY_PREFIX: &[u8] = b"identity::pubkey::";

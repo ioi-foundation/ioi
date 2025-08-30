@@ -1,6 +1,6 @@
 // Path: crates/transaction_models/src/account/mod.rs
 use async_trait::async_trait;
-use depin_sdk_api::chain::AppChain;
+// use depin_sdk_api::chain::AppChain; // This line is removed to fix the warning
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::context::TxContext;
@@ -93,9 +93,9 @@ where
         Ok(())
     }
 
-    async fn apply_payload<ST>(
+    async fn apply_payload<ST, CV>(
         &self,
-        _chain: &(dyn depin_sdk_api::chain::ChainView<Self::CommitmentScheme, ST> + Send + Sync),
+        _chain: &CV,
         tx: &Self::Transaction,
         workload: &WorkloadContainer<ST>,
         _ctx: TxContext<'_>,
@@ -107,6 +107,7 @@ where
             > + Send
             + Sync
             + 'static,
+        CV: depin_sdk_api::chain::ChainView<Self::CommitmentScheme, ST> + Send + Sync + ?Sized,
     {
         let state_tree_arc = workload.state_tree();
         let mut state = state_tree_arc.lock().await;

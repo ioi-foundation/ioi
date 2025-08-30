@@ -3,11 +3,11 @@ use crate::config::OrchestrationConfig;
 use async_trait::async_trait;
 use depin_sdk_api::{
     commitment::CommitmentScheme,
+    consensus::ConsensusEngine,
     state::{StateCommitment, StateManager},
     validator::Container,
 };
 use depin_sdk_client::WorkloadClient;
-use depin_sdk_consensus::ConsensusEngine;
 use depin_sdk_network::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_network::BlockSync;

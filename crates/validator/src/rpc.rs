@@ -188,6 +188,44 @@ async fn rpc_handler(
                 ),
             }
         }
+        // --- MODIFICATION START ---
+        "query_state" => {
+            let key_hex_opt = match &payload.params {
+                Params::Array(v) => v.first().and_then(|x| x.as_str()),
+                _ => None,
+            };
+
+            if let Some(key_hex) = key_hex_opt {
+                match hex::decode(key_hex) {
+                    Ok(key) => {
+                        match app_state.workload_client.query_raw_state(&key).await {
+                            Ok(Some(value_bytes)) => (
+                                StatusCode::OK,
+                                make_ok(&payload.id, serde_json::json!(hex::encode(value_bytes))),
+                            ),
+                            Ok(None) => (
+                                StatusCode::OK,
+                                make_ok(&payload.id, serde_json::Value::Null),
+                            ),
+                            Err(e) => (
+                                StatusCode::OK,
+                                make_err(&payload.id, -32000, format!("State query failed: {}", e)),
+                            ),
+                        }
+                    }
+                    Err(_) => (
+                        StatusCode::OK,
+                        make_err(&payload.id, -32602, "Failed to decode hex key".into()),
+                    ),
+                }
+            } else {
+                (
+                    StatusCode::OK,
+                    make_err(&payload.id, -32602, "Missing key parameter".into()),
+                )
+            }
+        }
+        // --- MODIFICATION END ---
         _ => (
             StatusCode::OK,
             make_err(

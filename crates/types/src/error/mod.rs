@@ -185,6 +185,30 @@ impl From<serde_json::Error> for TransactionError {
     }
 }
 
+impl From<String> for TransactionError {
+    fn from(s: String) -> Self {
+        TransactionError::Invalid(s)
+    }
+}
+
+impl From<prost::DecodeError> for TransactionError {
+    fn from(e: prost::DecodeError) -> Self {
+        TransactionError::Deserialization(e.to_string())
+    }
+}
+
+impl From<parity_scale_codec::Error> for TransactionError {
+    fn from(e: parity_scale_codec::Error) -> Self {
+        TransactionError::State(StateError::InvalidValue(e.to_string()))
+    }
+}
+
+impl From<libp2p::identity::DecodingError> for TransactionError {
+    fn from(e: libp2p::identity::DecodingError) -> Self {
+        TransactionError::Deserialization(e.to_string())
+    }
+}
+
 /// Errors related to the virtual machine and contract execution.
 #[derive(Error, Debug)]
 pub enum VmError {

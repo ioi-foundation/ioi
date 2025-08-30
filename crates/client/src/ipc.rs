@@ -57,6 +57,10 @@ pub enum WorkloadRequest {
         params: serde_json::Value,
     },
     PrefixScan(Vec<u8>),
+    /// A request to query a raw key directly from the state tree.
+    QueryRawState(Vec<u8>),
+    /// A request for the current set of staked validators.
+    GetStakedValidators,
 }
 
 /// A response sent from the Workload container back to the Orchestration container.
@@ -78,6 +82,10 @@ pub enum WorkloadResponse {
     CheckAndTallyProposals(TallyResult),
     CallService(Result<serde_json::Value, String>),
     PrefixScan(ScanResult),
+    /// The response for a raw state query.
+    QueryRawState(Result<Option<Vec<u8>>, String>),
+    /// The response for the current staked validators query.
+    GetStakedValidators(StakesResult),
 }
 
 impl From<ValidatorError> for WorkloadResponse {

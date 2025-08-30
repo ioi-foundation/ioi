@@ -1,6 +1,5 @@
 // Path: crates/transaction_models/src/utxo/mod.rs
 use async_trait::async_trait;
-use depin_sdk_api::chain::AppChain;
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::context::TxContext;
@@ -81,9 +80,9 @@ where
         Ok(())
     }
 
-    async fn apply_payload<ST>(
+    async fn apply_payload<ST, CV>(
         &self,
-        _chain: &(dyn depin_sdk_api::chain::ChainView<Self::CommitmentScheme, ST> + Send + Sync),
+        _chain: &CV,
         tx: &Self::Transaction,
         workload: &WorkloadContainer<ST>,
         _ctx: TxContext<'_>,
@@ -95,6 +94,7 @@ where
             > + Send
             + Sync
             + 'static,
+        CV: depin_sdk_api::chain::ChainView<Self::CommitmentScheme, ST> + Send + Sync + ?Sized,
     {
         let state_tree_arc = workload.state_tree();
         let mut state = state_tree_arc.lock().await;
@@ -110,14 +110,14 @@ where
             let mut total_input: u64 = 0;
             for input in &tx.inputs {
                 let key = self.create_utxo_key(&input.tx_hash, input.output_index);
-                let utxo_bytes = state.get(&key)?.ok_or_else(|| {
-                    TransactionError::Invalid("Input UTXO not found".to_string())
-                })?;
+                let utxo_bytes = state
+                    .get(&key)?
+                    .ok_or_else(|| TransactionError::Invalid("Input UTXO not found".to_string()))?;
                 let utxo: Output = serde_json::from_slice(&utxo_bytes)
                     .map_err(|e| TransactionError::Invalid(format!("Deserialize error: {e}")))?;
-                total_input = total_input.checked_add(utxo.value).ok_or_else(|| {
-                    TransactionError::Invalid("Input value overflow".to_string())
-                })?;
+                total_input = total_input
+                    .checked_add(utxo.value)
+                    .ok_or_else(|| TransactionError::Invalid("Input value overflow".to_string()))?;
             }
             let total_output: u64 = tx.outputs.iter().map(|o| o.value).sum();
             if total_input < total_output {

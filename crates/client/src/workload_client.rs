@@ -2,8 +2,12 @@
 use crate::ipc::{WorkloadRequest, WorkloadResponse};
 use crate::security::SecurityChannel;
 use anyhow::{anyhow, Result};
+use async_trait::async_trait;
+use depin_sdk_api::consensus::ChainStateReader;
 use depin_sdk_api::vm::{ExecutionContext, ExecutionOutput};
-use depin_sdk_types::app::{Block, ChainStatus, ChainTransaction};
+use depin_sdk_types::app::{AccountId, Block, ChainStatus, ChainTransaction};
+use depin_sdk_types::keys::ACCOUNT_ID_TO_PUBKEY_PREFIX;
+use libp2p::identity::PublicKey;
 use std::collections::{BTreeMap, HashMap};
 
 /// A client-side proxy for communicating with the remote Workload container.
@@ -79,24 +83,6 @@ impl WorkloadClient {
         }
     }
 
-    pub async fn get_staked_validators(&self) -> Result<BTreeMap<String, u64>> {
-        let request = WorkloadRequest::GetStakes;
-        match self.send_and_receive(request).await? {
-            WorkloadResponse::GetStakes(res) => res.map_err(|e: String| anyhow!(e)),
-            _ => Err(anyhow!("Invalid response type from workload")),
-        }
-    }
-
-    pub async fn get_next_staked_validators(&self) -> Result<BTreeMap<String, u64>> {
-        let request = WorkloadRequest::GetNextStakes;
-        match self.send_and_receive(request).await? {
-            WorkloadResponse::GetNextStakes(res) => res.map_err(|e: String| anyhow!(e)),
-            _ => Err(anyhow!(
-                "Invalid response type from workload for GetNextStakes"
-            )),
-        }
-    }
-
     pub async fn deploy_contract(
         &self,
         code: Vec<u8>,
@@ -145,22 +131,22 @@ impl WorkloadClient {
         }
     }
 
-    pub async fn get_authority_set(&self) -> Result<Vec<Vec<u8>>> {
-        let request = WorkloadRequest::GetAuthoritySet;
-        match self.send_and_receive(request).await? {
-            WorkloadResponse::GetAuthoritySet(res) => res.map_err(|e: String| anyhow!(e)),
-            _ => Err(anyhow!(
-                "Invalid response type from workload for GetAuthoritySet"
-            )),
-        }
-    }
-
     pub async fn get_validator_set(&self) -> Result<Vec<Vec<u8>>> {
         let request = WorkloadRequest::GetValidatorSet;
         match self.send_and_receive(request).await? {
             WorkloadResponse::GetValidatorSet(res) => res.map_err(|e: String| anyhow!(e)),
             _ => Err(anyhow!(
                 "Invalid response type from workload for GetValidatorSet"
+            )),
+        }
+    }
+
+    pub async fn get_staked_validators(&self) -> Result<BTreeMap<String, u64>> {
+        let request = WorkloadRequest::GetStakedValidators;
+        match self.send_and_receive(request).await? {
+            WorkloadResponse::GetStakedValidators(res) => res.map_err(|e| anyhow!(e)),
+            _ => Err(anyhow!(
+                "Invalid response type from workload for GetStakedValidators"
             )),
         }
     }
@@ -188,13 +174,9 @@ impl WorkloadClient {
     pub async fn check_and_tally_proposals(&self, current_height: u64) -> Result<Vec<String>> {
         let request = WorkloadRequest::CheckAndTallyProposals { current_height };
         match self.send_and_receive(request).await? {
-            WorkloadResponse::CheckAndTallyProposals(res) => {
-                let value = res.map_err(|e: String| anyhow!(e))?;
-                serde_json::from_value(serde_json::to_value(value)?)
-                    .map_err(|e| anyhow!("Failed to deserialize tally outcomes: {}", e))
-            }
+            WorkloadResponse::CheckAndTallyProposals(res) => res.map_err(|e: String| anyhow!(e)),
             _ => Err(anyhow!(
-                "Invalid response type from workload for CallService"
+                "Invalid response type from workload for CheckAndTallyProposals"
             )),
         }
     }
@@ -207,5 +189,58 @@ impl WorkloadClient {
                 "Invalid response type from workload for PrefixScan"
             )),
         }
+    }
+
+    pub async fn query_raw_state(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
+        let request = WorkloadRequest::QueryRawState(key.to_vec());
+        match self.send_and_receive(request).await? {
+            WorkloadResponse::QueryRawState(res) => res.map_err(|e| anyhow!(e)),
+            _ => Err(anyhow!(
+                "Invalid response type from workload for QueryRawState"
+            )),
+        }
+    }
+}
+
+// --- FIX START: Add the #[async_trait] macro ---
+#[async_trait]
+// --- FIX END ---
+impl ChainStateReader for WorkloadClient {
+    async fn get_authority_set(&self) -> Result<Vec<Vec<u8>>, String> {
+        let request = WorkloadRequest::GetAuthoritySet;
+        match self.send_and_receive(request).await {
+            Ok(WorkloadResponse::GetAuthoritySet(res)) => res,
+            Ok(_) => Err("Invalid response type from workload for GetAuthoritySet".to_string()),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    async fn get_next_staked_validators(&self) -> Result<BTreeMap<String, u64>, String> {
+        let request = WorkloadRequest::GetNextStakes;
+        match self.send_and_receive(request).await {
+            Ok(WorkloadResponse::GetNextStakes(res)) => res,
+            Ok(_) => Err("Invalid response type from workload for GetNextStakes".to_string()),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    async fn get_public_key_for_account(
+        &self,
+        account_id: &AccountId,
+    ) -> Result<PublicKey, String> {
+        let key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
+        let pk_bytes = self
+            .query_raw_state(&key)
+            .await
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| {
+                format!(
+                    "Public key not found for AccountId: {}",
+                    hex::encode(account_id)
+                )
+            })?;
+
+        PublicKey::try_decode_protobuf(&pk_bytes)
+            .map_err(|e| format!("Failed to decode public key protobuf: {}", e))
     }
 }

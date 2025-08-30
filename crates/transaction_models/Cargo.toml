@@ -20,6 +20,7 @@ hex = { workspace = true }
 async-trait = { workspace = true }
 libp2p = { workspace = true }
 bs58 = "0.4"
+prost = { workspace = true }                        # <-- FIX: Add prost dependency
 
 [features]
 default = []
