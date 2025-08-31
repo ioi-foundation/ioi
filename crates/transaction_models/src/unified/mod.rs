@@ -4,7 +4,6 @@ use crate::utxo::{UTXOModel, UTXOTransactionProof};
 use async_trait::async_trait;
 use depin_sdk_api::chain::ChainView;
 use depin_sdk_api::commitment::CommitmentScheme;
-use depin_sdk_api::consensus::PenaltyMechanism;
 use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
@@ -13,14 +12,16 @@ use depin_sdk_api::vm::ExecutionContext;
 use depin_sdk_services::governance::GovernanceModule;
 use depin_sdk_services::identity::IdentityHub;
 use depin_sdk_types::app::{
-    account_id_from_pubkey, evidence_id, AccountId, ApplicationTransaction, ChainTransaction,
+    account_id_from_key_material, evidence_id, AccountId, ApplicationTransaction, ChainTransaction,
     StateEntry, SystemPayload,
 };
 use depin_sdk_types::codec;
+use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::{StateError, TransactionError};
 use depin_sdk_types::keys::{
-    ACCOUNT_ID_TO_PUBKEY_PREFIX, EVIDENCE_REGISTRY_KEY, IBC_PROCESSED_RECEIPT_PREFIX,
-    ORACLE_DATA_PREFIX, ORACLE_PENDING_REQUEST_PREFIX, STAKES_KEY_CURRENT, STAKES_KEY_NEXT,
+    ACCOUNT_ID_TO_PUBKEY_PREFIX, AUTHORITY_SET_KEY, EVIDENCE_REGISTRY_KEY,
+    IBC_PROCESSED_RECEIPT_PREFIX, ORACLE_DATA_PREFIX, ORACLE_PENDING_REQUEST_PREFIX,
+    STAKES_KEY_CURRENT, STAKES_KEY_NEXT,
 };
 use libp2p::identity::PublicKey as Libp2pPublicKey;
 use serde::{Deserialize, Serialize};
@@ -168,8 +169,10 @@ where
 
                 match &sys_tx.payload {
                     SystemPayload::Stake { public_key, amount } => {
-                        let pk = Libp2pPublicKey::try_decode_protobuf(public_key)?;
-                        let staker_account_id = account_id_from_pubkey(&pk);
+                        let staker_account_id_hash =
+                            account_id_from_key_material(sys_tx.signature_proof.suite, public_key)?;
+                        let staker_account_id = AccountId(staker_account_id_hash);
+
                         let pubkey_map_key =
                             [ACCOUNT_ID_TO_PUBKEY_PREFIX, staker_account_id.as_ref()].concat();
                         if state.get(&pubkey_map_key)?.is_none() {
@@ -189,10 +192,7 @@ where
                         Ok(())
                     }
                     SystemPayload::Unstake { amount } => {
-                        let pk = Libp2pPublicKey::try_decode_protobuf(
-                            &sys_tx.signature_proof.public_key,
-                        )?;
-                        let staker_account_id = account_id_from_pubkey(&pk);
+                        let staker_account_id = sys_tx.header.account_id;
                         let base_stakes_bytes = state
                             .get(STAKES_KEY_NEXT)?
                             .or(state.get(STAKES_KEY_CURRENT)?);
@@ -206,21 +206,51 @@ where
                         Ok(())
                     }
                     SystemPayload::ReportMisbehavior { report } => {
-                        let reporter_pk = Libp2pPublicKey::try_decode_protobuf(
-                            &sys_tx.signature_proof.public_key,
-                        )?;
-                        let reporter_id = account_id_from_pubkey(&reporter_pk);
-                        let stakes_bytes = state.get(STAKES_KEY_CURRENT)?.ok_or_else(|| {
-                            TransactionError::State(StateError::KeyNotFound(
-                                "Stakes map not found".to_string(),
-                            ))
-                        })?;
-                        let stakes: BTreeMap<AccountId, u64> =
-                            codec::from_bytes_canonical(&stakes_bytes)?;
-                        if stakes.get(&reporter_id).copied().unwrap_or(0) == 0 {
-                            return Err(TransactionError::Invalid(
-                                "Reporter is not an active validator (no stake)".into(),
-                            ));
+                        let reporter_id = &sys_tx.header.account_id;
+
+                        match chain_ref.consensus_type() {
+                            ConsensusType::ProofOfStake => {
+                                let stakes_bytes =
+                                    state.get(STAKES_KEY_CURRENT)?.ok_or_else(|| {
+                                        TransactionError::State(StateError::KeyNotFound(
+                                            "Stakes map not found".into(),
+                                        ))
+                                    })?;
+                                let stakes: BTreeMap<AccountId, u64> =
+                                    codec::from_bytes_canonical(&stakes_bytes)?;
+                                if stakes.get(reporter_id).copied().unwrap_or(0) == 0 {
+                                    return Err(TransactionError::Invalid(
+                                        "Reporter is not an active validator (no stake)".into(),
+                                    ));
+                                }
+                            }
+                            ConsensusType::ProofOfAuthority => {
+                                let pubkey_map_key =
+                                    [ACCOUNT_ID_TO_PUBKEY_PREFIX, reporter_id.as_ref()].concat();
+                                let reporter_pk_bytes =
+                                    state.get(&pubkey_map_key)?.ok_or_else(|| {
+                                        TransactionError::Invalid(
+                                            "Reporter public key not found in state".into(),
+                                        )
+                                    })?;
+                                let reporter_pk =
+                                    Libp2pPublicKey::try_decode_protobuf(&reporter_pk_bytes)
+                                        .map_err(|_| {
+                                            TransactionError::Invalid(
+                                                "Malformed reporter public key".into(),
+                                            )
+                                        })?;
+
+                                let authorities: Vec<Vec<u8>> = state
+                                    .get(AUTHORITY_SET_KEY)?
+                                    .and_then(|b| serde_json::from_slice(&b).ok())
+                                    .unwrap_or_default();
+                                if !authorities.contains(&reporter_pk.to_peer_id().to_bytes()) {
+                                    return Err(TransactionError::Invalid(
+                                        "Reporter is not an active authority".into(),
+                                    ));
+                                }
+                            }
                         }
 
                         let handled_evidence: BTreeSet<[u8; 32]> = state
@@ -312,7 +342,7 @@ where
                     }
                     SystemPayload::RotateKey(proof) => {
                         let identity_hub = ctx.services.get::<IdentityHub>().ok_or_else(|| {
-                            TransactionError::Invalid(
+                            TransactionError::Unsupported(
                                 "IdentityHub service is not available".to_string(),
                             )
                         })?;

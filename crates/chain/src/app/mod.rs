@@ -13,14 +13,14 @@ use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
 use depin_sdk_consensus::Consensus;
-use depin_sdk_transaction_models::system::nonce::check_and_bump_tx_nonce;
+use depin_sdk_transaction_models::system::{nonce, validation};
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{
     AccountId, Block, BlockHeader, ChainStatus, ChainTransaction, SystemPayload,
 };
 use depin_sdk_types::codec;
 use depin_sdk_types::config::ConsensusType;
-use depin_sdk_types::error::{BlockError, ChainError, CoreError, StateError};
+use depin_sdk_types::error::{BlockError, ChainError, CoreError, StateError, TransactionError};
 use depin_sdk_types::keys::{
     ACCOUNT_ID_TO_PUBKEY_PREFIX, AUTHORITY_SET_KEY, GOVERNANCE_KEY, STAKES_KEY_CURRENT,
     STAKES_KEY_NEXT, STATUS_KEY,
@@ -60,6 +60,27 @@ impl<CS: CommitmentScheme + Clone> Debug for Chain<CS> {
             .field("consensus_type", &self.consensus_engine.consensus_type())
             .finish()
     }
+}
+
+/// Checks if the services required for a specific transaction type are enabled.
+fn preflight_capabilities(
+    services: &ServiceDirectory,
+    tx: &ChainTransaction,
+) -> Result<(), TransactionError> {
+    if let ChainTransaction::System(sys_tx) = tx {
+        if matches!(sys_tx.payload, SystemPayload::RotateKey(_)) {
+            if services
+                .services()
+                .find_map(|s| s.as_credentials_view())
+                .is_none()
+            {
+                return Err(TransactionError::Unsupported(
+                    "RotateKey requires the IdentityHub service".into(),
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 impl<CS> Chain<CS>
@@ -255,6 +276,10 @@ where
     fn get_penalty_mechanism(&self) -> Box<dyn PenaltyMechanism + Send + Sync + '_> {
         Box::new(&self.consensus_engine)
     }
+
+    fn consensus_type(&self) -> ConsensusType {
+        self.consensus_engine.consensus_type()
+    }
 }
 
 #[async_trait]
@@ -343,21 +368,37 @@ where
                 return Ok(());
             }
         }
+
         let state_tree_arc = workload.state_tree();
+
+        // === READ-ONLY VALIDATION PHASE ===
+        let state = state_tree_arc.lock().await;
+        nonce::assert_next_nonce(&*state, tx)?;
+        validation::verify_transaction_signature(&*state, &self.services, tx, &ctx)?;
+        drop(state);
+
+        // === READ-WRITE VALIDATION & EXECUTION PHASE ===
         let mut state = state_tree_arc.lock().await;
 
-        self.state.transaction_model.validate_stateless(tx)?;
+        // Re-assert Nonce under write lock to prevent TOCTOU races.
+        nonce::assert_next_nonce(&*state, tx)?;
 
-        for service in self.services.services() {
+        // Capability Pre-check (BEFORE ante handlers to fail fast).
+        preflight_capabilities(&self.services, tx)?;
+
+        // Optional Service Ante Handlers (in a stable, deterministic order).
+        for service in self.services.services_in_deterministic_order() {
             if let Some(decorator) = service.as_tx_decorator() {
                 decorator.ante_handle(&mut *state, tx, &ctx)?;
             }
         }
 
-        check_and_bump_tx_nonce(&mut *state, tx)?;
+        // Core Nonce Bump (Write) - The point of no return.
+        nonce::bump_nonce(&mut *state, tx)?;
 
         drop(state);
 
+        // PAYLOAD APPLICATION PHASE
         self.state
             .transaction_model
             .apply_payload(self, tx, workload, ctx)

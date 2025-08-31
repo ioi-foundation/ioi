@@ -1,4 +1,4 @@
-// crates/types/src/app/identity.rs
+// Path: crates/types/src/app/identity.rs
 
 //! Defines the canonical `AccountId` and the single, deterministic function
 //! used to derive it from a cryptographic public key.
@@ -6,8 +6,10 @@
 //! This module serves as the foundational source of truth for on-chain identity,
 //! ensuring consistency across all services, transaction models, and state transitions.
 
-use dcrypt::algorithms::xof::{Blake3Xof, ExtendableOutputFunction};
-use libp2p::identity::PublicKey;
+use crate::app::SignatureSuite;
+use crate::error::TransactionError;
+use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
+use dcrypt::algorithms::ByteSerializable;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
@@ -46,62 +48,52 @@ impl From<[u8; 32]> for AccountId {
     }
 }
 
-/// An enum to tag the raw key bytes, ensuring future algorithm additions are non-breaking.
-/// This prevents cross-algorithm collisions if different key types were to produce the
-/// same raw byte representation.
-pub enum KeyAlgo {
-    /// Represents an Ed25519 public key.
-    Ed25519 = 0x01,
-}
-
-/// Derives a canonical, deterministic `AccountId` from a `libp2p::identity::PublicKey`.
+/// Derives a canonical, deterministic `AccountId` from a public key's raw material.
 ///
 /// This is the **SINGLE SOURCE OF TRUTH** for account ID generation across the entire system.
-/// It uses a domain-separated `blake3` hash to ensure that the output cannot collide with
-/// hashes generated for other purposes within the SDK.
-///
-/// # Arguments
-///
-/// * `pk` - A reference to the `libp2p::identity::PublicKey` to derive the ID from.
-///
-/// # Returns
-///
-/// A canonical 32-byte `AccountId`.
-///
-/// # Panics
-///
-/// This function will panic if it encounters a `PublicKey` variant that is not yet supported
-/// for `AccountId` derivation (e.g., Secp256k1, if not implemented).
-pub fn account_id_from_pubkey(pk: &PublicKey) -> AccountId {
-    // The libp2p::identity::PublicKey is an opaque struct in some versions,
-    // requiring `try_into_*` methods to access the underlying key data. We use
-    // an `if let` chain to handle this correctly.
-    let (algo_tag, raw_key_bytes): (u8, Vec<u8>) =
-        if let Ok(ed25519_pk) = pk.clone().try_into_ed25519() {
-            // --- MODIFICATION START ---
-            // Do not rely on external crates implementing traits like `Encode`.
-            // Instead, extract the canonical raw bytes, which are stable.
-            (KeyAlgo::Ed25519 as u8, ed25519_pk.to_bytes().to_vec())
-            // --- MODIFICATION END ---
+/// It uses a domain-separated `sha256` hash and includes a suite tag to ensure that the
+/// output cannot collide with other hashes or between different key types. It correctly
+/// handles both raw and libp2p-encoded Ed25519 keys by reducing them to a canonical form before hashing.
+pub fn account_id_from_key_material(
+    suite: SignatureSuite,
+    public_key: &[u8],
+) -> Result<[u8; 32], TransactionError> {
+    // Concatenate all parts to be hashed into a single buffer.
+    let mut data_to_hash = Vec::new();
+    // Domain separate the hash to prevent collisions with other parts of the system.
+    data_to_hash.extend_from_slice(b"DEP-SDK-ACCOUNT-ID::V1");
+    // Include the suite tag to prevent cross-algorithm collisions.
+    data_to_hash.push(match suite {
+        SignatureSuite::Ed25519 => 0x01,
+        SignatureSuite::Dilithium2 => 0x02,
+    });
+
+    // Reduce different key encodings to a single canonical representation before hashing.
+    match suite {
+        SignatureSuite::Ed25519 => {
+            if let Ok(pk) = libp2p::identity::PublicKey::try_decode_protobuf(public_key) {
+                // It's a libp2p key, use its protobuf encoding as the canonical form.
+                data_to_hash.extend_from_slice(&pk.encode_protobuf());
+            } else if public_key.len() == 32 {
+                // It's a raw 32-byte key, use it directly.
+                data_to_hash.extend_from_slice(public_key);
+            } else {
+                return Err(TransactionError::Invalid(
+                    "Malformed Ed25519 public key".to_string(),
+                ));
+            }
         }
-        // Add other key types here using `else if let Ok(...)`
-        else {
-            unimplemented!("Unsupported public key algorithm for AccountId derivation");
-        };
+        SignatureSuite::Dilithium2 => {
+            // Dilithium keys have a single representation, so just hash the bytes.
+            data_to_hash.extend_from_slice(public_key);
+        }
+    }
 
-    // Use the streaming API of Blake3Xof for domain separation.
-    let mut xof = Blake3Xof::new();
-    // Use a domain separator to prevent hash collisions with other parts of the system.
-    xof.update(b"DEP-SDK-ACCOUNT-ID::V1").unwrap();
-    // Include the algorithm tag in the hash to prevent cross-algorithm collisions.
-    xof.update(&[algo_tag]).unwrap();
-    // Hash the raw key bytes.
-    xof.update(&raw_key_bytes).unwrap();
+    let hash_bytes = DcryptSha256::digest(&data_to_hash)
+        .map_err(|e| TransactionError::Invalid(format!("Hashing failed: {}", e)))?
+        .to_bytes();
 
-    let hash_vec = xof.squeeze_into_vec(32).unwrap();
-    let hash_array: [u8; 32] = hash_vec
+    Ok(hash_bytes
         .try_into()
-        .expect("Blake3Xof output should be 32 bytes");
-
-    AccountId(hash_array)
+        .expect("SHA256 digest should be 32 bytes"))
 }

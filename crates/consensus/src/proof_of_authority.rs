@@ -5,7 +5,9 @@ use depin_sdk_api::consensus::ChainStateReader;
 use depin_sdk_api::state::StateAccessor;
 use depin_sdk_types::app::{AccountId, Block, FailureReport};
 use depin_sdk_types::error::{ConsensusError, StateError, TransactionError};
-use depin_sdk_types::keys::{AUTHORITY_SET_KEY, QUARANTINED_VALIDATORS_KEY};
+use depin_sdk_types::keys::{
+    ACCOUNT_ID_TO_PUBKEY_PREFIX, AUTHORITY_SET_KEY, QUARANTINED_VALIDATORS_KEY,
+};
 use libp2p::identity::PublicKey;
 use libp2p::PeerId;
 use std::collections::{BTreeSet, HashSet};
@@ -28,10 +30,18 @@ impl ProofOfAuthorityEngine {
 impl PenaltyMechanism for ProofOfAuthorityEngine {
     async fn apply_penalty(
         &self,
-        state: &mut dyn StateAccessor, // CHANGED: Receive StateAccessor directly
+        state: &mut dyn StateAccessor,
         report: &FailureReport,
     ) -> Result<(), TransactionError> {
         const MIN_LIVE_AUTHORITIES: usize = 3;
+
+        // 1. Check if the offender is even an authority by looking up their PeerId.
+        let offender_pubkey_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, report.offender.as_ref()].concat();
+        let offender_pubkey_bytes = state.get(&offender_pubkey_key)?.ok_or_else(|| {
+            TransactionError::Invalid("Offender's public key not found in state".into())
+        })?;
+        let offender_pubkey = PublicKey::try_decode_protobuf(&offender_pubkey_bytes)?;
+        let offender_peer_id = offender_pubkey.to_peer_id();
 
         let authorities_bytes = state.get(AUTHORITY_SET_KEY)?.ok_or_else(|| {
             TransactionError::State(StateError::KeyNotFound(
@@ -40,6 +50,13 @@ impl PenaltyMechanism for ProofOfAuthorityEngine {
         })?;
         let authorities: Vec<Vec<u8>> = serde_json::from_slice(&authorities_bytes)?;
 
+        if !authorities.contains(&offender_peer_id.to_bytes()) {
+            return Err(TransactionError::Invalid(
+                "Reported offender is not a current authority.".into(),
+            ));
+        }
+
+        // 2. Load the current quarantine list.
         let quarantined: BTreeSet<AccountId> = state
             .get(QUARANTINED_VALIDATORS_KEY)?
             .map(|b| {
@@ -49,6 +66,7 @@ impl PenaltyMechanism for ProofOfAuthorityEngine {
             .transpose()?
             .unwrap_or_default();
 
+        // 3. Check liveness guard.
         if !quarantined.contains(&report.offender)
             && (authorities.len() - quarantined.len() - 1) < MIN_LIVE_AUTHORITIES
         {
@@ -57,6 +75,7 @@ impl PenaltyMechanism for ProofOfAuthorityEngine {
             ));
         }
 
+        // 4. Add the offender to the quarantine list and save it.
         let mut new_quarantined = quarantined;
         if new_quarantined.insert(report.offender) {
             state.insert(

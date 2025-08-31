@@ -1,4 +1,5 @@
 // Path: crates/api/src/lib.rs
+
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 //! # DePIN SDK API
@@ -22,6 +23,8 @@ pub mod crypto;
 pub mod error;
 /// Defines the core enums for representing homomorphic operations and their results.
 pub mod homomorphic;
+/// Defines the `CredentialsView` trait for decoupled identity lookups.
+pub mod identity;
 /// Defines traits for Inter-Blockchain Communication (IBC).
 pub mod ibc;
 /// Defines traits for services that hook into the block processing lifecycle.
@@ -42,6 +45,7 @@ pub mod prelude {
     pub use crate::chain::AppChain;
     pub use crate::commitment::{CommitmentScheme, HomomorphicCommitmentScheme};
     pub use crate::error::{ChainError, CoreError, StateError, TransactionError, ValidatorError};
+    pub use crate::identity::CredentialsView;
     pub use crate::lifecycle::OnEndBlock;
     pub use crate::services::access::{Service, ServiceDirectory};
     pub use crate::services::{BlockchainService, UpgradableService};
@@ -50,7 +54,5 @@ pub mod prelude {
     pub use crate::transaction::decorator::TxDecorator;
     pub use crate::transaction::TransactionModel;
     pub use crate::validator::container::{Container, GuardianContainer};
-    // --- MODIFICATION: Removed the line below ---
-    // pub use crate::validator::TransactionExecutor;
     pub use crate::vm::VirtualMachine;
 }

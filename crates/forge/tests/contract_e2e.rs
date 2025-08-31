@@ -9,8 +9,8 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_types::{
     app::{
-        account_id_from_pubkey, ApplicationTransaction, ChainTransaction, Credential, SignHeader,
-        SignatureProof, SignatureSuite,
+        account_id_from_key_material, ApplicationTransaction, ChainTransaction, Credential,
+        SignHeader, SignatureProof, SignatureSuite,
     },
     config::InitialServiceConfig,
     keys::IDENTITY_CREDENTIALS_PREFIX,
@@ -27,7 +27,11 @@ fn create_signed_app_tx(
     nonce: u64,
 ) -> ChainTransaction {
     let public_key = keypair.public().encode_protobuf();
-    let account_id = account_id_from_pubkey(&keypair.public());
+
+    // Use the canonical function to derive the account ID
+    let account_id_hash =
+        account_id_from_key_material(SignatureSuite::Ed25519, &public_key).unwrap();
+    let account_id = depin_sdk_types::app::AccountId(account_id_hash);
 
     let header = SignHeader {
         account_id,
@@ -122,8 +126,10 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
             let authority_peer_id = keypair.public().to_peer_id();
             genesis["genesis_state"]["system::authorities"] = json!([authority_peer_id.to_bytes()]);
 
-            let account_id = account_id_from_pubkey(&keypair.public());
-            let public_key_hash: [u8; 32] = account_id.0;
+            let public_key_bytes = keypair.public().encode_protobuf();
+            let public_key_hash =
+                account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes).unwrap();
+            let account_id = depin_sdk_types::app::AccountId(public_key_hash);
 
             let initial_cred = Credential {
                 suite: SignatureSuite::Ed25519,

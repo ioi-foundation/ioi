@@ -171,6 +171,31 @@ pub enum TransactionError {
     /// An error originating from the state manager.
     #[error("State error: {0}")]
     State(#[from] StateError),
+
+    // --- NEW, STRUCTURED ERRORS ---
+    /// The transaction nonce does not match the expected nonce for the account.
+    #[error("Nonce mismatch. Expected: {expected}, Got: {got}")]
+    NonceMismatch {
+        /// The expected nonce from the on-chain state.
+        expected: u64,
+        /// The nonce provided in the transaction.
+        got: u64,
+    },
+    /// The signature failed cryptographic verification.
+    #[error("Invalid signature: {0}")]
+    InvalidSignature(String),
+    /// The signer's key is no longer valid for signing transactions (e.g., after a key rotation grace period).
+    #[error("The key used for signing has expired")]
+    ExpiredKey,
+    /// The signer's key is not authorized by the account's on-chain credentials.
+    #[error("Signer is not authorized by on-chain credentials")]
+    UnauthorizedByCredentials,
+    /// The AccountId in the transaction header does not correspond to the public key used for signing.
+    #[error("The account ID in the header does not match the public key in the proof")]
+    AccountIdMismatch,
+    /// The transaction type requires a service that is not enabled on the chain.
+    #[error("Unsupported transaction type: {0}")]
+    Unsupported(String),
 }
 
 impl From<bcs::Error> for TransactionError {

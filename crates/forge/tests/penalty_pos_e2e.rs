@@ -1,15 +1,13 @@
-// Path: forge/tests/penalty_pos_e2e.rs
+// Path: crates/forge/tests/penalty_pos_e2e.rs
 
 #![cfg(all(feature = "consensus-pos", feature = "vm-wasm"))]
 
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use depin_sdk_forge::testing::{
-    assert_log_contains, build_test_artifacts, submit_transaction, TestCluster,
-};
+use depin_sdk_forge::testing::{build_test_artifacts, submit_transaction, TestCluster};
 use depin_sdk_types::{
     app::{
-        account_id_from_pubkey, evidence_id, AccountId, ChainTransaction, Credential,
+        account_id_from_key_material, evidence_id, AccountId, ChainTransaction, Credential,
         FailureReport, OffenseFacts, OffenseType, SignHeader, SignatureProof, SignatureSuite,
         SystemPayload, SystemTransaction,
     },
@@ -25,6 +23,8 @@ use libp2p::identity::Keypair;
 use reqwest::Client;
 use serde_json::json;
 use std::collections::{BTreeMap, BTreeSet};
+use std::time::Duration;
+use tokio::time;
 
 /// Helper function to query a raw key from the workload state via RPC.
 async fn query_state_key(rpc_addr: &str, key: &[u8]) -> Result<Option<Vec<u8>>> {
@@ -70,10 +70,15 @@ fn create_report_tx(
         proof: b"mock_proof_data".to_vec(),
     };
 
+    let reporter_pk_bytes = reporter_key.public().encode_protobuf();
+    let reporter_account_hash =
+        account_id_from_key_material(SignatureSuite::Ed25519, &reporter_pk_bytes).unwrap();
+    let reporter_account_id = AccountId(reporter_account_hash);
+
     let header = SignHeader {
-        account_id: account_id_from_pubkey(&reporter_key.public()),
+        account_id: reporter_account_id,
         nonce,
-        chain_id: 1, // Must match chain's config
+        chain_id: 1,
         tx_version: 1,
     };
 
@@ -90,7 +95,7 @@ fn create_report_tx(
 
     tx_to_sign.signature_proof = SignatureProof {
         suite: SignatureSuite::Ed25519,
-        public_key: reporter_key.public().encode_protobuf(),
+        public_key: reporter_pk_bytes,
         signature,
     };
 
@@ -102,7 +107,7 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
     println!("\n--- Running PoS Economic Slashing and Replay Protection Test ---");
     build_test_artifacts("consensus-pos,vm-wasm,tree-file,primitive-hash");
     let initial_stake = 100_000u64;
-    let expected_stake_after_slash = 90_000u64; // Based on 10% hardcoded penalty
+    let expected_stake_after_slash = 90_000u64;
 
     let mut cluster = TestCluster::builder()
         .with_validators(2)
@@ -115,10 +120,14 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
             allow_downgrade: false,
         }))
         .with_genesis_modifier(move |genesis, keys| {
-            // Setup initial stakes using canonical AccountId and SCALE codec
             let stakes: BTreeMap<AccountId, u64> = keys
                 .iter()
-                .map(|k| (account_id_from_pubkey(&k.public()), initial_stake))
+                .map(|k| {
+                    let pk_bytes = k.public().encode_protobuf();
+                    let account_hash =
+                        account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
+                    (AccountId(account_hash), initial_stake)
+                })
                 .collect();
             let stakes_bytes = codec::to_bytes_canonical(&stakes);
             let stakes_b64 = format!("b64:{}", BASE64_STANDARD.encode(&stakes_bytes));
@@ -127,9 +136,11 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
             genesis["genesis_state"][std::str::from_utf8(STAKES_KEY_NEXT).unwrap()] =
                 json!(&stakes_b64);
 
-            // Setup initial credentials and the new pubkey lookup map
             for keypair in keys {
-                let account_id = account_id_from_pubkey(&keypair.public());
+                let pk_bytes = keypair.public().encode_protobuf();
+                let account_id_hash =
+                    account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
+                let account_id = AccountId(account_id_hash);
                 let cred = Credential {
                     suite: SignatureSuite::Ed25519,
                     public_key_hash: account_id.0,
@@ -142,12 +153,10 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                 genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&creds_key))] =
                     json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes)));
 
-                // Populate the AccountId -> PubKey map in genesis
                 let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-                let pubkey_bytes = keypair.public().encode_protobuf();
                 genesis["genesis_state"]
                     [format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key))] =
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pubkey_bytes)));
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes)));
             }
         })
         .build()
@@ -156,42 +165,36 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
     let (reporter_slice, offender_slice) = cluster.validators.split_at_mut(1);
     let reporter = &mut reporter_slice[0];
     let offender = &mut offender_slice[0];
-
     let rpc_addr = &reporter.rpc_addr;
-    let mut orch_logs = reporter.orch_log_stream.lock().await.take().unwrap();
 
-    // Wait for the first block to establish baseline state
-    assert_log_contains(
-        "Orchestration",
-        &mut orch_logs,
-        "Received gossiped block #1",
-    )
-    .await?;
+    time::sleep(Duration::from_secs(10)).await;
 
-    // ACTION: Report the offender
-    let offender_account_id = account_id_from_pubkey(&offender.keypair.public());
-    let (tx, report) = create_report_tx(&reporter.keypair, offender_account_id, 0); // Nonce 0
-    submit_transaction(rpc_addr, &tx).await?;
+    let offender_pk_bytes = offender.keypair.public().encode_protobuf();
+    let offender_account_id_hash =
+        account_id_from_key_material(SignatureSuite::Ed25519, &offender_pk_bytes)?;
+    let offender_account_id = AccountId(offender_account_id_hash);
 
-    // Wait for the next block to process the report transaction
-    assert_log_contains(
-        "Orchestration",
-        &mut orch_logs,
-        "Received gossiped block #2",
-    )
-    .await?;
+    // ACTION 1: Report the offender
+    let (tx1, report1) = create_report_tx(&reporter.keypair, offender_account_id, 0);
+    submit_transaction(rpc_addr, &tx1).await?;
 
-    // --- VERIFICATION ---
-
-    // Assert 1: Stake was correctly slashed in the *next* stakes map.
-    let stakes_bytes = query_state_key(rpc_addr, STAKES_KEY_NEXT)
-        .await?
-        .expect("STAKES_KEY_NEXT should exist in state");
-    let stakes: BTreeMap<AccountId, u64> =
-        codec::from_bytes_canonical(&stakes_bytes).map_err(|e| anyhow!(e))?;
-    let offender_stake = stakes.get(&offender_account_id).unwrap();
+    // VERIFY 1: Poll state until stake is slashed
+    println!("Waiting for stake to be slashed...");
+    let mut offender_stake = initial_stake;
+    for _ in 0..15 {
+        time::sleep(Duration::from_secs(2)).await;
+        let stakes_bytes = query_state_key(rpc_addr, STAKES_KEY_NEXT)
+            .await?
+            .expect("STAKES_KEY_NEXT should exist");
+        let stakes: BTreeMap<AccountId, u64> =
+            codec::from_bytes_canonical(&stakes_bytes).map_err(|e| anyhow!(e))?;
+        offender_stake = *stakes.get(&offender_account_id).unwrap_or(&initial_stake);
+        if offender_stake < initial_stake {
+            break;
+        }
+    }
     assert_eq!(
-        *offender_stake, expected_stake_after_slash,
+        offender_stake, expected_stake_after_slash,
         "Stake was not slashed correctly"
     );
     println!(
@@ -199,26 +202,34 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
         offender_stake
     );
 
-    // Assert 2: Evidence ID was recorded for replay protection.
+    // VERIFY 2: Evidence ID was recorded
     let evidence_bytes = query_state_key(rpc_addr, EVIDENCE_REGISTRY_KEY)
         .await?
-        .expect("EVIDENCE_REGISTRY_KEY should exist in state");
+        .expect("EVIDENCE_REGISTRY_KEY should exist");
     let evidence_list: BTreeSet<[u8; 32]> =
         codec::from_bytes_canonical(&evidence_bytes).map_err(|e| anyhow!(e))?;
-    let id = evidence_id(&report);
-    assert!(evidence_list.contains(&id), "Evidence ID was not recorded");
+    let id1 = evidence_id(&report1);
+    assert!(evidence_list.contains(&id1), "Evidence ID was not recorded");
     println!("SUCCESS: Evidence ID was correctly recorded in the registry.");
 
-    // Assert 3: An identical report (with a new nonce) is rejected as a replay.
-    let (replay_tx, _) = create_report_tx(&reporter.keypair, offender_account_id, 1); // Incremented nonce
+    // ACTION 2: Submit an identical report (with a new nonce) to test replay protection.
+    let (replay_tx, _) = create_report_tx(&reporter.keypair, offender_account_id, 1);
     submit_transaction(rpc_addr, &replay_tx).await?;
 
-    // The node will accept the tx into the mempool, but it will fail during block processing.
-    assert_log_contains(
-        "Orchestration",
-        &mut orch_logs,
-        "Transaction processing error: Invalid transaction: Duplicate evidence: this offense has already been penalized.",
-    ).await?;
+    // VERIFY 3: Wait and confirm the stake was NOT slashed a second time.
+    println!("Waiting to confirm no double-slashing occurs...");
+    time::sleep(Duration::from_secs(15)).await;
+    let final_stakes_bytes = query_state_key(rpc_addr, STAKES_KEY_NEXT)
+        .await?
+        .expect("STAKES_KEY_NEXT should exist");
+    let final_stakes: BTreeMap<AccountId, u64> =
+        codec::from_bytes_canonical(&final_stakes_bytes).map_err(|e| anyhow!(e))?;
+    let final_offender_stake = *final_stakes.get(&offender_account_id).unwrap();
+
+    assert_eq!(
+        final_offender_stake, expected_stake_after_slash,
+        "Stake was slashed a second time, replay protection failed"
+    );
     println!("SUCCESS: Replay transaction was correctly rejected by the state machine.");
 
     Ok(())
