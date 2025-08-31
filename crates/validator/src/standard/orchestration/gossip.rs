@@ -1,16 +1,133 @@
 // Path: crates/validator/src/standard/orchestration/gossip.rs
 use super::context::MainLoopContext;
 use super::oracle::handle_newly_processed_block;
-use depin_sdk_api::{
-    commitment::CommitmentScheme,
-    consensus::ConsensusEngine,
-    state::{StateCommitment, StateManager},
-};
+use crate::standard::orchestration::remote_state_view::RemoteStateView;
+use depin_sdk_api::chain::{ChainView, StateView};
+use depin_sdk_api::commitment::CommitmentScheme;
+use depin_sdk_api::consensus::PenaltyMechanism;
+use depin_sdk_api::state::StateCommitment;
+use depin_sdk_api::state::{StateAccessor, StateManager};
+use depin_sdk_types::app::FailureReport;
+use depin_sdk_types::config::ConsensusType;
+use depin_sdk_types::error::TransactionError;
+
+use depin_sdk_api::consensus::ConsensusEngine;
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_types::app::{Block, ChainTransaction, SystemPayload, SystemTransaction};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::fmt::Debug;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
+#[derive(Debug)]
+struct WorkloadChainView {
+    client: std::sync::Arc<depin_sdk_client::WorkloadClient>,
+    consensus: ConsensusType,
+}
+
+impl WorkloadChainView {
+    fn new(
+        client: std::sync::Arc<depin_sdk_client::WorkloadClient>,
+        consensus: ConsensusType,
+    ) -> Self {
+        Self { client, consensus }
+    }
+}
+
+// No-op penalty to satisfy the trait; not used during proposal verification.
+struct NoopPenalty;
+#[async_trait::async_trait]
+impl PenaltyMechanism for NoopPenalty {
+    async fn apply_penalty(
+        &self,
+        _state: &mut dyn StateAccessor,
+        _report: &FailureReport,
+    ) -> Result<(), TransactionError> {
+        Ok(())
+    }
+}
+
+#[async_trait::async_trait]
+impl<CS, ST> ChainView<CS, ST> for WorkloadChainView
+where
+    CS: CommitmentScheme + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
+{
+    fn view_at(
+        &self,
+        state_root: &[u8; 32],
+    ) -> Result<Box<dyn StateView>, depin_sdk_types::error::ChainError> {
+        Ok(Box::new(RemoteStateView::new(
+            *state_root,
+            self.client.clone(),
+            self.consensus,
+        )))
+    }
+
+    fn get_penalty_mechanism(&self) -> Box<dyn PenaltyMechanism + Send + Sync + '_> {
+        Box::new(NoopPenalty)
+    }
+
+    fn consensus_type(&self) -> ConsensusType {
+        self.consensus
+    }
+}
+
+/// Prunes the mempool by removing transactions that were included in a newly processed block.
+pub fn prune_mempool(
+    pool: &mut VecDeque<ChainTransaction>,
+    processed_block: &Block<ChainTransaction>,
+) {
+    let block_txs_canonical: HashSet<Vec<u8>> = processed_block
+        .transactions
+        .iter()
+        .map(|tx| serde_jcs::to_vec(tx).unwrap())
+        .collect();
+
+    let finalized_oracle_ids: HashSet<u64> = processed_block
+        .transactions
+        .iter()
+        .filter_map(|tx| {
+            if let ChainTransaction::System(SystemTransaction {
+                payload: SystemPayload::SubmitOracleData { request_id, .. },
+                ..
+            }) = tx
+            {
+                Some(*request_id)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    let original_size = pool.len();
+    pool.retain(|tx_in_pool| {
+        let tx_in_pool_canonical = serde_jcs::to_vec(tx_in_pool).unwrap();
+        if block_txs_canonical.contains(&tx_in_pool_canonical) {
+            return false;
+        }
+        if let ChainTransaction::System(SystemTransaction {
+            payload: SystemPayload::SubmitOracleData { request_id, .. },
+            ..
+        }) = tx_in_pool
+        {
+            if finalized_oracle_ids.contains(request_id) {
+                return false;
+            }
+        }
+        true
+    });
+
+    let new_size = pool.len();
+    if new_size < original_size {
+        log::info!(
+            "[Orchestrator] Pruned {} transaction(s) from mempool. New size: {}",
+            original_size - new_size,
+            new_size
+        );
+    }
+}
 
 /// Handles an incoming gossiped transaction.
 pub async fn handle_gossip_transaction<CS, ST, CE>(
@@ -51,7 +168,7 @@ pub async fn handle_gossip_block<CS, ST, CE>(
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
 {
     let block_height = block.header.height;
     log::info!(
@@ -60,9 +177,10 @@ pub async fn handle_gossip_block<CS, ST, CE>(
     );
 
     let mut engine = context.consensus_engine_ref.lock().await;
+    let cv = WorkloadChainView::new(context.workload_client.clone(), (*engine).consensus_type());
 
     if let Err(e) = engine
-        .handle_block_proposal(block.clone(), context.workload_client.as_ref())
+        .handle_block_proposal::<CS, ST>(block.clone(), &cv)
         .await
     {
         log::warn!(
@@ -81,53 +199,11 @@ pub async fn handle_gossip_block<CS, ST, CE>(
     match context.workload_client.process_block(block).await {
         Ok((processed_block, _)) => {
             log::info!("[Orchestrator] Workload processed block successfully.");
+
             let mut pool = context.tx_pool_ref.lock().await;
-            let block_txs_canonical: HashSet<Vec<u8>> = processed_block
-                .transactions
-                .iter()
-                .map(|tx| serde_jcs::to_vec(tx).unwrap())
-                .collect();
-            let finalized_oracle_ids: HashSet<u64> = processed_block
-                .transactions
-                .iter()
-                .filter_map(|tx| {
-                    if let ChainTransaction::System(SystemTransaction {
-                        payload: SystemPayload::SubmitOracleData { request_id, .. },
-                        ..
-                    }) = tx
-                    {
-                        Some(*request_id)
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-            let original_size = pool.len();
-            pool.retain(|tx_in_pool| {
-                let tx_in_pool_canonical = serde_jcs::to_vec(tx_in_pool).unwrap();
-                if block_txs_canonical.contains(&tx_in_pool_canonical) {
-                    return false;
-                }
-                if let ChainTransaction::System(SystemTransaction {
-                    payload: SystemPayload::SubmitOracleData { request_id, .. },
-                    ..
-                }) = tx_in_pool
-                {
-                    if finalized_oracle_ids.contains(request_id) {
-                        return false;
-                    }
-                }
-                true
-            });
-            let new_size = pool.len();
-            if new_size < original_size {
-                log::info!(
-                    "[Orchestrator] Pruned {} transaction(s) from mempool. New size: {}",
-                    original_size - new_size,
-                    new_size
-                );
-            }
+            prune_mempool(&mut pool, &processed_block);
             drop(pool);
+
             handle_newly_processed_block(context, block_height, &context.external_data_service)
                 .await;
             if *context.node_state.lock().await == NodeState::Syncing {

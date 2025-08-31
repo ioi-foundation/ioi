@@ -73,7 +73,7 @@ async fn rpc_handler(
     };
 
     match payload.method.as_str() {
-        "submit_tx" | "broadcast_tx" | "sendTransaction" => {
+        "submit_transaction" | "submit_tx" | "broadcast_tx" | "sendTransaction" => {
             let Some(tx_val) = extract_tx_param(&payload.params) else {
                 return (
                     StatusCode::OK,
@@ -119,12 +119,23 @@ async fn rpc_handler(
                 },
             };
 
-            app_state.tx_pool.lock().await.push_back(tx.clone());
+            // IMPORTANT: Do not call into the workload for “pre-execution” here.
+            // Some implementations mutate state during ante-handlers (e.g., nonce bump),
+            // which would make the *in-block* execution fail later (nonce mismatch).
+            // We rely on block processing for final validity.
+
+            // Local admission to mempool
+            let new_size = {
+                let mut pool = app_state.tx_pool.lock().await;
+                pool.push_back(tx.clone());
+                pool.len()
+            };
             log::info!(
-                "[RPC] Added transaction to local mempool. Size: {}",
-                app_state.tx_pool.lock().await.len()
+                "[RPC] Locally admitted tx to mempool (size now: {}).",
+                new_size
             );
 
+            // Gossip to peers
             let wire = serde_json::to_vec(&tx).unwrap();
             if let Err(e) = app_state
                 .swarm_command_sender
@@ -188,7 +199,6 @@ async fn rpc_handler(
                 ),
             }
         }
-        // --- MODIFICATION START ---
         "query_state" => {
             let key_hex_opt = match &payload.params {
                 Params::Array(v) => v.first().and_then(|x| x.as_str()),
@@ -197,22 +207,20 @@ async fn rpc_handler(
 
             if let Some(key_hex) = key_hex_opt {
                 match hex::decode(key_hex) {
-                    Ok(key) => {
-                        match app_state.workload_client.query_raw_state(&key).await {
-                            Ok(Some(value_bytes)) => (
-                                StatusCode::OK,
-                                make_ok(&payload.id, serde_json::json!(hex::encode(value_bytes))),
-                            ),
-                            Ok(None) => (
-                                StatusCode::OK,
-                                make_ok(&payload.id, serde_json::Value::Null),
-                            ),
-                            Err(e) => (
-                                StatusCode::OK,
-                                make_err(&payload.id, -32000, format!("State query failed: {}", e)),
-                            ),
-                        }
-                    }
+                    Ok(key) => match app_state.workload_client.query_raw_state(&key).await {
+                        Ok(Some(value_bytes)) => (
+                            StatusCode::OK,
+                            make_ok(&payload.id, serde_json::json!(hex::encode(value_bytes))),
+                        ),
+                        Ok(None) => (
+                            StatusCode::OK,
+                            make_ok(&payload.id, serde_json::Value::Null),
+                        ),
+                        Err(e) => (
+                            StatusCode::OK,
+                            make_err(&payload.id, -32000, format!("State query failed: {}", e)),
+                        ),
+                    },
                     Err(_) => (
                         StatusCode::OK,
                         make_err(&payload.id, -32602, "Failed to decode hex key".into()),
@@ -225,7 +233,6 @@ async fn rpc_handler(
                 )
             }
         }
-        // --- MODIFICATION END ---
         _ => (
             StatusCode::OK,
             make_err(

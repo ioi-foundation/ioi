@@ -13,6 +13,7 @@ pub use penalties::*;
 use crate::ibc::{UniversalExecutionReceipt, UniversalProofFormat};
 use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
 use dcrypt::algorithms::ByteSerializable;
+use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 /// A versioned entry in the state tree, containing the actual value
@@ -48,25 +49,41 @@ pub struct Block<T: Clone> {
 }
 
 /// The header of a block, containing metadata and commitments.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct BlockHeader {
     /// The height of this block.
     pub height: u64,
-    /// The hash of the previous block's header.
-    pub prev_hash: Vec<u8>,
-    /// The root hash of the state tree after applying this block's transactions.
-    pub state_root: Vec<u8>,
+    /// The hash of the parent block's header.
+    pub parent_hash: [u8; 32],
+    /// The state root committed by the parent block (the state against which this block is verified).
+    pub parent_state_root: [u8; 32],
+    /// The state root this block commits to after applying its transactions.
+    pub state_root: [u8; 32],
     /// The root hash of the transactions in this block.
     pub transactions_root: Vec<u8>,
     /// The timestamp when the block was created.
     pub timestamp: u64,
     /// The full, sorted list of PeerIds (in bytes) that constituted the validator
     /// set when this block was created.
+    // NOTE: This field is now informational. Consensus logic uses the state-anchored validator set.
     pub validator_set: Vec<Vec<u8>>,
-    /// The public key (in bytes) of the block producer.
-    pub producer: Vec<u8>,
-    /// The signature of the block header's hash, signed by the producer.
+    /// The stable AccountId of the block producer.
+    pub producer_account_id: AccountId,
+    /// The signature suite of the key used to sign this block.
+    pub producer_key_suite: SignatureSuite,
+    /// The hash of the public key used to sign this block.
+    pub producer_pubkey_hash: [u8; 32],
+    /// The full public key bytes. Mandatory if state stores only hashes.
+    pub producer_pubkey: Vec<u8>,
+    /// The signature of the block header's canonical preimage, signed by the producer's active consensus key.
     pub signature: Vec<u8>,
+}
+
+/// A domain tag to prevent hash collisions for different signature purposes.
+#[derive(Encode, Decode)]
+pub enum SigDomain {
+    /// The domain for version 1 of the block header signing preimage.
+    BlockHeaderV1,
 }
 
 impl BlockHeader {
@@ -78,12 +95,32 @@ impl BlockHeader {
         let serialized = serde_json::to_vec(&temp).unwrap();
         DcryptSha256::digest(&serialized).unwrap().to_bytes()
     }
+
+    /// Creates the canonical, domain-separated byte string that is hashed for signing.
+    pub fn to_preimage_for_signing(&self) -> Vec<u8> {
+        crate::codec::to_bytes_canonical(&(
+            SigDomain::BlockHeaderV1 as u8,
+            self.height,
+            self.parent_hash,
+            self.parent_state_root,
+            self.state_root,
+            &self.transactions_root,
+            self.timestamp,
+            // The validator set is informational and not part of the consensus-critical signed payload.
+            // The parent state root already commits to the active validator set for this block.
+            &self.producer_account_id,
+            &self.producer_key_suite,
+            &self.producer_pubkey_hash,
+            // The full public key is part of the signed payload to be self-contained.
+            &self.producer_pubkey,
+        ))
+    }
 }
 
 // --- NEW/MODIFIED DATA STRUCTURES FOR IDENTITY AND TRANSACTIONS ---
 
 /// Defines the cryptographic algorithm suite used for a key or signature.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default, Encode, Decode)]
 pub enum SignatureSuite {
     /// The Ed25519 signature scheme.
     #[default]
@@ -124,7 +161,7 @@ pub struct RotationProof {
 
 /// The header containing all data required for a valid, replay-protected signature.
 /// This data is part of the canonical sign bytes.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default, Encode, Decode)]
 pub struct SignHeader {
     /// The stable identifier of the signing account.
     pub account_id: AccountId,
@@ -319,8 +356,9 @@ pub struct OracleConsensusProof {
 pub enum SystemPayload {
     /// Updates the set of authorities for a Proof-of-Authority chain.
     UpdateAuthorities {
-        /// The new list of authority PeerIDs.
-        new_authorities: Vec<Vec<u8>>,
+        /// The new list of authority AccountIds.
+        /// This list will be canonically sorted and deduplicated by the state transition function before being stored.
+        new_authorities: Vec<AccountId>,
     },
     /// Stakes a certain amount for a validator.
     Stake {

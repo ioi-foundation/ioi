@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 /// This enum lives in `depin-sdk-types` to avoid a circular dependency
 /// between the `validator` crate (which reads it from config) and the
 /// `consensus` crate (which uses it to dispatch logic).
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)] // <-- MODIFIED: Added PartialEq, Eq
+// --- FIX START: Add Copy trait ---
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+// --- FIX END ---
 #[serde(rename_all = "PascalCase")]
 pub enum ConsensusType {
     /// Proof of Stake consensus.

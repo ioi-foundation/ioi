@@ -3,7 +3,8 @@
 use anyhow::Result;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::{
-    chain::{AppChain, ChainView},
+    chain::AppChain,
+    chain::ChainView, // <--- FIX: Import the trait
     commitment::CommitmentScheme,
     validator::WorkloadContainer,
 };
@@ -58,7 +59,7 @@ where
 {
     address: String,
     workload_container: Arc<WorkloadContainer<ST>>,
-    chain_arc: Arc<Mutex<Chain<CS>>>,
+    chain_arc: Arc<Mutex<Chain<CS, ST>>>,
 }
 
 impl<ST, CS> WorkloadIpcServer<ST, CS>
@@ -76,7 +77,7 @@ where
     pub async fn new(
         address: String,
         workload_container: Arc<WorkloadContainer<ST>>,
-        chain_arc: Arc<Mutex<Chain<CS>>>,
+        chain_arc: Arc<Mutex<Chain<CS, ST>>>,
     ) -> Result<Self> {
         Ok(Self {
             address,
@@ -206,16 +207,29 @@ where
             }
             WorkloadRequest::GetAuthoritySet => {
                 let chain = self.chain_arc.lock().await;
-                let res = chain
-                    .get_authority_set(&self.workload_container)
+                // Use the *current* root for a consistent snapshot
+                let state_tree_arc = self.workload_container.state_tree();
+                let state = state_tree_arc.lock().await;
+                let root_bytes = state.root_commitment().as_ref().to_vec();
+                let root: [u8; 32] = root_bytes.try_into().unwrap_or([0; 32]);
+
+                let view = chain.view_at(&root).unwrap();
+                let res = view
+                    .validator_set()
                     .await
+                    .map(|accts| {
+                        accts
+                            .into_iter()
+                            .map(|acct| acct.0.to_vec()) // legacy format for header decoration only
+                            .collect()
+                    })
                     .map_err(|e| e.to_string());
                 WorkloadResponse::GetAuthoritySet(res)
             }
             WorkloadRequest::GetValidatorSet => {
                 let chain = self.chain_arc.lock().await;
                 let res = chain
-                    .get_validator_set(&self.workload_container)
+                    .get_next_validator_set(&self.workload_container)
                     .await
                     .map_err(|e| e.to_string());
                 WorkloadResponse::GetValidatorSet(res)

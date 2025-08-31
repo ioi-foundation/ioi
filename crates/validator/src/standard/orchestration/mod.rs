@@ -2,6 +2,9 @@
 use crate::config::OrchestrationConfig;
 use async_trait::async_trait;
 use depin_sdk_api::{
+    // --- FIX START: Import ChainView trait ---
+    chain::ChainView,
+    // --- FIX END ---
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
     state::{StateCommitment, StateManager},
@@ -34,6 +37,7 @@ mod context;
 mod gossip;
 mod oracle;
 mod peer_management;
+mod remote_state_view;
 mod sync;
 
 // --- Use statements for handler functions ---
@@ -48,7 +52,9 @@ where
         + Sync
         + 'static
         + Debug,
-    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    // --- FIX START: Add ChainView bound ---
+    CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
+    // --- FIX END ---
 {
     config: OrchestrationConfig,
     chain: Arc<OnceCell<ChainFor<CS, ST>>>,
@@ -78,7 +84,9 @@ where
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    // --- FIX START: Add ChainView bound ---
+    CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
+    // --- FIX END ---
 {
     pub fn new(
         config_path: &std::path::Path,
@@ -186,7 +194,9 @@ async fn handle_network_event<CS, ST, CE>(
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    // --- FIX START: Add ChainView bound ---
+    CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
+    // --- FIX END ---
 {
     match event {
         NetworkEvent::ConnectionEstablished(peer_id) => {
@@ -231,7 +241,9 @@ where
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    // --- FIX START: Add ChainView bound ---
+    CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
+    // --- FIX END ---
 {
     fn id(&self) -> &'static str {
         "orchestration_container"

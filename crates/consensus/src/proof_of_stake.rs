@@ -1,25 +1,62 @@
 // Path: crates/consensus/src/proof_of_stake.rs
-use crate::ConsensusEngine;
+use crate::{ConsensusDecision, ConsensusEngine};
 use async_trait::async_trait;
-use depin_sdk_api::chain::StakeAmount;
-use depin_sdk_api::consensus::{ChainStateReader, ConsensusDecision, PenaltyMechanism};
-use depin_sdk_api::state::StateAccessor;
+use depin_sdk_api::chain::{ChainView, StakeAmount, StateView};
+use depin_sdk_api::commitment::CommitmentScheme;
+use depin_sdk_api::consensus::{ChainStateReader, PenaltyMechanism};
+use depin_sdk_api::state::{StateAccessor, StateManager};
 use depin_sdk_crypto::algorithms::hash::sha256;
-use depin_sdk_types::app::{
-    account_id_from_key_material, AccountId, Block, FailureReport, SignatureSuite,
-};
+use depin_sdk_types::app::{AccountId, Block, FailureReport};
 use depin_sdk_types::codec;
 use depin_sdk_types::error::{ConsensusError, StateError, TransactionError};
 use depin_sdk_types::keys::{STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
-use libp2p::identity::PublicKey as Libp2pPublicKey;
-use libp2p::PeerId;
 use std::collections::{BTreeMap, HashSet};
 
+// Re-use helpers from PoA
+use crate::proof_of_authority::{hash_key, verify_signature};
+
+#[derive(Debug, Clone)]
 pub struct ProofOfStakeEngine {}
 
 impl Default for ProofOfStakeEngine {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Reads the stakes map that will be active for the next block from a given state view.
+async fn read_stakes(
+    view: &dyn StateView,
+) -> Result<BTreeMap<AccountId, StakeAmount>, ConsensusError> {
+    // --- FIX: Read from STAKES_KEY_NEXT, with a fallback to STAKES_KEY_CURRENT ---
+    // The leader for the upcoming block (H) is determined by the state of stakes
+    // at the end of the previous block (H-1), which is stored in the 'next' key.
+    match view
+        .get(STAKES_KEY_NEXT)
+        .await
+        .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
+    {
+        Some(bytes) => {
+            let stakes: BTreeMap<AccountId, u64> = codec::from_bytes_canonical(&bytes)
+                .map_err(|e| ConsensusError::StateAccess(StateError::InvalidValue(e)))?;
+            Ok(stakes)
+        }
+        None => {
+            // If NEXT is not found, fall back to CURRENT. This is important for the genesis block
+            // where only CURRENT is initialized.
+            match view
+                .get(STAKES_KEY_CURRENT)
+                .await
+                .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
+            {
+                Some(bytes) => {
+                    let stakes: BTreeMap<AccountId, u64> = codec::from_bytes_canonical(&bytes)
+                        .map_err(|e| ConsensusError::StateAccess(StateError::InvalidValue(e)))?;
+                    Ok(stakes)
+                }
+                None => Ok(BTreeMap::new()),
+            }
+        }
     }
 }
 
@@ -29,6 +66,7 @@ impl ProofOfStakeEngine {
     }
 
     /// Selects a deterministic leader for a given block height based on stake weight.
+    #[allow(dead_code)]
     fn select_leader(
         &self,
         height: u64,
@@ -71,7 +109,6 @@ impl PenaltyMechanism for ProofOfStakeEngine {
     ) -> Result<(), TransactionError> {
         const PENALTY_PERCENTAGE: u8 = 10;
 
-        // CORRECTED LOGIC: Read from NEXT, but fall back to CURRENT to create the initial map.
         let base_stakes_bytes = state
             .get(STAKES_KEY_NEXT)?
             .or(state.get(STAKES_KEY_CURRENT)?);
@@ -88,7 +125,6 @@ impl PenaltyMechanism for ProofOfStakeEngine {
         if let Some(stake) = stakes.get_mut(&report.offender) {
             let slash_amount = (((*stake as u128) * (PENALTY_PERCENTAGE as u128)) / 100u128) as u64;
             *stake = stake.saturating_sub(slash_amount);
-            // Always write the updated map to STAKES_KEY_NEXT.
             state.insert(STAKES_KEY_NEXT, &codec::to_bytes_canonical(&stakes))?;
         } else {
             return Err(TransactionError::Invalid(format!(
@@ -104,161 +140,132 @@ impl PenaltyMechanism for ProofOfStakeEngine {
 impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
     async fn get_validator_data(
         &self,
-        state_reader: &dyn ChainStateReader,
+        _state_reader: &dyn ChainStateReader,
     ) -> Result<Vec<Vec<u8>>, ConsensusError> {
-        let staker_map = state_reader
-            .get_next_staked_validators()
-            .await
-            .map_err(|e| ConsensusError::ClientError(e.to_string()))?;
-
-        let stakes_account_id_map: BTreeMap<AccountId, u64> = staker_map
-            .into_iter()
-            .filter_map(|(key_hex, stake)| {
-                hex::decode(key_hex).ok().and_then(|bytes| {
-                    if bytes.len() == 32 {
-                        Some((AccountId(bytes.try_into().unwrap()), stake))
-                    } else {
-                        None
-                    }
-                })
-            })
-            .collect();
-
-        let serialized_map = codec::to_bytes_canonical(&stakes_account_id_map);
-        Ok(vec![serialized_map])
+        // Placeholder, no longer used.
+        Ok(vec![])
     }
 
     async fn decide(
         &mut self,
-        local_public_key: &Libp2pPublicKey,
+        our_account_id: &AccountId,
         height: u64,
         _view: u64,
-        validator_data: &[Vec<u8>],
-        _known_peers: &HashSet<PeerId>,
+        parent_view: &dyn StateView,
+        _known_peers: &HashSet<libp2p::PeerId>,
     ) -> ConsensusDecision<T> {
-        let empty_vec = vec![];
-        let staker_bytes = validator_data.first().unwrap_or(&empty_vec);
+        let stakes = match read_stakes(parent_view).await {
+            Ok(s) => s,
+            Err(_) => return ConsensusDecision::Stall,
+        };
 
-        let stakers: BTreeMap<AccountId, StakeAmount> =
-            codec::from_bytes_canonical(staker_bytes).unwrap_or_default();
-
-        // Consensus keys are libp2p keys, which are canonically Ed25519
-        let our_account_id_hash = account_id_from_key_material(
-            SignatureSuite::Ed25519,
-            &local_public_key.encode_protobuf(),
-        )
-        .expect("Consensus key should be derivable");
-        let our_account_id = AccountId(our_account_id_hash);
-
-        if !stakers.contains_key(&our_account_id) {
-            return ConsensusDecision::WaitForBlock;
+        if stakes.is_empty() {
+            return if height == 1 {
+                ConsensusDecision::ProduceBlock(vec![])
+            } else {
+                ConsensusDecision::Stall
+            };
         }
 
-        if let Some(leader_account_id) = self.select_leader(height, &stakers) {
+        if let Some(leader_account_id) = self.select_leader(height, &stakes) {
+            // --- FIX: Use a stable and readable log format ---
             log::info!(
-                "[PoS] Leader for height {}: {}",
+                "[PoS] Leader for height {}: AccountId(0x{})",
                 height,
-                hex::encode(leader_account_id.0)
+                hex::encode(leader_account_id.as_ref())
             );
-            if leader_account_id == our_account_id {
+            if leader_account_id == *our_account_id {
                 ConsensusDecision::ProduceBlock(vec![])
             } else {
                 ConsensusDecision::WaitForBlock
             }
         } else {
-            log::warn!(
-                "[PoS] No leader could be elected for height {}. Waiting.",
-                height
-            );
-            ConsensusDecision::WaitForBlock
+            ConsensusDecision::Stall
         }
     }
 
-    async fn handle_block_proposal(
+    async fn handle_block_proposal<CS, ST>(
         &mut self,
         block: Block<T>,
-        state_reader: &dyn ChainStateReader,
-    ) -> Result<(), ConsensusError> {
-        let producer_pubkey = Libp2pPublicKey::try_decode_protobuf(&block.header.producer)
-            .map_err(|e| {
-                ConsensusError::BlockVerificationFailed(format!(
-                    "Failed to decode producer public key: {}",
-                    e
-                ))
-            })?;
-        let header_hash = block.header.hash();
-        if !producer_pubkey.verify(&header_hash, &block.header.signature) {
-            return Err(ConsensusError::InvalidSignature);
-        }
+        chain_view: &dyn ChainView<CS, ST>,
+    ) -> Result<(), ConsensusError>
+    where
+        CS: CommitmentScheme + Send + Sync,
+        ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
+    {
+        let header = &block.header;
 
-        let stakers_string_map = state_reader
-            .get_next_staked_validators()
+        let parent_view_box = chain_view
+            .view_at(&header.parent_state_root)
+            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?;
+        let parent_view = parent_view_box.as_ref();
+
+        let validator_set = parent_view
+            .validator_set()
             .await
-            .map_err(|e| {
-                ConsensusError::ClientError(format!("Could not get staked validators: {}", e))
-            })?;
-
-        if stakers_string_map.is_empty() {
+            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?;
+        if validator_set
+            .binary_search(&header.producer_account_id)
+            .is_err()
+        {
             return Err(ConsensusError::BlockVerificationFailed(
-                "Cannot validate block, no stakers found".to_string(),
+                "Producer not in validator set".into(),
             ));
         }
 
-        let stakers: BTreeMap<AccountId, u64> = stakers_string_map
-            .into_iter()
-            .filter_map(|(key_hex, stake)| {
-                hex::decode(key_hex).ok().and_then(|bytes| {
-                    if bytes.len() == 32 {
-                        Some((AccountId(bytes.try_into().unwrap()), stake))
-                    } else {
-                        None
-                    }
-                })
-            })
-            .collect();
+        let active_key = parent_view
+            .active_consensus_key(&header.producer_account_id)
+            .await
+            .ok_or_else(|| {
+                ConsensusError::BlockVerificationFailed("Producer has no active key".into())
+            })?;
 
-        let expected_leader_account_id = self.select_leader(block.header.height, &stakers).ok_or(
-            ConsensusError::BlockVerificationFailed(
-                "Leader selection failed for received block".to_string(),
-            ),
-        )?;
+        if header.height < active_key.since_height {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "Key not yet active at this height".into(),
+            ));
+        }
 
-        let got_account_id_hash = account_id_from_key_material(
-            SignatureSuite::Ed25519,
-            &producer_pubkey.encode_protobuf(),
-        )
-        .map_err(|e| {
-            ConsensusError::BlockVerificationFailed(format!("Could not derive AccountId: {}", e))
+        if active_key.suite != header.producer_key_suite
+            || active_key.pubkey_hash != header.producer_pubkey_hash
+        {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "Header key material does not match active key record".into(),
+            ));
+        }
+
+        let pubkey = &header.producer_pubkey;
+        let derived_hash = hash_key(active_key.suite, pubkey);
+        if derived_hash != active_key.pubkey_hash {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "Public key in header does not match its hash".into(),
+            ));
+        }
+        let preimage = header.to_preimage_for_signing();
+        verify_signature(&preimage, pubkey, active_key.suite, &header.signature)?;
+
+        let stakes = read_stakes(parent_view).await?;
+        let expected_leader = self.select_leader(header.height, &stakes).ok_or_else(|| {
+            ConsensusError::BlockVerificationFailed("Leader selection failed".to_string())
         })?;
-        let got_account_id = AccountId(got_account_id_hash);
 
-        if got_account_id != expected_leader_account_id {
-            let expected_pk = state_reader
-                .get_public_key_for_account(&expected_leader_account_id)
-                .await
-                .map_err(|e| {
-                    ConsensusError::BlockVerificationFailed(format!(
-                        "Could not get public key for expected leader: {}",
-                        e
-                    ))
-                })?;
-
+        if header.producer_account_id != expected_leader {
             return Err(ConsensusError::InvalidLeader {
-                expected: expected_pk.to_peer_id(),
-                got: producer_pubkey.to_peer_id(),
+                expected: expected_leader,
+                got: header.producer_account_id,
             });
         }
 
         log::info!(
             "Block proposal from valid PoS leader {:?} verified.",
-            got_account_id
+            header.producer_account_id
         );
         Ok(())
     }
 
     async fn handle_view_change(
         &mut self,
-        _from: PeerId,
+        _from: libp2p::PeerId,
         _height: u64,
         _new_view: u64,
     ) -> Result<(), ConsensusError> {

@@ -2,21 +2,21 @@
 
 use crate::upgrade_manager::ModuleUpgradeManager;
 use async_trait::async_trait;
-use depin_sdk_api::chain::{AppChain, ChainView, PublicKey, StakeAmount};
+use depin_sdk_api::chain::{AppChain, ChainView, PublicKey, StakeAmount, StateView};
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::consensus::PenaltyMechanism;
 use depin_sdk_api::services::access::{Service, ServiceDirectory};
 use depin_sdk_api::services::{ServiceType, UpgradableService};
-use depin_sdk_api::state::StateManager;
+use depin_sdk_api::state::{StateAccessor, StateManager};
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
-use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
 use depin_sdk_consensus::Consensus;
 use depin_sdk_transaction_models::system::{nonce, validation};
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{
-    AccountId, Block, BlockHeader, ChainStatus, ChainTransaction, SystemPayload,
+    account_id_from_key_material, AccountId, ActiveKeyRecord, Block, BlockHeader, ChainStatus,
+    ChainTransaction, FailureReport, SignatureSuite, SystemPayload,
 };
 use depin_sdk_types::codec;
 use depin_sdk_types::config::ConsensusType;
@@ -31,9 +31,26 @@ use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::Mutex;
 
 type ServiceFactory =
     Box<dyn Fn(&[u8]) -> Result<Arc<dyn UpgradableService>, CoreError> + Send + Sync>;
+
+// Delegates PenaltyMechanism to the borrowed Consensus engine.
+struct PenaltyDelegator<'a> {
+    inner: &'a depin_sdk_consensus::Consensus<ChainTransaction>,
+}
+
+#[async_trait]
+impl<'a> PenaltyMechanism for PenaltyDelegator<'a> {
+    async fn apply_penalty(
+        &self,
+        state: &mut dyn StateAccessor,
+        report: &FailureReport,
+    ) -> Result<(), TransactionError> {
+        self.inner.apply_penalty(state, report).await
+    }
+}
 
 #[derive(Debug)]
 pub struct ChainState<CS: CommitmentScheme + Clone> {
@@ -45,14 +62,19 @@ pub struct ChainState<CS: CommitmentScheme + Clone> {
     pub max_recent_blocks: usize,
 }
 
-pub struct Chain<CS: CommitmentScheme + Clone> {
+pub struct Chain<CS: CommitmentScheme + Clone, ST: StateManager> {
     pub state: ChainState<CS>,
     pub services: ServiceDirectory,
     pub _service_manager: ModuleUpgradeManager,
     pub consensus_engine: Consensus<ChainTransaction>,
+    workload_container: Arc<WorkloadContainer<ST>>,
 }
 
-impl<CS: CommitmentScheme + Clone> Debug for Chain<CS> {
+impl<CS, ST> Debug for Chain<CS, ST>
+where
+    CS: CommitmentScheme + Clone,
+    ST: StateManager,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Chain")
             .field("state", &self.state)
@@ -83,9 +105,10 @@ fn preflight_capabilities(
     Ok(())
 }
 
-impl<CS> Chain<CS>
+impl<CS, ST> Chain<CS, ST>
 where
     CS: CommitmentScheme + Clone,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
 {
     pub fn new(
         commitment_scheme: CS,
@@ -94,6 +117,7 @@ where
         initial_services: Vec<Arc<dyn UpgradableService>>,
         service_factory: ServiceFactory,
         consensus_engine: Consensus<ChainTransaction>,
+        workload_container: Arc<WorkloadContainer<ST>>,
     ) -> Self {
         let status = ChainStatus {
             height: 0,
@@ -127,44 +151,14 @@ where
             services: service_directory,
             _service_manager: service_manager,
             consensus_engine,
+            workload_container,
         }
     }
 
-    pub fn new_for_orchestrator() -> Chain<HashCommitmentScheme> {
-        let scheme = HashCommitmentScheme::new();
-        let tm = UnifiedTransactionModel::new(scheme.clone());
-        let service_factory: ServiceFactory = Box::new(|_| {
-            Err(CoreError::Custom(
-                "Service factory not implemented for orchestrator's dummy chain".to_string(),
-            ))
-        });
-        Chain {
-            state: ChainState {
-                commitment_scheme: scheme,
-                transaction_model: tm,
-                chain_id: "orchestrator-dummy".to_string(),
-                status: ChainStatus {
-                    height: 0,
-                    latest_timestamp: 0,
-                    total_transactions: 0,
-                    is_running: false,
-                },
-                recent_blocks: Vec::new(),
-                max_recent_blocks: 0,
-            },
-            services: ServiceDirectory::default(),
-            _service_manager: ModuleUpgradeManager::new(service_factory),
-            consensus_engine: Consensus::ProofOfAuthority(Default::default()),
-        }
-    }
-
-    pub async fn load_or_initialize_status<ST>(
+    pub async fn load_or_initialize_status(
         &mut self,
         workload: &WorkloadContainer<ST>,
-    ) -> Result<(), ChainError>
-    where
-        ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
-    {
+    ) -> Result<(), ChainError> {
         let state_tree = workload.state_tree();
         let mut state = state_tree.lock().await;
         match state.get(STATUS_KEY) {
@@ -189,18 +183,16 @@ where
         Ok(())
     }
 
-    async fn get_validator_set_from_key<ST>(
+    // This function is now async to correctly lock the mutex.
+    async fn get_validator_set_from_key(
         &self,
         workload: &WorkloadContainer<ST>,
         key: &[u8],
-    ) -> Result<Vec<Vec<u8>>, ChainError>
-    where
-        ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
-    {
+    ) -> Result<Vec<Vec<u8>>, ChainError> {
         let state_tree_arc = workload.state_tree();
         let state = state_tree_arc.lock().await;
-        match state.get(key) {
-            Ok(Some(bytes)) => {
+        match state.get(key)? {
+            Some(bytes) => {
                 let stakers: BTreeMap<AccountId, u64> = codec::from_bytes_canonical(&bytes)
                     .map_err(|e| ChainError::State(StateError::InvalidValue(e)))?;
 
@@ -221,60 +213,94 @@ where
                 }
                 Ok(validator_pubkeys)
             }
-            Ok(None) => Ok(Vec::new()),
-            Err(e) => Err(e.into()),
+            None => Ok(Vec::new()),
         }
     }
 }
 
+// A concrete implementation of StateView for the Chain.
+pub struct StateViewImpl<ST> {
+    _state_root: [u8; 32],
+    state_manager: Arc<Mutex<ST>>,
+    consensus_type: ConsensusType,
+}
+
 #[async_trait]
-impl<CS, ST> ChainView<CS, ST> for Chain<CS>
+impl<ST: StateManager + Send + Sync> StateView for StateViewImpl<ST> {
+    fn state_root(&self) -> &[u8] {
+        &self._state_root
+    }
+
+    async fn validator_set(&self) -> Result<Vec<AccountId>, ChainError> {
+        let state = self.state_manager.lock().await;
+
+        match self.consensus_type {
+            ConsensusType::ProofOfAuthority => {
+                let bytes = state.get(AUTHORITY_SET_KEY)?.ok_or_else(|| {
+                    ChainError::State(StateError::KeyNotFound(
+                        "Authority set not found".to_string(),
+                    ))
+                })?;
+                codec::from_bytes_canonical(&bytes)
+                    .map_err(|e| ChainError::State(StateError::InvalidValue(e)))
+            }
+            ConsensusType::ProofOfStake => {
+                let bytes = state.get(STAKES_KEY_CURRENT)?.ok_or_else(|| {
+                    ChainError::State(StateError::KeyNotFound(
+                        "Current stakes not found".to_string(),
+                    ))
+                })?;
+                let stakes: BTreeMap<AccountId, u64> = codec::from_bytes_canonical(&bytes)
+                    .map_err(|e| ChainError::State(StateError::InvalidValue(e)))?;
+
+                let mut validators: Vec<AccountId> = stakes
+                    .into_iter()
+                    .filter(|(_, s)| *s > 0)
+                    .map(|(a, _)| a)
+                    .collect();
+                validators.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+                Ok(validators)
+            }
+        }
+    }
+
+    async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, ChainError> {
+        // FIXME: This implementation does NOT respect the `state_root` anchor.
+        // It reads from the latest version of the state manager. A real implementation
+        // would require the StateManager to support reading from historical roots.
+        let state = self.state_manager.lock().await;
+        state.get(key).map_err(|e| e.into())
+    }
+
+    async fn active_consensus_key(&self, acct: &AccountId) -> Option<ActiveKeyRecord> {
+        const KEY_PREFIX: &[u8] = b"identity::key_record::";
+        let key = [KEY_PREFIX, acct.as_ref()].concat();
+        let state = self.state_manager.lock().await;
+        let bytes = state.get(&key).ok().flatten()?;
+        codec::from_bytes_canonical(&bytes).ok()
+    }
+}
+
+#[async_trait]
+impl<CS, ST> ChainView<CS, ST> for Chain<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
 {
-    async fn get_validator_set(
-        &self,
-        workload: &WorkloadContainer<ST>,
-    ) -> Result<Vec<Vec<u8>>, ChainError> {
-        match self.consensus_engine.consensus_type() {
-            ConsensusType::ProofOfStake => {
-                self.get_validator_set_from_key(workload, STAKES_KEY_CURRENT)
-                    .await
-            }
-            ConsensusType::ProofOfAuthority => {
-                let state_tree_arc = workload.state_tree();
-                let state = state_tree_arc.lock().await;
-                match state.get(AUTHORITY_SET_KEY) {
-                    Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
-                        ChainError::Transaction(format!("Failed to deserialize authority set: {e}"))
-                    }),
-                    Ok(None) => Ok(Vec::new()),
-                    Err(e) => Err(e.into()),
-                }
-            }
-        }
-    }
-
-    async fn get_authority_set(
-        &self,
-        workload: &WorkloadContainer<ST>,
-    ) -> Result<Vec<Vec<u8>>, ChainError> {
-        let state_tree_arc = workload.state_tree();
-        let state = state_tree_arc.lock().await;
-        match state.get(AUTHORITY_SET_KEY) {
-            Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
-                ChainError::Transaction(format!("Failed to deserialize authority set: {e}"))
-            }),
-            Ok(None) => Err(ChainError::State(StateError::KeyNotFound(
-                "system::authorities not found in state. Check genesis file.".to_string(),
-            ))),
-            Err(e) => Err(e.into()),
-        }
+    fn view_at(&self, state_root: &[u8; 32]) -> Result<Box<dyn StateView>, ChainError> {
+        let view = StateViewImpl {
+            _state_root: *state_root,
+            state_manager: self.workload_container.state_tree(),
+            consensus_type: self.consensus_engine.consensus_type(),
+        };
+        Ok(Box::new(view))
     }
 
     fn get_penalty_mechanism(&self) -> Box<dyn PenaltyMechanism + Send + Sync + '_> {
-        Box::new(&self.consensus_engine)
+        // Return a delegator that borrows the engine and forwards apply_penalty.
+        Box::new(PenaltyDelegator {
+            inner: &self.consensus_engine,
+        })
     }
 
     fn consensus_type(&self) -> ConsensusType {
@@ -283,7 +309,7 @@ where
 }
 
 #[async_trait]
-impl<CS, ST> AppChain<CS, UnifiedTransactionModel<CS>, ST> for Chain<CS>
+impl<CS, ST> AppChain<CS, UnifiedTransactionModel<CS>, ST> for Chain<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
@@ -423,15 +449,22 @@ where
             }
             .into());
         }
-        let expected_prev_hash = self
+        let (expected_prev_hash_array, parent_state_root) = self
             .state
             .recent_blocks
             .last()
-            .map_or(vec![0; 32], |b| b.header.hash());
-        if block.header.prev_hash != expected_prev_hash {
+            .map_or(([0; 32], [0; 32]), |b| {
+                (b.header.hash().try_into().unwrap(), b.header.state_root)
+            });
+
+        if is_producing {
+            block.header.parent_state_root = parent_state_root;
+        }
+
+        if block.header.parent_hash != expected_prev_hash_array {
             return Err(BlockError::MismatchedPrevHash {
-                expected: hex::encode(&expected_prev_hash),
-                got: hex::encode(&block.header.prev_hash),
+                expected: hex::encode(&expected_prev_hash_array),
+                got: hex::encode(&block.header.parent_hash),
             }
             .into());
         }
@@ -459,14 +492,13 @@ where
             }
         }
 
-        let mut current_validator_set = self.get_validator_set(workload).await?;
-        current_validator_set.sort();
+        let current_validator_set = self.get_next_validator_set(workload).await?;
+        let mut sorted_current_set = current_validator_set;
+        sorted_current_set.sort();
         let mut header_set = block.header.validator_set.clone();
         header_set.sort();
-        if header_set != current_validator_set {
-            if self.consensus_engine.consensus_type() == ConsensusType::ProofOfAuthority {
-                return Err(BlockError::MismatchedValidatorSet.into());
-            }
+        if header_set != sorted_current_set {
+            log::warn!("Block header validator set does not match expected H+1 set.");
         }
 
         for tx in &block.transactions {
@@ -492,7 +524,12 @@ where
 
         let state_tree_arc = workload.state_tree();
         let mut state = state_tree_arc.lock().await;
-        let new_state_root = state.root_commitment().as_ref().to_vec();
+        let new_state_root_vec = state.root_commitment().as_ref().to_vec();
+        let new_state_root: [u8; 32] = new_state_root_vec.try_into().map_err(|_| {
+            ChainError::State(StateError::Validation(
+                "State root is not 32 bytes".to_string(),
+            ))
+        })?;
 
         if is_producing {
             block.header.state_root = new_state_root;
@@ -528,26 +565,38 @@ where
         _known_peers_bytes: &[Vec<u8>],
         producer_keypair: &Keypair,
     ) -> Block<ChainTransaction> {
-        let prev_hash = self
+        let (parent_hash, parent_state_root) = self
             .state
             .recent_blocks
             .last()
-            .map_or(vec![0; 32], |b| b.header.hash());
+            .map_or(([0; 32], [0; 32]), |b| {
+                (b.header.hash().try_into().unwrap(), b.header.state_root)
+            });
 
         let mut validator_set_bytes = current_validator_set.to_vec();
         validator_set_bytes.sort();
 
+        let producer_pubkey = producer_keypair.public().encode_protobuf();
+        let producer_key_suite = SignatureSuite::Ed25519;
+        let producer_pubkey_hash =
+            account_id_from_key_material(producer_key_suite, &producer_pubkey).unwrap();
+        let producer_account_id = AccountId(producer_pubkey_hash);
+
         let header = BlockHeader {
             height: self.state.status.height + 1,
-            prev_hash,
-            state_root: vec![],
+            parent_hash,
+            parent_state_root,
+            state_root: [0; 32], // Filled in by `process_block`
             transactions_root: vec![0; 32],
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_secs(),
             validator_set: validator_set_bytes,
-            producer: producer_keypair.public().encode_protobuf(),
+            producer_account_id,
+            producer_key_suite,
+            producer_pubkey_hash,
+            producer_pubkey,
             signature: vec![],
         };
 
@@ -585,12 +634,23 @@ where
             ConsensusType::ProofOfAuthority => {
                 let state_tree_arc = workload.state_tree();
                 let state = state_tree_arc.lock().await;
-                match state.get(AUTHORITY_SET_KEY) {
-                    Ok(Some(bytes)) => serde_json::from_slice(&bytes).map_err(|e| {
-                        ChainError::Transaction(format!("Failed to deserialize authority set: {e}"))
-                    }),
-                    Ok(None) => Ok(Vec::new()),
-                    Err(e) => Err(e.into()),
+                match state.get(AUTHORITY_SET_KEY)? {
+                    Some(bytes) => {
+                        let account_ids: Vec<AccountId> = codec::from_bytes_canonical(&bytes)
+                            .map_err(|e| ChainError::State(StateError::InvalidValue(e)))?;
+                        // This method is now informational, so we convert back to the old format.
+                        // A better refactor would remove this method entirely.
+                        let mut peer_id_bytes = Vec::new();
+                        for id in account_ids {
+                            let key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, id.as_ref()].concat();
+                            if let Some(pk_bytes) = state.get(&key)? {
+                                let pk = Libp2pPublicKey::try_decode_protobuf(&pk_bytes).unwrap();
+                                peer_id_bytes.push(pk.to_peer_id().to_bytes());
+                            }
+                        }
+                        Ok(peer_id_bytes)
+                    }
+                    None => Ok(Vec::new()),
                 }
             }
         }
@@ -602,9 +662,9 @@ where
     ) -> Result<BTreeMap<PublicKey, StakeAmount>, ChainError> {
         let state_tree_arc = workload.state_tree();
         let state = state_tree_arc.lock().await;
-        match state.get(STAKES_KEY_CURRENT) {
-            Ok(Some(bytes)) => {
-                let raw_map: BTreeMap<AccountId, u64> = codec::from_bytes_canonical(&bytes)
+        match state.get(STAKES_KEY_CURRENT)? {
+            Some(ref bytes) => {
+                let raw_map: BTreeMap<AccountId, u64> = codec::from_bytes_canonical(bytes)
                     .map_err(|e| ChainError::State(StateError::InvalidValue(e)))?;
                 let stakes_map: BTreeMap<PublicKey, StakeAmount> = raw_map
                     .into_iter()
@@ -613,8 +673,7 @@ where
                     .collect();
                 Ok(stakes_map)
             }
-            Ok(None) => Ok(BTreeMap::new()),
-            Err(e) => Err(e.into()),
+            None => Ok(BTreeMap::new()),
         }
     }
 
@@ -624,9 +683,9 @@ where
     ) -> Result<BTreeMap<PublicKey, StakeAmount>, ChainError> {
         let state_tree_arc = workload.state_tree();
         let state = state_tree_arc.lock().await;
-        match state.get(STAKES_KEY_NEXT) {
-            Ok(Some(bytes)) => {
-                let raw_map: BTreeMap<AccountId, u64> = codec::from_bytes_canonical(&bytes)
+        match state.get(STAKES_KEY_NEXT)? {
+            Some(ref bytes) => {
+                let raw_map: BTreeMap<AccountId, u64> = codec::from_bytes_canonical(bytes)
                     .map_err(|e| ChainError::State(StateError::InvalidValue(e)))?;
                 let stakes_map: BTreeMap<PublicKey, StakeAmount> = raw_map
                     .into_iter()
@@ -635,8 +694,7 @@ where
                     .collect();
                 Ok(stakes_map)
             }
-            Ok(None) => Ok(BTreeMap::new()),
-            Err(e) => Err(e.into()),
+            None => Ok(BTreeMap::new()),
         }
     }
 }

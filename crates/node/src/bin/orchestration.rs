@@ -9,9 +9,10 @@ use depin_sdk_chain::Chain;
 use depin_sdk_client::security::SecurityChannel;
 use depin_sdk_client::WorkloadClient;
 use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
-use depin_sdk_commitment::tree::file::FileStateTree;
+use depin_sdk_commitment::tree::hashmap::HashMapStateTree; // Use a simple in-memory tree for the dummy
 use depin_sdk_consensus::util::engine_from_config;
 use depin_sdk_network::libp2p::Libp2pSync;
+use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::config::OrchestrationConfig;
 use depin_sdk_validator::{rpc::run_rpc_server, standard::OrchestrationContainer};
 use libp2p::{identity, Multiaddr};
@@ -84,7 +85,7 @@ async fn main() -> Result<()> {
 
     let orchestration = Arc::new(OrchestrationContainer::<
         HashCommitmentScheme,
-        FileStateTree<HashCommitmentScheme>,
+        HashMapStateTree<HashCommitmentScheme>,
         _,
     >::new(
         &config_path,
@@ -164,9 +165,40 @@ async fn main() -> Result<()> {
         log::warn!("GUARDIAN_ADDR not set, skipping Guardian attestation.");
     }
 
-    let chain_ref = Arc::new(Mutex::new(
-        Chain::<HashCommitmentScheme>::new_for_orchestrator(),
-    ));
+    // Create a dummy Chain instance, since Orchestrator only needs it for its `ChainView` impl.
+    // The actual state is managed by the Workload container.
+    let chain_ref = {
+        let scheme = HashCommitmentScheme::new();
+        let tm = UnifiedTransactionModel::new(scheme.clone());
+        let state_tree = HashMapStateTree::new(scheme.clone());
+        let workload_container = Arc::new(depin_sdk_api::validator::WorkloadContainer::new(
+            depin_sdk_types::config::WorkloadConfig {
+                enabled_vms: vec![],
+                state_tree: depin_sdk_types::config::StateTreeType::HashMap,
+                commitment_scheme: depin_sdk_types::config::CommitmentSchemeType::Hash,
+                consensus_type: config.consensus_type.clone(),
+                genesis_file: "".to_string(),
+                state_file: "".to_string(),
+                fuel_costs: Default::default(),
+                initial_services: vec![],
+            },
+            state_tree,
+            Box::new(depin_sdk_vm_wasm::WasmVm::new(Default::default())), // Dummy VM
+            Default::default(),
+        ));
+        let consensus = engine_from_config(&config)?;
+        let chain = Chain::new(
+            scheme,
+            tm,
+            "dummy-chain",
+            vec![],
+            Box::new(|_| unimplemented!()),
+            consensus,
+            workload_container,
+        );
+        Arc::new(Mutex::new(chain))
+    };
+
     orchestration.set_chain_and_workload_client(chain_ref, workload_client.clone());
 
     let rpc_handle = run_rpc_server(

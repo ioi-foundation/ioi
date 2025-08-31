@@ -1,7 +1,7 @@
 // Path: crates/types/src/error/mod.rs
 //! Core error types for the DePIN SDK.
 
-use libp2p::PeerId;
+use crate::app::AccountId;
 use thiserror::Error;
 
 /// Errors related to the state tree or state manager.
@@ -66,12 +66,12 @@ pub enum ConsensusError {
     #[error("Block verification failed: {0}")]
     BlockVerificationFailed(String),
     /// The producer of a block was not the expected leader for the current round.
-    #[error("Invalid block producer. Expected {expected}, got {got}")]
+    #[error("Invalid block producer. Expected {expected:?}, got {got:?}")]
     InvalidLeader {
-        /// The `PeerId` of the expected leader.
-        expected: PeerId,
-        /// The `PeerId` of the peer who produced the block.
-        got: PeerId,
+        /// The `AccountId` of the expected leader.
+        expected: AccountId,
+        /// The `AccountId` of the peer who produced the block.
+        got: AccountId,
     },
     /// An error occurred while accessing the state.
     #[error("State access error: {0}")]
@@ -102,7 +102,7 @@ pub enum OracleError {
     #[error("Invalid attestation from signer {signer}: {reason}")]
     InvalidAttestation {
         /// The `PeerId` of the validator who sent the invalid attestation.
-        signer: PeerId,
+        signer: libp2p::PeerId,
         /// The reason the attestation was considered invalid.
         reason: String,
     },
@@ -124,7 +124,7 @@ pub enum GovernanceError {
     #[error("Invalid signature from signer {signer}: {error}")]
     InvalidSignature {
         /// The `PeerId` of the signer.
-        signer: PeerId,
+        signer: libp2p::PeerId,
         /// A description of the signature error.
         error: String,
     },

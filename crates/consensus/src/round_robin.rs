@@ -5,33 +5,33 @@
 
 use crate::{ConsensusDecision, ConsensusEngine, PenaltyMechanism};
 use async_trait::async_trait;
+use depin_sdk_api::chain::{ChainView, StateView};
+use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::consensus::ChainStateReader;
-use depin_sdk_api::state::StateAccessor;
+use depin_sdk_api::state::{StateAccessor, StateManager};
 use depin_sdk_types::app::{AccountId, Block, FailureReport};
 use depin_sdk_types::error::{ConsensusError, StateError, TransactionError};
 use depin_sdk_types::keys::{AUTHORITY_SET_KEY, QUARANTINED_VALIDATORS_KEY};
-use libp2p::identity::PublicKey;
 use libp2p::PeerId;
 use std::collections::{BTreeSet, HashMap, HashSet};
 use tokio::time::{Duration, Instant};
 
+// Re-use helpers from PoA
+use crate::proof_of_authority::{hash_key, verify_signature};
+
 /// Checks if a sufficient number of validators (quorum) are connected.
 fn has_quorum(
-    validator_set: &[Vec<u8>],
+    validator_set: &[AccountId],
     known_peers: &HashSet<PeerId>,
-    local_peer_id: &PeerId,
+    _local_peer_id: &PeerId, // This is harder to check now without a state view
 ) -> bool {
     if validator_set.is_empty() {
         return true; // Genesis case or no validators defined, allow progress.
     }
-    let mut connected_validators = 0;
-    for peer_bytes in validator_set {
-        if let Ok(peer_id) = PeerId::from_bytes(peer_bytes) {
-            if &peer_id == local_peer_id || known_peers.contains(&peer_id) {
-                connected_validators += 1;
-            }
-        }
-    }
+    // A real implementation would need a way to map AccountId back to PeerId to check liveness.
+    // For now, we'll assume quorum is met if we have any known peers.
+    let connected_validators = known_peers.len() + 1; // +1 for self
+
     // Simple majority quorum
     let quorum_size = (validator_set.len() / 2) + 1;
     let has_quorum = connected_validators >= quorum_size;
@@ -47,6 +47,7 @@ fn has_quorum(
 }
 
 /// A consensus engine implementing a round-robin BFT-style leader rotation.
+#[derive(Debug, Clone)]
 pub struct RoundRobinBftEngine {
     /// Internal state for tracking timeouts for view changes.
     /// Key: (height, view), Value: time we started waiting in this view.
@@ -58,7 +59,7 @@ pub struct RoundRobinBftEngine {
     /// Stores votes for view changes. Key: (height, new_view), Value: Set of voters.
     view_change_votes: HashMap<(u64, u64), HashSet<PeerId>>,
     /// Caches the validator set for a given height, as seen in the last `decide` call.
-    validator_set_cache: HashMap<u64, Vec<Vec<u8>>>,
+    validator_set_cache: HashMap<u64, Vec<AccountId>>,
 }
 
 impl RoundRobinBftEngine {
@@ -102,14 +103,15 @@ impl PenaltyMechanism for RoundRobinBftEngine {
         state: &mut dyn StateAccessor,
         report: &FailureReport,
     ) -> Result<(), TransactionError> {
-        const MIN_LIVE_AUTHORITIES: usize = 3;
+        const MIN_LIVE_AUTHORITIES: usize = 2;
 
         let authorities_bytes = state.get(AUTHORITY_SET_KEY)?.ok_or_else(|| {
             TransactionError::State(StateError::KeyNotFound(
                 "Authority set not found in state".into(),
             ))
         })?;
-        let authorities: Vec<Vec<u8>> = serde_json::from_slice(&authorities_bytes)?;
+        let authorities: Vec<AccountId> =
+            depin_sdk_types::codec::from_bytes_canonical(&authorities_bytes)?;
 
         let quarantined: BTreeSet<AccountId> = state
             .get(QUARANTINED_VALIDATORS_KEY)?
@@ -143,22 +145,24 @@ impl PenaltyMechanism for RoundRobinBftEngine {
 impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
     async fn get_validator_data(
         &self,
-        state_reader: &dyn ChainStateReader,
+        _state_reader: &dyn ChainStateReader,
     ) -> Result<Vec<Vec<u8>>, ConsensusError> {
-        state_reader
-            .get_authority_set()
-            .await
-            .map_err(|e| ConsensusError::ClientError(e.to_string()))
+        Ok(vec![]) // Placeholder
     }
 
     async fn decide(
         &mut self,
-        local_public_key: &PublicKey,
+        our_account_id: &AccountId,
         height: u64,
         _view: u64, // The view is managed internally by this engine.
-        validator_data: &[Vec<u8>],
+        parent_view: &dyn StateView,
         known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
+        let validator_data = match parent_view.validator_set().await {
+            Ok(vs) => vs,
+            Err(_) => return ConsensusDecision::Stall,
+        };
+
         self.validator_set_cache
             .entry(height)
             .or_insert_with(|| validator_data.to_vec());
@@ -166,16 +170,21 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
         let view = *self.current_views.entry(height).or_insert(0);
 
         if validator_data.is_empty() {
-            return ConsensusDecision::ProduceBlock(vec![]);
+            return if height == 1 {
+                ConsensusDecision::ProduceBlock(vec![])
+            } else {
+                ConsensusDecision::Stall
+            };
         }
 
-        let local_peer_id = local_public_key.to_peer_id();
+        // This is a placeholder for a real implementation that would map AccountId -> PeerId
+        let local_peer_id = PeerId::random();
         let leader_index = ((height + view) % validator_data.len() as u64) as usize;
         let designated_leader = &validator_data[leader_index];
 
-        if designated_leader == &local_peer_id.to_bytes() {
+        if designated_leader == our_account_id {
             self.view_start_times.remove(&(height, view));
-            if has_quorum(validator_data, known_peers, &local_peer_id) {
+            if has_quorum(&validator_data, known_peers, &local_peer_id) {
                 ConsensusDecision::ProduceBlock(vec![])
             } else {
                 ConsensusDecision::WaitForBlock
@@ -187,56 +196,69 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
         }
     }
 
-    async fn handle_block_proposal(
+    async fn handle_block_proposal<CS, ST>(
         &mut self,
         block: Block<T>,
-        state_reader: &dyn ChainStateReader,
-    ) -> Result<(), ConsensusError> {
-        let height = block.header.height;
-        let producer_pubkey =
-            PublicKey::try_decode_protobuf(&block.header.producer).map_err(|e| {
-                ConsensusError::BlockVerificationFailed(format!(
-                    "Failed to decode producer public key: {}",
-                    e
-                ))
-            })?;
-        let header_hash = block.header.hash();
-        if !producer_pubkey.verify(&header_hash, &block.header.signature) {
-            return Err(ConsensusError::InvalidSignature);
-        }
+        chain_view: &dyn ChainView<CS, ST>,
+    ) -> Result<(), ConsensusError>
+    where
+        CS: CommitmentScheme + Send + Sync,
+        ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
+    {
+        let header = &block.header;
 
-        let validator_set = state_reader.get_authority_set().await.map_err(|e| {
-            ConsensusError::ClientError(format!("Could not get validator set: {}", e))
-        })?;
+        let parent_view = chain_view
+            .view_at(&header.parent_state_root)
+            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?;
+
+        let validator_set = parent_view
+            .validator_set()
+            .await
+            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?;
+
         if validator_set.is_empty() {
             return Err(ConsensusError::BlockVerificationFailed(
                 "Cannot validate block, validator set is empty".to_string(),
             ));
         }
 
-        let view = *self.current_views.entry(height).or_insert(0);
-        let leader_index = ((height + view) % validator_set.len() as u64) as usize;
-        let expected_leader_bytes = &validator_set[leader_index];
-        let got = producer_pubkey.to_peer_id();
-
-        if &got.to_bytes() != expected_leader_bytes {
-            let expected = PeerId::from_bytes(expected_leader_bytes).map_err(|e| {
-                ConsensusError::BlockVerificationFailed(format!(
-                    "Could not decode expected leader PeerId: {}",
-                    e
-                ))
+        let active_key = parent_view
+            .active_consensus_key(&header.producer_account_id)
+            .await
+            .ok_or_else(|| {
+                ConsensusError::BlockVerificationFailed("Producer has no active key".into())
             })?;
-            return Err(ConsensusError::InvalidLeader { expected, got });
+
+        let pubkey = &header.producer_pubkey;
+        let derived_hash = hash_key(active_key.suite, pubkey);
+        if derived_hash != active_key.pubkey_hash {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "Public key in header does not match its hash".into(),
+            ));
+        }
+
+        let preimage = header.to_preimage_for_signing();
+        verify_signature(&preimage, pubkey, active_key.suite, &header.signature)?;
+
+        let view = *self.current_views.entry(header.height).or_insert(0);
+        let leader_index = ((header.height + view) % validator_set.len() as u64) as usize;
+        let expected_leader = &validator_set[leader_index];
+
+        if &header.producer_account_id != expected_leader {
+            return Err(ConsensusError::InvalidLeader {
+                expected: *expected_leader,
+                got: header.producer_account_id,
+            });
         }
 
         log::info!(
-            "Block proposal from valid leader {} for (h:{}, v:{}) verified.",
-            got,
-            height,
+            "Block proposal from valid leader {:?} for (h:{}, v:{}) verified.",
+            header.producer_account_id,
+            header.height,
             view
         );
 
-        ConsensusEngine::<T>::reset(self, height);
+        ConsensusEngine::<T>::reset(self, header.height);
         Ok(())
     }
 

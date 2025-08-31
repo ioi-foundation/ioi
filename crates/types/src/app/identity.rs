@@ -48,6 +48,18 @@ impl From<[u8; 32]> for AccountId {
     }
 }
 
+/// The minimal record of an active consensus key, stored in the core state map.
+#[derive(Serialize, Deserialize, Debug, Clone, Encode, Decode)]
+pub struct ActiveKeyRecord {
+    /// The algorithm used by this credential.
+    pub suite: SignatureSuite,
+    /// The hash of the public key.
+    pub pubkey_hash: [u8; 32],
+    /// The first block height at which this key is valid for signing.
+    pub since_height: u64,
+}
+
+
 /// Derives a canonical, deterministic `AccountId` from a public key's raw material.
 ///
 /// This is the **SINGLE SOURCE OF TRUTH** for account ID generation across the entire system.
