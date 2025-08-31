@@ -20,12 +20,28 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_types::{
     app::{
-        account_id_from_key_material, ChainTransaction, Credential, SignHeader, SignatureProof,
-        SignatureSuite, SystemPayload, SystemTransaction,
+        // --- FIX START: Add missing imports ---
+        account_id_from_key_material,
+        AccountId,
+        ActiveKeyRecord,
+        ChainTransaction,
+        Credential,
+        SignHeader,
+        SignatureProof,
+        SignatureSuite,
+        SystemPayload,
+        SystemTransaction,
+        // --- FIX END ---
     },
+    // --- FIX START: Add missing imports ---
+    codec,
     config::InitialServiceConfig,
-    keys::IDENTITY_CREDENTIALS_PREFIX,
+    keys::{
+        ACCOUNT_ID_TO_PUBKEY_PREFIX, AUTHORITY_SET_KEY, IBC_PROCESSED_RECEIPT_PREFIX,
+        IDENTITY_CREDENTIALS_PREFIX,
+    },
     service_configs::MigrationConfig,
+    // --- FIX END ---
 };
 use libp2p::identity::Keypair;
 use serde_json::json;
@@ -78,30 +94,52 @@ async fn test_universal_verification_e2e() -> Result<()> {
             allow_downgrade: false,
             chain_id: 1,
         }))
+        // --- FIX START: Correctly set up genesis state for PoA with AccountId ---
         .with_genesis_modifier(|genesis, keys| {
             let keypair = &keys[0];
-            let authority = keypair.public().to_peer_id().to_bytes();
-            genesis["genesis_state"]["system::authorities"] = json!([authority]);
-
+            let suite = SignatureSuite::Ed25519;
             let public_key_bytes = keypair.public().encode_protobuf();
-            let public_key_hash =
-                account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes).unwrap();
-            let account_id = depin_sdk_types::app::AccountId(public_key_hash);
+            let account_id_hash = account_id_from_key_material(suite, &public_key_bytes).unwrap();
+            let account_id = AccountId(account_id_hash);
 
+            // A. Set the authority set using canonical encoding of Vec<AccountId>
+            let authorities = vec![account_id];
+            let authorities_bytes = codec::to_bytes_canonical(&authorities);
+            let auth_key_str = std::str::from_utf8(AUTHORITY_SET_KEY).unwrap();
+            genesis["genesis_state"][auth_key_str] =
+                json!(format!("b64:{}", BASE64_STANDARD.encode(authorities_bytes)));
+
+            // B. Set the initial IdentityHub credentials
             let initial_cred = Credential {
-                suite: SignatureSuite::Ed25519,
-                public_key_hash,
+                suite,
+                public_key_hash: account_id_hash,
                 activation_height: 0,
                 l2_location: None,
             };
-
             let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
             let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
             let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
             let creds_key_b64 = format!("b64:{}", BASE64_STANDARD.encode(&creds_key));
             genesis["genesis_state"][creds_key_b64] =
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes)));
+
+            // C. Set the ActiveKeyRecord for consensus verification
+            let record = ActiveKeyRecord {
+                suite,
+                pubkey_hash: account_id_hash,
+                since_height: 0,
+            };
+            let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
+            let record_bytes = codec::to_bytes_canonical(&record);
+            genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&record_key))] =
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes)));
+
+            // D. Set the AccountId -> PublicKey mapping for consensus verification
+            let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
+            genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key))] =
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&public_key_bytes)));
         })
+        // --- FIX END ---
         .build()
         .await?;
 

@@ -55,19 +55,20 @@ type BoxedStateManager<CS> = Box<
 >;
 
 /// Generic function containing all logic after component instantiation.
-async fn run_workload<CS>(
-    mut state_tree: BoxedStateManager<CS>,
+async fn run_workload<CS, ST>(
+    mut state_tree: ST,
     commitment_scheme: CS,
     config: WorkloadConfig,
 ) -> Result<()>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
     CS::Proof: AsRef<[u8]> + serde::Serialize + for<'de> serde::Deserialize<'de>,
     CS::Commitment: std::fmt::Debug,
 {
     if !Path::new(&config.state_file).exists() {
-        load_state_from_genesis_file(&mut *state_tree, &config.genesis_file)?;
+        load_state_from_genesis_file(&mut state_tree, &config.genesis_file)?;
     } else {
         log::info!(
             "Found existing state file at '{}'. Skipping genesis initialization.",
@@ -122,6 +123,7 @@ where
         initial_services,
         Box::new(load_service_from_wasm),
         consensus_engine,
+        workload_container.clone(),
     );
     chain.load_or_initialize_status(&workload_container).await?;
     let chain_arc = Arc::new(Mutex::new(chain));
@@ -180,10 +182,7 @@ async fn main() -> Result<()> {
         (StateTreeType::File, CommitmentSchemeType::Hash) => {
             log::info!("Instantiating state backend: FileStateTree<HashCommitmentScheme>");
             let commitment_scheme = HashCommitmentScheme::new();
-            let state_tree = Box::new(FileStateTree::new(
-                &config.state_file,
-                commitment_scheme.clone(),
-            ));
+            let state_tree = FileStateTree::new(&config.state_file, commitment_scheme.clone());
             run_workload(state_tree, commitment_scheme, config).await
         }
 
@@ -191,7 +190,7 @@ async fn main() -> Result<()> {
         (StateTreeType::HashMap, CommitmentSchemeType::Hash) => {
             log::info!("Instantiating state backend: HashMapStateTree<HashCommitmentScheme>");
             let commitment_scheme = HashCommitmentScheme::new();
-            let state_tree = Box::new(HashMapStateTree::new(commitment_scheme.clone()));
+            let state_tree = HashMapStateTree::new(commitment_scheme.clone());
             run_workload(state_tree, commitment_scheme, config).await
         }
 
@@ -199,7 +198,7 @@ async fn main() -> Result<()> {
         (StateTreeType::IAVL, CommitmentSchemeType::Hash) => {
             log::info!("Instantiating state backend: IAVLTree<HashCommitmentScheme>");
             let commitment_scheme = HashCommitmentScheme::new();
-            let state_tree = Box::new(IAVLTree::new(commitment_scheme.clone()));
+            let state_tree = IAVLTree::new(commitment_scheme.clone());
             run_workload(state_tree, commitment_scheme, config).await
         }
 
@@ -207,7 +206,7 @@ async fn main() -> Result<()> {
         (StateTreeType::SparseMerkle, CommitmentSchemeType::Hash) => {
             log::info!("Instantiating state backend: SparseMerkleTree<HashCommitmentScheme>");
             let commitment_scheme = HashCommitmentScheme::new();
-            let state_tree = Box::new(SparseMerkleTree::new(commitment_scheme.clone()));
+            let state_tree = SparseMerkleTree::new(commitment_scheme.clone());
             run_workload(state_tree, commitment_scheme, config).await
         }
 
@@ -216,7 +215,7 @@ async fn main() -> Result<()> {
             log::info!("Instantiating state backend: VerkleTree<KZGCommitmentScheme>");
             let params = KZGParams::new_insecure_for_testing(12345, 256);
             let commitment_scheme = KZGCommitmentScheme::new(params);
-            let state_tree = Box::new(VerkleTree::new(commitment_scheme.clone(), 256));
+            let state_tree = VerkleTree::new(commitment_scheme.clone(), 256);
             run_workload(state_tree, commitment_scheme, config).await
         }
 

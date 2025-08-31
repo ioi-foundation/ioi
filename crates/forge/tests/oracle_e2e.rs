@@ -13,11 +13,27 @@ use depin_sdk_forge::testing::{
     assert_log_contains, build_test_artifacts, submit_transaction, TestCluster,
 };
 use depin_sdk_types::app::{
-    account_id_from_key_material, AccountId, ChainTransaction, SignHeader, SignatureProof,
-    SignatureSuite, SystemPayload, SystemTransaction,
+    // --- FIX START: Add missing imports ---
+    account_id_from_key_material,
+    AccountId,
+    ActiveKeyRecord,
+    ChainTransaction,
+    Credential,
+    SignHeader,
+    SignatureProof,
+    SignatureSuite,
+    SystemPayload,
+    SystemTransaction,
+    // --- FIX END ---
 };
 use depin_sdk_types::codec;
-use depin_sdk_types::keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
+// --- FIX START: Add missing imports ---
+use depin_sdk_types::config::InitialServiceConfig;
+use depin_sdk_types::keys::{
+    ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, STAKES_KEY_CURRENT, STAKES_KEY_NEXT,
+};
+use depin_sdk_types::service_configs::MigrationConfig;
+// --- FIX END ---
 use libp2p::identity::Keypair;
 use serde_json::json;
 use std::collections::BTreeMap;
@@ -63,6 +79,15 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
     let cluster = TestCluster::builder()
         .with_validators(4)
         .with_consensus_type("ProofOfStake")
+        // --- FIX START: Add IdentityHub service to handle identity keys ---
+        .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
+            chain_id: 1,
+            grace_period_blocks: 5,
+            accept_staged_during_grace: true,
+            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            allow_downgrade: false,
+        }))
+        // --- FIX END ---
         .with_genesis_modifier(|genesis, keys| {
             // Setup initial stakes using the correct AccountId key and canonical codec
             let stakes: BTreeMap<_, _> = keys
@@ -81,17 +106,44 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
             genesis["genesis_state"][std::str::from_utf8(STAKES_KEY_NEXT).unwrap()] =
                 json!(&stakes_b64);
 
-            // Populate the pubkey lookup map required for signature verification
+            // --- FIX START: Populate identity records for all validators ---
             for keypair in keys {
+                let suite = SignatureSuite::Ed25519;
                 let pk_bytes = keypair.public().encode_protobuf();
-                let account_id_hash =
-                    account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
+                let account_id_hash = account_id_from_key_material(suite, &pk_bytes).unwrap();
                 let account_id = AccountId(account_id_hash);
+
+                // Add IdentityHub credentials
+                let cred = Credential {
+                    suite,
+                    public_key_hash: account_id.0,
+                    activation_height: 0,
+                    l2_location: None,
+                };
+                let creds_array: [Option<Credential>; 2] = [Some(cred), None];
+                let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
+                let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
+                genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&creds_key))] =
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes)));
+
+                // Add AccountId -> PublicKey mapping
                 let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
                 genesis["genesis_state"]
                     [format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key))] =
                     json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes)));
+
+                // Add ActiveKeyRecord for consensus
+                let record = ActiveKeyRecord {
+                    suite,
+                    pubkey_hash: account_id_hash,
+                    since_height: 0,
+                };
+                let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
+                let record_bytes = codec::to_bytes_canonical(&record);
+                genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&record_key))] =
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes)));
             }
+            // --- FIX END ---
         })
         .build()
         .await?;

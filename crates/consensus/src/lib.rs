@@ -3,7 +3,6 @@
 #![forbid(unsafe_code)]
 //! Consensus module implementations for the DePIN SDK
 
-// --- CORRECTED MODULE DECLARATIONS ---
 #[cfg(feature = "round-robin")]
 pub mod round_robin;
 
@@ -14,18 +13,20 @@ pub mod proof_of_authority;
 pub mod proof_of_stake;
 
 pub mod util;
-// --- END CORRECTION ---
 
 use async_trait::async_trait;
-use depin_sdk_api::consensus::{
-    ChainStateReader, ConsensusDecision, ConsensusEngine, PenaltyMechanism,
+use depin_sdk_api::{
+    chain::{ChainView, StateView},
+    commitment::CommitmentScheme,
+    consensus::{ChainStateReader, ConsensusDecision, ConsensusEngine, PenaltyMechanism},
+    state::{StateAccessor, StateManager},
 };
-use depin_sdk_api::state::StateAccessor;
-use depin_sdk_types::app::{Block, FailureReport};
+use depin_sdk_types::app::{AccountId, Block, FailureReport};
 use depin_sdk_types::config::ConsensusType;
-use depin_sdk_types::error::{ConsensusError, TransactionError};
-use libp2p::{identity::PublicKey, PeerId};
+use depin_sdk_types::error::{ChainError, ConsensusError, TransactionError};
+use libp2p::PeerId;
 use std::collections::HashSet;
+use std::fmt::Debug;
 
 // Re-export the concrete engine types for use in the enum.
 #[cfg(feature = "poa")]
@@ -36,6 +37,7 @@ use proof_of_stake::ProofOfStakeEngine;
 use round_robin::RoundRobinBftEngine;
 
 /// An enum that wraps the various consensus engine implementations.
+#[derive(Debug)]
 pub enum Consensus<T: Clone> {
     #[cfg(feature = "round-robin")]
     RoundRobin(Box<RoundRobinBftEngine>),
@@ -45,6 +47,36 @@ pub enum Consensus<T: Clone> {
     ProofOfStake(ProofOfStakeEngine),
     #[doc(hidden)]
     _Phantom(std::marker::PhantomData<T>),
+}
+
+#[async_trait]
+impl<T, CS, ST> ChainView<CS, ST> for Consensus<T>
+where
+    T: Clone + Send + Sync + 'static + Debug,
+    CS: CommitmentScheme + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
+{
+    fn view_at(&self, _state_root: &[u8; 32]) -> Result<Box<dyn StateView>, ChainError> {
+        Err(ChainError::Transaction(
+            "Consensus enum cannot create a state view directly".into(),
+        ))
+    }
+
+    fn get_penalty_mechanism(&self) -> Box<dyn PenaltyMechanism + Send + Sync + '_> {
+        Box::new(self)
+    }
+
+    fn consensus_type(&self) -> ConsensusType {
+        match self {
+            #[cfg(feature = "round-robin")]
+            Consensus::RoundRobin(_) => ConsensusType::ProofOfAuthority,
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(_) => ConsensusType::ProofOfAuthority,
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(_) => ConsensusType::ProofOfStake,
+            Consensus::_Phantom(_) => panic!("No consensus engine feature is enabled."),
+        }
+    }
 }
 
 impl<T: Clone> Consensus<T> {
@@ -91,79 +123,63 @@ where
 {
     async fn get_validator_data(
         &self,
-        state_reader: &dyn ChainStateReader,
+        _state_reader: &dyn ChainStateReader,
     ) -> Result<Vec<Vec<u8>>, ConsensusError> {
-        match self {
-            #[cfg(feature = "round-robin")]
-            Consensus::RoundRobin(e) => {
-                ConsensusEngine::<T>::get_validator_data(e.as_ref(), state_reader).await
-            }
-            #[cfg(feature = "poa")]
-            Consensus::ProofOfAuthority(e) => {
-                ConsensusEngine::<T>::get_validator_data(e, state_reader).await
-            }
-            #[cfg(feature = "pos")]
-            Consensus::ProofOfStake(e) => {
-                ConsensusEngine::<T>::get_validator_data(e, state_reader).await
-            }
-            Consensus::_Phantom(_) => panic!("No consensus engine feature is enabled."),
-        }
+        // This method is deprecated. Return a default value.
+        Ok(vec![])
     }
 
     async fn decide(
         &mut self,
-        local_public_key: &PublicKey,
+        our_account_id: &AccountId,
         height: u64,
         view: u64,
-        validator_data: &[Vec<u8>],
+        parent_view: &dyn StateView,
         known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
         match self {
             #[cfg(feature = "round-robin")]
             Consensus::RoundRobin(e) => {
-                <RoundRobinBftEngine as ConsensusEngine<T>>::decide(
-                    e.as_mut(),
-                    local_public_key,
-                    height,
-                    view,
-                    validator_data,
-                    known_peers,
-                )
-                .await
+                e.decide(our_account_id, height, view, parent_view, known_peers)
+                    .await
             }
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(e) => {
-                e.decide(local_public_key, height, view, validator_data, known_peers)
+                e.decide(our_account_id, height, view, parent_view, known_peers)
                     .await
             }
             #[cfg(feature = "pos")]
             Consensus::ProofOfStake(e) => {
-                e.decide(local_public_key, height, view, validator_data, known_peers)
+                e.decide(our_account_id, height, view, parent_view, known_peers)
                     .await
             }
             Consensus::_Phantom(_) => panic!("No consensus engine feature is enabled."),
         }
     }
 
-    async fn handle_block_proposal(
+    async fn handle_block_proposal<CS, ST>(
         &mut self,
         block: Block<T>,
-        state_reader: &dyn ChainStateReader,
-    ) -> Result<(), ConsensusError> {
+        chain_view: &dyn ChainView<CS, ST>,
+    ) -> Result<(), ConsensusError>
+    where
+        CS: CommitmentScheme + Send + Sync,
+        ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
+    {
         match self {
             #[cfg(feature = "round-robin")]
             Consensus::RoundRobin(e) => {
                 <RoundRobinBftEngine as ConsensusEngine<T>>::handle_block_proposal(
                     e.as_mut(),
                     block,
-                    state_reader,
+                    chain_view,
                 )
                 .await
             }
             #[cfg(feature = "poa")]
-            Consensus::ProofOfAuthority(e) => e.handle_block_proposal(block, state_reader).await,
+            Consensus::ProofOfAuthority(e) => e.handle_block_proposal(block, chain_view).await,
             #[cfg(feature = "pos")]
-            Consensus::ProofOfStake(e) => e.handle_block_proposal(block, state_reader).await,
+            Consensus::ProofOfStake(e) => e.handle_block_proposal(block, chain_view).await,
             Consensus::_Phantom(_) => panic!("No consensus engine feature is enabled."),
         }
     }

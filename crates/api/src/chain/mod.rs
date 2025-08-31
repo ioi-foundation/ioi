@@ -7,12 +7,25 @@ use crate::state::StateManager;
 use crate::transaction::TransactionModel;
 use crate::validator::WorkloadContainer;
 use async_trait::async_trait;
-use depin_sdk_types::app::{Block, ChainStatus, ChainTransaction};
+use depin_sdk_types::app::{AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction};
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::ChainError;
 use libp2p::identity::Keypair;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
+
+/// A read-only view of the world state anchored to a specific state root.
+#[async_trait]
+pub trait StateView: Send + Sync {
+    /// Returns the state root this view is anchored to.
+    fn state_root(&self) -> &[u8];
+    /// Returns the canonically sorted list of validator AccountIds.
+    async fn validator_set(&self) -> Result<Vec<AccountId>, ChainError>;
+    /// Gets a value by key from the state version this view is anchored to.
+    async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, ChainError>;
+    /// Returns the active consensus key record for a given AccountId.
+    async fn active_consensus_key(&self, acct: &AccountId) -> Option<ActiveKeyRecord>;
+}
 
 /// The public key of a validator, represented as a Base58 string.
 pub type PublicKey = String;
@@ -30,17 +43,8 @@ where
     CS: CommitmentScheme,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
 {
-    /// Retrieves the active validator set from the committed state.
-    async fn get_validator_set(
-        &self,
-        workload: &WorkloadContainer<ST>,
-    ) -> Result<Vec<Vec<u8>>, ChainError>;
-
-    /// Retrieves the active authority set from the committed state for PoA.
-    async fn get_authority_set(
-        &self,
-        workload: &WorkloadContainer<ST>,
-    ) -> Result<Vec<Vec<u8>>, ChainError>;
+    /// Obtain a read-only view anchored at a specific state root (typically the parent’s).
+    fn view_at(&self, state_root: &[u8; 32]) -> Result<Box<dyn StateView>, ChainError>;
 
     /// Provides access to the consensus-specific penalty mechanism.
     /// This now returns a Box<dyn Trait> to be object-safe.

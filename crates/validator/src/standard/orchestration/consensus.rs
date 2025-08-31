@@ -1,7 +1,10 @@
 // Path: crates/validator/src/standard/orchestration/consensus.rs
 use super::context::MainLoopContext;
+use super::gossip::prune_mempool;
 use super::oracle::handle_newly_processed_block;
+use crate::standard::orchestration::remote_state_view::RemoteStateView;
 use depin_sdk_api::{
+    chain::ChainView,
     commitment::CommitmentScheme,
     consensus::{ConsensusDecision, ConsensusEngine},
     state::{StateCommitment, StateManager},
@@ -10,7 +13,9 @@ use depin_sdk_api::{
 use depin_sdk_network::libp2p::SwarmCommand;
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-use depin_sdk_types::app::{Block, BlockHeader, ChainTransaction};
+use depin_sdk_types::app::{
+    account_id_from_key_material, AccountId, Block, BlockHeader, ChainTransaction, SignatureSuite,
+};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -28,86 +33,131 @@ where
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
 {
-    if *context.node_state.lock().await != NodeState::Synced {
+    // Allow PoA to bootstrap even if we aren't "Synced" yet (e.g., single-node tests).
+    // For PoS keep the stricter gating.
+    let node_state = context.node_state.lock().await.clone();
+    let cons_ty = {
+        let engine = context.consensus_engine_ref.lock().await;
+        (*engine).consensus_type()
+    };
+    let allow_bootstrap = matches!(
+        cons_ty,
+        depin_sdk_types::config::ConsensusType::ProofOfAuthority
+    );
+    if node_state != NodeState::Synced && !allow_bootstrap {
         return;
     }
 
+    let our_account_id = AccountId(
+        account_id_from_key_material(
+            SignatureSuite::Ed25519,
+            &context.local_keypair.public().encode_protobuf(),
+        )
+        .unwrap(),
+    );
+
     let decision = {
-        let mut engine = context.consensus_engine_ref.lock().await;
-        let known_peers = context.known_peers_ref.lock().await;
-        let target_height = context
-            .workload_client
-            .get_status()
-            .await
-            .map_or(0, |s| s.height)
-            + 1;
-        let current_view = 0;
-        let consensus_data = match engine
-            .get_validator_data(context.workload_client.as_ref())
-            .await
-        {
-            Ok(data) => data,
+        let status = match context.workload_client.get_status().await {
+            Ok(s) => s,
             Err(e) => {
-                log::error!("[Orch] Could not get validator data for consensus: {e}");
+                log::error!("[Orch] Could not get chain status for consensus: {}", e);
                 return;
             }
         };
+
+        // Create a view of the parent state to get the validator set
+        let last_state_root = context
+            .workload_client
+            .get_state_root()
+            .await
+            .unwrap_or([0; 32].to_vec());
+
+        // Obtain consensus type from the engine
+        let consensus_type = context.consensus_engine_ref.lock().await.consensus_type();
+
+        let parent_view = RemoteStateView::new(
+            last_state_root.try_into().unwrap_or([0; 32]),
+            context.workload_client.clone(),
+            consensus_type,
+        );
+
+        let target_height = status.height + 1;
+        let current_view = 0;
+
+        let mut engine = context.consensus_engine_ref.lock().await;
+        let known_peers = context.known_peers_ref.lock().await;
+
         engine
             .decide(
-                &context.local_keypair.public(),
+                &our_account_id,
                 target_height,
                 current_view,
-                &consensus_data,
+                &parent_view,
                 &known_peers,
             )
             .await
     };
 
     if let ConsensusDecision::ProduceBlock(_) = decision {
-        let target_height = context
-            .workload_client
-            .get_status()
-            .await
-            .map_or(0, |s| s.height)
-            + 1;
-        log::info!("Consensus decision: Produce block for height {target_height}.");
-        let header_data = match context.workload_client.get_validator_set().await {
+        let status = context.workload_client.get_status().await.unwrap();
+        let target_height = status.height + 1;
+
+        let header_validator_set = match context.workload_client.get_validator_set().await {
             Ok(data) => data,
             Err(e) => {
                 log::error!("[Orch] Could not get validator set for block header: {e}");
                 return;
             }
         };
-        let mut transactions_to_include = context
-            .tx_pool_ref
-            .lock()
-            .await
-            .drain(..)
-            .collect::<Vec<_>>();
+
+        // Build a *snapshot* of the current mempool. Do NOT drain here.
+        let (mut transactions_to_include, mempool_len_before) = {
+            let pool = context.tx_pool_ref.lock().await;
+            (pool.iter().cloned().collect::<Vec<_>>(), pool.len())
+        };
+
         let coinbase = UnifiedTransactionModel::new(CS::default())
             .create_coinbase_transaction(target_height, &context.local_peer_id.to_bytes())
             .unwrap();
         transactions_to_include.insert(0, coinbase);
-        let prev_hash = context
+
+        log::info!(
+            "[Consensus] Producing block #{target_height} with {} tx(s) from mempool size {} (incl. coinbase).",
+            transactions_to_include.len(),
+            mempool_len_before
+        );
+
+        let parent_hash: [u8; 32] = context
             .workload_client
             .get_last_block_hash()
             .await
-            .unwrap_or_else(|_| vec![0; 32]);
+            .unwrap_or_else(|_| vec![0; 32])
+            .try_into()
+            .unwrap();
+
+        let producer_pubkey = context.local_keypair.public().encode_protobuf();
+        let producer_key_suite = SignatureSuite::Ed25519;
+        let producer_pubkey_hash =
+            account_id_from_key_material(producer_key_suite, &producer_pubkey).unwrap();
 
         let new_block_template = Block {
             header: BlockHeader {
                 height: target_height,
-                prev_hash,
-                state_root: vec![],
+                parent_hash,
+                parent_state_root: [0; 32], // Will be filled by workload `process_block`
+                state_root: [0; 32],        // Will be filled by workload `process_block`
                 transactions_root: vec![0; 32],
                 timestamp: SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .unwrap()
                     .as_secs(),
-                validator_set: header_data,
-                producer: context.local_keypair.public().encode_protobuf(),
+                validator_set: header_validator_set,
+                producer_account_id: our_account_id,
+                producer_key_suite,
+                producer_pubkey_hash,
+                producer_pubkey,
                 signature: vec![],
             },
             transactions: transactions_to_include,
@@ -120,21 +170,37 @@ where
         {
             Ok((mut final_block, _)) => {
                 let block_height = final_block.header.height;
-                log::info!("Produced and processed new block #{}", block_height);
-                handle_newly_processed_block::<CS, ST, CE>(
-                    context,
-                    block_height,
-                    &context.external_data_service,
-                )
-                .await;
-                let header_hash = final_block.header.hash();
-                final_block.header.signature = context.local_keypair.sign(&header_hash).unwrap();
+                let preimage = final_block.header.to_preimage_for_signing();
+                final_block.header.signature = context.local_keypair.sign(&preimage).unwrap();
+
+                // 1) Broadcast the finalized block (best-effort)
                 let data = serde_json::to_vec(&final_block).unwrap();
                 context
                     .swarm_commander
                     .send(SwarmCommand::PublishBlock(data))
                     .await
                     .ok();
+
+                // 1.5) Prune local mempool to remove included txs
+                {
+                    let mut pool = context.tx_pool_ref.lock().await;
+                    let original_size = pool.len();
+                    prune_mempool(&mut pool, &final_block);
+                    let new_size = pool.len();
+                    if new_size < original_size {
+                        log::info!(
+                            "[Consensus] Pruned {} tx(s) from local mempool after block #{} (size: {} -> {}).",
+                            original_size - new_size,
+                            block_height,
+                            original_size,
+                            new_size
+                        );
+                    }
+                }
+
+                // 2) Post-commit hooks (we already committed in the first process_block)
+                handle_newly_processed_block(context, block_height, &context.external_data_service)
+                    .await;
                 context
                     .consensus_engine_ref
                     .lock()
@@ -150,7 +216,11 @@ where
                     }
                 }
             }
-            Err(e) => log::error!("Workload failed to process new block: {}", e),
+            Err(e) => {
+                // IMPORTANT: because we *didn't* drain the mempool, the txs remain queued
+                // and can be retried in subsequent blocks.
+                log::error!("Workload failed to process new block: {}", e);
+            }
         }
     }
 }

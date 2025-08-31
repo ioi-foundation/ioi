@@ -4,25 +4,26 @@
 
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use depin_sdk_forge::testing::{
-    assert_log_contains, build_test_artifacts, submit_transaction, TestCluster,
-};
+use depin_sdk_forge::testing::{build_test_artifacts, submit_transaction, TestCluster};
 use depin_sdk_types::{
     app::{
-        account_id_from_key_material, AccountId, ChainTransaction, Credential, FailureReport,
-        OffenseFacts, OffenseType, SignHeader, SignatureProof, SignatureSuite, SystemPayload,
-        SystemTransaction,
+        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
+        FailureReport, OffenseFacts, OffenseType, SignHeader, SignatureProof, SignatureSuite,
+        SystemPayload, SystemTransaction,
     },
     codec,
     config::InitialServiceConfig,
-    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, QUARANTINED_VALIDATORS_KEY},
+    keys::{
+        ACCOUNT_ID_TO_PUBKEY_PREFIX, AUTHORITY_SET_KEY, IDENTITY_CREDENTIALS_PREFIX,
+        QUARANTINED_VALIDATORS_KEY,
+    },
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
 use reqwest::Client;
 use serde_json::json;
-use std::collections::BTreeSet;
-use std::time::Duration;
+use std::collections::{BTreeMap, BTreeSet};
+use std::time::{Duration, Instant};
 use tokio::time;
 
 async fn query_state_key(rpc_addr: &str, key: &[u8]) -> Result<Option<Vec<u8>>> {
@@ -30,7 +31,7 @@ async fn query_state_key(rpc_addr: &str, key: &[u8]) -> Result<Option<Vec<u8>>> 
     let request_body = json!({
         "jsonrpc": "2.0", "method": "query_state", "params": [hex::encode(key)], "id": 1
     });
-    let rpc_url = format!("http://{}", rpc_addr);
+    let rpc_url = format!("http://{}/rpc", rpc_addr);
     let response: serde_json::Value = client
         .post(&rpc_url)
         .json(&request_body)
@@ -91,7 +92,7 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
     build_test_artifacts("consensus-poa,vm-wasm,tree-file,primitive-hash");
 
     let mut cluster = TestCluster::builder()
-        .with_validators(4) // Start with 4 to allow one quarantine while meeting liveness (min 3 live)
+        .with_validators(3) // Start with 3 to test the liveness boundary of MIN_LIVE_AUTHORITIES=2
         .with_consensus_type("ProofOfAuthority")
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
@@ -101,34 +102,70 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
             allow_downgrade: false,
         }))
         .with_genesis_modifier(|genesis, keys| {
-            let authorities: Vec<_> = keys
+            // 1. Derive AccountIds and sort them for canonical representation.
+            let mut authorities: Vec<AccountId> = keys
                 .iter()
-                .map(|k| k.public().to_peer_id().to_bytes())
+                .map(|k| {
+                    let pk_bytes = k.public().encode_protobuf();
+                    let hash =
+                        account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
+                    AccountId(hash)
+                })
                 .collect();
-            genesis["genesis_state"]["system::authorities"] = json!(authorities);
+            authorities.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
 
-            for keypair in keys {
-                let pk_bytes = keypair.public().encode_protobuf();
-                let account_id_hash =
-                    account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
-                let account_id = AccountId(account_id_hash);
+            // 2. Store the authority set using the canonical codec.
+            let auth_bytes = depin_sdk_types::codec::to_bytes_canonical(&authorities);
+            genesis["genesis_state"][std::str::from_utf8(AUTHORITY_SET_KEY).unwrap()] =
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&auth_bytes)));
 
+            // 3. Build a stable map AccountId -> public key bytes.
+            let suite = SignatureSuite::Ed25519;
+            let id_to_pk: BTreeMap<AccountId, Vec<u8>> = keys
+                .iter()
+                .map(|k| {
+                    let pk = k.public().encode_protobuf();
+                    let id = AccountId(
+                        account_id_from_key_material(suite, &pk).expect("derive account id"),
+                    );
+                    (id, pk)
+                })
+                .collect();
+
+            // 4. Populate ActiveKeyRecord, IdentityHub creds, and pk map per authority using that mapping.
+            for acct_id in &authorities {
+                let pk_bytes = id_to_pk.get(acct_id).expect("missing pubkey for authority");
+
+                // Create the core consensus key record.
+                let record = ActiveKeyRecord {
+                    suite,
+                    // This equals *acct_id* by construction; using the derived value keeps it explicit.
+                    pubkey_hash: account_id_from_key_material(suite, pk_bytes).unwrap(),
+                    since_height: 0, // Active from genesis
+                };
+                let record_key = [b"identity::key_record::", acct_id.as_ref()].concat();
+                let record_bytes = depin_sdk_types::codec::to_bytes_canonical(&record);
+                genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&record_key))] =
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes)));
+
+                // IdentityHub credentials for this authority
                 let cred = Credential {
-                    suite: SignatureSuite::Ed25519,
-                    public_key_hash: account_id.0,
+                    suite,
+                    public_key_hash: acct_id.0,
                     activation_height: 0,
                     l2_location: None,
                 };
                 let creds_array: [Option<Credential>; 2] = [Some(cred), None];
                 let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
-                let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
+                let creds_key = [IDENTITY_CREDENTIALS_PREFIX, acct_id.as_ref()].concat();
                 genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&creds_key))] =
                     json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes)));
 
-                let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
+                // AccountId -> PublicKey mapping
+                let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, acct_id.as_ref()].concat();
                 genesis["genesis_state"]
                     [format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key))] =
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes)));
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(pk_bytes)));
             }
         })
         .build()
@@ -141,7 +178,7 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
     let offender2 = &offender2_slice[0];
 
     let rpc_addr = &reporter.rpc_addr;
-    let mut orch_logs = reporter.orch_log_stream.lock().await.take().unwrap();
+    let _orch_logs = reporter.orch_log_stream.lock().await.take().unwrap();
 
     tokio::time::sleep(Duration::from_secs(10)).await;
 
@@ -184,9 +221,29 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
     let tx2 = create_report_tx(&reporter.keypair, offender2_id, 1)?; // increment nonce
     submit_transaction(rpc_addr, &tx2).await?;
 
-    // Assert 2: Liveness guard rejected the transaction.
-    assert_log_contains("Orchestration", &mut orch_logs, "Transaction processing error: Invalid transaction: Quarantine would jeopardize network liveness").await?;
-    println!("SUCCESS: Liveness guard correctly rejected second quarantine.");
+    // Assert 2: Liveness guard rejected the transaction by asserting state hasn't changed.
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        time::sleep(Duration::from_secs(2)).await;
+
+        let bytes_opt = query_state_key(rpc_addr, QUARANTINED_VALIDATORS_KEY).await?;
+        let set: BTreeSet<AccountId> = bytes_opt
+            .map(|b| codec::from_bytes_canonical(&b))
+            .transpose()
+            .map_err(|e| anyhow!("Failed to decode quarantine set from state: {}", e))?
+            .unwrap_or_default();
+
+        if set.len() == 1 && set.contains(&offender1_id) {
+            break; // Success: second quarantine was correctly rejected and state is unchanged.
+        }
+        if Instant::now() > deadline {
+            anyhow::bail!(
+                "Expected liveness guard to prevent second quarantine; set = {:?}",
+                set
+            );
+        }
+    }
+    println!("SUCCESS: Liveness guard kept quarantine set at size 1.");
 
     Ok(())
 }

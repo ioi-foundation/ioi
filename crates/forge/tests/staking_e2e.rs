@@ -9,8 +9,8 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_types::app::AccountId;
 use depin_sdk_types::app::{
-    account_id_from_key_material, ChainTransaction, SignHeader, SignatureProof, SignatureSuite,
-    SystemPayload, SystemTransaction,
+    account_id_from_key_material, ActiveKeyRecord, ChainTransaction, SignHeader, SignatureProof,
+    SignatureSuite, SystemPayload, SystemTransaction,
 };
 use depin_sdk_types::codec;
 use depin_sdk_types::config::InitialServiceConfig;
@@ -89,19 +89,29 @@ async fn test_staking_lifecycle() -> Result<()> {
             genesis["genesis_state"][std::str::from_utf8(STAKES_KEY_NEXT).unwrap()] =
                 json!(&stakes_b64);
 
-            // Populate the pubkey lookup map for all keys
+            // Populate the pubkey lookup map and ActiveKeyRecord for all keys
             for keypair in keys {
-                let account_id_hash = account_id_from_key_material(
-                    SignatureSuite::Ed25519,
-                    &keypair.public().encode_protobuf(),
-                )
-                .unwrap();
+                let pk_bytes = keypair.public().encode_protobuf();
+                let suite = SignatureSuite::Ed25519;
+                let account_id_hash = account_id_from_key_material(suite, &pk_bytes).unwrap();
                 let account_id = AccountId(account_id_hash);
+
+                // Add the pubkey lookup entry
                 let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-                let pubkey_bytes = keypair.public().encode_protobuf();
                 genesis["genesis_state"]
                     [format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key))] =
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pubkey_bytes)));
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes)));
+
+                // Add the ActiveKeyRecord entry for consensus
+                let record = ActiveKeyRecord {
+                    suite,
+                    pubkey_hash: account_id_hash,
+                    since_height: 0, // Active from genesis
+                };
+                let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
+                let record_bytes = codec::to_bytes_canonical(&record);
+                genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&record_key))] =
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes)));
             }
         })
         .build()
@@ -142,7 +152,11 @@ async fn test_staking_lifecycle() -> Result<()> {
 
     // 6. VERIFICATION: Wait for the ultimate desired outcome: Node1 is elected as the leader.
     // The state transition happens at the end of block 2, so the new leader is for block 3.
-    let expected_leader_log = format!("[PoS] Leader for height 3: {}", node1_account_id_hex);
+    // --- FIX: Correct the expected log message format to match the new hex output ---
+    let expected_leader_log = format!(
+        "[PoS] Leader for height 3: AccountId(0x{})",
+        node1_account_id_hex
+    );
 
     assert_log_contains(
         "Node1", // We can check any node's log, as they all run the same consensus.

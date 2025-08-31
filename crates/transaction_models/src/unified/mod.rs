@@ -23,7 +23,6 @@ use depin_sdk_types::keys::{
     IBC_PROCESSED_RECEIPT_PREFIX, ORACLE_DATA_PREFIX, ORACLE_PENDING_REQUEST_PREFIX,
     STAKES_KEY_CURRENT, STAKES_KEY_NEXT,
 };
-use libp2p::identity::PublicKey as Libp2pPublicKey;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -167,16 +166,18 @@ where
                 let state_tree_arc = workload.state_tree();
                 let mut state = state_tree_arc.lock().await;
 
-                match &sys_tx.payload {
+                match sys_tx.payload.clone() {
                     SystemPayload::Stake { public_key, amount } => {
-                        let staker_account_id_hash =
-                            account_id_from_key_material(sys_tx.signature_proof.suite, public_key)?;
+                        let staker_account_id_hash = account_id_from_key_material(
+                            sys_tx.signature_proof.suite,
+                            &public_key,
+                        )?;
                         let staker_account_id = AccountId(staker_account_id_hash);
 
                         let pubkey_map_key =
                             [ACCOUNT_ID_TO_PUBKEY_PREFIX, staker_account_id.as_ref()].concat();
                         if state.get(&pubkey_map_key)?.is_none() {
-                            state.insert(&pubkey_map_key, public_key)?;
+                            state.insert(&pubkey_map_key, &public_key)?;
                         }
 
                         let base_stakes_bytes = state
@@ -186,7 +187,7 @@ where
                             .map(|b| codec::from_bytes_canonical(&b).unwrap_or_default())
                             .unwrap_or_default();
                         let current_stake = stakes.entry(staker_account_id).or_insert(0);
-                        *current_stake = current_stake.saturating_add(*amount);
+                        *current_stake = current_stake.saturating_add(amount);
                         let new_stakes_bytes = codec::to_bytes_canonical(&stakes);
                         state.insert(STAKES_KEY_NEXT, &new_stakes_bytes)?;
                         Ok(())
@@ -200,9 +201,19 @@ where
                             .map(|b| codec::from_bytes_canonical(&b).unwrap_or_default())
                             .unwrap_or_default();
                         let current_stake = stakes.entry(staker_account_id).or_insert(0);
-                        *current_stake = current_stake.saturating_sub(*amount);
+                        *current_stake = current_stake.saturating_sub(amount);
                         let new_stakes_bytes = codec::to_bytes_canonical(&stakes);
                         state.insert(STAKES_KEY_NEXT, &new_stakes_bytes)?;
+                        Ok(())
+                    }
+                    SystemPayload::UpdateAuthorities {
+                        mut new_authorities,
+                    } => {
+                        // Enforce canonical ordering to guarantee a deterministic state root.
+                        new_authorities.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+                        new_authorities.dedup(); // Prevent duplicates.
+                        let bytes = codec::to_bytes_canonical(&new_authorities);
+                        state.insert(AUTHORITY_SET_KEY, &bytes)?;
                         Ok(())
                     }
                     SystemPayload::ReportMisbehavior { report } => {
@@ -225,27 +236,16 @@ where
                                 }
                             }
                             ConsensusType::ProofOfAuthority => {
-                                let pubkey_map_key =
-                                    [ACCOUNT_ID_TO_PUBKEY_PREFIX, reporter_id.as_ref()].concat();
-                                let reporter_pk_bytes =
-                                    state.get(&pubkey_map_key)?.ok_or_else(|| {
-                                        TransactionError::Invalid(
-                                            "Reporter public key not found in state".into(),
-                                        )
+                                let authorities_bytes =
+                                    state.get(AUTHORITY_SET_KEY)?.ok_or_else(|| {
+                                        TransactionError::State(StateError::KeyNotFound(
+                                            "Authority set not found".into(),
+                                        ))
                                     })?;
-                                let reporter_pk =
-                                    Libp2pPublicKey::try_decode_protobuf(&reporter_pk_bytes)
-                                        .map_err(|_| {
-                                            TransactionError::Invalid(
-                                                "Malformed reporter public key".into(),
-                                            )
-                                        })?;
+                                let authorities: Vec<AccountId> =
+                                    codec::from_bytes_canonical(&authorities_bytes)?;
 
-                                let authorities: Vec<Vec<u8>> = state
-                                    .get(AUTHORITY_SET_KEY)?
-                                    .and_then(|b| serde_json::from_slice(&b).ok())
-                                    .unwrap_or_default();
-                                if !authorities.contains(&reporter_pk.to_peer_id().to_bytes()) {
+                                if !authorities.contains(reporter_id) {
                                     return Err(TransactionError::Invalid(
                                         "Reporter is not an active authority".into(),
                                     ));
@@ -260,7 +260,7 @@ where
                             .unwrap_or_default();
 
                         let mut new_handled_evidence = handled_evidence;
-                        let id = evidence_id(report);
+                        let id = evidence_id(&report);
                         if !new_handled_evidence.insert(id) {
                             return Err(TransactionError::Invalid(
                                 "Duplicate evidence: this offense has already been penalized."
@@ -273,7 +273,13 @@ where
                         )?;
 
                         let penalty_mechanism = chain_ref.get_penalty_mechanism();
-                        penalty_mechanism.apply_penalty(&mut *state, report).await
+                        match penalty_mechanism.apply_penalty(&mut *state, &report).await {
+                            Ok(()) => Ok(()),
+                            Err(e) => {
+                                log::warn!("[Penalty] Report rejected: {}", e);
+                                Err(e)
+                            }
+                        }
                     }
                     SystemPayload::VerifyForeignReceipt { receipt, proof: _ } => {
                         let receipt_key =
@@ -315,7 +321,7 @@ where
                     SystemPayload::RequestOracleData { url, request_id } => {
                         let request_key =
                             [ORACLE_PENDING_REQUEST_PREFIX, &request_id.to_le_bytes()].concat();
-                        let url_bytes = serde_json::to_vec(url)?;
+                        let url_bytes = serde_json::to_vec(&url)?;
                         let entry = StateEntry {
                             value: url_bytes,
                             block_height: ctx.block_height,
@@ -333,9 +339,9 @@ where
                         governance_module
                             .vote(
                                 &mut *state,
-                                *proposal_id,
+                                proposal_id,
                                 voter_account_id,
-                                *option,
+                                option,
                                 ctx.block_height,
                             )
                             .map_err(TransactionError::Invalid)
@@ -350,7 +356,7 @@ where
                             .rotate(
                                 &mut *state,
                                 &sys_tx.header.account_id,
-                                proof,
+                                &proof,
                                 ctx.block_height,
                             )
                             .map_err(TransactionError::Invalid)

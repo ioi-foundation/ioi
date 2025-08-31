@@ -2,9 +2,11 @@
 
 //! Defines the core `ConsensusEngine` trait for pluggable consensus algorithms.
 
-use crate::state::StateAccessor;
+use crate::chain::{ChainView, StateView};
+use crate::commitment::CommitmentScheme;
+use crate::state::{StateAccessor, StateManager};
 use async_trait::async_trait;
-use depin_sdk_types::app::{Block, FailureReport};
+use depin_sdk_types::app::{AccountId, Block};
 use depin_sdk_types::error::{ConsensusError, TransactionError};
 use libp2p::{identity::PublicKey, PeerId};
 use std::collections::{BTreeMap, HashSet};
@@ -17,6 +19,8 @@ pub enum ConsensusDecision<T> {
     WaitForBlock,
     /// The node has timed out and should propose a view change to elect a new leader.
     ProposeViewChange,
+    /// The node should stall and not produce a block, e.g., if there are no validators.
+    Stall,
 }
 
 /// Provides a read-only, abstract view of chain state needed by the consensus engine.
@@ -46,7 +50,7 @@ pub trait PenaltyMechanism: Send + Sync {
     async fn apply_penalty(
         &self,
         state: &mut dyn StateAccessor, // CHANGED: Pass a dyn-safe StateAccessor
-        report: &FailureReport,
+        report: &depin_sdk_types::app::FailureReport,
     ) -> Result<(), TransactionError>;
 }
 
@@ -57,7 +61,7 @@ impl<'a, T: PenaltyMechanism + ?Sized> PenaltyMechanism for &'a T {
     async fn apply_penalty(
         &self,
         state: &mut dyn StateAccessor, // CHANGED: Update signature
-        report: &FailureReport,
+        report: &depin_sdk_types::app::FailureReport,
     ) -> Result<(), TransactionError> {
         (**self).apply_penalty(state, report).await
     }
@@ -67,6 +71,9 @@ impl<'a, T: PenaltyMechanism + ?Sized> PenaltyMechanism for &'a T {
 #[async_trait]
 pub trait ConsensusEngine<T: Clone>: PenaltyMechanism + Send + Sync {
     /// Retrieves the data necessary for consensus leader election (e.g., PoA authorities, PoS stakes).
+    #[deprecated(
+        note = "Consensus data should now be read from the StateView passed to decide/handle_block_proposal"
+    )]
     async fn get_validator_data(
         &self,
         state_reader: &dyn ChainStateReader,
@@ -75,19 +82,22 @@ pub trait ConsensusEngine<T: Clone>: PenaltyMechanism + Send + Sync {
     /// produce a block, wait, or propose a view change.
     async fn decide(
         &mut self,
-        local_public_key: &PublicKey,
+        our_account_id: &AccountId, // Now accepts the stable AccountId
         height: u64,
         view: u64,
-        validator_data: &[Vec<u8>],
+        parent_view: &dyn StateView, // Pass the parent state view for deterministic reads
         known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T>;
     /// Handles a block proposal from a peer, verifying its validity according to consensus rules
     /// (e.g., checking the producer's signature and leadership).
-    async fn handle_block_proposal(
+    async fn handle_block_proposal<CS, ST>(
         &mut self,
         block: Block<T>,
-        state_reader: &dyn ChainStateReader,
-    ) -> Result<(), ConsensusError>;
+        chain_view: &dyn ChainView<CS, ST>, // Method is now generic over CS and ST
+    ) -> Result<(), ConsensusError>
+    where
+        CS: CommitmentScheme + Send + Sync,
+        ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static;
     /// Handles a view change proposal from a peer, which is part of liveness mechanisms
     /// in BFT-style consensus algorithms.
     async fn handle_view_change(

@@ -7,9 +7,9 @@ use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_forge::testing::{build_test_artifacts, submit_transaction, TestCluster};
 use depin_sdk_types::{
     app::{
-        account_id_from_key_material, evidence_id, AccountId, ChainTransaction, Credential,
-        FailureReport, OffenseFacts, OffenseType, SignHeader, SignatureProof, SignatureSuite,
-        SystemPayload, SystemTransaction,
+        account_id_from_key_material, evidence_id, AccountId, ActiveKeyRecord, ChainTransaction,
+        Credential, FailureReport, OffenseFacts, OffenseType, SignHeader, SignatureProof,
+        SignatureSuite, SystemPayload, SystemTransaction,
     },
     codec,
     config::InitialServiceConfig,
@@ -137,10 +137,11 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                 json!(&stakes_b64);
 
             for keypair in keys {
+                let suite = SignatureSuite::Ed25519;
                 let pk_bytes = keypair.public().encode_protobuf();
-                let account_id_hash =
-                    account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
+                let account_id_hash = account_id_from_key_material(suite, &pk_bytes).unwrap();
                 let account_id = AccountId(account_id_hash);
+
                 let cred = Credential {
                     suite: SignatureSuite::Ed25519,
                     public_key_hash: account_id.0,
@@ -157,6 +158,18 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                 genesis["genesis_state"]
                     [format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key))] =
                     json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes)));
+
+                // --- FIX START: Add the missing ActiveKeyRecord ---
+                let record = ActiveKeyRecord {
+                    suite,
+                    pubkey_hash: account_id_hash,
+                    since_height: 0,
+                };
+                let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
+                let record_bytes = codec::to_bytes_canonical(&record);
+                genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&record_key))] =
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes)));
+                // --- FIX END ---
             }
         })
         .build()
@@ -183,14 +196,13 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
     let mut offender_stake = initial_stake;
     for _ in 0..15 {
         time::sleep(Duration::from_secs(2)).await;
-        let stakes_bytes = query_state_key(rpc_addr, STAKES_KEY_NEXT)
-            .await?
-            .expect("STAKES_KEY_NEXT should exist");
-        let stakes: BTreeMap<AccountId, u64> =
-            codec::from_bytes_canonical(&stakes_bytes).map_err(|e| anyhow!(e))?;
-        offender_stake = *stakes.get(&offender_account_id).unwrap_or(&initial_stake);
-        if offender_stake < initial_stake {
-            break;
+        if let Some(stakes_bytes) = query_state_key(rpc_addr, STAKES_KEY_NEXT).await? {
+            let stakes: BTreeMap<AccountId, u64> =
+                codec::from_bytes_canonical(&stakes_bytes).map_err(|e| anyhow!(e))?;
+            offender_stake = *stakes.get(&offender_account_id).unwrap_or(&initial_stake);
+            if offender_stake < initial_stake {
+                break;
+            }
         }
     }
     assert_eq!(

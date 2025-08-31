@@ -190,7 +190,8 @@ impl WorkloadClient {
             )),
         }
     }
-
+    
+    // --- FIX START ---
     pub async fn query_raw_state(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
         let request = WorkloadRequest::QueryRawState(key.to_vec());
         match self.send_and_receive(request).await? {
@@ -200,6 +201,7 @@ impl WorkloadClient {
             )),
         }
     }
+    // --- FIX END ---
 }
 
 // --- FIX START: Add the #[async_trait] macro ---
