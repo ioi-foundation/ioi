@@ -1,6 +1,7 @@
 // Path: crates/services/src/identity/mod.rs
 
 use depin_sdk_api::crypto::{SerializableKey, VerifyingKey};
+use depin_sdk_api::identity::CredentialsView;
 use depin_sdk_api::lifecycle::OnEndBlock;
 use depin_sdk_api::services::access::Service;
 use depin_sdk_api::services::{BlockchainService, ServiceType, UpgradableService};
@@ -9,24 +10,14 @@ use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::decorator::TxDecorator;
 use depin_sdk_crypto::sign::{dilithium::DilithiumPublicKey, eddsa::Ed25519PublicKey};
 use depin_sdk_types::app::{
-    // --- FIX START: Add required imports ---
-    account_id_from_pubkey,
-    // --- FIX END ---
-    AccountId,
-    ChainTransaction,
-    Credential,
-    RotationProof,
-    SignatureSuite,
-    SystemPayload,
+    account_id_from_key_material, AccountId, ChainTransaction, Credential, RotationProof,
+    SignatureSuite, SystemPayload,
 };
 use depin_sdk_types::error::{StateError, TransactionError, UpgradeError};
 use depin_sdk_types::keys::{
     IDENTITY_CREDENTIALS_PREFIX, IDENTITY_PROMOTION_INDEX_PREFIX, IDENTITY_ROTATION_NONCE_PREFIX,
 };
 use depin_sdk_types::service_configs::MigrationConfig;
-// --- FIX START: Add required import ---
-use libp2p::identity::PublicKey as Libp2pPublicKey;
-// --- FIX END ---
 
 #[derive(Debug, Clone)]
 pub struct IdentityHub {
@@ -55,18 +46,17 @@ impl IdentityHub {
         [IDENTITY_ROTATION_NONCE_PREFIX, account_id.as_ref()].concat()
     }
 
-    pub fn get_credentials(
+    fn load_credentials(
         &self,
         state: &dyn StateAccessor,
         account_id: &AccountId,
     ) -> Result<[Option<Credential>; 2], StateError> {
-        let creds_bytes = state
-            .get(&Self::get_credentials_key(account_id))?
-            .unwrap_or_default();
-        if creds_bytes.is_empty() {
+        let key = Self::get_credentials_key(account_id);
+        let bytes = state.get(&key)?.unwrap_or_default();
+        if bytes.is_empty() {
             return Ok([None, None]);
         }
-        serde_json::from_slice(&creds_bytes).map_err(|e| StateError::InvalidValue(e.to_string()))
+        serde_json::from_slice(&bytes).map_err(|e| StateError::InvalidValue(e.to_string()))
     }
 
     fn save_credentials(
@@ -80,7 +70,7 @@ impl IdentityHub {
         state.insert(&Self::get_credentials_key(account_id), &creds_bytes)
     }
 
-    fn verify_signature(
+    fn verify_rotation_signature(
         suite: SignatureSuite,
         public_key: &[u8],
         message: &[u8],
@@ -88,25 +78,12 @@ impl IdentityHub {
     ) -> Result<(), String> {
         match suite {
             SignatureSuite::Ed25519 => {
-                if public_key.len() == 32 {
-                    // Raw 32-byte Ed25519 key
-                    let pk = Ed25519PublicKey::from_bytes(public_key)?;
-                    let sig =
-                        depin_sdk_crypto::sign::eddsa::Ed25519Signature::from_bytes(signature)?;
-                    if pk.verify(message, &sig) {
-                        Ok(())
-                    } else {
-                        Err("Signature verification failed".into())
-                    }
+                let pk = Ed25519PublicKey::from_bytes(public_key)?;
+                let sig = depin_sdk_crypto::sign::eddsa::Ed25519Signature::from_bytes(signature)?;
+                if pk.verify(message, &sig) {
+                    Ok(())
                 } else {
-                    // Back-compat: libp2p protobuf-encoded Ed25519 public key
-                    let pk = Libp2pPublicKey::try_decode_protobuf(public_key)
-                        .map_err(|_| "Invalid libp2p protobuf public key".to_string())?;
-                    if pk.verify(message, signature) {
-                        Ok(())
-                    } else {
-                        Err("Signature verification failed".into())
-                    }
+                    Err("Rotation signature verification failed".into())
                 }
             }
             SignatureSuite::Dilithium2 => {
@@ -116,7 +93,7 @@ impl IdentityHub {
                 if pk.verify(message, &sig) {
                     Ok(())
                 } else {
-                    Err("Signature verification failed".into())
+                    Err("Rotation signature verification failed".into())
                 }
             }
         }
@@ -152,7 +129,7 @@ impl IdentityHub {
             return Err("Target suite not allowed by chain policy".to_string());
         }
         let creds = self
-            .get_credentials(state, account_id)
+            .load_credentials(state, account_id)
             .map_err(|e| e.to_string())?;
         let active_cred = creds[0]
             .as_ref()
@@ -167,37 +144,33 @@ impl IdentityHub {
         let challenge = self
             .rotation_challenge(state, account_id)
             .map_err(|e| e.to_string())?;
-        let old_pk_hash: [u8; 32] =
-            depin_sdk_crypto::algorithms::hash::sha256(&proof.old_public_key)
-                .try_into()
-                .unwrap();
+        let old_pk_hash = account_id_from_key_material(active_cred.suite, &proof.old_public_key)
+            .map_err(|e| e.to_string())?;
+
         if old_pk_hash != active_cred.public_key_hash {
             return Err("old_public_key does not match active credential".into());
         }
-        Self::verify_signature(
+        Self::verify_rotation_signature(
             active_cred.suite,
             &proof.old_public_key,
             &challenge,
             &proof.old_signature,
         )?;
-        Self::verify_signature(
+        Self::verify_rotation_signature(
             proof.target_suite,
             &proof.new_public_key,
             &challenge,
             &proof.new_signature,
         )?;
 
-        if let Some(_loc) = &proof.l2_location {
-            // let multihash = parse_multihash(loc)?; // Placeholder for a multihash library
-            // if multihash.digest() != sha256(&proof.new_public_key) { return Err("l2_location hash mismatch".into()); }
-        }
-
         let activation_height = current_height + self.config.grace_period_blocks;
         let new_cred = Credential {
             suite: proof.target_suite,
-            public_key_hash: depin_sdk_crypto::algorithms::hash::sha256(&proof.new_public_key)
-                .try_into()
-                .unwrap(),
+            public_key_hash: account_id_from_key_material(
+                proof.target_suite,
+                &proof.new_public_key,
+            )
+            .map_err(|e| e.to_string())?,
             activation_height,
             l2_location: proof.l2_location.clone(),
         };
@@ -239,12 +212,13 @@ impl Service for IdentityHub {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
-
-    fn as_tx_decorator(&self) -> Option<&dyn depin_sdk_api::transaction::decorator::TxDecorator> {
+    fn as_tx_decorator(&self) -> Option<&dyn TxDecorator> {
         Some(self)
     }
-
-    fn as_on_end_block(&self) -> Option<&dyn depin_sdk_api::lifecycle::OnEndBlock> {
+    fn as_on_end_block(&self) -> Option<&dyn OnEndBlock> {
+        Some(self)
+    }
+    fn as_credentials_view(&self) -> Option<&dyn CredentialsView> {
         Some(self)
     }
 }
@@ -258,6 +232,21 @@ impl UpgradableService for IdentityHub {
     }
 }
 
+impl CredentialsView for IdentityHub {
+    fn get_credentials(
+        &self,
+        state: &dyn StateAccessor,
+        account_id: &AccountId,
+    ) -> Result<[Option<Credential>; 2], TransactionError> {
+        self.load_credentials(state, account_id)
+            .map_err(TransactionError::State)
+    }
+
+    fn accept_staged_during_grace(&self) -> bool {
+        self.config.accept_staged_during_grace
+    }
+}
+
 impl TxDecorator for IdentityHub {
     fn ante_handle(
         &self,
@@ -265,144 +254,13 @@ impl TxDecorator for IdentityHub {
         tx: &ChainTransaction,
         ctx: &TxContext,
     ) -> Result<(), TransactionError> {
-        // Only gate key-rotation at the identity layer; other system messages
-        // are validated/authorized in their respective modules.
         if let ChainTransaction::System(sys_tx) = tx {
-            if let SystemPayload::RotateKey(_) = sys_tx.payload {
-                // continue
-            } else {
-                return Ok(());
+            if let SystemPayload::RotateKey(proof) = &sys_tx.payload {
+                return self
+                    .rotate(state, &sys_tx.header.account_id, proof, ctx.block_height)
+                    .map_err(TransactionError::Invalid);
             }
         }
-
-        let (header, proof, sign_bytes) = match tx {
-            ChainTransaction::System(sys_tx) => (
-                sys_tx.header,
-                sys_tx.signature_proof.clone(),
-                sys_tx.to_sign_bytes()?,
-            ),
-            ChainTransaction::Application(app_tx) => match app_tx {
-                depin_sdk_types::app::ApplicationTransaction::DeployContract {
-                    header,
-                    signature_proof,
-                    ..
-                }
-                | depin_sdk_types::app::ApplicationTransaction::CallContract {
-                    header,
-                    signature_proof,
-                    ..
-                } => (*header, signature_proof.clone(), app_tx.to_sign_bytes()?),
-                _ => return Ok(()), // UTXO has its own signing mechanism
-            },
-        };
-
-        // --- FIX START: Use the canonical AccountId derivation function ---
-        let pk = Libp2pPublicKey::try_decode_protobuf(&proof.public_key)
-            .map_err(|_| TransactionError::Invalid("Malformed public key in proof".into()))?;
-        let derived_account_id = account_id_from_pubkey(&pk);
-        if derived_account_id != header.account_id {
-            return Err(TransactionError::Invalid(
-                "AccountId in header does not match public key in proof".into(),
-            ));
-        }
-        let pk_hash = derived_account_id.0; // Use the inner [u8; 32] for comparison
-                                            // --- FIX END ---
-
-        let creds = self.get_credentials(state, &header.account_id)?;
-
-        // First-use bootstrap if the account has no credentials at all
-        if creds[0].is_none() && creds[1].is_none() {
-            // Suite policy gate
-            if !self.config.allowed_target_suites.contains(&proof.suite) {
-                return Err(TransactionError::Invalid(
-                    "Signature suite not allowed by chain policy".into(),
-                ));
-            }
-
-            // Verify the signature with the presented public key.
-            Self::verify_signature(
-                proof.suite,
-                &proof.public_key,
-                &sign_bytes,
-                &proof.signature,
-            )
-            .map_err(TransactionError::Invalid)?;
-
-            // Persist as active credential immediately.
-            let new_cred = Credential {
-                suite: proof.suite,
-                public_key_hash: pk_hash,
-                activation_height: ctx.block_height,
-                l2_location: None,
-            };
-            self.save_credentials(state, &header.account_id, &[Some(new_cred), None])?;
-
-            // Initialize rotation nonce if missing.
-            let nonce_key = Self::get_nonce_key(&header.account_id);
-            if state.get(&nonce_key)?.is_none() {
-                state.insert(&nonce_key, &0u64.to_le_bytes())?;
-            }
-
-            log::info!(
-                "[Identity] Bootstrapped and authorized account {}",
-                hex::encode(header.account_id)
-            );
-            return Ok(());
-        }
-
-        let mut is_authorized = false;
-        if let Some(active) = &creds[0] {
-            if active.public_key_hash == pk_hash && active.suite == proof.suite {
-                // It's the active key. Is there a rotation in progress that has expired?
-                if let Some(staged) = &creds[1] {
-                    if ctx.block_height >= staged.activation_height {
-                        // Grace period is over. This old key is no longer valid.
-                        is_authorized = false;
-                    } else {
-                        // Inside grace period, old key is still ok.
-                        is_authorized = true;
-                    }
-                } else {
-                    // No rotation, active key is fine.
-                    is_authorized = true;
-                }
-            }
-        }
-
-        if !is_authorized {
-            if let Some(staged) = &creds[1] {
-                // This logic is for accepting the *new* key during the grace period.
-                if self.config.accept_staged_during_grace
-                    && ctx.block_height < staged.activation_height
-                {
-                    if staged.public_key_hash == pk_hash && staged.suite == proof.suite {
-                        is_authorized = true;
-                    }
-                }
-                // Also check if the new key is being used *after* the grace period.
-                if ctx.block_height >= staged.activation_height {
-                    if staged.public_key_hash == pk_hash && staged.suite == proof.suite {
-                        is_authorized = true;
-                    }
-                }
-            }
-        }
-
-        if !is_authorized {
-            return Err(TransactionError::Invalid(
-                "Signer's key does not match any valid (active or staged) credential".into(),
-            ));
-        }
-
-        // Cryptographic verification (defense-in-depth)
-        Self::verify_signature(
-            proof.suite,
-            &proof.public_key,
-            &sign_bytes,
-            &proof.signature,
-        )
-        .map_err(|e| TransactionError::Invalid(format!("Signature verification failed: {}", e)))?;
-
         Ok(())
     }
 }
@@ -415,11 +273,12 @@ impl OnEndBlock for IdentityHub {
     ) -> Result<(), StateError> {
         let height = ctx.block_height;
         let idx_key = Self::get_index_key(height);
+
         if let Some(bytes) = state.get(&idx_key)? {
             let accounts: Vec<AccountId> = serde_json::from_slice(&bytes).unwrap_or_default();
             for account_id in accounts {
-                let mut creds = self.get_credentials(state, &account_id)?;
-                if let Some(staged) = &creds[1] {
+                let mut creds = self.load_credentials(state, &account_id)?;
+                if let Some(staged) = creds[1].as_ref() {
                     if height >= staged.activation_height {
                         if let Some(staged_taken) = creds[1].take() {
                             creds[0] = Some(staged_taken);

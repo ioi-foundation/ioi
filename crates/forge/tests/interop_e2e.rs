@@ -20,8 +20,8 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_types::{
     app::{
-        account_id_from_pubkey, AccountId, ChainTransaction, Credential, SignHeader,
-        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+        account_id_from_key_material, ChainTransaction, Credential, SignHeader, SignatureProof,
+        SignatureSuite, SystemPayload, SystemTransaction,
     },
     config::InitialServiceConfig,
     keys::IDENTITY_CREDENTIALS_PREFIX,
@@ -37,7 +37,8 @@ fn create_signed_system_tx(
     nonce: u64,
 ) -> Result<ChainTransaction> {
     let public_key = keypair.public().encode_protobuf();
-    let account_id = account_id_from_pubkey(&keypair.public());
+    let account_id_hash = account_id_from_key_material(SignatureSuite::Ed25519, &public_key)?;
+    let account_id = depin_sdk_types::app::AccountId(account_id_hash);
 
     let header = SignHeader {
         account_id,
@@ -82,11 +83,14 @@ async fn test_universal_verification_e2e() -> Result<()> {
             let authority = keypair.public().to_peer_id().to_bytes();
             genesis["genesis_state"]["system::authorities"] = json!([authority]);
 
-            let account_id = account_id_from_pubkey(&keypair.public());
+            let public_key_bytes = keypair.public().encode_protobuf();
+            let public_key_hash =
+                account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes).unwrap();
+            let account_id = depin_sdk_types::app::AccountId(public_key_hash);
 
             let initial_cred = Credential {
                 suite: SignatureSuite::Ed25519,
-                public_key_hash: account_id.0,
+                public_key_hash,
                 activation_height: 0,
                 l2_location: None,
             };
@@ -168,14 +172,9 @@ async fn test_universal_verification_e2e() -> Result<()> {
     ).await?;
 
     // 6. TEST ANTI-REPLAY
-    // Create and submit a new, validly signed transaction with an incremented nonce,
-    // but with the same foreign receipt payload. This will pass the nonce check
-    // but fail the IBC anti-replay check inside `apply_payload`.
     let replay_tx = create_signed_system_tx(keypair, payload, nonce)?;
     submit_transaction(rpc_addr, &replay_tx).await?;
 
-    // Now, assert that when the node tries to process the block containing the replay,
-    // it fails with the correct error message from our IBC logic.
     assert_log_contains(
         "Orchestration",
         &mut orch_logs,

@@ -7,10 +7,9 @@ use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_forge::testing::{
     assert_log_contains, build_test_artifacts, submit_transaction, TestCluster,
 };
-use depin_sdk_services::governance::{Proposal, ProposalStatus, ProposalType};
 use depin_sdk_types::app::{
-    account_id_from_pubkey, AccountId, ChainTransaction, SignHeader, SignatureProof, SystemPayload,
-    SystemTransaction, VoteOption,
+    account_id_from_key_material, AccountId, ChainTransaction, SignHeader, SignatureProof,
+    SignatureSuite, SystemPayload, SystemTransaction, VoteOption,
 };
 use depin_sdk_types::codec;
 use depin_sdk_types::keys::{GOVERNANCE_PROPOSAL_KEY_PREFIX, STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
@@ -24,7 +23,10 @@ fn create_system_tx(
     payload: SystemPayload,
     nonce: u64,
 ) -> Result<ChainTransaction> {
-    let account_id = account_id_from_pubkey(&keypair.public());
+    let public_key_bytes = keypair.public().encode_protobuf();
+    let account_id_hash = account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)?;
+    let account_id = AccountId(account_id_hash);
+
     let header = SignHeader {
         account_id,
         nonce,
@@ -39,11 +41,10 @@ fn create_system_tx(
     };
     let sign_bytes = tx_to_sign.to_sign_bytes()?;
     let signature = keypair.sign(&sign_bytes)?;
-    let public_key = keypair.public().encode_protobuf();
 
     tx_to_sign.signature_proof = SignatureProof {
-        suite: Default::default(),
-        public_key,
+        suite: SignatureSuite::Ed25519,
+        public_key: public_key_bytes,
         signature,
     };
     Ok(ChainTransaction::System(tx_to_sign))
@@ -64,7 +65,12 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
         .with_genesis_modifier(move |genesis, keys| {
             let validator_key = &keys[0];
             let validator_peer_id = validator_key.public().to_peer_id();
-            let validator_account_id = account_id_from_pubkey(&validator_key.public());
+            let validator_account_id_hash = account_id_from_key_material(
+                SignatureSuite::Ed25519,
+                &validator_key.public().encode_protobuf(),
+            )
+            .unwrap();
+            let validator_account_id = AccountId(validator_account_id_hash);
 
             // A. Set the validator as the authority
             genesis["genesis_state"]["system::authorities"] = json!([validator_peer_id.to_bytes()]);
@@ -73,7 +79,6 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
             genesis["genesis_state"]["system::governance_key"] = json!(governance_pubkey_b58);
 
             // C. Give the validator some stake so their vote has power
-            //    using the NEW format: BTreeMap<AccountId, u64> and canonical codec.
             let mut stakes = BTreeMap::new();
             stakes.insert(validator_account_id, 1_000_000u64);
             let stakes_bytes = codec::to_bytes_canonical(&stakes);
@@ -84,12 +89,12 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
             genesis["genesis_state"][stakes_key_next_str] = json!(stakes_b64);
 
             // D. Create a pre-funded proposal that will end soon
-            let proposal = Proposal {
+            let proposal = depin_sdk_services::governance::Proposal {
                 id: 1,
                 title: "Test Proposal".to_string(),
                 description: "This proposal should pass.".to_string(),
-                proposal_type: ProposalType::Text,
-                status: ProposalStatus::VotingPeriod, // Start it in the voting period
+                proposal_type: depin_sdk_services::governance::ProposalType::Text,
+                status: depin_sdk_services::governance::ProposalStatus::VotingPeriod,
                 submitter: vec![1, 2, 3],
                 submit_height: 0,
                 deposit_end_height: 0,

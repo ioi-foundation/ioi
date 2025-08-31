@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 //! Consensus module implementations for the DePIN SDK
 
+// --- CORRECTED MODULE DECLARATIONS ---
 #[cfg(feature = "round-robin")]
 pub mod round_robin;
 
@@ -13,6 +14,7 @@ pub mod proof_of_authority;
 pub mod proof_of_stake;
 
 pub mod util;
+// --- END CORRECTION ---
 
 use async_trait::async_trait;
 use depin_sdk_api::consensus::{
@@ -67,7 +69,7 @@ where
 {
     async fn apply_penalty(
         &self,
-        state: &mut dyn StateAccessor, // CHANGED: Update signature
+        state: &mut dyn StateAccessor,
         report: &FailureReport,
     ) -> Result<(), TransactionError> {
         match self {

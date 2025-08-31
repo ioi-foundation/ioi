@@ -9,14 +9,15 @@ use depin_sdk_network::libp2p::SwarmCommand;
 use depin_sdk_services::external_data::ExternalDataService;
 use depin_sdk_types::{
     app::{
-        AccountId, ChainTransaction, OracleAttestation, OracleConsensusProof, SignHeader,
-        SignatureProof, StateEntry, SystemPayload, SystemTransaction,
+        account_id_from_key_material, AccountId, ChainTransaction, OracleAttestation,
+        OracleConsensusProof, SignHeader, SignatureProof, SignatureSuite, StateEntry,
+        SystemPayload, SystemTransaction,
     },
     keys::ORACLE_PENDING_REQUEST_PREFIX,
 };
 use libp2p::{identity::PublicKey as Libp2pPublicKey, PeerId};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -53,8 +54,6 @@ pub async fn handle_newly_processed_block<CS, ST, CE>(
         }
     };
 
-    // --- FIX START ---
-    // Get the stakes map, which uses AccountId as the key.
     let validator_stakes = match context.workload_client.get_staked_validators().await {
         Ok(vs) => vs,
         Err(e) => {
@@ -63,20 +62,22 @@ pub async fn handle_newly_processed_block<CS, ST, CE>(
         }
     };
 
-    // Convert the BTreeMap<String, u64> back to BTreeMap<AccountId, u64>
     let validator_account_ids: HashSet<AccountId> = validator_stakes
         .keys()
         .filter_map(|hex_str| hex::decode(hex_str).ok())
         .filter_map(|bytes| bytes.try_into().ok().map(AccountId))
         .collect();
 
-    // Derive our own AccountId to check for membership.
-    let our_account_id =
-        depin_sdk_types::app::account_id_from_pubkey(&context.local_keypair.public());
+    let our_account_id_hash = account_id_from_key_material(
+        SignatureSuite::Ed25519,
+        &context.local_keypair.public().encode_protobuf(),
+    )
+    .expect("Local key should be valid");
+    let our_account_id = AccountId(our_account_id_hash);
+
     if !validator_account_ids.contains(&our_account_id) {
         return; // This node is not a staked validator, so it shouldn't perform oracle tasks.
     }
-    // --- FIX END ---
 
     log::info!("Oracle: This node is in the validator set, checking for new tasks...");
 
@@ -211,9 +212,10 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE>(
         }
     };
 
-    // --- FIX START: Verify against the correct key format (AccountId hex) ---
-    let signer_account_id = depin_sdk_types::app::account_id_from_pubkey(&pubkey);
-    let signer_account_id_hex = hex::encode(signer_account_id);
+    let signer_account_id_hash =
+        account_id_from_key_material(SignatureSuite::Ed25519, &pubkey.encode_protobuf())
+            .expect("libp2p public key should be valid");
+    let signer_account_id_hex = hex::encode(signer_account_id_hash);
 
     if !validator_stakes.contains_key(&signer_account_id_hex) {
         log::warn!(
@@ -222,7 +224,6 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE>(
         );
         return;
     }
-    // --- FIX END ---
 
     let payload_to_verify = attestation.to_signing_payload("test-chain");
 
@@ -304,11 +305,12 @@ pub async fn check_quorum_and_submit<CS, ST, CE>(
             Err(_) => continue,
         };
 
-        // --- FIX START: Verify against AccountId hex ---
-        let signer_account_id_hex =
-            hex::encode(depin_sdk_types::app::account_id_from_pubkey(&pubkey));
+        let signer_account_id_hash =
+            account_id_from_key_material(SignatureSuite::Ed25519, &pubkey.encode_protobuf())
+                .expect("libp2p public key should be valid");
+        let signer_account_id_hex = hex::encode(signer_account_id_hash);
+
         if validator_stakes.contains_key(&signer_account_id_hex) {
-            // --- FIX END ---
             let payload_to_verify = att.to_signing_payload("test-chain");
             if pubkey.verify(&payload_to_verify, sig_bytes)
                 && unique_signers.insert(signer_account_id_hex.clone())

@@ -5,13 +5,16 @@ use depin_sdk_api::chain::StakeAmount;
 use depin_sdk_api::consensus::{ChainStateReader, ConsensusDecision, PenaltyMechanism};
 use depin_sdk_api::state::StateAccessor;
 use depin_sdk_crypto::algorithms::hash::sha256;
-use depin_sdk_types::app::{AccountId, Block, FailureReport};
+use depin_sdk_types::app::{
+    account_id_from_key_material, AccountId, Block, FailureReport, SignatureSuite,
+};
 use depin_sdk_types::codec;
 use depin_sdk_types::error::{ConsensusError, StateError, TransactionError};
-use depin_sdk_types::keys::STAKES_KEY_NEXT;
+use depin_sdk_types::keys::{STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
 use libp2p::identity::PublicKey as Libp2pPublicKey;
 use libp2p::PeerId;
 use std::collections::{BTreeMap, HashSet};
+
 pub struct ProofOfStakeEngine {}
 
 impl Default for ProofOfStakeEngine {
@@ -63,20 +66,29 @@ impl ProofOfStakeEngine {
 impl PenaltyMechanism for ProofOfStakeEngine {
     async fn apply_penalty(
         &self,
-        state: &mut dyn StateAccessor, // CHANGED: Receive StateAccessor directly
+        state: &mut dyn StateAccessor,
         report: &FailureReport,
     ) -> Result<(), TransactionError> {
         const PENALTY_PERCENTAGE: u8 = 10;
 
-        let stakes_bytes = state.get(STAKES_KEY_NEXT)?.ok_or_else(|| {
-            TransactionError::State(StateError::KeyNotFound("STAKES_KEY_NEXT missing".into()))
-        })?;
+        // CORRECTED LOGIC: Read from NEXT, but fall back to CURRENT to create the initial map.
+        let base_stakes_bytes = state
+            .get(STAKES_KEY_NEXT)?
+            .or(state.get(STAKES_KEY_CURRENT)?);
 
-        let mut stakes: BTreeMap<AccountId, u64> = codec::from_bytes_canonical(&stakes_bytes)?;
+        let mut stakes: BTreeMap<AccountId, u64> = match base_stakes_bytes {
+            Some(bytes) => codec::from_bytes_canonical(&bytes)?,
+            None => {
+                return Err(TransactionError::State(StateError::KeyNotFound(
+                    "No current or next stake map found".into(),
+                )))
+            }
+        };
 
         if let Some(stake) = stakes.get_mut(&report.offender) {
             let slash_amount = (((*stake as u128) * (PENALTY_PERCENTAGE as u128)) / 100u128) as u64;
             *stake = stake.saturating_sub(slash_amount);
+            // Always write the updated map to STAKES_KEY_NEXT.
             state.insert(STAKES_KEY_NEXT, &codec::to_bytes_canonical(&stakes))?;
         } else {
             return Err(TransactionError::Invalid(format!(
@@ -130,7 +142,13 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
         let stakers: BTreeMap<AccountId, StakeAmount> =
             codec::from_bytes_canonical(staker_bytes).unwrap_or_default();
 
-        let our_account_id = depin_sdk_types::app::account_id_from_pubkey(local_public_key);
+        // Consensus keys are libp2p keys, which are canonically Ed25519
+        let our_account_id_hash = account_id_from_key_material(
+            SignatureSuite::Ed25519,
+            &local_public_key.encode_protobuf(),
+        )
+        .expect("Consensus key should be derivable");
+        let our_account_id = AccountId(our_account_id_hash);
 
         if !stakers.contains_key(&our_account_id) {
             return ConsensusDecision::WaitForBlock;
@@ -205,7 +223,14 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             ),
         )?;
 
-        let got_account_id = depin_sdk_types::app::account_id_from_pubkey(&producer_pubkey);
+        let got_account_id_hash = account_id_from_key_material(
+            SignatureSuite::Ed25519,
+            &producer_pubkey.encode_protobuf(),
+        )
+        .map_err(|e| {
+            ConsensusError::BlockVerificationFailed(format!("Could not derive AccountId: {}", e))
+        })?;
+        let got_account_id = AccountId(got_account_id_hash);
 
         if got_account_id != expected_leader_account_id {
             let expected_pk = state_reader

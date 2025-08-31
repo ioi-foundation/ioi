@@ -8,6 +8,7 @@ use crate::transaction::TransactionModel;
 use crate::validator::WorkloadContainer;
 use async_trait::async_trait;
 use depin_sdk_types::app::{Block, ChainStatus, ChainTransaction};
+use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::ChainError;
 use libp2p::identity::Keypair;
 use std::collections::BTreeMap;
@@ -44,6 +45,9 @@ where
     /// Provides access to the consensus-specific penalty mechanism.
     /// This now returns a Box<dyn Trait> to be object-safe.
     fn get_penalty_mechanism(&self) -> Box<dyn PenaltyMechanism + Send + Sync + '_>;
+
+    /// Returns the consensus type of the chain.
+    fn consensus_type(&self) -> ConsensusType;
 }
 
 /// A trait that defines the logic and capabilities of an application-specific blockchain.
@@ -100,7 +104,7 @@ where
         &self,
         workload: &WorkloadContainer<ST>,
     ) -> Result<BTreeMap<PublicKey, StakeAmount>, ChainError>;
-    
+
     /// Retrieves the map of staked validators for the next epoch for PoS.
     async fn get_next_staked_validators(
         &self,

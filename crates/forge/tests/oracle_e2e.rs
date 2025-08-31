@@ -13,13 +13,12 @@ use depin_sdk_forge::testing::{
     assert_log_contains, build_test_artifacts, submit_transaction, TestCluster,
 };
 use depin_sdk_types::app::{
-    account_id_from_pubkey, AccountId, ChainTransaction, SignHeader, SignatureProof,
+    account_id_from_key_material, AccountId, ChainTransaction, SignHeader, SignatureProof,
     SignatureSuite, SystemPayload, SystemTransaction,
 };
 use depin_sdk_types::codec;
 use depin_sdk_types::keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
 use libp2p::identity::Keypair;
-use reqwest::Client;
 use serde_json::json;
 use std::collections::BTreeMap;
 
@@ -29,8 +28,9 @@ fn create_system_tx(
     payload: SystemPayload,
     nonce: u64,
 ) -> Result<ChainTransaction> {
-    let public_key = keypair.public().encode_protobuf();
-    let account_id = account_id_from_pubkey(&keypair.public());
+    let public_key_bytes = keypair.public().encode_protobuf();
+    let account_id_hash = account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)?;
+    let account_id = AccountId(account_id_hash);
 
     let header = SignHeader {
         account_id,
@@ -49,7 +49,7 @@ fn create_system_tx(
 
     tx_to_sign.signature_proof = SignatureProof {
         suite: SignatureSuite::Ed25519,
-        public_key,
+        public_key: public_key_bytes,
         signature,
     };
     Ok(ChainTransaction::System(tx_to_sign))
@@ -67,7 +67,12 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
             // Setup initial stakes using the correct AccountId key and canonical codec
             let stakes: BTreeMap<_, _> = keys
                 .iter()
-                .map(|k| (account_id_from_pubkey(&k.public()), 100_000u64))
+                .map(|k| {
+                    let pk_bytes = k.public().encode_protobuf();
+                    let account_hash =
+                        account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
+                    (AccountId(account_hash), 100_000u64)
+                })
                 .collect();
             let stakes_bytes = codec::to_bytes_canonical(&stakes);
             let stakes_b64 = format!("b64:{}", BASE64_STANDARD.encode(&stakes_bytes));
@@ -78,12 +83,14 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
 
             // Populate the pubkey lookup map required for signature verification
             for keypair in keys {
-                let account_id = account_id_from_pubkey(&keypair.public());
+                let pk_bytes = keypair.public().encode_protobuf();
+                let account_id_hash =
+                    account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
+                let account_id = AccountId(account_id_hash);
                 let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-                let pubkey_bytes = keypair.public().encode_protobuf();
                 genesis["genesis_state"]
                     [format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key))] =
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pubkey_bytes)));
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes)));
             }
         })
         .build()
@@ -131,8 +138,6 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
         request_id,
     };
 
-    // Since this test doesn't enable the IdentityHub, the nonce won't be checked,
-    // but the transaction must still conform to the new signed structure.
     let signer_keypair = &cluster.validators[0].keypair;
     let request_tx = create_system_tx(signer_keypair, payload, 0)?;
     submit_transaction(node0_rpc, &request_tx).await?;

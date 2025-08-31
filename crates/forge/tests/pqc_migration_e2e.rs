@@ -16,13 +16,12 @@ use depin_sdk_crypto::sign::eddsa::Ed25519KeyPair;
 use depin_sdk_forge::testing::{submit_transaction, TestCluster};
 use depin_sdk_types::{
     app::{
-        account_id_from_pubkey, AccountId, ChainTransaction, Credential, RotationProof, SignHeader,
-        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+        account_id_from_key_material, AccountId, ChainTransaction, Credential, RotationProof,
+        SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
     },
     config::InitialServiceConfig,
     service_configs::MigrationConfig,
 };
-use libp2p::identity::Keypair;
 use serde_json::json;
 use std::time::Duration;
 use tokio::time::sleep;
@@ -32,7 +31,7 @@ trait TestSigner {
     fn public_bytes(&self) -> Vec<u8>;
     fn sign(&self, msg: &[u8]) -> Vec<u8>;
     fn account_id(&self) -> AccountId;
-    // Add a method to get the libp2p-compatible public key bytes for staking
+    fn suite(&self) -> SignatureSuite;
     fn libp2p_public_bytes(&self) -> Vec<u8>;
 }
 
@@ -44,14 +43,14 @@ impl TestSigner for Ed25519KeyPair {
         SigningKeyPair::sign(self, msg).to_bytes()
     }
     fn account_id(&self) -> AccountId {
-        let pk_bytes = self.public_key().to_bytes();
-        let libp2p_ed25519_pk = libp2p::identity::ed25519::PublicKey::try_from_bytes(&pk_bytes)
-            .expect("Failed to create libp2p key from bytes");
-        let libp2p_pk = libp2p::identity::PublicKey::from(libp2p_ed25519_pk);
-        account_id_from_pubkey(&libp2p_pk)
+        let account_hash =
+            account_id_from_key_material(self.suite(), &self.libp2p_public_bytes()).unwrap();
+        AccountId(account_hash)
+    }
+    fn suite(&self) -> SignatureSuite {
+        SignatureSuite::Ed25519
     }
     fn libp2p_public_bytes(&self) -> Vec<u8> {
-        // Need to convert our specific key type to the generic libp2p key to encode
         let pk_bytes = self.public_key().to_bytes();
         let libp2p_ed25519_pk =
             libp2p::identity::ed25519::PublicKey::try_from_bytes(&pk_bytes).unwrap();
@@ -68,12 +67,14 @@ impl TestSigner for DilithiumKeyPair {
         SigningKeyPair::sign(self, msg).to_bytes()
     }
     fn account_id(&self) -> AccountId {
-        let pk_hash = depin_sdk_crypto::algorithms::hash::sha256(&self.public_bytes());
-        AccountId(pk_hash.try_into().unwrap())
+        let account_hash =
+            account_id_from_key_material(self.suite(), &self.public_bytes()).unwrap();
+        AccountId(account_hash)
+    }
+    fn suite(&self) -> SignatureSuite {
+        SignatureSuite::Dilithium2
     }
     fn libp2p_public_bytes(&self) -> Vec<u8> {
-        // Dilithium isn't a libp2p key, but we can use its raw bytes for the payload.
-        // The IdentityHub logic can handle this.
         self.public_bytes()
     }
 }
@@ -81,7 +82,6 @@ impl TestSigner for DilithiumKeyPair {
 // Updated helper for creating signed transactions
 fn create_signed_system_tx<S: TestSigner>(
     signer: &S,
-    suite: SignatureSuite,
     header: SignHeader,
     payload: SystemPayload,
 ) -> Result<ChainTransaction> {
@@ -94,7 +94,7 @@ fn create_signed_system_tx<S: TestSigner>(
     let signature = TestSigner::sign(signer, &sign_bytes);
 
     tx_to_sign.signature_proof = SignatureProof {
-        suite,
+        suite: signer.suite(),
         public_key: signer.public_bytes(),
         signature,
     };
@@ -151,10 +151,9 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     };
     let initial_tx = create_signed_system_tx(
         &ed25519_key,
-        SignatureSuite::Ed25519,
         header,
         SystemPayload::Stake {
-            public_key: ed25519_key.libp2p_public_bytes(), // <-- FIX
+            public_key: ed25519_key.libp2p_public_bytes(),
             amount: 10,
         },
     )?;
@@ -186,7 +185,6 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     };
     let rotate_tx = create_signed_system_tx(
         &ed25519_key,
-        SignatureSuite::Ed25519,
         rotate_header,
         SystemPayload::RotateKey(rotation_proof),
     )?;
@@ -206,10 +204,9 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
             rpc_addr,
             &create_signed_system_tx(
                 &ed25519_key,
-                SignatureSuite::Ed25519,
                 ed_header,
                 SystemPayload::Stake {
-                    public_key: ed25519_key.libp2p_public_bytes(), // <-- FIX
+                    public_key: ed25519_key.libp2p_public_bytes(),
                     amount: 1,
                 },
             )?,
@@ -227,10 +224,9 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
             rpc_addr,
             &create_signed_system_tx(
                 &dilithium_key,
-                SignatureSuite::Dilithium2,
                 dil_header,
                 SystemPayload::Stake {
-                    public_key: dilithium_key.libp2p_public_bytes(), // <-- FIX
+                    public_key: dilithium_key.libp2p_public_bytes(),
                     amount: 1,
                 },
             )?,
@@ -251,10 +247,9 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     };
     let old_key_tx = create_signed_system_tx(
         &ed25519_key,
-        SignatureSuite::Ed25519,
         old_key_header,
         SystemPayload::Stake {
-            public_key: ed25519_key.libp2p_public_bytes(), // <-- FIX
+            public_key: ed25519_key.libp2p_public_bytes(),
             amount: 1,
         },
     )?;
@@ -269,10 +264,9 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     };
     let new_key_tx = create_signed_system_tx(
         &dilithium_key,
-        SignatureSuite::Dilithium2,
         new_key_header,
         SystemPayload::Stake {
-            public_key: dilithium_key.libp2p_public_bytes(), // <-- FIX
+            public_key: dilithium_key.libp2p_public_bytes(),
             amount: 1,
         },
     )?;
