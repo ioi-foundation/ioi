@@ -316,6 +316,32 @@ impl IAVLNode {
             Ordering::Equal => Some(n.value.clone()),
         })
     }
+
+    /// Recursively scan the tree for keys matching a prefix.
+    fn range_scan(
+        node: &Option<Arc<IAVLNode>>,
+        prefix: &[u8],
+        results: &mut Vec<(Vec<u8>, Vec<u8>)>,
+    ) {
+        if let Some(n) = node {
+            // If the current node's key is greater than or equal to the prefix,
+            // we must traverse the left subtree as it might contain matching keys.
+            if n.key.as_slice() >= prefix {
+                Self::range_scan(&n.left, prefix, results);
+            }
+
+            // If the current node's key itself starts with the prefix, it's a match.
+            if n.key.starts_with(prefix) {
+                results.push((n.key.clone(), n.value.clone()));
+            }
+
+            // If the prefix could be a prefix of keys in the right subtree,
+            // or if the current key is less than the prefix, we must traverse right.
+            if prefix.starts_with(&n.key) || n.key.as_slice() < prefix {
+                Self::range_scan(&n.right, prefix, results);
+            }
+        }
+    }
 }
 
 /// IAVL tree proof
@@ -359,6 +385,10 @@ where
 
     fn to_value(&self, value: &[u8]) -> CS::Value {
         CS::Value::from(value.to_vec())
+    }
+
+    fn get_from_cache(&self, key: &[u8]) -> Option<Vec<u8>> {
+        self.cache.get(key).cloned()
     }
 
     fn generate_proof(&self, key: &[u8]) -> IAVLProof {
@@ -448,7 +478,6 @@ where
 }
 
 impl<CS: CommitmentScheme> StateCommitment for IAVLTree<CS>
-// <-- FIX: Removed Default
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
     CS::Proof: AsRef<[u8]>,
@@ -469,7 +498,7 @@ where
     }
 
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
-        Ok(IAVLNode::get(&self.root, key))
+        Ok(self.get_from_cache(key))
     }
 
     fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
@@ -519,18 +548,13 @@ where
     }
 
     fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StateError> {
-        let results = self
-            .cache
-            .iter()
-            .filter(|(key, _)| key.starts_with(prefix))
-            .map(|(key, value)| (key.clone(), value.clone()))
-            .collect();
+        let mut results = Vec::new();
+        IAVLNode::range_scan(&self.root, prefix, &mut results);
         Ok(results)
     }
 }
 
 impl<CS: CommitmentScheme> StateManager for IAVLTree<CS>
-// <-- FIX: Removed Default
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
     CS::Proof: AsRef<[u8]>,

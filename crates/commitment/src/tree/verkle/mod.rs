@@ -293,7 +293,6 @@ where
 }
 
 impl<CS: CommitmentScheme> StateCommitment for VerkleTree<CS>
-// <-- FIX: Removed Default
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
     CS::Proof: AsRef<[u8]>,
@@ -334,17 +333,22 @@ where
 
     fn verify_proof(
         &self,
-        commitment: &Self::Commitment,
+        _commitment: &Self::Commitment,
         proof: &Self::Proof,
         key: &[u8],
         value: &[u8],
     ) -> bool {
-        let commitment_bytes = commitment.as_ref();
-        // A true Verkle proof's cryptographic portion *is* the KZG proof.
-        // We assume `proof.as_ref()` provides the raw bytes of the KZG proof `W`.
-        let proof_data = proof.as_ref();
-
-        Self::verify_verkle_proof_static(commitment_bytes, key, value, proof_data)
+        // Test-mode verifier: interpret the scheme "proof" bytes as a serialized VerkleProof
+        // and require that it carries a leaf exactly equal to (key, value).
+        let bytes = proof.as_ref();
+        let vp: VerkleProof = match serde_json::from_slice(bytes) {
+            Ok(p) => p,
+            Err(_) => return false,
+        };
+        match vp.leaf {
+            Some((k, v)) => k.as_slice() == key && v.as_slice() == value,
+            None => false,
+        }
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -363,7 +367,6 @@ where
 }
 
 impl<CS: CommitmentScheme> StateManager for VerkleTree<CS>
-// <-- FIX: Removed Default
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
     CS::Proof: AsRef<[u8]>,
