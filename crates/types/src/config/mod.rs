@@ -97,6 +97,9 @@ pub struct WorkloadConfig {
     pub genesis_file: String,
     /// The path to the backing file or database for the state tree.
     pub state_file: String,
+    /// The path to a pre-computed Structured Reference String (SRS) file, used by KZG.
+    #[serde(default)]
+    pub srs_file_path: Option<String>,
     /// Defines the fuel costs for VM operations.
     #[serde(default)]
     pub fuel_costs: VmFuelCosts,

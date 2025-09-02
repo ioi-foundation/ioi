@@ -56,9 +56,9 @@ pub struct BlockHeader {
     /// The hash of the parent block's header.
     pub parent_hash: [u8; 32],
     /// The state root committed by the parent block (the state against which this block is verified).
-    pub parent_state_root: [u8; 32],
+    pub parent_state_root: Vec<u8>,
     /// The state root this block commits to after applying its transactions.
-    pub state_root: [u8; 32],
+    pub state_root: Vec<u8>,
     /// The root hash of the transactions in this block.
     pub transactions_root: Vec<u8>,
     /// The timestamp when the block was created.
@@ -102,8 +102,8 @@ impl BlockHeader {
             SigDomain::BlockHeaderV1 as u8,
             self.height,
             self.parent_hash,
-            self.parent_state_root,
-            self.state_root,
+            &self.parent_state_root,
+            &self.state_root,
             &self.transactions_root,
             self.timestamp,
             // The validator set is informational and not part of the consensus-critical signed payload.

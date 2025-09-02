@@ -202,7 +202,7 @@ pub async fn handle_gossip_block<CS, ST, CE>(
             log::debug!(
                 "[Gossip] Advanced tip to #{} root=0x{}",
                 processed_block.header.height,
-                hex::encode(processed_block.header.state_root)
+                hex::encode(&processed_block.header.state_root)
             );
 
             let mut pool = context.tx_pool_ref.lock().await;

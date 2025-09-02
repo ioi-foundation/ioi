@@ -1,16 +1,23 @@
 // Path: crates/commitment/src/tree/verkle/mod.rs
 //! Verkle tree implementation with cryptographic security
 
-use crate::primitives::kzg::{KZGCommitment, KZGCommitmentScheme, KZGParams, KZGProof};
-use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, Selector};
+mod proof;
+mod proof_builder;
+mod verify;
+
+use crate::primitives::kzg::{KZGCommitment, KZGCommitmentScheme, KZGProof, KZGWitness};
+// FIX: Correct the path to `proof` and bring `Terminal` into scope.
+use crate::tree::verkle::proof::{
+    map_child_commitment_to_value, map_leaf_payload_to_value, Terminal, VerklePathProof,
+};
+use crate::tree::verkle::verify::verify_path_with_scheme;
+use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::{StateCommitment, StateManager};
-use depin_sdk_crypto::algorithms::hash;
 use depin_sdk_types::error::StateError;
-use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::HashMap;
-
-const VERKLE_WIDTH: usize = 256; // Width of the tree
+// FIX: `Arc` is no longer used directly here, so it can be removed.
+// use std::sync::Arc;
 
 /// Verkle tree node
 #[derive(Debug, Clone)]
@@ -22,48 +29,9 @@ enum VerkleNode {
     },
     Internal {
         children: HashMap<u8, Box<VerkleNode>>,
-        commitment: Vec<u8>,
+        kzg_commitment: KZGCommitment,
+        witness: KZGWitness,
     },
-}
-
-impl VerkleNode {
-    #[allow(clippy::useless_vec)]
-    fn commitment(&self) -> Vec<u8> {
-        match self {
-            VerkleNode::Empty => vec![0u8; 32],
-            VerkleNode::Leaf { key, value } => {
-                let mut data = Vec::new();
-                data.push(0x00); // Leaf marker
-                data.extend_from_slice(key);
-                data.extend_from_slice(value);
-                hash::sha256(&data)
-            }
-            VerkleNode::Internal { commitment, .. } => commitment.clone(),
-        }
-    }
-
-    fn compute_internal_commitment(children: &HashMap<u8, Box<VerkleNode>>) -> Vec<u8> {
-        let mut commitments = Vec::new();
-        for i in 0u8..=255 {
-            if let Some(child) = children.get(&i) {
-                commitments.extend_from_slice(&child.commitment());
-            } else {
-                commitments.extend_from_slice(&[0u8; 32]);
-            }
-        }
-        let mut data = Vec::new();
-        data.push(0x01); // Internal node marker
-        data.extend_from_slice(&commitments);
-        hash::sha256(&data)
-    }
-}
-
-/// Verkle proof structure
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VerkleProof {
-    pub path: Vec<u8>,
-    pub siblings: Vec<HashMap<u8, Vec<u8>>>,
-    pub leaf: Option<(Vec<u8>, Vec<u8>)>,
 }
 
 /// Verkle tree implementation
@@ -75,11 +43,8 @@ pub struct VerkleTree<CS: CommitmentScheme> {
     cache: HashMap<Vec<u8>, Vec<u8>>,
 }
 
-impl<CS: CommitmentScheme> VerkleTree<CS>
-where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
-{
-    pub fn new(scheme: CS, branching_factor: usize) -> Self {
+impl VerkleTree<KZGCommitmentScheme> {
+    pub fn new(scheme: KZGCommitmentScheme, branching_factor: usize) -> Self {
         Self {
             root: VerkleNode::Empty,
             scheme,
@@ -88,11 +53,35 @@ where
         }
     }
 
-    fn convert_value(&self, value: &[u8]) -> CS::Value {
-        CS::Value::from(value.to_vec())
+    fn internal_values(&self, children: &HashMap<u8, Box<VerkleNode>>) -> Vec<Option<Vec<u8>>> {
+        let mut slots = vec![None; self._branching_factor];
+        for i in 0..self._branching_factor {
+            if let Some(child) = children.get(&(i as u8)) {
+                let val32 = match child.as_ref() {
+                    VerkleNode::Internal { kzg_commitment, .. } => {
+                        map_child_commitment_to_value(kzg_commitment.as_ref())
+                    }
+                    VerkleNode::Leaf { value, .. } => map_leaf_payload_to_value(value),
+                    VerkleNode::Empty => [0u8; 32],
+                };
+                slots[i as usize] = Some(val32.to_vec());
+            } else {
+                // Represent an empty slot with a commitment to zero.
+                slots[i as usize] = Some([0u8; 32].to_vec());
+            }
+        }
+        slots
     }
 
-    /// Update the tree with a new key-value pair
+    fn compute_internal_kzg(
+        &self,
+        children: &HashMap<u8, Box<VerkleNode>>,
+    ) -> Result<(KZGCommitment, KZGWitness), String> {
+        let values = self.internal_values(children);
+        let byref: Vec<Option<&[u8]>> = values.iter().map(|o| o.as_deref()).collect();
+        self.scheme.commit_with_witness(&byref)
+    }
+
     #[allow(clippy::only_used_in_recursion)]
     fn update_node(
         &self,
@@ -122,10 +111,12 @@ where
                     for d in (depth..key.len()).rev() {
                         let mut children = HashMap::new();
                         children.insert(key[d], Box::new(path_node));
-                        let commitment = VerkleNode::compute_internal_commitment(&children);
+                        let (kzg_commitment, witness) =
+                            self.compute_internal_kzg(&children).unwrap();
                         path_node = VerkleNode::Internal {
                             children,
-                            commitment,
+                            kzg_commitment,
+                            witness,
                         };
                     }
                     path_node
@@ -147,7 +138,6 @@ where
                         VerkleNode::Empty
                     };
                 }
-                // Convert leaf to internal node with two children
                 let mut children = HashMap::new();
                 children.insert(
                     leaf_key[depth],
@@ -165,10 +155,11 @@ where
                         }),
                     );
                 }
-                let commitment = VerkleNode::compute_internal_commitment(&children);
+                let (kzg_commitment, witness) = self.compute_internal_kzg(&children).unwrap();
                 VerkleNode::Internal {
                     children,
-                    commitment,
+                    kzg_commitment,
+                    witness,
                 }
             }
             VerkleNode::Internal { children, .. } => {
@@ -189,116 +180,82 @@ where
                 if new_children.is_empty() {
                     VerkleNode::Empty
                 } else {
-                    let commitment = VerkleNode::compute_internal_commitment(&new_children);
+                    let (kzg_commitment, witness) =
+                        self.compute_internal_kzg(&new_children).unwrap();
                     VerkleNode::Internal {
                         children: new_children,
-                        commitment,
+                        kzg_commitment,
+                        witness,
                     }
                 }
             }
         }
-    }
-
-    /// Generate a proof for a key
-    fn generate_proof(&self, key: &[u8]) -> VerkleProof {
-        let mut path = Vec::new();
-        let mut siblings = Vec::new();
-        let mut current = &self.root;
-
-        for depth in 0..key.len() {
-            match current {
-                VerkleNode::Empty => break,
-                VerkleNode::Leaf {
-                    key: leaf_key,
-                    value,
-                } => {
-                    if leaf_key == key {
-                        return VerkleProof {
-                            path: key[..depth].to_vec(),
-                            siblings,
-                            leaf: Some((leaf_key.clone(), value.clone())),
-                        };
-                    }
-                    break;
-                }
-                VerkleNode::Internal { children, .. } => {
-                    let child_index = key[depth];
-                    path.push(child_index);
-
-                    let mut sibling_commitments = HashMap::new();
-                    for (idx, child) in children {
-                        if *idx != child_index {
-                            sibling_commitments.insert(*idx, child.commitment());
-                        }
-                    }
-                    siblings.push(sibling_commitments);
-
-                    current = children
-                        .get(&child_index)
-                        .map(|c| c.as_ref())
-                        .unwrap_or(&VerkleNode::Empty);
-                }
-            }
-        }
-
-        VerkleProof {
-            path,
-            siblings,
-            leaf: None,
-        }
-    }
-
-    /// **[RE-IMPLEMENTED]** Verify a Verkle proof using the KZG commitment scheme.
-    ///
-    /// This function provides the cryptographic verification for a Verkle proof,
-    /// which is fundamentally a KZG proof of polynomial evaluation.
-    pub fn verify_verkle_proof_static(
-        commitment_bytes: &[u8],
-        key: &[u8],
-        value: &[u8],
-        proof_data: &[u8],
-    ) -> bool {
-        // 1. Instantiate the KZG commitment scheme with the SRS.
-        let params = KZGParams::new_insecure_for_testing(12345, VERKLE_WIDTH);
-        let kzg_scheme = KZGCommitmentScheme::new(params);
-
-        // 2. Wrap the byte slices in our commitment scheme's types.
-        let commitment = KZGCommitment(commitment_bytes.to_vec());
-        let proof = KZGProof(proof_data.to_vec());
-
-        // 3. The 'key' in a Verkle tree proof corresponds to the evaluation point 'z'
-        //    in the KZG scheme. We wrap it in a `Selector`.
-        let selector = Selector::Key(key.to_vec());
-
-        // 4. The 'value' is the claimed evaluation `y = P(z)`.
-
-        // 5. Call the KZG verify method to perform the pairing check.
-        //    A default (empty) ProofContext is sufficient here.
-        let is_valid = kzg_scheme.verify(
-            &commitment,
-            &proof,
-            &selector,
-            &value.to_vec(),
-            &ProofContext::default(),
-        );
-
-        if is_valid {
-            log::info!("Verkle proof verification successful.");
-        } else {
-            log::warn!("Verkle proof verification failed: pairing check did not match.");
-        }
-
-        is_valid
     }
 }
 
-impl<CS: CommitmentScheme> StateCommitment for VerkleTree<CS>
-where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
-    CS::Proof: AsRef<[u8]>,
-{
-    type Commitment = CS::Commitment;
-    type Proof = CS::Proof;
+impl StateCommitment for VerkleTree<KZGCommitmentScheme> {
+    type Commitment = KZGCommitment;
+    type Proof = KZGProof;
+
+    fn root_commitment(&self) -> Self::Commitment {
+        match &self.root {
+            VerkleNode::Internal { kzg_commitment, .. } => kzg_commitment.clone(),
+            VerkleNode::Leaf { value, .. } => {
+                let y0 = map_leaf_payload_to_value(value);
+                let (c, _) = self
+                    .scheme
+                    .commit_with_witness(&[Some(&y0[..])])
+                    .expect("KZG deg-0 commit");
+                c
+            }
+            VerkleNode::Empty => {
+                let (c, _) = self
+                    .scheme
+                    .commit_with_witness(&[Some(&[0u8; 32][..])])
+                    .expect("KZG deg-0 commit");
+                c
+            }
+        }
+    }
+
+    fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
+        let vpp = self.build_path_proof(key)?;
+        // FIX: Add `bincode` crate and use it for serialization.
+        let bytes = bincode::serialize(&vpp).ok()?;
+        Some(KZGProof::from(bytes))
+    }
+
+    fn verify_proof(
+        &self,
+        commitment: &Self::Commitment,
+        proof: &Self::Proof,
+        key: &[u8],
+        value: &[u8],
+    ) -> bool {
+        let proof_bytes = proof.as_ref();
+        let ok = verify_path_with_scheme(
+            &self.scheme,
+            commitment,
+            &self.scheme.params.fingerprint(),
+            key,
+            proof_bytes,
+        );
+        if !ok {
+            return false;
+        }
+
+        // FIX: Correct path to `VerklePathProof` and use `bincode`.
+        let vpp: VerklePathProof = match bincode::deserialize(proof_bytes) {
+            Ok(p) => p,
+            Err(_) => return false,
+        };
+
+        // FIX: Correct path to `Terminal` enum variants.
+        match vpp.terminal {
+            Terminal::Leaf(payload) => payload.as_slice() == value,
+            Terminal::Empty | Terminal::Neighbor { .. } => false,
+        }
+    }
 
     fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
         self.root = self.update_node(&self.root, key, Some(value), 0);
@@ -316,47 +273,15 @@ where
         Ok(())
     }
 
-    fn root_commitment(&self) -> Self::Commitment {
-        let root_commitment = self.root.commitment();
-        let cs_value = self.convert_value(&root_commitment);
-        self.scheme.commit(&[Some(cs_value)])
-    }
-
-    fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
-        let verkle_proof = self.generate_proof(key);
-        let proof_data = serde_json::to_vec(&verkle_proof).ok()?;
-        let cs_value = self.convert_value(&proof_data);
-        self.scheme
-            .create_proof(&Selector::Key(key.to_vec()), &cs_value)
-            .ok()
-    }
-
-    fn verify_proof(
-        &self,
-        _commitment: &Self::Commitment,
-        proof: &Self::Proof,
-        key: &[u8],
-        value: &[u8],
-    ) -> bool {
-        // Test-mode verifier: interpret the scheme "proof" bytes as a serialized VerkleProof
-        // and require that it carries a leaf exactly equal to (key, value).
-        let bytes = proof.as_ref();
-        let vp: VerkleProof = match serde_json::from_slice(bytes) {
-            Ok(p) => p,
-            Err(_) => return false,
-        };
-        match vp.leaf {
-            Some((k, v)) => k.as_slice() == key && v.as_slice() == value,
-            None => false,
-        }
-    }
-
     fn as_any(&self) -> &dyn Any {
         self
     }
 
     fn export_kv_pairs(&self) -> Vec<(Vec<u8>, Vec<u8>)> {
-        self.cache.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
+        self.cache
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect()
     }
 
     fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StateError> {
@@ -370,11 +295,7 @@ where
     }
 }
 
-impl<CS: CommitmentScheme> StateManager for VerkleTree<CS>
-where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
-    CS::Proof: AsRef<[u8]>,
-{
+impl StateManager for VerkleTree<KZGCommitmentScheme> {
     fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
         for (key, value) in updates {
             self.insert(key, value)?;

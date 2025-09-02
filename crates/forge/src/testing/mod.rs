@@ -10,6 +10,7 @@ use anyhow::{anyhow, Result};
 use backend::{DockerBackend, LogStream, ProcessBackend, TestBackend};
 use bollard::image::BuildImageOptions;
 use bollard::Docker;
+use depin_sdk_commitment::primitives::kzg::KZGParams;
 use depin_sdk_types::app::ChainTransaction;
 use depin_sdk_types::config::{
     CommitmentSchemeType, ConsensusType, InitialServiceConfig, StateTreeType, VmFuelCosts,
@@ -368,7 +369,7 @@ impl TestValidator {
 
         let workload_config_path = config_dir_path.join("workload.toml");
         let workload_state_file = temp_dir.path().join("workload_state.json");
-        let workload_config = WorkloadConfig {
+        let mut workload_config = WorkloadConfig {
             enabled_vms: vec!["WASM".to_string()],
             state_tree: state_tree_enum,
             commitment_scheme: commitment_scheme_enum,
@@ -383,9 +384,24 @@ impl TestValidator {
             } else {
                 workload_state_file.to_string_lossy().replace('\\', "/")
             },
+            srs_file_path: None,
             fuel_costs: VmFuelCosts::default(),
             initial_services,
         };
+
+        if state_tree_type == "Verkle" {
+            let srs_path = temp_dir.path().join("srs.bin");
+            println!("Generating Verkle SRS, this may take a moment...");
+            let params = KZGParams::new_insecure_for_testing(12345, 255);
+            params.save_to_file(&srs_path).map_err(|e| anyhow!(e))?;
+            println!("SRS generation complete.");
+            workload_config.srs_file_path = Some(if use_docker {
+                "/tmp/test-data/srs.bin".to_string()
+            } else {
+                srs_path.to_string_lossy().to_string()
+            });
+        }
+
         std::fs::write(&workload_config_path, toml::to_string(&workload_config)?)?;
 
         let guardian_config = r#"signature_policy = "FollowChain""#.to_string();

@@ -168,11 +168,23 @@ where
 
                 match sys_tx.payload.clone() {
                     SystemPayload::Stake { public_key, amount } => {
-                        let staker_account_id_hash = account_id_from_key_material(
+                        // --- FIX START: Use the authenticated AccountId from the transaction header ---
+                        let staker_account_id = sys_tx.header.account_id;
+
+                        // Optional but recommended: Verify that the provided public key actually
+                        // matches the signer's AccountId. This prevents one account from
+                        // trying to set the public key for another account.
+                        let derived_pk_hash = account_id_from_key_material(
                             sys_tx.signature_proof.suite,
                             &public_key,
                         )?;
-                        let staker_account_id = AccountId(staker_account_id_hash);
+                        if staker_account_id.0 != derived_pk_hash {
+                            return Err(TransactionError::Invalid(
+                                "Public key in Stake payload does not match the signer's AccountId"
+                                    .to_string(),
+                            ));
+                        }
+                        // --- FIX END ---
 
                         let pubkey_map_key =
                             [ACCOUNT_ID_TO_PUBKEY_PREFIX, staker_account_id.as_ref()].concat();
