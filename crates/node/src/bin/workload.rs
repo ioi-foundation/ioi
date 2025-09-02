@@ -205,7 +205,13 @@ async fn main() -> Result<()> {
         #[cfg(all(feature = "tree-verkle", feature = "primitive-kzg"))]
         (StateTreeType::Verkle, CommitmentSchemeType::KZG) => {
             log::info!("Instantiating state backend: VerkleTree<KZGCommitmentScheme>");
-            let params = KZGParams::new_insecure_for_testing(12345, 256);
+            let params = if let Some(srs_path) = &config.srs_file_path {
+                log::info!("Loading KZG SRS from file: {}", srs_path);
+                KZGParams::load_from_file(Path::new(srs_path)).map_err(|e| anyhow!(e))?
+            } else {
+                log::warn!("Generating insecure KZG parameters for testing. This is slow. DO NOT USE IN PRODUCTION.");
+                KZGParams::new_insecure_for_testing(12345, 255)
+            };
             let commitment_scheme = KZGCommitmentScheme::new(params);
             let state_tree = VerkleTree::new(commitment_scheme.clone(), 256);
             run_workload(state_tree, commitment_scheme, config).await

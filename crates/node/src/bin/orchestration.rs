@@ -179,6 +179,7 @@ async fn main() -> Result<()> {
                 consensus_type: config.consensus_type.clone(),
                 genesis_file: "".to_string(),
                 state_file: "".to_string(),
+                srs_file_path: None,
                 fuel_costs: Default::default(),
                 initial_services: vec![],
             },

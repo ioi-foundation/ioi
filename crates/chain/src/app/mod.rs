@@ -12,6 +12,7 @@ use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_consensus::Consensus;
+use depin_sdk_crypto::algorithms::hash::sha256;
 use depin_sdk_transaction_models::system::{nonce, validation};
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{
@@ -61,7 +62,7 @@ pub struct ChainState<CS: CommitmentScheme + Clone> {
     pub max_recent_blocks: usize,
     /// Last committed state root. Initialized to the genesis root in `load_or_initialize_status`,
     /// then updated after every successful block commit.
-    pub last_state_root: [u8; 32],
+    pub last_state_root: Vec<u8>,
 }
 
 pub struct Chain<CS: CommitmentScheme + Clone, ST: StateManager> {
@@ -145,7 +146,7 @@ where
             status,
             recent_blocks: Vec::new(),
             max_recent_blocks: 100,
-            last_state_root: [0; 32],
+            last_state_root: vec![],
         };
 
         Self {
@@ -185,12 +186,12 @@ where
         // compute current root and publish anchor for genesis state
         let root_vec = state.root_commitment().as_ref().to_vec();
         drop(state);
-        let root: [u8; 32] = root_vec.try_into().unwrap_or([0u8; 32]);
+        let root_for_anchor: [u8; 32] = sha256(&root_vec).try_into().unwrap();
         self.workload_container
-            .publish_anchor_snapshot::<CS>(root)
+            .publish_anchor_snapshot::<CS>(root_for_anchor)
             .await;
         // remember the genesis state root so H=1 can reference the correct parent
-        self.state.last_state_root = root;
+        self.state.last_state_root = root_vec;
         Ok(())
     }
 
@@ -464,10 +465,13 @@ where
 
         let (expected_prev_hash_array, parent_state_root) =
             if let Some(b) = self.state.recent_blocks.last() {
-                (b.header.hash().try_into().unwrap(), b.header.state_root)
+                (
+                    b.header.hash().try_into().unwrap(),
+                    b.header.state_root.clone(),
+                )
             } else {
                 // H=1: no previous block. Parent hash is zero; parent *state root* must be the actual genesis root.
-                ([0; 32], self.state.last_state_root)
+                ([0; 32], self.state.last_state_root.clone())
             };
 
         if is_producing {
@@ -496,7 +500,9 @@ where
             }
         }
 
-        if height > 0 {
+        // --- FIX START: Gate this PoS-specific logic ---
+        if height > 0 && self.consensus_engine.consensus_type() == ConsensusType::ProofOfStake {
+            // --- FIX END ---
             let state_tree_arc = workload.state_tree();
             let mut state = state_tree_arc.lock().await;
 
@@ -550,18 +556,13 @@ where
         let state_tree_arc = workload.state_tree();
         let mut state = state_tree_arc.lock().await;
         let new_state_root_vec = state.root_commitment().as_ref().to_vec();
-        let new_state_root: [u8; 32] = new_state_root_vec.try_into().map_err(|_| {
-            ChainError::State(StateError::Validation(
-                "State root is not 32 bytes".to_string(),
-            ))
-        })?;
 
         if is_producing {
-            block.header.state_root = new_state_root;
-        } else if block.header.state_root != new_state_root {
+            block.header.state_root = new_state_root_vec.clone();
+        } else if block.header.state_root != new_state_root_vec {
             return Err(BlockError::MismatchedStateRoot {
-                expected: hex::encode(new_state_root),
-                got: hex::encode(block.header.state_root),
+                expected: hex::encode(&new_state_root_vec),
+                got: hex::encode(&block.header.state_root),
             }
             .into());
         }
@@ -571,15 +572,16 @@ where
         let status_bytes = serde_json::to_vec(&self.state.status)
             .map_err(|e| ChainError::Transaction(format!("Failed to serialize status: {e}")))?;
         state.insert(STATUS_KEY, &status_bytes)?;
-        let root_to_publish = new_state_root;
+        let root_to_publish = new_state_root_vec;
 
         // --- FIX START: Release the state lock before publishing the snapshot ---
         // IMPORTANT: release the state lock before taking it again inside publish_anchor_snapshot
         drop(state);
 
         // Publish anchored snapshot for this root (so H+1 decisions can read at H)
+        let root_for_anchor: [u8; 32] = sha256(&root_to_publish).try_into().unwrap();
         self.workload_container
-            .publish_anchor_snapshot::<CS>(root_to_publish)
+            .publish_anchor_snapshot::<CS>(root_for_anchor)
             .await;
         // --- FIX END ---
 
@@ -604,11 +606,14 @@ where
         producer_keypair: &Keypair,
     ) -> Block<ChainTransaction> {
         let (parent_hash, parent_state_root) = if let Some(b) = self.state.recent_blocks.last() {
-            (b.header.hash().try_into().unwrap(), b.header.state_root)
+            (
+                b.header.hash().try_into().unwrap(),
+                b.header.state_root.clone(),
+            )
         } else {
             // At H=1 there is no prior block; parent hash stays zero,
             // but the parent *state root* must be the actual genesis root.
-            ([0; 32], self.state.last_state_root)
+            ([0; 32], self.state.last_state_root.clone())
         };
 
         let mut validator_set_bytes = current_validator_set.to_vec();
@@ -624,7 +629,7 @@ where
             height: self.state.status.height + 1,
             parent_hash,
             parent_state_root,
-            state_root: [0; 32], // Filled in by `process_block`
+            state_root: vec![], // Filled in by `process_block`
             transactions_root: vec![0; 32],
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)

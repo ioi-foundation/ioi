@@ -52,7 +52,7 @@ where
     pub pending_attestations: HashMap<u64, Vec<OracleAttestation>>,
     // --- FIX START: Add new fields to track the chain tip ---
     /// The root of the initial (genesis) state.
-    pub genesis_root: [u8; 32],
+    pub genesis_root: Vec<u8>,
     /// The most recent block that has been successfully processed and committed.
     pub last_committed_block: Option<Block<ChainTransaction>>,
     // --- FIX END ---

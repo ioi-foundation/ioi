@@ -203,7 +203,7 @@ cargo test --workspace
 |---------|---------|
 | **IAVL Tree** | `cargo test -p depin-sdk-forge --test state_iavl_e2e --no-default-features -F "consensus-poa,vm-wasm,tree-iavl,primitive-hash" -- --nocapture` |
 | **Sparse Merkle** | `cargo test -p depin-sdk-forge --test state_sparse_merkle_e2e --no-default-features -F "consensus-poa,vm-wasm,tree-sparse-merkle,primitive-hash" -- --nocapture` |
-| **Verkle Tree** | `cargo test -p depin-sdk-forge --test state_verkle_e2e --no-default-features -F "consensus-poa,vm-wasm,tree-verkle" -- --nocapture` |
+| **Verkle Tree** | `cargo test -p depin-sdk-forge --test state_verkle_e2e --no-default-features -F "consensus-poa,vm-wasm,tree-verkle,primitive-kzg" -- --nocapture` |
 
 ### Docker Testing
 

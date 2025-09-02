@@ -274,11 +274,12 @@ where
         let receiver = receiver_opt.take().ok_or(ValidatorError::Other(
             "Network event receiver already taken".to_string(),
         ))?;
-        
+
         // --- FIX START: Fetch the genesis root to initialize the context ---
-        let genesis_root_vec = workload_client.get_state_root().await
+        let genesis_root_vec = workload_client
+            .get_state_root()
+            .await
             .map_err(|e| ValidatorError::Other(format!("Failed to get genesis root: {}", e)))?;
-        let genesis_root: [u8; 32] = genesis_root_vec.try_into().map_err(|_| ValidatorError::Other("Genesis root is not 32 bytes".to_string()))?;
         // --- FIX END ---
 
         let context = MainLoopContext::<CS, ST, CE> {
@@ -298,7 +299,7 @@ where
             external_data_service: self.external_data_service.clone(),
             pending_attestations: std::collections::HashMap::new(),
             // --- FIX START: Initialize the new fields ---
-            genesis_root,
+            genesis_root: genesis_root_vec,
             last_committed_block: None,
             // --- FIX END ---
         };

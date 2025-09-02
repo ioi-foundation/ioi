@@ -72,21 +72,28 @@ where
         };
 
         // For height H+1, the parent view must be the *committed* state at the end of H.
-        let parent_root = context
+        let parent_root_vec = context
             .last_committed_block
             .as_ref()
-            .map(|b| b.header.state_root)
-            .unwrap_or(context.genesis_root);
+            .map(|b| b.header.state_root.clone())
+            .unwrap_or_else(|| context.genesis_root.clone());
 
         log::debug!(
             "[Consensus] Parent view root for deciding H={}: 0x{}",
             status.height + 1,
-            hex::encode(parent_root)
+            hex::encode(&parent_root_vec)
         );
 
         let consensus_type = context.consensus_engine_ref.lock().await.consensus_type();
-        let parent_view =
-            RemoteStateView::new(parent_root, context.workload_client.clone(), consensus_type);
+        let parent_root_for_view: [u8; 32] =
+            depin_sdk_crypto::algorithms::hash::sha256(&parent_root_vec)
+                .try_into()
+                .unwrap();
+        let parent_view = RemoteStateView::new(
+            parent_root_for_view,
+            context.workload_client.clone(),
+            consensus_type,
+        );
 
         let target_height = status.height + 1;
         let current_view = 0;
@@ -151,8 +158,8 @@ where
             header: BlockHeader {
                 height: target_height,
                 parent_hash,
-                parent_state_root: [0; 32], // Will be filled by workload `process_block`
-                state_root: [0; 32],        // Will be filled by workload `process_block`
+                parent_state_root: vec![], // Will be filled by workload `process_block`
+                state_root: vec![],        // Will be filled by workload `process_block`
                 transactions_root: vec![0; 32],
                 timestamp: SystemTime::now()
                     .duration_since(UNIX_EPOCH)
@@ -175,6 +182,7 @@ where
         {
             Ok((mut final_block, _)) => {
                 let block_height = final_block.header.height;
+                log::info!("Produced and processed new block #{}", block_height);
                 let preimage = final_block.header.to_preimage_for_signing();
                 final_block.header.signature = context.local_keypair.sign(&preimage).unwrap();
 
@@ -182,7 +190,7 @@ where
                 log::debug!(
                     "[Consensus] Advanced tip to #{} root=0x{}",
                     final_block.header.height,
-                    hex::encode(final_block.header.state_root)
+                    hex::encode(&final_block.header.state_root)
                 );
 
                 // 1) Broadcast the finalized block (best-effort)

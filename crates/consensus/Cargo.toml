@@ -32,8 +32,8 @@ hex = { workspace = true }
 [features]
 default = []
 # A feature for each engine
-round-robin = ["dep:tokio"]
-poa = ["dep:tokio"]
+round-robin = ["dep:tokio", "dep:depin-sdk-crypto"]
+poa = ["dep:tokio", "dep:depin-sdk-crypto"]
 pos = ["dep:tokio", "dep:depin-sdk-crypto", "dep:serde_json"]
 tendermint = []
 custom-consensus = []

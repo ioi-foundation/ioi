@@ -28,6 +28,7 @@ depin-sdk-types = { path = "../types" }
 depin-sdk-api = { path = "../api" }
 depin-sdk-crypto = { path = "../crypto" }
 depin-sdk-validator = { path = "../validator" }
+depin-sdk-commitment = { path = "../commitment" }
 toml = { workspace = true }
 # Dependencies for testing helpers that are now part of the library
 reqwest = { workspace = true }
