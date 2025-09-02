@@ -4,7 +4,6 @@
 
 use depin_sdk_api::vm::{ExecutionContext, ExecutionOutput};
 use depin_sdk_types::app::{AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction};
-use depin_sdk_types::error::ChainError;
 use depin_sdk_types::error::ValidatorError;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

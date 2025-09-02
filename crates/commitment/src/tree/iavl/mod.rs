@@ -1,11 +1,13 @@
 // Path: crates/commitment/src/tree/iavl/mod.rs
 //! IAVL (Immutable AVL) tree implementation with cryptographic security
 
+// --- NEW MODULES FOR PRODUCTION PROOFS ---
+mod proof;
+mod proof_builder;
+
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
 use depin_sdk_api::state::{StateCommitment, StateManager};
-use depin_sdk_crypto::algorithms::hash; // Uses dcrypt::hash::sha2 underneath
 use depin_sdk_types::error::StateError;
-use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::cmp::{max, Ordering};
 use std::collections::HashMap;
@@ -28,8 +30,8 @@ impl IAVLNode {
     /// Create a new leaf node
     fn new_leaf(key: Vec<u8>, value: Vec<u8>, version: u64) -> Self {
         let mut node = Self {
-            key: key.clone(),
-            value: value.clone(),
+            key,   // key is already cloned
+            value, // value is already cloned
             version,
             height: 0,
             size: 1,
@@ -41,12 +43,10 @@ impl IAVLNode {
         node
     }
 
-    /// Compute the hash of this node
+    /// Compute the hash of this node according to the canonical specification.
     fn compute_hash(&self) -> Vec<u8> {
+        // This now strictly follows the canonical hashing rules.
         let mut data = Vec::new();
-
-        // Add node type marker
-        data.push(if self.is_leaf() { 0x00 } else { 0x01 });
         data.extend_from_slice(&self.version.to_le_bytes());
         data.extend_from_slice(&self.height.to_le_bytes());
         data.extend_from_slice(&self.size.to_le_bytes());
@@ -54,9 +54,11 @@ impl IAVLNode {
         data.extend_from_slice(&self.key);
 
         if self.is_leaf() {
+            data.insert(0, 0x00); // Leaf tag
             data.extend_from_slice(&(self.value.len() as u32).to_le_bytes());
             data.extend_from_slice(&self.value);
         } else {
+            data.insert(0, 0x01); // Inner node tag
             let left_hash = self
                 .left
                 .as_ref()
@@ -70,8 +72,7 @@ impl IAVLNode {
             data.extend_from_slice(&left_hash);
             data.extend_from_slice(&right_hash);
         }
-
-        hash::sha256(&data)
+        depin_sdk_crypto::algorithms::hash::sha256(&data)
     }
 
     /// Check if this is a leaf node
@@ -324,41 +325,17 @@ impl IAVLNode {
         results: &mut Vec<(Vec<u8>, Vec<u8>)>,
     ) {
         if let Some(n) = node {
-            // If the current node's key is greater than or equal to the prefix,
-            // we must traverse the left subtree as it might contain matching keys.
             if n.key.as_slice() >= prefix {
                 Self::range_scan(&n.left, prefix, results);
             }
-
-            // If the current node's key itself starts with the prefix, it's a match.
             if n.key.starts_with(prefix) {
                 results.push((n.key.clone(), n.value.clone()));
             }
-
-            // If the prefix could be a prefix of keys in the right subtree,
-            // or if the current key is less than the prefix, we must traverse right.
             if prefix.starts_with(&n.key) || n.key.as_slice() < prefix {
                 Self::range_scan(&n.right, prefix, results);
             }
         }
     }
-}
-
-/// IAVL tree proof
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IAVLProof {
-    pub leaf: Option<(Vec<u8>, Vec<u8>, u64)>, // (key, value, version)
-    pub path: Vec<IAVLProofNode>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IAVLProofNode {
-    pub key: Vec<u8>,
-    pub height: i32,
-    pub size: u64,
-    pub version: u64,
-    pub left_hash: Option<Vec<u8>>,
-    pub right_hash: Option<Vec<u8>>,
 }
 
 /// IAVL tree implementation
@@ -390,91 +367,6 @@ where
     fn get_from_cache(&self, key: &[u8]) -> Option<Vec<u8>> {
         self.cache.get(key).cloned()
     }
-
-    fn generate_proof(&self, key: &[u8]) -> IAVLProof {
-        let mut path = Vec::new();
-        let mut current = self.root.as_ref();
-        while let Some(node) = current {
-            let (left_hash, right_hash) = match key.cmp(&node.key) {
-                Ordering::Less => (None, node.right.as_ref().map(|r| r.hash.clone())),
-                Ordering::Greater => (node.left.as_ref().map(|l| l.hash.clone()), None),
-                Ordering::Equal => (
-                    node.left.as_ref().map(|l| l.hash.clone()),
-                    node.right.as_ref().map(|r| r.hash.clone()),
-                ),
-            };
-            path.push(IAVLProofNode {
-                key: node.key.clone(),
-                height: node.height,
-                size: node.size,
-                version: node.version,
-                left_hash,
-                right_hash,
-            });
-            match key.cmp(&node.key) {
-                Ordering::Less => current = node.left.as_ref(),
-                Ordering::Greater => current = node.right.as_ref(),
-                Ordering::Equal => {
-                    return IAVLProof {
-                        leaf: Some((node.key.clone(), node.value.clone(), node.version)),
-                        path,
-                    }
-                }
-            }
-        }
-        IAVLProof { leaf: None, path }
-    }
-
-    /// **[COMPLETED]** Statically verify an IAVL proof against a root hash.
-    pub fn verify_iavl_proof_static(
-        root_hash: &[u8],
-        key: &[u8],
-        value: Option<&[u8]>,
-        proof: &IAVLProof,
-    ) -> bool {
-        let mut current_hash = if let Some(val) = value {
-            if proof.leaf.is_none() {
-                return false;
-            }
-            let (leaf_key, leaf_value, leaf_version) = proof.leaf.as_ref().unwrap();
-            if leaf_key != key || leaf_value != val {
-                return false;
-            }
-            let leaf_node = IAVLNode::new_leaf(leaf_key.clone(), leaf_value.clone(), *leaf_version);
-            leaf_node.hash
-        } else {
-            if proof.leaf.is_some() {
-                return false;
-            }
-            vec![0u8; 32]
-        };
-
-        for node in proof.path.iter().rev() {
-            let (left_h, right_h) = if key < node.key.as_slice() {
-                (
-                    current_hash.clone(),
-                    node.right_hash.clone().unwrap_or_else(|| vec![0u8; 32]),
-                )
-            } else {
-                (
-                    node.left_hash.clone().unwrap_or_else(|| vec![0u8; 32]),
-                    current_hash.clone(),
-                )
-            };
-            let mut data = Vec::new();
-            data.push(0x01);
-            data.extend_from_slice(&node.version.to_le_bytes());
-            data.extend_from_slice(&node.height.to_le_bytes());
-            data.extend_from_slice(&node.size.to_le_bytes());
-            data.extend_from_slice(&(node.key.len() as u32).to_le_bytes());
-            data.extend_from_slice(&node.key);
-            data.extend_from_slice(&left_h);
-            data.extend_from_slice(&right_h);
-            current_hash = hash::sha256(&data);
-        }
-
-        current_hash == root_hash
-    }
 }
 
 impl<CS: CommitmentScheme> StateCommitment for IAVLTree<CS>
@@ -498,11 +390,9 @@ where
     }
 
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
-        // First, check the write-through cache for the most recent value.
         if let Some(value) = self.get_from_cache(key) {
             Ok(Some(value))
         } else {
-            // If not in the cache, traverse the tree from the root.
             Ok(IAVLNode::get(&self.root, key))
         }
     }
@@ -525,8 +415,15 @@ where
     }
 
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
-        let iavl_proof = self.generate_proof(key);
-        let proof_data = serde_json::to_vec(&iavl_proof).ok()?;
+        let proof = if self.get(key).unwrap().is_some() {
+            self.build_existence_proof(key)
+                .map(proof::IavlProof::Existence)
+        } else {
+            self.build_non_existence_proof(key)
+                .map(proof::IavlProof::NonExistence)
+        }?;
+
+        let proof_data = serde_json::to_vec(&proof).ok()?;
         let value = self.to_value(&proof_data);
         self.scheme
             .create_proof(&Selector::Key(key.to_vec()), &value)
@@ -540,13 +437,19 @@ where
         key: &[u8],
         value: &[u8],
     ) -> bool {
-        let root_hash = commitment.as_ref();
-        let proof_data = proof.as_ref();
-        let iavl_proof: IAVLProof = match serde_json::from_slice(proof_data) {
-            Ok(p) => p,
+        let root_hash: &[u8; 32] = match commitment.as_ref().try_into() {
+            Ok(arr) => arr,
             Err(_) => return false,
         };
-        Self::verify_iavl_proof_static(root_hash, key, Some(value), &iavl_proof)
+        let proof_data = proof.as_ref();
+
+        match proof::verify_iavl_proof_bytes(root_hash, key, Some(value), proof_data) {
+            Ok(is_valid) => is_valid,
+            Err(e) => {
+                log::warn!("IAVL proof verification failed with error: {}", e);
+                false
+            }
+        }
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -554,7 +457,10 @@ where
     }
 
     fn export_kv_pairs(&self) -> Vec<(Vec<u8>, Vec<u8>)> {
-        self.cache.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
+        self.cache
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect()
     }
 
     fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StateError> {
