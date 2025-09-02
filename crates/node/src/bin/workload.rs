@@ -46,14 +46,6 @@ struct WorkloadOpts {
     config: PathBuf,
 }
 
-type BoxedStateManager<CS> = Box<
-    dyn StateManager<
-            Commitment = <CS as CommitmentScheme>::Commitment,
-            Proof = <CS as CommitmentScheme>::Proof,
-        > + Send
-        + Sync,
->;
-
 /// Generic function containing all logic after component instantiation.
 async fn run_workload<CS, ST>(
     mut state_tree: ST,
