@@ -369,6 +369,10 @@ where
         self
     }
 
+    fn export_kv_pairs(&self) -> Vec<(Vec<u8>, Vec<u8>)> {
+        self.cache.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
+    }
+
     fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StateError> {
         let results = self
             .cache

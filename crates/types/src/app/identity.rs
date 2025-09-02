@@ -59,7 +59,6 @@ pub struct ActiveKeyRecord {
     pub since_height: u64,
 }
 
-
 /// Derives a canonical, deterministic `AccountId` from a public key's raw material.
 ///
 /// This is the **SINGLE SOURCE OF TRUTH** for account ID generation across the entire system.
@@ -83,17 +82,25 @@ pub fn account_id_from_key_material(
     // Reduce different key encodings to a single canonical representation before hashing.
     match suite {
         SignatureSuite::Ed25519 => {
-            if let Ok(pk) = libp2p::identity::PublicKey::try_decode_protobuf(public_key) {
-                // It's a libp2p key, use its protobuf encoding as the canonical form.
-                data_to_hash.extend_from_slice(&pk.encode_protobuf());
-            } else if public_key.len() == 32 {
-                // It's a raw 32-byte key, use it directly.
-                data_to_hash.extend_from_slice(public_key);
-            } else {
-                return Err(TransactionError::Invalid(
-                    "Malformed Ed25519 public key".to_string(),
-                ));
-            }
+            // --- FIX: Unambiguously reduce to raw 32-byte key ---
+            let raw_key =
+                if let Ok(pk) = libp2p::identity::PublicKey::try_decode_protobuf(public_key) {
+                    // If it's a libp2p key, convert it to its raw 32-byte form.
+                    pk.try_into_ed25519()
+                        .map_err(|_| {
+                            TransactionError::Invalid("Not an Ed25519 libp2p key".to_string())
+                        })?
+                        .to_bytes()
+                        .to_vec()
+                } else if public_key.len() == 32 {
+                    // If it's already a raw 32-byte key, use it directly.
+                    public_key.to_vec()
+                } else {
+                    return Err(TransactionError::Invalid(
+                        "Malformed Ed25519 public key".to_string(),
+                    ));
+                };
+            data_to_hash.extend_from_slice(&raw_key);
         }
         SignatureSuite::Dilithium2 => {
             // Dilithium keys have a single representation, so just hash the bytes.

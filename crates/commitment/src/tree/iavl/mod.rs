@@ -498,7 +498,13 @@ where
     }
 
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
-        Ok(self.get_from_cache(key))
+        // First, check the write-through cache for the most recent value.
+        if let Some(value) = self.get_from_cache(key) {
+            Ok(Some(value))
+        } else {
+            // If not in the cache, traverse the tree from the root.
+            Ok(IAVLNode::get(&self.root, key))
+        }
     }
 
     fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
@@ -545,6 +551,10 @@ where
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn export_kv_pairs(&self) -> Vec<(Vec<u8>, Vec<u8>)> {
+        self.cache.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
     }
 
     fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StateError> {

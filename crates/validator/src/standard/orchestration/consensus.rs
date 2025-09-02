@@ -35,17 +35,21 @@ where
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
 {
-    // Allow PoA to bootstrap even if we aren't "Synced" yet (e.g., single-node tests).
-    // For PoS keep the stricter gating.
     let node_state = context.node_state.lock().await.clone();
     let cons_ty = {
         let engine = context.consensus_engine_ref.lock().await;
         (*engine).consensus_type()
     };
+    log::info!("[Consensus] Engine = {:?}", cons_ty);
+
+    // Allow the chain to "boot" at H=1 even if there are no user txs.
+    // We include a coinbase, so it isn’t a truly empty block.
     let allow_bootstrap = matches!(
         cons_ty,
         depin_sdk_types::config::ConsensusType::ProofOfAuthority
+            | depin_sdk_types::config::ConsensusType::ProofOfStake
     );
+
     if node_state != NodeState::Synced && !allow_bootstrap {
         return;
     }
@@ -67,21 +71,22 @@ where
             }
         };
 
-        // Create a view of the parent state to get the validator set
-        let last_state_root = context
-            .workload_client
-            .get_state_root()
-            .await
-            .unwrap_or([0; 32].to_vec());
+        // For height H+1, the parent view must be the *committed* state at the end of H.
+        let parent_root = context
+            .last_committed_block
+            .as_ref()
+            .map(|b| b.header.state_root)
+            .unwrap_or(context.genesis_root);
 
-        // Obtain consensus type from the engine
-        let consensus_type = context.consensus_engine_ref.lock().await.consensus_type();
-
-        let parent_view = RemoteStateView::new(
-            last_state_root.try_into().unwrap_or([0; 32]),
-            context.workload_client.clone(),
-            consensus_type,
+        log::debug!(
+            "[Consensus] Parent view root for deciding H={}: 0x{}",
+            status.height + 1,
+            hex::encode(parent_root)
         );
+
+        let consensus_type = context.consensus_engine_ref.lock().await.consensus_type();
+        let parent_view =
+            RemoteStateView::new(parent_root, context.workload_client.clone(), consensus_type);
 
         let target_height = status.height + 1;
         let current_view = 0;
@@ -172,6 +177,13 @@ where
                 let block_height = final_block.header.height;
                 let preimage = final_block.header.to_preimage_for_signing();
                 final_block.header.signature = context.local_keypair.sign(&preimage).unwrap();
+
+                context.last_committed_block = Some(final_block.clone());
+                log::debug!(
+                    "[Consensus] Advanced tip to #{} root=0x{}",
+                    final_block.header.height,
+                    hex::encode(final_block.header.state_root)
+                );
 
                 // 1) Broadcast the finalized block (best-effort)
                 let data = serde_json::to_vec(&final_block).unwrap();

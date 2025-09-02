@@ -82,8 +82,7 @@ impl PenaltyMechanism for ProofOfAuthorityEngine {
         let quarantined: BTreeSet<AccountId> = state
             .get(QUARANTINED_VALIDATORS_KEY)?
             .map(|b| {
-                depin_sdk_types::codec::from_bytes_canonical(&b)
-                    .map_err(|e| StateError::InvalidValue(e))
+                depin_sdk_types::codec::from_bytes_canonical(&b).map_err(StateError::InvalidValue)
             })
             .transpose()?
             .unwrap_or_default();

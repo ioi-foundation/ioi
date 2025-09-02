@@ -3,7 +3,8 @@
 //! Orchestration and Workload containers.
 
 use depin_sdk_api::vm::{ExecutionContext, ExecutionOutput};
-use depin_sdk_types::app::{Block, ChainStatus, ChainTransaction};
+use depin_sdk_types::app::{AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction};
+use depin_sdk_types::error::ChainError;
 use depin_sdk_types::error::ValidatorError;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -61,6 +62,18 @@ pub enum WorkloadRequest {
     /// A request to query a raw key directly from the state tree.
     QueryRawState(Vec<u8>),
     // --- FIX END ---
+    // --- NEW ENDPOINTS FOR ANCHORED READS ---
+    QueryStateAt {
+        root: [u8; 32],
+        key: Vec<u8>,
+    },
+    GetValidatorSetAt {
+        root: [u8; 32],
+    },
+    GetActiveKeyAt {
+        root: [u8; 32],
+        account_id: [u8; 32],
+    },
     /// A request for the current set of staked validators.
     GetStakedValidators,
 }
@@ -68,7 +81,7 @@ pub enum WorkloadRequest {
 /// A response sent from the Workload container back to the Orchestration container.
 #[derive(Debug, Serialize, Deserialize)]
 pub enum WorkloadResponse {
-    ProcessBlock(ProcessBlockResult),
+    ProcessBlock(Box<ProcessBlockResult>),
     GetStatus(StatusResult),
     GetExpectedModelHash(Result<Vec<u8>, String>),
     ExecuteTransaction(TxResult),
@@ -88,6 +101,10 @@ pub enum WorkloadResponse {
     /// The response for a raw state query.
     QueryRawState(Result<Option<Vec<u8>>, String>),
     // --- FIX END ---
+    // --- NEW RESPONSES FOR ANCHORED READS ---
+    QueryStateAt(Result<Option<Vec<u8>>, String>),
+    GetValidatorSetAt(Result<Vec<AccountId>, String>),
+    GetActiveKeyAt(Result<Option<ActiveKeyRecord>, String>),
     /// The response for the current staked validators query.
     GetStakedValidators(StakesResult),
 }

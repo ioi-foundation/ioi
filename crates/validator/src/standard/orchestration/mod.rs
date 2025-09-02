@@ -2,9 +2,7 @@
 use crate::config::OrchestrationConfig;
 use async_trait::async_trait;
 use depin_sdk_api::{
-    // --- FIX START: Import ChainView trait ---
     chain::ChainView,
-    // --- FIX END ---
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
     state::{StateCommitment, StateManager},
@@ -52,9 +50,7 @@ where
         + Sync
         + 'static
         + Debug,
-    // --- FIX START: Add ChainView bound ---
     CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
-    // --- FIX END ---
 {
     config: OrchestrationConfig,
     chain: Arc<OnceCell<ChainFor<CS, ST>>>,
@@ -84,9 +80,7 @@ where
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-    // --- FIX START: Add ChainView bound ---
     CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
-    // --- FIX END ---
 {
     pub fn new(
         config_path: &std::path::Path,
@@ -194,9 +188,7 @@ async fn handle_network_event<CS, ST, CE>(
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-    // --- FIX START: Add ChainView bound ---
     CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
-    // --- FIX END ---
 {
     match event {
         NetworkEvent::ConnectionEstablished(peer_id) => {
@@ -241,9 +233,7 @@ where
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-    // --- FIX START: Add ChainView bound ---
     CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
-    // --- FIX END ---
 {
     fn id(&self) -> &'static str {
         "orchestration_container"
@@ -284,6 +274,12 @@ where
         let receiver = receiver_opt.take().ok_or(ValidatorError::Other(
             "Network event receiver already taken".to_string(),
         ))?;
+        
+        // --- FIX START: Fetch the genesis root to initialize the context ---
+        let genesis_root_vec = workload_client.get_state_root().await
+            .map_err(|e| ValidatorError::Other(format!("Failed to get genesis root: {}", e)))?;
+        let genesis_root: [u8; 32] = genesis_root_vec.try_into().map_err(|_| ValidatorError::Other("Genesis root is not 32 bytes".to_string()))?;
+        // --- FIX END ---
 
         let context = MainLoopContext::<CS, ST, CE> {
             chain_ref: chain,
@@ -301,6 +297,10 @@ where
             is_quarantined: self.is_quarantined.clone(),
             external_data_service: self.external_data_service.clone(),
             pending_attestations: std::collections::HashMap::new(),
+            // --- FIX START: Initialize the new fields ---
+            genesis_root,
+            last_committed_block: None,
+            // --- FIX END ---
         };
 
         let mut handles = self.task_handles.lock().await;

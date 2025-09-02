@@ -10,7 +10,7 @@ use depin_sdk_network::{
 };
 use depin_sdk_services::external_data::ExternalDataService;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-use depin_sdk_types::app::{ChainTransaction, OracleAttestation};
+use depin_sdk_types::app::{Block, ChainTransaction, OracleAttestation};
 use libp2p::{identity, PeerId};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -18,7 +18,6 @@ use std::fmt::Debug;
 use std::sync::{atomic::AtomicBool, Arc};
 use tokio::sync::{mpsc, watch, Mutex};
 
-// --- FIX: Provide all 3 generic arguments to AppChain: CS, TM, and ST ---
 pub type ChainFor<CS, ST> =
     Arc<Mutex<dyn AppChain<CS, UnifiedTransactionModel<CS>, ST> + Send + Sync>>;
 
@@ -51,4 +50,10 @@ where
     pub is_quarantined: Arc<AtomicBool>,
     pub external_data_service: ExternalDataService,
     pub pending_attestations: HashMap<u64, Vec<OracleAttestation>>,
+    // --- FIX START: Add new fields to track the chain tip ---
+    /// The root of the initial (genesis) state.
+    pub genesis_root: [u8; 32],
+    /// The most recent block that has been successfully processed and committed.
+    pub last_committed_block: Option<Block<ChainTransaction>>,
+    // --- FIX END ---
 }

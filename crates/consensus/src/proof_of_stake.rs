@@ -72,10 +72,13 @@ impl ProofOfStakeEngine {
         height: u64,
         stakers: &BTreeMap<AccountId, StakeAmount>,
     ) -> Option<AccountId> {
-        let active_stakers: Vec<_> = stakers.iter().filter(|(_, stake)| **stake > 0).collect();
+        let mut active_stakers: Vec<_> = stakers.iter().filter(|(_, stake)| **stake > 0).collect();
         if active_stakers.is_empty() {
             return None;
         }
+
+        // Explicitly sort by AccountId to guarantee deterministic iteration for leader selection.
+        active_stakers.sort_by(|(a, _), (b, _)| a.as_ref().cmp(b.as_ref()));
 
         let total_stake: u128 = active_stakers
             .iter()
@@ -86,7 +89,7 @@ impl ProofOfStakeEngine {
         }
 
         let seed = height.to_le_bytes();
-        let hash = sha256(&seed);
+        let hash = sha256(seed);
         let winning_ticket = u128::from_le_bytes(hash[0..16].try_into().unwrap()) % total_stake;
 
         let mut cumulative_stake: u128 = 0;
@@ -168,7 +171,7 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
         }
 
         if let Some(leader_account_id) = self.select_leader(height, &stakes) {
-            // --- FIX: Use a stable and readable log format ---
+            // --- FIX: The log message was using the Debug format for AccountId instead of hex.
             log::info!(
                 "[PoS] Leader for height {}: AccountId(0x{})",
                 height,

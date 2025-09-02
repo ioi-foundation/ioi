@@ -1,10 +1,11 @@
 // Path: crates/api/src/validator/mod.rs
 //! Defines the core traits and structures for the validator architecture.
 
-// --- MODIFICATION START: Removed unused imports ---
+use crate::commitment::CommitmentScheme; // Add this import
+                                         // --- MODIFICATION START: Removed unused imports ---
 use crate::{
     services::access::ServiceDirectory,
-    state::{StateManager, VmStateAccessor},
+    state::{StateCommitment, StateManager, VmStateAccessor},
     vm::{ExecutionContext, ExecutionOutput, VirtualMachine, VmStateOverlay},
 };
 // --- MODIFICATION END ---
@@ -16,7 +17,7 @@ use dcrypt::algorithms::{
 use depin_sdk_types::app::StateEntry;
 use depin_sdk_types::config::WorkloadConfig;
 use depin_sdk_types::error::ValidatorError;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fmt::{self, Debug};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -27,6 +28,54 @@ pub mod types;
 pub use container::{Container, GuardianContainer};
 pub use types::ValidatorModel;
 
+const DEFAULT_ANCHOR_CAPACITY: usize = 128;
+
+#[derive(Default)]
+struct AnchorStore {
+    cap: usize,
+    order: VecDeque<[u8; 32]>,
+    // map: state_root -> immutable KV snapshot
+    map: HashMap<[u8; 32], std::sync::Arc<HashMap<Vec<u8>, Vec<u8>>>>,
+}
+
+impl AnchorStore {
+    fn with_capacity(cap: usize) -> Self {
+        Self {
+            cap,
+            ..Default::default()
+        }
+    }
+
+    fn publish(&mut self, root: [u8; 32], kv: Vec<(Vec<u8>, Vec<u8>)>) {
+        if self.map.contains_key(&root) {
+            return;
+        }
+        if self.order.len() == self.cap {
+            if let Some(old) = self.order.pop_front() {
+                self.map.remove(&old);
+            }
+        }
+        self.order.push_back(root);
+        self.map
+            .insert(root, std::sync::Arc::new(kv.into_iter().collect()));
+    }
+
+    fn get(&self, root: &[u8; 32], key: &[u8]) -> Option<Vec<u8>> {
+        self.map.get(root).and_then(|m| m.get(key).cloned())
+    }
+
+    fn prefix(&self, root: &[u8; 32], prefix: &[u8]) -> Vec<(Vec<u8>, Vec<u8>)> {
+        match self.map.get(root) {
+            Some(m) => m
+                .iter()
+                .filter(|(k, _)| k.starts_with(prefix))
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
+            None => Vec::new(),
+        }
+    }
+}
+
 // The legacy TransactionExecutor trait has been removed.
 
 /// A container responsible for executing transactions, smart contracts, and managing state.
@@ -35,6 +84,7 @@ pub struct WorkloadContainer<ST: StateManager> {
     state_tree: Arc<Mutex<ST>>,
     vm: Box<dyn VirtualMachine>,
     services: ServiceDirectory,
+    anchored: Arc<Mutex<AnchorStore>>,
 }
 
 impl<ST: StateManager + Debug> Debug for WorkloadContainer<ST> {
@@ -88,6 +138,9 @@ where
             state_tree: Arc::new(Mutex::new(state_tree)),
             vm,
             services,
+            anchored: Arc::new(Mutex::new(AnchorStore::with_capacity(
+                DEFAULT_ANCHOR_CAPACITY,
+            ))),
         }
     }
 
@@ -104,6 +157,31 @@ where
     /// Returns a read-only directory of available services.
     pub fn services(&self) -> &ServiceDirectory {
         &self.services
+    }
+
+    /// Publish a snapshot for `root` using the current state tree contents.
+    pub async fn publish_anchor_snapshot<CS>(&self, root: [u8; 32])
+    where
+        ST: StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>,
+        CS: CommitmentScheme,
+    {
+        let state = self.state_tree.lock().await;
+        let kv = state.export_kv_pairs();
+        drop(state); // Release lock before locking the anchor store
+        let mut store = self.anchored.lock().await;
+        store.publish(root, kv);
+    }
+
+    /// Retrieves a value from a historical KV snapshot anchored to a specific state root.
+    pub async fn get_at(&self, root: [u8; 32], key: &[u8]) -> Option<Vec<u8>> {
+        let store = self.anchored.lock().await;
+        store.get(&root, key)
+    }
+
+    /// Performs a prefix scan on a historical KV snapshot anchored to a specific state root.
+    pub async fn prefix_scan_at(&self, root: [u8; 32], prefix: &[u8]) -> Vec<(Vec<u8>, Vec<u8>)> {
+        let store = self.anchored.lock().await;
+        store.prefix(&root, prefix)
     }
 
     /// Prepares the deployment of a new smart contract.

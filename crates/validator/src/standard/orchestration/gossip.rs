@@ -17,8 +17,6 @@ use depin_sdk_types::app::{Block, ChainTransaction, SystemPayload, SystemTransac
 use serde::{Deserialize, Serialize};
 use std::collections::{HashSet, VecDeque};
 use std::fmt::Debug;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 
 #[derive(Debug)]
 struct WorkloadChainView {
@@ -199,6 +197,13 @@ pub async fn handle_gossip_block<CS, ST, CE>(
     match context.workload_client.process_block(block).await {
         Ok((processed_block, _)) => {
             log::info!("[Orchestrator] Workload processed block successfully.");
+
+            context.last_committed_block = Some(processed_block.clone());
+            log::debug!(
+                "[Gossip] Advanced tip to #{} root=0x{}",
+                processed_block.header.height,
+                hex::encode(processed_block.header.state_root)
+            );
 
             let mut pool = context.tx_pool_ref.lock().await;
             prune_mempool(&mut pool, &processed_block);
