@@ -5,7 +5,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use depin_sdk_api::consensus::ChainStateReader;
 use depin_sdk_api::vm::{ExecutionContext, ExecutionOutput};
-use depin_sdk_types::app::{AccountId, Block, ChainStatus, ChainTransaction};
+use depin_sdk_types::app::{AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction};
 use depin_sdk_types::keys::ACCOUNT_ID_TO_PUBKEY_PREFIX;
 use libp2p::identity::PublicKey;
 use std::collections::{BTreeMap, HashMap};
@@ -190,7 +190,7 @@ impl WorkloadClient {
             )),
         }
     }
-    
+
     // --- FIX START ---
     pub async fn query_raw_state(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
         let request = WorkloadRequest::QueryRawState(key.to_vec());
@@ -198,6 +198,46 @@ impl WorkloadClient {
             WorkloadResponse::QueryRawState(res) => res.map_err(|e| anyhow!(e)),
             _ => Err(anyhow!(
                 "Invalid response type from workload for QueryRawState"
+            )),
+        }
+    }
+
+    pub async fn query_state_at(&self, root: [u8; 32], key: &[u8]) -> Result<Option<Vec<u8>>> {
+        let request = WorkloadRequest::QueryStateAt {
+            root,
+            key: key.to_vec(),
+        };
+        match self.send_and_receive(request).await? {
+            WorkloadResponse::QueryStateAt(res) => res.map_err(|e| anyhow!(e)),
+            _ => Err(anyhow!(
+                "Invalid response type from workload for QueryStateAt"
+            )),
+        }
+    }
+
+    pub async fn get_validator_set_at(&self, root: [u8; 32]) -> Result<Vec<AccountId>> {
+        let request = WorkloadRequest::GetValidatorSetAt { root };
+        match self.send_and_receive(request).await? {
+            WorkloadResponse::GetValidatorSetAt(res) => res.map_err(|e| anyhow!(e)),
+            _ => Err(anyhow!(
+                "Invalid response type from workload for GetValidatorSetAt"
+            )),
+        }
+    }
+
+    pub async fn get_active_key_at(
+        &self,
+        root: [u8; 32],
+        acct: &AccountId,
+    ) -> Result<Option<ActiveKeyRecord>> {
+        let request = WorkloadRequest::GetActiveKeyAt {
+            root,
+            account_id: acct.0,
+        };
+        match self.send_and_receive(request).await? {
+            WorkloadResponse::GetActiveKeyAt(res) => res.map_err(|e| anyhow!(e)),
+            _ => Err(anyhow!(
+                "Invalid response type from workload for GetActiveKeyAt"
             )),
         }
     }

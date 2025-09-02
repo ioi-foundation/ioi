@@ -9,12 +9,14 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_types::app::AccountId;
 use depin_sdk_types::app::{
-    account_id_from_key_material, ActiveKeyRecord, ChainTransaction, SignHeader, SignatureProof,
-    SignatureSuite, SystemPayload, SystemTransaction,
+    account_id_from_key_material, ActiveKeyRecord, ChainTransaction, Credential, SignHeader,
+    SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
 };
 use depin_sdk_types::codec;
 use depin_sdk_types::config::InitialServiceConfig;
-use depin_sdk_types::keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
+use depin_sdk_types::keys::{
+    ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, STAKES_KEY_CURRENT, STAKES_KEY_NEXT,
+};
 use depin_sdk_types::service_configs::MigrationConfig;
 use libp2p::identity::Keypair;
 use serde_json::json;
@@ -112,6 +114,19 @@ async fn test_staking_lifecycle() -> Result<()> {
                 let record_bytes = codec::to_bytes_canonical(&record);
                 genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&record_key))] =
                     json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes)));
+
+                // Add IdentityHub credentials
+                let cred = Credential {
+                    suite,
+                    public_key_hash: account_id.0,
+                    activation_height: 0,
+                    l2_location: None,
+                };
+                let creds_array: [Option<Credential>; 2] = [Some(cred), None];
+                let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
+                let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
+                genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&creds_key))] =
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes)));
             }
         })
         .build()

@@ -57,7 +57,7 @@ pub trait PenaltyMechanism: Send + Sync {
 // Add a blanket implementation so that a reference to a PenaltyMechanism
 // is also considered a PenaltyMechanism.
 #[async_trait]
-impl<'a, T: PenaltyMechanism + ?Sized> PenaltyMechanism for &'a T {
+impl<T: PenaltyMechanism + ?Sized> PenaltyMechanism for &T {
     async fn apply_penalty(
         &self,
         state: &mut dyn StateAccessor, // CHANGED: Update signature

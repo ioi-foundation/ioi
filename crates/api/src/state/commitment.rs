@@ -42,6 +42,13 @@ pub trait StateCommitment: Debug {
     /// Provides access to the concrete type for downcasting.
     fn as_any(&self) -> &dyn Any;
 
+    /// TEMPORARY: export all KV pairs for snapshotting.
+    /// Object-safe, returns an owned vec so it works behind trait objects.
+    /// Implementations should use internal caches for speed.
+    fn export_kv_pairs(&self) -> Vec<(Vec<u8>, Vec<u8>)> {
+        Vec::new() // Default implementation returns empty.
+    }
+
     /// Scans for all key-value pairs starting with the given prefix.
     fn prefix_scan(&self, prefix: &[u8]) -> StateScanResult;
 }
@@ -78,6 +85,11 @@ impl<T: StateCommitment + ?Sized> StateCommitment for Box<T> {
     fn as_any(&self) -> &dyn Any {
         (**self).as_any()
     }
+    // --- FIX START: Add the missing forwarder for export_kv_pairs ---
+    fn export_kv_pairs(&self) -> Vec<(Vec<u8>, Vec<u8>)> {
+        (**self).export_kv_pairs()
+    }
+    // --- FIX END ---
     fn prefix_scan(&self, prefix: &[u8]) -> StateScanResult {
         (**self).prefix_scan(prefix)
     }

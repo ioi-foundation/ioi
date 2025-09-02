@@ -14,7 +14,7 @@ use depin_sdk_client::{
     security::SecurityChannel,
 };
 use depin_sdk_services::governance::{GovernanceModule, Proposal, ProposalStatus};
-use depin_sdk_types::app::AccountId;
+use depin_sdk_types::app::{AccountId, ActiveKeyRecord};
 use depin_sdk_types::keys::{GOVERNANCE_PROPOSAL_KEY_PREFIX, STAKES_KEY_CURRENT};
 use rcgen::{Certificate, CertificateParams, SanType};
 use serde::{Deserialize, Serialize};
@@ -134,7 +134,7 @@ where
                     .process_block(block, &self.workload_container)
                     .await
                     .map_err(|e| e.to_string());
-                WorkloadResponse::ProcessBlock(res)
+                WorkloadResponse::ProcessBlock(Box::new(res))
             }
             WorkloadRequest::ExecuteTransaction(tx) => {
                 // IMPORTANT: This is the mempool pre-check path.
@@ -340,6 +340,31 @@ where
                 let state = state_tree_arc.lock().await;
                 let res = state.get(&key).map_err(|e| e.to_string());
                 WorkloadResponse::QueryRawState(res)
+            }
+            WorkloadRequest::QueryStateAt { root, key } => {
+                let val = self.workload_container.get_at(root, &key).await;
+                WorkloadResponse::QueryStateAt(Ok(val))
+            }
+            WorkloadRequest::GetValidatorSetAt { root } => {
+                let res: Result<Vec<AccountId>, String> = async {
+                    let chain = self.chain_arc.lock().await;
+                    let view = chain.view_at(&root).map_err(|e| e.to_string())?;
+                    view.validator_set().await.map_err(|e| e.to_string())
+                }
+                .await;
+                WorkloadResponse::GetValidatorSetAt(res)
+            }
+            WorkloadRequest::GetActiveKeyAt { root, account_id } => {
+                let handler = async {
+                    let chain = self.chain_arc.lock().await;
+                    let view = chain.view_at(&root)?;
+                    let record = view.active_consensus_key(&AccountId(account_id)).await;
+                    Ok(record)
+                };
+                let res: Result<Option<ActiveKeyRecord>, String> = handler
+                    .await
+                    .map_err(|e: depin_sdk_types::error::ChainError| e.to_string());
+                WorkloadResponse::GetActiveKeyAt(res)
             }
             _ => WorkloadResponse::CallService(Err("Unsupported service call".to_string())),
         };
