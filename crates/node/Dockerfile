@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y protobuf-compiler build-essential pkg-c
 
 # Add a build argument to accept features from the command line.
 # The default value ensures that if no arg is provided, it still builds the base bins.
-ARG FEATURES="build-bins"
+ARG FEATURES="validator-bins"
 
 COPY . .
 

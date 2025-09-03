@@ -55,7 +55,7 @@ impl VerkleTree<KZGCommitmentScheme> {
 
     fn internal_values(&self, children: &HashMap<u8, Box<VerkleNode>>) -> Vec<Option<Vec<u8>>> {
         let mut slots = vec![None; self._branching_factor];
-        for i in 0..self._branching_factor {
+        for (i, slot) in slots.iter_mut().enumerate() {
             if let Some(child) = children.get(&(i as u8)) {
                 let val32 = match child.as_ref() {
                     VerkleNode::Internal { kzg_commitment, .. } => {
@@ -64,10 +64,10 @@ impl VerkleTree<KZGCommitmentScheme> {
                     VerkleNode::Leaf { value, .. } => map_leaf_payload_to_value(value),
                     VerkleNode::Empty => [0u8; 32],
                 };
-                slots[i as usize] = Some(val32.to_vec());
+                *slot = Some(val32.to_vec());
             } else {
                 // Represent an empty slot with a commitment to zero.
-                slots[i as usize] = Some([0u8; 32].to_vec());
+                *slot = Some([0u8; 32].to_vec());
             }
         }
         slots

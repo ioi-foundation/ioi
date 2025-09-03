@@ -36,7 +36,7 @@ impl Polynomial {
 
 // Implement standard operations for cleaner code in interpolation/division.
 
-impl<'a, 'b> Add<&'b Polynomial> for &'a Polynomial {
+impl<'b> Add<&'b Polynomial> for &Polynomial {
     type Output = Polynomial;
     fn add(self, rhs: &'b Polynomial) -> Polynomial {
         let max_len = self.coeffs.len().max(rhs.coeffs.len());
@@ -54,7 +54,7 @@ impl<'a, 'b> Add<&'b Polynomial> for &'a Polynomial {
     }
 }
 
-impl<'a, 'b> Sub<&'b Polynomial> for &'a Polynomial {
+impl<'b> Sub<&'b Polynomial> for &Polynomial {
     type Output = Polynomial;
     fn sub(self, rhs: &'b Polynomial) -> Polynomial {
         let max_len = self.coeffs.len().max(rhs.coeffs.len());
@@ -72,7 +72,7 @@ impl<'a, 'b> Sub<&'b Polynomial> for &'a Polynomial {
     }
 }
 
-impl<'a, 'b> Mul<&'b Polynomial> for &'a Polynomial {
+impl<'b> Mul<&'b Polynomial> for &Polynomial {
     type Output = Polynomial;
     fn mul(self, rhs: &'b Polynomial) -> Polynomial {
         if self.coeffs.is_empty() || rhs.coeffs.is_empty() {

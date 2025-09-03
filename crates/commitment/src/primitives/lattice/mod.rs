@@ -160,8 +160,8 @@ fn mat_vec_mul(
     let mut result = vec![Polynomial::<Kyber256Params>::zero(); k];
 
     for i in 0..k {
-        for j in 0..k {
-            let product = matrix[i][j].schoolbook_mul(&vector[j]);
+        for (j, vector_j) in vector.iter().enumerate().take(k) {
+            let product = matrix[i][j].schoolbook_mul(vector_j);
             result[i] = result[i].add(&product);
         }
     }
@@ -214,10 +214,10 @@ fn expand_message_to_ring(msg: &[u8], n: usize, q: u32) -> Vec<u32> {
 
 impl CommitmentStructure for LatticeCommitmentScheme {
     fn commit_leaf(key: &[u8], value: &[u8]) -> Vec<u8> {
-        sha256(&[key, value].concat())
+        sha256([key, value].concat())
     }
     fn commit_branch(left: &[u8], right: &[u8]) -> Vec<u8> {
-        sha256(&[left, right].concat())
+        sha256([left, right].concat())
     }
 }
 
@@ -233,8 +233,7 @@ impl CommitmentScheme for LatticeCommitmentScheme {
         }
         let message_hash = sha256(&combined);
 
-        let m_coeffs =
-            expand_message_to_ring(&message_hash, Kyber256Params::N, Kyber256Params::Q as u32);
+        let m_coeffs = expand_message_to_ring(&message_hash, Kyber256Params::N, Kyber256Params::Q);
         let m_poly = Polynomial::<Kyber256Params>::from_coeffs(&m_coeffs).unwrap();
 
         let mut rng = rand::rngs::OsRng;
@@ -308,8 +307,7 @@ impl CommitmentScheme for LatticeCommitmentScheme {
         }
 
         let message_hash = sha256(value);
-        let m_coeffs =
-            expand_message_to_ring(&message_hash, Kyber256Params::N, Kyber256Params::Q as u32);
+        let m_coeffs = expand_message_to_ring(&message_hash, Kyber256Params::N, Kyber256Params::Q);
         let m_poly = Polynomial::<Kyber256Params>::from_coeffs(&m_coeffs).unwrap();
 
         let r_vec: Vec<Polynomial<Kyber256Params>> = proof

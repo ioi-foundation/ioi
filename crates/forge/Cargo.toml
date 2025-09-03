@@ -73,7 +73,7 @@ primitive-hash = ["depin-sdk-node/primitive-hash"]
 primitive-kzg = ["depin-sdk-node/primitive-kzg"]
 
 # Other features also propagate
-validator-bins = ["depin-sdk-node/build-bins"]
+validator-bins = ["depin-sdk-node/validator-bins"]
 vm-wasm = ["depin-sdk-node/vm-wasm"]
 consensus-round-robin = ["depin-sdk-node/consensus-round-robin"]
 consensus-poa = ["depin-sdk-node/consensus-poa"]
