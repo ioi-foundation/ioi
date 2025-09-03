@@ -176,7 +176,7 @@ async fn main() -> Result<()> {
                 enabled_vms: vec![],
                 state_tree: depin_sdk_types::config::StateTreeType::HashMap,
                 commitment_scheme: depin_sdk_types::config::CommitmentSchemeType::Hash,
-                consensus_type: config.consensus_type.clone(),
+                consensus_type: config.consensus_type,
                 genesis_file: "".to_string(),
                 state_file: "".to_string(),
                 srs_file_path: None,

@@ -57,7 +57,7 @@ pub fn build_test_artifacts(node_features: &str) {
                 "--release",
                 "--no-default-features",
                 "--features",
-                &format!("build-bins,{}", node_features),
+                &format!("validator-bins,{}", node_features),
             ])
             .status()
             .expect("Failed to execute cargo build for node");
@@ -354,7 +354,7 @@ impl TestValidator {
 
         let orch_config_path = config_dir_path.join("orchestration.toml");
         let orchestration_config = OrchestrationConfig {
-            consensus_type: consensus_enum.clone(),
+            consensus_type: consensus_enum,
             rpc_listen_address: if use_docker {
                 "0.0.0.0:9999".to_string()
             } else {
@@ -373,7 +373,7 @@ impl TestValidator {
             enabled_vms: vec!["WASM".to_string()],
             state_tree: state_tree_enum,
             commitment_scheme: commitment_scheme_enum,
-            consensus_type: consensus_enum.clone(),
+            consensus_type: consensus_enum,
             genesis_file: if use_docker {
                 "/tmp/test-data/genesis.json".to_string()
             } else {

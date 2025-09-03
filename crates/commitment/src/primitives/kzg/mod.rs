@@ -20,7 +20,7 @@ use depin_sdk_api::commitment::{
 use depin_sdk_crypto::algorithms::hash::sha256 as crypto_sha256;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use std::io::{Read, Write};
+use std::io::{BufReader, Read, Write};
 use std::path::Path;
 
 /// A domain separation tag (DST) is crucial for securely hashing to the scalar field.
@@ -88,28 +88,32 @@ impl KZGParams {
 
     /// Loads an SRS from a file, performing necessary validation.
     pub fn load_from_file(path: &Path) -> Result<Self, String> {
-        let mut file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+        let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+        let mut reader = BufReader::new(file);
 
         // Read header
         let mut degree_buf = [0u8; 4];
-        file.read_exact(&mut degree_buf)
+        reader
+            .read_exact(&mut degree_buf)
             .map_err(|e| e.to_string())?;
         let max_degree = u32::from_le_bytes(degree_buf);
 
         // Read fixed points
         let mut g1_buf = [0u8; 48];
-        file.read_exact(&mut g1_buf).map_err(|e| e.to_string())?;
+        reader.read_exact(&mut g1_buf).map_err(|e| e.to_string())?;
         let g1 = G1Affine::from_compressed(&g1_buf)
             .map_err(|_| "Failed to decompress G1 point".to_string())?;
 
         let mut g2_buf = [0u8; 96];
-        file.read_exact(&mut g2_buf).map_err(|e| e.to_string())?;
+        reader.read_exact(&mut g2_buf).map_err(|e| e.to_string())?;
         let g2 = G2Affine::from_compressed(&g2_buf)
             .into_option()
             .ok_or_else(|| "Failed to decompress G2 point".to_string())?;
 
         let mut s_g2_buf = [0u8; 96];
-        file.read_exact(&mut s_g2_buf).map_err(|e| e.to_string())?;
+        reader
+            .read_exact(&mut s_g2_buf)
+            .map_err(|e| e.to_string())?;
         let s_g2 = G2Affine::from_compressed(&s_g2_buf)
             .into_option()
             .ok_or_else(|| "Failed to decompress s_G2 point".to_string())?;
@@ -119,14 +123,16 @@ impl KZGParams {
         let mut g1_points = Vec::with_capacity(num_points);
         for _ in 0..num_points {
             let mut point_buf = [0u8; 48];
-            file.read_exact(&mut point_buf).map_err(|e| e.to_string())?;
+            reader
+                .read_exact(&mut point_buf)
+                .map_err(|e| e.to_string())?;
             let point = G1Affine::from_compressed(&point_buf)
                 .map_err(|_| "Failed to decompress G1 point".to_string())?;
             g1_points.push(point);
         }
 
         // Ensure no trailing data
-        if file.bytes().next().is_some() {
+        if reader.bytes().next().is_some() {
             return Err("Trailing data found in SRS file".to_string());
         }
 

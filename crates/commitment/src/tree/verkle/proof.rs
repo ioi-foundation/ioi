@@ -25,14 +25,6 @@ pub fn map_child_commitment_to_value(commitment_bytes: &[u8]) -> [u8; 32] {
     hash(&buf)
 }
 
-/// Map a child index `i ∈ [0,255]` to its evaluation point's byte representation.
-/// We use the big-endian encoding of the integer `i` as the scalar.
-pub fn index_to_point_bytes(i: u8) -> [u8; 32] {
-    let mut be = [0u8; 32];
-    be[31] = i;
-    be
-}
-
 /// A unique identifier for a given KZG SRS or IPA parameter set.
 pub type SchemeId = [u8; 32];
 
@@ -44,10 +36,7 @@ pub enum Terminal {
     /// Proves that the path ends at an empty slot.
     Empty,
     /// Proves that the path diverges to a neighbor leaf with a different key stem.
-    Neighbor {
-        key_stem: Vec<u8>,
-        payload: Vec<u8>,
-    },
+    Neighbor { key_stem: Vec<u8>, payload: Vec<u8> },
 }
 
 /// A complete, self-contained proof for a path in a Verkle tree.

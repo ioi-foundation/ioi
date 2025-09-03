@@ -30,12 +30,15 @@ pub use types::ValidatorModel;
 
 const DEFAULT_ANCHOR_CAPACITY: usize = 128;
 
+/// An atomically reference-counted, sharable snapshot of the key-value store.
+type SharedKvSnapshot = std::sync::Arc<HashMap<Vec<u8>, Vec<u8>>>;
+
 #[derive(Default)]
 struct AnchorStore {
     cap: usize,
     order: VecDeque<[u8; 32]>,
     // map: state_root -> immutable KV snapshot
-    map: HashMap<[u8; 32], std::sync::Arc<HashMap<Vec<u8>, Vec<u8>>>>,
+    map: HashMap<[u8; 32], SharedKvSnapshot>,
 }
 
 impl AnchorStore {

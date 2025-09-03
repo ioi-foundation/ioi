@@ -47,7 +47,7 @@ serde_jcs = "0.1.0"
 [features]
 default = ["consensus-poa", "vm-wasm", "consensus-round-robin"]
 
-build-bins = ["depin-sdk-validator/validator-bins"]
+validator-bins = ["depin-sdk-validator/validator-bins"]
 
 # State Tree features propagate to the commitment crate
 tree-file = ["depin-sdk-commitment/tree-file"]
@@ -74,14 +74,14 @@ vm-wasm = ["dep:depin-sdk-vm-wasm"]
 [[bin]]
 name = "orchestration"
 path = "src/bin/orchestration.rs"
-required-features = ["build-bins"]
+required-features = ["validator-bins"]
 
 [[bin]]
 name = "workload"
 path = "src/bin/workload.rs"
-required-features = ["build-bins", "vm-wasm"]
+required-features = ["validator-bins", "vm-wasm"]
 
 [[bin]]
 name = "guardian"
 path = "src/bin/guardian.rs"
-required-features = ["build-bins"]
+required-features = ["validator-bins"]
