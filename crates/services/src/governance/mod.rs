@@ -9,7 +9,6 @@ use depin_sdk_types::app::{
 use depin_sdk_types::keys::{
     GOVERNANCE_NEXT_PROPOSAL_ID_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, GOVERNANCE_VOTE_KEY_PREFIX,
 };
-use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 // --- Enums and Structs are now defined in `depin-sdk-types` ---

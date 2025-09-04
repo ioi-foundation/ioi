@@ -17,7 +17,7 @@ use depin_sdk_types::{
 };
 use libp2p::{identity::PublicKey as Libp2pPublicKey, PeerId};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -354,7 +354,7 @@ pub async fn check_quorum_and_submit<CS, ST, CE>(
             consensus_proof,
         };
 
-        let tx = ChainTransaction::System(SystemTransaction {
+        let tx = ChainTransaction::System(Box::new(SystemTransaction {
             payload,
             header: SignHeader {
                 account_id: AccountId([0; 32]),
@@ -363,7 +363,7 @@ pub async fn check_quorum_and_submit<CS, ST, CE>(
                 tx_version: 1,
             },
             signature_proof: SignatureProof::default(),
-        });
+        }));
 
         context.tx_pool_ref.lock().await.push_back(tx);
         log::info!(

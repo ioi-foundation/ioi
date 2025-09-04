@@ -359,7 +359,7 @@ pub enum ChainTransaction {
     /// A transaction initiated by a user or application.
     Application(ApplicationTransaction),
     /// A privileged transaction for system-level changes.
-    System(SystemTransaction),
+    System(Box<SystemTransaction>),
 }
 
 /// An enum wrapping all possible user-level transaction models.
@@ -543,7 +543,7 @@ pub enum SystemPayload {
     /// Verifies a receipt from a foreign chain.
     VerifyForeignReceipt {
         /// The universal receipt containing the canonical operation data.
-        receipt: UniversalExecutionReceipt,
+        receipt: Box<UniversalExecutionReceipt>,
         /// The universal proof format containing the cryptographic proof and witness.
         proof: UniversalProofFormat,
     },

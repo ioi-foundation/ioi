@@ -170,7 +170,7 @@ pub fn verify_transaction_signature<S: StateAccessor>(
         let derived_pk_hash_array = account_id_from_key_material(proof.suite, &proof.public_key)?;
         let accept_staged = creds_view
             .as_ref()
-            .map_or(true, |v| v.accept_staged_during_grace());
+            .is_none_or(|v| v.accept_staged_during_grace());
         enforce_credential_policy(
             &creds,
             proof.suite,

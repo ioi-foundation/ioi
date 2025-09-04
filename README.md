@@ -177,6 +177,10 @@ cargo test --workspace
 
 > 🔧 **Key Change**: You must specify features via `--features` flag. The harness automatically builds required artifacts.
 
+Of course. Adding a new test to the documentation is a great way to ensure it's easy for others to run. I've added the "Polymorphism" test to the "Individual E2E Tests" section.
+
+Here is the updated testing section for your `README.md`:
+
 #### Individual E2E Tests
 
 | Test | Command |

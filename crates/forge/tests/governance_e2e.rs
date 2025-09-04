@@ -55,7 +55,7 @@ fn create_system_tx(
         public_key: public_key_bytes,
         signature,
     };
-    Ok(ChainTransaction::System(tx_to_sign))
+    Ok(ChainTransaction::System(Box::new(tx_to_sign)))
 }
 
 #[tokio::test]
