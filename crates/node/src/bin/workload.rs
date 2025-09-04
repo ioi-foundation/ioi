@@ -14,9 +14,7 @@ use depin_sdk_chain::Chain;
 use depin_sdk_consensus::util::engine_from_config;
 use depin_sdk_services::identity::IdentityHub;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-use depin_sdk_types::config::{
-    CommitmentSchemeType, InitialServiceConfig, OrchestrationConfig, StateTreeType, WorkloadConfig,
-};
+use depin_sdk_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
 use depin_sdk_validator::standard::WorkloadIpcServer;
 use depin_sdk_vm_wasm::WasmVm;
 use std::fs;
@@ -47,6 +45,7 @@ struct WorkloadOpts {
 }
 
 /// Generic function containing all logic after component instantiation.
+#[allow(dead_code)] // This is used in match arms gated by features, which the linter may not see.
 async fn run_workload<CS, ST>(
     mut state_tree: ST,
     commitment_scheme: CS,
@@ -103,7 +102,7 @@ where
     // logic correctly, but it doesn't need orchestration-specific parameters
     // like timeouts. We create a temporary config to satisfy the factory function.
     let temp_orch_config = OrchestrationConfig {
-        consensus_type: config.consensus_type.clone(),
+        consensus_type: config.consensus_type,
         rpc_listen_address: String::new(),
         initial_sync_timeout_secs: 0,
         block_production_interval_secs: 0,
@@ -175,7 +174,10 @@ async fn main() -> Result<()> {
 
     match (config.state_tree.clone(), config.commitment_scheme.clone()) {
         #[cfg(all(feature = "tree-file", feature = "primitive-hash"))]
-        (StateTreeType::File, CommitmentSchemeType::Hash) => {
+        (
+            depin_sdk_types::config::StateTreeType::File,
+            depin_sdk_types::config::CommitmentSchemeType::Hash,
+        ) => {
             log::info!("Instantiating state backend: FileStateTree<HashCommitmentScheme>");
             let commitment_scheme = HashCommitmentScheme::new();
             let state_tree = FileStateTree::new(&config.state_file, commitment_scheme.clone());
@@ -183,7 +185,10 @@ async fn main() -> Result<()> {
         }
 
         #[cfg(all(feature = "tree-hashmap", feature = "primitive-hash"))]
-        (StateTreeType::HashMap, CommitmentSchemeType::Hash) => {
+        (
+            depin_sdk_types::config::StateTreeType::HashMap,
+            depin_sdk_types::config::CommitmentSchemeType::Hash,
+        ) => {
             log::info!("Instantiating state backend: HashMapStateTree<HashCommitmentScheme>");
             let commitment_scheme = HashCommitmentScheme::new();
             let state_tree = HashMapStateTree::new(commitment_scheme.clone());
@@ -191,7 +196,10 @@ async fn main() -> Result<()> {
         }
 
         #[cfg(all(feature = "tree-iavl", feature = "primitive-hash"))]
-        (StateTreeType::IAVL, CommitmentSchemeType::Hash) => {
+        (
+            depin_sdk_types::config::StateTreeType::IAVL,
+            depin_sdk_types::config::CommitmentSchemeType::Hash,
+        ) => {
             log::info!("Instantiating state backend: IAVLTree<HashCommitmentScheme>");
             let commitment_scheme = HashCommitmentScheme::new();
             let state_tree = IAVLTree::new(commitment_scheme.clone());
@@ -199,7 +207,10 @@ async fn main() -> Result<()> {
         }
 
         #[cfg(all(feature = "tree-sparse-merkle", feature = "primitive-hash"))]
-        (StateTreeType::SparseMerkle, CommitmentSchemeType::Hash) => {
+        (
+            depin_sdk_types::config::StateTreeType::SparseMerkle,
+            depin_sdk_types::config::CommitmentSchemeType::Hash,
+        ) => {
             log::info!("Instantiating state backend: SparseMerkleTree<HashCommitmentScheme>");
             let commitment_scheme = HashCommitmentScheme::new();
             let state_tree = SparseMerkleTree::new(commitment_scheme.clone());
@@ -207,7 +218,10 @@ async fn main() -> Result<()> {
         }
 
         #[cfg(all(feature = "tree-verkle", feature = "primitive-kzg"))]
-        (StateTreeType::Verkle, CommitmentSchemeType::KZG) => {
+        (
+            depin_sdk_types::config::StateTreeType::Verkle,
+            depin_sdk_types::config::CommitmentSchemeType::KZG,
+        ) => {
             log::info!("Instantiating state backend: VerkleTree<KZGCommitmentScheme>");
             let params = if let Some(srs_path) = &config.srs_file_path {
                 log::info!("Loading KZG SRS from file: {}", srs_path);

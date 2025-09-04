@@ -19,8 +19,8 @@ use depin_sdk_types::{
     codec,
     config::InitialServiceConfig,
     keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, EVIDENCE_REGISTRY_KEY, IDENTITY_CREDENTIALS_PREFIX,
-        STAKES_KEY_CURRENT, STAKES_KEY_NEXT,
+        ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, STAKES_KEY_CURRENT,
+        STAKES_KEY_NEXT,
     },
     service_configs::MigrationConfig,
 };
@@ -71,7 +71,7 @@ fn create_report_tx(
         signature,
     };
 
-    (ChainTransaction::System(tx_to_sign), report)
+    (ChainTransaction::System(Box::new(tx_to_sign)), report)
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

@@ -86,16 +86,12 @@ pub fn prune_mempool(
     let finalized_oracle_ids: HashSet<u64> = processed_block
         .transactions
         .iter()
-        .filter_map(|tx| {
-            if let ChainTransaction::System(SystemTransaction {
-                payload: SystemPayload::SubmitOracleData { request_id, .. },
-                ..
-            }) = tx
-            {
-                Some(*request_id)
-            } else {
-                None
-            }
+        .filter_map(|tx| match tx {
+            ChainTransaction::System(sys_tx) => match &sys_tx.payload {
+                SystemPayload::SubmitOracleData { request_id, .. } => Some(*request_id),
+                _ => None,
+            },
+            _ => None,
         })
         .collect();
 
@@ -105,13 +101,11 @@ pub fn prune_mempool(
         if block_txs_canonical.contains(&tx_in_pool_canonical) {
             return false;
         }
-        if let ChainTransaction::System(SystemTransaction {
-            payload: SystemPayload::SubmitOracleData { request_id, .. },
-            ..
-        }) = tx_in_pool
-        {
-            if finalized_oracle_ids.contains(request_id) {
-                return false;
+        if let ChainTransaction::System(sys_tx) = tx_in_pool {
+            if let SystemPayload::SubmitOracleData { request_id, .. } = &sys_tx.payload {
+                if finalized_oracle_ids.contains(request_id) {
+                    return false;
+                }
             }
         }
         true

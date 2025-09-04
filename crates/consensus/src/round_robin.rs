@@ -9,7 +9,7 @@ use depin_sdk_api::chain::{ChainView, StateView};
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::consensus::ChainStateReader;
 use depin_sdk_api::state::{StateAccessor, StateManager};
-use depin_sdk_types::app::{AccountId, Block, FailureReport, StateRoot};
+use depin_sdk_types::app::{AccountId, Block, FailureReport};
 use depin_sdk_types::error::{ConsensusError, StateError, TransactionError};
 use depin_sdk_types::keys::{AUTHORITY_SET_KEY, QUARANTINED_VALIDATORS_KEY};
 use libp2p::PeerId;

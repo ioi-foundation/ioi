@@ -5,10 +5,10 @@
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_forge::testing::{
-    build_test_artifacts, submit_transaction,
-    poll::{wait_for_quarantine_status, wait_for_height},
+    build_test_artifacts,
+    poll::{wait_for_height, wait_for_quarantine_status},
     rpc::get_quarantined_set,
-    TestCluster,
+    submit_transaction, TestCluster,
 };
 use depin_sdk_types::{
     app::{
@@ -16,16 +16,13 @@ use depin_sdk_types::{
         FailureReport, OffenseFacts, OffenseType, SignHeader, SignatureProof, SignatureSuite,
         SystemPayload, SystemTransaction,
     },
-    codec,
     config::InitialServiceConfig,
-    keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, AUTHORITY_SET_KEY, IDENTITY_CREDENTIALS_PREFIX,
-    },
+    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, AUTHORITY_SET_KEY, IDENTITY_CREDENTIALS_PREFIX},
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
 use serde_json::json;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::time::Duration;
 use tokio::time;
 
@@ -62,7 +59,7 @@ fn create_report_tx(
         public_key: public_key_bytes,
         signature,
     };
-    Ok(ChainTransaction::System(tx_to_sign))
+    Ok(ChainTransaction::System(Box::new(tx_to_sign)))
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -174,7 +171,11 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
     wait_for_quarantine_status(rpc_addr, &offender1_id, true, Duration::from_secs(20)).await?;
 
     let quarantine_list = get_quarantined_set(rpc_addr).await?;
-    assert_eq!(quarantine_list.len(), 1, "Quarantine list should have one member");
+    assert_eq!(
+        quarantine_list.len(),
+        1,
+        "Quarantine list should have one member"
+    );
     println!("SUCCESS: First offender was correctly quarantined.");
 
     // Action 2: Try to quarantine the second offender. This should be accepted by mempool but rejected by state machine.
