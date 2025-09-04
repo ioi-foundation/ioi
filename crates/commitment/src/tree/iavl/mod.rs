@@ -339,7 +339,7 @@ impl IAVLNode {
 }
 
 /// IAVL tree implementation
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IAVLTree<CS: CommitmentScheme> {
     root: Option<Arc<IAVLNode>>,
     version: u64,

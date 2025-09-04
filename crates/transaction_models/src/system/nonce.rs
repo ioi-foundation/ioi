@@ -2,7 +2,7 @@
 
 //! Core, non-optional system logic for transaction nonce management.
 
-use depin_sdk_api::state::StateManager;
+use depin_sdk_api::state::StateAccessor;
 use depin_sdk_types::app::{AccountId, ChainTransaction, SystemPayload};
 use depin_sdk_types::error::TransactionError::{self, NonceMismatch};
 use depin_sdk_types::keys::ACCOUNT_NONCE_PREFIX;
@@ -42,7 +42,7 @@ fn get_tx_details(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
 
 /// A core system function to assert that a transaction's nonce is correct.
 /// This is a READ-ONLY check.
-pub fn assert_next_nonce<S: StateManager + ?Sized>(
+pub fn assert_next_nonce<S: StateAccessor>(
     state: &S,
     tx: &ChainTransaction,
 ) -> Result<(), TransactionError> {
@@ -62,7 +62,7 @@ pub fn assert_next_nonce<S: StateManager + ?Sized>(
 
 /// A core system function to atomically bump a transaction nonce.
 /// This is a WRITE operation and should be called after all validation has passed.
-pub fn bump_nonce<S: StateManager + ?Sized>(
+pub fn bump_nonce<S: StateAccessor>(
     state: &mut S,
     tx: &ChainTransaction,
 ) -> Result<(), TransactionError> {

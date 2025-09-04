@@ -13,7 +13,7 @@ use depin_sdk_network::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_network::BlockSync;
 use depin_sdk_services::external_data::ExternalDataService;
-use depin_sdk_types::app::ChainTransaction;
+use depin_sdk_types::app::{ChainTransaction, StateRoot};
 use depin_sdk_types::error::ValidatorError;
 use libp2p::identity;
 use serde::{Deserialize, Serialize};
@@ -78,7 +78,8 @@ where
         + Send
         + Sync
         + 'static
-        + Debug,
+        + Debug
+        + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
 {
@@ -186,7 +187,8 @@ async fn handle_network_event<CS, ST, CE>(
         + Send
         + Sync
         + 'static
-        + Debug,
+        + Debug
+        + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
 {
@@ -231,7 +233,8 @@ where
         + Send
         + Sync
         + 'static
-        + Debug,
+        + Debug
+        + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
 {
@@ -275,12 +278,10 @@ where
             "Network event receiver already taken".to_string(),
         ))?;
 
-        // --- FIX START: Fetch the genesis root to initialize the context ---
         let genesis_root_vec = workload_client
             .get_state_root()
             .await
             .map_err(|e| ValidatorError::Other(format!("Failed to get genesis root: {}", e)))?;
-        // --- FIX END ---
 
         let context = MainLoopContext::<CS, ST, CE> {
             chain_ref: chain,
@@ -298,10 +299,8 @@ where
             is_quarantined: self.is_quarantined.clone(),
             external_data_service: self.external_data_service.clone(),
             pending_attestations: std::collections::HashMap::new(),
-            // --- FIX START: Initialize the new fields ---
-            genesis_root: genesis_root_vec,
+            genesis_root: StateRoot(genesis_root_vec),
             last_committed_block: None,
-            // --- FIX END ---
         };
 
         let mut handles = self.task_handles.lock().await;

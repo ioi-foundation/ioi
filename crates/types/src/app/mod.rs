@@ -48,6 +48,64 @@ pub struct Block<T: Clone> {
     pub transactions: Vec<T>,
 }
 
+/// The full, potentially variable-length cryptographic commitment over the state.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
+pub struct StateRoot(pub Vec<u8>);
+
+/// A fixed-size, 32-byte hash of a StateRoot, used as a key for anchored state views.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub struct StateAnchor(pub [u8; 32]);
+
+// --- FIX START: Manually implement Encode/Decode for the newtypes ---
+impl Encode for StateRoot {
+    fn encode_to<T: parity_scale_codec::Output + ?Sized>(&self, dest: &mut T) {
+        self.0.encode_to(dest);
+    }
+}
+impl Decode for StateRoot {
+    fn decode<I: parity_scale_codec::Input>(
+        input: &mut I,
+    ) -> Result<Self, parity_scale_codec::Error> {
+        Ok(StateRoot(Vec::<u8>::decode(input)?))
+    }
+}
+
+impl Encode for StateAnchor {
+    fn encode_to<T: parity_scale_codec::Output + ?Sized>(&self, dest: &mut T) {
+        self.0.encode_to(dest);
+    }
+}
+impl Decode for StateAnchor {
+    fn decode<I: parity_scale_codec::Input>(
+        input: &mut I,
+    ) -> Result<Self, parity_scale_codec::Error> {
+        Ok(StateAnchor(<[u8; 32]>::decode(input)?))
+    }
+}
+// --- FIX END ---
+
+impl StateRoot {
+    /// Computes the deterministic anchor key for this state root.
+    pub fn to_anchor(&self) -> StateAnchor {
+        let hash = DcryptSha256::digest(&self.0)
+            .expect("hashing should not fail")
+            .to_bytes();
+        StateAnchor(hash.try_into().expect("SHA256 must be 32 bytes"))
+    }
+}
+
+// Add conversions to make them easier to work with
+impl AsRef<[u8]> for StateRoot {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+impl AsRef<[u8]> for StateAnchor {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 /// The header of a block, containing metadata and commitments.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct BlockHeader {
@@ -56,9 +114,9 @@ pub struct BlockHeader {
     /// The hash of the parent block's header.
     pub parent_hash: [u8; 32],
     /// The state root committed by the parent block (the state against which this block is verified).
-    pub parent_state_root: Vec<u8>,
+    pub parent_state_root: StateRoot,
     /// The state root this block commits to after applying its transactions.
-    pub state_root: Vec<u8>,
+    pub state_root: StateRoot,
     /// The root hash of the transactions in this block.
     pub transactions_root: Vec<u8>,
     /// The timestamp when the block was created.
@@ -102,8 +160,8 @@ impl BlockHeader {
             SigDomain::BlockHeaderV1 as u8,
             self.height,
             self.parent_hash,
-            &self.parent_state_root,
-            &self.state_root,
+            &self.parent_state_root.0, // Use inner Vec<u8>
+            &self.state_root.0,        // Use inner Vec<u8>
             &self.transactions_root,
             self.timestamp,
             // The validator set is informational and not part of the consensus-critical signed payload.
@@ -221,6 +279,76 @@ impl UTXOTransaction {
         let serialized = serde_json::to_vec(self).unwrap();
         DcryptSha256::digest(&serialized).unwrap().to_bytes()
     }
+}
+
+// --- Governance-related structs ---
+
+/// The category of a governance proposal.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum ProposalType {
+    /// A proposal to change a registered on-chain parameter.
+    ParameterChange,
+    /// A proposal to perform a coordinated software upgrade.
+    SoftwareUpgrade,
+    /// A generic proposal for signaling community intent, with no on-chain execution.
+    Text,
+    /// A custom proposal type for application-specific governance.
+    Custom(String),
+}
+
+/// The final tally of votes for a governance proposal.
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
+pub struct TallyResult {
+    /// The total voting power that voted "Yes".
+    pub yes: u64,
+    /// The total voting power that voted "No".
+    pub no: u64,
+    /// The total voting power that voted "No with Veto".
+    pub no_with_veto: u64,
+    /// The total voting power that chose to abstain.
+    pub abstain: u64,
+}
+
+/// The current status of a governance proposal in its lifecycle.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProposalStatus {
+    /// The proposal is in the deposit period.
+    DepositPeriod,
+    /// The proposal is in the voting period.
+    VotingPeriod,
+    /// The proposal has passed.
+    Passed,
+    /// The proposal has been rejected.
+    Rejected,
+}
+
+/// A governance proposal submitted to the chain.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Proposal {
+    /// The unique identifier for the proposal.
+    pub id: u64,
+    /// The title of the proposal.
+    pub title: String,
+    /// A detailed description of the proposal.
+    pub description: String,
+    /// The type of the proposal.
+    pub proposal_type: ProposalType,
+    /// The current status of the proposal.
+    pub status: ProposalStatus,
+    /// The address of the account that submitted the proposal.
+    pub submitter: Vec<u8>,
+    /// The block height at which the proposal was submitted.
+    pub submit_height: u64,
+    /// The block height at which the deposit period ends.
+    pub deposit_end_height: u64,
+    /// The block height at which the voting period starts.
+    pub voting_start_height: u64,
+    /// The block height at which the voting period ends.
+    pub voting_end_height: u64,
+    /// The total amount deposited for this proposal.
+    pub total_deposit: u64,
+    /// The final tally of votes, populated after the voting period ends.
+    pub final_tally: Option<TallyResult>,
 }
 
 // --- EVOLVED TRANSACTION ENUMS ---

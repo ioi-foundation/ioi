@@ -1,10 +1,12 @@
 // Path: crates/validator/src/standard/workload_ipc_server.rs
 
 use anyhow::Result;
+use depin_sdk_api::state::{StateAccessor, StateOverlay};
+use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::{
     chain::AppChain,
-    chain::ChainView, // <--- FIX: Import the trait
+    chain::ChainView,
     commitment::CommitmentScheme,
     validator::WorkloadContainer,
 };
@@ -13,13 +15,17 @@ use depin_sdk_client::{
     ipc::{WorkloadRequest, WorkloadResponse},
     security::SecurityChannel,
 };
-use depin_sdk_services::governance::{GovernanceModule, Proposal, ProposalStatus};
-use depin_sdk_types::app::{AccountId, ActiveKeyRecord};
-use depin_sdk_types::keys::{GOVERNANCE_PROPOSAL_KEY_PREFIX, STAKES_KEY_CURRENT};
+use depin_sdk_services::governance::GovernanceModule;
+use depin_sdk_types::app::{evidence_id, AccountId, ActiveKeyRecord, Proposal, ProposalStatus};
+use depin_sdk_types::codec;
+use depin_sdk_types::keys::{
+    EVIDENCE_REGISTRY_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, STAKES_KEY_CURRENT,
+};
 use rcgen::{Certificate, CertificateParams, SanType};
 use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, BTreeSet};
 use std::net::Ipv4Addr;
-use std::{collections::BTreeMap, sync::Arc};
+use std::sync::Arc;
 use tokio::{io::AsyncReadExt, sync::Mutex};
 use tokio_rustls::{
     rustls::{
@@ -68,7 +74,8 @@ where
         + Send
         + Sync
         + 'static
-        + std::fmt::Debug,
+        + std::fmt::Debug
+        + Clone,
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     CS::Commitment: std::fmt::Debug,
     <CS as CommitmentScheme>::Proof:
@@ -128,27 +135,98 @@ where
 
     async fn handle_request(&self, request: WorkloadRequest) -> Result<WorkloadResponse> {
         let response = match request {
-            WorkloadRequest::ProcessBlock(block) => {
+            WorkloadRequest::ProcessBlock(mut block) => {
                 let mut chain = self.chain_arc.lock().await;
+
+                if !block.transactions.iter().any(|tx| {
+                    matches!(
+                        tx,
+                        depin_sdk_types::app::ChainTransaction::Application(
+                            depin_sdk_types::app::ApplicationTransaction::UTXO(utxo)
+                        ) if utxo.inputs.is_empty()
+                    )
+                }) {
+                    let coinbase = chain.transaction_model().create_coinbase_transaction(
+                        block.header.height,
+                        &block.header.producer_account_id.0,
+                    )?;
+                    block.transactions.insert(0, coinbase);
+                }
+
                 let res = chain
                     .process_block(block, &self.workload_container)
                     .await
                     .map_err(|e| e.to_string());
                 WorkloadResponse::ProcessBlock(Box::new(res))
             }
-            WorkloadRequest::ExecuteTransaction(tx) => {
-                // IMPORTANT: This is the mempool pre-check path.
-                // It MUST NOT change consensus state and MUST respond quickly.
-                // We only run fast, stateless checks here. Stateful checks
-                // are performed during block processing.
-                let chain = self.chain_arc.lock().await;
-                let res = chain
-                    .state
-                    .transaction_model
-                    .validate_stateless(&tx)
-                    .map_err(|e| e.to_string());
-                log::debug!("Workload IPC: ExecuteTransaction precheck responded.");
-                WorkloadResponse::ExecuteTransaction(res)
+            WorkloadRequest::CheckTransactionsAt { anchor, txs } => {
+                let res = async {
+                    let chain = self.chain_arc.lock().await;
+                    let latest_anchor = chain.state.last_state_root.to_anchor();
+
+                    if anchor != depin_sdk_types::app::StateAnchor::default() && anchor != latest_anchor {
+                        return Err("StaleAnchor".to_string());
+                    }
+
+                    let base_state_tree = self.workload_container.state_tree();
+                    let base_state = base_state_tree.lock().await;
+                    let mut overlay = StateOverlay::new(&*base_state);
+
+                    let mut results = Vec::with_capacity(txs.len());
+
+                    for tx in txs {
+                        let check_result = async {
+                            let status = chain.status().clone();
+                            let chain_id = chain.state.chain_id.parse().unwrap_or(1);
+                            let ctx = TxContext {
+                                block_height: status.height + 1,
+                                chain_id,
+                                services: &chain.services,
+                                simulation: true,
+                            };
+
+                            if let depin_sdk_types::app::ChainTransaction::System(sys_tx) = &tx {
+                                if let depin_sdk_types::app::SystemPayload::ReportMisbehavior { report } = &sys_tx.payload {
+                                    let id = evidence_id(report);
+                                    let already_seen = match overlay.get(EVIDENCE_REGISTRY_KEY)? {
+                                        Some(bytes) => {
+                                            let set: BTreeSet<[u8; 32]> =
+                                                codec::from_bytes_canonical(&bytes).unwrap_or_default();
+                                            set.contains(&id)
+                                        }
+                                        None => false,
+                                    };
+                                    if already_seen {
+                                        return Err(depin_sdk_types::error::TransactionError::Invalid(
+                                            "DuplicateEvidence".to_string()
+                                        ));
+                                    }
+                                }
+                            }
+
+                            depin_sdk_transaction_models::system::nonce::assert_next_nonce(&overlay, &tx)?;
+                            depin_sdk_transaction_models::system::validation::verify_transaction_signature(&overlay, &chain.services, &tx, &ctx)?;
+
+                            for service in chain.services.services_in_deterministic_order() {
+                                if let Some(decorator) = service.as_tx_decorator() {
+                                    decorator.ante_handle(&mut overlay, &tx, &ctx)?;
+                                }
+                            }
+
+                            depin_sdk_transaction_models::system::nonce::bump_nonce(&mut overlay, &tx)?;
+                            Ok(())
+                        }
+                        .await
+                        .map_err(|e: depin_sdk_types::error::TransactionError| e.to_string());
+                        
+                        results.push(check_result);
+                    }
+
+                    Ok(results)
+                }
+                .await;
+
+                WorkloadResponse::CheckTransactionsAt(res)
             }
             WorkloadRequest::GetStatus => {
                 let chain = self.chain_arc.lock().await;
@@ -207,20 +285,21 @@ where
             }
             WorkloadRequest::GetAuthoritySet => {
                 let chain = self.chain_arc.lock().await;
-                // Use the *current* root for a consistent snapshot
                 let state_tree_arc = self.workload_container.state_tree();
                 let state = state_tree_arc.lock().await;
-                let root_bytes = state.root_commitment().as_ref().to_vec();
-                let root: [u8; 32] = root_bytes.try_into().unwrap_or([0; 32]);
+                let root = depin_sdk_types::app::StateRoot(
+                    state.root_commitment().as_ref().to_vec(),
+                );
+                let anchor = root.to_anchor();
 
-                let view = chain.view_at(&root).unwrap();
+                let view = chain.view_at(&anchor).unwrap();
                 let res = view
                     .validator_set()
                     .await
                     .map(|accts| {
                         accts
                             .into_iter()
-                            .map(|acct| acct.0.to_vec()) // legacy format for header decoration only
+                            .map(|acct| acct.0.to_vec())
                             .collect()
                     })
                     .map_err(|e| e.to_string());
@@ -292,7 +371,6 @@ where
                             && current_height > proposal.voting_end_height
                         {
                             log::info!("[Workload] Tallying proposal {}", proposal.id);
-                            // --- FIX START: Use canonical codec and AccountId key for stakes ---
                             let stakes: BTreeMap<AccountId, u64> = match state
                                 .get(STAKES_KEY_CURRENT)?
                             {
@@ -300,7 +378,6 @@ where
                                     .unwrap_or_default(),
                                 _ => BTreeMap::new(),
                             };
-                            // --- FIX END ---
                             if let Err(e) =
                                 governance_module.tally_proposal(&mut *state, proposal.id, &stakes)
                             {
@@ -341,24 +418,24 @@ where
                 let res = state.get(&key).map_err(|e| e.to_string());
                 WorkloadResponse::QueryRawState(res)
             }
-            WorkloadRequest::QueryStateAt { root, key } => {
-                let val = self.workload_container.get_at(root, &key).await;
+            WorkloadRequest::QueryStateAt { anchor, key } => {
+                let val = self.workload_container.get_at(anchor.0, &key).await;
                 WorkloadResponse::QueryStateAt(Ok(val))
             }
-            WorkloadRequest::GetValidatorSetAt { root } => {
+            WorkloadRequest::GetValidatorSetAt { anchor } => {
                 let res: Result<Vec<AccountId>, String> = async {
                     let chain = self.chain_arc.lock().await;
-                    let view = chain.view_at(&root).map_err(|e| e.to_string())?;
+                    let view = chain.view_at(&anchor).map_err(|e| e.to_string())?;
                     view.validator_set().await.map_err(|e| e.to_string())
                 }
                 .await;
                 WorkloadResponse::GetValidatorSetAt(res)
             }
-            WorkloadRequest::GetActiveKeyAt { root, account_id } => {
+            WorkloadRequest::GetActiveKeyAt { anchor, account_id } => {
                 let handler = async {
                     let chain = self.chain_arc.lock().await;
-                    let view = chain.view_at(&root)?;
-                    let record = view.active_consensus_key(&AccountId(account_id)).await;
+                    let view = chain.view_at(&anchor)?;
+                    let record = view.active_consensus_key(&account_id).await;
                     Ok(record)
                 };
                 let res: Result<Option<ActiveKeyRecord>, String> = handler
@@ -366,7 +443,9 @@ where
                     .map_err(|e: depin_sdk_types::error::ChainError| e.to_string());
                 WorkloadResponse::GetActiveKeyAt(res)
             }
-            _ => WorkloadResponse::CallService(Err("Unsupported service call".to_string())),
+            WorkloadRequest::CallService { .. } => {
+                WorkloadResponse::CheckTransactionsAt(Err("CallService not yet implemented".to_string()))
+            }
         };
         Ok(response)
     }

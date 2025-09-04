@@ -7,18 +7,20 @@ use crate::state::StateManager;
 use crate::transaction::TransactionModel;
 use crate::validator::WorkloadContainer;
 use async_trait::async_trait;
-use depin_sdk_types::app::{AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction};
+use depin_sdk_types::app::{
+    AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction, StateAnchor,
+};
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::ChainError;
 use libp2p::identity::Keypair;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 
-/// A read-only view of the world state anchored to a specific state root.
+/// A read-only view of the world state anchored to a specific state anchor.
 #[async_trait]
 pub trait StateView: Send + Sync {
-    /// Returns the state root this view is anchored to.
-    fn state_root(&self) -> &[u8];
+    /// Returns the state anchor this view is anchored to.
+    fn state_anchor(&self) -> &StateAnchor;
     /// Returns the canonically sorted list of validator AccountIds.
     async fn validator_set(&self) -> Result<Vec<AccountId>, ChainError>;
     /// Gets a value by key from the state version this view is anchored to.
@@ -43,8 +45,8 @@ where
     CS: CommitmentScheme,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
 {
-    /// Obtain a read-only view anchored at a specific state root (typically the parent’s).
-    fn view_at(&self, state_root: &[u8; 32]) -> Result<Box<dyn StateView>, ChainError>;
+    /// Obtain a read-only view anchored at a specific state anchor.
+    fn view_at(&self, anchor: &StateAnchor) -> Result<Box<dyn StateView>, ChainError>;
 
     /// Provides access to the consensus-specific penalty mechanism.
     /// This now returns a Box<dyn Trait> to be object-safe.

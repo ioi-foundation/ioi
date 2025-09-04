@@ -7,7 +7,7 @@ use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::consensus::PenaltyMechanism;
 use depin_sdk_api::state::StateCommitment;
 use depin_sdk_api::state::{StateAccessor, StateManager};
-use depin_sdk_types::app::FailureReport;
+use depin_sdk_types::app::{FailureReport, StateAnchor};
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::TransactionError;
 
@@ -54,10 +54,10 @@ where
 {
     fn view_at(
         &self,
-        state_root: &[u8; 32],
+        anchor: &StateAnchor,
     ) -> Result<Box<dyn StateView>, depin_sdk_types::error::ChainError> {
         Ok(Box::new(RemoteStateView::new(
-            *state_root,
+            *anchor,
             self.client.clone(),
             self.consensus,
         )))
@@ -202,7 +202,7 @@ pub async fn handle_gossip_block<CS, ST, CE>(
             log::debug!(
                 "[Gossip] Advanced tip to #{} root=0x{}",
                 processed_block.header.height,
-                hex::encode(&processed_block.header.state_root)
+                hex::encode(&processed_block.header.state_root.as_ref())
             );
 
             let mut pool = context.tx_pool_ref.lock().await;

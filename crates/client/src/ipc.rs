@@ -3,7 +3,9 @@
 //! Orchestration and Workload containers.
 
 use depin_sdk_api::vm::{ExecutionContext, ExecutionOutput};
-use depin_sdk_types::app::{AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction};
+use depin_sdk_types::app::{
+    AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction, StateAnchor,
+};
 use depin_sdk_types::error::ValidatorError;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -11,7 +13,6 @@ use std::collections::BTreeMap;
 type DeployResult = Result<(Vec<u8>, std::collections::HashMap<Vec<u8>, Vec<u8>>), String>;
 type CallResult = Result<(ExecutionOutput, std::collections::HashMap<Vec<u8>, Vec<u8>>), String>;
 type QueryResult = Result<ExecutionOutput, String>;
-type TxResult = Result<(), String>;
 type ScanResult = Result<Vec<(Vec<u8>, Vec<u8>)>, String>;
 type StakesResult = Result<BTreeMap<String, u64>, String>;
 type VecVecResult = Result<Vec<Vec<u8>>, String>;
@@ -20,14 +21,18 @@ type ProcessBlockResult = Result<(Block<ChainTransaction>, Vec<Vec<u8>>), String
 type StatusResult = Result<ChainStatus, String>;
 type BlockHashResult = Result<Vec<u8>, String>;
 type TallyResult = Result<Vec<String>, String>;
+type CheckTxsResult = Result<Vec<Result<(), String>>, String>;
 
 /// A command sent from the Orchestration container to the Workload container.
 #[derive(Debug, Serialize, Deserialize)]
 pub enum WorkloadRequest {
     ProcessBlock(Block<ChainTransaction>),
+    CheckTransactionsAt {
+        anchor: StateAnchor,
+        txs: Vec<ChainTransaction>,
+    },
     GetStatus,
     GetExpectedModelHash,
-    ExecuteTransaction(Box<ChainTransaction>),
     DeployContract {
         code: Vec<u8>,
         sender: Vec<u8>,
@@ -57,23 +62,18 @@ pub enum WorkloadRequest {
         params: serde_json::Value,
     },
     PrefixScan(Vec<u8>),
-    // --- FIX START ---
-    /// A request to query a raw key directly from the state tree.
     QueryRawState(Vec<u8>),
-    // --- FIX END ---
-    // --- NEW ENDPOINTS FOR ANCHORED READS ---
     QueryStateAt {
-        root: [u8; 32],
+        anchor: StateAnchor,
         key: Vec<u8>,
     },
     GetValidatorSetAt {
-        root: [u8; 32],
+        anchor: StateAnchor,
     },
     GetActiveKeyAt {
-        root: [u8; 32],
-        account_id: [u8; 32],
+        anchor: StateAnchor,
+        account_id: AccountId,
     },
-    /// A request for the current set of staked validators.
     GetStakedValidators,
 }
 
@@ -81,9 +81,9 @@ pub enum WorkloadRequest {
 #[derive(Debug, Serialize, Deserialize)]
 pub enum WorkloadResponse {
     ProcessBlock(Box<ProcessBlockResult>),
+    CheckTransactionsAt(CheckTxsResult),
     GetStatus(StatusResult),
     GetExpectedModelHash(Result<Vec<u8>, String>),
-    ExecuteTransaction(TxResult),
     DeployContract(DeployResult),
     CallContract(CallResult),
     QueryContract(QueryResult),
@@ -96,20 +96,16 @@ pub enum WorkloadResponse {
     CheckAndTallyProposals(TallyResult),
     CallService(Result<serde_json::Value, String>),
     PrefixScan(ScanResult),
-    // --- FIX START ---
-    /// The response for a raw state query.
     QueryRawState(Result<Option<Vec<u8>>, String>),
-    // --- FIX END ---
-    // --- NEW RESPONSES FOR ANCHORED READS ---
     QueryStateAt(Result<Option<Vec<u8>>, String>),
     GetValidatorSetAt(Result<Vec<AccountId>, String>),
     GetActiveKeyAt(Result<Option<ActiveKeyRecord>, String>),
-    /// The response for the current staked validators query.
     GetStakedValidators(StakesResult),
 }
 
 impl From<ValidatorError> for WorkloadResponse {
     fn from(e: ValidatorError) -> Self {
-        WorkloadResponse::ExecuteTransaction(Err(e.to_string()))
+        // Find a suitable error response variant, CheckTransactionsAt seems reasonable.
+        WorkloadResponse::CheckTransactionsAt(Err(e.to_string()))
     }
 }

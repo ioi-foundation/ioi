@@ -5,7 +5,9 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use depin_sdk_api::consensus::ChainStateReader;
 use depin_sdk_api::vm::{ExecutionContext, ExecutionOutput};
-use depin_sdk_types::app::{AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction};
+use depin_sdk_types::app::{
+    AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction, StateAnchor,
+};
 use depin_sdk_types::keys::ACCOUNT_ID_TO_PUBKEY_PREFIX;
 use libp2p::identity::PublicKey;
 use std::collections::{BTreeMap, HashMap};
@@ -75,11 +77,39 @@ impl WorkloadClient {
         }
     }
 
-    pub async fn execute_transaction(&self, tx: ChainTransaction) -> Result<()> {
-        let request = WorkloadRequest::ExecuteTransaction(Box::new(tx));
+    #[deprecated(
+        note = "Use check_transactions_at for robust validation. This method is for simple mempool admission."
+    )]
+    pub async fn submit_transaction(&self, tx: ChainTransaction) -> Result<()> {
+        let request = WorkloadRequest::CheckTransactionsAt {
+            anchor: StateAnchor::default(), // A default anchor signals a non-consensus check.
+            txs: vec![tx],
+        };
         match self.send_and_receive(request).await? {
-            WorkloadResponse::ExecuteTransaction(res) => res.map_err(|e: String| anyhow!(e)),
-            _ => Err(anyhow!("Invalid response type from workload")),
+            WorkloadResponse::CheckTransactionsAt(res) => {
+                // We expect a single result in the vec.
+                let inner_res = res.map_err(|e| anyhow!(e))?.pop().ok_or_else(|| {
+                    anyhow!("Workload returned empty result for single transaction check")
+                })?;
+                inner_res.map_err(|e| anyhow!(e))
+            }
+            _ => Err(anyhow!(
+                "Invalid response type from workload for transaction submission"
+            )),
+        }
+    }
+
+    pub async fn check_transactions_at(
+        &self,
+        anchor: StateAnchor,
+        txs: Vec<ChainTransaction>,
+    ) -> Result<Vec<Result<(), String>>> {
+        let request = WorkloadRequest::CheckTransactionsAt { anchor, txs };
+        match self.send_and_receive(request).await? {
+            WorkloadResponse::CheckTransactionsAt(res) => res.map_err(|e: String| anyhow!(e)),
+            _ => Err(anyhow!(
+                "Invalid response type from workload for CheckTransactionsAt"
+            )),
         }
     }
 
@@ -191,7 +221,6 @@ impl WorkloadClient {
         }
     }
 
-    // --- FIX START ---
     pub async fn query_raw_state(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
         let request = WorkloadRequest::QueryRawState(key.to_vec());
         match self.send_and_receive(request).await? {
@@ -202,9 +231,9 @@ impl WorkloadClient {
         }
     }
 
-    pub async fn query_state_at(&self, root: [u8; 32], key: &[u8]) -> Result<Option<Vec<u8>>> {
+    pub async fn query_state_at(&self, anchor: StateAnchor, key: &[u8]) -> Result<Option<Vec<u8>>> {
         let request = WorkloadRequest::QueryStateAt {
-            root,
+            anchor,
             key: key.to_vec(),
         };
         match self.send_and_receive(request).await? {
@@ -215,8 +244,8 @@ impl WorkloadClient {
         }
     }
 
-    pub async fn get_validator_set_at(&self, root: [u8; 32]) -> Result<Vec<AccountId>> {
-        let request = WorkloadRequest::GetValidatorSetAt { root };
+    pub async fn get_validator_set_at(&self, anchor: StateAnchor) -> Result<Vec<AccountId>> {
+        let request = WorkloadRequest::GetValidatorSetAt { anchor };
         match self.send_and_receive(request).await? {
             WorkloadResponse::GetValidatorSetAt(res) => res.map_err(|e| anyhow!(e)),
             _ => Err(anyhow!(
@@ -227,12 +256,12 @@ impl WorkloadClient {
 
     pub async fn get_active_key_at(
         &self,
-        root: [u8; 32],
+        anchor: StateAnchor,
         acct: &AccountId,
     ) -> Result<Option<ActiveKeyRecord>> {
         let request = WorkloadRequest::GetActiveKeyAt {
-            root,
-            account_id: acct.0,
+            anchor,
+            account_id: *acct,
         };
         match self.send_and_receive(request).await? {
             WorkloadResponse::GetActiveKeyAt(res) => res.map_err(|e| anyhow!(e)),
@@ -241,12 +270,9 @@ impl WorkloadClient {
             )),
         }
     }
-    // --- FIX END ---
 }
 
-// --- FIX START: Add the #[async_trait] macro ---
 #[async_trait]
-// --- FIX END ---
 impl ChainStateReader for WorkloadClient {
     async fn get_authority_set(&self) -> Result<Vec<Vec<u8>>, String> {
         let request = WorkloadRequest::GetAuthoritySet;

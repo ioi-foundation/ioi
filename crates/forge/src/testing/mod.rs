@@ -5,6 +5,8 @@
 //! SDK to write their own integration tests with the same tooling.
 
 pub mod backend;
+pub mod poll; // Add new module
+pub mod rpc;  // Add new module
 
 use anyhow::{anyhow, Result};
 use backend::{DockerBackend, LogStream, ProcessBackend, TestBackend};

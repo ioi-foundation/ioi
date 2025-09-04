@@ -14,7 +14,7 @@ use dcrypt::algorithms::{
     hash::{sha2::Sha256 as DcryptSha256, HashFunction},
     ByteSerializable,
 };
-use depin_sdk_types::app::StateEntry;
+use depin_sdk_types::app::{StateAnchor, StateEntry}; // Import StateAnchor
 use depin_sdk_types::config::WorkloadConfig;
 use depin_sdk_types::error::ValidatorError;
 use std::collections::{HashMap, VecDeque};
@@ -163,7 +163,7 @@ where
     }
 
     /// Publish a snapshot for `root` using the current state tree contents.
-    pub async fn publish_anchor_snapshot<CS>(&self, root: [u8; 32])
+    pub async fn publish_anchor_snapshot<CS>(&self, anchor: StateAnchor)
     where
         ST: StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>,
         CS: CommitmentScheme,
@@ -172,7 +172,7 @@ where
         let kv = state.export_kv_pairs();
         drop(state); // Release lock before locking the anchor store
         let mut store = self.anchored.lock().await;
-        store.publish(root, kv);
+        store.publish(anchor.0, kv);
     }
 
     /// Retrieves a value from a historical KV snapshot anchored to a specific state root.

@@ -17,7 +17,7 @@ pub struct MerkleProof {
 }
 
 /// HashMap-based state tree implementation with Merkle tree
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HashMapStateTree<CS: CommitmentScheme> {
     pub(crate) data: BTreeMap<Vec<u8>, CS::Value>,
     pub(crate) scheme: CS,

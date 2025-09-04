@@ -8,10 +8,12 @@ use depin_sdk_types::error::StateError;
 mod accessor;
 mod commitment;
 mod manager;
+mod overlay;
 
 pub use accessor::*;
 pub use commitment::*;
 pub use manager::*;
+pub use overlay::*;
 
 /// A dyn-safe trait for the VM to access state, abstracting away the concrete StateManager type.
 #[async_trait]

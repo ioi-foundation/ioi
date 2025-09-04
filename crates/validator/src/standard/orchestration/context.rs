@@ -10,7 +10,7 @@ use depin_sdk_network::{
 };
 use depin_sdk_services::external_data::ExternalDataService;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-use depin_sdk_types::app::{Block, ChainTransaction, OracleAttestation};
+use depin_sdk_types::app::{Block, ChainTransaction, OracleAttestation, StateRoot};
 use libp2p::{identity, PeerId};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -52,7 +52,7 @@ where
     pub pending_attestations: HashMap<u64, Vec<OracleAttestation>>,
     // --- FIX START: Add new fields to track the chain tip ---
     /// The root of the initial (genesis) state.
-    pub genesis_root: Vec<u8>,
+    pub genesis_root: StateRoot,
     /// The most recent block that has been successfully processed and committed.
     pub last_committed_block: Option<Block<ChainTransaction>>,
     // --- FIX END ---
