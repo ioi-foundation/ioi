@@ -219,7 +219,7 @@ docker rmi depin-sdk-node:e2e
 
 # 3. Rebuild with correct features
 docker build \
-  --build-arg FEATURES="build-bins,consensus-poa,vm-wasm,tree-file,primitive-hash" \
+  --build-arg FEATURES="validator-bins,consensus-poa,vm-wasm,tree-file,primitive-hash" \
   -t depin-sdk-node:e2e \
   -f crates/node/Dockerfile .
 

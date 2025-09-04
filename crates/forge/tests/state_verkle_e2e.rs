@@ -9,8 +9,9 @@
 use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_forge::testing::{
-    build_test_artifacts, submit_transaction,
-    poll::{wait_for_height, wait_for_stake}, // Use the new polling helpers
+    build_test_artifacts,
+    poll::{wait_for_height, wait_for_stake_to_be}, // Use the correct polling helper name
+    submit_transaction,
     TestCluster,
 };
 use depin_sdk_types::{
@@ -132,6 +133,7 @@ async fn test_verkle_tree_e2e() -> Result<()> {
         .build()
         .await?;
 
+    // 3. Get handles and wait for node to be ready
     let node = &cluster.validators[0];
     let rpc_addr = &node.rpc_addr;
 
@@ -143,12 +145,10 @@ async fn test_verkle_tree_e2e() -> Result<()> {
 
     // 2. Submit the stake transaction.
     let stake_amount = 100u64;
-    let staker_account_id = AccountId(
-        account_id_from_key_material(
-            SignatureSuite::Ed25519,
-            &node.keypair.public().encode_protobuf(),
-        )?
-    );
+    let staker_account_id = AccountId(account_id_from_key_material(
+        SignatureSuite::Ed25519,
+        &node.keypair.public().encode_protobuf(),
+    )?);
     let payload = SystemPayload::Stake {
         public_key: node.keypair.public().encode_protobuf(),
         amount: stake_amount,
@@ -158,10 +158,15 @@ async fn test_verkle_tree_e2e() -> Result<()> {
     println!("--- Submitted Stake Transaction ---");
 
     // 3. Poll the state directly until the stake appears and is correct.
-    let final_stake = wait_for_stake(rpc_addr, &staker_account_id, Duration::from_secs(20)).await?;
+    wait_for_stake_to_be(
+        rpc_addr,
+        &staker_account_id,
+        stake_amount,
+        Duration::from_secs(20),
+    )
+    .await?;
 
-    // 4. Assert the final state is correct.
-    assert_eq!(final_stake, stake_amount);
+    // 4. Assert the final state is correct (wait_for_stake_to_be already does this).
     println!(
         "--- State Verification Passed: Found correct stake of {} for validator ---",
         stake_amount
