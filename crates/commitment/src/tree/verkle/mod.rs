@@ -6,7 +6,6 @@ mod proof_builder;
 mod verify;
 
 use crate::primitives::kzg::{KZGCommitment, KZGCommitmentScheme, KZGProof, KZGWitness};
-// FIX: Correct the path to `proof` and bring `Terminal` into scope.
 use crate::tree::verkle::proof::{
     map_child_commitment_to_value, map_leaf_payload_to_value, Terminal, VerklePathProof,
 };
@@ -16,8 +15,6 @@ use depin_sdk_api::state::{StateCommitment, StateManager};
 use depin_sdk_types::error::StateError;
 use std::any::Any;
 use std::collections::HashMap;
-// FIX: `Arc` is no longer used directly here, so it can be removed.
-// use std::sync::Arc;
 
 /// Verkle tree node
 #[derive(Debug, Clone)]
@@ -35,7 +32,7 @@ enum VerkleNode {
 }
 
 /// Verkle tree implementation
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VerkleTree<CS: CommitmentScheme> {
     root: VerkleNode,
     scheme: CS,
@@ -220,7 +217,6 @@ impl StateCommitment for VerkleTree<KZGCommitmentScheme> {
 
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
         let vpp = self.build_path_proof(key)?;
-        // FIX: Add `bincode` crate and use it for serialization.
         let bytes = bincode::serialize(&vpp).ok()?;
         Some(KZGProof::from(bytes))
     }
@@ -244,13 +240,11 @@ impl StateCommitment for VerkleTree<KZGCommitmentScheme> {
             return false;
         }
 
-        // FIX: Correct path to `VerklePathProof` and use `bincode`.
         let vpp: VerklePathProof = match bincode::deserialize(proof_bytes) {
             Ok(p) => p,
             Err(_) => return false,
         };
 
-        // FIX: Correct path to `Terminal` enum variants.
         match vpp.terminal {
             Terminal::Leaf(payload) => payload.as_slice() == value,
             Terminal::Empty | Terminal::Neighbor { .. } => false,

@@ -2,56 +2,18 @@
 //! Governance module implementations for the DePIN SDK
 
 use depin_sdk_api::state::StateManager;
-use depin_sdk_types::app::{AccountId, VoteOption};
+// --- FIX: Import the types from the `depin-sdk-types` crate ---
+use depin_sdk_types::app::{
+    AccountId, Proposal, ProposalStatus, ProposalType, TallyResult, VoteOption,
+};
 use depin_sdk_types::keys::{
     GOVERNANCE_NEXT_PROPOSAL_ID_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, GOVERNANCE_VOTE_KEY_PREFIX,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-// --- Enums and Structs (as defined in section 2.2) ---
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub enum ProposalType {
-    ParameterChange,
-    SoftwareUpgrade,
-    Text,
-    Custom(String),
-}
-
-#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
-pub struct TallyResult {
-    pub yes: u64,
-    pub no: u64,
-    pub no_with_veto: u64,
-    pub abstain: u64,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Proposal {
-    pub id: u64,
-    pub title: String,
-    pub description: String,
-    pub proposal_type: ProposalType,
-    pub status: ProposalStatus,
-    pub submitter: Vec<u8>,
-    pub submit_height: u64,
-    pub deposit_end_height: u64,
-    pub voting_start_height: u64,
-    pub voting_end_height: u64,
-    pub total_deposit: u64,
-    pub final_tally: Option<TallyResult>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub enum ProposalStatus {
-    DepositPeriod,
-    VotingPeriod,
-    Passed,
-    Rejected,
-}
-
-// --- Message Structs for Service Interaction ---
+// --- Enums and Structs are now defined in `depin-sdk-types` ---
+// --- and have been removed from this file. ---
 
 /// Encapsulates all data needed to submit a new proposal.
 pub struct SubmitProposalMsg<'a> {

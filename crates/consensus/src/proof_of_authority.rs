@@ -5,7 +5,6 @@ use depin_sdk_api::chain::{ChainView, StateView};
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::consensus::ChainStateReader;
 use depin_sdk_api::state::{StateAccessor, StateManager};
-use depin_sdk_crypto::algorithms::hash::sha256;
 use depin_sdk_types::app::{
     account_id_from_key_material, AccountId, Block, FailureReport, SignatureSuite,
 };
@@ -174,14 +173,11 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
         let header = &block.header;
 
         // 0. Hash the full root to get the fixed-size anchor key
-        let parent_state_root_hash: [u8; 32] =
-            sha256(&header.parent_state_root).try_into().map_err(|_| {
-                ConsensusError::BlockVerificationFailed("Could not hash parent state root".into())
-            })?;
+        let parent_state_anchor = header.parent_state_root.to_anchor();
 
         // 1. Obtain a read-only view of the PARENT state.
         let parent_view = chain_view
-            .view_at(&parent_state_root_hash)
+            .view_at(&parent_state_anchor)
             .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?;
 
         // 2. Membership Check (against parent state)

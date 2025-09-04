@@ -21,7 +21,7 @@ use depin_sdk_api::{
     consensus::{ChainStateReader, ConsensusDecision, ConsensusEngine, PenaltyMechanism},
     state::{StateAccessor, StateManager},
 };
-use depin_sdk_types::app::{AccountId, Block, FailureReport};
+use depin_sdk_types::app::{AccountId, Block, FailureReport, StateAnchor}; // Import StateAnchor
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::{ChainError, ConsensusError, TransactionError};
 use libp2p::PeerId;
@@ -56,7 +56,7 @@ where
     CS: CommitmentScheme + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
 {
-    fn view_at(&self, _state_root: &[u8; 32]) -> Result<Box<dyn StateView>, ChainError> {
+    fn view_at(&self, _anchor: &StateAnchor) -> Result<Box<dyn StateView>, ChainError> {
         Err(ChainError::Transaction(
             "Consensus enum cannot create a state view directly".into(),
         ))

@@ -2,9 +2,14 @@
 
 #![cfg(all(feature = "consensus-pos", feature = "vm-wasm"))]
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use depin_sdk_forge::testing::{build_test_artifacts, submit_transaction, TestCluster};
+use depin_sdk_forge::testing::{
+    build_test_artifacts,
+    poll::{wait_for_evidence, wait_for_height, wait_for_stake_to_be},
+    rpc::get_stake,
+    submit_transaction, TestCluster,
+};
 use depin_sdk_types::{
     app::{
         account_id_from_key_material, evidence_id, AccountId, ActiveKeyRecord, ChainTransaction,
@@ -20,42 +25,9 @@ use depin_sdk_types::{
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
-use reqwest::Client;
 use serde_json::json;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::time::Duration;
-use tokio::time;
-
-/// Helper function to query a raw key from the workload state via RPC.
-async fn query_state_key(rpc_addr: &str, key: &[u8]) -> Result<Option<Vec<u8>>> {
-    let client = Client::new();
-    let request_body = json!({
-        "jsonrpc": "2.0",
-        "method": "query_state",
-        "params": [hex::encode(key)],
-        "id": 1
-    });
-
-    let rpc_url = format!("http://{}", rpc_addr);
-    let response: serde_json::Value = client
-        .post(&rpc_url)
-        .json(&request_body)
-        .send()
-        .await?
-        .json()
-        .await?;
-
-    if let Some(error) = response.get("error") {
-        if !error.is_null() {
-            return Err(anyhow!("RPC error: {}", error));
-        }
-    }
-
-    match response["result"].as_str() {
-        Some(hex_val) if !hex_val.is_empty() => Ok(Some(hex::decode(hex_val)?)),
-        _ => Ok(None),
-    }
-}
 
 /// Helper to create a signed ReportMisbehavior transaction and return the report for assertions.
 fn create_report_tx(
@@ -159,7 +131,6 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                     [format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key))] =
                     json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes)));
 
-                // --- FIX START: Add the missing ActiveKeyRecord ---
                 let record = ActiveKeyRecord {
                     suite,
                     pubkey_hash: account_id_hash,
@@ -169,7 +140,6 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                 let record_bytes = codec::to_bytes_canonical(&record);
                 genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&record_key))] =
                     json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes)));
-                // --- FIX END ---
             }
         })
         .build()
@@ -178,71 +148,59 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
     let (reporter_slice, offender_slice) = cluster.validators.split_at_mut(1);
     let reporter = &mut reporter_slice[0];
     let offender = &mut offender_slice[0];
-    let rpc_addr = &reporter.rpc_addr;
+    let rpc_addr_reporter = &reporter.rpc_addr;
+    let rpc_addr_offender = &offender.rpc_addr;
 
-    time::sleep(Duration::from_secs(10)).await;
+    wait_for_height(rpc_addr_reporter, 1, Duration::from_secs(20)).await?;
 
     let offender_pk_bytes = offender.keypair.public().encode_protobuf();
     let offender_account_id_hash =
         account_id_from_key_material(SignatureSuite::Ed25519, &offender_pk_bytes)?;
     let offender_account_id = AccountId(offender_account_id_hash);
 
-    // ACTION 1: Report the offender
+    // ACTION 1: Report the offender. Submit to BOTH nodes to ensure the leader gets it.
     let (tx1, report1) = create_report_tx(&reporter.keypair, offender_account_id, 0);
-    submit_transaction(rpc_addr, &tx1).await?;
+    submit_transaction(rpc_addr_reporter, &tx1).await?;
+    submit_transaction(rpc_addr_offender, &tx1).await?;
 
     // VERIFY 1: Poll state until stake is slashed
     println!("Waiting for stake to be slashed...");
-    let mut offender_stake = initial_stake;
-    for _ in 0..15 {
-        time::sleep(Duration::from_secs(2)).await;
-        if let Some(stakes_bytes) = query_state_key(rpc_addr, STAKES_KEY_NEXT).await? {
-            let stakes: BTreeMap<AccountId, u64> =
-                codec::from_bytes_canonical(&stakes_bytes).map_err(|e| anyhow!(e))?;
-            offender_stake = *stakes.get(&offender_account_id).unwrap_or(&initial_stake);
-            if offender_stake < initial_stake {
-                break;
-            }
-        }
-    }
-    assert_eq!(
-        offender_stake, expected_stake_after_slash,
-        "Stake was not slashed correctly"
-    );
+    wait_for_stake_to_be(
+        rpc_addr_reporter,
+        &offender_account_id,
+        expected_stake_after_slash,
+        Duration::from_secs(20),
+    )
+    .await?;
     println!(
         "SUCCESS: Offender's stake was correctly slashed to {}.",
-        offender_stake
+        expected_stake_after_slash
     );
 
     // VERIFY 2: Evidence ID was recorded
-    let evidence_bytes = query_state_key(rpc_addr, EVIDENCE_REGISTRY_KEY)
-        .await?
-        .expect("EVIDENCE_REGISTRY_KEY should exist");
-    let evidence_list: BTreeSet<[u8; 32]> =
-        codec::from_bytes_canonical(&evidence_bytes).map_err(|e| anyhow!(e))?;
     let id1 = evidence_id(&report1);
-    assert!(evidence_list.contains(&id1), "Evidence ID was not recorded");
+    wait_for_evidence(rpc_addr_reporter, &id1, Duration::from_secs(10)).await?;
     println!("SUCCESS: Evidence ID was correctly recorded in the registry.");
 
     // ACTION 2: Submit an identical report (with a new nonce) to test replay protection.
     let (replay_tx, _) = create_report_tx(&reporter.keypair, offender_account_id, 1);
-    submit_transaction(rpc_addr, &replay_tx).await?;
+    submit_transaction(rpc_addr_reporter, &replay_tx).await?;
+    submit_transaction(rpc_addr_offender, &replay_tx).await?;
 
-    // VERIFY 3: Wait and confirm the stake was NOT slashed a second time.
-    println!("Waiting to confirm no double-slashing occurs...");
-    time::sleep(Duration::from_secs(15)).await;
-    let final_stakes_bytes = query_state_key(rpc_addr, STAKES_KEY_NEXT)
+    // VERIFY 3: Wait for a new block to be produced after submitting the invalid tx.
+    // If the chain halts because of the invalid tx, this will fail.
+    println!("Waiting to confirm no double-slashing occurs and chain remains live...");
+    wait_for_height(rpc_addr_reporter, 3, Duration::from_secs(30)).await?;
+
+    let final_offender_stake = get_stake(rpc_addr_reporter, &offender_account_id)
         .await?
-        .expect("STAKES_KEY_NEXT should exist");
-    let final_stakes: BTreeMap<AccountId, u64> =
-        codec::from_bytes_canonical(&final_stakes_bytes).map_err(|e| anyhow!(e))?;
-    let final_offender_stake = *final_stakes.get(&offender_account_id).unwrap();
+        .unwrap_or(0);
 
     assert_eq!(
         final_offender_stake, expected_stake_after_slash,
         "Stake was slashed a second time, replay protection failed"
     );
-    println!("SUCCESS: Replay transaction was correctly rejected by the state machine.");
+    println!("SUCCESS: Replay transaction was correctly rejected by the state machine and the chain did not halt.");
 
     Ok(())
 }

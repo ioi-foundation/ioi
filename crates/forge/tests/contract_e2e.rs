@@ -3,8 +3,10 @@
 
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use depin_sdk_crypto::algorithms::hash::sha256;
 use depin_sdk_forge::testing::{
-    assert_log_contains, assert_log_contains_and_return_line, build_test_artifacts,
+    build_test_artifacts,
+    poll::{wait_for_contract_deployment, wait_for_height},
     submit_transaction, TestCluster,
 };
 use depin_sdk_types::{
@@ -20,6 +22,7 @@ use depin_sdk_types::{
 use libp2p::identity::Keypair;
 use reqwest::Client;
 use serde_json::json;
+use std::time::Duration;
 
 // Helper function to create a signed transaction with proper nonce and account_id
 fn create_signed_app_tx(
@@ -122,7 +125,6 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
             allow_downgrade: false,
             chain_id: 1,
         }))
-        // --- FIX START: Correctly set up genesis state for PoA with AccountId ---
         .with_genesis_modifier(|genesis, keys| {
             let keypair = &keys[0];
             let suite = SignatureSuite::Ed25519;
@@ -167,56 +169,57 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
             genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key))] =
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&public_key_bytes)));
         })
-        // --- FIX END ---
         .build()
         .await?;
 
     let node = &mut cluster.validators[0];
     let rpc_addr = &node.rpc_addr;
     let keypair = &node.keypair;
-    let mut workload_logs = node.workload_log_stream.lock().await.take().unwrap();
-    let _orch_logs = node.orch_log_stream.lock().await.take().unwrap();
+
+    // Wait for node to be ready
+    wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
 
     // 3. DEPLOY CONTRACT
+    let deployer_pubkey = keypair.public().encode_protobuf();
+    let contract_address = sha256([deployer_pubkey.as_slice(), counter_wasm.as_slice()].concat());
+    let contract_address_hex = hex::encode(&contract_address);
+
     let deploy_tx_unsigned = ApplicationTransaction::DeployContract {
         header: Default::default(),
-        code: counter_wasm,
+        code: counter_wasm.clone(),
         signature_proof: Default::default(),
     };
     let deploy_tx = create_signed_app_tx(keypair, deploy_tx_unsigned, nonce);
     nonce += 1;
     submit_transaction(rpc_addr, &deploy_tx).await?;
 
-    // 4. PARSE LOGS TO GET CONTRACT ADDRESS
-    let log_line = assert_log_contains_and_return_line(
-        "Workload",
-        &mut workload_logs,
-        "Applied contract deployment at address:",
-    )
-    .await?;
-    let address_hex = log_line.split("address: ").last().unwrap().trim();
+    // 4. WAIT FOR DEPLOYMENT to be confirmed in state
+    wait_for_contract_deployment(rpc_addr, &contract_address, Duration::from_secs(20)).await?;
+    println!(
+        "Contract deployed and found in state at address: {}",
+        contract_address_hex
+    );
 
     // 5. QUERY INITIAL STATE
     let get_input = vec![0]; // ABI for get()
-    let initial_value_bytes = query_contract(rpc_addr, address_hex, &get_input).await?;
+    let initial_value_bytes = query_contract(rpc_addr, &contract_address_hex, &get_input).await?;
     assert_eq!(initial_value_bytes, vec![0], "Initial count should be 0");
 
     // 6. CALL INCREMENT
     let increment_input = vec![1]; // ABI for increment()
     let call_tx_unsigned = ApplicationTransaction::CallContract {
         header: Default::default(),
-        address: hex::decode(address_hex)?,
+        address: contract_address,
         input_data: increment_input,
         gas_limit: 1_000_000,
         signature_proof: Default::default(),
     };
     let call_tx = create_signed_app_tx(keypair, call_tx_unsigned, nonce);
     submit_transaction(rpc_addr, &call_tx).await?;
-    assert_log_contains("Workload", &mut workload_logs, "Contract call successful").await?;
 
-    // 7. VERIFY FINAL STATE
-    tokio::time::sleep(std::time::Duration::from_secs(6)).await;
-    let final_value_bytes = query_contract(rpc_addr, address_hex, &get_input).await?;
+    // 7. VERIFY FINAL STATE by waiting for the next block to be processed
+    wait_for_height(rpc_addr, 3, Duration::from_secs(20)).await?;
+    let final_value_bytes = query_contract(rpc_addr, &contract_address_hex, &get_input).await?;
     assert_eq!(final_value_bytes, vec![1], "Final count should be 1");
 
     println!("--- E2E Contract Test Successful ---");

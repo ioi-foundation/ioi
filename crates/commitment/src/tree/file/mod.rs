@@ -14,7 +14,7 @@ use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 
 /// Persisted state data
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct PersistedState {
     data: BTreeMap<String, Vec<u8>>,
     merkle_root: Vec<u8>,
@@ -22,7 +22,7 @@ struct PersistedState {
 }
 
 /// A file-backed state tree implementation with Merkle tree security
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FileStateTree<CS: CommitmentScheme> {
     path: PathBuf,
     scheme: CS,
@@ -32,7 +32,7 @@ pub struct FileStateTree<CS: CommitmentScheme> {
 
 impl<CS> FileStateTree<CS>
 where
-    CS: CommitmentScheme + Clone, // <-- FIX: Removed Default
+    CS: CommitmentScheme + Clone,
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
 {
     pub fn new<P: AsRef<Path>>(path: P, scheme: CS) -> Self {
@@ -242,7 +242,7 @@ where
 
 impl<CS> StateCommitment for FileStateTree<CS>
 where
-    CS: CommitmentScheme + Clone + Send + Sync, // <-- FIX: Removed Default
+    CS: CommitmentScheme + Clone + Send + Sync,
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
     CS::Proof: AsRef<[u8]>,
 {
@@ -329,7 +329,7 @@ where
 
 impl<CS> StateManager for FileStateTree<CS>
 where
-    CS: CommitmentScheme + Clone + Send + Sync, // <-- FIX: Removed Default
+    CS: CommitmentScheme + Clone + Send + Sync,
     CS::Value: From<Vec<u8>> + Send + Sync + AsRef<[u8]> + std::fmt::Debug,
     CS::Proof: AsRef<[u8]>,
 {

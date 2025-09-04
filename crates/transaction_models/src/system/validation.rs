@@ -3,7 +3,7 @@
 //! Core, non-optional system logic for transaction signature validation.
 
 use depin_sdk_api::services::access::ServiceDirectory;
-use depin_sdk_api::state::{StateAccessor, StateManager};
+use depin_sdk_api::state::StateAccessor;
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_crypto::sign::{dilithium::DilithiumPublicKey, eddsa::Ed25519PublicKey};
 use depin_sdk_types::app::{
@@ -38,7 +38,7 @@ fn verify_signature(
                     Err("Ed25519 signature verification failed".into())
                 }
             } else {
-                Err("Could not decode Ed25519 public key".into())
+                Err("Could not decode Ed25519 public key".to_string())
             }
         }
         SignatureSuite::Dilithium2 => {
@@ -53,10 +53,15 @@ fn verify_signature(
     }
 }
 
+/// A tuple containing the three core components needed for signature verification:
+/// the header (with nonce and account ID), the proof (with key and signature),
+/// and the canonical bytes that were signed.
+type SignatureComponents<'a> = (&'a SignHeader, &'a SignatureProof, Vec<u8>);
+
 /// Extracts the signature components from a transaction by borrowing, if it is a signed type.
-fn get_signature_components<'a>(
-    tx: &'a ChainTransaction,
-) -> Result<Option<(&'a SignHeader, &'a SignatureProof, Vec<u8>)>, TransactionError> {
+fn get_signature_components(
+    tx: &ChainTransaction,
+) -> Result<Option<SignatureComponents<'_>>, TransactionError> {
     match tx {
         ChainTransaction::System(sys_tx) => match &sys_tx.payload {
             depin_sdk_types::app::SystemPayload::VerifyForeignReceipt { .. }
@@ -129,7 +134,7 @@ fn enforce_credential_policy(
 }
 
 /// Verifies the signature of a transaction against the on-chain credentials or allows bootstrapping.
-pub fn verify_transaction_signature<S: StateManager + Send>(
+pub fn verify_transaction_signature<S: StateAccessor>(
     state: &S,
     services: &ServiceDirectory,
     tx: &ChainTransaction,

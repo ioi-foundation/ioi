@@ -4,7 +4,12 @@
 
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use depin_sdk_forge::testing::{build_test_artifacts, submit_transaction, TestCluster};
+use depin_sdk_forge::testing::{
+    build_test_artifacts, submit_transaction,
+    poll::{wait_for_quarantine_status, wait_for_height},
+    rpc::get_quarantined_set,
+    TestCluster,
+};
 use depin_sdk_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
@@ -15,40 +20,14 @@ use depin_sdk_types::{
     config::InitialServiceConfig,
     keys::{
         ACCOUNT_ID_TO_PUBKEY_PREFIX, AUTHORITY_SET_KEY, IDENTITY_CREDENTIALS_PREFIX,
-        QUARANTINED_VALIDATORS_KEY,
     },
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
-use reqwest::Client;
 use serde_json::json;
 use std::collections::{BTreeMap, BTreeSet};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tokio::time;
-
-async fn query_state_key(rpc_addr: &str, key: &[u8]) -> Result<Option<Vec<u8>>> {
-    let client = Client::new();
-    let request_body = json!({
-        "jsonrpc": "2.0", "method": "query_state", "params": [hex::encode(key)], "id": 1
-    });
-    let rpc_url = format!("http://{}/rpc", rpc_addr);
-    let response: serde_json::Value = client
-        .post(&rpc_url)
-        .json(&request_body)
-        .send()
-        .await?
-        .json()
-        .await?;
-    if let Some(error) = response.get("error") {
-        if !error.is_null() {
-            return Err(anyhow!("RPC error: {}", error));
-        }
-    }
-    match response["result"].as_str() {
-        Some(hex_val) if !hex_val.is_empty() => Ok(Some(hex::decode(hex_val)?)),
-        _ => Ok(None),
-    }
-}
 
 fn create_report_tx(
     reporter_key: &Keypair,
@@ -178,9 +157,9 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
     let offender2 = &offender2_slice[0];
 
     let rpc_addr = &reporter.rpc_addr;
-    let _orch_logs = reporter.orch_log_stream.lock().await.take().unwrap();
 
-    tokio::time::sleep(Duration::from_secs(10)).await;
+    // Wait for network to be ready
+    wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
 
     // Action 1: Quarantine the first offender. This should succeed.
     let offender1_pk_bytes = offender1.keypair.public().encode_protobuf();
@@ -192,28 +171,13 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
 
     // Assert 1: Poll state until the offender is quarantined.
     println!("Waiting for offender to be quarantined...");
-    let mut quarantine_bytes = None;
-    for _ in 0..15 {
-        time::sleep(Duration::from_secs(2)).await;
-        if let Some(bytes) = query_state_key(rpc_addr, QUARANTINED_VALIDATORS_KEY).await? {
-            quarantine_bytes = Some(bytes);
-            break;
-        }
-    }
-    let final_quarantine_bytes =
-        quarantine_bytes.ok_or_else(|| anyhow!("Quarantine key was never created in state"))?;
+    wait_for_quarantine_status(rpc_addr, &offender1_id, true, Duration::from_secs(20)).await?;
 
-    let quarantine_list: BTreeSet<AccountId> =
-        codec::from_bytes_canonical(&final_quarantine_bytes).map_err(|e| anyhow!(e))?;
-
-    assert!(
-        quarantine_list.contains(&offender1_id),
-        "Offender was not quarantined"
-    );
-    assert_eq!(quarantine_list.len(), 1);
+    let quarantine_list = get_quarantined_set(rpc_addr).await?;
+    assert_eq!(quarantine_list.len(), 1, "Quarantine list should have one member");
     println!("SUCCESS: First offender was correctly quarantined.");
 
-    // Action 2: Try to quarantine the second offender. This should fail the liveness check.
+    // Action 2: Try to quarantine the second offender. This should be accepted by mempool but rejected by state machine.
     let offender2_pk_bytes = offender2.keypair.public().encode_protobuf();
     let offender2_id_hash =
         account_id_from_key_material(SignatureSuite::Ed25519, &offender2_pk_bytes)?;
@@ -221,29 +185,20 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
     let tx2 = create_report_tx(&reporter.keypair, offender2_id, 1)?; // increment nonce
     submit_transaction(rpc_addr, &tx2).await?;
 
-    // Assert 2: Liveness guard rejected the transaction by asserting state hasn't changed.
-    let deadline = Instant::now() + Duration::from_secs(30);
-    loop {
-        time::sleep(Duration::from_secs(2)).await;
-
-        let bytes_opt = query_state_key(rpc_addr, QUARANTINED_VALIDATORS_KEY).await?;
-        let set: BTreeSet<AccountId> = bytes_opt
-            .map(|b| codec::from_bytes_canonical(&b))
-            .transpose()
-            .map_err(|e| anyhow!("Failed to decode quarantine set from state: {}", e))?
-            .unwrap_or_default();
-
-        if set.len() == 1 && set.contains(&offender1_id) {
-            break; // Success: second quarantine was correctly rejected and state is unchanged.
-        }
-        if Instant::now() > deadline {
-            anyhow::bail!(
-                "Expected liveness guard to prevent second quarantine; set = {:?}",
-                set
-            );
-        }
+    // Assert 2: Liveness guard rejected the transaction by asserting state hasn't changed after a delay.
+    time::sleep(Duration::from_secs(10)).await;
+    let final_quarantine_list = get_quarantined_set(rpc_addr).await?;
+    if final_quarantine_list.contains(&offender2_id) {
+        return Err(anyhow!(
+            "Liveness guard failed: second offender was quarantined."
+        ));
     }
-    println!("SUCCESS: Liveness guard kept quarantine set at size 1.");
+    assert_eq!(
+        final_quarantine_list.len(),
+        1,
+        "Quarantine list size should remain 1"
+    );
 
+    println!("SUCCESS: Liveness guard kept quarantine set at size 1.");
     Ok(())
 }

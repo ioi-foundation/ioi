@@ -11,4 +11,6 @@ pub struct TxContext<'a> {
     pub chain_id: u32,
     /// A read-only directory of available blockchain services.
     pub services: &'a ServiceDirectory,
+    /// If true, the transaction is being simulated and should not have side effects.
+    pub simulation: bool,
 }

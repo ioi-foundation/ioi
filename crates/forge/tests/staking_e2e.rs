@@ -5,7 +5,7 @@
 use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_forge::testing::{
-    assert_log_contains, build_test_artifacts, submit_transaction, TestCluster,
+    build_test_artifacts, poll::wait_for_height, rpc::get_stake, submit_transaction, TestCluster,
 };
 use depin_sdk_types::app::AccountId;
 use depin_sdk_types::app::{
@@ -21,6 +21,7 @@ use depin_sdk_types::service_configs::MigrationConfig;
 use libp2p::identity::Keypair;
 use serde_json::json;
 use std::collections::BTreeMap;
+use std::time::Duration;
 
 // Helper function to create a signed system transaction
 fn create_system_tx(
@@ -132,32 +133,30 @@ async fn test_staking_lifecycle() -> Result<()> {
         .build()
         .await?;
 
-    // 3. GET HANDLES: Get mutable references to the nodes and their log streams.
-    let (node0, node1, node2) = {
+    // 3. GET HANDLES
+    let (node0, node1, _node2) = {
         let mut it = cluster.validators.iter_mut();
         (it.next().unwrap(), it.next().unwrap(), it.next().unwrap())
     };
     let rpc_addr = node0.rpc_addr.clone();
 
-    let node1_account_id_hash = account_id_from_key_material(
+    let node0_account_id = AccountId(account_id_from_key_material(
+        SignatureSuite::Ed25519,
+        &node0.keypair.public().encode_protobuf(),
+    )?);
+    let node1_account_id = AccountId(account_id_from_key_material(
         SignatureSuite::Ed25519,
         &node1.keypair.public().encode_protobuf(),
-    )?;
-    let node1_account_id_hex = hex::encode(node1_account_id_hash);
+    )?);
 
-    let mut logs1 = node1.orch_log_stream.lock().await.take().unwrap();
-    let mut logs2 = node2.orch_log_stream.lock().await.take().unwrap();
-
-    // 4. PRE-CONDITION: Wait for the network to be active by seeing the first block gossiped.
-    assert_log_contains("Node2", &mut logs2, "Received gossiped block #1").await?;
+    // 4. PRE-CONDITION: Wait for the network to be active by reaching height 1.
+    wait_for_height(&rpc_addr, 1, Duration::from_secs(20)).await?;
 
     // 5. ACTION: Submit staking transactions via Node0's RPC.
-    // Transaction 1: Node0 (the current leader) unstakes all its funds.
     let unstake_payload = SystemPayload::Unstake { amount: 100_000 };
     let unstake_tx = create_system_tx(&node0.keypair, unstake_payload, 0)?;
     submit_transaction(&rpc_addr, &unstake_tx).await?;
 
-    // Transaction 2: Node1 stakes some funds to become the new (and only) validator.
     let stake_payload = SystemPayload::Stake {
         public_key: node1.keypair.public().encode_protobuf(),
         amount: 50_000,
@@ -165,20 +164,14 @@ async fn test_staking_lifecycle() -> Result<()> {
     let stake_tx = create_system_tx(&node1.keypair, stake_payload, 0)?;
     submit_transaction(&rpc_addr, &stake_tx).await?;
 
-    // 6. VERIFICATION: Wait for the ultimate desired outcome: Node1 is elected as the leader.
-    // The state transition happens at the end of block 2, so the new leader is for block 3.
-    // --- FIX: Correct the expected log message format to match the new hex output ---
-    let expected_leader_log = format!(
-        "[PoS] Leader for height 3: AccountId(0x{})",
-        node1_account_id_hex
-    );
+    // 6. VERIFICATION: Wait for the next block to be processed, then verify the state.
+    wait_for_height(&rpc_addr, 2, Duration::from_secs(20)).await?;
 
-    assert_log_contains(
-        "Node1", // We can check any node's log, as they all run the same consensus.
-        &mut logs1,
-        &expected_leader_log,
-    )
-    .await?;
+    let final_stake_node0 = get_stake(&rpc_addr, &node0_account_id).await?.unwrap_or(0);
+    assert_eq!(final_stake_node0, 0, "Node 0 stake should be 0");
+
+    let final_stake_node1 = get_stake(&rpc_addr, &node1_account_id).await?.unwrap_or(0);
+    assert_eq!(final_stake_node1, 50_000, "Node 1 stake should be 50000");
 
     println!("--- Staking Lifecycle E2E Test Passed ---");
     Ok(())

@@ -6,7 +6,7 @@ use depin_sdk_types::error::StateError;
 
 /// A dyn-safe trait that erases the generic `StateManager` type, allowing
 /// services to interact with state without knowing its concrete implementation.
-pub trait StateAccessor: Send {
+pub trait StateAccessor: Send + Sync {
     /// Gets a value by key.
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError>;
     /// Inserts a key-value pair.
@@ -18,7 +18,7 @@ pub trait StateAccessor: Send {
 }
 
 // Blanket implementation to allow any `StateManager` to be used as a `StateAccessor`.
-impl<T: StateManager + Send + ?Sized> StateAccessor for T {
+impl<T: StateManager + Send + Sync + ?Sized> StateAccessor for T {
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
         // Since we can't call T::get directly on a trait object `self`,
         // we must call the methods defined in the StateCommitment supertrait.

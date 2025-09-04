@@ -12,12 +12,11 @@ use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_consensus::Consensus;
-use depin_sdk_crypto::algorithms::hash::sha256;
 use depin_sdk_transaction_models::system::{nonce, validation};
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{
     account_id_from_key_material, AccountId, ActiveKeyRecord, Block, BlockHeader, ChainStatus,
-    ChainTransaction, FailureReport, SignatureSuite, SystemPayload,
+    ChainTransaction, FailureReport, SignatureSuite, StateAnchor, StateRoot, SystemPayload,
 };
 use depin_sdk_types::codec;
 use depin_sdk_types::config::ConsensusType;
@@ -62,7 +61,7 @@ pub struct ChainState<CS: CommitmentScheme + Clone> {
     pub max_recent_blocks: usize,
     /// Last committed state root. Initialized to the genesis root in `load_or_initialize_status`,
     /// then updated after every successful block commit.
-    pub last_state_root: Vec<u8>,
+    pub last_state_root: StateRoot,
 }
 
 pub struct Chain<CS: CommitmentScheme + Clone, ST: StateManager> {
@@ -146,7 +145,7 @@ where
             status,
             recent_blocks: Vec::new(),
             max_recent_blocks: 100,
-            last_state_root: vec![],
+            last_state_root: StateRoot(vec![]),
         };
 
         Self {
@@ -184,14 +183,14 @@ where
             Err(e) => return Err(ChainError::Transaction(e.to_string())),
         }
         // compute current root and publish anchor for genesis state
-        let root_vec = state.root_commitment().as_ref().to_vec();
+        let root = StateRoot(state.root_commitment().as_ref().to_vec());
         drop(state);
-        let root_for_anchor: [u8; 32] = sha256(&root_vec).try_into().unwrap();
+        let root_anchor = root.to_anchor();
         self.workload_container
-            .publish_anchor_snapshot::<CS>(root_for_anchor)
+            .publish_anchor_snapshot::<CS>(root_anchor)
             .await;
         // remember the genesis state root so H=1 can reference the correct parent
-        self.state.last_state_root = root_vec;
+        self.state.last_state_root = root;
         Ok(())
     }
 
@@ -232,15 +231,15 @@ where
 
 // A concrete implementation of StateView for the Chain.
 pub struct StateViewImpl<ST: StateManager> {
-    state_root: [u8; 32],
+    state_anchor: StateAnchor,
     workload: Arc<WorkloadContainer<ST>>,
     consensus_type: ConsensusType,
 }
 
 #[async_trait]
 impl<ST: StateManager + Send + Sync + 'static> StateView for StateViewImpl<ST> {
-    fn state_root(&self) -> &[u8] {
-        &self.state_root
+    fn state_anchor(&self) -> &StateAnchor {
+        &self.state_anchor
     }
 
     async fn validator_set(&self) -> Result<Vec<AccountId>, ChainError> {
@@ -248,7 +247,7 @@ impl<ST: StateManager + Send + Sync + 'static> StateView for StateViewImpl<ST> {
             ConsensusType::ProofOfAuthority => {
                 let bytes = self
                     .workload
-                    .get_at(self.state_root, AUTHORITY_SET_KEY)
+                    .get_at(self.state_anchor.0, AUTHORITY_SET_KEY)
                     .await
                     .ok_or_else(|| {
                         ChainError::State(StateError::KeyNotFound(
@@ -261,7 +260,7 @@ impl<ST: StateManager + Send + Sync + 'static> StateView for StateViewImpl<ST> {
             ConsensusType::ProofOfStake => {
                 let bytes = self
                     .workload
-                    .get_at(self.state_root, STAKES_KEY_CURRENT)
+                    .get_at(self.state_anchor.0, STAKES_KEY_CURRENT)
                     .await
                     .ok_or_else(|| {
                         ChainError::State(StateError::KeyNotFound(
@@ -283,13 +282,13 @@ impl<ST: StateManager + Send + Sync + 'static> StateView for StateViewImpl<ST> {
     }
 
     async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, ChainError> {
-        Ok(self.workload.get_at(self.state_root, key).await)
+        Ok(self.workload.get_at(self.state_anchor.0, key).await)
     }
 
     async fn active_consensus_key(&self, acct: &AccountId) -> Option<ActiveKeyRecord> {
         const KEY_PREFIX: &[u8] = b"identity::key_record::";
         let key = [KEY_PREFIX, acct.as_ref()].concat();
-        let bytes = self.workload.get_at(self.state_root, &key).await?;
+        let bytes = self.workload.get_at(self.state_anchor.0, &key).await?;
         codec::from_bytes_canonical(&bytes).ok()
     }
 }
@@ -300,9 +299,9 @@ where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
 {
-    fn view_at(&self, state_root: &[u8; 32]) -> Result<Box<dyn StateView>, ChainError> {
+    fn view_at(&self, anchor: &StateAnchor) -> Result<Box<dyn StateView>, ChainError> {
         let view = StateViewImpl {
-            state_root: *state_root,
+            state_anchor: *anchor,
             workload: self.workload_container.clone(),
             consensus_type: self.consensus_engine.consensus_type(),
         };
@@ -353,6 +352,7 @@ where
             block_height,
             chain_id,
             services: &self.services,
+            simulation: false, // This is actual execution, not a simulation.
         };
 
         if let ChainTransaction::System(sys_tx) = tx {
@@ -500,27 +500,25 @@ where
             }
         }
 
-        // --- FIX START: Gate this PoS-specific logic ---
         if height > 0 && self.consensus_engine.consensus_type() == ConsensusType::ProofOfStake {
-            // --- FIX END ---
             let state_tree_arc = workload.state_tree();
             let mut state = state_tree_arc.lock().await;
 
-            // Epoch transition: The stakes for this block are whatever was decided in the last block.
-            let stakes_for_current_block = match state.get(STAKES_KEY_NEXT)? {
-                Some(next_bytes) => {
-                    state.insert(STAKES_KEY_CURRENT, &next_bytes)?;
-                    next_bytes
-                }
-                None => {
-                    // Fallback for the first few blocks if NEXT isn't set yet.
-                    // If CURRENT doesn't exist either, it's an empty vec, which is fine.
-                    state.get(STAKES_KEY_CURRENT)?.unwrap_or_default()
-                }
-            };
-            // The starting point for the *next* block's stakes is the current one.
-            // Any staking txs in this block will modify this copy in STAKES_KEY_NEXT.
-            state.insert(STAKES_KEY_NEXT, &stakes_for_current_block)?;
+            // --- REFACTOR START: Correct Epoch Transition Logic ---
+            // 1. Determine the stake set for the CURRENT block. This is whatever was in NEXT at the end of the last block.
+            //    If NEXT doesn't exist (e.g., first few blocks), fall back to CURRENT.
+            let stakes_for_this_block = state
+                .get(STAKES_KEY_NEXT)?
+                .or(state.get(STAKES_KEY_CURRENT)?)
+                .unwrap_or_default();
+
+            // 2. Set CURRENT to this stake set.
+            state.insert(STAKES_KEY_CURRENT, &stakes_for_this_block)?;
+
+            // 3. Set NEXT to this same set. Transactions in the current block (like slashing)
+            //    will now correctly modify this copy, which will become the basis for the *next* block.
+            state.insert(STAKES_KEY_NEXT, &stakes_for_this_block)?;
+            // --- REFACTOR END ---
         }
 
         let current_validator_set = self.get_next_validator_set(workload).await?;
@@ -542,6 +540,7 @@ where
                 block_height: height,
                 chain_id: self.state.chain_id.parse().unwrap_or(1),
                 services: &self.services,
+                simulation: false, // This is actual execution.
             };
             for service in self.services.services() {
                 if let Some(hook) = service.as_on_end_block() {
@@ -555,14 +554,14 @@ where
 
         let state_tree_arc = workload.state_tree();
         let mut state = state_tree_arc.lock().await;
-        let new_state_root_vec = state.root_commitment().as_ref().to_vec();
+        let new_state_root = StateRoot(state.root_commitment().as_ref().to_vec());
 
         if is_producing {
-            block.header.state_root = new_state_root_vec.clone();
-        } else if block.header.state_root != new_state_root_vec {
+            block.header.state_root = new_state_root.clone();
+        } else if block.header.state_root.0 != new_state_root.0 {
             return Err(BlockError::MismatchedStateRoot {
-                expected: hex::encode(&new_state_root_vec),
-                got: hex::encode(&block.header.state_root),
+                expected: hex::encode(new_state_root.as_ref()),
+                got: hex::encode(block.header.state_root.as_ref()),
             }
             .into());
         }
@@ -572,20 +571,15 @@ where
         let status_bytes = serde_json::to_vec(&self.state.status)
             .map_err(|e| ChainError::Transaction(format!("Failed to serialize status: {e}")))?;
         state.insert(STATUS_KEY, &status_bytes)?;
-        let root_to_publish = new_state_root_vec;
+        let root_to_publish = new_state_root;
 
-        // --- FIX START: Release the state lock before publishing the snapshot ---
-        // IMPORTANT: release the state lock before taking it again inside publish_anchor_snapshot
         drop(state);
 
-        // Publish anchored snapshot for this root (so H+1 decisions can read at H)
-        let root_for_anchor: [u8; 32] = sha256(&root_to_publish).try_into().unwrap();
+        let root_anchor = root_to_publish.to_anchor();
         self.workload_container
-            .publish_anchor_snapshot::<CS>(root_for_anchor)
+            .publish_anchor_snapshot::<CS>(root_anchor)
             .await;
-        // --- FIX END ---
 
-        // Remember the new committed root for subsequent block building.
         self.state.last_state_root = root_to_publish;
 
         let validator_set_for_h_plus_1 = self.get_next_validator_set(workload).await?;
@@ -611,8 +605,6 @@ where
                 b.header.state_root.clone(),
             )
         } else {
-            // At H=1 there is no prior block; parent hash stays zero,
-            // but the parent *state root* must be the actual genesis root.
             ([0; 32], self.state.last_state_root.clone())
         };
 
@@ -629,7 +621,7 @@ where
             height: self.state.status.height + 1,
             parent_hash,
             parent_state_root,
-            state_root: vec![], // Filled in by `process_block`
+            state_root: StateRoot(vec![]),
             transactions_root: vec![0; 32],
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -681,8 +673,6 @@ where
                     Some(bytes) => {
                         let account_ids: Vec<AccountId> = codec::from_bytes_canonical(&bytes)
                             .map_err(|e| ChainError::State(StateError::InvalidValue(e)))?;
-                        // This method is now informational, so we convert back to the old format.
-                        // A better refactor would remove this method entirely.
                         let mut peer_id_bytes = Vec::new();
                         for id in account_ids {
                             let key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, id.as_ref()].concat();

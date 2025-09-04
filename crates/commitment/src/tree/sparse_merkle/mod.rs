@@ -59,7 +59,7 @@ pub struct SparseMerkleProof {
 }
 
 /// Sparse Merkle tree implementation
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SparseMerkleTree<CS: CommitmentScheme> {
     root: Node,
     scheme: CS,
