@@ -209,6 +209,7 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
         let parent_state_anchor = header.parent_state_root.to_anchor();
         let parent_view = chain_view
             .view_at(&parent_state_anchor)
+            .await
             .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?;
 
         let validator_set = parent_view

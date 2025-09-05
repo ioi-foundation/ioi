@@ -248,13 +248,15 @@ pub async fn run_rpc_server(
     listen_address: &str,
     tx_pool: Arc<Mutex<VecDeque<ChainTransaction>>>,
     workload_client: Arc<WorkloadClient>,
-    swarm_command_sender: mpsc::Sender<SwarmCommand>,
+    swarm_commander: mpsc::Sender<SwarmCommand>,
     config: OrchestrationConfig,
 ) -> Result<JoinHandle<()>> {
     let app_state = Arc::new(RpcAppState {
         tx_pool,
         workload_client,
-        swarm_command_sender,
+        // --- FIX START: Change the variable name to match the struct field ---
+        swarm_command_sender: swarm_commander,
+        // --- FIX END ---
         config,
     });
 

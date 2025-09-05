@@ -4,12 +4,24 @@
 
 use depin_sdk_api::vm::{ExecutionContext, ExecutionOutput};
 use depin_sdk_types::app::{
-    AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction, StateAnchor,
+    AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction, Membership, StateAnchor,
+    StateRoot,
 };
 use depin_sdk_types::error::ValidatorError;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+/// A versioned response for a proof-verified state query.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct QueryStateAtResponse {
+    pub msg_version: u32,
+    pub scheme_id: u16,
+    pub scheme_version: u16,
+    pub membership: Membership,
+    pub proof_bytes: Vec<u8>,
+}
+
+type StateWithProofResult = Result<QueryStateAtResponse, String>;
 type DeployResult = Result<(Vec<u8>, std::collections::HashMap<Vec<u8>, Vec<u8>>), String>;
 type CallResult = Result<(ExecutionOutput, std::collections::HashMap<Vec<u8>, Vec<u8>>), String>;
 type QueryResult = Result<ExecutionOutput, String>;
@@ -64,7 +76,7 @@ pub enum WorkloadRequest {
     PrefixScan(Vec<u8>),
     QueryRawState(Vec<u8>),
     QueryStateAt {
-        anchor: StateAnchor,
+        root: StateRoot,
         key: Vec<u8>,
     },
     GetValidatorSetAt {
@@ -97,7 +109,7 @@ pub enum WorkloadResponse {
     CallService(Result<serde_json::Value, String>),
     PrefixScan(ScanResult),
     QueryRawState(Result<Option<Vec<u8>>, String>),
-    QueryStateAt(Result<Option<Vec<u8>>, String>),
+    QueryStateAt(StateWithProofResult),
     GetValidatorSetAt(Result<Vec<AccountId>, String>),
     GetActiveKeyAt(Result<Option<ActiveKeyRecord>, String>),
     GetStakedValidators(StakesResult),

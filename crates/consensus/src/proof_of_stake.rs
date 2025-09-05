@@ -28,7 +28,6 @@ impl Default for ProofOfStakeEngine {
 async fn read_stakes(
     view: &dyn StateView,
 ) -> Result<BTreeMap<AccountId, StakeAmount>, ConsensusError> {
-    // --- FIX: Read from STAKES_KEY_NEXT, with a fallback to STAKES_KEY_CURRENT ---
     // The leader for the upcoming block (H) is determined by the state of stakes
     // at the end of the previous block (H-1), which is stored in the 'next' key.
     match view
@@ -171,12 +170,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
         }
 
         if let Some(leader_account_id) = self.select_leader(height, &stakes) {
-            // --- FIX: The log message was using the Debug format for AccountId instead of hex.
-            log::info!(
-                "[PoS] Leader for height {}: AccountId(0x{})",
-                height,
-                hex::encode(leader_account_id.as_ref())
-            );
             if leader_account_id == *our_account_id {
                 ConsensusDecision::ProduceBlock(vec![])
             } else {
@@ -201,6 +194,7 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
         let parent_state_anchor = header.parent_state_root.to_anchor();
         let parent_view_box = chain_view
             .view_at(&parent_state_anchor)
+            .await
             .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?;
         let parent_view = parent_view_box.as_ref();
 

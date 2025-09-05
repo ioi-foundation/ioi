@@ -97,7 +97,7 @@ where
         CV: depin_sdk_api::chain::ChainView<Self::CommitmentScheme, ST> + Send + Sync + ?Sized,
     {
         let state_tree_arc = workload.state_tree();
-        let mut state = state_tree_arc.lock().await;
+        let mut state = state_tree_arc.write().await;
 
         // Stateful validation
         if tx.inputs.is_empty() {

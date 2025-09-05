@@ -94,3 +94,7 @@ wasmtime = { version = "19.0.1" }
 
 # Codecs
 parity-scale-codec = { version = "3", features = ["derive"] }
+
+# Caching
+lru = { version = "0.12.3" }
+dashmap = { version = "5.5" }

@@ -12,6 +12,7 @@ use crate::tree::verkle::proof::{
 use crate::tree::verkle::verify::verify_path_with_scheme;
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::{StateCommitment, StateManager};
+use depin_sdk_types::app::Membership;
 use depin_sdk_types::error::StateError;
 use std::any::Any;
 use std::collections::HashMap;
@@ -290,6 +291,29 @@ impl StateCommitment for VerkleTree<KZGCommitmentScheme> {
 }
 
 impl StateManager for VerkleTree<KZGCommitmentScheme> {
+    fn get_with_proof_at(
+        &self,
+        _root: &Self::Commitment,
+        key: &[u8],
+    ) -> Result<(Membership, Self::Proof), StateError> {
+        let membership = match self.get(key)? {
+            Some(value) => Membership::Present(value),
+            None => Membership::Absent,
+        };
+        let proof = self
+            .create_proof(key)
+            .ok_or_else(|| StateError::Backend("Failed to generate Verkle proof".to_string()))?;
+        Ok((membership, proof))
+    }
+
+    fn commitment_from_bytes(&self, bytes: &[u8]) -> Result<Self::Commitment, StateError> {
+        Ok(KZGCommitment::from(bytes.to_vec()))
+    }
+
+    fn commitment_to_bytes(&self, c: &Self::Commitment) -> Vec<u8> {
+        c.as_ref().to_vec()
+    }
+
     fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
         for (key, value) in updates {
             self.insert(key, value)?;
@@ -303,5 +327,10 @@ impl StateManager for VerkleTree<KZGCommitmentScheme> {
             results.push(self.get(key)?);
         }
         Ok(results)
+    }
+
+    fn prune(&mut self, _min_height_to_keep: u64) -> Result<(), StateError> {
+        // This is an in-memory, non-versioned tree. Pruning is a no-op.
+        Ok(())
     }
 }

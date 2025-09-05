@@ -13,7 +13,7 @@ use depin_sdk_network::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_network::BlockSync;
 use depin_sdk_services::external_data::ExternalDataService;
-use depin_sdk_types::app::{ChainTransaction, StateRoot};
+use depin_sdk_types::app::ChainTransaction;
 use depin_sdk_types::error::ValidatorError;
 use libp2p::identity;
 use serde::{Deserialize, Serialize};
@@ -37,6 +37,7 @@ mod oracle;
 mod peer_management;
 mod remote_state_view;
 mod sync;
+mod verifier_select;
 
 // --- Use statements for handler functions ---
 use consensus::handle_consensus_tick;
@@ -278,7 +279,7 @@ where
             "Network event receiver already taken".to_string(),
         ))?;
 
-        let genesis_root_vec = workload_client
+        let genesis_root = workload_client
             .get_state_root()
             .await
             .map_err(|e| ValidatorError::Other(format!("Failed to get genesis root: {}", e)))?;
@@ -292,14 +293,13 @@ where
             shutdown_receiver: self.shutdown_sender.subscribe(),
             consensus_engine_ref: self.consensus_engine.clone(),
             node_state: self.syncer.get_node_state(),
-            local_peer_id: self.syncer.get_local_peer_id(),
             local_keypair: self.local_keypair.clone(),
             known_peers_ref: self.syncer.get_known_peers(),
             config: self.config.clone(),
             is_quarantined: self.is_quarantined.clone(),
             external_data_service: self.external_data_service.clone(),
             pending_attestations: std::collections::HashMap::new(),
-            genesis_root: StateRoot(genesis_root_vec),
+            genesis_root,
             last_committed_block: None,
         };
 

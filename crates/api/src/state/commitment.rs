@@ -3,7 +3,7 @@
 
 use depin_sdk_types::error::StateError;
 use std::any::Any;
-use std::fmt::Debug; // Import Debug
+use std::fmt::Debug;
 
 /// A key-value pair from the state.
 pub type StateKVPair = (Vec<u8>, Vec<u8>);
@@ -15,11 +15,10 @@ pub type StateScanResult = Result<Vec<StateKVPair>, StateError>;
 /// A `StateCommitment` provides a key-value storage interface that can produce a
 /// single, verifiable cryptographic commitment (e.g., a Merkle root) over its entire state.
 pub trait StateCommitment: Debug {
-    // A trait for generic state commitment operations.
     /// The commitment type (e.g., a hash or an elliptic curve point).
-    type Commitment;
+    type Commitment: Clone + Send + Sync + 'static;
     /// The proof type (e.g., a Merkle proof or a Verkle proof).
-    type Proof;
+    type Proof: Clone + Send + Sync + 'static; // <-- FIX: Added Send + Sync + 'static bounds
 
     /// Gets a value by key.
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError>;
@@ -33,7 +32,7 @@ pub trait StateCommitment: Debug {
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof>;
     /// Verifies a proof against a given root commitment.
     fn verify_proof(
-        &self, // <-- FIX: Added &self to make the trait object-safe
+        &self,
         commitment: &Self::Commitment,
         proof: &Self::Proof,
         key: &[u8],
@@ -53,7 +52,6 @@ pub trait StateCommitment: Debug {
     fn prefix_scan(&self, prefix: &[u8]) -> StateScanResult;
 }
 
-// --- FIX START: Implement StateCommitment for Box<T> ---
 impl<T: StateCommitment + ?Sized> StateCommitment for Box<T> {
     type Commitment = T::Commitment;
     type Proof = T::Proof;
@@ -85,13 +83,10 @@ impl<T: StateCommitment + ?Sized> StateCommitment for Box<T> {
     fn as_any(&self) -> &dyn Any {
         (**self).as_any()
     }
-    // --- FIX START: Add the missing forwarder for export_kv_pairs ---
     fn export_kv_pairs(&self) -> Vec<(Vec<u8>, Vec<u8>)> {
         (**self).export_kv_pairs()
     }
-    // --- FIX END ---
     fn prefix_scan(&self, prefix: &[u8]) -> StateScanResult {
         (**self).prefix_scan(prefix)
     }
 }
-// --- FIX END ---

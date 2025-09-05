@@ -46,7 +46,7 @@ where
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
 {
     /// Obtain a read-only view anchored at a specific state anchor.
-    fn view_at(&self, anchor: &StateAnchor) -> Result<Box<dyn StateView>, ChainError>;
+    async fn view_at(&self, anchor: &StateAnchor) -> Result<Box<dyn StateView>, ChainError>;
 
     /// Provides access to the consensus-specific penalty mechanism.
     /// This now returns a Box<dyn Trait> to be object-safe.

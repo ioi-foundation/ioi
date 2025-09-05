@@ -27,8 +27,8 @@ serde_jcs = "0.1.0"
 depin-sdk-types = { path = "../types" }
 depin-sdk-api = { path = "../api" }
 depin-sdk-crypto = { path = "../crypto" }
-depin-sdk-validator = { path = "../validator" }
-depin-sdk-commitment = { path = "../commitment" }
+depin-sdk-validator = { path = "../validator", default-features = false }
+depin-sdk-commitment = { path = "../commitment", default-features = false }
 toml = { workspace = true }
 # Dependencies for testing helpers that are now part of the library
 reqwest = { workspace = true }
@@ -45,10 +45,9 @@ tar = "0.4"
 hyper = "0.14"
 dcrypt = { workspace = true }
 
-# Add node as a dependency to propagate features
-depin-sdk-node = { path = "../node", default-features = false }
-
 [dev-dependencies]
+# Bring node in as a dev-dependency so test builds can propagate features
+depin-sdk-node = { path = "../node", default-features = false }
 depin-sdk-services = { path = "../services" }
 base64 = { workspace = true }
 
@@ -63,18 +62,41 @@ path = "src/main.rs"
 
 [features]
 default = []
-# Features propagate to the node crate
-tree-file = ["depin-sdk-node/tree-file"]
-tree-hashmap = ["depin-sdk-node/tree-hashmap"]
-tree-iavl = ["depin-sdk-node/tree-iavl"]
-tree-sparse-merkle = ["depin-sdk-node/tree-sparse-merkle"]
-tree-verkle = ["depin-sdk-node/tree-verkle"]
-primitive-hash = ["depin-sdk-node/primitive-hash"]
-primitive-kzg = ["depin-sdk-node/primitive-kzg"]
+# Features must propagate to BOTH validator (orchestration bin) and node (all bins)
+tree-file = ["depin-sdk-validator/tree-file", "depin-sdk-node/tree-file"]
+tree-hashmap = [
+    "depin-sdk-validator/tree-hashmap",
+    "depin-sdk-node/tree-hashmap",
+]
+tree-iavl = ["depin-sdk-validator/tree-iavl", "depin-sdk-node/tree-iavl"]
+tree-sparse-merkle = [
+    "depin-sdk-validator/tree-sparse-merkle",
+    "depin-sdk-node/tree-sparse-merkle",
+]
+tree-verkle = ["depin-sdk-validator/tree-verkle", "depin-sdk-node/tree-verkle"]
+primitive-hash = [
+    "depin-sdk-validator/primitive-hash",
+    "depin-sdk-node/primitive-hash",
+]
+primitive-kzg = [
+    "depin-sdk-validator/primitive-kzg",
+    "depin-sdk-node/primitive-kzg",
+]
 
 # Other features also propagate
-validator-bins = ["depin-sdk-node/validator-bins"]
-vm-wasm = ["depin-sdk-node/vm-wasm"]
-consensus-round-robin = ["depin-sdk-node/consensus-round-robin"]
-consensus-poa = ["depin-sdk-node/consensus-poa"]
-consensus-pos = ["depin-sdk-node/consensus-pos"]
+vm-wasm = ["depin-sdk-validator/vm-wasm", "depin-sdk-node/vm-wasm"]
+consensus-round-robin = [
+    "depin-sdk-validator/consensus-round-robin",
+    "depin-sdk-node/consensus-round-robin",
+]
+consensus-poa = [
+    "depin-sdk-validator/consensus-poa",
+    "depin-sdk-node/consensus-poa",
+]
+consensus-pos = [
+    "depin-sdk-validator/consensus-pos",
+    "depin-sdk-node/consensus-pos",
+]
+
+# Feature for building the malicious binary for testing
+malicious-bin = ["depin-sdk-node/malicious-bin"]

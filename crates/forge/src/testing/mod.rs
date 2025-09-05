@@ -6,7 +6,7 @@
 
 pub mod backend;
 pub mod poll; // Add new module
-pub mod rpc;  // Add new module
+pub mod rpc; // Add new module
 
 use anyhow::{anyhow, Result};
 use backend::{DockerBackend, LogStream, ProcessBackend, TestBackend};
@@ -50,6 +50,12 @@ static DOCKER_BUILD_CHECK: OnceCell<()> = OnceCell::const_new();
 pub fn build_test_artifacts(node_features: &str) {
     BUILD.call_once(|| {
         println!("--- Building Test Artifacts (one-time setup) ---");
+        // Build the node with an explicit, deterministic feature set.
+        let resolved_features = resolve_node_features(node_features);
+        println!(
+            "--- Building node binaries with features: {} ---",
+            resolved_features
+        );
 
         let status_node = Command::new("cargo")
             .args([
@@ -59,7 +65,7 @@ pub fn build_test_artifacts(node_features: &str) {
                 "--release",
                 "--no-default-features",
                 "--features",
-                &format!("validator-bins,{}", node_features),
+                &format!("validator-bins,{}", resolved_features),
             ])
             .status()
             .expect("Failed to execute cargo build for node");
@@ -99,6 +105,83 @@ pub fn build_test_artifacts(node_features: &str) {
 
         println!("--- Test Artifacts built successfully ---");
     });
+}
+
+/// Infer a correct feature string for `depin-sdk-node` if the caller did not
+/// supply one with an explicit `tree-*` feature.
+fn resolve_node_features(user_supplied: &str) -> String {
+    fn has_tree_feature(s: &str) -> bool {
+        s.split(',').map(|f| f.trim()).any(|f| {
+            matches!(
+                f,
+                "tree-file" | "tree-hashmap" | "tree-iavl" | "tree-sparse-merkle" | "tree-verkle"
+            )
+        })
+    }
+
+    if !user_supplied.trim().is_empty() && has_tree_feature(user_supplied) {
+        return user_supplied.to_string();
+    }
+
+    let mut feats: Vec<&'static str> = Vec::new();
+
+    // --- State tree (must be exactly one) ---
+    let mut tree_count = 0usize;
+    if cfg!(feature = "tree-file") {
+        feats.push("tree-file");
+        tree_count += 1;
+    }
+    if cfg!(feature = "tree-hashmap") {
+        feats.push("tree-hashmap");
+        tree_count += 1;
+    }
+    if cfg!(feature = "tree-iavl") {
+        feats.push("tree-iavl");
+        tree_count += 1;
+    }
+    if cfg!(feature = "tree-sparse-merkle") {
+        feats.push("tree-sparse-merkle");
+        tree_count += 1;
+    }
+    if cfg!(feature = "tree-verkle") {
+        feats.push("tree-verkle");
+        tree_count += 1;
+    }
+    if tree_count == 0 {
+        panic!("No 'tree-*' feature was provided and none are enabled on depin-sdk-forge. Enable exactly one of: tree-file, tree-hashmap, tree-iavl, tree-sparse-merkle, tree-verkle.");
+    }
+    if tree_count > 1 {
+        panic!("Multiple 'tree-*' features are enabled on depin-sdk-forge. Enable exactly one.");
+    }
+
+    // --- Commitment primitives ---
+    if cfg!(feature = "primitive-hash") {
+        feats.push("primitive-hash");
+    }
+    if cfg!(feature = "primitive-kzg") {
+        feats.push("primitive-kzg");
+    }
+
+    // --- Consensus engines ---
+    if cfg!(feature = "consensus-poa") {
+        feats.push("consensus-poa");
+    }
+    if cfg!(feature = "consensus-pos") {
+        feats.push("consensus-pos");
+    }
+    if cfg!(feature = "consensus-round-robin") {
+        feats.push("consensus-round-robin");
+    }
+
+    // --- VMs / extras ---
+    if cfg!(feature = "vm-wasm") {
+        feats.push("vm-wasm");
+    }
+    if cfg!(feature = "malicious-bin") {
+        feats.push("malicious-bin");
+    }
+
+    feats.join(",")
 }
 
 /// Checks if the test Docker image exists and builds it if it doesn't.

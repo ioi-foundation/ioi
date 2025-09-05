@@ -1,12 +1,13 @@
 // Path: crates/commitment/src/tree/iavl/mod.rs
 //! IAVL (Immutable AVL) tree implementation with cryptographic security
 
-// --- NEW MODULES FOR PRODUCTION PROOFS ---
 mod proof;
 mod proof_builder;
+pub mod verifier;
 
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
 use depin_sdk_api::state::{StateCommitment, StateManager};
+use depin_sdk_types::app::Membership;
 use depin_sdk_types::error::StateError;
 use std::any::Any;
 use std::cmp::{max, Ordering};
@@ -372,6 +373,7 @@ where
 impl<CS: CommitmentScheme> StateCommitment for IAVLTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
+    CS::Commitment: From<Vec<u8>>,
     CS::Proof: AsRef<[u8]>,
 {
     type Commitment = CS::Commitment;
@@ -405,13 +407,13 @@ where
     }
 
     fn root_commitment(&self) -> Self::Commitment {
+        // Identity: commitment bytes ARE the IAVL root hash bytes.
         let root_hash = self
             .root
             .as_ref()
             .map(|n| n.hash.clone())
             .unwrap_or_else(|| vec![0u8; 32]);
-        let value = self.to_value(&root_hash);
-        self.scheme.commit(&[Some(value)])
+        <CS as CommitmentScheme>::Commitment::from(root_hash)
     }
 
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
@@ -473,8 +475,36 @@ where
 impl<CS: CommitmentScheme> StateManager for IAVLTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
+    CS::Commitment: From<Vec<u8>>,
     CS::Proof: AsRef<[u8]>,
 {
+    fn get_with_proof_at(
+        &self,
+        _root: &Self::Commitment,
+        key: &[u8],
+    ) -> Result<(Membership, Self::Proof), StateError> {
+        // NOTE: This implementation proves against the CURRENT state. A production
+        // system would need a versioned node store to prove against historical roots.
+        let membership = match self.get(key)? {
+            Some(value) => Membership::Present(value),
+            None => Membership::Absent,
+        };
+
+        let proof = self
+            .create_proof(key)
+            .ok_or_else(|| StateError::Backend("Failed to generate IAVL proof".to_string()))?;
+
+        Ok((membership, proof))
+    }
+
+    fn commitment_from_bytes(&self, bytes: &[u8]) -> Result<Self::Commitment, StateError> {
+        Ok(<CS as CommitmentScheme>::Commitment::from(bytes.to_vec()))
+    }
+
+    fn commitment_to_bytes(&self, c: &Self::Commitment) -> Vec<u8> {
+        c.as_ref().to_vec()
+    }
+
     fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
         for (key, value) in updates {
             self.insert(key, value)?;
@@ -488,5 +518,14 @@ where
             results.push(self.get(key)?);
         }
         Ok(results)
+    }
+
+    fn prune(&mut self, _min_height_to_keep: u64) -> Result<(), StateError> {
+        // A production-ready IAVL prune is complex. It would involve traversing the
+        // tree and removing nodes where `node.version < min_height_to_keep`, being
+        // careful not to remove nodes that are still part of the path to newer nodes.
+        // This is a placeholder to satisfy the trait.
+        log::info!("[IAVLTree] Prune called. (Note: Current implementation is a no-op)");
+        Ok(())
     }
 }

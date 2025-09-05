@@ -1,9 +1,11 @@
 // Path: crates/commitment/src/tree/file/mod.rs
 //! File-backed state tree with Merkle tree security
 
+pub mod verifier;
+
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
 use depin_sdk_api::state::{StateCommitment, StateManager};
-use depin_sdk_crypto::algorithms::hash; // Uses dcrypt::hash::sha2 underneath
+use depin_sdk_types::app::Membership;
 use depin_sdk_types::error::StateError;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
@@ -107,23 +109,15 @@ where
     fn generate_merkle_proof(&self, key_hex: &str) -> Option<Vec<u8>> {
         let keys: Vec<_> = self.state.data.keys().collect();
         let index = keys.iter().position(|k| k.as_str() == key_hex)?;
-        let leaves: Vec<Vec<u8>> = self
+        let mut current_level: Vec<Vec<u8>> = self
             .state
             .data
             .iter()
-            .map(|(k, v)| {
-                let mut data = Vec::new();
-                data.push(0x00);
-                data.extend_from_slice(k.as_bytes());
-                data.extend_from_slice(&(v.len() as u32).to_le_bytes());
-                data.extend_from_slice(v);
-                hash::sha256(&data)
-            })
+            .map(|(key, value)| CS::commit_leaf(key.as_bytes(), value))
             .collect();
         let mut siblings = Vec::new();
         let mut path = Vec::new();
         let mut current_index = index;
-        let mut current_level = leaves;
         while current_level.len() > 1 {
             let is_right = current_index % 2 == 1;
             path.push(is_right);
@@ -143,11 +137,7 @@ where
                 } else {
                     left
                 };
-                let mut data = Vec::new();
-                data.push(0x01);
-                data.extend_from_slice(left);
-                data.extend_from_slice(right);
-                next_level.push(hash::sha256(&data));
+                next_level.push(CS::commit_branch(left, right));
             }
             current_level = next_level;
             current_index /= 2;
@@ -171,7 +161,7 @@ where
     }
 
     /// **[COMPLETED]** Verify a Merkle proof against the commitment
-    fn verify_merkle_proof_internal(
+    pub(crate) fn verify_merkle_proof_internal(
         root_hash: &[u8],
         key_hex: &str,
         value: &[u8],
@@ -185,26 +175,16 @@ where
             }
         };
 
-        let mut leaf_data = Vec::new();
-        leaf_data.push(0x00);
-        leaf_data.extend_from_slice(key_hex.as_bytes());
-        leaf_data.extend_from_slice(&(value.len() as u32).to_le_bytes());
-        leaf_data.extend_from_slice(value);
-        let mut current_hash = hash::sha256(&leaf_data);
+        let mut current_hash = CS::commit_leaf(key_hex.as_bytes(), value);
 
         for (i, sibling) in siblings.iter().enumerate() {
-            let mut branch_data = Vec::new();
-            branch_data.push(0x01);
-            if path.get(i).copied().unwrap_or(false) {
-                branch_data.extend_from_slice(sibling);
-                branch_data.extend_from_slice(&current_hash);
+            current_hash = if path.get(i).copied().unwrap_or(false) {
+                CS::commit_branch(sibling, &current_hash)
             } else {
-                branch_data.extend_from_slice(&current_hash);
-                branch_data.extend_from_slice(sibling);
-            }
-            current_hash = hash::sha256(&branch_data);
+                CS::commit_branch(&current_hash, sibling)
+            };
         }
-        current_hash == root_hash
+        current_hash.as_slice() == root_hash
     }
 
     fn deserialize_proof(proof_data: &[u8]) -> Result<(Vec<Vec<u8>>, Vec<bool>), String> {
@@ -243,7 +223,8 @@ where
 impl<CS> StateCommitment for FileStateTree<CS>
 where
     CS: CommitmentScheme + Clone + Send + Sync,
-    CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
+    CS::Value: From<Vec<u8>> + Send + Sync + AsRef<[u8]> + std::fmt::Debug,
+    CS::Commitment: From<Vec<u8>>,
     CS::Proof: AsRef<[u8]>,
 {
     type Commitment = <CS as CommitmentScheme>::Commitment;
@@ -271,8 +252,8 @@ where
     }
 
     fn root_commitment(&self) -> Self::Commitment {
-        let value = CS::Value::from(self.state.merkle_root.clone());
-        self.scheme.commit(&[Some(value)])
+        // Identity: the commitment bytes ARE the Merkle root bytes.
+        <CS as CommitmentScheme>::Commitment::from(self.state.merkle_root.clone())
     }
 
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
@@ -331,8 +312,33 @@ impl<CS> StateManager for FileStateTree<CS>
 where
     CS: CommitmentScheme + Clone + Send + Sync,
     CS::Value: From<Vec<u8>> + Send + Sync + AsRef<[u8]> + std::fmt::Debug,
+    CS::Commitment: From<Vec<u8>>,
     CS::Proof: AsRef<[u8]>,
 {
+    fn get_with_proof_at(
+        &self,
+        _root: &Self::Commitment, // Note: This implementation proves against the current root
+        key: &[u8],
+    ) -> Result<(Membership, Self::Proof), StateError> {
+        let key_hex = hex::encode(key);
+        let membership = match self.state.data.get(&key_hex) {
+            Some(value) => Membership::Present(value.clone()),
+            None => Membership::Absent,
+        };
+        let proof = self.create_proof(key).ok_or_else(|| {
+            StateError::Backend("Failed to generate Merkle proof for FileStateTree".to_string())
+        })?;
+        Ok((membership, proof))
+    }
+
+    fn commitment_from_bytes(&self, bytes: &[u8]) -> Result<Self::Commitment, StateError> {
+        Ok(<CS as CommitmentScheme>::Commitment::from(bytes.to_vec()))
+    }
+
+    fn commitment_to_bytes(&self, c: &Self::Commitment) -> Vec<u8> {
+        c.as_ref().to_vec()
+    }
+
     fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
         for (key, value) in updates {
             let key_hex = hex::encode(key);
@@ -350,5 +356,11 @@ where
             values.push(self.state.data.get(&key_hex).cloned());
         }
         Ok(values)
+    }
+
+    fn prune(&mut self, _min_height_to_keep: u64) -> Result<(), StateError> {
+        // The FileStateTree is not versioned, so pruning is a no-op.
+        log::warn!("[FileStateTree] Prune called, but this state tree is not versioned. Operation is a no-op.");
+        Ok(())
     }
 }

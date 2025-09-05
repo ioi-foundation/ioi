@@ -286,6 +286,7 @@ impl GovernanceModule {
 mod tests {
     use super::*;
     use depin_sdk_api::state::StateCommitment;
+    use depin_sdk_types::app::Membership;
     use depin_sdk_types::error::StateError;
     use std::any::Any;
     use std::collections::BTreeMap;
@@ -351,6 +352,23 @@ mod tests {
         }
         fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
             keys.iter().map(|key| self.get(key)).collect()
+        }
+        fn get_with_proof_at(
+            &self,
+            _root: &Self::Commitment,
+            _key: &[u8],
+        ) -> Result<(Membership, Self::Proof), StateError> {
+            unimplemented!("MockStateManager does not support proof generation")
+        }
+        fn commitment_from_bytes(&self, bytes: &[u8]) -> Result<Self::Commitment, StateError> {
+            Ok(bytes.to_vec())
+        }
+        fn commitment_to_bytes(&self, c: &Self::Commitment) -> Vec<u8> {
+            c.clone()
+        }
+        fn prune(&mut self, _min_height_to_keep: u64) -> Result<(), StateError> {
+            // No-op for this in-memory mock
+            Ok(())
         }
     }
 
