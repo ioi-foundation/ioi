@@ -75,14 +75,14 @@ async fn test_staking_lifecycle() -> Result<()> {
             chain_id: 1,
         }))
         .with_genesis_modifier(|genesis, keys| {
+            // Grant initial stake only to the first validator (the bootnode) to ensure it's the sole
+            // leader at genesis, allowing the chain to start without waiting for peers.
+            let initial_stake = 100_000u64;
             let mut stakes = BTreeMap::new();
-            let initial_staker_account_id_hash = account_id_from_key_material(
-                SignatureSuite::Ed25519,
-                &keys[0].public().encode_protobuf(),
-            )
-            .unwrap();
-            let initial_staker_account_id = AccountId(initial_staker_account_id_hash);
-            stakes.insert(initial_staker_account_id, 100_000u64);
+            let pk_bytes_0 = keys[0].public().encode_protobuf();
+            let account_id_hash_0 =
+                account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes_0).unwrap();
+            stakes.insert(AccountId(account_id_hash_0), initial_stake);
 
             let stakes_bytes = codec::to_bytes_canonical(&stakes);
             let stakes_b64 = format!("b64:{}", BASE64_STANDARD.encode(&stakes_bytes));
@@ -139,6 +139,7 @@ async fn test_staking_lifecycle() -> Result<()> {
         (it.next().unwrap(), it.next().unwrap(), it.next().unwrap())
     };
     let rpc_addr = node0.rpc_addr.clone();
+    let rpc_addr_node1 = node1.rpc_addr.clone();
 
     let node0_account_id = AccountId(account_id_from_key_material(
         SignatureSuite::Ed25519,
@@ -149,14 +150,19 @@ async fn test_staking_lifecycle() -> Result<()> {
         &node1.keypair.public().encode_protobuf(),
     )?);
 
-    // 4. PRE-CONDITION: Wait for the network to be active by reaching height 1.
+    // 4. PRE-CONDITION: Wait for the chain to start and for the eventual leader (node-1) to be ready.
+    // node-0 (bootnode) reaches H=1 first...
     wait_for_height(&rpc_addr, 1, Duration::from_secs(20)).await?;
+    // ...then ensure node-1 has also received block #1 before we rotate leadership to it.
+    wait_for_height(&rpc_addr_node1, 1, Duration::from_secs(30)).await?;
 
     // 5. ACTION: Submit staking transactions via Node0's RPC.
+    // Node 0 unstakes its full amount.
     let unstake_payload = SystemPayload::Unstake { amount: 100_000 };
     let unstake_tx = create_system_tx(&node0.keypair, unstake_payload, 0)?;
     submit_transaction(&rpc_addr, &unstake_tx).await?;
 
+    // Node 1 stakes a new amount.
     let stake_payload = SystemPayload::Stake {
         public_key: node1.keypair.public().encode_protobuf(),
         amount: 50_000,
@@ -164,13 +170,15 @@ async fn test_staking_lifecycle() -> Result<()> {
     let stake_tx = create_system_tx(&node1.keypair, stake_payload, 0)?;
     submit_transaction(&rpc_addr, &stake_tx).await?;
 
-    // 6. VERIFICATION: Wait for the next block to be processed, then verify the state.
-    wait_for_height(&rpc_addr, 2, Duration::from_secs(20)).await?;
+    // 6. VERIFICATION: Wait two blocks for stake changes to become effective, then verify the state.
+    // H=2 is produced with old stake set. H=3 is produced with new stake set.
+    wait_for_height(&rpc_addr, 3, Duration::from_secs(60)).await?;
 
     let final_stake_node0 = get_stake(&rpc_addr, &node0_account_id).await?.unwrap_or(0);
     assert_eq!(final_stake_node0, 0, "Node 0 stake should be 0");
 
     let final_stake_node1 = get_stake(&rpc_addr, &node1_account_id).await?.unwrap_or(0);
+    // Node 1 starts with 0 stake and adds 50_000.
     assert_eq!(final_stake_node1, 50_000, "Node 1 stake should be 50000");
 
     println!("--- Staking Lifecycle E2E Test Passed ---");

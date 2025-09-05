@@ -107,7 +107,7 @@ where
 
                     if !state_delta.is_empty() {
                         let state_tree_arc = workload.state_tree();
-                        let mut state = state_tree_arc.lock().await;
+                        let mut state = state_tree_arc.write().await;
                         let versioned_delta: Vec<(Vec<u8>, Vec<u8>)> = state_delta
                             .into_iter()
                             .map(|(key, value)| {
@@ -146,7 +146,7 @@ where
 
                     if !state_delta.is_empty() {
                         let state_tree_arc = workload.state_tree();
-                        let mut state = state_tree_arc.lock().await;
+                        let mut state = state_tree_arc.write().await;
                         let versioned_delta: Vec<(Vec<u8>, Vec<u8>)> = state_delta
                             .into_iter()
                             .map(|(key, value)| {
@@ -164,16 +164,12 @@ where
             },
             ChainTransaction::System(sys_tx) => {
                 let state_tree_arc = workload.state_tree();
-                let mut state = state_tree_arc.lock().await;
+                let mut state = state_tree_arc.write().await;
 
                 match sys_tx.payload.clone() {
                     SystemPayload::Stake { public_key, amount } => {
-                        // --- FIX START: Use the authenticated AccountId from the transaction header ---
                         let staker_account_id = sys_tx.header.account_id;
 
-                        // Optional but recommended: Verify that the provided public key actually
-                        // matches the signer's AccountId. This prevents one account from
-                        // trying to set the public key for another account.
                         let derived_pk_hash = account_id_from_key_material(
                             sys_tx.signature_proof.suite,
                             &public_key,
@@ -184,8 +180,6 @@ where
                                     .to_string(),
                             ));
                         }
-                        // --- FIX END ---
-
                         let pubkey_map_key =
                             [ACCOUNT_ID_TO_PUBKEY_PREFIX, staker_account_id.as_ref()].concat();
                         if state.get(&pubkey_map_key)?.is_none() {
@@ -196,7 +190,8 @@ where
                             .get(STAKES_KEY_NEXT)?
                             .or(state.get(STAKES_KEY_CURRENT)?);
                         let mut stakes: BTreeMap<AccountId, u64> = base_stakes_bytes
-                            .map(|b| codec::from_bytes_canonical(&b).unwrap_or_default())
+                            .as_ref()
+                            .map(|b: &Vec<u8>| codec::from_bytes_canonical(b).unwrap_or_default())
                             .unwrap_or_default();
                         let current_stake = stakes.entry(staker_account_id).or_insert(0);
                         *current_stake = current_stake.saturating_add(amount);
@@ -210,7 +205,8 @@ where
                             .get(STAKES_KEY_NEXT)?
                             .or(state.get(STAKES_KEY_CURRENT)?);
                         let mut stakes: BTreeMap<AccountId, u64> = base_stakes_bytes
-                            .map(|b| codec::from_bytes_canonical(&b).unwrap_or_default())
+                            .as_ref()
+                            .map(|b: &Vec<u8>| codec::from_bytes_canonical(b).unwrap_or_default())
                             .unwrap_or_default();
                         let current_stake = stakes.entry(staker_account_id).or_insert(0);
                         *current_stake = current_stake.saturating_sub(amount);
@@ -221,9 +217,8 @@ where
                     SystemPayload::UpdateAuthorities {
                         mut new_authorities,
                     } => {
-                        // Enforce canonical ordering to guarantee a deterministic state root.
                         new_authorities.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
-                        new_authorities.dedup(); // Prevent duplicates.
+                        new_authorities.dedup();
                         let bytes = codec::to_bytes_canonical(&new_authorities);
                         state.insert(AUTHORITY_SET_KEY, &bytes)?;
                         Ok(())

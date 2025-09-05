@@ -1,41 +1,39 @@
 // Path: crates/validator/src/standard/orchestration/gossip.rs
 use super::context::MainLoopContext;
 use super::oracle::handle_newly_processed_block;
-use crate::standard::orchestration::remote_state_view::RemoteStateView;
+use super::remote_state_view::RemoteStateView;
+use crate::standard::orchestration::verifier_select::DefaultVerifier;
+use async_trait::async_trait;
 use depin_sdk_api::chain::{ChainView, StateView};
 use depin_sdk_api::commitment::CommitmentScheme;
-use depin_sdk_api::consensus::PenaltyMechanism;
-use depin_sdk_api::state::StateCommitment;
-use depin_sdk_api::state::{StateAccessor, StateManager};
-use depin_sdk_types::app::{FailureReport, StateAnchor};
+use depin_sdk_api::consensus::{ConsensusEngine, PenaltyMechanism};
+use depin_sdk_api::state::{StateAccessor, StateCommitment, StateManager};
+use depin_sdk_network::traits::NodeState;
+use depin_sdk_types::app::{
+    Block, ChainTransaction, FailureReport, StateAnchor, StateRoot, SystemPayload,
+};
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::TransactionError;
-
-use depin_sdk_api::consensus::ConsensusEngine;
-use depin_sdk_network::traits::NodeState;
-use depin_sdk_types::app::{Block, ChainTransaction, SystemPayload, SystemTransaction};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashSet, VecDeque};
 use std::fmt::Debug;
+use std::sync::Arc;
 
 #[derive(Debug)]
 struct WorkloadChainView {
-    client: std::sync::Arc<depin_sdk_client::WorkloadClient>,
+    client: Arc<depin_sdk_client::WorkloadClient>,
     consensus: ConsensusType,
 }
 
 impl WorkloadChainView {
-    fn new(
-        client: std::sync::Arc<depin_sdk_client::WorkloadClient>,
-        consensus: ConsensusType,
-    ) -> Self {
+    fn new(client: Arc<depin_sdk_client::WorkloadClient>, consensus: ConsensusType) -> Self {
         Self { client, consensus }
     }
 }
 
 // No-op penalty to satisfy the trait; not used during proposal verification.
 struct NoopPenalty;
-#[async_trait::async_trait]
+#[async_trait]
 impl PenaltyMechanism for NoopPenalty {
     async fn apply_penalty(
         &self,
@@ -46,19 +44,34 @@ impl PenaltyMechanism for NoopPenalty {
     }
 }
 
-#[async_trait::async_trait]
+#[async_trait]
 impl<CS, ST> ChainView<CS, ST> for WorkloadChainView
 where
     CS: CommitmentScheme + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
 {
-    fn view_at(
+    async fn view_at(
         &self,
         anchor: &StateAnchor,
     ) -> Result<Box<dyn StateView>, depin_sdk_types::error::ChainError> {
+        // Temporary fallback: we don't yet have a historical root mapping.
+        // Use the current root instead of (incorrectly) treating the anchor as a root.
+        let root = match self.client.get_state_root().await {
+            Ok(r) => r,
+            Err(e) => {
+                log::warn!(
+                    "[Gossip] get_state_root() failed ({}); falling back to anchor bytes as root (weak).",
+                    e
+                );
+                StateRoot(anchor.0.to_vec())
+            }
+        };
+        let verifier = DefaultVerifier;
         Ok(Box::new(RemoteStateView::new(
             *anchor,
+            root,
             self.client.clone(),
+            verifier,
             self.consensus,
         )))
     }

@@ -1,20 +1,38 @@
 // Path: crates/types/src/app/mod.rs
 //! Core application-level data structures like Blocks and Transactions.
 
-// --- MODIFICATION START ---
-// Expose the new submodules for identity and penalty data structures.
 pub mod identity;
 pub mod penalties;
 
 pub use identity::*;
 pub use penalties::*;
-// --- MODIFICATION END ---
 
 use crate::ibc::{UniversalExecutionReceipt, UniversalProofFormat};
 use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
 use dcrypt::algorithms::ByteSerializable;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
+
+/// Represents the proven outcome of a key's existence in the state.
+/// This enum is canonically encoded for transport and storage.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub enum Membership {
+    /// The key is present in the state with the associated value.
+    Present(Vec<u8>),
+    /// The key is provably absent from the state.
+    Absent,
+}
+
+impl Membership {
+    /// Consumes the Membership enum and returns an Option<Vec<u8>>, which is a
+    /// common pattern for application logic using the verified result.
+    pub fn into_option(self) -> Option<Vec<u8>> {
+        match self {
+            Membership::Present(v) => Some(v),
+            Membership::Absent => None,
+        }
+    }
+}
 
 /// A versioned entry in the state tree, containing the actual value
 /// along with metadata about when it was last modified.
@@ -56,7 +74,6 @@ pub struct StateRoot(pub Vec<u8>);
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct StateAnchor(pub [u8; 32]);
 
-// --- FIX START: Manually implement Encode/Decode for the newtypes ---
 impl Encode for StateRoot {
     fn encode_to<T: parity_scale_codec::Output + ?Sized>(&self, dest: &mut T) {
         self.0.encode_to(dest);
@@ -82,7 +99,6 @@ impl Decode for StateAnchor {
         Ok(StateAnchor(<[u8; 32]>::decode(input)?))
     }
 }
-// --- FIX END ---
 
 impl StateRoot {
     /// Computes the deterministic anchor key for this state root.
@@ -510,13 +526,11 @@ pub enum SystemPayload {
         /// The block height at which the upgrade becomes active.
         activation_height: u64,
     },
-    // --- MODIFICATION START ---
     /// Reports misbehavior by another agentic component, providing verifiable evidence.
     ReportMisbehavior {
         /// The full report, including the offender, facts, and proof.
         report: FailureReport,
     },
-    // --- MODIFICATION END ---
     /// Casts a vote on a governance proposal.
     Vote {
         /// The unique identifier of the proposal being voted on.

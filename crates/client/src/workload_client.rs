@@ -1,12 +1,12 @@
 // Path: crates/client/src/workload_client.rs
-use crate::ipc::{WorkloadRequest, WorkloadResponse};
+use crate::ipc::{QueryStateAtResponse, WorkloadRequest, WorkloadResponse};
 use crate::security::SecurityChannel;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use depin_sdk_api::consensus::ChainStateReader;
 use depin_sdk_api::vm::{ExecutionContext, ExecutionOutput};
 use depin_sdk_types::app::{
-    AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction, StateAnchor,
+    AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction, StateAnchor, StateRoot,
 };
 use depin_sdk_types::keys::ACCOUNT_ID_TO_PUBKEY_PREFIX;
 use libp2p::identity::PublicKey;
@@ -181,13 +181,11 @@ impl WorkloadClient {
         }
     }
 
-    pub async fn get_state_root(&self) -> Result<Vec<u8>> {
+    pub async fn get_state_root(&self) -> Result<StateRoot> {
         let request = WorkloadRequest::GetStateRoot;
         match self.send_and_receive(request).await? {
-            WorkloadResponse::GetStateRoot(res) => res.map_err(|e: String| anyhow!(e)),
-            _ => Err(anyhow!(
-                "Invalid response type from workload for GetStateRoot"
-            )),
+            WorkloadResponse::GetStateRoot(res) => res.map(StateRoot).map_err(|e| anyhow!(e)),
+            _ => Err(anyhow!("Invalid response type for GetStateRoot")),
         }
     }
 
@@ -231,16 +229,18 @@ impl WorkloadClient {
         }
     }
 
-    pub async fn query_state_at(&self, anchor: StateAnchor, key: &[u8]) -> Result<Option<Vec<u8>>> {
+    pub async fn query_state_at(
+        &self,
+        root: StateRoot,
+        key: &[u8],
+    ) -> Result<QueryStateAtResponse> {
         let request = WorkloadRequest::QueryStateAt {
-            anchor,
+            root,
             key: key.to_vec(),
         };
         match self.send_and_receive(request).await? {
             WorkloadResponse::QueryStateAt(res) => res.map_err(|e| anyhow!(e)),
-            _ => Err(anyhow!(
-                "Invalid response type from workload for QueryStateAt"
-            )),
+            _ => Err(anyhow!("Invalid response type for QueryStateAt")),
         }
     }
 

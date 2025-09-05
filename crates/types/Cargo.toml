@@ -15,7 +15,7 @@ serde_json = { workspace = true }
 libp2p = { workspace = true }
 bcs = "0.1"
 parity-scale-codec = { workspace = true }
-prost = { workspace = true }                        # <-- FIX: Add prost dependency
+prost = { workspace = true }
 
 [features]
 default = []

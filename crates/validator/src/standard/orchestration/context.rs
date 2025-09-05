@@ -43,17 +43,14 @@ where
     pub shutdown_receiver: watch::Receiver<bool>,
     pub consensus_engine_ref: Arc<Mutex<CE>>,
     pub node_state: Arc<Mutex<NodeState>>,
-    pub local_peer_id: PeerId,
     pub local_keypair: identity::Keypair,
     pub known_peers_ref: Arc<Mutex<HashSet<PeerId>>>,
     pub config: OrchestrationConfig,
     pub is_quarantined: Arc<AtomicBool>,
     pub external_data_service: ExternalDataService,
     pub pending_attestations: HashMap<u64, Vec<OracleAttestation>>,
-    // --- FIX START: Add new fields to track the chain tip ---
     /// The root of the initial (genesis) state.
     pub genesis_root: StateRoot,
     /// The most recent block that has been successfully processed and committed.
     pub last_committed_block: Option<Block<ChainTransaction>>,
-    // --- FIX END ---
 }

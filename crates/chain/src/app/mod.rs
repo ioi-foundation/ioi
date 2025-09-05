@@ -162,7 +162,7 @@ where
         workload: &WorkloadContainer<ST>,
     ) -> Result<(), ChainError> {
         let state_tree = workload.state_tree();
-        let mut state = state_tree.lock().await;
+        let mut state = state_tree.write().await;
         match state.get(STATUS_KEY) {
             Ok(Some(status_bytes)) => {
                 let status: ChainStatus = serde_json::from_slice(&status_bytes).map_err(|e| {
@@ -182,26 +182,19 @@ where
             }
             Err(e) => return Err(ChainError::Transaction(e.to_string())),
         }
-        // compute current root and publish anchor for genesis state
+
         let root = StateRoot(state.root_commitment().as_ref().to_vec());
-        drop(state);
-        let root_anchor = root.to_anchor();
-        self.workload_container
-            .publish_anchor_snapshot::<CS>(root_anchor)
-            .await;
-        // remember the genesis state root so H=1 can reference the correct parent
         self.state.last_state_root = root;
         Ok(())
     }
 
-    // This function is now async to correctly lock the mutex.
     async fn get_validator_set_from_key(
         &self,
         workload: &WorkloadContainer<ST>,
         key: &[u8],
     ) -> Result<Vec<Vec<u8>>, ChainError> {
         let state_tree_arc = workload.state_tree();
-        let state = state_tree_arc.lock().await;
+        let state = state_tree_arc.read().await;
         match state.get(key)? {
             Some(bytes) => {
                 let stakers: BTreeMap<AccountId, u64> = codec::from_bytes_canonical(&bytes)
@@ -230,46 +223,40 @@ where
 }
 
 // A concrete implementation of StateView for the Chain.
-pub struct StateViewImpl<ST: StateManager> {
-    state_anchor: StateAnchor,
-    workload: Arc<WorkloadContainer<ST>>,
+pub struct ChainStateView<ST: StateManager> {
+    state_tree: Arc<tokio::sync::RwLock<ST>>,
+    anchor: StateAnchor,
     consensus_type: ConsensusType,
 }
 
 #[async_trait]
-impl<ST: StateManager + Send + Sync + 'static> StateView for StateViewImpl<ST> {
+impl<ST: StateManager + Send + Sync + 'static> StateView for ChainStateView<ST> {
     fn state_anchor(&self) -> &StateAnchor {
-        &self.state_anchor
+        &self.anchor
     }
 
     async fn validator_set(&self) -> Result<Vec<AccountId>, ChainError> {
+        let state = self.state_tree.read().await;
         match self.consensus_type {
             ConsensusType::ProofOfAuthority => {
-                let bytes = self
-                    .workload
-                    .get_at(self.state_anchor.0, AUTHORITY_SET_KEY)
-                    .await
-                    .ok_or_else(|| {
-                        ChainError::State(StateError::KeyNotFound(
-                            "Authority set not found".to_string(),
-                        ))
-                    })?;
+                let bytes = state.get(AUTHORITY_SET_KEY)?.ok_or_else(|| {
+                    ChainError::State(StateError::KeyNotFound(
+                        "Authority set not found".to_string(),
+                    ))
+                })?;
                 codec::from_bytes_canonical(&bytes)
                     .map_err(|e| ChainError::State(StateError::InvalidValue(e)))
             }
             ConsensusType::ProofOfStake => {
-                let bytes = self
-                    .workload
-                    .get_at(self.state_anchor.0, STAKES_KEY_CURRENT)
-                    .await
-                    .ok_or_else(|| {
-                        ChainError::State(StateError::KeyNotFound(
-                            "Current stakes not found".to_string(),
-                        ))
-                    })?;
+                let bytes = match state.get(STAKES_KEY_CURRENT)? {
+                    Some(b) => b,
+                    None => match state.get(STAKES_KEY_NEXT)? {
+                        Some(b) => b,
+                        None => return Ok(Vec::new()),
+                    },
+                };
                 let stakes: BTreeMap<AccountId, u64> = codec::from_bytes_canonical(&bytes)
                     .map_err(|e| ChainError::State(StateError::InvalidValue(e)))?;
-
                 let mut validators: Vec<AccountId> = stakes
                     .into_iter()
                     .filter(|(_, s)| *s > 0)
@@ -282,13 +269,15 @@ impl<ST: StateManager + Send + Sync + 'static> StateView for StateViewImpl<ST> {
     }
 
     async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, ChainError> {
-        Ok(self.workload.get_at(self.state_anchor.0, key).await)
+        let state = self.state_tree.read().await;
+        state.get(key).map_err(ChainError::State)
     }
 
     async fn active_consensus_key(&self, acct: &AccountId) -> Option<ActiveKeyRecord> {
         const KEY_PREFIX: &[u8] = b"identity::key_record::";
         let key = [KEY_PREFIX, acct.as_ref()].concat();
-        let bytes = self.workload.get_at(self.state_anchor.0, &key).await?;
+        let state = self.state_tree.read().await;
+        let bytes = state.get(&key).ok()??;
         codec::from_bytes_canonical(&bytes).ok()
     }
 }
@@ -299,17 +288,16 @@ where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
 {
-    fn view_at(&self, anchor: &StateAnchor) -> Result<Box<dyn StateView>, ChainError> {
-        let view = StateViewImpl {
-            state_anchor: *anchor,
-            workload: self.workload_container.clone(),
+    async fn view_at(&self, anchor: &StateAnchor) -> Result<Box<dyn StateView>, ChainError> {
+        let view = ChainStateView {
+            state_tree: self.workload_container.state_tree(),
+            anchor: *anchor,
             consensus_type: self.consensus_engine.consensus_type(),
         };
         Ok(Box::new(view))
     }
 
     fn get_penalty_mechanism(&self) -> Box<dyn PenaltyMechanism + Send + Sync + '_> {
-        // Return a delegator that borrows the engine and forwards apply_penalty.
         Box::new(PenaltyDelegator {
             inner: &self.consensus_engine,
         })
@@ -352,7 +340,7 @@ where
             block_height,
             chain_id,
             services: &self.services,
-            simulation: false, // This is actual execution, not a simulation.
+            simulation: false,
         };
 
         if let ChainTransaction::System(sys_tx) = tx {
@@ -363,7 +351,7 @@ where
             } = &sys_tx.payload
             {
                 let state_tree_arc = workload.state_tree();
-                let state = state_tree_arc.lock().await;
+                let state = state_tree_arc.read().await;
                 let gov_pk_bs58_val = state
                     .get(GOVERNANCE_KEY)?
                     .ok_or_else(|| ChainError::Transaction("Governance key not set".into()))?;
@@ -410,34 +398,36 @@ where
 
         let state_tree_arc = workload.state_tree();
 
-        // === READ-ONLY VALIDATION PHASE ===
-        let state = state_tree_arc.lock().await;
-        nonce::assert_next_nonce(&*state, tx)?;
-        validation::verify_transaction_signature(&*state, &self.services, tx, &ctx)?;
-        drop(state);
+        // === Phase 1: Read-only validation ===
+        // Acquire read lock in a narrow scope.
+        {
+            let state = state_tree_arc.read().await;
+            nonce::assert_next_nonce(&*state, tx)?;
+            validation::verify_transaction_signature(&*state, &self.services, tx, &ctx)?;
+        } // Read lock is released here.
 
-        // === READ-WRITE VALIDATION & EXECUTION PHASE ===
-        let mut state = state_tree_arc.lock().await;
+        // === Phase 2: Write-based validation & Ante Handlers ===
+        // Acquire write lock in a new, narrow scope.
+        {
+            let mut state = state_tree_arc.write().await;
 
-        // Re-assert Nonce under write lock to prevent TOCTOU races.
-        nonce::assert_next_nonce(&*state, tx)?;
+            // Re-assert Nonce under write lock to prevent TOCTOU races.
+            nonce::assert_next_nonce(&*state, tx)?;
+            preflight_capabilities(&self.services, tx)?;
 
-        // Capability Pre-check (BEFORE ante handlers to fail fast).
-        preflight_capabilities(&self.services, tx)?;
-
-        // Optional Service Ante Handlers (in a stable, deterministic order).
-        for service in self.services.services_in_deterministic_order() {
-            if let Some(decorator) = service.as_tx_decorator() {
-                decorator.ante_handle(&mut *state, tx, &ctx)?;
+            // Ante Handlers (mutates state)
+            for service in self.services.services_in_deterministic_order() {
+                if let Some(decorator) = service.as_tx_decorator() {
+                    decorator.ante_handle(&mut *state, tx, &ctx)?;
+                }
             }
-        }
 
-        // Core Nonce Bump (Write) - The point of no return.
-        nonce::bump_nonce(&mut *state, tx)?;
+            // Core Nonce Bump (mutates state)
+            nonce::bump_nonce(&mut *state, tx)?;
+        } // Write lock is released here.
 
-        drop(state);
-
-        // PAYLOAD APPLICATION PHASE
+        // === Phase 3: Core Payload Application ===
+        // This function will now acquire its own write lock without contention.
         self.state
             .transaction_model
             .apply_payload(self, tx, workload, ctx)
@@ -470,7 +460,6 @@ where
                     b.header.state_root.clone(),
                 )
             } else {
-                // H=1: no previous block. Parent hash is zero; parent *state root* must be the actual genesis root.
                 ([0; 32], self.state.last_state_root.clone())
             };
 
@@ -502,23 +491,15 @@ where
 
         if height > 0 && self.consensus_engine.consensus_type() == ConsensusType::ProofOfStake {
             let state_tree_arc = workload.state_tree();
-            let mut state = state_tree_arc.lock().await;
+            let mut state = state_tree_arc.write().await;
 
-            // --- REFACTOR START: Correct Epoch Transition Logic ---
-            // 1. Determine the stake set for the CURRENT block. This is whatever was in NEXT at the end of the last block.
-            //    If NEXT doesn't exist (e.g., first few blocks), fall back to CURRENT.
             let stakes_for_this_block = state
                 .get(STAKES_KEY_NEXT)?
                 .or(state.get(STAKES_KEY_CURRENT)?)
                 .unwrap_or_default();
 
-            // 2. Set CURRENT to this stake set.
             state.insert(STAKES_KEY_CURRENT, &stakes_for_this_block)?;
-
-            // 3. Set NEXT to this same set. Transactions in the current block (like slashing)
-            //    will now correctly modify this copy, which will become the basis for the *next* block.
             state.insert(STAKES_KEY_NEXT, &stakes_for_this_block)?;
-            // --- REFACTOR END ---
         }
 
         let current_validator_set = self.get_next_validator_set(workload).await?;
@@ -540,11 +521,11 @@ where
                 block_height: height,
                 chain_id: self.state.chain_id.parse().unwrap_or(1),
                 services: &self.services,
-                simulation: false, // This is actual execution.
+                simulation: false,
             };
             for service in self.services.services() {
                 if let Some(hook) = service.as_on_end_block() {
-                    let mut state = state_tree_arc.lock().await;
+                    let mut state = state_tree_arc.write().await;
                     if let Err(e) = hook.on_end_block(&mut *state, &ctx) {
                         log::error!("End-of-block hook for a service failed: {}", e);
                     }
@@ -552,36 +533,32 @@ where
             }
         }
 
-        let state_tree_arc = workload.state_tree();
-        let mut state = state_tree_arc.lock().await;
-        let new_state_root = StateRoot(state.root_commitment().as_ref().to_vec());
+        // --- DEADLOCK FIX: Scope the write lock to this block ---
+        {
+            let state_tree_arc = workload.state_tree();
+            let mut state = state_tree_arc.write().await;
+            let new_state_root = StateRoot(state.root_commitment().as_ref().to_vec());
 
-        if is_producing {
-            block.header.state_root = new_state_root.clone();
-        } else if block.header.state_root.0 != new_state_root.0 {
-            return Err(BlockError::MismatchedStateRoot {
-                expected: hex::encode(new_state_root.as_ref()),
-                got: hex::encode(block.header.state_root.as_ref()),
+            if is_producing {
+                block.header.state_root = new_state_root.clone();
+            } else if block.header.state_root.0 != new_state_root.0 {
+                return Err(BlockError::MismatchedStateRoot {
+                    expected: hex::encode(new_state_root.as_ref()),
+                    got: hex::encode(block.header.state_root.as_ref()),
+                }
+                .into());
             }
-            .into());
-        }
 
-        self.state.status.height = height;
-        self.state.status.latest_timestamp = block.header.timestamp;
-        let status_bytes = serde_json::to_vec(&self.state.status)
-            .map_err(|e| ChainError::Transaction(format!("Failed to serialize status: {e}")))?;
-        state.insert(STATUS_KEY, &status_bytes)?;
-        let root_to_publish = new_state_root;
+            self.state.status.height = height;
+            self.state.status.latest_timestamp = block.header.timestamp;
+            let status_bytes = serde_json::to_vec(&self.state.status)
+                .map_err(|e| ChainError::Transaction(format!("Failed to serialize status: {e}")))?;
+            state.insert(STATUS_KEY, &status_bytes)?;
 
-        drop(state);
+            self.state.last_state_root = new_state_root;
+        } // <-- Write lock is dropped here
 
-        let root_anchor = root_to_publish.to_anchor();
-        self.workload_container
-            .publish_anchor_snapshot::<CS>(root_anchor)
-            .await;
-
-        self.state.last_state_root = root_to_publish;
-
+        // Now it's safe to call methods that might take a read lock.
         let validator_set_for_h_plus_1 = self.get_next_validator_set(workload).await?;
 
         self.state.recent_blocks.push(block.clone());
@@ -668,7 +645,7 @@ where
             }
             ConsensusType::ProofOfAuthority => {
                 let state_tree_arc = workload.state_tree();
-                let state = state_tree_arc.lock().await;
+                let state = state_tree_arc.read().await;
                 match state.get(AUTHORITY_SET_KEY)? {
                     Some(bytes) => {
                         let account_ids: Vec<AccountId> = codec::from_bytes_canonical(&bytes)
@@ -694,10 +671,10 @@ where
         workload: &WorkloadContainer<ST>,
     ) -> Result<BTreeMap<PublicKey, StakeAmount>, ChainError> {
         let state_tree_arc = workload.state_tree();
-        let state = state_tree_arc.lock().await;
+        let state = state_tree_arc.read().await;
         match state.get(STAKES_KEY_CURRENT)? {
-            Some(ref bytes) => {
-                let raw_map: BTreeMap<AccountId, u64> = codec::from_bytes_canonical(bytes)
+            Some(bytes) => {
+                let raw_map: BTreeMap<AccountId, u64> = codec::from_bytes_canonical(&bytes)
                     .map_err(|e| ChainError::State(StateError::InvalidValue(e)))?;
                 let stakes_map: BTreeMap<PublicKey, StakeAmount> = raw_map
                     .into_iter()
@@ -715,10 +692,10 @@ where
         workload: &WorkloadContainer<ST>,
     ) -> Result<BTreeMap<PublicKey, StakeAmount>, ChainError> {
         let state_tree_arc = workload.state_tree();
-        let state = state_tree_arc.lock().await;
+        let state = state_tree_arc.read().await;
         match state.get(STAKES_KEY_NEXT)? {
-            Some(ref bytes) => {
-                let raw_map: BTreeMap<AccountId, u64> = codec::from_bytes_canonical(bytes)
+            Some(bytes) => {
+                let raw_map: BTreeMap<AccountId, u64> = codec::from_bytes_canonical(&bytes)
                     .map_err(|e| ChainError::State(StateError::InvalidValue(e)))?;
                 let stakes_map: BTreeMap<PublicKey, StakeAmount> = raw_map
                     .into_iter()

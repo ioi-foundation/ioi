@@ -178,6 +178,7 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
         // 1. Obtain a read-only view of the PARENT state.
         let parent_view = chain_view
             .view_at(&parent_state_anchor)
+            .await
             .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?;
 
         // 2. Membership Check (against parent state)

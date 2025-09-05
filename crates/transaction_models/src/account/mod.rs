@@ -1,6 +1,5 @@
 // Path: crates/transaction_models/src/account/mod.rs
 use async_trait::async_trait;
-// use depin_sdk_api::chain::AppChain; // This line is removed to fix the warning
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::StateManager;
 use depin_sdk_api::transaction::context::TxContext;
@@ -110,7 +109,7 @@ where
         CV: depin_sdk_api::chain::ChainView<Self::CommitmentScheme, ST> + Send + Sync + ?Sized,
     {
         let state_tree_arc = workload.state_tree();
-        let mut state = state_tree_arc.lock().await;
+        let mut state = state_tree_arc.write().await;
 
         // Perform stateful validation just-in-time
         let sender_account = self.get_account(&*state, &tx.from)?;

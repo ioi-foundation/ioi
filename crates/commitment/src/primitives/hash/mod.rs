@@ -28,6 +28,12 @@ pub enum HashFunction {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HashCommitment(Vec<u8>);
 
+impl From<Vec<u8>> for HashCommitment {
+    fn from(v: Vec<u8>) -> Self {
+        HashCommitment(v)
+    }
+}
+
 impl AsRef<[u8]> for HashCommitment {
     fn as_ref(&self) -> &[u8] {
         &self.0

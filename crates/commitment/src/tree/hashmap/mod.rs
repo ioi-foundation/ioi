@@ -1,9 +1,11 @@
 // Path: crates/commitment/src/tree/hashmap/mod.rs
 //! HashMap-based state tree implementation with Merkle tree security
 
+pub mod verifier;
+
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
 use depin_sdk_api::state::{StateCommitment, StateManager};
-use depin_sdk_crypto::algorithms::hash; // Uses dcrypt::hash::sha2 underneath
+use depin_sdk_types::app::Membership;
 use depin_sdk_types::error::StateError;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
@@ -80,23 +82,14 @@ where
     fn generate_merkle_proof(&self, key: &[u8]) -> Option<MerkleProof> {
         let keys: Vec<_> = self.data.keys().collect();
         let index = keys.iter().position(|k| k.as_slice() == key)?;
-        let leaves: Vec<Vec<u8>> = self
+        let mut current_level: Vec<Vec<u8>> = self
             .data
             .iter()
-            .map(|(k, v)| {
-                let mut data = Vec::new();
-                data.push(0x00);
-                data.extend_from_slice(&(k.len() as u32).to_le_bytes());
-                data.extend_from_slice(k);
-                data.extend_from_slice(&(v.as_ref().len() as u32).to_le_bytes());
-                data.extend_from_slice(v.as_ref());
-                hash::sha256(&data)
-            })
+            .map(|(k, v)| CS::commit_leaf(k.as_slice(), v.as_ref()))
             .collect();
         let mut siblings = Vec::new();
         let mut path = Vec::new();
         let mut current_index = index;
-        let mut current_level = leaves;
         while current_level.len() > 1 {
             let is_right = current_index % 2 == 1;
             path.push(is_right);
@@ -116,11 +109,7 @@ where
                 } else {
                     left
                 };
-                let mut data = Vec::new();
-                data.push(0x01);
-                data.extend_from_slice(left);
-                data.extend_from_slice(right);
-                next_level.push(hash::sha256(&data));
+                next_level.push(CS::commit_branch(left, right));
             }
             current_level = next_level;
             current_index /= 2;
@@ -135,27 +124,16 @@ where
         value: &[u8],
         proof: &MerkleProof,
     ) -> bool {
-        let mut leaf_data = Vec::new();
-        leaf_data.push(0x00);
-        leaf_data.extend_from_slice(&(key.len() as u32).to_le_bytes());
-        leaf_data.extend_from_slice(key);
-        leaf_data.extend_from_slice(&(value.len() as u32).to_le_bytes());
-        leaf_data.extend_from_slice(value);
-        let mut current = hash::sha256(&leaf_data);
+        let mut current = CS::commit_leaf(key, value);
 
         for (i, sibling) in proof.siblings.iter().enumerate() {
-            let mut data = Vec::new();
-            data.push(0x01);
-            if proof.path[i] {
-                data.extend_from_slice(sibling);
-                data.extend_from_slice(&current);
+            current = if proof.path[i] {
+                CS::commit_branch(sibling, &current)
             } else {
-                data.extend_from_slice(&current);
-                data.extend_from_slice(sibling);
-            }
-            current = hash::sha256(&data);
+                CS::commit_branch(&current, sibling)
+            };
         }
-        current == root
+        current.as_slice() == root
     }
 
     fn invalidate_cache(&mut self) {
@@ -164,9 +142,9 @@ where
 }
 
 impl<CS: CommitmentScheme> StateCommitment for HashMapStateTree<CS>
-// <-- FIX: Removed Default
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
+    CS::Commitment: From<Vec<u8>>,
     CS::Proof: AsRef<[u8]>,
 {
     type Commitment = CS::Commitment;
@@ -189,13 +167,13 @@ where
     }
 
     fn root_commitment(&self) -> Self::Commitment {
+        // Identity: commitment bytes ARE the Merkle root bytes.
         let root = self
             .cached_root
             .as_ref()
             .cloned()
             .unwrap_or_else(|| self.compute_merkle_root());
-        let value = self.to_value(&root);
-        self.scheme.commit(&[Some(value)])
+        <CS as CommitmentScheme>::Commitment::from(root)
     }
 
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
@@ -247,11 +225,34 @@ where
 }
 
 impl<CS: CommitmentScheme> StateManager for HashMapStateTree<CS>
-// <-- FIX: Removed Default
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
+    CS::Commitment: From<Vec<u8>>,
     CS::Proof: AsRef<[u8]>,
 {
+    fn get_with_proof_at(
+        &self,
+        _root: &Self::Commitment,
+        key: &[u8],
+    ) -> Result<(Membership, Self::Proof), StateError> {
+        let membership = match self.data.get(key) {
+            Some(value) => Membership::Present(value.as_ref().to_vec()),
+            None => Membership::Absent,
+        };
+        let proof = self.create_proof(key).ok_or_else(|| {
+            StateError::Backend("Failed to generate Merkle proof for HashMapStateTree".to_string())
+        })?;
+        Ok((membership, proof))
+    }
+
+    fn commitment_from_bytes(&self, bytes: &[u8]) -> Result<Self::Commitment, StateError> {
+        Ok(<CS as CommitmentScheme>::Commitment::from(bytes.to_vec()))
+    }
+
+    fn commitment_to_bytes(&self, c: &Self::Commitment) -> Vec<u8> {
+        c.as_ref().to_vec()
+    }
+
     fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
         for (key, value) in updates {
             let value_typed = self.to_value(value);
@@ -267,5 +268,10 @@ where
             values.push(self.data.get(key).map(|v| v.as_ref().to_vec()));
         }
         Ok(values)
+    }
+
+    fn prune(&mut self, _min_height_to_keep: u64) -> Result<(), StateError> {
+        // This is an in-memory, non-versioned tree. Pruning is a no-op.
+        Ok(())
     }
 }

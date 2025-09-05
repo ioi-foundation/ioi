@@ -1,23 +1,20 @@
 // Path: crates/validator/src/standard/workload_ipc_server.rs
 
 use anyhow::Result;
-use depin_sdk_api::state::{StateAccessor, StateOverlay};
+use depin_sdk_api::chain::{AppChain, ChainView};
+use depin_sdk_api::state::{StateAccessor, StateManager, StateOverlay};
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
-use depin_sdk_api::{
-    chain::AppChain,
-    chain::ChainView,
-    commitment::CommitmentScheme,
-    validator::WorkloadContainer,
-};
+use depin_sdk_api::{commitment::CommitmentScheme, validator::WorkloadContainer};
 use depin_sdk_chain::Chain;
 use depin_sdk_client::{
-    ipc::{WorkloadRequest, WorkloadResponse},
+    ipc::{QueryStateAtResponse, WorkloadRequest, WorkloadResponse},
     security::SecurityChannel,
 };
 use depin_sdk_services::governance::GovernanceModule;
 use depin_sdk_types::app::{evidence_id, AccountId, ActiveKeyRecord, Proposal, ProposalStatus};
 use depin_sdk_types::codec;
+use depin_sdk_types::error::{StateError, TransactionError};
 use depin_sdk_types::keys::{
     EVIDENCE_REGISTRY_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, STAKES_KEY_CURRENT,
 };
@@ -26,6 +23,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::net::Ipv4Addr;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::{io::AsyncReadExt, sync::Mutex};
 use tokio_rustls::{
     rustls::{
@@ -35,7 +33,7 @@ use tokio_rustls::{
     TlsAcceptor,
 };
 
-fn create_ipc_server_config() -> Result<Arc<ServerConfig>> {
+pub(crate) fn create_ipc_server_config() -> Result<Arc<ServerConfig>> {
     let mut server_params = CertificateParams::new(vec!["workload".to_string()]);
     server_params.subject_alt_names = vec![
         SanType::DnsName("workload".to_string()),
@@ -55,10 +53,7 @@ fn create_ipc_server_config() -> Result<Arc<ServerConfig>> {
 
 pub struct WorkloadIpcServer<ST, CS>
 where
-    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Send
-        + Sync
-        + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
@@ -70,7 +65,7 @@ where
 
 impl<ST, CS> WorkloadIpcServer<ST, CS>
 where
-    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
         + 'static
@@ -115,6 +110,25 @@ where
             .await;
         log::info!("Workload: IPC connection established with Orchestration.");
 
+        let state_tree_for_gc = self.workload_container.state_tree();
+        let chain_for_gc = self.chain_arc.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(3600)); // Prune every hour
+            const PRUNE_HORIZON: u64 = 100_000; // Keep ~1 week of state @ 6s blocks
+
+            loop {
+                interval.tick().await;
+                let current_height = chain_for_gc.lock().await.status().height;
+                if let Some(min_height) = current_height.checked_sub(PRUNE_HORIZON) {
+                    log::info!("[GC] Pruning state versions older than height {}", min_height);
+                    let mut state = state_tree_for_gc.write().await;
+                    if let Err(e) = state.prune(min_height) {
+                        log::error!("[GC] State pruning failed: {}", e);
+                    }
+                }
+            }
+        });
+
         loop {
             let request_bytes = match ipc_channel.receive().await {
                 Ok(bytes) => bytes,
@@ -133,30 +147,61 @@ where
         Ok(())
     }
 
-    async fn handle_request(&self, request: WorkloadRequest) -> Result<WorkloadResponse> {
+    pub async fn handle_request(&self, request: WorkloadRequest) -> Result<WorkloadResponse> {
         let response = match request {
             WorkloadRequest::ProcessBlock(mut block) => {
-                let mut chain = self.chain_arc.lock().await;
+                let res: Result<_, String> = async {
+                    // --- Phase A: Pre-flight checks in a limited scope (READ-ONLY) ---
+                    // This prevents deadlocks by ensuring no read lock is held when calling
+                    // `chain.process_block`, which requires a write lock.
+                    {
+                        let chain = self.chain_arc.lock().await;
+                        let base_state_tree = self.workload_container.state_tree();
+                        let base_state = base_state_tree.read().await;
+                        let overlay = StateOverlay::new(&*base_state);
+                        let mut results = Vec::with_capacity(block.transactions.len());
+                        for tx in &block.transactions {
+                            let check_result = async {
+                                let status = chain.status().clone();
+                                let chain_id = chain.state.chain_id.parse().unwrap_or(1);
+                                let _ctx = TxContext {
+                                    block_height: status.height + 1,
+                                    chain_id,
+                                    services: &chain.services,
+                                    simulation: true,
+                                };
+                                depin_sdk_transaction_models::system::nonce::assert_next_nonce(&overlay, tx)?;
+                                Ok::<(), TransactionError>(())
+                            }
+                            .await
+                            .map_err(|e: TransactionError| e.to_string());
+                            results.push(check_result);
+                        }
+                        if let Some(err) = results.into_iter().find_map(|r| r.err()) {
+                            return Err(format!("Pre-flight check failed: {}", err));
+                        }
+                    } // Read lock is released here
 
-                if !block.transactions.iter().any(|tx| {
-                    matches!(
-                        tx,
-                        depin_sdk_types::app::ChainTransaction::Application(
-                            depin_sdk_types::app::ApplicationTransaction::UTXO(utxo)
-                        ) if utxo.inputs.is_empty()
-                    )
-                }) {
-                    let coinbase = chain.transaction_model().create_coinbase_transaction(
-                        block.header.height,
-                        &block.header.producer_account_id.0,
-                    )?;
-                    block.transactions.insert(0, coinbase);
-                }
+                    // --- Phase B: Coinbase addition and actual processing (WRITE) ---
+                    let mut chain = self.chain_arc.lock().await;
 
-                let res = chain
-                    .process_block(block, &self.workload_container)
-                    .await
-                    .map_err(|e| e.to_string());
+                    if !block.transactions.iter().any(|tx| {
+                        matches!(
+                            tx,
+                            depin_sdk_types::app::ChainTransaction::Application(
+                                depin_sdk_types::app::ApplicationTransaction::UTXO(utxo)
+                            ) if utxo.inputs.is_empty()
+                        )
+                    }) {
+                        let coinbase = chain.transaction_model().create_coinbase_transaction(
+                            block.header.height,
+                            &block.header.producer_account_id.0, // FIX: Use stable AccountId
+                        ).map_err(|e| e.to_string())?;
+                        block.transactions.insert(0, coinbase);
+                    }
+
+                    chain.process_block(block, &self.workload_container).await.map_err(|e| e.to_string())
+                }.await;
                 WorkloadResponse::ProcessBlock(Box::new(res))
             }
             WorkloadRequest::CheckTransactionsAt { anchor, txs } => {
@@ -169,7 +214,7 @@ where
                     }
 
                     let base_state_tree = self.workload_container.state_tree();
-                    let base_state = base_state_tree.lock().await;
+                    let base_state = base_state_tree.read().await;
                     let mut overlay = StateOverlay::new(&*base_state);
 
                     let mut results = Vec::with_capacity(txs.len());
@@ -189,15 +234,15 @@ where
                                 if let depin_sdk_types::app::SystemPayload::ReportMisbehavior { report } = &sys_tx.payload {
                                     let id = evidence_id(report);
                                     let already_seen = match overlay.get(EVIDENCE_REGISTRY_KEY)? {
-                                        Some(bytes) => {
+                                        Some(ref bytes) => {
                                             let set: BTreeSet<[u8; 32]> =
-                                                codec::from_bytes_canonical(&bytes).unwrap_or_default();
+                                                codec::from_bytes_canonical(bytes).unwrap_or_default();
                                             set.contains(&id)
                                         }
                                         None => false,
                                     };
                                     if already_seen {
-                                        return Err(depin_sdk_types::error::TransactionError::Invalid(
+                                        return Err(TransactionError::Invalid(
                                             "DuplicateEvidence".to_string()
                                         ));
                                     }
@@ -217,7 +262,7 @@ where
                             Ok(())
                         }
                         .await
-                        .map_err(|e: depin_sdk_types::error::TransactionError| e.to_string());
+                        .map_err(|e: TransactionError| e.to_string());
                         
                         results.push(check_result);
                     }
@@ -246,21 +291,21 @@ where
             WorkloadRequest::GetExpectedModelHash => {
                 let handler = async {
                     let state_tree_arc = self.workload_container.state_tree();
-                    let state = state_tree_arc.lock().await;
+                    let state = state_tree_arc.read().await;
                     match state.get(depin_sdk_types::keys::STATE_KEY_SEMANTIC_MODEL_HASH)? {
-                        Some(json_bytes) => {
+                        Some(ref json_bytes) => {
                             let hex_str: String =
-                                serde_json::from_slice(&json_bytes).map_err(|e| {
-                                    depin_sdk_types::error::StateError::InvalidValue(format!(
+                                serde_json::from_slice(json_bytes).map_err(|e| {
+                                    StateError::InvalidValue(format!(
                                         "Failed to deserialize model hash from state JSON: {}",
                                         e
                                     ))
                                 })?;
                             hex::decode(hex_str).map_err(|e| {
-                                depin_sdk_types::error::StateError::InvalidValue(e.to_string())
+                                StateError::InvalidValue(e.to_string())
                             })
                         }
-                        None => Err(depin_sdk_types::error::StateError::KeyNotFound(
+                        None => Err(StateError::KeyNotFound(
                             "STATE_KEY_SEMANTIC_MODEL_HASH not found".to_string(),
                         )),
                     }
@@ -286,13 +331,13 @@ where
             WorkloadRequest::GetAuthoritySet => {
                 let chain = self.chain_arc.lock().await;
                 let state_tree_arc = self.workload_container.state_tree();
-                let state = state_tree_arc.lock().await;
+                let state = state_tree_arc.read().await;
                 let root = depin_sdk_types::app::StateRoot(
                     state.root_commitment().as_ref().to_vec(),
                 );
                 let anchor = root.to_anchor();
 
-                let view = chain.view_at(&anchor).unwrap();
+                let view = chain.view_at(&anchor).await.unwrap();
                 let res = view
                     .validator_set()
                     .await
@@ -323,7 +368,7 @@ where
             }
             WorkloadRequest::GetStateRoot => {
                 let state_tree_arc = self.workload_container.state_tree();
-                let state = state_tree_arc.lock().await;
+                let state = state_tree_arc.read().await;
                 let root = state.root_commitment().as_ref().to_vec();
                 WorkloadResponse::GetStateRoot(Ok(root))
             }
@@ -360,13 +405,13 @@ where
             }
             WorkloadRequest::CheckAndTallyProposals { current_height } => {
                 let state_tree_arc = self.workload_container.state_tree();
-                let mut state = state_tree_arc.lock().await;
+                let mut state = state_tree_arc.write().await;
                 let governance_module = GovernanceModule::default();
                 let proposals_kv = state.prefix_scan(GOVERNANCE_PROPOSAL_KEY_PREFIX)?;
                 let mut outcomes = Vec::new();
 
-                for (_key, value_bytes) in proposals_kv {
-                    if let Ok(proposal) = serde_json::from_slice::<Proposal>(&value_bytes) {
+                for (_key, ref value_bytes) in proposals_kv {
+                    if let Ok(proposal) = serde_json::from_slice::<Proposal>(value_bytes) {
                         if proposal.status == ProposalStatus::VotingPeriod
                             && current_height > proposal.voting_end_height
                         {
@@ -374,7 +419,7 @@ where
                             let stakes: BTreeMap<AccountId, u64> = match state
                                 .get(STAKES_KEY_CURRENT)?
                             {
-                                Some(bytes) => depin_sdk_types::codec::from_bytes_canonical(&bytes)
+                                Some(ref bytes) => depin_sdk_types::codec::from_bytes_canonical(bytes)
                                     .unwrap_or_default(),
                                 _ => BTreeMap::new(),
                             };
@@ -389,9 +434,9 @@ where
                                 continue;
                             }
                             let updated_key = GovernanceModule::proposal_key(proposal.id);
-                            if let Some(updated_bytes) = state.get(&updated_key)? {
+                            if let Some(ref updated_bytes) = state.get(&updated_key)? {
                                 if let Ok(updated_proposal) =
-                                    serde_json::from_slice::<Proposal>(&updated_bytes)
+                                    serde_json::from_slice::<Proposal>(updated_bytes)
                                 {
                                     let outcome_msg = format!(
                                         "Proposal {} tallied: {:?}",
@@ -408,24 +453,68 @@ where
             }
             WorkloadRequest::PrefixScan(prefix) => {
                 let state_tree_arc = self.workload_container.state_tree();
-                let state = state_tree_arc.lock().await;
+                let state = state_tree_arc.read().await;
                 let res = state.prefix_scan(&prefix).map_err(|e| e.to_string());
                 WorkloadResponse::PrefixScan(res)
             }
             WorkloadRequest::QueryRawState(key) => {
                 let state_tree_arc = self.workload_container.state_tree();
-                let state = state_tree_arc.lock().await;
+                let state = state_tree_arc.read().await;
                 let res = state.get(&key).map_err(|e| e.to_string());
                 WorkloadResponse::QueryRawState(res)
             }
-            WorkloadRequest::QueryStateAt { anchor, key } => {
-                let val = self.workload_container.get_at(anchor.0, &key).await;
-                WorkloadResponse::QueryStateAt(Ok(val))
+            WorkloadRequest::QueryStateAt { root, key } => {
+                let res = async {
+                    let start_time = std::time::Instant::now();
+                    let cache_key = (root.0.clone(), key.clone());
+                    let mut cache = self.workload_container.proof_cache.lock().await;
+
+                    if let Some((membership, proof)) = cache.get(&cache_key) {
+                        log::trace!("[WorkloadIPC] Proof cache hit for root {}", hex::encode(&root.0));
+                        let proof_bytes = bincode::serialize(proof)
+                            .map_err(|e| StateError::InvalidValue(e.to_string()))?;
+
+                        let response = QueryStateAtResponse {
+                            msg_version: 1, scheme_id: 1, scheme_version: 1,
+                            membership: membership.clone(),
+                            proof_bytes,
+                        };
+                        return Ok(response);
+                    }
+                    drop(cache);
+
+                    let state_tree_arc = self.workload_container.state_tree();
+                    let state = state_tree_arc.read().await;
+
+                    let root_commitment = state.commitment_from_bytes(&root.0)?;
+                    let (membership, proof) = state.get_with_proof_at(&root_commitment, &key)?;
+                    
+                    log::trace!(
+                        "[WorkloadIPC] Proof cache miss. Generated proof for key {} at root {} in {:?}",
+                        hex::encode(&key), hex::encode(&root.0), start_time.elapsed()
+                    );
+                    
+                    let proof_bytes = bincode::serialize(&proof)
+                        .map_err(|e| StateError::InvalidValue(e.to_string()))?;
+
+                    let mut cache = self.workload_container.proof_cache.lock().await;
+                    cache.put(cache_key, (membership.clone(), proof));
+
+                    Ok(QueryStateAtResponse {
+                        msg_version: 1, scheme_id: 1, scheme_version: 1,
+                        membership,
+                        proof_bytes,
+                    })
+                }
+                .await
+                .map_err(|e: StateError| e.to_string());
+                
+                WorkloadResponse::QueryStateAt(res)
             }
             WorkloadRequest::GetValidatorSetAt { anchor } => {
                 let res: Result<Vec<AccountId>, String> = async {
                     let chain = self.chain_arc.lock().await;
-                    let view = chain.view_at(&anchor).map_err(|e| e.to_string())?;
+                    let view = chain.view_at(&anchor).await.map_err(|e| e.to_string())?;
                     view.validator_set().await.map_err(|e| e.to_string())
                 }
                 .await;
@@ -434,7 +523,7 @@ where
             WorkloadRequest::GetActiveKeyAt { anchor, account_id } => {
                 let handler = async {
                     let chain = self.chain_arc.lock().await;
-                    let view = chain.view_at(&anchor)?;
+                    let view = chain.view_at(&anchor).await?;
                     let record = view.active_consensus_key(&account_id).await;
                     Ok(record)
                 };

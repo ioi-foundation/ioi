@@ -1,4 +1,4 @@
-// crates/node/src/bin/orchestration.rs
+// Path: crates/node/src/bin/orchestration.rs
 
 #![forbid(unsafe_code)]
 
@@ -6,10 +6,37 @@ use anyhow::{anyhow, Result};
 use clap::Parser;
 use depin_sdk_api::validator::container::Container;
 use depin_sdk_chain::Chain;
-use depin_sdk_client::security::SecurityChannel;
-use depin_sdk_client::WorkloadClient;
+use depin_sdk_client::{security::SecurityChannel, WorkloadClient};
 use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
-use depin_sdk_commitment::tree::hashmap::HashMapStateTree; // Use a simple in-memory tree for the dummy
+
+// --- START FIX ---
+
+// Define the SelectedStateTree alias based on enabled features.
+// This relies on the build system ensuring exactly one `tree-*` feature is active.
+#[cfg(feature = "tree-file")]
+use depin_sdk_commitment::tree::file::FileStateTree as SelectedStateTree;
+#[cfg(feature = "tree-hashmap")]
+use depin_sdk_commitment::tree::hashmap::HashMapStateTree as SelectedStateTree;
+#[cfg(feature = "tree-iavl")]
+use depin_sdk_commitment::tree::iavl::IAVLTree as SelectedStateTree;
+#[cfg(feature = "tree-sparse-merkle")]
+use depin_sdk_commitment::tree::sparse_merkle::SparseMerkleTree as SelectedStateTree;
+#[cfg(feature = "tree-verkle")]
+use depin_sdk_commitment::tree::verkle::VerkleTree as SelectedStateTree;
+
+// Fallback definition for rust-analyzer when it runs `cargo check` without any features.
+// This allows type resolution and autocompletion to work correctly in the IDE.
+#[cfg(not(any(
+    feature = "tree-file",
+    feature = "tree-hashmap",
+    feature = "tree-iavl",
+    feature = "tree-sparse-merkle",
+    feature = "tree-verkle"
+)))]
+use depin_sdk_commitment::tree::hashmap::HashMapStateTree as SelectedStateTree;
+
+// --- END FIX ---
+
 use depin_sdk_consensus::util::engine_from_config;
 use depin_sdk_network::libp2p::Libp2pSync;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
@@ -38,8 +65,44 @@ struct OrchestrationOpts {
     bootnode: Option<Multiaddr>,
 }
 
+// --- START FIX ---
+
+/// Runtime check to ensure exactly one state tree feature is enabled.
+/// This prevents misconfiguration during real builds and runs.
+fn check_features() {
+    let mut enabled_features = Vec::new();
+    if cfg!(feature = "tree-file") {
+        enabled_features.push("tree-file");
+    }
+    if cfg!(feature = "tree-hashmap") {
+        enabled_features.push("tree-hashmap");
+    }
+    if cfg!(feature = "tree-iavl") {
+        enabled_features.push("tree-iavl");
+    }
+    if cfg!(feature = "tree-sparse-merkle") {
+        enabled_features.push("tree-sparse-merkle");
+    }
+    if cfg!(feature = "tree-verkle") {
+        enabled_features.push("tree-verkle");
+    }
+
+    if enabled_features.len() != 1 {
+        panic!(
+            "Error: Please enable exactly one 'tree-*' feature for the depin-sdk-node crate. Found: {:?}",
+            enabled_features
+        );
+    }
+}
+
+// --- END FIX ---
+
 #[tokio::main]
 async fn main() -> Result<()> {
+    // --- START FIX ---
+    check_features(); // Perform the runtime check at startup.
+                      // --- END FIX ---
+
     env_logger::builder()
         .filter_level(log::LevelFilter::Info)
         .init();
@@ -85,7 +148,7 @@ async fn main() -> Result<()> {
 
     let orchestration = Arc::new(OrchestrationContainer::<
         HashCommitmentScheme,
-        HashMapStateTree<HashCommitmentScheme>,
+        SelectedStateTree<HashCommitmentScheme>, // Use the feature-selected alias
         _,
     >::new(
         &config_path,
@@ -165,16 +228,36 @@ async fn main() -> Result<()> {
         log::warn!("GUARDIAN_ADDR not set, skipping Guardian attestation.");
     }
 
-    // Create a dummy Chain instance, since Orchestrator only needs it for its `ChainView` impl.
-    // The actual state is managed by the Workload container.
+    // Create the Chain instance; its state tree must match the workload's tree so that
+    // the computed genesis state root matches and proof requests don't get rejected.
     let chain_ref = {
         let scheme = HashCommitmentScheme::new();
         let tm = UnifiedTransactionModel::new(scheme.clone());
-        let state_tree = HashMapStateTree::new(scheme.clone());
+        // Helper to construct the selected tree with a per-node path when using the file tree.
+        #[inline]
+        fn make_state_tree(
+            s: HashCommitmentScheme,
+            config_path: &std::path::Path,
+        ) -> SelectedStateTree<HashCommitmentScheme> {
+            #[cfg(feature = "tree-file")]
+            {
+                let state_path = config_path
+                    .parent()
+                    .unwrap_or_else(|| std::path::Path::new("."))
+                    .join("orchestrator_state.json");
+                SelectedStateTree::new(state_path.to_string_lossy().as_ref(), s)
+            }
+            #[cfg(not(feature = "tree-file"))]
+            {
+                SelectedStateTree::new(s)
+            }
+        }
+        let state_tree = make_state_tree(scheme.clone(), std::path::Path::new(&config_path));
+
         let workload_container = Arc::new(depin_sdk_api::validator::WorkloadContainer::new(
             depin_sdk_types::config::WorkloadConfig {
                 enabled_vms: vec![],
-                state_tree: depin_sdk_types::config::StateTreeType::HashMap,
+                state_tree: depin_sdk_types::config::StateTreeType::HashMap, // informational only
                 commitment_scheme: depin_sdk_types::config::CommitmentSchemeType::Hash,
                 consensus_type: config.consensus_type,
                 genesis_file: "".to_string(),
@@ -184,14 +267,14 @@ async fn main() -> Result<()> {
                 initial_services: vec![],
             },
             state_tree,
-            Box::new(depin_sdk_vm_wasm::WasmVm::new(Default::default())), // Dummy VM
+            Box::new(depin_sdk_vm_wasm::WasmVm::new(Default::default())), // dummy VM
             Default::default(),
         ));
         let consensus = engine_from_config(&config)?;
         let chain = Chain::new(
             scheme,
             tm,
-            "dummy-chain",
+            "dummy-chain", // The Orchestrator's Chain instance is a dummy for type satisfaction.
             vec![],
             Box::new(|_| unimplemented!()),
             consensus,

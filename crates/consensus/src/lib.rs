@@ -56,7 +56,7 @@ where
     CS: CommitmentScheme + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
 {
-    fn view_at(&self, _anchor: &StateAnchor) -> Result<Box<dyn StateView>, ChainError> {
+    async fn view_at(&self, _anchor: &StateAnchor) -> Result<Box<dyn StateView>, ChainError> {
         Err(ChainError::Transaction(
             "Consensus enum cannot create a state view directly".into(),
         ))
