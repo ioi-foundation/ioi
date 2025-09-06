@@ -87,6 +87,14 @@ fn check_features() {
     }
 }
 
+// Conditionally define a type alias for the optional KZG parameters.
+// This allows the run_orchestration function to have a single signature
+// that adapts based on compile-time features.
+#[cfg(feature = "primitive-kzg")]
+type OptionalKzgParams = Option<KZGParams>;
+#[cfg(not(feature = "primitive-kzg"))]
+type OptionalKzgParams = Option<()>;
+
 /// Generic function containing all logic after component instantiation.
 async fn run_orchestration<CS, ST>(
     opts: OrchestrationOpts,
@@ -94,8 +102,8 @@ async fn run_orchestration<CS, ST>(
     local_key: identity::Keypair,
     state_tree: ST,
     commitment_scheme: CS,
-    workload_config: WorkloadConfig, // Pass workload config for dummy creation
-    kzg_params: Option<KZGParams>,   // Pass optional KZG params
+    workload_config: WorkloadConfig,
+    kzg_params: OptionalKzgParams,
 ) -> Result<()>
 where
     CS: CommitmentScheme<

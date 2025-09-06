@@ -4,40 +4,38 @@
 //! This ensures that the Orchestration container always uses a verifier
 //! that matches the state tree implementation of the Workload container.
 
+// Only bring KZGParams into scope when the corresponding feature is enabled.
 #[cfg(feature = "primitive-kzg")]
 use depin_sdk_commitment::primitives::kzg::KZGParams;
 
+// --- Define the Verifier Type Alias based on tree features ---
+
 #[cfg(feature = "tree-file")]
 pub use depin_sdk_commitment::tree::file::verifier::FileTreeHashVerifier as DefaultVerifier;
-#[cfg(feature = "tree-file")]
-pub fn create_default_verifier(_params: Option<KZGParams>) -> DefaultVerifier {
-    DefaultVerifier::default()
-}
 
 #[cfg(feature = "tree-hashmap")]
 pub use depin_sdk_commitment::tree::hashmap::verifier::HashMapTreeHashVerifier as DefaultVerifier;
-#[cfg(feature = "tree-hashmap")]
-pub fn create_default_verifier(_params: Option<KZGParams>) -> DefaultVerifier {
-    DefaultVerifier::default()
-}
 
 #[cfg(feature = "tree-iavl")]
 pub use depin_sdk_commitment::tree::iavl::verifier::IAVLHashVerifier as DefaultVerifier;
-#[cfg(feature = "tree-iavl")]
-pub fn create_default_verifier(_params: Option<KZGParams>) -> DefaultVerifier {
-    DefaultVerifier::default()
-}
 
 #[cfg(feature = "tree-sparse-merkle")]
 pub use depin_sdk_commitment::tree::sparse_merkle::verifier::SparseMerkleVerifier as DefaultVerifier;
-#[cfg(feature = "tree-sparse-merkle")]
-pub fn create_default_verifier(_params: Option<KZGParams>) -> DefaultVerifier {
-    DefaultVerifier::default()
-}
 
 #[cfg(feature = "tree-verkle")]
 pub use depin_sdk_commitment::tree::verkle::verifier::KZGVerifier as DefaultVerifier;
-#[cfg(feature = "tree-verkle")]
+
+// --- Define the creator function with conditional compilation ---
+
+// This version is for all HASH-based verifiers. It accepts an `Option<()>`
+// to satisfy the call site while not depending on KZGParams.
+#[cfg(not(feature = "primitive-kzg"))]
+pub fn create_default_verifier(_params: Option<()>) -> DefaultVerifier {
+    DefaultVerifier::default()
+}
+
+// This version is specifically for the KZG-based Verkle tree verifier.
+#[cfg(feature = "primitive-kzg")]
 pub fn create_default_verifier(params: Option<KZGParams>) -> DefaultVerifier {
     DefaultVerifier::new(params.expect("KZGVerifier requires SRS parameters"))
 }
@@ -96,6 +94,6 @@ pub use fallback::DefaultVerifier;
     feature = "tree-sparse-merkle",
     feature = "tree-verkle"
 )))]
-pub fn create_default_verifier(_params: Option<KZGParams>) -> DefaultVerifier {
+pub fn create_default_verifier(_params: Option<()>) -> DefaultVerifier {
     DefaultVerifier::default()
 }
