@@ -118,13 +118,18 @@ pub async fn handle_blocks_response<CS, ST, CE>(
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
 {
+    let mut all_blocks_processed_successfully = true;
     for block in blocks {
-        if context.workload_client.process_block(block).await.is_err() {
-            log::error!("[Orchestrator] Workload failed to process synced block.");
+        if let Err(e) = context.workload_client.process_block(block).await {
+            log::error!(
+                "[Orchestrator] Workload failed to process synced block: {}",
+                e
+            );
+            all_blocks_processed_successfully = false;
             break;
         }
     }
-    if *context.node_state.lock().await == NodeState::Syncing {
+    if all_blocks_processed_successfully && *context.node_state.lock().await == NodeState::Syncing {
         *context.node_state.lock().await = NodeState::Synced;
         log::info!("[Orchestrator] Finished processing blocks. State -> Synced.");
     }
