@@ -2,12 +2,11 @@
 use super::context::MainLoopContext;
 use super::oracle::handle_newly_processed_block;
 use super::remote_state_view::RemoteStateView;
-use crate::standard::orchestration::verifier_select::DefaultVerifier;
 use async_trait::async_trait;
 use depin_sdk_api::chain::{ChainView, StateView};
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::consensus::{ConsensusEngine, PenaltyMechanism};
-use depin_sdk_api::state::{StateAccessor, StateCommitment, StateManager};
+use depin_sdk_api::state::{StateAccessor, StateCommitment, StateManager, Verifier};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_types::app::{
     Block, ChainTransaction, FailureReport, StateAnchor, StateRoot, SystemPayload,
@@ -20,14 +19,23 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 #[derive(Debug)]
-struct WorkloadChainView {
+struct WorkloadChainView<V> {
     client: Arc<depin_sdk_client::WorkloadClient>,
     consensus: ConsensusType,
+    verifier: V,
 }
 
-impl WorkloadChainView {
-    fn new(client: Arc<depin_sdk_client::WorkloadClient>, consensus: ConsensusType) -> Self {
-        Self { client, consensus }
+impl<V: Clone> WorkloadChainView<V> {
+    fn new(
+        client: Arc<depin_sdk_client::WorkloadClient>,
+        consensus: ConsensusType,
+        verifier: V,
+    ) -> Self {
+        Self {
+            client,
+            consensus,
+            verifier,
+        }
     }
 }
 
@@ -45,17 +53,22 @@ impl PenaltyMechanism for NoopPenalty {
 }
 
 #[async_trait]
-impl<CS, ST> ChainView<CS, ST> for WorkloadChainView
+impl<CS, ST, V> ChainView<CS, ST> for WorkloadChainView<V>
 where
     CS: CommitmentScheme + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof: for<'de> Deserialize<'de>,
 {
     async fn view_at(
         &self,
         anchor: &StateAnchor,
     ) -> Result<Box<dyn StateView>, depin_sdk_types::error::ChainError> {
-        // Temporary fallback: we don't yet have a historical root mapping.
-        // Use the current root instead of (incorrectly) treating the anchor as a root.
         let root = match self.client.get_state_root().await {
             Ok(r) => r,
             Err(e) => {
@@ -66,12 +79,11 @@ where
                 StateRoot(anchor.0.to_vec())
             }
         };
-        let verifier = DefaultVerifier;
         Ok(Box::new(RemoteStateView::new(
             *anchor,
             root,
             self.client.clone(),
-            verifier,
+            self.verifier.clone(),
             self.consensus,
         )))
     }
@@ -135,8 +147,8 @@ pub fn prune_mempool(
 }
 
 /// Handles an incoming gossiped transaction.
-pub async fn handle_gossip_transaction<CS, ST, CE>(
-    context: &mut MainLoopContext<CS, ST, CE>,
+pub async fn handle_gossip_transaction<CS, ST, CE, V>(
+    context: &mut MainLoopContext<CS, ST, CE, V>,
     tx: ChainTransaction,
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -149,6 +161,7 @@ pub async fn handle_gossip_transaction<CS, ST, CE>(
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
     let mut pool = context.tx_pool_ref.lock().await;
     pool.push_back(tx);
@@ -159,11 +172,11 @@ pub async fn handle_gossip_transaction<CS, ST, CE>(
 }
 
 /// Handles an incoming gossiped block.
-pub async fn handle_gossip_block<CS, ST, CE>(
-    context: &mut MainLoopContext<CS, ST, CE>,
+pub async fn handle_gossip_block<CS, ST, CE, V>(
+    context: &mut MainLoopContext<CS, ST, CE, V>,
     block: Block<ChainTransaction>,
 ) where
-    CS: CommitmentScheme + Clone + Default + Send + Sync + 'static,
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -174,6 +187,12 @@ pub async fn handle_gossip_block<CS, ST, CE>(
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
 {
     let block_height = block.header.height;
     log::info!(
@@ -182,7 +201,11 @@ pub async fn handle_gossip_block<CS, ST, CE>(
     );
 
     let mut engine = context.consensus_engine_ref.lock().await;
-    let cv = WorkloadChainView::new(context.workload_client.clone(), (*engine).consensus_type());
+    let cv = WorkloadChainView::new(
+        context.workload_client.clone(),
+        (*engine).consensus_type(),
+        context.verifier.clone(),
+    );
 
     if let Err(e) = engine
         .handle_block_proposal::<CS, ST>(block.clone(), &cv)

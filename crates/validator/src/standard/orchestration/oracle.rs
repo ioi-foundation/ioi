@@ -3,7 +3,7 @@ use super::context::MainLoopContext;
 use depin_sdk_api::{
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
-    state::{StateCommitment, StateManager},
+    state::{StateCommitment, StateManager, Verifier},
 };
 use depin_sdk_network::libp2p::SwarmCommand;
 use depin_sdk_services::external_data::ExternalDataService;
@@ -25,8 +25,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 const ATTESTATION_TTL_SECS: u64 = 300; // 5 minutes
 
 /// Checks for pending oracle requests after a block is processed and initiates data fetching.
-pub async fn handle_newly_processed_block<CS, ST, CE>(
-    context: &MainLoopContext<CS, ST, CE>,
+pub async fn handle_newly_processed_block<CS, ST, CE, V>(
+    context: &MainLoopContext<CS, ST, CE, V>,
     _block_height: u64,
     external_data_service: &ExternalDataService,
 ) where
@@ -41,6 +41,7 @@ pub async fn handle_newly_processed_block<CS, ST, CE>(
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
     let pending_requests = match context
         .workload_client
@@ -81,8 +82,8 @@ pub async fn handle_newly_processed_block<CS, ST, CE>(
 
     log::info!("Oracle: This node is in the validator set, checking for new tasks...");
 
-    for (key, value_bytes) in pending_requests {
-        if let Ok(entry) = serde_json::from_slice::<StateEntry>(&value_bytes) {
+    for (key, value_bytes) in &pending_requests {
+        if let Ok(entry) = serde_json::from_slice::<StateEntry>(value_bytes) {
             let request_id_bytes: [u8; 8] = key[ORACLE_PENDING_REQUEST_PREFIX.len()..]
                 .try_into()
                 .unwrap_or_default();
@@ -138,8 +139,8 @@ pub async fn handle_newly_processed_block<CS, ST, CE>(
 }
 
 /// Handles a received oracle attestation from a peer validator.
-pub async fn handle_oracle_attestation_received<CS, ST, CE>(
-    context: &mut MainLoopContext<CS, ST, CE>,
+pub async fn handle_oracle_attestation_received<CS, ST, CE, V>(
+    context: &mut MainLoopContext<CS, ST, CE, V>,
     from: PeerId,
     attestation: OracleAttestation,
 ) where
@@ -154,6 +155,7 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE>(
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
     log::info!(
         "Oracle: Received attestation for request_id {} from peer {}",
@@ -257,8 +259,8 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE>(
 }
 
 /// Checks if a quorum of attestations has been reached for a request and submits a finalization transaction if so.
-pub async fn check_quorum_and_submit<CS, ST, CE>(
-    context: &mut MainLoopContext<CS, ST, CE>,
+pub async fn check_quorum_and_submit<CS, ST, CE, V>(
+    context: &mut MainLoopContext<CS, ST, CE, V>,
     request_id: u64,
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -272,6 +274,7 @@ pub async fn check_quorum_and_submit<CS, ST, CE>(
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
     let attestations = match context.pending_attestations.get(&request_id) {
         Some(a) => a,

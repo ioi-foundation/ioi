@@ -1,7 +1,9 @@
 // Path: crates/validator/src/standard/orchestration/sync.rs
 use super::context::MainLoopContext;
 use depin_sdk_api::{
-    commitment::CommitmentScheme, consensus::ConsensusEngine, state::StateManager,
+    commitment::CommitmentScheme,
+    consensus::ConsensusEngine,
+    state::{StateManager, Verifier},
 };
 use depin_sdk_network::{
     libp2p::{SwarmCommand, SyncResponse},
@@ -13,8 +15,8 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 /// Handles a request for our node's status.
-pub async fn handle_status_request<CS, ST, CE>(
-    context: &mut MainLoopContext<CS, ST, CE>,
+pub async fn handle_status_request<CS, ST, CE, V>(
+    context: &mut MainLoopContext<CS, ST, CE, V>,
     _peer: PeerId,
     channel: ResponseChannel<SyncResponse>,
 ) where
@@ -28,6 +30,7 @@ pub async fn handle_status_request<CS, ST, CE>(
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
     let height = context
         .workload_client
@@ -42,8 +45,8 @@ pub async fn handle_status_request<CS, ST, CE>(
 }
 
 /// Handles a request for blocks from a peer.
-pub async fn handle_blocks_request<CS, ST, CE>(
-    context: &mut MainLoopContext<CS, ST, CE>,
+pub async fn handle_blocks_request<CS, ST, CE, V>(
+    context: &mut MainLoopContext<CS, ST, CE, V>,
     _peer: PeerId,
     since: u64,
     channel: ResponseChannel<SyncResponse>,
@@ -58,6 +61,7 @@ pub async fn handle_blocks_request<CS, ST, CE>(
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
     let blocks = context.chain_ref.lock().await.get_blocks_since(since);
     context
@@ -68,8 +72,8 @@ pub async fn handle_blocks_request<CS, ST, CE>(
 }
 
 /// Handles receiving a status response from a peer, potentially triggering a sync.
-pub async fn handle_status_response<CS, ST, CE>(
-    context: &mut MainLoopContext<CS, ST, CE>,
+pub async fn handle_status_response<CS, ST, CE, V>(
+    context: &mut MainLoopContext<CS, ST, CE, V>,
     peer: PeerId,
     peer_height: u64,
 ) where
@@ -83,6 +87,7 @@ pub async fn handle_status_response<CS, ST, CE>(
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
     let our_height = context
         .workload_client
@@ -102,8 +107,8 @@ pub async fn handle_status_response<CS, ST, CE>(
 }
 
 /// Handles receiving a block response from a peer during sync.
-pub async fn handle_blocks_response<CS, ST, CE>(
-    context: &mut MainLoopContext<CS, ST, CE>,
+pub async fn handle_blocks_response<CS, ST, CE, V>(
+    context: &mut MainLoopContext<CS, ST, CE, V>,
     _peer: PeerId,
     blocks: Vec<Block<ChainTransaction>>,
 ) where
@@ -117,6 +122,7 @@ pub async fn handle_blocks_response<CS, ST, CE>(
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
     let mut all_blocks_processed_successfully = true;
     for block in blocks {

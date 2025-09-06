@@ -3,6 +3,7 @@
 
 mod proof;
 mod proof_builder;
+pub mod verifier;
 mod verify;
 
 use crate::primitives::kzg::{KZGCommitment, KZGCommitmentScheme, KZGProof, KZGWitness};
