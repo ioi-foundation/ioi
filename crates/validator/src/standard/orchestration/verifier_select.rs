@@ -25,19 +25,33 @@ pub use depin_sdk_commitment::tree::sparse_merkle::verifier::SparseMerkleVerifie
 #[cfg(feature = "tree-verkle")]
 pub use depin_sdk_commitment::tree::verkle::verifier::KZGVerifier as DefaultVerifier;
 
-// --- Define the creator function with conditional compilation ---
+// --- Define the creator function with a single, adaptable signature ---
 
-// This version is for all HASH-based verifiers. It accepts an `Option<()>`
-// to satisfy the call site while not depending on KZGParams.
-#[cfg(not(feature = "primitive-kzg"))]
-pub fn create_default_verifier(_params: Option<()>) -> DefaultVerifier {
-    DefaultVerifier::default()
-}
-
-// This version is specifically for the KZG-based Verkle tree verifier.
+// Conditionally define a type alias for the function parameter. This allows
+// the function signature to change based on features, which is key to solving the issue.
 #[cfg(feature = "primitive-kzg")]
-pub fn create_default_verifier(params: Option<KZGParams>) -> DefaultVerifier {
-    DefaultVerifier::new(params.expect("KZGVerifier requires SRS parameters"))
+type VerifierParams = Option<KZGParams>;
+#[cfg(not(feature = "primitive-kzg"))]
+type VerifierParams = Option<()>;
+
+/// Creates the default verifier. The signature and implementation of this function
+/// adapt based on whether a KZG-based primitive is enabled.
+pub fn create_default_verifier(params: VerifierParams) -> DefaultVerifier {
+    // The logic *inside* the function is conditionally compiled.
+    #[cfg(feature = "tree-verkle")]
+    {
+        // This arm is only compiled when tree-verkle (and thus primitive-kzg) is active.
+        // Here, `params` is guaranteed to be `Option<KZGParams>`.
+        DefaultVerifier::new(params.expect("KZGVerifier requires SRS parameters"))
+    }
+
+    #[cfg(not(feature = "tree-verkle"))]
+    {
+        // This arm is compiled for all other tree types.
+        // Here, `params` is `Option<()>` and is ignored.
+        let _ = params; // Explicitly ignore the parameter to prevent unused variable warnings.
+        DefaultVerifier::default()
+    }
 }
 
 // Fallback for when no tree features are enabled.
@@ -77,23 +91,4 @@ mod fallback {
             unimplemented!("No state tree feature is enabled.")
         }
     }
-}
-
-#[cfg(not(any(
-    feature = "tree-file",
-    feature = "tree-hashmap",
-    feature = "tree-iavl",
-    feature = "tree-sparse-merkle",
-    feature = "tree-verkle"
-)))]
-pub use fallback::DefaultVerifier;
-#[cfg(not(any(
-    feature = "tree-file",
-    feature = "tree-hashmap",
-    feature = "tree-iavl",
-    feature = "tree-sparse-merkle",
-    feature = "tree-verkle"
-)))]
-pub fn create_default_verifier(_params: Option<()>) -> DefaultVerifier {
-    DefaultVerifier::default()
 }
