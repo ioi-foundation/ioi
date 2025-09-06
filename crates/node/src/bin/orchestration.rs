@@ -353,7 +353,7 @@ async fn main() -> Result<()> {
             depin_sdk_types::config::CommitmentSchemeType::KZG,
         ) => {
             let params = if let Some(srs_path) = &workload_config.srs_file_path {
-                KZGParams::load_from_file(Path::new(srs_path)).map_err(|e| anyhow!(e))?
+                KZGParams::load_from_file(srs_path.as_ref()).map_err(|e| anyhow!(e))?
             } else {
                 return Err(anyhow!(
                     "Verkle tree requires an SRS file path in workload.toml"
