@@ -1,4 +1,4 @@
-// Path: crates/forge/tests/pqc_migration_e2e.rs
+// --- crates/forge/tests/pqc_migration_e2e.rs ---
 
 #![cfg(all(
     feature = "consensus-poa",
@@ -98,7 +98,7 @@ fn create_signed_system_tx<S: TestSigner>(
         public_key: signer.public_bytes(),
         signature,
     };
-    Ok(ChainTransaction::System(tx_to_sign))
+    Ok(ChainTransaction::System(Box::new(tx_to_sign)))
 }
 
 #[tokio::test]

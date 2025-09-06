@@ -1,4 +1,5 @@
-// Path: crates/validator/src/standard/workload_ipc_server.rs
+
+// --- crates/validator/src/standard/workload_ipc_server.rs ---
 
 use anyhow::Result;
 use depin_sdk_api::chain::{AppChain, ChainView};
@@ -12,11 +13,14 @@ use depin_sdk_client::{
     security::SecurityChannel,
 };
 use depin_sdk_services::governance::GovernanceModule;
-use depin_sdk_types::app::{evidence_id, AccountId, ActiveKeyRecord, Proposal, ProposalStatus};
+use depin_sdk_types::app::{
+    evidence_id, AccountId, ActiveKeyRecord, Proposal, ProposalStatus, StateEntry,
+};
 use depin_sdk_types::codec;
 use depin_sdk_types::error::{StateError, TransactionError};
 use depin_sdk_types::keys::{
-    EVIDENCE_REGISTRY_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, STAKES_KEY_CURRENT,
+    EVIDENCE_REGISTRY_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, IBC_PROCESSED_RECEIPT_PREFIX,
+    STAKES_KEY_CURRENT,
 };
 use rcgen::{Certificate, CertificateParams, SanType};
 use serde::{Deserialize, Serialize};
@@ -56,7 +60,7 @@ where
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
 {
     address: String,
     workload_container: Arc<WorkloadContainer<ST>>,
@@ -74,7 +78,7 @@ where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     CS::Commitment: std::fmt::Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
 {
     pub async fn new(
         address: String,
@@ -243,7 +247,15 @@ where
                                     };
                                     if already_seen {
                                         return Err(TransactionError::Invalid(
-                                            "DuplicateEvidence".to_string()
+                                            "DuplicateEvidence".to_string(),
+                                        ));
+                                    }
+                                }
+                                if let depin_sdk_types::app::SystemPayload::VerifyForeignReceipt { receipt, .. } = &sys_tx.payload {
+                                    let receipt_key = [IBC_PROCESSED_RECEIPT_PREFIX, &receipt.unique_leaf_id].concat();
+                                    if overlay.get(&receipt_key)?.is_some() {
+                                        return Err(TransactionError::Invalid(
+                                            "Foreign receipt has already been processed (replay attack)".to_string(),
                                         ));
                                     }
                                 }

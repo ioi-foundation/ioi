@@ -1,5 +1,4 @@
-// Path: crates/forge/tests/oracle_e2e.rs
-
+// crates/forge/tests/oracle_e2e.rs
 #![cfg(all(
     feature = "consensus-pos",
     feature = "vm-wasm",
@@ -13,27 +12,15 @@ use depin_sdk_forge::testing::{
     assert_log_contains, build_test_artifacts, submit_transaction, TestCluster,
 };
 use depin_sdk_types::app::{
-    // --- FIX START: Add missing imports ---
-    account_id_from_key_material,
-    AccountId,
-    ActiveKeyRecord,
-    ChainTransaction,
-    Credential,
-    SignHeader,
-    SignatureProof,
-    SignatureSuite,
-    SystemPayload,
-    SystemTransaction,
-    // --- FIX END ---
+    account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
+    SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
 };
 use depin_sdk_types::codec;
-// --- FIX START: Add missing imports ---
 use depin_sdk_types::config::InitialServiceConfig;
 use depin_sdk_types::keys::{
     ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, STAKES_KEY_CURRENT, STAKES_KEY_NEXT,
 };
 use depin_sdk_types::service_configs::MigrationConfig;
-// --- FIX END ---
 use libp2p::identity::Keypair;
 use serde_json::json;
 use std::collections::BTreeMap;
@@ -68,7 +55,7 @@ fn create_system_tx(
         public_key: public_key_bytes,
         signature,
     };
-    Ok(ChainTransaction::System(tx_to_sign))
+    Ok(ChainTransaction::System(Box::new(tx_to_sign)))
 }
 
 #[tokio::test]
@@ -79,7 +66,6 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
     let cluster = TestCluster::builder()
         .with_validators(4)
         .with_consensus_type("ProofOfStake")
-        // --- FIX START: Add IdentityHub service to handle identity keys ---
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
             grace_period_blocks: 5,
@@ -87,7 +73,6 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
             allowed_target_suites: vec![SignatureSuite::Ed25519],
             allow_downgrade: false,
         }))
-        // --- FIX END ---
         .with_genesis_modifier(|genesis, keys| {
             // Setup initial stakes using the correct AccountId key and canonical codec
             let stakes: BTreeMap<_, _> = keys
@@ -106,7 +91,7 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
             genesis["genesis_state"][std::str::from_utf8(STAKES_KEY_NEXT).unwrap()] =
                 json!(&stakes_b64);
 
-            // --- FIX START: Populate identity records for all validators ---
+            // Populate identity records for all validators
             for keypair in keys {
                 let suite = SignatureSuite::Ed25519;
                 let pk_bytes = keypair.public().encode_protobuf();
@@ -143,7 +128,6 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
                 genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&record_key))] =
                     json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes)));
             }
-            // --- FIX END ---
         })
         .build()
         .await?;
