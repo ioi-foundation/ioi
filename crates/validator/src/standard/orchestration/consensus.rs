@@ -15,7 +15,7 @@ use depin_sdk_api::{
     chain::{ChainView, StateView},
     commitment::CommitmentScheme,
     consensus::{ConsensusDecision, ConsensusEngine},
-    state::{StateCommitment, StateManager},
+    state::{StateCommitment, StateManager, Verifier},
 };
 use depin_sdk_network::libp2p::SwarmCommand;
 use depin_sdk_network::traits::NodeState;
@@ -117,9 +117,9 @@ impl StateView for WeakParentView {
 }
 
 /// Handles the consensus timer tick, deciding whether to produce a block.
-pub async fn handle_consensus_tick<CS, ST, CE>(context: &mut MainLoopContext<CS, ST, CE>)
+pub async fn handle_consensus_tick<CS, ST, CE, V>(context: &mut MainLoopContext<CS, ST, CE, V>)
 where
-    CS: CommitmentScheme + Clone + Default + Send + Sync + 'static,
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -131,6 +131,7 @@ where
         + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
     let node_state = context.node_state.lock().await.clone();
     let cons_ty = {

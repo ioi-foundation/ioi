@@ -4,54 +4,49 @@
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
+use depin_sdk_api::state::Verifier;
 use depin_sdk_api::validator::container::Container;
 use depin_sdk_chain::Chain;
 use depin_sdk_client::{security::SecurityChannel, WorkloadClient};
-use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
-
-// --- START FIX ---
-
-// Define the SelectedStateTree alias based on enabled features.
-// This relies on the build system ensuring exactly one `tree-*` feature is active.
-#[cfg(feature = "tree-file")]
-use depin_sdk_commitment::tree::file::FileStateTree as SelectedStateTree;
-#[cfg(feature = "tree-hashmap")]
-use depin_sdk_commitment::tree::hashmap::HashMapStateTree as SelectedStateTree;
-#[cfg(feature = "tree-iavl")]
-use depin_sdk_commitment::tree::iavl::IAVLTree as SelectedStateTree;
-#[cfg(feature = "tree-sparse-merkle")]
-use depin_sdk_commitment::tree::sparse_merkle::SparseMerkleTree as SelectedStateTree;
-#[cfg(feature = "tree-verkle")]
-use depin_sdk_commitment::tree::verkle::VerkleTree as SelectedStateTree;
-
-// Fallback definition for rust-analyzer when it runs `cargo check` without any features.
-// This allows type resolution and autocompletion to work correctly in the IDE.
-#[cfg(not(any(
-    feature = "tree-file",
-    feature = "tree-hashmap",
-    feature = "tree-iavl",
-    feature = "tree-sparse-merkle",
-    feature = "tree-verkle"
-)))]
-use depin_sdk_commitment::tree::hashmap::HashMapStateTree as SelectedStateTree;
-
-// --- END FIX ---
-
 use depin_sdk_consensus::util::engine_from_config;
 use depin_sdk_network::libp2p::Libp2pSync;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::config::OrchestrationConfig;
-use depin_sdk_validator::{rpc::run_rpc_server, standard::OrchestrationContainer};
+use depin_sdk_validator::{
+    rpc::run_rpc_server,
+    standard::{
+        orchestration::verifier_select::{create_default_verifier, DefaultVerifier},
+        OrchestrationContainer,
+    },
+};
 use libp2p::{identity, Multiaddr};
 use std::fs;
 use std::io::{Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
 use tokio::sync::Mutex;
 use tokio::time::Duration;
+
+// Imports for concrete types used in the factory
+use depin_sdk_api::{commitment::CommitmentScheme, state::StateManager};
+#[cfg(feature = "primitive-hash")]
+use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
+#[cfg(feature = "primitive-kzg")]
+use depin_sdk_commitment::primitives::kzg::{KZGCommitmentScheme, KZGParams};
+#[cfg(feature = "tree-file")]
+use depin_sdk_commitment::tree::file::FileStateTree;
+#[cfg(feature = "tree-hashmap")]
+use depin_sdk_commitment::tree::hashmap::HashMapStateTree;
+#[cfg(feature = "tree-iavl")]
+use depin_sdk_commitment::tree::iavl::IAVLTree;
+#[cfg(feature = "tree-sparse-merkle")]
+use depin_sdk_commitment::tree::sparse_merkle::SparseMerkleTree;
+#[cfg(feature = "tree-verkle")]
+use depin_sdk_commitment::tree::verkle::VerkleTree;
+use depin_sdk_types::config::WorkloadConfig;
 
 #[derive(Parser, Debug)]
 struct OrchestrationOpts {
@@ -65,10 +60,7 @@ struct OrchestrationOpts {
     bootnode: Option<Multiaddr>,
 }
 
-// --- START FIX ---
-
 /// Runtime check to ensure exactly one state tree feature is enabled.
-/// This prevents misconfiguration during real builds and runs.
 fn check_features() {
     let mut enabled_features = Vec::new();
     if cfg!(feature = "tree-file") {
@@ -95,69 +87,51 @@ fn check_features() {
     }
 }
 
-// --- END FIX ---
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    // --- START FIX ---
-    check_features(); // Perform the runtime check at startup.
-                      // --- END FIX ---
-
-    env_logger::builder()
-        .filter_level(log::LevelFilter::Info)
-        .init();
-    let opts = OrchestrationOpts::parse();
-    log::info!(
-        "Orchestration container starting up with config: {:?}",
-        opts.config
-    );
-
-    let config_path = opts.config.clone();
-    let config_str = fs::read_to_string(&config_path).map_err(|e| {
-        anyhow!(
-            "Failed to read orchestration config file at {:?}: {}",
-            config_path,
-            e
-        )
-    })?;
-    let config: OrchestrationConfig = toml::from_str(&config_str)
-        .map_err(|e| anyhow!("Failed to parse orchestration.toml: {}", e))?;
-
-    let local_key = {
-        let key_path = &opts.identity_key_file;
-        if key_path.exists() {
-            let mut bytes = Vec::new();
-            fs::File::open(key_path)?.read_to_end(&mut bytes)?;
-            identity::Keypair::from_protobuf_encoding(&bytes)?
-        } else {
-            let keypair = identity::Keypair::generate_ed25519();
-            if let Some(parent) = key_path.parent() {
-                fs::create_dir_all(parent)?;
-            }
-            fs::File::create(key_path)?.write_all(&keypair.to_protobuf_encoding()?)?;
-            keypair
-        }
-    };
-
+/// Generic function containing all logic after component instantiation.
+async fn run_orchestration<CS, ST>(
+    opts: OrchestrationOpts,
+    config: OrchestrationConfig,
+    local_key: identity::Keypair,
+    state_tree: ST,
+    commitment_scheme: CS,
+    workload_config: WorkloadConfig, // Pass workload config for dummy creation
+    kzg_params: Option<KZGParams>,   // Pass optional KZG params
+) -> Result<()>
+where
+    CS: CommitmentScheme<
+            Commitment = <DefaultVerifier as Verifier>::Commitment,
+            Proof = <DefaultVerifier as Verifier>::Proof,
+        > + Clone
+        + Send
+        + Sync
+        + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + std::fmt::Debug
+        + Clone,
+    CS::Commitment: std::fmt::Debug + Send + Sync,
+    <CS as CommitmentScheme>::Proof:
+        serde::Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+{
     let (syncer, swarm_commander, network_event_receiver) =
         Libp2pSync::new(local_key.clone(), opts.listen_address, opts.bootnode)?;
 
     let consensus_engine = engine_from_config(&config)?;
+    let verifier = create_default_verifier(kzg_params);
 
     let is_quarantined = Arc::new(AtomicBool::new(false));
 
-    let orchestration = Arc::new(OrchestrationContainer::<
-        HashCommitmentScheme,
-        SelectedStateTree<HashCommitmentScheme>, // Use the feature-selected alias
-        _,
-    >::new(
-        &config_path,
+    let orchestration = Arc::new(OrchestrationContainer::new(
+        &opts.config,
         syncer,
         network_event_receiver,
         swarm_commander.clone(),
         consensus_engine,
         local_key,
         is_quarantined.clone(),
+        verifier,
     )?);
 
     let workload_client = {
@@ -228,53 +202,30 @@ async fn main() -> Result<()> {
         log::warn!("GUARDIAN_ADDR not set, skipping Guardian attestation.");
     }
 
-    // Create the Chain instance; its state tree must match the workload's tree so that
-    // the computed genesis state root matches and proof requests don't get rejected.
     let chain_ref = {
-        let scheme = HashCommitmentScheme::new();
-        let tm = UnifiedTransactionModel::new(scheme.clone());
-        // Helper to construct the selected tree with a per-node path when using the file tree.
-        #[inline]
-        fn make_state_tree(
-            s: HashCommitmentScheme,
-            config_path: &std::path::Path,
-        ) -> SelectedStateTree<HashCommitmentScheme> {
-            #[cfg(feature = "tree-file")]
-            {
-                let state_path = config_path
-                    .parent()
-                    .unwrap_or_else(|| std::path::Path::new("."))
-                    .join("orchestrator_state.json");
-                SelectedStateTree::new(state_path.to_string_lossy().as_ref(), s)
-            }
-            #[cfg(not(feature = "tree-file"))]
-            {
-                SelectedStateTree::new(s)
-            }
-        }
-        let state_tree = make_state_tree(scheme.clone(), std::path::Path::new(&config_path));
-
+        let tm = UnifiedTransactionModel::new(commitment_scheme.clone());
+        let dummy_workload_config = WorkloadConfig {
+            enabled_vms: vec![],
+            state_tree: workload_config.state_tree.clone(),
+            commitment_scheme: workload_config.commitment_scheme.clone(),
+            consensus_type: config.consensus_type,
+            genesis_file: "".to_string(),
+            state_file: "".to_string(),
+            srs_file_path: workload_config.srs_file_path.clone(),
+            fuel_costs: Default::default(),
+            initial_services: vec![],
+        };
         let workload_container = Arc::new(depin_sdk_api::validator::WorkloadContainer::new(
-            depin_sdk_types::config::WorkloadConfig {
-                enabled_vms: vec![],
-                state_tree: depin_sdk_types::config::StateTreeType::HashMap, // informational only
-                commitment_scheme: depin_sdk_types::config::CommitmentSchemeType::Hash,
-                consensus_type: config.consensus_type,
-                genesis_file: "".to_string(),
-                state_file: "".to_string(),
-                srs_file_path: None,
-                fuel_costs: Default::default(),
-                initial_services: vec![],
-            },
+            dummy_workload_config,
             state_tree,
             Box::new(depin_sdk_vm_wasm::WasmVm::new(Default::default())), // dummy VM
             Default::default(),
         ));
         let consensus = engine_from_config(&config)?;
         let chain = Chain::new(
-            scheme,
+            commitment_scheme,
             tm,
-            "dummy-chain", // The Orchestrator's Chain instance is a dummy for type satisfaction.
+            "dummy-chain",
             vec![],
             Box::new(|_| unimplemented!()),
             consensus,
@@ -306,6 +257,116 @@ async fn main() -> Result<()> {
     orchestration.stop().await?;
     rpc_handle.abort();
     log::info!("Orchestration container stopped gracefully.");
-
     Ok(())
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    check_features();
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Info)
+        .init();
+    let opts = OrchestrationOpts::parse();
+    log::info!(
+        "Orchestration container starting up with config: {:?}",
+        opts.config
+    );
+
+    let config_path = opts.config.clone();
+    let config: OrchestrationConfig = toml::from_str(&fs::read_to_string(&config_path)?)?;
+    let local_key = {
+        let key_path = &opts.identity_key_file;
+        if key_path.exists() {
+            let mut bytes = Vec::new();
+            fs::File::open(key_path)?.read_to_end(&mut bytes)?;
+            identity::Keypair::from_protobuf_encoding(&bytes)?
+        } else {
+            let keypair = identity::Keypair::generate_ed25519();
+            if let Some(parent) = key_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            fs::File::create(key_path)?.write_all(&keypair.to_protobuf_encoding()?)?;
+            keypair
+        }
+    };
+
+    let workload_config_path = opts.config.parent().unwrap().join("workload.toml");
+    let workload_config_str = fs::read_to_string(&workload_config_path)?;
+    let workload_config: WorkloadConfig = toml::from_str(&workload_config_str)?;
+
+    match (
+        workload_config.state_tree.clone(),
+        workload_config.commitment_scheme.clone(),
+    ) {
+        #[cfg(all(feature = "tree-file", feature = "primitive-hash"))]
+        (
+            depin_sdk_types::config::StateTreeType::File,
+            depin_sdk_types::config::CommitmentSchemeType::Hash,
+        ) => {
+            let state_path = opts
+                .config
+                .parent()
+                .unwrap()
+                .join("orchestrator_state.json");
+            let scheme = HashCommitmentScheme::new();
+            let tree = FileStateTree::new(state_path, scheme.clone());
+            run_orchestration(opts, config, local_key, tree, scheme, workload_config, None).await
+        }
+        #[cfg(all(feature = "tree-hashmap", feature = "primitive-hash"))]
+        (
+            depin_sdk_types::config::StateTreeType::HashMap,
+            depin_sdk_types::config::CommitmentSchemeType::Hash,
+        ) => {
+            let scheme = HashCommitmentScheme::new();
+            let tree = HashMapStateTree::new(scheme.clone());
+            run_orchestration(opts, config, local_key, tree, scheme, workload_config, None).await
+        }
+        #[cfg(all(feature = "tree-iavl", feature = "primitive-hash"))]
+        (
+            depin_sdk_types::config::StateTreeType::IAVL,
+            depin_sdk_types::config::CommitmentSchemeType::Hash,
+        ) => {
+            let scheme = HashCommitmentScheme::new();
+            let tree = IAVLTree::new(scheme.clone());
+            run_orchestration(opts, config, local_key, tree, scheme, workload_config, None).await
+        }
+        #[cfg(all(feature = "tree-sparse-merkle", feature = "primitive-hash"))]
+        (
+            depin_sdk_types::config::StateTreeType::SparseMerkle,
+            depin_sdk_types::config::CommitmentSchemeType::Hash,
+        ) => {
+            let scheme = HashCommitmentScheme::new();
+            let tree = SparseMerkleTree::new(scheme.clone());
+            run_orchestration(opts, config, local_key, tree, scheme, workload_config, None).await
+        }
+        #[cfg(all(feature = "tree-verkle", feature = "primitive-kzg"))]
+        (
+            depin_sdk_types::config::StateTreeType::Verkle,
+            depin_sdk_types::config::CommitmentSchemeType::KZG,
+        ) => {
+            let params = if let Some(srs_path) = &workload_config.srs_file_path {
+                KZGParams::load_from_file(Path::new(srs_path)).map_err(|e| anyhow!(e))?
+            } else {
+                return Err(anyhow!(
+                    "Verkle tree requires an SRS file path in workload.toml"
+                ));
+            };
+            let scheme = KZGCommitmentScheme::new(params.clone());
+            let tree = VerkleTree::new(scheme.clone(), 256);
+            run_orchestration(
+                opts,
+                config,
+                local_key,
+                tree,
+                scheme,
+                workload_config,
+                Some(params),
+            )
+            .await
+        }
+        _ => {
+            let err_msg = format!("Unsupported or disabled state configuration: StateTree={:?}, CommitmentScheme={:?}.", workload_config.state_tree, workload_config.commitment_scheme);
+            Err(anyhow!(err_msg))
+        }
+    }
 }

@@ -1,7 +1,9 @@
 // Path: crates/validator/src/standard/orchestration/peer_management.rs
 use super::context::MainLoopContext;
 use depin_sdk_api::{
-    commitment::CommitmentScheme, consensus::ConsensusEngine, state::StateManager,
+    commitment::CommitmentScheme,
+    consensus::ConsensusEngine,
+    state::{StateManager, Verifier},
 };
 use depin_sdk_network::libp2p::SwarmCommand;
 use depin_sdk_types::app::ChainTransaction;
@@ -10,8 +12,8 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 /// Handles a new peer connecting.
-pub async fn handle_connection_established<CS, ST, CE>(
-    context: &mut MainLoopContext<CS, ST, CE>,
+pub async fn handle_connection_established<CS, ST, CE, V>(
+    context: &mut MainLoopContext<CS, ST, CE, V>,
     peer_id: PeerId,
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -24,6 +26,7 @@ pub async fn handle_connection_established<CS, ST, CE>(
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
     log::info!(
         "[Orchestrator] Connection established with peer {}",
@@ -38,8 +41,8 @@ pub async fn handle_connection_established<CS, ST, CE>(
 }
 
 /// Handles a peer disconnecting.
-pub async fn handle_connection_closed<CS, ST, CE>(
-    context: &mut MainLoopContext<CS, ST, CE>,
+pub async fn handle_connection_closed<CS, ST, CE, V>(
+    context: &mut MainLoopContext<CS, ST, CE, V>,
     peer_id: PeerId,
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -52,6 +55,7 @@ pub async fn handle_connection_closed<CS, ST, CE>(
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
     context.known_peers_ref.lock().await.remove(&peer_id);
 }

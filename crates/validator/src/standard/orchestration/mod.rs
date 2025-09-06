@@ -5,7 +5,7 @@ use depin_sdk_api::{
     chain::ChainView,
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
-    state::{StateCommitment, StateManager},
+    state::{StateCommitment, StateManager, Verifier},
     validator::Container,
 };
 use depin_sdk_client::WorkloadClient;
@@ -37,13 +37,13 @@ mod oracle;
 mod peer_management;
 mod remote_state_view;
 mod sync;
-mod verifier_select;
+pub mod verifier_select;
 
 // --- Use statements for handler functions ---
 use consensus::handle_consensus_tick;
 use context::{ChainFor, MainLoopContext};
 
-pub struct OrchestrationContainer<CS, ST, CE>
+pub struct OrchestrationContainer<CS, ST, CE, V>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -52,6 +52,12 @@ where
         + 'static
         + Debug,
     CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
 {
     config: OrchestrationConfig,
     chain: Arc<OnceCell<ChainFor<CS, ST>>>,
@@ -67,22 +73,25 @@ where
     is_running: Arc<AtomicBool>,
     is_quarantined: Arc<AtomicBool>,
     external_data_service: ExternalDataService,
+    verifier: V,
 }
 
-impl<CS, ST, CE> OrchestrationContainer<CS, ST, CE>
+// Generic implementation for construction and setting dependencies.
+impl<CS, ST, CE, V> OrchestrationContainer<CS, ST, CE, V>
 where
-    CS: CommitmentScheme + Clone + Default + Send + Sync + 'static,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
         + 'static
-        + Debug
-        + Clone,
-    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+        + Debug,
     CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
 {
     pub fn new(
         config_path: &std::path::Path,
@@ -92,6 +101,7 @@ where
         consensus_engine: CE,
         local_keypair: identity::Keypair,
         is_quarantined: Arc<AtomicBool>,
+        verifier: V,
     ) -> anyhow::Result<Self> {
         let config: OrchestrationConfig = toml::from_str(&std::fs::read_to_string(config_path)?)?;
         let (shutdown_sender, _) = watch::channel(false);
@@ -111,6 +121,7 @@ where
             is_running: Arc::new(AtomicBool::new(false)),
             is_quarantined,
             external_data_service: ExternalDataService::new(),
+            verifier,
         })
     }
 
@@ -124,8 +135,31 @@ where
             .set(workload_client_ref)
             .expect("Workload client ref already set");
     }
+}
 
-    async fn run_main_loop(mut context: MainLoopContext<CS, ST, CE>) {
+// Feature-gated impl block for main loop logic. This is where most trait bounds are needed.
+impl<CS, ST, CE, V> OrchestrationContainer<CS, ST, CE, V>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+    CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+{
+    async fn run_main_loop(mut context: MainLoopContext<CS, ST, CE, V>) {
         let interval_secs = context.config.block_production_interval_secs;
         let mut block_production_interval = time::interval(Duration::from_secs(interval_secs));
         block_production_interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
@@ -176,11 +210,11 @@ where
 }
 
 /// Dispatches network events to their respective handlers.
-async fn handle_network_event<CS, ST, CE>(
+async fn handle_network_event<CS, ST, CE, V>(
     event: NetworkEvent,
-    context: &mut MainLoopContext<CS, ST, CE>,
+    context: &mut MainLoopContext<CS, ST, CE, V>,
 ) where
-    CS: CommitmentScheme + Clone + Default + Send + Sync + 'static,
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -192,6 +226,12 @@ async fn handle_network_event<CS, ST, CE>(
         + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
 {
     match event {
         NetworkEvent::ConnectionEstablished(peer_id) => {
@@ -224,9 +264,9 @@ async fn handle_network_event<CS, ST, CE>(
 }
 
 #[async_trait]
-impl<CS, ST, CE> Container for OrchestrationContainer<CS, ST, CE>
+impl<CS, ST, CE, V> Container for OrchestrationContainer<CS, ST, CE, V>
 where
-    CS: CommitmentScheme + Clone + Default + Send + Sync + 'static,
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -238,6 +278,12 @@ where
         + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
 {
     fn id(&self) -> &'static str {
         "orchestration_container"
@@ -284,7 +330,7 @@ where
             .await
             .map_err(|e| ValidatorError::Other(format!("Failed to get genesis root: {}", e)))?;
 
-        let context = MainLoopContext::<CS, ST, CE> {
+        let context = MainLoopContext::<CS, ST, CE, V> {
             chain_ref: chain,
             workload_client,
             tx_pool_ref: self.tx_pool.clone(),
@@ -301,6 +347,7 @@ where
             pending_attestations: std::collections::HashMap::new(),
             genesis_root,
             last_committed_block: None,
+            verifier: self.verifier.clone(),
         };
 
         let mut handles = self.task_handles.lock().await;

@@ -1,7 +1,10 @@
 // Path: crates/validator/src/standard/orchestration/context.rs
 use crate::config::OrchestrationConfig;
 use depin_sdk_api::{
-    chain::AppChain, commitment::CommitmentScheme, consensus::ConsensusEngine, state::StateManager,
+    chain::AppChain,
+    commitment::CommitmentScheme,
+    consensus::ConsensusEngine,
+    state::{StateManager, Verifier},
 };
 use depin_sdk_client::WorkloadClient;
 use depin_sdk_network::{
@@ -22,7 +25,7 @@ pub type ChainFor<CS, ST> =
     Arc<Mutex<dyn AppChain<CS, UnifiedTransactionModel<CS>, ST> + Send + Sync>>;
 
 /// Main state for the Orchestration Container's event loop.
-pub struct MainLoopContext<CS, ST, CE>
+pub struct MainLoopContext<CS, ST, CE, V>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
@@ -34,6 +37,7 @@ where
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
     pub chain_ref: ChainFor<CS, ST>,
     pub workload_client: Arc<WorkloadClient>,
@@ -53,4 +57,6 @@ where
     pub genesis_root: StateRoot,
     /// The most recent block that has been successfully processed and committed.
     pub last_committed_block: Option<Block<ChainTransaction>>,
+    /// The stateless verifier for remote state proofs.
+    pub verifier: V,
 }
