@@ -1,9 +1,9 @@
+// --- crates/validator/src/standard/orchestration/consensus.rs ---
+
 // Path: crates/validator/src/standard/orchestration/consensus.rs
 use super::context::MainLoopContext;
 use super::gossip::prune_mempool;
 use super::oracle::handle_newly_processed_block;
-use super::remote_state_view::RemoteStateView;
-use crate::standard::orchestration::verifier_select::DefaultVerifier;
 use async_trait::async_trait;
 use depin_sdk_api::consensus::ChainStateReader;
 use depin_sdk_client::WorkloadClient;

@@ -1,5 +1,4 @@
-// Path: crates/forge/tests/interop_e2e.rs
-
+// crates/forge/tests/interop_e2e.rs
 #![cfg(all(
     feature = "consensus-poa",
     feature = "vm-wasm",
@@ -20,28 +19,13 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_types::{
     app::{
-        // --- FIX START: Add missing imports ---
-        account_id_from_key_material,
-        AccountId,
-        ActiveKeyRecord,
-        ChainTransaction,
-        Credential,
-        SignHeader,
-        SignatureProof,
-        SignatureSuite,
-        SystemPayload,
-        SystemTransaction,
-        // --- FIX END ---
+        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
+        SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
     },
-    // --- FIX START: Add missing imports ---
     codec,
     config::InitialServiceConfig,
-    keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, AUTHORITY_SET_KEY, IBC_PROCESSED_RECEIPT_PREFIX,
-        IDENTITY_CREDENTIALS_PREFIX,
-    },
+    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, AUTHORITY_SET_KEY, IDENTITY_CREDENTIALS_PREFIX},
     service_configs::MigrationConfig,
-    // --- FIX END ---
 };
 use libp2p::identity::Keypair;
 use serde_json::json;
@@ -76,7 +60,7 @@ fn create_signed_system_tx(
         public_key,
         signature,
     };
-    Ok(ChainTransaction::System(tx_to_sign))
+    Ok(ChainTransaction::System(Box::new(tx_to_sign)))
 }
 
 #[tokio::test]
@@ -94,7 +78,6 @@ async fn test_universal_verification_e2e() -> Result<()> {
             allow_downgrade: false,
             chain_id: 1,
         }))
-        // --- FIX START: Correctly set up genesis state for PoA with AccountId ---
         .with_genesis_modifier(|genesis, keys| {
             let keypair = &keys[0];
             let suite = SignatureSuite::Ed25519;
@@ -139,7 +122,6 @@ async fn test_universal_verification_e2e() -> Result<()> {
             genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key))] =
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&public_key_bytes)));
         })
-        // --- FIX END ---
         .build()
         .await?;
 
@@ -195,7 +177,7 @@ async fn test_universal_verification_e2e() -> Result<()> {
 
     // 4. SUBMIT THE VERIFICATION TRANSACTION
     let payload = SystemPayload::VerifyForeignReceipt {
-        receipt: mock_receipt.clone(),
+        receipt: Box::new(mock_receipt.clone()),
         proof: mock_proof.clone(),
     };
     let tx = create_signed_system_tx(keypair, payload.clone(), nonce)?;
@@ -216,7 +198,7 @@ async fn test_universal_verification_e2e() -> Result<()> {
     assert_log_contains(
         "Orchestration",
         &mut orch_logs,
-        "Workload failed to process new block: Transaction processing error: Invalid transaction: Foreign receipt has already been processed (replay attack)",
+        "Discarding invalid tx from mempool: Invalid transaction: Foreign receipt has already been processed (replay attack)",
     ).await?;
 
     println!("--- Universal Interoperability E2E Test Passed ---");
