@@ -95,6 +95,10 @@ where
     fn consensus_type(&self) -> ConsensusType {
         self.consensus
     }
+
+    fn workload_container(&self) -> &depin_sdk_api::validator::WorkloadContainer<ST> {
+        todo!("WorkloadChainView is a remote proxy for consensus verification and cannot provide direct access to the WorkloadContainer. This should never be called in this context.")
+    }
 }
 
 /// Prunes the mempool by removing transactions that were included in a newly processed block.
@@ -186,7 +190,7 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-    CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
@@ -203,7 +207,7 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
     let mut engine = context.consensus_engine_ref.lock().await;
     let cv = WorkloadChainView::new(
         context.workload_client.clone(),
-        (*engine).consensus_type(),
+        context.config.consensus_type,
         context.verifier.clone(),
     );
 

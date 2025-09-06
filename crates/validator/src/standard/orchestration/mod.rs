@@ -2,7 +2,6 @@
 use crate::config::OrchestrationConfig;
 use async_trait::async_trait;
 use depin_sdk_api::{
-    chain::ChainView,
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
     state::{StateCommitment, StateManager, Verifier},
@@ -51,7 +50,7 @@ where
         + Sync
         + 'static
         + Debug,
-    CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
@@ -85,7 +84,7 @@ where
         + Sync
         + 'static
         + Debug,
-    CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
@@ -151,7 +150,7 @@ where
         + Debug
         + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-    CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
@@ -225,7 +224,7 @@ async fn handle_network_event<CS, ST, CE, V>(
         + Debug
         + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-    CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
@@ -277,7 +276,7 @@ where
         + Debug
         + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-    CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send

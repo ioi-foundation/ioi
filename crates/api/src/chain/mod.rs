@@ -54,6 +54,9 @@ where
 
     /// Returns the consensus type of the chain.
     fn consensus_type(&self) -> ConsensusType;
+
+    /// Provides generic access to the validator's workload container for VM execution.
+    fn workload_container(&self) -> &WorkloadContainer<ST>;
 }
 
 /// A trait that defines the logic and capabilities of an application-specific blockchain.

@@ -520,6 +520,28 @@ where
         Ok(results)
     }
 
+    fn batch_apply(
+        &mut self,
+        inserts: &[(Vec<u8>, Vec<u8>)],
+        deletes: &[Vec<u8>],
+    ) -> Result<(), StateError> {
+        self.version += 1; // Increment version once for the whole batch
+        for key in deletes {
+            self.root = IAVLNode::remove(self.root.clone(), key);
+            self.cache.remove(key);
+        }
+        for (key, value) in inserts {
+            self.root = Some(IAVLNode::insert(
+                self.root.clone(),
+                key.clone(),
+                value.clone(),
+                self.version,
+            ));
+            self.cache.insert(key.clone(), value.clone());
+        }
+        Ok(())
+    }
+
     fn prune(&mut self, _min_height_to_keep: u64) -> Result<(), StateError> {
         // A production-ready IAVL prune is complex. It would involve traversing the
         // tree and removing nodes where `node.version < min_height_to_keep`, being

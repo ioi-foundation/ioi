@@ -434,6 +434,20 @@ where
         Ok(results)
     }
 
+    fn batch_apply(
+        &mut self,
+        inserts: &[(Vec<u8>, Vec<u8>)],
+        deletes: &[Vec<u8>],
+    ) -> Result<(), StateError> {
+        for key in deletes {
+            self.delete(key)?;
+        }
+        for (key, value) in inserts {
+            self.insert(key, value)?;
+        }
+        Ok(())
+    }
+
     fn prune(&mut self, _min_height_to_keep: u64) -> Result<(), StateError> {
         // This is an in-memory, non-versioned tree. Pruning is a no-op.
         Ok(())

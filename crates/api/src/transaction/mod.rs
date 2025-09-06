@@ -3,7 +3,7 @@
 
 use crate::chain::ChainView;
 use crate::commitment::CommitmentScheme;
-use crate::state::StateManager;
+use crate::state::{StateAccessor, StateManager};
 use crate::transaction::context::TxContext;
 use crate::validator::WorkloadContainer;
 use async_trait::async_trait;
@@ -38,9 +38,9 @@ pub trait TransactionModel: Send + Sync {
     /// This is called *after* all `TxDecorator` handlers have passed.
     async fn apply_payload<ST, CV>(
         &self,
-        chain: &CV,
+        chain: &CV, // ChainView for read-only context
+        state: &mut dyn StateAccessor, // The transactional state overlay for writes
         tx: &Self::Transaction,
-        workload: &WorkloadContainer<ST>,
         ctx: TxContext<'_>,
     ) -> Result<(), TransactionError>
     where
