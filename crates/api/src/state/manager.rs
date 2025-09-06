@@ -30,6 +30,14 @@ pub trait StateManager: StateCommitment {
     /// Gets multiple values by keys in a single batch operation.
     fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError>;
 
+    /// Atomically applies a batch of inserts/updates and deletes.
+    /// This should be the primary method for committing transactional changes.
+    fn batch_apply(
+        &mut self,
+        inserts: &[(Vec<u8>, Vec<u8>)],
+        deletes: &[Vec<u8>],
+    ) -> Result<(), StateError>;
+
     /// Prunes historical state versions older than the specified block height.
     /// This is a hint to the backend; not all state managers may support versioning.
     fn prune(&mut self, min_height_to_keep: u64) -> Result<(), StateError>;
@@ -59,6 +67,14 @@ impl<T: StateManager + ?Sized> StateManager for Box<T> {
 
     fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
         (**self).batch_get(keys)
+    }
+
+    fn batch_apply(
+        &mut self,
+        inserts: &[(Vec<u8>, Vec<u8>)],
+        deletes: &[Vec<u8>],
+    ) -> Result<(), StateError> {
+        (**self).batch_apply(inserts, deletes)
     }
 
     fn prune(&mut self, min_height_to_keep: u64) -> Result<(), StateError> {

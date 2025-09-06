@@ -1,10 +1,9 @@
-// --- crates/validator/src/standard/orchestration/consensus.rs ---
-
 // Path: crates/validator/src/standard/orchestration/consensus.rs
 use super::context::MainLoopContext;
 use super::gossip::prune_mempool;
 use super::oracle::handle_newly_processed_block;
 use async_trait::async_trait;
+use depin_sdk_api::chain::StateView;
 use depin_sdk_api::consensus::ChainStateReader;
 use depin_sdk_client::WorkloadClient;
 use depin_sdk_types::codec;
@@ -12,7 +11,6 @@ use depin_sdk_types::error::{ChainError, StateError};
 use depin_sdk_types::keys::{STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
 
 use depin_sdk_api::{
-    chain::{ChainView, StateView},
     commitment::CommitmentScheme,
     consensus::{ConsensusDecision, ConsensusEngine},
     state::{StateCommitment, StateManager, Verifier},
@@ -130,14 +128,11 @@ where
         + Debug
         + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-    CE: ConsensusEngine<ChainTransaction> + ChainView<CS, ST> + Send + Sync + 'static,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
     let node_state = context.node_state.lock().await.clone();
-    let cons_ty = {
-        let engine = context.consensus_engine_ref.lock().await;
-        (*engine).consensus_type()
-    };
+    let cons_ty = context.config.consensus_type;
     log::info!("[Consensus] Engine = {:?}", cons_ty);
 
     // Allow the chain to "boot" at H=1 even if there are no user txs.

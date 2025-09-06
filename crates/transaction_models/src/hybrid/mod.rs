@@ -3,10 +3,9 @@ use crate::account::{AccountConfig, AccountModel, AccountTransaction, AccountTra
 use crate::utxo::{UTXOConfig, UTXOModel, UTXOTransaction, UTXOTransactionProof};
 use async_trait::async_trait;
 use depin_sdk_api::commitment::CommitmentScheme;
-use depin_sdk_api::state::StateManager;
+use depin_sdk_api::state::{StateAccessor, StateManager};
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
-use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_types::error::TransactionError;
 use serde::{Deserialize, Serialize};
 
@@ -81,8 +80,8 @@ where
     async fn apply_payload<ST, CV>(
         &self,
         chain: &CV,
+        state: &mut dyn StateAccessor,
         tx: &Self::Transaction,
-        workload: &WorkloadContainer<ST>,
         ctx: TxContext<'_>,
     ) -> Result<(), TransactionError>
     where
@@ -97,12 +96,12 @@ where
         match tx {
             HybridTransaction::Account(account_tx) => {
                 self.account_model
-                    .apply_payload(chain, account_tx, workload, ctx)
+                    .apply_payload(chain, state, account_tx, ctx)
                     .await
             }
             HybridTransaction::UTXO(utxo_tx) => {
                 self.utxo_model
-                    .apply_payload(chain, utxo_tx, workload, ctx)
+                    .apply_payload(chain, state, utxo_tx, ctx)
                     .await
             }
         }

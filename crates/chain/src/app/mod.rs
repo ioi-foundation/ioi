@@ -7,7 +7,7 @@ use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::consensus::PenaltyMechanism;
 use depin_sdk_api::services::access::{Service, ServiceDirectory};
 use depin_sdk_api::services::{ServiceType, UpgradableService};
-use depin_sdk_api::state::{StateAccessor, StateManager};
+use depin_sdk_api::state::{StateAccessor, StateManager, StateOverlay};
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
@@ -22,8 +22,7 @@ use depin_sdk_types::codec;
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::{BlockError, ChainError, CoreError, StateError, TransactionError};
 use depin_sdk_types::keys::{
-    ACCOUNT_ID_TO_PUBKEY_PREFIX, AUTHORITY_SET_KEY, GOVERNANCE_KEY, STAKES_KEY_CURRENT,
-    STAKES_KEY_NEXT, STATUS_KEY,
+    ACCOUNT_ID_TO_PUBKEY_PREFIX, AUTHORITY_SET_KEY, STAKES_KEY_CURRENT, STAKES_KEY_NEXT, STATUS_KEY,
 };
 use libp2p::identity::{Keypair, PublicKey as Libp2pPublicKey};
 use serde::{Deserialize, Serialize};
@@ -306,6 +305,10 @@ where
     fn consensus_type(&self) -> ConsensusType {
         self.consensus_engine.consensus_type()
     }
+
+    fn workload_container(&self) -> &WorkloadContainer<ST> {
+        &self.workload_container
+    }
 }
 
 #[async_trait]
@@ -336,105 +339,88 @@ where
         block_height: u64,
     ) -> Result<(), ChainError> {
         let chain_id = self.state.chain_id.parse().unwrap_or(1);
-        let ctx = TxContext {
-            block_height,
-            chain_id,
-            services: &self.services,
-            simulation: false,
-        };
-
-        if let ChainTransaction::System(sys_tx) = tx {
-            if let SystemPayload::SwapModule {
-                service_type,
-                module_wasm,
-                activation_height,
-            } = &sys_tx.payload
-            {
-                let state_tree_arc = workload.state_tree();
-                let state = state_tree_arc.read().await;
-                let gov_pk_bs58_val = state
-                    .get(GOVERNANCE_KEY)?
-                    .ok_or_else(|| ChainError::Transaction("Governance key not set".into()))?;
-                let gov_pk_bs58: String = serde_json::from_slice(&gov_pk_bs58_val).unwrap();
-                let gov_pk_bytes = bs58::decode(gov_pk_bs58).into_vec().unwrap();
-
-                let signer_pk =
-                    Libp2pPublicKey::try_decode_protobuf(&sys_tx.signature_proof.public_key)
-                        .map_err(|_| {
-                            ChainError::Transaction("Invalid public key in signature proof".into())
-                        })?;
-                let signer_ed_pk = signer_pk.clone().try_into_ed25519().unwrap();
-
-                if gov_pk_bytes != signer_ed_pk.to_bytes() {
-                    return Err(ChainError::Transaction(
-                        "Transaction not signed by governance key".into(),
-                    ));
-                }
-
-                let sign_bytes = sys_tx.to_sign_bytes().unwrap();
-                if !signer_pk.verify(&sign_bytes, &sys_tx.signature_proof.signature) {
-                    return Err(ChainError::Transaction(
-                        "Invalid governance signature for SwapModule".into(),
-                    ));
-                }
-                drop(state);
-
-                log::info!(
-                    "[Chain] Scheduling module upgrade for service '{}' at height {}",
-                    service_type,
-                    activation_height
-                );
-                self._service_manager
-                    .schedule_upgrade(
-                        ServiceType::Custom(service_type.clone()),
-                        module_wasm.clone(),
-                        *activation_height,
-                    )
-                    .map_err(|e| ChainError::Transaction(e.to_string()))?;
-                self.state.status.total_transactions += 1;
-                return Ok(());
-            }
-        }
-
         let state_tree_arc = workload.state_tree();
 
-        // === Phase 1: Read-only validation ===
-        // Acquire read lock in a narrow scope.
-        {
-            let state = state_tree_arc.read().await;
-            nonce::assert_next_nonce(&*state, tx)?;
-            validation::verify_transaction_signature(&*state, &self.services, tx, &ctx)?;
-        } // Read lock is released here.
+        let processing_result: Result<(), ChainError> = (async {
+            // Create a read-only view of the current committed state.
+            let base_state = state_tree_arc.read().await;
 
-        // === Phase 2: Write-based validation & Ante Handlers ===
-        // Acquire write lock in a new, narrow scope.
-        {
-            let mut state = state_tree_arc.write().await;
+            // Create an in-memory overlay for this transaction. All writes go here.
+            let mut overlay = StateOverlay::new(&*base_state);
 
-            // Re-assert Nonce under write lock to prevent TOCTOU races.
-            nonce::assert_next_nonce(&*state, tx)?;
+            let ctx = TxContext {
+                block_height,
+                chain_id,
+                services: &self.services,
+                simulation: false,
+            };
+
+            // Special handling for governance-signed SwapModule which doesn't use standard nonces/credentials
+            if let ChainTransaction::System(sys_tx) = tx {
+                if let SystemPayload::SwapModule {
+                    service_type,
+                    module_wasm,
+                    activation_height,
+                } = &sys_tx.payload
+                {
+                    validation::verify_transaction_signature(
+                        &*base_state,
+                        &self.services,
+                        tx,
+                        &ctx,
+                    )?;
+                    log::info!(
+                        "[Chain] Scheduling module upgrade for service '{}' at height {}",
+                        service_type,
+                        *activation_height
+                    );
+                    self._service_manager
+                        .schedule_upgrade(
+                            ServiceType::Custom(service_type.clone()),
+                            module_wasm.clone(),
+                            *activation_height,
+                        )
+                        .map_err(|e| ChainError::Transaction(e.to_string()))?;
+                    // This is a side effect and should ideally be part of state.
+                    // For now, we accept it but acknowledge the risk (see guide).
+                    return Ok(());
+                }
+            }
+
+            // --- Perform all validation and execution steps on the overlay ---
+            nonce::assert_next_nonce(&overlay, tx)?;
+            validation::verify_transaction_signature(&overlay, &self.services, tx, &ctx)?;
             preflight_capabilities(&self.services, tx)?;
 
             // Ante Handlers (mutates state)
             for service in self.services.services_in_deterministic_order() {
                 if let Some(decorator) = service.as_tx_decorator() {
-                    decorator.ante_handle(&mut *state, tx, &ctx)?;
+                    decorator.ante_handle(&mut overlay, tx, &ctx)?;
                 }
             }
+            nonce::bump_nonce(&mut overlay, tx)?;
 
-            // Core Nonce Bump (mutates state)
-            nonce::bump_nonce(&mut *state, tx)?;
-        } // Write lock is released here.
+            self.state
+                .transaction_model
+                .apply_payload(self, &mut overlay, tx, ctx)
+                .await?;
 
-        // === Phase 3: Core Payload Application ===
-        // This function will now acquire its own write lock without contention.
-        self.state
-            .transaction_model
-            .apply_payload(self, tx, workload, ctx)
-            .await?;
+            // --- If all steps succeeded, atomically commit the overlay's changes ---
+            let (inserts, deletes) = overlay.into_ordered_batch();
+            drop(base_state); // Release read lock before acquiring write lock.
 
-        self.state.status.total_transactions += 1;
-        Ok(())
+            if !inserts.is_empty() || !deletes.is_empty() {
+                let mut final_state = state_tree_arc.write().await;
+                final_state.batch_apply(&inserts, &deletes)?; // Use new atomic method
+            }
+            Ok(())
+        })
+        .await;
+
+        if processing_result.is_ok() {
+            self.state.status.total_transactions += 1;
+        }
+        processing_result
     }
 
     async fn process_block(

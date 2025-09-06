@@ -4,7 +4,7 @@ use crate::utxo::{UTXOModel, UTXOTransactionProof};
 use async_trait::async_trait;
 use depin_sdk_api::chain::ChainView;
 use depin_sdk_api::commitment::CommitmentScheme;
-use depin_sdk_api::state::StateManager;
+use depin_sdk_api::state::{StateAccessor, StateManager};
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
@@ -75,8 +75,8 @@ where
     async fn apply_payload<ST, CV>(
         &self,
         chain_ref: &CV,
+        state: &mut dyn StateAccessor,
         tx: &Self::Transaction,
-        workload: &WorkloadContainer<ST>,
         ctx: TxContext<'_>,
     ) -> Result<(), TransactionError>
     where
@@ -92,7 +92,7 @@ where
             ChainTransaction::Application(app_tx) => match app_tx {
                 ApplicationTransaction::UTXO(utxo_tx) => {
                     self.utxo_model
-                        .apply_payload(chain_ref, utxo_tx, workload, ctx)
+                        .apply_payload(chain_ref, state, utxo_tx, ctx)
                         .await
                 }
                 ApplicationTransaction::DeployContract {
@@ -100,14 +100,13 @@ where
                     signature_proof,
                     ..
                 } => {
+                    let workload = chain_ref.workload_container();
                     let (address, state_delta) = workload
                         .deploy_contract(code.clone(), signature_proof.public_key.clone())
                         .await
                         .map_err(|e| TransactionError::Invalid(e.to_string()))?;
 
                     if !state_delta.is_empty() {
-                        let state_tree_arc = workload.state_tree();
-                        let mut state = state_tree_arc.write().await;
                         let versioned_delta: Vec<(Vec<u8>, Vec<u8>)> = state_delta
                             .into_iter()
                             .map(|(key, value)| {
@@ -118,7 +117,7 @@ where
                                 (key, serde_json::to_vec(&entry).unwrap())
                             })
                             .collect();
-                        state.batch_set(&versioned_delta)?;
+                        state.batch_set(&versioned_delta)?; // Writes to the overlay
                     }
                     log::info!(
                         "Applied contract deployment at address: {}",
@@ -133,6 +132,7 @@ where
                     signature_proof,
                     ..
                 } => {
+                    let workload = chain_ref.workload_container();
                     let exec_context = ExecutionContext {
                         caller: signature_proof.public_key.clone(),
                         block_height: ctx.block_height,
@@ -145,8 +145,6 @@ where
                         .map_err(|e| TransactionError::Invalid(e.to_string()))?;
 
                     if !state_delta.is_empty() {
-                        let state_tree_arc = workload.state_tree();
-                        let mut state = state_tree_arc.write().await;
                         let versioned_delta: Vec<(Vec<u8>, Vec<u8>)> = state_delta
                             .into_iter()
                             .map(|(key, value)| {
@@ -157,15 +155,12 @@ where
                                 (key, serde_json::to_vec(&entry).unwrap())
                             })
                             .collect();
-                        state.batch_set(&versioned_delta)?;
+                        state.batch_set(&versioned_delta)?; // Writes to the overlay
                     }
                     Ok(())
                 }
             },
             ChainTransaction::System(sys_tx) => {
-                let state_tree_arc = workload.state_tree();
-                let mut state = state_tree_arc.write().await;
-
                 match sys_tx.payload.clone() {
                     SystemPayload::Stake { public_key, amount } => {
                         let staker_account_id = sys_tx.header.account_id;
@@ -280,7 +275,7 @@ where
                         )?;
 
                         let penalty_mechanism = chain_ref.get_penalty_mechanism();
-                        match penalty_mechanism.apply_penalty(&mut *state, &report).await {
+                        match penalty_mechanism.apply_penalty(state, &report).await {
                             Ok(()) => Ok(()),
                             Err(e) => {
                                 log::warn!("[Penalty] Report rejected: {}", e);
@@ -345,7 +340,7 @@ where
                         let voter_account_id = &sys_tx.header.account_id;
                         governance_module
                             .vote(
-                                &mut *state,
+                                state,
                                 proposal_id,
                                 voter_account_id,
                                 option,
@@ -361,7 +356,7 @@ where
                         })?;
                         identity_hub
                             .rotate(
-                                &mut *state,
+                                state,
                                 &sys_tx.header.account_id,
                                 &proof,
                                 ctx.block_height,

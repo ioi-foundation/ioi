@@ -1,10 +1,9 @@
 // Path: crates/transaction_models/src/account/mod.rs
 use async_trait::async_trait;
 use depin_sdk_api::commitment::CommitmentScheme;
-use depin_sdk_api::state::StateManager;
+use depin_sdk_api::state::{StateAccessor, StateManager};
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
-use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_types::error::TransactionError;
 use serde::{Deserialize, Serialize};
 
@@ -55,7 +54,7 @@ impl<CS: CommitmentScheme> AccountModel<CS> {
         }
     }
 
-    fn get_account<S: StateManager + ?Sized>(
+    fn get_account<S: StateAccessor + ?Sized>(
         &self,
         state: &S,
         key: &[u8],
@@ -95,8 +94,8 @@ where
     async fn apply_payload<ST, CV>(
         &self,
         _chain: &CV,
+        state: &mut dyn StateAccessor,
         tx: &Self::Transaction,
-        workload: &WorkloadContainer<ST>,
         _ctx: TxContext<'_>,
     ) -> Result<(), TransactionError>
     where
@@ -108,11 +107,8 @@ where
             + 'static,
         CV: depin_sdk_api::chain::ChainView<Self::CommitmentScheme, ST> + Send + Sync + ?Sized,
     {
-        let state_tree_arc = workload.state_tree();
-        let mut state = state_tree_arc.write().await;
-
         // Perform stateful validation just-in-time
-        let sender_account = self.get_account(&*state, &tx.from)?;
+        let sender_account = self.get_account(state, &tx.from)?;
         if sender_account.balance < tx.amount {
             return Err(TransactionError::Invalid(
                 "Insufficient balance".to_string(),
@@ -128,7 +124,7 @@ where
         new_sender_account.nonce += 1;
         state.insert(&tx.from, &self.encode_account(&new_sender_account))?;
 
-        let mut receiver_account = self.get_account(&*state, &tx.to)?;
+        let mut receiver_account = self.get_account(state, &tx.to)?;
         receiver_account.balance = receiver_account
             .balance
             .checked_add(tx.amount)

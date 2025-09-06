@@ -1,7 +1,7 @@
 // Path: crates/services/src/governance/mod.rs
 //! Governance module implementations for the DePIN SDK
 
-use depin_sdk_api::state::StateManager;
+use depin_sdk_api::state::{StateAccessor, StateManager};
 // --- FIX: Import the types from the `depin-sdk-types` crate ---
 use depin_sdk_types::app::{
     AccountId, Proposal, ProposalStatus, ProposalType, TallyResult, VoteOption,
@@ -120,9 +120,9 @@ impl GovernanceModule {
         Ok(id)
     }
 
-    pub fn vote<S: StateManager + ?Sized>(
+    pub fn vote(
         &self,
-        state: &mut S,
+        state: &mut dyn StateAccessor,
         proposal_id: u64,
         voter: &AccountId,
         option: VoteOption,
@@ -320,7 +320,7 @@ mod tests {
             None
         }
         fn verify_proof(
-            &self, // <-- FIX: Add &self
+            &self,
             _commitment: &Self::Commitment,
             _proof: &Self::Proof,
             _key: &[u8],
@@ -367,7 +367,19 @@ mod tests {
             c.clone()
         }
         fn prune(&mut self, _min_height_to_keep: u64) -> Result<(), StateError> {
-            // No-op for this in-memory mock
+            Ok(())
+        }
+        fn batch_apply(
+            &mut self,
+            inserts: &[(Vec<u8>, Vec<u8>)],
+            deletes: &[Vec<u8>],
+        ) -> Result<(), StateError> {
+            for key in deletes {
+                self.delete(key)?;
+            }
+            for (key, value) in inserts {
+                self.insert(key, value)?;
+            }
             Ok(())
         }
     }

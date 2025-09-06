@@ -358,6 +358,24 @@ where
         Ok(values)
     }
 
+    fn batch_apply(
+        &mut self,
+        inserts: &[(Vec<u8>, Vec<u8>)],
+        deletes: &[Vec<u8>],
+    ) -> Result<(), StateError> {
+        for key in deletes {
+            let key_hex = hex::encode(key);
+            self.state.data.remove(&key_hex);
+        }
+        for (key, value) in inserts {
+            let key_hex = hex::encode(key);
+            self.state.data.insert(key_hex, value.to_vec());
+        }
+        self.update_merkle_root();
+        self.save_state()
+            .map_err(|e| StateError::WriteError(e.to_string()))
+    }
+
     fn prune(&mut self, _min_height_to_keep: u64) -> Result<(), StateError> {
         // The FileStateTree is not versioned, so pruning is a no-op.
         log::warn!("[FileStateTree] Prune called, but this state tree is not versioned. Operation is a no-op.");

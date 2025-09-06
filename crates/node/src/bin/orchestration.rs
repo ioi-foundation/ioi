@@ -22,7 +22,7 @@ use depin_sdk_validator::{
 use libp2p::{identity, Multiaddr};
 use std::fs;
 use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,

@@ -23,7 +23,7 @@ use depin_sdk_api::{
 };
 use depin_sdk_types::app::{AccountId, Block, FailureReport, StateAnchor}; // Import StateAnchor
 use depin_sdk_types::config::ConsensusType;
-use depin_sdk_types::error::{ChainError, ConsensusError, TransactionError};
+use depin_sdk_types::error::{ConsensusError, TransactionError};
 use libp2p::PeerId;
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -49,35 +49,9 @@ pub enum Consensus<T: Clone> {
     _Phantom(std::marker::PhantomData<T>),
 }
 
-#[async_trait]
-impl<T, CS, ST> ChainView<CS, ST> for Consensus<T>
-where
-    T: Clone + Send + Sync + 'static + Debug,
-    CS: CommitmentScheme + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
-{
-    async fn view_at(&self, _anchor: &StateAnchor) -> Result<Box<dyn StateView>, ChainError> {
-        Err(ChainError::Transaction(
-            "Consensus enum cannot create a state view directly".into(),
-        ))
-    }
-
-    fn get_penalty_mechanism(&self) -> Box<dyn PenaltyMechanism + Send + Sync + '_> {
-        Box::new(self)
-    }
-
-    fn consensus_type(&self) -> ConsensusType {
-        match self {
-            #[cfg(feature = "round-robin")]
-            Consensus::RoundRobin(_) => ConsensusType::ProofOfAuthority,
-            #[cfg(feature = "poa")]
-            Consensus::ProofOfAuthority(_) => ConsensusType::ProofOfAuthority,
-            #[cfg(feature = "pos")]
-            Consensus::ProofOfStake(_) => ConsensusType::ProofOfStake,
-            Consensus::_Phantom(_) => panic!("No consensus engine feature is enabled."),
-        }
-    }
-}
+// FIX: This entire `impl ChainView for Consensus` block was architecturally incorrect
+// and has been removed. The ConsensusEngine is a *consumer* of a ChainView, not an
+// implementor of it. The main `Chain` struct provides the correct implementation.
 
 impl<T: Clone> Consensus<T> {
     /// Returns the `ConsensusType` enum variant corresponding to the active engine.

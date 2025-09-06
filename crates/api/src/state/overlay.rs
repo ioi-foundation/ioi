@@ -4,7 +4,7 @@
 
 use crate::state::StateAccessor;
 use depin_sdk_types::error::StateError;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// An in-memory, copy-on-write overlay for any `StateAccessor`.
 ///
@@ -14,7 +14,7 @@ use std::collections::HashMap;
 #[derive(Clone)]
 pub struct StateOverlay<'a> {
     base: &'a dyn StateAccessor,
-    writes: HashMap<Vec<u8>, Option<Vec<u8>>>, // Use Option to represent deletions
+    writes: BTreeMap<Vec<u8>, Option<Vec<u8>>>, // Use BTreeMap for deterministic commit order.
 }
 
 impl<'a> StateOverlay<'a> {
@@ -22,8 +22,23 @@ impl<'a> StateOverlay<'a> {
     pub fn new(base: &'a dyn StateAccessor) -> Self {
         Self {
             base,
-            writes: HashMap::new(),
+            writes: BTreeMap::new(),
         }
+    }
+
+    /// Consumes the overlay and returns its writes in a deterministic order.
+    /// This is used to commit the transaction's state changes back to the canonical state.
+    pub fn into_ordered_batch(self) -> (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>) {
+        let mut inserts = Vec::new();
+        let mut deletes = Vec::new();
+
+        for (key, value_opt) in self.writes {
+            match value_opt {
+                Some(value) => inserts.push((key, value)),
+                None => deletes.push(key),
+            }
+        }
+        (inserts, deletes)
     }
 }
 

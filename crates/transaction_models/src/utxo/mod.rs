@@ -1,10 +1,9 @@
 // Path: crates/transaction_models/src/utxo/mod.rs
 use async_trait::async_trait;
 use depin_sdk_api::commitment::CommitmentScheme;
-use depin_sdk_api::state::StateManager;
+use depin_sdk_api::state::{StateAccessor, StateManager};
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
-use depin_sdk_api::validator::WorkloadContainer;
 pub use depin_sdk_types::app::{Input, Output, UTXOTransaction};
 use depin_sdk_types::error::TransactionError;
 use serde::{Deserialize, Serialize};
@@ -83,8 +82,8 @@ where
     async fn apply_payload<ST, CV>(
         &self,
         _chain: &CV,
+        state: &mut dyn StateAccessor,
         tx: &Self::Transaction,
-        workload: &WorkloadContainer<ST>,
         _ctx: TxContext<'_>,
     ) -> Result<(), TransactionError>
     where
@@ -96,9 +95,6 @@ where
             + 'static,
         CV: depin_sdk_api::chain::ChainView<Self::CommitmentScheme, ST> + Send + Sync + ?Sized,
     {
-        let state_tree_arc = workload.state_tree();
-        let mut state = state_tree_arc.write().await;
-
         // Stateful validation
         if tx.inputs.is_empty() {
             if tx.outputs.is_empty() {
