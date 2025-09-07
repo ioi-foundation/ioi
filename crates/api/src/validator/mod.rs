@@ -27,6 +27,15 @@ pub mod types;
 pub use container::{Container, GuardianContainer};
 pub use types::ValidatorModel;
 
+/// The key for the state proof cache: a tuple of (state_root, key).
+pub type ProofCacheKey = (Vec<u8>, Vec<u8>);
+/// The value for the state proof cache: a tuple of (membership_outcome, proof).
+pub type ProofCacheValue<P> = (Membership, P);
+/// The underlying LRU cache store for state proofs.
+pub type ProofCacheStore<P> = LruCache<ProofCacheKey, ProofCacheValue<P>>;
+/// A thread-safe handle to the state proof cache.
+pub type ProofCache<P> = Arc<Mutex<ProofCacheStore<P>>>;
+
 /// A container responsible for executing transactions, smart contracts, and managing state.
 pub struct WorkloadContainer<ST: StateManager> {
     config: WorkloadConfig,
@@ -36,7 +45,7 @@ pub struct WorkloadContainer<ST: StateManager> {
     /// A concurrent, in-memory cache for recently generated state proofs.
     /// The key is a tuple of (state_root, key), and the value is the proof.
     /// This is made public to allow the IPC server to access it.
-    pub proof_cache: Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), (Membership, ST::Proof)>>>,
+    pub proof_cache: ProofCache<ST::Proof>,
 }
 
 impl<ST: StateManager + Debug> Debug for WorkloadContainer<ST> {

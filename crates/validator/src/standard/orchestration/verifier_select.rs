@@ -36,6 +36,13 @@ type VerifierParams = Option<()>;
 
 /// Creates the default verifier. The signature and implementation of this function
 /// adapt based on whether a KZG-based primitive is enabled.
+#[cfg(any(
+    feature = "tree-file",
+    feature = "tree-hashmap",
+    feature = "tree-iavl",
+    feature = "tree-sparse-merkle",
+    feature = "tree-verkle"
+))]
 pub fn create_default_verifier(params: VerifierParams) -> DefaultVerifier {
     // The logic *inside* the function is conditionally compiled.
     #[cfg(feature = "tree-verkle")]
@@ -50,8 +57,22 @@ pub fn create_default_verifier(params: VerifierParams) -> DefaultVerifier {
         // This arm is compiled for all other tree types.
         // Here, `params` is `Option<()>` and is ignored.
         let _ = params; // Explicitly ignore the parameter to prevent unused variable warnings.
-        DefaultVerifier::default()
+                        // --- FIX: Instantiate the unit struct directly ---
+        DefaultVerifier
     }
+}
+
+// Fallback creator function for when no tree feature is enabled.
+#[cfg(not(any(
+    feature = "tree-file",
+    feature = "tree-hashmap",
+    feature = "tree-iavl",
+    feature = "tree-sparse-merkle",
+    feature = "tree-verkle"
+)))]
+pub fn create_default_verifier(_params: Option<()>) -> fallback::DefaultVerifier {
+    // --- FIX: Instantiate the unit struct directly ---
+    fallback::DefaultVerifier
 }
 
 // Fallback for when no tree features are enabled.
@@ -92,3 +113,17 @@ mod fallback {
         }
     }
 }
+
+// --- FIX START: Publicly export the fallback verifier at the module level ---
+// This ensures that the import in `orchestration.rs` will always resolve,
+// preventing the compile error. The runtime check `check_features()` will then
+// provide a clear error message if no valid tree feature is selected.
+#[cfg(not(any(
+    feature = "tree-file",
+    feature = "tree-hashmap",
+    feature = "tree-iavl",
+    feature = "tree-sparse-merkle",
+    feature = "tree-verkle"
+)))]
+pub use fallback::DefaultVerifier;
+// --- FIX END ---

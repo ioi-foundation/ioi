@@ -15,7 +15,9 @@ use depin_sdk_services::external_data::ExternalDataService;
 use depin_sdk_types::app::ChainTransaction;
 use depin_sdk_types::error::ValidatorError;
 use libp2p::identity;
-use serde::{Deserialize, Serialize};
+// --- FIX START: Remove unused `Deserialize` import ---
+use serde::Serialize;
+// --- FIX END ---
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::sync::{
@@ -41,6 +43,18 @@ pub mod verifier_select;
 // --- Use statements for handler functions ---
 use consensus::handle_consensus_tick;
 use context::{ChainFor, MainLoopContext};
+
+/// A struct to hold the numerous dependencies for the OrchestrationContainer,
+/// improving constructor readability and maintainability.
+pub struct OrchestrationDependencies<CE, V> {
+    pub syncer: Arc<Libp2pSync>,
+    pub network_event_receiver: mpsc::Receiver<NetworkEvent>,
+    pub swarm_command_sender: mpsc::Sender<SwarmCommand>,
+    pub consensus_engine: CE,
+    pub local_keypair: identity::Keypair,
+    pub is_quarantined: Arc<AtomicBool>,
+    pub verifier: V,
+}
 
 pub struct OrchestrationContainer<CS, ST, CE, V>
 where
@@ -94,13 +108,7 @@ where
 {
     pub fn new(
         config_path: &std::path::Path,
-        syncer: Arc<Libp2pSync>,
-        network_event_receiver: mpsc::Receiver<NetworkEvent>,
-        swarm_command_sender: mpsc::Sender<SwarmCommand>,
-        consensus_engine: CE,
-        local_keypair: identity::Keypair,
-        is_quarantined: Arc<AtomicBool>,
-        verifier: V,
+        deps: OrchestrationDependencies<CE, V>,
     ) -> anyhow::Result<Self> {
         let config: OrchestrationConfig = toml::from_str(&std::fs::read_to_string(config_path)?)?;
         let (shutdown_sender, _) = watch::channel(false);
@@ -110,17 +118,17 @@ where
             chain: Arc::new(OnceCell::new()),
             workload_client: Arc::new(OnceCell::new()),
             tx_pool: Arc::new(Mutex::new(VecDeque::new())),
-            syncer,
-            swarm_command_sender,
-            network_event_receiver: Mutex::new(Some(network_event_receiver)),
-            consensus_engine: Arc::new(Mutex::new(consensus_engine)),
-            local_keypair,
+            syncer: deps.syncer,
+            swarm_command_sender: deps.swarm_command_sender,
+            network_event_receiver: Mutex::new(Some(deps.network_event_receiver)),
+            consensus_engine: Arc::new(Mutex::new(deps.consensus_engine)),
+            local_keypair: deps.local_keypair,
             shutdown_sender: Arc::new(shutdown_sender),
             task_handles: Arc::new(Mutex::new(Vec::new())),
             is_running: Arc::new(AtomicBool::new(false)),
-            is_quarantined,
+            is_quarantined: deps.is_quarantined,
             external_data_service: ExternalDataService::new(),
-            verifier,
+            verifier: deps.verifier,
         })
     }
 
@@ -141,7 +149,7 @@ impl<CS, ST, CE, V> OrchestrationContainer<CS, ST, CE, V>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
@@ -215,7 +223,7 @@ async fn handle_network_event<CS, ST, CE, V>(
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
@@ -267,7 +275,7 @@ impl<CS, ST, CE, V> Container for OrchestrationContainer<CS, ST, CE, V>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send

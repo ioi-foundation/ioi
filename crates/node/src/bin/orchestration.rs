@@ -12,6 +12,9 @@ use depin_sdk_consensus::util::engine_from_config;
 use depin_sdk_network::libp2p::Libp2pSync;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::config::OrchestrationConfig;
+// --- FIX START: Import the new dependencies struct ---
+use depin_sdk_validator::standard::orchestration::OrchestrationDependencies;
+// --- FIX END ---
 use depin_sdk_validator::{
     rpc::run_rpc_server,
     standard::{
@@ -93,9 +96,11 @@ fn check_features() {
 #[cfg(feature = "primitive-kzg")]
 type OptionalKzgParams = Option<KZGParams>;
 #[cfg(not(feature = "primitive-kzg"))]
+#[allow(dead_code)]
 type OptionalKzgParams = Option<()>;
 
 /// Generic function containing all logic after component instantiation.
+#[allow(dead_code)]
 async fn run_orchestration<CS, ST>(
     opts: OrchestrationOpts,
     config: OrchestrationConfig,
@@ -131,16 +136,21 @@ where
 
     let is_quarantined = Arc::new(AtomicBool::new(false));
 
-    let orchestration = Arc::new(OrchestrationContainer::new(
-        &opts.config,
+    // --- FIX START: Group dependencies into the new struct ---
+    let deps = OrchestrationDependencies {
         syncer,
         network_event_receiver,
-        swarm_commander.clone(),
+        swarm_command_sender: swarm_commander.clone(),
         consensus_engine,
-        local_key,
-        is_quarantined.clone(),
+        local_keypair: local_key,
+        is_quarantined: is_quarantined.clone(),
         verifier,
-    )?);
+    };
+    // --- FIX END ---
+
+    // --- FIX START: Update the constructor call ---
+    let orchestration = Arc::new(OrchestrationContainer::new(&opts.config, deps)?);
+    // --- FIX END ---
 
     let workload_client = {
         let workload_ipc_addr =
@@ -269,6 +279,7 @@ where
 }
 
 #[tokio::main]
+#[allow(unused_variables)]
 async fn main() -> Result<()> {
     check_features();
     env_logger::builder()
@@ -373,7 +384,7 @@ async fn main() -> Result<()> {
             .await
         }
         _ => {
-            let err_msg = format!("Unsupported or disabled state configuration: StateTree={:?}, CommitmentScheme={:?}.", workload_config.state_tree, workload_config.commitment_scheme);
+            let err_msg = format!("Unsupported or disabled state configuration: StateTree={:?}, CommitmentScheme={:?}. Please check your config and compile-time features.", workload_config.state_tree, workload_config.commitment_scheme);
             Err(anyhow!(err_msg))
         }
     }

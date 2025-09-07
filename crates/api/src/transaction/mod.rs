@@ -5,7 +5,6 @@ use crate::chain::ChainView;
 use crate::commitment::CommitmentScheme;
 use crate::state::{StateAccessor, StateManager};
 use crate::transaction::context::TxContext;
-use crate::validator::WorkloadContainer;
 use async_trait::async_trait;
 use depin_sdk_types::error::TransactionError;
 use std::any::Any;
@@ -38,16 +37,16 @@ pub trait TransactionModel: Send + Sync {
     /// This is called *after* all `TxDecorator` handlers have passed.
     async fn apply_payload<ST, CV>(
         &self,
-        chain: &CV, // ChainView for read-only context
+        chain: &CV,                    // ChainView for read-only context
         state: &mut dyn StateAccessor, // The transactional state overlay for writes
         tx: &Self::Transaction,
         ctx: TxContext<'_>,
     ) -> Result<(), TransactionError>
     where
         ST: StateManager<
-            Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-            Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-        > + Send
+                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
+                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
+            > + Send
             + Sync
             + 'static,
         CV: ChainView<Self::CommitmentScheme, ST> + Send + Sync + ?Sized;

@@ -6,6 +6,15 @@ use crate::state::StateAccessor;
 use depin_sdk_types::error::StateError;
 use std::collections::BTreeMap;
 
+/// A batch of key-value pairs to be inserted or updated in the state.
+pub type StateInserts = Vec<(Vec<u8>, Vec<u8>)>;
+
+/// A batch of keys to be deleted from the state.
+pub type StateDeletes = Vec<Vec<u8>>;
+
+/// A complete set of state changes (inserts/updates and deletes) from a transaction.
+pub type StateChangeSet = (StateInserts, StateDeletes);
+
 /// An in-memory, copy-on-write overlay for any `StateAccessor`.
 ///
 /// Reads are first checked against the local `writes` cache. If a key is not
@@ -28,7 +37,7 @@ impl<'a> StateOverlay<'a> {
 
     /// Consumes the overlay and returns its writes in a deterministic order.
     /// This is used to commit the transaction's state changes back to the canonical state.
-    pub fn into_ordered_batch(self) -> (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>) {
+    pub fn into_ordered_batch(self) -> StateChangeSet {
         let mut inserts = Vec::new();
         let mut deletes = Vec::new();
 
