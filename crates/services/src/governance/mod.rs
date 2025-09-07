@@ -346,12 +346,14 @@ mod tests {
     impl StateManager for MockStateManager {
         fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
             for (key, value) in updates {
-                self.insert(key, value)?;
+                StateCommitment::insert(self, key, value)?;
             }
             Ok(())
         }
         fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
-            keys.iter().map(|key| self.get(key)).collect()
+            keys.iter()
+                .map(|key| StateCommitment::get(self, key))
+                .collect()
         }
         fn get_with_proof_at(
             &self,
@@ -375,10 +377,10 @@ mod tests {
             deletes: &[Vec<u8>],
         ) -> Result<(), StateError> {
             for key in deletes {
-                self.delete(key)?;
+                StateCommitment::delete(self, key)?;
             }
             for (key, value) in inserts {
-                self.insert(key, value)?;
+                StateCommitment::insert(self, key, value)?;
             }
             Ok(())
         }
@@ -402,14 +404,14 @@ mod tests {
         };
         let key = GovernanceModule::proposal_key(proposal_id);
         let value = serde_json::to_vec(&proposal).unwrap();
-        state.insert(&key, &value).unwrap();
+        StateCommitment::insert(state, &key, &value).unwrap();
         proposal_id
     }
 
     // Helper to get proposal status from state
     fn get_status(state: &MockStateManager, proposal_id: u64) -> ProposalStatus {
         let key = GovernanceModule::proposal_key(proposal_id);
-        let bytes = state.get(&key).unwrap().unwrap();
+        let bytes = StateCommitment::get(state, &key).unwrap().unwrap();
         let proposal: Proposal = serde_json::from_slice(&bytes).unwrap();
         proposal.status
     }
@@ -429,12 +431,12 @@ mod tests {
         stakes.insert(voter2_id, 400);
 
         // Setup votes: Voter1 votes YES. Total voted power = 600.
-        state
-            .insert(
-                &GovernanceModule::vote_key(proposal_id, &voter1_id),
-                &serde_json::to_vec(&VoteOption::Yes).unwrap(),
-            )
-            .unwrap();
+        StateCommitment::insert(
+            &mut state,
+            &GovernanceModule::vote_key(proposal_id, &voter1_id),
+            &serde_json::to_vec(&VoteOption::Yes).unwrap(),
+        )
+        .unwrap();
 
         // Tally:
         // - total_voting_power = 1000. Quorum = 330. Voted power = 600. -> Quorum met.
@@ -460,12 +462,12 @@ mod tests {
         stakes.insert(voter2_id, 300);
 
         // Only one voter with 300 power votes.
-        state
-            .insert(
-                &GovernanceModule::vote_key(proposal_id, &voter2_id),
-                &serde_json::to_vec(&VoteOption::Yes).unwrap(),
-            )
-            .unwrap();
+        StateCommitment::insert(
+            &mut state,
+            &GovernanceModule::vote_key(proposal_id, &voter2_id),
+            &serde_json::to_vec(&VoteOption::Yes).unwrap(),
+        )
+        .unwrap();
 
         // Tally:
         // - total_voting_power = 1300. Quorum = 429. Voted power = 300. -> Quorum FAILED.
@@ -489,18 +491,18 @@ mod tests {
         stakes.insert(voter2_id, 600); // Total power = 1000
 
         // Both vote, so quorum is met. Voter1 votes YES, Voter2 votes NO.
-        state
-            .insert(
-                &GovernanceModule::vote_key(proposal_id, &voter1_id),
-                &serde_json::to_vec(&VoteOption::Yes).unwrap(),
-            )
-            .unwrap();
-        state
-            .insert(
-                &GovernanceModule::vote_key(proposal_id, &voter2_id),
-                &serde_json::to_vec(&VoteOption::No).unwrap(),
-            )
-            .unwrap();
+        StateCommitment::insert(
+            &mut state,
+            &GovernanceModule::vote_key(proposal_id, &voter1_id),
+            &serde_json::to_vec(&VoteOption::Yes).unwrap(),
+        )
+        .unwrap();
+        StateCommitment::insert(
+            &mut state,
+            &GovernanceModule::vote_key(proposal_id, &voter2_id),
+            &serde_json::to_vec(&VoteOption::No).unwrap(),
+        )
+        .unwrap();
 
         // Tally:
         // - total_voting_power = 1000. Quorum = 330. Voted power = 1000. -> Quorum met.
@@ -524,18 +526,18 @@ mod tests {
         stakes.insert(voter1_id, 600); // Majority Yes
         stakes.insert(voter2_id, 400); // Veto power
 
-        state
-            .insert(
-                &GovernanceModule::vote_key(proposal_id, &voter1_id),
-                &serde_json::to_vec(&VoteOption::Yes).unwrap(),
-            )
-            .unwrap();
-        state
-            .insert(
-                &GovernanceModule::vote_key(proposal_id, &voter2_id),
-                &serde_json::to_vec(&VoteOption::NoWithVeto).unwrap(),
-            )
-            .unwrap();
+        StateCommitment::insert(
+            &mut state,
+            &GovernanceModule::vote_key(proposal_id, &voter1_id),
+            &serde_json::to_vec(&VoteOption::Yes).unwrap(),
+        )
+        .unwrap();
+        StateCommitment::insert(
+            &mut state,
+            &GovernanceModule::vote_key(proposal_id, &voter2_id),
+            &serde_json::to_vec(&VoteOption::NoWithVeto).unwrap(),
+        )
+        .unwrap();
 
         // Tally:
         // - total_voting_power = 1000. Quorum = 330. Voted power = 1000. -> Quorum met.

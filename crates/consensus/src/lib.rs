@@ -21,7 +21,7 @@ use depin_sdk_api::{
     consensus::{ChainStateReader, ConsensusDecision, ConsensusEngine, PenaltyMechanism},
     state::{StateAccessor, StateManager},
 };
-use depin_sdk_types::app::{AccountId, Block, FailureReport, StateAnchor}; // Import StateAnchor
+use depin_sdk_types::app::{AccountId, Block, FailureReport};
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::{ConsensusError, TransactionError};
 use libp2p::PeerId;
