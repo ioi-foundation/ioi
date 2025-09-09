@@ -343,6 +343,7 @@ pub struct TestValidator {
     pub keypair: identity::Keypair,
     pub peer_id: PeerId,
     pub rpc_addr: String,
+    pub workload_ipc_addr: String,
     pub p2p_addr: Multiaddr,
     _temp_dir: Arc<TempDir>,
     backend: Box<dyn TestBackend>,
@@ -399,6 +400,7 @@ impl TestValidator {
         let p2p_port = portpicker::pick_unused_port().unwrap_or(base_port);
         let rpc_port = portpicker::pick_unused_port().unwrap_or(base_port + 1);
         let p2p_addr_str = format!("/ip4/127.0.0.1/tcp/{}", p2p_port);
+        let p2p_addr: Multiaddr = p2p_addr_str.parse()?;
         let rpc_addr = format!("127.0.0.1:{}", rpc_port);
 
         let keypair_path = temp_dir.path().join("identity.key");
@@ -492,24 +494,27 @@ impl TestValidator {
         let guardian_config = r#"signature_policy = "FollowChain""#.to_string();
         std::fs::write(config_dir_path.join("guardian.toml"), guardian_config)?;
 
+        let workload_ipc_addr;
         let mut backend: Box<dyn TestBackend> = if use_docker {
-            Box::new(
-                DockerBackend::new(
-                    rpc_addr.clone(),
-                    p2p_addr_str.parse()?,
-                    agentic_model_path.map(std::path::PathBuf::from),
-                    temp_dir.clone(),
-                    keypair_path.clone(),
-                    genesis_path.clone(),
-                    config_dir_path.clone(),
-                )
-                .await?,
+            let docker_backend = DockerBackend::new(
+                rpc_addr.clone(),
+                p2p_addr.clone(),
+                agentic_model_path.map(std::path::PathBuf::from),
+                temp_dir.clone(),
+                keypair_path.clone(),
+                genesis_path.clone(),
+                config_dir_path.clone(),
             )
+            .await?;
+            workload_ipc_addr = "127.0.0.1:8555".to_string(); // Placeholder for Docker
+            Box::new(docker_backend)
         } else {
             let ipc_port_workload = portpicker::pick_unused_port().unwrap_or(base_port + 2);
-            let guardian_port = portpicker::pick_unused_port().unwrap_or(base_port + 3);
-            let guardian_addr = format!("127.0.0.1:{}", guardian_port);
-            let ipc_addr_workload = format!("127.0.0.1:{}", ipc_port_workload);
+            let guardian_addr = format!(
+                "127.0.0.1:{}",
+                portpicker::pick_unused_port().unwrap_or(base_port + 3)
+            );
+            workload_ipc_addr = format!("127.0.0.1:{}", ipc_port_workload);
             let node_binary_path = Path::new(env!("CARGO_MANIFEST_DIR"))
                 .parent()
                 .unwrap()
@@ -531,9 +536,13 @@ impl TestValidator {
                         .kill_on_drop(true)
                         .spawn()?;
                     let mut reader = BufReader::new(process.stderr.take().unwrap()).lines();
+
+                    // --- FIX: Wait for the new, reliable readiness signal ---
+                    let ready_signal = format!("GUARDIAN_IPC_LISTENING_ON_{}", guardian_addr);
                     timeout(GUARDIAN_READY_TIMEOUT, async {
                         while let Some(line) = reader.next_line().await? {
-                            if line.contains("Guardian container started") {
+                            println!("[GUARDIAN-BOOT] {}", line); // Debug print
+                            if line.contains(&ready_signal) {
                                 return Ok(());
                             }
                         }
@@ -548,7 +557,7 @@ impl TestValidator {
             let mut workload_cmd = TokioCommand::new(node_binary_path.join("workload"));
             workload_cmd
                 .args(["--config", &workload_config_path.to_string_lossy()])
-                .env("IPC_SERVER_ADDR", &ipc_addr_workload)
+                .env("IPC_SERVER_ADDR", &workload_ipc_addr)
                 .stderr(Stdio::piped())
                 .kill_on_drop(true);
             if agentic_model_path.is_some() {
@@ -559,7 +568,7 @@ impl TestValidator {
             let mut workload_reader =
                 BufReader::new(workload_process.stderr.take().unwrap()).lines();
             timeout(WORKLOAD_READY_TIMEOUT, async {
-                let ready_signal = format!("WORKLOAD_IPC_LISTENING_ON_{}", ipc_addr_workload);
+                let ready_signal = format!("WORKLOAD_IPC_LISTENING_ON_{}", workload_ipc_addr);
                 while let Some(line) = workload_reader.next_line().await? {
                     if line.contains(&ready_signal) {
                         return Ok(());
@@ -584,7 +593,7 @@ impl TestValidator {
             let mut orch_cmd = TokioCommand::new(node_binary_path.join("orchestration"));
             orch_cmd
                 .args(&orch_args)
-                .env("WORKLOAD_IPC_ADDR", &ipc_addr_workload)
+                .env("WORKLOAD_IPC_ADDR", &workload_ipc_addr)
                 .stderr(Stdio::piped())
                 .kill_on_drop(true);
             if agentic_model_path.is_some() {
@@ -607,7 +616,7 @@ impl TestValidator {
             })
             .await??;
 
-            let mut pb = ProcessBackend::new(rpc_addr.clone(), p2p_addr_str.parse()?);
+            let mut pb = ProcessBackend::new(rpc_addr.clone(), p2p_addr.clone());
             pb.orchestration_process = Some(orchestration_process);
             pb.workload_process = Some(workload_process);
             pb.guardian_process = guardian_process;
@@ -629,6 +638,7 @@ impl TestValidator {
             keypair,
             peer_id,
             rpc_addr,
+            workload_ipc_addr,
             p2p_addr,
             _temp_dir: temp_dir,
             backend,
@@ -655,6 +665,7 @@ type GenesisModifier = Box<dyn FnOnce(&mut Value, &Vec<identity::Keypair>) + Sen
 
 pub struct TestClusterBuilder {
     num_validators: usize,
+    keypairs: Option<Vec<identity::Keypair>>,
     genesis_modifiers: Vec<GenesisModifier>,
     consensus_type: String,
     agentic_model_path: Option<String>,
@@ -668,6 +679,7 @@ impl Default for TestClusterBuilder {
     fn default() -> Self {
         Self {
             num_validators: 1,
+            keypairs: None,
             genesis_modifiers: Vec::new(),
             consensus_type: "ProofOfAuthority".to_string(),
             agentic_model_path: None,
@@ -686,6 +698,12 @@ impl TestClusterBuilder {
 
     pub fn with_validators(mut self, count: usize) -> Self {
         self.num_validators = count;
+        self
+    }
+
+    pub fn with_keypairs(mut self, keypairs: Vec<identity::Keypair>) -> Self {
+        self.num_validators = keypairs.len();
+        self.keypairs = Some(keypairs);
         self
     }
 
@@ -728,9 +746,12 @@ impl TestClusterBuilder {
     }
 
     pub async fn build(mut self) -> Result<TestCluster> {
-        let validator_keys: Vec<identity::Keypair> = (0..self.num_validators)
-            .map(|_| identity::Keypair::generate_ed25519())
-            .collect();
+        let validator_keys = self.keypairs.take().unwrap_or_else(|| {
+            (0..self.num_validators)
+                .map(|_| identity::Keypair::generate_ed25519())
+                .collect()
+        });
+
         let mut genesis = serde_json::json!({ "genesis_state": {} });
         for modifier in self.genesis_modifiers.drain(..) {
             modifier(&mut genesis, &validator_keys);

@@ -6,13 +6,12 @@
     feature = "primitive-kzg"
 ))]
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use depin_sdk_api::consensus::ChainStateReader;
+use depin_sdk_client::WorkloadClient;
 use depin_sdk_forge::testing::{
-    build_test_artifacts,
-    poll::{wait_for_height, wait_for_stake_to_be}, // Use the correct polling helper name
-    submit_transaction,
-    TestCluster,
+    build_test_artifacts, poll::wait_for_height, submit_transaction, TestCluster,
 };
 use depin_sdk_types::{
     app::{
@@ -29,8 +28,71 @@ use depin_sdk_types::{
 };
 use libp2p::identity::Keypair;
 use serde_json::json;
-use std::collections::BTreeMap;
 use std::time::Duration;
+use std::{collections::BTreeMap, future::Future};
+use tokio::time::{sleep, Instant};
+
+// Local polling helper that uses the new WorkloadClient
+async fn wait_for<F, Fut, T>(
+    description: &str,
+    interval: Duration,
+    timeout: Duration,
+    mut condition: F,
+) -> Result<T>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<Option<T>>>,
+{
+    let start = Instant::now();
+    loop {
+        match condition().await {
+            Ok(Some(value)) => return Ok(value),
+            Ok(None) => {}
+            Err(e) => {
+                log::trace!(
+                    "Polling for '{}' received transient error: {}",
+                    description,
+                    e
+                );
+            }
+        }
+        if start.elapsed() > timeout {
+            return Err(anyhow!("Timeout waiting for {}", description));
+        }
+        sleep(interval).await;
+    }
+}
+
+async fn wait_for_stake_to_be(
+    client: &WorkloadClient,
+    account_id: &AccountId,
+    target_stake: u64,
+    timeout: Duration,
+) -> Result<()> {
+    wait_for(
+        &format!(
+            "stake for account {} to be {}",
+            hex::encode(account_id.as_ref()),
+            target_stake
+        ),
+        Duration::from_millis(500),
+        timeout,
+        || async {
+            let stakes = client
+                .get_next_staked_validators()
+                .await
+                .map_err(|e| anyhow!(e))?;
+            let hex_id = hex::encode(account_id.as_ref());
+            let current_stake = stakes.get(&hex_id).copied().unwrap_or(0);
+            if current_stake == target_stake {
+                Ok(Some(()))
+            } else {
+                Ok(None)
+            }
+        },
+    )
+    .await
+}
 
 // Helper function to create a signed system transaction
 fn create_system_tx(
@@ -136,6 +198,7 @@ async fn test_verkle_tree_e2e() -> Result<()> {
     // 3. Get handles and wait for node to be ready
     let node = &cluster.validators[0];
     let rpc_addr = &node.rpc_addr;
+    let workload_client = WorkloadClient::new(&node.workload_ipc_addr).await?;
 
     println!("--- Verkle Node Launched ---");
 
@@ -159,7 +222,7 @@ async fn test_verkle_tree_e2e() -> Result<()> {
 
     // 3. Poll the state directly until the stake appears and is correct.
     wait_for_stake_to_be(
-        rpc_addr,
+        &workload_client,
         &staker_account_id,
         stake_amount,
         Duration::from_secs(20),

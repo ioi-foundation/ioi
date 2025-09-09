@@ -29,6 +29,9 @@ depin-sdk-api = { path = "../api" }
 depin-sdk-crypto = { path = "../crypto" }
 depin-sdk-validator = { path = "../validator", default-features = false }
 depin-sdk-commitment = { path = "../commitment", default-features = false }
+# --- FIX START: Add depin-sdk-client as a dependency ---
+depin-sdk-client = { path = "../client" }
+# --- FIX END ---
 toml = { workspace = true }
 # Dependencies for testing helpers that are now part of the library
 reqwest = { workspace = true }

@@ -1,9 +1,9 @@
 // Path: crates/consensus/src/proof_of_stake.rs
-use crate::{ConsensusDecision, ConsensusEngine};
+use crate::{ConsensusDecision, ConsensusEngine, PenaltyMechanism};
 use async_trait::async_trait;
 use depin_sdk_api::chain::{ChainView, StakeAmount, StateView};
 use depin_sdk_api::commitment::CommitmentScheme;
-use depin_sdk_api::consensus::{ChainStateReader, PenaltyMechanism};
+use depin_sdk_api::consensus::ChainStateReader;
 use depin_sdk_api::state::{StateAccessor, StateManager};
 use depin_sdk_crypto::algorithms::hash::sha256;
 use depin_sdk_types::app::{AccountId, Block, FailureReport};
@@ -24,48 +24,12 @@ impl Default for ProofOfStakeEngine {
     }
 }
 
-/// Reads the stakes map that will be active for the next block from a given state view.
-async fn read_stakes(
-    view: &dyn StateView,
-) -> Result<BTreeMap<AccountId, StakeAmount>, ConsensusError> {
-    // The leader for the upcoming block (H) is determined by the state of stakes
-    // at the end of the previous block (H-1), which is stored in the 'next' key.
-    match view
-        .get(STAKES_KEY_NEXT)
-        .await
-        .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
-    {
-        Some(bytes) => {
-            let stakes: BTreeMap<AccountId, u64> = codec::from_bytes_canonical(&bytes)
-                .map_err(|e| ConsensusError::StateAccess(StateError::InvalidValue(e)))?;
-            Ok(stakes)
-        }
-        None => {
-            // If NEXT is not found, fall back to CURRENT. This is important for the genesis block
-            // where only CURRENT is initialized.
-            match view
-                .get(STAKES_KEY_CURRENT)
-                .await
-                .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
-            {
-                Some(bytes) => {
-                    let stakes: BTreeMap<AccountId, u64> = codec::from_bytes_canonical(&bytes)
-                        .map_err(|e| ConsensusError::StateAccess(StateError::InvalidValue(e)))?;
-                    Ok(stakes)
-                }
-                None => Ok(BTreeMap::new()),
-            }
-        }
-    }
-}
-
 impl ProofOfStakeEngine {
     pub fn new() -> Self {
         Self {}
     }
 
     /// Selects a deterministic leader for a given block height based on stake weight.
-    #[allow(dead_code)]
     fn select_leader(
         &self,
         height: u64,
@@ -116,7 +80,8 @@ impl PenaltyMechanism for ProofOfStakeEngine {
             .or(state.get(STAKES_KEY_CURRENT)?);
 
         let mut stakes: BTreeMap<AccountId, u64> = match base_stakes_bytes {
-            Some(bytes) => codec::from_bytes_canonical(&bytes)?,
+            Some(bytes) => codec::from_bytes_canonical(&bytes)
+                .map_err(|e| TransactionError::State(StateError::InvalidValue(e)))?,
             None => {
                 return Err(TransactionError::State(StateError::KeyNotFound(
                     "No current or next stake map found".into(),
@@ -156,12 +121,24 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
         parent_view: &dyn StateView,
         _known_peers: &HashSet<libp2p::PeerId>,
     ) -> ConsensusDecision<T> {
-        let stakes = match read_stakes(parent_view).await {
+        let validator_set = match parent_view.validator_set().await {
+            Ok(vs) => vs,
+            Err(_) => return ConsensusDecision::Stall,
+        };
+
+        let stakes_bytes = match parent_view.get(STAKES_KEY_NEXT).await {
+            Ok(Some(bytes)) => bytes,
+            _ => match parent_view.get(STAKES_KEY_CURRENT).await {
+                Ok(Some(bytes)) => bytes,
+                _ => return ConsensusDecision::Stall,
+            },
+        };
+        let stakes: BTreeMap<AccountId, u64> = match codec::from_bytes_canonical(&stakes_bytes) {
             Ok(s) => s,
             Err(_) => return ConsensusDecision::Stall,
         };
 
-        if stakes.is_empty() {
+        if validator_set.is_empty() {
             return if height == 1 {
                 ConsensusDecision::ProduceBlock(vec![])
             } else {
@@ -242,7 +219,19 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
         let preimage = header.to_preimage_for_signing();
         verify_signature(&preimage, pubkey, active_key.suite, &header.signature)?;
 
-        let stakes = read_stakes(parent_view).await?;
+        // FIX: Explicitly handle the ChainError from `get` and convert it.
+        let stakes_bytes = match parent_view.get(STAKES_KEY_NEXT).await {
+            Ok(Some(bytes)) => bytes,
+            _ => parent_view
+                .get(STAKES_KEY_CURRENT)
+                .await
+                .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
+                .ok_or_else(|| {
+                    ConsensusError::StateAccess(StateError::KeyNotFound("stakes".into()))
+                })?,
+        };
+        let stakes: BTreeMap<AccountId, u64> = codec::from_bytes_canonical(&stakes_bytes)
+            .map_err(|e| ConsensusError::StateAccess(StateError::InvalidValue(e)))?;
         let expected_leader = self.select_leader(header.height, &stakes).ok_or_else(|| {
             ConsensusError::BlockVerificationFailed("Leader selection failed".to_string())
         })?;

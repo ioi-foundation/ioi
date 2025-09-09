@@ -1,5 +1,6 @@
 // Path: crates/validator/src/standard/orchestration/mod.rs
 use crate::config::OrchestrationConfig;
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use depin_sdk_api::{
     commitment::CommitmentScheme,
@@ -15,9 +16,7 @@ use depin_sdk_services::external_data::ExternalDataService;
 use depin_sdk_types::app::ChainTransaction;
 use depin_sdk_types::error::ValidatorError;
 use libp2p::identity;
-// --- FIX START: Remove unused `Deserialize` import ---
 use serde::Serialize;
-// --- FIX END ---
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::sync::{
@@ -166,46 +165,45 @@ where
         + 'static
         + Debug,
 {
-    async fn run_main_loop(mut context: MainLoopContext<CS, ST, CE, V>) {
-        let interval_secs = context.config.block_production_interval_secs;
-        let mut block_production_interval = time::interval(Duration::from_secs(interval_secs));
-        block_production_interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
-
-        let sync_timeout = time::sleep(Duration::from_secs(
-            context.config.initial_sync_timeout_secs,
-        ));
+    /// The simplified main loop, now focused on network events and shutdown.
+    async fn run_main_loop(
+        mut network_event_receiver: mpsc::Receiver<NetworkEvent>,
+        mut shutdown_receiver: watch::Receiver<bool>,
+        context_arc: Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    ) {
+        let sync_timeout = {
+            let context = context_arc.lock().await;
+            time::sleep(Duration::from_secs(
+                context.config.initial_sync_timeout_secs,
+            ))
+        };
         tokio::pin!(sync_timeout);
 
-        *context.node_state.lock().await = NodeState::Syncing;
-        log::info!("[Orchestrator] State -> Syncing.");
+        {
+            let context = context_arc.lock().await;
+            *context.node_state.lock().await = NodeState::Syncing;
+            log::info!("[Orchestrator] State -> Syncing.");
+        }
 
         loop {
-            if context.is_quarantined.load(Ordering::SeqCst) {
-                log::warn!("Node is quarantined, skipping consensus participation.");
-                tokio::time::sleep(Duration::from_secs(10)).await;
-                continue;
-            }
-
             tokio::select! {
                 biased;
 
-                Some(event) = context.network_event_receiver.recv() => {
+                Some(event) = network_event_receiver.recv() => {
+                    let mut context = context_arc.lock().await;
                     handle_network_event(event, &mut context).await;
                 }
 
-                _ = &mut sync_timeout, if *context.node_state.lock().await == NodeState::Syncing => {
+                _ = &mut sync_timeout, if *context_arc.lock().await.node_state.lock().await == NodeState::Syncing => {
+                    let context = context_arc.lock().await;
                     if context.known_peers_ref.lock().await.is_empty() {
                          log::info!("[Orchestrator] No peers found after timeout. Assuming genesis node. State -> Synced.");
                         *context.node_state.lock().await = NodeState::Synced;
                     }
                 },
 
-                _ = block_production_interval.tick() => {
-                    handle_consensus_tick(&mut context).await;
-                }
-
-                _ = context.shutdown_receiver.changed() => {
-                    if *context.shutdown_receiver.borrow() {
+                _ = shutdown_receiver.changed() => {
+                    if *shutdown_receiver.borrow() {
                         log::info!("Orchestration main loop received shutdown signal.");
                         break;
                     }
@@ -299,7 +297,7 @@ where
         self.is_running.load(Ordering::SeqCst)
     }
 
-    async fn start(&self) -> Result<(), ValidatorError> {
+    async fn start(&self, _listen_addr: &str) -> Result<(), ValidatorError> {
         if self.is_running() {
             return Err(ValidatorError::AlreadyRunning(self.id().to_string()));
         }
@@ -310,13 +308,6 @@ where
             .await
             .map_err(|e| ValidatorError::Other(e.to_string()))?;
 
-        let chain = self
-            .chain
-            .get()
-            .ok_or_else(|| {
-                ValidatorError::Other("Chain ref not initialized before start".to_string())
-            })?
-            .clone();
         let workload_client = self
             .workload_client
             .get()
@@ -324,6 +315,31 @@ where
                 ValidatorError::Other(
                     "Workload client ref not initialized before start".to_string(),
                 )
+            })?
+            .clone();
+
+        let guardian_addr = std::env::var("GUARDIAN_ADDR").unwrap_or_default();
+        if !guardian_addr.is_empty() {
+            log::info!("[Orchestrator] Performing agentic attestation with Guardian...");
+            match self
+                .perform_guardian_attestation(&guardian_addr, &workload_client)
+                .await
+            {
+                Ok(()) => log::info!("[Orchestrator] Agentic attestation successful."),
+                Err(e) => {
+                    log::error!("[Orchestrator] CRITICAL: Agentic attestation failed: {}. Quarantining node.", e);
+                    self.is_quarantined.store(true, Ordering::SeqCst);
+                }
+            }
+        } else {
+            log::warn!("GUARDIAN_ADDR not set, skipping Guardian attestation.");
+        }
+
+        let chain = self
+            .chain
+            .get()
+            .ok_or_else(|| {
+                ValidatorError::Other("Chain ref not initialized before start".to_string())
             })?
             .clone();
 
@@ -341,7 +357,7 @@ where
             chain_ref: chain,
             workload_client,
             tx_pool_ref: self.tx_pool.clone(),
-            network_event_receiver: receiver,
+            network_event_receiver: Some(receiver),
             swarm_commander: self.swarm_command_sender.clone(),
             shutdown_receiver: self.shutdown_sender.subscribe(),
             consensus_engine_ref: self.consensus_engine.clone(),
@@ -357,8 +373,64 @@ where
             verifier: self.verifier.clone(),
         };
 
+        let context_arc = Arc::new(Mutex::new(context));
         let mut handles = self.task_handles.lock().await;
-        handles.push(tokio::spawn(Self::run_main_loop(context)));
+
+        let ticker_context = Arc::clone(&context_arc);
+        handles.push(tokio::spawn(async move {
+            let (interval_secs, allow_when_quarantined) = {
+                let ctx = ticker_context.lock().await;
+
+                let interval = std::env::var("ORCH_BLOCK_INTERVAL_SECS")
+                    .ok()
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or_else(|| ctx.config.block_production_interval_secs.max(1));
+
+                let allow = std::env::var("ORCH_ALLOW_CONSENSUS_WHEN_QUARANTINED")
+                    .ok()
+                    .map(|v| {
+                        let v = v.to_ascii_lowercase();
+                        v == "1" || v == "true" || v == "yes" || v == "on"
+                    })
+                    .unwrap_or(false); // Default to false for production safety
+
+                log::info!(
+                    "[Consensus] Effective block interval = {}s; allow_when_quarantined = {}",
+                    interval,
+                    allow
+                );
+                (interval, allow)
+            };
+
+            let mut ticker = time::interval(Duration::from_secs(interval_secs));
+            ticker.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
+
+            loop {
+                ticker.tick().await;
+                let mut guard = ticker_context.lock().await;
+
+                let quarantined = guard.is_quarantined.load(Ordering::SeqCst);
+                if quarantined && !allow_when_quarantined {
+                    log::info!("[Consensus] Skipping tick (node is quarantined).");
+                    continue;
+                }
+
+                log::debug!("[Consensus] tick()");
+                handle_consensus_tick(&mut guard).await;
+            }
+        }));
+
+        let main_loop_context = Arc::clone(&context_arc);
+        handles.push(tokio::spawn(async move {
+            let (receiver, shutdown) = {
+                let mut ctx = main_loop_context.lock().await;
+                (
+                    ctx.network_event_receiver.take().unwrap(),
+                    ctx.shutdown_receiver.clone(),
+                )
+            };
+            Self::run_main_loop(receiver, shutdown, main_loop_context).await;
+        }));
 
         self.is_running.store(true, Ordering::SeqCst);
         Ok(())
@@ -387,5 +459,57 @@ where
                 .map_err(|e| ValidatorError::Other(format!("Task panicked: {e}")))?;
         }
         Ok(())
+    }
+}
+
+impl<CS, ST, CE, V> OrchestrationContainer<CS, ST, CE, V>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+{
+    async fn perform_guardian_attestation(
+        &self,
+        guardian_addr: &str,
+        workload_client: &WorkloadClient,
+    ) -> Result<()> {
+        let guardian_channel =
+            depin_sdk_client::security::SecurityChannel::new("orchestration", "guardian");
+        guardian_channel
+            .establish_client(guardian_addr, "guardian")
+            .await?;
+        log::info!("[Orchestration] Attestation channel to Guardian established.");
+
+        log::info!("[Orchestrator] Waiting for agentic attestation report from Guardian...");
+        let report_bytes = guardian_channel.receive().await?;
+        let report: Result<Vec<u8>, String> = serde_json::from_slice(&report_bytes)
+            .map_err(|e| anyhow!("Failed to deserialize Guardian report: {}", e))?;
+
+        let local_hash = report.map_err(|e| anyhow!("Guardian reported error: {}", e))?;
+        log::info!(
+            "[Orchestrator] Received local model hash from Guardian: {}",
+            hex::encode(&local_hash)
+        );
+
+        let expected_hash = workload_client.get_expected_model_hash().await?;
+        if local_hash == expected_hash {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "Model Integrity Failure! Local hash {} != on-chain hash {}",
+                hex::encode(local_hash),
+                hex::encode(expected_hash)
+            ))
+        }
     }
 }

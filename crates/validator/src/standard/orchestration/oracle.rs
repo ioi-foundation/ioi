@@ -16,7 +16,7 @@ use depin_sdk_types::{
     keys::ORACLE_PENDING_REQUEST_PREFIX,
 };
 use libp2p::{identity::PublicKey as Libp2pPublicKey, PeerId};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -32,7 +32,7 @@ pub async fn handle_newly_processed_block<CS, ST, CE, V>(
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
@@ -146,7 +146,7 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE, V>(
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
@@ -240,7 +240,7 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE, V>(
     let entry = context
         .pending_attestations
         .entry(attestation.request_id)
-        .or_default();
+        .or_insert_with(Vec::new);
 
     let signer_peer_id = pubkey.to_peer_id();
     if !entry.iter().any(|a| {
@@ -265,7 +265,7 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send

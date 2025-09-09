@@ -5,7 +5,6 @@
 //!
 //! Provides client-side logic for interacting with validator containers via IPC.
 
-pub mod ipc;
 pub mod security;
 pub mod workload_client;
 

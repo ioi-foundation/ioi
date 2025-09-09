@@ -2,10 +2,11 @@
 
 #![cfg(all(feature = "consensus-pos", feature = "vm-wasm"))]
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use depin_sdk_api::consensus::ChainStateReader; // FIX: Import the required trait
 use depin_sdk_forge::testing::{
-    build_test_artifacts, poll::wait_for_height, rpc::get_stake, submit_transaction, TestCluster,
+    build_test_artifacts, poll::wait_for_height, submit_transaction, TestCluster,
 };
 use depin_sdk_types::app::AccountId;
 use depin_sdk_types::app::{
@@ -21,7 +22,77 @@ use depin_sdk_types::service_configs::MigrationConfig;
 use libp2p::identity::Keypair;
 use serde_json::json;
 use std::collections::BTreeMap;
+use std::future::Future;
 use std::time::Duration;
+use tokio::time::{sleep, Instant};
+
+// --- FIX START: Move polling helper functions into the test module ---
+// This makes the test self-contained after the refactor.
+
+/// Generic polling function that waits for an async condition to be met.
+async fn wait_for<F, Fut, T>(
+    description: &str,
+    interval: Duration,
+    timeout: Duration,
+    mut condition: F,
+) -> Result<T>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<Option<T>>>,
+{
+    let start = Instant::now();
+    loop {
+        match condition().await {
+            Ok(Some(value)) => return Ok(value),
+            Ok(None) => { /* continue polling */ }
+            Err(e) => {
+                log::trace!(
+                    "Polling for '{}' received transient error: {}",
+                    description,
+                    e
+                );
+            }
+        }
+        if start.elapsed() > timeout {
+            return Err(anyhow!("Timeout waiting for {}", description));
+        }
+        sleep(interval).await;
+    }
+}
+
+/// Waits for a specific account to have a specific stake amount using the new WorkloadClient.
+async fn wait_for_stake_to_be(
+    client: &depin_sdk_client::WorkloadClient,
+    account_id: &AccountId,
+    target_stake: u64,
+    timeout: Duration,
+) -> Result<()> {
+    wait_for(
+        &format!(
+            "stake for account {} to be {}",
+            hex::encode(account_id.as_ref()),
+            target_stake
+        ),
+        Duration::from_millis(500),
+        timeout,
+        || async {
+            // FIX: This now compiles because the ChainStateReader trait is in scope.
+            let stakes = client
+                .get_next_staked_validators()
+                .await
+                .map_err(|e| anyhow!(e))?;
+            let hex_id = hex::encode(account_id.as_ref());
+            let current_stake = stakes.get(&hex_id).copied().unwrap_or(0);
+            if current_stake == target_stake {
+                Ok(Some(()))
+            } else {
+                Ok(None)
+            }
+        },
+    )
+    .await
+}
+// --- FIX END ---
 
 // Helper function to create a signed system transaction
 fn create_system_tx(
@@ -138,8 +209,11 @@ async fn test_staking_lifecycle() -> Result<()> {
         let mut it = cluster.validators.iter_mut();
         (it.next().unwrap(), it.next().unwrap(), it.next().unwrap())
     };
-    let rpc_addr = node0.rpc_addr.clone();
-    let rpc_addr_node1 = node1.rpc_addr.clone();
+    let rpc_addr = &node0.rpc_addr;
+
+    let ipc_addr0 = &node0.workload_ipc_addr;
+    let client0 = depin_sdk_client::WorkloadClient::new(ipc_addr0).await?;
+    let client1 = depin_sdk_client::WorkloadClient::new(&node1.workload_ipc_addr).await?;
 
     let node0_account_id = AccountId(account_id_from_key_material(
         SignatureSuite::Ed25519,
@@ -152,15 +226,15 @@ async fn test_staking_lifecycle() -> Result<()> {
 
     // 4. PRE-CONDITION: Wait for the chain to start and for the eventual leader (node-1) to be ready.
     // node-0 (bootnode) reaches H=1 first...
-    wait_for_height(&rpc_addr, 1, Duration::from_secs(20)).await?;
+    wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
     // ...then ensure node-1 has also received block #1 before we rotate leadership to it.
-    wait_for_height(&rpc_addr_node1, 1, Duration::from_secs(30)).await?;
+    wait_for_height(&node1.rpc_addr, 1, Duration::from_secs(30)).await?;
 
     // 5. ACTION: Submit staking transactions via Node0's RPC.
     // Node 0 unstakes its full amount.
     let unstake_payload = SystemPayload::Unstake { amount: 100_000 };
     let unstake_tx = create_system_tx(&node0.keypair, unstake_payload, 0)?;
-    submit_transaction(&rpc_addr, &unstake_tx).await?;
+    submit_transaction(rpc_addr, &unstake_tx).await?;
 
     // Node 1 stakes a new amount.
     let stake_payload = SystemPayload::Stake {
@@ -168,18 +242,14 @@ async fn test_staking_lifecycle() -> Result<()> {
         amount: 50_000,
     };
     let stake_tx = create_system_tx(&node1.keypair, stake_payload, 0)?;
-    submit_transaction(&rpc_addr, &stake_tx).await?;
+    submit_transaction(rpc_addr, &stake_tx).await?;
 
     // 6. VERIFICATION: Wait two blocks for stake changes to become effective, then verify the state.
     // H=2 is produced with old stake set. H=3 is produced with new stake set.
-    wait_for_height(&rpc_addr, 3, Duration::from_secs(60)).await?;
+    wait_for_height(rpc_addr, 3, Duration::from_secs(60)).await?;
 
-    let final_stake_node0 = get_stake(&rpc_addr, &node0_account_id).await?.unwrap_or(0);
-    assert_eq!(final_stake_node0, 0, "Node 0 stake should be 0");
-
-    let final_stake_node1 = get_stake(&rpc_addr, &node1_account_id).await?.unwrap_or(0);
-    // Node 1 starts with 0 stake and adds 50_000.
-    assert_eq!(final_stake_node1, 50_000, "Node 1 stake should be 50000");
+    wait_for_stake_to_be(&client0, &node0_account_id, 0, Duration::from_secs(10)).await?;
+    wait_for_stake_to_be(&client1, &node1_account_id, 50_000, Duration::from_secs(10)).await?;
 
     println!("--- Staking Lifecycle E2E Test Passed ---");
     Ok(())

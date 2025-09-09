@@ -14,55 +14,52 @@ use depin_sdk_api::{
 use depin_sdk_chain::util::load_state_from_genesis_file;
 use depin_sdk_chain::wasm_loader::load_service_from_wasm;
 use depin_sdk_chain::Chain;
-use depin_sdk_client::ipc::{QueryStateAtResponse, WorkloadRequest, WorkloadResponse};
 use depin_sdk_client::security::SecurityChannel;
 use depin_sdk_commitment::primitives::hash::HashProof;
 use depin_sdk_consensus::util::engine_from_config;
-use depin_sdk_services::governance::GovernanceModule;
 use depin_sdk_services::identity::IdentityHub;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-use depin_sdk_types::app::{
-    evidence_id, AccountId, ActiveKeyRecord, Membership, Proposal, ProposalStatus, StateEntry,
-};
-use depin_sdk_types::codec;
+use depin_sdk_types::app::Membership;
 use depin_sdk_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
-use depin_sdk_types::error::{StateError, TransactionError};
-use depin_sdk_types::keys::{
-    EVIDENCE_REGISTRY_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, ORACLE_DATA_PREFIX,
-    ORACLE_PENDING_REQUEST_PREFIX, STAKES_KEY_CURRENT,
+use depin_sdk_types::error::StateError;
+use depin_sdk_validator::standard::workload_ipc_server::{
+    create_ipc_server_config,
+    methods::{
+        chain::{
+            CheckTransactionsV1, GetAuthoritySetV1, GetLastBlockHashV1, GetNextValidatorSetV1,
+            GetValidatorSetAtV1, ProcessBlockV1,
+        },
+        contract::{CallContractV1, DeployContractV1, QueryContractV1},
+        staking::{GetNextStakesV1, GetStakesV1},
+        state::{
+            GetActiveKeyAtV1, GetRawStateV1, GetStateRootV1, PrefixScanV1, QueryStateAtResponse,
+            QueryStateAtV1,
+        },
+        system::{
+            CallServiceV1, CheckAndTallyProposalsV1, GetExpectedModelHashV1, GetStatusV1,
+            GetWorkloadConfigV1,
+        },
+        RpcContext,
+    },
+    router::Router,
 };
-use depin_sdk_validator::standard::WorkloadIpcServer;
 use depin_sdk_vm_wasm::WasmVm;
-use rcgen::{Certificate, CertificateParams, SanType};
+use ipc_protocol::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest, JsonRpcResponse};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tokio::{io::AsyncReadExt, sync::Mutex};
-use tokio_rustls::{
-    rustls::{
-        pki_types::{CertificateDer, PrivateKeyDer},
-        ServerConfig,
-    },
-    TlsAcceptor,
+use tokio::{
+    io::AsyncReadExt,
+    sync::{Mutex, Semaphore},
 };
+use tokio_rustls::TlsAcceptor;
 
 // Imports for concrete types used in the factory
 #[cfg(feature = "primitive-hash")]
 use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
-#[cfg(feature = "primitive-kzg")]
-use depin_sdk_commitment::primitives::kzg::{KZGCommitmentScheme, KZGParams};
-#[cfg(feature = "tree-file")]
-use depin_sdk_commitment::tree::file::FileStateTree;
-#[cfg(feature = "tree-hashmap")]
-use depin_sdk_commitment::tree::hashmap::HashMapStateTree;
 #[cfg(feature = "tree-iavl")]
 use depin_sdk_commitment::tree::iavl::IAVLTree;
-#[cfg(feature = "tree-sparse-merkle")]
-use depin_sdk_commitment::tree::sparse_merkle::SparseMerkleTree;
-#[cfg(feature = "tree-verkle")]
-use depin_sdk_commitment::tree::verkle::VerkleTree;
 
 #[derive(Parser, Debug)]
 struct WorkloadOpts {
@@ -151,7 +148,8 @@ where
         std::env::var("IPC_SERVER_ADDR").unwrap_or_else(|_| "0.0.0.0:8555".to_string());
 
     // Use a modified IPC server for malicious behavior
-    let ipc_server = MaliciousWorkloadIpcServer::new(ipc_server_addr, workload_container, chain_arc).await?;
+    let ipc_server =
+        MaliciousWorkloadIpcServer::new(ipc_server_addr, workload_container, chain_arc).await?;
 
     log::info!("MALICIOUS Workload: State, VM, and Chain initialized. Running IPC server.");
     ipc_server.run().await?;
@@ -197,7 +195,6 @@ async fn main() -> Result<()> {
     }
 }
 
-
 // --- Malicious IPC Server Implementation ---
 
 // This is the malicious version of the WorkloadIpcServer.
@@ -216,6 +213,8 @@ where
     address: String,
     workload_container: Arc<WorkloadContainer<ST>>,
     chain_arc: Arc<Mutex<Chain<CS, ST>>>,
+    router: Arc<Router>,
+    semaphore: Arc<Semaphore>,
 }
 
 impl<ST, CS> MaliciousWorkloadIpcServer<ST, CS>
@@ -237,86 +236,167 @@ where
         workload_container: Arc<WorkloadContainer<ST>>,
         chain_arc: Arc<Mutex<Chain<CS, ST>>>,
     ) -> Result<Self> {
+        let mut router = Router::new();
+        // Register all methods
+        router.add_method(GetStatusV1);
+        router.add_method(ProcessBlockV1);
+        router.add_method(CheckTransactionsV1);
+        router.add_method(GetLastBlockHashV1);
+        router.add_method(GetExpectedModelHashV1);
+        router.add_method(GetStakesV1);
+        router.add_method(GetNextStakesV1);
+        router.add_method(GetAuthoritySetV1);
+        router.add_method(GetNextValidatorSetV1);
+        router.add_method(GetStateRootV1);
+        router.add_method(QueryContractV1);
+        router.add_method(DeployContractV1);
+        router.add_method(CallContractV1);
+        router.add_method(CheckAndTallyProposalsV1);
+        router.add_method(PrefixScanV1);
+        router.add_method(GetRawStateV1);
+        router.add_method(QueryStateAtV1);
+        router.add_method(GetValidatorSetAtV1);
+        router.add_method(GetActiveKeyAtV1);
+        router.add_method(CallServiceV1);
+        router.add_method(GetWorkloadConfigV1);
+
         Ok(Self {
             address,
             workload_container,
             chain_arc,
+            router: Arc::new(router),
+            semaphore: Arc::new(Semaphore::new(64)),
         })
     }
 
     pub async fn run(self) -> Result<()> {
-        // ... (this entire function is identical to the real workload.rs) ...
-        // The key difference is that it calls `self.handle_request` which is malicious.
         let ipc_channel = SecurityChannel::new("workload", "orchestration");
         let listener = tokio::net::TcpListener::bind(&self.address).await?;
-        log::info!("MALICIOUS Workload: IPC server listening on {}", self.address);
+        log::info!(
+            "MALICIOUS Workload: IPC server listening on {}",
+            self.address
+        );
         eprintln!("WORKLOAD_IPC_LISTENING_ON_{}", self.address);
-        let server_config = depin_sdk_validator::standard::workload_ipc_server::create_ipc_server_config()?;
+        let server_config = create_ipc_server_config()?;
         let acceptor = TlsAcceptor::from(server_config);
         let (stream, _) = listener.accept().await?;
         let mut tls_stream = acceptor.accept(stream).await?;
         let client_id_byte = tls_stream.read_u8().await?;
-        log::info!("MALICIOUS Workload: Accepted IPC connection from client type: {}", client_id_byte);
-        ipc_channel.accept_server_connection(tokio_rustls::TlsStream::Server(tls_stream)).await;
+        log::info!(
+            "MALICIOUS Workload: Accepted IPC connection from client type: {}",
+            client_id_byte
+        );
+        ipc_channel
+            .accept_server_connection(tokio_rustls::TlsStream::Server(tls_stream))
+            .await;
+
+        let shared_ctx = Arc::new(RpcContext {
+            chain: self.chain_arc.clone(),
+            workload: self.workload_container.clone(),
+        });
+
         loop {
-            let request_bytes = match ipc_channel.receive().await {
-                Ok(bytes) => bytes,
-                Err(e) => { log::error!("MALICIOUS Workload: IPC receive error: {}. Closing.", e); break; }
-            };
-            let request: WorkloadRequest = serde_json::from_slice(&request_bytes)?;
-            log::trace!("MALICIOUS Workload: Received request: {:?}", request);
-            let response = self.handle_request(request).await?;
-            let response_bytes = serde_json::to_vec(&response)?;
-            ipc_channel.send(&response_bytes).await?;
+            let permit = self.semaphore.clone().acquire_owned().await.unwrap();
+            let ipc_channel_clone = ipc_channel.clone();
+            let router_clone = self.router.clone();
+            let shared_ctx_clone = shared_ctx.clone();
+
+            tokio::spawn(async move {
+                let _permit = permit;
+                let request_bytes = match ipc_channel_clone.receive().await {
+                    Ok(bytes) => bytes,
+                    Err(_) => return,
+                };
+
+                let response = match serde_json::from_slice::<JsonRpcRequest>(&request_bytes) {
+                    Ok(req) => self.handle_request(req, shared_ctx_clone).await,
+                    Err(e) => JsonRpcResponse {
+                        jsonrpc: "2.0".to_string(),
+                        result: None,
+                        error: Some(JsonRpcError {
+                            code: -32700,
+                            message: format!("Parse error: {}", e),
+                            data: None,
+                        }),
+                        id: JsonRpcId::Null,
+                    },
+                };
+
+                if let Some(res) = response {
+                    let response_bytes = serde_json::to_vec(&res).unwrap();
+                    if let Err(e) = ipc_channel_clone.send(&response_bytes).await {
+                        log::error!("Failed to send IPC response: {}", e);
+                    }
+                }
+            });
         }
         Ok(())
     }
 
-    async fn handle_request(&self, request: WorkloadRequest) -> Result<WorkloadResponse> {
-        if let WorkloadRequest::QueryStateAt { root, key } = request {
-            // ===================================================================
-            // ========== THIS IS THE MALICIOUS PART FOR THE E2E TEST ==========
-            // ===================================================================
-            if key == b"poison_pill" {
-                log::warn!("[MaliciousWorkload] Received request for poisoned key. Returning tampered proof.");
-                
-                // Lie about the value.
-                let fake_membership = Membership::Present(b"this_is_a_lie".to_vec());
-                
-                // Create an invalid proof. For HashProof, we can just put garbage in the value field,
-                // which is where the real serialized proof would go.
-                let tampered_inner_proof = b"this is not a valid serialized iavl proof".to_vec();
-                let fake_proof = HashProof {
-                    value: tampered_inner_proof,
-                    selector: depin_sdk_api::commitment::Selector::Key(key),
-                    additional_data: vec![],
-                };
-
-                let response = QueryStateAtResponse {
-                    msg_version: 1,
-                    scheme_id: 1, // Corresponds to Hash
-                    scheme_version: 1,
-                    membership: fake_membership,
-                    proof_bytes: bincode::serialize(&fake_proof).unwrap(),
-                };
-                // Return the malicious response immediately.
-                return Ok(WorkloadResponse::QueryStateAt(Ok(response)));
+    async fn handle_request(
+        &self,
+        req: JsonRpcRequest,
+        shared_ctx: Arc<RpcContext>,
+    ) -> Option<JsonRpcResponse> {
+        if req.method == "state.queryStateAt.v1" {
+            if let Ok(params) = serde_json::from_value::<
+                depin_sdk_validator::standard::workload_ipc_server::methods::state::QueryStateAtParams,
+            >(req.params.clone())
+            {
+                if params.key == b"poison_pill" {
+                    log::warn!("[MaliciousWorkload] Received request for poisoned key. Returning tampered proof.");
+                    let fake_membership = Membership::Present(b"this_is_a_lie".to_vec());
+                    let tampered_inner_proof = b"this is not a valid serialized iavl proof".to_vec();
+                    let fake_proof = HashProof {
+                        value: tampered_inner_proof,
+                        selector: depin_sdk_api::commitment::Selector::Key(params.key),
+                        additional_data: vec![],
+                    };
+                    let response_data = QueryStateAtResponse {
+                        msg_version: 1,
+                        scheme_id: 1,
+                        scheme_version: 1,
+                        membership: fake_membership,
+                        proof_bytes: bincode::serialize(&fake_proof).unwrap(),
+                    };
+                    return Some(JsonRpcResponse {
+                        jsonrpc: "2.0".to_string(),
+                        result: Some(serde_json::to_value(response_data).unwrap()),
+                        error: None,
+                        id: req.id.unwrap_or(JsonRpcId::Null),
+                    });
+                }
             }
-            
-            // For any other key, fall through to the normal, correct logic.
-            // Re-construct the request to pass to the normal handler logic.
-            let request = WorkloadRequest::QueryStateAt { root, key };
-            // Fallthrough to the real logic below
         }
 
-        // --- All other request handlers are copied verbatim from the real workload_ipc_server.rs ---
-        // This is a simplified version showing only the relevant arm. A full copy would be here.
-        let real_server = WorkloadIpcServer::new(
-            self.address.clone(),
-            self.workload_container.clone(),
-            self.chain_arc.clone(),
-        ).await?;
-        
-        real_server.handle_request(request).await
+        // For all other requests, behave normally
+        let trace_id = uuid::Uuid::new_v4().to_string();
+        let router_ctx = router::RpcContext {
+            peer_id: "orchestration".into(),
+            trace_id,
+        };
+        let res = self
+            .router
+            .dispatch(router_ctx, &req.method, req.params)
+            .await;
+
+        if req.id.is_some() {
+            Some(match res {
+                Ok(result) => JsonRpcResponse {
+                    jsonrpc: "2.0".to_string(),
+                    result: Some(result),
+                    error: None,
+                    id: req.id.unwrap(),
+                },
+                Err(error) => JsonRpcResponse {
+                    jsonrpc: "2.0".to_string(),
+                    result: None,
+                    error: Some(error),
+                    id: req.id.unwrap(),
+                },
+            })
+        } else {
+            None
+        }
     }
 }
