@@ -48,7 +48,7 @@ impl<CS: CommitmentScheme + Clone> UnifiedTransactionModel<CS> {
 #[async_trait]
 impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UnifiedTransactionModel<CS>
 where
-    <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de> + Clone,
+    <CS as CommitmentScheme>::Proof: Serialize + for<'de> serde::Deserialize<'de> + Clone,
 {
     type Transaction = ChainTransaction;
     type CommitmentScheme = CS;
@@ -161,6 +161,12 @@ where
             },
             ChainTransaction::System(sys_tx) => match sys_tx.payload.clone() {
                 SystemPayload::Stake { public_key, amount } => {
+                    // FIX: Add consensus-aware guard.
+                    if chain_ref.consensus_type() != ConsensusType::ProofOfStake {
+                        return Err(TransactionError::Unsupported(
+                            "Stake operations are not supported on non-PoS chains".into(),
+                        ));
+                    }
                     let staker_account_id = sys_tx.header.account_id;
 
                     let derived_pk_hash =
@@ -191,6 +197,12 @@ where
                     Ok(())
                 }
                 SystemPayload::Unstake { amount } => {
+                    // FIX: Add consensus-aware guard.
+                    if chain_ref.consensus_type() != ConsensusType::ProofOfStake {
+                        return Err(TransactionError::Unsupported(
+                            "Unstake operations are not supported on non-PoS chains".into(),
+                        ));
+                    }
                     let staker_account_id = sys_tx.header.account_id;
                     let base_stakes_bytes = state
                         .get(STAKES_KEY_NEXT)?

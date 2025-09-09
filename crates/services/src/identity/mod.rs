@@ -1,5 +1,4 @@
 // Path: crates/services/src/identity/mod.rs
-
 use depin_sdk_api::crypto::{SerializableKey, VerifyingKey};
 use depin_sdk_api::identity::CredentialsView;
 use depin_sdk_api::lifecycle::OnEndBlock;
@@ -11,7 +10,7 @@ use depin_sdk_api::transaction::decorator::TxDecorator;
 use depin_sdk_crypto::sign::{dilithium::DilithiumPublicKey, eddsa::Ed25519PublicKey};
 use depin_sdk_types::app::{
     account_id_from_key_material, AccountId, ChainTransaction, Credential, RotationProof,
-    SignatureSuite, SystemPayload,
+    SignatureSuite,
 };
 use depin_sdk_types::error::{StateError, TransactionError, UpgradeError};
 use depin_sdk_types::keys::{
@@ -250,17 +249,14 @@ impl CredentialsView for IdentityHub {
 impl TxDecorator for IdentityHub {
     fn ante_handle(
         &self,
-        state: &mut dyn StateAccessor,
-        tx: &ChainTransaction,
-        ctx: &TxContext,
+        _state: &mut dyn StateAccessor,
+        _tx: &ChainTransaction,
+        _ctx: &TxContext,
     ) -> Result<(), TransactionError> {
-        if let ChainTransaction::System(sys_tx) = tx {
-            if let SystemPayload::RotateKey(proof) = &sys_tx.payload {
-                return self
-                    .rotate(state, &sys_tx.header.account_id, proof, ctx.block_height)
-                    .map_err(TransactionError::Invalid);
-            }
-        }
+        // The core RotateKey logic is handled in the UnifiedTransactionModel by calling
+        // the public `IdentityHub::rotate` method. The ante_handle is now a no-op
+        // to prevent double-application of the state transition logic.
+        // This service still needs to be a decorator to provide the CredentialsView.
         Ok(())
     }
 }

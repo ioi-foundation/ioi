@@ -12,7 +12,7 @@ pub trait Container {
     /// Returns true if the container is currently running.
     fn is_running(&self) -> bool;
     /// Starts the container's logic.
-    async fn start(&self) -> Result<(), ValidatorError>;
+    async fn start(&self, listen_addr: &str) -> Result<(), ValidatorError>;
     /// Stops the container's logic.
     async fn stop(&self) -> Result<(), ValidatorError>;
 }

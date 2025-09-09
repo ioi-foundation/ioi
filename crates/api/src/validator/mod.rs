@@ -234,7 +234,7 @@ impl<ST> Container for WorkloadContainer<ST>
 where
     ST: StateManager + Send + Sync + 'static,
 {
-    async fn start(&self) -> Result<(), ValidatorError> {
+    async fn start(&self, _listen_addr: &str) -> Result<(), ValidatorError> {
         log::info!("WorkloadContainer started.");
         Ok(())
     }

@@ -15,7 +15,7 @@ use depin_sdk_services::external_data::ExternalDataService;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{Block, ChainTransaction, OracleAttestation, StateRoot};
 use libp2p::{identity, PeerId};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::Debug;
 use std::sync::{atomic::AtomicBool, Arc};
@@ -29,7 +29,7 @@ pub struct MainLoopContext<CS, ST, CE, V>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
@@ -42,7 +42,7 @@ where
     pub chain_ref: ChainFor<CS, ST>,
     pub workload_client: Arc<WorkloadClient>,
     pub tx_pool_ref: Arc<Mutex<VecDeque<ChainTransaction>>>,
-    pub network_event_receiver: mpsc::Receiver<NetworkEvent>,
+    pub network_event_receiver: Option<mpsc::Receiver<NetworkEvent>>,
     pub swarm_commander: mpsc::Sender<SwarmCommand>,
     pub shutdown_receiver: watch::Receiver<bool>,
     pub consensus_engine_ref: Arc<Mutex<CE>>,
@@ -52,6 +52,7 @@ where
     pub config: OrchestrationConfig,
     pub is_quarantined: Arc<AtomicBool>,
     pub external_data_service: ExternalDataService,
+    // FIX: Changed back to Vec<OracleAttestation> to hold multiple attestations per request ID.
     pub pending_attestations: HashMap<u64, Vec<OracleAttestation>>,
     /// The root of the initial (genesis) state.
     pub genesis_root: StateRoot,

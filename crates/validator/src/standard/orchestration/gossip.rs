@@ -5,7 +5,7 @@ use super::remote_state_view::RemoteStateView;
 use async_trait::async_trait;
 use depin_sdk_api::chain::{ChainView, StateView};
 use depin_sdk_api::commitment::CommitmentScheme;
-use depin_sdk_api::consensus::{ConsensusEngine, PenaltyMechanism};
+use depin_sdk_api::consensus::{PenaltyMechanism, ConsensusEngine};
 use depin_sdk_api::state::{StateAccessor, StateCommitment, StateManager, Verifier};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_types::app::{

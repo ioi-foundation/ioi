@@ -12,9 +12,7 @@ use depin_sdk_consensus::util::engine_from_config;
 use depin_sdk_network::libp2p::Libp2pSync;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::config::OrchestrationConfig;
-// --- FIX START: Import the new dependencies struct ---
 use depin_sdk_validator::standard::orchestration::OrchestrationDependencies;
-// --- FIX END ---
 use depin_sdk_validator::{
     rpc::run_rpc_server,
     standard::{
@@ -31,7 +29,6 @@ use std::sync::{
     Arc,
 };
 use tokio::sync::Mutex;
-use tokio::time::Duration;
 
 // Imports for concrete types used in the factory
 use depin_sdk_api::{commitment::CommitmentScheme, state::StateManager};
@@ -136,7 +133,6 @@ where
 
     let is_quarantined = Arc::new(AtomicBool::new(false));
 
-    // --- FIX START: Group dependencies into the new struct ---
     let deps = OrchestrationDependencies {
         syncer,
         network_event_receiver,
@@ -146,11 +142,8 @@ where
         is_quarantined: is_quarantined.clone(),
         verifier,
     };
-    // --- FIX END ---
 
-    // --- FIX START: Update the constructor call ---
     let orchestration = Arc::new(OrchestrationContainer::new(&opts.config, deps)?);
-    // --- FIX END ---
 
     let workload_client = {
         let workload_ipc_addr =
@@ -158,67 +151,8 @@ where
         Arc::new(WorkloadClient::new(&workload_ipc_addr).await?)
     };
 
-    let guardian_addr = std::env::var("GUARDIAN_ADDR").unwrap_or_default();
-    if !guardian_addr.is_empty() {
-        let is_quarantined_clone = is_quarantined.clone();
-        let workload_client_clone = workload_client.clone();
-        tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(500)).await;
-            let guardian_channel = SecurityChannel::new("orchestration", "guardian");
-            if let Err(e) = guardian_channel
-                .establish_client(&guardian_addr, "guardian")
-                .await
-            {
-                log::error!(
-                    "[Orchestration] Failed to connect to Guardian: {}. Quarantining.",
-                    e
-                );
-                is_quarantined_clone.store(true, Ordering::SeqCst);
-                return;
-            }
-            log::info!("[Orchestration] Attestation channel to Guardian established.");
-
-            log::info!("[Orchestrator] Waiting for agentic attestation report from Guardian...");
-            match guardian_channel.receive().await {
-                Ok(report_bytes) => {
-                    let report: Result<Vec<u8>, String> =
-                        serde_json::from_slice(&report_bytes).unwrap();
-                    match report {
-                        Ok(local_hash) => {
-                            log::info!(
-                                "[Orchestrator] Received local model hash from Guardian: {}",
-                                hex::encode(&local_hash)
-                            );
-                            match workload_client_clone.get_expected_model_hash().await {
-                                Ok(expected_hash) => {
-                                    if local_hash == expected_hash {
-                                        log::info!("[Orchestrator] agentic model hash matches on-chain state. Node is healthy.");
-                                    } else {
-                                        log::error!("[Orchestrator] Model Integrity Failure! Local hash {} != on-chain hash {}. Quarantining node.", hex::encode(local_hash), hex::encode(expected_hash));
-                                        is_quarantined_clone.store(true, Ordering::SeqCst);
-                                    }
-                                }
-                                Err(e) => {
-                                    log::error!("[Orchestrator] Failed to get expected model hash from Workload: {}. Quarantining node.", e);
-                                    is_quarantined_clone.store(true, Ordering::SeqCst);
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            log::error!("[Orchestrator] Guardian reported an error during local hashing: {}. Quarantining node.", e);
-                            is_quarantined_clone.store(true, Ordering::SeqCst);
-                        }
-                    }
-                }
-                Err(e) => {
-                    log::error!("[Orchestrator] Failed to receive agentic report from Guardian: {}. Quarantining node.", e);
-                    is_quarantined_clone.store(true, Ordering::SeqCst);
-                }
-            }
-        });
-    } else {
-        log::warn!("GUARDIAN_ADDR not set, skipping Guardian attestation.");
-    }
+    // The logic to perform attestation is now inside OrchestrationContainer::start
+    // and is no longer needed here.
 
     let chain_ref = {
         let tm = UnifiedTransactionModel::new(commitment_scheme.clone());
@@ -263,7 +197,8 @@ where
     )
     .await?;
 
-    orchestration.start().await?;
+    // --- FIX: Pass an empty string to satisfy the new trait signature ---
+    orchestration.start("").await?;
 
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {

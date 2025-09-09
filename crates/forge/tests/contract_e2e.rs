@@ -1,8 +1,9 @@
 // Path: crates/forge/tests/contract_e2e.rs
 //! End-to-End Test: Smart Contract Execution Lifecycle
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use depin_sdk_client::WorkloadClient; // Import the official client
 use depin_sdk_crypto::algorithms::hash::sha256;
 use depin_sdk_forge::testing::{
     build_test_artifacts,
@@ -20,7 +21,6 @@ use depin_sdk_types::{
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
-use reqwest::Client;
 use serde_json::json;
 use std::time::Duration;
 
@@ -72,38 +72,6 @@ fn create_signed_app_tx(
     }
 
     ChainTransaction::Application(tx)
-}
-
-// Helper for query_contract RPC
-async fn query_contract(rpc_addr: &str, address_hex: &str, input: &[u8]) -> Result<Vec<u8>> {
-    let client = Client::new();
-    let request_body = serde_json::json!({
-        "jsonrpc": "2.0",
-        "method": "query_contract",
-        "params": [address_hex, hex::encode(input)],
-        "id": 1
-    });
-
-    let rpc_url = format!("http://{}/rpc", rpc_addr);
-    let response: serde_json::Value = client
-        .post(&rpc_url)
-        .json(&request_body)
-        .send()
-        .await?
-        .json()
-        .await?;
-
-    if let Some(error) = response.get("error") {
-        if !error.is_null() {
-            return Err(anyhow!("RPC error: {}", error));
-        }
-    }
-
-    let result_hex = response["result"]
-        .as_str()
-        .ok_or_else(|| anyhow!("Missing result field in RPC response"))?;
-    let result_bytes = hex::decode(result_hex)?;
-    Ok(result_bytes)
 }
 
 #[tokio::test]
@@ -175,6 +143,7 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     let node = &mut cluster.validators[0];
     let rpc_addr = &node.rpc_addr;
     let keypair = &node.keypair;
+    let workload_client = WorkloadClient::new(&node.workload_ipc_addr).await?; // Create the client
 
     // Wait for node to be ready
     wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
@@ -202,14 +171,30 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
 
     // 5. QUERY INITIAL STATE
     let get_input = vec![0]; // ABI for get()
-    let initial_value_bytes = query_contract(rpc_addr, &contract_address_hex, &get_input).await?;
-    assert_eq!(initial_value_bytes, vec![0], "Initial count should be 0");
+    let query_context = depin_sdk_api::vm::ExecutionContext {
+        caller: vec![],
+        block_height: 0,
+        gas_limit: 1_000_000_000,
+        contract_address: vec![],
+    };
+    let query_output = workload_client
+        .query_contract(
+            contract_address.clone(),
+            get_input.clone(),
+            query_context.clone(),
+        )
+        .await?;
+    assert_eq!(
+        query_output.return_data,
+        vec![0],
+        "Initial count should be 0"
+    );
 
     // 6. CALL INCREMENT
     let increment_input = vec![1]; // ABI for increment()
     let call_tx_unsigned = ApplicationTransaction::CallContract {
         header: Default::default(),
-        address: contract_address,
+        address: contract_address.clone(), // Use the raw bytes
         input_data: increment_input,
         gas_limit: 1_000_000,
         signature_proof: Default::default(),
@@ -219,8 +204,14 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
 
     // 7. VERIFY FINAL STATE by waiting for the next block to be processed
     wait_for_height(rpc_addr, 3, Duration::from_secs(20)).await?;
-    let final_value_bytes = query_contract(rpc_addr, &contract_address_hex, &get_input).await?;
-    assert_eq!(final_value_bytes, vec![1], "Final count should be 1");
+    let final_query_output = workload_client
+        .query_contract(contract_address, get_input, query_context) // FIX: Use the raw bytes, not the hex string
+        .await?;
+    assert_eq!(
+        final_query_output.return_data,
+        vec![1],
+        "Final count should be 1"
+    );
 
     println!("--- E2E Contract Test Successful ---");
     Ok(())

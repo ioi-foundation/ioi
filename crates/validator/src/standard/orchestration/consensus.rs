@@ -4,15 +4,15 @@ use super::gossip::prune_mempool;
 use super::oracle::handle_newly_processed_block;
 use async_trait::async_trait;
 use depin_sdk_api::chain::StateView;
-use depin_sdk_api::consensus::ChainStateReader;
+use depin_sdk_api::consensus::ChainStateReader; // FIX: Import the required trait
 use depin_sdk_client::WorkloadClient;
 use depin_sdk_types::codec;
 use depin_sdk_types::error::{ChainError, StateError};
-use depin_sdk_types::keys::{STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
+use depin_sdk_types::keys::{AUTHORITY_SET_KEY, STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
 
 use depin_sdk_api::{
     commitment::CommitmentScheme,
-    consensus::{ConsensusDecision, ConsensusEngine},
+    consensus::ConsensusEngine,
     state::{StateCommitment, StateManager, Verifier},
 };
 use depin_sdk_network::libp2p::SwarmCommand;
@@ -22,14 +22,13 @@ use depin_sdk_types::app::{
     SignatureSuite, StateAnchor, StateRoot,
 };
 use depin_sdk_types::config::ConsensusType;
-use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use serde::Serialize;
+use std::collections::{BTreeMap, HashSet};
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// A non-proof, workload-backed view used only for leader selection in `decide()`.
-/// Reads stakes and validator set via RPCs that don’t require historical proofs.
 struct WeakParentView {
     anchor: StateAnchor,
     client: Arc<WorkloadClient>,
@@ -53,8 +52,6 @@ impl StateView for WeakParentView {
     }
 
     async fn validator_set(&self) -> Result<Vec<AccountId>, ChainError> {
-        // Fetch at `anchor` (server-side `view_at` currently reads latest state,
-        // which is fine for leader selection and non-empty readiness checks).
         self.client
             .get_validator_set_at(self.anchor)
             .await
@@ -65,14 +62,12 @@ impl StateView for WeakParentView {
         // We only need stakes for PoS leader selection.
         if self.consensus == ConsensusType::ProofOfStake {
             if key == STAKES_KEY_NEXT {
-                // Returns map hex(AccountId) -> u64; convert back to AccountId map and re-encode.
                 let map = self
                     .client
                     .get_next_staked_validators()
                     .await
                     .map_err(|e| ChainError::State(StateError::Backend(e.to_string())))?;
-                let mut by_acct: std::collections::BTreeMap<AccountId, u64> =
-                    std::collections::BTreeMap::new();
+                let mut by_acct: BTreeMap<AccountId, u64> = BTreeMap::new();
                 for (hex_id, stake) in map {
                     if let Ok(bytes) = hex::decode(&hex_id) {
                         by_acct.insert(AccountId(bytes.try_into().unwrap_or_default()), stake);
@@ -86,8 +81,7 @@ impl StateView for WeakParentView {
                     .get_staked_validators()
                     .await
                     .map_err(|e| ChainError::State(StateError::Backend(e.to_string())))?;
-                let mut by_acct: std::collections::BTreeMap<AccountId, u64> =
-                    std::collections::BTreeMap::new();
+                let mut by_acct: BTreeMap<AccountId, u64> = BTreeMap::new();
                 for (hex_id, stake) in map {
                     if let Ok(bytes) = hex::decode(&hex_id) {
                         by_acct.insert(AccountId(bytes.try_into().unwrap_or_default()), stake);
@@ -95,6 +89,11 @@ impl StateView for WeakParentView {
                 }
                 return Ok(Some(codec::to_bytes_canonical(&by_acct)));
             }
+        }
+
+        if self.consensus == ConsensusType::ProofOfAuthority && key == AUTHORITY_SET_KEY {
+            let ids = self.validator_set().await?;
+            return Ok(Some(codec::to_bytes_canonical(&ids)));
         }
 
         // Fallback for any other keys used by future engines:
@@ -105,7 +104,6 @@ impl StateView for WeakParentView {
     }
 
     async fn active_consensus_key(&self, acct: &AccountId) -> Option<ActiveKeyRecord> {
-        // Use the anchored call; server-side will currently read latest state.
         self.client
             .get_active_key_at(self.anchor, acct)
             .await
@@ -119,7 +117,7 @@ pub async fn handle_consensus_tick<CS, ST, CE, V>(context: &mut MainLoopContext<
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
@@ -131,6 +129,7 @@ where
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
+    log::debug!("[Consensus] Engine = {:?}", context.config.consensus_type);
     let node_state = context.node_state.lock().await.clone();
     let cons_ty = context.config.consensus_type;
     log::info!("[Consensus] Engine = {:?}", cons_ty);
@@ -167,8 +166,6 @@ where
         let parent_root: StateRoot = if let Some(last) = context.last_committed_block.as_ref() {
             last.header.state_root.clone()
         } else {
-            // Fall back to workload’s current root; if that fails, stick with whatever
-            // was recorded as genesis_root in the context.
             match context.workload_client.get_state_root().await {
                 Ok(r) => r,
                 Err(e) => {
@@ -189,69 +186,35 @@ where
 
         let parent_anchor: StateAnchor = parent_root.to_anchor();
 
-        // === Readiness fence: don't start consensus until workload has loaded genesis. ===
-        // We consider the workload "ready" once it can return a non-empty validator set.
-        let parent_vset = match context
-            .workload_client
-            .get_validator_set_at(parent_anchor)
+        let target_height = status.height + 1;
+        let current_view = 0;
+
+        let weak_parent_view =
+            WeakParentView::new(parent_anchor, context.workload_client.clone(), cons_ty);
+        let mut engine = context.consensus_engine_ref.lock().await;
+        let known_peers = context.known_peers_ref.lock().await;
+        engine
+            .decide(
+                &our_account_id,
+                target_height,
+                current_view,
+                &weak_parent_view,
+                &known_peers,
+            )
             .await
-        {
-            Ok(v) if !v.is_empty() => v,
-            Ok(_) => {
-                log::info!(
-                    "[Consensus] Readiness fence: validator set empty at anchor=0x{}; waiting...",
-                    hex::encode(parent_anchor.0)
-                );
-                return;
-            }
+    };
+
+    if let depin_sdk_api::consensus::ConsensusDecision::ProduceBlock(_) = decision {
+        let status = match context.workload_client.get_status().await {
+            Ok(s) => s,
             Err(e) => {
-                log::info!(
-                    "[Consensus] Readiness fence: validator set unavailable at anchor=0x{}: {}; waiting...",
-                    hex::encode(parent_anchor.0), e
+                log::error!(
+                    "[Consensus] get_status() failed: {}. Will retry next tick.",
+                    e
                 );
                 return;
             }
         };
-
-        // --- Deterministic bootstrap for PoS at genesis: single validator and it's us. ---
-        let mut force_bootstrap = false;
-        if matches!(cons_ty, ConsensusType::ProofOfStake) && context.last_committed_block.is_none()
-        {
-            let is_single_us =
-                parent_vset.len() == 1 && parent_vset.iter().any(|a| a.0 == our_account_id.0);
-            if is_single_us {
-                log::warn!(
-                    "[Consensus] Bootstrap: single-validator PoS at genesis; forcing production of block #1."
-                );
-                force_bootstrap = true;
-            }
-        }
-
-        let target_height = status.height + 1;
-        let current_view = 0;
-
-        if force_bootstrap {
-            // Pretend the engine asked us to produce; we’ll run the standard production path below.
-            ConsensusDecision::ProduceBlock(vec![])
-        } else {
-            let weak_parent_view =
-                WeakParentView::new(parent_anchor, context.workload_client.clone(), cons_ty);
-            let mut engine = context.consensus_engine_ref.lock().await;
-            let known_peers = context.known_peers_ref.lock().await;
-            engine
-                .decide(
-                    &our_account_id,
-                    target_height,
-                    current_view,
-                    &weak_parent_view,
-                    &known_peers,
-                )
-                .await
-        }
-    };
-
-    if let ConsensusDecision::ProduceBlock(_) = decision {
-        let status = context.workload_client.get_status().await.unwrap();
         let target_height = status.height + 1;
 
         let (candidate_txs, _mempool_len_before) = {
@@ -322,7 +285,6 @@ where
             valid_txs.len()
         );
 
-        // Header field must contain validator **public key bytes** (what the chain checks against).
         let header_validator_set = match context.workload_client.get_validator_set().await {
             Ok(v) => v,
             Err(e) => {
@@ -331,13 +293,25 @@ where
             }
         };
 
-        let parent_hash: [u8; 32] = context
-            .workload_client
-            .get_last_block_hash()
-            .await
-            .unwrap_or(vec![0; 32])
-            .try_into()
-            .unwrap();
+        let parent_hash_vec = match context.workload_client.get_last_block_hash().await {
+            Ok(v) => v,
+            Err(e) => {
+                log::warn!(
+                    "[Consensus] get_last_block_hash() failed: {}. Using zeros.",
+                    e
+                );
+                vec![0; 32]
+            }
+        };
+        let mut parent_hash = [0u8; 32];
+        if parent_hash_vec.len() == 32 {
+            parent_hash.copy_from_slice(&parent_hash_vec);
+        } else {
+            log::warn!(
+                "[Consensus] last_block_hash length {} != 32. Using zeros.",
+                parent_hash_vec.len()
+            );
+        }
         let producer_pubkey = context.local_keypair.public().encode_protobuf();
         let producer_key_suite = SignatureSuite::Ed25519;
         let producer_pubkey_hash =
@@ -401,6 +375,15 @@ where
                     .lock()
                     .await
                     .reset(block_height);
+
+                {
+                    let mut ns = context.node_state.lock().await;
+                    if *ns == depin_sdk_network::traits::NodeState::Syncing {
+                        *ns = depin_sdk_network::traits::NodeState::Synced;
+                        log::info!("[Orchestrator] State -> Synced.");
+                    }
+                }
+
                 if let Ok(outcomes) = context
                     .workload_client
                     .check_and_tally_proposals(block_height)
@@ -415,5 +398,7 @@ where
                 log::error!("Workload failed to process a pre-validated block proposal: {}. This should not happen.", e);
             }
         }
+    } else {
+        log::debug!("[Consensus] Engine decision was not ProduceBlock; will retry next tick.");
     }
 }
