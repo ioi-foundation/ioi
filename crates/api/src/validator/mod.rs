@@ -143,8 +143,43 @@ where
         Ok((address, state_changes))
     }
 
+    /// A specialized version of `call_contract` that executes pre-loaded contract code.
+    /// This is used by the transaction model's `apply_payload` to avoid a state-tree deadlock
+    /// when simulating transactions within a read-locked state overlay. This method does NOT
+    /// access the `state_tree` directly.
+    pub async fn execute_loaded_contract(
+        &self,
+        code: Vec<u8>,
+        input_data: Vec<u8>,
+        context: ExecutionContext,
+    ) -> Result<(ExecutionOutput, HashMap<Vec<u8>, Vec<u8>>), ValidatorError> {
+        // Create an accessor that bridges to the main state tree but is independent of the overlay.
+        let parent_accessor = Arc::new(StateAccessorWrapper {
+            state_tree: self.state_tree.clone(),
+        });
+        // The VM operates on a fresh overlay, taking the parent_accessor as its base.
+        let overlay = VmStateOverlay::new(parent_accessor);
+        let overlay_arc = Arc::new(overlay);
+
+        let output = self
+            .vm
+            .execute(&code, "call", &input_data, overlay_arc.clone(), context)
+            .await?;
+
+        // Extract writes from the overlay. If there are other strong references, clone the inner state.
+        let state_delta = overlay_arc.snapshot_writes();
+        log::info!(
+            "Contract call successful. Gas used: {}. Return data size: {}. State changes: {}",
+            output.gas_used,
+            output.return_data.len(),
+            state_delta.len()
+        );
+
+        Ok((output, state_delta))
+    }
+
     /// Executes a contract call and returns the execution output and state delta.
-    /// This method is now read-only with respect to the canonical state.
+    /// This method fetches the contract code from the canonical state.
     pub async fn call_contract(
         &self,
         address: Vec<u8>,
@@ -167,32 +202,11 @@ where
 
         context.contract_address = address.clone();
 
-        let parent_accessor = Arc::new(StateAccessorWrapper {
-            state_tree: self.state_tree.clone(),
-        });
-        let overlay = VmStateOverlay::new(parent_accessor);
-        let overlay_arc = Arc::new(overlay);
-
-        let output = self
-            .vm
-            .execute(&code, "call", &input_data, overlay_arc.clone(), context)
-            .await?;
-
-        let state_delta = Arc::try_unwrap(overlay_arc)
-            .expect("Arc should have only one strong reference")
-            .into_writes();
-
-        log::info!(
-            "Contract call successful. Gas used: {}. Return data size: {}. State changes: {}",
-            output.gas_used,
-            output.return_data.len(),
-            state_delta.len()
-        );
-
-        Ok((output, state_delta))
+        self.execute_loaded_contract(code, input_data, context)
+            .await
     }
 
-    /// Queries an existing smart contract without persisting state changes. Now truly read-only.
+    /// Queries an existing smart contract without persisting state changes.
     pub async fn query_contract(
         &self,
         address: Vec<u8>,
@@ -218,6 +232,7 @@ where
         let parent_accessor = Arc::new(StateAccessorWrapper {
             state_tree: self.state_tree.clone(),
         });
+        // The overlay for a query captures writes but they are discarded at the end.
         let overlay = VmStateOverlay::new(parent_accessor);
 
         let output = self

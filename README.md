@@ -185,14 +185,23 @@ Here is the updated testing section for your `README.md`:
 
 | Test | Command |
 |------|---------|
-| **Staking** | `cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-file,primitive-hash" --test staking_e2e -- --nocapture` |
-| **Contract** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test contract_e2e -- --nocapture` |
-| **PQC Migration** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test pqc_migration_e2e -- --nocapture` |
+| **Staking** | `cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-iavl,primitive-hash" --test staking_e2e -- --nocapture` |
+| **Contract** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" --test contract_e2e -- --nocapture` |
+| **PQC Migration** | `cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-file,primitive-hash" --test pqc_migration_e2e -- --nocapture` |
 | **Governance** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test governance_e2e -- --nocapture` |
 | **Module Upgrade** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test module_upgrade_e2e -- --nocapture` |
 | **Agentic Consensus** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test agentic_consensus_e2e -- --nocapture` |
 | **Oracle** | `cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-file,primitive-hash" --test oracle_e2e -- --nocapture --test-threads=1` |
 | **Interoperability** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test interop_e2e -- --nocapture` |
+
+#### with logging ex:
+RUST_LOG=info,depin_sdk_chain=debug,depin_sdk_validator=debug,depin_sdk_commitment=debug,depin_sdk_consensus=debug cargo test -p depin-sdk-forge --release --features="consensus-pos,vm-wasm,tree-iavl,primitive-hash" --test staking_e2e -- --nocapture
+
+or
+
+ORCH_BLOCK_INTERVAL_SECS=1 RUST_BACKTRACE=1 \
+RUST_LOG=info,depin_sdk_validator=info,depin_sdk_validator::standard::orchestration=debug,depin_sdk_validator::standard::orchestration::consensus=debug,depin_sdk_network::libp2p=info,depin_sdk_commitment::tree::iavl=debug \
+cargo test -p depin-sdk-forge --release --features="consensus-pos,vm-wasm,tree-iavl,primitive-hash,strict_iavl" --test staking_e2e -- --nocapture
 
 #### Penalty Mechanism Tests
 

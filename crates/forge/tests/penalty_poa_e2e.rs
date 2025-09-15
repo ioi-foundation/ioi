@@ -14,10 +14,10 @@ use depin_sdk_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
         FailureReport, OffenseFacts, OffenseType, SignHeader, SignatureProof, SignatureSuite,
-        SystemPayload, SystemTransaction,
+        SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1, ValidatorV1,
     },
     config::InitialServiceConfig,
-    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, AUTHORITY_SET_KEY, IDENTITY_CREDENTIALS_PREFIX},
+    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
@@ -78,6 +78,7 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
             allow_downgrade: false,
         }))
         .with_genesis_modifier(|genesis, keys| {
+            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
             // 1. Derive AccountIds and sort them for canonical representation.
             let mut authorities: Vec<AccountId> = keys
                 .iter()
@@ -90,10 +91,35 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
                 .collect();
             authorities.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
 
-            // 2. Store the authority set using the canonical codec.
-            let auth_bytes = depin_sdk_types::codec::to_bytes_canonical(&authorities);
-            genesis["genesis_state"][std::str::from_utf8(AUTHORITY_SET_KEY).unwrap()] =
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&auth_bytes)));
+            let validators: Vec<ValidatorV1> = authorities
+                .iter()
+                .map(|acct_id| {
+                    let pk_hash = acct_id.0;
+                    ValidatorV1 {
+                        account_id: *acct_id,
+                        weight: 1, // PoA
+                        consensus_key: ActiveKeyRecord {
+                            suite: SignatureSuite::Ed25519,
+                            pubkey_hash: pk_hash,
+                            since_height: 0,
+                        },
+                    }
+                })
+                .collect();
+
+            let vs_blob = ValidatorSetBlob {
+                schema_version: 1,
+                payload: ValidatorSetV1 {
+                    effective_from_height: 1,
+                    total_weight: validators.len() as u128,
+                    validators,
+                },
+            };
+            let vs_bytes = depin_sdk_types::codec::to_bytes_canonical(&vs_blob);
+            genesis_state.insert(
+                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
+            );
 
             // 3. Build a stable map AccountId -> public key bytes.
             let suite = SignatureSuite::Ed25519;
@@ -121,8 +147,10 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
                 };
                 let record_key = [b"identity::key_record::", acct_id.as_ref()].concat();
                 let record_bytes = depin_sdk_types::codec::to_bytes_canonical(&record);
-                genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&record_key))] =
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes)));
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
+                );
 
                 // IdentityHub credentials for this authority
                 let cred = Credential {
@@ -134,14 +162,17 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
                 let creds_array: [Option<Credential>; 2] = [Some(cred), None];
                 let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
                 let creds_key = [IDENTITY_CREDENTIALS_PREFIX, acct_id.as_ref()].concat();
-                genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&creds_key))] =
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes)));
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
+                );
 
                 // AccountId -> PublicKey mapping
                 let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, acct_id.as_ref()].concat();
-                genesis["genesis_state"]
-                    [format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key))] =
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(pk_bytes)));
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(pk_bytes))),
+                );
             }
         })
         .build()

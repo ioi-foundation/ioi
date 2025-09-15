@@ -2,97 +2,32 @@
 
 #![cfg(all(feature = "consensus-pos", feature = "vm-wasm"))]
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use depin_sdk_api::consensus::ChainStateReader; // FIX: Import the required trait
+use depin_sdk_client::WorkloadClient;
 use depin_sdk_forge::testing::{
-    build_test_artifacts, poll::wait_for_height, submit_transaction, TestCluster,
+    backend::LogStream, // [+] Import LogStream
+    build_test_artifacts,
+    poll::{wait_for_height, wait_for_stake_to_be},
+    submit_transaction,
+    TestCluster,
 };
-use depin_sdk_types::app::AccountId;
-use depin_sdk_types::app::{
-    account_id_from_key_material, ActiveKeyRecord, ChainTransaction, Credential, SignHeader,
-    SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+use depin_sdk_types::{
+    app::{
+        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
+        SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+        ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+    },
+    codec,
+    config::InitialServiceConfig,
+    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
+    service_configs::MigrationConfig,
 };
-use depin_sdk_types::codec;
-use depin_sdk_types::config::InitialServiceConfig;
-use depin_sdk_types::keys::{
-    ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, STAKES_KEY_CURRENT, STAKES_KEY_NEXT,
-};
-use depin_sdk_types::service_configs::MigrationConfig;
+use futures_util::StreamExt; // [+] Import StreamExt for .next()
 use libp2p::identity::Keypair;
 use serde_json::json;
-use std::collections::BTreeMap;
-use std::future::Future;
 use std::time::Duration;
-use tokio::time::{sleep, Instant};
-
-// --- FIX START: Move polling helper functions into the test module ---
-// This makes the test self-contained after the refactor.
-
-/// Generic polling function that waits for an async condition to be met.
-async fn wait_for<F, Fut, T>(
-    description: &str,
-    interval: Duration,
-    timeout: Duration,
-    mut condition: F,
-) -> Result<T>
-where
-    F: FnMut() -> Fut,
-    Fut: Future<Output = Result<Option<T>>>,
-{
-    let start = Instant::now();
-    loop {
-        match condition().await {
-            Ok(Some(value)) => return Ok(value),
-            Ok(None) => { /* continue polling */ }
-            Err(e) => {
-                log::trace!(
-                    "Polling for '{}' received transient error: {}",
-                    description,
-                    e
-                );
-            }
-        }
-        if start.elapsed() > timeout {
-            return Err(anyhow!("Timeout waiting for {}", description));
-        }
-        sleep(interval).await;
-    }
-}
-
-/// Waits for a specific account to have a specific stake amount using the new WorkloadClient.
-async fn wait_for_stake_to_be(
-    client: &depin_sdk_client::WorkloadClient,
-    account_id: &AccountId,
-    target_stake: u64,
-    timeout: Duration,
-) -> Result<()> {
-    wait_for(
-        &format!(
-            "stake for account {} to be {}",
-            hex::encode(account_id.as_ref()),
-            target_stake
-        ),
-        Duration::from_millis(500),
-        timeout,
-        || async {
-            // FIX: This now compiles because the ChainStateReader trait is in scope.
-            let stakes = client
-                .get_next_staked_validators()
-                .await
-                .map_err(|e| anyhow!(e))?;
-            let hex_id = hex::encode(account_id.as_ref());
-            let current_stake = stakes.get(&hex_id).copied().unwrap_or(0);
-            if current_stake == target_stake {
-                Ok(Some(()))
-            } else {
-                Ok(None)
-            }
-        },
-    )
-    .await
-}
-// --- FIX END ---
+use tokio::time::interval;
 
 // Helper function to create a signed system transaction
 fn create_system_tx(
@@ -101,15 +36,13 @@ fn create_system_tx(
     nonce: u64,
 ) -> Result<ChainTransaction> {
     let public_key_bytes = keypair.public().encode_protobuf();
-
-    // Use the canonical function to derive the account ID
     let account_id_hash = account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)?;
     let account_id = AccountId(account_id_hash);
 
     let header = SignHeader {
         account_id,
         nonce,
-        chain_id: 1, // Matches chain default
+        chain_id: 1,
         tx_version: 1,
     };
 
@@ -131,63 +64,86 @@ fn create_system_tx(
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_staking_lifecycle() -> Result<()> {
-    // 1. SETUP: Build artifacts with the specific features needed for the spawned binaries.
-    build_test_artifacts("consensus-pos,vm-wasm,tree-file,primitive-hash");
+    build_test_artifacts("consensus-pos,vm-wasm,tree-iavl,primitive-hash");
 
-    // 2. LAUNCH CLUSTER: 3-node PoS cluster with Node0 as the sole initial staker.
     let mut cluster = TestCluster::builder()
         .with_validators(3)
         .with_consensus_type("ProofOfStake")
+        .with_state_tree("IAVL")
+        .with_commitment_scheme("Hash")
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
+            chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
             allowed_target_suites: vec![SignatureSuite::Ed25519],
             allow_downgrade: false,
-            chain_id: 1,
         }))
         .with_genesis_modifier(|genesis, keys| {
-            // Grant initial stake only to the first validator (the bootnode) to ensure it's the sole
-            // leader at genesis, allowing the chain to start without waiting for peers.
-            let initial_stake = 100_000u64;
-            let mut stakes = BTreeMap::new();
-            let pk_bytes_0 = keys[0].public().encode_protobuf();
-            let account_id_hash_0 =
-                account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes_0).unwrap();
-            stakes.insert(AccountId(account_id_hash_0), initial_stake);
+            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+            let initial_stake = 100_000u128;
 
-            let stakes_bytes = codec::to_bytes_canonical(&stakes);
-            let stakes_b64 = format!("b64:{}", BASE64_STANDARD.encode(&stakes_bytes));
+            let validators: Vec<ValidatorV1> = keys
+                .iter()
+                .map(|keypair| {
+                    let pk_bytes = keypair.public().encode_protobuf();
+                    let account_id_hash =
+                        account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
+                    let account_id = AccountId(account_id_hash);
 
-            genesis["genesis_state"][std::str::from_utf8(STAKES_KEY_CURRENT).unwrap()] =
-                json!(&stakes_b64);
-            genesis["genesis_state"][std::str::from_utf8(STAKES_KEY_NEXT).unwrap()] =
-                json!(&stakes_b64);
+                    ValidatorV1 {
+                        account_id,
+                        weight: initial_stake,
+                        consensus_key: ActiveKeyRecord {
+                            suite: SignatureSuite::Ed25519,
+                            pubkey_hash: account_id_hash,
+                            since_height: 0,
+                        },
+                    }
+                })
+                .collect();
 
-            // Populate the pubkey lookup map and ActiveKeyRecord for all keys
+            let total_weight = validators.iter().map(|v| v.weight).sum();
+
+            let validator_sets = ValidatorSetsV1 {
+                current: ValidatorSetV1 {
+                    effective_from_height: 1,
+                    total_weight,
+                    validators,
+                },
+                next: None,
+            };
+
+            let vs_bytes = depin_sdk_types::app::write_validator_sets(&validator_sets);
+            genesis_state.insert(
+                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
+            );
+
             for keypair in keys {
                 let pk_bytes = keypair.public().encode_protobuf();
                 let suite = SignatureSuite::Ed25519;
                 let account_id_hash = account_id_from_key_material(suite, &pk_bytes).unwrap();
                 let account_id = AccountId(account_id_hash);
+                let pubkey_hash = account_id_from_key_material(suite, &pk_bytes).unwrap();
 
-                // Add the pubkey lookup entry
                 let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-                genesis["genesis_state"]
-                    [format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key))] =
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes)));
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes))),
+                );
 
-                // Add the ActiveKeyRecord entry for consensus
                 let record = ActiveKeyRecord {
                     suite,
-                    pubkey_hash: account_id_hash,
-                    since_height: 0, // Active from genesis
+                    pubkey_hash,
+                    since_height: 0,
                 };
                 let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
                 let record_bytes = codec::to_bytes_canonical(&record);
-                genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&record_key))] =
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes)));
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
+                );
 
-                // Add IdentityHub credentials
                 let cred = Credential {
                     suite,
                     public_key_hash: account_id.0,
@@ -197,59 +153,119 @@ async fn test_staking_lifecycle() -> Result<()> {
                 let creds_array: [Option<Credential>; 2] = [Some(cred), None];
                 let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
                 let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
-                genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&creds_key))] =
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes)));
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
+                );
             }
         })
         .build()
         .await?;
 
-    // 3. GET HANDLES
-    let (node0, node1, _node2) = {
-        let mut it = cluster.validators.iter_mut();
-        (it.next().unwrap(), it.next().unwrap(), it.next().unwrap())
-    };
-    let rpc_addr = &node0.rpc_addr;
+    // [+] PROPOSED CHANGE: Extract all necessary data from validators first
+    // to release the mutable borrow on `cluster.validators` quickly.
+    let rpc_addr = cluster.validators[0].rpc_addr.clone();
+    let client0 = WorkloadClient::new(&cluster.validators[0].workload_ipc_addr).await?;
+    let client1 = WorkloadClient::new(&cluster.validators[1].workload_ipc_addr).await?;
+    let client2 = WorkloadClient::new(&cluster.validators[2].workload_ipc_addr).await?;
+    let keypair0 = cluster.validators[0].keypair.clone();
+    let keypair1 = cluster.validators[1].keypair.clone();
+    let client1_rpc_addr = cluster.validators[1].rpc_addr.clone(); // For waiting on node 1
 
-    let ipc_addr0 = &node0.workload_ipc_addr;
-    let client0 = depin_sdk_client::WorkloadClient::new(ipc_addr0).await?;
-    let client1 = depin_sdk_client::WorkloadClient::new(&node1.workload_ipc_addr).await?;
+    let logging_task = {
+        let mut orch_logs: Vec<LogStream> = Vec::new();
+        let mut work_logs: Vec<LogStream> = Vec::new();
+        for node in cluster.validators.iter_mut() {
+            orch_logs.push(node.orch_log_stream.lock().await.take().unwrap());
+            work_logs.push(node.workload_log_stream.lock().await.take().unwrap());
+        }
+
+        async move {
+            loop {
+                // Drain and print logs from each node's orchestrator
+                for i in 0..orch_logs.len() {
+                    while let Ok(Some(line_res)) =
+                        tokio::time::timeout(Duration::from_millis(10), orch_logs[i].next()).await
+                    {
+                        if let Ok(line) = line_res {
+                            println!("[Orch-{}]: {}", i, line);
+                        }
+                    }
+                }
+                // Drain and print logs from each node's workload
+                for i in 0..work_logs.len() {
+                    while let Ok(Some(line_res)) =
+                        tokio::time::timeout(Duration::from_millis(10), work_logs[i].next()).await
+                    {
+                        if let Ok(line) = line_res {
+                            println!("[Work-{}]: {}", i, line);
+                        }
+                    }
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+        }
+    };
+
+    wait_for_height(&rpc_addr, 1, Duration::from_secs(20)).await?;
+    wait_for_height(&client1_rpc_addr, 1, Duration::from_secs(30)).await?;
+
+    let unstake_payload = SystemPayload::Unstake { amount: 100_000 };
+    let unstake_tx = create_system_tx(&keypair0, unstake_payload, 0)?;
+    submit_transaction(&rpc_addr, &unstake_tx).await?;
+
+    let stake_payload = SystemPayload::Stake {
+        public_key: keypair1.public().encode_protobuf(),
+        amount: 50_000,
+    };
+    let stake_tx = create_system_tx(&keypair1, stake_payload, 0)?;
+    submit_transaction(&rpc_addr, &stake_tx).await?;
+
+    println!("--- Waiting for block 3 with periodic status checks ---");
+    let wait_fut = wait_for_height(&rpc_addr, 3, Duration::from_secs(60));
+    let clients = [&client0, &client1, &client2];
+    let mut poll_interval = interval(Duration::from_secs(2));
+
+    let polling_task = async {
+        loop {
+            poll_interval.tick().await;
+            let mut statuses = Vec::new();
+            for (i, client) in clients.iter().enumerate() {
+                let status_str = match client.get_status().await {
+                    Ok(status) => format!("[Node{} H:{}]", i, status.height),
+                    Err(_) => format!("[Node{} H:ERR]", i),
+                };
+                statuses.push(status_str);
+            }
+            println!("Cluster Status: {}", statuses.join(" "));
+        }
+    };
+
+    tokio::select! {
+        res = wait_fut => {
+            res?
+        },
+        _ = polling_task => {},
+        _ = logging_task => {},
+    };
 
     let node0_account_id = AccountId(account_id_from_key_material(
         SignatureSuite::Ed25519,
-        &node0.keypair.public().encode_protobuf(),
+        &keypair0.public().encode_protobuf(),
     )?);
     let node1_account_id = AccountId(account_id_from_key_material(
         SignatureSuite::Ed25519,
-        &node1.keypair.public().encode_protobuf(),
+        &keypair1.public().encode_protobuf(),
     )?);
 
-    // 4. PRE-CONDITION: Wait for the chain to start and for the eventual leader (node-1) to be ready.
-    // node-0 (bootnode) reaches H=1 first...
-    wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
-    // ...then ensure node-1 has also received block #1 before we rotate leadership to it.
-    wait_for_height(&node1.rpc_addr, 1, Duration::from_secs(30)).await?;
-
-    // 5. ACTION: Submit staking transactions via Node0's RPC.
-    // Node 0 unstakes its full amount.
-    let unstake_payload = SystemPayload::Unstake { amount: 100_000 };
-    let unstake_tx = create_system_tx(&node0.keypair, unstake_payload, 0)?;
-    submit_transaction(rpc_addr, &unstake_tx).await?;
-
-    // Node 1 stakes a new amount.
-    let stake_payload = SystemPayload::Stake {
-        public_key: node1.keypair.public().encode_protobuf(),
-        amount: 50_000,
-    };
-    let stake_tx = create_system_tx(&node1.keypair, stake_payload, 0)?;
-    submit_transaction(rpc_addr, &stake_tx).await?;
-
-    // 6. VERIFICATION: Wait two blocks for stake changes to become effective, then verify the state.
-    // H=2 is produced with old stake set. H=3 is produced with new stake set.
-    wait_for_height(rpc_addr, 3, Duration::from_secs(60)).await?;
-
-    wait_for_stake_to_be(&client0, &node0_account_id, 0, Duration::from_secs(10)).await?;
-    wait_for_stake_to_be(&client1, &node1_account_id, 50_000, Duration::from_secs(10)).await?;
+    wait_for_stake_to_be(&client0, &node0_account_id, 0, Duration::from_secs(30)).await?;
+    wait_for_stake_to_be(
+        &client1,
+        &node1_account_id,
+        150_000,
+        Duration::from_secs(30),
+    )
+    .await?;
 
     println!("--- Staking Lifecycle E2E Test Passed ---");
     Ok(())

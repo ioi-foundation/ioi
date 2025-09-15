@@ -6,10 +6,11 @@ use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::consensus::ChainStateReader;
 use depin_sdk_api::state::{StateAccessor, StateManager};
 use depin_sdk_types::app::{
-    account_id_from_key_material, AccountId, Block, FailureReport, SignatureSuite,
+    account_id_from_key_material, read_validator_sets, AccountId, Block, FailureReport,
+    SignatureSuite,
 };
 use depin_sdk_types::error::{ConsensusError, StateError, TransactionError};
-use depin_sdk_types::keys::{AUTHORITY_SET_KEY, QUARANTINED_VALIDATORS_KEY};
+use depin_sdk_types::keys::{QUARANTINED_VALIDATORS_KEY, VALIDATOR_SET_KEY};
 use libp2p::identity::PublicKey;
 use libp2p::PeerId;
 use std::collections::{BTreeSet, HashSet};
@@ -63,13 +64,18 @@ impl PenaltyMechanism for ProofOfAuthorityEngine {
         const MIN_LIVE_AUTHORITIES: usize = 2;
 
         // 1. Get the current authority set directly.
-        let authorities_bytes = state.get(AUTHORITY_SET_KEY)?.ok_or_else(|| {
+        let authorities_bytes = state.get(VALIDATOR_SET_KEY)?.ok_or_else(|| {
             TransactionError::State(StateError::KeyNotFound(
                 "Authority set not found in state".into(),
             ))
         })?;
-        let authorities: Vec<AccountId> =
-            depin_sdk_types::codec::from_bytes_canonical(&authorities_bytes)?;
+        let sets = read_validator_sets(&authorities_bytes)?;
+        let authorities: Vec<AccountId> = sets
+            .current
+            .validators
+            .into_iter()
+            .map(|v| v.account_id)
+            .collect();
 
         // 2. Directly check if the offender from the report is in the authority set.
         if !authorities.contains(&report.offender) {
@@ -136,14 +142,20 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
         parent_view: &dyn StateView, // Pass the parent state view for deterministic reads
         _known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
-        let validator_set = match parent_view.validator_set().await {
-            Ok(vs) => vs,
+        let vs_bytes = match parent_view.get(VALIDATOR_SET_KEY).await {
+            Ok(Some(bytes)) => bytes,
+            _ => return ConsensusDecision::Stall,
+        };
+        let sets = match read_validator_sets(&vs_bytes) {
+            Ok(s) => s,
             Err(_) => return ConsensusDecision::Stall,
         };
-        debug_assert!(
-            validator_set.windows(2).all(|w| w[0] < w[1]),
-            "Validator set must be sorted"
-        );
+        let validator_set: Vec<_> = sets
+            .current
+            .validators
+            .into_iter()
+            .map(|v| v.account_id)
+            .collect();
 
         if validator_set.is_empty() {
             // Stall consensus if no authorities are defined, except at genesis.
@@ -182,10 +194,22 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
             .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?;
 
         // 2. Membership Check (against parent state)
-        let validator_set = parent_view
-            .validator_set()
+        let vs_bytes = parent_view
+            .get(VALIDATOR_SET_KEY)
             .await
-            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?;
+            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
+            .ok_or_else(|| {
+                ConsensusError::StateAccess(StateError::KeyNotFound("ValidatorSet".into()))
+            })?;
+        let sets = read_validator_sets(&vs_bytes)
+            .map_err(|e| ConsensusError::StateAccess(StateError::InvalidValue(e.to_string())))?;
+        let validator_set: Vec<_> = sets
+            .current
+            .validators
+            .into_iter()
+            .map(|v| v.account_id)
+            .collect();
+
         if validator_set
             .binary_search(&header.producer_account_id)
             .is_err()

@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 /// An in-memory state overlay that captures writes from a VM execution
 /// without modifying the underlying state. It is thread-safe for parallel access.
+#[derive(Clone)]
 pub struct VmStateOverlay {
     parent: Arc<dyn VmStateAccessor>,
     writes: DashMap<Vec<u8>, Vec<u8>>,
@@ -36,6 +37,14 @@ impl VmStateOverlay {
     /// Consumes the overlay and returns the captured writes.
     pub fn into_writes(self) -> HashMap<Vec<u8>, Vec<u8>> {
         self.writes.into_iter().collect()
+    }
+
+    /// Returns a clone of captured writes without consuming the overlay.
+    pub fn snapshot_writes(&self) -> HashMap<Vec<u8>, Vec<u8>> {
+        self.writes
+            .iter()
+            .map(|e| (e.key().clone(), e.value().clone()))
+            .collect()
     }
 }
 

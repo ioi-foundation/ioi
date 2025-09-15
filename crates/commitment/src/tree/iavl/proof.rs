@@ -1,3 +1,4 @@
+// Path: crates/commitment/src/tree/iavl/proof.rs
 //! Production-grade, ICS-23-inspired proof verification for the IAVL tree.
 //! This module contains the proof data structures and the pure, stateless verifier function.
 
@@ -121,7 +122,7 @@ pub fn verify_iavl_proof_bytes(
         (None, IavlProof::NonExistence(non_existence_proof)) => {
             verify_non_existence(root, key, &non_existence_proof)
         }
-        _ => Ok(false), // Mismatched proof type for the claim being made.
+        _ => Ok(false),
     }
 }
 
@@ -139,13 +140,39 @@ fn verify_existence(
 
     let mut current_hash = hash_leaf(&proof.leaf, key, value);
 
-    for step in &proof.path {
-        let (left_hash, right_hash) = match step.side {
-            Side::Left => (current_hash, step.sibling_hash),
-            Side::Right => (step.sibling_hash, current_hash),
+    log::debug!(
+        "[IAVL Verifier] Verifying existence for key: {}",
+        hex::encode(key)
+    );
+    log::debug!("[IAVL Verifier] Trusted Root: {}", hex::encode(root));
+    log::debug!(
+        "[IAVL Verifier]   - Step 0 (Leaf): hash={:.8}",
+        hex::encode(&current_hash).get(..8).unwrap_or("")
+    );
+
+    for (i, step) in proof.path.iter().enumerate() {
+        let (left, right) = match step.side {
+            Side::Left => (step.sibling_hash, current_hash),
+            Side::Right => (current_hash, step.sibling_hash),
         };
-        current_hash = hash_inner(step, &left_hash, &right_hash);
+        let new_hash_vec = hash_inner(step, &left, &right);
+
+        log::debug!(
+            "[IAVL Verifier] step={} side={:?} split={:.8} h={} sz={} acc={:.8} sib={:.8} -> new={:.8}",
+            i + 1, step.side,
+            hex::encode(&step.split_key).get(..8).unwrap_or(""),
+            step.height, step.size,
+            hex::encode(current_hash).get(..8).unwrap_or(""),
+            hex::encode(step.sibling_hash).get(..8).unwrap_or(""),
+            hex::encode(&new_hash_vec).get(..8).unwrap_or(""),
+        );
+        current_hash = new_hash_vec.try_into().unwrap();
     }
+
+    log::debug!(
+        "[IAVL Verifier] Final Recomputed Root: {}",
+        hex::encode(current_hash)
+    );
 
     if current_hash != *root {
         return Err(VerifyError::RootMismatch);

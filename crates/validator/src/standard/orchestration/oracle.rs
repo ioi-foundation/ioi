@@ -63,11 +63,7 @@ pub async fn handle_newly_processed_block<CS, ST, CE, V>(
         }
     };
 
-    let validator_account_ids: HashSet<AccountId> = validator_stakes
-        .keys()
-        .filter_map(|hex_str| hex::decode(hex_str).ok())
-        .filter_map(|bytes| bytes.try_into().ok().map(AccountId))
-        .collect();
+    let validator_account_ids: HashSet<AccountId> = validator_stakes.keys().cloned().collect();
 
     let our_account_id_hash = account_id_from_key_material(
         SignatureSuite::Ed25519,
@@ -217,9 +213,9 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE, V>(
     let signer_account_id_hash =
         account_id_from_key_material(SignatureSuite::Ed25519, &pubkey.encode_protobuf())
             .expect("libp2p public key should be valid");
-    let signer_account_id_hex = hex::encode(signer_account_id_hash);
+    let signer_account_id = AccountId(signer_account_id_hash);
 
-    if !validator_stakes.contains_key(&signer_account_id_hex) {
+    if !validator_stakes.contains_key(&signer_account_id) {
         log::warn!(
             "Oracle: Received attestation from non-staker {}, disregarding.",
             from
@@ -311,22 +307,22 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
         let signer_account_id_hash =
             account_id_from_key_material(SignatureSuite::Ed25519, &pubkey.encode_protobuf())
                 .expect("libp2p public key should be valid");
-        let signer_account_id_hex = hex::encode(signer_account_id_hash);
+        let signer_account_id = AccountId(signer_account_id_hash);
 
-        if validator_stakes.contains_key(&signer_account_id_hex) {
+        if validator_stakes.contains_key(&signer_account_id) {
             let payload_to_verify = att.to_signing_payload("test-chain");
             if pubkey.verify(&payload_to_verify, sig_bytes)
-                && unique_signers.insert(signer_account_id_hex.clone())
+                && unique_signers.insert(signer_account_id)
             {
-                valid_attestations_for_quorum.push((att.clone(), signer_account_id_hex));
+                valid_attestations_for_quorum.push((att.clone(), signer_account_id));
             }
         }
     }
-    valid_attestations_for_quorum.sort_by(|(_, pk_a), (_, pk_b)| pk_a.cmp(pk_b));
+    valid_attestations_for_quorum.sort_by(|(_, id_a), (_, id_b)| id_a.cmp(id_b));
 
     let attested_stake: u64 = valid_attestations_for_quorum
         .iter()
-        .filter_map(|(_, account_id_hex)| validator_stakes.get(account_id_hex))
+        .filter_map(|(_, account_id)| validator_stakes.get(account_id))
         .sum();
 
     if attested_stake >= quorum_threshold {

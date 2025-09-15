@@ -82,3 +82,6 @@ consensus-pos = ["depin-sdk-validator/consensus-pos"]
 # Feature for building the malicious binary for testing
 # This does not need to be propagated, as the test runner handles it.
 malicious-bin = []
+
+# [+] Add feature to propagate the strict check
+strict_iavl = ["depin-sdk-commitment/strict_iavl"]

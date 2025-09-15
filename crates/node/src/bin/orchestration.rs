@@ -4,31 +4,27 @@
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
-use depin_sdk_api::state::Verifier;
 use depin_sdk_api::validator::container::Container;
+// [+] Remove the direct dependency on the RPC server from the binary
+// use depin_sdk_validator::rpc::run_rpc_server;
 use depin_sdk_chain::Chain;
-use depin_sdk_client::{security::SecurityChannel, WorkloadClient};
+use depin_sdk_client::WorkloadClient;
 use depin_sdk_consensus::util::engine_from_config;
 use depin_sdk_network::libp2p::Libp2pSync;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::config::OrchestrationConfig;
 use depin_sdk_validator::standard::orchestration::OrchestrationDependencies;
-use depin_sdk_validator::{
-    rpc::run_rpc_server,
-    standard::{
-        orchestration::verifier_select::{create_default_verifier, DefaultVerifier},
-        OrchestrationContainer,
-    },
+use depin_sdk_validator::standard::{
+    orchestration::verifier_select::{create_default_verifier, DefaultVerifier},
+    OrchestrationContainer,
 };
 use libp2p::{identity, Multiaddr};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::PathBuf;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
-use tokio::sync::Mutex;
+use std::sync::{atomic::AtomicBool, Arc};
+// [+] Remove unused Mutex import
+use tokio::sync::mpsc;
 
 // Imports for concrete types used in the factory
 use depin_sdk_api::{commitment::CommitmentScheme, state::StateManager};
@@ -109,8 +105,8 @@ async fn run_orchestration<CS, ST>(
 ) -> Result<()>
 where
     CS: CommitmentScheme<
-            Commitment = <DefaultVerifier as Verifier>::Commitment,
-            Proof = <DefaultVerifier as Verifier>::Proof,
+            Commitment = <DefaultVerifier as depin_sdk_api::state::Verifier>::Commitment,
+            Proof = <DefaultVerifier as depin_sdk_api::state::Verifier>::Proof,
         > + Clone
         + Send
         + Sync
@@ -124,26 +120,9 @@ where
     CS::Commitment: std::fmt::Debug + Send + Sync,
     <CS as CommitmentScheme>::Proof:
         serde::Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+    <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
-    let (syncer, swarm_commander, network_event_receiver) =
-        Libp2pSync::new(local_key.clone(), opts.listen_address, opts.bootnode)?;
-
-    let consensus_engine = engine_from_config(&config)?;
-    let verifier = create_default_verifier(kzg_params);
-
-    let is_quarantined = Arc::new(AtomicBool::new(false));
-
-    let deps = OrchestrationDependencies {
-        syncer,
-        network_event_receiver,
-        swarm_command_sender: swarm_commander.clone(),
-        consensus_engine,
-        local_keypair: local_key,
-        is_quarantined: is_quarantined.clone(),
-        verifier,
-    };
-
-    let orchestration = Arc::new(OrchestrationContainer::new(&opts.config, deps)?);
+    // [+] The temporary swarm sender and direct RPC server call are removed from here.
 
     let workload_client = {
         let workload_ipc_addr =
@@ -151,8 +130,54 @@ where
         Arc::new(WorkloadClient::new(&workload_ipc_addr).await?)
     };
 
-    // The logic to perform attestation is now inside OrchestrationContainer::start
-    // and is no longer needed here.
+    let workload_probe_deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    loop {
+        match workload_client.get_status().await {
+            Ok(_) => {
+                log::info!("[Orchestrator] Workload IPC reachable.");
+                break;
+            }
+            Err(e) => {
+                if std::time::Instant::now() >= workload_probe_deadline {
+                    eprintln!(
+                        "ORCHESTRATION_FATAL: Workload IPC unreachable after retries: {}",
+                        e
+                    );
+                    return Err(anyhow!("Workload IPC unreachable after retries: {}", e));
+                }
+                log::warn!(
+                    "[Orchestrator] Workload IPC not reachable yet: {} (retrying...)",
+                    e
+                );
+                tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+            }
+        }
+    }
+
+    let (syncer, real_swarm_commander, network_event_receiver) =
+        match Libp2pSync::new(local_key.clone(), opts.listen_address, opts.bootnode) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("ORCHESTRATION_FATAL: Libp2p init failed: {e}");
+                return Err(anyhow!("Libp2p init failed: {}", e));
+            }
+        };
+
+    let consensus_engine = engine_from_config(&config)?;
+    let verifier = create_default_verifier(kzg_params);
+    let is_quarantined = Arc::new(AtomicBool::new(false));
+
+    let deps = OrchestrationDependencies {
+        syncer,
+        network_event_receiver,
+        swarm_command_sender: real_swarm_commander,
+        consensus_engine,
+        local_keypair: local_key,
+        is_quarantined,
+        verifier,
+    };
+
+    let orchestration = Arc::new(OrchestrationContainer::new(&opts.config, deps)?);
 
     let chain_ref = {
         let tm = UnifiedTransactionModel::new(commitment_scheme.clone());
@@ -170,7 +195,7 @@ where
         let workload_container = Arc::new(depin_sdk_api::validator::WorkloadContainer::new(
             dummy_workload_config,
             state_tree,
-            Box::new(depin_sdk_vm_wasm::WasmVm::new(Default::default())), // dummy VM
+            Box::new(depin_sdk_vm_wasm::WasmVm::new(Default::default())),
             Default::default(),
         ));
         let consensus = engine_from_config(&config)?;
@@ -183,22 +208,12 @@ where
             consensus,
             workload_container,
         );
-        Arc::new(Mutex::new(chain))
+        Arc::new(tokio::sync::Mutex::new(chain))
     };
 
     orchestration.set_chain_and_workload_client(chain_ref, workload_client.clone());
-
-    let rpc_handle = run_rpc_server(
-        &config.rpc_listen_address,
-        orchestration.tx_pool.clone(),
-        workload_client,
-        swarm_commander,
-        config.clone(),
-    )
-    .await?;
-
-    // --- FIX: Pass an empty string to satisfy the new trait signature ---
     orchestration.start("").await?;
+    eprintln!("ORCHESTRATION_STARTUP_COMPLETE");
 
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
@@ -208,7 +223,7 @@ where
 
     log::info!("Shutdown signal received.");
     orchestration.stop().await?;
-    rpc_handle.abort();
+    // [+] The rpc_handle is gone, no need to abort it.
     log::info!("Orchestration container stopped gracefully.");
     Ok(())
 }

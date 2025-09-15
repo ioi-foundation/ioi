@@ -1,9 +1,12 @@
 // Path: crates/types/src/app/mod.rs
 //! Core application-level data structures like Blocks and Transactions.
 
+/// Data structures related to consensus, such as the canonical validator set
+pub mod consensus;
 pub mod identity;
 pub mod penalties;
 
+pub use consensus::*;
 pub use identity::*;
 pub use penalties::*;
 

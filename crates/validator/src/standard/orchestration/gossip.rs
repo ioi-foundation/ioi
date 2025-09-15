@@ -3,9 +3,9 @@ use super::context::MainLoopContext;
 use super::oracle::handle_newly_processed_block;
 use super::remote_state_view::RemoteStateView;
 use async_trait::async_trait;
-use depin_sdk_api::chain::{ChainView, StateView};
+use depin_sdk_api::chain::StateView;
 use depin_sdk_api::commitment::CommitmentScheme;
-use depin_sdk_api::consensus::{PenaltyMechanism, ConsensusEngine};
+use depin_sdk_api::consensus::{ConsensusEngine, PenaltyMechanism};
 use depin_sdk_api::state::{StateAccessor, StateCommitment, StateManager, Verifier};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_types::app::{
@@ -13,16 +13,19 @@ use depin_sdk_types::app::{
 };
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::TransactionError;
+use lru::LruCache;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashSet, VecDeque};
 use std::fmt::Debug;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 
 #[derive(Debug)]
 struct WorkloadChainView<V> {
     client: Arc<depin_sdk_client::WorkloadClient>,
     consensus: ConsensusType,
     verifier: V,
+    proof_cache: Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>,
 }
 
 impl<V: Clone> WorkloadChainView<V> {
@@ -30,11 +33,13 @@ impl<V: Clone> WorkloadChainView<V> {
         client: Arc<depin_sdk_client::WorkloadClient>,
         consensus: ConsensusType,
         verifier: V,
+        proof_cache: Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>,
     ) -> Self {
         Self {
             client,
             consensus,
             verifier,
+            proof_cache,
         }
     }
 }
@@ -53,7 +58,7 @@ impl PenaltyMechanism for NoopPenalty {
 }
 
 #[async_trait]
-impl<CS, ST, V> ChainView<CS, ST> for WorkloadChainView<V>
+impl<CS, ST, V> depin_sdk_api::chain::ChainView<CS, ST> for &WorkloadChainView<V>
 where
     CS: CommitmentScheme + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
@@ -85,6 +90,7 @@ where
             self.client.clone(),
             self.verifier.clone(),
             self.consensus,
+            self.proof_cache.clone(),
         )))
     }
 
@@ -157,7 +163,7 @@ pub async fn handle_gossip_transaction<CS, ST, CE, V>(
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
@@ -182,7 +188,7 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
@@ -209,10 +215,11 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         context.workload_client.clone(),
         context.config.consensus_type,
         context.verifier.clone(),
+        context.proof_cache_ref.clone(),
     );
 
     if let Err(e) = engine
-        .handle_block_proposal::<CS, ST>(block.clone(), &cv)
+        .handle_block_proposal::<CS, ST>(block.clone(), &&cv)
         .await
     {
         log::warn!(

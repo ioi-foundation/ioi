@@ -10,24 +10,18 @@ use depin_sdk_forge::testing::{
 use depin_sdk_types::app::{
     // Add these imports
     account_id_from_key_material,
-    AccountId,
-    ActiveKeyRecord,
-    ChainTransaction,
-    Credential,
-    SignHeader,
-    SignatureProof,
-    SignatureSuite,
-    SystemPayload,
-    SystemTransaction,
+    AccountId, ActiveKeyRecord, ChainTransaction, Credential, SignHeader, SignatureProof,
+    SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1,
+    ValidatorV1,
 };
 use depin_sdk_types::codec; // Add this import
 use depin_sdk_types::config::InitialServiceConfig; // Add this import
 use depin_sdk_types::keys::{
     // Add these imports
     ACCOUNT_ID_TO_PUBKEY_PREFIX,
-    AUTHORITY_SET_KEY,
     GOVERNANCE_KEY,
     IDENTITY_CREDENTIALS_PREFIX,
+    VALIDATOR_SET_KEY,
 };
 use depin_sdk_types::service_configs::MigrationConfig; // Add this import
 use libp2p::identity::{self, Keypair};
@@ -76,7 +70,6 @@ async fn test_forkless_module_upgrade() -> Result<()> {
     let governance_pubkey_b58 =
         bs58::encode(governance_key.public().try_into_ed25519()?.to_bytes()).into_string();
 
-    // --- FIX: Clone the keypair before moving it into the closure ---
     let governance_key_clone = governance_key.clone();
 
     // 2. LAUNCH CLUSTER
@@ -91,22 +84,43 @@ async fn test_forkless_module_upgrade() -> Result<()> {
             allow_downgrade: false,
         }))
         .with_genesis_modifier(move |genesis, keys| {
+            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
             // Setup validator identity
             let validator_key = &keys[0];
             let suite = SignatureSuite::Ed25519;
             let validator_pk_bytes = validator_key.public().encode_protobuf();
-            let validator_account_id =
-                AccountId(account_id_from_key_material(suite, &validator_pk_bytes).unwrap());
-            let authorities = vec![validator_account_id];
-            genesis["genesis_state"][std::str::from_utf8(AUTHORITY_SET_KEY).unwrap()] =
+            let validator_account_id_hash =
+                account_id_from_key_material(suite, &validator_pk_bytes).unwrap();
+            let validator_account_id = AccountId(validator_account_id_hash);
+            let vs_blob = ValidatorSetBlob {
+                schema_version: 1,
+                payload: ValidatorSetV1 {
+                    effective_from_height: 1,
+                    total_weight: 1,
+                    validators: vec![ValidatorV1 {
+                        account_id: validator_account_id,
+                        weight: 1,
+                        consensus_key: ActiveKeyRecord {
+                            suite,
+                            pubkey_hash: validator_account_id.0,
+                            since_height: 0,
+                        },
+                    }],
+                },
+            };
+            genesis_state.insert(
+                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                 json!(format!(
                     "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&authorities))
-                ));
+                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&vs_blob))
+                )),
+            );
 
             // Setup governance identity
-            genesis["genesis_state"][std::str::from_utf8(GOVERNANCE_KEY).unwrap()] =
-                json!(governance_pubkey_b58);
+            genesis_state.insert(
+                std::str::from_utf8(GOVERNANCE_KEY).unwrap().to_string(),
+                json!(governance_pubkey_b58),
+            );
             let gov_pk_bytes = governance_key_clone.public().encode_protobuf(); // Use the cloned key
             let gov_account_id =
                 AccountId(account_id_from_key_material(suite, &gov_pk_bytes).unwrap());
@@ -126,8 +140,10 @@ async fn test_forkless_module_upgrade() -> Result<()> {
                 let creds_array: [Option<Credential>; 2] = [Some(cred), None];
                 let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
                 let creds_key = [IDENTITY_CREDENTIALS_PREFIX, acct_id.as_ref()].concat();
-                genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&creds_key))] =
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes)));
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
+                );
 
                 let record = ActiveKeyRecord {
                     suite,
@@ -135,16 +151,19 @@ async fn test_forkless_module_upgrade() -> Result<()> {
                     since_height: 0,
                 };
                 let record_key = [b"identity::key_record::", acct_id.as_ref()].concat();
-                genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&record_key))] =
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
                     json!(format!(
                         "b64:{}",
                         BASE64_STANDARD.encode(codec::to_bytes_canonical(&record))
-                    ));
+                    )),
+                );
 
                 let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, acct_id.as_ref()].concat();
-                genesis["genesis_state"]
-                    [format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key))] =
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes)));
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes))),
+                );
             }
         })
         .build()

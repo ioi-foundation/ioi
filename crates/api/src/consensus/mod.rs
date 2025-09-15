@@ -12,6 +12,7 @@ use libp2p::{identity::PublicKey, PeerId};
 use std::collections::{BTreeMap, HashSet};
 
 /// Represents the decision a node should take in a given consensus round.
+#[derive(Debug)] // <-- FIX: Add derive(Debug)
 pub enum ConsensusDecision<T> {
     /// The node should produce a new block with the given transactions.
     ProduceBlock(Vec<T>),
@@ -33,7 +34,7 @@ pub trait ChainStateReader: Send + Sync {
     /// Retrieves the active authority set for a Proof-of-Authority chain.
     async fn get_authority_set(&self) -> Result<Vec<Vec<u8>>, String>;
     /// Retrieves the validator set and their stakes for the next epoch/block in a Proof-of-Stake chain.
-    async fn get_next_staked_validators(&self) -> Result<BTreeMap<String, u64>, String>;
+    async fn get_next_staked_validators(&self) -> Result<BTreeMap<AccountId, u64>, String>;
     /// Retrieves the libp2p public key associated with a given on-chain AccountId.
     async fn get_public_key_for_account(
         &self,

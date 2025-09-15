@@ -49,7 +49,7 @@ impl From<[u8; 32]> for AccountId {
 }
 
 /// The minimal record of an active consensus key, stored in the core state map.
-#[derive(Serialize, Deserialize, Debug, Clone, Encode, Decode)]
+#[derive(Serialize, Deserialize, Debug, Clone, Encode, Decode, Default)]
 pub struct ActiveKeyRecord {
     /// The algorithm used by this credential.
     pub suite: SignatureSuite,

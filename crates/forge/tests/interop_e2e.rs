@@ -21,10 +21,11 @@ use depin_sdk_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
         SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+        ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
-    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, AUTHORITY_SET_KEY, IDENTITY_CREDENTIALS_PREFIX},
+    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
@@ -79,18 +80,38 @@ async fn test_universal_verification_e2e() -> Result<()> {
             chain_id: 1,
         }))
         .with_genesis_modifier(|genesis, keys| {
+            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
             let keypair = &keys[0];
             let suite = SignatureSuite::Ed25519;
             let public_key_bytes = keypair.public().encode_protobuf();
             let account_id_hash = account_id_from_key_material(suite, &public_key_bytes).unwrap();
             let account_id = AccountId(account_id_hash);
 
-            // A. Set the authority set using canonical encoding of Vec<AccountId>
-            let authorities = vec![account_id];
-            let authorities_bytes = codec::to_bytes_canonical(&authorities);
-            let auth_key_str = std::str::from_utf8(AUTHORITY_SET_KEY).unwrap();
-            genesis["genesis_state"][auth_key_str] =
-                json!(format!("b64:{}", BASE64_STANDARD.encode(authorities_bytes)));
+            // A. Set the canonical validator set
+            let vs_blob = ValidatorSetBlob {
+                schema_version: 2,
+                payload: ValidatorSetsV1 {
+                    current: ValidatorSetV1 {
+                        effective_from_height: 1,
+                        total_weight: 1,
+                        validators: vec![ValidatorV1 {
+                            account_id,
+                            weight: 1,
+                            consensus_key: ActiveKeyRecord {
+                                suite: SignatureSuite::Ed25519,
+                                pubkey_hash: account_id_hash,
+                                since_height: 0,
+                            },
+                        }],
+                    },
+                    next: None,
+                },
+            };
+            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload);
+            genesis_state.insert(
+                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
+            );
 
             // B. Set the initial IdentityHub credentials
             let initial_cred = Credential {
@@ -103,8 +124,10 @@ async fn test_universal_verification_e2e() -> Result<()> {
             let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
             let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
             let creds_key_b64 = format!("b64:{}", BASE64_STANDARD.encode(&creds_key));
-            genesis["genesis_state"][creds_key_b64] =
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes)));
+            genesis_state.insert(
+                creds_key_b64,
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
+            );
 
             // C. Set the ActiveKeyRecord for consensus verification
             let record = ActiveKeyRecord {
@@ -114,13 +137,17 @@ async fn test_universal_verification_e2e() -> Result<()> {
             };
             let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
             let record_bytes = codec::to_bytes_canonical(&record);
-            genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&record_key))] =
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes)));
+            genesis_state.insert(
+                format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
+            );
 
             // D. Set the AccountId -> PublicKey mapping for consensus verification
             let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-            genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key))] =
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&public_key_bytes)));
+            genesis_state.insert(
+                format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&public_key_bytes))),
+            );
         })
         .build()
         .await?;

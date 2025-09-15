@@ -17,19 +17,17 @@ use depin_sdk_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
         SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+        ValidatorSetBlob, ValidatorSetV1, ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
-    keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, AUTHORITY_SET_KEY, IDENTITY_CREDENTIALS_PREFIX,
-        STAKES_KEY_NEXT,
-    },
+    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
 use serde_json::json;
+use std::future::Future;
 use std::time::Duration;
-use std::{collections::BTreeMap, future::Future};
 use tokio::time::{sleep, Instant};
 
 // Local polling helper that uses the new WorkloadClient
@@ -146,15 +144,34 @@ async fn test_verkle_tree_e2e() -> Result<()> {
             chain_id: 1,
         }))
         .with_genesis_modifier(|genesis, keys| {
+            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
             let suite = SignatureSuite::Ed25519;
             let pk = keys[0].public().encode_protobuf();
             let acct_hash = account_id_from_key_material(suite, &pk).unwrap();
             let acct = AccountId(acct_hash);
 
-            // PoA authority set
-            let auth_bytes = codec::to_bytes_canonical(&vec![acct]);
-            genesis["genesis_state"][std::str::from_utf8(AUTHORITY_SET_KEY).unwrap()] =
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&auth_bytes)));
+            // Set the canonical validator set
+            let vs_blob = ValidatorSetBlob {
+                schema_version: 1,
+                payload: ValidatorSetV1 {
+                    effective_from_height: 1,
+                    total_weight: 1,
+                    validators: vec![ValidatorV1 {
+                        account_id: acct,
+                        weight: 1, // PoA uses weight 1
+                        consensus_key: ActiveKeyRecord {
+                            suite,
+                            pubkey_hash: acct.0,
+                            since_height: 0,
+                        },
+                    }],
+                },
+            };
+            let vs_bytes = codec::to_bytes_canonical(&vs_blob);
+            genesis_state.insert(
+                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
+            );
 
             // ActiveKeyRecord for consensus verification
             let record = ActiveKeyRecord {
@@ -164,13 +181,17 @@ async fn test_verkle_tree_e2e() -> Result<()> {
             };
             let record_key = [b"identity::key_record::", acct.as_ref()].concat();
             let record_bytes = codec::to_bytes_canonical(&record);
-            genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&record_key))] =
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes)));
+            genesis_state.insert(
+                format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
+            );
 
             // AccountId -> PubKey map for consensus verification
             let map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, acct.as_ref()].concat();
-            genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&map_key))] =
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&pk)));
+            genesis_state.insert(
+                format!("b64:{}", BASE64_STANDARD.encode(&map_key)),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&pk))),
+            );
 
             // Initial credentials for the IdentityHub
             let initial_cred = Credential {
@@ -182,14 +203,9 @@ async fn test_verkle_tree_e2e() -> Result<()> {
             let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
             let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
             let creds_key = [IDENTITY_CREDENTIALS_PREFIX, acct.as_ref()].concat();
-            genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&creds_key))] =
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes)));
-
-            // Initial empty stakes map
-            let empty_stakes: BTreeMap<AccountId, u64> = BTreeMap::new();
-            let empty_stakes_bytes = codec::to_bytes_canonical(&empty_stakes);
-            genesis["genesis_state"][std::str::from_utf8(STAKES_KEY_NEXT).unwrap()] = json!(
-                format!("b64:{}", BASE64_STANDARD.encode(&empty_stakes_bytes))
+            genesis_state.insert(
+                format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
             );
         })
         .build()
@@ -224,7 +240,7 @@ async fn test_verkle_tree_e2e() -> Result<()> {
     wait_for_stake_to_be(
         &workload_client,
         &staker_account_id,
-        stake_amount,
+        stake_amount as u64, // Note: PoA weight is 1, but PoS stake is the amount.
         Duration::from_secs(20),
     )
     .await?;

@@ -21,8 +21,9 @@ use std::fmt::Debug;
 pub trait StateView: Send + Sync {
     /// Returns the state anchor this view is anchored to.
     fn state_anchor(&self) -> &StateAnchor;
-    /// Returns the canonically sorted list of validator AccountIds.
-    async fn validator_set(&self) -> Result<Vec<AccountId>, ChainError>;
+    /// [DEPRECATED] Returns the legacy, flat list of validator AccountIds.
+    #[deprecated(note = "Use get_validator_set_blob_at for a complete, weighted view")]
+    async fn validator_set_legacy(&self) -> Result<Vec<AccountId>, ChainError>;
     /// Gets a value by key from the state version this view is anchored to.
     async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, ChainError>;
     /// Returns the active consensus key record for a given AccountId.
@@ -72,14 +73,6 @@ where
     /// Returns a reference to the transaction model used by the chain.
     fn transaction_model(&self) -> &TM;
 
-    /// Processes a single transaction against the current state.
-    async fn process_transaction(
-        &mut self,
-        tx: &ChainTransaction,
-        workload: &WorkloadContainer<ST>,
-        block_height: u64,
-    ) -> Result<(), ChainError>;
-
     /// Processes a full block of transactions, updating the chain state.
     async fn process_block(
         &mut self,
@@ -102,21 +95,22 @@ where
     /// Retrieves all blocks since a given height.
     fn get_blocks_since(&self, height: u64) -> Vec<Block<ChainTransaction>>;
 
-    /// Retrieves the validator set that will be active for the next block (H+1).
-    async fn get_next_validator_set(
+    /// Retrieves the validator set that will be active for a specific block height.
+    async fn get_validator_set_for(
         &self,
         workload: &WorkloadContainer<ST>,
+        height: u64,
     ) -> Result<Vec<Vec<u8>>, ChainError>;
 
     /// Retrieves the map of staked validators for PoS.
     async fn get_staked_validators(
         &self,
         workload: &WorkloadContainer<ST>,
-    ) -> Result<BTreeMap<PublicKey, StakeAmount>, ChainError>;
+    ) -> Result<BTreeMap<AccountId, StakeAmount>, ChainError>;
 
     /// Retrieves the map of staked validators for the next epoch for PoS.
     async fn get_next_staked_validators(
         &self,
         workload: &WorkloadContainer<ST>,
-    ) -> Result<BTreeMap<PublicKey, StakeAmount>, ChainError>;
+    ) -> Result<BTreeMap<AccountId, StakeAmount>, ChainError>;
 }
