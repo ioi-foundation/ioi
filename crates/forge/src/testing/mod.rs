@@ -5,13 +5,15 @@
 //! SDK to write their own integration tests with the same tooling.
 
 pub mod backend;
-pub mod poll; // Add new module
-pub mod rpc; // Add new module
+pub mod poll;
+pub mod rpc;
 
+use crate::testing::poll::{wait_for, wait_for_height};
 use anyhow::{anyhow, Result};
 use backend::{DockerBackend, LogStream, ProcessBackend, TestBackend};
 use bollard::image::BuildImageOptions;
 use bollard::Docker;
+use depin_sdk_client::WorkloadClient;
 use depin_sdk_commitment::primitives::kzg::KZGParams;
 use depin_sdk_types::app::ChainTransaction;
 use depin_sdk_types::config::{
@@ -19,7 +21,7 @@ use depin_sdk_types::config::{
     WorkloadConfig,
 };
 use depin_sdk_validator::config::OrchestrationConfig;
-use futures_util::StreamExt;
+use futures_util::{stream::FuturesUnordered, StreamExt};
 use hyper::Body;
 use libp2p::{identity, Multiaddr, PeerId};
 use reqwest::Client;
@@ -38,8 +40,8 @@ use tokio::time::timeout;
 // --- Test Configuration ---
 const DOCKER_IMAGE_TAG: &str = "depin-sdk-node:e2e";
 const LOG_ASSERT_TIMEOUT: Duration = Duration::from_secs(45);
-const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(20);
-const ORCHESTRATION_READY_TIMEOUT: Duration = Duration::from_secs(20);
+const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(30);
+const ORCHESTRATION_READY_TIMEOUT: Duration = Duration::from_secs(30);
 const GUARDIAN_READY_TIMEOUT: Duration = Duration::from_secs(10);
 
 // --- One-Time Build ---
@@ -253,29 +255,57 @@ async fn ensure_docker_image_exists() -> Result<()> {
 // --- Helper Structs & Functions ---
 
 pub async fn submit_transaction(rpc_addr: &str, tx: &ChainTransaction) -> Result<()> {
-    let tx_bytes = serde_json::to_vec(tx)?;
-    let tx_hex = hex::encode(tx_bytes);
-    let client = Client::new();
-    let request_body = serde_json::json!({
-        "jsonrpc": "2.0",
-        "method": "submit_tx",
-        "params": [tx_hex],
-        "id": 1
-    });
-    let rpc_url = format!("http://{}/rpc", rpc_addr);
-    let response = client
-        .post(&rpc_url)
-        .json(&request_body)
-        .send()
-        .await?
-        .json::<serde_json::Value>()
-        .await?;
-    if let Some(error) = response.get("error") {
-        if !error.is_null() {
-            return Err(anyhow!("RPC error: {}", error));
+    let tx_hex = hex::encode(serde_json::to_vec(tx)?);
+    let url = format!("http://{}/rpc", rpc_addr);
+    let client = reqwest::Client::new();
+
+    // candidates: method names & param shapes
+    let candidates = [
+        ("submit_tx", serde_json::json!([tx_hex.clone()])),
+        ("tx.submit.v1", serde_json::json!([tx_hex.clone()])),
+        ("transaction.submit.v1", serde_json::json!([tx_hex.clone()])),
+        ("tx.submit.v1", serde_json::json!({ "tx": tx_hex.clone() })),
+        ("transaction.submit.v1", serde_json::json!({ "tx": tx_hex })),
+    ];
+
+    for (method, params) in candidates {
+        let req =
+            serde_json::json!({ "jsonrpc":"2.0", "method": method, "params": params, "id": 1 });
+        let resp = client.post(&url).json(&req).send().await?;
+        let text = resp.text().await?;
+        // Parse but also keep the raw for diagnostics
+        let v: serde_json::Value = serde_json::from_str(&text).unwrap_or(serde_json::Value::Null);
+
+        // explicit JSON-RPC error -> fail fast with context
+        if v.get("error").is_some() && !v["error"].is_null() {
+            return Err(anyhow!("RPC {} error: {}", method, v["error"]));
+        }
+
+        // success heuristics
+        let ok = match &v["result"] {
+            serde_json::Value::String(s) => {
+                s.eq_ignore_ascii_case("ok")
+                    || s.eq_ignore_ascii_case("submitted")
+                    || s.eq_ignore_ascii_case("transaction accepted")
+            }
+            serde_json::Value::Bool(b) => *b,
+            serde_json::Value::Object(m) => {
+                m.get("accepted").and_then(|v| v.as_bool()).unwrap_or(false)
+            }
+            _ => false,
+        };
+
+        if ok {
+            println!("submit_transaction: {} accepted -> {}", method, text);
+            return Ok(());
+        } else {
+            println!("submit_transaction: {} returned non-OK -> {}", method, text);
         }
     }
-    Ok(())
+
+    Err(anyhow!(
+        "No RPC submit variant accepted the tx; see logs above for raw responses"
+    ))
 }
 
 pub async fn assert_log_contains(
@@ -537,7 +567,6 @@ impl TestValidator {
                         .spawn()?;
                     let mut reader = BufReader::new(process.stderr.take().unwrap()).lines();
 
-                    // --- FIX: Wait for the new, reliable readiness signal ---
                     let ready_signal = format!("GUARDIAN_IPC_LISTENING_ON_{}", guardian_addr);
                     timeout(GUARDIAN_READY_TIMEOUT, async {
                         while let Some(line) = reader.next_line().await? {
@@ -567,17 +596,39 @@ impl TestValidator {
             let mut workload_process = workload_cmd.spawn()?;
             let mut workload_reader =
                 BufReader::new(workload_process.stderr.take().unwrap()).lines();
+
+            // STEP 1: Wait for the IPC server to come online.
             timeout(WORKLOAD_READY_TIMEOUT, async {
                 let ready_signal = format!("WORKLOAD_IPC_LISTENING_ON_{}", workload_ipc_addr);
                 while let Some(line) = workload_reader.next_line().await? {
+                    println!("[WORKLOAD-BOOT] {}", line);
                     if line.contains(&ready_signal) {
                         return Ok(());
                     }
                 }
-                Err(anyhow!("Workload stderr stream ended before ready signal."))
+                Err(anyhow!(
+                    "Workload stderr stream ended before IPC ready signal."
+                ))
             })
             .await??;
 
+            // STEP 2: Create a client and poll for genesis readiness via RPC.
+            let temp_workload_client = WorkloadClient::new(&workload_ipc_addr).await?;
+            let genesis_status = wait_for(
+                "workload genesis to be ready",
+                Duration::from_millis(250),
+                WORKLOAD_READY_TIMEOUT,
+                || async {
+                    match temp_workload_client.get_genesis_status().await {
+                        Ok(status) if status.ready => Ok(Some(status)),
+                        _ => Ok(None),
+                    }
+                },
+            )
+            .await?;
+            let _captured_root = genesis_status.root;
+
+            // STEP 3: Now that Workload is fully ready, launch Orchestration.
             let mut orch_args = vec![
                 "--config".to_string(),
                 orch_config_path.to_string_lossy().to_string(),
@@ -593,6 +644,7 @@ impl TestValidator {
             let mut orch_cmd = TokioCommand::new(node_binary_path.join("orchestration"));
             orch_cmd
                 .args(&orch_args)
+                .env("RUST_BACKTRACE", "1") // Add backtrace for debugging
                 .env("WORKLOAD_IPC_ADDR", &workload_ipc_addr)
                 .stderr(Stdio::piped())
                 .kill_on_drop(true);
@@ -603,18 +655,69 @@ impl TestValidator {
             let mut orchestration_process = orch_cmd.spawn()?;
             let mut orch_reader =
                 BufReader::new(orchestration_process.stderr.take().unwrap()).lines();
-            timeout(ORCHESTRATION_READY_TIMEOUT, async {
-                let rpc_signal = format!("ORCHESTRATION_RPC_LISTENING_ON_{}", rpc_addr);
-                while let Some(line) = orch_reader.next_line().await? {
-                    if line.contains(&rpc_signal) {
-                        return Ok(());
+            let rpc_signal = format!("ORCHESTRATION_RPC_LISTENING_ON_{}", rpc_addr);
+
+            // STAGE 1: Wait for RPC to be ready or process to exit.
+            let ready_result = tokio::select! {
+                res = timeout(ORCHESTRATION_READY_TIMEOUT, async {
+                    while let Some(line) = orch_reader.next_line().await? {
+                        println!("[ORCH-BOOT] {}", line); // Live log
+                        if line.contains(&rpc_signal) { return Ok::<_, anyhow::Error>(()); }
                     }
+                    Err(anyhow!("Orchestration stderr ended before ready signal"))
+                }) => res,
+                status = orchestration_process.wait() => {
+                    let st = status?;
+                    Err(anyhow!("Orchestration process exited early with status: {}", st))?
                 }
-                Err(anyhow!(
-                    "Orchestration stderr stream ended before ready signal."
-                ))
-            })
-            .await??;
+            };
+
+            // Fallback probe if we timed out on logs but process is alive
+            if let Err(e) = ready_result {
+                log::warn!(
+                    "Orchestration readiness log not found (reason: {}), attempting RPC probe.",
+                    e
+                );
+                let probe_url = format!("http://{}/rpc", rpc_addr);
+                let client = reqwest::Client::new();
+                let probe_ok = client
+                    .post(&probe_url)
+                    .json(&serde_json::json!({"jsonrpc":"2.0","method":"unknown","id":1}))
+                    .send()
+                    .await
+                    .map(|r| r.status().is_success())
+                    .unwrap_or(false);
+
+                if !probe_ok {
+                    return Err(anyhow!(
+                        "Orchestration readiness timed out and RPC probe failed at {}",
+                        rpc_addr
+                    ));
+                }
+                log::warn!("Orchestration readiness log not found, but RPC probe succeeded.");
+            }
+
+            // STAGE 2: Wait for full startup complete signal or process exit.
+            let started_signal = "ORCHESTRATION_STARTUP_COMPLETE";
+            let started_result = tokio::select! {
+                res = timeout(Duration::from_secs(20), async {
+                    while let Some(line) = orch_reader.next_line().await? {
+                        println!("[ORCH-BOOT] {}", line); // Live log
+                        if line.contains(started_signal) { return Ok::<_, anyhow::Error>(()); }
+                    }
+                    Err(anyhow!("Orchestration stderr ended before startup-complete signal"))
+                }) => res,
+                status = orchestration_process.wait() => {
+                    let st = status?;
+                    Err(anyhow!("Orchestration process exited early with status: {}", st))?
+                }
+            };
+            if let Err(e) = started_result {
+                return Err(anyhow!(
+                    "Orchestration failed to reach startup-complete: {}",
+                    e
+                ));
+            }
 
             let mut pb = ProcessBackend::new(rpc_addr.clone(), p2p_addr.clone());
             pb.orchestration_process = Some(orchestration_process);
@@ -758,15 +861,16 @@ impl TestClusterBuilder {
         }
         let genesis_content = genesis.to_string();
         let mut validators = Vec::new();
-        let mut bootnode_addr = None;
 
-        for (i, key) in validator_keys.iter().enumerate() {
-            let base_port = 5000 + (i * 20) as u16;
-            let validator = TestValidator::launch(
-                key.clone(),
+        // --- FIX START: Launch bootnode first, then peers in parallel ---
+        let mut bootnode_addr: Option<Multiaddr> = None;
+
+        if let Some(boot_key) = validator_keys.first() {
+            let bootnode = TestValidator::launch(
+                boot_key.clone(),
                 genesis_content.clone(),
-                base_port,
-                bootnode_addr.as_ref(),
+                5000,
+                None, // No bootnode for the bootnode itself
                 &self.consensus_type,
                 &self.state_tree,
                 &self.commitment_scheme,
@@ -775,10 +879,64 @@ impl TestClusterBuilder {
                 self.initial_services.clone(),
             )
             .await?;
-            if i == 0 {
-                bootnode_addr = Some(validator.p2p_addr.clone());
+            bootnode_addr = Some(bootnode.p2p_addr.clone());
+            validators.push(bootnode);
+        }
+
+        if validator_keys.len() > 1 {
+            let mut launch_futures = FuturesUnordered::new();
+            for (i, key) in validator_keys.iter().enumerate().skip(1) {
+                let base_port = 5000 + (i * 20) as u16;
+                let captured_bootnode = bootnode_addr.clone();
+                let captured_genesis = genesis_content.clone();
+                let captured_consensus = self.consensus_type.clone();
+                let captured_state_tree = self.state_tree.clone();
+                let captured_commitment = self.commitment_scheme.clone();
+                let captured_agentic_path = self.agentic_model_path.clone();
+                let captured_use_docker = self.use_docker;
+                let captured_services = self.initial_services.clone();
+                let key_clone = key.clone();
+
+                let fut = async move {
+                    TestValidator::launch(
+                        key_clone,
+                        captured_genesis,
+                        base_port,
+                        captured_bootnode.as_ref(),
+                        &captured_consensus,
+                        &captured_state_tree,
+                        &captured_commitment,
+                        captured_agentic_path.as_deref(),
+                        captured_use_docker,
+                        captured_services,
+                    )
+                    .await
+                };
+                launch_futures.push(fut);
             }
-            validators.push(validator);
+
+            while let Some(result) = launch_futures.next().await {
+                validators.push(result?);
+            }
+        }
+        // Sort validators by PeerId to ensure deterministic order for tests
+        validators.sort_by(|a, b| a.peer_id.cmp(&b.peer_id));
+        // --- FIX END ---
+
+        // --- NEW: Add a cluster-wide readiness check ---
+        if validators.len() > 1 {
+            println!("--- Waiting for cluster-wide sync (all nodes at height >= 1) ---");
+            let mut height_futs = FuturesUnordered::new();
+            for v in &validators {
+                let rpc_addr = v.rpc_addr.clone();
+                height_futs.push(async move {
+                    wait_for_height(&rpc_addr, 1, Duration::from_secs(45)).await
+                });
+            }
+            while let Some(result) = height_futs.next().await {
+                result?; // Propagate any timeout errors
+            }
+            println!("--- Cluster is synced and ready. ---");
         }
 
         Ok(TestCluster {

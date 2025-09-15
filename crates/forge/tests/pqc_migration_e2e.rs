@@ -20,14 +20,11 @@ use depin_sdk_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
         RotationProof, SignHeader, SignatureProof, SignatureSuite, SystemPayload,
-        SystemTransaction,
+        SystemTransaction, ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
-    keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, STAKES_KEY_CURRENT,
-        STAKES_KEY_NEXT,
-    },
+    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
     service_configs::MigrationConfig,
 };
 use serde_json::{json, Value};
@@ -214,26 +211,37 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
             );
 
             // Set initial stake for the validator to produce blocks, using the correct canonical encoding.
-            let mut stakes = BTreeMap::new();
-            stakes.insert(
-                AccountId(
-                    account_id_from_key_material(
-                        SignatureSuite::Ed25519,
-                        &validator_keypair.public().encode_protobuf(),
-                    )
-                    .unwrap(),
-                ),
-                100_000u64,
+            let validator_account_id = AccountId(
+                account_id_from_key_material(
+                    SignatureSuite::Ed25519,
+                    &validator_keypair.public().encode_protobuf(),
+                )
+                .unwrap(),
             );
-            let stakes_bytes = codec::to_bytes_canonical(&stakes);
-            let stakes_b64 = format!("b64:{}", BASE64_STANDARD.encode(stakes_bytes));
+
+            let vs_blob = ValidatorSetBlob {
+                schema_version: 2,
+                payload: ValidatorSetsV1 {
+                    current: ValidatorSetV1 {
+                        effective_from_height: 1,
+                        total_weight: 100_000,
+                        validators: vec![ValidatorV1 {
+                            account_id: validator_account_id,
+                            weight: 100_000,
+                            consensus_key: ActiveKeyRecord {
+                                suite: SignatureSuite::Ed25519,
+                                pubkey_hash: validator_account_id.0,
+                                since_height: 0,
+                            },
+                        }],
+                    },
+                    next: None,
+                },
+            };
+            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload);
             genesis_state.insert(
-                std::str::from_utf8(STAKES_KEY_CURRENT).unwrap().to_string(),
-                json!(&stakes_b64),
-            );
-            genesis_state.insert(
-                std::str::from_utf8(STAKES_KEY_NEXT).unwrap().to_string(),
-                json!(&stakes_b64),
+                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
             );
         })
         .build()

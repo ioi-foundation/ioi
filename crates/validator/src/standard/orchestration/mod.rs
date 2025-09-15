@@ -13,9 +13,12 @@ use depin_sdk_network::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_network::BlockSync;
 use depin_sdk_services::external_data::ExternalDataService;
-use depin_sdk_types::app::ChainTransaction;
-use depin_sdk_types::error::ValidatorError;
+use depin_sdk_types::{
+    app::{ChainTransaction, StateRoot},
+    error::ValidatorError,
+};
 use libp2p::identity;
+use lru::LruCache;
 use serde::Serialize;
 use std::collections::VecDeque;
 use std::fmt::Debug;
@@ -26,7 +29,7 @@ use std::sync::{
 use tokio::{
     sync::{mpsc, watch, Mutex, OnceCell},
     task::JoinHandle,
-    time::{self, Duration},
+    time::{self, Duration, MissedTickBehavior},
 };
 
 // --- Submodule Declarations ---
@@ -70,12 +73,15 @@ where
         + Sync
         + 'static
         + Debug,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     config: OrchestrationConfig,
     chain: Arc<OnceCell<ChainFor<CS, ST>>>,
     workload_client: Arc<OnceCell<Arc<WorkloadClient>>>,
     pub tx_pool: Arc<Mutex<VecDeque<ChainTransaction>>>,
-    pub syncer: Arc<Libp2pSync>,
+    syncer: Arc<Libp2pSync>,
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
     network_event_receiver: Mutex<Option<mpsc::Receiver<NetworkEvent>>>,
     consensus_engine: Arc<Mutex<CE>>,
@@ -85,7 +91,9 @@ where
     is_running: Arc<AtomicBool>,
     is_quarantined: Arc<AtomicBool>,
     external_data_service: ExternalDataService,
+    proof_cache: Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>,
     verifier: V,
+    main_loop_context: Arc<Mutex<Option<Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>>>>,
 }
 
 // Generic implementation for construction and setting dependencies.
@@ -104,6 +112,9 @@ where
         + Sync
         + 'static
         + Debug,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     pub fn new(
         config_path: &std::path::Path,
@@ -127,7 +138,11 @@ where
             is_running: Arc::new(AtomicBool::new(false)),
             is_quarantined: deps.is_quarantined,
             external_data_service: ExternalDataService::new(),
+            proof_cache: Arc::new(Mutex::new(LruCache::new(
+                std::num::NonZeroUsize::new(1024).unwrap(),
+            ))),
             verifier: deps.verifier,
+            main_loop_context: Arc::new(Mutex::new(None)),
         })
     }
 
@@ -139,11 +154,11 @@ where
         self.chain.set(chain_ref).expect("Chain ref already set");
         self.workload_client
             .set(workload_client_ref)
-            .expect("Workload client ref already set");
+            .expect("Workload client ref not initialized before start");
     }
 }
 
-// Feature-gated impl block for main loop logic. This is where most trait bounds are needed.
+// Feature-gated impl block for main loop logic.
 impl<CS, ST, CE, V> OrchestrationContainer<CS, ST, CE, V>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -165,7 +180,7 @@ where
         + 'static
         + Debug,
 {
-    /// The simplified main loop, now focused on network events and shutdown.
+    #[allow(clippy::too_many_arguments)]
     async fn run_main_loop(
         mut network_event_receiver: mpsc::Receiver<NetworkEvent>,
         mut shutdown_receiver: watch::Receiver<bool>,
@@ -308,6 +323,18 @@ where
             .await
             .map_err(|e| ValidatorError::Other(e.to_string()))?;
 
+        // --- FIX: Pass the shared mempool to the RPC server ---
+        let rpc_handle = crate::rpc::run_rpc_server(
+            &self.config.rpc_listen_address,
+            self.tx_pool.clone(), // Use the shared pool
+            self.workload_client.get().unwrap().clone(),
+            self.swarm_command_sender.clone(),
+            self.config.clone(),
+        )
+        .await
+        .map_err(|e| ValidatorError::Other(e.to_string()))?;
+        // --- END FIX ---
+
         let workload_client = self
             .workload_client
             .get()
@@ -343,11 +370,6 @@ where
             })?
             .clone();
 
-        let mut receiver_opt = self.network_event_receiver.lock().await;
-        let receiver = receiver_opt.take().ok_or(ValidatorError::Other(
-            "Network event receiver already taken".to_string(),
-        ))?;
-
         let genesis_root = workload_client
             .get_state_root()
             .await
@@ -357,7 +379,7 @@ where
             chain_ref: chain,
             workload_client,
             tx_pool_ref: self.tx_pool.clone(),
-            network_event_receiver: Some(receiver),
+            network_event_receiver: None, // This will be taken later
             swarm_commander: self.swarm_command_sender.clone(),
             shutdown_receiver: self.shutdown_sender.subscribe(),
             consensus_engine_ref: self.consensus_engine.clone(),
@@ -371,65 +393,66 @@ where
             genesis_root,
             last_committed_block: None,
             verifier: self.verifier.clone(),
+            proof_cache_ref: self.proof_cache.clone(),
         };
 
+        let mut receiver_opt = self.network_event_receiver.lock().await;
+        let receiver = receiver_opt.take().ok_or(ValidatorError::Other(
+            "Network event receiver already taken".to_string(),
+        ))?;
+
         let context_arc = Arc::new(Mutex::new(context));
+        *self.main_loop_context.lock().await = Some(context_arc.clone());
         let mut handles = self.task_handles.lock().await;
 
-        let ticker_context = Arc::clone(&context_arc);
-        handles.push(tokio::spawn(async move {
-            let (interval_secs, allow_when_quarantined) = {
-                let ctx = ticker_context.lock().await;
+        handles.push(rpc_handle);
 
-                let interval = std::env::var("ORCH_BLOCK_INTERVAL_SECS")
+        // 0) Inline immediate tick so H=1 can start right away *even if the task hasn't scheduled yet*
+        {
+            let mut ctx = context_arc.lock().await;
+            if !ctx.is_quarantined.load(Ordering::SeqCst) {
+                log::info!("[Consensus] Immediate kick");
+                handle_consensus_tick(&mut *ctx).await;
+            } else {
+                log::info!("[Consensus] Skipping immediate kick (node is quarantined).");
+            }
+        }
+
+        // 1) Spawn steady ticker
+        let ticker_context = context_arc.clone();
+        handles.push(tokio::spawn(async move {
+            // Resolve effective interval
+            let interval_secs = {
+                let ctx = ticker_context.lock().await;
+                std::env::var("ORCH_BLOCK_INTERVAL_SECS")
                     .ok()
                     .and_then(|s| s.parse::<u64>().ok())
-                    .unwrap_or_else(|| ctx.config.block_production_interval_secs.max(1));
-
-                let allow = std::env::var("ORCH_ALLOW_CONSENSUS_WHEN_QUARANTINED")
-                    .ok()
-                    .map(|v| {
-                        let v = v.to_ascii_lowercase();
-                        v == "1" || v == "true" || v == "yes" || v == "on"
-                    })
-                    .unwrap_or(false); // Default to false for production safety
-
-                log::info!(
-                    "[Consensus] Effective block interval = {}s; allow_when_quarantined = {}",
-                    interval,
-                    allow
-                );
-                (interval, allow)
+                    .unwrap_or_else(|| ctx.config.block_production_interval_secs.max(1))
             };
 
+            log::info!("[Consensus] Ticker starting ({}s)", interval_secs);
+
             let mut ticker = time::interval(Duration::from_secs(interval_secs));
-            ticker.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
+            ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
             loop {
                 ticker.tick().await;
                 let mut guard = ticker_context.lock().await;
-
-                let quarantined = guard.is_quarantined.load(Ordering::SeqCst);
-                if quarantined && !allow_when_quarantined {
+                if guard.is_quarantined.load(Ordering::SeqCst) {
                     log::info!("[Consensus] Skipping tick (node is quarantined).");
                     continue;
                 }
-
-                log::debug!("[Consensus] tick()");
                 handle_consensus_tick(&mut guard).await;
             }
         }));
 
-        let main_loop_context = Arc::clone(&context_arc);
+        let shutdown_receiver_clone = {
+            let guard = context_arc.lock().await;
+            guard.shutdown_receiver.clone()
+        };
+        let main_loop_context_clone = context_arc.clone();
         handles.push(tokio::spawn(async move {
-            let (receiver, shutdown) = {
-                let mut ctx = main_loop_context.lock().await;
-                (
-                    ctx.network_event_receiver.take().unwrap(),
-                    ctx.shutdown_receiver.clone(),
-                )
-            };
-            Self::run_main_loop(receiver, shutdown, main_loop_context).await;
+            Self::run_main_loop(receiver, shutdown_receiver_clone, main_loop_context_clone).await;
         }));
 
         self.is_running.store(true, Ordering::SeqCst);
@@ -477,6 +500,9 @@ where
         + Sync
         + 'static
         + Debug,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     async fn perform_guardian_attestation(
         &self,

@@ -40,6 +40,8 @@ pub trait StateCommitment: Debug {
     ) -> bool;
     /// Provides access to the concrete type for downcasting.
     fn as_any(&self) -> &dyn Any;
+    /// Provides mutable access to the concrete type for downcasting.
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 
     /// TEMPORARY: export all KV pairs for snapshotting.
     /// Object-safe, returns an owned vec so it works behind trait objects.
@@ -82,6 +84,9 @@ impl<T: StateCommitment + ?Sized> StateCommitment for Box<T> {
     }
     fn as_any(&self) -> &dyn Any {
         (**self).as_any()
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        (**self).as_any_mut()
     }
     fn export_kv_pairs(&self) -> Vec<(Vec<u8>, Vec<u8>)> {
         (**self).export_kv_pairs()

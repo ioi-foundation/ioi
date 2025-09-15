@@ -12,17 +12,22 @@ use depin_sdk_network::{
     traits::NodeState,
 };
 use depin_sdk_services::external_data::ExternalDataService;
-use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{Block, ChainTransaction, OracleAttestation, StateRoot};
 use libp2p::{identity, PeerId};
+use lru::LruCache;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::Debug;
 use std::sync::{atomic::AtomicBool, Arc};
 use tokio::sync::{mpsc, watch, Mutex};
 
-pub type ChainFor<CS, ST> =
-    Arc<Mutex<dyn AppChain<CS, UnifiedTransactionModel<CS>, ST> + Send + Sync>>;
+pub type ChainFor<CS, ST> = Arc<
+    Mutex<
+        dyn AppChain<CS, depin_sdk_transaction_models::unified::UnifiedTransactionModel<CS>, ST>
+            + Send
+            + Sync,
+    >,
+>;
 
 /// Main state for the Orchestration Container's event loop.
 pub struct MainLoopContext<CS, ST, CE, V>
@@ -52,7 +57,6 @@ where
     pub config: OrchestrationConfig,
     pub is_quarantined: Arc<AtomicBool>,
     pub external_data_service: ExternalDataService,
-    // FIX: Changed back to Vec<OracleAttestation> to hold multiple attestations per request ID.
     pub pending_attestations: HashMap<u64, Vec<OracleAttestation>>,
     /// The root of the initial (genesis) state.
     pub genesis_root: StateRoot,
@@ -60,4 +64,6 @@ where
     pub last_committed_block: Option<Block<ChainTransaction>>,
     /// The stateless verifier for remote state proofs.
     pub verifier: V,
+    /// A cache for verified remote state proofs to reduce redundant IPC/verification.
+    pub proof_cache_ref: Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>,
 }

@@ -13,16 +13,18 @@ use depin_sdk_forge::testing::{
 use depin_sdk_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ApplicationTransaction,
-        ChainTransaction, Credential, SignHeader, SignatureProof, SignatureSuite,
+        ChainTransaction, Credential, SignHeader, SignatureProof, SignatureSuite, ValidatorSetBlob,
+        ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
-    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, AUTHORITY_SET_KEY, IDENTITY_CREDENTIALS_PREFIX},
+    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
     service_configs::MigrationConfig,
 };
+use futures_util::StreamExt; // [+] Import StreamExt for stream iteration
 use libp2p::identity::Keypair;
 use serde_json::json;
-use std::time::Duration;
+use std::time::{Duration, Instant}; // Import Instant for custom polling logic
 
 // Helper function to create a signed transaction with proper nonce and account_id
 fn create_signed_app_tx(
@@ -74,10 +76,20 @@ fn create_signed_app_tx(
     ChainTransaction::Application(tx)
 }
 
+static INIT: std::sync::Once = std::sync::Once::new();
+
+fn init_logger() {
+    INIT.call_once(|| {
+        let _ = env_logger::builder().is_test(true).try_init();
+    });
+}
+
 #[tokio::test]
 async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
+    init_logger();
+
     // 1. SETUP & BUILD
-    build_test_artifacts("consensus-poa,vm-wasm,tree-file,primitive-hash");
+    build_test_artifacts("consensus-poa,vm-wasm,tree-iavl,primitive-hash");
     let counter_wasm =
         std::fs::read("../../target/wasm32-unknown-unknown/release/counter_contract.wasm")?;
     let mut nonce = 0;
@@ -86,6 +98,7 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     let mut cluster = TestCluster::builder()
         .with_validators(1)
         .with_consensus_type("ProofOfAuthority")
+        .with_state_tree("IAVL")
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
@@ -100,12 +113,33 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
             let account_id_hash = account_id_from_key_material(suite, &public_key_bytes).unwrap();
             let account_id = AccountId(account_id_hash);
 
-            // A. Set the authority set using canonical encoding of Vec<AccountId>
-            let authorities = vec![account_id];
-            let authorities_bytes = codec::to_bytes_canonical(&authorities);
-            let auth_key_str = std::str::from_utf8(AUTHORITY_SET_KEY).unwrap();
-            genesis["genesis_state"][auth_key_str] =
-                json!(format!("b64:{}", BASE64_STANDARD.encode(authorities_bytes)));
+            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+
+            // A. Set the canonical validator set
+            let vs_blob = ValidatorSetBlob {
+                schema_version: 2,
+                payload: ValidatorSetsV1 {
+                    current: ValidatorSetV1 {
+                        effective_from_height: 1,
+                        total_weight: 1,
+                        validators: vec![ValidatorV1 {
+                            account_id,
+                            weight: 1,
+                            consensus_key: ActiveKeyRecord {
+                                suite: SignatureSuite::Ed25519,
+                                pubkey_hash: account_id_hash,
+                                since_height: 0,
+                            },
+                        }],
+                    },
+                    next: None,
+                },
+            };
+            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload);
+            genesis_state.insert(
+                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
+            );
 
             // B. Set the initial IdentityHub credentials
             let initial_cred = Credential {
@@ -118,8 +152,10 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
             let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
             let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
             let creds_key_b64 = format!("b64:{}", BASE64_STANDARD.encode(&creds_key));
-            genesis["genesis_state"][creds_key_b64] =
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes)));
+            genesis_state.insert(
+                creds_key_b64,
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
+            );
 
             // C. Set the ActiveKeyRecord for consensus verification
             let record = ActiveKeyRecord {
@@ -129,13 +165,17 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
             };
             let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
             let record_bytes = codec::to_bytes_canonical(&record);
-            genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&record_key))] =
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes)));
+            genesis_state.insert(
+                format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
+            );
 
             // D. Set the AccountId -> PublicKey mapping for consensus verification
             let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-            genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key))] =
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&public_key_bytes)));
+            genesis_state.insert(
+                format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&public_key_bytes))),
+            );
         })
         .build()
         .await?;
@@ -143,10 +183,40 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     let node = &mut cluster.validators[0];
     let rpc_addr = &node.rpc_addr;
     let keypair = &node.keypair;
-    let workload_client = WorkloadClient::new(&node.workload_ipc_addr).await?; // Create the client
+    let workload_client = WorkloadClient::new(&node.workload_ipc_addr).await?;
+
+    // --- FIX: Spawn a background task to continuously drain logs ---
+    let (tx_stop, rx_stop) = tokio::sync::oneshot::channel::<()>();
+    let mut orch_logs = node.orch_log_stream.lock().await.take().unwrap();
+    let log_task = tokio::spawn(async move {
+        tokio::select! {
+            _ = async {
+                while let Some(line_res) = orch_logs.next().await {
+                    if let Ok(line) = line_res {
+                        println!("[LOGS-Orchestration] {}", line);
+                    }
+                }
+            } => {},
+            _ = rx_stop => {
+                println!("[LOGS-Orchestration] Log draining task stopped.");
+            }
+        }
+    });
 
     // Wait for node to be ready
     wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
+
+    // Sanity check the RPC endpoint
+    let ping = reqwest::Client::new()
+        .post(format!("http://{}/rpc", rpc_addr))
+        .json(&serde_json::json!({
+            "jsonrpc":"2.0","method":"system.getStatus.v1","params":{},"id":1
+        }))
+        .send()
+        .await?
+        .text()
+        .await?;
+    println!("RPC status probe: {}", ping);
 
     // 3. DEPLOY CONTRACT
     let deployer_pubkey = keypair.public().encode_protobuf();
@@ -160,7 +230,10 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     };
     let deploy_tx = create_signed_app_tx(keypair, deploy_tx_unsigned, nonce);
     nonce += 1;
+
+    println!("Attempting to submit DEPLOY transaction to {}", rpc_addr);
     submit_transaction(rpc_addr, &deploy_tx).await?;
+    println!("Successfully submitted DEPLOY transaction.");
 
     // 4. WAIT FOR DEPLOYMENT to be confirmed in state
     wait_for_contract_deployment(rpc_addr, &contract_address, Duration::from_secs(20)).await?;
@@ -194,25 +267,45 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     let increment_input = vec![1]; // ABI for increment()
     let call_tx_unsigned = ApplicationTransaction::CallContract {
         header: Default::default(),
-        address: contract_address.clone(), // Use the raw bytes
+        address: contract_address.clone(),
         input_data: increment_input,
         gas_limit: 1_000_000,
         signature_proof: Default::default(),
     };
     let call_tx = create_signed_app_tx(keypair, call_tx_unsigned, nonce);
+    println!("Attempting to submit CALL transaction to {}", rpc_addr);
     submit_transaction(rpc_addr, &call_tx).await?;
+    println!("Successfully submitted CALL transaction.");
 
-    // 7. VERIFY FINAL STATE by waiting for the next block to be processed
-    wait_for_height(rpc_addr, 3, Duration::from_secs(20)).await?;
-    let final_query_output = workload_client
-        .query_contract(contract_address, get_input, query_context) // FIX: Use the raw bytes, not the hex string
-        .await?;
-    assert_eq!(
-        final_query_output.return_data,
-        vec![1],
-        "Final count should be 1"
-    );
+    // 7. VERIFY FINAL STATE by polling the contract result directly
+    let deadline = Instant::now() + Duration::from_secs(20); // 20-second timeout
+    loop {
+        let current_query_output = workload_client
+            .query_contract(
+                contract_address.clone(),
+                get_input.clone(),
+                query_context.clone(),
+            )
+            .await?;
+
+        if current_query_output.return_data == vec![1] {
+            println!("--- Counter is 1. Verification successful. ---");
+            break;
+        }
+
+        if Instant::now() >= deadline {
+            anyhow::bail!(
+                "Timeout waiting for counter to be 1. Current value: {:?}",
+                current_query_output.return_data
+            );
+        }
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
 
     println!("--- E2E Contract Test Successful ---");
+
+    // Clean up the background task
+    let _ = tx_stop.send(());
+    let _ = log_task.await;
     Ok(())
 }

@@ -80,7 +80,7 @@ impl<T: RpcMethod> ErasedHandler for T {
                 Err(JsonRpcError {
                     code: -32000,
                     message: "Internal server error".into(),
-                    data: None,
+                    data: Some(serde_json::json!({ "details": panic_msg })),
                 })
             }
         }

@@ -1,5 +1,4 @@
 # crates/commitment/Cargo.toml
-
 [package]
 name = "depin-sdk-commitment"
 version = "0.1.0"
@@ -40,3 +39,6 @@ tree-hashmap = ["primitive-hash"]
 tree-iavl = ["primitive-hash"]
 tree-sparse-merkle = ["primitive-hash"]
 tree-verkle = ["primitive-kzg"]
+
+# Debugging feature
+strict_iavl = []

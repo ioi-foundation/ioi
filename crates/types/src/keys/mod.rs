@@ -6,20 +6,23 @@
 //! typos and ensures consistency across different modules that need to access
 //! the same state entries.
 
-/// The state key for the map of validator stakes active for the CURRENT block height.
-pub const STAKES_KEY_CURRENT: &[u8] = b"system::stakes::current";
-/// The state key for the map of validator stakes that will become active at the NEXT block height.
-pub const STAKES_KEY_NEXT: &[u8] = b"system::stakes::next";
+/// The state key for the single, canonical `ValidatorSetBlob` structure.
+pub const VALIDATOR_SET_KEY: &[u8] = b"system::validators::current";
+
 /// The state key for the persisted chain status.
 pub const STATUS_KEY: &[u8] = b"chain::status";
-/// The state key for the active validator set (for consensus).
-pub const VALIDATOR_SET_KEY: &[u8] = b"system::validators";
 /// The state key for the Proof-of-Authority authority set.
+#[deprecated(note = "Use VALIDATOR_SET_KEY with a PoA-configured ValidatorSetBlob")]
 pub const AUTHORITY_SET_KEY: &[u8] = b"system::authorities";
 /// The state key for the governance public key.
 pub const GOVERNANCE_KEY: &[u8] = b"system::governance_key";
 /// The state key for the governance-approved agentic AI model hash.
 pub const STATE_KEY_SEMANTIC_MODEL_HASH: &[u8] = b"system::agentic_model_hash";
+
+/// The state key for the current PoS stake distribution (effective this epoch).
+pub const STAKES_KEY_CURRENT: &[u8] = b"system::stakes::current";
+/// The state key for the next PoS stake distribution (effective next epoch).
+pub const STAKES_KEY_NEXT: &[u8] = b"system::stakes::next";
 
 /// The state key prefix for user account data.
 pub const ACCOUNT_KEY_PREFIX: &[u8] = b"account::";

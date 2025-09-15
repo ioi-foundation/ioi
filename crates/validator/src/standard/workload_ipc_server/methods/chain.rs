@@ -3,13 +3,16 @@ use super::RpcContext;
 use crate::standard::workload_ipc_server::router::{RequestContext, RpcMethod};
 use anyhow::{anyhow, Result};
 use depin_sdk_api::{
-    chain::{AppChain, ChainView},
+    chain::AppChain,
     commitment::CommitmentScheme,
     state::{StateAccessor, StateManager, StateOverlay},
     transaction::{context::TxContext, TransactionModel},
 };
 use depin_sdk_types::{
-    app::{evidence_id, Block, ChainTransaction, StateAnchor, SystemPayload},
+    app::{
+        evidence_id, AccountId, ApplicationTransaction, Block, ChainTransaction, StateAnchor,
+        SystemPayload,
+    },
     codec,
     error::TransactionError,
     keys::{EVIDENCE_REGISTRY_KEY, IBC_PROCESSED_RECEIPT_PREFIX},
@@ -36,11 +39,12 @@ where
         + Clone
         + Send
         + Sync
-        + 'static,
-    // FIX: Add trait bounds required by AppChain
+        + 'static
+        + std::fmt::Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync,
+    <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
     const NAME: &'static str = "chain.processBlock.v1";
     type Params = Block<ChainTransaction>;
@@ -64,7 +68,7 @@ where
             let overlay = StateOverlay::new(&*base_state);
 
             for tx in &block.transactions {
-                let status = chain.status().clone();
+                let status = (*chain).status().clone();
                 let chain_id = chain.state.chain_id.parse().unwrap_or(1);
                 let _ctx = TxContext {
                     block_height: status.height + 1,
@@ -79,22 +83,27 @@ where
         // --- Phase B: Coinbase addition and actual processing (WRITE) ---
         let mut chain = ctx.chain.lock().await;
 
-        if !block.transactions.iter().any(|tx| {
-            matches!(
-                tx,
-                depin_sdk_types::app::ChainTransaction::Application(
-                    depin_sdk_types::app::ApplicationTransaction::UTXO(utxo)
-                ) if utxo.inputs.is_empty()
-            )
-        }) {
-            let coinbase = chain.transaction_model().create_coinbase_transaction(
+        let enable_coinbase = std::env::var("ENABLE_COINBASE")
+            .map(|s| s != "0")
+            .unwrap_or(false);
+
+        if enable_coinbase
+            && !block.transactions.iter().any(|tx| {
+                matches!(
+                    tx,
+                    ChainTransaction::Application(ApplicationTransaction::UTXO(utxo))
+                        if utxo.inputs.is_empty()
+                )
+            })
+        {
+            let coinbase = (*chain).transaction_model().create_coinbase_transaction(
                 block.header.height,
                 &block.header.producer_account_id.0,
             )?;
             block.transactions.insert(0, coinbase);
         }
 
-        let result = chain.process_block(block, &ctx.workload).await?;
+        let result = (*chain).process_block(block, &ctx.workload).await?;
         Ok(result)
     }
 }
@@ -125,11 +134,12 @@ where
         + Clone
         + Send
         + Sync
-        + 'static,
-    // FIX: Add trait bounds required by AppChain
+        + 'static
+        + std::fmt::Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync,
+    <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
     const NAME: &'static str = "chain.checkTransactions.v1";
     type Params = CheckTransactionsParams;
@@ -144,31 +154,44 @@ where
         let ctx = shared_ctx
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for CheckTransactionsV1"))?;
-        let chain = ctx.chain.lock().await;
-        let latest_anchor = chain.state.last_state_root.to_anchor();
+
+        // The total number of transactions we must provide a result for.
+        let initial_tx_count = params.txs.len();
+        let mut results = Vec::with_capacity(initial_tx_count);
+
+        let chain_guard = ctx.chain.lock().await;
+        let latest_anchor = chain_guard.state.last_state_root.to_anchor();
 
         if params.anchor != StateAnchor::default() && params.anchor != latest_anchor {
-            return Ok(vec![Err("StaleAnchor".to_string())]);
+            // Stale anchor is a batch-level error. Fill all results with it.
+            results.resize(
+                initial_tx_count,
+                Err(
+                    "StaleAnchor: The provided state anchor is not the latest known root."
+                        .to_string(),
+                ),
+            );
+            return Ok(results);
         }
 
         let base_state_tree = ctx.workload.state_tree();
         let base_state = base_state_tree.read().await;
+        // The overlay simulates state changes, ensuring correct nonce handling for sequential txs.
         let mut overlay = StateOverlay::new(&*base_state);
 
-        let mut results = Vec::with_capacity(params.txs.len());
-        let initial_tx_count = params.txs.len();
-
         for tx in params.txs {
+            // Run the full validation flow inside a closure to handle errors cleanly.
             let check_result = async {
-                let status = chain.status().clone();
-                let chain_id = chain.state.chain_id.parse().unwrap_or(1);
+                let status = (*chain_guard).status().clone();
+                let chain_id = chain_guard.state.chain_id.parse().unwrap_or(1);
                 let tx_ctx = TxContext {
                     block_height: status.height + 1,
                     chain_id,
-                    services: &chain.services,
-                    simulation: true,
+                    services: &chain_guard.services,
+                    simulation: true, // This is a read-only check.
                 };
 
+                // Perform pre-flight checks that don't need decorators (e.g., replay protection)
                 if let ChainTransaction::System(sys_tx) = &tx {
                     if let SystemPayload::ReportMisbehavior { report } = &sys_tx.payload {
                         let id = evidence_id(report);
@@ -196,46 +219,46 @@ where
                     }
                 }
 
+                // Run the full ante-handler chain against the overlay
                 depin_sdk_transaction_models::system::nonce::assert_next_nonce(&overlay, &tx)?;
                 depin_sdk_transaction_models::system::validation::verify_transaction_signature(
                     &overlay,
-                    &chain.services,
+                    &chain_guard.services,
                     &tx,
                     &tx_ctx,
                 )?;
 
-                for service in chain.services.services_in_deterministic_order() {
+                for service in chain_guard.services.services_in_deterministic_order() {
                     if let Some(decorator) = service.as_tx_decorator() {
                         decorator.ante_handle(&mut overlay, &tx, &tx_ctx)?;
                     }
                 }
 
+                // Bump nonce *within the overlay* for the next tx in the batch
                 depin_sdk_transaction_models::system::nonce::bump_nonce(&mut overlay, &tx)?;
 
-                // --- FIX: Simulate the core state transition by applying the payload ---
-                chain
+                // Apply the core logic to the overlay to check for state-based errors
+                (*chain_guard)
                     .transaction_model()
-                    .apply_payload(&*chain, &mut overlay, &tx, tx_ctx)
+                    .apply_payload(&*chain_guard, &mut overlay, &tx, tx_ctx)
                     .await?;
-                // --- END FIX ---
 
                 Ok(())
             }
             .await
             .map_err(|e: TransactionError| e.to_string());
 
-            if check_result.is_err() {
-                results.push(check_result);
-                while results.len() < initial_tx_count {
-                    results.push(Err(
-                        "Transaction skipped due to prior failure in batch".to_string()
-                    ));
-                }
-                return Ok(results);
-            }
-
+            // Push the result for the current transaction.
             results.push(check_result);
         }
+
+        // Final sanity check to ensure our logic is correct.
+        assert_eq!(
+            results.len(),
+            initial_tx_count,
+            "BUG in checkTransactions.v1: result count does not match input count."
+        );
+
         Ok(results)
     }
 }
@@ -263,11 +286,12 @@ where
         + Clone
         + Send
         + Sync
-        + 'static,
-    // FIX: Add trait bounds required by AppChain
+        + 'static
+        + std::fmt::Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync,
+    <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
     const NAME: &'static str = "chain.getLastBlockHash.v1";
     type Params = GetLastBlockHashParams;
@@ -317,11 +341,12 @@ where
         + Clone
         + Send
         + Sync
-        + 'static,
-    // FIX: Add trait bounds required by AppChain
+        + 'static
+        + std::fmt::Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync,
+    <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
     const NAME: &'static str = "chain.getAuthoritySet.v1";
     type Params = GetAuthoritySetParams;
@@ -337,14 +362,16 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetAuthoritySetV1"))?;
         let chain = ctx.chain.lock().await;
-        let state_tree = ctx.workload.state_tree();
-        let state = state_tree.read().await;
-        let root = depin_sdk_types::app::StateRoot(state.root_commitment().as_ref().to_vec());
-        let anchor = root.to_anchor();
-
-        let view = chain.view_at(&anchor).await?;
-        let accts = view.validator_set().await?;
-        Ok(accts.into_iter().map(|acct| acct.0.to_vec()).collect())
+        let h = (*chain).status().height;
+        log::debug!("[RPC] {} -> height={} (current)", Self::NAME, h);
+        let set = (*chain).get_validator_set_for(&ctx.workload, h).await?;
+        log::debug!(
+            "[RPC] {} -> height={} returned {} validators",
+            Self::NAME,
+            h,
+            set.len()
+        );
+        Ok(set)
     }
 }
 
@@ -371,11 +398,12 @@ where
         + Clone
         + Send
         + Sync
-        + 'static,
-    // FIX: Add trait bounds required by AppChain
+        + 'static
+        + std::fmt::Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync,
+    <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
     const NAME: &'static str = "chain.getNextValidatorSet.v1";
     type Params = GetNextValidatorSetParams;
@@ -391,7 +419,63 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetNextValidatorSetV1"))?;
         let chain = ctx.chain.lock().await;
-        let set = chain.get_next_validator_set(&ctx.workload).await?;
+        let next_height = (*chain).status().height + 1;
+        let set = (*chain)
+            .get_validator_set_for(&ctx.workload, next_height)
+            .await?;
+        Ok(set)
+    }
+}
+
+// --- chain.getValidatorSetFor.v1 ---
+
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct GetValidatorSetForParams {
+    pub height: u64,
+}
+
+pub struct GetValidatorSetForV1<CS, ST> {
+    _p: PhantomData<(CS, ST)>,
+}
+impl<CS, ST> Default for GetValidatorSetForV1<CS, ST> {
+    fn default() -> Self {
+        Self { _p: PhantomData }
+    }
+}
+
+#[async_trait::async_trait]
+impl<CS, ST> RpcMethod for GetValidatorSetForV1<CS, ST>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + std::fmt::Debug,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+    <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync,
+    <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
+{
+    const NAME: &'static str = "chain.getValidatorSetFor.v1";
+    type Params = GetValidatorSetForParams;
+    type Result = Vec<Vec<u8>>;
+
+    async fn call(
+        &self,
+        _req_ctx: RequestContext,
+        shared_ctx: Arc<dyn Any + Send + Sync>,
+        params: Self::Params,
+    ) -> Result<Self::Result> {
+        let ctx = shared_ctx
+            .downcast::<RpcContext<CS, ST>>()
+            .map_err(|_| anyhow!("Invalid context type for GetValidatorSetForV1"))?;
+        let chain = ctx.chain.lock().await;
+        let set = (*chain)
+            .get_validator_set_for(&ctx.workload, params.height)
+            .await?;
         Ok(set)
     }
 }
@@ -421,11 +505,12 @@ where
         + Clone
         + Send
         + Sync
-        + 'static,
-    // FIX: Add trait bounds required by AppChain
+        + 'static
+        + std::fmt::Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync,
+    <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
     const NAME: &'static str = "chain.getValidatorSetAt.v1";
     type Params = GetValidatorSetAtParams;
@@ -435,14 +520,27 @@ where
         &self,
         _req_ctx: RequestContext,
         shared_ctx: Arc<dyn Any + Send + Sync>,
-        params: Self::Params,
+        _params: Self::Params,
     ) -> Result<Self::Result> {
         let ctx = shared_ctx
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetValidatorSetAtV1"))?;
+
         let chain = ctx.chain.lock().await;
-        let view = chain.view_at(&params.anchor).await?;
-        let set = view.validator_set().await?;
-        Ok(set)
+
+        let h = (*chain).status().height;
+        log::debug!("[RPC] {} -> height={} (current)", Self::NAME, h);
+        let set_bytes: Vec<Vec<u8>> = (*chain).get_validator_set_for(&ctx.workload, h).await?;
+        log::debug!(
+            "[RPC] {} -> height={} returned {} validators",
+            Self::NAME,
+            h,
+            set_bytes.len()
+        );
+
+        Ok(set_bytes
+            .into_iter()
+            .map(|b| AccountId(b.try_into().unwrap_or_default()))
+            .collect())
     }
 }

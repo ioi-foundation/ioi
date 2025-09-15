@@ -2,9 +2,10 @@
 
 use super::rpc::{
     get_chain_height, get_contract_code, get_evidence_set, get_proposal, get_quarantined_set,
-    get_stake,
 };
 use anyhow::{anyhow, Result};
+use depin_sdk_api::consensus::ChainStateReader;
+use depin_sdk_client::WorkloadClient;
 use depin_sdk_types::app::{AccountId, ProposalStatus};
 use std::future::Future;
 use std::time::{Duration, Instant};
@@ -28,7 +29,11 @@ where
             Ok(None) => { /* continue polling */ }
             Err(e) => {
                 // Don't fail immediately on transient RPC errors, let the timeout handle it.
-                log::trace!("Polling for '{}' received transient error: {}", description, e);
+                log::trace!(
+                    "Polling for '{}' received transient error: {}",
+                    description,
+                    e
+                );
             }
         }
         if start.elapsed() > timeout {
@@ -46,6 +51,8 @@ pub async fn wait_for_height(rpc_addr: &str, target_height: u64, timeout: Durati
         timeout,
         || async move {
             let current_height = get_chain_height(rpc_addr).await?;
+            // FIX: Use >= to prevent race conditions where the target height is skipped
+            // between polls.
             if current_height >= target_height {
                 Ok(Some(()))
             } else {
@@ -56,23 +63,27 @@ pub async fn wait_for_height(rpc_addr: &str, target_height: u64, timeout: Durati
     .await
 }
 
-/// Waits for a specific account to have a specific stake amount.
+/// Waits for a specific account to have a specific stake amount by polling the *next* validator set.
 pub async fn wait_for_stake_to_be(
-    rpc_addr: &str,
-    account_id: &AccountId,
+    client: &WorkloadClient,
+    staker_account_id: &AccountId,
     target_stake: u64,
     timeout: Duration,
 ) -> Result<()> {
     wait_for(
         &format!(
-            "stake for account {} to be {}",
-            hex::encode(account_id.as_ref()),
+            "stake for account {}... to be {}",
+            hex::encode(staker_account_id.as_ref()),
             target_stake
         ),
         Duration::from_millis(500),
         timeout,
-        || async move {
-            let current_stake = get_stake(rpc_addr, account_id).await?.unwrap_or(0);
+        || async {
+            let stakes = client
+                .get_next_staked_validators()
+                .await
+                .map_err(|e| anyhow!(e))?;
+            let current_stake = stakes.get(staker_account_id).copied().unwrap_or(0);
             if current_stake == target_stake {
                 Ok(Some(()))
             } else {

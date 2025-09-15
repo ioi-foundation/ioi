@@ -9,12 +9,15 @@ use depin_sdk_forge::testing::{
     assert_log_contains, build_test_artifacts, TestCluster, TestValidator,
 };
 use depin_sdk_types::{
-    app::{account_id_from_key_material, AccountId, ActiveKeyRecord, Credential, SignatureSuite},
+    app::{
+        account_id_from_key_material, AccountId, ActiveKeyRecord, Credential, SignatureSuite,
+        ValidatorSetBlob, ValidatorSetV1, ValidatorV1,
+    },
     codec,
     config::InitialServiceConfig,
     keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, AUTHORITY_SET_KEY, IDENTITY_CREDENTIALS_PREFIX,
-        STATE_KEY_SEMANTIC_MODEL_HASH,
+        ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, STATE_KEY_SEMANTIC_MODEL_HASH,
+        VALIDATOR_SET_KEY,
     },
     service_configs::MigrationConfig,
 };
@@ -94,16 +97,46 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
         }))
         .with_genesis_modifier(move |genesis, keys| {
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
-            let authorities: Vec<AccountId> = keys
+            let _authorities: Vec<AccountId> = keys
                 .iter()
                 .map(|k| add_poa_identity_to_genesis(genesis_state, k))
                 .collect();
 
-            let authorities_bytes = codec::to_bytes_canonical(&authorities);
+            let validators: Vec<ValidatorV1> = keys
+                .iter()
+                .map(|keypair| {
+                    let public_key_bytes = keypair.public().encode_protobuf();
+                    let account_id_hash = account_id_from_key_material(
+                        SignatureSuite::Ed25519,
+                        &public_key_bytes,
+                    )
+                    .unwrap();
+                    ValidatorV1 {
+                        account_id: AccountId(account_id_hash),
+                        weight: 1, // PoA
+                        consensus_key: ActiveKeyRecord {
+                            suite: SignatureSuite::Ed25519,
+                            pubkey_hash: account_id_hash,
+                            since_height: 0,
+                        },
+                    }
+                })
+                .collect();
+
+            let vs_blob = ValidatorSetBlob {
+                schema_version: 1,
+                payload: ValidatorSetV1 {
+                    effective_from_height: 1,
+                    total_weight: validators.len() as u128,
+                    validators,
+                },
+            };
+            let vs_bytes = codec::to_bytes_canonical(&vs_blob);
             genesis_state.insert(
-                std::str::from_utf8(AUTHORITY_SET_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(authorities_bytes))),
+                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
             );
+
             genesis_state.insert(
                 std::str::from_utf8(STATE_KEY_SEMANTIC_MODEL_HASH)
                     .unwrap()
@@ -135,10 +168,26 @@ async fn test_mismatched_model_quarantine() -> Result<()> {
         let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
 
         let authority_id = add_poa_identity_to_genesis(genesis_state, &key);
-        let authorities_bytes = codec::to_bytes_canonical(&vec![authority_id]);
+        let vs_blob = ValidatorSetBlob {
+            schema_version: 1,
+            payload: ValidatorSetV1 {
+                effective_from_height: 1,
+                total_weight: 1,
+                validators: vec![ValidatorV1 {
+                    account_id: authority_id,
+                    weight: 1,
+                    consensus_key: ActiveKeyRecord {
+                        suite: SignatureSuite::Ed25519,
+                        pubkey_hash: authority_id.0,
+                        since_height: 0,
+                    },
+                }],
+            },
+        };
+        let vs_bytes = codec::to_bytes_canonical(&vs_blob);
         genesis_state.insert(
-            std::str::from_utf8(AUTHORITY_SET_KEY).unwrap().to_string(),
-            json!(format!("b64:{}", BASE64_STANDARD.encode(authorities_bytes))),
+            std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
+            json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
         );
         genesis_state.insert(
             std::str::from_utf8(STATE_KEY_SEMANTIC_MODEL_HASH)

@@ -15,6 +15,11 @@
 //! for shared types like `Block`, `ChainTransaction`, `AccountId`, and various
 //! error enums.
 
+/// The maximum size in bytes for a value read from state during consensus.
+pub const MAX_STATE_VALUE_BYTES: usize = 256 * 1024; // 256 KiB
+/// The maximum size in bytes for a proof read from state during consensus.
+pub const MAX_STATE_PROOF_BYTES: usize = 512 * 1024; // 512 KiB
+
 /// Core application-level data structures like `Block`, `Transaction`, and `AccountId`.
 pub mod app;
 /// The canonical, deterministic binary codec for consensus-critical state.

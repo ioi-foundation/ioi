@@ -38,6 +38,7 @@ rand = { workspace = true }
 hex = { workspace = true }
 base64 = { workspace = true }
 bs58 = "0.4"
+lru = { workspace = true }
 bincode = { workspace = true }
 uuid = { version = "1.8.0", features = ["v4"] }                           # Added for trace_id
 

@@ -6,12 +6,15 @@ use anyhow::{anyhow, Result};
 use depin_sdk_api::{chain::AppChain, commitment::CommitmentScheme, state::StateManager};
 use depin_sdk_services::governance::GovernanceModule;
 use depin_sdk_types::{
-    app::{AccountId, Proposal, ProposalStatus},
+    app::{read_validator_sets, AccountId, Proposal, ProposalStatus},
     config::WorkloadConfig,
-    keys::{GOVERNANCE_PROPOSAL_KEY_PREFIX, STAKES_KEY_CURRENT},
+    keys::{GOVERNANCE_PROPOSAL_KEY_PREFIX, VALIDATOR_SET_KEY},
 };
 use serde::{Deserialize, Serialize};
-use std::{any::Any, collections::BTreeMap, marker::PhantomData, sync::Arc};
+use std::any::Any;
+use std::collections::BTreeMap;
+use std::marker::PhantomData;
+use std::sync::Arc;
 
 // --- system.getStatus.v1 ---
 
@@ -40,6 +43,7 @@ where
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync,
+    <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
     const NAME: &'static str = "system.getStatus.v1";
     type Params = GetStatusParams;
@@ -55,7 +59,8 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetStatusV1"))?;
         let chain = ctx.chain.lock().await;
-        Ok(chain.status().clone())
+        // FIX: Dereference MutexGuard
+        Ok((*chain).status().clone())
     }
 }
 
@@ -157,9 +162,14 @@ where
                     && params.current_height > proposal.voting_end_height
                 {
                     log::info!("[Workload] Tallying proposal {}", proposal.id);
-                    let stakes: BTreeMap<AccountId, u64> = match state.get(STAKES_KEY_CURRENT)? {
+                    let stakes: BTreeMap<AccountId, u64> = match state.get(VALIDATOR_SET_KEY)? {
                         Some(bytes) => {
-                            depin_sdk_types::codec::from_bytes_canonical(&bytes).unwrap_or_default()
+                            let sets = read_validator_sets(&bytes)?;
+                            sets.current
+                                .validators
+                                .into_iter()
+                                .map(|v| (v.account_id, v.weight as u64))
+                                .collect()
                         }
                         _ => BTreeMap::new(),
                     };
@@ -270,5 +280,66 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetWorkloadConfigV1"))?;
         Ok(ctx.workload.config().clone())
+    }
+}
+
+// --- system.getGenesisStatus.v1 ---
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GenesisStatus {
+    pub ready: bool,
+    pub root: Vec<u8>,
+    pub chain_id: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct GetGenesisStatusParams {}
+
+pub struct GetGenesisStatusV1<CS, ST> {
+    _p: PhantomData<(CS, ST)>,
+}
+impl<CS, ST> Default for GetGenesisStatusV1<CS, ST> {
+    fn default() -> Self {
+        Self { _p: PhantomData }
+    }
+}
+
+#[async_trait::async_trait]
+impl<CS, ST> RpcMethod for GetGenesisStatusV1<CS, ST>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static,
+{
+    const NAME: &'static str = "system.getGenesisStatus.v1";
+    type Params = GetGenesisStatusParams;
+    type Result = GenesisStatus;
+
+    async fn call(
+        &self,
+        _req_ctx: RequestContext,
+        shared_ctx: Arc<dyn Any + Send + Sync>,
+        _params: Self::Params,
+    ) -> Result<Self::Result> {
+        let ctx: Arc<RpcContext<CS, ST>> = shared_ctx
+            .downcast::<RpcContext<CS, ST>>()
+            .map_err(|_| anyhow!("Invalid context type for GetGenesisStatusV1"))?;
+        let chain = ctx.chain.lock().await;
+
+        match &chain.state.genesis_state {
+            depin_sdk_chain::app::GenesisState::Ready { root, chain_id } => Ok(GenesisStatus {
+                ready: true,
+                root: root.as_ref().to_vec(),
+                chain_id: chain_id.clone(),
+            }),
+            depin_sdk_chain::app::GenesisState::Pending => Ok(GenesisStatus {
+                ready: false,
+                root: vec![],
+                chain_id: "".to_string(),
+            }),
+        }
     }
 }

@@ -372,6 +372,10 @@ where
         self
     }
 
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
     fn export_kv_pairs(&self) -> Vec<(Vec<u8>, Vec<u8>)> {
         self.cache
             .iter()

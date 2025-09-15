@@ -41,6 +41,16 @@ pub trait StateManager: StateCommitment {
     /// Prunes historical state versions older than the specified block height.
     /// This is a hint to the backend; not all state managers may support versioning.
     fn prune(&mut self, min_height_to_keep: u64) -> Result<(), StateError>;
+
+    /// Commits the current pending changes for versioned state managers, creating a snapshot.
+    /// For non-versioned backends, this is a no-op.
+    fn commit_version(&mut self) {}
+
+    /// (For debug builds) Checks if a given root hash corresponds to a known, persisted version.
+    /// The default implementation returns true, assuming non-versioned backends are always queryable at their latest root.
+    fn version_exists_for_root(&self, _root: &Self::Commitment) -> bool {
+        true
+    }
 }
 
 // Blanket implementation to allow any `StateManager` to be used behind a `Box` trait object.
@@ -79,5 +89,13 @@ impl<T: StateManager + ?Sized> StateManager for Box<T> {
 
     fn prune(&mut self, min_height_to_keep: u64) -> Result<(), StateError> {
         (**self).prune(min_height_to_keep)
+    }
+
+    fn commit_version(&mut self) {
+        (**self).commit_version()
+    }
+
+    fn version_exists_for_root(&self, root: &Self::Commitment) -> bool {
+        (**self).version_exists_for_root(root)
     }
 }

@@ -4,7 +4,7 @@ pub mod methods;
 pub mod router;
 
 use anyhow::Result;
-use depin_sdk_api::chain::AppChain;
+use depin_sdk_api::chain::AppChain; // <-- Import the AppChain trait
 use depin_sdk_api::{
     commitment::CommitmentScheme, state::StateManager, validator::WorkloadContainer,
 };
@@ -14,14 +14,14 @@ use ipc_protocol::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest, JsonRpcResp
 use methods::{
     chain::{
         CheckTransactionsV1, GetAuthoritySetV1, GetLastBlockHashV1, GetNextValidatorSetV1,
-        GetValidatorSetAtV1, ProcessBlockV1,
+        GetValidatorSetAtV1, GetValidatorSetForV1, ProcessBlockV1,
     },
     contract::{CallContractV1, DeployContractV1, QueryContractV1},
     staking::{GetNextStakesV1, GetStakesV1},
     state::{GetActiveKeyAtV1, GetRawStateV1, GetStateRootV1, PrefixScanV1, QueryStateAtV1},
     system::{
-        CallServiceV1, CheckAndTallyProposalsV1, GetExpectedModelHashV1, GetStatusV1,
-        GetWorkloadConfigV1,
+        CallServiceV1, CheckAndTallyProposalsV1, GetExpectedModelHashV1, GetGenesisStatusV1,
+        GetStatusV1, GetWorkloadConfigV1,
     },
     RpcContext,
 };
@@ -87,6 +87,7 @@ where
     CS::Commitment: std::fmt::Debug + Send + Sync,
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+    <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
     pub async fn new(
         address: String,
@@ -104,6 +105,7 @@ where
         router.add_method(GetNextStakesV1::<CS, ST>::default());
         router.add_method(GetAuthoritySetV1::<CS, ST>::default());
         router.add_method(GetNextValidatorSetV1::<CS, ST>::default());
+        router.add_method(GetValidatorSetForV1::<CS, ST>::default());
         router.add_method(GetStateRootV1::<CS, ST>::default());
         router.add_method(QueryContractV1::<CS, ST>::default());
         router.add_method(DeployContractV1::<CS, ST>::default());
@@ -116,6 +118,7 @@ where
         router.add_method(GetActiveKeyAtV1::<CS, ST>::default());
         router.add_method(CallServiceV1::<CS, ST>::default());
         router.add_method(GetWorkloadConfigV1::<CS, ST>::default());
+        router.add_method(GetGenesisStatusV1::<CS, ST>::default());
 
         Ok(Self {
             address,
@@ -142,7 +145,7 @@ where
 
             loop {
                 interval.tick().await;
-                let current_height = chain_for_gc.lock().await.status().height;
+                let current_height = AppChain::status(&*chain_for_gc.lock().await).height;
                 if let Some(min_height) = current_height.checked_sub(PRUNE_HORIZON) {
                     log::info!(
                         "[GC] Pruning state versions older than height {}",
@@ -163,7 +166,10 @@ where
 
         loop {
             let (stream, peer_addr) = listener.accept().await?;
-            log::info!("Workload: IPC server accepted new connection from {}", peer_addr);
+            log::info!(
+                "Workload: IPC server accepted new connection from {}",
+                peer_addr
+            );
 
             let acceptor_clone = acceptor.clone();
             let semaphore_clone = self.semaphore.clone();
@@ -186,7 +192,11 @@ where
                         return;
                     }
                 };
-                log::info!("Workload: Client ID {} connected from {}", client_id_byte, peer_addr);
+                log::info!(
+                    "Workload: Client ID {} connected from {}",
+                    client_id_byte,
+                    peer_addr
+                );
 
                 let ipc_channel = SecurityChannel::new("workload", "orchestration");
                 ipc_channel
@@ -197,7 +207,10 @@ where
                     let permit = match semaphore_clone.clone().acquire_owned().await {
                         Ok(p) => p,
                         Err(_) => {
-                            log::info!("IPC handler for {} shutting down (semaphore closed).", peer_addr);
+                            log::info!(
+                                "IPC handler for {} shutting down (semaphore closed).",
+                                peer_addr
+                            );
                             return;
                         }
                     };
@@ -205,58 +218,99 @@ where
                     let request_bytes = match ipc_channel.receive().await {
                         Ok(bytes) => bytes,
                         Err(e) => {
-                            log::info!("IPC receive error from {}: {}. Closing connection.", peer_addr, e);
+                            log::info!(
+                                "IPC receive error from {}: {}. Closing connection.",
+                                peer_addr,
+                                e
+                            );
                             return;
                         }
                     };
 
-                    let response = match serde_json::from_slice::<serde_json::Value>(&request_bytes) {
-                        Ok(serde_json::Value::Array(_)) => {
-                            Some(JsonRpcResponse {
+                    let response = match serde_json::from_slice::<serde_json::Value>(&request_bytes)
+                    {
+                        Ok(serde_json::Value::Array(_)) => Some(JsonRpcResponse {
+                            jsonrpc: "2.0".to_string(),
+                            result: None,
+                            error: Some(JsonRpcError {
+                                code: -32600,
+                                message: "Batch requests are not supported".into(),
+                                data: None,
+                            }),
+                            id: JsonRpcId::Null,
+                        }),
+                        Ok(value) => match serde_json::from_value::<JsonRpcRequest>(value) {
+                            Ok(req) => {
+                                if req.jsonrpc != "2.0" {
+                                    Some(JsonRpcResponse {
+                                        jsonrpc: "2.0".to_string(),
+                                        result: None,
+                                        error: Some(JsonRpcError {
+                                            code: -32600,
+                                            message: "Invalid jsonrpc version".into(),
+                                            data: None,
+                                        }),
+                                        id: req.id.unwrap_or(JsonRpcId::Null),
+                                    })
+                                } else {
+                                    let trace_id = uuid::Uuid::new_v4().to_string();
+                                    let router_ctx = RequestContext {
+                                        peer_id: "orchestration".into(),
+                                        trace_id: trace_id.clone(),
+                                    };
+                                    let res = router_clone
+                                        .dispatch(
+                                            shared_ctx_clone.clone(),
+                                            router_ctx,
+                                            &req.method,
+                                            req.params,
+                                        )
+                                        .await;
+                                    if let Some(id) = req.id {
+                                        Some(match res {
+                                            Ok(result) => JsonRpcResponse {
+                                                jsonrpc: "2.0".to_string(),
+                                                result: Some(result),
+                                                error: None,
+                                                id,
+                                            },
+                                            Err(error) => JsonRpcResponse {
+                                                jsonrpc: "2.0".to_string(),
+                                                result: None,
+                                                error: Some(JsonRpcError {
+                                                    code: error.code,
+                                                    message: error.message,
+                                                    data: error.data.or_else(|| {
+                                                        Some(serde_json::json!({ "trace_id": trace_id }))
+                                                    }),
+                                                }),
+                                                id,
+                                            },
+                                        })
+                                    } else {
+                                        None
+                                    }
+                                }
+                            }
+                            Err(e) => Some(JsonRpcResponse {
                                 jsonrpc: "2.0".to_string(),
                                 result: None,
                                 error: Some(JsonRpcError {
                                     code: -32600,
-                                    message: "Batch requests are not supported".into(),
+                                    message: format!("Invalid Request: {}", e),
                                     data: None,
                                 }),
                                 id: JsonRpcId::Null,
-                            })
-                        }
-                        Ok(value) => {
-                            match serde_json::from_value::<JsonRpcRequest>(value) {
-                                Ok(req) => {
-                                    if req.jsonrpc != "2.0" {
-                                        Some(JsonRpcResponse {
-                                            jsonrpc: "2.0".to_string(),
-                                            result: None,
-                                            error: Some(JsonRpcError { code: -32600, message: "Invalid jsonrpc version".into(), data: None }),
-                                            id: req.id.unwrap_or(JsonRpcId::Null),
-                                        })
-                                    } else {
-                                        let trace_id = uuid::Uuid::new_v4().to_string();
-                                        let router_ctx = RequestContext { peer_id: "orchestration".into(), trace_id: trace_id.clone() };
-                                        let res = router_clone.dispatch(shared_ctx_clone.clone(), router_ctx, &req.method, req.params).await;
-                                        if let Some(id) = req.id {
-                                            Some(match res {
-                                                Ok(result) => JsonRpcResponse { jsonrpc: "2.0".to_string(), result: Some(result), error: None, id },
-                                                Err(error) => JsonRpcResponse { jsonrpc: "2.0".to_string(), result: None, error: Some(error), id },
-                                            })
-                                        } else { None }
-                                    }
-                                }
-                                Err(e) => Some(JsonRpcResponse {
-                                    jsonrpc: "2.0".to_string(),
-                                    result: None,
-                                    error: Some(JsonRpcError { code: -32600, message: format!("Invalid Request: {}", e), data: None }),
-                                    id: JsonRpcId::Null,
-                                }),
-                            }
-                        }
+                            }),
+                        },
                         Err(e) => Some(JsonRpcResponse {
                             jsonrpc: "2.0".to_string(),
                             result: None,
-                            error: Some(JsonRpcError { code: -32700, message: format!("Parse error: {}", e), data: None }),
+                            error: Some(JsonRpcError {
+                                code: -32700,
+                                message: format!("Parse error: {}", e),
+                                data: None,
+                            }),
                             id: JsonRpcId::Null,
                         }),
                     };

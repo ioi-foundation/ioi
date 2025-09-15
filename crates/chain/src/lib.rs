@@ -4,7 +4,7 @@
 //!
 //! This crate provides the implementation logic for the `AppChain` state machine.
 
-mod app;
+pub mod app;
 pub mod upgrade_manager;
 pub mod util;
 pub mod wasm_loader;

@@ -157,7 +157,7 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
         parent_view: &dyn StateView,
         known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
-        let validator_data = match parent_view.validator_set().await {
+        let validator_data = match parent_view.validator_set_legacy().await {
             Ok(vs) => vs,
             Err(_) => return ConsensusDecision::Stall,
         };
@@ -213,7 +213,7 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
             .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?;
 
         let validator_set = parent_view
-            .validator_set()
+            .validator_set_legacy()
             .await
             .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?;
 

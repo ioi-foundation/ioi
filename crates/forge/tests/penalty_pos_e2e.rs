@@ -4,24 +4,22 @@
 
 use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use depin_sdk_client::WorkloadClient;
 use depin_sdk_forge::testing::{
     build_test_artifacts,
     poll::{wait_for_evidence, wait_for_height, wait_for_stake_to_be},
-    rpc::get_stake,
     submit_transaction, TestCluster,
 };
 use depin_sdk_types::{
     app::{
         account_id_from_key_material, evidence_id, AccountId, ActiveKeyRecord, ChainTransaction,
         Credential, FailureReport, OffenseFacts, OffenseType, SignHeader, SignatureProof,
-        SignatureSuite, SystemPayload, SystemTransaction,
+        SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1,
+        ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
-    keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, STAKES_KEY_CURRENT,
-        STAKES_KEY_NEXT,
-    },
+    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
@@ -92,22 +90,40 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
             allow_downgrade: false,
         }))
         .with_genesis_modifier(move |genesis, keys| {
-            let stakes: BTreeMap<AccountId, u64> = keys
+            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+            let validators: Vec<ValidatorV1> = keys
                 .iter()
                 .map(|k| {
                     let pk_bytes = k.public().encode_protobuf();
                     let account_hash =
                         account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
-                    (AccountId(account_hash), initial_stake)
+                    ValidatorV1 {
+                        account_id: AccountId(account_hash),
+                        weight: initial_stake as u128,
+                        consensus_key: ActiveKeyRecord {
+                            suite: SignatureSuite::Ed25519,
+                            pubkey_hash: account_hash,
+                            since_height: 0,
+                        },
+                    }
                 })
                 .collect();
-            let stakes_bytes = codec::to_bytes_canonical(&stakes);
-            let stakes_b64 = format!("b64:{}", BASE64_STANDARD.encode(&stakes_bytes));
-            genesis["genesis_state"][std::str::from_utf8(STAKES_KEY_CURRENT).unwrap()] =
-                json!(&stakes_b64);
-            genesis["genesis_state"][std::str::from_utf8(STAKES_KEY_NEXT).unwrap()] =
-                json!(&stakes_b64);
+            let total_weight = validators.iter().map(|v| v.weight).sum();
+            let vs_blob = ValidatorSetBlob {
+                schema_version: 1,
+                payload: ValidatorSetV1 {
+                    effective_from_height: 1,
+                    total_weight,
+                    validators,
+                },
+            };
+            let vs_bytes = codec::to_bytes_canonical(&vs_blob);
+            genesis_state.insert(
+                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
+            );
 
+            // Populate identity records for all validators
             for keypair in keys {
                 let suite = SignatureSuite::Ed25519;
                 let pk_bytes = keypair.public().encode_protobuf();
@@ -123,13 +139,16 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                 let creds_array: [Option<Credential>; 2] = [Some(cred), None];
                 let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
                 let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
-                genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&creds_key))] =
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes)));
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
+                );
 
                 let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-                genesis["genesis_state"]
-                    [format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key))] =
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes)));
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes))),
+                );
 
                 let record = ActiveKeyRecord {
                     suite,
@@ -138,8 +157,10 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                 };
                 let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
                 let record_bytes = codec::to_bytes_canonical(&record);
-                genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&record_key))] =
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes)));
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
+                );
             }
         })
         .build()
@@ -150,6 +171,7 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
     let offender = &mut offender_slice[0];
     let rpc_addr_reporter = &reporter.rpc_addr;
     let rpc_addr_offender = &offender.rpc_addr;
+    let reporter_client = WorkloadClient::new(&reporter.workload_ipc_addr).await?;
 
     wait_for_height(rpc_addr_reporter, 1, Duration::from_secs(20)).await?;
 
@@ -166,7 +188,7 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
     // VERIFY 1: Poll state until stake is slashed
     println!("Waiting for stake to be slashed...");
     wait_for_stake_to_be(
-        rpc_addr_reporter,
+        &reporter_client,
         &offender_account_id,
         expected_stake_after_slash,
         Duration::from_secs(20),
@@ -192,8 +214,11 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
     println!("Waiting to confirm no double-slashing occurs and chain remains live...");
     wait_for_height(rpc_addr_reporter, 3, Duration::from_secs(30)).await?;
 
-    let final_offender_stake = get_stake(rpc_addr_reporter, &offender_account_id)
+    let final_offender_stake = reporter_client
+        .get_staked_validators()
         .await?
+        .get(&offender_account_id)
+        .copied()
         .unwrap_or(0);
 
     assert_eq!(

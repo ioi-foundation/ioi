@@ -11,18 +11,18 @@ use depin_sdk_forge::testing::{
 use depin_sdk_types::app::{
     account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
     Proposal, ProposalStatus, ProposalType, SignHeader, SignatureProof, SignatureSuite,
-    SystemPayload, SystemTransaction, VoteOption,
+    SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1,
+    ValidatorV1, VoteOption,
 };
 use depin_sdk_types::codec;
 use depin_sdk_types::config::InitialServiceConfig;
 use depin_sdk_types::keys::{
-    ACCOUNT_ID_TO_PUBKEY_PREFIX, AUTHORITY_SET_KEY, GOVERNANCE_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX,
-    IDENTITY_CREDENTIALS_PREFIX, STAKES_KEY_CURRENT, STAKES_KEY_NEXT,
+    ACCOUNT_ID_TO_PUBKEY_PREFIX, GOVERNANCE_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX,
+    IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
 };
 use depin_sdk_types::service_configs::MigrationConfig;
 use libp2p::identity::{self, Keypair};
 use serde_json::json;
-use std::collections::BTreeMap;
 use std::time::Duration;
 
 // Helper function to create a signed system transaction
@@ -80,6 +80,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
             allow_downgrade: false,
         }))
         .with_genesis_modifier(move |genesis, keys| {
+            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
             let validator_key = &keys[0];
             let suite = SignatureSuite::Ed25519;
             let validator_pk_bytes = validator_key.public().encode_protobuf();
@@ -87,27 +88,39 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                 account_id_from_key_material(suite, &validator_pk_bytes).unwrap();
             let validator_account_id = AccountId(validator_account_id_hash);
 
-            // A. Set the validator as the authority using AccountId
-            let authorities = vec![validator_account_id];
-            let authorities_bytes = codec::to_bytes_canonical(&authorities);
-            genesis["genesis_state"][std::str::from_utf8(AUTHORITY_SET_KEY).unwrap()] =
-                json!(format!("b64:{}", BASE64_STANDARD.encode(authorities_bytes)));
+            // A. Set the validator set with the validator having stake for voting power
+            let vs_blob = ValidatorSetBlob {
+                schema_version: 2,
+                payload: ValidatorSetsV1 {
+                    current: ValidatorSetV1 {
+                        effective_from_height: 1,
+                        total_weight: 1_000_000,
+                        validators: vec![ValidatorV1 {
+                            account_id: validator_account_id,
+                            weight: 1_000_000,
+                            consensus_key: ActiveKeyRecord {
+                                suite,
+                                pubkey_hash: validator_account_id_hash,
+                                since_height: 0,
+                            },
+                        }],
+                    },
+                    next: None,
+                },
+            };
+            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload);
+            genesis_state.insert(
+                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
+            );
 
             // B. Set the governance key
-            genesis["genesis_state"][std::str::from_utf8(GOVERNANCE_KEY).unwrap()] =
-                json!(governance_pubkey_b58);
+            genesis_state.insert(
+                std::str::from_utf8(GOVERNANCE_KEY).unwrap().to_string(),
+                json!(governance_pubkey_b58),
+            );
 
-            // C. Give the validator some stake so their vote has power
-            let mut stakes = BTreeMap::new();
-            stakes.insert(validator_account_id, 1_000_000u64);
-            let stakes_bytes = codec::to_bytes_canonical(&stakes);
-            let stakes_b64 = format!("b64:{}", BASE64_STANDARD.encode(stakes_bytes));
-            let stakes_key_current_str = std::str::from_utf8(STAKES_KEY_CURRENT).unwrap();
-            let stakes_key_next_str = std::str::from_utf8(STAKES_KEY_NEXT).unwrap();
-            genesis["genesis_state"][stakes_key_current_str] = json!(stakes_b64.clone());
-            genesis["genesis_state"][stakes_key_next_str] = json!(stakes_b64);
-
-            // D. Create a pre-funded proposal that will end soon
+            // C. Create a pre-funded proposal that will end soon
             let proposal = Proposal {
                 id: 1,
                 title: "Test Proposal".to_string(),
@@ -125,10 +138,12 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
             let proposal_key_bytes = [GOVERNANCE_PROPOSAL_KEY_PREFIX, &1u64.to_le_bytes()].concat();
             let proposal_key_b64 = format!("b64:{}", BASE64_STANDARD.encode(&proposal_key_bytes));
             let proposal_bytes = serde_json::to_vec(&proposal).unwrap();
-            genesis["genesis_state"][proposal_key_b64] =
-                json!(format!("b64:{}", BASE64_STANDARD.encode(proposal_bytes)));
+            genesis_state.insert(
+                proposal_key_b64,
+                json!(format!("b64:{}", BASE64_STANDARD.encode(proposal_bytes))),
+            );
 
-            // E. Set up identity records needed for signature validation
+            // D. Set up identity records needed for signature validation
             for (key, acct_id) in [
                 (validator_key, validator_account_id),
                 (
@@ -152,13 +167,16 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                 let creds_array: [Option<Credential>; 2] = [Some(cred), None];
                 let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
                 let creds_key = [IDENTITY_CREDENTIALS_PREFIX, acct_id.as_ref()].concat();
-                genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&creds_key))] =
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes)));
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
+                );
 
                 let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, acct_id.as_ref()].concat();
-                genesis["genesis_state"]
-                    [format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key))] =
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes)));
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes))),
+                );
 
                 let record = ActiveKeyRecord {
                     suite,
@@ -166,11 +184,13 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                     since_height: 0,
                 };
                 let record_key = [b"identity::key_record::", acct_id.as_ref()].concat();
-                genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&record_key))] =
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
                     json!(format!(
                         "b64:{}",
                         BASE64_STANDARD.encode(codec::to_bytes_canonical(&record))
-                    ));
+                    )),
+                );
             }
         })
         .build()

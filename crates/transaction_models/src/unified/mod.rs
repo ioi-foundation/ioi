@@ -4,6 +4,7 @@ use crate::utxo::{UTXOModel, UTXOTransactionProof};
 use async_trait::async_trait;
 use depin_sdk_api::chain::ChainView;
 use depin_sdk_api::commitment::CommitmentScheme;
+use depin_sdk_api::identity::CredentialsView;
 use depin_sdk_api::state::{StateAccessor, StateManager};
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
@@ -11,19 +12,18 @@ use depin_sdk_api::vm::ExecutionContext;
 use depin_sdk_services::governance::GovernanceModule;
 use depin_sdk_services::identity::IdentityHub;
 use depin_sdk_types::app::{
-    account_id_from_key_material, evidence_id, AccountId, ApplicationTransaction, ChainTransaction,
-    StateEntry, SystemPayload,
+    account_id_from_key_material, evidence_id, ActiveKeyRecord, ApplicationTransaction,
+    ChainTransaction, StateEntry, SystemPayload, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
 };
 use depin_sdk_types::codec;
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::{StateError, TransactionError};
 use depin_sdk_types::keys::{
-    ACCOUNT_ID_TO_PUBKEY_PREFIX, AUTHORITY_SET_KEY, EVIDENCE_REGISTRY_KEY,
-    IBC_PROCESSED_RECEIPT_PREFIX, ORACLE_DATA_PREFIX, ORACLE_PENDING_REQUEST_PREFIX,
-    STAKES_KEY_CURRENT, STAKES_KEY_NEXT,
+    ACCOUNT_ID_TO_PUBKEY_PREFIX, EVIDENCE_REGISTRY_KEY, IBC_PROCESSED_RECEIPT_PREFIX,
+    ORACLE_DATA_PREFIX, ORACLE_PENDING_REQUEST_PREFIX, VALIDATOR_SET_KEY,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum UnifiedProof<P> {
@@ -131,15 +131,26 @@ where
                     signature_proof,
                     ..
                 } => {
+                    // Fetch contract code using the provided transactional state accessor (`state`).
+                    // This `state` will be a `StateOverlay` during precheck/simulation,
+                    // avoiding a re-entrant lock on the underlying `state_tree`.
+                    let code_key = [b"contract_code::".as_ref(), address.as_ref()].concat();
+                    let stored_bytes = state.get(&code_key)?.ok_or_else(|| {
+                        TransactionError::Invalid("Contract not found".to_string())
+                    })?;
+                    let stored_entry: StateEntry = serde_json::from_slice(&stored_bytes)?;
+                    let code = stored_entry.value;
+
                     let workload = chain_ref.workload_container();
                     let exec_context = ExecutionContext {
                         caller: signature_proof.public_key.clone(),
                         block_height: ctx.block_height,
                         gas_limit: *gas_limit,
-                        contract_address: address.clone(),
+                        contract_address: address.clone(), // Set address for the VM context
                     };
+                    // Use the specialized method that takes pre-loaded code.
                     let (_output, state_delta) = workload
-                        .call_contract(address.clone(), input_data.clone(), exec_context)
+                        .execute_loaded_contract(code, input_data.clone(), exec_context)
                         .await
                         .map_err(|e| TransactionError::Invalid(e.to_string()))?;
 
@@ -161,14 +172,12 @@ where
             },
             ChainTransaction::System(sys_tx) => match sys_tx.payload.clone() {
                 SystemPayload::Stake { public_key, amount } => {
-                    // FIX: Add consensus-aware guard.
                     if chain_ref.consensus_type() != ConsensusType::ProofOfStake {
                         return Err(TransactionError::Unsupported(
                             "Stake operations are not supported on non-PoS chains".into(),
                         ));
                     }
                     let staker_account_id = sys_tx.header.account_id;
-
                     let derived_pk_hash =
                         account_id_from_key_material(sys_tx.signature_proof.suite, &public_key)?;
                     if staker_account_id.0 != derived_pk_hash {
@@ -177,44 +186,117 @@ where
                                 .to_string(),
                         ));
                     }
-                    let pubkey_map_key =
-                        [ACCOUNT_ID_TO_PUBKEY_PREFIX, staker_account_id.as_ref()].concat();
-                    if state.get(&pubkey_map_key)?.is_none() {
-                        state.insert(&pubkey_map_key, &public_key)?;
+
+                    let target_activation = ctx.block_height + 2;
+                    let maybe_blob_bytes = state.get(VALIDATOR_SET_KEY)?;
+                    let mut sets = maybe_blob_bytes
+                        .as_ref()
+                        .map(|b| depin_sdk_types::app::read_validator_sets(b))
+                        .transpose()?
+                        .unwrap_or_default();
+
+                    if sets
+                        .next
+                        .as_ref()
+                        .map_or(true, |n| n.effective_from_height != target_activation)
+                    {
+                        let mut new_next =
+                            sets.next.clone().unwrap_or_else(|| sets.current.clone());
+                        new_next.effective_from_height = target_activation;
+                        sets.next = Some(new_next);
+                    }
+                    let next_vs = sets.next.as_mut().unwrap();
+
+                    if let Some(validator) = next_vs
+                        .validators
+                        .iter_mut()
+                        .find(|v| v.account_id == staker_account_id)
+                    {
+                        validator.weight = validator.weight.saturating_add(amount as u128);
+                    } else {
+                        let identity_hub = ctx.services.get::<IdentityHub>().ok_or_else(|| {
+                            TransactionError::Unsupported("IdentityHub not found".to_string())
+                        })?;
+                        let creds = identity_hub.get_credentials(state, &staker_account_id)?;
+                        let active_cred = creds[0].as_ref().ok_or_else(|| {
+                            TransactionError::Invalid("Staker has no active key".into())
+                        })?;
+                        next_vs.validators.push(ValidatorV1 {
+                            account_id: staker_account_id,
+                            weight: amount as u128,
+                            consensus_key: ActiveKeyRecord {
+                                suite: active_cred.suite,
+                                pubkey_hash: active_cred.public_key_hash,
+                                since_height: active_cred.activation_height,
+                            },
+                        });
+                        let pubkey_map_key =
+                            [ACCOUNT_ID_TO_PUBKEY_PREFIX, staker_account_id.as_ref()].concat();
+                        if state.get(&pubkey_map_key)?.is_none() {
+                            state.insert(&pubkey_map_key, &public_key)?;
+                        }
                     }
 
-                    let base_stakes_bytes = state
-                        .get(STAKES_KEY_NEXT)?
-                        .or(state.get(STAKES_KEY_CURRENT)?);
-                    let mut stakes: BTreeMap<AccountId, u64> = base_stakes_bytes
-                        .as_ref()
-                        .map(|b: &Vec<u8>| codec::from_bytes_canonical(b).unwrap_or_default())
-                        .unwrap_or_default();
-                    let current_stake = stakes.entry(staker_account_id).or_insert(0);
-                    *current_stake = current_stake.saturating_add(amount);
-                    let new_stakes_bytes = codec::to_bytes_canonical(&stakes);
-                    state.insert(STAKES_KEY_NEXT, &new_stakes_bytes)?;
+                    // [+] FIX: Always re-sort the validator list after modification
+                    // to ensure a canonical, deterministic order for leader selection.
+                    next_vs
+                        .validators
+                        .sort_by(|a, b| a.account_id.cmp(&b.account_id));
+                    next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
+                    state.insert(
+                        VALIDATOR_SET_KEY,
+                        &depin_sdk_types::app::write_validator_sets(&sets),
+                    )?;
                     Ok(())
                 }
                 SystemPayload::Unstake { amount } => {
-                    // FIX: Add consensus-aware guard.
                     if chain_ref.consensus_type() != ConsensusType::ProofOfStake {
                         return Err(TransactionError::Unsupported(
                             "Unstake operations are not supported on non-PoS chains".into(),
                         ));
                     }
                     let staker_account_id = sys_tx.header.account_id;
-                    let base_stakes_bytes = state
-                        .get(STAKES_KEY_NEXT)?
-                        .or(state.get(STAKES_KEY_CURRENT)?);
-                    let mut stakes: BTreeMap<AccountId, u64> = base_stakes_bytes
+                    let target_activation = ctx.block_height + 2;
+                    let maybe_blob_bytes = state.get(VALIDATOR_SET_KEY)?;
+                    let blob_bytes = maybe_blob_bytes.ok_or_else(|| {
+                        TransactionError::Invalid(
+                            "Validator set does not exist to unstake from".into(),
+                        )
+                    })?;
+                    let mut sets = depin_sdk_types::app::read_validator_sets(&blob_bytes)?;
+
+                    if sets
+                        .next
                         .as_ref()
-                        .map(|b: &Vec<u8>| codec::from_bytes_canonical(b).unwrap_or_default())
-                        .unwrap_or_default();
-                    let current_stake = stakes.entry(staker_account_id).or_insert(0);
-                    *current_stake = current_stake.saturating_sub(amount);
-                    let new_stakes_bytes = codec::to_bytes_canonical(&stakes);
-                    state.insert(STAKES_KEY_NEXT, &new_stakes_bytes)?;
+                        .map_or(true, |n| n.effective_from_height != target_activation)
+                    {
+                        let mut new_next =
+                            sets.next.clone().unwrap_or_else(|| sets.current.clone());
+                        new_next.effective_from_height = target_activation;
+                        sets.next = Some(new_next);
+                    }
+                    let next_vs = sets.next.as_mut().unwrap();
+
+                    let mut validator_found = false;
+                    next_vs.validators.retain_mut(|v| {
+                        if v.account_id == staker_account_id {
+                            validator_found = true;
+                            v.weight = v.weight.saturating_sub(amount as u128);
+                            v.weight > 0
+                        } else {
+                            true
+                        }
+                    });
+                    if !validator_found {
+                        return Err(TransactionError::Invalid(
+                            "Staker not in validator set".into(),
+                        ));
+                    }
+                    next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
+                    state.insert(
+                        VALIDATOR_SET_KEY,
+                        &depin_sdk_types::app::write_validator_sets(&sets),
+                    )?;
                     Ok(())
                 }
                 SystemPayload::UpdateAuthorities {
@@ -222,46 +304,68 @@ where
                 } => {
                     new_authorities.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
                     new_authorities.dedup();
-                    let bytes = codec::to_bytes_canonical(&new_authorities);
-                    state.insert(AUTHORITY_SET_KEY, &bytes)?;
+
+                    let identity_hub = ctx.services.get::<IdentityHub>().ok_or_else(|| {
+                        TransactionError::Unsupported("IdentityHub not found".to_string())
+                    })?;
+
+                    let mut validators = Vec::with_capacity(new_authorities.len());
+                    for account_id in new_authorities {
+                        let creds = identity_hub.get_credentials(state, &account_id)?;
+                        let active_cred = creds[0].as_ref().ok_or_else(|| {
+                            TransactionError::Invalid(format!(
+                                "Authority {} has no active credential",
+                                hex::encode(account_id.as_ref())
+                            ))
+                        })?;
+                        validators.push(ValidatorV1 {
+                            account_id,
+                            weight: 1, // PoA validators have a weight of 1
+                            consensus_key: ActiveKeyRecord {
+                                suite: active_cred.suite,
+                                pubkey_hash: active_cred.public_key_hash,
+                                since_height: active_cred.activation_height,
+                            },
+                        });
+                    }
+
+                    let vs = ValidatorSetV1 {
+                        effective_from_height: ctx.block_height + 1,
+                        total_weight: validators.len() as u128,
+                        validators,
+                    };
+
+                    let sets = ValidatorSetsV1 {
+                        current: vs.clone(),
+                        next: Some(vs),
+                    };
+
+                    state.insert(
+                        VALIDATOR_SET_KEY,
+                        &depin_sdk_types::app::write_validator_sets(&sets),
+                    )?;
                     Ok(())
                 }
                 SystemPayload::ReportMisbehavior { report } => {
                     let reporter_id = &sys_tx.header.account_id;
+                    let vs_blob_bytes =
+                        state
+                            .get(VALIDATOR_SET_KEY)?
+                            .ok_or(TransactionError::State(StateError::KeyNotFound(
+                                "ValidatorSet".into(),
+                            )))?;
+                    let vs_sets = depin_sdk_types::app::read_validator_sets(&vs_blob_bytes)?;
 
-                    match chain_ref.consensus_type() {
-                        ConsensusType::ProofOfStake => {
-                            let stakes_bytes = state.get(STAKES_KEY_CURRENT)?.ok_or_else(|| {
-                                TransactionError::State(StateError::KeyNotFound(
-                                    "Stakes map not found".into(),
-                                ))
-                            })?;
-                            let stakes: BTreeMap<AccountId, u64> =
-                                codec::from_bytes_canonical(&stakes_bytes)?;
-                            if stakes.get(reporter_id).copied().unwrap_or(0) == 0 {
-                                return Err(TransactionError::Invalid(
-                                    "Reporter is not an active validator (no stake)".into(),
-                                ));
-                            }
-                        }
-                        ConsensusType::ProofOfAuthority => {
-                            let authorities_bytes =
-                                state.get(AUTHORITY_SET_KEY)?.ok_or_else(|| {
-                                    TransactionError::State(StateError::KeyNotFound(
-                                        "Authority set not found".into(),
-                                    ))
-                                })?;
-                            let authorities: Vec<AccountId> =
-                                codec::from_bytes_canonical(&authorities_bytes)?;
-
-                            if !authorities.contains(reporter_id) {
-                                return Err(TransactionError::Invalid(
-                                    "Reporter is not an active authority".into(),
-                                ));
-                            }
-                        }
+                    if !vs_sets
+                        .current
+                        .validators
+                        .iter()
+                        .any(|v| v.account_id == *reporter_id)
+                    {
+                        return Err(TransactionError::Invalid(
+                            "Reporter is not an active validator.".into(),
+                        ));
                     }
-
                     let handled_evidence: BTreeSet<[u8; 32]> = state
                         .get(EVIDENCE_REGISTRY_KEY)?
                         .as_deref()

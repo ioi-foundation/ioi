@@ -4,14 +4,18 @@ use async_trait::async_trait;
 use depin_sdk_api::chain::StateView;
 use depin_sdk_api::state::Verifier;
 use depin_sdk_client::WorkloadClient;
-use depin_sdk_types::app::{AccountId, ActiveKeyRecord, StateAnchor, StateRoot};
+use depin_sdk_types::app::{
+    read_validator_sets, AccountId, ActiveKeyRecord, StateAnchor, StateRoot,
+};
 use depin_sdk_types::codec;
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::{ChainError, StateError};
-use depin_sdk_types::keys::{AUTHORITY_SET_KEY, STAKES_KEY_CURRENT, STAKES_KEY_NEXT};
+use depin_sdk_types::keys::VALIDATOR_SET_KEY;
+use depin_sdk_types::{MAX_STATE_PROOF_BYTES, MAX_STATE_VALUE_BYTES};
+use lru::LruCache;
 use serde::Deserialize;
-use std::collections::BTreeMap;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 
 /// A read-only view that proxies reads to the workload over IPC and cryptographically
 /// verifies the returned proofs against a trusted state root.
@@ -20,7 +24,7 @@ pub struct RemoteStateView<V: Verifier> {
     root: StateRoot,
     client: Arc<WorkloadClient>,
     verifier: V,
-    consensus: ConsensusType,
+    proof_cache: Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>,
 }
 
 impl<V: Verifier> RemoteStateView<V> {
@@ -30,14 +34,15 @@ impl<V: Verifier> RemoteStateView<V> {
         root: StateRoot,
         client: Arc<WorkloadClient>,
         verifier: V,
-        consensus: ConsensusType,
+        _consensus: ConsensusType,
+        proof_cache: Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>,
     ) -> Self {
         Self {
             anchor,
             root,
             client,
             verifier,
-            consensus,
+            proof_cache,
         }
     }
 }
@@ -53,15 +58,23 @@ where
     }
 
     async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, ChainError> {
+        let cache_key = (self.root.as_ref().to_vec(), key.to_vec());
+        if let Some(cached_result) = self.proof_cache.lock().await.get(&cache_key) {
+            log::trace!("[RemoteView] Proof cache hit for key {}", hex::encode(key));
+            return Ok(cached_result.clone());
+        }
+
         let response = self
             .client
             .query_state_at(self.root.clone(), key)
             .await
             .map_err(|e| ChainError::State(StateError::Backend(e.to_string())))?;
 
-        // In a production system with multiple schemes, one would assert that
-        // response.scheme_id and response.version match the verifier's capabilities.
-        // For example: `assert_eq!(response.scheme_id, self.verifier.scheme_id());`
+        if response.proof_bytes.len() > MAX_STATE_PROOF_BYTES {
+            return Err(ChainError::State(StateError::Validation(
+                "Proof size exceeds maximum limit".to_string(),
+            )));
+        }
 
         let proof: V::Proof = bincode::deserialize(&response.proof_bytes)
             .map_err(|e| ChainError::State(StateError::InvalidValue(e.to_string())))?;
@@ -75,8 +88,6 @@ where
             .verifier
             .verify(&root_commitment, &proof, key, &response.membership)
         {
-            // CRITICAL: Proof verification failed. This could indicate a malicious or
-            // faulty Workload container. Reject the state read.
             log::error!(
                 "CRITICAL: Proof verification failed for remote state read. Root: {}, Key Prefix: {}",
                 hex::encode(&self.root.as_ref()[..16]), hex::encode(&key[..key.len().min(16)])
@@ -86,45 +97,45 @@ where
             )));
         }
 
-        // The proof is valid, we can trust the result.
-        Ok(response.membership.into_option())
-    }
-
-    async fn validator_set(&self) -> Result<Vec<AccountId>, ChainError> {
-        // This method is now trustless because it uses the verified `get` method internally.
-        match self.consensus {
-            ConsensusType::ProofOfAuthority => {
-                let bytes = self.get(AUTHORITY_SET_KEY).await?.ok_or_else(|| {
-                    ChainError::State(StateError::KeyNotFound("Authority set".into()))
-                })?;
-                codec::from_bytes_canonical(&bytes)
-                    .map_err(|e| ChainError::State(StateError::InvalidValue(e)))
-            }
-            ConsensusType::ProofOfStake => {
-                // This must match the logic in consensus::proof_of_stake::read_stakes:
-                // Read NEXT first, then fall back to CURRENT.
-                let bytes_opt = match self.get(STAKES_KEY_NEXT).await {
-                    Ok(Some(bytes)) => Ok(Some(bytes)),
-                    Ok(None) => self.get(STAKES_KEY_CURRENT).await, // Fallback
-                    Err(e) => Err(e),
-                }?;
-
-                let bytes = bytes_opt.ok_or_else(|| {
-                    ChainError::State(StateError::KeyNotFound(
-                        "Current or next stakes not found".into(),
-                    ))
-                })?;
-                let stakes: BTreeMap<AccountId, u64> = codec::from_bytes_canonical(&bytes)
-                    .map_err(|e| ChainError::State(StateError::InvalidValue(e)))?;
-                let mut vs: Vec<AccountId> = stakes
-                    .into_iter()
-                    .filter(|(_, s)| *s > 0)
-                    .map(|(a, _)| a)
-                    .collect();
-                vs.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
-                Ok(vs)
+        if let Some(val) = response.membership.clone().into_option() {
+            if val.len() > MAX_STATE_VALUE_BYTES {
+                return Err(ChainError::State(StateError::Validation(
+                    "State value size exceeds maximum limit".to_string(),
+                )));
             }
         }
+
+        let result = response.membership.into_option();
+        self.proof_cache.lock().await.put(cache_key, result.clone());
+        Ok(result)
+    }
+
+    async fn validator_set_legacy(&self) -> Result<Vec<AccountId>, ChainError> {
+        // Legacy behavior: always expose the *current* set at the anchor.
+        let raw = self
+            .get(VALIDATOR_SET_KEY)
+            .await?
+            .ok_or_else(|| ChainError::State(StateError::KeyNotFound("ValidatorSet".into())))?;
+
+        let sets = read_validator_sets(&raw).map_err(ChainError::State)?;
+        let vs = &sets.current;
+
+        if vs.validators.is_empty() && vs.total_weight > 0 {
+            return Err(ChainError::State(StateError::InvalidValue(
+                "Validator set invariant failed: empty set with non-zero weight".into(),
+            )));
+        }
+        if vs
+            .validators
+            .windows(2)
+            .any(|w| w[0].account_id >= w[1].account_id)
+        {
+            return Err(ChainError::State(StateError::InvalidValue(
+                "Validator set invariant failed: not sorted by account_id".into(),
+            )));
+        }
+
+        Ok(vs.validators.iter().map(|v| v.account_id).collect())
     }
 
     async fn active_consensus_key(&self, acct: &AccountId) -> Option<ActiveKeyRecord> {

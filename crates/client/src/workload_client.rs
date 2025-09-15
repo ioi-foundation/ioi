@@ -16,12 +16,12 @@ use serde_json::json;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
-use std::time::Duration; // FIX: Add Duration for retry logic
-use tokio::sync::Mutex as AsyncMutex; // NEW: serialize RPC calls
-use tokio::time::sleep; // FIX: Add sleep for retry logic
+use std::time::Duration;
+use tokio::sync::Mutex as AsyncMutex;
+use tokio::time::sleep;
 
 // --- Structs for RPC method parameters and results ---
-// ... (rest of the structs are correct and unchanged) ...
+
 #[derive(Serialize)]
 struct CheckTransactionsParams {
     anchor: StateAnchor,
@@ -84,18 +84,29 @@ struct GetValidatorSetAtParams {
 }
 
 #[derive(Serialize)]
+struct GetValidatorSetForParams {
+    height: u64,
+}
+
+#[derive(Serialize)]
 struct GetActiveKeyAtParams<'a> {
     anchor: StateAnchor,
     account_id: &'a AccountId,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct GenesisStatus {
+    pub ready: bool,
+    pub root: Vec<u8>,
+    pub chain_id: String,
 }
 
 /// A client-side proxy for communicating with the remote Workload container.
 #[derive(Debug, Clone)]
 pub struct WorkloadClient {
     channel: SecurityChannel,
-    workload_addr: String, // Store the connection address
+    workload_addr: String,
     request_id: Arc<AtomicI64>,
-    /// Serialize JSON‑RPC over the single mTLS stream to avoid interleaving/response races.
     rpc_lock: Arc<AsyncMutex<()>>,
 }
 
@@ -103,7 +114,6 @@ impl WorkloadClient {
     pub async fn new(workload_addr: &str) -> Result<Self> {
         let channel = SecurityChannel::new("orchestration", "workload");
 
-        // --- FIX START: Implement retry logic for connection ---
         let mut attempts = 0;
         let max_attempts = 5;
         let retry_delay = Duration::from_secs(2);
@@ -131,7 +141,6 @@ impl WorkloadClient {
                 }
             }
         }
-        // --- FIX END ---
 
         Ok(Self {
             channel,
@@ -140,9 +149,7 @@ impl WorkloadClient {
             rpc_lock: Arc::new(AsyncMutex::new(())),
         })
     }
-    // ... (rest of the file is correct and unchanged) ...
 
-    /// Returns the network address of the Workload container this client connects to.
     pub fn destination_addr(&self) -> &str {
         &self.workload_addr
     }
@@ -152,7 +159,6 @@ impl WorkloadClient {
         method: &str,
         params: P,
     ) -> Result<R> {
-        // IMPORTANT: hold the lock across the entire send/recv pair.
         let _guard = self.rpc_lock.lock().await;
         let id = self.request_id.fetch_add(1, Ordering::SeqCst);
 
@@ -246,8 +252,24 @@ impl WorkloadClient {
             .await
     }
 
-    pub async fn get_staked_validators(&self) -> Result<BTreeMap<String, u64>> {
-        self.send_rpc("staking.getStakes.v1", json!({})).await
+    pub async fn get_validator_set_for(&self, height: u64) -> Result<Vec<Vec<u8>>> {
+        let params = GetValidatorSetForParams { height };
+        self.send_rpc("chain.getValidatorSetFor.v1", params).await
+    }
+
+    pub async fn get_staked_validators(&self) -> Result<BTreeMap<AccountId, u64>> {
+        // FIX: Expect a map with string keys and convert them back to AccountId.
+        let map_with_str_keys: BTreeMap<String, u64> =
+            self.send_rpc("staking.getStakes.v1", json!({})).await?;
+
+        map_with_str_keys
+            .into_iter()
+            .map(|(hex_key, stake)| {
+                let mut bytes = [0u8; 32];
+                hex::decode_to_slice(hex_key, &mut bytes)?;
+                Ok((AccountId(bytes), stake))
+            })
+            .collect()
     }
 
     pub async fn get_state_root(&self) -> Result<StateRoot> {
@@ -301,6 +323,10 @@ impl WorkloadClient {
         };
         self.send_rpc("state.getActiveKeyAt.v1", params).await
     }
+
+    pub async fn get_genesis_status(&self) -> Result<GenesisStatus> {
+        self.send_rpc("system.getGenesisStatus.v1", json!({})).await
+    }
 }
 
 #[async_trait]
@@ -311,10 +337,21 @@ impl ChainStateReader for WorkloadClient {
             .map_err(|e| e.to_string())
     }
 
-    async fn get_next_staked_validators(&self) -> Result<BTreeMap<String, u64>, String> {
-        self.send_rpc("staking.getNextStakes.v1", json!({}))
+    async fn get_next_staked_validators(&self) -> Result<BTreeMap<AccountId, u64>, String> {
+        // FIX: Expect a map with string keys and convert them back to AccountId.
+        let map_with_str_keys: BTreeMap<String, u64> = self
+            .send_rpc("staking.getNextStakes.v1", json!({}))
             .await
-            .map_err(|e| e.to_string())
+            .map_err(|e| e.to_string())?;
+
+        map_with_str_keys
+            .into_iter()
+            .map(|(hex_key, stake)| {
+                let mut bytes = [0u8; 32];
+                hex::decode_to_slice(hex_key, &mut bytes).map_err(|e| e.to_string())?;
+                Ok((AccountId(bytes), stake))
+            })
+            .collect::<Result<_, String>>()
     }
 
     async fn get_public_key_for_account(

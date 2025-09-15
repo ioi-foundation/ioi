@@ -3,7 +3,7 @@
 use super::RpcContext;
 use crate::standard::workload_ipc_server::router::{RequestContext, RpcMethod};
 use anyhow::{anyhow, Result};
-use depin_sdk_api::chain::{AppChain, PublicKey, StakeAmount};
+use depin_sdk_api::chain::AppChain;
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::StateManager;
 use serde::{Deserialize, Serialize};
@@ -33,14 +33,15 @@ where
         + Send
         + Sync
         + 'static,
-    // FIX: Add trait bounds required by AppChain
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync,
+    <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
     const NAME: &'static str = "staking.getStakes.v1";
     type Params = GetStakesParams;
-    type Result = BTreeMap<PublicKey, StakeAmount>;
+    // FIX: The result key must be a String for JSON serialization.
+    type Result = BTreeMap<String, u64>;
 
     async fn call(
         &self,
@@ -52,8 +53,16 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetStakesV1"))?;
         let chain = ctx.chain.lock().await;
-        let stakes = chain.get_staked_validators(&ctx.workload).await?;
-        Ok(stakes)
+
+        let stakes_by_account_id = (*chain).get_staked_validators(&ctx.workload).await?;
+
+        // FIX: Convert AccountId keys to hex strings before returning.
+        let stakes_by_hex_id = stakes_by_account_id
+            .into_iter()
+            .map(|(account_id, stake)| (hex::encode(account_id.as_ref()), stake))
+            .collect();
+
+        Ok(stakes_by_hex_id)
     }
 }
 
@@ -81,14 +90,15 @@ where
         + Send
         + Sync
         + 'static,
-    // FIX: Add trait bounds required by AppChain
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync,
+    <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
     const NAME: &'static str = "staking.getNextStakes.v1";
     type Params = GetNextStakesParams;
-    type Result = BTreeMap<PublicKey, StakeAmount>;
+    // FIX: The result key must be a String for JSON serialization.
+    type Result = BTreeMap<String, u64>;
 
     async fn call(
         &self,
@@ -100,7 +110,15 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetNextStakesV1"))?;
         let chain = ctx.chain.lock().await;
-        let stakes = chain.get_next_staked_validators(&ctx.workload).await?;
-        Ok(stakes)
+
+        let stakes_by_account_id = (*chain).get_next_staked_validators(&ctx.workload).await?;
+
+        // FIX: Convert AccountId keys to hex strings before returning.
+        let stakes_by_hex_id = stakes_by_account_id
+            .into_iter()
+            .map(|(account_id, stake)| (hex::encode(account_id.as_ref()), stake))
+            .collect();
+
+        Ok(stakes_by_hex_id)
     }
 }

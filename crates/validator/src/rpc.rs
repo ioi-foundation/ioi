@@ -1,4 +1,4 @@
-// crates/validator/src/rpc.rs
+// Path: crates/validator/src/rpc.rs
 //! The JSON-RPC server for the Orchestration container.
 
 use crate::config::OrchestrationConfig;
@@ -73,6 +73,18 @@ async fn rpc_handler(
     };
 
     match payload.method.as_str() {
+        "system.getStatus.v1" => {
+            match app_state.workload_client.get_status().await {
+                Ok(status) => (
+                    StatusCode::OK,
+                    make_ok(&payload.id, serde_json::to_value(status).unwrap()),
+                ),
+                Err(e) => (
+                    StatusCode::OK,
+                    make_err(&payload.id, -32000, format!("Failed to get status: {}", e)),
+                ),
+            }
+        }
         "submit_transaction" | "submit_tx" | "broadcast_tx" | "sendTransaction" => {
             let Some(tx_val) = extract_tx_param(&payload.params) else {
                 return (
@@ -254,9 +266,7 @@ pub async fn run_rpc_server(
     let app_state = Arc::new(RpcAppState {
         tx_pool,
         workload_client,
-        // --- FIX START: Change the variable name to match the struct field ---
         swarm_command_sender: swarm_commander,
-        // --- FIX END ---
         config,
     });
 
@@ -265,12 +275,14 @@ pub async fn run_rpc_server(
         .route("/rpc", post(rpc_handler))
         .with_state(app_state);
 
-    let addr = listen_address.parse()?;
-    log::info!("RPC server listening on {}", addr);
-    eprintln!("ORCHESTRATION_RPC_LISTENING_ON_{}", addr);
+    let addr: std::net::SocketAddr = listen_address.parse()?;
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    eprintln!("ORCHESTRATION_RPC_LISTENING_ON_{}", listen_address);
+    log::info!("RPC server listening on {}", listen_address);
 
     let handle = tokio::spawn(async move {
-        axum::Server::bind(&addr)
+        axum::Server::from_tcp(listener.into_std().unwrap())
+            .unwrap()
             .serve(app.into_make_service())
             .await
             .unwrap();
