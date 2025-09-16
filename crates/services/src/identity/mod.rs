@@ -11,7 +11,6 @@ use depin_sdk_crypto::sign::{dilithium::DilithiumPublicKey, eddsa::Ed25519Public
 use depin_sdk_types::app::{
     account_id_from_key_material, read_validator_sets, write_validator_sets, AccountId,
     ActiveKeyRecord, ChainTransaction, Credential, RotationProof, SignatureSuite, ValidatorSetV1,
-    ValidatorSetsV1,
 };
 use depin_sdk_types::codec;
 use depin_sdk_types::error::{StateError, TransactionError, UpgradeError};

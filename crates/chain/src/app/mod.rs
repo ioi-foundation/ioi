@@ -507,7 +507,13 @@ where
                                     block.header.height
                                 );
                                 sets.current = next_vs.clone();
-                                sets.next = None;
+                                // --- FIX START: Only clear `next` if it was the one promoted ---
+                                if sets.next.as_ref().map_or(false, |n| {
+                                    n.effective_from_height == next_vs.effective_from_height
+                                }) {
+                                    sets.next = None;
+                                }
+                                // --- FIX END ---
                                 modified = true;
                             }
                         }

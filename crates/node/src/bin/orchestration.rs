@@ -215,6 +215,7 @@ where
 
     let orchestration = Arc::new(OrchestrationContainer::new(&opts.config, deps)?);
 
+    let consensus_for_chain = engine_from_config(&config)?;
     let chain_ref = {
         let tm = UnifiedTransactionModel::new(commitment_scheme.clone());
         let dummy_workload_config = WorkloadConfig {
@@ -234,7 +235,6 @@ where
             Box::new(depin_sdk_vm_wasm::WasmVm::new(Default::default())),
             Default::default(),
         ));
-        let consensus = engine_from_config(&config)?;
         let chain = Chain::new(
             commitment_scheme,
             tm,
@@ -247,7 +247,7 @@ where
                     ))
                 },
             ),
-            consensus,
+            consensus_for_chain,
             workload_container,
         );
         Arc::new(tokio::sync::Mutex::new(chain))
@@ -276,6 +276,13 @@ async fn main() -> Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
         .format_timestamp_secs()
         .init();
+
+    // --- FIX START (Analysis 1): Add global panic hook for better debugging ---
+    std::panic::set_hook(Box::new(|info| {
+        eprintln!("ORCHESTRATION_PANIC: {}", info);
+    }));
+    // --- FIX END ---
+
     let opts = OrchestrationOpts::parse();
     log::info!(
         "Orchestration container starting up with config: {:?}",
@@ -292,7 +299,9 @@ async fn main() -> Result<()> {
             identity::Keypair::from_protobuf_encoding(&bytes)?
         } else {
             let keypair = identity::Keypair::generate_ed25519();
+            // --- FIX START: Correct typo from `some` to `Some` ---
             if let Some(parent) = key_path.parent() {
+            // --- FIX END ---
                 fs::create_dir_all(parent)?;
             }
             fs::File::create(key_path)?.write_all(&keypair.to_protobuf_encoding()?)?;

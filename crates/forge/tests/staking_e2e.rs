@@ -6,11 +6,9 @@ use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_client::WorkloadClient;
 use depin_sdk_forge::testing::{
-    backend::LogStream, // [+] Import LogStream
     build_test_artifacts,
     poll::{wait_for_height, wait_for_stake_to_be},
-    submit_transaction,
-    TestCluster,
+    submit_transaction, TestCluster,
 };
 use depin_sdk_types::{
     app::{
@@ -23,7 +21,6 @@ use depin_sdk_types::{
     keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
     service_configs::MigrationConfig,
 };
-use futures_util::StreamExt; // [+] Import StreamExt for .next()
 use libp2p::identity::Keypair;
 use serde_json::json;
 use std::time::Duration;
@@ -162,8 +159,6 @@ async fn test_staking_lifecycle() -> Result<()> {
         .build()
         .await?;
 
-    // [+] PROPOSED CHANGE: Extract all necessary data from validators first
-    // to release the mutable borrow on `cluster.validators` quickly.
     let rpc_addr = cluster.validators[0].rpc_addr.clone();
     let client0 = WorkloadClient::new(&cluster.validators[0].workload_ipc_addr).await?;
     let client1 = WorkloadClient::new(&cluster.validators[1].workload_ipc_addr).await?;
@@ -172,40 +167,31 @@ async fn test_staking_lifecycle() -> Result<()> {
     let keypair1 = cluster.validators[1].keypair.clone();
     let client1_rpc_addr = cluster.validators[1].rpc_addr.clone(); // For waiting on node 1
 
-    let logging_task = {
-        let mut orch_logs: Vec<LogStream> = Vec::new();
-        let mut work_logs: Vec<LogStream> = Vec::new();
-        for node in cluster.validators.iter_mut() {
-            orch_logs.push(node.orch_log_stream.lock().await.take().unwrap());
-            work_logs.push(node.workload_log_stream.lock().await.take().unwrap());
-        }
+    // --- FIX START: Use the new `subscribe_logs` method ---
+    let (mut orch_logs_0, mut work_logs_0, _) = cluster.validators[0].subscribe_logs();
+    let (mut orch_logs_1, mut work_logs_1, _) = cluster.validators[1].subscribe_logs();
+    let (mut orch_logs_2, mut work_logs_2, _) = cluster.validators[2].subscribe_logs();
+    // --- FIX END ---
 
-        async move {
-            loop {
-                // Drain and print logs from each node's orchestrator
-                for i in 0..orch_logs.len() {
-                    while let Ok(Some(line_res)) =
-                        tokio::time::timeout(Duration::from_millis(10), orch_logs[i].next()).await
-                    {
-                        if let Ok(line) = line_res {
-                            println!("[Orch-{}]: {}", i, line);
-                        }
-                    }
+    // Logging task to drain all logs in the background and prevent backpressure
+    let logging_task = tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                // Node 0
+                Ok(line) = orch_logs_0.recv() => println!("[Orch-0]: {}", line),
+                Ok(line) = work_logs_0.recv() => println!("[Work-0]: {}", line),
+                // Node 1
+                Ok(line) = orch_logs_1.recv() => println!("[Orch-1]: {}", line),
+                Ok(line) = work_logs_1.recv() => println!("[Work-1]: {}", line),
+                // Node 2
+                Ok(line) = orch_logs_2.recv() => println!("[Orch-2]: {}", line),
+                Ok(line) = work_logs_2.recv() => println!("[Work-2]: {}", line),
+                else => {
+                    tokio::time::sleep(Duration::from_millis(10)).await;
                 }
-                // Drain and print logs from each node's workload
-                for i in 0..work_logs.len() {
-                    while let Ok(Some(line_res)) =
-                        tokio::time::timeout(Duration::from_millis(10), work_logs[i].next()).await
-                    {
-                        if let Ok(line) = line_res {
-                            println!("[Work-{}]: {}", i, line);
-                        }
-                    }
-                }
-                tokio::time::sleep(Duration::from_millis(50)).await;
             }
         }
-    };
+    });
 
     wait_for_height(&rpc_addr, 1, Duration::from_secs(20)).await?;
     wait_for_height(&client1_rpc_addr, 1, Duration::from_secs(30)).await?;
@@ -246,7 +232,6 @@ async fn test_staking_lifecycle() -> Result<()> {
             res?
         },
         _ = polling_task => {},
-        _ = logging_task => {},
     };
 
     let node0_account_id = AccountId(account_id_from_key_material(
@@ -267,6 +252,7 @@ async fn test_staking_lifecycle() -> Result<()> {
     )
     .await?;
 
+    logging_task.abort();
     println!("--- Staking Lifecycle E2E Test Passed ---");
     Ok(())
 }
