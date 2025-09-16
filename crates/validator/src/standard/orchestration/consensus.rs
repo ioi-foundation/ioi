@@ -4,15 +4,20 @@ use super::gossip::prune_mempool;
 use super::oracle::handle_newly_processed_block;
 use super::remote_state_view::RemoteStateView;
 use depin_sdk_api::{
+    chain::StateView,
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
+    crypto::{SerializableKey, SigningKeyPair},
     state::{StateManager, Verifier},
 };
 use depin_sdk_network::libp2p::SwarmCommand;
 use depin_sdk_network::traits::NodeState;
-use depin_sdk_types::app::{
-    account_id_from_key_material, AccountId, Block, BlockHeader, ChainTransaction, SignatureSuite,
-    StateAnchor, StateRoot,
+use depin_sdk_types::{
+    app::{
+        account_id_from_key_material, read_validator_sets, AccountId, Block, BlockHeader,
+        ChainTransaction, SignatureSuite, StateAnchor, StateRoot,
+    },
+    keys::VALIDATOR_SET_KEY,
 };
 use serde::Serialize;
 use std::collections::HashSet;
@@ -187,7 +192,6 @@ where
                     "[Orch Tick][Node {}] StaleAnchor; refreshing root and retrying once.",
                     our_account_id_short
                 );
-                // Pull the freshest root from workload and retry once.
                 let fresh_root = match context.workload_client.get_state_root().await {
                     Ok(r) => r,
                     Err(e2) => {
@@ -269,21 +273,103 @@ where
             valid_txs.len()
         );
 
-        let header_validator_set = match context
-            .workload_client
-            .get_validator_set_for(height_being_built)
-            .await
-        {
-            Ok(v) => v,
-            Err(e) => {
-                log::warn!(
-                    "[Orch Tick][Node {}] get_validator_set_for(H={}) failed ({}). Continuing with empty header.validator_set; verification uses on-chain state.",
-                    our_account_id_short,
-                    height_being_built, e
+        let parent_root_for_keys = context
+            .last_committed_block
+            .as_ref()
+            .map(|b| b.header.state_root.clone())
+            .unwrap_or_else(|| context.genesis_root.clone());
+        let parent_anchor_for_keys = parent_root_for_keys.to_anchor();
+        let parent_view_for_keys = RemoteStateView::new(
+            parent_anchor_for_keys,
+            parent_root_for_keys.clone(),
+            context.workload_client.clone(),
+            context.verifier.clone(),
+            cons_ty,
+            context.proof_cache_ref.clone(),
+        );
+
+        let vs_bytes = match parent_view_for_keys.get(VALIDATOR_SET_KEY).await {
+            Ok(Some(b)) => b,
+            _ => {
+                log::error!(
+                    "[Orch Tick] Could not load ValidatorSet at parent; aborting production."
                 );
-                Vec::new()
+                return;
             }
         };
+
+        let Ok(sets) = read_validator_sets(&vs_bytes) else {
+            log::error!("[Orch Tick] Could not decode ValidatorSet; aborting production.");
+            return;
+        };
+
+        let effective_vs = if let Some(next) = &sets.next {
+            if target_height >= next.effective_from_height
+                && !next.validators.is_empty()
+                && next.total_weight > 0
+            {
+                next
+            } else {
+                &sets.current
+            }
+        } else {
+            &sets.current
+        };
+
+        let Some(me) = effective_vs
+            .validators
+            .iter()
+            .find(|v| v.account_id == our_account_id)
+        else {
+            log::info!(
+                "[Orch Tick] We are not in the effective validator set for H={}; will not produce.",
+                target_height
+            );
+            return;
+        };
+        let required_suite = me.consensus_key.suite;
+        log::info!(
+            "[Orch Tick] Signing suite for H={} is {:?}",
+            target_height,
+            required_suite
+        );
+
+        let (producer_key_suite, producer_pubkey, producer_pubkey_hash, signature_fn): (
+            SignatureSuite,
+            Vec<u8>,
+            [u8; 32],
+            Box<dyn Fn(&[u8]) -> Vec<u8> + Send>,
+        ) = match required_suite {
+            SignatureSuite::Ed25519 => {
+                let pk = context.local_keypair.public().encode_protobuf();
+                let hash = account_id_from_key_material(SignatureSuite::Ed25519, &pk).unwrap();
+                let signer = {
+                    let kp = context.local_keypair.clone();
+                    Box::new(move |msg: &[u8]| kp.sign(msg).unwrap())
+                        as Box<dyn Fn(&[u8]) -> Vec<u8> + Send>
+                };
+                (SignatureSuite::Ed25519, pk, hash, signer)
+            }
+            SignatureSuite::Dilithium2 => {
+                let Some(pqc_signer) = context.pqc_signer.as_ref() else {
+                    log::error!("[Orch Tick] Dilithium signing required but no PQC signer configured. Refusing to produce.");
+                    return;
+                };
+                let pqc_signer_clone = pqc_signer.clone();
+                let pk = SigningKeyPair::public_key(&pqc_signer_clone).to_bytes();
+                let hash = account_id_from_key_material(SignatureSuite::Dilithium2, &pk).unwrap();
+                let signer = Box::new(move |msg: &[u8]| {
+                    SigningKeyPair::sign(&pqc_signer_clone, msg).to_bytes()
+                });
+                (SignatureSuite::Dilithium2, pk, hash, signer)
+            }
+        };
+
+        let header_validator_set = effective_vs
+            .validators
+            .iter()
+            .map(|v| v.account_id.0.to_vec())
+            .collect();
 
         let parent_hash_vec = match context.workload_client.get_last_block_hash().await {
             Ok(v) => v,
@@ -299,17 +385,7 @@ where
         let mut parent_hash = [0u8; 32];
         if parent_hash_vec.len() == 32 {
             parent_hash.copy_from_slice(&parent_hash_vec);
-        } else {
-            log::warn!(
-                "[Orch Tick][Node {}] last_block_hash length {} != 32. Using zeros.",
-                our_account_id_short,
-                parent_hash_vec.len()
-            );
         }
-        let producer_pubkey = context.local_keypair.public().encode_protobuf();
-        let producer_key_suite = SignatureSuite::Ed25519;
-        let producer_pubkey_hash =
-            account_id_from_key_material(producer_key_suite, &producer_pubkey).unwrap();
 
         let new_block_template = Block {
             header: BlockHeader {
@@ -345,7 +421,7 @@ where
                     block_height
                 );
                 let preimage = final_block.header.to_preimage_for_signing();
-                final_block.header.signature = context.local_keypair.sign(&preimage).unwrap();
+                final_block.header.signature = signature_fn(&preimage);
 
                 context.last_committed_block = Some(final_block.clone());
                 log::debug!(

@@ -19,9 +19,8 @@ use depin_sdk_validator::standard::{
 use libp2p::{identity, Multiaddr};
 use std::fs;
 use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{atomic::AtomicBool, Arc};
-use tokio::sync::mpsc;
 
 // Imports for concrete types used in the factory
 use depin_sdk_api::{commitment::CommitmentScheme, state::StateManager};
@@ -168,6 +167,7 @@ where
         swarm_command_sender: real_swarm_commander,
         consensus_engine,
         local_keypair: local_key,
+        pqc_keypair: None, // The binary does not load a PQC key by default.
         is_quarantined,
         verifier,
     };
