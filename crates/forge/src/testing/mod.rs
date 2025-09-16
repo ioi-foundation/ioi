@@ -24,7 +24,6 @@ use depin_sdk_validator::config::OrchestrationConfig;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use hyper::Body;
 use libp2p::{identity, Multiaddr, PeerId};
-use reqwest::Client;
 use serde_json::Value;
 use std::path::Path;
 use std::process::{Command, Stdio};

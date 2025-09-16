@@ -7,10 +7,8 @@ use depin_sdk_api::{
     state::{StateManager, Verifier},
 };
 use depin_sdk_client::WorkloadClient;
-use depin_sdk_network::{
-    libp2p::{NetworkEvent, SwarmCommand},
-    traits::NodeState,
-};
+use depin_sdk_network::libp2p::SwarmCommand;
+use depin_sdk_network::traits::NodeState;
 use depin_sdk_services::external_data::ExternalDataService;
 use depin_sdk_types::app::{Block, ChainTransaction, OracleAttestation, StateRoot};
 use libp2p::{identity, PeerId};
@@ -46,8 +44,7 @@ where
 {
     pub chain_ref: ChainFor<CS, ST>,
     pub workload_client: Arc<WorkloadClient>,
-    pub tx_pool_ref: Arc<Mutex<VecDeque<ChainTransaction>>>,
-    pub network_event_receiver: Option<mpsc::Receiver<NetworkEvent>>,
+    pub tx_pool_ref: Arc<Mutex<VecDeque<ChainTransaction>>>, // NOTE: `network_event_receiver` is intentionally omitted. It's taken once at startup and moved into the main loop, so it shouldn't be part of the shared context.
     pub swarm_commander: mpsc::Sender<SwarmCommand>,
     pub shutdown_receiver: watch::Receiver<bool>,
     pub consensus_engine_ref: Arc<Mutex<CE>>,

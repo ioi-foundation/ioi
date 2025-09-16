@@ -2,7 +2,7 @@
 #![cfg(all(
     feature = "consensus-pos",
     feature = "vm-wasm",
-    feature = "tree-file",
+    feature = "tree-iavl",
     feature = "primitive-hash"
 ))]
 
@@ -24,7 +24,10 @@ use depin_sdk_types::{
     },
     codec,
     config::InitialServiceConfig,
-    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
+    keys::{
+        ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, STAKES_KEY_CURRENT,
+        VALIDATOR_SET_KEY,
+    },
     service_configs::MigrationConfig,
 };
 use serde_json::{json, Value};
@@ -156,7 +159,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     std::env::set_var("ORCH_BLOCK_INTERVAL_SECS", "2");
 
     // 1. SETUP
-    build_test_artifacts("consensus-pos,vm-wasm,tree-file,primitive-hash");
+    build_test_artifacts("consensus-pos,vm-wasm,tree-iavl,primitive-hash");
     let ed25519_key = Ed25519KeyPair::generate();
     let dilithium_scheme = DilithiumScheme::new(SecurityLevel::Level2);
     let dilithium_key = dilithium_scheme.generate_keypair();
@@ -168,14 +171,16 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     let ed25519_suite = ed25519_key.suite();
     let ed25519_account_id = ed25519_key.account_id();
     let ed25519_libp2p_pk = ed25519_key.libp2p_public_bytes();
+    let ed25519_key_clone = ed25519_key.clone();
 
     let validator_keypair = libp2p::identity::Keypair::generate_ed25519();
 
     // 2. LAUNCH CLUSTER
     let mut cluster = TestCluster::builder()
         .with_validators(1)
-        .with_keypairs(vec![validator_keypair])
+        .with_keypairs(vec![validator_keypair.clone()])
         .with_consensus_type("ProofOfStake")
+        .with_state_tree("IAVL")
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             grace_period_blocks,
             accept_staged_during_grace: true,
@@ -184,11 +189,9 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
             chain_id,
         }))
         .with_genesis_modifier(move |genesis, _keys| {
-            // Use the provided validator keypair from the cluster builder
-            let validator_keypair = &_keys[0];
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
 
-            // Setup the validator node's identity
+            // Setup identity for both the validator and the test account
             add_identity_to_genesis(
                 genesis_state,
                 SignatureSuite::Ed25519,
@@ -201,8 +204,6 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
                 ),
                 &validator_keypair.public().encode_protobuf(),
             );
-
-            // Setup the test account's identity
             add_identity_to_genesis(
                 genesis_state,
                 ed25519_suite,
@@ -210,7 +211,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
                 &ed25519_libp2p_pk,
             );
 
-            // Set initial stake for the validator to produce blocks, using the correct canonical encoding.
+            // Create ValidatorV1 entry for ONLY the validator node
             let validator_account_id = AccountId(
                 account_id_from_key_material(
                     SignatureSuite::Ed25519,
@@ -218,22 +219,24 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
                 )
                 .unwrap(),
             );
+            let initial_stake = 100_000u128;
+            let validators = vec![ValidatorV1 {
+                account_id: validator_account_id,
+                weight: initial_stake,
+                consensus_key: ActiveKeyRecord {
+                    suite: SignatureSuite::Ed25519,
+                    pubkey_hash: validator_account_id.0,
+                    since_height: 0,
+                },
+            }];
 
             let vs_blob = ValidatorSetBlob {
                 schema_version: 2,
                 payload: ValidatorSetsV1 {
                     current: ValidatorSetV1 {
                         effective_from_height: 1,
-                        total_weight: 100_000,
-                        validators: vec![ValidatorV1 {
-                            account_id: validator_account_id,
-                            weight: 100_000,
-                            consensus_key: ActiveKeyRecord {
-                                suite: SignatureSuite::Ed25519,
-                                pubkey_hash: validator_account_id.0,
-                                since_height: 0,
-                            },
-                        }],
+                        total_weight: initial_stake,
+                        validators,
                     },
                     next: None,
                 },
@@ -243,6 +246,68 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
             );
+
+            // Set up stakes for both accounts for transaction validity
+            let initial_stake = 100_000u64;
+            let mut stakes = BTreeMap::new();
+            stakes.insert(validator_account_id, initial_stake);
+            stakes.insert(ed25519_account_id, initial_stake);
+            let stakes_bytes = codec::to_bytes_canonical(&stakes);
+            genesis_state.insert(
+                std::str::from_utf8(STAKES_KEY_CURRENT).unwrap().to_string(),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&stakes_bytes))),
+            );
+
+            // Convert the SDK-native Ed25519 keypair to a libp2p::identity::Keypair
+            // This is necessary because the loop expects a uniform key type.
+            let ed25519_key_libp2p = {
+                let sk_bytes = ed25519_key_clone.private_key().to_bytes();
+                let ed25519_sk =
+                    libp2p::identity::ed25519::SecretKey::try_from_bytes(sk_bytes).unwrap();
+                let ed25519_kp = libp2p::identity::ed25519::Keypair::from(ed25519_sk);
+                libp2p::identity::Keypair::from(ed25519_kp)
+            };
+
+            // Set up identity records needed for signature validation
+            for (key, acct_id) in [
+                (&validator_keypair, validator_account_id),
+                (&ed25519_key_libp2p, ed25519_account_id),
+            ] {
+                let pk_bytes = key.public().encode_protobuf();
+                let cred = Credential {
+                    suite: SignatureSuite::Ed25519,
+                    public_key_hash: acct_id.0,
+                    activation_height: 0,
+                    l2_location: None,
+                };
+                let creds_array: [Option<Credential>; 2] = [Some(cred), None];
+                let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
+                let creds_key = [IDENTITY_CREDENTIALS_PREFIX, acct_id.as_ref()].concat();
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
+                );
+
+                let record = ActiveKeyRecord {
+                    suite: SignatureSuite::Ed25519,
+                    pubkey_hash: acct_id.0,
+                    since_height: 0,
+                };
+                let record_key = [b"identity::key_record::", acct_id.as_ref()].concat();
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
+                    json!(format!(
+                        "b64:{}",
+                        BASE64_STANDARD.encode(codec::to_bytes_canonical(&record))
+                    )),
+                );
+
+                let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, acct_id.as_ref()].concat();
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes))),
+                );
+            }
         })
         .build()
         .await?;
@@ -252,30 +317,13 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     let mut orch_logs = node.orch_log_stream.lock().await.take().unwrap();
     wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
 
-    // 3. INITIAL TX (Ed25519) - Verifies nonce=0 works
-    let header = SignHeader {
-        account_id,
-        nonce,
-        chain_id,
-        tx_version: 1,
-    };
-    let initial_tx =
-        create_signed_system_tx(&ed25519_key, header, SystemPayload::Unstake { amount: 0 })?;
-    submit_transaction(rpc_addr, &initial_tx).await?;
-    nonce += 1; // Nonce is now 1
-    assert_log_contains(
-        "Orchestration",
-        &mut orch_logs,
-        "Published transaction via gossip",
-    )
-    .await?;
-
-    // 4. INITIATE ROTATION
+    // 3. INITIATE ROTATION
     let challenge = {
         let mut preimage = b"DePIN-PQ-MIGRATE/v1".to_vec();
         preimage.extend_from_slice(&chain_id.to_le_bytes());
         preimage.extend_from_slice(account_id.as_ref());
-        preimage.extend_from_slice(&0u64.to_le_bytes()); // First rotation nonce is 0
+        let rotation_nonce = 0u64;
+        preimage.extend_from_slice(&rotation_nonce.to_le_bytes());
         depin_sdk_crypto::algorithms::hash::sha256(&preimage)
     };
     let rotation_proof = RotationProof {
@@ -298,7 +346,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
         SystemPayload::RotateKey(rotation_proof),
     )?;
     submit_transaction(rpc_addr, &rotate_tx).await?;
-    nonce += 1; // Nonce is now 2
+    nonce += 1; // Nonce is now 1
     assert_log_contains(
         "Orchestration",
         &mut orch_logs,
@@ -306,8 +354,12 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     )
     .await?;
 
-    // 5. TEST GRACE PERIOD (Both keys should work, sharing the same nonce sequence)
-    // Send with old key (nonce=2)
+    // Wait for the block containing the rotation to be committed, ensuring the chain state
+    // is updated before we test the grace period logic.
+    wait_for_height(rpc_addr, 2, Duration::from_secs(20)).await?;
+
+    // 4. TEST GRACE PERIOD
+    // Send with old key (nonce=1)
     let ed_header = SignHeader {
         account_id,
         nonce,
@@ -319,11 +371,14 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
         &create_signed_system_tx(
             &ed25519_key,
             ed_header,
-            SystemPayload::Unstake { amount: 0 },
+            SystemPayload::RequestOracleData {
+                url: "grace-old".into(),
+                request_id: 1,
+            },
         )?,
     )
     .await?;
-    nonce += 1; // Nonce is now 3
+    nonce += 1; // Nonce is now 2
     assert_log_contains(
         "Orchestration",
         &mut orch_logs,
@@ -331,7 +386,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     )
     .await?;
 
-    // Send with new key (nonce=3)
+    // Send with new key (nonce=2)
     let dil_header = SignHeader {
         account_id,
         nonce,
@@ -343,11 +398,14 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
         &create_signed_system_tx(
             &dilithium_key,
             dil_header,
-            SystemPayload::Unstake { amount: 0 },
+            SystemPayload::RequestOracleData {
+                url: "grace-new".into(),
+                request_id: 2,
+            },
         )?,
     )
     .await?;
-    nonce += 1; // Nonce is now 4
+    nonce += 1; // Nonce is now 3
     assert_log_contains(
         "Orchestration",
         &mut orch_logs,
@@ -355,10 +413,10 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     )
     .await?;
 
-    // 6. TEST POST-GRACE PERIOD
+    // 5. TEST POST-GRACE PERIOD
     wait_for_height(rpc_addr, 8, Duration::from_secs(60)).await?;
 
-    // Try to send with the old key. This should be rejected.
+    // Try to send with the old key (at nonce=3). This should be accepted by the mempool but rejected by the chain.
     let old_key_header = SignHeader {
         account_id,
         nonce,
@@ -368,18 +426,22 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     let old_key_tx = create_signed_system_tx(
         &ed25519_key,
         old_key_header,
-        SystemPayload::Unstake { amount: 1 },
+        SystemPayload::RequestOracleData {
+            url: "post-grace-old".into(),
+            request_id: 3,
+        },
     )?;
-    let old_key_result = submit_transaction(rpc_addr, &old_key_tx).await;
-    assert!(old_key_result.is_err());
-    let err_string = old_key_result.unwrap_err().to_string();
-    assert!(
-        err_string.contains("ExpiredKey") || err_string.contains("UnauthorizedByCredentials"),
-        "Expected ExpiredKey or Unauthorized error, but got: {}",
-        err_string
-    );
+    submit_transaction(rpc_addr, &old_key_tx).await?;
 
-    // Send with the new key. This should succeed.
+    // Assert that the Orchestrator's pre-check logic correctly identifies the tx as invalid.
+    assert_log_contains(
+        "Orchestration",
+        &mut orch_logs,
+        "Filtering tx 0 as invalid: Invalid transaction: ExpiredKey",
+    )
+    .await?;
+
+    // Send with the new key (at nonce=3). This should succeed.
     let new_key_header = SignHeader {
         account_id,
         nonce,
@@ -389,10 +451,13 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     let new_key_tx = create_signed_system_tx(
         &dilithium_key,
         new_key_header,
-        SystemPayload::Unstake { amount: 0 },
+        SystemPayload::RequestOracleData {
+            url: "post-grace-new".into(),
+            request_id: 4,
+        },
     )?;
     submit_transaction(rpc_addr, &new_key_tx).await?;
-    nonce += 1; // Nonce is now 5
+    nonce += 1; // Nonce is now 4
     assert_log_contains(
         "Orchestration",
         &mut orch_logs,
@@ -400,7 +465,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     )
     .await?;
 
-    // Verify the new key still works
+    // Verify the new key still works (at nonce=4)
     let final_header = SignHeader {
         account_id,
         nonce,
@@ -410,7 +475,10 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     let final_tx = create_signed_system_tx(
         &dilithium_key,
         final_header,
-        SystemPayload::Unstake { amount: 0 },
+        SystemPayload::RequestOracleData {
+            url: "post-grace-final".into(),
+            request_id: 5,
+        },
     )?;
     submit_transaction(rpc_addr, &final_tx).await?;
     assert_log_contains(

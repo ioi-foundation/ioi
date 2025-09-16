@@ -9,9 +9,9 @@ use depin_sdk_api::chain::{ChainView, StateView};
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::consensus::ChainStateReader;
 use depin_sdk_api::state::{StateAccessor, StateManager};
-use depin_sdk_types::app::{AccountId, Block, FailureReport};
+use depin_sdk_types::app::{read_validator_sets, AccountId, Block, FailureReport};
 use depin_sdk_types::error::{ConsensusError, StateError, TransactionError};
-use depin_sdk_types::keys::{AUTHORITY_SET_KEY, QUARANTINED_VALIDATORS_KEY};
+use depin_sdk_types::keys::{QUARANTINED_VALIDATORS_KEY, VALIDATOR_SET_KEY};
 use libp2p::PeerId;
 use std::collections::{BTreeSet, HashMap, HashSet};
 use tokio::time::{Duration, Instant};
@@ -105,13 +105,17 @@ impl PenaltyMechanism for RoundRobinBftEngine {
     ) -> Result<(), TransactionError> {
         const MIN_LIVE_AUTHORITIES: usize = 2;
 
-        let authorities_bytes = state.get(AUTHORITY_SET_KEY)?.ok_or_else(|| {
+        let authorities_bytes = state.get(VALIDATOR_SET_KEY)?.ok_or_else(|| {
             TransactionError::State(StateError::KeyNotFound(
                 "Authority set not found in state".into(),
             ))
         })?;
-        let authorities: Vec<AccountId> =
-            depin_sdk_types::codec::from_bytes_canonical(&authorities_bytes)?;
+        let authorities: Vec<AccountId> = read_validator_sets(&authorities_bytes)?
+            .current
+            .validators
+            .into_iter()
+            .map(|v| v.account_id)
+            .collect();
 
         let quarantined: BTreeSet<AccountId> = state
             .get(QUARANTINED_VALIDATORS_KEY)?
@@ -157,10 +161,15 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
         parent_view: &dyn StateView,
         known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
-        let validator_data = match parent_view.validator_set_legacy().await {
-            Ok(vs) => vs,
+        let vs_bytes = match parent_view.get(VALIDATOR_SET_KEY).await {
+            Ok(Some(bytes)) => bytes,
+            _ => return ConsensusDecision::Stall,
+        };
+        let sets = match read_validator_sets(&vs_bytes) {
+            Ok(s) => s,
             Err(_) => return ConsensusDecision::Stall,
         };
+        let validator_data: Vec<_> = sets.current.validators.into_iter().map(|v| v.account_id).collect();
 
         self.validator_set_cache
             .entry(height)
@@ -212,10 +221,16 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
             .await
             .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?;
 
-        let validator_set = parent_view
-            .validator_set_legacy()
+        let vs_bytes = parent_view
+            .get(VALIDATOR_SET_KEY)
             .await
-            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?;
+            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
+            .ok_or_else(|| {
+                ConsensusError::StateAccess(StateError::KeyNotFound("ValidatorSet".into()))
+            })?;
+        let sets = read_validator_sets(&vs_bytes)
+            .map_err(|e| ConsensusError::StateAccess(StateError::InvalidValue(e.to_string())))?;
+        let validator_set: Vec<_> = sets.current.validators.into_iter().map(|v| v.account_id).collect();
 
         if validator_set.is_empty() {
             return Err(ConsensusError::BlockVerificationFailed(

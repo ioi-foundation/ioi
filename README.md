@@ -187,7 +187,7 @@ Here is the updated testing section for your `README.md`:
 |------|---------|
 | **Staking** | `cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-iavl,primitive-hash" --test staking_e2e -- --nocapture` |
 | **Contract** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" --test contract_e2e -- --nocapture` |
-| **PQC Migration** | `cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-file,primitive-hash" --test pqc_migration_e2e -- --nocapture` |
+| **PQC Migration** | `cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-iavl,primitive-hash" --test pqc_migration_e2e -- --nocapture` |
 | **Governance** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test governance_e2e -- --nocapture` |
 | **Module Upgrade** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test module_upgrade_e2e -- --nocapture` |
 | **Agentic Consensus** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test agentic_consensus_e2e -- --nocapture` |

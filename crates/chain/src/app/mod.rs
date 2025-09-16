@@ -123,10 +123,8 @@ impl<CS, ST> Chain<CS, ST>
 where
     CS: CommitmentScheme + Clone,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
-    // --- FIX START: Add the missing trait bounds here ---
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
-    // --- FIX END ---
 {
     /// Select the validator set that is effective for the given height.
     /// Mirrors the logic used by the PoS engine.
@@ -202,7 +200,6 @@ where
                 })?;
                 log::info!("Loaded chain status: height {}", status.height);
                 self.state.status = status;
-                // If we loaded state, the last committed root is the current root.
                 let root = StateRoot(state.root_commitment().as_ref().to_vec());
                 self.state.genesis_state = GenesisState::Ready {
                     root: root.clone(),
@@ -214,25 +211,18 @@ where
                 log::info!(
                     "No existing chain status found. Initializing and saving genesis status."
                 );
-                // The genesis file has already been loaded at this point.
-                // 1. Commit the fully-loaded genesis state to create version 0.
                 state.commit_version();
                 log::debug!("[Chain] Committed full genesis state.");
 
-                // 2. Now write the initial status key.
                 let status_bytes = serde_json::to_vec(&self.state.status).unwrap();
                 state
                     .insert(STATUS_KEY, &status_bytes)
                     .map_err(|e| ChainError::Transaction(e.to_string()))?;
 
-                // 3. Commit AGAIN to include the status key. This is the new canonical root for H=0.
                 state.commit_version();
                 log::debug!("[Chain] Committed genesis state including status key.");
 
-                // 4. Set the final genesis state.
                 let final_root = StateRoot(state.root_commitment().as_ref().to_vec());
-
-                // ---- NEW: Perform self-check for proofability ----
                 let root_commitment_for_check = state
                     .commitment_from_bytes(final_root.as_ref())
                     .expect("Failed to create commitment for self-check");
@@ -245,7 +235,6 @@ where
                     }
                     _ => panic!("CRITICAL: Committed genesis state is not provable. Halting."),
                 }
-                // ---- END: Self-check ----
 
                 self.state.genesis_state = GenesisState::Ready {
                     root: final_root.clone(),
@@ -299,12 +288,9 @@ where
     }
 }
 
-// A concrete implementation of StateView for the Chain.
 pub struct ChainStateView<ST: StateManager> {
     state_tree: Arc<tokio::sync::RwLock<ST>>,
     anchor: StateAnchor,
-    // Non-zero anchors are resolved to the full commitment bytes (StateRoot bytes).
-    // None => latest state (fast path).
     resolved_root_bytes: Option<Vec<u8>>,
 }
 
@@ -339,7 +325,6 @@ impl<ST: StateManager + Send + Sync + 'static> StateView for ChainStateView<ST> 
         let key_hex = hex::encode(key);
 
         if self.resolved_root_bytes.is_none() {
-            // FAST PATH (latest snapshot)
             let out = state.get(key).map_err(ChainError::State)?;
             log::info!(
                 "[StateView::get][fast] key={} -> present={}",
@@ -349,7 +334,6 @@ impl<ST: StateManager + Send + Sync + 'static> StateView for ChainStateView<ST> 
             return Ok(out);
         }
 
-        // HISTORICAL PATH (anchored)
         let root_bytes = self.resolved_root_bytes.as_ref().unwrap();
         let commitment = state
             .commitment_from_bytes(root_bytes)
@@ -388,13 +372,11 @@ where
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
 {
     async fn view_at(&self, anchor: &StateAnchor) -> Result<Box<dyn StateView>, ChainError> {
-        // Resolve the anchor (if non-zero) to the full StateRoot bytes.
         let resolved_root_bytes = if anchor.0 == [0u8; 32] {
             None
         } else if self.state.last_state_root.to_anchor() == *anchor {
             Some(self.state.last_state_root.as_ref().to_vec())
         } else {
-            // Search recent blocks for a matching anchor.
             let bytes = self.state.recent_blocks.iter().rev().find_map(|b| {
                 if b.header.state_root.to_anchor() == *anchor {
                     log::info!(
@@ -482,7 +464,6 @@ where
             }));
         }
 
-        // --- PHASE 1: Execution (No Write Lock) ---
         let (inserts, deletes) = {
             let state_tree_arc = workload.state_tree();
             let base_state = state_tree_arc.read().await;
@@ -494,14 +475,12 @@ where
             }
 
             overlay.into_ordered_batch()
-        }; // Read lock on state_tree is released here.
+        };
 
-        // --- PHASE 2: Commit (Short Write Lock) ---
         {
             let state_tree_arc = workload.state_tree();
             let mut state = state_tree_arc.write().await;
 
-            // Apply the collected state changes.
             state.batch_apply(&inserts, &deletes)?;
 
             let end_block_ctx = TxContext {
@@ -516,7 +495,6 @@ where
                 }
             }
 
-            // --- FIX START: Strengthen Validator Set Promotion and Carry-Forward Logic ---
             if self.consensus_engine.consensus_type() == ConsensusType::ProofOfStake {
                 match state.get(VALIDATOR_SET_KEY)? {
                     Some(bytes) => {
@@ -550,26 +528,16 @@ where
                     }
                 }
             }
-            // --- FIX END ---
 
-            // The status height is updated to the current block's height *before* commit,
-            // as the commit operation finalizes the state FOR this height.
             self.state.status.height = block.header.height;
             self.state.status.latest_timestamp = block.header.timestamp;
             self.state.status.total_transactions += block.transactions.len() as u64;
             let status_bytes = serde_json::to_vec(&self.state.status).unwrap();
             state.insert(STATUS_KEY, &status_bytes)?;
 
-            // --- FIX START: Correctly sequence state root calculation and version commit ---
-            // 1. Commit all state changes for this block, including the status update.
-            // For versioned trees like IAVL, this creates a queryable snapshot.
             state.commit_version();
-
-            // 2. Get the final, committed root hash *after* the version has been saved.
             let final_state_root_bytes = state.root_commitment().as_ref().to_vec();
 
-            // 3. (Debug Only) Sanity check: ensure the committed root is actually queryable.
-            // This is the actionable guard that turns a silent stall into an explicit panic.
             {
                 use depin_sdk_types::app::Membership;
 
@@ -582,7 +550,6 @@ where
                     block.header.height
                 );
 
-                // --- NEW: Add invariant check for validator set presence ---
                 if self.consensus_engine.consensus_type() == ConsensusType::ProofOfStake {
                     match state.get_with_proof_at(&final_commitment, VALIDATOR_SET_KEY) {
                         Ok((Membership::Present(_), _)) => {
@@ -610,13 +577,9 @@ where
                 }
             }
 
-            // 4. Set the block header's state_root to this final, verifiable hash.
             block.header.state_root = StateRoot(final_state_root_bytes.clone());
-
-            // 5. Update the chain's internal tracker for the last committed state root.
             self.state.last_state_root = StateRoot(final_state_root_bytes);
-            // --- FIX END ---
-        } // Write lock is released here
+        }
 
         log::info!(
             "[Chain Commit] H={} state_root={} anchor={}",

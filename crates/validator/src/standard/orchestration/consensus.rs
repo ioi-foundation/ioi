@@ -184,14 +184,41 @@ where
             Ok(results) => results,
             Err(e) if e.to_string().contains("StaleAnchor") => {
                 log::info!(
-                    "[Orch Tick][Node {}] State changed during block proposal; will retry on next tick.",
+                    "[Orch Tick][Node {}] StaleAnchor; refreshing root and retrying once.",
                     our_account_id_short
                 );
-                return;
+                // Pull the freshest root from workload and retry once.
+                let fresh_root = match context.workload_client.get_state_root().await {
+                    Ok(r) => r,
+                    Err(e2) => {
+                        log::error!(
+                            "[Orch Tick][Node {}] get_state_root() failed after StaleAnchor: {}",
+                            our_account_id_short,
+                            e2
+                        );
+                        return;
+                    }
+                };
+                let fresh_anchor = fresh_root.to_anchor();
+                match context
+                    .workload_client
+                    .check_transactions_at(fresh_anchor, candidate_txs.clone())
+                    .await
+                {
+                    Ok(results2) => results2,
+                    Err(e2) => {
+                        log::error!(
+                            "[Orch Tick][Node {}] Retry precheck failed: {}",
+                            our_account_id_short,
+                            e2
+                        );
+                        return;
+                    }
+                }
             }
             Err(e) => {
                 log::error!(
-                    "[Orch Tick][Node {}] Failed to check transactions with workload: {}",
+                    "[Orch Tick][Node {}] check_transactions_at failed: {}",
                     our_account_id_short,
                     e
                 );
@@ -199,7 +226,6 @@ where
             }
         };
 
-        // --- FIX START: Add diagnostic logging and guard for result length mismatch ---
         log::info!(
             "[Orch Tick] precheck returned {} results for {} candidate tx(s)",
             check_results.len(),
@@ -209,18 +235,13 @@ where
             log::error!("[Orch Tick] BUG: check_transactions_at result length mismatch; refusing to produce this tick.");
             return;
         }
-        // --- FIX END ---
 
         let mut valid_txs = Vec::new();
         let mut invalid_tx_hashes = HashSet::new();
 
         for (i, result) in check_results.into_iter().enumerate() {
             if let Err(e) = result {
-                log::warn!(
-                    "[Orch Tick] Filtering tx {} as invalid: {}", // Log the actual error message
-                    i,
-                    e
-                );
+                log::warn!("[Orch Tick] Filtering tx {} as invalid: {}", i, e);
                 let tx_hash = serde_jcs::to_vec(&candidate_txs[i]).unwrap();
                 invalid_tx_hashes.insert(tx_hash);
             } else {

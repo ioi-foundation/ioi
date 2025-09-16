@@ -5,8 +5,6 @@
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use depin_sdk_api::validator::container::Container;
-// [+] Remove the direct dependency on the RPC server from the binary
-// use depin_sdk_validator::rpc::run_rpc_server;
 use depin_sdk_chain::Chain;
 use depin_sdk_client::WorkloadClient;
 use depin_sdk_consensus::util::engine_from_config;
@@ -21,9 +19,8 @@ use depin_sdk_validator::standard::{
 use libp2p::{identity, Multiaddr};
 use std::fs;
 use std::io::{Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{atomic::AtomicBool, Arc};
-// [+] Remove unused Mutex import
 use tokio::sync::mpsc;
 
 // Imports for concrete types used in the factory
@@ -122,8 +119,6 @@ where
         serde::Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
-    // [+] The temporary swarm sender and direct RPC server call are removed from here.
-
     let workload_client = {
         let workload_ipc_addr =
             std::env::var("WORKLOAD_IPC_ADDR").unwrap_or_else(|_| "127.0.0.1:8555".to_string());
@@ -223,7 +218,6 @@ where
 
     log::info!("Shutdown signal received.");
     orchestration.stop().await?;
-    // [+] The rpc_handle is gone, no need to abort it.
     log::info!("Orchestration container stopped gracefully.");
     Ok(())
 }
