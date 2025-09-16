@@ -13,6 +13,7 @@ use anyhow::{anyhow, Result};
 use backend::{DockerBackend, LogStream, ProcessBackend, TestBackend};
 use bollard::image::BuildImageOptions;
 use bollard::Docker;
+use depin_sdk_api::crypto::{SerializableKey, SigningKeyPair};
 use depin_sdk_client::WorkloadClient;
 use depin_sdk_commitment::primitives::kzg::KZGParams;
 use depin_sdk_crypto::sign::dilithium::{DilithiumKeyPair, DilithiumScheme};
@@ -446,6 +447,15 @@ impl TestValidator {
 
         let config_dir_path = temp_dir.path().to_path_buf();
 
+        // Persist PQC keypair for the orchestrator binary to load.
+        let pqc_key_path = config_dir_path.join("pqc_key.json");
+        if let Some(kp) = pqc_keypair.as_ref() {
+            let pub_hex = hex::encode(SigningKeyPair::public_key(kp).to_bytes());
+            let priv_hex = hex::encode(SigningKeyPair::private_key(kp).to_bytes());
+            let body = serde_json::json!({ "public": pub_hex, "private": priv_hex }).to_string();
+            std::fs::write(&pqc_key_path, body)?;
+        }
+
         let consensus_enum = match consensus_type {
             "ProofOfAuthority" => ConsensusType::ProofOfAuthority,
             "ProofOfStake" => ConsensusType::ProofOfStake,
@@ -645,6 +655,11 @@ impl TestValidator {
             if let Some(addr) = bootnode_addr {
                 orch_args.push("--bootnode".to_string());
                 orch_args.push(addr.to_string());
+            }
+            // Add the PQC key file argument if a PQC key exists.
+            if pqc_keypair.is_some() {
+                orch_args.push("--pqc-key-file".to_string());
+                orch_args.push(pqc_key_path.to_string_lossy().to_string());
             }
             let mut orch_cmd = TokioCommand::new(node_binary_path.join("orchestration"));
             orch_cmd
