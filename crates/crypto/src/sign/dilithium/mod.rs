@@ -18,6 +18,7 @@ pub struct DilithiumScheme {
 }
 
 /// Dilithium key pair
+#[derive(Clone)]
 pub struct DilithiumKeyPair {
     /// Public key
     public_key: DilithiumPublicKey,
@@ -28,9 +29,11 @@ pub struct DilithiumKeyPair {
 }
 
 /// Dilithium public key
+#[derive(Clone)]
 pub struct DilithiumPublicKey(Vec<u8>);
 
 /// Dilithium private key
+#[derive(Clone)]
 pub struct DilithiumPrivateKey {
     data: Vec<u8>,
     level: SecurityLevel,

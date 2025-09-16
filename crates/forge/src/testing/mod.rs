@@ -15,6 +15,7 @@ use bollard::image::BuildImageOptions;
 use bollard::Docker;
 use depin_sdk_client::WorkloadClient;
 use depin_sdk_commitment::primitives::kzg::KZGParams;
+use depin_sdk_crypto::sign::dilithium::{DilithiumKeyPair, DilithiumScheme};
 use depin_sdk_types::app::ChainTransaction;
 use depin_sdk_types::config::{
     CommitmentSchemeType, ConsensusType, InitialServiceConfig, StateTreeType, VmFuelCosts,
@@ -370,6 +371,7 @@ pub async fn assert_log_contains_and_return_line(
 /// Represents a complete, logical validator node, abstracting over its execution backend.
 pub struct TestValidator {
     pub keypair: identity::Keypair,
+    pub pqc_keypair: Option<DilithiumKeyPair>,
     pub peer_id: PeerId,
     pub rpc_addr: String,
     pub workload_ipc_addr: String,
@@ -425,6 +427,10 @@ impl TestValidator {
     ) -> Result<Self> {
         let peer_id = keypair.public().to_peer_id();
         let temp_dir = Arc::new(tempfile::tempdir()?);
+        let pqc_keypair = Some(
+            DilithiumScheme::new(depin_sdk_crypto::security::SecurityLevel::Level2)
+                .generate_keypair(),
+        );
 
         let p2p_port = portpicker::pick_unused_port().unwrap_or(base_port);
         let rpc_port = portpicker::pick_unused_port().unwrap_or(base_port + 1);
@@ -738,6 +744,7 @@ impl TestValidator {
 
         Ok(TestValidator {
             keypair,
+            pqc_keypair,
             peer_id,
             rpc_addr,
             workload_ipc_addr,
@@ -861,7 +868,6 @@ impl TestClusterBuilder {
         let genesis_content = genesis.to_string();
         let mut validators = Vec::new();
 
-        // --- FIX START: Launch bootnode first, then peers in parallel ---
         let mut bootnode_addr: Option<Multiaddr> = None;
 
         if let Some(boot_key) = validator_keys.first() {
@@ -918,11 +924,8 @@ impl TestClusterBuilder {
                 validators.push(result?);
             }
         }
-        // Sort validators by PeerId to ensure deterministic order for tests
         validators.sort_by(|a, b| a.peer_id.cmp(&b.peer_id));
-        // --- FIX END ---
 
-        // --- NEW: Add a cluster-wide readiness check ---
         if validators.len() > 1 {
             println!("--- Waiting for cluster-wide sync (all nodes at height >= 1) ---");
             let mut height_futs = FuturesUnordered::new();

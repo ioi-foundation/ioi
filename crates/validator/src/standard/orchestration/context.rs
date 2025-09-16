@@ -7,6 +7,7 @@ use depin_sdk_api::{
     state::{StateManager, Verifier},
 };
 use depin_sdk_client::WorkloadClient;
+use depin_sdk_crypto::sign::dilithium::DilithiumKeyPair;
 use depin_sdk_network::libp2p::SwarmCommand;
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_services::external_data::ExternalDataService;
@@ -44,12 +45,13 @@ where
 {
     pub chain_ref: ChainFor<CS, ST>,
     pub workload_client: Arc<WorkloadClient>,
-    pub tx_pool_ref: Arc<Mutex<VecDeque<ChainTransaction>>>, // NOTE: `network_event_receiver` is intentionally omitted. It's taken once at startup and moved into the main loop, so it shouldn't be part of the shared context.
+    pub tx_pool_ref: Arc<Mutex<VecDeque<ChainTransaction>>>,
     pub swarm_commander: mpsc::Sender<SwarmCommand>,
     pub shutdown_receiver: watch::Receiver<bool>,
     pub consensus_engine_ref: Arc<Mutex<CE>>,
     pub node_state: Arc<Mutex<NodeState>>,
     pub local_keypair: identity::Keypair,
+    pub pqc_signer: Option<DilithiumKeyPair>,
     pub known_peers_ref: Arc<Mutex<HashSet<PeerId>>>,
     pub config: OrchestrationConfig,
     pub is_quarantined: Arc<AtomicBool>,

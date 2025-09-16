@@ -138,12 +138,11 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             height,
             hex::encode(parent_view.state_anchor().as_ref()),
             status_at_parent.is_ok(),
-            // --- FIX START: Correctly check the nested Option ---
             status_at_parent
                 .as_ref()
                 .ok()
                 .and_then(|opt| opt.as_ref())
-                .is_some() // --- FIX END ---
+                .is_some()
         );
 
         let maybe_vs_bytes = parent_view.get(VALIDATOR_SET_KEY).await;
@@ -291,9 +290,7 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             header.height
         );
 
-        // --- Boot leniency for H=1 (verification path) ---
         if header.height == 1 {
-            // 1) Producer must be a member of the validator set
             if !vs
                 .validators
                 .iter()
@@ -303,16 +300,12 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
                     "Producer not in validator set (H=1)".into(),
                 ));
             }
-
-            // 2) Pubkey hash must match the pubkey included in the header
             let derived_hash = hash_key(header.producer_key_suite, &header.producer_pubkey);
             if derived_hash != header.producer_pubkey_hash {
                 return Err(ConsensusError::BlockVerificationFailed(
                     "Header public key hash mismatch (H=1)".into(),
                 ));
             }
-
-            // 3) Signature must verify
             let preimage = header.to_preimage_for_signing();
             verify_signature(
                 &preimage,
@@ -321,7 +314,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
                 &header.signature,
             )?;
 
-            // 4) Leader sanity: compute expected leader and warn if it differs.
             if let Some(expected_leader) = self.select_leader(header.height, vs) {
                 if expected_leader != header.producer_account_id {
                     log::warn!(
@@ -338,8 +330,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             return Ok(());
         }
 
-        // --- Strict path for H>=2 ---
-        // Ensure producer is in the active validator set for this height
         let v_entry = vs
             .validators
             .iter()
@@ -353,17 +343,24 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             producer_short_id
         );
 
-        // Use the consensus key embedded in the validator set (unified source of truth)
         let active_key = &v_entry.consensus_key;
+
+        log::info!(
+            "[PoS Verify H={}] Producer acct=0x{} header.suite={:?} state.suite={:?} since={} hash.match.header={} hash.match.state={}",
+            header.height,
+            hex::encode(header.producer_account_id.as_ref()),
+            header.producer_key_suite,
+            active_key.suite,
+            active_key.since_height,
+            (hash_key(header.producer_key_suite, &header.producer_pubkey) == header.producer_pubkey_hash),
+            (active_key.pubkey_hash == hash_key(active_key.suite, &header.producer_pubkey)),
+        );
 
         if header.height < active_key.since_height {
             return Err(ConsensusError::BlockVerificationFailed(
                 "Key not yet active at this height".into(),
             ));
         }
-
-        // The header must advertise the same suite as the active key; the key hash
-        // in the header must match the hash of the supplied public key.
         if active_key.suite != header.producer_key_suite {
             return Err(ConsensusError::BlockVerificationFailed(
                 "Header key suite does not match active key".into(),
@@ -372,7 +369,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
 
         let derived_hash = hash_key(active_key.suite, &header.producer_pubkey);
 
-        // Bind header → pubkey and pubkey → state:
         if header.producer_pubkey_hash != derived_hash {
             return Err(ConsensusError::BlockVerificationFailed(
                 "Header public key hash mismatch".into(),
@@ -384,7 +380,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             ));
         }
 
-        // Verify the block signature under the advertised suite/key
         let preimage = header.to_preimage_for_signing();
         verify_signature(
             &preimage,
@@ -397,7 +392,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             header.height
         );
 
-        // Deterministic leader check remains strict at H>=2
         let expected_leader = self.select_leader(header.height, vs).ok_or_else(|| {
             ConsensusError::BlockVerificationFailed("Leader selection failed".to_string())
         })?;

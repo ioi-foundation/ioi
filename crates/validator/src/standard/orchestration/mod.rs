@@ -9,6 +9,7 @@ use depin_sdk_api::{
     validator::Container,
 };
 use depin_sdk_client::WorkloadClient;
+use depin_sdk_crypto::sign::dilithium::DilithiumKeyPair;
 use depin_sdk_network::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_network::BlockSync;
@@ -51,6 +52,7 @@ pub struct OrchestrationDependencies<CE, V> {
     pub swarm_command_sender: mpsc::Sender<SwarmCommand>,
     pub consensus_engine: CE,
     pub local_keypair: identity::Keypair,
+    pub pqc_keypair: Option<DilithiumKeyPair>,
     pub is_quarantined: Arc<AtomicBool>,
     pub verifier: V,
 }
@@ -83,6 +85,7 @@ where
     network_event_receiver: Mutex<Option<mpsc::Receiver<NetworkEvent>>>,
     consensus_engine: Arc<Mutex<CE>>,
     local_keypair: identity::Keypair,
+    pqc_signer: Option<DilithiumKeyPair>,
     shutdown_sender: Arc<watch::Sender<bool>>,
     task_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     is_running: Arc<AtomicBool>,
@@ -130,6 +133,7 @@ where
             network_event_receiver: Mutex::new(Some(deps.network_event_receiver)),
             consensus_engine: Arc::new(Mutex::new(deps.consensus_engine)),
             local_keypair: deps.local_keypair,
+            pqc_signer: deps.pqc_keypair,
             shutdown_sender: Arc::new(shutdown_sender),
             task_handles: Arc::new(Mutex::new(Vec::new())),
             is_running: Arc::new(AtomicBool::new(false)),
@@ -373,12 +377,13 @@ where
         let context = MainLoopContext::<CS, ST, CE, V> {
             chain_ref: chain,
             workload_client,
-            tx_pool_ref: self.tx_pool.clone(), // network_event_receiver is now passed directly to the main loop
+            tx_pool_ref: self.tx_pool.clone(),
             swarm_commander: self.swarm_command_sender.clone(),
             shutdown_receiver: self.shutdown_sender.subscribe(),
             consensus_engine_ref: self.consensus_engine.clone(),
             node_state: self.syncer.get_node_state(),
             local_keypair: self.local_keypair.clone(),
+            pqc_signer: self.pqc_signer.clone(),
             known_peers_ref: self.syncer.get_known_peers(),
             config: self.config.clone(),
             is_quarantined: self.is_quarantined.clone(),
@@ -401,7 +406,6 @@ where
 
         handles.push(rpc_handle);
 
-        // 0) Inline immediate tick so H=1 can start right away *even if the task hasn't scheduled yet*
         {
             let mut ctx = context_arc.lock().await;
             if !ctx.is_quarantined.load(Ordering::SeqCst) {
@@ -412,10 +416,8 @@ where
             }
         }
 
-        // 1) Spawn steady ticker
         let ticker_context = context_arc.clone();
         handles.push(tokio::spawn(async move {
-            // Resolve effective interval
             let interval_secs = {
                 let ctx = ticker_context.lock().await;
                 std::env::var("ORCH_BLOCK_INTERVAL_SECS")

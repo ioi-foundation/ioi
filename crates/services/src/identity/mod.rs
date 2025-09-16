@@ -9,12 +9,15 @@ use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::decorator::TxDecorator;
 use depin_sdk_crypto::sign::{dilithium::DilithiumPublicKey, eddsa::Ed25519PublicKey};
 use depin_sdk_types::app::{
-    account_id_from_key_material, AccountId, ChainTransaction, Credential, RotationProof,
-    SignatureSuite,
+    account_id_from_key_material, read_validator_sets, write_validator_sets, AccountId,
+    ActiveKeyRecord, ChainTransaction, Credential, RotationProof, SignatureSuite, ValidatorSetV1,
+    ValidatorSetsV1,
 };
+use depin_sdk_types::codec;
 use depin_sdk_types::error::{StateError, TransactionError, UpgradeError};
 use depin_sdk_types::keys::{
     IDENTITY_CREDENTIALS_PREFIX, IDENTITY_PROMOTION_INDEX_PREFIX, IDENTITY_ROTATION_NONCE_PREFIX,
+    VALIDATOR_SET_KEY,
 };
 use depin_sdk_types::service_configs::MigrationConfig;
 
@@ -67,6 +70,62 @@ impl IdentityHub {
         let creds_bytes =
             serde_json::to_vec(creds).map_err(|e| StateError::InvalidValue(e.to_string()))?;
         state.insert(&Self::get_credentials_key(account_id), &creds_bytes)
+    }
+
+    /// Helper: bump validator set so the rotated key becomes active at next height
+    fn apply_validator_key_update(
+        &self,
+        state: &mut dyn StateAccessor,
+        account_id: &AccountId,
+        new_suite: SignatureSuite,
+        new_pubkey_hash: [u8; 32],
+        promotion_height: u64,
+    ) -> Result<(), StateError> {
+        let Some(vs_blob) = state.get(VALIDATOR_SET_KEY)? else {
+            return Ok(());
+        };
+        let mut sets = read_validator_sets(&vs_blob)?;
+        let target_activation = promotion_height + 1;
+
+        if sets
+            .next
+            .as_ref()
+            .map_or(true, |n| n.effective_from_height != target_activation)
+        {
+            let mut next = sets.next.clone().unwrap_or_else(|| sets.current.clone());
+            next.effective_from_height = target_activation;
+            sets.next = Some(next);
+        }
+        let next_vs: &mut ValidatorSetV1 = sets.next.as_mut().expect("next set must exist");
+
+        if let Some(v) = next_vs
+            .validators
+            .iter_mut()
+            .find(|v| v.account_id == *account_id)
+        {
+            v.consensus_key = ActiveKeyRecord {
+                suite: new_suite,
+                pubkey_hash: new_pubkey_hash,
+                since_height: target_activation,
+            };
+            log::info!(
+                "[IdentityHub] VS.next set for H={} updated: account 0x{} -> suite={:?}, since_height={}",
+                target_activation,
+                hex::encode(&account_id.as_ref()[..4]),
+                new_suite,
+                target_activation
+            );
+        } else {
+            return Ok(());
+        }
+
+        next_vs
+            .validators
+            .sort_by(|a, b| a.account_id.cmp(&b.account_id));
+        next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
+
+        state.insert(VALIDATOR_SET_KEY, &write_validator_sets(&sets))?;
+        Ok(())
     }
 
     fn verify_rotation_signature(
@@ -253,10 +312,6 @@ impl TxDecorator for IdentityHub {
         _tx: &ChainTransaction,
         _ctx: &TxContext,
     ) -> Result<(), TransactionError> {
-        // The core RotateKey logic is handled in the UnifiedTransactionModel by calling
-        // the public `IdentityHub::rotate` method. The ante_handle is now a no-op
-        // to prevent double-application of the state transition logic.
-        // This service still needs to be a decorator to provide the CredentialsView.
         Ok(())
     }
 }
@@ -277,8 +332,17 @@ impl OnEndBlock for IdentityHub {
                 if let Some(staged) = creds[1].as_ref() {
                     if height >= staged.activation_height {
                         if let Some(staged_taken) = creds[1].take() {
-                            creds[0] = Some(staged_taken);
+                            let new_active = staged_taken.clone();
+                            creds[0] = Some(new_active.clone());
                             self.save_credentials(state, &account_id, &creds)?;
+
+                            self.apply_validator_key_update(
+                                state,
+                                &account_id,
+                                new_active.suite,
+                                new_active.public_key_hash,
+                                height,
+                            )?;
                         }
                     }
                 }
