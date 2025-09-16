@@ -176,7 +176,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     let validator_keypair = libp2p::identity::Keypair::generate_ed25519();
 
     // 2. LAUNCH CLUSTER
-    let mut cluster = TestCluster::builder()
+    let cluster = TestCluster::builder()
         .with_validators(1)
         .with_keypairs(vec![validator_keypair.clone()])
         .with_consensus_type("ProofOfStake")
@@ -312,9 +312,9 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
         .build()
         .await?;
 
-    let node = &mut cluster.validators[0];
+    let node = &cluster.validators[0];
     let rpc_addr = &node.rpc_addr;
-    let mut orch_logs = node.orch_log_stream.lock().await.take().unwrap();
+    let (mut orch_logs, _, _) = node.subscribe_logs();
     wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
 
     // 3. INITIATE ROTATION

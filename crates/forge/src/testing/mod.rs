@@ -35,7 +35,9 @@ use tar::Builder;
 use tempfile::TempDir;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command as TokioCommand;
-use tokio::sync::{Mutex, OnceCell};
+// --- FIX START (Analysis 2): Add broadcast for non-blocking logs ---
+use tokio::sync::{broadcast, Mutex, OnceCell};
+// --- FIX END ---
 use tokio::time::timeout;
 
 // --- Test Configuration ---
@@ -44,6 +46,9 @@ const LOG_ASSERT_TIMEOUT: Duration = Duration::from_secs(45);
 const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(30);
 const ORCHESTRATION_READY_TIMEOUT: Duration = Duration::from_secs(30);
 const GUARDIAN_READY_TIMEOUT: Duration = Duration::from_secs(10);
+// --- FIX START (Analysis 2): Define channel capacity for logs ---
+const LOG_CHANNEL_CAPACITY: usize = 8192;
+// --- FIX END ---
 
 // --- One-Time Build ---
 static BUILD: Once = Once::new();
@@ -309,24 +314,34 @@ pub async fn submit_transaction(rpc_addr: &str, tx: &ChainTransaction) -> Result
     ))
 }
 
+// --- FIX START (Analysis 2): Update assert helpers to use non-blocking broadcast receiver ---
 pub async fn assert_log_contains(
     label: &str,
-    log_stream: &mut LogStream,
+    log_stream: &mut broadcast::Receiver<String>,
     pattern: &str,
 ) -> Result<()> {
     timeout(LOG_ASSERT_TIMEOUT, async {
-        while let Some(line_result) = log_stream.next().await {
-            match line_result {
+        loop {
+            match log_stream.recv().await {
                 Ok(line) => {
                     println!("[LOGS-{}] {}", label, line);
                     if line.contains(pattern) {
                         return Ok(());
                     }
                 }
-                Err(e) => return Err(anyhow!("Error reading log line: {}", e)),
+                Err(broadcast::error::RecvError::Lagged(count)) => {
+                    log::warn!(
+                        "[{}] Log assertion may have missed {} lines due to backpressure.",
+                        label,
+                        count
+                    );
+                    continue;
+                }
+                Err(broadcast::error::RecvError::Closed) => {
+                    return Err(anyhow!("Log stream ended before pattern was found"));
+                }
             }
         }
-        Err(anyhow!("Log stream ended before pattern was found"))
     })
     .await?
     .map_err(|e| {
@@ -341,22 +356,31 @@ pub async fn assert_log_contains(
 
 pub async fn assert_log_contains_and_return_line(
     label: &str,
-    log_stream: &mut LogStream,
+    log_stream: &mut broadcast::Receiver<String>,
     pattern: &str,
 ) -> Result<String> {
     timeout(LOG_ASSERT_TIMEOUT, async {
-        while let Some(line_result) = log_stream.next().await {
-            match line_result {
+        loop {
+            match log_stream.recv().await {
                 Ok(line) => {
                     println!("[LOGS-{}] {}", label, line);
                     if line.contains(pattern) {
                         return Ok(line);
                     }
                 }
-                Err(e) => return Err(anyhow!("Error reading log line: {}", e)),
+                Err(broadcast::error::RecvError::Lagged(count)) => {
+                    log::warn!(
+                        "[{}] Log assertion may have missed {} lines due to backpressure.",
+                        label,
+                        count
+                    );
+                    continue;
+                }
+                Err(broadcast::error::RecvError::Closed) => {
+                    return Err(anyhow!("Log stream ended before pattern was found"));
+                }
             }
         }
-        Err(anyhow!("Log stream ended before pattern was found"))
     })
     .await?
     .map_err(|e| {
@@ -368,6 +392,7 @@ pub async fn assert_log_contains_and_return_line(
         )
     })
 }
+// --- FIX END ---
 
 /// Represents a complete, logical validator node, abstracting over its execution backend.
 pub struct TestValidator {
@@ -379,19 +404,28 @@ pub struct TestValidator {
     pub p2p_addr: Multiaddr,
     _temp_dir: Arc<TempDir>,
     backend: Box<dyn TestBackend>,
-    pub orch_log_stream: Mutex<Option<LogStream>>,
-    pub workload_log_stream: Mutex<Option<LogStream>>,
-    pub guardian_log_stream: Mutex<Option<LogStream>>,
+    // --- FIX START (Analysis 2): Store Senders, not streams, and add a join handle for drainers ---
+    orch_log_tx: broadcast::Sender<String>,
+    workload_log_tx: broadcast::Sender<String>,
+    guardian_log_tx: Option<broadcast::Sender<String>>,
+    log_drain_handles: Arc<Mutex<Vec<tokio::task::JoinHandle<()>>>>,
+    // --- FIX END ---
 }
 
 impl Drop for TestValidator {
     fn drop(&mut self) {
         let mut backend = std::mem::replace(&mut self.backend, Box::new(NullBackend));
+        // --- FIX START (Analysis 2): Abort log drainers on drop ---
+        let handles = self.log_drain_handles.clone();
         tokio::spawn(async move {
+            for handle in handles.lock().await.iter() {
+                handle.abort();
+            }
             if let Err(e) = backend.cleanup().await {
                 log::error!("Failed to cleanup test validator backend: {}", e);
             }
         });
+        // --- FIX END ---
     }
 }
 
@@ -413,6 +447,28 @@ impl TestBackend for NullBackend {
 }
 
 impl TestValidator {
+    // --- FIX START (Analysis 2): Add method to get log receivers ---
+    /// Subscribes to the non-blocking log streams for this validator's containers.
+    ///
+    /// This method should be called once at the beginning of a test. The returned
+    /// receivers will receive log lines from the moment of subscription. Slow consumption
+    /// of these receivers will cause logs to be dropped, but will not block the
+    /// underlying validator process.
+    pub fn subscribe_logs(
+        &self,
+    ) -> (
+        broadcast::Receiver<String>,
+        broadcast::Receiver<String>,
+        Option<broadcast::Receiver<String>>,
+    ) {
+        (
+            self.orch_log_tx.subscribe(),
+            self.workload_log_tx.subscribe(),
+            self.guardian_log_tx.as_ref().map(|tx| tx.subscribe()),
+        )
+    }
+    // --- FIX END ---
+
     #[allow(clippy::too_many_arguments)]
     pub async fn launch(
         keypair: identity::Keypair,
@@ -770,7 +826,40 @@ impl TestValidator {
 
         backend.launch().await?;
         let (rpc_addr, p2p_addr) = backend.get_addresses();
-        let (orch_logs, workload_logs, guardian_logs) = backend.get_log_streams()?;
+        let (mut orch_logs, mut workload_logs, guardian_logs_opt) = backend.get_log_streams()?;
+
+        // --- FIX START (Analysis 2): Spawn non-blocking log drainers ---
+        let mut log_drain_handles = Vec::new();
+        let (orch_log_tx, _) = broadcast::channel(LOG_CHANNEL_CAPACITY);
+        let (workload_log_tx, _) = broadcast::channel(LOG_CHANNEL_CAPACITY);
+
+        let orch_tx_clone = orch_log_tx.clone();
+        log_drain_handles.push(tokio::spawn(async move {
+            while let Some(Ok(line)) = orch_logs.next().await {
+                let _ = orch_tx_clone.send(line);
+            }
+        }));
+
+        let work_tx_clone = workload_log_tx.clone();
+        log_drain_handles.push(tokio::spawn(async move {
+            while let Some(Ok(line)) = workload_logs.next().await {
+                let _ = work_tx_clone.send(line);
+            }
+        }));
+
+        let guardian_log_tx = if let Some(mut guardian_logs) = guardian_logs_opt {
+            let (tx, _) = broadcast::channel(LOG_CHANNEL_CAPACITY);
+            let tx_clone = tx.clone();
+            log_drain_handles.push(tokio::spawn(async move {
+                while let Some(Ok(line)) = guardian_logs.next().await {
+                    let _ = tx_clone.send(line);
+                }
+            }));
+            Some(tx)
+        } else {
+            None
+        };
+        // --- FIX END ---
 
         Ok(TestValidator {
             keypair,
@@ -781,9 +870,12 @@ impl TestValidator {
             p2p_addr,
             _temp_dir: temp_dir,
             backend,
-            orch_log_stream: Mutex::new(Some(orch_logs)),
-            workload_log_stream: Mutex::new(Some(workload_logs)),
-            guardian_log_stream: Mutex::new(guardian_logs),
+            // --- FIX START (Analysis 2): Store senders and handles ---
+            orch_log_tx,
+            workload_log_tx,
+            guardian_log_tx,
+            log_drain_handles: Arc::new(Mutex::new(log_drain_handles)),
+            // --- FIX END ---
         })
     }
 }

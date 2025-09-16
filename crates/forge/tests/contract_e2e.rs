@@ -4,12 +4,14 @@
 use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_client::WorkloadClient; // Import the official client
+                                      // --- FIX START: Add sha256 import and remove unused assert_log_contains ---
 use depin_sdk_crypto::algorithms::hash::sha256;
 use depin_sdk_forge::testing::{
     build_test_artifacts,
     poll::{wait_for_contract_deployment, wait_for_height},
     submit_transaction, TestCluster,
 };
+// --- FIX END ---
 use depin_sdk_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ApplicationTransaction,
@@ -21,7 +23,6 @@ use depin_sdk_types::{
     keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
     service_configs::MigrationConfig,
 };
-use futures_util::StreamExt; // [+] Import StreamExt for stream iteration
 use libp2p::identity::Keypair;
 use serde_json::json;
 use std::time::{Duration, Instant}; // Import Instant for custom polling logic
@@ -185,15 +186,18 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     let keypair = &node.keypair;
     let workload_client = WorkloadClient::new(&node.workload_ipc_addr).await?;
 
-    // --- FIX: Spawn a background task to continuously drain logs ---
+    // --- FIX START: Spawn a background task to continuously drain logs ---
+    let (mut orch_logs, _, _) = node.subscribe_logs();
     let (tx_stop, rx_stop) = tokio::sync::oneshot::channel::<()>();
-    let mut orch_logs = node.orch_log_stream.lock().await.take().unwrap();
     let log_task = tokio::spawn(async move {
         tokio::select! {
             _ = async {
-                while let Some(line_res) = orch_logs.next().await {
-                    if let Ok(line) = line_res {
-                        println!("[LOGS-Orchestration] {}", line);
+                loop {
+                    if let Ok(line) = orch_logs.recv().await {
+                         println!("[LOGS-Orchestration] {}", line);
+                    } else {
+                        // Channel closed or lagged
+                        break;
                     }
                 }
             } => {},
@@ -202,6 +206,7 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
             }
         }
     });
+    // --- FIX END ---
 
     // Wait for node to be ready
     wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;

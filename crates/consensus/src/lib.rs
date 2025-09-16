@@ -37,7 +37,9 @@ use proof_of_stake::ProofOfStakeEngine;
 use round_robin::RoundRobinBftEngine;
 
 /// An enum that wraps the various consensus engine implementations.
-#[derive(Debug)]
+// --- FIX START (Analysis 1): Add Clone trait to allow sharing a single engine instance ---
+#[derive(Debug, Clone)]
+// --- FIX END ---
 pub enum Consensus<T: Clone> {
     #[cfg(feature = "round-robin")]
     RoundRobin(Box<RoundRobinBftEngine>),
