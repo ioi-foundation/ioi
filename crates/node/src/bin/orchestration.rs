@@ -4,6 +4,7 @@
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
+use depin_sdk_api::services::UpgradableService;
 use depin_sdk_api::validator::container::Container;
 use depin_sdk_chain::Chain;
 use depin_sdk_client::WorkloadClient;
@@ -12,6 +13,7 @@ use depin_sdk_crypto::sign::dilithium::DilithiumKeyPair;
 use depin_sdk_network::libp2p::Libp2pSync;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::config::OrchestrationConfig;
+use depin_sdk_types::error::CoreError;
 use depin_sdk_validator::standard::orchestration::OrchestrationDependencies;
 use depin_sdk_validator::standard::{
     orchestration::verifier_select::{create_default_verifier, DefaultVerifier},
@@ -175,10 +177,14 @@ where
             anyhow!("Invalid PQC key JSON (expected {{\"public\",\"private\"}}): {e}")
         })?;
 
+        fn decode_hex(s: &str) -> Result<Vec<u8>, anyhow::Error> {
+            let s = s.strip_prefix("0x").unwrap_or(s);
+            Ok(hex::decode(s)?)
+        }
         let pk_bytes =
-            hex::decode(public).map_err(|e| anyhow!("PQC public key hex decode failed: {e}"))?;
+            decode_hex(&public).map_err(|e| anyhow!("PQC public key hex decode failed: {e}"))?;
         let sk_bytes =
-            hex::decode(private).map_err(|e| anyhow!("PQC private key hex decode failed: {e}"))?;
+            decode_hex(&private).map_err(|e| anyhow!("PQC private key hex decode failed: {e}"))?;
 
         let kp = DilithiumKeyPair::from_bytes(&pk_bytes, &sk_bytes)
             .map_err(|e| anyhow!("PQC key reconstruction failed: {e}"))?;
@@ -234,7 +240,13 @@ where
             tm,
             "dummy-chain",
             vec![],
-            Box::new(|_| unimplemented!()),
+            Box::new(
+                |_wasm_bytes: &[u8]| -> Result<Arc<dyn UpgradableService>, CoreError> {
+                    Err(CoreError::Custom(
+                        "Orchestrator's dummy chain cannot load WASM services".to_string(),
+                    ))
+                },
+            ),
             consensus,
             workload_container,
         );
@@ -261,8 +273,8 @@ where
 #[allow(unused_variables)]
 async fn main() -> Result<()> {
     check_features();
-    env_logger::builder()
-        .filter_level(log::LevelFilter::Info)
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
+        .format_timestamp_secs()
         .init();
     let opts = OrchestrationOpts::parse();
     log::info!(

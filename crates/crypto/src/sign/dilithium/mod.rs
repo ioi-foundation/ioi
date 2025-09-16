@@ -246,7 +246,13 @@ impl SerializableKey for DilithiumPublicKey {
     }
 
     fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
-        Ok(DilithiumPublicKey(bytes.to_vec()))
+        match bytes.len() {
+            1312 | 1952 | 2592 => Ok(DilithiumPublicKey(bytes.to_vec())),
+            n => Err(format!(
+                "Invalid Dilithium public key size: {} bytes",
+                n
+            )),
+        }
     }
 }
 
@@ -316,9 +322,26 @@ impl Signature for DilithiumSignature {}
 impl DilithiumKeyPair {
     /// Rebuild a keypair from its serialized public & private keys.
     pub fn from_bytes(public: &[u8], private: &[u8]) -> Result<Self, String> {
-        let public_key = DilithiumPublicKey::from_bytes(public)?;
+        let public_key =
+            DilithiumPublicKey::from_bytes(public).map_err(|e| format!("Invalid public key: {}", e))?;
         let private_key = DilithiumPrivateKey::from_bytes(private)?;
-        // The private key carries the security level we need for signing.
+
+        // Sanity check: public key length must match the level derived from the private key.
+        let expected_pk_len = match private_key.level {
+            SecurityLevel::Level2 => 1312,
+            SecurityLevel::Level3 => 1952,
+            SecurityLevel::Level5 => 2592,
+            _ => return Err("Unsupported Dilithium security level".to_string()),
+        };
+        if public_key.0.len() != expected_pk_len {
+            return Err(format!(
+                "Public/private key size mismatch: got public {} bytes, expected {} for {:?}",
+                public_key.0.len(),
+                expected_pk_len,
+                private_key.level
+            ));
+        }
+
         Ok(Self {
             public_key,
             level: private_key.level,
