@@ -9,6 +9,7 @@ use rand::rngs::OsRng;
 use dcrypt::sign::eddsa;
 
 /// Ed25519 key pair implementation
+#[derive(Clone)]
 pub struct Ed25519KeyPair {
     /// Public verification key
     public_key: eddsa::Ed25519PublicKey,

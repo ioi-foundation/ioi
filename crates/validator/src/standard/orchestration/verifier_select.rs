@@ -27,13 +27,6 @@ pub use depin_sdk_commitment::tree::verkle::verifier::KZGVerifier as DefaultVeri
 
 // --- Define the creator function with a single, adaptable signature ---
 
-// Conditionally define a type alias for the function parameter. This allows
-// the function signature to change based on features, which is key to solving the issue.
-#[cfg(feature = "primitive-kzg")]
-type VerifierParams = Option<KZGParams>;
-#[cfg(not(feature = "primitive-kzg"))]
-type VerifierParams = Option<()>;
-
 /// Creates the default verifier. The signature and implementation of this function
 /// adapt based on whether a KZG-based primitive is enabled.
 #[cfg(any(
@@ -43,7 +36,10 @@ type VerifierParams = Option<()>;
     feature = "tree-sparse-merkle",
     feature = "tree-verkle"
 ))]
-pub fn create_default_verifier(params: VerifierParams) -> DefaultVerifier {
+pub fn create_default_verifier(
+    #[cfg(feature = "primitive-kzg")] params: Option<KZGParams>,
+    #[cfg(not(feature = "primitive-kzg"))] _params: Option<()>,
+) -> DefaultVerifier {
     // The logic *inside* the function is conditionally compiled.
     #[cfg(feature = "tree-verkle")]
     {
@@ -56,8 +52,7 @@ pub fn create_default_verifier(params: VerifierParams) -> DefaultVerifier {
     {
         // This arm is compiled for all other tree types.
         // Here, `params` is `Option<()>` and is ignored.
-        let _ = params; // Explicitly ignore the parameter to prevent unused variable warnings.
-                        // --- FIX: Instantiate the unit struct directly ---
+        // --- FIX: Instantiate the unit struct directly ---
         DefaultVerifier
     }
 }

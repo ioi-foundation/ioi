@@ -13,10 +13,7 @@ use depin_sdk_network::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_network::BlockSync;
 use depin_sdk_services::external_data::ExternalDataService;
-use depin_sdk_types::{
-    app::{ChainTransaction, StateRoot},
-    error::ValidatorError,
-};
+use depin_sdk_types::{app::ChainTransaction, error::ValidatorError};
 use libp2p::identity;
 use lru::LruCache;
 use serde::Serialize;
@@ -323,17 +320,15 @@ where
             .await
             .map_err(|e| ValidatorError::Other(e.to_string()))?;
 
-        // --- FIX: Pass the shared mempool to the RPC server ---
         let rpc_handle = crate::rpc::run_rpc_server(
             &self.config.rpc_listen_address,
-            self.tx_pool.clone(), // Use the shared pool
+            self.tx_pool.clone(),
             self.workload_client.get().unwrap().clone(),
             self.swarm_command_sender.clone(),
             self.config.clone(),
         )
         .await
         .map_err(|e| ValidatorError::Other(e.to_string()))?;
-        // --- END FIX ---
 
         let workload_client = self
             .workload_client
@@ -378,8 +373,7 @@ where
         let context = MainLoopContext::<CS, ST, CE, V> {
             chain_ref: chain,
             workload_client,
-            tx_pool_ref: self.tx_pool.clone(),
-            network_event_receiver: None, // This will be taken later
+            tx_pool_ref: self.tx_pool.clone(), // network_event_receiver is now passed directly to the main loop
             swarm_commander: self.swarm_command_sender.clone(),
             shutdown_receiver: self.shutdown_sender.subscribe(),
             consensus_engine_ref: self.consensus_engine.clone(),
