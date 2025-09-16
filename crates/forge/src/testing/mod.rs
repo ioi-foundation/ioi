@@ -453,7 +453,22 @@ impl TestValidator {
             let pub_hex = hex::encode(SigningKeyPair::public_key(kp).to_bytes());
             let priv_hex = hex::encode(SigningKeyPair::private_key(kp).to_bytes());
             let body = serde_json::json!({ "public": pub_hex, "private": priv_hex }).to_string();
-            std::fs::write(&pqc_key_path, body)?;
+            #[cfg(unix)]
+            {
+                use std::io::Write;
+                use std::os::unix::fs::OpenOptionsExt;
+                let mut f = std::fs::OpenOptions::new()
+                    .create(true)
+                    .truncate(true)
+                    .write(true)
+                    .mode(0o600)
+                    .open(&pqc_key_path)?;
+                f.write_all(body.as_bytes())?;
+            }
+            #[cfg(not(unix))]
+            {
+                std::fs::write(&pqc_key_path, body)?;
+            }
         }
 
         let consensus_enum = match consensus_type {
