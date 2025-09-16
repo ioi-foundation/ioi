@@ -313,5 +313,19 @@ impl SerializableKey for DilithiumSignature {
 
 impl Signature for DilithiumSignature {}
 
+impl DilithiumKeyPair {
+    /// Rebuild a keypair from its serialized public & private keys.
+    pub fn from_bytes(public: &[u8], private: &[u8]) -> Result<Self, String> {
+        let public_key = DilithiumPublicKey::from_bytes(public)?;
+        let private_key = DilithiumPrivateKey::from_bytes(private)?;
+        // The private key carries the security level we need for signing.
+        Ok(Self {
+            public_key,
+            level: private_key.level,
+            private_key,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests;

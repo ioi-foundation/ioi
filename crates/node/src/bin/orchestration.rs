@@ -8,6 +8,7 @@ use depin_sdk_api::validator::container::Container;
 use depin_sdk_chain::Chain;
 use depin_sdk_client::WorkloadClient;
 use depin_sdk_consensus::util::engine_from_config;
+use depin_sdk_crypto::sign::dilithium::DilithiumKeyPair;
 use depin_sdk_network::libp2p::Libp2pSync;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::config::OrchestrationConfig;
@@ -50,6 +51,10 @@ struct OrchestrationOpts {
     listen_address: Multiaddr,
     #[clap(long, env = "BOOTNODE")]
     bootnode: Option<Multiaddr>,
+    /// Optional path to a JSON file containing a Dilithium keypair:
+    /// { "public": "<hex>", "private": "<hex>" }
+    #[clap(long)]
+    pqc_key_file: Option<PathBuf>,
 }
 
 /// Runtime check to ensure exactly one state tree feature is enabled.
@@ -157,6 +162,36 @@ where
             }
         };
 
+    // Load optional Dilithium PQC keypair from the specified file.
+    let pqc_keypair: Option<DilithiumKeyPair> = if let Some(path) = opts.pqc_key_file.as_ref() {
+        let content = fs::read_to_string(path)?;
+
+        #[derive(serde::Deserialize)]
+        struct PqcFile {
+            public: String,
+            private: String,
+        }
+        let PqcFile { public, private } = serde_json::from_str(&content).map_err(|e| {
+            anyhow!("Invalid PQC key JSON (expected {{\"public\",\"private\"}}): {e}")
+        })?;
+
+        let pk_bytes =
+            hex::decode(public).map_err(|e| anyhow!("PQC public key hex decode failed: {e}"))?;
+        let sk_bytes =
+            hex::decode(private).map_err(|e| anyhow!("PQC private key hex decode failed: {e}"))?;
+
+        let kp = DilithiumKeyPair::from_bytes(&pk_bytes, &sk_bytes)
+            .map_err(|e| anyhow!("PQC key reconstruction failed: {e}"))?;
+
+        log::info!(
+            "[Orchestration] Loaded Dilithium PQC key from {}",
+            path.display()
+        );
+        Some(kp)
+    } else {
+        None
+    };
+
     let consensus_engine = engine_from_config(&config)?;
     let verifier = create_default_verifier(kzg_params);
     let is_quarantined = Arc::new(AtomicBool::new(false));
@@ -167,7 +202,7 @@ where
         swarm_command_sender: real_swarm_commander,
         consensus_engine,
         local_keypair: local_key,
-        pqc_keypair: None, // The binary does not load a PQC key by default.
+        pqc_keypair,
         is_quarantined,
         verifier,
     };
