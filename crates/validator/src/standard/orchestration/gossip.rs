@@ -169,7 +169,8 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         + Send
         + Sync
         + 'static
-        + Debug,
+        + Debug
+        + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -185,15 +186,24 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         block_height
     );
 
-    let mut engine = context.consensus_engine_ref.lock().await;
-    let cv = WorkloadChainView::new(
-        context.workload_client.clone(),
-        context.config.consensus_type,
-        context.verifier.clone(),
-        context.proof_cache_ref.clone(),
-    );
+    // [+] FIX: To prevent deadlocks, clone needed data, drop the context lock,
+    // and then await the consensus engine lock.
+    let (engine_ref, cv) = {
+        (
+            context.consensus_engine_ref.clone(),
+            WorkloadChainView::new(
+                context.workload_client.clone(),
+                context.config.consensus_type,
+                context.verifier.clone(),
+                context.proof_cache_ref.clone(),
+            ),
+        )
+    };
+    // Context lock is now released.
 
-    if let Err(e) = engine
+    if let Err(e) = engine_ref
+        .lock()
+        .await
         .handle_block_proposal::<CS, ST>(block.clone(), &&cv)
         .await
     {
@@ -204,7 +214,6 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         );
         return;
     }
-    drop(engine);
 
     log::info!(
         "[Orchestrator] Block #{} is valid. Forwarding to workload...",

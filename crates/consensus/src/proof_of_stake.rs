@@ -30,6 +30,32 @@ fn effective_set_for_height<'a>(sets: &'a ValidatorSetsV1, h: u64) -> &'a Valida
     &sets.current
 }
 
+// [+] DEBUGGING: Add a helper to log validator set details.
+fn log_vs(label: &str, h: u64, sets: &ValidatorSetsV1) {
+    let log_one = |name: &str, vs: &ValidatorSetV1| {
+        log::info!(
+            "[PoS Decide H={}] {}: eff_from={} members={} total_weight={}",
+            h,
+            name,
+            vs.effective_from_height,
+            vs.validators.len(),
+            vs.total_weight
+        );
+        for v in vs.validators.iter().take(8) {
+            log::info!(
+                "  - acct=0x{} w={}",
+                hex::encode(v.account_id.as_ref()),
+                v.weight
+            );
+        }
+    };
+    log::info!("[PoS Decide H={}] --- {} DUMP ---", h, label.to_uppercase());
+    log_one("current", &sets.current);
+    if let Some(n) = &sets.next {
+        log_one("next", n);
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ProofOfStakeEngine {}
 
@@ -192,6 +218,8 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
                 return ConsensusDecision::Stall;
             }
         };
+        // [+] DEBUGGING: Log the state of the validator set from the parent view.
+        log_vs("parent_vs", height, &sets);
         let vs = effective_set_for_height(&sets, height);
 
         log::debug!(

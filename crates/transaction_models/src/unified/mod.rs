@@ -292,6 +292,11 @@ where
                             "Staker not in validator set".into(),
                         ));
                     }
+                    // [+] FIX: Always re-sort the validator list after modification
+                    // to ensure a canonical, deterministic order for leader selection.
+                    next_vs
+                        .validators
+                        .sort_by(|a, b| a.account_id.cmp(&b.account_id));
                     next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
                     state.insert(
                         VALIDATOR_SET_KEY,

@@ -47,6 +47,8 @@ struct RpcAppState {
     tx_pool: Arc<Mutex<VecDeque<ChainTransaction>>>,
     workload_client: Arc<WorkloadClient>,
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
+    // [+] Add a channel to kick the consensus ticker when a new tx arrives.
+    consensus_kick_tx: mpsc::UnboundedSender<()>,
     config: OrchestrationConfig,
 }
 
@@ -73,18 +75,16 @@ async fn rpc_handler(
     };
 
     match payload.method.as_str() {
-        "system.getStatus.v1" => {
-            match app_state.workload_client.get_status().await {
-                Ok(status) => (
-                    StatusCode::OK,
-                    make_ok(&payload.id, serde_json::to_value(status).unwrap()),
-                ),
-                Err(e) => (
-                    StatusCode::OK,
-                    make_err(&payload.id, -32000, format!("Failed to get status: {}", e)),
-                ),
-            }
-        }
+        "system.getStatus.v1" => match app_state.workload_client.get_status().await {
+            Ok(status) => (
+                StatusCode::OK,
+                make_ok(&payload.id, serde_json::to_value(status).unwrap()),
+            ),
+            Err(e) => (
+                StatusCode::OK,
+                make_err(&payload.id, -32000, format!("Failed to get status: {}", e)),
+            ),
+        },
         "submit_transaction" | "submit_tx" | "broadcast_tx" | "sendTransaction" => {
             let Some(tx_val) = extract_tx_param(&payload.params) else {
                 return (
@@ -131,11 +131,6 @@ async fn rpc_handler(
                 },
             };
 
-            // IMPORTANT: Do not call into the workload for “pre-execution” here.
-            // Some implementations mutate state during ante-handlers (e.g., nonce bump),
-            // which would make the *in-block* execution fail later (nonce mismatch).
-            // We rely on block processing for final validity.
-
             // Local admission to mempool
             let new_size = {
                 let mut pool = app_state.tx_pool.lock().await;
@@ -146,6 +141,9 @@ async fn rpc_handler(
                 "[RPC] Locally admitted tx to mempool (size now: {}).",
                 new_size
             );
+
+            // [+] Kick the consensus ticker to let it know there's new work.
+            let _ = app_state.consensus_kick_tx.send(());
 
             // Gossip to peers
             let wire = serde_json::to_vec(&tx).unwrap();
@@ -261,12 +259,15 @@ pub async fn run_rpc_server(
     tx_pool: Arc<Mutex<VecDeque<ChainTransaction>>>,
     workload_client: Arc<WorkloadClient>,
     swarm_commander: mpsc::Sender<SwarmCommand>,
+    // [+] Add a channel to kick the consensus ticker.
+    consensus_kick_tx: mpsc::UnboundedSender<()>,
     config: OrchestrationConfig,
 ) -> Result<JoinHandle<()>> {
     let app_state = Arc::new(RpcAppState {
         tx_pool,
         workload_client,
         swarm_command_sender: swarm_commander,
+        consensus_kick_tx,
         config,
     });
 

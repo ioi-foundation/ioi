@@ -331,6 +331,13 @@ impl OnEndBlock for IdentityHub {
                     if height >= staged.activation_height {
                         if let Some(staged_taken) = creds[1].take() {
                             let new_active = staged_taken.clone();
+                            // [+] DEBUGGING: Add log line to trace key promotion.
+                            log::info!(
+                                "[IdentityHub] Promoting account 0x{} -> {:?} at H={}",
+                                hex::encode(&account_id.as_ref()[..4]),
+                                new_active.suite,
+                                height
+                            );
                             creds[0] = Some(new_active.clone());
                             self.save_credentials(state, &account_id, &creds)?;
 
