@@ -514,7 +514,6 @@ where
             workload_client,
             tx_pool_ref: self.tx_pool.clone(),
             swarm_commander: self.swarm_command_sender.clone(),
-            shutdown_receiver: self.shutdown_sender.subscribe(),
             consensus_engine_ref: self.consensus_engine.clone(),
             node_state: self.syncer.get_node_state(),
             local_keypair: self.local_keypair.clone(),
@@ -618,8 +617,17 @@ where
     ) -> Result<()> {
         let guardian_channel =
             depin_sdk_client::security::SecurityChannel::new("orchestration", "guardian");
+        // [+] FIX: Provide cert paths to the client.
+        let certs_dir =
+            std::env::var("CERTS_DIR").expect("CERTS_DIR environment variable must be set");
         guardian_channel
-            .establish_client(guardian_addr, "guardian")
+            .establish_client(
+                guardian_addr,
+                "guardian",
+                &format!("{}/ca.pem", certs_dir),
+                &format!("{}/orchestration.pem", certs_dir),
+                &format!("{}/orchestration.key", certs_dir),
+            )
             .await?;
         log::info!("[Orchestration] Attestation channel to Guardian established.");
 

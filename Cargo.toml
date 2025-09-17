@@ -75,6 +75,7 @@ tokio-rustls = { version = "0.25.0" }
 rustls = { version = "0.22.2", features = ["ring"] }
 rcgen = { version = "0.12.0" }
 webpki-roots = { version = "0.26.0" }
+rustls-pemfile = { version = "2.1" }
 
 # Cryptography
 rand = { version = "0.8" }

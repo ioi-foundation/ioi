@@ -4,7 +4,7 @@
 use anyhow::Result;
 use clap::Parser;
 use depin_sdk_api::validator::Container;
-use depin_sdk_validator::common::GuardianContainer;
+use depin_sdk_validator::common::{generate_certificates_if_needed, GuardianContainer};
 use depin_sdk_validator::config::GuardianConfig;
 use std::path::Path;
 use std::sync::Arc;
@@ -31,6 +31,9 @@ async fn main() -> Result<()> {
         .init();
     let opts = GuardianOpts::parse();
     log::info!("Guardian container starting up...");
+
+    let certs_dir = std::env::var("CERTS_DIR").expect("CERTS_DIR environment variable must be set");
+    generate_certificates_if_needed(Path::new(&certs_dir))?;
 
     let config: GuardianConfig = toml::from_str(&std::fs::read_to_string(
         Path::new(&opts.config_dir).join("guardian.toml"),
