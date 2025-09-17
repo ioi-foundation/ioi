@@ -37,9 +37,8 @@ mod gossip;
 mod oracle;
 mod peer_management;
 mod remote_state_view;
-pub mod verifier_select;
-// FIX: Declare the sync module here.
 mod sync;
+pub mod verifier_select;
 
 // --- Use statements for handler functions ---
 use consensus::drive_consensus_tick;
@@ -255,7 +254,6 @@ async fn handle_network_event<CS, ST, CE, V>(
         + Debug,
 {
     match event {
-        // --- HOT PATH: do not hold the big context lock; only touch the mempool handle. ---
         NetworkEvent::GossipTransaction(tx) => {
             let tx_pool_ref = {
                 let ctx = context_arc.lock().await;
@@ -267,10 +265,6 @@ async fn handle_network_event<CS, ST, CE, V>(
                 log::debug!("[Orchestrator] Mempool size is now {}", pool.len());
             }
         }
-
-        // The remaining (rare in single-node test) branches use the old handlers.
-        // We keep them as-is for now; they still take the big lock, but that won’t starve
-        // the ticker in this test scenario once GossipTransaction is lock-light.
         NetworkEvent::GossipBlock(block) => {
             let mut ctx = context_arc.lock().await;
             gossip::handle_gossip_block(&mut ctx, block).await
@@ -429,10 +423,22 @@ where
 
         handles.push(rpc_handle);
 
-        // Immediate kick, but let the tick function manage internal locking & quarantine checks
         log::info!("[Consensus] Immediate kick");
-        if let Err(e) = drive_consensus_tick(&context_arc).await {
-            log::error!("[Orch Tick] Error during initial consensus tick: {e}");
+        match tokio::spawn({
+            let ctx = context_arc.clone();
+            async move { drive_consensus_tick(&ctx).await }
+        })
+        .await
+        {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => log::error!("[Orch Tick] Error during initial consensus tick: {e}"),
+            Err(join_err) => {
+                if join_err.is_panic() {
+                    log::error!("[Orch Tick] Initial tick panicked; continuing: {join_err}");
+                } else {
+                    log::error!("[Orch Tick] Initial tick cancelled: {join_err}");
+                }
+            }
         }
 
         let ticker_context = context_arc.clone();
@@ -452,7 +458,6 @@ where
 
             loop {
                 ticker.tick().await;
-                // Small peek to respect quarantine, do not hold lock across the tick.
                 let skip = {
                     let guard = ticker_context.lock().await;
                     guard.is_quarantined.load(Ordering::SeqCst)
@@ -461,12 +466,25 @@ where
                     log::info!("[Consensus] Skipping tick (node is quarantined).");
                     continue;
                 }
-                // Do not hold the outer context lock here; the tick function will coordinate
-                if let Err(e) = drive_consensus_tick(&ticker_context).await {
-                    log::error!(
-                        "[Orch Tick] Error during consensus tick: {}. Continuing...",
-                        e
-                    );
+                match tokio::spawn({
+                    let ctx = ticker_context.clone();
+                    async move { drive_consensus_tick(&ctx).await }
+                })
+                .await
+                {
+                    Ok(Ok(())) => {}
+                    Ok(Err(e)) => {
+                        log::error!("[Orch Tick] Error during consensus tick: {e}. Continuing...")
+                    }
+                    Err(join_err) => {
+                        if join_err.is_panic() {
+                            log::error!(
+                                "[Orch Tick] consensus tick panicked; continuing: {join_err}"
+                            );
+                        } else {
+                            log::error!("[Orch Tick] consensus tick cancelled: {join_err}");
+                        }
+                    }
                 }
             }
         }));

@@ -209,19 +209,25 @@ impl IAVLNode {
         node.as_ref().map_or(0, |n| n.size)
     }
 
-    /// Calculate balance factor
-    fn balance_factor(&self) -> i32 {
-        Self::node_height(&self.right) - Self::node_height(&self.left)
-    }
-
-    /// Create a new node with updated children
+    /// Create a new node with updated children, recomputing the split key.
     fn with_children(
-        key: Vec<u8>,
+        _key: Vec<u8>, // Key is ignored and recomputed from left subtree
         value: Vec<u8>,
         version: u64,
         left: Option<Arc<IAVLNode>>,
         right: Option<Arc<IAVLNode>>,
     ) -> Self {
+        let key = if let Some(l) = &left {
+            debug_assert!(
+                l.is_leaf() || l.right.is_some(),
+                "Left child of an inner node must not be empty if the node itself is not a leaf."
+            );
+            Self::find_max(l).key.clone()
+        } else {
+            // If left is None, an inner node has no split key according to the invariant.
+            // This case should not be hit if tree is constructed correctly.
+            Vec::new()
+        };
         let height = 1 + max(Self::node_height(&left), Self::node_height(&right));
         let size = 1 + Self::node_size(&left) + Self::node_size(&right);
 
@@ -239,98 +245,111 @@ impl IAVLNode {
         node
     }
 
-    /// Rotate left
+    /// Balance factor (right height - left height)
+    fn balance_factor(&self) -> i32 {
+        Self::node_height(&self.right) - Self::node_height(&self.left)
+    }
+
+    /// Single left rotation (RR case around `node`)
+    /// Invariant: all internal node values are empty Vec and split_key is recomputed.
     fn rotate_left(node: Arc<IAVLNode>, version: u64) -> Arc<IAVLNode> {
-        let right = node
+        let r = node
             .right
             .as_ref()
-            .expect("Right child must exist for left rotation");
-        let new_node = Self::with_children(
-            node.key.clone(),
-            node.value.clone(),
+            .expect("rotate_left requires right child")
+            .clone();
+
+        // New left child of root after rotation is the old node with its right -> r.left
+        let new_left = Arc::new(Self::with_children(
+            Vec::new(), // split key recomputed from left
+            Vec::new(), // inner nodes carry no value
             version,
             node.left.clone(),
-            right.left.clone(),
-        );
+            r.left.clone(),
+        ));
+
+        // New root: r with left = new_left, right = r.right
         Arc::new(Self::with_children(
-            right.key.clone(),
-            right.value.clone(),
+            Vec::new(),
+            Vec::new(),
             version,
-            Some(Arc::new(new_node)),
-            right.right.clone(),
+            Some(new_left),
+            r.right.clone(),
         ))
     }
 
-    /// Rotate right
+    /// Single right rotation (LL case around `node`)
     fn rotate_right(node: Arc<IAVLNode>, version: u64) -> Arc<IAVLNode> {
-        let left = node
+        let l = node
             .left
             .as_ref()
-            .expect("Left child must exist for right rotation");
-        let new_node = Self::with_children(
-            node.key.clone(),
-            node.value.clone(),
+            .expect("rotate_right requires left child")
+            .clone();
+
+        // New right child of root after rotation is the old node with its left -> l.right
+        let new_right = Arc::new(Self::with_children(
+            Vec::new(),
+            Vec::new(),
             version,
-            left.right.clone(),
+            l.right.clone(),
             node.right.clone(),
-        );
+        ));
+
+        // New root: l with left = l.left, right = new_right
         Arc::new(Self::with_children(
-            left.key.clone(),
-            left.value.clone(),
+            Vec::new(),
+            Vec::new(),
             version,
-            left.left.clone(),
-            Some(Arc::new(new_node)),
+            l.left.clone(),
+            Some(new_right),
         ))
     }
 
-    /// Balance the tree if needed
-    fn balance(node: Arc<IAVLNode>, version: u64) -> Arc<IAVLNode> {
-        let balance_factor = node.balance_factor();
-        if balance_factor > 1 {
-            // Right-heavy
-            if let Some(right) = &node.right {
-                if right.balance_factor() < 0 {
-                    // Right-Left case
-                    let new_right = Self::rotate_right(right.clone(), version);
-                    let new_node = Self::with_children(
-                        node.key.clone(),
-                        node.value.clone(),
+    /// AVL rebalancing that preserves split-key invariant by always rebuilding nodes
+    /// with `with_children` (which recomputes `split_key = max(left)`).
+    fn balance(mut node: Arc<IAVLNode>, version: u64) -> Arc<IAVLNode> {
+        let bf = node.balance_factor();
+
+        // Right-heavy
+        if bf > 1 {
+            // If right-left case: rotate right on right child first
+            if let Some(r) = &node.right {
+                if r.balance_factor() < 0 {
+                    // node.right = rotate_right(node.right)
+                    let rotated_right = Self::rotate_right(r.clone(), version);
+                    node = Arc::new(Self::with_children(
+                        Vec::new(),
+                        Vec::new(),
                         version,
                         node.left.clone(),
-                        Some(new_right),
-                    );
-                    Self::rotate_left(Arc::new(new_node), version)
-                } else {
-                    // Right-Right case
-                    Self::rotate_left(node, version)
+                        Some(rotated_right),
+                    ));
                 }
-            } else {
-                node
             }
-        } else if balance_factor < -1 {
-            // Left-heavy
-            if let Some(left) = &node.left {
-                if left.balance_factor() > 0 {
-                    // Left-Right case
-                    let new_left = Self::rotate_left(left.clone(), version);
-                    let new_node = Self::with_children(
-                        node.key.clone(),
-                        node.value.clone(),
-                        version,
-                        Some(new_left),
-                        node.right.clone(),
-                    );
-                    Self::rotate_right(Arc::new(new_node), version)
-                } else {
-                    // Left-Left case
-                    Self::rotate_right(node, version)
-                }
-            } else {
-                node
-            }
-        } else {
-            node
+            return Self::rotate_left(node, version);
         }
+
+        // Left-heavy
+        if bf < -1 {
+            // If left-right case: rotate left on left child first
+            if let Some(l) = &node.left {
+                if l.balance_factor() > 0 {
+                    // node.left = rotate_left(node.left)
+                    let rotated_left = Self::rotate_left(l.clone(), version);
+                    node = Arc::new(Self::with_children(
+                        Vec::new(),
+                        Vec::new(),
+                        version,
+                        Some(rotated_left),
+                        node.right.clone(),
+                    ));
+                }
+            }
+            return Self::rotate_right(node, version);
+        }
+
+        // Already balanced
+        node
     }
 
     /// Insert a key-value pair into the tree
@@ -342,37 +361,59 @@ impl IAVLNode {
     ) -> Arc<IAVLNode> {
         match node {
             None => Arc::new(Self::new_leaf(key, value, version)),
-            Some(n) => match key.cmp(&n.key) {
-                Ordering::Less => {
-                    let new_left = Self::insert(n.left.clone(), key, value, version);
+            Some(n) => {
+                if n.is_leaf() {
+                    match key.cmp(&n.key) {
+                        Ordering::Less => {
+                            let new_leaf = Arc::new(Self::new_leaf(key, value, version));
+                            let old_leaf = n; // n is already Arc<IAVLNode>
+                            Arc::new(Self::with_children(
+                                Vec::new(), // Split key will be recomputed
+                                Vec::new(), // Inner nodes have no value
+                                version,
+                                Some(new_leaf),
+                                Some(old_leaf),
+                            ))
+                        }
+                        Ordering::Greater => {
+                            let new_leaf = Arc::new(Self::new_leaf(key, value, version));
+                            let old_leaf = n;
+                            Arc::new(Self::with_children(
+                                Vec::new(), // Split key will be recomputed
+                                Vec::new(), // Inner nodes have no value
+                                version,
+                                Some(old_leaf),
+                                Some(new_leaf),
+                            ))
+                        }
+                        Ordering::Equal => {
+                            // Update existing leaf
+                            Arc::new(Self::new_leaf(n.key.clone(), value, version))
+                        }
+                    }
+                } else {
+                    // Internal node logic
+                    let (new_left, new_right) = if key <= n.key {
+                        (
+                            Self::insert(n.left.clone(), key, value, version),
+                            n.right.clone().unwrap(),
+                        )
+                    } else {
+                        (
+                            n.left.clone().unwrap(),
+                            Self::insert(n.right.clone(), key, value, version),
+                        )
+                    };
                     let new_node = Self::with_children(
-                        n.key.clone(),
-                        n.value.clone(),
+                        Vec::new(), // recompute
+                        Vec::new(), // no value
                         version,
                         Some(new_left),
-                        n.right.clone(),
-                    );
-                    Self::balance(Arc::new(new_node), version)
-                }
-                Ordering::Greater => {
-                    let new_right = Self::insert(n.right.clone(), key, value, version);
-                    let new_node = Self::with_children(
-                        n.key.clone(),
-                        n.value.clone(),
-                        version,
-                        n.left.clone(),
                         Some(new_right),
                     );
                     Self::balance(Arc::new(new_node), version)
                 }
-                Ordering::Equal => Arc::new(Self::with_children(
-                    n.key.clone(),
-                    value,
-                    version,
-                    n.left.clone(),
-                    n.right.clone(),
-                )),
-            },
+            }
         }
     }
 
@@ -428,17 +469,27 @@ impl IAVLNode {
             .map_or_else(|| node.clone(), Self::find_min)
     }
 
+    /// Find the maximum node in a subtree
+    fn find_max(node: &Arc<IAVLNode>) -> Arc<IAVLNode> {
+        node.right
+            .as_ref()
+            .map_or_else(|| node.clone(), Self::find_max)
+    }
+
     /// Get a value by key
     fn get(node: &Option<Arc<IAVLNode>>, key: &[u8]) -> Option<Vec<u8>> {
-        node.as_ref().and_then(|n| match key.cmp(&n.key) {
-            Ordering::Less => Self::get(&n.left, key),
-            Ordering::Greater => Self::get(&n.right, key),
-            Ordering::Equal => {
-                if n.is_leaf() {
+        node.as_ref().and_then(|n| {
+            if n.is_leaf() {
+                if key == n.key.as_slice() {
                     Some(n.value.clone())
                 } else {
-                    // Same convention as proof descent: go LEFT on equal
+                    None
+                }
+            } else {
+                if key <= n.key.as_slice() {
                     Self::get(&n.left, key)
+                } else {
+                    Self::get(&n.right, key)
                 }
             }
         })
@@ -451,14 +502,17 @@ impl IAVLNode {
         results: &mut Vec<(Vec<u8>, Vec<u8>)>,
     ) {
         if let Some(n) = node {
-            if n.key.as_slice() >= prefix {
-                Self::range_scan(&n.left, prefix, results);
-            }
-            if n.key.starts_with(prefix) {
-                results.push((n.key.clone(), n.value.clone()));
-            }
-            if prefix.starts_with(&n.key) || n.key.as_slice() < prefix {
-                Self::range_scan(&n.right, prefix, results);
+            if n.is_leaf() {
+                if n.key.starts_with(prefix) {
+                    results.push((n.key.clone(), n.value.clone()));
+                }
+            } else {
+                if !n.key.is_empty() && prefix <= n.key.as_slice() {
+                    Self::range_scan(&n.left, prefix, results);
+                }
+                if n.key.is_empty() || prefix > n.key.as_slice() {
+                    Self::range_scan(&n.right, prefix, results);
+                }
             }
         }
     }
@@ -558,130 +612,54 @@ where
         let mut current_node_opt = start_node;
 
         while let Some(current_node) = current_node_opt {
-            match key.cmp(&current_node.key) {
-                Ordering::Less => {
-                    let sibling_hash = current_node
+            if current_node.is_leaf() {
+                if current_node.key == key {
+                    path.reverse();
+                    return Some(ExistenceProof {
+                        key: current_node.key.clone(),
+                        value: current_node.value.clone(),
+                        leaf: LeafOp {
+                            version: current_node.version,
+                        },
+                        path,
+                    });
+                } else {
+                    return None; // Key not found
+                }
+            }
+
+            // It's an internal node
+            let (next_node, side, sibling_hash) = if key <= current_node.key.as_slice() {
+                (
+                    current_node.left.clone(),
+                    Side::Right, // Sibling is on the right
+                    current_node
                         .right
                         .as_ref()
-                        .map(|sib| sib.hash.clone())
-                        .unwrap_or_else(IAVLNode::empty_hash);
-
-                    #[cfg(feature = "strict_iavl")]
-                    {
-                        let rhs = current_node
-                            .right
-                            .as_ref()
-                            .map(|n| n.compute_hash())
-                            .unwrap_or_else(IAVLNode::empty_hash);
-                        if sibling_hash != rhs {
-                            log::error!(
-                                "[IAVL STRICT][existence] Sibling hash drift @ split={}: cached={} strict={}",
-                                hex::encode(&current_node.key),
-                                hex::encode(&sibling_hash),
-                                hex::encode(&rhs),
-                            );
-                            panic!("IAVL strict sibling hash mismatch (right).");
-                        }
-                    }
-
-                    path.push(InnerOp {
-                        version: current_node.version,
-                        height: current_node.height,
-                        size: current_node.size,
-                        split_key: current_node.key.clone(),
-                        side: Side::Right,
-                        sibling_hash: sibling_hash.try_into().unwrap(),
-                    });
-                    current_node_opt = current_node.left.clone();
-                }
-                Ordering::Greater => {
-                    let sibling_hash = current_node
+                        .map(|n| n.hash.clone())
+                        .unwrap_or_else(IAVLNode::empty_hash),
+                )
+            } else {
+                (
+                    current_node.right.clone(),
+                    Side::Left, // Sibling is on the left
+                    current_node
                         .left
                         .as_ref()
-                        .map(|sib| sib.hash.clone())
-                        .unwrap_or_else(IAVLNode::empty_hash);
-
-                    #[cfg(feature = "strict_iavl")]
-                    {
-                        let lhs = current_node
-                            .left
-                            .as_ref()
-                            .map(|n| n.compute_hash())
-                            .unwrap_or_else(IAVLNode::empty_hash);
-                        if sibling_hash != lhs {
-                            log::error!(
-                                "[IAVL STRICT][existence] Sibling hash drift @ split={}: cached={} strict={}",
-                                hex::encode(&current_node.key),
-                                hex::encode(&sibling_hash),
-                                hex::encode(&lhs),
-                            );
-                            panic!("IAVL strict sibling hash mismatch (left).");
-                        }
-                    }
-
-                    path.push(InnerOp {
-                        version: current_node.version,
-                        height: current_node.height,
-                        size: current_node.size,
-                        split_key: current_node.key.clone(),
-                        side: Side::Left,
-                        sibling_hash: sibling_hash.try_into().unwrap(),
-                    });
-                    current_node_opt = current_node.right.clone();
-                }
-                Ordering::Equal => {
-                    if current_node.is_leaf() {
-                        path.reverse();
-                        return Some(ExistenceProof {
-                            key: current_node.key.clone(),
-                            value: current_node.value.clone(),
-                            leaf: LeafOp {
-                                version: current_node.version,
-                            },
-                            path,
-                        });
-                    } else {
-                        // IMPORTANT: descend deterministically on equal.
-                        // With the common convention "node.key = max(left-subtree)",
-                        // the exact key lies in the LEFT subtree.
-                        let sibling_hash = current_node
-                            .right
-                            .as_ref()
-                            .map(|sib| sib.hash.clone())
-                            .unwrap_or_else(IAVLNode::empty_hash);
-
-                        #[cfg(feature = "strict_iavl")]
-                        {
-                            let rhs = current_node
-                                .right
-                                .as_ref()
-                                .map(|n| n.compute_hash())
-                                .unwrap_or_else(IAVLNode::empty_hash);
-                            if sibling_hash != rhs {
-                                log::error!(
-                                    "[IAVL STRICT][existence-eq] Sibling hash drift @ split={}: cached={} strict={}",
-                                    hex::encode(&current_node.key),
-                                    hex::encode(&sibling_hash),
-                                    hex::encode(&rhs),
-                                );
-                                panic!("IAVL strict sibling hash mismatch (equal/right).");
-                            }
-                        }
-
-                        // Record this hop, then continue down LEFT
-                        path.push(InnerOp {
-                            version: current_node.version,
-                            height: current_node.height,
-                            size: current_node.size,
-                            split_key: current_node.key.clone(),
-                            side: Side::Right, // sibling is on the RIGHT
-                            sibling_hash: sibling_hash.try_into().unwrap(),
-                        });
-                        current_node_opt = current_node.left.clone();
-                        continue; // don't finalize yet
-                    }
-                }
+                        .map(|n| n.hash.clone())
+                        .unwrap_or_else(IAVLNode::empty_hash),
+                )
             };
+
+            path.push(InnerOp {
+                version: current_node.version,
+                height: current_node.height,
+                size: current_node.size,
+                split_key: current_node.key.clone(),
+                side,
+                sibling_hash: sibling_hash.try_into().unwrap(),
+            });
+            current_node_opt = next_node;
         }
         None
     }
@@ -715,12 +693,17 @@ where
         let mut current = start_node.as_ref();
         let mut predecessor = None;
         while let Some(node) = current {
-            match key.cmp(&node.key) {
-                Ordering::Greater => {
+            if node.is_leaf() {
+                if node.key.as_slice() < key {
+                    predecessor = Some(node.key.clone());
+                }
+                // Stop at leaves
+                break;
+            } else {
+                if node.key.as_slice() < key {
                     predecessor = Some(node.key.clone());
                     current = node.right.as_ref();
-                }
-                _ => {
+                } else {
                     current = node.left.as_ref();
                 }
             }
@@ -732,12 +715,16 @@ where
         let mut current = start_node.as_ref();
         let mut successor = None;
         while let Some(node) = current {
-            match key.cmp(&node.key) {
-                Ordering::Less => {
+            if node.is_leaf() {
+                if node.key.as_slice() > key {
+                    successor = Some(node.key.clone());
+                }
+                break;
+            } else {
+                if node.key.as_slice() >= key {
                     successor = Some(node.key.clone());
                     current = node.left.as_ref();
-                }
-                _ => {
+                } else {
                     current = node.right.as_ref();
                 }
             }

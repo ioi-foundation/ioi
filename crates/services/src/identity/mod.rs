@@ -12,7 +12,6 @@ use depin_sdk_types::app::{
     account_id_from_key_material, read_validator_sets, write_validator_sets, AccountId,
     ActiveKeyRecord, ChainTransaction, Credential, RotationProof, SignatureSuite, ValidatorSetV1,
 };
-use depin_sdk_types::codec;
 use depin_sdk_types::error::{StateError, TransactionError, UpgradeError};
 use depin_sdk_types::keys::{
     IDENTITY_CREDENTIALS_PREFIX, IDENTITY_PROMOTION_INDEX_PREFIX, IDENTITY_ROTATION_NONCE_PREFIX,
