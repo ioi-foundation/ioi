@@ -206,7 +206,7 @@ where
         syncer,
         network_event_receiver,
         swarm_command_sender: real_swarm_commander,
-        consensus_engine,
+        consensus_engine: consensus_engine.clone(), // Pass a clone to the container
         local_keypair: local_key,
         pqc_keypair,
         is_quarantined,
@@ -215,7 +215,8 @@ where
 
     let orchestration = Arc::new(OrchestrationContainer::new(&opts.config, deps)?);
 
-    let consensus_for_chain = engine_from_config(&config)?;
+    // Share the same consensus engine instance between Orchestrator and Chain.
+    let consensus_for_chain = consensus_engine.clone();
     let chain_ref = {
         let tm = UnifiedTransactionModel::new(commitment_scheme.clone());
         let dummy_workload_config = WorkloadConfig {
@@ -247,7 +248,7 @@ where
                     ))
                 },
             ),
-            consensus_for_chain,
+            consensus_for_chain, // Use the cloned engine
             workload_container,
         );
         Arc::new(tokio::sync::Mutex::new(chain))
@@ -301,7 +302,7 @@ async fn main() -> Result<()> {
             let keypair = identity::Keypair::generate_ed25519();
             // --- FIX START: Correct typo from `some` to `Some` ---
             if let Some(parent) = key_path.parent() {
-            // --- FIX END ---
+                // --- FIX END ---
                 fs::create_dir_all(parent)?;
             }
             fs::File::create(key_path)?.write_all(&keypair.to_protobuf_encoding()?)?;

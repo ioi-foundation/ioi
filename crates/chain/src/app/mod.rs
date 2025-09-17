@@ -506,14 +506,15 @@ where
                                     "[PoS EndBlock] Promoting validator set @H={}",
                                     block.header.height
                                 );
+                                let promoted_from_height = next_vs.effective_from_height;
                                 sets.current = next_vs.clone();
-                                // --- FIX START: Only clear `next` if it was the one promoted ---
+                                // Only clear `next` if it's the one we just promoted.
+                                // This prevents overwriting a new `next` scheduled in the same block.
                                 if sets.next.as_ref().map_or(false, |n| {
-                                    n.effective_from_height == next_vs.effective_from_height
+                                    n.effective_from_height == promoted_from_height
                                 }) {
                                     sets.next = None;
                                 }
-                                // --- FIX END ---
                                 modified = true;
                             }
                         }
