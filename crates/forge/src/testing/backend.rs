@@ -9,6 +9,7 @@ use bollard::container::{
 use bollard::models::HostConfig;
 use bollard::network::CreateNetworkOptions;
 use bollard::Docker;
+use depin_sdk_validator::common::generate_certificates_if_needed;
 use futures_util::stream::{self, Stream, StreamExt};
 use libp2p::Multiaddr;
 use std::io;
@@ -147,12 +148,15 @@ pub struct DockerBackend {
     agentic_model_path: Option<PathBuf>,
     _temp_dir: Arc<TempDir>,
     config_dir_path: PathBuf,
+    // [+] FIX: Add a path for the shared certs directory.
+    certs_dir_path: PathBuf,
     orch_stream: Option<LogStream>,
     work_stream: Option<LogStream>,
     guard_stream: Option<LogStream>,
 }
 
 impl DockerBackend {
+    // [+] FIX: Add `certs_dir_path` to the function signature.
     pub async fn new(
         rpc_addr: String,
         p2p_addr: Multiaddr,
@@ -161,6 +165,7 @@ impl DockerBackend {
         _keypair_path: PathBuf,
         _genesis_path: PathBuf,
         config_dir_path: PathBuf,
+        certs_dir_path: PathBuf,
     ) -> Result<Self> {
         let docker = Docker::connect_with_local_defaults()?;
         let network_name = format!("depin-e2e-{}", uuid::Uuid::new_v4());
@@ -181,6 +186,7 @@ impl DockerBackend {
             agentic_model_path,
             _temp_dir: temp_dir,
             config_dir_path,
+            certs_dir_path,
             orch_stream: None,
             work_stream: None,
             guard_stream: None,
@@ -225,18 +231,35 @@ impl TestBackend for DockerBackend {
             .get_or_try_init(ensure_docker_image_exists)
             .await?;
 
+        // [+] FIX: Generate certs on the host before launching containers.
+        generate_certificates_if_needed(&self.certs_dir_path)?;
+
         // Define paths as they will appear inside the containers
         let container_data_dir = "/tmp/test-data";
+        let container_certs_dir = "/tmp/certs";
         let container_workload_config = "/tmp/test-data/workload.toml";
         let container_orch_config = "/tmp/test-data/orchestration.toml";
         let container_identity_key = "/tmp/test-data/identity.key";
 
         // Base volume mount for all generated configs and keys
-        let base_binds = vec![format!(
-            "{}:{}",
-            self.config_dir_path.to_string_lossy(),
-            container_data_dir
-        )];
+        let base_binds = vec![
+            format!(
+                "{}:{}",
+                self.config_dir_path.to_string_lossy(),
+                container_data_dir
+            ),
+            // [+] FIX: Mount the certs directory into all containers.
+            format!(
+                "{}:{}",
+                self.certs_dir_path.to_string_lossy(),
+                container_certs_dir
+            ),
+        ];
+
+        // [+] FIX: Define all String-based env vars here to ensure their lifetime.
+        let certs_env_str = format!("CERTS_DIR={}", container_certs_dir);
+        let guardian_addr_env_str = "GUARDIAN_ADDR=guardian:8443".to_string();
+        let workload_addr_env_str = "WORKLOAD_IPC_ADDR=workload:8555".to_string();
 
         if let Some(model_path) = &self.agentic_model_path {
             let model_dir = model_path.parent().unwrap().to_string_lossy();
@@ -246,25 +269,23 @@ impl TestBackend for DockerBackend {
             let mut guardian_binds = base_binds.clone();
             guardian_binds.push(format!("{}:/models", model_dir));
 
-            // --- FIX START: Point the config dir to the root of the mounted volume ---
             let guardian_cmd = vec![
                 "guardian",
                 "--config-dir",
-                container_data_dir, // Use the root mount path directly
+                container_data_dir,
                 "--agentic-model-path",
                 &container_model_path,
             ];
-            // --- FIX END ---
 
-            let guardian_env = vec![];
+            let guardian_env: Vec<&str> = vec![&certs_env_str]; // Use the String's slice
             self.launch_container("guardian", guardian_cmd, guardian_env, guardian_binds)
                 .await?;
         }
 
         let workload_cmd = vec!["workload", "--config", container_workload_config];
-        let mut workload_env = vec!["IPC_SERVER_ADDR=0.0.0.0:8555"];
+        let mut workload_env = vec!["IPC_SERVER_ADDR=0.0.0.0:8555", &certs_env_str];
         if self.agentic_model_path.is_some() {
-            workload_env.push("GUARDIAN_ADDR=guardian:8443");
+            workload_env.push(&guardian_addr_env_str);
         }
         self.launch_container("workload", workload_cmd, workload_env, base_binds.clone())
             .await?;
@@ -278,9 +299,9 @@ impl TestBackend for DockerBackend {
             "--listen-address",
             "/ip4/0.0.0.0/tcp/9000",
         ];
-        let mut orch_env = vec!["WORKLOAD_IPC_ADDR=workload:8555"];
+        let mut orch_env: Vec<&str> = vec![&workload_addr_env_str, &certs_env_str];
         if self.agentic_model_path.is_some() {
-            orch_env.push("GUARDIAN_ADDR=guardian:8443");
+            orch_env.push(&guardian_addr_env_str);
         }
         self.launch_container("orchestration", orch_cmd, orch_env, base_binds)
             .await?;

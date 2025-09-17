@@ -1,8 +1,10 @@
-// Path: crates/validator/src/common/security.rs
+// Path: crates/client/src/security.rs
 
 //! Implementation of a secure, persistent mTLS channel between containers.
 
 use anyhow::{anyhow, Result};
+use std::fs::File;
+use std::io::BufReader;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -10,9 +12,8 @@ use tokio::sync::Mutex;
 use tokio_rustls::{
     rustls::{
         self,
-        client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier},
-        pki_types::{CertificateDer, ServerName, UnixTime},
-        ClientConfig, SignatureScheme,
+        pki_types::{CertificateDer, PrivateKeyDer, ServerName},
+        ClientConfig,
     },
     TlsConnector,
 };
@@ -43,44 +44,6 @@ pub struct SecurityChannel {
     stream: Arc<Mutex<Option<SecureStream>>>,
 }
 
-// A custom verifier to accept the Guardian's self-signed certificate.
-// This is safe for a trusted, local inter-container environment.
-#[derive(Debug)]
-struct SelfSignedCertVerifier;
-impl ServerCertVerifier for SelfSignedCertVerifier {
-    fn verify_server_cert(
-        &self,
-        _: &CertificateDer<'_>,
-        _: &[CertificateDer<'_>],
-        _: &ServerName<'_>,
-        _: &[u8],
-        _: UnixTime,
-    ) -> std::result::Result<ServerCertVerified, rustls::Error> {
-        Ok(ServerCertVerified::assertion())
-    }
-    fn verify_tls12_signature(
-        &self,
-        _: &[u8],
-        _: &CertificateDer<'_>,
-        _: &rustls::DigitallySignedStruct,
-    ) -> Result<HandshakeSignatureValid, rustls::Error> {
-        Ok(HandshakeSignatureValid::assertion())
-    }
-    fn verify_tls13_signature(
-        &self,
-        _: &[u8],
-        _: &CertificateDer<'_>,
-        _: &rustls::DigitallySignedStruct,
-    ) -> Result<HandshakeSignatureValid, rustls::Error> {
-        Ok(HandshakeSignatureValid::assertion())
-    }
-    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-        rustls::crypto::ring::default_provider()
-            .signature_verification_algorithms
-            .supported_schemes()
-    }
-}
-
 impl SecurityChannel {
     /// Creates a new, unestablished security channel.
     pub fn new(source: &str, destination: &str) -> Self {
@@ -92,17 +55,43 @@ impl SecurityChannel {
     }
 
     /// Establishes the channel from the client-side.
-    pub async fn establish_client(&self, server_addr: &str, server_name: &str) -> Result<()> {
+    pub async fn establish_client(
+        &self,
+        server_addr: &str,
+        server_name: &str,
+        ca_cert_path: &str,
+        client_cert_path: &str,
+        client_key_path: &str,
+    ) -> Result<()> {
+        // Load the CA certificate
+        let ca_cert_pem = std::fs::read(ca_cert_path)?;
+        let mut ca_reader = std::io::Cursor::new(ca_cert_pem);
+        let ca_certs: Vec<CertificateDer> = rustls_pemfile::certs(&mut ca_reader)
+            .map(|cert_res| cert_res.unwrap())
+            .collect();
+        let mut root_store = rustls::RootCertStore::empty();
+        root_store.add_parsable_certificates(ca_certs);
+
+        // Load the client's own certificate and private key
+        let client_cert_file = File::open(client_cert_path)?;
+        let mut reader = BufReader::new(client_cert_file);
+        let client_certs: Vec<CertificateDer> = rustls_pemfile::certs(&mut reader)
+            .map(|cert_res| cert_res.unwrap())
+            .collect();
+
+        let client_key_file = File::open(client_key_path)?;
+        let mut reader = BufReader::new(client_key_file);
+        let client_key = rustls_pemfile::private_key(&mut reader)?
+            .ok_or_else(|| anyhow!("No private key found in {}", client_key_path))?;
+        let client_key_der = PrivateKeyDer::from(client_key);
+
         let config = ClientConfig::builder()
-            .dangerous()
-            .with_custom_certificate_verifier(Arc::new(SelfSignedCertVerifier))
-            .with_no_client_auth();
+            .with_root_certificates(root_store)
+            .with_client_auth_cert(client_certs, client_key_der)?;
 
         let connector = TlsConnector::from(Arc::new(config));
         let stream = TcpStream::connect(server_addr).await?;
 
-        // FIX: Convert the borrowed `&str` to an owned `String` so the resulting
-        // `ServerName` has a 'static lifetime, which is required by `connect`.
         let domain = ServerName::try_from(server_name.to_string())?;
 
         let tls_stream = connector.connect(domain, stream).await?;

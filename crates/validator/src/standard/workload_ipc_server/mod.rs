@@ -3,7 +3,7 @@
 pub mod methods;
 pub mod router;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use depin_sdk_api::chain::AppChain; // <-- Import the AppChain trait
 use depin_sdk_api::{
     commitment::CommitmentScheme, state::StateManager, validator::WorkloadContainer,
@@ -25,10 +25,10 @@ use methods::{
     },
     RpcContext,
 };
-use rcgen::{Certificate, CertificateParams, SanType};
 use router::{RequestContext, Router};
 use serde::Serialize;
-use std::net::Ipv4Addr;
+use std::fs::File;
+use std::io::BufReader;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::{
@@ -36,28 +36,44 @@ use tokio::{
     sync::{Mutex, Semaphore},
 };
 use tokio_rustls::{
-    rustls::{
-        pki_types::{CertificateDer, PrivateKeyDer},
-        ServerConfig,
-    },
+    rustls::{pki_types::PrivateKeyDer, RootCertStore, ServerConfig},
     TlsAcceptor,
 };
 
-pub(crate) fn create_ipc_server_config() -> Result<Arc<ServerConfig>> {
-    let mut server_params = CertificateParams::new(vec!["workload".to_string()]);
-    server_params.subject_alt_names = vec![
-        SanType::DnsName("workload".to_string()),
-        SanType::IpAddress(Ipv4Addr::LOCALHOST.into()),
-    ];
-    let server_cert = Certificate::from_params(server_params)?;
-    let server_der = server_cert.serialize_der()?;
-    let server_key = server_cert.serialize_private_key_der();
+pub fn create_ipc_server_config(
+    ca_cert_path: &str,
+    server_cert_path: &str,
+    server_key_path: &str,
+) -> Result<Arc<ServerConfig>> {
+    // Load CA cert
+    let ca_cert_file = File::open(ca_cert_path)?;
+    let mut reader = BufReader::new(ca_cert_file);
+    let ca_certs = rustls_pemfile::certs(&mut reader)
+        .map(|r| r.unwrap())
+        .collect::<Vec<_>>();
+    let mut root_store = RootCertStore::empty();
+    root_store.add_parsable_certificates(ca_certs);
+
+    // Load server cert and key
+    let server_cert_file = File::open(server_cert_path)?;
+    let mut reader = BufReader::new(server_cert_file);
+    let server_certs = rustls_pemfile::certs(&mut reader)
+        .map(|r| r.unwrap())
+        .collect::<Vec<_>>();
+
+    let server_key_file = File::open(server_key_path)?;
+    let mut reader = BufReader::new(server_key_file);
+    let server_key = rustls_pemfile::private_key(&mut reader)?
+        .ok_or_else(|| anyhow!("No private key found in {}", server_key_path))?;
+    let server_key_der = PrivateKeyDer::from(server_key);
+
+    // Create a client verifier that trusts our CA. This is the modern, correct way.
+    let client_verifier =
+        rustls::server::WebPkiClientVerifier::builder(Arc::new(root_store)).build()?;
+
     let server_config = ServerConfig::builder()
-        .with_no_client_auth()
-        .with_single_cert(
-            vec![CertificateDer::from(server_der)],
-            PrivateKeyDer::Pkcs8(server_key.into()),
-        )?;
+        .with_client_cert_verifier(client_verifier)
+        .with_single_cert(server_certs, server_key_der)?;
     Ok(Arc::new(server_config))
 }
 
@@ -134,7 +150,13 @@ where
         log::info!("Workload: IPC server listening on {}", self.address);
         eprintln!("WORKLOAD_IPC_LISTENING_ON_{}", self.address);
 
-        let server_config = create_ipc_server_config()?;
+        let certs_dir =
+            std::env::var("CERTS_DIR").expect("CERTS_DIR environment variable must be set");
+        let server_config = create_ipc_server_config(
+            &format!("{}/ca.pem", certs_dir),
+            &format!("{}/workload-server.pem", certs_dir),
+            &format!("{}/workload-server.key", certs_dir),
+        )?;
         let acceptor = TlsAcceptor::from(server_config);
 
         let state_tree_for_gc = self.workload_container.state_tree();

@@ -159,10 +159,62 @@ async fn test_staking_lifecycle() -> Result<()> {
         .build()
         .await?;
 
+    // Get cert paths for node 0
+    let certs0_path = &cluster.validators[0].certs_dir_path;
+    let ca0_path = certs0_path.join("ca.pem").to_string_lossy().to_string();
+    let cert0_path = certs0_path
+        .join("orchestration.pem")
+        .to_string_lossy()
+        .to_string();
+    let key0_path = certs0_path
+        .join("orchestration.key")
+        .to_string_lossy()
+        .to_string();
+    // Get cert paths for node 1
+    let certs1_path = &cluster.validators[1].certs_dir_path;
+    let ca1_path = certs1_path.join("ca.pem").to_string_lossy().to_string();
+    let cert1_path = certs1_path
+        .join("orchestration.pem")
+        .to_string_lossy()
+        .to_string();
+    let key1_path = certs1_path
+        .join("orchestration.key")
+        .to_string_lossy()
+        .to_string();
+    // Get cert paths for node 2
+    let certs2_path = &cluster.validators[2].certs_dir_path;
+    let ca2_path = certs2_path.join("ca.pem").to_string_lossy().to_string();
+    let cert2_path = certs2_path
+        .join("orchestration.pem")
+        .to_string_lossy()
+        .to_string();
+    let key2_path = certs2_path
+        .join("orchestration.key")
+        .to_string_lossy()
+        .to_string();
+
     let rpc_addr = cluster.validators[0].rpc_addr.clone();
-    let client0 = WorkloadClient::new(&cluster.validators[0].workload_ipc_addr).await?;
-    let client1 = WorkloadClient::new(&cluster.validators[1].workload_ipc_addr).await?;
-    let client2 = WorkloadClient::new(&cluster.validators[2].workload_ipc_addr).await?;
+    let client0 = WorkloadClient::new(
+        &cluster.validators[0].workload_ipc_addr,
+        &ca0_path,
+        &cert0_path,
+        &key0_path,
+    )
+    .await?;
+    let client1 = WorkloadClient::new(
+        &cluster.validators[1].workload_ipc_addr,
+        &ca1_path,
+        &cert1_path,
+        &key1_path,
+    )
+    .await?;
+    let client2 = WorkloadClient::new(
+        &cluster.validators[2].workload_ipc_addr,
+        &ca2_path,
+        &cert2_path,
+        &key2_path,
+    )
+    .await?;
     let keypair0 = cluster.validators[0].keypair.clone();
     let keypair1 = cluster.validators[1].keypair.clone();
     let client1_rpc_addr = cluster.validators[1].rpc_addr.clone(); // For waiting on node 1

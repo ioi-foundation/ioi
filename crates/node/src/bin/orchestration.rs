@@ -128,7 +128,13 @@ where
     let workload_client = {
         let workload_ipc_addr =
             std::env::var("WORKLOAD_IPC_ADDR").unwrap_or_else(|_| "127.0.0.1:8555".to_string());
-        Arc::new(WorkloadClient::new(&workload_ipc_addr).await?)
+        // [+] FIX: Load cert paths from env and pass to client constructor.
+        let certs_dir =
+            std::env::var("CERTS_DIR").expect("CERTS_DIR environment variable must be set");
+        let ca_path = format!("{}/ca.pem", certs_dir);
+        let cert_path = format!("{}/orchestration.pem", certs_dir);
+        let key_path = format!("{}/orchestration.key", certs_dir);
+        Arc::new(WorkloadClient::new(&workload_ipc_addr, &ca_path, &cert_path, &key_path).await?)
     };
 
     let workload_probe_deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);

@@ -18,7 +18,7 @@ use serde::Serialize;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::Debug;
 use std::sync::{atomic::AtomicBool, Arc};
-use tokio::sync::{mpsc, watch, Mutex};
+use tokio::sync::{mpsc, Mutex};
 
 pub type ChainFor<CS, ST> = Arc<
     Mutex<
@@ -47,7 +47,6 @@ where
     pub workload_client: Arc<WorkloadClient>,
     pub tx_pool_ref: Arc<Mutex<VecDeque<ChainTransaction>>>,
     pub swarm_commander: mpsc::Sender<SwarmCommand>,
-    pub shutdown_receiver: watch::Receiver<bool>,
     pub consensus_engine_ref: Arc<Mutex<CE>>,
     pub node_state: Arc<Mutex<NodeState>>,
     pub local_keypair: identity::Keypair,

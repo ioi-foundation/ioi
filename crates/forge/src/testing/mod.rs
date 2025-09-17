@@ -22,12 +22,14 @@ use depin_sdk_types::config::{
     CommitmentSchemeType, ConsensusType, InitialServiceConfig, StateTreeType, VmFuelCosts,
     WorkloadConfig,
 };
+// [+] FIX: Import the certificate generation utility.
+use depin_sdk_validator::common::generate_certificates_if_needed;
 use depin_sdk_validator::config::OrchestrationConfig;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use hyper::Body;
 use libp2p::{identity, Multiaddr, PeerId};
 use serde_json::Value;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Once};
 use std::time::Duration;
@@ -402,6 +404,7 @@ pub struct TestValidator {
     pub rpc_addr: String,
     pub workload_ipc_addr: String,
     pub p2p_addr: Multiaddr,
+    pub certs_dir_path: PathBuf,
     _temp_dir: Arc<TempDir>,
     backend: Box<dyn TestBackend>,
     // --- FIX START (Analysis 2): Store Senders, not streams, and add a join handle for drainers ---
@@ -484,6 +487,10 @@ impl TestValidator {
     ) -> Result<Self> {
         let peer_id = keypair.public().to_peer_id();
         let temp_dir = Arc::new(tempfile::tempdir()?);
+        // [+] FIX: Create a dedicated subdir for certs to keep the temp dir clean.
+        let certs_dir_path = temp_dir.path().join("certs");
+        std::fs::create_dir_all(&certs_dir_path)?;
+
         let pqc_keypair = Some(
             DilithiumScheme::new(depin_sdk_crypto::security::SecurityLevel::Level2)
                 .generate_keypair(),
@@ -620,11 +627,15 @@ impl TestValidator {
                 keypair_path.clone(),
                 genesis_path.clone(),
                 config_dir_path.clone(),
+                certs_dir_path.clone(),
             )
             .await?;
             workload_ipc_addr = "127.0.0.1:8555".to_string(); // Placeholder for Docker
             Box::new(docker_backend)
         } else {
+            // [+] FIX: Generate certificates for process-based backend.
+            generate_certificates_if_needed(&certs_dir_path)?;
+
             let ipc_port_workload = portpicker::pick_unused_port().unwrap_or(base_port + 2);
             let guardian_addr = format!(
                 "127.0.0.1:{}",
@@ -648,6 +659,8 @@ impl TestValidator {
                             model_path,
                         ])
                         .env("GUARDIAN_LISTEN_ADDR", &guardian_addr)
+                        // [+] FIX: Provide certs dir to Guardian.
+                        .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())
                         .stderr(Stdio::piped())
                         .kill_on_drop(true)
                         .spawn()?;
@@ -673,6 +686,8 @@ impl TestValidator {
             workload_cmd
                 .args(["--config", &workload_config_path.to_string_lossy()])
                 .env("IPC_SERVER_ADDR", &workload_ipc_addr)
+                // [+] FIX: Provide certs dir to Workload.
+                .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())
                 .stderr(Stdio::piped())
                 .kill_on_drop(true);
             if agentic_model_path.is_some() {
@@ -699,7 +714,14 @@ impl TestValidator {
             .await??;
 
             // STEP 2: Create a client and poll for genesis readiness via RPC.
-            let temp_workload_client = WorkloadClient::new(&workload_ipc_addr).await?;
+            // [+] FIX: Provide certificate paths to the client constructor.
+            let temp_workload_client = WorkloadClient::new(
+                &workload_ipc_addr,
+                &certs_dir_path.join("ca.pem").to_string_lossy(),
+                &certs_dir_path.join("orchestration.pem").to_string_lossy(),
+                &certs_dir_path.join("orchestration.key").to_string_lossy(),
+            )
+            .await?;
             let genesis_status = wait_for(
                 "workload genesis to be ready",
                 Duration::from_millis(250),
@@ -737,6 +759,8 @@ impl TestValidator {
                 .args(&orch_args)
                 .env("RUST_BACKTRACE", "1") // Add backtrace for debugging
                 .env("WORKLOAD_IPC_ADDR", &workload_ipc_addr)
+                // [+] FIX: Provide certs dir to Orchestration.
+                .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())
                 .stderr(Stdio::piped())
                 .kill_on_drop(true);
             if agentic_model_path.is_some() {
@@ -868,6 +892,7 @@ impl TestValidator {
             rpc_addr,
             workload_ipc_addr,
             p2p_addr,
+            certs_dir_path,
             _temp_dir: temp_dir,
             backend,
             // --- FIX START (Analysis 2): Store senders and handles ---

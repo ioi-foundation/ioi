@@ -45,6 +45,7 @@ uuid = { version = "1.8.0", features = ["v4"] }                           # Adde
 # Added for mTLS implementation
 tokio-rustls = { workspace = true }
 rustls = { workspace = true, features = ["ring"] }
+rustls-pemfile = { workspace = true }
 rcgen = { workspace = true }
 webpki-roots = { workspace = true }
 

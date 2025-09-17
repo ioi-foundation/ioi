@@ -111,7 +111,12 @@ pub struct WorkloadClient {
 }
 
 impl WorkloadClient {
-    pub async fn new(workload_addr: &str) -> Result<Self> {
+    pub async fn new(
+        workload_addr: &str,
+        ca_cert_path: &str,
+        client_cert_path: &str,
+        client_key_path: &str,
+    ) -> Result<Self> {
         let channel = SecurityChannel::new("orchestration", "workload");
 
         let mut attempts = 0;
@@ -119,7 +124,16 @@ impl WorkloadClient {
         let retry_delay = Duration::from_secs(2);
 
         loop {
-            match channel.establish_client(workload_addr, "workload").await {
+            match channel
+                .establish_client(
+                    workload_addr,
+                    "workload",
+                    ca_cert_path,
+                    client_cert_path,
+                    client_key_path,
+                )
+                .await
+            {
                 Ok(_) => {
                     log::info!(
                         "Successfully connected test client to Workload container at {}",
