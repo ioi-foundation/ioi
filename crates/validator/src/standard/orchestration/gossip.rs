@@ -156,31 +156,6 @@ pub fn prune_mempool(
     }
 }
 
-/// Handles an incoming gossiped transaction.
-pub async fn handle_gossip_transaction<CS, ST, CE, V>(
-    context: &mut MainLoopContext<CS, ST, CE, V>,
-    tx: ChainTransaction,
-) where
-    CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Send
-        + Sync
-        + 'static
-        + Debug,
-    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
-    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
-{
-    let mut pool = context.tx_pool_ref.lock().await;
-    pool.push_back(tx);
-    log::info!(
-        "[Orchestrator] Received transaction via gossip. Pool size: {}",
-        pool.len()
-    );
-}
-
 /// Handles an incoming gossiped block.
 pub async fn handle_gossip_block<CS, ST, CE, V>(
     context: &mut MainLoopContext<CS, ST, CE, V>,
