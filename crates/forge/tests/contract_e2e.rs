@@ -184,7 +184,14 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     let node = &mut cluster.validators[0];
     let rpc_addr = &node.rpc_addr;
     let keypair = &node.keypair;
-    let workload_client = WorkloadClient::new(&node.workload_ipc_addr).await?;
+    let certs_path = &node.certs_dir_path;
+    let workload_client = WorkloadClient::new(
+        &node.workload_ipc_addr,
+        &certs_path.join("ca.pem").to_string_lossy(),
+        &certs_path.join("orchestration.pem").to_string_lossy(),
+        &certs_path.join("orchestration.key").to_string_lossy(),
+    )
+    .await?;
 
     // --- FIX START: Spawn a background task to continuously drain logs ---
     let (mut orch_logs, _, _) = node.subscribe_logs();
