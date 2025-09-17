@@ -37,11 +37,12 @@ mod gossip;
 mod oracle;
 mod peer_management;
 mod remote_state_view;
-mod sync;
 pub mod verifier_select;
+// FIX: Declare the sync module here.
+mod sync;
 
 // --- Use statements for handler functions ---
-use consensus::handle_consensus_tick;
+use consensus::drive_consensus_tick;
 use context::{ChainFor, MainLoopContext};
 
 /// A struct to hold the numerous dependencies for the OrchestrationContainer,
@@ -406,14 +407,10 @@ where
 
         handles.push(rpc_handle);
 
-        {
-            let mut ctx = context_arc.lock().await;
-            if !ctx.is_quarantined.load(Ordering::SeqCst) {
-                log::info!("[Consensus] Immediate kick");
-                handle_consensus_tick(&mut *ctx).await;
-            } else {
-                log::info!("[Consensus] Skipping immediate kick (node is quarantined).");
-            }
+        // Immediate kick, but let the tick function manage internal locking & quarantine checks
+        log::info!("[Consensus] Immediate kick");
+        if let Err(e) = drive_consensus_tick(&context_arc).await {
+            log::error!("[Orch Tick] Error during initial consensus tick: {e}");
         }
 
         let ticker_context = context_arc.clone();
@@ -433,12 +430,22 @@ where
 
             loop {
                 ticker.tick().await;
-                let mut guard = ticker_context.lock().await;
-                if guard.is_quarantined.load(Ordering::SeqCst) {
+                // Small peek to respect quarantine, do not hold lock across the tick.
+                let skip = {
+                    let guard = ticker_context.lock().await;
+                    guard.is_quarantined.load(Ordering::SeqCst)
+                };
+                if skip {
                     log::info!("[Consensus] Skipping tick (node is quarantined).");
                     continue;
                 }
-                handle_consensus_tick(&mut guard).await;
+                // Do not hold the outer context lock here; the tick function will coordinate
+                if let Err(e) = drive_consensus_tick(&ticker_context).await {
+                    log::error!(
+                        "[Orch Tick] Error during consensus tick: {}. Continuing...",
+                        e
+                    );
+                }
             }
         }));
 
