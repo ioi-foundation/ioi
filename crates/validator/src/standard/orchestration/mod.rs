@@ -207,8 +207,7 @@ where
                 biased;
 
                 Some(event) = network_event_receiver.recv() => {
-                    let mut context = context_arc.lock().await;
-                    handle_network_event(event, &mut context).await;
+                    handle_network_event(event, &context_arc).await;
                 }
 
                 _ = &mut sync_timeout, if *context_arc.lock().await.node_state.lock().await == NodeState::Syncing => {
@@ -234,7 +233,7 @@ where
 /// Dispatches network events to their respective handlers.
 async fn handle_network_event<CS, ST, CE, V>(
     event: NetworkEvent,
-    context: &mut MainLoopContext<CS, ST, CE, V>,
+    context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
@@ -256,30 +255,53 @@ async fn handle_network_event<CS, ST, CE, V>(
         + Debug,
 {
     match event {
+        // --- HOT PATH: do not hold the big context lock; only touch the mempool handle. ---
+        NetworkEvent::GossipTransaction(tx) => {
+            let tx_pool_ref = {
+                let ctx = context_arc.lock().await;
+                ctx.tx_pool_ref.clone()
+            };
+            {
+                let mut pool = tx_pool_ref.lock().await;
+                pool.push_back(*tx);
+                log::debug!("[Orchestrator] Mempool size is now {}", pool.len());
+            }
+        }
+
+        // The remaining (rare in single-node test) branches use the old handlers.
+        // We keep them as-is for now; they still take the big lock, but that won’t starve
+        // the ticker in this test scenario once GossipTransaction is lock-light.
+        NetworkEvent::GossipBlock(block) => {
+            let mut ctx = context_arc.lock().await;
+            gossip::handle_gossip_block(&mut ctx, block).await
+        }
         NetworkEvent::ConnectionEstablished(peer_id) => {
-            peer_management::handle_connection_established(context, peer_id).await
+            let mut ctx = context_arc.lock().await;
+            peer_management::handle_connection_established(&mut ctx, peer_id).await
         }
         NetworkEvent::ConnectionClosed(peer_id) => {
-            peer_management::handle_connection_closed(context, peer_id).await
-        }
-        NetworkEvent::GossipBlock(block) => gossip::handle_gossip_block(context, block).await,
-        NetworkEvent::GossipTransaction(tx) => {
-            gossip::handle_gossip_transaction(context, *tx).await
+            let mut ctx = context_arc.lock().await;
+            peer_management::handle_connection_closed(&mut ctx, peer_id).await
         }
         NetworkEvent::StatusRequest(peer, channel) => {
-            sync::handle_status_request(context, peer, channel).await
+            let mut ctx = context_arc.lock().await;
+            sync::handle_status_request(&mut ctx, peer, channel).await
         }
         NetworkEvent::BlocksRequest(peer, since, channel) => {
-            sync::handle_blocks_request(context, peer, since, channel).await
+            let mut ctx = context_arc.lock().await;
+            sync::handle_blocks_request(&mut ctx, peer, since, channel).await
         }
         NetworkEvent::StatusResponse(peer, height) => {
-            sync::handle_status_response(context, peer, height).await
+            let mut ctx = context_arc.lock().await;
+            sync::handle_status_response(&mut ctx, peer, height).await
         }
         NetworkEvent::BlocksResponse(peer, blocks) => {
-            sync::handle_blocks_response(context, peer, blocks).await
+            let mut ctx = context_arc.lock().await;
+            sync::handle_blocks_response(&mut ctx, peer, blocks).await
         }
         NetworkEvent::OracleAttestationReceived { from, attestation } => {
-            oracle::handle_oracle_attestation_received(context, from, attestation).await
+            let mut ctx = context_arc.lock().await;
+            oracle::handle_oracle_attestation_received(&mut ctx, from, attestation).await
         }
         _ => {}
     }
