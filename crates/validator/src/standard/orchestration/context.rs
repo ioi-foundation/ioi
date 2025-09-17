@@ -65,4 +65,6 @@ where
     pub verifier: V,
     /// A cache for verified remote state proofs to reduce redundant IPC/verification.
     pub proof_cache_ref: Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>,
+    /// Kick the consensus ticker (RPC, gossip, etc. use this).
+    pub consensus_kick_tx: mpsc::UnboundedSender<()>,
 }

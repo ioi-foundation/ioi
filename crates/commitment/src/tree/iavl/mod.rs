@@ -996,3 +996,6 @@ where
         self.roots.contains_key(root.as_ref())
     }
 }
+
+#[cfg(test)]
+mod tests;

@@ -31,6 +31,7 @@ use tokio::sync::Mutex;
 /// This avoids starving the ticker when other tasks briefly lock the context.
 pub async fn drive_consensus_tick<CS, ST, CE, V>(
     context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    cause: &str,
 ) -> Result<()>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -81,18 +82,19 @@ where
     };
     let node_state = node_state_arc.lock().await.clone();
 
+    let parent_h = last_committed_block_opt
+        .as_ref()
+        .map(|b| b.header.height)
+        .unwrap_or(0);
+    let producing_h = parent_h + 1;
+
     let our_account_id_short = hex::encode(&local_keypair.public().to_peer_id().to_bytes()[..4]);
     log::info!(
-        "[Orch Tick] state={:?}, parent_h={}, producing_h={}",
+        "[Orch Tick] cause={} state={:?}, parent_h={}, producing_h={}",
+        cause,
         node_state,
-        last_committed_block_opt
-            .as_ref()
-            .map(|b| b.header.height)
-            .unwrap_or(0),
-        last_committed_block_opt
-            .as_ref()
-            .map(|b| b.header.height + 1)
-            .unwrap_or(1),
+        parent_h,
+        producing_h
     );
 
     let allow_bootstrap = matches!(
@@ -177,11 +179,10 @@ where
             .await
     };
 
-    log::debug!(
-        "[Orch Tick][Node {}] Consensus decision for H={}: {:?}",
-        our_account_id_short,
-        height_being_built,
-        decision
+    log::info!(
+        "[Orch Tick] decision={:?} @ H={}",
+        decision,
+        height_being_built
     );
 
     if let depin_sdk_api::consensus::ConsensusDecision::ProduceBlock(_) = decision {
@@ -198,7 +199,7 @@ where
         };
         let target_height = status.height + 1;
 
-        let (candidate_txs, _mempool_len_before) = {
+        let (candidate_txs, mempool_len_before) = {
             let pool = tx_pool_ref.lock().await;
             (pool.iter().cloned().collect::<Vec<_>>(), pool.len())
         };
@@ -210,6 +211,11 @@ where
             );
             return Ok(());
         }
+
+        log::info!(
+            "[Orch Tick] precheck starting, mempool_size={}",
+            mempool_len_before
+        );
 
         let latest_anchor = last_committed_block_opt
             .as_ref()
@@ -485,18 +491,19 @@ where
                     prune_mempool(&mut pool, &final_block);
                 }
 
-                // Oracle + engine.reset under short/context-free locks
+                // [+] FIX: Reset engine first to shorten engine lock window for subsequent ticks.
                 {
-                    // FIX: Clone the service before locking the context to avoid borrow conflict
+                    consensus_engine_ref.lock().await.reset(block_height);
+                }
+
+                // Oracle / side-effects next, under brief context locks only.
+                {
                     let service_clone = {
                         let ctx = context_arc.lock().await;
                         ctx.external_data_service.clone()
                     };
                     let mut ctx = context_arc.lock().await;
                     handle_newly_processed_block(&mut ctx, block_height, &service_clone).await;
-                }
-                {
-                    consensus_engine_ref.lock().await.reset(block_height);
                 }
 
                 {
