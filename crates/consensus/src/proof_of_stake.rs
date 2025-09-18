@@ -206,13 +206,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
 
         let sets: ValidatorSetsV1 = match read_validator_sets(&vs_bytes) {
             Ok(s) => s,
-            Err(e) if height == 1 => {
-                log::warn!(
-                    "[PoS Decide H={}] Could not decode ValidatorSet at parent root for H=1 ({}); producing empty boot block.",
-                    height, e
-                );
-                return ConsensusDecision::ProduceBlock(vec![]);
-            }
             Err(e) => {
                 log::error!(
                     "[PoS Decide H={}] Could not decode ValidatorSet blob: {}. Stalling.",
@@ -238,11 +231,7 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
                 "[PoS Decide H={}] Validator set is empty. Stalling.",
                 height
             );
-            return if height == 1 {
-                ConsensusDecision::ProduceBlock(vec![])
-            } else {
-                ConsensusDecision::Stall
-            };
+            return ConsensusDecision::Stall;
         }
 
         if let Some(leader_account_id) = self.select_leader(height, vs) {
@@ -321,46 +310,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             "[PoS Verify H={}] Validator set read successfully.",
             header.height
         );
-
-        if header.height == 1 {
-            if !vs
-                .validators
-                .iter()
-                .any(|v| v.account_id == header.producer_account_id)
-            {
-                return Err(ConsensusError::BlockVerificationFailed(
-                    "Producer not in validator set (H=1)".into(),
-                ));
-            }
-            let derived_hash = hash_key(header.producer_key_suite, &header.producer_pubkey);
-            if derived_hash != header.producer_pubkey_hash {
-                return Err(ConsensusError::BlockVerificationFailed(
-                    "Header public key hash mismatch (H=1)".into(),
-                ));
-            }
-            let preimage = header.to_preimage_for_signing();
-            verify_signature(
-                &preimage,
-                &header.producer_pubkey,
-                header.producer_key_suite,
-                &header.signature,
-            )?;
-
-            if let Some(expected_leader) = self.select_leader(header.height, vs) {
-                if expected_leader != header.producer_account_id {
-                    log::warn!(
-                        "[PoS][H=1] Accepting boot block from {:?}, expected leader {:?}.",
-                        header.producer_account_id,
-                        expected_leader
-                    );
-                }
-            }
-            log::info!(
-                "[PoS][H=1] Boot block from {:?} verified with lenient path.",
-                header.producer_account_id
-            );
-            return Ok(());
-        }
 
         let v_entry = vs
             .validators
