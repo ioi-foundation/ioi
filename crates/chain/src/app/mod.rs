@@ -256,7 +256,7 @@ where
 
     /// Internal helper to process a single transaction against a state overlay.
     async fn process_transaction(
-        &mut self,
+        &self,
         tx: &ChainTransaction,
         overlay: &mut StateOverlay<'_>,
         block_height: u64,
@@ -269,6 +269,9 @@ where
         };
 
         preflight_capabilities(&self.services, tx)?;
+        // Note: The following calls are part of the "ante handler" chain. They perform
+        // validation and mutate the state overlay (e.g., deducting fees, bumping nonces)
+        // before the core transaction logic is applied.
         validation::verify_transaction_signature(overlay, &self.services, tx, &tx_ctx)?;
         nonce::assert_next_nonce(overlay, tx)?;
 
@@ -278,6 +281,7 @@ where
             }
         }
 
+        // The nonce is bumped *after* all checks have passed, within the overlay.
         nonce::bump_nonce(overlay, tx)?;
         self.state
             .transaction_model
@@ -439,7 +443,11 @@ where
 impl<CS, ST> AppChain<CS, UnifiedTransactionModel<CS>, ST> for Chain<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Clone,
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
 {
@@ -464,12 +472,27 @@ where
             }));
         }
 
+        // --- PHASE 1: PREPARE STATE CHANGES (Simulated execution) ---
+        // This phase is computationally intensive. It executes transactions against a
+        // copy-on-write overlay of the current state. This involves async I/O for
+        // reading from the canonical state but does not acquire a write lock on it.
         let (inserts, deletes) = {
-            let state_tree_arc = workload.state_tree();
-            let base_state = state_tree_arc.read().await;
-            let mut overlay = StateOverlay::new(&*base_state);
+            // Step 1: Create a temporary, in-memory snapshot of the current state.
+            // This acquires a read lock only for the duration of the state clone,
+            // not for the entire transaction processing loop.
+            let snapshot_state = {
+                let state_tree_arc = workload.state_tree();
+                let base_state = state_tree_arc.read().await;
+                base_state.clone()
+            }; // Read lock on the main state tree is dropped here.
+
+            // Step 2: Simulate transaction execution against an overlay on top of the snapshot.
+            // All awaits from here on will not block writers to the main state tree.
+            let mut overlay = StateOverlay::new(&snapshot_state);
 
             for tx in &block.transactions {
+                // Note: process_transaction now takes &self, making this phase logically read-only
+                // with respect to the `Chain` struct itself.
                 self.process_transaction(tx, &mut overlay, block.header.height)
                     .await?;
             }
@@ -477,6 +500,9 @@ where
             overlay.into_ordered_batch()
         };
 
+        // --- PHASE 2: COMMIT STATE CHANGES (State mutation) ---
+        // This phase acquires a write lock on the state tree and mutates both
+        // the on-disk state and the in-memory chain state.
         {
             let state_tree_arc = workload.state_tree();
             let mut state = state_tree_arc.write().await;
@@ -584,10 +610,14 @@ where
                 }
             }
 
+            // Update the block header with the final state root before it's stored.
             block.header.state_root = StateRoot(final_state_root_bytes.clone());
+            // Update the chain's internal tracking of the latest root.
             self.state.last_state_root = StateRoot(final_state_root_bytes);
         }
 
+        // --- PHASE 3: UPDATE IN-MEMORY CHAIN STATE ---
+        // This modifies the chain's own in-memory status, separate from the state tree.
         log::info!(
             "[Chain Commit] H={} state_root={} anchor={}",
             block.header.height,
