@@ -437,7 +437,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     assert_log_contains(
         "Orchestration",
         &mut orch_logs,
-        "Filtering tx 0 as invalid: Invalid transaction: ExpiredKey",
+        "Filtering tx 0 as invalid: Signer is not authorized by on-chain credentials",
     )
     .await?;
 

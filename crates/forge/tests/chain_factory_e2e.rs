@@ -29,7 +29,7 @@ async fn test_concurrent_polymorphic_chains() -> Result<()> {
 
     // --- Define Cluster A: Proof of Authority with FileStateTree ---
     let cluster_a_handle = tokio::spawn(async {
-        let mut cluster = TestCluster::builder()
+        let cluster = TestCluster::builder()
             .with_validators(1)
             .with_consensus_type("ProofOfAuthority")
             .with_state_tree("File")
@@ -73,8 +73,8 @@ async fn test_concurrent_polymorphic_chains() -> Result<()> {
             .await
             .expect("Failed to build Cluster A");
 
-        let node = &mut cluster.validators[0];
-        let mut logs = node.orch_log_stream.lock().await.take().unwrap();
+        let node = &cluster.validators[0];
+        let (mut logs, _, _) = node.subscribe_logs();
         assert_log_contains(
             "Cluster A",
             &mut logs,
@@ -85,7 +85,7 @@ async fn test_concurrent_polymorphic_chains() -> Result<()> {
 
     // --- Define Cluster B: Proof of Stake with HashMapStateTree ---
     let cluster_b_handle = tokio::spawn(async {
-        let mut cluster = TestCluster::builder()
+        let cluster = TestCluster::builder()
             .with_validators(1)
             .with_consensus_type("ProofOfStake")
             .with_state_tree("HashMap")
@@ -129,8 +129,8 @@ async fn test_concurrent_polymorphic_chains() -> Result<()> {
             .await
             .expect("Failed to build Cluster B");
 
-        let node = &mut cluster.validators[0];
-        let mut logs = node.orch_log_stream.lock().await.take().unwrap();
+        let node = &cluster.validators[0];
+        let (mut logs, _, _) = node.subscribe_logs();
         assert_log_contains(
             "Cluster B",
             &mut logs,

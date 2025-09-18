@@ -18,6 +18,7 @@ The DePIN SDK is a next-generation blockchain framework written entirely in Rust
 - [Quick Start](#quick-start)
 - [Running a Manual Testnet](#running-a-manual-testnet)
 - [Development & Testing](#development--testing)
+- [Logging and Debugging](#logging-and-debugging)
 - [Project Structure](#project-structure)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
@@ -82,7 +83,7 @@ The DePIN SDK follows an SDK-first methodology. Core components are provided as 
 ```bash
 # Build with PoA consensus and File state tree
 cargo build -p depin-sdk-node --release --no-default-features \
-    --features "build-bins,consensus-poa,vm-wasm,tree-file,primitive-hash"
+    --features "validator-bins,consensus-poa,vm-wasm,tree-file,primitive-hash"
 ```
 
 Compiled binaries (`orchestration`, `workload`) will be in `target/release/`.
@@ -177,10 +178,6 @@ cargo test --workspace
 
 > 🔧 **Key Change**: You must specify features via `--features` flag. The harness automatically builds required artifacts.
 
-Of course. Adding a new test to the documentation is a great way to ensure it's easy for others to run. I've added the "Polymorphism" test to the "Individual E2E Tests" section.
-
-Here is the updated testing section for your `README.md`:
-
 #### Individual E2E Tests
 
 | Test | Command |
@@ -193,15 +190,6 @@ Here is the updated testing section for your `README.md`:
 | **Agentic Consensus** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test agentic_consensus_e2e -- --nocapture` |
 | **Oracle** | `cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-file,primitive-hash" --test oracle_e2e -- --nocapture --test-threads=1` |
 | **Interoperability** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test interop_e2e -- --nocapture` |
-
-#### with logging ex:
-RUST_LOG=info,depin_sdk_chain=debug,depin_sdk_validator=debug,depin_sdk_commitment=debug,depin_sdk_consensus=debug cargo test -p depin-sdk-forge --release --features="consensus-pos,vm-wasm,tree-iavl,primitive-hash" --test staking_e2e -- --nocapture
-
-or
-
-ORCH_BLOCK_INTERVAL_SECS=1 RUST_BACKTRACE=1 \
-RUST_LOG=info,depin_sdk_validator=info,depin_sdk_validator::standard::orchestration=debug,depin_sdk_validator::standard::orchestration::consensus=debug,depin_sdk_network::libp2p=info,depin_sdk_commitment::tree::iavl=debug \
-cargo test -p depin-sdk-forge --release --features="consensus-pos,vm-wasm,tree-iavl,primitive-hash,strict_iavl" --test staking_e2e -- --nocapture
 
 #### Penalty Mechanism Tests
 
@@ -220,7 +208,7 @@ cargo test -p depin-sdk-forge --release --features="consensus-pos,vm-wasm,tree-i
 
 ### Docker Testing
 
-For isolated testing environment:
+For an isolated testing environment:
 
 ```bash
 # 1. Clean up
@@ -241,6 +229,68 @@ cargo test -p depin-sdk-forge --release \
   --features "consensus-poa,vm-wasm,tree-file,primitive-hash" \
   --test container_e2e -- --nocapture
 ```
+
+## Logging and Debugging
+
+The SDK uses the `env_logger` crate, which is configured via the `RUST_LOG` environment variable. You can control log verbosity for the entire project or on a per-crate/module basis.
+
+The general syntax is `RUST_LOG=level,crate1=level,crate2::module=level`.
+
+| Level | Description |
+|---|---|
+| `error` | Only shows critical errors. |
+| `warn` | Shows warnings and errors. |
+| `info` | Shows high-level progress, events, and warnings/errors (good default). |
+| `debug` | Shows detailed diagnostic information for developers. |
+| `trace` | Shows extremely verbose, low-level information (e.g., function entry/exit). |
+
+### Common Logging Configurations
+
+Here are some useful "recipes" for debugging different parts of the system.
+
+#### High-Level Overview
+This configuration is useful for watching the chain progress, seeing key identity-related events, and high-level consensus flow without being overwhelmed by details.
+
+```bash
+RUST_LOG=info,depin_sdk_consensus=info,depin_sdk_chain=info,depin_sdk_services::identity=info,depin_sdk_validator::standard::orchestration=info \
+cargo test -p depin-sdk-forge --test <your_test_name> -- --nocapture
+```
+- **`info`**: Default log level.
+- **`depin_sdk_consensus=info`**: Shows leader selection and major consensus events.
+- **`depin_sdk_chain=info`**: Shows when blocks are committed.
+- **`depin_sdk_services::identity=info`**: Shows key rotations and promotions.
+
+#### Standard Debugging
+Use this for general-purpose debugging. It enables `debug` level for the most important crates.
+
+```bash
+RUST_LOG=info,depin_sdk_chain=debug,depin_sdk_validator=debug,depin_sdk_commitment=debug,depin_sdk_consensus=debug \
+cargo test -p depin-sdk-forge --test <your_test_name> -- --nocapture
+```
+- **`depin_sdk_chain=debug`**: See detailed state transitions and genesis loading.
+- **`depin_sdk_validator=debug`**: See details of the Orchestration and Workload containers, including RPC calls.
+- **`depin_sdk_commitment=debug`**: See state tree operations (e.g., IAVL commits).
+- **`depin_sdk_consensus=debug`**: See detailed leader election logic and block verification steps.
+
+#### Advanced Consensus & State Debugging
+This is a powerful configuration for diagnosing tricky consensus failures or state inconsistencies. It enables `trace` logging for specific, critical modules and activates full backtraces on panics.
+
+```bash
+# Optional: Set a faster block time for quicker testing cycles
+ORCH_BLOCK_INTERVAL_SECS=1 \
+# Enable full backtraces on panic
+RUST_BACKTRACE=1 \
+# Set the log levels
+RUST_LOG=info,depin_sdk_validator::standard::orchestration::consensus=trace,depin_sdk_commitment::tree::iavl=trace \
+cargo test -p depin-sdk-forge --release \
+  --features="consensus-pos,vm-wasm,tree-iavl,primitive-hash,strict_iavl" \
+  --test staking_e2e -- --nocapture
+```
+- **`ORCH_BLOCK_INTERVAL_SECS=1`**: Speeds up the test loop.
+- **`RUST_BACKTRACE=1`**: Provides a full stack trace if the node panics.
+- **`...::orchestration::consensus=trace`**: Extremely detailed logging of every step in the consensus tick.
+- **`...::tree::iavl=trace`**: Extremely detailed logging of every IAVL tree operation (insert, commit, hash).
+- **`strict_iavl` feature**: Enables extra, computationally expensive sanity checks inside the IAVL tree to detect state drift early.
 
 ## Project Structure
 
