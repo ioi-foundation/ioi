@@ -11,7 +11,7 @@ use depin_sdk_network::{
 };
 use depin_sdk_types::app::{Block, ChainTransaction};
 use libp2p::{request_response::ResponseChannel, PeerId};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::fmt::Debug;
 
 /// Handles a request for our node's status.
@@ -22,12 +22,13 @@ pub async fn handle_status_request<CS, ST, CE, V>(
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
         + 'static
-        + Debug,
+        + Debug
+        + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
@@ -53,12 +54,13 @@ pub async fn handle_blocks_request<CS, ST, CE, V>(
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
         + 'static
-        + Debug,
+        + Debug
+        + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
@@ -79,12 +81,13 @@ pub async fn handle_status_response<CS, ST, CE, V>(
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
         + 'static
-        + Debug,
+        + Debug
+        + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
@@ -114,29 +117,28 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
         + 'static
-        + Debug,
+        + Debug
+        + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
     let mut all_blocks_processed_successfully = true;
     for block in blocks {
-        if let Err(e) = context.workload_client.process_block(block).await {
-            log::error!(
-                "[Orchestrator] Workload failed to process synced block: {}",
-                e
-            );
+        // The orchestrator's job is just to forward the block. The workload handles processing.
+        // The two-phase commit logic lives inside the workload's RPC handler.
+        if context.workload_client.process_block(block).await.is_err() {
             all_blocks_processed_successfully = false;
             break;
         }
     }
-    if all_blocks_processed_successfully && *context.node_state.lock().await == NodeState::Syncing {
+    if all_blocks_processed_successfully {
         *context.node_state.lock().await = NodeState::Synced;
-        log::info!("[Orchestrator] Finished processing blocks. State -> Synced.");
+        log::info!("[Orchestrator] Finished processing synced blocks. State -> Synced.");
     }
 }

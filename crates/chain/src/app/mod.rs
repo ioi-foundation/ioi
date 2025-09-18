@@ -1,7 +1,7 @@
 // Path: crates/chain/src/app/mod.rs
 use crate::upgrade_manager::ModuleUpgradeManager;
 use async_trait::async_trait;
-use depin_sdk_api::chain::{AppChain, ChainView, StakeAmount, StateView};
+use depin_sdk_api::chain::{AppChain, ChainView, PreparedBlock, StakeAmount, StateView};
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::consensus::PenaltyMechanism;
 use depin_sdk_api::services::access::{Service, ServiceDirectory};
@@ -459,11 +459,11 @@ where
         &self.state.transaction_model
     }
 
-    async fn process_block(
-        &mut self,
-        mut block: Block<ChainTransaction>,
+    async fn prepare_block(
+        &self,
+        block: Block<ChainTransaction>,
         workload: &WorkloadContainer<ST>,
-    ) -> Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError> {
+    ) -> Result<PreparedBlock, ChainError> {
         let expected_height = self.state.status.height + 1;
         if block.header.height != expected_height {
             return Err(ChainError::Block(BlockError::InvalidHeight {
@@ -476,7 +476,7 @@ where
         // This phase is computationally intensive. It executes transactions against a
         // copy-on-write overlay of the current state. This involves async I/O for
         // reading from the canonical state but does not acquire a write lock on it.
-        let (inserts, deletes) = {
+        let state_changes = {
             // Step 1: Create a temporary, in-memory snapshot of the current state.
             // This acquires a read lock only for the duration of the state clone,
             // not for the entire transaction processing loop.
@@ -499,6 +499,47 @@ where
 
             overlay.into_ordered_batch()
         };
+
+        // --- BINDING CONTEXT ---
+        // Compute commitments that bind this preparation to a specific state.
+        let transactions_root = depin_sdk_types::codec::to_bytes_canonical(&block.transactions);
+        let vs_bytes = self
+            .get_validator_set_for(workload, block.header.height)
+            .await?;
+        let validator_set_hash = depin_sdk_crypto::algorithms::hash::sha256(&vs_bytes.concat())
+            .try_into()
+            .unwrap();
+
+        Ok(PreparedBlock {
+            block,
+            state_changes,
+            parent_state_root: self.state.last_state_root.clone(),
+            transactions_root,
+            validator_set_hash,
+        })
+    }
+
+    async fn commit_block(
+        &mut self,
+        prepared: PreparedBlock,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError> {
+        let mut block = prepared.block;
+        let (inserts, deletes) = prepared.state_changes;
+
+        // --- TOCTOU INVARIANT CHECKS ---
+        // Verify that the chain state has not changed between prepare and commit.
+        if block.header.height != self.state.status.height + 1 {
+            return Err(ChainError::Transaction(
+                "Stale preparation: Chain height advanced since block was prepared".into(),
+            ));
+        }
+        if prepared.parent_state_root != self.state.last_state_root {
+            return Err(ChainError::Transaction(
+                "Stale preparation: Parent state root has changed since block was prepared".into(),
+            ));
+        }
+        // Additional checks for transaction root and validator set hash can be added here.
 
         // --- PHASE 2: COMMIT STATE CHANGES (State mutation) ---
         // This phase acquires a write lock on the state tree and mutates both

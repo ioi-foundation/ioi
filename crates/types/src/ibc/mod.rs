@@ -2,10 +2,11 @@
 //! Core data structures for Universal Interoperability.
 
 use crate::commitment::SchemeIdentifier;
+use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 /// Specifies what is being proven within a foreign block.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, Encode, Decode)]
 pub enum ProofTarget {
     /// Proves inclusion in the final state trie.
     State,
@@ -23,7 +24,7 @@ pub enum ProofTarget {
 }
 
 /// Contains the set of roots from a foreign block header, serving as trust anchors.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct BlockAnchor {
     /// The canonical hash of the foreign block.
     pub block_hash: [u8; 32],
@@ -38,7 +39,7 @@ pub struct BlockAnchor {
 }
 
 /// Represents evidence that a block is final and not subject to reorgs.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub enum FinalityEvidence {
     /// Finality evidence for Ethereum beacon chain light clients.
     EthBeaconFinality {
@@ -60,7 +61,7 @@ pub enum FinalityEvidence {
 }
 
 /// Specifies how to derive a trie key from a preimage, essential for interoperability.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub enum KeyCodec {
     /// The key preimage is the final trie key.
     Raw,
@@ -71,7 +72,7 @@ pub enum KeyCodec {
 }
 
 /// A portable, unambiguous witness for proving membership of a value at a key path.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct MembershipWitness {
     /// The data that is encoded/hashed to produce the final trie key (e.g., a transaction index).
     pub key_preimage: Vec<u8>,
@@ -82,7 +83,7 @@ pub struct MembershipWitness {
 }
 
 /// A universal, chain-agnostic container for a cryptographic state proof.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct UniversalProofFormat {
     /// The identifier for the foreign chain's commitment scheme (e.g., "eth-mpt-keccak256").
     pub scheme_id: SchemeIdentifier,
@@ -93,7 +94,7 @@ pub struct UniversalProofFormat {
 }
 
 /// Specifies the hashing algorithm used for a digest.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub enum DigestAlgo {
     /// The SHA-256 hashing algorithm.
     Sha256,
@@ -104,7 +105,7 @@ pub enum DigestAlgo {
 }
 
 /// The universal representation of an executed operation's outcome.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct UniversalExecutionReceipt {
     /// A unique identifier for the source chain (e.g., "eth-mainnet").
     pub source_chain_id: String,
