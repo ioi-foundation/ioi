@@ -12,9 +12,9 @@ use tempfile::tempdir;
 #[tokio::test]
 async fn test_secure_channel_and_attestation_flow_docker() -> Result<()> {
     // 1. SETUP: Build the node binaries with all features required by the test.
-    // The TestClusterBuilder defaults to a FileStateTree + HashCommitmentScheme backend,
-    // so we must include the `tree-file` and `primitive-hash` features.
-    build_test_artifacts("consensus-poa,vm-wasm,tree-file,primitive-hash");
+    // The TestClusterBuilder defaults to a IAVLTree + HashCommitmentScheme backend,
+    // so we must include the `tree-iavl` and `primitive-hash` features.
+    build_test_artifacts("consensus-poa,vm-wasm,tree-iavl,primitive-hash");
     let temp_dir = tempdir()?;
     let model_path = temp_dir.path().join("model.bin");
     std::fs::write(&model_path, "dummy_model_data_for_docker_test")?;

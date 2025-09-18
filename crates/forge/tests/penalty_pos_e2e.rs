@@ -15,7 +15,7 @@ use depin_sdk_types::{
         account_id_from_key_material, evidence_id, AccountId, ActiveKeyRecord, ChainTransaction,
         Credential, FailureReport, OffenseFacts, OffenseType, SignHeader, SignatureProof,
         SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1,
-        ValidatorV1,
+        ValidatorSetsV1, ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
@@ -75,7 +75,7 @@ fn create_report_tx(
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_pos_slashing_and_replay_protection() -> Result<()> {
     println!("\n--- Running PoS Economic Slashing and Replay Protection Test ---");
-    build_test_artifacts("consensus-pos,vm-wasm,tree-file,primitive-hash");
+    build_test_artifacts("consensus-pos,vm-wasm,tree-iavl,primitive-hash");
     let initial_stake = 100_000u64;
     let expected_stake_after_slash = 90_000u64;
 
@@ -110,14 +110,17 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                 .collect();
             let total_weight = validators.iter().map(|v| v.weight).sum();
             let vs_blob = ValidatorSetBlob {
-                schema_version: 1,
-                payload: ValidatorSetV1 {
-                    effective_from_height: 1,
-                    total_weight,
-                    validators,
+                schema_version: 2,
+                payload: ValidatorSetsV1 {
+                    current: ValidatorSetV1 {
+                        effective_from_height: 1,
+                        total_weight,
+                        validators,
+                    },
+                    next: None,
                 },
             };
-            let vs_bytes = codec::to_bytes_canonical(&vs_blob);
+            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload);
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
@@ -171,7 +174,15 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
     let offender = &mut offender_slice[0];
     let rpc_addr_reporter = &reporter.rpc_addr;
     let rpc_addr_offender = &offender.rpc_addr;
-    let reporter_client = WorkloadClient::new(&reporter.workload_ipc_addr).await?;
+
+    let certs_path = &reporter.certs_dir_path;
+    let reporter_client = WorkloadClient::new(
+        &reporter.workload_ipc_addr,
+        &certs_path.join("ca.pem").to_string_lossy(),
+        &certs_path.join("orchestration.pem").to_string_lossy(),
+        &certs_path.join("orchestration.key").to_string_lossy(),
+    )
+    .await?;
 
     wait_for_height(rpc_addr_reporter, 1, Duration::from_secs(20)).await?;
 
@@ -216,7 +227,8 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
 
     let final_offender_stake = reporter_client
         .get_staked_validators()
-        .await?
+        .await
+        .map_err(|e| anyhow::anyhow!(e))?
         .get(&offender_account_id)
         .copied()
         .unwrap_or(0);

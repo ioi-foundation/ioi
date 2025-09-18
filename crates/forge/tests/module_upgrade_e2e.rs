@@ -10,8 +10,18 @@ use depin_sdk_forge::testing::{
 use depin_sdk_types::app::{
     // Add these imports
     account_id_from_key_material,
-    AccountId, ActiveKeyRecord, ChainTransaction, Credential, SignHeader, SignatureProof,
-    SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1,
+    AccountId,
+    ActiveKeyRecord,
+    ChainTransaction,
+    Credential,
+    SignHeader,
+    SignatureProof,
+    SignatureSuite,
+    SystemPayload,
+    SystemTransaction,
+    ValidatorSetBlob,
+    ValidatorSetV1,
+    ValidatorSetsV1,
     ValidatorV1,
 };
 use depin_sdk_types::codec; // Add this import
@@ -63,7 +73,7 @@ fn create_system_tx(
 #[tokio::test]
 async fn test_forkless_module_upgrade() -> Result<()> {
     // 1. SETUP & BUILD
-    build_test_artifacts("consensus-poa,vm-wasm,tree-file,primitive-hash");
+    build_test_artifacts("consensus-poa,vm-wasm,tree-iavl,primitive-hash");
     let service_v2_wasm =
         std::fs::read("../../target/wasm32-unknown-unknown/release/test_service_v2.wasm")?;
     let governance_key = identity::Keypair::generate_ed25519();
@@ -76,6 +86,7 @@ async fn test_forkless_module_upgrade() -> Result<()> {
     let mut cluster = TestCluster::builder()
         .with_validators(1)
         .with_consensus_type("ProofOfAuthority")
+        .with_state_tree("IAVL") // FIX: Align state tree with feature flags
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
             grace_period_blocks: 5,
@@ -93,27 +104,28 @@ async fn test_forkless_module_upgrade() -> Result<()> {
                 account_id_from_key_material(suite, &validator_pk_bytes).unwrap();
             let validator_account_id = AccountId(validator_account_id_hash);
             let vs_blob = ValidatorSetBlob {
-                schema_version: 1,
-                payload: ValidatorSetV1 {
-                    effective_from_height: 1,
-                    total_weight: 1,
-                    validators: vec![ValidatorV1 {
-                        account_id: validator_account_id,
-                        weight: 1,
-                        consensus_key: ActiveKeyRecord {
-                            suite,
-                            pubkey_hash: validator_account_id.0,
-                            since_height: 0,
-                        },
-                    }],
+                schema_version: 2,
+                payload: ValidatorSetsV1 {
+                    current: ValidatorSetV1 {
+                        effective_from_height: 1,
+                        total_weight: 1,
+                        validators: vec![ValidatorV1 {
+                            account_id: validator_account_id,
+                            weight: 1,
+                            consensus_key: ActiveKeyRecord {
+                                suite,
+                                pubkey_hash: validator_account_id.0,
+                                since_height: 0,
+                            },
+                        }],
+                    },
+                    next: None,
                 },
             };
+            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload);
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&vs_blob))
-                )),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
             );
 
             // Setup governance identity
@@ -172,8 +184,8 @@ async fn test_forkless_module_upgrade() -> Result<()> {
     // 3. GET HANDLES
     let node = &mut cluster.validators[0];
     let rpc_addr = &node.rpc_addr;
-    let mut workload_logs = node.workload_log_stream.lock().await.take().unwrap();
-    let mut orch_logs = node.orch_log_stream.lock().await.take().unwrap();
+    // FIX: Use the new non-blocking log subscription API.
+    let (mut orch_logs, mut workload_logs, _) = node.subscribe_logs();
 
     // 4. SUBMIT UPGRADE TRANSACTION
     let activation_height = 5;
