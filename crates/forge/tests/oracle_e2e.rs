@@ -2,7 +2,7 @@
 #![cfg(all(
     feature = "consensus-pos",
     feature = "vm-wasm",
-    feature = "tree-file",
+    feature = "tree-iavl",
     feature = "primitive-hash"
 ))]
 
@@ -13,17 +13,17 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_types::app::{
     account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
-    SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+    SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetV1,
+    ValidatorSetsV1, ValidatorV1,
 };
 use depin_sdk_types::codec;
 use depin_sdk_types::config::InitialServiceConfig;
 use depin_sdk_types::keys::{
-    ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, STAKES_KEY_CURRENT, STAKES_KEY_NEXT,
+    ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
 };
 use depin_sdk_types::service_configs::MigrationConfig;
 use libp2p::identity::Keypair;
 use serde_json::json;
-use std::collections::BTreeMap;
 
 // Helper function to create a signed system transaction
 fn create_system_tx(
@@ -61,11 +61,12 @@ fn create_system_tx(
 #[tokio::test]
 async fn test_validator_native_oracle_e2e() -> Result<()> {
     // 1. SETUP: Build artifacts and launch a 4-node PoS cluster.
-    build_test_artifacts("consensus-pos,vm-wasm,tree-file,primitive-hash");
+    build_test_artifacts("consensus-pos,vm-wasm,tree-iavl,primitive-hash");
 
     let cluster = TestCluster::builder()
         .with_validators(4)
         .with_consensus_type("ProofOfStake")
+        .with_state_tree("IAVL")
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
             grace_period_blocks: 5,
@@ -74,22 +75,41 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
             allow_downgrade: false,
         }))
         .with_genesis_modifier(|genesis, keys| {
-            // Setup initial stakes using the correct AccountId key and canonical codec
-            let stakes: BTreeMap<_, _> = keys
+            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+            let initial_stake = 100_000u128;
+
+            let validators: Vec<ValidatorV1> = keys
                 .iter()
                 .map(|k| {
                     let pk_bytes = k.public().encode_protobuf();
                     let account_hash =
                         account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
-                    (AccountId(account_hash), 100_000u64)
+                    ValidatorV1 {
+                        account_id: AccountId(account_hash),
+                        weight: initial_stake,
+                        consensus_key: ActiveKeyRecord {
+                            suite: SignatureSuite::Ed25519,
+                            pubkey_hash: account_hash,
+                            since_height: 0,
+                        },
+                    }
                 })
                 .collect();
-            let stakes_bytes = codec::to_bytes_canonical(&stakes);
-            let stakes_b64 = format!("b64:{}", BASE64_STANDARD.encode(&stakes_bytes));
-            genesis["genesis_state"][std::str::from_utf8(STAKES_KEY_CURRENT).unwrap()] =
-                json!(&stakes_b64);
-            genesis["genesis_state"][std::str::from_utf8(STAKES_KEY_NEXT).unwrap()] =
-                json!(&stakes_b64);
+            let total_weight = validators.iter().map(|v| v.weight).sum();
+            let validator_sets = ValidatorSetsV1 {
+                current: ValidatorSetV1 {
+                    effective_from_height: 1,
+                    total_weight,
+                    validators,
+                },
+                next: None,
+            };
+
+            let vs_bytes = depin_sdk_types::app::write_validator_sets(&validator_sets);
+            genesis_state.insert(
+                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
+            );
 
             // Populate identity records for all validators
             for keypair in keys {
@@ -100,7 +120,7 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
 
                 // Add IdentityHub credentials
                 let cred = Credential {
-                    suite,
+                    suite: SignatureSuite::Ed25519,
                     public_key_hash: account_id.0,
                     activation_height: 0,
                     l2_location: None,
@@ -133,30 +153,9 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
         .await?;
 
     let node0_rpc = &cluster.validators[0].rpc_addr;
-    let mut logs1 = cluster.validators[1]
-        .orch_log_stream
-        .lock()
-        .await
-        .take()
-        .unwrap();
-    let mut logs2 = cluster.validators[2]
-        .orch_log_stream
-        .lock()
-        .await
-        .take()
-        .unwrap();
-    let mut orch_logs3 = cluster.validators[3]
-        .orch_log_stream
-        .lock()
-        .await
-        .take()
-        .unwrap();
-    let mut workload_logs3 = cluster.validators[3]
-        .workload_log_stream
-        .lock()
-        .await
-        .take()
-        .unwrap();
+    let (mut logs1, _, _) = cluster.validators[1].subscribe_logs();
+    let (mut logs2, _, _) = cluster.validators[2].subscribe_logs();
+    let (mut orch_logs3, mut workload_logs3, _) = cluster.validators[3].subscribe_logs();
 
     // Wait for network to stabilize
     assert_log_contains(
