@@ -80,7 +80,7 @@ pub struct ChainState<CS: CommitmentScheme + Clone> {
 pub struct Chain<CS: CommitmentScheme + Clone, ST: StateManager> {
     pub state: ChainState<CS>,
     pub services: ServiceDirectory,
-    pub _service_manager: ModuleUpgradeManager,
+    pub service_manager: ModuleUpgradeManager,
     pub consensus_engine: Consensus<ChainTransaction>,
     workload_container: Arc<WorkloadContainer<ST>>,
 }
@@ -181,7 +181,7 @@ where
         Self {
             state,
             services: service_directory,
-            _service_manager: service_manager,
+            service_manager,
             consensus_engine,
             workload_container,
         }
@@ -603,6 +603,49 @@ where
                 }
             }
 
+            // After all other state changes, check for and apply module upgrades
+            // scheduled for this block height.
+            let upgrade_key = [
+                depin_sdk_types::keys::UPGRADE_PENDING_PREFIX,
+                &block.header.height.to_le_bytes(),
+            ]
+            .concat();
+
+            if let Some(upgrade_bytes) = state.get(&upgrade_key)? {
+                let upgrades: Vec<(String, Vec<u8>)> =
+                    serde_json::from_slice(&upgrade_bytes).unwrap_or_default();
+                let mut applied_count = 0;
+                for (service_type_str, wasm) in upgrades {
+                    // The transaction payload uses a string for the service type,
+                    // which we map to the ServiceType enum. For this implementation,
+                    // we default to the `Custom` variant.
+                    let service_type =
+                        depin_sdk_api::services::ServiceType::Custom(service_type_str);
+                    match self.service_manager.execute_upgrade(&service_type, &wasm) {
+                        Ok(_) => applied_count += 1,
+                        Err(e) => {
+                            log::error!(
+                                "Failed to apply scheduled module upgrade for {:?} at height {}: {}",
+                                service_type, block.header.height, e
+                            );
+                        }
+                    }
+                }
+                if applied_count > 0 {
+                    let all_active_services = self.service_manager.all_services();
+                    let services_for_dir: Vec<Arc<dyn Service>> = all_active_services
+                        .into_iter()
+                        .map(|s| s as Arc<dyn Service>)
+                        .collect();
+                    self.services = ServiceDirectory::new(services_for_dir);
+                    log::info!(
+                        "Applied {} module upgrade(s) at height {}",
+                        applied_count,
+                        block.header.height
+                    );
+                }
+                state.delete(&upgrade_key)?;
+            }
             self.state.status.height = block.header.height;
             self.state.status.latest_timestamp = block.header.timestamp;
             self.state.status.total_transactions += block.transactions.len() as u64;

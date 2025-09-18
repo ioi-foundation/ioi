@@ -484,6 +484,7 @@ impl TestValidator {
         agentic_model_path: Option<&str>,
         use_docker: bool,
         initial_services: Vec<InitialServiceConfig>,
+        use_malicious_workload: bool,
     ) -> Result<Self> {
         let peer_id = keypair.public().to_peer_id();
         let temp_dir = Arc::new(tempfile::tempdir()?);
@@ -682,7 +683,13 @@ impl TestValidator {
                     (None, None)
                 };
 
-            let mut workload_cmd = TokioCommand::new(node_binary_path.join("workload"));
+            let workload_binary_name = if use_malicious_workload {
+                "malicious-workload"
+            } else {
+                "workload"
+            };
+
+            let mut workload_cmd = TokioCommand::new(node_binary_path.join(workload_binary_name));
             workload_cmd
                 .args(["--config", &workload_config_path.to_string_lossy()])
                 .env("IPC_SERVER_ADDR", &workload_ipc_addr)
@@ -929,6 +936,7 @@ pub struct TestClusterBuilder {
     state_tree: String,
     commitment_scheme: String,
     initial_services: Vec<InitialServiceConfig>,
+    use_malicious_workload: bool,
 }
 
 impl Default for TestClusterBuilder {
@@ -940,9 +948,10 @@ impl Default for TestClusterBuilder {
             consensus_type: "ProofOfAuthority".to_string(),
             agentic_model_path: None,
             use_docker: false,
-            state_tree: "File".to_string(),
+            state_tree: "IAVL".to_string(),
             commitment_scheme: "Hash".to_string(),
             initial_services: Vec::new(),
+            use_malicious_workload: false,
         }
     }
 }
@@ -993,6 +1002,11 @@ impl TestClusterBuilder {
         self
     }
 
+    pub fn with_malicious_workload(mut self, use_malicious: bool) -> Self {
+        self.use_malicious_workload = use_malicious;
+        self
+    }
+
     pub fn with_genesis_modifier<F>(mut self, modifier: F) -> Self
     where
         F: FnOnce(&mut Value, &Vec<identity::Keypair>) + Send + 'static,
@@ -1029,6 +1043,7 @@ impl TestClusterBuilder {
                 self.agentic_model_path.as_deref(),
                 self.use_docker,
                 self.initial_services.clone(),
+                self.use_malicious_workload,
             )
             .await?;
             bootnode_addr = Some(bootnode.p2p_addr.clone());
@@ -1047,6 +1062,7 @@ impl TestClusterBuilder {
                 let captured_agentic_path = self.agentic_model_path.clone();
                 let captured_use_docker = self.use_docker;
                 let captured_services = self.initial_services.clone();
+                let captured_malicious = self.use_malicious_workload;
                 let key_clone = key.clone();
 
                 let fut = async move {
@@ -1061,6 +1077,7 @@ impl TestClusterBuilder {
                         captured_agentic_path.as_deref(),
                         captured_use_docker,
                         captured_services,
+                        captured_malicious,
                     )
                     .await
                 };

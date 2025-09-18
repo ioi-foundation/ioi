@@ -20,7 +20,7 @@ use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::{StateError, TransactionError};
 use depin_sdk_types::keys::{
     ACCOUNT_ID_TO_PUBKEY_PREFIX, EVIDENCE_REGISTRY_KEY, IBC_PROCESSED_RECEIPT_PREFIX,
-    ORACLE_DATA_PREFIX, ORACLE_PENDING_REQUEST_PREFIX, VALIDATOR_SET_KEY,
+    ORACLE_DATA_PREFIX, ORACLE_PENDING_REQUEST_PREFIX, UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY,
 };
 use libp2p::identity::PublicKey as Libp2pPublicKey;
 use serde::{Deserialize, Serialize};
@@ -498,7 +498,26 @@ where
                             .rotate(state, &sys_tx.header.account_id, &proof, ctx.block_height)
                             .map_err(TransactionError::Invalid)
                     }
-                    _ => Ok(()),
+                    SystemPayload::SwapModule {
+                        service_type,
+                        module_wasm,
+                        activation_height,
+                    } => {
+                        // Key to store pending upgrades for a specific height
+                        let key =
+                            [UPGRADE_PENDING_PREFIX, &activation_height.to_le_bytes()].concat();
+                        // Get existing pending upgrades for this height, or create a new list
+                        let mut pending_upgrades: Vec<(String, Vec<u8>)> = state
+                            .get(&key)?
+                            .map(|bytes| serde_json::from_slice(&bytes).unwrap_or_default())
+                            .unwrap_or_default();
+                        // Add the new upgrade
+                        pending_upgrades.push((service_type, module_wasm));
+                        // Save the updated list back to the state
+                        let value = serde_json::to_vec(&pending_upgrades)?;
+                        state.insert(&key, &value)?;
+                        Ok(())
+                    }
                 }
             }
         }

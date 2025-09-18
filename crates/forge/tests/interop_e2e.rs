@@ -2,7 +2,7 @@
 #![cfg(all(
     feature = "consensus-poa",
     feature = "vm-wasm",
-    feature = "tree-file",
+    feature = "tree-iavl",
     feature = "primitive-hash"
 ))]
 
@@ -67,7 +67,7 @@ fn create_signed_system_tx(
 #[tokio::test]
 async fn test_universal_verification_e2e() -> Result<()> {
     // 1. SETUP & BUILD
-    build_test_artifacts("consensus-poa,vm-wasm,tree-file,primitive-hash");
+    build_test_artifacts("consensus-poa,vm-wasm,tree-iavl,primitive-hash");
 
     // 2. LAUNCH CLUSTER
     let mut cluster = TestCluster::builder()
@@ -155,8 +155,7 @@ async fn test_universal_verification_e2e() -> Result<()> {
     let node = &mut cluster.validators[0];
     let rpc_addr = &node.rpc_addr;
     let keypair = &node.keypair;
-    let mut workload_logs = node.workload_log_stream.lock().await.take().unwrap();
-    let mut orch_logs = node.orch_log_stream.lock().await.take().unwrap();
+    let (mut orch_logs, mut workload_logs, _) = node.subscribe_logs();
     let mut nonce = 0;
 
     // 3. CONSTRUCT MOCK FOREIGN RECEIPT & PROOF

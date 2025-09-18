@@ -11,7 +11,7 @@ use depin_sdk_forge::testing::{
 use depin_sdk_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, Credential, SignatureSuite,
-        ValidatorSetBlob, ValidatorSetV1, ValidatorV1,
+        ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1,
     },
     codec,
     config::InitialServiceConfig,
@@ -77,7 +77,7 @@ fn add_poa_identity_to_genesis(
 
 #[tokio::test]
 async fn test_secure_agentic_consensus_e2e() -> Result<()> {
-    build_test_artifacts("consensus-poa,vm-wasm,tree-file,primitive-hash");
+    build_test_artifacts("consensus-poa,vm-wasm,tree-iavl,primitive-hash");
 
     // Setup: Create model file and calculate its hash
     let temp_dir_models = tempdir()?;
@@ -106,11 +106,9 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
                 .iter()
                 .map(|keypair| {
                     let public_key_bytes = keypair.public().encode_protobuf();
-                    let account_id_hash = account_id_from_key_material(
-                        SignatureSuite::Ed25519,
-                        &public_key_bytes,
-                    )
-                    .unwrap();
+                    let account_id_hash =
+                        account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)
+                            .unwrap();
                     ValidatorV1 {
                         account_id: AccountId(account_id_hash),
                         weight: 1, // PoA
@@ -124,14 +122,17 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
                 .collect();
 
             let vs_blob = ValidatorSetBlob {
-                schema_version: 1,
-                payload: ValidatorSetV1 {
-                    effective_from_height: 1,
-                    total_weight: validators.len() as u128,
-                    validators,
+                schema_version: 2,
+                payload: ValidatorSetsV1 {
+                    current: ValidatorSetV1 {
+                        effective_from_height: 1,
+                        total_weight: validators.len() as u128,
+                        validators,
+                    },
+                    next: None,
                 },
             };
-            let vs_bytes = codec::to_bytes_canonical(&vs_blob);
+            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload);
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
@@ -153,7 +154,7 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
 
 #[tokio::test]
 async fn test_mismatched_model_quarantine() -> Result<()> {
-    build_test_artifacts("consensus-poa,vm-wasm,tree-file,primitive-hash");
+    build_test_artifacts("consensus-poa,vm-wasm,tree-iavl,primitive-hash");
 
     // Setup: Create two different model files
     let temp_dir_models = tempdir()?;
@@ -169,22 +170,25 @@ async fn test_mismatched_model_quarantine() -> Result<()> {
 
         let authority_id = add_poa_identity_to_genesis(genesis_state, &key);
         let vs_blob = ValidatorSetBlob {
-            schema_version: 1,
-            payload: ValidatorSetV1 {
-                effective_from_height: 1,
-                total_weight: 1,
-                validators: vec![ValidatorV1 {
-                    account_id: authority_id,
-                    weight: 1,
-                    consensus_key: ActiveKeyRecord {
-                        suite: SignatureSuite::Ed25519,
-                        pubkey_hash: authority_id.0,
-                        since_height: 0,
-                    },
-                }],
+            schema_version: 2,
+            payload: ValidatorSetsV1 {
+                current: ValidatorSetV1 {
+                    effective_from_height: 1,
+                    total_weight: 1,
+                    validators: vec![ValidatorV1 {
+                        account_id: authority_id,
+                        weight: 1,
+                        consensus_key: ActiveKeyRecord {
+                            suite: SignatureSuite::Ed25519,
+                            pubkey_hash: authority_id.0,
+                            since_height: 0,
+                        },
+                    }],
+                },
+                next: None,
             },
         };
-        let vs_bytes = codec::to_bytes_canonical(&vs_blob);
+        let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload);
         genesis_state.insert(
             std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
             json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
@@ -205,7 +209,7 @@ async fn test_mismatched_model_quarantine() -> Result<()> {
         6000,
         None,
         "ProofOfAuthority",
-        "File",
+        "IAVL",
         "Hash",
         Some(bad_model_path.to_str().unwrap()),
         false,
@@ -219,7 +223,7 @@ async fn test_mismatched_model_quarantine() -> Result<()> {
     )
     .await?;
 
-    let mut bad_node_logs = bad_node.orch_log_stream.lock().await.take().unwrap();
+    let (mut bad_node_logs, _, _) = bad_node.subscribe_logs();
 
     // Assert that the node correctly identifies the model mismatch and quarantines itself.
     assert_log_contains("BadNode", &mut bad_node_logs, "Model Integrity Failure!").await?;

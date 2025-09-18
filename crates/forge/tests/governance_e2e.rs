@@ -61,7 +61,7 @@ fn create_system_tx(
 #[tokio::test]
 async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
     // 1. SETUP: Build artifacts and define keypairs
-    build_test_artifacts("consensus-poa,vm-wasm,tree-file,primitive-hash");
+    build_test_artifacts("consensus-poa,vm-wasm,tree-iavl,primitive-hash");
     let governance_key = identity::Keypair::generate_ed25519();
     let governance_pubkey_b58 =
         bs58::encode(governance_key.public().try_into_ed25519()?.to_bytes()).into_string();
@@ -72,6 +72,8 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
     let mut cluster = TestCluster::builder()
         .with_validators(1)
         .with_consensus_type("ProofOfAuthority")
+        // FIX: Explicitly set the state tree to match compile-time features.
+        .with_state_tree("IAVL")
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
             grace_period_blocks: 5,
@@ -200,7 +202,8 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
     let node = &mut cluster.validators[0];
     let rpc_addr = &node.rpc_addr;
     let validator_key = &node.keypair;
-    let mut orch_logs = node.orch_log_stream.lock().await.take().unwrap();
+    // FIX: Use the new non-blocking log subscription API.
+    let (mut orch_logs, _, _) = node.subscribe_logs();
 
     // 4. SUBMIT a VOTE from the validator
     let payload = SystemPayload::Vote {

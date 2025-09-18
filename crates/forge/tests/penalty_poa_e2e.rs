@@ -14,7 +14,7 @@ use depin_sdk_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
         FailureReport, OffenseFacts, OffenseType, SignHeader, SignatureProof, SignatureSuite,
-        SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1, ValidatorV1,
+        SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1,
     },
     config::InitialServiceConfig,
     keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
@@ -65,7 +65,7 @@ fn create_report_tx(
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
     println!("\n--- Running PoA Non-Economic Quarantine and Liveness Guard Test ---");
-    build_test_artifacts("consensus-poa,vm-wasm,tree-file,primitive-hash");
+    build_test_artifacts("consensus-poa,vm-wasm,tree-iavl,primitive-hash");
 
     let mut cluster = TestCluster::builder()
         .with_validators(3) // Start with 3 to test the liveness boundary of MIN_LIVE_AUTHORITIES=2
@@ -108,14 +108,17 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
                 .collect();
 
             let vs_blob = ValidatorSetBlob {
-                schema_version: 1,
-                payload: ValidatorSetV1 {
-                    effective_from_height: 1,
-                    total_weight: validators.len() as u128,
-                    validators,
+                schema_version: 2,
+                payload: ValidatorSetsV1 {
+                    current: ValidatorSetV1 {
+                        effective_from_height: 1,
+                        total_weight: validators.len() as u128,
+                        validators,
+                    },
+                    next: None,
                 },
             };
-            let vs_bytes = depin_sdk_types::codec::to_bytes_canonical(&vs_blob);
+            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload);
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),

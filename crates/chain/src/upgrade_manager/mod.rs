@@ -48,6 +48,12 @@ impl ModuleUpgradeManager {
         self.active_services.get(service_type).cloned()
     }
 
+    /// Returns a list of all currently active services.
+    /// This is used by the `Chain` to rebuild its `ServiceDirectory` after an upgrade.
+    pub fn all_services(&self) -> Vec<Arc<dyn UpgradableService>> {
+        self.active_services.values().cloned().collect()
+    }
+
     /// Gets a service and attempts to downcast it to a concrete type reference.
     pub fn get_service_as<T: Any>(&self) -> Option<&T> {
         for service in self.active_services.values() {

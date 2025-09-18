@@ -46,6 +46,9 @@ pub const ORACLE_DATA_PREFIX: &[u8] = b"oracle::data::";
 /// The state key prefix for storing processed foreign receipt IDs to prevent replays.
 pub const IBC_PROCESSED_RECEIPT_PREFIX: &[u8] = b"ibc::receipt::";
 
+/// State key prefix for pending module upgrades, keyed by activation height.
+pub const UPGRADE_PENDING_PREFIX: &[u8] = b"upgrade::pending::";
+
 // --- MODIFICATION START ---
 /// The state key for the set of all evidence that has already been processed.
 /// Stores a `BTreeSet<[u8; 32]>` of evidence IDs, providing replay protection.
