@@ -3,12 +3,13 @@
 
 use crate::commitment::CommitmentScheme;
 use crate::consensus::PenaltyMechanism;
+use crate::state::StateChangeSet;
 use crate::state::StateManager;
 use crate::transaction::TransactionModel;
 use crate::validator::WorkloadContainer;
 use async_trait::async_trait;
 use depin_sdk_types::app::{
-    AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction, StateAnchor,
+    AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction, StateAnchor, StateRoot,
 };
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::ChainError;
@@ -60,23 +61,54 @@ where
     fn workload_container(&self) -> &WorkloadContainer<ST>;
 }
 
+/// An intermediate artifact representing a block that has been fully processed and is ready for commitment.
+/// This structure is the output of the `prepare_block` phase and the input to the `commit_block` phase.
+#[derive(Debug)]
+pub struct PreparedBlock {
+    /// The block, potentially modified with coinbase transactions, ready for its header to be finalized.
+    pub block: Block<ChainTransaction>,
+    /// The complete, ordered set of state changes to be applied to the state tree.
+    pub state_changes: StateChangeSet,
+    /// The parent state root this block was prepared against, for TOCTOU protection.
+    pub parent_state_root: StateRoot,
+    /// The Merkle root of the transactions processed, for TOCTOU protection.
+    pub transactions_root: Vec<u8>,
+    /// The hash of the validator set used during preparation, for TOCTOU protection.
+    pub validator_set_hash: [u8; 32],
+}
+
 /// A trait that defines the logic and capabilities of an application-specific blockchain.
 #[async_trait]
 pub trait AppChain<CS, TM, ST>: ChainView<CS, ST>
 where
     CS: CommitmentScheme,
     TM: TransactionModel<CommitmentScheme = CS> + ?Sized,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static,
 {
     /// Returns the current status of the chain.
     fn status(&self) -> &ChainStatus;
     /// Returns a reference to the transaction model used by the chain.
     fn transaction_model(&self) -> &TM;
 
-    /// Processes a full block of transactions, updating the chain state.
-    async fn process_block(
-        &mut self,
+    /// Phase 1: Prepares a block for commitment.
+    /// This is a read-only operation on `self` and performs all expensive, async work,
+    /// including transaction simulation and I/O.
+    async fn prepare_block(
+        &self,
         block: Block<ChainTransaction>,
+        workload: &WorkloadContainer<ST>,
+    ) -> Result<PreparedBlock, ChainError>;
+
+    /// Phase 2: Commits a prepared block to the state.
+    /// This is a write operation on `self` and should be as fast and deterministic as possible,
+    /// ideally without async I/O other than the final state commit.
+    async fn commit_block(
+        &mut self,
+        prepared: PreparedBlock,
         workload: &WorkloadContainer<ST>,
     ) -> Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError>;
 

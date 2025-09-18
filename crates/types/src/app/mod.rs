@@ -61,7 +61,7 @@ pub struct ChainStatus {
 }
 
 /// A block in the blockchain, generic over the transaction type.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct Block<T: Clone> {
     /// The header of the block containing metadata.
     pub header: BlockHeader,
@@ -207,7 +207,7 @@ pub enum SignatureSuite {
 }
 
 /// A cryptographic credential defining an account's active key.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct Credential {
     /// The algorithm used by this credential.
     pub suite: SignatureSuite,
@@ -220,7 +220,7 @@ pub struct Credential {
 }
 
 /// A cryptographic proof required to execute a key rotation.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct RotationProof {
     /// The full public key of the key being rotated.
     pub old_public_key: Vec<u8>,
@@ -251,7 +251,7 @@ pub struct SignHeader {
 }
 
 /// A generic structure holding the signature and related data.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default, Encode, Decode)]
 pub struct SignatureProof {
     /// The signature suite used.
     pub suite: SignatureSuite,
@@ -264,7 +264,7 @@ pub struct SignatureProof {
 // --- UTXO-related structs ---
 
 /// An input for a UTXO transaction, pointing to a previous output.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct Input {
     /// The hash of the transaction containing the output being spent.
     pub tx_hash: Vec<u8>,
@@ -275,7 +275,7 @@ pub struct Input {
 }
 
 /// An output for a UTXO transaction, creating a new unspent output.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct Output {
     /// The value of the output.
     pub value: u64,
@@ -284,7 +284,7 @@ pub struct Output {
 }
 
 /// A transaction following the UTXO model.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct UTXOTransaction {
     /// A list of inputs to be spent.
     pub inputs: Vec<Input>,
@@ -303,7 +303,7 @@ impl UTXOTransaction {
 // --- Governance-related structs ---
 
 /// The category of a governance proposal.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub enum ProposalType {
     /// A proposal to change a registered on-chain parameter.
     ParameterChange,
@@ -316,7 +316,7 @@ pub enum ProposalType {
 }
 
 /// The final tally of votes for a governance proposal.
-#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct TallyResult {
     /// The total voting power that voted "Yes".
     pub yes: u64,
@@ -329,7 +329,7 @@ pub struct TallyResult {
 }
 
 /// The current status of a governance proposal in its lifecycle.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
 pub enum ProposalStatus {
     /// The proposal is in the deposit period.
     DepositPeriod,
@@ -342,7 +342,7 @@ pub enum ProposalStatus {
 }
 
 /// A governance proposal submitted to the chain.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Encode, Decode)]
 pub struct Proposal {
     /// The unique identifier for the proposal.
     pub id: u64,
@@ -373,7 +373,7 @@ pub struct Proposal {
 // --- EVOLVED TRANSACTION ENUMS ---
 
 /// A top-level enum representing any transaction the chain can process.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub enum ChainTransaction {
     /// A transaction initiated by a user or application.
     Application(ApplicationTransaction),
@@ -382,7 +382,7 @@ pub enum ChainTransaction {
 }
 
 /// An enum wrapping all possible user-level transaction models.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub enum ApplicationTransaction {
     /// A transaction for a UTXO-based ledger.
     UTXO(UTXOTransaction),
@@ -431,7 +431,7 @@ impl ApplicationTransaction {
 }
 
 /// A privileged transaction for performing system-level state changes.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct SystemTransaction {
     /// The header containing replay protection data.
     pub header: SignHeader,
@@ -452,7 +452,7 @@ impl SystemTransaction {
 }
 
 /// A voting option for a governance proposal.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
 pub enum VoteOption {
     /// A vote in favor of the proposal.
     Yes,
@@ -465,7 +465,7 @@ pub enum VoteOption {
 }
 
 /// An off-chain attestation signed by a single validator for an oracle request.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct OracleAttestation {
     /// The ID of the on-chain request this attestation is for.
     pub request_id: u64,
@@ -491,7 +491,7 @@ impl OracleAttestation {
 }
 
 /// A verifiable proof of off-chain consensus, submitted with the final oracle result.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct OracleConsensusProof {
     /// A collection of individual `OracleAttestation`s from a quorum of validators.
     /// Future versions may replace this with an aggregate signature.
@@ -499,7 +499,7 @@ pub struct OracleConsensusProof {
 }
 
 /// The specific action being requested by a SystemTransaction.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub enum SystemPayload {
     /// Updates the set of authorities for a Proof-of-Authority chain.
     UpdateAuthorities {

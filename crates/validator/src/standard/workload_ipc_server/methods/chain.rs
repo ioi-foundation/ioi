@@ -60,50 +60,44 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for ProcessBlockV1"))?;
 
-        // --- Phase A: Pre-flight checks in a limited scope (READ-ONLY) ---
+        // --- Phase A: Coinbase addition (brief write lock) ---
         {
             let chain = ctx.chain.lock().await;
-            let base_state_tree = ctx.workload.state_tree();
-            let base_state = base_state_tree.read().await;
-            let overlay = StateOverlay::new(&*base_state);
+            let enable_coinbase = std::env::var("ENABLE_COINBASE")
+                .map(|s| s != "0")
+                .unwrap_or(false);
 
-            for tx in &block.transactions {
-                let status = (*chain).status().clone();
-                let chain_id = chain.state.chain_id.parse().unwrap_or(1);
-                let _ctx = TxContext {
-                    block_height: status.height + 1,
-                    chain_id,
-                    services: &chain.services,
-                    simulation: true,
-                };
-                depin_sdk_transaction_models::system::nonce::assert_next_nonce(&overlay, tx)?;
+            if enable_coinbase
+                && !block.transactions.iter().any(|tx| {
+                    matches!(
+                        tx,
+                        ChainTransaction::Application(ApplicationTransaction::UTXO(utxo))
+                            if utxo.inputs.is_empty()
+                    )
+                })
+            {
+                let coinbase = (*chain).transaction_model().create_coinbase_transaction(
+                    block.header.height,
+                    &block.header.producer_account_id.0,
+                )?;
+                block.transactions.insert(0, coinbase);
             }
-        } // Read lock is released here
+        } // Mutex lock on chain is released here
 
-        // --- Phase B: Coinbase addition and actual processing (WRITE) ---
-        let mut chain = ctx.chain.lock().await;
+        // --- Phase B: Prepare block (read-only on chain) ---
+        // This is the long, async part of the operation.
+        let prepared_block = {
+            let chain = ctx.chain.lock().await; // Brief read-lock
+            chain.prepare_block(block, &ctx.workload).await?
+        }; // Read-lock is released
 
-        let enable_coinbase = std::env::var("ENABLE_COINBASE")
-            .map(|s| s != "0")
-            .unwrap_or(false);
+        // --- Phase C: Commit block (write lock on chain) ---
+        // This part should be fast and deterministic.
+        let result = {
+            let mut chain = ctx.chain.lock().await; // Write-lock for mutation
+            chain.commit_block(prepared_block, &ctx.workload).await?
+        }; // Write-lock is released
 
-        if enable_coinbase
-            && !block.transactions.iter().any(|tx| {
-                matches!(
-                    tx,
-                    ChainTransaction::Application(ApplicationTransaction::UTXO(utxo))
-                        if utxo.inputs.is_empty()
-                )
-            })
-        {
-            let coinbase = (*chain).transaction_model().create_coinbase_transaction(
-                block.header.height,
-                &block.header.producer_account_id.0,
-            )?;
-            block.transactions.insert(0, coinbase);
-        }
-
-        let result = (*chain).process_block(block, &ctx.workload).await?;
         Ok(result)
     }
 }
