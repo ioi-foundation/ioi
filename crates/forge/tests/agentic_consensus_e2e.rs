@@ -11,7 +11,7 @@ use depin_sdk_forge::testing::{
 use depin_sdk_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, Credential, SignatureSuite,
-        ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1,
+        ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
@@ -88,6 +88,7 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
     let _cluster = TestCluster::builder()
         .with_validators(3)
         .with_consensus_type("ProofOfAuthority")
+        .with_state_tree("IAVL") // Use IAVL for consistency
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
             grace_period_blocks: 5,
@@ -102,7 +103,7 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
                 .map(|k| add_poa_identity_to_genesis(genesis_state, k))
                 .collect();
 
-            let validators: Vec<ValidatorV1> = keys
+            let mut validators: Vec<ValidatorV1> = keys
                 .iter()
                 .map(|keypair| {
                     let public_key_bytes = keypair.public().encode_protobuf();
@@ -120,6 +121,9 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
                     }
                 })
                 .collect();
+
+            // Sort the validators by their AccountId to ensure deterministic order for leader election.
+            validators.sort_by(|a, b| a.account_id.cmp(&b.account_id));
 
             let vs_blob = ValidatorSetBlob {
                 schema_version: 2,
@@ -212,7 +216,7 @@ async fn test_mismatched_model_quarantine() -> Result<()> {
         "IAVL",
         "Hash",
         Some(bad_model_path.to_str().unwrap()),
-        false,
+        false, // use_docker
         vec![InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
             grace_period_blocks: 5,
@@ -220,13 +224,23 @@ async fn test_mismatched_model_quarantine() -> Result<()> {
             allowed_target_suites: vec![SignatureSuite::Ed25519],
             allow_downgrade: false,
         })],
+        false, // use_malicious_workload
     )
     .await?;
 
     let (mut bad_node_logs, _, _) = bad_node.subscribe_logs();
 
     // Assert that the node correctly identifies the model mismatch and quarantines itself.
-    assert_log_contains("BadNode", &mut bad_node_logs, "Model Integrity Failure!").await?;
+    // The "Model Integrity Failure!" log happens during startup, before the test can subscribe
+    // to the log stream. Instead, we assert on the *consequence* of being quarantined, which
+    // is that the consensus ticker will repeatedly skip its work. This log line is guaranteed
+    // to appear after startup.
+    assert_log_contains(
+        "BadNode",
+        &mut bad_node_logs,
+        "Skipping tick (node is quarantined)",
+    )
+    .await?;
 
     Ok(())
 }
