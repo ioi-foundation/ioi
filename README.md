@@ -195,8 +195,8 @@ cargo test --workspace
 
 | Test | Command |
 |------|---------|
-| **PoS Slashing** | `cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-file,primitive-hash" --test penalty_pos_e2e -- --nocapture --test-threads=1` |
-| **PoA Quarantine** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test penalty_poa_e2e -- --nocapture --test-threads=1` |
+| **PoS Slashing** | `cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-iavl,primitive-hash" --test penalty_pos_e2e -- --nocapture --test-threads=1` |
+| **PoA Quarantine** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" --test penalty_poa_e2e -- --nocapture --test-threads=1` |
 
 #### State Tree Backend Tests
 

@@ -67,6 +67,7 @@ pub struct SparseMerkleTree<CS: CommitmentScheme> {
     root: Node,
     scheme: CS,
     cache: HashMap<Vec<u8>, Vec<u8>>, // Key-value cache for efficient lookups
+    versions: HashMap<Vec<u8>, Node>, // root_hash -> snapshot of that root
 }
 
 impl<CS: CommitmentScheme> SparseMerkleTree<CS>
@@ -75,11 +76,16 @@ where
 {
     /// Create a new sparse Merkle tree
     pub fn new(scheme: CS) -> Self {
-        Self {
+        let mut this = Self {
             root: Node::Empty,
             scheme,
             cache: HashMap::new(),
-        }
+            versions: HashMap::new(),
+        };
+        // Store the empty root snapshot so queries against the initial anchor work.
+        let empty_root = this.root.hash();
+        this.versions.insert(empty_root, this.root.clone());
+        this
     }
 
     fn to_value(&self, bytes: &[u8]) -> CS::Value {
@@ -112,35 +118,26 @@ where
 
         match node {
             Node::Empty => {
-                if let Some(v) = value {
-                    let mut new_node = Node::Leaf {
-                        key: key.to_vec(),
-                        value: v.to_vec(),
-                    };
-                    for d in (0..depth).rev() {
-                        let bit = Self::get_bit(key, d);
-                        let (left, right) = if bit {
-                            (Node::Empty, new_node)
-                        } else {
-                            (new_node, Node::Empty)
-                        };
-                        let hash = Node::compute_branch_hash(&left, &right);
-                        new_node = Node::Branch {
-                            left: Box::new(left),
-                            right: Box::new(right),
-                            hash,
-                        };
-                    }
-                    new_node
-                } else {
-                    Node::Empty
+                if value.is_none() {
+                    return Node::Empty;
                 }
+                // Path is empty. Create a new path of branches down to the leaf.
+                let child = self.update_node(&Node::Empty, key, value, depth + 1);
+                let bit = Self::get_bit(key, depth);
+                let (left, right) = if bit {
+                    (Box::new(Node::Empty), Box::new(child))
+                } else {
+                    (Box::new(child), Box::new(Node::Empty))
+                };
+                let hash = Node::compute_branch_hash(&left, &right);
+                Node::Branch { left, right, hash }
             }
             Node::Leaf {
                 key: leaf_key,
                 value: leaf_value,
             } => {
                 if leaf_key == key {
+                    // Exact key match: update the value or delete the leaf.
                     return if let Some(v) = value {
                         Node::Leaf {
                             key: key.to_vec(),
@@ -150,40 +147,12 @@ where
                         Node::Empty
                     };
                 }
-                let old_leaf_bit = Self::get_bit(leaf_key, depth);
-                let new_leaf_bit = Self::get_bit(key, depth);
 
-                if old_leaf_bit == new_leaf_bit {
-                    let child = self.update_node(node, key, value, depth + 1);
-                    let (left, right) = if old_leaf_bit {
-                        (Box::new(Node::Empty), Box::new(child))
-                    } else {
-                        (Box::new(child), Box::new(Node::Empty))
-                    };
-                    let hash = Node::compute_branch_hash(&left, &right);
-                    Node::Branch { left, right, hash }
-                } else {
-                    let old_leaf = Node::Leaf {
-                        key: leaf_key.clone(),
-                        value: leaf_value.clone(),
-                    };
-                    let new_leaf = if let Some(v) = value {
-                        Node::Leaf {
-                            key: key.to_vec(),
-                            value: v.to_vec(),
-                        }
-                    } else {
-                        Node::Empty
-                    };
-
-                    let (left, right) = if old_leaf_bit {
-                        (Box::new(new_leaf), Box::new(old_leaf))
-                    } else {
-                        (Box::new(old_leaf), Box::new(new_leaf))
-                    };
-                    let hash = Node::compute_branch_hash(&left, &right);
-                    Node::Branch { left, right, hash }
-                }
+                // A different key exists at this path. Split them into a new branch.
+                // First, create a branch for the new key as if this spot were empty.
+                let new_node_branch = self.update_node(&Node::Empty, key, value, depth);
+                // Then, insert the old leaf into that new structure.
+                self.update_node(&new_node_branch, leaf_key, Some(leaf_value), depth)
             }
             Node::Branch { left, right, .. } => {
                 let bit = Self::get_bit(key, depth);
@@ -221,15 +190,8 @@ where
         for depth in 0..TREE_HEIGHT {
             match current {
                 Node::Empty => break,
-                Node::Leaf { key: leaf_key, .. } => {
-                    if leaf_key == key {
-                        // We found the leaf, no more siblings needed up the path
-                        break;
-                    } else {
-                        // The path we are looking for is empty, but we hit a different leaf.
-                        // The rest of the proof will be empty placeholder hashes.
-                        break;
-                    }
+                Node::Leaf { .. } => {
+                    break;
                 }
                 Node::Branch { left, right, .. } => {
                     let bit = Self::get_bit(key, depth);
@@ -249,13 +211,54 @@ where
             value,
         } = current
         {
-            if leaf_key == key {
-                Some((leaf_key.clone(), value.clone()))
-            } else {
-                None
-            }
+            Some((leaf_key.clone(), value.clone()))
         } else {
             None
+        };
+
+        SparseMerkleProof { siblings, leaf }
+    }
+
+    fn get_from_snapshot(node: &Node, key: &[u8], depth: usize) -> Option<Vec<u8>> {
+        match node {
+            Node::Empty => None,
+            Node::Leaf { key: k, value: v } => (k.as_slice() == key).then(|| v.clone()),
+            Node::Branch { left, right, .. } => {
+                if Self::get_bit(key, depth) {
+                    Self::get_from_snapshot(right, key, depth + 1)
+                } else {
+                    Self::get_from_snapshot(left, key, depth + 1)
+                }
+            }
+        }
+    }
+
+    fn generate_proof_from_snapshot(start: &Node, key: &[u8]) -> SparseMerkleProof {
+        let mut siblings = Vec::new();
+        let mut current = start;
+        for depth in 0..TREE_HEIGHT {
+            match current {
+                Node::Empty => break,
+                Node::Leaf { .. } => {
+                    // Path terminates here. The verifier will determine if this is the
+                    // target leaf or a witness for an absence proof.
+                    break;
+                }
+                Node::Branch { left, right, .. } => {
+                    if Self::get_bit(key, depth) {
+                        siblings.push(left.hash());
+                        current = right;
+                    } else {
+                        siblings.push(right.hash());
+                        current = left;
+                    }
+                }
+            }
+        }
+
+        let leaf = match current {
+            Node::Leaf { key, value } => Some((key.clone(), value.clone())),
+            _ => None,
         };
 
         SparseMerkleProof { siblings, leaf }
@@ -268,45 +271,65 @@ where
         value: Option<&[u8]>,
         proof: &SparseMerkleProof,
     ) -> bool {
+        // Determine the starting hash for the fold-up based on the proof type.
         let leaf_hash = match (&proof.leaf, value) {
+            // Case 1: Proving PRESENCE.
+            // proof.leaf must be Some, value must be Some.
+            // proof_key must equal the query key.
             (Some((proof_key, proof_value)), Some(val)) => {
                 if proof_key != key || proof_value != val {
+                    log::debug!("[SMT Verify] Presence proof failed: key or value mismatch.");
                     return false;
                 }
-                let mut data = Vec::new();
-                data.push(0x00);
+                let mut data = Vec::with_capacity(1 + proof_key.len() + proof_value.len());
+                data.push(0x00); // leaf prefix
                 data.extend_from_slice(proof_key);
                 data.extend_from_slice(proof_value);
                 hash::sha256(&data)
             }
+            // Case 2: Proving ABSENCE because the path ends at an EMPTY node.
+            // proof.leaf must be None, value must be None.
             (None, None) => vec![0u8; 32],
-            _ => return false,
+
+            // Case 3: Proving ABSENCE because the path ends at a *different* leaf (a witness).
+            // proof.leaf is Some (the witness), value is None.
+            // The witness key must NOT be the query key.
+            (Some((witness_key, witness_value)), None) => {
+                if witness_key == key {
+                    log::debug!("[SMT Verify] Absence proof failed: witness key is the same as the query key.");
+                    return false;
+                }
+                let mut data = Vec::new();
+                data.push(0x00); // leaf prefix
+                data.extend_from_slice(witness_key);
+                data.extend_from_slice(witness_value);
+                hash::sha256(&data)
+            }
+            // All other combinations are invalid.
+            _ => {
+                log::debug!("[SMT Verify] Invalid proof/value combination.");
+                return false;
+            }
         };
 
-        let mut current_hash = leaf_hash;
-        let mut proof_siblings = proof.siblings.iter().rev();
-
-        for depth in (0..TREE_HEIGHT).rev() {
-            let sibling_hash = if let Some(sibling) = proof_siblings.next() {
-                sibling.clone()
+        // Fold up the tree using the siblings from the proof.
+        let mut acc = leaf_hash;
+        let path_len = proof.siblings.len();
+        for i in (0..path_len).rev() {
+            let sib = &proof.siblings[i];
+            let mut data = Vec::with_capacity(1 + 32 + 32);
+            data.push(0x01); // branch prefix
+            if Self::get_bit(key, i) {
+                data.extend_from_slice(sib);
+                data.extend_from_slice(&acc);
             } else {
-                vec![0u8; 32] // Default hash for empty paths
-            };
-
-            let mut data = Vec::new();
-            data.push(0x01);
-
-            if Self::get_bit(key, depth) {
-                data.extend_from_slice(&sibling_hash);
-                data.extend_from_slice(&current_hash);
-            } else {
-                data.extend_from_slice(&current_hash);
-                data.extend_from_slice(&sibling_hash);
+                data.extend_from_slice(&acc);
+                data.extend_from_slice(sib);
             }
-            current_hash = hash::sha256(&data);
+            acc = hash::sha256(&data);
         }
 
-        current_hash == root_hash
+        acc.as_slice() == root_hash
     }
 }
 
@@ -402,16 +425,47 @@ where
 {
     fn get_with_proof_at(
         &self,
-        _root: &Self::Commitment,
+        root: &Self::Commitment,
         key: &[u8],
     ) -> Result<(Membership, Self::Proof), StateError> {
-        let membership = match self.get(key)? {
-            Some(value) => Membership::Present(value),
+        let requested = root.as_ref();
+        // Resolve snapshot for the requested root.
+        let snapshot = if let Some(n) = self.versions.get(requested) {
+            n
+        } else {
+            // If no snapshot was recorded for this root, treat as StaleAnchor (the orchestrator already knows how to retry on this hint).
+            return Err(StateError::Backend(format!(
+                "StaleAnchor(SMT): unknown root {}",
+                hex::encode(requested)
+            )));
+        };
+
+        // Build membership and proof *from the snapshot*, not from live state.
+        let membership = match Self::get_from_snapshot(snapshot, key, 0) {
+            Some(v) => Membership::Present(v),
             None => Membership::Absent,
         };
+        let merkle_proof = Self::generate_proof_from_snapshot(snapshot, key);
+
+        // Server-side self-check: ensure the proof actually anchors to the requested root.
+        let expected_value = membership.clone().into_option();
+        if !Self::verify_proof_static(requested, key, expected_value.as_deref(), &merkle_proof) {
+            log::error!(
+                "[SMT Server] self-verify failed (root={}, key={})",
+                hex::encode(requested),
+                hex::encode(key)
+            );
+            return Err(StateError::Backend("SMT self-verify failed".into()));
+        }
+
+        // Wrap proof in the outer commitment scheme.
+        let proof_bytes =
+            serde_json::to_vec(&merkle_proof).map_err(|e| StateError::Backend(e.to_string()))?;
+        let value = self.to_value(&proof_bytes);
         let proof = self
-            .create_proof(key)
-            .ok_or_else(|| StateError::Backend("Failed to generate SMT proof".to_string()))?;
+            .scheme
+            .create_proof(&Selector::Key(key.to_vec()), &value)
+            .map_err(|e| StateError::Backend(e.to_string()))?;
         Ok((membership, proof))
     }
 
@@ -456,4 +510,21 @@ where
         // This is an in-memory, non-versioned tree. Pruning is a no-op.
         Ok(())
     }
+
+    fn commit_version(&mut self) {
+        // Record a snapshot for the current root so future reads can be anchored.
+        let root_hash = self.root.hash();
+        self.versions.insert(root_hash, self.root.clone());
+        log::debug!(
+            "[SMT] commit_version: recorded snapshot for root {}",
+            hex::encode(&self.root.hash())
+        );
+    }
+
+    fn version_exists_for_root(&self, root: &Self::Commitment) -> bool {
+        self.versions.contains_key(root.as_ref())
+    }
 }
+
+#[cfg(test)]
+mod tests;
