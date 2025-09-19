@@ -15,6 +15,7 @@ use depin_sdk_types::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
         FailureReport, OffenseFacts, OffenseType, SignHeader, SignatureProof, SignatureSuite,
         SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1,
+        ValidatorV1,
     },
     config::InitialServiceConfig,
     keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},

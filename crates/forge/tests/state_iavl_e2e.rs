@@ -12,7 +12,7 @@ use depin_sdk_forge::testing::{build_test_artifacts, TestCluster};
 use depin_sdk_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ChainStatus, SignatureSuite,
-        ValidatorSetBlob, ValidatorSetV1, ValidatorV1,
+        ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
     keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, STATUS_KEY, VALIDATOR_SET_KEY},
@@ -63,23 +63,28 @@ async fn test_iavl_tree_e2e() -> Result<()> {
             let acct_hash = account_id_from_key_material(suite, &pk).unwrap();
             let acct = AccountId(acct_hash);
 
+            let validator_set = ValidatorSetV1 {
+                effective_from_height: 1,
+                total_weight: 1,
+                validators: vec![ValidatorV1 {
+                    account_id: acct,
+                    weight: 1,
+                    consensus_key: ActiveKeyRecord {
+                        suite: SignatureSuite::Ed25519,
+                        pubkey_hash: acct_hash,
+                        since_height: 0,
+                    },
+                }],
+            };
+
             let vs_blob = ValidatorSetBlob {
-                schema_version: 1,
-                payload: ValidatorSetV1 {
-                    effective_from_height: 1,
-                    total_weight: 1,
-                    validators: vec![ValidatorV1 {
-                        account_id: acct,
-                        weight: 1,
-                        consensus_key: ActiveKeyRecord {
-                            suite: SignatureSuite::Ed25519,
-                            pubkey_hash: acct_hash,
-                            since_height: 0,
-                        },
-                    }],
+                schema_version: 2,
+                payload: ValidatorSetsV1 {
+                    current: validator_set,
+                    next: None,
                 },
             };
-            let vs_bytes = codec::to_bytes_canonical(&vs_blob);
+            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload);
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),

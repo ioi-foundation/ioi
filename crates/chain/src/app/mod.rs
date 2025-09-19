@@ -226,6 +226,10 @@ where
                 let root_commitment_for_check = state
                     .commitment_from_bytes(final_root.as_ref())
                     .expect("Failed to create commitment for self-check");
+                log::debug!(
+                    "[Chain] Genesis self-check: querying for key '{}' (expect Present)",
+                    hex::encode(STATUS_KEY)
+                );
                 let (membership, _proof) = state
                     .get_with_proof_at(&root_commitment_for_check, STATUS_KEY)
                     .expect("Failed to generate proof for self-check");
@@ -233,7 +237,13 @@ where
                     depin_sdk_types::app::Membership::Present(_) => {
                         log::debug!("[Chain] Genesis state self-check passed.");
                     }
-                    _ => panic!("CRITICAL: Committed genesis state is not provable. Halting."),
+                    depin_sdk_types::app::Membership::Absent => {
+                        log::error!(
+                            "[Chain] Genesis self-check FAILED: query for '{}' returned Absent.",
+                            hex::encode(STATUS_KEY)
+                        );
+                        panic!("CRITICAL: Committed genesis state is not provable. Halting.");
+                    }
                 }
 
                 self.state.genesis_state = GenesisState::Ready {
