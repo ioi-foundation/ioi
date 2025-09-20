@@ -31,10 +31,6 @@ use depin_sdk_api::{commitment::CommitmentScheme, state::StateManager};
 use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
 #[cfg(feature = "primitive-kzg")]
 use depin_sdk_commitment::primitives::kzg::{KZGCommitmentScheme, KZGParams};
-#[cfg(feature = "tree-file")]
-use depin_sdk_commitment::tree::file::FileStateTree;
-#[cfg(feature = "tree-hashmap")]
-use depin_sdk_commitment::tree::hashmap::HashMapStateTree;
 #[cfg(feature = "tree-iavl")]
 use depin_sdk_commitment::tree::iavl::IAVLTree;
 #[cfg(feature = "tree-sparse-merkle")]
@@ -62,12 +58,6 @@ struct OrchestrationOpts {
 /// Runtime check to ensure exactly one state tree feature is enabled.
 fn check_features() {
     let mut enabled_features = Vec::new();
-    if cfg!(feature = "tree-file") {
-        enabled_features.push("tree-file");
-    }
-    if cfg!(feature = "tree-hashmap") {
-        enabled_features.push("tree-hashmap");
-    }
     if cfg!(feature = "tree-iavl") {
         enabled_features.push("tree-iavl");
     }
@@ -284,11 +274,9 @@ async fn main() -> Result<()> {
         .format_timestamp_secs()
         .init();
 
-    // --- FIX START (Analysis 1): Add global panic hook for better debugging ---
     std::panic::set_hook(Box::new(|info| {
         eprintln!("ORCHESTRATION_PANIC: {}", info);
     }));
-    // --- FIX END ---
 
     let opts = OrchestrationOpts::parse();
     log::info!(
@@ -306,9 +294,7 @@ async fn main() -> Result<()> {
             identity::Keypair::from_protobuf_encoding(&bytes)?
         } else {
             let keypair = identity::Keypair::generate_ed25519();
-            // --- FIX START: Correct typo from `some` to `Some` ---
             if let Some(parent) = key_path.parent() {
-                // --- FIX END ---
                 fs::create_dir_all(parent)?;
             }
             fs::File::create(key_path)?.write_all(&keypair.to_protobuf_encoding()?)?;
@@ -324,29 +310,6 @@ async fn main() -> Result<()> {
         workload_config.state_tree.clone(),
         workload_config.commitment_scheme.clone(),
     ) {
-        #[cfg(all(feature = "tree-file", feature = "primitive-hash"))]
-        (
-            depin_sdk_types::config::StateTreeType::File,
-            depin_sdk_types::config::CommitmentSchemeType::Hash,
-        ) => {
-            let state_path = opts
-                .config
-                .parent()
-                .unwrap()
-                .join("orchestrator_state.json");
-            let scheme = HashCommitmentScheme::new();
-            let tree = FileStateTree::new(state_path, scheme.clone());
-            run_orchestration(opts, config, local_key, tree, scheme, workload_config, None).await
-        }
-        #[cfg(all(feature = "tree-hashmap", feature = "primitive-hash"))]
-        (
-            depin_sdk_types::config::StateTreeType::HashMap,
-            depin_sdk_types::config::CommitmentSchemeType::Hash,
-        ) => {
-            let scheme = HashCommitmentScheme::new();
-            let tree = HashMapStateTree::new(scheme.clone());
-            run_orchestration(opts, config, local_key, tree, scheme, workload_config, None).await
-        }
         #[cfg(all(feature = "tree-iavl", feature = "primitive-hash"))]
         (
             depin_sdk_types::config::StateTreeType::IAVL,

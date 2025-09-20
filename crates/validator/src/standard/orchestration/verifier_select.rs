@@ -10,11 +10,8 @@ use depin_sdk_commitment::primitives::kzg::KZGParams;
 
 // --- Define the Verifier Type Alias based on tree features ---
 
-#[cfg(feature = "tree-file")]
-pub use depin_sdk_commitment::tree::file::verifier::FileTreeHashVerifier as DefaultVerifier;
-
-#[cfg(feature = "tree-hashmap")]
-pub use depin_sdk_commitment::tree::hashmap::verifier::HashMapTreeHashVerifier as DefaultVerifier;
+// NOTE: FileTree and HashMapTree have been removed as they are not suitable for production.
+// Only production-grade state trees with robust proof systems are supported.
 
 #[cfg(feature = "tree-iavl")]
 pub use depin_sdk_commitment::tree::iavl::verifier::IAVLHashVerifier as DefaultVerifier;
@@ -30,8 +27,6 @@ pub use depin_sdk_commitment::tree::verkle::verifier::KZGVerifier as DefaultVeri
 /// Creates the default verifier. The signature and implementation of this function
 /// adapt based on whether a KZG-based primitive is enabled.
 #[cfg(any(
-    feature = "tree-file",
-    feature = "tree-hashmap",
     feature = "tree-iavl",
     feature = "tree-sparse-merkle",
     feature = "tree-verkle"
@@ -59,8 +54,6 @@ pub fn create_default_verifier(
 
 // Fallback creator function for when no tree feature is enabled.
 #[cfg(not(any(
-    feature = "tree-file",
-    feature = "tree-hashmap",
     feature = "tree-iavl",
     feature = "tree-sparse-merkle",
     feature = "tree-verkle"
@@ -72,8 +65,6 @@ pub fn create_default_verifier(_params: Option<()>) -> fallback::DefaultVerifier
 
 // Fallback for when no tree features are enabled.
 #[cfg(not(any(
-    feature = "tree-file",
-    feature = "tree-hashmap",
     feature = "tree-iavl",
     feature = "tree-sparse-merkle",
     feature = "tree-verkle"
@@ -114,8 +105,6 @@ mod fallback {
 // preventing the compile error. The runtime check `check_features()` will then
 // provide a clear error message if no valid tree feature is selected.
 #[cfg(not(any(
-    feature = "tree-file",
-    feature = "tree-hashmap",
     feature = "tree-iavl",
     feature = "tree-sparse-merkle",
     feature = "tree-verkle"

@@ -27,10 +27,6 @@ use tokio::sync::Mutex;
 use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
 #[cfg(feature = "primitive-kzg")]
 use depin_sdk_commitment::primitives::kzg::{KZGCommitmentScheme, KZGParams};
-#[cfg(feature = "tree-file")]
-use depin_sdk_commitment::tree::file::FileStateTree;
-#[cfg(feature = "tree-hashmap")]
-use depin_sdk_commitment::tree::hashmap::HashMapStateTree;
 #[cfg(feature = "tree-iavl")]
 use depin_sdk_commitment::tree::iavl::IAVLTree;
 #[cfg(feature = "tree-sparse-merkle")]
@@ -135,12 +131,6 @@ where
 
 fn check_features() {
     let mut enabled_features = Vec::new();
-    if cfg!(feature = "tree-file") {
-        enabled_features.push("tree-file");
-    }
-    if cfg!(feature = "tree-hashmap") {
-        enabled_features.push("tree-hashmap");
-    }
     if cfg!(feature = "tree-iavl") {
         enabled_features.push("tree-iavl");
     }
@@ -173,28 +163,6 @@ async fn main() -> Result<()> {
     let config: WorkloadConfig = toml::from_str(&config_str)?;
 
     match (config.state_tree.clone(), config.commitment_scheme.clone()) {
-        #[cfg(all(feature = "tree-file", feature = "primitive-hash"))]
-        (
-            depin_sdk_types::config::StateTreeType::File,
-            depin_sdk_types::config::CommitmentSchemeType::Hash,
-        ) => {
-            log::info!("Instantiating state backend: FileStateTree<HashCommitmentScheme>");
-            let commitment_scheme = HashCommitmentScheme::new();
-            let state_tree = FileStateTree::new(&config.state_file, commitment_scheme.clone());
-            run_workload(state_tree, commitment_scheme, config).await
-        }
-
-        #[cfg(all(feature = "tree-hashmap", feature = "primitive-hash"))]
-        (
-            depin_sdk_types::config::StateTreeType::HashMap,
-            depin_sdk_types::config::CommitmentSchemeType::Hash,
-        ) => {
-            log::info!("Instantiating state backend: HashMapStateTree<HashCommitmentScheme>");
-            let commitment_scheme = HashCommitmentScheme::new();
-            let state_tree = HashMapStateTree::new(commitment_scheme.clone());
-            run_workload(state_tree, commitment_scheme, config).await
-        }
-
         #[cfg(all(feature = "tree-iavl", feature = "primitive-hash"))]
         (
             depin_sdk_types::config::StateTreeType::IAVL,

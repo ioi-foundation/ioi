@@ -22,7 +22,6 @@ use depin_sdk_types::config::{
     CommitmentSchemeType, ConsensusType, InitialServiceConfig, StateTreeType, VmFuelCosts,
     WorkloadConfig,
 };
-// [+] FIX: Import the certificate generation utility.
 use depin_sdk_validator::common::generate_certificates_if_needed;
 use depin_sdk_validator::config::OrchestrationConfig;
 use futures_util::{stream::FuturesUnordered, StreamExt};
@@ -37,9 +36,7 @@ use tar::Builder;
 use tempfile::TempDir;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command as TokioCommand;
-// --- FIX START (Analysis 2): Add broadcast for non-blocking logs ---
 use tokio::sync::{broadcast, Mutex, OnceCell};
-// --- FIX END ---
 use tokio::time::timeout;
 
 // --- Test Configuration ---
@@ -48,9 +45,7 @@ const LOG_ASSERT_TIMEOUT: Duration = Duration::from_secs(45);
 const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(30);
 const ORCHESTRATION_READY_TIMEOUT: Duration = Duration::from_secs(30);
 const GUARDIAN_READY_TIMEOUT: Duration = Duration::from_secs(10);
-// --- FIX START (Analysis 2): Define channel capacity for logs ---
 const LOG_CHANNEL_CAPACITY: usize = 8192;
-// --- FIX END ---
 
 // --- One-Time Build ---
 static BUILD: Once = Once::new();
@@ -121,12 +116,9 @@ pub fn build_test_artifacts(node_features: &str) {
 /// supply one with an explicit `tree-*` feature.
 fn resolve_node_features(user_supplied: &str) -> String {
     fn has_tree_feature(s: &str) -> bool {
-        s.split(',').map(|f| f.trim()).any(|f| {
-            matches!(
-                f,
-                "tree-file" | "tree-hashmap" | "tree-iavl" | "tree-sparse-merkle" | "tree-verkle"
-            )
-        })
+        s.split(',')
+            .map(|f| f.trim())
+            .any(|f| matches!(f, "tree-iavl" | "tree-sparse-merkle" | "tree-verkle"))
     }
 
     if !user_supplied.trim().is_empty() && has_tree_feature(user_supplied) {
@@ -137,14 +129,6 @@ fn resolve_node_features(user_supplied: &str) -> String {
 
     // --- State tree (must be exactly one) ---
     let mut tree_count = 0usize;
-    if cfg!(feature = "tree-file") {
-        feats.push("tree-file");
-        tree_count += 1;
-    }
-    if cfg!(feature = "tree-hashmap") {
-        feats.push("tree-hashmap");
-        tree_count += 1;
-    }
     if cfg!(feature = "tree-iavl") {
         feats.push("tree-iavl");
         tree_count += 1;
@@ -158,7 +142,7 @@ fn resolve_node_features(user_supplied: &str) -> String {
         tree_count += 1;
     }
     if tree_count == 0 {
-        panic!("No 'tree-*' feature was provided and none are enabled on depin-sdk-forge. Enable exactly one of: tree-file, tree-hashmap, tree-iavl, tree-sparse-merkle, tree-verkle.");
+        panic!("No 'tree-*' feature was provided and none are enabled on depin-sdk-forge. Enable exactly one of: tree-iavl, tree-sparse-merkle, tree-verkle.");
     }
     if tree_count > 1 {
         panic!("Multiple 'tree-*' features are enabled on depin-sdk-forge. Enable exactly one.");
@@ -316,7 +300,6 @@ pub async fn submit_transaction(rpc_addr: &str, tx: &ChainTransaction) -> Result
     ))
 }
 
-// --- FIX START (Analysis 2): Update assert helpers to use non-blocking broadcast receiver ---
 pub async fn assert_log_contains(
     label: &str,
     log_stream: &mut broadcast::Receiver<String>,
@@ -394,7 +377,6 @@ pub async fn assert_log_contains_and_return_line(
         )
     })
 }
-// --- FIX END ---
 
 /// Represents a complete, logical validator node, abstracting over its execution backend.
 pub struct TestValidator {
@@ -407,18 +389,15 @@ pub struct TestValidator {
     pub certs_dir_path: PathBuf,
     _temp_dir: Arc<TempDir>,
     backend: Box<dyn TestBackend>,
-    // --- FIX START (Analysis 2): Store Senders, not streams, and add a join handle for drainers ---
     orch_log_tx: broadcast::Sender<String>,
     workload_log_tx: broadcast::Sender<String>,
     guardian_log_tx: Option<broadcast::Sender<String>>,
     log_drain_handles: Arc<Mutex<Vec<tokio::task::JoinHandle<()>>>>,
-    // --- FIX END ---
 }
 
 impl Drop for TestValidator {
     fn drop(&mut self) {
         let mut backend = std::mem::replace(&mut self.backend, Box::new(NullBackend));
-        // --- FIX START (Analysis 2): Abort log drainers on drop ---
         let handles = self.log_drain_handles.clone();
         tokio::spawn(async move {
             for handle in handles.lock().await.iter() {
@@ -428,7 +407,6 @@ impl Drop for TestValidator {
                 log::error!("Failed to cleanup test validator backend: {}", e);
             }
         });
-        // --- FIX END ---
     }
 }
 
@@ -450,7 +428,6 @@ impl TestBackend for NullBackend {
 }
 
 impl TestValidator {
-    // --- FIX START (Analysis 2): Add method to get log receivers ---
     /// Subscribes to the non-blocking log streams for this validator's containers.
     ///
     /// This method should be called once at the beginning of a test. The returned
@@ -470,7 +447,6 @@ impl TestValidator {
             self.guardian_log_tx.as_ref().map(|tx| tx.subscribe()),
         )
     }
-    // --- FIX END ---
 
     #[allow(clippy::too_many_arguments)]
     pub async fn launch(
@@ -488,7 +464,6 @@ impl TestValidator {
     ) -> Result<Self> {
         let peer_id = keypair.public().to_peer_id();
         let temp_dir = Arc::new(tempfile::tempdir()?);
-        // [+] FIX: Create a dedicated subdir for certs to keep the temp dir clean.
         let certs_dir_path = temp_dir.path().join("certs");
         std::fs::create_dir_all(&certs_dir_path)?;
 
@@ -542,8 +517,6 @@ impl TestValidator {
         };
 
         let state_tree_enum = match state_tree_type {
-            "File" => StateTreeType::File,
-            "HashMap" => StateTreeType::HashMap,
             "IAVL" => StateTreeType::IAVL,
             "SparseMerkle" => StateTreeType::SparseMerkle,
             "Verkle" => StateTreeType::Verkle,
@@ -632,7 +605,6 @@ impl TestValidator {
             workload_ipc_addr = "127.0.0.1:8555".to_string(); // Placeholder for Docker
             Box::new(docker_backend)
         } else {
-            // [+] FIX: Generate certificates for process-based backend.
             generate_certificates_if_needed(&certs_dir_path)?;
 
             let ipc_port_workload = portpicker::pick_unused_port().unwrap_or(base_port + 2);
@@ -658,7 +630,6 @@ impl TestValidator {
                             model_path,
                         ])
                         .env("GUARDIAN_LISTEN_ADDR", &guardian_addr)
-                        // [+] FIX: Provide certs dir to Guardian.
                         .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())
                         .stderr(Stdio::piped())
                         .kill_on_drop(true)
@@ -691,7 +662,6 @@ impl TestValidator {
             workload_cmd
                 .args(["--config", &workload_config_path.to_string_lossy()])
                 .env("IPC_SERVER_ADDR", &workload_ipc_addr)
-                // [+] FIX: Provide certs dir to Workload.
                 .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())
                 .stderr(Stdio::piped())
                 .kill_on_drop(true);
@@ -719,7 +689,6 @@ impl TestValidator {
             .await??;
 
             // STEP 2: Create a client and poll for genesis readiness via RPC.
-            // [+] FIX: Provide certificate paths to the client constructor.
             let temp_workload_client = WorkloadClient::new(
                 &workload_ipc_addr,
                 &certs_dir_path.join("ca.pem").to_string_lossy(),
@@ -764,7 +733,6 @@ impl TestValidator {
                 .args(&orch_args)
                 .env("RUST_BACKTRACE", "1") // Add backtrace for debugging
                 .env("WORKLOAD_IPC_ADDR", &workload_ipc_addr)
-                // [+] FIX: Provide certs dir to Orchestration.
                 .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())
                 .stderr(Stdio::piped())
                 .kill_on_drop(true);
@@ -857,7 +825,6 @@ impl TestValidator {
         let (rpc_addr, p2p_addr) = backend.get_addresses();
         let (mut orch_logs, mut workload_logs, guardian_logs_opt) = backend.get_log_streams()?;
 
-        // --- FIX START (Analysis 2): Spawn non-blocking log drainers ---
         let mut log_drain_handles = Vec::new();
         let (orch_log_tx, _) = broadcast::channel(LOG_CHANNEL_CAPACITY);
         let (workload_log_tx, _) = broadcast::channel(LOG_CHANNEL_CAPACITY);
@@ -888,7 +855,6 @@ impl TestValidator {
         } else {
             None
         };
-        // --- FIX END ---
 
         Ok(TestValidator {
             keypair,
@@ -900,12 +866,10 @@ impl TestValidator {
             certs_dir_path,
             _temp_dir: temp_dir,
             backend,
-            // --- FIX START (Analysis 2): Store senders and handles ---
             orch_log_tx,
             workload_log_tx,
             guardian_log_tx,
             log_drain_handles: Arc::new(Mutex::new(log_drain_handles)),
-            // --- FIX END ---
         })
     }
 }

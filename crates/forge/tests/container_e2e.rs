@@ -29,6 +29,7 @@ async fn test_secure_channel_and_attestation_flow_docker() -> Result<()> {
     let _cluster = TestCluster::builder()
         .with_validators(1)
         .use_docker_backend(true)
+        .with_state_tree("IAVL") // Use a valid, production-grade tree
         .with_agentic_model_path(model_path.to_str().unwrap())
         .with_genesis_modifier(move |genesis, _keys| {
             genesis["genesis_state"][std::str::from_utf8(

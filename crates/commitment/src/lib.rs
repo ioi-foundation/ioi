@@ -1,4 +1,5 @@
 // Path: crates/commitment/src/lib.rs
+
 #![forbid(unsafe_code)]
 //! # DePIN SDK Commitment
 //!
@@ -13,11 +14,11 @@ pub mod prelude {
     pub use crate::primitives::{
         hash::HashCommitmentScheme, kzg::KZGCommitmentScheme, pedersen::PedersenCommitmentScheme,
     };
-    pub use crate::tree::{
-        file::FileStateTree as FileCommitment,
-        hashmap::HashMapStateTree as HashMapCommitment, // Alias for clarity
-                                                        // ... other trees
-    };
+    // NOTE: Removed FileStateTree and HashMapStateTree as per architectural recommendation.
+    // These simple trees are not suitable for production as they lack robust, efficient
+    // non-membership proofs required for light clients and interoperability.
+    // Please use IAVLTree, SparseMerkleTree, or VerkleTree instead.
+
     // Re-export the core API trait, which now lives in the API crate
     pub use depin_sdk_api::state::StateCommitment;
 }

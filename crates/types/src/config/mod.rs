@@ -12,10 +12,6 @@ pub use consensus::*;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub enum StateTreeType {
-    /// A simple, file-backed B-Tree map. Good for development.
-    File,
-    /// An in-memory HashMap. Volatile but fast for testing.
-    HashMap,
     /// An IAVL (Immutable AVL) tree, providing Merkle proofs.
     IAVL,
     /// A Sparse Merkle Tree, suitable for large key spaces.
