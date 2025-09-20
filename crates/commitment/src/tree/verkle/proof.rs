@@ -1,4 +1,4 @@
-// Create new file: crates/commitment/src/tree/verkle/proof.rs
+// Path: crates/commitment/src/tree/verkle/proof.rs
 use depin_sdk_crypto::algorithms::hash;
 use serde::{Deserialize, Serialize};
 
@@ -48,6 +48,8 @@ pub struct VerklePathProof {
     pub node_commitments: Vec<Vec<u8>>,
     /// A list of per-level proofs, where each proof corresponds to an opening at a specific node.
     pub per_level_proofs: Vec<Vec<u8>>,
+    /// Selector positions in the KZG domain for each per-level opening.
+    pub per_level_selectors: Vec<u32>,
     /// The terminal witness that concludes the proof.
     pub terminal: Terminal,
 }

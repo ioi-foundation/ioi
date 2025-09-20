@@ -17,13 +17,11 @@ where
     CS::Proof: From<Vec<u8>>,
     CS::Value: From<Vec<u8>>,
 {
-    // FIX: Deserialize the proof structure at the beginning.
     let proof: VerklePathProof = match bincode::deserialize(proof_bytes) {
         Ok(p) => p,
         Err(_) => return false,
     };
 
-    // 2. Perform sanity checks on the deserialized proof structure.
     if &proof.params_id != params_id_expected {
         return false;
     }
@@ -33,35 +31,90 @@ where
     if proof.node_commitments.len() != proof.per_level_proofs.len() + 1 {
         return false;
     }
+    if proof.per_level_selectors.len() != proof.per_level_proofs.len() {
+        return false;
+    }
     if root_commitment.as_ref() != proof.node_commitments[0].as_slice() {
         return false;
     }
 
-    // 3. Verify each level of the proof using the deserialized fields.
-    for (j, commitment_bytes) in proof.node_commitments[..proof.node_commitments.len() - 1]
-        .iter()
-        .enumerate()
-    {
+    let levels = proof.per_level_proofs.len();
+    // The path cannot be deeper than the provided key.
+    if key_path.len() < levels {
+        return false;
+    }
+
+    // --- Bind selectors to the key ---
+    match &proof.terminal {
+        // Presence: we must have walked the full key, and every selector must match the key byte.
+        Terminal::Leaf(_payload) => {
+            if key_path.len() != levels {
+                return false;
+            }
+            for j in 0..levels {
+                if proof.per_level_selectors[j] != key_path[j] as u32 {
+                    return false;
+                }
+            }
+        }
+
+        // Empty: walked up to the terminating empty slot; all selectors must match key bytes so far.
+        Terminal::Empty => {
+            for j in 0..levels {
+                if proof.per_level_selectors[j] != key_path[j] as u32 {
+                    return false;
+                }
+            }
+        }
+
+        // Neighbor: at the final level, we may open the neighbor slot instead of the query slot.
+        Terminal::Neighbor { key_stem, .. } => {
+            if levels == 0 {
+                return false;
+            }
+            // Common prefix before divergence must match both key_path and key_stem.
+            let common = levels - 1;
+            if key_path.len() < levels || key_stem.len() < levels {
+                return false;
+            }
+            for j in 0..common {
+                let sel = proof.per_level_selectors[j];
+                if sel != key_path[j] as u32 || sel != key_stem[j] as u32 {
+                    return false;
+                }
+            }
+            // Final opening must be at the neighbor slot, not the query slot.
+            let sel_last = proof.per_level_selectors[common];
+            if sel_last != key_stem[common] as u32 {
+                return false;
+            }
+            if sel_last == key_path[common] as u32 {
+                return false;
+            }
+        }
+    }
+    // --- end selector binding checks ---
+
+    // (existing pairing checks follow unchanged)
+    for j in 0..levels {
+        let commitment_bytes = &proof.node_commitments[j];
         let commitment: CS::Commitment = commitment_bytes.clone().into();
         let proof_bytes_for_level = &proof.per_level_proofs[j];
         let proof_for_level: CS::Proof = proof_bytes_for_level.clone().into();
+        let selector = Selector::Position(proof.per_level_selectors[j] as usize);
 
-        let selector = Selector::Position(key_path[j] as usize);
-
-        let value_bytes = if j < proof.node_commitments.len() - 1 {
-            // FIX: Access `node_commitments` from the deserialized `proof` struct.
-            map_child_commitment_to_value(&proof.node_commitments[j + 1])
-        } else {
-            // FIX: Access `terminal` from the deserialized `proof` struct.
+        let value_bytes = if j == levels - 1 {
             match &proof.terminal {
-                // FIX: Correctly borrow `payload` which is already a Vec<u8>.
-                Terminal::Leaf(payload) => map_leaf_payload_to_value(payload),
-                Terminal::Empty => [0u8; 32],
-                Terminal::Neighbor { payload, .. } => map_leaf_payload_to_value(payload),
+                Terminal::Leaf(payload) | Terminal::Neighbor { payload, .. } => {
+                    map_leaf_payload_to_value(payload)
+                }
+                Terminal::Empty => map_child_commitment_to_value(&proof.node_commitments[j + 1]),
             }
+        } else {
+            map_child_commitment_to_value(&proof.node_commitments[j + 1])
         };
-        let value: CS::Value = value_bytes.to_vec().into();
 
+        let value: CS::Value = value_bytes.to_vec().into();
         if !scheme.verify(
             &commitment,
             &proof_for_level,
@@ -73,10 +126,10 @@ where
         }
     }
 
-    // Final check for non-membership proofs
+    // Keep the existing neighbor sanity check
     if let Terminal::Neighbor { key_stem, .. } = &proof.terminal {
         if key_path.starts_with(key_stem) {
-            return false; // Key path matches neighbor's stem, proof is invalid.
+            return false;
         }
     }
 
