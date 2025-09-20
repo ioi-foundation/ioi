@@ -10,7 +10,7 @@ pub mod rpc;
 
 use crate::testing::poll::{wait_for, wait_for_height};
 use anyhow::{anyhow, Result};
-use backend::{DockerBackend, LogStream, ProcessBackend, TestBackend};
+use backend::{DockerBackend, DockerBackendConfig, LogStream, ProcessBackend, TestBackend};
 use bollard::image::BuildImageOptions;
 use bollard::Docker;
 use depin_sdk_api::crypto::{SerializableKey, SigningKeyPair};
@@ -620,17 +620,15 @@ impl TestValidator {
 
         let workload_ipc_addr;
         let mut backend: Box<dyn TestBackend> = if use_docker {
-            let docker_backend = DockerBackend::new(
-                rpc_addr.clone(),
-                p2p_addr.clone(),
-                agentic_model_path.map(std::path::PathBuf::from),
-                temp_dir.clone(),
-                keypair_path.clone(),
-                genesis_path.clone(),
-                config_dir_path.clone(),
-                certs_dir_path.clone(),
-            )
-            .await?;
+            let docker_config = DockerBackendConfig {
+                rpc_addr: rpc_addr.clone(),
+                p2p_addr: p2p_addr.clone(),
+                agentic_model_path: agentic_model_path.map(PathBuf::from),
+                temp_dir: temp_dir.clone(),
+                config_dir_path: config_dir_path.clone(),
+                certs_dir_path: certs_dir_path.clone(),
+            };
+            let docker_backend = DockerBackend::new(docker_config).await?;
             workload_ipc_addr = "127.0.0.1:8555".to_string(); // Placeholder for Docker
             Box::new(docker_backend)
         } else {

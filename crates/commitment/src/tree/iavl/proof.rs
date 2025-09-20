@@ -147,7 +147,8 @@ fn verify_existence(
     log::debug!("[IAVL Verifier] Trusted Root: {}", hex::encode(root));
     log::debug!(
         "[IAVL Verifier]   - Step 0 (Leaf): hash={:.8}",
-        hex::encode(&current_hash).get(..8).unwrap_or("")
+        // FIX 1: Removed unnecessary borrow of `current_hash`.
+        hex::encode(current_hash).get(..8).unwrap_or("")
     );
 
     for (i, step) in proof.path.iter().enumerate() {
@@ -164,9 +165,11 @@ fn verify_existence(
             step.height, step.size,
             hex::encode(current_hash).get(..8).unwrap_or(""),
             hex::encode(step.sibling_hash).get(..8).unwrap_or(""),
-            hex::encode(&new_hash_vec).get(..8).unwrap_or(""),
+            // FIX 2: Removed unnecessary borrow of `new_hash_vec`.
+            hex::encode(new_hash_vec).get(..8).unwrap_or(""),
         );
-        current_hash = new_hash_vec.try_into().unwrap();
+        // FIX 3: Removed useless conversion from `[u8; 32]` to `[u8; 32]`.
+        current_hash = new_hash_vec;
     }
 
     log::debug!(

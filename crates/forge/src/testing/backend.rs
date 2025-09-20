@@ -138,6 +138,16 @@ impl TestBackend for ProcessBackend {
 
 // --- DockerBackend Implementation ---
 
+/// Configuration struct to hold parameters for initializing the DockerBackend.
+pub struct DockerBackendConfig {
+    pub rpc_addr: String,
+    pub p2p_addr: Multiaddr,
+    pub agentic_model_path: Option<PathBuf>,
+    pub temp_dir: Arc<TempDir>,
+    pub config_dir_path: PathBuf,
+    pub certs_dir_path: PathBuf,
+}
+
 /// Backend that launches validator components as Docker containers.
 pub struct DockerBackend {
     docker: Docker,
@@ -148,7 +158,6 @@ pub struct DockerBackend {
     agentic_model_path: Option<PathBuf>,
     _temp_dir: Arc<TempDir>,
     config_dir_path: PathBuf,
-    // [+] FIX: Add a path for the shared certs directory.
     certs_dir_path: PathBuf,
     orch_stream: Option<LogStream>,
     work_stream: Option<LogStream>,
@@ -156,17 +165,7 @@ pub struct DockerBackend {
 }
 
 impl DockerBackend {
-    // [+] FIX: Add `certs_dir_path` to the function signature.
-    pub async fn new(
-        rpc_addr: String,
-        p2p_addr: Multiaddr,
-        agentic_model_path: Option<PathBuf>,
-        temp_dir: Arc<TempDir>,
-        _keypair_path: PathBuf,
-        _genesis_path: PathBuf,
-        config_dir_path: PathBuf,
-        certs_dir_path: PathBuf,
-    ) -> Result<Self> {
+    pub async fn new(config: DockerBackendConfig) -> Result<Self> {
         let docker = Docker::connect_with_local_defaults()?;
         let network_name = format!("depin-e2e-{}", uuid::Uuid::new_v4());
         let network = docker
@@ -181,12 +180,12 @@ impl DockerBackend {
             docker,
             network_id,
             container_ids: Vec::new(),
-            rpc_addr,
-            p2p_addr,
-            agentic_model_path,
-            _temp_dir: temp_dir,
-            config_dir_path,
-            certs_dir_path,
+            rpc_addr: config.rpc_addr,
+            p2p_addr: config.p2p_addr,
+            agentic_model_path: config.agentic_model_path,
+            _temp_dir: config.temp_dir,
+            config_dir_path: config.config_dir_path,
+            certs_dir_path: config.certs_dir_path,
             orch_stream: None,
             work_stream: None,
             guard_stream: None,

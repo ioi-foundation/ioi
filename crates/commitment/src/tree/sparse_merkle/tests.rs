@@ -1,5 +1,5 @@
 // Path: crates/commitment/src/tree/sparse_merkle/tests.rs
-#![cfg(test)]
+// FIX: Removed the redundant `#![cfg(test)]` attribute.
 
 use super::{Node, SparseMerkleProof, SparseMerkleTree};
 use crate::primitives::hash::HashCommitmentScheme;

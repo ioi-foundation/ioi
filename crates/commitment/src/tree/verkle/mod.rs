@@ -80,6 +80,7 @@ impl VerkleTree<KZGCommitmentScheme> {
         tree
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn get_from_node(&self, node: &VerkleNode, key: &[u8], depth: usize) -> Option<Vec<u8>> {
         match node {
             VerkleNode::Empty => None,
@@ -274,6 +275,7 @@ impl VerkleTree<KZGCommitmentScheme> {
         self.scheme.commit_with_witness(&byref)
     }
 
+    // FIX: Re-add the allow attribute to suppress the false positive warning.
     #[allow(clippy::only_used_in_recursion)]
     fn update_node(
         &self,
@@ -553,7 +555,7 @@ impl StateManager for VerkleTree<KZGCommitmentScheme> {
         self.versions.insert(root_hash, self.root.clone());
         log::debug!(
             "[Verkle] commit_version: recorded snapshot for root {}",
-            hex::encode(&self.root_commitment().as_ref())
+            hex::encode(self.root_commitment().as_ref())
         );
     }
 

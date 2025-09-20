@@ -51,8 +51,8 @@ where
             if key_path.len() != levels {
                 return false;
             }
-            for j in 0..levels {
-                if proof.per_level_selectors[j] != key_path[j] as u32 {
+            for (j, key_byte) in key_path.iter().enumerate().take(levels) {
+                if proof.per_level_selectors[j] != *key_byte as u32 {
                     return false;
                 }
             }
@@ -60,8 +60,8 @@ where
 
         // Empty: walked up to the terminating empty slot; all selectors must match key bytes so far.
         Terminal::Empty => {
-            for j in 0..levels {
-                if proof.per_level_selectors[j] != key_path[j] as u32 {
+            for (j, key_byte) in key_path.iter().enumerate().take(levels) {
+                if proof.per_level_selectors[j] != *key_byte as u32 {
                     return false;
                 }
             }
@@ -77,9 +77,14 @@ where
             if key_path.len() < levels || key_stem.len() < levels {
                 return false;
             }
-            for j in 0..common {
+            for (j, (key_byte, stem_byte)) in key_path
+                .iter()
+                .zip(key_stem.iter())
+                .enumerate()
+                .take(common)
+            {
                 let sel = proof.per_level_selectors[j];
-                if sel != key_path[j] as u32 || sel != key_stem[j] as u32 {
+                if sel != *key_byte as u32 || sel != *stem_byte as u32 {
                     return false;
                 }
             }

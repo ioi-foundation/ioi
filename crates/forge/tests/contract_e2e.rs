@@ -199,13 +199,8 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     let log_task = tokio::spawn(async move {
         tokio::select! {
             _ = async {
-                loop {
-                    if let Ok(line) = orch_logs.recv().await {
-                         println!("[LOGS-Orchestration] {}", line);
-                    } else {
-                        // Channel closed or lagged
-                        break;
-                    }
+                while let Ok(line) = orch_logs.recv().await {
+                    println!("[LOGS-Orchestration] {}", line);
                 }
             } => {},
             _ = rx_stop => {
