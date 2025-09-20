@@ -169,7 +169,8 @@ impl BlockHeader {
         let mut temp = self.clone();
         // Clear the signature before hashing to create a stable payload.
         temp.signature = vec![];
-        let serialized = serde_json::to_vec(&temp).unwrap();
+        // Use the canonical SCALE codec instead of the non-deterministic JSON.
+        let serialized = crate::codec::to_bytes_canonical(&temp);
         DcryptSha256::digest(&serialized).unwrap().to_bytes()
     }
 
@@ -293,9 +294,16 @@ pub struct UTXOTransaction {
 }
 
 impl UTXOTransaction {
+    /// Creates a stable, serializable payload for hashing or signing.
+    /// This MUST use a canonical binary encoding like SCALE to prevent malleability.
+    pub fn to_sign_bytes(&self) -> Vec<u8> {
+        crate::codec::to_bytes_canonical(self)
+    }
+
     /// Computes the hash of the transaction.
     pub fn hash(&self) -> Vec<u8> {
-        let serialized = serde_json::to_vec(self).unwrap();
+        // Use the new canonical serialization method.
+        let serialized = self.to_sign_bytes();
         DcryptSha256::digest(&serialized).unwrap().to_bytes()
     }
 }
