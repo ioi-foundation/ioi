@@ -517,7 +517,8 @@ where
         self.versions.insert(root_hash, self.root.clone());
         log::debug!(
             "[SMT] commit_version: recorded snapshot for root {}",
-            hex::encode(&self.root.hash())
+            // FIX: Removed unnecessary borrow (`&`).
+            hex::encode(self.root.hash())
         );
     }
 

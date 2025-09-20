@@ -278,7 +278,7 @@ impl KZGCommitmentScheme {
         for (k, ak) in a.iter().enumerate() {
             // coeffs += ak * basis
             for d in 0..basis.len() {
-                coeffs[d] = coeffs[d] + basis[d] * *ak;
+                coeffs[d] += basis[d] * *ak;
             }
 
             // basis *= (x - k)
@@ -288,11 +288,11 @@ impl KZGCommitmentScheme {
 
                 // multiply by x (shift right)
                 for d in 0..basis.len() {
-                    next[d + 1] = next[d + 1] + basis[d];
+                    next[d + 1] += basis[d];
                 }
                 // subtract t * basis (constant term)
                 for d in 0..basis.len() {
-                    next[d] = next[d] - basis[d] * t;
+                    next[d] -= basis[d] * t;
                 }
                 basis = next;
             }

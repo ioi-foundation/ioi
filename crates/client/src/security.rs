@@ -12,7 +12,8 @@ use tokio::sync::Mutex;
 use tokio_rustls::{
     rustls::{
         self,
-        pki_types::{CertificateDer, PrivateKeyDer, ServerName},
+        // FIX: Removed the unused `PrivateKeyDer` import.
+        pki_types::{CertificateDer, ServerName},
         ClientConfig,
     },
     TlsConnector,
@@ -81,9 +82,8 @@ impl SecurityChannel {
 
         let client_key_file = File::open(client_key_path)?;
         let mut reader = BufReader::new(client_key_file);
-        let client_key = rustls_pemfile::private_key(&mut reader)?
+        let client_key_der = rustls_pemfile::private_key(&mut reader)?
             .ok_or_else(|| anyhow!("No private key found in {}", client_key_path))?;
-        let client_key_der = PrivateKeyDer::from(client_key);
 
         let config = ClientConfig::builder()
             .with_root_certificates(root_store)

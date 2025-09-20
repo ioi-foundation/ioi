@@ -96,17 +96,21 @@ fn assert_snapshot_consistent(root: &Option<Arc<IAVLNode>>) {
                 l.map(|x| x.version).unwrap_or(0),
                 l.map(|x| x.height).unwrap_or(-1),
                 l.map(|x| x.size).unwrap_or(0),
-                l.map(|x| hex::encode(&x.hash.get(..4).unwrap_or_default()))
+                // FIX: Removed unnecessary borrow (`&`)
+                l.map(|x| hex::encode(x.hash.get(..4).unwrap_or_default()))
                     .unwrap_or_default(),
-                l.map(|x| hex::encode(&recompute_hash_strict(x).get(..4).unwrap_or_default()))
+                // FIX: Removed unnecessary borrow (`&`)
+                l.map(|x| hex::encode(recompute_hash_strict(x).get(..4).unwrap_or_default()))
                     .unwrap_or_default(),
                 r.is_some(),
                 r.map(|x| x.version).unwrap_or(0),
                 r.map(|x| x.height).unwrap_or(-1),
                 r.map(|x| x.size).unwrap_or(0),
-                r.map(|x| hex::encode(&x.hash.get(..4).unwrap_or_default()))
+                // FIX: Removed unnecessary borrow (`&`)
+                r.map(|x| hex::encode(x.hash.get(..4).unwrap_or_default()))
                     .unwrap_or_default(),
-                r.map(|x| hex::encode(&recompute_hash_strict(x).get(..4).unwrap_or_default()))
+                // FIX: Removed unnecessary borrow (`&`)
+                r.map(|x| hex::encode(recompute_hash_strict(x).get(..4).unwrap_or_default()))
                     .unwrap_or_default(),
             );
             panic!("IAVL snapshot drift detected. See details above.");
@@ -191,7 +195,8 @@ impl IAVLNode {
 
     /// Provides the canonical hash of an empty/nil child node.
     fn empty_hash() -> Vec<u8> {
-        depin_sdk_crypto::algorithms::hash::sha256(&[])
+        // FIX: Removed unnecessary borrow (`&`)
+        depin_sdk_crypto::algorithms::hash::sha256([])
     }
 
     /// Check if this is a leaf node
@@ -485,12 +490,10 @@ impl IAVLNode {
                 } else {
                     None
                 }
+            } else if key <= n.key.as_slice() {
+                Self::get(&n.left, key)
             } else {
-                if key <= n.key.as_slice() {
-                    Self::get(&n.left, key)
-                } else {
-                    Self::get(&n.right, key)
-                }
+                Self::get(&n.right, key)
             }
         })
     }
@@ -699,13 +702,11 @@ where
                 }
                 // Stop at leaves
                 break;
+            } else if node.key.as_slice() < key {
+                predecessor = Some(node.key.clone());
+                current = node.right.as_ref();
             } else {
-                if node.key.as_slice() < key {
-                    predecessor = Some(node.key.clone());
-                    current = node.right.as_ref();
-                } else {
-                    current = node.left.as_ref();
-                }
+                current = node.left.as_ref();
             }
         }
         predecessor
@@ -720,13 +721,11 @@ where
                     successor = Some(node.key.clone());
                 }
                 break;
+            } else if node.key.as_slice() >= key {
+                successor = Some(node.key.clone());
+                current = node.left.as_ref();
             } else {
-                if node.key.as_slice() >= key {
-                    successor = Some(node.key.clone());
-                    current = node.left.as_ref();
-                } else {
-                    current = node.right.as_ref();
-                }
+                current = node.right.as_ref();
             }
         }
         successor
@@ -850,7 +849,8 @@ where
                      requested_root={} \n\
                      strict_root   ={}",
                     version,
-                    hex::encode(&hrn.key.get(..4).unwrap_or_default()),
+                    // FIX: Removed unnecessary borrow (`&`)
+                    hex::encode(hrn.key.get(..4).unwrap_or_default()),
                     hex::encode(root_bytes),
                     hex::encode(&strict_root),
                 );
@@ -879,37 +879,38 @@ where
                     "[IAVL Server]   -> SELF-VERIFICATION PASSED against root {}",
                     hex::encode(root_hash)
                 ),
+                // FIX: Collapsed `if let Ok(p) = ... { if let ... }` into a single `if let` with a guard.
                 _ => {
-                    // NEW: detailed fold trace from the serialized proof
-                    if let Ok(p) = serde_json::from_slice::<proof::IavlProof>(proof_bytes) {
-                        if let proof::IavlProof::Existence(ep) = p {
-                            use crate::tree::iavl::proof::{hash_inner, hash_leaf, Side};
-                            let leaf_val = expected_value.as_deref().unwrap_or(&[]);
-                            let mut acc = hash_leaf(&ep.leaf, key, leaf_val);
+                    if let Ok(proof::IavlProof::Existence(ep)) =
+                        serde_json::from_slice::<proof::IavlProof>(proof_bytes)
+                    {
+                        use crate::tree::iavl::proof::{hash_inner, hash_leaf, Side};
+                        let leaf_val = expected_value.as_deref().unwrap_or(&[]);
+                        let mut acc = hash_leaf(&ep.leaf, key, leaf_val);
+                        log::error!(
+                            "[IAVL Builder][trace] leaf={:.8}",
+                            hex::encode(acc).get(..8).unwrap_or("")
+                        );
+                        for (i, step) in ep.path.iter().enumerate() {
+                            let (left, right) = match step.side {
+                                Side::Left => (step.sibling_hash, acc),
+                                Side::Right => (acc, step.sibling_hash),
+                            };
+                            let newh = hash_inner(step, &left, &right);
                             log::error!(
-                                "[IAVL Builder][trace] leaf={:.8}",
-                                hex::encode(acc).get(..8).unwrap_or("")
-                            );
-                            for (i, step) in ep.path.iter().enumerate() {
-                                let (left, right) = match step.side {
-                                    Side::Left => (step.sibling_hash, acc),
-                                    Side::Right => (acc, step.sibling_hash),
-                                };
-                                let newh = hash_inner(step, &left, &right);
-                                log::error!(
                                     "[IAVL Builder][trace] i={} side={:?} split={:.8} h={} sz={} acc={:.8} sib={:.8} -> new={:.8}",
                                     i + 1, step.side,
                                     hex::encode(&step.split_key).get(..8).unwrap_or(""),
                                     step.height, step.size,
                                     hex::encode(acc).get(..8).unwrap_or(""),
                                     hex::encode(step.sibling_hash).get(..8).unwrap_or(""),
-                                    hex::encode(&newh).get(..8).unwrap_or(""),
+                                    // FIX: Removed unnecessary borrow (`&`)
+                                    hex::encode(newh).get(..8).unwrap_or(""),
                                 );
-                                acc = newh;
-                            }
-                            log::error!("[IAVL Builder][trace] final={}", hex::encode(acc));
-                            log::error!("[IAVL Builder][trace] trusted={}", hex::encode(root_hash));
+                            acc = newh;
                         }
+                        log::error!("[IAVL Builder][trace] final={}", hex::encode(acc));
+                        log::error!("[IAVL Builder][trace] trusted={}", hex::encode(root_hash));
                     }
 
                     log::error!(

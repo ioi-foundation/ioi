@@ -12,6 +12,7 @@ use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_transaction_models::system::{nonce, validation};
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
+// FIX: Import the `ChainTransaction` type from the `depin-sdk-types` crate.
 use depin_sdk_types::app::{
     account_id_from_key_material, read_validator_sets, write_validator_sets, AccountId,
     ActiveKeyRecord, Block, BlockHeader, ChainStatus, ChainTransaction, FailureReport,
@@ -128,7 +129,7 @@ where
 {
     /// Select the validator set that is effective for the given height.
     /// Mirrors the logic used by the PoS engine.
-    fn select_set_for_height<'a>(sets: &'a ValidatorSetsV1, h: u64) -> &'a ValidatorSetV1 {
+    fn select_set_for_height(sets: &ValidatorSetsV1, h: u64) -> &ValidatorSetV1 {
         if let Some(next) = &sets.next {
             if h >= next.effective_from_height
                 && !next.validators.is_empty()
@@ -516,7 +517,7 @@ where
         let vs_bytes = self
             .get_validator_set_for(workload, block.header.height)
             .await?;
-        let validator_set_hash = depin_sdk_crypto::algorithms::hash::sha256(&vs_bytes.concat())
+        let validator_set_hash = depin_sdk_crypto::algorithms::hash::sha256(vs_bytes.concat())
             .try_into()
             .unwrap();
 
@@ -587,7 +588,7 @@ where
                                 sets.current = next_vs.clone();
                                 // Only clear `next` if it's the one we just promoted.
                                 // This prevents overwriting a new `next` scheduled in the same block.
-                                if sets.next.as_ref().map_or(false, |n| {
+                                if sets.next.as_ref().is_some_and(|n| {
                                     n.effective_from_height == promoted_from_height
                                 }) {
                                     sets.next = None;

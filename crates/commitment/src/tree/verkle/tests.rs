@@ -1,5 +1,4 @@
 // Path: crates/commitment/src/tree/verkle/tests.rs
-#![cfg(test)]
 
 mod verkle_tests {
     use crate::primitives::kzg::{KZGCommitmentScheme, KZGParams};

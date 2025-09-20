@@ -21,7 +21,7 @@ use hex;
 
 /// A pure helper function to select the correct validator set for a given height.
 /// It never mutates state.
-fn effective_set_for_height<'a>(sets: &'a ValidatorSetsV1, h: u64) -> &'a ValidatorSetV1 {
+fn effective_set_for_height(sets: &ValidatorSetsV1, h: u64) -> &ValidatorSetV1 {
     if let Some(next) = &sets.next {
         if h >= next.effective_from_height && !next.validators.is_empty() && next.total_weight > 0 {
             return next;
