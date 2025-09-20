@@ -331,7 +331,9 @@ mod tests {
         fn as_any(&self) -> &dyn Any {
             self
         }
-
+        fn as_any_mut(&mut self) -> &mut dyn Any {
+            self
+        }
         fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StateError> {
             let results = self
                 .data
