@@ -13,7 +13,7 @@ use self::poly_utils::{poly_div_linear, poly_sub_scalar, Polynomial};
 use dcrypt::algorithms::ec::bls12_381::{
     pairing, Bls12_381Scalar as Scalar, G1Affine, G1Projective, G2Affine, G2Projective,
 };
-use dcrypt::algorithms::poly::fft;
+// no fft here; we interpolate on x = 0..n-1 directly
 use depin_sdk_api::commitment::{
     CommitmentScheme, CommitmentStructure, ProofContext, SchemeIdentifier, Selector,
 };
@@ -238,12 +238,66 @@ impl KZGCommitmentScheme {
     }
 
     fn reconstruct_poly(values: &[Option<&[u8]>]) -> Result<Polynomial, String> {
-        let scalars: Vec<Scalar> = values
+        // Interpolate P such that P(i) = value_to_scalar(values[i]) for i = 0..n-1.
+        let ys: Vec<Scalar> = values
             .iter()
             .map(|v_opt| Self::value_to_scalar(v_opt.unwrap_or(&[])))
             .collect::<Result<_, _>>()?;
-        let mut coeffs = scalars;
-        fft::ifft(&mut coeffs).map_err(|e| e.to_string())?;
+
+        let n = ys.len();
+        if n == 0 {
+            return Ok(Polynomial { coeffs: vec![] });
+        }
+
+        // --- Divided differences for x_i = i ---
+        // dd[i] holds the i-th element of the current column of the divided-difference table.
+        let mut dd = ys;
+        let mut a: Vec<Scalar> = Vec::with_capacity(n);
+        a.push(dd[0]); // a0
+
+        // For each order j = 1..n-1, update dd[0..n-j] and take dd[0] as the next Newton coeff
+        for j in 1..n {
+            // denominator is (x_{i+j} - x_i) = j for all i
+            let denom = Scalar::from(j as u64);
+            let denom_inv = denom
+                .invert()
+                .into_option()
+                .ok_or_else(|| "Division by zero in Newton interpolation".to_string())?;
+
+            for i in 0..(n - j) {
+                dd[i] = (dd[i + 1] - dd[i]) * denom_inv;
+            }
+            a.push(dd[0]); // a_j
+        }
+
+        // --- Convert Newton form to monomial coefficients ---
+        // P(x) = a[0] + a[1](x-0) + a[2](x-0)(x-1) + ... + a[n-1]∏_{k=0}^{n-2}(x-k)
+        let mut coeffs = vec![Scalar::zero(); n];
+        let mut basis: Vec<Scalar> = vec![Scalar::one()]; // starts as 1
+
+        for (k, ak) in a.iter().enumerate() {
+            // coeffs += ak * basis
+            for d in 0..basis.len() {
+                coeffs[d] = coeffs[d] + basis[d] * *ak;
+            }
+
+            // basis *= (x - k)
+            if k + 1 < n {
+                let t = Scalar::from(k as u64);
+                let mut next = vec![Scalar::zero(); basis.len() + 1];
+
+                // multiply by x (shift right)
+                for d in 0..basis.len() {
+                    next[d + 1] = next[d + 1] + basis[d];
+                }
+                // subtract t * basis (constant term)
+                for d in 0..basis.len() {
+                    next[d] = next[d] - basis[d] * t;
+                }
+                basis = next;
+            }
+        }
+
         Ok(Polynomial { coeffs })
     }
 

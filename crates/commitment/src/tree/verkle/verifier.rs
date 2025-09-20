@@ -62,11 +62,12 @@ impl Verifier for KZGVerifier {
             (Membership::Present(value), crate::tree::verkle::proof::Terminal::Leaf(payload)) => {
                 value == payload
             }
-            (Membership::Absent, crate::tree::verkle::proof::Terminal::Empty) => true,
-            (
-                Membership::Absent,
-                crate::tree::verkle::proof::Terminal::Neighbor { key_stem, .. },
-            ) => !key.starts_with(key_stem),
+            (Membership::Absent, terminal) => match terminal {
+                // Absence is proven if the path ends at an empty slot, or at a neighbor leaf with a *different* key.
+                crate::tree::verkle::proof::Terminal::Empty => true,
+                crate::tree::verkle::proof::Terminal::Neighbor { key_stem, .. } => key != key_stem.as_slice(),
+                _ => false, // e.g., claiming Absent but getting a Leaf for the same key.
+            },
             _ => false, // Mismatched claim (e.g., Present) and proof type (e.g., Empty).
         };
 
