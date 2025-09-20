@@ -67,7 +67,7 @@ fn create_signed_system_tx(
 #[tokio::test]
 async fn test_universal_verification_e2e() -> Result<()> {
     // 1. SETUP & BUILD
-    build_test_artifacts("consensus-poa,vm-wasm,tree-iavl,primitive-hash");
+    build_test_artifacts();
 
     // 2. LAUNCH CLUSTER
     let mut cluster = TestCluster::builder()
@@ -224,7 +224,7 @@ async fn test_universal_verification_e2e() -> Result<()> {
     assert_log_contains(
         "Orchestration",
         &mut orch_logs,
-        "Discarding invalid tx from mempool: Invalid transaction: Foreign receipt has already been processed (replay attack)",
+        "Filtering tx 0 as invalid: Invalid transaction: Foreign receipt has already been processed (replay attack)",
     ).await?;
 
     println!("--- Universal Interoperability E2E Test Passed ---");

@@ -90,7 +90,7 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     init_logger();
 
     // 1. SETUP & BUILD
-    build_test_artifacts("consensus-poa,vm-wasm,tree-iavl,primitive-hash");
+    build_test_artifacts();
     let counter_wasm =
         std::fs::read("../../target/wasm32-unknown-unknown/release/counter_contract.wasm")?;
     let mut nonce = 0;

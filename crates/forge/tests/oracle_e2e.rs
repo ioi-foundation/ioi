@@ -11,17 +11,17 @@ use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_forge::testing::{
     assert_log_contains, build_test_artifacts, submit_transaction, TestCluster,
 };
-use depin_sdk_types::app::{
-    account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
-    SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetV1,
-    ValidatorSetsV1, ValidatorV1,
+use depin_sdk_types::{
+    app::{
+        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
+        SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+        ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+    },
+    codec,
+    config::InitialServiceConfig,
+    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
+    service_configs::MigrationConfig,
 };
-use depin_sdk_types::codec;
-use depin_sdk_types::config::InitialServiceConfig;
-use depin_sdk_types::keys::{
-    ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
-};
-use depin_sdk_types::service_configs::MigrationConfig;
 use libp2p::identity::Keypair;
 use serde_json::json;
 
@@ -61,7 +61,7 @@ fn create_system_tx(
 #[tokio::test]
 async fn test_validator_native_oracle_e2e() -> Result<()> {
     // 1. SETUP: Build artifacts and launch a 4-node PoS cluster.
-    build_test_artifacts("consensus-pos,vm-wasm,tree-iavl,primitive-hash");
+    build_test_artifacts();
 
     let cluster = TestCluster::builder()
         .with_validators(4)

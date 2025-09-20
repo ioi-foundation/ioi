@@ -4,66 +4,52 @@
 //! This ensures that the Orchestration container always uses a verifier
 //! that matches the state tree implementation of the Workload container.
 
+use cfg_if::cfg_if;
+
 // Only bring KZGParams into scope when the corresponding feature is enabled.
 #[cfg(feature = "primitive-kzg")]
 use depin_sdk_commitment::primitives::kzg::KZGParams;
 
-// --- Define the Verifier Type Alias based on tree features ---
-
-// NOTE: FileTree and HashMapTree have been removed as they are not suitable for production.
-// Only production-grade state trees with robust proof systems are supported.
-
-#[cfg(feature = "tree-iavl")]
-pub use depin_sdk_commitment::tree::iavl::verifier::IAVLHashVerifier as DefaultVerifier;
-
-#[cfg(feature = "tree-sparse-merkle")]
-pub use depin_sdk_commitment::tree::sparse_merkle::verifier::SparseMerkleVerifier as DefaultVerifier;
-
-#[cfg(feature = "tree-verkle")]
-pub use depin_sdk_commitment::tree::verkle::verifier::KZGVerifier as DefaultVerifier;
-
-// --- Define the creator function with a single, adaptable signature ---
+// --- Define the Verifier Type Alias based on tree features using cfg_if ---
+// This creates a mutually exclusive if/else-if/else block, guaranteeing that
+// `DefaultVerifier` is only defined once, even when multiple features are enabled.
+cfg_if! {
+    if #[cfg(feature = "tree-iavl")] {
+        pub use depin_sdk_commitment::tree::iavl::verifier::IAVLHashVerifier as DefaultVerifier;
+    } else if #[cfg(feature = "tree-sparse-merkle")] {
+        pub use depin_sdk_commitment::tree::sparse_merkle::verifier::SparseMerkleVerifier as DefaultVerifier;
+    } else if #[cfg(feature = "tree-verkle")] {
+        pub use depin_sdk_commitment::tree::verkle::verifier::KZGVerifier as DefaultVerifier;
+    } else {
+        // Fallback for when no tree feature is enabled, preventing compile errors in those cases.
+        // A runtime check in the binary will catch this misconfiguration.
+        pub use self::fallback::DefaultVerifier;
+    }
+}
 
 /// Creates the default verifier. The signature and implementation of this function
 /// adapt based on whether a KZG-based primitive is enabled.
-#[cfg(any(
-    feature = "tree-iavl",
-    feature = "tree-sparse-merkle",
-    feature = "tree-verkle"
-))]
 pub fn create_default_verifier(
     #[cfg(feature = "primitive-kzg")] params: Option<KZGParams>,
     #[cfg(not(feature = "primitive-kzg"))] _params: Option<()>,
 ) -> DefaultVerifier {
-    // The logic *inside* the function is conditionally compiled.
-    #[cfg(feature = "tree-verkle")]
-    {
-        // This arm is only compiled when tree-verkle (and thus primitive-kzg) is active.
-        // Here, `params` is guaranteed to be `Option<KZGParams>`.
-        DefaultVerifier::new(params.expect("KZGVerifier requires SRS parameters"))
-    }
-
-    #[cfg(not(feature = "tree-verkle"))]
-    {
-        // This arm is compiled for all other tree types.
-        // Here, `params` is `Option<()>` and is ignored.
-        // --- FIX: Instantiate the unit struct directly ---
-        DefaultVerifier
+    // The logic inside the function is conditionally compiled to match the type alias.
+    cfg_if! {
+        if #[cfg(feature = "tree-verkle")] {
+            // This arm is only compiled when tree-verkle (and thus primitive-kzg) is active.
+            // Here, `params` is guaranteed to be `Option<KZGParams>`.
+            DefaultVerifier::new(params.expect("KZGVerifier requires SRS parameters"))
+        } else {
+            // This arm is compiled for all other tree types (IAVL, SMT) and the fallback.
+            // Here, `params` is `Option<()>` and is ignored. The verifiers are unit structs.
+            DefaultVerifier::default()
+        }
     }
 }
 
-// Fallback creator function for when no tree feature is enabled.
-#[cfg(not(any(
-    feature = "tree-iavl",
-    feature = "tree-sparse-merkle",
-    feature = "tree-verkle"
-)))]
-pub fn create_default_verifier(_params: Option<()>) -> fallback::DefaultVerifier {
-    // --- FIX: Instantiate the unit struct directly ---
-    fallback::DefaultVerifier
-}
-
-// Fallback for when no tree features are enabled.
+// Fallback module for when no tree features are enabled.
+// This allows the codebase to compile, while a runtime check in `main.rs`
+// will provide a clear error message to the user.
 #[cfg(not(any(
     feature = "tree-iavl",
     feature = "tree-sparse-merkle",
@@ -99,15 +85,3 @@ mod fallback {
         }
     }
 }
-
-// --- FIX START: Publicly export the fallback verifier at the module level ---
-// This ensures that the import in `orchestration.rs` will always resolve,
-// preventing the compile error. The runtime check `check_features()` will then
-// provide a clear error message if no valid tree feature is selected.
-#[cfg(not(any(
-    feature = "tree-iavl",
-    feature = "tree-sparse-merkle",
-    feature = "tree-verkle"
-)))]
-pub use fallback::DefaultVerifier;
-// --- FIX END ---

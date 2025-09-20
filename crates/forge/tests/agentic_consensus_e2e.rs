@@ -77,7 +77,7 @@ fn add_poa_identity_to_genesis(
 
 #[tokio::test]
 async fn test_secure_agentic_consensus_e2e() -> Result<()> {
-    build_test_artifacts("consensus-poa,vm-wasm,tree-iavl,primitive-hash");
+    build_test_artifacts();
 
     // Setup: Create model file and calculate its hash
     let temp_dir_models = tempdir()?;
@@ -158,7 +158,7 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
 
 #[tokio::test]
 async fn test_mismatched_model_quarantine() -> Result<()> {
-    build_test_artifacts("consensus-poa,vm-wasm,tree-iavl,primitive-hash");
+    build_test_artifacts();
 
     // Setup: Create two different model files
     let temp_dir_models = tempdir()?;
