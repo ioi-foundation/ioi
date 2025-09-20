@@ -10,6 +10,7 @@
 ))]
 
 use anyhow::Result;
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine};
 use depin_sdk_forge::testing::{assert_log_contains, build_test_artifacts, TestCluster};
 use depin_sdk_types::{
     app::{
@@ -22,10 +23,9 @@ use serde_json::json;
 
 #[tokio::test]
 async fn test_concurrent_polymorphic_chains() -> Result<()> {
-    // Build binaries with all necessary features enabled for both clusters.
-    build_test_artifacts(
-        "consensus-poa,consensus-pos,vm-wasm,tree-iavl,tree-sparse-merkle,primitive-hash",
-    );
+    // Build test artifacts that are not configuration-dependent (like contracts).
+    // The node binaries will be built JIT by the TestValidator::launch function.
+    build_test_artifacts();
 
     // --- Define Cluster A: Proof of Authority with IAVLTree ---
     let cluster_a_handle = tokio::spawn(async {
@@ -63,13 +63,8 @@ async fn test_concurrent_polymorphic_chains() -> Result<()> {
                 };
                 let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload);
                 genesis_state.insert(
-                    std::str::from_utf8(VALIDATOR_SET_KEY)
-                        .unwrap()
-                        .to_string(),
-                    json!(format!(
-                        "b64:{}",
-                        base64::prelude::BASE64_STANDARD.encode(vs_bytes)
-                    )),
+                    std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
                 );
             })
             .build()
@@ -122,13 +117,8 @@ async fn test_concurrent_polymorphic_chains() -> Result<()> {
                 };
                 let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload);
                 genesis_state.insert(
-                    std::str::from_utf8(VALIDATOR_SET_KEY)
-                        .unwrap()
-                        .to_string(),
-                    json!(format!(
-                        "b64:{}",
-                        base64::prelude::BASE64_STANDARD.encode(vs_bytes)
-                    )),
+                    std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
                 );
             })
             .build()

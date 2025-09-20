@@ -66,7 +66,7 @@ fn create_report_tx(
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
     println!("\n--- Running PoA Non-Economic Quarantine and Liveness Guard Test ---");
-    build_test_artifacts("consensus-poa,vm-wasm,tree-iavl,primitive-hash");
+    build_test_artifacts();
 
     let mut cluster = TestCluster::builder()
         .with_validators(3) // Start with 3 to test the liveness boundary of MIN_LIVE_AUTHORITIES=2

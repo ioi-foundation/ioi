@@ -3,10 +3,12 @@
 use crate::transaction::TransactionModel;
 use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
 use dcrypt::algorithms::ByteSerializable;
+use depin_sdk_types::codec;
+use parity_scale_codec::Encode;
 use serde::{Deserialize, Serialize};
 
 /// Represents the current status of the blockchain.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Encode)]
 pub struct ChainStatus {
     /// The current block height.
     pub height: u64,
@@ -19,8 +21,8 @@ pub struct ChainStatus {
 }
 
 /// A block in the blockchain, generic over the transaction type.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Block<T: Clone> {
+#[derive(Serialize, Deserialize, Debug, Clone, Encode)]
+pub struct Block<T: Clone + Encode> {
     /// The header of the block containing metadata.
     pub header: BlockHeader,
     /// A list of transactions included in the block.
@@ -28,7 +30,7 @@ pub struct Block<T: Clone> {
 }
 
 /// The header of a block, containing metadata and commitments.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Encode)]
 pub struct BlockHeader {
     /// The height of this block.
     pub height: u64,
@@ -55,13 +57,13 @@ impl BlockHeader {
         let mut temp = self.clone();
         // Clear the signature before hashing to create a stable payload.
         temp.signature = vec![];
-        let serialized = serde_json::to_vec(&temp).unwrap();
+        let serialized = codec::to_bytes_canonical(&temp);
         DcryptSha256::digest(&serialized).unwrap().to_bytes()
     }
 }
 
 /// An input for a UTXO transaction, pointing to a previous output.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode)]
 pub struct Input {
     /// The hash of the transaction containing the output being spent.
     pub tx_hash: Vec<u8>,
@@ -72,7 +74,7 @@ pub struct Input {
 }
 
 /// An output for a UTXO transaction, creating a new unspent output.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode)]
 pub struct Output {
     /// The value of the output.
     pub value: u64,
@@ -81,7 +83,7 @@ pub struct Output {
 }
 
 /// A transaction following the UTXO model.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode)]
 pub struct UTXOTransaction {
     /// A list of inputs to be spent.
     pub inputs: Vec<Input>,
@@ -92,13 +94,13 @@ pub struct UTXOTransaction {
 impl UTXOTransaction {
     /// Computes the hash of the transaction.
     pub fn hash(&self) -> Vec<u8> {
-        let serialized = serde_json::to_vec(self).unwrap();
+        let serialized = codec::to_bytes_canonical(self);
         DcryptSha256::digest(&serialized).unwrap().to_bytes()
     }
 }
 
 /// A top-level enum representing any transaction the chain can process.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode)]
 pub enum ChainTransaction {
     /// A transaction initiated by a user or application.
     Application(ApplicationTransaction),
@@ -107,7 +109,7 @@ pub enum ChainTransaction {
 }
 
 /// An enum wrapping all possible user-level transaction models.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode)]
 pub enum ApplicationTransaction {
     /// A transaction for a UTXO-based ledger.
     UTXO(UTXOTransaction),
@@ -126,7 +128,7 @@ pub enum ApplicationTransaction {
 }
 
 /// A privileged transaction for performing system-level state changes.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode)]
 pub struct SystemTransaction {
     /// The specific action being requested.
     pub payload: SystemPayload,
@@ -135,7 +137,7 @@ pub struct SystemTransaction {
 }
 
 /// The specific action being requested by a SystemTransaction.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode)]
 pub enum SystemPayload {
     /// Updates the set of authorities for a Proof-of-Authority chain.
     UpdateAuthorities {

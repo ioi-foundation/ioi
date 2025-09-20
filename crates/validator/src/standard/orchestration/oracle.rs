@@ -3,6 +3,7 @@ use super::context::MainLoopContext;
 use depin_sdk_api::{
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
+    crypto::SigningKeyPair,
     state::{StateCommitment, StateManager, Verifier},
 };
 use depin_sdk_network::libp2p::SwarmCommand;
@@ -353,16 +354,42 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
             consensus_proof,
         };
 
-        let tx = ChainTransaction::System(Box::new(SystemTransaction {
-            payload,
+        // --- SIGN the finalization tx with the local validator key ---
+        // 1) derive our AccountId from the local Ed25519 public key
+        let our_pk = context.local_keypair.public();
+        let our_pk_bytes = our_pk.encode_protobuf();
+        let our_account_hash = account_id_from_key_material(SignatureSuite::Ed25519, &our_pk_bytes)
+            .expect("local key must derive an AccountId");
+        let our_account_id = AccountId(our_account_hash);
+
+        // 2) construct a signable SystemTransaction (first tx from this account => nonce 0)
+        let mut sys_tx = SystemTransaction {
             header: SignHeader {
-                account_id: AccountId([0; 32]),
+                account_id: our_account_id,
                 nonce: 0,
-                chain_id: 0,
+                chain_id: 1,
                 tx_version: 1,
             },
+            payload,
             signature_proof: SignatureProof::default(),
-        }));
+        };
+
+        // 3) sign canonical bytes with the local Ed25519 key
+        let sign_bytes = sys_tx
+            .to_sign_bytes()
+            .expect("serialize sign bytes for SubmitOracleData");
+        let signature = context
+            .local_keypair
+            .sign(&sign_bytes)
+            .expect("ed25519 sign");
+
+        sys_tx.signature_proof = SignatureProof {
+            suite: SignatureSuite::Ed25519,
+            public_key: our_pk_bytes,
+            signature,
+        };
+
+        let tx = ChainTransaction::System(Box::new(sys_tx));
 
         context.tx_pool_ref.lock().await.push_back(tx);
         log::info!(

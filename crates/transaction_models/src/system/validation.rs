@@ -63,15 +63,13 @@ fn get_signature_components(
     tx: &ChainTransaction,
 ) -> Result<Option<SignatureComponents<'_>>, TransactionError> {
     match tx {
-        ChainTransaction::System(sys_tx) => match &sys_tx.payload {
-            depin_sdk_types::app::SystemPayload::VerifyForeignReceipt { .. }
-            | depin_sdk_types::app::SystemPayload::UpdateAuthorities { .. }
-            | depin_sdk_types::app::SystemPayload::SubmitOracleData { .. } => Ok(None),
-            _ => {
-                let sign_bytes = sys_tx.to_sign_bytes()?;
-                Ok(Some((&sys_tx.header, &sys_tx.signature_proof, sign_bytes)))
-            }
-        },
+        ChainTransaction::System(sys_tx) => {
+            // FIX: Any transaction that changes state or requires replay protection must be signed.
+            // Removed VerifyForeignReceipt, UpdateAuthorities, and SubmitOracleData from the
+            // list of signature-exempt payloads.
+            let sign_bytes = sys_tx.to_sign_bytes()?;
+            Ok(Some((&sys_tx.header, &sys_tx.signature_proof, sign_bytes)))
+        }
         ChainTransaction::Application(app_tx) => match app_tx {
             ApplicationTransaction::DeployContract {
                 header,

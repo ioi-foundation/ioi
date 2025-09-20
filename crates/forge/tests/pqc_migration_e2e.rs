@@ -159,7 +159,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     std::env::set_var("ORCH_BLOCK_INTERVAL_SECS", "2");
 
     // 1. SETUP
-    build_test_artifacts("consensus-pos,vm-wasm,tree-iavl,primitive-hash");
+    build_test_artifacts();
     let ed25519_key = Ed25519KeyPair::generate();
     let dilithium_scheme = DilithiumScheme::new(SecurityLevel::Level2);
     let dilithium_key = dilithium_scheme.generate_keypair();

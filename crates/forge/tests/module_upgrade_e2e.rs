@@ -73,7 +73,7 @@ fn create_system_tx(
 #[tokio::test]
 async fn test_forkless_module_upgrade() -> Result<()> {
     // 1. SETUP & BUILD
-    build_test_artifacts("consensus-poa,vm-wasm,tree-iavl,primitive-hash");
+    build_test_artifacts();
     let service_v2_wasm =
         std::fs::read("../../target/wasm32-unknown-unknown/release/test_service_v2.wasm")?;
     let governance_key = identity::Keypair::generate_ed25519();

@@ -51,32 +51,13 @@ const LOG_CHANNEL_CAPACITY: usize = 8192;
 static BUILD: Once = Once::new();
 static DOCKER_BUILD_CHECK: OnceCell<()> = OnceCell::const_new();
 
-/// Builds all required binaries for testing (node, contracts) exactly once.
-pub fn build_test_artifacts(node_features: &str) {
+/// Builds test artifacts that are NOT configuration-dependent (like contracts).
+pub fn build_test_artifacts() {
     BUILD.call_once(|| {
         println!("--- Building Test Artifacts (one-time setup) ---");
-        // Build the node with an explicit, deterministic feature set.
-        let resolved_features = resolve_node_features(node_features);
-        println!(
-            "--- Building node binaries with features: {} ---",
-            resolved_features
-        );
 
-        let status_node = Command::new("cargo")
-            .args([
-                "build",
-                "-p",
-                "depin-sdk-node",
-                "--release",
-                "--no-default-features",
-                "--features",
-                &format!("validator-bins,{}", resolved_features),
-            ])
-            .status()
-            .expect("Failed to execute cargo build for node");
-        if !status_node.success() {
-            panic!("Node binary build failed");
-        }
+        // NOTE: Node binary build has been removed from here and moved into
+        // TestValidator::launch to support polymorphic configurations.
 
         let status_contract = Command::new("cargo")
             .args([
@@ -114,6 +95,7 @@ pub fn build_test_artifacts(node_features: &str) {
 
 /// Infer a correct feature string for `depin-sdk-node` if the caller did not
 /// supply one with an explicit `tree-*` feature.
+#[allow(dead_code)] // This is a library function for test consumers
 fn resolve_node_features(user_supplied: &str) -> String {
     fn has_tree_feature(s: &str) -> bool {
         s.split(',')
@@ -462,6 +444,63 @@ impl TestValidator {
         initial_services: Vec<InitialServiceConfig>,
         use_malicious_workload: bool,
     ) -> Result<Self> {
+        // --- NEW: Per-validator build step with corrected feature names ---
+        let consensus_feature = match consensus_type {
+            "ProofOfAuthority" => "consensus-poa",
+            "ProofOfStake" => "consensus-pos",
+            _ => {
+                return Err(anyhow!(
+                    "Unsupported test consensus type: {}",
+                    consensus_type
+                ))
+            }
+        };
+        let tree_feature = match state_tree_type {
+            "IAVL" => "tree-iavl",
+            "SparseMerkle" => "tree-sparse-merkle",
+            "Verkle" => "tree-verkle",
+            _ => return Err(anyhow!("Unsupported test state tree: {}", state_tree_type)),
+        };
+        let primitive_feature = match commitment_scheme_type {
+            "Hash" => "primitive-hash",
+            "KZG" => "primitive-kzg",
+            _ => {
+                return Err(anyhow!(
+                    "Unsupported test commitment scheme: {}",
+                    commitment_scheme_type
+                ))
+            }
+        };
+
+        let features = format!(
+            "validator-bins,{},{},{},vm-wasm{}",
+            consensus_feature,
+            tree_feature,
+            primitive_feature,
+            if use_malicious_workload {
+                ",malicious-bin"
+            } else {
+                ""
+            }
+        );
+        println!("--- Building node binaries with features: {} ---", features);
+        let status_node = Command::new("cargo")
+            .args([
+                "build",
+                "-p",
+                "depin-sdk-node",
+                "--release",
+                "--no-default-features",
+                "--features",
+                &features,
+            ])
+            .status()
+            .expect("Failed to execute cargo build for node");
+        if !status_node.success() {
+            panic!("Node binary build failed for features: {}", features);
+        }
+        // --- END NEW BUILD STEP ---
+
         let peer_id = keypair.public().to_peer_id();
         let temp_dir = Arc::new(tempfile::tempdir()?);
         let certs_dir_path = temp_dir.path().join("certs");

@@ -48,7 +48,7 @@ async fn query_state_key(rpc_addr: &str, key: &[u8]) -> Result<Option<Vec<u8>>> 
 #[tokio::test]
 async fn test_iavl_tree_e2e() -> Result<()> {
     // 1. Build binaries with the specific IAVL feature enabled
-    build_test_artifacts("consensus-poa,vm-wasm,tree-iavl,primitive-hash");
+    build_test_artifacts();
 
     // 2. Launch a cluster configured to use the IAVLTree
     let mut cluster = TestCluster::builder()

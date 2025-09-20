@@ -25,7 +25,6 @@ use depin_sdk_types::{
 use libp2p::identity::Keypair;
 use serde_json::json;
 use std::time::Duration;
-use tokio::time;
 
 /// Helper to create a signed ReportMisbehavior transaction and return the report for assertions.
 fn create_report_tx(
@@ -75,7 +74,7 @@ fn create_report_tx(
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_pos_slashing_and_replay_protection() -> Result<()> {
     println!("\n--- Running PoS Economic Slashing and Replay Protection Test ---");
-    build_test_artifacts("consensus-pos,vm-wasm,tree-iavl,primitive-hash");
+    build_test_artifacts();
     let initial_stake = 100_000u64;
     let expected_stake_after_slash = 90_000u64;
 
@@ -142,17 +141,16 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                 let creds_array: [Option<Credential>; 2] = [Some(cred), None];
                 let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
                 let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
-                );
+                genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&creds_key))] =
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes)));
 
+                // Add AccountId -> PublicKey mapping
                 let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes))),
-                );
+                genesis["genesis_state"]
+                    [format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key))] =
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes)));
 
+                // Add ActiveKeyRecord for consensus
                 let record = ActiveKeyRecord {
                     suite,
                     pubkey_hash: account_id_hash,
@@ -160,10 +158,8 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                 };
                 let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
                 let record_bytes = codec::to_bytes_canonical(&record);
-                genesis_state.insert(
-                    format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
-                );
+                genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&record_key))] =
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes)));
             }
         })
         .build()

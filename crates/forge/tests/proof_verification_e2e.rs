@@ -1,4 +1,4 @@
-// Path: forge/tests/proof_verification_e2e.rs
+// Path: crates/forge/tests/proof_verification_e2e.rs
 
 #![cfg(all(
     feature = "consensus-poa",
@@ -17,21 +17,17 @@ use depin_sdk_types::{
         ValidatorSetV1, ValidatorV1,
     },
     codec,
-    keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
-    },
+    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
 };
 use serde_json::json;
 
 #[tokio::test]
 async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
-    // 1. Build binaries with the malicious feature enabled
-    // This ensures the `malicious-workload` binary is available.
-    build_test_artifacts("consensus-poa,vm-wasm,tree-iavl,primitive-hash,malicious-bin");
+    // 1. Build test-only artifacts (contracts).
+    // The specific node binaries will be built JIT by the test harness.
+    build_test_artifacts();
 
     // 2. Launch a cluster configured to use the malicious workload.
-    // The builder needs to be modified to support selecting the workload binary.
-    // For this implementation, we'll assume a new builder method `with_malicious_workload`.
     let mut cluster = TestCluster::builder()
         .with_validators(1)
         .with_consensus_type("ProofOfAuthority")

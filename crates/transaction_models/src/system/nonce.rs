@@ -20,13 +20,18 @@ fn get_tx_nonce_key(account_id: &AccountId) -> Vec<u8> {
 }
 
 /// A private helper to extract the account ID and nonce from a transaction, if applicable.
+/// Returns None for transaction types that do not use the account-based nonce system.
 fn get_tx_details(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
     match tx {
         ChainTransaction::System(sys_tx) => match sys_tx.payload {
             // These system payloads are not signed by a user account and don't use nonces.
-            SystemPayload::VerifyForeignReceipt { .. }
-            | SystemPayload::UpdateAuthorities { .. }
-            | SystemPayload::SubmitOracleData { .. } => None,
+            SystemPayload::UpdateAuthorities { .. } | SystemPayload::SubmitOracleData { .. } => {
+                None
+            }
+            // While VerifyForeignReceipt is unsigned, it's replay-protected by its content hash,
+            // so we can also exclude it from the nonce system.
+            SystemPayload::VerifyForeignReceipt { .. } => None,
+            // All other system transactions are signed by a user and must have a valid nonce.
             _ => Some((sys_tx.header.account_id, sys_tx.header.nonce)),
         },
         ChainTransaction::Application(app_tx) => match app_tx {

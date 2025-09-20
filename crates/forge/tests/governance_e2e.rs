@@ -3,24 +3,43 @@
 #![cfg(all(feature = "consensus-poa", feature = "vm-wasm"))]
 
 use anyhow::Result;
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _}; // Add this import
 use depin_sdk_forge::testing::{
     assert_log_contains, build_test_artifacts, poll::wait_for_proposal_status, submit_transaction,
     TestCluster,
 };
 use depin_sdk_types::app::{
-    account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
-    Proposal, ProposalStatus, ProposalType, SignHeader, SignatureProof, SignatureSuite,
-    SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1,
-    ValidatorV1, VoteOption,
+    // Add these imports
+    account_id_from_key_material,
+    AccountId,
+    ActiveKeyRecord,
+    ChainTransaction,
+    Credential,
+    Proposal,
+    ProposalStatus,
+    ProposalType,
+    SignHeader,
+    SignatureProof,
+    SignatureSuite,
+    SystemPayload,
+    SystemTransaction,
+    ValidatorSetBlob,
+    ValidatorSetV1,
+    ValidatorSetsV1,
+    ValidatorV1,
+    VoteOption,
 };
-use depin_sdk_types::codec;
-use depin_sdk_types::config::InitialServiceConfig;
+use depin_sdk_types::codec; // Add this import
+use depin_sdk_types::config::InitialServiceConfig; // Add this import
 use depin_sdk_types::keys::{
-    ACCOUNT_ID_TO_PUBKEY_PREFIX, GOVERNANCE_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX,
-    IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
+    // Add these imports
+    ACCOUNT_ID_TO_PUBKEY_PREFIX,
+    GOVERNANCE_KEY,
+    GOVERNANCE_PROPOSAL_KEY_PREFIX,
+    IDENTITY_CREDENTIALS_PREFIX,
+    VALIDATOR_SET_KEY,
 };
-use depin_sdk_types::service_configs::MigrationConfig;
+use depin_sdk_types::service_configs::MigrationConfig; // Add this import
 use libp2p::identity::{self, Keypair};
 use serde_json::json;
 use std::time::Duration;
@@ -61,7 +80,7 @@ fn create_system_tx(
 #[tokio::test]
 async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
     // 1. SETUP: Build artifacts and define keypairs
-    build_test_artifacts("consensus-poa,vm-wasm,tree-iavl,primitive-hash");
+    build_test_artifacts();
     let governance_key = identity::Keypair::generate_ed25519();
     let governance_pubkey_b58 =
         bs58::encode(governance_key.public().try_into_ed25519()?.to_bytes()).into_string();

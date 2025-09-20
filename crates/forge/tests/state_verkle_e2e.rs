@@ -6,19 +6,17 @@
     feature = "primitive-kzg"
 ))]
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_forge::testing::{build_test_artifacts, poll::wait_for_height, TestCluster};
 use depin_sdk_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainStatus, SignatureSuite,
-        ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        account_id_from_key_material, AccountId, ActiveKeyRecord, SignatureSuite, ValidatorSetBlob,
+        ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
-    keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, STATUS_KEY, VALIDATOR_SET_KEY,
-    },
+    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
     service_configs::MigrationConfig,
 };
 use serde_json::json;
@@ -27,7 +25,7 @@ use std::time::Duration;
 #[tokio::test]
 async fn test_verkle_tree_e2e() -> Result<()> {
     // 1. Build binaries with the specific Verkle feature enabled
-    build_test_artifacts("consensus-poa,vm-wasm,tree-verkle,primitive-kzg");
+    build_test_artifacts();
 
     // 2. Launch a cluster configured to use the VerkleTree
     let cluster = TestCluster::builder()

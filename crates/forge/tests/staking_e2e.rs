@@ -61,7 +61,7 @@ fn create_system_tx(
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_staking_lifecycle() -> Result<()> {
-    build_test_artifacts("consensus-pos,vm-wasm,tree-iavl,primitive-hash");
+    build_test_artifacts();
 
     let mut cluster = TestCluster::builder()
         .with_validators(3)
