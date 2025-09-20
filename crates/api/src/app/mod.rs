@@ -93,6 +93,10 @@ pub struct UTXOTransaction {
 
 impl UTXOTransaction {
     /// Computes the hash of the transaction.
+    #[deprecated(
+        since = "0.2.0",
+        note = "Hashing should be performed on the top-level `ChainTransaction` enum for consistency. Use `ChainTransaction::hash()` instead."
+    )]
     pub fn hash(&self) -> Vec<u8> {
         let serialized = codec::to_bytes_canonical(self);
         DcryptSha256::digest(&serialized).unwrap().to_bytes()
@@ -106,6 +110,19 @@ pub enum ChainTransaction {
     Application(ApplicationTransaction),
     /// A privileged transaction for system-level changes.
     System(SystemTransaction),
+}
+
+// NEW METHOD: Centralized hash function for all transaction types.
+impl ChainTransaction {
+    /// Computes a canonical, deterministic hash for any transaction variant.
+    ///
+    /// This is the single, preferred method for generating a transaction ID.
+    /// It uses a canonical binary encoding to ensure the hash is consistent
+    /// across all nodes and implementations.
+    pub fn hash(&self) -> Vec<u8> {
+        let serialized = codec::to_bytes_canonical(self);
+        DcryptSha256::digest(&serialized).unwrap().to_bytes()
+    }
 }
 
 /// An enum wrapping all possible user-level transaction models.
