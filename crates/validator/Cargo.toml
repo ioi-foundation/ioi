@@ -50,7 +50,7 @@ rcgen = { workspace = true }
 webpki-roots = { workspace = true }
 
 [features]
-default = ["tree-hashmap"]
+default = ["tree-iavl"]
 # This new feature will be used by Docker to build the node binary correctly.
 validator-bins = [
     "dep:clap",
@@ -66,8 +66,6 @@ consensus-pos = ["depin-sdk-consensus/pos"]
 vm-wasm = ["dep:depin-sdk-vm-wasm"]
 
 # --- FIX START: Add tree and primitive features so cfg attributes work correctly ---
-tree-file = ["depin-sdk-commitment/tree-file"]
-tree-hashmap = ["depin-sdk-commitment/tree-hashmap"]
 tree-iavl = ["depin-sdk-commitment/tree-iavl"]
 tree-sparse-merkle = ["depin-sdk-commitment/tree-sparse-merkle"]
 tree-verkle = ["depin-sdk-commitment/tree-verkle"]

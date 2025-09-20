@@ -53,16 +53,7 @@ validator-bins = ["depin-sdk-validator/validator-bins"]
 malicious-bin = []
 
 # State Tree features must propagate to BOTH commitment and validator crates
-tree-file = [
-    "depin-sdk-commitment/tree-file",
-    "depin-sdk-validator/tree-file",
-    "primitive-hash",
-]
-tree-hashmap = [
-    "depin-sdk-commitment/tree-hashmap",
-    "depin-sdk-validator/tree-hashmap",
-    "primitive-hash",
-]
+
 tree-iavl = [
     "depin-sdk-commitment/tree-iavl",
     "depin-sdk-validator/tree-iavl",

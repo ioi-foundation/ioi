@@ -32,7 +32,8 @@ futures = { workspace = true }                    # Add futures
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
-depin-sdk-commitment = { path = "../commitment", features = ["tree-hashmap"] }
+# FIX: Switched dev dependency from the removed `tree-hashmap` to the production-grade `tree-iavl`.
+depin-sdk-commitment = { path = "../commitment", features = ["tree-iavl"] }
 depin-sdk-vm-wasm = { path = "../vm/wasm" }
 
 [features]

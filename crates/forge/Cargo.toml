@@ -65,8 +65,6 @@ path = "src/main.rs"
 default = []
 # Features must propagate to the validator library, which is a direct dependency.
 # The node binaries are built separately by the test runner, which handles passing features.
-tree-file = ["depin-sdk-validator/tree-file"]
-tree-hashmap = ["depin-sdk-validator/tree-hashmap"]
 tree-iavl = ["depin-sdk-validator/tree-iavl"]
 tree-sparse-merkle = ["depin-sdk-validator/tree-sparse-merkle"]
 tree-verkle = ["depin-sdk-validator/tree-verkle"]

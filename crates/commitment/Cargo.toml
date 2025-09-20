@@ -34,8 +34,6 @@ primitive-lattice = []
 primitive-pedersen = ["depin-sdk-api/homomorphic"]
 
 # Trees (depend on primitives)
-tree-file = ["primitive-hash"]
-tree-hashmap = ["primitive-hash"]
 tree-iavl = ["primitive-hash"]
 tree-sparse-merkle = ["primitive-hash"]
 tree-verkle = ["primitive-kzg"]

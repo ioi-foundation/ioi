@@ -4,8 +4,8 @@
     feature = "consensus-poa",
     feature = "consensus-pos",
     feature = "vm-wasm",
-    feature = "tree-file",
-    feature = "tree-hashmap",
+    feature = "tree-iavl",
+    feature = "tree-sparse-merkle",
     feature = "primitive-hash"
 ))]
 
@@ -14,9 +14,9 @@ use depin_sdk_forge::testing::{assert_log_contains, build_test_artifacts, TestCl
 use depin_sdk_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, SignatureSuite, ValidatorSetBlob,
-        ValidatorSetV1, ValidatorV1,
+        ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
-    codec,
+    keys::VALIDATOR_SET_KEY,
 };
 use serde_json::json;
 
@@ -24,15 +24,15 @@ use serde_json::json;
 async fn test_concurrent_polymorphic_chains() -> Result<()> {
     // Build binaries with all necessary features enabled for both clusters.
     build_test_artifacts(
-        "consensus-poa,consensus-pos,vm-wasm,tree-file,tree-hashmap,primitive-hash",
+        "consensus-poa,consensus-pos,vm-wasm,tree-iavl,tree-sparse-merkle,primitive-hash",
     );
 
-    // --- Define Cluster A: Proof of Authority with FileStateTree ---
+    // --- Define Cluster A: Proof of Authority with IAVLTree ---
     let cluster_a_handle = tokio::spawn(async {
         let cluster = TestCluster::builder()
             .with_validators(1)
             .with_consensus_type("ProofOfAuthority")
-            .with_state_tree("File")
+            .with_state_tree("IAVL")
             .with_commitment_scheme("Hash")
             .with_genesis_modifier(|genesis, keys| {
                 let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
@@ -43,24 +43,27 @@ async fn test_concurrent_polymorphic_chains() -> Result<()> {
                 let authority_id = AccountId(account_id_hash);
 
                 let vs_blob = ValidatorSetBlob {
-                    schema_version: 1,
-                    payload: ValidatorSetV1 {
-                        effective_from_height: 1,
-                        total_weight: 1,
-                        validators: vec![ValidatorV1 {
-                            account_id: authority_id,
-                            weight: 1,
-                            consensus_key: ActiveKeyRecord {
-                                suite: SignatureSuite::Ed25519,
-                                pubkey_hash: account_id_hash,
-                                since_height: 0,
-                            },
-                        }],
+                    schema_version: 2,
+                    payload: ValidatorSetsV1 {
+                        current: ValidatorSetV1 {
+                            effective_from_height: 1,
+                            total_weight: 1,
+                            validators: vec![ValidatorV1 {
+                                account_id: authority_id,
+                                weight: 1,
+                                consensus_key: ActiveKeyRecord {
+                                    suite: SignatureSuite::Ed25519,
+                                    pubkey_hash: account_id_hash,
+                                    since_height: 0,
+                                },
+                            }],
+                        },
+                        next: None,
                     },
                 };
-                let vs_bytes = codec::to_bytes_canonical(&vs_blob);
+                let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload);
                 genesis_state.insert(
-                    std::str::from_utf8(depin_sdk_types::keys::VALIDATOR_SET_KEY)
+                    std::str::from_utf8(VALIDATOR_SET_KEY)
                         .unwrap()
                         .to_string(),
                     json!(format!(
@@ -76,19 +79,19 @@ async fn test_concurrent_polymorphic_chains() -> Result<()> {
         let node = &cluster.validators[0];
         let (mut logs, _, _) = node.subscribe_logs();
         assert_log_contains(
-            "Cluster A",
+            "Cluster A (IAVL)",
             &mut logs,
             "Produced and processed new block #1",
         )
         .await
     });
 
-    // --- Define Cluster B: Proof of Stake with HashMapStateTree ---
+    // --- Define Cluster B: Proof of Stake with SparseMerkleTree ---
     let cluster_b_handle = tokio::spawn(async {
         let cluster = TestCluster::builder()
             .with_validators(1)
             .with_consensus_type("ProofOfStake")
-            .with_state_tree("HashMap")
+            .with_state_tree("SparseMerkle")
             .with_commitment_scheme("Hash")
             .with_genesis_modifier(|genesis, keys| {
                 let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
@@ -99,24 +102,27 @@ async fn test_concurrent_polymorphic_chains() -> Result<()> {
                 let staker_id = AccountId(account_id_hash);
 
                 let vs_blob = ValidatorSetBlob {
-                    schema_version: 1,
-                    payload: ValidatorSetV1 {
-                        effective_from_height: 1,
-                        total_weight: 100_000,
-                        validators: vec![ValidatorV1 {
-                            account_id: staker_id,
-                            weight: 100_000,
-                            consensus_key: ActiveKeyRecord {
-                                suite: SignatureSuite::Ed25519,
-                                pubkey_hash: account_id_hash,
-                                since_height: 0,
-                            },
-                        }],
+                    schema_version: 2,
+                    payload: ValidatorSetsV1 {
+                        current: ValidatorSetV1 {
+                            effective_from_height: 1,
+                            total_weight: 100_000,
+                            validators: vec![ValidatorV1 {
+                                account_id: staker_id,
+                                weight: 100_000,
+                                consensus_key: ActiveKeyRecord {
+                                    suite: SignatureSuite::Ed25519,
+                                    pubkey_hash: account_id_hash,
+                                    since_height: 0,
+                                },
+                            }],
+                        },
+                        next: None,
                     },
                 };
-                let vs_bytes = codec::to_bytes_canonical(&vs_blob);
+                let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload);
                 genesis_state.insert(
-                    std::str::from_utf8(depin_sdk_types::keys::VALIDATOR_SET_KEY)
+                    std::str::from_utf8(VALIDATOR_SET_KEY)
                         .unwrap()
                         .to_string(),
                     json!(format!(
@@ -132,7 +138,7 @@ async fn test_concurrent_polymorphic_chains() -> Result<()> {
         let node = &cluster.validators[0];
         let (mut logs, _, _) = node.subscribe_logs();
         assert_log_contains(
-            "Cluster B",
+            "Cluster B (SMT)",
             &mut logs,
             "Produced and processed new block #1",
         )

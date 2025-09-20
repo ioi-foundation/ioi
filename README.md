@@ -41,7 +41,7 @@ Built from the ground up in Rust for maximum safety, performance, and modularity
 ### 🏛️ Triple-Container Validator Model
 A defense-in-depth architecture that isolates responsibilities into:
 - **Guardian Container** (security)
-- **Orchestration Container** (consensus/networking) 
+- **Orchestration Container** (consensus/networking)
 - **Workload Container** (VM/transaction execution)
 
 ### 🌐 Consensus-Agnostic Security
@@ -81,9 +81,9 @@ The DePIN SDK follows an SDK-first methodology. Core components are provided as 
 ### Build Example
 
 ```bash
-# Build with PoA consensus and File state tree
+# Build with PoA consensus and IAVL state tree
 cargo build -p depin-sdk-node --release --no-default-features \
-    --features "validator-bins,consensus-poa,vm-wasm,tree-file,primitive-hash"
+    --features "validator-bins,consensus-poa,vm-wasm,tree-iavl,primitive-hash"
 ```
 
 Compiled binaries (`orchestration`, `workload`) will be in `target/release/`.
@@ -101,7 +101,7 @@ Create these files in your project root:
 {
   "genesis_state": {
     "system::authorities": [
-      [2, ...], 
+      [2, ...],
       [2, ...]
     ]
   }
@@ -111,11 +111,11 @@ Create these files in your project root:
 **`workload.toml`**:
 ```toml
 enabled_vms = ["WASM"]
-state_tree = "File"
+state_tree = "IAVL"
 commitment_scheme = "Hash"
 consensus_type = "ProofOfAuthority"
 genesis_file = "genesis.json"
-state_file = "state.json" 
+state_file = "state.json"
 ```
 
 **`orchestration.toml`**:
@@ -189,7 +189,7 @@ cargo test --workspace
 | **Module Upgrade** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" --test module_upgrade_e2e -- --nocapture` |
 | **Agentic Consensus** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" --test agentic_consensus_e2e -- --nocapture` |
 | **Oracle** | `cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-iavl,primitive-hash" --test oracle_e2e -- --nocapture` |
-| **Interoperability** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-file,primitive-hash" --test interop_e2e -- --nocapture` |
+| **Interoperability** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" --test interop_e2e -- --nocapture` |
 
 #### Penalty Mechanism Tests
 
@@ -220,13 +220,13 @@ docker rmi depin-sdk-node:e2e
 
 # 3. Rebuild with correct features
 docker build \
-  --build-arg FEATURES="validator-bins,consensus-poa,vm-wasm,tree-file,primitive-hash" \
+  --build-arg FEATURES="validator-bins,consensus-poa,vm-wasm,tree-iavl,primitive-hash" \
   -t depin-sdk-node:e2e \
   -f crates/node/Dockerfile .
 
 # 4. Run test
 cargo test -p depin-sdk-forge --release \
-  --features "consensus-poa,vm-wasm,tree-file,primitive-hash" \
+  --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" \
   --test container_e2e -- --nocapture
 ```
 
