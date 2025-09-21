@@ -13,8 +13,8 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
-        SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
+        Credential, SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
         ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
@@ -30,6 +30,7 @@ fn create_system_tx(
     keypair: &Keypair,
     payload: SystemPayload,
     nonce: u64,
+    chain_id: ChainId,
 ) -> Result<ChainTransaction> {
     let public_key_bytes = keypair.public().encode_protobuf();
     let account_id_hash = account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)?;
@@ -38,7 +39,7 @@ fn create_system_tx(
     let header = SignHeader {
         account_id,
         nonce,
-        chain_id: 1, // Matches chain default
+        chain_id,
         tx_version: 1,
     };
 
@@ -67,6 +68,7 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
         .with_validators(4)
         .with_consensus_type("ProofOfStake")
         .with_state_tree("IAVL")
+        .with_chain_id(1)
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
             grace_period_blocks: 5,
@@ -174,7 +176,7 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
     };
 
     let signer_keypair = &cluster.validators[0].keypair;
-    let request_tx = create_system_tx(signer_keypair, payload, 0)?;
+    let request_tx = create_system_tx(signer_keypair, payload, 0, 1.into())?;
     submit_transaction(node0_rpc, &request_tx).await?;
 
     // 3. ASSERT ATTESTATION GOSSIP

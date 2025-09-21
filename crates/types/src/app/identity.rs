@@ -13,6 +13,24 @@ use dcrypt::algorithms::ByteSerializable;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
+/// A unique identifier for a blockchain, used for replay protection.
+#[derive(
+    Encode, Decode, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default, Hash,
+)]
+#[serde(transparent)] // Ensures JSON/TOML is just the raw u32
+pub struct ChainId(pub u32);
+
+impl From<u32> for ChainId {
+    fn from(v: u32) -> Self {
+        Self(v)
+    }
+}
+impl From<ChainId> for u32 {
+    fn from(c: ChainId) -> Self {
+        c.0
+    }
+}
+
 /// A unique, stable identifier for an on-chain account, derived from the hash of a public key.
 ///
 /// This `AccountId` remains constant even if the underlying cryptographic keys are rotated,
@@ -45,6 +63,12 @@ impl From<[u8; 32]> for AccountId {
     /// Allows creating an `AccountId` directly from a 32-byte array.
     fn from(hash: [u8; 32]) -> Self {
         Self(hash)
+    }
+}
+
+impl core::fmt::Display for ChainId {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

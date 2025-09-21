@@ -177,7 +177,7 @@ where
             // Run the full validation flow inside a closure to handle errors cleanly.
             let check_result = async {
                 let status = (*chain_guard).status().clone();
-                let chain_id = chain_guard.state.chain_id.parse().unwrap_or(1);
+                let chain_id = chain_guard.state.chain_id;
                 let tx_ctx = TxContext {
                     block_height: status.height + 1,
                     chain_id,

@@ -435,6 +435,7 @@ impl TestValidator {
         keypair: identity::Keypair,
         genesis_content: String,
         base_port: u16,
+        chain_id: depin_sdk_types::app::ChainId,
         bootnode_addr: Option<&Multiaddr>,
         consensus_type: &str,
         state_tree_type: &str,
@@ -463,7 +464,9 @@ impl TestValidator {
         };
         let primitive_feature = match commitment_scheme_type {
             "Hash" => "primitive-hash",
+            "Pedersen" => "primitive-pedersen",
             "KZG" => "primitive-kzg",
+            "Lattice" => "primitive-lattice",
             _ => {
                 return Err(anyhow!(
                     "Unsupported test commitment scheme: {}",
@@ -577,6 +580,8 @@ impl TestValidator {
 
         let orch_config_path = config_dir_path.join("orchestration.toml");
         let orchestration_config = OrchestrationConfig {
+            chain_id,
+            config_schema_version: 0,
             consensus_type: consensus_enum,
             rpc_listen_address: if use_docker {
                 "0.0.0.0:9999".to_string()
@@ -930,6 +935,7 @@ type GenesisModifier = Box<dyn FnOnce(&mut Value, &Vec<identity::Keypair>) + Sen
 pub struct TestClusterBuilder {
     num_validators: usize,
     keypairs: Option<Vec<identity::Keypair>>,
+    chain_id: depin_sdk_types::app::ChainId,
     genesis_modifiers: Vec<GenesisModifier>,
     consensus_type: String,
     agentic_model_path: Option<String>,
@@ -945,6 +951,7 @@ impl Default for TestClusterBuilder {
         Self {
             num_validators: 1,
             keypairs: None,
+            chain_id: depin_sdk_types::app::ChainId(1),
             genesis_modifiers: Vec::new(),
             consensus_type: "ProofOfAuthority".to_string(),
             agentic_model_path: None,
@@ -970,6 +977,17 @@ impl TestClusterBuilder {
     pub fn with_keypairs(mut self, keypairs: Vec<identity::Keypair>) -> Self {
         self.num_validators = keypairs.len();
         self.keypairs = Some(keypairs);
+        self
+    }
+
+    pub fn with_chain_id(mut self, id: u32) -> Self {
+        self.chain_id = id.into();
+        self
+    }
+
+    pub fn with_random_chain_id(mut self) -> Self {
+        use rand::Rng;
+        self.chain_id = (rand::thread_rng().gen::<u32>() | 1).into(); // Avoid 0
         self
     }
 
@@ -1037,6 +1055,7 @@ impl TestClusterBuilder {
                 boot_key.clone(),
                 genesis_content.clone(),
                 5000,
+                self.chain_id,
                 None, // No bootnode for the bootnode itself
                 &self.consensus_type,
                 &self.state_tree,
@@ -1056,6 +1075,7 @@ impl TestClusterBuilder {
             for (i, key) in validator_keys.iter().enumerate().skip(1) {
                 let base_port = 5000 + (i * 20) as u16;
                 let captured_bootnode = bootnode_addr.clone();
+                let captured_chain_id = self.chain_id;
                 let captured_genesis = genesis_content.clone();
                 let captured_consensus = self.consensus_type.clone();
                 let captured_state_tree = self.state_tree.clone();
@@ -1071,6 +1091,7 @@ impl TestClusterBuilder {
                         key_clone,
                         captured_genesis,
                         base_port,
+                        captured_chain_id,
                         captured_bootnode.as_ref(),
                         &captured_consensus,
                         &captured_state_tree,

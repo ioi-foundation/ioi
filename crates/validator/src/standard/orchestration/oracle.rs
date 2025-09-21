@@ -3,7 +3,6 @@ use super::context::MainLoopContext;
 use depin_sdk_api::{
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
-    crypto::SigningKeyPair,
     state::{StateCommitment, StateManager, Verifier},
 };
 use depin_sdk_network::libp2p::SwarmCommand;
@@ -103,6 +102,11 @@ pub async fn handle_newly_processed_block<CS, ST, CE, V>(
                     };
                     let pubkey_bytes = ed25519_pk.to_bytes();
 
+                    // Create the full binary domain for the signature
+                    let mut domain = b"depinsdk/oracle-attest/v1".to_vec();
+                    domain.extend_from_slice(&context.chain_id.0.to_le_bytes());
+                    domain.extend_from_slice(&context.genesis_hash);
+
                     let mut attestation = OracleAttestation {
                         request_id,
                         value,
@@ -113,7 +117,7 @@ pub async fn handle_newly_processed_block<CS, ST, CE, V>(
                         signature: vec![],
                     };
 
-                    let payload_to_sign = attestation.to_signing_payload("test-chain");
+                    let payload_to_sign = attestation.to_signing_payload(&domain);
                     let signature_bytes = context.local_keypair.sign(&payload_to_sign).unwrap();
                     attestation.signature = [pubkey_bytes.as_ref(), &signature_bytes].concat();
 
@@ -224,7 +228,12 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE, V>(
         return;
     }
 
-    let payload_to_verify = attestation.to_signing_payload("test-chain");
+    // Recreate the same domain to verify the signature
+    let mut domain = b"depinsdk/oracle-attest/v1".to_vec();
+    domain.extend_from_slice(&context.chain_id.0.to_le_bytes());
+    domain.extend_from_slice(&context.genesis_hash);
+
+    let payload_to_verify = attestation.to_signing_payload(&domain);
 
     if !pubkey.verify(&payload_to_verify, sig_bytes) {
         log::warn!(
@@ -311,7 +320,11 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
         let signer_account_id = AccountId(signer_account_id_hash);
 
         if validator_stakes.contains_key(&signer_account_id) {
-            let payload_to_verify = att.to_signing_payload("test-chain");
+            // Recreate the same domain to verify the signature
+            let mut domain = b"depinsdk/oracle-attest/v1".to_vec();
+            domain.extend_from_slice(&context.chain_id.0.to_le_bytes());
+            domain.extend_from_slice(&context.genesis_hash);
+            let payload_to_verify = att.to_signing_payload(&domain);
             if pubkey.verify(&payload_to_verify, sig_bytes)
                 && unique_signers.insert(signer_account_id)
             {
@@ -367,7 +380,7 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
             header: SignHeader {
                 account_id: our_account_id,
                 nonce: 0,
-                chain_id: 1,
+                chain_id: context.chain_id,
                 tx_version: 1,
             },
             payload,

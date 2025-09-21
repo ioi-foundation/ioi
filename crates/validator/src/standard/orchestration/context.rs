@@ -53,6 +53,8 @@ where
     pub pqc_signer: Option<DilithiumKeyPair>,
     pub known_peers_ref: Arc<Mutex<HashSet<PeerId>>>,
     pub config: OrchestrationConfig,
+    pub chain_id: depin_sdk_types::app::ChainId,
+    pub genesis_hash: [u8; 32],
     pub is_quarantined: Arc<AtomicBool>,
     pub external_data_service: ExternalDataService,
     pub pending_attestations: HashMap<u64, Vec<OracleAttestation>>,

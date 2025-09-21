@@ -246,7 +246,7 @@ pub struct SignHeader {
     /// The per-account transaction nonce for replay protection.
     pub nonce: u64,
     /// The ID of the target chain to prevent cross-chain replays.
-    pub chain_id: u32,
+    pub chain_id: ChainId,
     /// The version of the transaction format.
     pub tx_version: u8,
 }
@@ -487,10 +487,9 @@ pub struct OracleAttestation {
 
 impl OracleAttestation {
     /// Creates a deterministic, domain-separated signing payload.
-    pub fn to_signing_payload(&self, chain_id: &str) -> Vec<u8> {
+    pub fn to_signing_payload(&self, domain: &[u8]) -> Vec<u8> {
         let mut bytes = Vec::new();
-        bytes.extend_from_slice(b"DEPOT_ORACLE_ATTESTATION_V1::");
-        bytes.extend_from_slice(chain_id.as_bytes());
+        bytes.extend_from_slice(domain); // Use the provided full domain
         bytes.extend_from_slice(&self.request_id.to_le_bytes());
         bytes.extend_from_slice(&self.timestamp.to_le_bytes());
         bytes.extend_from_slice(&DcryptSha256::digest(&self.value).unwrap().to_bytes());

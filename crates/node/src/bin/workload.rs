@@ -98,6 +98,8 @@ where
     // logic correctly, but it doesn't need orchestration-specific parameters
     // like timeouts. We create a temporary config to satisfy the factory function.
     let temp_orch_config = OrchestrationConfig {
+        chain_id: 1.into(), // Default for temporary config
+        config_schema_version: 0,
         consensus_type: config.consensus_type,
         rpc_listen_address: String::new(),
         initial_sync_timeout_secs: 0,
@@ -110,7 +112,7 @@ where
     let mut chain = Chain::new(
         commitment_scheme.clone(),
         UnifiedTransactionModel::new(commitment_scheme),
-        "depin-chain-1",
+        1.into(), // This should be loaded from config
         initial_services,
         Box::new(load_service_from_wasm),
         consensus_engine,

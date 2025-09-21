@@ -12,8 +12,8 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
-        SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
+        Credential, SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
         ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
@@ -31,6 +31,7 @@ fn create_system_tx(
     keypair: &Keypair,
     payload: SystemPayload,
     nonce: u64,
+    chain_id: ChainId,
 ) -> Result<ChainTransaction> {
     let public_key_bytes = keypair.public().encode_protobuf();
     let account_id_hash = account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)?;
@@ -39,7 +40,7 @@ fn create_system_tx(
     let header = SignHeader {
         account_id,
         nonce,
-        chain_id: 1,
+        chain_id,
         tx_version: 1,
     };
 
@@ -67,6 +68,7 @@ async fn test_staking_lifecycle() -> Result<()> {
         .with_validators(3)
         .with_consensus_type("ProofOfStake")
         .with_state_tree("IAVL")
+        .with_chain_id(1)
         .with_commitment_scheme("Hash")
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
@@ -249,14 +251,14 @@ async fn test_staking_lifecycle() -> Result<()> {
     wait_for_height(&client1_rpc_addr, 1, Duration::from_secs(30)).await?;
 
     let unstake_payload = SystemPayload::Unstake { amount: 100_000 };
-    let unstake_tx = create_system_tx(&keypair0, unstake_payload, 0)?;
+    let unstake_tx = create_system_tx(&keypair0, unstake_payload, 0, 1.into())?;
     submit_transaction(&rpc_addr, &unstake_tx).await?;
 
     let stake_payload = SystemPayload::Stake {
         public_key: keypair1.public().encode_protobuf(),
         amount: 50_000,
     };
-    let stake_tx = create_system_tx(&keypair1, stake_payload, 0)?;
+    let stake_tx = create_system_tx(&keypair1, stake_payload, 0, 1.into())?;
     submit_transaction(&rpc_addr, &stake_tx).await?;
 
     println!("--- Waiting for block 3 with periodic status checks ---");

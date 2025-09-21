@@ -211,6 +211,7 @@ async fn test_mismatched_model_quarantine() -> Result<()> {
         key.clone(),
         genesis_content.clone(),
         6000,
+        1.into(), // chain_id
         None,
         "ProofOfAuthority",
         "IAVL",

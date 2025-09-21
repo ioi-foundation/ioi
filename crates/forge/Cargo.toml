@@ -21,6 +21,7 @@ env_logger = { workspace = true }
 serde_json = { workspace = true }
 hex = { workspace = true }
 serde_jcs = "0.1.0"
+rand = { workspace = true }
 
 
 # Workspace library crates (Forge consumes the SDK as a user would)

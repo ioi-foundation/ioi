@@ -520,6 +520,8 @@ where
             pqc_signer: self.pqc_signer.clone(),
             known_peers_ref: self.syncer.get_known_peers(),
             config: self.config.clone(),
+            chain_id: self.config.chain_id,
+            genesis_hash: [0; 32], // Placeholder, will be set properly in node binary
             is_quarantined: self.is_quarantined.clone(),
             external_data_service: self.external_data_service.clone(),
             pending_attestations: std::collections::HashMap::new(),

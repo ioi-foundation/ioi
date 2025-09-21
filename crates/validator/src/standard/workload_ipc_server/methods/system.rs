@@ -333,7 +333,7 @@ where
             depin_sdk_chain::app::GenesisState::Ready { root, chain_id } => Ok(GenesisStatus {
                 ready: true,
                 root: root.as_ref().to_vec(),
-                chain_id: chain_id.clone(),
+                chain_id: chain_id.to_string(),
             }),
             depin_sdk_chain::app::GenesisState::Pending => Ok(GenesisStatus {
                 ready: false,

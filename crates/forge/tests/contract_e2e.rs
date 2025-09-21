@@ -14,7 +14,7 @@ use depin_sdk_forge::testing::{
 // --- FIX END ---
 use depin_sdk_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, ApplicationTransaction,
+        account_id_from_key_material, AccountId, ActiveKeyRecord, ApplicationTransaction, ChainId,
         ChainTransaction, Credential, SignHeader, SignatureProof, SignatureSuite, ValidatorSetBlob,
         ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
@@ -32,6 +32,7 @@ fn create_signed_app_tx(
     keypair: &Keypair,
     mut tx: ApplicationTransaction,
     nonce: u64,
+    chain_id: ChainId,
 ) -> ChainTransaction {
     let public_key = keypair.public().encode_protobuf();
 
@@ -43,7 +44,7 @@ fn create_signed_app_tx(
     let header = SignHeader {
         account_id,
         nonce,
-        chain_id: 1, // Must match the chain's config
+        chain_id,
         tx_version: 1,
     };
 
@@ -100,12 +101,13 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
         .with_validators(1)
         .with_consensus_type("ProofOfAuthority")
         .with_state_tree("IAVL")
+        .with_chain_id(1)
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
+            chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
             allowed_target_suites: vec![SignatureSuite::Ed25519],
             allow_downgrade: false,
-            chain_id: 1,
         }))
         .with_genesis_modifier(|genesis, keys| {
             let keypair = &keys[0];
@@ -235,7 +237,7 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
         code: counter_wasm.clone(),
         signature_proof: Default::default(),
     };
-    let deploy_tx = create_signed_app_tx(keypair, deploy_tx_unsigned, nonce);
+    let deploy_tx = create_signed_app_tx(keypair, deploy_tx_unsigned, nonce, 1.into());
     nonce += 1;
 
     println!("Attempting to submit DEPLOY transaction to {}", rpc_addr);
@@ -279,7 +281,7 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
         gas_limit: 1_000_000,
         signature_proof: Default::default(),
     };
-    let call_tx = create_signed_app_tx(keypair, call_tx_unsigned, nonce);
+    let call_tx = create_signed_app_tx(keypair, call_tx_unsigned, nonce, 1.into());
     println!("Attempting to submit CALL transaction to {}", rpc_addr);
     submit_transaction(rpc_addr, &call_tx).await?;
     println!("Successfully submitted CALL transaction.");

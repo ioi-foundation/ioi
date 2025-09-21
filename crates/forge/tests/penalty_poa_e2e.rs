@@ -12,10 +12,10 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
-        FailureReport, OffenseFacts, OffenseType, SignHeader, SignatureProof, SignatureSuite,
-        SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1,
-        ValidatorV1,
+        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
+        Credential, FailureReport, OffenseFacts, OffenseType, SignHeader, SignatureProof,
+        SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1,
+        ValidatorSetsV1, ValidatorV1,
     },
     config::InitialServiceConfig,
     keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
@@ -31,6 +31,7 @@ fn create_report_tx(
     reporter_key: &Keypair,
     offender_id: AccountId,
     nonce: u64,
+    chain_id: ChainId,
 ) -> Result<ChainTransaction> {
     let report = FailureReport {
         offender: offender_id,
@@ -45,7 +46,7 @@ fn create_report_tx(
     let header = SignHeader {
         account_id,
         nonce,
-        chain_id: 1,
+        chain_id,
         tx_version: 1,
     };
     let mut tx_to_sign = SystemTransaction {
@@ -71,6 +72,7 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
     let mut cluster = TestCluster::builder()
         .with_validators(3) // Start with 3 to test the liveness boundary of MIN_LIVE_AUTHORITIES=2
         .with_consensus_type("ProofOfAuthority")
+        .with_chain_id(1)
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
             grace_period_blocks: 5,
@@ -198,7 +200,7 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
     let offender1_id_hash =
         account_id_from_key_material(SignatureSuite::Ed25519, &offender1_pk_bytes)?;
     let offender1_id = AccountId(offender1_id_hash);
-    let tx1 = create_report_tx(&reporter.keypair, offender1_id, 0)?;
+    let tx1 = create_report_tx(&reporter.keypair, offender1_id, 0, 1.into())?;
     submit_transaction(rpc_addr, &tx1).await?;
 
     // Assert 1: Poll state until the offender is quarantined.
@@ -218,7 +220,7 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
     let offender2_id_hash =
         account_id_from_key_material(SignatureSuite::Ed25519, &offender2_pk_bytes)?;
     let offender2_id = AccountId(offender2_id_hash);
-    let tx2 = create_report_tx(&reporter.keypair, offender2_id, 1)?; // increment nonce
+    let tx2 = create_report_tx(&reporter.keypair, offender2_id, 1, 1.into())?; // increment nonce
     submit_transaction(rpc_addr, &tx2).await?;
 
     // Assert 2: Liveness guard rejected the transaction by asserting state hasn't changed after a delay.

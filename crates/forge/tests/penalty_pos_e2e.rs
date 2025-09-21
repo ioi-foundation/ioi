@@ -12,7 +12,7 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_types::{
     app::{
-        account_id_from_key_material, evidence_id, AccountId, ActiveKeyRecord, ChainTransaction,
+        account_id_from_key_material, evidence_id, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
         Credential, FailureReport, OffenseFacts, OffenseType, SignHeader, SignatureProof,
         SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1,
         ValidatorSetsV1, ValidatorV1,
@@ -31,6 +31,7 @@ fn create_report_tx(
     reporter_key: &Keypair,
     offender_id: AccountId,
     nonce: u64,
+    chain_id: ChainId,
 ) -> (ChainTransaction, FailureReport) {
     let report = FailureReport {
         offender: offender_id,
@@ -47,7 +48,7 @@ fn create_report_tx(
     let header = SignHeader {
         account_id: reporter_account_id,
         nonce,
-        chain_id: 1,
+        chain_id,
         tx_version: 1,
     };
 
@@ -81,6 +82,7 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
     let mut cluster = TestCluster::builder()
         .with_validators(2)
         .with_consensus_type("ProofOfStake")
+        .with_chain_id(1)
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
             grace_period_blocks: 5,
@@ -90,6 +92,8 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
         }))
         .with_genesis_modifier(move |genesis, keys| {
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+            let initial_stake = 100_000u128;
+
             let validators: Vec<ValidatorV1> = keys
                 .iter()
                 .map(|k| {
@@ -98,7 +102,7 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                         account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
                     ValidatorV1 {
                         account_id: AccountId(account_hash),
-                        weight: initial_stake as u128,
+                        weight: initial_stake,
                         consensus_key: ActiveKeyRecord {
                             suite: SignatureSuite::Ed25519,
                             pubkey_hash: account_hash,
@@ -188,7 +192,7 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
     let offender_account_id = AccountId(offender_account_id_hash);
 
     // ACTION 1: Report the offender. Submit to BOTH nodes to ensure the leader gets it.
-    let (tx1, report1) = create_report_tx(&reporter.keypair, offender_account_id, 0);
+    let (tx1, report1) = create_report_tx(&reporter.keypair, offender_account_id, 0, 1.into());
     submit_transaction(rpc_addr_reporter, &tx1).await?;
     submit_transaction(rpc_addr_offender, &tx1).await?;
 
@@ -212,7 +216,7 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
     println!("SUCCESS: Evidence ID was correctly recorded in the registry.");
 
     // ACTION 2: Submit an identical report (with a new nonce) to test replay protection.
-    let (replay_tx, _) = create_report_tx(&reporter.keypair, offender_account_id, 1);
+    let (replay_tx, _) = create_report_tx(&reporter.keypair, offender_account_id, 1, 1.into());
     submit_transaction(rpc_addr_reporter, &replay_tx).await?;
     submit_transaction(rpc_addr_offender, &replay_tx).await?;
 
