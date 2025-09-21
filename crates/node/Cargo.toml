@@ -22,6 +22,11 @@ depin-sdk-vm-wasm = { path = "../vm/wasm", optional = true }
 depin-sdk-services = { path = "../services" }
 depin-sdk-test-utils = { path = "../test_utils" }
 depin-sdk-client = { path = "../client" }
+# FIX: Add missing dependencies for malicious-workload
+ipc_protocol = { path = "../ipc_protocol" }
+bincode = { workspace = true }
+uuid = { version = "1.8.0", features = ["v4"] }
+
 
 async-trait = { workspace = true }
 # Workspace Dependencies (for binary)
@@ -47,7 +52,11 @@ serde_jcs = "0.1.0"
 default = []
 
 # This feature is for building the standard validator binaries.
-validator-bins = ["depin-sdk-validator/validator-bins"]
+validator-bins = [
+    "depin-sdk-validator/validator-bins",
+    "depin-sdk-consensus/round-robin",
+    "dep:depin-sdk-vm-wasm",
+]
 
 # This feature is for building the special malicious workload binary for testing.
 malicious-bin = []

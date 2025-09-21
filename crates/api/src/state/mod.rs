@@ -5,6 +5,8 @@ use crate::commitment::CommitmentScheme;
 use async_trait::async_trait;
 use depin_sdk_types::app::Membership;
 use depin_sdk_types::error::StateError;
+// ADD THIS IMPORT
+use parity_scale_codec::{Decode, Encode};
 
 mod accessor;
 mod commitment;
@@ -25,7 +27,8 @@ pub trait Verifier: Send + Sync {
     /// The concrete type of a cryptographic commitment (e.g., a hash, a curve point).
     type Commitment: Clone + Send + Sync + 'static;
     /// The concrete type of a proof (e.g., a Merkle path, a KZG proof).
-    type Proof: for<'de> serde::Deserialize<'de> + Send + Sync + 'static;
+    // MODIFICATION: Add Encode and Decode bounds
+    type Proof: Encode + Decode + for<'de> serde::Deserialize<'de> + Send + Sync + 'static;
 
     /// Converts raw bytes (from IPC/storage) into the concrete Commitment type.
     /// This is a critical step for deserializing the state root before verification.

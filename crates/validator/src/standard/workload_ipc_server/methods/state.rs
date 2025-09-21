@@ -6,6 +6,7 @@ use anyhow::{anyhow, Result};
 use depin_sdk_api::chain::ChainView;
 use depin_sdk_api::{commitment::CommitmentScheme, state::StateManager};
 use depin_sdk_types::app::{AccountId, ActiveKeyRecord, Membership, StateAnchor, StateRoot};
+use depin_sdk_types::codec; // Import the canonical codec
 use depin_sdk_types::error::StateError;
 use serde::{Deserialize, Serialize};
 use std::{any::Any, marker::PhantomData, sync::Arc};
@@ -210,8 +211,8 @@ where
                 "[WorkloadIPC] Proof cache hit for root {}",
                 hex::encode(&params.root.0)
             );
-            let proof_bytes =
-                bincode::serialize(proof).map_err(|e| StateError::InvalidValue(e.to_string()))?;
+            // FIX: Use the canonical SCALE codec for serialization
+            let proof_bytes = codec::to_bytes_canonical(proof);
 
             return Ok(QueryStateAtResponse {
                 msg_version: 1,
@@ -236,8 +237,8 @@ where
             start_time.elapsed()
         );
 
-        let proof_bytes =
-            bincode::serialize(&proof).map_err(|e| StateError::InvalidValue(e.to_string()))?;
+        // FIX: Use the canonical SCALE codec for serialization
+        let proof_bytes = codec::to_bytes_canonical(&proof);
 
         let mut cache = ctx.workload.proof_cache.lock().await;
         cache.put(cache_key, (membership.clone(), proof));

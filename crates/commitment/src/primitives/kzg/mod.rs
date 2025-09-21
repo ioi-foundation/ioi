@@ -18,6 +18,7 @@ use depin_sdk_api::commitment::{
     CommitmentScheme, CommitmentStructure, ProofContext, SchemeIdentifier, Selector,
 };
 use depin_sdk_crypto::algorithms::hash::sha256 as crypto_sha256;
+use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::io::{BufReader, Read, Write};
@@ -167,7 +168,7 @@ impl KZGParams {
 }
 
 /// A KZG commitment to a polynomial, which is a point in G1.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct KZGCommitment(pub Vec<u8>);
 
 impl AsRef<[u8]> for KZGCommitment {
@@ -181,7 +182,6 @@ impl KZGCommitment {
         &self.0
     }
 }
-// (KZG-2) Make it easy to lift raw bytes to scheme types
 impl From<Vec<u8>> for KZGCommitment {
     fn from(v: Vec<u8>) -> Self {
         KZGCommitment(v)
@@ -189,7 +189,7 @@ impl From<Vec<u8>> for KZGCommitment {
 }
 
 /// A KZG proof, which is a commitment to the quotient polynomial (a point in G1).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct KZGProof(pub Vec<u8>);
 
 impl AsRef<[u8]> for KZGProof {
@@ -203,7 +203,6 @@ impl KZGProof {
         &self.0
     }
 }
-// (KZG-2) Make it easy to lift raw bytes to scheme types
 impl From<Vec<u8>> for KZGProof {
     fn from(v: Vec<u8>) -> Self {
         KZGProof(v)
@@ -231,10 +230,9 @@ impl KZGCommitmentScheme {
             .map_err(|e| format!("Hash to scalar for key failed: {:?}", e))
     }
 
-    // (KZG-1) Support `Selector::Position(i)` as `z = Scalar::from(i)`
     #[inline]
-    fn position_to_scalar(pos: usize) -> Scalar {
-        Scalar::from(pos as u64)
+    fn position_to_scalar(pos: u64) -> Scalar {
+        Scalar::from(pos)
     }
 
     fn reconstruct_poly(values: &[Option<&[u8]>]) -> Result<Polynomial, String> {
@@ -347,7 +345,6 @@ impl KZGCommitmentScheme {
             .collect::<Result<Vec<_>, _>>()?;
         let p = Polynomial { coeffs };
 
-        // (KZG-1) Support `Selector::Position(i)` as `z = Scalar::from(i)`
         let z = match selector {
             Selector::Key(k) => Self::key_to_scalar(k),
             Selector::Position(pos) => Ok(Self::position_to_scalar(*pos)),
@@ -438,7 +435,6 @@ impl CommitmentScheme for KZGCommitmentScheme {
         };
 
         let (z, y) = match (
-            // (KZG-1) Support `Selector::Position(i)` as `z = Scalar::from(i)`
             match selector {
                 Selector::Key(k) => Self::key_to_scalar(k),
                 Selector::Position(pos) => Ok(Self::position_to_scalar(*pos)),

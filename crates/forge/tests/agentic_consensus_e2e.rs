@@ -226,6 +226,7 @@ async fn test_mismatched_model_quarantine() -> Result<()> {
             allow_downgrade: false,
         })],
         false, // use_malicious_workload
+        false, // light_readiness_check
     )
     .await?;
 

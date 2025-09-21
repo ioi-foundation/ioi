@@ -13,7 +13,8 @@ use depin_sdk_types::error::{ChainError, StateError};
 use depin_sdk_types::keys::VALIDATOR_SET_KEY;
 use depin_sdk_types::{MAX_STATE_PROOF_BYTES, MAX_STATE_VALUE_BYTES};
 use lru::LruCache;
-use serde::Deserialize;
+// MODIFICATION: No longer need serde::Deserialize here, but codec needs Decode
+use parity_scale_codec::Decode;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -51,7 +52,9 @@ impl<V: Verifier> RemoteStateView<V> {
 impl<V> StateView for RemoteStateView<V>
 where
     V: Verifier + Send + Sync,
-    V::Proof: for<'de> Deserialize<'de>,
+    // MODIFICATION: The V::Proof bound is now satisfied by the Verifier trait itself.
+    // The `Decode` trait is required by `from_bytes_canonical`.
+    V::Proof: Decode,
 {
     fn state_anchor(&self) -> &StateAnchor {
         &self.anchor
@@ -76,8 +79,9 @@ where
             )));
         }
 
-        let proof: V::Proof = bincode::deserialize(&response.proof_bytes)
-            .map_err(|e| ChainError::State(StateError::InvalidValue(e.to_string())))?;
+        // --- Use the canonical SCALE codec ---
+        let proof: V::Proof = codec::from_bytes_canonical(&response.proof_bytes)
+            .map_err(|e| ChainError::State(StateError::InvalidValue(e)))?;
 
         let root_commitment = self
             .verifier
@@ -111,7 +115,6 @@ where
     }
 
     async fn validator_set_legacy(&self) -> Result<Vec<AccountId>, ChainError> {
-        // Legacy behavior: always expose the *current* set at the anchor.
         let raw = self
             .get(VALIDATOR_SET_KEY)
             .await?

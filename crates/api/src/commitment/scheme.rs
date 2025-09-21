@@ -2,7 +2,8 @@
 //! Defines the core `CommitmentScheme` trait and related types.
 
 use crate::commitment::identifiers::SchemeIdentifier;
-use serde::{Deserialize, Serialize}; // Add this line
+use parity_scale_codec::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
 
@@ -17,11 +18,11 @@ pub trait CommitmentStructure {
 }
 
 /// Selects an element or set of elements within a commitment.
-// UPDATE: Add Serialize and Deserialize
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub enum Selector {
     /// Selects by an index-based position (for ordered commitments like Merkle trees).
-    Position(usize),
+    // MODIFICATION: Changed usize to u64 for deterministic encoding.
+    Position(u64),
     /// Selects by a key (for map-like commitments).
     Key(Vec<u8>),
     /// Selects by a predicate (for advanced, content-based schemes).
@@ -62,7 +63,7 @@ pub trait CommitmentScheme: CommitmentStructure + Debug + Send + Sync + 'static 
     type Commitment: AsRef<[u8]> + Clone + Send + Sync + 'static;
 
     /// The type of proof for this commitment scheme.
-    type Proof: Clone + Send + Sync + 'static;
+    type Proof: Clone + Encode + Decode + Send + Sync + 'static;
 
     /// The type of values this scheme commits to.
     type Value: AsRef<[u8]> + Clone + Send + Sync + 'static;
@@ -88,9 +89,10 @@ pub trait CommitmentScheme: CommitmentStructure + Debug + Send + Sync + 'static 
     fn scheme_id() -> SchemeIdentifier;
 
     /// A convenience method to create a position-based proof.
+    // MODIFICATION: Changed usize to u64.
     fn create_proof_at_position(
         &self,
-        position: usize,
+        position: u64,
         value: &Self::Value,
     ) -> Result<Self::Proof, String> {
         self.create_proof(&Selector::Position(position), value)
@@ -102,11 +104,12 @@ pub trait CommitmentScheme: CommitmentStructure + Debug + Send + Sync + 'static 
     }
 
     /// A convenience method to verify a position-based proof.
+    // MODIFICATION: Changed usize to u64.
     fn verify_at_position(
         &self,
         commitment: &Self::Commitment,
         proof: &Self::Proof,
-        position: usize,
+        position: u64,
         value: &Self::Value,
     ) -> bool {
         self.verify(
