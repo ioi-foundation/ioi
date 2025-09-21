@@ -9,7 +9,7 @@ use depin_sdk_types::app::{
     account_id_from_key_material, read_validator_sets, AccountId, Block, FailureReport,
     SignatureSuite,
 };
-use depin_sdk_types::error::{ConsensusError, StateError, TransactionError};
+use depin_sdk_types::error::{ConsensusError, CoreError, StateError, TransactionError};
 use depin_sdk_types::keys::{QUARANTINED_VALIDATORS_KEY, VALIDATOR_SET_KEY};
 use libp2p::identity::PublicKey;
 use libp2p::PeerId;
@@ -34,8 +34,8 @@ pub(crate) fn verify_signature(
 }
 
 /// A centralized helper to hash a public key.
-pub(crate) fn hash_key(suite: SignatureSuite, pubkey: &[u8]) -> [u8; 32] {
-    account_id_from_key_material(suite, pubkey).unwrap()
+pub(crate) fn hash_key(suite: SignatureSuite, pubkey: &[u8]) -> Result<[u8; 32], CoreError> {
+    account_id_from_key_material(suite, pubkey).map_err(|e| CoreError::Custom(e.to_string()))
 }
 
 #[derive(Debug, Clone)]
@@ -185,7 +185,11 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
         let header = &block.header;
 
         // 0. Hash the full root to get the fixed-size anchor key
-        let parent_state_anchor = header.parent_state_root.to_anchor();
+        // FIX: Handle the Result from to_anchor()
+        let parent_state_anchor = header
+            .parent_state_root
+            .to_anchor()
+            .map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))?;
 
         // 1. Obtain a read-only view of the PARENT state.
         let parent_view = chain_view
@@ -245,7 +249,8 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
 
         // 6. Signature Verification
         let pubkey = &header.producer_pubkey;
-        let derived_hash = hash_key(active_key.suite, pubkey);
+        let derived_hash = hash_key(active_key.suite, pubkey)
+            .map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))?;
         if derived_hash != active_key.pubkey_hash {
             return Err(ConsensusError::BlockVerificationFailed(
                 "Public key in header does not match its hash".into(),

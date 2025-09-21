@@ -4,6 +4,7 @@ use crate::transaction::TransactionModel;
 use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
 use dcrypt::algorithms::ByteSerializable;
 use depin_sdk_types::codec;
+use depin_sdk_types::error::CoreError; // Added for error type
 use parity_scale_codec::Encode;
 use serde::{Deserialize, Serialize};
 
@@ -53,12 +54,14 @@ pub struct BlockHeader {
 
 impl BlockHeader {
     /// Creates a hash of the header's core fields for signing.
-    pub fn hash_for_signing(&self) -> Vec<u8> {
+    pub fn hash_for_signing(&self) -> Result<Vec<u8>, CoreError> {
         let mut temp = self.clone();
         // Clear the signature before hashing to create a stable payload.
         temp.signature = vec![];
         let serialized = codec::to_bytes_canonical(&temp);
-        DcryptSha256::digest(&serialized).unwrap().to_bytes()
+        DcryptSha256::digest(&serialized)
+            .map(|d| d.to_bytes())
+            .map_err(|e| CoreError::Custom(e.to_string()))
     }
 }
 
@@ -97,9 +100,11 @@ impl UTXOTransaction {
         since = "0.2.0",
         note = "Hashing should be performed on the top-level `ChainTransaction` enum for consistency. Use `ChainTransaction::hash()` instead."
     )]
-    pub fn hash(&self) -> Vec<u8> {
+    pub fn hash(&self) -> Result<Vec<u8>, CoreError> {
         let serialized = codec::to_bytes_canonical(self);
-        DcryptSha256::digest(&serialized).unwrap().to_bytes()
+        DcryptSha256::digest(&serialized)
+            .map(|d| d.to_bytes())
+            .map_err(|e| CoreError::Custom(e.to_string()))
     }
 }
 
@@ -119,9 +124,11 @@ impl ChainTransaction {
     /// This is the single, preferred method for generating a transaction ID.
     /// It uses a canonical binary encoding to ensure the hash is consistent
     /// across all nodes and implementations.
-    pub fn hash(&self) -> Vec<u8> {
+    pub fn hash(&self) -> Result<Vec<u8>, CoreError> {
         let serialized = codec::to_bytes_canonical(self);
-        DcryptSha256::digest(&serialized).unwrap().to_bytes()
+        DcryptSha256::digest(&serialized)
+            .map(|d| d.to_bytes())
+            .map_err(|e| CoreError::Custom(e.to_string()))
     }
 }
 

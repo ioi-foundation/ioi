@@ -10,7 +10,7 @@ use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::consensus::ChainStateReader;
 use depin_sdk_api::state::{StateAccessor, StateManager};
 use depin_sdk_types::app::{read_validator_sets, AccountId, Block, FailureReport};
-use depin_sdk_types::error::{ConsensusError, StateError, TransactionError};
+use depin_sdk_types::error::{ConsensusError, CoreError, StateError, TransactionError};
 use depin_sdk_types::keys::{QUARANTINED_VALIDATORS_KEY, VALIDATOR_SET_KEY};
 use libp2p::PeerId;
 use std::collections::{BTreeSet, HashMap, HashSet};
@@ -169,7 +169,12 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
             Ok(s) => s,
             Err(_) => return ConsensusDecision::Stall,
         };
-        let validator_data: Vec<_> = sets.current.validators.into_iter().map(|v| v.account_id).collect();
+        let validator_data: Vec<_> = sets
+            .current
+            .validators
+            .into_iter()
+            .map(|v| v.account_id)
+            .collect();
 
         self.validator_set_cache
             .entry(height)
@@ -215,7 +220,11 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
     {
         let header = &block.header;
 
-        let parent_state_anchor = header.parent_state_root.to_anchor();
+        // FIX: Handle the Result from to_anchor()
+        let parent_state_anchor = header
+            .parent_state_root
+            .to_anchor()
+            .map_err(|e| ConsensusError::StateAccess(StateError::InvalidValue(e.to_string())))?;
         let parent_view = chain_view
             .view_at(&parent_state_anchor)
             .await
@@ -230,7 +239,12 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
             })?;
         let sets = read_validator_sets(&vs_bytes)
             .map_err(|e| ConsensusError::StateAccess(StateError::InvalidValue(e.to_string())))?;
-        let validator_set: Vec<_> = sets.current.validators.into_iter().map(|v| v.account_id).collect();
+        let validator_set: Vec<_> = sets
+            .current
+            .validators
+            .into_iter()
+            .map(|v| v.account_id)
+            .collect();
 
         if validator_set.is_empty() {
             return Err(ConsensusError::BlockVerificationFailed(
@@ -246,7 +260,9 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for RoundRobinBftEngine {
             })?;
 
         let pubkey = &header.producer_pubkey;
-        let derived_hash = hash_key(active_key.suite, pubkey);
+        // FIX: Handle the Result from hash_key()
+        let derived_hash = hash_key(active_key.suite, pubkey)
+            .map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))?;
         if derived_hash != active_key.pubkey_hash {
             return Err(ConsensusError::BlockVerificationFailed(
                 "Public key in header does not match its hash".into(),

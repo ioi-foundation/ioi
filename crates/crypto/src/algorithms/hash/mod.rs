@@ -4,11 +4,12 @@
 use dcrypt::algorithms::hash::sha2::{Sha256 as DcryptSha256, Sha512 as DcryptSha512};
 use dcrypt::algorithms::hash::HashFunction as DcryptHashFunction;
 use dcrypt::algorithms::ByteSerializable;
+use dcrypt::Error as DcryptError; // Correct import path for the top-level error
 
 /// Hash function trait
 pub trait HashFunction {
     /// Hash a message and return the digest
-    fn hash(&self, message: &[u8]) -> Vec<u8>;
+    fn hash(&self, message: &[u8]) -> Result<Vec<u8>, DcryptError>;
 
     /// Get the digest size in bytes
     fn digest_size(&self) -> usize;
@@ -22,12 +23,11 @@ pub trait HashFunction {
 pub struct Sha256Hash;
 
 impl HashFunction for Sha256Hash {
-    fn hash(&self, message: &[u8]) -> Vec<u8> {
+    fn hash(&self, message: &[u8]) -> Result<Vec<u8>, DcryptError> {
         // Use dcrypt's SHA-256 implementation
-        match DcryptSha256::digest(message) {
-            Ok(digest) => digest.to_bytes(),
-            Err(_) => panic!("SHA-256 hashing failed"),
-        }
+        // FIX: Use `?` to propagate and convert the error from dcrypt::algorithms::Error to dcrypt::Error
+        let digest = DcryptSha256::digest(message)?;
+        Ok(digest.to_bytes())
     }
 
     fn digest_size(&self) -> usize {
@@ -44,12 +44,11 @@ impl HashFunction for Sha256Hash {
 pub struct Sha512Hash;
 
 impl HashFunction for Sha512Hash {
-    fn hash(&self, message: &[u8]) -> Vec<u8> {
+    fn hash(&self, message: &[u8]) -> Result<Vec<u8>, DcryptError> {
         // Use dcrypt's SHA-512 implementation
-        match DcryptSha512::digest(message) {
-            Ok(digest) => digest.to_bytes(),
-            Err(_) => panic!("SHA-512 hashing failed"),
-        }
+        // FIX: Use `?` to propagate and convert the error from dcrypt::algorithms::Error to dcrypt::Error
+        let digest = DcryptSha512::digest(message)?;
+        Ok(digest.to_bytes())
     }
 
     fn digest_size(&self) -> usize {
@@ -74,7 +73,7 @@ impl<H: HashFunction> GenericHasher<H> {
     }
 
     /// Hash a message
-    pub fn hash(&self, message: &[u8]) -> Vec<u8> {
+    pub fn hash(&self, message: &[u8]) -> Result<Vec<u8>, DcryptError> {
         self.hash_function.hash(message)
     }
 
@@ -93,13 +92,20 @@ impl<H: HashFunction> GenericHasher<H> {
 /// Create a SHA-256 hash of any type that can be referenced as bytes
 pub fn sha256<T: AsRef<[u8]>>(data: T) -> Vec<u8> {
     let hasher = Sha256Hash;
-    hasher.hash(data.as_ref())
+    // For convenience functions, a panic might be acceptable if hashing is considered infallible.
+    // However, to align with the phase objective, we handle it.
+    // In a non-test context, this might propagate the error.
+    hasher
+        .hash(data.as_ref())
+        .expect("SHA-256 hashing should not fail")
 }
 
 /// Create a SHA-512 hash of any type that can be referenced as bytes
 pub fn sha512<T: AsRef<[u8]>>(data: T) -> Vec<u8> {
     let hasher = Sha512Hash;
-    hasher.hash(data.as_ref())
+    hasher
+        .hash(data.as_ref())
+        .expect("SHA-512 hashing should not fail")
 }
 
 #[cfg(test)]

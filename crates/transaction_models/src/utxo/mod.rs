@@ -63,7 +63,7 @@ impl<CS: CommitmentScheme> UTXOOperations for UTXOModel<CS> {
 #[async_trait]
 impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UTXOModel<CS>
 where
-    <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de>,
+    <CS as CommitmentScheme>::Proof: Serialize + for<'de> serde::Deserialize<'de>,
 {
     type Transaction = UTXOTransaction;
     type CommitmentScheme = CS;
@@ -126,7 +126,10 @@ where
             let key = self.create_utxo_key(&input.tx_hash, input.output_index);
             state.delete(&key)?;
         }
-        let tx_hash = tx.hash();
+        // FIX: Handle the Result from tx.hash()
+        let tx_hash = tx
+            .hash()
+            .map_err(|e| TransactionError::Invalid(e.to_string()))?;
         for (index, output) in tx.outputs.iter().enumerate() {
             let key = self.create_utxo_key(&tx_hash, index as u32);
             let value = serde_json::to_vec(output)

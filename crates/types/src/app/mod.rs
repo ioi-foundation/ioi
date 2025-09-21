@@ -10,6 +10,7 @@ pub use consensus::*;
 pub use identity::*;
 pub use penalties::*;
 
+use crate::error::CoreError; // Added for error type
 use crate::ibc::{UniversalExecutionReceipt, UniversalProofFormat};
 use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
 use dcrypt::algorithms::ByteSerializable;
@@ -105,11 +106,13 @@ impl Decode for StateAnchor {
 
 impl StateRoot {
     /// Computes the deterministic anchor key for this state root.
-    pub fn to_anchor(&self) -> StateAnchor {
+    pub fn to_anchor(&self) -> Result<StateAnchor, CoreError> {
         let hash = DcryptSha256::digest(&self.0)
-            .expect("hashing should not fail")
+            .map_err(|e| CoreError::Custom(e.to_string()))?
             .to_bytes();
-        StateAnchor(hash.try_into().expect("SHA256 must be 32 bytes"))
+        Ok(StateAnchor(hash.try_into().map_err(|_| {
+            CoreError::Custom("SHA256 digest was not 32 bytes".into())
+        })?))
     }
 }
 
@@ -165,13 +168,15 @@ pub enum SigDomain {
 
 impl BlockHeader {
     /// Creates a hash of the header's core fields for signing.
-    pub fn hash(&self) -> Vec<u8> {
+    pub fn hash(&self) -> Result<Vec<u8>, CoreError> {
         let mut temp = self.clone();
         // Clear the signature before hashing to create a stable payload.
         temp.signature = vec![];
         // Use the canonical SCALE codec instead of the non-deterministic JSON.
         let serialized = crate::codec::to_bytes_canonical(&temp);
-        DcryptSha256::digest(&serialized).unwrap().to_bytes()
+        DcryptSha256::digest(&serialized)
+            .map(|d| d.to_bytes())
+            .map_err(|e| CoreError::Custom(e.to_string()))
     }
 
     /// Creates the canonical, domain-separated byte string that is hashed for signing.
@@ -301,10 +306,12 @@ impl UTXOTransaction {
     }
 
     /// Computes the hash of the transaction.
-    pub fn hash(&self) -> Vec<u8> {
+    pub fn hash(&self) -> Result<Vec<u8>, CoreError> {
         // Use the new canonical serialization method.
         let serialized = self.to_sign_bytes();
-        DcryptSha256::digest(&serialized).unwrap().to_bytes()
+        DcryptSha256::digest(&serialized)
+            .map(|d| d.to_bytes())
+            .map_err(|e| CoreError::Custom(e.to_string()))
     }
 }
 

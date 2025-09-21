@@ -154,7 +154,8 @@ where
         let mut results = Vec::with_capacity(initial_tx_count);
 
         let chain_guard = ctx.chain.lock().await;
-        let latest_anchor = chain_guard.state.last_state_root.to_anchor();
+        // FIX: Handle the Result from to_anchor()
+        let latest_anchor = chain_guard.state.last_state_root.to_anchor()?;
 
         if params.anchor != StateAnchor::default() && params.anchor != latest_anchor {
             // Stale anchor is a batch-level error. Fill all results with it.
@@ -307,7 +308,7 @@ where
             .recent_blocks
             .last()
             .map(|b| b.header.hash())
-            .unwrap_or_else(|| vec![0; 32]);
+            .unwrap_or(Ok(vec![0; 32]))?;
         Ok(hash)
     }
 }

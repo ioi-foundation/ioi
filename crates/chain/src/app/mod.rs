@@ -215,7 +215,8 @@ where
                 state.commit_version();
                 log::debug!("[Chain] Committed full genesis state.");
 
-                let status_bytes = serde_json::to_vec(&self.state.status).unwrap();
+                let status_bytes = serde_json::to_vec(&self.state.status)
+                    .map_err(|e| ChainError::Transaction(e.to_string()))?;
                 state
                     .insert(STATUS_KEY, &status_bytes)
                     .map_err(|e| ChainError::Transaction(e.to_string()))?;
@@ -226,14 +227,14 @@ where
                 let final_root = StateRoot(state.root_commitment().as_ref().to_vec());
                 let root_commitment_for_check = state
                     .commitment_from_bytes(final_root.as_ref())
-                    .expect("Failed to create commitment for self-check");
+                    .map_err(|e| ChainError::State(StateError::InvalidValue(e.to_string())))?;
                 log::debug!(
                     "[Chain] Genesis self-check: querying for key '{}' (expect Present)",
                     hex::encode(STATUS_KEY)
                 );
                 let (membership, _proof) = state
                     .get_with_proof_at(&root_commitment_for_check, STATUS_KEY)
-                    .expect("Failed to generate proof for self-check");
+                    .map_err(|e| ChainError::State(e))?;
                 match membership {
                     depin_sdk_types::app::Membership::Present(_) => {
                         log::debug!("[Chain] Genesis state self-check passed.");
@@ -389,29 +390,34 @@ where
     async fn view_at(&self, anchor: &StateAnchor) -> Result<Box<dyn StateView>, ChainError> {
         let resolved_root_bytes = if anchor.0 == [0u8; 32] {
             None
-        } else if self.state.last_state_root.to_anchor() == *anchor {
-            Some(self.state.last_state_root.as_ref().to_vec())
-        } else {
-            let bytes = self.state.recent_blocks.iter().rev().find_map(|b| {
-                if b.header.state_root.to_anchor() == *anchor {
-                    log::info!(
-                        "[StateView::view_at] anchor={} matched H={} root={}",
-                        hex::encode(anchor.as_ref()),
-                        b.header.height,
-                        hex::encode(b.header.state_root.as_ref())
-                    );
-                    Some(b.header.state_root.as_ref().to_vec())
-                } else {
+        } else if let Ok(last_anchor) = self.state.last_state_root.to_anchor() {
+            if last_anchor == *anchor {
+                Some(self.state.last_state_root.as_ref().to_vec())
+            } else {
+                let bytes = self.state.recent_blocks.iter().rev().find_map(|b| {
+                    if let Ok(block_anchor) = b.header.state_root.to_anchor() {
+                        if block_anchor == *anchor {
+                            log::info!(
+                                "[StateView::view_at] anchor={} matched H={} root={}",
+                                hex::encode(anchor.as_ref()),
+                                b.header.height,
+                                hex::encode(b.header.state_root.as_ref())
+                            );
+                            return Some(b.header.state_root.as_ref().to_vec());
+                        }
+                    }
                     None
+                });
+                if bytes.is_none() {
+                    return Err(ChainError::State(StateError::InvalidValue(format!(
+                        "Could not resolve unknown state anchor: {}",
+                        hex::encode(anchor.as_ref())
+                    ))));
                 }
-            });
-            if bytes.is_none() {
-                return Err(ChainError::State(StateError::InvalidValue(format!(
-                    "Could not resolve unknown state anchor: {}",
-                    hex::encode(anchor.as_ref())
-                ))));
+                bytes
             }
-            bytes
+        } else {
+            None
         };
 
         if let Some(bytes) = &resolved_root_bytes {
@@ -519,7 +525,7 @@ where
             .await?;
         let validator_set_hash = depin_sdk_crypto::algorithms::hash::sha256(vs_bytes.concat())
             .try_into()
-            .unwrap();
+            .map_err(|_| ChainError::Transaction("SHA-256 hash was not 32 bytes".to_string()))?;
 
         Ok(PreparedBlock {
             block,
@@ -660,7 +666,8 @@ where
             self.state.status.height = block.header.height;
             self.state.status.latest_timestamp = block.header.timestamp;
             self.state.status.total_transactions += block.transactions.len() as u64;
-            let status_bytes = serde_json::to_vec(&self.state.status).unwrap();
+            let status_bytes = serde_json::to_vec(&self.state.status)
+                .map_err(|e| ChainError::Transaction(e.to_string()))?;
             state.insert(STATUS_KEY, &status_bytes)?;
 
             state.commit_version();
@@ -669,9 +676,7 @@ where
             {
                 use depin_sdk_types::app::Membership;
 
-                let final_commitment = state
-                    .commitment_from_bytes(&final_state_root_bytes)
-                    .unwrap();
+                let final_commitment = state.commitment_from_bytes(&final_state_root_bytes)?;
                 debug_assert!(
                     state.version_exists_for_root(&final_commitment),
                     "FATAL INVARIANT VIOLATION: The committed root for height {} is not mapped to a queryable version!",
@@ -711,13 +716,18 @@ where
             self.state.last_state_root = StateRoot(final_state_root_bytes);
         }
 
+        let anchor = block
+            .header
+            .state_root
+            .to_anchor()
+            .map_err(|e| ChainError::Transaction(e.to_string()))?;
         // --- PHASE 3: UPDATE IN-MEMORY CHAIN STATE ---
         // This modifies the chain's own in-memory status, separate from the state tree.
         log::info!(
             "[Chain Commit] H={} state_root={} anchor={}",
             block.header.height,
             hex::encode(block.header.state_root.as_ref()),
-            hex::encode(block.header.state_root.to_anchor().as_ref())
+            hex::encode(anchor.as_ref())
         );
 
         if self.state.recent_blocks.len() >= self.state.max_recent_blocks {
@@ -735,20 +745,27 @@ where
         current_validator_set: &[Vec<u8>],
         _known_peers_bytes: &[Vec<u8>],
         producer_keypair: &Keypair,
-    ) -> Block<ChainTransaction> {
+    ) -> Result<Block<ChainTransaction>, ChainError> {
         let height = self.state.status.height + 1;
         let parent_hash_bytes = self
             .state
             .recent_blocks
             .last()
-            .map(|b| b.header.hash())
+            .and_then(|b| b.header.hash().ok())
             .unwrap_or_else(|| vec![0; 32]);
-        let parent_hash = parent_hash_bytes.try_into().unwrap();
+        let parent_hash = parent_hash_bytes
+            .try_into()
+            .map_err(|_| ChainError::Transaction("Parent hash was not 32 bytes".to_string()))?;
 
         let producer_pubkey = producer_keypair.public().encode_protobuf();
         let suite = SignatureSuite::Ed25519;
-        let producer_pubkey_hash = account_id_from_key_material(suite, &producer_pubkey).unwrap();
+        let producer_pubkey_hash = account_id_from_key_material(suite, &producer_pubkey)?;
         let producer_account_id = AccountId(producer_pubkey_hash);
+
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|e| ChainError::Transaction(format!("System time error: {}", e)))?
+            .as_secs();
 
         let header = BlockHeader {
             height,
@@ -756,10 +773,7 @@ where
             parent_state_root: self.state.last_state_root.clone(),
             state_root: StateRoot(vec![]),
             transactions_root: vec![],
-            timestamp: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
+            timestamp,
             validator_set: current_validator_set.to_vec(),
             producer_account_id,
             producer_key_suite: suite,
@@ -768,10 +782,10 @@ where
             signature: vec![],
         };
 
-        Block {
+        Ok(Block {
             header,
             transactions,
-        }
+        })
     }
 
     fn get_block(&self, height: u64) -> Option<&Block<ChainTransaction>> {

@@ -113,13 +113,14 @@ where
     ) -> Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError>;
 
     /// Creates a new block template to be filled by a block producer.
+    // FIX: Update trait signature to return a Result.
     fn create_block(
         &self,
         transactions: Vec<ChainTransaction>,
         current_validator_set: &[Vec<u8>],
         known_peers_bytes: &[Vec<u8>],
         producer_keypair: &Keypair,
-    ) -> Block<ChainTransaction>;
+    ) -> Result<Block<ChainTransaction>, ChainError>;
 
     /// Retrieves a block by its height.
     fn get_block(&self, height: u64) -> Option<&Block<ChainTransaction>>;

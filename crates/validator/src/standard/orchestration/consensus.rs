@@ -18,6 +18,7 @@ use depin_sdk_types::{
         account_id_from_key_material, read_validator_sets, AccountId, Block, BlockHeader,
         ChainTransaction, SignatureSuite, StateAnchor, StateRoot,
     },
+    error::ChainError,
     keys::VALIDATOR_SET_KEY,
 };
 use serde::Serialize;
@@ -153,7 +154,7 @@ where
             hex::encode(parent_root.as_ref())
         );
 
-        let parent_anchor: StateAnchor = parent_root.to_anchor();
+        let parent_anchor: StateAnchor = parent_root.to_anchor()?;
 
         let target_height = status.height + 1;
         let current_view = 0;
@@ -220,7 +221,7 @@ where
         let latest_anchor = last_committed_block_opt
             .as_ref()
             .map(|b| b.header.state_root.to_anchor())
-            .unwrap_or_else(|| genesis_root.to_anchor());
+            .unwrap_or_else(|| genesis_root.to_anchor())?;
 
         let check_results = match workload_client
             .check_transactions_at(latest_anchor, candidate_txs.clone())
@@ -243,7 +244,7 @@ where
                         return Err(anyhow!(msg));
                     }
                 };
-                let fresh_anchor = fresh_root.to_anchor();
+                let fresh_anchor = fresh_root.to_anchor()?;
                 match workload_client
                     .check_transactions_at(fresh_anchor, candidate_txs.clone())
                     .await
@@ -322,7 +323,7 @@ where
             .as_ref()
             .map(|b| b.header.state_root.clone())
             .unwrap_or_else(|| genesis_root.clone());
-        let parent_anchor_for_keys = parent_root_for_keys.to_anchor();
+        let parent_anchor_for_keys = parent_root_for_keys.to_anchor()?;
         let parent_view_for_keys = RemoteStateView::new(
             parent_anchor_for_keys,
             parent_root_for_keys.clone(),
@@ -443,7 +444,7 @@ where
                 transactions_root: vec![0; 32],
                 timestamp: SystemTime::now()
                     .duration_since(UNIX_EPOCH)
-                    .unwrap()
+                    .map_err(|e| ChainError::Transaction(format!("System time error: {}", e)))?
                     .as_secs(),
                 validator_set: header_validator_set,
                 producer_account_id: our_account_id,
