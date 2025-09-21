@@ -11,7 +11,6 @@
 //! commitment. Future work could explore zero-knowledge openings if hiding properties are required.
 
 use dcrypt::algorithms::poly::{
-    // FIX: Import the `Modulus` trait to bring its associated constants (N, Q) into scope.
     params::{Kyber256Params, Modulus},
     polynomial::Polynomial,
     sampling::{CbdSampler, DefaultSamplers, UniformSampler},
@@ -20,6 +19,7 @@ use depin_sdk_api::commitment::{
     CommitmentScheme, CommitmentStructure, ProofContext, SchemeIdentifier, Selector,
 };
 use depin_sdk_crypto::algorithms::hash::sha256;
+use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
@@ -47,7 +47,6 @@ impl LatticeParams {
         let matrix_a = (0..dimension_k)
             .map(|_| {
                 (0..dimension_k)
-                    // --- FIX: Correctly call the sampling function with the trait's generic parameter ---
                     .map(|_| {
                         <DefaultSamplers as UniformSampler<Kyber256Params>>::sample_uniform(
                             &mut rng,
@@ -60,7 +59,6 @@ impl LatticeParams {
 
         // Generate a random public vector G
         let vector_g = (0..dimension_k)
-            // --- FIX: Correctly call the sampling function with the trait's generic parameter ---
             .map(|_| {
                 <DefaultSamplers as UniformSampler<Kyber256Params>>::sample_uniform(&mut rng)
                     .unwrap()
@@ -114,7 +112,7 @@ impl AsRef<[u8]> for LatticeCommitment {
 }
 
 /// The opening information for a lattice commitment, which includes the message and the secret vector `r`.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode)]
 pub struct LatticeProof {
     message: Vec<u8>,
     secret_vector_r: Vec<Vec<u32>>,
@@ -239,7 +237,6 @@ impl CommitmentScheme for LatticeCommitmentScheme {
         let mut rng = rand::rngs::OsRng;
         let r_vec: Vec<Polynomial<Kyber256Params>> = (0..self.params.dimension_k)
             .map(|_| {
-                // --- FIX: Correctly call the sampling function with the trait's generic parameter ---
                 <DefaultSamplers as CbdSampler<Kyber256Params>>::sample_cbd(
                     &mut rng,
                     self.params.eta,
@@ -278,7 +275,6 @@ impl CommitmentScheme for LatticeCommitmentScheme {
         let mut rng = rand::rngs::OsRng;
         let r_vec: Vec<Polynomial<Kyber256Params>> = (0..self.params.dimension_k)
             .map(|_| {
-                // --- FIX: Correctly call the sampling function with the trait's generic parameter ---
                 <DefaultSamplers as CbdSampler<Kyber256Params>>::sample_cbd(
                     &mut rng,
                     self.params.eta,

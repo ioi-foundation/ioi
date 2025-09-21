@@ -135,7 +135,7 @@ impl VerkleTree<KZGCommitmentScheme> {
             } = cursor
             {
                 // In our KZG scheme, slots map directly to the evaluation domain.
-                let domain_idx = idx as usize;
+                let domain_idx = idx as u64;
 
                 // If the target child is missing but there is a sibling leaf at this node,
                 // produce a Neighbor non-membership proof by opening that sibling slot.
@@ -148,7 +148,7 @@ impl VerkleTree<KZGCommitmentScheme> {
                             _ => None,
                         })
                     {
-                        let n_selector = Selector::Position(nidx as usize);
+                        let n_selector = Selector::Position(nidx as u64);
                         let n_y_bytes = self.value_at_slot(children, nidx);
                         let n_proof = self
                             .scheme
@@ -275,7 +275,6 @@ impl VerkleTree<KZGCommitmentScheme> {
         self.scheme.commit_with_witness(&byref)
     }
 
-    // FIX: Re-add the allow attribute to suppress the false positive warning.
     #[allow(clippy::only_used_in_recursion)]
     fn update_node(
         &self,

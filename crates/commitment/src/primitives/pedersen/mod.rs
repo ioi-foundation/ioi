@@ -3,12 +3,12 @@
 
 use dcrypt::algorithms::ec::k256::{self as k256, Point, Scalar};
 use dcrypt::algorithms::hash::{sha2::Sha256 as dcrypt_sha256, HashFunction};
-use dcrypt::algorithms::ByteSerializable;
 use depin_sdk_api::commitment::{
     CommitmentScheme, CommitmentStructure, HomomorphicCommitmentScheme, HomomorphicOperation,
     ProofContext, SchemeIdentifier, Selector,
 };
 use depin_sdk_crypto::algorithms::hash::sha256;
+use parity_scale_codec::{Decode, Encode, Error};
 use rand::{rngs::OsRng, RngCore};
 
 /// A Pedersen commitment scheme over the k256 curve.
@@ -36,22 +36,48 @@ pub struct PedersenProof {
     /// Blinding factor (r)
     blinding: Scalar,
     /// Position (i) in the commitment, corresponding to G_i
-    position: usize,
+    position: u64,
     /// The committed value (v)
     value: Vec<u8>,
+}
+
+impl Encode for PedersenProof {
+    fn encode_to<T: parity_scale_codec::Output + ?Sized>(&self, dest: &mut T) {
+        // A scalar is always 32 bytes.
+        let blinding_bytes = self.blinding.serialize();
+        blinding_bytes.encode_to(dest);
+        self.position.encode_to(dest);
+        self.value.encode_to(dest);
+    }
+}
+
+impl Decode for PedersenProof {
+    fn decode<I: parity_scale_codec::Input>(
+        input: &mut I,
+    ) -> Result<Self, parity_scale_codec::Error> {
+        let blinding_bytes: [u8; 32] = <[u8; 32]>::decode(input)?;
+        let blinding =
+            Scalar::new(blinding_bytes).map_err(|_| Error::from("Invalid K256Scalar bytes"))?;
+        let position = u64::decode(input)?;
+        let value = Vec::<u8>::decode(input)?;
+
+        Ok(Self {
+            blinding,
+            position,
+            value,
+        })
+    }
 }
 
 impl PedersenCommitmentScheme {
     /// Create a new Pedersen commitment scheme with the specified number of value generators.
     pub fn new(num_value_generators: usize) -> Self {
-        // FIX: Correctly initialize the Vec using `::` syntax.
         let mut value_generators = Vec::with_capacity(num_value_generators);
         let g = k256::base_point_g();
 
         // Generate G_0, G_1, ...
         for i in 0..num_value_generators {
             let scalar = Self::hash_to_scalar(format!("value-generator-{i}").as_bytes());
-            // FIX: Ensure this push call is on a valid Vec.
             value_generators.push(g.mul(&scalar).expect("Failed to create value generator"));
         }
 
@@ -62,7 +88,6 @@ impl PedersenCommitmentScheme {
             .mul(&h_scalar)
             .expect("Failed to create blinding generator");
 
-        // FIX: This struct initialization will now work correctly.
         Self {
             value_generators,
             blinding_generator,
@@ -88,14 +113,17 @@ impl PedersenCommitmentScheme {
 
     /// Helper to convert a hash to a valid scalar, re-hashing if necessary.
     fn hash_to_scalar(data: &[u8]) -> k256::Scalar {
-        let mut hash_bytes = dcrypt_sha256::digest(data).unwrap().to_bytes();
+        let mut hash_bytes = dcrypt_sha256::digest(data).unwrap().as_ref().to_vec();
         loop {
             let mut array = [0u8; 32];
             array.copy_from_slice(&hash_bytes);
             if let Ok(scalar) = Scalar::new(array) {
                 return scalar;
             }
-            hash_bytes = dcrypt_sha256::digest(&hash_bytes).unwrap().to_bytes();
+            hash_bytes = dcrypt_sha256::digest(&hash_bytes)
+                .unwrap()
+                .as_ref()
+                .to_vec();
         }
     }
 }
@@ -163,8 +191,8 @@ impl CommitmentScheme for PedersenCommitmentScheme {
             _ => return Err("Only position-based selectors are supported".to_string()),
         };
 
-        if position >= self.value_generators.len() {
-            return Err(format!("Position {position} out of bounds"));
+        if position >= self.value_generators.len() as u64 {
+            return Err(format!("Position {} out of bounds", position));
         }
 
         let blinding = Self::random_blinding();
@@ -189,7 +217,7 @@ impl CommitmentScheme for PedersenCommitmentScheme {
             _ => return false,
         };
 
-        if position >= self.value_generators.len()
+        if position >= self.value_generators.len() as u64
             || position != proof.position
             || &proof.value != value
         {
@@ -204,7 +232,7 @@ impl CommitmentScheme for PedersenCommitmentScheme {
         let value_scalar = Self::value_to_scalar(value);
         let blinding_scalar = &proof.blinding;
 
-        let g_i = &self.value_generators[position];
+        let g_i = &self.value_generators[position as usize];
         let h = &self.blinding_generator;
 
         let value_term = match g_i.mul(&value_scalar) {

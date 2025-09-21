@@ -10,7 +10,7 @@ use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::consensus::ChainStateReader;
 use depin_sdk_api::state::{StateAccessor, StateManager};
 use depin_sdk_types::app::{read_validator_sets, AccountId, Block, FailureReport};
-use depin_sdk_types::error::{ConsensusError, CoreError, StateError, TransactionError};
+use depin_sdk_types::error::{ConsensusError, StateError, TransactionError};
 use depin_sdk_types::keys::{QUARANTINED_VALIDATORS_KEY, VALIDATOR_SET_KEY};
 use libp2p::PeerId;
 use std::collections::{BTreeSet, HashMap, HashSet};

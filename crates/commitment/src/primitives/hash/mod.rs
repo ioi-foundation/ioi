@@ -5,7 +5,8 @@ use depin_sdk_api::commitment::{
     CommitmentScheme, CommitmentStructure, ProofContext, SchemeIdentifier, Selector,
 };
 use depin_sdk_crypto::algorithms::hash::{self, sha256};
-use serde::{Deserialize, Serialize}; // Add this line
+use parity_scale_codec::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 /// Hash-based commitment scheme
@@ -41,8 +42,7 @@ impl AsRef<[u8]> for HashCommitment {
 }
 
 /// Hash-based proof
-// UPDATE: Add Serialize and Deserialize
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Encode, Decode, Debug, Clone, Serialize, Deserialize)]
 pub struct HashProof {
     /// The value this proof corresponds to (e.g., serialized Merkle proof data)
     pub value: Vec<u8>,
@@ -52,8 +52,6 @@ pub struct HashProof {
     pub additional_data: Vec<u8>,
 }
 
-// FIX: Implement the missing trait bound that caused all the compiler errors.
-// This allows state trees to get the raw proof data they need for verification.
 impl AsRef<[u8]> for HashProof {
     fn as_ref(&self) -> &[u8] {
         &self.value
@@ -158,7 +156,6 @@ impl CommitmentScheme for HashCommitmentScheme {
             _ => Vec::new(),
         };
 
-        // FIX: Store the raw value in the proof instead of its hash.
         Ok(HashProof {
             value: value.clone(),
             selector: selector.clone(),
@@ -174,7 +171,6 @@ impl CommitmentScheme for HashCommitmentScheme {
         value: &Self::Value,
         context: &ProofContext,
     ) -> bool {
-        // FIX: The logic here needs to be updated to reflect the new structure of HashProof
         if &proof.selector != selector || &proof.value != value {
             return false;
         }
@@ -325,7 +321,7 @@ impl HashProof {
                 let mut position_bytes = [0u8; 8];
                 position_bytes.copy_from_slice(&bytes[pos..pos + 8]);
                 pos += 8;
-                Selector::Position(usize::from_le_bytes(position_bytes))
+                Selector::Position(u64::from_le_bytes(position_bytes))
             }
             2 => {
                 if pos + 4 > bytes.len() {

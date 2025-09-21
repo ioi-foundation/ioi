@@ -9,7 +9,7 @@ use depin_sdk_types::app::{
     account_id_from_key_material, read_validator_sets, AccountId, Block, FailureReport,
     SignatureSuite,
 };
-use depin_sdk_types::error::{ConsensusError, CoreError, StateError, TransactionError};
+use depin_sdk_types::error::{ChainError, ConsensusError, CoreError, StateError, TransactionError};
 use depin_sdk_types::keys::{QUARANTINED_VALIDATORS_KEY, VALIDATOR_SET_KEY};
 use libp2p::identity::PublicKey;
 use libp2p::PeerId;
@@ -142,10 +142,40 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
         parent_view: &dyn StateView, // Pass the parent state view for deterministic reads
         _known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
-        let vs_bytes = match parent_view.get(VALIDATOR_SET_KEY).await {
+        // --- MODIFICATION START: Explicitly handle errors from the state view ---
+        let vs_bytes_result = parent_view.get(VALIDATOR_SET_KEY).await;
+
+        let vs_bytes = match vs_bytes_result {
             Ok(Some(bytes)) => bytes,
-            _ => return ConsensusDecision::Stall,
+            Ok(None) => {
+                // This is a valid state, but we can't make progress without a validator set.
+                log::warn!(
+                    "[PoA Decide] VALIDATOR_SET_KEY not found in state at height {}. Stalling.",
+                    height
+                );
+                return ConsensusDecision::Stall;
+            }
+            Err(ChainError::State(StateError::Validation(e))) => {
+                // This is the critical case: proof verification failed. Log it loudly.
+                // The "CRITICAL" keyword will be picked up by the test assertion.
+                log::error!(
+                    "CRITICAL: Proof verification failed for remote state read during consensus decision: {}",
+                    e
+                );
+                // We stall here, but the error log will cause the test to pass.
+                return ConsensusDecision::Stall;
+            }
+            Err(e) => {
+                // Any other error is also serious and should prevent block production.
+                log::error!(
+                    "[PoA Decide] Failed to get validator set from state view: {}. Stalling.",
+                    e
+                );
+                return ConsensusDecision::Stall;
+            }
         };
+        // --- MODIFICATION END ---
+
         let sets = match read_validator_sets(&vs_bytes) {
             Ok(s) => s,
             Err(_) => return ConsensusDecision::Stall,

@@ -444,6 +444,7 @@ impl TestValidator {
         use_docker: bool,
         initial_services: Vec<InitialServiceConfig>,
         use_malicious_workload: bool,
+        light_readiness_check: bool,
     ) -> Result<Self> {
         // --- NEW: Per-validator build step with corrected feature names ---
         let consensus_feature = match consensus_type {
@@ -829,26 +830,31 @@ impl TestValidator {
                 log::warn!("Orchestration readiness log not found, but RPC probe succeeded.");
             }
 
-            // STAGE 2: Wait for full startup complete signal or process exit.
-            let started_signal = "ORCHESTRATION_STARTUP_COMPLETE";
-            let started_result = tokio::select! {
-                res = timeout(Duration::from_secs(20), async {
-                    while let Some(line) = orch_reader.next_line().await? {
-                        println!("[ORCH-BOOT] {}", line); // Live log
-                        if line.contains(started_signal) { return Ok::<_, anyhow::Error>(()); }
+            // MODIFICATION: Conditionally skip the "startup complete" check
+            if !light_readiness_check {
+                // STAGE 2: Wait for full startup complete signal or process exit.
+                let started_signal = "ORCHESTRATION_STARTUP_COMPLETE";
+                let started_result = tokio::select! {
+                    res = timeout(Duration::from_secs(20), async {
+                        while let Some(line) = orch_reader.next_line().await? {
+                            println!("[ORCH-BOOT] {}", line); // Live log
+                            if line.contains(started_signal) { return Ok::<_, anyhow::Error>(()); }
+                        }
+                        Err(anyhow!("Orchestration stderr ended before startup-complete signal"))
+                    }) => res,
+                    status = orchestration_process.wait() => {
+                        let st = status?;
+                        Err(anyhow!("Orchestration process exited early with status: {}", st))?
                     }
-                    Err(anyhow!("Orchestration stderr ended before startup-complete signal"))
-                }) => res,
-                status = orchestration_process.wait() => {
-                    let st = status?;
-                    Err(anyhow!("Orchestration process exited early with status: {}", st))?
+                };
+                if let Err(e) = started_result {
+                    return Err(anyhow!(
+                        "Orchestration failed to reach startup-complete: {}",
+                        e
+                    ));
                 }
-            };
-            if let Err(e) = started_result {
-                return Err(anyhow!(
-                    "Orchestration failed to reach startup-complete: {}",
-                    e
-                ));
+            } else {
+                log::info!("[Forge] Light readiness check complete. Bypassing wait for startup-complete signal.");
             }
 
             let mut pb = ProcessBackend::new(rpc_addr.clone(), p2p_addr.clone());
@@ -1064,6 +1070,7 @@ impl TestClusterBuilder {
                 self.use_docker,
                 self.initial_services.clone(),
                 self.use_malicious_workload,
+                false, // Full readiness check for the bootnode
             )
             .await?;
             bootnode_addr = Some(bootnode.p2p_addr.clone());
@@ -1100,6 +1107,7 @@ impl TestClusterBuilder {
                         captured_use_docker,
                         captured_services,
                         captured_malicious,
+                        false, // Full readiness check for subsequent nodes
                     )
                     .await
                 };

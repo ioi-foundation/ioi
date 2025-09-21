@@ -20,14 +20,15 @@ use depin_sdk_consensus::util::engine_from_config;
 use depin_sdk_services::identity::IdentityHub;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::Membership;
+use depin_sdk_types::codec;
 use depin_sdk_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
-use depin_sdk_types::error::StateError;
+use depin_sdk_types::keys::VALIDATOR_SET_KEY;
 use depin_sdk_validator::standard::workload_ipc_server::{
     create_ipc_server_config,
     methods::{
         chain::{
             CheckTransactionsV1, GetAuthoritySetV1, GetLastBlockHashV1, GetNextValidatorSetV1,
-            GetValidatorSetAtV1, ProcessBlockV1,
+            GetValidatorSetAtV1, GetValidatorSetForV1, ProcessBlockV1,
         },
         contract::{CallContractV1, DeployContractV1, QueryContractV1},
         staking::{GetNextStakesV1, GetStakesV1},
@@ -36,16 +37,16 @@ use depin_sdk_validator::standard::workload_ipc_server::{
             QueryStateAtV1,
         },
         system::{
-            CallServiceV1, CheckAndTallyProposalsV1, GetExpectedModelHashV1, GetStatusV1,
-            GetWorkloadConfigV1,
+            CallServiceV1, CheckAndTallyProposalsV1, GetExpectedModelHashV1, GetGenesisStatusV1,
+            GetStatusV1, GetWorkloadConfigV1,
         },
         RpcContext,
     },
-    router::Router,
+    router::{RequestContext, Router},
 };
 use depin_sdk_vm_wasm::WasmVm;
 use ipc_protocol::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest, JsonRpcResponse};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -85,7 +86,6 @@ where
     CS::Proof: AsRef<[u8]> + serde::Serialize + for<'de> serde::Deserialize<'de>,
     CS::Commitment: std::fmt::Debug,
 {
-    // ... (This function is identical to the one in the real workload.rs) ...
     if !Path::new(&config.state_file).exists() {
         load_state_from_genesis_file(&mut state_tree, &config.genesis_file)?;
     } else {
@@ -123,6 +123,8 @@ where
     ));
 
     let temp_orch_config = OrchestrationConfig {
+        chain_id: 1.into(),
+        config_schema_version: 0,
         consensus_type: config.consensus_type,
         rpc_listen_address: String::new(),
         initial_sync_timeout_secs: 0,
@@ -135,7 +137,7 @@ where
     let mut chain = Chain::new(
         commitment_scheme.clone(),
         UnifiedTransactionModel::new(commitment_scheme),
-        "depin-chain-1",
+        1.into(),
         initial_services,
         Box::new(load_service_from_wasm),
         consensus_engine,
@@ -157,12 +159,27 @@ where
 }
 
 fn check_features() {
-    // ... (Identical to workload.rs) ...
+    let mut enabled_features = Vec::new();
+    if cfg!(feature = "tree-iavl") {
+        enabled_features.push("tree-iavl");
+    }
+    if cfg!(feature = "tree-sparse-merkle") {
+        enabled_features.push("tree-sparse-merkle");
+    }
+    if cfg!(feature = "tree-verkle") {
+        enabled_features.push("tree-verkle");
+    }
+
+    if enabled_features.len() != 1 {
+        panic!(
+            "Error: Please enable exactly one 'tree-*' feature for the depin-sdk-node crate. Found: {:?}",
+            enabled_features
+        );
+    }
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // ... (Identical to workload.rs, it just calls run_workload which uses the malicious server) ...
     check_features();
     env_logger::builder()
         .filter_level(log::LevelFilter::Info)
@@ -197,19 +214,13 @@ async fn main() -> Result<()> {
 
 // --- Malicious IPC Server Implementation ---
 
-// This is the malicious version of the WorkloadIpcServer.
-// It's mostly a copy, with a key modification in handle_request.
 struct MaliciousWorkloadIpcServer<ST, CS>
 where
-    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Send
-        + Sync
-        + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
 {
-    // ... (struct fields are identical to the real one) ...
     address: String,
     workload_container: Arc<WorkloadContainer<ST>>,
     chain_arc: Arc<Mutex<Chain<CS, ST>>>,
@@ -219,7 +230,7 @@ where
 
 impl<ST, CS> MaliciousWorkloadIpcServer<ST, CS>
 where
-    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
         + 'static
@@ -229,36 +240,37 @@ where
     CS::Commitment: std::fmt::Debug,
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+    <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
-    // `new` and `run` are identical to the real server, they just call the malicious handler.
     pub async fn new(
         address: String,
         workload_container: Arc<WorkloadContainer<ST>>,
         chain_arc: Arc<Mutex<Chain<CS, ST>>>,
     ) -> Result<Self> {
         let mut router = Router::new();
-        // Register all methods
-        router.add_method(GetStatusV1);
-        router.add_method(ProcessBlockV1);
-        router.add_method(CheckTransactionsV1);
-        router.add_method(GetLastBlockHashV1);
-        router.add_method(GetExpectedModelHashV1);
-        router.add_method(GetStakesV1);
-        router.add_method(GetNextStakesV1);
-        router.add_method(GetAuthoritySetV1);
-        router.add_method(GetNextValidatorSetV1);
-        router.add_method(GetStateRootV1);
-        router.add_method(QueryContractV1);
-        router.add_method(DeployContractV1);
-        router.add_method(CallContractV1);
-        router.add_method(CheckAndTallyProposalsV1);
-        router.add_method(PrefixScanV1);
-        router.add_method(GetRawStateV1);
-        router.add_method(QueryStateAtV1);
-        router.add_method(GetValidatorSetAtV1);
-        router.add_method(GetActiveKeyAtV1);
-        router.add_method(CallServiceV1);
-        router.add_method(GetWorkloadConfigV1);
+        router.add_method(GetStatusV1::<CS, ST>::default());
+        router.add_method(ProcessBlockV1::<CS, ST>::default());
+        router.add_method(CheckTransactionsV1::<CS, ST>::default());
+        router.add_method(GetLastBlockHashV1::<CS, ST>::default());
+        router.add_method(GetExpectedModelHashV1::<CS, ST>::default());
+        router.add_method(GetStakesV1::<CS, ST>::default());
+        router.add_method(GetNextStakesV1::<CS, ST>::default());
+        router.add_method(GetAuthoritySetV1::<CS, ST>::default());
+        router.add_method(GetNextValidatorSetV1::<CS, ST>::default());
+        router.add_method(GetValidatorSetForV1::<CS, ST>::default());
+        router.add_method(GetStateRootV1::<CS, ST>::default());
+        router.add_method(QueryContractV1::<CS, ST>::default());
+        router.add_method(DeployContractV1::<CS, ST>::default());
+        router.add_method(CallContractV1::<CS, ST>::default());
+        router.add_method(CheckAndTallyProposalsV1::<CS, ST>::default());
+        router.add_method(PrefixScanV1::<CS, ST>::default());
+        router.add_method(GetRawStateV1::<CS, ST>::default());
+        router.add_method(QueryStateAtV1::<CS, ST>::default());
+        router.add_method(GetValidatorSetAtV1::<CS, ST>::default());
+        router.add_method(GetActiveKeyAtV1::<CS, ST>::default());
+        router.add_method(CallServiceV1::<CS, ST>::default());
+        router.add_method(GetWorkloadConfigV1::<CS, ST>::default());
+        router.add_method(GetGenesisStatusV1::<CS, ST>::default());
 
         Ok(Self {
             address,
@@ -270,133 +282,193 @@ where
     }
 
     pub async fn run(self) -> Result<()> {
-        let ipc_channel = SecurityChannel::new("workload", "orchestration");
         let listener = tokio::net::TcpListener::bind(&self.address).await?;
         log::info!(
             "MALICIOUS Workload: IPC server listening on {}",
             self.address
         );
         eprintln!("WORKLOAD_IPC_LISTENING_ON_{}", self.address);
-        let server_config = create_ipc_server_config()?;
-        let acceptor = TlsAcceptor::from(server_config);
-        let (stream, _) = listener.accept().await?;
-        let mut tls_stream = acceptor.accept(stream).await?;
-        let client_id_byte = tls_stream.read_u8().await?;
-        log::info!(
-            "MALICIOUS Workload: Accepted IPC connection from client type: {}",
-            client_id_byte
-        );
-        ipc_channel
-            .accept_server_connection(tokio_rustls::TlsStream::Server(tls_stream))
-            .await;
 
-        let shared_ctx = Arc::new(RpcContext {
+        let certs_dir =
+            std::env::var("CERTS_DIR").expect("CERTS_DIR environment variable must be set");
+        let server_config = create_ipc_server_config(
+            &format!("{}/ca.pem", certs_dir),
+            &format!("{}/workload-server.pem", certs_dir),
+            &format!("{}/workload-server.key", certs_dir),
+        )?;
+        let acceptor = TlsAcceptor::from(server_config);
+
+        let shared_ctx: Arc<RpcContext<CS, ST>> = Arc::new(RpcContext {
             chain: self.chain_arc.clone(),
             workload: self.workload_container.clone(),
         });
 
         loop {
-            let permit = self.semaphore.clone().acquire_owned().await.unwrap();
-            let ipc_channel_clone = ipc_channel.clone();
+            let (stream, peer_addr) = listener.accept().await?;
+            log::info!(
+                "Workload: IPC server accepted new connection from {}",
+                peer_addr
+            );
+
+            let acceptor_clone = acceptor.clone();
+            let semaphore_clone = self.semaphore.clone();
             let router_clone = self.router.clone();
             let shared_ctx_clone = shared_ctx.clone();
 
             tokio::spawn(async move {
-                let _permit = permit;
-                let request_bytes = match ipc_channel_clone.receive().await {
-                    Ok(bytes) => bytes,
-                    Err(_) => return,
-                };
-
-                let response = match serde_json::from_slice::<JsonRpcRequest>(&request_bytes) {
-                    Ok(req) => self.handle_request(req, shared_ctx_clone).await,
-                    Err(e) => JsonRpcResponse {
-                        jsonrpc: "2.0".to_string(),
-                        result: None,
-                        error: Some(JsonRpcError {
-                            code: -32700,
-                            message: format!("Parse error: {}", e),
-                            data: None,
-                        }),
-                        id: JsonRpcId::Null,
-                    },
-                };
-
-                if let Some(res) = response {
-                    let response_bytes = serde_json::to_vec(&res).unwrap();
-                    if let Err(e) = ipc_channel_clone.send(&response_bytes).await {
-                        log::error!("Failed to send IPC response: {}", e);
+                let mut tls_stream = match acceptor_clone.accept(stream).await {
+                    Ok(s) => s,
+                    Err(e) => {
+                        log::error!("TLS accept error from {}: {}", peer_addr, e);
+                        return;
                     }
+                };
+
+                let client_id_byte = match tls_stream.read_u8().await {
+                    Ok(b) => b,
+                    Err(e) => {
+                        log::error!("Failed to read client ID byte from {}: {}", peer_addr, e);
+                        return;
+                    }
+                };
+                log::info!(
+                    "Workload: Client ID {} connected from {}",
+                    client_id_byte,
+                    peer_addr
+                );
+
+                let ipc_channel = SecurityChannel::new("workload", "orchestration");
+                ipc_channel
+                    .accept_server_connection(tokio_rustls::TlsStream::Server(tls_stream))
+                    .await;
+
+                loop {
+                    let permit = match semaphore_clone.clone().acquire_owned().await {
+                        Ok(p) => p,
+                        Err(_) => {
+                            log::info!(
+                                "IPC handler for {} shutting down (semaphore closed).",
+                                peer_addr
+                            );
+                            return;
+                        }
+                    };
+
+                    let request_bytes = match ipc_channel.receive().await {
+                        Ok(bytes) => bytes,
+                        Err(e) => {
+                            log::info!(
+                                "IPC receive error from {}: {}. Closing connection.",
+                                peer_addr,
+                                e
+                            );
+                            return;
+                        }
+                    };
+
+                    let response = match serde_json::from_slice::<JsonRpcRequest>(&request_bytes) {
+                        Ok(req) => {
+                            handle_request(req, shared_ctx_clone.clone(), router_clone.clone())
+                                .await
+                        }
+                        Err(e) => Some(JsonRpcResponse {
+                            jsonrpc: "2.0".to_string(),
+                            result: None,
+                            error: Some(JsonRpcError {
+                                code: -32700,
+                                message: format!("Parse error: {}", e),
+                                data: None,
+                            }),
+                            id: JsonRpcId::Null,
+                        }),
+                    };
+
+                    if let Some(res) = response {
+                        let response_bytes = serde_json::to_vec(&res).unwrap();
+                        if let Err(e) = ipc_channel.send(&response_bytes).await {
+                            log::error!("Failed to send IPC response: {}", e);
+                        }
+                    }
+                    drop(permit);
                 }
             });
         }
-        Ok(())
     }
+}
 
-    async fn handle_request(
-        &self,
-        req: JsonRpcRequest,
-        shared_ctx: Arc<RpcContext>,
-    ) -> Option<JsonRpcResponse> {
-        if req.method == "state.queryStateAt.v1" {
-            if let Ok(params) = serde_json::from_value::<
-                depin_sdk_validator::standard::workload_ipc_server::methods::state::QueryStateAtParams,
-            >(req.params.clone())
-            {
-                if params.key == b"poison_pill" {
-                    log::warn!("[MaliciousWorkload] Received request for poisoned key. Returning tampered proof.");
-                    let fake_membership = Membership::Present(b"this_is_a_lie".to_vec());
-                    let tampered_inner_proof = b"this is not a valid serialized iavl proof".to_vec();
-                    let fake_proof = HashProof {
-                        value: tampered_inner_proof,
-                        selector: depin_sdk_api::commitment::Selector::Key(params.key),
-                        additional_data: vec![],
-                    };
-                    let response_data = QueryStateAtResponse {
-                        msg_version: 1,
-                        scheme_id: 1,
-                        scheme_version: 1,
-                        membership: fake_membership,
-                        proof_bytes: bincode::serialize(&fake_proof).unwrap(),
-                    };
-                    return Some(JsonRpcResponse {
-                        jsonrpc: "2.0".to_string(),
-                        result: Some(serde_json::to_value(response_data).unwrap()),
-                        error: None,
-                        id: req.id.unwrap_or(JsonRpcId::Null),
-                    });
-                }
+async fn handle_request<CS, ST>(
+    req: JsonRpcRequest,
+    shared_ctx: Arc<RpcContext<CS, ST>>,
+    router: Arc<Router>,
+) -> Option<JsonRpcResponse<serde_json::Value>>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
+{
+    if req.method == "state.queryStateAt.v1" {
+        if let Ok(params) = serde_json::from_value::<
+            depin_sdk_validator::standard::workload_ipc_server::methods::state::QueryStateAtParams,
+        >(req.params.clone())
+        {
+            if params.key == VALIDATOR_SET_KEY {
+                log::warn!("[MaliciousWorkload] Received request for VALIDATOR_SET_KEY. Returning tampered proof.");
+                let fake_membership = Membership::Present(b"this_is_a_lie".to_vec());
+                let tampered_inner_proof = b"this is not a valid serialized iavl proof".to_vec();
+                let fake_proof = HashProof {
+                    value: tampered_inner_proof,
+                    selector: depin_sdk_api::commitment::Selector::Key(params.key),
+                    additional_data: vec![],
+                };
+                let proof_bytes = codec::to_bytes_canonical(&fake_proof);
+                let response_data = QueryStateAtResponse {
+                    msg_version: 1,
+                    scheme_id: 1,
+                    scheme_version: 1,
+                    membership: fake_membership,
+                    proof_bytes,
+                };
+                return Some(JsonRpcResponse {
+                    jsonrpc: "2.0".to_string(),
+                    result: Some(serde_json::to_value(response_data).unwrap()),
+                    error: None,
+                    id: req.id.unwrap_or(JsonRpcId::Null),
+                });
             }
         }
+    }
 
-        // For all other requests, behave normally
-        let trace_id = uuid::Uuid::new_v4().to_string();
-        let router_ctx = router::RpcContext {
-            peer_id: "orchestration".into(),
-            trace_id,
-        };
-        let res = self
-            .router
-            .dispatch(router_ctx, &req.method, req.params)
-            .await;
+    // For all other requests, behave normally
+    let trace_id = uuid::Uuid::new_v4().to_string();
+    let router_ctx = RequestContext {
+        peer_id: "orchestration".into(),
+        trace_id: trace_id.clone(),
+    };
+    let res = router
+        .dispatch(shared_ctx, router_ctx, &req.method, req.params)
+        .await;
 
-        if req.id.is_some() {
-            Some(match res {
-                Ok(result) => JsonRpcResponse {
-                    jsonrpc: "2.0".to_string(),
-                    result: Some(result),
-                    error: None,
-                    id: req.id.unwrap(),
-                },
-                Err(error) => JsonRpcResponse {
-                    jsonrpc: "2.0".to_string(),
-                    result: None,
-                    error: Some(error),
-                    id: req.id.unwrap(),
-                },
-            })
-        } else {
-            None
-        }
+    if req.id.is_some() {
+        Some(match res {
+            Ok(result) => JsonRpcResponse {
+                jsonrpc: "2.0".to_string(),
+                result: Some(result),
+                error: None,
+                id: req.id.unwrap(),
+            },
+            Err(error) => JsonRpcResponse {
+                jsonrpc: "2.0".to_string(),
+                result: None,
+                error: Some(JsonRpcError {
+                    code: error.code,
+                    message: error.message,
+                    data: error
+                        .data
+                        .or_else(|| Some(serde_json::json!({ "trace_id": trace_id }))),
+                }),
+                id: req.id.unwrap(),
+            },
+        })
+    } else {
+        None
     }
 }

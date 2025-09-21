@@ -106,7 +106,8 @@ where
         let commitment: CS::Commitment = commitment_bytes.clone().into();
         let proof_bytes_for_level = &proof.per_level_proofs[j];
         let proof_for_level: CS::Proof = proof_bytes_for_level.clone().into();
-        let selector = Selector::Position(proof.per_level_selectors[j] as usize);
+        // MODIFICATION: Cast selector position to u64.
+        let selector = Selector::Position(proof.per_level_selectors[j] as u64);
 
         let value_bytes = if j == levels - 1 {
             match &proof.terminal {

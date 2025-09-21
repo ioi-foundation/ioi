@@ -41,6 +41,7 @@ bs58 = "0.4"
 lru = { workspace = true }
 bincode = { workspace = true }
 uuid = { version = "1.8.0", features = ["v4"] }                           # Added for trace_id
+parity-scale-codec = { workspace = true, features = ["derive"] }
 cfg-if = "1.0"                                                            # <--- ADD THIS LINE
 
 # Added for mTLS implementation
