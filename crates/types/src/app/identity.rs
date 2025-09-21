@@ -15,7 +15,19 @@ use serde::{Deserialize, Serialize};
 
 /// A unique identifier for a blockchain, used for replay protection.
 #[derive(
-    Encode, Decode, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default, Hash,
+    Encode,
+    Decode,
+    Serialize,
+    Deserialize,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Debug,
+    Default,
+    Hash,
 )]
 #[serde(transparent)] // Ensures JSON/TOML is just the raw u32
 pub struct ChainId(pub u32);
@@ -136,7 +148,7 @@ pub fn account_id_from_key_material(
         .map_err(|e| TransactionError::Invalid(format!("Hashing failed: {}", e)))?
         .to_bytes();
 
-    Ok(hash_bytes
+    hash_bytes
         .try_into()
-        .expect("SHA256 digest should be 32 bytes"))
+        .map_err(|_| TransactionError::Invalid("SHA256 digest was not 32 bytes".into()))
 }

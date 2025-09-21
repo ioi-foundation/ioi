@@ -281,7 +281,10 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             producer_short_id
         );
 
-        let parent_state_anchor = header.parent_state_root.to_anchor();
+        let parent_state_anchor = header
+            .parent_state_root
+            .to_anchor()
+            .map_err(|e| ConsensusError::StateAccess(StateError::InvalidValue(e.to_string())))?;
         log::debug!(
             "[PoS Verify H={}] Obtaining parent view at anchor 0x{}",
             header.height,
@@ -333,8 +336,8 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             header.producer_key_suite,
             active_key.suite,
             active_key.since_height,
-            (hash_key(header.producer_key_suite, &header.producer_pubkey) == header.producer_pubkey_hash),
-            (active_key.pubkey_hash == hash_key(active_key.suite, &header.producer_pubkey)),
+            (hash_key(header.producer_key_suite, &header.producer_pubkey).map_or(false, |h| h == header.producer_pubkey_hash)),
+            (active_key.pubkey_hash == hash_key(active_key.suite, &header.producer_pubkey).unwrap_or_default()),
         );
 
         if header.height < active_key.since_height {
@@ -348,7 +351,8 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             ));
         }
 
-        let derived_hash = hash_key(active_key.suite, &header.producer_pubkey);
+        let derived_hash = hash_key(active_key.suite, &header.producer_pubkey)
+            .map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))?;
 
         if header.producer_pubkey_hash != derived_hash {
             return Err(ConsensusError::BlockVerificationFailed(
