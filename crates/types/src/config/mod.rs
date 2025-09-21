@@ -1,6 +1,7 @@
 // Path: crates/types/src/config/mod.rs
 
 //! Shared configuration structures for core DePIN SDK components.
+use crate::app::ChainId; // Add this import
 
 use crate::service_configs::MigrationConfig;
 use serde::{Deserialize, Serialize};
@@ -104,9 +105,19 @@ pub struct WorkloadConfig {
     pub initial_services: Vec<InitialServiceConfig>,
 }
 
+fn default_chain_id() -> ChainId {
+    ChainId(1)
+}
+
 /// Configuration for the Orchestration container (`orchestration.toml`).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct OrchestrationConfig {
+    /// The unique identifier for the blockchain instance, used in transaction signing.
+    #[serde(default = "default_chain_id")]
+    pub chain_id: ChainId,
+    /// The version of the configuration file schema, for managing future upgrades.
+    #[serde(default)]
+    pub config_schema_version: u16,
     /// The consensus engine to use (e.g., ProofOfAuthority, ProofOfStake).
     pub consensus_type: ConsensusType,
     /// The network address and port for the JSON-RPC server to listen on.

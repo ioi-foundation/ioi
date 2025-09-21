@@ -18,8 +18,8 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
-        RotationProof, SignHeader, SignatureProof, SignatureSuite, SystemPayload,
+        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
+        Credential, RotationProof, SignHeader, SignatureProof, SignatureSuite, SystemPayload,
         SystemTransaction, ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
@@ -166,7 +166,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     let account_id = ed25519_key.account_id();
     let mut nonce = 0;
     let grace_period_blocks = 5u64;
-    let chain_id = 1u32;
+    let chain_id: ChainId = 1.into();
 
     let ed25519_suite = ed25519_key.suite();
     let ed25519_account_id = ed25519_key.account_id();
@@ -181,12 +181,13 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
         .with_keypairs(vec![validator_keypair.clone()])
         .with_consensus_type("ProofOfStake")
         .with_state_tree("IAVL")
+        .with_chain_id(chain_id.into())
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             grace_period_blocks,
+            chain_id: chain_id.into(),
             accept_staged_during_grace: true,
             allowed_target_suites: vec![SignatureSuite::Ed25519, SignatureSuite::Dilithium2],
             allow_downgrade: false,
-            chain_id,
         }))
         .with_genesis_modifier(move |genesis, _keys| {
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
@@ -320,7 +321,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     // 3. INITIATE ROTATION
     let challenge = {
         let mut preimage = b"DePIN-PQ-MIGRATE/v1".to_vec();
-        preimage.extend_from_slice(&chain_id.to_le_bytes());
+        preimage.extend_from_slice(&<ChainId as Into<u32>>::into(chain_id).to_le_bytes());
         preimage.extend_from_slice(account_id.as_ref());
         let rotation_nonce = 0u64;
         preimage.extend_from_slice(&rotation_nonce.to_le_bytes());

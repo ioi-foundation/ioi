@@ -7,33 +7,36 @@ use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_forge::testing::{
     assert_log_contains, build_test_artifacts, submit_transaction, TestCluster,
 };
-use depin_sdk_types::app::{
-    // Add these imports
-    account_id_from_key_material,
-    AccountId,
-    ActiveKeyRecord,
-    ChainTransaction,
-    Credential,
-    SignHeader,
-    SignatureProof,
-    SignatureSuite,
-    SystemPayload,
-    SystemTransaction,
-    ValidatorSetBlob,
-    ValidatorSetV1,
-    ValidatorSetsV1,
-    ValidatorV1,
+use depin_sdk_types::{
+    app::{
+        // Add these imports
+        account_id_from_key_material,
+        AccountId,
+        ActiveKeyRecord,
+        ChainId,
+        ChainTransaction,
+        Credential,
+        SignHeader,
+        SignatureProof,
+        SignatureSuite,
+        SystemPayload,
+        SystemTransaction,
+        ValidatorSetBlob,
+        ValidatorSetV1,
+        ValidatorSetsV1,
+        ValidatorV1,
+    },
+    codec,                        // Add this import
+    config::InitialServiceConfig, // Add this import
+    keys::{
+        // Add these imports
+        ACCOUNT_ID_TO_PUBKEY_PREFIX,
+        GOVERNANCE_KEY,
+        IDENTITY_CREDENTIALS_PREFIX,
+        VALIDATOR_SET_KEY,
+    },
+    service_configs::MigrationConfig, // Add this import
 };
-use depin_sdk_types::codec; // Add this import
-use depin_sdk_types::config::InitialServiceConfig; // Add this import
-use depin_sdk_types::keys::{
-    // Add these imports
-    ACCOUNT_ID_TO_PUBKEY_PREFIX,
-    GOVERNANCE_KEY,
-    IDENTITY_CREDENTIALS_PREFIX,
-    VALIDATOR_SET_KEY,
-};
-use depin_sdk_types::service_configs::MigrationConfig; // Add this import
 use libp2p::identity::{self, Keypair};
 use serde_json::json;
 
@@ -42,6 +45,7 @@ fn create_system_tx(
     keypair: &Keypair,
     payload: SystemPayload,
     nonce: u64,
+    chain_id: ChainId,
 ) -> Result<ChainTransaction> {
     let public_key_bytes = keypair.public().encode_protobuf();
     let account_id_hash = account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)?;
@@ -50,7 +54,7 @@ fn create_system_tx(
     let header = SignHeader {
         account_id,
         nonce,
-        chain_id: 1, // Default chain_id for tests
+        chain_id,
         tx_version: 1,
     };
 
@@ -87,6 +91,7 @@ async fn test_forkless_module_upgrade() -> Result<()> {
         .with_validators(1)
         .with_consensus_type("ProofOfAuthority")
         .with_state_tree("IAVL") // FIX: Align state tree with feature flags
+        .with_chain_id(1)
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
             grace_period_blocks: 5,
@@ -195,7 +200,7 @@ async fn test_forkless_module_upgrade() -> Result<()> {
         activation_height,
     };
 
-    let tx = create_system_tx(&governance_key, payload, 0)?; // Nonce is 0 for first tx
+    let tx = create_system_tx(&governance_key, payload, 0, 1.into())?; // Nonce is 0 for first tx
 
     submit_transaction(rpc_addr, &tx).await?;
 

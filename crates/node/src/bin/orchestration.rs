@@ -22,7 +22,7 @@ use depin_sdk_validator::standard::{
 use libp2p::{identity, Multiaddr};
 use std::fs;
 use std::io::{Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{atomic::AtomicBool, Arc};
 
 // Imports for concrete types used in the factory
@@ -116,6 +116,33 @@ where
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
     let workload_client = {
+        // --- Startup Identity Check ---
+        let data_dir = opts.config.parent().unwrap_or_else(|| Path::new("."));
+        let genesis_bytes = fs::read(&workload_config.genesis_file)?;
+        let derived_genesis_hash: [u8; 32] =
+            depin_sdk_crypto::algorithms::hash::sha256(&genesis_bytes)
+                .try_into()
+                .unwrap();
+
+        let identity_path = data_dir.join("chain_identity.json");
+        let configured_identity = (config.chain_id, derived_genesis_hash);
+
+        if identity_path.exists() {
+            let stored_bytes = fs::read(&identity_path)?;
+            let stored_identity: (depin_sdk_types::app::ChainId, [u8; 32]) =
+                serde_json::from_slice(&stored_bytes)?;
+            if stored_identity != configured_identity {
+                panic!(
+                    "FATAL: Chain identity mismatch! Config implies {:?}, but storage is initialized for {:?}. Aborting.",
+                    configured_identity, stored_identity
+                );
+            }
+        } else {
+            // First boot: persist the identity
+            fs::write(&identity_path, serde_json::to_vec(&configured_identity)?)?;
+            log::info!("Persisted new chain identity: {:?}", configured_identity);
+        }
+
         let workload_ipc_addr =
             std::env::var("WORKLOAD_IPC_ADDR").unwrap_or_else(|_| "127.0.0.1:8555".to_string());
         // [+] FIX: Load cert paths from env and pass to client constructor.
@@ -235,7 +262,7 @@ where
         let chain = Chain::new(
             commitment_scheme,
             tm,
-            "dummy-chain",
+            config.chain_id,
             vec![],
             Box::new(
                 |_wasm_bytes: &[u8]| -> Result<Arc<dyn UpgradableService>, CoreError> {

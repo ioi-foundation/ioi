@@ -19,7 +19,7 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
+        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction, Credential,
         SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
         ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
@@ -36,6 +36,7 @@ fn create_signed_system_tx(
     keypair: &Keypair,
     payload: SystemPayload,
     nonce: u64,
+    chain_id: ChainId,
 ) -> Result<ChainTransaction> {
     let public_key = keypair.public().encode_protobuf();
     let account_id_hash = account_id_from_key_material(SignatureSuite::Ed25519, &public_key)?;
@@ -44,7 +45,7 @@ fn create_signed_system_tx(
     let header = SignHeader {
         account_id,
         nonce,
-        chain_id: 1, // Must match the chain's config
+        chain_id,
         tx_version: 1,
     };
 
@@ -72,12 +73,13 @@ async fn test_universal_verification_e2e() -> Result<()> {
     // 2. LAUNCH CLUSTER
     let mut cluster = TestCluster::builder()
         .with_validators(1)
+        .with_chain_id(1)
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
+            chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
             allowed_target_suites: vec![SignatureSuite::Ed25519],
             allow_downgrade: false,
-            chain_id: 1,
         }))
         .with_genesis_modifier(|genesis, keys| {
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
@@ -206,7 +208,7 @@ async fn test_universal_verification_e2e() -> Result<()> {
         receipt: Box::new(mock_receipt.clone()),
         proof: mock_proof.clone(),
     };
-    let tx = create_signed_system_tx(keypair, payload.clone(), nonce)?;
+    let tx = create_signed_system_tx(keypair, payload.clone(), nonce, 1.into())?;
     submit_transaction(rpc_addr, &tx).await?;
     nonce += 1;
 
@@ -218,7 +220,7 @@ async fn test_universal_verification_e2e() -> Result<()> {
     ).await?;
 
     // 6. TEST ANTI-REPLAY
-    let replay_tx = create_signed_system_tx(keypair, payload, nonce)?;
+    let replay_tx = create_signed_system_tx(keypair, payload, nonce, 1.into())?;
     submit_transaction(rpc_addr, &replay_tx).await?;
 
     assert_log_contains(

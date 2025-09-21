@@ -13,6 +13,7 @@ use depin_sdk_types::app::{
     account_id_from_key_material,
     AccountId,
     ActiveKeyRecord,
+    ChainId,
     ChainTransaction,
     Credential,
     Proposal,
@@ -49,6 +50,7 @@ fn create_system_tx(
     keypair: &Keypair,
     payload: SystemPayload,
     nonce: u64,
+    chain_id: ChainId,
 ) -> Result<ChainTransaction> {
     let public_key_bytes = keypair.public().encode_protobuf();
     let account_id_hash = account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)?;
@@ -57,7 +59,7 @@ fn create_system_tx(
     let header = SignHeader {
         account_id,
         nonce,
-        chain_id: 1, // Default chain_id for tests
+        chain_id,
         tx_version: 1,
     };
 
@@ -93,6 +95,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
         .with_consensus_type("ProofOfAuthority")
         // FIX: Explicitly set the state tree to match compile-time features.
         .with_state_tree("IAVL")
+        .with_chain_id(1)
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
             grace_period_blocks: 5,
@@ -193,12 +196,6 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                     json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
                 );
 
-                let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, acct_id.as_ref()].concat();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes))),
-                );
-
                 let record = ActiveKeyRecord {
                     suite,
                     pubkey_hash: acct_id.0,
@@ -211,6 +208,12 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                         "b64:{}",
                         BASE64_STANDARD.encode(codec::to_bytes_canonical(&record))
                     )),
+                );
+
+                let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, acct_id.as_ref()].concat();
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes))),
                 );
             }
         })
@@ -230,7 +233,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
         option: VoteOption::Yes,
     };
     // Use nonce 0 for the validator's first transaction
-    let tx = create_system_tx(validator_key, payload, 0)?;
+    let tx = create_system_tx(validator_key, payload, 0, 1.into())?;
     submit_transaction(rpc_addr, &tx).await?;
 
     // 5. ASSERT the vote was accepted & gossiped (confirms the transaction part of the flow)

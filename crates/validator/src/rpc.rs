@@ -7,7 +7,7 @@ use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_client::WorkloadClient;
 use depin_sdk_network::libp2p::SwarmCommand;
-use depin_sdk_types::app::ChainTransaction;
+use depin_sdk_types::app::{ApplicationTransaction, ChainTransaction};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -130,6 +130,31 @@ async fn rpc_handler(
                     }
                 },
             };
+
+            // Boundary validation for chain ID
+            let expected_chain_id = app_state.config.chain_id;
+            let tx_chain_id = match &tx {
+                ChainTransaction::Application(app_tx) => match app_tx {
+                    ApplicationTransaction::DeployContract { header, .. } => header.chain_id,
+                    ApplicationTransaction::CallContract { header, .. } => header.chain_id,
+                    _ => expected_chain_id, // UTXO txs don't have a header
+                },
+                ChainTransaction::System(sys_tx) => sys_tx.header.chain_id,
+            };
+
+            if tx_chain_id != expected_chain_id {
+                return (
+                    StatusCode::OK,
+                    make_err(
+                        &payload.id,
+                        -32001,
+                        format!(
+                            "Wrong chain ID: expected {}, got {}",
+                            expected_chain_id, tx_chain_id
+                        ),
+                    ),
+                );
+            }
 
             // Local admission to mempool
             let new_size = {

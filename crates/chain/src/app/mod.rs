@@ -15,7 +15,7 @@ use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 // FIX: Import the `ChainTransaction` type from the `depin-sdk-types` crate.
 use depin_sdk_types::app::{
     account_id_from_key_material, read_validator_sets, write_validator_sets, AccountId,
-    ActiveKeyRecord, Block, BlockHeader, ChainStatus, ChainTransaction, FailureReport,
+    ActiveKeyRecord, Block, BlockHeader, ChainId, ChainStatus, ChainTransaction, FailureReport,
     SignatureSuite, StateAnchor, StateRoot, SystemPayload, ValidatorSetV1, ValidatorSetsV1,
 };
 use depin_sdk_types::codec;
@@ -39,7 +39,7 @@ pub enum GenesisState {
         /// The final, canonical state root of the fully initialized genesis state.
         root: StateRoot,
         /// The chain ID as loaded from configuration.
-        chain_id: String,
+        chain_id: ChainId,
     },
 }
 
@@ -68,7 +68,7 @@ impl<'a> PenaltyMechanism for PenaltyDelegator<'a> {
 pub struct ChainState<CS: CommitmentScheme + Clone> {
     pub commitment_scheme: CS,
     pub transaction_model: UnifiedTransactionModel<CS>,
-    pub chain_id: String,
+    pub chain_id: ChainId,
     pub status: ChainStatus,
     pub recent_blocks: Vec<Block<ChainTransaction>>,
     pub max_recent_blocks: usize,
@@ -144,7 +144,7 @@ where
     pub fn new(
         commitment_scheme: CS,
         transaction_model: UnifiedTransactionModel<CS>,
-        chain_id: &str,
+        chain_id: ChainId,
         initial_services: Vec<Arc<dyn UpgradableService>>,
         service_factory: ServiceFactory,
         consensus_engine: Consensus<ChainTransaction>,
@@ -171,7 +171,7 @@ where
         let state = ChainState {
             commitment_scheme,
             transaction_model,
-            chain_id: chain_id.to_string(),
+            chain_id,
             status,
             recent_blocks: Vec::new(),
             max_recent_blocks: 100,
@@ -204,7 +204,7 @@ where
                 let root = StateRoot(state.root_commitment().as_ref().to_vec());
                 self.state.genesis_state = GenesisState::Ready {
                     root: root.clone(),
-                    chain_id: self.state.chain_id.clone(),
+                    chain_id: self.state.chain_id,
                 };
                 self.state.last_state_root = root;
             }
@@ -249,7 +249,7 @@ where
 
                 self.state.genesis_state = GenesisState::Ready {
                     root: final_root.clone(),
-                    chain_id: self.state.chain_id.clone(),
+                    chain_id: self.state.chain_id,
                 };
                 self.state.last_state_root = final_root;
             }
@@ -274,7 +274,7 @@ where
     ) -> Result<(), ChainError> {
         let tx_ctx = TxContext {
             block_height,
-            chain_id: self.state.chain_id.parse().unwrap_or(1),
+            chain_id: self.state.chain_id,
             services: &self.services,
             simulation: false,
         };
@@ -563,7 +563,7 @@ where
 
             let end_block_ctx = TxContext {
                 block_height: block.header.height,
-                chain_id: self.state.chain_id.parse().unwrap_or(1),
+                chain_id: self.state.chain_id,
                 services: &self.services,
                 simulation: false,
             };
