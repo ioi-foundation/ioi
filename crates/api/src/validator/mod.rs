@@ -3,7 +3,7 @@
 
 use crate::{
     services::access::ServiceDirectory,
-    state::{StateManager, VmStateAccessor},
+    state::{StateManager, StateVersionPins, VmStateAccessor},
     vm::{ExecutionContext, ExecutionOutput, VirtualMachine, VmStateOverlay},
 };
 use async_trait::async_trait;
@@ -46,6 +46,8 @@ pub struct WorkloadContainer<ST: StateManager> {
     /// The key is a tuple of (state_root, key), and the value is the proof.
     /// This is made public to allow the IPC server to access it.
     pub proof_cache: ProofCache<ST::Proof>,
+    /// A service to pin state versions, preventing them from being pruned during active use.
+    pub pins: Arc<StateVersionPins>,
 }
 
 impl<ST: StateManager + Debug> Debug for WorkloadContainer<ST> {
@@ -101,6 +103,7 @@ where
             vm,
             services,
             proof_cache: Arc::new(Mutex::new(LruCache::new(NonZeroUsize::new(1024).unwrap()))),
+            pins: Arc::new(StateVersionPins::default()),
         }
     }
 

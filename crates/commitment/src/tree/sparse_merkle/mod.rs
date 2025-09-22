@@ -4,7 +4,7 @@
 pub mod verifier;
 
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
-use depin_sdk_api::state::{StateCommitment, StateManager};
+use depin_sdk_api::state::{PrunePlan, StateCommitment, StateManager};
 use depin_sdk_crypto::algorithms::hash; // Uses dcrypt::hash::sha2 underneath
 use depin_sdk_types::app::{to_root_hash, Membership, RootHash};
 use depin_sdk_types::error::StateError;
@@ -517,20 +517,31 @@ where
         Ok(())
     }
 
-    fn prune(&mut self, min_height_to_keep: u64) -> Result<(), StateError> {
+    fn prune(&mut self, plan: &PrunePlan) -> Result<(), StateError> {
         let to_prune: Vec<u64> = self
             .indices
             .versions_by_height
-            .range(..min_height_to_keep)
+            .range(..plan.cutoff_height)
             .map(|(h, _)| *h)
             .collect();
 
         if !to_prune.is_empty() {
-            log::debug!("[SMT] Pruning {} old versions.", to_prune.len());
+            log::debug!(
+                "[SMT] Pruning up to {} old versions (cutoff {}).",
+                to_prune.len(),
+                plan.cutoff_height
+            );
+            let mut pruned_count = 0;
             for h in to_prune {
-                if let Some(root_hash) = self.indices.versions_by_height.remove(&h) {
-                    self.decrement_refcount(root_hash);
+                if !plan.excluded_heights.contains(&h) {
+                    if let Some(root_hash) = self.indices.versions_by_height.remove(&h) {
+                        self.decrement_refcount(root_hash);
+                        pruned_count += 1;
+                    }
                 }
+            }
+            if pruned_count > 0 {
+                log::debug!("[SMT] Pruned {} old versions.", pruned_count);
             }
         }
         Ok(())
