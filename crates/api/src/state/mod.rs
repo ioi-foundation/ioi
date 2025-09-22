@@ -5,18 +5,41 @@ use crate::commitment::CommitmentScheme;
 use async_trait::async_trait;
 use depin_sdk_types::app::Membership;
 use depin_sdk_types::error::StateError;
-// ADD THIS IMPORT
 use parity_scale_codec::{Decode, Encode};
+use std::collections::BTreeSet;
 
 mod accessor;
 mod commitment;
 mod manager;
 mod overlay;
+pub mod pins;
 
 pub use accessor::*;
 pub use commitment::*;
 pub use manager::*;
 pub use overlay::*;
+pub use pins::{PinGuard, StateVersionPins};
+
+/// A plan detailing which historical state versions should be pruned.
+/// This decouples the decision-making (which can be async and involve multiple checks)
+/// from the synchronous pruning action within the state manager.
+#[derive(Debug, Clone, Default)]
+pub struct PrunePlan {
+    /// The primary cutoff height. Any version with a height *strictly less than* this
+    /// is a candidate for pruning.
+    pub cutoff_height: u64,
+    /// A set of heights that must be excluded from pruning, even if they are below the cutoff.
+    /// This is used to "pin" versions that are actively in use for tasks like proof generation.
+    pub excluded_heights: BTreeSet<u64>,
+}
+
+impl PrunePlan {
+    /// Checks if a given height is explicitly excluded from this pruning plan.
+    #[inline]
+    pub fn excludes(&self, height: u64) -> bool {
+        self.excluded_heights.contains(&height)
+    }
+}
 
 /// A trait for a stateless cryptographic proof verifier.
 ///
@@ -27,7 +50,6 @@ pub trait Verifier: Send + Sync {
     /// The concrete type of a cryptographic commitment (e.g., a hash, a curve point).
     type Commitment: Clone + Send + Sync + 'static;
     /// The concrete type of a proof (e.g., a Merkle path, a KZG proof).
-    // MODIFICATION: Add Encode and Decode bounds
     type Proof: Encode + Decode + for<'de> serde::Deserialize<'de> + Send + Sync + 'static;
 
     /// Converts raw bytes (from IPC/storage) into the concrete Commitment type.

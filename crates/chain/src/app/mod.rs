@@ -6,13 +6,12 @@ use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::consensus::PenaltyMechanism;
 use depin_sdk_api::services::access::{Service, ServiceDirectory};
 use depin_sdk_api::services::UpgradableService;
-use depin_sdk_api::state::{StateAccessor, StateManager, StateOverlay};
+use depin_sdk_api::state::{PinGuard, StateAccessor, StateManager, StateOverlay};
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_transaction_models::system::{nonce, validation};
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-// FIX: Import the `ChainTransaction` type from the `depin-sdk-types` crate.
 use depin_sdk_types::app::{
     account_id_from_key_material, read_validator_sets, write_validator_sets, AccountId,
     ActiveKeyRecord, Block, BlockHeader, ChainId, ChainStatus, ChainTransaction, FailureReport,
@@ -496,6 +495,11 @@ where
         // copy-on-write overlay of the current state. This involves async I/O for
         // reading from the canonical state but does not acquire a write lock on it.
         let state_changes = {
+            // Create a PinGuard for the parent state height.
+            // This ensures that the state version we are reading from cannot be pruned
+            // by a concurrent GC task while we are simulating transactions.
+            // The pin is automatically released when `_pin_guard` goes out of scope.
+            let _pin_guard = PinGuard::new(workload.pins.clone(), self.state.status.height).await;
             // Step 1: Create a temporary, in-memory snapshot of the current state.
             // This acquires a read lock only for the duration of the state clone,
             // not for the entire transaction processing loop.

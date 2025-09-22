@@ -1,6 +1,7 @@
 // Path: crates/api/src/state/manager.rs
 //! Defines the `StateManager` trait, a higher-level abstraction over `StateCommitment`.
 
+use crate::state::PrunePlan;
 use crate::state::StateCommitment;
 use depin_sdk_types::app::{Membership, RootHash};
 use depin_sdk_types::error::StateError;
@@ -38,9 +39,10 @@ pub trait StateManager: StateCommitment {
         deletes: &[Vec<u8>],
     ) -> Result<(), StateError>;
 
-    /// Prunes historical state versions older than the specified block height.
-    /// This is a hint to the backend; not all state managers may support versioning.
-    fn prune(&mut self, min_height_to_keep: u64) -> Result<(), StateError>;
+    /// Prunes historical state versions according to a specific plan.
+    /// The plan defines a cutoff height and a set of pinned heights to exclude, ensuring
+    /// that versions required for consensus or active operations are not deleted.
+    fn prune(&mut self, plan: &PrunePlan) -> Result<(), StateError>;
 
     /// Commits the current pending changes, creating a snapshot associated with a block height.
     ///
@@ -95,8 +97,8 @@ impl<T: StateManager + ?Sized> StateManager for Box<T> {
         (**self).batch_apply(inserts, deletes)
     }
 
-    fn prune(&mut self, min_height_to_keep: u64) -> Result<(), StateError> {
-        (**self).prune(min_height_to_keep)
+    fn prune(&mut self, plan: &PrunePlan) -> Result<(), StateError> {
+        (**self).prune(plan)
     }
 
     fn commit_version(&mut self, height: u64) -> Result<RootHash, StateError> {

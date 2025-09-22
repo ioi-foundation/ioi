@@ -4,9 +4,11 @@ pub mod methods;
 pub mod router;
 
 use anyhow::{anyhow, Result};
-use depin_sdk_api::chain::AppChain; // <-- Import the AppChain trait
+use depin_sdk_api::chain::AppChain;
 use depin_sdk_api::{
-    commitment::CommitmentScheme, state::StateManager, validator::WorkloadContainer,
+    commitment::CommitmentScheme,
+    state::{PrunePlan, StateManager},
+    validator::WorkloadContainer,
 };
 use depin_sdk_chain::Chain;
 use depin_sdk_client::security::SecurityChannel;
@@ -162,6 +164,7 @@ where
         let state_tree_for_gc = self.workload_container.state_tree();
         let chain_for_gc = self.chain_arc.clone();
         let gc_config = self.workload_container.config().clone();
+        let pins_for_gc = self.workload_container.pins.clone();
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(3600)); // Prune every hour
             let min_finality_depth = gc_config.min_finality_depth;
@@ -169,26 +172,37 @@ where
 
             loop {
                 interval.tick().await;
-                let current_height = AppChain::status(&*chain_for_gc.lock().await).height;
+                // --- PHASE 2: PrunePlan Generation ---
+                let plan = {
+                    let current_height = AppChain::status(&*chain_for_gc.lock().await).height;
 
-                // Use current_height as a stand-in for finalized_height for now.
-                // This is safe because min() will select the more conservative (older) cutoff height.
-                let finalized_height = current_height;
+                    // A real implementation would get finalized_height from the consensus engine state.
+                    // For now, we use current_height as a safe proxy.
+                    let finalized_height = current_height;
 
-                // Calculate the two potential cutoff points
-                let horizon_cutoff = current_height.saturating_sub(keep_recent_heights);
-                let finality_cutoff = finalized_height.saturating_sub(min_finality_depth);
+                    // Calculate the two potential cutoff points
+                    let horizon_cutoff = current_height.saturating_sub(keep_recent_heights);
+                    let finality_cutoff = finalized_height.saturating_sub(min_finality_depth);
 
-                // The actual cutoff is the minimum of the two, ensuring we satisfy both constraints.
-                let cutoff_height = horizon_cutoff.min(finality_cutoff);
+                    // The actual cutoff is the minimum of the two, ensuring we satisfy both constraints.
+                    let cutoff_height = horizon_cutoff.min(finality_cutoff);
 
-                if current_height > 0 && cutoff_height > 0 {
+                    // Get a snapshot of all actively pinned versions.
+                    let excluded_heights = pins_for_gc.snapshot().await;
+
+                    PrunePlan {
+                        cutoff_height,
+                        excluded_heights,
+                    }
+                };
+
+                if plan.cutoff_height > 0 {
                     log::debug!(
-                        "[GC] Pruning state versions older than height {}",
-                        cutoff_height
+                        "[GC] Pruning state versions older than height {}, excluding {} pinned versions.",
+                        plan.cutoff_height, plan.excluded_heights.len()
                     );
                     let mut state = state_tree_for_gc.write().await;
-                    if let Err(e) = state.prune(cutoff_height) {
+                    if let Err(e) = state.prune(&plan) {
                         log::error!("[GC] State pruning failed: {}", e);
                     }
                 }
