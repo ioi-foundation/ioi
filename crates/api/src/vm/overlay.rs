@@ -2,7 +2,7 @@
 use crate::state::VmStateAccessor;
 use async_trait::async_trait;
 use dashmap::DashMap;
-use depin_sdk_types::{app::StateEntry, error::StateError};
+use depin_sdk_types::{app::StateEntry, codec, error::StateError};
 use std::collections::HashMap;
 use std::fmt::{self, Debug};
 use std::sync::Arc;
@@ -56,7 +56,7 @@ impl VmStateAccessor for VmStateOverlay {
         }
         match self.parent.get(key).await? {
             Some(bytes) => {
-                let entry: StateEntry = serde_json::from_slice(&bytes)
+                let entry: StateEntry = codec::from_bytes_canonical(&bytes)
                     .map_err(|e| StateError::InvalidValue(e.to_string()))?;
                 Ok(Some(entry.value))
             }
