@@ -351,7 +351,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     assert_log_contains(
         "Orchestration",
         &mut orch_logs,
-        "Published transaction via gossip",
+        "[RPC] Admitted tx to mempool",
     )
     .await?;
 
@@ -383,7 +383,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     assert_log_contains(
         "Orchestration",
         &mut orch_logs,
-        "Published transaction via gossip",
+        "[RPC] Admitted tx to mempool",
     )
     .await?;
 
@@ -410,7 +410,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     assert_log_contains(
         "Orchestration",
         &mut orch_logs,
-        "Published transaction via gossip",
+        "[RPC] Admitted tx to mempool",
     )
     .await?;
 
@@ -462,7 +462,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     assert_log_contains(
         "Orchestration",
         &mut orch_logs,
-        "Published transaction via gossip",
+        "[RPC] Admitted tx to mempool",
     )
     .await?;
 
@@ -485,7 +485,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     assert_log_contains(
         "Orchestration",
         &mut orch_logs,
-        "Published transaction via gossip",
+        "[RPC] Admitted tx to mempool",
     )
     .await?;
 

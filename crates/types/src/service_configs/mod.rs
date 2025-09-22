@@ -18,3 +18,33 @@ pub struct MigrationConfig {
     /// The unique identifier of the chain, used to prevent cross-chain replay attacks on rotation proofs.
     pub chain_id: u32,
 }
+
+/// Configuration parameters for the Governance service.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GovernanceParams {
+    /// The minimum deposit required to submit a proposal.
+    pub min_deposit: u64,
+    /// The maximum duration, in blocks, that a proposal can remain in the deposit period.
+    pub max_deposit_period_blocks: u64,
+    /// The duration of the voting period in blocks.
+    pub voting_period_blocks: u64,
+    /// The percentage of total voting power that must participate for a proposal to be considered valid (e.g., 33 for 33%).
+    pub quorum: u8,
+    /// The percentage of non-abstaining votes that must be 'Yes' for a proposal to pass (e.g., 50 for >50%).
+    pub threshold: u8,
+    /// The percentage of non-abstaining votes that can be 'NoWithVeto' before a proposal is immediately rejected (e.g., 33 for >33%).
+    pub veto_threshold: u8,
+}
+
+impl Default for GovernanceParams {
+    fn default() -> Self {
+        Self {
+            min_deposit: 10000,
+            max_deposit_period_blocks: 20160, // ~14 days at 60s/block
+            voting_period_blocks: 20160,      // ~14 days
+            quorum: 33,
+            threshold: 50,
+            veto_threshold: 33,
+        }
+    }
+}

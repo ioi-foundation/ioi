@@ -6,13 +6,12 @@ pub mod verifier;
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
 use depin_sdk_api::state::{StateCommitment, StateManager};
 use depin_sdk_crypto::algorithms::hash; // Uses dcrypt::hash::sha2 underneath
-use depin_sdk_types::app::Membership;
+use depin_sdk_types::app::{to_root_hash, Membership, RootHash};
 use depin_sdk_types::error::StateError;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
-use std::collections::HashMap;
-
-const TREE_HEIGHT: usize = 256; // For 256-bit keys
+use std::collections::{BTreeMap, HashMap};
+use std::sync::Arc;
 
 /// Sparse Merkle tree node
 #[derive(Debug, Clone, PartialEq)]
@@ -23,8 +22,8 @@ enum Node {
         value: Vec<u8>,
     },
     Branch {
-        left: Box<Node>,
-        right: Box<Node>,
+        left: Arc<Node>,
+        right: Arc<Node>,
         hash: Vec<u8>,
     },
 }
@@ -64,28 +63,43 @@ pub struct SparseMerkleProof {
 /// Sparse Merkle tree implementation
 #[derive(Debug, Clone)]
 pub struct SparseMerkleTree<CS: CommitmentScheme> {
-    root: Node,
+    root: Arc<Node>,
     scheme: CS,
     cache: HashMap<Vec<u8>, Vec<u8>>, // Key-value cache for efficient lookups
-    versions: HashMap<Vec<u8>, Node>, // root_hash -> snapshot of that root
+    indices: Indices,
+}
+
+#[derive(Debug, Clone, Default)]
+struct Indices {
+    versions_by_height: BTreeMap<u64, RootHash>,
+    root_refcount: HashMap<RootHash, u32>,
+    roots: HashMap<RootHash, Arc<Node>>,
 }
 
 impl<CS: CommitmentScheme> SparseMerkleTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
 {
+    const TREE_HEIGHT: usize = 256; // For 256-bit keys
+
     /// Create a new sparse Merkle tree
     pub fn new(scheme: CS) -> Self {
-        let mut this = Self {
-            root: Node::Empty,
+        Self {
+            root: Arc::new(Node::Empty),
             scheme,
             cache: HashMap::new(),
-            versions: HashMap::new(),
-        };
-        // Store the empty root snapshot so queries against the initial anchor work.
-        let empty_root = this.root.hash();
-        this.versions.insert(empty_root, this.root.clone());
-        this
+            indices: Indices::default(),
+        }
+    }
+
+    fn decrement_refcount(&mut self, root_hash: RootHash) {
+        if let Some(c) = self.indices.root_refcount.get_mut(&root_hash) {
+            *c = c.saturating_sub(1);
+            if *c == 0 {
+                self.indices.root_refcount.remove(&root_hash);
+                self.indices.roots.remove(&root_hash);
+            }
+        }
     }
 
     fn to_value(&self, bytes: &[u8]) -> CS::Value {
@@ -104,33 +118,39 @@ where
 
     /// Update the tree with a new key-value pair
     #[allow(clippy::only_used_in_recursion)]
-    fn update_node(&self, node: &Node, key: &[u8], value: Option<&[u8]>, depth: usize) -> Node {
-        if depth >= TREE_HEIGHT {
+    fn update_node(
+        &self,
+        node: &Arc<Node>,
+        key: &[u8],
+        value: Option<&[u8]>,
+        depth: usize,
+    ) -> Arc<Node> {
+        if depth >= Self::TREE_HEIGHT {
             return if let Some(v) = value {
-                Node::Leaf {
+                Arc::new(Node::Leaf {
                     key: key.to_vec(),
                     value: v.to_vec(),
-                }
+                })
             } else {
-                Node::Empty
+                Arc::new(Node::Empty)
             };
         }
 
-        match node {
+        match node.as_ref() {
             Node::Empty => {
                 if value.is_none() {
-                    return Node::Empty;
+                    return Arc::new(Node::Empty);
                 }
                 // Path is empty. Create a new path of branches down to the leaf.
-                let child = self.update_node(&Node::Empty, key, value, depth + 1);
+                let child = self.update_node(&Arc::new(Node::Empty), key, value, depth + 1);
                 let bit = Self::get_bit(key, depth);
                 let (left, right) = if bit {
-                    (Box::new(Node::Empty), Box::new(child))
+                    (Arc::new(Node::Empty), child)
                 } else {
-                    (Box::new(child), Box::new(Node::Empty))
+                    (child, Arc::new(Node::Empty))
                 };
                 let hash = Node::compute_branch_hash(&left, &right);
-                Node::Branch { left, right, hash }
+                Arc::new(Node::Branch { left, right, hash })
             }
             Node::Leaf {
                 key: leaf_key,
@@ -139,44 +159,38 @@ where
                 if leaf_key == key {
                     // Exact key match: update the value or delete the leaf.
                     return if let Some(v) = value {
-                        Node::Leaf {
+                        Arc::new(Node::Leaf {
                             key: key.to_vec(),
                             value: v.to_vec(),
-                        }
+                        })
                     } else {
-                        Node::Empty
+                        Arc::new(Node::Empty)
                     };
                 }
 
                 // A different key exists at this path. Split them into a new branch.
                 // First, create a branch for the new key as if this spot were empty.
-                let new_node_branch = self.update_node(&Node::Empty, key, value, depth);
+                let new_node_branch = self.update_node(&Arc::new(Node::Empty), key, value, depth);
                 // Then, insert the old leaf into that new structure.
                 self.update_node(&new_node_branch, leaf_key, Some(leaf_value), depth)
             }
             Node::Branch { left, right, .. } => {
                 let bit = Self::get_bit(key, depth);
                 let (new_left, new_right) = if bit {
-                    (
-                        left.as_ref().clone(),
-                        self.update_node(right, key, value, depth + 1),
-                    )
+                    (left.clone(), self.update_node(right, key, value, depth + 1))
                 } else {
-                    (
-                        self.update_node(left, key, value, depth + 1),
-                        right.as_ref().clone(),
-                    )
+                    (self.update_node(left, key, value, depth + 1), right.clone())
                 };
 
-                if new_left == Node::Empty && new_right == Node::Empty {
-                    Node::Empty
+                if *new_left == Node::Empty && *new_right == Node::Empty {
+                    Arc::new(Node::Empty)
                 } else {
                     let hash = Node::compute_branch_hash(&new_left, &new_right);
-                    Node::Branch {
-                        left: Box::new(new_left),
-                        right: Box::new(new_right),
+                    Arc::new(Node::Branch {
+                        left: new_left,
+                        right: new_right,
                         hash,
-                    }
+                    })
                 }
             }
         }
@@ -185,10 +199,10 @@ where
     /// Generate a proof for a key
     fn generate_proof(&self, key: &[u8]) -> SparseMerkleProof {
         let mut siblings = Vec::new();
-        let mut current = &self.root;
+        let mut current = self.root.clone();
 
-        for depth in 0..TREE_HEIGHT {
-            match current {
+        for depth in 0..Self::TREE_HEIGHT {
+            match current.as_ref() {
                 Node::Empty => break,
                 Node::Leaf { .. } => {
                     break;
@@ -197,10 +211,10 @@ where
                     let bit = Self::get_bit(key, depth);
                     if bit {
                         siblings.push(left.hash());
-                        current = right;
+                        current = right.clone();
                     } else {
                         siblings.push(right.hash());
-                        current = left;
+                        current = left.clone();
                     }
                 }
             }
@@ -209,7 +223,7 @@ where
         let leaf = if let Node::Leaf {
             key: leaf_key,
             value,
-        } = current
+        } = current.as_ref()
         {
             Some((leaf_key.clone(), value.clone()))
         } else {
@@ -219,8 +233,8 @@ where
         SparseMerkleProof { siblings, leaf }
     }
 
-    fn get_from_snapshot(node: &Node, key: &[u8], depth: usize) -> Option<Vec<u8>> {
-        match node {
+    fn get_from_snapshot(node: &Arc<Node>, key: &[u8], depth: usize) -> Option<Vec<u8>> {
+        match node.as_ref() {
             Node::Empty => None,
             Node::Leaf { key: k, value: v } => (k.as_slice() == key).then(|| v.clone()),
             Node::Branch { left, right, .. } => {
@@ -233,11 +247,11 @@ where
         }
     }
 
-    fn generate_proof_from_snapshot(start: &Node, key: &[u8]) -> SparseMerkleProof {
+    fn generate_proof_from_snapshot(start: &Arc<Node>, key: &[u8]) -> SparseMerkleProof {
         let mut siblings = Vec::new();
-        let mut current = start;
-        for depth in 0..TREE_HEIGHT {
-            match current {
+        let mut current = start.clone();
+        for depth in 0..Self::TREE_HEIGHT {
+            match current.as_ref() {
                 Node::Empty => break,
                 Node::Leaf { .. } => {
                     // Path terminates here. The verifier will determine if this is the
@@ -247,16 +261,16 @@ where
                 Node::Branch { left, right, .. } => {
                     if Self::get_bit(key, depth) {
                         siblings.push(left.hash());
-                        current = right;
+                        current = right.clone();
                     } else {
                         siblings.push(right.hash());
-                        current = left;
+                        current = left.clone();
                     }
                 }
             }
         }
 
-        let leaf = match current {
+        let leaf = match current.as_ref() {
             Node::Leaf { key, value } => Some((key.clone(), value.clone())),
             _ => None,
         };
@@ -428,17 +442,14 @@ where
         root: &Self::Commitment,
         key: &[u8],
     ) -> Result<(Membership, Self::Proof), StateError> {
-        let requested = root.as_ref();
+        let root_hash: RootHash = to_root_hash(root.as_ref())?;
         // Resolve snapshot for the requested root.
-        let snapshot = if let Some(n) = self.versions.get(requested) {
-            n
-        } else {
-            // If no snapshot was recorded for this root, treat as StaleAnchor (the orchestrator already knows how to retry on this hint).
-            return Err(StateError::Backend(format!(
+        let snapshot = self.indices.roots.get(&root_hash).ok_or_else(|| {
+            StateError::Backend(format!(
                 "StaleAnchor(SMT): unknown root {}",
-                hex::encode(requested)
-            )));
-        };
+                hex::encode(root_hash)
+            ))
+        })?;
 
         // Build membership and proof *from the snapshot*, not from live state.
         let membership = match Self::get_from_snapshot(snapshot, key, 0) {
@@ -449,10 +460,10 @@ where
 
         // Server-side self-check: ensure the proof actually anchors to the requested root.
         let expected_value = membership.clone().into_option();
-        if !Self::verify_proof_static(requested, key, expected_value.as_deref(), &merkle_proof) {
+        if !Self::verify_proof_static(&root_hash, key, expected_value.as_deref(), &merkle_proof) {
             log::error!(
                 "[SMT Server] self-verify failed (root={}, key={})",
-                hex::encode(requested),
+                hex::encode(root_hash),
                 hex::encode(key)
             );
             return Err(StateError::Backend("SMT self-verify failed".into()));
@@ -506,24 +517,63 @@ where
         Ok(())
     }
 
-    fn prune(&mut self, _min_height_to_keep: u64) -> Result<(), StateError> {
-        // This is an in-memory, non-versioned tree. Pruning is a no-op.
+    fn prune(&mut self, min_height_to_keep: u64) -> Result<(), StateError> {
+        let to_prune: Vec<u64> = self
+            .indices
+            .versions_by_height
+            .range(..min_height_to_keep)
+            .map(|(h, _)| *h)
+            .collect();
+
+        if !to_prune.is_empty() {
+            log::debug!("[SMT] Pruning {} old versions.", to_prune.len());
+            for h in to_prune {
+                if let Some(root_hash) = self.indices.versions_by_height.remove(&h) {
+                    self.decrement_refcount(root_hash);
+                }
+            }
+        }
         Ok(())
     }
 
-    fn commit_version(&mut self) {
-        // Record a snapshot for the current root so future reads can be anchored.
-        let root_hash = self.root.hash();
-        self.versions.insert(root_hash, self.root.clone());
-        log::debug!(
-            "[SMT] commit_version: recorded snapshot for root {}",
-            // FIX: Removed unnecessary borrow (`&`).
-            hex::encode(self.root.hash())
-        );
+    fn commit_version(&mut self, height: u64) -> Result<RootHash, StateError> {
+        let root_hash = to_root_hash(self.root.hash())?;
+
+        match self.indices.versions_by_height.insert(height, root_hash) {
+            // Case 1: This is a new height, or a reorg to a different root.
+            None => {
+                let count = self.indices.root_refcount.entry(root_hash).or_insert(0);
+                if *count == 0 {
+                    // First time seeing this root hash, store the actual node.
+                    self.indices.roots.insert(root_hash, self.root.clone());
+                }
+                *count += 1;
+            }
+            Some(prev_root) if prev_root != root_hash => {
+                // It's a reorg. Decrement the old root's count and increment the new one's.
+                self.decrement_refcount(prev_root);
+
+                let count = self.indices.root_refcount.entry(root_hash).or_insert(0);
+                if *count == 0 {
+                    self.indices.roots.insert(root_hash, self.root.clone());
+                }
+                *count += 1;
+            }
+            // Case 2: Same root hash was already recorded for this height. Do nothing.
+            Some(_prev_same_root) => {
+                // The refcount for this root is already correct for this height. No-op.
+            }
+        }
+
+        Ok(root_hash)
     }
 
     fn version_exists_for_root(&self, root: &Self::Commitment) -> bool {
-        self.versions.contains_key(root.as_ref())
+        if let Ok(root_hash) = to_root_hash(root.as_ref()) {
+            self.indices.roots.contains_key(&root_hash)
+        } else {
+            false
+        }
     }
 }
 

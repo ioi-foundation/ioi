@@ -78,4 +78,36 @@ impl<'a> StateAccessor for StateOverlay<'a> {
         }
         Ok(())
     }
+
+    fn prefix_scan(
+        &self,
+        prefix: &[u8],
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>, depin_sdk_types::error::StateError> {
+        // 1. Get the results from the base state.
+        let mut base_results: BTreeMap<Vec<u8>, Vec<u8>> =
+            self.base.prefix_scan(prefix)?.into_iter().collect();
+
+        // 2. Iterate through the overlay's writes that match the prefix.
+        // BTreeMap's range iterator is efficient for this.
+        for (key, value_opt) in self.writes.range(prefix.to_vec()..) {
+            if !key.starts_with(prefix) {
+                // We've moved past the relevant prefix in the sorted map.
+                break;
+            }
+
+            match value_opt {
+                // An insert or update in the overlay.
+                Some(value) => {
+                    base_results.insert(key.clone(), value.clone());
+                }
+                // A delete in the overlay.
+                None => {
+                    base_results.remove(key);
+                }
+            }
+        }
+
+        // 3. Convert the merged BTreeMap back to the required Vec format.
+        Ok(base_results.into_iter().collect())
+    }
 }

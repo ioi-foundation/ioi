@@ -4,6 +4,7 @@
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
+use depin_sdk_api::services::access::{Service, ServiceDirectory};
 use depin_sdk_api::services::UpgradableService;
 use depin_sdk_api::validator::container::Container;
 use depin_sdk_chain::Chain;
@@ -11,8 +12,10 @@ use depin_sdk_client::WorkloadClient;
 use depin_sdk_consensus::util::engine_from_config;
 use depin_sdk_crypto::sign::dilithium::DilithiumKeyPair;
 use depin_sdk_network::libp2p::Libp2pSync;
+use depin_sdk_services::governance::GovernanceModule;
+use depin_sdk_services::identity::IdentityHub;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-use depin_sdk_types::config::OrchestrationConfig;
+use depin_sdk_types::config::{InitialServiceConfig, OrchestrationConfig};
 use depin_sdk_types::error::CoreError;
 use depin_sdk_validator::standard::orchestration::OrchestrationDependencies;
 use depin_sdk_validator::standard::{
@@ -242,6 +245,29 @@ where
     let consensus_for_chain = consensus_engine.clone();
     let chain_ref = {
         let tm = UnifiedTransactionModel::new(commitment_scheme.clone());
+
+        // --- FIX START: Instantiate services for the Orchestrator's chain instance ---
+        // This is necessary for the transaction pre-check simulation to find required services.
+        let mut initial_services = Vec::new();
+        for service_config in &workload_config.initial_services {
+            match service_config {
+                InitialServiceConfig::IdentityHub(migration_config) => {
+                    let hub = IdentityHub::new(migration_config.clone());
+                    initial_services.push(Arc::new(hub) as Arc<dyn UpgradableService>);
+                }
+                InitialServiceConfig::Governance(params) => {
+                    let gov = GovernanceModule::new(params.clone());
+                    initial_services.push(Arc::new(gov) as Arc<dyn UpgradableService>);
+                }
+            }
+        }
+        let services_for_dir: Vec<Arc<dyn Service>> = initial_services
+            .iter()
+            .map(|s| s.clone() as Arc<dyn Service>)
+            .collect();
+        let service_directory = ServiceDirectory::new(services_for_dir);
+        // --- FIX END ---
+
         let dummy_workload_config = WorkloadConfig {
             enabled_vms: vec![],
             state_tree: workload_config.state_tree.clone(),
@@ -252,18 +278,20 @@ where
             srs_file_path: workload_config.srs_file_path.clone(),
             fuel_costs: Default::default(),
             initial_services: vec![],
+            min_finality_depth: workload_config.min_finality_depth,
+            keep_recent_heights: workload_config.keep_recent_heights,
         };
         let workload_container = Arc::new(depin_sdk_api::validator::WorkloadContainer::new(
             dummy_workload_config,
             state_tree,
             Box::new(depin_sdk_vm_wasm::WasmVm::new(Default::default())),
-            Default::default(),
+            service_directory, // <-- Pass the populated directory here
         ));
         let chain = Chain::new(
             commitment_scheme,
             tm,
             config.chain_id,
-            vec![],
+            initial_services, // <-- And pass the instantiated services here
             Box::new(
                 |_wasm_bytes: &[u8]| -> Result<Arc<dyn UpgradableService>, CoreError> {
                     Err(CoreError::Custom(

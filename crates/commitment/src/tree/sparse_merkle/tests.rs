@@ -1,5 +1,4 @@
 // Path: crates/commitment/src/tree/sparse_merkle/tests.rs
-// FIX: Removed the redundant `#![cfg(test)]` attribute.
 
 use super::{Node, SparseMerkleProof, SparseMerkleTree};
 use crate::primitives::hash::HashCommitmentScheme;
@@ -15,7 +14,7 @@ fn test_smt_presence_and_absence_proofs() {
     // Their paths will match for the first 8 bits (0xAA).
     tree.insert(b"\xAA\x00", b"value1").unwrap();
     tree.insert(b"\xAA\xFF", b"value2").unwrap();
-    tree.commit_version();
+    tree.commit_version(1).unwrap();
 
     let root = tree.root_commitment();
     assert_ne!(root.as_ref(), Node::Empty.hash().as_slice());
@@ -123,7 +122,7 @@ proptest! {
         let mut tree = SparseMerkleTree::new(HashCommitmentScheme::new());
         tree.insert(&k1, &v1).unwrap();
         tree.insert(&k2, &v2).unwrap();
-        tree.commit_version();
+        tree.commit_version(1).unwrap();
         let root = tree.root_commitment();
 
         // Act: Generate the non-membership proof for the constructed key 'q'.

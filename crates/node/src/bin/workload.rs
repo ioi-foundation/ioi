@@ -12,6 +12,7 @@ use depin_sdk_chain::util::load_state_from_genesis_file;
 use depin_sdk_chain::wasm_loader::load_service_from_wasm;
 use depin_sdk_chain::Chain;
 use depin_sdk_consensus::util::engine_from_config;
+use depin_sdk_services::governance::GovernanceModule;
 use depin_sdk_services::identity::IdentityHub;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
@@ -77,6 +78,12 @@ where
                 let hub = IdentityHub::new(migration_config.clone());
                 initial_services
                     .push(Arc::new(hub) as Arc<dyn depin_sdk_api::services::UpgradableService>);
+            }
+            InitialServiceConfig::Governance(params) => {
+                log::info!("[Workload] Instantiating initial service: Governance");
+                let gov = GovernanceModule::new(params.clone());
+                initial_services
+                    .push(Arc::new(gov) as Arc<dyn depin_sdk_api::services::UpgradableService>);
             }
         }
     }

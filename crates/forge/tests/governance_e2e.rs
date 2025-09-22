@@ -8,39 +8,42 @@ use depin_sdk_forge::testing::{
     assert_log_contains, build_test_artifacts, poll::wait_for_proposal_status, submit_transaction,
     TestCluster,
 };
-use depin_sdk_types::app::{
-    // Add these imports
-    account_id_from_key_material,
-    AccountId,
-    ActiveKeyRecord,
-    ChainId,
-    ChainTransaction,
-    Credential,
-    Proposal,
-    ProposalStatus,
-    ProposalType,
-    SignHeader,
-    SignatureProof,
-    SignatureSuite,
-    SystemPayload,
-    SystemTransaction,
-    ValidatorSetBlob,
-    ValidatorSetV1,
-    ValidatorSetsV1,
-    ValidatorV1,
-    VoteOption,
+use depin_sdk_types::service_configs::GovernanceParams;
+use depin_sdk_types::{
+    app::{
+        // Add these imports
+        account_id_from_key_material,
+        AccountId,
+        ActiveKeyRecord,
+        ChainId,
+        ChainTransaction,
+        Credential,
+        Proposal,
+        ProposalStatus,
+        ProposalType,
+        SignHeader,
+        SignatureProof,
+        SignatureSuite,
+        SystemPayload,
+        SystemTransaction,
+        ValidatorSetBlob,
+        ValidatorSetV1,
+        ValidatorSetsV1,
+        ValidatorV1,
+        VoteOption,
+    },
+    codec,                        // Add this import
+    config::InitialServiceConfig, // Add this import
+    keys::{
+        // Add these imports
+        ACCOUNT_ID_TO_PUBKEY_PREFIX,
+        GOVERNANCE_KEY,
+        GOVERNANCE_PROPOSAL_KEY_PREFIX,
+        IDENTITY_CREDENTIALS_PREFIX,
+        VALIDATOR_SET_KEY,
+    },
+    service_configs::MigrationConfig, // Add this import
 };
-use depin_sdk_types::codec; // Add this import
-use depin_sdk_types::config::InitialServiceConfig; // Add this import
-use depin_sdk_types::keys::{
-    // Add these imports
-    ACCOUNT_ID_TO_PUBKEY_PREFIX,
-    GOVERNANCE_KEY,
-    GOVERNANCE_PROPOSAL_KEY_PREFIX,
-    IDENTITY_CREDENTIALS_PREFIX,
-    VALIDATOR_SET_KEY,
-};
-use depin_sdk_types::service_configs::MigrationConfig; // Add this import
 use libp2p::identity::{self, Keypair};
 use serde_json::json;
 use std::time::Duration;
@@ -103,6 +106,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
             allowed_target_suites: vec![SignatureSuite::Ed25519],
             allow_downgrade: false,
         }))
+        .with_initial_service(InitialServiceConfig::Governance(GovernanceParams::default()))
         .with_genesis_modifier(move |genesis, keys| {
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
             let validator_key = &keys[0];
@@ -236,11 +240,11 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
     let tx = create_system_tx(validator_key, payload, 0, 1.into())?;
     submit_transaction(rpc_addr, &tx).await?;
 
-    // 5. ASSERT the vote was accepted & gossiped (confirms the transaction part of the flow)
+    // 5. ASSERT the vote was accepted (in single-node tests there is nothing to gossip to)
     assert_log_contains(
         "Orchestration",
         &mut orch_logs,
-        "[RPC] Published transaction via gossip.",
+        "[RPC] Admitted tx to mempool",
     )
     .await?;
 

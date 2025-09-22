@@ -161,20 +161,34 @@ where
 
         let state_tree_for_gc = self.workload_container.state_tree();
         let chain_for_gc = self.chain_arc.clone();
+        let gc_config = self.workload_container.config().clone();
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(3600)); // Prune every hour
-            const PRUNE_HORIZON: u64 = 100_000; // Keep ~1 week of state @ 6s blocks
+            let min_finality_depth = gc_config.min_finality_depth;
+            let keep_recent_heights = gc_config.keep_recent_heights;
 
             loop {
                 interval.tick().await;
                 let current_height = AppChain::status(&*chain_for_gc.lock().await).height;
-                if let Some(min_height) = current_height.checked_sub(PRUNE_HORIZON) {
-                    log::info!(
+
+                // Use current_height as a stand-in for finalized_height for now.
+                // This is safe because min() will select the more conservative (older) cutoff height.
+                let finalized_height = current_height;
+
+                // Calculate the two potential cutoff points
+                let horizon_cutoff = current_height.saturating_sub(keep_recent_heights);
+                let finality_cutoff = finalized_height.saturating_sub(min_finality_depth);
+
+                // The actual cutoff is the minimum of the two, ensuring we satisfy both constraints.
+                let cutoff_height = horizon_cutoff.min(finality_cutoff);
+
+                if current_height > 0 && cutoff_height > 0 {
+                    log::debug!(
                         "[GC] Pruning state versions older than height {}",
-                        min_height
+                        cutoff_height
                     );
                     let mut state = state_tree_for_gc.write().await;
-                    if let Err(e) = state.prune(min_height) {
+                    if let Err(e) = state.prune(cutoff_height) {
                         log::error!("[GC] State pruning failed: {}", e);
                     }
                 }

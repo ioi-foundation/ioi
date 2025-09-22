@@ -2,7 +2,7 @@
 //! Defines the `StateManager` trait, a higher-level abstraction over `StateCommitment`.
 
 use crate::state::StateCommitment;
-use depin_sdk_types::app::Membership;
+use depin_sdk_types::app::{Membership, RootHash};
 use depin_sdk_types::error::StateError;
 
 /// The state manager interface, adding proof generation and batching capabilities.
@@ -42,9 +42,17 @@ pub trait StateManager: StateCommitment {
     /// This is a hint to the backend; not all state managers may support versioning.
     fn prune(&mut self, min_height_to_keep: u64) -> Result<(), StateError>;
 
-    /// Commits the current pending changes for versioned state managers, creating a snapshot.
-    /// For non-versioned backends, this is a no-op.
-    fn commit_version(&mut self) {}
+    /// Commits the current pending changes, creating a snapshot associated with a block height.
+    ///
+    /// This method is critical for versioned state backends. It must be called once
+    /// per block to create a queryable historical state version.
+    ///
+    /// # Arguments
+    /// * `height` - The block height for which this state version is being committed.
+    ///
+    /// # Returns
+    /// The `RootHash` ([u8; 32]) of the committed state.
+    fn commit_version(&mut self, height: u64) -> Result<RootHash, StateError>;
 
     /// (For debug builds) Checks if a given root hash corresponds to a known, persisted version.
     /// The default implementation returns true, assuming non-versioned backends are always queryable at their latest root.
@@ -91,8 +99,8 @@ impl<T: StateManager + ?Sized> StateManager for Box<T> {
         (**self).prune(min_height_to_keep)
     }
 
-    fn commit_version(&mut self) {
-        (**self).commit_version()
+    fn commit_version(&mut self, height: u64) -> Result<RootHash, StateError> {
+        (**self).commit_version(height)
     }
 
     fn version_exists_for_root(&self, root: &Self::Commitment) -> bool {

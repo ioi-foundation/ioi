@@ -10,7 +10,7 @@ pub use consensus::*;
 pub use identity::*;
 pub use penalties::*;
 
-use crate::error::CoreError; // Added for error type
+use crate::error::{CoreError, StateError}; // Added for error type
 use crate::ibc::{UniversalExecutionReceipt, UniversalProofFormat};
 use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
 use dcrypt::algorithms::ByteSerializable;
@@ -77,6 +77,33 @@ pub struct StateRoot(pub Vec<u8>);
 /// A fixed-size, 32-byte hash of a StateRoot, used as a key for anchored state views.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct StateAnchor(pub [u8; 32]);
+
+/// A fixed-size, 32-byte cryptographic hash of a state tree's root.
+/// This is used as a key in versioning maps to avoid heap allocations.
+pub type RootHash = [u8; 32];
+
+/// A helper to convert arbitrary commitment bytes into a fixed-size RootHash.
+///
+/// - If `bytes` are already 32 bytes (e.g., IAVL/SMT), we use them directly.
+/// - Otherwise (e.g., Verkle KZG commitment), we hash the bytes with SHA-256 to
+///   obtain a stable 32-byte key suitable for indexing historical versions.
+pub fn to_root_hash<C: AsRef<[u8]>>(c: C) -> Result<RootHash, StateError> {
+    let s = c.as_ref();
+    if s.len() == 32 {
+        // Exact fit: treat as canonical root hash
+        let mut out = [0u8; 32];
+        out.copy_from_slice(s);
+        Ok(out)
+    } else {
+        // Map arbitrary-length commitments to a 32-byte key via SHA-256
+        let digest = dcrypt::algorithms::hash::Sha256::digest(s)
+            .map_err(|e| StateError::Backend(e.to_string()))?
+            .to_bytes();
+        let mut out = [0u8; 32];
+        out.copy_from_slice(&digest);
+        Ok(out)
+    }
+}
 
 impl Encode for StateRoot {
     fn encode_to<T: parity_scale_codec::Output + ?Sized>(&self, dest: &mut T) {

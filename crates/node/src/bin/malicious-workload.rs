@@ -106,6 +106,10 @@ where
                 initial_services
                     .push(Arc::new(hub) as Arc<dyn depin_sdk_api::services::UpgradableService>);
             }
+            // --- FIX START ---
+            InitialServiceConfig::Governance(_) => {
+                // The malicious workload doesn't need to run governance, so we just ignore it.
+            } // --- FIX END ---
         }
     }
 
