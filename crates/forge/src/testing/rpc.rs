@@ -19,7 +19,8 @@ pub async fn query_state_key(rpc_addr: &str, key: &[u8]) -> Result<Option<Vec<u8
         "params": [hex::encode(key)],
         "id": 1
     });
-    let rpc_url = format!("http://{}/rpc", rpc_addr);
+    // Use the new dedicated query endpoint for better rate-limiting behavior
+    let rpc_url = format!("http://{}/rpc/query", rpc_addr);
     let response: serde_json::Value = client
         .post(&rpc_url)
         .json(&request_body)

@@ -7,7 +7,6 @@ use depin_sdk_api::chain::ChainView;
 use depin_sdk_api::{commitment::CommitmentScheme, state::StateManager};
 use depin_sdk_types::app::{AccountId, ActiveKeyRecord, Membership, StateAnchor, StateRoot};
 use depin_sdk_types::codec; // Import the canonical codec
-use depin_sdk_types::error::StateError;
 use serde::{Deserialize, Serialize};
 use std::{any::Any, marker::PhantomData, sync::Arc};
 

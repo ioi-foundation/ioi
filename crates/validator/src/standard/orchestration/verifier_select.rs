@@ -59,13 +59,16 @@ mod fallback {
     use depin_sdk_api::error::StateError;
     use depin_sdk_api::state::Verifier;
     use depin_sdk_types::app::Membership;
+    // --- FIX START ---
+    use parity_scale_codec::{Decode, Encode};
+    // --- FIX END ---
 
     #[derive(Clone, Debug, Default)]
     pub struct DefaultVerifier;
 
-    #[derive(Clone, Debug, serde::Deserialize)]
+    #[derive(Clone, Debug, serde::Deserialize, Encode, Decode)] // FIX: Add Encode, Decode
     pub struct DummyCommitment;
-    #[derive(Clone, Debug, serde::Deserialize)]
+    #[derive(Clone, Debug, serde::Deserialize, Encode, Decode)] // FIX: Add Encode, Decode
     pub struct DummyProof;
 
     impl Verifier for DefaultVerifier {

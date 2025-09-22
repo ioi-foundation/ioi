@@ -92,7 +92,7 @@ impl<CS: HomomorphicCommitmentScheme + Clone> HomomorphicComputation<CS> {
         &self,
         operation: &CommitmentOperation,
         result: &CS::Commitment,
-        position: usize,
+        position: u64, // FIX: Changed from usize to u64
     ) -> HomomorphicResult<HomomorphicProof<CS>> {
         self.create_proof_with_selector(operation, result, &Selector::Position(position))
     }
