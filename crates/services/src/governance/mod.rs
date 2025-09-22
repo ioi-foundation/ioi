@@ -1,14 +1,21 @@
 // Path: crates/services/src/governance/mod.rs
 //! Governance module implementations for the DePIN SDK
 
+use depin_sdk_api::lifecycle::OnEndBlock;
+use depin_sdk_api::services::access::Service;
+use depin_sdk_api::services::{BlockchainService, ServiceType, UpgradableService};
 use depin_sdk_api::state::{StateAccessor, StateManager};
+use depin_sdk_api::transaction::context::TxContext;
 // --- FIX: Import the types from the `depin-sdk-types` crate ---
 use depin_sdk_types::app::{
-    AccountId, Proposal, ProposalStatus, ProposalType, TallyResult, VoteOption,
+    read_validator_sets, AccountId, Proposal, ProposalStatus, ProposalType, TallyResult, VoteOption,
 };
+use depin_sdk_types::error::{StateError, UpgradeError};
 use depin_sdk_types::keys::{
     GOVERNANCE_NEXT_PROPOSAL_ID_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, GOVERNANCE_VOTE_KEY_PREFIX,
+    VALIDATOR_SET_KEY,
 };
+use depin_sdk_types::service_configs::GovernanceParams;
 use std::collections::BTreeMap;
 
 // --- Enums and Structs are now defined in `depin-sdk-types` ---
@@ -22,36 +29,75 @@ pub struct SubmitProposalMsg<'a> {
     pub proposer: &'a [u8],
     pub deposit: u64,
 }
-// --- Governance Parameters ---
-
-#[derive(Debug, Clone)]
-pub struct GovernanceParams {
-    pub min_deposit: u64,
-    pub max_deposit_period_blocks: u64, // Changed to blocks
-    pub voting_period_blocks: u64,      // Changed to blocks
-    pub quorum: u8,
-    pub threshold: u8,
-    pub veto_threshold: u8,
-}
-
-impl Default for GovernanceParams {
-    fn default() -> Self {
-        Self {
-            min_deposit: 10000,
-            max_deposit_period_blocks: 20160, // ~14 days at 60s/block
-            voting_period_blocks: 20160,      // ~14 days
-            quorum: 33,
-            threshold: 50,
-            veto_threshold: 33,
-        }
-    }
-}
 
 // --- Governance Module ---
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct GovernanceModule {
     params: GovernanceParams,
+}
+
+impl BlockchainService for GovernanceModule {
+    fn service_type(&self) -> ServiceType {
+        ServiceType::Governance
+    }
+}
+
+impl Service for GovernanceModule {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_on_end_block(&self) -> Option<&dyn OnEndBlock> {
+        Some(self)
+    }
+}
+
+impl UpgradableService for GovernanceModule {
+    fn prepare_upgrade(&mut self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
+        // This simple version is stateless. A real implementation would serialize its params.
+        Ok(Vec::new())
+    }
+    fn complete_upgrade(&mut self, _snapshot: &[u8]) -> Result<(), UpgradeError> {
+        Ok(())
+    }
+}
+
+impl OnEndBlock for GovernanceModule {
+    fn on_end_block(
+        &self,
+        state: &mut dyn StateAccessor,
+        ctx: &TxContext,
+    ) -> Result<(), StateError> {
+        let proposals_kv = state.prefix_scan(GOVERNANCE_PROPOSAL_KEY_PREFIX)?;
+
+        let stakes: BTreeMap<AccountId, u64> = match state.get(VALIDATOR_SET_KEY)? {
+            Some(bytes) => {
+                let sets = read_validator_sets(&bytes)?;
+                sets.current
+                    .validators
+                    .into_iter()
+                    .map(|v| (v.account_id, v.weight as u64))
+                    .collect()
+            }
+            _ => BTreeMap::new(),
+        };
+
+        for (_key, value_bytes) in proposals_kv {
+            if let Ok(proposal) = serde_json::from_slice::<Proposal>(&value_bytes) {
+                if proposal.status == ProposalStatus::VotingPeriod
+                    && ctx.block_height >= proposal.voting_end_height
+                {
+                    log::info!("[Governance OnEndBlock] Tallying proposal {}", proposal.id);
+                    // The state manager for the on_end_block hook is a `&mut dyn StateAccessor`,
+                    // which is exactly what `tally_proposal` needs.
+                    self.tally_proposal(state, proposal.id, &stakes)
+                        .map_err(|e| StateError::Apply(e))?;
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 impl GovernanceModule {
@@ -139,6 +185,12 @@ impl GovernanceModule {
             return Err("Proposal is not in voting period".to_string());
         }
 
+        // --- FIX: Add check for voting start height ---
+        if current_height < proposal.voting_start_height {
+            return Err("Voting period has not started yet".to_string());
+        }
+        // --- END FIX ---
+
         if current_height > proposal.voting_end_height {
             return Err("Voting period has ended".to_string());
         }
@@ -154,7 +206,7 @@ impl GovernanceModule {
     }
 
     /// Tallies the votes for a concluded proposal and updates its status.
-    pub fn tally_proposal<S: StateManager + ?Sized>(
+    pub fn tally_proposal<S: StateAccessor + ?Sized>(
         &self,
         state: &mut S,
         proposal_id: u64,
@@ -169,6 +221,11 @@ impl GovernanceModule {
 
         // 1. Calculate total voting power from the stakes map.
         let total_voting_power: u64 = stakes.values().sum();
+        log::debug!(
+            "[Tally] Total voting power from stakes: {}",
+            total_voting_power
+        );
+
         if total_voting_power == 0 {
             // No one has any stake, so the proposal is rejected by default.
             proposal.status = ProposalStatus::Rejected;
@@ -176,6 +233,10 @@ impl GovernanceModule {
             state
                 .insert(&key, &updated_value)
                 .map_err(|e| e.to_string())?;
+            log::warn!(
+                "[Tally] Proposal {} rejected: total voting power is zero.",
+                proposal_id
+            );
             return Ok(());
         }
 
@@ -189,6 +250,11 @@ impl GovernanceModule {
         let votes = state
             .prefix_scan(&vote_key_prefix)
             .map_err(|e| e.to_string())?;
+        log::debug!(
+            "[Tally] Found {} votes for proposal {}",
+            votes.len(),
+            proposal_id
+        );
 
         let mut tally = TallyResult::default();
         let mut total_voted_power = 0; // Total power of accounts that voted.
@@ -208,6 +274,12 @@ impl GovernanceModule {
 
             // 5. Get the voter's power from the stakes map. Default to 0 if not a staker.
             let voting_power = stakes.get(&voter_account_id).copied().unwrap_or(0);
+            log::debug!(
+                "[Tally] Voter 0x{} has power {} and voted {:?}",
+                hex::encode(voter_account_id.as_ref()),
+                voting_power,
+                option
+            );
 
             // 6. Tally the vote with its corresponding power.
             match option {
@@ -286,7 +358,7 @@ impl GovernanceModule {
 mod tests {
     use super::*;
     use depin_sdk_api::state::StateCommitment;
-    use depin_sdk_types::app::Membership;
+    use depin_sdk_types::app::{Membership, RootHash};
     use depin_sdk_types::error::StateError;
     use std::any::Any;
     use std::collections::BTreeMap;
@@ -385,6 +457,9 @@ mod tests {
                 StateCommitment::insert(self, key, value)?;
             }
             Ok(())
+        }
+        fn commit_version(&mut self, _: u64) -> Result<RootHash, StateError> {
+            Ok([0u8; 32])
         }
     }
 

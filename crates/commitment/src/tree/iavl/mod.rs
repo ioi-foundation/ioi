@@ -7,12 +7,12 @@ pub mod verifier;
 use crate::tree::iavl::proof::verify_iavl_proof_bytes;
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
 use depin_sdk_api::state::{StateCommitment, StateManager};
-use depin_sdk_types::app::Membership;
+use depin_sdk_types::app::{to_root_hash, Membership, RootHash};
 use depin_sdk_types::error::StateError;
 use proof::{ExistenceProof, InnerOp, LeafOp, NonExistenceProof, Side};
 use std::any::Any;
 use std::cmp::{max, Ordering};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 /// IAVL tree node with immutable structure
@@ -96,20 +96,16 @@ fn assert_snapshot_consistent(root: &Option<Arc<IAVLNode>>) {
                 l.map(|x| x.version).unwrap_or(0),
                 l.map(|x| x.height).unwrap_or(-1),
                 l.map(|x| x.size).unwrap_or(0),
-                // FIX: Removed unnecessary borrow (`&`)
                 l.map(|x| hex::encode(x.hash.get(..4).unwrap_or_default()))
                     .unwrap_or_default(),
-                // FIX: Removed unnecessary borrow (`&`)
                 l.map(|x| hex::encode(recompute_hash_strict(x).get(..4).unwrap_or_default()))
                     .unwrap_or_default(),
                 r.is_some(),
                 r.map(|x| x.version).unwrap_or(0),
                 r.map(|x| x.height).unwrap_or(-1),
                 r.map(|x| x.size).unwrap_or(0),
-                // FIX: Removed unnecessary borrow (`&`)
                 r.map(|x| hex::encode(x.hash.get(..4).unwrap_or_default()))
                     .unwrap_or_default(),
-                // FIX: Removed unnecessary borrow (`&`)
                 r.map(|x| hex::encode(recompute_hash_strict(x).get(..4).unwrap_or_default()))
                     .unwrap_or_default(),
             );
@@ -195,7 +191,6 @@ impl IAVLNode {
 
     /// Provides the canonical hash of an empty/nil child node.
     fn empty_hash() -> Vec<u8> {
-        // FIX: Removed unnecessary borrow (`&`)
         depin_sdk_crypto::algorithms::hash::sha256([])
     }
 
@@ -510,10 +505,16 @@ impl IAVLNode {
                     results.push((n.key.clone(), n.value.clone()));
                 }
             } else {
-                if !n.key.is_empty() && prefix <= n.key.as_slice() {
+                // Go left if the prefix is less than or equal to the split key.
+                // This means there could be matching keys in the left subtree.
+                if prefix <= n.key.as_slice() {
                     Self::range_scan(&n.left, prefix, results);
                 }
-                if n.key.is_empty() || prefix > n.key.as_slice() {
+
+                // Go right if the prefix is greater than the split key, OR if the split
+                // key itself starts with the prefix. The latter case is crucial because
+                // longer keys with the same prefix could exist in the right subtree.
+                if prefix > n.key.as_slice() || n.key.starts_with(prefix) {
                     Self::range_scan(&n.right, prefix, results);
                 }
             }
@@ -525,12 +526,17 @@ impl IAVLNode {
 #[derive(Debug, Clone)]
 pub struct IAVLTree<CS: CommitmentScheme> {
     root: Option<Arc<IAVLNode>>,
-    version: u64,
-    versions: HashMap<u64, Arc<IAVLNode>>,
-    roots: HashMap<Vec<u8>, u64>,
-    rev: HashMap<u64, Vec<u8>>,
+    current_height: u64,
+    indices: Indices,
     scheme: CS,
     cache: HashMap<Vec<u8>, Vec<u8>>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct Indices {
+    versions_by_height: BTreeMap<u64, RootHash>,
+    root_refcount: HashMap<RootHash, u32>,
+    roots: HashMap<RootHash, Arc<IAVLNode>>,
 }
 
 impl<CS: CommitmentScheme> IAVLTree<CS>
@@ -540,42 +546,23 @@ where
     CS::Proof: AsRef<[u8]>,
 {
     pub fn new(scheme: CS) -> Self {
-        let mut tree = Self {
+        Self {
             root: None,
-            version: 0,
-            versions: HashMap::new(),
-            roots: HashMap::new(),
-            rev: HashMap::new(),
+            current_height: 0,
+            indices: Indices::default(),
             scheme,
             cache: HashMap::new(),
-        };
-        tree.commit();
-        tree
+        }
     }
 
-    fn commit(&mut self) -> Vec<u8> {
-        let commitment_bytes = self.root_commitment().as_ref().to_vec();
-        maybe_assert_snapshot_consistent(&self.root);
-        if self.root.is_some() {
-            log::debug!(
-                "[IAVL Commit] Storing root for version {}: hash={}",
-                self.version,
-                hex::encode(&commitment_bytes)
-            );
-        } else {
-            log::debug!(
-                "[IAVL Commit] Storing empty root for version {}: hash={}",
-                self.version,
-                hex::encode(&commitment_bytes)
-            );
+    fn decrement_refcount(&mut self, root_hash: RootHash) {
+        if let Some(c) = self.indices.root_refcount.get_mut(&root_hash) {
+            *c = c.saturating_sub(1);
+            if *c == 0 {
+                self.indices.root_refcount.remove(&root_hash);
+                self.indices.roots.remove(&root_hash);
+            }
         }
-        if let Some(root_node) = self.root.clone() {
-            self.versions.insert(self.version, root_node);
-        }
-        self.roots.insert(commitment_bytes.clone(), self.version);
-        self.rev.insert(self.version, commitment_bytes.clone());
-        self.version += 1;
-        commitment_bytes
     }
 
     fn to_value(&self, value: &[u8]) -> CS::Value {
@@ -745,7 +732,7 @@ where
             self.root.clone(),
             key.to_vec(),
             value.to_vec(),
-            self.version,
+            self.current_height,
         ));
         self.cache.insert(key.to_vec(), value.to_vec());
         Ok(())
@@ -758,7 +745,7 @@ where
         }
     }
     fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
-        self.root = IAVLNode::remove(self.root.clone(), key, self.version);
+        self.root = IAVLNode::remove(self.root.clone(), key, self.current_height);
         self.cache.remove(key);
         Ok(())
     }
@@ -823,40 +810,27 @@ where
         root: &Self::Commitment,
         key: &[u8],
     ) -> Result<(Membership, Self::Proof), StateError> {
-        let root_bytes = root.as_ref();
-        let head = if root_bytes.len() >= 16 {
-            &root_bytes[..16]
-        } else {
-            root_bytes
-        };
-        log::debug!("[IAVL] get_with_proof_at: root query={}", hex::encode(head));
-        let version = self.roots.get(root_bytes).ok_or_else(|| {
-            StateError::Backend(format!(
-                "Root commitment {} not found in versioned history (commit_version() missing?)",
-                hex::encode(root_bytes)
-            ))
-        })?;
-        let historical_root_node = self.versions.get(version);
+        let root_hash: RootHash = to_root_hash(root.as_ref())?;
+        let historical_root_node = self.indices.roots.get(&root_hash);
 
         maybe_assert_snapshot_consistent(&historical_root_node.cloned());
 
         if let Some(hrn) = historical_root_node {
             let strict_root = recompute_hash_strict(hrn);
-            if strict_root.as_slice() != root_bytes {
+            if strict_root.as_slice() != root.as_ref() {
+                #[cfg(debug_assertions)]
                 eprintln!(
                     "[IAVL DRIFT@ROOT]\n\
-                     version={} key_head={}...\n\
+                     key_head={}...\n\
                      requested_root={} \n\
                      strict_root   ={}",
-                    version,
-                    // FIX: Removed unnecessary borrow (`&`)
                     hex::encode(hrn.key.get(..4).unwrap_or_default()),
-                    hex::encode(root_bytes),
+                    hex::encode(root.as_ref()),
                     hex::encode(&strict_root),
                 );
-                panic!(
-                    "IAVL strict root hash does not match requested commitment. See details above."
-                );
+                return Err(StateError::Backend(
+                    "Proof did not anchor to requested root".into(),
+                ));
             }
         }
 
@@ -870,16 +844,12 @@ where
 
         {
             let expected_value = membership.clone().into_option();
-            let root_hash: &[u8; 32] = root_bytes
-                .try_into()
-                .expect("Root must be 32 bytes for self-check");
             let proof_bytes = proof.as_ref();
-            match verify_iavl_proof_bytes(root_hash, key, expected_value.as_deref(), proof_bytes) {
+            match verify_iavl_proof_bytes(&root_hash, key, expected_value.as_deref(), proof_bytes) {
                 Ok(true) => log::debug!(
                     "[IAVL Server]   -> SELF-VERIFICATION PASSED against root {}",
                     hex::encode(root_hash)
                 ),
-                // FIX: Collapsed `if let Ok(p) = ... { if let ... }` into a single `if let` with a guard.
                 _ => {
                     if let Ok(proof::IavlProof::Existence(ep)) =
                         serde_json::from_slice::<proof::IavlProof>(proof_bytes)
@@ -904,7 +874,6 @@ where
                                     step.height, step.size,
                                     hex::encode(acc).get(..8).unwrap_or(""),
                                     hex::encode(step.sibling_hash).get(..8).unwrap_or(""),
-                                    // FIX: Removed unnecessary borrow (`&`)
                                     hex::encode(newh).get(..8).unwrap_or(""),
                                 );
                             acc = newh;
@@ -914,8 +883,8 @@ where
                     }
 
                     log::error!(
-                      "[IAVL Builder] Proof failed to anchor at version {} (key={}): returning error",
-                      version, hex::encode(key)
+                        "[IAVL Builder] Proof failed to anchor (key={}): returning error",
+                        hex::encode(key)
                     );
                     return Err(StateError::Backend(
                         "Failed to generate anchored IAVL proof".to_string(),
@@ -958,43 +927,67 @@ where
         Ok(())
     }
     fn prune(&mut self, min_height_to_keep: u64) -> Result<(), StateError> {
-        let versions_to_prune: Vec<u64> = self
-            .versions
-            .keys()
-            .filter(|&&v| v < min_height_to_keep)
-            .cloned()
+        let to_prune: Vec<u64> = self
+            .indices
+            .versions_by_height
+            .range(..min_height_to_keep)
+            .map(|(h, _)| *h)
             .collect();
-        if !versions_to_prune.is_empty() {
-            log::info!(
-                "[IAVLTree] Pruning {} old versions.",
-                versions_to_prune.len()
-            );
-            for version in versions_to_prune {
-                if self.versions.remove(&version).is_some() {
-                    if let Some(commitment) = self.rev.remove(&version) {
-                        self.roots.remove(&commitment);
-                    }
+
+        if !to_prune.is_empty() {
+            log::debug!("[IAVLTree] Pruning {} old versions.", to_prune.len());
+            for h in to_prune {
+                if let Some(root_hash) = self.indices.versions_by_height.remove(&h) {
+                    self.decrement_refcount(root_hash);
                 }
             }
         }
         Ok(())
     }
-    fn commit_version(&mut self) {
-        let root = <Self as StateCommitment>::root_commitment(self);
-        let hex_preview = if root.as_ref().len() >= 16 {
-            &root.as_ref()[..16]
-        } else {
-            root.as_ref()
-        };
-        log::debug!(
-            "[IAVL] commit_version: root={}, version={}",
-            hex::encode(hex_preview),
-            self.version
-        );
-        let _ = self.commit();
+
+    fn commit_version(&mut self, height: u64) -> Result<RootHash, StateError> {
+        let root_hash = to_root_hash(self.root_commitment())?;
+
+        match self.indices.versions_by_height.insert(height, root_hash) {
+            // Case 1: This is a new height, or a reorg to a different root.
+            None => {
+                let count = self.indices.root_refcount.entry(root_hash).or_insert(0);
+                if *count == 0 {
+                    // First time seeing this root hash, store the actual node.
+                    if let Some(root_node) = self.root.clone() {
+                        self.indices.roots.insert(root_hash, root_node);
+                    }
+                }
+                *count += 1;
+            }
+            Some(prev_root) if prev_root != root_hash => {
+                // It's a reorg. Decrement the old root's count and increment the new one's.
+                self.decrement_refcount(prev_root);
+
+                let count = self.indices.root_refcount.entry(root_hash).or_insert(0);
+                if *count == 0 {
+                    if let Some(root_node) = self.root.clone() {
+                        self.indices.roots.insert(root_hash, root_node);
+                    }
+                }
+                *count += 1;
+            }
+            // Case 2: Same root hash was already recorded for this height. Do nothing.
+            Some(_prev_same_root) => {
+                // The refcount for this root is already correct for this height. No-op.
+            }
+        }
+
+        self.current_height = height;
+        Ok(root_hash)
     }
+
     fn version_exists_for_root(&self, root: &Self::Commitment) -> bool {
-        self.roots.contains_key(root.as_ref())
+        if let Ok(root_hash) = to_root_hash(root.as_ref()) {
+            self.indices.roots.contains_key(&root_hash)
+        } else {
+            false
+        }
     }
 }
 

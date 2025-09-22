@@ -1,7 +1,7 @@
 // Path: crates/api/src/state/accessor.rs
 //! A dyn-safe trait for state access within decorators and hooks.
 
-use crate::state::StateManager;
+use crate::state::{StateKVPair, StateManager};
 use depin_sdk_types::error::StateError;
 
 /// A dyn-safe trait that erases the generic `StateManager` type, allowing
@@ -15,6 +15,8 @@ pub trait StateAccessor: Send + Sync {
     fn delete(&mut self, key: &[u8]) -> Result<(), StateError>;
     /// Sets multiple key-value pairs in a single batch operation.
     fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError>;
+    /// Scans for all key-value pairs starting with the given prefix.
+    fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<StateKVPair>, StateError>;
 }
 
 // Blanket implementation to allow any `StateManager` to be used as a `StateAccessor`.
@@ -32,5 +34,8 @@ impl<T: StateManager + Send + Sync + ?Sized> StateAccessor for T {
     }
     fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
         T::batch_set(self, updates)
+    }
+    fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<StateKVPair>, StateError> {
+        T::prefix_scan(self, prefix)
     }
 }

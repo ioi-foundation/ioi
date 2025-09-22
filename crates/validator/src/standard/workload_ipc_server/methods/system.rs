@@ -4,17 +4,9 @@ use super::RpcContext;
 use crate::standard::workload_ipc_server::router::{RequestContext, RpcMethod};
 use anyhow::{anyhow, Result};
 use depin_sdk_api::{chain::AppChain, commitment::CommitmentScheme, state::StateManager};
-use depin_sdk_services::governance::GovernanceModule;
-use depin_sdk_types::{
-    app::{read_validator_sets, AccountId, Proposal, ProposalStatus},
-    config::WorkloadConfig,
-    keys::{GOVERNANCE_PROPOSAL_KEY_PREFIX, VALIDATOR_SET_KEY},
-};
+use depin_sdk_types::config::WorkloadConfig;
 use serde::{Deserialize, Serialize};
-use std::any::Any;
-use std::collections::BTreeMap;
-use std::marker::PhantomData;
-use std::sync::Arc;
+use std::{any::Any, marker::PhantomData, sync::Arc};
 
 // --- system.getStatus.v1 ---
 
@@ -59,7 +51,7 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetStatusV1"))?;
         let chain = ctx.chain.lock().await;
-        // FIX: Dereference MutexGuard
+        // The AppChain trait must be in scope to call .status()
         Ok((*chain).status().clone())
     }
 }
@@ -144,56 +136,12 @@ where
     async fn call(
         &self,
         _req_ctx: RequestContext,
-        shared_ctx: Arc<dyn Any + Send + Sync>,
-        params: Self::Params,
+        _shared_ctx: Arc<dyn Any + Send + Sync>,
+        _params: Self::Params,
     ) -> Result<Self::Result> {
-        let ctx = shared_ctx
-            .downcast::<RpcContext<CS, ST>>()
-            .map_err(|_| anyhow!("Invalid context type for CheckAndTallyProposalsV1"))?;
-        let state_tree = ctx.workload.state_tree();
-        let mut state = state_tree.write().await;
-        let governance_module = GovernanceModule::default();
-        let proposals_kv = state.prefix_scan(GOVERNANCE_PROPOSAL_KEY_PREFIX)?;
-        let mut outcomes = Vec::new();
-
-        for (_key, value_bytes) in proposals_kv {
-            if let Ok(proposal) = serde_json::from_slice::<Proposal>(&value_bytes) {
-                if proposal.status == ProposalStatus::VotingPeriod
-                    && params.current_height > proposal.voting_end_height
-                {
-                    log::info!("[Workload] Tallying proposal {}", proposal.id);
-                    let stakes: BTreeMap<AccountId, u64> = match state.get(VALIDATOR_SET_KEY)? {
-                        Some(bytes) => {
-                            let sets = read_validator_sets(&bytes)?;
-                            sets.current
-                                .validators
-                                .into_iter()
-                                .map(|v| (v.account_id, v.weight as u64))
-                                .collect()
-                        }
-                        _ => BTreeMap::new(),
-                    };
-                    governance_module
-                        .tally_proposal(&mut *state, proposal.id, &stakes)
-                        .map_err(|e| anyhow!(e))?;
-
-                    let updated_key = GovernanceModule::proposal_key(proposal.id);
-                    if let Some(updated_bytes) = state.get(&updated_key)? {
-                        if let Ok(updated_proposal) =
-                            serde_json::from_slice::<Proposal>(&updated_bytes)
-                        {
-                            let outcome_msg = format!(
-                                "Proposal {} tallied: {:?}",
-                                updated_proposal.id, updated_proposal.status
-                            );
-                            log::info!("[Workload] {}", outcome_msg);
-                            outcomes.push(outcome_msg);
-                        }
-                    }
-                }
-            }
-        }
-        Ok(outcomes)
+        // This logic is now handled by the OnEndBlock hook in the GovernanceModule.
+        // This RPC endpoint is deprecated and will be removed. For now, return an empty list.
+        Ok(vec![])
     }
 }
 

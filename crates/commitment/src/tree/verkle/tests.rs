@@ -23,7 +23,7 @@ mod verkle_tests {
 
         // Insert key and commit version
         tree.insert(key, value).unwrap();
-        tree.commit_version();
+        tree.commit_version(1).unwrap();
 
         let root_v1 = tree.root_commitment();
 
@@ -52,7 +52,7 @@ mod verkle_tests {
 
         // Insert one key and commit
         tree.insert(key1, value1).unwrap();
-        tree.commit_version();
+        tree.commit_version(1).unwrap();
 
         let root = tree.root_commitment();
 
@@ -84,7 +84,7 @@ mod verkle_tests {
         let non_existent_key = b"key101"; // Adjacent key
 
         tree.insert(key1, value1).expect("insert should succeed");
-        tree.commit_version();
+        tree.commit_version(1).unwrap();
         let root = tree.root_commitment();
 
         let (membership, proof_obj) = tree
@@ -109,14 +109,14 @@ mod verkle_tests {
         let key1 = b"key_v1";
         let value1 = b"value_v1";
         tree.insert(key1, value1).unwrap();
-        tree.commit_version();
+        tree.commit_version(1).unwrap();
         let root_v1 = tree.root_commitment();
 
         // Version 2: Insert key2
         let key2 = b"key_v2";
         let value2 = b"value_v2";
         tree.insert(key2, value2).unwrap();
-        tree.commit_version();
+        tree.commit_version(2).unwrap();
         let root_v2 = tree.root_commitment();
 
         assert_ne!(
@@ -158,7 +158,7 @@ mod verkle_tests {
 
         // Insert initial value and commit
         tree.insert(key, value1).unwrap();
-        tree.commit_version();
+        tree.commit_version(1).unwrap();
         let root_v1 = tree.root_commitment();
 
         // Verify initial state
@@ -168,7 +168,7 @@ mod verkle_tests {
 
         // Overwrite the key with a new value and commit
         tree.insert(key, value2).unwrap();
-        tree.commit_version();
+        tree.commit_version(2).unwrap();
         let root_v2 = tree.root_commitment();
 
         // Verify the new state

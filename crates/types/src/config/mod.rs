@@ -2,7 +2,7 @@
 
 //! Shared configuration structures for core DePIN SDK components.
 use crate::app::ChainId;
-use crate::service_configs::MigrationConfig;
+use crate::service_configs::{GovernanceParams, MigrationConfig};
 use serde::{Deserialize, Serialize};
 
 pub mod consensus;
@@ -74,6 +74,8 @@ impl Default for VmFuelCosts {
 pub enum InitialServiceConfig {
     /// Configuration for the Identity Hub service.
     IdentityHub(MigrationConfig),
+    /// Configuration for the Governance service.
+    Governance(GovernanceParams),
 }
 
 /// Configuration for the Workload container (`workload.toml`).
@@ -100,6 +102,22 @@ pub struct WorkloadConfig {
     /// A list of services to instantiate at startup.
     #[serde(default)]
     pub initial_services: Vec<InitialServiceConfig>,
+    /// The number of recent blocks to preserve from pruning, even if finalized.
+    /// Acts as a safety buffer for reorgs. Defaults to 1000.
+    #[serde(default = "default_min_finality_depth")]
+    pub min_finality_depth: u64,
+    /// The number of recent block heights to keep in history for proofs,
+    /// regardless of finality. This defines the primary retention window. Defaults to 100_000.
+    #[serde(default = "default_keep_recent_heights")]
+    pub keep_recent_heights: u64,
+}
+
+fn default_min_finality_depth() -> u64 {
+    1000
+}
+
+fn default_keep_recent_heights() -> u64 {
+    100_000
 }
 
 fn default_chain_id() -> ChainId {

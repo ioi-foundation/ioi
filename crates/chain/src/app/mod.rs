@@ -212,7 +212,8 @@ where
                 log::info!(
                     "No existing chain status found. Initializing and saving genesis status."
                 );
-                state.commit_version();
+                // The first commit is for height 0 (genesis).
+                state.commit_version(0)?;
                 log::debug!("[Chain] Committed full genesis state.");
 
                 let status_bytes = serde_json::to_vec(&self.state.status)
@@ -221,7 +222,8 @@ where
                     .insert(STATUS_KEY, &status_bytes)
                     .map_err(|e| ChainError::Transaction(e.to_string()))?;
 
-                state.commit_version();
+                // The second commit finalizes the state including the status key.
+                state.commit_version(0)?;
                 log::debug!("[Chain] Committed genesis state including status key.");
 
                 let final_root = StateRoot(state.root_commitment().as_ref().to_vec());
@@ -567,6 +569,47 @@ where
 
             state.batch_apply(&inserts, &deletes)?;
 
+            // FIX: This entire block of logic must run for ANY consensus type that uses the validator set,
+            // not just PoS. The check was too restrictive.
+            match state.get(VALIDATOR_SET_KEY)? {
+                Some(bytes) => {
+                    let mut sets = read_validator_sets(&bytes)?;
+                    let mut modified = false;
+                    if let Some(next_vs) = &sets.next {
+                        if block.header.height >= next_vs.effective_from_height {
+                            log::info!(
+                                "[EndBlock] Promoting validator set @H={}",
+                                block.header.height
+                            );
+                            let promoted_from_height = next_vs.effective_from_height;
+                            sets.current = next_vs.clone();
+                            if sets
+                                .next
+                                .as_ref()
+                                .is_some_and(|n| n.effective_from_height == promoted_from_height)
+                            {
+                                sets.next = None;
+                            }
+                            modified = true;
+                        }
+                    }
+                    let out = write_validator_sets(&sets);
+                    state.insert(VALIDATOR_SET_KEY, &out)?;
+                    if modified {
+                        log::info!("[EndBlock] Validator set updated and carried forward.");
+                    } else {
+                        log::debug!("[EndBlock] Validator set carried forward unchanged.");
+                    }
+                }
+                None => {
+                    log::error!(
+                        "[EndBlock] MISSING VALIDATOR_SET_KEY before commit at H={}. \
+                         The next block may stall or fail without it.",
+                        block.header.height
+                    );
+                }
+            }
+
             let end_block_ctx = TxContext {
                 block_height: block.header.height,
                 chain_id: self.state.chain_id,
@@ -576,47 +619,6 @@ where
             for service in self.services.services_in_deterministic_order() {
                 if let Some(hook) = service.as_on_end_block() {
                     hook.on_end_block(&mut *state, &end_block_ctx)?;
-                }
-            }
-
-            if self.consensus_engine.consensus_type() == ConsensusType::ProofOfStake {
-                match state.get(VALIDATOR_SET_KEY)? {
-                    Some(bytes) => {
-                        let mut sets = read_validator_sets(&bytes)?;
-                        let mut modified = false;
-                        if let Some(next_vs) = &sets.next {
-                            if block.header.height >= next_vs.effective_from_height {
-                                log::info!(
-                                    "[PoS EndBlock] Promoting validator set @H={}",
-                                    block.header.height
-                                );
-                                let promoted_from_height = next_vs.effective_from_height;
-                                sets.current = next_vs.clone();
-                                // Only clear `next` if it's the one we just promoted.
-                                // This prevents overwriting a new `next` scheduled in the same block.
-                                if sets.next.as_ref().is_some_and(|n| {
-                                    n.effective_from_height == promoted_from_height
-                                }) {
-                                    sets.next = None;
-                                }
-                                modified = true;
-                            }
-                        }
-                        let out = write_validator_sets(&sets);
-                        state.insert(VALIDATOR_SET_KEY, &out)?;
-                        if modified {
-                            log::info!("[PoS EndBlock] Validator set updated and carried forward.");
-                        } else {
-                            log::debug!("[PoS EndBlock] Validator set carried forward unchanged.");
-                        }
-                    }
-                    None => {
-                        log::error!(
-                            "[PoS EndBlock] MISSING VALIDATOR_SET_KEY before commit at H={}. \
-                         The next block will stall without it.",
-                            block.header.height
-                        );
-                    }
                 }
             }
 
@@ -670,7 +672,7 @@ where
                 .map_err(|e| ChainError::Transaction(e.to_string()))?;
             state.insert(STATUS_KEY, &status_bytes)?;
 
-            state.commit_version();
+            let _ = state.commit_version(block.header.height)?;
             let final_state_root_bytes = state.root_commitment().as_ref().to_vec();
 
             {

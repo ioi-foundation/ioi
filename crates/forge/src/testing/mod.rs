@@ -604,6 +604,8 @@ impl TestValidator {
             srs_file_path: None,
             fuel_costs: VmFuelCosts::default(),
             initial_services,
+            min_finality_depth: 1000,
+            keep_recent_heights: 100_000, // FIX: Add missing field
         };
 
         if state_tree_type == "Verkle" {

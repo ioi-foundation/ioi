@@ -15,7 +15,7 @@ mod iavl_tests {
         // Insert some key-value pairs
         tree.insert(b"key1", b"value1").unwrap();
         tree.insert(b"key2", b"value2").unwrap();
-        tree.commit_version(); // v1
+        tree.commit_version(1).unwrap(); // v1
 
         // 1. Test basic get
         assert_eq!(tree.get(b"key1").unwrap(), Some(b"value1".to_vec()));
@@ -73,7 +73,7 @@ mod iavl_tests {
             let value = format!("value{}", i);
             tree.insert(key, value.as_bytes()).unwrap();
             oracle.insert(key.clone(), value.into_bytes());
-            tree.commit_version();
+            tree.commit_version((i + 1) as u64).unwrap();
         }
 
         // Assert: After all insertions and rotations, every key must be retrievable and provable

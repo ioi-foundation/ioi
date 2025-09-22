@@ -514,15 +514,6 @@ where
                         log::info!("[Orchestrator] State -> Synced.");
                     }
                 }
-
-                if let Ok(outcomes) = workload_client
-                    .check_and_tally_proposals(block_height)
-                    .await
-                {
-                    for outcome in outcomes {
-                        log::info!("{}", outcome);
-                    }
-                }
             }
             Err(e) => {
                 let msg = format!("[Orch Tick][Node {}] Workload failed to process a pre-validated block proposal: {}. This should not happen.", our_account_id_short, e);

@@ -476,7 +476,15 @@ where
                         proposal_id,
                         option,
                     } => {
-                        let governance_module = GovernanceModule::default();
+                        // FIX: Retrieve the registered GovernanceModule instance from the service directory
+                        // instead of creating a new default one. This ensures the vote is recorded
+                        // in the same service instance that will perform the tallying in OnEndBlock.
+                        let governance_module =
+                            ctx.services.get::<GovernanceModule>().ok_or_else(|| {
+                                TransactionError::Unsupported(
+                                    "Governance service is not available".to_string(),
+                                )
+                            })?;
                         let voter_account_id = &sys_tx.header.account_id;
                         governance_module
                             .vote(
