@@ -931,25 +931,35 @@ where
             .indices
             .versions_by_height
             .range(..plan.cutoff_height)
-            .map(|(h, _)| *h)
+            .filter_map(|(h, _)| if plan.excludes(*h) { None } else { Some(*h) })
             .collect();
 
-        if !to_prune.is_empty() {
-            log::debug!("[IAVLTree] Pruning up to {} old versions (cutoff {}).", to_prune.len(), plan.cutoff_height);
-            let mut pruned_count = 0;
-            for h in to_prune {
-                if !plan.excluded_heights.contains(&h) {
-                    if let Some(root_hash) = self.indices.versions_by_height.remove(&h) {
-                        self.decrement_refcount(root_hash);
-                        pruned_count += 1;
-                    }
-                }
-            }
-            if pruned_count > 0 {
-                 log::debug!("[IAVLTree] Pruned {} old versions.", pruned_count);
+        for h in to_prune {
+            if let Some(root_hash) = self.indices.versions_by_height.remove(&h) {
+                self.decrement_refcount(root_hash);
             }
         }
         Ok(())
+    }
+
+    fn prune_batch(&mut self, plan: &PrunePlan, limit: usize) -> Result<usize, StateError> {
+        let to_prune: Vec<u64> = self
+            .indices
+            .versions_by_height
+            .range(..plan.cutoff_height)
+            .filter_map(|(h, _)| if plan.excludes(*h) { None } else { Some(*h) })
+            .take(limit)
+            .collect();
+
+        let pruned_count = to_prune.len();
+        if pruned_count > 0 {
+            for h in to_prune {
+                if let Some(root_hash) = self.indices.versions_by_height.remove(&h) {
+                    self.decrement_refcount(root_hash);
+                }
+            }
+        }
+        Ok(pruned_count)
     }
 
     fn commit_version(&mut self, height: u64) -> Result<RootHash, StateError> {

@@ -44,6 +44,16 @@ pub trait StateManager: StateCommitment {
     /// that versions required for consensus or active operations are not deleted.
     fn prune(&mut self, plan: &PrunePlan) -> Result<(), StateError>;
 
+    /// Incrementally prunes a batch of historical state versions according to a plan.
+    ///
+    /// This method is designed for non-blocking garbage collection. It will prune up to
+    /// `limit` eligible versions in a single call.
+    ///
+    /// # Returns
+    /// The number of versions that were successfully pruned. If this number is less than
+    /// `limit`, the caller can assume there are no more eligible versions to prune in this cycle.
+    fn prune_batch(&mut self, plan: &PrunePlan, limit: usize) -> Result<usize, StateError>;
+
     /// Commits the current pending changes, creating a snapshot associated with a block height.
     ///
     /// This method is critical for versioned state backends. It must be called once
@@ -99,6 +109,10 @@ impl<T: StateManager + ?Sized> StateManager for Box<T> {
 
     fn prune(&mut self, plan: &PrunePlan) -> Result<(), StateError> {
         (**self).prune(plan)
+    }
+
+    fn prune_batch(&mut self, plan: &PrunePlan, limit: usize) -> Result<usize, StateError> {
+        (**self).prune_batch(plan, limit)
     }
 
     fn commit_version(&mut self, height: u64) -> Result<RootHash, StateError> {
