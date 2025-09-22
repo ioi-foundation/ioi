@@ -102,6 +102,7 @@ where
         config_schema_version: 0,
         consensus_type: config.consensus_type,
         rpc_listen_address: String::new(),
+        rpc_hardening: Default::default(), // FIX: Initialize the new field
         initial_sync_timeout_secs: 0,
         block_production_interval_secs: 0,
         round_robin_view_timeout_secs: 0,

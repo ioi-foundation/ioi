@@ -27,7 +27,7 @@ use depin_sdk_validator::config::OrchestrationConfig;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use hyper::Body;
 use libp2p::{identity, Multiaddr, PeerId};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Once};
@@ -230,55 +230,42 @@ async fn ensure_docker_image_exists() -> Result<()> {
 
 pub async fn submit_transaction(rpc_addr: &str, tx: &ChainTransaction) -> Result<()> {
     let tx_hex = hex::encode(serde_json::to_vec(tx)?);
-    let url = format!("http://{}/rpc", rpc_addr);
+    // FIX: Use the new, dedicated endpoint for submitting transactions.
+    let url = format!("http://{}/rpc/submit", rpc_addr);
     let client = reqwest::Client::new();
 
-    // candidates: method names & param shapes
-    let candidates = [
-        ("submit_tx", serde_json::json!([tx_hex.clone()])),
-        ("tx.submit.v1", serde_json::json!([tx_hex.clone()])),
-        ("transaction.submit.v1", serde_json::json!([tx_hex.clone()])),
-        ("tx.submit.v1", serde_json::json!({ "tx": tx_hex.clone() })),
-        ("transaction.submit.v1", serde_json::json!({ "tx": tx_hex })),
-    ];
+    // Use the canonical method name.
+    let method = "submit_tx";
+    let params = json!([tx_hex]);
 
-    for (method, params) in candidates {
-        let req =
-            serde_json::json!({ "jsonrpc":"2.0", "method": method, "params": params, "id": 1 });
-        let resp = client.post(&url).json(&req).send().await?;
-        let text = resp.text().await?;
-        // Parse but also keep the raw for diagnostics
-        let v: serde_json::Value = serde_json::from_str(&text).unwrap_or(serde_json::Value::Null);
+    let req = json!({ "jsonrpc":"2.0", "method": method, "params": params, "id": 1 });
+    let resp = client.post(&url).json(&req).send().await?;
+    let status = resp.status();
+    let text = resp.text().await?;
 
-        // explicit JSON-RPC error -> fail fast with context
-        if v.get("error").is_some() && !v["error"].is_null() {
-            return Err(anyhow!("RPC {} error: {}", method, v["error"]));
-        }
+    if !status.is_success() {
+        return Err(anyhow!(
+            "RPC submission failed with status {}: {}",
+            status,
+            text
+        ));
+    }
 
-        // success heuristics
-        let ok = match &v["result"] {
-            serde_json::Value::String(s) => {
-                s.eq_ignore_ascii_case("ok")
-                    || s.eq_ignore_ascii_case("submitted")
-                    || s.eq_ignore_ascii_case("transaction accepted")
-            }
-            serde_json::Value::Bool(b) => *b,
-            serde_json::Value::Object(m) => {
-                m.get("accepted").and_then(|v| v.as_bool()).unwrap_or(false)
-            }
-            _ => false,
-        };
+    let v: serde_json::Value = serde_json::from_str(&text)?;
 
-        if ok {
-            println!("submit_transaction: {} accepted -> {}", method, text);
-            return Ok(());
-        } else {
-            println!("submit_transaction: {} returned non-OK -> {}", method, text);
-        }
+    if v.get("error").is_some() && !v["error"].is_null() {
+        return Err(anyhow!("RPC error: {}", v["error"]));
+    }
+
+    // Check for a successful result
+    if v.get("result").is_some() {
+        log::info!("submit_transaction: {} accepted -> {}", method, text);
+        return Ok(());
     }
 
     Err(anyhow!(
-        "No RPC submit variant accepted the tx; see logs above for raw responses"
+        "RPC submission was accepted but did not return a valid result: {}",
+        text
     ))
 }
 
@@ -589,6 +576,7 @@ impl TestValidator {
             } else {
                 rpc_addr.clone()
             },
+            rpc_hardening: Default::default(),
             initial_sync_timeout_secs: 2,
             block_production_interval_secs: 5,
             round_robin_view_timeout_secs: 20,
