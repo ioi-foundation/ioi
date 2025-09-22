@@ -4,7 +4,7 @@
 use depin_sdk_api::lifecycle::OnEndBlock;
 use depin_sdk_api::services::access::Service;
 use depin_sdk_api::services::{BlockchainService, ServiceType, UpgradableService};
-use depin_sdk_api::state::{StateAccessor, StateManager};
+use depin_sdk_api::state::{PrunePlan, StateAccessor, StateManager};
 use depin_sdk_api::transaction::context::TxContext;
 // --- FIX: Import the types from the `depin-sdk-types` crate ---
 use depin_sdk_types::app::{
@@ -92,7 +92,7 @@ impl OnEndBlock for GovernanceModule {
                     // The state manager for the on_end_block hook is a `&mut dyn StateAccessor`,
                     // which is exactly what `tally_proposal` needs.
                     self.tally_proposal(state, proposal.id, &stakes)
-                        .map_err(|e| StateError::Apply(e))?;
+                        .map_err(StateError::Apply)?;
                 }
             }
         }
@@ -442,7 +442,7 @@ mod tests {
         fn commitment_to_bytes(&self, c: &Self::Commitment) -> Vec<u8> {
             c.clone()
         }
-        fn prune(&mut self, _min_height_to_keep: u64) -> Result<(), StateError> {
+        fn prune(&mut self, _plan: &PrunePlan) -> Result<(), StateError> {
             Ok(())
         }
         fn batch_apply(

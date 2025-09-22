@@ -40,7 +40,7 @@ impl Membership {
 
 /// A versioned entry in the state tree, containing the actual value
 /// along with metadata about when it was last modified.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct StateEntry {
     /// The raw value stored by the application or contract.
     pub value: Vec<u8>,

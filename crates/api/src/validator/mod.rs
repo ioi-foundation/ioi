@@ -12,6 +12,7 @@ use dcrypt::algorithms::{
     ByteSerializable,
 };
 use depin_sdk_types::app::{Membership, StateEntry};
+use depin_sdk_types::codec;
 use depin_sdk_types::config::WorkloadConfig;
 use depin_sdk_types::error::ValidatorError;
 use lru::LruCache;
@@ -195,11 +196,12 @@ where
             let stored_bytes = state
                 .get(&code_key)?
                 .ok_or_else(|| ValidatorError::Other("Contract not found".to_string()))?;
-            let stored_entry: StateEntry = serde_json::from_slice(&stored_bytes).map_err(|e| {
-                ValidatorError::State(depin_sdk_types::error::StateError::InvalidValue(
-                    e.to_string(),
-                ))
-            })?;
+            let stored_entry: StateEntry =
+                codec::from_bytes_canonical(&stored_bytes).map_err(|e| {
+                    ValidatorError::State(depin_sdk_types::error::StateError::InvalidValue(
+                        e.to_string(),
+                    ))
+                })?;
             stored_entry.value
         };
 
@@ -222,11 +224,12 @@ where
             let stored_bytes = state
                 .get(&code_key)?
                 .ok_or_else(|| ValidatorError::Other("Contract not found".to_string()))?;
-            let stored_entry: StateEntry = serde_json::from_slice(&stored_bytes).map_err(|e| {
-                ValidatorError::State(depin_sdk_types::error::StateError::InvalidValue(
-                    e.to_string(),
-                ))
-            })?;
+            let stored_entry: StateEntry =
+                codec::from_bytes_canonical(&stored_bytes).map_err(|e| {
+                    ValidatorError::State(depin_sdk_types::error::StateError::InvalidValue(
+                        e.to_string(),
+                    ))
+                })?;
             stored_entry.value
         };
 

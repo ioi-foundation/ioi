@@ -114,7 +114,7 @@ where
                                     value,
                                     block_height: ctx.block_height,
                                 };
-                                (key, serde_json::to_vec(&entry).unwrap())
+                                (key, codec::to_bytes_canonical(&entry))
                             })
                             .collect();
                         state.batch_set(&versioned_delta)?; // Writes to the overlay
@@ -163,7 +163,7 @@ where
                                     value,
                                     block_height: ctx.block_height,
                                 };
-                                (key, serde_json::to_vec(&entry).unwrap())
+                                (key, codec::to_bytes_canonical(&entry))
                             })
                             .collect();
                         state.batch_set(&versioned_delta)?; // Writes to the overlay
