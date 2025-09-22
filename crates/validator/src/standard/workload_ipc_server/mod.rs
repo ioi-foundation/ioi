@@ -27,6 +27,7 @@ use methods::{
     },
     RpcContext,
 };
+use rand::{thread_rng, Rng};
 use router::{RequestContext, Router};
 use serde::Serialize;
 use std::fs::File;
@@ -36,6 +37,7 @@ use std::time::Duration;
 use tokio::{
     io::AsyncReadExt,
     sync::{Mutex, Semaphore},
+    time::interval,
 };
 use tokio_rustls::{
     rustls::{pki_types::PrivateKeyDer, RootCertStore, ServerConfig},
@@ -161,33 +163,44 @@ where
         )?;
         let acceptor = TlsAcceptor::from(server_config);
 
+        // --- PHASE 3: INCREMENTAL GC TASK ---
         let state_tree_for_gc = self.workload_container.state_tree();
         let chain_for_gc = self.chain_arc.clone();
         let gc_config = self.workload_container.config().clone();
         let pins_for_gc = self.workload_container.pins.clone();
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(3600)); // Prune every hour
-            let min_finality_depth = gc_config.min_finality_depth;
-            let keep_recent_heights = gc_config.keep_recent_heights;
+            const GC_INTERVAL_SECS: u64 = 3600; // Prune every hour
+            const BATCH_LIMIT: usize = 1_000;
+            const MAX_BATCHES_PER_TICK: usize = 10;
+
+            let mut interval = interval(Duration::from_secs(GC_INTERVAL_SECS));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
             loop {
                 interval.tick().await;
-                // --- PHASE 2: PrunePlan Generation ---
+
+                // Add +/- 10% jitter to the interval to desynchronize nodes
+                let jitter_factor = thread_rng().gen_range(-0.10..=0.10);
+                let jitter_millis =
+                    ((GC_INTERVAL_SECS as f64 * jitter_factor).abs() * 1000.0) as u64;
+                if jitter_millis > 0 {
+                    tokio::time::sleep(Duration::from_millis(jitter_millis)).await;
+                }
+
+                // --- PHASE 1: Build PrunePlan (async, no locks on state tree) ---
                 let plan = {
                     let current_height = AppChain::status(&*chain_for_gc.lock().await).height;
+                    let finalized_height = current_height; // Placeholder for real finality
 
-                    // A real implementation would get finalized_height from the consensus engine state.
-                    // For now, we use current_height as a safe proxy.
-                    let finalized_height = current_height;
-
-                    // Calculate the two potential cutoff points
-                    let horizon_cutoff = current_height.saturating_sub(keep_recent_heights);
-                    let finality_cutoff = finalized_height.saturating_sub(min_finality_depth);
-
-                    // The actual cutoff is the minimum of the two, ensuring we satisfy both constraints.
+                    let horizon_cutoff =
+                        current_height.saturating_sub(gc_config.keep_recent_heights);
+                    let finality_cutoff =
+                        finalized_height.saturating_sub(gc_config.min_finality_depth);
                     let cutoff_height = horizon_cutoff.min(finality_cutoff);
 
-                    // Get a snapshot of all actively pinned versions.
+                    // Defensive clamp: ensure we never try to prune the current height.
+                    let cutoff_height = cutoff_height.min(current_height);
+
                     let excluded_heights = pins_for_gc.snapshot().await;
 
                     PrunePlan {
@@ -196,18 +209,46 @@ where
                     }
                 };
 
-                if plan.cutoff_height > 0 {
-                    log::debug!(
-                        "[GC] Pruning state versions older than height {}, excluding {} pinned versions.",
-                        plan.cutoff_height, plan.excluded_heights.len()
-                    );
-                    let mut state = state_tree_for_gc.write().await;
-                    if let Err(e) = state.prune(&plan) {
-                        log::error!("[GC] State pruning failed: {}", e);
+                // METRIC: state_prune_cutoff_height.set(plan.cutoff_height);
+                // METRIC: state_prune_excluded_count.set(plan.excluded_heights.len());
+
+                // --- PHASE 2: Try to acquire lock and prune incrementally ---
+                if let Ok(mut state) = state_tree_for_gc.try_write() {
+                    let mut total_pruned = 0;
+                    for _ in 0..MAX_BATCHES_PER_TICK {
+                        let batch_start = std::time::Instant::now();
+                        let pruned_in_batch = match state.prune_batch(&plan, BATCH_LIMIT) {
+                            Ok(n) => n,
+                            Err(e) => {
+                                log::error!("[GC] State prune_batch failed: {}", e);
+                                break; // Stop this cycle on error
+                            }
+                        };
+
+                        // METRIC: gc_batch_duration_seconds.observe(batch_start.elapsed().as_secs_f64());
+                        total_pruned += pruned_in_batch;
+
+                        if pruned_in_batch < BATCH_LIMIT {
+                            break; // Nothing left to prune this cycle
+                        }
+                        tokio::task::yield_now().await; // Yield between batches
                     }
+                    if total_pruned > 0 {
+                        log::debug!(
+                            "[GC] Pruned {} heights (cutoff {}, excluded {})",
+                            total_pruned,
+                            plan.cutoff_height,
+                            plan.excluded_heights.len()
+                        );
+                        // METRIC: gc_pruned_heights_total.inc_by(total_pruned);
+                    }
+                } else {
+                    log::debug!("[GC] Could not acquire state lock; skipping this tick.");
+                    // METRIC: gc_skips_due_to_lock_total.inc();
                 }
             }
         });
+        // --- END OF GC TASK ---
 
         let shared_ctx = Arc::new(RpcContext {
             chain: self.chain_arc.clone(),

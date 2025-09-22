@@ -445,6 +445,9 @@ mod tests {
         fn prune(&mut self, _plan: &PrunePlan) -> Result<(), StateError> {
             Ok(())
         }
+        fn prune_batch(&mut self, _plan: &PrunePlan, _limit: usize) -> Result<usize, StateError> {
+            Ok(0)
+        }
         fn batch_apply(
             &mut self,
             inserts: &[(Vec<u8>, Vec<u8>)],
