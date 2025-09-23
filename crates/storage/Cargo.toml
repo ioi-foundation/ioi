@@ -1,0 +1,13 @@
+[package]
+name = "depin-sdk-storage"
+version = "0.1.0"
+edition = "2021"
+description = "Pure-Rust persistent storage (redb + epoch sharding) for StateManager backends"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+depin-sdk-api = { path = "../api" }
+redb = "1.4.1"
+ahash = "0.8"
+hex = { workspace = true }
+thiserror = { workspace = true }

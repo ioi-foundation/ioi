@@ -25,6 +25,7 @@ members = [
     "crates/homomorphic",
     "crates/network",
     "crates/services",
+    "crates/storage",
     "crates/test_utils",
     "crates/transaction_models",
     "crates/validator",

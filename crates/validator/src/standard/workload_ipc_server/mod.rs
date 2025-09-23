@@ -104,9 +104,9 @@ where
         + std::fmt::Debug
         + Clone,
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    CS::Commitment: std::fmt::Debug + Send + Sync,
+    CS::Commitment: std::fmt::Debug + Send + Sync + From<Vec<u8>>,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + AsRef<[u8]>,
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
     pub async fn new(
@@ -168,6 +168,7 @@ where
         let chain_for_gc = self.chain_arc.clone();
         let gc_config = self.workload_container.config().clone();
         let pins_for_gc = self.workload_container.pins.clone();
+        let store_for_gc = self.workload_container.store.clone();
         tokio::spawn(async move {
             const GC_INTERVAL_SECS: u64 = 3600; // Prune every hour
             const BATCH_LIMIT: usize = 1_000;
@@ -212,39 +213,74 @@ where
                 // METRIC: state_prune_cutoff_height.set(plan.cutoff_height);
                 // METRIC: state_prune_excluded_count.set(plan.excluded_heights.len());
 
-                // --- PHASE 2: Try to acquire lock and prune incrementally ---
-                if let Ok(mut state) = state_tree_for_gc.try_write() {
-                    let mut total_pruned = 0;
-                    for _ in 0..MAX_BATCHES_PER_TICK {
-                        let batch_start = std::time::Instant::now();
-                        let pruned_in_batch = match state.prune_batch(&plan, BATCH_LIMIT) {
-                            Ok(n) => n,
-                            Err(e) => {
-                                log::error!("[GC] State prune_batch failed: {}", e);
-                                break; // Stop this cycle on error
-                            }
-                        };
-
-                        // METRIC: gc_batch_duration_seconds.observe(batch_start.elapsed().as_secs_f64());
-                        total_pruned += pruned_in_batch;
-
-                        if pruned_in_batch < BATCH_LIMIT {
-                            break; // Nothing left to prune this cycle
-                        }
-                        tokio::task::yield_now().await; // Yield between batches
-                    }
-                    if total_pruned > 0 {
-                        log::debug!(
-                            "[GC] Pruned {} heights (cutoff {}, excluded {})",
-                            total_pruned,
-                            plan.cutoff_height,
-                            plan.excluded_heights.len()
-                        );
-                        // METRIC: gc_pruned_heights_total.inc_by(total_pruned);
+                // --- PHASE 2a: Prune in-memory version indices (non-blocking) ---
+                if let Ok(mut state_tree) = state_tree_for_gc.try_write() {
+                    if let Err(e) =
+                        state_tree.prune_batch(&plan, BATCH_LIMIT * MAX_BATCHES_PER_TICK)
+                    {
+                        log::error!("[GC] Failed to prune in-memory state versions: {}", e);
                     }
                 } else {
-                    log::debug!("[GC] Could not acquire state lock; skipping this tick.");
-                    // METRIC: gc_skips_due_to_lock_total.inc();
+                    log::warn!(
+                        "[GC] Could not acquire lock for in-memory prune, skipping this cycle."
+                    );
+                }
+
+                // --- PHASE 2b: Prune directly against the durable store ---
+                let cutoff_epoch = store_for_gc.epoch_of(plan.cutoff_height);
+
+                // [+] 2b(i): Drop fully eligible sealed epochs
+                let pinned_epochs: std::collections::BTreeSet<u64> = plan
+                    .excluded_heights
+                    .iter()
+                    .map(|h| store_for_gc.epoch_of(*h))
+                    .collect();
+
+                for epoch_id in 0..cutoff_epoch {
+                    if pinned_epochs.contains(&epoch_id) {
+                        log::debug!("[GC] Skipping drop of pinned epoch {}", epoch_id);
+                        continue;
+                    }
+                    if store_for_gc.is_sealed(epoch_id).unwrap_or(false) {
+                        if let Err(err) = store_for_gc.drop_sealed_epoch(epoch_id) {
+                            log::error!("[GC] Failed to drop sealed epoch {}: {}", epoch_id, err);
+                        } else {
+                            log::info!("[GC] Dropped sealed epoch {}", epoch_id);
+                        }
+                    }
+                }
+
+                // [+] 2b(ii): Prune partial epochs incrementally
+                let mut total_pruned = 0;
+                for _ in 0..MAX_BATCHES_PER_TICK {
+                    let _batch_start = std::time::Instant::now();
+                    let excluded_vec: Vec<u64> = plan.excluded_heights.iter().cloned().collect();
+                    let stats = match store_for_gc.prune_batch(
+                        plan.cutoff_height,
+                        &excluded_vec,
+                        BATCH_LIMIT,
+                    ) {
+                        Ok(s) => s,
+                        Err(e) => {
+                            log::error!("[GC] Store prune_batch failed: {}", e);
+                            break; // Stop this cycle on error
+                        }
+                    };
+
+                    total_pruned += stats.heights_pruned;
+
+                    if stats.heights_pruned < BATCH_LIMIT {
+                        break; // Nothing left to prune this cycle
+                    }
+                    tokio::task::yield_now().await; // Yield between batches
+                }
+                if total_pruned > 0 {
+                    log::debug!(
+                        "[GC] Pruned {} heights (cutoff {}, excluded {})",
+                        total_pruned,
+                        plan.cutoff_height,
+                        plan.excluded_heights.len()
+                    );
                 }
             }
         });

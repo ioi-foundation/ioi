@@ -42,8 +42,8 @@ where
         + 'static
         + std::fmt::Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
-    <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + AsRef<[u8]>,
+    <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync + From<Vec<u8>>,
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
     const NAME: &'static str = "chain.processBlock.v1";
@@ -131,8 +131,8 @@ where
         + 'static
         + std::fmt::Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
-    <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + AsRef<[u8]>,
+    <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync + From<Vec<u8>>,
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
     const NAME: &'static str = "chain.checkTransactions.v1";
@@ -284,8 +284,8 @@ where
         + 'static
         + std::fmt::Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
-    <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + AsRef<[u8]>,
+    <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync + From<Vec<u8>>,
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
     const NAME: &'static str = "chain.getLastBlockHash.v1";
@@ -339,8 +339,8 @@ where
         + 'static
         + std::fmt::Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
-    <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + AsRef<[u8]>,
+    <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync + From<Vec<u8>>,
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
     const NAME: &'static str = "chain.getAuthoritySet.v1";
@@ -396,8 +396,8 @@ where
         + 'static
         + std::fmt::Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
-    <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + AsRef<[u8]>,
+    <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync + From<Vec<u8>>,
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
     const NAME: &'static str = "chain.getNextValidatorSet.v1";
@@ -450,8 +450,8 @@ where
         + 'static
         + std::fmt::Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
-    <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + AsRef<[u8]>,
+    <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync + From<Vec<u8>>,
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
     const NAME: &'static str = "chain.getValidatorSetFor.v1";
@@ -503,8 +503,8 @@ where
         + 'static
         + std::fmt::Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
-    <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + AsRef<[u8]>,
+    <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync + From<Vec<u8>>,
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
     const NAME: &'static str = "chain.getValidatorSetAt.v1";

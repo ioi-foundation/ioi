@@ -14,8 +14,9 @@ use depin_sdk_crypto::sign::dilithium::DilithiumKeyPair;
 use depin_sdk_network::libp2p::Libp2pSync;
 use depin_sdk_services::governance::GovernanceModule;
 use depin_sdk_services::identity::IdentityHub;
+use depin_sdk_storage::RedbEpochStore;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-use depin_sdk_types::config::{InitialServiceConfig, OrchestrationConfig};
+use depin_sdk_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
 use depin_sdk_types::error::CoreError;
 use depin_sdk_validator::standard::orchestration::OrchestrationDependencies;
 use depin_sdk_validator::standard::{
@@ -40,7 +41,6 @@ use depin_sdk_commitment::tree::iavl::IAVLTree;
 use depin_sdk_commitment::tree::sparse_merkle::SparseMerkleTree;
 #[cfg(feature = "tree-verkle")]
 use depin_sdk_commitment::tree::verkle::VerkleTree;
-use depin_sdk_types::config::WorkloadConfig;
 
 #[derive(Parser, Debug)]
 struct OrchestrationOpts {
@@ -280,12 +280,19 @@ where
             initial_services: vec![],
             min_finality_depth: workload_config.min_finality_depth,
             keep_recent_heights: workload_config.keep_recent_heights,
+            epoch_size: workload_config.epoch_size,
         };
+
+        let data_dir = opts.config.parent().unwrap_or_else(|| Path::new("."));
+        let dummy_store_path = data_dir.join("orchestrator_dummy_store.db");
+        let dummy_store = Arc::new(RedbEpochStore::open(&dummy_store_path, 50_000)?);
+
         let workload_container = Arc::new(depin_sdk_api::validator::WorkloadContainer::new(
             dummy_workload_config,
             state_tree,
             Box::new(depin_sdk_vm_wasm::WasmVm::new(Default::default())),
             service_directory, // <-- Pass the populated directory here
+            dummy_store,
         ));
         let chain = Chain::new(
             commitment_scheme,
@@ -317,6 +324,8 @@ where
 
     log::info!("Shutdown signal received.");
     orchestration.stop().await?;
+    let data_dir = opts.config.parent().unwrap_or_else(|| Path::new("."));
+    let _ = fs::remove_file(data_dir.join("orchestrator_dummy_store.db"));
     log::info!("Orchestration container stopped gracefully.");
     Ok(())
 }

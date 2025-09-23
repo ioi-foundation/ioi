@@ -5,7 +5,8 @@ pub mod verifier;
 
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
 use depin_sdk_api::state::{PrunePlan, StateCommitment, StateManager};
-use depin_sdk_crypto::algorithms::hash; // Uses dcrypt::hash::sha2 underneath
+use depin_sdk_api::storage::NodeStore;
+use depin_sdk_storage::adapter::{commit_and_persist, DeltaAccumulator};
 use depin_sdk_types::app::{to_root_hash, Membership, RootHash};
 use depin_sdk_types::error::StateError;
 use serde::{Deserialize, Serialize};
@@ -20,24 +21,44 @@ enum Node {
     Leaf {
         key: Vec<u8>,
         value: Vec<u8>,
+        created_at: u64,
     },
     Branch {
         left: Arc<Node>,
         right: Arc<Node>,
         hash: Vec<u8>,
+        created_at: u64,
     },
+}
+
+fn smt_encode_node(node: &Node) -> Vec<u8> {
+    let mut data = Vec::new();
+    match node {
+        Node::Empty => {} // Empty hash is special-cased, no canonical encoding needed
+        Node::Leaf { key, value, .. } => {
+            data.push(0x00); // Leaf prefix
+            data.extend_from_slice(key);
+            data.extend_from_slice(value);
+        }
+        Node::Branch { left, right, .. } => {
+            data.push(0x01); // Branch prefix
+            data.extend_from_slice(&left.hash());
+            data.extend_from_slice(&right.hash());
+        }
+    }
+    data
 }
 
 impl Node {
     fn hash(&self) -> Vec<u8> {
         match self {
             Node::Empty => vec![0u8; 32], // Empty hash
-            Node::Leaf { key, value } => {
+            Node::Leaf { key, value, .. } => {
                 let mut data = Vec::new();
                 data.push(0x00); // Leaf prefix
                 data.extend_from_slice(key);
                 data.extend_from_slice(value);
-                hash::sha256(&data)
+                depin_sdk_crypto::algorithms::hash::sha256(&data)
             }
             Node::Branch { hash, .. } => hash.clone(),
         }
@@ -48,7 +69,7 @@ impl Node {
         data.push(0x01); // Branch prefix
         data.extend_from_slice(&left.hash());
         data.extend_from_slice(&right.hash());
-        hash::sha256(&data)
+        depin_sdk_crypto::algorithms::hash::sha256(&data)
     }
 }
 
@@ -67,6 +88,8 @@ pub struct SparseMerkleTree<CS: CommitmentScheme> {
     scheme: CS,
     cache: HashMap<Vec<u8>, Vec<u8>>, // Key-value cache for efficient lookups
     indices: Indices,
+    current_height: u64,
+    delta: DeltaAccumulator,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -89,6 +112,8 @@ where
             scheme,
             cache: HashMap::new(),
             indices: Indices::default(),
+            current_height: 0,
+            delta: DeltaAccumulator::default(),
         }
     }
 
@@ -130,6 +155,7 @@ where
                 Arc::new(Node::Leaf {
                     key: key.to_vec(),
                     value: v.to_vec(),
+                    created_at: self.current_height,
                 })
             } else {
                 Arc::new(Node::Empty)
@@ -150,11 +176,17 @@ where
                     (child, Arc::new(Node::Empty))
                 };
                 let hash = Node::compute_branch_hash(&left, &right);
-                Arc::new(Node::Branch { left, right, hash })
+                Arc::new(Node::Branch {
+                    left,
+                    right,
+                    hash,
+                    created_at: self.current_height,
+                })
             }
             Node::Leaf {
                 key: leaf_key,
                 value: leaf_value,
+                ..
             } => {
                 if leaf_key == key {
                     // Exact key match: update the value or delete the leaf.
@@ -162,6 +194,7 @@ where
                         Arc::new(Node::Leaf {
                             key: key.to_vec(),
                             value: v.to_vec(),
+                            created_at: self.current_height,
                         })
                     } else {
                         Arc::new(Node::Empty)
@@ -190,6 +223,7 @@ where
                         left: new_left,
                         right: new_right,
                         hash,
+                        created_at: self.current_height,
                     })
                 }
             }
@@ -223,6 +257,7 @@ where
         let leaf = if let Node::Leaf {
             key: leaf_key,
             value,
+            ..
         } = current.as_ref()
         {
             Some((leaf_key.clone(), value.clone()))
@@ -236,7 +271,9 @@ where
     fn get_from_snapshot(node: &Arc<Node>, key: &[u8], depth: usize) -> Option<Vec<u8>> {
         match node.as_ref() {
             Node::Empty => None,
-            Node::Leaf { key: k, value: v } => (k.as_slice() == key).then(|| v.clone()),
+            Node::Leaf {
+                key: k, value: v, ..
+            } => (k.as_slice() == key).then(|| v.clone()),
             Node::Branch { left, right, .. } => {
                 if Self::get_bit(key, depth) {
                     Self::get_from_snapshot(right, key, depth + 1)
@@ -271,7 +308,7 @@ where
         }
 
         let leaf = match current.as_ref() {
-            Node::Leaf { key, value } => Some((key.clone(), value.clone())),
+            Node::Leaf { key, value, .. } => Some((key.clone(), value.clone())),
             _ => None,
         };
 
@@ -299,7 +336,7 @@ where
                 data.push(0x00); // leaf prefix
                 data.extend_from_slice(proof_key);
                 data.extend_from_slice(proof_value);
-                hash::sha256(&data)
+                depin_sdk_crypto::algorithms::hash::sha256(&data)
             }
             // Case 2: Proving ABSENCE because the path ends at an EMPTY node.
             // proof.leaf must be None, value must be None.
@@ -317,7 +354,7 @@ where
                 data.push(0x00); // leaf prefix
                 data.extend_from_slice(witness_key);
                 data.extend_from_slice(witness_value);
-                hash::sha256(&data)
+                depin_sdk_crypto::algorithms::hash::sha256(&data)
             }
             // All other combinations are invalid.
             _ => {
@@ -340,10 +377,57 @@ where
                 data.extend_from_slice(&acc);
                 data.extend_from_slice(sib);
             }
-            acc = hash::sha256(&data);
+            acc = depin_sdk_crypto::algorithms::hash::sha256(&data);
         }
 
         acc.as_slice() == root_hash
+    }
+
+    fn collect_height_delta(&mut self) {
+        let h = self.current_height;
+        let root_clone = self.root.clone();
+        self.collect_from_node(&root_clone, h);
+    }
+
+    fn collect_from_node(&mut self, n: &Arc<Node>, h: u64) {
+        match n.as_ref() {
+            Node::Empty => {}
+            Node::Leaf { created_at, .. } | Node::Branch { created_at, .. } => {
+                let bytes = smt_encode_node(n.as_ref());
+                let mut nh = [0u8; 32];
+                nh.copy_from_slice(&n.hash());
+                if *created_at == h {
+                    self.delta.record_new(nh, bytes);
+                } else {
+                    self.delta.record_touch(nh);
+                }
+                if let Node::Branch { left, right, .. } = n.as_ref() {
+                    self.collect_from_node(left, h);
+                    self.collect_from_node(right, h);
+                }
+            }
+        }
+    }
+
+    pub fn commit_version_with_store<S: NodeStore + ?Sized>(
+        &mut self,
+        height: u64,
+        store: &S,
+    ) -> Result<RootHash, StateError>
+    where
+        CS: CommitmentScheme,
+        CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
+        CS::Commitment: From<Vec<u8>>,
+        CS::Proof: AsRef<[u8]>,
+    {
+        self.current_height = height;
+        self.collect_height_delta();
+        let root_hash = to_root_hash(self.root_commitment())?;
+        commit_and_persist(store, height, root_hash, &self.delta)
+            .map_err(|e| StateError::Backend(e.to_string()))?;
+        self.delta.clear();
+        let _ = <Self as StateManager>::commit_version(self, height)?;
+        Ok(root_hash)
     }
 }
 
@@ -514,6 +598,7 @@ where
         for (key, value) in inserts {
             self.insert(key, value)?;
         }
+        self.collect_height_delta();
         Ok(())
     }
 
@@ -554,6 +639,7 @@ where
     }
 
     fn commit_version(&mut self, height: u64) -> Result<RootHash, StateError> {
+        self.current_height = height;
         let root_hash = to_root_hash(self.root.hash())?;
 
         match self.indices.versions_by_height.insert(height, root_hash) {
@@ -591,6 +677,14 @@ where
         } else {
             false
         }
+    }
+
+    fn commit_version_persist(
+        &mut self,
+        height: u64,
+        store: &dyn NodeStore,
+    ) -> Result<RootHash, StateError> {
+        self.commit_version_with_store(height, store)
     }
 }
 

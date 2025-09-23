@@ -18,6 +18,7 @@ use depin_sdk_client::security::SecurityChannel;
 use depin_sdk_commitment::primitives::hash::HashProof;
 use depin_sdk_consensus::util::engine_from_config;
 use depin_sdk_services::identity::IdentityHub;
+use depin_sdk_storage::RedbEpochStore;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::Membership;
 use depin_sdk_types::codec;
@@ -84,7 +85,7 @@ where
         + Clone,
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
     CS::Proof: AsRef<[u8]> + serde::Serialize + for<'de> serde::Deserialize<'de>,
-    CS::Commitment: std::fmt::Debug,
+    CS::Commitment: std::fmt::Debug + From<Vec<u8>>,
 {
     if !Path::new(&config.state_file).exists() {
         load_state_from_genesis_file(&mut state_tree, &config.genesis_file)?;
@@ -119,11 +120,15 @@ where
         .collect();
     let service_directory = ServiceDirectory::new(services_for_dir);
 
+    let store_path = Path::new(&config.state_file).with_extension("db");
+    let store = Arc::new(RedbEpochStore::open(store_path, config.epoch_size)?);
+
     let workload_container = Arc::new(WorkloadContainer::new(
         config.clone(),
         state_tree,
         wasm_vm,
         service_directory,
+        store,
     ));
 
     let temp_orch_config = OrchestrationConfig {
@@ -131,7 +136,7 @@ where
         config_schema_version: 0,
         consensus_type: config.consensus_type,
         rpc_listen_address: String::new(),
-        rpc_hardening: Default::default(), // FIX: Initialize the new field
+        rpc_hardening: Default::default(),
         initial_sync_timeout_secs: 0,
         block_production_interval_secs: 0,
         round_robin_view_timeout_secs: 0,
@@ -242,9 +247,9 @@ where
         + std::fmt::Debug
         + Clone,
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    CS::Commitment: std::fmt::Debug,
+    CS::Commitment: std::fmt::Debug + Send + Sync + From<Vec<u8>>,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + AsRef<[u8]>,
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
     pub async fn new(

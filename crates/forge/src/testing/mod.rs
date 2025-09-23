@@ -605,7 +605,8 @@ impl TestValidator {
             fuel_costs: VmFuelCosts::default(),
             initial_services,
             min_finality_depth: 1000,
-            keep_recent_heights: 100_000, // FIX: Add missing field
+            keep_recent_heights: 100_000,
+            epoch_size: 50_000,
         };
 
         if state_tree_type == "Verkle" {

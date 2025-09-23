@@ -11,25 +11,39 @@ use crate::tree::verkle::proof::{
 };
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
 use depin_sdk_api::state::{PrunePlan, StateCommitment, StateManager};
+use depin_sdk_api::storage::NodeStore;
+use depin_sdk_storage::adapter::{commit_and_persist, DeltaAccumulator};
 use depin_sdk_types::app::{to_root_hash, Membership, RootHash};
 use depin_sdk_types::error::StateError;
+use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 /// Verkle tree node
-#[derive(Debug, Clone)]
+// Note: `Arc<VerkleNode>` can be serialized because the `serde` dependency
+// in this crate's Cargo.toml has the `rc` feature enabled.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 enum VerkleNode {
     Empty,
     Leaf {
         key: Vec<u8>,
         value: Vec<u8>,
+        created_at: u64,
     },
     Internal {
         children: HashMap<u8, Arc<VerkleNode>>,
         kzg_commitment: KZGCommitment,
         witness: KZGWitness,
+        created_at: u64,
     },
+}
+
+/// Encodes a `VerkleNode` into its canonical byte format for storage.
+/// Note: This is for the storage adapter, not for the KZG commitment itself.
+fn encode_node_canonical(n: &VerkleNode) -> Vec<u8> {
+    // A simple bincode representation is sufficient for the durable store.
+    bincode::serialize(n).expect("VerkleNode serialization should not fail")
 }
 
 /// Verkle tree implementation
@@ -41,6 +55,8 @@ pub struct VerkleTree<CS: CommitmentScheme> {
     cache: HashMap<Vec<u8>, Vec<u8>>,
     indices: Indices,
     _empty_commitment: KZGCommitment,
+    current_height: u64,
+    delta: DeltaAccumulator,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -60,6 +76,8 @@ impl<CS: CommitmentScheme + Clone> Clone for VerkleTree<CS> {
             cache: self.cache.clone(),
             indices: self.indices.clone(),
             _empty_commitment: self._empty_commitment.clone(),
+            current_height: self.current_height,
+            delta: Default::default(), // delta is transient and should not be cloned
         }
     }
 }
@@ -80,6 +98,8 @@ impl VerkleTree<KZGCommitmentScheme> {
             cache: HashMap::new(),
             indices: Indices::default(),
             _empty_commitment: empty_commitment,
+            current_height: 0,
+            delta: DeltaAccumulator::default(),
         }
     }
 
@@ -97,7 +117,9 @@ impl VerkleTree<KZGCommitmentScheme> {
     fn get_from_node(&self, node: &Arc<VerkleNode>, key: &[u8], depth: usize) -> Option<Vec<u8>> {
         match node.as_ref() {
             VerkleNode::Empty => None,
-            VerkleNode::Leaf { key: k, value: v } => (k.as_slice() == key).then(|| v.clone()),
+            VerkleNode::Leaf {
+                key: k, value: v, ..
+            } => (k.as_slice() == key).then(|| v.clone()),
             VerkleNode::Internal { children, .. } => {
                 let child_index = key.get(depth)?;
                 let child = children.get(child_index)?;
@@ -153,7 +175,7 @@ impl VerkleTree<KZGCommitmentScheme> {
                 if !children.contains_key(&idx) {
                     if let Some((nidx, nkey, nval)) =
                         children.iter().find_map(|(k, ch)| match ch.as_ref() {
-                            VerkleNode::Leaf { key, value } => {
+                            VerkleNode::Leaf { key, value, .. } => {
                                 Some((*k, key.clone(), value.clone()))
                             }
                             _ => None,
@@ -219,6 +241,7 @@ impl VerkleTree<KZGCommitmentScheme> {
             VerkleNode::Leaf {
                 key: leaf_key,
                 value,
+                ..
             } => {
                 if leaf_key == key_path {
                     Terminal::Leaf(value.clone())
@@ -299,6 +322,7 @@ impl VerkleTree<KZGCommitmentScheme> {
                 Arc::new(VerkleNode::Leaf {
                     key: key.to_vec(),
                     value: v.to_vec(),
+                    created_at: self.current_height,
                 })
             } else {
                 Arc::new(VerkleNode::Empty)
@@ -311,6 +335,7 @@ impl VerkleTree<KZGCommitmentScheme> {
                     let mut path_node = Arc::new(VerkleNode::Leaf {
                         key: key.to_vec(),
                         value: v.to_vec(),
+                        created_at: self.current_height,
                     });
                     for d in (depth..key.len()).rev() {
                         let mut children = HashMap::new();
@@ -321,6 +346,7 @@ impl VerkleTree<KZGCommitmentScheme> {
                             children,
                             kzg_commitment,
                             witness,
+                            created_at: self.current_height,
                         });
                     }
                     path_node
@@ -331,12 +357,14 @@ impl VerkleTree<KZGCommitmentScheme> {
             VerkleNode::Leaf {
                 key: leaf_key,
                 value: leaf_value,
+                ..
             } => {
                 if leaf_key == key {
                     return if let Some(v) = value {
                         Arc::new(VerkleNode::Leaf {
                             key: key.to_vec(),
                             value: v.to_vec(),
+                            created_at: self.current_height,
                         })
                     } else {
                         Arc::new(VerkleNode::Empty)
@@ -348,6 +376,7 @@ impl VerkleTree<KZGCommitmentScheme> {
                     Arc::new(VerkleNode::Leaf {
                         key: leaf_key.clone(),
                         value: leaf_value.clone(),
+                        created_at: self.current_height,
                     }),
                 );
                 if let Some(v) = value {
@@ -356,6 +385,7 @@ impl VerkleTree<KZGCommitmentScheme> {
                         Arc::new(VerkleNode::Leaf {
                             key: key.to_vec(),
                             value: v.to_vec(),
+                            created_at: self.current_height,
                         }),
                     );
                 }
@@ -364,6 +394,7 @@ impl VerkleTree<KZGCommitmentScheme> {
                     children,
                     kzg_commitment,
                     witness,
+                    created_at: self.current_height,
                 })
             }
             VerkleNode::Internal { children, .. } => {
@@ -390,10 +421,54 @@ impl VerkleTree<KZGCommitmentScheme> {
                         children: new_children,
                         kzg_commitment,
                         witness,
+                        created_at: self.current_height,
                     })
                 }
             }
         }
+    }
+
+    fn collect_height_delta(&mut self) {
+        let h = self.current_height;
+        let root_clone = self.root.clone();
+        self.collect_from_node(&root_clone, h);
+    }
+
+    fn collect_from_node(&mut self, n: &Arc<VerkleNode>, h: u64) {
+        match n.as_ref() {
+            VerkleNode::Empty => {}
+            VerkleNode::Leaf { created_at, .. } | VerkleNode::Internal { created_at, .. } => {
+                let bytes = encode_node_canonical(n.as_ref());
+                let nh: [u8; 32] = depin_sdk_crypto::algorithms::hash::sha256(&bytes)
+                    .try_into()
+                    .unwrap();
+                if *created_at == h {
+                    self.delta.record_new(nh, bytes);
+                } else {
+                    self.delta.record_touch(nh);
+                }
+                if let VerkleNode::Internal { children, .. } = n.as_ref() {
+                    for child in children.values() {
+                        self.collect_from_node(child, h);
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn commit_version_with_store<S: NodeStore + ?Sized>(
+        &mut self,
+        height: u64,
+        store: &S,
+    ) -> Result<RootHash, StateError> {
+        self.current_height = height;
+        self.collect_height_delta();
+        let root_hash = to_root_hash(self.root_commitment())?;
+        commit_and_persist(store, height, root_hash, &self.delta)
+            .map_err(|e| StateError::Backend(e.to_string()))?;
+        self.delta.clear();
+        let _ = <Self as StateManager>::commit_version(self, height)?;
+        Ok(root_hash)
     }
 }
 
@@ -592,6 +667,7 @@ impl StateManager for VerkleTree<KZGCommitmentScheme> {
     }
 
     fn commit_version(&mut self, height: u64) -> Result<RootHash, StateError> {
+        self.current_height = height;
         let root_hash = to_root_hash(self.root_commitment())?;
 
         match self.indices.versions_by_height.insert(height, root_hash) {
@@ -629,6 +705,14 @@ impl StateManager for VerkleTree<KZGCommitmentScheme> {
         } else {
             false
         }
+    }
+
+    fn commit_version_persist(
+        &mut self,
+        height: u64,
+        store: &dyn NodeStore,
+    ) -> Result<RootHash, StateError> {
+        self.commit_version_with_store(height, store)
     }
 }
 

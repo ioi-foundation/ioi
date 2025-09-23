@@ -3,6 +3,7 @@
 
 use crate::state::PrunePlan;
 use crate::state::StateCommitment;
+use crate::storage::NodeStore;
 use depin_sdk_types::app::{Membership, RootHash};
 use depin_sdk_types::error::StateError;
 
@@ -71,6 +72,17 @@ pub trait StateManager: StateCommitment {
     fn version_exists_for_root(&self, _root: &Self::Commitment) -> bool {
         true
     }
+
+    /// Commits the current pending changes and persists the delta to a durable `NodeStore`.
+    /// StateManager implementations that support durable storage should override this method.
+    /// The default implementation falls back to the in-memory-only `commit_version`.
+    fn commit_version_persist(
+        &mut self,
+        height: u64,
+        _store: &dyn NodeStore,
+    ) -> Result<RootHash, StateError> {
+        self.commit_version(height)
+    }
 }
 
 // Blanket implementation to allow any `StateManager` to be used behind a `Box` trait object.
@@ -121,5 +133,13 @@ impl<T: StateManager + ?Sized> StateManager for Box<T> {
 
     fn version_exists_for_root(&self, root: &Self::Commitment) -> bool {
         (**self).version_exists_for_root(root)
+    }
+
+    fn commit_version_persist(
+        &mut self,
+        height: u64,
+        store: &dyn NodeStore,
+    ) -> Result<RootHash, StateError> {
+        (**self).commit_version_persist(height, store)
     }
 }

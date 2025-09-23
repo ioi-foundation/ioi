@@ -4,7 +4,7 @@
 use depin_sdk_api::lifecycle::OnEndBlock;
 use depin_sdk_api::services::access::Service;
 use depin_sdk_api::services::{BlockchainService, ServiceType, UpgradableService};
-use depin_sdk_api::state::{PrunePlan, StateAccessor, StateManager};
+use depin_sdk_api::state::{StateAccessor, StateManager};
 use depin_sdk_api::transaction::context::TxContext;
 // --- FIX: Import the types from the `depin-sdk-types` crate ---
 use depin_sdk_types::app::{
@@ -357,7 +357,7 @@ impl GovernanceModule {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use depin_sdk_api::state::StateCommitment;
+    use depin_sdk_api::state::{PrunePlan, StateCommitment};
     use depin_sdk_types::app::{Membership, RootHash};
     use depin_sdk_types::error::StateError;
     use std::any::Any;
