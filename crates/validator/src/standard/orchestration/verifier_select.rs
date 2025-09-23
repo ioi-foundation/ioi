@@ -59,17 +59,28 @@ mod fallback {
     use depin_sdk_api::error::StateError;
     use depin_sdk_api::state::Verifier;
     use depin_sdk_types::app::Membership;
-    // --- FIX START ---
     use parity_scale_codec::{Decode, Encode};
-    // --- FIX END ---
 
     #[derive(Clone, Debug, Default)]
     pub struct DefaultVerifier;
 
-    #[derive(Clone, Debug, serde::Deserialize, Encode, Decode)] // FIX: Add Encode, Decode
+    #[derive(Clone, Debug, serde::Deserialize, Encode, Decode)]
     pub struct DummyCommitment;
-    #[derive(Clone, Debug, serde::Deserialize, Encode, Decode)] // FIX: Add Encode, Decode
+    #[derive(Clone, Debug, serde::Deserialize, Encode, Decode)]
     pub struct DummyProof;
+
+    // --- FIX START ---
+    impl AsRef<[u8]> for DummyProof {
+        fn as_ref(&self) -> &[u8] {
+            &[]
+        }
+    }
+    impl From<Vec<u8>> for DummyCommitment {
+        fn from(_v: Vec<u8>) -> Self {
+            Self
+        }
+    }
+    // --- FIX END ---
 
     impl Verifier for DefaultVerifier {
         type Commitment = DummyCommitment;

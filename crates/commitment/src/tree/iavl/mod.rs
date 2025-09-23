@@ -7,6 +7,8 @@ pub mod verifier;
 use crate::tree::iavl::proof::verify_iavl_proof_bytes;
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
 use depin_sdk_api::state::{PrunePlan, StateCommitment, StateManager};
+use depin_sdk_api::storage::NodeStore;
+use depin_sdk_storage::adapter::{commit_and_persist, DeltaAccumulator};
 use depin_sdk_types::app::{to_root_hash, Membership, RootHash};
 use depin_sdk_types::error::StateError;
 use proof::{ExistenceProof, InnerOp, LeafOp, NonExistenceProof, Side};
@@ -132,6 +134,41 @@ fn maybe_assert_snapshot_consistent(root: &Option<Arc<IAVLNode>>) {
     }
 }
 
+/// Encodes an `IAVLNode` into its canonical byte format, which is the preimage for its hash.
+fn encode_node_canonical(n: &IAVLNode) -> Vec<u8> {
+    let mut data = Vec::new();
+    if n.is_leaf() {
+        data.push(0x00);
+        data.extend_from_slice(&n.version.to_le_bytes());
+        data.extend_from_slice(&0i32.to_le_bytes());
+        data.extend_from_slice(&1u64.to_le_bytes());
+        data.extend_from_slice(&(n.key.len() as u32).to_le_bytes());
+        data.extend_from_slice(&n.key);
+        data.extend_from_slice(&(n.value.len() as u32).to_le_bytes());
+        data.extend_from_slice(&n.value);
+    } else {
+        data.push(0x01);
+        data.extend_from_slice(&n.version.to_le_bytes());
+        data.extend_from_slice(&n.height.to_le_bytes());
+        data.extend_from_slice(&n.size.to_le_bytes());
+        data.extend_from_slice(&(n.key.len() as u32).to_le_bytes());
+        data.extend_from_slice(&n.key);
+        let left = n
+            .left
+            .as_ref()
+            .map(|x| x.hash.clone())
+            .unwrap_or_else(IAVLNode::empty_hash);
+        let right = n
+            .right
+            .as_ref()
+            .map(|x| x.hash.clone())
+            .unwrap_or_else(IAVLNode::empty_hash);
+        data.extend_from_slice(&left);
+        data.extend_from_slice(&right);
+    }
+    data
+}
+
 impl IAVLNode {
     /// Create a new leaf node
     fn new_leaf(key: Vec<u8>, value: Vec<u8>, version: u64) -> Self {
@@ -151,41 +188,7 @@ impl IAVLNode {
 
     /// Compute the hash of this node according to the canonical specification.
     fn compute_hash(&self) -> Vec<u8> {
-        let mut data = Vec::new();
-
-        if self.is_leaf() {
-            // Canonical Leaf Hash: H(tag || version || height=0 || size=1 || len(key) || key || len(value) || value)
-            data.push(0x00); // Leaf tag
-            data.extend_from_slice(&self.version.to_le_bytes());
-            data.extend_from_slice(&0i32.to_le_bytes()); // Use constant 0 (i32) for leaf height
-            data.extend_from_slice(&1u64.to_le_bytes()); // Use constant 1 (u64) for leaf size
-            data.extend_from_slice(&(self.key.len() as u32).to_le_bytes());
-            data.extend_from_slice(&self.key);
-            data.extend_from_slice(&(self.value.len() as u32).to_le_bytes());
-            data.extend_from_slice(&self.value);
-        } else {
-            // Canonical Inner Node Hash: H(tag || version || height || size || len(key) || key || left_hash || right_hash)
-            data.push(0x01); // Inner node tag
-            data.extend_from_slice(&self.version.to_le_bytes());
-            data.extend_from_slice(&self.height.to_le_bytes());
-            data.extend_from_slice(&self.size.to_le_bytes());
-            data.extend_from_slice(&(self.key.len() as u32).to_le_bytes());
-            data.extend_from_slice(&self.key);
-
-            let left_hash = self
-                .left
-                .as_ref()
-                .map(|l| l.hash.clone())
-                .unwrap_or_else(Self::empty_hash);
-            let right_hash = self
-                .right
-                .as_ref()
-                .map(|r| r.hash.clone())
-                .unwrap_or_else(Self::empty_hash);
-
-            data.extend_from_slice(&left_hash);
-            data.extend_from_slice(&right_hash);
-        }
+        let data = encode_node_canonical(self);
         depin_sdk_crypto::algorithms::hash::sha256(&data)
     }
 
@@ -530,6 +533,7 @@ pub struct IAVLTree<CS: CommitmentScheme> {
     indices: Indices,
     scheme: CS,
     cache: HashMap<Vec<u8>, Vec<u8>>,
+    delta: DeltaAccumulator,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -552,6 +556,7 @@ where
             indices: Indices::default(),
             scheme,
             cache: HashMap::new(),
+            delta: DeltaAccumulator::default(),
         }
     }
 
@@ -716,6 +721,48 @@ where
             }
         }
         successor
+    }
+
+    fn collect_height_delta(&mut self) {
+        let h = self.current_height;
+        if let Some(root) = self.root.clone() {
+            self.collect_from_node(&root, h);
+        }
+    }
+
+    fn collect_from_node(&mut self, n: &Arc<IAVLNode>, h: u64) {
+        if n.version == h {
+            let bytes = encode_node_canonical(n);
+            let mut nh = [0u8; 32];
+            nh.copy_from_slice(&n.hash);
+            self.delta.record_new(nh, bytes);
+        } else {
+            let mut nh = [0u8; 32];
+            nh.copy_from_slice(&n.hash);
+            self.delta.record_touch(nh);
+        }
+        if let Some(l) = &n.left {
+            self.collect_from_node(l, h);
+        }
+        if let Some(r) = &n.right {
+            self.collect_from_node(r, h);
+        }
+    }
+
+    /// The adapter entry point. Pass a NodeStore handle from the workload.
+    pub fn commit_version_with_store<S: NodeStore + ?Sized>(
+        &mut self,
+        height: u64,
+        store: &S,
+    ) -> Result<[u8; 32], depin_sdk_types::error::StateError> {
+        self.current_height = height;
+        self.collect_height_delta();
+        let root_hash = to_root_hash(self.root_commitment())?;
+        commit_and_persist(store, height, root_hash, &self.delta)
+            .map_err(|e| depin_sdk_types::error::StateError::Backend(e.to_string()))?;
+        self.delta.clear();
+        let _ = <Self as depin_sdk_api::state::StateManager>::commit_version(self, height)?;
+        Ok(root_hash)
     }
 }
 
@@ -1005,6 +1052,14 @@ where
         } else {
             false
         }
+    }
+
+    fn commit_version_persist(
+        &mut self,
+        height: u64,
+        store: &dyn NodeStore,
+    ) -> Result<RootHash, StateError> {
+        self.commit_version_with_store(height, store)
     }
 }
 

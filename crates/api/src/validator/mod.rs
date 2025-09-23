@@ -4,6 +4,7 @@
 use crate::{
     services::access::ServiceDirectory,
     state::{StateManager, StateVersionPins, VmStateAccessor},
+    storage::NodeStore,
     vm::{ExecutionContext, ExecutionOutput, VirtualMachine, VmStateOverlay},
 };
 use async_trait::async_trait;
@@ -49,6 +50,8 @@ pub struct WorkloadContainer<ST: StateManager> {
     pub proof_cache: ProofCache<ST::Proof>,
     /// A service to pin state versions, preventing them from being pruned during active use.
     pub pins: Arc<StateVersionPins>,
+    /// The durable, epoch-sharded storage backend for state tree nodes.
+    pub store: Arc<dyn NodeStore>,
 }
 
 impl<ST: StateManager + Debug> Debug for WorkloadContainer<ST> {
@@ -59,6 +62,7 @@ impl<ST: StateManager + Debug> Debug for WorkloadContainer<ST> {
             .field("vm", &"Box<dyn VirtualMachine>")
             .field("services", &"ServiceDirectory")
             .field("proof_cache", &"LruCache")
+            .field("store", &"Arc<dyn NodeStore>")
             .finish()
     }
 }
@@ -97,6 +101,7 @@ where
         state_tree: ST,
         vm: Box<dyn VirtualMachine>,
         services: ServiceDirectory,
+        store: Arc<dyn NodeStore>,
     ) -> Self {
         Self {
             config,
@@ -105,6 +110,7 @@ where
             services,
             proof_cache: Arc::new(Mutex::new(LruCache::new(NonZeroUsize::new(1024).unwrap()))),
             pins: Arc::new(StateVersionPins::default()),
+            store,
         }
     }
 

@@ -14,6 +14,7 @@ depin-sdk-types = { path = "../types" }
 depin-sdk-chain = { path = "../chain" }
 depin-sdk-commitment = { path = "../commitment", default-features = false }
 depin-sdk-consensus = { path = "../consensus", default-features = false }
+depin-sdk-storage = { path = "../storage" }
 depin-sdk-network = { path = "../network" }
 depin-sdk-transaction-models = { path = "../transaction_models" }
 depin-sdk-validator = { path = "../validator", default-features = false }

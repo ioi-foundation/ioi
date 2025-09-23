@@ -9,7 +9,7 @@ pub mod consensus;
 pub use consensus::*;
 
 /// Selects the underlying data structure for the state manager.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
 pub enum StateTreeType {
     /// An IAVL (Immutable AVL) tree, providing Merkle proofs.
@@ -110,6 +110,9 @@ pub struct WorkloadConfig {
     /// regardless of finality. This defines the primary retention window. Defaults to 100_000.
     #[serde(default = "default_keep_recent_heights")]
     pub keep_recent_heights: u64,
+    /// The size of a state history epoch in blocks for the `redb` backend. Defaults to 50,000.
+    #[serde(default = "default_epoch_size")]
+    pub epoch_size: u64,
 }
 
 fn default_min_finality_depth() -> u64 {
@@ -118,6 +121,10 @@ fn default_min_finality_depth() -> u64 {
 
 fn default_keep_recent_heights() -> u64 {
     100_000
+}
+
+fn default_epoch_size() -> u64 {
+    50_000
 }
 
 fn default_chain_id() -> ChainId {

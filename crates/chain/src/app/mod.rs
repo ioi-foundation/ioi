@@ -10,6 +10,10 @@ use depin_sdk_api::state::{PinGuard, StateAccessor, StateManager, StateOverlay};
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
+use depin_sdk_commitment::primitives::kzg::KZGCommitmentScheme;
+use depin_sdk_commitment::tree::iavl::IAVLTree;
+use depin_sdk_commitment::tree::sparse_merkle::SparseMerkleTree;
+use depin_sdk_commitment::tree::verkle::VerkleTree;
 use depin_sdk_transaction_models::system::{nonce, validation};
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{
@@ -282,9 +286,6 @@ where
         };
 
         preflight_capabilities(&self.services, tx)?;
-        // Note: The following calls are part of the "ante handler" chain. They perform
-        // validation and mutate the state overlay (e.g., deducting fees, bumping nonces)
-        // before the core transaction logic is applied.
         validation::verify_transaction_signature(overlay, &self.services, tx, &tx_ctx)?;
         nonce::assert_next_nonce(overlay, tx)?;
 
@@ -294,7 +295,6 @@ where
             }
         }
 
-        // The nonce is bumped *after* all checks have passed, within the overlay.
         nonce::bump_nonce(overlay, tx)?;
         self.state
             .transaction_model
@@ -466,8 +466,10 @@ where
         + Sync
         + 'static
         + Clone,
+    <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+        AsRef<[u8]> + Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+    <CS as CommitmentScheme>::Commitment: From<Vec<u8>>,
 {
     fn status(&self) -> &ChainStatus {
         &self.state.status
@@ -490,41 +492,21 @@ where
             }));
         }
 
-        // --- PHASE 1: PREPARE STATE CHANGES (Simulated execution) ---
-        // This phase is computationally intensive. It executes transactions against a
-        // copy-on-write overlay of the current state. This involves async I/O for
-        // reading from the canonical state but does not acquire a write lock on it.
         let state_changes = {
-            // Create a PinGuard for the parent state height.
-            // This ensures that the state version we are reading from cannot be pruned
-            // by a concurrent GC task while we are simulating transactions.
-            // The pin is automatically released when `_pin_guard` goes out of scope.
             let _pin_guard = PinGuard::new(workload.pins.clone(), self.state.status.height).await;
-            // Step 1: Create a temporary, in-memory snapshot of the current state.
-            // This acquires a read lock only for the duration of the state clone,
-            // not for the entire transaction processing loop.
             let snapshot_state = {
                 let state_tree_arc = workload.state_tree();
                 let base_state = state_tree_arc.read().await;
                 base_state.clone()
-            }; // Read lock on the main state tree is dropped here.
-
-            // Step 2: Simulate transaction execution against an overlay on top of the snapshot.
-            // All awaits from here on will not block writers to the main state tree.
+            };
             let mut overlay = StateOverlay::new(&snapshot_state);
-
             for tx in &block.transactions {
-                // Note: process_transaction now takes &self, making this phase logically read-only
-                // with respect to the `Chain` struct itself.
                 self.process_transaction(tx, &mut overlay, block.header.height)
                     .await?;
             }
-
             overlay.into_ordered_batch()
         };
 
-        // --- BINDING CONTEXT ---
-        // Compute commitments that bind this preparation to a specific state.
         let transactions_root = depin_sdk_types::codec::to_bytes_canonical(&block.transactions);
         let vs_bytes = self
             .get_validator_set_for(workload, block.header.height)
@@ -550,8 +532,6 @@ where
         let mut block = prepared.block;
         let (inserts, deletes) = prepared.state_changes;
 
-        // --- TOCTOU INVARIANT CHECKS ---
-        // Verify that the chain state has not changed between prepare and commit.
         if block.header.height != self.state.status.height + 1 {
             return Err(ChainError::Transaction(
                 "Stale preparation: Chain height advanced since block was prepared".into(),
@@ -562,19 +542,12 @@ where
                 "Stale preparation: Parent state root has changed since block was prepared".into(),
             ));
         }
-        // Additional checks for transaction root and validator set hash can be added here.
 
-        // --- PHASE 2: COMMIT STATE CHANGES (State mutation) ---
-        // This phase acquires a write lock on the state tree and mutates both
-        // the on-disk state and the in-memory chain state.
-        {
+        let final_state_root_bytes = {
             let state_tree_arc = workload.state_tree();
             let mut state = state_tree_arc.write().await;
-
             state.batch_apply(&inserts, &deletes)?;
 
-            // FIX: This entire block of logic must run for ANY consensus type that uses the validator set,
-            // not just PoS. The check was too restrictive.
             match state.get(VALIDATOR_SET_KEY)? {
                 Some(bytes) => {
                     let mut sets = read_validator_sets(&bytes)?;
@@ -626,8 +599,6 @@ where
                 }
             }
 
-            // After all other state changes, check for and apply module upgrades
-            // scheduled for this block height.
             let upgrade_key = [
                 depin_sdk_types::keys::UPGRADE_PENDING_PREFIX,
                 &block.header.height.to_le_bytes(),
@@ -639,9 +610,6 @@ where
                     serde_json::from_slice(&upgrade_bytes).unwrap_or_default();
                 let mut applied_count = 0;
                 for (service_type_str, wasm) in upgrades {
-                    // The transaction payload uses a string for the service type,
-                    // which we map to the ServiceType enum. For this implementation,
-                    // we default to the `Custom` variant.
                     let service_type =
                         depin_sdk_api::services::ServiceType::Custom(service_type_str);
                     match self.service_manager.execute_upgrade(&service_type, &wasm) {
@@ -676,13 +644,15 @@ where
                 .map_err(|e| ChainError::Transaction(e.to_string()))?;
             state.insert(STATUS_KEY, &status_bytes)?;
 
-            let _ = state.commit_version(block.header.height)?;
-            let final_state_root_bytes = state.root_commitment().as_ref().to_vec();
+            // The new trait hook handles dispatching to the correct persistence logic.
+            state.commit_version_persist(block.header.height, &*workload.store)?;
+
+            let final_root_bytes = state.root_commitment().as_ref().to_vec();
 
             {
                 use depin_sdk_types::app::Membership;
 
-                let final_commitment = state.commitment_from_bytes(&final_state_root_bytes)?;
+                let final_commitment = state.commitment_from_bytes(&final_root_bytes)?;
                 debug_assert!(
                     state.version_exists_for_root(&final_commitment),
                     "FATAL INVARIANT VIOLATION: The committed root for height {} is not mapped to a queryable version!",
@@ -695,7 +665,7 @@ where
                             log::info!(
                                 "[EndBlock@{}] Validator set present and provable at new root {}",
                                 block.header.height,
-                                hex::encode(&final_state_root_bytes)
+                                hex::encode(&final_root_bytes)
                             );
                         }
                         Ok((other, _)) => {
@@ -703,7 +673,7 @@ where
                                 "INVARIANT: Validator set missing at end of block {} (membership={:?}, root={})",
                                 block.header.height,
                                 other,
-                                hex::encode(&final_state_root_bytes),
+                                hex::encode(&final_root_bytes),
                             );
                         }
                         Err(e) => {
@@ -715,20 +685,17 @@ where
                     }
                 }
             }
+            final_root_bytes
+        };
 
-            // Update the block header with the final state root before it's stored.
-            block.header.state_root = StateRoot(final_state_root_bytes.clone());
-            // Update the chain's internal tracking of the latest root.
-            self.state.last_state_root = StateRoot(final_state_root_bytes);
-        }
+        block.header.state_root = StateRoot(final_state_root_bytes.clone());
+        self.state.last_state_root = StateRoot(final_state_root_bytes);
 
         let anchor = block
             .header
             .state_root
             .to_anchor()
             .map_err(|e| ChainError::Transaction(e.to_string()))?;
-        // --- PHASE 3: UPDATE IN-MEMORY CHAIN STATE ---
-        // This modifies the chain's own in-memory status, separate from the state tree.
         log::info!(
             "[Chain Commit] H={} state_root={} anchor={}",
             block.header.height,

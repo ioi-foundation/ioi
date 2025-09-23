@@ -33,6 +33,8 @@ pub mod lifecycle;
 pub mod services;
 /// Core traits for state management, including `StateCommitment` and `StateManager`.
 pub mod state;
+/// An API for a durable, epoch-sharded, content-addressed node store.
+pub mod storage;
 /// Defines the core `TransactionModel` trait.
 pub mod transaction;
 /// Defines the core traits and structures for the validator architecture.
@@ -50,6 +52,7 @@ pub mod prelude {
     pub use crate::services::access::{Service, ServiceDirectory};
     pub use crate::services::{BlockchainService, UpgradableService};
     pub use crate::state::{StateCommitment, StateManager};
+    pub use crate::storage::NodeStore;
     pub use crate::transaction::context::TxContext;
     pub use crate::transaction::decorator::TxDecorator;
     pub use crate::transaction::TransactionModel;
