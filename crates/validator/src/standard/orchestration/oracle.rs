@@ -13,6 +13,7 @@ use depin_sdk_types::{
         OracleConsensusProof, SignHeader, SignatureProof, SignatureSuite, StateEntry,
         SystemPayload, SystemTransaction,
     },
+    codec, // Use the canonical codec
     keys::ORACLE_PENDING_REQUEST_PREFIX,
 };
 use libp2p::{identity::PublicKey as Libp2pPublicKey, PeerId};
@@ -48,7 +49,14 @@ pub async fn handle_newly_processed_block<CS, ST, CE, V>(
         .prefix_scan(ORACLE_PENDING_REQUEST_PREFIX)
         .await
     {
-        Ok(kvs) => kvs,
+        Ok(kvs) => {
+            log::info!(
+                "Oracle: scanned {} pending request entries under prefix 0x{}",
+                kvs.len(),
+                hex::encode(ORACLE_PENDING_REQUEST_PREFIX)
+            );
+            kvs
+        }
         Err(e) => {
             log::error!("Oracle: Failed to scan for pending requests: {}", e);
             return;
@@ -79,62 +87,95 @@ pub async fn handle_newly_processed_block<CS, ST, CE, V>(
     log::info!("Oracle: This node is in the validator set, checking for new tasks...");
 
     for (key, value_bytes) in &pending_requests {
-        if let Ok(entry) = serde_json::from_slice::<StateEntry>(value_bytes) {
-            let request_id_bytes: [u8; 8] = key[ORACLE_PENDING_REQUEST_PREFIX.len()..]
-                .try_into()
-                .unwrap_or_default();
-            let request_id = u64::from_le_bytes(request_id_bytes);
-            let url: String = serde_json::from_slice(&entry.value).unwrap_or_default();
-
-            log::info!(
-                "Oracle: Found new oracle task for request_id {} from URL: {}",
-                request_id,
-                url
-            );
-
-            match external_data_service.fetch(&url).await {
-                Ok(value) => {
-                    let Ok(ed25519_pk) = context.local_keypair.public().try_into_ed25519() else {
-                        log::error!(
-                            "Oracle: Local keypair is not Ed25519, cannot create attestation."
-                        );
-                        continue;
-                    };
-                    let pubkey_bytes = ed25519_pk.to_bytes();
-
-                    // Create the full binary domain for the signature
-                    let mut domain = b"depinsdk/oracle-attest/v1".to_vec();
-                    domain.extend_from_slice(&context.chain_id.0.to_le_bytes());
-                    domain.extend_from_slice(&context.genesis_hash);
-
-                    let mut attestation = OracleAttestation {
-                        request_id,
-                        value,
-                        timestamp: SystemTime::now()
-                            .duration_since(UNIX_EPOCH)
-                            .unwrap()
-                            .as_secs(),
-                        signature: vec![],
-                    };
-
-                    let payload_to_sign = attestation.to_signing_payload(&domain);
-                    let signature_bytes = context.local_keypair.sign(&payload_to_sign).unwrap();
-                    attestation.signature = [pubkey_bytes.as_ref(), &signature_bytes].concat();
-
-                    let attestation_bytes = serde_json::to_vec(&attestation).unwrap();
-                    context
-                        .swarm_commander
-                        .send(SwarmCommand::GossipOracleAttestation(attestation_bytes))
-                        .await
-                        .ok();
-                    log::info!("Oracle: Gossiped attestation for request_id {}", request_id);
-                }
-                Err(e) => log::error!(
-                    "Oracle: Failed to fetch external data for request {}: {}",
-                    request_id,
-                    e
-                ),
+        // --- Robust request_id extraction ---
+        let suffix = key.get(ORACLE_PENDING_REQUEST_PREFIX.len()..);
+        let request_id = match suffix
+            .and_then(|s| s.try_into().ok())
+            .map(u64::from_le_bytes)
+        {
+            Some(id) => id,
+            None => {
+                log::warn!(
+                    "Oracle: malformed pending key (len={}): 0x{}, skipping",
+                    key.len(),
+                    hex::encode(key)
+                );
+                continue;
             }
+        };
+
+        // --- Robust StateEntry decoding (canonical codec ONLY) ---
+        let entry: StateEntry = match codec::from_bytes_canonical(value_bytes) {
+            Ok(e) => e,
+            Err(err) => {
+                log::warn!(
+                    "Oracle: unable to decode StateEntry for request_id {}: {} (hex={})",
+                    request_id,
+                    err,
+                    hex::encode(value_bytes)
+                );
+                continue;
+            }
+        };
+
+        // --- Parse value as a canonical-encoded String ---
+        let url = match codec::from_bytes_canonical::<String>(&entry.value) {
+            Ok(s) => s,
+            Err(_) => {
+                log::warn!(
+                    "Oracle: request {} value is not a valid SCALE-encoded string; skipping",
+                    request_id
+                );
+                continue;
+            }
+        };
+
+        log::info!(
+            "Oracle: Found new oracle task for request_id {} from URL: {}",
+            request_id,
+            url
+        );
+
+        match external_data_service.fetch(&url).await {
+            Ok(value) => {
+                let Ok(ed25519_pk) = context.local_keypair.public().try_into_ed25519() else {
+                    log::error!("Oracle: Local keypair is not Ed25519, cannot create attestation.");
+                    continue;
+                };
+                let pubkey_bytes = ed25519_pk.to_bytes();
+
+                // Create the full binary domain for the signature
+                let mut domain = b"depinsdk/oracle-attest/v1".to_vec();
+                domain.extend_from_slice(&context.chain_id.0.to_le_bytes());
+                domain.extend_from_slice(&context.genesis_hash);
+
+                let mut attestation = OracleAttestation {
+                    request_id,
+                    value,
+                    timestamp: SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs(),
+                    signature: vec![],
+                };
+
+                let payload_to_sign = attestation.to_signing_payload(&domain);
+                let signature_bytes = context.local_keypair.sign(&payload_to_sign).unwrap();
+                attestation.signature = [pubkey_bytes.as_ref(), &signature_bytes].concat();
+
+                let attestation_bytes = serde_json::to_vec(&attestation).unwrap();
+                context
+                    .swarm_commander
+                    .send(SwarmCommand::GossipOracleAttestation(attestation_bytes))
+                    .await
+                    .ok();
+                log::info!("Oracle: Gossiped attestation for request_id {}", request_id);
+            }
+            Err(e) => log::error!(
+                "Oracle: Failed to fetch external data for request {}: {}",
+                request_id,
+                e
+            ),
         }
     }
 }
@@ -367,19 +408,35 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
             consensus_proof,
         };
 
-        // --- SIGN the finalization tx with the local validator key ---
-        // 1) derive our AccountId from the local Ed25519 public key
         let our_pk = context.local_keypair.public();
         let our_pk_bytes = our_pk.encode_protobuf();
         let our_account_hash = account_id_from_key_material(SignatureSuite::Ed25519, &our_pk_bytes)
             .expect("local key must derive an AccountId");
         let our_account_id = AccountId(our_account_hash);
 
-        // 2) construct a signable SystemTransaction (first tx from this account => nonce 0)
+        // Fetch the current nonce for this account from the workload state.
+        let nonce_key = [
+            depin_sdk_types::keys::ACCOUNT_NONCE_PREFIX,
+            our_account_id.as_ref(),
+        ]
+        .concat();
+
+        let current_nonce = match context.workload_client.query_raw_state(&nonce_key).await {
+            Ok(Some(bytes)) => bytes.try_into().ok().map(u64::from_le_bytes).unwrap_or(0),
+            Ok(None) => 0, // Key not present means nonce is 0, which is correct.
+            Err(e) => {
+                log::error!(
+                    "Oracle: Failed to query nonce for tx submission, aborting. Error: {}",
+                    e
+                );
+                return; // Do not proceed if we can't determine the correct nonce.
+            }
+        };
+
         let mut sys_tx = SystemTransaction {
             header: SignHeader {
                 account_id: our_account_id,
-                nonce: 0,
+                nonce: current_nonce, // Use the fetched nonce
                 chain_id: context.chain_id,
                 tx_version: 1,
             },
@@ -387,7 +444,6 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
             signature_proof: SignatureProof::default(),
         };
 
-        // 3) sign canonical bytes with the local Ed25519 key
         let sign_bytes = sys_tx
             .to_sign_bytes()
             .expect("serialize sign bytes for SubmitOracleData");

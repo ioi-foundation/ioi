@@ -56,6 +56,9 @@ depin-sdk-services = { path = "../services" }
 depin-sdk-chain = { path = "../chain" }
 base64 = { workspace = true }
 once_cell = { workspace = true }
+# --- FIX START: Add axum as a dev-dependency for the test stub ---
+axum = { workspace = true }
+# --- FIX END ---
 
 # The library exposes helpers, the binary provides the CLI
 [lib]
