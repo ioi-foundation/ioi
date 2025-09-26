@@ -49,6 +49,20 @@ pub const IBC_PROCESSED_RECEIPT_PREFIX: &[u8] = b"ibc::receipt::";
 /// State key prefix for pending module upgrades, keyed by activation height.
 pub const UPGRADE_PENDING_PREFIX: &[u8] = b"upgrade::pending::";
 
+/// State key prefix for the canonical registry of active services.
+pub const UPGRADE_ACTIVE_SERVICE_PREFIX: &[u8] = b"upgrade::active::";
+
+/// Creates the canonical, queryable key for an active service.
+/// The service type name is always converted to lowercase to ensure determinism.
+///
+/// # Example
+/// `active_service_key("IdentityHub")` -> `b"upgrade::active::identityhub"`
+pub fn active_service_key<S: AsRef<str>>(service_type: S) -> Vec<u8> {
+    let name = service_type.as_ref().to_ascii_lowercase();
+    [UPGRADE_ACTIVE_SERVICE_PREFIX, name.as_bytes()].concat()
+}
+
+
 // --- MODIFICATION START ---
 /// The state key for the set of all evidence that has already been processed.
 /// Stores a `BTreeSet<[u8; 32]>` of evidence IDs, providing replay protection.

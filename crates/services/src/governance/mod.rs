@@ -225,7 +225,7 @@ impl GovernanceModule {
         state: &mut S,
         proposal_id: u64,
         stakes: &BTreeMap<AccountId, u64>, // The map of staker AccountId -> stake amount
-        current_height: u64,
+        _current_height: u64,
     ) -> Result<(), String> {
         let key = Self::proposal_key(proposal_id);
         let entry_bytes = state

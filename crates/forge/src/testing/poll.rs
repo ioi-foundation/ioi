@@ -205,3 +205,29 @@ pub async fn wait_for_evidence(
     )
     .await
 }
+
+/// A generic polling utility that waits until an async condition returns true.
+pub async fn wait_until<F, Fut>(
+    timeout: Duration,
+    interval: Duration,
+    mut condition: F,
+) -> Result<()>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<bool>>,
+{
+    let start = Instant::now();
+    loop {
+        match condition().await {
+            Ok(true) => return Ok(()),
+            Ok(false) => { /* continue polling */ }
+            Err(e) => {
+                log::trace!("Polling condition returned transient error: {}", e);
+            }
+        }
+        if start.elapsed() > timeout {
+            return Err(anyhow!("Timeout waiting for condition"));
+        }
+        sleep(interval).await;
+    }
+}

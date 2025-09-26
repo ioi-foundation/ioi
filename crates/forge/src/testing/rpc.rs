@@ -1,12 +1,13 @@
 // Path: crates/forge/src/testing/rpc.rs
 
 use anyhow::{anyhow, Result};
-use depin_sdk_types::keys::{
-    EVIDENCE_REGISTRY_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, QUARANTINED_VALIDATORS_KEY, STATUS_KEY,
-};
 use depin_sdk_types::{
-    app::{AccountId, ChainStatus, Proposal, StateEntry},
+    app::{AccountId, BlockHeader, ChainStatus, Membership, Proposal, StateEntry, StateRoot},
     codec,
+    keys::{
+        EVIDENCE_REGISTRY_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, QUARANTINED_VALIDATORS_KEY,
+        STATUS_KEY,
+    },
 };
 use reqwest::{Client, StatusCode};
 use serde_json::{json, Value};
@@ -193,5 +194,78 @@ pub async fn get_evidence_set(rpc_addr: &str) -> Result<BTreeSet<[u8; 32]>> {
             .map_err(|e| anyhow!("Failed to decode evidence set: {}", e))
     } else {
         Ok(BTreeSet::new())
+    }
+}
+
+/// Queries the block header for a specific, committed block height via the HTTP RPC.
+pub async fn get_block_by_height(rpc_addr: &str, height: u64) -> Result<Option<BlockHeader>> {
+    let client = Client::new();
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "chain.getBlockByHeight.v1",
+        "params": { "height": height },
+        "id": 1
+    });
+    let url = format!("http://{}/rpc/query", rpc_addr);
+    let resp = client
+        .post(&url)
+        .json(&request_body)
+        .send()
+        .await?
+        .json::<Value>()
+        .await?;
+
+    if let Some(err) = resp.get("error").filter(|e| !e.is_null()) {
+        return Err(anyhow!("RPC error getting block {}: {}", height, err));
+    }
+
+    serde_json::from_value(resp["result"].clone()).map_err(|e| {
+        anyhow!(
+            "Failed to parse BlockHeader from response for height {}: {}",
+            height,
+            e
+        )
+    })
+}
+
+/// Queries a raw key from the workload state against a specific historical root via RPC.
+pub async fn query_state_key_at_root(
+    rpc_addr: &str,
+    root: &StateRoot,
+    key: &[u8],
+) -> Result<Option<Vec<u8>>> {
+    let client = Client::new();
+    // The params need to match what the IPC server expects, which is the serialized struct.
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "state.queryStateAt.v1",
+        "params": {
+            "root": serde_json::to_value(root)?,
+            "key": serde_json::to_value(key)?
+        },
+        "id": 1
+    });
+    let url = format!("http://{}/rpc/query", rpc_addr);
+    let resp: Value = client
+        .post(&url)
+        .json(&request_body)
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    if let Some(err) = resp.get("error").filter(|e| !e.is_null()) {
+        return Err(anyhow!("RPC error in queryStateAt: {}", err));
+    }
+
+    let result_val = resp
+        .get("result")
+        .ok_or_else(|| anyhow!("Missing result field"))?;
+    let response_struct: depin_sdk_client::workload_client::QueryStateAtIpcResponse =
+        serde_json::from_value(result_val.clone())?;
+
+    match response_struct.membership {
+        Membership::Present(bytes) => Ok(Some(bytes)),
+        Membership::Absent => Ok(None),
     }
 }

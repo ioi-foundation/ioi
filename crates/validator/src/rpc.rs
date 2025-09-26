@@ -434,6 +434,76 @@ async fn rpc_handler(
                     make_err(&payload.id, -32000, format!("Failed to get status: {}", e)),
                 ),
             },
+            "chain.getBlockByHeight.v1" => {
+                let height = match &payload.params {
+                    Params::Object(m) => m.get("height").and_then(|v| v.as_u64()),
+                    _ => None,
+                };
+                let Some(height) = height else {
+                    return (
+                        StatusCode::OK,
+                        make_err(
+                            &payload.id,
+                            -32602,
+                            "Missing/invalid 'height' parameter".into(),
+                        ),
+                    );
+                };
+                match app_state.workload_client.get_block_by_height(height).await {
+                    Ok(header_opt) => (
+                        StatusCode::OK,
+                        make_ok(&payload.id, serde_json::to_value(header_opt).unwrap()),
+                    ),
+                    Err(e) => (
+                        StatusCode::OK,
+                        make_err(
+                            &payload.id,
+                            -32000,
+                            format!("getBlockByHeight failed: {}", e),
+                        ),
+                    ),
+                }
+            }
+            "state.queryStateAt.v1" => {
+                let (root, key) = match &payload.params {
+                    Params::Object(m) => {
+                        let root_val = m.get("root").cloned();
+                        let key_val = m.get("key").cloned();
+                        (root_val, key_val)
+                    }
+                    _ => (None, None),
+                };
+
+                let (Some(root), Some(key)) = (root, key) else {
+                    return (
+                        StatusCode::OK,
+                        make_err(
+                            &payload.id,
+                            -32602,
+                            "Missing 'root' or 'key' parameters".into(),
+                        ),
+                    );
+                };
+
+                let root_obj: depin_sdk_types::app::StateRoot =
+                    serde_json::from_value(root).unwrap();
+                let key_bytes: Vec<u8> = serde_json::from_value(key).unwrap();
+
+                match app_state
+                    .workload_client
+                    .query_state_at(root_obj, &key_bytes)
+                    .await
+                {
+                    Ok(resp) => (
+                        StatusCode::OK,
+                        make_ok(&payload.id, serde_json::to_value(resp).unwrap()),
+                    ),
+                    Err(e) => (
+                        StatusCode::OK,
+                        make_err(&payload.id, -32000, format!("queryStateAt failed: {}", e)),
+                    ),
+                }
+            }
             _ => (
                 StatusCode::OK,
                 make_err(&payload.id, -32601, "Method not found".into()),

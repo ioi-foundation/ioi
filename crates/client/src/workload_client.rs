@@ -69,8 +69,8 @@ struct QueryStateAtParams<'a> {
     key: &'a [u8],
 }
 
-#[derive(Deserialize, Debug)]
-pub struct QueryStateAtResponse {
+#[derive(Serialize, Deserialize, Debug)]
+pub struct QueryStateAtIpcResponse {
     pub msg_version: u32,
     pub scheme_id: u16,
     pub scheme_version: u16,
@@ -316,7 +316,7 @@ impl WorkloadClient {
         &self,
         root: StateRoot,
         key: &[u8],
-    ) -> Result<QueryStateAtResponse> {
+    ) -> Result<QueryStateAtIpcResponse> {
         let params = QueryStateAtParams { root, key };
         self.send_rpc("state.queryStateAt.v1", params).await
     }
@@ -340,6 +340,18 @@ impl WorkloadClient {
 
     pub async fn get_genesis_status(&self) -> Result<GenesisStatus> {
         self.send_rpc("system.getGenesisStatus.v1", json!({})).await
+    }
+
+    pub async fn get_block_by_height(
+        &self,
+        height: u64,
+    ) -> Result<Option<depin_sdk_types::app::BlockHeader>> {
+        #[derive(Serialize)]
+        struct Params {
+            height: u64,
+        }
+        let params = Params { height };
+        self.send_rpc("chain.getBlockByHeight.v1", params).await
     }
 }
 

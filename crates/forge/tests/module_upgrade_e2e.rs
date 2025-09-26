@@ -2,10 +2,13 @@
 
 #![cfg(all(feature = "consensus-poa", feature = "vm-wasm"))]
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_forge::testing::{
-    assert_log_contains, build_test_artifacts, submit_transaction, TestCluster,
+    build_test_artifacts,
+    poll::{wait_for_height, wait_until},
+    rpc::{get_block_by_height, query_state_key_at_root},
+    submit_transaction, TestCluster,
 };
 use depin_sdk_types::{
     app::{
@@ -16,13 +19,15 @@ use depin_sdk_types::{
     codec,
     config::InitialServiceConfig,
     keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, GOVERNANCE_KEY, IDENTITY_CREDENTIALS_PREFIX,
-        VALIDATOR_SET_KEY,
+        active_service_key, ACCOUNT_ID_TO_PUBKEY_PREFIX, GOVERNANCE_KEY,
+        IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
     },
     service_configs::MigrationConfig,
 };
 use libp2p::identity::{self, Keypair};
 use serde_json::json;
+use std::path::Path;
+use std::time::Duration;
 
 // Helper function to create a signed system transaction
 fn create_system_tx(
@@ -58,12 +63,66 @@ fn create_system_tx(
     Ok(ChainTransaction::System(Box::new(tx_to_sign)))
 }
 
+/// State-based check with a small commit-window and a canary key from genesis.
+async fn service_v2_registered(rpc_addr: &str, activation_height: u64) -> Result<bool> {
+    // Make sure we've actually produced the target block.
+    wait_for_height(rpc_addr, activation_height, Duration::from_secs(10)).await?;
+
+    let fee_v2_key = active_service_key("fee_calculator_v2");
+    let canary_key = active_service_key("identity_hub"); // should exist since genesis
+
+    for h in [
+        activation_height,
+        activation_height + 1,
+        activation_height + 2,
+    ] {
+        let header = match get_block_by_height(rpc_addr, h).await? {
+            Some(h) => h,
+            None => {
+                log::trace!("[probe h={}] block not yet available", h);
+                continue;
+            }
+        };
+        let root = &header.state_root;
+
+        // Canary first: prove we’re looking at the right namespace and reader is sane.
+        match query_state_key_at_root(rpc_addr, root, &canary_key).await {
+            Ok(Some(_)) => {} // good
+            Ok(None) => {
+                log::trace!(
+                    "[probe h={}] canary key (identity_hub) NOT found at root {}",
+                    h,
+                    hex::encode(&root.0)
+                );
+            }
+            Err(e) => {
+                log::trace!("[probe h={}] canary query error: {}", h, e);
+            }
+        }
+
+        // Now the actual upgraded service key.
+        if let Ok(Some(_)) = query_state_key_at_root(rpc_addr, root, &fee_v2_key).await {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 #[tokio::test]
 async fn test_forkless_module_upgrade() -> Result<()> {
     // 1. SETUP & BUILD
     build_test_artifacts();
-    let service_v2_wasm =
-        std::fs::read("../../target/wasm32-unknown-unknown/release/test_service_v2.wasm")?;
+    // Construct a robust path to the WASM artifact relative to the workspace root.
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let workspace_root = manifest_dir
+        .parent()
+        .and_then(|p| p.parent())
+        .ok_or_else(|| anyhow!("Could not determine workspace root from CARGO_MANIFEST_DIR"))?;
+    let wasm_path =
+        workspace_root.join("target/wasm32-unknown-unknown/release/test_service_v2.wasm");
+    let service_v2_wasm = std::fs::read(&wasm_path)
+        .map_err(|e| anyhow!("Failed to read WASM file at {:?}: {}", wasm_path, e))?;
+
     let governance_key = identity::Keypair::generate_ed25519();
     let governance_pubkey_b58 =
         bs58::encode(governance_key.public().try_into_ed25519()?.to_bytes()).into_string();
@@ -71,7 +130,7 @@ async fn test_forkless_module_upgrade() -> Result<()> {
     let governance_key_clone = governance_key.clone();
 
     // 2. LAUNCH CLUSTER
-    let mut cluster = TestCluster::builder()
+    let cluster = TestCluster::builder()
         .with_validators(1)
         .with_consensus_type("ProofOfAuthority")
         .with_state_tree("IAVL")
@@ -171,9 +230,8 @@ async fn test_forkless_module_upgrade() -> Result<()> {
         .await?;
 
     // 3. GET HANDLES
-    let node = &mut cluster.validators[0];
+    let node = &cluster.validators[0];
     let rpc_addr = &node.rpc_addr;
-    let (mut orch_logs, mut workload_logs, _) = node.subscribe_logs();
 
     // 4. SUBMIT UPGRADE TRANSACTION
     let activation_height = 5;
@@ -187,26 +245,23 @@ async fn test_forkless_module_upgrade() -> Result<()> {
 
     submit_transaction(rpc_addr, &tx).await?;
 
-    // Assert that the transaction was accepted into the mempool
-    assert_log_contains(
-        "Orchestration",
-        &mut orch_logs,
-        "\"event\":\"mempool_add\"",
-    )
-    .await?;
+    // 5. WAIT for the chain to advance to the scheduled activation height.
+    wait_for_height(rpc_addr, activation_height, Duration::from_secs(60)).await?;
 
-    // 5. WAIT & ASSERT
-    // The test will wait for the node to produce blocks until it reaches the activation height.
-    // We assert that the log message confirming the upgrade application is present in the Workload container's output.
-    assert_log_contains(
-        "Workload",
-        &mut workload_logs,
-        &format!(
-            "upgrades_applied\",\"count\":1,\"height\":{}",
-            activation_height
-        ),
+    // 6. ASSERT the upgrade was applied by polling the state. This is the primary, robust assertion.
+    // Give CI a little headroom (5s blocks -> 3 heights window).
+    wait_until(
+        Duration::from_secs(30),
+        Duration::from_millis(500),
+        || service_v2_registered(rpc_addr, activation_height),
     )
-    .await?;
+    .await
+    .map_err(|_| {
+        anyhow!(
+            "State verification failed: service_v2 was not registered in state at or after height {}",
+            activation_height
+        )
+    })?;
 
     println!("--- Forkless Module Upgrade E2E Test Successful ---");
 

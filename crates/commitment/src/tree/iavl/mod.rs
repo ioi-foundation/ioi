@@ -397,22 +397,24 @@ impl IAVLNode {
                 } else {
                     // Internal node logic
                     let (new_left, new_right) = if key <= n.key {
+                        // Recurse left
                         (
-                            Self::insert(n.left.clone(), key, value, version),
-                            n.right.clone().unwrap(),
+                            Some(Self::insert(n.left.clone(), key, value, version)),
+                            n.right.clone(),
                         )
                     } else {
+                        // Recurse right
                         (
-                            n.left.clone().unwrap(),
-                            Self::insert(n.right.clone(), key, value, version),
+                            n.left.clone(),
+                            Some(Self::insert(n.right.clone(), key, value, version)),
                         )
                     };
                     let new_node = Self::with_children(
                         Vec::new(), // recompute
                         Vec::new(), // no value
                         version,
-                        Some(new_left),
-                        Some(new_right),
+                        new_left,
+                        new_right,
                     );
                     Self::balance(Arc::new(new_node), version)
                 }
