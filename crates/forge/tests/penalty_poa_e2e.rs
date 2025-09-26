@@ -17,6 +17,8 @@ use depin_sdk_types::{
         SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1,
         ValidatorSetsV1, ValidatorV1,
     },
+    // [+] FIX: Import the canonical codec
+    codec,
     config::InitialServiceConfig,
     keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
     service_configs::MigrationConfig,
@@ -166,7 +168,8 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
                     l2_location: None,
                 };
                 let creds_array: [Option<Credential>; 2] = [Some(cred), None];
-                let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
+                // [+] FIX: Use the canonical SCALE codec instead of serde_json for credentials.
+                let creds_bytes = codec::to_bytes_canonical(&creds_array);
                 let creds_key = [IDENTITY_CREDENTIALS_PREFIX, acct_id.as_ref()].concat();
                 genesis_state.insert(
                     format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
