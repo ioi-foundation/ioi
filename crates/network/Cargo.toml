@@ -10,7 +10,14 @@ license = "MIT OR Apache-2.0"
 depin-sdk-api = { path = "../api" }
 depin-sdk-types = { path = "../types" }
 depin-sdk-consensus = { path = "../consensus" }
+depin-sdk-telemetry = { path = "../telemetry" }
+# --- FIX START: Add missing dependencies ---
+depin-sdk-transaction-models = { path = "../transaction_models" }
+depin-sdk-commitment = { path = "../commitment" }
+# --- FIX END ---
+once_cell = { workspace = true }
 log = { workspace = true }
+tracing = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

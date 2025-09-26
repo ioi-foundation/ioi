@@ -26,6 +26,7 @@ members = [
     "crates/network",
     "crates/services",
     "crates/storage",
+    "crates/telemetry",
     "crates/test_utils",
     "crates/transaction_models",
     "crates/validator",
@@ -56,7 +57,7 @@ reqwest = { version = "0.11", features = ["json"] }
 axum = { version = "0.6", features = ["json"] }
 # RPC Hardening & Middleware
 tower = { version = "0.4", features = ["limit", "timeout"] }
-tower-http = { version = "0.4", features = ["limit"] }
+tower-http = { version = "0.4", features = ["limit", "trace"] }
 ipnetwork = { version = "0.20" }
 
 # Async
@@ -86,10 +87,18 @@ rustls-pemfile = { version = "2.1" }
 rand = { version = "0.8" }
 dcrypt = { version = "0.14.0-beta.7", features = ["full"] }
 
-# CLI & Logging
+# CLI & Logging / Telemetry
 clap = { version = "4", features = ["derive"] }
 log = { version = "0.4" }
 env_logger = { version = "0.10" }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = [
+    "env-filter",
+    "fmt",
+    "json",
+    "time",
+] }
+tracing-log = "0.2"
 
 # Error Handling
 thiserror = { version = "1.0" }
@@ -101,6 +110,8 @@ wasmtime = { version = "19.0.1" }
 # Codecs
 parity-scale-codec = { version = "3", features = ["derive"] }
 
-# Caching
+# Caching & Hashing
 lru = { version = "0.12.3" }
 dashmap = { version = "5.5" }
+once_cell = { version = "1.19" }
+ahash = { version = "0.8" }

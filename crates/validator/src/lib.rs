@@ -7,5 +7,6 @@
 
 pub mod common;
 pub mod config;
+pub mod metrics;
 pub mod rpc;
 pub mod standard;

@@ -1,4 +1,4 @@
-// crates/node/src/bin/guardian.rs
+// Path: crates/node/src/bin/guardian.rs
 #![forbid(unsafe_code)]
 
 use anyhow::Result;
@@ -26,11 +26,17 @@ struct GuardianOpts {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::builder()
-        .filter_level(log::LevelFilter::Info)
-        .init();
+    // 1. Initialize tracing FIRST
+    depin_sdk_telemetry::init::init_tracing();
+
+    // 2. Spawn the telemetry server
+    let telemetry_addr_str =
+        std::env::var("TELEMETRY_ADDR").unwrap_or_else(|_| "127.0.0.1:9617".to_string());
+    let telemetry_addr = telemetry_addr_str.parse()?;
+    tokio::spawn(depin_sdk_telemetry::http::run_server(telemetry_addr));
+
     let opts = GuardianOpts::parse();
-    log::info!("Guardian container starting up...");
+    tracing::info!(target: "guardian", event = "startup", config_dir = %opts.config_dir);
 
     let certs_dir = std::env::var("CERTS_DIR").expect("CERTS_DIR environment variable must be set");
     generate_certificates_if_needed(Path::new(&certs_dir))?;
@@ -42,7 +48,7 @@ async fn main() -> Result<()> {
     let listen_addr = opts
         .listen_addr
         .unwrap_or_else(|| "127.0.0.1:8443".to_string());
-    log::info!("Guardian listen address set to {}", listen_addr);
+    tracing::info!(target: "guardian", listen_addr = %listen_addr);
 
     let guardian = Arc::new(GuardianContainer::new(config)?);
     guardian.start(&listen_addr).await?;
@@ -67,23 +73,29 @@ async fn main() -> Result<()> {
             .send(&report_bytes)
             .await
         {
-            log::error!(
-                "[Guardian] Failed to send agentic attestation report to Orchestrator: {}",
-                e
+            tracing::error!(
+                target: "guardian",
+                event = "attestation_send_fail",
+                error = %e,
+                "Failed to send agentic attestation report to Orchestrator"
             );
         } else {
-            log::info!("[Guardian] Sent agentic attestation report to Orchestrator.");
+            tracing::info!(
+                target: "guardian",
+                event = "attestation_sent",
+                "Sent agentic attestation report to Orchestrator."
+            );
         }
     });
 
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
-            log::info!("Ctrl-C received, initiating shutdown.");
+            tracing::info!(target: "guardian", event = "shutdown", reason = "ctrl-c");
         }
     }
 
     guardian.stop().await?;
-    log::info!("Guardian stopped.");
+    tracing::info!(target: "guardian", event = "shutdown", reason = "complete");
 
     Ok(())
 }

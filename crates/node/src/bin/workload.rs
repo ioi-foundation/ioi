@@ -14,6 +14,7 @@ use depin_sdk_chain::Chain;
 use depin_sdk_consensus::util::engine_from_config;
 use depin_sdk_services::governance::GovernanceModule;
 use depin_sdk_services::identity::IdentityHub;
+use depin_sdk_storage::metrics as storage_metrics;
 use depin_sdk_storage::RedbEpochStore;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
@@ -63,9 +64,11 @@ where
     if !Path::new(&config.state_file).exists() {
         load_state_from_genesis_file(&mut state_tree, &config.genesis_file)?;
     } else {
-        log::info!(
-            "Found existing state file at '{}'. Skipping genesis initialization.",
-            &config.state_file
+        tracing::info!(
+            target: "workload",
+            event = "state_init",
+            path = %config.state_file,
+            "Found existing state file, skipping genesis init."
         );
     }
 
@@ -75,13 +78,13 @@ where
     for service_config in &config.initial_services {
         match service_config {
             InitialServiceConfig::IdentityHub(migration_config) => {
-                log::info!("[Workload] Instantiating initial service: IdentityHub");
+                tracing::info!(target: "workload", event = "service_init", name = "IdentityHub");
                 let hub = IdentityHub::new(migration_config.clone());
                 initial_services
                     .push(Arc::new(hub) as Arc<dyn depin_sdk_api::services::UpgradableService>);
             }
             InitialServiceConfig::Governance(params) => {
-                log::info!("[Workload] Instantiating initial service: Governance");
+                tracing::info!(target: "workload", event = "service_init", name = "Governance");
                 let gov = GovernanceModule::new(params.clone());
                 initial_services
                     .push(Arc::new(gov) as Arc<dyn depin_sdk_api::services::UpgradableService>);
@@ -139,7 +142,7 @@ where
 
     let ipc_server = WorkloadIpcServer::new(ipc_server_addr, workload_container, chain_arc).await?;
 
-    log::info!("Workload: State, VM, and Chain initialized. Running IPC server.");
+    tracing::info!(target: "workload", "State, VM, and Chain initialized. Running IPC server.");
     ipc_server.run().await?;
     Ok(())
 }
@@ -163,15 +166,28 @@ fn check_features() {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    check_features();
+    // 1. Initialize tracing FIRST
+    depin_sdk_telemetry::init::init_tracing();
 
-    env_logger::builder()
-        .filter_level(log::LevelFilter::Info)
-        .init();
+    // 2. Install the Prometheus sink
+    let metrics_sink = depin_sdk_telemetry::prometheus::install();
+
+    // 3. Set all static sinks (workload only needs storage)
+    storage_metrics::SINK.set(metrics_sink).expect("SINK must only be set once");
+
+    // 4. Spawn the telemetry server
+    let telemetry_addr_str =
+        std::env::var("TELEMETRY_ADDR").unwrap_or_else(|_| "127.0.0.1:9616".to_string());
+    let telemetry_addr = telemetry_addr_str.parse()?;
+    tokio::spawn(depin_sdk_telemetry::http::run_server(telemetry_addr));
+
+    check_features();
+    
     let opts = WorkloadOpts::parse();
-    log::info!(
-        "Workload container starting up with config: {:?}",
-        opts.config
+    tracing::info!(
+        target: "workload",
+        event = "startup",
+        config = ?opts.config
     );
 
     let config_str = fs::read_to_string(&opts.config)?;
@@ -183,7 +199,7 @@ async fn main() -> Result<()> {
             depin_sdk_types::config::StateTreeType::IAVL,
             depin_sdk_types::config::CommitmentSchemeType::Hash,
         ) => {
-            log::info!("Instantiating state backend: IAVLTree<HashCommitmentScheme>");
+            tracing::info!(target: "workload", "Instantiating state backend: IAVLTree<HashCommitmentScheme>");
             let commitment_scheme = HashCommitmentScheme::new();
             let state_tree = IAVLTree::new(commitment_scheme.clone());
             run_workload(state_tree, commitment_scheme, config).await
@@ -194,7 +210,7 @@ async fn main() -> Result<()> {
             depin_sdk_types::config::StateTreeType::SparseMerkle,
             depin_sdk_types::config::CommitmentSchemeType::Hash,
         ) => {
-            log::info!("Instantiating state backend: SparseMerkleTree<HashCommitmentScheme>");
+            tracing::info!(target: "workload", "Instantiating state backend: SparseMerkleTree<HashCommitmentScheme>");
             let commitment_scheme = HashCommitmentScheme::new();
             let state_tree = SparseMerkleTree::new(commitment_scheme.clone());
             run_workload(state_tree, commitment_scheme, config).await
@@ -205,12 +221,12 @@ async fn main() -> Result<()> {
             depin_sdk_types::config::StateTreeType::Verkle,
             depin_sdk_types::config::CommitmentSchemeType::KZG,
         ) => {
-            log::info!("Instantiating state backend: VerkleTree<KZGCommitmentScheme>");
+            tracing::info!(target: "workload", "Instantiating state backend: VerkleTree<KZGCommitmentScheme>");
             let params = if let Some(srs_path) = &config.srs_file_path {
-                log::info!("Loading KZG SRS from file: {}", srs_path);
+                tracing::info!(target: "workload", "Loading KZG SRS from file: {}", srs_path);
                 KZGParams::load_from_file(Path::new(srs_path)).map_err(|e| anyhow!(e))?
             } else {
-                log::warn!("Generating insecure KZG parameters for testing. This is slow. DO NOT USE IN PRODUCTION.");
+                tracing::warn!(target: "workload", "Generating insecure KZG parameters for testing. This is slow. DO NOT USE IN PRODUCTION.");
                 KZGParams::new_insecure_for_testing(12345, 255)
             };
             let commitment_scheme = KZGCommitmentScheme::new(params);
@@ -223,7 +239,7 @@ async fn main() -> Result<()> {
                 "Unsupported or disabled state configuration: StateTree={:?}, CommitmentScheme={:?}. Please check your config and compile-time features.",
                 config.state_tree, config.commitment_scheme
             );
-            log::error!("{}", err_msg);
+            tracing::error!(target: "workload", "{}", err_msg);
             Err(anyhow!(err_msg))
         }
     }

@@ -6,10 +6,12 @@ use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::{StateAccessor, StateManager};
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
+use depin_sdk_types::codec;
 use depin_sdk_types::error::TransactionError;
+use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub enum HybridTransaction {
     Account(AccountTransaction),
     UTXO(UTXOTransaction),
@@ -146,10 +148,11 @@ where
     }
 
     fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError> {
-        serde_json::to_vec(tx).map_err(|e| TransactionError::Serialization(e.to_string()))
+        Ok(codec::to_bytes_canonical(tx))
     }
 
     fn deserialize_transaction(&self, data: &[u8]) -> Result<Self::Transaction, TransactionError> {
-        serde_json::from_slice(data).map_err(|e| TransactionError::Deserialization(e.to_string()))
+        codec::from_bytes_canonical(data)
+            .map_err(|e| TransactionError::Deserialization(e.to_string()))
     }
 }

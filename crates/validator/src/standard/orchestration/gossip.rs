@@ -77,9 +77,11 @@ where
         let root = match self.client.get_state_root().await {
             Ok(r) => r,
             Err(e) => {
-                log::warn!(
-                    "[Gossip] get_state_root() failed ({}); falling back to anchor bytes as root (weak).",
-                    e
+                tracing::warn!(
+                    target: "gossip",
+                    event = "get_root_fail",
+                    error = %e,
+                    "Falling back to anchor bytes as root (weak)."
                 );
                 StateRoot(anchor.0.to_vec())
             }
@@ -148,9 +150,10 @@ pub fn prune_mempool(
 
     let new_size = pool.len();
     if new_size < original_size {
-        log::info!(
-            "[Orchestrator] Pruned {} transaction(s) from mempool. New size: {}",
-            original_size - new_size,
+        tracing::info!(
+            target: "orchestration",
+            event = "mempool_pruned",
+            num_pruned = original_size - new_size,
             new_size
         );
     }
@@ -181,9 +184,11 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         + Debug,
 {
     let block_height = block.header.height;
-    log::info!(
-        "[Orchestrator] Received gossiped block #{}. Verifying...",
-        block_height
+    tracing::info!(
+        target: "gossip",
+        event = "block_received",
+        height = block_height,
+        "Verifying gossiped block."
     );
 
     // [+] FIX: To prevent deadlocks, clone needed data, drop the context lock,
@@ -207,27 +212,41 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         .handle_block_proposal::<CS, ST>(block.clone(), &&cv)
         .await
     {
-        log::warn!(
-            "[Orchestrator] Invalid gossiped block #{}: {}",
-            block_height,
-            e
+        tracing::warn!(
+            target: "gossip",
+            event = "invalid_block",
+            height = block_height,
+            error = %e,
         );
         return;
     }
 
-    log::info!(
-        "[Orchestrator] Block #{} is valid. Forwarding to workload...",
-        block_height
+    tracing::info!(
+        target: "gossip",
+        event = "block_valid",
+        height = block_height,
+        "Forwarding to workload."
     );
     match context.workload_client.process_block(block).await {
         Ok((processed_block, _)) => {
-            log::info!("[Orchestrator] Workload processed block successfully.");
+            tracing::info!(
+                target: "gossip",
+                event = "workload_processed_block",
+                height = processed_block.header.height
+            );
 
             context.last_committed_block = Some(processed_block.clone());
-            log::debug!(
-                "[Gossip] Advanced tip to #{} root=0x{}",
-                processed_block.header.height,
-                hex::encode(processed_block.header.state_root.as_ref())
+            {
+                let mut chain_guard = context.chain_ref.lock().await;
+                let status = chain_guard.status_mut();
+                status.height = processed_block.header.height;
+                status.latest_timestamp = processed_block.header.timestamp;
+            }
+            tracing::debug!(
+                target: "gossip",
+                event = "tip_advanced",
+                height = processed_block.header.height,
+                root = hex::encode(processed_block.header.state_root.as_ref())
             );
 
             let mut pool = context.tx_pool_ref.lock().await;
@@ -238,14 +257,15 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                 .await;
             if *context.node_state.lock().await == NodeState::Syncing {
                 *context.node_state.lock().await = NodeState::Synced;
-                log::info!("[Orchestrator] State -> Synced.");
+                tracing::info!(target: "orchestration", "State -> Synced.");
             }
         }
         Err(e) => {
-            log::error!(
-                "[Orchestrator] Workload failed to process gossiped block #{}: {}",
-                block_height,
-                e
+            tracing::error!(
+                target: "gossip",
+                event = "workload_process_fail",
+                height = block_height,
+                error = %e,
             );
         }
     }

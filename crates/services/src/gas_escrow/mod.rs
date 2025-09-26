@@ -2,16 +2,17 @@
 use depin_sdk_api::impl_service_base;
 use depin_sdk_api::services::{BlockchainService, ServiceType, UpgradableService};
 use depin_sdk_api::state::StateManager;
+use depin_sdk_types::codec;
 use depin_sdk_types::error::UpgradeError;
 use depin_sdk_types::keys::{ACCOUNT_KEY_PREFIX, GAS_ESCROW_KEY_PREFIX};
-use serde::{Deserialize, Serialize};
+use parity_scale_codec::{Decode, Encode};
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Encode, Decode, Debug, Default, Clone)]
 pub struct Account {
     pub balance: u64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct EscrowEntry {
     pub account: Vec<u8>,
     pub amount: u64,
@@ -30,7 +31,7 @@ impl GasEscrowService {
     fn get_account<S: StateManager + ?Sized>(&self, state: &S, user_account: &[u8]) -> Result<Account, String> {
         let key = Self::account_key(user_account);
         let bytes = state.get(&key).map_err(|e| e.to_string())?.unwrap_or_default();
-        serde_json::from_slice(&bytes).or(Ok(Account::default()))
+        codec::from_bytes_canonical(&bytes).or(Ok(Account::default()))
     }
 }
 
@@ -51,7 +52,7 @@ impl GasEscrowHandler for GasEscrowService {
         if account.balance < max_gas { return Err(format!("Insufficient funds: required {}, available {}", max_gas, account.balance)); }
         let escrow_entry = EscrowEntry { account: user_account.to_vec(), amount: max_gas };
         account.balance -= max_gas;
-        let updates = &[(Self::account_key(user_account), serde_json::to_vec(&account).unwrap()), (Self::escrow_key(user_account), serde_json::to_vec(&escrow_entry).unwrap())];
+        let updates = &[(Self::account_key(user_account), codec::to_bytes_canonical(&account)), (Self::escrow_key(user_account), codec::to_bytes_canonical(&escrow_entry))];
         state.batch_set(updates).map_err(|e| e.to_string())?;
         Ok(())
     }
@@ -60,12 +61,12 @@ impl GasEscrowHandler for GasEscrowService {
         let escrow_key = Self::escrow_key(user_account);
         let escrow_bytes = state.get(&escrow_key).map_err(|e| e.to_string())?.ok_or("No escrow found for user")?;
         state.delete(&escrow_key).map_err(|e| e.to_string())?;
-        let escrow: EscrowEntry = serde_json::from_slice(&escrow_bytes).map_err(|e| e.to_string())?;
+        let escrow: EscrowEntry = codec::from_bytes_canonical(&escrow_bytes)?;
         if gas_used > escrow.amount { return Err("gas_used exceeds bonded amount".to_string()); }
         let refund = escrow.amount - gas_used;
         let mut account = self.get_account(state, user_account)?;
         account.balance += refund;
-        let account_bytes = serde_json::to_vec(&account).unwrap();
+        let account_bytes = codec::to_bytes_canonical(&account);
         state.insert(&Self::account_key(user_account), &account_bytes).map_err(|e| e.to_string())?;
         Ok(())
     }

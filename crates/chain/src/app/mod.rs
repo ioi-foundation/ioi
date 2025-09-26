@@ -10,10 +10,6 @@ use depin_sdk_api::state::{PinGuard, StateAccessor, StateManager, StateOverlay};
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::validator::WorkloadContainer;
-use depin_sdk_commitment::primitives::kzg::KZGCommitmentScheme;
-use depin_sdk_commitment::tree::iavl::IAVLTree;
-use depin_sdk_commitment::tree::sparse_merkle::SparseMerkleTree;
-use depin_sdk_commitment::tree::verkle::VerkleTree;
 use depin_sdk_transaction_models::system::{nonce, validation};
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{
@@ -199,10 +195,11 @@ where
         let mut state = state_tree_arc.write().await;
         match state.get(STATUS_KEY) {
             Ok(Some(status_bytes)) => {
-                let status: ChainStatus = serde_json::from_slice(&status_bytes).map_err(|e| {
-                    ChainError::Transaction(format!("Failed to deserialize status: {e}"))
-                })?;
-                log::info!("Loaded chain status: height {}", status.height);
+                let status: ChainStatus =
+                    codec::from_bytes_canonical(&status_bytes).map_err(|e| {
+                        ChainError::Transaction(format!("Failed to deserialize status: {e}"))
+                    })?;
+                tracing::info!(target: "chain", event = "status_loaded", height = status.height);
                 self.state.status = status;
                 let root = StateRoot(state.root_commitment().as_ref().to_vec());
                 self.state.genesis_state = GenesisState::Ready {
@@ -212,28 +209,30 @@ where
                 self.state.last_state_root = root;
             }
             Ok(None) => {
-                log::info!(
+                tracing::info!(
+                    target: "chain",
+                    event = "status_init",
                     "No existing chain status found. Initializing and saving genesis status."
                 );
                 // The first commit is for height 0 (genesis).
                 state.commit_version(0)?;
-                log::debug!("[Chain] Committed full genesis state.");
+                tracing::debug!(target: "chain", "[Chain] Committed full genesis state.");
 
-                let status_bytes = serde_json::to_vec(&self.state.status)
-                    .map_err(|e| ChainError::Transaction(e.to_string()))?;
+                let status_bytes = depin_sdk_types::codec::to_bytes_canonical(&self.state.status);
                 state
                     .insert(STATUS_KEY, &status_bytes)
                     .map_err(|e| ChainError::Transaction(e.to_string()))?;
 
                 // The second commit finalizes the state including the status key.
                 state.commit_version(0)?;
-                log::debug!("[Chain] Committed genesis state including status key.");
+                tracing::debug!(target: "chain", "[Chain] Committed genesis state including status key.");
 
                 let final_root = StateRoot(state.root_commitment().as_ref().to_vec());
                 let root_commitment_for_check = state
                     .commitment_from_bytes(final_root.as_ref())
                     .map_err(|e| ChainError::State(StateError::InvalidValue(e.to_string())))?;
-                log::debug!(
+                tracing::debug!(
+                    target: "chain",
                     "[Chain] Genesis self-check: querying for key '{}' (expect Present)",
                     hex::encode(STATUS_KEY)
                 );
@@ -242,10 +241,11 @@ where
                     .map_err(|e| ChainError::State(e))?;
                 match membership {
                     depin_sdk_types::app::Membership::Present(_) => {
-                        log::debug!("[Chain] Genesis state self-check passed.");
+                        tracing::debug!(target: "chain", "[Chain] Genesis state self-check passed.");
                     }
                     depin_sdk_types::app::Membership::Absent => {
-                        log::error!(
+                        tracing::error!(
+                            target: "chain",
                             "[Chain] Genesis self-check FAILED: query for '{}' returned Absent.",
                             hex::encode(STATUS_KEY)
                         );
@@ -263,9 +263,10 @@ where
         }
 
         if let GenesisState::Ready { root, .. } = &self.state.genesis_state {
-            log::info!(
-                "[Chain] Genesis ready with root {}",
-                hex::encode(root.as_ref())
+            tracing::info!(
+                target: "chain",
+                event = "genesis_ready",
+                root = hex::encode(root.as_ref())
             );
         }
         Ok(())
@@ -343,10 +344,12 @@ impl<ST: StateManager + Send + Sync + 'static> StateView for ChainStateView<ST> 
 
         if self.resolved_root_bytes.is_none() {
             let out = state.get(key).map_err(ChainError::State)?;
-            log::info!(
-                "[StateView::get][fast] key={} -> present={}",
-                key_hex,
-                out.is_some()
+            tracing::info!(
+                target: "state",
+                event = "view_get",
+                key = key_hex,
+                present = out.is_some(),
+                mode = "fast",
             );
             return Ok(out);
         }
@@ -361,11 +364,13 @@ impl<ST: StateManager + Send + Sync + 'static> StateView for ChainStateView<ST> 
             .map_err(ChainError::State)?;
 
         let present = matches!(membership, Membership::Present(_));
-        log::info!(
-            "[StateView::get][anchored] key={} root={} -> present={}",
-            key_hex,
-            hex::encode(root_bytes),
-            present
+        tracing::info!(
+            target: "state",
+            event = "view_get",
+            key = key_hex,
+            root = hex::encode(root_bytes),
+            present,
+            mode = "anchored",
         );
 
         Ok(match membership {
@@ -398,11 +403,12 @@ where
                 let bytes = self.state.recent_blocks.iter().rev().find_map(|b| {
                     if let Ok(block_anchor) = b.header.state_root.to_anchor() {
                         if block_anchor == *anchor {
-                            log::info!(
-                                "[StateView::view_at] anchor={} matched H={} root={}",
-                                hex::encode(anchor.as_ref()),
-                                b.header.height,
-                                hex::encode(b.header.state_root.as_ref())
+                            tracing::info!(
+                                target: "state",
+                                event = "view_at_resolve",
+                                anchor = hex::encode(anchor.as_ref()),
+                                height = b.header.height,
+                                root = hex::encode(b.header.state_root.as_ref())
                             );
                             return Some(b.header.state_root.as_ref().to_vec());
                         }
@@ -421,18 +427,12 @@ where
             None
         };
 
-        if let Some(bytes) = &resolved_root_bytes {
-            log::info!(
-                "[StateView::view_at] anchor={} -> resolved_root={}",
-                hex::encode(anchor.as_ref()),
-                hex::encode(bytes)
-            );
-        } else {
-            log::info!(
-                "[StateView::view_at] anchor={} -> resolved_root=<LATEST>",
-                hex::encode(anchor.as_ref())
-            );
-        }
+        tracing::info!(
+            target: "state",
+            event = "view_at_resolved",
+            anchor = hex::encode(anchor.as_ref()),
+            resolved_root = resolved_root_bytes.as_ref().map(hex::encode).unwrap_or_else(|| "LATEST".to_string())
+        );
 
         let view = ChainStateView {
             state_tree: self.workload_container.state_tree(),
@@ -475,6 +475,10 @@ where
         &self.state.status
     }
 
+    fn status_mut(&mut self) -> &mut ChainStatus {
+        &mut self.state.status
+    }
+
     fn transaction_model(&self) -> &UnifiedTransactionModel<CS> {
         &self.state.transaction_model
     }
@@ -493,6 +497,7 @@ where
         }
 
         let state_changes = {
+            // [+] FIX: Run the OnEndBlock hooks as part of the simulation in `prepare_block`.
             let _pin_guard = PinGuard::new(workload.pins.clone(), self.state.status.height).await;
             let snapshot_state = {
                 let state_tree_arc = workload.state_tree();
@@ -500,10 +505,28 @@ where
                 base_state.clone()
             };
             let mut overlay = StateOverlay::new(&snapshot_state);
+
+            // First, process all transactions
             for tx in &block.transactions {
                 self.process_transaction(tx, &mut overlay, block.header.height)
                     .await?;
             }
+
+            // Second, process the OnEndBlock hooks against the same overlay
+            let end_block_ctx = TxContext {
+                block_height: block.header.height,
+                chain_id: self.state.chain_id,
+                services: &self.services,
+                simulation: true, // This is a simulation phase
+            };
+            for service in self.services.services_in_deterministic_order() {
+                if let Some(hook) = service.as_on_end_block() {
+                    // FIX: The error type needs to be mapped correctly.
+                    hook.on_end_block(&mut overlay, &end_block_ctx)
+                        .map_err(|e| ChainError::State(e))?;
+                }
+            }
+
             overlay.into_ordered_batch()
         };
 
@@ -554,9 +577,12 @@ where
                     let mut modified = false;
                     if let Some(next_vs) = &sets.next {
                         if block.header.height >= next_vs.effective_from_height {
-                            log::info!(
-                                "[EndBlock] Promoting validator set @H={}",
-                                block.header.height
+                            tracing::info!(
+                                target: "chain",
+                                // FIX: Use a more specific log event for clarity
+                                event = "validator_set_promotion",
+                                height = block.header.height,
+                                "Promoting validator set"
                             );
                             let promoted_from_height = next_vs.effective_from_height;
                             sets.current = next_vs.clone();
@@ -573,32 +599,22 @@ where
                     let out = write_validator_sets(&sets);
                     state.insert(VALIDATOR_SET_KEY, &out)?;
                     if modified {
-                        log::info!("[EndBlock] Validator set updated and carried forward.");
+                        tracing::info!(target: "chain", event = "validator_set_promotion", "Validator set updated and carried forward.");
                     } else {
-                        log::debug!("[EndBlock] Validator set carried forward unchanged.");
+                        tracing::debug!(target: "chain", event = "validator_set_promotion", "Validator set carried forward unchanged.");
                     }
                 }
                 None => {
-                    log::error!(
-                        "[EndBlock] MISSING VALIDATOR_SET_KEY before commit at H={}. \
-                         The next block may stall or fail without it.",
-                        block.header.height
+                    tracing::error!(
+                        target: "chain",
+                        event = "end_block",
+                        height = block.header.height,
+                        "MISSING VALIDATOR_SET_KEY before commit. The next block may stall or fail without it."
                     );
                 }
             }
 
-            let end_block_ctx = TxContext {
-                block_height: block.header.height,
-                chain_id: self.state.chain_id,
-                services: &self.services,
-                simulation: false,
-            };
-            for service in self.services.services_in_deterministic_order() {
-                if let Some(hook) = service.as_on_end_block() {
-                    hook.on_end_block(&mut *state, &end_block_ctx)?;
-                }
-            }
-
+            // This logic is now correctly handled by the simulation in `prepare_block`.
             let upgrade_key = [
                 depin_sdk_types::keys::UPGRADE_PENDING_PREFIX,
                 &block.header.height.to_le_bytes(),
@@ -606,8 +622,11 @@ where
             .concat();
 
             if let Some(upgrade_bytes) = state.get(&upgrade_key)? {
+                // FIX: Use the canonical SCALE codec to deserialize, matching the write path.
+                // Also, handle the Result safely to prevent panics on deserialization failure.
                 let upgrades: Vec<(String, Vec<u8>)> =
-                    serde_json::from_slice(&upgrade_bytes).unwrap_or_default();
+                    depin_sdk_types::codec::from_bytes_canonical(&upgrade_bytes)
+                        .unwrap_or_else(|_| Default::default());
                 let mut applied_count = 0;
                 for (service_type_str, wasm) in upgrades {
                     let service_type =
@@ -615,9 +634,12 @@ where
                     match self.service_manager.execute_upgrade(&service_type, &wasm) {
                         Ok(_) => applied_count += 1,
                         Err(e) => {
-                            log::error!(
-                                "Failed to apply scheduled module upgrade for {:?} at height {}: {}",
-                                service_type, block.header.height, e
+                            tracing::error!(
+                                target: "chain",
+                                event = "upgrade_fail",
+                                ?service_type,
+                                height = block.header.height,
+                                error = %e,
                             );
                         }
                     }
@@ -629,10 +651,11 @@ where
                         .map(|s| s as Arc<dyn Service>)
                         .collect();
                     self.services = ServiceDirectory::new(services_for_dir);
-                    log::info!(
-                        "Applied {} module upgrade(s) at height {}",
-                        applied_count,
-                        block.header.height
+                    tracing::info!(
+                        target: "chain",
+                        event = "upgrades_applied",
+                        count = applied_count,
+                        height = block.header.height,
                     );
                 }
                 state.delete(&upgrade_key)?;
@@ -640,8 +663,7 @@ where
             self.state.status.height = block.header.height;
             self.state.status.latest_timestamp = block.header.timestamp;
             self.state.status.total_transactions += block.transactions.len() as u64;
-            let status_bytes = serde_json::to_vec(&self.state.status)
-                .map_err(|e| ChainError::Transaction(e.to_string()))?;
+            let status_bytes = depin_sdk_types::codec::to_bytes_canonical(&self.state.status);
             state.insert(STATUS_KEY, &status_bytes)?;
 
             // The new trait hook handles dispatching to the correct persistence logic.
@@ -662,10 +684,12 @@ where
                 if self.consensus_engine.consensus_type() == ConsensusType::ProofOfStake {
                     match state.get_with_proof_at(&final_commitment, VALIDATOR_SET_KEY) {
                         Ok((Membership::Present(_), _)) => {
-                            log::info!(
-                                "[EndBlock@{}] Validator set present and provable at new root {}",
-                                block.header.height,
-                                hex::encode(&final_root_bytes)
+                            tracing::info!(
+                                target: "pos_finality_check",
+                                event = "validator_set_provable",
+                                height = block.header.height,
+                                root = hex::encode(&final_root_bytes),
+                                "OK"
                             );
                         }
                         Ok((other, _)) => {
@@ -696,11 +720,12 @@ where
             .state_root
             .to_anchor()
             .map_err(|e| ChainError::Transaction(e.to_string()))?;
-        log::info!(
-            "[Chain Commit] H={} state_root={} anchor={}",
-            block.header.height,
-            hex::encode(block.header.state_root.as_ref()),
-            hex::encode(anchor.as_ref())
+        tracing::info!(
+            target: "chain",
+            event = "commit",
+            height = block.header.height,
+            state_root = hex::encode(block.header.state_root.as_ref()),
+            anchor = hex::encode(anchor.as_ref())
         );
 
         if self.state.recent_blocks.len() >= self.state.max_recent_blocks {

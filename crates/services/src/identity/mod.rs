@@ -12,6 +12,7 @@ use depin_sdk_types::app::{
     account_id_from_key_material, read_validator_sets, write_validator_sets, AccountId,
     ActiveKeyRecord, ChainTransaction, Credential, RotationProof, SignatureSuite, ValidatorSetV1,
 };
+use depin_sdk_types::codec;
 use depin_sdk_types::error::{StateError, TransactionError, UpgradeError};
 use depin_sdk_types::keys::{
     IDENTITY_CREDENTIALS_PREFIX, IDENTITY_PROMOTION_INDEX_PREFIX, IDENTITY_ROTATION_NONCE_PREFIX,
@@ -56,7 +57,8 @@ impl IdentityHub {
         if bytes.is_empty() {
             return Ok([None, None]);
         }
-        serde_json::from_slice(&bytes).map_err(|e| StateError::InvalidValue(e.to_string()))
+        depin_sdk_types::codec::from_bytes_canonical(&bytes)
+            .map_err(|e| StateError::InvalidValue(e.to_string()))
     }
 
     fn save_credentials(
@@ -65,8 +67,7 @@ impl IdentityHub {
         account_id: &AccountId,
         creds: &[Option<Credential>; 2],
     ) -> Result<(), StateError> {
-        let creds_bytes =
-            serde_json::to_vec(creds).map_err(|e| StateError::InvalidValue(e.to_string()))?;
+        let creds_bytes = depin_sdk_types::codec::to_bytes_canonical(creds);
         state.insert(&Self::get_credentials_key(account_id), &creds_bytes)
     }
 
@@ -239,12 +240,12 @@ impl IdentityHub {
         let mut list: Vec<AccountId> = state
             .get(&idx_key)
             .map_err(|e| e.to_string())?
-            .and_then(|b| serde_json::from_slice(&b).ok())
+            .and_then(|b| codec::from_bytes_canonical(&b).ok())
             .unwrap_or_default();
         if !list.contains(account_id) {
             list.push(*account_id);
             state
-                .insert(&idx_key, &serde_json::to_vec(&list).unwrap())
+                .insert(&idx_key, &codec::to_bytes_canonical(&list))
                 .map_err(|e| e.to_string())?;
         }
 
@@ -324,7 +325,7 @@ impl OnEndBlock for IdentityHub {
         let idx_key = Self::get_index_key(height);
 
         if let Some(bytes) = state.get(&idx_key)? {
-            let accounts: Vec<AccountId> = serde_json::from_slice(&bytes).unwrap_or_default();
+            let accounts: Vec<AccountId> = codec::from_bytes_canonical(&bytes).unwrap_or_default();
             for account_id in accounts {
                 let mut creds = self.load_credentials(state, &account_id)?;
                 if let Some(staged) = creds[1].as_ref() {

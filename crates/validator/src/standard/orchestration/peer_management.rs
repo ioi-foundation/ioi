@@ -8,7 +8,7 @@ use depin_sdk_api::{
 use depin_sdk_network::libp2p::SwarmCommand;
 use depin_sdk_types::app::ChainTransaction;
 use libp2p::PeerId;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::fmt::Debug;
 
 /// Handles a new peer connecting.
@@ -18,7 +18,7 @@ pub async fn handle_connection_established<CS, ST, CE, V>(
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
@@ -28,10 +28,7 @@ pub async fn handle_connection_established<CS, ST, CE, V>(
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
-    log::info!(
-        "[Orchestrator] Connection established with peer {}",
-        peer_id
-    );
+    tracing::info!(target: "network", event = "peer_connected", %peer_id);
     context.known_peers_ref.lock().await.insert(peer_id);
     context
         .swarm_commander
@@ -47,7 +44,7 @@ pub async fn handle_connection_closed<CS, ST, CE, V>(
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
@@ -57,5 +54,6 @@ pub async fn handle_connection_closed<CS, ST, CE, V>(
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
+    tracing::info!(target: "network", event = "peer_disconnected", %peer_id);
     context.known_peers_ref.lock().await.remove(&peer_id);
 }

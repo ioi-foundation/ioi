@@ -12,11 +12,12 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_types::{
     app::{
-        account_id_from_key_material, evidence_id, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
-        Credential, FailureReport, OffenseFacts, OffenseType, SignHeader, SignatureProof,
-        SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1,
+        account_id_from_key_material, evidence_id, AccountId, ActiveKeyRecord, ChainId,
+        ChainTransaction, Credential, FailureReport, OffenseFacts, OffenseType, SignHeader,
+        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetV1,
         ValidatorSetsV1, ValidatorV1,
     },
+    // [+] FIX: Import the canonical codec
     codec,
     config::InitialServiceConfig,
     keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
@@ -112,18 +113,16 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                 })
                 .collect();
             let total_weight = validators.iter().map(|v| v.weight).sum();
-            let vs_blob = ValidatorSetBlob {
-                schema_version: 2,
-                payload: ValidatorSetsV1 {
-                    current: ValidatorSetV1 {
-                        effective_from_height: 1,
-                        total_weight,
-                        validators,
-                    },
-                    next: None,
+            let validator_sets = ValidatorSetsV1 {
+                current: ValidatorSetV1 {
+                    effective_from_height: 1,
+                    total_weight,
+                    validators,
                 },
+                next: None,
             };
-            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload);
+
+            let vs_bytes = depin_sdk_types::app::write_validator_sets(&validator_sets);
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
@@ -136,6 +135,7 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                 let account_id_hash = account_id_from_key_material(suite, &pk_bytes).unwrap();
                 let account_id = AccountId(account_id_hash);
 
+                // Add IdentityHub credentials
                 let cred = Credential {
                     suite: SignatureSuite::Ed25519,
                     public_key_hash: account_id.0,
@@ -143,7 +143,8 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                     l2_location: None,
                 };
                 let creds_array: [Option<Credential>; 2] = [Some(cred), None];
-                let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
+                // [+] FIX: Use the canonical SCALE codec instead of serde_json for credentials.
+                let creds_bytes = codec::to_bytes_canonical(&creds_array);
                 let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
                 genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&creds_key))] =
                     json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes)));

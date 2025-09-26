@@ -272,15 +272,15 @@ impl WorkloadClient {
     }
 
     pub async fn get_staked_validators(&self) -> Result<BTreeMap<AccountId, u64>> {
-        // FIX: Expect a map with string keys and convert them back to AccountId.
         let map_with_str_keys: BTreeMap<String, u64> =
             self.send_rpc("staking.getStakes.v1", json!({})).await?;
 
         map_with_str_keys
             .into_iter()
             .map(|(hex_key, stake)| {
-                let mut bytes = [0u8; 32];
-                hex::decode_to_slice(hex_key, &mut bytes)?;
+                let bytes: [u8; 32] = hex::decode(hex_key)?
+                    .try_into()
+                    .map_err(|_| anyhow!("Invalid AccountId length"))?;
                 Ok((AccountId(bytes), stake))
             })
             .collect()
@@ -352,7 +352,6 @@ impl ChainStateReader for WorkloadClient {
     }
 
     async fn get_next_staked_validators(&self) -> Result<BTreeMap<AccountId, u64>, String> {
-        // FIX: Expect a map with string keys and convert them back to AccountId.
         let map_with_str_keys: BTreeMap<String, u64> = self
             .send_rpc("staking.getNextStakes.v1", json!({}))
             .await
@@ -361,8 +360,10 @@ impl ChainStateReader for WorkloadClient {
         map_with_str_keys
             .into_iter()
             .map(|(hex_key, stake)| {
-                let mut bytes = [0u8; 32];
-                hex::decode_to_slice(hex_key, &mut bytes).map_err(|e| e.to_string())?;
+                let bytes: [u8; 32] = hex::decode(hex_key)
+                    .map_err(|e| e.to_string())?
+                    .try_into()
+                    .map_err(|_| "Invalid AccountId length".to_string())?;
                 Ok((AccountId(bytes), stake))
             })
             .collect::<Result<_, String>>()

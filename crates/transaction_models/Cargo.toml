@@ -20,7 +20,8 @@ hex = { workspace = true }
 async-trait = { workspace = true }
 libp2p = { workspace = true }
 bs58 = "0.4"
-prost = { workspace = true }                        # <-- FIX: Add prost dependency
+prost = { workspace = true }
+parity-scale-codec = { workspace = true, features = ["derive"] }
 
 [features]
 default = []

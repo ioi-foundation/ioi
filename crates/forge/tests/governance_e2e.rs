@@ -3,46 +3,26 @@
 #![cfg(all(feature = "consensus-poa", feature = "vm-wasm"))]
 
 use anyhow::Result;
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _}; // Add this import
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_forge::testing::{
-    assert_log_contains, build_test_artifacts, poll::wait_for_proposal_status, submit_transaction,
-    TestCluster,
+    build_test_artifacts,
+    poll::{confirm_proposal_passed_state, wait_for_height},
+    submit_transaction, TestCluster,
 };
-use depin_sdk_types::service_configs::GovernanceParams;
 use depin_sdk_types::{
     app::{
-        // Add these imports
-        account_id_from_key_material,
-        AccountId,
-        ActiveKeyRecord,
-        ChainId,
-        ChainTransaction,
-        Credential,
-        Proposal,
-        ProposalStatus,
-        ProposalType,
-        SignHeader,
-        SignatureProof,
-        SignatureSuite,
-        SystemPayload,
-        SystemTransaction,
-        ValidatorSetBlob,
-        ValidatorSetV1,
-        ValidatorSetsV1,
-        ValidatorV1,
-        VoteOption,
+        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
+        Credential, Proposal, ProposalStatus, ProposalType, SignHeader, SignatureProof,
+        SignatureSuite, StateEntry, SystemPayload, SystemTransaction, ValidatorSetBlob,
+        ValidatorSetV1, ValidatorSetsV1, ValidatorV1, VoteOption,
     },
-    codec,                        // Add this import
-    config::InitialServiceConfig, // Add this import
+    codec,
+    config::InitialServiceConfig,
     keys::{
-        // Add these imports
-        ACCOUNT_ID_TO_PUBKEY_PREFIX,
-        GOVERNANCE_KEY,
-        GOVERNANCE_PROPOSAL_KEY_PREFIX,
-        IDENTITY_CREDENTIALS_PREFIX,
-        VALIDATOR_SET_KEY,
+        ACCOUNT_ID_TO_PUBKEY_PREFIX, GOVERNANCE_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX,
+        IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
     },
-    service_configs::MigrationConfig, // Add this import
+    service_configs::{GovernanceParams, MigrationConfig},
 };
 use libp2p::identity::{self, Keypair};
 use serde_json::json;
@@ -96,7 +76,6 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
     let mut cluster = TestCluster::builder()
         .with_validators(1)
         .with_consensus_type("ProofOfAuthority")
-        // FIX: Explicitly set the state tree to match compile-time features.
         .with_state_tree("IAVL")
         .with_chain_id(1)
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
@@ -109,6 +88,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
         .with_initial_service(InitialServiceConfig::Governance(GovernanceParams::default()))
         .with_genesis_modifier(move |genesis, keys| {
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+            // Setup validator identity
             let validator_key = &keys[0];
             let suite = SignatureSuite::Ed25519;
             let validator_pk_bytes = validator_key.public().encode_protobuf();
@@ -164,26 +144,24 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                 final_tally: None,
             };
             let proposal_key_bytes = [GOVERNANCE_PROPOSAL_KEY_PREFIX, &1u64.to_le_bytes()].concat();
-            let proposal_key_b64 = format!("b64:{}", BASE64_STANDARD.encode(&proposal_key_bytes));
-            let proposal_bytes = serde_json::to_vec(&proposal).unwrap();
+            let entry = StateEntry {
+                value: codec::to_bytes_canonical(&proposal),
+                block_height: 0,
+            };
+            let entry_bytes = codec::to_bytes_canonical(&entry);
             genesis_state.insert(
-                proposal_key_b64,
-                json!(format!("b64:{}", BASE64_STANDARD.encode(proposal_bytes))),
+                format!("b64:{}", BASE64_STANDARD.encode(proposal_key_bytes)),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&entry_bytes))),
             );
 
             // D. Set up identity records needed for signature validation
+            let gov_pk_bytes = governance_key_clone.public().encode_protobuf(); // Use the cloned key
+            let gov_account_id =
+                AccountId(account_id_from_key_material(suite, &gov_pk_bytes).unwrap());
+
             for (key, acct_id) in [
                 (validator_key, validator_account_id),
-                (
-                    &governance_key_clone,
-                    AccountId(
-                        account_id_from_key_material(
-                            suite,
-                            &governance_key_clone.public().encode_protobuf(),
-                        )
-                        .unwrap(),
-                    ),
-                ),
+                (&governance_key_clone, gov_account_id),
             ] {
                 let pk_bytes = key.public().encode_protobuf();
                 let cred = Credential {
@@ -193,7 +171,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                     l2_location: None,
                 };
                 let creds_array: [Option<Credential>; 2] = [Some(cred), None];
-                let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
+                let creds_bytes = codec::to_bytes_canonical(&creds_array);
                 let creds_key = [IDENTITY_CREDENTIALS_PREFIX, acct_id.as_ref()].concat();
                 genesis_state.insert(
                     format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
@@ -224,12 +202,10 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
         .build()
         .await?;
 
-    // 3. GET HANDLES to the node and its logs
+    // 3. GET HANDLES to the node
     let node = &mut cluster.validators[0];
     let rpc_addr = &node.rpc_addr;
     let validator_key = &node.keypair;
-    // FIX: Use the new non-blocking log subscription API.
-    let (mut orch_logs, _, _) = node.subscribe_logs();
 
     // 4. SUBMIT a VOTE from the validator
     let payload = SystemPayload::Vote {
@@ -240,16 +216,16 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
     let tx = create_system_tx(validator_key, payload, 0, 1.into())?;
     submit_transaction(rpc_addr, &tx).await?;
 
-    // 5. ASSERT the vote was accepted (in single-node tests there is nothing to gossip to)
-    assert_log_contains(
-        "Orchestration",
-        &mut orch_logs,
-        "[RPC] Admitted tx to mempool",
-    )
-    .await?;
+    // 5. (Non-brittle) Ensure the chain makes progress after submission.
+    // If the tx was accepted by the mempool and is valid, we will see the next block produced.
+    wait_for_height(rpc_addr, 2, Duration::from_secs(30)).await?;
 
-    // 6. WAIT AND ASSERT the tallying outcome using state polling
-    wait_for_proposal_status(rpc_addr, 1, ProposalStatus::Passed, Duration::from_secs(30)).await?;
+    // 6. WAIT for the voting period to end. The proposal ends at height 3, so wait for height 4
+    // to ensure the OnEndBlock hook for height 3 has been processed and committed.
+    wait_for_height(rpc_addr, 4, Duration::from_secs(30)).await?;
+
+    // 7. ASSERT the tallying outcome via state (authoritative and non-brittle).
+    confirm_proposal_passed_state(rpc_addr, 1, Duration::from_secs(20)).await?;
 
     println!("--- Governance Lifecycle E2E Test Successful ---");
     Ok(())

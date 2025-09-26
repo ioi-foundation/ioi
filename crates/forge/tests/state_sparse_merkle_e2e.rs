@@ -121,7 +121,8 @@ async fn test_sparse_merkle_tree_e2e() -> Result<()> {
     for _ in 0..20 {
         sleep(Duration::from_secs(2)).await;
         if let Some(bytes) = query_state_key(rpc_addr, STATUS_KEY).await? {
-            let status: ChainStatus = serde_json::from_slice(&bytes)?;
+            let status: ChainStatus =
+                codec::from_bytes_canonical(&bytes).map_err(anyhow::Error::msg)?;
             if status.height >= 1 {
                 ok = true;
                 break;

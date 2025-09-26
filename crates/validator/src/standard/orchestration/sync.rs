@@ -105,7 +105,7 @@ pub async fn handle_status_response<CS, ST, CE, V>(
             .ok();
     } else if *context.node_state.lock().await == NodeState::Syncing {
         *context.node_state.lock().await = NodeState::Synced;
-        log::info!("[Orchestrator] Synced with peer {}. State -> Synced.", peer);
+        tracing::info!(target: "orchestration", event = "synced", %peer);
     }
 }
 
@@ -139,6 +139,6 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
     }
     if all_blocks_processed_successfully {
         *context.node_state.lock().await = NodeState::Synced;
-        log::info!("[Orchestrator] Finished processing synced blocks. State -> Synced.");
+        tracing::info!(target: "orchestration", event = "sync_complete");
     }
 }

@@ -1,5 +1,6 @@
 // Path: crates/storage/src/redb_epoch_store.rs
 
+use crate::metrics::metrics;
 use depin_sdk_api::storage::{
     be32, be64, CommitInput, Epoch, Height, NodeHash, NodeStore, PruneStats, RootHash, StorageError,
 };
@@ -221,6 +222,12 @@ impl NodeStore for RedbEpochStore {
     }
 
     fn commit_block(&self, input: &CommitInput<'_>) -> Result<(), StorageError> {
+        let bytes_written: u64 = input
+            .new_nodes
+            .iter()
+            .map(|(_, bytes)| bytes.len() as u64)
+            .sum();
+        metrics().inc_bytes_written_total(bytes_written);
         let epoch = self.tip_epoch_of(input.height);
         let w = self.write_txn()?;
         {
@@ -288,7 +295,8 @@ impl NodeStore for RedbEpochStore {
         }
         let cutoff_epoch = self.tip_epoch_of(cutoff_height);
         let excluded: ahash::AHashSet<Height> = excluded_heights.iter().copied().collect();
-        let mut stats = PruneStats::default();
+        let mut nodes_deleted = 0;
+        let mut heights_pruned = 0;
 
         let w = self.write_txn()?;
         {
@@ -366,7 +374,7 @@ impl NodeStore for RedbEpochStore {
                             .map_err(|e| StorageError::Backend(e.to_string()))?;
                         nods.remove(k_nodes(epoch, &node).as_slice())
                             .map_err(|e| StorageError::Backend(e.to_string()))?;
-                        stats.nodes_deleted += 1;
+                        nodes_deleted += 1;
                     } else {
                         refs.insert(rk.as_slice(), &v_u64(new_count))
                             .map_err(|e| StorageError::Backend(e.to_string()))?;
@@ -378,12 +386,23 @@ impl NodeStore for RedbEpochStore {
                 ver.remove(&key as &[u8])
                     .map_err(|e| StorageError::Backend(e.to_string()))?;
                 pruned += 1;
-                stats.heights_pruned += 1;
+                heights_pruned += 1;
             }
         }
-
         w.commit()
             .map_err(|e| StorageError::Backend(e.to_string()))?;
+        let stats = PruneStats {
+            heights_pruned,
+            nodes_deleted,
+        };
+        tracing::debug!(
+            target: "storage_gc",
+            event = "prune_batch_completed",
+            heights_pruned = stats.heights_pruned,
+            nodes_deleted = stats.nodes_deleted,
+        );
+        metrics().inc_epochs_dropped(stats.heights_pruned as u64);
+        metrics().inc_nodes_deleted(stats.nodes_deleted as u64);
         Ok(stats)
     }
 

@@ -3,6 +3,7 @@ use super::context::MainLoopContext;
 use super::gossip::prune_mempool;
 use super::oracle::handle_newly_processed_block;
 use super::remote_state_view::RemoteStateView;
+use crate::metrics::consensus_metrics as metrics;
 use anyhow::{anyhow, Result};
 use depin_sdk_api::{
     chain::StateView,
@@ -48,6 +49,7 @@ where
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
+    let _tick_timer = depin_sdk_telemetry::time::Timer::new(metrics());
     // ---- Snapshot immutable/Arc fields under a *short* lock, then release it. ----
     let (
         cons_ty,
@@ -89,11 +91,11 @@ where
         .unwrap_or(0);
     let producing_h = parent_h + 1;
 
-    let our_account_id_short = hex::encode(&local_keypair.public().to_peer_id().to_bytes()[..4]);
-    log::info!(
-        "[Orch Tick] cause={} state={:?}, parent_h={}, producing_h={}",
-        cause,
-        node_state,
+    tracing::info!(
+        target: "consensus",
+        event = "tick",
+        %cause,
+        ?node_state,
         parent_h,
         producing_h
     );
@@ -125,8 +127,11 @@ where
         let status = match workload_client.get_status().await {
             Ok(s) => s,
             Err(e) => {
-                let msg = format!("[Orch Tick][Node {}] Could not get chain status for consensus: {}. Aborting tick.", our_account_id_short, e);
-                log::error!("{}", msg);
+                let msg = format!(
+                    "[Orch Tick] Could not get chain status for consensus: {}. Aborting tick.",
+                    e
+                );
+                tracing::error!(target: "consensus", "{}", msg);
                 return Err(anyhow!(msg));
             }
         };
@@ -137,21 +142,23 @@ where
             match workload_client.get_state_root().await {
                 Ok(r) => r,
                 Err(e) => {
-                    log::warn!(
-                        "[Orch Tick][Node {}] Failed to fetch workload root, using context.genesis_root: {}",
-                        our_account_id_short,
-                        e
+                    tracing::warn!(
+                        target: "consensus",
+                        event = "get_root_fail",
+                        error = %e,
+                        "Failed to fetch workload root, using context.genesis_root",
                     );
                     genesis_root.clone()
                 }
             }
         };
 
-        log::debug!(
-            "[Orch Tick][Node {}] Parent view root for deciding H={}: 0x{}",
-            our_account_id_short,
-            status.height + 1,
-            hex::encode(parent_root.as_ref())
+        tracing::debug!(
+            target: "consensus",
+            event="parent_view_info",
+            height = status.height + 1,
+            root = hex::encode(parent_root.as_ref()),
+            "Parent view root for deciding",
         );
 
         let parent_anchor: StateAnchor = parent_root.to_anchor()?;
@@ -180,21 +187,20 @@ where
             .await
     };
 
-    log::info!(
-        "[Orch Tick] decision={:?} @ H={}",
-        decision,
-        height_being_built
+    tracing::info!(
+        target: "consensus",
+        event = "decision",
+        decision = ?decision,
+        height = height_being_built
     );
 
     if let depin_sdk_api::consensus::ConsensusDecision::ProduceBlock(_) = decision {
+        metrics().inc_blocks_produced();
         let status = match workload_client.get_status().await {
             Ok(s) => s,
             Err(e) => {
-                let msg = format!(
-                    "[Orch Tick][Node {}] get_status() failed: {}. Will retry next tick.",
-                    our_account_id_short, e
-                );
-                log::error!("{}", msg);
+                let msg = format!("get_status() failed: {}. Will retry next tick.", e);
+                tracing::error!(target: "consensus", "{}", msg);
                 return Err(anyhow!(msg));
             }
         };
@@ -206,16 +212,18 @@ where
         };
 
         if candidate_txs.is_empty() && !allow_bootstrap {
-            log::info!(
-                "[Orch Tick][Node {}] No transactions in mempool; skipping empty block production.",
-                our_account_id_short
+            tracing::info!(
+                target: "consensus",
+                event = "skip_empty_block",
+                "No transactions in mempool; skipping empty block production."
             );
             return Ok(());
         }
 
-        log::info!(
-            "[Orch Tick] precheck starting, mempool_size={}",
-            mempool_len_before
+        tracing::info!(
+            target: "consensus",
+            event = "precheck_start",
+            mempool_size = mempool_len_before,
         );
 
         let latest_anchor = last_committed_block_opt
@@ -223,24 +231,26 @@ where
             .map(|b| b.header.state_root.to_anchor())
             .unwrap_or_else(|| genesis_root.to_anchor())?;
 
+        // FIX: The `check_transactions_at` RPC call expects canonical bytes, but the mempool
+        // holds the deserialized `ChainTransaction` structs. We must re-serialize them
+        // before sending them over the wire. The `WorkloadIpcServer` will then deserialize
+        // them back into structs.
         let check_results = match workload_client
             .check_transactions_at(latest_anchor, candidate_txs.clone())
             .await
         {
             Ok(results) => results,
             Err(e) if e.to_string().contains("StaleAnchor") => {
-                log::info!(
-                    "[Orch Tick][Node {}] StaleAnchor; refreshing root and retrying once.",
-                    our_account_id_short
+                tracing::info!(
+                    target: "consensus",
+                    event = "stale_anchor_retry",
+                    "StaleAnchor; refreshing root and retrying once."
                 );
                 let fresh_root = match workload_client.get_state_root().await {
                     Ok(r) => r,
                     Err(e2) => {
-                        let msg = format!(
-                            "[Orch Tick][Node {}] get_state_root() failed after StaleAnchor: {}",
-                            our_account_id_short, e2
-                        );
-                        log::error!("{}", msg);
+                        let msg = format!("get_state_root() failed after StaleAnchor: {}", e2);
+                        tracing::error!(target: "consensus", "{}", msg);
                         return Err(anyhow!(msg));
                     }
                 };
@@ -251,32 +261,27 @@ where
                 {
                     Ok(results2) => results2,
                     Err(e2) => {
-                        let msg = format!(
-                            "[Orch Tick][Node {}] Retry precheck failed: {}",
-                            our_account_id_short, e2
-                        );
-                        log::error!("{}", msg);
+                        let msg = format!("Retry precheck failed: {}", e2);
+                        tracing::error!(target: "consensus", "{}", msg);
                         return Err(anyhow!(msg));
                     }
                 }
             }
             Err(e) => {
-                let msg = format!(
-                    "[Orch Tick][Node {}] check_transactions_at failed: {}",
-                    our_account_id_short, e
-                );
-                log::error!("{}", msg);
+                let msg = format!("check_transactions_at failed: {}", e);
+                tracing::error!(target: "consensus", "{}", msg);
                 return Err(anyhow!(msg));
             }
         };
 
-        log::info!(
-            "[Orch Tick] precheck returned {} results for {} candidate tx(s)",
-            check_results.len(),
-            candidate_txs.len()
+        tracing::info!(
+            target: "consensus",
+            event = "precheck_complete",
+            num_results = check_results.len(),
+            num_candidates = candidate_txs.len(),
         );
         if check_results.len() != candidate_txs.len() {
-            log::error!("[Orch Tick] BUG: check_transactions_at result length mismatch; refusing to produce this tick.");
+            tracing::error!(target: "consensus", "BUG: check_transactions_at result length mismatch; refusing to produce this tick.");
             return Ok(());
         }
 
@@ -285,13 +290,16 @@ where
 
         for (i, result) in check_results.into_iter().enumerate() {
             if let Err(e) = result {
-                log::warn!("[Orch Tick] Filtering tx {} as invalid: {}", i, e);
+                tracing::warn!(target: "consensus", event = "tx_filtered", tx_index = i, error = %e);
+                // Use a canonical hash of the transaction to identify it for removal from the mempool.
+                // Using the transaction itself is fine if it implements Hash and Eq correctly,
+                // but a byte-based hash is more robust against struct padding/representation issues.
                 match serde_jcs::to_vec(&candidate_txs[i]) {
                     Ok(tx_hash) => {
                         invalid_tx_hashes.insert(tx_hash);
                     }
                     Err(e2) => {
-                        log::error!("[Orch Tick] failed to hash invalid tx {}: {}", i, e2);
+                        tracing::error!(target: "consensus", event = "tx_hash_fail", tx_index = i, error = %e2);
                     }
                 }
             } else {
@@ -305,18 +313,19 @@ where
                 let tx_hash = serde_jcs::to_vec(tx).unwrap();
                 !invalid_tx_hashes.contains(&tx_hash)
             });
-            log::info!(
-                "[Orch Tick][Node {}] Pruned {} invalid tx(s) from mempool.",
-                our_account_id_short,
-                invalid_tx_hashes.len()
+            tracing::info!(
+                target: "consensus",
+                event = "mempool_prune",
+                num_pruned = invalid_tx_hashes.len(),
             );
         }
 
-        log::info!(
-            "[Orch Tick][Node {}] Producing block #{} with {} valid tx(s) (coinbase will be added by workload).",
-            our_account_id_short,
-            target_height,
-            valid_txs.len()
+        tracing::info!(
+            target: "consensus",
+            event = "producing_block",
+            height = target_height,
+            num_txs = valid_txs.len(),
+            "Producing block (coinbase will be added by workload)."
         );
 
         let parent_root_for_keys = last_committed_block_opt
@@ -337,14 +346,14 @@ where
             Ok(Some(b)) => b,
             _ => {
                 let msg = "[Orch Tick] Could not load ValidatorSet at parent; aborting production.";
-                log::error!("{}", msg);
+                tracing::error!(target: "consensus", "{}", msg);
                 return Err(anyhow!(msg));
             }
         };
 
         let Ok(sets) = read_validator_sets(&vs_bytes) else {
             let msg = "[Orch Tick] Could not decode ValidatorSet; aborting production.";
-            log::error!("{}", msg);
+            tracing::error!(target: "consensus", "{}", msg);
             return Err(anyhow!(msg));
         };
 
@@ -366,17 +375,20 @@ where
             .iter()
             .find(|v| v.account_id == our_account_id)
         else {
-            log::info!(
-                "[Orch Tick] We are not in the effective validator set for H={}; will not produce.",
-                target_height
+            tracing::info!(
+                target: "consensus",
+                event = "not_in_validator_set",
+                height = target_height,
+                "We are not in the effective validator set; will not produce."
             );
             return Ok(());
         };
         let required_suite = me.consensus_key.suite;
-        log::info!(
-            "[Orch Tick] Signing suite for H={} is {:?}",
-            target_height,
-            required_suite
+        tracing::info!(
+            target: "consensus",
+            event = "signing_info",
+            height = target_height,
+            ?required_suite
         );
 
         let (producer_key_suite, producer_pubkey, producer_pubkey_hash, signature_fn): (
@@ -399,7 +411,7 @@ where
             SignatureSuite::Dilithium2 => {
                 let Some(pqc_signer) = pqc_signer.as_ref() else {
                     let msg = "[Orch Tick] Dilithium signing required but no PQC signer configured. Refusing to produce.";
-                    log::error!("{}", msg);
+                    tracing::error!(target: "consensus", "{}", msg);
                     return Err(anyhow!(msg));
                 };
                 let pqc_signer_clone = pqc_signer.clone();
@@ -422,10 +434,11 @@ where
         let parent_hash_vec = match workload_client.get_last_block_hash().await {
             Ok(v) => v,
             Err(e) => {
-                log::warn!(
-                    "[Orch Tick][Node {}] get_last_block_hash() failed: {}. Using zeros.",
-                    our_account_id_short,
-                    e
+                tracing::warn!(
+                    target: "consensus",
+                    event = "get_last_hash_fail",
+                    error = %e,
+                    "Using zeros."
                 );
                 vec![0; 32]
             }
@@ -459,10 +472,10 @@ where
         match workload_client.process_block(new_block_template).await {
             Ok((mut final_block, _)) => {
                 let block_height = final_block.header.height;
-                log::info!(
-                    "[Orch Tick][Node {}] Produced and processed new block #{}",
-                    our_account_id_short,
-                    block_height
+                tracing::info!(
+                    target: "consensus",
+                    event = "block_processed",
+                    height = block_height,
                 );
                 let preimage = final_block.header.to_preimage_for_signing();
                 final_block.header.signature = signature_fn(&preimage);
@@ -471,12 +484,16 @@ where
                 {
                     let mut ctx = context_arc.lock().await;
                     ctx.last_committed_block = Some(final_block.clone());
+                    let mut chain_guard = ctx.chain_ref.lock().await;
+                    let status = chain_guard.status_mut();
+                    status.height = final_block.header.height;
+                    status.latest_timestamp = final_block.header.timestamp;
                 }
-                log::debug!(
-                    "[Orch Tick][Node {}] Advanced tip to #{} root=0x{}",
-                    our_account_id_short,
-                    final_block.header.height,
-                    hex::encode(final_block.header.state_root.as_ref())
+                tracing::debug!(
+                    target: "consensus",
+                    event = "tip_advanced",
+                    height = final_block.header.height,
+                    root = hex::encode(final_block.header.state_root.as_ref()),
                 );
 
                 {
@@ -492,7 +509,7 @@ where
                     prune_mempool(&mut pool, &final_block);
                 }
 
-                // [+] FIX: Reset engine first to shorten engine lock window for subsequent ticks.
+                // FIX: Reset engine first to shorten engine lock window for subsequent ticks.
                 {
                     consensus_engine_ref.lock().await.reset(block_height);
                 }
@@ -511,20 +528,21 @@ where
                     let mut ns = node_state_arc.lock().await;
                     if *ns == depin_sdk_network::traits::NodeState::Syncing {
                         *ns = depin_sdk_network::traits::NodeState::Synced;
-                        log::info!("[Orchestrator] State -> Synced.");
+                        tracing::info!(target: "orchestration", "State -> Synced.");
                     }
                 }
             }
             Err(e) => {
-                let msg = format!("[Orch Tick][Node {}] Workload failed to process a pre-validated block proposal: {}. This should not happen.", our_account_id_short, e);
-                log::error!("{}", msg);
+                let msg = format!("[Orch Tick] Workload failed to process a pre-validated block proposal: {}. This should not happen.", e);
+                tracing::error!(target: "consensus", "{}", msg);
                 return Err(anyhow!(msg));
             }
         }
     } else {
-        log::debug!(
-            "[Orch Tick][Node {}] Engine decision was not ProduceBlock; will retry next tick.",
-            our_account_id_short
+        tracing::debug!(
+            target: "consensus",
+            event = "tick_skip",
+            "Engine decision was not ProduceBlock; will retry next tick."
         );
     }
     Ok(())

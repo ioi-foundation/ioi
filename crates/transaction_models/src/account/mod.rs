@@ -4,10 +4,12 @@ use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::state::{StateAccessor, StateManager};
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
+use depin_sdk_types::codec;
 use depin_sdk_types::error::TransactionError;
+use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct AccountTransaction {
     pub from: Vec<u8>,
     pub to: Vec<u8>,
@@ -15,7 +17,7 @@ pub struct AccountTransaction {
     pub nonce: u64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Encode, Decode)]
 pub struct Account {
     pub balance: u64,
     pub nonce: u64,
@@ -70,11 +72,12 @@ impl<CS: CommitmentScheme> AccountModel<CS> {
     }
 
     fn decode_account(&self, data: &[u8]) -> Result<Account, TransactionError> {
-        serde_json::from_slice(data).map_err(|e| TransactionError::Serialization(e.to_string()))
+        codec::from_bytes_canonical(data)
+            .map_err(|e| TransactionError::Deserialization(e.to_string()))
     }
 
     fn encode_account(&self, account: &Account) -> Vec<u8> {
-        serde_json::to_vec(account).unwrap()
+        codec::to_bytes_canonical(account)
     }
 }
 
@@ -187,10 +190,11 @@ where
     }
 
     fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError> {
-        serde_json::to_vec(tx).map_err(|e| TransactionError::Serialization(e.to_string()))
+        Ok(codec::to_bytes_canonical(tx))
     }
 
     fn deserialize_transaction(&self, data: &[u8]) -> Result<Self::Transaction, TransactionError> {
-        serde_json::from_slice(data).map_err(|e| TransactionError::Deserialization(e.to_string()))
+        codec::from_bytes_canonical(data)
+            .map_err(|e| TransactionError::Deserialization(e.to_string()))
     }
 }
