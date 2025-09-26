@@ -24,7 +24,6 @@ use depin_sdk_types::{
 use libp2p::identity::Keypair;
 use serde_json::json;
 use std::time::Duration;
-use tokio::time::interval;
 
 // Helper function to create a signed system transaction
 fn create_system_tx(
@@ -64,7 +63,9 @@ fn create_system_tx(
 async fn test_staking_lifecycle() -> Result<()> {
     build_test_artifacts();
 
-    let mut cluster = TestCluster::builder()
+    let initial_stake = 100_000u64;
+
+    let cluster = TestCluster::builder()
         .with_validators(3)
         .with_consensus_type("ProofOfStake")
         .with_state_tree("IAVL")
@@ -77,7 +78,7 @@ async fn test_staking_lifecycle() -> Result<()> {
             allowed_target_suites: vec![SignatureSuite::Ed25519],
             allow_downgrade: false,
         }))
-        .with_genesis_modifier(|genesis, keys| {
+        .with_genesis_modifier(move |genesis, keys| {
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
             let initial_stake = 100_000u128;
 
@@ -150,7 +151,7 @@ async fn test_staking_lifecycle() -> Result<()> {
                     l2_location: None,
                 };
                 let creds_array: [Option<Credential>; 2] = [Some(cred), None];
-                let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
+                let creds_bytes = codec::to_bytes_canonical(&creds_array);
                 let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
                 genesis_state.insert(
                     format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
@@ -183,17 +184,6 @@ async fn test_staking_lifecycle() -> Result<()> {
         .join("orchestration.key")
         .to_string_lossy()
         .to_string();
-    // Get cert paths for node 2
-    let certs2_path = &cluster.validators[2].certs_dir_path;
-    let ca2_path = certs2_path.join("ca.pem").to_string_lossy().to_string();
-    let cert2_path = certs2_path
-        .join("orchestration.pem")
-        .to_string_lossy()
-        .to_string();
-    let key2_path = certs2_path
-        .join("orchestration.key")
-        .to_string_lossy()
-        .to_string();
 
     let rpc_addr = cluster.validators[0].rpc_addr.clone();
     let client0 = WorkloadClient::new(
@@ -210,39 +200,32 @@ async fn test_staking_lifecycle() -> Result<()> {
         &key1_path,
     )
     .await?;
-    let client2 = WorkloadClient::new(
-        &cluster.validators[2].workload_ipc_addr,
-        &ca2_path,
-        &cert2_path,
-        &key2_path,
-    )
-    .await?;
     let keypair0 = cluster.validators[0].keypair.clone();
     let keypair1 = cluster.validators[1].keypair.clone();
     let client1_rpc_addr = cluster.validators[1].rpc_addr.clone(); // For waiting on node 1
 
-    // --- FIX START: Use the new `subscribe_logs` method ---
+    // Spawn a background task to continuously drain logs to prevent backpressure stalls.
     let (mut orch_logs_0, mut work_logs_0, _) = cluster.validators[0].subscribe_logs();
     let (mut orch_logs_1, mut work_logs_1, _) = cluster.validators[1].subscribe_logs();
     let (mut orch_logs_2, mut work_logs_2, _) = cluster.validators[2].subscribe_logs();
-    // --- FIX END ---
 
-    // Logging task to drain all logs in the background and prevent backpressure
+    let (tx_stop, mut rx_stop) = tokio::sync::oneshot::channel::<()>();
     let logging_task = tokio::spawn(async move {
-        loop {
-            tokio::select! {
-                // Node 0
-                Ok(line) = orch_logs_0.recv() => println!("[Orch-0]: {}", line),
-                Ok(line) = work_logs_0.recv() => println!("[Work-0]: {}", line),
-                // Node 1
-                Ok(line) = orch_logs_1.recv() => println!("[Orch-1]: {}", line),
-                Ok(line) = work_logs_1.recv() => println!("[Work-1]: {}", line),
-                // Node 2
-                Ok(line) = orch_logs_2.recv() => println!("[Orch-2]: {}", line),
-                Ok(line) = work_logs_2.recv() => println!("[Work-2]: {}", line),
-                else => {
-                    tokio::time::sleep(Duration::from_millis(10)).await;
+        tokio::select! {
+            _ = async {
+                loop {
+                    tokio::select! {
+                        Ok(line) = orch_logs_0.recv() => println!("[Orch-0]: {}", line),
+                        Ok(line) = work_logs_0.recv() => println!("[Work-0]: {}", line),
+                        Ok(line) = orch_logs_1.recv() => println!("[Orch-1]: {}", line),
+                        Ok(line) = work_logs_1.recv() => println!("[Work-1]: {}", line),
+                        Ok(line) = orch_logs_2.recv() => println!("[Orch-2]: {}", line),
+                        Ok(line) = work_logs_2.recv() => println!("[Work-2]: {}", line),
+                    }
                 }
+            } => {},
+            _ = &mut rx_stop => {
+                println!("[Test] Log draining task stopped.");
             }
         }
     });
@@ -250,7 +233,9 @@ async fn test_staking_lifecycle() -> Result<()> {
     wait_for_height(&rpc_addr, 1, Duration::from_secs(20)).await?;
     wait_for_height(&client1_rpc_addr, 1, Duration::from_secs(30)).await?;
 
-    let unstake_payload = SystemPayload::Unstake { amount: 100_000 };
+    let unstake_payload = SystemPayload::Unstake {
+        amount: initial_stake,
+    };
     let unstake_tx = create_system_tx(&keypair0, unstake_payload, 0, 1.into())?;
     submit_transaction(&rpc_addr, &unstake_tx).await?;
 
@@ -261,32 +246,7 @@ async fn test_staking_lifecycle() -> Result<()> {
     let stake_tx = create_system_tx(&keypair1, stake_payload, 0, 1.into())?;
     submit_transaction(&rpc_addr, &stake_tx).await?;
 
-    println!("--- Waiting for block 3 with periodic status checks ---");
-    let wait_fut = wait_for_height(&rpc_addr, 3, Duration::from_secs(60));
-    let clients = [&client0, &client1, &client2];
-    let mut poll_interval = interval(Duration::from_secs(2));
-
-    let polling_task = async {
-        loop {
-            poll_interval.tick().await;
-            let mut statuses = Vec::new();
-            for (i, client) in clients.iter().enumerate() {
-                let status_str = match client.get_status().await {
-                    Ok(status) => format!("[Node{} H:{}]", i, status.height),
-                    Err(_) => format!("[Node{} H:ERR]", i),
-                };
-                statuses.push(status_str);
-            }
-            println!("Cluster Status: {}", statuses.join(" "));
-        }
-    };
-
-    tokio::select! {
-        res = wait_fut => {
-            res?
-        },
-        _ = polling_task => {},
-    };
+    wait_for_height(&rpc_addr, 3, Duration::from_secs(30)).await?;
 
     let node0_account_id = AccountId(account_id_from_key_material(
         SignatureSuite::Ed25519,
@@ -306,7 +266,8 @@ async fn test_staking_lifecycle() -> Result<()> {
     )
     .await?;
 
-    logging_task.abort();
+    tx_stop.send(()).ok();
+    let _ = logging_task.await;
     println!("--- Staking Lifecycle E2E Test Passed ---");
     Ok(())
 }

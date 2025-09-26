@@ -3,39 +3,23 @@
 #![cfg(all(feature = "consensus-poa", feature = "vm-wasm"))]
 
 use anyhow::Result;
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _}; // Add this import
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_forge::testing::{
     assert_log_contains, build_test_artifacts, submit_transaction, TestCluster,
 };
 use depin_sdk_types::{
     app::{
-        // Add these imports
-        account_id_from_key_material,
-        AccountId,
-        ActiveKeyRecord,
-        ChainId,
-        ChainTransaction,
-        Credential,
-        SignHeader,
-        SignatureProof,
-        SignatureSuite,
-        SystemPayload,
-        SystemTransaction,
-        ValidatorSetBlob,
-        ValidatorSetV1,
-        ValidatorSetsV1,
-        ValidatorV1,
+        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
+        Credential, SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+        ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
-    codec,                        // Add this import
-    config::InitialServiceConfig, // Add this import
+    codec,
+    config::InitialServiceConfig,
     keys::{
-        // Add these imports
-        ACCOUNT_ID_TO_PUBKEY_PREFIX,
-        GOVERNANCE_KEY,
-        IDENTITY_CREDENTIALS_PREFIX,
+        ACCOUNT_ID_TO_PUBKEY_PREFIX, GOVERNANCE_KEY, IDENTITY_CREDENTIALS_PREFIX,
         VALIDATOR_SET_KEY,
     },
-    service_configs::MigrationConfig, // Add this import
+    service_configs::MigrationConfig,
 };
 use libp2p::identity::{self, Keypair};
 use serde_json::json;
@@ -90,7 +74,7 @@ async fn test_forkless_module_upgrade() -> Result<()> {
     let mut cluster = TestCluster::builder()
         .with_validators(1)
         .with_consensus_type("ProofOfAuthority")
-        .with_state_tree("IAVL") // FIX: Align state tree with feature flags
+        .with_state_tree("IAVL")
         .with_chain_id(1)
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
@@ -155,7 +139,7 @@ async fn test_forkless_module_upgrade() -> Result<()> {
                     l2_location: None,
                 };
                 let creds_array: [Option<Credential>; 2] = [Some(cred), None];
-                let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
+                let creds_bytes = codec::to_bytes_canonical(&creds_array);
                 let creds_key = [IDENTITY_CREDENTIALS_PREFIX, acct_id.as_ref()].concat();
                 genesis_state.insert(
                     format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
@@ -189,7 +173,6 @@ async fn test_forkless_module_upgrade() -> Result<()> {
     // 3. GET HANDLES
     let node = &mut cluster.validators[0];
     let rpc_addr = &node.rpc_addr;
-    // FIX: Use the new non-blocking log subscription API.
     let (mut orch_logs, mut workload_logs, _) = node.subscribe_logs();
 
     // 4. SUBMIT UPGRADE TRANSACTION
@@ -208,7 +191,7 @@ async fn test_forkless_module_upgrade() -> Result<()> {
     assert_log_contains(
         "Orchestration",
         &mut orch_logs,
-        "[RPC] Published transaction via gossip.",
+        "\"event\":\"mempool_add\"",
     )
     .await?;
 
@@ -219,7 +202,7 @@ async fn test_forkless_module_upgrade() -> Result<()> {
         "Workload",
         &mut workload_logs,
         &format!(
-            "Applied 1 module upgrade(s) at height {}",
+            "upgrades_applied\",\"count\":1,\"height\":{}",
             activation_height
         ),
     )

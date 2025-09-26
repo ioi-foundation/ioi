@@ -40,7 +40,6 @@ where
 {
     const NAME: &'static str = "staking.getStakes.v1";
     type Params = GetStakesParams;
-    // FIX: The result key must be a String for JSON serialization.
     type Result = BTreeMap<String, u64>;
 
     async fn call(
@@ -56,7 +55,6 @@ where
 
         let stakes_by_account_id = (*chain).get_staked_validators(&ctx.workload).await?;
 
-        // FIX: Convert AccountId keys to hex strings before returning.
         let stakes_by_hex_id = stakes_by_account_id
             .into_iter()
             .map(|(account_id, stake)| (hex::encode(account_id.as_ref()), stake))
@@ -97,7 +95,6 @@ where
 {
     const NAME: &'static str = "staking.getNextStakes.v1";
     type Params = GetNextStakesParams;
-    // FIX: The result key must be a String for JSON serialization.
     type Result = BTreeMap<String, u64>;
 
     async fn call(
@@ -113,7 +110,6 @@ where
 
         let stakes_by_account_id = (*chain).get_next_staked_validators(&ctx.workload).await?;
 
-        // FIX: Convert AccountId keys to hex strings before returning.
         let stakes_by_hex_id = stakes_by_account_id
             .into_iter()
             .map(|(account_id, stake)| (hex::encode(account_id.as_ref()), stake))

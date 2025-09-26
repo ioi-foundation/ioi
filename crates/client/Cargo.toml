@@ -23,4 +23,5 @@ webpki-roots = { workspace = true }
 libp2p = { workspace = true }
 async-trait = { workspace = true }
 hex = { workspace = true }
+dashmap = { workspace = true }
 # --- FIX END ---

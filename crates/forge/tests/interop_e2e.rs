@@ -19,8 +19,8 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction, Credential,
-        SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
+        Credential, SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
         ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,

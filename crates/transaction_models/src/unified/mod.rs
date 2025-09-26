@@ -139,7 +139,7 @@ where
                     let stored_bytes = state.get(&code_key)?.ok_or_else(|| {
                         TransactionError::Invalid("Contract not found".to_string())
                     })?;
-                    let stored_entry: StateEntry = serde_json::from_slice(&stored_bytes)?;
+                    let stored_entry: StateEntry = codec::from_bytes_canonical(&stored_bytes)?;
                     let code = stored_entry.value;
 
                     let workload = chain_ref.workload_container();
@@ -261,7 +261,7 @@ where
                             }
                         }
 
-                        // [+] FIX: Always re-sort the validator list after modification
+                        // FIX: Always re-sort the validator list after modification
                         // to ensure a canonical, deterministic order for leader selection.
                         next_vs
                             .validators
@@ -316,7 +316,7 @@ where
                                 "Staker not in validator set".into(),
                             ));
                         }
-                        // [+] FIX: Always re-sort the validator list after modification
+                        // FIX: Always re-sort the validator list after modification
                         // to ensure a canonical, deterministic order for leader selection.
                         next_vs
                             .validators
@@ -454,7 +454,7 @@ where
                             value: final_value.clone(),
                             block_height: ctx.block_height,
                         };
-                        let entry_bytes = serde_json::to_vec(&entry)?;
+                        let entry_bytes = codec::to_bytes_canonical(&entry);
                         state.delete(&pending_key)?;
                         state.insert(&final_key, &entry_bytes)?;
                         log::info!("Applied and verified oracle data for id: {}", request_id);
@@ -463,12 +463,12 @@ where
                     SystemPayload::RequestOracleData { url, request_id } => {
                         let request_key =
                             [ORACLE_PENDING_REQUEST_PREFIX, &request_id.to_le_bytes()].concat();
-                        let url_bytes = serde_json::to_vec(&url)?;
+                        let url_bytes = codec::to_bytes_canonical(&url);
                         let entry = StateEntry {
                             value: url_bytes,
                             block_height: ctx.block_height,
                         };
-                        let entry_bytes = serde_json::to_vec(&entry)?;
+                        let entry_bytes = codec::to_bytes_canonical(&entry);
                         state.insert(&request_key, &entry_bytes)?;
                         Ok(())
                     }
@@ -517,12 +517,12 @@ where
                         // Get existing pending upgrades for this height, or create a new list
                         let mut pending_upgrades: Vec<(String, Vec<u8>)> = state
                             .get(&key)?
-                            .map(|bytes| serde_json::from_slice(&bytes).unwrap_or_default())
+                            .map(|bytes| codec::from_bytes_canonical(&bytes).unwrap_or_default())
                             .unwrap_or_default();
                         // Add the new upgrade
                         pending_upgrades.push((service_type, module_wasm));
                         // Save the updated list back to the state
-                        let value = serde_json::to_vec(&pending_upgrades)?;
+                        let value = codec::to_bytes_canonical(&pending_upgrades);
                         state.insert(&key, &value)?;
                         Ok(())
                     }
@@ -567,10 +567,10 @@ where
     }
 
     fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError> {
-        serde_json::to_vec(tx).map_err(|e| TransactionError::Serialization(e.to_string()))
+        Ok(codec::to_bytes_canonical(tx))
     }
 
     fn deserialize_transaction(&self, data: &[u8]) -> Result<Self::Transaction, TransactionError> {
-        serde_json::from_slice(data).map_err(|e| TransactionError::Deserialization(e.to_string()))
+        codec::from_bytes_canonical(data).map_err(|e| TransactionError::Deserialization(e.to_string()))
     }
 }

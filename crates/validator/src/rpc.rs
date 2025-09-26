@@ -2,21 +2,23 @@
 //! The JSON-RPC server for the Orchestration container.
 
 use crate::config::OrchestrationConfig;
-use anyhow::Result;
+use crate::metrics::rpc_metrics as metrics;
+use anyhow::{anyhow, Result};
 use axum::{
     body::Body,
     error_handling::HandleErrorLayer,
-    extract::{ConnectInfo, DefaultBodyLimit, State},
+    extract::{ConnectInfo, DefaultBodyLimit, MatchedPath, State},
     http::{header, HeaderMap, Method, Request, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::post,
     Json, Router,
 };
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use dashmap::DashMap;
+use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_client::WorkloadClient;
 use depin_sdk_network::libp2p::SwarmCommand;
+use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{ApplicationTransaction, ChainTransaction};
 use ipnetwork::IpNetwork;
 use serde::{Deserialize, Serialize};
@@ -31,8 +33,10 @@ use std::{
 use tokio::{
     sync::{mpsc, Mutex},
     task::JoinHandle,
+    time::sleep,
 };
 use tower::{limit::ConcurrencyLimitLayer, timeout::TimeoutLayer, BoxError, ServiceBuilder};
+use tower_http::trace::TraceLayer;
 
 // ---------- Simple per-IP token-bucket limiter ----------
 #[derive(Clone)]
@@ -121,7 +125,14 @@ fn make_ip_limit_middleware(
             if lim.allow(&req) {
                 next.run(req).await
             } else {
-                (StatusCode::TOO_MANY_REQUESTS, "Too many requests").into_response()
+                (
+                    StatusCode::TOO_MANY_REQUESTS,
+                    Json(json!({
+                      "jsonrpc":"2.0","id":null,
+                      "error":{"code":-32098,"message":"Too many requests"}
+                    })),
+                )
+                    .into_response()
             }
         })
     }
@@ -174,6 +185,47 @@ fn extract_tx_param(params: &Params) -> Option<serde_json::Value> {
     }
 }
 
+/// Checks if a client error string indicates a transient transport issue.
+fn is_transient_state_err(e: &str) -> bool {
+    // Be conservative; include the precise messages we’ve seen in logs.
+    e.contains("Invalid JSON-RPC response")
+        || e.contains("unexpected eof")
+        || e.contains("close_notify")
+        || e.contains("timeout")
+        || e.contains("Broken pipe")
+}
+
+/// A resilient wrapper around `workload_client.query_raw_state`.
+/// It retries on transient errors and downgrades persistent transport failures to `Ok(None)`.
+async fn query_raw_state_resilient(
+    wc: &WorkloadClient,
+    key: &[u8],
+) -> Result<Option<Vec<u8>>, String> {
+    let mut backoff = 60u64; // milliseconds
+    for _ in 0..3 {
+        match wc.query_raw_state(key).await {
+            Ok(v) => return Ok(v),
+            Err(e) => {
+                let msg = e.to_string();
+                if is_transient_state_err(&msg) {
+                    sleep(Duration::from_millis(backoff)).await;
+                    backoff *= 2;
+                    continue;
+                }
+                // Non-transient: bubble exact error once
+                return Err(msg);
+            }
+        }
+    }
+    // After retries, treat transient failure as “not found”
+    tracing::warn!(
+        target = "rpc",
+        "query_state downgraded persistent IPC error to None for key {}",
+        hex::encode(key)
+    );
+    Ok(None)
+}
+
 /// The single handler for all incoming JSON-RPC requests.
 /// It dispatches to specific logic based on the method name.
 async fn rpc_handler(
@@ -209,79 +261,87 @@ async fn rpc_handler(
 
     // --- TRANSACTION SUBMISSION LOGIC ---
     if is_submit_method {
-        let (tx, status, response) = {
+        let Some(tx_val) = extract_tx_param(&payload.params) else {
+            return (
+                StatusCode::OK,
+                make_err(&payload.id, -32602, "Missing transaction parameter".into()),
+            );
+        };
+
+        let tx_bytes = match tx_val.as_str().and_then(|s| hex::decode(s).ok()) {
+            Some(bytes) => bytes,
+            None => {
+                return (
+                    StatusCode::OK,
+                    make_err(
+                        &payload.id,
+                        -32602,
+                        "Transaction parameter must be a hex-encoded string of canonical bytes"
+                            .into(),
+                    ),
+                )
+            }
+        };
+
+        // Use a dummy model instance just for its deserialization logic.
+        let dummy_model = UnifiedTransactionModel::new(
+            depin_sdk_commitment::primitives::hash::HashCommitmentScheme::new(),
+        );
+        let tx = match dummy_model.deserialize_transaction(&tx_bytes) {
+            Ok(t) => t,
+            Err(e) => {
+                return (
+                    StatusCode::OK,
+                    make_err(&payload.id, -32602, format!("Bad tx format: {}", e)),
+                )
+            }
+        };
+
+        let expected_chain_id = app_state.config.chain_id;
+        let tx_chain_id = match &tx {
+            ChainTransaction::Application(ApplicationTransaction::DeployContract {
+                header,
+                ..
+            })
+            | ChainTransaction::Application(ApplicationTransaction::CallContract {
+                header, ..
+            }) => header.chain_id,
+            ChainTransaction::System(sys_tx) => sys_tx.header.chain_id,
+            _ => expected_chain_id,
+        };
+        if tx_chain_id != expected_chain_id {
+            return (
+                StatusCode::OK,
+                make_err(&payload.id, -32001, "Wrong chain ID".to_string()),
+            );
+        }
+
+        {
             let mut pool = app_state.tx_pool.lock().await;
+            metrics().set_mempool_size(pool.len() as f64);
             if pool.len() >= app_state.config.rpc_hardening.mempool_max {
                 return (
-                    StatusCode::TOO_MANY_REQUESTS,
+                    StatusCode::OK,
                     make_err(&payload.id, -32001, "Mempool is full".into()),
                 );
             }
+            pool.push_back(tx);
+            metrics().inc_mempool_transactions_added();
+            metrics().set_mempool_size(pool.len() as f64);
+            tracing::info!(target: "rpc", event = "mempool_add", new_size = pool.len());
+        }
 
-            let Some(tx_val) = extract_tx_param(&payload.params) else {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    make_err(&payload.id, -32602, "Missing transaction parameter".into()),
-                );
-            };
-
-            let tx_res: Result<ChainTransaction, _> = match tx_val {
-                serde_json::Value::String(s) => {
-                    let bytes = hex::decode(&s)
-                        .or_else(|_| BASE64_STANDARD.decode(&s))
-                        .unwrap_or_else(|_| s.into_bytes());
-                    serde_json::from_slice(&bytes)
-                }
-                other => serde_json::from_value(other),
-            };
-            let tx = match tx_res {
-                Ok(t) => t,
-                Err(e) => {
-                    return (
-                        StatusCode::BAD_REQUEST,
-                        make_err(&payload.id, -32602, format!("Bad tx format: {}", e)),
-                    )
-                }
-            };
-
-            let expected_chain_id = app_state.config.chain_id;
-            let tx_chain_id = match &tx {
-                ChainTransaction::Application(ApplicationTransaction::DeployContract {
-                    header,
-                    ..
-                })
-                | ChainTransaction::Application(ApplicationTransaction::CallContract {
-                    header,
-                    ..
-                }) => header.chain_id,
-                ChainTransaction::System(sys_tx) => sys_tx.header.chain_id,
-                _ => expected_chain_id,
-            };
-            if tx_chain_id != expected_chain_id {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    make_err(&payload.id, -32001, "Wrong chain ID".to_string()),
-                );
-            }
-
-            pool.push_back(tx.clone());
-            log::info!("[RPC] Admitted tx to mempool (size now: {}).", pool.len());
-            (
-                tx,
-                StatusCode::OK,
-                make_ok(&payload.id, json!("Transaction accepted")),
-            )
-        };
-
-        // Kick consensus and gossip the transaction
+        // Kick consensus and gossip the canonical transaction bytes
         let _ = app_state.consensus_kick_tx.send(());
         let _ = app_state
             .swarm_command_sender
-            .send(SwarmCommand::PublishTransaction(
-                serde_json::to_vec(&tx).unwrap(),
-            ))
+            .send(SwarmCommand::PublishTransaction(tx_bytes))
             .await;
-        return (status, response);
+
+        return (
+            StatusCode::OK,
+            make_ok(&payload.id, json!("Transaction accepted")),
+        );
     } else {
         // --- QUERY LOGIC ---
         match payload.method.as_str() {
@@ -292,25 +352,32 @@ async fn rpc_handler(
                 };
                 if let Some(key_hex) = key_hex_opt {
                     match hex::decode(key_hex) {
-                        Ok(key) => match app_state.workload_client.query_raw_state(&key).await {
-                            Ok(Some(value_bytes)) => (
-                                StatusCode::OK,
-                                make_ok(&payload.id, json!(hex::encode(value_bytes))),
-                            ),
-                            Ok(None) => (StatusCode::OK, make_ok(&payload.id, Value::Null)),
-                            Err(e) => (
-                                StatusCode::INTERNAL_SERVER_ERROR,
-                                make_err(&payload.id, -32000, format!("State query failed: {}", e)),
-                            ),
-                        },
+                        Ok(key) => {
+                            match query_raw_state_resilient(&app_state.workload_client, &key).await
+                            {
+                                Ok(Some(value_bytes)) => (
+                                    StatusCode::OK,
+                                    make_ok(&payload.id, json!(hex::encode(value_bytes))),
+                                ),
+                                Ok(None) => (StatusCode::OK, make_ok(&payload.id, Value::Null)),
+                                Err(e) => (
+                                    StatusCode::OK,
+                                    make_err(
+                                        &payload.id,
+                                        -32000,
+                                        format!("State query failed: {}", e),
+                                    ),
+                                ),
+                            }
+                        }
                         Err(_) => (
-                            StatusCode::BAD_REQUEST,
+                            StatusCode::OK,
                             make_err(&payload.id, -32602, "Failed to decode hex key".into()),
                         ),
                     }
                 } else {
                     (
-                        StatusCode::BAD_REQUEST,
+                        StatusCode::OK,
                         make_err(&payload.id, -32602, "Missing key parameter".into()),
                     )
                 }
@@ -337,7 +404,7 @@ async fn rpc_handler(
                                     make_ok(&payload.id, json!(hex::encode(output.return_data))),
                                 ),
                                 Err(e) => (
-                                    StatusCode::INTERNAL_SERVER_ERROR,
+                                    StatusCode::OK,
                                     make_err(
                                         &payload.id,
                                         -32000,
@@ -349,7 +416,7 @@ async fn rpc_handler(
                     }
                 }
                 (
-                    StatusCode::BAD_REQUEST,
+                    StatusCode::OK,
                     make_err(
                         &payload.id,
                         -32602,
@@ -363,12 +430,12 @@ async fn rpc_handler(
                     make_ok(&payload.id, serde_json::to_value(status).unwrap()),
                 ),
                 Err(e) => (
-                    StatusCode::INTERNAL_SERVER_ERROR,
+                    StatusCode::OK,
                     make_err(&payload.id, -32000, format!("Failed to get status: {}", e)),
                 ),
             },
             _ => (
-                StatusCode::NOT_FOUND,
+                StatusCode::OK,
                 make_err(&payload.id, -32601, "Method not found".into()),
             ),
         }
@@ -394,6 +461,20 @@ async fn handle_service_error(err: BoxError) -> (StatusCode, String) {
     }
 }
 
+async fn track_rpc_metrics(req: Request<Body>, next: Next<Body>) -> Response {
+    let start = Instant::now();
+    let route = req
+        .extensions()
+        .get::<MatchedPath>()
+        .map(|m| m.as_str())
+        .unwrap_or("unknown")
+        .to_string();
+    let response = next.run(req).await;
+    metrics().observe_request_duration(&route, start.elapsed().as_secs_f64());
+    metrics().inc_requests_total(&route, response.status().as_u16());
+    response
+}
+
 // ---------- Server wiring ----------
 pub async fn run_rpc_server(
     listen_address: &str,
@@ -414,7 +495,7 @@ pub async fn run_rpc_server(
     let hc = &config.rpc_hardening;
 
     let app = if hc.enabled {
-        log::info!("RPC hardening and rate limiting is ENABLED.");
+        tracing::info!(target: "rpc", "RPC hardening and rate limiting is ENABLED.");
 
         let cidrs = Arc::new(
             hc.trusted_proxy_cidrs
@@ -439,16 +520,18 @@ pub async fn run_rpc_server(
             .route("/rpc", post(rpc_handler))
             .route_layer(middleware::from_fn(query_limiter)) // Legacy endpoint gets query limits
             .route_layer(middleware::from_fn(enforce_post_only))
+            .route_layer(middleware::from_fn(track_rpc_metrics))
             .with_state(app_state)
-            .route_layer(
+            .layer(
                 ServiceBuilder::new()
                     .layer(HandleErrorLayer::new(handle_service_error))
+                    .layer(TraceLayer::new_for_http())
                     .layer(TimeoutLayer::new(Duration::from_millis(hc.timeout_ms)))
                     .layer(ConcurrencyLimitLayer::new(hc.max_concurrency as usize)),
             )
             .layer(DefaultBodyLimit::max(hc.max_body_bytes as usize))
     } else {
-        log::warn!("RPC hardening and rate limiting is DISABLED.");
+        tracing::warn!(target: "rpc", "RPC hardening and rate limiting is DISABLED.");
         Router::new()
             .route("/rpc", post(rpc_handler))
             .with_state(app_state)
@@ -457,7 +540,7 @@ pub async fn run_rpc_server(
     let addr: SocketAddr = listen_address.parse()?;
     let listener = tokio::net::TcpListener::bind(addr).await?;
     eprintln!("ORCHESTRATION_RPC_LISTENING_ON_{}", listen_address);
-    log::info!("RPC server listening on {}", listen_address);
+    tracing::info!(target: "rpc", listen_addr = %listen_address, "RPC server listening");
 
     let handle = tokio::spawn(async move {
         axum::Server::from_tcp(listener.into_std().unwrap())

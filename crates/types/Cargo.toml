@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 # This crate has minimal dependencies to remain stable.
-serde = { workspace = true, features = ["derive"] }
+serde = { workspace = true, features = ["derive", "rc"] }
 thiserror = { workspace = true }
 dcrypt = { workspace = true }
 serde_json = { workspace = true }

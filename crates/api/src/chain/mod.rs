@@ -91,6 +91,8 @@ where
 {
     /// Returns the current status of the chain.
     fn status(&self) -> &ChainStatus;
+    /// Returns a mutable reference to the status of the chain.
+    fn status_mut(&mut self) -> &mut ChainStatus;
     /// Returns a reference to the transaction model used by the chain.
     fn transaction_model(&self) -> &TM;
 

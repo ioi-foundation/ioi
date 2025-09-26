@@ -30,7 +30,10 @@ pub fn generate_certificates_if_needed(certs_dir: &Path) -> Result<()> {
     if certs_dir.join("ca.pem").exists() {
         return Ok(());
     }
-    log::info!("Generating mTLS CA and certificates in {}", certs_dir.display());
+    log::info!(
+        "Generating mTLS CA and certificates in {}",
+        certs_dir.display()
+    );
     std::fs::create_dir_all(certs_dir)?;
 
     let mut ca_params = CertificateParams::new(vec!["DePIN SDK Local CA".to_string()]);
@@ -38,7 +41,10 @@ pub fn generate_certificates_if_needed(certs_dir: &Path) -> Result<()> {
     ca_params.key_usages = vec![KeyUsagePurpose::KeyCertSign, KeyUsagePurpose::CrlSign];
     let ca_cert = Certificate::from_params(ca_params)?;
     std::fs::write(certs_dir.join("ca.pem"), ca_cert.serialize_pem()?)?;
-    std::fs::write(certs_dir.join("ca.key"), ca_cert.serialize_private_key_pem())?;
+    std::fs::write(
+        certs_dir.join("ca.key"),
+        ca_cert.serialize_private_key_pem(),
+    )?;
 
     let signers = [
         ("guardian-server", vec!["guardian", "localhost"]),
@@ -54,8 +60,14 @@ pub fn generate_certificates_if_needed(certs_dir: &Path) -> Result<()> {
             .chain(vec![SanType::IpAddress(Ipv4Addr::LOCALHOST.into())])
             .collect();
         let cert = Certificate::from_params(params)?;
-        std::fs::write(certs_dir.join(format!("{}.pem", name)), cert.serialize_pem_with_signer(&ca_cert)?)?;
-        std::fs::write(certs_dir.join(format!("{}.key", name)), cert.serialize_private_key_pem())?;
+        std::fs::write(
+            certs_dir.join(format!("{}.pem", name)),
+            cert.serialize_pem_with_signer(&ca_cert)?,
+        )?;
+        std::fs::write(
+            certs_dir.join(format!("{}.key", name)),
+            cert.serialize_private_key_pem(),
+        )?;
     }
     Ok(())
 }

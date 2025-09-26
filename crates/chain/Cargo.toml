@@ -15,6 +15,7 @@ depin-sdk-services = { path = "../services" }
 depin-sdk-consensus = { path = "../consensus", features = ["poa", "pos"] }
 depin-sdk-crypto = { path = "../crypto" }
 log = { workspace = true }
+tracing = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

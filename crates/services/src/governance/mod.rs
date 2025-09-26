@@ -8,7 +8,8 @@ use depin_sdk_api::state::{StateAccessor, StateManager};
 use depin_sdk_api::transaction::context::TxContext;
 // --- FIX: Import the types from the `depin-sdk-types` crate ---
 use depin_sdk_types::app::{
-    read_validator_sets, AccountId, Proposal, ProposalStatus, ProposalType, TallyResult, VoteOption,
+    read_validator_sets, AccountId, Proposal, ProposalStatus, ProposalType, StateEntry,
+    TallyResult, VoteOption,
 };
 use depin_sdk_types::error::{StateError, UpgradeError};
 use depin_sdk_types::keys::{
@@ -84,15 +85,21 @@ impl OnEndBlock for GovernanceModule {
         };
 
         for (_key, value_bytes) in proposals_kv {
-            if let Ok(proposal) = serde_json::from_slice::<Proposal>(&value_bytes) {
-                if proposal.status == ProposalStatus::VotingPeriod
-                    && ctx.block_height >= proposal.voting_end_height
+            if let Ok(entry) =
+                depin_sdk_types::codec::from_bytes_canonical::<StateEntry>(&value_bytes)
+            {
+                if let Ok(proposal) =
+                    depin_sdk_types::codec::from_bytes_canonical::<Proposal>(&entry.value)
                 {
-                    log::info!("[Governance OnEndBlock] Tallying proposal {}", proposal.id);
-                    // The state manager for the on_end_block hook is a `&mut dyn StateAccessor`,
-                    // which is exactly what `tally_proposal` needs.
-                    self.tally_proposal(state, proposal.id, &stakes)
-                        .map_err(StateError::Apply)?;
+                    if proposal.status == ProposalStatus::VotingPeriod
+                        && ctx.block_height >= proposal.voting_end_height
+                    {
+                        log::info!("[Governance OnEndBlock] Tallying proposal {}", proposal.id);
+                        // The state manager for the on_end_block hook is a `&mut dyn StateAccessor`,
+                        // which is exactly what `tally_proposal` needs.
+                        self.tally_proposal(state, proposal.id, &stakes, ctx.block_height)
+                            .map_err(StateError::Apply)?;
+                    }
                 }
             }
         }
@@ -160,8 +167,14 @@ impl GovernanceModule {
         };
 
         let key = Self::proposal_key(id);
-        let value = serde_json::to_vec(&proposal).unwrap();
-        state.insert(&key, &value).map_err(|e| e.to_string())?;
+        let entry = StateEntry {
+            value: depin_sdk_types::codec::to_bytes_canonical(&proposal),
+            block_height: current_height,
+        };
+        let value_bytes = depin_sdk_types::codec::to_bytes_canonical(&entry);
+        state
+            .insert(&key, &value_bytes)
+            .map_err(|e| e.to_string())?;
 
         Ok(id)
     }
@@ -175,21 +188,22 @@ impl GovernanceModule {
         current_height: u64,
     ) -> Result<(), String> {
         let key = Self::proposal_key(proposal_id);
-        let proposal_bytes = state
+        let entry_bytes = state
             .get(&key)
             .map_err(|e| e.to_string())?
             .ok_or("Proposal does not exist")?;
-        let proposal: Proposal = serde_json::from_slice(&proposal_bytes).unwrap();
+        let entry: StateEntry = depin_sdk_types::codec::from_bytes_canonical(&entry_bytes)
+            .map_err(|e| format!("StateEntry decode failed: {}", e))?;
+        let proposal: Proposal = depin_sdk_types::codec::from_bytes_canonical(&entry.value)
+            .map_err(|e| format!("Proposal decode failed: {}", e))?;
 
         if proposal.status != ProposalStatus::VotingPeriod {
             return Err("Proposal is not in voting period".to_string());
         }
 
-        // --- FIX: Add check for voting start height ---
         if current_height < proposal.voting_start_height {
             return Err("Voting period has not started yet".to_string());
         }
-        // --- END FIX ---
 
         if current_height > proposal.voting_end_height {
             return Err("Voting period has ended".to_string());
@@ -197,7 +211,7 @@ impl GovernanceModule {
 
         // In a real implementation, we would check the voter's voting power (stake).
         let vote_key = Self::vote_key(proposal_id, voter);
-        let vote_bytes = serde_json::to_vec(&option).unwrap();
+        let vote_bytes = depin_sdk_types::codec::to_bytes_canonical(&option);
         state
             .insert(&vote_key, &vote_bytes)
             .map_err(|e| e.to_string())?;
@@ -211,13 +225,17 @@ impl GovernanceModule {
         state: &mut S,
         proposal_id: u64,
         stakes: &BTreeMap<AccountId, u64>, // The map of staker AccountId -> stake amount
+        current_height: u64,
     ) -> Result<(), String> {
         let key = Self::proposal_key(proposal_id);
-        let proposal_bytes = state
+        let entry_bytes = state
             .get(&key)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "Tally failed: Proposal not found".to_string())?;
-        let mut proposal: Proposal = serde_json::from_slice(&proposal_bytes).unwrap();
+        let entry: StateEntry = depin_sdk_types::codec::from_bytes_canonical(&entry_bytes)
+            .map_err(|e| format!("StateEntry decode failed: {}", e))?;
+        let mut proposal: Proposal = depin_sdk_types::codec::from_bytes_canonical(&entry.value)
+            .map_err(|e| format!("Proposal decode failed: {}", e))?;
 
         // 1. Calculate total voting power from the stakes map.
         let total_voting_power: u64 = stakes.values().sum();
@@ -229,9 +247,13 @@ impl GovernanceModule {
         if total_voting_power == 0 {
             // No one has any stake, so the proposal is rejected by default.
             proposal.status = ProposalStatus::Rejected;
-            let updated_value = serde_json::to_vec(&proposal).unwrap();
+            let updated_entry = StateEntry {
+                value: depin_sdk_types::codec::to_bytes_canonical(&proposal),
+                block_height: entry.block_height,
+            };
+            let updated_value_bytes = depin_sdk_types::codec::to_bytes_canonical(&updated_entry);
             state
-                .insert(&key, &updated_value)
+                .insert(&key, &updated_value_bytes)
                 .map_err(|e| e.to_string())?;
             log::warn!(
                 "[Tally] Proposal {} rejected: total voting power is zero.",
@@ -247,7 +269,7 @@ impl GovernanceModule {
             b"::",
         ]
         .concat();
-        let votes = state
+        let votes: Vec<(Vec<u8>, Vec<u8>)> = state
             .prefix_scan(&vote_key_prefix)
             .map_err(|e| e.to_string())?;
         log::debug!(
@@ -261,7 +283,7 @@ impl GovernanceModule {
 
         for (vote_key, vote_bytes) in votes {
             // 3. Deserialize the vote option.
-            let option: VoteOption = serde_json::from_slice(&vote_bytes)
+            let option: VoteOption = depin_sdk_types::codec::from_bytes_canonical(&vote_bytes)
                 .map_err(|_| "Failed to deserialize vote".to_string())?;
 
             // 4. Extract the voter's AccountId from the state key.
@@ -330,9 +352,13 @@ impl GovernanceModule {
             }
         }
 
-        let updated_value = serde_json::to_vec(&proposal).unwrap();
+        let updated_entry = StateEntry {
+            value: depin_sdk_types::codec::to_bytes_canonical(&proposal),
+            block_height: entry.block_height,
+        };
+        let updated_value_bytes = depin_sdk_types::codec::to_bytes_canonical(&updated_entry);
         state
-            .insert(&key, &updated_value)
+            .insert(&key, &updated_value_bytes)
             .map_err(|e| e.to_string())?;
 
         Ok(())
@@ -345,11 +371,14 @@ impl GovernanceModule {
         proposal_id: u64,
     ) -> Result<ProposalStatus, String> {
         let key = Self::proposal_key(proposal_id);
-        let proposal_bytes = state
+        let entry_bytes = state
             .get(&key)
             .map_err(|e| e.to_string())?
             .ok_or("Proposal not found")?;
-        let proposal: Proposal = serde_json::from_slice(&proposal_bytes).unwrap();
+        let entry: StateEntry = depin_sdk_types::codec::from_bytes_canonical(&entry_bytes)
+            .map_err(|e| format!("StateEntry decode failed: {}", e))?;
+        let proposal: Proposal = depin_sdk_types::codec::from_bytes_canonical(&entry.value)
+            .map_err(|e| format!("Proposal decode failed: {}", e))?;
         Ok(proposal.status)
     }
 }
@@ -483,8 +512,12 @@ mod tests {
             final_tally: None,
         };
         let key = GovernanceModule::proposal_key(proposal_id);
-        let value = serde_json::to_vec(&proposal).unwrap();
-        StateCommitment::insert(state, &key, &value).unwrap();
+        let entry = StateEntry {
+            value: depin_sdk_types::codec::to_bytes_canonical(&proposal),
+            block_height: 100,
+        };
+        let value_bytes = depin_sdk_types::codec::to_bytes_canonical(&entry);
+        StateCommitment::insert(state, &key, &value_bytes).unwrap();
         proposal_id
     }
 
@@ -492,7 +525,9 @@ mod tests {
     fn get_status(state: &MockStateManager, proposal_id: u64) -> ProposalStatus {
         let key = GovernanceModule::proposal_key(proposal_id);
         let bytes = StateCommitment::get(state, &key).unwrap().unwrap();
-        let proposal: Proposal = serde_json::from_slice(&bytes).unwrap();
+        let entry: StateEntry = depin_sdk_types::codec::from_bytes_canonical(&bytes).unwrap();
+        let proposal: Proposal =
+            depin_sdk_types::codec::from_bytes_canonical(&entry.value).unwrap();
         proposal.status
     }
 
@@ -514,7 +549,7 @@ mod tests {
         StateCommitment::insert(
             &mut state,
             &GovernanceModule::vote_key(proposal_id, &voter1_id),
-            &serde_json::to_vec(&VoteOption::Yes).unwrap(),
+            &depin_sdk_types::codec::to_bytes_canonical(&VoteOption::Yes),
         )
         .unwrap();
 
@@ -523,7 +558,7 @@ mod tests {
         // - total_power_excluding_abstain = 600. Veto threshold = 198. Veto votes = 0. -> No veto.
         // - Pass threshold = 300. Yes votes = 600. -> Passed.
         module
-            .tally_proposal(&mut state, proposal_id, &stakes)
+            .tally_proposal(&mut state, proposal_id, &stakes, 301)
             .unwrap();
         assert_eq!(get_status(&state, proposal_id), ProposalStatus::Passed);
     }
@@ -545,14 +580,14 @@ mod tests {
         StateCommitment::insert(
             &mut state,
             &GovernanceModule::vote_key(proposal_id, &voter2_id),
-            &serde_json::to_vec(&VoteOption::Yes).unwrap(),
+            &depin_sdk_types::codec::to_bytes_canonical(&VoteOption::Yes),
         )
         .unwrap();
 
         // Tally:
         // - total_voting_power = 1300. Quorum = 429. Voted power = 300. -> Quorum FAILED.
         module
-            .tally_proposal(&mut state, proposal_id, &stakes)
+            .tally_proposal(&mut state, proposal_id, &stakes, 301)
             .unwrap();
         assert_eq!(get_status(&state, proposal_id), ProposalStatus::Rejected);
     }
@@ -574,13 +609,13 @@ mod tests {
         StateCommitment::insert(
             &mut state,
             &GovernanceModule::vote_key(proposal_id, &voter1_id),
-            &serde_json::to_vec(&VoteOption::Yes).unwrap(),
+            &depin_sdk_types::codec::to_bytes_canonical(&VoteOption::Yes),
         )
         .unwrap();
         StateCommitment::insert(
             &mut state,
             &GovernanceModule::vote_key(proposal_id, &voter2_id),
-            &serde_json::to_vec(&VoteOption::No).unwrap(),
+            &depin_sdk_types::codec::to_bytes_canonical(&VoteOption::No),
         )
         .unwrap();
 
@@ -588,7 +623,7 @@ mod tests {
         // - total_voting_power = 1000. Quorum = 330. Voted power = 1000. -> Quorum met.
         // - total_power_excluding_abstain = 1000. Pass threshold = 500. Yes votes = 400. -> Threshold FAILED.
         module
-            .tally_proposal(&mut state, proposal_id, &stakes)
+            .tally_proposal(&mut state, proposal_id, &stakes, 301)
             .unwrap();
         assert_eq!(get_status(&state, proposal_id), ProposalStatus::Rejected);
     }
@@ -609,13 +644,13 @@ mod tests {
         StateCommitment::insert(
             &mut state,
             &GovernanceModule::vote_key(proposal_id, &voter1_id),
-            &serde_json::to_vec(&VoteOption::Yes).unwrap(),
+            &depin_sdk_types::codec::to_bytes_canonical(&VoteOption::Yes),
         )
         .unwrap();
         StateCommitment::insert(
             &mut state,
             &GovernanceModule::vote_key(proposal_id, &voter2_id),
-            &serde_json::to_vec(&VoteOption::NoWithVeto).unwrap(),
+            &depin_sdk_types::codec::to_bytes_canonical(&VoteOption::NoWithVeto),
         )
         .unwrap();
 
@@ -623,7 +658,7 @@ mod tests {
         // - total_voting_power = 1000. Quorum = 330. Voted power = 1000. -> Quorum met.
         // - total_power_excluding_abstain = 1000. Veto threshold = 330. Veto votes = 400. -> VETOED.
         module
-            .tally_proposal(&mut state, proposal_id, &stakes)
+            .tally_proposal(&mut state, proposal_id, &stakes, 301)
             .unwrap();
         assert_eq!(get_status(&state, proposal_id), ProposalStatus::Rejected);
     }

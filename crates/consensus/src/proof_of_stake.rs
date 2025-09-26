@@ -125,7 +125,7 @@ impl PenaltyMechanism for ProofOfStakeEngine {
             )));
         }
 
-        // [+] FIX: Re-sort the validator set to maintain deterministic order after modification.
+        // FIX: Re-sort the validator set to maintain deterministic order after modification.
         // Failure to do so can cause a consensus fork.
         vs.validators
             .sort_by(|a, b| a.account_id.cmp(&b.account_id));

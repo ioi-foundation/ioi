@@ -8,6 +8,7 @@
 
 // The libp2p implementation is now a module with sub-modules.
 pub mod libp2p;
+pub mod metrics;
 pub mod traits;
 
 // Re-export the public interface for consumers of the crate.

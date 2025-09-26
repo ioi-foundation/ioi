@@ -1,5 +1,4 @@
 // Path: crates/node/src/bin/orchestration.rs
-
 #![forbid(unsafe_code)]
 
 use anyhow::{anyhow, Result};
@@ -12,12 +11,14 @@ use depin_sdk_client::WorkloadClient;
 use depin_sdk_consensus::util::engine_from_config;
 use depin_sdk_crypto::sign::dilithium::DilithiumKeyPair;
 use depin_sdk_network::libp2p::Libp2pSync;
+use depin_sdk_network::metrics as network_metrics;
 use depin_sdk_services::governance::GovernanceModule;
 use depin_sdk_services::identity::IdentityHub;
 use depin_sdk_storage::RedbEpochStore;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
 use depin_sdk_types::error::CoreError;
+use depin_sdk_validator::metrics as validator_metrics;
 use depin_sdk_validator::standard::orchestration::OrchestrationDependencies;
 use depin_sdk_validator::standard::{
     orchestration::verifier_select::{create_default_verifier, DefaultVerifier},
@@ -143,7 +144,7 @@ where
         } else {
             // First boot: persist the identity
             fs::write(&identity_path, serde_json::to_vec(&configured_identity)?)?;
-            log::info!("Persisted new chain identity: {:?}", configured_identity);
+            tracing::info!(target: "orchestration", "Persisted new chain identity: {:?}", configured_identity);
         }
 
         let workload_ipc_addr =
@@ -161,7 +162,7 @@ where
     loop {
         match workload_client.get_status().await {
             Ok(_) => {
-                log::info!("[Orchestrator] Workload IPC reachable.");
+                tracing::info!(target: "orchestration", "Workload IPC reachable.");
                 break;
             }
             Err(e) => {
@@ -172,8 +173,9 @@ where
                     );
                     return Err(anyhow!("Workload IPC unreachable after retries: {}", e));
                 }
-                log::warn!(
-                    "[Orchestrator] Workload IPC not reachable yet: {} (retrying...)",
+                tracing::warn!(
+                    target: "orchestration",
+                    "Workload IPC not reachable yet: {} (retrying...)",
                     e
                 );
                 tokio::time::sleep(std::time::Duration::from_millis(300)).await;
@@ -215,8 +217,9 @@ where
         let kp = DilithiumKeyPair::from_bytes(&pk_bytes, &sk_bytes)
             .map_err(|e| anyhow!("PQC key reconstruction failed: {e}"))?;
 
-        log::info!(
-            "[Orchestration] Loaded Dilithium PQC key from {}",
+        tracing::info!(
+            target: "orchestration",
+            "Loaded Dilithium PQC key from {}",
             path.display()
         );
         Some(kp)
@@ -290,7 +293,7 @@ where
         let workload_container = Arc::new(depin_sdk_api::validator::WorkloadContainer::new(
             dummy_workload_config,
             state_tree,
-            Box::new(depin_sdk_vm_wasm::WasmVm::new(Default::default())),
+            Box::new(depin_sdk_vm_wasm::WasmVm::new(Default::default())), // Dummy VM
             service_directory, // <-- Pass the populated directory here
             dummy_store,
         ));
@@ -318,34 +321,57 @@ where
 
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
-            log::info!("Ctrl-C received, initiating shutdown.");
+            tracing::info!(target: "orchestration", event = "shutdown", reason = "ctrl-c");
         }
     }
 
-    log::info!("Shutdown signal received.");
+    tracing::info!(target: "orchestration", "Shutdown signal received.");
     orchestration.stop().await?;
     let data_dir = opts.config.parent().unwrap_or_else(|| Path::new("."));
     let _ = fs::remove_file(data_dir.join("orchestrator_dummy_store.db"));
-    log::info!("Orchestration container stopped gracefully.");
+    tracing::info!(target: "orchestration", event = "shutdown", reason = "complete");
     Ok(())
 }
 
 #[tokio::main]
 #[allow(unused_variables)]
 async fn main() -> Result<()> {
-    check_features();
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
-        .format_timestamp_secs()
-        .init();
+    // 1. Initialize tracing FIRST
+    depin_sdk_telemetry::init::init_tracing();
 
+    // 2. Install the Prometheus sink
+    let metrics_sink = depin_sdk_telemetry::prometheus::install();
+
+    // 3. Set all static sinks
+    depin_sdk_storage::metrics::SINK
+        .set(metrics_sink)
+        .expect("SINK must be set only once");
+    network_metrics::SINK
+        .set(metrics_sink)
+        .expect("SINK must be set only once");
+    validator_metrics::CONSENSUS_SINK
+        .set(metrics_sink)
+        .expect("SINK must be set only once");
+    validator_metrics::RPC_SINK
+        .set(metrics_sink)
+        .expect("SINK must be set only once");
+
+    // 4. Spawn the telemetry server
+    let telemetry_addr_str =
+        std::env::var("TELEMETRY_ADDR").unwrap_or_else(|_| "127.0.0.1:9615".to_string());
+    let telemetry_addr = telemetry_addr_str.parse()?;
+    tokio::spawn(depin_sdk_telemetry::http::run_server(telemetry_addr));
+
+    check_features();
     std::panic::set_hook(Box::new(|info| {
         eprintln!("ORCHESTRATION_PANIC: {}", info);
     }));
 
     let opts = OrchestrationOpts::parse();
-    log::info!(
-        "Orchestration container starting up with config: {:?}",
-        opts.config
+    tracing::info!(
+        target: "orchestration",
+        event = "startup",
+        config = ?opts.config
     );
 
     let config_path = opts.config.clone();

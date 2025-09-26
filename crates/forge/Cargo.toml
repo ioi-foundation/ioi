@@ -18,6 +18,7 @@ tokio = { workspace = true, features = ["full"] }
 anyhow = { workspace = true }
 log = { workspace = true }
 env_logger = { workspace = true }
+tracing = { workspace = true }
 serde_json = { workspace = true }
 hex = { workspace = true }
 serde_jcs = "0.1.0"
@@ -30,8 +31,9 @@ depin-sdk-api = { path = "../api" }
 depin-sdk-crypto = { path = "../crypto" }
 depin-sdk-validator = { path = "../validator", default-features = false }
 depin-sdk-commitment = { path = "../commitment", default-features = false }
-# --- FIX START: Add depin-sdk-client as a dependency ---
+# --- FIX START: Add depin-sdk-client AND transaction-models as dependencies ---
 depin-sdk-client = { path = "../client" }
+depin-sdk-transaction-models = { path = "../transaction_models" }
 # --- FIX END ---
 toml = { workspace = true }
 # Dependencies for testing helpers that are now part of the library

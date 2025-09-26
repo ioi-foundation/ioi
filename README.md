@@ -232,67 +232,86 @@ cargo test -p depin-sdk-forge --release \
   --test container_e2e -- --nocapture
 ```
 
+
 ## Logging and Debugging
 
-The SDK uses the `env_logger` crate, which is configured via the `RUST_LOG` environment variable. You can control log verbosity for the entire project or on a per-crate/module basis.
+The SDK uses the `tracing` framework to produce structured JSON logs. This modern approach is more powerful than traditional text-based logging, allowing for rich, queryable output that can be analyzed with tools like `jq`.
 
-The general syntax is `RUST_LOG=level,crate1=level,crate2::module=level`.
+### The New Workflow: Capture First, Filter Later
 
-| Level | Description |
-|---|---|
-| `error` | Only shows critical errors. |
-| `warn` | Shows warnings and errors. |
-| `info` | Shows high-level progress, events, and warnings/errors (good default). |
-| `debug` | Shows detailed diagnostic information for developers. |
-| `trace` | Shows extremely verbose, low-level information (e.g., function entry/exit). |
+Instead of pre-filtering logs with complex `RUST_LOG` strings, the recommended workflow is to capture detailed logs and then use post-processing tools to analyze them.
 
-### Common Logging Configurations
+1.  **Run your test and capture all `info`-level logs:**
 
-Here are some useful "recipes" for debugging different parts of the system.
+    ```bash
+    RUST_LOG=info cargo test -p depin-sdk-forge --test <your_test_name> -- --nocapture | tee test_run.log
+    ```
+
+2.  **Analyze the log file with `jq`:**
+    `jq` is a command-line JSON processor. You can use it to slice, filter, and transform the log data.
+
+    **Example Log Entry:**
+    ```json
+    {
+        "timestamp": "2025-09-24T04:08:47.515838Z",
+        "level": "INFO",
+        "fields": {
+            "message": "[PoS Decide H=1] DECISION: We are not the leader. Will WaitForBlock.",
+            "log.target": "depin_sdk_consensus::proof_of_stake",
+            "log.module_path": "depin_sdk_consensus::proof_of_stake",
+            "log.file": "/workspaces/depin-sdk/crates/consensus/src/proof_of_stake.rs",
+            "log.line": 251
+        },
+        "target": "depin_sdk_consensus::proof_of_stake"
+    }
+    ```
+
+### Common Logging Recipes with `jq`
+
+Here are some useful commands for debugging different parts of the system using the captured `test_run.log` file.
 
 #### High-Level Overview
-This configuration is useful for watching the chain progress, seeing key identity-related events, and high-level consensus flow without being overwhelmed by details.
+See only the high-level events from the orchestration, consensus, and chain modules.
 
 ```bash
-RUST_LOG=info,depin_sdk_consensus=info,depin_sdk_chain=info,depin_sdk_services::identity=info,depin_sdk_validator::standard::orchestration=info \
-cargo test -p depin-sdk-forge --test <your_test_name> -- --nocapture
+# Filter by the 'target' field
+cat test_run.log | jq 'select(.target | contains("orchestration") or contains("consensus") or contains("chain"))'
 ```
-- **`info`**: Default log level.
-- **`depin_sdk_consensus=info`**: Shows leader selection and major consensus events.
-- **`depin_sdk_chain=info`**: Shows when blocks are committed.
-- **`depin_sdk_services::identity=info`**: Shows key rotations and promotions.
 
-#### Standard Debugging
-Use this for general-purpose debugging. It enables `debug` level for the most important crates.
+#### Tracing a Specific Block
+Show all log entries related to the production or processing of block #3.
 
 ```bash
-RUST_LOG=info,depin_sdk_chain=debug,depin_sdk_validator=debug,depin_sdk_commitment=debug,depin_sdk_consensus=debug \
-cargo test -p depin-sdk-forge --test <your_test_name> -- --nocapture
+# Filter by the 'fields.height' value
+cat test_run.log | jq 'select(.fields.height == 3)'
 ```
-- **`depin_sdk_chain=debug`**: See detailed state transitions and genesis loading.
-- **`depin_sdk_validator=debug`**: See details of the Orchestration and Workload containers, including RPC calls.
-- **`depin_sdk_commitment=debug`**: See state tree operations (e.g., IAVL commits).
-- **`depin_sdk_consensus=debug`**: See detailed leader election logic and block verification steps.
 
-#### Advanced Consensus & State Debugging
-This is a powerful configuration for diagnosing tricky consensus failures or state inconsistencies. It enables `trace` logging for specific, critical modules and activates full backtraces on panics.
+#### Isolate Consensus Decisions
+View only the final decision made by the consensus engine in each tick.
 
 ```bash
-# Optional: Set a faster block time for quicker testing cycles
-ORCH_BLOCK_INTERVAL_SECS=1 \
-# Enable full backtraces on panic
-RUST_BACKTRACE=1 \
-# Set the log levels
-RUST_LOG=info,depin_sdk_validator::standard::orchestration::consensus=trace,depin_sdk_commitment::tree::iavl=trace \
-cargo test -p depin-sdk-forge --release \
-  --features="consensus-pos,vm-wasm,tree-iavl,primitive-hash,strict_iavl" \
-  --test staking_e2e -- --nocapture
+# Filter by the 'fields.event' value
+cat test_run.log | jq 'select(.fields.event == "decision")'
 ```
-- **`ORCH_BLOCK_INTERVAL_SECS=1`**: Speeds up the test loop.
-- **`RUST_BACKTRACE=1`**: Provides a full stack trace if the node panics.
-- **`...::orchestration::consensus=trace`**: Extremely detailed logging of every step in the consensus tick.
-- **`...::tree::iavl=trace`**: Extremely detailed logging of every IAVL tree operation (insert, commit, hash).
-- **`strict_iavl` feature**: Enables extra, computationally expensive sanity checks inside the IAVL tree to detect state drift early.
+
+#### Verbose Debugging (When Needed)
+While `RUST_LOG=info` is a good default, you can temporarily enable more verbose logging for a specific module if needed. This is useful for deep-diving into state tree or consensus issues without being flooded by noise from other modules.
+
+```bash
+# Enable trace-level logging ONLY for the IAVL tree and consensus logic
+RUST_LOG=info,depin_sdk_commitment::tree::iavl=trace,depin_sdk_validator::standard::orchestration::consensus=trace \
+cargo test ... -- --nocapture | tee deep_debug.log
+```
+
+You can then use `jq` on `deep_debug.log` to analyze the highly detailed output from just those modules.
+
+### Enabling Full Panic Backtraces
+
+For diagnosing crashes, it's useful to get a full stack trace.
+
+```bash
+RUST_BACKTRACE=1 cargo test ...
+```
 
 ## Project Structure
 

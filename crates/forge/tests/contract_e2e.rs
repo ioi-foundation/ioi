@@ -3,15 +3,13 @@
 
 use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use depin_sdk_client::WorkloadClient; // Import the official client
-                                      // --- FIX START: Add sha256 import and remove unused assert_log_contains ---
+use depin_sdk_client::WorkloadClient;
 use depin_sdk_crypto::algorithms::hash::sha256;
 use depin_sdk_forge::testing::{
     build_test_artifacts,
     poll::{wait_for_contract_deployment, wait_for_height},
     submit_transaction, TestCluster,
 };
-// --- FIX END ---
 use depin_sdk_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ApplicationTransaction, ChainId,
@@ -25,7 +23,7 @@ use depin_sdk_types::{
 };
 use libp2p::identity::Keypair;
 use serde_json::json;
-use std::time::{Duration, Instant}; // Import Instant for custom polling logic
+use std::time::{Duration, Instant};
 
 // Helper function to create a signed transaction with proper nonce and account_id
 fn create_signed_app_tx(
@@ -152,7 +150,9 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
                 l2_location: None,
             };
             let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
-            let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
+            // --- FIX: Use the canonical SCALE codec instead of serde_json ---
+            let creds_bytes = codec::to_bytes_canonical(&creds_array);
+            // --- END FIX ---
             let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
             let creds_key_b64 = format!("b64:{}", BASE64_STANDARD.encode(&creds_key));
             genesis_state.insert(
@@ -195,7 +195,7 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     )
     .await?;
 
-    // --- FIX START: Spawn a background task to continuously drain logs ---
+    // --- Spawn a background task to continuously drain logs ---
     let (mut orch_logs, _, _) = node.subscribe_logs();
     let (tx_stop, rx_stop) = tokio::sync::oneshot::channel::<()>();
     let log_task = tokio::spawn(async move {
@@ -210,7 +210,6 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
             }
         }
     });
-    // --- FIX END ---
 
     // Wait for node to be ready
     wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;

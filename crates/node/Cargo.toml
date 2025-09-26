@@ -23,6 +23,7 @@ depin-sdk-vm-wasm = { path = "../vm/wasm", optional = true }
 depin-sdk-services = { path = "../services" }
 depin-sdk-test-utils = { path = "../test_utils" }
 depin-sdk-client = { path = "../client" }
+depin-sdk-telemetry = { path = "../telemetry" }
 # FIX: Add missing dependencies for malicious-workload
 ipc_protocol = { path = "../ipc_protocol" }
 bincode = { workspace = true }
@@ -39,6 +40,7 @@ futures = { workspace = true }
 hex = { workspace = true }
 libp2p = { workspace = true }
 log = { workspace = true }
+tracing = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tokio-rustls = { workspace = true }
 rcgen = { workspace = true }

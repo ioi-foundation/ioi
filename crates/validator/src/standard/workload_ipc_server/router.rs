@@ -60,7 +60,7 @@ impl<T: RpcMethod> ErasedHandler for T {
                 })?;
             serde_json::to_value(res).map_err(|e| JsonRpcError {
                 code: -32603,
-                message: format!("serialize result: {e}"),
+                message: format!("Failed to serialize RPC result: {}", e),
                 data: None,
             })
         };

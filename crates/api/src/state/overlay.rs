@@ -53,12 +53,12 @@ impl<'a> StateOverlay<'a> {
 
 impl<'a> StateAccessor for StateOverlay<'a> {
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
-        if let Some(value_opt) = self.writes.get(key) {
+        // The `if let` was correct, but let's make it more explicit for clarity.
+        match self.writes.get(key) {
             // Key is in our write set, return the cached value (which could be None for a delete)
-            Ok(value_opt.clone())
-        } else {
+            Some(value_opt) => Ok(value_opt.clone()),
             // Fall back to the base state
-            self.base.get(key)
+            None => self.base.get(key),
         }
     }
 
@@ -83,31 +83,31 @@ impl<'a> StateAccessor for StateOverlay<'a> {
         &self,
         prefix: &[u8],
     ) -> Result<Vec<(Vec<u8>, Vec<u8>)>, depin_sdk_types::error::StateError> {
-        // 1. Get the results from the base state.
+        // 1. Get the results from the base state and store them in a BTreeMap for efficient merging.
         let mut base_results: BTreeMap<Vec<u8>, Vec<u8>> =
             self.base.prefix_scan(prefix)?.into_iter().collect();
 
         // 2. Iterate through the overlay's writes that match the prefix.
         // BTreeMap's range iterator is efficient for this.
         for (key, value_opt) in self.writes.range(prefix.to_vec()..) {
+            // We've moved past the relevant prefix in the sorted map, so we can stop.
             if !key.starts_with(prefix) {
-                // We've moved past the relevant prefix in the sorted map.
                 break;
             }
 
             match value_opt {
-                // An insert or update in the overlay.
+                // An insert or update in the overlay should overwrite any base value.
                 Some(value) => {
                     base_results.insert(key.clone(), value.clone());
                 }
-                // A delete in the overlay.
+                // A delete in the overlay should remove the key from the results.
                 None => {
                     base_results.remove(key);
                 }
             }
         }
 
-        // 3. Convert the merged BTreeMap back to the required Vec format.
+        // 3. Convert the merged BTreeMap back into the required Vec format, which is naturally sorted.
         Ok(base_results.into_iter().collect())
     }
 }

@@ -13,6 +13,7 @@ use depin_sdk_types::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, Credential, SignatureSuite,
         ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
+    // [+] FIX: Import the canonical codec
     codec,
     config::InitialServiceConfig,
     keys::{
@@ -44,7 +45,8 @@ fn add_poa_identity_to_genesis(
         l2_location: None,
     };
     let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
-    let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
+    // [+] FIX: Use the canonical SCALE codec instead of serde_json for credentials.
+    let creds_bytes = codec::to_bytes_canonical(&creds_array);
     let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
     let creds_key_b64 = format!("b64:{}", BASE64_STANDARD.encode(&creds_key));
     genesis_state.insert(
@@ -98,27 +100,21 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
         }))
         .with_genesis_modifier(move |genesis, keys| {
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
-            let _authorities: Vec<AccountId> = keys
+            let authorities: Vec<AccountId> = keys
                 .iter()
                 .map(|k| add_poa_identity_to_genesis(genesis_state, k))
                 .collect();
 
-            let mut validators: Vec<ValidatorV1> = keys
-                .iter()
-                .map(|keypair| {
-                    let public_key_bytes = keypair.public().encode_protobuf();
-                    let account_id_hash =
-                        account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)
-                            .unwrap();
-                    ValidatorV1 {
-                        account_id: AccountId(account_id_hash),
-                        weight: 1, // PoA
-                        consensus_key: ActiveKeyRecord {
-                            suite: SignatureSuite::Ed25519,
-                            pubkey_hash: account_id_hash,
-                            since_height: 0,
-                        },
-                    }
+            let mut validators: Vec<ValidatorV1> = authorities
+                .into_iter()
+                .map(|account_id| ValidatorV1 {
+                    account_id,
+                    weight: 1, // PoA
+                    consensus_key: ActiveKeyRecord {
+                        suite: SignatureSuite::Ed25519,
+                        pubkey_hash: account_id.0,
+                        since_height: 0,
+                    },
                 })
                 .collect();
 

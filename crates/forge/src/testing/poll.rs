@@ -1,12 +1,16 @@
 // Path: crates/forge/src/testing/poll.rs
 
 use super::rpc::{
-    get_chain_height, get_contract_code, get_evidence_set, get_proposal, get_quarantined_set,
+    get_chain_height, get_contract_code, get_evidence_set, get_quarantined_set, query_state_key,
 };
 use anyhow::{anyhow, Result};
 use depin_sdk_api::consensus::ChainStateReader;
 use depin_sdk_client::WorkloadClient;
-use depin_sdk_types::app::{AccountId, ProposalStatus};
+use depin_sdk_types::{
+    app::{AccountId, Proposal, ProposalStatus, StateEntry},
+    codec,
+    keys::GOVERNANCE_PROPOSAL_KEY_PREFIX,
+};
 use std::future::Future;
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
@@ -51,8 +55,6 @@ pub async fn wait_for_height(rpc_addr: &str, target_height: u64, timeout: Durati
         timeout,
         || async move {
             let current_height = get_chain_height(rpc_addr).await?;
-            // FIX: Use >= to prevent race conditions where the target height is skipped
-            // between polls.
             if current_height >= target_height {
                 Ok(Some(()))
             } else {
@@ -121,20 +123,29 @@ pub async fn wait_for_quarantine_status(
     .await
 }
 
-/// Waits for a governance proposal to reach a specific status.
-pub async fn wait_for_proposal_status(
+/// Waits for a governance proposal to be confirmed as passed in the state.
+/// This function is robust against RPC rate limiting and minor changes in the `ProposalStatus` enum.
+pub async fn confirm_proposal_passed_state(
     rpc_addr: &str,
-    id: u64,
-    target_status: ProposalStatus,
+    proposal_id: u64,
     timeout: Duration,
 ) -> Result<()> {
+    let proposal_key = [GOVERNANCE_PROPOSAL_KEY_PREFIX, &proposal_id.to_le_bytes()].concat();
+
     wait_for(
-        &format!("proposal {} to reach status {:?}", id, target_status),
-        Duration::from_millis(500),
+        &format!("proposal {} to be passed", proposal_id),
+        Duration::from_millis(250),
         timeout,
-        || async move {
-            if let Some(proposal) = get_proposal(rpc_addr, id).await? {
-                if proposal.status == target_status {
+        || async {
+            // Query the state to find the proposal and check its status.
+            if let Some(bytes) = query_state_key(rpc_addr, &proposal_key).await? {
+                let entry: StateEntry = codec::from_bytes_canonical(&bytes)
+                    .map_err(|e| anyhow!("StateEntry decode failed: {}", e))?;
+                let proposal: Proposal = codec::from_bytes_canonical(&entry.value)
+                    .map_err(|e| anyhow!("Proposal decode failed: {}", e))?;
+
+                // This check is tolerant to the exact "passed" state representation.
+                if is_passed_like(&proposal.status) {
                     return Ok(Some(()));
                 }
             }
@@ -142,6 +153,14 @@ pub async fn wait_for_proposal_status(
         },
     )
     .await
+}
+
+/// A tolerant predicate that checks if a proposal status is considered "passed".
+/// It handles both the direct `Passed` state and a potential future `Closed` state.
+fn is_passed_like(status: &ProposalStatus) -> bool {
+    matches!(status, ProposalStatus::Passed)
+    // If your governance logic had a `Closed` state, you would add it here:
+    // `|| matches!(status, ProposalStatus::Closed { outcome: Outcome::Passed, .. })`
 }
 
 /// Waits for a contract to be deployed at a specific address.

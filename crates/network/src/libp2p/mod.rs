@@ -6,6 +6,7 @@
 pub mod mempool;
 pub mod sync;
 
+use crate::metrics::metrics;
 use crate::traits::NodeState;
 use futures::StreamExt;
 use libp2p::{
@@ -23,6 +24,8 @@ use tokio::{
 
 // Re-export concrete types from submodules for a cleaner public API.
 pub use self::sync::{SyncCodec, SyncRequest, SyncResponse};
+use depin_sdk_api::transaction::TransactionModel;
+use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{Block, ChainTransaction, OracleAttestation};
 
 // --- Core Network Behaviour and Event/Command Types ---
@@ -172,7 +175,7 @@ impl Libp2pSync {
                 {
                     let translated_event = NetworkEvent::AgenticPrompt { from, prompt };
                     if network_event_sender.send(translated_event).await.is_err() {
-                        log::info!("[Sync] Network event channel closed. Shutting down forwarder.");
+                        tracing::info!(target: "network", event = "shutdown", reason = "event channel closed", component="forwarder");
                         break;
                     }
                     if swarm_command_sender_clone
@@ -180,7 +183,7 @@ impl Libp2pSync {
                         .await
                         .is_err()
                     {
-                        log::warn!("[Sync] Failed to send AgenticAck command to swarm.");
+                        tracing::warn!(target: "network", event = "send_fail", command = "AgenticAck");
                     }
                     continue;
                 }
@@ -197,7 +200,7 @@ impl Libp2pSync {
                         vote_hash,
                     };
                     if network_event_sender.send(translated_event).await.is_err() {
-                        log::info!("[Sync] Network event channel closed. Shutting down forwarder.");
+                        tracing::info!(target: "network", event = "shutdown", reason = "event channel closed", component="forwarder");
                         break;
                     }
                     continue;
@@ -215,7 +218,7 @@ impl Libp2pSync {
                             }
                         }
                         Err(e) => {
-                            log::warn!("Failed to deserialize gossiped oracle attestation: {}", e)
+                            tracing::warn!(target: "gossip", event = "deser_fail", kind = "oracle_attestation", error = %e)
                         }
                     }
                     continue;
@@ -244,16 +247,20 @@ impl Libp2pSync {
                         match serde_json::from_slice(&data) {
                             Ok(block) => Some(NetworkEvent::GossipBlock(block)),
                             Err(e) => {
-                                log::warn!("Failed to deserialize gossiped block: {e}");
+                                tracing::warn!(target: "gossip", event = "deser_fail", kind = "block", error = %e);
                                 None
                             }
                         }
                     }
                     SwarmInternalEvent::GossipTransaction(data, _source) => {
-                        match serde_json::from_slice(&data) {
+                        // Use the canonical transaction model deserializer
+                        let dummy_model = UnifiedTransactionModel::new(
+                            depin_sdk_commitment::primitives::hash::HashCommitmentScheme::new(),
+                        );
+                        match dummy_model.deserialize_transaction(&data) {
                             Ok(tx) => Some(NetworkEvent::GossipTransaction(Box::new(tx))),
                             Err(e) => {
-                                log::warn!("Failed to deserialize gossiped transaction: {e}");
+                                tracing::warn!(target: "gossip", event = "deser_fail", kind = "transaction", error = %e);
                                 None
                             }
                         }
@@ -265,7 +272,7 @@ impl Libp2pSync {
 
                 if let Some(event) = translated_event {
                     if network_event_sender.send(event).await.is_err() {
-                        log::info!("[Sync] Network event channel closed. Shutting down forwarder.");
+                        tracing::info!(target: "network", event = "shutdown", reason = "event channel closed", component="forwarder");
                         break;
                     }
                 }
@@ -369,11 +376,30 @@ impl Libp2pSync {
             tokio::select! {
                 _ = shutdown_receiver.changed() => if *shutdown_receiver.borrow() { break; },
                 event = swarm.select_next_some() => match event {
-                    SwarmEvent::NewListenAddr { address, .. } => { log::info!("[Sync] Swarm listening on {address}"); }
-                    SwarmEvent::ConnectionEstablished { peer_id, .. } => { event_sender.send(SwarmInternalEvent::ConnectionEstablished(peer_id)).await.ok(); }
-                    SwarmEvent::ConnectionClosed { peer_id, .. } => { event_sender.send(SwarmInternalEvent::ConnectionClosed(peer_id)).await.ok(); }
+                    SwarmEvent::NewListenAddr { address, .. } => { tracing::info!(target: "network", event = "listening", %address); }
+                    SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                        metrics().inc_connected_peers();
+                        event_sender.send(SwarmInternalEvent::ConnectionEstablished(peer_id)).await.ok();
+                    }
+                    SwarmEvent::ConnectionClosed { peer_id, .. } => {
+                        metrics().dec_connected_peers();
+                        event_sender.send(SwarmInternalEvent::ConnectionClosed(peer_id)).await.ok();
+                    }
                     SwarmEvent::Behaviour(event) => match event {
                         SyncBehaviourEvent::Gossipsub(gossipsub::Event::Message { message, .. }) => {
+                            let topic_name = if message.topic == block_topic.hash() {
+                                "blocks"
+                            } else if message.topic == tx_topic.hash() {
+                                "transactions"
+                            } else if message.topic == oracle_attestations_topic.hash() {
+                                "oracle-attestations"
+                            } else if message.topic == agentic_vote_topic.hash() {
+                                "agentic-votes"
+                            } else {
+                                "unknown"
+                            };
+                            metrics().inc_gossip_messages_received(topic_name);
+
                             if let Some(source) = message.source {
                                 if message.topic == block_topic.hash() {
                                     event_sender.send(SwarmInternalEvent::GossipBlock(message.data, source)).await.ok();
@@ -397,7 +423,7 @@ impl Libp2pSync {
                                     SyncRequest::GetStatus => { event_sender.send(SwarmInternalEvent::StatusRequest(peer, channel)).await.ok(); }
                                     SyncRequest::GetBlocks(h) => { event_sender.send(SwarmInternalEvent::BlocksRequest(peer, h, channel)).await.ok(); }
                                     SyncRequest::AgenticPrompt(prompt) => {
-                                        log::info!("[Sync] Received AgenticPrompt from peer {}", peer);
+                                        tracing::info!(target: "network", event = "request_received", kind="AgenticPrompt", %peer);
                                         event_sender.send(SwarmInternalEvent::AgenticPrompt { from: peer, prompt, channel }).await.ok();
                                     }
                                 },
@@ -405,7 +431,7 @@ impl Libp2pSync {
                                     SyncResponse::Status(h) => { event_sender.send(SwarmInternalEvent::StatusResponse(peer, h)).await.ok(); }
                                     SyncResponse::Blocks(blocks) => { event_sender.send(SwarmInternalEvent::BlocksResponse(peer, blocks)).await.ok(); }
                                     SyncResponse::AgenticAck => {
-                                        log::info!("[Sync] Received AgenticAck from peer {}", peer);
+                                        tracing::info!(target: "network", event = "response_received", kind="AgenticAck", %peer);
                                     }
                                 }
                             }
@@ -436,7 +462,7 @@ impl Libp2pSync {
                             // It does not interact with the network.
                         }
                         SwarmCommand::BroadcastToCommittee(peers, prompt) => {
-                            log::info!("[Sync] Broadcasting prompt to committee of {} peers.", peers.len());
+                            tracing::info!(target: "network", event = "broadcast", kind="AgenticPrompt", committee_size=peers.len());
                             for peer_id in peers {
                                 let request = SyncRequest::AgenticPrompt(prompt.clone());
                                 swarm.behaviour_mut().request_response.send_request(&peer_id, request);

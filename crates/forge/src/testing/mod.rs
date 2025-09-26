@@ -7,6 +7,7 @@
 pub mod backend;
 pub mod poll;
 pub mod rpc;
+pub use rpc::submit_transaction;
 
 use crate::testing::poll::{wait_for, wait_for_height};
 use anyhow::{anyhow, Result};
@@ -17,7 +18,6 @@ use depin_sdk_api::crypto::{SerializableKey, SigningKeyPair};
 use depin_sdk_client::WorkloadClient;
 use depin_sdk_commitment::primitives::kzg::KZGParams;
 use depin_sdk_crypto::sign::dilithium::{DilithiumKeyPair, DilithiumScheme};
-use depin_sdk_types::app::ChainTransaction;
 use depin_sdk_types::config::{
     CommitmentSchemeType, ConsensusType, InitialServiceConfig, StateTreeType, VmFuelCosts,
     WorkloadConfig,
@@ -27,11 +27,11 @@ use depin_sdk_validator::config::OrchestrationConfig;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use hyper::Body;
 use libp2p::{identity, Multiaddr, PeerId};
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Once};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tar::Builder;
 use tempfile::TempDir;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -228,84 +228,58 @@ async fn ensure_docker_image_exists() -> Result<()> {
 
 // --- Helper Structs & Functions ---
 
-pub async fn submit_transaction(rpc_addr: &str, tx: &ChainTransaction) -> Result<()> {
-    let tx_hex = hex::encode(serde_json::to_vec(tx)?);
-    // FIX: Use the new, dedicated endpoint for submitting transactions.
-    let url = format!("http://{}/rpc/submit", rpc_addr);
-    let client = reqwest::Client::new();
-
-    // Use the canonical method name.
-    let method = "submit_tx";
-    let params = json!([tx_hex]);
-
-    let req = json!({ "jsonrpc":"2.0", "method": method, "params": params, "id": 1 });
-    let resp = client.post(&url).json(&req).send().await?;
-    let status = resp.status();
-    let text = resp.text().await?;
-
-    if !status.is_success() {
-        return Err(anyhow!(
-            "RPC submission failed with status {}: {}",
-            status,
-            text
-        ));
-    }
-
-    let v: serde_json::Value = serde_json::from_str(&text)?;
-
-    if v.get("error").is_some() && !v["error"].is_null() {
-        return Err(anyhow!("RPC error: {}", v["error"]));
-    }
-
-    // Check for a successful result
-    if v.get("result").is_some() {
-        log::info!("submit_transaction: {} accepted -> {}", method, text);
-        return Ok(());
-    }
-
-    Err(anyhow!(
-        "RPC submission was accepted but did not return a valid result: {}",
-        text
-    ))
-}
-
 pub async fn assert_log_contains(
     label: &str,
     log_stream: &mut broadcast::Receiver<String>,
     pattern: &str,
 ) -> Result<()> {
-    timeout(LOG_ASSERT_TIMEOUT, async {
-        loop {
-            match log_stream.recv().await {
-                Ok(line) => {
-                    println!("[LOGS-{}] {}", label, line);
-                    if line.contains(pattern) {
-                        return Ok(());
-                    }
-                }
-                Err(broadcast::error::RecvError::Lagged(count)) => {
-                    log::warn!(
-                        "[{}] Log assertion may have missed {} lines due to backpressure.",
-                        label,
-                        count
-                    );
-                    continue;
-                }
-                Err(broadcast::error::RecvError::Closed) => {
-                    return Err(anyhow!("Log stream ended before pattern was found"));
+    let start = Instant::now();
+    let mut received_lines = Vec::new();
+
+    loop {
+        // Manually check overall timeout
+        if start.elapsed() > LOG_ASSERT_TIMEOUT {
+            let combined_logs = received_lines.join("\n");
+            return Err(anyhow!(
+                "[{}] Timeout waiting for pattern '{}'.\n--- Received Logs ---\n{}\n--- End Logs ---",
+                label,
+                pattern,
+                combined_logs
+            ));
+        }
+
+        // Use a short timeout on recv to prevent blocking forever if no new logs arrive
+        match timeout(Duration::from_millis(500), log_stream.recv()).await {
+            Ok(Ok(line)) => {
+                println!("[LOGS-{}] {}", label, line); // Live logging
+                received_lines.push(line.clone());
+                if line.contains(pattern) {
+                    return Ok(());
                 }
             }
+            Ok(Err(broadcast::error::RecvError::Lagged(count))) => {
+                let msg = format!(
+                    "[WARN] Log assertion for '{}' may have missed {} lines.",
+                    label, count
+                );
+                println!("{}", &msg);
+                received_lines.push(msg);
+            }
+            Ok(Err(broadcast::error::RecvError::Closed)) => {
+                let combined_logs = received_lines.join("\n");
+                return Err(anyhow!(
+                    "Log stream for '{}' ended before pattern '{}' was found.\n--- Received Logs ---\n{}\n--- End Logs ---",
+                    label,
+                    pattern,
+                    combined_logs
+                ));
+            }
+            Err(_) => {
+                // recv timed out, continue outer loop to check overall timeout
+                continue;
+            }
         }
-    })
-    .await?
-    .map_err(|e| {
-        anyhow!(
-            "[{}] Log assertion failed for pattern '{}': {}",
-            label,
-            pattern,
-            e
-        )
-    })
+    }
 }
 
 pub async fn assert_log_contains_and_return_line(
@@ -313,38 +287,54 @@ pub async fn assert_log_contains_and_return_line(
     log_stream: &mut broadcast::Receiver<String>,
     pattern: &str,
 ) -> Result<String> {
-    timeout(LOG_ASSERT_TIMEOUT, async {
-        loop {
-            match log_stream.recv().await {
-                Ok(line) => {
-                    println!("[LOGS-{}] {}", label, line);
-                    if line.contains(pattern) {
-                        return Ok(line);
-                    }
-                }
-                Err(broadcast::error::RecvError::Lagged(count)) => {
-                    log::warn!(
-                        "[{}] Log assertion may have missed {} lines due to backpressure.",
-                        label,
-                        count
-                    );
-                    continue;
-                }
-                Err(broadcast::error::RecvError::Closed) => {
-                    return Err(anyhow!("Log stream ended before pattern was found"));
+    let start = Instant::now();
+    let mut received_lines = Vec::new();
+
+    loop {
+        // Manually check overall timeout
+        if start.elapsed() > LOG_ASSERT_TIMEOUT {
+            let combined_logs = received_lines.join("\n");
+            return Err(anyhow!(
+                "[{}] Timeout waiting for pattern '{}'.\n--- Received Logs ---\n{}\n--- End Logs ---",
+                label,
+                pattern,
+                combined_logs
+            ));
+        }
+
+        // Use a short timeout on recv to prevent blocking forever if no new logs arrive
+        match timeout(Duration::from_millis(500), log_stream.recv()).await {
+            Ok(Ok(line)) => {
+                println!("[LOGS-{}] {}", label, line);
+                let line_clone = line.clone();
+                received_lines.push(line);
+                if line_clone.contains(pattern) {
+                    return Ok(line_clone);
                 }
             }
+            Ok(Err(broadcast::error::RecvError::Lagged(count))) => {
+                let msg = format!(
+                    "[WARN] Log assertion for '{}' may have missed {} lines.",
+                    label, count
+                );
+                println!("{}", &msg);
+                received_lines.push(msg);
+            }
+            Ok(Err(broadcast::error::RecvError::Closed)) => {
+                let combined_logs = received_lines.join("\n");
+                return Err(anyhow!(
+                    "Log stream for '{}' ended before pattern '{}' was found.\n--- Received Logs ---\n{}\n--- End Logs ---",
+                    label,
+                    pattern,
+                    combined_logs
+                ));
+            }
+            Err(_) => {
+                // recv timed out, continue outer loop to check overall timeout
+                continue;
+            }
         }
-    })
-    .await?
-    .map_err(|e| {
-        anyhow!(
-            "[{}] Log assertion failed for pattern '{}': {}",
-            label,
-            pattern,
-            e
-        )
-    })
+    }
 }
 
 /// Represents a complete, logical validator node, abstracting over its execution backend.
@@ -648,6 +638,10 @@ impl TestValidator {
                 "127.0.0.1:{}",
                 portpicker::pick_unused_port().unwrap_or(base_port + 3)
             );
+            let telemetry_addr_orch = format!(
+                "127.0.0.1:{}",
+                portpicker::pick_unused_port().unwrap_or(base_port + 4)
+            );
             workload_ipc_addr = format!("127.0.0.1:{}", ipc_port_workload);
             let node_binary_path = Path::new(env!("CARGO_MANIFEST_DIR"))
                 .parent()
@@ -658,6 +652,10 @@ impl TestValidator {
 
             let (guardian_process, mut guardian_reader) =
                 if let Some(model_path) = agentic_model_path {
+                    let telemetry_addr_guard = format!(
+                        "127.0.0.1:{}",
+                        portpicker::pick_unused_port().unwrap_or(base_port + 6)
+                    );
                     let mut process = TokioCommand::new(node_binary_path.join("guardian"))
                         .args([
                             "--config-dir",
@@ -665,6 +663,7 @@ impl TestValidator {
                             "--agentic-model-path",
                             model_path,
                         ])
+                        .env("TELEMETRY_ADDR", &telemetry_addr_guard)
                         .env("GUARDIAN_LISTEN_ADDR", &guardian_addr)
                         .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())
                         .stderr(Stdio::piped())
@@ -694,9 +693,15 @@ impl TestValidator {
                 "workload"
             };
 
+            let telemetry_addr_work = format!(
+                "127.0.0.1:{}",
+                portpicker::pick_unused_port().unwrap_or(base_port + 5)
+            );
+
             let mut workload_cmd = TokioCommand::new(node_binary_path.join(workload_binary_name));
             workload_cmd
                 .args(["--config", &workload_config_path.to_string_lossy()])
+                .env("TELEMETRY_ADDR", &telemetry_addr_work)
                 .env("IPC_SERVER_ADDR", &workload_ipc_addr)
                 .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())
                 .stderr(Stdio::piped())
@@ -768,6 +773,7 @@ impl TestValidator {
             orch_cmd
                 .args(&orch_args)
                 .env("RUST_BACKTRACE", "1") // Add backtrace for debugging
+                .env("TELEMETRY_ADDR", &telemetry_addr_orch)
                 .env("WORKLOAD_IPC_ADDR", &workload_ipc_addr)
                 .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())
                 .stderr(Stdio::piped())

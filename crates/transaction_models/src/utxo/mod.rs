@@ -5,6 +5,7 @@ use depin_sdk_api::state::{StateAccessor, StateManager};
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
 pub use depin_sdk_types::app::{Input, Output, UTXOTransaction};
+use depin_sdk_types::codec;
 use depin_sdk_types::error::TransactionError;
 use serde::{Deserialize, Serialize};
 
@@ -63,7 +64,7 @@ impl<CS: CommitmentScheme> UTXOOperations for UTXOModel<CS> {
 #[async_trait]
 impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UTXOModel<CS>
 where
-    <CS as CommitmentScheme>::Proof: Serialize + for<'de> serde::Deserialize<'de>,
+    <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de>,
 {
     type Transaction = UTXOTransaction;
     type CommitmentScheme = CS;
@@ -109,8 +110,8 @@ where
                 let utxo_bytes = state
                     .get(&key)?
                     .ok_or_else(|| TransactionError::Invalid("Input UTXO not found".to_string()))?;
-                let utxo: Output = serde_json::from_slice(&utxo_bytes)
-                    .map_err(|e| TransactionError::Invalid(format!("Deserialize error: {e}")))?;
+                let utxo: Output = codec::from_bytes_canonical(&utxo_bytes)
+                    .map_err(|e| TransactionError::Invalid(format!("Deserialize error: {}", e)))?;
                 total_input = total_input
                     .checked_add(utxo.value)
                     .ok_or_else(|| TransactionError::Invalid("Input value overflow".to_string()))?;
@@ -132,8 +133,7 @@ where
             .map_err(|e| TransactionError::Invalid(e.to_string()))?;
         for (index, output) in tx.outputs.iter().enumerate() {
             let key = self.create_utxo_key(&tx_hash, index as u32);
-            let value = serde_json::to_vec(output)
-                .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+            let value = codec::to_bytes_canonical(output);
             state.insert(&key, &value)?;
         }
         Ok(())
@@ -205,10 +205,11 @@ where
     }
 
     fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError> {
-        serde_json::to_vec(tx).map_err(|e| TransactionError::Serialization(e.to_string()))
+        Ok(codec::to_bytes_canonical(tx))
     }
 
     fn deserialize_transaction(&self, data: &[u8]) -> Result<Self::Transaction, TransactionError> {
-        serde_json::from_slice(data).map_err(|e| TransactionError::Deserialization(e.to_string()))
+        codec::from_bytes_canonical(data)
+            .map_err(|e| TransactionError::Deserialization(e.to_string()))
     }
 }
