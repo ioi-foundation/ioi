@@ -231,3 +231,33 @@ where
         sleep(interval).await;
     }
 }
+
+/// Waits for oracle data for a specific request ID to be finalized and present in the state.
+pub async fn wait_for_oracle_data(
+    rpc_addr: &str,
+    request_id: u64,
+    expected_value: &[u8],
+    timeout: Duration,
+) -> Result<()> {
+    use depin_sdk_types::keys::ORACLE_DATA_PREFIX;
+
+    let key = [ORACLE_DATA_PREFIX, &request_id.to_le_bytes()].concat();
+
+    wait_for(
+        &format!("oracle data for request_id {} to be finalized", request_id),
+        Duration::from_millis(500),
+        timeout,
+        || async {
+            if let Some(bytes) = query_state_key(rpc_addr, &key).await? {
+                // The value stored is a StateEntry containing the final data.
+                let entry: StateEntry = codec::from_bytes_canonical(&bytes)
+                    .map_err(|e| anyhow!("StateEntry decode failed: {}", e))?;
+                if entry.value == expected_value {
+                    return Ok(Some(())); // Success!
+                }
+            }
+            Ok(None) // Continue polling
+        },
+    )
+    .await
+}

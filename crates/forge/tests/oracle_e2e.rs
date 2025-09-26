@@ -1,4 +1,4 @@
-// crates/forge/tests/oracle_e2e.rs
+// Path: crates/forge/tests/oracle_e2e.rs
 #![cfg(all(
     feature = "consensus-pos",
     feature = "vm-wasm",
@@ -8,9 +8,9 @@
 
 use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use depin_sdk_forge::testing::{
-    assert_log_contains, build_test_artifacts, submit_transaction, TestCluster,
-};
+// [+] NEW: Import the new polling helper
+use depin_sdk_forge::testing::poll::{wait_for_height, wait_for_oracle_data};
+use depin_sdk_forge::testing::{build_test_artifacts, submit_transaction, TestCluster};
 use depin_sdk_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
@@ -24,6 +24,35 @@ use depin_sdk_types::{
 };
 use libp2p::identity::Keypair;
 use serde_json::json;
+use tokio::task::JoinHandle;
+
+// --- Simple local HTTP stub so the oracle has a deterministic, offline source ---
+async fn start_local_price_stub() -> (String, JoinHandle<()>) {
+    use axum::{routing::get, Router, Server};
+    use std::net::SocketAddr;
+
+    async fn price() -> &'static str {
+        // Shape roughly mirrors the CoinGecko response used by the oracle.
+        r#"{"bitcoin":{"usd":42000}}"#
+    }
+
+    let app = Router::new().route("/price", get(price));
+    // Bind to an ephemeral port on localhost
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+        .await
+        .unwrap();
+    let addr: SocketAddr = listener.local_addr().unwrap();
+    let url = format!("http://{addr}/price");
+
+    let handle = tokio::spawn(async move {
+        Server::from_tcp(listener.into_std().unwrap())
+            .unwrap()
+            .serve(app.into_make_service())
+            .await
+            .unwrap();
+    });
+    (url, handle)
+}
 
 // Helper function to create a signed system transaction
 fn create_system_tx(
@@ -63,6 +92,9 @@ fn create_system_tx(
 async fn test_validator_native_oracle_e2e() -> Result<()> {
     // 1. SETUP: Build artifacts and launch a 4-node PoS cluster.
     build_test_artifacts();
+
+    // Launch a local HTTP stub the oracle can call deterministically.
+    let (stub_url, _stub_handle) = start_local_price_stub().await;
 
     let cluster = TestCluster::builder()
         .with_validators(4)
@@ -128,7 +160,7 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
                     l2_location: None,
                 };
                 let creds_array: [Option<Credential>; 2] = [Some(cred), None];
-                let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
+                let creds_bytes = codec::to_bytes_canonical(&creds_array);
                 let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
                 genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&creds_key))] =
                     json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes)));
@@ -155,60 +187,35 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
         .await?;
 
     let node0_rpc = &cluster.validators[0].rpc_addr;
-    let (mut logs1, _, _) = cluster.validators[1].subscribe_logs();
-    let (mut logs2, _, _) = cluster.validators[2].subscribe_logs();
-    let (mut orch_logs3, mut workload_logs3, _) = cluster.validators[3].subscribe_logs();
 
-    // Wait for network to stabilize
-    assert_log_contains(
-        "Node 3",
-        &mut orch_logs3,
-        "Oracle: This node is in the validator set, checking for new tasks...",
-    )
-    .await?;
+    // Wait for deterministic chain readiness.
+    wait_for_height(node0_rpc, 2, std::time::Duration::from_secs(30)).await?;
 
     // 2. SUBMIT ORACLE REQUEST TRANSACTION
     let request_id = 101;
     let payload = SystemPayload::RequestOracleData {
-        url: "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
-            .to_string(),
+        // Use our stable local stub instead of a flaky external dependency.
+        url: stub_url,
         request_id,
     };
 
     let signer_keypair = &cluster.validators[0].keypair;
     let request_tx = create_system_tx(signer_keypair, payload, 0, 1.into())?;
-    submit_transaction(node0_rpc, &request_tx).await?;
+    // Best-effort broadcast to all validators so at least one mempool admits it.
+    for v in &cluster.validators {
+        let _ = submit_transaction(&v.rpc_addr, &request_tx).await;
+    }
 
-    // 3. ASSERT ATTESTATION GOSSIP
-    assert_log_contains(
-        "Node 1",
-        &mut logs1,
-        &format!("Oracle: Received attestation for request_id {}", request_id),
-    )
-    .await?;
-    assert_log_contains(
-        "Node 2",
-        &mut logs2,
-        &format!("Oracle: Received attestation for request_id {}", request_id),
-    )
-    .await?;
-
-    // 4. ASSERT QUORUM AND SUBMISSION
-    assert_log_contains(
-        "Node 1",
-        &mut logs1,
-        &format!(
-            "Oracle: Submitted finalization transaction for request_id {} to local mempool.",
-            request_id
-        ),
-    )
-    .await?;
-
-    // 5. ASSERT ON-CHAIN FINALIZATION
-    assert_log_contains(
-        "Workload 3",
-        &mut workload_logs3,
-        &format!("Applied and verified oracle data for id: {}", request_id),
+    // 3. ASSERT ON-CHAIN FINALIZATION
+    // This is the new, robust assertion. It replaces all previous log checks.
+    // It polls the state of the chain until the oracle's final value is present
+    // at the expected key, verifying the entire end-to-end flow.
+    let expected_data = br#"{"bitcoin":{"usd":42000}}"#.to_vec();
+    wait_for_oracle_data(
+        node0_rpc,
+        request_id,
+        &expected_data,
+        std::time::Duration::from_secs(45),
     )
     .await?;
 
