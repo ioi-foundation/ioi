@@ -206,7 +206,11 @@ where
                             new_next.effective_from_height = target_activation;
                             sets.next = Some(new_next);
                         }
-                        let next_vs = sets.next.as_mut().unwrap();
+                        let next_vs = sets.next.as_mut().ok_or_else(|| {
+                            TransactionError::Invalid(
+                                "Could not access pending validator set for staking".to_string(),
+                            )
+                        })?;
 
                         if let Some(validator) = next_vs
                             .validators
@@ -476,7 +480,7 @@ where
                         proposal_id,
                         option,
                     } => {
-                        // FIX: Retrieve the registered GovernanceModule instance from the service directory
+                        // Retrieve the registered GovernanceModule instance from the service directory
                         // instead of creating a new default one. This ensures the vote is recorded
                         // in the same service instance that will perform the tallying in OnEndBlock.
                         let governance_module =
@@ -571,6 +575,7 @@ where
     }
 
     fn deserialize_transaction(&self, data: &[u8]) -> Result<Self::Transaction, TransactionError> {
-        codec::from_bytes_canonical(data).map_err(|e| TransactionError::Deserialization(e.to_string()))
+        codec::from_bytes_canonical(data)
+            .map_err(|e| TransactionError::Deserialization(e.to_string()))
     }
 }

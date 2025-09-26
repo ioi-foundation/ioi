@@ -5,7 +5,7 @@ use depin_sdk_api::chain::{AppChain, ChainView, PreparedBlock, StakeAmount, Stat
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::consensus::PenaltyMechanism;
 use depin_sdk_api::services::access::{Service, ServiceDirectory};
-use depin_sdk_api::services::UpgradableService;
+use depin_sdk_api::services::{ServiceType, UpgradableService};
 use depin_sdk_api::state::{PinGuard, StateAccessor, StateManager, StateOverlay};
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
@@ -20,7 +20,7 @@ use depin_sdk_types::app::{
 use depin_sdk_types::codec;
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::{BlockError, ChainError, CoreError, StateError, TransactionError};
-use depin_sdk_types::keys::{STATUS_KEY, VALIDATOR_SET_KEY};
+use depin_sdk_types::keys::{active_service_key, STATUS_KEY, VALIDATOR_SET_KEY};
 use libp2p::identity::Keypair;
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -214,6 +214,19 @@ where
                     event = "status_init",
                     "No existing chain status found. Initializing and saving genesis status."
                 );
+
+                // Persist initial services in the canonical, queryable state.
+                for service in self.service_manager.all_services() {
+                    let type_str = match service.service_type() {
+                        ServiceType::Custom(s) => s.clone(),
+                        st => format!("{:?}", st),
+                    };
+                    // Write the canonical "active" key into the main state tree.
+                    let key = active_service_key(&type_str);
+                    state.insert(&key, &[])?; // Value can be empty; existence is enough.
+                    tracing::info!(target: "chain", "Registered initial service {:?} as active in genesis state.", service.service_type());
+                }
+
                 // The first commit is for height 0 (genesis).
                 state.commit_version(0)?;
                 tracing::debug!(target: "chain", "[Chain] Committed full genesis state.");
@@ -497,7 +510,6 @@ where
         }
 
         let state_changes = {
-            // [+] FIX: Run the OnEndBlock hooks as part of the simulation in `prepare_block`.
             let _pin_guard = PinGuard::new(workload.pins.clone(), self.state.status.height).await;
             let snapshot_state = {
                 let state_tree_arc = workload.state_tree();
@@ -506,24 +518,21 @@ where
             };
             let mut overlay = StateOverlay::new(&snapshot_state);
 
-            // First, process all transactions
             for tx in &block.transactions {
                 self.process_transaction(tx, &mut overlay, block.header.height)
                     .await?;
             }
 
-            // Second, process the OnEndBlock hooks against the same overlay
             let end_block_ctx = TxContext {
                 block_height: block.header.height,
                 chain_id: self.state.chain_id,
                 services: &self.services,
-                simulation: true, // This is a simulation phase
+                simulation: true,
             };
             for service in self.services.services_in_deterministic_order() {
                 if let Some(hook) = service.as_on_end_block() {
-                    // FIX: The error type needs to be mapped correctly.
                     hook.on_end_block(&mut overlay, &end_block_ctx)
-                        .map_err(|e| ChainError::State(e))?;
+                        .map_err(ChainError::State)?;
                 }
             }
 
@@ -579,7 +588,6 @@ where
                         if block.header.height >= next_vs.effective_from_height {
                             tracing::info!(
                                 target: "chain",
-                                // FIX: Use a more specific log event for clarity
                                 event = "validator_set_promotion",
                                 height = block.header.height,
                                 "Promoting validator set"
@@ -614,7 +622,6 @@ where
                 }
             }
 
-            // This logic is now correctly handled by the simulation in `prepare_block`.
             let upgrade_key = [
                 depin_sdk_types::keys::UPGRADE_PENDING_PREFIX,
                 &block.header.height.to_le_bytes(),
@@ -622,8 +629,6 @@ where
             .concat();
 
             if let Some(upgrade_bytes) = state.get(&upgrade_key)? {
-                // FIX: Use the canonical SCALE codec to deserialize, matching the write path.
-                // Also, handle the Result safely to prevent panics on deserialization failure.
                 let upgrades: Vec<(String, Vec<u8>)> =
                     depin_sdk_types::codec::from_bytes_canonical(&upgrade_bytes)
                         .unwrap_or_else(|_| Default::default());
@@ -631,7 +636,11 @@ where
                 for (service_type_str, wasm) in upgrades {
                     let service_type =
                         depin_sdk_api::services::ServiceType::Custom(service_type_str);
-                    match self.service_manager.execute_upgrade(&service_type, &wasm) {
+
+                    match self
+                        .service_manager
+                        .execute_upgrade(&service_type, &wasm, &mut *state)
+                    {
                         Ok(_) => applied_count += 1,
                         Err(e) => {
                             tracing::error!(
@@ -666,7 +675,6 @@ where
             let status_bytes = depin_sdk_types::codec::to_bytes_canonical(&self.state.status);
             state.insert(STATUS_KEY, &status_bytes)?;
 
-            // The new trait hook handles dispatching to the correct persistence logic.
             state.commit_version_persist(block.header.height, &*workload.store)?;
 
             let final_root_bytes = state.root_commitment().as_ref().to_vec();

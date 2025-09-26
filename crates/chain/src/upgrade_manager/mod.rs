@@ -1,7 +1,9 @@
 // Path: crates/chain/src/upgrade_manager/mod.rs
 
 use depin_sdk_api::services::{ServiceType, UpgradableService};
+use depin_sdk_api::state::StateAccessor;
 use depin_sdk_types::error::CoreError;
+use depin_sdk_types::keys::active_service_key;
 use std::any::Any;
 use std::collections::HashMap;
 use std::fmt;
@@ -48,13 +50,10 @@ impl ModuleUpgradeManager {
         self.active_services.get(service_type).cloned()
     }
 
-    /// Returns a list of all currently active services.
-    /// This is used by the `Chain` to rebuild its `ServiceDirectory` after an upgrade.
     pub fn all_services(&self) -> Vec<Arc<dyn UpgradableService>> {
         self.active_services.values().cloned().collect()
     }
 
-    /// Gets a service and attempts to downcast it to a concrete type reference.
     pub fn get_service_as<T: Any>(&self) -> Option<&T> {
         for service in self.active_services.values() {
             if let Some(downcasted) = service.as_any().downcast_ref::<T>() {
@@ -77,14 +76,18 @@ impl ModuleUpgradeManager {
         Ok(())
     }
 
-    pub fn apply_upgrades_at_height(&mut self, height: u64) -> Result<usize, CoreError> {
+    pub fn apply_upgrades_at_height(
+        &mut self,
+        height: u64,
+        state: &mut dyn StateAccessor,
+    ) -> Result<usize, CoreError> {
         let upgrades = match self.scheduled_upgrades.remove(&height) {
             Some(upgrades) => upgrades,
             None => return Ok(0),
         };
         let mut applied_count = 0;
         for (service_type, upgrade_data) in upgrades {
-            match self.execute_upgrade(&service_type, &upgrade_data) {
+            match self.execute_upgrade(&service_type, &upgrade_data, state) {
                 Ok(()) => {
                     applied_count += 1;
                     if let Some(history) = self.upgrade_history.get_mut(&service_type) {
@@ -103,45 +106,46 @@ impl ModuleUpgradeManager {
         &mut self,
         service_type: &ServiceType,
         new_module_wasm: &[u8],
+        state: &mut dyn StateAccessor,
     ) -> Result<(), CoreError> {
         if !self.active_services.contains_key(service_type) {
+            log::info!("No active service for {:?}. Installing new.", service_type);
+            let new_service_arc = (self.service_factory)(new_module_wasm)?;
+            let type_str = match service_type {
+                ServiceType::Custom(s) => s.clone(),
+                st => format!("{:?}", st),
+            };
+            self.register_service(new_service_arc);
+            // Mark the new service as active in the canonical state tree.
+            state
+                .insert(&active_service_key(&type_str), &[])
+                .map_err(|e| CoreError::Custom(e.to_string()))?;
             log::info!(
-                "No active service found for {:?}. Treating as new installation.",
+                "Successfully installed and registered new service {:?}",
                 service_type
             );
-            let new_service_arc = (self.service_factory)(new_module_wasm)?;
-            self.register_service(new_service_arc);
-            log::info!("Successfully installed new service {:?}", service_type);
             return Ok(());
         }
 
         let mut active_service_arc = self.active_services.remove(service_type).unwrap();
 
         let upgrade_result = (|| {
-            let active_service = Arc::get_mut(&mut active_service_arc).ok_or_else(|| {
-                CoreError::UpgradeError(
-                    "Cannot upgrade service: it is currently in use elsewhere.".to_string(),
-                )
-            })?;
+            let active_service = Arc::get_mut(&mut active_service_arc)
+                .ok_or_else(|| CoreError::UpgradeError("Service in use".to_string()))?;
             let snapshot = active_service
                 .prepare_upgrade(new_module_wasm)
                 .map_err(|e| CoreError::UpgradeError(e.to_string()))?;
             log::info!(
-                "Prepared upgrade for {:?}, state snapshot size: {}",
+                "Prepared upgrade for {:?}, snapshot size: {}",
                 service_type,
                 snapshot.len()
             );
 
             let mut new_service_arc = (self.service_factory)(new_module_wasm)?;
-            log::info!(
-                "Successfully instantiated new service module for {:?}",
-                service_type
-            );
+            log::info!("Instantiated new service module for {:?}", service_type);
 
             let new_service = Arc::get_mut(&mut new_service_arc).ok_or_else(|| {
-                CoreError::UpgradeError(
-                    "Failed to get mutable reference to new service".to_string(),
-                )
+                CoreError::UpgradeError("Failed to get mut ref to new service".to_string())
             })?;
             new_service
                 .complete_upgrade(&snapshot)
@@ -159,7 +163,7 @@ impl ModuleUpgradeManager {
             }
             Err(e) => {
                 log::error!(
-                    "Upgrade for {:?} failed: {}. Restoring original service.",
+                    "Upgrade for {:?} failed: {}. Restoring original.",
                     service_type,
                     e
                 );

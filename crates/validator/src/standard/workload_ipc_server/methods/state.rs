@@ -210,7 +210,7 @@ where
                 "[WorkloadIPC] Proof cache hit for root {}",
                 hex::encode(&params.root.0)
             );
-            // FIX: Use the canonical SCALE codec for serialization
+            // Use the canonical SCALE codec for serialization
             let proof_bytes = codec::to_bytes_canonical(proof);
 
             return Ok(QueryStateAtResponse {
@@ -236,7 +236,7 @@ where
             start_time.elapsed()
         );
 
-        // FIX: Use the canonical SCALE codec for serialization
+        // Use the canonical SCALE codec for serialization
         let proof_bytes = codec::to_bytes_canonical(&proof);
 
         let mut cache = ctx.workload.proof_cache.lock().await;
