@@ -23,7 +23,13 @@ pub fn load_state_from_genesis_file<S: StateManager + ?Sized>(
         .get("genesis_state")
         .and_then(|s| s.as_object())
     {
-        for (key_str, value) in genesis_state {
+        // Collect keys and sort them to ensure a deterministic insertion order,
+        // which is critical for achieving a consistent genesis state root hash.
+        let mut sorted_keys: Vec<_> = genesis_state.keys().collect();
+        sorted_keys.sort();
+
+        for key_str in sorted_keys {
+            let value = &genesis_state[key_str];
             let key_bytes = if let Some(stripped) = key_str.strip_prefix("b64:") {
                 BASE64_STANDARD.decode(stripped)?
             } else {

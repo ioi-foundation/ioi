@@ -55,6 +55,7 @@ dcrypt = { workspace = true }
 depin-sdk-services = { path = "../services" }
 depin-sdk-chain = { path = "../chain" }
 base64 = { workspace = true }
+once_cell = { workspace = true }
 
 # The library exposes helpers, the binary provides the CLI
 [lib]

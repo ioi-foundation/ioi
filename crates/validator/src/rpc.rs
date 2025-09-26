@@ -3,7 +3,7 @@
 
 use crate::config::OrchestrationConfig;
 use crate::metrics::rpc_metrics as metrics;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use axum::{
     body::Body,
     error_handling::HandleErrorLayer,
