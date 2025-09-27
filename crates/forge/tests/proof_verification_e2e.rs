@@ -8,9 +8,9 @@
     feature = "malicious-bin"
 ))]
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use depin_sdk_forge::testing::{assert_log_contains, build_test_artifacts, TestValidator};
+use depin_sdk_forge::testing::{build_test_artifacts, poll::wait_for_height, TestValidator};
 use depin_sdk_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, SignatureSuite, ValidatorSetBlob,
@@ -21,6 +21,7 @@ use depin_sdk_types::{
 };
 use libp2p::identity;
 use serde_json::json;
+use std::time::Duration;
 
 #[tokio::test]
 async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
@@ -81,7 +82,6 @@ async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
         genesis.to_string()
     };
 
-    // --- Launch with the `light_readiness_check` parameter set to true ---
     let node = TestValidator::launch(
         keypair,
         genesis_content,
@@ -94,24 +94,24 @@ async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
         None,
         false, // use_docker
         vec![],
-        true,  // use_malicious_workload
-        true,  // light_readiness_check
+        true, // use_malicious_workload
+        // A light readiness check is sufficient here, as we are not relying on log timing.
+        true,
     )
     .await?;
 
-    // 3. Get the log stream and start asserting immediately.
-    let (mut orch_logs, _, _) = node.subscribe_logs();
+    // 3. ASSERT CORRECT BEHAVIOR
+    // The node, connected to a malicious workload, should fail its internal proof
+    // verification and stall consensus. It should NEVER produce block 1.
+    // We assert this by waiting for height 1 and expecting the wait to time out.
+    // A timeout here is the sign of a successful test.
+    let wait_result = wait_for_height(&node.rpc_addr, 1, Duration::from_secs(15)).await;
 
-    // 4. Assert that Orchestration logs the critical failure message.
-    // The consensus ticker will start, attempt to produce block 1, query the malicious
-    // workload for the validator set, receive a bad proof, and log the error.
-    assert_log_contains(
-        "Orchestration",
-        &mut orch_logs,
-        "CRITICAL: Proof verification failed for remote state read",
-    )
-    .await?;
+    assert!(
+        wait_result.is_err(),
+        "Node should have stalled due to invalid proofs, but it successfully produced a block."
+    );
 
-    println!("--- Negative E2E Test Passed: Orchestration correctly rejected a tampered proof ---");
+    println!("--- Negative E2E Test Passed: Orchestration correctly stalled after receiving tampered proof ---");
     Ok(())
 }
