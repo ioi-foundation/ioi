@@ -45,7 +45,11 @@ pub async fn handle_newly_processed_block<CS, ST, CE, V>(
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
     let pending_requests = match context
-        .workload_client
+        .view_resolver
+        .as_any()
+        .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
+        .expect("DefaultViewResolver downcast failed")
+        .workload_client()
         .prefix_scan(ORACLE_PENDING_REQUEST_PREFIX)
         .await
     {
@@ -63,7 +67,15 @@ pub async fn handle_newly_processed_block<CS, ST, CE, V>(
         }
     };
 
-    let validator_stakes = match context.workload_client.get_staked_validators().await {
+    let validator_stakes = match context
+        .view_resolver
+        .as_any()
+        .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
+        .expect("DefaultViewResolver downcast failed")
+        .workload_client()
+        .get_staked_validators()
+        .await
+    {
         Ok(vs) => vs,
         Err(e) => {
             log::error!("Oracle: Could not get validator stakes: {}", e);
@@ -245,7 +257,15 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE, V>(
         );
     }
 
-    let validator_stakes = match context.workload_client.get_staked_validators().await {
+    let validator_stakes = match context
+        .view_resolver
+        .as_any()
+        .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
+        .expect("DefaultViewResolver downcast failed")
+        .workload_client()
+        .get_staked_validators()
+        .await
+    {
         Ok(vs) => vs,
         Err(e) => {
             log::error!(
@@ -328,7 +348,15 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
         None => return,
     };
 
-    let validator_stakes = match context.workload_client.get_staked_validators().await {
+    let validator_stakes = match context
+        .view_resolver
+        .as_any()
+        .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
+        .expect("DefaultViewResolver downcast failed")
+        .workload_client()
+        .get_staked_validators()
+        .await
+    {
         Ok(vs) => vs,
         Err(_) => return,
     };
@@ -421,7 +449,15 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
         ]
         .concat();
 
-        let current_nonce = match context.workload_client.query_raw_state(&nonce_key).await {
+        let current_nonce = match context
+            .view_resolver
+            .as_any()
+            .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
+            .expect("DefaultViewResolver downcast failed")
+            .workload_client()
+            .query_raw_state(&nonce_key)
+            .await
+        {
             Ok(Some(bytes)) => bytes.try_into().ok().map(u64::from_le_bytes).unwrap_or(0),
             Ok(None) => 0, // Key not present means nonce is 0, which is correct.
             Err(e) => {

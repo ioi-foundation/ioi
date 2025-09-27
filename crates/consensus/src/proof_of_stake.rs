@@ -1,7 +1,7 @@
 // Path: crates/consensus/src/proof_of_stake.rs
 use crate::{ConsensusDecision, ConsensusEngine, PenaltyMechanism};
 use async_trait::async_trait;
-use depin_sdk_api::chain::{ChainView, StateView};
+use depin_sdk_api::chain::{AnchoredStateView, ChainView};
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::consensus::ChainStateReader;
 use depin_sdk_api::state::{StateAccessor, StateManager};
@@ -11,16 +11,12 @@ use depin_sdk_types::app::{
     ValidatorSetsV1,
 };
 use depin_sdk_types::error::{ConsensusError, StateError, TransactionError};
-use depin_sdk_types::keys::{STATUS_KEY, VALIDATOR_SET_KEY}; // Import STATUS_KEY
+use depin_sdk_types::keys::{STATUS_KEY, VALIDATOR_SET_KEY};
 use std::collections::HashSet;
 
-// Re-use helpers from PoA
 use crate::proof_of_authority::{hash_key, verify_signature};
-
 use hex;
 
-/// A pure helper function to select the correct validator set for a given height.
-/// It never mutates state.
 fn effective_set_for_height(sets: &ValidatorSetsV1, h: u64) -> &ValidatorSetV1 {
     if let Some(next) = &sets.next {
         if h >= next.effective_from_height && !next.validators.is_empty() && next.total_weight > 0 {
@@ -30,7 +26,6 @@ fn effective_set_for_height(sets: &ValidatorSetsV1, h: u64) -> &ValidatorSetV1 {
     &sets.current
 }
 
-// [+] DEBUGGING: Add a helper to log validator set details.
 fn log_vs(label: &str, h: u64, sets: &ValidatorSetsV1) {
     let log_one = |name: &str, vs: &ValidatorSetV1| {
         log::info!(
@@ -69,19 +64,14 @@ impl ProofOfStakeEngine {
     pub fn new() -> Self {
         Self {}
     }
-
-    /// Selects a deterministic leader for a given block height based on stake weight.
     fn select_leader(&self, height: u64, vs: &ValidatorSetV1) -> Option<AccountId> {
         if vs.validators.is_empty() || vs.total_weight == 0 {
             return None;
         }
-
         let seed = height.to_le_bytes();
         let hash = sha256(seed);
         let winning_ticket = u128::from_le_bytes(hash[0..16].try_into().unwrap()) % vs.total_weight;
-
         let mut cumulative_weight: u128 = 0;
-        // The validator set is guaranteed to be sorted by account_id, ensuring determinism.
         for validator in &vs.validators {
             cumulative_weight += validator.weight;
             if winning_ticket < cumulative_weight {
@@ -99,16 +89,13 @@ impl PenaltyMechanism for ProofOfStakeEngine {
         state: &mut dyn StateAccessor,
         report: &FailureReport,
     ) -> Result<(), TransactionError> {
-        const PENALTY_PERCENTAGE: u128 = 10; // Use u128 for calculations
-
+        const PENALTY_PERCENTAGE: u128 = 10;
         let blob_bytes = state.get(VALIDATOR_SET_KEY)?.ok_or_else(|| {
             TransactionError::State(StateError::KeyNotFound("ValidatorSet not found".into()))
         })?;
-
         let mut sets = read_validator_sets(&blob_bytes)?;
-        let mut vs = sets.current; // Penalties apply to the current set
+        let mut vs = sets.current;
         let mut validator_found = false;
-
         for validator in &mut vs.validators {
             if validator.account_id == report.offender {
                 let slash_amount = (validator.weight * PENALTY_PERCENTAGE) / 100;
@@ -117,22 +104,17 @@ impl PenaltyMechanism for ProofOfStakeEngine {
                 break;
             }
         }
-
         if !validator_found {
             return Err(TransactionError::Invalid(format!(
                 "Unknown validator to slash: {:?}",
                 report.offender
             )));
         }
-
-        // FIX: Re-sort the validator set to maintain deterministic order after modification.
-        // Failure to do so can cause a consensus fork.
         vs.validators
             .sort_by(|a, b| a.account_id.cmp(&b.account_id));
         vs.total_weight = vs.validators.iter().map(|v| v.weight).sum();
         sets.current = vs;
         state.insert(VALIDATOR_SET_KEY, &write_validator_sets(&sets))?;
-
         Ok(())
     }
 }
@@ -143,7 +125,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
         &self,
         _state_reader: &dyn ChainStateReader,
     ) -> Result<Vec<Vec<u8>>, ConsensusError> {
-        // Placeholder, no longer used.
         Ok(vec![])
     }
 
@@ -152,21 +133,20 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
         our_account_id: &AccountId,
         height: u64,
         _view: u64,
-        parent_view: &dyn StateView,
+        parent_view: &dyn AnchoredStateView, // REFACTORED: Use anchored view
         _known_peers: &HashSet<libp2p::PeerId>,
     ) -> ConsensusDecision<T> {
         log::info!(
-            "[PoS Decide H={}] Node 0x{} starting consensus tick. Parent anchor: 0x{}",
+            "[PoS Decide H={}] Node 0x{} starting consensus tick. Parent root: 0x{}",
             height,
-            hex::encode(&our_account_id.as_ref()[..4]), // Log a short prefix of our ID
-            hex::encode(parent_view.state_anchor().as_ref())
+            hex::encode(&our_account_id.as_ref()[..4]),
+            hex::encode(parent_view.state_root())
         );
-
         let status_at_parent = parent_view.get(STATUS_KEY).await;
         log::info!(
-            "[PoS Decide H={}] Probe STATUS_KEY at parent anchor {} -> ok={} present={}",
+            "[PoS Decide H={}] Probe STATUS_KEY at parent root {} -> ok={} present={}",
             height,
-            hex::encode(parent_view.state_anchor().as_ref()),
+            hex::encode(parent_view.state_root()),
             status_at_parent.is_ok(),
             status_at_parent
                 .as_ref()
@@ -174,13 +154,11 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
                 .and_then(|opt| opt.as_ref())
                 .is_some()
         );
-
         let maybe_vs_bytes = parent_view.get(VALIDATOR_SET_KEY).await;
-
         let vs_bytes = match maybe_vs_bytes {
             Ok(Some(bytes)) => {
                 log::info!(
-                    "[PoS Decide H={}] Successfully read validator set blob ({} bytes) via StateView.",
+                    "[PoS Decide H={}] Successfully read validator set blob ({} bytes) via AnchoredStateView.",
                     height,
                     bytes.len()
                 );
@@ -188,22 +166,21 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             }
             Ok(None) => {
                 log::error!(
-                    "[PoS Decide H={}] StateView reported None for VALIDATOR_SET_KEY at parent anchor {}. Stalling.",
+                    "[PoS Decide H={}] AnchoredStateView reported None for VALIDATOR_SET_KEY at parent root {}. Stalling.",
                     height,
-                    hex::encode(parent_view.state_anchor().as_ref())
+                    hex::encode(parent_view.state_root())
                 );
                 return ConsensusDecision::Stall;
             }
             Err(e) => {
                 log::error!(
-                    "[PoS Decide H={}] StateView.get(VALIDATOR_SET_KEY) error: {}. Stalling.",
+                    "[PoS Decide H={}] AnchoredStateView.get(VALIDATOR_SET_KEY) error: {}. Stalling.",
                     height,
                     e
                 );
                 return ConsensusDecision::Stall;
             }
         };
-
         let sets: ValidatorSetsV1 = match read_validator_sets(&vs_bytes) {
             Ok(s) => s,
             Err(e) => {
@@ -215,17 +192,14 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
                 return ConsensusDecision::Stall;
             }
         };
-        // [+] DEBUGGING: Log the state of the validator set from the parent view.
         log_vs("parent_vs", height, &sets);
         let vs = effective_set_for_height(&sets, height);
-
         log::debug!(
             "[PoS Decide H={}] Using effective validator set with {} members and total weight {}",
             height,
             vs.validators.len(),
             vs.total_weight
         );
-
         if vs.validators.is_empty() {
             log::warn!(
                 "[PoS Decide H={}] Validator set is empty. Stalling.",
@@ -233,7 +207,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             );
             return ConsensusDecision::Stall;
         }
-
         if let Some(leader_account_id) = self.select_leader(height, vs) {
             log::info!(
                 "[PoS Decide H={}] Selected leader: 0x{}. Our ID: 0x{}",
@@ -274,24 +247,25 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
     {
         let header = &block.header;
         let producer_short_id = hex::encode(&header.producer_account_id.as_ref()[..4]);
-
         log::info!(
             "[PoS Verify H={}] Received block proposal from 0x{}",
             header.height,
             producer_short_id
         );
-
-        let parent_state_anchor = header
-            .parent_state_root
-            .to_anchor()
-            .map_err(|e| ConsensusError::StateAccess(StateError::InvalidValue(e.to_string())))?;
+        let parent_state_ref = depin_sdk_api::chain::StateRef {
+            height: header.height - 1,
+            state_root: header.parent_state_root.as_ref().try_into().map_err(|_| {
+                ConsensusError::BlockVerificationFailed("Invalid parent state root".into())
+            })?,
+            block_hash: header.parent_hash,
+        };
         log::debug!(
-            "[PoS Verify H={}] Obtaining parent view at anchor 0x{}",
+            "[PoS Verify H={}] Obtaining parent view at ref {:?}",
             header.height,
-            hex::encode(parent_state_anchor.as_ref())
+            parent_state_ref
         );
         let parent_view = chain_view
-            .view_at(&parent_state_anchor)
+            .view_at(&parent_state_ref)
             .await
             .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?;
 
@@ -313,7 +287,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             "[PoS Verify H={}] Validator set read successfully.",
             header.height
         );
-
         let v_entry = vs
             .validators
             .iter()
@@ -326,9 +299,7 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             header.height,
             producer_short_id
         );
-
         let active_key = &v_entry.consensus_key;
-
         log::info!(
             "[PoS Verify H={}] Producer acct=0x{} header.suite={:?} state.suite={:?} since={} hash.match.header={} hash.match.state={}",
             header.height,
@@ -339,7 +310,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             (hash_key(header.producer_key_suite, &header.producer_pubkey).map_or(false, |h| h == header.producer_pubkey_hash)),
             (active_key.pubkey_hash == hash_key(active_key.suite, &header.producer_pubkey).unwrap_or_default()),
         );
-
         if header.height < active_key.since_height {
             return Err(ConsensusError::BlockVerificationFailed(
                 "Key not yet active at this height".into(),
@@ -350,10 +320,8 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
                 "Header key suite does not match active key".into(),
             ));
         }
-
         let derived_hash = hash_key(active_key.suite, &header.producer_pubkey)
             .map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))?;
-
         if header.producer_pubkey_hash != derived_hash {
             return Err(ConsensusError::BlockVerificationFailed(
                 "Header public key hash mismatch".into(),
@@ -364,7 +332,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
                 "State active key hash mismatch".into(),
             ));
         }
-
         let preimage = header.to_preimage_for_signing();
         verify_signature(
             &preimage,
@@ -376,7 +343,6 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             "[PoS Verify H={}] Block signature verified successfully.",
             header.height
         );
-
         let expected_leader = self.select_leader(header.height, vs).ok_or_else(|| {
             ConsensusError::BlockVerificationFailed("Leader selection failed".to_string())
         })?;
@@ -385,14 +351,12 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             header.height,
             hex::encode(expected_leader.as_ref())
         );
-
         if header.producer_account_id != expected_leader {
             return Err(ConsensusError::InvalidLeader {
                 expected: expected_leader,
                 got: header.producer_account_id,
             });
         }
-
         log::info!(
             "[PoS Verify H={}] Block proposal from valid leader 0x{} verified.",
             header.height,

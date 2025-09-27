@@ -4,76 +4,110 @@
 use crate::commitment::CommitmentScheme;
 use crate::consensus::PenaltyMechanism;
 use crate::state::StateChangeSet;
-use crate::state::StateManager;
+use crate::state::{StateManager, Verifier};
 use crate::transaction::TransactionModel;
 use crate::validator::WorkloadContainer;
 use async_trait::async_trait;
-use depin_sdk_types::app::{
-    AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction, StateAnchor, StateRoot,
-};
+use depin_sdk_types::app::{Block, ChainStatus, ChainTransaction, StateRoot};
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::ChainError;
 use libp2p::identity::Keypair;
+use std::any::Any;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
+use std::sync::Arc;
 
-/// A read-only view of the world state anchored to a specific state anchor.
-#[async_trait]
-pub trait StateView: Send + Sync {
-    /// Returns the state anchor this view is anchored to.
-    fn state_anchor(&self) -> &StateAnchor;
-    /// [DEPRECATED] Returns the legacy, flat list of validator AccountIds.
-    #[deprecated(note = "Use get_validator_set_blob_at for a complete, weighted view")]
-    async fn validator_set_legacy(&self) -> Result<Vec<AccountId>, ChainError>;
-    /// Gets a value by key from the state version this view is anchored to.
-    async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, ChainError>;
-    /// Returns the active consensus key record for a given AccountId.
-    async fn active_consensus_key(&self, acct: &AccountId) -> Option<ActiveKeyRecord>;
+/// Content-addressed handle to a specific, historical state.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct StateRef {
+    /// The block height this state corresponds to.
+    pub height: u64,
+    /// The cryptographic root hash of this state.
+    pub state_root: [u8; 32],
+    /// The hash of the block that produced this state.
+    pub block_hash: [u8; 32],
 }
 
-/// The public key of a validator, represented as a Base58 string.
-pub type PublicKey = String;
-/// The amount of stake a validator has.
-pub type StakeAmount = u64;
+/// A base trait for a read-only, proof-verifying view of the world state.
+#[async_trait]
+pub trait RemoteStateView: Send + Sync {
+    /// Fetches a value by key from this state view.
+    async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, ChainError>;
+    /// Returns the block height of this state view.
+    fn height(&self) -> u64;
+    /// Returns the root hash of this state view.
+    fn state_root(&self) -> [u8; 32];
+}
+
+/// A marker trait for an immutable, anchored snapshot of the state.
+pub trait AnchoredStateView: RemoteStateView {}
+
+/// A marker trait for a read-through view that follows the chain's head.
+pub trait LiveStateView: RemoteStateView {
+    /// Returns the block hash of the current chain head.
+    fn head_hash(&self) -> [u8; 32];
+}
+
+/// A handle to either an anchored or a live state view.
+pub enum ViewHandle {
+    /// A handle to a specific, historical state view.
+    Anchored(Arc<dyn AnchoredStateView>),
+    /// A handle to the current, live state view.
+    Live(Arc<dyn LiveStateView>),
+}
+
+/// A trait for a component that can resolve state handles into concrete, usable views.
+#[async_trait]
+pub trait ViewResolver: Send + Sync {
+    /// The concrete `Verifier` type used to check proofs for this state.
+    type Verifier: Verifier;
+    /// Resolves a `StateRef` into a usable `AnchoredStateView`.
+    async fn resolve_anchored(
+        &self,
+        r: &StateRef,
+    ) -> Result<Arc<dyn AnchoredStateView>, ChainError>;
+    /// Resolves the current chain head into a `LiveStateView`.
+    async fn resolve_live(&self) -> Result<Arc<dyn LiveStateView>, ChainError>;
+    /// Fetches the state root of the genesis block.
+    async fn genesis_root(&self) -> Result<[u8; 32], ChainError>;
+    /// Returns the workload client as a type-erased `Any` trait object.
+    /// The caller is responsible for downcasting it to the concrete `WorkloadClient` type.
+    /// This approach avoids a circular dependency between the `api` and `client` crates.
+    fn workload_client(&self) -> &dyn Any;
+    /// Provides access to the concrete type for downcasting.
+    fn as_any(&self) -> &dyn Any;
+}
 
 /// A trait providing a read-only "view" of chain-level context that transaction models may need.
-///
-/// This acts as a facade, decoupling the `TransactionModel` from the concrete `AppChain` implementation.
-/// It provides access to state-dependent data (like validator sets) and core mechanisms (like penalties)
-/// without exposing mutable state or the full `AppChain` interface.
 #[async_trait]
 pub trait ChainView<CS, ST>: Debug + Send + Sync
 where
     CS: CommitmentScheme,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
 {
-    /// Obtain a read-only view anchored at a specific state anchor.
-    async fn view_at(&self, anchor: &StateAnchor) -> Result<Box<dyn StateView>, ChainError>;
-
-    /// Provides access to the consensus-specific penalty mechanism.
-    /// This now returns a Box<dyn Trait> to be object-safe.
+    /// Creates a read-only, anchored view of the state at a specific historical point.
+    async fn view_at(&self, state_ref: &StateRef)
+        -> Result<Arc<dyn AnchoredStateView>, ChainError>;
+    /// Gets the penalty mechanism specific to the chain's consensus rules.
     fn get_penalty_mechanism(&self) -> Box<dyn PenaltyMechanism + Send + Sync + '_>;
-
-    /// Returns the consensus type of the chain.
+    /// Returns the type of consensus algorithm the chain is running.
     fn consensus_type(&self) -> ConsensusType;
-
-    /// Provides generic access to the validator's workload container for VM execution.
+    /// Provides read-only access to the workload container.
     fn workload_container(&self) -> &WorkloadContainer<ST>;
 }
 
 /// An intermediate artifact representing a block that has been fully processed and is ready for commitment.
-/// This structure is the output of the `prepare_block` phase and the input to the `commit_block` phase.
 #[derive(Debug)]
 pub struct PreparedBlock {
-    /// The block, potentially modified with coinbase transactions, ready for its header to be finalized.
+    /// The full block, including header and transactions.
     pub block: Block<ChainTransaction>,
-    /// The complete, ordered set of state changes to be applied to the state tree.
+    /// The complete set of state modifications derived from executing the block's transactions.
     pub state_changes: StateChangeSet,
-    /// The parent state root this block was prepared against, for TOCTOU protection.
+    /// The state root of the parent block, for validation during commit.
     pub parent_state_root: StateRoot,
-    /// The Merkle root of the transactions processed, for TOCTOU protection.
+    /// The Merkle root of the transactions in the block.
     pub transactions_root: Vec<u8>,
-    /// The hash of the validator set used during preparation, for TOCTOU protection.
+    /// A hash of the validator set that was active for this block.
     pub validator_set_hash: [u8; 32],
 }
 
@@ -89,33 +123,28 @@ where
         + Sync
         + 'static,
 {
-    /// Returns the current status of the chain.
+    /// Gets a read-only reference to the current chain status.
     fn status(&self) -> &ChainStatus;
-    /// Returns a mutable reference to the status of the chain.
+    /// Gets a mutable reference to the current chain status.
     fn status_mut(&mut self) -> &mut ChainStatus;
-    /// Returns a reference to the transaction model used by the chain.
+    /// Gets a reference to the chain's transaction model.
     fn transaction_model(&self) -> &TM;
 
-    /// Phase 1: Prepares a block for commitment.
-    /// This is a read-only operation on `self` and performs all expensive, async work,
-    /// including transaction simulation and I/O.
+    /// Executes the transactions in a block against a state overlay to produce a `PreparedBlock`.
     async fn prepare_block(
         &self,
         block: Block<ChainTransaction>,
         workload: &WorkloadContainer<ST>,
     ) -> Result<PreparedBlock, ChainError>;
 
-    /// Phase 2: Commits a prepared block to the state.
-    /// This is a write operation on `self` and should be as fast and deterministic as possible,
-    /// ideally without async I/O other than the final state commit.
+    /// Applies the state changes from a `PreparedBlock` to the canonical state.
     async fn commit_block(
         &mut self,
         prepared: PreparedBlock,
         workload: &WorkloadContainer<ST>,
     ) -> Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError>;
 
-    /// Creates a new block template to be filled by a block producer.
-    // FIX: Update trait signature to return a Result.
+    /// Constructs a new block template.
     fn create_block(
         &self,
         transactions: Vec<ChainTransaction>,
@@ -124,28 +153,27 @@ where
         producer_keypair: &Keypair,
     ) -> Result<Block<ChainTransaction>, ChainError>;
 
-    /// Retrieves a block by its height.
+    /// Retrieves a block from the recent block cache by height.
     fn get_block(&self, height: u64) -> Option<&Block<ChainTransaction>>;
-
-    /// Retrieves all blocks since a given height.
+    /// Retrieves all blocks from the cache since a given height.
     fn get_blocks_since(&self, height: u64) -> Vec<Block<ChainTransaction>>;
 
-    /// Retrieves the validator set that will be active for a specific block height.
+    /// Retrieves the active validator set for a specific block height.
     async fn get_validator_set_for(
         &self,
         workload: &WorkloadContainer<ST>,
         height: u64,
     ) -> Result<Vec<Vec<u8>>, ChainError>;
 
-    /// Retrieves the map of staked validators for PoS.
+    /// Retrieves the current set of staked validators and their stakes.
     async fn get_staked_validators(
         &self,
         workload: &WorkloadContainer<ST>,
-    ) -> Result<BTreeMap<AccountId, StakeAmount>, ChainError>;
+    ) -> Result<BTreeMap<depin_sdk_types::app::AccountId, u64>, ChainError>;
 
-    /// Retrieves the map of staked validators for the next epoch for PoS.
+    /// Retrieves the pending next set of staked validators and their stakes.
     async fn get_next_staked_validators(
         &self,
         workload: &WorkloadContainer<ST>,
-    ) -> Result<BTreeMap<AccountId, StakeAmount>, ChainError>;
+    ) -> Result<BTreeMap<depin_sdk_types::app::AccountId, u64>, ChainError>;
 }

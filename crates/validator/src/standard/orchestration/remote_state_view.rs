@@ -1,26 +1,20 @@
 // Path: crates/validator/src/standard/orchestration/remote_state_view.rs
 
 use async_trait::async_trait;
-use depin_sdk_api::chain::StateView;
+use depin_sdk_api::chain::{AnchoredStateView, RemoteStateView};
 use depin_sdk_api::state::Verifier;
 use depin_sdk_client::WorkloadClient;
-use depin_sdk_types::app::{
-    read_validator_sets, AccountId, ActiveKeyRecord, StateAnchor, StateRoot,
-};
+use depin_sdk_types::app::{StateAnchor, StateRoot};
 use depin_sdk_types::codec;
-use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::{ChainError, StateError};
-use depin_sdk_types::keys::VALIDATOR_SET_KEY;
 use depin_sdk_types::{MAX_STATE_PROOF_BYTES, MAX_STATE_VALUE_BYTES};
 use lru::LruCache;
-// MODIFICATION: No longer need serde::Deserialize here, but codec needs Decode
 use parity_scale_codec::Decode;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-/// A read-only view that proxies reads to the workload over IPC and cryptographically
-/// verifies the returned proofs against a trusted state root.
-pub struct RemoteStateView<V: Verifier> {
+/// A concrete implementation of an anchored, proof-verifying remote state view.
+pub struct DefaultAnchoredStateView<V: Verifier> {
     anchor: StateAnchor,
     root: StateRoot,
     client: Arc<WorkloadClient>,
@@ -28,14 +22,12 @@ pub struct RemoteStateView<V: Verifier> {
     proof_cache: Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>,
 }
 
-impl<V: Verifier> RemoteStateView<V> {
-    /// Creates a new trustless remote state view.
+impl<V: Verifier> DefaultAnchoredStateView<V> {
     pub fn new(
         anchor: StateAnchor,
         root: StateRoot,
         client: Arc<WorkloadClient>,
         verifier: V,
-        _consensus: ConsensusType,
         proof_cache: Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>,
     ) -> Self {
         Self {
@@ -49,15 +41,19 @@ impl<V: Verifier> RemoteStateView<V> {
 }
 
 #[async_trait]
-impl<V> StateView for RemoteStateView<V>
+impl<V> RemoteStateView for DefaultAnchoredStateView<V>
 where
     V: Verifier + Send + Sync,
-    // MODIFICATION: The V::Proof bound is now satisfied by the Verifier trait itself.
-    // The `Decode` trait is required by `from_bytes_canonical`.
     V::Proof: Decode,
 {
-    fn state_anchor(&self) -> &StateAnchor {
-        &self.anchor
+    fn height(&self) -> u64 {
+        // Height is part of StateRef, but not directly in the view.
+        // A full implementation might pass height in the constructor.
+        0
+    }
+
+    fn state_root(&self) -> [u8; 32] {
+        self.anchor.0
     }
 
     async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, ChainError> {
@@ -79,7 +75,6 @@ where
             )));
         }
 
-        // --- Use the canonical SCALE codec ---
         let proof: V::Proof = codec::from_bytes_canonical(&response.proof_bytes)
             .map_err(|e| ChainError::State(StateError::InvalidValue(e)))?;
 
@@ -113,38 +108,10 @@ where
         self.proof_cache.lock().await.put(cache_key, result.clone());
         Ok(result)
     }
+}
 
-    async fn validator_set_legacy(&self) -> Result<Vec<AccountId>, ChainError> {
-        let raw = self
-            .get(VALIDATOR_SET_KEY)
-            .await?
-            .ok_or_else(|| ChainError::State(StateError::KeyNotFound("ValidatorSet".into())))?;
-
-        let sets = read_validator_sets(&raw).map_err(ChainError::State)?;
-        let vs = &sets.current;
-
-        if vs.validators.is_empty() && vs.total_weight > 0 {
-            return Err(ChainError::State(StateError::InvalidValue(
-                "Validator set invariant failed: empty set with non-zero weight".into(),
-            )));
-        }
-        if vs
-            .validators
-            .windows(2)
-            .any(|w| w[0].account_id >= w[1].account_id)
-        {
-            return Err(ChainError::State(StateError::InvalidValue(
-                "Validator set invariant failed: not sorted by account_id".into(),
-            )));
-        }
-
-        Ok(vs.validators.iter().map(|v| v.account_id).collect())
-    }
-
-    async fn active_consensus_key(&self, acct: &AccountId) -> Option<ActiveKeyRecord> {
-        const KEY_PREFIX: &[u8] = b"identity::key_record::";
-        let key = [KEY_PREFIX, acct.as_ref()].concat();
-        let bytes = self.get(&key).await.ok()??;
-        codec::from_bytes_canonical(&bytes).ok()
-    }
+// Mark this implementation as an AnchoredStateView.
+impl<V: Verifier + Send + Sync> AnchoredStateView for DefaultAnchoredStateView<V> where
+    V::Proof: Decode
+{
 }

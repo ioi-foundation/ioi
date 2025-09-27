@@ -1,7 +1,9 @@
 // Path: crates/chain/src/app/mod.rs
 use crate::upgrade_manager::ModuleUpgradeManager;
 use async_trait::async_trait;
-use depin_sdk_api::chain::{AppChain, ChainView, PreparedBlock, StakeAmount, StateView};
+use depin_sdk_api::chain::{
+    AnchoredStateView, AppChain, ChainView, PreparedBlock, RemoteStateView, StateRef,
+};
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::consensus::PenaltyMechanism;
 use depin_sdk_api::services::access::{Service, ServiceDirectory};
@@ -321,33 +323,19 @@ where
 
 pub struct ChainStateView<ST: StateManager> {
     state_tree: Arc<tokio::sync::RwLock<ST>>,
+    height: u64,
     anchor: StateAnchor,
     resolved_root_bytes: Option<Vec<u8>>,
 }
 
 #[async_trait]
-impl<ST: StateManager + Send + Sync + 'static> StateView for ChainStateView<ST> {
-    fn state_anchor(&self) -> &StateAnchor {
-        &self.anchor
+impl<ST: StateManager + Send + Sync + 'static> RemoteStateView for ChainStateView<ST> {
+    fn height(&self) -> u64 {
+        self.height
     }
 
-    async fn validator_set_legacy(&self) -> Result<Vec<AccountId>, ChainError> {
-        let bytes = self
-            .get(depin_sdk_types::keys::VALIDATOR_SET_KEY)
-            .await?
-            .ok_or_else(|| {
-                ChainError::State(StateError::KeyNotFound(
-                    "ValidatorSetBlob not found".to_string(),
-                ))
-            })?;
-
-        let sets = depin_sdk_types::app::read_validator_sets(&bytes).map_err(ChainError::State)?;
-        Ok(sets
-            .current
-            .validators
-            .into_iter()
-            .map(|v| v.account_id)
-            .collect())
+    fn state_root(&self) -> [u8; 32] {
+        self.anchor.0
     }
 
     async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, ChainError> {
@@ -391,14 +379,9 @@ impl<ST: StateManager + Send + Sync + 'static> StateView for ChainStateView<ST> 
             _ => None,
         })
     }
-
-    async fn active_consensus_key(&self, acct: &AccountId) -> Option<ActiveKeyRecord> {
-        const KEY_PREFIX: &[u8] = b"identity::key_record::";
-        let key = [KEY_PREFIX, acct.as_ref()].concat();
-        let bytes = self.get(&key).await.ok()??;
-        codec::from_bytes_canonical(&bytes).ok()
-    }
 }
+
+impl<ST: StateManager + Send + Sync + 'static> AnchoredStateView for ChainStateView<ST> {}
 
 #[async_trait]
 impl<CS, ST> ChainView<CS, ST> for Chain<CS, ST>
@@ -406,16 +389,20 @@ where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
 {
-    async fn view_at(&self, anchor: &StateAnchor) -> Result<Box<dyn StateView>, ChainError> {
-        let resolved_root_bytes = if anchor.0 == [0u8; 32] {
+    async fn view_at(
+        &self,
+        state_ref: &StateRef,
+    ) -> Result<Arc<dyn AnchoredStateView>, ChainError> {
+        let anchor = StateAnchor(state_ref.state_root);
+        let resolved_root_bytes = if state_ref.state_root == [0u8; 32] {
             None
         } else if let Ok(last_anchor) = self.state.last_state_root.to_anchor() {
-            if last_anchor == *anchor {
+            if last_anchor == anchor {
                 Some(self.state.last_state_root.as_ref().to_vec())
             } else {
                 let bytes = self.state.recent_blocks.iter().rev().find_map(|b| {
                     if let Ok(block_anchor) = b.header.state_root.to_anchor() {
-                        if block_anchor == *anchor {
+                        if block_anchor == anchor {
                             tracing::info!(
                                 target: "state",
                                 event = "view_at_resolve",
@@ -449,10 +436,11 @@ where
 
         let view = ChainStateView {
             state_tree: self.workload_container.state_tree(),
-            anchor: *anchor,
+            height: state_ref.height,
+            anchor,
             resolved_root_bytes,
         };
-        Ok(Box::new(view))
+        Ok(Arc::new(view))
     }
 
     fn get_penalty_mechanism(&self) -> Box<dyn PenaltyMechanism + Send + Sync + '_> {
@@ -834,7 +822,7 @@ where
     async fn get_staked_validators(
         &self,
         _workload: &WorkloadContainer<ST>,
-    ) -> Result<BTreeMap<AccountId, StakeAmount>, ChainError> {
+    ) -> Result<BTreeMap<AccountId, u64>, ChainError> {
         let state = self.workload_container.state_tree();
         let guard = state.read().await;
         let bytes = guard
@@ -852,7 +840,7 @@ where
     async fn get_next_staked_validators(
         &self,
         _workload: &WorkloadContainer<ST>,
-    ) -> Result<BTreeMap<AccountId, StakeAmount>, ChainError> {
+    ) -> Result<BTreeMap<AccountId, u64>, ChainError> {
         let state = self.workload_container.state_tree();
         let guard = state.read().await;
         let bytes = guard
