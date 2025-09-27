@@ -44,7 +44,9 @@ pub mod vm;
 
 /// A curated set of the most commonly used traits and types.
 pub mod prelude {
-    pub use crate::chain::AppChain;
+    pub use crate::chain::{
+        AnchoredStateView, AppChain, LiveStateView, RemoteStateView, StateRef, ViewResolver,
+    };
     pub use crate::commitment::{CommitmentScheme, HomomorphicCommitmentScheme};
     pub use crate::error::{ChainError, CoreError, StateError, TransactionError, ValidatorError};
     pub use crate::identity::CredentialsView;

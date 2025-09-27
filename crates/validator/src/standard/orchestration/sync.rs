@@ -34,7 +34,11 @@ pub async fn handle_status_request<CS, ST, CE, V>(
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
     let height = context
-        .workload_client
+        .view_resolver
+        .as_any()
+        .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
+        .expect("DefaultViewResolver downcast failed")
+        .workload_client()
         .get_status()
         .await
         .map_or(0, |s| s.height);
@@ -93,7 +97,11 @@ pub async fn handle_status_response<CS, ST, CE, V>(
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
     let our_height = context
-        .workload_client
+        .view_resolver
+        .as_any()
+        .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
+        .expect("DefaultViewResolver downcast failed")
+        .workload_client()
         .get_status()
         .await
         .map_or(0, |s| s.height);
@@ -132,7 +140,16 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
     for block in blocks {
         // The orchestrator's job is just to forward the block. The workload handles processing.
         // The two-phase commit logic lives inside the workload's RPC handler.
-        if context.workload_client.process_block(block).await.is_err() {
+        if context
+            .view_resolver
+            .as_any()
+            .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
+            .expect("DefaultViewResolver downcast failed")
+            .workload_client()
+            .process_block(block)
+            .await
+            .is_err()
+        {
             all_blocks_processed_successfully = false;
             break;
         }

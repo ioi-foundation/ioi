@@ -1,9 +1,9 @@
 // Path: crates/validator/src/standard/orchestration/gossip.rs
 use super::context::MainLoopContext;
 use super::oracle::handle_newly_processed_block;
-use super::remote_state_view::RemoteStateView;
+use super::remote_state_view::DefaultAnchoredStateView;
 use async_trait::async_trait;
-use depin_sdk_api::chain::StateView;
+use depin_sdk_api::chain::{AnchoredStateView, StateRef};
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::consensus::{ConsensusEngine, PenaltyMechanism};
 use depin_sdk_api::state::{StateAccessor, StateCommitment, StateManager, Verifier};
@@ -12,7 +12,7 @@ use depin_sdk_types::app::{
     Block, ChainTransaction, FailureReport, StateAnchor, StateRoot, SystemPayload,
 };
 use depin_sdk_types::config::ConsensusType;
-use depin_sdk_types::error::TransactionError;
+use depin_sdk_types::error::{ChainError, TransactionError};
 use lru::LruCache;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashSet, VecDeque};
@@ -62,38 +62,28 @@ impl<CS, ST, V> depin_sdk_api::chain::ChainView<CS, ST> for &WorkloadChainView<V
 where
     CS: CommitmentScheme + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
-    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+    V: Verifier<Commitment = CS::Commitment, Proof = <CS as CommitmentScheme>::Proof>
         + Clone
         + Send
         + Sync
         + 'static
         + Debug,
-    <CS as CommitmentScheme>::Proof: for<'de> Deserialize<'de>,
+    <CS as CommitmentScheme>::Proof: for<'de> Deserialize<'de> + parity_scale_codec::Decode,
 {
     async fn view_at(
         &self,
-        anchor: &StateAnchor,
-    ) -> Result<Box<dyn StateView>, depin_sdk_types::error::ChainError> {
-        let root = match self.client.get_state_root().await {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::warn!(
-                    target: "gossip",
-                    event = "get_root_fail",
-                    error = %e,
-                    "Falling back to anchor bytes as root (weak)."
-                );
-                StateRoot(anchor.0.to_vec())
-            }
-        };
-        Ok(Box::new(RemoteStateView::new(
-            *anchor,
+        state_ref: &StateRef,
+    ) -> Result<Arc<dyn AnchoredStateView>, ChainError> {
+        let anchor = StateAnchor(state_ref.state_root);
+        let root = StateRoot(state_ref.state_root.to_vec());
+        let view = DefaultAnchoredStateView::new(
+            anchor,
             root,
             self.client.clone(),
             self.verifier.clone(),
-            self.consensus,
             self.proof_cache.clone(),
-        )))
+        );
+        Ok(Arc::new(view))
     }
 
     fn get_penalty_mechanism(&self) -> Box<dyn PenaltyMechanism + Send + Sync + '_> {
@@ -194,13 +184,18 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
     // [+] FIX: To prevent deadlocks, clone needed data, drop the context lock,
     // and then await the consensus engine lock.
     let (engine_ref, cv) = {
+        let resolver = context
+            .view_resolver
+            .as_any()
+            .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
+            .expect("DefaultViewResolver downcast failed");
         (
             context.consensus_engine_ref.clone(),
             WorkloadChainView::new(
-                context.workload_client.clone(),
+                resolver.workload_client().clone(),
                 context.config.consensus_type,
-                context.verifier.clone(),
-                context.proof_cache_ref.clone(),
+                resolver.verifier().clone(),
+                resolver.proof_cache().clone(),
             ),
         )
     };
@@ -227,7 +222,12 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         height = block_height,
         "Forwarding to workload."
     );
-    match context.workload_client.process_block(block).await {
+    let resolver = context
+        .view_resolver
+        .as_any()
+        .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
+        .expect("DefaultViewResolver downcast failed");
+    match resolver.workload_client().process_block(block).await {
         Ok((processed_block, _)) => {
             tracing::info!(
                 target: "gossip",

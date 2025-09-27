@@ -16,7 +16,7 @@ pub mod util;
 
 use async_trait::async_trait;
 use depin_sdk_api::{
-    chain::{ChainView, StateView},
+    chain::{AnchoredStateView, ChainView},
     commitment::CommitmentScheme,
     consensus::{ChainStateReader, ConsensusDecision, ConsensusEngine, PenaltyMechanism},
     state::{StateAccessor, StateManager},
@@ -110,7 +110,7 @@ where
         our_account_id: &AccountId,
         height: u64,
         view: u64,
-        parent_view: &dyn StateView,
+        parent_view: &dyn AnchoredStateView,
         known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
         match self {

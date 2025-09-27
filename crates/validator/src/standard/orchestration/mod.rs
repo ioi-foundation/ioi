@@ -47,6 +47,7 @@ mod remote_state_view;
 // Make sure the sync helpers are visible here.
 mod sync;
 pub mod verifier_select;
+mod view_resolver;
 
 // --- Use statements for handler functions ---
 use consensus::drive_consensus_tick;
@@ -503,16 +504,17 @@ where
             })?
             .clone();
 
-        let genesis_root = workload_client
-            .get_state_root()
-            .await
-            .map_err(|e| ValidatorError::Other(format!("Failed to get genesis root: {}", e)))?;
+        let view_resolver = Arc::new(view_resolver::DefaultViewResolver::new(
+            workload_client.clone(),
+            self.verifier.clone(),
+            self.proof_cache.clone(),
+        ));
 
         // Build the run context (includes the *sender* for kicks).
         let context = MainLoopContext::<CS, ST, CE, V> {
             chain_ref: chain,
-            workload_client,
             tx_pool_ref: self.tx_pool.clone(),
+            view_resolver,
             swarm_commander: self.swarm_command_sender.clone(),
             consensus_engine_ref: self.consensus_engine.clone(),
             node_state: self.syncer.get_node_state(),
@@ -525,10 +527,7 @@ where
             is_quarantined: self.is_quarantined.clone(),
             external_data_service: self.external_data_service.clone(),
             pending_attestations: std::collections::HashMap::new(),
-            genesis_root,
             last_committed_block: None,
-            verifier: self.verifier.clone(),
-            proof_cache_ref: self.proof_cache.clone(),
             consensus_kick_tx: self.consensus_kick_tx.clone(),
         };
 

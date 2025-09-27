@@ -297,8 +297,24 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetActiveKeyAtV1"))?;
         let chain = ctx.chain.lock().await;
-        let view = chain.view_at(&params.anchor).await?;
-        let record = view.active_consensus_key(&params.account_id).await;
+        // The `height` and `block_hash` fields of StateRef are not used for this type of query,
+        // so we can provide dummy values. The important part is the `state_root`.
+        let state_ref = depin_sdk_api::chain::StateRef {
+            height: 0,
+            state_root: params.anchor.0,
+            block_hash: [0u8; 32],
+        };
+        let view = chain.view_at(&state_ref).await?;
+
+        // Read the ActiveKeyRecord directly from the state view using its canonical key.
+        let key = [b"identity::key_record::", params.account_id.as_ref()].concat();
+        let record = match view.get(&key).await {
+            Ok(Some(bytes)) => {
+                codec::from_bytes_canonical::<depin_sdk_types::app::ActiveKeyRecord>(&bytes).ok()
+            }
+            _ => None,
+        };
+
         Ok(record)
     }
 }
