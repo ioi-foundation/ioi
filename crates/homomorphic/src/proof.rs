@@ -124,7 +124,7 @@ impl<CS: HomomorphicCommitmentScheme> HomomorphicProof<CS> {
         // Serialize selector data if present
         match &self.selector {
             Selector::Position(pos) => {
-                result.extend_from_slice(&(*pos as u64).to_le_bytes());
+                result.extend_from_slice(&pos.to_le_bytes());
             }
             Selector::Key(key) => {
                 result.extend_from_slice(&(key.len() as u32).to_le_bytes());
@@ -176,7 +176,10 @@ impl<CS: HomomorphicCommitmentScheme> ProofGenerator<CS> {
         selector: &Selector,
     ) -> HomomorphicResult<HomomorphicProof<CS>> {
         // Verify that result = a + b
-        let computed_result = self.scheme.add(a, b)?;
+        let computed_result = self
+            .scheme
+            .add(a, b)
+            .map_err(|e| HomomorphicError::Custom(e.to_string()))?;
 
         // Check that the computed result matches the provided result
         if computed_result.as_ref() != result.as_ref() {
@@ -206,7 +209,10 @@ impl<CS: HomomorphicCommitmentScheme> ProofGenerator<CS> {
         }
 
         // Verify that result = a * scalar
-        let computed_result = self.scheme.scalar_multiply(a, scalar)?;
+        let computed_result = self
+            .scheme
+            .scalar_multiply(a, scalar)
+            .map_err(|e| HomomorphicError::Custom(e.to_string()))?;
 
         // Check that the computed result matches the provided result
         if computed_result.as_ref() != result.as_ref() {
@@ -293,11 +299,18 @@ impl<CS: HomomorphicCommitmentScheme> ProofGenerator<CS> {
                     ));
                 }
 
-                let a = &proof.inputs()[0];
-                let b = &proof.inputs()[1];
+                let a = proof.inputs().get(0).ok_or_else(|| {
+                    HomomorphicError::InvalidInput("Missing left operand in proof".into())
+                })?;
+                let b = proof.inputs().get(1).ok_or_else(|| {
+                    HomomorphicError::InvalidInput("Missing right operand in proof".into())
+                })?;
 
                 // Compute a + b
-                let computed_result = self.scheme.add(a, b)?;
+                let computed_result = self
+                    .scheme
+                    .add(a, b)
+                    .map_err(|e| HomomorphicError::Custom(e.to_string()))?;
 
                 // Check that computed result matches the proof result
                 Ok(computed_result.as_ref() == proof.result().as_ref())
@@ -309,17 +322,18 @@ impl<CS: HomomorphicCommitmentScheme> ProofGenerator<CS> {
                     ));
                 }
 
-                let a = &proof.inputs()[0];
+                let a = proof.inputs().get(0).ok_or_else(|| {
+                    HomomorphicError::InvalidInput("Missing commitment in proof".into())
+                })?;
 
                 // Extract scalar from auxiliary data
-                if proof.auxiliary_data().len() < 4 {
-                    return Err(HomomorphicError::InvalidInput(
+                let scalar_bytes_slice = proof.auxiliary_data().get(0..4).ok_or_else(|| {
+                    HomomorphicError::InvalidInput(
                         "Invalid auxiliary data for scalar multiplication".into(),
-                    ));
-                }
-
+                    )
+                })?;
                 let mut scalar_bytes = [0u8; 4];
-                scalar_bytes.copy_from_slice(&proof.auxiliary_data()[0..4]);
+                scalar_bytes.copy_from_slice(scalar_bytes_slice);
                 let scalar = i32::from_le_bytes(scalar_bytes);
 
                 if scalar <= 0 {
@@ -328,10 +342,9 @@ impl<CS: HomomorphicCommitmentScheme> ProofGenerator<CS> {
 
                 // Check the context for any additional verification parameters
                 if let Some(precision_data) = context.get_data("precision") {
-                    if !precision_data.is_empty() {
+                    if let Some(&precision) = precision_data.get(0) {
                         // Use precision parameter if provided
                         // This is just an example of how context might be used
-                        let precision = precision_data[0];
                         if precision > 0 {
                             // High precision verification logic would go here
                         }
@@ -339,7 +352,10 @@ impl<CS: HomomorphicCommitmentScheme> ProofGenerator<CS> {
                 }
 
                 // Compute a * scalar
-                let computed_result = self.scheme.scalar_multiply(a, scalar)?;
+                let computed_result = self
+                    .scheme
+                    .scalar_multiply(a, scalar)
+                    .map_err(|e| HomomorphicError::Custom(e.to_string()))?;
 
                 // Check that computed result matches the proof result
                 Ok(computed_result.as_ref() == proof.result().as_ref())

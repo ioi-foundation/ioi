@@ -2,6 +2,7 @@
 //! Defines the core `CommitmentScheme` trait and related types.
 
 use crate::commitment::identifiers::SchemeIdentifier;
+use crate::error::CryptoError;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -69,11 +70,14 @@ pub trait CommitmentScheme: CommitmentStructure + Debug + Send + Sync + 'static 
     type Value: AsRef<[u8]> + Clone + Send + Sync + 'static;
 
     /// Commits to a vector of optional values.
-    fn commit(&self, values: &[Option<Self::Value>]) -> Self::Commitment;
+    fn commit(&self, values: &[Option<Self::Value>]) -> Result<Self::Commitment, CryptoError>;
 
     /// Creates a proof for a specific value identified by a selector.
-    fn create_proof(&self, selector: &Selector, value: &Self::Value)
-        -> Result<Self::Proof, String>;
+    fn create_proof(
+        &self,
+        selector: &Selector,
+        value: &Self::Value,
+    ) -> Result<Self::Proof, CryptoError>;
 
     /// Verifies that a proof for a given value is valid for a given commitment.
     fn verify(
@@ -94,12 +98,16 @@ pub trait CommitmentScheme: CommitmentStructure + Debug + Send + Sync + 'static 
         &self,
         position: u64,
         value: &Self::Value,
-    ) -> Result<Self::Proof, String> {
+    ) -> Result<Self::Proof, CryptoError> {
         self.create_proof(&Selector::Position(position), value)
     }
 
     /// A convenience method to create a key-based proof.
-    fn create_proof_for_key(&self, key: &[u8], value: &Self::Value) -> Result<Self::Proof, String> {
+    fn create_proof_for_key(
+        &self,
+        key: &[u8],
+        value: &Self::Value,
+    ) -> Result<Self::Proof, CryptoError> {
         self.create_proof(&Selector::Key(key.to_vec()), value)
     }
 

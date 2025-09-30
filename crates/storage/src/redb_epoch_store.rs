@@ -162,9 +162,11 @@ impl NodeStore for RedbEpochStore {
         let result = t
             .get(&root.0)
             .map_err(|e| StorageError::Backend(e.to_string()))?
-            .map(|v| {
-                let val = v.value(); // [epoch(8)][height(8)]
-                parse_u64(&val[8..16])
+            .and_then(|v| {
+                v.value()
+                    .get(8..16)
+                    .and_then(|slice| slice.try_into().ok())
+                    .map(u64::from_be_bytes)
             });
         Ok(result)
     }
@@ -199,7 +201,9 @@ impl NodeStore for RedbEpochStore {
                 .map_err(|e| StorageError::Backend(e.to_string()))?
                 .map(|g| g.value().to_vec());
             let mut out = v_bytes.unwrap_or_else(|| val.to_vec());
-            out[16] = 1u8; // sealed
+            if let Some(sealed_byte) = out.get_mut(16) {
+                *sealed_byte = 1u8; // sealed
+            }
             let mut array_out = [0u8; 17];
             array_out.copy_from_slice(&out);
             m.insert(key, &array_out)
@@ -216,7 +220,7 @@ impl NodeStore for RedbEpochStore {
         let result = m
             .get(&enc_epoch(epoch))
             .map_err(|e| StorageError::Backend(e.to_string()))?
-            .map(|v| v.value()[16] == 1u8)
+            .and_then(|v| v.value().get(16).map(|&b| b == 1u8))
             .unwrap_or(false);
         Ok(result)
     }
@@ -314,7 +318,6 @@ impl NodeStore for RedbEpochStore {
                 .map_err(|e| StorageError::Backend(e.to_string()))?;
 
             let end_cutoff_key = k_versions(cutoff_epoch, cutoff_height);
-            let mut pruned = 0usize;
 
             let keys_to_prune: Vec<Vec<u8>> = ver
                 .range(..end_cutoff_key.as_slice())
@@ -322,8 +325,9 @@ impl NodeStore for RedbEpochStore {
                 .filter_map(|entry| {
                     if let Ok((k, _v)) = entry {
                         let key = k.value();
-                        let htb = &key[8..16];
-                        let height = u64::from_be_bytes(htb.try_into().unwrap());
+                        let height_bytes = key.get(8..16)?;
+                        let height_arr: [u8; 8] = height_bytes.try_into().ok()?;
+                        let height = u64::from_be_bytes(height_arr);
                         if !excluded.contains(&height) {
                             Some(key.to_vec())
                         } else {
@@ -337,13 +341,17 @@ impl NodeStore for RedbEpochStore {
                 .collect();
 
             for key in keys_to_prune {
-                if pruned >= limit {
-                    break;
-                }
-                let epb = &key[0..8];
-                let htb = &key[8..16];
-                let epoch = u64::from_be_bytes(epb.try_into().unwrap());
-                let height = u64::from_be_bytes(htb.try_into().unwrap());
+                let epoch_bytes = key
+                    .get(0..8)
+                    .and_then(|s| s.try_into().ok())
+                    .ok_or_else(|| StorageError::Decode("Invalid epoch bytes in key".into()))?;
+                let height_bytes = key
+                    .get(8..16)
+                    .and_then(|s| s.try_into().ok())
+                    .ok_or_else(|| StorageError::Decode("Invalid height bytes in key".into()))?;
+
+                let epoch = u64::from_be_bytes(epoch_bytes);
+                let height = u64::from_be_bytes(height_bytes);
 
                 let changes_to_process: Vec<_> = chng
                     .range(
@@ -385,7 +393,6 @@ impl NodeStore for RedbEpochStore {
 
                 ver.remove(&key as &[u8])
                     .map_err(|e| StorageError::Backend(e.to_string()))?;
-                pruned += 1;
                 heights_pruned += 1;
             }
         }
@@ -422,10 +429,7 @@ impl NodeStore for RedbEpochStore {
             let keys_to_delete: Vec<Vec<u8>> = table
                 .range(prefix..)
                 .map_err(|e| StorageError::Backend(e.to_string()))?
-                .take_while(|r| {
-                    r.as_ref()
-                        .map_or(false, |(k, _)| k.value().starts_with(prefix))
-                })
+                .take_while(|r| r.as_ref().is_ok_and(|(k, _)| k.value().starts_with(prefix)))
                 .map(|r| r.map(|(k, _)| k.value().to_vec()))
                 .collect::<Result<_, _>>()
                 .map_err(|e| StorageError::Backend(e.to_string()))?;

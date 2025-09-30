@@ -44,7 +44,7 @@ fn add_poa_identity_to_genesis(
         l2_location: None,
     };
     let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
-    let creds_bytes = codec::to_bytes_canonical(&creds_array);
+    let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
     let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
     let creds_key_b64 = format!("b64:{}", BASE64_STANDARD.encode(&creds_key));
     genesis_state.insert(
@@ -59,7 +59,7 @@ fn add_poa_identity_to_genesis(
         since_height: 0,
     };
     let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
-    let record_bytes = codec::to_bytes_canonical(&record);
+    let record_bytes = codec::to_bytes_canonical(&record).unwrap();
     genesis_state.insert(
         format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
         json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
@@ -83,12 +83,48 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
     let temp_dir_models = tempdir()?;
     let good_model_path = temp_dir_models.path().join("good_model.bin");
     fs::write(&good_model_path, "correct_model_data")?;
-    let correct_model_hash = hex::encode(sha256(b"correct_model_data"));
+    let correct_model_hash = hex::encode(sha256(b"correct_model_data").unwrap());
 
     // ---- Build one canonical genesis for all three nodes ----
     let k0 = identity::Keypair::generate_ed25519();
     let k1 = identity::Keypair::generate_ed25519();
     let k2 = identity::Keypair::generate_ed25519();
+
+    // --- FIX: Deterministically find the leader for H=1 and start that node first ---
+    let suite = SignatureSuite::Ed25519;
+    let mut account_ids_with_keys = vec![
+        (
+            AccountId(account_id_from_key_material(
+                suite,
+                &k0.public().encode_protobuf(),
+            )?),
+            k0.clone(),
+        ),
+        (
+            AccountId(account_id_from_key_material(
+                suite,
+                &k1.public().encode_protobuf(),
+            )?),
+            k1.clone(),
+        ),
+        (
+            AccountId(account_id_from_key_material(
+                suite,
+                &k2.public().encode_protobuf(),
+            )?),
+            k2.clone(),
+        ),
+    ];
+    // Sort by AccountId to mimic the canonical order in genesis.
+    account_ids_with_keys.sort_by(|a, b| a.0.cmp(&b.0));
+
+    // For H=1, V=0, the leader index is (1+0) % 3 = 1.
+    let (_leader_id, leader_key) = account_ids_with_keys.remove(1);
+    let follower_keys: Vec<_> = account_ids_with_keys
+        .into_iter()
+        .map(|(_, key)| key)
+        .collect();
+    // --- END FIX ---
 
     let genesis_json = {
         let mut g = json!({ "genesis_state": {} });
@@ -127,7 +163,7 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
                 next: None,
             },
         };
-        let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload);
+        let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload).unwrap();
         gs.insert(
             std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
             json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
@@ -151,7 +187,7 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
 
     // 1) Launch node0 ALONE so it assumes genesis and produces block 1.
     let n0 = TestValidator::launch(
-        k0.clone(),
+        leader_key, // Use the determined leader key to ensure it can produce block 1
         genesis_json.clone(),
         20310,    // rpc
         1.into(), // chain_id
@@ -173,7 +209,7 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
     // 2) Launch node1 and node2, bootstrapping to node0's libp2p address
     let bootstrap: Option<Multiaddr> = Some(n0.p2p_addr.clone());
     let n1 = TestValidator::launch(
-        k1.clone(),
+        follower_keys[0].clone(), // Use one of the remaining keys
         genesis_json.clone(),
         17656,
         1.into(),
@@ -189,7 +225,7 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
     )
     .await?;
     let n2 = TestValidator::launch(
-        k2.clone(),
+        follower_keys[1].clone(), // Use the other remaining key
         genesis_json.clone(),
         20442,
         1.into(),
@@ -224,7 +260,7 @@ async fn test_mismatched_model_quarantine() -> Result<()> {
     let temp_dir_models = tempdir()?;
     let bad_model_path = temp_dir_models.path().join("bad_model.bin");
     fs::write(&bad_model_path, "incorrect_model_data")?;
-    let correct_model_hash = hex::encode(sha256(b"correct_model_data"));
+    let correct_model_hash = hex::encode(sha256(b"correct_model_data").unwrap());
 
     // Use a single-node setup to remove network race conditions.
     let key = identity::Keypair::generate_ed25519();
@@ -252,7 +288,7 @@ async fn test_mismatched_model_quarantine() -> Result<()> {
                 next: None,
             },
         };
-        let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload);
+        let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload).unwrap();
         genesis_state.insert(
             std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
             json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),

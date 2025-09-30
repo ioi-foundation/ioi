@@ -32,7 +32,7 @@ pub trait StateTree {
         proof: &Self::Proof,
         key: &[u8],
         value: &[u8],
-    ) -> bool;
+    ) -> Result<(), StateError>;
     /// Provides access to the concrete type for downcasting.
     fn as_any(&self) -> &dyn Any;
 }

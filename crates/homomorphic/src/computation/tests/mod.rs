@@ -9,7 +9,7 @@ use std::any::Any;
 #[test]
 fn test_computation_engine() {
     // Create a computation engine with Pedersen commitment scheme
-    let scheme = PedersenCommitmentScheme::new(5);
+    let scheme = PedersenCommitmentScheme::new(5).unwrap();
     let computation = HomomorphicComputation::new(scheme.clone());
 
     // Test add operation
@@ -17,8 +17,8 @@ fn test_computation_engine() {
     let value_b = b"value b";
     // NOTE: This commit is flawed as it doesn't return the blinding factor.
     // A real application would need a way to manage this.
-    let commitment_a = scheme.commit(&[Some(value_a.to_vec())]);
-    let commitment_b = scheme.commit(&[Some(value_b.to_vec())]);
+    let commitment_a = scheme.commit(&[Some(value_a.to_vec())]).unwrap();
+    let commitment_b = scheme.commit(&[Some(value_b.to_vec())]).unwrap();
 
     let left: Arc<dyn Any + Send + Sync> = Arc::new(commitment_a.clone());
     let right: Arc<dyn Any + Send + Sync> = Arc::new(commitment_b.clone());
@@ -105,14 +105,14 @@ fn test_computation_engine() {
 #[test]
 fn test_batch_operations() {
     // Create a computation engine with Pedersen commitment scheme
-    let scheme = PedersenCommitmentScheme::new(5);
+    let scheme = PedersenCommitmentScheme::new(5).unwrap();
     let computation = HomomorphicComputation::new(scheme.clone());
 
     // Create test commitments
     let value_a = b"value a";
     let value_b = b"value b";
-    let commitment_a = scheme.commit(&[Some(value_a.to_vec())]);
-    let commitment_b = scheme.commit(&[Some(value_b.to_vec())]);
+    let commitment_a = scheme.commit(&[Some(value_a.to_vec())]).unwrap();
+    let commitment_b = scheme.commit(&[Some(value_b.to_vec())]).unwrap();
 
     // Create a batch of operations with selectors
     let operations = vec![

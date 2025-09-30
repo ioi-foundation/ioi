@@ -44,12 +44,19 @@ pub async fn handle_newly_processed_block<CS, ST, CE, V>(
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
-    let pending_requests = match context
+    let workload_client = match context
         .view_resolver
         .as_any()
         .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
-        .expect("DefaultViewResolver downcast failed")
-        .workload_client()
+    {
+        Some(resolver) => resolver.workload_client(),
+        None => {
+            log::error!("Oracle: Could not downcast ViewResolver to get WorkloadClient.");
+            return;
+        }
+    };
+
+    let pending_requests = match workload_client
         .prefix_scan(ORACLE_PENDING_REQUEST_PREFIX)
         .await
     {
@@ -67,15 +74,7 @@ pub async fn handle_newly_processed_block<CS, ST, CE, V>(
         }
     };
 
-    let validator_stakes = match context
-        .view_resolver
-        .as_any()
-        .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
-        .expect("DefaultViewResolver downcast failed")
-        .workload_client()
-        .get_staked_validators()
-        .await
-    {
+    let validator_stakes = match workload_client.get_staked_validators().await {
         Ok(vs) => vs,
         Err(e) => {
             log::error!("Oracle: Could not get validator stakes: {}", e);
@@ -85,12 +84,16 @@ pub async fn handle_newly_processed_block<CS, ST, CE, V>(
 
     let validator_account_ids: HashSet<AccountId> = validator_stakes.keys().cloned().collect();
 
-    let our_account_id_hash = account_id_from_key_material(
+    let our_account_id = match account_id_from_key_material(
         SignatureSuite::Ed25519,
         &context.local_keypair.public().encode_protobuf(),
-    )
-    .expect("Local key should be valid");
-    let our_account_id = AccountId(our_account_id_hash);
+    ) {
+        Ok(hash) => AccountId(hash),
+        Err(_) => {
+            log::error!("Oracle: Local key should be valid.");
+            return;
+        }
+    };
 
     if !validator_account_ids.contains(&our_account_id) {
         return; // This node is not a staked validator, so it shouldn't perform oracle tasks.
@@ -164,18 +167,42 @@ pub async fn handle_newly_processed_block<CS, ST, CE, V>(
                 let mut attestation = OracleAttestation {
                     request_id,
                     value,
-                    timestamp: SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs(),
+                    timestamp: match SystemTime::now().duration_since(UNIX_EPOCH) {
+                        Ok(d) => d.as_secs(),
+                        Err(_) => {
+                            log::error!("Oracle: System time is before UNIX_EPOCH, cannot create timestamp.");
+                            continue;
+                        }
+                    },
                     signature: vec![],
                 };
 
-                let payload_to_sign = attestation.to_signing_payload(&domain);
-                let signature_bytes = context.local_keypair.sign(&payload_to_sign).unwrap();
+                let payload_to_sign = match attestation.to_signing_payload(&domain) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        log::error!(
+                            "Oracle: Failed to create signing payload for attestation: {}",
+                            e
+                        );
+                        continue;
+                    }
+                };
+                let signature_bytes = match context.local_keypair.sign(&payload_to_sign) {
+                    Ok(s) => s,
+                    Err(_) => {
+                        log::error!("Oracle: Failed to sign attestation payload.");
+                        continue;
+                    }
+                };
                 attestation.signature = [pubkey_bytes.as_ref(), &signature_bytes].concat();
 
-                let attestation_bytes = serde_json::to_vec(&attestation).unwrap();
+                let attestation_bytes = match serde_json::to_vec(&attestation) {
+                    Ok(b) => b,
+                    Err(_) => {
+                        log::error!("Oracle: Failed to serialize attestation.");
+                        continue;
+                    }
+                };
                 context
                     .swarm_commander
                     .send(SwarmCommand::GossipOracleAttestation(attestation_bytes))
@@ -217,10 +244,13 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE, V>(
         from
     );
 
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
+    let now = match SystemTime::now().duration_since(UNIX_EPOCH) {
+        Ok(d) => d.as_secs(),
+        Err(_) => {
+            log::error!("Oracle: System time is before UNIX_EPOCH, cannot validate timestamp.");
+            return;
+        }
+    };
     if now.saturating_sub(attestation.timestamp) > ATTESTATION_TTL_SECS {
         log::warn!(
             "Oracle: Received stale attestation from {}, disregarding.",
@@ -257,15 +287,19 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE, V>(
         );
     }
 
-    let validator_stakes = match context
+    let workload_client = match context
         .view_resolver
         .as_any()
         .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
-        .expect("DefaultViewResolver downcast failed")
-        .workload_client()
-        .get_staked_validators()
-        .await
     {
+        Some(resolver) => resolver.workload_client(),
+        None => {
+            log::error!("Oracle: Could not get WorkloadClient for verification.");
+            return;
+        }
+    };
+
+    let validator_stakes = match workload_client.get_staked_validators().await {
         Ok(vs) => vs,
         Err(e) => {
             log::error!(
@@ -276,10 +310,14 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE, V>(
         }
     };
 
-    let signer_account_id_hash =
-        account_id_from_key_material(SignatureSuite::Ed25519, &pubkey.encode_protobuf())
-            .expect("libp2p public key should be valid");
-    let signer_account_id = AccountId(signer_account_id_hash);
+    let signer_account_id =
+        match account_id_from_key_material(SignatureSuite::Ed25519, &pubkey.encode_protobuf()) {
+            Ok(hash) => AccountId(hash),
+            Err(_) => {
+                log::error!("Oracle: Could not derive AccountId from public key.");
+                return;
+            }
+        };
 
     if !validator_stakes.contains_key(&signer_account_id) {
         log::warn!(
@@ -294,11 +332,17 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE, V>(
     domain.extend_from_slice(&context.chain_id.0.to_le_bytes());
     domain.extend_from_slice(&context.genesis_hash);
 
-    let payload_to_verify = attestation.to_signing_payload(&domain);
-
-    if !pubkey.verify(&payload_to_verify, sig_bytes) {
+    if let Ok(payload_to_verify) = attestation.to_signing_payload(&domain) {
+        if !pubkey.verify(&payload_to_verify, sig_bytes) {
+            log::warn!(
+                "Oracle: Received attestation with invalid signature from {}",
+                from
+            );
+            return;
+        }
+    } else {
         log::warn!(
-            "Oracle: Received attestation with invalid signature from {}",
+            "Oracle: Failed to create payload for verifying attestation from {}",
             from
         );
         return;
@@ -307,7 +351,7 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE, V>(
     let entry = context
         .pending_attestations
         .entry(attestation.request_id)
-        .or_insert_with(Vec::new);
+        .or_default();
 
     let signer_peer_id = pubkey.to_peer_id();
     if !entry.iter().any(|a| {
@@ -348,15 +392,18 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
         None => return,
     };
 
-    let validator_stakes = match context
+    let workload_client = match context
         .view_resolver
         .as_any()
         .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
-        .expect("DefaultViewResolver downcast failed")
-        .workload_client()
-        .get_staked_validators()
-        .await
     {
+        Some(resolver) => resolver.workload_client(),
+        None => {
+            log::error!("Oracle: Could not get WorkloadClient for quorum check.");
+            return;
+        }
+    };
+    let validator_stakes = match workload_client.get_staked_validators().await {
         Ok(vs) => vs,
         Err(_) => return,
     };
@@ -383,21 +430,25 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
             Err(_) => continue,
         };
 
-        let signer_account_id_hash =
-            account_id_from_key_material(SignatureSuite::Ed25519, &pubkey.encode_protobuf())
-                .expect("libp2p public key should be valid");
-        let signer_account_id = AccountId(signer_account_id_hash);
+        let signer_account_id = match account_id_from_key_material(
+            SignatureSuite::Ed25519,
+            &pubkey.encode_protobuf(),
+        ) {
+            Ok(hash) => AccountId(hash),
+            Err(_) => continue,
+        };
 
         if validator_stakes.contains_key(&signer_account_id) {
             // Recreate the same domain to verify the signature
             let mut domain = b"depinsdk/oracle-attest/v1".to_vec();
             domain.extend_from_slice(&context.chain_id.0.to_le_bytes());
             domain.extend_from_slice(&context.genesis_hash);
-            let payload_to_verify = att.to_signing_payload(&domain);
-            if pubkey.verify(&payload_to_verify, sig_bytes)
-                && unique_signers.insert(signer_account_id)
-            {
-                valid_attestations_for_quorum.push((att.clone(), signer_account_id));
+            if let Ok(payload_to_verify) = att.to_signing_payload(&domain) {
+                if pubkey.verify(&payload_to_verify, sig_bytes)
+                    && unique_signers.insert(signer_account_id)
+                {
+                    valid_attestations_for_quorum.push((att.clone(), signer_account_id));
+                }
             }
         }
     }
@@ -421,7 +472,10 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
             .map(|(a, _)| a.value.clone())
             .collect();
         values.sort();
-        let final_value = values[values.len() / 2].clone();
+        let Some(final_value) = values.get(values.len() / 2).cloned() else {
+            log::error!("Oracle: Quorum met, but could not determine median value.");
+            return;
+        };
 
         let consensus_proof = OracleConsensusProof {
             attestations: valid_attestations_for_quorum
@@ -438,9 +492,11 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
 
         let our_pk = context.local_keypair.public();
         let our_pk_bytes = our_pk.encode_protobuf();
-        let our_account_hash = account_id_from_key_material(SignatureSuite::Ed25519, &our_pk_bytes)
-            .expect("local key must derive an AccountId");
-        let our_account_id = AccountId(our_account_hash);
+        let our_account_id =
+            match account_id_from_key_material(SignatureSuite::Ed25519, &our_pk_bytes) {
+                Ok(hash) => AccountId(hash),
+                Err(_) => return,
+            };
 
         // Fetch the current nonce for this account from the workload state.
         let nonce_key = [
@@ -449,15 +505,7 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
         ]
         .concat();
 
-        let current_nonce = match context
-            .view_resolver
-            .as_any()
-            .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
-            .expect("DefaultViewResolver downcast failed")
-            .workload_client()
-            .query_raw_state(&nonce_key)
-            .await
-        {
+        let current_nonce = match workload_client.query_raw_state(&nonce_key).await {
             Ok(Some(bytes)) => bytes.try_into().ok().map(u64::from_le_bytes).unwrap_or(0),
             Ok(None) => 0, // Key not present means nonce is 0, which is correct.
             Err(e) => {
@@ -480,13 +528,14 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
             signature_proof: SignatureProof::default(),
         };
 
-        let sign_bytes = sys_tx
-            .to_sign_bytes()
-            .expect("serialize sign bytes for SubmitOracleData");
-        let signature = context
-            .local_keypair
-            .sign(&sign_bytes)
-            .expect("ed25519 sign");
+        let sign_bytes = match sys_tx.to_sign_bytes() {
+            Ok(b) => b,
+            Err(_) => return,
+        };
+        let signature = match context.local_keypair.sign(&sign_bytes) {
+            Ok(s) => s,
+            Err(_) => return,
+        };
 
         sys_tx.signature_proof = SignatureProof {
             suite: SignatureSuite::Ed25519,

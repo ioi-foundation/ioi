@@ -1,6 +1,15 @@
 // Path: crates/consensus/src/lib.rs
-
-#![forbid(unsafe_code)]
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::todo,
+        clippy::unimplemented,
+        clippy::indexing_slicing
+    )
+)]
 //! Consensus module implementations for the DePIN SDK
 
 #[cfg(feature = "round-robin")]
@@ -37,9 +46,7 @@ use proof_of_stake::ProofOfStakeEngine;
 use round_robin::RoundRobinBftEngine;
 
 /// An enum that wraps the various consensus engine implementations.
-// --- FIX START (Analysis 1): Add Clone trait to allow sharing a single engine instance ---
 #[derive(Debug, Clone)]
-// --- FIX END ---
 pub enum Consensus<T: Clone> {
     #[cfg(feature = "round-robin")]
     RoundRobin(Box<RoundRobinBftEngine>),
@@ -51,10 +58,6 @@ pub enum Consensus<T: Clone> {
     _Phantom(std::marker::PhantomData<T>),
 }
 
-// FIX: This entire `impl ChainView for Consensus` block was architecturally incorrect
-// and has been removed. The ConsensusEngine is a *consumer* of a ChainView, not an
-// implementor of it. The main `Chain` struct provides the correct implementation.
-
 impl<T: Clone> Consensus<T> {
     /// Returns the `ConsensusType` enum variant corresponding to the active engine.
     pub fn consensus_type(&self) -> ConsensusType {
@@ -65,7 +68,7 @@ impl<T: Clone> Consensus<T> {
             Consensus::ProofOfAuthority(_) => ConsensusType::ProofOfAuthority,
             #[cfg(feature = "pos")]
             Consensus::ProofOfStake(_) => ConsensusType::ProofOfStake,
-            Consensus::_Phantom(_) => panic!("No consensus engine feature is enabled."),
+            Consensus::_Phantom(_) => unreachable!("No consensus engine feature is enabled."),
         }
     }
 }
@@ -87,7 +90,7 @@ where
             Consensus::ProofOfAuthority(e) => e.apply_penalty(state, report).await,
             #[cfg(feature = "pos")]
             Consensus::ProofOfStake(e) => e.apply_penalty(state, report).await,
-            Consensus::_Phantom(_) => panic!("No consensus engine feature is enabled."),
+            Consensus::_Phantom(_) => unreachable!("No consensus engine feature is enabled."),
         }
     }
 }
@@ -95,7 +98,7 @@ where
 #[async_trait]
 impl<T> ConsensusEngine<T> for Consensus<T>
 where
-    T: Clone + Send + Sync + 'static,
+    T: Clone + Send + Sync + 'static + parity_scale_codec::Encode,
 {
     async fn get_validator_data(
         &self,
@@ -129,7 +132,7 @@ where
                 e.decide(our_account_id, height, view, parent_view, known_peers)
                     .await
             }
-            Consensus::_Phantom(_) => panic!("No consensus engine feature is enabled."),
+            Consensus::_Phantom(_) => unreachable!("No consensus engine feature is enabled."),
         }
     }
 
@@ -156,7 +159,7 @@ where
             Consensus::ProofOfAuthority(e) => e.handle_block_proposal(block, chain_view).await,
             #[cfg(feature = "pos")]
             Consensus::ProofOfStake(e) => e.handle_block_proposal(block, chain_view).await,
-            Consensus::_Phantom(_) => panic!("No consensus engine feature is enabled."),
+            Consensus::_Phantom(_) => unreachable!("No consensus engine feature is enabled."),
         }
     }
 
@@ -191,7 +194,7 @@ where
                 )
                 .await
             }
-            Consensus::_Phantom(_) => panic!("No consensus engine feature is enabled."),
+            Consensus::_Phantom(_) => unreachable!("No consensus engine feature is enabled."),
         }
     }
 
@@ -209,7 +212,7 @@ where
             Consensus::ProofOfStake(e) => {
                 <ProofOfStakeEngine as ConsensusEngine<T>>::reset(e, height)
             }
-            Consensus::_Phantom(_) => panic!("No consensus engine feature is enabled."),
+            Consensus::_Phantom(_) => unreachable!("No consensus engine feature is enabled."),
         }
     }
 }

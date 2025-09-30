@@ -27,10 +27,14 @@ mod iavl_tests {
         let (membership, proof) = tree.get_with_proof_at(&root_v1, b"key1").unwrap();
 
         assert_eq!(membership, Membership::Present(b"value1".to_vec()));
-        assert!(tree.verify_proof(&root_v1, &proof, b"key1", b"value1"));
+        assert!(tree
+            .verify_proof(&root_v1, &proof, b"key1", b"value1")
+            .is_ok());
 
         // 3. Test that proof fails with wrong value
-        assert!(!tree.verify_proof(&root_v1, &proof, b"key1", b"wrong_value"));
+        assert!(tree
+            .verify_proof(&root_v1, &proof, b"key1", b"wrong_value")
+            .is_err());
 
         // 4. Test non-existence proof
         let (membership_absent, proof_absent) = tree.get_with_proof_at(&root_v1, b"key3").unwrap();
@@ -109,7 +113,8 @@ mod iavl_tests {
 
             // Assert that the proof verifies correctly
             assert!(
-                tree.verify_proof(&final_root, &proof, key, expected_value),
+                tree.verify_proof(&final_root, &proof, key, expected_value)
+                    .is_ok(),
                 "Proof verification failed for key: {}",
                 String::from_utf8_lossy(key)
             );

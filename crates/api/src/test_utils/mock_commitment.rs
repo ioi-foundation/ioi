@@ -1,6 +1,7 @@
 //! Mock commitment scheme for testing
 
 use crate::commitment::{CommitmentScheme, ProofContext, SchemeIdentifier, Selector};
+use crate::error::CryptoError;
 
 /// Mock commitment scheme implementation for testing
 #[derive(Debug, Clone)]
@@ -30,20 +31,20 @@ impl CommitmentScheme for MockCommitmentScheme {
     type Proof = MockProof;
     type Value = Vec<u8>;
 
-    fn commit(&self, values: &[Option<Self::Value>]) -> Self::Commitment {
+    fn commit(&self, values: &[Option<Self::Value>]) -> Result<Self::Commitment, CryptoError> {
         // Implementation actually combines all values into a single commitment
         let mut combined = Vec::new();
         for data in values.iter().flatten() {
             combined.extend_from_slice(data.as_ref());
         }
-        MockCommitment(combined)
+        Ok(MockCommitment(combined))
     }
 
     fn create_proof(
         &self,
         selector: &Selector,
         value: &Self::Value,
-    ) -> Result<Self::Proof, String> {
+    ) -> Result<Self::Proof, CryptoError> {
         // Store both selector and value in the proof
         Ok(MockProof {
             selector: selector.clone(),
@@ -133,14 +134,16 @@ pub mod helpers {
     pub fn create_commitment<T: AsRef<[u8]>>(value: T) -> MockCommitment {
         let scheme = MockCommitmentScheme;
         // Convert to Vec<u8> since the CommitmentScheme's Value type is Vec<u8>
-        scheme.commit(&[Some(value.as_ref().to_vec())])
+        scheme
+            .commit(&[Some(value.as_ref().to_vec())])
+            .expect("mock commit failed")
     }
 
     /// Create a mock proof for a value with position selector
     pub fn create_position_proof<T: AsRef<[u8]>>(
-        position: usize,
+        position: u64,
         value: T,
-    ) -> Result<MockProof, String> {
+    ) -> Result<MockProof, CryptoError> {
         let scheme = MockCommitmentScheme;
         // Convert to Vec<u8> since the CommitmentScheme's Value type is Vec<u8>
         scheme.create_proof(&Selector::Position(position), &value.as_ref().to_vec())
@@ -150,7 +153,7 @@ pub mod helpers {
     pub fn create_key_proof<K: AsRef<[u8]>, V: AsRef<[u8]>>(
         key: K,
         value: V,
-    ) -> Result<MockProof, String> {
+    ) -> Result<MockProof, CryptoError> {
         let scheme = MockCommitmentScheme;
         // Convert to Vec<u8> since the CommitmentScheme's Value type is Vec<u8>
         scheme.create_proof(

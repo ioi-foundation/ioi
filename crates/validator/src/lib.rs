@@ -1,5 +1,16 @@
 // Path: crates/validator/src/lib.rs
-#![forbid(unsafe_code)]
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::todo,
+        clippy::unimplemented,
+        clippy::indexing_slicing
+    )
+)]
+#![deny(missing_docs)]
 
 //! # DePIN SDK Validator
 //!

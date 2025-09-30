@@ -13,13 +13,17 @@ use std::{any::Any, collections::HashMap, marker::PhantomData, sync::Arc};
 
 // --- contract.deploy.v1 ---
 
+/// The parameters for the `contract.deploy.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct DeployContractParams {
+    /// The WASM bytecode of the contract to deploy.
     pub code: Vec<u8>,
+    /// The address of the account deploying the contract.
     pub sender: Vec<u8>,
 }
 
+/// The RPC method handler for `contract.deploy.v1`.
 pub struct DeployContractV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -62,14 +66,19 @@ where
 
 // --- contract.call.v1 ---
 
+/// The parameters for the `contract.call.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct CallContractParams {
+    /// The address of the contract to call.
     pub address: Vec<u8>,
+    /// The ABI-encoded input data for the contract function.
     pub input_data: Vec<u8>,
+    /// The execution context for the call, including caller and gas limits.
     pub context: ExecutionContext,
 }
 
+/// The RPC method handler for `contract.call.v1`.
 pub struct CallContractV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -112,14 +121,19 @@ where
 
 // --- contract.query.v1 ---
 
+/// The parameters for the `contract.query.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct QueryContractParams {
+    /// The address of the contract to query.
     pub address: Vec<u8>,
+    /// The ABI-encoded input data for the contract function.
     pub input_data: Vec<u8>,
+    /// The execution context for the query, including caller and gas limits.
     pub context: ExecutionContext,
 }
 
+/// The RPC method handler for `contract.query.v1`.
 pub struct QueryContractV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }

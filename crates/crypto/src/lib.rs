@@ -1,10 +1,24 @@
 // Path: crates/crypto/src/lib.rs
-#![forbid(unsafe_code)]
+//! # DePIN SDK Crypto Crate Lints
+//!
+//! This crate enforces a strict set of lints to ensure high-quality,
+//! panic-free, and well-documented code. Panics are disallowed in non-test
+//! code to promote robust error handling.
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::indexing_slicing
+    )
+)]
 //! # DePIN SDK Cryptography
 //!
 //! Cryptographic implementations for the DePIN SDK including post-quantum algorithms.
 
 pub mod algorithms;
+pub mod error;
 pub mod kem;
 pub mod security;
 pub mod sign;

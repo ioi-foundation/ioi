@@ -69,8 +69,9 @@ impl ProofOfStakeEngine {
             return None;
         }
         let seed = height.to_le_bytes();
-        let hash = sha256(seed);
-        let winning_ticket = u128::from_le_bytes(hash[0..16].try_into().unwrap()) % vs.total_weight;
+        let hash = sha256(seed).ok()?;
+        let winning_ticket =
+            u128::from_le_bytes(hash.get(0..16)?.try_into().ok()?) % vs.total_weight;
         let mut cumulative_weight: u128 = 0;
         for validator in &vs.validators {
             cumulative_weight += validator.weight;
@@ -90,9 +91,9 @@ impl PenaltyMechanism for ProofOfStakeEngine {
         report: &FailureReport,
     ) -> Result<(), TransactionError> {
         const PENALTY_PERCENTAGE: u128 = 10;
-        let blob_bytes = state.get(VALIDATOR_SET_KEY)?.ok_or_else(|| {
-            TransactionError::State(StateError::KeyNotFound("ValidatorSet not found".into()))
-        })?;
+        let blob_bytes = state
+            .get(VALIDATOR_SET_KEY)?
+            .ok_or(TransactionError::State(StateError::KeyNotFound))?;
         let mut sets = read_validator_sets(&blob_bytes)?;
         let mut vs = sets.current;
         let mut validator_found = false;
@@ -114,13 +115,15 @@ impl PenaltyMechanism for ProofOfStakeEngine {
             .sort_by(|a, b| a.account_id.cmp(&b.account_id));
         vs.total_weight = vs.validators.iter().map(|v| v.weight).sum();
         sets.current = vs;
-        state.insert(VALIDATOR_SET_KEY, &write_validator_sets(&sets))?;
+        state.insert(VALIDATOR_SET_KEY, &write_validator_sets(&sets)?)?;
         Ok(())
     }
 }
 
 #[async_trait]
-impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
+impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
+    for ProofOfStakeEngine
+{
     async fn get_validator_data(
         &self,
         _state_reader: &dyn ChainStateReader,
@@ -139,7 +142,7 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
         log::info!(
             "[PoS Decide H={}] Node 0x{} starting consensus tick. Parent root: 0x{}",
             height,
-            hex::encode(&our_account_id.as_ref()[..4]),
+            hex::encode(our_account_id.as_ref().get(..4).unwrap_or_default()),
             hex::encode(parent_view.state_root())
         );
         let status_at_parent = parent_view.get(STATUS_KEY).await;
@@ -246,7 +249,13 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
         ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
     {
         let header = &block.header;
-        let producer_short_id = hex::encode(&header.producer_account_id.as_ref()[..4]);
+        let producer_short_id = hex::encode(
+            header
+                .producer_account_id
+                .as_ref()
+                .get(..4)
+                .unwrap_or_default(),
+        );
         log::info!(
             "[PoS Verify H={}] Received block proposal from 0x{}",
             header.height,
@@ -277,9 +286,7 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             .get(VALIDATOR_SET_KEY)
             .await
             .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
-            .ok_or_else(|| {
-                ConsensusError::StateAccess(StateError::KeyNotFound("ValidatorSet".into()))
-            })?;
+            .ok_or(ConsensusError::StateAccess(StateError::KeyNotFound))?;
         let sets: ValidatorSetsV1 = read_validator_sets(&vs_bytes)
             .map_err(|e| ConsensusError::StateAccess(StateError::InvalidValue(e.to_string())))?;
         let vs = effective_set_for_height(&sets, header.height);
@@ -300,6 +307,11 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             producer_short_id
         );
         let active_key = &v_entry.consensus_key;
+        let derived_from_header_ok = hash_key(header.producer_key_suite, &header.producer_pubkey)
+            .is_ok_and(|h| h == header.producer_pubkey_hash);
+        let derived_from_state_ok = hash_key(active_key.suite, &header.producer_pubkey)
+            .is_ok_and(|h| h == active_key.pubkey_hash);
+
         log::info!(
             "[PoS Verify H={}] Producer acct=0x{} header.suite={:?} state.suite={:?} since={} hash.match.header={} hash.match.state={}",
             header.height,
@@ -307,8 +319,8 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
             header.producer_key_suite,
             active_key.suite,
             active_key.since_height,
-            (hash_key(header.producer_key_suite, &header.producer_pubkey).map_or(false, |h| h == header.producer_pubkey_hash)),
-            (active_key.pubkey_hash == hash_key(active_key.suite, &header.producer_pubkey).unwrap_or_default()),
+            derived_from_header_ok,
+            derived_from_state_ok,
         );
         if header.height < active_key.since_height {
             return Err(ConsensusError::BlockVerificationFailed(
@@ -332,7 +344,9 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfStakeEngine {
                 "State active key hash mismatch".into(),
             ));
         }
-        let preimage = header.to_preimage_for_signing();
+        let preimage = header.to_preimage_for_signing().map_err(|e| {
+            ConsensusError::BlockVerificationFailed(format!("Failed to create preimage: {}", e))
+        })?;
         verify_signature(
             &preimage,
             &header.producer_pubkey,

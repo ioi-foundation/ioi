@@ -2,8 +2,10 @@
 use crate::security::SecurityChannel;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use depin_sdk_api::consensus::ChainStateReader;
-use depin_sdk_api::vm::{ExecutionContext, ExecutionOutput};
+use depin_sdk_api::{
+    consensus::ChainStateReader,
+    vm::{ExecutionContext, ExecutionOutput},
+};
 use depin_sdk_types::app::{
     AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction, Membership, StateAnchor,
     StateRoot,
@@ -124,6 +126,7 @@ impl WorkloadClient {
         let retry_delay = Duration::from_secs(2);
 
         loop {
+            attempts += 1;
             match channel
                 .establish_client(
                     workload_addr,
@@ -142,13 +145,8 @@ impl WorkloadClient {
                     break;
                 }
                 Err(e) => {
-                    attempts += 1;
                     if attempts >= max_attempts {
-                        return Err(anyhow!(
-                            "Failed to connect to Workload container after {} attempts: {}",
-                            max_attempts,
-                            e
-                        ));
+                        return Err(e.into());
                     }
                     log::warn!("Attempt {}/{} to connect to Workload container failed: {}. Retrying in {:?}...", attempts, max_attempts, e, retry_delay);
                     sleep(retry_delay).await;
@@ -274,7 +272,6 @@ impl WorkloadClient {
     pub async fn get_staked_validators(&self) -> Result<BTreeMap<AccountId, u64>> {
         let map_with_str_keys: BTreeMap<String, u64> =
             self.send_rpc("staking.getStakes.v1", json!({})).await?;
-
         map_with_str_keys
             .into_iter()
             .map(|(hex_key, stake)| {

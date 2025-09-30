@@ -127,13 +127,13 @@ where
             let key = self.create_utxo_key(&input.tx_hash, input.output_index);
             state.delete(&key)?;
         }
-        // FIX: Handle the Result from tx.hash()
+
         let tx_hash = tx
             .hash()
             .map_err(|e| TransactionError::Invalid(e.to_string()))?;
         for (index, output) in tx.outputs.iter().enumerate() {
             let key = self.create_utxo_key(&tx_hash, index as u32);
-            let value = codec::to_bytes_canonical(output);
+            let value = codec::to_bytes_canonical(output)?;
             state.insert(&key, &value)?;
         }
         Ok(())
@@ -191,13 +191,15 @@ where
     {
         let root_commitment = state.root_commitment();
         for input_proof in &proof.input_proofs {
-            let is_valid = state.verify_proof(
-                &root_commitment,
-                &input_proof.inclusion_proof,
-                &input_proof.utxo_key,
-                &input_proof.utxo_value,
-            );
-            if !is_valid {
+            if state
+                .verify_proof(
+                    &root_commitment,
+                    &input_proof.inclusion_proof,
+                    &input_proof.utxo_key,
+                    &input_proof.utxo_value,
+                )
+                .is_err()
+            {
                 return Ok(false);
             }
         }
@@ -205,7 +207,7 @@ where
     }
 
     fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError> {
-        Ok(codec::to_bytes_canonical(tx))
+        codec::to_bytes_canonical(tx).map_err(TransactionError::Serialization)
     }
 
     fn deserialize_transaction(&self, data: &[u8]) -> Result<Self::Transaction, TransactionError> {

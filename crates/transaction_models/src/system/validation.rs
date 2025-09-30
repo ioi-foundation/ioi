@@ -30,25 +30,21 @@ fn verify_signature(
                 } else {
                     Err("Libp2p signature verification failed".into())
                 }
-            } else if let Ok(pk) = Ed25519PublicKey::from_bytes(public_key) {
-                let sig = depin_sdk_crypto::sign::eddsa::Ed25519Signature::from_bytes(signature)?;
-                if pk.verify(message, &sig) {
-                    Ok(())
-                } else {
-                    Err("Ed25519 signature verification failed".into())
-                }
+            } else if let Ok(pk) =
+                Ed25519PublicKey::from_bytes(public_key).map_err(|e| e.to_string())
+            {
+                let sig = depin_sdk_crypto::sign::eddsa::Ed25519Signature::from_bytes(signature)
+                    .map_err(|e| e.to_string())?;
+                pk.verify(message, &sig).map_err(|e| e.to_string())
             } else {
                 Err("Could not decode Ed25519 public key".to_string())
             }
         }
         SignatureSuite::Dilithium2 => {
-            let pk = DilithiumPublicKey::from_bytes(public_key)?;
-            let sig = depin_sdk_crypto::sign::dilithium::DilithiumSignature::from_bytes(signature)?;
-            if pk.verify(message, &sig) {
-                Ok(())
-            } else {
-                Err("Dilithium signature verification failed".into())
-            }
+            let pk = DilithiumPublicKey::from_bytes(public_key).map_err(|e| e.to_string())?;
+            let sig = depin_sdk_crypto::sign::dilithium::DilithiumSignature::from_bytes(signature)
+                .map_err(|e| e.to_string())?;
+            pk.verify(message, &sig).map_err(|e| e.to_string())
         }
     }
 }

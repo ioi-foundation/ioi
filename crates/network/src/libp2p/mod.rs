@@ -348,29 +348,28 @@ impl Libp2pSync {
         let block_topic = gossipsub::IdentTopic::new("blocks");
         let tx_topic = gossipsub::IdentTopic::new("transactions");
         let oracle_attestations_topic = gossipsub::IdentTopic::new("oracle-attestations");
-        // NEW: Add a topic for agentic consensus votes
         let agentic_vote_topic = gossipsub::IdentTopic::new("agentic-votes");
-        swarm
-            .behaviour_mut()
-            .gossipsub
-            .subscribe(&block_topic)
-            .unwrap();
-        swarm
-            .behaviour_mut()
-            .gossipsub
-            .subscribe(&tx_topic)
-            .unwrap();
-        swarm
+
+        if let Err(e) = swarm.behaviour_mut().gossipsub.subscribe(&block_topic) {
+            tracing::warn!(error=%e, "Failed to subscribe to gossipsub topic: blocks");
+        }
+        if let Err(e) = swarm.behaviour_mut().gossipsub.subscribe(&tx_topic) {
+            tracing::warn!(error=%e, "Failed to subscribe to gossipsub topic: transactions");
+        }
+        if let Err(e) = swarm
             .behaviour_mut()
             .gossipsub
             .subscribe(&oracle_attestations_topic)
-            .unwrap();
-        // NEW: Subscribe to the vote topic
-        swarm
+        {
+            tracing::warn!(error=%e, "Failed to subscribe to gossipsub topic: oracle-attestations");
+        }
+        if let Err(e) = swarm
             .behaviour_mut()
             .gossipsub
             .subscribe(&agentic_vote_topic)
-            .unwrap();
+        {
+            tracing::warn!(error=%e, "Failed to subscribe to gossipsub topic: agentic-votes");
+        }
 
         loop {
             tokio::select! {
@@ -409,7 +408,6 @@ impl Libp2pSync {
                                 else if message.topic == oracle_attestations_topic.hash() {
                                     event_sender.send(SwarmInternalEvent::GossipOracleAttestation(message.data, source)).await.ok();
                                 }
-                                // NEW: Handle agentic vote gossip
                                 else if message.topic == agentic_vote_topic.hash() {
                                     if let Ok((prompt_hash, vote_hash)) = serde_json::from_slice::<(String, Vec<u8>)>(&message.data) {
                                         event_sender.send(SwarmInternalEvent::AgenticConsensusVote { from: source, prompt_hash, vote_hash }).await.ok();
@@ -445,13 +443,19 @@ impl Libp2pSync {
                         SwarmCommand::Listen(addr) => { swarm.listen_on(addr).ok(); }
                         SwarmCommand::Dial(addr) => { swarm.dial(addr).ok(); }
                         SwarmCommand::PublishBlock(data) => {
-                            swarm.behaviour_mut().gossipsub.publish(block_topic.clone(), data).ok();
+                            if let Err(e) = swarm.behaviour_mut().gossipsub.publish(block_topic.clone(), data) {
+                                tracing::warn!(error = %e, "Failed to publish block to gossipsub");
+                            }
                         }
                         SwarmCommand::PublishTransaction(data) => {
-                             swarm.behaviour_mut().gossipsub.publish(tx_topic.clone(), data).ok();
+                            if let Err(e) = swarm.behaviour_mut().gossipsub.publish(tx_topic.clone(), data) {
+                                tracing::warn!(error = %e, "Failed to publish transaction to gossipsub");
+                            }
                         }
                         SwarmCommand::GossipOracleAttestation(data) => {
-                             swarm.behaviour_mut().gossipsub.publish(oracle_attestations_topic.clone(), data).ok();
+                             if let Err(e) = swarm.behaviour_mut().gossipsub.publish(oracle_attestations_topic.clone(), data) {
+                                 tracing::warn!(error = %e, "Failed to publish oracle attestation to gossipsub");
+                             }
                         }
                         SwarmCommand::SendStatusRequest(p) => { swarm.behaviour_mut().request_response.send_request(&p, SyncRequest::GetStatus); }
                         SwarmCommand::SendBlocksRequest(p, h) => { swarm.behaviour_mut().request_response.send_request(&p, SyncRequest::GetBlocks(h)); }
@@ -468,10 +472,17 @@ impl Libp2pSync {
                                 swarm.behaviour_mut().request_response.send_request(&peer_id, request);
                             }
                         }
-                        // NEW: Handle sending votes
                         SwarmCommand::AgenticConsensusVote(prompt_hash, vote_hash) => {
-                            let data = serde_json::to_vec(&(prompt_hash, vote_hash)).unwrap();
-                            swarm.behaviour_mut().gossipsub.publish(agentic_vote_topic.clone(), data).ok();
+                            match serde_json::to_vec(&(prompt_hash, vote_hash)) {
+                                Ok(data) => {
+                                    if let Err(e) = swarm.behaviour_mut().gossipsub.publish(agentic_vote_topic.clone(), data) {
+                                        tracing::warn!(error = %e, "Failed to publish agentic consensus vote");
+                                    }
+                                }
+                                Err(e) => {
+                                    tracing::error!(error = %e, "Failed to serialize agentic consensus vote");
+                                }
+                            }
                         }
                         SwarmCommand::SendAgenticAck(channel) => {
                             swarm.behaviour_mut().request_response.send_response(channel, SyncResponse::AgenticAck).ok();

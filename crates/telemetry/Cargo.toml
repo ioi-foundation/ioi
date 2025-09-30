@@ -1,6 +1,8 @@
+# Path: crates/telemetry/Cargo.toml
 [package]
 name = "depin-sdk-telemetry"
 version = "0.1.0"
+rust-version = "1.78"
 edition = "2021"
 description = "Observability, metrics, and structured logging for the DePIN SDK."
 license = "MIT OR Apache-2.0"
@@ -19,4 +21,5 @@ tracing-subscriber = { workspace = true, features = [
     "json",
 ] }
 tracing-log = { workspace = true }
+anyhow = { workspace = true } # Added this line to resolve the compile error
 # REMOVED: depin-sdk-storage and depin-sdk-network are no longer needed here.

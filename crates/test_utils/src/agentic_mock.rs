@@ -24,8 +24,10 @@ pub fn mock_llm(_canonical_prompt: &str) -> String {
 
     // **Another non-deterministic element**: Randomly choose between minified and pretty-printed.
     if rand::random() {
-        serde_json::to_string_pretty(&output_value).unwrap()
+        serde_json::to_string_pretty(&output_value)
+            .unwrap_or_else(|e| format!(r#"{{"error":"serialization failed: {}"}}"#, e))
     } else {
-        serde_json::to_string(&output_value).unwrap()
+        serde_json::to_string(&output_value)
+            .unwrap_or_else(|e| format!(r#"{{"error":"serialization failed: {}"}}"#, e))
     }
 }

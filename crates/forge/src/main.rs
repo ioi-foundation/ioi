@@ -1,5 +1,15 @@
 // Path: crates/forge/src/main.rs
-#![forbid(unsafe_code)]
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::unimplemented,
+        clippy::todo,
+        clippy::indexing_slicing
+    )
+)]
 
 //! # DePIN SDK Forge CLI
 //!

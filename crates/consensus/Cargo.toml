@@ -2,6 +2,7 @@
 [package]
 name = "depin-sdk-consensus"
 version = "0.1.0"
+rust-version = "1.78"
 edition = "2021"
 description = "Consensus for the DePIN SDK"
 license = "MIT OR Apache-2.0"
@@ -24,9 +25,9 @@ async-trait = { workspace = true }
 tokio = { workspace = true, features = ["time"], optional = true }
 bs58 = "0.4"
 cfg-if = "1.0"
-# --- FIX START ---
 hex = { workspace = true }
-# --- FIX END ---
+# FIX: Add missing dependency for generic bounds
+parity-scale-codec = { workspace = true }
 
 
 [features]

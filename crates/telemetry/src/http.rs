@@ -16,7 +16,9 @@ async fn metrics_handler() -> ([(HeaderName, String); 1], Bytes) {
     let encoder = TextEncoder::new();
     let metric_families = prometheus::gather();
     let mut buf = Vec::with_capacity(1 << 20); // Pre-allocate 1MB
-    encoder.encode(&metric_families, &mut buf).unwrap();
+    if let Err(e) = encoder.encode(&metric_families, &mut buf) {
+        tracing::error!(error=%e, "Failed to encode prometheus metrics");
+    }
     (
         [(CONTENT_TYPE, encoder.format_type().to_string())],
         buf.into(),
@@ -58,9 +60,9 @@ pub async fn run_server(addr: SocketAddr) {
     tracing::info!(target="telemetry", %addr, "listening");
     let server = axum::Server::bind(&addr).serve(app.into_make_service());
     let graceful = server.with_graceful_shutdown(async {
-        signal::ctrl_c()
-            .await
-            .expect("failed to install CTRL+C handler");
+        if let Err(e) = signal::ctrl_c().await {
+            tracing::error!(target = "telemetry", error = %e, "Failed to install CTRL+C handler");
+        }
         tracing::info!(target = "telemetry", "shutting down gracefully");
     });
 

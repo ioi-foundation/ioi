@@ -4,12 +4,18 @@
 use crate::app::AccountId;
 use thiserror::Error;
 
+/// A trait for assigning a stable, machine-readable string code to an error.
+pub trait ErrorCode {
+    /// Returns the unique, stable string identifier for this error variant.
+    fn code(&self) -> &'static str;
+}
+
 /// Errors related to the state tree or state manager.
 #[derive(Error, Debug)]
 pub enum StateError {
     /// The requested key was not found in the state.
-    #[error("Key not found: {0}")]
-    KeyNotFound(String),
+    #[error("Key not found in state")]
+    KeyNotFound,
     /// State validation failed.
     #[error("Validation failed: {0}")]
     Validation(String),
@@ -25,6 +31,31 @@ pub enum StateError {
     /// The provided value was invalid.
     #[error("Invalid value: {0}")]
     InvalidValue(String),
+    /// An error occurred during state deserialization.
+    #[error("Decode error: {0}")]
+    Decode(String),
+    /// A proof verification failed because it did not anchor to the requested root.
+    #[error("Proof did not anchor to the requested state root")]
+    ProofDidNotAnchor,
+    /// An operation was attempted on a stale state anchor.
+    #[error("The provided state anchor is stale and does not match the latest known root")]
+    StaleAnchor,
+}
+
+impl ErrorCode for StateError {
+    fn code(&self) -> &'static str {
+        match self {
+            Self::KeyNotFound => "STATE_KEY_NOT_FOUND",
+            Self::Validation(_) => "STATE_VALIDATION_FAILED",
+            Self::Apply(_) => "STATE_APPLY_FAILED",
+            Self::Backend(_) => "STATE_BACKEND_ERROR",
+            Self::WriteError(_) => "STATE_WRITE_ERROR",
+            Self::InvalidValue(_) => "STATE_INVALID_VALUE",
+            Self::Decode(_) => "STATE_DECODE_ERROR",
+            Self::ProofDidNotAnchor => "STATE_PROOF_NO_ANCHOR",
+            Self::StaleAnchor => "STATE_STALE_ANCHOR",
+        }
+    }
 }
 
 /// Errors related to block processing.
@@ -57,6 +88,25 @@ pub enum BlockError {
         /// The state root from the received block.
         got: String,
     },
+    /// A generic, unspecified block validation error.
+    #[error("Invalid block: {0}")]
+    Invalid(String),
+    /// An error occurred while calculating a block or header hash.
+    #[error("Failed to hash block components: {0}")]
+    Hash(String),
+}
+
+impl ErrorCode for BlockError {
+    fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidHeight { .. } => "BLOCK_INVALID_HEIGHT",
+            Self::MismatchedPrevHash { .. } => "BLOCK_MISMATCHED_PREV_HASH",
+            Self::MismatchedValidatorSet => "BLOCK_MISMATCHED_VALIDATOR_SET",
+            Self::MismatchedStateRoot { .. } => "BLOCK_MISMATCHED_STATE_ROOT",
+            Self::Invalid(_) => "BLOCK_INVALID",
+            Self::Hash(_) => "BLOCK_HASH_FAILED",
+        }
+    }
 }
 
 /// Errors related to the consensus engine.
@@ -82,6 +132,22 @@ pub enum ConsensusError {
     /// A signature in a consensus message was invalid.
     #[error("Invalid signature in consensus message")]
     InvalidSignature,
+    /// A required component (e.g., key) was not found in state.
+    #[error("Consensus dependency not found in state: {0}")]
+    DependencyNotFound(String),
+}
+
+impl ErrorCode for ConsensusError {
+    fn code(&self) -> &'static str {
+        match self {
+            Self::BlockVerificationFailed(_) => "CONSENSUS_BLOCK_VERIFICATION_FAILED",
+            Self::InvalidLeader { .. } => "CONSENSUS_INVALID_LEADER",
+            Self::StateAccess(_) => "CONSENSUS_STATE_ACCESS_ERROR",
+            Self::ClientError(_) => "CONSENSUS_CLIENT_ERROR",
+            Self::InvalidSignature => "CONSENSUS_INVALID_SIGNATURE",
+            Self::DependencyNotFound(_) => "CONSENSUS_DEPENDENCY_NOT_FOUND",
+        }
+    }
 }
 
 /// Errors related to the oracle service.
@@ -111,6 +177,17 @@ pub enum OracleError {
     DataFetchFailed(String),
 }
 
+impl ErrorCode for OracleError {
+    fn code(&self) -> &'static str {
+        match self {
+            Self::RequestNotFound(_) => "ORACLE_REQUEST_NOT_FOUND",
+            Self::QuorumNotMet { .. } => "ORACLE_QUORUM_NOT_MET",
+            Self::InvalidAttestation { .. } => "ORACLE_INVALID_ATTESTATION",
+            Self::DataFetchFailed(_) => "ORACLE_DATA_FETCH_FAILED",
+        }
+    }
+}
+
 /// Errors related to the governance service.
 #[derive(Debug, Error)]
 pub enum GovernanceError {
@@ -134,6 +211,22 @@ pub enum GovernanceError {
     /// The governance key, required to authorize certain actions, was not found in the state.
     #[error("Governance key not found in state")]
     GovernanceKeyNotFound,
+    /// A general validation error occurred.
+    #[error("Invalid governance operation: {0}")]
+    Invalid(String),
+}
+
+impl ErrorCode for GovernanceError {
+    fn code(&self) -> &'static str {
+        match self {
+            Self::ProposalNotFound(_) => "GOVERNANCE_PROPOSAL_NOT_FOUND",
+            Self::NotVotingPeriod => "GOVERNANCE_NOT_VOTING_PERIOD",
+            Self::InvalidSignature { .. } => "GOVERNANCE_INVALID_SIGNATURE",
+            Self::InvalidSigner => "GOVERNANCE_INVALID_SIGNER",
+            Self::GovernanceKeyNotFound => "GOVERNANCE_KEY_NOT_FOUND",
+            Self::Invalid(_) => "GOVERNANCE_INVALID_OPERATION",
+        }
+    }
 }
 
 /// Errors related to the JSON-RPC server.
@@ -148,6 +241,16 @@ pub enum RpcError {
     /// The transaction submitted via RPC was rejected.
     #[error("Transaction submission failed: {0}")]
     TransactionSubmissionFailed(String),
+}
+
+impl ErrorCode for RpcError {
+    fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidParams(_) => "RPC_INVALID_PARAMS",
+            Self::InternalError(_) => "RPC_INTERNAL_ERROR",
+            Self::TransactionSubmissionFailed(_) => "RPC_TX_SUBMISSION_FAILED",
+        }
+    }
 }
 
 /// Errors related to transaction processing.
@@ -171,6 +274,12 @@ pub enum TransactionError {
     /// An error originating from the state manager.
     #[error("State error: {0}")]
     State(#[from] StateError),
+    /// The transaction's fee was insufficient.
+    #[error("Insufficient fee")]
+    InsufficientFee,
+    /// The account has insufficient funds to cover the transaction amount.
+    #[error("Insufficient funds")]
+    InsufficientFunds,
 
     // --- NEW, STRUCTURED ERRORS ---
     /// The transaction nonce does not match the expected nonce for the account.
@@ -196,6 +305,27 @@ pub enum TransactionError {
     /// The transaction type requires a service that is not enabled on the chain.
     #[error("Unsupported transaction type: {0}")]
     Unsupported(String),
+}
+
+impl ErrorCode for TransactionError {
+    fn code(&self) -> &'static str {
+        match self {
+            Self::Serialization(_) => "TX_SERIALIZATION_ERROR",
+            Self::Deserialization(_) => "TX_DESERIALIZATION_ERROR",
+            Self::Invalid(_) => "TX_INVALID",
+            Self::Governance(_) => "TX_GOVERNANCE_ERROR",
+            Self::Oracle(_) => "TX_ORACLE_ERROR",
+            Self::State(_) => "TX_STATE_ERROR",
+            Self::InsufficientFee => "TX_INSUFFICIENT_FEE",
+            Self::InsufficientFunds => "TX_INSUFFICIENT_FUNDS",
+            Self::NonceMismatch { .. } => "TX_NONCE_MISMATCH",
+            Self::InvalidSignature(_) => "TX_INVALID_SIGNATURE",
+            Self::ExpiredKey => "TX_EXPIRED_KEY",
+            Self::UnauthorizedByCredentials => "TX_UNAUTHORIZED_BY_CREDENTIALS",
+            Self::AccountIdMismatch => "TX_ACCOUNT_ID_MISMATCH",
+            Self::Unsupported(_) => "TX_UNSUPPORTED",
+        }
+    }
 }
 
 impl From<bcs::Error> for TransactionError {
@@ -224,7 +354,7 @@ impl From<prost::DecodeError> for TransactionError {
 
 impl From<parity_scale_codec::Error> for TransactionError {
     fn from(e: parity_scale_codec::Error) -> Self {
-        TransactionError::State(StateError::InvalidValue(e.to_string()))
+        TransactionError::State(StateError::Decode(e.to_string()))
     }
 }
 
@@ -257,6 +387,19 @@ pub enum VmError {
     MemoryError(String),
 }
 
+impl ErrorCode for VmError {
+    fn code(&self) -> &'static str {
+        match self {
+            Self::Initialization(_) => "VM_INITIALIZATION_FAILED",
+            Self::InvalidBytecode(_) => "VM_INVALID_BYTECODE",
+            Self::ExecutionTrap(_) => "VM_EXECUTION_TRAP",
+            Self::FunctionNotFound(_) => "VM_FUNCTION_NOT_FOUND",
+            Self::HostError(_) => "VM_HOST_ERROR",
+            Self::MemoryError(_) => "VM_MEMORY_ERROR",
+        }
+    }
+}
+
 /// Errors related to the validator and its containers.
 #[derive(Error, Debug)]
 pub enum ValidatorError {
@@ -278,6 +421,27 @@ pub enum ValidatorError {
     /// A miscellaneous validator error.
     #[error("Other error: {0}")]
     Other(String),
+    /// An error occurred during IPC communication.
+    #[error("IPC error: {0}")]
+    Ipc(String),
+    /// The agentic attestation check failed.
+    #[error("Agentic attestation failed: {0}")]
+    Attestation(String),
+}
+
+impl ErrorCode for ValidatorError {
+    fn code(&self) -> &'static str {
+        match self {
+            Self::AlreadyRunning(_) => "VALIDATOR_ALREADY_RUNNING",
+            Self::Io(_) => "VALIDATOR_IO_ERROR",
+            Self::Config(_) => "VALIDATOR_CONFIG_ERROR",
+            Self::Vm(_) => "VALIDATOR_VM_ERROR",
+            Self::State(_) => "VALIDATOR_STATE_ERROR",
+            Self::Other(_) => "VALIDATOR_OTHER_ERROR",
+            Self::Ipc(_) => "VALIDATOR_IPC_ERROR",
+            Self::Attestation(_) => "VALIDATOR_ATTESTATION_FAILED",
+        }
+    }
 }
 
 /// Errors related to blockchain-level processing.
@@ -292,6 +456,24 @@ pub enum ChainError {
     /// An error occurred in the state manager.
     #[error("State error: {0}")]
     State(#[from] StateError),
+    /// A system time error occurred.
+    #[error("System time error: {0}")]
+    Time(String),
+    /// An attempt was made to resolve an unknown or pruned state anchor.
+    #[error("Could not resolve unknown state anchor: {0}")]
+    UnknownStateAnchor(String),
+}
+
+impl ErrorCode for ChainError {
+    fn code(&self) -> &'static str {
+        match self {
+            Self::Block(_) => "CHAIN_BLOCK_ERROR",
+            Self::Transaction(_) => "CHAIN_TRANSACTION_ERROR",
+            Self::State(_) => "CHAIN_STATE_ERROR",
+            Self::Time(_) => "CHAIN_TIME_ERROR",
+            Self::UnknownStateAnchor(_) => "CHAIN_UNKNOWN_ANCHOR",
+        }
+    }
 }
 
 /// Implement the conversion from TransactionError to ChainError.
@@ -309,10 +491,101 @@ pub enum CoreError {
     ServiceNotFound(String),
     /// An error occurred during a service upgrade.
     #[error("Upgrade error: {0}")]
-    UpgradeError(String),
+    Upgrade(String),
     /// A custom, unspecified error.
     #[error("Custom error: {0}")]
     Custom(String),
+    /// The requested feature is not yet implemented.
+    #[error("Feature not implemented")]
+    NotImplemented,
+    /// An error originating from a cryptographic operation.
+    #[error("Crypto error: {0}")]
+    Crypto(String),
+}
+
+impl ErrorCode for CoreError {
+    fn code(&self) -> &'static str {
+        match self {
+            Self::ServiceNotFound(_) => "CORE_SERVICE_NOT_FOUND",
+            Self::Upgrade(_) => "CORE_UPGRADE_ERROR",
+            Self::Custom(_) => "CORE_CUSTOM_ERROR",
+            Self::NotImplemented => "CORE_NOT_IMPLEMENTED",
+            Self::Crypto(_) => "CORE_CRYPTO_ERROR",
+        }
+    }
+}
+
+impl From<CryptoError> for CoreError {
+    fn from(e: CryptoError) -> Self {
+        CoreError::Crypto(e.to_string())
+    }
+}
+
+/// Errors from cryptographic operations.
+#[derive(Error, Debug)]
+pub enum CryptoError {
+    /// The signature failed cryptographic verification.
+    #[error("Signature verification failed")]
+    VerificationFailed,
+    /// The provided key material is malformed or invalid for the specified algorithm.
+    #[error("Invalid cryptographic key: {0}")]
+    InvalidKey(String),
+    /// The provided signature material is malformed or invalid for the specified algorithm.
+    #[error("Invalid signature format: {0}")]
+    InvalidSignature(String),
+    /// A hash digest had an unexpected length.
+    #[error("Invalid hash length: expected {expected}, got {got}")]
+    InvalidHashLength {
+        /// The expected length in bytes.
+        expected: usize,
+        /// The actual length in bytes.
+        got: usize,
+    },
+    /// An error occurred during deserialization of a cryptographic object.
+    #[error("Deserialization error: {0}")]
+    Deserialization(String),
+    /// A generic failure in an underlying cryptographic library.
+    #[error("Cryptographic operation failed: {0}")]
+    OperationFailed(String),
+    /// The requested cryptographic operation or parameter is not supported by the current context.
+    #[error("Unsupported cryptographic operation or parameter: {0}")]
+    Unsupported(String),
+    /// A Key Encapsulation Mechanism (KEM) failed to decapsulate a shared secret.
+    #[error("Decapsulation of shared secret failed")]
+    DecapsulationFailed,
+    /// The Structured Reference String (SRS) used for a proof does not match the one used for verification.
+    #[error("SRS mismatch between witness and parameters")]
+    SrsMismatch,
+    /// An input to a cryptographic operation was invalid.
+    #[error("Invalid input for operation: {0}")]
+    InvalidInput(String),
+    /// A custom, unspecified cryptographic error.
+    #[error("Custom crypto error: {0}")]
+    Custom(String),
+}
+
+impl ErrorCode for CryptoError {
+    fn code(&self) -> &'static str {
+        match self {
+            Self::VerificationFailed => "CRYPTO_VERIFICATION_FAILED",
+            Self::InvalidKey(_) => "CRYPTO_INVALID_KEY",
+            Self::InvalidSignature(_) => "CRYPTO_INVALID_SIGNATURE",
+            Self::InvalidHashLength { .. } => "CRYPTO_INVALID_HASH_LENGTH",
+            Self::Deserialization(_) => "CRYPTO_DESERIALIZATION_ERROR",
+            Self::OperationFailed(_) => "CRYPTO_OPERATION_FAILED",
+            Self::Unsupported(_) => "CRYPTO_UNSUPPORTED",
+            Self::DecapsulationFailed => "CRYPTO_DECAPSULATION_FAILED",
+            Self::SrsMismatch => "CRYPTO_SRS_MISMATCH",
+            Self::InvalidInput(_) => "CRYPTO_INVALID_INPUT",
+            Self::Custom(_) => "CRYPTO_CUSTOM_ERROR",
+        }
+    }
+}
+
+impl From<dcrypt::Error> for CryptoError {
+    fn from(e: dcrypt::Error) -> Self {
+        CryptoError::OperationFailed(e.to_string())
+    }
 }
 
 /// Errors related to service upgrades.
@@ -333,4 +606,57 @@ pub enum UpgradeError {
     /// A service operation (e.g., start, stop) failed.
     #[error("Service operation failed: {0}")]
     OperationFailed(String),
+}
+
+impl ErrorCode for UpgradeError {
+    fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidUpgrade(_) => "UPGRADE_INVALID",
+            Self::MigrationFailed(_) => "UPGRADE_MIGRATION_FAILED",
+            Self::ServiceNotFound => "UPGRADE_SERVICE_NOT_FOUND",
+            Self::HealthCheckFailed(_) => "UPGRADE_HEALTH_CHECK_FAILED",
+            Self::OperationFailed(_) => "UPGRADE_OPERATION_FAILED",
+        }
+    }
+}
+
+/// Errors that can occur during proof verification.
+#[derive(Debug, thiserror::Error)]
+pub enum ProofError {
+    /// An error occurred during proof deserialization.
+    #[error("Proof deserialization failed: {0}")]
+    Deserialization(String),
+    /// The recomputed root hash from the proof did not match the trusted root.
+    #[error("Root hash mismatch")]
+    RootMismatch,
+    /// A proof of non-existence was structurally invalid.
+    #[error("Invalid non-existence proof: {0}")]
+    InvalidNonExistence(String),
+    /// A proof of existence was structurally invalid.
+    #[error("Invalid existence proof: {0}")]
+    InvalidExistence(String),
+    /// A cryptographic operation during verification failed.
+    #[error("Crypto error during proof verification: {0}")]
+    Crypto(String),
+    /// A proof's hash length was invalid.
+    #[error("Invalid hash length: expected {expected}, got {got}")]
+    InvalidHashLength {
+        /// The expected length in bytes.
+        expected: usize,
+        /// The actual length in bytes.
+        got: usize,
+    },
+}
+
+impl ErrorCode for ProofError {
+    fn code(&self) -> &'static str {
+        match self {
+            Self::Deserialization(_) => "PROOF_DESERIALIZATION_FAILED",
+            Self::RootMismatch => "PROOF_ROOT_MISMATCH",
+            Self::InvalidNonExistence(_) => "PROOF_INVALID_NON_EXISTENCE",
+            Self::InvalidExistence(_) => "PROOF_INVALID_EXISTENCE",
+            Self::Crypto(_) => "PROOF_CRYPTO_ERROR",
+            Self::InvalidHashLength { .. } => "PROOF_INVALID_HASH_LENGTH",
+        }
+    }
 }

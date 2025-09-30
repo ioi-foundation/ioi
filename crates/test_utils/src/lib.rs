@@ -1,5 +1,15 @@
 // Path: crates/test_utils/src/lib.rs
-#![forbid(unsafe_code)]
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::unimplemented,
+        clippy::todo,
+        clippy::indexing_slicing
+    )
+)]
 
 //! # DePIN SDK Test Utilities
 //!

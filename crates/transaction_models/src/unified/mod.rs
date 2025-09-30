@@ -12,8 +12,8 @@ use depin_sdk_api::vm::ExecutionContext;
 use depin_sdk_services::governance::GovernanceModule;
 use depin_sdk_services::identity::IdentityHub;
 use depin_sdk_types::app::{
-    evidence_id, ActiveKeyRecord, ApplicationTransaction, ChainTransaction, SignatureSuite,
-    StateEntry, SystemPayload, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+    evidence_id, write_validator_sets, ActiveKeyRecord, ApplicationTransaction, ChainTransaction,
+    SignatureSuite, StateEntry, SystemPayload, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
 };
 use depin_sdk_types::codec;
 use depin_sdk_types::config::ConsensusType;
@@ -49,7 +49,7 @@ impl<CS: CommitmentScheme + Clone> UnifiedTransactionModel<CS> {
 #[async_trait]
 impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UnifiedTransactionModel<CS>
 where
-    <CS as CommitmentScheme>::Proof: Serialize + for<'de> serde::Deserialize<'de> + Clone,
+    <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de> + Clone,
 {
     type Transaction = ChainTransaction;
     type CommitmentScheme = CS;
@@ -114,9 +114,9 @@ where
                                     value,
                                     block_height: ctx.block_height,
                                 };
-                                (key, codec::to_bytes_canonical(&entry))
+                                codec::to_bytes_canonical(&entry).map(|bytes| (key, bytes))
                             })
-                            .collect();
+                            .collect::<Result<_, _>>()?;
                         state.batch_set(&versioned_delta)?; // Writes to the overlay
                     }
                     log::info!(
@@ -163,9 +163,9 @@ where
                                     value,
                                     block_height: ctx.block_height,
                                 };
-                                (key, codec::to_bytes_canonical(&entry))
+                                codec::to_bytes_canonical(&entry).map(|bytes| (key, bytes))
                             })
-                            .collect();
+                            .collect::<Result<_, _>>()?;
                         state.batch_set(&versioned_delta)?; // Writes to the overlay
                     }
                     Ok(())
@@ -265,16 +265,13 @@ where
                             }
                         }
 
-                        // FIX: Always re-sort the validator list after modification
+                        // Always re-sort the validator list after modification
                         // to ensure a canonical, deterministic order for leader selection.
                         next_vs
                             .validators
                             .sort_by(|a, b| a.account_id.cmp(&b.account_id));
                         next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
-                        state.insert(
-                            VALIDATOR_SET_KEY,
-                            &depin_sdk_types::app::write_validator_sets(&sets),
-                        )?;
+                        state.insert(VALIDATOR_SET_KEY, &write_validator_sets(&sets)?)?;
                         Ok(())
                     }
                     SystemPayload::Unstake { amount } => {
@@ -303,7 +300,11 @@ where
                             new_next.effective_from_height = target_activation;
                             sets.next = Some(new_next);
                         }
-                        let next_vs = sets.next.as_mut().unwrap();
+                        let next_vs = sets.next.as_mut().ok_or_else(|| {
+                            TransactionError::Invalid(
+                                "Could not access pending validator set for unstaking".to_string(),
+                            )
+                        })?;
 
                         let mut validator_found = false;
                         next_vs.validators.retain_mut(|v| {
@@ -320,16 +321,13 @@ where
                                 "Staker not in validator set".into(),
                             ));
                         }
-                        // FIX: Always re-sort the validator list after modification
+                        // Always re-sort the validator list after modification
                         // to ensure a canonical, deterministic order for leader selection.
                         next_vs
                             .validators
                             .sort_by(|a, b| a.account_id.cmp(&b.account_id));
                         next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
-                        state.insert(
-                            VALIDATOR_SET_KEY,
-                            &depin_sdk_types::app::write_validator_sets(&sets),
-                        )?;
+                        state.insert(VALIDATOR_SET_KEY, &write_validator_sets(&sets)?)?;
                         Ok(())
                     }
                     SystemPayload::UpdateAuthorities {
@@ -373,20 +371,14 @@ where
                             next: Some(vs),
                         };
 
-                        state.insert(
-                            VALIDATOR_SET_KEY,
-                            &depin_sdk_types::app::write_validator_sets(&sets),
-                        )?;
+                        state.insert(VALIDATOR_SET_KEY, &write_validator_sets(&sets)?)?;
                         Ok(())
                     }
                     SystemPayload::ReportMisbehavior { report } => {
                         let reporter_id = &sys_tx.header.account_id;
-                        let vs_blob_bytes =
-                            state
-                                .get(VALIDATOR_SET_KEY)?
-                                .ok_or(TransactionError::State(StateError::KeyNotFound(
-                                    "ValidatorSet".into(),
-                                )))?;
+                        let vs_blob_bytes = state
+                            .get(VALIDATOR_SET_KEY)?
+                            .ok_or(TransactionError::State(StateError::KeyNotFound))?;
                         let vs_sets = depin_sdk_types::app::read_validator_sets(&vs_blob_bytes)?;
 
                         if !vs_sets
@@ -415,7 +407,7 @@ where
                         }
                         state.insert(
                             EVIDENCE_REGISTRY_KEY,
-                            &codec::to_bytes_canonical(&new_handled_evidence),
+                            &codec::to_bytes_canonical(&new_handled_evidence)?,
                         )?;
 
                         let penalty_mechanism = chain_ref.get_penalty_mechanism();
@@ -458,7 +450,7 @@ where
                             value: final_value.clone(),
                             block_height: ctx.block_height,
                         };
-                        let entry_bytes = codec::to_bytes_canonical(&entry);
+                        let entry_bytes = codec::to_bytes_canonical(&entry)?;
                         state.delete(&pending_key)?;
                         state.insert(&final_key, &entry_bytes)?;
                         log::info!("Applied and verified oracle data for id: {}", request_id);
@@ -467,12 +459,12 @@ where
                     SystemPayload::RequestOracleData { url, request_id } => {
                         let request_key =
                             [ORACLE_PENDING_REQUEST_PREFIX, &request_id.to_le_bytes()].concat();
-                        let url_bytes = codec::to_bytes_canonical(&url);
+                        let url_bytes = codec::to_bytes_canonical(&url)?;
                         let entry = StateEntry {
                             value: url_bytes,
                             block_height: ctx.block_height,
                         };
-                        let entry_bytes = codec::to_bytes_canonical(&entry);
+                        let entry_bytes = codec::to_bytes_canonical(&entry)?;
                         state.insert(&request_key, &entry_bytes)?;
                         Ok(())
                     }
@@ -526,7 +518,7 @@ where
                         // Add the new upgrade
                         pending_upgrades.push((service_type, module_wasm));
                         // Save the updated list back to the state
-                        let value = codec::to_bytes_canonical(&pending_upgrades);
+                        let value = codec::to_bytes_canonical(&pending_upgrades)?;
                         state.insert(&key, &value)?;
                         Ok(())
                     }
@@ -571,7 +563,7 @@ where
     }
 
     fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError> {
-        Ok(codec::to_bytes_canonical(tx))
+        codec::to_bytes_canonical(tx).map_err(TransactionError::Serialization)
     }
 
     fn deserialize_transaction(&self, data: &[u8]) -> Result<Self::Transaction, TransactionError> {

@@ -4,6 +4,7 @@
 use crate::commitment::CommitmentScheme;
 use async_trait::async_trait;
 use depin_sdk_types::app::Membership;
+use depin_sdk_types::error::ProofError; // FIX: Corrected import path for ProofError
 use depin_sdk_types::error::StateError;
 use parity_scale_codec::{Decode, Encode};
 use std::collections::BTreeSet;
@@ -65,14 +66,15 @@ pub trait Verifier: Send + Sync {
     /// * `outcome` - The claimed outcome (either `Membership::Present(value)` or `Membership::Absent`).
     ///
     /// # Returns
-    /// `true` if the proof is valid for the given root, key, and outcome.
+    /// `Ok(())` if the proof is valid for the given root, key, and outcome.
+    /// Otherwise, returns a `ProofError`.
     fn verify(
         &self,
         root: &Self::Commitment,
         proof: &Self::Proof,
         key: &[u8],
         outcome: &Membership,
-    ) -> bool;
+    ) -> Result<(), ProofError>;
 }
 
 /// A dyn-safe trait for the VM to access state, abstracting away the concrete StateManager type.

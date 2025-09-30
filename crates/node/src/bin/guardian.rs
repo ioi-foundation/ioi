@@ -1,5 +1,15 @@
 // Path: crates/node/src/bin/guardian.rs
-#![forbid(unsafe_code)]
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::unimplemented,
+        clippy::todo,
+        clippy::indexing_slicing
+    )
+)]
 
 use anyhow::Result;
 use clap::Parser;
@@ -27,7 +37,7 @@ struct GuardianOpts {
 #[tokio::main]
 async fn main() -> Result<()> {
     // 1. Initialize tracing FIRST
-    depin_sdk_telemetry::init::init_tracing();
+    depin_sdk_telemetry::init::init_tracing()?;
 
     // 2. Spawn the telemetry server
     let telemetry_addr_str =
@@ -38,7 +48,8 @@ async fn main() -> Result<()> {
     let opts = GuardianOpts::parse();
     tracing::info!(target: "guardian", event = "startup", config_dir = %opts.config_dir);
 
-    let certs_dir = std::env::var("CERTS_DIR").expect("CERTS_DIR environment variable must be set");
+    let certs_dir = std::env::var("CERTS_DIR")
+        .map_err(|_| anyhow::anyhow!("CERTS_DIR environment variable must be set"))?;
     generate_certificates_if_needed(Path::new(&certs_dir))?;
 
     let config: GuardianConfig = toml::from_str(&std::fs::read_to_string(
@@ -67,7 +78,7 @@ async fn main() -> Result<()> {
         let local_hash_result = guardian_clone
             .attest_weights(&opts.agentic_model_path)
             .await;
-        let report_bytes = serde_json::to_vec(&local_hash_result).unwrap();
+        let report_bytes = serde_json::to_vec(&local_hash_result)?;
         if let Err(e) = guardian_clone
             .orchestration_channel
             .send(&report_bytes)
@@ -86,6 +97,7 @@ async fn main() -> Result<()> {
                 "Sent agentic attestation report to Orchestrator."
             );
         }
+        Ok::<(), anyhow::Error>(())
     });
 
     tokio::select! {

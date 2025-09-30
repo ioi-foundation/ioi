@@ -8,7 +8,7 @@ fn test_ecdh_keypair_generation() {
     // Test P256 curve (K256)
     let curve = EcdhCurve::P256;
     let kem = EcdhKEM::new(curve);
-    let keypair = kem.generate_keypair();
+    let keypair = kem.generate_keypair().unwrap();
 
     // Verify key sizes match the expected sizes for K256
     assert_eq!(keypair.public_key.to_bytes().len(), 33); // Compressed K256 point
@@ -24,13 +24,13 @@ fn test_ecdh_keypair_generation() {
 #[test]
 fn test_ecdh_p384_round_trip() {
     let kem = EcdhKEM::new(EcdhCurve::P384);
-    let keypair = kem.generate_keypair();
+    let keypair = kem.generate_keypair().unwrap();
 
     // Check sizes
     assert_eq!(keypair.public_key.to_bytes().len(), 49);
     assert_eq!(keypair.private_key.to_bytes().len(), 48);
 
-    let encapsulated = kem.encapsulate(&keypair.public_key);
+    let encapsulated = kem.encapsulate(&keypair.public_key).unwrap();
     assert_eq!(encapsulated.ciphertext().len(), 49);
     assert_eq!(encapsulated.shared_secret().len(), 48); // P384 shared secret is 48 bytes
 
@@ -44,13 +44,13 @@ fn test_ecdh_p384_round_trip() {
 #[test]
 fn test_ecdh_p521_round_trip() {
     let kem = EcdhKEM::new(EcdhCurve::P521);
-    let keypair = kem.generate_keypair();
+    let keypair = kem.generate_keypair().unwrap();
 
     // Check sizes
     assert_eq!(keypair.public_key.to_bytes().len(), 67);
     assert_eq!(keypair.private_key.to_bytes().len(), 66);
 
-    let encapsulated = kem.encapsulate(&keypair.public_key);
+    let encapsulated = kem.encapsulate(&keypair.public_key).unwrap();
     assert_eq!(encapsulated.ciphertext().len(), 67);
     // FIX: The shared secret is passed through HKDF-SHA512, resulting in a 64-byte secret.
     assert_eq!(encapsulated.shared_secret().len(), 64);
@@ -66,10 +66,10 @@ fn test_ecdh_p521_round_trip() {
 fn test_ecdh_encapsulation() {
     let curve = EcdhCurve::P256;
     let kem = EcdhKEM::new(curve);
-    let keypair = kem.generate_keypair();
+    let keypair = kem.generate_keypair().unwrap();
 
     // Encapsulate a key
-    let encapsulated = kem.encapsulate(&keypair.public_key);
+    let encapsulated = kem.encapsulate(&keypair.public_key).unwrap();
 
     // Verify the encapsulated data sizes
     assert_eq!(encapsulated.ciphertext().len(), 33); // Compressed K256 point
@@ -79,7 +79,7 @@ fn test_ecdh_encapsulation() {
     let shared_secret = kem.decapsulate(&keypair.private_key, &encapsulated);
 
     // We should get a valid shared secret
-    assert!(shared_secret.is_some());
+    assert!(shared_secret.is_ok());
     let shared_secret = shared_secret.unwrap();
 
     // The shared secret should match what's in the encapsulated key
@@ -104,7 +104,7 @@ fn test_ecdh_security_level_mapping() {
 #[test]
 fn test_ecdh_serialization() {
     let kem = EcdhKEM::new(EcdhCurve::P256);
-    let keypair = kem.generate_keypair();
+    let keypair = kem.generate_keypair().unwrap();
 
     // Serialize keys
     let public_key_bytes = keypair.public_key.to_bytes();
@@ -115,7 +115,7 @@ fn test_ecdh_serialization() {
     let restored_private_key = EcdhPrivateKey::from_bytes(&private_key_bytes).unwrap();
 
     // Encapsulate with original key
-    let encapsulated = kem.encapsulate(&keypair.public_key);
+    let encapsulated = kem.encapsulate(&keypair.public_key).unwrap();
     let ciphertext_bytes = encapsulated.to_bytes();
 
     // Deserialize ciphertext
@@ -125,11 +125,11 @@ fn test_ecdh_serialization() {
     let shared_secret = kem.decapsulate(&restored_private_key, &restored_encapsulated);
 
     // We should still get a valid shared secret
-    assert!(shared_secret.is_some());
+    assert!(shared_secret.is_ok());
 
     // Verify that different key pairs produce different shared secrets
-    let keypair2 = kem.generate_keypair();
-    let encapsulated2 = kem.encapsulate(&keypair2.public_key);
+    let keypair2 = kem.generate_keypair().unwrap();
+    let encapsulated2 = kem.encapsulate(&keypair2.public_key).unwrap();
 
     // Different key pairs should generate different shared secrets
     assert_ne!(encapsulated.shared_secret(), encapsulated2.shared_secret());
@@ -139,7 +139,7 @@ fn test_ecdh_serialization() {
 
     // Decapsulating with the wrong private key should produce a different result
     let wrong_shared_secret = kem.decapsulate(&keypair2.private_key, &encapsulated);
-    assert!(wrong_shared_secret.is_some());
+    assert!(wrong_shared_secret.is_ok());
     assert_ne!(wrong_shared_secret.unwrap(), encapsulated.shared_secret());
 }
 
@@ -147,19 +147,19 @@ fn test_ecdh_serialization() {
 fn test_ecdh_dcrypt_compatibility() {
     // Test that the dcrypt wrapper works correctly
     let kem = EcdhKEM::new(EcdhCurve::P256);
-    let keypair1 = kem.generate_keypair();
-    let keypair2 = kem.generate_keypair();
+    let keypair1 = kem.generate_keypair().unwrap();
+    let keypair2 = kem.generate_keypair().unwrap();
 
     // Test encapsulation/decapsulation cycle
-    let encapsulated = kem.encapsulate(&keypair1.public_key);
+    let encapsulated = kem.encapsulate(&keypair1.public_key).unwrap();
     let shared_secret = kem.decapsulate(&keypair1.private_key, &encapsulated);
 
-    assert!(shared_secret.is_some());
+    assert!(shared_secret.is_ok());
     assert_eq!(shared_secret.unwrap().len(), 32); // K256 produces 32-byte shared secrets
 
     // Test that using wrong keys produces different results
     let wrong_secret = kem.decapsulate(&keypair2.private_key, &encapsulated);
-    assert!(wrong_secret.is_some());
+    assert!(wrong_secret.is_ok());
     assert_ne!(wrong_secret.unwrap(), encapsulated.shared_secret());
 }
 
@@ -167,7 +167,7 @@ fn test_ecdh_dcrypt_compatibility() {
 fn test_ecdh_independent_verification() {
     // Test that keys can be used independently
     let kem = EcdhKEM::new(EcdhCurve::P256);
-    let keypair = kem.generate_keypair();
+    let keypair = kem.generate_keypair().unwrap();
 
     // Serialize and deserialize to ensure independence
     let pk_bytes = keypair.public_key.to_bytes();
@@ -177,9 +177,9 @@ fn test_ecdh_independent_verification() {
     let sk = EcdhPrivateKey::from_bytes(&sk_bytes).unwrap();
 
     // Use the deserialized keys
-    let encapsulated = kem.encapsulate(&pk);
+    let encapsulated = kem.encapsulate(&pk).unwrap();
     let shared_secret = kem.decapsulate(&sk, &encapsulated);
 
-    assert!(shared_secret.is_some());
+    assert!(shared_secret.is_ok());
     assert_eq!(shared_secret.unwrap(), encapsulated.shared_secret());
 }

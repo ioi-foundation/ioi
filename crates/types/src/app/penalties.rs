@@ -1,4 +1,4 @@
-// crates/types/src/app/penalties.rs
+// Path: crates/types/src/app/penalties.rs
 
 //! Defines the canonical, fact-based data structures for reporting and penalizing
 //! misbehavior within the system.
@@ -75,12 +75,18 @@ pub struct FailureReport {
 pub fn evidence_id(report: &FailureReport) -> [u8; 32] {
     // Serialize only the canonical, fact-based fields into a deterministic byte string.
     let canonical_bytes =
-        crate::codec::to_bytes_canonical(&(&report.offender, &report.offense_type, &report.facts));
+        crate::codec::to_bytes_canonical(&(&report.offender, &report.offense_type, &report.facts))
+            .unwrap_or_else(|e| {
+                panic!(
+                    "CRITICAL: Canonical serialization of facts must not fail: {}",
+                    e
+                )
+            });
 
     // Hash the canonical bytes to produce the unique, replay-protected ID.
     // Use the one-shot generate function from dcrypt's Blake3Xof.
     Blake3Xof::generate(&canonical_bytes, 32)
-        .expect("Blake3Xof generation should not fail")
+        .unwrap_or_else(|e| panic!("CRITICAL: Blake3Xof generation must not fail: {}", e))
         .try_into()
-        .expect("Blake3Xof output should be 32 bytes")
+        .unwrap_or_else(|_| panic!("CRITICAL: Blake3Xof output must be 32 bytes"))
 }

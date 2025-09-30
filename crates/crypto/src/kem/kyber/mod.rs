@@ -1,4 +1,5 @@
 // Path: crates/crypto/src/kem/kyber/mod.rs
+use crate::error::CryptoError;
 use crate::security::SecurityLevel;
 use dcrypt::api::Kem;
 use dcrypt::kem::kyber::{
@@ -66,13 +67,12 @@ impl KeyEncapsulation for KyberKEM {
     type PrivateKey = KyberPrivateKey;
     type Encapsulated = KyberEncapsulated;
 
-    fn generate_keypair(&self) -> Self::KeyPair {
+    fn generate_keypair(&self) -> Result<Self::KeyPair, CryptoError> {
         let mut rng = rand::thread_rng();
 
         let (pk, sk) = match self.level {
             SecurityLevel::Level1 => {
-                let (pk, sk) =
-                    Kyber512::keypair(&mut rng).expect("Failed to generate Kyber512 keypair");
+                let (pk, sk) = Kyber512::keypair(&mut rng)?;
                 (
                     KyberPublicKey {
                         inner: pk,
@@ -85,8 +85,7 @@ impl KeyEncapsulation for KyberKEM {
                 )
             }
             SecurityLevel::Level3 => {
-                let (pk, sk) =
-                    Kyber768::keypair(&mut rng).expect("Failed to generate Kyber768 keypair");
+                let (pk, sk) = Kyber768::keypair(&mut rng)?;
                 (
                     KyberPublicKey {
                         inner: pk,
@@ -99,8 +98,7 @@ impl KeyEncapsulation for KyberKEM {
                 )
             }
             SecurityLevel::Level5 => {
-                let (pk, sk) =
-                    Kyber1024::keypair(&mut rng).expect("Failed to generate Kyber1024 keypair");
+                let (pk, sk) = Kyber1024::keypair(&mut rng)?;
                 (
                     KyberPublicKey {
                         inner: pk,
@@ -113,8 +111,7 @@ impl KeyEncapsulation for KyberKEM {
                 )
             }
             _ => {
-                let (pk, sk) =
-                    Kyber512::keypair(&mut rng).expect("Failed to generate Kyber512 keypair");
+                let (pk, sk) = Kyber512::keypair(&mut rng)?;
                 (
                     KyberPublicKey {
                         inner: pk,
@@ -128,49 +125,45 @@ impl KeyEncapsulation for KyberKEM {
             }
         };
 
-        KyberKeyPair {
+        Ok(KyberKeyPair {
             public_key: pk,
             private_key: sk,
             _level: self.level,
-        }
+        })
     }
 
-    fn encapsulate(&self, public_key: &Self::PublicKey) -> Self::Encapsulated {
+    fn encapsulate(&self, public_key: &Self::PublicKey) -> Result<Self::Encapsulated, CryptoError> {
         let mut rng = rand::thread_rng();
 
         let (ct, ss) = match public_key.level {
-            SecurityLevel::Level1 => Kyber512::encapsulate(&mut rng, &public_key.inner)
-                .expect("Failed to encapsulate with Kyber512"),
-            SecurityLevel::Level3 => Kyber768::encapsulate(&mut rng, &public_key.inner)
-                .expect("Failed to encapsulate with Kyber768"),
-            SecurityLevel::Level5 => Kyber1024::encapsulate(&mut rng, &public_key.inner)
-                .expect("Failed to encapsulate with Kyber1024"),
-            _ => Kyber512::encapsulate(&mut rng, &public_key.inner)
-                .expect("Failed to encapsulate with Kyber512"),
+            SecurityLevel::Level1 => Kyber512::encapsulate(&mut rng, &public_key.inner)?,
+            SecurityLevel::Level3 => Kyber768::encapsulate(&mut rng, &public_key.inner)?,
+            SecurityLevel::Level5 => Kyber1024::encapsulate(&mut rng, &public_key.inner)?,
+            _ => Kyber512::encapsulate(&mut rng, &public_key.inner)?,
         };
 
-        KyberEncapsulated {
+        Ok(KyberEncapsulated {
             ciphertext: ct.to_bytes(),
             shared_secret: ss.to_bytes_zeroizing().to_vec(),
             _level: public_key.level,
-        }
+        })
     }
 
     fn decapsulate(
         &self,
         private_key: &Self::PrivateKey,
         encapsulated: &Self::Encapsulated,
-    ) -> Option<Vec<u8>> {
-        let ct = KyberCiphertext::from_bytes(&encapsulated.ciphertext).ok()?;
+    ) -> Result<Vec<u8>, CryptoError> {
+        let ct = KyberCiphertext::from_bytes(&encapsulated.ciphertext)?;
 
         let ss = match private_key.level {
-            SecurityLevel::Level1 => Kyber512::decapsulate(&private_key.inner, &ct).ok()?,
-            SecurityLevel::Level3 => Kyber768::decapsulate(&private_key.inner, &ct).ok()?,
-            SecurityLevel::Level5 => Kyber1024::decapsulate(&private_key.inner, &ct).ok()?,
-            _ => Kyber512::decapsulate(&private_key.inner, &ct).ok()?,
+            SecurityLevel::Level1 => Kyber512::decapsulate(&private_key.inner, &ct)?,
+            SecurityLevel::Level3 => Kyber768::decapsulate(&private_key.inner, &ct)?,
+            SecurityLevel::Level5 => Kyber1024::decapsulate(&private_key.inner, &ct)?,
+            _ => Kyber512::decapsulate(&private_key.inner, &ct)?,
         };
 
-        Some(ss.to_bytes_zeroizing().to_vec())
+        Ok(ss.to_bytes_zeroizing().to_vec())
     }
 }
 
@@ -192,15 +185,19 @@ impl SerializableKey for KyberPublicKey {
         self.inner.to_bytes()
     }
 
-    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
-        let inner = DcryptPublicKey::from_bytes(bytes)
-            .map_err(|e| format!("Failed to deserialize Kyber public key: {e:?}"))?;
+    fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
+        let inner = DcryptPublicKey::from_bytes(bytes)?;
 
         let level = match bytes.len() {
             800 => SecurityLevel::Level1,  // Kyber512
             1184 => SecurityLevel::Level3, // Kyber768
             1568 => SecurityLevel::Level5, // Kyber1024
-            _ => return Err(format!("Invalid Kyber public key size: {}", bytes.len())),
+            _ => {
+                return Err(CryptoError::InvalidKey(format!(
+                    "Invalid Kyber public key size: {}",
+                    bytes.len()
+                )))
+            }
         };
 
         Ok(KyberPublicKey { inner, level })
@@ -214,15 +211,19 @@ impl SerializableKey for KyberPrivateKey {
         self.inner.to_bytes_zeroizing().to_vec()
     }
 
-    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
-        let inner = DcryptSecretKey::from_bytes(bytes)
-            .map_err(|e| format!("Failed to deserialize Kyber private key: {e:?}"))?;
+    fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
+        let inner = DcryptSecretKey::from_bytes(bytes)?;
 
         let level = match bytes.len() {
             1632 => SecurityLevel::Level1, // Kyber512
             2400 => SecurityLevel::Level3, // Kyber768
             3168 => SecurityLevel::Level5, // Kyber1024
-            _ => return Err(format!("Invalid Kyber private key size: {}", bytes.len())),
+            _ => {
+                return Err(CryptoError::InvalidKey(format!(
+                    "Invalid Kyber private key size: {}",
+                    bytes.len()
+                )))
+            }
         };
 
         Ok(KyberPrivateKey { inner, level })
@@ -236,12 +237,17 @@ impl SerializableKey for KyberEncapsulated {
         self.ciphertext.clone()
     }
 
-    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
         let level = match bytes.len() {
             768 => SecurityLevel::Level1,  // Kyber512
             1088 => SecurityLevel::Level3, // Kyber768
             1568 => SecurityLevel::Level5, // Kyber1024
-            _ => return Err(format!("Invalid Kyber ciphertext size: {}", bytes.len())),
+            _ => {
+                return Err(CryptoError::InvalidKey(format!(
+                    "Invalid Kyber ciphertext size: {}",
+                    bytes.len()
+                )))
+            }
         };
 
         Ok(KyberEncapsulated {

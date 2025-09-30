@@ -12,14 +12,20 @@ use tokio::sync::Mutex;
 use tokio_rustls::{
     rustls::{
         self,
-        // FIX: Removed the unused `PrivateKeyDer` import.
         pki_types::{CertificateDer, ServerName},
         ClientConfig,
     },
     TlsConnector,
 };
 
-// Use a type alias for brevity. This is the encrypted stream.
+/// An enum to identify the client connecting to the Guardian.
+#[repr(u8)]
+enum IpcClientId {
+    Orchestration = 1,
+    Workload = 2,
+}
+
+/// A type alias for a generic, encrypted TLS stream that can be either a client or server stream.
 pub type SecureStream = tokio_rustls::TlsStream<TcpStream>;
 
 /*
@@ -67,18 +73,16 @@ impl SecurityChannel {
         // Load the CA certificate
         let ca_cert_pem = std::fs::read(ca_cert_path)?;
         let mut ca_reader = std::io::Cursor::new(ca_cert_pem);
-        let ca_certs: Vec<CertificateDer> = rustls_pemfile::certs(&mut ca_reader)
-            .map(|cert_res| cert_res.unwrap())
-            .collect();
+        let ca_certs: Vec<CertificateDer> =
+            rustls_pemfile::certs(&mut ca_reader).collect::<Result<Vec<_>, _>>()?;
         let mut root_store = rustls::RootCertStore::empty();
         root_store.add_parsable_certificates(ca_certs);
 
         // Load the client's own certificate and private key
         let client_cert_file = File::open(client_cert_path)?;
         let mut reader = BufReader::new(client_cert_file);
-        let client_certs: Vec<CertificateDer> = rustls_pemfile::certs(&mut reader)
-            .map(|cert_res| cert_res.unwrap())
-            .collect();
+        let client_certs: Vec<CertificateDer> =
+            rustls_pemfile::certs(&mut reader).collect::<Result<Vec<_>, _>>()?;
 
         let client_key_file = File::open(client_key_path)?;
         let mut reader = BufReader::new(client_key_file);
@@ -87,26 +91,25 @@ impl SecurityChannel {
 
         let config = ClientConfig::builder()
             .with_root_certificates(root_store)
-            .with_client_auth_cert(client_certs, client_key_der)?;
+            .with_client_auth_cert(client_certs, client_key_der.into())?;
 
         let connector = TlsConnector::from(Arc::new(config));
         let stream = TcpStream::connect(server_addr).await?;
 
         let domain = ServerName::try_from(server_name.to_string())?;
 
-        let tls_stream = connector.connect(domain, stream).await?;
-        let mut secure_stream = tokio_rustls::TlsStream::Client(tls_stream);
+        let mut secure_stream = connector.connect(domain, stream).await?;
 
         // NEW: Send an identification byte to the Guardian.
-        // 1 = Orchestration, 2 = Workload. This helps the Guardian route the connection.
+        // This helps the Guardian route the connection.
         let id_byte = if self.source == "orchestration" {
-            1u8
+            IpcClientId::Orchestration as u8
         } else {
-            2u8
+            IpcClientId::Workload as u8
         };
         secure_stream.write_u8(id_byte).await?;
 
-        *self.stream.lock().await = Some(secure_stream);
+        *self.stream.lock().await = Some(tokio_rustls::TlsStream::Client(secure_stream));
 
         log::info!(
             "✅ Security channel from '{}' to '{}' established.",
@@ -117,8 +120,11 @@ impl SecurityChannel {
     }
 
     /// Accepts a new connection on the server-side and stores the stream.
-    pub async fn accept_server_connection(&self, stream: SecureStream) {
-        *self.stream.lock().await = Some(stream);
+    pub async fn accept_server_connection(
+        &self,
+        stream: tokio_rustls::server::TlsStream<TcpStream>,
+    ) {
+        *self.stream.lock().await = Some(tokio_rustls::TlsStream::Server(stream));
         log::info!(
             "✅ Security channel from '{}' to '{}' accepted.",
             self.destination,

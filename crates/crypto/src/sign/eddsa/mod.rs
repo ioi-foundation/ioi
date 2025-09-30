@@ -1,6 +1,7 @@
 // Path: crates/crypto/src/sign/eddsa/mod.rs
 //! Implementation of elliptic curve cryptography using dcrypt
 
+use crate::error::CryptoError;
 use dcrypt::api::Signature as SignatureTrait;
 use depin_sdk_api::crypto::{SerializableKey, Signature, SigningKey, SigningKeyPair, VerifyingKey};
 use rand::rngs::OsRng;
@@ -28,32 +29,30 @@ pub struct Ed25519PrivateKey(eddsa::Ed25519SecretKey);
 
 impl Ed25519KeyPair {
     /// Generate a new Ed25519 key pair
-    pub fn generate() -> Self {
+    pub fn generate() -> Result<Self, CryptoError> {
         let mut rng = OsRng;
 
         // Generate key pair using dcrypt
         let (public_key, secret_key) =
-            eddsa::Ed25519::keypair(&mut rng).expect("Failed to generate Ed25519 key pair");
+            eddsa::Ed25519::keypair(&mut rng).map_err(CryptoError::from)?;
 
-        Self {
+        Ok(Self {
             public_key,
             secret_key,
-        }
+        })
     }
 
     /// Create from an existing private key
-    pub fn from_private_key(private_key: &Ed25519PrivateKey) -> Self {
+    pub fn from_private_key(private_key: &Ed25519PrivateKey) -> Result<Self, CryptoError> {
         let secret_key = private_key.0.clone();
 
         // Use the helper method to derive public key
-        let public_key = secret_key
-            .public_key()
-            .expect("Failed to derive public key from secret key");
+        let public_key = secret_key.public_key().map_err(|e| CryptoError::from(e))?;
 
-        Self {
+        Ok(Self {
             public_key,
             secret_key,
-        }
+        })
     }
 }
 
@@ -70,18 +69,17 @@ impl SigningKeyPair for Ed25519KeyPair {
         Ed25519PrivateKey(self.secret_key.clone())
     }
 
-    fn sign(&self, message: &[u8]) -> Self::Signature {
-        let signature =
-            eddsa::Ed25519::sign(message, &self.secret_key).expect("Failed to sign message");
-        Ed25519Signature(signature)
+    fn sign(&self, message: &[u8]) -> Result<Self::Signature, CryptoError> {
+        let signature = eddsa::Ed25519::sign(message, &self.secret_key)?;
+        Ok(Ed25519Signature(signature))
     }
 }
 
 impl VerifyingKey for Ed25519PublicKey {
     type Signature = Ed25519Signature;
 
-    fn verify(&self, message: &[u8], signature: &Self::Signature) -> bool {
-        eddsa::Ed25519::verify(message, &signature.0, &self.0).is_ok()
+    fn verify(&self, message: &[u8], signature: &Self::Signature) -> Result<(), CryptoError> {
+        eddsa::Ed25519::verify(message, &signature.0, &self.0).map_err(CryptoError::from)
     }
 }
 
@@ -90,19 +88,19 @@ impl SerializableKey for Ed25519PublicKey {
         self.0.to_bytes().to_vec()
     }
 
-    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
         eddsa::Ed25519PublicKey::from_bytes(bytes)
             .map(Ed25519PublicKey)
-            .map_err(|e| format!("Failed to parse public key: {e:?}"))
+            .map_err(|e| CryptoError::InvalidKey(format!("Failed to parse public key: {:?}", e)))
     }
 }
 
 impl SigningKey for Ed25519PrivateKey {
     type Signature = Ed25519Signature;
 
-    fn sign(&self, message: &[u8]) -> Self::Signature {
-        let signature = eddsa::Ed25519::sign(message, &self.0).expect("Failed to sign message");
-        Ed25519Signature(signature)
+    fn sign(&self, message: &[u8]) -> Result<Self::Signature, CryptoError> {
+        let signature = eddsa::Ed25519::sign(message, &self.0)?;
+        Ok(Ed25519Signature(signature))
     }
 }
 
@@ -112,9 +110,11 @@ impl SerializableKey for Ed25519PrivateKey {
         self.0.seed().to_vec()
     }
 
-    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
         if bytes.len() != 32 {
-            return Err("Invalid private key length: expected 32 bytes".to_string());
+            return Err(CryptoError::InvalidKey(
+                "Invalid private key length: expected 32 bytes".to_string(),
+            ));
         }
 
         let mut seed = [0u8; 32];
@@ -123,7 +123,9 @@ impl SerializableKey for Ed25519PrivateKey {
         // Use the from_seed method
         eddsa::Ed25519SecretKey::from_seed(&seed)
             .map(Ed25519PrivateKey)
-            .map_err(|e| format!("Failed to create secret key from seed: {e:?}"))
+            .map_err(|e| {
+                CryptoError::InvalidKey(format!("Failed to create secret key from seed: {:?}", e))
+            })
     }
 }
 
@@ -132,10 +134,12 @@ impl SerializableKey for Ed25519Signature {
         self.0.to_bytes().to_vec()
     }
 
-    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
         eddsa::Ed25519Signature::from_bytes(bytes)
             .map(Ed25519Signature)
-            .map_err(|e| format!("Failed to parse signature: {e:?}"))
+            .map_err(|e| {
+                CryptoError::InvalidSignature(format!("Failed to parse signature: {:?}", e))
+            })
     }
 }
 
@@ -173,11 +177,11 @@ impl Ed25519PrivateKey {
     }
 
     /// Get the public key corresponding to this private key
-    pub fn public_key(&self) -> Result<Ed25519PublicKey, String> {
+    pub fn public_key(&self) -> Result<Ed25519PublicKey, CryptoError> {
         self.0
             .public_key()
             .map(Ed25519PublicKey)
-            .map_err(|e| format!("Failed to derive public key: {e:?}"))
+            .map_err(|e| CryptoError::from(e))
     }
 }
 

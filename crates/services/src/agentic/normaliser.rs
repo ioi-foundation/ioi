@@ -30,12 +30,12 @@ impl OutputNormaliser {
             to_vec(&json_value).map_err(|e| format!("JCS canonicalization failed: {}", e))?;
 
         // Step 3: Hash the canonical bytes to get the final, unique intent hash.
-        let intent_hash = sha256(&canonical_bytes);
+        let intent_hash = sha256(&canonical_bytes).map_err(|e| e.to_string())?;
 
         log::info!(
             "OutputNormaliser produced identical hash: {}",
             hex::encode(&intent_hash)
         );
-        Ok(intent_hash)
+        Ok(intent_hash.to_vec())
     }
 }

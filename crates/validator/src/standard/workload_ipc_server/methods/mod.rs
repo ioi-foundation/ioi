@@ -11,10 +11,15 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 // --- Sub-module declarations for each RPC method category ---
+/// Methods related to chain state and block processing.
 pub mod chain;
+/// Methods related to smart contract deployment and execution.
 pub mod contract;
+/// Methods related to validator staking.
 pub mod staking;
+/// Methods for direct state queries and proof generation.
 pub mod state;
+/// Methods for system-level operations and status checks.
 pub mod system;
 
 /// The shared, read-only context available to all RPC method handlers.
@@ -27,6 +32,8 @@ where
     CS: CommitmentScheme + Clone,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>,
 {
+    /// A thread-safe handle to the core blockchain state machine.
     pub chain: Arc<Mutex<Chain<CS, ST>>>,
+    /// A thread-safe handle to the workload container, which manages the VM and state tree.
     pub workload: Arc<WorkloadContainer<ST>>,
 }

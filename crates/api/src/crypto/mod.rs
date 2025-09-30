@@ -1,13 +1,15 @@
 // Path: crates/api/src/crypto/mod.rs
 //! Defines unified traits for cryptographic primitives.
 
+use crate::error::CryptoError;
+
 /// A trait for any key that can be serialized to and from bytes.
 pub trait SerializableKey {
     /// Converts the key to a byte vector.
     fn to_bytes(&self) -> Vec<u8>;
 
     /// Creates a key from a byte slice.
-    fn from_bytes(bytes: &[u8]) -> Result<Self, String>
+    fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError>
     where
         Self: Sized;
 }
@@ -26,7 +28,7 @@ pub trait SigningKeyPair {
     /// Gets the private key.
     fn private_key(&self) -> Self::PrivateKey;
     /// Signs a message with the private key.
-    fn sign(&self, message: &[u8]) -> Self::Signature;
+    fn sign(&self, message: &[u8]) -> Result<Self::Signature, CryptoError>;
 }
 
 /// A trait for a public key used for signature verification.
@@ -34,7 +36,7 @@ pub trait VerifyingKey: SerializableKey {
     /// The signature type that this key can verify.
     type Signature: Signature;
     /// Verifies a signature against a message.
-    fn verify(&self, message: &[u8], signature: &Self::Signature) -> bool;
+    fn verify(&self, message: &[u8], signature: &Self::Signature) -> Result<(), CryptoError>;
 }
 
 /// A trait for a private key used for signing operations.
@@ -42,7 +44,7 @@ pub trait SigningKey: SerializableKey {
     /// The signature type that this key produces.
     type Signature: Signature;
     /// Signs a message.
-    fn sign(&self, message: &[u8]) -> Self::Signature;
+    fn sign(&self, message: &[u8]) -> Result<Self::Signature, CryptoError>;
 }
 
 /// A marker trait for a cryptographic signature.
@@ -79,15 +81,15 @@ pub trait KeyEncapsulation {
     type Encapsulated: Encapsulated;
 
     /// Generates a new key pair.
-    fn generate_keypair(&self) -> Self::KeyPair;
+    fn generate_keypair(&self) -> Result<Self::KeyPair, CryptoError>;
     /// Encapsulates a shared secret using a public key.
-    fn encapsulate(&self, public_key: &Self::PublicKey) -> Self::Encapsulated;
+    fn encapsulate(&self, public_key: &Self::PublicKey) -> Result<Self::Encapsulated, CryptoError>;
     /// Decapsulates a shared secret using a private key.
     fn decapsulate(
         &self,
         private_key: &Self::PrivateKey,
         encapsulated: &Self::Encapsulated,
-    ) -> Option<Vec<u8>>;
+    ) -> Result<Vec<u8>, CryptoError>;
 }
 
 /// A trait for the result of a KEM encapsulation.

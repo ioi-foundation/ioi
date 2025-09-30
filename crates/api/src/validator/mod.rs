@@ -102,16 +102,21 @@ where
         vm: Box<dyn VirtualMachine>,
         services: ServiceDirectory,
         store: Arc<dyn NodeStore>,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, ValidatorError> {
+        let nz_one = NonZeroUsize::new(1).ok_or(ValidatorError::Config(
+            "NonZeroUsize::new failed for LRU cache".into(),
+        ))?;
+        Ok(Self {
             config,
             state_tree: Arc::new(RwLock::new(state_tree)),
             vm,
             services,
-            proof_cache: Arc::new(Mutex::new(LruCache::new(NonZeroUsize::new(1024).unwrap()))),
+            proof_cache: Arc::new(Mutex::new(LruCache::new(
+                NonZeroUsize::new(1024).unwrap_or(nz_one),
+            ))),
             pins: Arc::new(StateVersionPins::default()),
             store,
-        }
+        })
     }
 
     /// Returns a reference to the workload's configuration.
@@ -139,7 +144,7 @@ where
         let mut state_changes = HashMap::new();
         let data_to_hash = [sender, code.clone()].concat();
         let address = DcryptSha256::digest(&data_to_hash)
-            .unwrap()
+            .map_err(|e| ValidatorError::Other(e.to_string()))?
             .to_bytes()
             .to_vec();
 

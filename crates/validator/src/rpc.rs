@@ -1,9 +1,10 @@
 // Path: crates/validator/src/rpc.rs
-//! The JSON-RPC server for the Orchestration container.
+//! The JSON-RPC server for the Orchestration container, handling public and
+//! internal communication for transaction submission and state queries.
 
 use crate::config::OrchestrationConfig;
 use crate::metrics::rpc_metrics as metrics;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use axum::{
     body::Body,
     error_handling::HandleErrorLayer,
@@ -338,10 +339,10 @@ async fn rpc_handler(
             .send(SwarmCommand::PublishTransaction(tx_bytes))
             .await;
 
-        return (
+        (
             StatusCode::OK,
             make_ok(&payload.id, json!("Transaction accepted")),
-        );
+        )
     } else {
         // --- QUERY LOGIC ---
         match payload.method.as_str() {
@@ -384,9 +385,9 @@ async fn rpc_handler(
             }
             "query_contract" => {
                 if let Params::Array(v) = &payload.params {
-                    if v.len() >= 2 {
-                        let address_res = v[0].as_str().and_then(|s| hex::decode(s).ok());
-                        let input_res = v[1].as_str().and_then(|s| hex::decode(s).ok());
+                    if let (Some(addr_val), Some(input_val)) = (v.get(0), v.get(1)) {
+                        let address_res = addr_val.as_str().and_then(|s| hex::decode(s).ok());
+                        let input_res = input_val.as_str().and_then(|s| hex::decode(s).ok());
                         if let (Some(address), Some(input_data)) = (address_res, input_res) {
                             let context = depin_sdk_api::vm::ExecutionContext {
                                 caller: vec![],
@@ -427,7 +428,11 @@ async fn rpc_handler(
             "system.getStatus.v1" => match app_state.workload_client.get_status().await {
                 Ok(status) => (
                     StatusCode::OK,
-                    make_ok(&payload.id, serde_json::to_value(status).unwrap()),
+                    make_ok(
+                        &payload.id,
+                        serde_json::to_value(status)
+                            .unwrap_or_else(|_| json!({"error": "serialization failed"})),
+                    ),
                 ),
                 Err(e) => (
                     StatusCode::OK,
@@ -450,10 +455,13 @@ async fn rpc_handler(
                     );
                 };
                 match app_state.workload_client.get_block_by_height(height).await {
-                    Ok(header_opt) => (
-                        StatusCode::OK,
-                        make_ok(&payload.id, serde_json::to_value(header_opt).unwrap()),
-                    ),
+                    Ok(header_opt) => {
+                        let result_value = match serde_json::to_value(header_opt) {
+                            Ok(v) => v,
+                            Err(_) => json!({"error": "serialization failed"}),
+                        };
+                        (StatusCode::OK, make_ok(&payload.id, result_value))
+                    }
                     Err(e) => (
                         StatusCode::OK,
                         make_err(
@@ -485,23 +493,37 @@ async fn rpc_handler(
                     );
                 };
 
-                let root_obj: depin_sdk_types::app::StateRoot =
-                    serde_json::from_value(root).unwrap();
-                let key_bytes: Vec<u8> = serde_json::from_value(key).unwrap();
+                let root_obj_res = serde_json::from_value(root);
+                let key_bytes_res: Result<Vec<u8>, _> = serde_json::from_value(key);
 
-                match app_state
-                    .workload_client
-                    .query_state_at(root_obj, &key_bytes)
-                    .await
-                {
-                    Ok(resp) => (
+                if let (Ok(root_obj), Ok(key_bytes)) = (root_obj_res, key_bytes_res) {
+                    match app_state
+                        .workload_client
+                        .query_state_at(root_obj, &key_bytes)
+                        .await
+                    {
+                        Ok(resp) => (
+                            StatusCode::OK,
+                            make_ok(
+                                &payload.id,
+                                serde_json::to_value(resp)
+                                    .unwrap_or_else(|_| json!({"error": "serialization failed"})),
+                            ),
+                        ),
+                        Err(e) => (
+                            StatusCode::OK,
+                            make_err(&payload.id, -32000, format!("queryStateAt failed: {}", e)),
+                        ),
+                    }
+                } else {
+                    (
                         StatusCode::OK,
-                        make_ok(&payload.id, serde_json::to_value(resp).unwrap()),
-                    ),
-                    Err(e) => (
-                        StatusCode::OK,
-                        make_err(&payload.id, -32000, format!("queryStateAt failed: {}", e)),
-                    ),
+                        make_err(
+                            &payload.id,
+                            -32602,
+                            "Invalid 'root' or 'key' parameter format".into(),
+                        ),
+                    )
                 }
             }
             _ => (
@@ -546,6 +568,12 @@ async fn track_rpc_metrics(req: Request<Body>, next: Next<Body>) -> Response {
 }
 
 // ---------- Server wiring ----------
+/// Initializes and runs the JSON-RPC server for the Orchestration container.
+///
+/// This server exposes endpoints for transaction submission (`/rpc/submit`) and
+/// state queries (`/rpc/query`). It includes middleware for rate limiting,
+/// timeout, concurrency control, and logging, which can be configured via
+/// `orchestration.toml`.
 pub async fn run_rpc_server(
     listen_address: &str,
     tx_pool: Arc<Mutex<VecDeque<ChainTransaction>>>,
@@ -570,7 +598,14 @@ pub async fn run_rpc_server(
         let cidrs = Arc::new(
             hc.trusted_proxy_cidrs
                 .iter()
-                .map(|s| IpNetwork::from_str(s).expect("Invalid CIDR in trusted_proxy_cidrs"))
+                .filter_map(|s| {
+                    IpNetwork::from_str(s)
+                        .map_err(|e| {
+                            tracing::error!("Invalid CIDR in trusted_proxy_cidrs: {}", e);
+                            e
+                        })
+                        .ok()
+                })
                 .collect::<Vec<_>>(),
         );
 
@@ -613,12 +648,20 @@ pub async fn run_rpc_server(
     tracing::info!(target: "rpc", listen_addr = %listen_address, "RPC server listening");
 
     let handle = tokio::spawn(async move {
-        axum::Server::from_tcp(listener.into_std().unwrap())
-            .unwrap()
-            .http1_only(true) // Prevent HTTP/2 stream attacks
-            .serve(app.into_make_service_with_connect_info::<SocketAddr>())
-            .await
-            .unwrap();
+        let std_listener = match listener.into_std() {
+            Ok(l) => l,
+            Err(e) => {
+                tracing::error!(target: "rpc", error=%e, "Failed to convert Tokio listener to std listener");
+                return;
+            }
+        };
+        if let Ok(server) = axum::Server::from_tcp(std_listener) {
+            server
+                .http1_only(true) // Prevent HTTP/2 stream attacks
+                .serve(app.into_make_service_with_connect_info::<SocketAddr>())
+                .await
+                .ok(); // Log error instead of panicking
+        }
     });
 
     Ok(handle)

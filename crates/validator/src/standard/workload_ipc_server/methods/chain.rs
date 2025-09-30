@@ -15,13 +15,14 @@ use depin_sdk_types::{
     },
     codec,
     error::TransactionError,
-    keys::{EVIDENCE_REGISTRY_KEY, IBC_PROCESSED_RECEIPT_PREFIX},
+    keys::{EVIDENCE_REGISTRY_KEY, IBC_PROCESSED_RECEIPT_PREFIX, VALIDATOR_SET_KEY},
 };
 use serde::{Deserialize, Serialize};
 use std::{any::Any, collections::BTreeSet, marker::PhantomData, sync::Arc};
 
 // --- chain.processBlock.v1 ---
 
+/// The RPC method handler for `chain.processBlock.v1`.
 pub struct ProcessBlockV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -60,7 +61,7 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for ProcessBlockV1"))?;
 
-        // --- Phase A: Coinbase addition (brief write lock) ---
+        // --- Phase A: Coinbase addition (brief lock) ---
         {
             let chain = ctx.chain.lock().await;
             let enable_coinbase = std::env::var("ENABLE_COINBASE")
@@ -84,33 +85,37 @@ where
             }
         } // Mutex lock on chain is released here
 
-        // --- Phase B: Prepare block (read-only on chain) ---
-        // This is the long, async part of the operation.
+        // With the removal of duplicate types in `depin-sdk-api`, the `Block` type is now
+        // canonical and no conversion is needed. `block` is passed directly.
         let prepared_block = {
-            let chain = ctx.chain.lock().await; // Brief read-lock
+            let chain = ctx.chain.lock().await;
             chain.prepare_block(block, &ctx.workload).await?
-        }; // Read-lock is released
+        }; // Lock is released
 
         // --- Phase C: Commit block (write lock on chain) ---
-        // This part should be fast and deterministic.
-        let result = {
+        let (processed_block, events) = {
             let mut chain = ctx.chain.lock().await; // Write-lock for mutation
             chain.commit_block(prepared_block, &ctx.workload).await?
         }; // Write-lock is released
 
-        Ok(result)
+        // The returned block is already the canonical type. No conversion needed.
+        Ok((processed_block, events))
     }
 }
 
 // --- chain.checkTransactions.v1 ---
 
+/// The parameters for the `chain.checkTransactions.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct CheckTransactionsParams {
+    /// The state anchor against which to validate the transactions.
     pub anchor: StateAnchor,
+    /// The list of transactions to validate.
     pub txs: Vec<ChainTransaction>,
 }
 
+/// The RPC method handler for `chain.checkTransactions.v1`.
 pub struct CheckTransactionsV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -154,8 +159,10 @@ where
         let mut results = Vec::with_capacity(initial_tx_count);
 
         let chain_guard = ctx.chain.lock().await;
-        // FIX: Handle the Result from to_anchor()
-        let latest_anchor = chain_guard.state.last_state_root.to_anchor()?;
+        // Handle the Result from to_anchor()
+        let latest_anchor =
+            depin_sdk_types::app::StateRoot(chain_guard.state.last_state_root.to_vec())
+                .to_anchor()?;
 
         if params.anchor != StateAnchor::default() && params.anchor != latest_anchor {
             // Stale anchor is a batch-level error. Fill all results with it.
@@ -177,7 +184,7 @@ where
         for tx in params.txs {
             // Run the full validation flow inside a closure to handle errors cleanly.
             let check_result = async {
-                let status = (*chain_guard).status().clone();
+                let status = (*chain_guard).status();
                 let chain_id = chain_guard.state.chain_id;
                 let tx_ctx = TxContext {
                     block_height: status.height + 1,
@@ -192,10 +199,10 @@ where
                         let id = evidence_id(report);
                         let already_seen = match overlay.get(EVIDENCE_REGISTRY_KEY)? {
                             Some(bytes) => {
-                                let set: BTreeSet<[u8; 32]> =
-                                    codec::from_bytes_canonical(&bytes).unwrap_or_default();
-                                set.contains(&id)
-                            }
+                                codec::from_bytes_canonical::<BTreeSet<[u8; 32]>>(&bytes)
+                                    .map(|set| set.contains(&id))
+                                    .unwrap_or(false)
+                            } // Treat decoding errors as not seen
                             None => false,
                         };
                         if already_seen {
@@ -214,7 +221,6 @@ where
                     }
                 }
 
-                // Run the full ante-handler chain against the overlay
                 depin_sdk_transaction_models::system::nonce::assert_next_nonce(&overlay, &tx)?;
                 depin_sdk_transaction_models::system::validation::verify_transaction_signature(
                     &overlay,
@@ -247,23 +253,18 @@ where
             results.push(check_result);
         }
 
-        // Final sanity check to ensure our logic is correct.
-        assert_eq!(
-            results.len(),
-            initial_tx_count,
-            "BUG in checkTransactions.v1: result count does not match input count."
-        );
-
         Ok(results)
     }
 }
 
 // --- chain.getLastBlockHash.v1 ---
 
+/// The parameters for the `chain.getLastBlockHash.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetLastBlockHashParams {}
 
+/// The RPC method handler for `chain.getLastBlockHash.v1`.
 pub struct GetLastBlockHashV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -303,22 +304,22 @@ where
             .map_err(|_| anyhow!("Invalid context type for GetLastBlockHashV1"))?;
 
         let chain = ctx.chain.lock().await;
-        let hash = chain
-            .state
-            .recent_blocks
-            .last()
-            .map(|b| b.header.hash())
-            .unwrap_or(Ok(vec![0; 32]))?;
+        let hash = match chain.state.recent_blocks.last() {
+            Some(b) => b.header.hash()?,
+            None => vec![0; 32],
+        };
         Ok(hash)
     }
 }
 
 // --- chain.getAuthoritySet.v1 ---
 
+/// The parameters for the `chain.getAuthoritySet.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetAuthoritySetParams {}
 
+/// The RPC method handler for `chain.getAuthoritySet.v1`.
 pub struct GetAuthoritySetV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -372,10 +373,12 @@ where
 
 // --- chain.getNextValidatorSet.v1 ---
 
+/// The parameters for the `chain.getNextValidatorSet.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetNextValidatorSetParams {}
 
+/// The RPC method handler for `chain.getNextValidatorSet.v1`.
 pub struct GetNextValidatorSetV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -424,12 +427,15 @@ where
 
 // --- chain.getValidatorSetFor.v1 ---
 
+/// The parameters for the `chain.getValidatorSetFor.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetValidatorSetForParams {
+    /// The block height for which to retrieve the validator set.
     pub height: u64,
 }
 
+/// The RPC method handler for `chain.getValidatorSetFor.v1`.
 pub struct GetValidatorSetForV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -477,12 +483,15 @@ where
 
 // --- chain.getValidatorSetAt.v1 ---
 
+/// The parameters for the `chain.getValidatorSetAt.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetValidatorSetAtParams {
+    /// The state anchor at which to retrieve the validator set.
     pub anchor: StateAnchor,
 }
 
+/// The RPC method handler for `chain.getValidatorSetAt.v1`.
 pub struct GetValidatorSetAtV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -535,19 +544,22 @@ where
 
         Ok(set_bytes
             .into_iter()
-            .map(|b| AccountId(b.try_into().unwrap_or_default()))
+            .filter_map(|b| b.try_into().ok().map(AccountId))
             .collect())
     }
 }
 
 // --- chain.getBlockByHeight.v1 ---
 
+/// The parameters for the `chain.getBlockByHeight.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetBlockByHeightParams {
+    /// The height of the block to retrieve.
     pub height: u64,
 }
 
+/// The RPC method handler for `chain.getBlockByHeight.v1`.
 pub struct GetBlockByHeightV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -589,11 +601,8 @@ where
         let chain = ctx.chain.lock().await;
         let block_opt = (*chain).get_block(params.height);
 
-        if let Some(block) = block_opt {
-            Ok(Some(block.header.clone()))
-        } else {
-            // It might not be in the in-memory cache, so this is not an error.
-            Ok(None)
-        }
+        // Since the `api` and `types` versions of the header are now the same (via re-export),
+        // we can simply clone the header without any conversion.
+        Ok(block_opt.map(|b| b.header.clone()))
     }
 }

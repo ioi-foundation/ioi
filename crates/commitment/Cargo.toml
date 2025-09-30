@@ -2,6 +2,7 @@
 [package]
 name = "depin-sdk-commitment"
 version = "0.1.0"
+rust-version = "1.78"
 edition = "2021"
 description = "State commitment trees and cryptographic primitives for the DePIN SDK"
 license = "MIT OR Apache-2.0"
@@ -14,6 +15,7 @@ depin-sdk-storage = { path = "../storage" }
 ahash = "0.8"
 dcrypt = { workspace = true }
 log = { workspace = true }
+tracing = { workspace = true }
 serde = { workspace = true, features = [
     "derive",
     "rc",
@@ -25,7 +27,6 @@ rand = { workspace = true }
 hex = { workspace = true }
 bincode = { workspace = true }
 lazy_static = "1.4.0"
-# ADD THIS LINE
 parity-scale-codec = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]

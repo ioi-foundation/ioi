@@ -10,6 +10,7 @@ pub use depin_sdk_types::config::{ConsensusType, OrchestrationConfig, WorkloadCo
 /// Configuration for the Guardian container (`guardian.toml`).
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GuardianConfig {
+    /// The policy defining which signature suite to use for container attestation.
     pub signature_policy: AttestationSignaturePolicy,
 }
 
@@ -26,13 +27,17 @@ pub enum AttestationSignaturePolicy {
 /// Configuration for the Interface container (`interface.toml`).
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InterfaceConfig {
+    /// The network address and port for the public-facing interface to listen on.
     pub listen_address: String,
+    /// The maximum number of concurrent connections to accept.
     pub max_connections: u32,
 }
 
 /// Configuration for the API container (`api.toml`).
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ApiConfig {
+    /// The network address and port for the public API server to listen on.
     pub listen_address: String,
+    /// A list of API endpoint identifiers that are enabled.
     pub enabled_endpoints: Vec<String>,
 }

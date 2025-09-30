@@ -38,6 +38,7 @@ fn test_smt_presence_and_absence_proofs() {
             Some(b"value1"),
             &proof_present_inner,
         )
+        .unwrap()
     );
 
     // Test 2: Proof of ABSENCE for a key between two siblings.
@@ -69,6 +70,7 @@ fn test_smt_presence_and_absence_proofs() {
             None,
             &proof_absent_inner
         )
+        .unwrap()
     );
 
     // Test 3: Proof of ABSENCE for a key in an empty branch.
@@ -86,6 +88,7 @@ fn test_smt_presence_and_absence_proofs() {
             None,
             &proof_empty_inner,
         )
+        .unwrap()
     );
 }
 
@@ -136,7 +139,7 @@ proptest! {
         prop_assert!(
             SparseMerkleTree::<HashCommitmentScheme>::verify_proof_static(
                 root.as_ref(), &q, None, &proof_inner
-            ),
+            ).unwrap(),
             "Non-membership proof for key between two siblings must be valid"
         );
     }

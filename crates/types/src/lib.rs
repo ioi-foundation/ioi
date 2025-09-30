@@ -20,6 +20,10 @@ pub const MAX_STATE_VALUE_BYTES: usize = 256 * 1024; // 256 KiB
 /// The maximum size in bytes for a proof read from state during consensus.
 pub const MAX_STATE_PROOF_BYTES: usize = 512 * 1024; // 512 KiB
 
+/// A top-level, crate-wide `Result` type alias with a default error type.
+#[must_use]
+pub type Result<T, E = crate::error::CoreError> = std::result::Result<T, E>;
+
 /// Core application-level data structures like `Block`, `Transaction`, and `AccountId`.
 pub mod app;
 /// The canonical, deterministic binary codec for consensus-critical state.
@@ -34,5 +38,7 @@ pub mod error;
 pub mod ibc;
 /// Constants for well-known state keys used for accessing data in the state manager.
 pub mod keys;
+/// A prelude containing useful extension traits like `OptionExt`.
+pub mod prelude;
 /// Configuration structures for initial services like the Identity Hub.
 pub mod service_configs;

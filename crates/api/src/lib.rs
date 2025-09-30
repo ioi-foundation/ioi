@@ -1,7 +1,21 @@
 // Path: crates/api/src/lib.rs
 
-#![forbid(unsafe_code)]
-#![deny(missing_docs)]
+//! # DePIN SDK API Crate Lints
+//!
+//! This crate enforces a strict set of lints to ensure high-quality,
+//! panic-free, and well-documented code. Panics are disallowed in non-test
+//! code to promote robust error handling.
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::todo,
+        clippy::unimplemented,
+        clippy::indexing_slicing
+    )
+)]
 //! # DePIN SDK API
 //!
 //! Core traits and interfaces for the DePIN SDK. This crate defines the
@@ -48,7 +62,10 @@ pub mod prelude {
         AnchoredStateView, AppChain, LiveStateView, RemoteStateView, StateRef, ViewResolver,
     };
     pub use crate::commitment::{CommitmentScheme, HomomorphicCommitmentScheme};
-    pub use crate::error::{ChainError, CoreError, StateError, TransactionError, ValidatorError};
+    pub use crate::error::{
+        ChainError, CoreError, CryptoError, ErrorCode, StateError, TransactionError,
+        ValidatorError,
+    };
     pub use crate::identity::CredentialsView;
     pub use crate::lifecycle::OnEndBlock;
     pub use crate::services::access::{Service, ServiceDirectory};

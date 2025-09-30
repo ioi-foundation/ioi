@@ -100,7 +100,7 @@ pub async fn submit_transaction(
     tx: &depin_sdk_types::app::ChainTransaction,
 ) -> Result<()> {
     // Directly use the canonical SCALE codec from depin-sdk-types.
-    let tx_bytes = codec::to_bytes_canonical(tx);
+    let tx_bytes = codec::to_bytes_canonical(tx).map_err(|e| anyhow!(e))?;
     let tx_hex = hex::encode(tx_bytes);
     // Use the new, dedicated endpoint for submitting transactions.
     let url = format!("http://{}/rpc/submit", rpc_addr);
@@ -146,8 +146,8 @@ pub async fn get_chain_height(rpc_addr: &str) -> Result<u64> {
     let status_bytes = query_state_key(rpc_addr, STATUS_KEY)
         .await?
         .ok_or_else(|| anyhow!("STATUS_KEY not found in state"))?;
-    let status: ChainStatus =
-        codec::from_bytes_canonical(&status_bytes).map_err(anyhow::Error::msg)?;
+    let status: ChainStatus = codec::from_bytes_canonical(&status_bytes)
+        .map_err(|e| anyhow!("Failed to decode ChainStatus: {}", e))?;
     Ok(status.height)
 }
 
@@ -178,8 +178,8 @@ pub async fn get_contract_code(rpc_addr: &str, address: &[u8]) -> Result<Option<
     let key = [b"contract_code::", address].concat();
     let state_entry_bytes_opt = query_state_key(rpc_addr, &key).await?;
     if let Some(state_entry_bytes) = state_entry_bytes_opt {
-        let entry: StateEntry =
-            codec::from_bytes_canonical(&state_entry_bytes).map_err(anyhow::Error::msg)?;
+        let entry: StateEntry = codec::from_bytes_canonical(&state_entry_bytes)
+            .map_err(|e| anyhow!("StateEntry decode failed: {}", e))?;
         Ok(Some(entry.value))
     } else {
         Ok(None)

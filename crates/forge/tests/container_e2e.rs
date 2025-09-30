@@ -17,7 +17,7 @@ async fn test_secure_channel_and_attestation_flow_docker() -> Result<()> {
     let temp_dir = tempdir()?;
     let model_path = temp_dir.path().join("model.bin");
     std::fs::write(&model_path, "dummy_model_data_for_docker_test")?;
-    let correct_model_hash = hex::encode(sha256(b"dummy_model_data_for_docker_test"));
+    let correct_model_hash = hex::encode(sha256(b"dummy_model_data_for_docker_test").unwrap());
 
     // 2. LAUNCH CLUSTER
     // The .build().await? call will not return until the test harness's internal

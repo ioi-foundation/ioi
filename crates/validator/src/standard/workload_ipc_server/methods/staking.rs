@@ -11,10 +11,12 @@ use std::{any::Any, collections::BTreeMap, marker::PhantomData, sync::Arc};
 
 // --- staking.getStakes.v1 ---
 
+/// The parameters for the `staking.getStakes.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetStakesParams {}
 
+/// The RPC method handler for `staking.getStakes.v1`.
 pub struct GetStakesV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -66,10 +68,12 @@ where
 
 // --- staking.getNextStakes.v1 ---
 
+/// The parameters for the `staking.getNextStakes.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetNextStakesParams {}
 
+/// The RPC method handler for `staking.getNextStakes.v1`.
 pub struct GetNextStakesV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }

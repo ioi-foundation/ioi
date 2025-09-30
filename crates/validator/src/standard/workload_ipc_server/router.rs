@@ -7,16 +7,24 @@ use ipc_protocol::jsonrpc::JsonRpcError;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{any::Any, collections::HashMap, panic::AssertUnwindSafe, sync::Arc};
 
+/// Provides contextual information for a single RPC request.
 pub struct RequestContext {
+    /// The identifier of the peer that initiated the request.
     pub peer_id: String,
+    /// A unique identifier for tracing the request through the system.
     pub trace_id: String,
 }
 
+/// A trait that defines the interface for a JSON-RPC method handler.
 #[async_trait::async_trait]
 pub trait RpcMethod: Send + Sync + 'static {
+    /// The canonical, versioned name of the RPC method (e.g., "chain.getStatus.v1").
     const NAME: &'static str;
+    /// The structure that defines the parameters for this method.
     type Params: DeserializeOwned + Send;
+    /// The structure that defines the successful result of this method.
     type Result: Serialize + Send;
+    /// The handler function that executes the method's logic.
     async fn call(
         &self,
         req_ctx: RequestContext,
@@ -71,6 +79,7 @@ impl<T: RpcMethod> ErasedHandler for T {
                 let panic_msg = panic_payload
                     .downcast_ref::<&str>()
                     .copied()
+                    .or_else(|| panic_payload.downcast_ref::<String>().map(|s| s.as_str()))
                     .unwrap_or("Handler panicked");
                 log::error!(
                     "RPC handler for method '{}' panicked: {}",
@@ -87,22 +96,32 @@ impl<T: RpcMethod> ErasedHandler for T {
     }
 }
 
+/// A router for dispatching JSON-RPC requests to the appropriate method handlers.
 pub struct Router {
     methods: HashMap<&'static str, Box<dyn ErasedHandler>>,
 }
 
+impl Default for Router {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Router {
+    /// Creates a new, empty RPC router.
     pub fn new() -> Self {
         Self {
             methods: HashMap::new(),
         }
     }
+    /// Adds a new RPC method handler to the router.
     pub fn add_method<T: RpcMethod>(&mut self, method: T) {
         if self.methods.contains_key(T::NAME) {
-            panic!("Duplicate RPC method name registered: {}", T::NAME);
+            log::warn!("Duplicate RPC method name registered: {}", T::NAME);
         }
         self.methods.insert(T::NAME, Box::new(method));
     }
+    /// Dispatches an incoming RPC request to the correct handler based on the method name.
     pub async fn dispatch<CS, ST>(
         &self,
         shared_ctx: Arc<RpcContext<CS, ST>>,

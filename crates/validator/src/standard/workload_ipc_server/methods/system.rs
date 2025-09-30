@@ -10,10 +10,12 @@ use std::{any::Any, marker::PhantomData, sync::Arc};
 
 // --- system.getStatus.v1 ---
 
+/// The parameters for the `system.getStatus.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetStatusParams {}
 
+/// The RPC method handler for `system.getStatus.v1`.
 pub struct GetStatusV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -52,16 +54,24 @@ where
             .map_err(|_| anyhow!("Invalid context type for GetStatusV1"))?;
         let chain = ctx.chain.lock().await;
         // The AppChain trait must be in scope to call .status()
-        Ok((*chain).status().clone())
+        let status_ref = (*chain).status();
+        Ok(depin_sdk_types::app::ChainStatus {
+            height: status_ref.height,
+            latest_timestamp: status_ref.latest_timestamp,
+            total_transactions: status_ref.total_transactions,
+            is_running: status_ref.is_running,
+        })
     }
 }
 
 // --- system.getExpectedModelHash.v1 ---
 
+/// The parameters for the `system.getExpectedModelHash.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetExpectedModelHashParams {}
 
+/// The RPC method handler for `system.getExpectedModelHash.v1`.
 pub struct GetExpectedModelHashV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -97,19 +107,23 @@ where
         let state_tree = ctx.workload.state_tree();
         let state = state_tree.read().await;
         let json_bytes = state.get(depin_sdk_types::keys::STATE_KEY_SEMANTIC_MODEL_HASH)?;
-        let hex_str: String = serde_json::from_slice(&json_bytes.unwrap_or_default())?;
+        let hex_str: String =
+            serde_json::from_slice(&json_bytes.ok_or_else(|| anyhow!("Model hash not set"))?)?;
         Ok(hex::decode(hex_str)?)
     }
 }
 
 // --- system.checkAndTallyProposals.v1 ---
 
+/// The parameters for the `system.checkAndTallyProposals.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct CheckAndTallyProposalsParams {
+    /// The current block height, used to determine which proposals have ended.
     pub current_height: u64,
 }
 
+/// The RPC method handler for `system.checkAndTallyProposals.v1`.
 pub struct CheckAndTallyProposalsV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -147,14 +161,19 @@ where
 
 // --- system.callService.v1 ---
 
+/// The parameters for the `system.callService.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct CallServiceParams {
+    /// The unique identifier of the service to call.
     pub service_id: String,
+    /// The name of the method to invoke on the service.
     pub method_id: String,
+    /// The parameters for the service method, as a JSON value.
     pub params: serde_json::Value,
 }
 
+/// The RPC method handler for `system.callService.v1`.
 pub struct CallServiceV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -191,10 +210,12 @@ where
 
 // --- system.getWorkloadConfig.v1 ---
 
+/// The parameters for the `system.getWorkloadConfig.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetWorkloadConfigParams {}
 
+/// The RPC method handler for `system.getWorkloadConfig.v1`.
 pub struct GetWorkloadConfigV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -233,16 +254,22 @@ where
 
 // --- system.getGenesisStatus.v1 ---
 
+/// The response structure for the `system.getGenesisStatus.v1` RPC method.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GenesisStatus {
+    /// Whether the genesis block has been successfully processed.
     pub ready: bool,
+    /// The root hash of the genesis state.
     pub root: Vec<u8>,
+    /// The chain ID.
     pub chain_id: String,
 }
 
+/// The parameters for the `system.getGenesisStatus.v1` RPC method.
 #[derive(Deserialize, Debug)]
 pub struct GetGenesisStatusParams {}
 
+/// The RPC method handler for `system.getGenesisStatus.v1`.
 pub struct GetGenesisStatusV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }

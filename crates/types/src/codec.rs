@@ -8,7 +8,7 @@
 //! all components use the exact same serialization format for state, preventing
 //! consensus failures due to different binary representations of the same data.
 
-use parity_scale_codec::{Decode, Encode};
+use parity_scale_codec::{Decode, DecodeAll, Encode};
 
 /// Encodes a value into a deterministic, canonical byte representation using SCALE codec.
 ///
@@ -22,8 +22,8 @@ use parity_scale_codec::{Decode, Encode};
 /// # Returns
 ///
 /// A `Vec<u8>` containing the canonical SCALE-encoded bytes.
-pub fn to_bytes_canonical<T: Encode>(v: &T) -> Vec<u8> {
-    v.encode()
+pub fn to_bytes_canonical<T: Encode>(v: &T) -> Result<Vec<u8>, String> {
+    Ok(v.encode())
 }
 
 /// Decodes a value from a canonical byte representation using SCALE codec.
@@ -40,7 +40,7 @@ pub fn to_bytes_canonical<T: Encode>(v: &T) -> Vec<u8> {
 /// A `Result` containing the decoded value of type `T` on success, or a `String`
 /// detailing the error on failure.
 pub fn from_bytes_canonical<T: Decode>(b: &[u8]) -> Result<T, String> {
-    T::decode(&mut &*b).map_err(|e| format!("canonical decode failed: {}", e))
+    T::decode_all(&mut &*b).map_err(|e| format!("canonical decode failed: {}", e))
 }
 
 #[cfg(test)]
@@ -64,7 +64,7 @@ mod tests {
             tags: vec![1, 2, 3],
         };
 
-        let encoded = to_bytes_canonical(&original_struct);
+        let encoded = to_bytes_canonical(&original_struct).unwrap();
         assert!(!encoded.is_empty());
 
         let decoded = from_bytes_canonical::<TestStruct>(&encoded).unwrap();
@@ -76,7 +76,7 @@ mod tests {
         original_set.insert([2u8; 32]);
         original_set.insert([3u8; 32]);
 
-        let encoded_set = to_bytes_canonical(&original_set);
+        let encoded_set = to_bytes_canonical(&original_set).unwrap();
         let decoded_set = from_bytes_canonical::<BTreeSet<[u8; 32]>>(&encoded_set).unwrap();
 
         assert_eq!(original_set, decoded_set);
@@ -90,7 +90,7 @@ mod tests {
             tags: vec![10, 20, 30, 40, 50],
         };
 
-        let mut encoded = to_bytes_canonical(&original_struct);
+        let mut encoded = to_bytes_canonical(&original_struct).unwrap();
         // Truncate the encoded data to make it invalid
         encoded.pop();
         encoded.pop();

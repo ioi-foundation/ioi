@@ -81,7 +81,10 @@ impl<'b> Mul<&'b Polynomial> for &Polynomial {
         let mut result = Polynomial::zero(self.coeffs.len() + rhs.coeffs.len() - 2);
         for (i, a) in self.coeffs.iter().enumerate() {
             for (j, b) in rhs.coeffs.iter().enumerate() {
-                result.coeffs[i + j] += *a * *b;
+                // --- FIX: Use .get_mut() to avoid potential panic ---
+                if let Some(res_coeff) = result.coeffs.get_mut(i + j) {
+                    *res_coeff += *a * *b;
+                }
             }
         }
         result
@@ -94,7 +97,10 @@ pub fn poly_sub_scalar(poly: &Polynomial, y: Scalar) -> Polynomial {
         return Polynomial { coeffs: vec![-y] };
     }
     let mut result = poly.clone();
-    result.coeffs[0] -= y;
+    // --- FIX: Use .get_mut() to avoid potential panic ---
+    if let Some(c0) = result.coeffs.get_mut(0) {
+        *c0 -= y;
+    }
     result
 }
 
@@ -105,16 +111,25 @@ pub fn poly_div_linear(poly: &Polynomial, z: Scalar) -> Result<Polynomial, Strin
         return Ok(Polynomial { coeffs: vec![] });
     }
     let degree = poly.coeffs.len() - 1;
-    if degree == 0 && poly.coeffs[0] == Scalar::zero() {
+    // --- FIX: Use .get() to avoid potential panic ---
+    if degree == 0 && poly.coeffs.get(0) == Some(&Scalar::zero()) {
         return Ok(Polynomial { coeffs: vec![] });
     }
     let mut quotient_coeffs = vec![Scalar::zero(); degree];
 
     let mut last = Scalar::zero();
     for i in (0..=degree).rev() {
-        let coeff = poly.coeffs[i] + last;
+        // --- FIX: Use .get() to avoid potential panic ---
+        let poly_coeff = poly
+            .coeffs
+            .get(i)
+            .ok_or_else(|| format!("poly_div_linear: index {} out of bounds for poly", i))?;
+        let coeff = *poly_coeff + last;
         if i > 0 {
-            quotient_coeffs[i - 1] = coeff;
+            // --- FIX: Use .get_mut() to avoid potential panic ---
+            if let Some(quot_coeff) = quotient_coeffs.get_mut(i - 1) {
+                *quot_coeff = coeff;
+            }
         } else {
             // The remainder should be zero
             // --- FIX for E0599: Compare with Scalar::zero() directly ---

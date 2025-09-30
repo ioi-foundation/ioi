@@ -34,7 +34,12 @@ where
     if proof.per_level_selectors.len() != proof.per_level_proofs.len() {
         return false;
     }
-    if root_commitment.as_ref() != proof.node_commitments[0].as_slice() {
+    // FIX: Use .get() to access the first element safely.
+    if !proof
+        .node_commitments
+        .get(0)
+        .is_some_and(|c| c.as_slice() == root_commitment.as_ref())
+    {
         return false;
     }
 
@@ -52,7 +57,12 @@ where
                 return false;
             }
             for (j, key_byte) in key_path.iter().enumerate().take(levels) {
-                if proof.per_level_selectors[j] != *key_byte as u32 {
+                // FIX: Use .get() for safe access.
+                if !proof
+                    .per_level_selectors
+                    .get(j)
+                    .is_some_and(|&sel| sel == *key_byte as u32)
+                {
                     return false;
                 }
             }
@@ -61,7 +71,12 @@ where
         // Empty: walked up to the terminating empty slot; all selectors must match key bytes so far.
         Terminal::Empty => {
             for (j, key_byte) in key_path.iter().enumerate().take(levels) {
-                if proof.per_level_selectors[j] != *key_byte as u32 {
+                // FIX: Use .get() for safe access.
+                if !proof
+                    .per_level_selectors
+                    .get(j)
+                    .is_some_and(|&sel| sel == *key_byte as u32)
+                {
                     return false;
                 }
             }
@@ -83,17 +98,33 @@ where
                 .enumerate()
                 .take(common)
             {
-                let sel = proof.per_level_selectors[j];
+                // FIX: Use .get() for safe access.
+                let Some(&sel) = proof.per_level_selectors.get(j) else {
+                    return false;
+                };
                 if sel != *key_byte as u32 || sel != *stem_byte as u32 {
                     return false;
                 }
             }
             // Final opening must be at the neighbor slot, not the query slot.
-            let sel_last = proof.per_level_selectors[common];
-            if sel_last != key_stem[common] as u32 {
+            // FIX: Use .get() for safe access.
+            let Some(&sel_last) = proof.per_level_selectors.get(common) else {
+                return false;
+            };
+            // FIX: Use .get() for safe access.
+            let Some(&stem_byte_last) = key_stem.get(common) else {
+                return false;
+            };
+            if sel_last != stem_byte_last as u32 {
                 return false;
             }
-            if sel_last == key_path[common] as u32 {
+            // FIX: Use .get() for safe access.
+            if proof
+                .per_level_selectors
+                .get(common)
+                .zip(key_path.get(common))
+                .is_some_and(|(sel, key_byte)| *sel == *key_byte as u32)
+            {
                 return false;
             }
         }
@@ -102,22 +133,47 @@ where
 
     // (existing pairing checks follow unchanged)
     for j in 0..levels {
-        let commitment_bytes = &proof.node_commitments[j];
+        // FIX: Use .get() for safe access on all indexed vectors.
+        let (Some(commitment_bytes), Some(proof_bytes_for_level), Some(&selector_pos)) = (
+            proof.node_commitments.get(j),
+            proof.per_level_proofs.get(j),
+            proof.per_level_selectors.get(j),
+        ) else {
+            return false;
+        };
         let commitment: CS::Commitment = commitment_bytes.clone().into();
-        let proof_bytes_for_level = &proof.per_level_proofs[j];
         let proof_for_level: CS::Proof = proof_bytes_for_level.clone().into();
         // MODIFICATION: Cast selector position to u64.
-        let selector = Selector::Position(proof.per_level_selectors[j] as u64);
+        let selector = Selector::Position(selector_pos as u64);
 
-        let value_bytes = if j == levels - 1 {
+        let value_bytes_result = if j == levels - 1 {
             match &proof.terminal {
                 Terminal::Leaf(payload) | Terminal::Neighbor { payload, .. } => {
                     map_leaf_payload_to_value(payload)
                 }
-                Terminal::Empty => map_child_commitment_to_value(&proof.node_commitments[j + 1]),
+                // FIX: Use .get() for safe access.
+                Terminal::Empty => match proof.node_commitments.get(j + 1) {
+                    Some(c) => map_child_commitment_to_value(c),
+                    None => return false,
+                },
             }
         } else {
-            map_child_commitment_to_value(&proof.node_commitments[j + 1])
+            // FIX: Use .get() for safe access.
+            match proof.node_commitments.get(j + 1) {
+                Some(c) => map_child_commitment_to_value(c),
+                None => return false,
+            }
+        };
+
+        let value_bytes = match value_bytes_result {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                log::warn!(
+                    "Failed to compute value hash during proof verification: {}",
+                    e
+                );
+                return false;
+            }
         };
 
         let value: CS::Value = value_bytes.to_vec().into();

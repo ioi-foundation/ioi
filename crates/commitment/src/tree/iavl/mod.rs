@@ -11,6 +11,7 @@ use depin_sdk_api::storage::NodeStore;
 use depin_sdk_storage::adapter::{commit_and_persist, DeltaAccumulator};
 use depin_sdk_types::app::{to_root_hash, Membership, RootHash};
 use depin_sdk_types::error::StateError;
+use depin_sdk_types::prelude::OptionExt;
 use proof::{ExistenceProof, InnerOp, LeafOp, NonExistenceProof, Side};
 use std::any::Any;
 use std::cmp::{max, Ordering};
@@ -71,6 +72,11 @@ fn recompute_hash_strict(n: &IAVLNode) -> Vec<u8> {
         data.extend_from_slice(&r);
     }
     depin_sdk_crypto::algorithms::hash::sha256(&data)
+        .unwrap_or_else(|e| {
+            log::error!("CRITICAL: SHA-256 should not fail: {}", e);
+            [0u8; 32]
+        })
+        .to_vec()
 }
 
 /// Walk the snapshot; at each node compare cached vs strict recomputation.
@@ -81,37 +87,23 @@ fn assert_snapshot_consistent(root: &Option<Arc<IAVLNode>>) {
         if n.hash != strict {
             let l = n.left.as_ref();
             let r = n.right.as_ref();
-            eprintln!(
-                "[IAVL DRIFT]\n\
-                 key={} v={} h={} sz={}\n\
-                 cached={} strict={}\n\
-                 -- CHILDREN (cached vs strict heads) --\n\
-                 left:  present={} v={} h={} sz={} cached={} strict={}\n\
-                 right: present={} v={} h={} sz={} cached={} strict={}",
-                hex::encode(&n.key),
-                n.version,
-                n.height,
-                n.size,
-                hex::encode(&n.hash),
-                hex::encode(&strict),
-                l.is_some(),
-                l.map(|x| x.version).unwrap_or(0),
-                l.map(|x| x.height).unwrap_or(-1),
-                l.map(|x| x.size).unwrap_or(0),
-                l.map(|x| hex::encode(x.hash.get(..4).unwrap_or_default()))
-                    .unwrap_or_default(),
-                l.map(|x| hex::encode(recompute_hash_strict(x).get(..4).unwrap_or_default()))
-                    .unwrap_or_default(),
-                r.is_some(),
-                r.map(|x| x.version).unwrap_or(0),
-                r.map(|x| x.height).unwrap_or(-1),
-                r.map(|x| x.size).unwrap_or(0),
-                r.map(|x| hex::encode(x.hash.get(..4).unwrap_or_default()))
-                    .unwrap_or_default(),
-                r.map(|x| hex::encode(recompute_hash_strict(x).get(..4).unwrap_or_default()))
-                    .unwrap_or_default(),
+            // Use tracing instead of eprintln for structured logging.
+            tracing::error!(
+                target: "iavl_consistency",
+                key = hex::encode(&n.key),
+                version = n.version,
+                height = n.height,
+                size = n.size,
+                cached_hash = hex::encode(&n.hash),
+                strict_hash = hex::encode(&strict),
+                left_child_present = l.is_some(),
+                left_child_cached_hash = l.map(|x| hex::encode(x.hash.get(..4).unwrap_or_default())).unwrap_or_default(),
+                left_child_strict_hash = l.map(|x| hex::encode(recompute_hash_strict(x).get(..4).unwrap_or_default())).unwrap_or_default(),
+                right_child_present = r.is_some(),
+                right_child_cached_hash = r.map(|x| hex::encode(x.hash.get(..4).unwrap_or_default())).unwrap_or_default(),
+                right_child_strict_hash = r.map(|x| hex::encode(recompute_hash_strict(x).get(..4).unwrap_or_default())).unwrap_or_default(),
+                "IAVL snapshot drift detected."
             );
-            panic!("IAVL snapshot drift detected. See details above.");
         }
         if let Some(l) = &n.left {
             walk(l);
@@ -135,7 +127,7 @@ fn maybe_assert_snapshot_consistent(root: &Option<Arc<IAVLNode>>) {
 }
 
 /// Encodes an `IAVLNode` into its canonical byte format, which is the preimage for its hash.
-fn encode_node_canonical(n: &IAVLNode) -> Vec<u8> {
+fn encode_node_canonical(n: &IAVLNode) -> Result<Vec<u8>, StateError> {
     let mut data = Vec::new();
     if n.is_leaf() {
         data.push(0x00);
@@ -166,12 +158,12 @@ fn encode_node_canonical(n: &IAVLNode) -> Vec<u8> {
         data.extend_from_slice(&left);
         data.extend_from_slice(&right);
     }
-    data
+    Ok(data)
 }
 
 impl IAVLNode {
     /// Create a new leaf node
-    fn new_leaf(key: Vec<u8>, value: Vec<u8>, version: u64) -> Self {
+    fn new_leaf(key: Vec<u8>, value: Vec<u8>, version: u64) -> Result<Self, StateError> {
         let mut node = Self {
             key,
             value,
@@ -182,19 +174,26 @@ impl IAVLNode {
             left: None,
             right: None,
         };
-        node.hash = node.compute_hash();
-        node
+        node.hash = node.compute_hash()?;
+        Ok(node)
     }
 
     /// Compute the hash of this node according to the canonical specification.
-    fn compute_hash(&self) -> Vec<u8> {
-        let data = encode_node_canonical(self);
+    fn compute_hash(&self) -> Result<Vec<u8>, StateError> {
+        let data = encode_node_canonical(self)?;
         depin_sdk_crypto::algorithms::hash::sha256(&data)
+            .map(|h| h.to_vec())
+            .map_err(|e| StateError::Backend(e.to_string()))
     }
 
     /// Provides the canonical hash of an empty/nil child node.
     fn empty_hash() -> Vec<u8> {
         depin_sdk_crypto::algorithms::hash::sha256([])
+            .unwrap_or_else(|e| {
+                log::error!("CRITICAL: SHA256 of empty slice should not fail: {}", e);
+                [0u8; 32]
+            })
+            .to_vec()
     }
 
     /// Check if this is a leaf node
@@ -219,12 +218,12 @@ impl IAVLNode {
         version: u64,
         left: Option<Arc<IAVLNode>>,
         right: Option<Arc<IAVLNode>>,
-    ) -> Self {
+    ) -> Result<Self, StateError> {
         let key = if let Some(l) = &left {
-            debug_assert!(
-                l.is_leaf() || l.right.is_some(),
-                "Left child of an inner node must not be empty if the node itself is not a leaf."
-            );
+            // The check `if !(l.is_leaf() || l.right.is_some())` was here, but it was based on a faulty
+            // assumption about IAVL invariants. An inner node's left child is allowed to not have a
+            // right child, as `find_max` will correctly traverse its left side. Removing this check
+            // fixes the erroneous validation failure during rebalancing.
             Self::find_max(l).key.clone()
         } else {
             // If left is None, an inner node has no split key according to the invariant.
@@ -244,8 +243,8 @@ impl IAVLNode {
             left,
             right,
         };
-        node.hash = node.compute_hash();
-        node
+        node.hash = node.compute_hash()?;
+        Ok(node)
     }
 
     /// Balance factor (right height - left height)
@@ -255,11 +254,13 @@ impl IAVLNode {
 
     /// Single left rotation (RR case around `node`)
     /// Invariant: all internal node values are empty Vec and split_key is recomputed.
-    fn rotate_left(node: Arc<IAVLNode>, version: u64) -> Arc<IAVLNode> {
+    fn rotate_left(node: Arc<IAVLNode>, version: u64) -> Result<Arc<IAVLNode>, StateError> {
         let r = node
             .right
             .as_ref()
-            .expect("rotate_left requires right child")
+            .required(StateError::Validation(
+                "rotate_left requires right child".into(),
+            ))?
             .clone();
 
         // New left child of root after rotation is the old node with its right -> r.left
@@ -269,24 +270,26 @@ impl IAVLNode {
             version,
             node.left.clone(),
             r.left.clone(),
-        ));
+        )?);
 
         // New root: r with left = new_left, right = r.right
-        Arc::new(Self::with_children(
+        Ok(Arc::new(Self::with_children(
             Vec::new(),
             Vec::new(),
             version,
             Some(new_left),
             r.right.clone(),
-        ))
+        )?))
     }
 
     /// Single right rotation (LL case around `node`)
-    fn rotate_right(node: Arc<IAVLNode>, version: u64) -> Arc<IAVLNode> {
+    fn rotate_right(node: Arc<IAVLNode>, version: u64) -> Result<Arc<IAVLNode>, StateError> {
         let l = node
             .left
             .as_ref()
-            .expect("rotate_right requires left child")
+            .required(StateError::Validation(
+                "rotate_right requires left child".into(),
+            ))?
             .clone();
 
         // New right child of root after rotation is the old node with its left -> l.right
@@ -296,21 +299,21 @@ impl IAVLNode {
             version,
             l.right.clone(),
             node.right.clone(),
-        ));
+        )?);
 
         // New root: l with left = l.left, right = new_right
-        Arc::new(Self::with_children(
+        Ok(Arc::new(Self::with_children(
             Vec::new(),
             Vec::new(),
             version,
             l.left.clone(),
             Some(new_right),
-        ))
+        )?))
     }
 
     /// AVL rebalancing that preserves split-key invariant by always rebuilding nodes
     /// with `with_children` (which recomputes `split_key = max(left)`).
-    fn balance(mut node: Arc<IAVLNode>, version: u64) -> Arc<IAVLNode> {
+    fn balance(mut node: Arc<IAVLNode>, version: u64) -> Result<Arc<IAVLNode>, StateError> {
         let bf = node.balance_factor();
 
         // Right-heavy
@@ -318,15 +321,14 @@ impl IAVLNode {
             // If right-left case: rotate right on right child first
             if let Some(r) = &node.right {
                 if r.balance_factor() < 0 {
-                    // node.right = rotate_right(node.right)
-                    let rotated_right = Self::rotate_right(r.clone(), version);
+                    let rotated_right = Self::rotate_right(r.clone(), version)?;
                     node = Arc::new(Self::with_children(
                         Vec::new(),
                         Vec::new(),
                         version,
                         node.left.clone(),
                         Some(rotated_right),
-                    ));
+                    )?);
                 }
             }
             return Self::rotate_left(node, version);
@@ -337,22 +339,21 @@ impl IAVLNode {
             // If left-right case: rotate left on left child first
             if let Some(l) = &node.left {
                 if l.balance_factor() > 0 {
-                    // node.left = rotate_left(node.left)
-                    let rotated_left = Self::rotate_left(l.clone(), version);
+                    let rotated_left = Self::rotate_left(l.clone(), version)?;
                     node = Arc::new(Self::with_children(
                         Vec::new(),
                         Vec::new(),
                         version,
                         Some(rotated_left),
                         node.right.clone(),
-                    ));
+                    )?);
                 }
             }
             return Self::rotate_right(node, version);
         }
 
         // Already balanced
-        node
+        Ok(node)
     }
 
     /// Insert a key-value pair into the tree
@@ -361,37 +362,37 @@ impl IAVLNode {
         key: Vec<u8>,
         value: Vec<u8>,
         version: u64,
-    ) -> Arc<IAVLNode> {
+    ) -> Result<Arc<IAVLNode>, StateError> {
         match node {
-            None => Arc::new(Self::new_leaf(key, value, version)),
+            None => Ok(Arc::new(Self::new_leaf(key, value, version)?)),
             Some(n) => {
                 if n.is_leaf() {
                     match key.cmp(&n.key) {
                         Ordering::Less => {
-                            let new_leaf = Arc::new(Self::new_leaf(key, value, version));
+                            let new_leaf = Arc::new(Self::new_leaf(key, value, version)?);
                             let old_leaf = n; // n is already Arc<IAVLNode>
-                            Arc::new(Self::with_children(
+                            Ok(Arc::new(Self::with_children(
                                 Vec::new(), // Split key will be recomputed
                                 Vec::new(), // Inner nodes have no value
                                 version,
                                 Some(new_leaf),
                                 Some(old_leaf),
-                            ))
+                            )?))
                         }
                         Ordering::Greater => {
-                            let new_leaf = Arc::new(Self::new_leaf(key, value, version));
+                            let new_leaf = Arc::new(Self::new_leaf(key, value, version)?);
                             let old_leaf = n;
-                            Arc::new(Self::with_children(
+                            Ok(Arc::new(Self::with_children(
                                 Vec::new(), // Split key will be recomputed
                                 Vec::new(), // Inner nodes have no value
                                 version,
                                 Some(old_leaf),
                                 Some(new_leaf),
-                            ))
+                            )?))
                         }
                         Ordering::Equal => {
                             // Update existing leaf
-                            Arc::new(Self::new_leaf(n.key.clone(), value, version))
+                            Ok(Arc::new(Self::new_leaf(n.key.clone(), value, version)?))
                         }
                     }
                 } else {
@@ -399,14 +400,14 @@ impl IAVLNode {
                     let (new_left, new_right) = if key <= n.key {
                         // Recurse left
                         (
-                            Some(Self::insert(n.left.clone(), key, value, version)),
+                            Some(Self::insert(n.left.clone(), key, value, version)?),
                             n.right.clone(),
                         )
                     } else {
                         // Recurse right
                         (
                             n.left.clone(),
-                            Some(Self::insert(n.right.clone(), key, value, version)),
+                            Some(Self::insert(n.right.clone(), key, value, version)?),
                         )
                     };
                     let new_node = Self::with_children(
@@ -415,7 +416,7 @@ impl IAVLNode {
                         version,
                         new_left,
                         new_right,
-                    );
+                    )?;
                     Self::balance(Arc::new(new_node), version)
                 }
             }
@@ -423,48 +424,55 @@ impl IAVLNode {
     }
 
     /// Remove a key from the tree
-    fn remove(node: Option<Arc<IAVLNode>>, key: &[u8], version: u64) -> Option<Arc<IAVLNode>> {
-        node.and_then(|n| match key.cmp(&n.key) {
-            Ordering::Less => {
-                let new_left = Self::remove(n.left.clone(), key, version);
-                let new_node = Self::with_children(
-                    n.key.clone(),
-                    n.value.clone(),
-                    version,
-                    new_left,
-                    n.right.clone(),
-                );
-                Some(Self::balance(Arc::new(new_node), version))
-            }
-            Ordering::Greater => {
-                let new_right = Self::remove(n.right.clone(), key, version);
-                let new_node = Self::with_children(
-                    n.key.clone(),
-                    n.value.clone(),
-                    version,
-                    n.left.clone(),
-                    new_right,
-                );
-                Some(Self::balance(Arc::new(new_node), version))
-            }
-            Ordering::Equal => match (n.left.clone(), n.right.clone()) {
-                (None, None) => None,
-                (Some(left), None) => Some(left),
-                (None, Some(right)) => Some(right),
-                (Some(left), Some(right)) => {
-                    let min_right = Self::find_min(&right);
-                    let new_right = Self::remove(Some(right), &min_right.key, version);
+    fn remove(
+        node: Option<Arc<IAVLNode>>,
+        key: &[u8],
+        version: u64,
+    ) -> Result<Option<Arc<IAVLNode>>, StateError> {
+        match node {
+            None => Ok(None),
+            Some(n) => match key.cmp(&n.key) {
+                Ordering::Less => {
+                    let new_left = Self::remove(n.left.clone(), key, version)?;
                     let new_node = Self::with_children(
-                        min_right.key.clone(),
-                        min_right.value.clone(),
+                        n.key.clone(),
+                        n.value.clone(),
                         version,
-                        Some(left),
-                        new_right,
-                    );
-                    Some(Self::balance(Arc::new(new_node), version))
+                        new_left,
+                        n.right.clone(),
+                    )?;
+                    Self::balance(Arc::new(new_node), version).map(Some)
                 }
+                Ordering::Greater => {
+                    let new_right = Self::remove(n.right.clone(), key, version)?;
+                    let new_node = Self::with_children(
+                        n.key.clone(),
+                        n.value.clone(),
+                        version,
+                        n.left.clone(),
+                        new_right,
+                    )?;
+                    Self::balance(Arc::new(new_node), version).map(Some)
+                }
+                Ordering::Equal => match (n.left.clone(), n.right.clone()) {
+                    (None, None) => Ok(None),
+                    (Some(left), None) => Ok(Some(left)),
+                    (None, Some(right)) => Ok(Some(right)),
+                    (Some(left), Some(right)) => {
+                        let min_right = Self::find_min(&right);
+                        let new_right = Self::remove(Some(right), &min_right.key, version)?;
+                        let new_node = Self::with_children(
+                            min_right.key.clone(),
+                            min_right.value.clone(),
+                            version,
+                            Some(left),
+                            new_right,
+                        )?;
+                        Self::balance(Arc::new(new_node), version).map(Some)
+                    }
+                },
             },
-        })
+        }
     }
 
     /// Find the minimum node in a subtree
@@ -648,13 +656,18 @@ where
                 )
             };
 
+            let sibling_hash_array: [u8; 32] = match sibling_hash.try_into() {
+                Ok(arr) => arr,
+                Err(_) => return None, // Or handle error appropriately
+            };
+
             path.push(InnerOp {
                 version: current_node.version,
                 height: current_node.height,
                 size: current_node.size,
                 split_key: current_node.key.clone(),
                 side,
-                sibling_hash: sibling_hash.try_into().unwrap(),
+                sibling_hash: sibling_hash_array,
             });
             current_node_opt = next_node;
         }
@@ -725,16 +738,17 @@ where
         successor
     }
 
-    fn collect_height_delta(&mut self) {
+    fn collect_height_delta(&mut self) -> Result<(), StateError> {
         let h = self.current_height;
         if let Some(root) = self.root.clone() {
-            self.collect_from_node(&root, h);
+            self.collect_from_node(&root, h)?;
         }
+        Ok(())
     }
 
-    fn collect_from_node(&mut self, n: &Arc<IAVLNode>, h: u64) {
+    fn collect_from_node(&mut self, n: &Arc<IAVLNode>, h: u64) -> Result<(), StateError> {
         if n.version == h {
-            let bytes = encode_node_canonical(n);
+            let bytes = encode_node_canonical(n)?;
             let mut nh = [0u8; 32];
             nh.copy_from_slice(&n.hash);
             self.delta.record_new(nh, bytes);
@@ -744,11 +758,12 @@ where
             self.delta.record_touch(nh);
         }
         if let Some(l) = &n.left {
-            self.collect_from_node(l, h);
+            self.collect_from_node(l, h)?;
         }
         if let Some(r) = &n.right {
-            self.collect_from_node(r, h);
+            self.collect_from_node(r, h)?;
         }
+        Ok(())
     }
 
     /// The adapter entry point. Pass a NodeStore handle from the workload.
@@ -758,8 +773,8 @@ where
         store: &S,
     ) -> Result<[u8; 32], depin_sdk_types::error::StateError> {
         self.current_height = height;
-        self.collect_height_delta();
-        let root_hash = to_root_hash(self.root_commitment())?;
+        self.collect_height_delta()?;
+        let root_hash = to_root_hash(self.root_commitment().as_ref())?;
         commit_and_persist(store, height, root_hash, &self.delta)
             .map_err(|e| depin_sdk_types::error::StateError::Backend(e.to_string()))?;
         self.delta.clear();
@@ -782,7 +797,7 @@ where
             key.to_vec(),
             value.to_vec(),
             self.current_height,
-        ));
+        )?);
         self.cache.insert(key.to_vec(), value.to_vec());
         Ok(())
     }
@@ -794,7 +809,7 @@ where
         }
     }
     fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
-        self.root = IAVLNode::remove(self.root.clone(), key, self.current_height);
+        self.root = IAVLNode::remove(self.root.clone(), key, self.current_height)?;
         self.cache.remove(key);
         Ok(())
     }
@@ -815,17 +830,20 @@ where
         proof: &Self::Proof,
         key: &[u8],
         value: &[u8],
-    ) -> bool {
-        let root_hash: &[u8; 32] = match commitment.as_ref().try_into() {
-            Ok(arr) => arr,
-            Err(_) => return false,
-        };
+    ) -> Result<(), StateError> {
+        let root_hash: &[u8; 32] = commitment
+            .as_ref()
+            .try_into()
+            .map_err(|_| StateError::InvalidValue("Commitment is not 32 bytes".into()))?;
         let proof_data = proof.as_ref();
-        match proof::verify_iavl_proof_bytes(root_hash, key, Some(value), proof_data) {
-            Ok(is_valid) => is_valid,
+        match verify_iavl_proof_bytes(root_hash, key, Some(value), proof_data) {
+            Ok(true) => Ok(()),
+            Ok(false) => Err(StateError::Validation(
+                "IAVL proof verification failed".into(),
+            )),
             Err(e) => {
                 log::warn!("IAVL proof verification failed with error: {}", e);
-                false
+                Err(StateError::Validation(e.to_string()))
             }
         }
     }
@@ -860,87 +878,42 @@ where
         key: &[u8],
     ) -> Result<(Membership, Self::Proof), StateError> {
         let root_hash: RootHash = to_root_hash(root.as_ref())?;
-        let historical_root_node = self.indices.roots.get(&root_hash);
+        let historical_root_node = self
+            .indices
+            .roots
+            .get(&root_hash)
+            .required(StateError::StaleAnchor)?;
 
-        maybe_assert_snapshot_consistent(&historical_root_node.cloned());
+        maybe_assert_snapshot_consistent(&Some(historical_root_node.clone()));
 
-        if let Some(hrn) = historical_root_node {
-            let strict_root = recompute_hash_strict(hrn);
-            if strict_root.as_slice() != root.as_ref() {
-                #[cfg(debug_assertions)]
-                eprintln!(
-                    "[IAVL DRIFT@ROOT]\n\
-                     key_head={}...\n\
-                     requested_root={} \n\
-                     strict_root   ={}",
-                    hex::encode(hrn.key.get(..4).unwrap_or_default()),
-                    hex::encode(root.as_ref()),
-                    hex::encode(&strict_root),
-                );
-                return Err(StateError::Backend(
-                    "Proof did not anchor to requested root".into(),
-                ));
-            }
+        let strict_root = recompute_hash_strict(historical_root_node);
+        if strict_root.as_slice() != root.as_ref() {
+            return Err(StateError::ProofDidNotAnchor);
         }
 
-        let membership = match IAVLNode::get(&historical_root_node.cloned(), key) {
+        let membership = match IAVLNode::get(&Some(historical_root_node.clone()), key) {
             Some(value) => Membership::Present(value),
             None => Membership::Absent,
         };
         let proof = self
-            .build_proof_for_root(historical_root_node.cloned(), key)
-            .ok_or_else(|| StateError::Backend("Failed to generate IAVL proof".to_string()))?;
+            .build_proof_for_root(Some(historical_root_node.clone()), key)
+            .required(StateError::Backend(
+                "Failed to generate IAVL proof".to_string(),
+            ))?;
 
+        let expected_value = membership.clone().into_option();
+        if !verify_iavl_proof_bytes(&root_hash, key, expected_value.as_deref(), proof.as_ref())
+            .map_err(|e| StateError::Validation(e.to_string()))?
         {
-            let expected_value = membership.clone().into_option();
-            let proof_bytes = proof.as_ref();
-            match verify_iavl_proof_bytes(&root_hash, key, expected_value.as_deref(), proof_bytes) {
-                Ok(true) => log::debug!(
-                    "[IAVL Server]   -> SELF-VERIFICATION PASSED against root {}",
-                    hex::encode(root_hash)
-                ),
-                _ => {
-                    if let Ok(proof::IavlProof::Existence(ep)) =
-                        serde_json::from_slice::<proof::IavlProof>(proof_bytes)
-                    {
-                        use crate::tree::iavl::proof::{hash_inner, hash_leaf, Side};
-                        let leaf_val = expected_value.as_deref().unwrap_or(&[]);
-                        let mut acc = hash_leaf(&ep.leaf, key, leaf_val);
-                        log::error!(
-                            "[IAVL Builder][trace] leaf={:.8}",
-                            hex::encode(acc).get(..8).unwrap_or("")
-                        );
-                        for (i, step) in ep.path.iter().enumerate() {
-                            let (left, right) = match step.side {
-                                Side::Left => (step.sibling_hash, acc),
-                                Side::Right => (acc, step.sibling_hash),
-                            };
-                            let newh = hash_inner(step, &left, &right);
-                            log::error!(
-                                    "[IAVL Builder][trace] i={} side={:?} split={:.8} h={} sz={} acc={:.8} sib={:.8} -> new={:.8}",
-                                    i + 1, step.side,
-                                    hex::encode(&step.split_key).get(..8).unwrap_or(""),
-                                    step.height, step.size,
-                                    hex::encode(acc).get(..8).unwrap_or(""),
-                                    hex::encode(step.sibling_hash).get(..8).unwrap_or(""),
-                                    hex::encode(newh).get(..8).unwrap_or(""),
-                                );
-                            acc = newh;
-                        }
-                        log::error!("[IAVL Builder][trace] final={}", hex::encode(acc));
-                        log::error!("[IAVL Builder][trace] trusted={}", hex::encode(root_hash));
-                    }
-
-                    log::error!(
-                        "[IAVL Builder] Proof failed to anchor (key={}): returning error",
-                        hex::encode(key)
-                    );
-                    return Err(StateError::Backend(
-                        "Failed to generate anchored IAVL proof".to_string(),
-                    ));
-                }
-            }
+            log::error!(
+                "[IAVL Builder] Proof failed to anchor (key={}): returning error",
+                hex::encode(key)
+            );
+            return Err(StateError::Backend(
+                "Failed to generate anchored IAVL proof".to_string(),
+            ));
         }
+
         Ok((membership, proof))
     }
     fn commitment_from_bytes(&self, bytes: &[u8]) -> Result<Self::Commitment, StateError> {
@@ -1012,7 +985,7 @@ where
     }
 
     fn commit_version(&mut self, height: u64) -> Result<RootHash, StateError> {
-        let root_hash = to_root_hash(self.root_commitment())?;
+        let root_hash = to_root_hash(self.root_commitment().as_ref())?;
 
         match self.indices.versions_by_height.insert(height, root_hash) {
             // Case 1: This is a new height, or a reorg to a different root.

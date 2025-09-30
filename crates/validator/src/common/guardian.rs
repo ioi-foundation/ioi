@@ -1,5 +1,12 @@
 // crates/validator/src/common/guardian.rs
 
+//! Implements the Guardian container, the root of trust for the validator.
+//!
+//! The `GuardianContainer` is responsible for establishing secure mTLS channels
+//! with other containers and performing attestations, such as verifying the
+//! integrity of an agentic AI model's weights before the validator participates in consensus.
+//! It also includes helper functions for generating the necessary mTLS certificates.
+
 use crate::config::GuardianConfig;
 use crate::standard::workload_ipc_server::create_ipc_server_config;
 use anyhow::Result;
@@ -21,11 +28,14 @@ use tokio_rustls::TlsAcceptor;
 /// The GuardianContainer is the root of trust.
 #[derive(Debug, Clone)]
 pub struct GuardianContainer {
+    /// A secure mTLS channel for communicating with the Orchestration container.
     pub orchestration_channel: SecurityChannel,
+    /// A secure mTLS channel for communicating with the Workload container.
     pub workload_channel: SecurityChannel,
     is_running: Arc<AtomicBool>,
 }
 
+/// Generates a self-signed CA and server/client certificates for mTLS if they do not already exist.
 pub fn generate_certificates_if_needed(certs_dir: &Path) -> Result<()> {
     if certs_dir.join("ca.pem").exists() {
         return Ok(());
@@ -73,6 +83,7 @@ pub fn generate_certificates_if_needed(certs_dir: &Path) -> Result<()> {
 }
 
 impl GuardianContainer {
+    /// Creates a new, unstarted GuardianContainer.
     pub fn new(_config: GuardianConfig) -> Result<Self> {
         Ok(Self {
             orchestration_channel: SecurityChannel::new("guardian", "orchestration"),
@@ -85,12 +96,12 @@ impl GuardianContainer {
     pub async fn attest_weights(&self, model_path: &str) -> Result<Vec<u8>, String> {
         let model_bytes = std::fs::read(model_path)
             .map_err(|e| format!("Failed to read agentic model file: {}", e))?;
-        let local_hash = sha256(&model_bytes);
+        let local_hash_array = sha256(&model_bytes).map_err(|e| e.to_string())?;
         log::info!(
             "[Guardian] Computed local model hash: {}",
-            hex::encode(&local_hash)
+            hex::encode(&local_hash_array)
         );
-        Ok(local_hash)
+        Ok(local_hash_array.to_vec())
     }
 }
 
@@ -100,7 +111,9 @@ impl Container for GuardianContainer {
         self.is_running.store(true, Ordering::SeqCst);
         let listener = tokio::net::TcpListener::bind(listen_addr).await?;
 
-        let certs_dir = std::env::var("CERTS_DIR").expect("CERTS_DIR environment variable not set");
+        let certs_dir = std::env::var("CERTS_DIR").map_err(|_| {
+            ValidatorError::Config("CERTS_DIR environment variable must be set".to_string())
+        })?;
         let server_config = create_ipc_server_config(
             &format!("{}/ca.pem", certs_dir),
             &format!("{}/guardian-server.pem", certs_dir),
@@ -123,18 +136,12 @@ impl Container for GuardianContainer {
                         if let Ok(id_byte) = tls_stream.read_u8().await {
                             match id_byte {
                                 1 => {
-                                    orch_c
-                                        .accept_server_connection(tokio_rustls::TlsStream::Server(
-                                            tls_stream,
-                                        ))
-                                        .await
+                                    // Pass the server stream directly
+                                    orch_c.accept_server_connection(tls_stream).await
                                 }
                                 2 => {
-                                    work_c
-                                        .accept_server_connection(tokio_rustls::TlsStream::Server(
-                                            tls_stream,
-                                        ))
-                                        .await
+                                    // Pass the server stream directly
+                                    work_c.accept_server_connection(tls_stream).await
                                 }
                                 _ => log::warn!("[Guardian] Unknown client ID byte: {}", id_byte),
                             }

@@ -11,7 +11,7 @@ mod verkle_tests {
     fn setup() -> (VerkleTree<KZGCommitmentScheme>, KZGCommitmentScheme) {
         let params = KZGParams::new_insecure_for_testing(1234, 255);
         let scheme = KZGCommitmentScheme::new(params);
-        let tree = VerkleTree::new(scheme.clone(), 256);
+        let tree = VerkleTree::new(scheme.clone(), 256).unwrap();
         (tree, scheme)
     }
 
@@ -36,11 +36,15 @@ mod verkle_tests {
             .get_with_proof_at(&root_v1, key)
             .expect("Should generate existence proof");
         assert_eq!(membership, Membership::Present(value.to_vec()));
-        assert!(tree.verify_proof(&root_v1, &proof, key, value));
+        assert!(tree.verify_proof(&root_v1, &proof, key, value).is_ok());
 
         // 3. Test proof fails with wrong value or key
-        assert!(!tree.verify_proof(&root_v1, &proof, key, b"wrong_value"));
-        assert!(!tree.verify_proof(&root_v1, &proof, b"wrong_key", value));
+        assert!(tree
+            .verify_proof(&root_v1, &proof, key, b"wrong_value")
+            .is_err());
+        assert!(tree
+            .verify_proof(&root_v1, &proof, b"wrong_key", value)
+            .is_err());
     }
 
     #[test]
@@ -65,13 +69,13 @@ mod verkle_tests {
         // Verify non-membership proof using the stateless verifier
         let verifier = KZGVerifier::new(scheme.params.clone());
         let is_valid = verifier.verify(&root, &proof, non_existent_key, &membership);
-        assert!(is_valid, "Non-membership proof should be valid");
+        assert!(is_valid.is_ok(), "Non-membership proof should be valid");
 
         // Ensure it fails if we falsely claim the key is present
         let fake_membership = Membership::Present(b"fake_value".to_vec());
         let is_invalid = verifier.verify(&root, &proof, non_existent_key, &fake_membership);
         assert!(
-            !is_invalid,
+            is_invalid.is_err(),
             "Non-membership proof should be invalid for a Present claim"
         );
     }
@@ -98,7 +102,9 @@ mod verkle_tests {
         assert!(matches!(vpp.terminal, Terminal::Neighbor { key_stem, .. } if key_stem == key1));
 
         let verifier = KZGVerifier::new(scheme.params);
-        assert!(verifier.verify(&root, &proof_obj, non_existent_key, &membership));
+        assert!(verifier
+            .verify(&root, &proof_obj, non_existent_key, &membership)
+            .is_ok());
     }
 
     #[test]
@@ -135,18 +141,22 @@ mod verkle_tests {
         assert_eq!(vpp1.node_commitments[0], root_v1.as_ref());
 
         assert_eq!(mem1, Membership::Present(value1.to_vec()));
-        assert!(tree.verify_proof(&root_v1, &proof1, key1, value1));
+        assert!(tree.verify_proof(&root_v1, &proof1, key1, value1).is_ok());
 
         // Verify key2 does NOT exist in state v1
         let (mem2_absent, proof2_absent) = tree.get_with_proof_at(&root_v1, key2).unwrap();
         assert_eq!(mem2_absent, Membership::Absent);
         let verifier = KZGVerifier::new(scheme.params.clone());
-        assert!(verifier.verify(&root_v1, &proof2_absent, key2, &mem2_absent));
+        assert!(verifier
+            .verify(&root_v1, &proof2_absent, key2, &mem2_absent)
+            .is_ok());
 
         // Verify key2 exists in state v2
         let (mem2_present, proof2_present) = tree.get_with_proof_at(&root_v2, key2).unwrap();
         assert_eq!(mem2_present, Membership::Present(value2.to_vec()));
-        assert!(tree.verify_proof(&root_v2, &proof2_present, key2, value2));
+        assert!(tree
+            .verify_proof(&root_v2, &proof2_present, key2, value2)
+            .is_ok());
     }
 
     #[test]
@@ -164,7 +174,7 @@ mod verkle_tests {
         // Verify initial state
         let (mem1, proof1) = tree.get_with_proof_at(&root_v1, key).unwrap();
         assert_eq!(mem1, Membership::Present(value1.to_vec()));
-        assert!(tree.verify_proof(&root_v1, &proof1, key, value1));
+        assert!(tree.verify_proof(&root_v1, &proof1, key, value1).is_ok());
 
         // Overwrite the key with a new value and commit
         tree.insert(key, value2).unwrap();
@@ -174,11 +184,11 @@ mod verkle_tests {
         // Verify the new state
         let (mem2, proof2) = tree.get_with_proof_at(&root_v2, key).unwrap();
         assert_eq!(mem2, Membership::Present(value2.to_vec()));
-        assert!(tree.verify_proof(&root_v2, &proof2, key, value2));
+        assert!(tree.verify_proof(&root_v2, &proof2, key, value2).is_ok());
 
         // Verify the old value still exists in the old state
         let (old_mem, old_proof) = tree.get_with_proof_at(&root_v1, key).unwrap();
         assert_eq!(old_mem, Membership::Present(value1.to_vec()));
-        assert!(tree.verify_proof(&root_v1, &old_proof, key, value1));
+        assert!(tree.verify_proof(&root_v1, &old_proof, key, value1).is_ok());
     }
 }
