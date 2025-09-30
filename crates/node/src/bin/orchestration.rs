@@ -124,9 +124,7 @@ where
         let data_dir = opts.config.parent().unwrap_or_else(|| Path::new("."));
         let genesis_bytes = fs::read(&workload_config.genesis_file)?;
         let derived_genesis_hash: [u8; 32] =
-            depin_sdk_crypto::algorithms::hash::sha256(&genesis_bytes)
-                .try_into()
-                .unwrap();
+            depin_sdk_crypto::algorithms::hash::sha256(&genesis_bytes)?;
 
         let identity_path = data_dir.join("chain_identity.json");
         let configured_identity = (config.chain_id, derived_genesis_hash);
@@ -293,10 +291,10 @@ where
         let workload_container = Arc::new(depin_sdk_api::validator::WorkloadContainer::new(
             dummy_workload_config,
             state_tree,
-            Box::new(depin_sdk_vm_wasm::WasmVm::new(Default::default())), // Dummy VM
+            Box::new(depin_sdk_vm_wasm::WasmVm::new(Default::default())?), // Dummy VM
             service_directory, // <-- Pass the populated directory here
             dummy_store,
-        ));
+        )?);
         let chain = Chain::new(
             commitment_scheme,
             tm,
@@ -337,10 +335,10 @@ where
 #[allow(unused_variables)]
 async fn main() -> Result<()> {
     // 1. Initialize tracing FIRST
-    depin_sdk_telemetry::init::init_tracing();
+    depin_sdk_telemetry::init::init_tracing()?;
 
     // 2. Install the Prometheus sink
-    let metrics_sink = depin_sdk_telemetry::prometheus::install();
+    let metrics_sink = depin_sdk_telemetry::prometheus::install()?;
 
     // 3. Set all static sinks
     depin_sdk_storage::metrics::SINK
@@ -431,7 +429,7 @@ async fn main() -> Result<()> {
                 ));
             };
             let scheme = KZGCommitmentScheme::new(params.clone());
-            let tree = VerkleTree::new(scheme.clone(), 256);
+            let tree = VerkleTree::new(scheme.clone(), 256).map_err(|e| anyhow!(e))?;
             run_orchestration(
                 opts,
                 config,

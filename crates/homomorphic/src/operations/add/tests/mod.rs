@@ -9,13 +9,13 @@ use std::sync::Arc;
 
 #[test]
 fn test_add_operation() {
-    let scheme = PedersenCommitmentScheme::new(5);
+    let scheme = PedersenCommitmentScheme::new(5).unwrap();
 
     // Create two commitments
     let value_a = b"value a";
     let value_b = b"value b";
-    let commitment_a = scheme.commit(&[Some(value_a.to_vec())]);
-    let commitment_b = scheme.commit(&[Some(value_b.to_vec())]);
+    let commitment_a = scheme.commit(&[Some(value_a.to_vec())]).unwrap();
+    let commitment_b = scheme.commit(&[Some(value_b.to_vec())]).unwrap();
 
     // Test direct add function
     let sum_result = add(&scheme, &commitment_a, &commitment_b);
@@ -40,11 +40,11 @@ fn test_add_operation() {
 
 #[test]
 fn test_add_invalid_input() {
-    let scheme = PedersenCommitmentScheme::new(5);
+    let scheme = PedersenCommitmentScheme::new(5).unwrap();
 
     // Create a valid commitment
     let value = b"test value";
-    let commitment = scheme.commit(&[Some(value.to_vec())]);
+    let commitment = scheme.commit(&[Some(value.to_vec())]).unwrap();
 
     // Create an invalid right operand
     let left: Arc<dyn Any + Send + Sync> = Arc::new(commitment);

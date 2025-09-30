@@ -4,7 +4,7 @@
 use depin_sdk_api::lifecycle::OnEndBlock;
 use depin_sdk_api::services::access::Service;
 use depin_sdk_api::services::{BlockchainService, ServiceType, UpgradableService};
-use depin_sdk_api::state::{StateAccessor, StateManager};
+use depin_sdk_api::state::StateAccessor;
 use depin_sdk_api::transaction::context::TxContext;
 // --- FIX: Import the types from the `depin-sdk-types` crate ---
 use depin_sdk_types::app::{
@@ -112,12 +112,19 @@ impl GovernanceModule {
         Self { params }
     }
 
-    fn get_next_proposal_id<S: StateManager + ?Sized>(&self, state: &mut S) -> Result<u64, String> {
+    fn get_next_proposal_id<S: StateAccessor + ?Sized>(
+        &self,
+        state: &mut S,
+    ) -> Result<u64, String> {
         let id_bytes = state
             .get(GOVERNANCE_NEXT_PROPOSAL_ID_KEY)
             .map_err(|e| e.to_string())?
             .unwrap_or_else(|| 0u64.to_le_bytes().to_vec());
-        let id = u64::from_le_bytes(id_bytes.try_into().unwrap_or([0; 8]));
+        let id = u64::from_le_bytes(
+            id_bytes
+                .try_into()
+                .map_err(|_| "Invalid proposal ID bytes")?,
+        );
         state
             .insert(GOVERNANCE_NEXT_PROPOSAL_ID_KEY, &(id + 1).to_le_bytes())
             .map_err(|e| e.to_string())?;
@@ -138,7 +145,7 @@ impl GovernanceModule {
         .concat()
     }
 
-    pub fn submit_proposal<S: StateManager + ?Sized>(
+    pub fn submit_proposal<S: StateAccessor + ?Sized>(
         &self,
         state: &mut S,
         msg: SubmitProposalMsg,
@@ -168,10 +175,10 @@ impl GovernanceModule {
 
         let key = Self::proposal_key(id);
         let entry = StateEntry {
-            value: depin_sdk_types::codec::to_bytes_canonical(&proposal),
+            value: depin_sdk_types::codec::to_bytes_canonical(&proposal).map_err(|e| e)?,
             block_height: current_height,
         };
-        let value_bytes = depin_sdk_types::codec::to_bytes_canonical(&entry);
+        let value_bytes = depin_sdk_types::codec::to_bytes_canonical(&entry).map_err(|e| e)?;
         state
             .insert(&key, &value_bytes)
             .map_err(|e| e.to_string())?;
@@ -211,7 +218,7 @@ impl GovernanceModule {
 
         // In a real implementation, we would check the voter's voting power (stake).
         let vote_key = Self::vote_key(proposal_id, voter);
-        let vote_bytes = depin_sdk_types::codec::to_bytes_canonical(&option);
+        let vote_bytes = depin_sdk_types::codec::to_bytes_canonical(&option).map_err(|e| e)?;
         state
             .insert(&vote_key, &vote_bytes)
             .map_err(|e| e.to_string())?;
@@ -248,10 +255,11 @@ impl GovernanceModule {
             // No one has any stake, so the proposal is rejected by default.
             proposal.status = ProposalStatus::Rejected;
             let updated_entry = StateEntry {
-                value: depin_sdk_types::codec::to_bytes_canonical(&proposal),
+                value: depin_sdk_types::codec::to_bytes_canonical(&proposal).map_err(|e| e)?,
                 block_height: entry.block_height,
             };
-            let updated_value_bytes = depin_sdk_types::codec::to_bytes_canonical(&updated_entry);
+            let updated_value_bytes =
+                depin_sdk_types::codec::to_bytes_canonical(&updated_entry).map_err(|e| e)?;
             state
                 .insert(&key, &updated_value_bytes)
                 .map_err(|e| e.to_string())?;
@@ -289,7 +297,9 @@ impl GovernanceModule {
             // 4. Extract the voter's AccountId from the state key.
             // The key is formatted as: "gov::vote::<proposal_id>::<voter_account_id>"
             let prefix_len = vote_key_prefix.len();
-            let voter_account_id_bytes: [u8; 32] = vote_key[prefix_len..]
+            let voter_account_id_bytes: [u8; 32] = vote_key
+                .get(prefix_len..)
+                .ok_or("Invalid voter key length")?
                 .try_into()
                 .map_err(|_| "Invalid voter AccountId in state key".to_string())?;
             let voter_account_id = AccountId(voter_account_id_bytes);
@@ -353,10 +363,11 @@ impl GovernanceModule {
         }
 
         let updated_entry = StateEntry {
-            value: depin_sdk_types::codec::to_bytes_canonical(&proposal),
+            value: depin_sdk_types::codec::to_bytes_canonical(&proposal).map_err(|e| e)?,
             block_height: entry.block_height,
         };
-        let updated_value_bytes = depin_sdk_types::codec::to_bytes_canonical(&updated_entry);
+        let updated_value_bytes =
+            depin_sdk_types::codec::to_bytes_canonical(&updated_entry).map_err(|e| e)?;
         state
             .insert(&key, &updated_value_bytes)
             .map_err(|e| e.to_string())?;
@@ -365,7 +376,7 @@ impl GovernanceModule {
     }
 
     // NOTE: This is a simplified `get_status`. A real implementation would involve tallying.
-    pub fn get_proposal_status<S: StateManager + ?Sized>(
+    pub fn get_proposal_status<S: StateAccessor + ?Sized>(
         &self,
         state: &S,
         proposal_id: u64,
@@ -386,7 +397,7 @@ impl GovernanceModule {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use depin_sdk_api::state::{PrunePlan, StateCommitment};
+    use depin_sdk_api::state::{PrunePlan, StateCommitment, StateManager};
     use depin_sdk_types::app::{Membership, RootHash};
     use depin_sdk_types::error::StateError;
     use std::any::Any;
@@ -426,8 +437,8 @@ mod tests {
             _proof: &Self::Proof,
             _key: &[u8],
             _value: &[u8],
-        ) -> bool {
-            true
+        ) -> Result<(), StateError> {
+            Ok(())
         }
         fn as_any(&self) -> &dyn Any {
             self
@@ -513,10 +524,10 @@ mod tests {
         };
         let key = GovernanceModule::proposal_key(proposal_id);
         let entry = StateEntry {
-            value: depin_sdk_types::codec::to_bytes_canonical(&proposal),
+            value: depin_sdk_types::codec::to_bytes_canonical(&proposal).unwrap(),
             block_height: 100,
         };
-        let value_bytes = depin_sdk_types::codec::to_bytes_canonical(&entry);
+        let value_bytes = depin_sdk_types::codec::to_bytes_canonical(&entry).unwrap();
         StateCommitment::insert(state, &key, &value_bytes).unwrap();
         proposal_id
     }
@@ -549,7 +560,7 @@ mod tests {
         StateCommitment::insert(
             &mut state,
             &GovernanceModule::vote_key(proposal_id, &voter1_id),
-            &depin_sdk_types::codec::to_bytes_canonical(&VoteOption::Yes),
+            &depin_sdk_types::codec::to_bytes_canonical(&VoteOption::Yes).unwrap(),
         )
         .unwrap();
 
@@ -580,7 +591,7 @@ mod tests {
         StateCommitment::insert(
             &mut state,
             &GovernanceModule::vote_key(proposal_id, &voter2_id),
-            &depin_sdk_types::codec::to_bytes_canonical(&VoteOption::Yes),
+            &depin_sdk_types::codec::to_bytes_canonical(&VoteOption::Yes).unwrap(),
         )
         .unwrap();
 
@@ -609,13 +620,13 @@ mod tests {
         StateCommitment::insert(
             &mut state,
             &GovernanceModule::vote_key(proposal_id, &voter1_id),
-            &depin_sdk_types::codec::to_bytes_canonical(&VoteOption::Yes),
+            &depin_sdk_types::codec::to_bytes_canonical(&VoteOption::Yes).unwrap(),
         )
         .unwrap();
         StateCommitment::insert(
             &mut state,
             &GovernanceModule::vote_key(proposal_id, &voter2_id),
-            &depin_sdk_types::codec::to_bytes_canonical(&VoteOption::No),
+            &depin_sdk_types::codec::to_bytes_canonical(&VoteOption::No).unwrap(),
         )
         .unwrap();
 
@@ -644,13 +655,13 @@ mod tests {
         StateCommitment::insert(
             &mut state,
             &GovernanceModule::vote_key(proposal_id, &voter1_id),
-            &depin_sdk_types::codec::to_bytes_canonical(&VoteOption::Yes),
+            &depin_sdk_types::codec::to_bytes_canonical(&VoteOption::Yes).unwrap(),
         )
         .unwrap();
         StateCommitment::insert(
             &mut state,
             &GovernanceModule::vote_key(proposal_id, &voter2_id),
-            &depin_sdk_types::codec::to_bytes_canonical(&VoteOption::NoWithVeto),
+            &depin_sdk_types::codec::to_bytes_canonical(&VoteOption::NoWithVeto).unwrap(),
         )
         .unwrap();
 

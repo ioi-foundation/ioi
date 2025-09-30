@@ -68,10 +68,10 @@ async fn test_verkle_tree_e2e() -> Result<()> {
                     next: None,
                 },
             };
-            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload);
+            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload).unwrap();
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
             );
 
             // ActiveKeyRecord for consensus verification
@@ -81,7 +81,7 @@ async fn test_verkle_tree_e2e() -> Result<()> {
                 since_height: 0,
             };
             let record_key = [b"identity::key_record::", acct.as_ref()].concat();
-            let record_bytes = codec::to_bytes_canonical(&record);
+            let record_bytes = codec::to_bytes_canonical(&record).unwrap();
             genesis_state.insert(
                 format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),

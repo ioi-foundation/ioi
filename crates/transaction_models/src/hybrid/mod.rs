@@ -148,7 +148,7 @@ where
     }
 
     fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError> {
-        Ok(codec::to_bytes_canonical(tx))
+        codec::to_bytes_canonical(tx).map_err(TransactionError::Serialization)
     }
 
     fn deserialize_transaction(&self, data: &[u8]) -> Result<Self::Transaction, TransactionError> {

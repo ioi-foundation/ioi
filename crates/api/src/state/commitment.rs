@@ -37,7 +37,7 @@ pub trait StateCommitment: Debug {
         proof: &Self::Proof,
         key: &[u8],
         value: &[u8],
-    ) -> bool;
+    ) -> Result<(), StateError>;
     /// Provides access to the concrete type for downcasting.
     fn as_any(&self) -> &dyn Any;
     /// Provides mutable access to the concrete type for downcasting.
@@ -79,8 +79,10 @@ impl<T: StateCommitment + ?Sized> StateCommitment for Box<T> {
         proof: &Self::Proof,
         key: &[u8],
         value: &[u8],
-    ) -> bool {
-        (**self).verify_proof(commitment, proof, key, value)
+    ) -> Result<(), StateError> {
+        (**self)
+            .verify_proof(commitment, proof, key, value)
+            .map_err(Into::into)
     }
     fn as_any(&self) -> &dyn Any {
         (**self).as_any()

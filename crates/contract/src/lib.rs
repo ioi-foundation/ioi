@@ -1,4 +1,15 @@
 // Path: crates/contract/src/lib.rs
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::todo,
+        clippy::unimplemented,
+        clippy::indexing_slicing
+    )
+)]
 #![allow(unsafe_code)]
 //
 // This crate is an exception to the `#![forbid(unsafe_code)]` policy.
@@ -16,14 +27,12 @@ use alloc::vec::Vec;
 #[cfg(not(test))]
 use core::panic::PanicInfo;
 
-// --- FIX START: Add a global allocator for `no_std` heap allocations ---
 // We use `wee_alloc` as a lightweight allocator suitable for WASM.
 // This is enabled by the `wee_alloc` feature in Cargo.toml and solves the
 // "no global memory allocator found" error.
 #[cfg(feature = "wee_alloc")]
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
-// --- FIX END ---
 
 /// FFI (Foreign Function Interface) for host functions.
 /// These are the low-level, unsafe functions imported from the blockchain node.
@@ -66,7 +75,12 @@ pub mod state {
             unsafe { ffi::state_get(key.as_ptr(), key.len() as u32, result_buffer.as_mut_ptr()) };
 
         if result_len > 0 {
-            Some(result_buffer[..result_len as usize].to_vec())
+            Some(
+                result_buffer
+                    .get(..result_len as usize)
+                    .unwrap_or_default()
+                    .to_vec(),
+            )
         } else {
             None
         }
@@ -83,7 +97,10 @@ pub mod context {
     pub fn caller() -> Vec<u8> {
         let mut result_buffer = vec![0u8; 32]; // Standard address size
         let result_len = unsafe { ffi::get_caller(result_buffer.as_mut_ptr()) };
-        result_buffer[..result_len as usize].to_vec()
+        result_buffer
+            .get(..result_len as usize)
+            .unwrap_or_default()
+            .to_vec()
     }
 }
 

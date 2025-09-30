@@ -72,7 +72,7 @@ where
         );
     }
 
-    let wasm_vm = Box::new(WasmVm::new(config.fuel_costs.clone()));
+    let wasm_vm = Box::new(WasmVm::new(config.fuel_costs.clone())?);
 
     let mut initial_services = Vec::new();
     for service_config in &config.initial_services {
@@ -107,7 +107,7 @@ where
         wasm_vm,
         service_directory,
         store,
-    ));
+    )?);
 
     // The Workload's Chain instance needs a consensus engine to handle penalty
     // logic correctly, but it doesn't need orchestration-specific parameters
@@ -167,13 +167,15 @@ fn check_features() {
 #[tokio::main]
 async fn main() -> Result<()> {
     // 1. Initialize tracing FIRST
-    depin_sdk_telemetry::init::init_tracing();
+    depin_sdk_telemetry::init::init_tracing()?;
 
     // 2. Install the Prometheus sink
-    let metrics_sink = depin_sdk_telemetry::prometheus::install();
+    let metrics_sink = depin_sdk_telemetry::prometheus::install()?;
 
     // 3. Set all static sinks (workload only needs storage)
-    storage_metrics::SINK.set(metrics_sink).expect("SINK must only be set once");
+    storage_metrics::SINK
+        .set(metrics_sink)
+        .expect("SINK must only be set once");
 
     // 4. Spawn the telemetry server
     let telemetry_addr_str =
@@ -182,7 +184,7 @@ async fn main() -> Result<()> {
     tokio::spawn(depin_sdk_telemetry::http::run_server(telemetry_addr));
 
     check_features();
-    
+
     let opts = WorkloadOpts::parse();
     tracing::info!(
         target: "workload",
@@ -230,7 +232,8 @@ async fn main() -> Result<()> {
                 KZGParams::new_insecure_for_testing(12345, 255)
             };
             let commitment_scheme = KZGCommitmentScheme::new(params);
-            let state_tree = VerkleTree::new(commitment_scheme.clone(), 256);
+            let state_tree =
+                VerkleTree::new(commitment_scheme.clone(), 256).map_err(|e| anyhow!(e))?;
             run_workload(state_tree, commitment_scheme, config).await
         }
 

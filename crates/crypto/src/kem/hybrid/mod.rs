@@ -1,4 +1,5 @@
 // Path: crates/crypto/src/kem/hybrid/mod.rs
+use crate::error::CryptoError;
 use crate::security::SecurityLevel;
 use dcrypt::api::Kem;
 use dcrypt::prelude::{Serialize, SerializeSecret};
@@ -45,17 +46,26 @@ pub struct HybridEncapsulated {
 }
 
 impl HybridKEM {
-    pub fn new(level: SecurityLevel) -> Self {
+    pub fn new(level: SecurityLevel) -> Result<Self, CryptoError> {
         match level {
-            SecurityLevel::Level1 | SecurityLevel::Level3 | SecurityLevel::Level5 => Self { level },
-            _ => panic!("Hybrid KEM only supports Level 1, 3, and 5 security"),
+            SecurityLevel::Level1 | SecurityLevel::Level3 | SecurityLevel::Level5 => {
+                Ok(Self { level })
+            }
+            _ => Err(CryptoError::Unsupported(
+                "Hybrid KEM only supports Level 1, 3, and 5 security".to_string(),
+            )),
         }
     }
 }
 
 impl Default for HybridKEM {
     fn default() -> Self {
-        Self::new(SecurityLevel::Level3)
+        // --- FIX START: Replace expect() with a match and unreachable! to satisfy lints ---
+        match Self::new(SecurityLevel::Level3) {
+            Ok(kem) => kem,
+            Err(_) => unreachable!("Default security level is hardcoded and must be supported"),
+        }
+        // --- FIX END ---
     }
 }
 
@@ -65,29 +75,26 @@ impl KeyEncapsulation for HybridKEM {
     type PrivateKey = HybridPrivateKey;
     type Encapsulated = HybridEncapsulated;
 
-    fn generate_keypair(&self) -> Self::KeyPair {
+    fn generate_keypair(&self) -> Result<Self::KeyPair, CryptoError> {
         let mut rng = thread_rng();
 
         let (pk_bytes, sk_bytes) = match self.level {
             SecurityLevel::Level1 => {
-                let (pk, sk) =
-                    EcdhP256Kyber512::keypair(&mut rng).expect("Failed to generate L1 keypair");
+                let (pk, sk) = EcdhP256Kyber512::keypair(&mut rng)?;
                 (pk.to_bytes(), sk.to_bytes_zeroizing().to_vec())
             }
             SecurityLevel::Level3 => {
-                let (pk, sk) =
-                    EcdhP256Kyber768::keypair(&mut rng).expect("Failed to generate L3 keypair");
+                let (pk, sk) = EcdhP256Kyber768::keypair(&mut rng)?;
                 (pk.to_bytes(), sk.to_bytes_zeroizing().to_vec())
             }
             SecurityLevel::Level5 => {
-                let (pk, sk) =
-                    EcdhP384Kyber1024::keypair(&mut rng).expect("Failed to generate L5 keypair");
+                let (pk, sk) = EcdhP384Kyber1024::keypair(&mut rng)?;
                 (pk.to_bytes(), sk.to_bytes_zeroizing().to_vec())
             }
             _ => unreachable!(),
         };
 
-        HybridKeyPair {
+        Ok(HybridKeyPair {
             public_key: HybridPublicKey {
                 bytes: pk_bytes,
                 level: self.level,
@@ -97,89 +104,74 @@ impl KeyEncapsulation for HybridKEM {
                 _level: self.level,
             },
             _level: self.level,
-        }
+        })
     }
 
-    fn encapsulate(&self, public_key: &Self::PublicKey) -> Self::Encapsulated {
+    fn encapsulate(&self, public_key: &Self::PublicKey) -> Result<Self::Encapsulated, CryptoError> {
         let mut rng = thread_rng();
 
         let (ct_bytes, ss_bytes) = match public_key.level {
             SecurityLevel::Level1 => {
-                let pk =
-                    <EcdhP256Kyber512 as Kem>::PublicKey::from_bytes(&public_key.bytes).unwrap();
-                let (ct, ss) = EcdhP256Kyber512::encapsulate(&mut rng, &pk)
-                    .expect("Failed to encapsulate with L1 hybrid KEM");
+                let pk = <EcdhP256Kyber512 as Kem>::PublicKey::from_bytes(&public_key.bytes)?;
+                let (ct, ss) = EcdhP256Kyber512::encapsulate(&mut rng, &pk)?;
                 (ct.to_bytes(), ss.to_bytes_zeroizing().to_vec())
             }
             SecurityLevel::Level3 => {
-                let pk =
-                    <EcdhP256Kyber768 as Kem>::PublicKey::from_bytes(&public_key.bytes).unwrap();
-                let (ct, ss) = EcdhP256Kyber768::encapsulate(&mut rng, &pk)
-                    .expect("Failed to encapsulate with L3 hybrid KEM");
+                let pk = <EcdhP256Kyber768 as Kem>::PublicKey::from_bytes(&public_key.bytes)?;
+                let (ct, ss) = EcdhP256Kyber768::encapsulate(&mut rng, &pk)?;
                 (ct.to_bytes(), ss.to_bytes_zeroizing().to_vec())
             }
             SecurityLevel::Level5 => {
-                let pk =
-                    <EcdhP384Kyber1024 as Kem>::PublicKey::from_bytes(&public_key.bytes).unwrap();
-                let (ct, ss) = EcdhP384Kyber1024::encapsulate(&mut rng, &pk)
-                    .expect("Failed to encapsulate with L5 hybrid KEM");
+                let pk = <EcdhP384Kyber1024 as Kem>::PublicKey::from_bytes(&public_key.bytes)?;
+                let (ct, ss) = EcdhP384Kyber1024::encapsulate(&mut rng, &pk)?;
                 (ct.to_bytes(), ss.to_bytes_zeroizing().to_vec())
             }
             _ => unreachable!(),
         };
 
-        HybridEncapsulated {
+        Ok(HybridEncapsulated {
             ciphertext: ct_bytes,
             shared_secret: ss_bytes,
             _level: public_key.level,
-        }
+        })
     }
 
     fn decapsulate(
         &self,
         private_key: &Self::PrivateKey,
         encapsulated: &Self::Encapsulated,
-    ) -> Option<Vec<u8>> {
+    ) -> Result<Vec<u8>, CryptoError> {
         let ss_bytes = match private_key._level {
             SecurityLevel::Level1 => {
                 // FIX: Use the now-functional from_bytes methods from dcrypt's public API
-                let sk =
-                    <EcdhP256Kyber512 as Kem>::SecretKey::from_bytes(&private_key.bytes).ok()?;
+                let sk = <EcdhP256Kyber512 as Kem>::SecretKey::from_bytes(&private_key.bytes)?;
                 let ct =
-                    <EcdhP256Kyber512 as Kem>::Ciphertext::from_bytes(&encapsulated.ciphertext)
-                        .ok()?;
-                EcdhP256Kyber512::decapsulate(&sk, &ct)
-                    .ok()?
+                    <EcdhP256Kyber512 as Kem>::Ciphertext::from_bytes(&encapsulated.ciphertext)?;
+                EcdhP256Kyber512::decapsulate(&sk, &ct)?
                     .to_bytes_zeroizing()
                     .to_vec()
             }
             SecurityLevel::Level3 => {
                 // FIX: Use the now-functional from_bytes methods from dcrypt's public API
-                let sk =
-                    <EcdhP256Kyber768 as Kem>::SecretKey::from_bytes(&private_key.bytes).ok()?;
+                let sk = <EcdhP256Kyber768 as Kem>::SecretKey::from_bytes(&private_key.bytes)?;
                 let ct =
-                    <EcdhP256Kyber768 as Kem>::Ciphertext::from_bytes(&encapsulated.ciphertext)
-                        .ok()?;
-                EcdhP256Kyber768::decapsulate(&sk, &ct)
-                    .ok()?
+                    <EcdhP256Kyber768 as Kem>::Ciphertext::from_bytes(&encapsulated.ciphertext)?;
+                EcdhP256Kyber768::decapsulate(&sk, &ct)?
                     .to_bytes_zeroizing()
                     .to_vec()
             }
             SecurityLevel::Level5 => {
                 // FIX: Use the now-functional from_bytes methods from dcrypt's public API
-                let sk =
-                    <EcdhP384Kyber1024 as Kem>::SecretKey::from_bytes(&private_key.bytes).ok()?;
+                let sk = <EcdhP384Kyber1024 as Kem>::SecretKey::from_bytes(&private_key.bytes)?;
                 let ct =
-                    <EcdhP384Kyber1024 as Kem>::Ciphertext::from_bytes(&encapsulated.ciphertext)
-                        .ok()?;
-                EcdhP384Kyber1024::decapsulate(&sk, &ct)
-                    .ok()?
+                    <EcdhP384Kyber1024 as Kem>::Ciphertext::from_bytes(&encapsulated.ciphertext)?;
+                EcdhP384Kyber1024::decapsulate(&sk, &ct)?
                     .to_bytes_zeroizing()
                     .to_vec()
             }
-            _ => return None,
+            _ => return Err(CryptoError::DecapsulationFailed),
         };
-        Some(ss_bytes)
+        Ok(ss_bytes)
     }
 }
 
@@ -201,7 +193,7 @@ impl SerializableKey for HybridPublicKey {
         self.bytes.clone()
     }
 
-    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
         let level = match bytes.len() {
             // EcdhP256 (33) + Kyber512 (800)
             833 => SecurityLevel::Level1,
@@ -209,7 +201,12 @@ impl SerializableKey for HybridPublicKey {
             1217 => SecurityLevel::Level3,
             // EcdhP384 (49) + Kyber1024 (1568)
             1617 => SecurityLevel::Level5,
-            _ => return Err(format!("Invalid hybrid public key size: {}", bytes.len())),
+            _ => {
+                return Err(CryptoError::InvalidKey(format!(
+                    "Invalid hybrid public key size: {}",
+                    bytes.len()
+                )))
+            }
         };
         Ok(HybridPublicKey {
             bytes: bytes.to_vec(),
@@ -225,7 +222,7 @@ impl SerializableKey for HybridPrivateKey {
         self.bytes.clone()
     }
 
-    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
         let level = match bytes.len() {
             // EcdhP256 (32) + Kyber512 (1632)
             1664 => SecurityLevel::Level1,
@@ -233,7 +230,12 @@ impl SerializableKey for HybridPrivateKey {
             2432 => SecurityLevel::Level3,
             // EcdhP384 (48) + Kyber1024 (3168)
             3216 => SecurityLevel::Level5,
-            _ => return Err(format!("Invalid hybrid private key size: {}", bytes.len())),
+            _ => {
+                return Err(CryptoError::InvalidKey(format!(
+                    "Invalid hybrid private key size: {}",
+                    bytes.len()
+                )))
+            }
         };
         Ok(HybridPrivateKey {
             bytes: bytes.to_vec(),
@@ -249,7 +251,7 @@ impl SerializableKey for HybridEncapsulated {
         self.ciphertext.clone()
     }
 
-    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
         let level = match bytes.len() {
             // EcdhP256 (33) + Kyber512 (768)
             801 => SecurityLevel::Level1,
@@ -257,7 +259,12 @@ impl SerializableKey for HybridEncapsulated {
             1121 => SecurityLevel::Level3,
             // EcdhP384 (49) + Kyber1024 (1568)
             1617 => SecurityLevel::Level5,
-            _ => return Err(format!("Invalid hybrid ciphertext size: {}", bytes.len())),
+            _ => {
+                return Err(CryptoError::InvalidKey(format!(
+                    "Invalid hybrid ciphertext size: {}",
+                    bytes.len()
+                )))
+            }
         };
         Ok(HybridEncapsulated {
             ciphertext: bytes.to_vec(),

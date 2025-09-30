@@ -1,5 +1,15 @@
 // Path: crates/vm/wasm/src/lib.rs
-#![forbid(unsafe_code)]
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::unimplemented,
+        clippy::todo,
+        clippy::indexing_slicing
+    )
+)]
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -16,14 +26,14 @@ pub struct WasmVm {
 }
 
 impl WasmVm {
-    pub fn new(fuel_costs: VmFuelCosts) -> Self {
+    pub fn new(fuel_costs: VmFuelCosts) -> Result<Self, VmError> {
         let mut config = Config::new();
         config.async_support(true);
         config.consume_fuel(true);
-        Self {
-            engine: Engine::new(&config).unwrap(),
+        Ok(Self {
+            engine: Engine::new(&config).map_err(|e| VmError::Initialization(e.to_string()))?,
             fuel_costs,
-        }
+        })
     }
 }
 
@@ -56,14 +66,26 @@ async fn host_state_set(
         .memory
         .ok_or_else(|| anyhow!("Memory not found"))?;
 
-    let contract_key =
-        memory.data(&caller)[key_ptr as usize..(key_ptr + key_len) as usize].to_vec();
-    let value = memory.data(&caller)[value_ptr as usize..(value_ptr + value_len) as usize].to_vec();
+    let key_start = key_ptr as usize;
+    let key_end = (key_ptr + key_len) as usize;
+    let value_start = value_ptr as usize;
+    let value_end = (value_ptr + value_len) as usize;
+
+    let mem_data = memory.data(&caller);
+
+    let contract_key = mem_data
+        .get(key_start..key_end)
+        .ok_or_else(|| anyhow!("host_state_set key read out of bounds"))?
+        .to_vec();
+    let value = mem_data
+        .get(value_start..value_end)
+        .ok_or_else(|| anyhow!("host_state_set value read out of bounds"))?
+        .to_vec();
 
     let namespaced_key = get_namespaced_key(&caller.data().context.contract_address, &contract_key);
 
-    let cost = (namespaced_key.len() + value.len()) as u64
-        * caller.data().fuel_costs.state_set_per_byte;
+    let cost =
+        (namespaced_key.len() + value.len()) as u64 * caller.data().fuel_costs.state_set_per_byte;
     let fuel = caller.get_fuel()?;
     caller.set_fuel(fuel.saturating_sub(cost))?;
 
@@ -92,8 +114,13 @@ async fn host_state_get(
         .memory
         .ok_or_else(|| anyhow!("Memory not found"))?;
 
-    let contract_key =
-        memory.data(&caller)[key_ptr as usize..(key_ptr + key_len) as usize].to_vec();
+    let key_start = key_ptr as usize;
+    let key_end = (key_ptr + key_len) as usize;
+    let contract_key = memory
+        .data(&caller)
+        .get(key_start..key_end)
+        .ok_or_else(|| anyhow!("host_state_get key read out of bounds"))?
+        .to_vec();
 
     let namespaced_key = get_namespaced_key(&caller.data().context.contract_address, &contract_key);
 

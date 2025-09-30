@@ -17,7 +17,6 @@ use depin_sdk_types::{
         SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1,
         ValidatorSetsV1, ValidatorV1,
     },
-    // [+] FIX: Import the canonical codec
     codec,
     config::InitialServiceConfig,
     keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
@@ -123,10 +122,10 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
                     next: None,
                 },
             };
-            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload);
+            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload).unwrap();
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
             );
 
             // 3. Build a stable map AccountId -> public key bytes.
@@ -154,7 +153,7 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
                     since_height: 0, // Active from genesis
                 };
                 let record_key = [b"identity::key_record::", acct_id.as_ref()].concat();
-                let record_bytes = depin_sdk_types::codec::to_bytes_canonical(&record);
+                let record_bytes = depin_sdk_types::codec::to_bytes_canonical(&record).unwrap();
                 genesis_state.insert(
                     format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
                     json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
@@ -168,8 +167,7 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
                     l2_location: None,
                 };
                 let creds_array: [Option<Credential>; 2] = [Some(cred), None];
-                // [+] FIX: Use the canonical SCALE codec instead of serde_json for credentials.
-                let creds_bytes = codec::to_bytes_canonical(&creds_array);
+                let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
                 let creds_key = [IDENTITY_CREDENTIALS_PREFIX, acct_id.as_ref()].concat();
                 genesis_state.insert(
                     format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),

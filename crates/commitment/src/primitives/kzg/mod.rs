@@ -17,6 +17,7 @@ use dcrypt::algorithms::ec::bls12_381::{
 use depin_sdk_api::commitment::{
     CommitmentScheme, CommitmentStructure, ProofContext, SchemeIdentifier, Selector,
 };
+use depin_sdk_api::error::CryptoError;
 use depin_sdk_crypto::algorithms::hash::sha256 as crypto_sha256;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
@@ -48,7 +49,7 @@ pub struct KZGParams {
 
 impl KZGParams {
     /// Creates a deterministic fingerprint of the SRS parameters.
-    pub fn fingerprint(&self) -> [u8; 32] {
+    pub fn fingerprint(&self) -> Result<[u8; 32], CryptoError> {
         let mut data = Vec::new();
         data.extend_from_slice(self.g1.to_compressed().as_ref());
         data.extend_from_slice(self.g2.to_compressed().as_ref());
@@ -57,8 +58,6 @@ impl KZGParams {
             data.extend_from_slice(p.to_compressed().as_ref());
         }
         crypto_sha256(&data)
-            .try_into()
-            .expect("SHA-256 digest must be 32 bytes")
     }
 
     /// Saves the SRS to a file in a canonical, compressed format.
@@ -251,7 +250,7 @@ impl KZGCommitmentScheme {
         // dd[i] holds the i-th element of the current column of the divided-difference table.
         let mut dd = ys;
         let mut a: Vec<Scalar> = Vec::with_capacity(n);
-        a.push(dd[0]); // a0
+        a.push(*dd.get(0).ok_or("dd cannot be empty here")?); // a0
 
         // For each order j = 1..n-1, update dd[0..n-j] and take dd[0] as the next Newton coeff
         for j in 1..n {
@@ -263,9 +262,13 @@ impl KZGCommitmentScheme {
                 .ok_or_else(|| "Division by zero in Newton interpolation".to_string())?;
 
             for i in 0..(n - j) {
-                dd[i] = (dd[i + 1] - dd[i]) * denom_inv;
+                let next_val = *dd.get(i + 1).ok_or("dd index out of bounds")?;
+                let current_val = *dd.get(i).ok_or("dd index out of bounds")?;
+                let new_val = (next_val - current_val) * denom_inv;
+                let entry = dd.get_mut(i).ok_or("dd index out of bounds")?;
+                *entry = new_val;
             }
-            a.push(dd[0]); // a_j
+            a.push(*dd.get(0).ok_or("dd should not be empty")?); // a_j
         }
 
         // --- Convert Newton form to monomial coefficients ---
@@ -276,7 +279,9 @@ impl KZGCommitmentScheme {
         for (k, ak) in a.iter().enumerate() {
             // coeffs += ak * basis
             for d in 0..basis.len() {
-                coeffs[d] += basis[d] * *ak;
+                let basis_d = *basis.get(d).ok_or("basis index out of bounds")?;
+                let coeffs_d = coeffs.get_mut(d).ok_or("coeffs index out of bounds")?;
+                *coeffs_d += basis_d * *ak;
             }
 
             // basis *= (x - k)
@@ -286,11 +291,13 @@ impl KZGCommitmentScheme {
 
                 // multiply by x (shift right)
                 for d in 0..basis.len() {
-                    next[d + 1] += basis[d];
+                    let basis_d = *basis.get(d).ok_or("basis index out of bounds")?;
+                    *next.get_mut(d + 1).ok_or("next index out of bounds")? += basis_d;
                 }
                 // subtract t * basis (constant term)
                 for d in 0..basis.len() {
-                    next[d] -= basis[d] * t;
+                    let basis_d = *basis.get(d).ok_or("basis index out of bounds")?;
+                    *next.get_mut(d).ok_or("next index out of bounds")? -= basis_d * t;
                 }
                 basis = next;
             }
@@ -303,22 +310,28 @@ impl KZGCommitmentScheme {
     pub fn commit_with_witness(
         &self,
         values: &[Option<&[u8]>],
-    ) -> Result<(KZGCommitment, KZGWitness), String> {
-        let p_poly = Self::reconstruct_poly(values)?;
+    ) -> Result<(KZGCommitment, KZGWitness), CryptoError> {
+        let p_poly = Self::reconstruct_poly(values).map_err(CryptoError::Custom)?;
 
         if p_poly.coeffs.len() > self.params.g1_points.len() {
-            return Err("Cannot commit to polynomial of degree that exceeds SRS size".into());
+            return Err(CryptoError::InvalidInput(
+                "Cannot commit to polynomial of degree that exceeds SRS size".into(),
+            ));
         }
 
-        let commitment_point = G1Projective::msm(
-            &self.params.g1_points[..p_poly.coeffs.len()],
-            &p_poly.coeffs,
-        )
-        .map_err(|e| e.to_string())?;
+        let points_slice = self
+            .params
+            .g1_points
+            .get(..p_poly.coeffs.len())
+            .ok_or_else(|| {
+                CryptoError::InvalidInput("SRS size insufficient for polynomial degree".into())
+            })?;
+        let commitment_point = G1Projective::msm(points_slice, &p_poly.coeffs)
+            .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
 
         let commitment = KZGCommitment(G1Affine::from(commitment_point).to_compressed().to_vec());
         let coeffs = p_poly.coeffs.iter().map(|s| s.to_bytes()).collect();
-        let srs_id = self.params.fingerprint();
+        let srs_id = self.params.fingerprint()?;
         let witness = KZGWitness { coeffs, srs_id };
 
         Ok((commitment, witness))
@@ -330,17 +343,19 @@ impl KZGCommitmentScheme {
         witness: &KZGWitness,
         selector: &Selector,
         opened_value: &[u8],
-    ) -> Result<KZGProof, String> {
-        if witness.srs_id != self.params.fingerprint() {
-            return Err("SRS mismatch between witness and parameters".to_string());
+    ) -> Result<KZGProof, CryptoError> {
+        if witness.srs_id != self.params.fingerprint()? {
+            return Err(CryptoError::SrsMismatch);
         }
         let coeffs = witness
             .coeffs
             .iter()
             .map(|b| {
-                Scalar::from_bytes(b)
-                    .into_option()
-                    .ok_or_else(|| "Failed to deserialize scalar from witness".to_string())
+                Scalar::from_bytes(b).into_option().ok_or_else(|| {
+                    CryptoError::Deserialization(
+                        "Failed to deserialize scalar from witness".to_string(),
+                    )
+                })
             })
             .collect::<Result<Vec<_>, _>>()?;
         let p = Polynomial { coeffs };
@@ -349,23 +364,30 @@ impl KZGCommitmentScheme {
             Selector::Key(k) => Self::key_to_scalar(k),
             Selector::Position(pos) => Ok(Self::position_to_scalar(*pos)),
             _ => Err("KZG requires Selector::Key or Selector::Position".to_string()),
-        }?;
+        }
+        .map_err(CryptoError::Custom)?;
 
-        let y = Self::value_to_scalar(opened_value)?;
+        let y = Self::value_to_scalar(opened_value).map_err(CryptoError::Custom)?;
         let num_poly = poly_sub_scalar(&p, y);
-        let q_poly = poly_div_linear(&num_poly, z)?;
+        let q_poly = poly_div_linear(&num_poly, z).map_err(CryptoError::OperationFailed)?;
         if q_poly.coeffs.len() > self.params.g1_points.len() {
-            return Err(format!(
+            return Err(CryptoError::InvalidInput(format!(
                 "Quotient polynomial degree ({}) exceeds SRS size ({}).",
                 q_poly.coeffs.len(),
                 self.params.g1_points.len()
-            ));
+            )));
         }
-        let proof_w = G1Projective::msm(
-            &self.params.g1_points[..q_poly.coeffs.len()],
-            &q_poly.coeffs,
-        )
-        .map_err(|e| e.to_string())?;
+        let points_slice = self
+            .params
+            .g1_points
+            .get(..q_poly.coeffs.len())
+            .ok_or_else(|| {
+                CryptoError::InvalidInput(
+                    "SRS size insufficient for quotient polynomial degree".into(),
+                )
+            })?;
+        let proof_w = G1Projective::msm(points_slice, &q_poly.coeffs)
+            .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
         Ok(KZGProof(G1Affine::from(proof_w).to_compressed().to_vec()))
     }
 }
@@ -387,24 +409,23 @@ impl CommitmentScheme for KZGCommitmentScheme {
     /// `commit(&[Option<Value>])` treats `Value` as **evaluation payload bytes** at positions `0..n-1`
     /// which are converted to field with `value_to_scalar(DST)`, then interpolated over points `0..n-1`.
     /// For production, **use** `commit_with_witness` and `create_proof_from_witness`.
-    fn commit(&self, values: &[Option<Self::Value>]) -> Self::Commitment {
+    fn commit(&self, values: &[Option<Self::Value>]) -> Result<Self::Commitment, CryptoError> {
         let values_ref: Vec<_> = values.iter().map(|v| v.as_deref()).collect();
-        self.commit_with_witness(&values_ref)
-            .map(|(c, _w)| c)
-            .expect("Commitment failed") // Should be handled better in production code
+        self.commit_with_witness(&values_ref).map(|(c, _w)| c)
     }
 
     fn create_proof(
         &self,
         _selector: &Selector,
         value: &Self::Value,
-    ) -> Result<Self::Proof, String> {
+    ) -> Result<Self::Proof, CryptoError> {
         // This implementation of the trait is problematic because it lacks the full
         // polynomial context (the witness). We deserialize the witness from the `value`
         // bytes as a workaround for simple test cases.
         // PRODUCTION USE: Call `commit_with_witness` and `create_proof_from_witness` directly.
         let (witness, selector, opened_value): (KZGWitness, Selector, Vec<u8>) =
-            serde_json::from_slice(value.as_ref()).map_err(|e| e.to_string())?;
+            serde_json::from_slice(value.as_ref())
+                .map_err(|e| CryptoError::Deserialization(e.to_string()))?;
         self.create_proof_from_witness(&witness, &selector, &opened_value)
     }
 

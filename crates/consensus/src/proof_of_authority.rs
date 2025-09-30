@@ -59,11 +59,9 @@ impl PenaltyMechanism for ProofOfAuthorityEngine {
         report: &FailureReport,
     ) -> Result<(), TransactionError> {
         const MIN_LIVE_AUTHORITIES: usize = 2;
-        let authorities_bytes = state.get(VALIDATOR_SET_KEY)?.ok_or_else(|| {
-            TransactionError::State(StateError::KeyNotFound(
-                "Authority set not found in state".into(),
-            ))
-        })?;
+        let authorities_bytes = state
+            .get(VALIDATOR_SET_KEY)?
+            .ok_or_else(|| TransactionError::State(StateError::KeyNotFound))?;
         let sets = read_validator_sets(&authorities_bytes)?;
         let authorities: Vec<AccountId> = sets
             .current
@@ -98,7 +96,7 @@ impl PenaltyMechanism for ProofOfAuthorityEngine {
         if new_quarantined.insert(report.offender) {
             state.insert(
                 QUARANTINED_VALIDATORS_KEY,
-                &depin_sdk_types::codec::to_bytes_canonical(&new_quarantined),
+                &depin_sdk_types::codec::to_bytes_canonical(&new_quarantined)?,
             )?;
             log::info!(
                 "[PoA penalty] Quarantined authority: 0x{} (set size = {})",
@@ -111,7 +109,9 @@ impl PenaltyMechanism for ProofOfAuthorityEngine {
 }
 
 #[async_trait]
-impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
+impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
+    for ProofOfAuthorityEngine
+{
     async fn get_validator_data(
         &self,
         _state_reader: &dyn ChainStateReader,
@@ -163,11 +163,19 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
                 ConsensusDecision::Stall
             };
         }
-        let leader_index = ((height + view) % validator_set.len() as u64) as usize;
-        if validator_set[leader_index] == *our_account_id {
-            ConsensusDecision::ProduceBlock(vec![])
+
+        let leader_index = ((height + view)
+            .checked_rem(validator_set.len() as u64)
+            .unwrap_or(0)) as usize;
+
+        if let Some(leader) = validator_set.get(leader_index) {
+            if *leader == *our_account_id {
+                ConsensusDecision::ProduceBlock(vec![])
+            } else {
+                ConsensusDecision::WaitForBlock
+            }
         } else {
-            ConsensusDecision::WaitForBlock
+            ConsensusDecision::Stall
         }
     }
 
@@ -199,9 +207,7 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
             .get(VALIDATOR_SET_KEY)
             .await
             .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
-            .ok_or_else(|| {
-                ConsensusError::StateAccess(StateError::KeyNotFound("ValidatorSet".into()))
-            })?;
+            .ok_or_else(|| ConsensusError::StateAccess(StateError::KeyNotFound))?;
         let sets = read_validator_sets(&vs_bytes)
             .map_err(|e| ConsensusError::StateAccess(StateError::InvalidValue(e.to_string())))?;
         let validator_set: Vec<_> = sets
@@ -251,13 +257,27 @@ impl<T: Clone + Send + 'static> ConsensusEngine<T> for ProofOfAuthorityEngine {
                 "Public key in header does not match its hash".into(),
             ));
         }
-        let preimage = header.to_preimage_for_signing();
+        let preimage = header.to_preimage_for_signing().map_err(|e| {
+            ConsensusError::BlockVerificationFailed(format!("Failed to create preimage: {}", e))
+        })?;
         verify_signature(&preimage, pubkey, active_key_suite, &header.signature)?;
 
-        let leader_index = (header.height % validator_set.len() as u64) as usize;
-        if validator_set[leader_index] != header.producer_account_id {
+        let leader_index = (header
+            .height
+            .checked_rem(validator_set.len() as u64)
+            .unwrap_or(0)) as usize;
+
+        let expected_leader =
+            validator_set
+                .get(leader_index)
+                .ok_or(ConsensusError::InvalidLeader {
+                    expected: AccountId::default(),
+                    got: header.producer_account_id,
+                })?;
+
+        if *expected_leader != header.producer_account_id {
             return Err(ConsensusError::InvalidLeader {
-                expected: validator_set[leader_index],
+                expected: *expected_leader,
                 got: header.producer_account_id,
             });
         }

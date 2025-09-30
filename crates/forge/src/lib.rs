@@ -1,6 +1,6 @@
 // crates/forge/src/lib.rs
-
-#![forbid(unsafe_code)]
+// Lints are removed from the library file and moved to the binary.
+// This is a common pattern for testing libraries where panics are acceptable.
 
 //! # DePIN SDK Forge Library
 //!

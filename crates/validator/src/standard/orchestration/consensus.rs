@@ -5,6 +5,7 @@ use crate::standard::orchestration::gossip::prune_mempool;
 use crate::standard::orchestration::oracle::handle_newly_processed_block;
 use crate::standard::orchestration::view_resolver::DefaultViewResolver;
 use anyhow::{anyhow, Result};
+use async_trait::async_trait;
 use depin_sdk_api::{
     chain::StateRef,
     commitment::CommitmentScheme,
@@ -16,9 +17,10 @@ use depin_sdk_network::libp2p::SwarmCommand;
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_types::{
     app::{
-        account_id_from_key_material, read_validator_sets, AccountId, Block, BlockHeader,
-        ChainTransaction, SignatureSuite,
+        account_id_from_key_material, read_validator_sets, to_root_hash, AccountId, Block,
+        BlockHeader, ChainTransaction, SignatureSuite,
     },
+    codec,
     keys::VALIDATOR_SET_KEY,
 };
 use serde::Serialize;
@@ -27,6 +29,16 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
+
+/// Helper function to canonically hash a transaction using the SDK's crypto abstractions.
+fn hash_transaction(tx: &ChainTransaction) -> Result<Vec<u8>, anyhow::Error> {
+    let serialized = codec::to_bytes_canonical(tx).map_err(|e| anyhow!(e))?;
+    let digest = depin_sdk_crypto::algorithms::hash::sha256(&serialized)?;
+    Ok(digest.to_vec())
+}
+
+// A type alias for the complex signature function to resolve the `type_complexity` lint.
+type SignatureFn = Box<dyn Fn(&[u8]) -> Result<Vec<u8>> + Send>;
 
 /// Drive one consensus tick without holding the MainLoopContext lock across awaits.
 pub async fn drive_consensus_tick<CS, ST, CE, V>(
@@ -106,14 +118,7 @@ where
 
     let decision = {
         let parent_ref = if let Some(last) = last_committed_block_opt.as_ref() {
-            let bh_vec = last
-                .header
-                .hash()
-                .map_err(|e| anyhow!("failed to compute block hash: {}", e))?;
-            let block_hash: [u8; 32] = bh_vec
-                .as_slice()
-                .try_into()
-                .map_err(|_| anyhow!("unexpected block hash length: {}", bh_vec.len()))?;
+            let block_hash = to_root_hash(last.header.hash()?)?;
             StateRef {
                 height: last.header.height,
                 state_root: last.header.state_root.as_ref().try_into()?,
@@ -151,14 +156,7 @@ where
     if let depin_sdk_api::consensus::ConsensusDecision::ProduceBlock(_) = decision {
         metrics().inc_blocks_produced();
         let parent_ref = if let Some(last) = last_committed_block_opt.as_ref() {
-            let bh_vec = last
-                .header
-                .hash()
-                .map_err(|e| anyhow!("failed to compute block hash: {}", e))?;
-            let block_hash: [u8; 32] = bh_vec
-                .as_slice()
-                .try_into()
-                .map_err(|_| anyhow!("unexpected block hash length: {}", bh_vec.len()))?;
+            let block_hash = to_root_hash(last.header.hash()?)?;
             StateRef {
                 height: last.header.height,
                 state_root: last.header.state_root.as_ref().try_into()?,
@@ -194,7 +192,7 @@ where
             let workload_client = view_resolver
                 .as_any()
                 .downcast_ref::<DefaultViewResolver<V>>()
-                .unwrap()
+                .ok_or_else(|| anyhow!("Could not downcast ViewResolver to get WorkloadClient"))?
                 .workload_client();
             let anchor =
                 depin_sdk_types::app::StateRoot(parent_ref.state_root.to_vec()).to_anchor()?;
@@ -213,24 +211,24 @@ where
         for (i, result) in check_results.into_iter().enumerate() {
             if let Err(e) = result {
                 tracing::warn!(target: "consensus", event = "tx_filtered", tx_index = i, error = %e);
-                match serde_jcs::to_vec(&candidate_txs[i]) {
-                    Ok(tx_hash) => {
+                if let Some(tx) = candidate_txs.get(i) {
+                    if let Ok(tx_hash) = hash_transaction(tx) {
                         invalid_tx_hashes.insert(tx_hash);
-                    }
-                    Err(e2) => {
-                        tracing::error!(target: "consensus", event = "tx_hash_fail", tx_index = i, error = %e2);
+                    } else {
+                        tracing::error!(target: "consensus", event = "tx_hash_fail", tx_index = i);
                     }
                 }
-            } else {
-                valid_txs.push(candidate_txs[i].clone());
+            } else if let Some(tx) = candidate_txs.get(i) {
+                valid_txs.push(tx.clone());
             }
         }
         if !invalid_tx_hashes.is_empty() {
             let mut pool = tx_pool_ref.lock().await;
             pool.retain(|tx| {
-                let tx_hash = serde_jcs::to_vec(tx).unwrap();
-                !invalid_tx_hashes.contains(&tx_hash)
-            });
+                hash_transaction(tx)
+                    .map(|id| !invalid_tx_hashes.contains(&id))
+                    .unwrap_or(true)
+            }); // Keep tx if hashing fails
             tracing::info!(target: "consensus", event = "mempool_prune", num_pruned = invalid_tx_hashes.len());
         }
 
@@ -270,15 +268,14 @@ where
             SignatureSuite,
             Vec<u8>,
             [u8; 32],
-            Box<dyn Fn(&[u8]) -> Vec<u8> + Send>,
+            SignatureFn,
         ) = match required_suite {
             SignatureSuite::Ed25519 => {
                 let pk = local_keypair.public().encode_protobuf();
                 let hash = account_id_from_key_material(SignatureSuite::Ed25519, &pk)?;
                 let signer = {
                     let kp = local_keypair.clone();
-                    Box::new(move |msg: &[u8]| kp.sign(msg).expect("ed25519 sign failed"))
-                        as Box<dyn Fn(&[u8]) -> Vec<u8> + Send>
+                    Box::new(move |msg: &[u8]| kp.sign(msg).map_err(|e| anyhow!(e)))
                 };
                 (SignatureSuite::Ed25519, pk, hash, signer)
             }
@@ -292,7 +289,9 @@ where
                 let pk = SigningKeyPair::public_key(&pqc_signer_clone).to_bytes();
                 let hash = account_id_from_key_material(SignatureSuite::Dilithium2, &pk)?;
                 let signer = Box::new(move |msg: &[u8]| {
-                    SigningKeyPair::sign(&pqc_signer_clone, msg).to_bytes()
+                    SigningKeyPair::sign(&pqc_signer_clone, msg)
+                        .map(|sig| sig.to_bytes())
+                        .map_err(|e| anyhow!(e))
                 });
                 (SignatureSuite::Dilithium2, pk, hash, signer)
             }
@@ -322,14 +321,14 @@ where
         let workload_client = view_resolver
             .as_any()
             .downcast_ref::<DefaultViewResolver<V>>()
-            .unwrap()
+            .ok_or_else(|| anyhow!("Could not downcast ViewResolver to get WorkloadClient"))?
             .workload_client();
         match workload_client.process_block(new_block_template).await {
             Ok((mut final_block, _)) => {
                 let block_height = final_block.header.height;
                 tracing::info!(target: "consensus", event = "block_processed", height = block_height);
-                let preimage = final_block.header.to_preimage_for_signing();
-                final_block.header.signature = signature_fn(&preimage);
+                let preimage = final_block.header.to_preimage_for_signing()?;
+                final_block.header.signature = signature_fn(&preimage)?;
                 {
                     let mut ctx = context_arc.lock().await;
                     ctx.last_committed_block = Some(final_block.clone());
@@ -341,7 +340,9 @@ where
                 }
                 {
                     let mut pool = tx_pool_ref.lock().await;
-                    prune_mempool(&mut pool, &final_block);
+                    if let Err(e) = prune_mempool(&mut pool, &final_block) {
+                        tracing::error!(target: "consensus", event = "mempool_prune_fail", error=%e);
+                    }
                 }
                 {
                     consensus_engine_ref.lock().await.reset(block_height);
@@ -351,8 +352,8 @@ where
                         let ctx = context_arc.lock().await;
                         ctx.external_data_service.clone()
                     };
-                    let mut ctx = context_arc.lock().await;
-                    handle_newly_processed_block(&mut ctx, block_height, &service_clone).await;
+                    let ctx = context_arc.lock().await;
+                    handle_newly_processed_block(&ctx, block_height, &service_clone).await;
                 }
                 {
                     let mut ns = node_state_arc.lock().await;

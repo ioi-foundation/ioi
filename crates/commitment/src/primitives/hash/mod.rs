@@ -4,6 +4,7 @@
 use depin_sdk_api::commitment::{
     CommitmentScheme, CommitmentStructure, ProofContext, SchemeIdentifier, Selector,
 };
+use depin_sdk_api::error::CryptoError;
 use depin_sdk_crypto::algorithms::hash::{self, sha256};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
@@ -72,10 +73,10 @@ impl HashCommitmentScheme {
     }
 
     /// Helper function to hash data using the selected hash function
-    pub fn hash_data(&self, data: &[u8]) -> Vec<u8> {
+    pub fn hash_data(&self, data: &[u8]) -> Result<Vec<u8>, CryptoError> {
         match self.hash_function {
-            HashFunction::Sha256 => hash::sha256(data),
-            HashFunction::Sha512 => hash::sha512(data),
+            HashFunction::Sha256 => Ok(hash::sha256(data)?.to_vec()),
+            HashFunction::Sha512 => Ok(hash::sha512(data)?.to_vec()),
         }
     }
 
@@ -99,6 +100,13 @@ impl CommitmentStructure for HashCommitmentScheme {
         data.extend_from_slice(key);
         data.extend_from_slice(value);
         sha256(&data)
+            .unwrap_or_else(|e| {
+                // This should be an unrecoverable error, but the trait signature is infallible.
+                // Log the critical failure and return a default value to avoid panicking.
+                log::error!("CRITICAL: SHA256 hashing failed: {}", e);
+                [0u8; 32]
+            })
+            .to_vec()
     }
 
     fn commit_branch(left: &[u8], right: &[u8]) -> Vec<u8> {
@@ -106,6 +114,11 @@ impl CommitmentStructure for HashCommitmentScheme {
         data.extend_from_slice(left);
         data.extend_from_slice(right);
         sha256(&data)
+            .unwrap_or_else(|e| {
+                log::error!("CRITICAL: SHA256 hashing failed: {}", e);
+                [0u8; 32]
+            })
+            .to_vec()
     }
 }
 
@@ -114,7 +127,7 @@ impl CommitmentScheme for HashCommitmentScheme {
     type Proof = HashProof;
     type Value = Vec<u8>;
 
-    fn commit(&self, values: &[Option<Self::Value>]) -> Self::Commitment {
+    fn commit(&self, values: &[Option<Self::Value>]) -> Result<Self::Commitment, CryptoError> {
         // Simple commitment: hash the concatenation of all values
         let mut combined = Vec::new();
 
@@ -131,23 +144,23 @@ impl CommitmentScheme for HashCommitmentScheme {
 
         // If there are no values, hash an empty array
         if combined.is_empty() {
-            return HashCommitment(self.hash_data(&[]));
+            return Ok(HashCommitment(self.hash_data(&[])?));
         }
 
         // Return the hash of the combined data
-        HashCommitment(self.hash_data(&combined))
+        Ok(HashCommitment(self.hash_data(&combined)?))
     }
 
     fn create_proof(
         &self,
         selector: &Selector,
         value: &Self::Value,
-    ) -> Result<Self::Proof, String> {
+    ) -> Result<Self::Proof, CryptoError> {
         // Create additional data based on selector type
         let additional_data = match selector {
             Selector::Key(key) => {
                 // For key-based selectors, include the key hash
-                self.hash_data(key)
+                self.hash_data(key)?
             }
             Selector::Position(pos) => {
                 // For position-based selectors, include the position
@@ -179,18 +192,23 @@ impl CommitmentScheme for HashCommitmentScheme {
         match selector {
             Selector::None => {
                 // For a single value, directly compare the hash
-                self.hash_data(value) == commitment.as_ref()
+                self.hash_data(value)
+                    .is_ok_and(|h| h == commitment.as_ref())
             }
             Selector::Key(key) => {
                 // For a key-value pair, hash the combination
                 let mut combined = Vec::new();
                 combined.extend_from_slice(key);
                 combined.extend_from_slice(value);
-                let key_value_hash = self.hash_data(&combined);
+                let key_value_hash = match self.hash_data(&combined) {
+                    Ok(h) => h,
+                    Err(_) => return false,
+                };
 
                 // Use context if provided
                 if let Some(verification_flag) = context.get_data("strict_verification") {
-                    if !verification_flag.is_empty() && verification_flag[0] == 1 {
+                    // --- FIX: Use .get() to avoid panicking index ---
+                    if verification_flag.get(0) == Some(&1) {
                         // Strict verification mode would go here
                         return key_value_hash == commitment.as_ref();
                     }
@@ -301,91 +319,102 @@ impl HashProof {
     }
 
     /// Create from serialized format
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
-        if bytes.is_empty() {
-            return Err("Empty bytes".to_string());
-        }
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
+        let err = || CryptoError::Deserialization("Invalid proof bytes".into());
+        let mut cursor = bytes;
 
-        let mut pos = 0;
-
-        // Deserialize selector
-        let selector_type = bytes[pos];
-        pos += 1;
+        let (&selector_type, rest) = cursor.split_first().ok_or_else(err)?;
+        cursor = rest;
 
         let selector = match selector_type {
             0 => Selector::None,
             1 => {
-                if pos + 8 > bytes.len() {
-                    return Err("Invalid position selector".to_string());
+                if cursor.len() < 8 {
+                    return Err(err());
                 }
+                let (pos_bytes, rest) = cursor.split_at(8);
                 let mut position_bytes = [0u8; 8];
-                position_bytes.copy_from_slice(&bytes[pos..pos + 8]);
-                pos += 8;
+                position_bytes.copy_from_slice(pos_bytes);
+                cursor = rest;
                 Selector::Position(u64::from_le_bytes(position_bytes))
             }
             2 => {
-                if pos + 4 > bytes.len() {
-                    return Err("Invalid key selector".to_string());
+                if cursor.len() < 4 {
+                    return Err(err());
                 }
+                let (len_bytes_slice, rest) = cursor.split_at(4);
                 let mut len_bytes = [0u8; 4];
-                len_bytes.copy_from_slice(&bytes[pos..pos + 4]);
-                pos += 4;
+                len_bytes.copy_from_slice(len_bytes_slice);
                 let key_len = u32::from_le_bytes(len_bytes) as usize;
+                cursor = rest;
 
-                if pos + key_len > bytes.len() {
-                    return Err("Invalid key length".to_string());
+                if cursor.len() < key_len {
+                    return Err(err());
                 }
-                let key = bytes[pos..pos + key_len].to_vec();
-                pos += key_len;
+                let (key_bytes, rest) = cursor.split_at(key_len);
+                let key = key_bytes.to_vec();
+                cursor = rest;
+
                 Selector::Key(key)
             }
             3 => {
-                if pos + 4 > bytes.len() {
-                    return Err("Invalid predicate selector".to_string());
+                if cursor.len() < 4 {
+                    return Err(err());
                 }
+                let (len_bytes_slice, rest) = cursor.split_at(4);
                 let mut len_bytes = [0u8; 4];
-                len_bytes.copy_from_slice(&bytes[pos..pos + 4]);
-                pos += 4;
+                len_bytes.copy_from_slice(len_bytes_slice);
                 let pred_len = u32::from_le_bytes(len_bytes) as usize;
+                cursor = rest;
 
-                if pos + pred_len > bytes.len() {
-                    return Err("Invalid predicate length".to_string());
+                if cursor.len() < pred_len {
+                    return Err(err());
                 }
-                let pred = bytes[pos..pos + pred_len].to_vec();
-                pos += pred_len;
+                let (pred_bytes, rest) = cursor.split_at(pred_len);
+                let pred = pred_bytes.to_vec();
+                cursor = rest;
+
                 Selector::Predicate(pred)
             }
-            _ => return Err(format!("Unknown selector type: {selector_type}")),
+            _ => {
+                return Err(CryptoError::Deserialization(format!(
+                    "Unknown selector type: {selector_type}"
+                )))
+            }
         };
 
         // Deserialize value
-        if pos + 4 > bytes.len() {
-            return Err("Invalid value length".to_string());
+        if cursor.len() < 4 {
+            return Err(err());
         }
+        let (len_bytes_slice, rest) = cursor.split_at(4);
         let mut len_bytes = [0u8; 4];
-        len_bytes.copy_from_slice(&bytes[pos..pos + 4]);
-        pos += 4;
+        len_bytes.copy_from_slice(len_bytes_slice);
         let value_len = u32::from_le_bytes(len_bytes) as usize;
+        cursor = rest;
 
-        if pos + value_len > bytes.len() {
-            return Err("Invalid value length".to_string());
+        if cursor.len() < value_len {
+            return Err(err());
         }
-        let value = bytes[pos..pos + value_len].to_vec();
-        pos += value_len;
+        let (value_bytes, rest) = cursor.split_at(value_len);
+        let value = value_bytes.to_vec();
+        cursor = rest;
 
         // Deserialize additional data
-        if pos + 4 > bytes.len() {
-            return Err("Invalid additional data length".to_string());
+        if cursor.len() < 4 {
+            return Err(err());
         }
+        let (len_bytes_slice, rest) = cursor.split_at(4);
         let mut len_bytes = [0u8; 4];
-        len_bytes.copy_from_slice(&bytes[pos..pos + 4]);
-        pos += 4;
+        len_bytes.copy_from_slice(len_bytes_slice);
         let add_len = u32::from_le_bytes(len_bytes) as usize;
+        cursor = rest;
 
-        if pos + add_len > bytes.len() {
-            return Err("Invalid additional data length".to_string());
+        if cursor.len() < add_len {
+            return Err(err());
         }
-        let additional_data = bytes[pos..pos + add_len].to_vec();
+        let (add_data_bytes, _) = cursor.split_at(add_len);
+        let additional_data = add_data_bytes.to_vec();
 
         Ok(HashProof {
             value,

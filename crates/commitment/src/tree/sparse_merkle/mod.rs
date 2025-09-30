@@ -1,4 +1,5 @@
 // Path: crates/commitment/src/tree/sparse_merkle/mod.rs
+
 //! Sparse Merkle tree implementation with cryptographic security
 
 pub mod verifier;
@@ -8,7 +9,7 @@ use depin_sdk_api::state::{PrunePlan, StateCommitment, StateManager};
 use depin_sdk_api::storage::NodeStore;
 use depin_sdk_storage::adapter::{commit_and_persist, DeltaAccumulator};
 use depin_sdk_types::app::{to_root_hash, Membership, RootHash};
-use depin_sdk_types::error::StateError;
+use depin_sdk_types::error::{ProofError, StateError};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::{BTreeMap, HashMap};
@@ -59,6 +60,11 @@ impl Node {
                 data.extend_from_slice(key);
                 data.extend_from_slice(value);
                 depin_sdk_crypto::algorithms::hash::sha256(&data)
+                    .map(|h| h.to_vec())
+                    .unwrap_or_else(|e| {
+                        log::error!("CRITICAL: sha256 failed in Node::hash: {}", e);
+                        vec![0; 32]
+                    })
             }
             Node::Branch { hash, .. } => hash.clone(),
         }
@@ -70,6 +76,14 @@ impl Node {
         data.extend_from_slice(&left.hash());
         data.extend_from_slice(&right.hash());
         depin_sdk_crypto::algorithms::hash::sha256(&data)
+            .map(|h| h.to_vec())
+            .unwrap_or_else(|e| {
+                log::error!(
+                    "CRITICAL: sha256 failed in Node::compute_branch_hash: {}",
+                    e
+                );
+                vec![0; 32]
+            })
     }
 }
 
@@ -138,7 +152,8 @@ where
         }
         let byte_index = position / 8;
         let bit_index = 7 - (position % 8);
-        (key[byte_index] >> bit_index) & 1 == 1
+        key.get(byte_index)
+            .is_some_and(|&byte| (byte >> bit_index) & 1 == 1)
     }
 
     /// Update the tree with a new key-value pair
@@ -321,7 +336,7 @@ where
         key: &[u8],
         value: Option<&[u8]>,
         proof: &SparseMerkleProof,
-    ) -> bool {
+    ) -> Result<bool, ProofError> {
         // Determine the starting hash for the fold-up based on the proof type.
         let leaf_hash = match (&proof.leaf, value) {
             // Case 1: Proving PRESENCE.
@@ -330,13 +345,15 @@ where
             (Some((proof_key, proof_value)), Some(val)) => {
                 if proof_key != key || proof_value != val {
                     log::debug!("[SMT Verify] Presence proof failed: key or value mismatch.");
-                    return false;
+                    return Ok(false);
                 }
                 let mut data = Vec::with_capacity(1 + proof_key.len() + proof_value.len());
                 data.push(0x00); // leaf prefix
                 data.extend_from_slice(proof_key);
                 data.extend_from_slice(proof_value);
                 depin_sdk_crypto::algorithms::hash::sha256(&data)
+                    .map_err(|e| ProofError::Crypto(e.to_string()))?
+                    .to_vec()
             }
             // Case 2: Proving ABSENCE because the path ends at an EMPTY node.
             // proof.leaf must be None, value must be None.
@@ -348,18 +365,20 @@ where
             (Some((witness_key, witness_value)), None) => {
                 if witness_key == key {
                     log::debug!("[SMT Verify] Absence proof failed: witness key is the same as the query key.");
-                    return false;
+                    return Ok(false);
                 }
                 let mut data = Vec::new();
                 data.push(0x00); // leaf prefix
                 data.extend_from_slice(witness_key);
                 data.extend_from_slice(witness_value);
                 depin_sdk_crypto::algorithms::hash::sha256(&data)
+                    .map_err(|e| ProofError::Crypto(e.to_string()))?
+                    .to_vec()
             }
             // All other combinations are invalid.
             _ => {
                 log::debug!("[SMT Verify] Invalid proof/value combination.");
-                return false;
+                return Ok(false);
             }
         };
 
@@ -367,7 +386,11 @@ where
         let mut acc = leaf_hash;
         let path_len = proof.siblings.len();
         for i in (0..path_len).rev() {
-            let sib = &proof.siblings[i];
+            let sib = proof.siblings.get(i).ok_or_else(|| {
+                ProofError::InvalidExistence(
+                    "Proof has fewer siblings than its path length indicates".into(),
+                )
+            })?;
             let mut data = Vec::with_capacity(1 + 32 + 32);
             data.push(0x01); // branch prefix
             if Self::get_bit(key, i) {
@@ -377,10 +400,12 @@ where
                 data.extend_from_slice(&acc);
                 data.extend_from_slice(sib);
             }
-            acc = depin_sdk_crypto::algorithms::hash::sha256(&data);
+            acc = depin_sdk_crypto::algorithms::hash::sha256(&data)
+                .map_err(|e| ProofError::Crypto(e.to_string()))?
+                .to_vec();
         }
 
-        acc.as_slice() == root_hash
+        Ok(acc.as_slice() == root_hash)
     }
 
     fn collect_height_delta(&mut self) {
@@ -394,16 +419,17 @@ where
             Node::Empty => {}
             Node::Leaf { created_at, .. } | Node::Branch { created_at, .. } => {
                 let bytes = smt_encode_node(n.as_ref());
-                let mut nh = [0u8; 32];
-                nh.copy_from_slice(&n.hash());
-                if *created_at == h {
-                    self.delta.record_new(nh, bytes);
-                } else {
-                    self.delta.record_touch(nh);
-                }
-                if let Node::Branch { left, right, .. } = n.as_ref() {
-                    self.collect_from_node(left, h);
-                    self.collect_from_node(right, h);
+                // --- FIX: Use safe try_into() to convert Vec<u8> to [u8; 32] ---
+                if let Ok(nh) = n.hash().try_into() {
+                    if *created_at == h {
+                        self.delta.record_new(nh, bytes);
+                    } else {
+                        self.delta.record_touch(nh);
+                    }
+                    if let Node::Branch { left, right, .. } = n.as_ref() {
+                        self.collect_from_node(left, h);
+                        self.collect_from_node(right, h);
+                    }
                 }
             }
         }
@@ -422,7 +448,7 @@ where
     {
         self.current_height = height;
         self.collect_height_delta();
-        let root_hash = to_root_hash(self.root_commitment())?;
+        let root_hash = to_root_hash(self.root_commitment().as_ref())?;
         commit_and_persist(store, height, root_hash, &self.delta)
             .map_err(|e| StateError::Backend(e.to_string()))?;
         self.delta.clear();
@@ -477,16 +503,20 @@ where
         proof: &Self::Proof,
         key: &[u8],
         value: &[u8],
-    ) -> bool {
+    ) -> Result<(), StateError> {
         let root_hash = commitment.as_ref();
         let proof_data = proof.as_ref();
 
-        let smt_proof: SparseMerkleProof = match serde_json::from_slice(proof_data) {
-            Ok(p) => p,
-            Err(_) => return false,
-        };
+        let smt_proof: SparseMerkleProof = serde_json::from_slice(proof_data)
+            .map_err(|e| StateError::InvalidValue(e.to_string()))?;
 
-        Self::verify_proof_static(root_hash, key, Some(value), &smt_proof)
+        match Self::verify_proof_static(root_hash, key, Some(value), &smt_proof) {
+            Ok(true) => Ok(()),
+            Ok(false) => Err(StateError::Validation(
+                "SMT proof verification failed".into(),
+            )),
+            Err(e) => Err(StateError::Validation(e.to_string())),
+        }
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -544,7 +574,9 @@ where
 
         // Server-side self-check: ensure the proof actually anchors to the requested root.
         let expected_value = membership.clone().into_option();
-        if !Self::verify_proof_static(&root_hash, key, expected_value.as_deref(), &merkle_proof) {
+        if !Self::verify_proof_static(&root_hash, key, expected_value.as_deref(), &merkle_proof)
+            .map_err(|e| StateError::Validation(e.to_string()))?
+        {
             log::error!(
                 "[SMT Server] self-verify failed (root={}, key={})",
                 hex::encode(root_hash),
@@ -598,7 +630,6 @@ where
         for (key, value) in inserts {
             self.insert(key, value)?;
         }
-        self.collect_height_delta();
         Ok(())
     }
 

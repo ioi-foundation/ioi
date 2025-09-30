@@ -83,17 +83,20 @@ where
             .commitment_from_bytes(self.root.as_ref())
             .map_err(ChainError::State)?;
 
-        if !self
+        if let Err(e) = self
             .verifier
             .verify(&root_commitment, &proof, key, &response.membership)
         {
             log::error!(
-                "CRITICAL: Proof verification failed for remote state read. Root: {}, Key Prefix: {}",
-                hex::encode(&self.root.as_ref()[..16]), hex::encode(&key[..key.len().min(16)])
+                "CRITICAL: Proof verification failed for remote state read. Root: {}, Key Prefix: {}, Error: {}",
+                hex::encode(&self.root.as_ref().get(..16).unwrap_or_default()),
+                hex::encode(&key.get(..key.len().min(16)).unwrap_or_default()),
+                e
             );
-            return Err(ChainError::State(StateError::Validation(
-                "Proof verification failed for remote state read".to_string(),
-            )));
+            return Err(ChainError::State(StateError::Validation(format!(
+                "Proof verification failed for remote state read: {}",
+                e
+            ))));
         }
 
         if let Some(val) = response.membership.clone().into_option() {
@@ -105,7 +108,10 @@ where
         }
 
         let result = response.membership.into_option();
-        self.proof_cache.lock().await.put(cache_key, result.clone());
+        self.proof_cache
+            .lock()
+            .await
+            .put(cache_key, result.clone());
         Ok(result)
     }
 }

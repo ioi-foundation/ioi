@@ -2,6 +2,7 @@
 [package]
 name = "depin-sdk-chain"
 version = "0.1.0"
+rust-version = "1.78"
 edition = "2021"
 description = "Chain implementation components for the DePIN SDK"
 license = "MIT OR Apache-2.0"
@@ -33,7 +34,6 @@ futures = { workspace = true }                    # Add futures
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
-# FIX: Switched dev dependency from the removed `tree-hashmap` to the production-grade `tree-iavl`.
 depin-sdk-commitment = { path = "../commitment", features = ["tree-iavl"] }
 depin-sdk-vm-wasm = { path = "../vm/wasm" }
 

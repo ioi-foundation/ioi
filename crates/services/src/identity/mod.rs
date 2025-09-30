@@ -11,6 +11,7 @@ use depin_sdk_crypto::sign::{dilithium::DilithiumPublicKey, eddsa::Ed25519Public
 use depin_sdk_types::app::{
     account_id_from_key_material, read_validator_sets, write_validator_sets, AccountId,
     ActiveKeyRecord, ChainTransaction, Credential, RotationProof, SignatureSuite, ValidatorSetV1,
+    ValidatorSetsV1,
 };
 use depin_sdk_types::codec;
 use depin_sdk_types::error::{StateError, TransactionError, UpgradeError};
@@ -67,7 +68,8 @@ impl IdentityHub {
         account_id: &AccountId,
         creds: &[Option<Credential>; 2],
     ) -> Result<(), StateError> {
-        let creds_bytes = depin_sdk_types::codec::to_bytes_canonical(creds);
+        let creds_bytes =
+            depin_sdk_types::codec::to_bytes_canonical(creds).map_err(StateError::InvalidValue)?;
         state.insert(&Self::get_credentials_key(account_id), &creds_bytes)
     }
 
@@ -123,7 +125,7 @@ impl IdentityHub {
             .sort_by(|a, b| a.account_id.cmp(&b.account_id));
         next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
 
-        state.insert(VALIDATOR_SET_KEY, &write_validator_sets(&sets))?;
+        state.insert(VALIDATOR_SET_KEY, &write_validator_sets(&sets)?)?;
         Ok(())
     }
 
@@ -135,23 +137,17 @@ impl IdentityHub {
     ) -> Result<(), String> {
         match suite {
             SignatureSuite::Ed25519 => {
-                let pk = Ed25519PublicKey::from_bytes(public_key)?;
-                let sig = depin_sdk_crypto::sign::eddsa::Ed25519Signature::from_bytes(signature)?;
-                if pk.verify(message, &sig) {
-                    Ok(())
-                } else {
-                    Err("Rotation signature verification failed".into())
-                }
+                let pk = Ed25519PublicKey::from_bytes(public_key).map_err(|e| e.to_string())?;
+                let sig = depin_sdk_crypto::sign::eddsa::Ed25519Signature::from_bytes(signature)
+                    .map_err(|e| e.to_string())?;
+                pk.verify(message, &sig).map_err(|e| e.to_string())
             }
             SignatureSuite::Dilithium2 => {
-                let pk = DilithiumPublicKey::from_bytes(public_key)?;
+                let pk = DilithiumPublicKey::from_bytes(public_key).map_err(|e| e.to_string())?;
                 let sig =
-                    depin_sdk_crypto::sign::dilithium::DilithiumSignature::from_bytes(signature)?;
-                if pk.verify(message, &sig) {
-                    Ok(())
-                } else {
-                    Err("Rotation signature verification failed".into())
-                }
+                    depin_sdk_crypto::sign::dilithium::DilithiumSignature::from_bytes(signature)
+                        .map_err(|e| e.to_string())?;
+                pk.verify(message, &sig).map_err(|e| e.to_string())
             }
         }
     }
@@ -166,9 +162,10 @@ impl IdentityHub {
         preimage.extend_from_slice(&self.config.chain_id.to_le_bytes());
         preimage.extend_from_slice(account_id.as_ref());
         preimage.extend_from_slice(&nonce.to_le_bytes());
-        Ok(depin_sdk_crypto::algorithms::hash::sha256(&preimage)
+        depin_sdk_crypto::algorithms::hash::sha256(&preimage)
+            .map_err(|e| StateError::Backend(e.to_string()))?
             .try_into()
-            .unwrap())
+            .map_err(|_| StateError::InvalidValue("hash len".into()))
     }
 
     pub fn rotate(
@@ -245,7 +242,7 @@ impl IdentityHub {
         if !list.contains(account_id) {
             list.push(*account_id);
             state
-                .insert(&idx_key, &codec::to_bytes_canonical(&list))
+                .insert(&idx_key, &codec::to_bytes_canonical(&list).map_err(|e| e)?)
                 .map_err(|e| e.to_string())?;
         }
 

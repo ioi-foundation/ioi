@@ -112,37 +112,35 @@ pub fn load_service_from_wasm(wasm_blob: &[u8]) -> Result<Arc<dyn UpgradableServ
     let mut store = Store::new(&engine, ());
 
     let module = Module::new(&engine, wasm_blob)
-        .map_err(|e| CoreError::UpgradeError(format!("Failed to compile WASM: {}", e)))?;
+        .map_err(|e| CoreError::Upgrade(format!("Failed to compile WASM: {e}")))?;
 
     // The host does not provide any imports to the service. The service calls the host via FFI.
     let instance = Instance::new(&mut store, &module, &[])
-        .map_err(|e| CoreError::UpgradeError(format!("Failed to instantiate WASM: {}", e)))?;
+        .map_err(|e| CoreError::Upgrade(format!("Failed to instantiate WASM: {e}")))?;
 
     // Call the `service_type` function to get the service identifier.
     let get_service_type_fn = instance
         .get_typed_func::<(), u64>(&mut store, "service_type")
-        .map_err(|e| {
-            CoreError::UpgradeError(format!("WASM missing `service_type` export: {}", e))
-        })?;
+        .map_err(|e| CoreError::Upgrade(format!("WASM missing `service_type` export: {e}")))?;
 
     let result_packed = get_service_type_fn
         .call(&mut store, ())
-        .map_err(|e| CoreError::UpgradeError(format!("WASM `service_type` call failed: {}", e)))?;
+        .map_err(|e| CoreError::Upgrade(format!("WASM `service_type` call failed: {e}")))?;
 
     let result_ptr = (result_packed >> 32) as u32;
     let result_len = result_packed as u32;
 
     let memory = instance
         .get_memory(&mut store, "memory")
-        .ok_or_else(|| CoreError::UpgradeError("WASM module must export 'memory'".to_string()))?;
+        .ok_or_else(|| CoreError::Upgrade("WASM module must export 'memory'".to_string()))?;
     let mut type_buffer = vec![0u8; result_len as usize];
     memory
         .read(&store, result_ptr as usize, &mut type_buffer)
         .map_err(|e| {
-            CoreError::UpgradeError(format!("WASM memory read failed for service_type: {}", e))
+            CoreError::Upgrade(format!("WASM memory read failed for service_type: {e}"))
         })?;
     let type_str = String::from_utf8(type_buffer)
-        .map_err(|e| CoreError::UpgradeError(format!("Service type is not valid UTF-8: {}", e)))?;
+        .map_err(|e| CoreError::Upgrade(format!("Service type is not valid UTF-8: {e}")))?;
 
     let service_type = ServiceType::Custom(type_str);
     log::info!(

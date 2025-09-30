@@ -1,6 +1,20 @@
 // Path: crates/transaction_models/src/lib.rs
-#![forbid(unsafe_code)]
-#![allow(clippy::new_without_default)]
+//! # DePIN SDK Transaction Models Crate Lints
+//!
+//! This crate enforces a strict set of lints to ensure high-quality,
+//! panic-free, and well-documented code. Panics are disallowed in non-test
+//! code to promote robust error handling.
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::unimplemented,
+        clippy::todo,
+        clippy::indexing_slicing
+    )
+)]
 
 pub mod account;
 pub mod hybrid;

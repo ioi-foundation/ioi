@@ -61,14 +61,23 @@ impl RpcMetricsSink for NopSink {
     fn set_mempool_size(&self, _size: f64) {}
 }
 
+/// A sink for recording error metrics.
+pub trait ErrorMetricsSink: Send + Sync + std::fmt::Debug {
+    /// Increments a counter for a specific error.
+    fn inc_error(&self, kind: &'static str, variant: &'static str);
+}
+impl ErrorMetricsSink for NopSink {
+    fn inc_error(&self, _kind: &'static str, _variant: &'static str) {}
+}
+
 // A unified sink that implements all domain-specific traits
 pub trait MetricsSink:
-    StorageMetricsSink + NetworkMetricsSink + ConsensusMetricsSink + RpcMetricsSink
+    StorageMetricsSink + NetworkMetricsSink + ConsensusMetricsSink + RpcMetricsSink + ErrorMetricsSink
 {
 }
 
 // Blanket implementation
 impl<T> MetricsSink for T where
-    T: StorageMetricsSink + NetworkMetricsSink + ConsensusMetricsSink + RpcMetricsSink
+    T: StorageMetricsSink + NetworkMetricsSink + ConsensusMetricsSink + RpcMetricsSink + ErrorMetricsSink
 {
 }

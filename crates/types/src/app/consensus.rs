@@ -13,14 +13,8 @@ pub const VALIDATOR_SET_KEY: &[u8] = b"system::validators::current";
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
 struct ValidatorSetBlobV1 {
-    pub schema_version: u16,            // = 1
-    pub payload: ValidatorSetV1,        // old payload
-}
-
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
-struct ValidatorSetBlobV2 {
-    pub schema_version: u16,            // = 2
-    pub payload: ValidatorSetsV1,       // new payload
+    pub schema_version: u16,      // = 1
+    pub payload: ValidatorSetV1, // old payload
 }
 
 /// A versioned container for the validator set blob to support future upgrades.
@@ -41,26 +35,37 @@ pub struct ValidatorSetBlob {
 ///   - raw `ValidatorSetsV1` (payload only)
 ///   - raw `ValidatorSetV1` (payload only)
 pub fn read_validator_sets(bytes: &[u8]) -> Result<ValidatorSetsV1, StateError> {
-    if let Ok(v2) = codec::from_bytes_canonical::<ValidatorSetBlobV2>(bytes) {
+    if let Ok(v2) = codec::from_bytes_canonical::<ValidatorSetBlob>(bytes) {
         return Ok(v2.payload);
     }
     if let Ok(v1) = codec::from_bytes_canonical::<ValidatorSetBlobV1>(bytes) {
-        return Ok(ValidatorSetsV1 { current: v1.payload, next: None });
+        return Ok(ValidatorSetsV1 {
+            current: v1.payload,
+            next: None,
+        });
     }
     if let Ok(sets) = codec::from_bytes_canonical::<ValidatorSetsV1>(bytes) {
         return Ok(sets);
     }
     if let Ok(curr) = codec::from_bytes_canonical::<ValidatorSetV1>(bytes) {
-        return Ok(ValidatorSetsV1 { current: curr, next: None });
+        return Ok(ValidatorSetsV1 {
+            current: curr,
+            next: None,
+        });
     }
-    Err(StateError::InvalidValue("Unknown validator set encoding".into()))
+    Err(StateError::Decode(
+        "Unknown validator set encoding".into(),
+    ))
 }
 
 /// Always write V2 (schema_version=2) going forward.
-pub fn write_validator_sets(sets: &ValidatorSetsV1) -> Vec<u8> {
-    codec::to_bytes_canonical(&ValidatorSetBlobV2 { schema_version: 2, payload: sets.clone() })
+pub fn write_validator_sets(sets: &ValidatorSetsV1) -> Result<Vec<u8>, StateError> {
+    codec::to_bytes_canonical(&ValidatorSetBlob {
+        schema_version: 2,
+        payload: sets.clone(),
+    })
+    .map_err(StateError::Decode)
 }
-
 
 // --- Core Data Structures ---
 

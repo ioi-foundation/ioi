@@ -1,4 +1,15 @@
 // Path: crates/storage/src/lib.rs
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::unimplemented,
+        clippy::todo,
+        clippy::indexing_slicing
+    )
+)]
 
 //! Pure-Rust persistent storage (redb + epoch sharding) for StateManager backends.
 //! This module provides a NodeStore abstraction and a redb-based EpochStore

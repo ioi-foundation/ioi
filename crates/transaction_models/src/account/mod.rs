@@ -76,8 +76,8 @@ impl<CS: CommitmentScheme> AccountModel<CS> {
             .map_err(|e| TransactionError::Deserialization(e.to_string()))
     }
 
-    fn encode_account(&self, account: &Account) -> Vec<u8> {
-        codec::to_bytes_canonical(account)
+    fn encode_account(&self, account: &Account) -> Result<Vec<u8>, TransactionError> {
+        codec::to_bytes_canonical(account).map_err(TransactionError::Serialization)
     }
 }
 
@@ -125,14 +125,14 @@ where
         let mut new_sender_account = sender_account;
         new_sender_account.balance -= tx.amount;
         new_sender_account.nonce += 1;
-        state.insert(&tx.from, &self.encode_account(&new_sender_account))?;
+        state.insert(&tx.from, &self.encode_account(&new_sender_account)?)?;
 
         let mut receiver_account = self.get_account(state, &tx.to)?;
         receiver_account.balance = receiver_account
             .balance
             .checked_add(tx.amount)
             .ok_or(TransactionError::Invalid("Balance overflow".to_string()))?;
-        state.insert(&tx.to, &self.encode_account(&receiver_account))?;
+        state.insert(&tx.to, &self.encode_account(&receiver_account)?)?;
 
         Ok(())
     }
@@ -186,11 +186,11 @@ where
             &proof.account_key,
             &proof.account_value,
         );
-        Ok(is_valid)
+        Ok(is_valid.is_ok())
     }
 
     fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError> {
-        Ok(codec::to_bytes_canonical(tx))
+        codec::to_bytes_canonical(tx).map_err(TransactionError::Serialization)
     }
 
     fn deserialize_transaction(&self, data: &[u8]) -> Result<Self::Transaction, TransactionError> {

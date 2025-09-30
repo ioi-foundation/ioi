@@ -1,5 +1,6 @@
 // Path: crates/chain/src/upgrade_manager/mod.rs
 
+use depin_sdk_api::error::StateError;
 use depin_sdk_api::services::{ServiceType, UpgradableService};
 use depin_sdk_api::state::StateAccessor;
 use depin_sdk_types::error::CoreError;
@@ -113,7 +114,7 @@ impl ModuleUpgradeManager {
             let new_service_arc = (self.service_factory)(new_module_wasm)?;
             let type_str = match service_type {
                 ServiceType::Custom(s) => s.clone(),
-                st => format!("{:?}", st),
+                st => format!("{st:?}"),
             };
             self.register_service(new_service_arc);
             // Mark the new service as active in the canonical state tree.
@@ -127,14 +128,17 @@ impl ModuleUpgradeManager {
             return Ok(());
         }
 
-        let mut active_service_arc = self.active_services.remove(service_type).unwrap();
+        let mut active_service_arc = self
+            .active_services
+            .remove(service_type)
+            .ok_or_else(|| CoreError::ServiceNotFound(format!("{service_type:?}")))?;
 
         let upgrade_result = (|| {
             let active_service = Arc::get_mut(&mut active_service_arc)
-                .ok_or_else(|| CoreError::UpgradeError("Service in use".to_string()))?;
+                .ok_or_else(|| CoreError::Upgrade("Service in use".to_string()))?;
             let snapshot = active_service
                 .prepare_upgrade(new_module_wasm)
-                .map_err(|e| CoreError::UpgradeError(e.to_string()))?;
+                .map_err(|e| CoreError::Upgrade(e.to_string()))?;
             log::info!(
                 "Prepared upgrade for {:?}, snapshot size: {}",
                 service_type,
@@ -142,14 +146,13 @@ impl ModuleUpgradeManager {
             );
 
             let mut new_service_arc = (self.service_factory)(new_module_wasm)?;
-            log::info!("Instantiated new service module for {:?}", service_type);
 
             let new_service = Arc::get_mut(&mut new_service_arc).ok_or_else(|| {
-                CoreError::UpgradeError("Failed to get mut ref to new service".to_string())
+                CoreError::Upgrade("Failed to get mut ref to new service".to_string())
             })?;
             new_service
                 .complete_upgrade(&snapshot)
-                .map_err(|e| CoreError::UpgradeError(e.to_string()))?;
+                .map_err(|e| CoreError::Upgrade(e.to_string()))?;
             log::info!("Completed state migration for service {:?}", service_type);
             Ok(new_service_arc)
         })();
@@ -194,7 +197,7 @@ impl ModuleUpgradeManager {
     pub fn start_all_services(&mut self) -> Result<(), CoreError> {
         for (service_type, service) in &self.active_services {
             service.start().map_err(|e| {
-                CoreError::Custom(format!("Failed to start service {service_type:?}: {e}"))
+                CoreError::Upgrade(format!("Failed to start service {service_type:?}: {e}"))
             })?;
         }
         Ok(())
@@ -203,7 +206,7 @@ impl ModuleUpgradeManager {
     pub fn stop_all_services(&mut self) -> Result<(), CoreError> {
         for (service_type, service) in &self.active_services {
             service.stop().map_err(|e| {
-                CoreError::Custom(format!("Failed to stop service {service_type:?}: {e}"))
+                CoreError::Upgrade(format!("Failed to stop service {service_type:?}: {e}"))
             })?;
         }
         Ok(())

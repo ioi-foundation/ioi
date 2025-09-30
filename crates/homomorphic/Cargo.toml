@@ -2,6 +2,7 @@
 [package]
 name = "depin-sdk-homomorphic"
 version = "0.1.0"
+rust-version = "1.78"
 edition = "2021"
 description = "Homomorphic operations implementation for the DePIN SDK"
 license = "MIT OR Apache-2.0"

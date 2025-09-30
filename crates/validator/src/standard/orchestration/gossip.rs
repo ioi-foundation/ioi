@@ -2,6 +2,7 @@
 use super::context::MainLoopContext;
 use super::oracle::handle_newly_processed_block;
 use super::remote_state_view::DefaultAnchoredStateView;
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use depin_sdk_api::chain::{AnchoredStateView, StateRef};
 use depin_sdk_api::commitment::CommitmentScheme;
@@ -9,7 +10,8 @@ use depin_sdk_api::consensus::{ConsensusEngine, PenaltyMechanism};
 use depin_sdk_api::state::{StateAccessor, StateCommitment, StateManager, Verifier};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_types::app::{
-    Block, ChainTransaction, FailureReport, StateAnchor, StateRoot, SystemPayload,
+    account_id_from_key_material, Block, ChainTransaction, FailureReport, SignatureSuite,
+    StateAnchor, StateRoot, SystemPayload,
 };
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::{ChainError, TransactionError};
@@ -20,12 +22,15 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+// Type alias to simplify the complex proof cache type.
+type ProofCache = Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>;
+
 #[derive(Debug)]
 struct WorkloadChainView<V> {
     client: Arc<depin_sdk_client::WorkloadClient>,
     consensus: ConsensusType,
     verifier: V,
-    proof_cache: Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>,
+    proof_cache: ProofCache,
 }
 
 impl<V: Clone> WorkloadChainView<V> {
@@ -33,7 +38,7 @@ impl<V: Clone> WorkloadChainView<V> {
         client: Arc<depin_sdk_client::WorkloadClient>,
         consensus: ConsensusType,
         verifier: V,
-        proof_cache: Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>,
+        proof_cache: ProofCache,
     ) -> Self {
         Self {
             client,
@@ -95,7 +100,12 @@ where
     }
 
     fn workload_container(&self) -> &depin_sdk_api::validator::WorkloadContainer<ST> {
-        todo!("WorkloadChainView is a remote proxy for consensus verification and cannot provide direct access to the WorkloadContainer. This should never be called in this context.")
+        // This is a logically unreachable path. The `WorkloadChainView` is a remote proxy
+        // and does not hold a direct reference to the `WorkloadContainer`. If this function
+        // is ever called, it indicates a severe bug in the program's control flow.
+        unreachable!(
+            "WorkloadChainView is a remote proxy and does not have a local WorkloadContainer"
+        );
     }
 }
 
@@ -103,12 +113,12 @@ where
 pub fn prune_mempool(
     pool: &mut VecDeque<ChainTransaction>,
     processed_block: &Block<ChainTransaction>,
-) {
+) -> Result<(), serde_json::Error> {
     let block_txs_canonical: HashSet<Vec<u8>> = processed_block
         .transactions
         .iter()
-        .map(|tx| serde_jcs::to_vec(tx).unwrap())
-        .collect();
+        .map(serde_jcs::to_vec)
+        .collect::<Result<_, _>>()?;
 
     let finalized_oracle_ids: HashSet<u64> = processed_block
         .transactions
@@ -124,10 +134,14 @@ pub fn prune_mempool(
 
     let original_size = pool.len();
     pool.retain(|tx_in_pool| {
-        let tx_in_pool_canonical = serde_jcs::to_vec(tx_in_pool).unwrap();
-        if block_txs_canonical.contains(&tx_in_pool_canonical) {
-            return false;
+        if let Ok(tx_in_pool_canonical) = serde_jcs::to_vec(tx_in_pool) {
+            if block_txs_canonical.contains(&tx_in_pool_canonical) {
+                return false;
+            }
+        } else {
+            return true; // Keep malformed tx in mempool for now
         }
+
         if let ChainTransaction::System(sys_tx) = tx_in_pool {
             if let SystemPayload::SubmitOracleData { request_id, .. } = &sys_tx.payload {
                 if finalized_oracle_ids.contains(request_id) {
@@ -147,6 +161,7 @@ pub fn prune_mempool(
             new_size
         );
     }
+    Ok(())
 }
 
 /// Handles an incoming gossiped block.
@@ -181,14 +196,20 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         "Verifying gossiped block."
     );
 
-    // [+] FIX: To prevent deadlocks, clone needed data, drop the context lock,
+    // To prevent deadlocks, clone needed data, drop the context lock,
     // and then await the consensus engine lock.
     let (engine_ref, cv) = {
-        let resolver = context
+        let resolver = match context
             .view_resolver
             .as_any()
             .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
-            .expect("DefaultViewResolver downcast failed");
+        {
+            Some(r) => r,
+            None => {
+                tracing::error!("CRITICAL: Could not downcast ViewResolver in handle_gossip_block. This indicates a severe logic error.");
+                return;
+            }
+        };
         (
             context.consensus_engine_ref.clone(),
             WorkloadChainView::new(
@@ -222,11 +243,19 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         height = block_height,
         "Forwarding to workload."
     );
-    let resolver = context
+    let resolver = match context
         .view_resolver
         .as_any()
         .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
-        .expect("DefaultViewResolver downcast failed");
+    {
+        Some(r) => r,
+        None => {
+            tracing::error!(
+                "CRITICAL: Could not downcast ViewResolver in handle_gossip_block. This indicates a severe logic error."
+            );
+            return;
+        }
+    };
     match resolver.workload_client().process_block(block).await {
         Ok((processed_block, _)) => {
             tracing::info!(
@@ -250,7 +279,9 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
             );
 
             let mut pool = context.tx_pool_ref.lock().await;
-            prune_mempool(&mut pool, &processed_block);
+            if let Err(e) = prune_mempool(&mut pool, &processed_block) {
+                tracing::error!(target: "gossip", event="mempool_prune_fail", error=%e);
+            }
             drop(pool);
 
             handle_newly_processed_block(context, block_height, &context.external_data_service)

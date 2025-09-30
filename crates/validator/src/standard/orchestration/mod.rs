@@ -1,7 +1,19 @@
 // Path: crates/validator/src/standard/orchestration/mod.rs
-use crate::config::OrchestrationConfig;
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::unimplemented,
+        clippy::todo,
+        clippy::indexing_slicing
+    )
+)]
+//! The main logic for the Orchestration container, handling consensus and peer communication.
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use depin_sdk_api::crypto::SerializableKey;
 use depin_sdk_api::{
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
@@ -9,8 +21,6 @@ use depin_sdk_api::{
     state::{StateCommitment, StateManager, Verifier},
     validator::Container,
 };
-// [+] FIX: Import the trait that provides the `.to_bytes()` method.
-use depin_sdk_api::crypto::SerializableKey;
 use depin_sdk_client::WorkloadClient;
 use depin_sdk_crypto::sign::dilithium::DilithiumKeyPair;
 use depin_sdk_network::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
@@ -50,6 +60,7 @@ pub mod verifier_select;
 mod view_resolver;
 
 // --- Use statements for handler functions ---
+use crate::config::OrchestrationConfig;
 use consensus::drive_consensus_tick;
 use context::{ChainFor, MainLoopContext};
 use futures::FutureExt;
@@ -57,16 +68,33 @@ use futures::FutureExt;
 /// A struct to hold the numerous dependencies for the OrchestrationContainer,
 /// improving constructor readability and maintainability.
 pub struct OrchestrationDependencies<CE, V> {
+    /// The network synchronization engine.
     pub syncer: Arc<Libp2pSync>,
+    /// The receiver for incoming network events.
     pub network_event_receiver: mpsc::Receiver<NetworkEvent>,
+    /// The sender for commands to the network swarm.
     pub swarm_command_sender: mpsc::Sender<SwarmCommand>,
+    /// The consensus engine instance.
     pub consensus_engine: CE,
+    /// The node's primary cryptographic identity.
     pub local_keypair: identity::Keypair,
+    /// An optional post-quantum keypair for signing.
     pub pqc_keypair: Option<DilithiumKeyPair>,
+    /// A flag indicating if the node has been quarantined due to misbehavior.
     pub is_quarantined: Arc<AtomicBool>,
+    /// The proof verifier matching the workload's state tree.
     pub verifier: V,
 }
 
+// Type aliases to simplify complex types used in the main struct.
+type ProofCache = Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>;
+type NetworkEventReceiver = Mutex<Option<mpsc::Receiver<NetworkEvent>>>;
+type ConsensusKickReceiver = Mutex<Option<mpsc::UnboundedReceiver<()>>>;
+
+/// The OrchestrationContainer is the central component of a validator node, responsible for
+/// coordinating consensus, networking, and state transitions. It communicates with the
+/// Workload container via IPC to process blocks and verify state, and with other nodes
+/// via the libp2p network to participate in consensus and gossip blocks and transactions.
 pub struct OrchestrationContainer<CS, ST, CE, V>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -89,10 +117,11 @@ where
     config: OrchestrationConfig,
     chain: Arc<OnceCell<ChainFor<CS, ST>>>,
     workload_client: Arc<OnceCell<Arc<WorkloadClient>>>,
+    /// The local mempool for pending transactions.
     pub tx_pool: Arc<Mutex<VecDeque<ChainTransaction>>>,
     syncer: Arc<Libp2pSync>,
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
-    network_event_receiver: Mutex<Option<mpsc::Receiver<NetworkEvent>>>,
+    network_event_receiver: NetworkEventReceiver,
     consensus_engine: Arc<Mutex<CE>>,
     local_keypair: identity::Keypair,
     pqc_signer: Option<DilithiumKeyPair>,
@@ -101,12 +130,12 @@ where
     is_running: Arc<AtomicBool>,
     is_quarantined: Arc<AtomicBool>,
     external_data_service: ExternalDataService,
-    proof_cache: Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>,
+    proof_cache: ProofCache,
     verifier: V,
     main_loop_context: Arc<Mutex<Option<Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>>>>,
     // Robust consensus kick channel: keep both ends.
     consensus_kick_tx: mpsc::UnboundedSender<()>,
-    consensus_kick_rx: Mutex<Option<mpsc::UnboundedReceiver<()>>>,
+    consensus_kick_rx: ConsensusKickReceiver,
 }
 
 impl<CS, ST, CE, V> OrchestrationContainer<CS, ST, CE, V>
@@ -128,6 +157,7 @@ where
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
+    /// Creates a new OrchestrationContainer from its configuration and dependencies.
     pub fn new(
         config_path: &std::path::Path,
         deps: OrchestrationDependencies<CE, V>,
@@ -155,7 +185,7 @@ where
             is_quarantined: deps.is_quarantined,
             external_data_service: ExternalDataService::new(),
             proof_cache: Arc::new(Mutex::new(LruCache::new(
-                std::num::NonZeroUsize::new(1024).unwrap(),
+                std::num::NonZeroUsize::new(1024).ok_or_else(|| anyhow!("Invalid LRU size"))?,
             ))),
             verifier: deps.verifier,
             main_loop_context: Arc::new(Mutex::new(None)),
@@ -164,15 +194,21 @@ where
         })
     }
 
+    /// Sets the `Chain` and `WorkloadClient` references, which are initialized
+    /// after the container is created.
     pub fn set_chain_and_workload_client(
         &self,
         chain_ref: ChainFor<CS, ST>,
         workload_client_ref: Arc<WorkloadClient>,
     ) {
-        self.chain.set(chain_ref).expect("Chain ref already set");
-        self.workload_client
-            .set(workload_client_ref)
-            .expect("Workload client ref not initialized before start");
+        if self.chain.set(chain_ref).is_err() {
+            log::warn!("Attempted to set Chain ref on OrchestrationContainer more than once.");
+        }
+        if self.workload_client.set(workload_client_ref).is_err() {
+            log::warn!(
+                "Attempted to set WorkloadClient ref on OrchestrationContainer more than once."
+            );
+        }
     }
 }
 
@@ -231,7 +267,7 @@ where
                     }
                     // Use AssertUnwindSafe to prevent a panic in one tick from killing the entire loop.
                     let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
-                    if let Err(e) = result {
+                    if let Err(e) = result.map_err(|e| anyhow!("Consensus tick panicked: {:?}", e)).and_then(|res| res) {
                         log::error!("[Orch Tick] Consensus tick panicked: {:?}. Continuing loop.", e);
                     }
                 }
@@ -244,7 +280,7 @@ where
                         continue;
                     }
                     let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
-                     if let Err(e) = result {
+                     if let Err(e) = result.map_err(|e| anyhow!("Kicked consensus tick panicked: {:?}", e)).and_then(|res| res) {
                         log::error!("[Orch Tick] Kicked consensus tick panicked: {:?}. Continuing loop.", e);
                     }
                 }
@@ -342,7 +378,7 @@ async fn handle_network_event<CS, ST, CE, V>(
                 let mut pool = tx_pool_ref.lock().await;
                 pool.push_back(*tx);
                 log::debug!("[Orchestrator] Mempool size is now {}", pool.len());
-                // [+] Kick the consensus engine when a tx arrives.
+                // Kick the consensus engine when a tx arrives.
                 let _ = kick_tx.send(());
             }
         }
@@ -460,7 +496,10 @@ where
         let rpc_handle = crate::rpc::run_rpc_server(
             &self.config.rpc_listen_address,
             self.tx_pool.clone(),
-            self.workload_client.get().unwrap().clone(),
+            self.workload_client
+                .get()
+                .ok_or_else(|| ValidatorError::Other("Workload client not set".to_string()))?
+                .clone(),
             self.swarm_command_sender.clone(),
             // Pass the *real* kick sender used by the ticker.
             self.consensus_kick_tx.clone(),
@@ -543,12 +582,14 @@ where
         handles.push(rpc_handle);
 
         // Pass the *actual* receiver end to the ticker.
-        let ticker_kick_rx = self
-            .consensus_kick_rx
-            .lock()
-            .await
-            .take()
-            .expect("consensus_kick_rx already taken");
+        let ticker_kick_rx = match self.consensus_kick_rx.lock().await.take() {
+            Some(rx) => rx,
+            None => {
+                return Err(ValidatorError::Other(
+                    "Consensus kick receiver already taken".into(),
+                ))
+            }
+        };
         let ticker_context = context_arc.clone();
         let ticker_shutdown_rx = self.shutdown_sender.subscribe();
 
@@ -618,9 +659,10 @@ where
     ) -> Result<()> {
         let guardian_channel =
             depin_sdk_client::security::SecurityChannel::new("orchestration", "guardian");
-        // [+] FIX: Provide cert paths to the client.
-        let certs_dir =
-            std::env::var("CERTS_DIR").expect("CERTS_DIR environment variable must be set");
+        // FIX: Provide cert paths to the client.
+        let certs_dir = std::env::var("CERTS_DIR").map_err(|_| {
+            ValidatorError::Config("CERTS_DIR environment variable must be set".to_string())
+        })?;
         guardian_channel
             .establish_client(
                 guardian_addr,
@@ -634,7 +676,7 @@ where
 
         log::info!("[Orchestrator] Waiting for agentic attestation report from Guardian...");
         let report_bytes = guardian_channel.receive().await?;
-        let report: Result<Vec<u8>, String> = serde_json::from_slice(&report_bytes)
+        let report: std::result::Result<Vec<u8>, String> = serde_json::from_slice(&report_bytes)
             .map_err(|e| anyhow!("Failed to deserialize Guardian report: {}", e))?;
 
         let local_hash = report.map_err(|e| anyhow!("Guardian reported error: {}", e))?;

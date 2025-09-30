@@ -2,21 +2,23 @@
 //! Production-grade, ICS-23-inspired proof verification for the IAVL tree.
 //! This module contains the proof data structures and the pure, stateless verifier function.
 
+use depin_sdk_types::error::ProofError;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
 /// The canonical hash function used for all IAVL operations.
-fn hash(data: &[u8]) -> [u8; 32] {
-    depin_sdk_crypto::algorithms::hash::sha256(data)
-        .try_into()
-        .expect("SHA-256 digest must be 32 bytes")
+fn hash(data: &[u8]) -> Result<[u8; 32], ProofError> {
+    depin_sdk_crypto::algorithms::hash::sha256(data).map_err(|e| ProofError::Crypto(e.to_string()))
 }
 
 // --- Canonical Hashing Rules ---
 
 /// Computes the hash of a leaf node according to the canonical specification.
 /// H(tag || version || height=0 || size=1 || len(key) || key || len(value) || value)
-pub(super) fn hash_leaf(leaf_op: &LeafOp, key: &[u8], value: &[u8]) -> [u8; 32] {
+pub(super) fn hash_leaf(
+    leaf_op: &LeafOp,
+    key: &[u8],
+    value: &[u8],
+) -> Result<[u8; 32], ProofError> {
     let mut data = Vec::with_capacity(1 + 8 + 4 + 8 + 4 + key.len() + 4 + value.len());
     data.push(0x00); // Leaf tag
     data.extend_from_slice(&leaf_op.version.to_le_bytes());
@@ -31,7 +33,11 @@ pub(super) fn hash_leaf(leaf_op: &LeafOp, key: &[u8], value: &[u8]) -> [u8; 32] 
 
 /// Computes the hash of an inner node according to the canonical specification.
 /// H(tag || version || height || size || len(key) || key || left_hash || right_hash)
-pub(super) fn hash_inner(op: &InnerOp, left_hash: &[u8; 32], right_hash: &[u8; 32]) -> [u8; 32] {
+pub(super) fn hash_inner(
+    op: &InnerOp,
+    left_hash: &[u8; 32],
+    right_hash: &[u8; 32],
+) -> Result<[u8; 32], ProofError> {
     let mut data = Vec::with_capacity(
         1 + 8 + 4 + 8 + 4 + op.split_key.len() + left_hash.len() + right_hash.len(),
     );
@@ -92,27 +98,15 @@ pub struct InnerOp {
 
 // --- Verifier Logic ---
 
-#[derive(Error, Debug)]
-pub enum VerifyError {
-    #[error("Proof deserialization failed: {0}")]
-    Deserialization(String),
-    #[error("Root hash mismatch")]
-    RootMismatch,
-    #[error("Invalid non-existence proof: {0}")]
-    InvalidNonExistence(String),
-    #[error("Invalid existence proof: {0}")]
-    InvalidExistence(String),
-}
-
 /// The single, canonical entry point for all IAVL proof verification.
 pub fn verify_iavl_proof_bytes(
     root: &[u8; 32],
     key: &[u8],
     expected_value: Option<&[u8]>,
     proof_bytes: &[u8],
-) -> Result<bool, VerifyError> {
+) -> Result<bool, ProofError> {
     let proof: IavlProof = serde_json::from_slice(proof_bytes)
-        .map_err(|e| VerifyError::Deserialization(e.to_string()))?;
+        .map_err(|e| ProofError::Deserialization(e.to_string()))?;
 
     match (expected_value, proof) {
         (Some(value), IavlProof::Existence(existence_proof)) => {
@@ -131,14 +125,14 @@ fn verify_existence(
     key: &[u8],
     value: &[u8],
     proof: &ExistenceProof,
-) -> Result<(), VerifyError> {
+) -> Result<(), ProofError> {
     if proof.key != key || proof.value != value {
-        return Err(VerifyError::InvalidExistence(
+        return Err(ProofError::InvalidExistence(
             "Proof is for a different key/value pair".into(),
         ));
     }
 
-    let mut current_hash = hash_leaf(&proof.leaf, key, value);
+    let mut current_hash = hash_leaf(&proof.leaf, key, value)?;
 
     log::debug!(
         "[IAVL Verifier] Verifying existence for key: {}",
@@ -147,7 +141,6 @@ fn verify_existence(
     log::debug!("[IAVL Verifier] Trusted Root: {}", hex::encode(root));
     log::debug!(
         "[IAVL Verifier]   - Step 0 (Leaf): hash={:.8}",
-        // FIX 1: Removed unnecessary borrow of `current_hash`.
         hex::encode(current_hash).get(..8).unwrap_or("")
     );
 
@@ -156,7 +149,7 @@ fn verify_existence(
             Side::Left => (step.sibling_hash, current_hash),
             Side::Right => (current_hash, step.sibling_hash),
         };
-        let new_hash_vec = hash_inner(step, &left, &right);
+        let new_hash_vec = hash_inner(step, &left, &right)?;
 
         log::debug!(
             "[IAVL Verifier] step={} side={:?} split={:.8} h={} sz={} acc={:.8} sib={:.8} -> new={:.8}",
@@ -165,10 +158,8 @@ fn verify_existence(
             step.height, step.size,
             hex::encode(current_hash).get(..8).unwrap_or(""),
             hex::encode(step.sibling_hash).get(..8).unwrap_or(""),
-            // FIX 2: Removed unnecessary borrow of `new_hash_vec`.
             hex::encode(new_hash_vec).get(..8).unwrap_or(""),
         );
-        // FIX 3: Removed useless conversion from `[u8; 32]` to `[u8; 32]`.
         current_hash = new_hash_vec;
     }
 
@@ -178,7 +169,7 @@ fn verify_existence(
     );
 
     if current_hash != *root {
-        return Err(VerifyError::RootMismatch);
+        return Err(ProofError::RootMismatch);
     }
     Ok(())
 }
@@ -187,12 +178,12 @@ fn verify_non_existence(
     root: &[u8; 32],
     missing_key: &[u8],
     proof: &NonExistenceProof,
-) -> Result<bool, VerifyError> {
+) -> Result<bool, ProofError> {
     if proof.missing_key.as_slice() != missing_key {
         return Ok(false);
     }
     if proof.left.is_none() && proof.right.is_none() {
-        return Err(VerifyError::InvalidNonExistence(
+        return Err(ProofError::InvalidNonExistence(
             "Proof must have at least one neighbor.".into(),
         ));
     }

@@ -1,6 +1,7 @@
 // Path: crates/api/src/chain/mod.rs
 //! Defines the core `AppChain` trait for blockchain state machines.
 
+use crate::app::{Block, ChainStatus, ChainTransaction};
 use crate::commitment::CommitmentScheme;
 use crate::consensus::PenaltyMechanism;
 use crate::state::StateChangeSet;
@@ -8,9 +9,10 @@ use crate::state::{StateManager, Verifier};
 use crate::transaction::TransactionModel;
 use crate::validator::WorkloadContainer;
 use async_trait::async_trait;
-use depin_sdk_types::app::{Block, ChainStatus, ChainTransaction, StateRoot};
+use depin_sdk_types::app::StateRoot;
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::ChainError;
+use depin_sdk_types::Result;
 use libp2p::identity::Keypair;
 use std::any::Any;
 use std::collections::BTreeMap;
@@ -102,9 +104,9 @@ pub struct PreparedBlock {
     /// The full block, including header and transactions.
     pub block: Block<ChainTransaction>,
     /// The complete set of state modifications derived from executing the block's transactions.
-    pub state_changes: StateChangeSet,
+    pub state_changes: Arc<StateChangeSet>,
     /// The state root of the parent block, for validation during commit.
-    pub parent_state_root: StateRoot,
+    pub parent_state_root: [u8; 32],
     /// The Merkle root of the transactions in the block.
     pub transactions_root: Vec<u8>,
     /// A hash of the validator set that was active for this block.

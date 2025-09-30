@@ -170,7 +170,7 @@ async fn test_forkless_module_upgrade() -> Result<()> {
                     next: None,
                 },
             };
-            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload);
+            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload).unwrap();
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
@@ -198,7 +198,7 @@ async fn test_forkless_module_upgrade() -> Result<()> {
                     l2_location: None,
                 };
                 let creds_array: [Option<Credential>; 2] = [Some(cred), None];
-                let creds_bytes = codec::to_bytes_canonical(&creds_array);
+                let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
                 let creds_key = [IDENTITY_CREDENTIALS_PREFIX, acct_id.as_ref()].concat();
                 genesis_state.insert(
                     format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
@@ -215,7 +215,7 @@ async fn test_forkless_module_upgrade() -> Result<()> {
                     format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
                     json!(format!(
                         "b64:{}",
-                        BASE64_STANDARD.encode(codec::to_bytes_canonical(&record))
+                        BASE64_STANDARD.encode(codec::to_bytes_canonical(&record).unwrap())
                     )),
                 );
 

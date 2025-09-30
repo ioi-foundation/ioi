@@ -12,10 +12,12 @@ use std::{any::Any, marker::PhantomData, sync::Arc};
 
 // --- state.getStateRoot.v1 ---
 
+/// The parameters for the `state.getStateRoot.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetStateRootParams {}
 
+/// The RPC method handler for `state.getStateRoot.v1`.
 pub struct GetStateRootV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -58,12 +60,15 @@ where
 
 // --- state.prefixScan.v1 ---
 
+/// The parameters for the `state.prefixScan.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct PrefixScanParams {
+    /// The key prefix to scan for.
     pub prefix: Vec<u8>,
 }
 
+/// The RPC method handler for `state.prefixScan.v1`.
 pub struct PrefixScanV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -105,12 +110,15 @@ where
 
 // --- state.getRawState.v1 ---
 
+/// The parameters for the `state.getRawState.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetRawStateParams {
+    /// The key to retrieve from the state.
     pub key: Vec<u8>,
 }
 
+/// The RPC method handler for `state.getRawState.v1`.
 pub struct GetRawStateV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -152,22 +160,32 @@ where
 
 // --- state.queryStateAt.v1 ---
 
+/// The response structure for the `state.queryStateAt.v1` RPC method.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct QueryStateAtResponse {
+    /// The version of the response message format.
     pub msg_version: u32,
+    /// The numeric ID of the commitment scheme used.
     pub scheme_id: u16,
+    /// The version of the commitment scheme.
     pub scheme_version: u16,
+    /// The proven membership outcome (Present or Absent).
     pub membership: Membership,
+    /// The raw bytes of the cryptographic proof.
     pub proof_bytes: Vec<u8>,
 }
 
+/// The parameters for the `state.queryStateAt.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct QueryStateAtParams {
+    /// The historical state root to query against.
     pub root: StateRoot,
+    /// The key to query.
     pub key: Vec<u8>,
 }
 
+/// The RPC method handler for `state.queryStateAt.v1`.
 pub struct QueryStateAtV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -208,14 +226,15 @@ where
         if let Some((membership, proof)) = cache.get(&cache_key) {
             log::trace!(
                 "[WorkloadIPC] Proof cache hit for root {}",
-                hex::encode(&params.root.0)
+                hex::encode(params.root.0.get(..8).unwrap_or_default())
             );
-            // Use the canonical SCALE codec for serialization
-            let proof_bytes = codec::to_bytes_canonical(proof);
+            // Use the canonical SCALE codec for serialization. Handle potential serialization errors.
+            let proof_bytes = codec::to_bytes_canonical(proof)
+                .map_err(|e| anyhow!("Failed to serialize cached proof: {}", e))?;
 
             return Ok(QueryStateAtResponse {
                 msg_version: 1,
-                scheme_id: 1,
+                scheme_id: 1, // Placeholder
                 scheme_version: 1,
                 membership: membership.clone(),
                 proof_bytes,
@@ -231,16 +250,17 @@ where
 
         log::trace!(
             "[WorkloadIPC] Proof cache miss. Generated proof for key {} at root {} in {:?}",
-            hex::encode(&params.key),
-            hex::encode(&params.root.0),
+            hex::encode(params.key.get(..8).unwrap_or_default()),
+            hex::encode(params.root.0.get(..8).unwrap_or_default()),
             start_time.elapsed()
         );
 
         // Use the canonical SCALE codec for serialization
-        let proof_bytes = codec::to_bytes_canonical(&proof);
+        let proof_bytes = codec::to_bytes_canonical(&proof)
+            .map_err(|e| anyhow!("Failed to serialize generated proof: {}", e))?;
 
         let mut cache = ctx.workload.proof_cache.lock().await;
-        cache.put(cache_key, (membership.clone(), proof));
+        cache.put(cache_key, (membership.clone(), proof)); // Cache the original proof object
 
         Ok(QueryStateAtResponse {
             msg_version: 1,
@@ -254,13 +274,17 @@ where
 
 // --- state.getActiveKeyAt.v1 ---
 
+/// The parameters for the `state.getActiveKeyAt.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetActiveKeyAtParams {
+    /// The state anchor at which to retrieve the active key.
     pub anchor: StateAnchor,
+    /// The account ID for which to retrieve the active key.
     pub account_id: AccountId,
 }
 
+/// The RPC method handler for `state.getActiveKeyAt.v1`.
 pub struct GetActiveKeyAtV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }

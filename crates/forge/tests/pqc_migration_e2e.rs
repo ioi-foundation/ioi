@@ -1,4 +1,5 @@
 // Path: crates/forge/tests/pqc_migration_e2e.rs
+
 use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_api::crypto::{SerializableKey, SigningKeyPair};
@@ -47,7 +48,7 @@ impl TestSigner for Ed25519KeyPair {
         SigningKeyPair::public_key(self).to_bytes()
     }
     fn sign(&self, msg: &[u8]) -> Vec<u8> {
-        SigningKeyPair::sign(self, msg).to_bytes()
+        SigningKeyPair::sign(self, msg).unwrap().to_bytes()
     }
     fn account_id(&self) -> AccountId {
         let account_hash =
@@ -71,7 +72,7 @@ impl TestSigner for DilithiumKeyPair {
         SigningKeyPair::public_key(self).to_bytes()
     }
     fn sign(&self, msg: &[u8]) -> Vec<u8> {
-        SigningKeyPair::sign(self, msg).to_bytes()
+        SigningKeyPair::sign(self, msg).unwrap().to_bytes()
     }
     fn account_id(&self) -> AccountId {
         let account_hash =
@@ -118,12 +119,12 @@ fn add_identity_to_genesis(
     // B. Set the initial IdentityHub credentials
     let initial_cred = Credential {
         suite,
-        public_key_hash: account_id.0,
+        public_key_hash: account_id.0, // <-- FIX: Corrected field name from pubkey_hash to public_key_hash
         activation_height: 0,
         l2_location: None,
     };
     let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
-    let creds_bytes = codec::to_bytes_canonical(&creds_array);
+    let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
     let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
     let creds_key_b64 = format!("b64:{}", BASE64_STANDARD.encode(&creds_key));
     genesis_state.insert(
@@ -138,7 +139,7 @@ fn add_identity_to_genesis(
         since_height: 0,
     };
     let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
-    let record_bytes = codec::to_bytes_canonical(&record);
+    let record_bytes = codec::to_bytes_canonical(&record).unwrap();
     genesis_state.insert(
         format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
         json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
@@ -159,9 +160,9 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
 
     // 1. SETUP
     build_test_artifacts();
-    let ed25519_key = Ed25519KeyPair::generate();
+    let ed25519_key = Ed25519KeyPair::generate().unwrap();
     let dilithium_scheme = DilithiumScheme::new(SecurityLevel::Level2);
-    let dilithium_key = dilithium_scheme.generate_keypair();
+    let dilithium_key = dilithium_scheme.generate_keypair().unwrap();
     let account_id = ed25519_key.account_id();
     let mut nonce = 0;
     let grace_period_blocks = 5u64;
@@ -238,7 +239,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
                 next: None,
             };
 
-            let vs_bytes = depin_sdk_types::app::write_validator_sets(&validator_sets);
+            let vs_bytes = depin_sdk_types::app::write_validator_sets(&validator_sets).unwrap();
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
@@ -249,7 +250,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
             let mut stakes = BTreeMap::new();
             stakes.insert(validator_account_id, initial_stake);
             stakes.insert(ed25519_account_id, initial_stake);
-            let stakes_bytes = codec::to_bytes_canonical(&stakes);
+            let stakes_bytes = codec::to_bytes_canonical(&stakes).unwrap();
             genesis_state.insert(
                 std::str::from_utf8(STAKES_KEY_CURRENT).unwrap().to_string(),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&stakes_bytes))),
@@ -270,7 +271,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
         preimage.extend_from_slice(account_id.as_ref());
         let rotation_nonce = 0u64;
         preimage.extend_from_slice(&rotation_nonce.to_le_bytes());
-        depin_sdk_crypto::algorithms::hash::sha256(&preimage)
+        depin_sdk_crypto::algorithms::hash::sha256(&preimage).unwrap()
     };
     let rotation_proof = RotationProof {
         old_public_key: ed25519_key.public_bytes(),

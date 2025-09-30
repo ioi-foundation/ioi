@@ -16,7 +16,7 @@ pub fn scalar_multiply<C: HomomorphicCommitmentScheme>(
 
     scheme
         .scalar_multiply(commitment, scalar)
-        .map_err(HomomorphicError::from)
+        .map_err(|e| HomomorphicError::Custom(e.to_string()))
 }
 
 /// Execute a scalar multiply operation

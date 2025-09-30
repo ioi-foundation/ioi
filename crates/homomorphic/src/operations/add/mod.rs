@@ -10,7 +10,9 @@ pub fn add<C: HomomorphicCommitmentScheme>(
     left: &C::Commitment,
     right: &C::Commitment,
 ) -> HomomorphicResult<C::Commitment> {
-    scheme.add(left, right).map_err(HomomorphicError::from)
+    scheme
+        .add(left, right)
+        .map_err(|e| HomomorphicError::Custom(e.to_string()))
 }
 
 /// Execute an add operation

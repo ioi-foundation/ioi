@@ -122,10 +122,10 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                 next: None,
             };
 
-            let vs_bytes = depin_sdk_types::app::write_validator_sets(&validator_sets);
+            let vs_bytes = depin_sdk_types::app::write_validator_sets(&validator_sets).unwrap();
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
             );
 
             // Populate identity records for all validators
@@ -143,8 +143,7 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                     l2_location: None,
                 };
                 let creds_array: [Option<Credential>; 2] = [Some(cred), None];
-                // [+] FIX: Use the canonical SCALE codec instead of serde_json for credentials.
-                let creds_bytes = codec::to_bytes_canonical(&creds_array);
+                let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
                 let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
                 genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&creds_key))] =
                     json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes)));
@@ -162,7 +161,7 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                     since_height: 0,
                 };
                 let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
-                let record_bytes = codec::to_bytes_canonical(&record);
+                let record_bytes = codec::to_bytes_canonical(&record).unwrap();
                 genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&record_key))] =
                     json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes)));
             }

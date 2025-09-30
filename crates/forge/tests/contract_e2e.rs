@@ -136,7 +136,7 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
                     next: None,
                 },
             };
-            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload);
+            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload).unwrap();
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
@@ -150,9 +150,7 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
                 l2_location: None,
             };
             let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
-            // --- FIX: Use the canonical SCALE codec instead of serde_json ---
-            let creds_bytes = codec::to_bytes_canonical(&creds_array);
-            // --- END FIX ---
+            let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
             let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
             let creds_key_b64 = format!("b64:{}", BASE64_STANDARD.encode(&creds_key));
             genesis_state.insert(
@@ -167,7 +165,7 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
                 since_height: 0,
             };
             let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
-            let record_bytes = codec::to_bytes_canonical(&record);
+            let record_bytes = codec::to_bytes_canonical(&record).unwrap();
             genesis_state.insert(
                 format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
@@ -228,7 +226,8 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
 
     // 3. DEPLOY CONTRACT
     let deployer_pubkey = keypair.public().encode_protobuf();
-    let contract_address = sha256([deployer_pubkey.as_slice(), counter_wasm.as_slice()].concat());
+    let contract_address =
+        sha256([deployer_pubkey.as_slice(), counter_wasm.as_slice()].concat()).unwrap();
     let contract_address_hex = hex::encode(&contract_address);
 
     let deploy_tx_unsigned = ApplicationTransaction::DeployContract {
@@ -260,7 +259,7 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     };
     let query_output = workload_client
         .query_contract(
-            contract_address.clone(),
+            contract_address.to_vec(),
             get_input.clone(),
             query_context.clone(),
         )
@@ -275,7 +274,7 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     let increment_input = vec![1]; // ABI for increment()
     let call_tx_unsigned = ApplicationTransaction::CallContract {
         header: Default::default(),
-        address: contract_address.clone(),
+        address: contract_address.to_vec(),
         input_data: increment_input,
         gas_limit: 1_000_000,
         signature_proof: Default::default(),
@@ -290,7 +289,7 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     loop {
         let current_query_output = workload_client
             .query_contract(
-                contract_address.clone(),
+                contract_address.to_vec(),
                 get_input.clone(),
                 query_context.clone(),
             )

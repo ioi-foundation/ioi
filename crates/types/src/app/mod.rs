@@ -10,7 +10,7 @@ pub use consensus::*;
 pub use identity::*;
 pub use penalties::*;
 
-use crate::error::{CoreError, StateError}; // Added for error type
+use crate::error::{CoreError, StateError};
 use crate::ibc::{UniversalExecutionReceipt, UniversalProofFormat};
 use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
 use dcrypt::algorithms::ByteSerializable;
@@ -99,9 +99,10 @@ pub fn to_root_hash<C: AsRef<[u8]>>(c: C) -> Result<RootHash, StateError> {
         let digest = dcrypt::algorithms::hash::Sha256::digest(s)
             .map_err(|e| StateError::Backend(e.to_string()))?
             .to_bytes();
-        let mut out = [0u8; 32];
-        out.copy_from_slice(&digest);
-        Ok(out)
+        let len = digest.len();
+        digest.try_into().map_err(|_| {
+            StateError::InvalidValue(format!("Invalid hash length: expected 32, got {}", len))
+        })
     }
 }
 
@@ -137,8 +138,9 @@ impl StateRoot {
         let hash = DcryptSha256::digest(&self.0)
             .map_err(|e| CoreError::Custom(e.to_string()))?
             .to_bytes();
+        let len = hash.len();
         Ok(StateAnchor(hash.try_into().map_err(|_| {
-            CoreError::Custom("SHA256 digest was not 32 bytes".into())
+            CoreError::Custom(format!("Invalid hash length: expected 32, got {}", len))
         })?))
     }
 }
@@ -200,14 +202,15 @@ impl BlockHeader {
         // Clear the signature before hashing to create a stable payload.
         temp.signature = vec![];
         // Use the canonical SCALE codec instead of the non-deterministic JSON.
-        let serialized = crate::codec::to_bytes_canonical(&temp);
-        DcryptSha256::digest(&serialized)
-            .map(|d| d.to_bytes())
-            .map_err(|e| CoreError::Custom(e.to_string()))
+        let serialized =
+            crate::codec::to_bytes_canonical(&temp).map_err(|e| CoreError::Custom(e))?;
+        let digest =
+            DcryptSha256::digest(&serialized).map_err(|e| CoreError::Custom(e.to_string()))?;
+        Ok(digest.to_bytes())
     }
 
     /// Creates the canonical, domain-separated byte string that is hashed for signing.
-    pub fn to_preimage_for_signing(&self) -> Vec<u8> {
+    pub fn to_preimage_for_signing(&self) -> Result<Vec<u8>, CoreError> {
         crate::codec::to_bytes_canonical(&(
             SigDomain::BlockHeaderV1 as u8,
             self.height,
@@ -224,6 +227,7 @@ impl BlockHeader {
             // The full public key is part of the signed payload to be self-contained.
             &self.producer_pubkey,
         ))
+        .map_err(CoreError::Custom)
     }
 }
 
@@ -328,17 +332,17 @@ pub struct UTXOTransaction {
 impl UTXOTransaction {
     /// Creates a stable, serializable payload for hashing or signing.
     /// This MUST use a canonical binary encoding like SCALE to prevent malleability.
-    pub fn to_sign_bytes(&self) -> Vec<u8> {
+    pub fn to_sign_bytes(&self) -> Result<Vec<u8>, String> {
         crate::codec::to_bytes_canonical(self)
     }
 
     /// Computes the hash of the transaction.
     pub fn hash(&self) -> Result<Vec<u8>, CoreError> {
         // Use the new canonical serialization method.
-        let serialized = self.to_sign_bytes();
-        DcryptSha256::digest(&serialized)
-            .map(|d| d.to_bytes())
-            .map_err(|e| CoreError::Custom(e.to_string()))
+        let serialized = self.to_sign_bytes().map_err(CoreError::Custom)?;
+        let digest =
+            DcryptSha256::digest(&serialized).map_err(|e| CoreError::Custom(e.to_string()))?;
+        Ok(digest.to_bytes())
     }
 }
 
@@ -521,13 +525,18 @@ pub struct OracleAttestation {
 
 impl OracleAttestation {
     /// Creates a deterministic, domain-separated signing payload.
-    pub fn to_signing_payload(&self, domain: &[u8]) -> Vec<u8> {
+    pub fn to_signing_payload(&self, domain: &[u8]) -> Result<Vec<u8>, CoreError> {
         let mut bytes = Vec::new();
         bytes.extend_from_slice(domain); // Use the provided full domain
         bytes.extend_from_slice(&self.request_id.to_le_bytes());
         bytes.extend_from_slice(&self.timestamp.to_le_bytes());
-        bytes.extend_from_slice(&DcryptSha256::digest(&self.value).unwrap().to_bytes());
-        DcryptSha256::digest(&bytes).unwrap().to_bytes()
+        let value_hash = DcryptSha256::digest(&self.value)
+            .map_err(|e| CoreError::Crypto(e.to_string()))?
+            .to_bytes();
+        bytes.extend_from_slice(&value_hash);
+        Ok(DcryptSha256::digest(&bytes)
+            .map_err(|e| CoreError::Crypto(e.to_string()))?
+            .to_bytes())
     }
 }
 

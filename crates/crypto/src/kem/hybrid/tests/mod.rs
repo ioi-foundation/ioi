@@ -5,8 +5,8 @@ use depin_sdk_api::crypto::{Encapsulated, KeyEncapsulation};
 
 #[test]
 fn test_hybrid_level1_roundtrip() {
-    let kem = HybridKEM::new(SecurityLevel::Level1);
-    let keypair = kem.generate_keypair();
+    let kem = HybridKEM::new(SecurityLevel::Level1).unwrap();
+    let keypair = kem.generate_keypair().unwrap();
 
     // Verify key sizes for Level 1 (P256 + Kyber512)
     assert_eq!(keypair.public_key.to_bytes().len(), 833);
@@ -14,7 +14,7 @@ fn test_hybrid_level1_roundtrip() {
     assert_eq!(keypair.public_key.level, SecurityLevel::Level1);
 
     // Encapsulate and verify sizes
-    let encapsulated = kem.encapsulate(&keypair.public_key);
+    let encapsulated = kem.encapsulate(&keypair.public_key).unwrap();
     assert_eq!(encapsulated.ciphertext().len(), 801);
     assert_eq!(encapsulated.shared_secret().len(), 32);
 
@@ -27,15 +27,15 @@ fn test_hybrid_level1_roundtrip() {
 
 #[test]
 fn test_hybrid_level3_roundtrip() {
-    let kem = HybridKEM::new(SecurityLevel::Level3);
-    let keypair = kem.generate_keypair();
+    let kem = HybridKEM::new(SecurityLevel::Level3).unwrap();
+    let keypair = kem.generate_keypair().unwrap();
 
     // Verify key sizes for Level 3 (P256 + Kyber768)
     assert_eq!(keypair.public_key.to_bytes().len(), 1217);
     assert_eq!(keypair.private_key.to_bytes().len(), 2432);
 
     // Encapsulate and verify sizes
-    let encapsulated = kem.encapsulate(&keypair.public_key);
+    let encapsulated = kem.encapsulate(&keypair.public_key).unwrap();
     assert_eq!(encapsulated.ciphertext().len(), 1121);
     assert_eq!(encapsulated.shared_secret().len(), 32);
 
@@ -48,8 +48,8 @@ fn test_hybrid_level3_roundtrip() {
 
 #[test]
 fn test_hybrid_level5_roundtrip() {
-    let kem = HybridKEM::new(SecurityLevel::Level5);
-    let keypair = kem.generate_keypair();
+    let kem = HybridKEM::new(SecurityLevel::Level5).unwrap();
+    let keypair = kem.generate_keypair().unwrap();
 
     // Verify key sizes for Level 5 (P384 + Kyber1024)
     assert_eq!(keypair.public_key.to_bytes().len(), 1617);
@@ -57,7 +57,7 @@ fn test_hybrid_level5_roundtrip() {
     assert_eq!(keypair.public_key.level, SecurityLevel::Level5);
 
     // Encapsulate and verify sizes
-    let encapsulated = kem.encapsulate(&keypair.public_key);
+    let encapsulated = kem.encapsulate(&keypair.public_key).unwrap();
     assert_eq!(encapsulated.ciphertext().len(), 1617);
     assert_eq!(encapsulated.shared_secret().len(), 32);
 
@@ -70,12 +70,12 @@ fn test_hybrid_level5_roundtrip() {
 
 #[test]
 fn test_hybrid_multiple_encapsulations() {
-    let kem = HybridKEM::new(SecurityLevel::Level3);
-    let keypair = kem.generate_keypair();
+    let kem = HybridKEM::new(SecurityLevel::Level3).unwrap();
+    let keypair = kem.generate_keypair().unwrap();
 
     // Multiple encapsulations with the same public key should produce different results
-    let encapsulated1 = kem.encapsulate(&keypair.public_key);
-    let encapsulated2 = kem.encapsulate(&keypair.public_key);
+    let encapsulated1 = kem.encapsulate(&keypair.public_key).unwrap();
+    let encapsulated2 = kem.encapsulate(&keypair.public_key).unwrap();
 
     // Ciphertexts should be different due to randomness
     assert_ne!(encapsulated1.ciphertext(), encapsulated2.ciphertext());
@@ -96,26 +96,26 @@ fn test_hybrid_multiple_encapsulations() {
 
 #[test]
 fn test_hybrid_wrong_key_decapsulation() {
-    let kem = HybridKEM::new(SecurityLevel::Level3);
-    let keypair1 = kem.generate_keypair();
-    let keypair2 = kem.generate_keypair();
+    let kem = HybridKEM::new(SecurityLevel::Level3).unwrap();
+    let keypair1 = kem.generate_keypair().unwrap();
+    let keypair2 = kem.generate_keypair().unwrap();
 
     // Encapsulate with keypair1's public key
-    let encapsulated = kem.encapsulate(&keypair1.public_key);
+    let encapsulated = kem.encapsulate(&keypair1.public_key).unwrap();
 
     // Try to decapsulate with keypair2's private key
     let wrong_shared_secret = kem.decapsulate(&keypair2.private_key, &encapsulated);
 
     // Should still produce a result (KEMs don't fail on wrong key)
-    assert!(wrong_shared_secret.is_some());
+    assert!(wrong_shared_secret.is_ok());
     // But it should be different from the correct shared secret
     assert_ne!(wrong_shared_secret.unwrap(), encapsulated.shared_secret());
 }
 
 #[test]
 fn test_hybrid_serialization() {
-    let kem = HybridKEM::new(SecurityLevel::Level3);
-    let keypair = kem.generate_keypair();
+    let kem = HybridKEM::new(SecurityLevel::Level3).unwrap();
+    let keypair = kem.generate_keypair().unwrap();
 
     // Serialize keys
     let public_key_bytes = keypair.public_key.to_bytes();
@@ -126,7 +126,7 @@ fn test_hybrid_serialization() {
     let restored_private_key = HybridPrivateKey::from_bytes(&private_key_bytes).unwrap();
 
     // Encapsulate with original key
-    let encapsulated = kem.encapsulate(&keypair.public_key);
+    let encapsulated = kem.encapsulate(&keypair.public_key).unwrap();
     let ciphertext_bytes = encapsulated.to_bytes();
 
     // Deserialize ciphertext
@@ -136,7 +136,7 @@ fn test_hybrid_serialization() {
     let shared_secret = kem.decapsulate(&restored_private_key, &restored_encapsulated);
 
     // We should still get a valid shared secret
-    assert!(shared_secret.is_some());
+    assert!(shared_secret.is_ok());
 
     // Verify the original encapsulated ciphertext matches the serialized version
     assert_eq!(
@@ -171,11 +171,11 @@ fn test_hybrid_invalid_serialization() {
 
 #[test]
 fn test_hybrid_security_properties() {
-    let kem = HybridKEM::new(SecurityLevel::Level3);
-    let keypair = kem.generate_keypair();
+    let kem = HybridKEM::new(SecurityLevel::Level3).unwrap();
+    let keypair = kem.generate_keypair().unwrap();
 
     // Test that the shared secret is deterministic for a given ciphertext
-    let encapsulated = kem.encapsulate(&keypair.public_key);
+    let encapsulated = kem.encapsulate(&keypair.public_key).unwrap();
 
     // Multiple decapsulations of the same ciphertext should produce the same result
     let shared_secret1 = kem
@@ -191,24 +191,24 @@ fn test_hybrid_security_properties() {
 #[test]
 fn test_hybrid_default_constructor() {
     let kem = HybridKEM::default();
-    let keypair = kem.generate_keypair();
+    let keypair = kem.generate_keypair().unwrap();
 
     // Should use Level3 by default
     assert_eq!(keypair.public_key.level, SecurityLevel::Level3);
 
     // Should work normally
-    let encapsulated = kem.encapsulate(&keypair.public_key);
+    let encapsulated = kem.encapsulate(&keypair.public_key).unwrap();
     let shared_secret = kem.decapsulate(&keypair.private_key, &encapsulated);
 
-    assert!(shared_secret.is_some());
+    assert!(shared_secret.is_ok());
     assert_eq!(shared_secret.unwrap(), encapsulated.shared_secret());
 }
 
 #[test]
 fn test_hybrid_independent_verification() {
     // Test that keys can be used independently after serialization
-    let kem = HybridKEM::new(SecurityLevel::Level3);
-    let keypair = kem.generate_keypair();
+    let kem = HybridKEM::new(SecurityLevel::Level3).unwrap();
+    let keypair = kem.generate_keypair().unwrap();
 
     // Serialize and deserialize to ensure independence
     let pk_bytes = keypair.public_key.to_bytes();
@@ -218,9 +218,9 @@ fn test_hybrid_independent_verification() {
     let sk = HybridPrivateKey::from_bytes(&sk_bytes).unwrap();
 
     // Use the deserialized keys
-    let encapsulated = kem.encapsulate(&pk);
+    let encapsulated = kem.encapsulate(&pk).unwrap();
     let shared_secret = kem.decapsulate(&sk, &encapsulated);
 
-    assert!(shared_secret.is_some());
+    assert!(shared_secret.is_ok());
     assert_eq!(shared_secret.unwrap(), encapsulated.shared_secret());
 }

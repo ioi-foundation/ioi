@@ -490,7 +490,8 @@ impl TestValidator {
         let pqc_keypair = Some(
             DilithiumScheme::new(depin_sdk_crypto::security::SecurityLevel::Level2)
                 .generate_keypair(),
-        );
+        )
+        .transpose()?; // This handles the Result correctly.
 
         let p2p_port = portpicker::pick_unused_port().unwrap_or(base_port);
         let rpc_port = portpicker::pick_unused_port().unwrap_or(base_port + 1);

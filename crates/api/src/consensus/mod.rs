@@ -65,7 +65,9 @@ impl<T: PenaltyMechanism + ?Sized> PenaltyMechanism for &T {
 
 /// The core trait for a pluggable consensus engine, defining the interface for block production and validation.
 #[async_trait]
-pub trait ConsensusEngine<T: Clone>: PenaltyMechanism + Send + Sync {
+pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
+    PenaltyMechanism + Send + Sync
+{
     /// Retrieves the data necessary for consensus leader election (e.g., PoA authorities, PoS stakes).
     #[deprecated(
         note = "Consensus data should now be read from the AnchoredStateView passed to decide/handle_block_proposal"

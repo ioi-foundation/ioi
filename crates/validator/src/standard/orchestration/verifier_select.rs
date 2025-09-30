@@ -42,7 +42,7 @@ pub fn create_default_verifier(
         } else {
             // This arm is compiled for all other tree types (IAVL, SMT) and the fallback.
             // Here, `params` is `Option<()>` and is ignored. The verifiers are unit structs.
-            DefaultVerifier::default()
+            DefaultVerifier
         }
     }
 }
@@ -59,17 +59,22 @@ mod fallback {
     use depin_sdk_api::error::StateError;
     use depin_sdk_api::state::Verifier;
     use depin_sdk_types::app::Membership;
+    use depin_sdk_types::error::ProofError;
     use parity_scale_codec::{Decode, Encode};
 
+    /// A fallback `Verifier` implementation that always fails.
+    /// This is used to allow compilation when no state tree feature is enabled,
+    /// while ensuring any runtime usage will result in a clear error.
     #[derive(Clone, Debug, Default)]
     pub struct DefaultVerifier;
 
+    /// A dummy commitment type for the fallback verifier.
     #[derive(Clone, Debug, serde::Deserialize, Encode, Decode)]
     pub struct DummyCommitment;
+    /// A dummy proof type for the fallback verifier.
     #[derive(Clone, Debug, serde::Deserialize, Encode, Decode)]
     pub struct DummyProof;
 
-    // --- FIX START ---
     impl AsRef<[u8]> for DummyProof {
         fn as_ref(&self) -> &[u8] {
             &[]
@@ -80,13 +85,14 @@ mod fallback {
             Self
         }
     }
-    // --- FIX END ---
 
     impl Verifier for DefaultVerifier {
         type Commitment = DummyCommitment;
         type Proof = DummyProof;
         fn commitment_from_bytes(&self, _bytes: &[u8]) -> Result<Self::Commitment, StateError> {
-            unimplemented!("No state tree feature is enabled.")
+            Err(StateError::Validation(
+                "No state tree feature is enabled.".to_string(),
+            ))
         }
         fn verify(
             &self,
@@ -94,8 +100,10 @@ mod fallback {
             _p: &Self::Proof,
             _k: &[u8],
             _o: &Membership,
-        ) -> bool {
-            unimplemented!("No state tree feature is enabled.")
+        ) -> Result<(), ProofError> {
+            Err(ProofError::InvalidExistence(
+                "No state tree feature is enabled.".to_string(),
+            ))
         }
     }
 }

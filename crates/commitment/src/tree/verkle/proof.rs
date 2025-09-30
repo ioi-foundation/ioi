@@ -1,16 +1,14 @@
 // Path: crates/commitment/src/tree/verkle/proof.rs
-use depin_sdk_crypto::algorithms::hash;
+use depin_sdk_crypto::{algorithms::hash, error::CryptoError};
 use serde::{Deserialize, Serialize};
 
 /// Computes a hash for canonical mapping functions.
-fn hash(data: &[u8]) -> [u8; 32] {
+fn hash(data: &[u8]) -> Result<[u8; 32], CryptoError> {
     hash::sha256(data)
-        .try_into()
-        .expect("SHA256 must be 32 bytes")
 }
 
 /// Domain-separated map of a leaf payload to a field element's byte representation.
-pub fn map_leaf_payload_to_value(payload: &[u8]) -> [u8; 32] {
+pub fn map_leaf_payload_to_value(payload: &[u8]) -> Result<[u8; 32], CryptoError> {
     let mut buf = Vec::with_capacity(b"verkle-leaf::".len() + payload.len());
     buf.extend_from_slice(b"verkle-leaf::");
     buf.extend_from_slice(payload);
@@ -18,7 +16,7 @@ pub fn map_leaf_payload_to_value(payload: &[u8]) -> [u8; 32] {
 }
 
 /// Domain-separated map of a child commitment to a field element's byte representation.
-pub fn map_child_commitment_to_value(commitment_bytes: &[u8]) -> [u8; 32] {
+pub fn map_child_commitment_to_value(commitment_bytes: &[u8]) -> Result<[u8; 32], CryptoError> {
     let mut buf = Vec::with_capacity(b"verkle-child::".len() + commitment_bytes.len());
     buf.extend_from_slice(b"verkle-child::");
     buf.extend_from_slice(commitment_bytes);

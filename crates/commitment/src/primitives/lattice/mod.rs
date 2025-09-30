@@ -18,6 +18,7 @@ use dcrypt::algorithms::poly::{
 use depin_sdk_api::commitment::{
     CommitmentScheme, CommitmentStructure, ProofContext, SchemeIdentifier, Selector,
 };
+use depin_sdk_api::error::CryptoError;
 use depin_sdk_crypto::algorithms::hash::sha256;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
@@ -40,7 +41,7 @@ pub struct LatticeParams {
 impl LatticeParams {
     /// Creates a new, insecure set of parameters for testing purposes.
     /// In production, `A` and `G` MUST be generated from a secure random seed.
-    pub fn new_insecure_for_testing(dimension_k: usize, eta: u8) -> Self {
+    pub fn new_insecure_for_testing(dimension_k: usize, eta: u8) -> Result<Self, CryptoError> {
         let mut rng = rand::rngs::OsRng;
 
         // Generate a random public matrix A
@@ -51,26 +52,24 @@ impl LatticeParams {
                         <DefaultSamplers as UniformSampler<Kyber256Params>>::sample_uniform(
                             &mut rng,
                         )
-                        .unwrap()
                     })
-                    .collect()
+                    .collect::<Result<_, _>>()
             })
-            .collect();
+            .collect::<Result<_, _>>()
+            .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
 
         // Generate a random public vector G
         let vector_g = (0..dimension_k)
-            .map(|_| {
-                <DefaultSamplers as UniformSampler<Kyber256Params>>::sample_uniform(&mut rng)
-                    .unwrap()
-            })
-            .collect();
+            .map(|_| <DefaultSamplers as UniformSampler<Kyber256Params>>::sample_uniform(&mut rng))
+            .collect::<Result<_, _>>()
+            .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
 
-        Self {
+        Ok(Self {
             matrix_a,
             vector_g,
             dimension_k,
             eta,
-        }
+        })
     }
 }
 
@@ -133,8 +132,8 @@ impl LatticeCommitmentScheme {
 
 impl LatticeProof {
     /// Serializes the proof to a stable byte format.
-    pub fn to_bytes(&self) -> Vec<u8> {
-        serde_json::to_vec(self).expect("LatticeProof serialization should not fail")
+    pub fn to_bytes(&self) -> Result<Vec<u8>, CryptoError> {
+        serde_json::to_vec(self).map_err(|e| CryptoError::OperationFailed(e.to_string()))
     }
 }
 
@@ -159,8 +158,12 @@ fn mat_vec_mul(
 
     for i in 0..k {
         for (j, vector_j) in vector.iter().enumerate().take(k) {
-            let product = matrix[i][j].schoolbook_mul(vector_j);
-            result[i] = result[i].add(&product);
+            if let (Some(matrix_ij), Some(result_i)) =
+                (matrix.get(i).and_then(|row| row.get(j)), result.get_mut(i))
+            {
+                let product = matrix_ij.schoolbook_mul(vector_j);
+                *result_i = result_i.add(&product);
+            }
         }
     }
     result
@@ -187,35 +190,49 @@ fn vec_add(
 }
 
 /// Expands a message into a polynomial's coefficients using a hash-based XOF.
-fn expand_message_to_ring(msg: &[u8], n: usize, q: u32) -> Vec<u32> {
+fn expand_message_to_ring(msg: &[u8], n: usize, q: u32) -> Result<Vec<u32>, CryptoError> {
     let mut coeffs = Vec::with_capacity(n);
     let mut ctr = 0u32;
     while coeffs.len() < n {
         let mut buf = Vec::with_capacity(msg.len() + 4);
         buf.extend_from_slice(msg);
         buf.extend_from_slice(&ctr.to_le_bytes());
-        let block = sha256(&buf);
+        let block = sha256(&buf)?;
         // Consume 16-bit chunks from the hash block as coefficients mod q.
         for chunk in block.chunks_exact(2) {
             if coeffs.len() < n {
-                let v_u16 = u16::from_le_bytes([chunk[0], chunk[1]]);
-                let v_u32 = (v_u16 as u32) % q;
-                // Ensure coefficient is centered around 0 for some lattice schemes,
-                // although for basic SIS it's less critical. Here we keep it simple.
-                coeffs.push(v_u32);
+                if let (Some(&byte1), Some(&byte2)) = (chunk.get(0), chunk.get(1)) {
+                    let v_u16 = u16::from_le_bytes([byte1, byte2]);
+                    let v_u32 = (v_u16 as u32) % q;
+                    // Ensure coefficient is centered around 0 for some lattice schemes,
+                    // although for basic SIS it's less critical. Here we keep it simple.
+                    coeffs.push(v_u32);
+                }
             }
         }
         ctr += 1;
     }
-    coeffs
+    Ok(coeffs)
 }
 
 impl CommitmentStructure for LatticeCommitmentScheme {
     fn commit_leaf(key: &[u8], value: &[u8]) -> Vec<u8> {
         sha256([key, value].concat())
+            .map_err(|e| {
+                log::error!("CRITICAL: sha256 failed: {}", e);
+                e
+            })
+            .unwrap_or([0; 32])
+            .to_vec()
     }
     fn commit_branch(left: &[u8], right: &[u8]) -> Vec<u8> {
         sha256([left, right].concat())
+            .map_err(|e| {
+                log::error!("CRITICAL: sha256 failed: {}", e);
+                e
+            })
+            .unwrap_or([0; 32])
+            .to_vec()
     }
 }
 
@@ -224,15 +241,16 @@ impl CommitmentScheme for LatticeCommitmentScheme {
     type Proof = LatticeProof;
     type Value = Vec<u8>;
 
-    fn commit(&self, values: &[Option<Self::Value>]) -> Self::Commitment {
+    fn commit(&self, values: &[Option<Self::Value>]) -> Result<Self::Commitment, CryptoError> {
         let mut combined = Vec::new();
         for value in values.iter().flatten() {
             combined.extend_from_slice(value.as_ref());
         }
-        let message_hash = sha256(&combined);
+        let message_hash = sha256(&combined)?;
 
-        let m_coeffs = expand_message_to_ring(&message_hash, Kyber256Params::N, Kyber256Params::Q);
-        let m_poly = Polynomial::<Kyber256Params>::from_coeffs(&m_coeffs).unwrap();
+        let m_coeffs = expand_message_to_ring(&message_hash, Kyber256Params::N, Kyber256Params::Q)?;
+        let m_poly = Polynomial::<Kyber256Params>::from_coeffs(&m_coeffs)
+            .map_err(|e| CryptoError::InvalidInput(e.to_string()))?;
 
         let mut rng = rand::rngs::OsRng;
         let r_vec: Vec<Polynomial<Kyber256Params>> = (0..self.params.dimension_k)
@@ -241,9 +259,9 @@ impl CommitmentScheme for LatticeCommitmentScheme {
                     &mut rng,
                     self.params.eta,
                 )
-                .unwrap()
             })
-            .collect();
+            .collect::<Result<_, _>>()
+            .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
 
         let ar_term = mat_vec_mul(&self.params.matrix_a, &r_vec);
         let mg_term = scalar_vec_mul(&m_poly, &self.params.vector_g);
@@ -260,18 +278,18 @@ impl CommitmentScheme for LatticeCommitmentScheme {
             };
             temp_commit.to_bytes()
         };
-        let digest = sha256(&digest_bytes).try_into().unwrap();
-        LatticeCommitment {
+        let digest = sha256(&digest_bytes)?;
+        Ok(LatticeCommitment {
             coeffs: commitment_coeffs,
             digest,
-        }
+        })
     }
 
     fn create_proof(
         &self,
         _selector: &Selector,
         value: &Self::Value,
-    ) -> Result<Self::Proof, String> {
+    ) -> Result<Self::Proof, CryptoError> {
         let mut rng = rand::rngs::OsRng;
         let r_vec: Vec<Polynomial<Kyber256Params>> = (0..self.params.dimension_k)
             .map(|_| {
@@ -279,9 +297,9 @@ impl CommitmentScheme for LatticeCommitmentScheme {
                     &mut rng,
                     self.params.eta,
                 )
-                .unwrap()
             })
-            .collect();
+            .collect::<Result<_, _>>()
+            .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
         let r_coeffs = r_vec.into_iter().map(|p| p.coeffs).collect();
 
         Ok(LatticeProof {
@@ -302,21 +320,39 @@ impl CommitmentScheme for LatticeCommitmentScheme {
             return false;
         }
 
-        let message_hash = sha256(value);
-        let m_coeffs = expand_message_to_ring(&message_hash, Kyber256Params::N, Kyber256Params::Q);
-        let m_poly = Polynomial::<Kyber256Params>::from_coeffs(&m_coeffs).unwrap();
+        let message_hash = match sha256(value) {
+            Ok(h) => h,
+            Err(_) => return false,
+        };
+        let m_coeffs =
+            match expand_message_to_ring(&message_hash, Kyber256Params::N, Kyber256Params::Q) {
+                Ok(c) => c,
+                Err(_) => return false,
+            };
+        let m_poly = match Polynomial::<Kyber256Params>::from_coeffs(&m_coeffs) {
+            Ok(p) => p,
+            Err(_) => return false,
+        };
 
-        let r_vec: Vec<Polynomial<Kyber256Params>> = proof
+        let r_vec: Vec<Polynomial<Kyber256Params>> = match proof
             .secret_vector_r
             .iter()
-            .map(|coeffs| Polynomial::<Kyber256Params>::from_coeffs(coeffs).unwrap())
-            .collect();
+            .map(|coeffs| Polynomial::<Kyber256Params>::from_coeffs(coeffs))
+            .collect()
+        {
+            Ok(v) => v,
+            Err(_) => return false,
+        };
 
-        let commitment_vec: Vec<Polynomial<Kyber256Params>> = commitment
+        let commitment_vec: Vec<Polynomial<Kyber256Params>> = match commitment
             .coeffs()
             .iter()
-            .map(|coeffs| Polynomial::<Kyber256Params>::from_coeffs(coeffs).unwrap())
-            .collect();
+            .map(|coeffs| Polynomial::<Kyber256Params>::from_coeffs(coeffs))
+            .collect()
+        {
+            Ok(v) => v,
+            Err(_) => return false,
+        };
 
         let ar_term = mat_vec_mul(&self.params.matrix_a, &r_vec);
         let mg_term = scalar_vec_mul(&m_poly, &self.params.vector_g);

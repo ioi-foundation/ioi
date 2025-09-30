@@ -1,6 +1,8 @@
 // Path: crates/validator/src/standard/workload_ipc_server/mod.rs
 
+/// Defines the individual RPC method handlers for the Workload IPC server.
 pub mod methods;
+/// Implements the RPC router for dispatching requests to the correct method handlers.
 pub mod router;
 
 use anyhow::{anyhow, Result};
@@ -44,6 +46,8 @@ use tokio_rustls::{
     TlsAcceptor,
 };
 
+/// Creates the mTLS server configuration for the IPC server.
+/// It configures the server to require client certificates signed by the provided CA.
 pub fn create_ipc_server_config(
     ca_cert_path: &str,
     server_cert_path: &str,
@@ -52,24 +56,19 @@ pub fn create_ipc_server_config(
     // Load CA cert
     let ca_cert_file = File::open(ca_cert_path)?;
     let mut reader = BufReader::new(ca_cert_file);
-    let ca_certs = rustls_pemfile::certs(&mut reader)
-        .map(|r| r.unwrap())
-        .collect::<Vec<_>>();
+    let ca_certs = rustls_pemfile::certs(&mut reader).collect::<Result<Vec<_>, _>>()?;
     let mut root_store = RootCertStore::empty();
     root_store.add_parsable_certificates(ca_certs);
 
     // Load server cert and key
     let server_cert_file = File::open(server_cert_path)?;
     let mut reader = BufReader::new(server_cert_file);
-    let server_certs = rustls_pemfile::certs(&mut reader)
-        .map(|r| r.unwrap())
-        .collect::<Vec<_>>();
+    let server_certs = rustls_pemfile::certs(&mut reader).collect::<Result<Vec<_>, _>>()?;
 
     let server_key_file = File::open(server_key_path)?;
     let mut reader = BufReader::new(server_key_file);
     let server_key = rustls_pemfile::private_key(&mut reader)?
         .ok_or_else(|| anyhow!("No private key found in {}", server_key_path))?;
-    let server_key_der = PrivateKeyDer::from(server_key);
 
     // Create a client verifier that trusts our CA. This is the modern, correct way.
     let client_verifier =
@@ -77,10 +76,13 @@ pub fn create_ipc_server_config(
 
     let server_config = ServerConfig::builder()
         .with_client_cert_verifier(client_verifier)
-        .with_single_cert(server_certs, server_key_der)?;
+        .with_single_cert(server_certs, server_key)?;
     Ok(Arc::new(server_config))
 }
 
+/// The IPC server for the Workload container.
+/// It listens for secure mTLS connections from the Orchestration container
+/// and handles JSON-RPC requests for block processing and state queries.
 pub struct WorkloadIpcServer<ST, CS>
 where
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
@@ -109,6 +111,7 @@ where
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + AsRef<[u8]>,
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
+    /// Creates a new `WorkloadIpcServer`.
     pub async fn new(
         address: String,
         workload_container: Arc<WorkloadContainer<ST>>,
@@ -150,13 +153,15 @@ where
         })
     }
 
+    /// Starts the IPC server and listens for incoming connections.
+    /// This function runs indefinitely until the process is terminated.
     pub async fn run(self) -> Result<()> {
         let listener = tokio::net::TcpListener::bind(&self.address).await?;
         log::info!("Workload: IPC server listening on {}", self.address);
         eprintln!("WORKLOAD_IPC_LISTENING_ON_{}", self.address);
 
-        let certs_dir =
-            std::env::var("CERTS_DIR").expect("CERTS_DIR environment variable must be set");
+        let certs_dir = std::env::var("CERTS_DIR")
+            .map_err(|_| anyhow!("CERTS_DIR environment variable must be set"))?;
         let server_config = create_ipc_server_config(
             &format!("{}/ca.pem", certs_dir),
             &format!("{}/workload-server.pem", certs_dir),
@@ -327,9 +332,7 @@ where
                 );
 
                 let ipc_channel = SecurityChannel::new("workload", "orchestration");
-                ipc_channel
-                    .accept_server_connection(tokio_rustls::TlsStream::Server(tls_stream))
-                    .await;
+                ipc_channel.accept_server_connection(tls_stream).await;
 
                 loop {
                     let permit = match semaphore_clone.clone().acquire_owned().await {
@@ -355,96 +358,20 @@ where
                         }
                     };
 
-                    let response = match serde_json::from_slice::<serde_json::Value>(&request_bytes)
-                    {
-                        Ok(serde_json::Value::Array(_)) => Some(JsonRpcResponse {
-                            jsonrpc: "2.0".to_string(),
-                            result: None,
-                            error: Some(JsonRpcError {
-                                code: -32600,
-                                message: "Batch requests are not supported".into(),
-                                data: None,
-                            }),
-                            id: JsonRpcId::Null,
-                        }),
-                        Ok(value) => match serde_json::from_value::<JsonRpcRequest>(value) {
-                            Ok(req) => {
-                                if req.jsonrpc != "2.0" {
-                                    Some(JsonRpcResponse {
-                                        jsonrpc: "2.0".to_string(),
-                                        result: None,
-                                        error: Some(JsonRpcError {
-                                            code: -32600,
-                                            message: "Invalid jsonrpc version".into(),
-                                            data: None,
-                                        }),
-                                        id: req.id.unwrap_or(JsonRpcId::Null),
-                                    })
-                                } else {
-                                    let trace_id = uuid::Uuid::new_v4().to_string();
-                                    let router_ctx = RequestContext {
-                                        peer_id: "orchestration".into(),
-                                        trace_id: trace_id.clone(),
-                                    };
-                                    let res = router_clone
-                                        .dispatch(
-                                            shared_ctx_clone.clone(),
-                                            router_ctx,
-                                            &req.method,
-                                            req.params,
-                                        )
-                                        .await;
-                                    if let Some(id) = req.id {
-                                        Some(match res {
-                                            Ok(result) => JsonRpcResponse {
-                                                jsonrpc: "2.0".to_string(),
-                                                result: Some(result),
-                                                error: None,
-                                                id,
-                                            },
-                                            Err(error) => JsonRpcResponse {
-                                                jsonrpc: "2.0".to_string(),
-                                                result: None,
-                                                error: Some(JsonRpcError {
-                                                    code: error.code,
-                                                    message: error.message,
-                                                    data: error.data.or_else(|| {
-                                                        Some(serde_json::json!({ "trace_id": trace_id }))
-                                                    }),
-                                                }),
-                                                id,
-                                            },
-                                        })
-                                    } else {
-                                        None
-                                    }
-                                }
-                            }
-                            Err(e) => Some(JsonRpcResponse {
-                                jsonrpc: "2.0".to_string(),
-                                result: None,
-                                error: Some(JsonRpcError {
-                                    code: -32600,
-                                    message: format!("Invalid Request: {}", e),
-                                    data: None,
-                                }),
-                                id: JsonRpcId::Null,
-                            }),
-                        },
-                        Err(e) => Some(JsonRpcResponse {
-                            jsonrpc: "2.0".to_string(),
-                            result: None,
-                            error: Some(JsonRpcError {
-                                code: -32700,
-                                message: format!("Parse error: {}", e),
-                                data: None,
-                            }),
-                            id: JsonRpcId::Null,
-                        }),
-                    };
+                    let response = handle_request(
+                        &request_bytes,
+                        shared_ctx_clone.clone(),
+                        router_clone.clone(),
+                    )
+                    .await;
 
                     if let Some(res) = response {
-                        let response_bytes = serde_json::to_vec(&res).unwrap();
+                        let response_bytes = serde_json::to_vec(&res)
+                            .map_err(|e| {
+                                log::error!("Failed to serialize IPC response: {}", e);
+                                e
+                            })
+                            .unwrap_or_default();
                         if let Err(e) = ipc_channel.send(&response_bytes).await {
                             log::error!("Failed to send IPC response to {}: {}", peer_addr, e);
                         }
@@ -454,4 +381,75 @@ where
             });
         }
     }
+}
+async fn handle_request<CS, ST>(
+    request_bytes: &[u8],
+    shared_ctx: Arc<RpcContext<CS, ST>>,
+    router: Arc<Router>,
+) -> Option<JsonRpcResponse<serde_json::Value>>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
+{
+    let req: JsonRpcRequest = match serde_json::from_slice(request_bytes) {
+        Ok(req) => req,
+        Err(e) => {
+            if serde_json::from_slice::<Vec<serde_json::Value>>(request_bytes).is_ok() {
+                return Some(JsonRpcResponse {
+                    jsonrpc: "2.0".to_string(),
+                    result: None,
+                    error: Some(JsonRpcError {
+                        code: -32600,
+                        message: "Batch requests are not supported".into(),
+                        data: None,
+                    }),
+                    id: JsonRpcId::Null,
+                });
+            }
+            return Some(JsonRpcResponse {
+                jsonrpc: "2.0".to_string(),
+                result: None,
+                error: Some(JsonRpcError {
+                    code: -32700,
+                    message: format!("Parse error: {}", e),
+                    data: None,
+                }),
+                id: JsonRpcId::Null,
+            });
+        }
+    };
+
+    if req.id.is_none() {
+        return None;
+    }
+
+    let trace_id = uuid::Uuid::new_v4().to_string();
+    let router_ctx = RequestContext {
+        peer_id: "orchestration".into(),
+        trace_id: trace_id.clone(),
+    };
+    let res = router
+        .dispatch(shared_ctx, router_ctx, &req.method, req.params)
+        .await;
+
+    Some(match res {
+        Ok(result) => JsonRpcResponse {
+            jsonrpc: "2.0".to_string(),
+            result: Some(result),
+            error: None,
+            id: req.id?,
+        },
+        Err(error) => JsonRpcResponse {
+            jsonrpc: "2.0".to_string(),
+            result: None,
+            error: Some(JsonRpcError {
+                code: error.code,
+                message: error.message,
+                data: error
+                    .data
+                    .or_else(|| Some(serde_json::json!({ "trace_id": trace_id }))),
+            }),
+            id: req.id?,
+        },
+    })
 }
