@@ -9,7 +9,6 @@ use crate::state::{StateManager, Verifier};
 use crate::transaction::TransactionModel;
 use crate::validator::WorkloadContainer;
 use async_trait::async_trait;
-use depin_sdk_types::app::StateRoot;
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::ChainError;
 use depin_sdk_types::Result;
@@ -24,8 +23,8 @@ use std::sync::Arc;
 pub struct StateRef {
     /// The block height this state corresponds to.
     pub height: u64,
-    /// The cryptographic root hash of this state.
-    pub state_root: [u8; 32],
+    /// The raw cryptographic root commitment of this state (can be variable length).
+    pub state_root: Vec<u8>,
     /// The hash of the block that produced this state.
     pub block_hash: [u8; 32],
 }
@@ -37,8 +36,8 @@ pub trait RemoteStateView: Send + Sync {
     async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, ChainError>;
     /// Returns the block height of this state view.
     fn height(&self) -> u64;
-    /// Returns the root hash of this state view.
-    fn state_root(&self) -> [u8; 32];
+    /// Returns the raw root commitment of this state view.
+    fn state_root(&self) -> &[u8];
 }
 
 /// A marker trait for an immutable, anchored snapshot of the state.
@@ -70,8 +69,8 @@ pub trait ViewResolver: Send + Sync {
     ) -> Result<Arc<dyn AnchoredStateView>, ChainError>;
     /// Resolves the current chain head into a `LiveStateView`.
     async fn resolve_live(&self) -> Result<Arc<dyn LiveStateView>, ChainError>;
-    /// Fetches the state root of the genesis block.
-    async fn genesis_root(&self) -> Result<[u8; 32], ChainError>;
+    /// Fetches the raw root commitment of the genesis block.
+    async fn genesis_root(&self) -> Result<Vec<u8>, ChainError>;
     /// Returns the workload client as a type-erased `Any` trait object.
     /// The caller is responsible for downcasting it to the concrete `WorkloadClient` type.
     /// This approach avoids a circular dependency between the `api` and `client` crates.
@@ -105,8 +104,8 @@ pub struct PreparedBlock {
     pub block: Block<ChainTransaction>,
     /// The complete set of state modifications derived from executing the block's transactions.
     pub state_changes: Arc<StateChangeSet>,
-    /// The state root of the parent block, for validation during commit.
-    pub parent_state_root: [u8; 32],
+    /// The raw state root of the parent block, for validation during commit.
+    pub parent_state_root: Vec<u8>,
     /// The Merkle root of the transactions in the block.
     pub transactions_root: Vec<u8>,
     /// A hash of the validator set that was active for this block.

@@ -2,19 +2,18 @@
 use super::context::MainLoopContext;
 use super::oracle::handle_newly_processed_block;
 use super::remote_state_view::DefaultAnchoredStateView;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use async_trait::async_trait;
 use depin_sdk_api::chain::{AnchoredStateView, StateRef};
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::consensus::{ConsensusEngine, PenaltyMechanism};
 use depin_sdk_api::state::{StateAccessor, StateCommitment, StateManager, Verifier};
 use depin_sdk_network::traits::NodeState;
-use depin_sdk_types::app::{
-    account_id_from_key_material, Block, ChainTransaction, FailureReport, SignatureSuite,
-    StateAnchor, StateRoot, SystemPayload,
+use depin_sdk_types::{
+    app::{Block, ChainTransaction, FailureReport, StateRoot, SystemPayload},
+    config::ConsensusType,
+    error::{ChainError, TransactionError},
 };
-use depin_sdk_types::config::ConsensusType;
-use depin_sdk_types::error::{ChainError, TransactionError};
 use lru::LruCache;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashSet, VecDeque};
@@ -79,8 +78,11 @@ where
         &self,
         state_ref: &StateRef,
     ) -> Result<Arc<dyn AnchoredStateView>, ChainError> {
-        let anchor = StateAnchor(state_ref.state_root);
-        let root = StateRoot(state_ref.state_root.to_vec());
+        // FIX: Explicitly map the CoreError to a ChainError.
+        let anchor = StateRoot(state_ref.state_root.clone())
+            .to_anchor()
+            .map_err(|e| ChainError::Transaction(e.to_string()))?;
+        let root = StateRoot(state_ref.state_root.clone());
         let view = DefaultAnchoredStateView::new(
             anchor,
             root,

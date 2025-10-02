@@ -21,7 +21,6 @@ pub const MAX_STATE_VALUE_BYTES: usize = 256 * 1024; // 256 KiB
 pub const MAX_STATE_PROOF_BYTES: usize = 512 * 1024; // 512 KiB
 
 /// A top-level, crate-wide `Result` type alias with a default error type.
-#[must_use]
 pub type Result<T, E = crate::error::CoreError> = std::result::Result<T, E>;
 
 /// Core application-level data structures like `Block`, `Transaction`, and `AccountId`.

@@ -916,6 +916,12 @@ where
 
         Ok((membership, proof))
     }
+
+    fn commitment_from_anchor(&self, anchor: &[u8; 32]) -> Option<Self::Commitment> {
+        // For IAVL, the anchor is the commitment.
+        self.commitment_from_bytes(anchor).ok()
+    }
+
     fn commitment_from_bytes(&self, bytes: &[u8]) -> Result<Self::Commitment, StateError> {
         Ok(<CS as CommitmentScheme>::Commitment::from(bytes.to_vec()))
     }

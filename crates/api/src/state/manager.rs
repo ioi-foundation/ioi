@@ -20,6 +20,23 @@ pub trait StateManager: StateCommitment {
         key: &[u8],
     ) -> Result<(Membership, Self::Proof), StateError>;
 
+    /// Resolves a 32-byte anchor hash into the full, potentially variable-length commitment.
+    fn commitment_from_anchor(&self, anchor: &[u8; 32]) -> Option<Self::Commitment>;
+
+    /// Generates a proof for a key's membership or non-membership against a historical anchor.
+    /// This method resolves the 32-byte anchor hash into the full, potentially variable-length
+    /// state root commitment before generating the proof.
+    fn get_with_proof_at_anchor(
+        &self,
+        anchor: &[u8; 32],
+        key: &[u8],
+    ) -> Result<(Membership, Self::Proof), StateError> {
+        let commitment = self
+            .commitment_from_anchor(anchor)
+            .ok_or_else(|| StateError::UnknownAnchor(hex::encode(anchor)))?;
+        self.get_with_proof_at(&commitment, key)
+    }
+
     /// Converts raw bytes into the concrete Commitment type.
     fn commitment_from_bytes(&self, bytes: &[u8]) -> Result<Self::Commitment, StateError>;
 
@@ -93,6 +110,18 @@ impl<T: StateManager + ?Sized> StateManager for Box<T> {
         key: &[u8],
     ) -> Result<(Membership, Self::Proof), StateError> {
         (**self).get_with_proof_at(root, key)
+    }
+
+    fn commitment_from_anchor(&self, anchor: &[u8; 32]) -> Option<Self::Commitment> {
+        (**self).commitment_from_anchor(anchor)
+    }
+
+    fn get_with_proof_at_anchor(
+        &self,
+        anchor: &[u8; 32],
+        key: &[u8],
+    ) -> Result<(Membership, Self::Proof), StateError> {
+        (**self).get_with_proof_at_anchor(anchor, key)
     }
 
     fn commitment_from_bytes(&self, bytes: &[u8]) -> Result<Self::Commitment, StateError> {

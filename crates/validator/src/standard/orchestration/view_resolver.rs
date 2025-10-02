@@ -6,7 +6,10 @@ use std::{any::Any, sync::Arc};
 use depin_sdk_api::chain::{AnchoredStateView, StateRef, ViewResolver};
 use depin_sdk_api::state::Verifier;
 use depin_sdk_client::WorkloadClient;
-use depin_sdk_types::{app::StateAnchor, error::ChainError};
+use depin_sdk_types::{
+    app::{to_root_hash, StateAnchor},
+    error::ChainError,
+};
 use tokio::sync::Mutex;
 
 use super::remote_state_view::DefaultAnchoredStateView;
@@ -18,17 +21,6 @@ pub struct DefaultViewResolver<V: Verifier> {
 }
 
 impl<V: Verifier> DefaultViewResolver<V> {
-    pub async fn get_genesis_root(&self) -> Result<[u8; 32], ChainError> {
-        // fall back to zeros if the workload can’t answer yet
-        let sr = self.client.get_state_root().await.unwrap_or_default();
-        let mut out = [0u8; 32];
-        let bytes = sr.as_ref();
-        if bytes.len() == 32 {
-            out.copy_from_slice(bytes);
-        }
-        Ok(out)
-    }
-
     // Helper getters used by orchestration/gossip
     pub fn workload_client(&self) -> &Arc<WorkloadClient> {
         &self.client
@@ -63,8 +55,10 @@ where
         &self,
         r: &StateRef,
     ) -> Result<Arc<dyn AnchoredStateView>, ChainError> {
-        let anchor = StateAnchor(r.state_root);
-        let root = depin_sdk_types::app::StateRoot(r.state_root.to_vec());
+        // Use to_root_hash to derive a fixed-size anchor from the raw root.
+        let anchor_hash = to_root_hash(&r.state_root).map_err(ChainError::State)?;
+        let anchor = StateAnchor(anchor_hash);
+        let root = depin_sdk_types::app::StateRoot(r.state_root.clone());
         let view = DefaultAnchoredStateView::new(
             anchor,
             root,
@@ -84,8 +78,21 @@ where
         ))
     }
 
-    async fn genesis_root(&self) -> Result<[u8; 32], ChainError> {
-        self.get_genesis_root().await
+    async fn genesis_root(&self) -> Result<Vec<u8>, ChainError> {
+        // Use the dedicated, robust RPC call.
+        let status = self
+            .client
+            .get_genesis_status()
+            .await
+            .map_err(|e| ChainError::Transaction(e.to_string()))?;
+        if status.ready {
+            Ok(status.root)
+        } else {
+            // If genesis isn't ready, it's a transient error. Returning an error is better than a zero hash.
+            Err(ChainError::Transaction(
+                "Genesis state is not ready yet.".into(),
+            ))
+        }
     }
 
     fn workload_client(&self) -> &dyn Any {

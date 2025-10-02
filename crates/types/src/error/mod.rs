@@ -37,6 +37,9 @@ pub enum StateError {
     /// A proof verification failed because it did not anchor to the requested root.
     #[error("Proof did not anchor to the requested state root")]
     ProofDidNotAnchor,
+    /// The provided state anchor is not known and cannot be resolved to a state root.
+    #[error("The provided state anchor is not known and cannot be resolved to a state root: {0}")]
+    UnknownAnchor(String),
     /// An operation was attempted on a stale state anchor.
     #[error("The provided state anchor is stale and does not match the latest known root")]
     StaleAnchor,
@@ -53,6 +56,7 @@ impl ErrorCode for StateError {
             Self::InvalidValue(_) => "STATE_INVALID_VALUE",
             Self::Decode(_) => "STATE_DECODE_ERROR",
             Self::ProofDidNotAnchor => "STATE_PROOF_NO_ANCHOR",
+            Self::UnknownAnchor(_) => "STATE_UNKNOWN_ANCHOR",
             Self::StaleAnchor => "STATE_STALE_ANCHOR",
         }
     }

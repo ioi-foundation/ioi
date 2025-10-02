@@ -5,7 +5,6 @@ use crate::standard::orchestration::gossip::prune_mempool;
 use crate::standard::orchestration::oracle::handle_newly_processed_block;
 use crate::standard::orchestration::view_resolver::DefaultViewResolver;
 use anyhow::{anyhow, Result};
-use async_trait::async_trait;
 use depin_sdk_api::{
     chain::StateRef,
     commitment::CommitmentScheme,
@@ -121,18 +120,16 @@ where
             let block_hash = to_root_hash(last.header.hash()?)?;
             StateRef {
                 height: last.header.height,
-                state_root: last.header.state_root.as_ref().try_into()?,
+                state_root: last.header.state_root.as_ref().to_vec(),
                 block_hash,
             }
         } else {
-            let resolver = view_resolver
-                .as_any()
-                .downcast_ref::<DefaultViewResolver<V>>()
-                .ok_or_else(|| anyhow!("Could not get concrete resolver to fetch genesis root"))?;
-            let genesis_root_bytes = resolver.get_genesis_root().await?;
+            // For the very first block, resolve the *actual* genesis root
+            // from the workload container.
+            let genesis_root_bytes = view_resolver.genesis_root().await?;
             StateRef {
                 height: 0,
-                state_root: genesis_root_bytes.try_into()?,
+                state_root: genesis_root_bytes,
                 block_hash: [0; 32],
             }
         };
@@ -159,18 +156,14 @@ where
             let block_hash = to_root_hash(last.header.hash()?)?;
             StateRef {
                 height: last.header.height,
-                state_root: last.header.state_root.as_ref().try_into()?,
+                state_root: last.header.state_root.as_ref().to_vec(),
                 block_hash,
             }
         } else {
-            let resolver = view_resolver
-                .as_any()
-                .downcast_ref::<DefaultViewResolver<V>>()
-                .ok_or_else(|| anyhow!("Could not get concrete resolver to fetch genesis root"))?;
-            let genesis_root_bytes = resolver.get_genesis_root().await?;
+            let genesis_root_bytes = view_resolver.genesis_root().await?;
             StateRef {
                 height: 0,
-                state_root: genesis_root_bytes.try_into()?,
+                state_root: genesis_root_bytes,
                 block_hash: [0; 32],
             }
         };
@@ -195,7 +188,7 @@ where
                 .ok_or_else(|| anyhow!("Could not downcast ViewResolver to get WorkloadClient"))?
                 .workload_client();
             let anchor =
-                depin_sdk_types::app::StateRoot(parent_ref.state_root.to_vec()).to_anchor()?;
+                depin_sdk_types::app::StateRoot(parent_ref.state_root.clone()).to_anchor()?;
             workload_client
                 .check_transactions_at(anchor, candidate_txs.clone())
                 .await?
@@ -305,7 +298,7 @@ where
             header: BlockHeader {
                 height: height_being_built,
                 parent_hash: parent_ref.block_hash,
-                parent_state_root: depin_sdk_types::app::StateRoot(parent_ref.state_root.to_vec()),
+                parent_state_root: depin_sdk_types::app::StateRoot(parent_ref.state_root.clone()),
                 state_root: depin_sdk_types::app::StateRoot(vec![]),
                 transactions_root: vec![0; 32],
                 timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),

@@ -3,10 +3,10 @@
 use super::RpcContext;
 use crate::standard::workload_ipc_server::router::{RequestContext, RpcMethod};
 use anyhow::{anyhow, Result};
-use depin_sdk_api::chain::ChainView;
 use depin_sdk_api::{commitment::CommitmentScheme, state::StateManager};
 use depin_sdk_types::app::{AccountId, ActiveKeyRecord, Membership, StateAnchor, StateRoot};
 use depin_sdk_types::codec; // Import the canonical codec
+use ipc_protocol::jsonrpc::JsonRpcError;
 use serde::{Deserialize, Serialize};
 use std::{any::Any, marker::PhantomData, sync::Arc};
 
@@ -319,21 +319,18 @@ where
     ) -> Result<Self::Result> {
         let ctx = shared_ctx
             .downcast::<RpcContext<CS, ST>>()
-            .map_err(|_| anyhow!("Invalid context type for GetActiveKeyAtV1"))?;
-        let chain = ctx.chain.lock().await;
-        // The `height` and `block_hash` fields of StateRef are not used for this type of query,
-        // so we can provide dummy values. The important part is the `state_root`.
-        let state_ref = depin_sdk_api::chain::StateRef {
-            height: 0,
-            state_root: params.anchor.0,
-            block_hash: [0u8; 32],
-        };
-        let view = chain.view_at(&state_ref).await?;
+            .map_err(|_| anyhow!("Invalid context type"))?;
 
-        // Read the ActiveKeyRecord directly from the state view using its canonical key.
+        let state_tree = ctx.workload.state_tree();
+        let state = state_tree.read().await;
+
         let key = [b"identity::key_record::", params.account_id.as_ref()].concat();
-        let record = match view.get(&key).await {
-            Ok(Some(bytes)) => {
+
+        // Use the new anchor-based query method, which correctly handles all tree types.
+        let (membership, _proof) = state.get_with_proof_at_anchor(&params.anchor.0, &key)?;
+
+        let record = match membership {
+            Membership::Present(bytes) => {
                 codec::from_bytes_canonical::<depin_sdk_types::app::ActiveKeyRecord>(&bytes).ok()
             }
             _ => None,

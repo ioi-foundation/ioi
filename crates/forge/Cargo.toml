@@ -31,10 +31,8 @@ depin-sdk-api = { path = "../api" }
 depin-sdk-crypto = { path = "../crypto" }
 depin-sdk-validator = { path = "../validator", default-features = false }
 depin-sdk-commitment = { path = "../commitment", default-features = false }
-# --- FIX START: Add depin-sdk-client AND transaction-models as dependencies ---
 depin-sdk-client = { path = "../client" }
 depin-sdk-transaction-models = { path = "../transaction_models" }
-# --- FIX END ---
 toml = { workspace = true }
 # Dependencies for testing helpers that are now part of the library
 reqwest = { workspace = true }
@@ -56,9 +54,7 @@ depin-sdk-services = { path = "../services" }
 depin-sdk-chain = { path = "../chain" }
 base64 = { workspace = true }
 once_cell = { workspace = true }
-# --- FIX START: Add axum as a dev-dependency for the test stub ---
 axum = { workspace = true }
-# --- FIX END ---
 
 # The library exposes helpers, the binary provides the CLI
 [lib]
@@ -89,5 +85,5 @@ consensus-pos = ["depin-sdk-validator/consensus-pos"]
 # This does not need to be propagated, as the test runner handles it.
 malicious-bin = []
 
-# [+] Add feature to propagate the strict check
+# Add feature to propagate the strict check
 strict_iavl = ["depin-sdk-commitment/strict_iavl"]

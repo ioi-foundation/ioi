@@ -11,12 +11,13 @@ use depin_sdk_api::{
 use depin_sdk_types::{
     app::{
         evidence_id, AccountId, ApplicationTransaction, Block, BlockHeader, ChainTransaction,
-        StateAnchor, SystemPayload,
+        Membership, StateAnchor, SystemPayload,
     },
     codec,
     error::TransactionError,
-    keys::{EVIDENCE_REGISTRY_KEY, IBC_PROCESSED_RECEIPT_PREFIX, VALIDATOR_SET_KEY},
+    keys::{EVIDENCE_REGISTRY_KEY, IBC_PROCESSED_RECEIPT_PREFIX},
 };
+use ipc_protocol::jsonrpc::JsonRpcError;
 use serde::{Deserialize, Serialize};
 use std::{any::Any, collections::BTreeSet, marker::PhantomData, sync::Arc};
 
@@ -524,28 +525,33 @@ where
         &self,
         _req_ctx: RequestContext,
         shared_ctx: Arc<dyn Any + Send + Sync>,
-        _params: Self::Params,
+        params: Self::Params,
     ) -> Result<Self::Result> {
         let ctx = shared_ctx
             .downcast::<RpcContext<CS, ST>>()
-            .map_err(|_| anyhow!("Invalid context type for GetValidatorSetAtV1"))?;
+            .map_err(|_| anyhow!("Invalid context type"))?;
 
-        let chain = ctx.chain.lock().await;
+        let state_tree = ctx.workload.state_tree();
+        let state = state_tree.read().await;
 
-        let h = (*chain).status().height;
-        log::debug!("[RPC] {} -> height={} (current)", Self::NAME, h);
-        let set_bytes: Vec<Vec<u8>> = (*chain).get_validator_set_for(&ctx.workload, h).await?;
-        log::debug!(
-            "[RPC] {} -> height={} returned {} validators",
-            Self::NAME,
-            h,
-            set_bytes.len()
-        );
+        let (membership, _proof) = state
+            .get_with_proof_at_anchor(&params.anchor.0, depin_sdk_types::keys::VALIDATOR_SET_KEY)?;
 
-        Ok(set_bytes
-            .into_iter()
-            .filter_map(|b| b.try_into().ok().map(AccountId))
-            .collect())
+        if let Membership::Present(bytes) = membership {
+            let sets = depin_sdk_types::app::read_validator_sets(&bytes)?;
+            // This RPC returns the `current` set from the state at the specified anchor.
+            // A more precise query might need a height to resolve `current` vs `next`, but
+            // for a historical query, `current` is the most sensible interpretation.
+            let account_ids = sets
+                .current
+                .validators
+                .into_iter()
+                .map(|v| v.account_id)
+                .collect();
+            Ok(account_ids)
+        } else {
+            Ok(vec![]) // Validator set not found at this anchor, return empty.
+        }
     }
 }
 

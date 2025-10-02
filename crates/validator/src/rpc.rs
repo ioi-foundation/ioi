@@ -2,7 +2,6 @@
 //! The JSON-RPC server for the Orchestration container, handling public and
 //! internal communication for transaction submission and state queries.
 
-use crate::config::OrchestrationConfig;
 use crate::metrics::rpc_metrics as metrics;
 use anyhow::{anyhow, Result};
 use axum::{
@@ -21,6 +20,7 @@ use depin_sdk_client::WorkloadClient;
 use depin_sdk_network::libp2p::SwarmCommand;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{ApplicationTransaction, ChainTransaction};
+use depin_sdk_types::config::OrchestrationConfig;
 use ipnetwork::IpNetwork;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
