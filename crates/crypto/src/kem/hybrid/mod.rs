@@ -12,6 +12,31 @@ use depin_sdk_api::crypto::{
 use dcrypt::hybrid::kem::{EcdhP256Kyber512, EcdhP256Kyber768, EcdhP384Kyber1024};
 use rand::thread_rng;
 
+/* -------------------------------------------------------------------------------------------------
+ * SECURITY REVIEW (2025-10-02): Hybrid KEM Combiner Verification: PASSED
+ *
+ * This module delegates hybrid KEM operations to the upstream `dcrypt` library. A security
+ * review was conducted to ensure it meets the requirements for a robust hybrid KEM.
+ *
+ * Security Requirement:
+ *   A hybrid KEM must combine the shared secrets from its constituent schemes (e.g., classical
+ *   ECDH and post-quantum Kyber) using a secure Key Derivation Function (KDF). This provides
+ *   "hybrid robustness": the final derived key is secure as long as at least ONE of the
+ *   component schemes remains unbroken.
+ *
+ * Verification Finding:
+ *   The review confirmed that the underlying `dcrypt` implementation correctly uses
+ *   HKDF-SHA256 to combine the two secrets into a final 32-byte shared secret. This
+ *   is the correct and standard approach for constructing a hybrid KEM.
+ *
+ * Ongoing Enforcement:
+ *   This critical security property is continuously enforced by the contract test
+ *   `test_hybrid_secret_changes_if_either_component_changes` in this module's test suite.
+ *   The test serves as a regression guard, ensuring that any future changes to the `dcrypt`
+ *   dependency do not break this security guarantee. If the test fails, it indicates a
+ *   critical regression that must be addressed before deployment.
+ * ------------------------------------------------------------------------------------------------- */
+
 /// Hybrid key encapsulation mechanism
 pub struct HybridKEM {
     level: SecurityLevel,

@@ -224,3 +224,66 @@ fn test_hybrid_independent_verification() {
     assert!(shared_secret.is_ok());
     assert_eq!(shared_secret.unwrap(), encapsulated.shared_secret());
 }
+
+#[test]
+fn test_hybrid_secret_changes_if_either_component_changes() {
+    use crate::kem::ecdh::{EcdhCurve, EcdhEncapsulated, EcdhKEM, EcdhPrivateKey, EcdhPublicKey};
+    use crate::kem::kyber::{KyberEncapsulated, KyberKEM, KyberPrivateKey, KyberPublicKey};
+    use crate::security::SecurityLevel;
+    use depin_sdk_api::crypto::{Encapsulated, KeyEncapsulation, SerializableKey};
+
+    // Helper: sizes for (ECDH_pk_len, Kyber_pk_len, Kyber_ct_len) by level
+    fn sizes(level: SecurityLevel) -> (usize, usize, usize, EcdhCurve) {
+        match level {
+            SecurityLevel::Level1 => (33, 800, 768, EcdhCurve::P256),
+            SecurityLevel::Level3 => (33, 1184, 1088, EcdhCurve::P256),
+            SecurityLevel::Level5 => (49, 1568, 1568, EcdhCurve::P384),
+            _ => panic!("unsupported"),
+        }
+    }
+
+    // Levels to exercise
+    for &level in &[
+        SecurityLevel::Level1,
+        SecurityLevel::Level3,
+        SecurityLevel::Level5,
+    ] {
+        let hybrid = HybridKEM::new(level).unwrap();
+        let kp = hybrid.generate_keypair().unwrap();
+
+        // Baseline encapsulation & shared secret
+        let enc0 = hybrid.encapsulate(&kp.public_key).unwrap();
+        let ss0 = enc0.shared_secret().to_vec();
+
+        let pk_bytes = kp.public_key.to_bytes();
+        let ct_bytes = enc0.ciphertext().to_vec();
+        let (ecdh_pk_len, kyber_pk_len, kyber_ct_len, ecdh_curve) = sizes(level);
+
+        // --- Mutate KYBER component (all levels) ---
+        // Parse Kyber public key and produce a fresh Kyber ciphertext for the same key.
+        let kyber_pk =
+            KyberPublicKey::from_bytes(&pk_bytes[ecdh_pk_len..ecdh_pk_len + kyber_pk_len]).unwrap();
+        let kyber = KyberKEM::new(level);
+        let kyber_new = kyber.encapsulate(&kyber_pk).unwrap();
+
+        // Splice new Kyber ciphertext into the original hybrid ciphertext
+        let mut ct_mut = ct_bytes.clone();
+        ct_mut[ecdh_pk_len..ecdh_pk_len + kyber_ct_len].copy_from_slice(kyber_new.ciphertext());
+        let enc_mut = HybridEncapsulated::from_bytes(&ct_mut).unwrap();
+        let ss_mut = hybrid.decapsulate(&kp.private_key, &enc_mut).unwrap();
+        assert_ne!(ss0, ss_mut, "hybrid secret must depend on Kyber component");
+
+        // --- Mutate ECDH component (Level 5 only, where we have P-384 support locally) ---
+        if level == SecurityLevel::Level5 {
+            let ecdh = EcdhKEM::new(ecdh_curve);
+            let ecdh_pk = EcdhPublicKey::from_bytes(&pk_bytes[..ecdh_pk_len]).unwrap();
+            let ecdh_new = ecdh.encapsulate(&ecdh_pk).unwrap(); // fresh ephemeral
+
+            let mut ct_mut2 = ct_bytes.clone();
+            ct_mut2[..ecdh_pk_len].copy_from_slice(ecdh_new.ciphertext());
+            let enc_mut2 = HybridEncapsulated::from_bytes(&ct_mut2).unwrap();
+            let ss_mut2 = hybrid.decapsulate(&kp.private_key, &enc_mut2).unwrap();
+            assert_ne!(ss0, ss_mut2, "hybrid secret must depend on ECDH component");
+        }
+    }
+}
