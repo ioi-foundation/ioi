@@ -18,8 +18,7 @@ use depin_sdk_transaction_models::system::{nonce, validation};
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{
     account_id_from_key_material, read_validator_sets, to_root_hash, write_validator_sets,
-    AccountId, ChainId, FailureReport, SignatureSuite, StateAnchor, StateRoot, ValidatorSetV1,
-    ValidatorSetsV1,
+    AccountId, ChainId, FailureReport, SignatureSuite, StateRoot, ValidatorSetV1, ValidatorSetsV1,
 };
 use depin_sdk_types::codec;
 use depin_sdk_types::config::ConsensusType;
@@ -39,8 +38,8 @@ pub enum GenesisState {
     Pending,
     /// The genesis block has been successfully loaded and committed.
     Ready {
-        /// The final, canonical 32-byte root hash of the fully initialized genesis state.
-        root: [u8; 32],
+        /// The final, canonical raw root commitment of the fully initialized genesis state.
+        root: Vec<u8>,
         /// The chain ID as loaded from configuration.
         chain_id: ChainId,
     },
@@ -78,9 +77,8 @@ pub struct ChainState<CS: CommitmentScheme + Clone> {
     pub status: ChainStatus,
     pub recent_blocks: Vec<Block<ChainTransaction>>,
     pub max_recent_blocks: usize,
-    /// Last committed state root. Initialized to the genesis root in `load_or_initialize_status`,
-    /// then updated after every successful block commit.
-    pub last_state_root: [u8; 32],
+    /// Last committed state root (raw bytes).
+    pub last_state_root: Vec<u8>,
     pub genesis_state: GenesisState,
 }
 
@@ -182,7 +180,7 @@ where
             status,
             recent_blocks: Vec::new(),
             max_recent_blocks: 100,
-            last_state_root: [0u8; 32],
+            last_state_root: Vec::new(),
             genesis_state: GenesisState::Pending,
         };
 
@@ -207,9 +205,9 @@ where
                     codec::from_bytes_canonical(&status_bytes).map_err(ChainError::Transaction)?;
                 tracing::info!(target: "chain", event = "status_loaded", height = status.height);
                 self.state.status = status;
-                let root = to_root_hash(state.root_commitment())?;
+                let root = state.root_commitment().as_ref().to_vec();
                 self.state.genesis_state = GenesisState::Ready {
-                    root,
+                    root: root.clone(),
                     chain_id: self.state.chain_id,
                 };
                 self.state.last_state_root = root;
@@ -247,7 +245,7 @@ where
                 state.commit_version(0)?;
                 tracing::debug!(target: "chain", "[Chain] Committed genesis state including status key.");
 
-                let final_root = to_root_hash(state.root_commitment().as_ref())?;
+                let final_root = state.root_commitment().as_ref().to_vec();
                 let root_commitment_for_check = state.commitment_from_bytes(&final_root)?;
 
                 let (membership, _proof) =
@@ -269,7 +267,7 @@ where
                 }
 
                 self.state.genesis_state = GenesisState::Ready {
-                    root: final_root,
+                    root: final_root.clone(),
                     chain_id: self.state.chain_id,
                 };
                 self.state.last_state_root = final_root;
@@ -281,7 +279,7 @@ where
             tracing::info!(
                 target: "chain",
                 event = "genesis_ready",
-                root = hex::encode(root.as_ref())
+                root = hex::encode(root)
             );
         };
         Ok(())
@@ -324,8 +322,7 @@ where
 pub struct ChainStateView<ST: StateManager> {
     state_tree: Arc<tokio::sync::RwLock<ST>>,
     height: u64,
-    anchor: StateAnchor,
-    resolved_root_bytes: Option<Vec<u8>>,
+    root: Vec<u8>,
 }
 
 #[async_trait]
@@ -334,8 +331,8 @@ impl<ST: StateManager + Send + Sync + 'static> RemoteStateView for ChainStateVie
         self.height
     }
 
-    fn state_root(&self) -> [u8; 32] {
-        self.anchor.0
+    fn state_root(&self) -> &[u8] {
+        &self.root
     }
 
     async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, ChainError> {
@@ -343,36 +340,22 @@ impl<ST: StateManager + Send + Sync + 'static> RemoteStateView for ChainStateVie
         let state = self.state_tree.read().await;
         let key_hex = hex::encode(key);
 
-        if let Some(root_bytes) = self.resolved_root_bytes.as_ref() {
-            let commitment = state.commitment_from_bytes(root_bytes)?;
-
-            let (membership, _proof) = state.get_with_proof_at(&commitment, key)?;
-
-            let present = matches!(membership, Membership::Present(_));
-            tracing::info!(
-                target: "state",
-                event = "view_get",
-                key = key_hex,
-                root = hex::encode(root_bytes),
-                present,
-                mode = "anchored",
-            );
-
-            Ok(match membership {
-                Membership::Present(bytes) => Some(bytes),
-                _ => None,
-            })
-        } else {
-            let out = state.get(key).map_err(ChainError::State)?;
-            tracing::info!(
-                target: "state",
-                event = "view_get",
-                key = key_hex,
-                present = out.is_some(),
-                mode = "fast",
-            );
-            Ok(out)
-        }
+        // This view is always anchored, so we use the proof-based path.
+        let commitment = state.commitment_from_bytes(&self.root)?;
+        let (membership, _proof) = state.get_with_proof_at(&commitment, key)?;
+        let present = matches!(membership, Membership::Present(_));
+        tracing::info!(
+            target: "state",
+            event = "view_get",
+            key = key_hex,
+            root = hex::encode(&self.root),
+            present,
+            mode = "anchored",
+        );
+        Ok(match membership {
+            Membership::Present(bytes) => Some(bytes),
+            _ => None,
+        })
     }
 }
 
@@ -388,45 +371,41 @@ where
         &self,
         state_ref: &StateRef,
     ) -> Result<Arc<dyn AnchoredStateView>, ChainError> {
-        let anchor = StateAnchor(state_ref.state_root);
-        let resolved_root_bytes = if state_ref.state_root == [0u8; 32] {
-            None
+        let resolved_root_bytes = if state_ref.state_root.is_empty() {
+            return Err(ChainError::UnknownStateAnchor(
+                "Cannot create view for empty state root".to_string(),
+            ));
         } else if self.state.last_state_root == state_ref.state_root {
-            Some(self.state.last_state_root.to_vec())
+            Some(self.state.last_state_root.clone())
         } else {
-            let bytes = self.state.recent_blocks.iter().rev().find_map(|b| {
-                if let Ok(block_anchor) = StateRoot(b.header.state_root.0.clone()).to_anchor() {
-                    if block_anchor == anchor {
-                        tracing::info!(
-                            target: "state",
-                            event = "view_at_resolve",
-                            anchor = hex::encode(anchor.as_ref()),
-                            height = b.header.height,
-                            root = hex::encode(b.header.state_root.0.clone())
-                        );
-                        return Some(b.header.state_root.0.clone());
-                    }
+            self.state.recent_blocks.iter().rev().find_map(|b| {
+                if b.header.state_root.as_ref() == state_ref.state_root {
+                    tracing::info!(
+                        target: "state",
+                        event = "view_at_resolve",
+                        height = b.header.height,
+                        root = hex::encode(b.header.state_root.as_ref())
+                    );
+                    Some(b.header.state_root.0.clone())
+                } else {
+                    None
                 }
-                None
-            });
-            if bytes.is_none() {
-                return Err(ChainError::UnknownStateAnchor(hex::encode(anchor.as_ref())));
-            }
-            bytes
+            })
         };
+
+        let root = resolved_root_bytes
+            .ok_or_else(|| ChainError::UnknownStateAnchor(hex::encode(&state_ref.state_root)))?;
 
         tracing::info!(
             target: "state",
             event = "view_at_resolved",
-            anchor = hex::encode(anchor.as_ref()),
-            resolved_root = resolved_root_bytes.as_ref().map(hex::encode).unwrap_or_else(|| "LATEST".to_string())
+            root = hex::encode(&root)
         );
 
         let view = ChainStateView {
             state_tree: self.workload_container.state_tree(),
             height: state_ref.height,
-            anchor,
-            resolved_root_bytes,
+            root,
         };
         Ok(Arc::new(view))
     }
@@ -525,7 +504,7 @@ where
         Ok(PreparedBlock {
             block,
             state_changes: Arc::new(state_changes),
-            parent_state_root: self.state.last_state_root,
+            parent_state_root: self.state.last_state_root.clone(),
             transactions_root,
             validator_set_hash,
         })
@@ -701,7 +680,7 @@ where
         };
 
         block.header.state_root = StateRoot(final_state_root_bytes.clone());
-        self.state.last_state_root = to_root_hash(final_state_root_bytes)?;
+        self.state.last_state_root = final_state_root_bytes;
 
         let anchor = StateRoot(block.header.state_root.0.clone())
             .to_anchor()
@@ -733,18 +712,20 @@ where
         let height = self.state.status.height + 1;
         let (parent_hash_vec, parent_state_root) = self.state.recent_blocks.last().map_or_else(
             || {
-                (
-                    [0u8; 32].to_vec(),
-                    StateRoot(self.state.last_state_root.to_vec()),
-                )
+                let parent_hash =
+                    to_root_hash(&self.state.last_state_root).map_err(ChainError::State)?;
+                Ok((
+                    parent_hash.to_vec(),
+                    StateRoot(self.state.last_state_root.clone()),
+                ))
             },
-            |b| {
-                (
+            |b| -> Result<_, ChainError> {
+                Ok((
                     b.header.hash().unwrap_or(vec![0; 32]),
                     b.header.state_root.clone(),
-                )
+                ))
             },
-        );
+        )?;
 
         let parent_hash: [u8; 32] = parent_hash_vec.try_into().map_err(|_| {
             ChainError::Block(BlockError::Hash("Parent hash was not 32 bytes".into()))

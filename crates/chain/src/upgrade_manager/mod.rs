@@ -1,6 +1,5 @@
 // Path: crates/chain/src/upgrade_manager/mod.rs
 
-use depin_sdk_api::error::StateError;
 use depin_sdk_api::services::{ServiceType, UpgradableService};
 use depin_sdk_api::state::StateAccessor;
 use depin_sdk_types::error::CoreError;

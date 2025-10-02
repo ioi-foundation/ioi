@@ -15,7 +15,7 @@ use tokio::sync::Mutex;
 
 /// A concrete implementation of an anchored, proof-verifying remote state view.
 pub struct DefaultAnchoredStateView<V: Verifier> {
-    anchor: StateAnchor,
+    _anchor: StateAnchor,
     root: StateRoot,
     client: Arc<WorkloadClient>,
     verifier: V,
@@ -24,14 +24,14 @@ pub struct DefaultAnchoredStateView<V: Verifier> {
 
 impl<V: Verifier> DefaultAnchoredStateView<V> {
     pub fn new(
-        anchor: StateAnchor,
+        _anchor: StateAnchor,
         root: StateRoot,
         client: Arc<WorkloadClient>,
         verifier: V,
         proof_cache: Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>,
     ) -> Self {
         Self {
-            anchor,
+            _anchor,
             root,
             client,
             verifier,
@@ -52,8 +52,8 @@ where
         0
     }
 
-    fn state_root(&self) -> [u8; 32] {
-        self.anchor.0
+    fn state_root(&self) -> &[u8] {
+        self.root.as_ref()
     }
 
     async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, ChainError> {
@@ -78,6 +78,7 @@ where
         let proof: V::Proof = codec::from_bytes_canonical(&response.proof_bytes)
             .map_err(|e| ChainError::State(StateError::InvalidValue(e)))?;
 
+        // FIX: Verify against the raw `self.root`, not the anchor.
         let root_commitment = self
             .verifier
             .commitment_from_bytes(self.root.as_ref())
@@ -89,7 +90,7 @@ where
         {
             log::error!(
                 "CRITICAL: Proof verification failed for remote state read. Root: {}, Key Prefix: {}, Error: {}",
-                hex::encode(&self.root.as_ref().get(..16).unwrap_or_default()),
+                hex::encode(&self.root.as_ref()), // Log the full raw root
                 hex::encode(&key.get(..key.len().min(16)).unwrap_or_default()),
                 e
             );
@@ -108,10 +109,7 @@ where
         }
 
         let result = response.membership.into_option();
-        self.proof_cache
-            .lock()
-            .await
-            .put(cache_key, result.clone());
+        self.proof_cache.lock().await.put(cache_key, result.clone());
         Ok(result)
     }
 }

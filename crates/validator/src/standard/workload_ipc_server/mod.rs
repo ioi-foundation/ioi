@@ -36,13 +36,11 @@ use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::{
-    io::AsyncReadExt,
-    sync::{Mutex, Semaphore},
-    time::interval,
-};
+use tokio::io::AsyncReadExt;
+use tokio::sync::{Mutex, Semaphore};
+use tokio::time::interval;
 use tokio_rustls::{
-    rustls::{pki_types::PrivateKeyDer, RootCertStore, ServerConfig},
+    rustls::{RootCertStore, ServerConfig},
     TlsAcceptor,
 };
 

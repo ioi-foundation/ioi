@@ -175,10 +175,10 @@ impl GovernanceModule {
 
         let key = Self::proposal_key(id);
         let entry = StateEntry {
-            value: depin_sdk_types::codec::to_bytes_canonical(&proposal).map_err(|e| e)?,
+            value: depin_sdk_types::codec::to_bytes_canonical(&proposal)?,
             block_height: current_height,
         };
-        let value_bytes = depin_sdk_types::codec::to_bytes_canonical(&entry).map_err(|e| e)?;
+        let value_bytes = depin_sdk_types::codec::to_bytes_canonical(&entry)?;
         state
             .insert(&key, &value_bytes)
             .map_err(|e| e.to_string())?;
@@ -218,7 +218,7 @@ impl GovernanceModule {
 
         // In a real implementation, we would check the voter's voting power (stake).
         let vote_key = Self::vote_key(proposal_id, voter);
-        let vote_bytes = depin_sdk_types::codec::to_bytes_canonical(&option).map_err(|e| e)?;
+        let vote_bytes = depin_sdk_types::codec::to_bytes_canonical(&option)?;
         state
             .insert(&vote_key, &vote_bytes)
             .map_err(|e| e.to_string())?;
@@ -255,11 +255,10 @@ impl GovernanceModule {
             // No one has any stake, so the proposal is rejected by default.
             proposal.status = ProposalStatus::Rejected;
             let updated_entry = StateEntry {
-                value: depin_sdk_types::codec::to_bytes_canonical(&proposal).map_err(|e| e)?,
+                value: depin_sdk_types::codec::to_bytes_canonical(&proposal)?,
                 block_height: entry.block_height,
             };
-            let updated_value_bytes =
-                depin_sdk_types::codec::to_bytes_canonical(&updated_entry).map_err(|e| e)?;
+            let updated_value_bytes = depin_sdk_types::codec::to_bytes_canonical(&updated_entry)?;
             state
                 .insert(&key, &updated_value_bytes)
                 .map_err(|e| e.to_string())?;
@@ -363,11 +362,10 @@ impl GovernanceModule {
         }
 
         let updated_entry = StateEntry {
-            value: depin_sdk_types::codec::to_bytes_canonical(&proposal).map_err(|e| e)?,
+            value: depin_sdk_types::codec::to_bytes_canonical(&proposal)?,
             block_height: entry.block_height,
         };
-        let updated_value_bytes =
-            depin_sdk_types::codec::to_bytes_canonical(&updated_entry).map_err(|e| e)?;
+        let updated_value_bytes = depin_sdk_types::codec::to_bytes_canonical(&updated_entry)?;
         state
             .insert(&key, &updated_value_bytes)
             .map_err(|e| e.to_string())?;
@@ -458,6 +456,9 @@ mod tests {
     }
 
     impl StateManager for MockStateManager {
+        fn commitment_from_anchor(&self, anchor: &[u8; 32]) -> Option<Self::Commitment> {
+            Some(anchor.to_vec())
+        }
         fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
             for (key, value) in updates {
                 StateCommitment::insert(self, key, value)?;

@@ -4,6 +4,7 @@ mod verkle_tests {
     use crate::primitives::kzg::{KZGCommitmentScheme, KZGParams};
     use crate::tree::verkle::proof::{Terminal, VerklePathProof};
     use crate::tree::verkle::verifier::KZGVerifier;
+    use crate::tree::verkle::to_root_hash;
     use crate::tree::verkle::VerkleTree;
     use depin_sdk_api::state::{StateCommitment, StateManager, Verifier};
     use depin_sdk_types::app::Membership;
@@ -190,5 +191,34 @@ mod verkle_tests {
         let (old_mem, old_proof) = tree.get_with_proof_at(&root_v1, key).unwrap();
         assert_eq!(old_mem, Membership::Present(value1.to_vec()));
         assert!(tree.verify_proof(&root_v1, &old_proof, key, value1).is_ok());
+    }
+
+    #[test]
+    fn test_verkle_get_with_proof_at_anchor() {
+        let (mut tree, _scheme) = setup();
+        let key1 = b"key_v1_anchor_test";
+        let value1 = b"value_v1_anchor_test";
+        tree.insert(key1, value1).unwrap();
+        let root_hash_v1 = tree.commit_version(1).unwrap();
+        let commitment_v1 = tree.root_commitment();
+
+        tree.insert(b"another_key", b"another_value").unwrap();
+        tree.commit_version(2).unwrap();
+
+        // 1. Get proof from historical anchor.
+        let (membership_from_anchor, proof_from_anchor) = tree
+            .get_with_proof_at_anchor(&root_hash_v1, key1)
+            .expect("Should get proof from anchor");
+
+        assert_eq!(membership_from_anchor, Membership::Present(value1.to_vec()));
+
+        // 2. Get proof from historical commitment.
+        let (membership_from_commit, proof_from_commit) = tree
+            .get_with_proof_at(&commitment_v1, key1)
+            .expect("Should get proof from commitment");
+
+        // 3. Assert they are identical.
+        assert_eq!(membership_from_anchor, membership_from_commit);
+        assert_eq!(proof_from_anchor.as_ref(), proof_from_commit.as_ref());
     }
 }

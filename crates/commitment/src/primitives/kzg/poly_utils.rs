@@ -41,7 +41,6 @@ impl<'b> Add<&'b Polynomial> for &Polynomial {
     fn add(self, rhs: &'b Polynomial) -> Polynomial {
         let max_len = self.coeffs.len().max(rhs.coeffs.len());
         let mut result_coeffs = Vec::with_capacity(max_len);
-        // --- FIX for E0716: Create a longer-lived binding for the zero scalar ---
         let zero_scalar = Scalar::zero();
         for i in 0..max_len {
             let a = self.coeffs.get(i).unwrap_or(&zero_scalar);
@@ -59,7 +58,6 @@ impl<'b> Sub<&'b Polynomial> for &Polynomial {
     fn sub(self, rhs: &'b Polynomial) -> Polynomial {
         let max_len = self.coeffs.len().max(rhs.coeffs.len());
         let mut result_coeffs = Vec::with_capacity(max_len);
-        // --- FIX for E0716: Create a longer-lived binding for the zero scalar ---
         let zero_scalar = Scalar::zero();
         for i in 0..max_len {
             let a = self.coeffs.get(i).unwrap_or(&zero_scalar);
@@ -81,7 +79,6 @@ impl<'b> Mul<&'b Polynomial> for &Polynomial {
         let mut result = Polynomial::zero(self.coeffs.len() + rhs.coeffs.len() - 2);
         for (i, a) in self.coeffs.iter().enumerate() {
             for (j, b) in rhs.coeffs.iter().enumerate() {
-                // --- FIX: Use .get_mut() to avoid potential panic ---
                 if let Some(res_coeff) = result.coeffs.get_mut(i + j) {
                     *res_coeff += *a * *b;
                 }
@@ -97,7 +94,6 @@ pub fn poly_sub_scalar(poly: &Polynomial, y: Scalar) -> Polynomial {
         return Polynomial { coeffs: vec![-y] };
     }
     let mut result = poly.clone();
-    // --- FIX: Use .get_mut() to avoid potential panic ---
     if let Some(c0) = result.coeffs.get_mut(0) {
         *c0 -= y;
     }
@@ -111,7 +107,6 @@ pub fn poly_div_linear(poly: &Polynomial, z: Scalar) -> Result<Polynomial, Strin
         return Ok(Polynomial { coeffs: vec![] });
     }
     let degree = poly.coeffs.len() - 1;
-    // --- FIX: Use .get() to avoid potential panic ---
     if degree == 0 && poly.coeffs.get(0) == Some(&Scalar::zero()) {
         return Ok(Polynomial { coeffs: vec![] });
     }
@@ -119,20 +114,17 @@ pub fn poly_div_linear(poly: &Polynomial, z: Scalar) -> Result<Polynomial, Strin
 
     let mut last = Scalar::zero();
     for i in (0..=degree).rev() {
-        // --- FIX: Use .get() to avoid potential panic ---
         let poly_coeff = poly
             .coeffs
             .get(i)
             .ok_or_else(|| format!("poly_div_linear: index {} out of bounds for poly", i))?;
         let coeff = *poly_coeff + last;
         if i > 0 {
-            // --- FIX: Use .get_mut() to avoid potential panic ---
             if let Some(quot_coeff) = quotient_coeffs.get_mut(i - 1) {
                 *quot_coeff = coeff;
             }
         } else {
             // The remainder should be zero
-            // --- FIX for E0599: Compare with Scalar::zero() directly ---
             if coeff != Scalar::zero() {
                 return Err("Polynomial division had a non-zero remainder.".into());
             }

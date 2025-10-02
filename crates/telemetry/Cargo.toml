@@ -21,5 +21,5 @@ tracing-subscriber = { workspace = true, features = [
     "json",
 ] }
 tracing-log = { workspace = true }
-anyhow = { workspace = true } # Added this line to resolve the compile error
+anyhow = { workspace = true }
 # REMOVED: depin-sdk-storage and depin-sdk-network are no longer needed here.
