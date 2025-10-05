@@ -55,7 +55,7 @@ fn add_poa_identity_to_genesis(
     // C. Set the ActiveKeyRecord for consensus verification
     let record = ActiveKeyRecord {
         suite,
-        pubkey_hash: account_id_hash,
+        public_key_hash: account_id_hash,
         since_height: 0,
     };
     let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
@@ -145,7 +145,7 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
                 weight: 1,
                 consensus_key: ActiveKeyRecord {
                     suite: SignatureSuite::Ed25519,
-                    pubkey_hash: account_id.0,
+                    public_key_hash: account_id.0,
                     since_height: 0,
                 },
             })
@@ -213,7 +213,7 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
         genesis_json.clone(),
         17656,
         1.into(),
-        bootstrap.as_ref(),
+        bootstrap.as_ref().map(|a| std::slice::from_ref(a)),
         "ProofOfAuthority",
         "IAVL",
         "Hash",
@@ -229,7 +229,7 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
         genesis_json.clone(),
         20442,
         1.into(),
-        bootstrap.as_ref(),
+        bootstrap.as_ref().map(|a| std::slice::from_ref(a)),
         "ProofOfAuthority",
         "IAVL",
         "Hash",
@@ -280,7 +280,7 @@ async fn test_mismatched_model_quarantine() -> Result<()> {
                         weight: 1,
                         consensus_key: ActiveKeyRecord {
                             suite: SignatureSuite::Ed25519,
-                            pubkey_hash: authority_id.0,
+                            public_key_hash: authority_id.0,
                             since_height: 0,
                         },
                     }],

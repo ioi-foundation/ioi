@@ -106,7 +106,7 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                         weight: initial_stake,
                         consensus_key: ActiveKeyRecord {
                             suite: SignatureSuite::Ed25519,
-                            pubkey_hash: account_hash,
+                            public_key_hash: account_hash,
                             since_height: 0,
                         },
                     }
@@ -125,7 +125,7 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
             let vs_bytes = depin_sdk_types::app::write_validator_sets(&validator_sets).unwrap();
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
             );
 
             // Populate identity records for all validators
@@ -157,7 +157,7 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                 // Add ActiveKeyRecord for consensus
                 let record = ActiveKeyRecord {
                     suite,
-                    pubkey_hash: account_id_hash,
+                    public_key_hash: account_id_hash,
                     since_height: 0,
                 };
                 let record_key = [b"identity::key_record::", account_id.as_ref()].concat();

@@ -7,10 +7,13 @@
 ))]
 
 use anyhow::Result;
+use axum::{routing::get, Router, Server};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-// [+] NEW: Import the new polling helper
-use depin_sdk_forge::testing::poll::{wait_for_height, wait_for_oracle_data};
-use depin_sdk_forge::testing::{build_test_artifacts, submit_transaction, TestCluster};
+use depin_sdk_forge::testing::{
+    build_test_artifacts,
+    poll::{wait_for_height, wait_for_oracle_data},
+    submit_transaction, TestCluster,
+};
 use depin_sdk_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
@@ -24,13 +27,11 @@ use depin_sdk_types::{
 };
 use libp2p::identity::Keypair;
 use serde_json::json;
+use std::net::SocketAddr;
 use tokio::task::JoinHandle;
 
 // --- Simple local HTTP stub so the oracle has a deterministic, offline source ---
 async fn start_local_price_stub() -> (String, JoinHandle<()>) {
-    use axum::{routing::get, Router, Server};
-    use std::net::SocketAddr;
-
     async fn price() -> &'static str {
         // Shape roughly mirrors the CoinGecko response used by the oracle.
         r#"{"bitcoin":{"usd":42000}}"#

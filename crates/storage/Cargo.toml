@@ -9,6 +9,7 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 depin-sdk-api = { path = "../api" }
 depin-sdk-telemetry = { path = "../telemetry" }
+depin-sdk-types = { path = "../types" }
 once_cell = { workspace = true }
 redb = "1.4.1"
 ahash = { workspace = true }

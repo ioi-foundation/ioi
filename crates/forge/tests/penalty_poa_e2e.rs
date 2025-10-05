@@ -104,7 +104,7 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
                         weight: 1, // PoA
                         consensus_key: ActiveKeyRecord {
                             suite: SignatureSuite::Ed25519,
-                            pubkey_hash: pk_hash,
+                            public_key_hash: pk_hash,
                             since_height: 0,
                         },
                     }
@@ -149,7 +149,7 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
                 let record = ActiveKeyRecord {
                     suite,
                     // This equals *acct_id* by construction; using the derived value keeps it explicit.
-                    pubkey_hash: account_id_from_key_material(suite, pk_bytes).unwrap(),
+                    public_key_hash: account_id_from_key_material(suite, pk_bytes).unwrap(),
                     since_height: 0, // Active from genesis
                 };
                 let record_key = [b"identity::key_record::", acct_id.as_ref()].concat();

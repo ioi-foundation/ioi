@@ -105,7 +105,7 @@ impl IdentityHub {
         {
             v.consensus_key = ActiveKeyRecord {
                 suite: new_suite,
-                pubkey_hash: new_pubkey_hash,
+                public_key_hash: new_pubkey_hash,
                 since_height: target_activation,
             };
             log::info!(

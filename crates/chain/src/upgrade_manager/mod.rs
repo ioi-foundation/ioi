@@ -51,7 +51,12 @@ impl ModuleUpgradeManager {
     }
 
     pub fn all_services(&self) -> Vec<Arc<dyn UpgradableService>> {
-        self.active_services.values().cloned().collect()
+        let mut keys: Vec<_> = self.active_services.keys().cloned().collect();
+        // Sort keys to ensure deterministic iteration order for genesis state creation.
+        keys.sort();
+        keys.into_iter()
+            .filter_map(|k| self.active_services.get(&k).cloned())
+            .collect()
     }
 
     pub fn get_service_as<T: Any>(&self) -> Option<&T> {

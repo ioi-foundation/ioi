@@ -23,7 +23,8 @@ pub async fn handle_connection_established<CS, ST, CE, V>(
         + Send
         + Sync
         + 'static
-        + Debug,
+        + Debug
+        + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
@@ -49,7 +50,8 @@ pub async fn handle_connection_closed<CS, ST, CE, V>(
         + Send
         + Sync
         + 'static
-        + Debug,
+        + Debug
+        + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,

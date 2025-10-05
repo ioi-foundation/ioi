@@ -108,7 +108,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                             weight: 1_000_000,
                             consensus_key: ActiveKeyRecord {
                                 suite,
-                                pubkey_hash: validator_account_id_hash,
+                                public_key_hash: validator_account_id_hash,
                                 since_height: 0,
                             },
                         }],
@@ -180,7 +180,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
 
                 let record = ActiveKeyRecord {
                     suite,
-                    pubkey_hash: acct_id.0,
+                    public_key_hash: acct_id.0,
                     since_height: 0,
                 };
                 let record_key = [b"identity::key_record::", acct_id.as_ref()].concat();

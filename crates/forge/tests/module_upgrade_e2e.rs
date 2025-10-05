@@ -162,7 +162,7 @@ async fn test_forkless_module_upgrade() -> Result<()> {
                             weight: 1,
                             consensus_key: ActiveKeyRecord {
                                 suite,
-                                pubkey_hash: validator_account_id.0,
+                                public_key_hash: validator_account_id.0,
                                 since_height: 0,
                             },
                         }],
@@ -207,7 +207,7 @@ async fn test_forkless_module_upgrade() -> Result<()> {
 
                 let record = ActiveKeyRecord {
                     suite,
-                    pubkey_hash: acct_id.0,
+                    public_key_hash: acct_id.0,
                     since_height: 0,
                 };
                 let record_key = [b"identity::key_record::", acct_id.as_ref()].concat();

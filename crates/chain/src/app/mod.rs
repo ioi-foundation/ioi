@@ -693,6 +693,17 @@ where
             anchor = hex::encode(anchor.as_ref())
         );
 
+        // Persist the full block to durable storage
+        let block_bytes = codec::to_bytes_canonical(&block)
+            .map_err(|e| ChainError::Transaction(e.to_string()))?;
+        workload
+            .store
+            .put_block(block.header.height, &block_bytes)
+            .map_err(|e| {
+                // Explicitly map StorageError to ChainError
+                ChainError::State(StateError::Backend(e.to_string()))
+            })?;
+
         if self.state.recent_blocks.len() >= self.state.max_recent_blocks {
             self.state.recent_blocks.remove(0);
         }

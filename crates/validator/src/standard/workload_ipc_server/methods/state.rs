@@ -6,7 +6,6 @@ use anyhow::{anyhow, Result};
 use depin_sdk_api::{commitment::CommitmentScheme, state::StateManager};
 use depin_sdk_types::app::{AccountId, ActiveKeyRecord, Membership, StateAnchor, StateRoot};
 use depin_sdk_types::codec; // Import the canonical codec
-use ipc_protocol::jsonrpc::JsonRpcError;
 use serde::{Deserialize, Serialize};
 use std::{any::Any, marker::PhantomData, sync::Arc};
 

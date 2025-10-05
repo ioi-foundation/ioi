@@ -1,8 +1,5 @@
 // Path: crates/forge/src/testing/poll.rs
 
-use super::rpc::{
-    get_chain_height, get_contract_code, get_evidence_set, get_quarantined_set, query_state_key,
-};
 use anyhow::{anyhow, Result};
 use depin_sdk_api::consensus::ChainStateReader;
 use depin_sdk_client::WorkloadClient;
@@ -14,6 +11,9 @@ use depin_sdk_types::{
 use std::future::Future;
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
+
+use super::rpc::{get_chain_height, get_quarantined_set, query_state_key};
+use crate::testing::rpc::get_contract_code;
 
 /// Generic polling function that waits for an async condition to be met.
 pub async fn wait_for<F, Fut, T>(
@@ -84,7 +84,7 @@ pub async fn wait_for_stake_to_be(
             let stakes = client
                 .get_next_staked_validators()
                 .await
-                .map_err(|e| anyhow!(e))?;
+                .map_err(|e: String| anyhow!(e))?;
             let current_stake = stakes.get(staker_account_id).copied().unwrap_or(0);
             if current_stake == target_stake {
                 Ok(Some(()))
@@ -195,7 +195,7 @@ pub async fn wait_for_evidence(
         Duration::from_millis(500),
         timeout,
         || async move {
-            let set = get_evidence_set(rpc_addr).await?;
+            let set = super::rpc::get_evidence_set(rpc_addr).await?;
             if set.contains(evidence_id) {
                 Ok(Some(()))
             } else {

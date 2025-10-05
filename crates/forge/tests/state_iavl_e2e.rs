@@ -71,7 +71,7 @@ async fn test_iavl_tree_e2e() -> Result<()> {
                     weight: 1,
                     consensus_key: ActiveKeyRecord {
                         suite: SignatureSuite::Ed25519,
-                        pubkey_hash: acct_hash,
+                        public_key_hash: acct_hash,
                         since_height: 0,
                     },
                 }],
@@ -93,7 +93,7 @@ async fn test_iavl_tree_e2e() -> Result<()> {
             // 2) ActiveKeyRecord for the authority (helps PoA checks)
             let record = ActiveKeyRecord {
                 suite,
-                pubkey_hash: acct.0,
+                public_key_hash: acct.0,
                 since_height: 0,
             };
             let record_key = [b"identity::key_record::", acct.as_ref()].concat();

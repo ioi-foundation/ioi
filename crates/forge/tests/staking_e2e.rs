@@ -95,7 +95,7 @@ async fn test_staking_lifecycle() -> Result<()> {
                         weight: initial_stake,
                         consensus_key: ActiveKeyRecord {
                             suite: SignatureSuite::Ed25519,
-                            pubkey_hash: account_id_hash,
+                            public_key_hash: account_id_hash,
                             since_height: 0,
                         },
                     }
@@ -134,7 +134,7 @@ async fn test_staking_lifecycle() -> Result<()> {
 
                 let record = ActiveKeyRecord {
                     suite,
-                    pubkey_hash,
+                    public_key_hash: pubkey_hash,
                     since_height: 0,
                 };
                 let record_key = [b"identity::key_record::", account_id.as_ref()].concat();

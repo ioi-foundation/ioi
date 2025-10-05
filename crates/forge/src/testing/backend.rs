@@ -12,6 +12,7 @@ use bollard::Docker;
 use depin_sdk_validator::common::generate_certificates_if_needed;
 use futures_util::stream::{self, Stream, StreamExt};
 use libp2p::Multiaddr;
+use std::any::Any;
 use std::io;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -39,6 +40,9 @@ pub trait TestBackend: Send {
 
     /// Cleans up all resources (processes, containers, temp files).
     async fn cleanup(&mut self) -> Result<()>;
+
+    /// Provides access to the concrete backend type for downcasting.
+    fn as_any(&self) -> &dyn Any;
 }
 
 // --- ProcessBackend Implementation ---
@@ -48,6 +52,8 @@ pub struct ProcessBackend {
     pub guardian_process: Option<Child>,
     pub rpc_addr: String,
     pub p2p_addr: Multiaddr,
+    pub orchestration_telemetry_addr: Option<String>,
+    pub workload_telemetry_addr: Option<String>,
 }
 
 impl ProcessBackend {
@@ -58,6 +64,8 @@ impl ProcessBackend {
             guardian_process: None,
             rpc_addr,
             p2p_addr,
+            orchestration_telemetry_addr: None,
+            workload_telemetry_addr: None,
         }
     }
 }
@@ -134,6 +142,10 @@ impl TestBackend for ProcessBackend {
         }
         Ok(())
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 // --- DockerBackend Implementation ---
@@ -192,11 +204,11 @@ impl DockerBackend {
         })
     }
 
-    async fn launch_container<'a>(
+    async fn launch_container(
         &mut self,
         name: &str,
-        cmd: Vec<&'a str>,
-        env: Vec<&'a str>,
+        cmd: Vec<String>,
+        env: Vec<String>,
         binds: Vec<String>,
     ) -> Result<()> {
         let options = Some(CreateContainerOptions {
@@ -208,10 +220,15 @@ impl DockerBackend {
             binds: Some(binds),
             ..Default::default()
         };
+
+        // Create Vec<&str> from owned Vec<String> just before use.
+        let cmd_strs: Vec<&str> = cmd.iter().map(|s| s.as_str()).collect();
+        let env_strs: Vec<&str> = env.iter().map(|s| s.as_str()).collect();
+
         let config: Config<&str> = Config {
             image: Some(DOCKER_IMAGE_TAG),
-            cmd: Some(cmd),
-            env: Some(env),
+            cmd: Some(cmd_strs),
+            env: Some(env_strs),
             host_config: Some(host_config),
             ..Default::default()
         };
@@ -269,38 +286,45 @@ impl TestBackend for DockerBackend {
             guardian_binds.push(format!("{}:/models", model_dir));
 
             let guardian_cmd = vec![
-                "guardian",
-                "--config-dir",
-                container_data_dir,
-                "--agentic-model-path",
-                &container_model_path,
+                "guardian".to_string(),
+                "--config-dir".to_string(),
+                container_data_dir.to_string(),
+                "--agentic-model-path".to_string(),
+                container_model_path,
             ];
 
-            let guardian_env: Vec<&str> = vec![&certs_env_str]; // Use the String's slice
+            let guardian_env: Vec<String> = vec![certs_env_str.clone()];
             self.launch_container("guardian", guardian_cmd, guardian_env, guardian_binds)
                 .await?;
         }
 
-        let workload_cmd = vec!["workload", "--config", container_workload_config];
-        let mut workload_env = vec!["IPC_SERVER_ADDR=0.0.0.0:8555", &certs_env_str];
+        let workload_cmd = vec![
+            "workload".to_string(),
+            "--config".to_string(),
+            container_workload_config.to_string(),
+        ];
+        let mut workload_env = vec![
+            "IPC_SERVER_ADDR=0.0.0.0:8555".to_string(),
+            certs_env_str.clone(),
+        ];
         if self.agentic_model_path.is_some() {
-            workload_env.push(&guardian_addr_env_str);
+            workload_env.push(guardian_addr_env_str.clone());
         }
         self.launch_container("workload", workload_cmd, workload_env, base_binds.clone())
             .await?;
 
         let orch_cmd = vec![
-            "orchestration",
-            "--config",
-            container_orch_config,
-            "--identity-key-file",
-            container_identity_key,
-            "--listen-address",
-            "/ip4/0.0.0.0/tcp/9000",
+            "orchestration".to_string(),
+            "--config".to_string(),
+            container_orch_config.to_string(),
+            "--identity-key-file".to_string(),
+            container_identity_key.to_string(),
+            "--listen-address".to_string(),
+            "/ip4/0.0.0.0/tcp/9000".to_string(),
         ];
-        let mut orch_env: Vec<&str> = vec![&workload_addr_env_str, &certs_env_str];
+        let mut orch_env: Vec<String> = vec![workload_addr_env_str.clone(), certs_env_str.clone()];
         if self.agentic_model_path.is_some() {
-            orch_env.push(&guardian_addr_env_str);
+            orch_env.push(guardian_addr_env_str.clone());
         }
         self.launch_container("orchestration", orch_cmd, orch_env, base_binds)
             .await?;
@@ -402,5 +426,9 @@ impl TestBackend for DockerBackend {
 
         self.docker.remove_network(&self.network_id).await?;
         Ok(())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

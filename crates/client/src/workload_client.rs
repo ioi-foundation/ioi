@@ -25,6 +25,13 @@ use tokio::time::sleep;
 // --- Structs for RPC method parameters and results ---
 
 #[derive(Serialize)]
+struct GetBlocksRangeParams {
+    since: u64,
+    max_blocks: u32,
+    max_bytes: u32,
+}
+
+#[derive(Serialize)]
 struct CheckTransactionsParams {
     anchor: StateAnchor,
     txs: Vec<ChainTransaction>,
@@ -122,8 +129,10 @@ impl WorkloadClient {
         let channel = SecurityChannel::new("orchestration", "workload");
 
         let mut attempts = 0;
-        let max_attempts = 5;
-        let retry_delay = Duration::from_secs(2);
+        // Increase attempts for CI environments where startup can be slower.
+        let max_attempts = 10;
+        // Start with a shorter delay and use exponential backoff.
+        let mut retry_delay = Duration::from_millis(500);
 
         loop {
             attempts += 1;
@@ -138,11 +147,31 @@ impl WorkloadClient {
                 .await
             {
                 Ok(_) => {
-                    log::info!(
-                        "Successfully connected test client to Workload container at {}",
-                        workload_addr
-                    );
-                    break;
+                    // **IPC Readiness Probe**: After establishing a TLS connection,
+                    // send a lightweight RPC request to ensure the server is fully
+                    // initialized and ready to handle requests. This prevents race
+                    // conditions where the TCP port is open but the server logic isn't ready.
+                    sleep(Duration::from_millis(100)).await;
+
+                    // Create a temporary client instance for the probe.
+                    let temp_client = Self {
+                        channel: channel.clone(),
+                        workload_addr: workload_addr.to_string(),
+                        request_id: Arc::new(AtomicI64::new(0)),
+                        rpc_lock: Arc::new(AsyncMutex::new(())),
+                    };
+
+                    if temp_client.get_status().await.is_ok() {
+                        log::info!(
+                            "Successfully connected and verified IPC with Workload container at {}",
+                            workload_addr
+                        );
+                        break; // Connection is fully established and responsive.
+                    } else {
+                        // Connection established but server not yet responsive.
+                        // The channel will be dropped, and we will retry.
+                        log::warn!("Workload IPC established but not responsive. Retrying connection...");
+                    }
                 }
                 Err(e) => {
                     if attempts >= max_attempts {
@@ -150,6 +179,8 @@ impl WorkloadClient {
                     }
                     log::warn!("Attempt {}/{} to connect to Workload container failed: {}. Retrying in {:?}...", attempts, max_attempts, e, retry_delay);
                     sleep(retry_delay).await;
+                    // Exponential backoff with a cap to prevent excessively long waits.
+                    retry_delay = (retry_delay * 2).min(Duration::from_secs(5));
                 }
             }
         }
@@ -203,6 +234,20 @@ impl WorkloadClient {
         block: Block<ChainTransaction>,
     ) -> Result<(Block<ChainTransaction>, Vec<Vec<u8>>)> {
         self.send_rpc("chain.processBlock.v1", block).await
+    }
+
+    pub async fn get_blocks_range(
+        &self,
+        since: u64,
+        max_blocks: u32,
+        max_bytes: u32,
+    ) -> Result<Vec<Block<ChainTransaction>>> {
+        let params = GetBlocksRangeParams {
+            since,
+            max_blocks,
+            max_bytes,
+        };
+        self.send_rpc("chain.getBlocksRange.v1", params).await
     }
 
     pub async fn get_status(&self) -> Result<ChainStatus> {

@@ -4,13 +4,16 @@
 
 use crate::traits::{BlockSync, NodeState, SyncError};
 use async_trait::async_trait;
-use depin_sdk_types::app::{Block, ChainTransaction};
+use depin_sdk_types::app::{Block, ChainId, ChainTransaction};
+use depin_sdk_types::codec;
 use futures::io::{AsyncRead, AsyncWrite};
 use libp2p::{
     core::upgrade::{read_length_prefixed, write_length_prefixed},
     request_response::Codec,
     PeerId,
 };
+// [+] ADD these imports
+use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, sync::Arc};
 use tokio::sync::Mutex;
@@ -19,17 +22,28 @@ use super::{Libp2pSync, SwarmCommand};
 
 // --- Block Sync Protocol Definitions ---
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+// [+] ADD all the derive macros here
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub enum SyncRequest {
     GetStatus,
-    GetBlocks(u64),
+    GetBlocks {
+        since: u64,
+        max_blocks: u32,
+        max_bytes: u32,
+    },
     // [NEW] Add a variant to carry a agentic prompt to a peer.
     AgenticPrompt(String),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+// [+] ADD all the derive macros here
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub enum SyncResponse {
-    Status(u64),
+    Status {
+        height: u64,
+        head_hash: [u8; 32],
+        chain_id: ChainId,
+        genesis_root: Vec<u8>,
+    },
     Blocks(Vec<Block<ChainTransaction>>),
     // [NEW] Add a simple acknowledgement for agentic prompts.
     AgenticAck,
@@ -50,7 +64,7 @@ impl Codec for SyncCodec {
         io: &mut T,
     ) -> std::io::Result<Self::Request> {
         let vec = read_length_prefixed(io, 1_000_000).await?;
-        serde_json::from_slice(&vec)
+        codec::from_bytes_canonical(&vec)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
     async fn read_response<T: AsyncRead + Unpin + Send>(
@@ -59,7 +73,7 @@ impl Codec for SyncCodec {
         io: &mut T,
     ) -> std::io::Result<Self::Response> {
         let vec = read_length_prefixed(io, 10_000_000).await?;
-        serde_json::from_slice(&vec)
+        codec::from_bytes_canonical(&vec)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
     async fn write_request<T: AsyncWrite + Unpin + Send>(
@@ -68,7 +82,8 @@ impl Codec for SyncCodec {
         io: &mut T,
         req: Self::Request,
     ) -> std::io::Result<()> {
-        let vec = serde_json::to_vec(&req)?;
+        let vec = codec::to_bytes_canonical(&req)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
         write_length_prefixed(io, vec).await
     }
     async fn write_response<T: AsyncWrite + Unpin + Send>(
@@ -77,7 +92,8 @@ impl Codec for SyncCodec {
         io: &mut T,
         res: Self::Response,
     ) -> std::io::Result<()> {
-        let vec = serde_json::to_vec(&res)?;
+        let vec = codec::to_bytes_canonical(&res)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
         write_length_prefixed(io, vec).await
     }
 }
@@ -105,7 +121,7 @@ impl BlockSync for Libp2pSync {
     }
 
     async fn publish_block(&self, block: &Block<ChainTransaction>) -> Result<(), SyncError> {
-        let data = serde_json::to_vec(block).map_err(|e| SyncError::Decode(e.to_string()))?;
+        let data = codec::to_bytes_canonical(block).map_err(|e| SyncError::Decode(e))?;
         self.swarm_command_sender
             .send(SwarmCommand::PublishBlock(data))
             .await

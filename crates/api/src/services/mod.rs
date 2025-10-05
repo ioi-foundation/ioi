@@ -8,7 +8,7 @@ use std::hash::Hash;
 pub mod access;
 
 /// An identifier for a swappable service.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum ServiceType {
     /// A service for on-chain governance.
     Governance,

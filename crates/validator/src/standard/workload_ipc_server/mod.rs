@@ -17,8 +17,9 @@ use depin_sdk_client::security::SecurityChannel;
 use ipc_protocol::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest, JsonRpcResponse};
 use methods::{
     chain::{
-        CheckTransactionsV1, GetAuthoritySetV1, GetBlockByHeightV1, GetLastBlockHashV1,
-        GetNextValidatorSetV1, GetValidatorSetAtV1, GetValidatorSetForV1, ProcessBlockV1,
+        CheckTransactionsV1, GetAuthoritySetV1, GetBlockByHeightV1, GetBlocksRangeV1,
+        GetLastBlockHashV1, GetNextValidatorSetV1, GetValidatorSetAtV1, GetValidatorSetForV1,
+        ProcessBlockV1,
     },
     contract::{CallContractV1, DeployContractV1, QueryContractV1},
     staking::{GetNextStakesV1, GetStakesV1},
@@ -121,6 +122,7 @@ where
         router.add_method(ProcessBlockV1::<CS, ST>::default());
         router.add_method(CheckTransactionsV1::<CS, ST>::default());
         router.add_method(GetLastBlockHashV1::<CS, ST>::default());
+        router.add_method(GetBlocksRangeV1::<CS, ST>::default());
         router.add_method(GetExpectedModelHashV1::<CS, ST>::default());
         router.add_method(GetStakesV1::<CS, ST>::default());
         router.add_method(GetBlockByHeightV1::<CS, ST>::default());

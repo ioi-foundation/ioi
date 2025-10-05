@@ -26,6 +26,15 @@ pub type ChainFor<CS, ST> = Arc<
     >,
 >;
 
+#[derive(Debug, Clone)]
+pub struct SyncProgress {
+    pub target: Option<PeerId>,
+    pub tip: u64,
+    pub next: u64, // We have blocks up to and including this height.
+    pub inflight: bool,
+    pub req_id: u64,
+}
+
 /// Main state for the Orchestration Container's event loop.
 pub struct MainLoopContext<CS, ST, CE, V>
 where
@@ -34,7 +43,8 @@ where
         + Send
         + Sync
         + 'static
-        + Debug,
+        + Debug
+        + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
@@ -57,4 +67,5 @@ where
     pub pending_attestations: HashMap<u64, Vec<OracleAttestation>>,
     pub last_committed_block: Option<Block<ChainTransaction>>,
     pub consensus_kick_tx: mpsc::UnboundedSender<()>,
+    pub sync_progress: Option<SyncProgress>,
 }

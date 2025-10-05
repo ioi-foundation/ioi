@@ -310,7 +310,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         let derived_from_header_ok = hash_key(header.producer_key_suite, &header.producer_pubkey)
             .is_ok_and(|h| h == header.producer_pubkey_hash);
         let derived_from_state_ok = hash_key(active_key.suite, &header.producer_pubkey)
-            .is_ok_and(|h| h == active_key.pubkey_hash);
+            .is_ok_and(|h| h == active_key.public_key_hash);
 
         log::info!(
             "[PoS Verify H={}] Producer acct=0x{} header.suite={:?} state.suite={:?} since={} hash.match.header={} hash.match.state={}",
@@ -339,7 +339,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 "Header public key hash mismatch".into(),
             ));
         }
-        if active_key.pubkey_hash != derived_hash {
+        if active_key.public_key_hash != derived_hash {
             return Err(ConsensusError::BlockVerificationFailed(
                 "State active key hash mismatch".into(),
             ));

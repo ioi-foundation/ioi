@@ -135,7 +135,7 @@ fn add_identity_to_genesis(
     // C. Set the ActiveKeyRecord for consensus verification
     let record = ActiveKeyRecord {
         suite,
-        pubkey_hash: account_id.0,
+        public_key_hash: account_id.0,
         since_height: 0,
     };
     let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
@@ -225,7 +225,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
                 weight: initial_stake,
                 consensus_key: ActiveKeyRecord {
                     suite: SignatureSuite::Ed25519,
-                    pubkey_hash: validator_account_id.0,
+                    public_key_hash: validator_account_id.0,
                     since_height: 0,
                 },
             }];
