@@ -1,7 +1,8 @@
 // Path: crates/client/src/workload_client.rs
 use crate::security::SecurityChannel;
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
+use dashmap::DashMap;
 use depin_sdk_api::{
     consensus::ChainStateReader,
     vm::{ExecutionContext, ExecutionOutput},
@@ -14,12 +15,12 @@ use depin_sdk_types::keys::ACCOUNT_ID_TO_PUBKEY_PREFIX;
 use ipc_protocol::jsonrpc::{JsonRpcId, JsonRpcRequest, JsonRpcResponse};
 use libp2p::identity::PublicKey;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
 use std::collections::{BTreeMap, HashMap};
-use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::Mutex as AsyncMutex;
+use tokio::sync::{mpsc, oneshot, watch, Semaphore};
 use tokio::time::sleep;
 
 // --- Structs for RPC method parameters and results ---
@@ -110,13 +111,135 @@ pub struct GenesisStatus {
     pub chain_id: String,
 }
 
-/// A client-side proxy for communicating with the remote Workload container.
-#[derive(Debug, Clone)]
+// --- Type Aliases for Clarity ---
+type RpcResult = Result<JsonRpcResponse<Value>>;
+type PendingTx = oneshot::Sender<RpcResult>;
+type PendingMap = DashMap<u64, PendingTx>;
+
+/// The public, cloneable handle to the Workload IPC client.
+#[derive(Clone, Debug)]
 pub struct WorkloadClient {
-    channel: SecurityChannel,
+    inner: Arc<Inner>,
+}
+
+/// The shared core containing all state for the IPC client.
+#[derive(Debug)]
+struct Inner {
     workload_addr: String,
-    request_id: Arc<AtomicI64>,
-    rpc_lock: Arc<AsyncMutex<()>>,
+    request_id_counter: AtomicU64,
+    pending_requests: Arc<PendingMap>,
+    request_tx: mpsc::Sender<Vec<u8>>,
+    health_rx: watch::Receiver<bool>,
+    shutdown_tx: watch::Sender<bool>,
+    io_handle: tokio::task::JoinHandle<()>,
+    inflight_semaphore: Arc<Semaphore>,
+}
+
+// Implement Drop on the inner struct to ensure shutdown happens only once.
+impl Drop for Inner {
+    fn drop(&mut self) {
+        log::debug!("Dropping Inner WorkloadClient; sending shutdown signal.");
+        // Best-effort signal to the I/O task. The task will see `*shutdown_rx.borrow()` become true.
+        let _ = self.shutdown_tx.send(true);
+        // Abort the task as a final measure if it doesn't shut down gracefully on its own.
+        self.io_handle.abort();
+    }
+}
+
+/// Notifies all pending request callers that the connection has failed.
+fn fail_all_pending(pending: &PendingMap, reason: &str) {
+    let keys: Vec<u64> = pending.iter().map(|e| *e.key()).collect();
+    for id in keys {
+        if let Some((_, tx)) = pending.remove(&id) {
+            // The receiver may have already dropped (e.g., due to timeout),
+            // so we ignore the result of the send.
+            let _ = tx.send(Err(anyhow!(reason.to_string())));
+        }
+    }
+}
+
+/// The core I/O loop that manages the single mTLS socket.
+async fn run_io_task(
+    mut channel: SecurityChannel,
+    mut request_rx: mpsc::Receiver<Vec<u8>>,
+    pending_requests: Arc<PendingMap>,
+    mut shutdown_rx: watch::Receiver<bool>,
+    health_tx: watch::Sender<bool>,
+) {
+    loop {
+        tokio::select! {
+            biased; // Prioritize the shutdown signal.
+
+            _ = shutdown_rx.changed() => {
+                if *shutdown_rx.borrow() {
+                    log::info!("WorkloadClient I/O task: shutdown signal received.");
+                    fail_all_pending(&pending_requests, "WorkloadClient is shutting down");
+                    let _ = health_tx.send(false);
+                    break;
+                }
+            },
+
+            maybe_req = request_rx.recv() => {
+                match maybe_req {
+                    Some(req_bytes) => {
+                        if let Err(e) = channel.send(&req_bytes).await {
+                            log::error!("WorkloadClient: IPC channel send error: {}. Shutting down.", e);
+                            fail_all_pending(&pending_requests, &format!("IPC send failed: {}", e));
+                            let _ = health_tx.send(false);
+                            break;
+                        }
+                    },
+                    None => { // All client handles have been dropped.
+                        if pending_requests.is_empty() {
+                            log::info!("WorkloadClient I/O task: request channel closed and no pending requests. Shutting down.");
+                            let _ = health_tx.send(false);
+                            break;
+                        }
+                        // Otherwise, keep running to process any in-flight responses.
+                    }
+                }
+            },
+
+            response_result = channel.receive() => {
+                let response_bytes = match response_result {
+                    Ok(bytes) => bytes,
+                    Err(e) => {
+                        log::error!("WorkloadClient: IPC channel receive error: {}. Shutting down.", e);
+                        fail_all_pending(&pending_requests, &format!("IPC receive failed: {}", e));
+                        let _ = health_tx.send(false);
+                        break;
+                    }
+                };
+
+                match serde_json::from_slice::<JsonRpcResponse<Value>>(&response_bytes) {
+                    Ok(response) => {
+                        // [+] FIX: Match directly on `response.id` which is a `JsonRpcId` enum, not an Option.
+                        match response.id {
+                            JsonRpcId::Num(id) => {
+                                if let Some((_, sender)) = pending_requests.remove(&(id as u64)) {
+                                    if sender.send(Ok(response)).is_err() {
+                                        log::warn!("WorkloadClient: RPC caller for request {} dropped before receiving response.", id);
+                                    }
+                                } else {
+                                    log::warn!("WorkloadClient: Received response for unknown or timed-out request id: {}", id);
+                                }
+                            },
+                            _ => { // This covers Str and Null
+                                 log::warn!("WorkloadClient: Received response with non-numeric or null ID: {:?}", response.id);
+                            }
+                        }
+                    },
+                    Err(e) => { // Fatal protocol error
+                        log::error!("WorkloadClient: Failed to parse JSON-RPC response: {}. Shutting down.", e);
+                        fail_all_pending(&pending_requests, &format!("JSON-RPC parse error: {}", e));
+                        let _ = health_tx.send(false);
+                        break;
+                    }
+                }
+            },
+        }
+    }
+    log::info!("WorkloadClient: I/O task has terminated.");
 }
 
 impl WorkloadClient {
@@ -126,106 +249,133 @@ impl WorkloadClient {
         client_cert_path: &str,
         client_key_path: &str,
     ) -> Result<Self> {
-        let channel = SecurityChannel::new("orchestration", "workload");
+        // [+] FIX: Use a block expression with a loop to establish the channel.
+        // This is a cleaner pattern that avoids the "unused assignment" warning.
+        let channel = {
+            let mut attempts = 0;
+            // Increase attempts for CI environments where startup can be slower.
+            let max_attempts = 10;
+            // Start with a shorter delay and use exponential backoff.
+            let mut retry_delay = Duration::from_millis(500);
 
-        let mut attempts = 0;
-        // Increase attempts for CI environments where startup can be slower.
-        let max_attempts = 10;
-        // Start with a shorter delay and use exponential backoff.
-        let mut retry_delay = Duration::from_millis(500);
-
-        loop {
-            attempts += 1;
-            match channel
-                .establish_client(
-                    workload_addr,
-                    "workload",
-                    ca_cert_path,
-                    client_cert_path,
-                    client_key_path,
-                )
-                .await
-            {
-                Ok(_) => {
-                    // **IPC Readiness Probe**: After establishing a TLS connection,
-                    // send a lightweight RPC request to ensure the server is fully
-                    // initialized and ready to handle requests. This prevents race
-                    // conditions where the TCP port is open but the server logic isn't ready.
-                    sleep(Duration::from_millis(100)).await;
-
-                    // Create a temporary client instance for the probe.
-                    let temp_client = Self {
-                        channel: channel.clone(),
-                        workload_addr: workload_addr.to_string(),
-                        request_id: Arc::new(AtomicI64::new(0)),
-                        rpc_lock: Arc::new(AsyncMutex::new(())),
-                    };
-
-                    if temp_client.get_status().await.is_ok() {
-                        log::info!(
-                            "Successfully connected and verified IPC with Workload container at {}",
-                            workload_addr
-                        );
-                        break; // Connection is fully established and responsive.
-                    } else {
-                        // Connection established but server not yet responsive.
-                        // The channel will be dropped, and we will retry.
-                        log::warn!("Workload IPC established but not responsive. Retrying connection...");
+            loop {
+                attempts += 1;
+                let temp_channel = SecurityChannel::new("orchestration", "workload");
+                match temp_channel
+                    .establish_client(
+                        workload_addr,
+                        "workload",
+                        ca_cert_path,
+                        client_cert_path,
+                        client_key_path,
+                    )
+                    .await
+                {
+                    Ok(_) => {
+                        // Connection established, break loop and return the channel
+                        break temp_channel;
                     }
-                }
-                Err(e) => {
-                    if attempts >= max_attempts {
-                        return Err(e.into());
+                    Err(e) => {
+                        if attempts >= max_attempts {
+                            return Err(e.into());
+                        }
+                        log::warn!("Attempt {}/{} to connect to Workload container failed: {}. Retrying in {:?}...", attempts, max_attempts, e, retry_delay);
+                        sleep(retry_delay).await;
+                        // Exponential backoff with a cap to prevent excessively long waits.
+                        retry_delay = (retry_delay * 2).min(Duration::from_secs(5));
                     }
-                    log::warn!("Attempt {}/{} to connect to Workload container failed: {}. Retrying in {:?}...", attempts, max_attempts, e, retry_delay);
-                    sleep(retry_delay).await;
-                    // Exponential backoff with a cap to prevent excessively long waits.
-                    retry_delay = (retry_delay * 2).min(Duration::from_secs(5));
                 }
             }
-        }
+        };
 
-        Ok(Self {
-            channel,
+        let (request_tx, request_rx) = mpsc::channel(128);
+        let (shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (health_tx, health_rx) = watch::channel(true);
+        let pending_requests: Arc<PendingMap> = Arc::new(DashMap::new());
+
+        let io_handle = tokio::spawn(run_io_task(
+            channel, // Move ownership to the task
+            request_rx,
+            pending_requests.clone(),
+            shutdown_rx,
+            health_tx,
+        ));
+
+        let inner = Arc::new(Inner {
             workload_addr: workload_addr.to_string(),
-            request_id: Arc::new(AtomicI64::new(0)),
-            rpc_lock: Arc::new(AsyncMutex::new(())),
-        })
+            request_id_counter: AtomicU64::new(0),
+            pending_requests,
+            request_tx,
+            health_rx,
+            shutdown_tx,
+            io_handle,
+            inflight_semaphore: Arc::new(Semaphore::new(1024)), // Recommended: make this configurable
+        });
+
+        let client = Self { inner };
+
+        // The readiness probe now uses the fully-functional concurrent client.
+        client
+            .get_status()
+            .await
+            .context("Workload IPC established but not responsive during readiness probe")?;
+
+        log::info!(
+            "Successfully connected and verified IPC with Workload container at {}",
+            workload_addr
+        );
+        Ok(client)
     }
 
     pub fn destination_addr(&self) -> &str {
-        &self.workload_addr
+        &self.inner.workload_addr
     }
 
-    async fn send_rpc<P: serde::Serialize, R: DeserializeOwned>(
+    async fn send_rpc<P: Serialize, R: DeserializeOwned>(
         &self,
         method: &str,
         params: P,
     ) -> Result<R> {
-        let _guard = self.rpc_lock.lock().await;
-        let id = self.request_id.fetch_add(1, Ordering::SeqCst);
+        if !*self.inner.health_rx.borrow() {
+            bail!("IPC connection is down");
+        }
 
+        let _permit = self
+            .inner
+            .inflight_semaphore
+            .clone()
+            .acquire_owned()
+            .await?;
+        let id = self
+            .inner
+            .request_id_counter
+            .fetch_add(1, Ordering::Relaxed);
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
             method: method.to_string(),
             params: serde_json::to_value(params)?,
-            id: Some(JsonRpcId::Num(id)),
+            id: Some(JsonRpcId::Num(id as i64)),
         };
 
-        let req_bytes = serde_json::to_vec(&request)?;
-        self.channel.send(&req_bytes).await?;
+        let (tx, rx) = oneshot::channel();
+        self.inner.pending_requests.insert(id, tx);
 
-        let response_bytes = self.channel.receive().await?;
-        let response: JsonRpcResponse<R> = serde_json::from_slice(&response_bytes)?;
+        let bytes = serde_json::to_vec(&request)?;
+        if self.inner.request_tx.send(bytes).await.is_err() {
+            self.inner.pending_requests.remove(&id);
+            bail!("I/O task has terminated; connection is down");
+        }
+
+        // Await with timeout, using `??` to cleanly propagate errors.
+        let response = tokio::time::timeout(Duration::from_secs(30), rx)
+            .await // Recommended: make timeout configurable
+            .map_err(|_| anyhow!("RPC '{}' (id {}) timed out", method, id))? // Maps TimeoutError
+            .map_err(|_| anyhow!("Response channel closed unexpectedly"))??; // Unwraps oneshot::RecvError then the inner RpcResult
 
         match (response.result, response.error) {
-            (Some(result), None) => Ok(result),
-            (None, Some(error)) => Err(anyhow!(
-                "RPC Error (code {}): {}",
-                error.code,
-                error.message
-            )),
-            _ => Err(anyhow!("Invalid JSON-RPC response from server")),
+            (Some(ok), None) => Ok(serde_json::from_value(ok)?),
+            (None, Some(err)) => bail!("RPC error {}: {}", err.code, err.message),
+            _ => bail!("Invalid JSON-RPC response from server"),
         }
     }
 
