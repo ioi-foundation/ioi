@@ -174,17 +174,31 @@ where
             (pool.iter().cloned().collect::<Vec<_>>(), pool.len())
         };
 
-        // --- FIX START: Prevent block production if we are the sole genesis node with no peers ---
-        // This prevents a single node from racing ahead and producing blocks that others can't sync to.
+        // --- TWEAK: Only skip empty genesis block when we expect a multi-validator net. ---
+        // In single-node setups (like state_iavl_e2e), we must produce height 1 even if empty.
         if height_being_built == 1
             && allow_bootstrap
             && known_peers_ref.lock().await.is_empty()
             && candidate_txs.is_empty()
         {
-            tracing::info!(target: "consensus", event = "skip_empty_block", "No transactions in mempool; skipping empty block production.");
-            return Ok(());
+            // Try to load the validator set size from the genesis state using the parent view.
+            let vs_size = match parent_view.get(VALIDATOR_SET_KEY).await {
+                Ok(Some(vs_bytes)) => read_validator_sets(&vs_bytes)
+                    .map(|sets| sets.current.validators.len())
+                    .unwrap_or(1), // On decode error, assume 1 to be safe and not stall.
+                _ => 1, // If key not found or other error, assume 1.
+            };
+
+            if vs_size > 1 {
+                tracing::info!(
+                    target: "consensus",
+                    event = "skip_empty_block",
+                    "Multi-validator genesis with no peers; skipping empty block."
+                );
+                return Ok(());
+            }
+            // Single-validator setup detected: allow empty block production to unblock tests.
         }
-        // --- FIX END ---
 
         tracing::info!(target: "consensus", event = "precheck_start", mempool_size = mempool_len_before);
 
