@@ -10,16 +10,71 @@ use depin_sdk_api::{
 };
 use depin_sdk_types::{
     app::{
-        evidence_id, AccountId, ApplicationTransaction, Block, BlockHeader, ChainTransaction,
-        Membership, StateAnchor, SystemPayload,
+        evidence_id, ApplicationTransaction, Block, BlockHeader, ChainTransaction, Membership,
+        StateAnchor, SystemPayload,
     },
     codec,
     error::TransactionError,
     keys::{EVIDENCE_REGISTRY_KEY, IBC_PROCESSED_RECEIPT_PREFIX},
 };
-use ipc_protocol::jsonrpc::JsonRpcError;
 use serde::{Deserialize, Serialize};
 use std::{any::Any, collections::BTreeSet, marker::PhantomData, sync::Arc};
+
+// --- chain.getBlocksRange.v1 ---
+
+/// The parameters for the `chain.getBlocksRange.v1` RPC method.
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct GetBlocksRangeParams {
+    /// The block height after which to start fetching blocks.
+    pub since: u64,
+    /// The maximum number of blocks to return in the response.
+    pub max_blocks: u32,
+    /// The maximum total size in bytes for the returned blocks.
+    pub max_bytes: u32,
+}
+
+/// The RPC method handler for `chain.getBlocksRange.v1`.
+pub struct GetBlocksRangeV1<CS, ST> {
+    _p: PhantomData<(CS, ST)>,
+}
+impl<CS, ST> Default for GetBlocksRangeV1<CS, ST> {
+    fn default() -> Self {
+        Self { _p: PhantomData }
+    }
+}
+
+#[async_trait::async_trait]
+impl<CS, ST> RpcMethod for GetBlocksRangeV1<CS, ST>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static,
+{
+    const NAME: &'static str = "chain.getBlocksRange.v1";
+    type Params = GetBlocksRangeParams;
+    type Result = Vec<Block<ChainTransaction>>;
+
+    async fn call(
+        &self,
+        _req_ctx: RequestContext,
+        shared_ctx: Arc<dyn Any + Send + Sync>,
+        params: Self::Params,
+    ) -> Result<Self::Result> {
+        let ctx = shared_ctx
+            .downcast::<RpcContext<CS, ST>>()
+            .map_err(|_| anyhow!("Invalid context type for GetBlocksRangeV1"))?;
+        let blocks = ctx.workload.store.get_blocks_range(
+            params.since,
+            params.max_blocks,
+            params.max_bytes,
+        )?;
+        Ok(blocks)
+    }
+}
 
 // --- chain.processBlock.v1 ---
 
@@ -160,22 +215,6 @@ where
         let mut results = Vec::with_capacity(initial_tx_count);
 
         let chain_guard = ctx.chain.lock().await;
-        // Handle the Result from to_anchor()
-        let latest_anchor =
-            depin_sdk_types::app::StateRoot(chain_guard.state.last_state_root.to_vec())
-                .to_anchor()?;
-
-        if params.anchor != StateAnchor::default() && params.anchor != latest_anchor {
-            // Stale anchor is a batch-level error. Fill all results with it.
-            results.resize(
-                initial_tx_count,
-                Err(
-                    "StaleAnchor: The provided state anchor is not the latest known root."
-                        .to_string(),
-                ),
-            );
-            return Ok(results);
-        }
 
         let base_state_tree = ctx.workload.state_tree();
         let base_state = base_state_tree.read().await;

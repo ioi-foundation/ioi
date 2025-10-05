@@ -8,6 +8,10 @@ pub mod sync;
 
 use crate::metrics::metrics;
 use crate::traits::NodeState;
+use depin_sdk_api::transaction::TransactionModel;
+use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
+use depin_sdk_types::app::{Block, ChainId, ChainTransaction, OracleAttestation};
+use depin_sdk_types::codec;
 use futures::StreamExt;
 use libp2p::{
     gossipsub, identity, noise,
@@ -24,9 +28,6 @@ use tokio::{
 
 // Re-export concrete types from submodules for a cleaner public API.
 pub use self::sync::{SyncCodec, SyncRequest, SyncResponse};
-use depin_sdk_api::transaction::TransactionModel;
-use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-use depin_sdk_types::app::{Block, ChainTransaction, OracleAttestation};
 
 // --- Core Network Behaviour and Event/Command Types ---
 
@@ -60,16 +61,26 @@ pub enum SwarmCommand {
     Listen(Multiaddr),
     Dial(Multiaddr),
     PublishBlock(Vec<u8>),
-    PublishTransaction(Vec<u8>), // New command for mempool gossip
+    PublishTransaction(Vec<u8>),
     SendStatusRequest(PeerId),
-    SendBlocksRequest(PeerId, u64),
-    SendStatusResponse(ResponseChannel<SyncResponse>, u64),
+    SendBlocksRequest {
+        peer: PeerId,
+        since: u64,
+        max_blocks: u32,
+        max_bytes: u32,
+    },
+    SendStatusResponse {
+        channel: ResponseChannel<SyncResponse>,
+        height: u64,
+        head_hash: [u8; 32],
+        chain_id: ChainId,
+        genesis_root: Vec<u8>,
+    },
     SendBlocksResponse(ResponseChannel<SyncResponse>, Vec<Block<ChainTransaction>>),
-    BroadcastToCommittee(Vec<PeerId>, String), // NEW: For agentic consensus
-    AgenticConsensusVote(String, Vec<u8>),     // NEW: For agentic consensus
-    // [NEW] Command to send the acknowledgement
+    BroadcastToCommittee(Vec<PeerId>, String),
+    AgenticConsensusVote(String, Vec<u8>),
     SendAgenticAck(ResponseChannel<SyncResponse>),
-    SimulateAgenticTx, // For E2E test
+    SimulateAgenticTx,
     GossipOracleAttestation(Vec<u8>),
 }
 
@@ -78,18 +89,28 @@ pub enum NetworkEvent {
     ConnectionEstablished(PeerId),
     ConnectionClosed(PeerId),
     GossipBlock(Block<ChainTransaction>),
-    GossipTransaction(Box<ChainTransaction>), // New event for mempool gossip
+    GossipTransaction(Box<ChainTransaction>),
     StatusRequest(PeerId, ResponseChannel<SyncResponse>),
-    BlocksRequest(PeerId, u64, ResponseChannel<SyncResponse>),
-    StatusResponse(PeerId, u64),
+    BlocksRequest {
+        peer: PeerId,
+        since: u64,
+        max_blocks: u32,
+        max_bytes: u32,
+        channel: ResponseChannel<SyncResponse>,
+    },
+    StatusResponse {
+        peer: PeerId,
+        height: u64,
+        head_hash: [u8; 32],
+        chain_id: ChainId,
+        genesis_root: Vec<u8>,
+    },
     BlocksResponse(PeerId, Vec<Block<ChainTransaction>>),
-    // [NEW] Event for the orchestrator, containing the received prompt and its sender.
     AgenticPrompt {
         from: PeerId,
         prompt: String,
     },
     AgenticConsensusVote {
-        // NEW
         from: PeerId,
         prompt_hash: String,
         vote_hash: Vec<u8>,
@@ -98,6 +119,7 @@ pub enum NetworkEvent {
         from: PeerId,
         attestation: OracleAttestation,
     },
+    OutboundFailure(PeerId),
 }
 
 // Internal event type for swarm -> forwarder communication
@@ -106,24 +128,35 @@ enum SwarmInternalEvent {
     ConnectionEstablished(PeerId),
     ConnectionClosed(PeerId),
     GossipBlock(Vec<u8>, PeerId),
-    GossipTransaction(Vec<u8>, PeerId), // New internal event
+    GossipTransaction(Vec<u8>, PeerId),
     StatusRequest(PeerId, ResponseChannel<SyncResponse>),
-    BlocksRequest(PeerId, u64, ResponseChannel<SyncResponse>),
-    StatusResponse(PeerId, u64),
+    BlocksRequest {
+        peer: PeerId,
+        since: u64,
+        max_blocks: u32,
+        max_bytes: u32,
+        channel: ResponseChannel<SyncResponse>,
+    },
+    StatusResponse {
+        peer: PeerId,
+        height: u64,
+        head_hash: [u8; 32],
+        chain_id: ChainId,
+        genesis_root: Vec<u8>,
+    },
     BlocksResponse(PeerId, Vec<Block<ChainTransaction>>),
-    // [NEW] Internal event to carry the prompt and the response channel for the ACK.
     AgenticPrompt {
         from: PeerId,
         prompt: String,
         channel: ResponseChannel<SyncResponse>,
     },
-    // NEW: Add internal event for votes
     AgenticConsensusVote {
         from: PeerId,
         prompt_hash: String,
         vote_hash: Vec<u8>,
     },
     GossipOracleAttestation(Vec<u8>, PeerId),
+    OutboundFailure(PeerId),
 }
 
 // --- Libp2pSync Implementation ---
@@ -141,7 +174,7 @@ impl Libp2pSync {
     pub fn new(
         local_key: identity::Keypair,
         listen_addr: Multiaddr,
-        dial_addr: Option<Multiaddr>,
+        dial_addrs: Option<&[Multiaddr]>,
     ) -> anyhow::Result<(
         Arc<Self>,
         mpsc::Sender<SwarmCommand>,
@@ -187,7 +220,6 @@ impl Libp2pSync {
                     }
                     continue;
                 }
-                // NEW: Handle votes separately to avoid deserialization issues
                 if let SwarmInternalEvent::AgenticConsensusVote {
                     from,
                     prompt_hash,
@@ -207,7 +239,7 @@ impl Libp2pSync {
                 }
 
                 if let SwarmInternalEvent::GossipOracleAttestation(data, from) = event {
-                    match serde_json::from_slice::<OracleAttestation>(&data) {
+                    match codec::from_bytes_canonical::<OracleAttestation>(&data) {
                         Ok(attestation) => {
                             if network_event_sender
                                 .send(NetworkEvent::OracleAttestationReceived { from, attestation })
@@ -228,23 +260,41 @@ impl Libp2pSync {
                     SwarmInternalEvent::ConnectionEstablished(p) => {
                         Some(NetworkEvent::ConnectionEstablished(p))
                     }
-                    SwarmInternalEvent::ConnectionClosed(p) => {
-                        Some(NetworkEvent::ConnectionClosed(p))
-                    }
+                    SwarmInternalEvent::ConnectionClosed(p) => Some(NetworkEvent::ConnectionClosed(p)),
                     SwarmInternalEvent::StatusRequest(p, c) => {
                         Some(NetworkEvent::StatusRequest(p, c))
                     }
-                    SwarmInternalEvent::BlocksRequest(p, h, c) => {
-                        Some(NetworkEvent::BlocksRequest(p, h, c))
-                    }
-                    SwarmInternalEvent::StatusResponse(p, h) => {
-                        Some(NetworkEvent::StatusResponse(p, h))
-                    }
+                    SwarmInternalEvent::BlocksRequest {
+                        peer,
+                        since,
+                        max_blocks,
+                        max_bytes,
+                        channel,
+                    } => Some(NetworkEvent::BlocksRequest {
+                        peer,
+                        since,
+                        max_blocks,
+                        max_bytes,
+                        channel,
+                    }),
+                    SwarmInternalEvent::StatusResponse {
+                        peer,
+                        height,
+                        head_hash,
+                        chain_id,
+                        genesis_root,
+                    } => Some(NetworkEvent::StatusResponse {
+                        peer,
+                        height,
+                        head_hash,
+                        chain_id,
+                        genesis_root,
+                    }),
                     SwarmInternalEvent::BlocksResponse(p, b) => {
                         Some(NetworkEvent::BlocksResponse(p, b))
                     }
                     SwarmInternalEvent::GossipBlock(data, _source) => {
-                        match serde_json::from_slice(&data) {
+                        match codec::from_bytes_canonical(&data) {
                             Ok(block) => Some(NetworkEvent::GossipBlock(block)),
                             Err(e) => {
                                 tracing::warn!(target: "gossip", event = "deser_fail", kind = "block", error = %e);
@@ -253,7 +303,6 @@ impl Libp2pSync {
                         }
                     }
                     SwarmInternalEvent::GossipTransaction(data, _source) => {
-                        // Use the canonical transaction model deserializer
                         let dummy_model = UnifiedTransactionModel::new(
                             depin_sdk_commitment::primitives::hash::HashCommitmentScheme::new(),
                         );
@@ -265,8 +314,11 @@ impl Libp2pSync {
                             }
                         }
                     }
+                    SwarmInternalEvent::OutboundFailure(peer) => {
+                        Some(NetworkEvent::OutboundFailure(peer))
+                    }
                     SwarmInternalEvent::AgenticPrompt { .. } => unreachable!(),
-                    SwarmInternalEvent::AgenticConsensusVote { .. } => unreachable!(), // NEW
+                    SwarmInternalEvent::AgenticConsensusVote { .. } => unreachable!(),
                     SwarmInternalEvent::GossipOracleAttestation(..) => unreachable!(),
                 };
 
@@ -281,13 +333,17 @@ impl Libp2pSync {
 
         let initial_cmds_task = tokio::spawn({
             let cmd_sender = swarm_command_sender.clone();
+            let listen_addr_clone = listen_addr.clone();
+            let dial_addrs_owned = dial_addrs.map(|s| s.to_vec());
             async move {
                 cmd_sender
-                    .send(SwarmCommand::Listen(listen_addr))
+                    .send(SwarmCommand::Listen(listen_addr_clone))
                     .await
                     .ok();
-                if let Some(addr) = dial_addr {
-                    cmd_sender.send(SwarmCommand::Dial(addr)).await.ok();
+                if let Some(addrs) = dial_addrs_owned {
+                    for addr in addrs {
+                        cmd_sender.send(SwarmCommand::Dial(addr)).await.ok();
+                    }
                 }
             }
         });
@@ -326,9 +382,11 @@ impl Libp2pSync {
                     gossipsub::MessageAuthenticity::Signed(key.clone()),
                     gossipsub::Config::default(),
                 )?;
+                let mut cfg = request_response::Config::default();
+                cfg.set_request_timeout(Duration::from_secs(30));
                 let request_response = request_response::Behaviour::new(
-                    iter::once(("/depin/sync/1", request_response::ProtocolSupport::Full)),
-                    request_response::Config::default(),
+                    iter::once(("/depin/sync/2", request_response::ProtocolSupport::Full)),
+                    cfg,
                 );
                 Ok(SyncBehaviour {
                     gossipsub,
@@ -409,31 +467,39 @@ impl Libp2pSync {
                                     event_sender.send(SwarmInternalEvent::GossipOracleAttestation(message.data, source)).await.ok();
                                 }
                                 else if message.topic == agentic_vote_topic.hash() {
-                                    if let Ok((prompt_hash, vote_hash)) = serde_json::from_slice::<(String, Vec<u8>)>(&message.data) {
+                                    if let Ok((prompt_hash, vote_hash)) = codec::from_bytes_canonical::<(String, Vec<u8>)>(&message.data) {
                                         event_sender.send(SwarmInternalEvent::AgenticConsensusVote { from: source, prompt_hash, vote_hash }).await.ok();
                                     }
                                 }
                             }
                         }
-                        SyncBehaviourEvent::RequestResponse(request_response::Event::Message { peer, message }) => {
-                            match message {
+                        SyncBehaviourEvent::RequestResponse(event) => match event {
+                            request_response::Event::Message { peer, message } => match message {
                                 request_response::Message::Request { request, channel, .. } => match request {
                                     SyncRequest::GetStatus => { event_sender.send(SwarmInternalEvent::StatusRequest(peer, channel)).await.ok(); }
-                                    SyncRequest::GetBlocks(h) => { event_sender.send(SwarmInternalEvent::BlocksRequest(peer, h, channel)).await.ok(); }
+                                    SyncRequest::GetBlocks { since, max_blocks, max_bytes } => { event_sender.send(SwarmInternalEvent::BlocksRequest { peer, since, max_blocks, max_bytes, channel }).await.ok(); }
                                     SyncRequest::AgenticPrompt(prompt) => {
                                         tracing::info!(target: "network", event = "request_received", kind="AgenticPrompt", %peer);
                                         event_sender.send(SwarmInternalEvent::AgenticPrompt { from: peer, prompt, channel }).await.ok();
                                     }
                                 },
                                 request_response::Message::Response { response, .. } => match response {
-                                    SyncResponse::Status(h) => { event_sender.send(SwarmInternalEvent::StatusResponse(peer, h)).await.ok(); }
+                                    SyncResponse::Status { height, head_hash, chain_id, genesis_root } => { event_sender.send(SwarmInternalEvent::StatusResponse { peer, height, head_hash, chain_id, genesis_root }).await.ok(); }
                                     SyncResponse::Blocks(blocks) => { event_sender.send(SwarmInternalEvent::BlocksResponse(peer, blocks)).await.ok(); }
                                     SyncResponse::AgenticAck => {
                                         tracing::info!(target: "network", event = "response_received", kind="AgenticAck", %peer);
                                     }
                                 }
+                            },
+                            request_response::Event::OutboundFailure { peer, error, .. } => {
+                                tracing::warn!(target: "network", event = "outbound_failure", %peer, ?error);
+                                event_sender.send(SwarmInternalEvent::OutboundFailure(peer)).await.ok();
+                            },
+                            request_response::Event::InboundFailure { peer, error, .. } => {
+                                tracing::warn!(target: "network", event = "inbound_failure", %peer, ?error);
                             }
-                        }
+                            _ => {}
+                        },
                         _ => {}
                     }
                     _ => {}
@@ -458,8 +524,8 @@ impl Libp2pSync {
                              }
                         }
                         SwarmCommand::SendStatusRequest(p) => { swarm.behaviour_mut().request_response.send_request(&p, SyncRequest::GetStatus); }
-                        SwarmCommand::SendBlocksRequest(p, h) => { swarm.behaviour_mut().request_response.send_request(&p, SyncRequest::GetBlocks(h)); }
-                        SwarmCommand::SendStatusResponse(c, h) => { swarm.behaviour_mut().request_response.send_response(c, SyncResponse::Status(h)).ok(); }
+                        SwarmCommand::SendBlocksRequest { peer, since, max_blocks, max_bytes } => { swarm.behaviour_mut().request_response.send_request(&peer, SyncRequest::GetBlocks { since, max_blocks, max_bytes }); }
+                        SwarmCommand::SendStatusResponse { channel, height, head_hash, chain_id, genesis_root } => { swarm.behaviour_mut().request_response.send_response(channel, SyncResponse::Status { height, head_hash, chain_id, genesis_root }).ok(); }
                         SwarmCommand::SendBlocksResponse(c, blocks) => { swarm.behaviour_mut().request_response.send_response(c, SyncResponse::Blocks(blocks)).ok(); }
                         SwarmCommand::SimulateAgenticTx => {
                             // This is a test-only command to trigger a log cascade.
@@ -473,7 +539,7 @@ impl Libp2pSync {
                             }
                         }
                         SwarmCommand::AgenticConsensusVote(prompt_hash, vote_hash) => {
-                            match serde_json::to_vec(&(prompt_hash, vote_hash)) {
+                            match codec::to_bytes_canonical(&(prompt_hash, vote_hash)) {
                                 Ok(data) => {
                                     if let Err(e) = swarm.behaviour_mut().gossipsub.publish(agentic_vote_topic.clone(), data) {
                                         tracing::warn!(error = %e, "Failed to publish agentic consensus vote");

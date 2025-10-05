@@ -19,7 +19,7 @@ use depin_sdk_types::{
         account_id_from_key_material, read_validator_sets, to_root_hash, AccountId, Block,
         BlockHeader, ChainTransaction, SignatureSuite,
     },
-    codec,
+    codec, // Import the canonical codec
     keys::VALIDATOR_SET_KEY,
 };
 use serde::Serialize;
@@ -174,10 +174,17 @@ where
             (pool.iter().cloned().collect::<Vec<_>>(), pool.len())
         };
 
-        if candidate_txs.is_empty() && !allow_bootstrap {
+        // --- FIX START: Prevent block production if we are the sole genesis node with no peers ---
+        // This prevents a single node from racing ahead and producing blocks that others can't sync to.
+        if height_being_built == 1
+            && allow_bootstrap
+            && known_peers_ref.lock().await.is_empty()
+            && candidate_txs.is_empty()
+        {
             tracing::info!(target: "consensus", event = "skip_empty_block", "No transactions in mempool; skipping empty block production.");
             return Ok(());
         }
+        // --- FIX END ---
 
         tracing::info!(target: "consensus", event = "precheck_start", mempool_size = mempool_len_before);
 
@@ -328,7 +335,8 @@ where
                 }
                 tracing::debug!(target: "consensus", event = "tip_advanced", height = final_block.header.height, root = hex::encode(final_block.header.state_root.as_ref()));
                 {
-                    let data = serde_json::to_vec(&final_block)?;
+                    // FIX: Use the canonical SCALE codec for network serialization to prevent mismatches.
+                    let data = codec::to_bytes_canonical(&final_block).map_err(|e| anyhow!(e))?;
                     let _ = swarm_commander.send(SwarmCommand::PublishBlock(data)).await;
                 }
                 {

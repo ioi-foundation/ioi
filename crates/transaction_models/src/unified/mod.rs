@@ -234,7 +234,7 @@ where
                                 weight: amount as u128,
                                 consensus_key: ActiveKeyRecord {
                                     suite: active_cred.suite,
-                                    pubkey_hash: active_cred.public_key_hash,
+                                    public_key_hash: active_cred.public_key_hash,
                                     since_height: active_cred.activation_height,
                                 },
                             });
@@ -354,7 +354,7 @@ where
                                 weight: 1, // PoA validators have a weight of 1
                                 consensus_key: ActiveKeyRecord {
                                     suite: active_cred.suite,
-                                    pubkey_hash: active_cred.public_key_hash,
+                                    public_key_hash: active_cred.public_key_hash,
                                     since_height: active_cred.activation_height,
                                 },
                             });

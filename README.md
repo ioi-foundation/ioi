@@ -193,6 +193,8 @@ cargo test --workspace
 
 cargo test -p depin-sdk-forge --test proof_verification_e2e --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash,malicious-bin" -- --nocapture
 
+cargo test --package depin-sdk-forge --test sync_e2e --features "consensus-poa,vm-wasm,tree-iavl" -- --nocapture
+
 #### Penalty Mechanism Tests
 
 | Test | Command |

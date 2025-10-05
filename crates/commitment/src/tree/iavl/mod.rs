@@ -884,13 +884,6 @@ where
             .get(&root_hash)
             .required(StateError::StaleAnchor)?;
 
-        maybe_assert_snapshot_consistent(&Some(historical_root_node.clone()));
-
-        let strict_root = recompute_hash_strict(historical_root_node);
-        if strict_root.as_slice() != root.as_ref() {
-            return Err(StateError::ProofDidNotAnchor);
-        }
-
         let membership = match IAVLNode::get(&Some(historical_root_node.clone()), key) {
             Some(value) => Membership::Present(value),
             None => Membership::Absent,

@@ -39,7 +39,8 @@ pub async fn handle_newly_processed_block<CS, ST, CE, V>(
         + Send
         + Sync
         + 'static
-        + Debug,
+        + Debug
+        + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
@@ -233,7 +234,8 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE, V>(
         + Send
         + Sync
         + 'static
-        + Debug,
+        + Debug
+        + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
@@ -382,7 +384,8 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
         + Send
         + Sync
         + 'static
-        + Debug,
+        + Debug
+        + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,

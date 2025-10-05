@@ -1,7 +1,8 @@
-// Path: crates/api/src/storage.rs
+// Path: crates/api/src/storage/mod.rs
 
 //! API for a durable, epoch-sharded, content-addressed node store.
 
+use crate::app::{Block, ChainTransaction};
 use thiserror::Error;
 
 /// A type alias for an epoch identifier, typically derived from block height.
@@ -136,4 +137,11 @@ pub trait NodeStore: Send + Sync {
     /// Atomically drops an entire sealed epoch from the database.
     /// This is an efficient, O(1)-style operation for compliant backends.
     fn drop_sealed_epoch(&self, epoch: Epoch) -> Result<(), StorageError>;
+    fn put_block(&self, height: u64, block_bytes: &[u8]) -> Result<(), StorageError>;
+    fn get_blocks_range(
+        &self,
+        start: u64,
+        limit: u32,
+        max_bytes: u32,
+    ) -> Result<Vec<Block<ChainTransaction>>, StorageError>;
 }

@@ -34,7 +34,6 @@ use std::sync::{Arc, Once};
 use std::time::{Duration, Instant};
 use tar::Builder;
 use tempfile::TempDir;
-use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command as TokioCommand;
 use tokio::sync::{broadcast, Mutex, OnceCell};
 use tokio::time::timeout;
@@ -43,8 +42,9 @@ use tokio::time::timeout;
 const DOCKER_IMAGE_TAG: &str = "depin-sdk-node:e2e";
 const LOG_ASSERT_TIMEOUT: Duration = Duration::from_secs(45);
 const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(30);
-const ORCHESTRATION_READY_TIMEOUT: Duration = Duration::from_secs(30);
-const GUARDIAN_READY_TIMEOUT: Duration = Duration::from_secs(10);
+// REMOVED: Unused constants. Timeouts are now locally scoped in launch().
+// const ORCHESTRATION_READY_TIMEOUT: Duration = Duration::from_secs(30);
+// const GUARDIAN_READY_TIMEOUT: Duration = Duration::from_secs(10);
 const LOG_CHANNEL_CAPACITY: usize = 8192;
 
 // --- One-Time Build ---
@@ -344,6 +344,8 @@ pub struct TestValidator {
     pub peer_id: PeerId,
     pub rpc_addr: String,
     pub workload_ipc_addr: String,
+    pub orchestration_telemetry_addr: String,
+    pub workload_telemetry_addr: String,
     pub p2p_addr: Multiaddr,
     pub certs_dir_path: PathBuf,
     _temp_dir: Arc<TempDir>,
@@ -356,16 +358,36 @@ pub struct TestValidator {
 
 impl Drop for TestValidator {
     fn drop(&mut self) {
+        // Take ownership of the backend to ensure it's cleaned up.
         let mut backend = std::mem::replace(&mut self.backend, Box::new(NullBackend));
         let handles = self.log_drain_handles.clone();
-        tokio::spawn(async move {
+
+        let cleanup_future = async move {
+            // Abort log draining tasks first to prevent them from interfering.
             for handle in handles.lock().await.iter() {
                 handle.abort();
             }
+            // Now, cleanup the backend which kills the processes/containers.
             if let Err(e) = backend.cleanup().await {
-                log::error!("Failed to cleanup test validator backend: {}", e);
+                // Use eprintln! because logging might not be available during panic unwinding.
+                eprintln!("[WARN] Failed to cleanup test validator backend: {}", e);
             }
-        });
+        };
+
+        // If we are in an async context, spawn the task without blocking.
+        // This is the common case when a test finishes without panicking.
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            handle.spawn(cleanup_future);
+        } else {
+            // If `try_current()` fails, we are likely in a drop during a panic
+            // where the test runtime is being torn down.
+            // Create a new, simple runtime just for our cleanup task.
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_io()
+                .build()
+                .expect("Failed to create temporary runtime for cleanup");
+            rt.block_on(cleanup_future);
+        }
     }
 }
 
@@ -383,6 +405,9 @@ impl TestBackend for NullBackend {
     }
     async fn cleanup(&mut self) -> Result<()> {
         Ok(())
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -407,13 +432,29 @@ impl TestValidator {
         )
     }
 
+    /// Explicitly shuts down the validator and all its associated resources.
+    /// This is the preferred way to tear down a validator in a controlled test,
+    /// as it avoids the unpredictable timing of `Drop`.
+    pub async fn shutdown(&mut self) -> Result<()> {
+        // Abort this validator's log drainers first.
+        // This prevents them from holding any resources or panicking during backend cleanup.
+        let handles = self.log_drain_handles.lock().await;
+        for handle in handles.iter() {
+            handle.abort();
+        }
+        drop(handles); // Release lock
+
+        // Now, trigger the backend cleanup for just this node.
+        self.backend.cleanup().await
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub async fn launch(
         keypair: identity::Keypair,
         genesis_content: String,
         base_port: u16,
         chain_id: depin_sdk_types::app::ChainId,
-        bootnode_addr: Option<&Multiaddr>,
+        bootnode_addrs: Option<&[Multiaddr]>,
         consensus_type: &str,
         state_tree_type: &str,
         commitment_scheme_type: &str,
@@ -447,7 +488,7 @@ impl TestValidator {
             "Lattice" => "primitive-lattice",
             _ => {
                 return Err(anyhow!(
-                    "Unsupported test commitment scheme: {}",
+                    "Unsupported commitment scheme: {}",
                     commitment_scheme_type
                 ))
             }
@@ -568,7 +609,7 @@ impl TestValidator {
                 rpc_addr.clone()
             },
             rpc_hardening: Default::default(),
-            initial_sync_timeout_secs: 2,
+            initial_sync_timeout_secs: 180, // avoid premature “no peers” timeouts in CI
             block_production_interval_secs: 5,
             round_robin_view_timeout_secs: 20,
             default_query_gas_limit: 1_000_000_000,
@@ -618,7 +659,19 @@ impl TestValidator {
         let guardian_config = r#"signature_policy = "FollowChain""#.to_string();
         std::fs::write(config_dir_path.join("guardian.toml"), guardian_config)?;
 
+        let (orch_log_tx, _) = broadcast::channel(LOG_CHANNEL_CAPACITY);
+        let (workload_log_tx, _) = broadcast::channel(LOG_CHANNEL_CAPACITY);
+        let (guardian_log_tx, mut guardian_sub) = {
+            let (tx, rx) = broadcast::channel(LOG_CHANNEL_CAPACITY);
+            (Some(tx), Some(rx))
+        };
+
+        let mut log_drain_handles = Vec::new();
+
         let workload_ipc_addr;
+        let orchestration_telemetry_addr;
+        let workload_telemetry_addr;
+
         let mut backend: Box<dyn TestBackend> = if use_docker {
             let docker_config = DockerBackendConfig {
                 rpc_addr: rpc_addr.clone(),
@@ -628,8 +681,11 @@ impl TestValidator {
                 config_dir_path: config_dir_path.clone(),
                 certs_dir_path: certs_dir_path.clone(),
             };
-            let docker_backend = DockerBackend::new(docker_config).await?;
-            workload_ipc_addr = "127.0.0.1:8555".to_string(); // Placeholder for Docker
+            let mut docker_backend = DockerBackend::new(docker_config).await?;
+            docker_backend.launch().await?; // Just starts containers
+            workload_ipc_addr = "127.0.0.1:8555".to_string();
+            orchestration_telemetry_addr = format!("127.0.0.1:{}", rpc_port + 100); // Placeholder
+            workload_telemetry_addr = format!("127.0.0.1:{}", rpc_port + 200); // Placeholder
             Box::new(docker_backend)
         } else {
             generate_certificates_if_needed(&certs_dir_path)?;
@@ -639,11 +695,16 @@ impl TestValidator {
                 "127.0.0.1:{}",
                 portpicker::pick_unused_port().unwrap_or(base_port + 3)
             );
-            let telemetry_addr_orch = format!(
+            workload_ipc_addr = format!("127.0.0.1:{}", ipc_port_workload);
+            workload_telemetry_addr = format!(
                 "127.0.0.1:{}",
                 portpicker::pick_unused_port().unwrap_or(base_port + 4)
             );
-            workload_ipc_addr = format!("127.0.0.1:{}", ipc_port_workload);
+            orchestration_telemetry_addr = format!(
+                "127.0.0.1:{}",
+                portpicker::pick_unused_port().unwrap_or(base_port + 5)
+            );
+
             let node_binary_path = Path::new(env!("CARGO_MANIFEST_DIR"))
                 .parent()
                 .unwrap()
@@ -651,58 +712,42 @@ impl TestValidator {
                 .unwrap()
                 .join("target/release/");
 
-            let (guardian_process, mut guardian_reader) =
-                if let Some(model_path) = agentic_model_path {
-                    let telemetry_addr_guard = format!(
-                        "127.0.0.1:{}",
-                        portpicker::pick_unused_port().unwrap_or(base_port + 6)
-                    );
-                    let mut process = TokioCommand::new(node_binary_path.join("guardian"))
-                        .args([
-                            "--config-dir",
-                            &config_dir_path.to_string_lossy(),
-                            "--agentic-model-path",
-                            model_path,
-                        ])
-                        .env("TELEMETRY_ADDR", &telemetry_addr_guard)
-                        .env("GUARDIAN_LISTEN_ADDR", &guardian_addr)
-                        .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())
-                        .stderr(Stdio::piped())
-                        .kill_on_drop(true)
-                        .spawn()?;
-                    let mut reader = BufReader::new(process.stderr.take().unwrap()).lines();
+            let mut pb = ProcessBackend::new(rpc_addr.clone(), p2p_addr.clone());
+            pb.orchestration_telemetry_addr = Some(orchestration_telemetry_addr.clone());
+            pb.workload_telemetry_addr = Some(workload_telemetry_addr.clone());
 
-                    let ready_signal = format!("GUARDIAN_IPC_LISTENING_ON_{}", guardian_addr);
-                    timeout(GUARDIAN_READY_TIMEOUT, async {
-                        while let Some(line) = reader.next_line().await? {
-                            println!("[GUARDIAN-BOOT] {}", line); // Debug print
-                            if line.contains(&ready_signal) {
-                                return Ok(());
-                            }
-                        }
-                        Err(anyhow!("Guardian stream ended before ready signal"))
-                    })
-                    .await??;
-                    (Some(process), Some(reader))
-                } else {
-                    (None, None)
-                };
+            // --- Spawn Guardian ---
+            if let Some(model_path) = agentic_model_path {
+                let telemetry_addr_guard = format!(
+                    "127.0.0.1:{}",
+                    portpicker::pick_unused_port().unwrap_or(base_port + 6)
+                );
+                let process = TokioCommand::new(node_binary_path.join("guardian"))
+                    .args([
+                        "--config-dir",
+                        &config_dir_path.to_string_lossy(),
+                        "--agentic-model-path",
+                        model_path,
+                    ])
+                    .env("TELEMETRY_ADDR", &telemetry_addr_guard)
+                    .env("GUARDIAN_LISTEN_ADDR", &guardian_addr)
+                    .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())
+                    .stderr(Stdio::piped())
+                    .kill_on_drop(true)
+                    .spawn()?;
+                pb.guardian_process = Some(process);
+            }
 
+            // --- Spawn Workload ---
             let workload_binary_name = if use_malicious_workload {
                 "malicious-workload"
             } else {
                 "workload"
             };
-
-            let telemetry_addr_work = format!(
-                "127.0.0.1:{}",
-                portpicker::pick_unused_port().unwrap_or(base_port + 5)
-            );
-
             let mut workload_cmd = TokioCommand::new(node_binary_path.join(workload_binary_name));
             workload_cmd
                 .args(["--config", &workload_config_path.to_string_lossy()])
-                .env("TELEMETRY_ADDR", &telemetry_addr_work)
+                .env("TELEMETRY_ADDR", &workload_telemetry_addr)
                 .env("IPC_SERVER_ADDR", &workload_ipc_addr)
                 .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())
                 .stderr(Stdio::piped())
@@ -710,49 +755,9 @@ impl TestValidator {
             if agentic_model_path.is_some() {
                 workload_cmd.env("GUARDIAN_ADDR", &guardian_addr);
             }
+            pb.workload_process = Some(workload_cmd.spawn()?);
 
-            let mut workload_process = workload_cmd.spawn()?;
-            let mut workload_reader =
-                BufReader::new(workload_process.stderr.take().unwrap()).lines();
-
-            // STEP 1: Wait for the IPC server to come online.
-            timeout(WORKLOAD_READY_TIMEOUT, async {
-                let ready_signal = format!("WORKLOAD_IPC_LISTENING_ON_{}", workload_ipc_addr);
-                while let Some(line) = workload_reader.next_line().await? {
-                    println!("[WORKLOAD-BOOT] {}", line);
-                    if line.contains(&ready_signal) {
-                        return Ok(());
-                    }
-                }
-                Err(anyhow!(
-                    "Workload stderr stream ended before IPC ready signal."
-                ))
-            })
-            .await??;
-
-            // STEP 2: Create a client and poll for genesis readiness via RPC.
-            let temp_workload_client = WorkloadClient::new(
-                &workload_ipc_addr,
-                &certs_dir_path.join("ca.pem").to_string_lossy(),
-                &certs_dir_path.join("orchestration.pem").to_string_lossy(),
-                &certs_dir_path.join("orchestration.key").to_string_lossy(),
-            )
-            .await?;
-            let genesis_status = wait_for(
-                "workload genesis to be ready",
-                Duration::from_millis(250),
-                WORKLOAD_READY_TIMEOUT,
-                || async {
-                    match temp_workload_client.get_genesis_status().await {
-                        Ok(status) if status.ready => Ok(Some(status)),
-                        _ => Ok(None),
-                    }
-                },
-            )
-            .await?;
-            let _captured_root = genesis_status.root;
-
-            // STEP 3: Now that Workload is fully ready, launch Orchestration.
+            // --- Spawn Orchestration ---
             let mut orch_args = vec![
                 "--config".to_string(),
                 orch_config_path.to_string_lossy().to_string(),
@@ -761,11 +766,12 @@ impl TestValidator {
                 "--listen-address".to_string(),
                 p2p_addr_str.clone(),
             ];
-            if let Some(addr) = bootnode_addr {
-                orch_args.push("--bootnode".to_string());
-                orch_args.push(addr.to_string());
+            if let Some(addrs) = bootnode_addrs {
+                for addr in addrs {
+                    orch_args.push("--bootnode".to_string());
+                    orch_args.push(addr.to_string());
+                }
             }
-            // Add the PQC key file argument if a PQC key exists.
             if pqc_keypair.is_some() {
                 orch_args.push("--pqc-key-file".to_string());
                 orch_args.push(pqc_key_path.to_string_lossy().to_string());
@@ -774,7 +780,7 @@ impl TestValidator {
             orch_cmd
                 .args(&orch_args)
                 .env("RUST_BACKTRACE", "1") // Add backtrace for debugging
-                .env("TELEMETRY_ADDR", &telemetry_addr_orch)
+                .env("TELEMETRY_ADDR", &orchestration_telemetry_addr)
                 .env("WORKLOAD_IPC_ADDR", &workload_ipc_addr)
                 .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())
                 .stderr(Stdio::piped())
@@ -782,100 +788,13 @@ impl TestValidator {
             if agentic_model_path.is_some() {
                 orch_cmd.env("GUARDIAN_ADDR", &guardian_addr);
             }
+            pb.orchestration_process = Some(orch_cmd.spawn()?);
 
-            let mut orchestration_process = orch_cmd.spawn()?;
-            let mut orch_reader =
-                BufReader::new(orchestration_process.stderr.take().unwrap()).lines();
-            let rpc_signal = format!("ORCHESTRATION_RPC_LISTENING_ON_{}", rpc_addr);
-
-            // STAGE 1: Wait for RPC to be ready or process to exit.
-            let ready_result = tokio::select! {
-                res = timeout(ORCHESTRATION_READY_TIMEOUT, async {
-                    while let Some(line) = orch_reader.next_line().await? {
-                        println!("[ORCH-BOOT] {}", line); // Live log
-                        if line.contains(&rpc_signal) { return Ok::<_, anyhow::Error>(()); }
-                    }
-                    Err(anyhow!("Orchestration stderr ended before ready signal"))
-                }) => res,
-                status = orchestration_process.wait() => {
-                    let st = status?;
-                    Err(anyhow!("Orchestration process exited early with status: {}", st))?
-                }
-            };
-
-            // Fallback probe if we timed out on logs but process is alive
-            if let Err(e) = ready_result {
-                log::warn!(
-                    "Orchestration readiness log not found (reason: {}), attempting RPC probe.",
-                    e
-                );
-                let probe_url = format!("http://{}/rpc", rpc_addr);
-                let client = reqwest::Client::new();
-                let probe_ok = client
-                    .post(&probe_url)
-                    .json(&serde_json::json!({"jsonrpc":"2.0","method":"unknown","id":1}))
-                    .send()
-                    .await
-                    .map(|r| r.status().is_success())
-                    .unwrap_or(false);
-
-                if !probe_ok {
-                    return Err(anyhow!(
-                        "Orchestration readiness timed out and RPC probe failed at {}",
-                        rpc_addr
-                    ));
-                }
-                log::warn!("Orchestration readiness log not found, but RPC probe succeeded.");
-            }
-
-            // MODIFICATION: Conditionally skip the "startup complete" check
-            if !light_readiness_check {
-                // STAGE 2: Wait for full startup complete signal or process exit.
-                let started_signal = "ORCHESTRATION_STARTUP_COMPLETE";
-                let started_result = tokio::select! {
-                    res = timeout(Duration::from_secs(20), async {
-                        while let Some(line) = orch_reader.next_line().await? {
-                            println!("[ORCH-BOOT] {}", line); // Live log
-                            if line.contains(started_signal) { return Ok::<_, anyhow::Error>(()); }
-                        }
-                        Err(anyhow!("Orchestration stderr ended before startup-complete signal"))
-                    }) => res,
-                    status = orchestration_process.wait() => {
-                        let st = status?;
-                        Err(anyhow!("Orchestration process exited early with status: {}", st))?
-                    }
-                };
-                if let Err(e) = started_result {
-                    return Err(anyhow!(
-                        "Orchestration failed to reach startup-complete: {}",
-                        e
-                    ));
-                }
-            } else {
-                log::info!("[Forge] Light readiness check complete. Bypassing wait for startup-complete signal.");
-            }
-
-            let mut pb = ProcessBackend::new(rpc_addr.clone(), p2p_addr.clone());
-            pb.orchestration_process = Some(orchestration_process);
-            pb.workload_process = Some(workload_process);
-            pb.guardian_process = guardian_process;
-            pb.orchestration_process.as_mut().unwrap().stderr =
-                Some(orch_reader.into_inner().into_inner());
-            pb.workload_process.as_mut().unwrap().stderr =
-                Some(workload_reader.into_inner().into_inner());
-            if let (Some(g), Some(gr)) = (pb.guardian_process.as_mut(), guardian_reader.take()) {
-                g.stderr = Some(gr.into_inner().into_inner());
-            }
             Box::new(pb)
         };
 
-        backend.launch().await?;
-        let (rpc_addr, p2p_addr) = backend.get_addresses();
+        // --- START LOG DRAINING AND READINESS CHECKS ---
         let (mut orch_logs, mut workload_logs, guardian_logs_opt) = backend.get_log_streams()?;
-
-        let mut log_drain_handles = Vec::new();
-        let (orch_log_tx, _) = broadcast::channel(LOG_CHANNEL_CAPACITY);
-        let (workload_log_tx, _) = broadcast::channel(LOG_CHANNEL_CAPACITY);
 
         let orch_tx_clone = orch_log_tx.clone();
         log_drain_handles.push(tokio::spawn(async move {
@@ -891,18 +810,76 @@ impl TestValidator {
             }
         }));
 
-        let guardian_log_tx = if let Some(mut guardian_logs) = guardian_logs_opt {
-            let (tx, _) = broadcast::channel(LOG_CHANNEL_CAPACITY);
+        if let (Some(mut guardian_logs), Some(tx)) = (guardian_logs_opt, guardian_log_tx.as_ref()) {
             let tx_clone = tx.clone();
             log_drain_handles.push(tokio::spawn(async move {
                 while let Some(Ok(line)) = guardian_logs.next().await {
                     let _ = tx_clone.send(line);
                 }
             }));
-            Some(tx)
+        }
+
+        let mut orch_sub = orch_log_tx.subscribe();
+        let mut workload_sub = workload_log_tx.subscribe();
+
+        if agentic_model_path.is_some() {
+            assert_log_contains(
+                "Guardian",
+                guardian_sub.as_mut().unwrap(),
+                &format!("GUARDIAN_IPC_LISTENING_ON_"),
+            )
+            .await?;
+        }
+
+        assert_log_contains(
+            "Workload",
+            &mut workload_sub,
+            &format!("WORKLOAD_IPC_LISTENING_ON_{}", workload_ipc_addr),
+        )
+        .await?;
+
+        if !use_docker {
+            // Only probe genesis for process backend; docker backend has network delays
+            let temp_workload_client = WorkloadClient::new(
+                &workload_ipc_addr,
+                &certs_dir_path.join("ca.pem").to_string_lossy(),
+                &certs_dir_path.join("orchestration.pem").to_string_lossy(),
+                &certs_dir_path.join("orchestration.key").to_string_lossy(),
+            )
+            .await?;
+            wait_for(
+                "workload genesis to be ready",
+                Duration::from_millis(250),
+                WORKLOAD_READY_TIMEOUT,
+                || async {
+                    match temp_workload_client.get_genesis_status().await {
+                        Ok(status) if status.ready => Ok(Some(())),
+                        _ => Ok(None),
+                    }
+                },
+            )
+            .await?;
+        }
+
+        assert_log_contains(
+            "Orchestration",
+            &mut orch_sub,
+            &format!("ORCHESTRATION_RPC_LISTENING_ON_{}", rpc_addr),
+        )
+        .await?;
+
+        if !light_readiness_check {
+            assert_log_contains(
+                "Orchestration",
+                &mut orch_sub,
+                "ORCHESTRATION_STARTUP_COMPLETE",
+            )
+            .await?;
         } else {
-            None
-        };
+            log::info!("[Forge] Light readiness check complete. Bypassing wait for startup-complete signal.");
+        }
+
+        // --- END READINESS CHECKS ---
 
         Ok(TestValidator {
             keypair,
@@ -910,6 +887,8 @@ impl TestValidator {
             peer_id,
             rpc_addr,
             workload_ipc_addr,
+            orchestration_telemetry_addr,
+            workload_telemetry_addr,
             p2p_addr,
             certs_dir_path,
             _temp_dir: temp_dir,
@@ -1052,7 +1031,7 @@ impl TestClusterBuilder {
         let genesis_content = genesis.to_string();
         let mut validators = Vec::new();
 
-        let mut bootnode_addr: Option<Multiaddr> = None;
+        let mut bootnode_addrs: Vec<Multiaddr> = Vec::new();
 
         if let Some(boot_key) = validator_keys.first() {
             let bootnode = TestValidator::launch(
@@ -1071,15 +1050,15 @@ impl TestClusterBuilder {
                 false, // Full readiness check for the bootnode
             )
             .await?;
-            bootnode_addr = Some(bootnode.p2p_addr.clone());
+            bootnode_addrs.push(bootnode.p2p_addr.clone());
             validators.push(bootnode);
         }
 
         if validator_keys.len() > 1 {
             let mut launch_futures = FuturesUnordered::new();
             for (i, key) in validator_keys.iter().enumerate().skip(1) {
-                let base_port = 5000 + (i * 20) as u16;
-                let captured_bootnode = bootnode_addr.clone();
+                let base_port = 5000 + (i * 100) as u16;
+                let captured_bootnodes = bootnode_addrs.clone();
                 let captured_chain_id = self.chain_id;
                 let captured_genesis = genesis_content.clone();
                 let captured_consensus = self.consensus_type.clone();
@@ -1097,7 +1076,7 @@ impl TestClusterBuilder {
                         captured_genesis,
                         base_port,
                         captured_chain_id,
-                        captured_bootnode.as_ref(),
+                        Some(&captured_bootnodes),
                         &captured_consensus,
                         &captured_state_tree,
                         &captured_commitment,
@@ -1118,19 +1097,26 @@ impl TestClusterBuilder {
         }
         validators.sort_by(|a, b| a.peer_id.cmp(&b.peer_id));
 
+        // Wait for all nodes in the cluster to reach a common height (e.g., 2),
+        // proving that the network is connected and consensus is progressing.
         if validators.len() > 1 {
-            println!("--- Waiting for cluster-wide sync (all nodes at height >= 1) ---");
-            let mut height_futs = FuturesUnordered::new();
+            println!("--- Waiting for cluster to sync to height 2 ---");
+            // FIX: Wait for nodes to sync sequentially instead of in parallel.
+            // This is more robust and prevents race conditions during startup in tests.
             for v in &validators {
                 let rpc_addr = v.rpc_addr.clone();
-                height_futs.push(async move {
-                    wait_for_height(&rpc_addr, 1, Duration::from_secs(45)).await
-                });
+                let peer_id = v.peer_id;
+                if let Err(e) = wait_for_height(&rpc_addr, 2, Duration::from_secs(60)).await {
+                    // Provide more context on failure.
+                    return Err(anyhow!(
+                        "Node {} (rpc: {}) failed to sync to height 2: {}",
+                        peer_id,
+                        rpc_addr,
+                        e
+                    ));
+                }
             }
-            while let Some(result) = height_futs.next().await {
-                result?; // Propagate any timeout errors
-            }
-            println!("--- Cluster is synced and ready. ---");
+            println!("--- All nodes synced. Cluster is ready. ---");
         }
 
         Ok(TestCluster {

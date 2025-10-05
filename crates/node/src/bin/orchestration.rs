@@ -49,10 +49,10 @@ struct OrchestrationOpts {
     config: PathBuf,
     #[clap(long, help = "Path to the identity keypair file.")]
     identity_key_file: PathBuf,
-    #[clap(long, env = "LISTEN_ADDRESS")]
+    #[clap(long, env = "LISTEN_ADDRESS", help = "Address to listen for p2p connections")]
     listen_address: Multiaddr,
-    #[clap(long, env = "BOOTNODE")]
-    bootnode: Option<Multiaddr>,
+    #[clap(long, env = "BOOTNODE", use_value_delimiter = true, help = "One or more bootnode addresses to connect to, comma-separated")]
+    bootnode: Vec<Multiaddr>,
     /// Optional path to a JSON file containing a Dilithium keypair:
     /// { "public": "<hex>", "private": "<hex>" }
     #[clap(long)]
@@ -181,8 +181,7 @@ where
         }
     }
 
-    let (syncer, real_swarm_commander, network_event_receiver) =
-        match Libp2pSync::new(local_key.clone(), opts.listen_address, opts.bootnode) {
+    let (syncer, real_swarm_commander, network_event_receiver) = match Libp2pSync::new(local_key.clone(), opts.listen_address, Some(&opts.bootnode)) {
             Ok(v) => v,
             Err(e) => {
                 eprintln!("ORCHESTRATION_FATAL: Libp2p init failed: {e}");

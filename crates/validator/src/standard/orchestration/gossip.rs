@@ -10,12 +10,16 @@ use depin_sdk_api::consensus::{ConsensusEngine, PenaltyMechanism};
 use depin_sdk_api::state::{StateAccessor, StateCommitment, StateManager, Verifier};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_types::{
-    app::{Block, ChainTransaction, FailureReport, StateRoot, SystemPayload},
+    app::{
+        evidence_id, Block, ChainTransaction, FailureReport, StateRoot, SystemPayload,
+    },
     config::ConsensusType,
     error::{ChainError, TransactionError},
+    keys::{EVIDENCE_REGISTRY_KEY, IBC_PROCESSED_RECEIPT_PREFIX, VALIDATOR_SET_KEY},
 };
 use lru::LruCache;
 use serde::{Deserialize, Serialize};
+use serde_jcs;
 use std::collections::{HashSet, VecDeque};
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -78,7 +82,6 @@ where
         &self,
         state_ref: &StateRef,
     ) -> Result<Arc<dyn AnchoredStateView>, ChainError> {
-        // FIX: Explicitly map the CoreError to a ChainError.
         let anchor = StateRoot(state_ref.state_root.clone())
             .to_anchor()
             .map_err(|e| ChainError::Transaction(e.to_string()))?;
@@ -102,9 +105,6 @@ where
     }
 
     fn workload_container(&self) -> &depin_sdk_api::validator::WorkloadContainer<ST> {
-        // This is a logically unreachable path. The `WorkloadChainView` is a remote proxy
-        // and does not hold a direct reference to the `WorkloadContainer`. If this function
-        // is ever called, it indicates a severe bug in the program's control flow.
         unreachable!(
             "WorkloadChainView is a remote proxy and does not have a local WorkloadContainer"
         );
@@ -190,6 +190,36 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         + 'static
         + Debug,
 {
+    // --- GUARD: Ignore gossiped blocks if they are old or if we are syncing ---
+    let our_height = {
+        context
+            .last_committed_block
+            .as_ref()
+            .map(|b| b.header.height)
+            .unwrap_or(0)
+    };
+    if block.header.height <= our_height {
+        tracing::debug!(
+            target: "gossip",
+            event = "block_ignored",
+            height = block.header.height,
+            reason = "Already have a block at or after this height"
+        );
+        return;
+    }
+
+    let node_state = { context.node_state.lock().await.clone() };
+    if node_state == NodeState::Syncing {
+        tracing::debug!(
+            target: "gossip",
+            event = "block_ignored",
+            height = block.header.height,
+            reason = "Node is currently syncing"
+        );
+        return;
+    }
+    // --- END GUARD ---
+
     let block_height = block.header.height;
     tracing::info!(
         target: "gossip",

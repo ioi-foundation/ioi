@@ -101,7 +101,7 @@ async fn test_universal_verification_e2e() -> Result<()> {
                             weight: 1,
                             consensus_key: ActiveKeyRecord {
                                 suite: SignatureSuite::Ed25519,
-                                pubkey_hash: account_id_hash,
+                                public_key_hash: account_id_hash,
                                 since_height: 0,
                             },
                         }],
@@ -134,7 +134,7 @@ async fn test_universal_verification_e2e() -> Result<()> {
             // C. Set the ActiveKeyRecord for consensus verification
             let record = ActiveKeyRecord {
                 suite,
-                pubkey_hash: account_id_hash,
+                public_key_hash: account_id_hash,
                 since_height: 0,
             };
             let record_key = [b"identity::key_record::", account_id.as_ref()].concat();

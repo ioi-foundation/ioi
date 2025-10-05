@@ -47,11 +47,13 @@ async-trait = { workspace = true }
 uuid = { version = "1.8.0", features = ["v4"] }
 tar = "0.4"
 hyper = "0.14"
+libc = "0.2"
 dcrypt = { workspace = true }
 
 [dev-dependencies]
 depin-sdk-services = { path = "../services" }
 depin-sdk-chain = { path = "../chain" }
+depin-sdk-network = { path = "../network" }
 base64 = { workspace = true }
 once_cell = { workspace = true }
 axum = { workspace = true }

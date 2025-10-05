@@ -15,6 +15,7 @@ depin-sdk-telemetry = { path = "../telemetry" }
 # --- FIX START: Add missing dependencies ---
 depin-sdk-transaction-models = { path = "../transaction_models" }
 depin-sdk-commitment = { path = "../commitment" }
+parity-scale-codec = { workspace = true, features = ["derive"] }
 # --- FIX END ---
 once_cell = { workspace = true }
 log = { workspace = true }

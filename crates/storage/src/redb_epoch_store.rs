@@ -4,6 +4,8 @@ use crate::metrics::metrics;
 use depin_sdk_api::storage::{
     be32, be64, CommitInput, Epoch, Height, NodeHash, NodeStore, PruneStats, RootHash, StorageError,
 };
+use depin_sdk_types::app::{Block, ChainTransaction};
+use depin_sdk_types::codec;
 use redb::{Database, ReadTransaction, ReadableTable, TableDefinition, WriteTransaction};
 use std::path::Path;
 use std::sync::Arc;
@@ -13,6 +15,7 @@ use std::sync::Arc;
 const ROOT_INDEX: TableDefinition<&[u8; 32], &[u8; 16]> = TableDefinition::new("ROOT_INDEX"); // value = [epoch_be(8)][height_be(8)]
 const HEAD: TableDefinition<&[u8; 4], &[u8; 16]> = TableDefinition::new("HEAD"); // key=b"HEAD", value=[height_be(8)][epoch_be(8)]
 const MANIFEST: TableDefinition<&[u8; 8], &[u8; 17]> = TableDefinition::new("EPOCH_MANIFEST"); // value = [first(8)][last(8)][sealed(1)]
+const BLOCKS: TableDefinition<&[u8; 8], &[u8]> = TableDefinition::new("BLOCKS");
 
 // Sharded (prefix-encoded) - Keys are variable-length slices
 const VERSIONS: TableDefinition<&[u8], &[u8; 32]> = TableDefinition::new("VERSIONS");
@@ -85,6 +88,10 @@ impl RedbEpochStore {
                 w.open_table(REFS)
                     .map_err(|e| StorageError::Backend(e.to_string()))?;
                 w.open_table(NODES)
+                    .map_err(|e| StorageError::Backend(e.to_string()))?;
+                // [+] FIX: Revert to the correct, idempotent open_table call.
+                // This will create the table if it doesn't exist.
+                w.open_table(BLOCKS)
                     .map_err(|e| StorageError::Backend(e.to_string()))?;
             }
             w.commit()
@@ -286,6 +293,56 @@ impl NodeStore for RedbEpochStore {
             Self::write_head(&w, input.height, epoch)?;
         }
         w.commit().map_err(|e| StorageError::Backend(e.to_string()))
+    }
+
+    fn put_block(&self, height: u64, block_bytes: &[u8]) -> Result<(), StorageError> {
+        let w = self.write_txn()?;
+        {
+            let mut table = w
+                .open_table(BLOCKS)
+                .map_err(|e| StorageError::Backend(e.to_string()))?;
+            table
+                .insert(&height.to_be_bytes(), block_bytes)
+                .map_err(|e| StorageError::Backend(e.to_string()))?;
+        }
+        w.commit().map_err(|e| StorageError::Backend(e.to_string()))
+    }
+
+    fn get_blocks_range(
+        &self,
+        start: u64,
+        limit: u32,
+        max_bytes: u32,
+    ) -> Result<Vec<Block<ChainTransaction>>, StorageError> {
+        let r = self.read_txn()?;
+        let table = r
+            .open_table(BLOCKS)
+            .map_err(|e| StorageError::Backend(e.to_string()))?;
+        let mut blocks = Vec::new();
+        let mut current_bytes: u32 = 0;
+        let range_start = start.to_be_bytes();
+        let range = table
+            .range::<&[u8; 8]>(&range_start..)
+            .map_err(|e| StorageError::Backend(e.to_string()))?;
+
+        for result in range {
+            if blocks.len() >= limit as usize {
+                break;
+            }
+            let (_key, value) = result.map_err(|e| StorageError::Backend(e.to_string()))?;
+            let block_bytes = value.value();
+
+            if current_bytes + (block_bytes.len() as u32) > max_bytes && !blocks.is_empty() {
+                break;
+            }
+
+            let block: Block<ChainTransaction> =
+                codec::from_bytes_canonical(block_bytes).map_err(|e| StorageError::Decode(e))?;
+
+            current_bytes += block_bytes.len() as u32;
+            blocks.push(block);
+        }
+        Ok(blocks)
     }
 
     fn prune_batch(

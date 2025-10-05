@@ -90,7 +90,7 @@ pub struct ActiveKeyRecord {
     /// The algorithm used by this credential.
     pub suite: SignatureSuite,
     /// The hash of the public key.
-    pub pubkey_hash: [u8; 32],
+    pub public_key_hash: [u8; 32],
     /// The first block height at which this key is valid for signing.
     pub since_height: u64,
 }

@@ -33,6 +33,7 @@ use depin_sdk_types::{
 };
 use libp2p::identity;
 use lru::LruCache;
+use rand::seq::SliceRandom;
 use serde::Serialize;
 use std::collections::VecDeque;
 use std::fmt::Debug;
@@ -53,7 +54,7 @@ mod context;
 mod gossip;
 mod oracle;
 mod peer_management;
-mod remote_state_view;
+mod remote_state_view; // [+] ADDED: This module declaration was missing.
 // Make sure the sync helpers are visible here.
 mod sync;
 pub mod verifier_select;
@@ -64,6 +65,8 @@ use crate::config::OrchestrationConfig;
 use consensus::drive_consensus_tick;
 use context::{ChainFor, MainLoopContext};
 use futures::FutureExt;
+// [+] Use `sync as sync_handlers` to avoid ambiguity with tokio::sync
+use sync as sync_handlers;
 
 /// A struct to hold the numerous dependencies for the OrchestrationContainer,
 /// improving constructor readability and maintainability.
@@ -102,6 +105,7 @@ where
         + Send
         + Sync
         + 'static
+        + Clone
         + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -145,6 +149,7 @@ where
         + Send
         + Sync
         + 'static
+        + Clone
         + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -295,7 +300,44 @@ where
         log::info!("Consensus ticker finished.");
     }
 
-    #[allow(clippy::too_many_arguments)]
+    async fn run_sync_discoverer(
+        context_arc: Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+        mut shutdown_rx: watch::Receiver<bool>,
+    ) {
+        let mut interval = time::interval(Duration::from_secs(30));
+        interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
+        loop {
+            tokio::select! {
+                _ = interval.tick() => {
+                    let (known_peers, swarm_commander) = {
+                        let ctx = context_arc.lock().await;
+                        (ctx.known_peers_ref.clone(), ctx.swarm_commander.clone())
+                    };
+
+                    let random_peer_opt = {
+                        let peers: Vec<_> = known_peers.lock().await.iter().cloned().collect();
+                        peers.choose(&mut rand::thread_rng()).cloned()
+                    };
+
+                    if let Some(random_peer) = random_peer_opt {
+                        log::debug!("Sending periodic status request to random peer: {}", random_peer);
+                        if swarm_commander.send(SwarmCommand::SendStatusRequest(random_peer)).await.is_err() {
+                            log::warn!("Failed to send periodic status request to swarm.");
+                        }
+                    }
+                }
+                _ = shutdown_rx.changed() => {
+                    if *shutdown_rx.borrow() {
+                        log::info!("Sync discoverer received shutdown signal.");
+                        break;
+                    }
+                }
+            }
+        }
+        log::info!("Sync discoverer finished.");
+    }
+
     async fn run_main_loop(
         mut network_event_receiver: mpsc::Receiver<NetworkEvent>,
         mut shutdown_receiver: watch::Receiver<bool>,
@@ -326,8 +368,8 @@ where
                 _ = &mut sync_timeout, if *context_arc.lock().await.node_state.lock().await == NodeState::Syncing => {
                     let context = context_arc.lock().await;
                     if context.known_peers_ref.lock().await.is_empty() {
-                        log::info!("[Orchestrator] No peers found after timeout. Assuming genesis node. State -> Synced.");
-                        *context.node_state.lock().await = NodeState::Synced;
+                        tracing::warn!(target: "orchestration", "Initial sync timeout elapsed with no peers found. Will continue waiting for peers...");
+                        // We no longer assume genesis here. The node will stay in Syncing state.
                     }
                 },
 
@@ -385,6 +427,17 @@ async fn handle_network_event<CS, ST, CE, V>(
 
         // IMPORTANT: avoid deadlock by ignoring our own blocks (single-node).
         NetworkEvent::GossipBlock(block) => {
+            let node_state = { context_arc.lock().await.node_state.lock().await.clone() };
+            if node_state == NodeState::Syncing {
+                tracing::debug!(
+                    target: "gossip",
+                    event = "block_ignored",
+                    height = block.header.height,
+                    reason = "Node is currently syncing"
+                );
+                return;
+            }
+
             // Compute our Ed25519 account id.
             let (our_ed_id, our_pqc_id_opt, kick_tx) = {
                 let ctx = context_arc.lock().await;
@@ -431,23 +484,40 @@ async fn handle_network_event<CS, ST, CE, V>(
         }
         NetworkEvent::StatusRequest(peer, channel) => {
             let mut ctx = context_arc.lock().await;
-            sync::handle_status_request(&mut ctx, peer, channel).await
+            sync_handlers::handle_status_request(&mut ctx, peer, channel).await
         }
-        NetworkEvent::BlocksRequest(peer, since, channel) => {
+        NetworkEvent::BlocksRequest {
+            peer,
+            since,
+            max_blocks,
+            max_bytes,
+            channel,
+        } => {
             let mut ctx = context_arc.lock().await;
-            sync::handle_blocks_request(&mut ctx, peer, since, channel).await
+            sync_handlers::handle_blocks_request(&mut ctx, peer, since, max_blocks, max_bytes, channel).await
         }
-        NetworkEvent::StatusResponse(peer, height) => {
+        NetworkEvent::StatusResponse {
+            peer,
+            height,
+            head_hash,
+            chain_id,
+            genesis_root,
+        } => {
             let mut ctx = context_arc.lock().await;
-            sync::handle_status_response(&mut ctx, peer, height).await
+            sync_handlers::handle_status_response(&mut ctx, peer, height, head_hash, chain_id, genesis_root)
+                .await
         }
         NetworkEvent::BlocksResponse(peer, blocks) => {
             let mut ctx = context_arc.lock().await;
-            sync::handle_blocks_response(&mut ctx, peer, blocks).await
+            sync_handlers::handle_blocks_response(&mut ctx, peer, blocks).await
         }
         NetworkEvent::OracleAttestationReceived { from, attestation } => {
             let mut ctx = context_arc.lock().await;
             oracle::handle_oracle_attestation_received(&mut ctx, from, attestation).await
+        }
+        NetworkEvent::OutboundFailure(peer) => {
+            let mut ctx = context_arc.lock().await;
+            sync_handlers::handle_outbound_failure(&mut ctx, peer).await
         }
         _ => {}
     }
@@ -568,6 +638,7 @@ where
             pending_attestations: std::collections::HashMap::new(),
             last_committed_block: None,
             consensus_kick_tx: self.consensus_kick_tx.clone(),
+            sync_progress: None,
         };
 
         let mut receiver_opt = self.network_event_receiver.lock().await;
@@ -595,6 +666,12 @@ where
 
         handles.push(tokio::spawn(async move {
             Self::run_consensus_ticker(ticker_context, ticker_kick_rx, ticker_shutdown_rx).await;
+        }));
+
+        let discoverer_context = context_arc.clone();
+        let discoverer_shutdown_rx = self.shutdown_sender.subscribe();
+        handles.push(tokio::spawn(async move {
+            Self::run_sync_discoverer(discoverer_context, discoverer_shutdown_rx).await;
         }));
 
         let shutdown_receiver_clone = self.shutdown_sender.subscribe();
@@ -640,7 +717,8 @@ where
         + Send
         + Sync
         + 'static
-        + Debug,
+        + Debug
+        + Clone,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
@@ -659,7 +737,6 @@ where
     ) -> Result<()> {
         let guardian_channel =
             depin_sdk_client::security::SecurityChannel::new("orchestration", "guardian");
-        // FIX: Provide cert paths to the client.
         let certs_dir = std::env::var("CERTS_DIR").map_err(|_| {
             ValidatorError::Config("CERTS_DIR environment variable must be set".to_string())
         })?;

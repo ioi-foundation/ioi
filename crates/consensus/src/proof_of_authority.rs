@@ -7,7 +7,7 @@ use depin_sdk_api::consensus::ChainStateReader;
 use depin_sdk_api::state::{StateAccessor, StateManager};
 use depin_sdk_types::app::{
     account_id_from_key_material, read_validator_sets, AccountId, Block, FailureReport,
-    SignatureSuite,
+    SignatureSuite, ValidatorSetV1, ValidatorSetsV1,
 };
 use depin_sdk_types::error::{ConsensusError, CoreError, StateError, TransactionError};
 use depin_sdk_types::keys::{QUARANTINED_VALIDATORS_KEY, VALIDATOR_SET_KEY};
@@ -38,6 +38,17 @@ pub(crate) fn hash_key(suite: SignatureSuite, pubkey: &[u8]) -> Result<[u8; 32],
 
 #[derive(Debug, Clone)]
 pub struct ProofOfAuthorityEngine {}
+
+/// Selects the validator set that is effective for the given height.
+/// Mirrors the logic from the PoS engine for consistency.
+fn effective_set_for_height(sets: &ValidatorSetsV1, h: u64) -> &ValidatorSetV1 {
+    if let Some(next) = &sets.next {
+        if h >= next.effective_from_height && !next.validators.is_empty() && next.total_weight > 0 {
+            return next;
+        }
+    }
+    &sets.current
+}
 
 impl Default for ProofOfAuthorityEngine {
     fn default() -> Self {
@@ -149,12 +160,9 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             Ok(s) => s,
             Err(_) => return ConsensusDecision::Stall,
         };
-        let validator_set: Vec<_> = sets
-            .current
-            .validators
-            .into_iter()
-            .map(|v| v.account_id)
-            .collect();
+        // FIX: Use the effective validator set for the target height.
+        let vs = effective_set_for_height(&sets, height);
+        let validator_set: Vec<_> = vs.validators.iter().map(|v| v.account_id).collect();
 
         if validator_set.is_empty() {
             return if height == 1 {
@@ -210,12 +218,9 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             .ok_or_else(|| ConsensusError::StateAccess(StateError::KeyNotFound))?;
         let sets = read_validator_sets(&vs_bytes)
             .map_err(|e| ConsensusError::StateAccess(StateError::InvalidValue(e.to_string())))?;
-        let validator_set: Vec<_> = sets
-            .current
-            .validators
-            .into_iter()
-            .map(|v| v.account_id)
-            .collect();
+        // FIX: Use the effective validator set for the block being verified.
+        let vs = effective_set_for_height(&sets, header.height);
+        let validator_set: Vec<_> = vs.validators.iter().map(|v| v.account_id).collect();
         if validator_set
             .binary_search(&header.producer_account_id)
             .is_err()
@@ -246,7 +251,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                     ))
                 })?;
             active_key_suite = record.suite;
-            active_key_hash = record.pubkey_hash;
+            active_key_hash = record.public_key_hash;
         }
 
         let pubkey = &header.producer_pubkey;
