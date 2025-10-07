@@ -1,5 +1,9 @@
-// Path: crates/client/src/workload_client.rs
+// Path: crates/client/src/workload_client/mod.rs
+
+mod actor;
+
 use crate::security::SecurityChannel;
+use actor::{ClientActor, ClientRequest};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use depin_sdk_api::{
@@ -11,7 +15,7 @@ use depin_sdk_types::app::{
     StateRoot,
 };
 use depin_sdk_types::keys::ACCOUNT_ID_TO_PUBKEY_PREFIX;
-use ipc_protocol::jsonrpc::{JsonRpcId, JsonRpcRequest, JsonRpcResponse};
+use ipc_protocol::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest};
 use libp2p::identity::PublicKey;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
@@ -19,7 +23,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::Mutex as AsyncMutex;
+use tokio::sync::{mpsc, oneshot};
 use tokio::time::sleep;
 
 // --- Structs for RPC method parameters and results ---
@@ -111,15 +115,18 @@ pub struct GenesisStatus {
 }
 
 /// A client-side proxy for communicating with the remote Workload container.
+/// This is a lightweight handle that sends requests to a dedicated I/O actor.
 #[derive(Debug, Clone)]
 pub struct WorkloadClient {
-    channel: SecurityChannel,
     workload_addr: String,
     request_id: Arc<AtomicI64>,
-    rpc_lock: Arc<AsyncMutex<()>>,
+    /// Sender channel to the I/O actor task.
+    to_actor: mpsc::Sender<ClientRequest>,
 }
 
 impl WorkloadClient {
+    /// Establishes a secure connection to the Workload container and spawns
+    /// a dedicated I/O task to manage the connection.
     pub async fn new(
         workload_addr: &str,
         ca_cert_path: &str,
@@ -128,12 +135,10 @@ impl WorkloadClient {
     ) -> Result<Self> {
         let channel = SecurityChannel::new("orchestration", "workload");
 
+        // Connection retry loop
         let mut attempts = 0;
-        // Increase attempts for CI environments where startup can be slower.
         let max_attempts = 10;
-        // Start with a shorter delay and use exponential backoff.
         let mut retry_delay = Duration::from_millis(500);
-
         loop {
             attempts += 1;
             match channel
@@ -147,63 +152,56 @@ impl WorkloadClient {
                 .await
             {
                 Ok(_) => {
-                    // **IPC Readiness Probe**: After establishing a TLS connection,
-                    // send a lightweight RPC request to ensure the server is fully
-                    // initialized and ready to handle requests. This prevents race
-                    // conditions where the TCP port is open but the server logic isn't ready.
-                    sleep(Duration::from_millis(100)).await;
-
-                    // Create a temporary client instance for the probe.
-                    let temp_client = Self {
-                        channel: channel.clone(),
-                        workload_addr: workload_addr.to_string(),
-                        request_id: Arc::new(AtomicI64::new(0)),
-                        rpc_lock: Arc::new(AsyncMutex::new(())),
-                    };
-
-                    if temp_client.get_status().await.is_ok() {
-                        log::info!(
-                            "Successfully connected and verified IPC with Workload container at {}",
-                            workload_addr
-                        );
-                        break; // Connection is fully established and responsive.
-                    } else {
-                        // Connection established but server not yet responsive.
-                        // The channel will be dropped, and we will retry.
-                        log::warn!("Workload IPC established but not responsive. Retrying connection...");
-                    }
+                    log::info!(
+                        "Successfully established TLS with Workload container at {}",
+                        workload_addr
+                    );
+                    break;
                 }
                 Err(e) => {
                     if attempts >= max_attempts {
                         return Err(e.into());
                     }
-                    log::warn!("Attempt {}/{} to connect to Workload container failed: {}. Retrying in {:?}...", attempts, max_attempts, e, retry_delay);
+                    log::warn!(
+                        "Attempt {}/{} to connect to Workload container failed: {}. Retrying in {:?}...",
+                        attempts, max_attempts, e, retry_delay
+                    );
                     sleep(retry_delay).await;
-                    // Exponential backoff with a cap to prevent excessively long waits.
                     retry_delay = (retry_delay * 2).min(Duration::from_secs(5));
                 }
             }
         }
 
-        Ok(Self {
-            channel,
+        // Spawn the actor task to manage the connection
+        let (to_actor, from_client) = mpsc::channel(128);
+        let actor = ClientActor::new(channel, from_client);
+        tokio::spawn(actor.run());
+
+        let client = Self {
             workload_addr: workload_addr.to_string(),
             request_id: Arc::new(AtomicI64::new(0)),
-            rpc_lock: Arc::new(AsyncMutex::new(())),
-        })
+            to_actor,
+        };
+
+        // Perform readiness probe using the newly created client.
+        // This confirms the server is fully initialized.
+        client.get_status().await?;
+        log::info!(
+            "Successfully connected and verified IPC with Workload container at {}",
+            workload_addr
+        );
+
+        Ok(client)
     }
 
-    pub fn destination_addr(&self) -> &str {
-        &self.workload_addr
-    }
-
+    /// Sends an RPC request to the actor and waits for the response.
     async fn send_rpc<P: serde::Serialize, R: DeserializeOwned>(
         &self,
         method: &str,
         params: P,
     ) -> Result<R> {
-        let _guard = self.rpc_lock.lock().await;
         let id = self.request_id.fetch_add(1, Ordering::SeqCst);
+        let (response_tx, response_rx) = oneshot::channel();
 
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
@@ -212,21 +210,24 @@ impl WorkloadClient {
             id: Some(JsonRpcId::Num(id)),
         };
 
-        let req_bytes = serde_json::to_vec(&request)?;
-        self.channel.send(&req_bytes).await?;
+        let client_request = ClientRequest {
+            request,
+            response_tx,
+        };
 
-        let response_bytes = self.channel.receive().await?;
-        let response: JsonRpcResponse<R> = serde_json::from_slice(&response_bytes)?;
+        self.to_actor.send(client_request).await?;
 
-        match (response.result, response.error) {
-            (Some(result), None) => Ok(result),
-            (None, Some(error)) => Err(anyhow!(
-                "RPC Error (code {}): {}",
-                error.code,
-                error.message
-            )),
-            _ => Err(anyhow!("Invalid JSON-RPC response from server")),
+        // Wait for the response from the actor with a timeout.
+        let result = tokio::time::timeout(Duration::from_secs(30), response_rx).await??;
+
+        match result {
+            Ok(value) => Ok(serde_json::from_value(value)?),
+            Err(e) => Err(anyhow!("RPC Error (code {}): {}", e.code, e.message)),
         }
+    }
+
+    pub fn destination_addr(&self) -> &str {
+        &self.workload_addr
     }
 
     pub async fn process_block(
@@ -443,3 +444,15 @@ impl ChainStateReader for WorkloadClient {
             .map_err(|e| format!("Failed to decode public key protobuf: {}", e))
     }
 }
+
+// --- Re-exports to maintain public API ---
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CallServiceParams {
+    pub service_id: String,
+    pub method_id: String,
+    pub params: serde_json::Value,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetWorkloadConfigParams {}

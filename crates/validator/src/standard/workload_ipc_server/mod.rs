@@ -216,10 +216,6 @@ where
                     }
                 };
 
-                // METRIC: state_prune_cutoff_height.set(plan.cutoff_height);
-                // METRIC: state_prune_excluded_count.set(plan.excluded_heights.len());
-
-                // --- PHASE 2a: Prune in-memory version indices (non-blocking) ---
                 if let Ok(mut state_tree) = state_tree_for_gc.try_write() {
                     if let Err(e) =
                         state_tree.prune_batch(&plan, BATCH_LIMIT * MAX_BATCHES_PER_TICK)
@@ -232,10 +228,7 @@ where
                     );
                 }
 
-                // --- PHASE 2b: Prune directly against the durable store ---
                 let cutoff_epoch = store_for_gc.epoch_of(plan.cutoff_height);
-
-                // [+] 2b(i): Drop fully eligible sealed epochs
                 let pinned_epochs: std::collections::BTreeSet<u64> = plan
                     .excluded_heights
                     .iter()
@@ -244,7 +237,6 @@ where
 
                 for epoch_id in 0..cutoff_epoch {
                     if pinned_epochs.contains(&epoch_id) {
-                        log::debug!("[GC] Skipping drop of pinned epoch {}", epoch_id);
                         continue;
                     }
                     if store_for_gc.is_sealed(epoch_id).unwrap_or(false) {
@@ -256,29 +248,22 @@ where
                     }
                 }
 
-                // [+] 2b(ii): Prune partial epochs incrementally
                 let mut total_pruned = 0;
                 for _ in 0..MAX_BATCHES_PER_TICK {
-                    let _batch_start = std::time::Instant::now();
                     let excluded_vec: Vec<u64> = plan.excluded_heights.iter().cloned().collect();
-                    let stats = match store_for_gc.prune_batch(
-                        plan.cutoff_height,
-                        &excluded_vec,
-                        BATCH_LIMIT,
-                    ) {
-                        Ok(s) => s,
+                    match store_for_gc.prune_batch(plan.cutoff_height, &excluded_vec, BATCH_LIMIT) {
+                        Ok(stats) => {
+                            total_pruned += stats.heights_pruned;
+                            if stats.heights_pruned < BATCH_LIMIT {
+                                break;
+                            }
+                        }
                         Err(e) => {
                             log::error!("[GC] Store prune_batch failed: {}", e);
-                            break; // Stop this cycle on error
+                            break;
                         }
-                    };
-
-                    total_pruned += stats.heights_pruned;
-
-                    if stats.heights_pruned < BATCH_LIMIT {
-                        break; // Nothing left to prune this cycle
                     }
-                    tokio::task::yield_now().await; // Yield between batches
+                    tokio::task::yield_now().await;
                 }
                 if total_pruned > 0 {
                     log::debug!(
@@ -290,7 +275,6 @@ where
                 }
             }
         });
-        // --- END OF GC TASK ---
 
         let shared_ctx = Arc::new(RpcContext {
             chain: self.chain_arc.clone(),
@@ -305,9 +289,10 @@ where
             );
 
             let acceptor_clone = acceptor.clone();
-            let semaphore_clone = self.semaphore.clone();
+            let ipc_channel = SecurityChannel::new("workload", "orchestration");
             let router_clone = self.router.clone();
             let shared_ctx_clone = shared_ctx.clone();
+            let semaphore_clone = self.semaphore.clone();
 
             tokio::spawn(async move {
                 let mut tls_stream = match acceptor_clone.accept(stream).await {
@@ -331,11 +316,10 @@ where
                     peer_addr
                 );
 
-                let ipc_channel = SecurityChannel::new("workload", "orchestration");
                 ipc_channel.accept_server_connection(tls_stream).await;
 
                 loop {
-                    let permit = match semaphore_clone.clone().acquire_owned().await {
+                    let _permit = match semaphore_clone.clone().acquire_owned().await {
                         Ok(p) => p,
                         Err(_) => {
                             log::info!(
@@ -358,6 +342,7 @@ where
                         }
                     };
 
+                    // Process the request serially on this connection's task.
                     let response = handle_request(
                         &request_bytes,
                         shared_ctx_clone.clone(),
@@ -366,17 +351,36 @@ where
                     .await;
 
                     if let Some(res) = response {
-                        let response_bytes = serde_json::to_vec(&res)
-                            .map_err(|e| {
-                                log::error!("Failed to serialize IPC response: {}", e);
-                                e
-                            })
-                            .unwrap_or_default();
-                        if let Err(e) = ipc_channel.send(&response_bytes).await {
-                            log::error!("Failed to send IPC response to {}: {}", peer_addr, e);
+                        // Use a block to clearly define the scope of serialization and send.
+                        {
+                            let response_bytes = match serde_json::to_vec(&res) {
+                                Ok(b) => b,
+                                Err(e) => {
+                                    log::error!("Failed to serialize IPC response: {}", e);
+                                    // Create an error response if serialization fails
+                                    let err_res: JsonRpcResponse<serde_json::Value> = JsonRpcResponse {
+                                        jsonrpc: "2.0".to_string(),
+                                        result: None,
+                                        error: Some(JsonRpcError {
+                                            code: -32603,
+                                            message:
+                                                "Internal Server Error: Failed to serialize response"
+                                                    .to_string(),
+                                            data: None,
+                                        }),
+                                        id: res.id,
+                                    };
+                                    // This unwrap is safe as the error response is guaranteed to serialize.
+                                    serde_json::to_vec(&err_res).unwrap_or_default()
+                                }
+                            };
+
+                            if let Err(e) = ipc_channel.send(&response_bytes).await {
+                                log::error!("Failed to send IPC response to {}: {}", peer_addr, e);
+                            }
                         }
                     }
-                    drop(permit);
+                    // The permit is dropped here, releasing the semaphore slot.
                 }
             });
         }

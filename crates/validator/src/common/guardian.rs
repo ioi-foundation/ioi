@@ -136,12 +136,10 @@ impl Container for GuardianContainer {
                         if let Ok(id_byte) = tls_stream.read_u8().await {
                             match id_byte {
                                 1 => {
-                                    // Pass the server stream directly
-                                    orch_c.accept_server_connection(tls_stream).await
+                                    orch_c.accept_server_connection(tls_stream).await;
                                 }
                                 2 => {
-                                    // Pass the server stream directly
-                                    work_c.accept_server_connection(tls_stream).await
+                                    work_c.accept_server_connection(tls_stream).await;
                                 }
                                 _ => log::warn!("[Guardian] Unknown client ID byte: {}", id_byte),
                             }
