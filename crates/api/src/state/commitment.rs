@@ -4,11 +4,18 @@
 use depin_sdk_types::error::StateError;
 use std::any::Any;
 use std::fmt::Debug;
+use std::sync::Arc;
 
-/// A key-value pair from the state.
-pub type StateKVPair = (Vec<u8>, Vec<u8>);
-/// The result type for a prefix scan operation.
-pub type StateScanResult = Result<Vec<StateKVPair>, StateError>;
+/// An atomically reference-counted, owned key slice.
+pub type StateKey = Arc<[u8]>;
+/// An atomically reference-counted, owned value slice.
+pub type StateVal = Arc<[u8]>;
+/// An owned key-value pair from the state, using cheap-to-clone Arcs.
+pub type StateKVPair = (StateKey, StateVal);
+/// A streaming iterator over key-value pairs from the state. It is Send-safe
+/// to be moved across async tasks. `Sync` is omitted as iterators are stateful.
+pub type StateScanIter<'a> =
+    Box<dyn Iterator<Item = Result<StateKVPair, StateError>> + Send + 'a>;
 
 /// A trait for generic state commitment operations.
 ///
@@ -51,7 +58,7 @@ pub trait StateCommitment: Debug {
     }
 
     /// Scans for all key-value pairs starting with the given prefix.
-    fn prefix_scan(&self, prefix: &[u8]) -> StateScanResult;
+    fn prefix_scan(&self, prefix: &[u8]) -> Result<StateScanIter<'_>, StateError>;
 }
 
 impl<T: StateCommitment + ?Sized> StateCommitment for Box<T> {
@@ -93,7 +100,7 @@ impl<T: StateCommitment + ?Sized> StateCommitment for Box<T> {
     fn export_kv_pairs(&self) -> Vec<(Vec<u8>, Vec<u8>)> {
         (**self).export_kv_pairs()
     }
-    fn prefix_scan(&self, prefix: &[u8]) -> StateScanResult {
+    fn prefix_scan(&self, prefix: &[u8]) -> Result<StateScanIter<'_>, StateError> {
         (**self).prefix_scan(prefix)
     }
 }
