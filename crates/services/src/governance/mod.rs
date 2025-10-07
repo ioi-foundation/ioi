@@ -70,37 +70,45 @@ impl OnEndBlock for GovernanceModule {
         state: &mut dyn StateAccessor,
         ctx: &TxContext,
     ) -> Result<(), StateError> {
-        let proposals_kv = state.prefix_scan(GOVERNANCE_PROPOSAL_KEY_PREFIX)?;
-
-        let stakes: BTreeMap<AccountId, u64> = match state.get(VALIDATOR_SET_KEY)? {
-            Some(bytes) => {
-                let sets = read_validator_sets(&bytes)?;
-                sets.current
-                    .validators
-                    .into_iter()
-                    .map(|v| (v.account_id, v.weight as u64))
-                    .collect()
-            }
-            _ => BTreeMap::new(),
-        };
-
-        for (_key, value_bytes) in proposals_kv {
-            if let Ok(entry) =
-                depin_sdk_types::codec::from_bytes_canonical::<StateEntry>(&value_bytes)
-            {
-                if let Ok(proposal) =
-                    depin_sdk_types::codec::from_bytes_canonical::<Proposal>(&entry.value)
+        let proposals_to_tally: Vec<u64> = {
+            let proposals_iter = state.prefix_scan(GOVERNANCE_PROPOSAL_KEY_PREFIX)?;
+            let mut ids = Vec::new();
+            for item_result in proposals_iter {
+                let (_key, value_bytes) = item_result?;
+                if let Ok(entry) =
+                    depin_sdk_types::codec::from_bytes_canonical::<StateEntry>(&value_bytes)
                 {
-                    if proposal.status == ProposalStatus::VotingPeriod
-                        && ctx.block_height >= proposal.voting_end_height
+                    if let Ok(proposal) =
+                        depin_sdk_types::codec::from_bytes_canonical::<Proposal>(&entry.value)
                     {
-                        log::info!("[Governance OnEndBlock] Tallying proposal {}", proposal.id);
-                        // The state manager for the on_end_block hook is a `&mut dyn StateAccessor`,
-                        // which is exactly what `tally_proposal` needs.
-                        self.tally_proposal(state, proposal.id, &stakes, ctx.block_height)
-                            .map_err(StateError::Apply)?;
+                        if proposal.status == ProposalStatus::VotingPeriod
+                            && ctx.block_height >= proposal.voting_end_height
+                        {
+                            ids.push(proposal.id);
+                        }
                     }
                 }
+            }
+            ids
+        };
+
+        if !proposals_to_tally.is_empty() {
+            let stakes: BTreeMap<AccountId, u64> = match state.get(VALIDATOR_SET_KEY)? {
+                Some(bytes) => {
+                    let sets = read_validator_sets(&bytes)?;
+                    sets.current
+                        .validators
+                        .into_iter()
+                        .map(|v| (v.account_id, v.weight as u64))
+                        .collect()
+                }
+                _ => BTreeMap::new(),
+            };
+
+            for proposal_id in proposals_to_tally {
+                log::info!("[Governance OnEndBlock] Tallying proposal {}", proposal_id);
+                self.tally_proposal(state, proposal_id, &stakes, ctx.block_height)
+                    .map_err(StateError::Apply)?;
             }
         }
         Ok(())
@@ -276,19 +284,16 @@ impl GovernanceModule {
             b"::",
         ]
         .concat();
-        let votes: Vec<(Vec<u8>, Vec<u8>)> = state
+        let votes_iter = state
             .prefix_scan(&vote_key_prefix)
             .map_err(|e| e.to_string())?;
-        log::debug!(
-            "[Tally] Found {} votes for proposal {}",
-            votes.len(),
-            proposal_id
-        );
+        log::debug!("[Tally] Scanning votes for proposal {}", proposal_id);
 
         let mut tally = TallyResult::default();
         let mut total_voted_power = 0; // Total power of accounts that voted.
 
-        for (vote_key, vote_bytes) in votes {
+        for item_result in votes_iter {
+            let (vote_key, vote_bytes) = item_result.map_err(|e| e.to_string())?;
             // 3. Deserialize the vote option.
             let option: VoteOption = depin_sdk_types::codec::from_bytes_canonical(&vote_bytes)
                 .map_err(|_| "Failed to deserialize vote".to_string())?;
@@ -401,6 +406,7 @@ mod tests {
     use std::any::Any;
     use std::collections::BTreeMap;
     use std::collections::HashMap;
+    use std::sync::Arc;
 
     // A simple mock StateManager for testing governance logic.
     #[derive(Debug, Default)]
@@ -444,14 +450,21 @@ mod tests {
         fn as_any_mut(&mut self) -> &mut dyn Any {
             self
         }
-        fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StateError> {
-            let results = self
+        fn prefix_scan(
+            &self,
+            prefix: &[u8],
+        ) -> Result<depin_sdk_api::state::StateScanIter<'_>, StateError> {
+            let mut results: Vec<_> = self
                 .data
                 .iter()
                 .filter(|(key, _)| key.starts_with(prefix))
                 .map(|(key, value)| (key.clone(), value.clone()))
                 .collect();
-            Ok(results)
+            results.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+            let iter = results
+                .into_iter()
+                .map(|(k, v)| Ok((Arc::from(k), Arc::from(v))));
+            Ok(Box::new(iter))
         }
     }
 

@@ -10,7 +10,7 @@ use crate::tree::verkle::proof::{
     map_child_commitment_to_value, map_leaf_payload_to_value, Terminal, VerklePathProof,
 };
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
-use depin_sdk_api::state::{PrunePlan, StateCommitment, StateManager};
+use depin_sdk_api::state::{PrunePlan, StateCommitment, StateManager, StateScanIter};
 use depin_sdk_api::storage::NodeStore;
 use depin_sdk_storage::adapter::{commit_and_persist, DeltaAccumulator};
 use depin_sdk_types::app::{to_root_hash, Membership, RootHash};
@@ -649,14 +649,18 @@ impl StateCommitment for VerkleTree<KZGCommitmentScheme> {
             .collect()
     }
 
-    fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StateError> {
-        let results = self
+    fn prefix_scan(&self, prefix: &[u8]) -> Result<StateScanIter<'_>, StateError> {
+        let mut results: Vec<_> = self
             .cache
             .iter()
             .filter(|(key, _)| key.starts_with(prefix))
             .map(|(key, value)| (key.clone(), value.clone()))
             .collect();
-        Ok(results)
+        results.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+        let iter = results
+            .into_iter()
+            .map(|(k, v)| Ok((Arc::from(k), Arc::from(v))));
+        Ok(Box::new(iter))
     }
 }
 

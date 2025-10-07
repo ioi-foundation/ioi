@@ -2,9 +2,13 @@
 
 //! A copy-on-write state overlay for transaction simulation.
 
-use crate::state::StateAccessor;
-use depin_sdk_types::error::StateError;
+use crate::state::{StateAccessor, StateError, StateKVPair, StateScanIter};
+use depin_sdk_types::error::StateError as DepinStateError;
+use std::collections::btree_map;
 use std::collections::BTreeMap;
+use std::iter::{Fuse, Peekable};
+use std::ops::Bound::{Excluded, Included, Unbounded};
+use std::sync::Arc;
 
 /// A batch of key-value pairs to be inserted or updated in the state.
 pub type StateInserts = Vec<(Vec<u8>, Vec<u8>)>;
@@ -14,6 +18,71 @@ pub type StateDeletes = Vec<Vec<u8>>;
 
 /// A complete set of state changes (inserts/updates and deletes) from a transaction.
 pub type StateChangeSet = (StateInserts, StateDeletes);
+
+/// Calculates the smallest byte vector that is strictly greater than all keys
+/// starting with the given prefix. Returns None if the prefix is all 0xFF bytes.
+fn next_prefix(prefix: &[u8]) -> Option<Vec<u8>> {
+    if prefix.is_empty() {
+        return None;
+    }
+    let mut ub = prefix.to_vec();
+    for i in (0..ub.len()).rev() {
+        if let Some(byte) = ub.get_mut(i) {
+            if *byte != 0xFF {
+                *byte += 1;
+                ub.truncate(i + 1);
+                return Some(ub);
+            }
+        }
+    }
+    None
+}
+
+struct MergingIterator<'a> {
+    base: Peekable<Fuse<StateScanIter<'a>>>,
+    writes: Peekable<btree_map::Range<'a, Vec<u8>, Option<Vec<u8>>>>,
+}
+
+impl<'a> Iterator for MergingIterator<'a> {
+    type Item = Result<StateKVPair, StateError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let base_key = self
+                .base
+                .peek()
+                .and_then(|res| res.as_ref().ok().map(|(k, _)| k.as_ref()));
+            let write_key = self.writes.peek().map(|(k, _)| k.as_slice());
+
+            let decision = match (base_key, write_key) {
+                (Some(bk), Some(wk)) => Some(bk.cmp(wk)),
+                (Some(_), None) => Some(std::cmp::Ordering::Less),
+                (None, Some(_)) => Some(std::cmp::Ordering::Greater),
+                (None, None) => None,
+            };
+
+            match decision {
+                Some(std::cmp::Ordering::Less) => return self.base.next(),
+                Some(std::cmp::Ordering::Greater) => {
+                    if let Some((key, val_opt)) = self.writes.next() {
+                        if let Some(val) = val_opt {
+                            return Some(Ok((Arc::from(key.clone()), Arc::from(val.clone()))));
+                        }
+                    }
+                }
+                Some(std::cmp::Ordering::Equal) => {
+                    self.base.next(); // Discard base item
+                    if let Some((key, val_opt)) = self.writes.next() {
+                        if let Some(val) = val_opt {
+                            return Some(Ok((Arc::from(key.clone()), Arc::from(val.clone()))));
+                        }
+                    }
+                }
+                None => return None,
+            }
+        }
+    }
+}
 
 /// An in-memory, copy-on-write overlay for any `StateAccessor`.
 ///
@@ -79,35 +148,16 @@ impl<'a> StateAccessor for StateOverlay<'a> {
         Ok(())
     }
 
-    fn prefix_scan(
-        &self,
-        prefix: &[u8],
-    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>, depin_sdk_types::error::StateError> {
-        // 1. Get the results from the base state and store them in a BTreeMap for efficient merging.
-        let mut base_results: BTreeMap<Vec<u8>, Vec<u8>> =
-            self.base.prefix_scan(prefix)?.into_iter().collect();
+    fn prefix_scan(&self, prefix: &[u8]) -> Result<StateScanIter<'_>, DepinStateError> {
+        let base = self.base.prefix_scan(prefix)?.fuse().peekable();
 
-        // 2. Iterate through the overlay's writes that match the prefix.
-        // BTreeMap's range iterator is efficient for this.
-        for (key, value_opt) in self.writes.range(prefix.to_vec()..) {
-            // We've moved past the relevant prefix in the sorted map, so we can stop.
-            if !key.starts_with(prefix) {
-                break;
-            }
+        let start = Included(prefix.to_vec());
+        let end = match next_prefix(prefix) {
+            Some(ub) => Excluded(ub),
+            None => Unbounded,
+        };
+        let writes = self.writes.range((start, end)).peekable();
 
-            match value_opt {
-                // An insert or update in the overlay should overwrite any base value.
-                Some(value) => {
-                    base_results.insert(key.clone(), value.clone());
-                }
-                // A delete in the overlay should remove the key from the results.
-                None => {
-                    base_results.remove(key);
-                }
-            }
-        }
-
-        // 3. Convert the merged BTreeMap back into the required Vec format, which is naturally sorted.
-        Ok(base_results.into_iter().collect())
+        Ok(Box::new(MergingIterator { base, writes }))
     }
 }

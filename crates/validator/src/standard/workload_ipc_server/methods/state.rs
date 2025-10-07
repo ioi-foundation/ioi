@@ -102,8 +102,11 @@ where
             .map_err(|_| anyhow!("Invalid context type for PrefixScanV1"))?;
         let state_tree = ctx.workload.state_tree();
         let state = state_tree.read().await;
-        let result = state.prefix_scan(&params.prefix)?;
-        Ok(result)
+        let result_iter = state.prefix_scan(&params.prefix)?;
+        let result_vec = result_iter
+            .map(|res| res.map(|(k, v)| (k.to_vec(), v.to_vec())))
+            .collect::<Result<_, _>>()?;
+        Ok(result_vec)
     }
 }
 

@@ -6,7 +6,7 @@ pub mod verifier;
 
 use crate::tree::iavl::proof::verify_iavl_proof_bytes;
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
-use depin_sdk_api::state::{PrunePlan, StateCommitment, StateManager};
+use depin_sdk_api::state::{PrunePlan, StateCommitment, StateManager, StateScanIter};
 use depin_sdk_api::storage::NodeStore;
 use depin_sdk_storage::adapter::{commit_and_persist, DeltaAccumulator};
 use depin_sdk_types::app::{to_root_hash, Membership, RootHash};
@@ -859,10 +859,16 @@ where
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect()
     }
-    fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StateError> {
+    fn prefix_scan(&self, prefix: &[u8]) -> Result<StateScanIter<'_>, StateError> {
+        // Collect results eagerly for now, but return a streaming iterator over the collection.
+        // A true streaming iterator for an AVL tree is complex and will be a future optimization.
         let mut results = Vec::new();
         IAVLNode::range_scan(&self.root, prefix, &mut results);
-        Ok(results)
+        results.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+        let iter = results
+            .into_iter()
+            .map(|(k, v)| Ok((Arc::from(k), Arc::from(v))));
+        Ok(Box::new(iter))
     }
 }
 
