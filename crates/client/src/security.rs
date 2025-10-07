@@ -132,6 +132,12 @@ impl SecurityChannel {
         );
     }
 
+    /// Takes ownership of the underlying secure stream.
+    /// Returns `None` if the stream has not been established or has already been taken.
+    pub async fn take_stream(&self) -> Option<SecureStream> {
+        self.stream.lock().await.take()
+    }
+
     /// Checks if the channel stream has been established.
     pub async fn is_established(&self) -> bool {
         self.stream.lock().await.is_some()
