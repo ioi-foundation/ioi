@@ -10,6 +10,7 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 depin-sdk-api = { path = "../api" }
 depin-sdk-types = { path = "../types" }
+depin-sdk-crypto = { path = "../crypto" }
 ipc_protocol = { path = "../ipc_protocol" }
 anyhow = { workspace = true }
 log = { workspace = true }
@@ -25,4 +26,5 @@ libp2p = { workspace = true }
 async-trait = { workspace = true }
 hex = { workspace = true }
 dashmap = { workspace = true }
+zeroize = { workspace = true }
 # --- FIX END ---

@@ -10,12 +10,9 @@ use depin_sdk_api::consensus::{ConsensusEngine, PenaltyMechanism};
 use depin_sdk_api::state::{StateAccessor, StateCommitment, StateManager, Verifier};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_types::{
-    app::{
-        evidence_id, Block, ChainTransaction, FailureReport, StateRoot, SystemPayload,
-    },
+    app::{Block, ChainTransaction, FailureReport, StateRoot, SystemPayload},
     config::ConsensusType,
     error::{ChainError, TransactionError},
-    keys::{EVIDENCE_REGISTRY_KEY, IBC_PROCESSED_RECEIPT_PREFIX, VALIDATOR_SET_KEY},
 };
 use lru::LruCache;
 use serde::{Deserialize, Serialize};

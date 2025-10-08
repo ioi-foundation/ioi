@@ -8,11 +8,15 @@ use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::{mpsc, oneshot, RwLock};
 
+type ResponseResult = Result<serde_json::Value, JsonRpcError>;
+type ResponseTx = oneshot::Sender<ResponseResult>;
+type PendingRequestMap = Arc<RwLock<HashMap<JsonRpcId, ResponseTx>>>;
+
 /// A request sent from the main client handle to the actor task.
 pub struct ClientRequest {
     pub request: JsonRpcRequest,
     /// The channel to send the response back to the waiting caller.
-    pub response_tx: oneshot::Sender<Result<serde_json::Value, JsonRpcError>>,
+    pub response_tx: ResponseTx,
 }
 
 /// The actor that manages the single mTLS connection.
@@ -21,8 +25,7 @@ pub struct ClientActor {
     /// Receives requests from all `WorkloadClient` handles.
     from_client: mpsc::Receiver<ClientRequest>,
     /// Maps request IDs to the `oneshot` sender waiting for the response.
-    pending:
-        Arc<RwLock<HashMap<JsonRpcId, oneshot::Sender<Result<serde_json::Value, JsonRpcError>>>>>,
+    pending: PendingRequestMap,
 }
 
 impl ClientActor {
@@ -37,7 +40,7 @@ impl ClientActor {
     /// The main I/O loop for the client.
     /// This method spawns two tasks: one for writing requests and one for reading responses,
     /// allowing for fully concurrent, multiplexed communication over the single connection.
-    pub async fn run(mut self) {
+    pub async fn run(self) {
         let stream = match self.channel.take_stream().await {
             Some(s) => s,
             None => {
@@ -66,10 +69,9 @@ impl ClientActor {
                     // Insert the pending response sender *before* sending the request.
                     pending_write.write().await.insert(id, req.response_tx);
 
-                    // Frame the message with a 4-byte length prefix.
-                    if write_half.write_u32(req_bytes.len() as u32).await.is_err()
-                        || write_half.write_all(&req_bytes).await.is_err()
-                    {
+                    // --- FIX: REMOVED MANUAL FRAMING ---
+                    // The AeadWrappedStream now handles its own framing. Just write the payload.
+                    if write_half.write_all(&req_bytes).await.is_err() {
                         log::error!("[WorkloadClientActor] Failed to write request to stream. Closing write task.");
                         break;
                     }
@@ -81,25 +83,36 @@ impl ClientActor {
         // This task continuously reads from the socket and dispatches responses.
         let pending_read = self.pending.clone();
         let read_task = tokio::spawn(async move {
+            // Buffer to hold incoming data. AeadWrappedStream reads full frames.
+            let mut buf = vec![0; 65536]; // 64KiB buffer
             loop {
-                // Read the 4-byte length prefix.
-                let len = match read_half.read_u32().await {
-                    Ok(l) => l,
+                // --- FIX: REMOVED MANUAL FRAMING ---
+                // Read a full decrypted frame from the AeadWrappedStream.
+                let n = match read_half.read(&mut buf).await {
+                    Ok(0) => {
+                        log::info!(
+                            "[WorkloadClientActor] Connection closed by server. Closing read task."
+                        );
+                        break; // EOF
+                    }
+                    Ok(n) => n,
                     Err(_) => {
-                        log::error!("[WorkloadClientActor] Failed to read response length. Closing read task.");
+                        log::error!(
+                            "[WorkloadClientActor] Failed to read from stream. Closing read task."
+                        );
                         break;
                     }
                 };
 
-                let mut buf = vec![0; len as usize];
-                if read_half.read_exact(&mut buf).await.is_err() {
-                    log::error!(
-                        "[WorkloadClientActor] Failed to read response body. Closing read task."
-                    );
-                    break;
-                }
+                let response_slice = match buf.get(..n) {
+                    Some(slice) => slice,
+                    None => {
+                        log::error!("[WorkloadClientActor] Slicing error: read returned more bytes than buffer capacity. This is a bug.");
+                        continue;
+                    }
+                };
 
-                let response: JsonRpcResponse = match serde_json::from_slice(&buf) {
+                let response: JsonRpcResponse = match serde_json::from_slice(response_slice) {
                     Ok(res) => res,
                     Err(e) => {
                         log::error!("[WorkloadClientActor] Failed to parse response: {}", e);

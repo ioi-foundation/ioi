@@ -1,6 +1,6 @@
 // Path: crates/validator/src/standard/workload_ipc_server/mod.rs
 
-/// Defines the individual RPC method handlers for the Workload IPC server.
+//! Defines the individual RPC method handlers for the Workload IPC server.
 pub mod methods;
 /// Implements the RPC router for dispatching requests to the correct method handlers.
 pub mod router;
@@ -14,6 +14,9 @@ use depin_sdk_api::{
 };
 use depin_sdk_chain::Chain;
 use depin_sdk_client::security::SecurityChannel;
+use depin_sdk_crypto::transport::hybrid_kem_tls::{
+    derive_application_key, server_post_handshake, AeadWrappedStream,
+};
 use ipc_protocol::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest, JsonRpcResponse};
 use methods::{
     chain::{
@@ -37,12 +40,14 @@ use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::io::AsyncReadExt;
-use tokio::sync::{Mutex, Semaphore};
 use tokio::time::interval;
+use tokio::{
+    io::AsyncReadExt,
+    sync::{Mutex, Semaphore},
+};
 use tokio_rustls::{
     rustls::{RootCertStore, ServerConfig},
-    TlsAcceptor,
+    TlsAcceptor, TlsStream,
 };
 
 /// Creates the mTLS server configuration for the IPC server.
@@ -295,28 +300,62 @@ where
             let semaphore_clone = self.semaphore.clone();
 
             tokio::spawn(async move {
-                let mut tls_stream = match acceptor_clone.accept(stream).await {
+                let server_conn = match acceptor_clone.accept(stream).await {
                     Ok(s) => s,
+                    Err(e) => return log::error!("[WorkloadIPC] TLS accept error: {}", e),
+                };
+                let mut tls_stream = TlsStream::Server(server_conn);
+
+                // --- POST-HANDSHAKE HYBRID KEY EXCHANGE (before any app bytes) ---
+                let mut kem_ss = match server_post_handshake(
+                    &mut tls_stream,
+                    depin_sdk_crypto::security::SecurityLevel::Level3,
+                )
+                .await
+                {
+                    Ok(ss) => ss,
                     Err(e) => {
-                        log::error!("TLS accept error from {}: {}", peer_addr, e);
-                        return;
+                        return log::error!("[WorkloadIPC] PQC key exchange FAILED: {}", e);
                     }
                 };
 
-                let client_id_byte = match tls_stream.read_u8().await {
-                    Ok(b) => b,
+                // --- BIND & WRAP ---
+                let app_key = match derive_application_key(&tls_stream, &mut kem_ss) {
+                    Ok(k) => k,
+                    Err(e) => return log::error!("[WorkloadIPC] App key derivation FAILED: {}", e),
+                };
+                let mut aead_stream = AeadWrappedStream::new(tls_stream, app_key);
+
+                // --- MODIFICATION START: Robust, frame-aware read of client ID ---
+                let client_id_byte = match async {
+                    let mut id_buf = [0u8; 1];
+                    match aead_stream.read(&mut id_buf).await {
+                        Ok(1) => Ok(id_buf[0]),
+                        Ok(0) => Err(anyhow!(
+                            "Connection closed by {} before client ID was sent",
+                            peer_addr
+                        )),
+                        Ok(n) => Err(anyhow!("Expected 1-byte client ID frame, got {} bytes", n)),
+                        Err(e) => Err(anyhow!("Failed to read client ID frame: {}", e)),
+                    }
+                }
+                .await
+                {
+                    Ok(id) => id,
                     Err(e) => {
-                        log::error!("Failed to read client ID byte from {}: {}", peer_addr, e);
+                        log::error!("{}", e);
                         return;
                     }
                 };
+                // --- MODIFICATION END ---
+
                 log::info!(
                     "Workload: Client ID {} connected from {}",
                     client_id_byte,
                     peer_addr
                 );
 
-                ipc_channel.accept_server_connection(tls_stream).await;
+                ipc_channel.accept_server_connection(aead_stream).await;
 
                 loop {
                     let _permit = match semaphore_clone.clone().acquire_owned().await {

@@ -3,6 +3,10 @@
 //! Implementation of a secure, persistent mTLS channel between containers.
 
 use anyhow::{anyhow, Result};
+use depin_sdk_crypto::security::SecurityLevel;
+use depin_sdk_crypto::transport::hybrid_kem_tls::{
+    client_post_handshake, derive_application_key, AeadWrappedStream,
+};
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
@@ -15,7 +19,7 @@ use tokio_rustls::{
         pki_types::{CertificateDer, ServerName},
         ClientConfig,
     },
-    TlsConnector,
+    TlsConnector, TlsStream,
 };
 
 /// An enum to identify the client connecting to the Guardian.
@@ -26,7 +30,8 @@ enum IpcClientId {
 }
 
 /// A type alias for a generic, encrypted TLS stream that can be either a client or server stream.
-pub type SecureStream = tokio_rustls::TlsStream<TcpStream>;
+pub type BaseTlsStream = tokio_rustls::TlsStream<TcpStream>;
+pub type SecureStream = AeadWrappedStream<BaseTlsStream>;
 
 /*
 NOTE on Hybrid KEM Integration:
@@ -98,7 +103,26 @@ impl SecurityChannel {
 
         let domain = ServerName::try_from(server_name.to_string())?;
 
-        let mut secure_stream = connector.connect(domain, stream).await?;
+        let client_conn = connector.connect(domain, stream).await?;
+        // Wrap the concrete client stream into the generic TlsStream enum
+        let mut secure_stream = TlsStream::Client(client_conn);
+
+        // --- POST-HANDSHAKE HYBRID KEY EXCHANGE (before any app bytes) ---
+        log::info!("TLS handshake complete. Performing post-handshake PQC key exchange...");
+        let mut kem_ss = client_post_handshake(
+            &mut secure_stream,
+            SecurityLevel::Level3, // EcdhP256Kyber768
+        )
+        .await?;
+
+        // --- BIND KEM SECRET TO TLS SESSION & DERIVE APPLICATION KEY ---
+        let app_key = derive_application_key(&secure_stream, &mut kem_ss)?;
+        log::info!(
+            "Post-quantum key exchange successful. Derived application key for AEAD wrapper."
+        );
+
+        // --- WRAP STREAM WITH AEAD LAYER ---
+        let mut aead_stream = AeadWrappedStream::new(secure_stream, app_key);
 
         // NEW: Send an identification byte to the Guardian.
         // This helps the Guardian route the connection.
@@ -107,9 +131,9 @@ impl SecurityChannel {
         } else {
             IpcClientId::Workload as u8
         };
-        secure_stream.write_u8(id_byte).await?;
+        aead_stream.write_all(&[id_byte]).await?; // Use write_all for single byte
 
-        *self.stream.lock().await = Some(tokio_rustls::TlsStream::Client(secure_stream));
+        *self.stream.lock().await = Some(aead_stream);
 
         log::info!(
             "✅ Security channel from '{}' to '{}' established.",
@@ -120,11 +144,8 @@ impl SecurityChannel {
     }
 
     /// Accepts a new connection on the server-side and stores the stream.
-    pub async fn accept_server_connection(
-        &self,
-        stream: tokio_rustls::server::TlsStream<TcpStream>,
-    ) {
-        *self.stream.lock().await = Some(tokio_rustls::TlsStream::Server(stream));
+    pub async fn accept_server_connection(&self, stream: SecureStream) {
+        *self.stream.lock().await = Some(stream);
         log::info!(
             "✅ Security channel from '{}' to '{}' accepted.",
             self.destination,
@@ -144,7 +165,7 @@ impl SecurityChannel {
     }
 
     /// Sends data over the established secure channel.
-    /// Messages are framed with a 4-byte (u32) length prefix.
+    /// The AeadWrappedStream handles its own framing.
     pub async fn send(&self, data: &[u8]) -> Result<()> {
         let mut stream_lock = self.stream.lock().await;
         let stream = stream_lock.as_mut().ok_or_else(|| {
@@ -154,14 +175,12 @@ impl SecurityChannel {
                 self.destination
             )
         })?;
-
-        let len = data.len() as u32;
-        stream.write_u32(len).await?;
         stream.write_all(data).await?;
         Ok(())
     }
 
     /// Receives data from the established secure channel.
+    /// This now correctly reads the length prefix added by AeadWrappedStream.
     pub async fn receive(&self) -> Result<Vec<u8>> {
         let mut stream_lock = self.stream.lock().await;
         let stream = stream_lock.as_mut().ok_or_else(|| {
@@ -172,10 +191,21 @@ impl SecurityChannel {
             )
         })?;
 
-        let len = stream.read_u32().await?;
-
-        let mut buffer = vec![0; len as usize];
-        stream.read_exact(&mut buffer).await?;
+        // --- START FIX ---
+        // AeadWrappedStream::poll_read implements its own framing. It first reads
+        // a 4-byte length, then the ciphertext. To consume this correctly, the caller
+        // (this function) must read the length prefix first, then read exactly
+        // that many bytes for the ciphertext. The `AeadWrappedStream`'s `read`
+        // implementation handles the decryption. This logic is now correctly
+        // implemented inside `AeadWrappedStream::poll_read`, so we just need to
+        // call `read` and it will return one full decrypted message.
+        let mut buffer = vec![0; 65536]; // Max frame size
+        let n = stream.read(&mut buffer).await?;
+        if n == 0 {
+            return Err(anyhow!("Connection closed while receiving"));
+        }
+        buffer.truncate(n);
         Ok(buffer)
+        // --- END FIX ---
     }
 }
