@@ -14,7 +14,12 @@ serde = { workspace = true }
 thiserror = { workspace = true }
 rand = { workspace = true }
 bytes = { workspace = true }
-dcrypt = { version = "0.14.0-beta.6", features = ["full"] }
+dcrypt = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }
+tokio-rustls = { workspace = true }
+rustls = { workspace = true }
+zeroize = { workspace = true }
 
 [features]
 default = []

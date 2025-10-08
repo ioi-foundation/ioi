@@ -15,7 +15,7 @@ use depin_sdk_types::app::{
     StateRoot,
 };
 use depin_sdk_types::keys::ACCOUNT_ID_TO_PUBKEY_PREFIX;
-use ipc_protocol::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest};
+use ipc_protocol::jsonrpc::{JsonRpcId, JsonRpcRequest};
 use libp2p::identity::PublicKey;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;

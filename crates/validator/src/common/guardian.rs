@@ -13,7 +13,10 @@ use anyhow::Result;
 use async_trait::async_trait;
 use depin_sdk_api::validator::Container;
 use depin_sdk_client::security::SecurityChannel;
-use depin_sdk_crypto::algorithms::hash::sha256;
+use depin_sdk_crypto::{
+    algorithms::hash::sha256,
+    transport::hybrid_kem_tls::{derive_application_key, server_post_handshake, AeadWrappedStream},
+};
 use depin_sdk_types::error::ValidatorError;
 use rcgen::{Certificate, CertificateParams, KeyUsagePurpose, SanType};
 use std::net::Ipv4Addr;
@@ -23,7 +26,7 @@ use std::sync::{
     Arc,
 };
 use tokio::io::AsyncReadExt;
-use tokio_rustls::TlsAcceptor;
+use tokio_rustls::{rustls::ServerConfig, TlsAcceptor, TlsStream};
 
 /// The GuardianContainer is the root of trust.
 #[derive(Debug, Clone)]
@@ -114,7 +117,7 @@ impl Container for GuardianContainer {
         let certs_dir = std::env::var("CERTS_DIR").map_err(|_| {
             ValidatorError::Config("CERTS_DIR environment variable must be set".to_string())
         })?;
-        let server_config = create_ipc_server_config(
+        let server_config: Arc<ServerConfig> = create_ipc_server_config(
             &format!("{}/ca.pem", certs_dir),
             &format!("{}/guardian-server.pem", certs_dir),
             &format!("{}/guardian-server.key", certs_dir),
@@ -131,19 +134,61 @@ impl Container for GuardianContainer {
                 let orch_c = orch_channel.clone();
                 let work_c = work_channel.clone();
                 tokio::spawn(async move {
-                    if let Ok(mut tls_stream) = acceptor.accept(stream).await {
-                        // Read the first byte to identify the client (1=Orch, 2=Workload)
-                        if let Ok(id_byte) = tls_stream.read_u8().await {
-                            match id_byte {
-                                1 => {
-                                    orch_c.accept_server_connection(tls_stream).await;
-                                }
-                                2 => {
-                                    work_c.accept_server_connection(tls_stream).await;
-                                }
-                                _ => log::warn!("[Guardian] Unknown client ID byte: {}", id_byte),
+                    let server_conn = match acceptor.accept(stream).await {
+                        Ok(s) => s,
+                        Err(e) => return log::error!("[Guardian] TLS accept error: {}", e),
+                    };
+                    // Wrap the concrete server stream into the generic TlsStream enum
+                    let mut tls_stream = TlsStream::Server(server_conn);
+
+                    // --- POST-HANDSHAKE HYBRID KEY EXCHANGE (before any app bytes) ---
+                    let mut kem_ss = match server_post_handshake(
+                        &mut tls_stream,
+                        depin_sdk_crypto::security::SecurityLevel::Level3,
+                    )
+                    .await
+                    {
+                        Ok(ss) => ss,
+                        Err(e) => {
+                            return log::error!(
+                                "[Guardian] Post-quantum key exchange FAILED: {}",
+                                e
+                            );
+                        }
+                    };
+
+                    // --- BIND & WRAP ---
+                    let app_key = match derive_application_key(&tls_stream, &mut kem_ss) {
+                        Ok(k) => k,
+                        Err(e) => {
+                            return log::error!("[Guardian] App key derivation FAILED: {}", e)
+                        }
+                    };
+                    let mut aead_stream = AeadWrappedStream::new(tls_stream, app_key);
+
+                    // Now, read the first application byte (the client ID) from the AEAD stream.
+                    let mut id_buf = [0u8; 1];
+                    match aead_stream.read(&mut id_buf).await {
+                        Ok(1) => {
+                            let client_id_byte = id_buf[0];
+                            log::info!(
+                                "[Guardian] Post-quantum channel established for client {}",
+                                client_id_byte
+                            );
+                            match client_id_byte {
+                                1 => orch_c.accept_server_connection(aead_stream).await,
+                                2 => work_c.accept_server_connection(aead_stream).await,
+                                _ => log::warn!(
+                                    "[Guardian] Unknown client ID byte: {}",
+                                    client_id_byte
+                                ),
                             }
                         }
+                        Ok(n) => log::warn!(
+                            "[Guardian] Expected 1-byte client ID frame, but received {} bytes.",
+                            n
+                        ),
+                        Err(e) => log::error!("[Guardian] Failed to read client ID frame: {}", e),
                     }
                 });
             }

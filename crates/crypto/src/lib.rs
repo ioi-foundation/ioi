@@ -22,6 +22,7 @@ pub mod error;
 pub mod kem;
 pub mod security;
 pub mod sign;
+pub mod transport;
 
 #[cfg(test)]
 mod tests {
