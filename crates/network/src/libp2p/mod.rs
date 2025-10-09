@@ -26,6 +26,12 @@ use tokio::{
     time::Duration,
 };
 
+// --- FIX START: Add imports for gossip retry logic ---
+use libp2p::gossipsub::{Behaviour as GossipsubBehaviour, PublishError};
+use std::collections::VecDeque;
+use tokio::time::interval;
+// --- FIX END ---
+
 // Re-export concrete types from submodules for a cleaner public API.
 pub use self::sync::{SyncCodec, SyncRequest, SyncResponse};
 
@@ -408,6 +414,11 @@ impl Libp2pSync {
         let oracle_attestations_topic = gossipsub::IdentTopic::new("oracle-attestations");
         let agentic_vote_topic = gossipsub::IdentTopic::new("agentic-votes");
 
+        // --- Outbox for resilient block publishing ---
+        let mut pending_blocks: VecDeque<Vec<u8>> = VecDeque::new();
+        let mut retry_interval = interval(Duration::from_millis(500));
+        retry_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
         if let Err(e) = swarm.behaviour_mut().gossipsub.subscribe(&block_topic) {
             tracing::warn!(error=%e, "Failed to subscribe to gossipsub topic: blocks");
         }
@@ -431,12 +442,24 @@ impl Libp2pSync {
 
         loop {
             tokio::select! {
+                _ = retry_interval.tick() => {
+                    drain_pending_blocks(
+                        &mut pending_blocks,
+                        &mut swarm.behaviour_mut().gossipsub,
+                        &block_topic,
+                    );
+                },
                 _ = shutdown_receiver.changed() => if *shutdown_receiver.borrow() { break; },
                 event = swarm.select_next_some() => match event {
                     SwarmEvent::NewListenAddr { address, .. } => { tracing::info!(target: "network", event = "listening", %address); }
                     SwarmEvent::ConnectionEstablished { peer_id, .. } => {
                         metrics().inc_connected_peers();
                         event_sender.send(SwarmInternalEvent::ConnectionEstablished(peer_id)).await.ok();
+                        drain_pending_blocks(
+                            &mut pending_blocks,
+                            &mut swarm.behaviour_mut().gossipsub,
+                            &block_topic,
+                        );
                     }
                     SwarmEvent::ConnectionClosed { peer_id, .. } => {
                         metrics().dec_connected_peers();
@@ -509,8 +532,15 @@ impl Libp2pSync {
                         SwarmCommand::Listen(addr) => { swarm.listen_on(addr).ok(); }
                         SwarmCommand::Dial(addr) => { swarm.dial(addr).ok(); }
                         SwarmCommand::PublishBlock(data) => {
-                            if let Err(e) = swarm.behaviour_mut().gossipsub.publish(block_topic.clone(), data) {
-                                tracing::warn!(error = %e, "Failed to publish block to gossipsub");
+                            match swarm.behaviour_mut().gossipsub.publish(block_topic.clone(), data.clone()) {
+                                Ok(_) => { /* Success */ }
+                                Err(PublishError::InsufficientPeers) => {
+                                    tracing::warn!(target: "gossip", "Insufficient peers to publish block, queueing for later.");
+                                    enqueue_block(&mut pending_blocks, data);
+                                }
+                                Err(e) => {
+                                    tracing::warn!(error = %e, "Failed to publish block to gossipsub");
+                                }
                             }
                         }
                         SwarmCommand::PublishTransaction(data) => {
@@ -560,3 +590,59 @@ impl Libp2pSync {
         }
     }
 }
+
+// --- FIX START: Add helper functions for gossip retry logic ---
+const PENDING_BLOCK_OUTBOX_MAX: usize = 128;
+
+/// Enqueues a block for later gossiping, dropping the oldest if the outbox is full.
+fn enqueue_block(pending: &mut VecDeque<Vec<u8>>, data: Vec<u8>) {
+    if pending.len() >= PENDING_BLOCK_OUTBOX_MAX {
+        pending.pop_front(); // Drop oldest to prevent unbounded growth.
+        tracing::warn!(
+            target: "gossip",
+            "outbox full; dropping oldest pending block"
+        );
+    }
+    pending.push_back(data);
+}
+
+/// Attempts to drain the queue of pending blocks by publishing them to the gossipsub mesh.
+fn drain_pending_blocks(
+    pending: &mut VecDeque<Vec<u8>>,
+    gossipsub: &mut GossipsubBehaviour,
+    block_topic: &gossipsub::IdentTopic,
+) {
+    if pending.is_empty() {
+        return;
+    }
+
+    // Crucially, check for peers subscribed to the specific topic, not just any connected peer.
+    if gossipsub.mesh_peers(&block_topic.hash()).next().is_none() {
+        return;
+    }
+
+    tracing::info!(
+        target: "gossip",
+        "Attempting to drain {} pending blocks from outbox.",
+        pending.len()
+    );
+
+    // Use retain to efficiently re-queue items that still fail to send.
+    pending.retain(|block_data| {
+        match gossipsub.publish(block_topic.clone(), block_data.clone()) {
+            Ok(_) => {
+                tracing::info!(target: "gossip", event = "published_queued_block");
+                false // Remove from queue
+            }
+            Err(PublishError::InsufficientPeers) => {
+                // This can happen if the mesh changes between our check and the publish call.
+                true // Keep in queue for next retry
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "Failed to publish queued block from outbox");
+                false // Drop on other errors
+            }
+        }
+    });
+}
+// --- FIX END ---
