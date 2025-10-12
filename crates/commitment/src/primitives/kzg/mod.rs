@@ -393,11 +393,11 @@ impl KZGCommitmentScheme {
 }
 
 impl CommitmentStructure for KZGCommitmentScheme {
-    fn commit_leaf(key: &[u8], value: &[u8]) -> Vec<u8> {
-        [key, value].concat()
+    fn commit_leaf(key: &[u8], value: &[u8]) -> Result<Vec<u8>, CryptoError> {
+        Ok([key, value].concat())
     }
-    fn commit_branch(left: &[u8], right: &[u8]) -> Vec<u8> {
-        [left, right].concat()
+    fn commit_branch(left: &[u8], right: &[u8]) -> Result<Vec<u8>, CryptoError> {
+        Ok([left, right].concat())
     }
 }
 

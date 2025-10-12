@@ -49,7 +49,7 @@ impl<CS: CommitmentScheme + Clone> UnifiedTransactionModel<CS> {
 #[async_trait]
 impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UnifiedTransactionModel<CS>
 where
-    <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de> + Clone,
+    <CS as CommitmentScheme>::Proof: Serialize + for<'de> serde::Deserialize<'de> + Clone,
 {
     type Transaction = ChainTransaction;
     type CommitmentScheme = CS;
@@ -398,7 +398,8 @@ where
                             .unwrap_or_default();
 
                         let mut new_handled_evidence = handled_evidence;
-                        let id = evidence_id(&report);
+                        let id = evidence_id(&report)
+                            .map_err(|e| TransactionError::Invalid(e.to_string()))?;
                         if !new_handled_evidence.insert(id) {
                             return Err(TransactionError::Invalid(
                                 "Duplicate evidence: this offense has already been penalized."

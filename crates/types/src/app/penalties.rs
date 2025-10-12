@@ -9,6 +9,7 @@
 //! alternative but equally valid proofs for the same underlying incident.
 
 use crate::app::identity::AccountId;
+use crate::error::CoreError;
 use dcrypt::algorithms::xof::Blake3Xof;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
@@ -72,21 +73,18 @@ pub struct FailureReport {
 /// # Returns
 ///
 /// A 32-byte unique identifier for the evidence.
-pub fn evidence_id(report: &FailureReport) -> [u8; 32] {
+pub fn evidence_id(report: &FailureReport) -> Result<[u8; 32], CoreError> {
     // Serialize only the canonical, fact-based fields into a deterministic byte string.
     let canonical_bytes =
         crate::codec::to_bytes_canonical(&(&report.offender, &report.offense_type, &report.facts))
-            .unwrap_or_else(|e| {
-                panic!(
-                    "CRITICAL: Canonical serialization of facts must not fail: {}",
-                    e
-                )
-            });
+            .map_err(CoreError::Custom)?;
 
     // Hash the canonical bytes to produce the unique, replay-protected ID.
     // Use the one-shot generate function from dcrypt's Blake3Xof.
-    Blake3Xof::generate(&canonical_bytes, 32)
-        .unwrap_or_else(|e| panic!("CRITICAL: Blake3Xof generation must not fail: {}", e))
-        .try_into()
-        .unwrap_or_else(|_| panic!("CRITICAL: Blake3Xof output must be 32 bytes"))
+    let hash_vec =
+        Blake3Xof::generate(&canonical_bytes, 32).map_err(|e| CoreError::Crypto(e.to_string()))?;
+
+    hash_vec.try_into().map_err(|v: Vec<u8>| {
+        CoreError::Crypto(format!("Invalid hash length: expected 32, got {}", v.len()))
+    })
 }

@@ -3,7 +3,7 @@
 //! internal communication for transaction submission and state queries.
 
 use crate::metrics::rpc_metrics as metrics;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use axum::{
     body::Body,
     error_handling::HandleErrorLayer,
