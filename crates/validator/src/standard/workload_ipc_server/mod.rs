@@ -13,7 +13,6 @@ use depin_sdk_api::{
     validator::WorkloadContainer,
 };
 use depin_sdk_chain::Chain;
-use depin_sdk_client::security::SecurityChannel;
 use depin_sdk_crypto::transport::hybrid_kem_tls::{
     derive_application_key, server_post_handshake, AeadWrappedStream,
 };
@@ -42,7 +41,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::interval;
 use tokio::{
-    io::AsyncReadExt,
+    io::{AsyncReadExt, AsyncWriteExt},
     sync::{Mutex, Semaphore},
 };
 use tokio_rustls::{
@@ -294,7 +293,6 @@ where
             );
 
             let acceptor_clone = acceptor.clone();
-            let ipc_channel = SecurityChannel::new("workload", "orchestration");
             let router_clone = self.router.clone();
             let shared_ctx_clone = shared_ctx.clone();
             let semaphore_clone = self.semaphore.clone();
@@ -304,6 +302,7 @@ where
                     Ok(s) => s,
                     Err(e) => return log::error!("[WorkloadIPC] TLS accept error: {}", e),
                 };
+                // FIX: Wrap the concrete server stream into the generic TlsStream enum
                 let mut tls_stream = TlsStream::Server(server_conn);
 
                 // --- POST-HANDSHAKE HYBRID KEY EXCHANGE (before any app bytes) ---
@@ -324,12 +323,11 @@ where
                     Ok(k) => k,
                     Err(e) => return log::error!("[WorkloadIPC] App key derivation FAILED: {}", e),
                 };
-                let mut aead_stream = AeadWrappedStream::new(tls_stream, app_key);
+                let mut stream = AeadWrappedStream::new(tls_stream, app_key);
 
-                // --- MODIFICATION START: Robust, frame-aware read of client ID ---
                 let client_id_byte = match async {
                     let mut id_buf = [0u8; 1];
-                    match aead_stream.read(&mut id_buf).await {
+                    match stream.read(&mut id_buf).await {
                         Ok(1) => Ok(id_buf[0]),
                         Ok(0) => Err(anyhow!(
                             "Connection closed by {} before client ID was sent",
@@ -347,7 +345,6 @@ where
                         return;
                     }
                 };
-                // --- MODIFICATION END ---
 
                 log::info!(
                     "Workload: Client ID {} connected from {}",
@@ -355,7 +352,7 @@ where
                     peer_addr
                 );
 
-                ipc_channel.accept_server_connection(aead_stream).await;
+                let (mut read_half, mut write_half) = tokio::io::split(stream);
 
                 loop {
                     let _permit = match semaphore_clone.clone().acquire_owned().await {
@@ -369,8 +366,13 @@ where
                         }
                     };
 
-                    let request_bytes = match ipc_channel.receive().await {
-                        Ok(bytes) => bytes,
+                    let mut request_buf = vec![0; 65536]; // Max request size buffer
+                    let n = match read_half.read(&mut request_buf).await {
+                        Ok(0) => {
+                            log::info!("IPC connection closed by {}", peer_addr);
+                            return;
+                        } // EOF
+                        Ok(n) => n,
                         Err(e) => {
                             log::info!(
                                 "IPC receive error from {}: {}. Closing connection.",
@@ -381,45 +383,44 @@ where
                         }
                     };
 
-                    // Process the request serially on this connection's task.
+                    let request_slice = match request_buf.get(..n) {
+                        Some(slice) => slice,
+                        None => {
+                            log::error!("[WorkloadIPC] Slicing error: read returned more bytes than buffer capacity. This is a bug.");
+                            continue;
+                        }
+                    };
                     let response = handle_request(
-                        &request_bytes,
+                        request_slice,
                         shared_ctx_clone.clone(),
                         router_clone.clone(),
                     )
                     .await;
 
                     if let Some(res) = response {
-                        // Use a block to clearly define the scope of serialization and send.
-                        {
-                            let response_bytes = match serde_json::to_vec(&res) {
-                                Ok(b) => b,
-                                Err(e) => {
-                                    log::error!("Failed to serialize IPC response: {}", e);
-                                    // Create an error response if serialization fails
-                                    let err_res: JsonRpcResponse<serde_json::Value> = JsonRpcResponse {
-                                        jsonrpc: "2.0".to_string(),
-                                        result: None,
-                                        error: Some(JsonRpcError {
-                                            code: -32603,
-                                            message:
-                                                "Internal Server Error: Failed to serialize response"
-                                                    .to_string(),
-                                            data: None,
-                                        }),
-                                        id: res.id,
-                                    };
-                                    // This unwrap is safe as the error response is guaranteed to serialize.
-                                    serde_json::to_vec(&err_res).unwrap_or_default()
-                                }
-                            };
-
-                            if let Err(e) = ipc_channel.send(&response_bytes).await {
-                                log::error!("Failed to send IPC response to {}: {}", peer_addr, e);
+                        let response_bytes = match serde_json::to_vec(&res) {
+                            Ok(b) => b,
+                            Err(e) => {
+                                log::error!("Failed to serialize IPC response: {}", e);
+                                let err_res: JsonRpcResponse<serde_json::Value> = JsonRpcResponse {
+                                    jsonrpc: "2.0".to_string(),
+                                    result: None,
+                                    error: Some(JsonRpcError {
+                                        code: -32603,
+                                        message:
+                                            "Internal Server Error: Failed to serialize response"
+                                                .to_string(),
+                                        data: None,
+                                    }),
+                                    id: res.id,
+                                };
+                                serde_json::to_vec(&err_res).unwrap_or_default()
                             }
+                        };
+                        if let Err(e) = write_half.write_all(&response_bytes).await {
+                            log::error!("Failed to send IPC response to {}: {}", peer_addr, e);
                         }
                     }
-                    // The permit is dropped here, releasing the semaphore slot.
                 }
             });
         }
@@ -462,9 +463,10 @@ where
         }
     };
 
-    if req.id.is_none() {
+    let Some(id) = req.id else {
+        // It's a notification, do nothing.
         return None;
-    }
+    };
 
     let trace_id = uuid::Uuid::new_v4().to_string();
     let router_ctx = RequestContext {
@@ -480,7 +482,7 @@ where
             jsonrpc: "2.0".to_string(),
             result: Some(result),
             error: None,
-            id: req.id?,
+            id,
         },
         Err(error) => JsonRpcResponse {
             jsonrpc: "2.0".to_string(),
@@ -492,7 +494,7 @@ where
                     .data
                     .or_else(|| Some(serde_json::json!({ "trace_id": trace_id }))),
             }),
-            id: req.id?,
+            id,
         },
     })
 }
