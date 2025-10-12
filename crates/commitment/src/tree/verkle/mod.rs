@@ -11,7 +11,6 @@ use crate::tree::verkle::proof::{
 };
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
 use depin_sdk_api::state::{PrunePlan, StateCommitment, StateManager, StateScanIter};
-// --- MODIFICATION: Add NodeHash import ---
 use depin_sdk_api::storage::{NodeHash as StoreNodeHash, NodeStore};
 use depin_sdk_storage::adapter::{commit_and_persist, DeltaAccumulator};
 use depin_sdk_types::app::{to_root_hash, Membership, RootHash};
@@ -19,7 +18,7 @@ use depin_sdk_types::error::StateError;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::{BTreeMap, HashMap};
-use std::fmt::Debug; // <-- Import Debug trait
+use std::fmt::Debug;
 use std::sync::Arc;
 
 /// Verkle tree node
@@ -48,11 +47,9 @@ fn encode_node_canonical(n: &VerkleNode) -> Result<Vec<u8>, StateError> {
     bincode::serialize(n).map_err(|e| StateError::Backend(e.to_string()))
 }
 
-// --- MODIFICATION START: Add node decoder ---
 fn decode_node_canonical(bytes: &[u8]) -> Option<VerkleNode> {
     bincode::deserialize(bytes).ok()
 }
-// --- MODIFICATION END ---
 
 /// Verkle tree implementation
 pub struct VerkleTree<CS: CommitmentScheme> {
@@ -64,12 +61,9 @@ pub struct VerkleTree<CS: CommitmentScheme> {
     empty_commitment: KZGCommitment,
     current_height: u64,
     delta: DeltaAccumulator,
-    // --- MODIFICATION START: Add store field ---
     store: Option<Arc<dyn NodeStore>>,
-    // --- MODIFICATION END ---
 }
 
-// --- MODIFICATION START: Manual Debug impl for VerkleTree ---
 impl<CS: CommitmentScheme> Debug for VerkleTree<CS> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("VerkleTree")
@@ -85,7 +79,6 @@ impl<CS: CommitmentScheme> Debug for VerkleTree<CS> {
             .finish()
     }
 }
-// --- MODIFICATION END ---
 
 #[derive(Debug, Clone, Default)]
 struct Indices {
@@ -106,12 +99,14 @@ impl<CS: CommitmentScheme + Clone> Clone for VerkleTree<CS> {
             empty_commitment: self.empty_commitment.clone(),
             current_height: self.current_height,
             delta: Default::default(), // delta is transient and should not be cloned
-            // --- MODIFICATION START: Clone store ---
             store: self.store.clone(),
-            // --- MODIFICATION END ---
         }
     }
 }
+
+// Type aliases to improve readability and address the `type_complexity` lint.
+type KeyValueSlice<'a> = (&'a [u8], &'a [u8]);
+type GroupedItems<'a> = BTreeMap<u8, Vec<KeyValueSlice<'a>>>;
 
 impl VerkleTree<KZGCommitmentScheme> {
     pub fn new(scheme: KZGCommitmentScheme, branching_factor: usize) -> Result<Self, String> {
@@ -133,9 +128,7 @@ impl VerkleTree<KZGCommitmentScheme> {
             empty_commitment,
             current_height: 0,
             delta: DeltaAccumulator::default(),
-            // --- MODIFICATION START: Initialize store ---
             store: None,
-            // --- MODIFICATION END ---
         })
     }
 
@@ -143,7 +136,7 @@ impl VerkleTree<KZGCommitmentScheme> {
     /// This is much faster than sequential insertion for bootstrapping the tree.
     fn build_from_sorted(
         &self,
-        items: &[(&Vec<u8>, &Vec<u8>)],
+        items: &[(&[u8], &[u8])],
         depth: usize,
     ) -> Result<Arc<VerkleNode>, StateError> {
         if items.is_empty() {
@@ -151,24 +144,57 @@ impl VerkleTree<KZGCommitmentScheme> {
         }
 
         if items.len() == 1 {
-            let (key, value) = items
-                .get(0)
-                .ok_or(StateError::InvalidValue("Empty items slice".into()))?;
+            // FIX: Use `.first()` and `ok_or` to safely access the element without indexing or unwrapping.
+            // This is logically safe due to the `len() == 1` check.
+            let &(key, value) = items.first().ok_or_else(|| {
+                StateError::InvalidValue("Internal error: item slice should not be empty".into())
+            })?;
             return self.update_node(&Arc::new(VerkleNode::Empty), key, Some(value), depth);
         }
 
-        type GroupMap<'a> = BTreeMap<u8, Vec<(&'a Vec<u8>, &'a Vec<u8>)>>;
-        let mut groups: GroupMap = BTreeMap::new();
-        for item in items {
-            if let Some(key_byte) = item.0.get(depth) {
-                groups.entry(*key_byte).or_default().push(*item);
+        let mut terminal = Vec::new();
+        let mut groups: GroupedItems = BTreeMap::new();
+
+        for &(key, value) in items {
+            if let Some(&byte) = key.get(depth) {
+                groups.entry(byte).or_default().push((key, value));
+            } else {
+                // Key terminates at this depth.
+                terminal.push((key, value));
             }
         }
 
+        if !terminal.is_empty() {
+            if terminal.len() > 1 {
+                return Err(StateError::InvalidValue(
+                    "Multiple terminal keys with identical prefix; normalize key length or add a terminator".into(),
+                ));
+            }
+            // FIX: Use `.first()` and `ok_or` for safe access.
+            let &(key, value) = terminal.first().ok_or_else(|| {
+                StateError::InvalidValue(
+                    "Internal error: terminal slice should not be empty".into(),
+                )
+            })?;
+            // The `update_node` logic will correctly create the leaf.
+            return self.update_node(&Arc::new(VerkleNode::Empty), key, Some(value), depth);
+        }
+
+        // Optimization: if there's only one subgroup, we are just traversing down a path
+        // with no siblings. We can skip creating an intermediate internal node and recurse.
+        if groups.len() == 1 {
+            // FIX: Use `if let Some` to safely destructure the single item without unwrapping.
+            if let Some((_, group)) = groups.into_iter().next() {
+                return self.build_from_sorted(&group, depth + 1);
+            }
+            // This branch is logically unreachable due to the `len() == 1` check.
+            return Err(StateError::InvalidValue("Internal logic error".into()));
+        }
+
         let mut children = HashMap::new();
-        for (key_byte, group) in groups {
+        for (index, group) in groups {
             let child_node = self.build_from_sorted(&group, depth + 1)?;
-            children.insert(key_byte, child_node);
+            children.insert(index, child_node);
         }
 
         let (kzg_commitment, witness) = self
@@ -723,7 +749,6 @@ impl StateManager for VerkleTree<KZGCommitmentScheme> {
             return Some(commitment);
         }
 
-        // --- MODIFICATION START: Fallback to store ---
         if let Some(store) = &self.store {
             let height = store
                 .height_for_root(depin_sdk_api::storage::RootHash(root_hash))
@@ -736,7 +761,6 @@ impl StateManager for VerkleTree<KZGCommitmentScheme> {
                 return Some(kzg_commitment);
             }
         }
-        // --- MODIFICATION END ---
 
         None
     }
@@ -750,20 +774,17 @@ impl StateManager for VerkleTree<KZGCommitmentScheme> {
     }
 
     fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
-        // This is a bootstrap optimization. A true batch update would be more complex.
-        // We merge the existing cache with the new updates, sort, and rebuild the tree from scratch.
         let mut all_items = self.cache.clone();
         all_items.extend(updates.iter().cloned());
 
-        let mut sorted_items_owned: Vec<(Vec<u8>, Vec<u8>)> = all_items.into_iter().collect();
-        sorted_items_owned.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+        let mut refs: Vec<(&[u8], &[u8])> = all_items
+            .iter()
+            .map(|(k, v)| (k.as_slice(), v.as_slice()))
+            .collect();
+        refs.sort_unstable_by(|(ka, _), (kb, _)| ka.cmp(kb));
 
-        let sorted_items_ref: Vec<(&Vec<u8>, &Vec<u8>)> =
-            sorted_items_owned.iter().map(|(k, v)| (k, v)).collect();
-
-        self.root = self.build_from_sorted(&sorted_items_ref, 0)?;
-
-        self.cache.extend(updates.iter().cloned());
+        self.root = self.build_from_sorted(&refs, 0)?;
+        self.cache = all_items;
         Ok(())
     }
 
@@ -897,14 +918,11 @@ impl StateManager for VerkleTree<KZGCommitmentScheme> {
         Ok(())
     }
 
-    // --- MODIFICATION START: Implement attach_store ---
     fn attach_store(&mut self, store: Arc<dyn NodeStore>) {
         self.store = Some(store);
     }
-    // --- MODIFICATION END ---
 }
 
-// --- MODIFICATION START: Add fetch_node_any_epoch helper for Verkle ---
 impl VerkleTree<KZGCommitmentScheme> {
     fn fetch_node_any_epoch(
         store: &dyn NodeStore,
@@ -933,7 +951,6 @@ impl VerkleTree<KZGCommitmentScheme> {
         Ok(None)
     }
 }
-// --- MODIFICATION END ---
 
 #[cfg(test)]
 mod tests;
