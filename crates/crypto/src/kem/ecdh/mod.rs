@@ -11,6 +11,7 @@ use dcrypt::prelude::SerializeSecret;
 use depin_sdk_api::crypto::{
     DecapsulationKey, Encapsulated, EncapsulationKey, KemKeyPair, KeyEncapsulation, SerializableKey,
 };
+use zeroize::Zeroizing;
 
 /// ECDH curve type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -166,25 +167,19 @@ impl KeyEncapsulation for EcdhKEM {
         &self,
         private_key: &Self::PrivateKey,
         encapsulated: &Self::Encapsulated,
-    ) -> Result<Vec<u8>, CryptoError> {
+    ) -> Result<Zeroizing<Vec<u8>>, CryptoError> {
         match (self.curve, private_key) {
             (EcdhCurve::P256, EcdhPrivateKey::P256(sk)) => {
                 let ct = EcdhK256Ciphertext::from_bytes(&encapsulated.ciphertext)?;
-                Ok(EcdhK256::decapsulate(sk, &ct)?
-                    .to_bytes_zeroizing()
-                    .to_vec())
+                Ok(EcdhK256::decapsulate(sk, &ct)?.to_bytes_zeroizing())
             }
             (EcdhCurve::P384, EcdhPrivateKey::P384(sk)) => {
                 let ct = EcdhP384Ciphertext::from_bytes(&encapsulated.ciphertext)?;
-                Ok(EcdhP384::decapsulate(sk, &ct)?
-                    .to_bytes_zeroizing()
-                    .to_vec())
+                Ok(EcdhP384::decapsulate(sk, &ct)?.to_bytes_zeroizing())
             }
             (EcdhCurve::P521, EcdhPrivateKey::P521(sk)) => {
                 let ct = EcdhP521Ciphertext::from_bytes(&encapsulated.ciphertext)?;
-                Ok(EcdhP521::decapsulate(sk, &ct)?
-                    .to_bytes_zeroizing()
-                    .to_vec())
+                Ok(EcdhP521::decapsulate(sk, &ct)?.to_bytes_zeroizing())
             }
             _ => Err(CryptoError::DecapsulationFailed),
         }

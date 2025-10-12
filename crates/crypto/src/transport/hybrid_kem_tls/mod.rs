@@ -21,7 +21,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
 use tokio_rustls::TlsStream;
-use zeroize::Zeroize;
+use zeroize::{Zeroize, Zeroizing};
 
 const KEM_FRAME_LIMIT: u32 = 4096;
 const AEAD_NONCE_SIZE: usize = 12;
@@ -53,7 +53,7 @@ fn tls_exporter<S>(
 /// to the TLS session transcript using a TLS 1.3 exporter.
 pub fn derive_application_key<S>(
     stream: &TlsStream<S>,
-    kem_ss: &mut [u8],
+    kem_ss: &mut Zeroizing<Vec<u8>>,
 ) -> Result<[u8; 32], CryptoError> {
     let mut exporter_secret = [0u8; 32];
     tls_exporter(stream, b"depin-hybrid-kem-v1", &mut exporter_secret)
@@ -366,7 +366,7 @@ async fn read_kem_framed<S: AsyncRead + Unpin>(stream: &mut S) -> Result<Vec<u8>
 pub async fn client_post_handshake<S>(
     stream: &mut TlsStream<S>,
     level: SecurityLevel,
-) -> Result<Vec<u8>>
+) -> Result<Zeroizing<Vec<u8>>>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
@@ -384,7 +384,7 @@ where
 pub async fn server_post_handshake<S>(
     stream: &mut TlsStream<S>,
     level: SecurityLevel,
-) -> Result<Vec<u8>>
+) -> Result<Zeroizing<Vec<u8>>>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
@@ -392,7 +392,7 @@ where
     let pk_bytes = read_kem_framed(stream).await?;
     let public_key = HybridPublicKey::from_bytes(&pk_bytes)?;
     let encapsulated = hybrid_kem.encapsulate(&public_key)?;
-    let shared_secret = encapsulated.shared_secret().to_vec();
+    let shared_secret = Zeroizing::new(encapsulated.shared_secret().to_vec());
     write_kem_framed(stream, &encapsulated.to_bytes()).await?;
     Ok(shared_secret)
 }

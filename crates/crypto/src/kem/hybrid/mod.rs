@@ -6,6 +6,7 @@ use dcrypt::prelude::{Serialize, SerializeSecret};
 use depin_sdk_api::crypto::{
     DecapsulationKey, Encapsulated, EncapsulationKey, KemKeyPair, KeyEncapsulation, SerializableKey,
 };
+use zeroize::Zeroizing;
 
 // --- FIX: NO LONGER IMPORT FROM `engine` ---
 // We only import the concrete, public KEMs and their associated types.
@@ -165,34 +166,28 @@ impl KeyEncapsulation for HybridKEM {
         &self,
         private_key: &Self::PrivateKey,
         encapsulated: &Self::Encapsulated,
-    ) -> Result<Vec<u8>, CryptoError> {
+    ) -> Result<Zeroizing<Vec<u8>>, CryptoError> {
         let ss_bytes = match private_key._level {
             SecurityLevel::Level1 => {
                 // FIX: Use the now-functional from_bytes methods from dcrypt's public API
                 let sk = <EcdhP256Kyber512 as Kem>::SecretKey::from_bytes(&private_key.bytes)?;
                 let ct =
                     <EcdhP256Kyber512 as Kem>::Ciphertext::from_bytes(&encapsulated.ciphertext)?;
-                EcdhP256Kyber512::decapsulate(&sk, &ct)?
-                    .to_bytes_zeroizing()
-                    .to_vec()
+                EcdhP256Kyber512::decapsulate(&sk, &ct)?.to_bytes_zeroizing()
             }
             SecurityLevel::Level3 => {
                 // FIX: Use the now-functional from_bytes methods from dcrypt's public API
                 let sk = <EcdhP256Kyber768 as Kem>::SecretKey::from_bytes(&private_key.bytes)?;
                 let ct =
                     <EcdhP256Kyber768 as Kem>::Ciphertext::from_bytes(&encapsulated.ciphertext)?;
-                EcdhP256Kyber768::decapsulate(&sk, &ct)?
-                    .to_bytes_zeroizing()
-                    .to_vec()
+                EcdhP256Kyber768::decapsulate(&sk, &ct)?.to_bytes_zeroizing()
             }
             SecurityLevel::Level5 => {
                 // FIX: Use the now-functional from_bytes methods from dcrypt's public API
                 let sk = <EcdhP384Kyber1024 as Kem>::SecretKey::from_bytes(&private_key.bytes)?;
                 let ct =
                     <EcdhP384Kyber1024 as Kem>::Ciphertext::from_bytes(&encapsulated.ciphertext)?;
-                EcdhP384Kyber1024::decapsulate(&sk, &ct)?
-                    .to_bytes_zeroizing()
-                    .to_vec()
+                EcdhP384Kyber1024::decapsulate(&sk, &ct)?.to_bytes_zeroizing()
             }
             _ => return Err(CryptoError::DecapsulationFailed),
         };

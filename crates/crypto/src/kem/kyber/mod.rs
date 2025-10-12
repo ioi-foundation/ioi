@@ -9,6 +9,7 @@ use dcrypt::kem::kyber::{
 use depin_sdk_api::crypto::{
     DecapsulationKey, Encapsulated, EncapsulationKey, KemKeyPair, KeyEncapsulation, SerializableKey,
 };
+use zeroize::Zeroizing;
 
 /// Kyber key encapsulation mechanism
 pub struct KyberKEM {
@@ -153,7 +154,7 @@ impl KeyEncapsulation for KyberKEM {
         &self,
         private_key: &Self::PrivateKey,
         encapsulated: &Self::Encapsulated,
-    ) -> Result<Vec<u8>, CryptoError> {
+    ) -> Result<Zeroizing<Vec<u8>>, CryptoError> {
         let ct = KyberCiphertext::from_bytes(&encapsulated.ciphertext)?;
 
         let ss = match private_key.level {
@@ -163,7 +164,7 @@ impl KeyEncapsulation for KyberKEM {
             _ => Kyber512::decapsulate(&private_key.inner, &ct)?,
         };
 
-        Ok(ss.to_bytes_zeroizing().to_vec())
+        Ok(ss.to_bytes_zeroizing())
     }
 }
 

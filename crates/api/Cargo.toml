@@ -22,6 +22,7 @@ hex = { workspace = true }
 dashmap = { workspace = true }
 lru = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["derive"] }
+zeroize = { workspace = true, features = ["alloc"] }
 
 [features]
 default = []

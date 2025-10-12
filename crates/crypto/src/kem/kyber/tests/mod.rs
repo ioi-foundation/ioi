@@ -81,7 +81,7 @@ fn test_kyber_encapsulation() {
         let shared_secret = shared_secret.unwrap();
 
         // The shared secret should match what's in the encapsulated key
-        assert_eq!(shared_secret, encapsulated.shared_secret());
+        assert_eq!(&*shared_secret, encapsulated.shared_secret());
 
         // The shared secret should be 32 bytes for all Kyber variants
         assert_eq!(shared_secret.len(), 32);
@@ -128,7 +128,7 @@ fn test_kyber_serialization() {
     // but it won't match the original shared secret
     let wrong_shared_secret = kem.decapsulate(&keypair2.private_key, &encapsulated);
     assert!(wrong_shared_secret.is_ok());
-    assert_ne!(wrong_shared_secret.unwrap(), encapsulated.shared_secret());
+    assert_ne!(&*wrong_shared_secret.unwrap(), encapsulated.shared_secret());
 }
 
 #[test]
@@ -152,7 +152,7 @@ fn test_cross_level_compatibility() {
     let encapsulated768 = kem768.encapsulate(&keypair768.public_key).unwrap();
     let shared_secret = kem768.decapsulate(&keypair768.private_key, &encapsulated768);
     assert!(shared_secret.is_ok());
-    assert_eq!(shared_secret.unwrap(), encapsulated768.shared_secret());
+    assert_eq!(&*shared_secret.unwrap(), encapsulated768.shared_secret());
 }
 
 #[test]
@@ -172,5 +172,5 @@ fn test_dcrypt_compatibility() {
     // Test that using wrong keys produces different results
     let wrong_secret = kem.decapsulate(&keypair2.private_key, &encapsulated);
     assert!(wrong_secret.is_ok());
-    assert_ne!(wrong_secret.unwrap(), encapsulated.shared_secret());
+    assert_ne!(&*wrong_secret.unwrap(), encapsulated.shared_secret());
 }
