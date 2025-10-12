@@ -200,9 +200,9 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
 
         let parent_state_ref = depin_sdk_api::chain::StateRef {
             height: header.height - 1,
-            state_root: header.parent_state_root.as_ref().try_into().map_err(|_| {
-                ConsensusError::BlockVerificationFailed("Invalid parent state root".into())
-            })?,
+            // FIX: Use .to_vec() to support variable-length state roots (e.g., Verkle Tree commitments)
+            // without assuming a fixed 32-byte length, which would cause a panic.
+            state_root: header.parent_state_root.as_ref().to_vec(),
             block_hash: header.parent_hash,
         };
 

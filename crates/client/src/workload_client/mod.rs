@@ -115,7 +115,7 @@ pub struct GenesisStatus {
     pub chain_id: String,
 }
 
-const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(30);
+const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(90);
 
 /// The internal state of the WorkloadClient, managed by ArcSwap for atomic updates.
 #[derive(Debug)]
