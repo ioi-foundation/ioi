@@ -211,7 +211,7 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
     );
 
     // VERIFY 2: Evidence ID was recorded
-    let id1 = evidence_id(&report1);
+    let id1 = evidence_id(&report1)?;
     wait_for_evidence(rpc_addr_reporter, &id1, Duration::from_secs(10)).await?;
     println!("SUCCESS: Evidence ID was correctly recorded in the registry.");
 

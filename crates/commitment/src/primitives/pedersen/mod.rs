@@ -136,24 +136,20 @@ impl PedersenCommitmentScheme {
 }
 
 impl CommitmentStructure for PedersenCommitmentScheme {
-    fn commit_leaf(key: &[u8], value: &[u8]) -> Vec<u8> {
+    fn commit_leaf(key: &[u8], value: &[u8]) -> Result<Vec<u8>, CryptoError> {
         let mut data = vec![0x00]; // Leaf prefix
         data.extend_from_slice(key);
         data.extend_from_slice(value);
-        sha256(&data).map(|h| h.to_vec()).unwrap_or_else(|e| {
-            log::error!("CRITICAL: sha256 failed: {}", e);
-            vec![0; 32]
-        })
+        let hash = sha256(&data)?;
+        Ok(hash.to_vec())
     }
 
-    fn commit_branch(left: &[u8], right: &[u8]) -> Vec<u8> {
+    fn commit_branch(left: &[u8], right: &[u8]) -> Result<Vec<u8>, CryptoError> {
         let mut data = vec![0x01]; // Branch prefix
         data.extend_from_slice(left);
         data.extend_from_slice(right);
-        sha256(&data).map(|h| h.to_vec()).unwrap_or_else(|e| {
-            log::error!("CRITICAL: sha256 failed: {}", e);
-            vec![0; 32]
-        })
+        let hash = sha256(&data)?;
+        Ok(hash.to_vec())
     }
 }
 

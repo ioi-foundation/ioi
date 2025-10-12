@@ -216,23 +216,13 @@ fn expand_message_to_ring(msg: &[u8], n: usize, q: u32) -> Result<Vec<u32>, Cryp
 }
 
 impl CommitmentStructure for LatticeCommitmentScheme {
-    fn commit_leaf(key: &[u8], value: &[u8]) -> Vec<u8> {
-        sha256([key, value].concat())
-            .map_err(|e| {
-                log::error!("CRITICAL: sha256 failed: {}", e);
-                e
-            })
-            .unwrap_or([0; 32])
-            .to_vec()
+    fn commit_leaf(key: &[u8], value: &[u8]) -> Result<Vec<u8>, CryptoError> {
+        let hash = sha256([key, value].concat())?;
+        Ok(hash.to_vec())
     }
-    fn commit_branch(left: &[u8], right: &[u8]) -> Vec<u8> {
-        sha256([left, right].concat())
-            .map_err(|e| {
-                log::error!("CRITICAL: sha256 failed: {}", e);
-                e
-            })
-            .unwrap_or([0; 32])
-            .to_vec()
+    fn commit_branch(left: &[u8], right: &[u8]) -> Result<Vec<u8>, CryptoError> {
+        let hash = sha256([left, right].concat())?;
+        Ok(hash.to_vec())
     }
 }
 

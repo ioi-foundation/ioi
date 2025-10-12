@@ -95,30 +95,20 @@ impl HashCommitmentScheme {
 }
 
 impl CommitmentStructure for HashCommitmentScheme {
-    fn commit_leaf(key: &[u8], value: &[u8]) -> Vec<u8> {
+    fn commit_leaf(key: &[u8], value: &[u8]) -> Result<Vec<u8>, CryptoError> {
         let mut data = vec![0x00]; // Leaf prefix
         data.extend_from_slice(key);
         data.extend_from_slice(value);
-        sha256(&data)
-            .unwrap_or_else(|e| {
-                // This should be an unrecoverable error, but the trait signature is infallible.
-                // Log the critical failure and return a default value to avoid panicking.
-                log::error!("CRITICAL: SHA256 hashing failed: {}", e);
-                [0u8; 32]
-            })
-            .to_vec()
+        let hash = sha256(&data)?;
+        Ok(hash.to_vec())
     }
 
-    fn commit_branch(left: &[u8], right: &[u8]) -> Vec<u8> {
+    fn commit_branch(left: &[u8], right: &[u8]) -> Result<Vec<u8>, CryptoError> {
         let mut data = vec![0x01]; // Branch prefix
         data.extend_from_slice(left);
         data.extend_from_slice(right);
-        sha256(&data)
-            .unwrap_or_else(|e| {
-                log::error!("CRITICAL: SHA256 hashing failed: {}", e);
-                [0u8; 32]
-            })
-            .to_vec()
+        let hash = sha256(&data)?;
+        Ok(hash.to_vec())
     }
 }
 

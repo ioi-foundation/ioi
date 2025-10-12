@@ -25,7 +25,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncReadExt;
 use tokio_rustls::{rustls::ServerConfig, TlsAcceptor, TlsStream};
 
 /// The GuardianContainer is the root of trust.

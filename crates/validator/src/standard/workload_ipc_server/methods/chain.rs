@@ -236,7 +236,8 @@ where
                 // Perform pre-flight checks that don't need decorators (e.g., replay protection)
                 if let ChainTransaction::System(sys_tx) = &tx {
                     if let SystemPayload::ReportMisbehavior { report } = &sys_tx.payload {
-                        let id = evidence_id(report);
+                        let id = evidence_id(report)
+                            .map_err(|e| TransactionError::Invalid(e.to_string()))?;
                         let already_seen = match overlay.get(EVIDENCE_REGISTRY_KEY)? {
                             Some(bytes) => {
                                 codec::from_bytes_canonical::<BTreeSet<[u8; 32]>>(&bytes)
