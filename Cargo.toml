@@ -56,8 +56,8 @@ libp2p = { version = "0.52", features = [
 reqwest = { version = "0.11", features = ["json"] }
 axum = { version = "0.6", features = ["json"] }
 # RPC Hardening & Middleware
-tower = { version = "0.4", features = ["limit", "timeout"] }
-tower-http = { version = "0.4", features = ["limit", "trace"] }
+tower = { version = "0.4", features = ["limit", "timeout", "load-shed"] }
+tower-http = { version = "0.4", features = ["limit", "trace", "catch-panic"] }
 ipnetwork = { version = "0.20" }
 
 # Async

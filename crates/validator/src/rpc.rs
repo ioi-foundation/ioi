@@ -3,7 +3,7 @@
 //! internal communication for transaction submission and state queries.
 
 use crate::metrics::rpc_metrics as metrics;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use axum::{
     body::Body,
     error_handling::HandleErrorLayer,
@@ -36,8 +36,11 @@ use tokio::{
     task::JoinHandle,
     time::sleep,
 };
-use tower::{limit::ConcurrencyLimitLayer, timeout::TimeoutLayer, BoxError, ServiceBuilder};
-use tower_http::trace::TraceLayer;
+use tower::{
+    limit::ConcurrencyLimitLayer, load_shed::LoadShedLayer, timeout::TimeoutLayer, BoxError,
+    ServiceBuilder,
+};
+use tower_http::{catch_panic::CatchPanicLayer, trace::TraceLayer};
 
 // ---------- Simple per-IP token-bucket limiter ----------
 #[derive(Clone)]
@@ -542,13 +545,30 @@ async fn enforce_post_only(req: Request<Body>, next: Next<Body>) -> Result<Respo
     Ok(next.run(req).await)
 }
 
-async fn handle_service_error(err: BoxError) -> (StatusCode, String) {
+async fn handle_service_error(err: BoxError) -> impl IntoResponse {
     if err.is::<tower::timeout::error::Elapsed>() {
-        (StatusCode::REQUEST_TIMEOUT, "Request timed out".to_string())
+        (
+            StatusCode::REQUEST_TIMEOUT,
+            Json(
+                json!({"jsonrpc": "2.0", "id": null, "error": {"code": -32000, "message": "Request timed out"}}),
+            ),
+        )
+    } else if err.is::<tower::load_shed::error::Overloaded>() {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(
+                json!({"jsonrpc": "2.0", "id": null, "error": {"code": -32099, "message": "Service overloaded"}}),
+            ),
+        )
     } else {
+        let bt = std::backtrace::Backtrace::capture();
+        tracing::error!(target="rpc", error=%err, backtrace=?bt, "Unhandled internal error in RPC middleware");
+
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Unhandled internal error: {}", err),
+            Json(
+                json!({"jsonrpc": "2.0", "id": null, "error": {"code": -32603, "message": "Internal server error"}}),
+            ),
         )
     }
 }
@@ -629,8 +649,23 @@ pub async fn run_rpc_server(
             .with_state(app_state)
             .layer(
                 ServiceBuilder::new()
+                    .layer(CatchPanicLayer::new())
+                    .layer(middleware::map_response(|mut _res: Response| async move {
+                        if _res.status() == StatusCode::INTERNAL_SERVER_ERROR {
+                            return (
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                Json(json!({
+                                  "jsonrpc":"2.0","id": null,
+                                  "error":{"code": -32603, "message":"Internal server error"}
+                                })),
+                            )
+                                .into_response();
+                        }
+                        _res
+                    }))
                     .layer(HandleErrorLayer::new(handle_service_error))
                     .layer(TraceLayer::new_for_http())
+                    .layer(LoadShedLayer::new())
                     .layer(TimeoutLayer::new(Duration::from_millis(hc.timeout_ms)))
                     .layer(ConcurrencyLimitLayer::new(hc.max_concurrency as usize)),
             )

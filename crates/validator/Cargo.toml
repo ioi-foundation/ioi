@@ -56,7 +56,7 @@ rcgen = { workspace = true }
 webpki-roots = { workspace = true }
 # Added for RPC hardening and rate limiting
 tower = { workspace = true }
-tower-http = { workspace = true, features = ["limit", "trace"] }
+tower-http = { workspace = true, features = ["limit", "trace", "catch-panic"] }
 ipnetwork = "0.20"
 
 [features]
