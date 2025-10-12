@@ -55,7 +55,7 @@ mod gossip;
 mod oracle;
 mod peer_management;
 mod remote_state_view; // [+] ADDED: This module declaration was missing.
-// Make sure the sync helpers are visible here.
+                       // Make sure the sync helpers are visible here.
 mod sync;
 pub mod verifier_select;
 mod view_resolver;
@@ -494,7 +494,10 @@ async fn handle_network_event<CS, ST, CE, V>(
             channel,
         } => {
             let mut ctx = context_arc.lock().await;
-            sync_handlers::handle_blocks_request(&mut ctx, peer, since, max_blocks, max_bytes, channel).await
+            sync_handlers::handle_blocks_request(
+                &mut ctx, peer, since, max_blocks, max_bytes, channel,
+            )
+            .await
         }
         NetworkEvent::StatusResponse {
             peer,
@@ -504,8 +507,15 @@ async fn handle_network_event<CS, ST, CE, V>(
             genesis_root,
         } => {
             let mut ctx = context_arc.lock().await;
-            sync_handlers::handle_status_response(&mut ctx, peer, height, head_hash, chain_id, genesis_root)
-                .await
+            sync_handlers::handle_status_response(
+                &mut ctx,
+                peer,
+                height,
+                head_hash,
+                chain_id,
+                genesis_root,
+            )
+            .await
         }
         NetworkEvent::BlocksResponse(peer, blocks) => {
             let mut ctx = context_arc.lock().await;
@@ -681,6 +691,7 @@ where
         }));
 
         self.is_running.store(true, Ordering::SeqCst);
+        eprintln!("ORCHESTRATION_STARTUP_COMPLETE");
         Ok(())
     }
 

@@ -61,7 +61,9 @@ where
     CS::Proof: AsRef<[u8]> + serde::Serialize + for<'de> serde::Deserialize<'de>,
     CS::Commitment: std::fmt::Debug + From<Vec<u8>>,
 {
-    if !Path::new(&config.state_file).exists() {
+    // FIX: Check for the actual database file, not the conceptual state file path.
+    let store_path = Path::new(&config.state_file).with_extension("db");
+    if !store_path.exists() {
         load_state_from_genesis_file(&mut state_tree, &config.genesis_file)?;
     } else {
         tracing::info!(
@@ -98,15 +100,18 @@ where
         .collect();
     let service_directory = ServiceDirectory::new(services_for_dir);
 
-    let store_path = Path::new(&config.state_file).with_extension("db");
+    // This path is now consistent with the check at the beginning of the function.
     let store = Arc::new(RedbEpochStore::open(store_path, config.epoch_size)?);
+
+    // --- MODIFICATION: Attach store to state tree before creating WorkloadContainer ---
+    state_tree.attach_store(store.clone());
 
     let workload_container = Arc::new(WorkloadContainer::new(
         config.clone(),
         state_tree,
         wasm_vm,
         service_directory,
-        store,
+        store.clone(),
     )?);
 
     // The Workload's Chain instance needs a consensus engine to handle penalty

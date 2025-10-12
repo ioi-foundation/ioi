@@ -6,17 +6,19 @@ pub mod verifier;
 
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
 use depin_sdk_api::state::{PrunePlan, StateCommitment, StateManager, StateScanIter};
-use depin_sdk_api::storage::NodeStore;
+// --- MODIFICATION: Add NodeHash import ---
+use depin_sdk_api::storage::{NodeHash as StoreNodeHash, NodeStore};
 use depin_sdk_storage::adapter::{commit_and_persist, DeltaAccumulator};
 use depin_sdk_types::app::{to_root_hash, Membership, RootHash};
 use depin_sdk_types::error::{ProofError, StateError};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::{BTreeMap, HashMap};
+use std::fmt::Debug; // <-- Import Debug trait
 use std::sync::Arc;
 
 /// Sparse Merkle tree node
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)] // <-- Remove Debug from derive
 enum Node {
     Empty,
     Leaf {
@@ -31,24 +33,47 @@ enum Node {
         created_at: u64,
     },
 }
-
-fn smt_encode_node(node: &Node) -> Vec<u8> {
-    let mut data = Vec::new();
-    match node {
-        Node::Empty => {} // Empty hash is special-cased, no canonical encoding needed
-        Node::Leaf { key, value, .. } => {
-            data.push(0x00); // Leaf prefix
-            data.extend_from_slice(key);
-            data.extend_from_slice(value);
-        }
-        Node::Branch { left, right, .. } => {
-            data.push(0x01); // Branch prefix
-            data.extend_from_slice(&left.hash());
-            data.extend_from_slice(&right.hash());
+// --- MODIFICATION: Manual Debug impl for Node ---
+impl Debug for Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Empty => write!(f, "Empty"),
+            Self::Leaf {
+                key,
+                value,
+                created_at,
+            } => f
+                .debug_struct("Leaf")
+                .field("key", &hex::encode(key))
+                .field("value", &hex::encode(value))
+                .field("created_at", created_at)
+                .finish(),
+            Self::Branch {
+                left,
+                right,
+                hash,
+                created_at,
+            } => f
+                .debug_struct("Branch")
+                .field("left", left)
+                .field("right", right)
+                .field("hash", &hex::encode(hash))
+                .field("created_at", created_at)
+                .finish(),
         }
     }
-    data
 }
+
+fn smt_encode_node(node: &Node) -> Vec<u8> {
+    // FIX: Use a stable codec like bincode for canonical serialization.
+    bincode::serialize(node).unwrap_or_default()
+}
+
+// --- MODIFICATION START: Add node decoder ---
+fn smt_decode_node(bytes: &[u8]) -> Option<Node> {
+    bincode::deserialize(bytes).ok()
+}
+// --- MODIFICATION END ---
 
 impl Node {
     fn hash(&self) -> Vec<u8> {
@@ -96,7 +121,7 @@ pub struct SparseMerkleProof {
 }
 
 /// Sparse Merkle tree implementation
-#[derive(Debug, Clone)]
+#[derive(Clone)] // <-- Remove Debug from derive
 pub struct SparseMerkleTree<CS: CommitmentScheme> {
     root: Arc<Node>,
     scheme: CS,
@@ -104,7 +129,26 @@ pub struct SparseMerkleTree<CS: CommitmentScheme> {
     indices: Indices,
     current_height: u64,
     delta: DeltaAccumulator,
+    // --- MODIFICATION START: Add store field ---
+    store: Option<Arc<dyn NodeStore>>,
+    // --- MODIFICATION END ---
 }
+
+// --- MODIFICATION START: Manual Debug impl for SparseMerkleTree ---
+impl<CS: CommitmentScheme> Debug for SparseMerkleTree<CS> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SparseMerkleTree")
+            .field("root", &self.root)
+            .field("scheme", &"...")
+            .field("cache_len", &self.cache.len())
+            .field("indices", &self.indices)
+            .field("current_height", &self.current_height)
+            .field("delta", &self.delta)
+            .field("store_is_some", &self.store.is_some())
+            .finish()
+    }
+}
+// --- MODIFICATION END ---
 
 #[derive(Debug, Clone, Default)]
 struct Indices {
@@ -128,8 +172,110 @@ where
             indices: Indices::default(),
             current_height: 0,
             delta: DeltaAccumulator::default(),
+            // --- MODIFICATION START: Initialize store to None ---
+            store: None,
+            // --- MODIFICATION END ---
         }
     }
+
+    // --- MODIFICATION START: Add store-backed proof builder ---
+    pub fn build_proof_from_store_at(
+        &self,
+        store: &dyn NodeStore,
+        root_hash32: [u8; 32],
+        key: &[u8],
+    ) -> Result<SparseMerkleProof, StateError> {
+        let height = store
+            .height_for_root(depin_sdk_api::storage::RootHash(root_hash32))
+            .map_err(|e| StateError::Backend(e.to_string()))?
+            .ok_or_else(|| StateError::UnknownAnchor(hex::encode(root_hash32)))?;
+        let epoch = store.epoch_of(height);
+
+        let mut siblings = Vec::new();
+        let mut current_hash = root_hash32.to_vec();
+
+        for depth in 0..Self::TREE_HEIGHT {
+            if current_hash == Node::Empty.hash() {
+                break;
+            }
+            let node_bytes = Self::fetch_node_any_epoch(
+                store,
+                epoch,
+                current_hash
+                    .clone()
+                    .try_into()
+                    .map_err(|_| StateError::InvalidValue("Node hash was not 32 bytes".into()))?,
+            )?
+            .ok_or_else(|| StateError::Backend("Missing node bytes in store".into()))?;
+            let node = smt_decode_node(&node_bytes)
+                .ok_or_else(|| StateError::Decode("Invalid node encoding".into()))?;
+
+            match node {
+                Node::Empty => break,
+                Node::Leaf { .. } => break,
+                Node::Branch { left, right, .. } => {
+                    if Self::get_bit(key, depth) {
+                        siblings.push(left.hash());
+                        current_hash = right.hash();
+                    } else {
+                        siblings.push(right.hash());
+                        current_hash = left.hash();
+                    }
+                }
+            }
+        }
+
+        let leaf = if current_hash != Node::Empty.hash() {
+            let node_bytes = Self::fetch_node_any_epoch(
+                store,
+                epoch,
+                current_hash
+                    .clone()
+                    .try_into()
+                    .map_err(|_| StateError::InvalidValue("Node hash was not 32 bytes".into()))?,
+            )?
+            .ok_or_else(|| StateError::Backend("Missing leaf node bytes".into()))?;
+            let node = smt_decode_node(&node_bytes)
+                .ok_or_else(|| StateError::Decode("Invalid leaf node encoding".into()))?;
+            if let Node::Leaf { key, value, .. } = node {
+                Some((key, value))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        Ok(SparseMerkleProof { siblings, leaf })
+    }
+
+    fn fetch_node_any_epoch(
+        store: &dyn NodeStore,
+        prefer_epoch: u64,
+        hash: [u8; 32],
+    ) -> Result<Option<Vec<u8>>, StateError> {
+        if let Some(bytes) = store
+            .get_node(prefer_epoch, StoreNodeHash(hash))
+            .map_err(|e| StateError::Backend(e.to_string()))?
+        {
+            return Ok(Some(bytes));
+        }
+        let (head_h, _) = store
+            .head()
+            .map_err(|e| StateError::Backend(e.to_string()))?;
+        let head_epoch = store.epoch_of(head_h);
+        let start = prefer_epoch.min(head_epoch);
+        for e in (0..start).rev() {
+            if let Some(bytes) = store
+                .get_node(e, StoreNodeHash(hash))
+                .map_err(|e| StateError::Backend(e.to_string()))?
+            {
+                return Ok(Some(bytes));
+            }
+        }
+        Ok(None)
+    }
+    // --- MODIFICATION END ---
 
     fn decrement_refcount(&mut self, root_hash: RootHash) {
         if let Some(c) = self.indices.root_refcount.get_mut(&root_hash) {
@@ -230,7 +376,7 @@ where
                     (self.update_node(left, key, value, depth + 1), right.clone())
                 };
 
-                if *new_left == Node::Empty && *new_right == Node::Empty {
+                if matches!(*new_left, Node::Empty) && matches!(*new_right, Node::Empty) {
                     Arc::new(Node::Empty)
                 } else {
                     let hash = Node::compute_branch_hash(&new_left, &new_right);
@@ -450,7 +596,7 @@ where
         self.collect_height_delta();
         let root_hash = to_root_hash(self.root_commitment().as_ref())?;
         commit_and_persist(store, height, root_hash, &self.delta)
-            .map_err(|e| StateError::Backend(e.to_string()))?;
+            .map_err(|e| depin_sdk_types::error::StateError::Backend(e.to_string()))?;
         self.delta.clear();
         let _ = <Self as StateManager>::commit_version(self, height)?;
         Ok(root_hash)
@@ -561,43 +707,71 @@ where
         key: &[u8],
     ) -> Result<(Membership, Self::Proof), StateError> {
         let root_hash: RootHash = to_root_hash(root.as_ref())?;
-        // Resolve snapshot for the requested root.
-        let snapshot = self.indices.roots.get(&root_hash).ok_or_else(|| {
-            StateError::Backend(format!(
-                "StaleAnchor(SMT): unknown root {}",
-                hex::encode(root_hash)
-            ))
-        })?;
 
-        // Build membership and proof *from the snapshot*, not from live state.
-        let membership = match Self::get_from_snapshot(snapshot, key, 0) {
-            Some(v) => Membership::Present(v),
-            None => Membership::Absent,
-        };
-        let merkle_proof = Self::generate_proof_from_snapshot(snapshot, key);
-
-        // Server-side self-check: ensure the proof actually anchors to the requested root.
-        let expected_value = membership.clone().into_option();
-        if !Self::verify_proof_static(&root_hash, key, expected_value.as_deref(), &merkle_proof)
+        // Try in-memory path first
+        if let Some(historical_root_node) = self.indices.roots.get(&root_hash).cloned() {
+            let membership = match Self::get_from_snapshot(&historical_root_node, key, 0) {
+                Some(v) => Membership::Present(v),
+                None => Membership::Absent,
+            };
+            let merkle_proof = Self::generate_proof_from_snapshot(&historical_root_node, key);
+            // Self-verify
+            if !Self::verify_proof_static(
+                &root_hash,
+                key,
+                membership.clone().into_option().as_deref(),
+                &merkle_proof,
+            )
             .map_err(|e| StateError::Validation(e.to_string()))?
-        {
-            log::error!(
-                "[SMT Server] self-verify failed (root={}, key={})",
-                hex::encode(root_hash),
-                hex::encode(key)
-            );
-            return Err(StateError::Backend("SMT self-verify failed".into()));
+            {
+                return Err(StateError::Backend("SMT self-verify failed".into()));
+            }
+            let proof_bytes = serde_json::to_vec(&merkle_proof)
+                .map_err(|e| StateError::Backend(e.to_string()))?;
+            let proof_value = self.to_value(&proof_bytes);
+            let proof = self
+                .scheme
+                .create_proof(&Selector::Key(key.to_vec()), &proof_value)
+                .map_err(|e| StateError::Backend(e.to_string()))?;
+            return Ok((membership, proof));
         }
 
-        // Wrap proof in the outer commitment scheme.
-        let proof_bytes =
-            serde_json::to_vec(&merkle_proof).map_err(|e| StateError::Backend(e.to_string()))?;
-        let value = self.to_value(&proof_bytes);
-        let proof = self
-            .scheme
-            .create_proof(&Selector::Key(key.to_vec()), &value)
-            .map_err(|e| StateError::Backend(e.to_string()))?;
-        Ok((membership, proof))
+        // --- MODIFICATION START: Fallback to store ---
+        if let Some(store) = &self.store {
+            let merkle_proof = self.build_proof_from_store_at(store.as_ref(), root_hash, key)?;
+            let membership = if let Some((proof_key, proof_value)) = &merkle_proof.leaf {
+                if proof_key == key {
+                    Membership::Present(proof_value.clone())
+                } else {
+                    Membership::Absent
+                }
+            } else {
+                Membership::Absent
+            };
+            if !Self::verify_proof_static(
+                &root_hash,
+                key,
+                membership.clone().into_option().as_deref(),
+                &merkle_proof,
+            )
+            .map_err(|e| StateError::Validation(e.to_string()))?
+            {
+                return Err(StateError::Backend(
+                    "SMT store-backed self-verify failed".into(),
+                ));
+            }
+            let proof_bytes = serde_json::to_vec(&merkle_proof)
+                .map_err(|e| StateError::Backend(e.to_string()))?;
+            let proof_value = self.to_value(&proof_bytes);
+            let proof = self
+                .scheme
+                .create_proof(&Selector::Key(key.to_vec()), &proof_value)
+                .map_err(|e| StateError::Backend(e.to_string()))?;
+            return Ok((membership, proof));
+        }
+        // --- MODIFICATION END ---
+
+        Err(StateError::StaleAnchor)
     }
 
     fn commitment_from_anchor(&self, anchor: &[u8; 32]) -> Option<Self::Commitment> {
@@ -726,6 +900,26 @@ where
     ) -> Result<RootHash, StateError> {
         self.commit_version_with_store(height, store)
     }
+
+    fn adopt_known_root(&mut self, root_bytes: &[u8], version: u64) -> Result<(), StateError> {
+        let root_hash = to_root_hash(root_bytes)?;
+
+        self.indices.versions_by_height.insert(version, root_hash);
+        self.indices.roots.insert(root_hash, self.root.clone());
+        *self.indices.root_refcount.entry(root_hash).or_insert(0) += 1;
+
+        if self.current_height < version {
+            self.current_height = version;
+        }
+
+        Ok(())
+    }
+
+    // --- MODIFICATION START: Implement attach_store ---
+    fn attach_store(&mut self, store: Arc<dyn NodeStore>) {
+        self.store = Some(store);
+    }
+    // --- MODIFICATION END ---
 }
 
 #[cfg(test)]

@@ -2,9 +2,10 @@
 
 mod actor;
 
-use crate::security::SecurityChannel;
-use actor::{ClientActor, ClientRequest};
+use crate::security::{SecureStream, SecurityChannel};
+use actor::{ClientActor, ClientRequest, PendingRequestMap};
 use anyhow::{anyhow, Result};
+use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use depin_sdk_api::{
     consensus::ChainStateReader,
@@ -15,7 +16,7 @@ use depin_sdk_types::app::{
     StateRoot,
 };
 use depin_sdk_types::keys::ACCOUNT_ID_TO_PUBKEY_PREFIX;
-use ipc_protocol::jsonrpc::{JsonRpcId, JsonRpcRequest};
+use ipc_protocol::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest};
 use libp2p::identity::PublicKey;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
@@ -23,8 +24,8 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{mpsc, oneshot};
-use tokio::time::sleep;
+use tokio::sync::{mpsc, oneshot, watch, Notify, RwLock};
+use tokio::task::JoinHandle;
 
 // --- Structs for RPC method parameters and results ---
 
@@ -114,84 +115,164 @@ pub struct GenesisStatus {
     pub chain_id: String,
 }
 
+const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// The internal state of the WorkloadClient, managed by ArcSwap for atomic updates.
+#[derive(Debug)]
+enum ClientState {
+    Connected {
+        to_actor: mpsc::Sender<ClientRequest>,
+    },
+    Disconnected,
+}
+
 /// A client-side proxy for communicating with the remote Workload container.
 /// This is a lightweight handle that sends requests to a dedicated I/O actor.
-#[derive(Debug, Clone)]
+/// It automatically handles connection drops and reconnections.
+#[derive(Debug)]
 pub struct WorkloadClient {
     workload_addr: String,
     request_id: Arc<AtomicI64>,
-    /// Sender channel to the I/O actor task.
-    to_actor: mpsc::Sender<ClientRequest>,
+    state: Arc<ArcSwap<ClientState>>,
+    ready_rx: watch::Receiver<bool>,
+    shutdown: Arc<Notify>,
+    _run_handle: JoinHandle<()>,
+}
+
+impl Drop for WorkloadClient {
+    fn drop(&mut self) {
+        self.shutdown.notify_one();
+    }
 }
 
 impl WorkloadClient {
     /// Establishes a secure connection to the Workload container and spawns
-    /// a dedicated I/O task to manage the connection.
+    /// a dedicated management task to maintain the connection.
     pub async fn new(
         workload_addr: &str,
         ca_cert_path: &str,
         client_cert_path: &str,
         client_key_path: &str,
     ) -> Result<Self> {
-        let channel = SecurityChannel::new("orchestration", "workload");
+        let (ready_tx, ready_rx) = watch::channel(false);
+        let state = Arc::new(ArcSwap::new(Arc::new(ClientState::Disconnected)));
+        let shutdown = Arc::new(Notify::new());
 
-        // Connection retry loop
-        let mut attempts = 0;
-        let max_attempts = 10;
-        let mut retry_delay = Duration::from_millis(500);
-        loop {
-            attempts += 1;
-            match channel
-                .establish_client(
-                    workload_addr,
-                    "workload",
-                    ca_cert_path,
-                    client_cert_path,
-                    client_key_path,
-                )
-                .await
-            {
-                Ok(_) => {
-                    log::info!(
-                        "Successfully established TLS with Workload container at {}",
-                        workload_addr
-                    );
-                    break;
-                }
-                Err(e) => {
-                    if attempts >= max_attempts {
-                        return Err(e.into());
-                    }
-                    log::warn!(
-                        "Attempt {}/{} to connect to Workload container failed: {}. Retrying in {:?}...",
-                        attempts, max_attempts, e, retry_delay
-                    );
-                    sleep(retry_delay).await;
-                    retry_delay = (retry_delay * 2).min(Duration::from_secs(5));
-                }
-            }
-        }
-
-        // Spawn the actor task to manage the connection
-        let (to_actor, from_client) = mpsc::channel(128);
-        let actor = ClientActor::new(channel, from_client);
-        tokio::spawn(actor.run());
+        let run_handle = tokio::spawn(Self::run(
+            workload_addr.to_string(),
+            ca_cert_path.to_string(),
+            client_cert_path.to_string(),
+            client_key_path.to_string(),
+            ready_tx,
+            state.clone(),
+            shutdown.clone(),
+        ));
 
         let client = Self {
             workload_addr: workload_addr.to_string(),
             request_id: Arc::new(AtomicI64::new(0)),
-            to_actor,
+            state,
+            ready_rx,
+            shutdown,
+            _run_handle: run_handle,
         };
 
-        // Perform readiness probe using the newly created client.
-        // This confirms the server is fully initialized.
-        client.get_status().await?;
+        // Wait for the initial connection attempt to complete.
+        if !client.wait_ready(WORKLOAD_READY_TIMEOUT).await {
+            return Err(anyhow!(
+                "Timeout waiting for initial connection to Workload container at {}",
+                workload_addr
+            ));
+        }
+
         log::info!(
             "Successfully connected and verified IPC with Workload container at {}",
-            workload_addr
+            client.destination_addr()
         );
 
         Ok(client)
+    }
+
+    /// The main run loop that manages the connection lifecycle.
+    async fn run(
+        addr: String,
+        ca: String,
+        cert: String,
+        key: String,
+        ready_tx: watch::Sender<bool>,
+        state: Arc<ArcSwap<ClientState>>,
+        shutdown: Arc<Notify>,
+    ) {
+        let mut backoff = 100u64;
+        let pending_requests: PendingRequestMap = Arc::new(RwLock::new(HashMap::new()));
+
+        loop {
+            tokio::select! {
+                _ = shutdown.notified() => {
+                    log::info!("[WorkloadClient] Shutdown signal received. Terminating run loop.");
+                    break;
+                }
+                _ = tokio::time::sleep(Duration::from_millis(backoff)) => {
+                    match Self::connect_once(&addr, &ca, &cert, &key).await {
+                        Ok(stream) => {
+                            let (to_actor, from_client) = mpsc::channel(128);
+                            let actor = ClientActor::new(stream, from_client, pending_requests.clone());
+                            state.store(Arc::new(ClientState::Connected { to_actor }));
+                            let _ = ready_tx.send(true);
+                            log::info!("[WorkloadClient] Connection established.");
+                            backoff = 100; // Reset backoff on success
+
+                            // The actor's run loop will block until the connection is lost.
+                            if let Err(e) = actor.run().await {
+                                log::warn!("[WorkloadClient] Actor terminated with error: {}. Will reconnect.", e);
+                            }
+
+                            // Connection lost, transition to disconnected state
+                            state.store(Arc::new(ClientState::Disconnected));
+                            let _ = ready_tx.send(false);
+                            // Fail any in-flight requests
+                            let mut pending = pending_requests.write().await;
+                            for (_, response_tx) in pending.drain() {
+                                let _ = response_tx.send(Err(JsonRpcError { code: -32001, message: "Connection to Workload container was lost".into(), data: None }));
+                            }
+                        }
+                        Err(e) => {
+                            log::warn!("[WorkloadClient] Connection attempt failed: {}. Retrying in {}ms.", e, backoff);
+                            state.store(Arc::new(ClientState::Disconnected));
+                            let _ = ready_tx.send(false);
+                            backoff = (backoff * 2).min(5_000); // Exponential backoff with cap
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Attempts to establish a secure stream once.
+    async fn connect_once(addr: &str, ca: &str, cert: &str, key: &str) -> Result<SecureStream> {
+        let channel = SecurityChannel::new("orchestration", "workload");
+        channel
+            .establish_client(addr, "workload", ca, cert, key)
+            .await?;
+        channel
+            .take_stream()
+            .await
+            .ok_or_else(|| anyhow!("Failed to take ownership of secure stream after establishment"))
+    }
+
+    /// Waits for the client to be in a connected state.
+    pub async fn wait_ready(&self, timeout: Duration) -> bool {
+        if *self.ready_rx.borrow() {
+            return true;
+        }
+        tokio::time::timeout(timeout, self.ready_rx.clone().wait_for(|b| *b))
+            .await
+            .is_ok()
+    }
+
+    /// Checks if the client is currently connected.
+    pub fn is_connected(&self) -> bool {
+        *self.ready_rx.borrow()
     }
 
     /// Sends an RPC request to the actor and waits for the response.
@@ -200,6 +281,12 @@ impl WorkloadClient {
         method: &str,
         params: P,
     ) -> Result<R> {
+        let state_guard = self.state.load();
+        let to_actor = match state_guard.as_ref() {
+            ClientState::Connected { to_actor } => to_actor.clone(),
+            ClientState::Disconnected => return Err(anyhow!("Workload client is disconnected")),
+        };
+
         let id = self.request_id.fetch_add(1, Ordering::SeqCst);
         let (response_tx, response_rx) = oneshot::channel();
 
@@ -215,7 +302,9 @@ impl WorkloadClient {
             response_tx,
         };
 
-        self.to_actor.send(client_request).await?;
+        to_actor.send(client_request).await.map_err(|_| {
+            anyhow!("Failed to send request to client actor; connection may be down")
+        })?;
 
         // Wait for the response from the actor with a timeout.
         let result = tokio::time::timeout(Duration::from_secs(30), response_rx).await??;

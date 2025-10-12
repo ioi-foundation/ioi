@@ -1,9 +1,8 @@
 // Path: crates/api/src/state/accessor.rs
 //! A dyn-safe trait for state access within decorators and hooks.
 
-use crate::state::{StateKVPair, StateManager, StateScanIter};
+use crate::state::{StateManager, StateScanIter};
 use depin_sdk_types::error::StateError;
-use std::sync::Arc;
 
 /// A dyn-safe trait that erases the generic `StateManager` type, allowing
 /// services to interact with state without knowing its concrete implementation.

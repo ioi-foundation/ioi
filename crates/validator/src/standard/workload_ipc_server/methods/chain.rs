@@ -643,11 +643,10 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetBlockByHeightV1"))?;
 
-        let chain = ctx.chain.lock().await;
-        let block_opt = (*chain).get_block(params.height);
+        // FIX: Query the durable store via the workload container, not the in-memory chain cache.
+        let block_opt = ctx.workload.store.get_block_by_height(params.height)?;
 
-        // Since the `api` and `types` versions of the header are now the same (via re-export),
-        // we can simply clone the header without any conversion.
-        Ok(block_opt.map(|b| b.header.clone()))
+        // The header is now directly available from the block.
+        Ok(block_opt.map(|b| b.header))
     }
 }

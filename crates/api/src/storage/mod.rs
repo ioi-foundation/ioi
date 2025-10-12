@@ -87,15 +87,11 @@ pub trait NodeStore: Send + Sync {
     /// The size of a state history epoch in blocks, which is constant for the lifetime of the store.
     fn epoch_size(&self) -> u64;
 
-    /// Computes the epoch identifier for a given block height.
-    fn epoch_of(&self, height: Height) -> Epoch {
-        let sz = self.epoch_size();
-        if sz == 0 {
-            0
-        } else {
-            height / sz
-        }
-    }
+    /// Returns the epoch id that contains this height (usually height / epoch_size).
+    fn epoch_of(&self, height: u64) -> u64;
+
+    /// Returns the raw, canonical bytes of a node by hash in a specific epoch.
+    fn get_node(&self, epoch: u64, node: NodeHash) -> Result<Option<Vec<u8>>, StorageError>;
 
     /// Returns the current head of the chain (latest committed height and its epoch).
     fn head(&self) -> Result<(Height, Epoch), StorageError>;
@@ -137,7 +133,17 @@ pub trait NodeStore: Send + Sync {
     /// Atomically drops an entire sealed epoch from the database.
     /// This is an efficient, O(1)-style operation for compliant backends.
     fn drop_sealed_epoch(&self, epoch: Epoch) -> Result<(), StorageError>;
+
+    /// Stores the full, serialized bytes of a block at its height.
     fn put_block(&self, height: u64, block_bytes: &[u8]) -> Result<(), StorageError>;
+
+    /// Retrieves a single block by its height from the durable store.
+    fn get_block_by_height(
+        &self,
+        height: u64,
+    ) -> Result<Option<Block<ChainTransaction>>, StorageError>;
+
+    /// Retrieves a range of blocks starting from a given height.
     fn get_blocks_range(
         &self,
         start: u64,

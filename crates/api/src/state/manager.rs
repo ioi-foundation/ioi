@@ -6,6 +6,7 @@ use crate::state::StateCommitment;
 use crate::storage::NodeStore;
 use depin_sdk_types::app::{Membership, RootHash};
 use depin_sdk_types::error::StateError;
+use std::sync::Arc;
 
 /// The state manager interface, adding proof generation and batching capabilities.
 ///
@@ -100,6 +101,21 @@ pub trait StateManager: StateCommitment {
     ) -> Result<RootHash, StateError> {
         self.commit_version(height)
     }
+
+    /// Informs the state manager of a pre-existing, valid version from a durable source.
+    ///
+    /// This is used during crash recovery to make the in-memory state manager aware of the
+    /// last committed version, allowing it to serve anchored queries against that version
+    /// without needing to rebuild its entire historical index.
+    fn adopt_known_root(&mut self, root_bytes: &[u8], version: u64) -> Result<(), StateError>;
+
+    /// Optional: attach a NodeStore so implementations can hydrate proofs on demand.
+    fn attach_store(&mut self, _store: Arc<dyn NodeStore>) {}
+
+    /// Hints to the backend that writes for a specific block height are about to begin.
+    /// StateManager implementations can use this to set their internal version/height counters
+    /// correctly *before* applying inserts and deletes for the block.
+    fn begin_block_writes(&mut self, _height: u64) {}
 }
 
 // Blanket implementation to allow any `StateManager` to be used behind a `Box` trait object.
@@ -170,5 +186,17 @@ impl<T: StateManager + ?Sized> StateManager for Box<T> {
         store: &dyn NodeStore,
     ) -> Result<RootHash, StateError> {
         (**self).commit_version_persist(height, store)
+    }
+
+    fn adopt_known_root(&mut self, root_bytes: &[u8], version: u64) -> Result<(), StateError> {
+        (**self).adopt_known_root(root_bytes, version)
+    }
+
+    fn attach_store(&mut self, store: Arc<dyn NodeStore>) {
+        (**self).attach_store(store)
+    }
+
+    fn begin_block_writes(&mut self, height: u64) {
+        (**self).begin_block_writes(height)
     }
 }

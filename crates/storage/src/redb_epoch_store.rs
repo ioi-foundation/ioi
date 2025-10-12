@@ -89,8 +89,6 @@ impl RedbEpochStore {
                     .map_err(|e| StorageError::Backend(e.to_string()))?;
                 w.open_table(NODES)
                     .map_err(|e| StorageError::Backend(e.to_string()))?;
-                // [+] FIX: Revert to the correct, idempotent open_table call.
-                // This will create the table if it doesn't exist.
                 w.open_table(BLOCKS)
                     .map_err(|e| StorageError::Backend(e.to_string()))?;
             }
@@ -155,6 +153,23 @@ impl RedbEpochStore {
 impl NodeStore for RedbEpochStore {
     fn epoch_size(&self) -> u64 {
         self.epoch_size
+    }
+
+    fn epoch_of(&self, height: Height) -> Epoch {
+        self.tip_epoch_of(height)
+    }
+
+    fn get_node(&self, epoch: Epoch, node: NodeHash) -> Result<Option<Vec<u8>>, StorageError> {
+        let r = self.read_txn()?;
+        let t = r
+            .open_table(NODES)
+            .map_err(|e| StorageError::Backend(e.to_string()))?;
+        let k = k_nodes(epoch, &node);
+        let out = t
+            .get(k.as_slice())
+            .map_err(|e| StorageError::Backend(e.to_string()))?
+            .map(|v| v.value().to_vec());
+        Ok(out)
     }
 
     fn head(&self) -> Result<(Height, Epoch), StorageError> {
@@ -306,6 +321,28 @@ impl NodeStore for RedbEpochStore {
                 .map_err(|e| StorageError::Backend(e.to_string()))?;
         }
         w.commit().map_err(|e| StorageError::Backend(e.to_string()))
+    }
+
+    fn get_block_by_height(
+        &self,
+        height: u64,
+    ) -> Result<Option<Block<ChainTransaction>>, StorageError> {
+        let r = self.read_txn()?;
+        let table = r
+            .open_table(BLOCKS)
+            .map_err(|e| StorageError::Backend(e.to_string()))?;
+
+        let maybe_value = table
+            .get(&height.to_be_bytes())
+            .map_err(|e| StorageError::Backend(e.to_string()))?;
+
+        if let Some(value) = maybe_value {
+            let block: Block<ChainTransaction> =
+                codec::from_bytes_canonical(value.value()).map_err(|e| StorageError::Decode(e))?;
+            Ok(Some(block))
+        } else {
+            Ok(None)
+        }
     }
 
     fn get_blocks_range(
