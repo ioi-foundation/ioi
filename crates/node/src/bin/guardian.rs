@@ -19,6 +19,7 @@ use depin_sdk_validator::config::GuardianConfig;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::io::AsyncWriteExt;
 
 #[derive(Parser, Debug)]
 struct GuardianOpts {
@@ -79,22 +80,37 @@ async fn main() -> Result<()> {
             .attest_weights(&opts.agentic_model_path)
             .await;
         let report_bytes = serde_json::to_vec(&local_hash_result)?;
-        if let Err(e) = guardian_clone
-            .orchestration_channel
-            .send(&report_bytes)
-            .await
-        {
+
+        if let Some(mut stream) = guardian_clone.orchestration_channel.take_stream().await {
+            if let Err(e) = stream.write_all(&report_bytes).await {
+                tracing::error!(
+                    target: "guardian",
+                    event = "attestation_send_fail",
+                    error = %e,
+                    "Failed to send agentic attestation report to Orchestrator"
+                );
+            } else {
+                tracing::info!(
+                    target: "guardian",
+                    event = "attestation_sent",
+                    "Sent agentic attestation report to Orchestrator."
+                );
+                // Gracefully shut down the write side of the stream to signal EOF to the reader.
+                if let Err(e) = stream.shutdown().await {
+                    tracing::error!(
+                        target: "guardian",
+                        event = "attestation_shutdown_fail",
+                        error = %e,
+                        "Failed to shutdown stream after sending attestation"
+                    );
+                }
+            }
+        } else {
             tracing::error!(
                 target: "guardian",
                 event = "attestation_send_fail",
-                error = %e,
+                error = "Orchestration channel not established or already taken",
                 "Failed to send agentic attestation report to Orchestrator"
-            );
-        } else {
-            tracing::info!(
-                target: "guardian",
-                event = "attestation_sent",
-                "Sent agentic attestation report to Orchestrator."
             );
         }
         Ok::<(), anyhow::Error>(())

@@ -43,6 +43,7 @@ use std::sync::{
     Arc,
 };
 use tokio::{
+    io::AsyncReadExt,
     sync::{mpsc, watch, Mutex, OnceCell},
     task::JoinHandle,
     time::{self, Duration, MissedTickBehavior},
@@ -763,7 +764,13 @@ where
         log::info!("[Orchestration] Attestation channel to Guardian established.");
 
         log::info!("[Orchestrator] Waiting for agentic attestation report from Guardian...");
-        let report_bytes = guardian_channel.receive().await?;
+        let mut stream = guardian_channel
+            .take_stream()
+            .await
+            .ok_or_else(|| anyhow!("Failed to take stream from Guardian channel"))?;
+        let mut report_bytes = Vec::new();
+        stream.read_to_end(&mut report_bytes).await?;
+
         let report: std::result::Result<Vec<u8>, String> = serde_json::from_slice(&report_bytes)
             .map_err(|e| anyhow!("Failed to deserialize Guardian report: {}", e))?;
 

@@ -163,49 +163,4 @@ impl SecurityChannel {
     pub async fn is_established(&self) -> bool {
         self.stream.lock().await.is_some()
     }
-
-    /// Sends data over the established secure channel.
-    /// The AeadWrappedStream handles its own framing.
-    pub async fn send(&self, data: &[u8]) -> Result<()> {
-        let mut stream_lock = self.stream.lock().await;
-        let stream = stream_lock.as_mut().ok_or_else(|| {
-            anyhow!(
-                "Channel from {} to {} not established for sending",
-                self.source,
-                self.destination
-            )
-        })?;
-        stream.write_all(data).await?;
-        Ok(())
-    }
-
-    /// Receives data from the established secure channel.
-    /// This now correctly reads the length prefix added by AeadWrappedStream.
-    pub async fn receive(&self) -> Result<Vec<u8>> {
-        let mut stream_lock = self.stream.lock().await;
-        let stream = stream_lock.as_mut().ok_or_else(|| {
-            anyhow!(
-                "Channel from {} to {} not established for receiving",
-                self.source,
-                self.destination
-            )
-        })?;
-
-        // --- START FIX ---
-        // AeadWrappedStream::poll_read implements its own framing. It first reads
-        // a 4-byte length, then the ciphertext. To consume this correctly, the caller
-        // (this function) must read the length prefix first, then read exactly
-        // that many bytes for the ciphertext. The `AeadWrappedStream`'s `read`
-        // implementation handles the decryption. This logic is now correctly
-        // implemented inside `AeadWrappedStream::poll_read`, so we just need to
-        // call `read` and it will return one full decrypted message.
-        let mut buffer = vec![0; 65536]; // Max frame size
-        let n = stream.read(&mut buffer).await?;
-        if n == 0 {
-            return Err(anyhow!("Connection closed while receiving"));
-        }
-        buffer.truncate(n);
-        Ok(buffer)
-        // --- END FIX ---
-    }
 }
