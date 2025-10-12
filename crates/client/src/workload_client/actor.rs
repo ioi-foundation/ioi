@@ -1,7 +1,6 @@
 // Path: crates/client/src/workload_client/actor.rs
 
-use crate::security::SecurityChannel;
-use anyhow::Result;
+use crate::security::SecureStream;
 use ipc_protocol::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest, JsonRpcResponse};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -10,7 +9,7 @@ use tokio::sync::{mpsc, oneshot, RwLock};
 
 type ResponseResult = Result<serde_json::Value, JsonRpcError>;
 type ResponseTx = oneshot::Sender<ResponseResult>;
-type PendingRequestMap = Arc<RwLock<HashMap<JsonRpcId, ResponseTx>>>;
+pub(super) type PendingRequestMap = Arc<RwLock<HashMap<JsonRpcId, ResponseTx>>>;
 
 /// A request sent from the main client handle to the actor task.
 pub struct ClientRequest {
@@ -19,9 +18,10 @@ pub struct ClientRequest {
     pub response_tx: ResponseTx,
 }
 
-/// The actor that manages the single mTLS connection.
+/// The actor that manages I/O for a single active mTLS connection.
+/// It is spawned and torn down by the WorkloadClient's main run loop.
 pub struct ClientActor {
-    channel: SecurityChannel,
+    stream: SecureStream,
     /// Receives requests from all `WorkloadClient` handles.
     from_client: mpsc::Receiver<ClientRequest>,
     /// Maps request IDs to the `oneshot` sender waiting for the response.
@@ -29,34 +29,30 @@ pub struct ClientActor {
 }
 
 impl ClientActor {
-    pub fn new(channel: SecurityChannel, from_client: mpsc::Receiver<ClientRequest>) -> Self {
+    pub fn new(
+        stream: SecureStream,
+        from_client: mpsc::Receiver<ClientRequest>,
+        pending: PendingRequestMap,
+    ) -> Self {
         Self {
-            channel,
+            stream,
             from_client,
-            pending: Arc::new(RwLock::new(HashMap::new())),
+            pending,
         }
     }
 
-    /// The main I/O loop for the client.
+    /// The main I/O loop for the client actor.
     /// This method spawns two tasks: one for writing requests and one for reading responses,
     /// allowing for fully concurrent, multiplexed communication over the single connection.
-    pub async fn run(self) {
-        let stream = match self.channel.take_stream().await {
-            Some(s) => s,
-            None => {
-                log::error!("[WorkloadClientActor] Failed to take ownership of the secure stream. Actor cannot run.");
-                return;
-            }
-        };
-
-        let (mut read_half, mut write_half) = tokio::io::split(stream);
+    /// It returns an error if the connection is lost, signaling the main loop to reconnect.
+    pub async fn run(mut self) -> anyhow::Result<()> {
+        let (mut read_half, mut write_half) = tokio::io::split(self.stream);
 
         // --- Write Task ---
         // This task listens for requests from client handles and writes them to the socket.
         let pending_write = self.pending.clone();
-        let mut from_client_rx = self.from_client;
         let write_task = tokio::spawn(async move {
-            while let Some(req) = from_client_rx.recv().await {
+            while let Some(req) = self.from_client.recv().await {
                 if let Some(id) = req.request.id.clone() {
                     let req_bytes = match serde_json::to_vec(&req.request) {
                         Ok(bytes) => bytes,
@@ -69,8 +65,6 @@ impl ClientActor {
                     // Insert the pending response sender *before* sending the request.
                     pending_write.write().await.insert(id, req.response_tx);
 
-                    // --- FIX: REMOVED MANUAL FRAMING ---
-                    // The AeadWrappedStream now handles its own framing. Just write the payload.
                     if write_half.write_all(&req_bytes).await.is_err() {
                         log::error!("[WorkloadClientActor] Failed to write request to stream. Closing write task.");
                         break;
@@ -83,11 +77,8 @@ impl ClientActor {
         // This task continuously reads from the socket and dispatches responses.
         let pending_read = self.pending.clone();
         let read_task = tokio::spawn(async move {
-            // Buffer to hold incoming data. AeadWrappedStream reads full frames.
             let mut buf = vec![0; 65536]; // 64KiB buffer
             loop {
-                // --- FIX: REMOVED MANUAL FRAMING ---
-                // Read a full decrypted frame from the AeadWrappedStream.
                 let n = match read_half.read(&mut buf).await {
                     Ok(0) => {
                         log::info!(
@@ -148,16 +139,7 @@ impl ClientActor {
             _ = write_task => {},
             _ = read_task => {},
         }
-
-        // If the loop breaks (e.g., connection lost), notify all pending callers.
-        let mut pending = self.pending.write().await;
-        for (_id, response_tx) in pending.drain() {
-            let _ = response_tx.send(Err(JsonRpcError {
-                code: -32001,
-                message: "Connection to Workload container was lost".into(),
-                data: None,
-            }));
-        }
         log::info!("[WorkloadClientActor] I/O loop terminated.");
+        Err(anyhow::anyhow!("Client actor I/O loop terminated"))
     }
 }

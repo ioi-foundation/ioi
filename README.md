@@ -195,6 +195,8 @@ cargo test -p depin-sdk-forge --test proof_verification_e2e --features "consensu
 
 cargo test --package depin-sdk-forge --test sync_e2e --features "consensus-poa,vm-wasm,tree-iavl" -- --nocapture
 
+cargo test --package depin-sdk-forge --test infra_e2e --features "consensus-poa,vm-wasm,tree-iavl" -- --nocapture --test-threads=1
+
 #### Penalty Mechanism Tests
 
 | Test | Command |

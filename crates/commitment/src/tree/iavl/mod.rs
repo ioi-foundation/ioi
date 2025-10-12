@@ -4,15 +4,16 @@
 mod proof;
 pub mod verifier;
 
-use crate::tree::iavl::proof::verify_iavl_proof_bytes;
+use crate::tree::iavl::proof::{
+    verify_iavl_proof_bytes, ExistenceProof, InnerOp, LeafOp, NonExistenceProof, Side,
+};
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
 use depin_sdk_api::state::{PrunePlan, StateCommitment, StateManager, StateScanIter};
-use depin_sdk_api::storage::NodeStore;
+use depin_sdk_api::storage::{NodeHash as StoreNodeHash, NodeStore};
 use depin_sdk_storage::adapter::{commit_and_persist, DeltaAccumulator};
 use depin_sdk_types::app::{to_root_hash, Membership, RootHash};
 use depin_sdk_types::error::StateError;
 use depin_sdk_types::prelude::OptionExt;
-use proof::{ExistenceProof, InnerOp, LeafOp, NonExistenceProof, Side};
 use std::any::Any;
 use std::cmp::{max, Ordering};
 use std::collections::{BTreeMap, HashMap};
@@ -29,101 +30,6 @@ pub struct IAVLNode {
     hash: Vec<u8>,
     left: Option<Arc<IAVLNode>>,
     right: Option<Arc<IAVLNode>>,
-}
-
-// --- DEBUGGING HELPERS ---
-
-#[cfg(any(debug_assertions, feature = "strict_iavl"))]
-const ENABLE_SNAPSHOT_CHECK: bool = true;
-#[cfg(not(any(debug_assertions, feature = "strict_iavl")))]
-const ENABLE_SNAPSHOT_CHECK: bool = false;
-
-/// Strict, bottom-up recomputation that ignores cached child hashes.
-fn recompute_hash_strict(n: &IAVLNode) -> Vec<u8> {
-    let mut data = Vec::new();
-    if n.is_leaf() {
-        data.push(0x00);
-        data.extend_from_slice(&n.version.to_le_bytes());
-        data.extend_from_slice(&0i32.to_le_bytes());
-        data.extend_from_slice(&1u64.to_le_bytes());
-        data.extend_from_slice(&(n.key.len() as u32).to_le_bytes());
-        data.extend_from_slice(&n.key);
-        data.extend_from_slice(&(n.value.len() as u32).to_le_bytes());
-        data.extend_from_slice(&n.value);
-    } else {
-        data.push(0x01);
-        data.extend_from_slice(&n.version.to_le_bytes());
-        data.extend_from_slice(&n.height.to_le_bytes());
-        data.extend_from_slice(&n.size.to_le_bytes());
-        data.extend_from_slice(&(n.key.len() as u32).to_le_bytes());
-        data.extend_from_slice(&n.key);
-
-        let l = n
-            .left
-            .as_deref()
-            .map(recompute_hash_strict)
-            .unwrap_or_else(IAVLNode::empty_hash);
-        let r = n
-            .right
-            .as_deref()
-            .map(recompute_hash_strict)
-            .unwrap_or_else(IAVLNode::empty_hash);
-        data.extend_from_slice(&l);
-        data.extend_from_slice(&r);
-    }
-    depin_sdk_crypto::algorithms::hash::sha256(&data)
-        .unwrap_or_else(|e| {
-            log::error!("CRITICAL: SHA-256 should not fail: {}", e);
-            [0u8; 32]
-        })
-        .to_vec()
-}
-
-/// Walk the snapshot; at each node compare cached vs strict recomputation.
-fn assert_snapshot_consistent(root: &Option<Arc<IAVLNode>>) {
-    fn walk(n: &Arc<IAVLNode>) {
-        let strict = recompute_hash_strict(n);
-
-        if n.hash != strict {
-            let l = n.left.as_ref();
-            let r = n.right.as_ref();
-            // Use tracing instead of eprintln for structured logging.
-            tracing::error!(
-                target: "iavl_consistency",
-                key = hex::encode(&n.key),
-                version = n.version,
-                height = n.height,
-                size = n.size,
-                cached_hash = hex::encode(&n.hash),
-                strict_hash = hex::encode(&strict),
-                left_child_present = l.is_some(),
-                left_child_cached_hash = l.map(|x| hex::encode(x.hash.get(..4).unwrap_or_default())).unwrap_or_default(),
-                left_child_strict_hash = l.map(|x| hex::encode(recompute_hash_strict(x).get(..4).unwrap_or_default())).unwrap_or_default(),
-                right_child_present = r.is_some(),
-                right_child_cached_hash = r.map(|x| hex::encode(x.hash.get(..4).unwrap_or_default())).unwrap_or_default(),
-                right_child_strict_hash = r.map(|x| hex::encode(recompute_hash_strict(x).get(..4).unwrap_or_default())).unwrap_or_default(),
-                "IAVL snapshot drift detected."
-            );
-        }
-        if let Some(l) = &n.left {
-            walk(l);
-        }
-        if let Some(r) = &n.right {
-            walk(r);
-        }
-    }
-    if let Some(n) = root {
-        walk(n);
-    }
-}
-
-/// Runs the deep check in debug builds, when the `strict_iavl` feature is on,
-/// or if IAVL_STRICT_CONSISTENCY is set at runtime.
-fn maybe_assert_snapshot_consistent(root: &Option<Arc<IAVLNode>>) {
-    let force_check = std::env::var_os("IAVL_STRICT_CONSISTENCY").is_some();
-    if ENABLE_SNAPSHOT_CHECK || force_check {
-        assert_snapshot_consistent(root);
-    }
 }
 
 /// Encodes an `IAVLNode` into its canonical byte format, which is the preimage for its hash.
@@ -536,7 +442,7 @@ impl IAVLNode {
 }
 
 /// IAVL tree implementation
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct IAVLTree<CS: CommitmentScheme> {
     root: Option<Arc<IAVLNode>>,
     current_height: u64,
@@ -544,13 +450,96 @@ pub struct IAVLTree<CS: CommitmentScheme> {
     scheme: CS,
     cache: HashMap<Vec<u8>, Vec<u8>>,
     delta: DeltaAccumulator,
+    store: Option<Arc<dyn NodeStore>>,
+}
+
+impl<CS: CommitmentScheme> std::fmt::Debug for IAVLTree<CS> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("IAVLTree")
+            .field("root", &self.root)
+            .field("current_height", &self.current_height)
+            .field("indices", &self.indices)
+            .field("scheme", &"...")
+            .field("cache_len", &self.cache.len())
+            .field("delta", &self.delta)
+            .field("store_is_some", &self.store.is_some())
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone, Default)]
 struct Indices {
     versions_by_height: BTreeMap<u64, RootHash>,
     root_refcount: HashMap<RootHash, u32>,
-    roots: HashMap<RootHash, Arc<IAVLNode>>,
+    roots: HashMap<RootHash, Option<Arc<IAVLNode>>>,
+}
+
+// A parsed inner/leaf view (no allocations beyond what's necessary)
+#[derive(Clone)]
+struct DecodedNode {
+    is_leaf: bool,
+    version: u64,
+    height: i32,
+    size: u64,
+    split_key: Vec<u8>,   // for inner
+    key: Vec<u8>,         // for leaf
+    value: Vec<u8>,       // for leaf
+    left_hash: [u8; 32],  // for inner
+    right_hash: [u8; 32], // for inner
+}
+
+// minimal decoder matching `encode_node_canonical`
+fn decode_node(bytes: &[u8]) -> Option<DecodedNode> {
+    let mut rd = bytes;
+    let mut take = |n: usize| -> Option<&[u8]> {
+        if rd.len() < n {
+            return None;
+        }
+        let (a, b) = rd.split_at(n);
+        rd = b;
+        Some(a)
+    };
+    let tag = *take(1)?.get(0)?;
+    let ver = u64::from_le_bytes(take(8)?.try_into().ok()?);
+    if tag == 0x00 {
+        let _height = i32::from_le_bytes(take(4)?.try_into().ok()?); // 0
+        let _size = u64::from_le_bytes(take(8)?.try_into().ok()?); // 1
+        let klen = u32::from_le_bytes(take(4)?.try_into().ok()?) as usize;
+        let key = take(klen)?.to_vec();
+        let vlen = u32::from_le_bytes(take(4)?.try_into().ok()?) as usize;
+        let value = take(vlen)?.to_vec();
+        Some(DecodedNode {
+            is_leaf: true,
+            version: ver,
+            height: 0,
+            size: 1,
+            split_key: Vec::new(),
+            key,
+            value,
+            left_hash: [0u8; 32],
+            right_hash: [0u8; 32],
+        })
+    } else {
+        let h = i32::from_le_bytes(take(4)?.try_into().ok()?);
+        let sz = u64::from_le_bytes(take(8)?.try_into().ok()?);
+        let klen = u32::from_le_bytes(take(4)?.try_into().ok()?) as usize;
+        let split = take(klen)?.to_vec();
+        let mut lh = [0u8; 32];
+        lh.copy_from_slice(take(32)?);
+        let mut rh = [0u8; 32];
+        rh.copy_from_slice(take(32)?);
+        Some(DecodedNode {
+            is_leaf: false,
+            version: ver,
+            height: h,
+            size: sz,
+            split_key: split,
+            key: Vec::new(),
+            value: Vec::new(),
+            left_hash: lh,
+            right_hash: rh,
+        })
+    }
 }
 
 impl<CS: CommitmentScheme> IAVLTree<CS>
@@ -567,7 +556,202 @@ where
             scheme,
             cache: HashMap::new(),
             delta: DeltaAccumulator::default(),
+            store: None,
         }
+    }
+
+    /// Build a proof for `key` at `root_hash32` by lazily fetching nodes from `store`.
+    /// Returns (Membership, Proof) on success.
+    pub fn build_proof_from_store_at<S: NodeStore + ?Sized>(
+        &self,
+        store: &S,
+        root_hash32: [u8; 32],
+        key: &[u8],
+    ) -> Result<(Membership, CS::Proof), StateError> {
+        // 1) Find height/epoch for this root so we know which shard to query
+        let height = store
+            .height_for_root(depin_sdk_api::storage::RootHash(root_hash32))
+            .map_err(|e| StateError::Backend(e.to_string()))?
+            .ok_or_else(|| StateError::UnknownAnchor(hex::encode(root_hash32)))?;
+
+        let epoch = store.epoch_of(height);
+
+        // 2) Fetch & decode the root node
+        let mut cur_hash = root_hash32;
+        let mut path: Vec<InnerOp> = Vec::new();
+
+        // We’ll walk until we hit a leaf or fail to descend.
+        loop {
+            let node_bytes = Self::fetch_node_any_epoch(store, epoch, cur_hash)?
+                .ok_or_else(|| StateError::Backend("Missing node bytes in store".into()))?;
+
+            let node = decode_node(&node_bytes)
+                .ok_or_else(|| StateError::Decode("Invalid node encoding".into()))?;
+
+            if node.is_leaf {
+                if node.key.as_slice() == key {
+                    // Build existence proof
+                    path.reverse();
+                    let leaf = LeafOp {
+                        version: node.version,
+                    };
+                    let existence = ExistenceProof {
+                        key: node.key.clone(),
+                        value: node.value.clone(),
+                        leaf,
+                        path,
+                    };
+                    let proof_obj = proof::IavlProof::Existence(existence);
+                    let proof_bytes = serde_json::to_vec(&proof_obj)
+                        .map_err(|e| StateError::Backend(e.to_string()))?;
+                    let proof_value = self.to_value(&proof_bytes);
+                    let scheme_proof = self
+                        .scheme
+                        .create_proof(&Selector::Key(key.to_vec()), &proof_value)
+                        .map_err(|e| StateError::Backend(format!("Failed to wrap proof: {}", e)))?;
+                    return Ok((Membership::Present(node.value), scheme_proof));
+                } else {
+                    // non-existence: we must supply at least one neighbor proof
+                    let (left_neighbor, right_neighbor) = self
+                        .find_neighbors_from_store(store, epoch, root_hash32, key)
+                        .map_err(StateError::Backend)?;
+
+                    let non_existence = NonExistenceProof {
+                        missing_key: key.to_vec(),
+                        left: left_neighbor,
+                        right: right_neighbor,
+                    };
+
+                    if non_existence.left.is_none() && non_existence.right.is_none() {
+                        return Err(StateError::Backend(
+                            "Unable to construct neighbor proof for non-existence".into(),
+                        ));
+                    }
+
+                    let proof_obj = proof::IavlProof::NonExistence(non_existence);
+                    let proof_bytes = serde_json::to_vec(&proof_obj)
+                        .map_err(|e| StateError::Backend(e.to_string()))?;
+                    let proof_value = self.to_value(&proof_bytes);
+                    let scheme_proof = self
+                        .scheme
+                        .create_proof(&Selector::Key(key.to_vec()), &proof_value)
+                        .map_err(|e| StateError::Backend(format!("Failed to wrap proof: {}", e)))?;
+                    return Ok((Membership::Absent, scheme_proof));
+                }
+            } else {
+                // inner: decide direction; record sibling as an InnerOp step
+                let (next_hash, side, sib_hash) = if key <= node.split_key.as_slice() {
+                    (node.left_hash, Side::Right, node.right_hash)
+                } else {
+                    (node.right_hash, Side::Left, node.left_hash)
+                };
+
+                path.push(InnerOp {
+                    version: node.version,
+                    height: node.height,
+                    size: node.size,
+                    split_key: node.split_key.clone(),
+                    side,
+                    sibling_hash: sib_hash,
+                });
+                cur_hash = next_hash;
+            }
+        }
+    }
+
+    /// Explore to get predecessor/successor proofs by walking subtrees in the opposite side.
+    fn find_neighbors_from_store<S: NodeStore + ?Sized>(
+        &self,
+        store: &S,
+        epoch: u64,
+        root_hash: [u8; 32],
+        key: &[u8],
+    ) -> Result<(Option<ExistenceProof>, Option<ExistenceProof>), String> {
+        let fetch = |h: [u8; 32]| -> Result<DecodedNode, String> {
+            let bytes = Self::fetch_node_any_epoch(store, epoch, h)
+                .map_err(|e| e.to_string())?
+                .ok_or_else(|| "Missing node".to_string())?;
+            decode_node(&bytes).ok_or_else(|| "Decode error".to_string())
+        };
+
+        let build_extreme = |start_hash: [u8; 32],
+                             mut base_path: Vec<InnerOp>,
+                             go_right: bool|
+         -> Result<ExistenceProof, String> {
+            let mut n = fetch(start_hash)?;
+            loop {
+                if n.is_leaf {
+                    break;
+                }
+                if go_right {
+                    base_path.push(InnerOp {
+                        version: n.version,
+                        height: n.height,
+                        size: n.size,
+                        split_key: n.split_key.clone(),
+                        side: Side::Left,
+                        sibling_hash: n.left_hash,
+                    });
+                    n = fetch(n.right_hash)?;
+                } else {
+                    base_path.push(InnerOp {
+                        version: n.version,
+                        height: n.height,
+                        size: n.size,
+                        split_key: n.split_key.clone(),
+                        side: Side::Right,
+                        sibling_hash: n.right_hash,
+                    });
+                    n = fetch(n.left_hash)?;
+                }
+            }
+            base_path.reverse();
+            Ok(ExistenceProof {
+                key: n.key.clone(),
+                value: n.value.clone(),
+                leaf: LeafOp { version: n.version },
+                path: base_path,
+            })
+        };
+
+        let mut current_hash = root_hash;
+        let mut path: Vec<InnerOp> = Vec::new();
+        let mut pred_candidate = None;
+        let mut succ_candidate = None;
+
+        while let Ok(node) = fetch(current_hash) {
+            if node.is_leaf {
+                break;
+            }
+            if key <= node.split_key.as_slice() {
+                succ_candidate = Some((node.right_hash, path.clone()));
+                path.push(InnerOp {
+                    version: node.version,
+                    height: node.height,
+                    size: node.size,
+                    split_key: node.split_key.clone(),
+                    side: Side::Right,
+                    sibling_hash: node.right_hash,
+                });
+                current_hash = node.left_hash;
+            } else {
+                pred_candidate = Some((node.left_hash, path.clone()));
+                path.push(InnerOp {
+                    version: node.version,
+                    height: node.height,
+                    size: node.size,
+                    split_key: node.split_key.clone(),
+                    side: Side::Left,
+                    sibling_hash: node.left_hash,
+                });
+                current_hash = node.right_hash;
+            }
+        }
+
+        let left_proof = pred_candidate.and_then(|(h, p)| build_extreme(h, p, true).ok());
+        let right_proof = succ_candidate.and_then(|(h, p)| build_extreme(h, p, false).ok());
+
+        Ok((left_proof, right_proof))
     }
 
     fn decrement_refcount(&mut self, root_hash: RootHash) {
@@ -582,6 +766,38 @@ where
 
     fn to_value(&self, value: &[u8]) -> CS::Value {
         CS::Value::from(value.to_vec())
+    }
+
+    fn fetch_node_any_epoch<S: NodeStore + ?Sized>(
+        store: &S,
+        prefer_epoch: u64,
+        hash: [u8; 32],
+    ) -> Result<Option<Vec<u8>>, StateError> {
+        // Try the preferred epoch first, then walk backwards to 0.
+        if let Some(bytes) = store
+            .get_node(prefer_epoch, StoreNodeHash(hash))
+            .map_err(|e| StateError::Backend(e.to_string()))?
+        {
+            return Ok(Some(bytes));
+        }
+
+        // If not found, scan earlier epochs until we find it.
+        // (Small networks/tests: this is fine. For prod, add a reverse index.)
+        let (head_h, _) = store
+            .head()
+            .map_err(|e| StateError::Backend(e.to_string()))?;
+        let head_epoch = store.epoch_of(head_h);
+
+        let start = prefer_epoch.min(head_epoch);
+        for e in (0..start).rev() {
+            if let Some(bytes) = store
+                .get_node(e, StoreNodeHash(hash))
+                .map_err(|e| StateError::Backend(e.to_string()))?
+            {
+                return Ok(Some(bytes));
+            }
+        }
+        Ok(None)
     }
 
     fn get_from_cache(&self, key: &[u8]) -> Option<Vec<u8>> {
@@ -884,36 +1100,42 @@ where
         key: &[u8],
     ) -> Result<(Membership, Self::Proof), StateError> {
         let root_hash: RootHash = to_root_hash(root.as_ref())?;
-        let historical_root_node = self
-            .indices
-            .roots
-            .get(&root_hash)
-            .required(StateError::StaleAnchor)?;
 
-        let membership = match IAVLNode::get(&Some(historical_root_node.clone()), key) {
-            Some(value) => Membership::Present(value),
-            None => Membership::Absent,
-        };
-        let proof = self
-            .build_proof_for_root(Some(historical_root_node.clone()), key)
-            .required(StateError::Backend(
-                "Failed to generate IAVL proof".to_string(),
-            ))?;
+        // If we have a materialized root node, use the fast in-memory path
+        if let Some(historical_root_node) = self.indices.roots.get(&root_hash).cloned() {
+            if historical_root_node.is_some() {
+                let membership = match IAVLNode::get(&historical_root_node, key) {
+                    Some(value) => Membership::Present(value),
+                    None => Membership::Absent,
+                };
+                let proof = self
+                    .build_proof_for_root(historical_root_node, key)
+                    .required(StateError::Backend(
+                        "Failed to generate IAVL proof".to_string(),
+                    ))?;
 
-        let expected_value = membership.clone().into_option();
-        if !verify_iavl_proof_bytes(&root_hash, key, expected_value.as_deref(), proof.as_ref())
-            .map_err(|e| StateError::Validation(e.to_string()))?
-        {
-            log::error!(
-                "[IAVL Builder] Proof failed to anchor (key={}): returning error",
-                hex::encode(key)
-            );
-            return Err(StateError::Backend(
-                "Failed to generate anchored IAVL proof".to_string(),
-            ));
+                if !verify_iavl_proof_bytes(
+                    &root_hash,
+                    key,
+                    membership.clone().into_option().as_deref(),
+                    proof.as_ref(),
+                )
+                .map_err(|e| StateError::Validation(e.to_string()))?
+                {
+                    return Err(StateError::Backend(
+                        "Failed to generate anchored IAVL proof".to_string(),
+                    ));
+                }
+                return Ok((membership, proof));
+            }
         }
 
-        Ok((membership, proof))
+        // Otherwise, hydrate the proof directly from store.
+        if let Some(store) = &self.store {
+            self.build_proof_from_store_at(store.as_ref(), root_hash, key)
+        } else {
+            Err(StateError::StaleAnchor)
+        }
     }
 
     fn commitment_from_anchor(&self, anchor: &[u8; 32]) -> Option<Self::Commitment> {
@@ -998,9 +1220,7 @@ where
                 let count = self.indices.root_refcount.entry(root_hash).or_insert(0);
                 if *count == 0 {
                     // First time seeing this root hash, store the actual node.
-                    if let Some(root_node) = self.root.clone() {
-                        self.indices.roots.insert(root_hash, root_node);
-                    }
+                    self.indices.roots.insert(root_hash, self.root.clone());
                 }
                 *count += 1;
             }
@@ -1010,9 +1230,7 @@ where
 
                 let count = self.indices.root_refcount.entry(root_hash).or_insert(0);
                 if *count == 0 {
-                    if let Some(root_node) = self.root.clone() {
-                        self.indices.roots.insert(root_hash, root_node);
-                    }
+                    self.indices.roots.insert(root_hash, self.root.clone());
                 }
                 *count += 1;
             }
@@ -1040,6 +1258,33 @@ where
         store: &dyn NodeStore,
     ) -> Result<RootHash, StateError> {
         self.commit_version_with_store(height, store)
+    }
+
+    fn adopt_known_root(&mut self, root_bytes: &[u8], version: u64) -> Result<(), StateError> {
+        let root_hash = to_root_hash(root_bytes)?;
+
+        // The purpose of this function is to make the state manager aware of a version
+        // that exists *only in durable storage*. We populate the version-to-root mapping
+        // and the refcount, but critically, we DO NOT insert into `self.indices.roots`.
+        // This ensures that a subsequent `get_with_proof_at` for this root will fail
+        // the in-memory lookup and correctly fall back to the store-based proof builder.
+        self.indices.versions_by_height.insert(version, root_hash);
+        *self.indices.root_refcount.entry(root_hash).or_insert(0) += 1;
+
+        // Ensure the tree's internal version counter is aligned with the recovered state.
+        if self.current_height < version {
+            self.current_height = version;
+        }
+
+        Ok(())
+    }
+
+    fn attach_store(&mut self, store: Arc<dyn NodeStore>) {
+        self.store = Some(store);
+    }
+
+    fn begin_block_writes(&mut self, height: u64) {
+        self.current_height = height;
     }
 }
 

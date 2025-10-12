@@ -19,7 +19,6 @@ serde_json = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tokio-rustls = { workspace = true }
 rustls = { workspace = true, features = ["ring"] }
-# --- FIX START: Add missing dependencies for cert loading ---
 rustls-pemfile = { workspace = true }
 webpki-roots = { workspace = true }
 libp2p = { workspace = true }
@@ -27,4 +26,4 @@ async-trait = { workspace = true }
 hex = { workspace = true }
 dashmap = { workspace = true }
 zeroize = { workspace = true }
-# --- FIX END ---
+arc-swap = { workspace = true }

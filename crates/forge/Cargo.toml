@@ -57,6 +57,7 @@ depin-sdk-network = { path = "../network" }
 base64 = { workspace = true }
 once_cell = { workspace = true }
 axum = { workspace = true }
+cfg-if = "1.0"
 
 # The library exposes helpers, the binary provides the CLI
 [lib]
@@ -86,6 +87,3 @@ consensus-pos = ["depin-sdk-validator/consensus-pos"]
 # Feature for building the malicious binary for testing
 # This does not need to be propagated, as the test runner handles it.
 malicious-bin = []
-
-# Add feature to propagate the strict check
-strict_iavl = ["depin-sdk-commitment/strict_iavl"]

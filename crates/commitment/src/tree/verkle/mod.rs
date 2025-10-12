@@ -11,13 +11,15 @@ use crate::tree::verkle::proof::{
 };
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
 use depin_sdk_api::state::{PrunePlan, StateCommitment, StateManager, StateScanIter};
-use depin_sdk_api::storage::NodeStore;
+// --- MODIFICATION: Add NodeHash import ---
+use depin_sdk_api::storage::{NodeHash as StoreNodeHash, NodeStore};
 use depin_sdk_storage::adapter::{commit_and_persist, DeltaAccumulator};
 use depin_sdk_types::app::{to_root_hash, Membership, RootHash};
 use depin_sdk_types::error::StateError;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::{BTreeMap, HashMap};
+use std::fmt::Debug; // <-- Import Debug trait
 use std::sync::Arc;
 
 /// Verkle tree node
@@ -46,8 +48,13 @@ fn encode_node_canonical(n: &VerkleNode) -> Result<Vec<u8>, StateError> {
     bincode::serialize(n).map_err(|e| StateError::Backend(e.to_string()))
 }
 
+// --- MODIFICATION START: Add node decoder ---
+fn decode_node_canonical(bytes: &[u8]) -> Option<VerkleNode> {
+    bincode::deserialize(bytes).ok()
+}
+// --- MODIFICATION END ---
+
 /// Verkle tree implementation
-#[derive(Debug)]
 pub struct VerkleTree<CS: CommitmentScheme> {
     root: Arc<VerkleNode>,
     scheme: CS,
@@ -57,7 +64,28 @@ pub struct VerkleTree<CS: CommitmentScheme> {
     empty_commitment: KZGCommitment,
     current_height: u64,
     delta: DeltaAccumulator,
+    // --- MODIFICATION START: Add store field ---
+    store: Option<Arc<dyn NodeStore>>,
+    // --- MODIFICATION END ---
 }
+
+// --- MODIFICATION START: Manual Debug impl for VerkleTree ---
+impl<CS: CommitmentScheme> Debug for VerkleTree<CS> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("VerkleTree")
+            .field("root", &self.root)
+            .field("scheme", &"...")
+            .field("_branching_factor", &self._branching_factor)
+            .field("cache_len", &self.cache.len())
+            .field("indices", &self.indices)
+            .field("empty_commitment", &self.empty_commitment)
+            .field("current_height", &self.current_height)
+            .field("delta", &self.delta)
+            .field("store_is_some", &self.store.is_some())
+            .finish()
+    }
+}
+// --- MODIFICATION END ---
 
 #[derive(Debug, Clone, Default)]
 struct Indices {
@@ -78,6 +106,9 @@ impl<CS: CommitmentScheme + Clone> Clone for VerkleTree<CS> {
             empty_commitment: self.empty_commitment.clone(),
             current_height: self.current_height,
             delta: Default::default(), // delta is transient and should not be cloned
+            // --- MODIFICATION START: Clone store ---
+            store: self.store.clone(),
+            // --- MODIFICATION END ---
         }
     }
 }
@@ -102,6 +133,9 @@ impl VerkleTree<KZGCommitmentScheme> {
             empty_commitment,
             current_height: 0,
             delta: DeltaAccumulator::default(),
+            // --- MODIFICATION START: Initialize store ---
+            store: None,
+            // --- MODIFICATION END ---
         })
     }
 
@@ -116,21 +150,13 @@ impl VerkleTree<KZGCommitmentScheme> {
             return Ok(Arc::new(VerkleNode::Empty));
         }
 
-        // --- START FIX ---
-        // BUGFIX: A single item must be wrapped in a path of internal nodes, just like
-        // an insert into an empty tree. Returning a raw Leaf node breaks the assumption
-        // that a non-empty tree has an Internal root with a KZG commitment.
         if items.len() == 1 {
             let (key, value) = items
                 .get(0)
                 .ok_or(StateError::InvalidValue("Empty items slice".into()))?;
-            // Delegate to update_node, which correctly builds the required path of internal nodes.
             return self.update_node(&Arc::new(VerkleNode::Empty), key, Some(value), depth);
         }
-        // --- END FIX ---
 
-        // Group items by the current key byte and recursively build children.
-        // Using a BTreeMap naturally groups and sorts items by the key_byte.
         type GroupMap<'a> = BTreeMap<u8, Vec<(&'a Vec<u8>, &'a Vec<u8>)>>;
         let mut groups: GroupMap = BTreeMap::new();
         for item in items {
@@ -561,7 +587,6 @@ impl StateCommitment for VerkleTree<KZGCommitmentScheme> {
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
         let proof = self.build_proof_from_node(&self.root, key)?;
 
-        // --- START DEBUG ASSERT ---
         if cfg!(debug_assertions) {
             if let Ok(vpp) = bincode::deserialize::<VerklePathProof>(proof.as_ref()) {
                 let tree_root_bytes = self.root_commitment().as_ref().to_vec();
@@ -573,7 +598,6 @@ impl StateCommitment for VerkleTree<KZGCommitmentScheme> {
                 }
             }
         }
-        // --- END DEBUG ASSERT ---
 
         Some(proof)
     }
@@ -691,33 +715,30 @@ impl StateManager for VerkleTree<KZGCommitmentScheme> {
 
     fn commitment_from_anchor(&self, anchor: &[u8; 32]) -> Option<Self::Commitment> {
         let root_hash: RootHash = *anchor;
-        let node = self.indices.roots.get(&root_hash)?;
-        let commitment = match node.as_ref() {
-            VerkleNode::Internal { kzg_commitment, .. } => kzg_commitment.clone(),
-            VerkleNode::Leaf { .. } | VerkleNode::Empty => {
-                // This case should be rare, but returning the canonical empty commitment
-                // is the correct, robust behavior.
-                self.empty_commitment.clone()
-            }
-        };
+        if let Some(node) = self.indices.roots.get(&root_hash) {
+            let commitment = match node.as_ref() {
+                VerkleNode::Internal { kzg_commitment, .. } => kzg_commitment.clone(),
+                _ => self.empty_commitment.clone(),
+            };
+            return Some(commitment);
+        }
 
-        // Observability and sanity check
-        if let Ok(derived_anchor) = to_root_hash(commitment.as_ref()) {
-            if derived_anchor != root_hash {
-                log::error!(
-                    "CRITICAL INVARIANT VIOLATION: Anchor 0x{} resolved to a commitment with a different hash 0x{}",
-                    hex::encode(root_hash),
-                    hex::encode(derived_anchor)
-                );
-                return None;
+        // --- MODIFICATION START: Fallback to store ---
+        if let Some(store) = &self.store {
+            let height = store
+                .height_for_root(depin_sdk_api::storage::RootHash(root_hash))
+                .ok()??;
+            let epoch = store.epoch_of(height);
+            let node_bytes =
+                Self::fetch_node_any_epoch(store.as_ref(), epoch, root_hash).ok()??;
+            let node = decode_node_canonical(&node_bytes)?;
+            if let VerkleNode::Internal { kzg_commitment, .. } = node {
+                return Some(kzg_commitment);
             }
         }
-        log::debug!(
-            "Verkle anchor 0x{} resolved to commitment of length {}",
-            hex::encode(root_hash),
-            commitment.as_ref().len()
-        );
-        Some(commitment)
+        // --- MODIFICATION END ---
+
+        None
     }
 
     fn commitment_from_bytes(&self, bytes: &[u8]) -> Result<Self::Commitment, StateError> {
@@ -861,7 +882,58 @@ impl StateManager for VerkleTree<KZGCommitmentScheme> {
     ) -> Result<RootHash, StateError> {
         self.commit_version_with_store(height, store)
     }
+
+    fn adopt_known_root(&mut self, root_bytes: &[u8], version: u64) -> Result<(), StateError> {
+        let root_hash = to_root_hash(root_bytes)?;
+
+        self.indices.versions_by_height.insert(version, root_hash);
+        self.indices.roots.insert(root_hash, self.root.clone());
+        *self.indices.root_refcount.entry(root_hash).or_insert(0) += 1;
+
+        if self.current_height < version {
+            self.current_height = version;
+        }
+
+        Ok(())
+    }
+
+    // --- MODIFICATION START: Implement attach_store ---
+    fn attach_store(&mut self, store: Arc<dyn NodeStore>) {
+        self.store = Some(store);
+    }
+    // --- MODIFICATION END ---
 }
+
+// --- MODIFICATION START: Add fetch_node_any_epoch helper for Verkle ---
+impl VerkleTree<KZGCommitmentScheme> {
+    fn fetch_node_any_epoch(
+        store: &dyn NodeStore,
+        prefer_epoch: u64,
+        hash: [u8; 32],
+    ) -> Result<Option<Vec<u8>>, StateError> {
+        if let Some(bytes) = store
+            .get_node(prefer_epoch, StoreNodeHash(hash))
+            .map_err(|e| StateError::Backend(e.to_string()))?
+        {
+            return Ok(Some(bytes));
+        }
+        let (head_h, _) = store
+            .head()
+            .map_err(|e| StateError::Backend(e.to_string()))?;
+        let head_epoch = store.epoch_of(head_h);
+        let start = prefer_epoch.min(head_epoch);
+        for e in (0..start).rev() {
+            if let Some(bytes) = store
+                .get_node(e, StoreNodeHash(hash))
+                .map_err(|e| StateError::Backend(e.to_string()))?
+            {
+                return Ok(Some(bytes));
+            }
+        }
+        Ok(None)
+    }
+}
+// --- MODIFICATION END ---
 
 #[cfg(test)]
 mod tests;

@@ -16,11 +16,12 @@ use std::any::Any;
 use std::io;
 use std::path::PathBuf;
 use std::pin::Pin;
+use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 use tempfile::TempDir;
 use tokio::io::AsyncBufReadExt;
-use tokio::process::Child;
+use tokio::process::{Child, Command as TokioCommand};
 use tokio::time::timeout;
 
 /// A type alias for a stream that yields lines of text, abstracting over the log source.
@@ -43,9 +44,14 @@ pub trait TestBackend: Send {
 
     /// Provides access to the concrete backend type for downcasting.
     fn as_any(&self) -> &dyn Any;
+
+    // [+] FIX: Add as_any_mut to the trait definition
+    /// Provides mutable access to the concrete backend type for downcasting.
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 // --- ProcessBackend Implementation ---
+#[derive(Debug)]
 pub struct ProcessBackend {
     pub orchestration_process: Option<Child>,
     pub workload_process: Option<Child>,
@@ -54,10 +60,23 @@ pub struct ProcessBackend {
     pub p2p_addr: Multiaddr,
     pub orchestration_telemetry_addr: Option<String>,
     pub workload_telemetry_addr: Option<String>,
+    // [+] Store paths needed for restart
+    binary_path: PathBuf,
+    workload_config_path: PathBuf,
+    workload_ipc_addr: String,
+    certs_dir_path: PathBuf,
 }
 
 impl ProcessBackend {
-    pub fn new(rpc_addr: String, p2p_addr: Multiaddr) -> Self {
+    // [+] Update constructor signature
+    pub fn new(
+        rpc_addr: String,
+        p2p_addr: Multiaddr,
+        binary_path: PathBuf,
+        workload_config_path: PathBuf,
+        workload_ipc_addr: String,
+        certs_dir_path: PathBuf,
+    ) -> Self {
         Self {
             orchestration_process: None,
             workload_process: None,
@@ -66,7 +85,33 @@ impl ProcessBackend {
             p2p_addr,
             orchestration_telemetry_addr: None,
             workload_telemetry_addr: None,
+            binary_path,
+            workload_config_path,
+            workload_ipc_addr,
+            certs_dir_path,
         }
+    }
+
+    // [+] Add the restart method here, in its proper home.
+    pub async fn restart_workload_process(&mut self) -> Result<()> {
+        if self.workload_process.is_some() {
+            return Err(anyhow!("Workload process is already running."));
+        }
+
+        let mut workload_cmd = TokioCommand::new(self.binary_path.join("workload"));
+        workload_cmd
+            .args(["--config", &self.workload_config_path.to_string_lossy()])
+            .env(
+                "TELEMETRY_ADDR",
+                self.workload_telemetry_addr.as_ref().unwrap(),
+            )
+            .env("IPC_SERVER_ADDR", &self.workload_ipc_addr)
+            .env("CERTS_DIR", self.certs_dir_path.to_string_lossy().as_ref())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true);
+
+        self.workload_process = Some(workload_cmd.spawn()?);
+        Ok(())
     }
 }
 
@@ -144,6 +189,11 @@ impl TestBackend for ProcessBackend {
     }
 
     fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    // [+] FIX: Implement as_any_mut
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 }
@@ -429,6 +479,11 @@ impl TestBackend for DockerBackend {
     }
 
     fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    // [+] FIX: Implement as_any_mut
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 }

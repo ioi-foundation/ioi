@@ -154,9 +154,42 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetRawStateV1"))?;
         let state_tree = ctx.workload.state_tree();
-        let state = state_tree.read().await;
-        let result = state.get(&params.key)?;
-        Ok(result)
+        // Use a write lock to allow for cache warming.
+        let mut state = state_tree.write().await;
+
+        // 1) Fast path: check current in-memory state.
+        if let Some(bytes) = state.get(&params.key)? {
+            return Ok(Some(bytes));
+        }
+
+        // 2) Fallback: if not in memory, attempt an anchored read at the last known root.
+        // This handles queries immediately after a crash before the in-memory tree is fully re-hydrated.
+        let last_root = {
+            let chain = ctx.chain.lock().await;
+            chain.state.last_state_root.clone()
+        };
+
+        if !last_root.is_empty() {
+            if let Ok(anchor) = depin_sdk_types::app::to_root_hash(&last_root) {
+                // `get_with_proof_at_anchor` can be called on `&mut` because `StateManager` is `?Sized`.
+                match state.get_with_proof_at_anchor(&anchor, &params.key) {
+                    Ok((Membership::Present(bytes), _proof)) => {
+                        // Optional: warm the live state so subsequent reads are hot.
+                        log::trace!(
+                            "getRawState: cache miss, served from anchored read for key 0x{}",
+                            hex::encode(&params.key)
+                        );
+                        let _ = state.insert(&params.key, &bytes);
+                        return Ok(Some(bytes));
+                    }
+                    // If the proof is Absent or an error occurs, we fall through to return None.
+                    _ => {}
+                }
+            }
+        }
+
+        // 3) If not found in either live state or last committed state, it doesn't exist.
+        Ok(None)
     }
 }
 

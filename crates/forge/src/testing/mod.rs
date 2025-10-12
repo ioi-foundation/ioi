@@ -11,6 +11,7 @@ pub use rpc::submit_transaction;
 
 use crate::testing::poll::{wait_for, wait_for_height};
 use anyhow::{anyhow, Result};
+use async_trait::async_trait;
 use backend::{DockerBackend, DockerBackendConfig, LogStream, ProcessBackend, TestBackend};
 use bollard::image::BuildImageOptions;
 use bollard::Docker;
@@ -19,15 +20,15 @@ use depin_sdk_client::WorkloadClient;
 use depin_sdk_commitment::primitives::kzg::KZGParams;
 use depin_sdk_crypto::sign::dilithium::{DilithiumKeyPair, DilithiumScheme};
 use depin_sdk_types::config::{
-    CommitmentSchemeType, ConsensusType, InitialServiceConfig, StateTreeType, VmFuelCosts,
-    WorkloadConfig,
+    CommitmentSchemeType, ConsensusType, InitialServiceConfig, OrchestrationConfig, StateTreeType,
+    VmFuelCosts, WorkloadConfig,
 };
 use depin_sdk_validator::common::generate_certificates_if_needed;
-use depin_sdk_validator::config::OrchestrationConfig;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use hyper::Body;
 use libp2p::{identity, Multiaddr, PeerId};
 use serde_json::Value;
+use std::any::Any;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Once};
@@ -42,9 +43,6 @@ use tokio::time::timeout;
 const DOCKER_IMAGE_TAG: &str = "depin-sdk-node:e2e";
 const LOG_ASSERT_TIMEOUT: Duration = Duration::from_secs(45);
 const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(30);
-// REMOVED: Unused constants. Timeouts are now locally scoped in launch().
-// const ORCHESTRATION_READY_TIMEOUT: Duration = Duration::from_secs(30);
-// const GUARDIAN_READY_TIMEOUT: Duration = Duration::from_secs(10);
 const LOG_CHANNEL_CAPACITY: usize = 8192;
 
 // --- One-Time Build ---
@@ -55,9 +53,6 @@ static DOCKER_BUILD_CHECK: OnceCell<()> = OnceCell::const_new();
 pub fn build_test_artifacts() {
     BUILD.call_once(|| {
         println!("--- Building Test Artifacts (one-time setup) ---");
-
-        // NOTE: Node binary build has been removed from here and moved into
-        // TestValidator::launch to support polymorphic configurations.
 
         let status_contract = Command::new("cargo")
             .args([
@@ -349,11 +344,35 @@ pub struct TestValidator {
     pub p2p_addr: Multiaddr,
     pub certs_dir_path: PathBuf,
     _temp_dir: Arc<TempDir>,
-    backend: Box<dyn TestBackend>,
+    pub backend: Box<dyn TestBackend>,
     orch_log_tx: broadcast::Sender<String>,
     workload_log_tx: broadcast::Sender<String>,
     guardian_log_tx: Option<broadcast::Sender<String>>,
     log_drain_handles: Arc<Mutex<Vec<tokio::task::JoinHandle<()>>>>,
+}
+
+struct NullBackend;
+#[async_trait]
+impl TestBackend for NullBackend {
+    async fn launch(&mut self) -> Result<()> {
+        Ok(())
+    }
+    fn get_addresses(&self) -> (String, Multiaddr) {
+        ("".into(), "/ip4/127.0.0.1/tcp/0".parse().unwrap())
+    }
+    fn get_log_streams(&mut self) -> Result<(LogStream, LogStream, Option<LogStream>)> {
+        Err(anyhow!("null backend"))
+    }
+    async fn cleanup(&mut self) -> Result<()> {
+        Ok(())
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    // [+] FIX: Implement the missing `as_any_mut` method
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 }
 
 impl Drop for TestValidator {
@@ -381,33 +400,13 @@ impl Drop for TestValidator {
         } else {
             // If `try_current()` fails, we are likely in a drop during a panic
             // where the test runtime is being torn down.
-            // Create a new, simple runtime just for our cleanup task.
+            // Create a new, simple runtime just for our cleanup task and BLOCK on it.
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_io()
                 .build()
                 .expect("Failed to create temporary runtime for cleanup");
             rt.block_on(cleanup_future);
         }
-    }
-}
-
-struct NullBackend;
-#[async_trait::async_trait]
-impl TestBackend for NullBackend {
-    async fn launch(&mut self) -> Result<()> {
-        Ok(())
-    }
-    fn get_addresses(&self) -> (String, Multiaddr) {
-        ("".into(), "/ip4/127.0.0.1/tcp/0".parse().unwrap())
-    }
-    fn get_log_streams(&mut self) -> Result<(LogStream, LogStream, Option<LogStream>)> {
-        Err(anyhow!("null backend"))
-    }
-    async fn cleanup(&mut self) -> Result<()> {
-        Ok(())
-    }
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
     }
 }
 
@@ -712,7 +711,14 @@ impl TestValidator {
                 .unwrap()
                 .join("target/release/");
 
-            let mut pb = ProcessBackend::new(rpc_addr.clone(), p2p_addr.clone());
+            let mut pb = ProcessBackend::new(
+                rpc_addr.clone(),
+                p2p_addr.clone(),
+                node_binary_path.clone(),
+                workload_config_path.clone(),
+                workload_ipc_addr.clone(),
+                certs_dir_path.clone(),
+            );
             pb.orchestration_telemetry_addr = Some(orchestration_telemetry_addr.clone());
             pb.workload_telemetry_addr = Some(workload_telemetry_addr.clone());
 

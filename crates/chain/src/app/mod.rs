@@ -18,7 +18,8 @@ use depin_sdk_transaction_models::system::{nonce, validation};
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{
     account_id_from_key_material, read_validator_sets, to_root_hash, write_validator_sets,
-    AccountId, ChainId, FailureReport, SignatureSuite, StateRoot, ValidatorSetV1, ValidatorSetsV1,
+    AccountId, ChainId, FailureReport, Membership, SignatureSuite, StateRoot, ValidatorSetV1,
+    ValidatorSetsV1,
 };
 use depin_sdk_types::codec;
 use depin_sdk_types::config::ConsensusType;
@@ -199,39 +200,86 @@ where
     ) -> Result<(), ChainError> {
         let state_tree_arc = workload.state_tree();
         let mut state = state_tree_arc.write().await;
+
         match state.get(STATUS_KEY) {
             Ok(Some(status_bytes)) => {
                 let status: ChainStatus =
                     codec::from_bytes_canonical(&status_bytes).map_err(ChainError::Transaction)?;
-                tracing::info!(target: "chain", event = "status_loaded", height = status.height);
+                tracing::info!(target: "chain", event = "status_loaded", height = status.height, "Successfully loaded existing chain status from state manager.");
                 self.state.status = status;
                 let root = state.root_commitment().as_ref().to_vec();
+                self.state.last_state_root = root.clone();
                 self.state.genesis_state = GenesisState::Ready {
-                    root: root.clone(),
+                    root,
                     chain_id: self.state.chain_id,
                 };
-                self.state.last_state_root = root;
             }
             Ok(None) => {
+                if let Ok((head_height, _)) = workload.store.head() {
+                    if head_height > 0 {
+                        if let Ok(Some(head_block)) =
+                            workload.store.get_block_by_height(head_height)
+                        {
+                            let recovered_root = &head_block.header.state_root.0;
+                            state
+                                .adopt_known_root(recovered_root, head_height)
+                                .map_err(ChainError::State)?;
+
+                            let status = ChainStatus {
+                                height: head_block.header.height,
+                                latest_timestamp: head_block.header.timestamp,
+                                total_transactions: 0,
+                                is_running: true,
+                            };
+                            tracing::warn!(target: "chain", event = "status_recovered_from_store", height = status.height, "Recovered and adopted durable head into state backend.");
+
+                            // --- FIX START: Re-hydrate critical state into the empty tree ---
+                            // After a crash, the in-memory tree is empty. We must restore essential
+                            // keys from the last committed version to allow the next block to be built.
+                            let anchor = to_root_hash(recovered_root)?;
+                            // Fetch STATUS_KEY from the last good state.
+                            if let Ok((Membership::Present(status_bytes), _)) =
+                                state.get_with_proof_at_anchor(&anchor, STATUS_KEY)
+                            {
+                                state.insert(STATUS_KEY, &status_bytes)?;
+                                tracing::info!(target: "chain", "Re-hydrated STATUS_KEY into current state.");
+                            }
+                            // Fetch VALIDATOR_SET_KEY from the last good state.
+                            if let Ok((Membership::Present(vs_bytes), _)) =
+                                state.get_with_proof_at_anchor(&anchor, VALIDATOR_SET_KEY)
+                            {
+                                state.insert(VALIDATOR_SET_KEY, &vs_bytes)?;
+                                tracing::info!(target: "chain", "Re-hydrated VALIDATOR_SET_KEY into current state.");
+                            }
+                            // --- FIX END ---
+
+                            self.state.status = status;
+                            self.state.last_state_root = recovered_root.clone();
+                            self.state.genesis_state = GenesisState::Ready {
+                                root: self.state.last_state_root.clone(),
+                                chain_id: self.state.chain_id,
+                            };
+                            return Ok(());
+                        }
+                    }
+                }
+
                 tracing::info!(
                     target: "chain",
                     event = "status_init",
                     "No existing chain status found. Initializing and saving genesis status."
                 );
 
-                // Persist initial services in the canonical, queryable state.
                 for service in self.service_manager.all_services() {
                     let type_str = match service.service_type() {
                         ServiceType::Custom(s) => s.clone(),
                         st => format!("{st:?}"),
                     };
-                    // Write the canonical "active" key into the main state tree.
                     let key = depin_sdk_types::keys::active_service_key(&type_str);
-                    state.insert(&key, &[])?; // Value can be empty; existence is enough.
+                    state.insert(&key, &[])?;
                     tracing::info!(target: "chain", "Registered initial service {:?} as active in genesis state.", service.service_type());
                 }
 
-                // The first commit is for height 0 (genesis).
                 state.commit_version(0)?;
                 tracing::debug!(target: "chain", "[Chain] Committed full genesis state.");
 
@@ -241,7 +289,6 @@ where
                     .insert(STATUS_KEY, &status_bytes)
                     .map_err(|e| ChainError::Transaction(e.to_string()))?;
 
-                // The second commit finalizes the state including the status key.
                 state.commit_version(0)?;
                 tracing::debug!(target: "chain", "[Chain] Committed genesis state including status key.");
 
@@ -281,7 +328,8 @@ where
                 event = "genesis_ready",
                 root = hex::encode(root)
             );
-        };
+        }
+
         Ok(())
     }
 
@@ -533,6 +581,10 @@ where
         let final_state_root_bytes = {
             let state_tree_arc = workload.state_tree();
             let mut state = state_tree_arc.write().await;
+
+            // Set the write height so new nodes get version = block.header.height
+            state.begin_block_writes(block.header.height);
+
             state.batch_apply(inserts, deletes)?;
 
             match state.get(VALIDATOR_SET_KEY)? {
