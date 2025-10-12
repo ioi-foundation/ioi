@@ -29,7 +29,7 @@ enum Node {
     Branch {
         left: Arc<Node>,
         right: Arc<Node>,
-        hash: Vec<u8>,
+        hash: [u8; 32],
         created_at: u64,
     },
 }
@@ -76,39 +76,35 @@ fn smt_decode_node(bytes: &[u8]) -> Option<Node> {
 // --- MODIFICATION END ---
 
 impl Node {
-    fn hash(&self) -> Vec<u8> {
+    fn hash(&self) -> [u8; 32] {
         match self {
-            Node::Empty => vec![0u8; 32], // Empty hash
+            Node::Empty => [0u8; 32], // Empty hash
             Node::Leaf { key, value, .. } => {
                 let mut data = Vec::new();
                 data.push(0x00); // Leaf prefix
                 data.extend_from_slice(key);
                 data.extend_from_slice(value);
-                depin_sdk_crypto::algorithms::hash::sha256(&data)
-                    .map(|h| h.to_vec())
-                    .unwrap_or_else(|e| {
-                        log::error!("CRITICAL: sha256 failed in Node::hash: {}", e);
-                        vec![0; 32]
-                    })
+                depin_sdk_crypto::algorithms::hash::sha256(&data).unwrap_or_else(|e| {
+                    log::error!("CRITICAL: sha256 failed in Node::hash: {}", e);
+                    [0u8; 32]
+                })
             }
-            Node::Branch { hash, .. } => hash.clone(),
+            Node::Branch { hash, .. } => *hash,
         }
     }
 
-    fn compute_branch_hash(left: &Node, right: &Node) -> Vec<u8> {
+    fn compute_branch_hash(left: &Node, right: &Node) -> [u8; 32] {
         let mut data = Vec::new();
         data.push(0x01); // Branch prefix
         data.extend_from_slice(&left.hash());
         data.extend_from_slice(&right.hash());
-        depin_sdk_crypto::algorithms::hash::sha256(&data)
-            .map(|h| h.to_vec())
-            .unwrap_or_else(|e| {
-                log::error!(
-                    "CRITICAL: sha256 failed in Node::compute_branch_hash: {}",
-                    e
-                );
-                vec![0; 32]
-            })
+        depin_sdk_crypto::algorithms::hash::sha256(&data).unwrap_or_else(|e| {
+            log::error!(
+                "CRITICAL: sha256 failed in Node::compute_branch_hash: {}",
+                e
+            );
+            [0u8; 32]
+        })
     }
 }
 
@@ -192,21 +188,15 @@ where
         let epoch = store.epoch_of(height);
 
         let mut siblings = Vec::new();
-        let mut current_hash = root_hash32.to_vec();
+        let mut current_hash = root_hash32;
 
         for depth in 0..Self::TREE_HEIGHT {
             if current_hash == Node::Empty.hash() {
                 break;
             }
-            let node_bytes = Self::fetch_node_any_epoch(
-                store,
-                epoch,
-                current_hash
-                    .clone()
-                    .try_into()
-                    .map_err(|_| StateError::InvalidValue("Node hash was not 32 bytes".into()))?,
-            )?
-            .ok_or_else(|| StateError::Backend("Missing node bytes in store".into()))?;
+            let node_bytes = Self::fetch_node_any_epoch(store, epoch, current_hash)?
+                .ok_or_else(|| StateError::Backend("Missing node bytes in store".into()))?;
+
             let node = smt_decode_node(&node_bytes)
                 .ok_or_else(|| StateError::Decode("Invalid node encoding".into()))?;
 
@@ -215,10 +205,10 @@ where
                 Node::Leaf { .. } => break,
                 Node::Branch { left, right, .. } => {
                     if Self::get_bit(key, depth) {
-                        siblings.push(left.hash());
+                        siblings.push(left.hash().to_vec());
                         current_hash = right.hash();
                     } else {
-                        siblings.push(right.hash());
+                        siblings.push(right.hash().to_vec());
                         current_hash = left.hash();
                     }
                 }
@@ -226,15 +216,8 @@ where
         }
 
         let leaf = if current_hash != Node::Empty.hash() {
-            let node_bytes = Self::fetch_node_any_epoch(
-                store,
-                epoch,
-                current_hash
-                    .clone()
-                    .try_into()
-                    .map_err(|_| StateError::InvalidValue("Node hash was not 32 bytes".into()))?,
-            )?
-            .ok_or_else(|| StateError::Backend("Missing leaf node bytes".into()))?;
+            let node_bytes = Self::fetch_node_any_epoch(store, epoch, current_hash)?
+                .ok_or_else(|| StateError::Backend("Missing leaf node bytes".into()))?;
             let node = smt_decode_node(&node_bytes)
                 .ok_or_else(|| StateError::Decode("Invalid leaf node encoding".into()))?;
             if let Node::Leaf { key, value, .. } = node {
@@ -405,10 +388,10 @@ where
                 Node::Branch { left, right, .. } => {
                     let bit = Self::get_bit(key, depth);
                     if bit {
-                        siblings.push(left.hash());
+                        siblings.push(left.hash().to_vec());
                         current = right.clone();
                     } else {
-                        siblings.push(right.hash());
+                        siblings.push(right.hash().to_vec());
                         current = left.clone();
                     }
                 }
@@ -458,10 +441,10 @@ where
                 }
                 Node::Branch { left, right, .. } => {
                     if Self::get_bit(key, depth) {
-                        siblings.push(left.hash());
+                        siblings.push(left.hash().to_vec());
                         current = right.clone();
                     } else {
-                        siblings.push(right.hash());
+                        siblings.push(right.hash().to_vec());
                         current = left.clone();
                     }
                 }
@@ -565,17 +548,15 @@ where
             Node::Empty => {}
             Node::Leaf { created_at, .. } | Node::Branch { created_at, .. } => {
                 let bytes = smt_encode_node(n.as_ref());
-                // --- FIX: Use safe try_into() to convert Vec<u8> to [u8; 32] ---
-                if let Ok(nh) = n.hash().try_into() {
-                    if *created_at == h {
-                        self.delta.record_new(nh, bytes);
-                    } else {
-                        self.delta.record_touch(nh);
-                    }
-                    if let Node::Branch { left, right, .. } = n.as_ref() {
-                        self.collect_from_node(left, h);
-                        self.collect_from_node(right, h);
-                    }
+                let nh = n.hash();
+                if *created_at == h {
+                    self.delta.record_new(nh, bytes);
+                } else {
+                    self.delta.record_touch(nh);
+                }
+                if let Node::Branch { left, right, .. } = n.as_ref() {
+                    self.collect_from_node(left, h);
+                    self.collect_from_node(right, h);
                 }
             }
         }
@@ -631,7 +612,7 @@ where
     fn root_commitment(&self) -> Self::Commitment {
         // Identity: commitment bytes ARE the SMT root bytes.
         let root_hash = self.root.hash();
-        <CS as CommitmentScheme>::Commitment::from(root_hash)
+        <CS as CommitmentScheme>::Commitment::from(root_hash.to_vec())
     }
 
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
