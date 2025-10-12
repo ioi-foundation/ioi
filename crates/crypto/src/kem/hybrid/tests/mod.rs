@@ -22,7 +22,7 @@ fn test_hybrid_level1_roundtrip() {
     let shared_secret = kem
         .decapsulate(&keypair.private_key, &encapsulated)
         .unwrap();
-    assert_eq!(shared_secret, encapsulated.shared_secret());
+    assert_eq!(&*shared_secret, encapsulated.shared_secret());
 }
 
 #[test]
@@ -43,7 +43,7 @@ fn test_hybrid_level3_roundtrip() {
     let shared_secret = kem
         .decapsulate(&keypair.private_key, &encapsulated)
         .unwrap();
-    assert_eq!(shared_secret, encapsulated.shared_secret());
+    assert_eq!(&*shared_secret, encapsulated.shared_secret());
 }
 
 #[test]
@@ -65,7 +65,7 @@ fn test_hybrid_level5_roundtrip() {
     let shared_secret = kem
         .decapsulate(&keypair.private_key, &encapsulated)
         .unwrap();
-    assert_eq!(shared_secret, encapsulated.shared_secret());
+    assert_eq!(&*shared_secret, encapsulated.shared_secret());
 }
 
 #[test]
@@ -90,8 +90,8 @@ fn test_hybrid_multiple_encapsulations() {
         .decapsulate(&keypair.private_key, &encapsulated2)
         .unwrap();
 
-    assert_eq!(shared_secret1, encapsulated1.shared_secret());
-    assert_eq!(shared_secret2, encapsulated2.shared_secret());
+    assert_eq!(&*shared_secret1, encapsulated1.shared_secret());
+    assert_eq!(&*shared_secret2, encapsulated2.shared_secret());
 }
 
 #[test]
@@ -109,7 +109,7 @@ fn test_hybrid_wrong_key_decapsulation() {
     // Should still produce a result (KEMs don't fail on wrong key)
     assert!(wrong_shared_secret.is_ok());
     // But it should be different from the correct shared secret
-    assert_ne!(wrong_shared_secret.unwrap(), encapsulated.shared_secret());
+    assert_ne!(&*wrong_shared_secret.unwrap(), encapsulated.shared_secret());
 }
 
 #[test]
@@ -185,7 +185,7 @@ fn test_hybrid_security_properties() {
         .decapsulate(&keypair.private_key, &encapsulated)
         .unwrap();
 
-    assert_eq!(shared_secret1, shared_secret2);
+    assert_eq!(&*shared_secret1, &*shared_secret2);
 }
 
 #[test]
@@ -201,7 +201,7 @@ fn test_hybrid_default_constructor() {
     let shared_secret = kem.decapsulate(&keypair.private_key, &encapsulated);
 
     assert!(shared_secret.is_ok());
-    assert_eq!(shared_secret.unwrap(), encapsulated.shared_secret());
+    assert_eq!(&*shared_secret.unwrap(), encapsulated.shared_secret());
 }
 
 #[test]
@@ -222,15 +222,15 @@ fn test_hybrid_independent_verification() {
     let shared_secret = kem.decapsulate(&sk, &encapsulated);
 
     assert!(shared_secret.is_ok());
-    assert_eq!(shared_secret.unwrap(), encapsulated.shared_secret());
+    assert_eq!(&*shared_secret.unwrap(), encapsulated.shared_secret());
 }
 
 #[test]
 fn test_hybrid_secret_changes_if_either_component_changes() {
-    use crate::kem::ecdh::{EcdhCurve, EcdhEncapsulated, EcdhKEM, EcdhPrivateKey, EcdhPublicKey};
-    use crate::kem::kyber::{KyberEncapsulated, KyberKEM, KyberPrivateKey, KyberPublicKey};
+    use crate::kem::ecdh::{EcdhCurve, EcdhKEM, EcdhPublicKey};
+    use crate::kem::kyber::{KyberKEM, KyberPublicKey};
     use crate::security::SecurityLevel;
-    use depin_sdk_api::crypto::{Encapsulated, KeyEncapsulation, SerializableKey};
+    use depin_sdk_api::crypto::{Encapsulated, KeyEncapsulation};
 
     // Helper: sizes for (ECDH_pk_len, Kyber_pk_len, Kyber_ct_len) by level
     fn sizes(level: SecurityLevel) -> (usize, usize, usize, EcdhCurve) {
@@ -271,7 +271,11 @@ fn test_hybrid_secret_changes_if_either_component_changes() {
         ct_mut[ecdh_pk_len..ecdh_pk_len + kyber_ct_len].copy_from_slice(kyber_new.ciphertext());
         let enc_mut = HybridEncapsulated::from_bytes(&ct_mut).unwrap();
         let ss_mut = hybrid.decapsulate(&kp.private_key, &enc_mut).unwrap();
-        assert_ne!(ss0, ss_mut, "hybrid secret must depend on Kyber component");
+        assert_ne!(
+            ss0.as_slice(),
+            &*ss_mut,
+            "hybrid secret must depend on Kyber component"
+        );
 
         // --- Mutate ECDH component (Level 5 only, where we have P-384 support locally) ---
         if level == SecurityLevel::Level5 {
@@ -283,7 +287,11 @@ fn test_hybrid_secret_changes_if_either_component_changes() {
             ct_mut2[..ecdh_pk_len].copy_from_slice(ecdh_new.ciphertext());
             let enc_mut2 = HybridEncapsulated::from_bytes(&ct_mut2).unwrap();
             let ss_mut2 = hybrid.decapsulate(&kp.private_key, &enc_mut2).unwrap();
-            assert_ne!(ss0, ss_mut2, "hybrid secret must depend on ECDH component");
+            assert_ne!(
+                ss0.as_slice(),
+                &*ss_mut2,
+                "hybrid secret must depend on ECDH component"
+            );
         }
     }
 }

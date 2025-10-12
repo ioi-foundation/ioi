@@ -2,6 +2,7 @@
 //! Defines unified traits for cryptographic primitives.
 
 use crate::error::CryptoError;
+use zeroize::Zeroizing;
 
 /// A trait for any key that can be serialized to and from bytes.
 pub trait SerializableKey {
@@ -89,7 +90,7 @@ pub trait KeyEncapsulation {
         &self,
         private_key: &Self::PrivateKey,
         encapsulated: &Self::Encapsulated,
-    ) -> Result<Vec<u8>, CryptoError>;
+    ) -> Result<Zeroizing<Vec<u8>>, CryptoError>;
 }
 
 /// A trait for the result of a KEM encapsulation.

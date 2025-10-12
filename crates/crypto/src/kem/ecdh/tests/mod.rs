@@ -38,7 +38,7 @@ fn test_ecdh_p384_round_trip() {
         .decapsulate(&keypair.private_key, &encapsulated)
         .unwrap();
 
-    assert_eq!(decapsulated_secret, encapsulated.shared_secret());
+    assert_eq!(&*decapsulated_secret, encapsulated.shared_secret());
 }
 
 #[test]
@@ -59,7 +59,7 @@ fn test_ecdh_p521_round_trip() {
         .decapsulate(&keypair.private_key, &encapsulated)
         .unwrap();
 
-    assert_eq!(decapsulated_secret, encapsulated.shared_secret());
+    assert_eq!(&*decapsulated_secret, encapsulated.shared_secret());
 }
 
 #[test]
@@ -83,7 +83,7 @@ fn test_ecdh_encapsulation() {
     let shared_secret = shared_secret.unwrap();
 
     // The shared secret should match what's in the encapsulated key
-    assert_eq!(shared_secret, encapsulated.shared_secret());
+    assert_eq!(&*shared_secret, encapsulated.shared_secret());
 }
 
 #[test]
@@ -140,7 +140,7 @@ fn test_ecdh_serialization() {
     // Decapsulating with the wrong private key should produce a different result
     let wrong_shared_secret = kem.decapsulate(&keypair2.private_key, &encapsulated);
     assert!(wrong_shared_secret.is_ok());
-    assert_ne!(wrong_shared_secret.unwrap(), encapsulated.shared_secret());
+    assert_ne!(&*wrong_shared_secret.unwrap(), encapsulated.shared_secret());
 }
 
 #[test]
@@ -160,7 +160,7 @@ fn test_ecdh_dcrypt_compatibility() {
     // Test that using wrong keys produces different results
     let wrong_secret = kem.decapsulate(&keypair2.private_key, &encapsulated);
     assert!(wrong_secret.is_ok());
-    assert_ne!(wrong_secret.unwrap(), encapsulated.shared_secret());
+    assert_ne!(&*wrong_secret.unwrap(), encapsulated.shared_secret());
 }
 
 #[test]
@@ -181,5 +181,5 @@ fn test_ecdh_independent_verification() {
     let shared_secret = kem.decapsulate(&sk, &encapsulated);
 
     assert!(shared_secret.is_ok());
-    assert_eq!(shared_secret.unwrap(), encapsulated.shared_secret());
+    assert_eq!(&*shared_secret.unwrap(), encapsulated.shared_secret());
 }
