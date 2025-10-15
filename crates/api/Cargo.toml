@@ -23,6 +23,7 @@ dashmap = { workspace = true }
 lru = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["derive"] }
 zeroize = { workspace = true, features = ["alloc"] }
+anyhow = { workspace = true }
 
 [features]
 default = []

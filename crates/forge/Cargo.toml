@@ -34,6 +34,7 @@ depin-sdk-commitment = { path = "../commitment", default-features = false }
 depin-sdk-client = { path = "../client" }
 depin-sdk-transaction-models = { path = "../transaction_models" }
 toml = { workspace = true }
+
 # Dependencies for testing helpers that are now part of the library
 reqwest = { workspace = true }
 tempfile = "3.3"
@@ -41,14 +42,19 @@ bs58 = "0.4"
 libp2p = { workspace = true }
 prost = { workspace = true }
 portpicker = "0.1.1"
-bollard = "0.15"
+bollard = "0.19"
 futures-util = "0.3"
 async-trait = { workspace = true }
 uuid = { version = "1.8.0", features = ["v4"] }
 tar = "0.4"
-hyper = "0.14"
+hyper = { workspace = true }
+axum = { workspace = true }
 libc = "0.2"
 dcrypt = { workspace = true }
+
+# HTTP body helpers for hyper v1 (bollard expects these shapes)
+bytes = "1"
+http-body-util = "0.1"
 
 [dev-dependencies]
 depin-sdk-services = { path = "../services" }
@@ -56,8 +62,17 @@ depin-sdk-chain = { path = "../chain" }
 depin-sdk-network = { path = "../network" }
 base64 = { workspace = true }
 once_cell = { workspace = true }
-axum = { workspace = true }
 cfg-if = "1.0"
+ibc-client-tendermint = { workspace = true }
+ibc-core-host-types = { workspace = true, features = ["std"] }
+ibc-core-client-types = { workspace = true, features = ["std"] }
+tendermint-testgen = { workspace = true }
+tendermint = { workspace = true }
+tendermint-proto = { workspace = true }
+ibc-core-client-context = { workspace = true, features = ["std"] }
+ibc-core-commitment-types = { workspace = true, features = ["std"] }
+ibc-primitives = { workspace = true, features = ["std"] }
+ibc-proto = { workspace = true, features = ["serde", "std"] }
 
 # The library exposes helpers, the binary provides the CLI
 [lib]

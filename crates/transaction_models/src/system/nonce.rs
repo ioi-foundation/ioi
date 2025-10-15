@@ -28,9 +28,6 @@ fn get_tx_details(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
             SystemPayload::UpdateAuthorities { .. } | SystemPayload::SubmitOracleData { .. } => {
                 None
             }
-            // While VerifyForeignReceipt is unsigned, it's replay-protected by its content hash,
-            // so we can also exclude it from the nonce system.
-            SystemPayload::VerifyForeignReceipt { .. } => None,
             // All other system transactions are signed by a user and must have a valid nonce.
             _ => Some((sys_tx.header.account_id, sys_tx.header.nonce)),
         },

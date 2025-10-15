@@ -13,10 +13,10 @@ use crate::testing::poll::{wait_for, wait_for_height};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use backend::{DockerBackend, DockerBackendConfig, LogStream, ProcessBackend, TestBackend};
-use bollard::image::BuildImageOptions;
-use bollard::Docker;
+use bollard::{image::BuildImageOptions, Docker};
+use bytes::Bytes;
 use depin_sdk_api::crypto::{SerializableKey, SigningKeyPair};
-use depin_sdk_client::WorkloadClient;
+use depin_sdk_client::{security::SecurityChannel, WorkloadClient};
 use depin_sdk_commitment::primitives::kzg::KZGParams;
 use depin_sdk_crypto::sign::dilithium::{DilithiumKeyPair, DilithiumScheme};
 use depin_sdk_types::config::{
@@ -25,7 +25,7 @@ use depin_sdk_types::config::{
 };
 use depin_sdk_validator::common::generate_certificates_if_needed;
 use futures_util::{stream::FuturesUnordered, StreamExt};
-use hyper::Body;
+use http_body_util::{Either, Full};
 use libp2p::{identity, Multiaddr, PeerId};
 use serde_json::Value;
 use std::any::Any;
@@ -194,11 +194,13 @@ async fn ensure_docker_image_exists() -> Result<()> {
         }
         bytes
     };
-    let image_body = Body::from(tar_bytes);
+    // bollard expects Into<Either<Full<Bytes>, StreamBody<...>>>.
+    // Use a single Full body from the in-memory tar.
+    let image_body = Either::Left(Full::new(Bytes::from(tar_bytes)));
 
     let options = BuildImageOptions {
-        dockerfile: "crates/node/Dockerfile",
-        t: DOCKER_IMAGE_TAG,
+        dockerfile: "crates/node/Dockerfile".to_string(),
+        t: DOCKER_IMAGE_TAG.to_string(),
         rm: true,
         ..Default::default()
     };

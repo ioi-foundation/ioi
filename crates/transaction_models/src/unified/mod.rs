@@ -10,6 +10,8 @@ use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::vm::ExecutionContext;
 use depin_sdk_services::governance::GovernanceModule;
+use depin_sdk_services::ibc::channel::ChannelManager;
+use depin_sdk_services::ibc::registry::VerifierRegistry;
 use depin_sdk_services::identity::IdentityHub;
 use depin_sdk_types::app::{
     evidence_id, write_validator_sets, ActiveKeyRecord, ApplicationTransaction, ChainTransaction,
@@ -18,9 +20,10 @@ use depin_sdk_types::app::{
 use depin_sdk_types::codec;
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::{StateError, TransactionError};
+use depin_sdk_types::ibc::TendermintHeader;
 use depin_sdk_types::keys::{
-    ACCOUNT_ID_TO_PUBKEY_PREFIX, EVIDENCE_REGISTRY_KEY, IBC_PROCESSED_RECEIPT_PREFIX,
-    ORACLE_DATA_PREFIX, ORACLE_PENDING_REQUEST_PREFIX, UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY,
+    ACCOUNT_ID_TO_PUBKEY_PREFIX, EVIDENCE_REGISTRY_KEY, ORACLE_DATA_PREFIX,
+    ORACLE_PENDING_REQUEST_PREFIX, UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY,
 };
 use libp2p::identity::PublicKey as Libp2pPublicKey;
 use serde::{Deserialize, Serialize};
@@ -132,9 +135,6 @@ where
                     signature_proof,
                     ..
                 } => {
-                    // Fetch contract code using the provided transactional state accessor (`state`).
-                    // This `state` will be a `StateOverlay` during precheck/simulation,
-                    // avoiding a re-entrant lock on the underlying `state_tree`.
                     let code_key = [b"contract_code::".as_ref(), address.as_ref()].concat();
                     let stored_bytes = state.get(&code_key)?.ok_or_else(|| {
                         TransactionError::Invalid("Contract not found".to_string())
@@ -147,9 +147,8 @@ where
                         caller: signature_proof.public_key.clone(),
                         block_height: ctx.block_height,
                         gas_limit: *gas_limit,
-                        contract_address: address.clone(), // Set address for the VM context
+                        contract_address: address.clone(),
                     };
-                    // Use the specialized method that takes pre-loaded code.
                     let (_output, state_delta) = workload
                         .execute_loaded_contract(code, input_data.clone(), exec_context)
                         .await
@@ -166,7 +165,7 @@ where
                                 codec::to_bytes_canonical(&entry).map(|bytes| (key, bytes))
                             })
                             .collect::<Result<_, _>>()?;
-                        state.batch_set(&versioned_delta)?; // Writes to the overlay
+                        state.batch_set(&versioned_delta)?;
                     }
                     Ok(())
                 }
@@ -179,14 +178,7 @@ where
                                 "Stake operations are not supported on non-PoS chains".into(),
                             ));
                         }
-
                         let staker_account_id = sys_tx.header.account_id;
-                        // The following check is incorrect in a system with key rotation.
-                        // The primary signature verification in `system::validation` already proves
-                        // that the signer is authorized to act on behalf of the `staker_account_id`.
-                        // The `public_key` in this payload is the key we want to associate with the
-                        // staker going forward, which might be a new, rotated key.
-
                         let target_activation = ctx.block_height + 2;
 
                         let maybe_blob_bytes = state.get(VALIDATOR_SET_KEY)?;
@@ -241,16 +233,12 @@ where
                             let pubkey_map_key =
                                 [ACCOUNT_ID_TO_PUBKEY_PREFIX, staker_account_id.as_ref()].concat();
                             if state.get(&pubkey_map_key)?.is_none() {
-                                // Hardening: Prefer the authenticated key from the signature proof
-                                // over the one in the payload for populating the map.
                                 let pk_to_store = match sys_tx.signature_proof.suite {
                                     SignatureSuite::Ed25519 => {
-                                        // If the payload already holds a libp2p-encoded key, keep it for network tooling.
                                         if Libp2pPublicKey::try_decode_protobuf(&public_key).is_ok()
                                         {
                                             public_key
                                         } else {
-                                            // Otherwise, canonicalize the proof's raw 32-byte ed25519 key into libp2p encoding.
                                             let ed = libp2p::identity::ed25519::PublicKey::try_from_bytes(
                                             &sys_tx.signature_proof.public_key
                                         ).map_err(|_| TransactionError::Invalid("Malformed Ed25519 key".into()))?;
@@ -265,8 +253,6 @@ where
                             }
                         }
 
-                        // Always re-sort the validator list after modification
-                        // to ensure a canonical, deterministic order for leader selection.
                         next_vs
                             .validators
                             .sort_by(|a, b| a.account_id.cmp(&b.account_id));
@@ -321,8 +307,6 @@ where
                                 "Staker not in validator set".into(),
                             ));
                         }
-                        // Always re-sort the validator list after modification
-                        // to ensure a canonical, deterministic order for leader selection.
                         next_vs
                             .validators
                             .sort_by(|a, b| a.account_id.cmp(&b.account_id));
@@ -335,11 +319,9 @@ where
                     } => {
                         new_authorities.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
                         new_authorities.dedup();
-
                         let identity_hub = ctx.services.get::<IdentityHub>().ok_or_else(|| {
                             TransactionError::Unsupported("IdentityHub not found".to_string())
                         })?;
-
                         let mut validators = Vec::with_capacity(new_authorities.len());
                         for account_id in new_authorities {
                             let creds = identity_hub.get_credentials(state, &account_id)?;
@@ -351,7 +333,7 @@ where
                             })?;
                             validators.push(ValidatorV1 {
                                 account_id,
-                                weight: 1, // PoA validators have a weight of 1
+                                weight: 1,
                                 consensus_key: ActiveKeyRecord {
                                     suite: active_cred.suite,
                                     public_key_hash: active_cred.public_key_hash,
@@ -359,18 +341,15 @@ where
                                 },
                             });
                         }
-
                         let vs = ValidatorSetV1 {
                             effective_from_height: ctx.block_height + 1,
                             total_weight: validators.len() as u128,
                             validators,
                         };
-
                         let sets = ValidatorSetsV1 {
                             current: vs.clone(),
                             next: Some(vs),
                         };
-
                         state.insert(VALIDATOR_SET_KEY, &write_validator_sets(&sets)?)?;
                         Ok(())
                     }
@@ -380,7 +359,6 @@ where
                             .get(VALIDATOR_SET_KEY)?
                             .ok_or(TransactionError::State(StateError::KeyNotFound))?;
                         let vs_sets = depin_sdk_types::app::read_validator_sets(&vs_blob_bytes)?;
-
                         if !vs_sets
                             .current
                             .validators
@@ -396,7 +374,6 @@ where
                             .as_deref()
                             .map(|b| codec::from_bytes_canonical(b).unwrap_or_default())
                             .unwrap_or_default();
-
                         let mut new_handled_evidence = handled_evidence;
                         let id = evidence_id(&report)
                             .map_err(|e| TransactionError::Invalid(e.to_string()))?;
@@ -410,7 +387,6 @@ where
                             EVIDENCE_REGISTRY_KEY,
                             &codec::to_bytes_canonical(&new_handled_evidence)?,
                         )?;
-
                         let penalty_mechanism = chain_ref.get_penalty_mechanism();
                         match penalty_mechanism.apply_penalty(state, &report).await {
                             Ok(()) => Ok(()),
@@ -419,22 +395,6 @@ where
                                 Err(e)
                             }
                         }
-                    }
-                    SystemPayload::VerifyForeignReceipt { receipt, proof: _ } => {
-                        let receipt_key =
-                            [IBC_PROCESSED_RECEIPT_PREFIX, &receipt.unique_leaf_id].concat();
-                        if state.get(&receipt_key)?.is_some() {
-                            return Err(TransactionError::Invalid(
-                                "Foreign receipt has already been processed (replay attack)"
-                                    .to_string(),
-                            ));
-                        }
-                        state.insert(&receipt_key, &[1])?;
-                        log::info!(
-                            "Foreign receipt processed successfully. Emitting local event for endpoint: {}",
-                            receipt.endpoint_id
-                        );
-                        Ok(())
                     }
                     SystemPayload::SubmitOracleData {
                         request_id,
@@ -473,9 +433,6 @@ where
                         proposal_id,
                         option,
                     } => {
-                        // Retrieve the registered GovernanceModule instance from the service directory
-                        // instead of creating a new default one. This ensures the vote is recorded
-                        // in the same service instance that will perform the tallying in OnEndBlock.
                         let governance_module =
                             ctx.services.get::<GovernanceModule>().ok_or_else(|| {
                                 TransactionError::Unsupported(
@@ -508,20 +465,160 @@ where
                         module_wasm,
                         activation_height,
                     } => {
-                        // Key to store pending upgrades for a specific height
                         let key =
                             [UPGRADE_PENDING_PREFIX, &activation_height.to_le_bytes()].concat();
-                        // Get existing pending upgrades for this height, or create a new list
                         let mut pending_upgrades: Vec<(String, Vec<u8>)> = state
                             .get(&key)?
                             .map(|bytes| codec::from_bytes_canonical(&bytes).unwrap_or_default())
                             .unwrap_or_default();
-                        // Add the new upgrade
                         pending_upgrades.push((service_type, module_wasm));
-                        // Save the updated list back to the state
                         let value = codec::to_bytes_canonical(&pending_upgrades)?;
                         state.insert(&key, &value)?;
                         Ok(())
+                    }
+                    // --- NEW IBC HANDLERS ---
+                    SystemPayload::VerifyHeader {
+                        chain_id,
+                        header,
+                        finality,
+                    } => {
+                        let registry = ctx.services.get::<VerifierRegistry>().ok_or_else(|| {
+                            TransactionError::Unsupported(
+                                "VerifierRegistry service not found".into(),
+                            )
+                        })?;
+                        let verifier = registry.get(&chain_id).ok_or_else(|| {
+                            TransactionError::Invalid(format!(
+                                "No verifier registered for chain '{}'",
+                                chain_id
+                            ))
+                        })?;
+                        let mut verify_ctx = depin_sdk_api::ibc::VerifyCtx::default();
+                        verifier
+                            .verify_header(&header, &finality, &mut verify_ctx)
+                            .await
+                            .map_err(|e| TransactionError::Invalid(e.to_string()))?;
+                        Ok(())
+                    }
+                    SystemPayload::SubmitProof {
+                        target_verifier_id,
+                        proof_bytes,
+                        public_inputs,
+                    } => {
+                        // TODO: Implement ZK proof submission logic.
+                        // 1. Get VerifierRegistry from services.
+                        // 2. Get the verifier for `target_verifier_id`.
+                        // 3. Downcast it to a trait that supports ZK proof submission (e.g., `ZkEnabledVerifier`).
+                        // 4. Call a method like `verifier.receive_proof(...)`.
+                        // This requires extending the API with new traits.
+                        let (_, _, _) = (target_verifier_id, proof_bytes, public_inputs);
+                        Err(TransactionError::Unsupported(
+                            "SubmitProof is not yet implemented".into(),
+                        ))
+                    }
+                    SystemPayload::SendPacket { packet, .. } => {
+                        let channel_manager =
+                            ctx.services.get::<ChannelManager>().ok_or_else(|| {
+                                TransactionError::Unsupported(
+                                    "ChannelManager service not found".into(),
+                                )
+                            })?;
+                        channel_manager
+                            .send_packet(state, packet)
+                            .map_err(|e| TransactionError::Invalid(e.to_string()))
+                    }
+                    SystemPayload::RecvPacket {
+                        packet,
+                        proof,
+                        proof_height,
+                    } => {
+                        let registry = ctx.services.get::<VerifierRegistry>().ok_or_else(|| {
+                            TransactionError::Unsupported(
+                                "VerifierRegistry service not found".into(),
+                            )
+                        })?;
+                        let channel_manager =
+                            ctx.services.get::<ChannelManager>().ok_or_else(|| {
+                                TransactionError::Unsupported(
+                                    "ChannelManager service not found".into(),
+                                )
+                            })?;
+
+                        // NOTE: This assumes `packet.source_channel` corresponds to a registered verifier chain_id.
+                        let verifier = registry.get(&packet.source_channel).ok_or_else(|| {
+                            TransactionError::Invalid(format!(
+                                "No verifier for source channel '{}'",
+                                packet.source_channel
+                            ))
+                        })?;
+
+                        // TODO: The `verify_inclusion` API requires a `Header`, which is not present in this payload.
+                        // This indicates a required change in the `InterchainVerifier` API or this payload.
+                        // For now, we assume the verifier implementation can fetch the header internally using `proof_height`.
+                        // We pass a placeholder header.
+                        let placeholder_header =
+                            depin_sdk_types::ibc::Header::Tendermint(TendermintHeader {
+                                trusted_height: 0,
+                                data: vec![],
+                            });
+                        let mut verify_ctx = depin_sdk_api::ibc::VerifyCtx::default();
+                        verifier
+                            .verify_inclusion(&proof, &placeholder_header, &mut verify_ctx)
+                            .await
+                            .map_err(|e| TransactionError::Invalid(e.to_string()))?;
+
+                        channel_manager
+                            .recv_packet(state, packet, proof_height)
+                            .map_err(|e| TransactionError::Invalid(e.to_string()))
+                    }
+                    SystemPayload::AcknowledgePacket {
+                        packet,
+                        acknowledgement,
+                        proof,
+                        proof_height: _,
+                    } => {
+                        let registry = ctx.services.get::<VerifierRegistry>().ok_or_else(|| {
+                            TransactionError::Unsupported(
+                                "VerifierRegistry service not found".into(),
+                            )
+                        })?;
+                        let channel_manager =
+                            ctx.services.get::<ChannelManager>().ok_or_else(|| {
+                                TransactionError::Unsupported(
+                                    "ChannelManager service not found".into(),
+                                )
+                            })?;
+
+                        let verifier =
+                            registry.get(&packet.destination_channel).ok_or_else(|| {
+                                TransactionError::Invalid(format!(
+                                    "No verifier for destination channel '{}'",
+                                    packet.destination_channel
+                                ))
+                            })?;
+
+                        // Same issue as RecvPacket: `Header` is needed but not available. Assuming internal lookup.
+                        let placeholder_header =
+                            depin_sdk_types::ibc::Header::Tendermint(TendermintHeader {
+                                trusted_height: 0,
+                                data: vec![],
+                            });
+                        let mut verify_ctx = depin_sdk_api::ibc::VerifyCtx::default();
+                        verifier
+                            .verify_inclusion(&proof, &placeholder_header, &mut verify_ctx)
+                            .await
+                            .map_err(|e| TransactionError::Invalid(e.to_string()))?;
+
+                        channel_manager
+                            .acknowledge_packet(state, packet, &acknowledgement)
+                            .map_err(|e| TransactionError::Invalid(e.to_string()))
+                    }
+                    // This was the old, now-removed variant. We can delete it.
+                    #[allow(unreachable_patterns)]
+                    SystemPayload::VerifyForeignReceipt { .. } => {
+                        Err(TransactionError::Unsupported(
+                            "VerifyForeignReceipt is deprecated. Use IBC packets.".into(),
+                        ))
                     }
                 }
             }

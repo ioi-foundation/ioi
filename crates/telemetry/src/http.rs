@@ -57,9 +57,16 @@ pub async fn run_server(addr: SocketAddr) {
                 .timeout(Duration::from_secs(2)),
         );
 
-    tracing::info!(target="telemetry", %addr, "listening");
-    let server = axum::Server::bind(&addr).serve(app.into_make_service());
-    let graceful = server.with_graceful_shutdown(async {
+    let listener = match tokio::net::TcpListener::bind(addr).await {
+        Ok(l) => l,
+        Err(e) => {
+            tracing::error!(target = "telemetry", error = %e, "Failed to bind telemetry http server");
+            return;
+        }
+    };
+    tracing::info!(target="telemetry", addr = %listener.local_addr().unwrap(), "listening");
+
+    let graceful = axum::serve(listener, app.into_make_service()).with_graceful_shutdown(async {
         if let Err(e) = signal::ctrl_c().await {
             tracing::error!(target = "telemetry", error = %e, "Failed to install CTRL+C handler");
         }

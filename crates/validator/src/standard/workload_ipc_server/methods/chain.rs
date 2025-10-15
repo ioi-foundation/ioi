@@ -15,7 +15,7 @@ use depin_sdk_types::{
     },
     codec,
     error::TransactionError,
-    keys::{EVIDENCE_REGISTRY_KEY, IBC_PROCESSED_RECEIPT_PREFIX},
+    keys::EVIDENCE_REGISTRY_KEY,
 };
 use serde::{Deserialize, Serialize};
 use std::{any::Any, collections::BTreeSet, marker::PhantomData, sync::Arc};
@@ -248,16 +248,6 @@ where
                         };
                         if already_seen {
                             return Err(TransactionError::Invalid("DuplicateEvidence".to_string()));
-                        }
-                    }
-                    if let SystemPayload::VerifyForeignReceipt { receipt, .. } = &sys_tx.payload {
-                        let receipt_key =
-                            [IBC_PROCESSED_RECEIPT_PREFIX, &receipt.unique_leaf_id].concat();
-                        if overlay.get(&receipt_key)?.is_some() {
-                            return Err(TransactionError::Invalid(
-                                "Foreign receipt has already been processed (replay attack)"
-                                    .to_string(),
-                            ));
                         }
                     }
                 }

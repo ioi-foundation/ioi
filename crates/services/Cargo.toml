@@ -8,7 +8,6 @@ description = "Services for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-# FIX: Changed dependency from depin-sdk-core to depin-sdk-api
 depin-sdk-api = { path = "../api" }
 depin-sdk-types = { path = "../types" }
 log = { workspace = true }
@@ -17,12 +16,32 @@ thiserror = { workspace = true }
 bytes = { workspace = true }
 anyhow = { workspace = true }
 depin-sdk-crypto = { path = "../crypto" }
+async-trait = { workspace = true }
 hex = { workspace = true }
 serde_json = { workspace = true }
 serde_jcs = "0.1.0"
 reqwest = { version = "0.11", features = ["json"] }
 libp2p = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["derive"] }
+prost = { workspace = true }
+
+# Inherit the 'time' dependency from the workspace to resolve feature conflicts.
+time = { workspace = true }
+
+## IBC Dependencies
+ibc-client-tendermint = { workspace = true, features = ["std"] }
+ibc-core-client-types = { workspace = true, features = ["std"] }
+ibc-core-commitment-types = { workspace = true, features = ["std"] }
+ibc-core-host-types = { workspace = true, features = ["std"] }
+ibc-core-channel-types = { workspace = true, features = ["std"] }
+ibc-core-client-context = { workspace = true, features = ["std"] }
+ibc-core-handler-types = { workspace = true, features = ["std"] }
+ibc-primitives = { workspace = true, features = ["std"] }
+ibc-proto = { workspace = true, features = ["serde", "std"] }
+tendermint-proto = { workspace = true }
+
+# Inherit 'tendermint' from the workspace.
+tendermint = { workspace = true }
 
 [features]
 default = []

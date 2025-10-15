@@ -11,7 +11,7 @@ pub use identity::*;
 pub use penalties::*;
 
 use crate::error::{CoreError, StateError};
-use crate::ibc::{UniversalExecutionReceipt, UniversalProofFormat};
+use crate::ibc::{Finality, Header, InclusionProof, Packet};
 use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
 use dcrypt::algorithms::ByteSerializable;
 use parity_scale_codec::{Decode, Encode};
@@ -607,13 +607,71 @@ pub enum SystemPayload {
         /// The cryptographic proof of consensus from the validator set.
         consensus_proof: OracleConsensusProof,
     },
-    /// Verifies a receipt from a foreign chain.
-    VerifyForeignReceipt {
-        /// The universal receipt containing the canonical operation data.
-        receipt: Box<UniversalExecutionReceipt>,
-        /// The universal proof format containing the cryptographic proof and witness.
-        proof: UniversalProofFormat,
-    },
     /// Initiates a key rotation for the transaction's signer.
     RotateKey(RotationProof),
+    // --- NEW IBC VARIANTS ---
+    /// Explicitly submit a header update to an on-chain light client.
+    VerifyHeader {
+        /// The unique identifier of the target chain's light client.
+        chain_id: String,
+        /// The header to verify and store.
+        header: Header,
+        /// The finality proof for the header (e.g., Tendermint commit).
+        finality: Finality,
+    },
+    /// Submit a ZK proof to be verified by a ZkDriver, targeting a specific verifier.
+    SubmitProof {
+        /// The identifier of the verifier that should handle this proof.
+        target_verifier_id: String,
+        /// The raw bytes of the ZK proof.
+        proof_bytes: Vec<u8>,
+        /// The raw bytes of the public inputs for the ZK proof.
+        public_inputs: Vec<u8>,
+    },
+    /// Send an IBC-style packet.
+    SendPacket {
+        /// The port on the source chain.
+        source_port: String,
+        /// The channel on the source chain.
+        source_channel: String,
+        /// The packet data to be sent.
+        packet: Packet,
+        /// The block height on the destination chain after which the packet times out.
+        timeout_height: u64,
+        /// The timestamp on the destination chain after which the packet times out.
+        timeout_timestamp: u64,
+    },
+    /// Receive an IBC-style packet, proven against a verified header.
+    RecvPacket {
+        /// The packet that was received.
+        packet: Packet,
+        /// A cryptographic proof of the packet's inclusion on the source chain.
+        proof: InclusionProof,
+        /// The height on the source chain at which the proof was generated.
+        proof_height: u64,
+    },
+    /// Acknowledge a received packet.
+    AcknowledgePacket {
+        /// The original packet that is being acknowledged.
+        packet: Packet,
+        /// The acknowledgement data from the receiving application.
+        acknowledgement: Vec<u8>,
+        /// A cryptographic proof of the acknowledgement's inclusion on the acknowledging chain.
+        proof: InclusionProof,
+        /// The height on the acknowledging chain at which the proof was generated.
+        proof_height: u64,
+    },
+    /// DEPRECATED: Submits a receipt from a foreign chain for verification.
+    /// This is a temporary interoperability mechanism that will be replaced by a full IBC implementation.
+    #[deprecated(note = "Use IBC packets for interoperability.")]
+    VerifyForeignReceipt {
+        /// The chain ID of the foreign chain where the event originated.
+        chain_id: u32,
+        /// A unique identifier for the receipt, derived from its content on the foreign chain.
+        unique_leaf_id: [u8; 32],
+        /// The raw, opaque receipt data.
+        receipt: Vec<u8>,
+        /// A cryptographic proof of the receipt's inclusion in the foreign chain's state.
+        proof: Vec<u8>,
+    },
 }

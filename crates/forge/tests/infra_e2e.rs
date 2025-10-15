@@ -1,6 +1,4 @@
 // Path: crates/forge/tests/infra_e2e.rs
-
-// Gate the test to only compile when either PoA or PoS consensus is enabled, along with other required features.
 #![cfg(all(
     any(feature = "consensus-poa", feature = "consensus-pos"),
     feature = "vm-wasm",
@@ -8,13 +6,13 @@
 ))]
 
 use anyhow::{anyhow, Result};
-use axum::{routing::get, Router, Server};
+use axum::{routing::get, serve, Router};
 use cfg_if::cfg_if;
 use depin_sdk_forge::testing::{
     assert_log_contains,
     backend::ProcessBackend,
     poll::{wait_for, wait_for_height},
-    rpc, submit_transaction, TestCluster,
+    rpc, submit_transaction, TestCluster, TestValidator,
 };
 use depin_sdk_types::app::{
     AccountId, ChainId, ChainTransaction, SignHeader, SignatureProof, SignatureSuite,
@@ -88,11 +86,7 @@ async fn start_local_http_stub() -> (String, tokio::task::JoinHandle<()>) {
     let url = format!("http://{}", addr);
 
     let handle = tokio::spawn(async move {
-        Server::from_tcp(listener.into_std().unwrap())
-            .unwrap()
-            .serve(app.into_make_service())
-            .await
-            .unwrap();
+        serve(listener, app).await.unwrap();
     });
     (url, handle)
 }
