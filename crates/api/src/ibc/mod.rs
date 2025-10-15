@@ -1,40 +1,45 @@
 // Path: crates/api/src/ibc/mod.rs
-//! Defines traits and re-exports types for Inter-Blockchain Communication (IBC).
+use crate::error::CoreError;
+use async_trait::async_trait;
+use depin_sdk_types::ibc::{Finality, Header, InclusionProof};
+use std::collections::HashMap;
 
-// Re-export core data structures from the `types` crate.
-pub use depin_sdk_types::ibc::{
-    BlockAnchor, DigestAlgo, FinalityEvidence, KeyCodec, MembershipWitness, ProofTarget,
-    UniversalExecutionReceipt, UniversalProofFormat,
-};
+pub mod zk;
+pub use zk::*;
 
-use crate::commitment::SchemeIdentifier;
-use thiserror::Error;
-
-/// Errors that can occur during proof translation.
-#[derive(Error, Debug)]
-pub enum TranslateError {
-    /// The proof target (e.g., State, Log) is not supported by the translator.
-    #[error("Unsupported proof target")]
-    UnsupportedTarget,
-    /// The source proof data is malformed or invalid.
-    #[error("Invalid source proof data: {0}")]
-    InvalidSourceProof(String),
-    /// An unexpected error occurred during the translation process.
-    #[error("Internal translation error: {0}")]
-    Internal(String),
+/// A cache to amortize expensive deserialization across multiple verifications in a single block.
+#[derive(Default, Debug)]
+pub struct VerifyCtx {
+    /// Example: Cache deserialized Tendermint validator sets by hash.
+    pub tm_valsets: HashMap<[u8; 32], Vec<u8>>,
+    /// Example: Cache deserialized Ethereum sync committees by period.
+    pub eth_sync_committees: HashMap<u64, Vec<u8>>,
+    // Room for Solana vote-sets, etc.
 }
 
-/// A trait for components that can translate a proof from one cryptographic scheme to another.
-pub trait ProofTranslator: Send + Sync {
-    /// Returns the identifier of the source commitment scheme.
-    fn source_scheme(&self) -> SchemeIdentifier;
-    /// Returns the identifier of the target (native) commitment scheme.
-    fn target_scheme(&self) -> SchemeIdentifier;
-    /// Translates a foreign proof into the native proof format.
-    fn translate(
+/// A generic verifier for an external blockchain's state and consensus.
+#[async_trait]
+pub trait InterchainVerifier: Send + Sync {
+    /// The unique identifier for the chain this verifier targets (e.g., "eth-mainnet").
+    fn chain_id(&self) -> &str;
+
+    /// Verifies that a header is valid and follows a previously verified header.
+    /// A mutable context is passed to cache deserialized data for the duration of a block.
+    async fn verify_header(
         &self,
-        target: &ProofTarget,
-        proof_data: &[u8],
-        witness: &MembershipWitness,
-    ) -> Result<Vec<u8>, TranslateError>;
+        header: &Header,
+        finality: &Finality,
+        ctx: &mut VerifyCtx,
+    ) -> Result<(), CoreError>;
+
+    /// Verifies that the given inclusion proof is valid for the given header.
+    async fn verify_inclusion(
+        &self,
+        proof: &InclusionProof,
+        header: &Header,
+        ctx: &mut VerifyCtx,
+    ) -> Result<(), CoreError>;
+
+    /// Returns the latest block height that has been successfully verified and stored.
+    async fn latest_verified_height(&self) -> u64;
 }

@@ -118,7 +118,7 @@ fn make_ip_limit_middleware(
     lim: IpLimiter,
 ) -> impl Fn(
     Request<Body>,
-    Next<Body>,
+    Next,
 ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Response> + Send>>
        + Clone
        + Send
@@ -538,7 +538,7 @@ async fn rpc_handler(
 }
 
 // --- Middleware ---
-async fn enforce_post_only(req: Request<Body>, next: Next<Body>) -> Result<Response, StatusCode> {
+async fn enforce_post_only(req: Request<Body>, next: Next) -> Result<Response, StatusCode> {
     if req.method() != Method::POST {
         return Err(StatusCode::METHOD_NOT_ALLOWED);
     }
@@ -573,7 +573,7 @@ async fn handle_service_error(err: BoxError) -> impl IntoResponse {
     }
 }
 
-async fn track_rpc_metrics(req: Request<Body>, next: Next<Body>) -> Response {
+async fn track_rpc_metrics(req: Request<Body>, next: Next) -> Response {
     let start = Instant::now();
     let route = req
         .extensions()
@@ -683,20 +683,12 @@ pub async fn run_rpc_server(
     tracing::info!(target: "rpc", listen_addr = %listen_address, "RPC server listening");
 
     let handle = tokio::spawn(async move {
-        let std_listener = match listener.into_std() {
-            Ok(l) => l,
-            Err(e) => {
-                tracing::error!(target: "rpc", error=%e, "Failed to convert Tokio listener to std listener");
-                return;
-            }
-        };
-        if let Ok(server) = axum::Server::from_tcp(std_listener) {
-            server
-                .http1_only(true) // Prevent HTTP/2 stream attacks
-                .serve(app.into_make_service_with_connect_info::<SocketAddr>())
-                .await
-                .ok(); // Log error instead of panicking
-        }
+        axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .await
+        .ok(); // Log error instead of panicking
     });
 
     Ok(handle)

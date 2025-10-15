@@ -13,6 +13,11 @@ use depin_sdk_chain::wasm_loader::load_service_from_wasm;
 use depin_sdk_chain::Chain;
 use depin_sdk_consensus::util::engine_from_config;
 use depin_sdk_services::governance::GovernanceModule;
+// --- IBC Service Imports ---
+use depin_sdk_services::ibc::channel::ChannelManager;
+use depin_sdk_services::ibc::light_client::tendermint::TendermintVerifier;
+use depin_sdk_services::ibc::registry::VerifierRegistry;
+// --- End IBC Imports ---
 use depin_sdk_services::identity::IdentityHub;
 use depin_sdk_storage::metrics as storage_metrics;
 use depin_sdk_storage::RedbEpochStore;
@@ -61,7 +66,6 @@ where
     CS::Proof: AsRef<[u8]> + serde::Serialize + for<'de> serde::Deserialize<'de>,
     CS::Commitment: std::fmt::Debug + From<Vec<u8>>,
 {
-    // FIX: Check for the actual database file, not the conceptual state file path.
     let store_path = Path::new(&config.state_file).with_extension("db");
     if !store_path.exists() {
         load_state_from_genesis_file(&mut state_tree, &config.genesis_file)?;
@@ -94,16 +98,28 @@ where
         }
     }
 
+    // --- IBC Service Instantiation ---
+    // A real implementation would load client configurations from a file.
+    let mut verifier_registry = VerifierRegistry::new();
+    // For Milestone A, we instantiate the Tendermint verifier for a mock Cosmos chain.
+    let tm_verifier = TendermintVerifier::new(
+        "cosmos-hub-test".to_string(),
+        "07-tendermint-0".to_string(),
+        Arc::new(state_tree.clone()), // The verifier needs access to the state.
+    );
+    verifier_registry.register(Arc::new(tm_verifier));
+    
+    initial_services.push(Arc::new(verifier_registry) as Arc<dyn depin_sdk_api::services::UpgradableService>);
+    initial_services.push(Arc::new(ChannelManager::new()) as Arc<dyn depin_sdk_api::services::UpgradableService>);
+    // --- End IBC Service Instantiation ---
+    
     let services_for_dir: Vec<Arc<dyn Service>> = initial_services
         .iter()
         .map(|s| s.clone() as Arc<dyn Service>)
         .collect();
     let service_directory = ServiceDirectory::new(services_for_dir);
 
-    // This path is now consistent with the check at the beginning of the function.
     let store = Arc::new(RedbEpochStore::open(store_path, config.epoch_size)?);
-
-    // --- MODIFICATION: Attach store to state tree before creating WorkloadContainer ---
     state_tree.attach_store(store.clone());
 
     let workload_container = Arc::new(WorkloadContainer::new(
@@ -114,11 +130,8 @@ where
         store.clone(),
     )?);
 
-    // The Workload's Chain instance needs a consensus engine to handle penalty
-    // logic correctly, but it doesn't need orchestration-specific parameters
-    // like timeouts. We create a temporary config to satisfy the factory function.
     let temp_orch_config = OrchestrationConfig {
-        chain_id: 1.into(), // Default for temporary config
+        chain_id: 1.into(),
         config_schema_version: 0,
         consensus_type: config.consensus_type,
         rpc_listen_address: String::new(),
@@ -133,7 +146,7 @@ where
     let mut chain = Chain::new(
         commitment_scheme.clone(),
         UnifiedTransactionModel::new(commitment_scheme),
-        1.into(), // This should be loaded from config
+        1.into(),
         initial_services,
         Box::new(load_service_from_wasm),
         consensus_engine,
@@ -171,18 +184,10 @@ fn check_features() {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // 1. Initialize tracing FIRST
     depin_sdk_telemetry::init::init_tracing()?;
-
-    // 2. Install the Prometheus sink
     let metrics_sink = depin_sdk_telemetry::prometheus::install()?;
+    storage_metrics::SINK.set(metrics_sink).expect("SINK must only be set once");
 
-    // 3. Set all static sinks (workload only needs storage)
-    storage_metrics::SINK
-        .set(metrics_sink)
-        .expect("SINK must only be set once");
-
-    // 4. Spawn the telemetry server
     let telemetry_addr_str =
         std::env::var("TELEMETRY_ADDR").unwrap_or_else(|_| "127.0.0.1:9616".to_string());
     let telemetry_addr = telemetry_addr_str.parse()?;

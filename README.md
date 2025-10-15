@@ -193,7 +193,7 @@ cargo test --workspace
 
 cargo test -p depin-sdk-forge --test proof_verification_e2e --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash,malicious-bin" -- --nocapture
 
-cargo test --package depin-sdk-forge --test sync_e2e --features "consensus-poa,vm-wasm,tree-iavl" -- --nocapture
+cargo test --package depin-sdk-forge --test sync_e2e --features "consensus-poa,vm-wasm,tree-iavl" -- --nocapture --test-threads=1
 
 cargo test --package depin-sdk-forge --test infra_e2e --features "consensus-poa,vm-wasm,tree-iavl" -- --nocapture --test-threads=1
 

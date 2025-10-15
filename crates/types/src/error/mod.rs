@@ -525,6 +525,20 @@ impl From<CryptoError> for CoreError {
     }
 }
 
+// [+] ADD THIS IMPLEMENTATION
+impl From<prost::DecodeError> for CoreError {
+    fn from(e: prost::DecodeError) -> Self {
+        CoreError::Custom(format!("Protobuf decoding error: {}", e))
+    }
+}
+
+// [+] ADDED: Implement From<StateError> for CoreError
+impl From<StateError> for CoreError {
+    fn from(e: StateError) -> Self {
+        CoreError::Custom(format!("State error: {}", e))
+    }
+}
+
 /// Errors from cryptographic operations.
 #[derive(Error, Debug)]
 pub enum CryptoError {

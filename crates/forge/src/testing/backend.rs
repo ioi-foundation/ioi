@@ -3,12 +3,15 @@
 use super::{ensure_docker_image_exists, DOCKER_BUILD_CHECK, DOCKER_IMAGE_TAG};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use bollard::container::{
-    Config, CreateContainerOptions, LogsOptions, RemoveContainerOptions, StopContainerOptions,
+// [+] FIX: Import structs from their new, non-deprecated locations.
+use bollard::{
+    container::{
+        CreateContainerOptions, LogsOptions, RemoveContainerOptions, StartContainerOptions,
+        StopContainerOptions,
+    },
+    models::{ContainerCreateBody, HostConfig, NetworkCreateRequest},
+    Docker,
 };
-use bollard::models::HostConfig;
-use bollard::network::CreateNetworkOptions;
-use bollard::Docker;
 use depin_sdk_validator::common::generate_certificates_if_needed;
 use futures_util::stream::{self, Stream, StreamExt};
 use libp2p::Multiaddr;
@@ -45,7 +48,6 @@ pub trait TestBackend: Send {
     /// Provides access to the concrete backend type for downcasting.
     fn as_any(&self) -> &dyn Any;
 
-    // [+] FIX: Add as_any_mut to the trait definition
     /// Provides mutable access to the concrete backend type for downcasting.
     fn as_any_mut(&mut self) -> &mut dyn Any;
 }
@@ -192,7 +194,6 @@ impl TestBackend for ProcessBackend {
         self
     }
 
-    // [+] FIX: Implement as_any_mut
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
@@ -230,13 +231,21 @@ impl DockerBackend {
     pub async fn new(config: DockerBackendConfig) -> Result<Self> {
         let docker = Docker::connect_with_local_defaults()?;
         let network_name = format!("depin-e2e-{}", uuid::Uuid::new_v4());
+        // [+] FIX: Use the new NetworkCreateRequest struct
         let network = docker
-            .create_network(CreateNetworkOptions {
+            .create_network(NetworkCreateRequest {
                 name: network_name,
                 ..Default::default()
             })
             .await?;
-        let network_id = network.id.ok_or(anyhow!("Failed to create network"))?;
+        // FIX: `network.id` is a String in this version of bollard. Handle empty string as an error.
+        let network_id = {
+            let id = network.id;
+            if id.is_empty() {
+                return Err(anyhow!("Failed to create network and get ID"));
+            }
+            id
+        };
 
         Ok(Self {
             docker,
@@ -261,30 +270,35 @@ impl DockerBackend {
         env: Vec<String>,
         binds: Vec<String>,
     ) -> Result<()> {
+        // [+] FIX: Use CreateContainerOptions and add the missing 'platform' field.
         let options = Some(CreateContainerOptions {
-            name: name.to_string(),
-            ..Default::default()
+            name,
+            platform: None,
         });
+        // [+] FIX: The fields in HostConfig are snake_case in bollard 0.19.
         let host_config = HostConfig {
             network_mode: Some(self.network_id.clone()),
             binds: Some(binds),
             ..Default::default()
         };
 
-        // Create Vec<&str> from owned Vec<String> just before use.
         let cmd_strs: Vec<&str> = cmd.iter().map(|s| s.as_str()).collect();
         let env_strs: Vec<&str> = env.iter().map(|s| s.as_str()).collect();
 
-        let config: Config<&str> = Config {
-            image: Some(DOCKER_IMAGE_TAG),
-            cmd: Some(cmd_strs),
-            env: Some(env_strs),
+        // [+] FIX: The fields in ContainerCreateBody are snake_case in bollard 0.19.
+        let config = ContainerCreateBody {
+            image: Some(DOCKER_IMAGE_TAG.to_string()),
+            cmd: Some(cmd_strs.into_iter().map(String::from).collect()),
+            env: Some(env_strs.into_iter().map(String::from).collect()),
             host_config: Some(host_config),
             ..Default::default()
         };
 
         let id = self.docker.create_container(options, config).await?.id;
-        self.docker.start_container::<String>(&id, None).await?;
+        // [+] FIX: Add explicit type annotation for None to resolve ambiguity.
+        self.docker
+            .start_container(&id, None::<StartContainerOptions<&str>>)
+            .await?;
         self.container_ids.push(id);
         Ok(())
     }
@@ -314,7 +328,6 @@ impl TestBackend for DockerBackend {
                 self.config_dir_path.to_string_lossy(),
                 container_data_dir
             ),
-            // [+] FIX: Mount the certs directory into all containers.
             format!(
                 "{}:{}",
                 self.certs_dir_path.to_string_lossy(),
@@ -322,7 +335,6 @@ impl TestBackend for DockerBackend {
             ),
         ];
 
-        // [+] FIX: Define all String-based env vars here to ensure their lifetime.
         let certs_env_str = format!("CERTS_DIR={}", container_certs_dir);
         let guardian_addr_env_str = "GUARDIAN_ADDR=guardian:8443".to_string();
         let workload_addr_env_str = "WORKLOAD_IPC_ADDR=workload:8555".to_string();
@@ -380,6 +392,7 @@ impl TestBackend for DockerBackend {
             .await?;
 
         let ready_timeout = Duration::from_secs(45);
+        // [+] FIX: Use the new LogsOptions struct and specify its generic parameter
         let log_options = Some(LogsOptions::<String> {
             follow: true,
             stderr: true,
@@ -456,10 +469,12 @@ impl TestBackend for DockerBackend {
             let docker = self.docker.clone();
             let id = id.clone();
             async move {
+                // [+] FIX: The field 't' is still snake_case in this version for StopContainerOptions
                 docker
                     .stop_container(&id, Some(StopContainerOptions { t: 5 }))
                     .await
                     .ok();
+                // [+] FIX: The field 'force' is still snake_case in this version for RemoveContainerOptions
                 docker
                     .remove_container(
                         &id,
@@ -482,7 +497,6 @@ impl TestBackend for DockerBackend {
         self
     }
 
-    // [+] FIX: Implement as_any_mut
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
