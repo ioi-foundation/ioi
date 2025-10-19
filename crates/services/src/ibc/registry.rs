@@ -3,10 +3,17 @@
 //! Implements the `VerifierRegistry`, a service that manages multiple `InterchainVerifier`
 //! instances for different blockchains.
 
+use crate::ibc::channel::ChannelManager; // Import for orchestration
+use async_trait::async_trait;
 use depin_sdk_api::ibc::InterchainVerifier;
-use depin_sdk_api::impl_service_base;
-use depin_sdk_api::services::{BlockchainService, ServiceType, UpgradableService};
-use depin_sdk_types::error::UpgradeError;
+use depin_sdk_api::services::capabilities::IbcPayloadHandler;
+use depin_sdk_api::services::{BlockchainService, UpgradableService};
+use depin_sdk_api::state::StateAccessor;
+use depin_sdk_api::transaction::context::TxContext;
+use depin_sdk_types::app::SystemPayload;
+use depin_sdk_types::error::{TransactionError, UpgradeError};
+use depin_sdk_types::service_configs::Capabilities;
+use std::any::Any;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
@@ -63,19 +70,50 @@ impl VerifierRegistry {
     pub fn registered_chains(&self) -> Vec<String> {
         self.verifiers.keys().cloned().collect()
     }
+
+    // Placeholder for fetching a trusted header. A real implementation would query
+    // its own state to find the latest verified header for the given client.
+    fn trusted_header(
+        &self,
+        _client_id: &str,
+        _height: u64,
+    ) -> Result<depin_sdk_types::ibc::Header, TransactionError> {
+        Ok(depin_sdk_types::ibc::Header::Tendermint(
+            depin_sdk_types::ibc::TendermintHeader {
+                trusted_height: 0,
+                data: vec![],
+            },
+        ))
+    }
 }
 
 // --- Service Trait Implementations ---
 
 impl BlockchainService for VerifierRegistry {
-    fn service_type(&self) -> ServiceType {
-        // Use a custom, descriptive name for this core IBC service.
-        ServiceType::Custom("ibc_verifier_registry".to_string())
+    fn id(&self) -> &'static str {
+        "ibc_verifier_registry"
+    }
+
+    fn abi_version(&self) -> u32 {
+        1
+    }
+
+    fn state_schema(&self) -> &'static str {
+        "v1"
+    }
+
+    fn capabilities(&self) -> Capabilities {
+        Capabilities::IBC_HANDLER
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_ibc_handler(&self) -> Option<&dyn IbcPayloadHandler> {
+        Some(self)
     }
 }
-
-// Use the standard macro to implement the base `Service` trait.
-impl_service_base!(VerifierRegistry);
 
 impl UpgradableService for VerifierRegistry {
     fn prepare_upgrade(&mut self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
@@ -88,5 +126,62 @@ impl UpgradableService for VerifierRegistry {
     fn complete_upgrade(&mut self, _snapshot: &[u8]) -> Result<(), UpgradeError> {
         // Since the snapshot is empty, there is nothing to do to complete the upgrade.
         Ok(())
+    }
+}
+
+#[async_trait(?Send)]
+impl IbcPayloadHandler for VerifierRegistry {
+    async fn handle_ibc_payload(
+        &self,
+        state: &mut dyn StateAccessor,
+        payload: &SystemPayload,
+        ctx: &mut TxContext,
+    ) -> Result<(), TransactionError> {
+        match payload {
+            SystemPayload::VerifyHeader {
+                chain_id,
+                header,
+                finality,
+            } => {
+                let mut vctx = depin_sdk_api::ibc::VerifyCtx::default();
+                self.get(chain_id)
+                    .ok_or_else(|| {
+                        TransactionError::Unsupported(format!(
+                            "no verifier for chain '{}'",
+                            chain_id
+                        ))
+                    })?
+                    .verify_header(header, finality, &mut vctx)
+                    .await
+                    .map_err(|e| {
+                        TransactionError::Invalid(format!("header verification failed: {}", e))
+                    })
+            }
+            SystemPayload::RecvPacket {
+                packet,
+                proof,
+                proof_height,
+            } => {
+                let mut vctx = depin_sdk_api::ibc::VerifyCtx::default();
+                // In a full implementation, the trusted header would be retrieved from the client state.
+                let header = self.trusted_header(&packet.source_channel, *proof_height)?;
+                self.get(&packet.source_channel)
+                    .ok_or_else(|| TransactionError::Unsupported("missing verifier".into()))?
+                    .verify_inclusion(proof, &header, &mut vctx)
+                    .await
+                    .map_err(|e| {
+                        TransactionError::Invalid(format!("inclusion proof failed: {}", e))
+                    })?;
+
+                let chm = ctx.services.get::<ChannelManager>().ok_or_else(|| {
+                    TransactionError::Unsupported("ChannelManager service not installed".into())
+                })?;
+                chm.recv_packet(state, packet, *proof_height)
+                    .map_err(|e| TransactionError::Invalid(e.to_string()))
+            }
+            _ => Err(TransactionError::Unsupported(
+                "Payload not handled by IBC service".into(),
+            )),
+        }
     }
 }

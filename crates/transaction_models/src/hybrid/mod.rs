@@ -84,7 +84,7 @@ where
         chain: &CV,
         state: &mut dyn StateAccessor,
         tx: &Self::Transaction,
-        ctx: TxContext<'_>,
+        ctx: &mut TxContext<'_>,
     ) -> Result<(), TransactionError>
     where
         ST: StateManager<

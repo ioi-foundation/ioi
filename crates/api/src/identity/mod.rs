@@ -1,8 +1,8 @@
-// Path: crates/api/src/identity.rs
+// Path: crates/api/src/identity/mod.rs
 
 //! Defines the `CredentialsView` trait for decoupled identity lookups.
 
-use crate::services::access::Service;
+use crate::services::BlockchainService;
 use crate::state::StateAccessor;
 use depin_sdk_types::app::{AccountId, Credential};
 use depin_sdk_types::error::TransactionError;
@@ -11,7 +11,7 @@ use depin_sdk_types::error::TransactionError;
 ///
 /// This trait is implemented by services like `IdentityHub` and used by core
 /// transaction validation logic to look up keys without a direct dependency.
-pub trait CredentialsView: Service {
+pub trait CredentialsView: BlockchainService {
     /// Fetches the active (index 0) and staged (index 1) credentials for an account.
     ///
     /// An empty array `[None, None]` indicates the account has not been bootstrapped.

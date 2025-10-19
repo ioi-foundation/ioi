@@ -12,11 +12,9 @@ depin-sdk-api = { path = "../api" }
 depin-sdk-types = { path = "../types" }
 depin-sdk-consensus = { path = "../consensus" }
 depin-sdk-telemetry = { path = "../telemetry" }
-# --- FIX START: Add missing dependencies ---
 depin-sdk-transaction-models = { path = "../transaction_models" }
 depin-sdk-commitment = { path = "../commitment" }
-parity-scale-codec = { workspace = true, features = ["derive"] }
-# --- FIX END ---
+parity-scale-codec = { workspace = true, features = ["std"] }
 once_cell = { workspace = true }
 log = { workspace = true }
 tracing = { workspace = true }

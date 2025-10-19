@@ -22,28 +22,48 @@ serde_json = { workspace = true }
 serde_jcs = "0.1.0"
 reqwest = { version = "0.11", features = ["json"] }
 libp2p = { workspace = true }
-parity-scale-codec = { workspace = true, features = ["derive"] }
+parity-scale-codec = { workspace = true, features = ["std"] }
 prost = { workspace = true }
 
-# Inherit the 'time' dependency from the workspace to resolve feature conflicts.
-time = { workspace = true }
-
-## IBC Dependencies
-ibc-client-tendermint = { workspace = true, features = ["std"] }
-ibc-core-client-types = { workspace = true, features = ["std"] }
-ibc-core-commitment-types = { workspace = true, features = ["std"] }
-ibc-core-host-types = { workspace = true, features = ["std"] }
-ibc-core-channel-types = { workspace = true, features = ["std"] }
-ibc-core-client-context = { workspace = true, features = ["std"] }
-ibc-core-handler-types = { workspace = true, features = ["std"] }
-ibc-primitives = { workspace = true, features = ["std"] }
-ibc-proto = { workspace = true, features = ["serde", "std"] }
-tendermint-proto = { workspace = true }
-
-# Inherit 'tendermint' from the workspace.
-tendermint = { workspace = true }
+ibc-client-tendermint = { workspace = true, features = [
+    "std",
+], optional = true }
+ibc-core-client-types = { workspace = true, features = [
+    "std",
+], optional = true }
+ibc-core-commitment-types = { workspace = true, features = [
+    "std",
+], optional = true }
+ibc-core-host-types = { workspace = true, features = ["std"], optional = true }
+ibc-core-channel-types = { workspace = true, features = [
+    "std",
+], optional = true }
+ibc-core-client-context = { workspace = true, features = [
+    "std",
+], optional = true }
+ibc-core-handler-types = { workspace = true, features = [
+    "std",
+], optional = true }
+ibc-primitives = { workspace = true, features = ["std"], optional = true }
+ibc-proto = { workspace = true, features = ["serde", "std"], optional = true }
+tendermint-proto = { workspace = true, optional = true }
+tendermint = { workspace = true, optional = true }
 
 [features]
 default = []
 gas-escrow = []
 agentic = ["gas-escrow"]
+# This feature flag bundles all dependencies required for the native IBC service.
+svc-ibc = [
+    "dep:ibc-client-tendermint",
+    "dep:ibc-core-client-types",
+    "dep:ibc-core-commitment-types",
+    "dep:ibc-core-host-types",
+    "dep:ibc-core-channel-types",
+    "dep:ibc-core-client-context",
+    "dep:ibc-core-handler-types",
+    "dep:ibc-primitives",
+    "dep:ibc-proto",
+    "dep:tendermint-proto",
+    "dep:tendermint",
+]

@@ -4,8 +4,9 @@
 
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use depin_sdk_crypto::algorithms::hash::sha256;
 use depin_sdk_forge::testing::{
-    build_test_artifacts,
+    assert_log_contains,
     poll::{wait_for_height, wait_until},
     rpc::{get_block_by_height, query_state_key_at_root},
     submit_transaction, TestCluster,
@@ -14,14 +15,11 @@ use depin_sdk_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
         Credential, SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
-        ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
-    keys::{
-        active_service_key, ACCOUNT_ID_TO_PUBKEY_PREFIX, GOVERNANCE_KEY,
-        IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
-    },
+    keys::{active_service_key, GOVERNANCE_KEY, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
     service_configs::MigrationConfig,
 };
 use libp2p::identity::{self, Keypair};
@@ -63,12 +61,12 @@ fn create_system_tx(
     Ok(ChainTransaction::System(Box::new(tx_to_sign)))
 }
 
-/// State-based check with a small commit-window and a canary key from genesis.
+/// State-based check to verify if the new service is active.
 async fn service_v2_registered(rpc_addr: &str, activation_height: u64) -> Result<bool> {
     // Make sure we've actually produced the target block.
     wait_for_height(rpc_addr, activation_height, Duration::from_secs(10)).await?;
 
-    let fee_v2_key = active_service_key("fee_calculator_v2");
+    let fee_v2_key = active_service_key("fee_calculator");
     let canary_key = active_service_key("identity_hub"); // should exist since genesis
 
     for h in [
@@ -111,17 +109,50 @@ async fn service_v2_registered(rpc_addr: &str, activation_height: u64) -> Result
 #[tokio::test]
 async fn test_forkless_module_upgrade() -> Result<()> {
     // 1. SETUP & BUILD
-    build_test_artifacts();
-    // Construct a robust path to the WASM artifact relative to the workspace root.
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let contract_manifest_path =
+        manifest_dir.join("tests/contracts/fee-calculator-service/Cargo.toml");
+
     let workspace_root = manifest_dir
         .parent()
         .and_then(|p| p.parent())
         .ok_or_else(|| anyhow!("Could not determine workspace root from CARGO_MANIFEST_DIR"))?;
+    let target_dir = workspace_root.join("target");
+
+    let status = std::process::Command::new("cargo")
+        .args([
+            "build",
+            "--release",
+            "--manifest-path",
+            contract_manifest_path
+                .to_str()
+                .ok_or_else(|| anyhow!("Invalid path to contract manifest"))?,
+            "--target",
+            "wasm32-unknown-unknown",
+            // FIX: Add --target-dir to ensure the output goes to the main workspace target directory.
+            "--target-dir",
+            target_dir
+                .to_str()
+                .ok_or_else(|| anyhow!("Invalid path to target directory"))?,
+        ])
+        .status()?;
+    assert!(
+        status.success(),
+        "Failed to build fee-calculator-service WASM"
+    );
+
     let wasm_path =
-        workspace_root.join("target/wasm32-unknown-unknown/release/test_service_v2.wasm");
-    let service_v2_wasm = std::fs::read(&wasm_path)
+        workspace_root.join("target/wasm32-unknown-unknown/release/fee_calculator_service.wasm");
+    let service_artifact = std::fs::read(&wasm_path)
         .map_err(|e| anyhow!("Failed to read WASM file at {:?}: {}", wasm_path, e))?;
+
+    let manifest_toml = r#"
+id = "fee_calculator"
+abi_version = 1
+state_schema = "v1"
+runtime = "wasm"
+capabilities = ["TxDecorator"]
+"#;
 
     let governance_key = identity::Keypair::generate_ed25519();
     let governance_pubkey_b58 =
@@ -142,6 +173,7 @@ async fn test_forkless_module_upgrade() -> Result<()> {
             allowed_target_suites: vec![SignatureSuite::Ed25519],
             allow_downgrade: false,
         }))
+        .with_initial_service(InitialServiceConfig::Governance(Default::default()))
         .with_genesis_modifier(move |genesis, keys| {
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
             // Setup validator identity
@@ -151,46 +183,40 @@ async fn test_forkless_module_upgrade() -> Result<()> {
             let validator_account_id_hash =
                 account_id_from_key_material(suite, &validator_pk_bytes).unwrap();
             let validator_account_id = AccountId(validator_account_id_hash);
-            let vs_blob = ValidatorSetBlob {
-                schema_version: 2,
-                payload: ValidatorSetsV1 {
-                    current: ValidatorSetV1 {
-                        effective_from_height: 1,
-                        total_weight: 1,
-                        validators: vec![ValidatorV1 {
-                            account_id: validator_account_id,
-                            weight: 1,
-                            consensus_key: ActiveKeyRecord {
-                                suite,
-                                public_key_hash: validator_account_id.0,
-                                since_height: 0,
-                            },
-                        }],
-                    },
-                    next: None,
+            let vs_bytes = codec::to_bytes_canonical(&ValidatorSetsV1 {
+                current: ValidatorSetV1 {
+                    effective_from_height: 1,
+                    total_weight: 1,
+                    validators: vec![ValidatorV1 {
+                        account_id: validator_account_id,
+                        weight: 1,
+                        consensus_key: ActiveKeyRecord {
+                            suite,
+                            public_key_hash: validator_account_id_hash,
+                            since_height: 0,
+                        },
+                    }],
                 },
-            };
-            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload).unwrap();
+                next: None,
+            })
+            .unwrap();
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
             );
-
-            // Setup governance identity
             genesis_state.insert(
                 std::str::from_utf8(GOVERNANCE_KEY).unwrap().to_string(),
                 json!(governance_pubkey_b58),
             );
+
             let gov_pk_bytes = governance_key_clone.public().encode_protobuf(); // Use the cloned key
             let gov_account_id =
                 AccountId(account_id_from_key_material(suite, &gov_pk_bytes).unwrap());
 
-            // Add credentials for both validator and governance key
-            for (key, acct_id) in [
+            for (_key, acct_id) in [
                 (validator_key, validator_account_id),
                 (&governance_key_clone, gov_account_id),
             ] {
-                let pk_bytes = key.public().encode_protobuf();
                 let cred = Credential {
                     suite,
                     public_key_hash: acct_id.0,
@@ -204,26 +230,6 @@ async fn test_forkless_module_upgrade() -> Result<()> {
                     format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
                     json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
                 );
-
-                let record = ActiveKeyRecord {
-                    suite,
-                    public_key_hash: acct_id.0,
-                    since_height: 0,
-                };
-                let record_key = [b"identity::key_record::", acct_id.as_ref()].concat();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
-                    json!(format!(
-                        "b64:{}",
-                        BASE64_STANDARD.encode(codec::to_bytes_canonical(&record).unwrap())
-                    )),
-                );
-
-                let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, acct_id.as_ref()].concat();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes))),
-                );
             }
         })
         .build()
@@ -232,24 +238,37 @@ async fn test_forkless_module_upgrade() -> Result<()> {
     // 3. GET HANDLES
     let node = &cluster.validators[0];
     let rpc_addr = &node.rpc_addr;
+    let mut nonce = 0;
 
-    // 4. SUBMIT UPGRADE TRANSACTION
+    // 4. SUBMIT TWO-PHASE UPGRADE
+    // Phase 1: Store the artifact and manifest on-chain.
+    let store_payload = SystemPayload::StoreModule {
+        manifest: manifest_toml.to_string(),
+        artifact: service_artifact.clone(),
+    };
+    let store_tx = create_system_tx(&governance_key, store_payload, nonce, 1.into())?;
+    nonce += 1;
+    submit_transaction(rpc_addr, &store_tx).await?;
+    wait_for_height(rpc_addr, 2, Duration::from_secs(20)).await?; // Wait for tx to be included
+
+    // Phase 2: Schedule the upgrade using the hashes of the stored components.
     let activation_height = 5;
-    let payload = SystemPayload::SwapModule {
-        service_type: "fee_calculator_v2".to_string(),
-        module_wasm: service_v2_wasm,
+    let manifest_hash = sha256(manifest_toml.as_bytes())?;
+    let artifact_hash = sha256(&service_artifact)?;
+    let swap_payload = SystemPayload::SwapModule {
+        service_id: "fee_calculator".to_string(),
+        manifest_hash,
+        artifact_hash,
         activation_height,
     };
 
-    let tx = create_system_tx(&governance_key, payload, 0, 1.into())?; // Nonce is 0 for first tx
+    let swap_tx = create_system_tx(&governance_key, swap_payload, nonce, 1.into())?;
+    submit_transaction(rpc_addr, &swap_tx).await?;
 
-    submit_transaction(rpc_addr, &tx).await?;
-
-    // 5. WAIT for the chain to advance to the scheduled activation height.
+    // 5. WAIT for activation.
     wait_for_height(rpc_addr, activation_height, Duration::from_secs(60)).await?;
 
-    // 6. ASSERT the upgrade was applied by polling the state. This is the primary, robust assertion.
-    // Give CI a little headroom (5s blocks -> 3 heights window).
+    // 6. ASSERT the upgrade was applied by polling state.
     wait_until(
         Duration::from_secs(30),
         Duration::from_millis(500),
@@ -258,12 +277,30 @@ async fn test_forkless_module_upgrade() -> Result<()> {
     .await
     .map_err(|_| {
         anyhow!(
-            "State verification failed: service_v2 was not registered in state at or after height {}",
+            "State verification failed: fee_calculator was not registered in state at or after height {}",
             activation_height
         )
     })?;
 
-    println!("--- Forkless Module Upgrade E2E Test Successful ---");
+    // 7. Verify Functionality by checking logs
+    let (_, mut workload_logs, _) = node.subscribe_logs();
+    let dummy_tx = create_system_tx(
+        &node.keypair,
+        SystemPayload::RequestOracleData {
+            url: "test".into(),
+            request_id: 99,
+        },
+        0,
+        1.into(),
+    )?;
+    submit_transaction(rpc_addr, &dummy_tx).await?;
+    assert_log_contains(
+        "Workload",
+        &mut workload_logs,
+        "[WasmService fee_calculator] Calling ante_handle in WASM",
+    )
+    .await?;
 
+    println!("--- Forkless Module Upgrade E2E Test Successful ---");
     Ok(())
 }

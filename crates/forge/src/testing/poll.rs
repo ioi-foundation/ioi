@@ -6,7 +6,10 @@ use depin_sdk_client::WorkloadClient;
 use depin_sdk_types::{
     app::{AccountId, Proposal, ProposalStatus, StateEntry},
     codec,
-    keys::GOVERNANCE_PROPOSAL_KEY_PREFIX,
+    keys::{
+        GOVERNANCE_PROPOSAL_KEY_PREFIX, ORACLE_DATA_PREFIX, ORACLE_PENDING_REQUEST_PREFIX,
+        QUARANTINED_VALIDATORS_KEY, STATUS_KEY,
+    },
 };
 use std::future::Future;
 use std::time::{Duration, Instant};
@@ -206,6 +209,29 @@ pub async fn wait_for_evidence(
     .await
 }
 
+/// Waits for an oracle request to appear in the "pending" state on-chain.
+pub async fn wait_for_pending_oracle_request(
+    rpc_addr: &str,
+    request_id: u64,
+    timeout: Duration,
+) -> Result<()> {
+    let key = [ORACLE_PENDING_REQUEST_PREFIX, &request_id.to_le_bytes()].concat();
+
+    wait_for(
+        &format!("pending oracle request for id {}", request_id),
+        Duration::from_millis(500),
+        timeout,
+        || async {
+            if query_state_key(rpc_addr, &key).await?.is_some() {
+                Ok(Some(()))
+            } else {
+                Ok(None)
+            }
+        },
+    )
+    .await
+}
+
 /// A generic polling utility that waits until an async condition returns true.
 pub async fn wait_until<F, Fut>(
     timeout: Duration,
@@ -239,8 +265,6 @@ pub async fn wait_for_oracle_data(
     expected_value: &[u8],
     timeout: Duration,
 ) -> Result<()> {
-    use depin_sdk_types::keys::ORACLE_DATA_PREFIX;
-
     let key = [ORACLE_DATA_PREFIX, &request_id.to_le_bytes()].concat();
 
     wait_for(

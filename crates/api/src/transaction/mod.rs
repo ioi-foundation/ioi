@@ -40,7 +40,7 @@ pub trait TransactionModel: Send + Sync {
         chain: &CV,                    // ChainView for read-only context
         state: &mut dyn StateAccessor, // The transactional state overlay for writes
         tx: &Self::Transaction,
-        ctx: TxContext<'_>,
+        ctx: &mut TxContext<'_>,
     ) -> Result<(), TransactionError>
     where
         ST: StateManager<

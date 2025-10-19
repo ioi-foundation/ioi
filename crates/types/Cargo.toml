@@ -16,6 +16,7 @@ libp2p = { workspace = true }
 bcs = "0.1"
 parity-scale-codec = { workspace = true }
 prost = { workspace = true }
+bitflags = { workspace = true }                           # <-- THIS LINE FIXES THE COMPILE ERROR
 
 [features]
 default = []

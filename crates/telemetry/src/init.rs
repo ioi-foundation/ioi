@@ -5,6 +5,7 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, EnvFilter, Registry};
 pub fn init_tracing() -> Result<(), anyhow::Error> {
     let fmt_layer = fmt::layer()
         .json()
+        .with_writer(std::io::stderr)
         .with_target(true)
         .with_timer(fmt::time::UtcTime::rfc_3339());
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));

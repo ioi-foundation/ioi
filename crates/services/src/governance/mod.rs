@@ -1,9 +1,9 @@
 // Path: crates/services/src/governance/mod.rs
 //! Governance module implementations for the DePIN SDK
 
+use async_trait::async_trait;
 use depin_sdk_api::lifecycle::OnEndBlock;
-use depin_sdk_api::services::access::Service;
-use depin_sdk_api::services::{BlockchainService, ServiceType, UpgradableService};
+use depin_sdk_api::services::{BlockchainService, UpgradableService};
 use depin_sdk_api::state::StateAccessor;
 use depin_sdk_api::transaction::context::TxContext;
 // --- FIX: Import the types from the `depin-sdk-types` crate ---
@@ -16,7 +16,8 @@ use depin_sdk_types::keys::{
     GOVERNANCE_NEXT_PROPOSAL_ID_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, GOVERNANCE_VOTE_KEY_PREFIX,
     VALIDATOR_SET_KEY,
 };
-use depin_sdk_types::service_configs::GovernanceParams;
+use depin_sdk_types::service_configs::{Capabilities, GovernanceParams};
+use std::any::Any;
 use std::collections::BTreeMap;
 
 // --- Enums and Structs are now defined in `depin-sdk-types` ---
@@ -39,13 +40,23 @@ pub struct GovernanceModule {
 }
 
 impl BlockchainService for GovernanceModule {
-    fn service_type(&self) -> ServiceType {
-        ServiceType::Governance
+    fn id(&self) -> &'static str {
+        "governance"
     }
-}
 
-impl Service for GovernanceModule {
-    fn as_any(&self) -> &dyn std::any::Any {
+    fn abi_version(&self) -> u32 {
+        1
+    }
+
+    fn state_schema(&self) -> &'static str {
+        "v1"
+    }
+
+    fn capabilities(&self) -> Capabilities {
+        Capabilities::ON_END_BLOCK
+    }
+
+    fn as_any(&self) -> &dyn Any {
         self
     }
 
@@ -54,18 +65,20 @@ impl Service for GovernanceModule {
     }
 }
 
+#[async_trait]
 impl UpgradableService for GovernanceModule {
-    fn prepare_upgrade(&mut self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
+    async fn prepare_upgrade(&mut self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
         // This simple version is stateless. A real implementation would serialize its params.
         Ok(Vec::new())
     }
-    fn complete_upgrade(&mut self, _snapshot: &[u8]) -> Result<(), UpgradeError> {
+    async fn complete_upgrade(&mut self, _snapshot: &[u8]) -> Result<(), UpgradeError> {
         Ok(())
     }
 }
 
+#[async_trait]
 impl OnEndBlock for GovernanceModule {
-    fn on_end_block(
+    async fn on_end_block(
         &self,
         state: &mut dyn StateAccessor,
         ctx: &TxContext,

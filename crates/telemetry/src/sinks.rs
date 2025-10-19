@@ -70,14 +70,36 @@ impl ErrorMetricsSink for NopSink {
     fn inc_error(&self, _kind: &'static str, _variant: &'static str) {}
 }
 
+/// A sink for service-level metrics.
+pub trait ServiceMetricsSink: Send + Sync + std::fmt::Debug {
+    /// Increments a counter when a required service capability cannot be found.
+    fn inc_capability_resolve_fail(&self, capability: &'static str);
+    /// Observes the latency of a dispatched service call.
+    fn observe_service_dispatch_latency(&self, service_id: &'static str, duration_secs: f64);
+}
+impl ServiceMetricsSink for NopSink {
+    fn inc_capability_resolve_fail(&self, _capability: &'static str) {}
+    fn observe_service_dispatch_latency(&self, _service_id: &'static str, _duration_secs: f64) {}
+}
+
 // A unified sink that implements all domain-specific traits
 pub trait MetricsSink:
-    StorageMetricsSink + NetworkMetricsSink + ConsensusMetricsSink + RpcMetricsSink + ErrorMetricsSink
+    StorageMetricsSink
+    + NetworkMetricsSink
+    + ConsensusMetricsSink
+    + RpcMetricsSink
+    + ErrorMetricsSink
+    + ServiceMetricsSink
 {
 }
 
 // Blanket implementation
 impl<T> MetricsSink for T where
-    T: StorageMetricsSink + NetworkMetricsSink + ConsensusMetricsSink + RpcMetricsSink + ErrorMetricsSink
+    T: StorageMetricsSink
+        + NetworkMetricsSink
+        + ConsensusMetricsSink
+        + RpcMetricsSink
+        + ErrorMetricsSink
+        + ServiceMetricsSink
 {
 }

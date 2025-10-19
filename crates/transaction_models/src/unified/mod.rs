@@ -9,8 +9,11 @@ use depin_sdk_api::state::{StateAccessor, StateManager};
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::vm::ExecutionContext;
+use depin_sdk_crypto::algorithms::hash::sha256;
 use depin_sdk_services::governance::GovernanceModule;
+#[cfg(feature = "svc-ibc")]
 use depin_sdk_services::ibc::channel::ChannelManager;
+#[cfg(feature = "svc-ibc")]
 use depin_sdk_services::ibc::registry::VerifierRegistry;
 use depin_sdk_services::identity::IdentityHub;
 use depin_sdk_types::app::{
@@ -20,10 +23,12 @@ use depin_sdk_types::app::{
 use depin_sdk_types::codec;
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::{StateError, TransactionError};
+#[cfg(feature = "svc-ibc")]
 use depin_sdk_types::ibc::TendermintHeader;
 use depin_sdk_types::keys::{
     ACCOUNT_ID_TO_PUBKEY_PREFIX, EVIDENCE_REGISTRY_KEY, ORACLE_DATA_PREFIX,
-    ORACLE_PENDING_REQUEST_PREFIX, UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY,
+    ORACLE_PENDING_REQUEST_PREFIX, UPGRADE_ARTIFACT_PREFIX, UPGRADE_MANIFEST_PREFIX,
+    UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY,
 };
 use libp2p::identity::PublicKey as Libp2pPublicKey;
 use serde::{Deserialize, Serialize};
@@ -80,7 +85,7 @@ where
         chain_ref: &CV,
         state: &mut dyn StateAccessor,
         tx: &Self::Transaction,
-        ctx: TxContext<'_>,
+        ctx: &mut TxContext<'_>,
     ) -> Result<(), TransactionError>
     where
         ST: StateManager<
@@ -460,166 +465,72 @@ where
                             .rotate(state, &sys_tx.header.account_id, &proof, ctx.block_height)
                             .map_err(TransactionError::Invalid)
                     }
+                    SystemPayload::StoreModule { manifest, artifact } => {
+                        let manifest_hash = sha256(manifest.as_bytes())?;
+                        let artifact_hash = sha256(&artifact)?;
+                        let manifest_key = [UPGRADE_MANIFEST_PREFIX, &manifest_hash].concat();
+                        let artifact_key = [UPGRADE_ARTIFACT_PREFIX, &artifact_hash].concat();
+                        // Idempotent write
+                        if state.get(&manifest_key)?.is_none() {
+                            state.insert(&manifest_key, manifest.as_bytes())?;
+                        }
+                        if state.get(&artifact_key)?.is_none() {
+                            state.insert(&artifact_key, &artifact)?;
+                        }
+                        Ok(())
+                    }
                     SystemPayload::SwapModule {
-                        service_type,
-                        module_wasm,
+                        service_id,
+                        manifest_hash,
+                        artifact_hash,
                         activation_height,
                     } => {
                         let key =
                             [UPGRADE_PENDING_PREFIX, &activation_height.to_le_bytes()].concat();
-                        let mut pending_upgrades: Vec<(String, Vec<u8>)> = state
+                        let mut pending: Vec<(String, [u8; 32], [u8; 32])> = state
                             .get(&key)?
-                            .map(|bytes| codec::from_bytes_canonical(&bytes).unwrap_or_default())
+                            .and_then(|b| codec::from_bytes_canonical(&b).ok())
                             .unwrap_or_default();
-                        pending_upgrades.push((service_type, module_wasm));
-                        let value = codec::to_bytes_canonical(&pending_upgrades)?;
-                        state.insert(&key, &value)?;
+                        pending.push((service_id, manifest_hash, artifact_hash));
+                        state.insert(&key, &codec::to_bytes_canonical(&pending)?)?;
                         Ok(())
                     }
-                    // --- NEW IBC HANDLERS ---
-                    SystemPayload::VerifyHeader {
-                        chain_id,
-                        header,
-                        finality,
-                    } => {
-                        let registry = ctx.services.get::<VerifierRegistry>().ok_or_else(|| {
-                            TransactionError::Unsupported(
-                                "VerifierRegistry service not found".into(),
-                            )
-                        })?;
-                        let verifier = registry.get(&chain_id).ok_or_else(|| {
-                            TransactionError::Invalid(format!(
-                                "No verifier registered for chain '{}'",
-                                chain_id
-                            ))
-                        })?;
-                        let mut verify_ctx = depin_sdk_api::ibc::VerifyCtx::default();
-                        verifier
-                            .verify_header(&header, &finality, &mut verify_ctx)
+                    // --- NEW IBC DISPATCH BLOCK ---
+                    #[cfg(feature = "svc-ibc")]
+                    SystemPayload::VerifyHeader { .. }
+                    | SystemPayload::SendPacket { .. }
+                    | SystemPayload::RecvPacket { .. }
+                    | SystemPayload::AcknowledgePacket { .. } => {
+                        // Find the first registered service that implements the IBC handler capability.
+                        let handler = ctx
+                            .services
+                            .iter_deterministic() // Use a new, efficient iterator
+                            .find_map(|s| s.as_ibc_handler())
+                            .ok_or_else(|| {
+                                TransactionError::Unsupported(
+                                    "IBC service is not enabled on this chain".into(),
+                                )
+                            })?;
+
+                        // Dispatch the payload by reference and pass a mutable context.
+                        handler
+                            .handle_ibc_payload(state, &sys_tx.payload, ctx)
                             .await
-                            .map_err(|e| TransactionError::Invalid(e.to_string()))?;
-                        Ok(())
                     }
                     SystemPayload::SubmitProof {
                         target_verifier_id,
                         proof_bytes,
                         public_inputs,
                     } => {
-                        // TODO: Implement ZK proof submission logic.
-                        // 1. Get VerifierRegistry from services.
-                        // 2. Get the verifier for `target_verifier_id`.
-                        // 3. Downcast it to a trait that supports ZK proof submission (e.g., `ZkEnabledVerifier`).
-                        // 4. Call a method like `verifier.receive_proof(...)`.
-                        // This requires extending the API with new traits.
+                        // This remains a placeholder until the corresponding service is defined.
                         let (_, _, _) = (target_verifier_id, proof_bytes, public_inputs);
                         Err(TransactionError::Unsupported(
                             "SubmitProof is not yet implemented".into(),
                         ))
                     }
-                    SystemPayload::SendPacket { packet, .. } => {
-                        let channel_manager =
-                            ctx.services.get::<ChannelManager>().ok_or_else(|| {
-                                TransactionError::Unsupported(
-                                    "ChannelManager service not found".into(),
-                                )
-                            })?;
-                        channel_manager
-                            .send_packet(state, packet)
-                            .map_err(|e| TransactionError::Invalid(e.to_string()))
-                    }
-                    SystemPayload::RecvPacket {
-                        packet,
-                        proof,
-                        proof_height,
-                    } => {
-                        let registry = ctx.services.get::<VerifierRegistry>().ok_or_else(|| {
-                            TransactionError::Unsupported(
-                                "VerifierRegistry service not found".into(),
-                            )
-                        })?;
-                        let channel_manager =
-                            ctx.services.get::<ChannelManager>().ok_or_else(|| {
-                                TransactionError::Unsupported(
-                                    "ChannelManager service not found".into(),
-                                )
-                            })?;
-
-                        // NOTE: This assumes `packet.source_channel` corresponds to a registered verifier chain_id.
-                        let verifier = registry.get(&packet.source_channel).ok_or_else(|| {
-                            TransactionError::Invalid(format!(
-                                "No verifier for source channel '{}'",
-                                packet.source_channel
-                            ))
-                        })?;
-
-                        // TODO: The `verify_inclusion` API requires a `Header`, which is not present in this payload.
-                        // This indicates a required change in the `InterchainVerifier` API or this payload.
-                        // For now, we assume the verifier implementation can fetch the header internally using `proof_height`.
-                        // We pass a placeholder header.
-                        let placeholder_header =
-                            depin_sdk_types::ibc::Header::Tendermint(TendermintHeader {
-                                trusted_height: 0,
-                                data: vec![],
-                            });
-                        let mut verify_ctx = depin_sdk_api::ibc::VerifyCtx::default();
-                        verifier
-                            .verify_inclusion(&proof, &placeholder_header, &mut verify_ctx)
-                            .await
-                            .map_err(|e| TransactionError::Invalid(e.to_string()))?;
-
-                        channel_manager
-                            .recv_packet(state, packet, proof_height)
-                            .map_err(|e| TransactionError::Invalid(e.to_string()))
-                    }
-                    SystemPayload::AcknowledgePacket {
-                        packet,
-                        acknowledgement,
-                        proof,
-                        proof_height: _,
-                    } => {
-                        let registry = ctx.services.get::<VerifierRegistry>().ok_or_else(|| {
-                            TransactionError::Unsupported(
-                                "VerifierRegistry service not found".into(),
-                            )
-                        })?;
-                        let channel_manager =
-                            ctx.services.get::<ChannelManager>().ok_or_else(|| {
-                                TransactionError::Unsupported(
-                                    "ChannelManager service not found".into(),
-                                )
-                            })?;
-
-                        let verifier =
-                            registry.get(&packet.destination_channel).ok_or_else(|| {
-                                TransactionError::Invalid(format!(
-                                    "No verifier for destination channel '{}'",
-                                    packet.destination_channel
-                                ))
-                            })?;
-
-                        // Same issue as RecvPacket: `Header` is needed but not available. Assuming internal lookup.
-                        let placeholder_header =
-                            depin_sdk_types::ibc::Header::Tendermint(TendermintHeader {
-                                trusted_height: 0,
-                                data: vec![],
-                            });
-                        let mut verify_ctx = depin_sdk_api::ibc::VerifyCtx::default();
-                        verifier
-                            .verify_inclusion(&proof, &placeholder_header, &mut verify_ctx)
-                            .await
-                            .map_err(|e| TransactionError::Invalid(e.to_string()))?;
-
-                        channel_manager
-                            .acknowledge_packet(state, packet, &acknowledgement)
-                            .map_err(|e| TransactionError::Invalid(e.to_string()))
-                    }
-                    // This was the old, now-removed variant. We can delete it.
-                    #[allow(unreachable_patterns)]
-                    SystemPayload::VerifyForeignReceipt { .. } => {
-                        Err(TransactionError::Unsupported(
-                            "VerifyForeignReceipt is deprecated. Use IBC packets.".into(),
-                        ))
-                    }
+                    _ => Err(TransactionError::Unsupported(
+                        "Payload not handled by IBC service".into(),
+                    )),
                 }
             }
         }

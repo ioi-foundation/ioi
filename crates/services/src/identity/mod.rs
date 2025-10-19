@@ -1,9 +1,9 @@
 // Path: crates/services/src/identity/mod.rs
+use async_trait::async_trait;
 use depin_sdk_api::crypto::{SerializableKey, VerifyingKey};
 use depin_sdk_api::identity::CredentialsView;
 use depin_sdk_api::lifecycle::OnEndBlock;
-use depin_sdk_api::services::access::Service;
-use depin_sdk_api::services::{BlockchainService, ServiceType, UpgradableService};
+use depin_sdk_api::services::{BlockchainService, UpgradableService};
 use depin_sdk_api::state::StateAccessor;
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::decorator::TxDecorator;
@@ -18,7 +18,8 @@ use depin_sdk_types::keys::{
     IDENTITY_CREDENTIALS_PREFIX, IDENTITY_PROMOTION_INDEX_PREFIX, IDENTITY_ROTATION_NONCE_PREFIX,
     VALIDATOR_SET_KEY,
 };
-use depin_sdk_types::service_configs::MigrationConfig;
+use depin_sdk_types::service_configs::{Capabilities, MigrationConfig};
+use std::any::Any;
 
 #[derive(Debug, Clone)]
 pub struct IdentityHub {
@@ -201,7 +202,7 @@ impl IdentityHub {
             .map_err(|e| e.to_string())?;
 
         if old_pk_hash != active_cred.public_key_hash {
-            return Err("old_public_key does not match active credential".into());
+            return Err("old_public_key does not match active credential".to_string());
         }
         Self::verify_rotation_signature(
             active_cred.suite,
@@ -256,13 +257,19 @@ impl IdentityHub {
 }
 
 impl BlockchainService for IdentityHub {
-    fn service_type(&self) -> ServiceType {
-        ServiceType::Custom("identity_hub".to_string())
+    fn id(&self) -> &'static str {
+        "identity_hub"
     }
-}
-
-impl Service for IdentityHub {
-    fn as_any(&self) -> &dyn std::any::Any {
+    fn abi_version(&self) -> u32 {
+        1
+    }
+    fn state_schema(&self) -> &'static str {
+        "v1"
+    }
+    fn capabilities(&self) -> Capabilities {
+        Capabilities::TX_DECORATOR | Capabilities::ON_END_BLOCK
+    }
+    fn as_any(&self) -> &dyn Any {
         self
     }
     fn as_tx_decorator(&self) -> Option<&dyn TxDecorator> {
@@ -276,11 +283,12 @@ impl Service for IdentityHub {
     }
 }
 
+#[async_trait]
 impl UpgradableService for IdentityHub {
-    fn prepare_upgrade(&mut self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
+    async fn prepare_upgrade(&mut self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
         Ok(Vec::new())
     }
-    fn complete_upgrade(&mut self, _snapshot: &[u8]) -> Result<(), UpgradeError> {
+    async fn complete_upgrade(&mut self, _snapshot: &[u8]) -> Result<(), UpgradeError> {
         Ok(())
     }
 }
@@ -300,8 +308,9 @@ impl CredentialsView for IdentityHub {
     }
 }
 
+#[async_trait]
 impl TxDecorator for IdentityHub {
-    fn ante_handle(
+    async fn ante_handle(
         &self,
         _state: &mut dyn StateAccessor,
         _tx: &ChainTransaction,
@@ -311,8 +320,9 @@ impl TxDecorator for IdentityHub {
     }
 }
 
+#[async_trait]
 impl OnEndBlock for IdentityHub {
-    fn on_end_block(
+    async fn on_end_block(
         &self,
         state: &mut dyn StateAccessor,
         ctx: &TxContext,

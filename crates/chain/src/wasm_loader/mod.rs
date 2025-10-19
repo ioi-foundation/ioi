@@ -1,65 +1,96 @@
 // Path: crates/chain/src/wasm_loader/mod.rs
 
-use depin_sdk_api::impl_service_base;
-use depin_sdk_api::services::{BlockchainService, ServiceType, UpgradableService};
-use depin_sdk_types::error::{CoreError, UpgradeError};
+use async_trait::async_trait;
+use depin_sdk_api::{
+    lifecycle::OnEndBlock,
+    services::{BlockchainService, UpgradableService},
+    state::StateAccessor,
+    transaction::{context::TxContext, decorator::TxDecorator},
+};
+use depin_sdk_types::{
+    app::ChainTransaction,
+    codec::{from_bytes_canonical, to_bytes_canonical},
+    error::{CoreError, StateError, TransactionError, UpgradeError},
+    service_configs::Capabilities,
+};
+use parity_scale_codec::{Decode, Encode};
+use std::any::Any;
 use std::fmt::{self, Debug};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use wasmtime::*;
+
+#[derive(Encode, Decode)]
+struct AnteHandleRequest {
+    tx: ChainTransaction,
+}
+#[derive(Encode, Decode)]
+struct AnteHandleResponse {
+    result: Result<(), String>,
+}
 
 /// A wrapper that makes a WASM module behave like an `UpgradableService`.
 pub struct WasmService {
-    service_type: ServiceType,
+    id: &'static str,
+    abi_version: u32,
+    state_schema: &'static str,
     instance: Instance,
-    store: Store<()>,
+    store: Mutex<Store<()>>,
+    caps: Capabilities,
 }
 
 impl Debug for WasmService {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("WasmService")
-            .field("service_type", &self.service_type)
+            .field("id", &self.id)
+            .field("abi_version", &self.abi_version)
+            .field("state_schema", &self.state_schema)
+            .field("capabilities", &self.caps)
             .finish()
     }
 }
 
 impl WasmService {
     /// Helper to call a WASM function that takes a byte slice and returns one.
-    fn call_wasm_fn(&mut self, fn_name: &str, data: &[u8]) -> Result<Vec<u8>, UpgradeError> {
+    fn call_wasm_fn(&self, fn_name: &str, data: &[u8]) -> Result<Vec<u8>, UpgradeError> {
+        let mut store = self
+            .store
+            .lock()
+            .map_err(|_| UpgradeError::OperationFailed("store lock poisoned".into()))?;
         // 1. Get exported functions from the WASM instance.
         let memory = self
             .instance
-            .get_memory(&mut self.store, "memory")
+            .get_memory(&mut *store, "memory")
             .ok_or_else(|| {
                 UpgradeError::InvalidUpgrade("WASM module must export 'memory'".to_string())
             })?;
         let allocate = self
             .instance
-            .get_typed_func::<u32, u32>(&mut self.store, "allocate")
+            .get_typed_func::<u32, u32>(&mut *store, "allocate")
             .map_err(|e| {
                 UpgradeError::InvalidUpgrade(format!("'allocate' function not found: {}", e))
             })?;
         let wasm_fn = self
             .instance
-            .get_typed_func::<(u32, u32), u64>(&mut self.store, fn_name)
+            .get_typed_func::<(u32, u32), u64>(&mut *store, fn_name)
             .map_err(|e| {
                 UpgradeError::InvalidUpgrade(format!("'{}' function not found: {}", fn_name, e))
             })?;
 
         // 2. Allocate memory in the guest for the input data.
         let input_ptr = allocate
-            .call(&mut self.store, data.len() as u32)
+            .call(&mut *store, data.len() as u32)
             .map_err(|e| UpgradeError::OperationFailed(format!("WASM allocate failed: {}", e)))?;
 
         // 3. Write the input data into the guest's memory.
         memory
-            .write(&mut self.store, input_ptr as usize, data)
+            .write(&mut *store, input_ptr as usize, data)
             .map_err(|e| {
                 UpgradeError::OperationFailed(format!("WASM memory write failed: {}", e))
             })?;
 
         // 4. Call the target function.
         let result_packed = wasm_fn
-            .call(&mut self.store, (input_ptr, data.len() as u32))
+            .call(&mut *store, (input_ptr, data.len() as u32))
             .map_err(|e| {
                 UpgradeError::OperationFailed(format!(
                     "WASM function call '{}' failed: {}",
@@ -74,7 +105,7 @@ impl WasmService {
         // 6. Read the result data from the guest's memory.
         let mut result_buffer = vec![0u8; result_len as usize];
         memory
-            .read(&self.store, result_ptr as usize, &mut result_buffer)
+            .read(&*store, result_ptr as usize, &mut result_buffer)
             .map_err(|e| {
                 UpgradeError::OperationFailed(format!("WASM memory read failed: {}", e))
             })?;
@@ -84,32 +115,103 @@ impl WasmService {
 }
 
 impl BlockchainService for WasmService {
-    fn service_type(&self) -> ServiceType {
-        self.service_type.clone()
+    fn id(&self) -> &'static str {
+        self.id
+    }
+    fn abi_version(&self) -> u32 {
+        self.abi_version
+    }
+    fn state_schema(&self) -> &'static str {
+        self.state_schema
+    }
+    fn capabilities(&self) -> Capabilities {
+        self.caps
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_tx_decorator(&self) -> Option<&dyn TxDecorator> {
+        (self.caps.contains(Capabilities::TX_DECORATOR)).then_some(self)
+    }
+    fn as_on_end_block(&self) -> Option<&dyn OnEndBlock> {
+        (self.caps.contains(Capabilities::ON_END_BLOCK)).then_some(self)
     }
 }
 
-impl_service_base!(WasmService);
+#[async_trait]
+impl TxDecorator for WasmService {
+    async fn ante_handle(
+        &self,
+        _state: &mut dyn StateAccessor,
+        tx: &ChainTransaction,
+        _ctx: &TxContext,
+    ) -> Result<(), TransactionError> {
+        let req = AnteHandleRequest { tx: tx.clone() };
+        let req_bytes = to_bytes_canonical(&req).map_err(TransactionError::Serialization)?;
+        log::info!("[WasmService {}] Calling ante_handle in WASM", self.id());
+        let resp_bytes = self
+            .call_wasm_fn("ante_handle", &req_bytes)
+            .map_err(|e| TransactionError::Invalid(format!("WASM ante_handle failed: {}", e)))?;
+        let resp: AnteHandleResponse =
+            from_bytes_canonical(&resp_bytes).map_err(TransactionError::Deserialization)?;
+        resp.result.map_err(TransactionError::Invalid)
+    }
+}
 
+#[async_trait]
+impl OnEndBlock for WasmService {
+    async fn on_end_block(
+        &self,
+        _state: &mut dyn StateAccessor,
+        _ctx: &TxContext,
+    ) -> Result<(), StateError> {
+        // Placeholder implementation. A real one would serialize the context,
+        // call the `on_end_block` WASM export, and handle the response.
+        log::info!(
+            "[WasmService {}] OnEndBlock hook called (currently a no-op).",
+            self.id()
+        );
+        Ok(())
+    }
+}
+
+#[async_trait]
 impl UpgradableService for WasmService {
-    fn prepare_upgrade(&mut self, new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
+    async fn prepare_upgrade(&mut self, new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
         self.call_wasm_fn("prepare_upgrade", new_module_wasm)
     }
 
-    fn complete_upgrade(&mut self, snapshot: &[u8]) -> Result<(), UpgradeError> {
+    async fn complete_upgrade(&mut self, snapshot: &[u8]) -> Result<(), UpgradeError> {
         self.call_wasm_fn("complete_upgrade", snapshot)?;
         Ok(())
     }
 }
 
-/// The factory function that replaces the placeholder.
+/// Creates a deterministically configured Wasmtime engine and a fueled store.
+fn make_engine_and_store() -> Result<(Engine, Store<()>), CoreError> {
+    let mut config = Config::new();
+    config.async_support(true);
+    config.consume_fuel(true); // Enable fuel metering
+    config.wasm_threads(false); // Disable for determinism
+    config.wasm_simd(false); // Disable for determinism
+    let engine = Engine::new(&config)
+        .map_err(|e| CoreError::Upgrade(format!("Wasmtime config error: {}", e)))?;
+    let mut store = Store::new(&engine, ());
+    // Add an initial amount of fuel. This must be replenished before each call.
+    store
+        .set_fuel(10_000_000_000)
+        .map_err(|e| CoreError::Upgrade(format!("Wasmtime fuel error: {}", e)))?;
+    Ok((engine, store))
+}
+
+/// The factory function that loads and instantiates a service from a WASM blob.
 pub fn load_service_from_wasm(wasm_blob: &[u8]) -> Result<Arc<dyn UpgradableService>, CoreError> {
     log::info!(
         "Attempting to load service from WASM blob ({} bytes)...",
         wasm_blob.len()
     );
-    let engine = Engine::default();
-    let mut store = Store::new(&engine, ());
+
+    let (engine, mut store) = make_engine_and_store()?;
 
     let module = Module::new(&engine, wasm_blob)
         .map_err(|e| CoreError::Upgrade(format!("Failed to compile WASM: {e}")))?;
@@ -118,39 +220,107 @@ pub fn load_service_from_wasm(wasm_blob: &[u8]) -> Result<Arc<dyn UpgradableServ
     let instance = Instance::new(&mut store, &module, &[])
         .map_err(|e| CoreError::Upgrade(format!("Failed to instantiate WASM: {e}")))?;
 
-    // Call the `service_type` function to get the service identifier.
-    let get_service_type_fn = instance
-        .get_typed_func::<(), u64>(&mut store, "service_type")
-        .map_err(|e| CoreError::Upgrade(format!("WASM missing `service_type` export: {e}")))?;
-
-    let result_packed = get_service_type_fn
-        .call(&mut store, ())
-        .map_err(|e| CoreError::Upgrade(format!("WASM `service_type` call failed: {e}")))?;
-
-    let result_ptr = (result_packed >> 32) as u32;
-    let result_len = result_packed as u32;
-
     let memory = instance
         .get_memory(&mut store, "memory")
         .ok_or_else(|| CoreError::Upgrade("WASM module must export 'memory'".to_string()))?;
-    let mut type_buffer = vec![0u8; result_len as usize];
-    memory
-        .read(&store, result_ptr as usize, &mut type_buffer)
-        .map_err(|e| {
-            CoreError::Upgrade(format!("WASM memory read failed for service_type: {e}"))
-        })?;
-    let type_str = String::from_utf8(type_buffer)
-        .map_err(|e| CoreError::Upgrade(format!("Service type is not valid UTF-8: {e}")))?;
 
-    let service_type = ServiceType::Custom(type_str);
+    // Helper closure replaced with direct calls to resolve borrow issues.
+    let id_str = {
+        let func = instance
+            .get_typed_func::<(), u64>(&mut store, "id")
+            .map_err(|e| CoreError::Upgrade(format!("WASM missing `id` export: {}", e)))?;
+        let packed = func
+            .call(&mut store, ())
+            .map_err(|e| CoreError::Upgrade(format!("WASM `id` call failed: {}", e)))?;
+        let ptr = (packed >> 32) as u32;
+        let len = packed as u32;
+        let mut buffer = vec![0u8; len as usize];
+        memory
+            .read(&store, ptr as usize, &mut buffer)
+            .map_err(|e| CoreError::Upgrade(format!("WASM memory read failed for `id`: {}", e)))?;
+        String::from_utf8(buffer)
+            .map_err(|e| CoreError::Upgrade(format!("`id` result is not valid UTF-8: {}", e)))?
+    };
+    // Leak the string to get a 'static lifetime, required by the BlockchainService trait.
+    // This is safe because services are long-lived.
+    let id: &'static str = Box::leak(id_str.into_boxed_str());
+
+    // Call `abi_version`
+    let abi_version = {
+        let func = instance
+            .get_typed_func::<(), u32>(&mut store, "abi_version")
+            .map_err(|e| CoreError::Upgrade(format!("WASM missing `abi_version` export: {e}")))?;
+        func.call(&mut store, ())
+            .map_err(|e| CoreError::Upgrade(format!("WASM `abi_version` call failed: {e}")))?
+    };
+
+    // Call `state_schema`
+    let state_schema_str = {
+        let func = instance
+            .get_typed_func::<(), u64>(&mut store, "state_schema")
+            .map_err(|e| {
+                CoreError::Upgrade(format!("WASM missing `state_schema` export: {}", e))
+            })?;
+        let packed = func
+            .call(&mut store, ())
+            .map_err(|e| CoreError::Upgrade(format!("WASM `state_schema` call failed: {}", e)))?;
+        let ptr = (packed >> 32) as u32;
+        let len = packed as u32;
+        let mut buffer = vec![0u8; len as usize];
+        memory
+            .read(&store, ptr as usize, &mut buffer)
+            .map_err(|e| {
+                CoreError::Upgrade(format!("WASM memory read failed for `state_schema`: {}", e))
+            })?;
+        String::from_utf8(buffer).map_err(|e| {
+            CoreError::Upgrade(format!("`state_schema` result is not valid UTF-8: {}", e))
+        })?
+    };
+    let state_schema: &'static str = Box::leak(state_schema_str.into_boxed_str());
+
+    // Call `manifest` to get capabilities
+    let manifest_str = {
+        let func = instance
+            .get_typed_func::<(), u64>(&mut store, "manifest")
+            .map_err(|e| CoreError::Upgrade(format!("WASM missing `manifest` export: {}", e)))?;
+        let packed = func
+            .call(&mut store, ())
+            .map_err(|e| CoreError::Upgrade(format!("WASM `manifest` call failed: {}", e)))?;
+        let ptr = (packed >> 32) as u32;
+        let len = packed as u32;
+        let mut buffer = vec![0u8; len as usize];
+        memory
+            .read(&store, ptr as usize, &mut buffer)
+            .map_err(|e| {
+                CoreError::Upgrade(format!("WASM memory read failed for `manifest`: {}", e))
+            })?;
+        String::from_utf8(buffer).map_err(|e| {
+            CoreError::Upgrade(format!("`manifest` result is not valid UTF-8: {}", e))
+        })?
+    };
+
+    #[derive(serde::Deserialize)]
+    struct TempManifest {
+        capabilities: Vec<String>,
+    }
+    let temp_manifest: TempManifest = toml::from_str(&manifest_str)
+        .map_err(|e| CoreError::Upgrade(format!("Failed to parse manifest TOML: {}", e)))?;
+    let caps = Capabilities::from_strings(&temp_manifest.capabilities)?;
+
     log::info!(
-        "Successfully loaded WASM service of type: {:?}",
-        service_type
+        "Successfully loaded WASM service: id='{}', abi_version={}, state_schema='{}', caps={:?}",
+        id,
+        abi_version,
+        state_schema,
+        caps
     );
 
     Ok(Arc::new(WasmService {
-        service_type,
+        id,
+        abi_version,
+        state_schema,
         instance,
-        store,
+        store: Mutex::new(store),
+        caps,
     }))
 }

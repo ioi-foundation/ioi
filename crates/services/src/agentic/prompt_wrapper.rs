@@ -1,6 +1,5 @@
 // Path: crates/services/src/agentic/prompt_wrapper.rs
 use depin_sdk_api::impl_service_base;
-use depin_sdk_api::services::{BlockchainService, ServiceType};
 
 // A placeholder for on-chain policy definitions.
 pub struct PolicyGuardrails {
@@ -8,15 +7,12 @@ pub struct PolicyGuardrails {
     pub max_token_spend: u64,
 }
 
+/// A service to construct canonical, secure prompts for agentic operations.
 pub struct PromptWrapper;
 
-impl BlockchainService for PromptWrapper {
-    fn service_type(&self) -> ServiceType {
-        ServiceType::Custom("PromptWrapper".to_string())
-    }
-}
-
-impl_service_base!(PromptWrapper);
+// Implement the base BlockchainService trait using the helper macro.
+// "prompt_wrapper" is the unique, static ID for this service.
+impl_service_base!(PromptWrapper, "prompt_wrapper");
 
 impl PromptWrapper {
     /// Constructs the canonical prompt sent to all inference committee members.

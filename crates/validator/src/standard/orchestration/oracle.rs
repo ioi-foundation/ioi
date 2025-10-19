@@ -197,7 +197,7 @@ pub async fn handle_newly_processed_block<CS, ST, CE, V>(
                 };
                 attestation.signature = [pubkey_bytes.as_ref(), &signature_bytes].concat();
 
-                let attestation_bytes = match serde_json::to_vec(&attestation) {
+                let attestation_bytes = match codec::to_bytes_canonical(&attestation) {
                     Ok(b) => b,
                     Err(_) => {
                         log::error!("Oracle: Failed to serialize attestation.");
@@ -501,29 +501,19 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
                 Err(_) => return,
             };
 
-        // Fetch the current nonce for this account from the workload state.
-        let nonce_key = [
-            depin_sdk_types::keys::ACCOUNT_NONCE_PREFIX,
-            our_account_id.as_ref(),
-        ]
-        .concat();
-
-        let current_nonce = match workload_client.query_raw_state(&nonce_key).await {
-            Ok(Some(bytes)) => bytes.try_into().ok().map(u64::from_le_bytes).unwrap_or(0),
-            Ok(None) => 0, // Key not present means nonce is 0, which is correct.
-            Err(e) => {
-                log::error!(
-                    "Oracle: Failed to query nonce for tx submission, aborting. Error: {}",
-                    e
-                );
-                return; // Do not proceed if we can't determine the correct nonce.
-            }
+        // Atomically get and increment the nonce from the local nonce manager.
+        let current_nonce = {
+            let mut nonce_manager = context.nonce_manager.lock().await;
+            let nonce = nonce_manager.entry(our_account_id).or_insert(0);
+            let current = *nonce;
+            *nonce += 1; // Atomically increment for the next self-generated tx
+            current
         };
 
         let mut sys_tx = SystemTransaction {
             header: SignHeader {
                 account_id: our_account_id,
-                nonce: current_nonce, // Use the fetched nonce
+                nonce: current_nonce, // Use the locally managed nonce
                 chain_id: context.chain_id,
                 tx_version: 1,
             },

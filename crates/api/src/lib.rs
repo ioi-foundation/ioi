@@ -37,12 +37,14 @@ pub mod crypto;
 pub mod error;
 /// Defines the core enums for representing homomorphic operations and their results.
 pub mod homomorphic;
-/// Defines the `CredentialsView` trait for decoupled identity lookups.
-pub mod identity;
 /// Defines traits for Inter-Blockchain Communication (IBC).
 pub mod ibc;
+/// Defines the `CredentialsView` trait for decoupled identity lookups.
+pub mod identity;
 /// Defines traits for services that hook into the block processing lifecycle.
 pub mod lifecycle;
+/// Traits for abstracting execution runtimes (e.g., WASM, EVM).
+pub mod runtime;
 /// Traits for pluggable, upgradable blockchain services.
 pub mod services;
 /// Core traits for state management, including `StateCommitment` and `StateManager`.
@@ -63,12 +65,11 @@ pub mod prelude {
     };
     pub use crate::commitment::{CommitmentScheme, HomomorphicCommitmentScheme};
     pub use crate::error::{
-        ChainError, CoreError, CryptoError, ErrorCode, StateError, TransactionError,
-        ValidatorError,
+        ChainError, CoreError, CryptoError, ErrorCode, StateError, TransactionError, ValidatorError,
     };
     pub use crate::identity::CredentialsView;
     pub use crate::lifecycle::OnEndBlock;
-    pub use crate::services::access::{Service, ServiceDirectory};
+    pub use crate::services::access::ServiceDirectory;
     pub use crate::services::{BlockchainService, UpgradableService};
     pub use crate::state::{StateCommitment, StateManager};
     pub use crate::storage::NodeStore;

@@ -332,6 +332,14 @@ impl ErrorCode for TransactionError {
     }
 }
 
+// --- FIX START: Add From<CryptoError> for TransactionError ---
+impl From<CryptoError> for TransactionError {
+    fn from(e: CryptoError) -> Self {
+        TransactionError::Invalid(format!("Cryptographic operation failed: {}", e))
+    }
+}
+// --- FIX END ---
+
 impl From<bcs::Error> for TransactionError {
     fn from(e: bcs::Error) -> Self {
         TransactionError::Serialization(e.to_string())

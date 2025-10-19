@@ -1,30 +1,34 @@
 // Path: crates/node/src/bin/workload.rs
-
 #![forbid(unsafe_code)]
+
+//! A malicious workload container for testing proof verification.
+//! This is a copy of the main workload binary with a modified IPC handler
+//! that returns a tampered proof for a specific key.
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
-use depin_sdk_api::services::access::{Service, ServiceDirectory};
+use depin_sdk_api::services::access::ServiceDirectory;
+use depin_sdk_api::services::BlockchainService;
 use depin_sdk_api::{
     commitment::CommitmentScheme, state::StateManager, validator::WorkloadContainer,
 };
 use depin_sdk_chain::util::load_state_from_genesis_file;
-use depin_sdk_chain::wasm_loader::load_service_from_wasm;
 use depin_sdk_chain::Chain;
 use depin_sdk_consensus::util::engine_from_config;
 use depin_sdk_services::governance::GovernanceModule;
 // --- IBC Service Imports ---
-use depin_sdk_services::ibc::channel::ChannelManager;
-use depin_sdk_services::ibc::light_client::tendermint::TendermintVerifier;
-use depin_sdk_services::ibc::registry::VerifierRegistry;
-// --- End IBC Imports ---
+#[cfg(feature = "svc-ibc")]
+use depin_sdk_services::ibc::{
+    channel::ChannelManager, light_client::tendermint::TendermintVerifier,
+    registry::VerifierRegistry,
+};
 use depin_sdk_services::identity::IdentityHub;
 use depin_sdk_storage::metrics as storage_metrics;
 use depin_sdk_storage::RedbEpochStore;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
 use depin_sdk_validator::standard::WorkloadIpcServer;
-use depin_sdk_vm_wasm::WasmVm;
+use depin_sdk_vm_wasm::WasmRuntime;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -49,7 +53,7 @@ struct WorkloadOpts {
 }
 
 /// Generic function containing all logic after component instantiation.
-#[allow(dead_code)] // This is used in match arms gated by features, which the linter may not see.
+#[allow(dead_code)]
 async fn run_workload<CS, ST>(
     mut state_tree: ST,
     commitment_scheme: CS,
@@ -78,44 +82,57 @@ where
         );
     }
 
-    let wasm_vm = Box::new(WasmVm::new(config.fuel_costs.clone())?);
+    let wasm_vm = Box::new(WasmRuntime::new(config.fuel_costs.clone())?);
 
     let mut initial_services = Vec::new();
     for service_config in &config.initial_services {
         match service_config {
             InitialServiceConfig::IdentityHub(migration_config) => {
-                tracing::info!(target: "workload", event = "service_init", name = "IdentityHub");
+                tracing::info!(target: "workload", event = "service_init", name = "IdentityHub", impl="native", capabilities="identity_view, tx_decorator, on_end_block");
                 let hub = IdentityHub::new(migration_config.clone());
                 initial_services
                     .push(Arc::new(hub) as Arc<dyn depin_sdk_api::services::UpgradableService>);
             }
             InitialServiceConfig::Governance(params) => {
-                tracing::info!(target: "workload", event = "service_init", name = "Governance");
+                tracing::info!(target: "workload", event = "service_init", name = "Governance", impl="native", capabilities="on_end_block");
                 let gov = GovernanceModule::new(params.clone());
                 initial_services
                     .push(Arc::new(gov) as Arc<dyn depin_sdk_api::services::UpgradableService>);
             }
+            // --- IBC Service Instantiation ---
+            #[cfg(feature = "svc-ibc")]
+            InitialServiceConfig::Ibc(ibc_config) => {
+                tracing::info!(target: "workload", event = "service_init", name = "IBC", impl="native", capabilities="ibc_handler");
+                // A real implementation would load client configurations from a file or config.
+                let mut verifier_registry = VerifierRegistry::new();
+                for client_name in &ibc_config.enabled_clients {
+                    if client_name.starts_with("tendermint") {
+                        // For Milestone A, we instantiate the Tendermint verifier for a mock Cosmos chain.
+                        let tm_verifier = TendermintVerifier::new(
+                            "cosmos-hub-test".to_string(),
+                            "07-tendermint-0".to_string(),
+                            Arc::new(state_tree.clone()), // The verifier needs access to the state.
+                        );
+                        verifier_registry.register(Arc::new(tm_verifier));
+                    }
+                }
+                initial_services.push(Arc::new(verifier_registry)
+                    as Arc<dyn depin_sdk_api::services::UpgradableService>);
+                initial_services.push(Arc::new(ChannelManager::new())
+                    as Arc<dyn depin_sdk_api::services::UpgradableService>);
+            }
+            #[cfg(not(feature = "svc-ibc"))]
+            InitialServiceConfig::Ibc(_) => {
+                return Err(anyhow!(
+                    "Workload configured for IBC, but not compiled with 'svc-ibc' feature."
+                ));
+            }
         }
     }
 
-    // --- IBC Service Instantiation ---
-    // A real implementation would load client configurations from a file.
-    let mut verifier_registry = VerifierRegistry::new();
-    // For Milestone A, we instantiate the Tendermint verifier for a mock Cosmos chain.
-    let tm_verifier = TendermintVerifier::new(
-        "cosmos-hub-test".to_string(),
-        "07-tendermint-0".to_string(),
-        Arc::new(state_tree.clone()), // The verifier needs access to the state.
-    );
-    verifier_registry.register(Arc::new(tm_verifier));
-    
-    initial_services.push(Arc::new(verifier_registry) as Arc<dyn depin_sdk_api::services::UpgradableService>);
-    initial_services.push(Arc::new(ChannelManager::new()) as Arc<dyn depin_sdk_api::services::UpgradableService>);
-    // --- End IBC Service Instantiation ---
-    
-    let services_for_dir: Vec<Arc<dyn Service>> = initial_services
+    let services_for_dir: Vec<Arc<dyn BlockchainService>> = initial_services
         .iter()
-        .map(|s| s.clone() as Arc<dyn Service>)
+        .map(|s| s.clone() as Arc<dyn BlockchainService>)
         .collect();
     let service_directory = ServiceDirectory::new(services_for_dir);
 
@@ -148,10 +165,20 @@ where
         UnifiedTransactionModel::new(commitment_scheme),
         1.into(),
         initial_services,
-        Box::new(load_service_from_wasm),
         consensus_engine,
         workload_container.clone(),
     );
+
+    for runtime_id in &config.runtimes {
+        let id = runtime_id.to_ascii_lowercase();
+        if id == "wasm" {
+            let wasm_runtime = WasmRuntime::new(config.fuel_costs.clone())?;
+            chain
+                .service_manager
+                .register_runtime("wasm", Arc::new(wasm_runtime));
+        }
+    }
+
     chain.load_or_initialize_status(&workload_container).await?;
     let chain_arc = Arc::new(Mutex::new(chain));
 
@@ -186,7 +213,9 @@ fn check_features() {
 async fn main() -> Result<()> {
     depin_sdk_telemetry::init::init_tracing()?;
     let metrics_sink = depin_sdk_telemetry::prometheus::install()?;
-    storage_metrics::SINK.set(metrics_sink).expect("SINK must only be set once");
+    storage_metrics::SINK
+        .set(metrics_sink)
+        .expect("SINK must only be set once");
 
     let telemetry_addr_str =
         std::env::var("TELEMETRY_ADDR").unwrap_or_else(|_| "127.0.0.1:9616".to_string());

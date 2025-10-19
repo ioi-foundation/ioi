@@ -9,8 +9,9 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 depin-sdk-api = { path = "../api" }
 depin-sdk-types = { path = "../types" }
-depin-sdk-services = { path = "../services" }
+depin-sdk-services = { path = "../services", default-features = false }
 depin-sdk-crypto = { path = "../crypto" }
+depin-sdk-telemetry = { path = "../telemetry" }
 dcrypt = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
@@ -21,7 +22,12 @@ async-trait = { workspace = true }
 libp2p = { workspace = true }
 bs58 = "0.4"
 prost = { workspace = true }
-parity-scale-codec = { workspace = true, features = ["derive"] }
+parity-scale-codec = { workspace = true, features = ["derive", "std"] }
+toml = { workspace = true }
 
 [features]
 default = []
+# This feature enables the conditional compilation of the IBC dispatch logic
+# within the transaction model, and it signals to the services crate
+# that its 'svc-ibc' feature should also be enabled.
+svc-ibc = ["depin-sdk-services/svc-ibc"]

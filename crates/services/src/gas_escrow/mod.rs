@@ -1,6 +1,7 @@
 // Path: crates/services/src/gas_escrow/mod.rs
+use async_trait::async_trait;
 use depin_sdk_api::impl_service_base;
-use depin_sdk_api::services::{BlockchainService, ServiceType, UpgradableService};
+use depin_sdk_api::services::{BlockchainService, UpgradableService};
 use depin_sdk_api::state::StateAccessor;
 use depin_sdk_types::codec;
 use depin_sdk_types::error::UpgradeError;
@@ -57,19 +58,14 @@ impl GasEscrowService {
     }
 }
 
-impl BlockchainService for GasEscrowService {
-    fn service_type(&self) -> ServiceType {
-        ServiceType::Custom("GasEscrow".to_string())
-    }
-}
+impl_service_base!(GasEscrowService, "gas_escrow");
 
-impl_service_base!(GasEscrowService);
-
+#[async_trait]
 impl UpgradableService for GasEscrowService {
-    fn prepare_upgrade(&mut self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
+    async fn prepare_upgrade(&mut self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
         Ok(vec![])
     }
-    fn complete_upgrade(&mut self, _snapshot: &[u8]) -> Result<(), UpgradeError> {
+    async fn complete_upgrade(&mut self, _snapshot: &[u8]) -> Result<(), UpgradeError> {
         Ok(())
     }
 }

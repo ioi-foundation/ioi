@@ -2,6 +2,8 @@
 //! Configuration structures for initial services.
 
 use crate::app::SignatureSuite;
+use crate::error::CoreError;
+use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 /// Configuration for the IdentityHub service.
@@ -47,4 +49,68 @@ impl Default for GovernanceParams {
             veto_threshold: 33,
         }
     }
+}
+
+bitflags::bitflags! {
+    /// A bitmask representing the capabilities (hooks) a service exposes.
+    #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+    #[serde(transparent)]
+    pub struct Capabilities: u32 {
+        /// Implements the TxDecorator trait and its ante_handle hook.
+        const TX_DECORATOR = 0b0001;
+        /// Implements the OnEndBlock trait and its on_end_block hook.
+        const ON_END_BLOCK = 0b0010;
+        /// Implements the IbcPayloadHandler trait.
+        const IBC_HANDLER  = 0b0100;
+    }
+}
+
+// --- FIX START: Manual SCALE codec implementation for bitflags struct ---
+impl Encode for Capabilities {
+    fn encode_to<T: parity_scale_codec::Output + ?Sized>(&self, dest: &mut T) {
+        self.bits().encode_to(dest)
+    }
+}
+
+impl Decode for Capabilities {
+    fn decode<I: parity_scale_codec::Input>(
+        input: &mut I,
+    ) -> Result<Self, parity_scale_codec::Error> {
+        let bits = u32::decode(input)?;
+        Self::from_bits(bits).ok_or_else(|| "Invalid bits for Capabilities".into())
+    }
+}
+// --- FIX END ---
+
+impl Capabilities {
+    /// Parses a list of capability strings into a bitmask.
+    pub fn from_strings(strings: &[String]) -> Result<Self, CoreError> {
+        let mut caps = Capabilities::empty();
+        for s in strings {
+            match s.as_str() {
+                "TxDecorator" => caps |= Capabilities::TX_DECORATOR,
+                "OnEndBlock" => caps |= Capabilities::ON_END_BLOCK,
+                "IbcPayloadHandler" => caps |= Capabilities::IBC_HANDLER,
+                _ => return Err(CoreError::Upgrade(format!("Unknown capability: {}", s))),
+            }
+        }
+        Ok(caps)
+    }
+}
+
+/// The canonical on-chain record of an active service, used for crash-safe recovery.
+#[derive(Serialize, Deserialize, Encode, Decode, Clone, Debug)]
+pub struct ActiveServiceMeta {
+    /// The unique identifier for the service.
+    pub id: String,
+    /// The ABI version the service was compiled against.
+    pub abi_version: u32,
+    /// The state schema version the service uses.
+    pub state_schema: String,
+    /// The capabilities the service implements.
+    pub caps: Capabilities,
+    /// The hash of the artifact (e.g., WASM bytecode) for this service.
+    pub artifact_hash: [u8; 32],
+    /// The block height at which this service version was activated.
+    pub activated_at: u64,
 }

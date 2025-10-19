@@ -1,20 +1,16 @@
-// Path: crates/services/src/Agentic/mod.rs
+// Path: crates/services/src/agentic/mod.rs
 //! Agentic module implementation
 
 use depin_sdk_api::impl_service_base;
-use depin_sdk_api::services::{BlockchainService, ServiceType};
 
 pub mod normaliser;
 pub mod prompt_wrapper;
 
+/// A service for agentic operations.
 pub struct AgenticService {
     // Add your implementation fields here
 }
 
-impl BlockchainService for AgenticService {
-    fn service_type(&self) -> ServiceType {
-        ServiceType::Agentic
-    }
-}
-
-impl_service_base!(AgenticService);
+// Implement the base BlockchainService trait using the helper macro.
+// "agentic" is the unique, static ID for this service.
+impl_service_base!(AgenticService, "agentic");

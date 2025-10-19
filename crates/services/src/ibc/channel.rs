@@ -4,8 +4,8 @@
 //! the IBC channel lifecycle, including handshakes, packet ordering, and timeouts.
 //! It persists all of its state on-chain according to ICS-24 path standards.
 
-use depin_sdk_api::impl_service_base;
-use depin_sdk_api::services::{BlockchainService, ServiceType, UpgradableService};
+use depin_sdk_api::services::access::impl_service_base;
+use depin_sdk_api::services::UpgradableService;
 use depin_sdk_api::state::StateAccessor;
 use depin_sdk_types::error::UpgradeError;
 use depin_sdk_types::ibc::Packet;
@@ -21,14 +21,8 @@ use std::str::FromStr;
 #[derive(Debug, Default)]
 pub struct ChannelManager {}
 
-impl BlockchainService for ChannelManager {
-    fn service_type(&self) -> ServiceType {
-        ServiceType::Custom("ibc_channel_manager".to_string())
-    }
-}
-
-// Implement the base `Service` trait. This service does not have any special hooks.
-impl_service_base!(ChannelManager);
+// Implement the base BlockchainService trait using the helper macro.
+impl_service_base!(ChannelManager, "ibc_channel_manager");
 
 impl UpgradableService for ChannelManager {
     fn prepare_upgrade(&mut self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
@@ -87,7 +81,7 @@ impl ChannelManager {
     pub fn recv_packet<S: StateAccessor + ?Sized>(
         &self,
         state: &mut S,
-        packet: Packet,
+        packet: &Packet,
         _proof_height: u64, // Used by relayer, but logic here just needs the packet
     ) -> Result<(), PacketError> {
         // Construct paths for verification.

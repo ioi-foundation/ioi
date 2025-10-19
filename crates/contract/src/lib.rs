@@ -43,8 +43,61 @@ mod ffi {
         pub fn state_set(key_ptr: *const u8, key_len: u32, value_ptr: *const u8, value_len: u32);
         pub fn state_get(key_ptr: *const u8, key_len: u32, result_ptr: *mut u8) -> u32;
 
+        // Unified host call
+        pub fn host_call(
+            cap_ptr: *const u8,
+            cap_len: u32,
+            req_ptr: *const u8,
+            req_len: u32,
+            resp_out_ptr: *mut u32,
+        ) -> u32;
+
         // Context
         pub fn get_caller(result_ptr: *mut u8) -> u32;
+    }
+}
+
+/// High-level, safe API for interacting with the host environment via capabilities.
+pub mod host {
+    use super::ffi;
+    use alloc::vec::Vec;
+    use parity_scale_codec::{Decode, Encode};
+
+    #[derive(Debug)]
+    pub enum HostError {
+        CallFailed(u32),
+        Serialization,
+        Deserialization,
+    }
+
+    /// Calls a host capability with a SCALE-encodable request and decodes the SCALE-encodable response.
+    pub fn call<Req: Encode, Res: Decode>(
+        capability: &str,
+        req: &Req,
+    ) -> Result<Res, HostError> {
+        let req_bytes = req.encode();
+        let mut resp_ptr_len = [0u32; 2]; // [ptr, len]
+
+        let status = unsafe {
+            ffi::host_call(
+                capability.as_ptr(),
+                capability.len() as u32,
+                req_bytes.as_ptr(),
+                req_bytes.len() as u32,
+                resp_ptr_len.as_mut_ptr(),
+            )
+        };
+
+        if status != 0 {
+            return Err(HostError::CallFailed(status));
+        }
+
+        let resp_ptr = resp_ptr_len[0];
+        let resp_len = resp_ptr_len[1];
+        let resp_bytes =
+            unsafe { core::slice::from_raw_parts(resp_ptr as *const u8, resp_len as usize) };
+
+        Res::decode(&mut &resp_bytes[..]).map_err(|_| HostError::Deserialization)
     }
 }
 
