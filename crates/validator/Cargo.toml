@@ -44,7 +44,7 @@ bs58 = "0.4"
 lru = { workspace = true }
 bincode = { workspace = true }
 uuid = { version = "1.8.0", features = ["v4"] }
-parity-scale-codec = { workspace = true, features = ["derive"] }
+parity-scale-codec = { workspace = true, features = ["std"] }
 cfg-if = "1.0"
 dashmap = { workspace = true }                                            # Added for custom rate limiter
 

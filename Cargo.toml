@@ -31,10 +31,10 @@ members = [
     "crates/transaction_models",
     "crates/validator",
     "crates/vm/wasm",
-
-    # Add the test contract as a workspace member
+    # E2E test WASM service used by module_upgrade_e2e
+    "crates/forge/tests/contracts/fee-calculator-service",
+    # Test contract required by various e2e tests
     "crates/forge/tests/contracts/counter",
-    "crates/forge/tests/contracts/test-service",
 ]
 
 [workspace.dependencies]
@@ -116,13 +116,18 @@ anyhow = { version = "1.0" }
 wasmtime = { version = "19.0.1" }
 
 # Codecs
-parity-scale-codec = { version = "3", features = ["derive"] }
+parity-scale-codec = { version = "3", default-features = false, features = [
+    "derive",
+] }
 
 # Caching & Hashing
 lru = { version = "0.12.3" }
 dashmap = { version = "5.5" }
 once_cell = { version = "1.19" }
 ahash = { version = "0.8" }
+
+# Bitflags for Capabilities
+bitflags = { version = "2", features = ["serde"] }
 
 # IBC
 tendermint = "0.36.0"

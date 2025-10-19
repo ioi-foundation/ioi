@@ -28,8 +28,10 @@ bs58 = "0.4"
 # Add wasmtime
 wasmtime = { workspace = true }
 base64 = { workspace = true }
-tokio = { workspace = true, features = ["sync"] } # Add tokio
-futures = { workspace = true }                    # Add futures
+tokio = { workspace = true, features = ["sync"] }             # Add tokio
+futures = { workspace = true }                                # Add futures
+parity-scale-codec = { workspace = true, features = ["std"] }
+toml = { workspace = true }
 
 
 [dev-dependencies]

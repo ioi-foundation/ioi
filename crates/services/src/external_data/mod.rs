@@ -1,7 +1,9 @@
 // Path: crates/services/src/external_data/mod.rs
-use depin_sdk_api::impl_service_base;
-use depin_sdk_api::services::{BlockchainService, ServiceType, UpgradableService};
+use async_trait::async_trait;
+use depin_sdk_api::services::{BlockchainService, UpgradableService};
 use depin_sdk_types::error::UpgradeError;
+use depin_sdk_types::service_configs::Capabilities;
+use std::any::Any;
 
 #[derive(Debug, Clone)]
 pub struct ExternalDataService;
@@ -34,19 +36,34 @@ impl ExternalDataService {
 
 // Implement the required traits for service management.
 impl BlockchainService for ExternalDataService {
-    fn service_type(&self) -> ServiceType {
-        ServiceType::ExternalData
+    fn id(&self) -> &'static str {
+        "external_data"
+    }
+
+    fn abi_version(&self) -> u32 {
+        1
+    }
+
+    fn state_schema(&self) -> &'static str {
+        "v1"
+    }
+
+    fn capabilities(&self) -> Capabilities {
+        Capabilities::empty()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
-impl_service_base!(ExternalDataService);
-
+#[async_trait]
 impl UpgradableService for ExternalDataService {
-    fn prepare_upgrade(&mut self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
+    async fn prepare_upgrade(&mut self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
         // This service is stateless, so the snapshot is empty.
         Ok(Vec::new())
     }
-    fn complete_upgrade(&mut self, _snapshot: &[u8]) -> Result<(), UpgradeError> {
+    async fn complete_upgrade(&mut self, _snapshot: &[u8]) -> Result<(), UpgradeError> {
         Ok(())
     }
 }

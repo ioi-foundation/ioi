@@ -1,9 +1,10 @@
 // Path: crates/api/src/transaction/decorator.rs
 //! Defines the trait for transaction pre-processing handlers (Ante Handlers).
 
-use crate::services::access::Service;
+use crate::services::BlockchainService;
 use crate::state::StateAccessor;
 use crate::transaction::context::TxContext;
+use async_trait::async_trait;
 use depin_sdk_types::app::ChainTransaction;
 use depin_sdk_types::error::TransactionError;
 
@@ -11,10 +12,11 @@ use depin_sdk_types::error::TransactionError;
 ///
 /// Decorators are run in a defined order before the core transaction logic.
 /// Examples: fee deduction, signature verification, nonce incrementing.
-pub trait TxDecorator: Service {
+#[async_trait]
+pub trait TxDecorator: BlockchainService {
     /// Validates and processes a transaction before its main logic is executed.
     /// This method can perform read-only checks or mutate state (e.g., deduct fees).
-    fn ante_handle(
+    async fn ante_handle(
         &self,
         state: &mut dyn StateAccessor,
         tx: &ChainTransaction,

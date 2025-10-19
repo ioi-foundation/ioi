@@ -13,19 +13,21 @@
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use depin_sdk_api::runtime::{Runnable, Runtime, RuntimeError};
 use depin_sdk_api::state::VmStateAccessor;
 use depin_sdk_api::vm::{ExecutionContext, ExecutionOutput, VirtualMachine};
 use depin_sdk_types::{config::VmFuelCosts, error::VmError};
+use std::collections::HashSet;
 use std::sync::Arc;
 use wasmtime::*;
 
-/// A Wasmtime-based virtual machine for executing WASM smart contracts.
-pub struct WasmVm {
+/// A Wasmtime-based runtime for WASM artifacts.
+pub struct WasmRuntime {
     engine: Engine,
     fuel_costs: VmFuelCosts,
 }
 
-impl WasmVm {
+impl WasmRuntime {
     pub fn new(fuel_costs: VmFuelCosts) -> Result<Self, VmError> {
         let mut config = Config::new();
         config.async_support(true);
@@ -40,7 +42,7 @@ impl WasmVm {
 /// This struct holds all host-side state accessible to the WASM module.
 struct HostState {
     state_accessor: Arc<dyn VmStateAccessor>,
-    context: ExecutionContext,
+    context: Option<ExecutionContext>,
     memory: Option<Memory>,
     fuel_costs: VmFuelCosts,
 }
@@ -82,7 +84,14 @@ async fn host_state_set(
         .ok_or_else(|| anyhow!("host_state_set value read out of bounds"))?
         .to_vec();
 
-    let namespaced_key = get_namespaced_key(&caller.data().context.contract_address, &contract_key);
+    let contract_address = caller
+        .data()
+        .context
+        .as_ref()
+        .ok_or_else(|| anyhow!("Context not set"))?
+        .contract_address
+        .clone();
+    let namespaced_key = get_namespaced_key(&contract_address, &contract_key);
 
     let cost =
         (namespaced_key.len() + value.len()) as u64 * caller.data().fuel_costs.state_set_per_byte;
@@ -122,7 +131,14 @@ async fn host_state_get(
         .ok_or_else(|| anyhow!("host_state_get key read out of bounds"))?
         .to_vec();
 
-    let namespaced_key = get_namespaced_key(&caller.data().context.contract_address, &contract_key);
+    let contract_address = caller
+        .data()
+        .context
+        .as_ref()
+        .ok_or_else(|| anyhow!("Context not set"))?
+        .contract_address
+        .clone();
+    let namespaced_key = get_namespaced_key(&contract_address, &contract_key);
 
     let cost = namespaced_key.len() as u64 * caller.data().fuel_costs.state_get_per_byte;
     let fuel = caller.get_fuel()?;
@@ -158,7 +174,13 @@ async fn host_get_caller(mut caller: Caller<'_, HostState>, result_ptr: u32) -> 
         .memory
         .ok_or_else(|| anyhow!("Memory not found"))?;
 
-    let caller_addr = caller.data().context.caller.clone();
+    let caller_addr = caller
+        .data()
+        .context
+        .as_ref()
+        .ok_or_else(|| anyhow!("Context not set"))?
+        .caller
+        .clone();
 
     memory
         .write(&mut caller, result_ptr as usize, &caller_addr)
@@ -166,8 +188,129 @@ async fn host_get_caller(mut caller: Caller<'_, HostState>, result_ptr: u32) -> 
     Ok(caller_addr.len() as u32)
 }
 
+/// Host Function: A single, unified entrypoint for host calls from WASM.
+async fn host_call(
+    mut caller: Caller<'_, HostState>,
+    cap_ptr: u32,
+    cap_len: u32,
+    req_ptr: u32,
+    req_len: u32,
+    resp_out_ptr: u32,
+) -> anyhow::Result<u32> {
+    let memory = caller
+        .data()
+        .memory
+        .ok_or_else(|| anyhow!("Memory not found in host state"))?;
+
+    let cap_name = {
+        let bytes = memory
+            .data(&caller)
+            .get(cap_ptr as usize..(cap_ptr + cap_len) as usize)
+            .ok_or_else(|| anyhow!("Capability name pointer out of bounds"))?;
+        std::str::from_utf8(bytes).map_err(|_| anyhow!("Capability name is not valid UTF-8"))?
+    };
+
+    let _req_bytes = memory
+        .data(&caller)
+        .get(req_ptr as usize..(req_ptr + req_len) as usize)
+        .ok_or_else(|| anyhow!("Request pointer out of bounds"))?;
+
+    let (status, resp_bytes) = match cap_name {
+        // Dispatch to specific capability handlers
+        _ => (1, Vec::new()), // 1 = Unknown Capability
+    };
+
+    // Write response back to WASM memory
+    let allocate_func = caller
+        .get_export("allocate")
+        .and_then(|e| e.into_func())
+        .and_then(|f| f.typed::<u32, u32>(&caller).ok())
+        .ok_or_else(|| anyhow!("`allocate` function not found in module"))?;
+
+    let resp_ptr = allocate_func
+        .call_async(&mut caller, resp_bytes.len() as u32)
+        .await
+        .map_err(|e| anyhow!("WASM allocate failed for response: {}", e))?;
+
+    memory
+        .write(&mut caller, resp_ptr as usize, &resp_bytes)
+        .map_err(|e| anyhow!("Failed to write response to WASM memory: {}", e))?;
+
+    // Write the pointer and length back to the caller's output pointer
+    let resp_meta = [
+        resp_ptr.to_le_bytes(),
+        (resp_bytes.len() as u32).to_le_bytes(),
+    ]
+    .concat();
+    memory
+        .write(&mut caller, resp_out_ptr as usize, &resp_meta)
+        .map_err(|e| anyhow!("Failed to write response metadata to WASM memory: {}", e))?;
+
+    Ok(status)
+}
+
+pub struct WasmRunnable {
+    instance: Instance,
+    store: Store<HostState>,
+}
+
 #[async_trait]
-impl VirtualMachine for WasmVm {
+impl Runnable for WasmRunnable {
+    async fn call(&mut self, entry: &str, req: &[u8]) -> Result<Vec<u8>, RuntimeError> {
+        // Replenish fuel before each call. Service calls are not metered like user
+        // transactions, so we provide a large, fixed amount.
+        self.store
+            .set_fuel(u64::MAX)
+            .map_err(|e| RuntimeError::CallFailed(format!("Failed to set fuel: {}", e)))?;
+
+        let alloc = self
+            .instance
+            .get_typed_func::<u32, u32>(&mut self.store, "allocate")
+            .map_err(|e| RuntimeError::EntrypointNotFound(format!("allocate: {}", e)))?;
+        let func = self
+            .instance
+            .get_typed_func::<(u32, u32), u64>(&mut self.store, entry)
+            .map_err(|_e| RuntimeError::EntrypointNotFound(entry.to_string()))?;
+        let mem = self
+            .instance
+            .get_memory(&mut self.store, "memory")
+            .ok_or_else(|| RuntimeError::LoadFailed("memory export missing".into()))?;
+
+        // --- FIX START ---
+        // Handle the edge case of an empty request buffer.
+        // Calling `allocate(0)` can trap in some WASM runtimes or lead to null pointers.
+        // By handling it here, we pass a canonical (ptr=0, len=0) for an empty slice,
+        // which is a safe and standard FFI pattern.
+        let (ptr, len) = if req.is_empty() {
+            (0, 0)
+        } else {
+            let ptr = alloc
+                .call_async(&mut self.store, req.len() as u32)
+                .await
+                .map_err(|e| RuntimeError::CallFailed(e.to_string()))?;
+            mem.write(&mut self.store, ptr as usize, req)
+                .map_err(|e| RuntimeError::CallFailed(e.to_string()))?;
+            (ptr, req.len() as u32)
+        };
+
+        let packed = func
+            .call_async(&mut self.store, (ptr, len)) // Use the derived ptr and len
+            .await
+            .map_err(|e| RuntimeError::CallFailed(e.to_string()))?;
+        // --- FIX END ---
+
+        let out_ptr = (packed >> 32) as u32;
+        let out_len = (packed & 0xFFFF_FFFF) as u32;
+
+        let mut out = vec![0; out_len as usize];
+        mem.read(&self.store, out_ptr as usize, &mut out)
+            .map_err(|e| RuntimeError::CallFailed(e.to_string()))?;
+        Ok(out)
+    }
+}
+
+#[async_trait]
+impl VirtualMachine for WasmRuntime {
     async fn execute(
         &self,
         contract_bytecode: &[u8],
@@ -205,10 +348,15 @@ impl VirtualMachine for WasmVm {
                 },
             )
             .map_err(|e| VmError::Initialization(e.to_string()))?;
+        linker
+            .func_wrap5_async("env", "host_call", |c, p1, p2, p3, p4, p5| {
+                Box::new(host_call(c, p1, p2, p3, p4, p5))
+            })
+            .map_err(|e| VmError::Initialization(e.to_string()))?;
 
         let host_state = HostState {
             state_accessor,
-            context: execution_context.clone(),
+            context: Some(execution_context.clone()),
             memory: None,
             fuel_costs: self.fuel_costs.clone(),
         };
@@ -265,5 +413,93 @@ impl VirtualMachine for WasmVm {
             gas_used,
             return_data,
         })
+    }
+}
+
+#[async_trait]
+impl Runtime for WasmRuntime {
+    async fn load(&self, artifact: &[u8]) -> Result<Box<dyn Runnable>, RuntimeError> {
+        let module = Module::new(&self.engine, artifact)
+            .map_err(|e| RuntimeError::LoadFailed(e.to_string()))?;
+
+        // 1. Check for prohibited imports
+        if module.imports().next().is_some() {
+            return Err(RuntimeError::LoadFailed(
+                "WASM module must not have any imports".into(),
+            ));
+        }
+
+        // 2. Verify all required exports are present
+        let required_exports: HashSet<&str> = [
+            "id",
+            "abi_version",
+            "state_schema",
+            "prepare_upgrade",
+            "complete_upgrade",
+            // Capabilities are checked against manifest, but ante_handle is a common one to check for.
+            "ante_handle",
+        ]
+        .iter()
+        .cloned()
+        .collect();
+
+        let actual_exports: HashSet<&str> = module.exports().map(|e| e.name()).collect();
+
+        if !required_exports.is_subset(&actual_exports) {
+            return Err(RuntimeError::LoadFailed(format!(
+                "WASM module is missing required ABI exports. Missing: {:?}",
+                required_exports.difference(&actual_exports)
+            )));
+        }
+
+        let host_state = HostState {
+            state_accessor: Arc::new(NullStateAccessor), // A dummy accessor for setup
+            context: None,
+            memory: None,
+            fuel_costs: self.fuel_costs.clone(),
+        };
+        let mut store = Store::new(&self.engine, host_state);
+        // Add a large amount of initial fuel. Service calls are not metered in the same way
+        // as user transactions, but fuel consumption must be enabled for the runtime.
+        store
+            .set_fuel(u64::MAX)
+            .map_err(|e| RuntimeError::LoadFailed(format!("Failed to set initial fuel: {}", e)))?;
+
+        let mut linker = Linker::new(&self.engine);
+        linker
+            .func_wrap5_async("env", "host_call", |c, p1, p2, p3, p4, p5| {
+                Box::new(host_call(c, p1, p2, p3, p4, p5))
+            })
+            .unwrap();
+
+        let instance = linker
+            .instantiate_async(&mut store, &module)
+            .await
+            .map_err(|e| RuntimeError::LoadFailed(e.to_string()))?;
+
+        let memory = instance
+            .get_memory(&mut store, "memory")
+            .ok_or_else(|| RuntimeError::LoadFailed("Memory not found".into()))?;
+        store.data_mut().memory = Some(memory);
+
+        Ok(Box::new(WasmRunnable { instance, store }))
+    }
+}
+
+struct NullStateAccessor;
+#[async_trait]
+impl VmStateAccessor for NullStateAccessor {
+    async fn get(
+        &self,
+        _key: &[u8],
+    ) -> Result<Option<Vec<u8>>, depin_sdk_types::error::StateError> {
+        Ok(None)
+    }
+    async fn insert(
+        &self,
+        _key: &[u8],
+        _value: &[u8],
+    ) -> Result<(), depin_sdk_types::error::StateError> {
+        Ok(())
     }
 }

@@ -79,6 +79,11 @@ enum ReadState {
         have: usize,
         buf: Vec<u8>,
     },
+    // NEW state to handle draining a decrypted frame to potentially small caller buffers.
+    DrainingPlaintext {
+        plaintext: Vec<u8>,
+        read: usize,
+    },
 }
 
 impl Default for ReadState {
@@ -176,6 +181,20 @@ impl<S: AsyncRead + Unpin> AsyncRead for AeadWrappedStream<S> {
         let me = self.get_mut();
         loop {
             match &mut me.read_state {
+                ReadState::DrainingPlaintext { plaintext, read } => {
+                    let can_write = std::cmp::min(out.remaining(), plaintext.len() - *read);
+                    if can_write > 0 {
+                        out.put_slice(&plaintext[*read..*read + can_write]);
+                        *read += can_write;
+                    }
+
+                    if *read == plaintext.len() {
+                        // Finished draining this frame, reset to read the next one.
+                        me.read_state = ReadState::default();
+                    }
+                    return Poll::Ready(Ok(()));
+                }
+
                 ReadState::ReadingHeader { have, buf } => {
                     if *have < 4 {
                         let mut tmp = ReadBuf::new(&mut buf[*have..]);
@@ -237,7 +256,6 @@ impl<S: AsyncRead + Unpin> AsyncRead for AeadWrappedStream<S> {
                     }
                     debug_assert_eq!(*have, *need);
 
-                    // FIX: Inlined logic from `open_frame` to resolve nested mutable borrow.
                     let nonce = nonce_from_counter(me.recv_nonce);
                     let ciphertext_obj = dcrypt::api::types::Ciphertext::new(buf);
                     let pt = SymmetricCipher::decrypt(&me.cipher)
@@ -252,14 +270,10 @@ impl<S: AsyncRead + Unpin> AsyncRead for AeadWrappedStream<S> {
                         .checked_add(1)
                         .ok_or_else(|| io::Error::other("Receive nonce overflow"))?;
 
-                    if pt.len() > out.remaining() {
-                        return Poll::Ready(Err(io::Error::other(
-                            "Plaintext frame too large for caller's ReadBuf",
-                        )));
-                    }
-                    out.put_slice(&pt);
-                    me.read_state = ReadState::default();
-                    return Poll::Ready(Ok(()));
+                    me.read_state = ReadState::DrainingPlaintext {
+                        plaintext: pt,
+                        read: 0,
+                    };
                 }
             }
         }

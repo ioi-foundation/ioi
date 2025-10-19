@@ -177,6 +177,7 @@ where
         // --- TWEAK: Only skip empty genesis block when we expect a multi-validator net. ---
         // In single-node setups (like state_iavl_e2e), we must produce height 1 even if empty.
         if height_being_built == 1
+            && node_state == NodeState::Syncing
             && allow_bootstrap
             && known_peers_ref.lock().await.is_empty()
             && candidate_txs.is_empty()

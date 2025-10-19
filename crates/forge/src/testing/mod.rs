@@ -16,7 +16,7 @@ use backend::{DockerBackend, DockerBackendConfig, LogStream, ProcessBackend, Tes
 use bollard::{image::BuildImageOptions, Docker};
 use bytes::Bytes;
 use depin_sdk_api::crypto::{SerializableKey, SigningKeyPair};
-use depin_sdk_client::{security::SecurityChannel, WorkloadClient};
+use depin_sdk_client::WorkloadClient;
 use depin_sdk_commitment::primitives::kzg::KZGParams;
 use depin_sdk_crypto::sign::dilithium::{DilithiumKeyPair, DilithiumScheme};
 use depin_sdk_types::config::{
@@ -54,35 +54,32 @@ pub fn build_test_artifacts() {
     BUILD.call_once(|| {
         println!("--- Building Test Artifacts (one-time setup) ---");
 
+        // Construct the path to the contract relative to the forge crate's manifest directory.
+        // This is robust and works regardless of where `cargo test` is invoked from.
+        let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let counter_manifest_path = manifest_dir.join("tests/contracts/counter/Cargo.toml");
+
         let status_contract = Command::new("cargo")
             .args([
                 "build",
-                "-p",
-                "counter-contract",
+                "--manifest-path", // Use --manifest-path instead of -p
+                counter_manifest_path
+                    .to_str()
+                    .expect("Path to counter contract manifest is not valid UTF-8"),
                 "--release",
                 "--target",
                 "wasm32-unknown-unknown",
             ])
             .status()
             .expect("Failed to execute cargo build for counter-contract");
+
         if !status_contract.success() {
             panic!("Counter contract build failed");
         }
 
-        let status_service = Command::new("cargo")
-            .args([
-                "build",
-                "-p",
-                "test-service-v2",
-                "--release",
-                "--target",
-                "wasm32-unknown-unknown",
-            ])
-            .status()
-            .expect("Failed to execute cargo build for test-service-v2");
-        if !status_service.success() {
-            panic!("Test service contract build failed");
-        }
+        // The build for `test-service-v2` is removed. It was replaced by `fee-calculator-service`,
+        // which is now built just-in-time within the `module_upgrade_e2e.rs` test,
+        // making this build step obsolete.
 
         println!("--- Test Artifacts built successfully ---");
     });
@@ -198,6 +195,7 @@ async fn ensure_docker_image_exists() -> Result<()> {
     // Use a single Full body from the in-memory tar.
     let image_body = Either::Left(Full::new(Bytes::from(tar_bytes)));
 
+    // [+] FIX: Use ..Default::default() to correctly initialize the non-exhaustive options struct.
     let options = BuildImageOptions {
         dockerfile: "crates/node/Dockerfile".to_string(),
         t: DOCKER_IMAGE_TAG.to_string(),
@@ -620,7 +618,7 @@ impl TestValidator {
         let workload_config_path = config_dir_path.join("workload.toml");
         let workload_state_file = temp_dir.path().join("workload_state.json");
         let mut workload_config = WorkloadConfig {
-            enabled_vms: vec!["WASM".to_string()],
+            runtimes: vec!["WASM".to_string()],
             state_tree: state_tree_enum,
             commitment_scheme: commitment_scheme_enum,
             consensus_type: consensus_enum,

@@ -28,14 +28,14 @@ use depin_sdk_network::traits::NodeState;
 use depin_sdk_network::BlockSync;
 use depin_sdk_services::external_data::ExternalDataService;
 use depin_sdk_types::{
-    app::{account_id_from_key_material, ChainTransaction, SignatureSuite},
+    app::{account_id_from_key_material, AccountId, ChainTransaction, SignatureSuite},
     error::ValidatorError,
 };
 use libp2p::identity;
 use lru::LruCache;
 use rand::seq::SliceRandom;
 use serde::Serialize;
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::fmt::Debug;
 use std::panic::AssertUnwindSafe;
 use std::sync::{
@@ -55,8 +55,8 @@ mod context;
 mod gossip;
 mod oracle;
 mod peer_management;
-mod remote_state_view; // [+] ADDED: This module declaration was missing.
-                       // Make sure the sync helpers are visible here.
+mod remote_state_view;
+// Make sure the sync helpers are visible here.
 mod sync;
 pub mod verifier_select;
 mod view_resolver;
@@ -66,7 +66,7 @@ use crate::config::OrchestrationConfig;
 use consensus::drive_consensus_tick;
 use context::{ChainFor, MainLoopContext};
 use futures::FutureExt;
-// [+] Use `sync as sync_handlers` to avoid ambiguity with tokio::sync
+// Use `sync as sync_handlers` to avoid ambiguity with tokio::sync
 use sync as sync_handlers;
 
 /// A struct to hold the numerous dependencies for the OrchestrationContainer,
@@ -86,6 +86,8 @@ pub struct OrchestrationDependencies<CE, V> {
     pub pqc_keypair: Option<DilithiumKeyPair>,
     /// A flag indicating if the node has been quarantined due to misbehavior.
     pub is_quarantined: Arc<AtomicBool>,
+    /// The SHA-256 hash of the canonical genesis file bytes.
+    pub genesis_hash: [u8; 32],
     /// The proof verifier matching the workload's state tree.
     pub verifier: V,
 }
@@ -120,6 +122,7 @@ where
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     config: OrchestrationConfig,
+    genesis_hash: [u8; 32],
     chain: Arc<OnceCell<ChainFor<CS, ST>>>,
     workload_client: Arc<OnceCell<Arc<WorkloadClient>>>,
     /// The local mempool for pending transactions.
@@ -141,6 +144,7 @@ where
     // Robust consensus kick channel: keep both ends.
     consensus_kick_tx: mpsc::UnboundedSender<()>,
     consensus_kick_rx: ConsensusKickReceiver,
+    nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
 }
 
 impl<CS, ST, CE, V> OrchestrationContainer<CS, ST, CE, V>
@@ -176,6 +180,7 @@ where
 
         Ok(Self {
             config,
+            genesis_hash: deps.genesis_hash,
             chain: Arc::new(OnceCell::new()),
             workload_client: Arc::new(OnceCell::new()),
             tx_pool: Arc::new(Mutex::new(VecDeque::new())),
@@ -197,6 +202,7 @@ where
             main_loop_context: Arc::new(Mutex::new(None)),
             consensus_kick_tx,
             consensus_kick_rx: Mutex::new(Some(consensus_kick_rx)),
+            nonce_manager: Arc::new(Mutex::new(BTreeMap::new())),
         })
     }
 
@@ -369,8 +375,15 @@ where
                 _ = &mut sync_timeout, if *context_arc.lock().await.node_state.lock().await == NodeState::Syncing => {
                     let context = context_arc.lock().await;
                     if context.known_peers_ref.lock().await.is_empty() {
-                        tracing::warn!(target: "orchestration", "Initial sync timeout elapsed with no peers found. Will continue waiting for peers...");
-                        // We no longer assume genesis here. The node will stay in Syncing state.
+                        tracing::warn!(target: "orchestration", "Initial sync timeout elapsed with no peers found. Assuming genesis node role and transitioning to Synced.");
+                        // After the timeout, if we have no peers, we assume we are the first node
+                        // and should start producing blocks. Transitioning to Synced allows this.
+                        let mut node_state = context.node_state.lock().await;
+                        if *node_state == NodeState::Syncing {
+                            *node_state = NodeState::Synced;
+                            // Kick consensus to try producing a block now that we are "synced".
+                            let _ = context.consensus_kick_tx.send(());
+                        }
                     }
                 },
 
@@ -630,6 +643,31 @@ where
             self.proof_cache.clone(),
         ));
 
+        // Prime the local nonce manager
+        let local_account_id = AccountId(
+            account_id_from_key_material(
+                SignatureSuite::Ed25519,
+                &self.local_keypair.public().encode_protobuf(),
+            )
+            .map_err(|e| {
+                ValidatorError::Config(format!("Failed to derive local account ID: {}", e))
+            })?,
+        );
+        let nonce_key = [
+            depin_sdk_types::keys::ACCOUNT_NONCE_PREFIX,
+            local_account_id.as_ref(),
+        ]
+        .concat();
+        let initial_nonce = match workload_client.query_raw_state(&nonce_key).await {
+            Ok(Some(bytes)) => bytes.try_into().ok().map(u64::from_le_bytes).unwrap_or(0),
+            _ => 0,
+        };
+        self.nonce_manager
+            .lock()
+            .await
+            .insert(local_account_id, initial_nonce);
+        tracing::info!(target: "orchestration", initial_nonce = initial_nonce, "Primed local nonce manager for self-generated transactions.");
+
         // Build the run context (includes the *sender* for kicks).
         let context = MainLoopContext::<CS, ST, CE, V> {
             chain_ref: chain,
@@ -643,13 +681,14 @@ where
             known_peers_ref: self.syncer.get_known_peers(),
             config: self.config.clone(),
             chain_id: self.config.chain_id,
-            genesis_hash: [0; 32], // Placeholder, will be set properly in node binary
+            genesis_hash: self.genesis_hash,
             is_quarantined: self.is_quarantined.clone(),
             external_data_service: self.external_data_service.clone(),
             pending_attestations: std::collections::HashMap::new(),
             last_committed_block: None,
             consensus_kick_tx: self.consensus_kick_tx.clone(),
             sync_progress: None,
+            nonce_manager: self.nonce_manager.clone(),
         };
 
         let mut receiver_opt = self.network_event_receiver.lock().await;

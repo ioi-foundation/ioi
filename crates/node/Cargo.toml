@@ -24,14 +24,9 @@ depin-sdk-services = { path = "../services" }
 depin-sdk-test-utils = { path = "../test_utils" }
 depin-sdk-client = { path = "../client" }
 depin-sdk-telemetry = { path = "../telemetry" }
-# FIX: Add missing dependencies for malicious-workload
 ipc_protocol = { path = "../ipc_protocol" }
 bincode = { workspace = true }
 uuid = { version = "1.8.0", features = ["v4"] }
-
-
-async-trait = { workspace = true }
-# Workspace Dependencies (for binary)
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive", "cargo", "env"] }
 cfg-if = "1.0"
@@ -46,6 +41,7 @@ tokio-rustls = { workspace = true }
 rcgen = { workspace = true }
 serde_json = { workspace = true }
 bs58 = "0.4"
+async-trait = { workspace = true }
 toml = { workspace = true }
 axum = { workspace = true }
 serde = { workspace = true }
@@ -100,6 +96,10 @@ consensus-pos = ["depin-sdk-validator/consensus-pos", "depin-sdk-consensus/pos"]
 
 # VM Features
 vm-wasm = ["dep:depin-sdk-vm-wasm"]
+
+# Service Features
+svc-ibc = ["depin-sdk-services/svc-ibc"]
+
 
 [[bin]]
 name = "orchestration"

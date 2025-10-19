@@ -3,7 +3,8 @@
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
-use depin_sdk_api::services::access::{Service, ServiceDirectory};
+use depin_sdk_api::services::access::ServiceDirectory;
+use depin_sdk_api::services::BlockchainService;
 use depin_sdk_api::services::UpgradableService;
 use depin_sdk_api::validator::container::Container;
 use depin_sdk_chain::Chain;
@@ -17,14 +18,14 @@ use depin_sdk_services::identity::IdentityHub;
 use depin_sdk_storage::RedbEpochStore;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
-use depin_sdk_types::error::CoreError;
 use depin_sdk_validator::metrics as validator_metrics;
 use depin_sdk_validator::standard::orchestration::OrchestrationDependencies;
 use depin_sdk_validator::standard::{
     orchestration::verifier_select::{create_default_verifier, DefaultVerifier},
     OrchestrationContainer,
 };
-use libp2p::{identity, Multiaddr};
+use libp2p::identity;
+use libp2p::Multiaddr;
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -49,9 +50,18 @@ struct OrchestrationOpts {
     config: PathBuf,
     #[clap(long, help = "Path to the identity keypair file.")]
     identity_key_file: PathBuf,
-    #[clap(long, env = "LISTEN_ADDRESS", help = "Address to listen for p2p connections")]
+    #[clap(
+        long,
+        env = "LISTEN_ADDRESS",
+        help = "Address to listen for p2p connections"
+    )]
     listen_address: Multiaddr,
-    #[clap(long, env = "BOOTNODE", use_value_delimiter = true, help = "One or more bootnode addresses to connect to, comma-separated")]
+    #[clap(
+        long,
+        env = "BOOTNODE",
+        use_value_delimiter = true,
+        help = "One or more bootnode addresses to connect to, comma-separated"
+    )]
     bootnode: Vec<Multiaddr>,
     /// Optional path to a JSON file containing a Dilithium keypair:
     /// { "public": "<hex>", "private": "<hex>" }
@@ -119,13 +129,14 @@ where
         serde::Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
+    // Read genesis file once to get the hash for identity checks and the oracle domain.
+    let data_dir = opts.config.parent().unwrap_or_else(|| Path::new("."));
+    let genesis_bytes = fs::read(&workload_config.genesis_file)?;
+    let derived_genesis_hash: [u8; 32] =
+        depin_sdk_crypto::algorithms::hash::sha256(&genesis_bytes)?;
+
     let workload_client = {
         // --- Startup Identity Check ---
-        let data_dir = opts.config.parent().unwrap_or_else(|| Path::new("."));
-        let genesis_bytes = fs::read(&workload_config.genesis_file)?;
-        let derived_genesis_hash: [u8; 32] =
-            depin_sdk_crypto::algorithms::hash::sha256(&genesis_bytes)?;
-
         let identity_path = data_dir.join("chain_identity.json");
         let configured_identity = (config.chain_id, derived_genesis_hash);
 
@@ -147,7 +158,6 @@ where
 
         let workload_ipc_addr =
             std::env::var("WORKLOAD_IPC_ADDR").unwrap_or_else(|_| "127.0.0.1:8555".to_string());
-        // [+] FIX: Load cert paths from env and pass to client constructor.
         let certs_dir =
             std::env::var("CERTS_DIR").expect("CERTS_DIR environment variable must be set");
         let ca_path = format!("{}/ca.pem", certs_dir);
@@ -181,7 +191,8 @@ where
         }
     }
 
-    let (syncer, real_swarm_commander, network_event_receiver) = match Libp2pSync::new(local_key.clone(), opts.listen_address, Some(&opts.bootnode)) {
+    let (syncer, real_swarm_commander, network_event_receiver) =
+        match Libp2pSync::new(local_key.clone(), opts.listen_address, Some(&opts.bootnode)) {
             Ok(v) => v,
             Err(e) => {
                 eprintln!("ORCHESTRATION_FATAL: Libp2p init failed: {e}");
@@ -236,6 +247,7 @@ where
         local_keypair: local_key,
         pqc_keypair,
         is_quarantined,
+        genesis_hash: derived_genesis_hash,
         verifier,
     };
 
@@ -259,17 +271,20 @@ where
                     let gov = GovernanceModule::new(params.clone());
                     initial_services.push(Arc::new(gov) as Arc<dyn UpgradableService>);
                 }
+                InitialServiceConfig::Ibc(_) => {
+                    // IBC service is handled within the workload container, no-op here for orchestrator.
+                }
             }
         }
-        let services_for_dir: Vec<Arc<dyn Service>> = initial_services
+        let services_for_dir: Vec<Arc<dyn BlockchainService>> = initial_services
             .iter()
-            .map(|s| s.clone() as Arc<dyn Service>)
+            .map(|s| s.clone() as Arc<dyn BlockchainService>)
             .collect();
         let service_directory = ServiceDirectory::new(services_for_dir);
         // --- FIX END ---
 
         let dummy_workload_config = WorkloadConfig {
-            enabled_vms: vec![],
+            runtimes: vec![],
             state_tree: workload_config.state_tree.clone(),
             commitment_scheme: workload_config.commitment_scheme.clone(),
             consensus_type: config.consensus_type,
@@ -290,7 +305,7 @@ where
         let workload_container = Arc::new(depin_sdk_api::validator::WorkloadContainer::new(
             dummy_workload_config,
             state_tree,
-            Box::new(depin_sdk_vm_wasm::WasmVm::new(Default::default())?), // Dummy VM
+            Box::new(depin_sdk_vm_wasm::WasmRuntime::new(Default::default())?), // Dummy VM
             service_directory, // <-- Pass the populated directory here
             dummy_store,
         )?);
@@ -298,14 +313,7 @@ where
             commitment_scheme,
             tm,
             config.chain_id,
-            initial_services, // <-- And pass the instantiated services here
-            Box::new(
-                |_wasm_bytes: &[u8]| -> Result<Arc<dyn UpgradableService>, CoreError> {
-                    Err(CoreError::Custom(
-                        "Orchestrator's dummy chain cannot load WASM services".to_string(),
-                    ))
-                },
-            ),
+            initial_services,    // <-- And pass the instantiated services here
             consensus_for_chain, // Use the cloned engine
             workload_container,
         );

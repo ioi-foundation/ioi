@@ -7,11 +7,11 @@
 ))]
 
 use anyhow::Result;
-use axum::{routing::get, Router, Server};
+use axum::{routing::get, serve, Router};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_forge::testing::{
     build_test_artifacts,
-    poll::{wait_for_height, wait_for_oracle_data},
+    poll::{wait_for_height, wait_for_oracle_data, wait_for_pending_oracle_request},
     submit_transaction, TestCluster,
 };
 use depin_sdk_types::{
@@ -46,11 +46,7 @@ async fn start_local_price_stub() -> (String, JoinHandle<()>) {
     let url = format!("http://{addr}/price");
 
     let handle = tokio::spawn(async move {
-        Server::from_tcp(listener.into_std().unwrap())
-            .unwrap()
-            .serve(app.into_make_service())
-            .await
-            .unwrap();
+        serve(listener, app.into_make_service()).await.unwrap();
     });
     (url, handle)
 }
@@ -113,23 +109,26 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
             let initial_stake = 100_000u128;
 
-            let validators: Vec<ValidatorV1> = keys
+            let mut validators: Vec<ValidatorV1> = keys
                 .iter()
                 .map(|k| {
                     let pk_bytes = k.public().encode_protobuf();
-                    let account_hash =
+                    let account_id_hash =
                         account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
                     ValidatorV1 {
-                        account_id: AccountId(account_hash),
+                        account_id: AccountId(account_id_hash),
                         weight: initial_stake,
                         consensus_key: ActiveKeyRecord {
                             suite: SignatureSuite::Ed25519,
-                            pubkey_hash: account_hash,
+                            public_key_hash: account_id_hash,
                             since_height: 0,
                         },
                     }
                 })
                 .collect();
+            // --- FIX: Sort validators by AccountId to ensure deterministic genesis state ---
+            validators.sort_by(|a, b| a.account_id.cmp(&b.account_id));
+
             let total_weight = validators.iter().map(|v| v.weight).sum();
             let validator_sets = ValidatorSetsV1 {
                 current: ValidatorSetV1 {
@@ -175,7 +174,7 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
                 // Add ActiveKeyRecord for consensus
                 let record = ActiveKeyRecord {
                     suite,
-                    pubkey_hash: account_id_hash,
+                    public_key_hash: account_id_hash,
                     since_height: 0,
                 };
                 let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
@@ -206,6 +205,13 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
     for v in &cluster.validators {
         let _ = submit_transaction(&v.rpc_addr, &request_tx).await;
     }
+
+    // --- FIX START: Add a polling step to wait for the request to be committed ---
+    // This removes the race condition and makes the test deterministic.
+    wait_for_pending_oracle_request(node0_rpc, request_id, std::time::Duration::from_secs(30))
+        .await?;
+    println!("SUCCESS: Oracle request tx was included in a block and is now pending.");
+    // --- FIX END ---
 
     // 3. ASSERT ON-CHAIN FINALIZATION
     // This is the new, robust assertion. It replaces all previous log checks.

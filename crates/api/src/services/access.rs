@@ -2,41 +2,30 @@
 
 //! Read-only access to shared blockchain services.
 
-use crate::identity::CredentialsView;
-use crate::lifecycle::OnEndBlock;
-use crate::transaction::decorator::TxDecorator;
-use std::any::{Any, TypeId};
+use crate::services::BlockchainService;
+use std::any::TypeId;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
-
-/// A marker trait for any struct that can be stored in the ServiceDirectory.
-pub trait Service: Any + Send + Sync {
-    /// Provides access to the concrete type for downcasting.
-    fn as_any(&self) -> &dyn Any;
-
-    /// Attempts to downcast this service to a `TxDecorator` trait object.
-    fn as_tx_decorator(&self) -> Option<&dyn TxDecorator> {
-        None
-    }
-
-    /// Attempts to downcast this service to an `OnEndBlock` trait object.
-    fn as_on_end_block(&self) -> Option<&dyn OnEndBlock> {
-        None
-    }
-
-    /// Attempts to downcast this service to a `CredentialsView` trait object.
-    fn as_credentials_view(&self) -> Option<&dyn CredentialsView> {
-        None
-    }
-}
 
 /// A helper macro to reduce boilerplate for simple services that don't
 /// need to override any special downcasting methods.
 #[macro_export]
 macro_rules! impl_service_base {
-    ($type:ty) => {
-        impl $crate::services::access::Service for $type {
+    ($type:ty, $id:expr) => {
+        impl $crate::services::BlockchainService for $type {
+            fn id(&self) -> &'static str {
+                $id
+            }
+            fn abi_version(&self) -> u32 {
+                1
+            }
+            fn state_schema(&self) -> &'static str {
+                "v1"
+            }
+            fn capabilities(&self) -> depin_sdk_types::service_configs::Capabilities {
+                depin_sdk_types::service_configs::Capabilities::empty()
+            }
             fn as_any(&self) -> &dyn std::any::Any {
                 self
             }
@@ -48,9 +37,9 @@ macro_rules! impl_service_base {
 #[derive(Clone, Default)]
 pub struct ServiceDirectory {
     /// A deterministically ordered list of services, crucial for ante handlers.
-    ordered: Arc<Vec<Arc<dyn Service>>>,
+    ordered: Arc<Vec<Arc<dyn BlockchainService>>>,
     /// A map for fast, type-based lookups.
-    by_type: Arc<HashMap<TypeId, Arc<dyn Service>>>,
+    by_type: Arc<HashMap<TypeId, Arc<dyn BlockchainService>>>,
 }
 
 impl fmt::Debug for ServiceDirectory {
@@ -62,9 +51,12 @@ impl fmt::Debug for ServiceDirectory {
 }
 
 impl ServiceDirectory {
-    /// Creates a new directory from a list of services. The provided order is preserved for deterministic iteration.
-    pub fn new(services: Vec<Arc<dyn Service>>) -> Self {
+    /// Creates a new directory from a list of services.
+    /// Services are sorted lexicographically by their `id()` to ensure deterministic iteration order.
+    pub fn new(mut services: Vec<Arc<dyn BlockchainService>>) -> Self {
         let mut by_type = HashMap::new();
+        // Sort by unique service ID for deterministic ordering.
+        services.sort_by_key(|s| s.id());
         for s in &services {
             by_type.insert(s.as_any().type_id(), s.clone());
         }
@@ -75,20 +67,27 @@ impl ServiceDirectory {
     }
 
     /// Gets a service by its concrete type.
-    pub fn get<T: Service + 'static>(&self) -> Option<Arc<T>> {
+    pub fn get<T: BlockchainService + 'static>(&self) -> Option<Arc<T>> {
         self.by_type
             .get(&TypeId::of::<T>())
-            .and_then(|svc| (svc.clone() as Arc<dyn Any + Send + Sync>).downcast::<T>().ok())
+            .and_then(|svc| Arc::downcast(svc.clone()).ok())
     }
 
     /// Returns a deterministically ordered iterator over all stored services.
     /// This is critical for ante handlers to run in the same order on all nodes.
-    pub fn services_in_deterministic_order(&self) -> impl Iterator<Item = &Arc<dyn Service>> {
+    pub fn services_in_deterministic_order(
+        &self,
+    ) -> impl Iterator<Item = &Arc<dyn BlockchainService>> {
         self.ordered.iter()
     }
 
     /// Returns an iterator over all stored service trait objects in a deterministic order.
-    pub fn services(&self) -> impl Iterator<Item = &Arc<dyn Service>> {
+    pub fn services(&self) -> impl Iterator<Item = &Arc<dyn BlockchainService>> {
+        self.ordered.iter()
+    }
+
+    /// An efficient, deterministic iterator for the dispatcher.
+    pub fn iter_deterministic(&self) -> std::slice::Iter<'_, Arc<dyn BlockchainService>> {
         self.ordered.iter()
     }
 }

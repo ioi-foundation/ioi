@@ -52,6 +52,12 @@ pub const UPGRADE_PENDING_PREFIX: &[u8] = b"upgrade::pending::";
 /// State key prefix for the canonical registry of active services.
 pub const UPGRADE_ACTIVE_SERVICE_PREFIX: &[u8] = b"upgrade::active::";
 
+/// State key prefix for storing service manifests, keyed by their SHA-256 hash.
+pub const UPGRADE_MANIFEST_PREFIX: &[u8] = b"upgrade::manifest::";
+
+/// State key prefix for storing service artifacts, keyed by their SHA-256 hash.
+pub const UPGRADE_ARTIFACT_PREFIX: &[u8] = b"upgrade::artifact::";
+
 /// Creates the canonical, queryable key for an active service.
 /// The service type name is always converted to lowercase to ensure determinism.
 ///
@@ -62,8 +68,6 @@ pub fn active_service_key<S: AsRef<str>>(service_type: S) -> Vec<u8> {
     [UPGRADE_ACTIVE_SERVICE_PREFIX, name.as_bytes()].concat()
 }
 
-
-// --- MODIFICATION START ---
 /// The state key for the set of all evidence that has already been processed.
 /// Stores a `BTreeSet<[u8; 32]>` of evidence IDs, providing replay protection.
 pub const EVIDENCE_REGISTRY_KEY: &[u8] = b"system::penalties::evidence";
@@ -71,7 +75,6 @@ pub const EVIDENCE_REGISTRY_KEY: &[u8] = b"system::penalties::evidence";
 /// Stores a `BTreeSet<AccountId>`, representing authorities that are temporarily
 /// barred from consensus participation.
 pub const QUARANTINED_VALIDATORS_KEY: &[u8] = b"system::penalties::quarantined_poa";
-// --- MODIFICATION END ---
 
 // --- Identity Hub Keys ---
 /// State key prefix for an account's credentials array.

@@ -157,9 +157,45 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 .and_then(|opt| opt.as_ref())
                 .is_some()
         );
-        let maybe_vs_bytes = parent_view.get(VALIDATOR_SET_KEY).await;
-        let vs_bytes = match maybe_vs_bytes {
-            Ok(Some(bytes)) => {
+        // --- FIX: Add retry logic for the critical validator set lookup ---
+        let vs_bytes_result = {
+            let mut last_error: Option<String> = None;
+            let mut result: Option<Vec<u8>> = None;
+            for attempt in 0..3 {
+                match parent_view.get(VALIDATOR_SET_KEY).await {
+                    Ok(Some(bytes)) => {
+                        result = Some(bytes);
+                        break;
+                    }
+                    Ok(None) => {
+                        let msg = "VALIDATOR_SET_KEY was not found in parent state".to_string();
+                        log::warn!(
+                            "[PoS Decide H={}] Attempt {} to read validator set failed: key not found. Retrying...",
+                            height,
+                            attempt + 1
+                        );
+                        last_error = Some(msg);
+                    }
+                    Err(e) => {
+                        let msg = e.to_string();
+                        log::warn!(
+                            "[PoS Decide H={}] Attempt {} to read validator set failed: {}. Retrying...",
+                            height,
+                            attempt + 1,
+                            &msg
+                        );
+                        last_error = Some(msg);
+                    }
+                }
+                tokio::time::sleep(tokio::time::Duration::from_millis(20)).await;
+            }
+            result.ok_or_else(|| {
+                last_error.unwrap_or_else(|| "Unknown error fetching validator set".to_string())
+            })
+        };
+
+        let vs_bytes = match vs_bytes_result {
+            Ok(bytes) => {
                 log::info!(
                     "[PoS Decide H={}] Successfully read validator set blob ({} bytes) via AnchoredStateView.",
                     height,
@@ -167,23 +203,16 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 );
                 bytes
             }
-            Ok(None) => {
-                log::error!(
-                    "[PoS Decide H={}] AnchoredStateView reported None for VALIDATOR_SET_KEY at parent root {}. Stalling.",
-                    height,
-                    hex::encode(parent_view.state_root())
-                );
-                return ConsensusDecision::Stall;
-            }
             Err(e) => {
                 log::error!(
-                    "[PoS Decide H={}] AnchoredStateView.get(VALIDATOR_SET_KEY) error: {}. Stalling.",
+                    "[PoS Decide H={}] Failed to get validator set after retries: {}. Stalling.",
                     height,
                     e
                 );
                 return ConsensusDecision::Stall;
             }
         };
+        // --- END FIX ---
         let sets: ValidatorSetsV1 = match read_validator_sets(&vs_bytes) {
             Ok(s) => s,
             Err(e) => {

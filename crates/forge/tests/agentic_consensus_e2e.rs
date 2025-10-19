@@ -199,7 +199,7 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
         false, // use_docker
         services.clone(),
         false, // malicious
-        true,  // light_readiness_check
+        false, // light_readiness_check -> Use full check to ensure attestation completes
     )
     .await?;
 
@@ -220,8 +220,8 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
         Some(good_model_path.to_str().unwrap()),
         false,
         services.clone(),
-        false,
-        true,
+        false, // malicious
+        false, // Use full check for followers too
     )
     .await?;
     let n2 = TestValidator::launch(
@@ -236,8 +236,8 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
         Some(good_model_path.to_str().unwrap()),
         false,
         services.clone(),
-        false,
-        true,
+        false, // malicious
+        false, // Use full check
     )
     .await?;
 
@@ -328,7 +328,7 @@ async fn test_mismatched_model_quarantine() -> Result<()> {
 
     // Behavior check: A quarantined node will never produce block 1.
     // We assert that waiting for height 1 fails within a short timeout.
-    let wait_result = wait_for_height(&bad_node.rpc_addr, 1, Duration::from_secs(10)).await;
+    let wait_result = wait_for_height(&bad_node.rpc_addr, 1, Duration::from_secs(15)).await;
     assert!(
         wait_result.is_err(),
         "Node should not have produced a block because it is quarantined, but it reached height 1"

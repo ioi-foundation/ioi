@@ -30,6 +30,11 @@ static CONSENSUS_TICK_DURATION_SECONDS: OnceCell<Histogram> = OnceCell::new();
 static RPC_REQUEST_DURATION_SECONDS: OnceCell<HistogramVec> = OnceCell::new();
 static ERRORS_TOTAL: OnceCell<IntCounterVec> = OnceCell::new();
 
+// --- NEW METRICS FOR PHASE 2 ---
+static SVC_CAPABILITY_RESOLVE_FAIL_TOTAL: OnceCell<IntCounterVec> = OnceCell::new();
+static SVC_DISPATCH_LATENCY_SECONDS: OnceCell<HistogramVec> = OnceCell::new();
+// NOTE: `ibc_dispatch_errors_total` is better handled by the generic `ERRORS_TOTAL` counter.
+
 #[derive(Debug, Clone, Copy)]
 pub struct PrometheusSink;
 
@@ -117,6 +122,19 @@ impl ErrorMetricsSink for PrometheusSink {
         get_metric!(ERRORS_TOTAL)
             .with_label_values(&[kind, variant])
             .inc();
+    }
+}
+
+impl ServiceMetricsSink for PrometheusSink {
+    fn inc_capability_resolve_fail(&self, capability: &'static str) {
+        get_metric!(SVC_CAPABILITY_RESOLVE_FAIL_TOTAL)
+            .with_label_values(&[capability])
+            .inc();
+    }
+    fn observe_service_dispatch_latency(&self, service_id: &'static str, duration_secs: f64) {
+        get_metric!(SVC_DISPATCH_LATENCY_SECONDS)
+            .with_label_values(&[service_id])
+            .observe(duration_secs);
     }
 }
 
@@ -229,6 +247,23 @@ pub fn install() -> Result<&'static dyn MetricsSink, prometheus::Error> {
             &["kind", "variant"]
         )?)
         .expect("ERRORS_TOTAL static already initialized");
+
+    SVC_CAPABILITY_RESOLVE_FAIL_TOTAL
+        .set(register_int_counter_vec!(
+            "depin_sdk_svc_capability_resolve_fail_total",
+            "Total failures to resolve a required service capability.",
+            &["capability"]
+        )?)
+        .expect("SVC_CAPABILITY_RESOLVE_FAIL_TOTAL static already initialized");
+
+    SVC_DISPATCH_LATENCY_SECONDS
+        .set(register_histogram_vec!(
+            "depin_sdk_service_dispatch_latency_seconds",
+            "Latency of dispatched calls to on-chain services.",
+            &["service_id"],
+            exponential_buckets(0.0001, 2.0, 16)? // Start finer for service calls
+        )?)
+        .expect("SVC_DISPATCH_LATENCY_SECONDS static already initialized");
 
     static SINK: PrometheusSink = PrometheusSink;
     Ok(&SINK)

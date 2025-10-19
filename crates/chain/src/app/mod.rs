@@ -8,8 +8,8 @@ use depin_sdk_api::chain::{
 };
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::consensus::PenaltyMechanism;
-use depin_sdk_api::services::access::{Service, ServiceDirectory};
-use depin_sdk_api::services::{ServiceType, UpgradableService};
+use depin_sdk_api::services::access::ServiceDirectory;
+use depin_sdk_api::services::{BlockchainService, UpgradableService};
 use depin_sdk_api::state::{PinGuard, StateAccessor, StateManager, StateOverlay};
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
@@ -24,7 +24,7 @@ use depin_sdk_types::app::{
 use depin_sdk_types::codec;
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::{BlockError, ChainError, StateError, TransactionError};
-use depin_sdk_types::keys::{STATUS_KEY, VALIDATOR_SET_KEY};
+use depin_sdk_types::keys::{STATUS_KEY, UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY};
 use libp2p::identity::Keypair;
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -47,12 +47,6 @@ pub enum GenesisState {
 }
 
 use depin_sdk_consensus::Consensus;
-
-type ServiceFactory = Box<
-    dyn Fn(&[u8]) -> Result<Arc<dyn UpgradableService>, depin_sdk_types::error::CoreError>
-        + Send
-        + Sync,
->;
 
 // Delegates PenaltyMechanism to the borrowed Consensus engine.
 struct PenaltyDelegator<'a> {
@@ -152,7 +146,6 @@ where
         transaction_model: UnifiedTransactionModel<CS>,
         chain_id: ChainId,
         initial_services: Vec<Arc<dyn UpgradableService>>,
-        service_factory: ServiceFactory,
         consensus_engine: Consensus<depin_sdk_types::app::ChainTransaction>,
         workload_container: Arc<WorkloadContainer<ST>>,
     ) -> Self {
@@ -163,13 +156,13 @@ where
             is_running: false,
         };
 
-        let services_for_dir: Vec<Arc<dyn Service>> = initial_services
+        let services_for_dir: Vec<Arc<dyn BlockchainService>> = initial_services
             .iter()
-            .map(|s| s.clone() as Arc<dyn Service>)
+            .map(|s| s.clone() as Arc<dyn BlockchainService>)
             .collect();
         let service_directory = ServiceDirectory::new(services_for_dir);
 
-        let mut service_manager = ModuleUpgradeManager::new(service_factory);
+        let mut service_manager = ModuleUpgradeManager::new();
         for service in initial_services {
             service_manager.register_service(service);
         }
@@ -271,13 +264,14 @@ where
                 );
 
                 for service in self.service_manager.all_services() {
-                    let type_str = match service.service_type() {
-                        ServiceType::Custom(s) => s.clone(),
-                        st => format!("{st:?}"),
-                    };
-                    let key = depin_sdk_types::keys::active_service_key(&type_str);
+                    let service_id = service.id();
+                    let key = depin_sdk_types::keys::active_service_key(&service_id);
                     state.insert(&key, &[])?;
-                    tracing::info!(target: "chain", "Registered initial service {:?} as active in genesis state.", service.service_type());
+                    tracing::info!(
+                        target: "chain",
+                        "Registered initial service '{}' as active in genesis state.",
+                        service_id
+                    );
                 }
 
                 state.commit_version(0)?;
@@ -340,7 +334,7 @@ where
         overlay: &mut StateOverlay<'_>,
         block_height: u64,
     ) -> Result<(), ChainError> {
-        let tx_ctx = TxContext {
+        let mut tx_ctx = TxContext {
             block_height,
             chain_id: self.state.chain_id,
             services: &self.services,
@@ -353,14 +347,14 @@ where
 
         for service in self.services.services_in_deterministic_order() {
             if let Some(decorator) = service.as_tx_decorator() {
-                decorator.ante_handle(overlay, tx, &tx_ctx)?;
+                decorator.ante_handle(overlay, tx, &tx_ctx).await?;
             }
         }
 
         nonce::bump_nonce(overlay, tx)?;
         self.state
             .transaction_model
-            .apply_payload(self, overlay, tx, tx_ctx)
+            .apply_payload(self, overlay, tx, &mut tx_ctx)
             .await?;
 
         Ok(())
@@ -534,7 +528,7 @@ where
             };
             for service in self.services.services_in_deterministic_order() {
                 if let Some(hook) = service.as_on_end_block() {
-                    hook.on_end_block(&mut overlay, &end_block_ctx)?;
+                    hook.on_end_block(&mut overlay, &end_block_ctx).await?;
                 }
             }
 
@@ -629,50 +623,68 @@ where
                 }
             }
 
-            let upgrade_key = [
-                depin_sdk_types::keys::UPGRADE_PENDING_PREFIX,
-                &block.header.height.to_le_bytes(),
-            ]
-            .concat();
+            let upgrade_key = [UPGRADE_PENDING_PREFIX, &block.header.height.to_le_bytes()].concat();
 
             if let Some(upgrade_bytes) = state.get(&upgrade_key)? {
-                let upgrades: Vec<(String, Vec<u8>)> =
+                // Deduplicate upgrades for the same service_id at the same height.
+                let upgrades: Vec<(String, [u8; 32], [u8; 32])> =
                     depin_sdk_types::codec::from_bytes_canonical(&upgrade_bytes)
-                        .unwrap_or_else(|_| Default::default());
-                let mut applied_count = 0;
-                for (service_type_str, wasm) in upgrades {
-                    let service_type =
-                        depin_sdk_api::services::ServiceType::Custom(service_type_str);
+                        .unwrap_or_default();
+                let unique_upgrades: BTreeMap<String, ([u8; 32], [u8; 32])> = upgrades
+                    .into_iter()
+                    .map(|(id, mh, ah)| (id, (mh, ah)))
+                    .collect();
 
-                    match self
-                        .service_manager
-                        .execute_upgrade(&service_type, &wasm, &mut *state)
+                let mut applied_count = 0;
+                for (service_id, (manifest_hash, artifact_hash)) in unique_upgrades {
+                    let manifest_key = [
+                        depin_sdk_types::keys::UPGRADE_MANIFEST_PREFIX,
+                        &manifest_hash,
+                    ]
+                    .concat();
+                    let artifact_key = [
+                        depin_sdk_types::keys::UPGRADE_ARTIFACT_PREFIX,
+                        &artifact_hash,
+                    ]
+                    .concat();
+
+                    if let (Ok(Some(manifest_bytes)), Ok(Some(artifact_bytes))) =
+                        (state.get(&manifest_key), state.get(&artifact_key))
                     {
-                        Ok(_) => applied_count += 1,
-                        Err(e) => {
-                            tracing::error!(
-                                target: "chain",
-                                event = "upgrade_fail",
-                                ?service_type,
-                                height = block.header.height,
-                                error = %e,
-                            );
+                        if let Ok(manifest_str) = String::from_utf8(manifest_bytes) {
+                            // FIX: Add .await to the call
+                            match self
+                                .service_manager
+                                .execute_upgrade(
+                                    &service_id,
+                                    &manifest_str,
+                                    &artifact_bytes,
+                                    &mut *state,
+                                )
+                                .await
+                            {
+                                Ok(_) => applied_count += 1,
+                                Err(e) => {
+                                    tracing::error!(target: "chain", event = "upgrade_fail", ?service_id, height = block.header.height, error = %e);
+                                }
+                            }
                         }
                     }
                 }
+
                 if applied_count > 0 {
                     let all_active_services = self.service_manager.all_services();
-                    let services_for_dir: Vec<Arc<dyn Service>> = all_active_services
+                    let services_for_dir: Vec<Arc<dyn BlockchainService>> = all_active_services
                         .into_iter()
-                        .map(|s| s as Arc<dyn Service>)
+                        .map(|s| s as Arc<dyn BlockchainService>)
                         .collect();
-                    self.services = ServiceDirectory::new(services_for_dir);
                     tracing::info!(
                         target: "chain",
                         event = "upgrades_applied",
                         count = applied_count,
                         height = block.header.height,
                     );
+                    self.services = ServiceDirectory::new(services_for_dir);
                 }
                 state.delete(&upgrade_key)?;
             }

@@ -26,9 +26,7 @@ tokio = { workspace = true, features = ["time"], optional = true }
 bs58 = "0.4"
 cfg-if = "1.0"
 hex = { workspace = true }
-# FIX: Add missing dependency for generic bounds
-parity-scale-codec = { workspace = true }
-
+parity-scale-codec = { workspace = true, features = ["derive", "std"] }
 
 [features]
 default = []

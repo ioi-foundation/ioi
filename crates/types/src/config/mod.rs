@@ -68,6 +68,13 @@ impl Default for VmFuelCosts {
     }
 }
 
+/// Configuration for the IBC service.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct IbcConfig {
+    /// A list of enabled light client verifiers by name (e.g., "tendermint-v0.34").
+    pub enabled_clients: Vec<String>,
+}
+
 /// Enum to represent the configuration of an initial service instantiated at genesis.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "name")]
@@ -76,13 +83,15 @@ pub enum InitialServiceConfig {
     IdentityHub(MigrationConfig),
     /// Configuration for the Governance service.
     Governance(GovernanceParams),
+    /// Configuration for the IBC service.
+    Ibc(IbcConfig),
 }
 
 /// Configuration for the Workload container (`workload.toml`).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WorkloadConfig {
-    /// A list of VM identifiers that are enabled (e.g., "WASM").
-    pub enabled_vms: Vec<String>,
+    /// A list of runtime identifiers that are enabled (e.g., "wasm").
+    pub runtimes: Vec<String>,
     /// The type of state tree to use for the state manager.
     pub state_tree: StateTreeType,
     /// The cryptographic commitment scheme to pair with the state tree.

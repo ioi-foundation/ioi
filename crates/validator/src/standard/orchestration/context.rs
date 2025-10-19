@@ -10,10 +10,10 @@ use depin_sdk_crypto::sign::dilithium::DilithiumKeyPair;
 use depin_sdk_network::libp2p::SwarmCommand;
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_services::external_data::ExternalDataService;
-use depin_sdk_types::app::{Block, ChainTransaction, OracleAttestation};
+use depin_sdk_types::app::{AccountId, Block, ChainTransaction, OracleAttestation};
 use libp2p::{identity, PeerId};
 use serde::Serialize;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fmt::Debug;
 use std::sync::{atomic::AtomicBool, Arc};
 use tokio::sync::{mpsc, Mutex};
@@ -68,4 +68,6 @@ where
     pub last_committed_block: Option<Block<ChainTransaction>>,
     pub consensus_kick_tx: mpsc::UnboundedSender<()>,
     pub sync_progress: Option<SyncProgress>,
+    /// A local, atomically-managed nonce for self-generated transactions.
+    pub nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
 }

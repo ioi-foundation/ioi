@@ -174,7 +174,7 @@ pub struct BlockHeader {
     pub timestamp: u64,
     /// The full, sorted list of PeerIds (in bytes) that constituted the validator
     /// set when this block was created.
-    // NOTE: This field is now informational. Consensus logic uses the state-anchored validator set.
+    // NOTE: This field is informational. Consensus logic uses the state-anchored validator set.
     pub validator_set: Vec<Vec<u8>>,
     /// The stable AccountId of the block producer.
     pub producer_account_id: AccountId,
@@ -572,12 +572,22 @@ pub enum SystemPayload {
     },
     /// Schedules a forkless upgrade of a core service module.
     SwapModule {
-        /// The type of service to upgrade (e.g., Governance, Custom("fee")).
-        service_type: String,
-        /// The new WASM blob for the module.
-        module_wasm: Vec<u8>,
+        /// The unique ID of the service to be installed or upgraded.
+        service_id: String,
+        /// The SHA-256 hash of the service's TOML manifest.
+        manifest_hash: [u8; 32],
+        /// The SHA-256 hash of the service's WASM or EVM bytecode artifact.
+        artifact_hash: [u8; 32],
         /// The block height at which the upgrade becomes active.
         activation_height: u64,
+    },
+    /// Stores a service module's manifest and artifact on-chain for a future upgrade.
+    /// This transaction should be authorized by governance.
+    StoreModule {
+        /// The TOML manifest content.
+        manifest: String,
+        /// The raw WASM or EVM bytecode.
+        artifact: Vec<u8>,
     },
     /// Reports misbehavior by another agentic component, providing verifiable evidence.
     ReportMisbehavior {

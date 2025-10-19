@@ -226,7 +226,7 @@ where
             let check_result = async {
                 let status = (*chain_guard).status();
                 let chain_id = chain_guard.state.chain_id;
-                let tx_ctx = TxContext {
+                let mut tx_ctx = TxContext {
                     block_height: status.height + 1,
                     chain_id,
                     services: &chain_guard.services,
@@ -262,7 +262,7 @@ where
 
                 for service in chain_guard.services.services_in_deterministic_order() {
                     if let Some(decorator) = service.as_tx_decorator() {
-                        decorator.ante_handle(&mut overlay, &tx, &tx_ctx)?;
+                        decorator.ante_handle(&mut overlay, &tx, &tx_ctx).await?;
                     }
                 }
 
@@ -272,7 +272,7 @@ where
                 // Apply the core logic to the overlay to check for state-based errors
                 (*chain_guard)
                     .transaction_model()
-                    .apply_payload(&*chain_guard, &mut overlay, &tx, tx_ctx)
+                    .apply_payload(&*chain_guard, &mut overlay, &tx, &mut tx_ctx)
                     .await?;
 
                 Ok(())

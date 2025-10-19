@@ -1,19 +1,15 @@
 // Path: crates/services/src/agentic/normaliser.rs
 use depin_sdk_api::impl_service_base;
-use depin_sdk_api::services::{BlockchainService, ServiceType};
 use depin_sdk_crypto::algorithms::hash::sha256;
 use serde_jcs::to_vec;
 use serde_json::Value; // A crate for RFC 8785 Canonical JSON
 
+/// A service to normalize JSON output deterministically.
 pub struct OutputNormaliser;
 
-impl BlockchainService for OutputNormaliser {
-    fn service_type(&self) -> ServiceType {
-        ServiceType::Custom("OutputNormaliser".to_string())
-    }
-}
-
-impl_service_base!(OutputNormaliser);
+// Implement the base BlockchainService trait using the helper macro.
+// "output_normaliser" is the unique, static ID for this service.
+impl_service_base!(OutputNormaliser, "output_normaliser");
 
 impl OutputNormaliser {
     /// Normalises a raw JSON string according to RFC 8785 and computes its SHA-256 hash.
