@@ -24,7 +24,7 @@ use depin_sdk_types::app::{
 use depin_sdk_types::codec;
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::{BlockError, ChainError, StateError, TransactionError};
-use depin_sdk_types::keys::{STATUS_KEY, UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY};
+use depin_sdk_types::keys::{STATUS_KEY, VALIDATOR_SET_KEY};
 use libp2p::identity::Keypair;
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -118,6 +118,21 @@ fn preflight_capabilities(
         }
     }
     Ok(())
+}
+
+/// Extracts the signer's AccountId from any transaction type that has a SignHeader.
+fn signer_from_tx(tx: &ChainTransaction) -> AccountId {
+    match tx {
+        ChainTransaction::System(s) => s.header.account_id,
+        ChainTransaction::Application(a) => match a {
+            depin_sdk_types::app::ApplicationTransaction::DeployContract { header, .. }
+            | depin_sdk_types::app::ApplicationTransaction::CallContract { header, .. } => {
+                header.account_id
+            }
+            // UTXO transactions don't have a single signer in the header in this model
+            depin_sdk_types::app::ApplicationTransaction::UTXO(_) => AccountId::default(),
+        },
+    }
 }
 
 impl<CS, ST> Chain<CS, ST>
@@ -265,7 +280,7 @@ where
 
                 for service in self.service_manager.all_services() {
                     let service_id = service.id();
-                    let key = depin_sdk_types::keys::active_service_key(&service_id);
+                    let key = depin_sdk_types::keys::active_service_key(service_id);
                     state.insert(&key, &[])?;
                     tracing::info!(
                         target: "chain",
@@ -334,9 +349,11 @@ where
         overlay: &mut StateOverlay<'_>,
         block_height: u64,
     ) -> Result<(), ChainError> {
+        let signer_account_id = signer_from_tx(tx);
         let mut tx_ctx = TxContext {
             block_height,
             chain_id: self.state.chain_id,
+            signer_account_id,
             services: &self.services,
             simulation: false,
         };
@@ -520,17 +537,9 @@ where
                     .await?;
             }
 
-            let end_block_ctx = TxContext {
-                block_height: block.header.height,
-                chain_id: self.state.chain_id,
-                services: &self.services,
-                simulation: true,
-            };
-            for service in self.services.services_in_deterministic_order() {
-                if let Some(hook) = service.as_on_end_block() {
-                    hook.on_end_block(&mut overlay, &end_block_ctx).await?;
-                }
-            }
+            // NOTE: OnEndBlock hooks moved to `commit_block` to ensure their state
+            // changes are applied to the canonical state and not just a simulation.
+            // This was the source of the PQC migration test failure.
 
             overlay.into_ordered_batch()
         };
@@ -581,6 +590,24 @@ where
 
             state.batch_apply(inserts, deletes)?;
 
+            // --- FIX: OnEndBlock hooks moved here from `prepare_block` ---
+            // This ensures their state changes (e.g., key promotion in IdentityHub)
+            // are applied to the canonical state before commit.
+            {
+                let end_block_ctx = TxContext {
+                    block_height: block.header.height,
+                    chain_id: self.state.chain_id,
+                    signer_account_id: AccountId::default(), // OnEndBlock is not tied to a specific signer
+                    services: &self.services,
+                    simulation: false, // These changes are final
+                };
+                for service in self.services.services_in_deterministic_order() {
+                    if let Some(hook) = service.as_on_end_block() {
+                        hook.on_end_block(&mut *state, &end_block_ctx).await?;
+                    }
+                }
+            }
+
             match state.get(VALIDATOR_SET_KEY)? {
                 Some(bytes) => {
                     let mut sets = read_validator_sets(&bytes)?;
@@ -621,72 +648,6 @@ where
                         "MISSING VALIDATOR_SET_KEY before commit. The next block may stall or fail without it."
                     );
                 }
-            }
-
-            let upgrade_key = [UPGRADE_PENDING_PREFIX, &block.header.height.to_le_bytes()].concat();
-
-            if let Some(upgrade_bytes) = state.get(&upgrade_key)? {
-                // Deduplicate upgrades for the same service_id at the same height.
-                let upgrades: Vec<(String, [u8; 32], [u8; 32])> =
-                    depin_sdk_types::codec::from_bytes_canonical(&upgrade_bytes)
-                        .unwrap_or_default();
-                let unique_upgrades: BTreeMap<String, ([u8; 32], [u8; 32])> = upgrades
-                    .into_iter()
-                    .map(|(id, mh, ah)| (id, (mh, ah)))
-                    .collect();
-
-                let mut applied_count = 0;
-                for (service_id, (manifest_hash, artifact_hash)) in unique_upgrades {
-                    let manifest_key = [
-                        depin_sdk_types::keys::UPGRADE_MANIFEST_PREFIX,
-                        &manifest_hash,
-                    ]
-                    .concat();
-                    let artifact_key = [
-                        depin_sdk_types::keys::UPGRADE_ARTIFACT_PREFIX,
-                        &artifact_hash,
-                    ]
-                    .concat();
-
-                    if let (Ok(Some(manifest_bytes)), Ok(Some(artifact_bytes))) =
-                        (state.get(&manifest_key), state.get(&artifact_key))
-                    {
-                        if let Ok(manifest_str) = String::from_utf8(manifest_bytes) {
-                            // FIX: Add .await to the call
-                            match self
-                                .service_manager
-                                .execute_upgrade(
-                                    &service_id,
-                                    &manifest_str,
-                                    &artifact_bytes,
-                                    &mut *state,
-                                )
-                                .await
-                            {
-                                Ok(_) => applied_count += 1,
-                                Err(e) => {
-                                    tracing::error!(target: "chain", event = "upgrade_fail", ?service_id, height = block.header.height, error = %e);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if applied_count > 0 {
-                    let all_active_services = self.service_manager.all_services();
-                    let services_for_dir: Vec<Arc<dyn BlockchainService>> = all_active_services
-                        .into_iter()
-                        .map(|s| s as Arc<dyn BlockchainService>)
-                        .collect();
-                    tracing::info!(
-                        target: "chain",
-                        event = "upgrades_applied",
-                        count = applied_count,
-                        height = block.header.height,
-                    );
-                    self.services = ServiceDirectory::new(services_for_dir);
-                }
-                state.delete(&upgrade_key)?;
             }
 
             self.state.status.height = block.header.height;

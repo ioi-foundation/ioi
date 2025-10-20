@@ -25,9 +25,7 @@ fn get_tx_details(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
     match tx {
         ChainTransaction::System(sys_tx) => match sys_tx.payload {
             // These system payloads are not signed by a user account and don't use nonces.
-            SystemPayload::UpdateAuthorities { .. } | SystemPayload::SubmitOracleData { .. } => {
-                None
-            }
+            SystemPayload::UpdateAuthorities { .. } => None,
             // All other system transactions are signed by a user and must have a valid nonce.
             _ => Some((sys_tx.header.account_id, sys_tx.header.nonce)),
         },

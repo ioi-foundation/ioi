@@ -10,7 +10,7 @@ use prometheus::{
 };
 
 // --- Metric Statics ---
-// We now use OnceCell to hold the metric collectors. They will be initialized
+// We use OnceCell to hold the metric collectors. They will be initialized
 // exactly once by the `install` function.
 
 static NETWORK_CONNECTED_PEERS: OnceCell<Gauge> = OnceCell::new();
@@ -28,19 +28,19 @@ static GOSSIP_MESSAGES_RECEIVED_TOTAL: OnceCell<IntCounterVec> = OnceCell::new()
 static RPC_REQUESTS_TOTAL: OnceCell<IntCounterVec> = OnceCell::new();
 static CONSENSUS_TICK_DURATION_SECONDS: OnceCell<Histogram> = OnceCell::new();
 static RPC_REQUEST_DURATION_SECONDS: OnceCell<HistogramVec> = OnceCell::new();
-static ERRORS_TOTAL: OnceCell<IntCounterVec> = OnceCell::new();
 
-// --- NEW METRICS FOR PHASE 2 ---
+// --- NEW/MODIFIED METRICS ---
+static ERRORS_TOTAL: OnceCell<IntCounterVec> = OnceCell::new();
 static SVC_CAPABILITY_RESOLVE_FAIL_TOTAL: OnceCell<IntCounterVec> = OnceCell::new();
 static SVC_DISPATCH_LATENCY_SECONDS: OnceCell<HistogramVec> = OnceCell::new();
-// NOTE: `ibc_dispatch_errors_total` is better handled by the generic `ERRORS_TOTAL` counter.
+static SVC_DISPATCH_ERRORS_TOTAL: OnceCell<IntCounterVec> = OnceCell::new();
 
 #[derive(Debug, Clone, Copy)]
 pub struct PrometheusSink;
 
-// Helper macro to reduce boilerplate for getting a metric from OnceCell.
-// This will panic if `install()` has not been called, which is intentional
-// as it indicates a critical application setup error.
+/// Helper macro to reduce boilerplate for getting a metric from OnceCell.
+/// This will panic if `install()` has not been called, which is intentional
+/// as it indicates a critical application setup error.
 macro_rules! get_metric {
     ($metric:ident) => {
         $metric
@@ -131,10 +131,20 @@ impl ServiceMetricsSink for PrometheusSink {
             .with_label_values(&[capability])
             .inc();
     }
-    fn observe_service_dispatch_latency(&self, service_id: &'static str, duration_secs: f64) {
+    fn observe_service_dispatch_latency(
+        &self,
+        service_id: &'static str,
+        method: &str,
+        duration_secs: f64,
+    ) {
         get_metric!(SVC_DISPATCH_LATENCY_SECONDS)
-            .with_label_values(&[service_id])
+            .with_label_values(&[service_id, method])
             .observe(duration_secs);
+    }
+    fn inc_dispatch_error(&self, service_id: &'static str, method: &str, reason: &'static str) {
+        get_metric!(SVC_DISPATCH_ERRORS_TOTAL)
+            .with_label_values(&[service_id, method, reason])
+            .inc();
     }
 }
 
@@ -142,95 +152,94 @@ impl ServiceMetricsSink for PrometheusSink {
 /// This function must be called only once at application startup.
 #[allow(clippy::expect_used)]
 pub fn install() -> Result<&'static dyn MetricsSink, prometheus::Error> {
-    // This is the single point where registration can fail. We propagate the error.
     NETWORK_CONNECTED_PEERS
         .set(register_gauge!(
             "depin_sdk_network_connected_peers",
             "Current number of connected libp2p peers."
         )?)
-        .expect("NETWORK_CONNECTED_PEERS static already initialized");
+        .expect("static already initialized");
     MEMPOOL_SIZE
         .set(register_gauge!(
             "depin_sdk_mempool_size",
             "Current number of transactions in the mempool."
         )?)
-        .expect("MEMPOOL_SIZE static already initialized");
+        .expect("static already initialized");
     STORAGE_DISK_USAGE_BYTES
         .set(register_gauge!(
             "depin_sdk_storage_disk_usage_bytes",
             "Estimated total disk usage for the storage backend."
         )?)
-        .expect("STORAGE_DISK_USAGE_BYTES static already initialized");
+        .expect("static already initialized");
     STORAGE_REF_COUNTS
         .set(register_gauge!(
             "depin_sdk_storage_ref_counts",
             "Total number of reference counts tracked for GC."
         )?)
-        .expect("STORAGE_REF_COUNTS static already initialized");
+        .expect("static already initialized");
     NETWORK_NODE_STATE
         .set(register_gauge_vec!(
             "depin_sdk_network_node_state",
             "Current synchronization state of the node (1 if active, 0 otherwise).",
             &["state"]
         )?)
-        .expect("NETWORK_NODE_STATE static already initialized");
+        .expect("static already initialized");
     STORAGE_EPOCHS_DROPPED_TOTAL
         .set(register_int_counter!(
             "depin_sdk_storage_epochs_dropped_total",
             "Total number of sealed epochs dropped by GC."
         )?)
-        .expect("STORAGE_EPOCHS_DROPPED_TOTAL static already initialized");
+        .expect("static already initialized");
     STORAGE_NODES_DELETED_TOTAL
         .set(register_int_counter!(
             "depin_sdk_storage_nodes_deleted_total",
             "Total number of state tree nodes deleted by GC."
         )?)
-        .expect("STORAGE_NODES_DELETED_TOTAL static already initialized");
+        .expect("static already initialized");
     STORAGE_BYTES_WRITTEN_TOTAL
         .set(register_int_counter!(
             "depin_sdk_storage_bytes_written_total",
             "Total bytes written to the storage backend for new nodes."
         )?)
-        .expect("STORAGE_BYTES_WRITTEN_TOTAL static already initialized");
+        .expect("static already initialized");
     CONSENSUS_BLOCKS_PRODUCED_TOTAL
         .set(register_int_counter!(
             "depin_sdk_consensus_blocks_produced_total",
             "Total number of blocks produced by this node."
         )?)
-        .expect("CONSENSUS_BLOCKS_PRODUCED_TOTAL static already initialized");
+        .expect("static already initialized");
     CONSENSUS_VIEW_CHANGES_PROPOSED_TOTAL
         .set(register_int_counter!(
             "depin_sdk_consensus_view_changes_proposed_total",
             "Total number of view changes proposed by this node."
         )?)
-        .expect("CONSENSUS_VIEW_CHANGES_PROPOSED_TOTAL static already initialized");
+        .expect("static already initialized");
     MEMPOOL_TRANSACTIONS_ADDED_TOTAL
         .set(register_int_counter!(
             "depin_sdk_mempool_transactions_added_total",
             "Total transactions added to the mempool via RPC."
         )?)
-        .expect("MEMPOOL_TRANSACTIONS_ADDED_TOTAL static already initialized");
+        .expect("static already initialized");
     GOSSIP_MESSAGES_RECEIVED_TOTAL
         .set(register_int_counter_vec!(
             "depin_sdk_network_gossip_messages_received_total",
             "Total gossip messages received.",
             &["topic"]
         )?)
-        .expect("GOSSIP_MESSAGES_RECEIVED_TOTAL static already initialized");
+        .expect("static already initialized");
     RPC_REQUESTS_TOTAL
         .set(register_int_counter_vec!(
             "depin_sdk_rpc_requests_total",
             "Total RPC requests.",
             &["route", "status"]
         )?)
-        .expect("RPC_REQUESTS_TOTAL static already initialized");
+        .expect("static already initialized");
     CONSENSUS_TICK_DURATION_SECONDS
         .set(register_histogram!(
             "depin_sdk_consensus_tick_duration_seconds",
             "Latency of a single consensus tick.",
             exponential_buckets(0.002, 2.0, 15)?
         )?)
-        .expect("CONSENSUS_TICK_DURATION_SECONDS static already initialized");
+        .expect("static already initialized");
     RPC_REQUEST_DURATION_SECONDS
         .set(register_histogram_vec!(
             "depin_sdk_rpc_request_duration_seconds",
@@ -238,32 +247,36 @@ pub fn install() -> Result<&'static dyn MetricsSink, prometheus::Error> {
             &["route"],
             exponential_buckets(0.001, 2.0, 15)?
         )?)
-        .expect("RPC_REQUEST_DURATION_SECONDS static already initialized");
-
+        .expect("static already initialized");
     ERRORS_TOTAL
         .set(register_int_counter_vec!(
             "depin_sdk_errors_total",
             "Total number of errors, categorized by type and variant.",
             &["kind", "variant"]
         )?)
-        .expect("ERRORS_TOTAL static already initialized");
-
+        .expect("static already initialized");
     SVC_CAPABILITY_RESOLVE_FAIL_TOTAL
         .set(register_int_counter_vec!(
             "depin_sdk_svc_capability_resolve_fail_total",
             "Total failures to resolve a required service capability.",
             &["capability"]
         )?)
-        .expect("SVC_CAPABILITY_RESOLVE_FAIL_TOTAL static already initialized");
-
+        .expect("static already initialized");
     SVC_DISPATCH_LATENCY_SECONDS
         .set(register_histogram_vec!(
             "depin_sdk_service_dispatch_latency_seconds",
             "Latency of dispatched calls to on-chain services.",
-            &["service_id"],
-            exponential_buckets(0.0001, 2.0, 16)? // Start finer for service calls
+            &["service_id", "method"],
+            exponential_buckets(0.0001, 2.0, 16)?
         )?)
-        .expect("SVC_DISPATCH_LATENCY_SECONDS static already initialized");
+        .expect("static already initialized");
+    SVC_DISPATCH_ERRORS_TOTAL
+        .set(register_int_counter_vec!(
+            "depin_sdk_service_dispatch_errors_total",
+            "Total errors returned from service dispatch calls.",
+            &["service_id", "method", "reason"]
+        )?)
+        .expect("static already initialized");
 
     static SINK: PrometheusSink = PrometheusSink;
     Ok(&SINK)

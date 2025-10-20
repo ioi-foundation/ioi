@@ -6,7 +6,7 @@ use depin_sdk_api::{
     state::{StateCommitment, StateManager, Verifier},
 };
 use depin_sdk_network::libp2p::SwarmCommand;
-use depin_sdk_services::external_data::ExternalDataService;
+use depin_sdk_services::oracle::{OracleService, SubmitDataParams};
 use depin_sdk_types::{
     app::{
         account_id_from_key_material, AccountId, ChainTransaction, OracleAttestation,
@@ -29,7 +29,7 @@ const ATTESTATION_TTL_SECS: u64 = 300; // 5 minutes
 pub async fn handle_newly_processed_block<CS, ST, CE, V>(
     context: &MainLoopContext<CS, ST, CE, V>,
     _block_height: u64,
-    external_data_service: &ExternalDataService,
+    oracle_service: &OracleService,
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
@@ -152,7 +152,7 @@ pub async fn handle_newly_processed_block<CS, ST, CE, V>(
             url
         );
 
-        match external_data_service.fetch(&url).await {
+        match oracle_service.fetch(&url).await {
             Ok(value) => {
                 let Ok(ed25519_pk) = context.local_keypair.public().try_into_ed25519() else {
                     log::error!("Oracle: Local keypair is not Ed25519, cannot create attestation.");
@@ -487,10 +487,15 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
                 .collect(),
         };
 
-        let payload = SystemPayload::SubmitOracleData {
+        let params = SubmitDataParams {
             request_id,
             final_value,
             consensus_proof,
+        };
+        let payload = SystemPayload::CallService {
+            service_id: "oracle".to_string(),
+            method: "submit_data@v1".to_string(),
+            params: codec::to_bytes_canonical(&params).unwrap_or_default(),
         };
 
         let our_pk = context.local_keypair.public();

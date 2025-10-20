@@ -366,7 +366,7 @@ where
                 {
                     let service_clone = {
                         let ctx = context_arc.lock().await;
-                        ctx.external_data_service.clone()
+                        ctx.oracle_service.clone()
                     };
                     let ctx = context_arc.lock().await;
                     handle_newly_processed_block(&ctx, block_height, &service_clone).await;

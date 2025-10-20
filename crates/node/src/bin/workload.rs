@@ -23,6 +23,7 @@ use depin_sdk_services::ibc::{
     registry::VerifierRegistry,
 };
 use depin_sdk_services::identity::IdentityHub;
+use depin_sdk_services::oracle::OracleService;
 use depin_sdk_storage::metrics as storage_metrics;
 use depin_sdk_storage::RedbEpochStore;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
@@ -98,6 +99,12 @@ where
                 let gov = GovernanceModule::new(params.clone());
                 initial_services
                     .push(Arc::new(gov) as Arc<dyn depin_sdk_api::services::UpgradableService>);
+            }
+            InitialServiceConfig::Oracle(_params) => {
+                tracing::info!(target: "workload", event = "service_init", name = "Oracle", impl="native", capabilities="");
+                let oracle = OracleService::new();
+                initial_services
+                    .push(Arc::new(oracle) as Arc<dyn depin_sdk_api::services::UpgradableService>);
             }
             // --- IBC Service Instantiation ---
             #[cfg(feature = "svc-ibc")]

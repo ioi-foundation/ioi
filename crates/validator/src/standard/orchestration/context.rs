@@ -9,7 +9,7 @@ use depin_sdk_api::{
 use depin_sdk_crypto::sign::dilithium::DilithiumKeyPair;
 use depin_sdk_network::libp2p::SwarmCommand;
 use depin_sdk_network::traits::NodeState;
-use depin_sdk_services::external_data::ExternalDataService;
+use depin_sdk_services::oracle::OracleService;
 use depin_sdk_types::app::{AccountId, Block, ChainTransaction, OracleAttestation};
 use libp2p::{identity, PeerId};
 use serde::Serialize;
@@ -63,7 +63,7 @@ where
     pub pqc_signer: Option<DilithiumKeyPair>,
     pub known_peers_ref: Arc<Mutex<HashSet<PeerId>>>,
     pub is_quarantined: Arc<AtomicBool>,
-    pub external_data_service: ExternalDataService,
+    pub oracle_service: OracleService,
     pub pending_attestations: HashMap<u64, Vec<OracleAttestation>>,
     pub last_committed_block: Option<Block<ChainTransaction>>,
     pub consensus_kick_tx: mpsc::UnboundedSender<()>,

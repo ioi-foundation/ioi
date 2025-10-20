@@ -3,7 +3,9 @@
 
 /// Data structures related to consensus, such as the canonical validator set
 pub mod consensus;
+/// Data structures for on-chain identity, including the canonical AccountId.
 pub mod identity;
+/// Data structures for reporting and penalizing misbehavior.
 pub mod penalties;
 
 pub use consensus::*;
@@ -174,7 +176,6 @@ pub struct BlockHeader {
     pub timestamp: u64,
     /// The full, sorted list of PeerIds (in bytes) that constituted the validator
     /// set when this block was created.
-    // NOTE: This field is informational. Consensus logic uses the state-anchored validator set.
     pub validator_set: Vec<Vec<u8>>,
     /// The stable AccountId of the block producer.
     pub producer_account_id: AccountId,
@@ -199,9 +200,7 @@ impl BlockHeader {
     /// Creates a hash of the header's core fields for signing.
     pub fn hash(&self) -> Result<Vec<u8>, CoreError> {
         let mut temp = self.clone();
-        // Clear the signature before hashing to create a stable payload.
         temp.signature = vec![];
-        // Use the canonical SCALE codec instead of the non-deterministic JSON.
         let serialized =
             crate::codec::to_bytes_canonical(&temp).map_err(|e| CoreError::Custom(e))?;
         let digest =
@@ -215,23 +214,18 @@ impl BlockHeader {
             SigDomain::BlockHeaderV1 as u8,
             self.height,
             self.parent_hash,
-            &self.parent_state_root.0, // Use inner Vec<u8>
-            &self.state_root.0,        // Use inner Vec<u8>
+            &self.parent_state_root.0,
+            &self.state_root.0,
             &self.transactions_root,
             self.timestamp,
-            // The validator set is informational and not part of the consensus-critical signed payload.
-            // The parent state root already commits to the active validator set for this block.
             &self.producer_account_id,
             &self.producer_key_suite,
             &self.producer_pubkey_hash,
-            // The full public key is part of the signed payload to be self-contained.
             &self.producer_pubkey,
         ))
         .map_err(CoreError::Custom)
     }
 }
-
-// --- NEW/MODIFIED DATA STRUCTURES FOR IDENTITY AND TRANSACTIONS ---
 
 /// Defines the cryptographic algorithm suite used for a key or signature.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default, Encode, Decode)]
@@ -274,7 +268,6 @@ pub struct RotationProof {
 }
 
 /// The header containing all data required for a valid, replay-protected signature.
-/// This data is part of the canonical sign bytes.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default, Encode, Decode)]
 pub struct SignHeader {
     /// The stable identifier of the signing account.
@@ -297,8 +290,6 @@ pub struct SignatureProof {
     /// The cryptographic signature.
     pub signature: Vec<u8>,
 }
-
-// --- UTXO-related structs ---
 
 /// An input for a UTXO transaction, pointing to a previous output.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
@@ -331,22 +322,17 @@ pub struct UTXOTransaction {
 
 impl UTXOTransaction {
     /// Creates a stable, serializable payload for hashing or signing.
-    /// This MUST use a canonical binary encoding like SCALE to prevent malleability.
     pub fn to_sign_bytes(&self) -> Result<Vec<u8>, String> {
         crate::codec::to_bytes_canonical(self)
     }
-
     /// Computes the hash of the transaction.
     pub fn hash(&self) -> Result<Vec<u8>, CoreError> {
-        // Use the new canonical serialization method.
         let serialized = self.to_sign_bytes().map_err(CoreError::Custom)?;
         let digest =
             DcryptSha256::digest(&serialized).map_err(|e| CoreError::Custom(e.to_string()))?;
         Ok(digest.to_bytes())
     }
 }
-
-// --- Governance-related structs ---
 
 /// The category of a governance proposal.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
@@ -416,8 +402,6 @@ pub struct Proposal {
     pub final_tally: Option<TallyResult>,
 }
 
-// --- EVOLVED TRANSACTION ENUMS ---
-
 /// A top-level enum representing any transaction the chain can process.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub enum ChainTransaction {
@@ -458,7 +442,6 @@ pub enum ApplicationTransaction {
 
 impl ApplicationTransaction {
     /// Creates a stable, serializable payload for signing by clearing signature fields.
-    /// This MUST use a canonical binary encoding like BCS to prevent malleability.
     pub fn to_sign_bytes(&self) -> Result<Vec<u8>, bcs::Error> {
         let mut temp = self.clone();
         match &mut temp {
@@ -489,7 +472,6 @@ pub struct SystemTransaction {
 
 impl SystemTransaction {
     /// Creates a stable, serializable payload for signing by clearing signature fields.
-    /// This MUST use a canonical binary encoding like BCS to prevent malleability.
     pub fn to_sign_bytes(&self) -> Result<Vec<u8>, bcs::Error> {
         let mut temp = self.clone();
         temp.signature_proof = SignatureProof::default();
@@ -527,7 +509,7 @@ impl OracleAttestation {
     /// Creates a deterministic, domain-separated signing payload.
     pub fn to_signing_payload(&self, domain: &[u8]) -> Result<Vec<u8>, CoreError> {
         let mut bytes = Vec::new();
-        bytes.extend_from_slice(domain); // Use the provided full domain
+        bytes.extend_from_slice(domain);
         bytes.extend_from_slice(&self.request_id.to_le_bytes());
         bytes.extend_from_slice(&self.timestamp.to_le_bytes());
         let value_hash = DcryptSha256::digest(&self.value)
@@ -544,33 +526,30 @@ impl OracleAttestation {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct OracleConsensusProof {
     /// A collection of individual `OracleAttestation`s from a quorum of validators.
-    /// Future versions may replace this with an aggregate signature.
     pub attestations: Vec<OracleAttestation>,
 }
 
 /// The specific action being requested by a SystemTransaction.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub enum SystemPayload {
-    /// Updates the set of authorities for a Proof-of-Authority chain.
+    /// **[CORE]** Updates the set of authorities for a Proof-of-Authority chain.
     UpdateAuthorities {
         /// The new list of authority AccountIds.
-        /// This list will be canonically sorted and deduplicated by the state transition function before being stored.
         new_authorities: Vec<AccountId>,
     },
-    /// Stakes a certain amount for a validator.
+    /// **[CORE]** Stakes a certain amount for a validator.
     Stake {
         /// The protobuf-encoded libp2p public key of the staker.
-        /// This is required to build the AccountId -> PubKey lookup map.
         public_key: Vec<u8>,
         /// The amount to stake.
         amount: u64,
     },
-    /// Unstakes a certain amount for a validator.
+    /// **[CORE]** Unstakes a certain amount for a validator.
     Unstake {
         /// The amount to unstake.
         amount: u64,
     },
-    /// Schedules a forkless upgrade of a core service module.
+    /// **[CORE]** Schedules a forkless upgrade of a core service module.
     SwapModule {
         /// The unique ID of the service to be installed or upgraded.
         service_id: String,
@@ -581,20 +560,35 @@ pub enum SystemPayload {
         /// The block height at which the upgrade becomes active.
         activation_height: u64,
     },
-    /// Stores a service module's manifest and artifact on-chain for a future upgrade.
-    /// This transaction should be authorized by governance.
+    /// **[CORE]** Stores a service module's manifest and artifact on-chain for a future upgrade.
     StoreModule {
         /// The TOML manifest content.
         manifest: String,
         /// The raw WASM or EVM bytecode.
         artifact: Vec<u8>,
     },
-    /// Reports misbehavior by another agentic component, providing verifiable evidence.
+    /// **[CORE]** Reports misbehavior by another agentic component, providing verifiable evidence.
     ReportMisbehavior {
         /// The full report, including the offender, facts, and proof.
         report: FailureReport,
     },
+
+    // --- NEW: GENERIC SERVICE DISPATCH ---
+    /// **[NEW]** A generic payload to call a method on any registered on-chain service.
+    CallService {
+        /// The unique, lowercase, alphanumeric identifier of the target service (e.g., "identity_hub", "ibc").
+        service_id: String,
+        /// The versioned method name to call (e.g., "rotate_key@v1").
+        method: String,
+        /// The SCALE-encoded parameters for the method call.
+        params: Vec<u8>,
+    },
+
+    // --- DEPRECATED PAYLOADS (to be removed in a future version) ---
     /// Casts a vote on a governance proposal.
+    #[deprecated(
+        note = "Use CallService { service_id: \"governance\", method: \"vote@v1\", params: SCALE_ENCODE((proposal_id, option)) }"
+    )]
     Vote {
         /// The unique identifier of the proposal being voted on.
         proposal_id: u64,
@@ -602,6 +596,9 @@ pub enum SystemPayload {
         option: VoteOption,
     },
     /// Submits a request for external data to be brought on-chain by the oracle.
+    #[deprecated(
+        note = "Use CallService { service_id: \"oracle\", method: \"request_data@v1\", params: SCALE_ENCODE((url, request_id)) }"
+    )]
     RequestOracleData {
         /// The URL or identifier for the data to be fetched.
         url: String,
@@ -609,6 +606,9 @@ pub enum SystemPayload {
         request_id: u64,
     },
     /// Submits the final, tallied result and consensus proof for an oracle request.
+    #[deprecated(
+        note = "Use CallService { service_id: \"oracle\", method: \"submit_data@v1\", params: SCALE_ENCODE((request_id, final_value, proof)) }"
+    )]
     SubmitOracleData {
         /// The ID of the request being fulfilled.
         request_id: u64,
@@ -618,9 +618,16 @@ pub enum SystemPayload {
         consensus_proof: OracleConsensusProof,
     },
     /// Initiates a key rotation for the transaction's signer.
+    #[deprecated(
+        note = "Use CallService { service_id: \"identity_hub\", method: \"rotate_key@v1\", params: SCALE_ENCODE(proof) }"
+    )]
     RotateKey(RotationProof),
-    // --- NEW IBC VARIANTS ---
+
     /// Explicitly submit a header update to an on-chain light client.
+    #[cfg_attr(not(feature = "svc-ibc"), allow(dead_code))]
+    #[deprecated(
+        note = "Use CallService { service_id: \"ibc\", method: \"verify_header@v1\", params: SCALE_ENCODE((chain_id, header, finality)) }"
+    )]
     VerifyHeader {
         /// The unique identifier of the target chain's light client.
         chain_id: String,
@@ -629,7 +636,10 @@ pub enum SystemPayload {
         /// The finality proof for the header (e.g., Tendermint commit).
         finality: Finality,
     },
-    /// Submit a ZK proof to be verified by a ZkDriver, targeting a specific verifier.
+    /// Submits a ZK proof to be verified by a ZkDriver, targeting a specific verifier.
+    #[deprecated(
+        note = "Use CallService { service_id: \"zk_verifier\", method: \"submit_proof@v1\", ... }"
+    )]
     SubmitProof {
         /// The identifier of the verifier that should handle this proof.
         target_verifier_id: String,
@@ -639,6 +649,10 @@ pub enum SystemPayload {
         public_inputs: Vec<u8>,
     },
     /// Send an IBC-style packet.
+    #[cfg_attr(not(feature = "svc-ibc"), allow(dead_code))]
+    #[deprecated(
+        note = "Use CallService { service_id: \"ibc_channel_manager\", method: \"send_packet@v1\", ... }"
+    )]
     SendPacket {
         /// The port on the source chain.
         source_port: String,
@@ -652,6 +666,10 @@ pub enum SystemPayload {
         timeout_timestamp: u64,
     },
     /// Receive an IBC-style packet, proven against a verified header.
+    #[cfg_attr(not(feature = "svc-ibc"), allow(dead_code))]
+    #[deprecated(
+        note = "Use CallService { service_id: \"ibc_channel_manager\", method: \"recv_packet@v1\", ... }"
+    )]
     RecvPacket {
         /// The packet that was received.
         packet: Packet,
@@ -661,6 +679,10 @@ pub enum SystemPayload {
         proof_height: u64,
     },
     /// Acknowledge a received packet.
+    #[cfg_attr(not(feature = "svc-ibc"), allow(dead_code))]
+    #[deprecated(
+        note = "Use CallService { service_id: \"ibc_channel_manager\", method: \"acknowledge_packet@v1\", ... }"
+    )]
     AcknowledgePacket {
         /// The original packet that is being acknowledged.
         packet: Packet,
@@ -671,8 +693,7 @@ pub enum SystemPayload {
         /// The height on the acknowledging chain at which the proof was generated.
         proof_height: u64,
     },
-    /// DEPRECATED: Submits a receipt from a foreign chain for verification.
-    /// This is a temporary interoperability mechanism that will be replaced by a full IBC implementation.
+    /// Submits a receipt from a foreign chain for verification.
     #[deprecated(note = "Use IBC packets for interoperability.")]
     VerifyForeignReceipt {
         /// The chain ID of the foreign chain where the event originated.

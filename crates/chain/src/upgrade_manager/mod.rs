@@ -2,25 +2,40 @@
 
 use crate::runtime_service::RuntimeBackedService;
 use depin_sdk_api::runtime::Runtime;
-use depin_sdk_api::services::{BlockchainService, UpgradableService};
+use depin_sdk_api::services::UpgradableService;
 use depin_sdk_api::state::StateAccessor;
 use depin_sdk_types::error::CoreError;
 use depin_sdk_types::keys::active_service_key;
-use depin_sdk_types::service_configs::Capabilities;
+use depin_sdk_types::service_configs::{Capabilities, MethodPermission};
 use serde::Deserialize;
 use std::any::Any;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::sync::Arc;
 use toml;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct ServiceManifest {
     id: String,
     abi_version: u32,
     state_schema: String,
     runtime: String,
     capabilities: Vec<String>,
+}
+
+/// Validates that a service ID conforms to the `[a-z0-9_]+` format.
+fn validate_service_id(id: &str) -> Result<(), CoreError> {
+    if id.is_empty()
+        || !id
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+    {
+        return Err(CoreError::Upgrade(format!(
+            "Invalid service_id: '{}'. Must be lowercase alphanumeric with underscores.",
+            id
+        )));
+    }
+    Ok(())
 }
 
 pub struct ModuleUpgradeManager {
@@ -53,6 +68,13 @@ impl ModuleUpgradeManager {
 
     pub fn register_service(&mut self, service: Arc<dyn UpgradableService>) {
         let service_id = service.id();
+        if let Err(e) = validate_service_id(service_id) {
+            // Use panic here because this is a developer error during setup, not a runtime issue.
+            panic!(
+                "FATAL: Attempted to register service with invalid ID '{}': {}",
+                service_id, e
+            );
+        }
         log::info!("Registering service: {}", service_id);
         self.active_services.insert(service_id.to_string(), service);
         self.upgrade_history
@@ -70,7 +92,6 @@ impl ModuleUpgradeManager {
 
     pub fn all_services(&self) -> Vec<Arc<dyn UpgradableService>> {
         let mut keys: Vec<_> = self.active_services.keys().cloned().collect();
-        // Sort keys to ensure deterministic iteration order for genesis state creation.
         keys.sort();
         keys.into_iter()
             .filter_map(|k| self.active_services.get(&k).cloned())
@@ -122,7 +143,7 @@ impl ModuleUpgradeManager {
                     }
                 }
                 Err(e) => {
-                    eprintln!("Failed to upgrade service {}: {e}", service_id);
+                    log::error!("Failed to upgrade service {}: {}", service_id, e);
                 }
             }
         }
@@ -139,6 +160,14 @@ impl ModuleUpgradeManager {
         let manifest: ServiceManifest = toml::from_str(manifest_str)
             .map_err(|e| CoreError::Upgrade(format!("Invalid service manifest: {}", e)))?;
 
+        validate_service_id(&manifest.id)?;
+        if manifest.id != service_id {
+            return Err(CoreError::Upgrade(format!(
+                "Manifest ID '{}' does not match target service ID '{}'",
+                manifest.id, service_id
+            )));
+        }
+
         let runtime = self.runtimes.get(&manifest.runtime).ok_or_else(|| {
             CoreError::Upgrade(format!(
                 "Execution runtime '{}' not found",
@@ -146,6 +175,7 @@ impl ModuleUpgradeManager {
             ))
         })?;
 
+        // This path is for installing a *new* service that wasn't present at genesis.
         if !self.active_services.contains_key(service_id) {
             log::info!("No active service for '{}'. Installing new.", service_id);
             let runnable = runtime
@@ -161,13 +191,7 @@ impl ModuleUpgradeManager {
                 Capabilities::from_strings(&manifest.capabilities)?,
             ));
 
-            // ABI/Schema Version Check
-            if new_service_arc.abi_version() != 1 {
-                return Err(CoreError::Upgrade("Incompatible ABI version".into()));
-            }
-
             self.register_service(new_service_arc as Arc<dyn UpgradableService>);
-            // Mark the new service as active in the canonical state tree.
             state
                 .insert(&active_service_key(service_id), &[])
                 .map_err(|e| CoreError::Custom(e.to_string()))?;
@@ -178,6 +202,7 @@ impl ModuleUpgradeManager {
             return Ok(());
         }
 
+        // This path is for upgrading an *existing* service.
         let mut active_service_arc = self
             .active_services
             .remove(service_id)
@@ -190,11 +215,6 @@ impl ModuleUpgradeManager {
                 .prepare_upgrade(artifact)
                 .await
                 .map_err(|e| CoreError::Upgrade(e.to_string()))?;
-            log::info!(
-                "Prepared upgrade for '{}', snapshot size: {}",
-                service_id,
-                snapshot.len()
-            );
 
             let runnable = runtime
                 .load(artifact)
@@ -209,15 +229,9 @@ impl ModuleUpgradeManager {
                     runnable,
                     Capabilities::from_strings(&manifest.capabilities)?,
                 ));
-            // ABI/Schema Version Check
+
             if new_service_arc.abi_version() != active_service.abi_version() {
                 return Err(CoreError::Upgrade("Incompatible ABI version".into()));
-            }
-            if new_service_arc.state_schema() != active_service.state_schema() {
-                log::warn!(
-                    "State schema mismatch for service '{}', proceeding without migration.",
-                    service_id
-                );
             }
 
             let new_service = Arc::get_mut(&mut new_service_arc).ok_or_else(|| {
@@ -227,7 +241,6 @@ impl ModuleUpgradeManager {
                 .complete_upgrade(&snapshot)
                 .await
                 .map_err(|e| CoreError::Upgrade(e.to_string()))?;
-            log::info!("Completed state migration for service '{}'", service_id);
             Ok(new_service_arc)
         })
         .await;
@@ -237,6 +250,11 @@ impl ModuleUpgradeManager {
                 self.active_services
                     .insert(service_id.to_string(), new_service_arc);
                 log::info!("Successfully swapped active service for '{}'", service_id);
+                // --- FIX START: Ensure active key is written on upgrade path ---
+                state
+                    .insert(&active_service_key(service_id), &[])
+                    .map_err(|e| CoreError::Custom(e.to_string()))?;
+                // --- FIX END ---
                 Ok(())
             }
             Err(e) => {

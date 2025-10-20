@@ -124,7 +124,16 @@ pub fn prune_mempool(
         .iter()
         .filter_map(|tx| match tx {
             ChainTransaction::System(sys_tx) => match &sys_tx.payload {
-                SystemPayload::SubmitOracleData { request_id, .. } => Some(*request_id),
+                SystemPayload::CallService {
+                    service_id,
+                    method,
+                    params,
+                } if service_id == "oracle" && method == "submit_data@v1" => {
+                    use depin_sdk_services::oracle::SubmitDataParams;
+                    depin_sdk_types::codec::from_bytes_canonical::<SubmitDataParams>(params)
+                        .map(|p| p.request_id)
+                        .ok()
+                }
                 _ => None,
             },
             _ => None,
@@ -142,9 +151,21 @@ pub fn prune_mempool(
         }
 
         if let ChainTransaction::System(sys_tx) = tx_in_pool {
-            if let SystemPayload::SubmitOracleData { request_id, .. } = &sys_tx.payload {
-                if finalized_oracle_ids.contains(request_id) {
-                    return false;
+            if let SystemPayload::CallService {
+                service_id,
+                method,
+                params,
+            } = &sys_tx.payload
+            {
+                if service_id == "oracle" && method == "submit_data@v1" {
+                    if let Ok(p) = depin_sdk_types::codec::from_bytes_canonical::<
+                        depin_sdk_services::oracle::SubmitDataParams,
+                    >(params)
+                    {
+                        if finalized_oracle_ids.contains(&p.request_id) {
+                            return false;
+                        }
+                    }
                 }
             }
         }
@@ -313,8 +334,7 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
             }
             drop(pool);
 
-            handle_newly_processed_block(context, block_height, &context.external_data_service)
-                .await;
+            handle_newly_processed_block(context, block_height, &context.oracle_service).await;
             if *context.node_state.lock().await == NodeState::Syncing {
                 *context.node_state.lock().await = NodeState::Synced;
                 tracing::info!(target: "orchestration", "State -> Synced.");

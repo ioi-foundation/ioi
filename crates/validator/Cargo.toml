@@ -83,6 +83,8 @@ primitive-hash = ["depin-sdk-commitment/primitive-hash"]
 primitive-kzg = ["depin-sdk-commitment/primitive-kzg"]
 # --- FIX END ---
 
+# Service Features
+svc-ibc = ["depin-sdk-services/svc-ibc"]
 
 [[bin]]
 name = "orchestration"

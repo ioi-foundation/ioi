@@ -1,12 +1,11 @@
-// Path: forge/tests/sync_e2e.rs
-
+// Path: crates/forge/tests/sync_e2e.rs
 #![cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "tree-iavl"))]
 
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_forge::testing::{
-    assert_log_contains, assert_log_contains_and_return_line, build_test_artifacts,
-    poll::wait_for_height, submit_transaction, TestCluster, TestValidator,
+    assert_log_contains, build_test_artifacts, poll::wait_for_height, submit_transaction,
+    TestCluster, TestValidator,
 };
 use depin_sdk_types::{
     app::{
@@ -24,12 +23,12 @@ use depin_sdk_types::{
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
+use parity_scale_codec::Encode;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::time::Duration;
 
 /// Helper function to add a full identity record for a PoA authority to the genesis state.
-/// Returns a list of (key, value) pairs to be inserted into a BTreeMap for deterministic serialization.
 fn add_poa_identity_to_genesis(keypair: &Keypair) -> (AccountId, Vec<(String, Value)>) {
     let mut entries = Vec::new();
     let suite = SignatureSuite::Ed25519;
@@ -75,16 +74,26 @@ fn add_poa_identity_to_genesis(keypair: &Keypair) -> (AccountId, Vec<(String, Va
     (account_id, entries)
 }
 
+#[derive(Encode)]
+struct VoteParams {
+    proposal_id: u64,
+    option: VoteOption,
+}
+
 fn create_dummy_tx(keypair: &Keypair, nonce: u64, chain_id: ChainId) -> Result<ChainTransaction> {
-    // Use a simple, low-overhead Governance::Vote to avoid invoking the oracle/external network.
     let vote_yes = (nonce & 1) == 0;
-    let payload = SystemPayload::Vote {
+    let params = VoteParams {
         proposal_id: 1,
         option: if vote_yes {
             VoteOption::Yes
         } else {
             VoteOption::No
         },
+    };
+    let payload = SystemPayload::CallService {
+        service_id: "governance".to_string(),
+        method: "vote@v1".to_string(),
+        params: codec::to_bytes_canonical(&params).map_err(|e| anyhow!(e))?,
     };
 
     let public_key_bytes = keypair.public().encode_protobuf();
@@ -356,6 +365,8 @@ async fn test_sync_with_peer_drop() -> Result<()> {
         ],
         false,
         true,
+        // [+] FIX: Add the missing 14th argument (empty slice as no special features are needed)
+        &[],
     )
     .await?;
 

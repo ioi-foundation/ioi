@@ -2,7 +2,7 @@
 
 #![cfg(all(feature = "consensus-poa", feature = "vm-wasm"))]
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_forge::testing::{
     build_test_artifacts,
@@ -13,8 +13,8 @@ use depin_sdk_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
         Credential, Proposal, ProposalStatus, ProposalType, SignHeader, SignatureProof,
-        SignatureSuite, StateEntry, SystemPayload, SystemTransaction, ValidatorSetBlob,
-        ValidatorSetV1, ValidatorSetsV1, ValidatorV1, VoteOption,
+        SignatureSuite, StateEntry, SystemPayload, SystemTransaction, ValidatorSetV1,
+        ValidatorSetsV1, ValidatorV1, VoteOption,
     },
     codec,
     config::InitialServiceConfig,
@@ -25,19 +25,36 @@ use depin_sdk_types::{
     service_configs::{GovernanceParams, MigrationConfig},
 };
 use libp2p::identity::{self, Keypair};
+use parity_scale_codec::Encode;
 use serde_json::json;
 use std::time::Duration;
 
-// Helper function to create a signed system transaction
-fn create_system_tx(
+/// Parameters for the `governance` service's `vote@v1` method.
+#[derive(Encode)]
+struct VoteParams {
+    proposal_id: u64,
+    option: VoteOption,
+}
+
+// Helper function to create a signed `CallService` transaction
+fn create_call_service_tx<P: Encode>(
     keypair: &Keypair,
-    payload: SystemPayload,
+    service_id: &str,
+    method: &str,
+    params: P,
     nonce: u64,
     chain_id: ChainId,
 ) -> Result<ChainTransaction> {
     let public_key_bytes = keypair.public().encode_protobuf();
     let account_id_hash = account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)?;
     let account_id = AccountId(account_id_hash);
+
+    let payload = SystemPayload::CallService {
+        service_id: service_id.to_string(),
+        method: method.to_string(),
+        // FIX: Explicitly map the String error to an anyhow::Error.
+        params: codec::to_bytes_canonical(&params).map_err(|e| anyhow!(e))?,
+    };
 
     let header = SignHeader {
         account_id,
@@ -88,7 +105,6 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
         .with_initial_service(InitialServiceConfig::Governance(GovernanceParams::default()))
         .with_genesis_modifier(move |genesis, keys| {
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
-            // Setup validator identity
             let validator_key = &keys[0];
             let suite = SignatureSuite::Ed25519;
             let validator_pk_bytes = validator_key.public().encode_protobuf();
@@ -96,8 +112,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                 account_id_from_key_material(suite, &validator_pk_bytes).unwrap();
             let validator_account_id = AccountId(validator_account_id_hash);
 
-            // A. Set the validator set with the validator having stake for voting power
-            let vs_blob = ValidatorSetBlob {
+            let vs_blob = depin_sdk_types::app::ValidatorSetBlob {
                 schema_version: 2,
                 payload: ValidatorSetsV1 {
                     current: ValidatorSetV1 {
@@ -122,13 +137,11 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                 json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
             );
 
-            // B. Set the governance key
             genesis_state.insert(
                 std::str::from_utf8(GOVERNANCE_KEY).unwrap().to_string(),
                 json!(governance_pubkey_b58),
             );
 
-            // C. Create a pre-funded proposal that will end soon
             let proposal = Proposal {
                 id: 1,
                 title: "Test Proposal".to_string(),
@@ -139,7 +152,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                 submit_height: 0,
                 deposit_end_height: 0,
                 voting_start_height: 1,
-                voting_end_height: 3, // Voting ends after block 3
+                voting_end_height: 3,
                 total_deposit: 10000,
                 final_tally: None,
             };
@@ -154,8 +167,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&entry_bytes))),
             );
 
-            // D. Set up identity records needed for signature validation
-            let gov_pk_bytes = governance_key_clone.public().encode_protobuf(); // Use the cloned key
+            let gov_pk_bytes = governance_key_clone.public().encode_protobuf();
             let gov_account_id =
                 AccountId(account_id_from_key_material(suite, &gov_pk_bytes).unwrap());
 
@@ -178,20 +190,6 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                     json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
                 );
 
-                let record = ActiveKeyRecord {
-                    suite,
-                    public_key_hash: acct_id.0,
-                    since_height: 0,
-                };
-                let record_key = [b"identity::key_record::", acct_id.as_ref()].concat();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
-                    json!(format!(
-                        "b64:{}",
-                        BASE64_STANDARD.encode(codec::to_bytes_canonical(&record).unwrap())
-                    )),
-                );
-
                 let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, acct_id.as_ref()].concat();
                 genesis_state.insert(
                     format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
@@ -207,24 +205,27 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
     let rpc_addr = &node.rpc_addr;
     let validator_key = &node.keypair;
 
-    // 4. SUBMIT a VOTE from the validator
-    let payload = SystemPayload::Vote {
-        proposal_id: 1,
-        option: VoteOption::Yes,
-    };
-    // Use nonce 0 for the validator's first transaction
-    let tx = create_system_tx(validator_key, payload, 0, 1.into())?;
+    // 4. SUBMIT a VOTE from the validator using the new CallService transaction
+    let tx = create_call_service_tx(
+        validator_key,
+        "governance",
+        "vote@v1",
+        VoteParams {
+            proposal_id: 1,
+            option: VoteOption::Yes,
+        },
+        0, // Use nonce 0 for the validator's first transaction
+        1.into(),
+    )?;
     submit_transaction(rpc_addr, &tx).await?;
 
-    // 5. (Non-brittle) Ensure the chain makes progress after submission.
-    // If the tx was accepted by the mempool and is valid, we will see the next block produced.
+    // 5. Ensure the chain makes progress after submission.
     wait_for_height(rpc_addr, 2, Duration::from_secs(30)).await?;
 
-    // 6. WAIT for the voting period to end. The proposal ends at height 3, so wait for height 4
-    // to ensure the OnEndBlock hook for height 3 has been processed and committed.
+    // 6. WAIT for the voting period to end (ends at height 3, wait for height 4).
     wait_for_height(rpc_addr, 4, Duration::from_secs(30)).await?;
 
-    // 7. ASSERT the tallying outcome via state (authoritative and non-brittle).
+    // 7. ASSERT the tallying outcome via state.
     confirm_proposal_passed_state(rpc_addr, 1, Duration::from_secs(20)).await?;
 
     println!("--- Governance Lifecycle E2E Test Successful ---");

@@ -75,6 +75,13 @@ pub struct IbcConfig {
     pub enabled_clients: Vec<String>,
 }
 
+/// Configuration for the Oracle service.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct OracleParams {
+    // Parameters for the oracle can be added here in the future.
+}
+
+
 /// Enum to represent the configuration of an initial service instantiated at genesis.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "name")]
@@ -85,6 +92,8 @@ pub enum InitialServiceConfig {
     Governance(GovernanceParams),
     /// Configuration for the IBC service.
     Ibc(IbcConfig),
+    /// Configuration for the Oracle service.
+    Oracle(OracleParams),
 }
 
 /// Configuration for the Workload container (`workload.toml`).
