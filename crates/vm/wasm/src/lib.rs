@@ -436,8 +436,8 @@ impl Runtime for WasmRuntime {
             "state_schema",
             "prepare_upgrade",
             "complete_upgrade",
-            // Capabilities are checked against manifest, but ante_handle is a common one to check for.
-            "ante_handle",
+            // Capability-specific functions like "ante_handle" should not be checked here.
+            // Their presence and version are determined by the service's manifest and dispatch logic.
         ]
         .iter()
         .cloned()

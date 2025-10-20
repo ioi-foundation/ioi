@@ -10,8 +10,8 @@ use depin_sdk_api::{
 };
 use depin_sdk_types::{
     app::{
-        evidence_id, ApplicationTransaction, Block, BlockHeader, ChainTransaction, Membership,
-        StateAnchor, SystemPayload,
+        evidence_id, AccountId, ApplicationTransaction, Block, BlockHeader, ChainTransaction,
+        Membership, StateAnchor, SystemPayload,
     },
     codec,
     error::TransactionError,
@@ -226,9 +226,26 @@ where
             let check_result = async {
                 let status = (*chain_guard).status();
                 let chain_id = chain_guard.state.chain_id;
+
+                let signer_account_id = match &tx {
+                    ChainTransaction::System(s) => s.header.account_id,
+                    ChainTransaction::Application(a) => match a {
+                        depin_sdk_types::app::ApplicationTransaction::DeployContract {
+                            header,
+                            ..
+                        }
+                        | depin_sdk_types::app::ApplicationTransaction::CallContract {
+                            header,
+                            ..
+                        } => header.account_id,
+                        _ => AccountId::default(),
+                    },
+                };
+
                 let mut tx_ctx = TxContext {
                     block_height: status.height + 1,
                     chain_id,
+                    signer_account_id,
                     services: &chain_guard.services,
                     simulation: true, // This is a read-only check.
                 };

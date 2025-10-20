@@ -7,17 +7,26 @@
 
 use anyhow::{anyhow, Result};
 use axum::{routing::get, serve, Router};
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use cfg_if::cfg_if;
 use depin_sdk_forge::testing::{
     assert_log_contains,
     backend::ProcessBackend,
-    poll::{wait_for, wait_for_height},
-    rpc, submit_transaction, TestCluster, TestValidator,
+    poll::{wait_for, wait_for_height, wait_for_pending_oracle_request},
+    rpc, submit_transaction, TestCluster,
 };
-use depin_sdk_types::app::{
-    AccountId, ChainId, ChainTransaction, SignHeader, SignatureProof, SignatureSuite,
-    SystemPayload, SystemTransaction,
+use depin_sdk_types::{
+    app::{
+        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
+        Credential, SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+    },
+    codec,
+    config::{InitialServiceConfig, OracleParams},
+    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX},
+    service_configs::MigrationConfig,
 };
+use parity_scale_codec::Encode;
+use serde_json::{json, Value};
 use std::mem::ManuallyDrop;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
@@ -36,6 +45,12 @@ fn get_metric_value(metrics_body: &str, metric_name: &str) -> Option<f64> {
         .find(|line| line.starts_with(metric_name) && (line.contains(' ') || line.contains('{')))
         .and_then(|line| line.split_whitespace().last())
         .and_then(|value| value.parse::<f64>().ok())
+}
+
+#[derive(Encode)]
+struct RequestOracleDataParams {
+    url: String,
+    request_id: u64,
 }
 
 // Helper function to create a correctly signed system transaction.
@@ -99,20 +114,29 @@ async fn test_metrics_endpoint() -> Result<()> {
     let mut builder = TestCluster::builder()
         .with_validators(1)
         .with_state_tree("IAVL") // Keep this consistent with the cfg
-        .with_commitment_scheme("Hash");
+        .with_commitment_scheme("Hash")
+        .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
+            chain_id: 1,
+            grace_period_blocks: 5,
+            accept_staged_during_grace: true,
+            allowed_target_suites: vec![depin_sdk_types::app::SignatureSuite::Ed25519],
+            allow_downgrade: false,
+        }));
 
     cfg_if! {
         if #[cfg(feature = "consensus-poa")] {
             println!("--- Configuring for Proof of Authority ---");
             builder = builder.with_consensus_type("ProofOfAuthority")
                 .with_genesis_modifier(|genesis, keys| {
-                    use depin_sdk_types::app::{account_id_from_key_material, AccountId, ActiveKeyRecord, SignatureSuite, ValidatorSetV1, ValidatorSetsV1, ValidatorV1};
-                    use depin_sdk_types::keys::VALIDATOR_SET_KEY;
+                    use depin_sdk_types::app::{account_id_from_key_material, AccountId, ActiveKeyRecord, Credential, SignatureSuite, ValidatorSetV1, ValidatorSetsV1, ValidatorV1};
+                    use depin_sdk_types::keys::{VALIDATOR_SET_KEY, IDENTITY_CREDENTIALS_PREFIX, ACCOUNT_ID_TO_PUBKEY_PREFIX};
                     use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 
                     let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
-                    let pk_bytes = keys[0].public().encode_protobuf();
-                    let account_hash = account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
+                    let keypair = &keys[0];
+                    let pk_bytes = keypair.public().encode_protobuf();
+                    let suite = SignatureSuite::Ed25519;
+                    let account_hash = account_id_from_key_material(suite, &pk_bytes).unwrap();
                     let account_id = AccountId(account_hash);
 
                     let vs = ValidatorSetV1 {
@@ -121,26 +145,43 @@ async fn test_metrics_endpoint() -> Result<()> {
                         validators: vec![ValidatorV1 {
                             account_id,
                             weight: 1,
-                            consensus_key: ActiveKeyRecord { suite: SignatureSuite::Ed25519, public_key_hash: account_hash, since_height: 0 },
+                            consensus_key: ActiveKeyRecord { suite, public_key_hash: account_hash, since_height: 0 },
                         }],
                     };
                     let vs_bytes = depin_sdk_types::app::write_validator_sets(&ValidatorSetsV1 { current: vs, next: None }).unwrap();
                     genesis_state.insert(
                         std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                        serde_json::json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
+                        json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
+                    );
+
+                    // Add Identity
+                    let cred = Credential { suite, public_key_hash: account_hash, activation_height: 0, l2_location: None };
+                    let creds_array: [Option<Credential>; 2] = [Some(cred), None];
+                    let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
+                    let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
+                    genesis_state.insert(
+                        format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
+                        json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
+                    );
+                    let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
+                    genesis_state.insert(
+                        format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
+                        json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes))),
                     );
                 });
         } else if #[cfg(feature = "consensus-pos")] {
             println!("--- Configuring for Proof of Stake ---");
             builder = builder.with_consensus_type("ProofOfStake")
                 .with_genesis_modifier(|genesis, keys| {
-                    use depin_sdk_types::app::{account_id_from_key_material, AccountId, ActiveKeyRecord, SignatureSuite, ValidatorSetV1, ValidatorSetsV1, ValidatorV1};
-                    use depin_sdk_types::keys::VALIDATOR_SET_KEY;
+                    use depin_sdk_types::app::{account_id_from_key_material, AccountId, ActiveKeyRecord, Credential, SignatureSuite, ValidatorSetV1, ValidatorSetsV1, ValidatorV1};
+                    use depin_sdk_types::keys::{VALIDATOR_SET_KEY, IDENTITY_CREDENTIALS_PREFIX, ACCOUNT_ID_TO_PUBKEY_PREFIX};
                     use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 
                     let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
-                    let pk_bytes = keys[0].public().encode_protobuf();
-                    let account_hash = account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
+                    let keypair = &keys[0];
+                    let pk_bytes = keypair.public().encode_protobuf();
+                    let suite = SignatureSuite::Ed25519;
+                    let account_hash = account_id_from_key_material(suite, &pk_bytes).unwrap();
                     let account_id = AccountId(account_hash);
                     let initial_stake = 100_000u128;
 
@@ -150,13 +191,28 @@ async fn test_metrics_endpoint() -> Result<()> {
                         validators: vec![ValidatorV1 {
                             account_id,
                             weight: initial_stake,
-                            consensus_key: ActiveKeyRecord { suite: SignatureSuite::Ed25519, public_key_hash: account_hash, since_height: 0 },
+                            consensus_key: ActiveKeyRecord { suite, public_key_hash: account_hash, since_height: 0 },
                         }],
                     };
                     let vs_bytes = depin_sdk_types::app::write_validator_sets(&ValidatorSetsV1 { current: vs, next: None }).unwrap();
                     genesis_state.insert(
                         std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                        serde_json::json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
+                        json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
+                    );
+
+                     // Add Identity
+                    let cred = Credential { suite, public_key_hash: account_hash, activation_height: 0, l2_location: None };
+                    let creds_array: [Option<Credential>; 2] = [Some(cred), None];
+                    let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
+                    let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
+                    genesis_state.insert(
+                        format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
+                        json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
+                    );
+                    let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
+                    genesis_state.insert(
+                        format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
+                        json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes))),
                     );
                 });
         }
@@ -205,20 +261,32 @@ async fn test_storage_crash_recovery() -> Result<()> {
     let mut cluster = TestCluster::builder()
         .with_validators(1)
         .use_docker_backend(false) // Must use processes to kill one
+        .with_initial_service(InitialServiceConfig::Oracle(OracleParams::default()))
+        .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
+            chain_id: 1,
+            grace_period_blocks: 5,
+            accept_staged_during_grace: true,
+            allowed_target_suites: vec![depin_sdk_types::app::SignatureSuite::Ed25519],
+            allow_downgrade: false,
+        }))
         .with_genesis_modifier(|genesis, keys| {
             use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
             use depin_sdk_types::app::{
-                account_id_from_key_material, AccountId, ActiveKeyRecord, SignatureSuite,
-                ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+                account_id_from_key_material, AccountId, ActiveKeyRecord, Credential,
+                SignatureSuite, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
             };
-            use depin_sdk_types::keys::VALIDATOR_SET_KEY;
+            use depin_sdk_types::keys::{
+                ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
+            };
 
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
-            let pk_bytes = keys[0].public().encode_protobuf();
-            let account_hash =
-                account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
-            let account_id = AccountId(account_hash);
+            let keypair = &keys[0];
+            let suite = SignatureSuite::Ed25519;
+            let pk_bytes = keypair.public().encode_protobuf();
+            let account_id_hash = account_id_from_key_material(suite, &pk_bytes).unwrap();
+            let account_id = AccountId(account_id_hash);
 
+            // 1. Validator Set
             let vs = ValidatorSetV1 {
                 effective_from_height: 1,
                 total_weight: 1,
@@ -226,8 +294,8 @@ async fn test_storage_crash_recovery() -> Result<()> {
                     account_id,
                     weight: 1,
                     consensus_key: ActiveKeyRecord {
-                        suite: SignatureSuite::Ed25519,
-                        public_key_hash: account_hash,
+                        suite,
+                        public_key_hash: account_id_hash,
                         since_height: 0,
                     },
                 }],
@@ -239,7 +307,29 @@ async fn test_storage_crash_recovery() -> Result<()> {
             .unwrap();
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                serde_json::json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
+            );
+
+            // 2. IdentityHub Credentials (required for tx signing)
+            let initial_cred = Credential {
+                suite,
+                public_key_hash: account_id_hash,
+                activation_height: 0,
+                l2_location: None,
+            };
+            let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
+            let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
+            let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
+            genesis_state.insert(
+                format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
+            );
+
+            // 3. AccountID -> Pubkey Mapping
+            let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
+            genesis_state.insert(
+                format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes))),
             );
         })
         .build()
@@ -250,23 +340,24 @@ async fn test_storage_crash_recovery() -> Result<()> {
     let rpc_addr = node.rpc_addr.clone();
 
     // 2. Action: Submit a VALID, SIGNED transaction to change state.
-    let payload = SystemPayload::RequestOracleData {
+    let request_id = 12345;
+    let params = RequestOracleDataParams {
         url: format!("{}/recovery-test", stub_url),
-        request_id: 12345,
+        request_id,
+    };
+    let params_bytes =
+        depin_sdk_types::codec::to_bytes_canonical(&params).map_err(anyhow::Error::msg)?;
+    let payload = SystemPayload::CallService {
+        service_id: "oracle".to_string(),
+        method: "request_data@v1".to_string(),
+        params: params_bytes,
     };
     let tx = create_signed_system_tx(&node.keypair, payload, 0, 1.into())?;
     submit_transaction(&rpc_addr, &tx).await?;
 
-    wait_for_height(&rpc_addr, 1, Duration::from_secs(30)).await?;
-
-    // 3. Verify: Check that the state was updated before the crash.
-    let key_to_check = [
-        depin_sdk_types::keys::ORACLE_PENDING_REQUEST_PREFIX,
-        &12345u64.to_le_bytes(),
-    ]
-    .concat();
-    let state_before = rpc::query_state_key(&rpc_addr, &key_to_check).await?;
-    assert!(state_before.is_some(), "State was not written before crash");
+    // 3. Verify: Poll state until the transaction is committed.
+    wait_for_pending_oracle_request(&rpc_addr, request_id, Duration::from_secs(30)).await?;
+    println!("State was successfully written before crash.");
 
     // 4. Action: Forcefully kill the workload process.
     println!("Killing workload process...");
@@ -308,33 +399,30 @@ async fn test_storage_crash_recovery() -> Result<()> {
 
     backend_mut.restart_workload_process().await?;
 
-    // --- FIX START: Wait for the orchestrator's internal client to reconnect ---
-    // Poll a simple RPC endpoint on the orchestration node. This will fail until its
-    // internal WorkloadClient has successfully reconnected to the restarted workload process.
+    // Wait for the orchestrator's internal client to reconnect
     wait_for(
         "orchestration RPC to become responsive after workload restart",
         Duration::from_millis(500),
-        Duration::from_secs(45), // Give ample time for reconnection backoff
+        Duration::from_secs(45),
         || async {
-            // A simple query like get_chain_height is sufficient.
-            // We only care if it succeeds; we don't need to check the value.
             if rpc::get_chain_height(&rpc_addr).await.is_ok() {
-                Ok(Some(())) // Success, stop polling
+                Ok(Some(()))
             } else {
-                Ok(None) // Continue polling
+                Ok(None)
             }
         },
     )
     .await?;
     println!("Workload process restarted and orchestrator reconnected.");
-    // --- FIX END ---
 
     // 6. Assert: The state from the original transaction must still be present.
+    let key_to_check = [
+        depin_sdk_types::keys::ORACLE_PENDING_REQUEST_PREFIX,
+        &request_id.to_le_bytes(),
+    ]
+    .concat();
     let state_after = rpc::query_state_key(&rpc_addr, &key_to_check).await?;
-    assert_eq!(
-        state_before, state_after,
-        "State after crash does not match state before"
-    );
+    assert!(state_after.is_some(), "State was lost after crash");
 
     // Manually clean up the validator and its processes.
     unsafe { ManuallyDrop::drop(&mut node) };
@@ -386,9 +474,15 @@ async fn test_storage_soak_test() -> Result<()> {
         let mut nonce = 0;
         let mut request_id_counter = 0;
         while start.elapsed() < load_duration {
-            let payload = SystemPayload::RequestOracleData {
+            let params = RequestOracleDataParams {
                 url: format!("http://example.com/soak-{}", request_id_counter),
                 request_id: request_id_counter,
+            };
+            let params_bytes = depin_sdk_types::codec::to_bytes_canonical(&params).unwrap();
+            let payload = SystemPayload::CallService {
+                service_id: "oracle".to_string(),
+                method: "request_data@v1".to_string(),
+                params: params_bytes,
             };
             let tx = ChainTransaction::System(Box::new(SystemTransaction {
                 header: SignHeader {

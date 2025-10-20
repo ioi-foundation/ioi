@@ -2,21 +2,8 @@
 #![no_std]
 extern crate alloc;
 use alloc::string::String;
-use alloc::vec;
 use depin_sdk_contract as sdk;
-// FIX: Remove the depin-sdk-types import and related structs
 use parity_scale_codec::{Decode, Encode};
-
-// FIX: Remove this struct as it depends on ChainTransaction
-// #[derive(Encode, Decode)]
-// struct AnteHandleRequest<'a> {
-//     tx: &'a ChainTransaction,
-// }
-
-#[derive(Encode, Decode)]
-struct AnteHandleResponse {
-    result: Result<(), String>, // Represents Result<(), TransactionError>
-}
 
 // Helper to pack a pointer and length into a single u64 for returning from WASM.
 fn return_data(data: &[u8]) -> u64 {
@@ -51,15 +38,15 @@ pub extern "C" fn complete_upgrade(_input_ptr: *const u8, _input_len: u32) -> u6
 
 // --- TxDecorator Capability Implementation ---
 #[no_mangle]
+#[export_name = "ante_handle@v1"]
 pub extern "C" fn ante_handle(_req_ptr: *const u8, _req_len: u32) -> u64 {
-    // FIX: Simplify the logic. We don't need to parse the request for this test.
     // The host expects a SCALE-encoded `Result<(), String>`. A successful `Ok(())`
     // encodes to a single byte: `0x00`.
     // By returning this directly, we bypass the `encode()` call in the guest, which was
     // causing a trap in the no_std/wee_alloc environment. Using a static slice
     // avoids any heap allocation in the guest, making this more robust.
     let resp_bytes: &[u8] = &[0x00];
-    return_data(&resp_bytes)
+    return_data(resp_bytes)
 }
 
 #[no_mangle]

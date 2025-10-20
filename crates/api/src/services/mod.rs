@@ -3,10 +3,10 @@
 
 use crate::identity::CredentialsView;
 use crate::lifecycle::OnEndBlock;
-use crate::services::capabilities::IbcPayloadHandler;
+use crate::transaction::context::TxContext;
 use crate::transaction::decorator::TxDecorator;
 use async_trait::async_trait;
-use depin_sdk_types::error::UpgradeError;
+use depin_sdk_types::error::{TransactionError, UpgradeError};
 use depin_sdk_types::service_configs::Capabilities;
 use std::any::Any;
 use std::hash::Hash;
@@ -39,9 +39,10 @@ impl std::fmt::Display for ServiceType {
 }
 
 /// The base trait for any service managed by the chain.
+#[async_trait]
 pub trait BlockchainService: Any + Send + Sync {
-    /// A unique, static string identifier for the service.
-    /// This is used for deterministic sorting in the ServiceDirectory.
+    /// A unique, static, lowercase string identifier for the service.
+    /// This is used for deterministic sorting and for dispatching `CallService` transactions.
     fn id(&self) -> &'static str;
 
     /// The version of the ABI the service expects from the host.
@@ -50,11 +51,33 @@ pub trait BlockchainService: Any + Send + Sync {
     /// A string identifying the schema of the state this service reads/writes.
     fn state_schema(&self) -> &'static str;
 
-    /// Returns a bitmask of the capabilities this service implements.
+    /// Returns a bitmask of the lifecycle capabilities (hooks) this service implements.
     fn capabilities(&self) -> Capabilities;
 
     /// Provides access to the concrete type for downcasting.
     fn as_any(&self) -> &dyn Any;
+
+    /// Handles a generic, dispatched call from a `SystemTransaction::CallService` payload.
+    /// This is the primary entry point for all on-chain service logic.
+    ///
+    /// # Default Implementation
+    /// The default implementation returns an `Unsupported` error. Services must override
+    /// this method to expose callable functions.
+    async fn handle_service_call(
+        &self,
+        state: &mut dyn crate::state::StateAccessor,
+        method: &str,
+        params: &[u8],
+        ctx: &mut TxContext<'_>,
+    ) -> Result<(), TransactionError> {
+        // Mark parameters as used to satisfy the compiler under the default implementation.
+        let _ = (state, method, params, ctx);
+        Err(TransactionError::Unsupported(format!(
+            "Service '{}' does not implement the handle_service_call capability or the method '{}'",
+            self.id(),
+            method
+        )))
+    }
 
     /// Attempts to downcast this service to a `TxDecorator` trait object.
     fn as_tx_decorator(&self) -> Option<&dyn TxDecorator> {
@@ -66,10 +89,6 @@ pub trait BlockchainService: Any + Send + Sync {
     }
     /// Attempts to downcast this service to a `CredentialsView` trait object.
     fn as_credentials_view(&self) -> Option<&dyn CredentialsView> {
-        None
-    }
-    /// Attempts to downcast this service to an `IbcPayloadHandler` trait object.
-    fn as_ibc_handler(&self) -> Option<&dyn IbcPayloadHandler> {
         None
     }
 }

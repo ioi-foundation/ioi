@@ -195,7 +195,8 @@ async fn ensure_docker_image_exists() -> Result<()> {
     // Use a single Full body from the in-memory tar.
     let image_body = Either::Left(Full::new(Bytes::from(tar_bytes)));
 
-    // [+] FIX: Use ..Default::default() to correctly initialize the non-exhaustive options struct.
+    // [+] FIX: Revert `tag` and `remove` to the old field names `t` and `rm`
+    // that are expected by the deprecated `bollard::image::BuildImageOptions` struct.
     let options = BuildImageOptions {
         dockerfile: "crates/node/Dockerfile".to_string(),
         t: DOCKER_IMAGE_TAG.to_string(),
@@ -369,7 +370,6 @@ impl TestBackend for NullBackend {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    // [+] FIX: Implement the missing `as_any_mut` method
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
@@ -462,6 +462,8 @@ impl TestValidator {
         initial_services: Vec<InitialServiceConfig>,
         use_malicious_workload: bool,
         light_readiness_check: bool,
+        // [+] MODIFIED: Use a generic slice of strings for features
+        extra_features: &[String],
     ) -> Result<Self> {
         // --- NEW: Per-validator build step with corrected feature names ---
         let consensus_feature = match consensus_type {
@@ -493,7 +495,8 @@ impl TestValidator {
             }
         };
 
-        let features = format!(
+        // [+] MODIFIED: Dynamically construct the features string.
+        let mut features = format!(
             "validator-bins,{},{},{},vm-wasm{}",
             consensus_feature,
             tree_feature,
@@ -504,6 +507,12 @@ impl TestValidator {
                 ""
             }
         );
+
+        if !extra_features.is_empty() {
+            features.push(',');
+            features.push_str(&extra_features.join(","));
+        }
+
         println!("--- Building node binaries with features: {} ---", features);
         let status_node = Command::new("cargo")
             .args([
@@ -520,7 +529,7 @@ impl TestValidator {
         if !status_node.success() {
             panic!("Node binary build failed for features: {}", features);
         }
-        // --- END NEW BUILD STEP ---
+        // --- END MODIFIED BUILD STEP ---
 
         let peer_id = keypair.public().to_peer_id();
         let temp_dir = Arc::new(tempfile::tempdir()?);
@@ -907,6 +916,9 @@ impl TestValidator {
     }
 }
 
+/// A type alias for a closure that modifies the genesis state.
+type GenesisModifier = Box<dyn FnOnce(&mut Value, &Vec<identity::Keypair>) + Send>;
+
 pub struct TestCluster {
     pub validators: Vec<TestValidator>,
     pub genesis_content: String,
@@ -917,9 +929,6 @@ impl TestCluster {
         TestClusterBuilder::new()
     }
 }
-
-/// A type alias for a closure that modifies the genesis state.
-type GenesisModifier = Box<dyn FnOnce(&mut Value, &Vec<identity::Keypair>) + Send>;
 
 pub struct TestClusterBuilder {
     num_validators: usize,
@@ -933,6 +942,8 @@ pub struct TestClusterBuilder {
     commitment_scheme: String,
     initial_services: Vec<InitialServiceConfig>,
     use_malicious_workload: bool,
+    // [+] MODIFIED: a generic list for extra features
+    extra_features: Vec<String>,
 }
 
 impl Default for TestClusterBuilder {
@@ -949,6 +960,8 @@ impl Default for TestClusterBuilder {
             commitment_scheme: "Hash".to_string(),
             initial_services: Vec::new(),
             use_malicious_workload: false,
+            // [+] MODIFIED: Initialize the new field
+            extra_features: Vec::new(),
         }
     }
 }
@@ -1006,6 +1019,12 @@ impl TestClusterBuilder {
     }
 
     pub fn with_initial_service(mut self, service_config: InitialServiceConfig) -> Self {
+        // [+] MODIFIED: Automatically detect required features.
+        if let InitialServiceConfig::Ibc(_) = &service_config {
+            if !self.extra_features.contains(&"svc-ibc".to_string()) {
+                self.extra_features.push("svc-ibc".to_string());
+            }
+        }
         self.initial_services.push(service_config);
         self
     }
@@ -1054,6 +1073,8 @@ impl TestClusterBuilder {
                 self.initial_services.clone(),
                 self.use_malicious_workload,
                 false, // Full readiness check for the bootnode
+                // [+] MODIFIED: Pass the slice of extra features
+                &self.extra_features,
             )
             .await?;
             bootnode_addrs.push(bootnode.p2p_addr.clone());
@@ -1074,6 +1095,8 @@ impl TestClusterBuilder {
                 let captured_use_docker = self.use_docker;
                 let captured_services = self.initial_services.clone();
                 let captured_malicious = self.use_malicious_workload;
+                // [+] MODIFIED: Capture the extra features
+                let captured_extra_features = self.extra_features.clone();
                 let key_clone = key.clone();
 
                 let fut = async move {
@@ -1091,6 +1114,8 @@ impl TestClusterBuilder {
                         captured_services,
                         captured_malicious,
                         false, // Full readiness check for subsequent nodes
+                        // [+] MODIFIED: Pass the captured extra features
+                        &captured_extra_features,
                     )
                     .await
                 };

@@ -26,7 +26,7 @@ use depin_sdk_crypto::sign::dilithium::DilithiumKeyPair;
 use depin_sdk_network::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_network::BlockSync;
-use depin_sdk_services::external_data::ExternalDataService;
+use depin_sdk_services::oracle::OracleService;
 use depin_sdk_types::{
     app::{account_id_from_key_material, AccountId, ChainTransaction, SignatureSuite},
     error::ValidatorError,
@@ -137,7 +137,7 @@ where
     task_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     is_running: Arc<AtomicBool>,
     is_quarantined: Arc<AtomicBool>,
-    external_data_service: ExternalDataService,
+    oracle_service: OracleService,
     proof_cache: ProofCache,
     verifier: V,
     main_loop_context: Arc<Mutex<Option<Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>>>>,
@@ -194,7 +194,7 @@ where
             task_handles: Arc::new(Mutex::new(Vec::new())),
             is_running: Arc::new(AtomicBool::new(false)),
             is_quarantined: deps.is_quarantined,
-            external_data_service: ExternalDataService::new(),
+            oracle_service: OracleService::new(),
             proof_cache: Arc::new(Mutex::new(LruCache::new(
                 std::num::NonZeroUsize::new(1024).ok_or_else(|| anyhow!("Invalid LRU size"))?,
             ))),
@@ -683,7 +683,7 @@ where
             chain_id: self.config.chain_id,
             genesis_hash: self.genesis_hash,
             is_quarantined: self.is_quarantined.clone(),
-            external_data_service: self.external_data_service.clone(),
+            oracle_service: self.oracle_service.clone(),
             pending_attestations: std::collections::HashMap::new(),
             last_committed_block: None,
             consensus_kick_tx: self.consensus_kick_tx.clone(),

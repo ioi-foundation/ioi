@@ -8,26 +8,99 @@ use depin_sdk_crypto::algorithms::hash::sha256;
 use depin_sdk_forge::testing::{
     assert_log_contains,
     poll::{wait_for_height, wait_until},
-    rpc::{get_block_by_height, query_state_key_at_root},
+    rpc::{get_block_by_height, query_state_key, query_state_key_at_root},
     submit_transaction, TestCluster,
 };
 use depin_sdk_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
-        Credential, SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
-        ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        Credential, Proposal, ProposalStatus, ProposalType, SignHeader, SignatureProof,
+        SignatureSuite, StateEntry, SystemPayload, SystemTransaction, ValidatorSetV1,
+        ValidatorSetsV1, ValidatorV1, VoteOption,
     },
     codec,
     config::InitialServiceConfig,
-    keys::{active_service_key, GOVERNANCE_KEY, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
+    keys::{
+        active_service_key, GOVERNANCE_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX,
+        IDENTITY_CREDENTIALS_PREFIX, UPGRADE_ARTIFACT_PREFIX, UPGRADE_MANIFEST_PREFIX,
+        UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY,
+    },
     service_configs::MigrationConfig,
 };
 use libp2p::identity::{self, Keypair};
+use parity_scale_codec::Encode;
 use serde_json::json;
 use std::path::Path;
 use std::time::Duration;
+use tokio::time::sleep;
 
-// Helper function to create a signed system transaction
+// --- Service Parameter Structs (Client-side representation of the ABI) ---
+#[derive(Encode)]
+struct VoteParams {
+    proposal_id: u64,
+    option: VoteOption,
+}
+
+// --- Test Helpers ---
+
+/// Polls for a key to exist in the current canonical state.
+async fn wait_key_exists(rpc: &str, key: &[u8], timeout: Duration) -> Result<()> {
+    let start = std::time::Instant::now();
+    loop {
+        if let Some(_) = query_state_key(rpc, key).await? {
+            return Ok(());
+        }
+        if start.elapsed() > timeout {
+            break;
+        }
+        sleep(Duration::from_millis(200)).await;
+    }
+    Err(anyhow!("key not found in time: {}", hex::encode(key)))
+}
+
+// Helper function to create a signed `CallService` transaction
+fn create_call_service_tx<P: Encode>(
+    keypair: &Keypair,
+    service_id: &str,
+    method: &str,
+    params: P,
+    nonce: u64,
+    chain_id: ChainId,
+) -> Result<ChainTransaction> {
+    let public_key_bytes = keypair.public().encode_protobuf();
+    let account_id_hash = account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)?;
+    let account_id = AccountId(account_id_hash);
+
+    let payload = SystemPayload::CallService {
+        service_id: service_id.to_string(),
+        method: method.to_string(),
+        params: codec::to_bytes_canonical(&params).map_err(|e| anyhow!(e))?,
+    };
+
+    let header = SignHeader {
+        account_id,
+        nonce,
+        chain_id,
+        tx_version: 1,
+    };
+
+    let mut tx_to_sign = SystemTransaction {
+        header,
+        payload,
+        signature_proof: SignatureProof::default(),
+    };
+    let sign_bytes = tx_to_sign.to_sign_bytes()?;
+    let signature = keypair.sign(&sign_bytes)?;
+
+    tx_to_sign.signature_proof = SignatureProof {
+        suite: SignatureSuite::Ed25519,
+        public_key: public_key_bytes,
+        signature,
+    };
+    Ok(ChainTransaction::System(Box::new(tx_to_sign)))
+}
+
+// Helper function to create a signed system transaction (for non-service calls)
 fn create_system_tx(
     keypair: &Keypair,
     payload: SystemPayload,
@@ -129,7 +202,6 @@ async fn test_forkless_module_upgrade() -> Result<()> {
                 .ok_or_else(|| anyhow!("Invalid path to contract manifest"))?,
             "--target",
             "wasm32-unknown-unknown",
-            // FIX: Add --target-dir to ensure the output goes to the main workspace target directory.
             "--target-dir",
             target_dir
                 .to_str()
@@ -209,7 +281,33 @@ capabilities = ["TxDecorator"]
                 json!(governance_pubkey_b58),
             );
 
-            let gov_pk_bytes = governance_key_clone.public().encode_protobuf(); // Use the cloned key
+            // Add a dummy proposal so the vote tx is valid
+            let proposal = Proposal {
+                id: 1,
+                title: "Dummy Proposal".to_string(),
+                description: "".to_string(),
+                proposal_type: ProposalType::Text,
+                status: ProposalStatus::VotingPeriod,
+                submitter: vec![],
+                submit_height: 0,
+                deposit_end_height: 0,
+                voting_start_height: 1,
+                voting_end_height: u64::MAX, // Keep it open forever for simplicity
+                total_deposit: 0,
+                final_tally: None,
+            };
+            let proposal_key_bytes = [GOVERNANCE_PROPOSAL_KEY_PREFIX, &1u64.to_le_bytes()].concat();
+            let entry = StateEntry {
+                value: codec::to_bytes_canonical(&proposal).unwrap(),
+                block_height: 0,
+            };
+            let entry_bytes = codec::to_bytes_canonical(&entry).unwrap();
+            genesis_state.insert(
+                format!("b64:{}", BASE64_STANDARD.encode(proposal_key_bytes)),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&entry_bytes))),
+            );
+
+            let gov_pk_bytes = governance_key_clone.public().encode_protobuf();
             let gov_account_id =
                 AccountId(account_id_from_key_material(suite, &gov_pk_bytes).unwrap());
 
@@ -249,12 +347,22 @@ capabilities = ["TxDecorator"]
     let store_tx = create_system_tx(&governance_key, store_payload, nonce, 1.into())?;
     nonce += 1;
     submit_transaction(rpc_addr, &store_tx).await?;
-    wait_for_height(rpc_addr, 2, Duration::from_secs(20)).await?; // Wait for tx to be included
+    wait_for_height(rpc_addr, 2, Duration::from_secs(20)).await?;
+
+    // --- ASSERT PHASE 1 COMPLETION ---
+    let manifest_hash = sha256(manifest_toml.as_bytes())?;
+    let artifact_hash = sha256(&service_artifact)?;
+    let manifest_key = [UPGRADE_MANIFEST_PREFIX, &manifest_hash].concat();
+    let artifact_key = [UPGRADE_ARTIFACT_PREFIX, &artifact_hash].concat();
+
+    // Ensure both components are stored before scheduling the swap.
+    wait_key_exists(rpc_addr, &manifest_key, Duration::from_secs(10)).await?;
+    wait_key_exists(rpc_addr, &artifact_key, Duration::from_secs(10)).await?;
+    println!("SUCCESS: Confirmed module artifact and manifest are stored on-chain.");
+    // --- END ASSERTION ---
 
     // Phase 2: Schedule the upgrade using the hashes of the stored components.
     let activation_height = 5;
-    let manifest_hash = sha256(manifest_toml.as_bytes())?;
-    let artifact_hash = sha256(&service_artifact)?;
     let swap_payload = SystemPayload::SwapModule {
         service_id: "fee_calculator".to_string(),
         manifest_hash,
@@ -264,6 +372,16 @@ capabilities = ["TxDecorator"]
 
     let swap_tx = create_system_tx(&governance_key, swap_payload, nonce, 1.into())?;
     submit_transaction(rpc_addr, &swap_tx).await?;
+
+    // --- ASSERT PHASE 2 SCHEDULING ---
+    let pending_key = [UPGRADE_PENDING_PREFIX, &activation_height.to_le_bytes()].concat();
+    // Don’t jump straight to height 5; first ensure the pending entry exists.
+    wait_key_exists(rpc_addr, &pending_key, Duration::from_secs(20)).await?;
+    println!(
+        "SUCCESS: Confirmed upgrade is scheduled in state for height {}.",
+        activation_height
+    );
+    // --- END ASSERTION ---
 
     // 5. WAIT for activation.
     wait_for_height(rpc_addr, activation_height, Duration::from_secs(60)).await?;
@@ -284,20 +402,22 @@ capabilities = ["TxDecorator"]
 
     // 7. Verify Functionality by checking logs
     let (_, mut workload_logs, _) = node.subscribe_logs();
-    let dummy_tx = create_system_tx(
+    let dummy_tx = create_call_service_tx(
         &node.keypair,
-        SystemPayload::RequestOracleData {
-            url: "test".into(),
-            request_id: 99,
+        "governance",
+        "vote@v1",
+        VoteParams {
+            proposal_id: 1,
+            option: VoteOption::Abstain,
         },
-        0,
+        0, // Nonce for the validator keypair
         1.into(),
     )?;
     submit_transaction(rpc_addr, &dummy_tx).await?;
     assert_log_contains(
         "Workload",
         &mut workload_logs,
-        "[WasmService fee_calculator] Calling ante_handle in WASM",
+        "[WasmService fee_calculator] Calling method 'ante_handle@v1' in WASM",
     )
     .await?;
 

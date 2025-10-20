@@ -4,35 +4,30 @@ use crate::utxo::{UTXOModel, UTXOTransactionProof};
 use async_trait::async_trait;
 use depin_sdk_api::chain::ChainView;
 use depin_sdk_api::commitment::CommitmentScheme;
-use depin_sdk_api::identity::CredentialsView;
+use depin_sdk_api::error::ErrorCode; // [+] FIX: Import the ErrorCode trait
+use depin_sdk_api::identity::CredentialsView; // [+] FIX: Import the CredentialsView trait
 use depin_sdk_api::state::{StateAccessor, StateManager};
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::vm::ExecutionContext;
 use depin_sdk_crypto::algorithms::hash::sha256;
-use depin_sdk_services::governance::GovernanceModule;
-#[cfg(feature = "svc-ibc")]
-use depin_sdk_services::ibc::channel::ChannelManager;
-#[cfg(feature = "svc-ibc")]
-use depin_sdk_services::ibc::registry::VerifierRegistry;
-use depin_sdk_services::identity::IdentityHub;
 use depin_sdk_types::app::{
     evidence_id, write_validator_sets, ActiveKeyRecord, ApplicationTransaction, ChainTransaction,
-    SignatureSuite, StateEntry, SystemPayload, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+    SignatureSuite, StateEntry, SystemPayload, ValidatorV1,
 };
 use depin_sdk_types::codec;
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::{StateError, TransactionError};
-#[cfg(feature = "svc-ibc")]
-use depin_sdk_types::ibc::TendermintHeader;
 use depin_sdk_types::keys::{
-    ACCOUNT_ID_TO_PUBKEY_PREFIX, EVIDENCE_REGISTRY_KEY, ORACLE_DATA_PREFIX,
-    ORACLE_PENDING_REQUEST_PREFIX, UPGRADE_ARTIFACT_PREFIX, UPGRADE_MANIFEST_PREFIX,
-    UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY,
+    ACCOUNT_ID_TO_PUBKEY_PREFIX, EVIDENCE_REGISTRY_KEY, UPGRADE_ARTIFACT_PREFIX,
+    UPGRADE_MANIFEST_PREFIX, UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY,
 };
 use libp2p::identity::PublicKey as Libp2pPublicKey;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
+
+// Import telemetry sinks for observability
+use depin_sdk_telemetry::sinks::{error_metrics, service_metrics};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum UnifiedProof<P> {
@@ -52,6 +47,21 @@ impl<CS: CommitmentScheme + Clone> UnifiedTransactionModel<CS> {
             utxo_model: UTXOModel::new(scheme),
         }
     }
+}
+
+/// A helper to validate the format of a service ID.
+fn validate_service_id(id: &str) -> Result<(), TransactionError> {
+    if id.is_empty()
+        || !id
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+    {
+        return Err(TransactionError::Invalid(format!(
+            "Invalid service_id format: '{}'. Must be lowercase alphanumeric with underscores.",
+            id
+        )));
+    }
+    Ok(())
 }
 
 #[async_trait]
@@ -103,14 +113,15 @@ where
                         .apply_payload(chain_ref, state, utxo_tx, ctx)
                         .await
                 }
-                ApplicationTransaction::DeployContract {
-                    code,
-                    signature_proof,
-                    ..
-                } => {
+                ApplicationTransaction::DeployContract { code, header, .. } => {
                     let workload = chain_ref.workload_container();
-                    let (address, state_delta) = workload
-                        .deploy_contract(code.clone(), signature_proof.public_key.clone())
+                    // The public key used for signing is the deployer's identity.
+                    let public_key_bytes = state
+                        .get(&[ACCOUNT_ID_TO_PUBKEY_PREFIX, header.account_id.as_ref()].concat())?
+                        .ok_or(TransactionError::UnauthorizedByCredentials)?;
+
+                    let (_address, state_delta) = workload
+                        .deploy_contract(code.clone(), public_key_bytes)
                         .await
                         .map_err(|e| TransactionError::Invalid(e.to_string()))?;
 
@@ -125,19 +136,15 @@ where
                                 codec::to_bytes_canonical(&entry).map(|bytes| (key, bytes))
                             })
                             .collect::<Result<_, _>>()?;
-                        state.batch_set(&versioned_delta)?; // Writes to the overlay
+                        state.batch_set(&versioned_delta)?;
                     }
-                    log::info!(
-                        "Applied contract deployment at address: {}",
-                        hex::encode(&address)
-                    );
                     Ok(())
                 }
                 ApplicationTransaction::CallContract {
                     address,
                     input_data,
                     gas_limit,
-                    signature_proof,
+                    header,
                     ..
                 } => {
                     let code_key = [b"contract_code::".as_ref(), address.as_ref()].concat();
@@ -147,9 +154,13 @@ where
                     let stored_entry: StateEntry = codec::from_bytes_canonical(&stored_bytes)?;
                     let code = stored_entry.value;
 
+                    let public_key_bytes = state
+                        .get(&[ACCOUNT_ID_TO_PUBKEY_PREFIX, header.account_id.as_ref()].concat())?
+                        .ok_or(TransactionError::UnauthorizedByCredentials)?;
+
                     let workload = chain_ref.workload_container();
                     let exec_context = ExecutionContext {
-                        caller: signature_proof.public_key.clone(),
+                        caller: public_key_bytes,
                         block_height: ctx.block_height,
                         gas_limit: *gas_limit,
                         contract_address: address.clone(),
@@ -176,7 +187,90 @@ where
                 }
             },
             ChainTransaction::System(sys_tx) => {
-                match sys_tx.payload.clone() {
+                // Set the signer in the context for ACL checks within services.
+                ctx.signer_account_id = sys_tx.header.account_id;
+
+                match &sys_tx.payload {
+                    // --- NEW: GENERIC SERVICE DISPATCH ---
+                    SystemPayload::CallService {
+                        service_id,
+                        method,
+                        params,
+                    } => {
+                        // 1. Safety Pre-Check (DoS protection)
+                        const MAX_PARAMS_LEN: usize = 64 * 1024; // 64 KiB
+                        if params.len() > MAX_PARAMS_LEN {
+                            return Err(TransactionError::Invalid(
+                                "Service call params exceed size limit".into(),
+                            ));
+                        }
+                        validate_service_id(service_id)?;
+
+                        // 2. Find the service and dispatch
+                        let service = ctx
+                            .services
+                            .services()
+                            .find(|s| s.id() == service_id)
+                            .ok_or_else(|| {
+                                TransactionError::Unsupported(format!(
+                                    "Service '{}' not found or not enabled",
+                                    service_id
+                                ))
+                            })?;
+
+                        // 3. Instrument with observability
+                        let start = std::time::Instant::now();
+                        let result = service
+                            .handle_service_call(state, method, params, ctx)
+                            .await;
+                        let latency = start.elapsed().as_secs_f64();
+                        service_metrics().observe_service_dispatch_latency(
+                            service.id(),
+                            method,
+                            latency,
+                        );
+                        if let Err(e) = &result {
+                            error_metrics().inc_error("service_dispatch", e.code());
+                        }
+                        result
+                    }
+
+                    // --- COMPATIBILITY BRIDGE: Map legacy payloads to CallService ---
+                    #[allow(deprecated)]
+                    SystemPayload::RotateKey(proof) => {
+                        let params_bytes = codec::to_bytes_canonical(proof)?;
+                        let service = ctx
+                            .services
+                            .services()
+                            .find(|s| s.id() == "identity_hub")
+                            .ok_or(TransactionError::Unsupported(
+                                "IdentityHub service not found".into(),
+                            ))?;
+                        service
+                            .handle_service_call(state, "rotate_key@v1", &params_bytes, ctx)
+                            .await
+                    }
+                    #[allow(deprecated)]
+                    SystemPayload::Vote {
+                        proposal_id,
+                        option,
+                    } => {
+                        let params_bytes = codec::to_bytes_canonical(&(*proposal_id, *option))?;
+                        let service = ctx
+                            .services
+                            .services()
+                            .find(|s| s.id() == "governance")
+                            .ok_or(TransactionError::Unsupported(
+                                "Governance service not found".into(),
+                            ))?;
+                        service
+                            .handle_service_call(state, "vote@v1", &params_bytes, ctx)
+                            .await
+                    }
+
+                    // ... Other legacy mappings for IBC, etc. would go here ...
+
+                    // --- CORE SYSTEM PAYLOADS (Non-service) ---
                     SystemPayload::Stake { public_key, amount } => {
                         if chain_ref.consensus_type() != ConsensusType::ProofOfStake {
                             return Err(TransactionError::Unsupported(
@@ -214,35 +308,39 @@ where
                             .iter_mut()
                             .find(|v| v.account_id == staker_account_id)
                         {
-                            validator.weight = validator.weight.saturating_add(amount as u128);
+                            validator.weight = validator.weight.saturating_add(*amount as u128);
                         } else {
-                            let identity_hub =
-                                ctx.services.get::<IdentityHub>().ok_or_else(|| {
+                            let creds = ctx
+                                .services
+                                .get::<depin_sdk_services::identity::IdentityHub>()
+                                .ok_or_else(|| {
                                     TransactionError::Unsupported(
-                                        "IdentityHub not found".to_string(),
+                                        "IdentityHub service not found for staking".into(),
                                     )
-                                })?;
-                            let creds = identity_hub.get_credentials(state, &staker_account_id)?;
+                                })?
+                                .get_credentials(state, &staker_account_id)?;
                             let active_cred = creds[0].as_ref().ok_or_else(|| {
-                                TransactionError::Invalid("Staker has no active key".into())
+                                TransactionError::Invalid("Staker has no active key".to_string())
                             })?;
+
                             next_vs.validators.push(ValidatorV1 {
                                 account_id: staker_account_id,
-                                weight: amount as u128,
+                                weight: *amount as u128,
                                 consensus_key: ActiveKeyRecord {
                                     suite: active_cred.suite,
                                     public_key_hash: active_cred.public_key_hash,
                                     since_height: active_cred.activation_height,
                                 },
                             });
+
                             let pubkey_map_key =
                                 [ACCOUNT_ID_TO_PUBKEY_PREFIX, staker_account_id.as_ref()].concat();
                             if state.get(&pubkey_map_key)?.is_none() {
                                 let pk_to_store = match sys_tx.signature_proof.suite {
                                     SignatureSuite::Ed25519 => {
-                                        if Libp2pPublicKey::try_decode_protobuf(&public_key).is_ok()
+                                        if Libp2pPublicKey::try_decode_protobuf(public_key).is_ok()
                                         {
-                                            public_key
+                                            public_key.clone()
                                         } else {
                                             let ed = libp2p::identity::ed25519::PublicKey::try_from_bytes(
                                             &sys_tx.signature_proof.public_key
@@ -301,7 +399,7 @@ where
                         next_vs.validators.retain_mut(|v| {
                             if v.account_id == staker_account_id {
                                 validator_found = true;
-                                v.weight = v.weight.saturating_sub(amount as u128);
+                                v.weight = v.weight.saturating_sub(*amount as u128);
                                 v.weight > 0
                             } else {
                                 true
@@ -316,45 +414,6 @@ where
                             .validators
                             .sort_by(|a, b| a.account_id.cmp(&b.account_id));
                         next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
-                        state.insert(VALIDATOR_SET_KEY, &write_validator_sets(&sets)?)?;
-                        Ok(())
-                    }
-                    SystemPayload::UpdateAuthorities {
-                        mut new_authorities,
-                    } => {
-                        new_authorities.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
-                        new_authorities.dedup();
-                        let identity_hub = ctx.services.get::<IdentityHub>().ok_or_else(|| {
-                            TransactionError::Unsupported("IdentityHub not found".to_string())
-                        })?;
-                        let mut validators = Vec::with_capacity(new_authorities.len());
-                        for account_id in new_authorities {
-                            let creds = identity_hub.get_credentials(state, &account_id)?;
-                            let active_cred = creds[0].as_ref().ok_or_else(|| {
-                                TransactionError::Invalid(format!(
-                                    "Authority {} has no active credential",
-                                    hex::encode(account_id.as_ref())
-                                ))
-                            })?;
-                            validators.push(ValidatorV1 {
-                                account_id,
-                                weight: 1,
-                                consensus_key: ActiveKeyRecord {
-                                    suite: active_cred.suite,
-                                    public_key_hash: active_cred.public_key_hash,
-                                    since_height: active_cred.activation_height,
-                                },
-                            });
-                        }
-                        let vs = ValidatorSetV1 {
-                            effective_from_height: ctx.block_height + 1,
-                            total_weight: validators.len() as u128,
-                            validators,
-                        };
-                        let sets = ValidatorSetsV1 {
-                            current: vs.clone(),
-                            next: Some(vs),
-                        };
                         state.insert(VALIDATOR_SET_KEY, &write_validator_sets(&sets)?)?;
                         Ok(())
                     }
@@ -380,7 +439,7 @@ where
                             .map(|b| codec::from_bytes_canonical(b).unwrap_or_default())
                             .unwrap_or_default();
                         let mut new_handled_evidence = handled_evidence;
-                        let id = evidence_id(&report)
+                        let id = evidence_id(report)
                             .map_err(|e| TransactionError::Invalid(e.to_string()))?;
                         if !new_handled_evidence.insert(id) {
                             return Err(TransactionError::Invalid(
@@ -393,7 +452,7 @@ where
                             &codec::to_bytes_canonical(&new_handled_evidence)?,
                         )?;
                         let penalty_mechanism = chain_ref.get_penalty_mechanism();
-                        match penalty_mechanism.apply_penalty(state, &report).await {
+                        match penalty_mechanism.apply_penalty(state, report).await {
                             Ok(()) => Ok(()),
                             Err(e) => {
                                 log::warn!("[Penalty] Report rejected: {}", e);
@@ -401,81 +460,16 @@ where
                             }
                         }
                     }
-                    SystemPayload::SubmitOracleData {
-                        request_id,
-                        final_value,
-                        consensus_proof,
-                    } => {
-                        if consensus_proof.attestations.is_empty() {
-                            return Err(TransactionError::Invalid("Oracle proof is empty".into()));
-                        }
-                        let pending_key =
-                            [ORACLE_PENDING_REQUEST_PREFIX, &request_id.to_le_bytes()].concat();
-                        let final_key = [ORACLE_DATA_PREFIX, &request_id.to_le_bytes()].concat();
-                        let entry = StateEntry {
-                            value: final_value.clone(),
-                            block_height: ctx.block_height,
-                        };
-                        let entry_bytes = codec::to_bytes_canonical(&entry)?;
-                        state.delete(&pending_key)?;
-                        state.insert(&final_key, &entry_bytes)?;
-                        log::info!("Applied and verified oracle data for id: {}", request_id);
-                        Ok(())
-                    }
-                    SystemPayload::RequestOracleData { url, request_id } => {
-                        let request_key =
-                            [ORACLE_PENDING_REQUEST_PREFIX, &request_id.to_le_bytes()].concat();
-                        let url_bytes = codec::to_bytes_canonical(&url)?;
-                        let entry = StateEntry {
-                            value: url_bytes,
-                            block_height: ctx.block_height,
-                        };
-                        let entry_bytes = codec::to_bytes_canonical(&entry)?;
-                        state.insert(&request_key, &entry_bytes)?;
-                        Ok(())
-                    }
-                    SystemPayload::Vote {
-                        proposal_id,
-                        option,
-                    } => {
-                        let governance_module =
-                            ctx.services.get::<GovernanceModule>().ok_or_else(|| {
-                                TransactionError::Unsupported(
-                                    "Governance service is not available".to_string(),
-                                )
-                            })?;
-                        let voter_account_id = &sys_tx.header.account_id;
-                        governance_module
-                            .vote(
-                                state,
-                                proposal_id,
-                                voter_account_id,
-                                option,
-                                ctx.block_height,
-                            )
-                            .map_err(TransactionError::Invalid)
-                    }
-                    SystemPayload::RotateKey(proof) => {
-                        let identity_hub = ctx.services.get::<IdentityHub>().ok_or_else(|| {
-                            TransactionError::Unsupported(
-                                "IdentityHub service is not available".to_string(),
-                            )
-                        })?;
-                        identity_hub
-                            .rotate(state, &sys_tx.header.account_id, &proof, ctx.block_height)
-                            .map_err(TransactionError::Invalid)
-                    }
                     SystemPayload::StoreModule { manifest, artifact } => {
                         let manifest_hash = sha256(manifest.as_bytes())?;
-                        let artifact_hash = sha256(&artifact)?;
+                        let artifact_hash = sha256(artifact)?;
                         let manifest_key = [UPGRADE_MANIFEST_PREFIX, &manifest_hash].concat();
                         let artifact_key = [UPGRADE_ARTIFACT_PREFIX, &artifact_hash].concat();
-                        // Idempotent write
                         if state.get(&manifest_key)?.is_none() {
                             state.insert(&manifest_key, manifest.as_bytes())?;
                         }
                         if state.get(&artifact_key)?.is_none() {
-                            state.insert(&artifact_key, &artifact)?;
+                            state.insert(&artifact_key, artifact)?;
                         }
                         Ok(())
                     }
@@ -491,45 +485,12 @@ where
                             .get(&key)?
                             .and_then(|b| codec::from_bytes_canonical(&b).ok())
                             .unwrap_or_default();
-                        pending.push((service_id, manifest_hash, artifact_hash));
+                        pending.push((service_id.clone(), *manifest_hash, *artifact_hash));
                         state.insert(&key, &codec::to_bytes_canonical(&pending)?)?;
                         Ok(())
                     }
-                    // --- NEW IBC DISPATCH BLOCK ---
-                    #[cfg(feature = "svc-ibc")]
-                    SystemPayload::VerifyHeader { .. }
-                    | SystemPayload::SendPacket { .. }
-                    | SystemPayload::RecvPacket { .. }
-                    | SystemPayload::AcknowledgePacket { .. } => {
-                        // Find the first registered service that implements the IBC handler capability.
-                        let handler = ctx
-                            .services
-                            .iter_deterministic() // Use a new, efficient iterator
-                            .find_map(|s| s.as_ibc_handler())
-                            .ok_or_else(|| {
-                                TransactionError::Unsupported(
-                                    "IBC service is not enabled on this chain".into(),
-                                )
-                            })?;
-
-                        // Dispatch the payload by reference and pass a mutable context.
-                        handler
-                            .handle_ibc_payload(state, &sys_tx.payload, ctx)
-                            .await
-                    }
-                    SystemPayload::SubmitProof {
-                        target_verifier_id,
-                        proof_bytes,
-                        public_inputs,
-                    } => {
-                        // This remains a placeholder until the corresponding service is defined.
-                        let (_, _, _) = (target_verifier_id, proof_bytes, public_inputs);
-                        Err(TransactionError::Unsupported(
-                            "SubmitProof is not yet implemented".into(),
-                        ))
-                    }
                     _ => Err(TransactionError::Unsupported(
-                        "Payload not handled by IBC service".into(),
+                        "Unhandled SystemPayload variant".into(),
                     )),
                 }
             }

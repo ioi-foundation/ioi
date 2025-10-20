@@ -200,6 +200,7 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
         services.clone(),
         false, // malicious
         false, // light_readiness_check -> Use full check to ensure attestation completes
+        false, // requires_ibc_feature
     )
     .await?;
 
@@ -222,6 +223,7 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
         services.clone(),
         false, // malicious
         false, // Use full check for followers too
+        false, // requires_ibc_feature
     )
     .await?;
     let n2 = TestValidator::launch(
@@ -238,6 +240,7 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
         services.clone(),
         false, // malicious
         false, // Use full check
+        false, // requires_ibc_feature
     )
     .await?;
 
@@ -323,6 +326,7 @@ async fn test_mismatched_model_quarantine() -> Result<()> {
         })],
         false, // use_malicious_workload
         true,  // light_readiness_check
+        false, // requires_ibc_feature
     )
     .await?;
 

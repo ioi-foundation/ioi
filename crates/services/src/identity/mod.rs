@@ -6,11 +6,10 @@ use depin_sdk_api::lifecycle::OnEndBlock;
 use depin_sdk_api::services::{BlockchainService, UpgradableService};
 use depin_sdk_api::state::StateAccessor;
 use depin_sdk_api::transaction::context::TxContext;
-use depin_sdk_api::transaction::decorator::TxDecorator;
 use depin_sdk_crypto::sign::{dilithium::DilithiumPublicKey, eddsa::Ed25519PublicKey};
 use depin_sdk_types::app::{
     account_id_from_key_material, read_validator_sets, write_validator_sets, AccountId,
-    ActiveKeyRecord, ChainTransaction, Credential, RotationProof, SignatureSuite, ValidatorSetV1,
+    ActiveKeyRecord, Credential, RotationProof, SignatureSuite, ValidatorSetV1,
 };
 use depin_sdk_types::codec;
 use depin_sdk_types::error::{StateError, TransactionError, UpgradeError};
@@ -19,11 +18,18 @@ use depin_sdk_types::keys::{
     VALIDATOR_SET_KEY,
 };
 use depin_sdk_types::service_configs::{Capabilities, MigrationConfig};
+use parity_scale_codec::Decode;
 use std::any::Any;
 
 #[derive(Debug, Clone)]
 pub struct IdentityHub {
     pub config: MigrationConfig,
+}
+
+/// Helper struct for deserializing parameters for the `rotate_key` method.
+#[derive(Decode)]
+struct RotateKeyParams {
+    proof: RotationProof,
 }
 
 fn u64_from_le_bytes(bytes: Option<&Vec<u8>>) -> u64 {
@@ -256,6 +262,7 @@ impl IdentityHub {
     }
 }
 
+#[async_trait]
 impl BlockchainService for IdentityHub {
     fn id(&self) -> &'static str {
         "identity_hub"
@@ -267,19 +274,42 @@ impl BlockchainService for IdentityHub {
         "v1"
     }
     fn capabilities(&self) -> Capabilities {
-        Capabilities::TX_DECORATOR | Capabilities::ON_END_BLOCK
+        // The service is no longer a TxDecorator itself for this specific action,
+        // but it still needs to perform logic at the end of a block to promote keys.
+        Capabilities::ON_END_BLOCK
     }
     fn as_any(&self) -> &dyn Any {
         self
-    }
-    fn as_tx_decorator(&self) -> Option<&dyn TxDecorator> {
-        Some(self)
     }
     fn as_on_end_block(&self) -> Option<&dyn OnEndBlock> {
         Some(self)
     }
     fn as_credentials_view(&self) -> Option<&dyn CredentialsView> {
         Some(self)
+    }
+
+    async fn handle_service_call(
+        &self,
+        state: &mut dyn StateAccessor,
+        method: &str,
+        params: &[u8],
+        ctx: &mut TxContext<'_>,
+    ) -> Result<(), TransactionError> {
+        match method {
+            "rotate_key@v1" => {
+                // Deserialize the parameters for this specific method.
+                let p: RotateKeyParams = codec::from_bytes_canonical(params)?;
+                // The signer of the transaction is the account being rotated.
+                let account_id = ctx.signer_account_id;
+
+                self.rotate(state, &account_id, &p.proof, ctx.block_height)
+                    .map_err(TransactionError::Invalid)
+            }
+            _ => Err(TransactionError::Unsupported(format!(
+                "IdentityHub does not support method '{}'",
+                method
+            ))),
+        }
     }
 }
 
@@ -309,18 +339,6 @@ impl CredentialsView for IdentityHub {
 }
 
 #[async_trait]
-impl TxDecorator for IdentityHub {
-    async fn ante_handle(
-        &self,
-        _state: &mut dyn StateAccessor,
-        _tx: &ChainTransaction,
-        _ctx: &TxContext,
-    ) -> Result<(), TransactionError> {
-        Ok(())
-    }
-}
-
-#[async_trait]
 impl OnEndBlock for IdentityHub {
     async fn on_end_block(
         &self,
@@ -338,7 +356,6 @@ impl OnEndBlock for IdentityHub {
                     if height >= staged.activation_height {
                         if let Some(staged_taken) = creds[1].take() {
                             let new_active = staged_taken.clone();
-                            // [+] DEBUGGING: Add log line to trace key promotion.
                             log::info!(
                                 "[IdentityHub] Promoting account 0x{} -> {:?} at H={}",
                                 hex::encode(&account_id.as_ref()[..4]),

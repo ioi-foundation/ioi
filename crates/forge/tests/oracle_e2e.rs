@@ -6,7 +6,7 @@
     feature = "primitive-hash"
 ))]
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use axum::{routing::get, serve, Router};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_forge::testing::{
@@ -21,11 +21,12 @@ use depin_sdk_types::{
         ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
-    config::InitialServiceConfig,
+    config::{InitialServiceConfig, OracleParams},
     keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
+use parity_scale_codec::Encode;
 use serde_json::json;
 use std::net::SocketAddr;
 use tokio::task::JoinHandle;
@@ -51,16 +52,24 @@ async fn start_local_price_stub() -> (String, JoinHandle<()>) {
     (url, handle)
 }
 
-// Helper function to create a signed system transaction
-fn create_system_tx(
-    keypair: &Keypair,
-    payload: SystemPayload,
+// Helper function to create a signed CallService transaction
+fn create_call_service_tx<P: Encode>(
+    signer_keypair: &Keypair,
+    service_id: &str,
+    method: &str,
+    params: P,
     nonce: u64,
     chain_id: ChainId,
 ) -> Result<ChainTransaction> {
-    let public_key_bytes = keypair.public().encode_protobuf();
+    let public_key_bytes = signer_keypair.public().encode_protobuf();
     let account_id_hash = account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)?;
     let account_id = AccountId(account_id_hash);
+
+    let payload = SystemPayload::CallService {
+        service_id: service_id.to_string(),
+        method: method.to_string(),
+        params: codec::to_bytes_canonical(&params).map_err(|e| anyhow!(e))?,
+    };
 
     let header = SignHeader {
         account_id,
@@ -75,7 +84,7 @@ fn create_system_tx(
         signature_proof: SignatureProof::default(),
     };
     let sign_bytes = tx_to_sign.to_sign_bytes()?;
-    let signature = keypair.sign(&sign_bytes)?;
+    let signature = signer_keypair.sign(&sign_bytes)?;
 
     tx_to_sign.signature_proof = SignatureProof {
         suite: SignatureSuite::Ed25519,
@@ -83,6 +92,13 @@ fn create_system_tx(
         signature,
     };
     Ok(ChainTransaction::System(Box::new(tx_to_sign)))
+}
+
+// ABI for request_data@v1
+#[derive(Encode)]
+struct RequestOracleDataParams {
+    url: String,
+    request_id: u64,
 }
 
 #[tokio::test]
@@ -105,29 +121,36 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
             allowed_target_suites: vec![SignatureSuite::Ed25519],
             allow_downgrade: false,
         }))
+        .with_initial_service(InitialServiceConfig::Oracle(OracleParams::default()))
         .with_genesis_modifier(|genesis, keys| {
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
             let initial_stake = 100_000u128;
 
-            let mut validators: Vec<ValidatorV1> = keys
+            // --- FIX START: Create a deterministically sorted list of keys and IDs ---
+            let mut sorted_keys: Vec<(AccountId, &Keypair)> = keys
                 .iter()
                 .map(|k| {
                     let pk_bytes = k.public().encode_protobuf();
                     let account_id_hash =
                         account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
-                    ValidatorV1 {
-                        account_id: AccountId(account_id_hash),
-                        weight: initial_stake,
-                        consensus_key: ActiveKeyRecord {
-                            suite: SignatureSuite::Ed25519,
-                            public_key_hash: account_id_hash,
-                            since_height: 0,
-                        },
-                    }
+                    (AccountId(account_id_hash), k)
                 })
                 .collect();
-            // --- FIX: Sort validators by AccountId to ensure deterministic genesis state ---
-            validators.sort_by(|a, b| a.account_id.cmp(&b.account_id));
+            sorted_keys.sort_by(|a, b| a.0.cmp(&b.0));
+            // --- FIX END ---
+
+            let validators: Vec<ValidatorV1> = sorted_keys
+                .iter()
+                .map(|(account_id, _keypair)| ValidatorV1 {
+                    account_id: *account_id,
+                    weight: initial_stake,
+                    consensus_key: ActiveKeyRecord {
+                        suite: SignatureSuite::Ed25519,
+                        public_key_hash: account_id.0,
+                        since_height: 0,
+                    },
+                })
+                .collect();
 
             let total_weight = validators.iter().map(|v| v.weight).sum();
             let validator_sets = ValidatorSetsV1 {
@@ -145,12 +168,10 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
             );
 
-            // Populate identity records for all validators
-            for keypair in keys {
+            // Populate identity records for all validators using the sorted list
+            for (account_id, keypair) in &sorted_keys {
                 let suite = SignatureSuite::Ed25519;
                 let pk_bytes = keypair.public().encode_protobuf();
-                let account_id_hash = account_id_from_key_material(suite, &pk_bytes).unwrap();
-                let account_id = AccountId(account_id_hash);
 
                 // Add IdentityHub credentials
                 let cred = Credential {
@@ -174,7 +195,7 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
                 // Add ActiveKeyRecord for consensus
                 let record = ActiveKeyRecord {
                     suite,
-                    public_key_hash: account_id_hash,
+                    public_key_hash: account_id.0,
                     since_height: 0,
                 };
                 let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
@@ -193,30 +214,28 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
 
     // 2. SUBMIT ORACLE REQUEST TRANSACTION
     let request_id = 101;
-    let payload = SystemPayload::RequestOracleData {
-        // Use our stable local stub instead of a flaky external dependency.
-        url: stub_url,
-        request_id,
-    };
-
     let signer_keypair = &cluster.validators[0].keypair;
-    let request_tx = create_system_tx(signer_keypair, payload, 0, 1.into())?;
+    let request_tx = create_call_service_tx(
+        signer_keypair,
+        "oracle",
+        "request_data@v1",
+        RequestOracleDataParams {
+            url: stub_url,
+            request_id,
+        },
+        0,
+        1.into(),
+    )?;
     // Best-effort broadcast to all validators so at least one mempool admits it.
     for v in &cluster.validators {
         let _ = submit_transaction(&v.rpc_addr, &request_tx).await;
     }
 
-    // --- FIX START: Add a polling step to wait for the request to be committed ---
-    // This removes the race condition and makes the test deterministic.
     wait_for_pending_oracle_request(node0_rpc, request_id, std::time::Duration::from_secs(30))
         .await?;
     println!("SUCCESS: Oracle request tx was included in a block and is now pending.");
-    // --- FIX END ---
 
     // 3. ASSERT ON-CHAIN FINALIZATION
-    // This is the new, robust assertion. It replaces all previous log checks.
-    // It polls the state of the chain until the oracle's final value is present
-    // at the expected key, verifying the entire end-to-end flow.
     let expected_data = br#"{"bitcoin":{"usd":42000}}"#.to_vec();
     wait_for_oracle_data(
         node0_rpc,

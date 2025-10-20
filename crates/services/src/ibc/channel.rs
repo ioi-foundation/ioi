@@ -4,7 +4,8 @@
 //! the IBC channel lifecycle, including handshakes, packet ordering, and timeouts.
 //! It persists all of its state on-chain according to ICS-24 path standards.
 
-use depin_sdk_api::services::access::impl_service_base;
+use async_trait::async_trait;
+use depin_sdk_api::impl_service_base;
 use depin_sdk_api::services::UpgradableService;
 use depin_sdk_api::state::StateAccessor;
 use depin_sdk_types::error::UpgradeError;
@@ -24,13 +25,14 @@ pub struct ChannelManager {}
 // Implement the base BlockchainService trait using the helper macro.
 impl_service_base!(ChannelManager, "ibc_channel_manager");
 
+#[async_trait]
 impl UpgradableService for ChannelManager {
-    fn prepare_upgrade(&mut self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
+    async fn prepare_upgrade(&mut self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
         // This service is stateless itself; all state is in the chain's StateAccessor.
         Ok(Vec::new())
     }
 
-    fn complete_upgrade(&mut self, _snapshot: &[u8]) -> Result<(), UpgradeError> {
+    async fn complete_upgrade(&mut self, _snapshot: &[u8]) -> Result<(), UpgradeError> {
         Ok(())
     }
 }

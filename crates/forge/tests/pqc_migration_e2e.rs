@@ -1,38 +1,46 @@
 // Path: crates/forge/tests/pqc_migration_e2e.rs
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_api::crypto::{SerializableKey, SigningKeyPair};
 use depin_sdk_crypto::security::SecurityLevel;
 use depin_sdk_crypto::sign::dilithium::{DilithiumKeyPair, DilithiumScheme};
 use depin_sdk_crypto::sign::eddsa::Ed25519KeyPair;
 use depin_sdk_forge::testing::{
-    build_test_artifacts,
-    poll::wait_for_height,
-    rpc::query_state_key, // Added for state assertions
-    submit_transaction,
+    build_test_artifacts, poll::wait_for_height, rpc::query_state_key, submit_transaction,
     TestCluster,
 };
 use depin_sdk_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
-        Credential, RotationProof, SignHeader, SignatureProof, SignatureSuite, SystemPayload,
-        SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        Credential, Proposal, ProposalStatus, ProposalType, RotationProof, SignHeader,
+        SignatureProof, SignatureSuite, StateEntry, SystemPayload, SystemTransaction,
+        ValidatorSetV1, ValidatorSetsV1, ValidatorV1, VoteOption,
     },
     codec,
     config::InitialServiceConfig,
     keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX,
-        IDENTITY_CREDENTIALS_PREFIX,
-        ORACLE_PENDING_REQUEST_PREFIX, // Added for state assertions
-        STAKES_KEY_CURRENT,
+        ACCOUNT_ID_TO_PUBKEY_PREFIX, GOVERNANCE_PROPOSAL_KEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX,
         VALIDATOR_SET_KEY,
     },
     service_configs::MigrationConfig,
 };
+use libp2p::identity;
+use parity_scale_codec::Encode;
 use serde_json::{json, Value};
-use std::collections::BTreeMap;
 use std::time::Duration;
+
+// --- Service Parameter Structs (Client-side representation of the ABI) ---
+#[derive(Encode)]
+struct RotateKeyParams {
+    proof: RotationProof,
+}
+
+#[derive(Encode)]
+struct VoteParams {
+    proposal_id: u64,
+    option: VoteOption,
+}
 
 // Trait to unify signing for different key types in tests
 trait TestSigner {
@@ -87,12 +95,29 @@ impl TestSigner for DilithiumKeyPair {
     }
 }
 
-// Updated helper for creating signed transactions
-fn create_signed_system_tx<S: TestSigner>(
+// Updated helper: header.account_id is provided explicitly (stable across rotations)
+fn create_call_service_tx<S: TestSigner, P: Encode>(
     signer: &S,
-    header: SignHeader,
-    payload: SystemPayload,
+    account_id: AccountId,
+    service_id: &str,
+    method: &str,
+    params: P,
+    nonce: u64,
+    chain_id: ChainId,
 ) -> Result<ChainTransaction> {
+    let payload = SystemPayload::CallService {
+        service_id: service_id.to_string(),
+        method: method.to_string(),
+        params: codec::to_bytes_canonical(&params).map_err(|e| anyhow!(e))?,
+    };
+
+    let header = SignHeader {
+        account_id,
+        nonce,
+        chain_id,
+        tx_version: 1,
+    };
+
     let mut tx_to_sign = SystemTransaction {
         header,
         payload,
@@ -116,23 +141,20 @@ fn add_identity_to_genesis(
     account_id: AccountId,
     libp2p_pk_bytes: &[u8],
 ) {
-    // B. Set the initial IdentityHub credentials
     let initial_cred = Credential {
         suite,
-        public_key_hash: account_id.0, // <-- FIX: Corrected field name from pubkey_hash to public_key_hash
+        public_key_hash: account_id.0,
         activation_height: 0,
         l2_location: None,
     };
     let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
     let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
     let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
-    let creds_key_b64 = format!("b64:{}", BASE64_STANDARD.encode(&creds_key));
     genesis_state.insert(
-        creds_key_b64,
+        format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
         json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
     );
 
-    // C. Set the ActiveKeyRecord for consensus verification
     let record = ActiveKeyRecord {
         suite,
         public_key_hash: account_id.0,
@@ -145,17 +167,15 @@ fn add_identity_to_genesis(
         json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
     );
 
-    // D. Set the AccountId -> PublicKey mapping for consensus verification
     let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
     genesis_state.insert(
         format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
-        json!(format!("b64:{}", BASE64_STANDARD.encode(&libp2p_pk_bytes))),
+        json!(format!("b64:{}", BASE64_STANDARD.encode(libp2p_pk_bytes))),
     );
 }
 
 #[tokio::test]
 async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
-    // Set a fast block time for the test environment.
     std::env::set_var("ORCH_BLOCK_INTERVAL_SECS", "2");
 
     // 1. SETUP
@@ -168,11 +188,8 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     let grace_period_blocks = 5u64;
     let chain_id: ChainId = 1.into();
 
-    let ed25519_suite = ed25519_key.suite();
-    let ed25519_account_id = ed25519_key.account_id();
-    let ed25519_libp2p_pk = ed25519_key.libp2p_public_bytes();
-
     let validator_keypair = libp2p::identity::Keypair::generate_ed25519();
+    let ed25519_key_clone_for_genesis = ed25519_key.clone();
 
     // 2. LAUNCH CLUSTER
     let node = TestCluster::builder()
@@ -188,10 +205,10 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
             allowed_target_suites: vec![SignatureSuite::Ed25519, SignatureSuite::Dilithium2],
             allow_downgrade: false,
         }))
+        .with_initial_service(InitialServiceConfig::Governance(Default::default()))
         .with_genesis_modifier(move |genesis, _keys| {
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
 
-            // Setup identity for both the validator and the test account
             add_identity_to_genesis(
                 genesis_state,
                 SignatureSuite::Ed25519,
@@ -206,12 +223,11 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
             );
             add_identity_to_genesis(
                 genesis_state,
-                ed25519_suite,
-                ed25519_account_id,
-                &ed25519_libp2p_pk,
+                ed25519_key_clone_for_genesis.suite(),
+                ed25519_key_clone_for_genesis.account_id(),
+                &ed25519_key_clone_for_genesis.libp2p_public_bytes(),
             );
 
-            // Create ValidatorV1 entry for ONLY the validator node
             let validator_account_id = AccountId(
                 account_id_from_key_material(
                     SignatureSuite::Ed25519,
@@ -242,18 +258,33 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
             let vs_bytes = depin_sdk_types::app::write_validator_sets(&validator_sets).unwrap();
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
             );
 
-            // Set up stakes for both accounts for transaction validity
-            let initial_stake = 100_000u64;
-            let mut stakes = BTreeMap::new();
-            stakes.insert(validator_account_id, initial_stake);
-            stakes.insert(ed25519_account_id, initial_stake);
-            let stakes_bytes = codec::to_bytes_canonical(&stakes).unwrap();
+            // Add a dummy proposal so the governance::vote call is valid
+            let proposal = Proposal {
+                id: 1,
+                title: "Dummy Proposal".to_string(),
+                description: "".to_string(),
+                proposal_type: ProposalType::Text,
+                status: ProposalStatus::VotingPeriod,
+                submitter: vec![],
+                submit_height: 0,
+                deposit_end_height: 0,
+                voting_start_height: 1,
+                voting_end_height: u64::MAX, // Keep it open forever for simplicity
+                total_deposit: 0,
+                final_tally: None,
+            };
+            let proposal_key_bytes = [GOVERNANCE_PROPOSAL_KEY_PREFIX, &1u64.to_le_bytes()].concat();
+            let entry = StateEntry {
+                value: codec::to_bytes_canonical(&proposal).unwrap(),
+                block_height: 0,
+            };
+            let entry_bytes = codec::to_bytes_canonical(&entry).unwrap();
             genesis_state.insert(
-                std::str::from_utf8(STAKES_KEY_CURRENT).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&stakes_bytes))),
+                format!("b64:{}", BASE64_STANDARD.encode(proposal_key_bytes)),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&entry_bytes))),
             );
         })
         .build()
@@ -281,150 +312,129 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
         target_suite: SignatureSuite::Dilithium2,
         l2_location: None,
     };
-    let rotate_header = SignHeader {
+    let rotate_tx = create_call_service_tx(
+        &ed25519_key,
         account_id,
+        "identity_hub",
+        "rotate_key@v1",
+        RotateKeyParams {
+            proof: rotation_proof,
+        },
         nonce,
         chain_id,
-        tx_version: 1,
-    };
-    let rotate_tx = create_signed_system_tx(
-        &ed25519_key,
-        rotate_header,
-        SystemPayload::RotateKey(rotation_proof),
     )?;
     submit_transaction(rpc_addr, &rotate_tx).await?;
-    nonce += 1; // Nonce is now 1
+    nonce += 1;
 
-    // Wait for the block containing the rotation to be committed, ensuring the chain state
-    // is updated before we test the grace period logic.
     wait_for_height(rpc_addr, 2, Duration::from_secs(20)).await?;
 
     // 4. TEST GRACE PERIOD
     // Send with old key (nonce=1)
-    let ed_header = SignHeader {
+    let old_key_tx = create_call_service_tx(
+        &ed25519_key,
         account_id,
+        "governance",
+        "vote@v1",
+        VoteParams {
+            proposal_id: 1,
+            option: VoteOption::Yes,
+        },
         nonce,
         chain_id,
-        tx_version: 1,
-    };
-    submit_transaction(
-        rpc_addr,
-        &create_signed_system_tx(
-            &ed25519_key,
-            ed_header,
-            SystemPayload::RequestOracleData {
-                url: "grace-old".into(),
-                request_id: 1,
-            },
-        )?,
-    )
-    .await?;
-    nonce += 1; // Nonce is now 2
+    )?;
+    submit_transaction(rpc_addr, &old_key_tx).await?;
+    nonce += 1;
 
-    // Assert the transaction was included in a block
     wait_for_height(rpc_addr, 3, Duration::from_secs(20)).await?;
 
     // Send with new key (nonce=2)
-    let dil_header = SignHeader {
+    let new_key_tx = create_call_service_tx(
+        &dilithium_key,
         account_id,
+        "governance",
+        "vote@v1",
+        VoteParams {
+            proposal_id: 1,
+            option: VoteOption::No,
+        },
         nonce,
         chain_id,
-        tx_version: 1,
-    };
-    submit_transaction(
-        rpc_addr,
-        &create_signed_system_tx(
-            &dilithium_key,
-            dil_header,
-            SystemPayload::RequestOracleData {
-                url: "grace-new".into(),
-                request_id: 2,
-            },
-        )?,
-    )
-    .await?;
-    nonce += 1; // Nonce is now 3
+    )?;
+    submit_transaction(rpc_addr, &new_key_tx).await?;
+    nonce += 1;
 
-    // Assert the transaction was included in a block
     wait_for_height(rpc_addr, 4, Duration::from_secs(20)).await?;
 
     // 5. TEST POST-GRACE PERIOD
-    // Wait for grace period to end (activation_height = 2 + 5 = 7). We wait for height 8.
     wait_for_height(rpc_addr, 8, Duration::from_secs(60)).await?;
 
-    // 5a. Submit tx with OLD, EXPIRED key. It should be rejected by the chain. Nonce = 3.
-    let old_key_header = SignHeader {
+    // 5a. Submit tx with OLD, EXPIRED key. It should be rejected.
+    let old_key_tx = create_call_service_tx(
+        &ed25519_key,
         account_id,
+        "governance",
+        "vote@v1",
+        VoteParams {
+            proposal_id: 1,
+            option: VoteOption::Yes,
+        },
         nonce,
         chain_id,
-        tx_version: 1,
-    };
-    let old_key_tx = create_signed_system_tx(
-        &ed25519_key,
-        old_key_header,
-        SystemPayload::RequestOracleData {
-            url: "post-grace-old".into(),
-            request_id: 3,
-        },
     )?;
-    // We don't care about the result, just that it gets into the mempool to be filtered.
     let _ = submit_transaction(rpc_addr, &old_key_tx).await;
 
     // 5b. Submit tx with NEW, ACTIVE key with the same nonce. This should succeed.
-    let new_key_header = SignHeader {
+    let new_key_tx = create_call_service_tx(
+        &dilithium_key,
         account_id,
+        "governance",
+        "vote@v1",
+        VoteParams {
+            proposal_id: 1,
+            option: VoteOption::NoWithVeto, // Use a different vote to ensure state changes
+        },
         nonce,
         chain_id,
-        tx_version: 1,
-    };
-    let new_key_tx = create_signed_system_tx(
-        &dilithium_key,
-        new_key_header,
-        SystemPayload::RequestOracleData {
-            url: "post-grace-new".into(),
-            request_id: 4,
-        },
     )?;
     submit_transaction(rpc_addr, &new_key_tx).await?;
-    nonce += 1; // This transaction should succeed, so we bump our local nonce counter
+    nonce += 1;
 
     // 5c. VERIFY THE STATE
-    // Wait for a block to be produced that processes these transactions.
     let current_height = depin_sdk_forge::testing::rpc::get_chain_height(rpc_addr).await?;
     wait_for_height(rpc_addr, current_height + 2, Duration::from_secs(20)).await?;
 
-    // The request from the OLD key should NOT exist in state.
-    let old_req_key = [ORACLE_PENDING_REQUEST_PREFIX, &3u64.to_le_bytes()].concat();
-    let old_req_val = query_state_key(rpc_addr, &old_req_key).await?;
-    assert!(
-        old_req_val.is_none(),
-        "Request from expired key must not be present in state"
-    );
-
-    // The request from the NEW key SHOULD exist in state.
-    let new_req_key = [ORACLE_PENDING_REQUEST_PREFIX, &4u64.to_le_bytes()].concat();
-    let new_req_val = query_state_key(rpc_addr, &new_req_key).await?;
-    assert!(
-        new_req_val.is_some(),
-        "Request from new active key must be present in state"
+    let vote_key = {
+        let mut key = depin_sdk_types::keys::GOVERNANCE_VOTE_KEY_PREFIX.to_vec();
+        key.extend_from_slice(&1u64.to_le_bytes()); // proposal_id
+        key.extend_from_slice(b"::");
+        key.extend_from_slice(account_id.as_ref());
+        key
+    };
+    let vote_val_bytes = query_state_key(rpc_addr, &vote_key)
+        .await?
+        .ok_or_else(|| anyhow!("Vote from new active key must be present in state"))?;
+    let vote_option: VoteOption = codec::from_bytes_canonical(&vote_val_bytes)
+        .map_err(|e| anyhow!("Failed to decode vote option from state: {}", e))?;
+    assert_eq!(
+        vote_option,
+        VoteOption::NoWithVeto,
+        "The vote should reflect the last successful transaction from the new key"
     );
 
     println!("SUCCESS: State correctly mutated by new PQC key post-grace period, and not by expired key.");
 
     // 5d. Final check that the new key can continue to submit transactions.
-    let final_header = SignHeader {
+    let final_tx = create_call_service_tx(
+        &dilithium_key,
         account_id,
+        "governance",
+        "vote@v1",
+        VoteParams {
+            proposal_id: 1,
+            option: VoteOption::Abstain,
+        },
         nonce,
         chain_id,
-        tx_version: 1,
-    };
-    let final_tx = create_signed_system_tx(
-        &dilithium_key,
-        final_header,
-        SystemPayload::RequestOracleData {
-            url: "post-grace-final".into(),
-            request_id: 5,
-        },
     )?;
     submit_transaction(rpc_addr, &final_tx).await?;
     let final_height = depin_sdk_forge::testing::rpc::get_chain_height(rpc_addr).await?;

@@ -14,7 +14,14 @@ use depin_sdk_crypto::sign::dilithium::DilithiumKeyPair;
 use depin_sdk_network::libp2p::Libp2pSync;
 use depin_sdk_network::metrics as network_metrics;
 use depin_sdk_services::governance::GovernanceModule;
+// --- IBC Service Imports ---
+#[cfg(feature = "svc-ibc")]
+use depin_sdk_services::ibc::{
+    channel::ChannelManager, light_client::tendermint::TendermintVerifier,
+    registry::VerifierRegistry,
+};
 use depin_sdk_services::identity::IdentityHub;
+use depin_sdk_services::oracle::OracleService;
 use depin_sdk_storage::RedbEpochStore;
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
@@ -258,7 +265,6 @@ where
     let chain_ref = {
         let tm = UnifiedTransactionModel::new(commitment_scheme.clone());
 
-        // --- FIX START: Instantiate services for the Orchestrator's chain instance ---
         // This is necessary for the transaction pre-check simulation to find required services.
         let mut initial_services = Vec::new();
         for service_config in &workload_config.initial_services {
@@ -271,8 +277,37 @@ where
                     let gov = GovernanceModule::new(params.clone());
                     initial_services.push(Arc::new(gov) as Arc<dyn UpgradableService>);
                 }
+                InitialServiceConfig::Oracle(_params) => {
+                    tracing::info!(target: "orchestration", event = "service_init", name = "Oracle", impl="proxy", capabilities="");
+                    let oracle = OracleService::new();
+                    initial_services.push(Arc::new(oracle) as Arc<dyn UpgradableService>);
+                }
+                #[cfg(feature = "svc-ibc")]
+                InitialServiceConfig::Ibc(ibc_config) => {
+                    // Orchestration needs to know about the IBC handler for tx pre-checks,
+                    // even if the full logic lives in the workload.
+                    // The verifier here uses a dummy state accessor since it's only for type resolution.
+                    tracing::info!(target: "orchestration", event = "service_init", name = "IBC", impl="proxy", capabilities="ibc_handler");
+                    let mut verifier_registry = VerifierRegistry::new();
+                    for client_name_str in &ibc_config.enabled_clients {
+                        if client_name_str.starts_with("tendermint") {
+                            let tm_verifier = TendermintVerifier::new(
+                                "cosmos-hub-test".to_string(), // Mock value, consistent with test
+                                "07-tendermint-0".to_string(),
+                                Arc::new(state_tree.clone()), // Use the orchestrator's dummy state tree
+                            );
+                            verifier_registry.register(Arc::new(tm_verifier));
+                        }
+                    }
+                    initial_services
+                        .push(Arc::new(verifier_registry) as Arc<dyn UpgradableService>);
+                    initial_services
+                        .push(Arc::new(ChannelManager::new()) as Arc<dyn UpgradableService>);
+                }
+                #[cfg(not(feature = "svc-ibc"))]
                 InitialServiceConfig::Ibc(_) => {
-                    // IBC service is handled within the workload container, no-op here for orchestrator.
+                    // IBC feature not compiled in, but config asks for it. Do nothing.
+                    // The transaction model will correctly reject the tx as unsupported.
                 }
             }
         }
@@ -281,7 +316,6 @@ where
             .map(|s| s.clone() as Arc<dyn BlockchainService>)
             .collect();
         let service_directory = ServiceDirectory::new(services_for_dir);
-        // --- FIX END ---
 
         let dummy_workload_config = WorkloadConfig {
             runtimes: vec![],

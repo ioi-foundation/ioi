@@ -11,8 +11,22 @@
     )
 )]
 
+//! # DePIN SDK Telemetry
+//!
+//! This crate provides the observability infrastructure for the DePIN SDK,
+//! including structured logging initialization, a Prometheus metrics endpoint,
+//! and abstract sinks for decoupling metric instrumentation from the backend.
+
+/// A lightweight HTTP server for exposing `/metrics`, `/healthz`, and `/readyz` endpoints.
 pub mod http;
-pub mod init; // New module for initialization
+/// The initialization routine for global structured logging.
+pub mod init;
+/// The concrete implementation of metrics sinks using the `prometheus` crate.
 pub mod prometheus;
+/// Abstract traits (`*MetricsSink`) that define the contract for metrics reporting.
 pub mod sinks;
-pub mod time; // New module for the RAII timer
+/// A simple RAII timer for measuring the duration of a scope.
+pub mod time;
+
+// Re-export the public helper functions for easy access to the global sinks.
+pub use sinks::{error_metrics, service_metrics};
