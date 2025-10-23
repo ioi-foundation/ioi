@@ -285,7 +285,6 @@ pub enum TransactionError {
     #[error("Insufficient funds")]
     InsufficientFunds,
 
-    // --- NEW, STRUCTURED ERRORS ---
     /// The transaction nonce does not match the expected nonce for the account.
     #[error("Nonce mismatch. Expected: {expected}, Got: {got}")]
     NonceMismatch {
@@ -332,13 +331,11 @@ impl ErrorCode for TransactionError {
     }
 }
 
-// --- FIX START: Add From<CryptoError> for TransactionError ---
 impl From<CryptoError> for TransactionError {
     fn from(e: CryptoError) -> Self {
         TransactionError::Invalid(format!("Cryptographic operation failed: {}", e))
     }
 }
-// --- FIX END ---
 
 impl From<bcs::Error> for TransactionError {
     fn from(e: bcs::Error) -> Self {
@@ -488,10 +485,41 @@ impl ErrorCode for ChainError {
     }
 }
 
-/// Implement the conversion from TransactionError to ChainError.
 impl From<TransactionError> for ChainError {
     fn from(err: TransactionError) -> Self {
         ChainError::Transaction(err.to_string())
+    }
+}
+
+/// Errors related to service upgrades.
+#[derive(Debug, thiserror::Error)]
+pub enum UpgradeError {
+    /// The provided upgrade data (e.g., WASM blob) was invalid.
+    #[error("Invalid upgrade: {0}")]
+    InvalidUpgrade(String),
+    /// The service failed to migrate its state to the new version.
+    #[error("State migration failed: {0}")]
+    MigrationFailed(String),
+    /// The service to be upgraded was not found.
+    #[error("Service not found")]
+    ServiceNotFound,
+    /// The service's health check failed after an upgrade.
+    #[error("Health check failed: {0}")]
+    HealthCheckFailed(String),
+    /// A service operation (e.g., start, stop) failed.
+    #[error("Service operation failed: {0}")]
+    OperationFailed(String),
+}
+
+impl ErrorCode for UpgradeError {
+    fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidUpgrade(_) => "UPGRADE_INVALID",
+            Self::MigrationFailed(_) => "UPGRADE_MIGRATION_FAILED",
+            Self::ServiceNotFound => "UPGRADE_SERVICE_NOT_FOUND",
+            Self::HealthCheckFailed(_) => "UPGRADE_HEALTH_CHECK_FAILED",
+            Self::OperationFailed(_) => "UPGRADE_OPERATION_FAILED",
+        }
     }
 }
 
@@ -503,7 +531,7 @@ pub enum CoreError {
     ServiceNotFound(String),
     /// An error occurred during a service upgrade.
     #[error("Upgrade error: {0}")]
-    Upgrade(String),
+    Upgrade(#[from] UpgradeError),
     /// A custom, unspecified error.
     #[error("Custom error: {0}")]
     Custom(String),
@@ -533,17 +561,21 @@ impl From<CryptoError> for CoreError {
     }
 }
 
-// [+] ADD THIS IMPLEMENTATION
 impl From<prost::DecodeError> for CoreError {
     fn from(e: prost::DecodeError) -> Self {
         CoreError::Custom(format!("Protobuf decoding error: {}", e))
     }
 }
 
-// [+] ADDED: Implement From<StateError> for CoreError
 impl From<StateError> for CoreError {
     fn from(e: StateError) -> Self {
         CoreError::Custom(format!("State error: {}", e))
+    }
+}
+
+impl From<String> for CoreError {
+    fn from(s: String) -> Self {
+        CoreError::Custom(s)
     }
 }
 
@@ -611,38 +643,6 @@ impl ErrorCode for CryptoError {
 impl From<dcrypt::Error> for CryptoError {
     fn from(e: dcrypt::Error) -> Self {
         CryptoError::OperationFailed(e.to_string())
-    }
-}
-
-/// Errors related to service upgrades.
-#[derive(Debug, thiserror::Error)]
-pub enum UpgradeError {
-    /// The provided upgrade data (e.g., WASM blob) was invalid.
-    #[error("Invalid upgrade: {0}")]
-    InvalidUpgrade(String),
-    /// The service failed to migrate its state to the new version.
-    #[error("State migration failed: {0}")]
-    MigrationFailed(String),
-    /// The service to be upgraded was not found.
-    #[error("Service not found")]
-    ServiceNotFound,
-    /// The service's health check failed after an upgrade.
-    #[error("Health check failed: {0}")]
-    HealthCheckFailed(String),
-    /// A service operation (e.g., start, stop) failed.
-    #[error("Service operation failed: {0}")]
-    OperationFailed(String),
-}
-
-impl ErrorCode for UpgradeError {
-    fn code(&self) -> &'static str {
-        match self {
-            Self::InvalidUpgrade(_) => "UPGRADE_INVALID",
-            Self::MigrationFailed(_) => "UPGRADE_MIGRATION_FAILED",
-            Self::ServiceNotFound => "UPGRADE_SERVICE_NOT_FOUND",
-            Self::HealthCheckFailed(_) => "UPGRADE_HEALTH_CHECK_FAILED",
-            Self::OperationFailed(_) => "UPGRADE_OPERATION_FAILED",
-        }
     }
 }
 

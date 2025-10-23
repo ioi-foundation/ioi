@@ -14,9 +14,10 @@ crate-type = ["rlib"]
 [dependencies]
 # This SDK is for the WASM environment, so it doesn't have host-side dependencies.
 wee_alloc = { version = "0.4.5", optional = true }
-parity-scale-codec = { workspace = true }
+parity-scale-codec = { workspace = true, default-features = false, features = [
+    "derive",
+] }
 
 [features]
-# By default, enable the allocator. This allows consumers to disable it if they
-# want to provide their own allocator.
 default = ["wee_alloc"]
+std = []

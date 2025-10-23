@@ -3,13 +3,12 @@
 use super::{ensure_docker_image_exists, DOCKER_BUILD_CHECK, DOCKER_IMAGE_TAG};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-// [+] FIX: Import structs from their new, non-deprecated locations.
 use bollard::{
-    container::{
-        CreateContainerOptions, LogsOptions, RemoveContainerOptions, StartContainerOptions,
-        StopContainerOptions,
-    },
     models::{ContainerCreateBody, HostConfig, NetworkCreateRequest},
+    query_parameters::{
+        CreateContainerOptionsBuilder, LogsOptionsBuilder, RemoveContainerOptionsBuilder,
+        StartContainerOptions, StopContainerOptionsBuilder,
+    },
     Docker,
 };
 use depin_sdk_validator::common::generate_certificates_if_needed;
@@ -231,14 +230,12 @@ impl DockerBackend {
     pub async fn new(config: DockerBackendConfig) -> Result<Self> {
         let docker = Docker::connect_with_local_defaults()?;
         let network_name = format!("depin-e2e-{}", uuid::Uuid::new_v4());
-        // [+] FIX: Use the new NetworkCreateRequest struct
         let network = docker
             .create_network(NetworkCreateRequest {
                 name: network_name,
                 ..Default::default()
             })
             .await?;
-        // FIX: `network.id` is a String in this version of bollard. Handle empty string as an error.
         let network_id = {
             let id = network.id;
             if id.is_empty() {
@@ -270,12 +267,7 @@ impl DockerBackend {
         env: Vec<String>,
         binds: Vec<String>,
     ) -> Result<()> {
-        // [+] FIX: Use CreateContainerOptions and add the missing 'platform' field.
-        let options = Some(CreateContainerOptions {
-            name,
-            platform: None,
-        });
-        // [+] FIX: The fields in HostConfig are snake_case in bollard 0.19.
+        let options = Some(CreateContainerOptionsBuilder::default().name(name).build());
         let host_config = HostConfig {
             network_mode: Some(self.network_id.clone()),
             binds: Some(binds),
@@ -285,7 +277,6 @@ impl DockerBackend {
         let cmd_strs: Vec<&str> = cmd.iter().map(|s| s.as_str()).collect();
         let env_strs: Vec<&str> = env.iter().map(|s| s.as_str()).collect();
 
-        // [+] FIX: The fields in ContainerCreateBody are snake_case in bollard 0.19.
         let config = ContainerCreateBody {
             image: Some(DOCKER_IMAGE_TAG.to_string()),
             cmd: Some(cmd_strs.into_iter().map(String::from).collect()),
@@ -295,9 +286,8 @@ impl DockerBackend {
         };
 
         let id = self.docker.create_container(options, config).await?.id;
-        // [+] FIX: Add explicit type annotation for None to resolve ambiguity.
         self.docker
-            .start_container(&id, None::<StartContainerOptions<&str>>)
+            .start_container(&id, None::<StartContainerOptions>)
             .await?;
         self.container_ids.push(id);
         Ok(())
@@ -311,7 +301,6 @@ impl TestBackend for DockerBackend {
             .get_or_try_init(ensure_docker_image_exists)
             .await?;
 
-        // [+] FIX: Generate certs on the host before launching containers.
         generate_certificates_if_needed(&self.certs_dir_path)?;
 
         // Define paths as they will appear inside the containers
@@ -392,13 +381,13 @@ impl TestBackend for DockerBackend {
             .await?;
 
         let ready_timeout = Duration::from_secs(45);
-        // [+] FIX: Use the new LogsOptions struct and specify its generic parameter
-        let log_options = Some(LogsOptions::<String> {
-            follow: true,
-            stderr: true,
-            stdout: true,
-            ..Default::default()
-        });
+        let log_options = Some(
+            LogsOptionsBuilder::default()
+                .follow(true)
+                .stderr(true)
+                .stdout(true)
+                .build(),
+        );
 
         fn convert_stream<S>(s: S) -> LogStream
         where
@@ -469,19 +458,17 @@ impl TestBackend for DockerBackend {
             let docker = self.docker.clone();
             let id = id.clone();
             async move {
-                // [+] FIX: The field 't' is still snake_case in this version for StopContainerOptions
                 docker
-                    .stop_container(&id, Some(StopContainerOptions { t: 5 }))
+                    .stop_container(
+                        &id,
+                        Some(StopContainerOptionsBuilder::default().t(5).build()),
+                    )
                     .await
                     .ok();
-                // [+] FIX: The field 'force' is still snake_case in this version for RemoveContainerOptions
                 docker
                     .remove_container(
                         &id,
-                        Some(RemoveContainerOptions {
-                            force: true,
-                            ..Default::default()
-                        }),
+                        Some(RemoveContainerOptionsBuilder::default().force(true).build()),
                     )
                     .await
                     .ok();

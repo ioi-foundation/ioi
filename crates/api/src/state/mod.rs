@@ -4,7 +4,7 @@
 use crate::commitment::CommitmentScheme;
 use async_trait::async_trait;
 use depin_sdk_types::app::Membership;
-use depin_sdk_types::error::ProofError; // FIX: Corrected import path for ProofError
+use depin_sdk_types::error::ProofError;
 use depin_sdk_types::error::StateError;
 use parity_scale_codec::{Decode, Encode};
 use std::collections::BTreeSet;
@@ -22,8 +22,6 @@ pub use overlay::*;
 pub use pins::{PinGuard, StateVersionPins};
 
 /// A plan detailing which historical state versions should be pruned.
-/// This decouples the decision-making (which can be async and involve multiple checks)
-/// from the synchronous pruning action within the state manager.
 #[derive(Debug, Clone, Default)]
 pub struct PrunePlan {
     /// The primary cutoff height. Any version with a height *strictly less than* this
@@ -43,10 +41,6 @@ impl PrunePlan {
 }
 
 /// A trait for a stateless cryptographic proof verifier.
-///
-/// This decouples the verification logic from the state management implementation,
-/// allowing a remote client (like Orchestration's StateView) to verify proofs
-/// without needing a full instance of the state tree.
 pub trait Verifier: Send + Sync {
     /// The concrete type of a cryptographic commitment (e.g., a hash, a curve point).
     type Commitment: Clone + Send + Sync + 'static;
@@ -54,20 +48,9 @@ pub trait Verifier: Send + Sync {
     type Proof: Encode + Decode + for<'de> serde::Deserialize<'de> + Send + Sync + 'static;
 
     /// Converts raw bytes (from IPC/storage) into the concrete Commitment type.
-    /// This is a critical step for deserializing the state root before verification.
     fn commitment_from_bytes(&self, bytes: &[u8]) -> Result<Self::Commitment, StateError>;
 
     /// Verifies a proof of membership or non-membership against a root commitment.
-    ///
-    /// # Arguments
-    /// * `root` - The trusted root commitment against which to verify.
-    /// * `proof` - The deserialized proof object.
-    /// * `key` - The key whose membership is being checked.
-    /// * `outcome` - The claimed outcome (either `Membership::Present(value)` or `Membership::Absent`).
-    ///
-    /// # Returns
-    /// `Ok(())` if the proof is valid for the given root, key, and outcome.
-    /// Otherwise, returns a `ProofError`.
     fn verify(
         &self,
         root: &Self::Commitment,
@@ -84,6 +67,8 @@ pub trait VmStateAccessor: Send + Sync {
     async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError>;
     /// Inserts a key-value pair into the state.
     async fn insert(&self, key: &[u8], value: &[u8]) -> Result<(), StateError>;
+    /// Deletes a key-value pair from the state.
+    async fn delete(&self, key: &[u8]) -> Result<(), StateError>;
 }
 
 /// Type alias for a `StateManager` trait object compatible with a specific `CommitmentScheme`.

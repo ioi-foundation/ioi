@@ -1,20 +1,24 @@
 // Path: crates/validator/src/standard/orchestration/oracle.rs
+
+//! Contains the reactive, off-chain logic for the Oracle service.
+//! This module handles incoming gossip events (attestations) from other validators,
+//! verifies them, aggregates them, and submits a finalization transaction
+//! once a quorum is reached.
+
 use super::context::MainLoopContext;
 use depin_sdk_api::{
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
     state::{StateCommitment, StateManager, Verifier},
 };
-use depin_sdk_network::libp2p::SwarmCommand;
-use depin_sdk_services::oracle::{OracleService, SubmitDataParams};
+use depin_sdk_services::oracle::SubmitDataParams;
 use depin_sdk_types::{
     app::{
         account_id_from_key_material, AccountId, ChainTransaction, OracleAttestation,
-        OracleConsensusProof, SignHeader, SignatureProof, SignatureSuite, StateEntry,
-        SystemPayload, SystemTransaction,
+        OracleConsensusProof, SignHeader, SignatureProof, SignatureSuite, SystemPayload,
+        SystemTransaction,
     },
-    codec, // Use the canonical codec
-    keys::ORACLE_PENDING_REQUEST_PREFIX,
+    codec,
 };
 use libp2p::{identity::PublicKey as Libp2pPublicKey, PeerId};
 use serde::Serialize;
@@ -24,201 +28,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 // Time-to-live for attestations to prevent replay of old, potentially invalid data.
 const ATTESTATION_TTL_SECS: u64 = 300; // 5 minutes
-
-/// Checks for pending oracle requests after a block is processed and initiates data fetching.
-pub async fn handle_newly_processed_block<CS, ST, CE, V>(
-    context: &MainLoopContext<CS, ST, CE, V>,
-    _block_height: u64,
-    oracle_service: &OracleService,
-) where
-    CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Send
-        + Sync
-        + 'static
-        + Debug
-        + Clone,
-    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
-    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
-{
-    let workload_client = match context
-        .view_resolver
-        .as_any()
-        .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
-    {
-        Some(resolver) => resolver.workload_client(),
-        None => {
-            log::error!("Oracle: Could not downcast ViewResolver to get WorkloadClient.");
-            return;
-        }
-    };
-
-    let pending_requests = match workload_client
-        .prefix_scan(ORACLE_PENDING_REQUEST_PREFIX)
-        .await
-    {
-        Ok(kvs) => {
-            log::info!(
-                "Oracle: scanned {} pending request entries under prefix 0x{}",
-                kvs.len(),
-                hex::encode(ORACLE_PENDING_REQUEST_PREFIX)
-            );
-            kvs
-        }
-        Err(e) => {
-            log::error!("Oracle: Failed to scan for pending requests: {}", e);
-            return;
-        }
-    };
-
-    let validator_stakes = match workload_client.get_staked_validators().await {
-        Ok(vs) => vs,
-        Err(e) => {
-            log::error!("Oracle: Could not get validator stakes: {}", e);
-            return;
-        }
-    };
-
-    let validator_account_ids: HashSet<AccountId> = validator_stakes.keys().cloned().collect();
-
-    let our_account_id = match account_id_from_key_material(
-        SignatureSuite::Ed25519,
-        &context.local_keypair.public().encode_protobuf(),
-    ) {
-        Ok(hash) => AccountId(hash),
-        Err(_) => {
-            log::error!("Oracle: Local key should be valid.");
-            return;
-        }
-    };
-
-    if !validator_account_ids.contains(&our_account_id) {
-        return; // This node is not a staked validator, so it shouldn't perform oracle tasks.
-    }
-
-    log::info!("Oracle: This node is in the validator set, checking for new tasks...");
-
-    for (key, value_bytes) in &pending_requests {
-        // --- Robust request_id extraction ---
-        let suffix = key.get(ORACLE_PENDING_REQUEST_PREFIX.len()..);
-        let request_id = match suffix
-            .and_then(|s| s.try_into().ok())
-            .map(u64::from_le_bytes)
-        {
-            Some(id) => id,
-            None => {
-                log::warn!(
-                    "Oracle: malformed pending key (len={}): 0x{}, skipping",
-                    key.len(),
-                    hex::encode(key)
-                );
-                continue;
-            }
-        };
-
-        // --- Robust StateEntry decoding (canonical codec ONLY) ---
-        let entry: StateEntry = match codec::from_bytes_canonical(value_bytes) {
-            Ok(e) => e,
-            Err(err) => {
-                log::warn!(
-                    "Oracle: unable to decode StateEntry for request_id {}: {} (hex={})",
-                    request_id,
-                    err,
-                    hex::encode(value_bytes)
-                );
-                continue;
-            }
-        };
-
-        // --- Parse value as a canonical-encoded String ---
-        let url = match codec::from_bytes_canonical::<String>(&entry.value) {
-            Ok(s) => s,
-            Err(_) => {
-                log::warn!(
-                    "Oracle: request {} value is not a valid SCALE-encoded string; skipping",
-                    request_id
-                );
-                continue;
-            }
-        };
-
-        log::info!(
-            "Oracle: Found new oracle task for request_id {} from URL: {}",
-            request_id,
-            url
-        );
-
-        match oracle_service.fetch(&url).await {
-            Ok(value) => {
-                let Ok(ed25519_pk) = context.local_keypair.public().try_into_ed25519() else {
-                    log::error!("Oracle: Local keypair is not Ed25519, cannot create attestation.");
-                    continue;
-                };
-                let pubkey_bytes = ed25519_pk.to_bytes();
-
-                // Create the full binary domain for the signature
-                let mut domain = b"depinsdk/oracle-attest/v1".to_vec();
-                domain.extend_from_slice(&context.chain_id.0.to_le_bytes());
-                domain.extend_from_slice(&context.genesis_hash);
-
-                let mut attestation = OracleAttestation {
-                    request_id,
-                    value,
-                    timestamp: match SystemTime::now().duration_since(UNIX_EPOCH) {
-                        Ok(d) => d.as_secs(),
-                        Err(_) => {
-                            log::error!("Oracle: System time is before UNIX_EPOCH, cannot create timestamp.");
-                            continue;
-                        }
-                    },
-                    signature: vec![],
-                };
-
-                let payload_to_sign = match attestation.to_signing_payload(&domain) {
-                    Ok(p) => p,
-                    Err(e) => {
-                        log::error!(
-                            "Oracle: Failed to create signing payload for attestation: {}",
-                            e
-                        );
-                        continue;
-                    }
-                };
-                let signature_bytes = match context.local_keypair.sign(&payload_to_sign) {
-                    Ok(s) => s,
-                    Err(_) => {
-                        log::error!("Oracle: Failed to sign attestation payload.");
-                        continue;
-                    }
-                };
-                attestation.signature = [pubkey_bytes.as_ref(), &signature_bytes].concat();
-
-                let attestation_bytes = match codec::to_bytes_canonical(&attestation) {
-                    Ok(b) => b,
-                    Err(_) => {
-                        log::error!("Oracle: Failed to serialize attestation.");
-                        continue;
-                    }
-                };
-                context
-                    .swarm_commander
-                    .send(SwarmCommand::GossipOracleAttestation(attestation_bytes))
-                    .await
-                    .ok();
-                log::info!("Oracle: Gossiped attestation for request_id {}", request_id);
-            }
-            Err(e) => log::error!(
-                "Oracle: Failed to fetch external data for request {}: {}",
-                request_id,
-                e
-            ),
-        }
-    }
-}
 
 /// Handles a received oracle attestation from a peer validator.
 pub async fn handle_oracle_attestation_received<CS, ST, CE, V>(
@@ -442,7 +251,6 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
         };
 
         if validator_stakes.contains_key(&signer_account_id) {
-            // Recreate the same domain to verify the signature
             let mut domain = b"depinsdk/oracle-attest/v1".to_vec();
             domain.extend_from_slice(&context.chain_id.0.to_le_bytes());
             domain.extend_from_slice(&context.genesis_hash);
@@ -506,19 +314,18 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
                 Err(_) => return,
             };
 
-        // Atomically get and increment the nonce from the local nonce manager.
         let current_nonce = {
             let mut nonce_manager = context.nonce_manager.lock().await;
             let nonce = nonce_manager.entry(our_account_id).or_insert(0);
             let current = *nonce;
-            *nonce += 1; // Atomically increment for the next self-generated tx
+            *nonce += 1;
             current
         };
 
         let mut sys_tx = SystemTransaction {
             header: SignHeader {
                 account_id: our_account_id,
-                nonce: current_nonce, // Use the locally managed nonce
+                nonce: current_nonce,
                 chain_id: context.chain_id,
                 tx_version: 1,
             },

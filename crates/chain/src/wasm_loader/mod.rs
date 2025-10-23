@@ -56,7 +56,6 @@ impl WasmService {
             .store
             .lock()
             .map_err(|_| UpgradeError::OperationFailed("store lock poisoned".into()))?;
-        // 1. Get exported functions from the WASM instance.
         let memory = self
             .instance
             .get_memory(&mut *store, "memory")
@@ -76,19 +75,16 @@ impl WasmService {
                 UpgradeError::InvalidUpgrade(format!("'{}' function not found: {}", fn_name, e))
             })?;
 
-        // 2. Allocate memory in the guest for the input data.
         let input_ptr = allocate
             .call(&mut *store, data.len() as u32)
             .map_err(|e| UpgradeError::OperationFailed(format!("WASM allocate failed: {}", e)))?;
 
-        // 3. Write the input data into the guest's memory.
         memory
             .write(&mut *store, input_ptr as usize, data)
             .map_err(|e| {
                 UpgradeError::OperationFailed(format!("WASM memory write failed: {}", e))
             })?;
 
-        // 4. Call the target function.
         let result_packed = wasm_fn
             .call(&mut *store, (input_ptr, data.len() as u32))
             .map_err(|e| {
@@ -98,11 +94,9 @@ impl WasmService {
                 ))
             })?;
 
-        // 5. Unpack the pointer and length of the result from the u64 return value.
         let result_ptr = (result_packed >> 32) as u32;
         let result_len = result_packed as u32;
 
-        // 6. Read the result data from the guest's memory.
         let mut result_buffer = vec![0u8; result_len as usize];
         memory
             .read(&*store, result_ptr as usize, &mut result_buffer)
@@ -165,8 +159,6 @@ impl OnEndBlock for WasmService {
         _state: &mut dyn StateAccessor,
         _ctx: &TxContext,
     ) -> Result<(), StateError> {
-        // Placeholder implementation. A real one would serialize the context,
-        // call the `on_end_block` WASM export, and handle the response.
         log::info!(
             "[WasmService {}] OnEndBlock hook called (currently a no-op).",
             self.id()
@@ -191,16 +183,22 @@ impl UpgradableService for WasmService {
 fn make_engine_and_store() -> Result<(Engine, Store<()>), CoreError> {
     let mut config = Config::new();
     config.async_support(true);
-    config.consume_fuel(true); // Enable fuel metering
-    config.wasm_threads(false); // Disable for determinism
-    config.wasm_simd(false); // Disable for determinism
-    let engine = Engine::new(&config)
-        .map_err(|e| CoreError::Upgrade(format!("Wasmtime config error: {}", e)))?;
+    config.consume_fuel(true);
+    config.wasm_threads(false);
+    config.wasm_simd(false);
+    let engine = Engine::new(&config).map_err(|e| {
+        CoreError::Upgrade(UpgradeError::InvalidUpgrade(format!(
+            "Wasmtime config error: {}",
+            e
+        )))
+    })?;
     let mut store = Store::new(&engine, ());
-    // Add an initial amount of fuel. This must be replenished before each call.
-    store
-        .set_fuel(10_000_000_000)
-        .map_err(|e| CoreError::Upgrade(format!("Wasmtime fuel error: {}", e)))?;
+    store.set_fuel(10_000_000_000).map_err(|e| {
+        CoreError::Upgrade(UpgradeError::OperationFailed(format!(
+            "Wasmtime fuel error: {}",
+            e
+        )))
+    })?;
     Ok((engine, store))
 }
 
@@ -213,89 +211,140 @@ pub fn load_service_from_wasm(wasm_blob: &[u8]) -> Result<Arc<dyn UpgradableServ
 
     let (engine, mut store) = make_engine_and_store()?;
 
-    let module = Module::new(&engine, wasm_blob)
-        .map_err(|e| CoreError::Upgrade(format!("Failed to compile WASM: {e}")))?;
+    let module = Module::new(&engine, wasm_blob).map_err(|e| {
+        CoreError::Upgrade(UpgradeError::InvalidUpgrade(format!(
+            "Failed to compile WASM: {e}"
+        )))
+    })?;
 
-    // The host does not provide any imports to the service. The service calls the host via FFI.
-    let instance = Instance::new(&mut store, &module, &[])
-        .map_err(|e| CoreError::Upgrade(format!("Failed to instantiate WASM: {e}")))?;
+    let instance = Instance::new(&mut store, &module, &[]).map_err(|e| {
+        CoreError::Upgrade(UpgradeError::InvalidUpgrade(format!(
+            "Failed to instantiate WASM: {e}"
+        )))
+    })?;
 
-    let memory = instance
-        .get_memory(&mut store, "memory")
-        .ok_or_else(|| CoreError::Upgrade("WASM module must export 'memory'".to_string()))?;
+    let memory = instance.get_memory(&mut store, "memory").ok_or_else(|| {
+        CoreError::Upgrade(UpgradeError::InvalidUpgrade(
+            "WASM module must export 'memory'".to_string(),
+        ))
+    })?;
 
-    // Helper closure replaced with direct calls to resolve borrow issues.
     let id_str = {
         let func = instance
             .get_typed_func::<(), u64>(&mut store, "id")
-            .map_err(|e| CoreError::Upgrade(format!("WASM missing `id` export: {}", e)))?;
-        let packed = func
-            .call(&mut store, ())
-            .map_err(|e| CoreError::Upgrade(format!("WASM `id` call failed: {}", e)))?;
+            .map_err(|e| {
+                CoreError::Upgrade(UpgradeError::InvalidUpgrade(format!(
+                    "WASM missing `id` export: {}",
+                    e
+                )))
+            })?;
+        let packed = func.call(&mut store, ()).map_err(|e| {
+            CoreError::Upgrade(UpgradeError::OperationFailed(format!(
+                "WASM `id` call failed: {}",
+                e
+            )))
+        })?;
         let ptr = (packed >> 32) as u32;
         let len = packed as u32;
         let mut buffer = vec![0u8; len as usize];
         memory
             .read(&store, ptr as usize, &mut buffer)
-            .map_err(|e| CoreError::Upgrade(format!("WASM memory read failed for `id`: {}", e)))?;
-        String::from_utf8(buffer)
-            .map_err(|e| CoreError::Upgrade(format!("`id` result is not valid UTF-8: {}", e)))?
+            .map_err(|e| {
+                CoreError::Upgrade(UpgradeError::OperationFailed(format!(
+                    "WASM memory read failed for `id`: {}",
+                    e
+                )))
+            })?;
+        String::from_utf8(buffer).map_err(|e| {
+            CoreError::Upgrade(UpgradeError::InvalidUpgrade(format!(
+                "`id` result is not valid UTF-8: {}",
+                e
+            )))
+        })?
     };
-    // Leak the string to get a 'static lifetime, required by the BlockchainService trait.
-    // This is safe because services are long-lived.
     let id: &'static str = Box::leak(id_str.into_boxed_str());
 
-    // Call `abi_version`
     let abi_version = {
         let func = instance
             .get_typed_func::<(), u32>(&mut store, "abi_version")
-            .map_err(|e| CoreError::Upgrade(format!("WASM missing `abi_version` export: {e}")))?;
-        func.call(&mut store, ())
-            .map_err(|e| CoreError::Upgrade(format!("WASM `abi_version` call failed: {e}")))?
+            .map_err(|e| {
+                CoreError::Upgrade(UpgradeError::InvalidUpgrade(format!(
+                    "WASM missing `abi_version` export: {e}"
+                )))
+            })?;
+        func.call(&mut store, ()).map_err(|e| {
+            CoreError::Upgrade(UpgradeError::OperationFailed(format!(
+                "WASM `abi_version` call failed: {e}"
+            )))
+        })?
     };
 
-    // Call `state_schema`
     let state_schema_str = {
         let func = instance
             .get_typed_func::<(), u64>(&mut store, "state_schema")
             .map_err(|e| {
-                CoreError::Upgrade(format!("WASM missing `state_schema` export: {}", e))
+                CoreError::Upgrade(UpgradeError::InvalidUpgrade(format!(
+                    "WASM missing `state_schema` export: {}",
+                    e
+                )))
             })?;
-        let packed = func
-            .call(&mut store, ())
-            .map_err(|e| CoreError::Upgrade(format!("WASM `state_schema` call failed: {}", e)))?;
+        let packed = func.call(&mut store, ()).map_err(|e| {
+            CoreError::Upgrade(UpgradeError::OperationFailed(format!(
+                "WASM `state_schema` call failed: {}",
+                e
+            )))
+        })?;
         let ptr = (packed >> 32) as u32;
         let len = packed as u32;
         let mut buffer = vec![0u8; len as usize];
         memory
             .read(&store, ptr as usize, &mut buffer)
             .map_err(|e| {
-                CoreError::Upgrade(format!("WASM memory read failed for `state_schema`: {}", e))
+                CoreError::Upgrade(UpgradeError::OperationFailed(format!(
+                    "WASM memory read failed for `state_schema`: {}",
+                    e
+                )))
             })?;
         String::from_utf8(buffer).map_err(|e| {
-            CoreError::Upgrade(format!("`state_schema` result is not valid UTF-8: {}", e))
+            CoreError::Upgrade(UpgradeError::InvalidUpgrade(format!(
+                "`state_schema` result is not valid UTF-8: {}",
+                e
+            )))
         })?
     };
     let state_schema: &'static str = Box::leak(state_schema_str.into_boxed_str());
 
-    // Call `manifest` to get capabilities
     let manifest_str = {
         let func = instance
             .get_typed_func::<(), u64>(&mut store, "manifest")
-            .map_err(|e| CoreError::Upgrade(format!("WASM missing `manifest` export: {}", e)))?;
-        let packed = func
-            .call(&mut store, ())
-            .map_err(|e| CoreError::Upgrade(format!("WASM `manifest` call failed: {}", e)))?;
+            .map_err(|e| {
+                CoreError::Upgrade(UpgradeError::InvalidUpgrade(format!(
+                    "WASM missing `manifest` export: {}",
+                    e
+                )))
+            })?;
+        let packed = func.call(&mut store, ()).map_err(|e| {
+            CoreError::Upgrade(UpgradeError::OperationFailed(format!(
+                "WASM `manifest` call failed: {}",
+                e
+            )))
+        })?;
         let ptr = (packed >> 32) as u32;
         let len = packed as u32;
         let mut buffer = vec![0u8; len as usize];
         memory
             .read(&store, ptr as usize, &mut buffer)
             .map_err(|e| {
-                CoreError::Upgrade(format!("WASM memory read failed for `manifest`: {}", e))
+                CoreError::Upgrade(UpgradeError::OperationFailed(format!(
+                    "WASM memory read failed for `manifest`: {}",
+                    e
+                )))
             })?;
         String::from_utf8(buffer).map_err(|e| {
-            CoreError::Upgrade(format!("`manifest` result is not valid UTF-8: {}", e))
+            CoreError::Upgrade(UpgradeError::InvalidUpgrade(format!(
+                "`manifest` result is not valid UTF-8: {}",
+                e
+            )))
         })?
     };
 
@@ -303,8 +352,12 @@ pub fn load_service_from_wasm(wasm_blob: &[u8]) -> Result<Arc<dyn UpgradableServ
     struct TempManifest {
         capabilities: Vec<String>,
     }
-    let temp_manifest: TempManifest = toml::from_str(&manifest_str)
-        .map_err(|e| CoreError::Upgrade(format!("Failed to parse manifest TOML: {}", e)))?;
+    let temp_manifest: TempManifest = toml::from_str(&manifest_str).map_err(|e| {
+        CoreError::Upgrade(UpgradeError::InvalidUpgrade(format!(
+            "Failed to parse manifest TOML: {}",
+            e
+        )))
+    })?;
     let caps = Capabilities::from_strings(&temp_manifest.capabilities)?;
 
     log::info!(

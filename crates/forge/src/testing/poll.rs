@@ -6,10 +6,7 @@ use depin_sdk_client::WorkloadClient;
 use depin_sdk_types::{
     app::{AccountId, Proposal, ProposalStatus, StateEntry},
     codec,
-    keys::{
-        GOVERNANCE_PROPOSAL_KEY_PREFIX, ORACLE_DATA_PREFIX, ORACLE_PENDING_REQUEST_PREFIX,
-        QUARANTINED_VALIDATORS_KEY, STATUS_KEY,
-    },
+    keys::{GOVERNANCE_PROPOSAL_KEY_PREFIX, ORACLE_DATA_PREFIX, ORACLE_PENDING_REQUEST_PREFIX},
 };
 use std::future::Future;
 use std::time::{Duration, Instant};

@@ -442,7 +442,7 @@ pub enum ApplicationTransaction {
 
 impl ApplicationTransaction {
     /// Creates a stable, serializable payload for signing by clearing signature fields.
-    pub fn to_sign_bytes(&self) -> Result<Vec<u8>, bcs::Error> {
+    pub fn to_sign_bytes(&self) -> Result<Vec<u8>, String> {
         let mut temp = self.clone();
         match &mut temp {
             ApplicationTransaction::DeployContract {
@@ -455,7 +455,7 @@ impl ApplicationTransaction {
             }
             ApplicationTransaction::UTXO(_) => {}
         }
-        bcs::to_bytes(&temp)
+        crate::codec::to_bytes_canonical(&temp)
     }
 }
 
@@ -472,10 +472,10 @@ pub struct SystemTransaction {
 
 impl SystemTransaction {
     /// Creates a stable, serializable payload for signing by clearing signature fields.
-    pub fn to_sign_bytes(&self) -> Result<Vec<u8>, bcs::Error> {
+    pub fn to_sign_bytes(&self) -> Result<Vec<u8>, String> {
         let mut temp = self.clone();
         temp.signature_proof = SignatureProof::default();
-        bcs::to_bytes(&temp)
+        crate::codec::to_bytes_canonical(&temp)
     }
 }
 

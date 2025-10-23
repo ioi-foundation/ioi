@@ -126,22 +126,17 @@ impl ErrorMetricsSink for PrometheusSink {
 }
 
 impl ServiceMetricsSink for PrometheusSink {
-    fn inc_capability_resolve_fail(&self, capability: &'static str) {
+    fn inc_capability_resolve_fail(&self, capability: &str) {
         get_metric!(SVC_CAPABILITY_RESOLVE_FAIL_TOTAL)
             .with_label_values(&[capability])
             .inc();
     }
-    fn observe_service_dispatch_latency(
-        &self,
-        service_id: &'static str,
-        method: &str,
-        duration_secs: f64,
-    ) {
+    fn observe_service_dispatch_latency(&self, service_id: &str, method: &str, duration_secs: f64) {
         get_metric!(SVC_DISPATCH_LATENCY_SECONDS)
             .with_label_values(&[service_id, method])
             .observe(duration_secs);
     }
-    fn inc_dispatch_error(&self, service_id: &'static str, method: &str, reason: &'static str) {
+    fn inc_dispatch_error(&self, service_id: &str, method: &str, reason: &'static str) {
         get_metric!(SVC_DISPATCH_ERRORS_TOTAL)
             .with_label_values(&[service_id, method, reason])
             .inc();

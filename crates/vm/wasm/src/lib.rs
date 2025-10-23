@@ -60,6 +60,7 @@ async fn host_state_set(
     value_ptr: u32,
     value_len: u32,
 ) -> Result<()> {
+    // Consume base fuel cost for the call itself
     let fuel = caller.get_fuel()?;
     caller.set_fuel(fuel.saturating_sub(caller.data().fuel_costs.base_cost))?;
 
@@ -84,6 +85,11 @@ async fn host_state_set(
         .ok_or_else(|| anyhow!("host_state_set value read out of bounds"))?
         .to_vec();
 
+    // Consume fuel proportional to the size of the key and value
+    let cost = (key_len as u64 + value_len as u64) * caller.data().fuel_costs.state_set_per_byte;
+    let fuel = caller.get_fuel()?;
+    caller.set_fuel(fuel.saturating_sub(cost))?;
+
     let contract_address = caller
         .data()
         .context
@@ -93,11 +99,6 @@ async fn host_state_set(
         .clone();
     let namespaced_key = get_namespaced_key(&contract_address, &contract_key);
 
-    let cost =
-        (namespaced_key.len() + value.len()) as u64 * caller.data().fuel_costs.state_set_per_byte;
-    let fuel = caller.get_fuel()?;
-    caller.set_fuel(fuel.saturating_sub(cost))?;
-
     caller
         .data()
         .state_accessor
@@ -105,6 +106,50 @@ async fn host_state_set(
         .await
         .map_err(|_| anyhow!("State write failed"))?;
 
+    Ok(())
+}
+
+/// Host Function: Delete a key-value pair from the state tree.
+async fn host_state_delete(
+    mut caller: Caller<'_, HostState>,
+    key_ptr: u32,
+    key_len: u32,
+) -> Result<()> {
+    let fuel = caller.get_fuel()?;
+    caller.set_fuel(fuel.saturating_sub(caller.data().fuel_costs.base_cost))?;
+
+    let memory = caller
+        .data()
+        .memory
+        .ok_or_else(|| anyhow!("Memory not found"))?;
+    let key_start = key_ptr as usize;
+    let key_end = (key_ptr + key_len) as usize;
+    let contract_key = memory
+        .data(&caller)
+        .get(key_start..key_end)
+        .ok_or_else(|| anyhow!("host_state_delete key read out of bounds"))?
+        .to_vec();
+
+    let contract_address = caller
+        .data()
+        .context
+        .as_ref()
+        .ok_or_else(|| anyhow!("Context not set"))?
+        .contract_address
+        .clone();
+    let namespaced_key = get_namespaced_key(&contract_address, &contract_key);
+
+    // A delete operation can be modeled with a similar cost to a set operation.
+    let cost = namespaced_key.len() as u64 * caller.data().fuel_costs.state_set_per_byte;
+    let fuel = caller.get_fuel()?;
+    caller.set_fuel(fuel.saturating_sub(cost))?;
+
+    caller
+        .data()
+        .state_accessor
+        .delete(&namespaced_key)
+        .await
+        .map_err(|_| anyhow!("State delete failed"))?;
     Ok(())
 }
 
@@ -152,9 +197,11 @@ async fn host_state_get(
         .map_err(|_| anyhow!("State read failed"))?;
 
     if let Some(data) = value {
+        // Consume fuel proportional to the size of the returned data
         let cost = data.len() as u64 * caller.data().fuel_costs.state_get_per_byte;
         let fuel = caller.get_fuel()?;
         caller.set_fuel(fuel.saturating_sub(cost))?;
+
         memory
             .write(&mut caller, result_ptr as usize, &data)
             .map_err(|e| anyhow!("Failed to write value to WASM memory: {}", e))?;
@@ -186,6 +233,20 @@ async fn host_get_caller(mut caller: Caller<'_, HostState>, result_ptr: u32) -> 
         .write(&mut caller, result_ptr as usize, &caller_addr)
         .map_err(|e| anyhow!("Failed to write caller to WASM memory: {}", e))?;
     Ok(caller_addr.len() as u32)
+}
+
+/// Host Function: Get the current block height.
+async fn host_ctx_block_height(mut caller: Caller<'_, HostState>) -> Result<u64> {
+    let fuel = caller.get_fuel()?;
+    caller.set_fuel(fuel.saturating_sub(caller.data().fuel_costs.base_cost))?;
+
+    let height = caller
+        .data()
+        .context
+        .as_ref()
+        .ok_or_else(|| anyhow!("Context not set"))?
+        .block_height;
+    Ok(height)
 }
 
 /// Host Function: A single, unified entrypoint for host calls from WASM.
@@ -257,47 +318,66 @@ pub struct WasmRunnable {
 #[async_trait]
 impl Runnable for WasmRunnable {
     async fn call(&mut self, entry: &str, req: &[u8]) -> Result<Vec<u8>, RuntimeError> {
-        // Replenish fuel before each call. Service calls are not metered like user
-        // transactions, so we provide a large, fixed amount.
         self.store
             .set_fuel(u64::MAX)
             .map_err(|e| RuntimeError::CallFailed(format!("Failed to set fuel: {}", e)))?;
 
-        let alloc = self
+        // First, try resolving a function with signature () -> u64 for no-arg calls.
+        let packed_result = if let Ok(func) = self
             .instance
-            .get_typed_func::<u32, u32>(&mut self.store, "allocate")
-            .map_err(|e| RuntimeError::EntrypointNotFound(format!("allocate: {}", e)))?;
-        let func = self
+            .get_typed_func::<(), u64>(&mut self.store, entry)
+        {
+            if !req.is_empty() {
+                return Err(RuntimeError::CallFailed(format!(
+                    "Entrypoint '{}' takes no arguments, but arguments were provided.",
+                    entry
+                )));
+            }
+            func.call_async(&mut self.store, ())
+                .await
+                .map_err(|e| RuntimeError::CallFailed(e.to_string()))
+        }
+        // If that fails, try resolving a function with signature (u32, u32) -> u64.
+        else if let Ok(func) = self
             .instance
             .get_typed_func::<(u32, u32), u64>(&mut self.store, entry)
-            .map_err(|_e| RuntimeError::EntrypointNotFound(entry.to_string()))?;
+        {
+            let alloc = self
+                .instance
+                .get_typed_func::<u32, u32>(&mut self.store, "allocate")
+                .map_err(|e| RuntimeError::EntrypointNotFound(format!("allocate: {}", e)))?;
+            let mem = self
+                .instance
+                .get_memory(&mut self.store, "memory")
+                .ok_or_else(|| RuntimeError::LoadFailed("memory export missing".into()))?;
+
+            let (ptr, len) = if req.is_empty() {
+                (0, 0)
+            } else {
+                let ptr = alloc
+                    .call_async(&mut self.store, req.len() as u32)
+                    .await
+                    .map_err(|e| RuntimeError::CallFailed(e.to_string()))?;
+                mem.write(&mut self.store, ptr as usize, req)
+                    .map_err(|e| RuntimeError::CallFailed(e.to_string()))?;
+                (ptr, req.len() as u32)
+            };
+
+            func.call_async(&mut self.store, (ptr, len))
+                .await
+                .map_err(|e| RuntimeError::CallFailed(e.to_string()))
+        }
+        // If neither signature matches, the entrypoint is considered not found.
+        else {
+            return Err(RuntimeError::EntrypointNotFound(entry.to_string()));
+        };
+
+        let packed = packed_result?;
+
         let mem = self
             .instance
             .get_memory(&mut self.store, "memory")
             .ok_or_else(|| RuntimeError::LoadFailed("memory export missing".into()))?;
-
-        // --- FIX START ---
-        // Handle the edge case of an empty request buffer.
-        // Calling `allocate(0)` can trap in some WASM runtimes or lead to null pointers.
-        // By handling it here, we pass a canonical (ptr=0, len=0) for an empty slice,
-        // which is a safe and standard FFI pattern.
-        let (ptr, len) = if req.is_empty() {
-            (0, 0)
-        } else {
-            let ptr = alloc
-                .call_async(&mut self.store, req.len() as u32)
-                .await
-                .map_err(|e| RuntimeError::CallFailed(e.to_string()))?;
-            mem.write(&mut self.store, ptr as usize, req)
-                .map_err(|e| RuntimeError::CallFailed(e.to_string()))?;
-            (ptr, req.len() as u32)
-        };
-
-        let packed = func
-            .call_async(&mut self.store, (ptr, len)) // Use the derived ptr and len
-            .await
-            .map_err(|e| RuntimeError::CallFailed(e.to_string()))?;
-        // --- FIX END ---
 
         let out_ptr = (packed >> 32) as u32;
         let out_len = (packed & 0xFFFF_FFFF) as u32;
@@ -331,6 +411,15 @@ impl VirtualMachine for WasmRuntime {
             )
             .map_err(|e| VmError::Initialization(e.to_string()))?;
         linker
+            .func_wrap2_async(
+                "env",
+                "state_delete",
+                |caller: Caller<'_, HostState>, p1: u32, p2: u32| {
+                    Box::new(async move { host_state_delete(caller, p1, p2).await })
+                },
+            )
+            .map_err(|e| VmError::Initialization(e.to_string()))?;
+        linker
             .func_wrap3_async(
                 "env",
                 "state_get",
@@ -345,6 +434,15 @@ impl VirtualMachine for WasmRuntime {
                 "get_caller",
                 |caller: Caller<'_, HostState>, p1: u32| {
                     Box::new(async move { host_get_caller(caller, p1).await })
+                },
+            )
+            .map_err(|e| VmError::Initialization(e.to_string()))?;
+        linker
+            .func_wrap0_async(
+                "env",
+                "ctx_block_height",
+                |caller: Caller<'_, HostState>| {
+                    Box::new(async move { host_ctx_block_height(caller).await })
                 },
             )
             .map_err(|e| VmError::Initialization(e.to_string()))?;
@@ -422,22 +520,13 @@ impl Runtime for WasmRuntime {
         let module = Module::new(&self.engine, artifact)
             .map_err(|e| RuntimeError::LoadFailed(e.to_string()))?;
 
-        // 1. Check for prohibited imports
-        if module.imports().next().is_some() {
-            return Err(RuntimeError::LoadFailed(
-                "WASM module must not have any imports".into(),
-            ));
-        }
-
-        // 2. Verify all required exports are present
         let required_exports: HashSet<&str> = [
             "id",
             "abi_version",
             "state_schema",
             "prepare_upgrade",
             "complete_upgrade",
-            // Capability-specific functions like "ante_handle" should not be checked here.
-            // Their presence and version are determined by the service's manifest and dispatch logic.
+            "manifest",
         ]
         .iter()
         .cloned()
@@ -459,8 +548,6 @@ impl Runtime for WasmRuntime {
             fuel_costs: self.fuel_costs.clone(),
         };
         let mut store = Store::new(&self.engine, host_state);
-        // Add a large amount of initial fuel. Service calls are not metered in the same way
-        // as user transactions, but fuel consumption must be enabled for the runtime.
         store
             .set_fuel(u64::MAX)
             .map_err(|e| RuntimeError::LoadFailed(format!("Failed to set initial fuel: {}", e)))?;
@@ -500,6 +587,9 @@ impl VmStateAccessor for NullStateAccessor {
         _key: &[u8],
         _value: &[u8],
     ) -> Result<(), depin_sdk_types::error::StateError> {
+        Ok(())
+    }
+    async fn delete(&self, _key: &[u8]) -> Result<(), depin_sdk_types::error::StateError> {
         Ok(())
     }
 }

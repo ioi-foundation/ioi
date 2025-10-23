@@ -1,11 +1,18 @@
 // Path: crates/forge/tests/contracts/fee-calculator-service/src/lib.rs
 #![no_std]
 extern crate alloc;
+
 use alloc::string::String;
 use depin_sdk_contract as sdk;
-use parity_scale_codec::{Decode, Encode};
+use parity_scale_codec::Encode;
 
-// Helper to pack a pointer and length into a single u64 for returning from WASM.
+/// Encodes a `Result<(), String>` and returns its pointer/length packed in a u64.
+fn return_result(res: Result<(), String>) -> u64 {
+    let resp_bytes = res.encode();
+    return_data(&resp_bytes)
+}
+
+/// Helper to pack a pointer and length into a single u64 for returning from WASM.
 fn return_data(data: &[u8]) -> u64 {
     let ptr = sdk::allocate(data.len() as u32);
     unsafe {
@@ -36,17 +43,14 @@ pub extern "C" fn complete_upgrade(_input_ptr: *const u8, _input_len: u32) -> u6
     return_data(&[])
 }
 
-// --- TxDecorator Capability Implementation ---
-#[no_mangle]
+/// --- TxDecorator Capability Implementation ---
 #[export_name = "ante_handle@v1"]
 pub extern "C" fn ante_handle(_req_ptr: *const u8, _req_len: u32) -> u64 {
-    // The host expects a SCALE-encoded `Result<(), String>`. A successful `Ok(())`
-    // encodes to a single byte: `0x00`.
-    // By returning this directly, we bypass the `encode()` call in the guest, which was
-    // causing a trap in the no_std/wee_alloc environment. Using a static slice
-    // avoids any heap allocation in the guest, making this more robust.
-    let resp_bytes: &[u8] = &[0x00];
-    return_data(resp_bytes)
+    // Now that parity-scale-codec is correctly configured for no_std,
+    // we can use .encode() safely. This makes the implementation consistent
+    // with other services like governance.
+    let res: Result<(), String> = Ok(());
+    return_result(res)
 }
 
 #[no_mangle]
@@ -57,6 +61,9 @@ abi_version = 1
 state_schema = "v1"
 runtime = "wasm"
 capabilities = ["TxDecorator"]
+
+[methods]
+"ante_handle@v1" = "Internal"
 "#;
     return_data(manifest_str.as_bytes())
 }

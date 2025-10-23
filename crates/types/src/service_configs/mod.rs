@@ -1,8 +1,8 @@
 // Path: crates/types/src/service_configs/mod.rs
 //! Configuration structures for initial services and on-chain service metadata.
 
-use crate::app::SignatureSuite;
-use crate::error::CoreError;
+use crate::app::{AccountId, SignatureSuite};
+use crate::error::{CoreError, UpgradeError};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -88,8 +88,12 @@ impl Capabilities {
             match s.as_str() {
                 "TxDecorator" => caps |= Capabilities::TX_DECORATOR,
                 "OnEndBlock" => caps |= Capabilities::ON_END_BLOCK,
-                // "IbcPayloadHandler" is now obsolete with generic service dispatch.
-                _ => return Err(CoreError::Upgrade(format!("Unknown capability: {}", s))),
+                _ => {
+                    return Err(CoreError::Upgrade(UpgradeError::InvalidUpgrade(format!(
+                        "Unknown capability: {}",
+                        s
+                    ))))
+                }
             }
         }
         Ok(caps)
@@ -105,6 +109,23 @@ pub enum MethodPermission {
     Governance,
     /// Callable only internally by another on-chain process (e.g., an end-block hook).
     Internal,
+}
+
+/// Defines the on-chain authority for governance-gated actions.
+#[derive(Serialize, Deserialize, Encode, Decode, Clone, Debug, PartialEq, Eq)]
+pub enum GovernanceSigner {
+    /// A single account is the governor.
+    Single(AccountId),
+    /* Future extension point
+    MultiSig { threshold: u8, members: Vec<AccountId> },
+    */
+}
+
+/// The policy object stored on-chain defining the governance authority.
+#[derive(Serialize, Deserialize, Encode, Decode, Clone, Debug, PartialEq, Eq)]
+pub struct GovernancePolicy {
+    /// The on-chain authority (e.g., a single account or multisig) responsible for governance actions.
+    pub signer: GovernanceSigner,
 }
 
 /// The canonical on-chain record of an active service, used for discovery, dispatch, and crash-safe recovery.

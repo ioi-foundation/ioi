@@ -51,11 +51,11 @@ impl OracleService {
 
 #[async_trait]
 impl BlockchainService for OracleService {
-    fn id(&self) -> &'static str {
+    fn id(&self) -> &str {
         "oracle" // The canonical, user-facing ID.
     }
     fn abi_version(&self) -> u32 { 1 }
-    fn state_schema(&self) -> &'static str { "v1" }
+    fn state_schema(&self) -> &str { "v1" }
     fn capabilities(&self) -> Capabilities { Capabilities::empty() }
     fn as_any(&self) -> &dyn Any { self }
 

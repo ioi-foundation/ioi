@@ -1,15 +1,11 @@
 // Path: crates/validator/src/standard/orchestration/context.rs
 use crate::config::OrchestrationConfig;
 use depin_sdk_api::{
-    chain::{AppChain, ViewResolver},
-    commitment::CommitmentScheme,
-    consensus::ConsensusEngine,
-    state::StateManager,
+    chain::AppChain, commitment::CommitmentScheme, consensus::ConsensusEngine, state::StateManager,
 };
 use depin_sdk_crypto::sign::dilithium::DilithiumKeyPair;
 use depin_sdk_network::libp2p::SwarmCommand;
 use depin_sdk_network::traits::NodeState;
-use depin_sdk_services::oracle::OracleService;
 use depin_sdk_types::app::{AccountId, Block, ChainTransaction, OracleAttestation};
 use libp2p::{identity, PeerId};
 use serde::Serialize;
@@ -54,7 +50,7 @@ where
     pub chain_id: depin_sdk_types::app::ChainId,
     pub genesis_hash: [u8; 32],
     pub chain_ref: ChainFor<CS, ST>,
-    pub view_resolver: Arc<dyn ViewResolver<Verifier = V>>,
+    pub view_resolver: Arc<dyn depin_sdk_api::chain::ViewResolver<Verifier = V>>,
     pub tx_pool_ref: Arc<Mutex<VecDeque<ChainTransaction>>>,
     pub swarm_commander: mpsc::Sender<SwarmCommand>,
     pub consensus_engine_ref: Arc<Mutex<CE>>,
@@ -63,7 +59,6 @@ where
     pub pqc_signer: Option<DilithiumKeyPair>,
     pub known_peers_ref: Arc<Mutex<HashSet<PeerId>>>,
     pub is_quarantined: Arc<AtomicBool>,
-    pub oracle_service: OracleService,
     pub pending_attestations: HashMap<u64, Vec<OracleAttestation>>,
     pub last_committed_block: Option<Block<ChainTransaction>>,
     pub consensus_kick_tx: mpsc::UnboundedSender<()>,

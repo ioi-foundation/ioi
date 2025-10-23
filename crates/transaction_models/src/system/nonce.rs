@@ -42,7 +42,7 @@ fn get_tx_details(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
 
 /// A core system function to assert that a transaction's nonce is correct.
 /// This is a READ-ONLY check.
-pub fn assert_next_nonce<S: StateAccessor>(
+pub fn assert_next_nonce<S: StateAccessor + ?Sized>(
     state: &S,
     tx: &ChainTransaction,
 ) -> Result<(), TransactionError> {
@@ -62,7 +62,7 @@ pub fn assert_next_nonce<S: StateAccessor>(
 
 /// A core system function to atomically bump a transaction nonce.
 /// This is a WRITE operation and should be called after all validation has passed.
-pub fn bump_nonce<S: StateAccessor>(
+pub fn bump_nonce<S: StateAccessor + ?Sized>(
     state: &mut S,
     tx: &ChainTransaction,
 ) -> Result<(), TransactionError> {

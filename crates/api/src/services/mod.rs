@@ -43,13 +43,13 @@ impl std::fmt::Display for ServiceType {
 pub trait BlockchainService: Any + Send + Sync {
     /// A unique, static, lowercase string identifier for the service.
     /// This is used for deterministic sorting and for dispatching `CallService` transactions.
-    fn id(&self) -> &'static str;
+    fn id(&self) -> &str;
 
     /// The version of the ABI the service expects from the host.
     fn abi_version(&self) -> u32;
 
     /// A string identifying the schema of the state this service reads/writes.
-    fn state_schema(&self) -> &'static str;
+    fn state_schema(&self) -> &str;
 
     /// Returns a bitmask of the lifecycle capabilities (hooks) this service implements.
     fn capabilities(&self) -> Capabilities;

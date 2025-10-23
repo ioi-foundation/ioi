@@ -5,7 +5,7 @@ use anyhow::{anyhow, Result};
 use depin_sdk_api::{
     chain::AppChain,
     commitment::CommitmentScheme,
-    state::{StateAccessor, StateManager, StateOverlay},
+    state::{StateAccessor, StateOverlay},
     transaction::{context::TxContext, TransactionModel},
 };
 use depin_sdk_types::{
@@ -17,6 +17,8 @@ use depin_sdk_types::{
     error::TransactionError,
     keys::EVIDENCE_REGISTRY_KEY,
 };
+// [+] ADDED IMPORTS
+use depin_sdk_transaction_models::system::{nonce, validation};
 use serde::{Deserialize, Serialize};
 use std::{any::Any, collections::BTreeSet, marker::PhantomData, sync::Arc};
 
@@ -48,7 +50,7 @@ impl<CS, ST> Default for GetBlocksRangeV1<CS, ST> {
 impl<CS, ST> RpcMethod for GetBlocksRangeV1<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
         + Sync
@@ -92,7 +94,7 @@ impl<CS, ST> Default for ProcessBlockV1<CS, ST> {
 impl<CS, ST> RpcMethod for ProcessBlockV1<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
         + Sync
@@ -117,7 +119,6 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for ProcessBlockV1"))?;
 
-        // --- Phase A: Coinbase addition (brief lock) ---
         {
             let chain = ctx.chain.lock().await;
             let enable_coinbase = std::env::var("ENABLE_COINBASE")
@@ -139,22 +140,18 @@ where
                 )?;
                 block.transactions.insert(0, coinbase);
             }
-        } // Mutex lock on chain is released here
+        }
 
-        // With the removal of duplicate types in `depin-sdk-api`, the `Block` type is now
-        // canonical and no conversion is needed. `block` is passed directly.
         let prepared_block = {
             let chain = ctx.chain.lock().await;
             chain.prepare_block(block, &ctx.workload).await?
-        }; // Lock is released
+        };
 
-        // --- Phase C: Commit block (write lock on chain) ---
         let (processed_block, events) = {
-            let mut chain = ctx.chain.lock().await; // Write-lock for mutation
+            let mut chain = ctx.chain.lock().await;
             chain.commit_block(prepared_block, &ctx.workload).await?
-        }; // Write-lock is released
+        };
 
-        // The returned block is already the canonical type. No conversion needed.
         Ok((processed_block, events))
     }
 }
@@ -185,7 +182,7 @@ impl<CS, ST> Default for CheckTransactionsV1<CS, ST> {
 impl<CS, ST> RpcMethod for CheckTransactionsV1<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
         + Sync
@@ -210,7 +207,6 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for CheckTransactionsV1"))?;
 
-        // The total number of transactions we must provide a result for.
         let initial_tx_count = params.txs.len();
         let mut results = Vec::with_capacity(initial_tx_count);
 
@@ -218,7 +214,6 @@ where
 
         let base_state_tree = ctx.workload.state_tree();
         let base_state = base_state_tree.read().await;
-        // The overlay simulates state changes, ensuring correct nonce handling for sequential txs.
         let mut overlay = StateOverlay::new(&*base_state);
 
         for tx in params.txs {
@@ -226,19 +221,13 @@ where
             let check_result = async {
                 let status = (*chain_guard).status();
                 let chain_id = chain_guard.state.chain_id;
-
+                // Derive signer exactly like the chain's apply path does
                 let signer_account_id = match &tx {
-                    ChainTransaction::System(s) => s.header.account_id,
-                    ChainTransaction::Application(a) => match a {
-                        depin_sdk_types::app::ApplicationTransaction::DeployContract {
-                            header,
-                            ..
-                        }
-                        | depin_sdk_types::app::ApplicationTransaction::CallContract {
-                            header,
-                            ..
-                        } => header.account_id,
-                        _ => AccountId::default(),
+                    ChainTransaction::System(sys_tx) => sys_tx.header.account_id,
+                    ChainTransaction::Application(app_tx) => match app_tx {
+                        ApplicationTransaction::DeployContract { header, .. } => header.account_id,
+                        ApplicationTransaction::CallContract { header, .. } => header.account_id,
+                        ApplicationTransaction::UTXO(_) => AccountId::default(),
                     },
                 };
 
@@ -247,10 +236,19 @@ where
                     chain_id,
                     signer_account_id,
                     services: &chain_guard.services,
-                    simulation: true, // This is a read-only check.
+                    simulation: true,
+                    is_internal: false,
                 };
 
-                // Perform pre-flight checks that don't need decorators (e.g., replay protection)
+                // Mirror the real path's auth checks: verify signature & nonce first.
+                validation::verify_transaction_signature(
+                    &overlay,
+                    &chain_guard.services,
+                    &tx,
+                    &tx_ctx,
+                )?;
+                nonce::assert_next_nonce(&overlay, &tx)?;
+
                 if let ChainTransaction::System(sys_tx) = &tx {
                     if let SystemPayload::ReportMisbehavior { report } = &sys_tx.payload {
                         let id = evidence_id(report)
@@ -260,7 +258,7 @@ where
                                 codec::from_bytes_canonical::<BTreeSet<[u8; 32]>>(&bytes)
                                     .map(|set| set.contains(&id))
                                     .unwrap_or(false)
-                            } // Treat decoding errors as not seen
+                            }
                             None => false,
                         };
                         if already_seen {
@@ -269,22 +267,8 @@ where
                     }
                 }
 
-                depin_sdk_transaction_models::system::nonce::assert_next_nonce(&overlay, &tx)?;
-                depin_sdk_transaction_models::system::validation::verify_transaction_signature(
-                    &overlay,
-                    &chain_guard.services,
-                    &tx,
-                    &tx_ctx,
-                )?;
-
-                for service in chain_guard.services.services_in_deterministic_order() {
-                    if let Some(decorator) = service.as_tx_decorator() {
-                        decorator.ante_handle(&mut overlay, &tx, &tx_ctx).await?;
-                    }
-                }
-
-                // Bump nonce *within the overlay* for the next tx in the batch
-                depin_sdk_transaction_models::system::nonce::bump_nonce(&mut overlay, &tx)?;
+                // Bump nonce *within the overlay* so subsequent txs in the same batch see it.
+                nonce::bump_nonce(&mut overlay, &tx)?;
 
                 // Apply the core logic to the overlay to check for state-based errors
                 (*chain_guard)
@@ -297,7 +281,6 @@ where
             .await
             .map_err(|e: TransactionError| e.to_string());
 
-            // Push the result for the current transaction.
             results.push(check_result);
         }
 
@@ -326,7 +309,7 @@ impl<CS, ST> Default for GetLastBlockHashV1<CS, ST> {
 impl<CS, ST> RpcMethod for GetLastBlockHashV1<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
         + Sync
@@ -381,7 +364,7 @@ impl<CS, ST> Default for GetAuthoritySetV1<CS, ST> {
 impl<CS, ST> RpcMethod for GetAuthoritySetV1<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
         + Sync
@@ -440,7 +423,7 @@ impl<CS, ST> Default for GetNextValidatorSetV1<CS, ST> {
 impl<CS, ST> RpcMethod for GetNextValidatorSetV1<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
         + Sync
@@ -497,7 +480,7 @@ impl<CS, ST> Default for GetValidatorSetForV1<CS, ST> {
 impl<CS, ST> RpcMethod for GetValidatorSetForV1<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
         + Sync
@@ -553,7 +536,7 @@ impl<CS, ST> Default for GetValidatorSetAtV1<CS, ST> {
 impl<CS, ST> RpcMethod for GetValidatorSetAtV1<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
         + Sync
@@ -586,9 +569,6 @@ where
 
         if let Membership::Present(bytes) = membership {
             let sets = depin_sdk_types::app::read_validator_sets(&bytes)?;
-            // This RPC returns the `current` set from the state at the specified anchor.
-            // A more precise query might need a height to resolve `current` vs `next`, but
-            // for a historical query, `current` is the most sensible interpretation.
             let account_ids = sets
                 .current
                 .validators
@@ -597,7 +577,7 @@ where
                 .collect();
             Ok(account_ids)
         } else {
-            Ok(vec![]) // Validator set not found at this anchor, return empty.
+            Ok(vec![])
         }
     }
 }
@@ -626,7 +606,7 @@ impl<CS, ST> Default for GetBlockByHeightV1<CS, ST> {
 impl<CS, ST> RpcMethod for GetBlockByHeightV1<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
         + Sync
@@ -651,10 +631,20 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetBlockByHeightV1"))?;
 
-        // FIX: Query the durable store via the workload container, not the in-memory chain cache.
-        let block_opt = ctx.workload.store.get_block_by_height(params.height)?;
+        let block_opt = match ctx.workload.store.get_block_by_height(params.height) {
+            Ok(v) => v,
+            Err(e) => {
+                // Normalize transport/parse glitches into "None" (not yet produced).
+                // Keep only hard storage errors as real failures if you can distinguish.
+                log::warn!(
+                    "get_block_by_height({}) transient error: {}",
+                    params.height,
+                    e
+                );
+                None
+            }
+        };
 
-        // The header is now directly available from the block.
         Ok(block_opt.map(|b| b.header))
     }
 }

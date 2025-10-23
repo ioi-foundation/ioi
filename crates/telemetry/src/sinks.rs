@@ -114,27 +114,22 @@ impl ErrorMetricsSink for NopSink {
 /// A sink for service-level metrics related to the generic dispatch mechanism.
 pub trait ServiceMetricsSink: Send + Sync + std::fmt::Debug {
     /// Increments a counter when a required service capability cannot be found. (Deprecated)
-    fn inc_capability_resolve_fail(&self, capability: &'static str);
+    fn inc_capability_resolve_fail(&self, capability: &str);
     /// Observes the latency of a dispatched `handle_service_call`, labeled by service and method.
-    fn observe_service_dispatch_latency(
-        &self,
-        service_id: &'static str,
-        method: &str,
-        duration_secs: f64,
-    );
+    fn observe_service_dispatch_latency(&self, service_id: &str, method: &str, duration_secs: f64);
     /// Increments a counter for errors returned from `handle_service_call`, labeled by reason.
-    fn inc_dispatch_error(&self, service_id: &'static str, method: &str, reason: &'static str);
+    fn inc_dispatch_error(&self, service_id: &str, method: &str, reason: &'static str);
 }
 impl ServiceMetricsSink for NopSink {
-    fn inc_capability_resolve_fail(&self, _capability: &'static str) {}
+    fn inc_capability_resolve_fail(&self, _capability: &str) {}
     fn observe_service_dispatch_latency(
         &self,
-        _service_id: &'static str,
+        _service_id: &str,
         _method: &str,
         _duration_secs: f64,
     ) {
     }
-    fn inc_dispatch_error(&self, _service_id: &'static str, _method: &str, _reason: &'static str) {}
+    fn inc_dispatch_error(&self, _service_id: &str, _method: &str, _reason: &'static str) {}
 }
 
 /// A unified sink that implements all domain-specific traits, providing a single

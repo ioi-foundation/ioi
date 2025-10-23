@@ -1,8 +1,9 @@
+// Path: crates/forge/tests/contracts/counter/src/lib.rs
 #![cfg(target_arch = "wasm32")]
 #![no_std]
 extern crate alloc;
 
-// FIX: Import the vec macro from alloc
+// CORRECTED IMPORTS
 use alloc::vec;
 use alloc::vec::Vec;
 // Use the crate name directly as specified in its Cargo.toml

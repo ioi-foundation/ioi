@@ -2,7 +2,7 @@
 
 #![cfg(all(feature = "consensus-pos", feature = "vm-wasm"))]
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_client::WorkloadClient;
 use depin_sdk_forge::testing::{
@@ -17,7 +17,6 @@ use depin_sdk_types::{
         SignatureProof, SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetV1,
         ValidatorSetsV1, ValidatorV1,
     },
-    // [+] FIX: Import the canonical codec
     codec,
     config::InitialServiceConfig,
     keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
@@ -33,7 +32,7 @@ fn create_report_tx(
     offender_id: AccountId,
     nonce: u64,
     chain_id: ChainId,
-) -> (ChainTransaction, FailureReport) {
+) -> Result<(ChainTransaction, FailureReport)> {
     let report = FailureReport {
         offender: offender_id,
         offense_type: OffenseType::FailedCalibrationProbe,
@@ -43,7 +42,7 @@ fn create_report_tx(
 
     let reporter_pk_bytes = reporter_key.public().encode_protobuf();
     let reporter_account_hash =
-        account_id_from_key_material(SignatureSuite::Ed25519, &reporter_pk_bytes).unwrap();
+        account_id_from_key_material(SignatureSuite::Ed25519, &reporter_pk_bytes)?;
     let reporter_account_id = AccountId(reporter_account_hash);
 
     let header = SignHeader {
@@ -61,8 +60,8 @@ fn create_report_tx(
         signature_proof: SignatureProof::default(),
     };
 
-    let sign_bytes = tx_to_sign.to_sign_bytes().unwrap();
-    let signature = reporter_key.sign(&sign_bytes).unwrap();
+    let sign_bytes = tx_to_sign.to_sign_bytes().map_err(|e| anyhow!(e))?;
+    let signature = reporter_key.sign(&sign_bytes)?;
 
     tx_to_sign.signature_proof = SignatureProof {
         suite: SignatureSuite::Ed25519,
@@ -70,7 +69,7 @@ fn create_report_tx(
         signature,
     };
 
-    (ChainTransaction::System(Box::new(tx_to_sign)), report)
+    Ok((ChainTransaction::System(Box::new(tx_to_sign)), report))
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -99,14 +98,14 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                 .iter()
                 .map(|k| {
                     let pk_bytes = k.public().encode_protobuf();
-                    let account_hash =
+                    let account_id_hash =
                         account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
                     ValidatorV1 {
-                        account_id: AccountId(account_hash),
+                        account_id: AccountId(account_id_hash),
                         weight: initial_stake,
                         consensus_key: ActiveKeyRecord {
                             suite: SignatureSuite::Ed25519,
-                            public_key_hash: account_hash,
+                            public_key_hash: account_id_hash,
                             since_height: 0,
                         },
                     }
@@ -192,7 +191,7 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
     let offender_account_id = AccountId(offender_account_id_hash);
 
     // ACTION 1: Report the offender. Submit to BOTH nodes to ensure the leader gets it.
-    let (tx1, report1) = create_report_tx(&reporter.keypair, offender_account_id, 0, 1.into());
+    let (tx1, report1) = create_report_tx(&reporter.keypair, offender_account_id, 0, 1.into())?;
     submit_transaction(rpc_addr_reporter, &tx1).await?;
     submit_transaction(rpc_addr_offender, &tx1).await?;
 
@@ -216,7 +215,7 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
     println!("SUCCESS: Evidence ID was correctly recorded in the registry.");
 
     // ACTION 2: Submit an identical report (with a new nonce) to test replay protection.
-    let (replay_tx, _) = create_report_tx(&reporter.keypair, offender_account_id, 1, 1.into());
+    let (replay_tx, _) = create_report_tx(&reporter.keypair, offender_account_id, 1, 1.into())?;
     submit_transaction(rpc_addr_reporter, &replay_tx).await?;
     submit_transaction(rpc_addr_offender, &replay_tx).await?;
 

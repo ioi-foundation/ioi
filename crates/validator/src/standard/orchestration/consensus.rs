@@ -2,7 +2,6 @@
 use crate::metrics::consensus_metrics as metrics;
 use crate::standard::orchestration::context::MainLoopContext;
 use crate::standard::orchestration::gossip::prune_mempool;
-use crate::standard::orchestration::oracle::handle_newly_processed_block;
 use crate::standard::orchestration::view_resolver::DefaultViewResolver;
 use anyhow::{anyhow, Result};
 use depin_sdk_api::{
@@ -124,8 +123,6 @@ where
                 block_hash,
             }
         } else {
-            // For the very first block, resolve the *actual* genesis root
-            // from the workload container.
             let genesis_root_bytes = view_resolver.genesis_root().await?;
             StateRef {
                 height: 0,
@@ -174,20 +171,17 @@ where
             (pool.iter().cloned().collect::<Vec<_>>(), pool.len())
         };
 
-        // --- TWEAK: Only skip empty genesis block when we expect a multi-validator net. ---
-        // In single-node setups (like state_iavl_e2e), we must produce height 1 even if empty.
         if height_being_built == 1
             && node_state == NodeState::Syncing
             && allow_bootstrap
             && known_peers_ref.lock().await.is_empty()
             && candidate_txs.is_empty()
         {
-            // Try to load the validator set size from the genesis state using the parent view.
             let vs_size = match parent_view.get(VALIDATOR_SET_KEY).await {
                 Ok(Some(vs_bytes)) => read_validator_sets(&vs_bytes)
                     .map(|sets| sets.current.validators.len())
-                    .unwrap_or(1), // On decode error, assume 1 to be safe and not stall.
-                _ => 1, // If key not found or other error, assume 1.
+                    .unwrap_or(1),
+                _ => 1,
             };
 
             if vs_size > 1 {
@@ -198,7 +192,6 @@ where
                 );
                 return Ok(());
             }
-            // Single-validator setup detected: allow empty block production to unblock tests.
         }
 
         tracing::info!(target: "consensus", event = "precheck_start", mempool_size = mempool_len_before);
@@ -225,8 +218,35 @@ where
         let mut invalid_tx_hashes = HashSet::new();
         for (i, result) in check_results.into_iter().enumerate() {
             if let Err(e) = result {
-                tracing::warn!(target: "consensus", event = "tx_filtered", tx_index = i, error = %e);
                 if let Some(tx) = candidate_txs.get(i) {
+                    let (signer, nonce, payload_kind) = match tx {
+                        ChainTransaction::System(s) => (
+                            s.header.account_id,
+                            s.header.nonce,
+                            format!("{:?}", s.payload)
+                                .split_whitespace()
+                                .next()
+                                .unwrap_or("Unknown")
+                                .to_string(),
+                        ),
+                        ChainTransaction::Application(a) => match a {
+                            depin_sdk_types::app::ApplicationTransaction::DeployContract {
+                                header,
+                                ..
+                            } => (
+                                header.account_id,
+                                header.nonce,
+                                "DeployContract".to_string(),
+                            ),
+                            depin_sdk_types::app::ApplicationTransaction::CallContract {
+                                header,
+                                ..
+                            } => (header.account_id, header.nonce, "CallContract".to_string()),
+                            _ => (AccountId::default(), 0, "UTXO".to_string()),
+                        },
+                    };
+
+                    tracing::warn!(target: "orchestration", event = "tx_filtered", tx_index = i, signer = %hex::encode(signer.as_ref()), nonce = nonce, payload = %payload_kind, error = %e);
                     if let Ok(tx_hash) = hash_transaction(tx) {
                         invalid_tx_hashes.insert(tx_hash);
                     } else {
@@ -243,7 +263,7 @@ where
                 hash_transaction(tx)
                     .map(|id| !invalid_tx_hashes.contains(&id))
                     .unwrap_or(true)
-            }); // Keep tx if hashing fails
+            });
             tracing::info!(target: "consensus", event = "mempool_prune", num_pruned = invalid_tx_hashes.len());
         }
 
@@ -350,7 +370,6 @@ where
                 }
                 tracing::debug!(target: "consensus", event = "tip_advanced", height = final_block.header.height, root = hex::encode(final_block.header.state_root.as_ref()));
                 {
-                    // FIX: Use the canonical SCALE codec for network serialization to prevent mismatches.
                     let data = codec::to_bytes_canonical(&final_block).map_err(|e| anyhow!(e))?;
                     let _ = swarm_commander.send(SwarmCommand::PublishBlock(data)).await;
                 }
@@ -362,14 +381,6 @@ where
                 }
                 {
                     consensus_engine_ref.lock().await.reset(block_height);
-                }
-                {
-                    let service_clone = {
-                        let ctx = context_arc.lock().await;
-                        ctx.oracle_service.clone()
-                    };
-                    let ctx = context_arc.lock().await;
-                    handle_newly_processed_block(&ctx, block_height, &service_clone).await;
                 }
                 {
                     let mut ns = node_state_arc.lock().await;

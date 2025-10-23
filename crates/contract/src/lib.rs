@@ -22,9 +22,10 @@
 #![allow(dead_code)] // Allow unused functions for this example
 
 extern crate alloc;
+use alloc::vec;
 use alloc::vec::Vec;
 // This is only needed for the panic handler, which is not used in tests.
-#[cfg(not(test))]
+#[cfg(all(not(test), not(feature = "std")))]
 use core::panic::PanicInfo;
 
 // We use `wee_alloc` as a lightweight allocator suitable for WASM.
@@ -42,6 +43,7 @@ mod ffi {
         // State management
         pub fn state_set(key_ptr: *const u8, key_len: u32, value_ptr: *const u8, value_len: u32);
         pub fn state_get(key_ptr: *const u8, key_len: u32, result_ptr: *mut u8) -> u32;
+        pub fn state_delete(key_ptr: *const u8, key_len: u32);
 
         // Unified host call
         pub fn host_call(
@@ -54,13 +56,14 @@ mod ffi {
 
         // Context
         pub fn get_caller(result_ptr: *mut u8) -> u32;
+        pub fn ctx_block_height() -> u64;
     }
 }
 
 /// High-level, safe API for interacting with the host environment via capabilities.
 pub mod host {
     use super::ffi;
-    use alloc::vec::Vec;
+    use crate::alloc::vec::Vec;
     use parity_scale_codec::{Decode, Encode};
 
     #[derive(Debug)]
@@ -71,10 +74,7 @@ pub mod host {
     }
 
     /// Calls a host capability with a SCALE-encodable request and decodes the SCALE-encodable response.
-    pub fn call<Req: Encode, Res: Decode>(
-        capability: &str,
-        req: &Req,
-    ) -> Result<Res, HostError> {
+    pub fn call<Req: Encode, Res: Decode>(capability: &str, req: &Req) -> Result<Res, HostError> {
         let req_bytes = req.encode();
         let mut resp_ptr_len = [0u32; 2]; // [ptr, len]
 
@@ -104,8 +104,8 @@ pub mod host {
 /// High-level, safe API for interacting with the blockchain state.
 pub mod state {
     use super::ffi;
-    use alloc::vec;
-    use alloc::vec::Vec;
+    use crate::alloc::vec;
+    use crate::alloc::vec::Vec;
 
     /// Stores a key-value pair in the contract's storage.
     pub fn set(key: &[u8], value: &[u8]) {
@@ -138,13 +138,20 @@ pub mod state {
             None
         }
     }
+
+    /// Deletes a key-value pair from the contract's storage.
+    pub fn delete(key: &[u8]) {
+        unsafe {
+            ffi::state_delete(key.as_ptr(), key.len() as u32);
+        }
+    }
 }
 
 /// High-level API for accessing execution context information.
 pub mod context {
     use super::ffi;
-    use alloc::vec;
-    use alloc::vec::Vec;
+    use crate::alloc::vec;
+    use crate::alloc::vec::Vec;
 
     /// Gets the address of the entity that initiated the contract call.
     pub fn caller() -> Vec<u8> {
@@ -154,6 +161,11 @@ pub mod context {
             .get(..result_len as usize)
             .unwrap_or_default()
             .to_vec()
+    }
+
+    /// Gets the current block height.
+    pub fn block_height() -> u64 {
+        unsafe { ffi::ctx_block_height() }
     }
 }
 
@@ -168,8 +180,8 @@ pub extern "C" fn allocate(size: u32) -> *mut u8 {
 }
 
 // The panic handler is required for `no_std` builds, but conflicts with
-// the standard library's handler when running tests. We exclude it from test builds.
-#[cfg(not(test))]
+// the standard library's handler when running tests or when the `std` feature is enabled.
+#[cfg(all(not(test), not(feature = "std")))]
 #[panic_handler]
 fn handle_panic(_info: &PanicInfo) -> ! {
     loop {}
