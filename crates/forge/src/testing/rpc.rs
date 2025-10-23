@@ -13,6 +13,63 @@ use reqwest::{Client, StatusCode};
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
 use std::time::Duration;
+use tokio::time::sleep;
+
+// How many retries for transient RPC decode/transport glitches
+const RPC_RETRY_MAX: usize = 5;
+const RPC_RETRY_BASE_MS: u64 = 80;
+
+/// Robust get_block_by_height:
+/// - Retries transient -32000 decode/network errors
+/// - Treats future/hemi-available heights as Ok(None)
+pub async fn get_block_by_height_resilient(rpc_addr: &str, height: u64) -> Result<Option<BlockHeader>> {
+    let mut attempt = 0usize;
+    loop {
+        match get_block_by_height(rpc_addr, height).await {
+            Ok(opt) => return Ok(opt), // Found (Some) or cleanly NotFound (None)
+            Err(e) => {
+                let msg = e.to_string();
+                // Normalize transient JSON-RPC decoding / workload start-up hiccups
+                if msg.contains("Invalid JSON-RPC response") || msg.contains("getBlockByHeight failed") {
+                    attempt += 1;
+                    if attempt >= RPC_RETRY_MAX {
+                        // As a *resilience* choice, return None rather than error out.
+                        // Tests will keep polling via wait_until anyway.
+                        return Ok(None);
+                    }
+                    sleep(Duration::from_millis(RPC_RETRY_BASE_MS * attempt as u64)).await;
+                    continue;
+                }
+                // hard error -> bubble up
+                return Err(anyhow!(e));
+            }
+        }
+    }
+}
+
+/// Return latest known chain tip by probing upwards.
+/// Uses get_block_by_height_resilient, so it won't fail due to transient RPC issues.
+pub async fn tip_height_resilient(rpc_addr: &str) -> Result<u64> {
+    let mut h = 0u64;
+    loop {
+        let next = h + 1;
+        match get_block_by_height_resilient(rpc_addr, next).await? {
+            Some(_) => h = next,
+            None => return Ok(h),
+        }
+    }
+}
+
+/// Submits a transaction and waits for the next block to be produced, ensuring inclusion.
+pub async fn submit_transaction_and_wait_block(
+    rpc_addr: &str,
+    tx: &depin_sdk_types::app::ChainTransaction,
+) -> Result<()> {
+    submit_transaction(rpc_addr, tx).await?;
+    let tip = tip_height_resilient(rpc_addr).await?;
+    super::poll::wait_for_height(rpc_addr, tip + 1, Duration::from_secs(20)).await?;
+    Ok(())
+}
 
 /// Queries a raw key from the workload state via RPC.
 pub async fn query_state_key(rpc_addr: &str, key: &[u8]) -> Result<Option<Vec<u8>>> {
@@ -99,6 +156,8 @@ pub async fn submit_transaction(
     rpc_addr: &str,
     tx: &depin_sdk_types::app::ChainTransaction,
 ) -> Result<()> {
+    let initial_height = get_chain_height(rpc_addr).await.unwrap_or(0);
+
     // Directly use the canonical SCALE codec from depin-sdk-types.
     let tx_bytes = codec::to_bytes_canonical(tx).map_err(|e| anyhow!(e))?;
     let tx_hex = hex::encode(tx_bytes);
@@ -129,9 +188,11 @@ pub async fn submit_transaction(
         return Err(anyhow!("RPC error: {}", v["error"]));
     }
 
-    // Check for a successful result
+    // Check for a successful result and then wait for the next block
     if v.get("result").is_some() {
         log::info!("submit_transaction: {} accepted -> {}", method, text);
+        // Wait for the next block to be produced to ensure the tx is processed.
+        super::poll::wait_for_height(rpc_addr, initial_height + 1, Duration::from_secs(20)).await?;
         return Ok(());
     }
 

@@ -89,6 +89,11 @@ impl<ST: StateManager + Send + Sync> VmStateAccessor for StateAccessorWrapper<ST
     ) -> Result<(), depin_sdk_types::error::StateError> {
         self.state_tree.write().await.insert(key, value)
     }
+
+    /// Delegates the `delete` call to the underlying state manager, handling the lock.
+    async fn delete(&self, key: &[u8]) -> Result<(), depin_sdk_types::error::StateError> {
+        self.state_tree.write().await.delete(key)
+    }
 }
 
 impl<ST> WorkloadContainer<ST>
@@ -167,12 +172,10 @@ where
         code: Vec<u8>,
         input_data: Vec<u8>,
         context: ExecutionContext,
-    ) -> Result<(ExecutionOutput, HashMap<Vec<u8>, Vec<u8>>), ValidatorError> {
-        // Create an accessor that bridges to the main state tree but is independent of the overlay.
+    ) -> Result<(ExecutionOutput, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)), ValidatorError> {
         let parent_accessor = Arc::new(StateAccessorWrapper {
             state_tree: self.state_tree.clone(),
         });
-        // The VM operates on a fresh overlay, taking the parent_accessor as its base.
         let overlay = VmStateOverlay::new(parent_accessor);
         let overlay_arc = Arc::new(overlay);
 
@@ -181,13 +184,13 @@ where
             .execute(&code, "call", &input_data, overlay_arc.clone(), context)
             .await?;
 
-        // Extract writes from the overlay. If there are other strong references, clone the inner state.
         let state_delta = overlay_arc.snapshot_writes();
         log::info!(
-            "Contract call successful. Gas used: {}. Return data size: {}. State changes: {}",
+            "Contract call successful. Gas used: {}. Return data size: {}. State changes (inserts/deletes): {}/{}",
             output.gas_used,
             output.return_data.len(),
-            state_delta.len()
+            state_delta.0.len(),
+            state_delta.1.len(),
         );
 
         Ok((output, state_delta))
@@ -200,7 +203,7 @@ where
         address: Vec<u8>,
         input_data: Vec<u8>,
         mut context: ExecutionContext,
-    ) -> Result<(ExecutionOutput, HashMap<Vec<u8>, Vec<u8>>), ValidatorError> {
+    ) -> Result<(ExecutionOutput, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)), ValidatorError> {
         let code = {
             let state = self.state_tree.read().await;
             let code_key = [b"contract_code::".as_ref(), &address].concat();
@@ -249,7 +252,6 @@ where
         let parent_accessor = Arc::new(StateAccessorWrapper {
             state_tree: self.state_tree.clone(),
         });
-        // The overlay for a query captures writes but they are discarded at the end.
         let overlay = VmStateOverlay::new(parent_accessor);
 
         let output = self

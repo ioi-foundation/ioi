@@ -1,13 +1,11 @@
 // Path: crates/validator/src/standard/orchestration/gossip.rs
 use super::context::MainLoopContext;
-use super::oracle::handle_newly_processed_block;
-use super::remote_state_view::DefaultAnchoredStateView;
 use anyhow::Result;
 use async_trait::async_trait;
 use depin_sdk_api::chain::{AnchoredStateView, StateRef};
 use depin_sdk_api::commitment::CommitmentScheme;
 use depin_sdk_api::consensus::{ConsensusEngine, PenaltyMechanism};
-use depin_sdk_api::state::{StateAccessor, StateCommitment, StateManager, Verifier};
+use depin_sdk_api::state::{StateAccessor, StateManager, Verifier};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_types::{
     app::{Block, ChainTransaction, FailureReport, StateRoot, SystemPayload},
@@ -83,7 +81,7 @@ where
             .to_anchor()
             .map_err(|e| ChainError::Transaction(e.to_string()))?;
         let root = StateRoot(state_ref.state_root.clone());
-        let view = DefaultAnchoredStateView::new(
+        let view = super::remote_state_view::DefaultAnchoredStateView::new(
             anchor,
             root,
             self.client.clone(),
@@ -193,7 +191,6 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
         + 'static
@@ -246,8 +243,6 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         "Verifying gossiped block."
     );
 
-    // To prevent deadlocks, clone needed data, drop the context lock,
-    // and then await the consensus engine lock.
     let (engine_ref, cv) = {
         let resolver = match context
             .view_resolver
@@ -270,7 +265,6 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
             ),
         )
     };
-    // Context lock is now released.
 
     if let Err(e) = engine_ref
         .lock()
@@ -334,7 +328,6 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
             }
             drop(pool);
 
-            handle_newly_processed_block(context, block_height, &context.oracle_service).await;
             if *context.node_state.lock().await == NodeState::Syncing {
                 *context.node_state.lock().await = NodeState::Synced;
                 tracing::info!(target: "orchestration", "State -> Synced.");

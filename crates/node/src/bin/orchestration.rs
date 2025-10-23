@@ -31,6 +31,7 @@ use depin_sdk_validator::standard::{
     orchestration::verifier_select::{create_default_verifier, DefaultVerifier},
     OrchestrationContainer,
 };
+use depin_sdk_vm_wasm::WasmRuntime;
 use libp2p::identity;
 use libp2p::Multiaddr;
 use std::fs;
@@ -343,7 +344,7 @@ where
             service_directory, // <-- Pass the populated directory here
             dummy_store,
         )?);
-        let chain = Chain::new(
+        let mut chain = Chain::new(
             commitment_scheme,
             tm,
             config.chain_id,
@@ -351,6 +352,23 @@ where
             consensus_for_chain, // Use the cloned engine
             workload_container,
         );
+
+        // --- FIX START: Register the WASM runtime for the orchestrator's chain instance ---
+        // This is crucial for the orchestrator to be able to validate WASM upgrade transactions.
+        for runtime_id in &workload_config.runtimes {
+            let id = runtime_id.to_ascii_lowercase();
+            if id == "wasm" {
+                tracing::info!(
+                    target: "orchestration",
+                    "Registering WasmRuntime for tx pre-checks."
+                );
+                let wasm_runtime = WasmRuntime::new(Default::default())?;
+                chain
+                    .service_manager
+                    .register_runtime("wasm", Arc::new(wasm_runtime));
+            }
+        }
+        // --- FIX END ---
         Arc::new(tokio::sync::Mutex::new(chain))
     };
 

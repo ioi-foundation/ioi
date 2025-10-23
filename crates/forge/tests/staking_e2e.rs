@@ -2,7 +2,7 @@
 
 #![cfg(all(feature = "consensus-pos", feature = "vm-wasm"))]
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use depin_sdk_client::WorkloadClient;
 use depin_sdk_forge::testing::{
@@ -48,7 +48,7 @@ fn create_system_tx(
         payload,
         signature_proof: SignatureProof::default(),
     };
-    let sign_bytes = tx_to_sign.to_sign_bytes()?;
+    let sign_bytes = tx_to_sign.to_sign_bytes().map_err(|e| anyhow!(e))?;
     let signature = keypair.sign(&sign_bytes)?;
 
     tx_to_sign.signature_proof = SignatureProof {

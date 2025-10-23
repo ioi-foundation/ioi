@@ -3,7 +3,6 @@ use crate::state::VmStateAccessor;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use depin_sdk_types::{app::StateEntry, codec, error::StateError};
-use std::collections::HashMap;
 use std::fmt::{self, Debug};
 use std::sync::Arc;
 
@@ -12,7 +11,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct VmStateOverlay {
     parent: Arc<dyn VmStateAccessor>,
-    writes: DashMap<Vec<u8>, Vec<u8>>,
+    writes: DashMap<Vec<u8>, Option<Vec<u8>>>,
 }
 
 impl Debug for VmStateOverlay {
@@ -34,17 +33,30 @@ impl VmStateOverlay {
         }
     }
 
-    /// Consumes the overlay and returns the captured writes.
-    pub fn into_writes(self) -> HashMap<Vec<u8>, Vec<u8>> {
-        self.writes.into_iter().collect()
+    /// Consumes the overlay and returns the captured writes separated into inserts and deletes.
+    pub fn into_writes(self) -> (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>) {
+        let mut inserts = Vec::new();
+        let mut deletes = Vec::new();
+        for (key, value_opt) in self.writes {
+            match value_opt {
+                Some(value) => inserts.push((key, value)),
+                None => deletes.push(key),
+            }
+        }
+        (inserts, deletes)
     }
 
     /// Returns a clone of captured writes without consuming the overlay.
-    pub fn snapshot_writes(&self) -> HashMap<Vec<u8>, Vec<u8>> {
-        self.writes
-            .iter()
-            .map(|e| (e.key().clone(), e.value().clone()))
-            .collect()
+    pub fn snapshot_writes(&self) -> (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>) {
+        let mut inserts = Vec::new();
+        let mut deletes = Vec::new();
+        for item in self.writes.iter() {
+            match item.value() {
+                Some(value) => inserts.push((item.key().clone(), value.clone())),
+                None => deletes.push(item.key().clone()),
+            }
+        }
+        (inserts, deletes)
     }
 }
 
@@ -52,8 +64,12 @@ impl VmStateOverlay {
 impl VmStateAccessor for VmStateOverlay {
     async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
         if let Some(value_ref) = self.writes.get(key) {
-            return Ok(Some(value_ref.value().clone()));
+            // If the key is in our writes, it dictates the result.
+            // Some(Some(v)) -> Present
+            // Some(None) -> Deleted in this tx, so Absent
+            return Ok(value_ref.value().clone());
         }
+        // Fallback to parent if not in our write set.
         match self.parent.get(key).await? {
             Some(bytes) => {
                 let entry: StateEntry = codec::from_bytes_canonical(&bytes)
@@ -65,7 +81,12 @@ impl VmStateAccessor for VmStateOverlay {
     }
 
     async fn insert(&self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
-        self.writes.insert(key.to_vec(), value.to_vec());
+        self.writes.insert(key.to_vec(), Some(value.to_vec()));
+        Ok(())
+    }
+
+    async fn delete(&self, key: &[u8]) -> Result<(), StateError> {
+        self.writes.insert(key.to_vec(), None);
         Ok(())
     }
 }

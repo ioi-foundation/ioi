@@ -1,6 +1,5 @@
 // Path: crates/services/src/identity/mod.rs
 use async_trait::async_trait;
-use depin_sdk_api::crypto::{SerializableKey, VerifyingKey};
 use depin_sdk_api::identity::CredentialsView;
 use depin_sdk_api::lifecycle::OnEndBlock;
 use depin_sdk_api::services::{BlockchainService, UpgradableService};
@@ -141,6 +140,8 @@ impl IdentityHub {
         message: &[u8],
         signature: &[u8],
     ) -> Result<(), String> {
+        use depin_sdk_api::crypto::{SerializableKey, VerifyingKey};
+
         match suite {
             SignatureSuite::Ed25519 => {
                 let pk = Ed25519PublicKey::from_bytes(public_key).map_err(|e| e.to_string())?;
@@ -264,18 +265,16 @@ impl IdentityHub {
 
 #[async_trait]
 impl BlockchainService for IdentityHub {
-    fn id(&self) -> &'static str {
+    fn id(&self) -> &str {
         "identity_hub"
     }
     fn abi_version(&self) -> u32 {
         1
     }
-    fn state_schema(&self) -> &'static str {
+    fn state_schema(&self) -> &str {
         "v1"
     }
     fn capabilities(&self) -> Capabilities {
-        // The service is no longer a TxDecorator itself for this specific action,
-        // but it still needs to perform logic at the end of a block to promote keys.
         Capabilities::ON_END_BLOCK
     }
     fn as_any(&self) -> &dyn Any {

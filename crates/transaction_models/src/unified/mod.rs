@@ -4,13 +4,14 @@ use crate::utxo::{UTXOModel, UTXOTransactionProof};
 use async_trait::async_trait;
 use depin_sdk_api::chain::ChainView;
 use depin_sdk_api::commitment::CommitmentScheme;
-use depin_sdk_api::error::ErrorCode; // [+] FIX: Import the ErrorCode trait
-use depin_sdk_api::identity::CredentialsView; // [+] FIX: Import the CredentialsView trait
+use depin_sdk_api::error::ErrorCode;
+use depin_sdk_api::identity::CredentialsView;
 use depin_sdk_api::state::{StateAccessor, StateManager};
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
 use depin_sdk_api::vm::ExecutionContext;
 use depin_sdk_crypto::algorithms::hash::sha256;
+use depin_sdk_telemetry::sinks::{error_metrics, service_metrics};
 use depin_sdk_types::app::{
     evidence_id, write_validator_sets, ActiveKeyRecord, ApplicationTransaction, ChainTransaction,
     SignatureSuite, StateEntry, SystemPayload, ValidatorV1,
@@ -19,15 +20,15 @@ use depin_sdk_types::codec;
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::{StateError, TransactionError};
 use depin_sdk_types::keys::{
-    ACCOUNT_ID_TO_PUBKEY_PREFIX, EVIDENCE_REGISTRY_KEY, UPGRADE_ARTIFACT_PREFIX,
-    UPGRADE_MANIFEST_PREFIX, UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY,
+    active_service_key, ACCOUNT_ID_TO_PUBKEY_PREFIX, EVIDENCE_REGISTRY_KEY, GOVERNANCE_KEY,
+    UPGRADE_ARTIFACT_PREFIX, UPGRADE_MANIFEST_PREFIX, UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY,
+};
+use depin_sdk_types::service_configs::{
+    ActiveServiceMeta, GovernancePolicy, GovernanceSigner, MethodPermission,
 };
 use libp2p::identity::PublicKey as Libp2pPublicKey;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
-
-// Import telemetry sinks for observability
-use depin_sdk_telemetry::sinks::{error_metrics, service_metrics};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum UnifiedProof<P> {
@@ -106,6 +107,7 @@ where
             + 'static,
         CV: ChainView<Self::CommitmentScheme, ST> + Send + Sync + ?Sized,
     {
+        // NOTE: Nonce logic is now correctly handled in the IdentityHub ante handler.
         match tx {
             ChainTransaction::Application(app_tx) => match app_tx {
                 ApplicationTransaction::UTXO(utxo_tx) => {
@@ -115,7 +117,6 @@ where
                 }
                 ApplicationTransaction::DeployContract { code, header, .. } => {
                     let workload = chain_ref.workload_container();
-                    // The public key used for signing is the deployer's identity.
                     let public_key_bytes = state
                         .get(&[ACCOUNT_ID_TO_PUBKEY_PREFIX, header.account_id.as_ref()].concat())?
                         .ok_or(TransactionError::UnauthorizedByCredentials)?;
@@ -165,13 +166,18 @@ where
                         gas_limit: *gas_limit,
                         contract_address: address.clone(),
                     };
-                    let (_output, state_delta) = workload
+
+                    let (_output, (inserts, deletes)) = workload
                         .execute_loaded_contract(code, input_data.clone(), exec_context)
                         .await
                         .map_err(|e| TransactionError::Invalid(e.to_string()))?;
 
-                    if !state_delta.is_empty() {
-                        let versioned_delta: Vec<(Vec<u8>, Vec<u8>)> = state_delta
+                    for key in deletes {
+                        state.delete(&key)?;
+                    }
+
+                    if !inserts.is_empty() {
+                        let versioned_inserts: Vec<(Vec<u8>, Vec<u8>)> = inserts
                             .into_iter()
                             .map(|(key, value)| {
                                 let entry = StateEntry {
@@ -181,24 +187,21 @@ where
                                 codec::to_bytes_canonical(&entry).map(|bytes| (key, bytes))
                             })
                             .collect::<Result<_, _>>()?;
-                        state.batch_set(&versioned_delta)?;
+                        state.batch_set(&versioned_inserts)?;
                     }
                     Ok(())
                 }
             },
             ChainTransaction::System(sys_tx) => {
-                // Set the signer in the context for ACL checks within services.
                 ctx.signer_account_id = sys_tx.header.account_id;
 
                 match &sys_tx.payload {
-                    // --- NEW: GENERIC SERVICE DISPATCH ---
                     SystemPayload::CallService {
                         service_id,
                         method,
                         params,
                     } => {
-                        // 1. Safety Pre-Check (DoS protection)
-                        const MAX_PARAMS_LEN: usize = 64 * 1024; // 64 KiB
+                        const MAX_PARAMS_LEN: usize = 64 * 1024;
                         if params.len() > MAX_PARAMS_LEN {
                             return Err(TransactionError::Invalid(
                                 "Service call params exceed size limit".into(),
@@ -206,7 +209,56 @@ where
                         }
                         validate_service_id(service_id)?;
 
-                        // 2. Find the service and dispatch
+                        let meta_key = active_service_key(service_id);
+                        let meta_bytes = state.get(&meta_key)?.ok_or_else(|| {
+                            TransactionError::Unsupported(format!(
+                                "Service '{}' is not active",
+                                service_id
+                            ))
+                        })?;
+                        let meta: ActiveServiceMeta = codec::from_bytes_canonical(&meta_bytes)?;
+
+                        let disabled_key = [meta_key.as_slice(), b"::disabled"].concat();
+                        if state.get(&disabled_key)?.is_some() {
+                            return Err(TransactionError::Unsupported(format!(
+                                "Service '{}' is administratively disabled",
+                                service_id
+                            )));
+                        }
+
+                        let permission = meta.methods.get(method).ok_or_else(|| {
+                            TransactionError::Unsupported(format!(
+                                "Method '{}' not found in service '{}' ABI",
+                                method, service_id
+                            ))
+                        })?;
+                        match permission {
+                            MethodPermission::Internal => {
+                                if !ctx.is_internal {
+                                    return Err(TransactionError::Invalid(
+                                        "Internal method cannot be called via transaction".into(),
+                                    ));
+                                }
+                            }
+                            MethodPermission::Governance => {
+                                let policy_bytes = state.get(GOVERNANCE_KEY)?.ok_or_else(|| {
+                                    TransactionError::State(StateError::KeyNotFound)
+                                })?;
+                                let policy: GovernancePolicy =
+                                    codec::from_bytes_canonical(&policy_bytes)?;
+                                match policy.signer {
+                                    GovernanceSigner::Single(gov_account_id) => {
+                                        if ctx.signer_account_id != gov_account_id {
+                                            return Err(TransactionError::Invalid(
+                                                "Caller is not the governance account".into(),
+                                            ));
+                                        }
+                                    }
+                                }
+                            }
+                            MethodPermission::User => {}
+                        }
+
                         let service = ctx
                             .services
                             .services()
@@ -218,7 +270,6 @@ where
                                 ))
                             })?;
 
-                        // 3. Instrument with observability
                         let start = std::time::Instant::now();
                         let result = service
                             .handle_service_call(state, method, params, ctx)
@@ -231,11 +282,73 @@ where
                         );
                         if let Err(e) = &result {
                             error_metrics().inc_error("service_dispatch", e.code());
+                            service_metrics().inc_dispatch_error(service.id(), method, e.code());
                         }
                         result
                     }
-
-                    // --- COMPATIBILITY BRIDGE: Map legacy payloads to CallService ---
+                    SystemPayload::StoreModule { manifest, artifact } => {
+                        let manifest_hash = sha256(manifest.as_bytes())?;
+                        let artifact_hash = sha256(artifact)?;
+                        let manifest_key = [UPGRADE_MANIFEST_PREFIX, &manifest_hash].concat();
+                        let artifact_key = [UPGRADE_ARTIFACT_PREFIX, &artifact_hash].concat();
+                        if state.get(&manifest_key)?.is_none() {
+                            state.insert(&manifest_key, manifest.as_bytes())?;
+                        }
+                        if state.get(&artifact_key)?.is_none() {
+                            state.insert(&artifact_key, artifact)?;
+                        }
+                        Ok(())
+                    }
+                    SystemPayload::SwapModule {
+                        service_id,
+                        manifest_hash,
+                        artifact_hash,
+                        activation_height,
+                    } => {
+                        let policy_bytes = state
+                            .get(GOVERNANCE_KEY)?
+                            .ok_or(TransactionError::State(StateError::KeyNotFound))?;
+                        let policy: GovernancePolicy = codec::from_bytes_canonical(&policy_bytes)?;
+                        match policy.signer {
+                            GovernanceSigner::Single(gov_id) => {
+                                tracing::warn!(
+                                    target = "governance",
+                                    "SwapModule auth check: signer_account_id={} gov_id={}",
+                                    hex::encode(ctx.signer_account_id.as_ref()),
+                                    hex::encode(gov_id.as_ref())
+                                );
+                                if ctx.signer_account_id != gov_id {
+                                    return Err(TransactionError::Invalid(
+                                        "Caller is not the governance account".into(),
+                                    ));
+                                }
+                            }
+                        }
+                        validate_service_id(service_id)?;
+                        let manifest_key = [UPGRADE_MANIFEST_PREFIX, manifest_hash].concat();
+                        if state.get(&manifest_key)?.is_none() {
+                            return Err(TransactionError::Invalid(format!(
+                                "Manifest not found for hash {}",
+                                hex::encode(manifest_hash)
+                            )));
+                        }
+                        let artifact_key = [UPGRADE_ARTIFACT_PREFIX, artifact_hash].concat();
+                        if state.get(&artifact_key)?.is_none() {
+                            return Err(TransactionError::Invalid(format!(
+                                "Artifact not found for hash {}",
+                                hex::encode(artifact_hash)
+                            )));
+                        }
+                        let key =
+                            [UPGRADE_PENDING_PREFIX, &activation_height.to_le_bytes()].concat();
+                        let mut pending: Vec<(String, [u8; 32], [u8; 32])> = state
+                            .get(&key)?
+                            .and_then(|b| codec::from_bytes_canonical(&b).ok())
+                            .unwrap_or_default();
+                        pending.push((service_id.clone(), *manifest_hash, *artifact_hash));
+                        state.insert(&key, &codec::to_bytes_canonical(&pending)?)?;
+                        Ok(())
+                    }
                     #[allow(deprecated)]
                     SystemPayload::RotateKey(proof) => {
                         let params_bytes = codec::to_bytes_canonical(proof)?;
@@ -267,10 +380,6 @@ where
                             .handle_service_call(state, "vote@v1", &params_bytes, ctx)
                             .await
                     }
-
-                    // ... Other legacy mappings for IBC, etc. would go here ...
-
-                    // --- CORE SYSTEM PAYLOADS (Non-service) ---
                     SystemPayload::Stake { public_key, amount } => {
                         if chain_ref.consensus_type() != ConsensusType::ProofOfStake {
                             return Err(TransactionError::Unsupported(
@@ -459,35 +568,6 @@ where
                                 Err(e)
                             }
                         }
-                    }
-                    SystemPayload::StoreModule { manifest, artifact } => {
-                        let manifest_hash = sha256(manifest.as_bytes())?;
-                        let artifact_hash = sha256(artifact)?;
-                        let manifest_key = [UPGRADE_MANIFEST_PREFIX, &manifest_hash].concat();
-                        let artifact_key = [UPGRADE_ARTIFACT_PREFIX, &artifact_hash].concat();
-                        if state.get(&manifest_key)?.is_none() {
-                            state.insert(&manifest_key, manifest.as_bytes())?;
-                        }
-                        if state.get(&artifact_key)?.is_none() {
-                            state.insert(&artifact_key, artifact)?;
-                        }
-                        Ok(())
-                    }
-                    SystemPayload::SwapModule {
-                        service_id,
-                        manifest_hash,
-                        artifact_hash,
-                        activation_height,
-                    } => {
-                        let key =
-                            [UPGRADE_PENDING_PREFIX, &activation_height.to_le_bytes()].concat();
-                        let mut pending: Vec<(String, [u8; 32], [u8; 32])> = state
-                            .get(&key)?
-                            .and_then(|b| codec::from_bytes_canonical(&b).ok())
-                            .unwrap_or_default();
-                        pending.push((service_id.clone(), *manifest_hash, *artifact_hash));
-                        state.insert(&key, &codec::to_bytes_canonical(&pending)?)?;
-                        Ok(())
                     }
                     _ => Err(TransactionError::Unsupported(
                         "Unhandled SystemPayload variant".into(),

@@ -25,7 +25,7 @@ use depin_sdk_types::{
     },
     service_configs::MigrationConfig,
 };
-use libp2p::identity;
+use libp2p::identity::{self, Keypair};
 use parity_scale_codec::Encode;
 use serde_json::{json, Value};
 use std::time::Duration;
@@ -123,7 +123,7 @@ fn create_call_service_tx<S: TestSigner, P: Encode>(
         payload,
         signature_proof: SignatureProof::default(),
     };
-    let sign_bytes = tx_to_sign.to_sign_bytes()?;
+    let sign_bytes = tx_to_sign.to_sign_bytes().map_err(|e| anyhow!(e))?;
     let signature = TestSigner::sign(signer, &sign_bytes);
 
     tx_to_sign.signature_proof = SignatureProof {

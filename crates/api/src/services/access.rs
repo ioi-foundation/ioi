@@ -14,13 +14,13 @@ use std::sync::Arc;
 macro_rules! impl_service_base {
     ($type:ty, $id:expr) => {
         impl $crate::services::BlockchainService for $type {
-            fn id(&self) -> &'static str {
+            fn id(&self) -> &str {
                 $id
             }
             fn abi_version(&self) -> u32 {
                 1
             }
-            fn state_schema(&self) -> &'static str {
+            fn state_schema(&self) -> &str {
                 "v1"
             }
             fn capabilities(&self) -> depin_sdk_types::service_configs::Capabilities {
@@ -56,7 +56,7 @@ impl ServiceDirectory {
     pub fn new(mut services: Vec<Arc<dyn BlockchainService>>) -> Self {
         let mut by_type = HashMap::new();
         // Sort by unique service ID for deterministic ordering.
-        services.sort_by_key(|s| s.id());
+        services.sort_by_key(|s| s.id().to_string());
         for s in &services {
             by_type.insert(s.as_any().type_id(), s.clone());
         }

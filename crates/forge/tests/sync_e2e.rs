@@ -111,7 +111,7 @@ fn create_dummy_tx(keypair: &Keypair, nonce: u64, chain_id: ChainId) -> Result<C
         payload,
         signature_proof: SignatureProof::default(),
     };
-    let sign_bytes = tx_to_sign.to_sign_bytes()?;
+    let sign_bytes = tx_to_sign.to_sign_bytes().map_err(|e| anyhow!(e))?;
     let signature = keypair.sign(&sign_bytes)?;
     tx_to_sign.signature_proof = SignatureProof {
         suite: SignatureSuite::Ed25519,

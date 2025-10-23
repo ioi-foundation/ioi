@@ -1,9 +1,19 @@
 // Path: crates/node/src/bin/workload.rs
-#![forbid(unsafe_code)]
 
-//! A malicious workload container for testing proof verification.
-//! This is a copy of the main workload binary with a modified IPC handler
-//! that returns a tampered proof for a specific key.
+//! The main binary for the Workload container.
+//!
+//! The Workload container is the primary component responsible for all deterministic,
+//! state-related operations in a validator node. Its responsibilities include:
+//!
+//! - Managing the state tree (e.g., IAVL, Verkle).
+//! - Executing smart contracts within a virtual machine (e.g., Wasmtime).
+//! - Processing blocks by applying transactions and updating the state.
+//! - Generating cryptographic proofs of state for queries.
+//! - Communicating with the Orchestration container via a secure IPC channel to
+//!   receive blocks for processing and respond to state queries.
+//!
+//! This binary is configured via a `workload.toml` file and is launched by the
+//! `depin-sdk-node` process or a similar orchestration mechanism.
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
@@ -179,6 +189,7 @@ where
     for runtime_id in &config.runtimes {
         let id = runtime_id.to_ascii_lowercase();
         if id == "wasm" {
+            tracing::info!(target: "workload", "Registering WasmRuntime for service upgrades.");
             let wasm_runtime = WasmRuntime::new(config.fuel_costs.clone())?;
             chain
                 .service_manager

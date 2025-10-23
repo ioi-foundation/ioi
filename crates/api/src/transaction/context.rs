@@ -18,6 +18,10 @@ pub struct TxContext<'a> {
     /// If true, the transaction is being simulated (e.g., via `check_tx` or `query_contract`)
     /// and should not have permanent side effects.
     pub simulation: bool,
+    /// If true, the call is initiated by the chain itself (e.g., end-block hook)
+    /// and is permitted to call methods with `Internal` permission. For user-initiated
+    /// transactions, this must always be `false`.
+    pub is_internal: bool,
     // Future fields like gas accounting can be added here.
     // pub gas_left: u64,
 }

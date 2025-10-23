@@ -47,7 +47,7 @@ pub struct GovernanceModule {
 
 #[async_trait]
 impl BlockchainService for GovernanceModule {
-    fn id(&self) -> &'static str {
+    fn id(&self) -> &str {
         "governance"
     }
 
@@ -55,7 +55,7 @@ impl BlockchainService for GovernanceModule {
         1
     }
 
-    fn state_schema(&self) -> &'static str {
+    fn state_schema(&self) -> &str {
         "v1"
     }
 

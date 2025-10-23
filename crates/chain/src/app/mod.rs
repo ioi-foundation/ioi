@@ -25,9 +25,10 @@ use depin_sdk_types::codec;
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::{BlockError, ChainError, StateError, TransactionError};
 use depin_sdk_types::keys::{STATUS_KEY, VALIDATOR_SET_KEY};
+use depin_sdk_types::service_configs::{ActiveServiceMeta, Capabilities, MethodPermission};
 use libp2p::identity::Keypair;
 use serde::Serialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -83,6 +84,8 @@ pub struct Chain<CS: CommitmentScheme + Clone, ST: StateManager> {
     pub service_manager: ModuleUpgradeManager,
     pub consensus_engine: Consensus<depin_sdk_types::app::ChainTransaction>,
     workload_container: Arc<WorkloadContainer<ST>>,
+    /// In-memory cache for fast access to on-chain service metadata.
+    service_meta_cache: HashMap<String, Arc<ActiveServiceMeta>>,
 }
 
 impl<CS, ST> Debug for Chain<CS, ST>
@@ -95,6 +98,7 @@ where
             .field("state", &self.state)
             .field("services", &self.services)
             .field("consensus_type", &self.consensus_engine.consensus_type())
+            .field("service_meta_cache", &self.service_meta_cache.keys())
             .finish()
     }
 }
@@ -104,19 +108,10 @@ fn preflight_capabilities(
     services: &ServiceDirectory,
     tx: &depin_sdk_types::app::ChainTransaction,
 ) -> Result<(), TransactionError> {
-    if let depin_sdk_types::app::ChainTransaction::System(sys_tx) = tx {
-        if let depin_sdk_types::app::SystemPayload::RotateKey(_) = sys_tx.payload {
-            if services
-                .services()
-                .find_map(|s| s.as_credentials_view())
-                .is_none()
-            {
-                return Err(TransactionError::Unsupported(
-                    "RotateKey requires the IdentityHub service".into(),
-                ));
-            }
-        }
-    }
+    // This logic is now part of the generic service dispatch in `UnifiedTransactionModel`.
+    // A call to a non-existent service or method will fail gracefully there.
+    // This pre-flight check for deprecated payloads is no longer necessary.
+    let _ = (services, tx); // Mark as used to prevent compiler warnings.
     Ok(())
 }
 
@@ -129,7 +124,6 @@ fn signer_from_tx(tx: &ChainTransaction) -> AccountId {
             | depin_sdk_types::app::ApplicationTransaction::CallContract { header, .. } => {
                 header.account_id
             }
-            // UTXO transactions don't have a single signer in the header in this model
             depin_sdk_types::app::ApplicationTransaction::UTXO(_) => AccountId::default(),
         },
     }
@@ -199,6 +193,7 @@ where
             service_manager,
             consensus_engine,
             workload_container,
+            service_meta_cache: HashMap::new(),
         }
     }
 
@@ -241,25 +236,19 @@ where
                             };
                             tracing::warn!(target: "chain", event = "status_recovered_from_store", height = status.height, "Recovered and adopted durable head into state backend.");
 
-                            // --- FIX START: Re-hydrate critical state into the empty tree ---
-                            // After a crash, the in-memory tree is empty. We must restore essential
-                            // keys from the last committed version to allow the next block to be built.
                             let anchor = to_root_hash(recovered_root)?;
-                            // Fetch STATUS_KEY from the last good state.
                             if let Ok((Membership::Present(status_bytes), _)) =
                                 state.get_with_proof_at_anchor(&anchor, STATUS_KEY)
                             {
                                 state.insert(STATUS_KEY, &status_bytes)?;
                                 tracing::info!(target: "chain", "Re-hydrated STATUS_KEY into current state.");
                             }
-                            // Fetch VALIDATOR_SET_KEY from the last good state.
                             if let Ok((Membership::Present(vs_bytes), _)) =
                                 state.get_with_proof_at_anchor(&anchor, VALIDATOR_SET_KEY)
                             {
                                 state.insert(VALIDATOR_SET_KEY, &vs_bytes)?;
                                 tracing::info!(target: "chain", "Re-hydrated VALIDATOR_SET_KEY into current state.");
                             }
-                            // --- FIX END ---
 
                             self.state.status = status;
                             self.state.last_state_root = recovered_root.clone();
@@ -281,7 +270,36 @@ where
                 for service in self.service_manager.all_services() {
                     let service_id = service.id();
                     let key = depin_sdk_types::keys::active_service_key(service_id);
-                    state.insert(&key, &[])?;
+                    let mut methods = BTreeMap::new();
+                    // Populate the ABI for built-in services so CallService can dispatch to them.
+                    match service_id {
+                        "governance" => {
+                            methods.insert("submit_proposal@v1".into(), MethodPermission::User);
+                            methods.insert("vote@v1".into(), MethodPermission::User);
+                        }
+                        "identity_hub" => {
+                            methods.insert("rotate_key@v1".into(), MethodPermission::User);
+                        }
+                        "oracle" => {
+                            methods.insert("request_data@v1".into(), MethodPermission::User);
+                            methods.insert("submit_data@v1".into(), MethodPermission::User);
+                        }
+                        _ => {}
+                    }
+                    let meta = ActiveServiceMeta {
+                        id: service_id.to_string(),
+                        abi_version: service.abi_version(),
+                        state_schema: service.state_schema().into(),
+                        caps: service.capabilities(),
+                        artifact_hash: [0u8; 32], // [0; 32] signifies a native service.
+                        activated_at: 0,
+                        methods,
+                    };
+                    let meta_bytes = codec::to_bytes_canonical(&meta)
+                        .map_err(|e| ChainError::Transaction(e.to_string()))?;
+                    state
+                        .insert(&key, &meta_bytes)
+                        .map_err(|e| ChainError::Transaction(e.to_string()))?;
                     tracing::info!(
                         target: "chain",
                         "Registered initial service '{}' as active in genesis state.",
@@ -356,19 +374,26 @@ where
             signer_account_id,
             services: &self.services,
             simulation: false,
+            is_internal: false, // User transactions are never internal.
         };
 
         preflight_capabilities(&self.services, tx)?;
+
+        // Re-introduce core validation before any decorators are run.
         validation::verify_transaction_signature(overlay, &self.services, tx, &tx_ctx)?;
         nonce::assert_next_nonce(overlay, tx)?;
 
+        // Run all registered TxDecorator services.
         for service in self.services.services_in_deterministic_order() {
             if let Some(decorator) = service.as_tx_decorator() {
                 decorator.ante_handle(overlay, tx, &tx_ctx).await?;
             }
         }
 
+        // Atomically bump the nonce *after* all checks and decorators have passed.
         nonce::bump_nonce(overlay, tx)?;
+
+        // Finally, apply the core transaction logic.
         self.state
             .transaction_model
             .apply_payload(self, overlay, tx, &mut tx_ctx)
@@ -399,7 +424,6 @@ impl<ST: StateManager + Send + Sync + 'static> RemoteStateView for ChainStateVie
         let state = self.state_tree.read().await;
         let key_hex = hex::encode(key);
 
-        // This view is always anchored, so we use the proof-based path.
         let commitment = state.commitment_from_bytes(&self.root)?;
         let (membership, _proof) = state.get_with_proof_at(&commitment, key)?;
         let present = matches!(membership, Membership::Present(_));
@@ -537,10 +561,6 @@ where
                     .await?;
             }
 
-            // NOTE: OnEndBlock hooks moved to `commit_block` to ensure their state
-            // changes are applied to the canonical state and not just a simulation.
-            // This was the source of the PQC migration test failure.
-
             overlay.into_ordered_batch()
         };
 
@@ -585,25 +605,48 @@ where
             let state_tree_arc = workload.state_tree();
             let mut state = state_tree_arc.write().await;
 
-            // Set the write height so new nodes get version = block.header.height
             state.begin_block_writes(block.header.height);
 
             state.batch_apply(inserts, deletes)?;
 
-            // --- FIX: OnEndBlock hooks moved here from `prepare_block` ---
-            // This ensures their state changes (e.g., key promotion in IdentityHub)
-            // are applied to the canonical state before commit.
-            {
-                let end_block_ctx = TxContext {
-                    block_height: block.header.height,
-                    chain_id: self.state.chain_id,
-                    signer_account_id: AccountId::default(), // OnEndBlock is not tied to a specific signer
-                    services: &self.services,
-                    simulation: false, // These changes are final
-                };
-                for service in self.services.services_in_deterministic_order() {
+            // Apply any scheduled upgrades for this block height. This must happen
+            // before other OnEndBlock hooks to allow newly activated services to run.
+            let upgrade_count = self
+                .service_manager
+                .apply_upgrades_at_height(block.header.height, &mut *state)
+                .await
+                .map_err(|e| ChainError::State(StateError::Apply(e.to_string())))?;
+            if upgrade_count > 0 {
+                tracing::info!(
+                    target: "chain",
+                    event = "module_upgrade",
+                    height = block.header.height,
+                    num_applied = upgrade_count,
+                    "Successfully applied on-chain service upgrades."
+                );
+                // Rebuild the service directory so new services are available immediately.
+                let all_services = self.service_manager.all_services();
+                let services_for_dir: Vec<Arc<dyn BlockchainService>> = all_services
+                    .iter()
+                    .map(|s| s.clone() as Arc<dyn BlockchainService>)
+                    .collect();
+                self.services = ServiceDirectory::new(services_for_dir);
+            }
+
+            let end_block_ctx = TxContext {
+                block_height: block.header.height,
+                chain_id: self.state.chain_id,
+                signer_account_id: AccountId::default(),
+                services: &self.services,
+                simulation: false,
+                is_internal: true, // This is an internal call
+            };
+            for service in self.services.services_in_deterministic_order() {
+                if service.capabilities().contains(Capabilities::ON_END_BLOCK) {
                     if let Some(hook) = service.as_on_end_block() {
-                        hook.on_end_block(&mut *state, &end_block_ctx).await?;
+                        hook.on_end_block(&mut *state, &end_block_ctx)
+                            .await
+                            .map_err(ChainError::State)?;
                     }
                 }
             }
@@ -718,16 +761,12 @@ where
             anchor = hex::encode(anchor.as_ref())
         );
 
-        // Persist the full block to durable storage
         let block_bytes = codec::to_bytes_canonical(&block)
             .map_err(|e| ChainError::Transaction(e.to_string()))?;
         workload
             .store
             .put_block(block.header.height, &block_bytes)
-            .map_err(|e| {
-                // Explicitly map StorageError to ChainError
-                ChainError::State(StateError::Backend(e.to_string()))
-            })?;
+            .map_err(|e| ChainError::State(StateError::Backend(e.to_string())))?;
 
         if self.state.recent_blocks.len() >= self.state.max_recent_blocks {
             self.state.recent_blocks.remove(0);
@@ -781,8 +820,8 @@ where
             height,
             parent_hash,
             parent_state_root,
-            state_root: StateRoot(vec![]), // Placeholder, filled in by commit_block
-            transactions_root: vec![],     // Placeholder, filled in by prepare_block
+            state_root: StateRoot(vec![]),
+            transactions_root: vec![],
             timestamp,
             validator_set: current_validator_set.to_vec(),
             producer_account_id,

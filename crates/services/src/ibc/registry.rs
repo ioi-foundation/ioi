@@ -82,11 +82,7 @@ impl VerifierRegistry {
     }
 
     // Placeholder for fetching a trusted header.
-    fn trusted_header(
-        &self,
-        _client_id: &str,
-        _height: u64,
-    ) -> Result<Header, TransactionError> {
+    fn trusted_header(&self, _client_id: &str, _height: u64) -> Result<Header, TransactionError> {
         Ok(Header::Tendermint(depin_sdk_types::ibc::TendermintHeader {
             trusted_height: 0,
             data: vec![],
@@ -98,7 +94,7 @@ impl VerifierRegistry {
 
 #[async_trait]
 impl BlockchainService for VerifierRegistry {
-    fn id(&self) -> &'static str {
+    fn id(&self) -> &str {
         "ibc" // The canonical service ID for all IBC operations.
     }
 
@@ -106,7 +102,7 @@ impl BlockchainService for VerifierRegistry {
         1
     }
 
-    fn state_schema(&self) -> &'static str {
+    fn state_schema(&self) -> &str {
         "v1"
     }
 
@@ -156,12 +152,9 @@ impl BlockchainService for VerifierRegistry {
                         TransactionError::Invalid(format!("inclusion proof failed: {}", e))
                     })?;
 
-                let chm = ctx
-                    .services
-                    .get::<ChannelManager>()
-                    .ok_or_else(|| {
-                        TransactionError::Unsupported("ChannelManager service not installed".into())
-                    })?;
+                let chm = ctx.services.get::<ChannelManager>().ok_or_else(|| {
+                    TransactionError::Unsupported("ChannelManager service not installed".into())
+                })?;
                 chm.recv_packet(state, &p.packet, p.proof_height)
                     .map_err(|e| TransactionError::Invalid(e.to_string()))
             }

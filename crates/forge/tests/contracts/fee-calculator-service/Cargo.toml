@@ -9,7 +9,18 @@ edition = "2021"
 crate-type = ["cdylib"] # Compile to a dynamic system library for WASM
 
 [dependencies]
-# FIX: The `workspace = true` shorthand is no longer valid.
-# Provide the full dependency details.
-depin-sdk-contract = { path = "../../../../contract", features = ["wee_alloc"] }
-parity-scale-codec = { workspace = true }
+# CORRECTED: Added the "std" feature to depin-sdk-contract. This signals that
+# the std library will be linked (via parity-scale-codec), so the contract
+# crate should NOT define its own panic handler, resolving the conflict.
+depin-sdk-contract = { path = "../../../../contract", features = [
+    "wee_alloc",
+    "std",
+] }
+
+# CORRECTED: The "std" feature is required for parity-scale-codec to provide
+# Encode/Decode implementations for heap-allocated types like String and Vec
+# in a no_std environment.
+parity-scale-codec = { workspace = true, default-features = false, features = [
+    "derive",
+    "std",
+] }

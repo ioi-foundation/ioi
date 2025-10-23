@@ -100,7 +100,7 @@ where
 {
     const NAME: &'static str = "contract.call.v1";
     type Params = CallContractParams;
-    type Result = (ExecutionOutput, HashMap<Vec<u8>, Vec<u8>>);
+    type Result = (ExecutionOutput, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>));
 
     async fn call(
         &self,

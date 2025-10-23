@@ -26,9 +26,9 @@ struct AnteHandleRequest {
 /// A generic wrapper that makes any `Runnable` artifact conform to the `BlockchainService` traits.
 /// This struct is `Sync` because it synchronizes access to the `!Sync` `Runnable` via a `Mutex`.
 pub struct RuntimeBackedService {
-    id: &'static str,
+    id: String,
     abi_version: u32,
-    state_schema: &'static str,
+    state_schema: String,
     runnable: Mutex<Box<dyn Runnable>>,
     caps: Capabilities,
 }
@@ -46,9 +46,9 @@ impl fmt::Debug for RuntimeBackedService {
 
 impl RuntimeBackedService {
     pub fn new(
-        id: &'static str,
+        id: String,
         abi_version: u32,
-        state_schema: &'static str,
+        state_schema: String,
         runnable: Box<dyn Runnable>,
         caps: Capabilities,
     ) -> Self {
@@ -64,14 +64,14 @@ impl RuntimeBackedService {
 
 #[async_trait]
 impl BlockchainService for RuntimeBackedService {
-    fn id(&self) -> &'static str {
-        self.id
+    fn id(&self) -> &str {
+        &self.id
     }
     fn abi_version(&self) -> u32 {
         self.abi_version
     }
-    fn state_schema(&self) -> &'static str {
-        self.state_schema
+    fn state_schema(&self) -> &str {
+        &self.state_schema
     }
     fn capabilities(&self) -> Capabilities {
         self.caps

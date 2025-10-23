@@ -1,0 +1,17 @@
+# Path: crates/services/src/identity/contract/Cargo.toml
+[package]
+name = "identity-hub-contract"
+version = "0.1.0"
+edition = "2021"
+description = "On-chain WASM component for the DePIN SDK IdentityHub service"
+license = "MIT OR Apache-2.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+depin-sdk-contract = { path = "../../../../contract", features = ["wee_alloc"] }
+parity-scale-codec = { workspace = true, default-features = false, features = [
+    "derive",
+    "std",
+] }

@@ -22,7 +22,7 @@ use depin_sdk_types::{
         ACCOUNT_ID_TO_PUBKEY_PREFIX, GOVERNANCE_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX,
         IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
     },
-    service_configs::{GovernanceParams, MigrationConfig},
+    service_configs::{GovernanceParams, GovernancePolicy, GovernanceSigner, MigrationConfig},
 };
 use libp2p::identity::{self, Keypair};
 use parity_scale_codec::Encode;
@@ -52,7 +52,6 @@ fn create_call_service_tx<P: Encode>(
     let payload = SystemPayload::CallService {
         service_id: service_id.to_string(),
         method: method.to_string(),
-        // FIX: Explicitly map the String error to an anyhow::Error.
         params: codec::to_bytes_canonical(&params).map_err(|e| anyhow!(e))?,
     };
 
@@ -68,7 +67,7 @@ fn create_call_service_tx<P: Encode>(
         payload,
         signature_proof: SignatureProof::default(),
     };
-    let sign_bytes = tx_to_sign.to_sign_bytes()?;
+    let sign_bytes = tx_to_sign.to_sign_bytes().map_err(|e| anyhow!(e))?;
     let signature = keypair.sign(&sign_bytes)?;
 
     tx_to_sign.signature_proof = SignatureProof {
@@ -83,11 +82,6 @@ fn create_call_service_tx<P: Encode>(
 async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
     // 1. SETUP: Build artifacts and define keypairs
     build_test_artifacts();
-    let governance_key = identity::Keypair::generate_ed25519();
-    let governance_pubkey_b58 =
-        bs58::encode(governance_key.public().try_into_ed25519()?.to_bytes()).into_string();
-
-    let governance_key_clone = governance_key.clone();
 
     // 2. LAUNCH CLUSTER with a custom genesis state
     let mut cluster = TestCluster::builder()
@@ -102,7 +96,6 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
             allowed_target_suites: vec![SignatureSuite::Ed25519],
             allow_downgrade: false,
         }))
-        .with_initial_service(InitialServiceConfig::Governance(GovernanceParams::default()))
         .with_genesis_modifier(move |genesis, keys| {
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
             let validator_key = &keys[0];
@@ -111,6 +104,12 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
             let validator_account_id_hash =
                 account_id_from_key_material(suite, &validator_pk_bytes).unwrap();
             let validator_account_id = AccountId(validator_account_id_hash);
+
+            // Create and configure a separate governance identity
+            let governance_key = identity::Keypair::generate_ed25519();
+            let gov_pk_bytes = governance_key.public().encode_protobuf();
+            let gov_account_id_hash = account_id_from_key_material(suite, &gov_pk_bytes).unwrap();
+            let governance_account_id = AccountId(gov_account_id_hash);
 
             let vs_blob = depin_sdk_types::app::ValidatorSetBlob {
                 schema_version: 2,
@@ -122,7 +121,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                             account_id: validator_account_id,
                             weight: 1_000_000,
                             consensus_key: ActiveKeyRecord {
-                                suite,
+                                suite: SignatureSuite::Ed25519,
                                 public_key_hash: validator_account_id_hash,
                                 since_height: 0,
                             },
@@ -132,14 +131,19 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                 },
             };
             let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload).unwrap();
+
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
             );
 
+            let policy = GovernancePolicy {
+                signer: GovernanceSigner::Single(governance_account_id),
+            };
+            let policy_bytes = codec::to_bytes_canonical(&policy).unwrap();
             genesis_state.insert(
                 std::str::from_utf8(GOVERNANCE_KEY).unwrap().to_string(),
-                json!(governance_pubkey_b58),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(policy_bytes))),
             );
 
             let proposal = Proposal {
@@ -167,14 +171,13 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&entry_bytes))),
             );
 
-            let gov_pk_bytes = governance_key_clone.public().encode_protobuf();
-            let gov_account_id =
-                AccountId(account_id_from_key_material(suite, &gov_pk_bytes).unwrap());
+            // The governance key is now generated inside, so we pass it along with the validator key
+            let keys_to_add = [validator_key, &governance_key];
 
-            for (key, acct_id) in [
-                (validator_key, validator_account_id),
-                (&governance_key_clone, gov_account_id),
-            ] {
+            for key in &keys_to_add {
+                let acct_id_hash =
+                    account_id_from_key_material(suite, &key.public().encode_protobuf()).unwrap();
+                let acct_id = AccountId(acct_id_hash);
                 let pk_bytes = key.public().encode_protobuf();
                 let cred = Credential {
                     suite,
@@ -197,6 +200,8 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                 );
             }
         })
+        // The governance service must be enabled for the vote transaction to succeed.
+        .with_initial_service(InitialServiceConfig::Governance(GovernanceParams::default()))
         .build()
         .await?;
 

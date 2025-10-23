@@ -13,7 +13,7 @@ use crate::testing::poll::{wait_for, wait_for_height};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use backend::{DockerBackend, DockerBackendConfig, LogStream, ProcessBackend, TestBackend};
-use bollard::{image::BuildImageOptions, Docker};
+use bollard::{query_parameters::BuildImageOptionsBuilder, Docker};
 use bytes::Bytes;
 use depin_sdk_api::crypto::{SerializableKey, SigningKeyPair};
 use depin_sdk_client::WorkloadClient;
@@ -195,14 +195,11 @@ async fn ensure_docker_image_exists() -> Result<()> {
     // Use a single Full body from the in-memory tar.
     let image_body = Either::Left(Full::new(Bytes::from(tar_bytes)));
 
-    // [+] FIX: Revert `tag` and `remove` to the old field names `t` and `rm`
-    // that are expected by the deprecated `bollard::image::BuildImageOptions` struct.
-    let options = BuildImageOptions {
-        dockerfile: "crates/node/Dockerfile".to_string(),
-        t: DOCKER_IMAGE_TAG.to_string(),
-        rm: true,
-        ..Default::default()
-    };
+    let options = BuildImageOptionsBuilder::default()
+        .dockerfile("crates/node/Dockerfile")
+        .t(DOCKER_IMAGE_TAG)
+        .rm(true)
+        .build();
 
     let mut build_stream = docker.build_image(options, None, Some(image_body));
     while let Some(chunk) = build_stream.next().await {

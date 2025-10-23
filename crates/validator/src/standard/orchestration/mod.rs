@@ -26,7 +26,6 @@ use depin_sdk_crypto::sign::dilithium::DilithiumKeyPair;
 use depin_sdk_network::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_network::BlockSync;
-use depin_sdk_services::oracle::OracleService;
 use depin_sdk_types::{
     app::{account_id_from_key_material, AccountId, ChainTransaction, SignatureSuite},
     error::ValidatorError,
@@ -53,10 +52,10 @@ use tokio::{
 mod consensus;
 mod context;
 mod gossip;
+mod operator_tasks;
 mod oracle;
 mod peer_management;
 mod remote_state_view;
-// Make sure the sync helpers are visible here.
 mod sync;
 pub mod verifier_select;
 mod view_resolver;
@@ -66,7 +65,7 @@ use crate::config::OrchestrationConfig;
 use consensus::drive_consensus_tick;
 use context::{ChainFor, MainLoopContext};
 use futures::FutureExt;
-// Use `sync as sync_handlers` to avoid ambiguity with tokio::sync
+use operator_tasks::run_oracle_operator_task;
 use sync as sync_handlers;
 
 /// A struct to hold the numerous dependencies for the OrchestrationContainer,
@@ -137,11 +136,9 @@ where
     task_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     is_running: Arc<AtomicBool>,
     is_quarantined: Arc<AtomicBool>,
-    oracle_service: OracleService,
     proof_cache: ProofCache,
     verifier: V,
     main_loop_context: Arc<Mutex<Option<Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>>>>,
-    // Robust consensus kick channel: keep both ends.
     consensus_kick_tx: mpsc::UnboundedSender<()>,
     consensus_kick_rx: ConsensusKickReceiver,
     nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
@@ -175,7 +172,6 @@ where
         let config: OrchestrationConfig = toml::from_str(&std::fs::read_to_string(config_path)?)?;
         let (shutdown_sender, _) = watch::channel(false);
 
-        // One kick channel pair for the whole container.
         let (consensus_kick_tx, consensus_kick_rx) = mpsc::unbounded_channel();
 
         Ok(Self {
@@ -194,7 +190,6 @@ where
             task_handles: Arc::new(Mutex::new(Vec::new())),
             is_running: Arc::new(AtomicBool::new(false)),
             is_quarantined: deps.is_quarantined,
-            oracle_service: OracleService::new(),
             proof_cache: Arc::new(Mutex::new(LruCache::new(
                 std::num::NonZeroUsize::new(1024).ok_or_else(|| anyhow!("Invalid LRU size"))?,
             ))),
@@ -262,7 +257,6 @@ where
         let mut ticker = time::interval(Duration::from_secs(interval_secs));
         ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
-        // “Immediate” kick on startup (now wired to the actual receiver).
         let _ = {
             let ctx = context_arc.lock().await;
             ctx.consensus_kick_tx.send(())
@@ -277,13 +271,11 @@ where
                         log::info!("[Consensus] Skipping tick (node is quarantined).");
                         continue;
                     }
-                    // Use AssertUnwindSafe to prevent a panic in one tick from killing the entire loop.
                     let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
                     if let Err(e) = result.map_err(|e| anyhow!("Consensus tick panicked: {:?}", e)).and_then(|res| res) {
                         log::error!("[Orch Tick] Consensus tick panicked: {:?}. Continuing loop.", e);
                     }
                 }
-                // Kicks from RPC/mempool/gossip.
                 Some(()) = kick_rx.recv() => {
                     let cause = "kick";
                      let is_quarantined = context_arc.lock().await.is_quarantined.load(Ordering::SeqCst);
@@ -358,6 +350,9 @@ where
         };
         tokio::pin!(sync_timeout);
 
+        let mut operator_ticker = time::interval(Duration::from_secs(10));
+        operator_ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
         {
             let context = context_arc.lock().await;
             *context.node_state.lock().await = NodeState::Syncing;
@@ -372,16 +367,20 @@ where
                     handle_network_event(event, &context_arc).await;
                 }
 
+                _ = operator_ticker.tick() => {
+                    let ctx = context_arc.lock().await;
+                    if let Err(e) = run_oracle_operator_task(&ctx).await {
+                         tracing::error!(target: "operator_task", "Oracle operator task failed: {}", e);
+                    }
+                }
+
                 _ = &mut sync_timeout, if *context_arc.lock().await.node_state.lock().await == NodeState::Syncing => {
                     let context = context_arc.lock().await;
                     if context.known_peers_ref.lock().await.is_empty() {
                         tracing::warn!(target: "orchestration", "Initial sync timeout elapsed with no peers found. Assuming genesis node role and transitioning to Synced.");
-                        // After the timeout, if we have no peers, we assume we are the first node
-                        // and should start producing blocks. Transitioning to Synced allows this.
                         let mut node_state = context.node_state.lock().await;
                         if *node_state == NodeState::Syncing {
                             *node_state = NodeState::Synced;
-                            // Kick consensus to try producing a block now that we are "synced".
                             let _ = context.consensus_kick_tx.send(());
                         }
                     }
@@ -424,7 +423,6 @@ async fn handle_network_event<CS, ST, CE, V>(
         + Debug,
 {
     match event {
-        // Wake consensus on new transactions.
         NetworkEvent::GossipTransaction(tx) => {
             let (tx_pool_ref, kick_tx) = {
                 let ctx = context_arc.lock().await;
@@ -434,12 +432,9 @@ async fn handle_network_event<CS, ST, CE, V>(
                 let mut pool = tx_pool_ref.lock().await;
                 pool.push_back(*tx);
                 log::debug!("[Orchestrator] Mempool size is now {}", pool.len());
-                // Kick the consensus engine when a tx arrives.
                 let _ = kick_tx.send(());
             }
         }
-
-        // IMPORTANT: avoid deadlock by ignoring our own blocks (single-node).
         NetworkEvent::GossipBlock(block) => {
             let node_state = { context_arc.lock().await.node_state.lock().await.clone() };
             if node_state == NodeState::Syncing {
@@ -452,7 +447,6 @@ async fn handle_network_event<CS, ST, CE, V>(
                 return;
             }
 
-            // Compute our Ed25519 account id.
             let (our_ed_id, our_pqc_id_opt, kick_tx) = {
                 let ctx = context_arc.lock().await;
 
@@ -478,16 +472,13 @@ async fn handle_network_event<CS, ST, CE, V>(
                     "[Orchestrator] Skipping verification of our own gossiped block #{}.",
                     block.header.height
                 );
-                // Still kick consensus in case peers sent txs with this block.
                 let _ = kick_tx.send(());
                 return;
             }
 
-            // Otherwise, proceed as before (may verify with engine).
             let mut ctx = context_arc.lock().await;
             gossip::handle_gossip_block(&mut ctx, block).await
         }
-
         NetworkEvent::ConnectionEstablished(peer_id) => {
             let mut ctx = context_arc.lock().await;
             peer_management::handle_connection_established(&mut ctx, peer_id).await
@@ -595,7 +586,6 @@ where
                 .ok_or_else(|| ValidatorError::Other("Workload client not set".to_string()))?
                 .clone(),
             self.swarm_command_sender.clone(),
-            // Pass the *real* kick sender used by the ticker.
             self.consensus_kick_tx.clone(),
             self.config.clone(),
         )
@@ -643,7 +633,6 @@ where
             self.proof_cache.clone(),
         ));
 
-        // Prime the local nonce manager
         let local_account_id = AccountId(
             account_id_from_key_material(
                 SignatureSuite::Ed25519,
@@ -668,7 +657,6 @@ where
             .insert(local_account_id, initial_nonce);
         tracing::info!(target: "orchestration", initial_nonce = initial_nonce, "Primed local nonce manager for self-generated transactions.");
 
-        // Build the run context (includes the *sender* for kicks).
         let context = MainLoopContext::<CS, ST, CE, V> {
             chain_ref: chain,
             tx_pool_ref: self.tx_pool.clone(),
@@ -683,7 +671,6 @@ where
             chain_id: self.config.chain_id,
             genesis_hash: self.genesis_hash,
             is_quarantined: self.is_quarantined.clone(),
-            oracle_service: self.oracle_service.clone(),
             pending_attestations: std::collections::HashMap::new(),
             last_committed_block: None,
             consensus_kick_tx: self.consensus_kick_tx.clone(),
@@ -702,7 +689,6 @@ where
         let mut handles = self.task_handles.lock().await;
         handles.push(rpc_handle);
 
-        // Pass the *actual* receiver end to the ticker.
         let ticker_kick_rx = match self.consensus_kick_rx.lock().await.take() {
             Some(rx) => rx,
             None => {
