@@ -21,6 +21,7 @@ use depin_sdk_types::{
         ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
+    // [+] FIX: Add the missing import for OracleParams
     config::{InitialServiceConfig, OracleParams},
     keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
     service_configs::MigrationConfig,
@@ -83,7 +84,7 @@ fn create_call_service_tx<P: Encode>(
         payload,
         signature_proof: SignatureProof::default(),
     };
-    let sign_bytes = tx_to_sign.to_sign_bytes()?;
+    let sign_bytes = tx_to_sign.to_sign_bytes().map_err(|e| anyhow!(e))?;
     let signature = signer_keypair.sign(&sign_bytes)?;
 
     tx_to_sign.signature_proof = SignatureProof {

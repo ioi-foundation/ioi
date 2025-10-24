@@ -148,12 +148,20 @@ where
 
                 let payload_to_sign = attestation.to_signing_payload(&domain)?;
                 let signature_bytes = context.local_keypair.sign(&payload_to_sign)?;
-                attestation.signature = signature_bytes;
+
+                let raw_pubkey_bytes = context
+                    .local_keypair
+                    .public()
+                    .try_into_ed25519()
+                    .map_err(|_| anyhow!("Local keypair is not Ed25519"))?
+                    .to_bytes();
+
+                attestation.signature = [raw_pubkey_bytes.as_ref(), &signature_bytes].concat();
 
                 let attestation_bytes =
                     codec::to_bytes_canonical(&attestation).map_err(|e| anyhow!(e))?;
                 context
-                    .swarm_commander
+                    .swarm_commander // <-- CORRECTED FIELD NAME
                     .send(SwarmCommand::GossipOracleAttestation(attestation_bytes))
                     .await
                     .ok();
