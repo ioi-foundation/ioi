@@ -7,8 +7,6 @@
 
 use anyhow::{anyhow, Result};
 use axum::{routing::get, serve, Router};
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use cfg_if::cfg_if;
 use depin_sdk_forge::testing::{
     assert_log_contains,
     backend::ProcessBackend,
@@ -17,16 +15,14 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
-        Credential, SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+        AccountId, ChainId, ChainTransaction, SignHeader, SignatureProof, SignatureSuite,
+        SystemPayload, SystemTransaction,
     },
     codec,
     config::{InitialServiceConfig, OracleParams},
-    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX},
     service_configs::MigrationConfig,
 };
 use parity_scale_codec::Encode;
-use serde_json::{json, Value};
 use std::mem::ManuallyDrop;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
@@ -79,7 +75,7 @@ fn create_signed_system_tx(
         payload,
         signature_proof: SignatureProof::default(),
     };
-    let sign_bytes = tx_to_sign.to_sign_bytes()?;
+    let sign_bytes = tx_to_sign.to_sign_bytes().map_err(|e| anyhow!(e))?;
     let signature = keypair.sign(&sign_bytes)?;
 
     tx_to_sign.signature_proof = SignatureProof {
@@ -108,6 +104,18 @@ async fn start_local_http_stub() -> (String, tokio::task::JoinHandle<()>) {
 
 #[tokio::test]
 async fn test_metrics_endpoint() -> Result<()> {
+    // Scope imports here to avoid unused import warnings when this test is disabled by features.
+    use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+    use cfg_if::cfg_if;
+    use depin_sdk_types::{
+        app::{
+            account_id_from_key_material, ActiveKeyRecord, Credential, SignatureSuite,
+            ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        },
+        keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
+    };
+    use serde_json::json;
+
     println!("\n--- Running Metrics Endpoint Test ---");
 
     // 1. Conditionally build the TestCluster based on the active consensus feature.
@@ -128,10 +136,6 @@ async fn test_metrics_endpoint() -> Result<()> {
             println!("--- Configuring for Proof of Authority ---");
             builder = builder.with_consensus_type("ProofOfAuthority")
                 .with_genesis_modifier(|genesis, keys| {
-                    use depin_sdk_types::app::{account_id_from_key_material, AccountId, ActiveKeyRecord, Credential, SignatureSuite, ValidatorSetV1, ValidatorSetsV1, ValidatorV1};
-                    use depin_sdk_types::keys::{VALIDATOR_SET_KEY, IDENTITY_CREDENTIALS_PREFIX, ACCOUNT_ID_TO_PUBKEY_PREFIX};
-                    use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-
                     let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
                     let keypair = &keys[0];
                     let pk_bytes = keypair.public().encode_protobuf();
@@ -173,10 +177,6 @@ async fn test_metrics_endpoint() -> Result<()> {
             println!("--- Configuring for Proof of Stake ---");
             builder = builder.with_consensus_type("ProofOfStake")
                 .with_genesis_modifier(|genesis, keys| {
-                    use depin_sdk_types::app::{account_id_from_key_material, AccountId, ActiveKeyRecord, Credential, SignatureSuite, ValidatorSetV1, ValidatorSetsV1, ValidatorV1};
-                    use depin_sdk_types::keys::{VALIDATOR_SET_KEY, IDENTITY_CREDENTIALS_PREFIX, ACCOUNT_ID_TO_PUBKEY_PREFIX};
-                    use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-
                     let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
                     let keypair = &keys[0];
                     let pk_bytes = keypair.public().encode_protobuf();
@@ -252,6 +252,17 @@ async fn test_metrics_endpoint() -> Result<()> {
 #[tokio::test]
 #[cfg(not(windows))] // `kill -9` is not applicable on Windows.
 async fn test_storage_crash_recovery() -> Result<()> {
+    // Scope imports here to avoid unused import warnings when this test is disabled by features.
+    use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+    use depin_sdk_types::{
+        app::{
+            account_id_from_key_material, ActiveKeyRecord, Credential, SignatureSuite,
+            ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        },
+        keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
+    };
+    use serde_json::json;
+
     println!("\n--- Running Storage Crash Recovery Test ---");
 
     // Start a local http stub for the oracle request
@@ -270,15 +281,6 @@ async fn test_storage_crash_recovery() -> Result<()> {
             allow_downgrade: false,
         }))
         .with_genesis_modifier(|genesis, keys| {
-            use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-            use depin_sdk_types::app::{
-                account_id_from_key_material, AccountId, ActiveKeyRecord, Credential,
-                SignatureSuite, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
-            };
-            use depin_sdk_types::keys::{
-                ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
-            };
-
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
             let keypair = &keys[0];
             let suite = SignatureSuite::Ed25519;
