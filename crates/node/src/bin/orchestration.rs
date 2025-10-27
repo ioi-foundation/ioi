@@ -32,6 +32,8 @@ use depin_sdk_validator::standard::{
     OrchestrationContainer,
 };
 use depin_sdk_vm_wasm::WasmRuntime;
+use http_rpc_gateway;
+use ibc_host::DefaultIbcHost;
 use libp2p::identity;
 use libp2p::Multiaddr;
 use std::fs;
@@ -250,13 +252,13 @@ where
     let deps = OrchestrationDependencies {
         syncer,
         network_event_receiver,
-        swarm_command_sender: real_swarm_commander,
+        swarm_command_sender: real_swarm_commander.clone(),
         consensus_engine: consensus_engine.clone(), // Pass a clone to the container
-        local_keypair: local_key,
+        local_keypair: local_key.clone(),
         pqc_keypair,
         is_quarantined,
         genesis_hash: derived_genesis_hash,
-        verifier,
+        verifier: verifier.clone(),
     };
 
     let orchestration = Arc::new(OrchestrationContainer::new(&opts.config, deps)?);
@@ -353,8 +355,6 @@ where
             workload_container,
         );
 
-        // --- FIX START: Register the WASM runtime for the orchestrator's chain instance ---
-        // This is crucial for the orchestrator to be able to validate WASM upgrade transactions.
         for runtime_id in &workload_config.runtimes {
             let id = runtime_id.to_ascii_lowercase();
             if id == "wasm" {
@@ -368,11 +368,43 @@ where
                     .register_runtime("wasm", Arc::new(wasm_runtime));
             }
         }
-        // --- FIX END ---
         Arc::new(tokio::sync::Mutex::new(chain))
     };
 
     orchestration.set_chain_and_workload_client(chain_ref, workload_client.clone());
+
+    // --- NEW: IBC Host & Gateway Setup ---
+    if let Some(gateway_addr) = config.ibc_gateway_listen_address.clone() {
+        tracing::info!(target: "orchestration", "Enabling IBC HTTP Gateway.");
+        let ibc_host = Arc::new(DefaultIbcHost::new(
+            workload_client.clone(),
+            verifier.clone(),
+            orchestration.tx_pool.clone(),
+            real_swarm_commander.clone(),
+            local_key.clone(),
+            orchestration.nonce_manager.clone(),
+            config.chain_id,
+        ));
+        let gateway_config = http_rpc_gateway::GatewayConfig {
+            listen_addr: gateway_addr,
+            // These should come from config eventually
+            rps: 20,
+            burst: 50,
+            body_limit_kb: 512,
+            trusted_proxies: vec![],
+        };
+        let shutdown_rx_for_gateway = orchestration.shutdown_sender.subscribe();
+        let gateway_handle = tokio::spawn(async move {
+            if let Err(e) =
+                http_rpc_gateway::run_server(gateway_config, ibc_host, shutdown_rx_for_gateway)
+                    .await
+            {
+                tracing::error!(target: "http-gateway", "IBC HTTP Gateway failed: {}", e);
+            }
+        });
+        orchestration.task_handles.lock().await.push(gateway_handle);
+    }
+
     orchestration.start("").await?;
     eprintln!("ORCHESTRATION_STARTUP_COMPLETE");
 

@@ -351,7 +351,8 @@ async fn test_sync_with_peer_drop() -> Result<()> {
         "ProofOfAuthority",
         "IAVL",
         "Hash",
-        None,
+        None, // ibc_gateway_addr
+        None, // agentic_model_path
         false,
         vec![
             InitialServiceConfig::IdentityHub(MigrationConfig {

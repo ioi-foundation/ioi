@@ -195,6 +195,7 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
         "ProofOfAuthority",
         "IAVL",
         "Hash",
+        None, // FIX: Added the missing ibc_gateway_addr argument.
         Some(good_model_path.to_str().unwrap()),
         false, // use_docker
         services.clone(),
@@ -218,6 +219,7 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
         "ProofOfAuthority",
         "IAVL",
         "Hash",
+        None, // FIX: Added the missing ibc_gateway_addr argument.
         Some(good_model_path.to_str().unwrap()),
         false,
         services.clone(),
@@ -235,6 +237,7 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
         "ProofOfAuthority",
         "IAVL",
         "Hash",
+        None, // FIX: Added the missing ibc_gateway_addr argument.
         Some(good_model_path.to_str().unwrap()),
         false,
         services.clone(),
@@ -315,6 +318,7 @@ async fn test_mismatched_model_quarantine() -> Result<()> {
         "ProofOfAuthority",
         "IAVL",
         "Hash",
+        None, // FIX: Added the missing ibc_gateway_addr argument.
         Some(bad_model_path.to_str().unwrap()),
         false, // use_docker
         vec![InitialServiceConfig::IdentityHub(MigrationConfig {

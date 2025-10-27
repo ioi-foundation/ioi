@@ -81,7 +81,6 @@ pub struct OracleParams {
     // Parameters for the oracle can be added here in the future.
 }
 
-
 /// Enum to represent the configuration of an initial service instantiated at genesis.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "name")]
@@ -259,6 +258,9 @@ pub struct OrchestrationConfig {
     /// The default gas limit for read-only `query_contract` RPC calls.
     #[serde(default = "default_query_gas_limit")]
     pub default_query_gas_limit: u64,
+    /// Optional: The listen address for the IBC HTTP gateway. If present, the gateway is enabled.
+    #[serde(default)]
+    pub ibc_gateway_listen_address: Option<String>,
 }
 
 fn default_sync_timeout_secs() -> u64 {

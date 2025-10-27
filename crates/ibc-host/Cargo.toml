@@ -1,0 +1,27 @@
+# Path: crates/ibc-host/Cargo.toml
+[package]
+name = "ibc-host"
+version = "0.1.0"
+edition = "2021"
+description = "Transport-agnostic, byte-oriented IBC host trait for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+depin-sdk-api = { path = "../api" }
+depin-sdk-types = { path = "../types" }
+depin-sdk-client = { path = "../client" }
+depin-sdk-network = { path = "../network" }
+depin-sdk-crypto = { path = "../crypto" }
+depin-sdk-validator = { path = "../validator" }
+
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+lru = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+hex = { workspace = true }
+serde = { workspace = true }
+parity-scale-codec = { workspace = true }
+dcrypt = { workspace = true }
+ibc-core-host-types = { workspace = true, features = ["std"] }
+libp2p = { workspace = true }
+tracing = { workspace = true }

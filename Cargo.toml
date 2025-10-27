@@ -35,6 +35,10 @@ members = [
     "crates/forge/tests/contracts/fee-calculator-service",
     # Test contract required by various e2e tests
     "crates/forge/tests/contracts/counter",
+
+    # Interop
+    "crates/ibc-host",
+    "crates/http-rpc-gateway",
 ]
 
 [workspace.dependencies]
@@ -171,7 +175,4 @@ ibc-core-host-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43
 ibc-core-router-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-primitives = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-proto = { git = "https://github.com/cosmos/ibc-proto-rs.git", tag = "v0.44.0" }
-# --- ADD THESE LINES TO UNIFY TENDERMINT VERSIONS ---
-tendermint = { git = "https://github.com/informalsystems/tendermint-rs", tag = "v0.36.0" }
-tendermint-proto = { git = "https://github.com/informalsystems/tendermint-rs", tag = "v0.36.0" }
 # --- PATCH END ---

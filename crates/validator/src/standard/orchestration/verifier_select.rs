@@ -33,15 +33,23 @@ pub fn create_default_verifier(
     #[cfg(feature = "primitive-kzg")] params: Option<KZGParams>,
     #[cfg(not(feature = "primitive-kzg"))] _params: Option<()>,
 ) -> DefaultVerifier {
-    // The logic inside the function is conditionally compiled to match the type alias.
+    // THIS IS THE FIX: The logic inside this function now exactly mirrors the
+    // structure of the type alias block above, ensuring consistency.
     cfg_if! {
-        if #[cfg(feature = "tree-verkle")] {
-            // This arm is only compiled when tree-verkle (and thus primitive-kzg) is active.
-            // Here, `params` is guaranteed to be `Option<KZGParams>`.
+        if #[cfg(feature = "tree-iavl")] {
+            // In this branch, DefaultVerifier IS IAVLHashVerifier.
+            // IAVLHashVerifier is a simple struct with no `::new()` method.
+            DefaultVerifier
+        } else if #[cfg(feature = "tree-sparse-merkle")] {
+            // In this branch, DefaultVerifier IS SparseMerkleVerifier.
+            // Also a simple struct.
+            DefaultVerifier
+        } else if #[cfg(feature = "tree-verkle")] {
+            // This branch is only taken if the above are false.
+            // DefaultVerifier IS KZGVerifier, which requires `::new(params)`.
             DefaultVerifier::new(params.expect("KZGVerifier requires SRS parameters"))
         } else {
-            // This arm is compiled for all other tree types (IAVL, SMT) and the fallback.
-            // Here, `params` is `Option<()>` and is ignored. The verifiers are unit structs.
+            // Fallback branch for the dummy verifier.
             DefaultVerifier
         }
     }

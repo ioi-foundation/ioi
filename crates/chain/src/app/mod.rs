@@ -284,6 +284,13 @@ where
                             methods.insert("request_data@v1".into(), MethodPermission::User);
                             methods.insert("submit_data@v1".into(), MethodPermission::User);
                         }
+                        "ibc" => {
+                            // Publicly callable entrypoints exposed by the IBC service
+                            methods.insert("verify_header@v1".into(), MethodPermission::User);
+                            methods.insert("recv_packet@v1".into(), MethodPermission::User);
+                            // The gateway path used in your test: wraps a TxBody with IBC Any msgs
+                            methods.insert("msg_dispatch@v1".into(), MethodPermission::User);
+                        }
                         _ => {}
                     }
                     let meta = ActiveServiceMeta {
@@ -297,6 +304,12 @@ where
                     };
                     let meta_bytes = codec::to_bytes_canonical(&meta)
                         .map_err(|e| ChainError::Transaction(e.to_string()))?;
+                    tracing::debug!(
+                        target = "genesis",
+                        "ActiveServiceMeta for {} has methods: {:?}",
+                        service_id,
+                        meta.methods.keys().collect::<Vec<_>>()
+                    );
                     state
                         .insert(&key, &meta_bytes)
                         .map_err(|e| ChainError::Transaction(e.to_string()))?;

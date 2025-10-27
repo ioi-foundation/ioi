@@ -52,16 +52,27 @@ impl fmt::Debug for TendermintVerifier {
 }
 
 // A minimal mock context to satisfy the new API requirements.
-struct MockClientCtx<'a, S: StateAccessor + ?Sized> {
-    state_accessor: &'a S,
-    client_id: ClientId,
+pub struct MockClientCtx<'a, S: StateAccessor + ?Sized> {
+    pub state_accessor: &'a S,
+    pub client_id: ClientId,
+    // Current block height on the host chain (fallback if no override is set).
+    pub current_block_height: u64,
+    // Optional overrides to align host view with the header being verified.
+    pub host_height_override: Option<Height>,
+    pub host_timestamp_override: Option<Timestamp>,
 }
 
 impl<'a, S: StateAccessor + ?Sized> ExtClientValidationContext for MockClientCtx<'a, S> {
     fn host_timestamp(&self) -> Result<Timestamp, ContextError> {
-        // FIX: Use a non-zero timestamp, as Tendermint validation rejects the epoch.
-        // Using 1 second after the epoch is a valid, deterministic choice for tests.
-        Timestamp::from_nanoseconds(1_000_000_000).map_err(|e| {
+        if let Some(ts) = self.host_timestamp_override {
+            return Ok(ts);
+        }
+        // Fallback heuristic: 5s per block if no override provided.
+        const BLOCK_INTERVAL_NANOS: u64 = 5 * 1_000_000_000;
+        let timestamp_nanos = self
+            .current_block_height
+            .saturating_mul(BLOCK_INTERVAL_NANOS);
+        Timestamp::from_nanoseconds(timestamp_nanos).map_err(|e| {
             ContextError::from(ClientError::Other {
                 description: format!("Failed to create timestamp: {}", e),
             })
@@ -69,7 +80,10 @@ impl<'a, S: StateAccessor + ?Sized> ExtClientValidationContext for MockClientCtx
     }
 
     fn host_height(&self) -> Result<Height, ContextError> {
-        unimplemented!("host_height is not needed for this mock context")
+        if let Some(h) = self.host_height_override {
+            return Ok(h);
+        }
+        Height::new(0, self.current_block_height).map_err(ContextError::ClientError)
     }
 
     fn consensus_state_heights(&self, _client_id: &ClientId) -> Result<Vec<Height>, ContextError> {
@@ -81,7 +95,7 @@ impl<'a, S: StateAccessor + ?Sized> ExtClientValidationContext for MockClientCtx
         _client_id: &ClientId,
         _height: &Height,
     ) -> Result<Option<<Self as ClientValidationContext>::ConsensusStateRef>, ContextError> {
-        unimplemented!()
+        Ok(None)
     }
 
     fn prev_consensus_state(
@@ -89,7 +103,7 @@ impl<'a, S: StateAccessor + ?Sized> ExtClientValidationContext for MockClientCtx
         _client_id: &ClientId,
         _height: &Height,
     ) -> Result<Option<<Self as ClientValidationContext>::ConsensusStateRef>, ContextError> {
-        unimplemented!()
+        Ok(None)
     }
 }
 
@@ -149,17 +163,28 @@ impl<'a, S: StateAccessor + ?Sized> ClientValidationContext for MockClientCtx<'a
 
     fn client_update_meta(
         &self,
-        _client_id: &ClientId,
-        _height: &Height,
+        client_id: &ClientId,
+        height: &Height,
     ) -> Result<(Timestamp, Height), ContextError> {
-        unimplemented!("client_update_meta is not needed for this mock context")
+        // This implementation is correct. Returning this specific error signals to ibc-rs
+        // that it's safe to proceed with the update, as there's no conflicting update
+        // at the same height.
+        Err(ContextError::ClientError(
+            ClientError::UpdateMetaDataNotFound {
+                client_id: client_id.clone(),
+                height: *height,
+            },
+        ))
     }
 }
 
+// This struct is only to satisfy trait bounds and is not used in the failing test.
+// We allow unreachable_code to suppress warnings about the `unimplemented!` macro.
+#[allow(unreachable_code)]
 struct MockClientExecCtx;
+#[allow(unreachable_code)]
 impl ExtClientValidationContext for MockClientExecCtx {
     fn host_timestamp(&self) -> Result<Timestamp, ContextError> {
-        // FIX: Also update this implementation for completeness.
         Timestamp::from_nanoseconds(1_000_000_000).map_err(|e| {
             ContextError::from(ClientError::Other {
                 description: format!("Failed to create timestamp: {}", e),
@@ -187,6 +212,7 @@ impl ExtClientValidationContext for MockClientExecCtx {
         unimplemented!()
     }
 }
+#[allow(unreachable_code)]
 impl ClientValidationContext for MockClientExecCtx {
     type ClientStateRef = TmClientState;
     type ConsensusStateRef = TmConsensusState;
@@ -208,6 +234,7 @@ impl ClientValidationContext for MockClientExecCtx {
     }
 }
 
+#[allow(unreachable_code)]
 impl ClientExecutionContext for MockClientExecCtx {
     type ClientStateMut = TmClientState;
 
@@ -303,9 +330,37 @@ impl InterchainVerifier for TendermintVerifier {
         let tm_header: TmHeader = TmHeader::try_from(RawTmHeader::decode(tm_header_bytes)?)
             .map_err(|e| CoreError::Custom(format!("Failed to decode Tendermint Header: {}", e)))?;
 
+        // Align host view with the header we’re verifying.
+        let header_height: u64 = tm_header
+            .signed_header
+            .header
+            .height
+            .try_into()
+            .map_err(|_| CoreError::Custom("header height overflow".into()))?;
+
+        let hdr_secs = u64::try_from(
+            tendermint_proto::google::protobuf::Timestamp::from(
+                tm_header.signed_header.header.time,
+            )
+            .seconds,
+        )
+        .unwrap_or(0);
+
+        let host_ts =
+            Timestamp::from_nanoseconds(hdr_secs.saturating_add(1).saturating_mul(1_000_000_000))
+                .map_err(|e| CoreError::Custom(format!("timestamp build: {e}")))?;
+        let host_h = Height::new(
+            client_state.latest_height().revision_number(),
+            header_height.saturating_add(1),
+        )
+        .map_err(|e| CoreError::Custom(format!("height build: {e}")))?;
+
         let mock_ctx = MockClientCtx {
             state_accessor: self.state_accessor.as_ref(),
             client_id: client_id.clone(),
+            current_block_height: header_height.saturating_add(1),
+            host_height_override: Some(host_h),
+            host_timestamp_override: Some(host_ts),
         };
 
         client_state

@@ -259,6 +259,13 @@ where
                             MethodPermission::User => {}
                         }
 
+                        tracing::debug!(
+                            target = "service_dispatch",
+                            "dispatching CallService: {}::{} (params_len={})",
+                            service_id,
+                            method,
+                            params.len()
+                        );
                         let service = ctx
                             .services
                             .services()
@@ -270,6 +277,12 @@ where
                                 ))
                             })?;
 
+                        tracing::debug!(
+                            target = "service_dispatch",
+                            "invoking {}::{}",
+                            service.id(),
+                            method
+                        );
                         let start = std::time::Instant::now();
                         let result = service
                             .handle_service_call(state, method, params, ctx)

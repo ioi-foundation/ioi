@@ -22,7 +22,7 @@ use depin_sdk_types::{
     keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
     service_configs::MigrationConfig,
 };
-use libp2p::identity::Keypair;
+use libp2p::identity::{self, Keypair};
 use serde_json::json;
 use std::collections::BTreeMap;
 use std::time::Duration;
