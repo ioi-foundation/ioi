@@ -11,6 +11,7 @@ license = "MIT OR Apache-2.0"
 depin-sdk-api = { path = "../api" }
 depin-sdk-types = { path = "../types" }
 log = { workspace = true }
+tracing = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 bytes = { workspace = true }

@@ -16,7 +16,7 @@ use depin_sdk_network::traits::NodeState;
 use depin_sdk_types::{
     app::{
         account_id_from_key_material, read_validator_sets, to_root_hash, AccountId, Block,
-        BlockHeader, ChainTransaction, SignatureSuite,
+        BlockHeader, ChainTransaction, SignatureSuite, SystemPayload,
     },
     codec, // Import the canonical codec
     keys::VALIDATOR_SET_KEY,
@@ -168,8 +168,27 @@ where
         let parent_view = view_resolver.resolve_anchored(&parent_ref).await?;
         let (candidate_txs, mempool_len_before) = {
             let pool = tx_pool_ref.lock().await;
+            tracing::debug!(
+                target = "mempool",
+                "consensus view mempool_size={}, ptr = {:p}",
+                pool.len(),
+                Arc::as_ptr(&tx_pool_ref)
+            );
             (pool.iter().cloned().collect::<Vec<_>>(), pool.len())
         };
+        // NEW: log every candidate kind so we see the IBC CallService
+        for (i, tx) in candidate_txs.iter().enumerate() {
+            let payload_kind = match tx {
+                ChainTransaction::System(s) => match &s.payload {
+                    SystemPayload::CallService {
+                        service_id, method, ..
+                    } => format!("CallService({service_id}::{method})"),
+                    other => format!("{other:?}"),
+                },
+                ChainTransaction::Application(a) => format!("{a:?}"),
+            };
+            tracing::debug!(target="orchestration", event="precheck_candidate", idx=i, %payload_kind);
+        }
 
         if height_being_built == 1
             && node_state == NodeState::Syncing
@@ -177,18 +196,22 @@ where
             && known_peers_ref.lock().await.is_empty()
             && candidate_txs.is_empty()
         {
+            // This guard prevents a node configured for a multi-validator network from
+            // starting its own chain if it fails to discover peers before the sync timeout.
+            // We must check the on-chain validator set size to allow a single-node
+            // network to bootstrap correctly.
             let vs_size = match parent_view.get(VALIDATOR_SET_KEY).await {
                 Ok(Some(vs_bytes)) => read_validator_sets(&vs_bytes)
                     .map(|sets| sets.current.validators.len())
-                    .unwrap_or(1),
-                _ => 1,
+                    .unwrap_or(0),
+                _ => 0,
             };
 
             if vs_size > 1 {
                 tracing::info!(
                     target: "consensus",
                     event = "skip_empty_block",
-                    "Multi-validator genesis with no peers; skipping empty block."
+                    "Multi-validator genesis with no peers; skipping empty block to wait for sync."
                 );
                 return Ok(());
             }
@@ -246,7 +269,16 @@ where
                         },
                     };
 
-                    tracing::warn!(target: "orchestration", event = "tx_filtered", tx_index = i, signer = %hex::encode(signer.as_ref()), nonce = nonce, payload = %payload_kind, error = %e);
+                    tracing::warn!(
+                        target: "orchestration",
+                        event = "tx_filtered",
+                        tx_index = i,
+                        signer = %hex::encode(signer.as_ref()),
+                        nonce = nonce,
+                        payload = %payload_kind,
+                        error = %e,
+                        "pre-check rejected tx"
+                    );
                     if let Ok(tx_hash) = hash_transaction(tx) {
                         invalid_tx_hashes.insert(tx_hash);
                     } else {
@@ -267,6 +299,18 @@ where
             tracing::info!(target: "consensus", event = "mempool_prune", num_pruned = invalid_tx_hashes.len());
         }
 
+        for (i, tx) in valid_txs.iter().enumerate() {
+            let payload_kind = match tx {
+                ChainTransaction::System(s) => match &s.payload {
+                    SystemPayload::CallService {
+                        service_id, method, ..
+                    } => format!("CallService({service_id}::{method})"),
+                    other => format!("{other:?}"),
+                },
+                ChainTransaction::Application(a) => format!("{a:?}"),
+            };
+            tracing::debug!(target="orchestration", event="precheck_valid", idx=i, %payload_kind);
+        }
         tracing::info!(target: "consensus", event = "producing_block", height = height_being_built, num_txs = valid_txs.len());
         let vs_bytes = match parent_view.get(VALIDATOR_SET_KEY).await {
             Ok(Some(b)) => b,

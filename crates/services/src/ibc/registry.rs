@@ -10,17 +10,34 @@ use depin_sdk_api::services::{BlockchainService, UpgradableService};
 use depin_sdk_api::state::StateAccessor;
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_types::{
-    app::SystemPayload, // Kept for mapping legacy payloads if needed
     codec,
-    error::{TransactionError, UpgradeError},
+    error::{StateError, TransactionError, UpgradeError},
     ibc::{Finality, Header, InclusionProof, Packet},
     service_configs::Capabilities,
 };
 use parity_scale_codec::Decode;
 use std::any::Any;
+// --- Additional Imports for msg_dispatch@v1 ---
+use crate::ibc::light_client::tendermint::MockClientCtx;
+use ibc_client_tendermint::client_state::ClientState as TmClientState;
+use ibc_client_tendermint::types::proto::v1::{
+    ClientState as RawTmClientState, ConsensusState as RawTmConsensusState, Header as RawTmHeader,
+};
+use ibc_client_tendermint::types::Header as TmHeader;
+use ibc_core_client_context::client_state::{ClientStateCommon, ClientStateValidation};
+use ibc_core_client_context::ClientValidationContext;
+use ibc_core_client_types::msgs::MsgUpdateClient;
+use ibc_core_client_types::Height as IbcHeight;
+use ibc_core_host_types::path::{ClientConsensusStatePath, ClientStatePath};
+use ibc_primitives::Timestamp;
+use ibc_proto::cosmos::tx::v1beta1::TxBody;
+use ibc_proto::{ibc::core::client::v1::Height as RawHeight, Protobuf as _};
+use prost::Message; // Import the Message trait for .decode()
+
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
+use tracing; // Added to resolve the compilation error
 
 // --- Service Method Parameter Structs (The Service's Public ABI) ---
 
@@ -157,6 +174,159 @@ impl BlockchainService for VerifierRegistry {
                 })?;
                 chm.recv_packet(state, &p.packet, p.proof_height)
                     .map_err(|e| TransactionError::Invalid(e.to_string()))
+            }
+            "msg_dispatch@v1" => {
+                let tx_body = TxBody::decode(params).map_err(|e| {
+                    // The gateway serializes the TxBody, so we decode it here.
+                    TransactionError::Invalid(format!("Failed to decode TxBody: {}", e))
+                })?;
+
+                tracing::info!(
+                    target = "ibc",
+                    "msg_dispatch@v1: decoding TxBody with {} message(s)",
+                    tx_body.messages.len()
+                );
+                for any_msg in tx_body.messages {
+                    if any_msg.type_url == "/ibc.core.client.v1.MsgUpdateClient" {
+                        let msg = MsgUpdateClient::decode_vec(&any_msg.value).map_err(|e| {
+                            TransactionError::Invalid(format!(
+                                "Failed to decode MsgUpdateClient: {}",
+                                e
+                            ))
+                        })?;
+
+                        // Expect Tendermint header as client_message
+                        let tm_header_any = msg.client_message;
+                        if tm_header_any.type_url != "/ibc.lightclients.tendermint.v1.Header" {
+                            return Err(TransactionError::Unsupported(
+                                "Unsupported IBC client message type".into(),
+                            ));
+                        }
+                        let tm_header = <TmHeader as ibc_proto::Protobuf<RawTmHeader>>::decode_vec(
+                            &tm_header_any.value,
+                        )
+                        .map_err(|e| {
+                            TransactionError::Invalid(format!(
+                                "Failed to decode Tendermint Header from Any: {}",
+                                e
+                            ))
+                        })?;
+
+                        // 1. Build a validation context aligned with the header being verified.
+                        let client_id = msg.client_id.clone();
+                        let header_height_u64: u64 = tm_header
+                            .signed_header
+                            .header
+                            .height
+                            .try_into()
+                            .map_err(|_| {
+                                TransactionError::Invalid("header height overflow".into())
+                            })?;
+
+                        let client_state: TmClientState = MockClientCtx {
+                            state_accessor: state,
+                            client_id: client_id.clone(),
+                            current_block_height: ctx.block_height,
+                            host_height_override: None,
+                            host_timestamp_override: None,
+                        }
+                        .client_state(&client_id)
+                        .map_err(|e| {
+                            TransactionError::State(StateError::Validation(e.to_string()))
+                        })?;
+                        let rev = client_state.latest_height().revision_number();
+                        let host_h = IbcHeight::new(rev, header_height_u64.saturating_add(1))
+                            .map_err(|e| {
+                                TransactionError::Invalid(format!("invalid Height: {e}"))
+                            })?;
+                        let hdr_secs = u64::try_from(
+                            tendermint_proto::google::protobuf::Timestamp::from(
+                                tm_header.signed_header.header.time,
+                            )
+                            .seconds,
+                        )
+                        .unwrap_or(0);
+                        let host_ts = Timestamp::from_nanoseconds(
+                            hdr_secs.saturating_add(1).saturating_mul(1_000_000_000),
+                        )
+                        .map_err(|e| TransactionError::Invalid(format!("timestamp build: {e}")))?;
+
+                        let h2 = u64::try_from(tm_header.signed_header.header.height).unwrap_or(0);
+                        tracing::info!(
+                            target = "ibc",
+                            client = %msg.client_id,
+                            h2,
+                            "verifying MsgUpdateClient"
+                        );
+
+                        // 2. Verify the header using the correctly configured context.
+                        let mock_ctx = MockClientCtx {
+                            state_accessor: state,
+                            client_id: client_id.clone(),
+                            current_block_height: header_height_u64.saturating_add(1),
+                            host_height_override: Some(host_h),
+                            host_timestamp_override: Some(host_ts),
+                        };
+                        client_state
+                            .verify_client_message(&mock_ctx, &msg.client_id, tm_header.clone().into())
+                            .map_err(|e| {
+                                tracing::error!(target="ibc", client=%msg.client_id, error=%e, "MsgUpdateClient verification failed");
+                                TransactionError::Invalid(format!("IBC header verification failed: {e}"))
+                            })?;
+
+                        // 3. If verification passes, compute the new states to persist.
+                        let new_height = IbcHeight::new(rev, header_height_u64).map_err(|e| {
+                            TransactionError::Invalid(format!("invalid Height: {e}"))
+                        })?;
+                        let consensus_state =
+                            ibc_client_tendermint::consensus_state::ConsensusState::from(
+                                tm_header.signed_header.header.clone(),
+                            );
+
+                        // 4. Build updated client state (set latest_height) with a minimal raw round-trip
+                        let raw =
+                            <TmClientState as ibc_proto::Protobuf<RawTmClientState>>::encode_vec(
+                                client_state,
+                            );
+                        let mut raw_cs = RawTmClientState::decode(raw.as_slice()).map_err(|e| {
+                            TransactionError::Invalid(format!("decode client state: {e}"))
+                        })?;
+                        raw_cs.latest_height = Some(RawHeight {
+                            revision_number: new_height.revision_number(),
+                            revision_height: new_height.revision_height(),
+                        });
+                        let updated_client_state =
+                            TmClientState::try_from(raw_cs).map_err(|e| {
+                                TransactionError::Invalid(format!("rebuild client state: {e}"))
+                            })?;
+
+                        // 5. Persist the new client and consensus states to the state tree.
+                        let client_state_path = ClientStatePath::new(msg.client_id.clone());
+                        let consensus_state_path = ClientConsensusStatePath::new(
+                            msg.client_id,
+                            new_height.revision_number(),
+                            new_height.revision_height(),
+                        );
+                        state.insert(
+                            client_state_path.to_string().as_bytes(),
+                            &<TmClientState as ibc_proto::Protobuf<RawTmClientState>>::encode_vec(
+                                updated_client_state,
+                            ),
+                        )?;
+                        state.insert(
+                            consensus_state_path.to_string().as_bytes(),
+                            &<ibc_client_tendermint::consensus_state::ConsensusState as ibc_proto::Protobuf<RawTmConsensusState>>::encode_vec(consensus_state),
+                        )?;
+
+                        tracing::info!(
+                            target = "ibc",
+                            "[IBC Service] MsgUpdateClient applied: {} -> {}",
+                            client_state_path.0,
+                            new_height
+                        );
+                    }
+                }
+                Ok(())
             }
             _ => Err(TransactionError::Unsupported(format!(
                 "IBC service does not support method '{}'",

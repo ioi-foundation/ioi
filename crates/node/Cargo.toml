@@ -24,13 +24,19 @@ depin-sdk-services = { path = "../services" }
 depin-sdk-test-utils = { path = "../test_utils" }
 depin-sdk-client = { path = "../client" }
 depin-sdk-telemetry = { path = "../telemetry" }
+http-rpc-gateway = { path = "../http-rpc-gateway" }
+ibc-host = { path = "../ibc-host" }
 ipc_protocol = { path = "../ipc_protocol" }
 bincode = { workspace = true }
 uuid = { version = "1.8.0", features = ["v4"] }
 anyhow = { workspace = true }
-clap = { workspace = true, features = ["derive", "cargo", "env"] }
+clap = { workspace = true, features = [
+    "derive",
+    "cargo",
+    "env",
+], optional = true }
 cfg-if = "1.0"
-env_logger = { workspace = true }
+env_logger = { workspace = true, optional = true }
 futures = { workspace = true }
 hex = { workspace = true }
 libp2p = { workspace = true }
@@ -52,6 +58,8 @@ default = []
 
 # This feature is for building the standard validator binaries.
 validator-bins = [
+    "dep:clap",
+    "dep:env_logger",
     "depin-sdk-validator/validator-bins",
     "depin-sdk-consensus/round-robin",
     "dep:depin-sdk-vm-wasm",

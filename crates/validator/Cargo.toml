@@ -60,7 +60,7 @@ tower-http = { workspace = true, features = ["limit", "trace", "catch-panic"] }
 ipnetwork = "0.20"
 
 [features]
-default = ["tree-iavl"]
+default = []
 # This new feature will be used by Docker to build the node binary correctly.
 validator-bins = [
     "dep:clap",

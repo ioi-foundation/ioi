@@ -454,6 +454,7 @@ impl TestValidator {
         consensus_type: &str,
         state_tree_type: &str,
         commitment_scheme_type: &str,
+        ibc_gateway_addr: Option<&str>,
         agentic_model_path: Option<&str>,
         use_docker: bool,
         initial_services: Vec<InitialServiceConfig>,
@@ -618,6 +619,7 @@ impl TestValidator {
             block_production_interval_secs: 5,
             round_robin_view_timeout_secs: 20,
             default_query_gas_limit: 1_000_000_000,
+            ibc_gateway_listen_address: ibc_gateway_addr.map(String::from),
         };
         std::fs::write(&orch_config_path, toml::to_string(&orchestration_config)?)?;
 
@@ -937,6 +939,7 @@ pub struct TestClusterBuilder {
     use_docker: bool,
     state_tree: String,
     commitment_scheme: String,
+    ibc_gateway_addr: Option<String>,
     initial_services: Vec<InitialServiceConfig>,
     use_malicious_workload: bool,
     // [+] MODIFIED: a generic list for extra features
@@ -955,6 +958,7 @@ impl Default for TestClusterBuilder {
             use_docker: false,
             state_tree: "IAVL".to_string(),
             commitment_scheme: "Hash".to_string(),
+            ibc_gateway_addr: None,
             initial_services: Vec::new(),
             use_malicious_workload: false,
             // [+] MODIFIED: Initialize the new field
@@ -1015,6 +1019,11 @@ impl TestClusterBuilder {
         self
     }
 
+    pub fn with_ibc_gateway(mut self, addr: &str) -> Self {
+        self.ibc_gateway_addr = Some(addr.to_string());
+        self
+    }
+
     pub fn with_initial_service(mut self, service_config: InitialServiceConfig) -> Self {
         // [+] MODIFIED: Automatically detect required features.
         if let InitialServiceConfig::Ibc(_) = &service_config {
@@ -1065,6 +1074,7 @@ impl TestClusterBuilder {
                 &self.consensus_type,
                 &self.state_tree,
                 &self.commitment_scheme,
+                self.ibc_gateway_addr.as_deref(),
                 self.agentic_model_path.as_deref(),
                 self.use_docker,
                 self.initial_services.clone(),
@@ -1089,6 +1099,7 @@ impl TestClusterBuilder {
                 let captured_state_tree = self.state_tree.clone();
                 let captured_commitment = self.commitment_scheme.clone();
                 let captured_agentic_path = self.agentic_model_path.clone();
+                let captured_ibc_gateway = self.ibc_gateway_addr.clone();
                 let captured_use_docker = self.use_docker;
                 let captured_services = self.initial_services.clone();
                 let captured_malicious = self.use_malicious_workload;
@@ -1106,6 +1117,7 @@ impl TestClusterBuilder {
                         &captured_consensus,
                         &captured_state_tree,
                         &captured_commitment,
+                        captured_ibc_gateway.as_deref(),
                         captured_agentic_path.as_deref(),
                         captured_use_docker,
                         captured_services,
@@ -1129,20 +1141,31 @@ impl TestClusterBuilder {
         // proving that the network is connected and consensus is progressing.
         if validators.len() > 1 {
             println!("--- Waiting for cluster to sync to height 2 ---");
-            // FIX: Wait for nodes to sync sequentially instead of in parallel.
-            // This is more robust and prevents race conditions during startup in tests.
+            // First, ensure the bootnode produces block 1 to kickstart the chain.
+            wait_for_height(&validators[0].rpc_addr, 1, Duration::from_secs(30)).await?;
+            // Give a brief moment for gossip and peer connections to stabilize.
+            tokio::time::sleep(Duration::from_secs(1)).await;
+
+            let mut wait_futs = FuturesUnordered::new();
             for v in &validators {
                 let rpc_addr = v.rpc_addr.clone();
                 let peer_id = v.peer_id;
-                if let Err(e) = wait_for_height(&rpc_addr, 2, Duration::from_secs(60)).await {
-                    // Provide more context on failure.
-                    return Err(anyhow!(
-                        "Node {} (rpc: {}) failed to sync to height 2: {}",
-                        peer_id,
-                        rpc_addr,
-                        e
-                    ));
-                }
+                let fut = async move {
+                    wait_for_height(&rpc_addr, 2, Duration::from_secs(90))
+                        .await
+                        .map_err(|e| {
+                            anyhow!(
+                                "Node {} (rpc: {}) failed to sync to height 2 after bootnode reached H=1: {}",
+                                peer_id,
+                                rpc_addr,
+                                e
+                            )
+                        })
+                };
+                wait_futs.push(fut);
+            }
+            while let Some(res) = wait_futs.next().await {
+                res?; // Propagate error if any wait fails
             }
             println!("--- All nodes synced. Cluster is ready. ---");
         }

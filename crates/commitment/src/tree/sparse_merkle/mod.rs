@@ -600,7 +600,10 @@ where
     }
 
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
-        Ok(self.cache.get(key).cloned())
+        if let Some(value) = self.cache.get(key) {
+            return Ok(Some(value.clone()));
+        }
+        Ok(Self::get_from_snapshot(&self.root, key, 0))
     }
 
     fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
@@ -885,10 +888,15 @@ where
     fn adopt_known_root(&mut self, root_bytes: &[u8], version: u64) -> Result<(), StateError> {
         let root_hash = to_root_hash(root_bytes)?;
 
+        // The purpose of this function is to make the state manager aware of a version
+        // that exists *only in durable storage*. We populate the version-to-root mapping
+        // and the refcount, but critically, we DO NOT insert into `self.indices.roots`.
+        // This ensures that a subsequent `get_with_proof_at` for this root will fail
+        // the in-memory lookup and correctly fall back to the store-based proof builder.
         self.indices.versions_by_height.insert(version, root_hash);
-        self.indices.roots.insert(root_hash, self.root.clone());
         *self.indices.root_refcount.entry(root_hash).or_insert(0) += 1;
 
+        // Ensure the tree's internal version counter is aligned with the recovered state.
         if self.current_height < version {
             self.current_height = version;
         }
@@ -901,6 +909,10 @@ where
         self.store = Some(store);
     }
     // --- MODIFICATION END ---
+
+    fn begin_block_writes(&mut self, height: u64) {
+        self.current_height = height;
+    }
 }
 
 #[cfg(test)]

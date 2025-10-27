@@ -132,8 +132,10 @@ where
     consensus_engine: Arc<Mutex<CE>>,
     local_keypair: identity::Keypair,
     pqc_signer: Option<DilithiumKeyPair>,
-    shutdown_sender: Arc<watch::Sender<bool>>,
-    task_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
+    /// A channel sender to signal graceful shutdown to all background tasks.
+    pub shutdown_sender: Arc<watch::Sender<bool>>,
+    /// Handles to background tasks for graceful shutdown.
+    pub task_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     is_running: Arc<AtomicBool>,
     is_quarantined: Arc<AtomicBool>,
     proof_cache: ProofCache,
@@ -141,7 +143,8 @@ where
     main_loop_context: Arc<Mutex<Option<Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>>>>,
     consensus_kick_tx: mpsc::UnboundedSender<()>,
     consensus_kick_rx: ConsensusKickReceiver,
-    nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
+    /// A local, atomically-managed nonce for self-generated transactions.
+    pub nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
 }
 
 impl<CS, ST, CE, V> OrchestrationContainer<CS, ST, CE, V>

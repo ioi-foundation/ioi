@@ -119,7 +119,7 @@ where
             // --- IBC Service Instantiation ---
             #[cfg(feature = "svc-ibc")]
             InitialServiceConfig::Ibc(ibc_config) => {
-                tracing::info!(target: "workload", event = "service_init", name = "IBC", impl="native", capabilities="ibc_handler");
+                tracing::info!(target: "workload", event = "service_init", name = "IBC", impl="native", capabilities="");
                 // A real implementation would load client configurations from a file or config.
                 let mut verifier_registry = VerifierRegistry::new();
                 for client_name in &ibc_config.enabled_clients {
@@ -135,6 +135,7 @@ where
                 }
                 initial_services.push(Arc::new(verifier_registry)
                     as Arc<dyn depin_sdk_api::services::UpgradableService>);
+                // The ChannelManager is also a required part of the IBC service suite.
                 initial_services.push(Arc::new(ChannelManager::new())
                     as Arc<dyn depin_sdk_api::services::UpgradableService>);
             }
@@ -174,6 +175,7 @@ where
         block_production_interval_secs: 0,
         round_robin_view_timeout_secs: 0,
         default_query_gas_limit: 0,
+        ibc_gateway_listen_address: None,
     };
     let consensus_engine = engine_from_config(&temp_orch_config)?;
 
