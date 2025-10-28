@@ -31,10 +31,6 @@ members = [
     "crates/transaction_models",
     "crates/validator",
     "crates/vm/wasm",
-    # E2E test WASM service used by module_upgrade_e2e
-    "crates/forge/tests/contracts/fee-calculator-service",
-    # Test contract required by various e2e tests
-    "crates/forge/tests/contracts/counter",
 
     # Interop
     "crates/ibc-host",

@@ -4,6 +4,10 @@ name = "test-service-v2"
 version = "0.1.0"
 edition = "2021"
 
+# This empty table marks this crate as a virtual workspace root,
+# preventing it from inheriting the parent workspace's properties.
+[workspace]
+
 [lib]
 crate-type = ["cdylib"]
 

@@ -19,19 +19,30 @@ use parity_scale_codec::Decode;
 use std::any::Any;
 // --- Additional Imports for msg_dispatch@v1 ---
 use crate::ibc::light_client::tendermint::MockClientCtx;
-use ibc_client_tendermint::client_state::ClientState as TmClientState;
 use ibc_client_tendermint::types::proto::v1::{
     ClientState as RawTmClientState, ConsensusState as RawTmConsensusState, Header as RawTmHeader,
 };
-use ibc_client_tendermint::types::Header as TmHeader;
-use ibc_core_client_context::client_state::{ClientStateCommon, ClientStateValidation};
-use ibc_core_client_context::ClientValidationContext;
+use ibc_client_tendermint::{
+    client_state::ClientState as TmClientState,
+    consensus_state::ConsensusState as TmConsensusState, types::Header as TmHeader,
+};
+// --- FIX START: Add all required trait imports ---
+use ibc_core_client_context::client_state::{
+    ClientStateCommon, ClientStateExecution, ClientStateValidation,
+};
+use ibc_core_client_context::{ClientExecutionContext, ClientValidationContext};
+// --- FIX END ---
+use ibc_core_client_types::error::ClientError as IbcClientError;
 use ibc_core_client_types::msgs::MsgUpdateClient;
 use ibc_core_client_types::Height as IbcHeight;
-use ibc_core_host_types::path::{ClientConsensusStatePath, ClientStatePath};
+use ibc_core_handler_types::error::ContextError;
+use ibc_core_host_types::{
+    identifiers::ClientId,
+    path::{ClientConsensusStatePath, ClientStatePath},
+};
 use ibc_primitives::Timestamp;
 use ibc_proto::cosmos::tx::v1beta1::TxBody;
-use ibc_proto::{ibc::core::client::v1::Height as RawHeight, Protobuf as _};
+use ibc_proto::Protobuf as _;
 use prost::Message; // Import the Message trait for .decode()
 
 use std::collections::HashMap;
@@ -104,6 +115,189 @@ impl VerifierRegistry {
             trusted_height: 0,
             data: vec![],
         }))
+    }
+}
+
+// --- NEW: Context struct for the state-mutating `update_state` call ---
+struct HostClientExecutionContext<'a> {
+    state_accessor: &'a mut dyn StateAccessor,
+    client_id: ClientId,
+    host_height: IbcHeight,
+    host_timestamp: Timestamp,
+}
+
+impl<'a> ibc_core_client_context::ExtClientValidationContext for HostClientExecutionContext<'a> {
+    fn host_timestamp(&self) -> Result<Timestamp, ContextError> {
+        Ok(self.host_timestamp)
+    }
+    fn host_height(&self) -> Result<IbcHeight, ContextError> {
+        Ok(self.host_height)
+    }
+    fn consensus_state_heights(
+        &self,
+        _client_id: &ClientId,
+    ) -> Result<Vec<IbcHeight>, ContextError> {
+        // We don't need this for simple updates; return empty so callers short-circuit.
+        Ok(Vec::new())
+    }
+    fn next_consensus_state(
+        &self,
+        _client_id: &ClientId,
+        _height: &IbcHeight,
+    ) -> Result<Option<Self::ConsensusStateRef>, ContextError> {
+        Ok(None)
+    }
+    fn prev_consensus_state(
+        &self,
+        _client_id: &ClientId,
+        _height: &IbcHeight,
+    ) -> Result<Option<Self::ConsensusStateRef>, ContextError> {
+        Ok(None)
+    }
+}
+
+impl<'a> ClientValidationContext for HostClientExecutionContext<'a> {
+    type ClientStateRef = TmClientState;
+    type ConsensusStateRef = TmConsensusState;
+
+    fn client_state(&self, _client_id: &ClientId) -> Result<Self::ClientStateRef, ContextError> {
+        let path = ClientStatePath::new(self.client_id.clone());
+        let bytes = self
+            .state_accessor
+            .get(path.to_string().as_bytes())
+            .map_err(|e| IbcClientError::Other {
+                description: e.to_string(),
+            })?
+            .ok_or_else(|| IbcClientError::Other {
+                description: "Client state not found".to_string(),
+            })?;
+        TmClientState::try_from(RawTmClientState::decode(&*bytes).map_err(|e| {
+            IbcClientError::Other {
+                description: e.to_string(),
+            }
+        })?)
+        .map_err(|e| {
+            IbcClientError::ClientSpecific {
+                description: e.to_string(),
+            }
+            .into()
+        })
+    }
+
+    fn consensus_state(
+        &self,
+        path: &ClientConsensusStatePath,
+    ) -> Result<Self::ConsensusStateRef, ContextError> {
+        let bytes = self
+            .state_accessor
+            .get(path.to_string().as_bytes())
+            .map_err(|e| IbcClientError::Other {
+                description: e.to_string(),
+            })?
+            .ok_or_else(|| IbcClientError::Other {
+                description: "Consensus state not found".to_string(),
+            })?;
+        TmConsensusState::try_from(RawTmConsensusState::decode(&*bytes).map_err(|e| {
+            IbcClientError::Other {
+                description: e.to_string(),
+            }
+        })?)
+        .map_err(|e| {
+            IbcClientError::ClientSpecific {
+                description: e.to_string(),
+            }
+            .into()
+        })
+    }
+
+    fn client_update_meta(
+        &self,
+        client_id: &ClientId,
+        height: &IbcHeight,
+    ) -> Result<(Timestamp, IbcHeight), ContextError> {
+        Err(ContextError::ClientError(
+            IbcClientError::UpdateMetaDataNotFound {
+                client_id: client_id.clone(),
+                height: *height,
+            },
+        ))
+    }
+}
+
+// --- FIX: Add the missing `where` clause to the impl block ---
+impl<'a> ClientExecutionContext for HostClientExecutionContext<'a>
+where
+    <Self as ClientValidationContext>::ClientStateRef: From<TmClientState>,
+{
+    type ClientStateMut = <Self as ClientValidationContext>::ClientStateRef;
+
+    fn store_client_state(
+        &mut self,
+        path: ClientStatePath,
+        client_state: Self::ClientStateMut,
+    ) -> Result<(), ContextError> {
+        let bytes = <TmClientState as ibc_proto::Protobuf<RawTmClientState>>::encode_vec(
+            client_state.into(),
+        );
+        self.state_accessor
+            .insert(path.to_string().as_bytes(), &bytes)
+            .map_err(|e| {
+                IbcClientError::Other {
+                    description: e.to_string(),
+                }
+                .into()
+            })
+    }
+
+    fn store_consensus_state(
+        &mut self,
+        path: ClientConsensusStatePath,
+        consensus_state: Self::ConsensusStateRef,
+    ) -> Result<(), ContextError> {
+        let bytes = <TmConsensusState as ibc_proto::Protobuf<RawTmConsensusState>>::encode_vec(
+            consensus_state,
+        );
+        self.state_accessor
+            .insert(path.to_string().as_bytes(), &bytes)
+            .map_err(|e| {
+                IbcClientError::Other {
+                    description: e.to_string(),
+                }
+                .into()
+            })
+    }
+
+    fn delete_consensus_state(
+        &mut self,
+        path: ClientConsensusStatePath,
+    ) -> Result<(), ContextError> {
+        self.state_accessor
+            .delete(path.to_string().as_bytes())
+            .map_err(|e| {
+                IbcClientError::Other {
+                    description: e.to_string(),
+                }
+                .into()
+            })
+    }
+    fn store_update_meta(
+        &mut self,
+        _client_id: ClientId,
+        _height: IbcHeight,
+        _host_timestamp: Timestamp,
+        _host_height: IbcHeight,
+    ) -> Result<(), ContextError> {
+        // No-op: for now we don't persist update metadata. This is sufficient to
+        // allow updates to proceed and prevents a panic.
+        Ok(())
+    }
+    fn delete_update_meta(
+        &mut self,
+        _client_id: ClientId,
+        _height: IbcHeight,
+    ) -> Result<(), ContextError> {
+        // No-op until we add pruning of update metadata.
+        Ok(())
     }
 }
 
@@ -195,34 +389,8 @@ impl BlockchainService for VerifierRegistry {
                             ))
                         })?;
 
-                        // Expect Tendermint header as client_message
-                        let tm_header_any = msg.client_message;
-                        if tm_header_any.type_url != "/ibc.lightclients.tendermint.v1.Header" {
-                            return Err(TransactionError::Unsupported(
-                                "Unsupported IBC client message type".into(),
-                            ));
-                        }
-                        let tm_header = <TmHeader as ibc_proto::Protobuf<RawTmHeader>>::decode_vec(
-                            &tm_header_any.value,
-                        )
-                        .map_err(|e| {
-                            TransactionError::Invalid(format!(
-                                "Failed to decode Tendermint Header from Any: {}",
-                                e
-                            ))
-                        })?;
-
-                        // 1. Build a validation context aligned with the header being verified.
+                        // 1. Fetch current client state
                         let client_id = msg.client_id.clone();
-                        let header_height_u64: u64 = tm_header
-                            .signed_header
-                            .header
-                            .height
-                            .try_into()
-                            .map_err(|_| {
-                                TransactionError::Invalid("header height overflow".into())
-                            })?;
-
                         let client_state: TmClientState = MockClientCtx {
                             state_accessor: state,
                             client_id: client_id.clone(),
@@ -234,6 +402,27 @@ impl BlockchainService for VerifierRegistry {
                         .map_err(|e| {
                             TransactionError::State(StateError::Validation(e.to_string()))
                         })?;
+
+                        // 2. Decode the header and build the validation context (for host height/ts only)
+                        let tm_header = <TmHeader as ibc_proto::Protobuf<RawTmHeader>>::decode_vec(
+                            &msg.client_message.value,
+                        )
+                        .map_err(|e| {
+                            TransactionError::Invalid(format!(
+                                "Failed to decode Tendermint Header from Any: {}",
+                                e
+                            ))
+                        })?;
+
+                        let header_height_u64: u64 = tm_header
+                            .signed_header
+                            .header
+                            .height
+                            .try_into()
+                            .map_err(|_| {
+                                TransactionError::Invalid("header height overflow".into())
+                            })?;
+
                         let rev = client_state.latest_height().revision_number();
                         let host_h = IbcHeight::new(rev, header_height_u64.saturating_add(1))
                             .map_err(|e| {
@@ -251,15 +440,6 @@ impl BlockchainService for VerifierRegistry {
                         )
                         .map_err(|e| TransactionError::Invalid(format!("timestamp build: {e}")))?;
 
-                        let h2 = u64::try_from(tm_header.signed_header.header.height).unwrap_or(0);
-                        tracing::info!(
-                            target = "ibc",
-                            client = %msg.client_id,
-                            h2,
-                            "verifying MsgUpdateClient"
-                        );
-
-                        // 2. Verify the header using the correctly configured context.
                         let mock_ctx = MockClientCtx {
                             state_accessor: state,
                             client_id: client_id.clone(),
@@ -267,62 +447,35 @@ impl BlockchainService for VerifierRegistry {
                             host_height_override: Some(host_h),
                             host_timestamp_override: Some(host_ts),
                         };
+
+                        // 3. Step 1: Perform read-only verification using the DOMAIN message.
                         client_state
-                            .verify_client_message(&mock_ctx, &msg.client_id, tm_header.clone().into())
+                            .verify_client_message(&mock_ctx, &client_id, tm_header.clone().into())
                             .map_err(|e| {
                                 tracing::error!(target="ibc", client=%msg.client_id, error=%e, "MsgUpdateClient verification failed");
                                 TransactionError::Invalid(format!("IBC header verification failed: {e}"))
                             })?;
 
-                        // 3. If verification passes, compute the new states to persist.
-                        let new_height = IbcHeight::new(rev, header_height_u64).map_err(|e| {
-                            TransactionError::Invalid(format!("invalid Height: {e}"))
-                        })?;
-                        let consensus_state =
-                            ibc_client_tendermint::consensus_state::ConsensusState::from(
-                                tm_header.signed_header.header.clone(),
-                            );
+                        // 4. Step 2: If verification passes, perform the stateful update
+                        let mut exec_ctx = HostClientExecutionContext {
+                            state_accessor: state,
+                            client_id: client_id.clone(),
+                            host_height: host_h,
+                            host_timestamp: host_ts,
+                        };
 
-                        // 4. Build updated client state (set latest_height) with a minimal raw round-trip
-                        let raw =
-                            <TmClientState as ibc_proto::Protobuf<RawTmClientState>>::encode_vec(
-                                client_state,
-                            );
-                        let mut raw_cs = RawTmClientState::decode(raw.as_slice()).map_err(|e| {
-                            TransactionError::Invalid(format!("decode client state: {e}"))
-                        })?;
-                        raw_cs.latest_height = Some(RawHeight {
-                            revision_number: new_height.revision_number(),
-                            revision_height: new_height.revision_height(),
-                        });
-                        let updated_client_state =
-                            TmClientState::try_from(raw_cs).map_err(|e| {
-                                TransactionError::Invalid(format!("rebuild client state: {e}"))
+                        client_state
+                            .update_state(&mut exec_ctx, &client_id, tm_header.into())
+                            .map_err(|e| {
+                                // Extra visibility if state update is rejected by ibc-rs
+                                tracing::error!(target="ibc", client=%msg.client_id, error=%e, "MsgUpdateClient update_state failed");
+                                TransactionError::Invalid(format!("IBC state update failed: {e}"))
                             })?;
-
-                        // 5. Persist the new client and consensus states to the state tree.
-                        let client_state_path = ClientStatePath::new(msg.client_id.clone());
-                        let consensus_state_path = ClientConsensusStatePath::new(
-                            msg.client_id,
-                            new_height.revision_number(),
-                            new_height.revision_height(),
-                        );
-                        state.insert(
-                            client_state_path.to_string().as_bytes(),
-                            &<TmClientState as ibc_proto::Protobuf<RawTmClientState>>::encode_vec(
-                                updated_client_state,
-                            ),
-                        )?;
-                        state.insert(
-                            consensus_state_path.to_string().as_bytes(),
-                            &<ibc_client_tendermint::consensus_state::ConsensusState as ibc_proto::Protobuf<RawTmConsensusState>>::encode_vec(consensus_state),
-                        )?;
 
                         tracing::info!(
                             target = "ibc",
-                            "[IBC Service] MsgUpdateClient applied: {} -> {}",
-                            client_state_path.0,
-                            new_height
+                            "[IBC Service] MsgUpdateClient applied for client {}",
+                            client_id
                         );
                     }
                 }

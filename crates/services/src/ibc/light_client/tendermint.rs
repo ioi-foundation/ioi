@@ -18,7 +18,7 @@ use ibc_core_client_context::ExtClientValidationContext;
 use ibc_core_client_context::{
     client_state::{ClientStateCommon, ClientStateValidation},
     types::error::ClientError,
-    ClientExecutionContext, ClientValidationContext,
+    ClientValidationContext,
 };
 use ibc_core_client_types::{error::ClientError as IbcClientError, Height};
 use ibc_core_commitment_types::commitment::{CommitmentProofBytes, CommitmentRoot};
@@ -175,104 +175,6 @@ impl<'a, S: StateAccessor + ?Sized> ClientValidationContext for MockClientCtx<'a
                 height: *height,
             },
         ))
-    }
-}
-
-// This struct is only to satisfy trait bounds and is not used in the failing test.
-// We allow unreachable_code to suppress warnings about the `unimplemented!` macro.
-#[allow(unreachable_code)]
-struct MockClientExecCtx;
-#[allow(unreachable_code)]
-impl ExtClientValidationContext for MockClientExecCtx {
-    fn host_timestamp(&self) -> Result<Timestamp, ContextError> {
-        Timestamp::from_nanoseconds(1_000_000_000).map_err(|e| {
-            ContextError::from(ClientError::Other {
-                description: format!("Failed to create timestamp: {}", e),
-            })
-        })
-    }
-    fn host_height(&self) -> Result<Height, ContextError> {
-        unimplemented!()
-    }
-    fn consensus_state_heights(&self, _client_id: &ClientId) -> Result<Vec<Height>, ContextError> {
-        unimplemented!()
-    }
-    fn next_consensus_state(
-        &self,
-        _client_id: &ClientId,
-        _height: &Height,
-    ) -> Result<Option<<Self as ClientValidationContext>::ConsensusStateRef>, ContextError> {
-        unimplemented!()
-    }
-    fn prev_consensus_state(
-        &self,
-        _client_id: &ClientId,
-        _height: &Height,
-    ) -> Result<Option<<Self as ClientValidationContext>::ConsensusStateRef>, ContextError> {
-        unimplemented!()
-    }
-}
-#[allow(unreachable_code)]
-impl ClientValidationContext for MockClientExecCtx {
-    type ClientStateRef = TmClientState;
-    type ConsensusStateRef = TmConsensusState;
-    fn client_state(&self, _client_id: &ClientId) -> Result<Self::ClientStateRef, ContextError> {
-        unimplemented!()
-    }
-    fn consensus_state(
-        &self,
-        _path: &ClientConsensusStatePath,
-    ) -> Result<Self::ConsensusStateRef, ContextError> {
-        unimplemented!()
-    }
-    fn client_update_meta(
-        &self,
-        _client_id: &ClientId,
-        _height: &Height,
-    ) -> Result<(Timestamp, Height), ContextError> {
-        unimplemented!()
-    }
-}
-
-#[allow(unreachable_code)]
-impl ClientExecutionContext for MockClientExecCtx {
-    type ClientStateMut = TmClientState;
-
-    fn store_client_state(
-        &mut self,
-        _path: ClientStatePath,
-        _client_state: Self::ClientStateMut,
-    ) -> Result<(), ContextError> {
-        unimplemented!()
-    }
-    fn store_consensus_state(
-        &mut self,
-        _path: ClientConsensusStatePath,
-        _consensus_state: Self::ConsensusStateRef,
-    ) -> Result<(), ContextError> {
-        unimplemented!()
-    }
-    fn delete_consensus_state(
-        &mut self,
-        _path: ClientConsensusStatePath,
-    ) -> Result<(), ContextError> {
-        unimplemented!()
-    }
-    fn store_update_meta(
-        &mut self,
-        _client_id: ClientId,
-        _height: Height,
-        _host_timestamp: Timestamp,
-        _host_height: Height,
-    ) -> Result<(), ContextError> {
-        unimplemented!()
-    }
-    fn delete_update_meta(
-        &mut self,
-        _client_id: ClientId,
-        _height: Height,
-    ) -> Result<(), ContextError> {
-        unimplemented!()
     }
 }
 
