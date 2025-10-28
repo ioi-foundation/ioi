@@ -21,8 +21,9 @@
 #![no_std]
 #![allow(dead_code)] // Allow unused functions for this example
 
+// This attribute makes macros from the `alloc` crate (like vec!) available throughout this crate.
+#[macro_use]
 extern crate alloc;
-use alloc::vec;
 use alloc::vec::Vec;
 // This is only needed for the panic handler, which is not used in tests.
 #[cfg(all(not(test), not(feature = "std")))]
@@ -104,7 +105,6 @@ pub mod host {
 /// High-level, safe API for interacting with the blockchain state.
 pub mod state {
     use super::ffi;
-    use crate::alloc::vec;
     use crate::alloc::vec::Vec;
 
     /// Stores a key-value pair in the contract's storage.
@@ -150,7 +150,6 @@ pub mod state {
 /// High-level API for accessing execution context information.
 pub mod context {
     use super::ffi;
-    use crate::alloc::vec;
     use crate::alloc::vec::Vec;
 
     /// Gets the address of the entity that initiated the contract call.

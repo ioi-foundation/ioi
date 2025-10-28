@@ -22,6 +22,7 @@ use depin_sdk_types::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, SignatureSuite, ValidatorSetV1,
         ValidatorSetsV1, ValidatorV1,
     },
+    codec,
     config::InitialServiceConfig,
     keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
     service_configs::MigrationConfig,
@@ -302,6 +303,78 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                         BASE64_STANDARD.encode(consensus_state_bytes)
                     )),
                 );
+
+                // --- Ensure the IBC service ABI lists msg_dispatch@v1 as User ---
+                {
+                    use depin_sdk_types::keys::active_service_key;
+                    use depin_sdk_types::service_configs::{ActiveServiceMeta, MethodPermission};
+
+                    // Compute the raw key bytes the dispatcher will query at runtime.
+                    let meta_key_bytes = active_service_key("ibc");
+
+                    // In genesis JSON, keys might appear either as plain UTF-8 or under a "b64:<...>" wrapper.
+                    // Find the exact JSON key that corresponds to the raw bytes key.
+                    let find_json_key_for = |state: &serde_json::Map<String, serde_json::Value>,
+                                             raw: &[u8]|
+                     -> Option<String> {
+                        // 1) Try exact UTF-8 match
+                        if let Ok(utf) = std::str::from_utf8(raw) {
+                            if state.contains_key(utf) {
+                                return Some(utf.to_string());
+                            }
+                        }
+                        // 2) Try b64-wrapped form
+                        let b64k = format!("b64:{}", BASE64_STANDARD.encode(raw));
+                        if state.contains_key(&b64k) {
+                            return Some(b64k);
+                        }
+                        // 3) As a last resort, scan for any b64 key that decodes to raw
+                        for k in state.keys() {
+                            if let Some(rest) = k.strip_prefix("b64:") {
+                                if let Ok(kbytes) = BASE64_STANDARD.decode(rest) {
+                                    if kbytes == raw {
+                                        return Some(k.clone());
+                                    }
+                                }
+                            }
+                        }
+                        None
+                    };
+
+                    if let Some(meta_json_key) = find_json_key_for(genesis_state, &meta_key_bytes) {
+                        // Decode the existing meta value
+                        if let Some(v) = genesis_state.get(&meta_json_key) {
+                            if let Some(s) = v.as_str() {
+                                if let Some(rest) = s.strip_prefix("b64:") {
+                                    if let Ok(bytes) = BASE64_STANDARD.decode(rest) {
+                                        if let Ok(mut meta) =
+                                            codec::from_bytes_canonical::<ActiveServiceMeta>(&bytes)
+                                        {
+                                            // Authorize the methods we need for this test
+                                            meta.methods
+                                                .insert("verify_header@v1".into(), MethodPermission::User);
+                                            meta.methods
+                                                .insert("recv_packet@v1".into(), MethodPermission::User);
+                                            meta.methods
+                                                .insert("msg_dispatch@v1".into(), MethodPermission::User);
+                                            // Re-encode and store
+                                            let out = codec::to_bytes_canonical(&meta)
+                                                .expect("serialize ActiveServiceMeta");
+                                            genesis_state.insert(
+                                                meta_json_key,
+                                                json!(format!("b64:{}", BASE64_STANDARD.encode(out))),
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // If we fail to locate the meta in JSON, we leave it as-is. A runtime safety-net
+                        // in the dispatcher (see patch below) will still allow ibc::msg_dispatch@v1 under svc-ibc.
+                        eprintln!("WARN: could not locate ActiveServiceMeta('ibc') in genesis JSON; using runtime fallback.");
+                    }
+                }
             }
         })
         .build()

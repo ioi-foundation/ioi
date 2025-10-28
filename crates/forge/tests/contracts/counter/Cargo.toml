@@ -1,10 +1,15 @@
+# Path: crates/forge/tests/contracts/counter/Cargo.toml
 [package]
 name = "counter-contract"
 version = "0.1.0"
 edition = "2021"
 
+# This empty table marks this crate as a virtual workspace root,
+# preventing it from inheriting the parent workspace's properties.
+[workspace]
+
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-depin-sdk-contract = { workspace = true, features = ["wee_alloc"] }
+depin-sdk-contract = { path = "../../../../contract", features = ["wee_alloc"] }

@@ -13,5 +13,5 @@ crate-type = ["cdylib"]
 depin-sdk-contract = { path = "../../../../contract", features = ["wee_alloc"] }
 parity-scale-codec = { workspace = true, default-features = false, features = [
     "derive",
-    "std",
+    "alloc",
 ] }

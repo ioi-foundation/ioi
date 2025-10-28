@@ -5,22 +5,16 @@ name = "fee-calculator-service"
 version = "0.1.0"
 edition = "2021"
 
+# This empty table marks this crate as a virtual workspace root,
+# preventing it from inheriting the parent workspace's properties.
+[workspace]
+
 [lib]
 crate-type = ["cdylib"] # Compile to a dynamic system library for WASM
 
 [dependencies]
-# CORRECTED: Added the "std" feature to depin-sdk-contract. This signals that
-# the std library will be linked (via parity-scale-codec), so the contract
-# crate should NOT define its own panic handler, resolving the conflict.
-depin-sdk-contract = { path = "../../../../contract", features = [
-    "wee_alloc",
-    "std",
-] }
-
-# CORRECTED: The "std" feature is required for parity-scale-codec to provide
-# Encode/Decode implementations for heap-allocated types like String and Vec
-# in a no_std environment.
-parity-scale-codec = { workspace = true, default-features = false, features = [
+depin-sdk-contract = { path = "../../../../contract", features = ["wee_alloc"] }
+parity-scale-codec = { version = "3", default-features = false, features = [
     "derive",
-    "std",
+    "alloc",
 ] }
