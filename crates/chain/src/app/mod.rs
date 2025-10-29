@@ -13,7 +13,7 @@ use depin_sdk_api::services::{BlockchainService, UpgradableService};
 use depin_sdk_api::state::{PinGuard, StateAccessor, StateManager, StateOverlay};
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
-use depin_sdk_api::validator::WorkloadContainer;
+use depin_sdk_api::validator::WorkloadContainer; // <-- FIX 1: ADDED THIS IMPORT
 use depin_sdk_transaction_models::system::{nonce, validation};
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{
@@ -205,9 +205,10 @@ where
         let mut state = state_tree_arc.write().await;
 
         match state.get(STATUS_KEY) {
-            Ok(Some(status_bytes)) => {
+            // -- FIX 2: Use `ref` pattern to borrow the Vec<u8> instead of moving an unsized [u8]
+            Ok(Some(ref status_bytes)) => {
                 let status: ChainStatus =
-                    codec::from_bytes_canonical(&status_bytes).map_err(ChainError::Transaction)?;
+                    codec::from_bytes_canonical(status_bytes).map_err(ChainError::Transaction)?;
                 tracing::info!(target: "chain", event = "status_loaded", height = status.height, "Successfully loaded existing chain status from state manager.");
                 self.state.status = status;
                 let root = state.root_commitment().as_ref().to_vec();
@@ -396,26 +397,10 @@ where
         validation::verify_transaction_signature(overlay, &self.services, tx, &tx_ctx)?;
         nonce::assert_next_nonce(overlay, tx)?;
 
-        // Run TxDecorator services (except a narrow test-only bypass).
+        // Run TxDecorator services.
         for service in self.services.services_in_deterministic_order() {
             if let Some(decorator) = service.as_tx_decorator() {
-                #[cfg(feature = "svc-ibc")]
-                if matches!(tx,
-                    ChainTransaction::System(s)
-                        if matches!(&s.payload, depin_sdk_types::app::SystemPayload::CallService { service_id, method, .. }
-                            if service_id == "ibc" && method == "msg_dispatch@v1"))
-                {
-                    tracing::warn!(
-                        target = "ante",
-                        "Skipping TxDecorator stage for ibc::msg_dispatch@v1 (svc-ibc)"
-                    );
-                } else {
-                    decorator.ante_handle(overlay, tx, &tx_ctx).await?;
-                }
-                #[cfg(not(feature = "svc-ibc"))]
-                {
-                    decorator.ante_handle(overlay, tx, &tx_ctx).await?;
-                }
+                decorator.ante_handle(overlay, tx, &tx_ctx).await?;
             }
         }
 
@@ -691,8 +676,9 @@ where
             }
 
             match state.get(VALIDATOR_SET_KEY)? {
-                Some(bytes) => {
-                    let mut sets = read_validator_sets(&bytes)?;
+                // -- FIX 3: Use `ref` pattern to borrow the Vec<u8>
+                Some(ref bytes) => {
+                    let mut sets = read_validator_sets(bytes)?;
                     let mut modified = false;
                     if let Some(next_vs) = &sets.next {
                         if block.header.height >= next_vs.effective_from_height {

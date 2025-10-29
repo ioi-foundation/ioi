@@ -102,7 +102,7 @@ consensus-poa = ["depin-sdk-validator/consensus-poa"]
 consensus-pos = ["depin-sdk-validator/consensus-pos"]
 
 # Service Features
-svc-ibc = ["depin-sdk-validator/svc-ibc"]
+ibc-deps = ["depin-sdk-validator/ibc-deps"]
 
 # Feature for building the malicious binary for testing
 # This does not need to be propagated, as the test runner handles it.

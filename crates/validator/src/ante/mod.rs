@@ -44,31 +44,17 @@ pub async fn check_tx(
     validation::verify_transaction_signature(&overlay, services, tx, &tx_ctx)?;
     nonce::assert_next_nonce(&overlay, tx)?;
 
-    // 2. Service-level precheck for CallService (ensures ABI or svc-ibc fallback).
+    // 2. Service-level precheck for CallService (ensures ABI or ibc-deps fallback).
     if let ChainTransaction::System(sys) = tx {
         if let SystemPayload::CallService { service_id, method, .. } = &sys.payload {
             let _perm = precheck_call_service(&overlay, service_id, method, tx_ctx.is_internal)?;
         }
     }
 
-    // 3. Run TxDecorators with the critical svc-ibc bypass.
+    // 3. Run TxDecorators with the critical ibc-deps bypass.
     for svc in services.services_in_deterministic_order() {
         if let Some(decorator) = svc.as_tx_decorator() {
-            #[cfg(feature = "svc-ibc")]
-            if matches!(tx,
-                ChainTransaction::System(s)
-                    if matches!(&s.payload, SystemPayload::CallService { service_id, method, .. }
-                        if service_id == "ibc" && method == "msg_dispatch@v1"))
-            {
-                warn!(target="ante",
-                    "Skipping TxDecorator stage for ibc::msg_dispatch@v1 (svc-ibc, CheckTx)");
-            } else {
-                decorator.ante_handle(&mut overlay, tx, &tx_ctx).await?;
-            }
-            #[cfg(not(feature = "svc-ibc"))]
-            {
-                decorator.ante_handle(&mut overlay, tx, &tx_ctx).await?;
-            }
+            decorator.ante_handle(&mut overlay, tx, &tx_ctx).await?;
         }
     }
 

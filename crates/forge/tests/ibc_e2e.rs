@@ -5,7 +5,7 @@
     feature = "vm-wasm",
     feature = "tree-iavl",
     feature = "primitive-hash",
-    feature = "svc-ibc"
+    feature = "ibc-deps"
 ))]
 
 use anyhow::{anyhow, Result};

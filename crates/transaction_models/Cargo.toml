@@ -28,7 +28,4 @@ toml = { workspace = true }
 
 [features]
 default = []
-# This feature enables the conditional compilation of the IBC dispatch logic
-# within the transaction model, and it signals to the services crate
-# that its 'svc-ibc' feature should also be enabled.
-svc-ibc = ["depin-sdk-services/svc-ibc"]
+# ibc-deps feature has been removed as the logic is now unified.

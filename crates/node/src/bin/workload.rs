@@ -27,7 +27,7 @@ use depin_sdk_chain::Chain;
 use depin_sdk_consensus::util::engine_from_config;
 use depin_sdk_services::governance::GovernanceModule;
 // --- IBC Service Imports ---
-#[cfg(feature = "svc-ibc")]
+#[cfg(feature = "ibc-deps")]
 use depin_sdk_services::ibc::{
     channel::ChannelManager, light_client::tendermint::TendermintVerifier,
     registry::VerifierRegistry,
@@ -117,7 +117,7 @@ where
                     .push(Arc::new(oracle) as Arc<dyn depin_sdk_api::services::UpgradableService>);
             }
             // --- IBC Service Instantiation ---
-            #[cfg(feature = "svc-ibc")]
+            #[cfg(feature = "ibc-deps")]
             InitialServiceConfig::Ibc(ibc_config) => {
                 tracing::info!(target: "workload", event = "service_init", name = "IBC", impl="native", capabilities="");
                 // A real implementation would load client configurations from a file or config.
@@ -139,10 +139,10 @@ where
                 initial_services.push(Arc::new(ChannelManager::new())
                     as Arc<dyn depin_sdk_api::services::UpgradableService>);
             }
-            #[cfg(not(feature = "svc-ibc"))]
+            #[cfg(not(feature = "ibc-deps"))]
             InitialServiceConfig::Ibc(_) => {
                 return Err(anyhow!(
-                    "Workload configured for IBC, but not compiled with 'svc-ibc' feature."
+                    "Workload configured for IBC, but not compiled with 'ibc-deps' feature."
                 ));
             }
         }
