@@ -3,7 +3,7 @@
 //! internal communication for transaction submission and state queries.
 
 use crate::metrics::rpc_metrics as metrics;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use axum::{
     body::Body,
     error_handling::HandleErrorLayer,
@@ -319,6 +319,53 @@ async fn rpc_handler(
                 make_err(&payload.id, -32001, "Wrong chain ID".to_string()),
             );
         }
+
+        // [+] MODIFICATION: Pre-flight check via IPC to workload. This ensures
+        // the mempool and block proposer use the same validation logic.
+        let check_res = {
+            let root_res = app_state.workload_client.get_state_root().await;
+            match root_res {
+                Ok(root) => {
+                    let anchor_res = root.to_anchor();
+                    match anchor_res {
+                        Ok(anchor) => {
+                            app_state
+                                .workload_client
+                                .check_transactions_at(anchor, vec![tx.clone()])
+                                .await
+                        }
+                        Err(e) => Err(anyhow!("Failed to create anchor from root: {}", e)),
+                    }
+                }
+                Err(e) => Err(anyhow!("Failed to get state root for pre-check: {}", e)),
+            }
+        };
+
+        match check_res {
+            Ok(results) => {
+                if let Some(Err(e)) = results.first() {
+                    return (
+                        StatusCode::OK,
+                        make_err(
+                            &payload.id,
+                            -32000,
+                            format!("Transaction rejected by pre-check: {}", e),
+                        ),
+                    );
+                }
+            }
+            Err(e) => {
+                return (
+                    StatusCode::OK,
+                    make_err(
+                        &payload.id,
+                        -32000,
+                        format!("Transaction pre-check failed: {}", e),
+                    ),
+                );
+            }
+        }
+        // [+] END MODIFICATION
 
         {
             let mut pool = app_state.tx_pool.lock().await;

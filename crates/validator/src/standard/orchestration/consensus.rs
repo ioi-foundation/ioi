@@ -15,8 +15,8 @@ use depin_sdk_network::libp2p::SwarmCommand;
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_types::{
     app::{
-        account_id_from_key_material, read_validator_sets, to_root_hash, AccountId, Block,
-        BlockHeader, ChainTransaction, SignatureSuite, SystemPayload,
+        account_id_from_key_material, to_root_hash, AccountId, Block, BlockHeader,
+        ChainTransaction, SignatureSuite, StateRoot, SystemPayload,
     },
     codec, // Import the canonical codec
     keys::VALIDATOR_SET_KEY,
@@ -176,7 +176,7 @@ where
             );
             (pool.iter().cloned().collect::<Vec<_>>(), pool.len())
         };
-        // NEW: log every candidate kind so we see the IBC CallService
+        // log every candidate kind so we see the IBC CallService
         for (i, tx) in candidate_txs.iter().enumerate() {
             let payload_kind = match tx {
                 ChainTransaction::System(s) => match &s.payload {
@@ -196,12 +196,8 @@ where
             && known_peers_ref.lock().await.is_empty()
             && candidate_txs.is_empty()
         {
-            // This guard prevents a node configured for a multi-validator network from
-            // starting its own chain if it fails to discover peers before the sync timeout.
-            // We must check the on-chain validator set size to allow a single-node
-            // network to bootstrap correctly.
             let vs_size = match parent_view.get(VALIDATOR_SET_KEY).await {
-                Ok(Some(vs_bytes)) => read_validator_sets(&vs_bytes)
+                Ok(Some(vs_bytes)) => depin_sdk_types::app::read_validator_sets(&vs_bytes)
                     .map(|sets| sets.current.validators.len())
                     .unwrap_or(0),
                 _ => 0,
@@ -219,29 +215,32 @@ where
 
         tracing::info!(target: "consensus", event = "precheck_start", mempool_size = mempool_len_before);
 
-        let check_results = {
-            let workload_client = view_resolver
-                .as_any()
-                .downcast_ref::<DefaultViewResolver<V>>()
-                .ok_or_else(|| anyhow!("Could not downcast ViewResolver to get WorkloadClient"))?
-                .workload_client();
-            let anchor =
-                depin_sdk_types::app::StateRoot(parent_ref.state_root.clone()).to_anchor()?;
-            workload_client
-                .check_transactions_at(anchor, candidate_txs.clone())
-                .await?
-        };
-
-        tracing::info!(target: "consensus", event = "precheck_complete", num_results = check_results.len(), num_candidates = candidate_txs.len());
-        if check_results.len() != candidate_txs.len() {
-            tracing::error!(target: "consensus", "BUG: check_transactions_at result length mismatch; refusing to produce this tick.");
-            return Ok(());
-        }
+        // Canonical pre-check: call into Workload IPC (which now mirrors process_transaction)
         let mut valid_txs = Vec::new();
         let mut invalid_tx_hashes = HashSet::new();
-        for (i, result) in check_results.into_iter().enumerate() {
-            if let Err(e) = result {
-                if let Some(tx) = candidate_txs.get(i) {
+        let workload_client = view_resolver
+            .as_any()
+            .downcast_ref::<DefaultViewResolver<V>>()
+            .ok_or_else(|| anyhow!("Could not downcast ViewResolver to get WorkloadClient"))?
+            .workload_client();
+
+        // Anchor pre-checks at the parent view’s root (block N is built on state at N-1)
+        let parent_anchor = StateRoot(parent_ref.state_root.clone())
+            .to_anchor()
+            .map_err(|e| anyhow!("Failed to create parent anchor: {}", e))?;
+
+        for (i, tx) in candidate_txs.iter().enumerate() {
+            match workload_client
+                .check_transactions_at(parent_anchor, vec![tx.clone()])
+                .await
+            {
+                Ok(res) if res.first().is_some_and(|r| r.is_ok()) => valid_txs.push(tx.clone()),
+                Ok(res) => {
+                    let err = res
+                        .first()
+                        .and_then(|r| r.as_ref().err())
+                        .cloned()
+                        .unwrap_or_else(|| "Unknown pre-check failure".into());
                     let (signer, nonce, payload_kind) = match tx {
                         ChainTransaction::System(s) => (
                             s.header.account_id,
@@ -268,7 +267,6 @@ where
                             _ => (AccountId::default(), 0, "UTXO".to_string()),
                         },
                     };
-
                     tracing::warn!(
                         target: "orchestration",
                         event = "tx_filtered",
@@ -276,19 +274,28 @@ where
                         signer = %hex::encode(signer.as_ref()),
                         nonce = nonce,
                         payload = %payload_kind,
-                        error = %e,
+                        error = %err,
                         "pre-check rejected tx"
                     );
                     if let Ok(tx_hash) = hash_transaction(tx) {
                         invalid_tx_hashes.insert(tx_hash);
-                    } else {
-                        tracing::error!(target: "consensus", event = "tx_hash_fail", tx_index = i);
                     }
                 }
-            } else if let Some(tx) = candidate_txs.get(i) {
-                valid_txs.push(tx.clone());
+                Err(e) => {
+                    tracing::warn!(
+                        target = "orchestration",
+                        event = "check_tx_ipc_error",
+                        tx_index = i,
+                        error=%e,
+                        "treating as rejection"
+                    );
+                    if let Ok(tx_hash) = hash_transaction(tx) {
+                        invalid_tx_hashes.insert(tx_hash);
+                    }
+                }
             }
         }
+
         if !invalid_tx_hashes.is_empty() {
             let mut pool = tx_pool_ref.lock().await;
             pool.retain(|tx| {
@@ -320,7 +327,7 @@ where
                 return Err(anyhow!(msg));
             }
         };
-        let sets = read_validator_sets(&vs_bytes)?;
+        let sets = depin_sdk_types::app::read_validator_sets(&vs_bytes)?;
         let effective_vs = if let Some(next) = &sets.next {
             if height_being_built >= next.effective_from_height
                 && !next.validators.is_empty()

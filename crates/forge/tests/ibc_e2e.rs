@@ -14,17 +14,19 @@ use dcrypt::{api::Signature as DcryptSignature, sign::eddsa::Ed25519SecretKey};
 use depin_sdk_forge::testing::{
     build_test_artifacts,
     poll::{wait_for, wait_for_height},
-    rpc::query_state_key,
     TestCluster,
 };
 use depin_sdk_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, SignatureSuite, ValidatorSetV1,
-        ValidatorSetsV1, ValidatorV1,
+        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, SignatureSuite,
+        SystemPayload, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
-    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
+    keys::{
+        ACCOUNT_ID_TO_PUBKEY_PREFIX, ACCOUNT_NONCE_PREFIX, IDENTITY_CREDENTIALS_PREFIX,
+        VALIDATOR_SET_KEY,
+    },
     service_configs::MigrationConfig,
 };
 use ibc_client_tendermint::{
@@ -93,9 +95,6 @@ fn pb_minimal_commit_for_with_hash(header: &TmProtoHeader, header_hash: Vec<u8>)
         round: 0,
         block_id: Some(TmProtoBlockId {
             hash: header_hash.clone(),
-            // Create a valid PartSetHeader. For a single part, the hash is the hash of
-            // the part's bytes (which we don't have) plus the total. Using the header
-            // hash as a stand-in for the part bytes is a common testgen technique.
             part_set_header: {
                 let mut psh_bytes = Vec::new();
                 psh_bytes.extend_from_slice(&(1u32).to_be_bytes()); // total
@@ -156,7 +155,6 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
     let mock_cosmos_chain_id = "cosmos-hub-test";
     let gateway_addr = "127.0.0.1:9876";
 
-    // Build the validator set ONCE and reuse its components.
     let (_set_domain, shared_vals_hash, shared_proto_valset, shared_addr, shared_key) =
         one_validator_set_and_hash();
 
@@ -164,7 +162,7 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
     let cluster = TestCluster::builder()
         .with_validators(1)
         .with_chain_id(1)
-        .with_ibc_gateway(gateway_addr) // Correctly configure the gateway address
+        .with_ibc_gateway(gateway_addr)
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
             grace_period_blocks: 5,
@@ -181,8 +179,6 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
             let shared_vals_hash = shared_vals_hash.clone();
             move |genesis, keys| {
                 let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
-
-                // --- Setup Validator Identity ---
                 let keypair = &keys[0];
                 let pk_bytes = keypair.public().encode_protobuf();
                 let account_id_hash =
@@ -220,7 +216,7 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                                     suite: SignatureSuite::Ed25519,
                                     public_key_hash: account_id_hash,
                                     activation_height: 0,
-                                    l2_location: None
+                                    l2_location: None,
                                 }),
                                 None
                             ]
@@ -234,19 +230,21 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                     format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
                     json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes))),
                 );
+                let nonce_key = [ACCOUNT_NONCE_PREFIX, account_id.as_ref()].concat();
+                let nonce_bytes = codec::to_bytes_canonical(&0u64).expect("encode nonce");
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&nonce_key)),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&nonce_bytes))),
+                );
 
-                // --- Setup initial IBC client state in genesis ---
                 let client_id = ClientId::from_str(client_id).unwrap();
                 let client_state_path = ClientStatePath::new(client_id.clone());
-
-                // Build the protobuf ClientState directly (constructor removed in newer ibc-rs)
                 let client_state_pb = RawTmClientState {
                     chain_id: mock_cosmos_chain_id.to_string(),
                     trust_level: Some(ibc_client_tendermint::types::proto::v1::Fraction {
                         numerator: 1,
                         denominator: 3,
                     }),
-                    // use protobuf Duration directly
                     trusting_period: Some(PbDuration {
                         seconds: 14 * 24 * 60 * 60,
                         nanos: 0,
@@ -255,7 +253,6 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                         seconds: 21 * 24 * 60 * 60,
                         nanos: 0,
                     }),
-                    // 3000ms -> 3s
                     max_clock_drift: Some(PbDuration {
                         seconds: 3,
                         nanos: 0,
@@ -264,17 +261,15 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                         revision_number: 0,
                         revision_height: 1,
                     }),
-                    // Convert proof specs to protobuf
                     proof_specs: {
-                        // unwrap the wrapper -> Vec<ProofSpec> using Into
                         let specs: Vec<_> = ProofSpecs::cosmos().into();
-                        specs
-                            .into_iter()
-                            .map(Into::into) // ibc-core -> ibc-proto conversion
-                            .collect()
+                        specs.into_iter().map(Into::into).collect()
                     },
-                    // Standard upgrade path for tendermint light client
                     upgrade_path: vec!["upgrade".into(), "upgradedIBCState".into()],
+                    frozen_height: Some(ibc_proto::ibc::core::client::v1::Height {
+                        revision_number: 0,
+                        revision_height: 0,
+                    }),
                     ..Default::default()
                 };
                 let client_state_bytes = client_state_pb.encode_to_vec();
@@ -285,7 +280,6 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                         BASE64_STANDARD.encode(client_state_bytes)
                     )),
                 );
-
                 let consensus_state_pb = RawTmConsensusState {
                     timestamp: Some(IbcTimestamp {
                         seconds: 1,
@@ -303,87 +297,16 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                         BASE64_STANDARD.encode(consensus_state_bytes)
                     )),
                 );
-
-                // --- Ensure the IBC service ABI lists msg_dispatch@v1 as User ---
-                {
-                    use depin_sdk_types::keys::active_service_key;
-                    use depin_sdk_types::service_configs::{ActiveServiceMeta, MethodPermission};
-
-                    // Compute the raw key bytes the dispatcher will query at runtime.
-                    let meta_key_bytes = active_service_key("ibc");
-
-                    // In genesis JSON, keys might appear either as plain UTF-8 or under a "b64:<...>" wrapper.
-                    // Find the exact JSON key that corresponds to the raw bytes key.
-                    let find_json_key_for = |state: &serde_json::Map<String, serde_json::Value>,
-                                             raw: &[u8]|
-                     -> Option<String> {
-                        // 1) Try exact UTF-8 match
-                        if let Ok(utf) = std::str::from_utf8(raw) {
-                            if state.contains_key(utf) {
-                                return Some(utf.to_string());
-                            }
-                        }
-                        // 2) Try b64-wrapped form
-                        let b64k = format!("b64:{}", BASE64_STANDARD.encode(raw));
-                        if state.contains_key(&b64k) {
-                            return Some(b64k);
-                        }
-                        // 3) As a last resort, scan for any b64 key that decodes to raw
-                        for k in state.keys() {
-                            if let Some(rest) = k.strip_prefix("b64:") {
-                                if let Ok(kbytes) = BASE64_STANDARD.decode(rest) {
-                                    if kbytes == raw {
-                                        return Some(k.clone());
-                                    }
-                                }
-                            }
-                        }
-                        None
-                    };
-
-                    if let Some(meta_json_key) = find_json_key_for(genesis_state, &meta_key_bytes) {
-                        // Decode the existing meta value
-                        if let Some(v) = genesis_state.get(&meta_json_key) {
-                            if let Some(s) = v.as_str() {
-                                if let Some(rest) = s.strip_prefix("b64:") {
-                                    if let Ok(bytes) = BASE64_STANDARD.decode(rest) {
-                                        if let Ok(mut meta) =
-                                            codec::from_bytes_canonical::<ActiveServiceMeta>(&bytes)
-                                        {
-                                            // Authorize the methods we need for this test
-                                            meta.methods
-                                                .insert("verify_header@v1".into(), MethodPermission::User);
-                                            meta.methods
-                                                .insert("recv_packet@v1".into(), MethodPermission::User);
-                                            meta.methods
-                                                .insert("msg_dispatch@v1".into(), MethodPermission::User);
-                                            // Re-encode and store
-                                            let out = codec::to_bytes_canonical(&meta)
-                                                .expect("serialize ActiveServiceMeta");
-                                            genesis_state.insert(
-                                                meta_json_key,
-                                                json!(format!("b64:{}", BASE64_STANDARD.encode(out))),
-                                            );
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        // If we fail to locate the meta in JSON, we leave it as-is. A runtime safety-net
-                        // in the dispatcher (see patch below) will still allow ibc::msg_dispatch@v1 under svc-ibc.
-                        eprintln!("WARN: could not locate ActiveServiceMeta('ibc') in genesis JSON; using runtime fallback.");
-                    }
-                }
             }
         })
         .build()
         .await?;
 
-    let rpc_addr = &cluster.validators[0].rpc_addr;
+    let node = &cluster.validators[0];
+    let rpc_addr = &node.rpc_addr;
     wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
 
-    // 3. QUERY INITIAL STATE VIA HTTP GATEWAY (A0 Acceptance Criteria)
+    // 3. QUERY INITIAL STATE VIA HTTP GATEWAY
     let http_client = Client::new();
     let client_id_parsed = ClientId::from_str(client_id)?;
     let client_state_path = ClientStatePath::new(client_id_parsed.clone());
@@ -406,7 +329,7 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
     assert_eq!(cs_from_gateway.chain_id, mock_cosmos_chain_id);
     println!("SUCCESS: Queried and verified initial client state via HTTP gateway.");
 
-    // 4. SUBMIT A HEADER UPDATE VIA HTTP GATEWAY (A0 Acceptance Criteria)
+    // 4. SUBMIT A HEADER UPDATE VIA A DIRECT, SIGNED SERVICE CALL
     let header_bytes = {
         let light_block_h2: TmLightBlock = TmLightBlock::new_default(2);
         let mut hdr = pb_header_from_testgen(light_block_h2.header.clone().unwrap());
@@ -417,10 +340,9 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
         let hdr_domain: tendermint::block::Header = hdr.clone().try_into()?;
         let header_hash = hdr_domain.hash().as_bytes().to_vec();
 
-        // Create a single, valid PartSetHeader and use it consistently.
         let psh_hash = {
             let mut psh_bytes = Vec::new();
-            psh_bytes.extend_from_slice(&(1u32).to_be_bytes()); // total
+            psh_bytes.extend_from_slice(&(1u32).to_be_bytes());
             psh_bytes.extend_from_slice(&header_hash);
             depin_sdk_crypto::algorithms::hash::sha256(&psh_bytes)?.to_vec()
         };
@@ -451,13 +373,10 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
         let sig = dcrypt::sign::eddsa::Ed25519::sign(&sign_bytes, &shared_key)?;
 
         let mut commit = pb_minimal_commit_for_with_hash(&hdr, header_hash);
-        // Ensure the BlockId in the commit is identical to the one signed.
         commit.block_id = Some(TmProtoBlockId {
             hash: block_id.hash.as_bytes().to_vec(),
             part_set_header: Some(block_id.part_set_header.into()),
         });
-
-        // Add the signature to the commit.
         commit.signatures.push(TmProtoCommitSig {
             block_id_flag: 2,
             validator_address: shared_addr.clone(),
@@ -488,38 +407,69 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
             type_url: "/ibc.lightclients.tendermint.v1.Header".to_string(),
             value: header_bytes,
         },
-        signer: "depin1...".to_string().into(),
+        signer: "some-cosmos-signer".to_string().into(),
     };
     let any_msg = Any {
         type_url: "/ibc.core.client.v1.MsgUpdateClient".to_string(),
-        value: msg_update_client.encode_vec(), // trait Protobuf now in scope
+        value: msg_update_client.encode_vec(),
     };
-    let submit_payload = vec![any_msg];
-
-    let submit_resp: serde_json::Value = http_client
-        .post(format!("http://{}/v1/ibc/submit", gateway_addr))
-        .json(&{
-            // You cannot encode Vec<Any>; wrap in a TxBody and encode that.
-            let body = TxBody {
-                messages: submit_payload,
-                memo: String::new(),
-                timeout_height: 0,
-                extension_options: vec![],
-                non_critical_extension_options: vec![],
-            };
-            json!({
-                "msgs_pb": BASE64_STANDARD.encode(body.encode_to_vec())
-            })
-        })
-        .send()
-        .await?
-        .json()
-        .await?;
-    assert!(submit_resp["tx_hash"].as_str().is_some());
-    println!(
-        "SUCCESS: Submitted MsgUpdateClient via HTTP gateway, got tx hash: {}",
-        submit_resp["tx_hash"]
+    let tx_body = TxBody {
+        messages: vec![any_msg],
+        memo: String::new(),
+        timeout_height: 0,
+        extension_options: vec![],
+        non_critical_extension_options: vec![],
+    };
+    let call_params = tx_body.encode_to_vec();
+    let validator_key = &cluster.validators[0].keypair;
+    let validator_account_id = AccountId(
+        account_id_from_key_material(
+            SignatureSuite::Ed25519,
+            &validator_key.public().encode_protobuf(),
+        )
+        .unwrap(),
     );
+
+    let next_nonce: u64 = {
+        let nonce_key = [ACCOUNT_NONCE_PREFIX, validator_account_id.as_ref()].concat();
+        match depin_sdk_forge::testing::rpc::query_state_key(rpc_addr, &nonce_key).await {
+            Ok(Some(bytes)) => codec::from_bytes_canonical::<u64>(&bytes).unwrap_or(0),
+            _ => 0,
+        }
+    };
+    println!(
+        "Using on-chain next_nonce={} for validator account",
+        next_nonce
+    );
+
+    let call_tx = {
+        let payload = SystemPayload::CallService {
+            service_id: "ibc".to_string(),
+            method: "msg_dispatch@v1".to_string(),
+            params: call_params,
+        };
+        let mut tx_to_sign = depin_sdk_types::app::SystemTransaction {
+            header: depin_sdk_types::app::SignHeader {
+                account_id: validator_account_id,
+                nonce: next_nonce,
+                chain_id: 1.into(),
+                tx_version: 1,
+            },
+            payload,
+            signature_proof: Default::default(),
+        };
+        let sign_bytes = tx_to_sign.to_sign_bytes().unwrap();
+        let signature = validator_key.sign(&sign_bytes).unwrap();
+        tx_to_sign.signature_proof = depin_sdk_types::app::SignatureProof {
+            suite: SignatureSuite::Ed25519,
+            public_key: validator_key.public().encode_protobuf(),
+            signature,
+        };
+        ChainTransaction::System(Box::new(tx_to_sign))
+    };
+
+    depin_sdk_forge::testing::submit_transaction(&node.rpc_addr, &call_tx).await?;
+    println!("SUCCESS: Submitted MsgUpdateClient via signed CallService transaction.");
 
     // 5. VERIFY ON-CHAIN STATE
     wait_for_height(rpc_addr, 2, Duration::from_secs(20)).await?;
@@ -529,7 +479,11 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
         Duration::from_millis(250),
         Duration::from_secs(30),
         || async {
-            query_state_key(rpc_addr, consensus_state_path_h2.to_string().as_bytes()).await
+            depin_sdk_forge::testing::rpc::query_state_key(
+                rpc_addr,
+                consensus_state_path_h2.to_string().as_bytes(),
+            )
+            .await
         },
     )
     .await?;
