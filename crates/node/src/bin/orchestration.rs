@@ -15,7 +15,7 @@ use depin_sdk_network::libp2p::Libp2pSync;
 use depin_sdk_network::metrics as network_metrics;
 use depin_sdk_services::governance::GovernanceModule;
 // --- IBC Service Imports ---
-#[cfg(feature = "svc-ibc")]
+#[cfg(feature = "ibc-deps")]
 use depin_sdk_services::ibc::{
     channel::ChannelManager, light_client::tendermint::TendermintVerifier,
     registry::VerifierRegistry,
@@ -285,7 +285,7 @@ where
                     let oracle = OracleService::new();
                     initial_services.push(Arc::new(oracle) as Arc<dyn UpgradableService>);
                 }
-                #[cfg(feature = "svc-ibc")]
+                #[cfg(feature = "ibc-deps")]
                 InitialServiceConfig::Ibc(ibc_config) => {
                     // Orchestration needs to know about the IBC handler for tx pre-checks,
                     // even if the full logic lives in the workload.
@@ -307,7 +307,7 @@ where
                     initial_services
                         .push(Arc::new(ChannelManager::new()) as Arc<dyn UpgradableService>);
                 }
-                #[cfg(not(feature = "svc-ibc"))]
+                #[cfg(not(feature = "ibc-deps"))]
                 InitialServiceConfig::Ibc(_) => {
                     // IBC feature not compiled in, but config asks for it. Do nothing.
                     // The transaction model will correctly reject the tx as unsupported.

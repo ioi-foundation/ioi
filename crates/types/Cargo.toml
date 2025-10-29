@@ -23,4 +23,4 @@ default = []
 # Experimental PQC algorithms are gated here, not in the API.
 experimental-pqc = []
 # Declare the feature so cfg attributes can use it.
-svc-ibc = []
+ibc-deps = []

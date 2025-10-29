@@ -624,7 +624,7 @@ pub enum SystemPayload {
     RotateKey(RotationProof),
 
     /// Explicitly submit a header update to an on-chain light client.
-    #[cfg_attr(not(feature = "svc-ibc"), allow(dead_code))]
+    #[cfg_attr(not(feature = "ibc-deps"), allow(dead_code))]
     #[deprecated(
         note = "Use CallService { service_id: \"ibc\", method: \"verify_header@v1\", params: SCALE_ENCODE((chain_id, header, finality)) }"
     )]
@@ -649,7 +649,7 @@ pub enum SystemPayload {
         public_inputs: Vec<u8>,
     },
     /// Send an IBC-style packet.
-    #[cfg_attr(not(feature = "svc-ibc"), allow(dead_code))]
+    #[cfg_attr(not(feature = "ibc-deps"), allow(dead_code))]
     #[deprecated(
         note = "Use CallService { service_id: \"ibc_channel_manager\", method: \"send_packet@v1\", ... }"
     )]
@@ -666,7 +666,7 @@ pub enum SystemPayload {
         timeout_timestamp: u64,
     },
     /// Receive an IBC-style packet, proven against a verified header.
-    #[cfg_attr(not(feature = "svc-ibc"), allow(dead_code))]
+    #[cfg_attr(not(feature = "ibc-deps"), allow(dead_code))]
     #[deprecated(
         note = "Use CallService { service_id: \"ibc_channel_manager\", method: \"recv_packet@v1\", ... }"
     )]
@@ -679,7 +679,7 @@ pub enum SystemPayload {
         proof_height: u64,
     },
     /// Acknowledge a received packet.
-    #[cfg_attr(not(feature = "svc-ibc"), allow(dead_code))]
+    #[cfg_attr(not(feature = "ibc-deps"), allow(dead_code))]
     #[deprecated(
         note = "Use CallService { service_id: \"ibc_channel_manager\", method: \"acknowledge_packet@v1\", ... }"
     )]

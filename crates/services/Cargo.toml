@@ -55,7 +55,7 @@ default = []
 gas-escrow = []
 agentic = ["gas-escrow"]
 # This feature flag bundles all dependencies required for the native IBC service.
-svc-ibc = [
+ibc-deps = [
     "dep:ibc-client-tendermint",
     "dep:ibc-core-client-types",
     "dep:ibc-core-commitment-types",

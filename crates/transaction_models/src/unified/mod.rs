@@ -222,34 +222,13 @@ where
                         let maybe_meta_bytes = state.get(&meta_key)?;
 
                         // Parse meta if present; otherwise, allow a test-only fallback for ibc::msg_dispatch@v1.
-                        let meta_opt: Option<ActiveServiceMeta> = if let Some(bytes) =
-                            maybe_meta_bytes
-                        {
+                        let meta_opt: Option<ActiveServiceMeta> = if let Some(bytes) = maybe_meta_bytes {
                             Some(codec::from_bytes_canonical::<ActiveServiceMeta>(&bytes)?)
                         } else {
-                            #[cfg(feature = "svc-ibc")]
-                            {
-                                if service_id == "ibc" && method == "msg_dispatch@v1" {
-                                    tracing::warn!(
-                                        target = "service_dispatch",
-                                        "ActiveServiceMeta missing for {}::{}; allowing as User (svc-ibc feature)",
-                                        service_id, method
-                                    );
-                                    None
-                                } else {
-                                    return Err(TransactionError::Unsupported(format!(
-                                        "Service '{}' is not active",
-                                        service_id
-                                    )));
-                                }
-                            }
-                            #[cfg(not(feature = "svc-ibc"))]
-                            {
-                                return Err(TransactionError::Unsupported(format!(
-                                    "Service '{}' is not active",
-                                    service_id
-                                )));
-                            }
+                            return Err(TransactionError::Unsupported(format!(
+                                "Service '{}' is not active",
+                                service_id
+                            )));
                         };
 
                         // Check administrative disablement (safe to do even if meta was missing).
@@ -272,43 +251,10 @@ where
                             .and_then(|m| m.methods.get(method).cloned())
                         {
                             Some(p) => p,
-                            None => {
-                                #[cfg(feature = "svc-ibc")]
-                                {
-                                    if service_id == "ibc" && method == "msg_dispatch@v1" {
-                                        tracing::warn!(
-                                            target = "service_dispatch",
-                                            "Method entry missing for {}::{}; allowing as User (svc-ibc feature)",
-                                            service_id, method
-                                        );
-                                        depin_sdk_types::service_configs::MethodPermission::User
-                                    } else {
-                                        tracing::warn!(
-                                            target = "service_dispatch",
-                                            "Method '{}' not found in service '{}' ABI",
-                                            method,
-                                            service_id
-                                        );
-                                        return Err(TransactionError::Unsupported(format!(
-                                            "Method '{}' not found in service '{}' ABI",
-                                            method, service_id
-                                        )));
-                                    }
-                                }
-                                #[cfg(not(feature = "svc-ibc"))]
-                                {
-                                    tracing::warn!(
-                                        target = "service_dispatch",
-                                        "Method '{}' not found in service '{}' ABI",
-                                        method,
-                                        service_id
-                                    );
-                                    return Err(TransactionError::Unsupported(format!(
-                                        "Method '{}' not found in service '{}' ABI",
-                                        method, service_id
-                                    )));
-                                }
-                            }
+                            None => return Err(TransactionError::Unsupported(format!(
+                                "Method '{}' not found in service '{}' ABI",
+                                method, service_id
+                            ))),
                         };
                         match permission {
                             MethodPermission::Internal => {

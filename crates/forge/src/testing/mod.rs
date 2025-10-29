@@ -1027,8 +1027,8 @@ impl TestClusterBuilder {
     pub fn with_initial_service(mut self, service_config: InitialServiceConfig) -> Self {
         // [+] MODIFIED: Automatically detect required features.
         if let InitialServiceConfig::Ibc(_) = &service_config {
-            if !self.extra_features.contains(&"svc-ibc".to_string()) {
-                self.extra_features.push("svc-ibc".to_string());
+            if !self.extra_features.contains(&"ibc-deps".to_string()) {
+                self.extra_features.push("ibc-deps".to_string());
             }
         }
         self.initial_services.push(service_config);

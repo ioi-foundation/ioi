@@ -84,7 +84,7 @@ primitive-kzg = ["depin-sdk-commitment/primitive-kzg"]
 # --- FIX END ---
 
 # Service Features
-svc-ibc = ["depin-sdk-services/svc-ibc", "depin-sdk-transaction-models/svc-ibc"]
+ibc-deps = ["depin-sdk-services/ibc-deps"]
 
 [[bin]]
 name = "orchestration"

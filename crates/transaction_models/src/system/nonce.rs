@@ -43,19 +43,15 @@ pub fn assert_next_nonce<S: StateAccessor + ?Sized>(
             Some(b) => depin_sdk_types::codec::from_bytes_canonical(&b)
                 .map_err(TransactionError::Deserialization)?,
             None => {
-                // TEST-ONLY SAFETY NET: allow first tx when the nonce record isn't written yet.
-                // Gated behind svc-ibc so production stays strict.
-                #[cfg(feature = "svc-ibc")]
-                {
+                // If the nonce record doesn't exist, it must be the account's first transaction (nonce 0).
+                if nonce == 0 {
                     warn!(
                         target = "ante",
-                        "nonce record missing for signer {}; assuming expected=0 (svc-ibc)",
+                        "nonce record missing for signer {}; allowing nonce=0 for bootstrap",
                         hex::encode(account_id.as_ref())
                     );
                     0
-                }
-                #[cfg(not(feature = "svc-ibc"))]
-                {
+                } else {
                     return Err(TransactionError::Invalid("Nonce record not found".into()));
                 }
             }

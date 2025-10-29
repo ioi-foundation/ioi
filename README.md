@@ -189,7 +189,10 @@ cargo test --workspace
 | **Module Upgrade** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" --test module_upgrade_e2e -- --nocapture` |
 | **Agentic Consensus** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" --test agentic_consensus_e2e -- --nocapture --test-threads=1` |
 | **Oracle** | `cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-iavl,primitive-hash" --test oracle_e2e -- --nocapture` |
-| **Interoperability** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash,svc-ibc" --test ibc_e2e -- --nocapture` |
+| **Interoperability** | `RUST_LOG=build=info,ante=debug,mempool=debug,service_dispatch=debug,ibc=debug,state=info,chain=info \
+cargo test -p depin-sdk-forge --release \
+  --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash,ibc-deps" \
+  --test ibc_e2e -- --nocapture` |
 
 cargo test -p depin-sdk-forge --test proof_verification_e2e --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash,malicious-bin" -- --nocapture
 
