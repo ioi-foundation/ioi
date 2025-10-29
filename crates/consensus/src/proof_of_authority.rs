@@ -162,7 +162,9 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         };
         // FIX: Use the effective validator set for the target height.
         let vs = effective_set_for_height(&sets, height);
-        let validator_set: Vec<_> = vs.validators.iter().map(|v| v.account_id).collect();
+        let mut validator_set: Vec<_> = vs.validators.iter().map(|v| v.account_id).collect();
+        // >>> Normalize order across nodes <<<
+        validator_set.sort();
 
         if validator_set.is_empty() {
             return if height == 1 {
@@ -172,9 +174,10 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             };
         }
 
-        let leader_index = ((height + view)
-            .checked_rem(validator_set.len() as u64)
-            .unwrap_or(0)) as usize;
+        let n = validator_set.len() as u64;
+        // Height 1 -> index 0, Height 2 -> index 1, etc. (then add view)
+        let round = height.saturating_sub(1).saturating_add(view);
+        let leader_index = (round % n) as usize;
 
         if let Some(leader) = validator_set.get(leader_index) {
             if *leader == *our_account_id {
@@ -198,10 +201,16 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
     {
         let header = &block.header;
 
+        // [+] GUARD: Prevent underflow for genesis block proposals
+        if header.height == 0 {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "Cannot process a proposal for the genesis block.".into(),
+            ));
+        }
+
         let parent_state_ref = depin_sdk_api::chain::StateRef {
             height: header.height - 1,
-            // FIX: Use .to_vec() to support variable-length state roots (e.g., Verkle Tree commitments)
-            // without assuming a fixed 32-byte length, which would cause a panic.
+            // [+] FIX: Use .to_vec() to support variable-length state roots.
             state_root: header.parent_state_root.as_ref().to_vec(),
             block_hash: header.parent_hash,
         };
@@ -218,9 +227,10 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             .ok_or_else(|| ConsensusError::StateAccess(StateError::KeyNotFound))?;
         let sets = read_validator_sets(&vs_bytes)
             .map_err(|e| ConsensusError::StateAccess(StateError::InvalidValue(e.to_string())))?;
-        // FIX: Use the effective validator set for the block being verified.
+        // [+] FIX: Use the effective validator set for the block being verified.
         let vs = effective_set_for_height(&sets, header.height);
-        let validator_set: Vec<_> = vs.validators.iter().map(|v| v.account_id).collect();
+        let mut validator_set: Vec<_> = vs.validators.iter().map(|v| v.account_id).collect();
+        validator_set.sort();
         if validator_set
             .binary_search(&header.producer_account_id)
             .is_err()
@@ -230,7 +240,6 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             ));
         }
 
-        // The logic for fetching the ActiveKeyRecord from a view is now restored.
         let active_key_suite;
         let active_key_hash;
         {
@@ -267,10 +276,9 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         })?;
         verify_signature(&preimage, pubkey, active_key_suite, &header.signature)?;
 
-        let leader_index = (header
-            .height
-            .checked_rem(validator_set.len() as u64)
-            .unwrap_or(0)) as usize;
+        let n = validator_set.len() as u64;
+        // Verify using the same schedule: Height 1 -> index 0
+        let leader_index = (header.height.saturating_sub(1) % n) as usize;
 
         let expected_leader =
             validator_set

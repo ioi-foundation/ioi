@@ -22,7 +22,7 @@ use depin_sdk_types::{
     keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
     service_configs::MigrationConfig,
 };
-use libp2p::identity::{self, Keypair};
+use libp2p::identity::Keypair;
 use serde_json::json;
 use std::collections::BTreeMap;
 use std::time::Duration;
@@ -222,7 +222,22 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         account_id_from_key_material(SignatureSuite::Ed25519, &offender2_pk_bytes)?;
     let offender2_id = AccountId(offender2_id_hash);
     let tx2 = create_report_tx(&reporter.keypair, offender2_id, 1, 1.into())?; // increment nonce
-    submit_transaction(rpc_addr, &tx2).await?;
+
+    // *** FIX START: Expect this transaction to fail ***
+    let submission_result = submit_transaction(rpc_addr, &tx2).await;
+    assert!(
+        submission_result.is_err(),
+        "Transaction should have been rejected by the liveness guard"
+    );
+    if let Err(e) = submission_result {
+        let error_message = e.to_string();
+        assert!(
+            error_message.contains("Quarantine would jeopardize network liveness"),
+            "Transaction was rejected for the wrong reason: {}",
+            error_message
+        );
+    }
+    // *** FIX END ***
 
     // Assert 2: Liveness guard rejected the transaction by asserting state hasn't changed after a delay.
     time::sleep(Duration::from_secs(10)).await;

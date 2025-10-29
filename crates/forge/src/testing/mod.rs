@@ -1080,10 +1080,10 @@ impl TestClusterBuilder {
                 self.initial_services.clone(),
                 self.use_malicious_workload,
                 false, // Full readiness check for the bootnode
-                // [+] MODIFIED: Pass the slice of extra features
                 &self.extra_features,
             )
             .await?;
+
             bootnode_addrs.push(bootnode.p2p_addr.clone());
             validators.push(bootnode);
         }
@@ -1103,7 +1103,6 @@ impl TestClusterBuilder {
                 let captured_use_docker = self.use_docker;
                 let captured_services = self.initial_services.clone();
                 let captured_malicious = self.use_malicious_workload;
-                // [+] MODIFIED: Capture the extra features
                 let captured_extra_features = self.extra_features.clone();
                 let key_clone = key.clone();
 
@@ -1123,7 +1122,6 @@ impl TestClusterBuilder {
                         captured_services,
                         captured_malicious,
                         false, // Full readiness check for subsequent nodes
-                        // [+] MODIFIED: Pass the captured extra features
                         &captured_extra_features,
                     )
                     .await
@@ -1137,35 +1135,17 @@ impl TestClusterBuilder {
         }
         validators.sort_by(|a, b| a.peer_id.cmp(&b.peer_id));
 
-        // Wait for all nodes in the cluster to reach a common height (e.g., 2),
-        // proving that the network is connected and consensus is progressing.
+        // Wait for all nodes in the cluster to reach a common height.
         if validators.len() > 1 {
             println!("--- Waiting for cluster to sync to height 2 ---");
-            // First, ensure the bootnode produces block 1 to kickstart the chain.
-            wait_for_height(&validators[0].rpc_addr, 1, Duration::from_secs(30)).await?;
-            // Give a brief moment for gossip and peer connections to stabilize.
-            tokio::time::sleep(Duration::from_secs(1)).await;
-
-            let mut wait_futs = FuturesUnordered::new();
+            // Wait for each node to see at least height 1, then height 2 overall.
+            // This is more robust than just waiting for height 2 on all, as it ensures
+            // the genesis block was processed by all before expecting further progress.
             for v in &validators {
-                let rpc_addr = v.rpc_addr.clone();
-                let peer_id = v.peer_id;
-                let fut = async move {
-                    wait_for_height(&rpc_addr, 2, Duration::from_secs(90))
-                        .await
-                        .map_err(|e| {
-                            anyhow!(
-                                "Node {} (rpc: {}) failed to sync to height 2 after bootnode reached H=1: {}",
-                                peer_id,
-                                rpc_addr,
-                                e
-                            )
-                        })
-                };
-                wait_futs.push(fut);
+                wait_for_height(&v.rpc_addr, 1, Duration::from_secs(30)).await?;
             }
-            while let Some(res) = wait_futs.next().await {
-                res?; // Propagate error if any wait fails
+            for v in &validators {
+                wait_for_height(&v.rpc_addr, 2, Duration::from_secs(30)).await?;
             }
             println!("--- All nodes synced. Cluster is ready. ---");
         }

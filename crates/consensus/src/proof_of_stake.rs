@@ -68,15 +68,19 @@ impl ProofOfStakeEngine {
         if vs.validators.is_empty() || vs.total_weight == 0 {
             return None;
         }
+        // >>> Ensure identical ordering across all nodes <<<
+        let mut ordered = vs.validators.clone();
+        ordered.sort_by(|a, b| a.account_id.cmp(&b.account_id));
+
         let seed = height.to_le_bytes();
         let hash = sha256(seed).ok()?;
         let winning_ticket =
             u128::from_le_bytes(hash.get(0..16)?.try_into().ok()?) % vs.total_weight;
         let mut cumulative_weight: u128 = 0;
-        for validator in &vs.validators {
-            cumulative_weight += validator.weight;
+        for v in &ordered {
+            cumulative_weight += v.weight;
             if winning_ticket < cumulative_weight {
-                return Some(validator.account_id);
+                return Some(v.account_id);
             }
         }
         None
@@ -157,7 +161,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 .and_then(|opt| opt.as_ref())
                 .is_some()
         );
-        // --- FIX: Add retry logic for the critical validator set lookup ---
+        // --- [+] FIX: Add retry logic for the critical validator set lookup ---
         let vs_bytes_result = {
             let mut last_error: Option<String> = None;
             let mut result: Option<Vec<u8>> = None;
@@ -290,11 +294,18 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             header.height,
             producer_short_id
         );
+
+        // [+] GUARD: Prevent underflow for genesis block proposals
+        if header.height == 0 {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "Cannot process a proposal for the genesis block.".into(),
+            ));
+        }
+
         let parent_state_ref = depin_sdk_api::chain::StateRef {
             height: header.height - 1,
-            state_root: header.parent_state_root.as_ref().try_into().map_err(|_| {
-                ConsensusError::BlockVerificationFailed("Invalid parent state root".into())
-            })?,
+            // [+] FIX: Use .to_vec() to support variable-length state roots.
+            state_root: header.parent_state_root.as_ref().to_vec(),
             block_hash: header.parent_hash,
         };
         log::debug!(
@@ -318,6 +329,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             .ok_or(ConsensusError::StateAccess(StateError::KeyNotFound))?;
         let sets: ValidatorSetsV1 = read_validator_sets(&vs_bytes)
             .map_err(|e| ConsensusError::StateAccess(StateError::InvalidValue(e.to_string())))?;
+        // [+] FIX: Use the effective set for the *current* block's height.
         let vs = effective_set_for_height(&sets, header.height);
         log::debug!(
             "[PoS Verify H={}] Validator set read successfully.",
