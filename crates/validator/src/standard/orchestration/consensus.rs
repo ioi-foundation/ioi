@@ -165,7 +165,6 @@ where
             }
         };
 
-        let parent_view = view_resolver.resolve_anchored(&parent_ref).await?;
         let (candidate_txs, mempool_len_before) = {
             let pool = tx_pool_ref.lock().await;
             tracing::debug!(
@@ -188,29 +187,6 @@ where
                 ChainTransaction::Application(a) => format!("{a:?}"),
             };
             tracing::debug!(target="orchestration", event="precheck_candidate", idx=i, %payload_kind);
-        }
-
-        if height_being_built == 1
-            && node_state == NodeState::Syncing
-            && allow_bootstrap
-            && known_peers_ref.lock().await.is_empty()
-            && candidate_txs.is_empty()
-        {
-            let vs_size = match parent_view.get(VALIDATOR_SET_KEY).await {
-                Ok(Some(vs_bytes)) => depin_sdk_types::app::read_validator_sets(&vs_bytes)
-                    .map(|sets| sets.current.validators.len())
-                    .unwrap_or(0),
-                _ => 0,
-            };
-
-            if vs_size > 1 {
-                tracing::info!(
-                    target: "consensus",
-                    event = "skip_empty_block",
-                    "Multi-validator genesis with no peers; skipping empty block to wait for sync."
-                );
-                return Ok(());
-            }
         }
 
         tracing::info!(target: "consensus", event = "precheck_start", mempool_size = mempool_len_before);
@@ -283,7 +259,7 @@ where
                 }
                 Err(e) => {
                     tracing::warn!(
-                        target = "orchestration",
+                        target: "orchestration",
                         event = "check_tx_ipc_error",
                         tx_index = i,
                         error=%e,
@@ -319,6 +295,8 @@ where
             tracing::debug!(target="orchestration", event="precheck_valid", idx=i, %payload_kind);
         }
         tracing::info!(target: "consensus", event = "producing_block", height = height_being_built, num_txs = valid_txs.len());
+
+        let parent_view = view_resolver.resolve_anchored(&parent_ref).await?;
         let vs_bytes = match parent_view.get(VALIDATOR_SET_KEY).await {
             Ok(Some(b)) => b,
             _ => {

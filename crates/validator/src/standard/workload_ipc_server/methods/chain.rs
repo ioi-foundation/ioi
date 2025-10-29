@@ -20,7 +20,6 @@ use depin_sdk_types::{
 };
 use serde::{Deserialize, Serialize};
 use std::{any::Any, collections::BTreeSet, marker::PhantomData, sync::Arc};
-use tracing::warn;
 
 // --- chain.getBlocksRange.v1 ---
 
