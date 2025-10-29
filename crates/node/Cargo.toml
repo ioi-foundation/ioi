@@ -106,7 +106,15 @@ consensus-pos = ["depin-sdk-validator/consensus-pos", "depin-sdk-consensus/pos"]
 vm-wasm = ["dep:depin-sdk-vm-wasm"]
 
 # Service Features
-svc-ibc = ["depin-sdk-services/svc-ibc"]
+svc-ibc = [
+    "depin-sdk-services/svc-ibc",
+    "depin-sdk-transaction-models/svc-ibc",
+    "depin-sdk-validator/svc-ibc",
+    "depin-sdk-chain/svc-ibc",
+]
+
+# Feature for building the malicious binary for testing
+# This does not need to be propagated, as the test runner handles it.
 
 
 [[bin]]

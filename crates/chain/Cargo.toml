@@ -41,3 +41,4 @@ depin-sdk-vm-wasm = { path = "../vm/wasm" }
 
 [features]
 default = []
+svc-ibc = ["depin-sdk-transaction-models/svc-ibc"]

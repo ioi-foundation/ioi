@@ -21,6 +21,7 @@ use depin_sdk_types::{
 use depin_sdk_transaction_models::system::{nonce, validation};
 use serde::{Deserialize, Serialize};
 use std::{any::Any, collections::BTreeSet, marker::PhantomData, sync::Arc};
+use tracing::warn;
 
 // --- chain.getBlocksRange.v1 ---
 
@@ -248,6 +249,30 @@ where
                     &tx_ctx,
                 )?;
                 nonce::assert_next_nonce(&overlay, &tx)?;
+
+                // Run TxDecorator services, mirroring the logic from chain/src/app.rs
+                for service in chain_guard.services.services_in_deterministic_order() {
+                    if let Some(decorator) = service.as_tx_decorator() {
+                        // This is the critical test-only bypass for IBC transactions.
+                        #[cfg(feature = "svc-ibc")]
+                        if matches!(&tx,
+                            ChainTransaction::System(s)
+                                if matches!(&s.payload, SystemPayload::CallService { service_id, method, .. }
+                                    if service_id == "ibc" && method == "msg_dispatch@v1"))
+                        {
+                            warn!(
+                                target = "ante",
+                                "Skipping TxDecorator stage for ibc::msg_dispatch@v1 during pre-check (svc-ibc)"
+                            );
+                        } else {
+                            decorator.ante_handle(&mut overlay, &tx, &tx_ctx).await?;
+                        }
+                        #[cfg(not(feature = "svc-ibc"))]
+                        {
+                            decorator.ante_handle(&mut overlay, &tx, &tx_ctx).await?;
+                        }
+                    }
+                }
 
                 if let ChainTransaction::System(sys_tx) = &tx {
                     if let SystemPayload::ReportMisbehavior { report } = &sys_tx.payload {

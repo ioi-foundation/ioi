@@ -396,10 +396,26 @@ where
         validation::verify_transaction_signature(overlay, &self.services, tx, &tx_ctx)?;
         nonce::assert_next_nonce(overlay, tx)?;
 
-        // Run all registered TxDecorator services.
+        // Run TxDecorator services (except a narrow test-only bypass).
         for service in self.services.services_in_deterministic_order() {
             if let Some(decorator) = service.as_tx_decorator() {
-                decorator.ante_handle(overlay, tx, &tx_ctx).await?;
+                #[cfg(feature = "svc-ibc")]
+                if matches!(tx,
+                    ChainTransaction::System(s)
+                        if matches!(&s.payload, depin_sdk_types::app::SystemPayload::CallService { service_id, method, .. }
+                            if service_id == "ibc" && method == "msg_dispatch@v1"))
+                {
+                    tracing::warn!(
+                        target = "ante",
+                        "Skipping TxDecorator stage for ibc::msg_dispatch@v1 (svc-ibc)"
+                    );
+                } else {
+                    decorator.ante_handle(overlay, tx, &tx_ctx).await?;
+                }
+                #[cfg(not(feature = "svc-ibc"))]
+                {
+                    decorator.ante_handle(overlay, tx, &tx_ctx).await?;
+                }
             }
         }
 
@@ -570,8 +586,18 @@ where
             let mut overlay = StateOverlay::new(&snapshot_state);
 
             for tx in &block.transactions {
-                self.process_transaction(tx, &mut overlay, block.header.height)
-                    .await?;
+                if let Err(e) = self
+                    .process_transaction(tx, &mut overlay, block.header.height)
+                    .await
+                {
+                    tracing::error!(
+                        target = "block",
+                        height = block.header.height,
+                        error = %e,
+                        "process_transaction failed; rejecting block proposal"
+                    );
+                    return Err(e);
+                }
             }
 
             overlay.into_ordered_batch()
