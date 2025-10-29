@@ -127,31 +127,28 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
             let initial_stake = 100_000u128;
 
-            // --- FIX START: Create a deterministically sorted list of keys and IDs ---
-            let mut sorted_keys: Vec<(AccountId, &Keypair)> = keys
+            // --- FIX START: Create a deterministically sorted list of validators ---
+            let mut validators: Vec<ValidatorV1> = keys
                 .iter()
-                .map(|k| {
-                    let pk_bytes = k.public().encode_protobuf();
+                .map(|keypair| {
+                    let pk_bytes = keypair.public().encode_protobuf();
                     let account_id_hash =
                         account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
-                    (AccountId(account_id_hash), k)
-                })
-                .collect();
-            sorted_keys.sort_by(|a, b| a.0.cmp(&b.0));
-            // --- FIX END ---
+                    let account_id = AccountId(account_id_hash);
 
-            let validators: Vec<ValidatorV1> = sorted_keys
-                .iter()
-                .map(|(account_id, _keypair)| ValidatorV1 {
-                    account_id: *account_id,
-                    weight: initial_stake,
-                    consensus_key: ActiveKeyRecord {
-                        suite: SignatureSuite::Ed25519,
-                        public_key_hash: account_id.0,
-                        since_height: 0,
-                    },
+                    ValidatorV1 {
+                        account_id,
+                        weight: initial_stake,
+                        consensus_key: ActiveKeyRecord {
+                            suite: SignatureSuite::Ed25519,
+                            public_key_hash: account_id_hash,
+                            since_height: 0,
+                        },
+                    }
                 })
                 .collect();
+            validators.sort_by(|a, b| a.account_id.cmp(&b.account_id));
+            // --- FIX END ---
 
             let total_weight = validators.iter().map(|v| v.weight).sum();
             let validator_sets = ValidatorSetsV1 {
@@ -169,10 +166,12 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
             );
 
-            // Populate identity records for all validators using the sorted list
-            for (account_id, keypair) in &sorted_keys {
+            // Populate identity records for all validators using the original key order
+            for keypair in keys {
                 let suite = SignatureSuite::Ed25519;
                 let pk_bytes = keypair.public().encode_protobuf();
+                let account_id_hash = account_id_from_key_material(suite, &pk_bytes).unwrap();
+                let account_id = AccountId(account_id_hash);
 
                 // Add IdentityHub credentials
                 let cred = Credential {
