@@ -248,7 +248,7 @@ where
             .map_err(|e| StateError::Backend(e.to_string()))?;
         let head_epoch = store.epoch_of(head_h);
         let start = prefer_epoch.min(head_epoch);
-        for e in (0..start).rev() {
+        for e in (0..=start).rev() {
             if let Some(bytes) = store
                 .get_node(e, StoreNodeHash(hash))
                 .map_err(|e| StateError::Backend(e.to_string()))?
