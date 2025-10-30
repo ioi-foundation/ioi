@@ -118,8 +118,8 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
     // Sort by AccountId to mimic the canonical order in genesis.
     account_ids_with_keys.sort_by(|a, b| a.0.cmp(&b.0));
 
-    // For H=1, V=0, the leader index is (1+0) % 3 = 1.
-    let (_leader_id, leader_key) = account_ids_with_keys.remove(1);
+    // For H=1, V=0, the leader index is (1-1+0) % 3 = 0.
+    let (_leader_id, leader_key) = account_ids_with_keys.remove(0);
     let follower_keys: Vec<_> = account_ids_with_keys
         .into_iter()
         .map(|(_, key)| key)
