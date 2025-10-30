@@ -11,17 +11,16 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, BlockHeader, ChainId,
-        ChainTransaction, Credential, Proposal, ProposalStatus, ProposalType, SignatureSuite,
-        StateEntry, SystemPayload, SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
-        VoteOption,
+        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
+        Credential, Proposal, ProposalStatus, ProposalType, SignatureSuite, StateEntry,
+        SystemPayload, SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1, VoteOption,
     },
     codec,
     config::InitialServiceConfig,
     keys::{
-        active_service_key, ACCOUNT_ID_TO_PUBKEY_PREFIX, GOVERNANCE_KEY,
-        GOVERNANCE_PROPOSAL_KEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, UPGRADE_ARTIFACT_PREFIX,
-        UPGRADE_MANIFEST_PREFIX, UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY,
+        active_service_key, GOVERNANCE_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX,
+        IDENTITY_CREDENTIALS_PREFIX, UPGRADE_ARTIFACT_PREFIX, UPGRADE_MANIFEST_PREFIX,
+        UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY,
     },
     service_configs::{ActiveServiceMeta, GovernancePolicy, GovernanceSigner, MigrationConfig},
 };
@@ -30,30 +29,15 @@ use parity_scale_codec::Encode;
 use serde_json::{json, Map, Value};
 use std::path::Path;
 use std::time::Duration;
-use tokio::time::sleep;
 
-// --- Service Parameter Structs (Client-side representation of the ABI) ---
-#[derive(parity_scale_codec::Encode)]
-struct RotateKeyParams {
-    proof: depin_sdk_types::app::RotationProof,
-}
-
-#[derive(parity_scale_codec::Encode)]
+/// Parameters for the `governance` service's `vote@v1` method.
+#[derive(Encode)]
 struct VoteParams {
     proposal_id: u64,
     option: VoteOption,
 }
 
-// Trait to unify signing for different key types in tests
-trait TestSigner {
-    fn public_bytes(&self) -> Vec<u8>;
-    fn sign(&self, msg: &[u8]) -> Vec<u8>;
-    fn account_id(&self) -> AccountId;
-    fn suite(&self) -> SignatureSuite;
-    fn libp2p_public_bytes(&self) -> Vec<u8>;
-}
-
-// --- Test Helpers ---
+/// Helper function to add a full identity record for a key to the genesis state.
 fn add_identity_to_genesis(genesis_state: &mut Map<String, Value>, keypair: &Keypair) -> AccountId {
     let suite = SignatureSuite::Ed25519;
     let public_key_bytes = keypair.public().encode_protobuf();
@@ -73,26 +57,6 @@ fn add_identity_to_genesis(genesis_state: &mut Map<String, Value>, keypair: &Key
     genesis_state.insert(
         format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
         json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
-    );
-
-    // Set ActiveKeyRecord for consensus verification
-    let record = ActiveKeyRecord {
-        suite,
-        public_key_hash: account_id_hash,
-        since_height: 0,
-    };
-    let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
-    let record_bytes = codec::to_bytes_canonical(&record).unwrap();
-    genesis_state.insert(
-        format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
-        json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
-    );
-
-    // Set AccountId -> PublicKey mapping for signature verification
-    let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-    genesis_state.insert(
-        format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
-        json!(format!("b64:{}", BASE64_STANDARD.encode(&public_key_bytes))),
     );
 
     account_id
@@ -208,13 +172,13 @@ capabilities = ["TxDecorator"]
     let user_key = identity::Keypair::generate_ed25519();
     let chain_id: ChainId = 1.into();
     let mut governance_nonce = 0;
-    let mut user_nonce = 0;
+    let user_nonce = 0;
 
     let governance_key_clone_for_genesis = governance_key.clone();
     let user_key_clone_for_genesis = user_key.clone();
 
     // --- 2. LAUNCH CLUSTER ---
-    let cluster = TestCluster::builder()
+    let mut cluster = TestCluster::builder()
         .with_validators(1)
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
@@ -291,7 +255,7 @@ capabilities = ["TxDecorator"]
         .build()
         .await?;
 
-    let node = &cluster.validators[0];
+    let node = &mut cluster.validators[0];
     let rpc_addr = &node.rpc_addr;
     let (mut orch_logs, mut workload_logs, _) = node.subscribe_logs();
     wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
@@ -330,20 +294,24 @@ capabilities = ["TxDecorator"]
         user_nonce,
         chain_id,
     )?;
-    // Submit the transaction. It should be accepted by the mempool.
-    submit_transaction(rpc_addr, &tx_fail).await?;
+    // Submit the transaction. It should be rejected by the RPC pre-check because the service is not active.
+    let submission_result = submit_transaction(rpc_addr, &tx_fail).await;
+    assert!(
+        submission_result.is_err(),
+        "Transaction to non-existent service should be rejected at RPC level"
+    );
+    if let Err(e) = submission_result {
+        assert!(
+            e.to_string()
+                .contains("Service 'fee_calculator' is not active"),
+            "Error message should indicate the service is not active, but was: {}",
+            e
+        );
+    }
 
-    // Assert that the Orchestrator REJECTS the transaction during block production.
-    assert_log_contains(
-        "Orchestration",
-        &mut orch_logs,
-        "tx_filtered", // This log indicates a transaction was dropped from a block proposal.
-    )
-    .await?;
     println!("SUCCESS: Correctly rejected call to non-existent fee_calculator service.");
 
-    // IMPORTANT: Bump user nonce so the next tx is not dropped as a duplicate by the mempool.
-    user_nonce += 1;
+    // NOTE: user_nonce is NOT incremented because the transaction was rejected and never processed.
 
     // --- 4. GOVERNANCE: INSTALL THE SERVICE ---
     let artifact_hash = depin_sdk_crypto::algorithms::hash::sha256(&service_artifact)?;
@@ -439,7 +407,6 @@ capabilities = ["TxDecorator"]
         governance_nonce,
         chain_id,
     )?;
-    governance_nonce += 1;
     submit_transaction(rpc_addr, &dummy_tx).await?;
 
     // Sanity: ensure the dummy tx actually entered the mempool this time.
