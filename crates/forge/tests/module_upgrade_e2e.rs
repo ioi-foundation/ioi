@@ -171,7 +171,7 @@ capabilities = ["TxDecorator"]
     let user_key = identity::Keypair::generate_ed25519();
     let chain_id: ChainId = 1.into();
     let mut governance_nonce = 0;
-    let mut user_nonce = 0;
+    let user_nonce = 0;
 
     let governance_key_clone_for_genesis = governance_key.clone();
     let user_key_clone_for_genesis = user_key.clone();
@@ -293,20 +293,24 @@ capabilities = ["TxDecorator"]
         user_nonce,
         chain_id,
     )?;
-    // Submit the transaction. It should be accepted by the mempool.
-    submit_transaction(rpc_addr, &tx_fail).await?;
+    // Submit the transaction. It should be rejected by the RPC pre-check because the service is not active.
+    let submission_result = submit_transaction(rpc_addr, &tx_fail).await;
+    assert!(
+        submission_result.is_err(),
+        "Transaction to non-existent service should be rejected at RPC level"
+    );
+    if let Err(e) = submission_result {
+        assert!(
+            e.to_string()
+                .contains("Service 'fee_calculator' is not active"),
+            "Error message should indicate the service is not active, but was: {}",
+            e
+        );
+    }
 
-    // Assert that the Orchestrator REJECTS the transaction during block production.
-    assert_log_contains(
-        "Orchestration",
-        &mut orch_logs,
-        "tx_filtered", // This log indicates a transaction was dropped from a block proposal.
-    )
-    .await?;
     println!("SUCCESS: Correctly rejected call to non-existent fee_calculator service.");
 
-    // IMPORTANT: Bump user nonce so the next tx is not dropped as a duplicate by the mempool.
-    user_nonce += 1;
+    // NOTE: user_nonce is NOT incremented because the transaction was rejected and never processed.
 
     // --- 4. GOVERNANCE: INSTALL THE SERVICE ---
     let artifact_hash = depin_sdk_crypto::algorithms::hash::sha256(&service_artifact)?;

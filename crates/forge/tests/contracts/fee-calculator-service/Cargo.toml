@@ -14,7 +14,7 @@ crate-type = ["cdylib"] # Compile to a dynamic system library for WASM
 
 [dependencies]
 depin-sdk-contract = { path = "../../../../contract", features = ["wee_alloc"] }
-parity-scale-codec = { version = "3", default-features = false, features = [
+# DO NOT inherit from workspace. Specify version and features directly for no_std compatibility.
+parity-scale-codec = { version = "3.7.5", default-features = false, features = [
     "derive",
-    "alloc",
 ] }
