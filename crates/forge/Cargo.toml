@@ -73,8 +73,8 @@ ibc-core-client-context = { workspace = true, features = ["std"] }
 ibc-core-commitment-types = { workspace = true, features = ["std"] }
 ibc-primitives = { workspace = true, features = ["std"] }
 ibc-proto = { workspace = true, features = ["serde", "std"] }
-# [+] FIX: Add parity-scale-codec as a dev-dependency for integration tests
 parity-scale-codec = { workspace = true, features = ["derive", "std"] }
+
 
 # The library exposes helpers, the binary provides the CLI
 [lib]

@@ -13,7 +13,7 @@ use depin_sdk_api::services::{BlockchainService, UpgradableService};
 use depin_sdk_api::state::{PinGuard, StateAccessor, StateManager, StateOverlay};
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_api::transaction::TransactionModel;
-use depin_sdk_api::validator::WorkloadContainer; // <-- FIX 1: ADDED THIS IMPORT
+use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_transaction_models::system::{nonce, validation};
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{
@@ -26,6 +26,8 @@ use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::{BlockError, ChainError, StateError, TransactionError};
 use depin_sdk_types::keys::{STATUS_KEY, VALIDATOR_SET_KEY};
 use depin_sdk_types::service_configs::{ActiveServiceMeta, Capabilities, MethodPermission};
+// [+] ADD import for IBC Timestamp
+use ibc_primitives::Timestamp;
 use libp2p::identity::Keypair;
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
@@ -108,10 +110,7 @@ fn preflight_capabilities(
     services: &ServiceDirectory,
     tx: &depin_sdk_types::app::ChainTransaction,
 ) -> Result<(), TransactionError> {
-    // This logic is now part of the generic service dispatch in `UnifiedTransactionModel`.
-    // A call to a non-existent service or method will fail gracefully there.
-    // This pre-flight check for deprecated payloads is no longer necessary.
-    let _ = (services, tx); // Mark as used to prevent compiler warnings.
+    let _ = (services, tx);
     Ok(())
 }
 
@@ -137,7 +136,6 @@ where
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
 {
     /// Select the validator set that is effective for the given height.
-    /// Mirrors the logic used by the PoS engine.
     fn select_set_for_height(sets: &ValidatorSetsV1, h: u64) -> &ValidatorSetV1 {
         if let Some(next) = &sets.next {
             if h >= next.effective_from_height
@@ -205,7 +203,6 @@ where
         let mut state = state_tree_arc.write().await;
 
         match state.get(STATUS_KEY) {
-            // -- FIX 2: Use `ref` pattern to borrow the Vec<u8> instead of moving an unsized [u8]
             Ok(Some(ref status_bytes)) => {
                 let status: ChainStatus =
                     codec::from_bytes_canonical(status_bytes).map_err(ChainError::Transaction)?;
@@ -286,10 +283,8 @@ where
                             methods.insert("submit_data@v1".into(), MethodPermission::User);
                         }
                         "ibc" => {
-                            // Publicly callable entrypoints exposed by the IBC service
                             methods.insert("verify_header@v1".into(), MethodPermission::User);
                             methods.insert("recv_packet@v1".into(), MethodPermission::User);
-                            // The gateway path used in your test: wraps a TxBody with IBC Any msgs
                             methods.insert("msg_dispatch@v1".into(), MethodPermission::User);
                         }
                         _ => {}
@@ -375,15 +370,20 @@ where
     }
 
     /// Internal helper to process a single transaction against a state overlay.
+    // [+] MODIFIED: Added block_timestamp parameter
     async fn process_transaction(
         &self,
         tx: &ChainTransaction,
         overlay: &mut StateOverlay<'_>,
         block_height: u64,
+        block_timestamp: u64,
     ) -> Result<(), ChainError> {
         let signer_account_id = signer_from_tx(tx);
+        // [+] MODIFIED: Instantiate TxContext with the block_timestamp
         let mut tx_ctx = TxContext {
             block_height,
+            block_timestamp: Timestamp::from_nanoseconds(block_timestamp * 1_000_000_000)
+                .map_err(|e| ChainError::Transaction(format!("Invalid timestamp: {}", e)))?,
             chain_id: self.state.chain_id,
             signer_account_id,
             services: &self.services,
@@ -393,21 +393,17 @@ where
 
         preflight_capabilities(&self.services, tx)?;
 
-        // Re-introduce core validation before any decorators are run.
         validation::verify_transaction_signature(overlay, &self.services, tx, &tx_ctx)?;
         nonce::assert_next_nonce(overlay, tx)?;
 
-        // Run TxDecorator services.
         for service in self.services.services_in_deterministic_order() {
             if let Some(decorator) = service.as_tx_decorator() {
                 decorator.ante_handle(overlay, tx, &tx_ctx).await?;
             }
         }
 
-        // Atomically bump the nonce *after* all checks and decorators have passed.
         nonce::bump_nonce(overlay, tx)?;
 
-        // Finally, apply the core transaction logic.
         self.state
             .transaction_model
             .apply_payload(self, overlay, tx, &mut tx_ctx)
@@ -442,7 +438,7 @@ impl<ST: StateManager + Send + Sync + 'static> RemoteStateView for ChainStateVie
         let (membership, _proof) = state.get_with_proof_at(&commitment, key)?;
         let present = matches!(membership, Membership::Present(_));
         tracing::info!(
-            target: "state",
+            target = "state",
             event = "view_get",
             key = key_hex,
             root = hex::encode(&self.root),
@@ -478,7 +474,7 @@ where
             self.state.recent_blocks.iter().rev().find_map(|b| {
                 if b.header.state_root.as_ref() == state_ref.state_root {
                     tracing::info!(
-                        target: "state",
+                        target = "state",
                         event = "view_at_resolve",
                         height = b.header.height,
                         root = hex::encode(b.header.state_root.as_ref())
@@ -494,7 +490,7 @@ where
             .ok_or_else(|| ChainError::UnknownStateAnchor(hex::encode(&state_ref.state_root)))?;
 
         tracing::info!(
-            target: "state",
+            target = "state",
             event = "view_at_resolved",
             root = hex::encode(&root)
         );
@@ -571,8 +567,14 @@ where
             let mut overlay = StateOverlay::new(&snapshot_state);
 
             for tx in &block.transactions {
+                // [+] MODIFIED: Pass the block timestamp to process_transaction
                 if let Err(e) = self
-                    .process_transaction(tx, &mut overlay, block.header.height)
+                    .process_transaction(
+                        tx,
+                        &mut overlay,
+                        block.header.height,
+                        block.header.timestamp,
+                    )
                     .await
                 {
                     tracing::error!(
@@ -633,8 +635,6 @@ where
 
             state.batch_apply(inserts, deletes)?;
 
-            // Apply any scheduled upgrades for this block height. This must happen
-            // before other OnEndBlock hooks to allow newly activated services to run.
             let upgrade_count = self
                 .service_manager
                 .apply_upgrades_at_height(block.header.height, &mut *state)
@@ -642,13 +642,12 @@ where
                 .map_err(|e| ChainError::State(StateError::Apply(e.to_string())))?;
             if upgrade_count > 0 {
                 tracing::info!(
-                    target: "chain",
+                    target = "chain",
                     event = "module_upgrade",
                     height = block.header.height,
                     num_applied = upgrade_count,
                     "Successfully applied on-chain service upgrades."
                 );
-                // Rebuild the service directory so new services are available immediately.
                 let all_services = self.service_manager.all_services();
                 let services_for_dir: Vec<Arc<dyn BlockchainService>> = all_services
                     .iter()
@@ -657,8 +656,13 @@ where
                 self.services = ServiceDirectory::new(services_for_dir);
             }
 
+            // [+] MODIFIED: Instantiate TxContext with the block_timestamp
             let end_block_ctx = TxContext {
                 block_height: block.header.height,
+                block_timestamp: Timestamp::from_nanoseconds(
+                    block.header.timestamp * 1_000_000_000,
+                )
+                .map_err(|e| ChainError::Transaction(format!("Invalid timestamp: {}", e)))?,
                 chain_id: self.state.chain_id,
                 signer_account_id: AccountId::default(),
                 services: &self.services,
@@ -676,14 +680,13 @@ where
             }
 
             match state.get(VALIDATOR_SET_KEY)? {
-                // -- FIX 3: Use `ref` pattern to borrow the Vec<u8>
                 Some(ref bytes) => {
                     let mut sets = read_validator_sets(bytes)?;
                     let mut modified = false;
                     if let Some(next_vs) = &sets.next {
                         if block.header.height >= next_vs.effective_from_height {
                             tracing::info!(
-                                target: "chain",
+                                target = "chain",
                                 event = "validator_set_promotion",
                                 height = block.header.height,
                                 "Promoting validator set"
@@ -710,7 +713,7 @@ where
                 }
                 None => {
                     tracing::error!(
-                        target: "chain",
+                        target = "chain",
                         event = "end_block",
                         height = block.header.height,
                         "MISSING VALIDATOR_SET_KEY before commit. The next block may stall or fail without it."
@@ -745,7 +748,7 @@ where
                     match state.get_with_proof_at(&final_commitment, VALIDATOR_SET_KEY) {
                         Ok((Membership::Present(_), _)) => {
                             tracing::info!(
-                                target: "pos_finality_check",
+                                target = "pos_finality_check",
                                 event = "validator_set_provable",
                                 height = block.header.height,
                                 root = hex::encode(&final_root_bytes),
@@ -779,7 +782,7 @@ where
             .to_anchor()
             .map_err(|e| ChainError::Transaction(e.to_string()))?;
         tracing::info!(
-            target: "chain",
+            target = "chain",
             event = "commit",
             height = block.header.height,
             state_root = hex::encode(&block.header.state_root.0),

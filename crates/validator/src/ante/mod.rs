@@ -1,12 +1,13 @@
 // Path: crates/validator/src/ante/mod.rs
 pub mod service_call;
 
+use crate::ante::service_call::precheck_call_service;
 use depin_sdk_api::state::{StateAccessor, StateOverlay};
 use depin_sdk_api::transaction::context::TxContext;
-use depin_sdk_types::app::{ChainTransaction, SystemPayload};
-use depin_sdk_types::error::TransactionError;
 use depin_sdk_transaction_models::system::{nonce, validation};
-use crate::ante::service_call::precheck_call_service;
+use depin_sdk_types::app::{ChainStatus, ChainTransaction, SystemPayload};
+use depin_sdk_types::error::{StateError, TransactionError};
+use ibc_primitives::Timestamp;
 use tracing::warn;
 
 /// Unified ante check used by mempool admission and block recheck.
@@ -25,18 +26,41 @@ pub async fn check_tx(
     let signer_account_id = match tx {
         ChainTransaction::System(s) => s.header.account_id,
         ChainTransaction::Application(a) => match a {
-            depin_sdk_types::app::ApplicationTransaction::DeployContract { header, .. } => header.account_id,
-            depin_sdk_types::app::ApplicationTransaction::CallContract { header, .. } => header.account_id,
-            depin_sdk_types::app::ApplicationTransaction::UTXO(_) => depin_sdk_types::app::AccountId::default(),
-        }
+            depin_sdk_types::app::ApplicationTransaction::DeployContract { header, .. } => {
+                header.account_id
+            }
+            depin_sdk_types::app::ApplicationTransaction::CallContract { header, .. } => {
+                header.account_id
+            }
+            depin_sdk_types::app::ApplicationTransaction::UTXO(_) => {
+                depin_sdk_types::app::AccountId::default()
+            }
+        },
     };
+
+    // Deterministic timestamp for pre-check (mirrors execution ordering).
+    const PRECHECK_OFFSET_SECS: u64 = 5;
+    let last_timestamp_ns: u128 = match state.get(depin_sdk_types::keys::STATUS_KEY)? {
+        Some(b) => {
+            let status: ChainStatus = depin_sdk_types::codec::from_bytes_canonical(&b)
+                .map_err(|e| StateError::InvalidValue(e.to_string()))?;
+            // ChainStatus.latest_timestamp is stored in seconds.
+            (status.latest_timestamp as u128) * 1_000_000_000u128
+        }
+        None => 0, // Genesis: pretend last time = 0 ns.
+    };
+    let next_timestamp_ns =
+        last_timestamp_ns.saturating_add((PRECHECK_OFFSET_SECS as u128) * 1_000_000_000u128);
+    let next_timestamp = Timestamp::from_nanoseconds(next_timestamp_ns)
+        .map_err(|e| TransactionError::Invalid(e.to_string()))?;
 
     let mut tx_ctx = TxContext {
         block_height: next_block_height,
+        block_timestamp: next_timestamp,
         chain_id,
         signer_account_id,
         services,
-        simulation: true, // This is a pre-check/simulation
+        simulation: true,   // This is a pre-check/simulation
         is_internal: false, // User transactions are never internal
     };
 
@@ -46,7 +70,10 @@ pub async fn check_tx(
 
     // 2. Service-level precheck for CallService (ensures ABI or ibc-deps fallback).
     if let ChainTransaction::System(sys) = tx {
-        if let SystemPayload::CallService { service_id, method, .. } = &sys.payload {
+        if let SystemPayload::CallService {
+            service_id, method, ..
+        } = &sys.payload
+        {
             let _perm = precheck_call_service(&overlay, service_id, method, tx_ctx.is_internal)?;
         }
     }

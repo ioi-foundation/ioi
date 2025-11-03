@@ -33,6 +33,9 @@ futures = { workspace = true }                                # Add futures
 parity-scale-codec = { workspace = true, features = ["std"] }
 toml = { workspace = true }
 
+# [+] FIX: Add the missing dependency here
+ibc-primitives = { workspace = true }
+
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }

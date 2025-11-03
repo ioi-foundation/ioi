@@ -8,6 +8,7 @@ use depin_sdk_api::{
     state::{StateAccessor, StateOverlay},
     transaction::{context::TxContext, TransactionModel},
 };
+// [+] ADD this import
 use depin_sdk_transaction_models::system::{nonce, validation};
 use depin_sdk_types::{
     app::{
@@ -18,6 +19,7 @@ use depin_sdk_types::{
     error::TransactionError,
     keys::EVIDENCE_REGISTRY_KEY,
 };
+use ibc_primitives::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::{any::Any, collections::BTreeSet, marker::PhantomData, sync::Arc};
 
@@ -232,6 +234,8 @@ where
 
                 let mut tx_ctx = TxContext {
                     block_height: status.height + 1,
+                    // [+] FIX: Add the missing block_timestamp field
+                    block_timestamp: Timestamp::now(),
                     chain_id,
                     signer_account_id,
                     services: &chain_guard.services,

@@ -6,7 +6,14 @@
 
 /// Implements the IBC channel lifecycle (handshakes, packet ordering, timeouts).
 pub mod channel;
+
+/// Contains the adapter `IbcExecutionContext` that allows `ibc-rs` to interact
+/// with the DePIN SDK's `StateAccessor`.
+pub mod context;
+
 /// Contains concrete, chain-specific implementations of the `InterchainVerifier` trait.
 pub mod light_client;
-/// Implements the `VerifierRegistry` for managing multiple light client instances.
+
+/// Implements the `VerifierRegistry` for managing multiple light client instances
+/// and dispatching all IBC messages.
 pub mod registry;

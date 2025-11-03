@@ -48,6 +48,9 @@ parity-scale-codec = { workspace = true, features = ["std"] }
 cfg-if = "1.0"
 dashmap = { workspace = true }                                            # Added for custom rate limiter
 
+# [+] FIX: Add the missing dependency here
+ibc-primitives = { workspace = true }
+
 # Added for mTLS implementation
 tokio-rustls = { workspace = true }
 rustls = { workspace = true, features = ["ring"] }

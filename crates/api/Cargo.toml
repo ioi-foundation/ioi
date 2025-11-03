@@ -25,6 +25,10 @@ parity-scale-codec = { workspace = true, features = ["derive", "std"] }
 zeroize = { workspace = true, features = ["alloc"] }
 anyhow = { workspace = true }
 
+# [+] FIX: Add the missing dependency on ibc-primitives.
+# This is required because TxContext now contains an ibc_primitives::Timestamp.
+ibc-primitives = { workspace = true }
+
 [features]
 default = []
 homomorphic = []
