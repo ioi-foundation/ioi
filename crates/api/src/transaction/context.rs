@@ -1,13 +1,19 @@
 // Path: crates/api/src/transaction/context.rs
 //! Defines the stable context for transaction execution.
+
 use crate::services::access::ServiceDirectory;
 use depin_sdk_types::app::{AccountId, ChainId};
+// [+] Add the ibc_primitives::Timestamp import
+use ibc_primitives::Timestamp;
 
 /// Provides stable, read-only context to transaction models and services during execution.
 #[derive(Clone)]
 pub struct TxContext<'a> {
     /// The current block height being processed.
     pub block_height: u64,
+    /// The deterministic timestamp of the current block, taken from its header.
+    /// This is crucial for IBC and other time-sensitive logic.
+    pub block_timestamp: Timestamp,
     /// The unique identifier of the chain for replay protection.
     pub chain_id: ChainId,
     /// The `AccountId` of the entity that signed the current transaction.

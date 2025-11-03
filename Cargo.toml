@@ -134,17 +134,22 @@ tendermint-testgen = "0.36.0"
 ibc-client-tendermint = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-client-tendermint-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-core-client = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
+ibc-core-channel = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
+ibc-core-connection = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
+ibc-core-router = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-core-client-context = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-core-client-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-core-commitment-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-core-connection-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-core-channel-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-core-handler-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
+ibc-core-handler = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-core-host = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-core-host-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-core-router-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-primitives = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-proto = { git = "https://github.com/cosmos/ibc-proto-rs.git", tag = "v0.44.0" }
+ibc = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 
 # This entry is REQUIRED for `workspace = true` inheritance to work.
 # It defines the "default" version and features for workspace members.
@@ -158,15 +163,20 @@ time = { version = "0.3.36", features = ["macros", "serde"] }
 ibc-client-tendermint = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-client-tendermint-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-core-client = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
+ibc-core-channel = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
+ibc-core-connection = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
+ibc-core-router = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-core-client-context = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-core-client-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-core-commitment-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-core-connection-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-core-channel-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-core-handler-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
+ibc-core-handler = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-core-host = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-core-host-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-core-router-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-primitives = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 ibc-proto = { git = "https://github.com/cosmos/ibc-proto-rs.git", tag = "v0.44.0" }
+ibc = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
 # --- PATCH END ---

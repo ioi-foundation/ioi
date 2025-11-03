@@ -172,7 +172,7 @@ pub struct BlockHeader {
     pub state_root: StateRoot,
     /// The root hash of the transactions in this block.
     pub transactions_root: Vec<u8>,
-    /// The timestamp when the block was created.
+    /// The UNIX timestamp (in seconds) when the block was created.
     pub timestamp: u64,
     /// The full, sorted list of PeerIds (in bytes) that constituted the validator
     /// set when this block was created.

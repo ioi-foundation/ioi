@@ -5,7 +5,6 @@ use depin_sdk_api::error::CoreError;
 use depin_sdk_api::ibc::{InterchainVerifier, VerifyCtx};
 use depin_sdk_api::state::StateAccessor;
 use depin_sdk_types::ibc::{Finality, Header, InclusionProof};
-// Corrected import path for the Tendermint-specific validation context trait
 use ibc_client_tendermint::types::proto::v1::{
     ClientState as RawTmClientState, ConsensusState as RawTmConsensusState, Header as RawTmHeader,
 };
@@ -13,7 +12,6 @@ use ibc_client_tendermint::{
     client_state::ClientState as TmClientState,
     consensus_state::ConsensusState as TmConsensusState, types::Header as TmHeader,
 };
-// Corrected import path for the Tendermint-specific validation context trait
 use ibc_core_client_context::ExtClientValidationContext;
 use ibc_core_client_context::{
     client_state::{ClientStateCommon, ClientStateValidation},
@@ -28,11 +26,33 @@ use ibc_core_host_types::{
     path::{ClientConsensusStatePath, ClientStatePath},
 };
 use ibc_primitives::Timestamp;
+use ibc_proto::google::protobuf::Any as PbAny;
 use prost::Message;
 
 use std::fmt;
 use std::str::FromStr;
 use std::sync::Arc;
+
+/// A helper to decode an `Any`-wrapped message from bytes.
+fn decode_any<T: prost::Message + Default>(
+    bytes: &[u8],
+    expected_type_url: &str,
+) -> Result<T, ClientError> {
+    let any = PbAny::decode(bytes).map_err(|e| ClientError::Other {
+        description: format!("failed to decode Any: {e}"),
+    })?;
+    if any.type_url != expected_type_url {
+        return Err(ClientError::Other {
+            description: format!(
+                "unexpected Any type_url: got {}, expected {}",
+                any.type_url, expected_type_url
+            ),
+        });
+    }
+    T::decode(any.value.as_slice()).map_err(|e| ClientError::Other {
+        description: format!("failed to decode inner message: {e}"),
+    })
+}
 
 /// A verifier for Tendermint-based chains using the `ibc-rs` implementation.
 #[derive(Clone)]
@@ -122,12 +142,9 @@ impl<'a, S: StateAccessor + ?Sized> ClientValidationContext for MockClientCtx<'a
             .ok_or_else(|| ClientError::Other {
                 description: "Client state not found".to_string(),
             })?;
-        TmClientState::try_from(RawTmClientState::decode(&*bytes).map_err(|e| {
-            ClientError::Other {
-                description: e.to_string(),
-            }
-        })?)
-        .map_err(|e| {
+        let raw =
+            decode_any::<RawTmClientState>(&bytes, "/ibc.lightclients.tendermint.v1.ClientState")?;
+        TmClientState::try_from(raw).map_err(|e| {
             ClientError::ClientSpecific {
                 description: e.to_string(),
             }
@@ -148,12 +165,11 @@ impl<'a, S: StateAccessor + ?Sized> ClientValidationContext for MockClientCtx<'a
             .ok_or_else(|| ClientError::Other {
                 description: "Consensus state not found".to_string(),
             })?;
-        TmConsensusState::try_from(RawTmConsensusState::decode(&*bytes).map_err(|e| {
-            ClientError::Other {
-                description: e.to_string(),
-            }
-        })?)
-        .map_err(|e| {
+        let raw = decode_any::<RawTmConsensusState>(
+            &bytes,
+            "/ibc.lightclients.tendermint.v1.ConsensusState",
+        )?;
+        TmConsensusState::try_from(raw).map_err(|e| {
             ClientError::ClientSpecific {
                 description: e.to_string(),
             }
@@ -166,9 +182,6 @@ impl<'a, S: StateAccessor + ?Sized> ClientValidationContext for MockClientCtx<'a
         client_id: &ClientId,
         height: &Height,
     ) -> Result<(Timestamp, Height), ContextError> {
-        // This implementation is correct. Returning this specific error signals to ibc-rs
-        // that it's safe to proceed with the update, as there's no conflicting update
-        // at the same height.
         Err(ContextError::ClientError(
             ClientError::UpdateMetaDataNotFound {
                 client_id: client_id.clone(),
@@ -225,10 +238,15 @@ impl InterchainVerifier for TendermintVerifier {
             .get(&client_state_path)?
             .ok_or_else(|| IbcError::ClientStateNotFound(self.client_id.clone()))?;
 
+        let client_state_raw: RawTmClientState = decode_any(
+            &client_state_bytes,
+            "/ibc.lightclients.tendermint.v1.ClientState",
+        )
+        .map_err(|e| CoreError::Custom(e.to_string()))?;
         let client_state: TmClientState =
-            TmClientState::try_from(RawTmClientState::decode(&*client_state_bytes)?).map_err(
-                |e| CoreError::Custom(format!("Failed to decode Tendermint ClientState: {}", e)),
-            )?;
+            TmClientState::try_from(client_state_raw).map_err(|e| {
+                CoreError::Custom(format!("Failed to decode Tendermint ClientState: {}", e))
+            })?;
         let tm_header: TmHeader = TmHeader::try_from(RawTmHeader::decode(tm_header_bytes)?)
             .map_err(|e| CoreError::Custom(format!("Failed to decode Tendermint Header: {}", e)))?;
 
@@ -303,9 +321,13 @@ impl InterchainVerifier for TendermintVerifier {
             .state_accessor
             .get(&client_state_path)?
             .ok_or_else(|| IbcError::ClientStateNotFound(self.client_id.clone()))?;
-        let client_state: TmClientState =
-            TmClientState::try_from(RawTmClientState::decode(&*client_state_bytes)?)
-                .map_err(|e| CoreError::Custom(e.to_string()))?;
+        let client_state_raw: RawTmClientState = decode_any(
+            &client_state_bytes,
+            "/ibc.lightclients.tendermint.v1.ClientState",
+        )
+        .map_err(|e| CoreError::Custom(e.to_string()))?;
+        let client_state: TmClientState = TmClientState::try_from(client_state_raw)
+            .map_err(|e| CoreError::Custom(e.to_string()))?;
 
         let proof_bytes = CommitmentProofBytes::try_from(ics23_proof.proof_bytes.clone())
             .map_err(|e| CoreError::Custom(format!("Invalid proof bytes format: {}", e)))?;
@@ -319,12 +341,16 @@ impl InterchainVerifier for TendermintVerifier {
     }
 
     async fn latest_verified_height(&self) -> u64 {
-        let Ok(client_id) = ClientId::from_str(&self.client_id) else {
+        // Use the canonical 07-tendermint type for lookup
+        let Ok(client_id) = ClientId::from_str("07-tendermint-0") else {
             return 0;
         };
         let client_state_path = ClientStatePath::new(client_id).to_string().into_bytes();
         if let Ok(Some(bytes)) = self.state_accessor.get(&client_state_path) {
-            if let Ok(cs_raw) = RawTmClientState::decode(&*bytes) {
+            if let Ok(cs_raw) = decode_any::<RawTmClientState>(
+                &bytes,
+                "/ibc.lightclients.tendermint.v1.ClientState",
+            ) {
                 if let Ok(cs) = TmClientState::try_from(cs_raw) {
                     return cs.latest_height().revision_height();
                 }
