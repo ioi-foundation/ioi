@@ -27,6 +27,7 @@ bs58 = "0.4"
 cfg-if = "1.0"
 hex = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["derive", "std"] }
+tracing = { workspace = true }
 
 [features]
 default = []

@@ -7,15 +7,20 @@ use depin_sdk_api::consensus::ChainStateReader;
 use depin_sdk_api::state::{StateAccessor, StateManager};
 use depin_sdk_crypto::algorithms::hash::sha256;
 use depin_sdk_types::app::{
-    read_validator_sets, write_validator_sets, AccountId, Block, FailureReport, ValidatorSetV1,
+    compute_interval_from_parent_state, read_validator_sets, write_validator_sets, AccountId,
+    Block, BlockTimingParams, BlockTimingRuntime, ChainStatus, FailureReport, ValidatorSetV1,
     ValidatorSetsV1,
 };
+use depin_sdk_types::codec;
 use depin_sdk_types::error::{ConsensusError, StateError, TransactionError};
-use depin_sdk_types::keys::{STATUS_KEY, VALIDATOR_SET_KEY};
+use depin_sdk_types::keys::{
+    BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, STATUS_KEY, VALIDATOR_SET_KEY,
+};
 use std::collections::HashSet;
 
 use crate::proof_of_authority::{hash_key, verify_signature};
 use hex;
+use tracing::warn;
 
 fn effective_set_for_height(sets: &ValidatorSetsV1, h: u64) -> &ValidatorSetV1 {
     if let Some(next) = &sets.next {
@@ -313,10 +318,73 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             header.height,
             parent_state_ref
         );
-        let parent_view = chain_view
-            .view_at(&parent_state_ref)
+        let parent_view = chain_view.view_at(&parent_state_ref).await.map_err(|e| {
+            warn!(
+                target: "consensus",
+                "Failed to resolve parent view for block proposal: {}", e
+            );
+            ConsensusError::StateAccess(StateError::Backend(e.to_string()))
+        })?;
+
+        // [+] VERIFY TIMESTAMP (Deterministic)
+        // Timing blobs from parent state
+        let timing_params_bytes = parent_view
+            .get(BLOCK_TIMING_PARAMS_KEY)
             .await
             .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?;
+        let timing_runtime_bytes = parent_view
+            .get(BLOCK_TIMING_RUNTIME_KEY)
+            .await
+            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?;
+
+        let timing_params: BlockTimingParams =
+            codec::from_bytes_canonical(&timing_params_bytes.ok_or_else(|| {
+                ConsensusError::BlockVerificationFailed("BlockTimingParams not found".into())
+            })?)
+            .map_err(|_| {
+                ConsensusError::BlockVerificationFailed("Decode BlockTimingParams failed".into())
+            })?;
+        let timing_runtime: BlockTimingRuntime =
+            codec::from_bytes_canonical(&timing_runtime_bytes.ok_or_else(|| {
+                ConsensusError::BlockVerificationFailed("BlockTimingRuntime not found".into())
+            })?)
+            .map_err(|_| {
+                ConsensusError::BlockVerificationFailed("Decode BlockTimingRuntime failed".into())
+            })?;
+        // Parent timestamp from ChainStatus in parent state
+        let status_bytes = parent_view
+            .get(STATUS_KEY)
+            .await
+            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
+            .ok_or_else(|| {
+                ConsensusError::BlockVerificationFailed(
+                    "ChainStatus missing in parent state".into(),
+                )
+            })?;
+        let parent_status: ChainStatus =
+            codec::from_bytes_canonical(&status_bytes).map_err(|_| {
+                ConsensusError::BlockVerificationFailed("Decode ChainStatus failed".into())
+            })?;
+        let parent_timestamp = parent_status.latest_timestamp;
+
+        let parent_gas_used_placeholder = 0u64;
+        let parent_height = header.height - 1;
+        let interval = compute_interval_from_parent_state(
+            &timing_params,
+            &timing_runtime,
+            parent_height,
+            parent_gas_used_placeholder,
+        );
+        let expected_ts = parent_timestamp
+            .checked_add(interval)
+            .ok_or_else(|| ConsensusError::BlockVerificationFailed("Timestamp overflow".into()))?;
+
+        if header.timestamp != expected_ts {
+            return Err(ConsensusError::BlockVerificationFailed(format!(
+                "Invalid timestamp: got {}, expected {}",
+                header.timestamp, expected_ts
+            )));
+        }
 
         log::debug!(
             "[PoS Verify H={}] Reading validator set from parent view...",

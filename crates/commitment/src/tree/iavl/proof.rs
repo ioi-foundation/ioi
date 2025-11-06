@@ -3,7 +3,7 @@
 //! This module contains the proof data structures and the pure, stateless verifier function.
 
 use depin_sdk_types::error::ProofError;
-use serde::{Deserialize, Serialize};
+use parity_scale_codec::{Decode, Encode};
 
 /// The canonical hash function used for all IAVL operations.
 fn hash(data: &[u8]) -> Result<[u8; 32], ProofError> {
@@ -54,13 +54,13 @@ pub(super) fn hash_inner(
 
 // --- Proof Data Structures ---
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 pub enum IavlProof {
     Existence(ExistenceProof),
     NonExistence(NonExistenceProof),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 pub struct ExistenceProof {
     pub key: Vec<u8>,
     pub value: Vec<u8>,
@@ -68,25 +68,25 @@ pub struct ExistenceProof {
     pub path: Vec<InnerOp>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 pub struct NonExistenceProof {
     pub missing_key: Vec<u8>,
     pub left: Option<ExistenceProof>,
     pub right: Option<ExistenceProof>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 pub struct LeafOp {
     pub version: u64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 pub enum Side {
     Left,
     Right,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 pub struct InnerOp {
     pub version: u64,
     pub height: i32,
@@ -99,22 +99,19 @@ pub struct InnerOp {
 // --- Verifier Logic ---
 
 /// The single, canonical entry point for all IAVL proof verification.
-pub fn verify_iavl_proof_bytes(
+pub fn verify_iavl_proof(
     root: &[u8; 32],
     key: &[u8],
     expected_value: Option<&[u8]>,
-    proof_bytes: &[u8],
+    proof: &IavlProof,
 ) -> Result<bool, ProofError> {
-    let proof: IavlProof = serde_json::from_slice(proof_bytes)
-        .map_err(|e| ProofError::Deserialization(e.to_string()))?;
-
     match (expected_value, proof) {
         (Some(value), IavlProof::Existence(existence_proof)) => {
-            verify_existence(root, key, value, &existence_proof)?;
+            verify_existence(root, key, value, existence_proof)?;
             Ok(true)
         }
         (None, IavlProof::NonExistence(non_existence_proof)) => {
-            verify_non_existence(root, key, &non_existence_proof)
+            verify_non_existence(root, key, non_existence_proof)
         }
         _ => Ok(false),
     }

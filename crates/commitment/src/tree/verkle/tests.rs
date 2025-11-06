@@ -4,10 +4,10 @@ mod verkle_tests {
     use crate::primitives::kzg::{KZGCommitmentScheme, KZGParams};
     use crate::tree::verkle::proof::{Terminal, VerklePathProof};
     use crate::tree::verkle::verifier::KZGVerifier;
-    use crate::tree::verkle::to_root_hash;
     use crate::tree::verkle::VerkleTree;
     use depin_sdk_api::state::{StateCommitment, StateManager, Verifier};
     use depin_sdk_types::app::Membership;
+    use parity_scale_codec::Decode;
 
     fn setup() -> (VerkleTree<KZGCommitmentScheme>, KZGCommitmentScheme) {
         let params = KZGParams::new_insecure_for_testing(1234, 255);
@@ -98,7 +98,7 @@ mod verkle_tests {
         assert_eq!(membership, Membership::Absent);
 
         // Assert that the proof terminal is a Neighbor, not Empty
-        let vpp: VerklePathProof = bincode::deserialize(proof_obj.as_ref())
+        let vpp = VerklePathProof::decode(&mut proof_obj.as_ref())
             .expect("deserializing proof object should succeed");
         assert!(matches!(vpp.terminal, Terminal::Neighbor { key_stem, .. } if key_stem == key1));
 
@@ -138,7 +138,7 @@ mod verkle_tests {
             .expect("Proof for v1 should succeed");
 
         // Sanity check that the proof is anchored to the historical root
-        let vpp1: VerklePathProof = bincode::deserialize(proof1.as_ref()).unwrap();
+        let vpp1 = VerklePathProof::decode(&mut proof1.as_ref()).unwrap();
         assert_eq!(vpp1.node_commitments[0], root_v1.as_ref());
 
         assert_eq!(mem1, Membership::Present(value1.to_vec()));

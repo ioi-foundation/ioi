@@ -17,14 +17,16 @@ use depin_sdk_api::validator::WorkloadContainer;
 use depin_sdk_transaction_models::system::{nonce, validation};
 use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
 use depin_sdk_types::app::{
-    account_id_from_key_material, read_validator_sets, to_root_hash, write_validator_sets,
-    AccountId, ChainId, FailureReport, Membership, SignatureSuite, StateRoot, ValidatorSetV1,
-    ValidatorSetsV1,
+    account_id_from_key_material, compute_interval_from_parent_state, read_validator_sets,
+    to_root_hash, write_validator_sets, AccountId, BlockTimingParams, BlockTimingRuntime, ChainId,
+    FailureReport, Membership, SignatureSuite, StateRoot, ValidatorSetV1, ValidatorSetsV1,
 };
 use depin_sdk_types::codec;
 use depin_sdk_types::config::ConsensusType;
 use depin_sdk_types::error::{BlockError, ChainError, StateError, TransactionError};
-use depin_sdk_types::keys::{STATUS_KEY, VALIDATOR_SET_KEY};
+use depin_sdk_types::keys::{
+    BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, STATUS_KEY, VALIDATOR_SET_KEY,
+};
 use depin_sdk_types::service_configs::{ActiveServiceMeta, Capabilities, MethodPermission};
 // [+] ADD import for IBC Timestamp
 use ibc_primitives::Timestamp;
@@ -33,7 +35,6 @@ use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Represents the initialization state of the chain's genesis block.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -315,6 +316,37 @@ where
                         service_id
                     );
                 }
+
+                // Seed initial timing params at genesis.
+                // Start with a fixed 5-second block time (retarget_every_blocks = 0).
+                let timing_params = BlockTimingParams {
+                    base_interval_secs: 5,
+                    min_interval_secs: 2,
+                    max_interval_secs: 10,
+                    target_gas_per_block: 1_000_000,
+                    ema_alpha_milli: 200,
+                    interval_step_bps: 500,
+                    retarget_every_blocks: 0,
+                };
+                state
+                    .insert(
+                        BLOCK_TIMING_PARAMS_KEY,
+                        &codec::to_bytes_canonical(&timing_params)
+                            .map_err(ChainError::Transaction)?,
+                    )
+                    .map_err(|e| ChainError::Transaction(e.to_string()))?;
+
+                let timing_runtime = BlockTimingRuntime {
+                    ema_gas_used: 0,
+                    effective_interval_secs: timing_params.base_interval_secs,
+                };
+                state
+                    .insert(
+                        BLOCK_TIMING_RUNTIME_KEY,
+                        &codec::to_bytes_canonical(&timing_runtime)
+                            .map_err(ChainError::Transaction)?,
+                    )
+                    .map_err(|e| ChainError::Transaction(e.to_string()))?;
 
                 state.commit_version(0)?;
                 tracing::debug!(target: "chain", "[Chain] Committed full genesis state.");
@@ -721,6 +753,54 @@ where
                 }
             }
 
+            // [+] End-of-Block Hook: Update BlockTimingRuntime for adaptive intervals
+            let timing_params_bytes = state.get(BLOCK_TIMING_PARAMS_KEY)?;
+            let timing_runtime_bytes = state.get(BLOCK_TIMING_RUNTIME_KEY)?;
+            if let (Some(params_bytes), Some(runtime_bytes)) =
+                (timing_params_bytes, timing_runtime_bytes)
+            {
+                let params: BlockTimingParams =
+                    codec::from_bytes_canonical(&params_bytes).map_err(ChainError::Transaction)?;
+                let old_runtime: BlockTimingRuntime =
+                    codec::from_bytes_canonical(&runtime_bytes).map_err(ChainError::Transaction)?;
+                let mut new_runtime = old_runtime.clone();
+
+                // Only perform updates if adaptive timing is enabled and it's a retarget block.
+                if params.retarget_every_blocks > 0
+                    && block.header.height % params.retarget_every_blocks as u64 == 0
+                {
+                    // TODO: Replace this placeholder with the actual gas used by the block.
+                    // This could be stored in the block header or a dedicated state key.
+                    let gas_used_this_block = 0;
+
+                    // Re-compute the interval that *should* have been used for the *next* block.
+                    // This is the value we persist for the subsequent proposer/verifier.
+                    let next_interval = compute_interval_from_parent_state(
+                        &params,
+                        &old_runtime,
+                        block.header.height,
+                        gas_used_this_block,
+                    );
+                    let alpha = params.ema_alpha_milli as u128;
+                    new_runtime.ema_gas_used = (alpha * gas_used_this_block as u128
+                        + (1000 - alpha) * old_runtime.ema_gas_used)
+                        / 1000;
+                    new_runtime.effective_interval_secs = next_interval;
+
+                    // Persist the new runtime state if it changed.
+                    if new_runtime.ema_gas_used != old_runtime.ema_gas_used
+                        || new_runtime.effective_interval_secs
+                            != old_runtime.effective_interval_secs
+                    {
+                        state.insert(
+                            BLOCK_TIMING_RUNTIME_KEY,
+                            &codec::to_bytes_canonical(&new_runtime)
+                                .map_err(ChainError::Transaction)?,
+                        )?;
+                    }
+                }
+            }
+
             self.state.status.height = block.header.height;
             self.state.status.latest_timestamp = block.header.timestamp;
             self.state.status.total_transactions += block.transactions.len() as u64;
@@ -811,6 +891,7 @@ where
         current_validator_set: &[Vec<u8>],
         _known_peers_bytes: &[Vec<u8>],
         producer_keypair: &Keypair,
+        expected_timestamp: u64,
     ) -> Result<Block<ChainTransaction>, ChainError> {
         let height = self.state.status.height + 1;
         let (parent_hash_vec, parent_state_root) = self.state.recent_blocks.last().map_or_else(
@@ -839,10 +920,7 @@ where
         let producer_pubkey_hash = account_id_from_key_material(suite, &producer_pubkey)?;
         let producer_account_id = AccountId(producer_pubkey_hash);
 
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|e| ChainError::Time(e.to_string()))?
-            .as_secs();
+        let timestamp = expected_timestamp;
 
         let mut header = BlockHeader {
             height,

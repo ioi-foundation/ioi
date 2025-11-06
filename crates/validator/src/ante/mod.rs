@@ -5,8 +5,11 @@ use crate::ante::service_call::precheck_call_service;
 use depin_sdk_api::state::{StateAccessor, StateOverlay};
 use depin_sdk_api::transaction::context::TxContext;
 use depin_sdk_transaction_models::system::{nonce, validation};
+use depin_sdk_types::app::{BlockTimingParams, BlockTimingRuntime};
 use depin_sdk_types::app::{ChainStatus, ChainTransaction, SystemPayload};
+use depin_sdk_types::codec;
 use depin_sdk_types::error::{StateError, TransactionError};
+use depin_sdk_types::keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY};
 use ibc_primitives::Timestamp;
 use tracing::warn;
 
@@ -39,7 +42,6 @@ pub async fn check_tx(
     };
 
     // Deterministic timestamp for pre-check (mirrors execution ordering).
-    const PRECHECK_OFFSET_SECS: u64 = 5;
     let last_timestamp_ns: u128 = match state.get(depin_sdk_types::keys::STATUS_KEY)? {
         Some(b) => {
             let status: ChainStatus = depin_sdk_types::codec::from_bytes_canonical(&b)
@@ -49,8 +51,26 @@ pub async fn check_tx(
         }
         None => 0, // Genesis: pretend last time = 0 ns.
     };
+
+    // Calculate next timestamp deterministically
+    let interval_secs = {
+        let timing_params_bytes = state.get(BLOCK_TIMING_PARAMS_KEY)?.unwrap_or_default();
+        let timing_runtime_bytes = state.get(BLOCK_TIMING_RUNTIME_KEY)?.unwrap_or_default();
+        let timing_params: BlockTimingParams =
+            codec::from_bytes_canonical(&timing_params_bytes).unwrap_or_default();
+        let timing_runtime: BlockTimingRuntime =
+            codec::from_bytes_canonical(&timing_runtime_bytes).unwrap_or_default();
+
+        // Ante cannot easily get the parent block, so we use a simplified interval calculation
+        // that doesn't rely on parent gas usage. This is acceptable for pre-checks.
+        timing_runtime.effective_interval_secs.clamp(
+            timing_params.min_interval_secs,
+            timing_params.max_interval_secs,
+        )
+    };
+
     let next_timestamp_ns =
-        last_timestamp_ns.saturating_add((PRECHECK_OFFSET_SECS as u128) * 1_000_000_000u128);
+        last_timestamp_ns.saturating_add((interval_secs as u128) * 1_000_000_000u128);
     let next_timestamp = Timestamp::from_nanoseconds(next_timestamp_ns)
         .map_err(|e| TransactionError::Invalid(e.to_string()))?;
 

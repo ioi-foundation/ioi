@@ -7,10 +7,13 @@ pub mod consensus;
 pub mod identity;
 /// Data structures for reporting and penalizing misbehavior.
 pub mod penalties;
+/// Data structures for deterministic block timing.
+pub mod timing;
 
 pub use consensus::*;
 pub use identity::*;
 pub use penalties::*;
+pub use timing::*;
 
 use crate::error::{CoreError, StateError};
 use crate::ibc::{Finality, Header, InclusionProof, Packet};

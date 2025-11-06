@@ -15,16 +15,14 @@ use depin_sdk_api::storage::{NodeHash as StoreNodeHash, NodeStore};
 use depin_sdk_storage::adapter::{commit_and_persist, DeltaAccumulator};
 use depin_sdk_types::app::{to_root_hash, Membership, RootHash};
 use depin_sdk_types::error::StateError;
-use serde::{Deserialize, Serialize};
+use parity_scale_codec::{Decode, Encode};
 use std::any::Any;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::sync::Arc;
 
 /// Verkle tree node
-// Note: `Arc<VerkleNode>` can be serialized because the `serde` dependency
-// in this crate's Cargo.toml has the `rc` feature enabled.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Encode, Decode)]
 enum VerkleNode {
     Empty,
     Leaf {
@@ -33,7 +31,7 @@ enum VerkleNode {
         created_at: u64,
     },
     Internal {
-        children: HashMap<u8, Arc<VerkleNode>>,
+        children: BTreeMap<u8, Arc<VerkleNode>>,
         kzg_commitment: KZGCommitment,
         witness: KZGWitness,
         created_at: u64,
@@ -43,12 +41,11 @@ enum VerkleNode {
 /// Encodes a `VerkleNode` into its canonical byte format for storage.
 /// Note: This is for the storage adapter, not for the KZG commitment itself.
 fn encode_node_canonical(n: &VerkleNode) -> Result<Vec<u8>, StateError> {
-    // A simple bincode representation is sufficient for the durable store.
-    bincode::serialize(n).map_err(|e| StateError::Backend(e.to_string()))
+    Ok(n.encode())
 }
 
 fn decode_node_canonical(bytes: &[u8]) -> Option<VerkleNode> {
-    bincode::deserialize(bytes).ok()
+    VerkleNode::decode(&mut &*bytes).ok()
 }
 
 /// Verkle tree implementation
@@ -191,7 +188,7 @@ impl VerkleTree<KZGCommitmentScheme> {
             return Err(StateError::InvalidValue("Internal logic error".into()));
         }
 
-        let mut children = HashMap::new();
+        let mut children = BTreeMap::new();
         for (index, group) in groups {
             let child_node = self.build_from_sorted(&group, depth + 1)?;
             children.insert(index, child_node);
@@ -239,7 +236,7 @@ impl VerkleTree<KZGCommitmentScheme> {
         key_path: &[u8],
     ) -> Option<KZGProof> {
         let vpp = self.build_path_proof(start_node, key_path)?;
-        let bytes = bincode::serialize(&vpp).ok()?;
+        let bytes = vpp.encode();
         Some(KZGProof::from(bytes))
     }
 
@@ -359,7 +356,7 @@ impl VerkleTree<KZGCommitmentScheme> {
         })
     }
 
-    fn value_at_slot(&self, children: &HashMap<u8, Arc<VerkleNode>>, idx: u8) -> Option<[u8; 32]> {
+    fn value_at_slot(&self, children: &BTreeMap<u8, Arc<VerkleNode>>, idx: u8) -> Option<[u8; 32]> {
         if let Some(child) = children.get(&idx) {
             match child.as_ref() {
                 VerkleNode::Internal { kzg_commitment, .. } => {
@@ -377,7 +374,7 @@ impl VerkleTree<KZGCommitmentScheme> {
 
     fn internal_values(
         &self,
-        children: &HashMap<u8, Arc<VerkleNode>>,
+        children: &BTreeMap<u8, Arc<VerkleNode>>,
     ) -> Result<Vec<Option<Vec<u8>>>, String> {
         let mut slots = vec![None; self._branching_factor];
         for (i, slot) in slots.iter_mut().enumerate() {
@@ -407,7 +404,7 @@ impl VerkleTree<KZGCommitmentScheme> {
 
     fn compute_internal_kzg(
         &self,
-        children: &HashMap<u8, Arc<VerkleNode>>,
+        children: &BTreeMap<u8, Arc<VerkleNode>>,
     ) -> Result<(KZGCommitment, KZGWitness), String> {
         let values = self.internal_values(children)?;
         let byref: Vec<Option<&[u8]>> = values.iter().map(|o| o.as_deref()).collect();
@@ -445,7 +442,7 @@ impl VerkleTree<KZGCommitmentScheme> {
                         created_at: self.current_height,
                     });
                     for d in (depth..key.len()).rev() {
-                        let mut children = HashMap::new();
+                        let mut children = BTreeMap::new();
                         let key_byte = *key.get(d).ok_or_else(|| {
                             StateError::InvalidValue(format!("Key index {} out of bounds", d))
                         })?;
@@ -481,7 +478,7 @@ impl VerkleTree<KZGCommitmentScheme> {
                         Arc::new(VerkleNode::Empty)
                     });
                 }
-                let mut children = HashMap::new();
+                let mut children = BTreeMap::new();
                 let leaf_key_byte = *leaf_key.get(depth).ok_or_else(|| {
                     StateError::InvalidValue(format!("Leaf key index {} out of bounds", depth))
                 })?;
@@ -614,7 +611,7 @@ impl StateCommitment for VerkleTree<KZGCommitmentScheme> {
         let proof = self.build_proof_from_node(&self.root, key)?;
 
         if cfg!(debug_assertions) {
-            if let Ok(vpp) = bincode::deserialize::<VerklePathProof>(proof.as_ref()) {
+            if let Ok(vpp) = VerklePathProof::decode(&mut proof.as_ref()) {
                 let tree_root_bytes = self.root_commitment().as_ref().to_vec();
                 if let Some(proof_root_bytes) = vpp.node_commitments.first() {
                     assert_eq!(
@@ -651,8 +648,8 @@ impl StateCommitment for VerkleTree<KZGCommitmentScheme> {
             return Err(StateError::Validation("Path verification failed".into()));
         }
 
-        let vpp: VerklePathProof = bincode::deserialize(proof.as_ref())
-            .map_err(|e| StateError::InvalidValue(format!("Failed to deserialize proof: {}", e)))?;
+        let vpp = VerklePathProof::decode(&mut &*proof.as_ref())
+            .map_err(|e| StateError::InvalidValue(format!("Failed to decode proof: {}", e)))?;
 
         match vpp.terminal {
             Terminal::Leaf(payload) => {

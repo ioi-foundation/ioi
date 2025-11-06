@@ -6,6 +6,7 @@ mod iavl_tests {
     use crate::tree::iavl::{proof, to_root_hash, IAVLTree};
     use depin_sdk_api::state::{StateCommitment, StateManager};
     use depin_sdk_types::app::Membership;
+    use parity_scale_codec::Decode;
     use std::collections::BTreeMap;
 
     #[test]
@@ -42,11 +43,13 @@ mod iavl_tests {
 
         // Verify the non-existence proof directly using the verifier function
         let root_hash_v1: [u8; 32] = root_v1.as_ref().try_into().unwrap();
-        let verification_result = proof::verify_iavl_proof_bytes(
+        let iavl_proof_absent =
+            proof::IavlProof::decode(&mut proof_absent.as_ref()).expect("decoding should succeed");
+        let verification_result = proof::verify_iavl_proof(
             &root_hash_v1,
             b"key3",
             None, // `None` signifies we are proving absence
-            proof_absent.as_ref(),
+            &iavl_proof_absent,
         );
         assert!(verification_result.is_ok());
         assert!(verification_result.unwrap());

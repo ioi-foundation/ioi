@@ -57,6 +57,7 @@ bytes = "1"
 http-body-util = "0.1"
 
 [dev-dependencies]
+depin-sdk-relayer = { path = "../relayer" }
 depin-sdk-services = { path = "../services" }
 depin-sdk-chain = { path = "../chain" }
 depin-sdk-network = { path = "../network" }

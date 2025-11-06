@@ -2,10 +2,13 @@
 //! IAVL (Immutable AVL) tree implementation with cryptographic security
 
 mod proof;
+
+// Re-export proof types for external consumers (relayer, host, etc.)
+pub use proof::{ExistenceProof, IavlProof, InnerOp, LeafOp, NonExistenceProof, Side};
 pub mod verifier;
 
 use crate::tree::iavl::proof::{
-    verify_iavl_proof_bytes, ExistenceProof, InnerOp, LeafOp, NonExistenceProof, Side,
+    verify_iavl_proof,
 };
 use depin_sdk_api::commitment::{CommitmentScheme, Selector};
 use depin_sdk_api::state::{PrunePlan, StateCommitment, StateManager, StateScanIter};
@@ -14,6 +17,7 @@ use depin_sdk_storage::adapter::{commit_and_persist, DeltaAccumulator};
 use depin_sdk_types::app::{to_root_hash, Membership, RootHash};
 use depin_sdk_types::error::StateError;
 use depin_sdk_types::prelude::OptionExt;
+use parity_scale_codec::{Decode, Encode};
 use std::any::Any;
 use std::cmp::{max, Ordering};
 use std::collections::{BTreeMap, HashMap};
@@ -602,8 +606,7 @@ where
                         path,
                     };
                     let proof_obj = proof::IavlProof::Existence(existence);
-                    let proof_bytes = serde_json::to_vec(&proof_obj)
-                        .map_err(|e| StateError::Backend(e.to_string()))?;
+                    let proof_bytes = proof_obj.encode();
                     let proof_value = self.to_value(&proof_bytes);
                     let scheme_proof = self
                         .scheme
@@ -629,8 +632,7 @@ where
                     }
 
                     let proof_obj = proof::IavlProof::NonExistence(non_existence);
-                    let proof_bytes = serde_json::to_vec(&proof_obj)
-                        .map_err(|e| StateError::Backend(e.to_string()))?;
+                    let proof_bytes = proof_obj.encode();
                     let proof_value = self.to_value(&proof_bytes);
                     let scheme_proof = self
                         .scheme
@@ -817,7 +819,7 @@ where
                 .map(proof::IavlProof::NonExistence)
         }?;
 
-        let proof_data = serde_json::to_vec(&proof).ok()?;
+        let proof_data = proof.encode();
         let value = self.to_value(&proof_data);
         self.scheme
             .create_proof(&Selector::Key(key.to_vec()), &value)
@@ -1052,7 +1054,10 @@ where
             .try_into()
             .map_err(|_| StateError::InvalidValue("Commitment is not 32 bytes".into()))?;
         let proof_data = proof.as_ref();
-        match verify_iavl_proof_bytes(root_hash, key, Some(value), proof_data) {
+
+        let iavl_proof = IavlProof::decode(&mut &*proof_data)
+            .map_err(|e| StateError::Validation(e.to_string()))?;
+        match verify_iavl_proof(root_hash, key, Some(value), &iavl_proof) {
             Ok(true) => Ok(()),
             Ok(false) => Err(StateError::Validation(
                 "IAVL proof verification failed".into(),
@@ -1109,16 +1114,18 @@ where
                     None => Membership::Absent,
                 };
                 let proof = self
-                    .build_proof_for_root(historical_root_node, key)
+                    .build_proof_for_root(historical_root_node.clone(), key)
                     .required(StateError::Backend(
                         "Failed to generate IAVL proof".to_string(),
                     ))?;
 
-                if !verify_iavl_proof_bytes(
+                let iavl_proof = IavlProof::decode(&mut proof.as_ref())
+                    .map_err(|e| StateError::Validation(e.to_string()))?;
+                if !verify_iavl_proof(
                     &root_hash,
                     key,
                     membership.clone().into_option().as_deref(),
-                    proof.as_ref(),
+                    &iavl_proof,
                 )
                 .map_err(|e| StateError::Validation(e.to_string()))?
                 {

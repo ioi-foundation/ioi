@@ -12,13 +12,17 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
-        Credential, SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
-        ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
+        BlockTimingRuntime, ChainId, ChainTransaction, Credential, SignHeader, SignatureProof,
+        SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetV1, ValidatorSetsV1,
+        ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
-    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
+    keys::{
+        ACCOUNT_ID_TO_PUBKEY_PREFIX, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY,
+        IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
+    },
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
@@ -82,7 +86,7 @@ async fn test_staking_lifecycle() -> Result<()> {
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
             let initial_stake = 100_000u128;
 
-            let validators: Vec<ValidatorV1> = keys
+            let mut validators: Vec<ValidatorV1> = keys
                 .iter()
                 .map(|keypair| {
                     let pk_bytes = keypair.public().encode_protobuf();
@@ -101,6 +105,7 @@ async fn test_staking_lifecycle() -> Result<()> {
                     }
                 })
                 .collect();
+            validators.sort_by(|a, b| a.account_id.cmp(&b.account_id));
 
             let total_weight = validators.iter().map(|v| v.weight).sum();
 
@@ -117,6 +122,37 @@ async fn test_staking_lifecycle() -> Result<()> {
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
+            );
+
+            // [+] FIX: Add the mandatory block timing parameters to the genesis state.
+            // This is required by the new deterministic timestamp logic.
+            let timing_params = BlockTimingParams {
+                base_interval_secs: 5,
+                retarget_every_blocks: 0, // Disable adaptive timing for simplicity.
+                ..Default::default()
+            };
+            let timing_runtime = BlockTimingRuntime {
+                effective_interval_secs: timing_params.base_interval_secs,
+                ..Default::default()
+            };
+
+            genesis_state.insert(
+                std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
+                    .unwrap()
+                    .to_string(),
+                json!(format!(
+                    "b64:{}",
+                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
+                )),
+            );
+            genesis_state.insert(
+                std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
+                    .unwrap()
+                    .to_string(),
+                json!(format!(
+                    "b64:{}",
+                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
+                )),
             );
 
             for keypair in keys {

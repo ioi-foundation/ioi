@@ -8,7 +8,7 @@ description = "Observability, metrics, and structured logging for the DePIN SDK.
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-prometheus = { version = "0.13", features = ["process"] }
+prometheus = { workspace = true, features = ["process"] }
 once_cell = "1.19"
 axum = { workspace = true }
 tokio = { workspace = true, features = ["full"] }

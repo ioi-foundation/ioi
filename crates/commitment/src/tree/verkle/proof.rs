@@ -1,6 +1,6 @@
 // Path: crates/commitment/src/tree/verkle/proof.rs
 use depin_sdk_crypto::{algorithms::hash, error::CryptoError};
-use serde::{Deserialize, Serialize};
+use parity_scale_codec::{Decode, Encode};
 
 /// Computes a hash for canonical mapping functions.
 fn hash(data: &[u8]) -> Result<[u8; 32], CryptoError> {
@@ -27,7 +27,7 @@ pub fn map_child_commitment_to_value(commitment_bytes: &[u8]) -> Result<[u8; 32]
 pub type SchemeId = [u8; 32];
 
 /// The final element in a proof path, proving either membership or non-membership.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub enum Terminal {
     /// Proves that the path ends at a leaf with the given payload.
     Leaf(Vec<u8>),
@@ -38,7 +38,7 @@ pub enum Terminal {
 }
 
 /// A complete, self-contained proof for a path in a Verkle tree.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct VerklePathProof {
     /// The ID of the cryptographic parameters (e.g., SRS fingerprint) used to generate this proof.
     pub params_id: SchemeId,
