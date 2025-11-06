@@ -1,27 +1,17 @@
 // Path: crates/validator/src/standard/workload_ipc_server/methods/chain.rs
 use super::RpcContext;
+use crate::ante::check_tx;
 use crate::standard::workload_ipc_server::router::{RequestContext, RpcMethod};
 use anyhow::{anyhow, Result};
 use ioi_api::{
-    chain::AppChain,
-    commitment::CommitmentScheme,
-    state::{StateAccessor, StateOverlay},
-    transaction::{context::TxContext, TransactionModel},
+    chain::AppChain, commitment::CommitmentScheme, state::StateManager,
+    transaction::TransactionModel,
 };
-// [+] ADD this import
-use ioi_tx::system::{nonce, validation};
-use ioi_types::{
-    app::{
-        evidence_id, AccountId, ApplicationTransaction, Block, BlockHeader, ChainTransaction,
-        Membership, StateAnchor, SystemPayload,
-    },
-    codec,
-    error::TransactionError,
-    keys::EVIDENCE_REGISTRY_KEY,
+use ioi_types::app::{
+    ApplicationTransaction, Block, BlockHeader, ChainTransaction, Membership, StateAnchor,
 };
-use ibc_primitives::Timestamp;
 use serde::{Deserialize, Serialize};
-use std::{any::Any, collections::BTreeSet, marker::PhantomData, sync::Arc};
+use std::{any::Any, marker::PhantomData, sync::Arc};
 
 // --- chain.getBlocksRange.v1 ---
 
@@ -165,6 +155,8 @@ where
 pub struct CheckTransactionsParams {
     /// The state anchor against which to validate the transactions.
     pub anchor: StateAnchor,
+    /// The authoritative timestamp for the block being checked.
+    pub expected_timestamp_secs: u64,
     /// The list of transactions to validate.
     pub txs: Vec<ChainTransaction>,
 }
@@ -208,88 +200,22 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for CheckTransactionsV1"))?;
 
-        let initial_tx_count = params.txs.len();
-        let mut results = Vec::with_capacity(initial_tx_count);
-
+        let mut results = Vec::with_capacity(params.txs.len());
         let chain_guard = ctx.chain.lock().await;
-
         let base_state_tree = ctx.workload.state_tree();
         let base_state = base_state_tree.read().await;
-        let mut overlay = StateOverlay::new(&*base_state);
 
         for tx in params.txs {
-            // Run the full validation flow inside a closure to handle errors cleanly.
-            let check_result = async {
-                let status = (*chain_guard).status();
-                let chain_id = chain_guard.state.chain_id;
-                // Derive signer exactly like the chain's apply path does
-                let signer_account_id = match &tx {
-                    ChainTransaction::System(sys_tx) => sys_tx.header.account_id,
-                    ChainTransaction::Application(app_tx) => match app_tx {
-                        ApplicationTransaction::DeployContract { header, .. } => header.account_id,
-                        ApplicationTransaction::CallContract { header, .. } => header.account_id,
-                        ApplicationTransaction::UTXO(_) => AccountId::default(),
-                    },
-                };
-
-                let mut tx_ctx = TxContext {
-                    block_height: status.height + 1,
-                    // [+] FIX: Add the missing block_timestamp field
-                    block_timestamp: Timestamp::now(),
-                    chain_id,
-                    signer_account_id,
-                    services: &chain_guard.services,
-                    simulation: true,
-                    is_internal: false,
-                };
-
-                // Mirror the real path's auth checks: verify signature & nonce first.
-                validation::verify_transaction_signature(
-                    &overlay,
-                    &chain_guard.services,
-                    &tx,
-                    &tx_ctx,
-                )?;
-                nonce::assert_next_nonce(&overlay, &tx)?;
-
-                // Run TxDecorator services.
-                for service in chain_guard.services.services_in_deterministic_order() {
-                    if let Some(decorator) = service.as_tx_decorator() {
-                        decorator.ante_handle(&mut overlay, &tx, &tx_ctx).await?;
-                    }
-                }
-
-                if let ChainTransaction::System(sys_tx) = &tx {
-                    if let SystemPayload::ReportMisbehavior { report } = &sys_tx.payload {
-                        let id = evidence_id(report)
-                            .map_err(|e| TransactionError::Invalid(e.to_string()))?;
-                        let already_seen = match overlay.get(EVIDENCE_REGISTRY_KEY)? {
-                            Some(bytes) => {
-                                codec::from_bytes_canonical::<BTreeSet<[u8; 32]>>(&bytes)
-                                    .map(|set| set.contains(&id))
-                                    .unwrap_or(false)
-                            }
-                            None => false,
-                        };
-                        if already_seen {
-                            return Err(TransactionError::Invalid("DuplicateEvidence".to_string()));
-                        }
-                    }
-                }
-
-                // Bump nonce *within the overlay* so subsequent txs in the same batch see it.
-                nonce::bump_nonce(&mut overlay, &tx)?;
-
-                // Apply the core logic to the overlay to check for state-based errors
-                (*chain_guard)
-                    .transaction_model()
-                    .apply_payload(&*chain_guard, &mut overlay, &tx, &mut tx_ctx)
-                    .await?;
-
-                Ok(())
-            }
+            let check_result = check_tx(
+                &*base_state,
+                &chain_guard.services,
+                &tx,
+                chain_guard.state.chain_id,
+                chain_guard.status().height + 1,
+                params.expected_timestamp_secs,
+            )
             .await
-            .map_err(|e: TransactionError| e.to_string());
+            .map_err(|e: ioi_types::error::TransactionError| e.to_string());
 
             results.push(check_result);
         }
@@ -574,8 +500,8 @@ where
         let state_tree = ctx.workload.state_tree();
         let state = state_tree.read().await;
 
-        let (membership, _proof) = state
-            .get_with_proof_at_anchor(&params.anchor.0, ioi_types::keys::VALIDATOR_SET_KEY)?;
+        let (membership, _proof) =
+            state.get_with_proof_at_anchor(&params.anchor.0, ioi_types::keys::VALIDATOR_SET_KEY)?;
 
         if let Membership::Present(bytes) = membership {
             let sets = ioi_types::app::read_validator_sets(&bytes)?;

@@ -39,6 +39,7 @@ struct GetBlocksRangeParams {
 #[derive(Serialize)]
 struct CheckTransactionsParams {
     anchor: StateAnchor,
+    expected_timestamp_secs: u64,
     txs: Vec<ChainTransaction>,
 }
 
@@ -351,9 +352,14 @@ impl WorkloadClient {
     pub async fn check_transactions_at(
         &self,
         anchor: StateAnchor,
+        expected_timestamp_secs: u64,
         txs: Vec<ChainTransaction>,
     ) -> Result<Vec<Result<(), String>>> {
-        let params = CheckTransactionsParams { anchor, txs };
+        let params = CheckTransactionsParams {
+            anchor,
+            expected_timestamp_secs,
+            txs,
+        };
         self.send_rpc("chain.checkTransactions.v1", params).await
     }
 

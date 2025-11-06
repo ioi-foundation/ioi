@@ -145,7 +145,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         our_account_id: &AccountId,
         height: u64,
         _view: u64,
-        parent_view: &dyn AnchoredStateView, // REFACTORED: Use anchored view
+        parent_view: &dyn AnchoredStateView,
         _known_peers: &HashSet<libp2p::PeerId>,
     ) -> ConsensusDecision<T> {
         log::info!(
@@ -249,6 +249,48 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             return ConsensusDecision::Stall;
         }
         if let Some(leader_account_id) = self.select_leader(height, vs) {
+            // --- Compute authoritative timestamp (same as verify) ---
+            let expected_timestamp_secs = {
+                let timing_params_bytes = match parent_view.get(BLOCK_TIMING_PARAMS_KEY).await {
+                    Ok(Some(b)) => b,
+                    _ => return ConsensusDecision::Stall,
+                };
+                let timing_runtime_bytes = match parent_view.get(BLOCK_TIMING_RUNTIME_KEY).await {
+                    Ok(Some(b)) => b,
+                    _ => return ConsensusDecision::Stall,
+                };
+                let timing_params: BlockTimingParams =
+                    match codec::from_bytes_canonical(&timing_params_bytes) {
+                        Ok(x) => x,
+                        Err(_) => return ConsensusDecision::Stall,
+                    };
+                let timing_runtime: BlockTimingRuntime =
+                    match codec::from_bytes_canonical(&timing_runtime_bytes) {
+                        Ok(x) => x,
+                        Err(_) => return ConsensusDecision::Stall,
+                    };
+                let status_bytes = match parent_view.get(STATUS_KEY).await {
+                    Ok(Some(b)) => b,
+                    _ => return ConsensusDecision::Stall,
+                };
+                let parent_status: ChainStatus =
+                    match codec::from_bytes_canonical(&status_bytes) {
+                        Ok(s) => s,
+                        Err(_) => return ConsensusDecision::Stall,
+                    };
+                let parent_ts = parent_status.latest_timestamp; // seconds
+                let parent_gas_used_placeholder = 0u64;
+                let interval = compute_interval_from_parent_state(
+                    &timing_params,
+                    &timing_runtime,
+                    height.saturating_sub(1),
+                    parent_gas_used_placeholder,
+                );
+                match parent_ts.checked_add(interval) {
+                    Some(v) => v,
+                    None => return ConsensusDecision::Stall,
+                }
+            };
             log::info!(
                 "[PoS Decide H={}] Selected leader: 0x{}. Our ID: 0x{}",
                 height,
@@ -260,7 +302,10 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                     "[PoS Decide H={}] DECISION: We are the leader. Will ProduceBlock.",
                     height
                 );
-                ConsensusDecision::ProduceBlock(vec![])
+                ConsensusDecision::ProduceBlock {
+                    transactions: vec![],
+                    expected_timestamp_secs,
+                }
             } else {
                 log::info!(
                     "[PoS Decide H={}] DECISION: We are not the leader. Will WaitForBlock.",

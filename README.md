@@ -211,7 +211,7 @@ cargo test --workspace
 |------|---------|
 | **IBC Gateway Metrics** | `GATEWAY_CHAIN_ID=localnet-1 cargo run -p ioi-node && curl -s localhost:9100/metrics | grep ioi_ibc_gateway_` |
 | **Update IBC Golden Files** | `UPDATE_GOLDENS=1 cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash,ibc-deps" --test ibc_golden_e2e -- --nocapture` |
-| **IBC Relayer E2E** | ```bash RUST_LOG=trace RUST_BACKTRACE=1 cargo test -p ioi-forge --release \ --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash,ibc-deps" \ --test ibc_relayer_e2e -- --nocapture 2>&1 \| tee /tmp/e2e.log ``` |
+| **IBC Relayer E2E** | ```bash RUST_LOG=trace RUST_BACKTRACE=1 cargo test -p ioi-forge --release  --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash,ibc-deps"  --test ibc_relayer_e2e -- --nocapture 2>&1 | tee /tmp/e2e.log``` |
 | **Proof Verification** | `cargo test -p ioi-forge --test proof_verification_e2e --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash,malicious-bin" -- --nocapture` |
 | **Network Sync** | `cargo test --package ioi-forge --test sync_e2e --features "consensus-poa,vm-wasm,tree-iavl" -- --nocapture --test-threads=1` |
 | **Infrastructure (Metrics)** | `cargo test --package ioi-forge --test infra_e2e --features "consensus-poa,vm-wasm,tree-iavl" -- --nocapture --test-threads=1` |

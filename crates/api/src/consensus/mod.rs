@@ -15,7 +15,12 @@ use std::collections::{BTreeMap, HashSet};
 #[derive(Debug)]
 pub enum ConsensusDecision<T> {
     /// The node is the leader and should produce a block with the given transactions.
-    ProduceBlock(Vec<T>),
+    /// `expected_timestamp_secs` is the exact block timestamp (UNIX seconds) the engine
+    /// will later verify against. Pre-flight checks **must** use this same value.
+    ProduceBlock {
+        transactions: Vec<T>,
+        expected_timestamp_secs: u64,
+    },
     /// The node is not the leader and should wait for a block proposal from a peer.
     WaitForBlock,
     /// The node has detected a stall and should propose a view change (for BFT-style algorithms).
@@ -84,7 +89,7 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
         our_account_id: &AccountId,
         height: u64,
         view: u64,
-        parent_view: &dyn AnchoredStateView, // REFACTORED: Use the deterministic, anchored view.
+        parent_view: &dyn AnchoredStateView, // deterministic, anchored view of parent (H-1)
         known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T>;
 

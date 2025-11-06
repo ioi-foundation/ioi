@@ -1,6 +1,10 @@
 // Path: crates/consensus/src/proof_of_authority.rs
 use crate::{ConsensusDecision, ConsensusEngine, PenaltyMechanism};
 use async_trait::async_trait;
+use ioi_api::chain::{AnchoredStateView, ChainView};
+use ioi_api::commitment::CommitmentScheme;
+use ioi_api::consensus::ChainStateReader;
+use ioi_api::state::{StateAccessor, StateManager};
 use ioi_types::app::{
     account_id_from_key_material, compute_interval_from_parent_state, read_validator_sets,
     AccountId, Block, BlockTimingParams, BlockTimingRuntime, ChainStatus, FailureReport,
@@ -12,10 +16,6 @@ use ioi_types::keys::{
     BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, QUARANTINED_VALIDATORS_KEY, STATUS_KEY,
     VALIDATOR_SET_KEY,
 };
-use ioi_api::chain::{AnchoredStateView, ChainView};
-use ioi_api::commitment::CommitmentScheme;
-use ioi_api::consensus::ChainStateReader;
-use ioi_api::state::{StateAccessor, StateManager};
 use libp2p::identity::PublicKey;
 use libp2p::PeerId;
 use std::collections::{BTreeSet, HashSet};
@@ -93,9 +93,7 @@ impl PenaltyMechanism for ProofOfAuthorityEngine {
         }
         let quarantined: BTreeSet<AccountId> = state
             .get(QUARANTINED_VALIDATORS_KEY)?
-            .map(|b| {
-                ioi_types::codec::from_bytes_canonical(&b).map_err(StateError::InvalidValue)
-            })
+            .map(|b| ioi_types::codec::from_bytes_canonical(&b).map_err(StateError::InvalidValue))
             .transpose()?
             .unwrap_or_default();
         if !quarantined.contains(&report.offender) {
@@ -141,7 +139,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         our_account_id: &AccountId,
         height: u64,
         view: u64,
-        parent_view: &dyn AnchoredStateView, // REFACTORED: Now uses the AnchoredStateView trait.
+        parent_view: &dyn AnchoredStateView,
         _known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
         let vs_bytes_result = parent_view.get(VALIDATOR_SET_KEY).await;
@@ -172,27 +170,63 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         // >>> Normalize order across nodes <<<
         validator_set.sort();
 
-        if validator_set.is_empty() {
-            return if height == 1 {
-                ConsensusDecision::ProduceBlock(vec![])
-            } else {
-                ConsensusDecision::Stall
+        // Compute the authoritative timestamp for block at `height`.
+        // This mirrors verification logic in handle_block_proposal.
+        let expected_timestamp_secs = {
+            // Timing params/runtime from parent state
+            let timing_params_bytes = match parent_view.get(BLOCK_TIMING_PARAMS_KEY).await {
+                Ok(Some(b)) => b,
+                _ => return ConsensusDecision::Stall,
             };
-        }
+            let timing_runtime_bytes = match parent_view.get(BLOCK_TIMING_RUNTIME_KEY).await {
+                Ok(Some(b)) => b,
+                _ => return ConsensusDecision::Stall,
+            };
+            let timing_params: BlockTimingParams =
+                match codec::from_bytes_canonical(&timing_params_bytes) {
+                    Ok(x) => x,
+                    Err(_) => return ConsensusDecision::Stall,
+                };
+            let timing_runtime: BlockTimingRuntime =
+                match codec::from_bytes_canonical(&timing_runtime_bytes) {
+                    Ok(x) => x,
+                    Err(_) => return ConsensusDecision::Stall,
+                };
+            // Parent timestamp from ChainStatus in parent state
+            let status_bytes = match parent_view.get(STATUS_KEY).await {
+                Ok(Some(b)) => b,
+                _ => return ConsensusDecision::Stall,
+            };
+            let parent_status: ChainStatus = match codec::from_bytes_canonical(&status_bytes) {
+                Ok(s) => s,
+                Err(_) => return ConsensusDecision::Stall,
+            };
+            let parent_ts = parent_status.latest_timestamp; // seconds
+            let parent_gas_used_placeholder = 0u64;
+            let interval = compute_interval_from_parent_state(
+                &timing_params,
+                &timing_runtime,
+                height.saturating_sub(1),
+                parent_gas_used_placeholder,
+            );
+            match parent_ts.checked_add(interval) {
+                Some(v) => v,
+                None => return ConsensusDecision::Stall,
+            }
+        };
 
         let n = validator_set.len() as u64;
         // Height 1 -> index 0, Height 2 -> index 1, etc. (then add view)
         let round = height.saturating_sub(1).saturating_add(view);
         let leader_index = (round % n) as usize;
 
-        if let Some(leader) = validator_set.get(leader_index) {
-            if *leader == *our_account_id {
-                ConsensusDecision::ProduceBlock(vec![])
-            } else {
-                ConsensusDecision::WaitForBlock
-            }
-        } else {
-            ConsensusDecision::Stall
+        match validator_set.get(leader_index) {
+            Some(leader) if *leader == *our_account_id => ConsensusDecision::ProduceBlock {
+                transactions: vec![],
+                expected_timestamp_secs,
+            },
+            Some(_) => ConsensusDecision::WaitForBlock,
+            None => ConsensusDecision::Stall,
         }
     }
 

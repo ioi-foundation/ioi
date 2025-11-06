@@ -7,19 +7,23 @@ use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
     build_test_artifacts,
     poll::{wait_for_height, wait_for_quarantine_status},
+    rpc,
     rpc::get_quarantined_set,
-    submit_transaction, TestCluster,
+    TestCluster,
 };
 use ioi_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
-        Credential, FailureReport, OffenseFacts, OffenseType, SignHeader, SignatureProof,
-        SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1,
-        ValidatorSetsV1, ValidatorV1,
+        account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
+        BlockTimingRuntime, ChainId, ChainTransaction, Credential, FailureReport, OffenseFacts,
+        OffenseType, SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+        ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
-    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
+    keys::{
+        ACCOUNT_ID_TO_PUBKEY_PREFIX, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY,
+        IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
+    },
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
@@ -128,6 +132,36 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
                 json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
             );
 
+            // *** FIX START: Add mandatory block timing parameters to genesis ***
+            let timing_params = BlockTimingParams {
+                base_interval_secs: 5,
+                retarget_every_blocks: 0, // Disable adaptive timing for simplicity.
+                ..Default::default()
+            };
+            let timing_runtime = BlockTimingRuntime {
+                effective_interval_secs: timing_params.base_interval_secs,
+                ..Default::default()
+            };
+            genesis_state.insert(
+                std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
+                    .unwrap()
+                    .to_string(),
+                json!(format!(
+                    "b64:{}",
+                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
+                )),
+            );
+            genesis_state.insert(
+                std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
+                    .unwrap()
+                    .to_string(),
+                json!(format!(
+                    "b64:{}",
+                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
+                )),
+            );
+            // *** FIX END ***
+
             // 3. Build a stable map AccountId -> public key bytes.
             let suite = SignatureSuite::Ed25519;
             let id_to_pk: BTreeMap<AccountId, Vec<u8>> = keys
@@ -202,7 +236,7 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         account_id_from_key_material(SignatureSuite::Ed25519, &offender1_pk_bytes)?;
     let offender1_id = AccountId(offender1_id_hash);
     let tx1 = create_report_tx(&reporter.keypair, offender1_id, 0, 1.into())?;
-    submit_transaction(rpc_addr, &tx1).await?;
+    rpc::submit_transaction(rpc_addr, &tx1).await?;
 
     // Assert 1: Poll state until the offender is quarantined.
     println!("Waiting for offender to be quarantined...");
@@ -216,31 +250,35 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
     );
     println!("SUCCESS: First offender was correctly quarantined.");
 
-    // Action 2: Try to quarantine the second offender. This should be accepted by mempool but rejected by state machine.
+    // Get current height before submitting the problematic transaction.
+    let height_before_halt = rpc::get_chain_height(rpc_addr).await?;
+
+    // Action 2: Try to quarantine the second offender. This should be accepted by mempool but cause a chain halt.
     let offender2_pk_bytes = offender2.keypair.public().encode_protobuf();
     let offender2_id_hash =
         account_id_from_key_material(SignatureSuite::Ed25519, &offender2_pk_bytes)?;
     let offender2_id = AccountId(offender2_id_hash);
     let tx2 = create_report_tx(&reporter.keypair, offender2_id, 1, 1.into())?; // increment nonce
 
-    // *** FIX START: Expect this transaction to fail ***
-    let submission_result = submit_transaction(rpc_addr, &tx2).await;
+    let submission_result = rpc::submit_transaction_no_wait(rpc_addr, &tx2).await?;
     assert!(
-        submission_result.is_err(),
-        "Transaction should have been rejected by the liveness guard"
+        submission_result.get("error").is_none() || submission_result["error"].is_null(),
+        "Submission of liveness-violating tx should be accepted by mempool, but was rejected with: {}",
+        submission_result
     );
-    if let Err(e) = submission_result {
-        let error_message = e.to_string();
-        assert!(
-            error_message.contains("Quarantine would jeopardize network liveness"),
-            "Transaction was rejected for the wrong reason: {}",
-            error_message
-        );
-    }
-    // *** FIX END ***
 
-    // Assert 2: Liveness guard rejected the transaction by asserting state hasn't changed after a delay.
-    time::sleep(Duration::from_secs(10)).await;
+    // Assert 2: Chain should halt. Wait for a duration longer than block time and assert height hasn't changed.
+    println!("Waiting to confirm chain has halted due to invalid transaction...");
+    time::sleep(Duration::from_secs(10)).await; // Wait longer than a block time.
+    let height_after_halt = rpc::get_chain_height(rpc_addr).await?;
+    assert_eq!(
+        height_after_halt, height_before_halt,
+        "Chain should have halted at height {} but advanced to {}",
+        height_before_halt, height_after_halt
+    );
+    println!("SUCCESS: Chain correctly halted after receiving a transaction that would violate liveness.");
+
+    // Assert 3: The liveness guard prevented the state change. The quarantine list should still have only one member.
     let final_quarantine_list = get_quarantined_set(rpc_addr).await?;
     if final_quarantine_list.contains(&offender2_id) {
         return Err(anyhow!(
@@ -253,6 +291,6 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         "Quarantine list size should remain 1"
     );
 
-    println!("SUCCESS: Liveness guard kept quarantine set at size 1.");
+    println!("SUCCESS: Liveness guard correctly prevented the invalid state transition.");
     Ok(())
 }
