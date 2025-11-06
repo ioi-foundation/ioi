@@ -8,7 +8,7 @@
 pub mod channel;
 
 /// Contains the adapter `IbcExecutionContext` that allows `ibc-rs` to interact
-/// with the DePIN SDK's `StateAccessor`.
+/// with the IOI SDK's `StateAccessor`.
 pub mod context;
 
 /// Contains concrete, chain-specific implementations of the `InterchainVerifier` trait.

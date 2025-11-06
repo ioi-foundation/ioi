@@ -1,4 +1,4 @@
-# DePIN SDK
+# IOI SDK
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/your-org/ioi/rust.yml?branch=main)](https://github.com/your-org/ioi/actions)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](LICENSE)
@@ -6,7 +6,7 @@
 
 **The Framework for Sovereign Web4 Blockchains**
 
-The DePIN SDK is a next-generation blockchain framework written entirely in Rust, designed to build high-performance, sovereign, and secure decentralized networks. It evolves beyond the Web3 paradigm of "read, write, own" to enable **Web4**: chains that can also **understand** user intent through a native, distributed AI agentic layer.
+The IOI SDK is a next-generation blockchain framework written entirely in Rust, designed to build high-performance, sovereign, and secure decentralized networks. It evolves beyond the Web3 paradigm of "read, write, own" to enable **Web4**: chains that can also **understand** user intent through a native, distributed AI agentic layer.
 
 > 🎯 **Mission**: Provide the tools to build chains that are not just decentralized ledgers, but intelligent, autonomous partners in achieving complex goals.
 
@@ -49,7 +49,7 @@ A robust security model that provides strong guarantees through cryptography, re
 
 ## Architectural Overview
 
-The DePIN SDK follows an SDK-first methodology. Core components are provided as composable Rust crates, allowing developers to build custom, sovereign chains tailored to their specific use case. The foundation is the **Triple-Container Architecture**, ensuring strict separation of concerns and enhanced security.
+The IOI SDK follows an SDK-first methodology. Core components are provided as composable Rust crates, allowing developers to build custom, sovereign chains tailored to their specific use case. The foundation is the **Triple-Container Architecture**, ensuring strict separation of concerns and enhanced security.
 
 📖 **For detailed architecture information, see the [Architectural Documentation](./docs)**
 

@@ -12,9 +12,9 @@
 )]
 #![deny(missing_docs)]
 
-//! # DePIN SDK Validator
+//! # IOI SDK Validator
 //!
-//! Validator implementation with container architecture for the DePIN SDK.
+//! Validator implementation with container architecture for the IOI SDK.
 
 pub mod common;
 pub mod config;

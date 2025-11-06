@@ -3,7 +3,7 @@
 name = "ioi-relayer"
 version = "0.1.0"
 edition = "2021"
-description = "A native IBC relayer implementation for the DePIN SDK test suite"
+description = "A native IBC relayer implementation for the IOI SDK test suite"
 license = "MIT OR Apache-2.0"
 
 [dependencies]

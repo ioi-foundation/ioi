@@ -2,14 +2,14 @@
 // Lints are removed from the library file and moved to the binary.
 // This is a common pattern for testing libraries where panics are acceptable.
 
-//! # DePIN SDK Forge Library
+//! # IOI SDK Forge Library
 //!
 //! This library provides high-level APIs and helper functions to facilitate
-//! testing and interaction with chains built on the DePIN SDK.
+//! testing and interaction with chains built on the IOI SDK.
 //!
 //! ## Architectural Boundary and Purpose
 //!
-//! **`forge` is designed to be the primary *external consumer* of the DePIN SDK.**
+//! **`forge` is designed to be the primary *external consumer* of the IOI SDK.**
 //! Its purpose is to simulate the developer experience of someone building on,
 //! or with, the SDK. To maintain this crucial role, this crate must adhere
 //! to a strict architectural boundary:

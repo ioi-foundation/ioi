@@ -11,7 +11,7 @@
     )
 )]
 
-//! # DePIN SDK Network
+//! # IOI SDK Network
 //!
 //! This crate provides traits and implementations for block synchronization
 //! and network communication logic.

@@ -11,9 +11,9 @@
     )
 )]
 
-//! # DePIN SDK Test Utilities
+//! # IOI SDK Test Utilities
 //!
-//! Utilities for testing the DePIN SDK components.
+//! Utilities for testing the IOI SDK components.
 
 pub mod agentic_mock;
 pub mod assertions;

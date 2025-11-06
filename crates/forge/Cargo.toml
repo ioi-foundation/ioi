@@ -4,7 +4,7 @@
 name = "ioi-forge"
 version = "0.1.0"
 edition = "2021"
-description = "A development toolkit and end-to-end testing library for the DePIN SDK."
+description = "A development toolkit and end-to-end testing library for the IOI SDK."
 license = "MIT OR Apache-2.0"
 
 [dependencies]

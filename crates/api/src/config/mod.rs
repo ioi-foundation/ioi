@@ -1,6 +1,6 @@
 // Path: crates/api/src/config/mod.rs
 
-//! Shared configuration structures for core DePIN SDK components.
+//! Shared configuration structures for core IOI SDK components.
 
 use serde::Deserialize;
 

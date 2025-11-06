@@ -3,7 +3,7 @@
 name = "http-rpc-gateway"
 version = "0.1.0"
 edition = "2021"
-description = "HTTP JSON-RPC gateway for the DePIN SDK's IBC host"
+description = "HTTP JSON-RPC gateway for the IOI SDK's IBC host"
 license = "MIT OR Apache-2.0"
 
 [dependencies]

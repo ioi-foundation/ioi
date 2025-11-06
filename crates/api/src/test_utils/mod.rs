@@ -1,3 +1,3 @@
-//! Test utilities for the DePIN SDK Core
+//! Test utilities for the IOI SDK Core
 
 pub mod mock_commitment;

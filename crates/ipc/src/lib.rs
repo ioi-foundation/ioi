@@ -1,5 +1,5 @@
 // Path: crates/ioi-ipc/src/lib.rs
-//! # DePIN SDK IPC Protocol Crate Lints
+//! # IOI SDK IPC Protocol Crate Lints
 //!
 //! This crate enforces a strict set of lints to ensure high-quality,
 //! panic-free, and well-documented code. Panics are disallowed in non-test

@@ -2,9 +2,9 @@
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
-//! # DePIN SDK Types
+//! # IOI SDK Types
 //!
-//! This crate is the foundational library for the DePIN SDK, containing all core
+//! This crate is the foundational library for the IOI SDK, containing all core
 //! data structures, error types, and configuration objects.
 //!
 //! ## Architectural Role

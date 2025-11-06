@@ -4,7 +4,7 @@ name = "ioi-services"
 version = "0.1.0"
 rust-version = "1.78"
 edition = "2021"
-description = "Services for the DePIN SDK"
+description = "Services for the IOI SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
