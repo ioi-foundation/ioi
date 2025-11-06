@@ -7,13 +7,13 @@ description = "Transport-agnostic, byte-oriented IBC host trait for the DePIN SD
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-depin-sdk-api = { path = "../api" }
-depin-sdk-types = { path = "../types" }
-depin-sdk-client = { path = "../client" }
-depin-sdk-network = { path = "../network" }
-depin-sdk-crypto = { path = "../crypto" }
-depin-sdk-validator = { path = "../validator" }
-depin-sdk-commitment = { path = "../commitment" }
+ioi-api = { path = "../api" }
+ioi-types = { path = "../types" }
+ioi-client = { path = "../client" }
+ioi-networking = { path = "../networking" }
+ioi-crypto = { path = "../crypto" }
+ioi-validator = { path = "../validator" }
+ioi-state = { path = "../state" }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }

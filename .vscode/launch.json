@@ -7,16 +7,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'depin_sdk_core'",
+            "name": "Debug unit tests in library 'ioi_core'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=depin-sdk-core"
+                    "--package=ioi-core"
                 ],
                 "filter": {
-                    "name": "depin_sdk_core",
+                    "name": "ioi_core",
                     "kind": "lib"
                 }
             },
@@ -26,16 +26,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'depin_sdk_commitment_schemes'",
+            "name": "Debug unit tests in library 'ioi_state_schemes'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=depin-sdk-commitment"
+                    "--package=ioi-state"
                 ],
                 "filter": {
-                    "name": "depin_sdk_commitment_schemes",
+                    "name": "ioi_state_schemes",
                     "kind": "lib"
                 }
             },
@@ -45,16 +45,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'depin_sdk_state_trees'",
+            "name": "Debug unit tests in library 'ioi_state_trees'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=depin-sdk-state-tree"
+                    "--package=ioi-state-tree"
                 ],
                 "filter": {
-                    "name": "depin_sdk_state_trees",
+                    "name": "ioi_state_trees",
                     "kind": "lib"
                 }
             },
@@ -64,16 +64,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'depin_sdk_transaction_models'",
+            "name": "Debug unit tests in library 'ioi_tx'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=depin-sdk-transaction-models"
+                    "--package=ioi-tx"
                 ],
                 "filter": {
-                    "name": "depin_sdk_transaction_models",
+                    "name": "ioi_tx",
                     "kind": "lib"
                 }
             },
@@ -83,16 +83,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'depin_sdk_crypto'",
+            "name": "Debug unit tests in library 'ioi_crypto'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=depin-sdk-crypto"
+                    "--package=ioi-crypto"
                 ],
                 "filter": {
-                    "name": "depin_sdk_crypto",
+                    "name": "ioi_crypto",
                     "kind": "lib"
                 }
             },
@@ -102,16 +102,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'depin_sdk_validator'",
+            "name": "Debug unit tests in library 'ioi_validator'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=depin-sdk-validator"
+                    "--package=ioi-validator"
                 ],
                 "filter": {
-                    "name": "depin_sdk_validator",
+                    "name": "ioi_validator",
                     "kind": "lib"
                 }
             },
@@ -121,15 +121,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'depin-sdk-validator'",
+            "name": "Debug executable 'ioi-validator'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=depin-sdk-validator",
-                    "--package=depin-sdk-validator"
+                    "--bin=ioi-validator",
+                    "--package=ioi-validator"
                 ],
                 "filter": {
-                    "name": "depin-sdk-validator",
+                    "name": "ioi-validator",
                     "kind": "bin"
                 }
             },
@@ -139,16 +139,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'depin-sdk-validator'",
+            "name": "Debug unit tests in executable 'ioi-validator'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=depin-sdk-validator",
-                    "--package=depin-sdk-validator"
+                    "--bin=ioi-validator",
+                    "--package=ioi-validator"
                 ],
                 "filter": {
-                    "name": "depin-sdk-validator",
+                    "name": "ioi-validator",
                     "kind": "bin"
                 }
             },
@@ -158,15 +158,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'depin-sdk-validator-hybrid'",
+            "name": "Debug executable 'ioi-validator-hybrid'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=depin-sdk-validator-hybrid",
-                    "--package=depin-sdk-validator"
+                    "--bin=ioi-validator-hybrid",
+                    "--package=ioi-validator"
                 ],
                 "filter": {
-                    "name": "depin-sdk-validator-hybrid",
+                    "name": "ioi-validator-hybrid",
                     "kind": "bin"
                 }
             },
@@ -176,16 +176,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'depin-sdk-validator-hybrid'",
+            "name": "Debug unit tests in executable 'ioi-validator-hybrid'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=depin-sdk-validator-hybrid",
-                    "--package=depin-sdk-validator"
+                    "--bin=ioi-validator-hybrid",
+                    "--package=ioi-validator"
                 ],
                 "filter": {
-                    "name": "depin-sdk-validator-hybrid",
+                    "name": "ioi-validator-hybrid",
                     "kind": "bin"
                 }
             },
@@ -195,16 +195,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'depin_sdk_homomorphic'",
+            "name": "Debug unit tests in library 'ioi_homomorphic'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=depin-sdk-homomorphic"
+                    "--package=ioi-homomorphic"
                 ],
                 "filter": {
-                    "name": "depin_sdk_homomorphic",
+                    "name": "ioi_homomorphic",
                     "kind": "lib"
                 }
             },
@@ -214,16 +214,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'depin_sdk_chain'",
+            "name": "Debug unit tests in library 'ioi_execution'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=depin-sdk-chain"
+                    "--package=ioi-execution"
                 ],
                 "filter": {
-                    "name": "depin_sdk_chain",
+                    "name": "ioi_execution",
                     "kind": "lib"
                 }
             },
@@ -238,7 +238,7 @@
                 "args": [
                     "build",
                     "--bin=mvsc",
-                    "--package=depin-sdk-chain"
+                    "--package=ioi-execution"
                 ],
                 "filter": {
                     "name": "mvsc",
@@ -257,7 +257,7 @@
                     "test",
                     "--no-run",
                     "--bin=mvsc",
-                    "--package=depin-sdk-chain"
+                    "--package=ioi-execution"
                 ],
                 "filter": {
                     "name": "mvsc",
@@ -270,16 +270,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'depin_sdk_consensus'",
+            "name": "Debug unit tests in library 'ioi_consensus'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=depin-sdk-consensus"
+                    "--package=ioi-consensus"
                 ],
                 "filter": {
-                    "name": "depin_sdk_consensus",
+                    "name": "ioi_consensus",
                     "kind": "lib"
                 }
             },
@@ -289,16 +289,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'depin_sdk_services'",
+            "name": "Debug unit tests in library 'ioi_services'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=depin-sdk-services"
+                    "--package=ioi-services"
                 ],
                 "filter": {
-                    "name": "depin_sdk_services",
+                    "name": "ioi_services",
                     "kind": "lib"
                 }
             },
@@ -308,16 +308,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'depin_sdk_test_utils'",
+            "name": "Debug unit tests in library 'ioi_test_utils'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=depin-sdk-test-utils"
+                    "--package=ioi-test-utils"
                 ],
                 "filter": {
-                    "name": "depin_sdk_test_utils",
+                    "name": "ioi_test_utils",
                     "kind": "lib"
                 }
             },

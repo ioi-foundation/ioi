@@ -20,8 +20,13 @@
 
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
-use depin_sdk_forge::testing::{build_test_artifacts, poll::wait_for_height, TestCluster};
-use depin_sdk_types::{
+use ioi_forge::testing::{build_test_artifacts, poll::wait_for_height, TestCluster};
+use ibc_core_host_types::{
+    identifiers::ClientId,
+    path::{ClientConsensusStatePath, ClientStatePath},
+};
+use ibc_proto::google::protobuf::Any;
+use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, Credential, SignatureSuite,
         ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
@@ -31,11 +36,6 @@ use depin_sdk_types::{
     keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
     service_configs::MigrationConfig,
 };
-use ibc_core_host_types::{
-    identifiers::ClientId,
-    path::{ClientConsensusStatePath, ClientStatePath},
-};
-use ibc_proto::google::protobuf::Any;
 use libp2p::identity::Keypair;
 use prost::Message;
 use reqwest::Client;
@@ -121,11 +121,9 @@ async fn ibc_golden_paths_match_fixtures() -> Result<()> {
             allowed_target_suites: vec![SignatureSuite::Ed25519],
             allow_downgrade: false,
         }))
-        .with_initial_service(InitialServiceConfig::Ibc(
-            depin_sdk_types::config::IbcConfig {
-                enabled_clients: vec!["07-tendermint".into(), "tendermint-v0.34".into()],
-            },
-        ))
+        .with_initial_service(InitialServiceConfig::Ibc(ioi_types::config::IbcConfig {
+            enabled_clients: vec!["07-tendermint".into(), "tendermint-v0.34".into()],
+        }))
         .with_genesis_modifier(move |genesis, keys| {
             let gs = genesis["genesis_state"].as_object_mut().unwrap();
             let kp = &keys[0];
@@ -150,7 +148,7 @@ async fn ibc_golden_paths_match_fixtures() -> Result<()> {
                     next: None,
                 },
             };
-            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload).unwrap();
+            let vs_bytes = ioi_types::app::write_validator_sets(&vs_blob.payload).unwrap();
             gs.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                 json!(format!("b64:{}", BASE64.encode(vs_bytes))),

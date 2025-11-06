@@ -1,11 +1,11 @@
 // Path: crates/storage/src/redb_epoch_store.rs
 
 use crate::metrics::metrics;
-use depin_sdk_api::storage::{
+use ioi_types::app::{Block, ChainTransaction};
+use ioi_types::codec;
+use ioi_api::storage::{
     be32, be64, CommitInput, Epoch, Height, NodeHash, NodeStore, PruneStats, RootHash, StorageError,
 };
-use depin_sdk_types::app::{Block, ChainTransaction};
-use depin_sdk_types::codec;
 use redb::{Database, ReadTransaction, ReadableTable, TableDefinition, WriteTransaction};
 use std::path::Path;
 use std::sync::Arc;

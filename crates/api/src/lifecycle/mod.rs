@@ -5,7 +5,7 @@ use crate::services::BlockchainService;
 use crate::state::StateAccessor;
 use crate::transaction::context::TxContext;
 use async_trait::async_trait;
-use depin_sdk_types::error::StateError;
+use ioi_types::error::StateError;
 
 /// A trait for services that need to perform actions at the end of a block.
 #[async_trait]

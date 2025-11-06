@@ -4,13 +4,13 @@
 
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use depin_sdk_forge::testing::{
+use ioi_forge::testing::{
     build_test_artifacts,
     poll::{wait_for_height, wait_for_quarantine_status},
     rpc::get_quarantined_set,
     submit_transaction, TestCluster,
 };
-use depin_sdk_types::{
+use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
         Credential, FailureReport, OffenseFacts, OffenseType, SignHeader, SignatureProof,
@@ -122,7 +122,7 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
                     next: None,
                 },
             };
-            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload).unwrap();
+            let vs_bytes = ioi_types::app::write_validator_sets(&vs_blob.payload).unwrap();
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
@@ -153,7 +153,7 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
                     since_height: 0, // Active from genesis
                 };
                 let record_key = [b"identity::key_record::", acct_id.as_ref()].concat();
-                let record_bytes = depin_sdk_types::codec::to_bytes_canonical(&record).unwrap();
+                let record_bytes = ioi_types::codec::to_bytes_canonical(&record).unwrap();
                 genesis_state.insert(
                     format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
                     json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),

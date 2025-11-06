@@ -2,7 +2,7 @@
 use crate::state::VmStateAccessor;
 use async_trait::async_trait;
 use dashmap::DashMap;
-use depin_sdk_types::{app::StateEntry, codec, error::StateError};
+use ioi_types::{app::StateEntry, codec, error::StateError};
 use std::fmt::{self, Debug};
 use std::sync::Arc;
 

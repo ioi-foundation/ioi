@@ -1,6 +1,6 @@
 # DePIN SDK
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/your-org/depin-sdk/rust.yml?branch=main)](https://github.com/your-org/depin-sdk/actions)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/your-org/ioi/rust.yml?branch=main)](https://github.com/your-org/ioi/actions)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -82,7 +82,7 @@ The DePIN SDK follows an SDK-first methodology. Core components are provided as 
 
 ```bash
 # Build with PoS consensus, IAVL state tree, and IBC support
-cargo build -p depin-sdk-node --release --no-default-features \
+cargo build -p ioi-node --release --no-default-features \
     --features "validator-bins,consensus-pos,vm-wasm,tree-iavl,primitive-hash,ibc-deps"
 ```
 
@@ -181,40 +181,40 @@ cargo test --workspace
 
 | Test | Command |
 |------|---------|
-| **Staking** | `cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-iavl,primitive-hash" --test staking_e2e -- --nocapture` |
-| **Contract** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" --test contract_e2e -- --nocapture` |
-| **PQC Migration** | `cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-iavl,primitive-hash" --test pqc_migration_e2e -- --nocapture` |
-| **Governance** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" --test governance_e2e -- --nocapture` |
-| **Module Upgrade** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" --test module_upgrade_e2e -- --nocapture` |
-| **Service Architecture** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" --test service_architecture_e2e -- --nocapture` |
-| **Agentic Consensus** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" --test agentic_consensus_e2e -- --nocapture --test-threads=1` |
-| **Oracle** | `cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-iavl,primitive-hash" --test oracle_e2e -- --nocapture` |
+| **Staking** | `cargo test -p ioi-forge --release --features "consensus-pos,vm-wasm,tree-iavl,primitive-hash" --test staking_e2e -- --nocapture` |
+| **Contract** | `cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" --test contract_e2e -- --nocapture` |
+| **PQC Migration** | `cargo test -p ioi-forge --release --features "consensus-pos,vm-wasm,tree-iavl,primitive-hash" --test pqc_migration_e2e -- --nocapture` |
+| **Governance** | `cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" --test governance_e2e -- --nocapture` |
+| **Module Upgrade** | `cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" --test module_upgrade_e2e -- --nocapture` |
+| **Service Architecture** | `cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" --test service_architecture_e2e -- --nocapture` |
+| **Agentic Consensus** | `cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" --test agentic_consensus_e2e -- --nocapture --test-threads=1` |
+| **Oracle** | `cargo test -p ioi-forge --release --features "consensus-pos,vm-wasm,tree-iavl,primitive-hash" --test oracle_e2e -- --nocapture` |
 
 #### Penalty Mechanism Tests
 
 | Test | Command |
 |------|---------|
-| **PoS Slashing** | `cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-iavl,primitive-hash" --test penalty_pos_e2e -- --nocapture --test-threads=1` |
-| **PoA Quarantine** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" --test penalty_poa_e2e -- --nocapture --test-threads=1` |
+| **PoS Slashing** | `cargo test -p ioi-forge --release --features "consensus-pos,vm-wasm,tree-iavl,primitive-hash" --test penalty_pos_e2e -- --nocapture --test-threads=1` |
+| **PoA Quarantine** | `cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" --test penalty_poa_e2e -- --nocapture --test-threads=1` |
 
 #### State Tree Backend Tests
 
 | Backend | Command |
 |---------|---------|
-| **IAVL Tree** | `cargo test -p depin-sdk-forge --test state_iavl_e2e --no-default-features -F "consensus-poa,vm-wasm,tree-iavl,primitive-hash" -- --nocapture` |
-| **Sparse Merkle** | `cargo test -p depin-sdk-forge --test state_sparse_merkle_e2e --no-default-features -F "consensus-poa,vm-wasm,tree-sparse-merkle,primitive-hash" -- --nocapture` |
-| **Verkle Tree** | `cargo test -p depin-sdk-forge --test state_verkle_e2e --no-default-features -F "consensus-poa,vm-wasm,tree-verkle,primitive-kzg" -- --nocapture` |
+| **IAVL Tree** | `cargo test -p ioi-forge --test state_iavl_e2e --no-default-features -F "consensus-poa,vm-wasm,tree-iavl,primitive-hash" -- --nocapture` |
+| **Sparse Merkle** | `cargo test -p ioi-forge --test state_sparse_merkle_e2e --no-default-features -F "consensus-poa,vm-wasm,tree-sparse-merkle,primitive-hash" -- --nocapture` |
+| **Verkle Tree** | `cargo test -p ioi-forge --test state_verkle_e2e --no-default-features -F "consensus-poa,vm-wasm,tree-verkle,primitive-kzg" -- --nocapture` |
 
 #### Specialized & Infrastructure Tests
 
 | Test | Command |
 |------|---------|
-| **IBC Gateway Metrics** | `GATEWAY_CHAIN_ID=localnet-1 cargo run -p depin-sdk-node && curl -s localhost:9100/metrics | grep depin_sdk_ibc_gateway_` |
-| **Update IBC Golden Files** | `UPDATE_GOLDENS=1 cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash,ibc-deps" --test ibc_golden_e2e -- --nocapture` |
-| **IBC Relayer E2E** | ```bash RUST_LOG=trace RUST_BACKTRACE=1 cargo test -p depin-sdk-forge --release \ --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash,ibc-deps" \ --test ibc_relayer_e2e -- --nocapture 2>&1 \| tee /tmp/e2e.log ``` |
-| **Proof Verification** | `cargo test -p depin-sdk-forge --test proof_verification_e2e --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash,malicious-bin" -- --nocapture` |
-| **Network Sync** | `cargo test --package depin-sdk-forge --test sync_e2e --features "consensus-poa,vm-wasm,tree-iavl" -- --nocapture --test-threads=1` |
-| **Infrastructure (Metrics)** | `cargo test --package depin-sdk-forge --test infra_e2e --features "consensus-poa,vm-wasm,tree-iavl" -- --nocapture --test-threads=1` |
+| **IBC Gateway Metrics** | `GATEWAY_CHAIN_ID=localnet-1 cargo run -p ioi-node && curl -s localhost:9100/metrics | grep ioi_ibc_gateway_` |
+| **Update IBC Golden Files** | `UPDATE_GOLDENS=1 cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash,ibc-deps" --test ibc_golden_e2e -- --nocapture` |
+| **IBC Relayer E2E** | ```bash RUST_LOG=trace RUST_BACKTRACE=1 cargo test -p ioi-forge --release \ --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash,ibc-deps" \ --test ibc_relayer_e2e -- --nocapture 2>&1 \| tee /tmp/e2e.log ``` |
+| **Proof Verification** | `cargo test -p ioi-forge --test proof_verification_e2e --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash,malicious-bin" -- --nocapture` |
+| **Network Sync** | `cargo test --package ioi-forge --test sync_e2e --features "consensus-poa,vm-wasm,tree-iavl" -- --nocapture --test-threads=1` |
+| **Infrastructure (Metrics)** | `cargo test --package ioi-forge --test infra_e2e --features "consensus-poa,vm-wasm,tree-iavl" -- --nocapture --test-threads=1` |
 
 ### Docker Testing
 
@@ -226,16 +226,16 @@ docker rm -f guardian orchestration workload
 docker network prune -f
 
 # 2. Remove old image
-docker rmi depin-sdk-node:e2e
+docker rmi ioi-node:e2e
 
 # 3. Rebuild with correct features
 docker build \
   --build-arg FEATURES="validator-bins,consensus-poa,vm-wasm,tree-iavl,primitive-hash" \
-  -t depin-sdk-node:e2e \
+  -t ioi-node:e2e \
   -f crates/node/Dockerfile .
 
 # 4. Run test
-cargo test -p depin-sdk-forge --release \
+cargo test -p ioi-forge --release \
   --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" \
   --test container_e2e -- --nocapture
 ```
@@ -252,7 +252,7 @@ Instead of pre-filtering logs with complex `RUST_LOG` strings, the recommended w
 1.  **Run your test and capture all `info`-level logs:**
 
     ```bash
-    RUST_LOG=info cargo test -p depin-sdk-forge --test <your_test_name> -- --nocapture | tee test_run.log
+    RUST_LOG=info cargo test -p ioi-forge --test <your_test_name> -- --nocapture | tee test_run.log
     ```
 
 2.  **Analyze the log file with `jq`:**
@@ -265,12 +265,12 @@ Instead of pre-filtering logs with complex `RUST_LOG` strings, the recommended w
         "level": "INFO",
         "fields": {
             "message": "[PoS Decide H=1] DECISION: We are not the leader. Will WaitForBlock.",
-            "log.target": "depin_sdk_consensus::proof_of_stake",
-            "log.module_path": "depin_sdk_consensus::proof_of_stake",
-            "log.file": "/workspaces/depin-sdk/crates/consensus/src/proof_of_stake.rs",
+            "log.target": "ioi_consensus::proof_of_stake",
+            "log.module_path": "ioi_consensus::proof_of_stake",
+            "log.file": "/workspaces/ioi/crates/consensus/src/proof_of_stake.rs",
             "log.line": 251
         },
-        "target": "depin_sdk_consensus::proof_of_stake"
+        "target": "ioi_consensus::proof_of_stake"
     }
     ```
 
@@ -307,7 +307,7 @@ While `RUST_LOG=info` is a good default, you can temporarily enable more verbose
 
 ```bash
 # Enable trace-level logging ONLY for the IAVL tree and consensus logic
-RUST_LOG=info,depin_sdk_commitment::tree::iavl=trace,depin_sdk_validator::standard::orchestration::consensus=trace \
+RUST_LOG=info,ioi_state::tree::iavl=trace,ioi_validator::standard::orchestration::consensus=trace \
 cargo test ... -- --nocapture | tee deep_debug.log
 ```
 

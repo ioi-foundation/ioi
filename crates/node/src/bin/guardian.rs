@@ -13,9 +13,9 @@
 
 use anyhow::Result;
 use clap::Parser;
-use depin_sdk_api::validator::Container;
-use depin_sdk_validator::common::{generate_certificates_if_needed, GuardianContainer};
-use depin_sdk_validator::config::GuardianConfig;
+use ioi_api::validator::Container;
+use ioi_validator::common::{generate_certificates_if_needed, GuardianContainer};
+use ioi_validator::config::GuardianConfig;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
@@ -38,13 +38,13 @@ struct GuardianOpts {
 #[tokio::main]
 async fn main() -> Result<()> {
     // 1. Initialize tracing FIRST
-    depin_sdk_telemetry::init::init_tracing()?;
+    ioi_telemetry::init::init_tracing()?;
 
     // 2. Spawn the telemetry server
     let telemetry_addr_str =
         std::env::var("TELEMETRY_ADDR").unwrap_or_else(|_| "127.0.0.1:9617".to_string());
     let telemetry_addr = telemetry_addr_str.parse()?;
-    tokio::spawn(depin_sdk_telemetry::http::run_server(telemetry_addr));
+    tokio::spawn(ioi_telemetry::http::run_server(telemetry_addr));
 
     let opts = GuardianOpts::parse();
     tracing::info!(target: "guardian", event = "startup", config_dir = %opts.config_dir);

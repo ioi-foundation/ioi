@@ -1,12 +1,12 @@
 // Path: crates/validator/src/standard/orchestration/peer_management.rs
 use super::context::MainLoopContext;
-use depin_sdk_api::{
+use ioi_networking::libp2p::SwarmCommand;
+use ioi_types::app::ChainTransaction;
+use ioi_api::{
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
     state::{StateManager, Verifier},
 };
-use depin_sdk_network::libp2p::SwarmCommand;
-use depin_sdk_types::app::ChainTransaction;
 use libp2p::PeerId;
 use serde::Serialize;
 use std::fmt::Debug;

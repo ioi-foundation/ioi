@@ -12,4 +12,6 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-depin-sdk-contract = { path = "../../../../contract", features = ["wee_alloc"] }
+ioi-contract-sdk = { path = "../../../../contract-sdk", features = [
+    "wee_alloc",
+] }

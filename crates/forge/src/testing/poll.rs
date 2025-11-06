@@ -1,9 +1,9 @@
 // Path: crates/forge/src/testing/poll.rs
 
 use anyhow::{anyhow, Result};
-use depin_sdk_api::consensus::ChainStateReader;
-use depin_sdk_client::WorkloadClient;
-use depin_sdk_types::{
+use ioi_client::WorkloadClient;
+use ioi_api::consensus::ChainStateReader;
+use ioi_types::{
     app::{AccountId, Proposal, ProposalStatus, StateEntry},
     codec,
     keys::{GOVERNANCE_PROPOSAL_KEY_PREFIX, ORACLE_DATA_PREFIX, ORACLE_PENDING_REQUEST_PREFIX},

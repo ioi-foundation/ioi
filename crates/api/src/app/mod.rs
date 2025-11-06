@@ -3,10 +3,10 @@
 use crate::transaction::TransactionModel;
 
 // Re-export all canonical app types from the `types` crate.
-// This makes `depin-sdk-types` the single source of truth for these data structures,
+// This makes `ioi-types` the single source of truth for these data structures,
 // eliminating the duplicate definitions that were here previously and resolving
 // the deserialization bug.
-pub use depin_sdk_types::app::{
+pub use ioi_types::app::{
     ApplicationTransaction, Block, BlockHeader, ChainStatus, ChainTransaction, Input, Output,
     SystemPayload, SystemTransaction, UTXOTransaction,
 };

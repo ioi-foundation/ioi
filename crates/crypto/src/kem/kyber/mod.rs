@@ -6,7 +6,7 @@ use dcrypt::kem::kyber::{
     Kyber1024, Kyber512, Kyber768, KyberCiphertext, KyberPublicKey as DcryptPublicKey,
     KyberSecretKey as DcryptSecretKey,
 };
-use depin_sdk_api::crypto::{
+use ioi_api::crypto::{
     DecapsulationKey, Encapsulated, EncapsulationKey, KemKeyPair, KeyEncapsulation, SerializableKey,
 };
 use zeroize::Zeroizing;

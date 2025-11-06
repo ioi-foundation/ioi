@@ -3,8 +3,8 @@
 //! Implementation of a secure, persistent mTLS channel between containers.
 
 use anyhow::{anyhow, Result};
-use depin_sdk_crypto::security::SecurityLevel;
-use depin_sdk_crypto::transport::hybrid_kem_tls::{
+use ioi_crypto::security::SecurityLevel;
+use ioi_crypto::transport::hybrid_kem_tls::{
     client_post_handshake, derive_application_key, AeadWrappedStream,
 };
 use std::fs::File;

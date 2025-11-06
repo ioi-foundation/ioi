@@ -16,7 +16,7 @@ Quantum-resistant cryptographic primitives for the DePIN SDK, built on top of th
 ### Basic Example
 
 ```rust
-use depin_crypto::prelude::*;
+use ioi_crypto::prelude::*;
 
 // Create a Dilithium signature scheme
 let scheme = DilithiumScheme::new(SecurityLevel::Level2);

@@ -12,10 +12,10 @@ use dcrypt::algorithms::{
     hash::{sha2::Sha256 as DcryptSha256, HashFunction},
     ByteSerializable,
 };
-use depin_sdk_types::app::{Membership, StateEntry};
-use depin_sdk_types::codec;
-use depin_sdk_types::config::WorkloadConfig;
-use depin_sdk_types::error::ValidatorError;
+use ioi_types::app::{Membership, StateEntry};
+use ioi_types::codec;
+use ioi_types::config::WorkloadConfig;
+use ioi_types::error::ValidatorError;
 use lru::LruCache;
 use std::collections::HashMap;
 use std::fmt::{self, Debug};
@@ -77,7 +77,7 @@ struct StateAccessorWrapper<ST: StateManager> {
 #[async_trait]
 impl<ST: StateManager + Send + Sync> VmStateAccessor for StateAccessorWrapper<ST> {
     /// Delegates the `get` call to the underlying state manager, handling the lock.
-    async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, depin_sdk_types::error::StateError> {
+    async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, ioi_types::error::StateError> {
         self.state_tree.read().await.get(key)
     }
 
@@ -86,12 +86,12 @@ impl<ST: StateManager + Send + Sync> VmStateAccessor for StateAccessorWrapper<ST
         &self,
         key: &[u8],
         value: &[u8],
-    ) -> Result<(), depin_sdk_types::error::StateError> {
+    ) -> Result<(), ioi_types::error::StateError> {
         self.state_tree.write().await.insert(key, value)
     }
 
     /// Delegates the `delete` call to the underlying state manager, handling the lock.
-    async fn delete(&self, key: &[u8]) -> Result<(), depin_sdk_types::error::StateError> {
+    async fn delete(&self, key: &[u8]) -> Result<(), ioi_types::error::StateError> {
         self.state_tree.write().await.delete(key)
     }
 }
@@ -212,7 +212,7 @@ where
                 .ok_or_else(|| ValidatorError::Other("Contract not found".to_string()))?;
             let stored_entry: StateEntry =
                 codec::from_bytes_canonical(&stored_bytes).map_err(|e| {
-                    ValidatorError::State(depin_sdk_types::error::StateError::InvalidValue(
+                    ValidatorError::State(ioi_types::error::StateError::InvalidValue(
                         e.to_string(),
                     ))
                 })?;
@@ -240,7 +240,7 @@ where
                 .ok_or_else(|| ValidatorError::Other("Contract not found".to_string()))?;
             let stored_entry: StateEntry =
                 codec::from_bytes_canonical(&stored_bytes).map_err(|e| {
-                    ValidatorError::State(depin_sdk_types::error::StateError::InvalidValue(
+                    ValidatorError::State(ioi_types::error::StateError::InvalidValue(
                         e.to_string(),
                     ))
                 })?;

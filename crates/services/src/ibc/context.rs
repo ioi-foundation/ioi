@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 use byte_slice_cast::AsByteSlice; // for `as_byte_slice()` on commitments
-use depin_sdk_api::state::StateAccessor;
+use ioi_api::state::StateAccessor;
 
 use ibc_client_tendermint::client_state::ClientState as TmClientState;
 use ibc_client_tendermint::consensus_state::ConsensusState as TmConsensusState;

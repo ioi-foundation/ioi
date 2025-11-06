@@ -1,6 +1,6 @@
 # Path: crates/homomorphic/Cargo.toml
 [package]
-name = "depin-sdk-homomorphic"
+name = "ioi-homomorphic"
 version = "0.1.0"
 rust-version = "1.78"
 edition = "2021"
@@ -8,8 +8,8 @@ description = "Homomorphic operations implementation for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-depin-sdk-api = { path = "../api" }
-depin-sdk-commitment = { path = "../commitment" }
+ioi-api = { path = "../api" }
+ioi-state = { path = "../state" }
 log = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }

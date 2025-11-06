@@ -1,9 +1,9 @@
 // Path: crates/homomorphic/src/proof.rs
 use crate::error::{HomomorphicError, HomomorphicResult};
-use depin_sdk_api::commitment::HomomorphicCommitmentScheme;
-use depin_sdk_api::commitment::HomomorphicOperation;
-use depin_sdk_api::commitment::{ProofContext, Selector};
-use depin_sdk_api::homomorphic::CommitmentOperation;
+use ioi_api::commitment::HomomorphicCommitmentScheme;
+use ioi_api::commitment::HomomorphicOperation;
+use ioi_api::commitment::{ProofContext, Selector};
+use ioi_api::homomorphic::CommitmentOperation;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 

@@ -32,7 +32,7 @@ enum Commands {
     Node(NodeArgs),
 
     /// Compiles and runs smart contract and system-level tests.
-    /// This command will use the helpers in the `depin-sdk-forge` library
+    /// This command will use the helpers in the `ioi-forge` library
     /// to orchestrate test runs against a local development node.
     Test(TestArgs),
     // Future commands can be added here, for example:

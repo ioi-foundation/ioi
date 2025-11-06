@@ -4,8 +4,8 @@
 use crate::Consensus;
 use anyhow::Result;
 use cfg_if::cfg_if;
-use depin_sdk_types::app::ChainTransaction;
-use depin_sdk_types::config::{ConsensusType, OrchestrationConfig};
+use ioi_types::app::ChainTransaction;
+use ioi_types::config::{ConsensusType, OrchestrationConfig};
 
 /// Creates a concrete consensus engine instance based on the configuration enum.
 pub fn engine_from_config(config: &OrchestrationConfig) -> Result<Consensus<ChainTransaction>> {

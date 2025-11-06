@@ -1,25 +1,25 @@
 # Path: crates/validator/Cargo.toml
 
 [package]
-name = "depin-sdk-validator"
+name = "ioi-validator"
 version = "0.1.0"
 edition = "2021"
 description = "Validator container implementations for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-depin-sdk-api = { path = "../api" }
-depin-sdk-types = { path = "../types" }
-depin-sdk-consensus = { path = "../consensus", default-features = false }
-ipc_protocol = { path = "../ipc_protocol" }
-depin-sdk-network = { path = "../network" }
-depin-sdk-chain = { path = "../chain" }
-depin-sdk-transaction-models = { path = "../transaction_models" }
-depin-sdk-vm-wasm = { path = "../vm/wasm", optional = true }
-depin-sdk-crypto = { path = "../crypto" }
-depin-sdk-services = { path = "../services" }
-depin-sdk-client = { path = "../client" }
-depin-sdk-telemetry = { path = "../telemetry" }
+ioi-api = { path = "../api" }
+ioi-types = { path = "../types" }
+ioi-consensus = { path = "../consensus", default-features = false }
+ioi-ipc = { path = "../ipc" }
+ioi-networking = { path = "../networking" }
+ioi-execution = { path = "../execution" }
+ioi-tx = { path = "../tx" }
+ioi-vm-wasm = { path = "../vm/wasm", optional = true }
+ioi-crypto = { path = "../crypto" }
+ioi-services = { path = "../services" }
+ioi-client = { path = "../client" }
+ioi-telemetry = { path = "../telemetry" }
 log = { workspace = true }
 tracing = { workspace = true }
 anyhow = { workspace = true }
@@ -35,7 +35,7 @@ async-trait = { workspace = true }
 toml = { workspace = true }
 clap = { workspace = true, features = ["derive"], optional = true }
 env_logger = { workspace = true, optional = true }
-depin-sdk-commitment = { path = "../commitment" }
+ioi-state = { path = "../state" }
 once_cell = { workspace = true }
 rand = { workspace = true }
 hex = { workspace = true }
@@ -46,7 +46,7 @@ bincode = { workspace = true }
 uuid = { version = "1.8.0", features = ["v4"] }
 parity-scale-codec = { workspace = true, features = ["std"] }
 cfg-if = "1.0"
-dashmap = { workspace = true }                                            # Added for custom rate limiter
+dashmap = { workspace = true }                                      # Added for custom rate limiter
 
 # [+] FIX: Add the missing dependency here
 ibc-primitives = { workspace = true }
@@ -68,26 +68,26 @@ default = []
 validator-bins = [
     "dep:clap",
     "dep:env_logger",
-    "depin-sdk-consensus/round-robin",
-    "dep:depin-sdk-vm-wasm",
+    "ioi-consensus/round-robin",
+    "dep:ioi-vm-wasm",
 ]
-consensus-round-robin = ["depin-sdk-consensus/round-robin"]
-consensus-poa = ["depin-sdk-consensus/poa"]
-consensus-pos = ["depin-sdk-consensus/pos"]
+consensus-round-robin = ["ioi-consensus/round-robin"]
+consensus-poa = ["ioi-consensus/poa"]
+consensus-pos = ["ioi-consensus/pos"]
 
 # VM Features
-vm-wasm = ["dep:depin-sdk-vm-wasm"]
+vm-wasm = ["dep:ioi-vm-wasm"]
 
 # --- FIX START: Add tree and primitive features so cfg attributes work correctly ---
-tree-iavl = ["depin-sdk-commitment/tree-iavl"]
-tree-sparse-merkle = ["depin-sdk-commitment/tree-sparse-merkle"]
-tree-verkle = ["depin-sdk-commitment/tree-verkle"]
-primitive-hash = ["depin-sdk-commitment/primitive-hash"]
-primitive-kzg = ["depin-sdk-commitment/primitive-kzg"]
+tree-iavl = ["ioi-state/tree-iavl"]
+tree-sparse-merkle = ["ioi-state/tree-sparse-merkle"]
+tree-verkle = ["ioi-state/tree-verkle"]
+primitive-hash = ["ioi-state/primitive-hash"]
+primitive-kzg = ["ioi-state/primitive-kzg"]
 # --- FIX END ---
 
 # Service Features
-ibc-deps = ["depin-sdk-services/ibc-deps"]
+ibc-deps = ["ioi-services/ibc-deps"]
 
 [[bin]]
 name = "orchestration"

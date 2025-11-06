@@ -2,12 +2,8 @@
 
 use crate::ibc::context::IbcExecutionContext;
 use async_trait::async_trait;
-use depin_sdk_api::ibc::InterchainVerifier;
-use depin_sdk_api::services::{BlockchainService, UpgradableService};
-use depin_sdk_api::state::{StateAccessor, StateOverlay};
-use depin_sdk_api::transaction::context::TxContext;
-use depin_sdk_types::error::{TransactionError, UpgradeError};
-use depin_sdk_types::service_configs::Capabilities;
+use ioi_types::error::{TransactionError, UpgradeError};
+use ioi_types::service_configs::Capabilities;
 use ibc::core::entrypoint::dispatch;
 use ibc_core_client_types::msgs::MsgUpdateClient; // For optional decode preview
 use ibc_core_client_types::Height;
@@ -17,6 +13,10 @@ use ibc_core_router::{module::Module, router::Router};
 use ibc_core_router_types::module::ModuleId;
 use ibc_proto::cosmos::tx::v1beta1::TxBody;
 use ibc_proto::Protobuf; // [+] FIX: Add the missing trait import
+use ioi_api::ibc::InterchainVerifier;
+use ioi_api::services::{BlockchainService, UpgradableService};
+use ioi_api::state::{StateAccessor, StateOverlay};
+use ioi_api::transaction::context::TxContext;
 use prost::Message;
 use std::any::Any;
 use std::collections::{BTreeMap, HashMap};

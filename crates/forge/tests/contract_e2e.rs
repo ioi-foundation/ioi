@@ -3,14 +3,14 @@
 
 use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use depin_sdk_client::WorkloadClient;
-use depin_sdk_crypto::algorithms::hash::sha256;
-use depin_sdk_forge::testing::{
+use ioi_client::WorkloadClient;
+use ioi_forge::testing::{
     build_test_artifacts,
     poll::{wait_for_contract_deployment, wait_for_height},
     submit_transaction, TestCluster,
 };
-use depin_sdk_types::{
+use ioi_crypto::algorithms::hash::sha256;
+use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ApplicationTransaction, ChainId,
         ChainTransaction, Credential, SignHeader, SignatureProof, SignatureSuite, ValidatorSetBlob,
@@ -37,7 +37,7 @@ fn create_signed_app_tx(
     // Use the canonical function to derive the account ID
     let account_id_hash =
         account_id_from_key_material(SignatureSuite::Ed25519, &public_key).unwrap();
-    let account_id = depin_sdk_types::app::AccountId(account_id_hash);
+    let account_id = ioi_types::app::AccountId(account_id_hash);
 
     let header = SignHeader {
         account_id,
@@ -136,7 +136,7 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
                     next: None,
                 },
             };
-            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload).unwrap();
+            let vs_bytes = ioi_types::app::write_validator_sets(&vs_blob.payload).unwrap();
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
@@ -251,7 +251,7 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
 
     // 5. QUERY INITIAL STATE
     let get_input = vec![0]; // ABI for get()
-    let query_context = depin_sdk_api::vm::ExecutionContext {
+    let query_context = ioi_api::vm::ExecutionContext {
         caller: vec![],
         block_height: 0,
         gas_limit: 1_000_000_000,

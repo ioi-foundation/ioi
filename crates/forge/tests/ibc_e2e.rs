@@ -11,26 +11,6 @@
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use dcrypt::{api::Signature as DcryptSignature, sign::eddsa::Ed25519SecretKey};
-use depin_sdk_forge::testing::{
-    build_test_artifacts,
-    poll::{wait_for, wait_for_height},
-    rpc::query_state_key,
-    TestCluster,
-};
-use depin_sdk_types::{
-    app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
-        SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1,
-        ValidatorSetsV1, ValidatorV1,
-    },
-    codec,
-    config::InitialServiceConfig,
-    keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, ACCOUNT_NONCE_PREFIX, IDENTITY_CREDENTIALS_PREFIX,
-        VALIDATOR_SET_KEY,
-    },
-    service_configs::MigrationConfig,
-};
 use ibc_client_tendermint::consensus_state::ConsensusState as TmConsensusState;
 use ibc_client_tendermint::types::proto::v1::{
     ClientState as RawTmClientState, ConsensusState as RawTmConsensusState,
@@ -48,6 +28,26 @@ use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawTmHeader;
 use ibc_proto::{
     cosmos::tx::v1beta1::TxBody, google::protobuf::Any, google::protobuf::Duration as PbDuration,
     ibc::core::commitment::v1::MerkleRoot,
+};
+use ioi_forge::testing::{
+    build_test_artifacts,
+    poll::{wait_for, wait_for_height},
+    rpc::query_state_key,
+    TestCluster,
+};
+use ioi_types::{
+    app::{
+        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
+        SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1,
+        ValidatorSetsV1, ValidatorV1,
+    },
+    codec,
+    config::InitialServiceConfig,
+    keys::{
+        ACCOUNT_ID_TO_PUBKEY_PREFIX, ACCOUNT_NONCE_PREFIX, IDENTITY_CREDENTIALS_PREFIX,
+        VALIDATOR_SET_KEY,
+    },
+    service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
 use prost::Message;
@@ -236,12 +236,10 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
             allowed_target_suites: vec![SignatureSuite::Ed25519],
             allow_downgrade: false,
         }))
-        .with_initial_service(InitialServiceConfig::Ibc(
-            depin_sdk_types::config::IbcConfig {
-                // Allow the canonical ICS‑07 type; keep the alias if your host uses it elsewhere.
-                enabled_clients: vec!["07-tendermint".to_string(), "tendermint-v0.34".to_string()],
-            },
-        ))
+        .with_initial_service(InitialServiceConfig::Ibc(ioi_types::config::IbcConfig {
+            // Allow the canonical ICS‑07 type; keep the alias if your host uses it elsewhere.
+            enabled_clients: vec!["07-tendermint".to_string(), "tendermint-v0.34".to_string()],
+        }))
         .with_genesis_modifier({
             let shared_vals_hash = shared_vals_hash.clone();
             move |genesis, keys| {
@@ -276,8 +274,7 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                         next: None,
                     },
                 };
-                let vs_bytes =
-                    depin_sdk_types::app::write_validator_sets(&vs_blob.payload).unwrap();
+                let vs_bytes = ioi_types::app::write_validator_sets(&vs_blob.payload).unwrap();
                 genesis_state.insert(
                     std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                     json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
@@ -480,7 +477,7 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
         let msg_update_client = MsgUpdateClient {
             client_id: ClientId::from_str(client_id)?,
             client_message: Any { type_url, value },
-            signer: "depin-sdk-signer".to_string().into(),
+            signer: "ioi-signer".to_string().into(),
         };
         let tx_body = TxBody {
             messages: vec![msg_update_client.to_any()],
@@ -488,7 +485,7 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
             ..Default::default()
         };
         let call_params = tx_body.encode_to_vec();
-        use depin_sdk_types::app::SignHeader;
+        use ioi_types::app::SignHeader;
         let mut sys = SystemTransaction {
             header: SignHeader {
                 account_id: validator_account_id,
@@ -501,18 +498,17 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                 method: "msg_dispatch@v1".to_string(),
                 params: call_params,
             },
-            signature_proof: depin_sdk_types::app::SignatureProof::default(),
+            signature_proof: ioi_types::app::SignatureProof::default(),
         };
         let sign_bytes = sys.to_sign_bytes().map_err(|e| anyhow!(e))?;
         let signature = validator_key.sign(&sign_bytes)?;
-        sys.signature_proof = depin_sdk_types::app::SignatureProof {
+        sys.signature_proof = ioi_types::app::SignatureProof {
             suite: SignatureSuite::Ed25519,
             public_key: validator_key.public().encode_protobuf(),
             signature,
         };
         let call_tx = ChainTransaction::System(Box::new(sys));
-        depin_sdk_forge::testing::rpc::submit_transaction_and_wait_block(node_rpc_addr, &call_tx)
-            .await?;
+        ioi_forge::testing::rpc::submit_transaction_and_wait_block(node_rpc_addr, &call_tx).await?;
         Ok(())
     }
 

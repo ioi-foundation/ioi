@@ -6,7 +6,7 @@
 //! any part of the validator codebase to record metrics without needing to pass
 //! a metrics object through the entire call stack.
 
-use depin_sdk_telemetry::sinks::{ConsensusMetricsSink, NopSink, RpcMetricsSink};
+use ioi_telemetry::sinks::{ConsensusMetricsSink, NopSink, RpcMetricsSink};
 use once_cell::sync::OnceCell;
 
 static NOP_SINK: NopSink = NopSink;

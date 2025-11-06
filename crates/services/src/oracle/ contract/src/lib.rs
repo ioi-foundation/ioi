@@ -4,11 +4,11 @@
 extern crate alloc;
 
 use alloc::{format, string::String, vec, vec::Vec};
-use depin_sdk_contract::{self as sdk, context, state};
+use ioi_contract_sdk::{self as sdk, context, state};
 use parity_scale_codec::{Decode, Encode};
 
 // --- Canonical Data Structures & Keys (must match types crate) ---
-// In a production SDK, these would ideally be in a shared `depin-sdk-contract-types` crate.
+// In a production SDK, these would ideally be in a shared `ioi-contract-sdk-types` crate.
 
 const ORACLE_PENDING_REQUEST_PREFIX: &[u8] = b"oracle::pending::";
 const ORACLE_DATA_PREFIX: &[u8] = b"oracle::data::";
@@ -120,8 +120,10 @@ pub extern "C" fn handle_service_call(
     params_ptr: *const u8,
     params_len: u32,
 ) -> u64 {
-    let method =
-        unsafe { core::str::from_utf8(core::slice::from_raw_parts(method_ptr, method_len as usize)).unwrap_or("") };
+    let method = unsafe {
+        core::str::from_utf8(core::slice::from_raw_parts(method_ptr, method_len as usize))
+            .unwrap_or("")
+    };
     let params = unsafe { core::slice::from_raw_parts(params_ptr, params_len as usize) };
 
     let result = match method {

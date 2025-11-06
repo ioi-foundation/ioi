@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 // Re-export core config types from the central `types` crate
 // to avoid circular dependencies and establish a single source of truth.
-pub use depin_sdk_types::config::{ConsensusType, OrchestrationConfig, WorkloadConfig};
+pub use ioi_types::config::{ConsensusType, OrchestrationConfig, WorkloadConfig};
 
 /// Configuration for the Guardian container (`guardian.toml`).
 #[derive(Debug, Serialize, Deserialize)]

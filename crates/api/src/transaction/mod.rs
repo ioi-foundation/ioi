@@ -6,7 +6,7 @@ use crate::commitment::CommitmentScheme;
 use crate::state::{StateAccessor, StateManager};
 use crate::transaction::context::TxContext;
 use async_trait::async_trait;
-use depin_sdk_types::error::TransactionError;
+use ioi_types::error::TransactionError;
 use std::any::Any;
 use std::fmt::Debug;
 

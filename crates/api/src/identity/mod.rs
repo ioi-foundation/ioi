@@ -4,8 +4,8 @@
 
 use crate::services::BlockchainService;
 use crate::state::StateAccessor;
-use depin_sdk_types::app::{AccountId, Credential};
-use depin_sdk_types::error::TransactionError;
+use ioi_types::app::{AccountId, Credential};
+use ioi_types::error::TransactionError;
 
 /// A read-only view of an account's cryptographic credentials.
 ///

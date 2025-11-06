@@ -1,6 +1,6 @@
 # Path: crates/types/Cargo.toml
 [package]
-name = "depin-sdk-types"
+name = "ioi-types"
 version = "0.1.0"
 edition = "2021"
 description = "Core data structures and error types for the DePIN SDK"

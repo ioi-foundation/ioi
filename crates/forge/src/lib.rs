@@ -15,8 +15,8 @@
 //! to a strict architectural boundary:
 //!
 //! 1.  **Public API Only:** `forge` must **only** depend on the public APIs
-//!     exposed by the other `depin-sdk-*` library crates (e.g., `depin-sdk-api`,
-//!     `depin-sdk-core`). It should never use `pub(crate)` visibility or other
+//!     exposed by the other `ioi-*` library crates (e.g., `ioi-api`,
+//!     `ioi-core`). It should never use `pub(crate)` visibility or other
 //!     tricks to access internal implementation details.
 //!
 //! 2.  **No Core Logic:** `forge` should not contain any core protocol logic.

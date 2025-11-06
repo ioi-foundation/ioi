@@ -6,17 +6,17 @@ pub mod methods;
 pub mod router;
 
 use anyhow::{anyhow, Result};
-use depin_sdk_api::chain::AppChain;
-use depin_sdk_api::{
+use ioi_api::chain::AppChain;
+use ioi_api::{
     commitment::CommitmentScheme,
     state::{PrunePlan, StateManager},
     validator::WorkloadContainer,
 };
-use depin_sdk_chain::Chain;
-use depin_sdk_crypto::transport::hybrid_kem_tls::{
+use ioi_crypto::transport::hybrid_kem_tls::{
     derive_application_key, server_post_handshake, AeadWrappedStream,
 };
-use ipc_protocol::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest, JsonRpcResponse};
+use ioi_execution::Chain;
+use ioi_ipc::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest, JsonRpcResponse};
 use methods::{
     chain::{
         CheckTransactionsV1, GetAuthoritySetV1, GetBlockByHeightV1, GetBlocksRangeV1,
@@ -308,7 +308,7 @@ where
                 // --- POST-HANDSHAKE HYBRID KEY EXCHANGE (before any app bytes) ---
                 let mut kem_ss = match server_post_handshake(
                     &mut tls_stream,
-                    depin_sdk_crypto::security::SecurityLevel::Level3,
+                    ioi_crypto::security::SecurityLevel::Level3,
                 )
                 .await
                 {

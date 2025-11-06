@@ -2,8 +2,8 @@
 use crate::gateway::Gateway;
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
-use depin_sdk_crypto::algorithms::hash::sha256;
-use depin_sdk_types::codec as scodec;
+use ioi_crypto::algorithms::hash::sha256;
+use ioi_types::codec as scodec;
 use ibc_core_host_types::path::{
     ChannelEndPath, ClientConsensusStatePath, ClientStatePath, ConnectionPath,
     NextChannelSequencePath, NextConnectionSequencePath,

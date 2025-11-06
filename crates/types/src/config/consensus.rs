@@ -4,7 +4,7 @@
 use serde::{Deserialize, Serialize};
 
 /// The type of consensus engine to use.
-/// This enum lives in `depin-sdk-types` to avoid a circular dependency
+/// This enum lives in `ioi-types` to avoid a circular dependency
 /// between the `validator` crate (which reads it from config) and the
 /// `consensus` crate (which uses it to dispatch logic).
 // --- FIX START: Add Copy trait ---

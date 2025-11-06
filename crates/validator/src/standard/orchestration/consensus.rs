@@ -5,16 +5,16 @@ use crate::standard::orchestration::gossip::prune_mempool;
 use crate::standard::orchestration::view_resolver::DefaultViewResolver;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use depin_sdk_api::{
+use ioi_networking::libp2p::SwarmCommand;
+use ioi_networking::traits::NodeState;
+use ioi_api::{
     chain::StateRef,
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
     crypto::{SerializableKey, SigningKeyPair},
     state::{StateManager, Verifier},
 };
-use depin_sdk_network::libp2p::SwarmCommand;
-use depin_sdk_network::traits::NodeState;
-use depin_sdk_types::{
+use ioi_types::{
     app::{
         account_id_from_key_material, compute_interval_from_parent_state, to_root_hash, AccountId,
         Block, BlockHeader, BlockTimingParams, BlockTimingRuntime, ChainTransaction,
@@ -32,7 +32,7 @@ use tokio::sync::Mutex;
 /// Helper function to canonically hash a transaction using the SDK's crypto abstractions.
 fn hash_transaction(tx: &ChainTransaction) -> Result<Vec<u8>, anyhow::Error> {
     let serialized = codec::to_bytes_canonical(tx).map_err(|e| anyhow!(e))?;
-    let digest = depin_sdk_crypto::algorithms::hash::sha256(&serialized)?;
+    let digest = ioi_crypto::algorithms::hash::sha256(&serialized)?;
     Ok(digest.to_vec())
 }
 
@@ -58,7 +58,7 @@ where
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
-    let _tick_timer = depin_sdk_telemetry::time::Timer::new(metrics());
+    let _tick_timer = ioi_telemetry::time::Timer::new(metrics());
     let (
         cons_ty,
         view_resolver,
@@ -95,8 +95,8 @@ where
 
     let allow_bootstrap = matches!(
         cons_ty,
-        depin_sdk_types::config::ConsensusType::ProofOfAuthority
-            | depin_sdk_types::config::ConsensusType::ProofOfStake
+        ioi_types::config::ConsensusType::ProofOfAuthority
+            | ioi_types::config::ConsensusType::ProofOfStake
     );
     if node_state != NodeState::Synced && !allow_bootstrap {
         return Ok(());
@@ -148,7 +148,7 @@ where
 
     tracing::info!(target: "consensus", event = "decision", decision = ?decision, height = height_being_built);
 
-    if let depin_sdk_api::consensus::ConsensusDecision::ProduceBlock(_) = decision {
+    if let ioi_api::consensus::ConsensusDecision::ProduceBlock(_) = decision {
         metrics().inc_blocks_produced();
         let parent_ref = if let Some(last) = last_committed_block_opt.as_ref() {
             let block_hash = to_root_hash(last.header.hash()?)?;
@@ -229,7 +229,7 @@ where
                                 .to_string(),
                         ),
                         ChainTransaction::Application(a) => match a {
-                            depin_sdk_types::app::ApplicationTransaction::DeployContract {
+                            ioi_types::app::ApplicationTransaction::DeployContract {
                                 header,
                                 ..
                             } => (
@@ -237,9 +237,8 @@ where
                                 header.nonce,
                                 "DeployContract".to_string(),
                             ),
-                            depin_sdk_types::app::ApplicationTransaction::CallContract {
-                                header,
-                                ..
+                            ioi_types::app::ApplicationTransaction::CallContract {
+                                header, ..
                             } => (header.account_id, header.nonce, "CallContract".to_string()),
                             _ => (AccountId::default(), 0, "UTXO".to_string()),
                         },
@@ -320,7 +319,7 @@ where
             .await?
             .ok_or_else(|| anyhow!("Validator set missing in parent state"))?;
 
-        let sets = depin_sdk_types::app::read_validator_sets(&vs_bytes)?;
+        let sets = ioi_types::app::read_validator_sets(&vs_bytes)?;
         let effective_vs = if let Some(next) = &sets.next {
             if height_being_built >= next.effective_from_height
                 && !next.validators.is_empty()
@@ -383,8 +382,8 @@ where
             header: BlockHeader {
                 height: height_being_built,
                 parent_hash: parent_ref.block_hash,
-                parent_state_root: depin_sdk_types::app::StateRoot(parent_ref.state_root.clone()),
-                state_root: depin_sdk_types::app::StateRoot(vec![]),
+                parent_state_root: ioi_types::app::StateRoot(parent_ref.state_root.clone()),
+                state_root: ioi_types::app::StateRoot(vec![]),
                 transactions_root: vec![0; 32],
                 timestamp: {
                     let parent_ts = last_committed_block_opt
@@ -453,8 +452,8 @@ where
                 }
                 {
                     let mut ns = node_state_arc.lock().await;
-                    if *ns == depin_sdk_network::traits::NodeState::Syncing {
-                        *ns = depin_sdk_network::traits::NodeState::Synced;
+                    if *ns == ioi_networking::traits::NodeState::Syncing {
+                        *ns = ioi_networking::traits::NodeState::Synced;
                         tracing::info!(target: "orchestration", "State -> Synced.");
                     }
                 }

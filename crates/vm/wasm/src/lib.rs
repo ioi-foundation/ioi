@@ -13,10 +13,10 @@
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use depin_sdk_api::runtime::{Runnable, Runtime, RuntimeError};
-use depin_sdk_api::state::VmStateAccessor;
-use depin_sdk_api::vm::{ExecutionContext, ExecutionOutput, VirtualMachine};
-use depin_sdk_types::{config::VmFuelCosts, error::VmError};
+use ioi_types::{config::VmFuelCosts, error::VmError};
+use ioi_api::runtime::{Runnable, Runtime, RuntimeError};
+use ioi_api::state::VmStateAccessor;
+use ioi_api::vm::{ExecutionContext, ExecutionOutput, VirtualMachine};
 use std::collections::HashSet;
 use std::sync::Arc;
 use wasmtime::*;
@@ -579,17 +579,17 @@ impl VmStateAccessor for NullStateAccessor {
     async fn get(
         &self,
         _key: &[u8],
-    ) -> Result<Option<Vec<u8>>, depin_sdk_types::error::StateError> {
+    ) -> Result<Option<Vec<u8>>, ioi_types::error::StateError> {
         Ok(None)
     }
     async fn insert(
         &self,
         _key: &[u8],
         _value: &[u8],
-    ) -> Result<(), depin_sdk_types::error::StateError> {
+    ) -> Result<(), ioi_types::error::StateError> {
         Ok(())
     }
-    async fn delete(&self, _key: &[u8]) -> Result<(), depin_sdk_types::error::StateError> {
+    async fn delete(&self, _key: &[u8]) -> Result<(), ioi_types::error::StateError> {
         Ok(())
     }
 }

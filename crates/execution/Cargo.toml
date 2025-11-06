@@ -1,0 +1,46 @@
+# Path: crates/chain/Cargo.toml
+[package]
+name = "ioi-execution"
+version = "0.1.0"
+rust-version = "1.78"
+edition = "2021"
+description = "Chain implementation components for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+ioi-api = { path = "../api" }
+ioi-types = { path = "../types" }
+ioi-state = { path = "../state" }
+ioi-tx = { path = "../tx" }
+ioi-services = { path = "../services" }
+ioi-consensus = { path = "../consensus", features = ["poa", "pos"] }
+ioi-crypto = { path = "../crypto" }
+log = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+hex = { workspace = true }
+libp2p = { workspace = true }
+async-trait = { workspace = true }
+bs58 = "0.4"
+# Add wasmtime
+wasmtime = { workspace = true }
+base64 = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }             # Add tokio
+futures = { workspace = true }                                # Add futures
+parity-scale-codec = { workspace = true, features = ["std"] }
+toml = { workspace = true }
+
+# [+] FIX: Add the missing dependency here
+ibc-primitives = { workspace = true }
+
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
+ioi-state = { path = "../state", features = ["tree-iavl"] }
+ioi-vm-wasm = { path = "../vm/wasm" }
+
+[features]
+default = []

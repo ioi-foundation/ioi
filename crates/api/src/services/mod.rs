@@ -6,8 +6,8 @@ use crate::lifecycle::OnEndBlock;
 use crate::transaction::context::TxContext;
 use crate::transaction::decorator::TxDecorator;
 use async_trait::async_trait;
-use depin_sdk_types::error::{TransactionError, UpgradeError};
-use depin_sdk_types::service_configs::Capabilities;
+use ioi_types::error::{TransactionError, UpgradeError};
+use ioi_types::service_configs::Capabilities;
 use std::any::Any;
 use std::hash::Hash;
 

@@ -1,13 +1,13 @@
 // Path: crates/services/src/oracle/mod.rs
 use async_trait::async_trait;
-use depin_sdk_api::services::{BlockchainService, UpgradableService};
-use depin_sdk_api::state::StateAccessor;
-use depin_sdk_api::transaction::context::TxContext;
-use depin_sdk_types::app::{OracleConsensusProof, StateEntry};
-use depin_sdk_types::codec;
-use depin_sdk_types::error::{TransactionError, UpgradeError};
-use depin_sdk_types::keys::{ORACLE_DATA_PREFIX, ORACLE_PENDING_REQUEST_PREFIX};
-use depin_sdk_types::service_configs::Capabilities;
+use ioi_types::app::{OracleConsensusProof, StateEntry};
+use ioi_types::codec;
+use ioi_types::error::{TransactionError, UpgradeError};
+use ioi_types::keys::{ORACLE_DATA_PREFIX, ORACLE_PENDING_REQUEST_PREFIX};
+use ioi_types::service_configs::Capabilities;
+use ioi_api::services::{BlockchainService, UpgradableService};
+use ioi_api::state::StateAccessor;
+use ioi_api::transaction::context::TxContext;
 use parity_scale_codec::{Decode, Encode};
 use std::any::Any;
 
@@ -24,7 +24,6 @@ pub struct SubmitDataParams {
     pub final_value: Vec<u8>,
     pub consensus_proof: OracleConsensusProof,
 }
-
 
 #[derive(Debug, Clone, Default)]
 pub struct OracleService;
@@ -54,10 +53,18 @@ impl BlockchainService for OracleService {
     fn id(&self) -> &str {
         "oracle" // The canonical, user-facing ID.
     }
-    fn abi_version(&self) -> u32 { 1 }
-    fn state_schema(&self) -> &str { "v1" }
-    fn capabilities(&self) -> Capabilities { Capabilities::empty() }
-    fn as_any(&self) -> &dyn Any { self }
+    fn abi_version(&self) -> u32 {
+        1
+    }
+    fn state_schema(&self) -> &str {
+        "v1"
+    }
+    fn capabilities(&self) -> Capabilities {
+        Capabilities::empty()
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 
     // Implement the on-chain logic here.
     async fn handle_service_call(
@@ -70,7 +77,8 @@ impl BlockchainService for OracleService {
         match method {
             "request_data@v1" => {
                 let p: RequestDataParams = codec::from_bytes_canonical(params)?;
-                let request_key = [ORACLE_PENDING_REQUEST_PREFIX, &p.request_id.to_le_bytes()].concat();
+                let request_key =
+                    [ORACLE_PENDING_REQUEST_PREFIX, &p.request_id.to_le_bytes()].concat();
                 let url_bytes = codec::to_bytes_canonical(&p.url)?;
                 let entry = StateEntry {
                     value: url_bytes,
@@ -85,7 +93,8 @@ impl BlockchainService for OracleService {
                 if p.consensus_proof.attestations.is_empty() {
                     return Err(TransactionError::Invalid("Oracle proof is empty".into()));
                 }
-                let pending_key = [ORACLE_PENDING_REQUEST_PREFIX, &p.request_id.to_le_bytes()].concat();
+                let pending_key =
+                    [ORACLE_PENDING_REQUEST_PREFIX, &p.request_id.to_le_bytes()].concat();
                 let final_key = [ORACLE_DATA_PREFIX, &p.request_id.to_le_bytes()].concat();
                 let entry = StateEntry {
                     value: p.final_value.clone(),

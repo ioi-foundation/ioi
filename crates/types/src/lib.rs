@@ -9,7 +9,7 @@
 //!
 //! ## Architectural Role
 //!
-//! As the base crate, `depin-sdk-types` has minimal dependencies and is itself a
+//! As the base crate, `ioi-types` has minimal dependencies and is itself a
 //! dependency for almost every other crate in the workspace. This structure
 //! prevents circular dependencies and provides a stable, canonical definition
 //! for shared types like `Block`, `ChainTransaction`, `AccountId`, and various

@@ -1,15 +1,15 @@
 # Path: crates/storage/Cargo.toml
 [package]
-name = "depin-sdk-storage"
+name = "ioi-storage"
 version = "0.1.0"
 edition = "2021"
 description = "Pure-Rust persistent storage (redb + epoch sharding) for StateManager backends"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-depin-sdk-api = { path = "../api" }
-depin-sdk-telemetry = { path = "../telemetry" }
-depin-sdk-types = { path = "../types" }
+ioi-api = { path = "../api" }
+ioi-telemetry = { path = "../telemetry" }
+ioi-types = { path = "../types" }
 once_cell = { workspace = true }
 redb = "1.4.1"
 ahash = { workspace = true }

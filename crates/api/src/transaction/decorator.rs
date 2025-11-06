@@ -5,8 +5,8 @@ use crate::services::BlockchainService;
 use crate::state::StateAccessor;
 use crate::transaction::context::TxContext;
 use async_trait::async_trait;
-use depin_sdk_types::app::ChainTransaction;
-use depin_sdk_types::error::TransactionError;
+use ioi_types::app::ChainTransaction;
+use ioi_types::error::TransactionError;
 
 /// A trait for services that perform pre-execution validation and state changes.
 ///

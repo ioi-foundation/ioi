@@ -1,7 +1,7 @@
 // Path: crates/api/src/state/commitment.rs
 //! Defines the `StateCommitment` trait for key-value storage with cryptographic commitments.
 
-use depin_sdk_types::error::StateError;
+use ioi_types::error::StateError;
 use std::any::Any;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -14,8 +14,7 @@ pub type StateVal = Arc<[u8]>;
 pub type StateKVPair = (StateKey, StateVal);
 /// A streaming iterator over key-value pairs from the state. It is Send-safe
 /// to be moved across async tasks. `Sync` is omitted as iterators are stateful.
-pub type StateScanIter<'a> =
-    Box<dyn Iterator<Item = Result<StateKVPair, StateError>> + Send + 'a>;
+pub type StateScanIter<'a> = Box<dyn Iterator<Item = Result<StateKVPair, StateError>> + Send + 'a>;
 
 /// A trait for generic state commitment operations.
 ///

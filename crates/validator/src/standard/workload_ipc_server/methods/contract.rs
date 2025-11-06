@@ -3,7 +3,7 @@
 use super::RpcContext;
 use crate::standard::workload_ipc_server::router::{RequestContext, RpcMethod};
 use anyhow::{anyhow, Result};
-use depin_sdk_api::{
+use ioi_api::{
     commitment::CommitmentScheme,
     state::StateManager,
     vm::{ExecutionContext, ExecutionOutput},

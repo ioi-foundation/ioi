@@ -2,12 +2,12 @@
 use super::context::MainLoopContext;
 use anyhow::Result;
 use async_trait::async_trait;
-use depin_sdk_api::chain::{AnchoredStateView, StateRef};
-use depin_sdk_api::commitment::CommitmentScheme;
-use depin_sdk_api::consensus::{ConsensusEngine, PenaltyMechanism};
-use depin_sdk_api::state::{StateAccessor, StateManager, Verifier};
-use depin_sdk_network::traits::NodeState;
-use depin_sdk_types::{
+use ioi_api::chain::{AnchoredStateView, StateRef};
+use ioi_api::commitment::CommitmentScheme;
+use ioi_api::consensus::{ConsensusEngine, PenaltyMechanism};
+use ioi_api::state::{StateAccessor, StateManager, Verifier};
+use ioi_networking::traits::NodeState;
+use ioi_types::{
     app::{Block, ChainTransaction, FailureReport, StateRoot, SystemPayload},
     config::ConsensusType,
     error::{ChainError, TransactionError},
@@ -25,7 +25,7 @@ type ProofCache = Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>;
 
 #[derive(Debug)]
 struct WorkloadChainView<V> {
-    client: Arc<depin_sdk_client::WorkloadClient>,
+    client: Arc<ioi_client::WorkloadClient>,
     consensus: ConsensusType,
     verifier: V,
     proof_cache: ProofCache,
@@ -33,7 +33,7 @@ struct WorkloadChainView<V> {
 
 impl<V: Clone> WorkloadChainView<V> {
     fn new(
-        client: Arc<depin_sdk_client::WorkloadClient>,
+        client: Arc<ioi_client::WorkloadClient>,
         consensus: ConsensusType,
         verifier: V,
         proof_cache: ProofCache,
@@ -61,7 +61,7 @@ impl PenaltyMechanism for NoopPenalty {
 }
 
 #[async_trait]
-impl<CS, ST, V> depin_sdk_api::chain::ChainView<CS, ST> for &WorkloadChainView<V>
+impl<CS, ST, V> ioi_api::chain::ChainView<CS, ST> for &WorkloadChainView<V>
 where
     CS: CommitmentScheme + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
@@ -99,7 +99,7 @@ where
         self.consensus
     }
 
-    fn workload_container(&self) -> &depin_sdk_api::validator::WorkloadContainer<ST> {
+    fn workload_container(&self) -> &ioi_api::validator::WorkloadContainer<ST> {
         unreachable!(
             "WorkloadChainView is a remote proxy and does not have a local WorkloadContainer"
         );
@@ -127,8 +127,8 @@ pub fn prune_mempool(
                     method,
                     params,
                 } if service_id == "oracle" && method == "submit_data@v1" => {
-                    use depin_sdk_services::oracle::SubmitDataParams;
-                    depin_sdk_types::codec::from_bytes_canonical::<SubmitDataParams>(params)
+                    use ioi_services::oracle::SubmitDataParams;
+                    ioi_types::codec::from_bytes_canonical::<SubmitDataParams>(params)
                         .map(|p| p.request_id)
                         .ok()
                 }
@@ -156,8 +156,8 @@ pub fn prune_mempool(
             } = &sys_tx.payload
             {
                 if service_id == "oracle" && method == "submit_data@v1" {
-                    if let Ok(p) = depin_sdk_types::codec::from_bytes_canonical::<
-                        depin_sdk_services::oracle::SubmitDataParams,
+                    if let Ok(p) = ioi_types::codec::from_bytes_canonical::<
+                        ioi_services::oracle::SubmitDataParams,
                     >(params)
                     {
                         if finalized_oracle_ids.contains(&p.request_id) {

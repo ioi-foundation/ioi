@@ -1,6 +1,6 @@
 # Path: crates/crypto/Cargo.toml
 [package]
-name = "depin-sdk-crypto"
+name = "ioi-crypto"
 version = "0.1.0"
 rust-version = "1.78"
 edition = "2021"
@@ -8,7 +8,7 @@ description = "Cryptographic implementations for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-depin-sdk-api = { path = "../api" }
+ioi-api = { path = "../api" }
 log = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }

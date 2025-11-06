@@ -1,10 +1,7 @@
 // Path: crates/services/src/ibc/light_client/tendermint.rs
 use crate::ibc::light_client::errors::IbcError;
 use async_trait::async_trait;
-use depin_sdk_api::error::CoreError;
-use depin_sdk_api::ibc::{InterchainVerifier, VerifyCtx};
-use depin_sdk_api::state::StateAccessor;
-use depin_sdk_types::ibc::{Finality, Header, InclusionProof};
+use ioi_types::ibc::{Finality, Header, InclusionProof};
 use ibc_client_tendermint::types::proto::v1::{
     ClientState as RawTmClientState, ConsensusState as RawTmConsensusState, Header as RawTmHeader,
 };
@@ -27,6 +24,9 @@ use ibc_core_host_types::{
 };
 use ibc_primitives::Timestamp;
 use ibc_proto::google::protobuf::Any as PbAny;
+use ioi_api::error::CoreError;
+use ioi_api::ibc::{InterchainVerifier, VerifyCtx};
+use ioi_api::state::StateAccessor;
 use prost::Message;
 
 use std::fmt;

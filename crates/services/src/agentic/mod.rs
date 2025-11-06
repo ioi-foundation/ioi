@@ -1,7 +1,7 @@
 // Path: crates/services/src/agentic/mod.rs
 //! Agentic module implementation
 
-use depin_sdk_api::impl_service_base;
+use ioi_api::impl_service_base;
 
 pub mod normaliser;
 pub mod prompt_wrapper;

@@ -1,5 +1,5 @@
 // Path: crates/crypto/src/error.rs
-//! Local error types for the `depin-sdk-crypto` crate.
+//! Local error types for the `ioi-crypto` crate.
 
 // Re-export the canonical error type from the API crate.
-pub use depin_sdk_api::error::CryptoError;
+pub use ioi_api::error::CryptoError;

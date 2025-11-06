@@ -9,12 +9,12 @@
 use anyhow::{anyhow, Result};
 use axum::{routing::get, serve, Router};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use depin_sdk_forge::testing::{
+use ioi_forge::testing::{
     build_test_artifacts,
     poll::{wait_for_height, wait_for_oracle_data, wait_for_pending_oracle_request},
     submit_transaction, TestCluster,
 };
-use depin_sdk_types::{
+use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
         Credential, SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
@@ -160,7 +160,7 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
                 next: None,
             };
 
-            let vs_bytes = depin_sdk_types::app::write_validator_sets(&validator_sets).unwrap();
+            let vs_bytes = ioi_types::app::write_validator_sets(&validator_sets).unwrap();
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),

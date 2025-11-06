@@ -1,6 +1,6 @@
 # Path: crates/consensus/Cargo.toml
 [package]
-name = "depin-sdk-consensus"
+name = "ioi-consensus"
 version = "0.1.0"
 rust-version = "1.78"
 edition = "2021"
@@ -8,12 +8,12 @@ description = "Consensus for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-depin-sdk-api = { path = "../api" }
-depin-sdk-types = { path = "../types" }
-depin-sdk-transaction-models = { path = "../transaction_models" }
-depin-sdk-client = { path = "../client" }
-depin-sdk-commitment = { path = "../commitment" }
-depin-sdk-crypto = { path = "../crypto", optional = true }
+ioi-api = { path = "../api" }
+ioi-types = { path = "../types" }
+ioi-tx = { path = "../tx" }
+ioi-client = { path = "../client" }
+ioi-state = { path = "../state" }
+ioi-crypto = { path = "../crypto", optional = true }
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true, optional = true }
@@ -32,8 +32,8 @@ tracing = { workspace = true }
 [features]
 default = []
 # A feature for each engine
-round-robin = ["dep:tokio", "dep:depin-sdk-crypto"]
-poa = ["dep:tokio", "dep:depin-sdk-crypto"]
-pos = ["dep:tokio", "dep:depin-sdk-crypto", "dep:serde_json"]
+round-robin = ["dep:tokio", "dep:ioi-crypto"]
+poa = ["dep:tokio", "dep:ioi-crypto"]
+pos = ["dep:tokio", "dep:ioi-crypto", "dep:serde_json"]
 tendermint = []
 custom-consensus = []

@@ -13,20 +13,20 @@
 //! The main logic for the Orchestration container, handling consensus and peer communication.
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use depin_sdk_api::crypto::SerializableKey;
-use depin_sdk_api::{
+use ioi_client::WorkloadClient;
+use ioi_api::crypto::SerializableKey;
+use ioi_api::{
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
     crypto::SigningKeyPair,
     state::{StateCommitment, StateManager, Verifier},
     validator::Container,
 };
-use depin_sdk_client::WorkloadClient;
-use depin_sdk_crypto::sign::dilithium::DilithiumKeyPair;
-use depin_sdk_network::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
-use depin_sdk_network::traits::NodeState;
-use depin_sdk_network::BlockSync;
-use depin_sdk_types::{
+use ioi_crypto::sign::dilithium::DilithiumKeyPair;
+use ioi_networking::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
+use ioi_networking::traits::NodeState;
+use ioi_networking::BlockSync;
+use ioi_types::{
     app::{account_id_from_key_material, AccountId, ChainTransaction, SignatureSuite},
     error::ValidatorError,
 };
@@ -646,7 +646,7 @@ where
             })?,
         );
         let nonce_key = [
-            depin_sdk_types::keys::ACCOUNT_NONCE_PREFIX,
+            ioi_types::keys::ACCOUNT_NONCE_PREFIX,
             local_account_id.as_ref(),
         ]
         .concat();
@@ -776,7 +776,7 @@ where
         workload_client: &WorkloadClient,
     ) -> Result<()> {
         let guardian_channel =
-            depin_sdk_client::security::SecurityChannel::new("orchestration", "guardian");
+            ioi_client::security::SecurityChannel::new("orchestration", "guardian");
         let certs_dir = std::env::var("CERTS_DIR").map_err(|_| {
             ValidatorError::Config("CERTS_DIR environment variable must be set".to_string())
         })?;

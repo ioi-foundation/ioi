@@ -8,18 +8,18 @@ use cfg_if::cfg_if;
 
 // Only bring KZGParams into scope when the corresponding feature is enabled.
 #[cfg(feature = "primitive-kzg")]
-use depin_sdk_commitment::primitives::kzg::KZGParams;
+use ioi_state::primitives::kzg::KZGParams;
 
 // --- Define the Verifier Type Alias based on tree features using cfg_if ---
 // This creates a mutually exclusive if/else-if/else block, guaranteeing that
 // `DefaultVerifier` is only defined once, even when multiple features are enabled.
 cfg_if! {
     if #[cfg(feature = "tree-iavl")] {
-        pub use depin_sdk_commitment::tree::iavl::verifier::IAVLHashVerifier as DefaultVerifier;
+        pub use ioi_state::tree::iavl::verifier::IAVLHashVerifier as DefaultVerifier;
     } else if #[cfg(feature = "tree-sparse-merkle")] {
-        pub use depin_sdk_commitment::tree::sparse_merkle::verifier::SparseMerkleVerifier as DefaultVerifier;
+        pub use ioi_state::tree::sparse_merkle::verifier::SparseMerkleVerifier as DefaultVerifier;
     } else if #[cfg(feature = "tree-verkle")] {
-        pub use depin_sdk_commitment::tree::verkle::verifier::KZGVerifier as DefaultVerifier;
+        pub use ioi_state::tree::verkle::verifier::KZGVerifier as DefaultVerifier;
     } else {
         // Fallback for when no tree feature is enabled, preventing compile errors in those cases.
         // A runtime check in the binary will catch this misconfiguration.
@@ -64,10 +64,10 @@ pub fn create_default_verifier(
     feature = "tree-verkle"
 )))]
 mod fallback {
-    use depin_sdk_api::error::StateError;
-    use depin_sdk_api::state::Verifier;
-    use depin_sdk_types::app::Membership;
-    use depin_sdk_types::error::ProofError;
+    use ioi_types::app::Membership;
+    use ioi_types::error::ProofError;
+    use ioi_api::error::StateError;
+    use ioi_api::state::Verifier;
     use parity_scale_codec::{Decode, Encode};
 
     /// A fallback `Verifier` implementation that always fails.

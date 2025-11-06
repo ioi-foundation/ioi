@@ -11,8 +11,8 @@ use bollard::{
     },
     Docker,
 };
-use depin_sdk_validator::common::generate_certificates_if_needed;
 use futures_util::stream::{self, Stream, StreamExt};
+use ioi_validator::common::generate_certificates_if_needed;
 use libp2p::Multiaddr;
 use std::any::Any;
 use std::io;
@@ -229,7 +229,7 @@ pub struct DockerBackend {
 impl DockerBackend {
     pub async fn new(config: DockerBackendConfig) -> Result<Self> {
         let docker = Docker::connect_with_local_defaults()?;
-        let network_name = format!("depin-e2e-{}", uuid::Uuid::new_v4());
+        let network_name = format!("ioi-e2e-{}", uuid::Uuid::new_v4());
         let network = docker
             .create_network(NetworkCreateRequest {
                 name: network_name,

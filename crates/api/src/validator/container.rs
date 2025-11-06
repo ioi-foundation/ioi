@@ -2,7 +2,7 @@
 //! Defines the core `Container` and `GuardianContainer` traits.
 
 use async_trait::async_trait;
-use depin_sdk_types::error::ValidatorError;
+use ioi_types::error::ValidatorError;
 
 /// A trait for any component that can be started and stopped.
 #[async_trait]

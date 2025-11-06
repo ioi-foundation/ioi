@@ -3,14 +3,14 @@
 
 use super::context::MainLoopContext;
 use anyhow::{anyhow, Result};
-use depin_sdk_api::{
+use ioi_api::{
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
     state::{StateManager, Verifier},
 };
-use depin_sdk_network::libp2p::SwarmCommand;
-use depin_sdk_services::oracle::OracleService;
-use depin_sdk_types::{
+use ioi_networking::libp2p::SwarmCommand;
+use ioi_services::oracle::OracleService;
+use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ChainTransaction, OracleAttestation,
         SignatureSuite, StateEntry,
@@ -135,7 +135,7 @@ where
 
         match oracle_service.fetch(&url).await {
             Ok(value) => {
-                let mut domain = b"depinsdk/oracle-attest/v1".to_vec();
+                let mut domain = b"ioi/oracle-attest/v1".to_vec();
                 domain.extend_from_slice(&context.chain_id.0.to_le_bytes());
                 domain.extend_from_slice(&context.genesis_hash);
 

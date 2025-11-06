@@ -3,9 +3,9 @@
 
 use crate::commitment::CommitmentScheme;
 use async_trait::async_trait;
-use depin_sdk_types::app::Membership;
-use depin_sdk_types::error::ProofError;
-use depin_sdk_types::error::StateError;
+use ioi_types::app::Membership;
+use ioi_types::error::ProofError;
+use ioi_types::error::StateError;
 use parity_scale_codec::{Decode, Encode};
 use std::collections::BTreeSet;
 

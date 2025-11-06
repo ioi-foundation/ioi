@@ -1,5 +1,5 @@
 // Path: crates/storage/src/metrics.rs
-use depin_sdk_telemetry::sinks::{NopSink, StorageMetricsSink};
+use ioi_telemetry::sinks::{NopSink, StorageMetricsSink};
 use once_cell::sync::OnceCell;
 
 static NOP_SINK: NopSink = NopSink;

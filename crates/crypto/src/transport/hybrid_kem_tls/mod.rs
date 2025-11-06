@@ -13,8 +13,8 @@ use dcrypt::algorithms::mac::Hmac;
 // FIX: Import the correct traits for the builder pattern.
 use dcrypt::api::traits::symmetric::{DecryptOperation, EncryptOperation};
 use dcrypt::api::traits::SymmetricCipher;
-use depin_sdk_api::crypto::{Encapsulated, KeyEncapsulation, SerializableKey};
-use depin_sdk_api::error::CryptoError;
+use ioi_api::crypto::{Encapsulated, KeyEncapsulation, SerializableKey};
+use ioi_api::error::CryptoError;
 use std::fmt;
 use std::io;
 use std::pin::Pin;
@@ -56,7 +56,7 @@ pub fn derive_application_key<S>(
     kem_ss: &mut Zeroizing<Vec<u8>>,
 ) -> Result<[u8; 32], CryptoError> {
     let mut exporter_secret = [0u8; 32];
-    tls_exporter(stream, b"depin-hybrid-kem-v1", &mut exporter_secret)
+    tls_exporter(stream, b"ioi-hybrid-kem-v1", &mut exporter_secret)
         .map_err(|e| CryptoError::OperationFailed(format!("TLS exporter failed: {}", e)))?;
     let k_app = Hmac::<Sha256>::mac(&exporter_secret, kem_ss)
         .map_err(|e| CryptoError::OperationFailed(format!("HKDF failed: {}", e)))?;
