@@ -2,24 +2,24 @@
 pub mod service_call;
 
 use crate::ante::service_call::precheck_call_service;
-use depin_sdk_api::state::{StateAccessor, StateOverlay};
-use depin_sdk_api::transaction::context::TxContext;
-use depin_sdk_transaction_models::system::{nonce, validation};
-use depin_sdk_types::app::{BlockTimingParams, BlockTimingRuntime};
-use depin_sdk_types::app::{ChainStatus, ChainTransaction, SystemPayload};
-use depin_sdk_types::codec;
-use depin_sdk_types::error::{StateError, TransactionError};
-use depin_sdk_types::keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY};
+use ioi_tx::system::{nonce, validation};
+use ioi_types::app::{BlockTimingParams, BlockTimingRuntime};
+use ioi_types::app::{ChainStatus, ChainTransaction, SystemPayload};
+use ioi_types::codec;
+use ioi_types::error::{StateError, TransactionError};
+use ioi_types::keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY};
 use ibc_primitives::Timestamp;
+use ioi_api::state::{StateAccessor, StateOverlay};
+use ioi_api::transaction::context::TxContext;
 use tracing::warn;
 
 /// Unified ante check used by mempool admission and block recheck.
 /// This function mirrors the validation and decorator logic from the chain's `process_transaction`.
 pub async fn check_tx(
     state: &dyn StateAccessor,
-    services: &depin_sdk_api::services::access::ServiceDirectory,
+    services: &ioi_api::services::access::ServiceDirectory,
     tx: &ChainTransaction,
-    chain_id: depin_sdk_types::app::ChainId,
+    chain_id: ioi_types::app::ChainId,
     next_block_height: u64,
 ) -> Result<(), TransactionError> {
     // Create a temporary overlay for the simulation.
@@ -29,22 +29,22 @@ pub async fn check_tx(
     let signer_account_id = match tx {
         ChainTransaction::System(s) => s.header.account_id,
         ChainTransaction::Application(a) => match a {
-            depin_sdk_types::app::ApplicationTransaction::DeployContract { header, .. } => {
+            ioi_types::app::ApplicationTransaction::DeployContract { header, .. } => {
                 header.account_id
             }
-            depin_sdk_types::app::ApplicationTransaction::CallContract { header, .. } => {
+            ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
                 header.account_id
             }
-            depin_sdk_types::app::ApplicationTransaction::UTXO(_) => {
-                depin_sdk_types::app::AccountId::default()
+            ioi_types::app::ApplicationTransaction::UTXO(_) => {
+                ioi_types::app::AccountId::default()
             }
         },
     };
 
     // Deterministic timestamp for pre-check (mirrors execution ordering).
-    let last_timestamp_ns: u128 = match state.get(depin_sdk_types::keys::STATUS_KEY)? {
+    let last_timestamp_ns: u128 = match state.get(ioi_types::keys::STATUS_KEY)? {
         Some(b) => {
-            let status: ChainStatus = depin_sdk_types::codec::from_bytes_canonical(&b)
+            let status: ChainStatus = ioi_types::codec::from_bytes_canonical(&b)
                 .map_err(|e| StateError::InvalidValue(e.to_string()))?;
             // ChainStatus.latest_timestamp is stored in seconds.
             (status.latest_timestamp as u128) * 1_000_000_000u128

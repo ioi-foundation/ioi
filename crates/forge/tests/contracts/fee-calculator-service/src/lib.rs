@@ -3,7 +3,7 @@
 extern crate alloc;
 
 use alloc::string::String;
-use depin_sdk_contract as sdk;
+use ioi_contract_sdk as sdk;
 use parity_scale_codec::Encode;
 
 /// Encodes a `Result<(), String>` and returns its pointer/length packed in a u64.

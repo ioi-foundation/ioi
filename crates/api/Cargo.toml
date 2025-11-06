@@ -1,6 +1,6 @@
 # Path: crates/api/Cargo.toml
 [package]
-name = "depin-sdk-api"
+name = "ioi-api"
 version = "0.1.0"
 rust-version = "1.78"
 edition = "2021"
@@ -8,7 +8,7 @@ description = "Core traits and APIs for the DePIN SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-depin-sdk-types = { path = "../types" }
+ioi-types = { path = "../types" }
 async-trait = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

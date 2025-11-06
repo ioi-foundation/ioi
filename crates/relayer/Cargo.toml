@@ -1,13 +1,13 @@
 # Path: crates/relayer/Cargo.toml
 [package]
-name = "depin-sdk-relayer"
+name = "ioi-relayer"
 version = "0.1.0"
 edition = "2021"
 description = "A native IBC relayer implementation for the DePIN SDK test suite"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-depin-sdk-types = { path = "../types" }
+ioi-types = { path = "../types" }
 anyhow = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 reqwest = { workspace = true, features = ["json"] }
@@ -33,6 +33,6 @@ tendermint-testgen = { workspace = true }
 dcrypt = { workspace = true }
 
 # New dependencies for decoding and hashing native IAVL proofs
-depin-sdk-commitment = { path = "../commitment" }
-depin-sdk-crypto = { path = "../crypto" }
+ioi-state = { path = "../state" }
+ioi-crypto = { path = "../crypto" }
 parity-scale-codec = { workspace = true, features = ["std"] }

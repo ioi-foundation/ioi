@@ -1,22 +1,22 @@
 // Path: crates/services/src/identity/mod.rs
 use async_trait::async_trait;
-use depin_sdk_api::identity::CredentialsView;
-use depin_sdk_api::lifecycle::OnEndBlock;
-use depin_sdk_api::services::{BlockchainService, UpgradableService};
-use depin_sdk_api::state::StateAccessor;
-use depin_sdk_api::transaction::context::TxContext;
-use depin_sdk_crypto::sign::{dilithium::DilithiumPublicKey, eddsa::Ed25519PublicKey};
-use depin_sdk_types::app::{
+use ioi_api::identity::CredentialsView;
+use ioi_api::lifecycle::OnEndBlock;
+use ioi_api::services::{BlockchainService, UpgradableService};
+use ioi_api::state::StateAccessor;
+use ioi_api::transaction::context::TxContext;
+use ioi_crypto::sign::{dilithium::DilithiumPublicKey, eddsa::Ed25519PublicKey};
+use ioi_types::app::{
     account_id_from_key_material, read_validator_sets, write_validator_sets, AccountId,
     ActiveKeyRecord, Credential, RotationProof, SignatureSuite, ValidatorSetV1,
 };
-use depin_sdk_types::codec;
-use depin_sdk_types::error::{StateError, TransactionError, UpgradeError};
-use depin_sdk_types::keys::{
+use ioi_types::codec;
+use ioi_types::error::{StateError, TransactionError, UpgradeError};
+use ioi_types::keys::{
     IDENTITY_CREDENTIALS_PREFIX, IDENTITY_PROMOTION_INDEX_PREFIX, IDENTITY_ROTATION_NONCE_PREFIX,
     VALIDATOR_SET_KEY,
 };
-use depin_sdk_types::service_configs::{Capabilities, MigrationConfig};
+use ioi_types::service_configs::{Capabilities, MigrationConfig};
 use parity_scale_codec::Decode;
 use std::any::Any;
 
@@ -63,7 +63,7 @@ impl IdentityHub {
         if bytes.is_empty() {
             return Ok([None, None]);
         }
-        depin_sdk_types::codec::from_bytes_canonical(&bytes)
+        ioi_types::codec::from_bytes_canonical(&bytes)
             .map_err(|e| StateError::InvalidValue(e.to_string()))
     }
 
@@ -74,7 +74,7 @@ impl IdentityHub {
         creds: &[Option<Credential>; 2],
     ) -> Result<(), StateError> {
         let creds_bytes =
-            depin_sdk_types::codec::to_bytes_canonical(creds).map_err(StateError::InvalidValue)?;
+            ioi_types::codec::to_bytes_canonical(creds).map_err(StateError::InvalidValue)?;
         state.insert(&Self::get_credentials_key(account_id), &creds_bytes)
     }
 
@@ -140,20 +140,19 @@ impl IdentityHub {
         message: &[u8],
         signature: &[u8],
     ) -> Result<(), String> {
-        use depin_sdk_api::crypto::{SerializableKey, VerifyingKey};
+        use ioi_api::crypto::{SerializableKey, VerifyingKey};
 
         match suite {
             SignatureSuite::Ed25519 => {
                 let pk = Ed25519PublicKey::from_bytes(public_key).map_err(|e| e.to_string())?;
-                let sig = depin_sdk_crypto::sign::eddsa::Ed25519Signature::from_bytes(signature)
+                let sig = ioi_crypto::sign::eddsa::Ed25519Signature::from_bytes(signature)
                     .map_err(|e| e.to_string())?;
                 pk.verify(message, &sig).map_err(|e| e.to_string())
             }
             SignatureSuite::Dilithium2 => {
                 let pk = DilithiumPublicKey::from_bytes(public_key).map_err(|e| e.to_string())?;
-                let sig =
-                    depin_sdk_crypto::sign::dilithium::DilithiumSignature::from_bytes(signature)
-                        .map_err(|e| e.to_string())?;
+                let sig = ioi_crypto::sign::dilithium::DilithiumSignature::from_bytes(signature)
+                    .map_err(|e| e.to_string())?;
                 pk.verify(message, &sig).map_err(|e| e.to_string())
             }
         }
@@ -169,7 +168,7 @@ impl IdentityHub {
         preimage.extend_from_slice(&self.config.chain_id.to_le_bytes());
         preimage.extend_from_slice(account_id.as_ref());
         preimage.extend_from_slice(&nonce.to_le_bytes());
-        depin_sdk_crypto::algorithms::hash::sha256(&preimage)
+        ioi_crypto::algorithms::hash::sha256(&preimage)
             .map_err(|e| StateError::Backend(e.to_string()))?
             .try_into()
             .map_err(|_| StateError::InvalidValue("hash len".into()))

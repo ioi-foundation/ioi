@@ -33,7 +33,7 @@ pub mod component;
 pub mod consensus;
 /// Defines unified traits for cryptographic primitives.
 pub mod crypto;
-/// Re-exports all core error types from the central `depin-sdk-types` crate.
+/// Re-exports all core error types from the central `ioi-types` crate.
 pub mod error;
 /// Defines the core enums for representing homomorphic operations and their results.
 pub mod homomorphic;

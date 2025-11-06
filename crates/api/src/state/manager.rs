@@ -4,8 +4,8 @@
 use crate::state::PrunePlan;
 use crate::state::StateCommitment;
 use crate::storage::NodeStore;
-use depin_sdk_types::app::{Membership, RootHash};
-use depin_sdk_types::error::StateError;
+use ioi_types::app::{Membership, RootHash};
+use ioi_types::error::StateError;
 use std::sync::Arc;
 
 /// The state manager interface, adding proof generation and batching capabilities.

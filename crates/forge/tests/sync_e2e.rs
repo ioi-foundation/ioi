@@ -3,11 +3,11 @@
 
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use depin_sdk_forge::testing::{
+use ioi_forge::testing::{
     assert_log_contains, build_test_artifacts, poll::wait_for_height, submit_transaction,
     TestCluster, TestValidator,
 };
-use depin_sdk_types::{
+use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
         BlockTimingRuntime, ChainId, ChainTransaction, Credential, Proposal, ProposalStatus,
@@ -151,7 +151,7 @@ async fn test_multi_batch_sync() -> Result<()> {
             total_weight: validators.len() as u128,
             validators,
         };
-        let vs_bytes = depin_sdk_types::app::write_validator_sets(&ValidatorSetsV1 {
+        let vs_bytes = ioi_types::app::write_validator_sets(&ValidatorSetsV1 {
             current: vs,
             next: None,
         })
@@ -291,7 +291,7 @@ async fn test_sync_with_peer_drop() -> Result<()> {
             total_weight: validators.len() as u128,
             validators,
         };
-        let vs_bytes = depin_sdk_types::app::write_validator_sets(&ValidatorSetsV1 {
+        let vs_bytes = ioi_types::app::write_validator_sets(&ValidatorSetsV1 {
             current: vs,
             next: None,
         })

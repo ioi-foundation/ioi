@@ -2,15 +2,15 @@
 use super::RpcContext;
 use crate::standard::workload_ipc_server::router::{RequestContext, RpcMethod};
 use anyhow::{anyhow, Result};
-use depin_sdk_api::{
+use ioi_api::{
     chain::AppChain,
     commitment::CommitmentScheme,
     state::{StateAccessor, StateOverlay},
     transaction::{context::TxContext, TransactionModel},
 };
 // [+] ADD this import
-use depin_sdk_transaction_models::system::{nonce, validation};
-use depin_sdk_types::{
+use ioi_tx::system::{nonce, validation};
+use ioi_types::{
     app::{
         evidence_id, AccountId, ApplicationTransaction, Block, BlockHeader, ChainTransaction,
         Membership, StateAnchor, SystemPayload,
@@ -51,7 +51,7 @@ impl<CS, ST> Default for GetBlocksRangeV1<CS, ST> {
 impl<CS, ST> RpcMethod for GetBlocksRangeV1<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+    ST: ioi_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
         + Sync
@@ -95,7 +95,7 @@ impl<CS, ST> Default for ProcessBlockV1<CS, ST> {
 impl<CS, ST> RpcMethod for ProcessBlockV1<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+    ST: ioi_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
         + Sync
@@ -183,7 +183,7 @@ impl<CS, ST> Default for CheckTransactionsV1<CS, ST> {
 impl<CS, ST> RpcMethod for CheckTransactionsV1<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+    ST: ioi_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
         + Sync
@@ -319,7 +319,7 @@ impl<CS, ST> Default for GetLastBlockHashV1<CS, ST> {
 impl<CS, ST> RpcMethod for GetLastBlockHashV1<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+    ST: ioi_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
         + Sync
@@ -374,7 +374,7 @@ impl<CS, ST> Default for GetAuthoritySetV1<CS, ST> {
 impl<CS, ST> RpcMethod for GetAuthoritySetV1<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+    ST: ioi_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
         + Sync
@@ -433,7 +433,7 @@ impl<CS, ST> Default for GetNextValidatorSetV1<CS, ST> {
 impl<CS, ST> RpcMethod for GetNextValidatorSetV1<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+    ST: ioi_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
         + Sync
@@ -490,7 +490,7 @@ impl<CS, ST> Default for GetValidatorSetForV1<CS, ST> {
 impl<CS, ST> RpcMethod for GetValidatorSetForV1<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+    ST: ioi_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
         + Sync
@@ -546,7 +546,7 @@ impl<CS, ST> Default for GetValidatorSetAtV1<CS, ST> {
 impl<CS, ST> RpcMethod for GetValidatorSetAtV1<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+    ST: ioi_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
         + Sync
@@ -559,7 +559,7 @@ where
 {
     const NAME: &'static str = "chain.getValidatorSetAt.v1";
     type Params = GetValidatorSetAtParams;
-    type Result = Vec<depin_sdk_types::app::AccountId>;
+    type Result = Vec<ioi_types::app::AccountId>;
 
     async fn call(
         &self,
@@ -575,10 +575,10 @@ where
         let state = state_tree.read().await;
 
         let (membership, _proof) = state
-            .get_with_proof_at_anchor(&params.anchor.0, depin_sdk_types::keys::VALIDATOR_SET_KEY)?;
+            .get_with_proof_at_anchor(&params.anchor.0, ioi_types::keys::VALIDATOR_SET_KEY)?;
 
         if let Membership::Present(bytes) = membership {
-            let sets = depin_sdk_types::app::read_validator_sets(&bytes)?;
+            let sets = ioi_types::app::read_validator_sets(&bytes)?;
             let account_ids = sets
                 .current
                 .validators
@@ -616,7 +616,7 @@ impl<CS, ST> Default for GetBlockByHeightV1<CS, ST> {
 impl<CS, ST> RpcMethod for GetBlockByHeightV1<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: depin_sdk_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+    ST: ioi_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
         + Sync

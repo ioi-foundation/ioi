@@ -1,12 +1,12 @@
 // Path: crates/validator/src/standard/orchestration/context.rs
 use crate::config::OrchestrationConfig;
-use depin_sdk_api::{
+use ioi_api::{
     chain::AppChain, commitment::CommitmentScheme, consensus::ConsensusEngine, state::StateManager,
 };
-use depin_sdk_crypto::sign::dilithium::DilithiumKeyPair;
-use depin_sdk_network::libp2p::SwarmCommand;
-use depin_sdk_network::traits::NodeState;
-use depin_sdk_types::app::{AccountId, Block, ChainTransaction, OracleAttestation};
+use ioi_crypto::sign::dilithium::DilithiumKeyPair;
+use ioi_networking::libp2p::SwarmCommand;
+use ioi_networking::traits::NodeState;
+use ioi_types::app::{AccountId, Block, ChainTransaction, OracleAttestation};
 use libp2p::{identity, PeerId};
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
@@ -14,13 +14,8 @@ use std::fmt::Debug;
 use std::sync::{atomic::AtomicBool, Arc};
 use tokio::sync::{mpsc, Mutex};
 
-pub type ChainFor<CS, ST> = Arc<
-    Mutex<
-        dyn AppChain<CS, depin_sdk_transaction_models::unified::UnifiedTransactionModel<CS>, ST>
-            + Send
-            + Sync,
-    >,
->;
+pub type ChainFor<CS, ST> =
+    Arc<Mutex<dyn AppChain<CS, ioi_tx::unified::UnifiedTransactionModel<CS>, ST> + Send + Sync>>;
 
 #[derive(Debug, Clone)]
 pub struct SyncProgress {
@@ -47,10 +42,10 @@ where
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
 {
     pub config: OrchestrationConfig,
-    pub chain_id: depin_sdk_types::app::ChainId,
+    pub chain_id: ioi_types::app::ChainId,
     pub genesis_hash: [u8; 32],
     pub chain_ref: ChainFor<CS, ST>,
-    pub view_resolver: Arc<dyn depin_sdk_api::chain::ViewResolver<Verifier = V>>,
+    pub view_resolver: Arc<dyn ioi_api::chain::ViewResolver<Verifier = V>>,
     pub tx_pool_ref: Arc<Mutex<VecDeque<ChainTransaction>>>,
     pub swarm_commander: mpsc::Sender<SwarmCommand>,
     pub consensus_engine_ref: Arc<Mutex<CE>>,

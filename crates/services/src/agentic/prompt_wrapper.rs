@@ -1,5 +1,5 @@
 // Path: crates/services/src/agentic/prompt_wrapper.rs
-use depin_sdk_api::impl_service_base;
+use ioi_api::impl_service_base;
 
 // A placeholder for on-chain policy definitions.
 pub struct PolicyGuardrails {

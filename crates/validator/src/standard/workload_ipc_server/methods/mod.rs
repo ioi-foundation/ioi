@@ -3,10 +3,8 @@
 //! This module defines the shared context for all RPC method handlers and
 //! exports the individual method implementations from sub-modules.
 
-use depin_sdk_api::{
-    commitment::CommitmentScheme, state::StateManager, validator::WorkloadContainer,
-};
-use depin_sdk_chain::Chain;
+use ioi_execution::Chain;
+use ioi_api::{commitment::CommitmentScheme, state::StateManager, validator::WorkloadContainer};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 

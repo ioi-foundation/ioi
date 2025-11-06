@@ -4,9 +4,9 @@
 
 use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use depin_sdk_crypto::algorithms::hash::sha256;
-use depin_sdk_forge::testing::{build_test_artifacts, poll::wait_for_height, TestValidator};
-use depin_sdk_types::{
+use ioi_forge::testing::{build_test_artifacts, poll::wait_for_height, TestValidator};
+use ioi_crypto::algorithms::hash::sha256;
+use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, Credential, SignatureSuite,
         ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
@@ -163,7 +163,7 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
                 next: None,
             },
         };
-        let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload).unwrap();
+        let vs_bytes = ioi_types::app::write_validator_sets(&vs_blob.payload).unwrap();
         gs.insert(
             std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
             json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
@@ -294,7 +294,7 @@ async fn test_mismatched_model_quarantine() -> Result<()> {
                 next: None,
             },
         };
-        let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload).unwrap();
+        let vs_bytes = ioi_types::app::write_validator_sets(&vs_blob.payload).unwrap();
         genesis_state.insert(
             std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
             json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),

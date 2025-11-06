@@ -4,7 +4,7 @@
 // Provides a DeltaAccumulator and a thin commit_and_persist() wrapper.
 
 use ahash::{AHashMap, AHashSet};
-use depin_sdk_api::storage::{
+use ioi_api::storage::{
     CommitInput, NodeHash as StoreNodeHash, NodeStore, RootHash as StoreRootHash, StorageError,
 };
 

@@ -16,7 +16,7 @@ pub mod errors {
         ConsensusStateNotFound(String, u64),
     }
 
-    impl From<IbcError> for depin_sdk_api::error::CoreError {
+    impl From<IbcError> for ioi_api::error::CoreError {
         fn from(e: IbcError) -> Self {
             Self::Custom(e.to_string())
         }

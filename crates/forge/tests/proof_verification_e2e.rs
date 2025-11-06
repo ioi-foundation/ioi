@@ -10,8 +10,8 @@
 
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use depin_sdk_forge::testing::{build_test_artifacts, poll::wait_for_height, rpc, TestValidator};
-use depin_sdk_types::{
+use ioi_forge::testing::{build_test_artifacts, poll::wait_for_height, rpc, TestValidator};
+use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, SignatureSuite, ValidatorSetBlob,
         ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
@@ -112,7 +112,7 @@ async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
 
     // Additionally, check the orchestrator logs for the "CRITICAL" proof verification failure message.
     let (mut orch_logs, _, _) = node.subscribe_logs();
-    let log_check = depin_sdk_forge::testing::assert_log_contains(
+    let log_check = ioi_forge::testing::assert_log_contains(
         "Orchestration",
         &mut orch_logs,
         "CRITICAL: Proof verification failed for remote state read",

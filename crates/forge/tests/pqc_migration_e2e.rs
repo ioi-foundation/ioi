@@ -2,15 +2,15 @@
 
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use depin_sdk_api::crypto::{SerializableKey, SigningKeyPair};
-use depin_sdk_crypto::security::SecurityLevel;
-use depin_sdk_crypto::sign::dilithium::{DilithiumKeyPair, DilithiumScheme};
-use depin_sdk_crypto::sign::eddsa::Ed25519KeyPair;
-use depin_sdk_forge::testing::{
+use ioi_forge::testing::{
     build_test_artifacts, poll::wait_for_height, rpc::query_state_key, submit_transaction,
     TestCluster,
 };
-use depin_sdk_types::{
+use ioi_api::crypto::{SerializableKey, SigningKeyPair};
+use ioi_crypto::security::SecurityLevel;
+use ioi_crypto::sign::dilithium::{DilithiumKeyPair, DilithiumScheme};
+use ioi_crypto::sign::eddsa::Ed25519KeyPair;
+use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
         Credential, Proposal, ProposalStatus, ProposalType, RotationProof, SignHeader,
@@ -255,7 +255,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
                 next: None,
             };
 
-            let vs_bytes = depin_sdk_types::app::write_validator_sets(&validator_sets).unwrap();
+            let vs_bytes = ioi_types::app::write_validator_sets(&validator_sets).unwrap();
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
@@ -302,7 +302,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
         preimage.extend_from_slice(account_id.as_ref());
         let rotation_nonce = 0u64;
         preimage.extend_from_slice(&rotation_nonce.to_le_bytes());
-        depin_sdk_crypto::algorithms::hash::sha256(&preimage).unwrap()
+        ioi_crypto::algorithms::hash::sha256(&preimage).unwrap()
     };
     let rotation_proof = RotationProof {
         old_public_key: ed25519_key.public_bytes(),
@@ -400,11 +400,11 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     nonce += 1;
 
     // 5c. VERIFY THE STATE
-    let current_height = depin_sdk_forge::testing::rpc::get_chain_height(rpc_addr).await?;
+    let current_height = ioi_forge::testing::rpc::get_chain_height(rpc_addr).await?;
     wait_for_height(rpc_addr, current_height + 2, Duration::from_secs(20)).await?;
 
     let vote_key = {
-        let mut key = depin_sdk_types::keys::GOVERNANCE_VOTE_KEY_PREFIX.to_vec();
+        let mut key = ioi_types::keys::GOVERNANCE_VOTE_KEY_PREFIX.to_vec();
         key.extend_from_slice(&1u64.to_le_bytes()); // proposal_id
         key.extend_from_slice(b"::");
         key.extend_from_slice(account_id.as_ref());
@@ -437,7 +437,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
         chain_id,
     )?;
     submit_transaction(rpc_addr, &final_tx).await?;
-    let final_height = depin_sdk_forge::testing::rpc::get_chain_height(rpc_addr).await?;
+    let final_height = ioi_forge::testing::rpc::get_chain_height(rpc_addr).await?;
     wait_for_height(rpc_addr, final_height + 1, Duration::from_secs(20)).await?;
 
     println!("--- PQC Identity Migration E2E Test Passed ---");

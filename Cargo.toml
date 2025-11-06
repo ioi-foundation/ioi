@@ -12,23 +12,23 @@ members = [
     "crates/node",
     # New developer toolkit and E2E test crate
     "crates/forge",
-    # Renamed from "contract-sdk"
-    "crates/contract",
+
+    "crates/contract-sdk",
 
     # Core SDK library crates
-    "crates/chain",
-    "crates/commitment",
+    "crates/execution",
+    "crates/state",
     "crates/consensus",
     "crates/api",
     "crates/types",
     "crates/crypto",
     "crates/homomorphic",
-    "crates/network",
+    "crates/networking",
     "crates/services",
     "crates/storage",
     "crates/telemetry",
     "crates/test_utils",
-    "crates/transaction_models",
+    "crates/tx",
     "crates/validator",
     "crates/vm/wasm",
 
@@ -38,8 +38,8 @@ members = [
 ]
 
 [workspace.dependencies]
-# Add depin-sdk-contract to the workspace dependencies
-depin-sdk-contract = { path = "crates/contract", default-features = false }
+# Add ioi-contract-sdk to the workspace dependencies
+ioi-contract-sdk = { path = "crates/contract-sdk", default-features = false }
 
 # Networking & HTTP Ecosystem
 # Version pins for hyper, axum, tower, tendermint, and time have been removed.

@@ -8,7 +8,7 @@ use dcrypt::kem::ecdh::{
     EcdhK256, EcdhK256Ciphertext, EcdhK256PublicKey, EcdhK256SecretKey,
 };
 use dcrypt::prelude::SerializeSecret;
-use depin_sdk_api::crypto::{
+use ioi_api::crypto::{
     DecapsulationKey, Encapsulated, EncapsulationKey, KemKeyPair, KeyEncapsulation, SerializableKey,
 };
 use zeroize::Zeroizing;

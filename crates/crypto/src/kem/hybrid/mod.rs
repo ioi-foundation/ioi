@@ -3,7 +3,7 @@ use crate::error::CryptoError;
 use crate::security::SecurityLevel;
 use dcrypt::api::Kem;
 use dcrypt::prelude::{Serialize, SerializeSecret};
-use depin_sdk_api::crypto::{
+use ioi_api::crypto::{
     DecapsulationKey, Encapsulated, EncapsulationKey, KemKeyPair, KeyEncapsulation, SerializableKey,
 };
 use zeroize::Zeroizing;

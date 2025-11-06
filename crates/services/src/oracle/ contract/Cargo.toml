@@ -10,7 +10,9 @@ license = "MIT OR Apache-2.0"
 crate-type = ["cdylib"]
 
 [dependencies]
-depin-sdk-contract = { path = "../../../../contract", features = ["wee_alloc"] }
+ioi-contract-sdk = { path = "../../../../contract-sdk", features = [
+    "wee_alloc",
+] }
 # DO NOT inherit from workspace. Specify version and features directly for no_std compatibility.
 parity-scale-codec = { version = "3.7.5", default-features = false, features = [
     "derive",

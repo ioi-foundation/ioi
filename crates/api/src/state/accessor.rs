@@ -2,7 +2,7 @@
 //! A dyn-safe trait for state access within decorators and hooks.
 
 use crate::state::{StateManager, StateScanIter};
-use depin_sdk_types::error::StateError;
+use ioi_types::error::StateError;
 
 /// A dyn-safe trait that erases the generic `StateManager` type, allowing
 /// services to interact with state without knowing its concrete implementation.

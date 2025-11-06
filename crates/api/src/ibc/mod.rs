@@ -1,7 +1,7 @@
 // Path: crates/api/src/ibc/mod.rs
 use crate::error::CoreError;
 use async_trait::async_trait;
-use depin_sdk_types::ibc::{Finality, Header, InclusionProof};
+use ioi_types::ibc::{Finality, Header, InclusionProof};
 use std::collections::HashMap;
 
 pub mod zk;

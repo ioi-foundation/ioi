@@ -7,24 +7,23 @@
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
-use depin_sdk_api::services::access::{Service, ServiceDirectory};
-use depin_sdk_api::{
-    commitment::CommitmentScheme, state::StateManager, validator::WorkloadContainer,
-};
-use depin_sdk_chain::util::load_state_from_genesis_file;
-use depin_sdk_chain::wasm_loader::load_service_from_wasm;
-use depin_sdk_chain::Chain;
-use depin_sdk_client::security::SecurityChannel;
-use depin_sdk_commitment::primitives::hash::HashProof;
-use depin_sdk_consensus::util::engine_from_config;
-use depin_sdk_services::identity::IdentityHub;
-use depin_sdk_storage::RedbEpochStore;
-use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-use depin_sdk_types::app::Membership;
-use depin_sdk_types::codec;
-use depin_sdk_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
-use depin_sdk_types::keys::VALIDATOR_SET_KEY;
-use depin_sdk_validator::standard::workload_ipc_server::{
+use ioi_api::services::access::{Service, ServiceDirectory};
+use ioi_api::{commitment::CommitmentScheme, state::StateManager, validator::WorkloadContainer};
+use ioi_client::security::SecurityChannel;
+use ioi_consensus::util::engine_from_config;
+use ioi_execution::util::load_state_from_genesis_file;
+use ioi_execution::wasm_loader::load_service_from_wasm;
+use ioi_execution::Chain;
+use ioi_ipc::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest, JsonRpcResponse};
+use ioi_services::identity::IdentityHub;
+use ioi_state::primitives::hash::HashProof;
+use ioi_storage::RedbEpochStore;
+use ioi_tx::unified::UnifiedTransactionModel;
+use ioi_types::app::Membership;
+use ioi_types::codec;
+use ioi_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
+use ioi_types::keys::VALIDATOR_SET_KEY;
+use ioi_validator::standard::workload_ipc_server::{
     create_ipc_server_config,
     methods::{
         chain::{
@@ -45,8 +44,7 @@ use depin_sdk_validator::standard::workload_ipc_server::{
     },
     router::{RequestContext, Router},
 };
-use depin_sdk_vm_wasm::WasmVm;
-use ipc_protocol::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest, JsonRpcResponse};
+use ioi_vm_wasm::WasmVm;
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -59,9 +57,9 @@ use tokio_rustls::TlsAcceptor;
 
 // Imports for concrete types used in the factory
 #[cfg(feature = "primitive-hash")]
-use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
+use ioi_state::primitives::hash::HashCommitmentScheme;
 #[cfg(feature = "tree-iavl")]
-use depin_sdk_commitment::tree::iavl::IAVLTree;
+use ioi_state::tree::iavl::IAVLTree;
 
 #[derive(Parser, Debug)]
 struct WorkloadOpts {
@@ -105,7 +103,7 @@ where
                 log::info!("[Workload] Instantiating initial service: IdentityHub");
                 let hub = IdentityHub::new(migration_config.clone());
                 initial_services
-                    .push(Arc::new(hub) as Arc<dyn depin_sdk_api::services::UpgradableService>);
+                    .push(Arc::new(hub) as Arc<dyn ioi_api::services::UpgradableService>);
             }
             // --- FIX START ---
             InitialServiceConfig::Governance(_) => {
@@ -182,7 +180,7 @@ fn check_features() {
 
     if enabled_features.len() != 1 {
         panic!(
-            "Error: Please enable exactly one 'tree-*' feature for the depin-sdk-node crate. Found: {:?}",
+            "Error: Please enable exactly one 'tree-*' feature for the ioi-node crate. Found: {:?}",
             enabled_features
         );
     }
@@ -203,10 +201,7 @@ async fn main() -> Result<()> {
     let config: WorkloadConfig = toml::from_str(&config_str)?;
     match (config.state_tree.clone(), config.commitment_scheme.clone()) {
         #[cfg(all(feature = "tree-iavl", feature = "primitive-hash"))]
-        (
-            depin_sdk_types::config::StateTreeType::IAVL,
-            depin_sdk_types::config::CommitmentSchemeType::Hash,
-        ) => {
+        (ioi_types::config::StateTreeType::IAVL, ioi_types::config::CommitmentSchemeType::Hash) => {
             log::info!("Instantiating state backend: IAVLTree<HashCommitmentScheme>");
             let commitment_scheme = HashCommitmentScheme::new();
             let state_tree = IAVLTree::new(commitment_scheme.clone());
@@ -417,7 +412,7 @@ where
 {
     if req.method == "state.queryStateAt.v1" {
         if let Ok(params) = serde_json::from_value::<
-            depin_sdk_validator::standard::workload_ipc_server::methods::state::QueryStateAtParams,
+            ioi_validator::standard::workload_ipc_server::methods::state::QueryStateAtParams,
         >(req.params.clone())
         {
             if params.key == VALIDATOR_SET_KEY {
@@ -426,7 +421,7 @@ where
                 let tampered_inner_proof = b"this is not a valid serialized iavl proof".to_vec();
                 let fake_proof = HashProof {
                     value: tampered_inner_proof,
-                    selector: depin_sdk_api::commitment::Selector::Key(params.key),
+                    selector: ioi_api::commitment::Selector::Key(params.key),
                     additional_data: vec![],
                 };
                 let proof_bytes = codec::to_bytes_canonical(&fake_proof);

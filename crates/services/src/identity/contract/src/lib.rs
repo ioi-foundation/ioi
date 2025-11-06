@@ -4,11 +4,11 @@
 extern crate alloc;
 
 use alloc::{format, string::String, vec, vec::Vec};
-use depin_sdk_contract::{self as sdk, context, host, state};
+use ioi_contract_sdk::{self as sdk, context, host, state};
 use parity_scale_codec::{Decode, Encode};
 
 // --- Canonical Data Structures & Keys (must match types crate) ---
-// Note: In a production SDK, these would be in a shared `depin-sdk-contract-types` crate.
+// Note: In a production SDK, these would be in a shared `ioi-contract-sdk-types` crate.
 
 const IDENTITY_CREDENTIALS_PREFIX: &[u8] = b"identity::creds::";
 const IDENTITY_ROTATION_NONCE_PREFIX: &[u8] = b"identity::nonce::rotation::";
@@ -128,7 +128,8 @@ fn account_id_from_key(suite: SignatureSuite, public_key: &[u8]) -> Result<[u8; 
 }
 
 fn rotate_key(account_id: &AccountId, params: &[u8]) -> Result<(), String> {
-    let p: RotateKeyParams = Decode::decode(&mut &*params).map_err(|e| format!("decode params: {}", e))?;
+    let p: RotateKeyParams =
+        Decode::decode(&mut &*params).map_err(|e| format!("decode params: {}", e))?;
     let proof = p.proof;
 
     let mut creds = get_credentials(account_id)?;
@@ -183,7 +184,8 @@ fn on_end_block() -> Result<(), String> {
     let index_key = [IDENTITY_PROMOTION_INDEX_PREFIX, &height.to_le_bytes()].concat();
 
     if let Some(index_bytes) = state::get(&index_key) {
-        let accounts: Vec<AccountId> = Decode::decode(&mut &*index_bytes).map_err(|e| e.to_string())?;
+        let accounts: Vec<AccountId> =
+            Decode::decode(&mut &*index_bytes).map_err(|e| e.to_string())?;
 
         for account_id in accounts {
             let mut creds = get_credentials(&account_id)?;
@@ -194,15 +196,25 @@ fn on_end_block() -> Result<(), String> {
 
                 // Update validator set if applicable
                 if let Some(vs_bytes) = state::get(VALIDATOR_SET_KEY) {
-                    let mut sets: ValidatorSetsV1 = Decode::decode(&mut &*vs_bytes).map_err(|e| e.to_string())?;
+                    let mut sets: ValidatorSetsV1 =
+                        Decode::decode(&mut &*vs_bytes).map_err(|e| e.to_string())?;
                     let target_activation = height + 1;
-                    if sets.next.as_ref().map_or(true, |n| n.effective_from_height != target_activation) {
-                         let mut new_next = sets.next.clone().unwrap_or_else(|| sets.current.clone());
-                         new_next.effective_from_height = target_activation;
-                         sets.next = Some(new_next);
+                    if sets
+                        .next
+                        .as_ref()
+                        .map_or(true, |n| n.effective_from_height != target_activation)
+                    {
+                        let mut new_next =
+                            sets.next.clone().unwrap_or_else(|| sets.current.clone());
+                        new_next.effective_from_height = target_activation;
+                        sets.next = Some(new_next);
                     }
                     if let Some(next_vs) = sets.next.as_mut() {
-                        if let Some(v) = next_vs.validators.iter_mut().find(|v| v.account_id == account_id) {
+                        if let Some(v) = next_vs
+                            .validators
+                            .iter_mut()
+                            .find(|v| v.account_id == account_id)
+                        {
                             v.consensus_key = ActiveKeyRecord {
                                 suite: creds[0].as_ref().unwrap().suite,
                                 public_key_hash: creds[0].as_ref().unwrap().public_key_hash,
@@ -227,8 +239,10 @@ pub extern "C" fn handle_service_call(
     params_ptr: *const u8,
     params_len: u32,
 ) -> u64 {
-    let method =
-        unsafe { core::str::from_utf8(core::slice::from_raw_parts(method_ptr, method_len as usize)).unwrap_or("") };
+    let method = unsafe {
+        core::str::from_utf8(core::slice::from_raw_parts(method_ptr, method_len as usize))
+            .unwrap_or("")
+    };
     let params = unsafe { core::slice::from_raw_parts(params_ptr, params_len as usize) };
     let account_id_bytes: [u8; 32] = [0; 32]; // This needs to be passed from the host context
     let account_id = AccountId(account_id_bytes);

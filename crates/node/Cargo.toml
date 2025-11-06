@@ -1,7 +1,7 @@
 # Path: crates/node/Cargo.toml
 
 [package]
-name = "depin-sdk-node"
+name = "ioi-node"
 version = "0.1.0"
 edition = "2021"
 description = "The primary validator node binary for the DePIN SDK"
@@ -9,24 +9,24 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 # Workspace Library Crates
-depin-sdk-api = { path = "../api" }
-depin-sdk-types = { path = "../types" }
-depin-sdk-chain = { path = "../chain" }
-depin-sdk-commitment = { path = "../commitment", default-features = false }
-depin-sdk-consensus = { path = "../consensus", default-features = false }
-depin-sdk-storage = { path = "../storage" }
-depin-sdk-network = { path = "../network" }
-depin-sdk-transaction-models = { path = "../transaction_models" }
-depin-sdk-validator = { path = "../validator", default-features = false }
-depin-sdk-crypto = { path = "../crypto" }
-depin-sdk-vm-wasm = { path = "../vm/wasm", optional = true }
-depin-sdk-services = { path = "../services" }
-depin-sdk-test-utils = { path = "../test_utils" }
-depin-sdk-client = { path = "../client" }
-depin-sdk-telemetry = { path = "../telemetry" }
+ioi-api = { path = "../api" }
+ioi-types = { path = "../types" }
+ioi-execution = { path = "../execution" }
+ioi-state = { path = "../state", default-features = false }
+ioi-consensus = { path = "../consensus", default-features = false }
+ioi-storage = { path = "../storage" }
+ioi-networking = { path = "../networking" }
+ioi-tx = { path = "../tx" }
+ioi-validator = { path = "../validator", default-features = false }
+ioi-crypto = { path = "../crypto" }
+ioi-vm-wasm = { path = "../vm/wasm", optional = true }
+ioi-services = { path = "../services" }
+ioi-test-utils = { path = "../test_utils" }
+ioi-client = { path = "../client" }
+ioi-telemetry = { path = "../telemetry" }
 http-rpc-gateway = { path = "../http-rpc-gateway" }
 ibc-host = { path = "../ibc-host" }
-ipc_protocol = { path = "../ipc_protocol" }
+ioi-ipc = { path = "../ipc" }
 bincode = { workspace = true }
 uuid = { version = "1.8.0", features = ["v4"] }
 anyhow = { workspace = true }
@@ -60,9 +60,9 @@ default = []
 validator-bins = [
     "dep:clap",
     "dep:env_logger",
-    "depin-sdk-validator/validator-bins",
-    "depin-sdk-consensus/round-robin",
-    "dep:depin-sdk-vm-wasm",
+    "ioi-validator/validator-bins",
+    "ioi-consensus/round-robin",
+    "dep:ioi-vm-wasm",
 ]
 
 # This feature is for building the special malicious workload binary for testing.
@@ -70,43 +70,33 @@ malicious-bin = []
 
 # State Tree features must propagate to BOTH commitment and validator crates
 
-tree-iavl = [
-    "depin-sdk-commitment/tree-iavl",
-    "depin-sdk-validator/tree-iavl",
-    "primitive-hash",
-]
+tree-iavl = ["ioi-state/tree-iavl", "ioi-validator/tree-iavl", "primitive-hash"]
 tree-sparse-merkle = [
-    "depin-sdk-commitment/tree-sparse-merkle",
-    "depin-sdk-validator/tree-sparse-merkle",
+    "ioi-state/tree-sparse-merkle",
+    "ioi-validator/tree-sparse-merkle",
     "primitive-hash",
 ]
 tree-verkle = [
-    "depin-sdk-commitment/tree-verkle",
-    "depin-sdk-validator/tree-verkle",
+    "ioi-state/tree-verkle",
+    "ioi-validator/tree-verkle",
     "primitive-kzg",
 ]
-primitive-hash = [
-    "depin-sdk-commitment/primitive-hash",
-    "depin-sdk-validator/primitive-hash",
-]
-primitive-kzg = [
-    "depin-sdk-commitment/primitive-kzg",
-    "depin-sdk-validator/primitive-kzg",
-]
+primitive-hash = ["ioi-state/primitive-hash", "ioi-validator/primitive-hash"]
+primitive-kzg = ["ioi-state/primitive-kzg", "ioi-validator/primitive-kzg"]
 
 # Consensus engine features
 consensus-round-robin = [
-    "depin-sdk-validator/consensus-round-robin",
-    "depin-sdk-consensus/round-robin",
+    "ioi-validator/consensus-round-robin",
+    "ioi-consensus/round-robin",
 ]
-consensus-poa = ["depin-sdk-validator/consensus-poa", "depin-sdk-consensus/poa"]
-consensus-pos = ["depin-sdk-validator/consensus-pos", "depin-sdk-consensus/pos"]
+consensus-poa = ["ioi-validator/consensus-poa", "ioi-consensus/poa"]
+consensus-pos = ["ioi-validator/consensus-pos", "ioi-consensus/pos"]
 
 # VM Features
-vm-wasm = ["dep:depin-sdk-vm-wasm"]
+vm-wasm = ["dep:ioi-vm-wasm"]
 
 # Service Features
-ibc-deps = ["depin-sdk-services/ibc-deps", "depin-sdk-validator/ibc-deps"]
+ibc-deps = ["ioi-services/ibc-deps", "ioi-validator/ibc-deps"]
 
 # Feature for building the malicious binary for testing
 # This does not need to be propagated, as the test runner handles it.

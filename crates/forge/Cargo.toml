@@ -1,7 +1,7 @@
 # Path: crates/forge/Cargo.toml
 
 [package]
-name = "depin-sdk-forge"
+name = "ioi-forge"
 version = "0.1.0"
 edition = "2021"
 description = "A development toolkit and end-to-end testing library for the DePIN SDK."
@@ -26,13 +26,13 @@ rand = { workspace = true }
 
 
 # Workspace library crates (Forge consumes the SDK as a user would)
-depin-sdk-types = { path = "../types" }
-depin-sdk-api = { path = "../api" }
-depin-sdk-crypto = { path = "../crypto" }
-depin-sdk-validator = { path = "../validator", default-features = false }
-depin-sdk-commitment = { path = "../commitment", default-features = false }
-depin-sdk-client = { path = "../client" }
-depin-sdk-transaction-models = { path = "../transaction_models" }
+ioi-types = { path = "../types" }
+ioi-api = { path = "../api" }
+ioi-crypto = { path = "../crypto" }
+ioi-validator = { path = "../validator", default-features = false }
+ioi-state = { path = "../state", default-features = false }
+ioi-client = { path = "../client" }
+ioi-tx = { path = "../tx" }
 toml = { workspace = true }
 
 # Dependencies for testing helpers that are now part of the library
@@ -57,10 +57,10 @@ bytes = "1"
 http-body-util = "0.1"
 
 [dev-dependencies]
-depin-sdk-relayer = { path = "../relayer" }
-depin-sdk-services = { path = "../services" }
-depin-sdk-chain = { path = "../chain" }
-depin-sdk-network = { path = "../network" }
+ioi-relayer = { path = "../relayer" }
+ioi-services = { path = "../services" }
+ioi-execution = { path = "../execution" }
+ioi-networking = { path = "../networking" }
 base64 = { workspace = true }
 once_cell = { workspace = true }
 cfg-if = "1.0"
@@ -79,7 +79,7 @@ parity-scale-codec = { workspace = true, features = ["derive", "std"] }
 
 # The library exposes helpers, the binary provides the CLI
 [lib]
-name = "depin_sdk_forge"
+name = "ioi_forge"
 path = "src/lib.rs"
 
 [[bin]]
@@ -90,20 +90,20 @@ path = "src/main.rs"
 default = []
 # Features must propagate to the validator library, which is a direct dependency.
 # The node binaries are built separately by the test runner, which handles passing features.
-tree-iavl = ["depin-sdk-validator/tree-iavl"]
-tree-sparse-merkle = ["depin-sdk-validator/tree-sparse-merkle"]
-tree-verkle = ["depin-sdk-validator/tree-verkle"]
-primitive-hash = ["depin-sdk-validator/primitive-hash"]
-primitive-kzg = ["depin-sdk-validator/primitive-kzg"]
+tree-iavl = ["ioi-validator/tree-iavl"]
+tree-sparse-merkle = ["ioi-validator/tree-sparse-merkle"]
+tree-verkle = ["ioi-validator/tree-verkle"]
+primitive-hash = ["ioi-validator/primitive-hash"]
+primitive-kzg = ["ioi-validator/primitive-kzg"]
 
 # Other features also propagate to the validator lib
-vm-wasm = ["depin-sdk-validator/vm-wasm"]
-consensus-round-robin = ["depin-sdk-validator/consensus-round-robin"]
-consensus-poa = ["depin-sdk-validator/consensus-poa"]
-consensus-pos = ["depin-sdk-validator/consensus-pos"]
+vm-wasm = ["ioi-validator/vm-wasm"]
+consensus-round-robin = ["ioi-validator/consensus-round-robin"]
+consensus-poa = ["ioi-validator/consensus-poa"]
+consensus-pos = ["ioi-validator/consensus-pos"]
 
 # Service Features
-ibc-deps = ["depin-sdk-validator/ibc-deps"]
+ibc-deps = ["ioi-validator/ibc-deps"]
 
 # Feature for building the malicious binary for testing
 # This does not need to be propagated, as the test runner handles it.

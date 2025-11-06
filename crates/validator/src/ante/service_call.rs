@@ -1,11 +1,7 @@
 // Path: crates/validator/src/ante/service_call.rs
-use depin_sdk_api::state::StateAccessor;
-use depin_sdk_types::{
-    codec,
-    error::TransactionError,
-    keys::active_service_key,
-};
-use depin_sdk_types::service_configs::{ActiveServiceMeta, MethodPermission};
+use ioi_types::service_configs::{ActiveServiceMeta, MethodPermission};
+use ioi_types::{codec, error::TransactionError, keys::active_service_key};
+use ioi_api::state::StateAccessor;
 use tracing::{debug, warn};
 
 /// Ante precheck for CallService.
@@ -17,7 +13,10 @@ pub fn precheck_call_service(
     method: &str,
     is_internal: bool,
 ) -> Result<MethodPermission, TransactionError> {
-    debug!(target = "ante", "precheck CallService {}::{}", service_id, method);
+    debug!(
+        target = "ante",
+        "precheck CallService {}::{}", service_id, method
+    );
 
     let meta_key = active_service_key(service_id);
     let maybe_meta_bytes = state.get(&meta_key)?;

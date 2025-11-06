@@ -3,37 +3,37 @@
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
-use depin_sdk_api::services::access::ServiceDirectory;
-use depin_sdk_api::services::BlockchainService;
-use depin_sdk_api::services::UpgradableService;
-use depin_sdk_api::validator::container::Container;
-use depin_sdk_chain::Chain;
-use depin_sdk_client::WorkloadClient;
-use depin_sdk_consensus::util::engine_from_config;
-use depin_sdk_crypto::sign::dilithium::DilithiumKeyPair;
-use depin_sdk_network::libp2p::Libp2pSync;
-use depin_sdk_network::metrics as network_metrics;
-use depin_sdk_services::governance::GovernanceModule;
+use ioi_api::services::access::ServiceDirectory;
+use ioi_api::services::BlockchainService;
+use ioi_api::services::UpgradableService;
+use ioi_api::validator::container::Container;
+use ioi_client::WorkloadClient;
+use ioi_consensus::util::engine_from_config;
+use ioi_crypto::sign::dilithium::DilithiumKeyPair;
+use ioi_execution::Chain;
+use ioi_networking::libp2p::Libp2pSync;
+use ioi_networking::metrics as network_metrics;
+use ioi_services::governance::GovernanceModule;
 // --- IBC Service Imports ---
+use http_rpc_gateway;
+use ibc_host::DefaultIbcHost;
 #[cfg(feature = "ibc-deps")]
-use depin_sdk_services::ibc::{
+use ioi_services::ibc::{
     channel::ChannelManager, light_client::tendermint::TendermintVerifier,
     registry::VerifierRegistry,
 };
-use depin_sdk_services::identity::IdentityHub;
-use depin_sdk_services::oracle::OracleService;
-use depin_sdk_storage::RedbEpochStore;
-use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-use depin_sdk_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
-use depin_sdk_validator::metrics as validator_metrics;
-use depin_sdk_validator::standard::orchestration::OrchestrationDependencies;
-use depin_sdk_validator::standard::{
+use ioi_services::identity::IdentityHub;
+use ioi_services::oracle::OracleService;
+use ioi_storage::RedbEpochStore;
+use ioi_tx::unified::UnifiedTransactionModel;
+use ioi_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
+use ioi_validator::metrics as validator_metrics;
+use ioi_validator::standard::orchestration::OrchestrationDependencies;
+use ioi_validator::standard::{
     orchestration::verifier_select::{create_default_verifier, DefaultVerifier},
     OrchestrationContainer,
 };
-use depin_sdk_vm_wasm::WasmRuntime;
-use http_rpc_gateway;
-use ibc_host::DefaultIbcHost;
+use ioi_vm_wasm::WasmRuntime;
 use libp2p::identity;
 use libp2p::Multiaddr;
 use std::fs;
@@ -42,17 +42,17 @@ use std::path::{Path, PathBuf};
 use std::sync::{atomic::AtomicBool, Arc};
 
 // Imports for concrete types used in the factory
-use depin_sdk_api::{commitment::CommitmentScheme, state::StateManager};
+use ioi_api::{commitment::CommitmentScheme, state::StateManager};
 #[cfg(feature = "primitive-hash")]
-use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
+use ioi_state::primitives::hash::HashCommitmentScheme;
 #[cfg(feature = "primitive-kzg")]
-use depin_sdk_commitment::primitives::kzg::{KZGCommitmentScheme, KZGParams};
+use ioi_state::primitives::kzg::{KZGCommitmentScheme, KZGParams};
 #[cfg(feature = "tree-iavl")]
-use depin_sdk_commitment::tree::iavl::IAVLTree;
+use ioi_state::tree::iavl::IAVLTree;
 #[cfg(feature = "tree-sparse-merkle")]
-use depin_sdk_commitment::tree::sparse_merkle::SparseMerkleTree;
+use ioi_state::tree::sparse_merkle::SparseMerkleTree;
 #[cfg(feature = "tree-verkle")]
-use depin_sdk_commitment::tree::verkle::VerkleTree;
+use ioi_state::tree::verkle::VerkleTree;
 
 #[derive(Parser, Debug)]
 struct OrchestrationOpts {
@@ -94,7 +94,7 @@ fn check_features() {
 
     if enabled_features.len() != 1 {
         panic!(
-            "Error: Please enable exactly one 'tree-*' feature for the depin-sdk-node crate. Found: {:?}",
+            "Error: Please enable exactly one 'tree-*' feature for the ioi-node crate. Found: {:?}",
             enabled_features
         );
     }
@@ -122,8 +122,8 @@ async fn run_orchestration<CS, ST>(
 ) -> Result<()>
 where
     CS: CommitmentScheme<
-            Commitment = <DefaultVerifier as depin_sdk_api::state::Verifier>::Commitment,
-            Proof = <DefaultVerifier as depin_sdk_api::state::Verifier>::Proof,
+            Commitment = <DefaultVerifier as ioi_api::state::Verifier>::Commitment,
+            Proof = <DefaultVerifier as ioi_api::state::Verifier>::Proof,
         > + Clone
         + Send
         + Sync
@@ -142,8 +142,7 @@ where
     // Read genesis file once to get the hash for identity checks and the oracle domain.
     let data_dir = opts.config.parent().unwrap_or_else(|| Path::new("."));
     let genesis_bytes = fs::read(&workload_config.genesis_file)?;
-    let derived_genesis_hash: [u8; 32] =
-        depin_sdk_crypto::algorithms::hash::sha256(&genesis_bytes)?;
+    let derived_genesis_hash: [u8; 32] = ioi_crypto::algorithms::hash::sha256(&genesis_bytes)?;
 
     let workload_client = {
         // --- Startup Identity Check ---
@@ -152,7 +151,7 @@ where
 
         if identity_path.exists() {
             let stored_bytes = fs::read(&identity_path)?;
-            let stored_identity: (depin_sdk_types::app::ChainId, [u8; 32]) =
+            let stored_identity: (ioi_types::app::ChainId, [u8; 32]) =
                 serde_json::from_slice(&stored_bytes)?;
             if stored_identity != configured_identity {
                 panic!(
@@ -339,10 +338,10 @@ where
         let dummy_store_path = data_dir.join("orchestrator_dummy_store.db");
         let dummy_store = Arc::new(RedbEpochStore::open(&dummy_store_path, 50_000)?);
 
-        let workload_container = Arc::new(depin_sdk_api::validator::WorkloadContainer::new(
+        let workload_container = Arc::new(ioi_api::validator::WorkloadContainer::new(
             dummy_workload_config,
             state_tree,
-            Box::new(depin_sdk_vm_wasm::WasmRuntime::new(Default::default())?), // Dummy VM
+            Box::new(ioi_vm_wasm::WasmRuntime::new(Default::default())?), // Dummy VM
             service_directory, // <-- Pass the populated directory here
             dummy_store,
         )?);
@@ -426,13 +425,13 @@ where
 #[allow(unused_variables)]
 async fn main() -> Result<()> {
     // 1. Initialize tracing FIRST
-    depin_sdk_telemetry::init::init_tracing()?;
+    ioi_telemetry::init::init_tracing()?;
 
     // 2. Install the Prometheus sink
-    let metrics_sink = depin_sdk_telemetry::prometheus::install()?;
+    let metrics_sink = ioi_telemetry::prometheus::install()?;
 
     // 3. Set all static sinks
-    depin_sdk_storage::metrics::SINK
+    ioi_storage::metrics::SINK
         .set(metrics_sink)
         .expect("SINK must be set only once");
     network_metrics::SINK
@@ -449,7 +448,7 @@ async fn main() -> Result<()> {
     let telemetry_addr_str =
         std::env::var("TELEMETRY_ADDR").unwrap_or_else(|_| "127.0.0.1:9615".to_string());
     let telemetry_addr = telemetry_addr_str.parse()?;
-    tokio::spawn(depin_sdk_telemetry::http::run_server(telemetry_addr));
+    tokio::spawn(ioi_telemetry::http::run_server(telemetry_addr));
 
     check_features();
     std::panic::set_hook(Box::new(|info| {
@@ -490,18 +489,15 @@ async fn main() -> Result<()> {
         workload_config.commitment_scheme.clone(),
     ) {
         #[cfg(all(feature = "tree-iavl", feature = "primitive-hash"))]
-        (
-            depin_sdk_types::config::StateTreeType::IAVL,
-            depin_sdk_types::config::CommitmentSchemeType::Hash,
-        ) => {
+        (ioi_types::config::StateTreeType::IAVL, ioi_types::config::CommitmentSchemeType::Hash) => {
             let scheme = HashCommitmentScheme::new();
             let tree = IAVLTree::new(scheme.clone());
             run_orchestration(opts, config, local_key, tree, scheme, workload_config, None).await
         }
         #[cfg(all(feature = "tree-sparse-merkle", feature = "primitive-hash"))]
         (
-            depin_sdk_types::config::StateTreeType::SparseMerkle,
-            depin_sdk_types::config::CommitmentSchemeType::Hash,
+            ioi_types::config::StateTreeType::SparseMerkle,
+            ioi_types::config::CommitmentSchemeType::Hash,
         ) => {
             let scheme = HashCommitmentScheme::new();
             let tree = SparseMerkleTree::new(scheme.clone());
@@ -509,8 +505,8 @@ async fn main() -> Result<()> {
         }
         #[cfg(all(feature = "tree-verkle", feature = "primitive-kzg"))]
         (
-            depin_sdk_types::config::StateTreeType::Verkle,
-            depin_sdk_types::config::CommitmentSchemeType::KZG,
+            ioi_types::config::StateTreeType::Verkle,
+            ioi_types::config::CommitmentSchemeType::KZG,
         ) => {
             let params = if let Some(srs_path) = &workload_config.srs_file_path {
                 KZGParams::load_from_file(srs_path.as_ref()).map_err(|e| anyhow!(e))?

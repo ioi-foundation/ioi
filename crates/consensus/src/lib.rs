@@ -24,15 +24,15 @@ pub mod proof_of_stake;
 pub mod util;
 
 use async_trait::async_trait;
-use depin_sdk_api::{
+use ioi_types::app::{AccountId, Block, FailureReport};
+use ioi_types::config::ConsensusType;
+use ioi_types::error::{ConsensusError, TransactionError};
+use ioi_api::{
     chain::{AnchoredStateView, ChainView},
     commitment::CommitmentScheme,
     consensus::{ChainStateReader, ConsensusDecision, ConsensusEngine, PenaltyMechanism},
     state::{StateAccessor, StateManager},
 };
-use depin_sdk_types::app::{AccountId, Block, FailureReport};
-use depin_sdk_types::config::ConsensusType;
-use depin_sdk_types::error::{ConsensusError, TransactionError};
 use libp2p::PeerId;
 use std::collections::HashSet;
 use std::fmt::Debug;

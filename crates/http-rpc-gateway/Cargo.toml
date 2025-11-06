@@ -7,8 +7,8 @@ description = "HTTP JSON-RPC gateway for the DePIN SDK's IBC host"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-depin-sdk-api = { path = "../api" }
-depin-sdk-types = { path = "../types" }
+ioi-api = { path = "../api" }
+ioi-types = { path = "../types" }
 ibc-host = { path = "../ibc-host" }
 
 anyhow = { workspace = true }

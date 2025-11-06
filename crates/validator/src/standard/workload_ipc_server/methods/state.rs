@@ -3,9 +3,9 @@
 use super::RpcContext;
 use crate::standard::workload_ipc_server::router::{RequestContext, RpcMethod};
 use anyhow::{anyhow, Result};
-use depin_sdk_api::{commitment::CommitmentScheme, state::StateManager};
-use depin_sdk_types::app::{AccountId, ActiveKeyRecord, Membership, StateAnchor, StateRoot};
-use depin_sdk_types::codec; // Import the canonical codec
+use ioi_types::app::{AccountId, ActiveKeyRecord, Membership, StateAnchor, StateRoot};
+use ioi_types::codec; // Import the canonical codec
+use ioi_api::{commitment::CommitmentScheme, state::StateManager};
 use serde::{Deserialize, Serialize};
 use std::{any::Any, marker::PhantomData, sync::Arc};
 
@@ -170,7 +170,7 @@ where
         };
 
         if !last_root.is_empty() {
-            if let Ok(anchor) = depin_sdk_types::app::to_root_hash(&last_root) {
+            if let Ok(anchor) = ioi_types::app::to_root_hash(&last_root) {
                 // `get_with_proof_at_anchor` can be called on `&mut` because `StateManager` is `?Sized`.
                 match state.get_with_proof_at_anchor(&anchor, &params.key) {
                     Ok((Membership::Present(bytes), _proof)) => {
@@ -366,7 +366,7 @@ where
 
         let record = match membership {
             Membership::Present(bytes) => {
-                codec::from_bytes_canonical::<depin_sdk_types::app::ActiveKeyRecord>(&bytes).ok()
+                codec::from_bytes_canonical::<ioi_types::app::ActiveKeyRecord>(&bytes).ok()
             }
             _ => None,
         };

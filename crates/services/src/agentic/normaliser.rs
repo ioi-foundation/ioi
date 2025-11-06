@@ -1,6 +1,6 @@
 // Path: crates/services/src/agentic/normaliser.rs
-use depin_sdk_api::impl_service_base;
-use depin_sdk_crypto::algorithms::hash::sha256;
+use ioi_api::impl_service_base;
+use ioi_crypto::algorithms::hash::sha256;
 use serde_jcs::to_vec;
 use serde_json::Value; // A crate for RFC 8785 Canonical JSON
 

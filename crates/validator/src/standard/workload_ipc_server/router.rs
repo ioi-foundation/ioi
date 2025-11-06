@@ -1,9 +1,9 @@
 // Path: crates/validator/src/standard/workload_ipc_server/router.rs
 use super::methods::RpcContext;
 use anyhow::Result;
-use depin_sdk_api::{commitment::CommitmentScheme, state::StateManager};
 use futures::FutureExt;
-use ipc_protocol::jsonrpc::JsonRpcError;
+use ioi_api::{commitment::CommitmentScheme, state::StateManager};
+use ioi_ipc::jsonrpc::JsonRpcError;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{any::Any, collections::HashMap, panic::AssertUnwindSafe, sync::Arc};
 

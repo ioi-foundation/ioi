@@ -7,13 +7,13 @@
 
 use anyhow::{anyhow, Result};
 use axum::{routing::get, serve, Router};
-use depin_sdk_forge::testing::{
+use ioi_forge::testing::{
     assert_log_contains,
     backend::ProcessBackend,
     poll::{wait_for, wait_for_height, wait_for_pending_oracle_request},
     rpc, submit_transaction, TestCluster,
 };
-use depin_sdk_types::{
+use ioi_types::{
     app::{
         AccountId, ChainId, ChainTransaction, SignHeader, SignatureProof, SignatureSuite,
         SystemPayload, SystemTransaction,
@@ -57,10 +57,8 @@ fn create_signed_system_tx(
     chain_id: ChainId,
 ) -> Result<ChainTransaction> {
     let public_key_bytes = keypair.public().encode_protobuf();
-    let account_id_hash = depin_sdk_types::app::account_id_from_key_material(
-        SignatureSuite::Ed25519,
-        &public_key_bytes,
-    )?;
+    let account_id_hash =
+        ioi_types::app::account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)?;
     let account_id = AccountId(account_id_hash);
 
     let header = SignHeader {
@@ -107,7 +105,7 @@ async fn test_metrics_endpoint() -> Result<()> {
     // Scope imports here to avoid unused import warnings when this test is disabled by features.
     use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
     use cfg_if::cfg_if;
-    use depin_sdk_types::{
+    use ioi_types::{
         app::{
             account_id_from_key_material, ActiveKeyRecord, Credential, SignatureSuite,
             ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
@@ -127,7 +125,7 @@ async fn test_metrics_endpoint() -> Result<()> {
             chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![depin_sdk_types::app::SignatureSuite::Ed25519],
+            allowed_target_suites: vec![ioi_types::app::SignatureSuite::Ed25519],
             allow_downgrade: false,
         }));
 
@@ -152,7 +150,7 @@ async fn test_metrics_endpoint() -> Result<()> {
                             consensus_key: ActiveKeyRecord { suite, public_key_hash: account_hash, since_height: 0 },
                         }],
                     };
-                    let vs_bytes = depin_sdk_types::app::write_validator_sets(&ValidatorSetsV1 { current: vs, next: None }).unwrap();
+                    let vs_bytes = ioi_types::app::write_validator_sets(&ValidatorSetsV1 { current: vs, next: None }).unwrap();
                     genesis_state.insert(
                         std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                         json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
@@ -194,7 +192,7 @@ async fn test_metrics_endpoint() -> Result<()> {
                             consensus_key: ActiveKeyRecord { suite, public_key_hash: account_hash, since_height: 0 },
                         }],
                     };
-                    let vs_bytes = depin_sdk_types::app::write_validator_sets(&ValidatorSetsV1 { current: vs, next: None }).unwrap();
+                    let vs_bytes = ioi_types::app::write_validator_sets(&ValidatorSetsV1 { current: vs, next: None }).unwrap();
                     genesis_state.insert(
                         std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                         json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
@@ -229,19 +227,19 @@ async fn test_metrics_endpoint() -> Result<()> {
 
     // 3. Assert that the response contains expected metric names.
     assert!(
-        metrics_body.contains("depin_sdk_storage_disk_usage_bytes"),
+        metrics_body.contains("ioi_storage_disk_usage_bytes"),
         "Metrics should contain disk usage"
     );
     assert!(
-        metrics_body.contains("depin_sdk_network_connected_peers"),
+        metrics_body.contains("ioi_networking_connected_peers"),
         "Metrics should contain connected peers count"
     );
     assert!(
-        metrics_body.contains("depin_sdk_rpc_requests_total"),
+        metrics_body.contains("ioi_rpc_requests_total"),
         "Metrics should contain rpc request count"
     );
     assert!(
-        get_metric_value(&metrics_body, "depin_sdk_mempool_size").is_some(),
+        get_metric_value(&metrics_body, "ioi_mempool_size").is_some(),
         "Mempool size metric should be present"
     );
 
@@ -254,7 +252,7 @@ async fn test_metrics_endpoint() -> Result<()> {
 async fn test_storage_crash_recovery() -> Result<()> {
     // Scope imports here to avoid unused import warnings when this test is disabled by features.
     use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-    use depin_sdk_types::{
+    use ioi_types::{
         app::{
             account_id_from_key_material, ActiveKeyRecord, Credential, SignatureSuite,
             ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
@@ -277,7 +275,7 @@ async fn test_storage_crash_recovery() -> Result<()> {
             chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![depin_sdk_types::app::SignatureSuite::Ed25519],
+            allowed_target_suites: vec![ioi_types::app::SignatureSuite::Ed25519],
             allow_downgrade: false,
         }))
         .with_genesis_modifier(|genesis, keys| {
@@ -302,7 +300,7 @@ async fn test_storage_crash_recovery() -> Result<()> {
                     },
                 }],
             };
-            let vs_bytes = depin_sdk_types::app::write_validator_sets(&ValidatorSetsV1 {
+            let vs_bytes = ioi_types::app::write_validator_sets(&ValidatorSetsV1 {
                 current: vs,
                 next: None,
             })
@@ -347,8 +345,7 @@ async fn test_storage_crash_recovery() -> Result<()> {
         url: format!("{}/recovery-test", stub_url),
         request_id,
     };
-    let params_bytes =
-        depin_sdk_types::codec::to_bytes_canonical(&params).map_err(anyhow::Error::msg)?;
+    let params_bytes = ioi_types::codec::to_bytes_canonical(&params).map_err(anyhow::Error::msg)?;
     let payload = SystemPayload::CallService {
         service_id: "oracle".to_string(),
         method: "request_data@v1".to_string(),
@@ -419,7 +416,7 @@ async fn test_storage_crash_recovery() -> Result<()> {
 
     // 6. Assert: The state from the original transaction must still be present.
     let key_to_check = [
-        depin_sdk_types::keys::ORACLE_PENDING_REQUEST_PREFIX,
+        ioi_types::keys::ORACLE_PENDING_REQUEST_PREFIX,
         &request_id.to_le_bytes(),
     ]
     .concat();
@@ -466,7 +463,7 @@ async fn test_storage_soak_test() -> Result<()> {
     // 2. Action: Transaction firehose task.
     let rpc_addr_clone = node.rpc_addr.clone();
     let account_id_bytes = node.keypair.public().to_peer_id().to_bytes();
-    let account_id = AccountId(depin_sdk_types::app::account_id_from_key_material(
+    let account_id = AccountId(ioi_types::app::account_id_from_key_material(
         SignatureSuite::Ed25519,
         &account_id_bytes,
     )?);
@@ -480,7 +477,7 @@ async fn test_storage_soak_test() -> Result<()> {
                 url: format!("http://example.com/soak-{}", request_id_counter),
                 request_id: request_id_counter,
             };
-            let params_bytes = depin_sdk_types::codec::to_bytes_canonical(&params).unwrap();
+            let params_bytes = ioi_types::codec::to_bytes_canonical(&params).unwrap();
             let payload = SystemPayload::CallService {
                 service_id: "oracle".to_string(),
                 method: "request_data@v1".to_string(),
@@ -511,13 +508,10 @@ async fn test_storage_soak_test() -> Result<()> {
         let start = Instant::now();
         while start.elapsed() < test_duration {
             if let Ok(metrics) = scrape_metrics(&telemetry_addr_clone).await {
-                if let Some(gc) =
-                    get_metric_value(&metrics, "depin_sdk_storage_epochs_dropped_total")
-                {
+                if let Some(gc) = get_metric_value(&metrics, "ioi_storage_epochs_dropped_total") {
                     gc_counts.push(gc);
                 }
-                if let Some(disk) = get_metric_value(&metrics, "depin_sdk_storage_disk_usage_bytes")
-                {
+                if let Some(disk) = get_metric_value(&metrics, "ioi_storage_disk_usage_bytes") {
                     disk_usages.push(disk);
                 }
             }

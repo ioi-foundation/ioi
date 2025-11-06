@@ -7,16 +7,16 @@ use actor::{ClientActor, ClientRequest, PendingRequestMap};
 use anyhow::{anyhow, Result};
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
-use depin_sdk_api::{
+use ioi_api::{
     consensus::ChainStateReader,
     vm::{ExecutionContext, ExecutionOutput},
 };
-use depin_sdk_types::app::{
+use ioi_ipc::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest};
+use ioi_types::app::{
     AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction, Membership, StateAnchor,
     StateRoot,
 };
-use depin_sdk_types::keys::ACCOUNT_ID_TO_PUBKEY_PREFIX;
-use ipc_protocol::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest};
+use ioi_types::keys::ACCOUNT_ID_TO_PUBKEY_PREFIX;
 use libp2p::identity::PublicKey;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
@@ -477,7 +477,7 @@ impl WorkloadClient {
     pub async fn get_block_by_height(
         &self,
         height: u64,
-    ) -> Result<Option<depin_sdk_types::app::BlockHeader>> {
+    ) -> Result<Option<ioi_types::app::BlockHeader>> {
         #[derive(Serialize)]
         struct Params {
             height: u64,

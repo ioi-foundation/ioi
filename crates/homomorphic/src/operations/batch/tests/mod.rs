@@ -1,6 +1,6 @@
 // Path: crates/homomorphic/src/operations/batch/tests/mod.rs
 use super::*;
-use depin_sdk_api::homomorphic::{CommitmentOperation, OperationResult};
+use ioi_api::homomorphic::{CommitmentOperation, OperationResult};
 use std::any::Any;
 
 #[test]

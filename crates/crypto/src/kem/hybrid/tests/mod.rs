@@ -1,7 +1,7 @@
 // Path: crates/crypto/src/kem/hybrid/tests/mod.rs
 use super::*;
 use crate::security::SecurityLevel;
-use depin_sdk_api::crypto::{Encapsulated, KeyEncapsulation};
+use ioi_api::crypto::{Encapsulated, KeyEncapsulation};
 
 #[test]
 fn test_hybrid_level1_roundtrip() {
@@ -230,7 +230,7 @@ fn test_hybrid_secret_changes_if_either_component_changes() {
     use crate::kem::ecdh::{EcdhCurve, EcdhKEM, EcdhPublicKey};
     use crate::kem::kyber::{KyberKEM, KyberPublicKey};
     use crate::security::SecurityLevel;
-    use depin_sdk_api::crypto::{Encapsulated, KeyEncapsulation};
+    use ioi_api::crypto::{Encapsulated, KeyEncapsulation};
 
     // Helper: sizes for (ECDH_pk_len, Kyber_pk_len, Kyber_ct_len) by level
     fn sizes(level: SecurityLevel) -> (usize, usize, usize, EcdhCurve) {

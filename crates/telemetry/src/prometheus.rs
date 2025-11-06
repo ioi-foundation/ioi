@@ -149,95 +149,95 @@ impl ServiceMetricsSink for PrometheusSink {
 pub fn install() -> Result<&'static dyn MetricsSink, prometheus::Error> {
     NETWORK_CONNECTED_PEERS
         .set(register_gauge!(
-            "depin_sdk_network_connected_peers",
+            "ioi_networking_connected_peers",
             "Current number of connected libp2p peers."
         )?)
         .expect("static already initialized");
     MEMPOOL_SIZE
         .set(register_gauge!(
-            "depin_sdk_mempool_size",
+            "ioi_mempool_size",
             "Current number of transactions in the mempool."
         )?)
         .expect("static already initialized");
     STORAGE_DISK_USAGE_BYTES
         .set(register_gauge!(
-            "depin_sdk_storage_disk_usage_bytes",
+            "ioi_storage_disk_usage_bytes",
             "Estimated total disk usage for the storage backend."
         )?)
         .expect("static already initialized");
     STORAGE_REF_COUNTS
         .set(register_gauge!(
-            "depin_sdk_storage_ref_counts",
+            "ioi_storage_ref_counts",
             "Total number of reference counts tracked for GC."
         )?)
         .expect("static already initialized");
     NETWORK_NODE_STATE
         .set(register_gauge_vec!(
-            "depin_sdk_network_node_state",
+            "ioi_networking_node_state",
             "Current synchronization state of the node (1 if active, 0 otherwise).",
             &["state"]
         )?)
         .expect("static already initialized");
     STORAGE_EPOCHS_DROPPED_TOTAL
         .set(register_int_counter!(
-            "depin_sdk_storage_epochs_dropped_total",
+            "ioi_storage_epochs_dropped_total",
             "Total number of sealed epochs dropped by GC."
         )?)
         .expect("static already initialized");
     STORAGE_NODES_DELETED_TOTAL
         .set(register_int_counter!(
-            "depin_sdk_storage_nodes_deleted_total",
+            "ioi_storage_nodes_deleted_total",
             "Total number of state tree nodes deleted by GC."
         )?)
         .expect("static already initialized");
     STORAGE_BYTES_WRITTEN_TOTAL
         .set(register_int_counter!(
-            "depin_sdk_storage_bytes_written_total",
+            "ioi_storage_bytes_written_total",
             "Total bytes written to the storage backend for new nodes."
         )?)
         .expect("static already initialized");
     CONSENSUS_BLOCKS_PRODUCED_TOTAL
         .set(register_int_counter!(
-            "depin_sdk_consensus_blocks_produced_total",
+            "ioi_consensus_blocks_produced_total",
             "Total number of blocks produced by this node."
         )?)
         .expect("static already initialized");
     CONSENSUS_VIEW_CHANGES_PROPOSED_TOTAL
         .set(register_int_counter!(
-            "depin_sdk_consensus_view_changes_proposed_total",
+            "ioi_consensus_view_changes_proposed_total",
             "Total number of view changes proposed by this node."
         )?)
         .expect("static already initialized");
     MEMPOOL_TRANSACTIONS_ADDED_TOTAL
         .set(register_int_counter!(
-            "depin_sdk_mempool_transactions_added_total",
+            "ioi_mempool_transactions_added_total",
             "Total transactions added to the mempool via RPC."
         )?)
         .expect("static already initialized");
     GOSSIP_MESSAGES_RECEIVED_TOTAL
         .set(register_int_counter_vec!(
-            "depin_sdk_network_gossip_messages_received_total",
+            "ioi_networking_gossip_messages_received_total",
             "Total gossip messages received.",
             &["topic"]
         )?)
         .expect("static already initialized");
     RPC_REQUESTS_TOTAL
         .set(register_int_counter_vec!(
-            "depin_sdk_rpc_requests_total",
+            "ioi_rpc_requests_total",
             "Total RPC requests.",
             &["route", "status"]
         )?)
         .expect("static already initialized");
     CONSENSUS_TICK_DURATION_SECONDS
         .set(register_histogram!(
-            "depin_sdk_consensus_tick_duration_seconds",
+            "ioi_consensus_tick_duration_seconds",
             "Latency of a single consensus tick.",
             exponential_buckets(0.002, 2.0, 15)?
         )?)
         .expect("static already initialized");
     RPC_REQUEST_DURATION_SECONDS
         .set(register_histogram_vec!(
-            "depin_sdk_rpc_request_duration_seconds",
+            "ioi_rpc_request_duration_seconds",
             "Latency of RPC requests.",
             &["route"],
             exponential_buckets(0.001, 2.0, 15)?
@@ -245,21 +245,21 @@ pub fn install() -> Result<&'static dyn MetricsSink, prometheus::Error> {
         .expect("static already initialized");
     ERRORS_TOTAL
         .set(register_int_counter_vec!(
-            "depin_sdk_errors_total",
+            "ioi_errors_total",
             "Total number of errors, categorized by type and variant.",
             &["kind", "variant"]
         )?)
         .expect("static already initialized");
     SVC_CAPABILITY_RESOLVE_FAIL_TOTAL
         .set(register_int_counter_vec!(
-            "depin_sdk_svc_capability_resolve_fail_total",
+            "ioi_svc_capability_resolve_fail_total",
             "Total failures to resolve a required service capability.",
             &["capability"]
         )?)
         .expect("static already initialized");
     SVC_DISPATCH_LATENCY_SECONDS
         .set(register_histogram_vec!(
-            "depin_sdk_service_dispatch_latency_seconds",
+            "ioi_service_dispatch_latency_seconds",
             "Latency of dispatched calls to on-chain services.",
             &["service_id", "method"],
             exponential_buckets(0.0001, 2.0, 16)?
@@ -267,7 +267,7 @@ pub fn install() -> Result<&'static dyn MetricsSink, prometheus::Error> {
         .expect("static already initialized");
     SVC_DISPATCH_ERRORS_TOTAL
         .set(register_int_counter_vec!(
-            "depin_sdk_service_dispatch_errors_total",
+            "ioi_service_dispatch_errors_total",
             "Total errors returned from service dispatch calls.",
             &["service_id", "method", "reason"]
         )?)

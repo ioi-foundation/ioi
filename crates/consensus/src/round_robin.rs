@@ -2,13 +2,13 @@
 
 use crate::{ConsensusDecision, ConsensusEngine, PenaltyMechanism};
 use async_trait::async_trait;
-use depin_sdk_api::chain::{AnchoredStateView, ChainView};
-use depin_sdk_api::commitment::CommitmentScheme;
-use depin_sdk_api::consensus::ChainStateReader;
-use depin_sdk_api::state::{StateAccessor, StateManager};
-use depin_sdk_types::app::{read_validator_sets, AccountId, Block, FailureReport};
-use depin_sdk_types::error::{ConsensusError, StateError, TransactionError};
-use depin_sdk_types::keys::{QUARANTINED_VALIDATORS_KEY, VALIDATOR_SET_KEY};
+use ioi_types::app::{read_validator_sets, AccountId, Block, FailureReport};
+use ioi_types::error::{ConsensusError, StateError, TransactionError};
+use ioi_types::keys::{QUARANTINED_VALIDATORS_KEY, VALIDATOR_SET_KEY};
+use ioi_api::chain::{AnchoredStateView, ChainView};
+use ioi_api::commitment::CommitmentScheme;
+use ioi_api::consensus::ChainStateReader;
+use ioi_api::state::{StateAccessor, StateManager};
 use libp2p::PeerId;
 use std::collections::{BTreeSet, HashSet};
 use std::time::{Duration, Instant};
@@ -61,7 +61,7 @@ impl PenaltyMechanism for RoundRobinBftEngine {
         let quarantined: BTreeSet<AccountId> = state
             .get(QUARANTINED_VALIDATORS_KEY)?
             .map(|b| {
-                depin_sdk_types::codec::from_bytes_canonical(&b).map_err(StateError::InvalidValue)
+                ioi_types::codec::from_bytes_canonical(&b).map_err(StateError::InvalidValue)
             })
             .transpose()?
             .unwrap_or_default();
@@ -82,7 +82,7 @@ impl PenaltyMechanism for RoundRobinBftEngine {
         if new_quarantined.insert(report.offender) {
             state.insert(
                 QUARANTINED_VALIDATORS_KEY,
-                &depin_sdk_types::codec::to_bytes_canonical(&new_quarantined)?,
+                &ioi_types::codec::to_bytes_canonical(&new_quarantined)?,
             )?;
             log::info!(
                 "[PoA penalty] Quarantined authority: 0x{} (set size = {})",
@@ -168,7 +168,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
     {
         let header = &block.header;
 
-        let parent_state_ref = depin_sdk_api::chain::StateRef {
+        let parent_state_ref = ioi_api::chain::StateRef {
             height: header.height - 1,
             state_root: header.parent_state_root.as_ref().try_into().map_err(|_| {
                 ConsensusError::BlockVerificationFailed("Invalid parent state root".into())

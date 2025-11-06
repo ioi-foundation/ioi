@@ -3,8 +3,8 @@
 use super::RpcContext;
 use crate::standard::workload_ipc_server::router::{RequestContext, RpcMethod};
 use anyhow::{anyhow, Result};
-use depin_sdk_api::{chain::AppChain, commitment::CommitmentScheme, state::StateManager};
-use depin_sdk_types::config::WorkloadConfig;
+use ioi_types::config::WorkloadConfig;
+use ioi_api::{chain::AppChain, commitment::CommitmentScheme, state::StateManager};
 use serde::{Deserialize, Serialize};
 use std::{any::Any, marker::PhantomData, sync::Arc};
 
@@ -41,7 +41,7 @@ where
 {
     const NAME: &'static str = "system.getStatus.v1";
     type Params = GetStatusParams;
-    type Result = depin_sdk_types::app::ChainStatus;
+    type Result = ioi_types::app::ChainStatus;
 
     async fn call(
         &self,
@@ -55,7 +55,7 @@ where
         let chain = ctx.chain.lock().await;
         // The AppChain trait must be in scope to call .status()
         let status_ref = (*chain).status();
-        Ok(depin_sdk_types::app::ChainStatus {
+        Ok(ioi_types::app::ChainStatus {
             height: status_ref.height,
             latest_timestamp: status_ref.latest_timestamp,
             total_transactions: status_ref.total_transactions,
@@ -106,7 +106,7 @@ where
             .map_err(|_| anyhow!("Invalid context type for GetExpectedModelHashV1"))?;
         let state_tree = ctx.workload.state_tree();
         let state = state_tree.read().await;
-        let json_bytes = state.get(depin_sdk_types::keys::STATE_KEY_SEMANTIC_MODEL_HASH)?;
+        let json_bytes = state.get(ioi_types::keys::STATE_KEY_SEMANTIC_MODEL_HASH)?;
         let hex_str: String =
             serde_json::from_slice(&json_bytes.ok_or_else(|| anyhow!("Model hash not set"))?)?;
         Ok(hex::decode(hex_str)?)
@@ -305,12 +305,12 @@ where
         let chain = ctx.chain.lock().await;
 
         match &chain.state.genesis_state {
-            depin_sdk_chain::app::GenesisState::Ready { root, chain_id } => Ok(GenesisStatus {
+            ioi_execution::app::GenesisState::Ready { root, chain_id } => Ok(GenesisStatus {
                 ready: true,
                 root: root.clone(),
                 chain_id: chain_id.to_string(),
             }),
-            depin_sdk_chain::app::GenesisState::Pending => Ok(GenesisStatus {
+            ioi_execution::app::GenesisState::Pending => Ok(GenesisStatus {
                 ready: false,
                 root: vec![],
                 chain_id: "".to_string(),

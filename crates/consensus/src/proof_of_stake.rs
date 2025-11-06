@@ -1,21 +1,21 @@
 // Path: crates/consensus/src/proof_of_stake.rs
 use crate::{ConsensusDecision, ConsensusEngine, PenaltyMechanism};
 use async_trait::async_trait;
-use depin_sdk_api::chain::{AnchoredStateView, ChainView};
-use depin_sdk_api::commitment::CommitmentScheme;
-use depin_sdk_api::consensus::ChainStateReader;
-use depin_sdk_api::state::{StateAccessor, StateManager};
-use depin_sdk_crypto::algorithms::hash::sha256;
-use depin_sdk_types::app::{
+use ioi_crypto::algorithms::hash::sha256;
+use ioi_types::app::{
     compute_interval_from_parent_state, read_validator_sets, write_validator_sets, AccountId,
     Block, BlockTimingParams, BlockTimingRuntime, ChainStatus, FailureReport, ValidatorSetV1,
     ValidatorSetsV1,
 };
-use depin_sdk_types::codec;
-use depin_sdk_types::error::{ConsensusError, StateError, TransactionError};
-use depin_sdk_types::keys::{
+use ioi_types::codec;
+use ioi_types::error::{ConsensusError, StateError, TransactionError};
+use ioi_types::keys::{
     BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, STATUS_KEY, VALIDATOR_SET_KEY,
 };
+use ioi_api::chain::{AnchoredStateView, ChainView};
+use ioi_api::commitment::CommitmentScheme;
+use ioi_api::consensus::ChainStateReader;
+use ioi_api::state::{StateAccessor, StateManager};
 use std::collections::HashSet;
 
 use crate::proof_of_authority::{hash_key, verify_signature};
@@ -307,7 +307,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             ));
         }
 
-        let parent_state_ref = depin_sdk_api::chain::StateRef {
+        let parent_state_ref = ioi_api::chain::StateRef {
             height: header.height - 1,
             // [+] FIX: Use .to_vec() to support variable-length state roots.
             state_root: header.parent_state_root.as_ref().to_vec(),

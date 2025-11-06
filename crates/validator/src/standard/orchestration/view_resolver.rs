@@ -3,10 +3,10 @@ use async_trait::async_trait;
 use lru::LruCache;
 use std::{any::Any, sync::Arc};
 
-use depin_sdk_api::chain::{AnchoredStateView, StateRef, ViewResolver};
-use depin_sdk_api::state::Verifier;
-use depin_sdk_client::WorkloadClient;
-use depin_sdk_types::{
+use ioi_client::WorkloadClient;
+use ioi_api::chain::{AnchoredStateView, StateRef, ViewResolver};
+use ioi_api::state::Verifier;
+use ioi_types::{
     app::{to_root_hash, StateAnchor},
     error::ChainError,
 };
@@ -58,7 +58,7 @@ where
         // Use to_root_hash to derive a fixed-size anchor from the raw root.
         let anchor_hash = to_root_hash(&r.state_root).map_err(ChainError::State)?;
         let anchor = StateAnchor(anchor_hash);
-        let root = depin_sdk_types::app::StateRoot(r.state_root.clone());
+        let root = ioi_types::app::StateRoot(r.state_root.clone());
         let view = DefaultAnchoredStateView::new(
             anchor,
             root,
@@ -69,9 +69,7 @@ where
         Ok(Arc::new(view))
     }
 
-    async fn resolve_live(
-        &self,
-    ) -> Result<Arc<dyn depin_sdk_api::chain::LiveStateView>, ChainError> {
+    async fn resolve_live(&self) -> Result<Arc<dyn ioi_api::chain::LiveStateView>, ChainError> {
         // Not used yet; you can add a lightweight head-following view later.
         Err(ChainError::Transaction(
             "LiveStateView not implemented".into(),

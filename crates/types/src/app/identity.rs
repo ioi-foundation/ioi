@@ -108,7 +108,7 @@ pub fn account_id_from_key_material(
     // Concatenate all parts to be hashed into a single buffer.
     let mut data_to_hash = Vec::new();
     // Domain separate the hash to prevent collisions with other parts of the system.
-    data_to_hash.extend_from_slice(b"DEP-SDK-ACCOUNT-ID::V1");
+    data_to_hash.extend_from_slice(b"IOI-ACCOUNT-ID::V1");
     // Include the suite tag to prevent cross-algorithm collisions.
     data_to_hash.push(match suite {
         SignatureSuite::Ed25519 => 0x01,

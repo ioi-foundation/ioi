@@ -2,20 +2,20 @@
 //! Governance module implementations for the DePIN SDK
 
 use async_trait::async_trait;
-use depin_sdk_api::lifecycle::OnEndBlock;
-use depin_sdk_api::services::{BlockchainService, UpgradableService};
-use depin_sdk_api::state::StateAccessor;
-use depin_sdk_api::transaction::context::TxContext;
-use depin_sdk_types::app::{
+use ioi_types::app::{
     read_validator_sets, AccountId, Proposal, ProposalStatus, ProposalType, StateEntry,
     TallyResult, VoteOption,
 };
-use depin_sdk_types::error::{StateError, TransactionError, UpgradeError};
-use depin_sdk_types::keys::{
+use ioi_types::error::{StateError, TransactionError, UpgradeError};
+use ioi_types::keys::{
     GOVERNANCE_NEXT_PROPOSAL_ID_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, GOVERNANCE_VOTE_KEY_PREFIX,
     VALIDATOR_SET_KEY,
 };
-use depin_sdk_types::service_configs::{Capabilities, GovernanceParams};
+use ioi_types::service_configs::{Capabilities, GovernanceParams};
+use ioi_api::lifecycle::OnEndBlock;
+use ioi_api::services::{BlockchainService, UpgradableService};
+use ioi_api::state::StateAccessor;
+use ioi_api::transaction::context::TxContext;
 use parity_scale_codec::{Decode, Encode};
 use std::any::Any;
 use std::collections::BTreeMap;
@@ -84,15 +84,21 @@ impl BlockchainService for GovernanceModule {
 
         match method {
             "submit_proposal@v1" => {
-                let p: SubmitProposalParams = depin_sdk_types::codec::from_bytes_canonical(params)?;
+                let p: SubmitProposalParams = ioi_types::codec::from_bytes_canonical(params)?;
                 self.submit_proposal(state, p, &signer_account_id, ctx.block_height)
                     .map_err(TransactionError::Invalid)?;
                 Ok(())
             }
             "vote@v1" => {
-                let p: VoteParams = depin_sdk_types::codec::from_bytes_canonical(params)?;
-                self.vote(state, p.proposal_id, &signer_account_id, p.option, ctx.block_height)
-                    .map_err(TransactionError::Invalid)
+                let p: VoteParams = ioi_types::codec::from_bytes_canonical(params)?;
+                self.vote(
+                    state,
+                    p.proposal_id,
+                    &signer_account_id,
+                    p.option,
+                    ctx.block_height,
+                )
+                .map_err(TransactionError::Invalid)
             }
             _ => Err(TransactionError::Unsupported(format!(
                 "Governance service does not support method '{}'",
@@ -127,10 +133,10 @@ impl OnEndBlock for GovernanceModule {
             for item_result in proposals_iter {
                 let (_key, value_bytes) = item_result?;
                 if let Ok(entry) =
-                    depin_sdk_types::codec::from_bytes_canonical::<StateEntry>(&value_bytes)
+                    ioi_types::codec::from_bytes_canonical::<StateEntry>(&value_bytes)
                 {
                     if let Ok(proposal) =
-                        depin_sdk_types::codec::from_bytes_canonical::<Proposal>(&entry.value)
+                        ioi_types::codec::from_bytes_canonical::<Proposal>(&entry.value)
                     {
                         if proposal.status == ProposalStatus::VotingPeriod
                             && ctx.block_height >= proposal.voting_end_height
@@ -235,10 +241,10 @@ impl GovernanceModule {
 
         let key = Self::proposal_key(id);
         let entry = StateEntry {
-            value: depin_sdk_types::codec::to_bytes_canonical(&proposal)?,
+            value: ioi_types::codec::to_bytes_canonical(&proposal)?,
             block_height: current_height,
         };
-        let value_bytes = depin_sdk_types::codec::to_bytes_canonical(&entry)?;
+        let value_bytes = ioi_types::codec::to_bytes_canonical(&entry)?;
         state
             .insert(&key, &value_bytes)
             .map_err(|e| e.to_string())?;
@@ -259,9 +265,9 @@ impl GovernanceModule {
             .get(&key)
             .map_err(|e| e.to_string())?
             .ok_or("Proposal does not exist")?;
-        let entry: StateEntry = depin_sdk_types::codec::from_bytes_canonical(&entry_bytes)
+        let entry: StateEntry = ioi_types::codec::from_bytes_canonical(&entry_bytes)
             .map_err(|e| format!("StateEntry decode failed: {}", e))?;
-        let proposal: Proposal = depin_sdk_types::codec::from_bytes_canonical(&entry.value)
+        let proposal: Proposal = ioi_types::codec::from_bytes_canonical(&entry.value)
             .map_err(|e| format!("Proposal decode failed: {}", e))?;
 
         if proposal.status != ProposalStatus::VotingPeriod {
@@ -278,7 +284,7 @@ impl GovernanceModule {
 
         // In a real implementation, we would check the voter's voting power (stake).
         let vote_key = Self::vote_key(proposal_id, voter);
-        let vote_bytes = depin_sdk_types::codec::to_bytes_canonical(&option)?;
+        let vote_bytes = ioi_types::codec::to_bytes_canonical(&option)?;
         state
             .insert(&vote_key, &vote_bytes)
             .map_err(|e| e.to_string())?;
@@ -299,9 +305,9 @@ impl GovernanceModule {
             .get(&key)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "Tally failed: Proposal not found".to_string())?;
-        let entry: StateEntry = depin_sdk_types::codec::from_bytes_canonical(&entry_bytes)
+        let entry: StateEntry = ioi_types::codec::from_bytes_canonical(&entry_bytes)
             .map_err(|e| format!("StateEntry decode failed: {}", e))?;
-        let mut proposal: Proposal = depin_sdk_types::codec::from_bytes_canonical(&entry.value)
+        let mut proposal: Proposal = ioi_types::codec::from_bytes_canonical(&entry.value)
             .map_err(|e| format!("Proposal decode failed: {}", e))?;
 
         let total_voting_power: u64 = stakes.values().sum();
@@ -313,10 +319,10 @@ impl GovernanceModule {
         if total_voting_power == 0 {
             proposal.status = ProposalStatus::Rejected;
             let updated_entry = StateEntry {
-                value: depin_sdk_types::codec::to_bytes_canonical(&proposal)?,
+                value: ioi_types::codec::to_bytes_canonical(&proposal)?,
                 block_height: entry.block_height,
             };
-            let updated_value_bytes = depin_sdk_types::codec::to_bytes_canonical(&updated_entry)?;
+            let updated_value_bytes = ioi_types::codec::to_bytes_canonical(&updated_entry)?;
             state
                 .insert(&key, &updated_value_bytes)
                 .map_err(|e| e.to_string())?;
@@ -343,7 +349,7 @@ impl GovernanceModule {
 
         for item_result in votes_iter {
             let (vote_key, vote_bytes) = item_result.map_err(|e| e.to_string())?;
-            let option: VoteOption = depin_sdk_types::codec::from_bytes_canonical(&vote_bytes)
+            let option: VoteOption = ioi_types::codec::from_bytes_canonical(&vote_bytes)
                 .map_err(|_| "Failed to deserialize vote".to_string())?;
             let prefix_len = vote_key_prefix.len();
             let voter_account_id_bytes: [u8; 32] = vote_key
@@ -408,10 +414,10 @@ impl GovernanceModule {
         }
 
         let updated_entry = StateEntry {
-            value: depin_sdk_types::codec::to_bytes_canonical(&proposal)?,
+            value: ioi_types::codec::to_bytes_canonical(&proposal)?,
             block_height: entry.block_height,
         };
-        let updated_value_bytes = depin_sdk_types::codec::to_bytes_canonical(&updated_entry)?;
+        let updated_value_bytes = ioi_types::codec::to_bytes_canonical(&updated_entry)?;
         state
             .insert(&key, &updated_value_bytes)
             .map_err(|e| e.to_string())?;

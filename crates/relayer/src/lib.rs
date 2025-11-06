@@ -17,7 +17,8 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use ibc_core_commitment_types::specs::ProofSpecs;
 use ibc_core_host_types::path::{NextChannelSequencePath, NextConnectionSequencePath};
 use ibc_proto::{
-    cosmos::tx::v1beta1::TxBody, google::protobuf::Any as PbAny,
+    cosmos::tx::v1beta1::TxBody,
+    google::protobuf::Any as PbAny,
     ibc::lightclients::tendermint::v1::{
         ClientState as RawTmClientState, ConsensusState as RawTmConsensusState,
         Fraction as TmTrustFraction, Header as RawTmHeader,
@@ -310,7 +311,7 @@ async fn update_b_about_a_to(
         type_url: "/ibc.lightclients.tendermint.v1.Header".into(),
         value: hdr.encode_to_vec(),
     };
-    let msg = build_update_client_any(client_a_on_b, hdr_any, "depin-relayer")?;
+    let msg = build_update_client_any(client_a_on_b, hdr_any, "ioi-relayer")?;
     submit_messages(gw_b, vec![msg]).await?;
     Ok(new_height)
 }
@@ -346,7 +347,7 @@ async fn update_a_about_b_to(
         type_url: "/ibc.lightclients.tendermint.v1.Header".into(),
         value: hdr.encode_to_vec(),
     };
-    let msg = build_update_client_any(client_b_on_a, hdr_any, "depin-relayer")?;
+    let msg = build_update_client_any(client_b_on_a, hdr_any, "ioi-relayer")?;
     submit_messages(gw_a, vec![msg]).await?;
     Ok(new_height)
 }

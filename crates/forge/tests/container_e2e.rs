@@ -4,8 +4,8 @@
 #![cfg(all(feature = "consensus-poa", feature = "vm-wasm"))]
 
 use anyhow::Result;
-use depin_sdk_crypto::algorithms::hash::sha256;
-use depin_sdk_forge::testing::{build_test_artifacts, TestCluster};
+use ioi_forge::testing::{build_test_artifacts, TestCluster};
+use ioi_crypto::algorithms::hash::sha256;
 use serde_json::json;
 use tempfile::tempdir;
 
@@ -31,10 +31,9 @@ async fn test_secure_channel_and_attestation_flow_docker() -> Result<()> {
         .with_state_tree("IAVL") // Use a valid, production-grade tree
         .with_agentic_model_path(model_path.to_str().unwrap())
         .with_genesis_modifier(move |genesis, _keys| {
-            genesis["genesis_state"][std::str::from_utf8(
-                depin_sdk_types::keys::STATE_KEY_SEMANTIC_MODEL_HASH,
-            )
-            .unwrap()] = json!(correct_model_hash);
+            genesis["genesis_state"]
+                [std::str::from_utf8(ioi_types::keys::STATE_KEY_SEMANTIC_MODEL_HASH).unwrap()] =
+                json!(correct_model_hash);
         })
         .build()
         .await?;

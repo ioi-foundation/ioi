@@ -5,8 +5,8 @@ use crate::operations::{
 };
 use crate::operations::{execute_batch, execute_composite, BatchResult, CompositeOperation};
 use crate::proof::{HomomorphicProof, ProofGenerator};
-use depin_sdk_api::commitment::{HomomorphicCommitmentScheme, ProofContext, Selector};
-use depin_sdk_api::homomorphic::{CommitmentOperation, OperationResult};
+use ioi_api::commitment::{HomomorphicCommitmentScheme, ProofContext, Selector};
+use ioi_api::homomorphic::{CommitmentOperation, OperationResult};
 use std::sync::Arc;
 
 /// Computation engine for homomorphic operations
@@ -146,7 +146,7 @@ impl<CS: HomomorphicCommitmentScheme + Clone> HomomorphicComputation<CS> {
             }
             OperationResult::Unsupported => {
                 return Err(crate::error::HomomorphicError::UnsupportedOperation(
-                    depin_sdk_api::commitment::HomomorphicOperation::Custom(0),
+                    ioi_api::commitment::HomomorphicOperation::Custom(0),
                 ))
             }
         };

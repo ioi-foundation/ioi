@@ -1,6 +1,6 @@
 // Path: crates/homomorphic/src/operations/custom/mod.rs
 use crate::error::{HomomorphicError, HomomorphicResult};
-use depin_sdk_api::homomorphic::{CommitmentOperation, OperationResult};
+use ioi_api::homomorphic::{CommitmentOperation, OperationResult};
 use std::any::Any;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};

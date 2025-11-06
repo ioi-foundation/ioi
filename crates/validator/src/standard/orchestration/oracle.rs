@@ -6,13 +6,13 @@
 //! once a quorum is reached.
 
 use super::context::MainLoopContext;
-use depin_sdk_api::{
+use ioi_api::{
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
     state::{StateCommitment, StateManager, Verifier},
 };
-use depin_sdk_services::oracle::SubmitDataParams;
-use depin_sdk_types::{
+use ioi_services::oracle::SubmitDataParams;
+use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ChainTransaction, OracleAttestation,
         OracleConsensusProof, SignHeader, SignatureProof, SignatureSuite, SystemPayload,
@@ -139,7 +139,7 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE, V>(
     }
 
     // Recreate the same domain to verify the signature
-    let mut domain = b"depinsdk/oracle-attest/v1".to_vec();
+    let mut domain = b"ioi/oracle-attest/v1".to_vec();
     domain.extend_from_slice(&context.chain_id.0.to_le_bytes());
     domain.extend_from_slice(&context.genesis_hash);
 
@@ -251,7 +251,7 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
         };
 
         if validator_stakes.contains_key(&signer_account_id) {
-            let mut domain = b"depinsdk/oracle-attest/v1".to_vec();
+            let mut domain = b"ioi/oracle-attest/v1".to_vec();
             domain.extend_from_slice(&context.chain_id.0.to_le_bytes());
             domain.extend_from_slice(&context.genesis_hash);
             if let Ok(payload_to_verify) = att.to_signing_payload(&domain) {

@@ -3,20 +3,20 @@
 
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
-use depin_sdk_api::state::Verifier;
-use depin_sdk_client::WorkloadClient;
-use depin_sdk_commitment::primitives::hash::HashProof; // NEW
-use depin_sdk_crypto::algorithms::hash::sha256;
-use depin_sdk_network::libp2p::SwarmCommand;
-use depin_sdk_types::{
+use ioi_client::WorkloadClient;
+use ibc_core_host_types::path::NextClientSequencePath;
+use ibc_proto::ics23::CommitmentProof;
+use ioi_api::state::Verifier;
+use ioi_crypto::algorithms::hash::sha256;
+use ioi_networking::libp2p::SwarmCommand;
+use ioi_state::primitives::hash::HashProof; // NEW
+use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ChainId, ChainTransaction, SignHeader,
         SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
     },
     codec,
 };
-use ibc_core_host_types::path::NextClientSequencePath;
-use ibc_proto::ics23::CommitmentProof;
 use libp2p::identity::Keypair;
 use lru::LruCache;
 use parity_scale_codec::Decode;

@@ -6,8 +6,8 @@ use crate::chain::{AnchoredStateView, ChainView};
 use crate::commitment::CommitmentScheme;
 use crate::state::{StateAccessor, StateManager};
 use async_trait::async_trait;
-use depin_sdk_types::app::{AccountId, Block};
-use depin_sdk_types::error::{ConsensusError, TransactionError};
+use ioi_types::app::{AccountId, Block};
+use ioi_types::error::{ConsensusError, TransactionError};
 use libp2p::{identity::PublicKey, PeerId};
 use std::collections::{BTreeMap, HashSet};
 
@@ -34,7 +34,7 @@ pub trait ChainStateReader: Send + Sync {
     /// Resolves an `AccountId` to its corresponding full `PublicKey`.
     async fn get_public_key_for_account(
         &self,
-        account_id: &depin_sdk_types::app::AccountId,
+        account_id: &ioi_types::app::AccountId,
     ) -> Result<PublicKey, String>;
 }
 
@@ -48,7 +48,7 @@ pub trait PenaltyMechanism: Send + Sync {
     async fn apply_penalty(
         &self,
         state: &mut dyn StateAccessor,
-        report: &depin_sdk_types::app::FailureReport,
+        report: &ioi_types::app::FailureReport,
     ) -> Result<(), TransactionError>;
 }
 
@@ -57,7 +57,7 @@ impl<T: PenaltyMechanism + ?Sized> PenaltyMechanism for &T {
     async fn apply_penalty(
         &self,
         state: &mut dyn StateAccessor,
-        report: &depin_sdk_types::app::FailureReport,
+        report: &ioi_types::app::FailureReport,
     ) -> Result<(), TransactionError> {
         (**self).apply_penalty(state, report).await
     }

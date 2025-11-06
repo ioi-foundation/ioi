@@ -11,13 +11,13 @@ use crate::config::GuardianConfig;
 use crate::standard::workload_ipc_server::create_ipc_server_config;
 use anyhow::Result;
 use async_trait::async_trait;
-use depin_sdk_api::validator::Container;
-use depin_sdk_client::security::SecurityChannel;
-use depin_sdk_crypto::{
+use ioi_client::security::SecurityChannel;
+use ioi_api::validator::Container;
+use ioi_crypto::{
     algorithms::hash::sha256,
     transport::hybrid_kem_tls::{derive_application_key, server_post_handshake, AeadWrappedStream},
 };
-use depin_sdk_types::error::ValidatorError;
+use ioi_types::error::ValidatorError;
 use rcgen::{Certificate, CertificateParams, KeyUsagePurpose, SanType};
 use std::net::Ipv4Addr;
 use std::path::Path;
@@ -144,7 +144,7 @@ impl Container for GuardianContainer {
                     // --- POST-HANDSHAKE HYBRID KEY EXCHANGE (before any app bytes) ---
                     let mut kem_ss = match server_post_handshake(
                         &mut tls_stream,
-                        depin_sdk_crypto::security::SecurityLevel::Level3,
+                        ioi_crypto::security::SecurityLevel::Level3,
                     )
                     .await
                     {

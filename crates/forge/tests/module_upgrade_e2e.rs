@@ -3,13 +3,13 @@
 
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use depin_sdk_forge::testing::{
+use ioi_forge::testing::{
     assert_log_contains,
     poll::{wait_for_height, wait_until},
     rpc::{query_state_key, query_state_key_at_root, tip_height_resilient},
     submit_transaction, TestCluster,
 };
-use depin_sdk_types::{
+use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
         Credential, Proposal, ProposalStatus, ProposalType, SignatureSuite, StateEntry,
@@ -73,7 +73,7 @@ fn create_system_tx(
         account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes).unwrap(),
     );
     let mut tx = SystemTransaction {
-        header: depin_sdk_types::app::SignHeader {
+        header: ioi_types::app::SignHeader {
             account_id,
             nonce,
             chain_id,
@@ -83,7 +83,7 @@ fn create_system_tx(
         signature_proof: Default::default(),
     };
     let sign_bytes = tx.to_sign_bytes().map_err(|e| anyhow!(e))?;
-    tx.signature_proof = depin_sdk_types::app::SignatureProof {
+    tx.signature_proof = ioi_types::app::SignatureProof {
         suite: SignatureSuite::Ed25519,
         public_key: public_key_bytes,
         signature: signer.sign(&sign_bytes).unwrap(),
@@ -108,7 +108,7 @@ async fn service_v2_registered(
     ] {
         // Swallow transient RPC errors here; let the outer `wait_until` keep polling.
         if let Ok(Some(header)) =
-            depin_sdk_forge::testing::rpc::get_block_by_height_resilient(rpc_addr, h).await
+            ioi_forge::testing::rpc::get_block_by_height_resilient(rpc_addr, h).await
         {
             if let Ok(Some(meta_bytes)) =
                 query_state_key_at_root(rpc_addr, &header.state_root, &fee_v2_key).await
@@ -313,8 +313,8 @@ capabilities = ["TxDecorator"]
     // NOTE: user_nonce is NOT incremented because the transaction was rejected and never processed.
 
     // --- 4. GOVERNANCE: INSTALL THE SERVICE ---
-    let artifact_hash = depin_sdk_crypto::algorithms::hash::sha256(&service_artifact)?;
-    let manifest_hash = depin_sdk_crypto::algorithms::hash::sha256(manifest_toml.as_bytes())?;
+    let artifact_hash = ioi_crypto::algorithms::hash::sha256(&service_artifact)?;
+    let manifest_hash = ioi_crypto::algorithms::hash::sha256(manifest_toml.as_bytes())?;
 
     // Step A: Store module
     let store_tx = create_system_tx(
@@ -390,10 +390,10 @@ capabilities = ["TxDecorator"]
     // which triggers the TxDecorator on all services with the capability (including fee_calculator).
     let vote_params = VoteParams {
         proposal_id: 1,
-        option: depin_sdk_types::app::VoteOption::Abstain,
+        option: ioi_types::app::VoteOption::Abstain,
     };
     let encoded_vote =
-        depin_sdk_types::codec::to_bytes_canonical(&vote_params).expect("encode vote params");
+        ioi_types::codec::to_bytes_canonical(&vote_params).expect("encode vote params");
     let dummy_tx_payload = SystemPayload::CallService {
         service_id: "governance".to_string(),
         method: "vote@v1".to_string(),

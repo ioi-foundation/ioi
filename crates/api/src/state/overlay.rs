@@ -3,7 +3,7 @@
 //! A copy-on-write state overlay for transaction simulation.
 
 use crate::state::{StateAccessor, StateError, StateKVPair, StateScanIter};
-use depin_sdk_types::error::StateError as DepinStateError;
+use ioi_types::error::StateError as DepinStateError;
 use std::collections::btree_map;
 use std::collections::BTreeMap;
 use std::iter::{Fuse, Peekable};

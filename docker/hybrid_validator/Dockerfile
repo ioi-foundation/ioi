@@ -10,9 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/target/release/depin-sdk-validator-hybrid /usr/local/bin/
+COPY --from=builder /app/target/release/ioi-validator-hybrid /usr/local/bin/
 
 # Copy configuration files
 COPY docker/hybrid_validator/config/* /app/config/
 
-ENTRYPOINT ["depin-sdk-validator-hybrid"]
+ENTRYPOINT ["ioi-validator-hybrid"]

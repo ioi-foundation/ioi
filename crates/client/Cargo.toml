@@ -1,6 +1,6 @@
 # Path: crates/client/Cargo.toml
 [package]
-name = "depin-sdk-client"
+name = "ioi-client"
 version = "0.1.0"
 rust-version = "1.78"
 edition = "2021"
@@ -8,10 +8,10 @@ description = "IPC Client for DePIN SDK validator containers"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-depin-sdk-api = { path = "../api" }
-depin-sdk-types = { path = "../types" }
-depin-sdk-crypto = { path = "../crypto" }
-ipc_protocol = { path = "../ipc_protocol" }
+ioi-api = { path = "../api" }
+ioi-types = { path = "../types" }
+ioi-crypto = { path = "../crypto" }
+ioi-ipc = { path = "../ipc" }
 anyhow = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

@@ -15,17 +15,17 @@ use async_trait::async_trait;
 use backend::{DockerBackend, DockerBackendConfig, LogStream, ProcessBackend, TestBackend};
 use bollard::{query_parameters::BuildImageOptionsBuilder, Docker};
 use bytes::Bytes;
-use depin_sdk_api::crypto::{SerializableKey, SigningKeyPair};
-use depin_sdk_client::WorkloadClient;
-use depin_sdk_commitment::primitives::kzg::KZGParams;
-use depin_sdk_crypto::sign::dilithium::{DilithiumKeyPair, DilithiumScheme};
-use depin_sdk_types::config::{
+use futures_util::{stream::FuturesUnordered, StreamExt};
+use http_body_util::{Either, Full};
+use ioi_api::crypto::{SerializableKey, SigningKeyPair};
+use ioi_client::WorkloadClient;
+use ioi_crypto::sign::dilithium::{DilithiumKeyPair, DilithiumScheme};
+use ioi_state::primitives::kzg::KZGParams;
+use ioi_types::config::{
     CommitmentSchemeType, ConsensusType, InitialServiceConfig, OrchestrationConfig, StateTreeType,
     VmFuelCosts, WorkloadConfig,
 };
-use depin_sdk_validator::common::generate_certificates_if_needed;
-use futures_util::{stream::FuturesUnordered, StreamExt};
-use http_body_util::{Either, Full};
+use ioi_validator::common::generate_certificates_if_needed;
 use libp2p::{identity, Multiaddr, PeerId};
 use serde_json::Value;
 use std::any::Any;
@@ -40,7 +40,7 @@ use tokio::sync::{broadcast, Mutex, OnceCell};
 use tokio::time::timeout;
 
 // --- Test Configuration ---
-const DOCKER_IMAGE_TAG: &str = "depin-sdk-node:e2e";
+const DOCKER_IMAGE_TAG: &str = "ioi-node:e2e";
 const LOG_ASSERT_TIMEOUT: Duration = Duration::from_secs(45);
 const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(30);
 const LOG_CHANNEL_CAPACITY: usize = 8192;
@@ -85,7 +85,7 @@ pub fn build_test_artifacts() {
     });
 }
 
-/// Infer a correct feature string for `depin-sdk-node` if the caller did not
+/// Infer a correct feature string for `ioi-node` if the caller did not
 /// supply one with an explicit `tree-*` feature.
 #[allow(dead_code)] // This is a library function for test consumers
 fn resolve_node_features(user_supplied: &str) -> String {
@@ -116,10 +116,10 @@ fn resolve_node_features(user_supplied: &str) -> String {
         tree_count += 1;
     }
     if tree_count == 0 {
-        panic!("No 'tree-*' feature was provided and none are enabled on depin-sdk-forge. Enable exactly one of: tree-iavl, tree-sparse-merkle, tree-verkle.");
+        panic!("No 'tree-*' feature was provided and none are enabled on ioi-forge. Enable exactly one of: tree-iavl, tree-sparse-merkle, tree-verkle.");
     }
     if tree_count > 1 {
-        panic!("Multiple 'tree-*' features are enabled on depin-sdk-forge. Enable exactly one.");
+        panic!("Multiple 'tree-*' features are enabled on ioi-forge. Enable exactly one.");
     }
 
     // --- Commitment primitives ---
@@ -449,7 +449,7 @@ impl TestValidator {
         keypair: identity::Keypair,
         genesis_content: String,
         base_port: u16,
-        chain_id: depin_sdk_types::app::ChainId,
+        chain_id: ioi_types::app::ChainId,
         bootnode_addrs: Option<&[Multiaddr]>,
         consensus_type: &str,
         state_tree_type: &str,
@@ -516,7 +516,7 @@ impl TestValidator {
             .args([
                 "build",
                 "-p",
-                "depin-sdk-node",
+                "ioi-node",
                 "--release",
                 "--no-default-features",
                 "--features",
@@ -535,8 +535,7 @@ impl TestValidator {
         std::fs::create_dir_all(&certs_dir_path)?;
 
         let pqc_keypair = Some(
-            DilithiumScheme::new(depin_sdk_crypto::security::SecurityLevel::Level2)
-                .generate_keypair(),
+            DilithiumScheme::new(ioi_crypto::security::SecurityLevel::Level2).generate_keypair(),
         )
         .transpose()?; // This handles the Result correctly.
 
@@ -932,7 +931,7 @@ impl TestCluster {
 pub struct TestClusterBuilder {
     num_validators: usize,
     keypairs: Option<Vec<identity::Keypair>>,
-    chain_id: depin_sdk_types::app::ChainId,
+    chain_id: ioi_types::app::ChainId,
     genesis_modifiers: Vec<GenesisModifier>,
     consensus_type: String,
     agentic_model_path: Option<String>,
@@ -951,7 +950,7 @@ impl Default for TestClusterBuilder {
         Self {
             num_validators: 1,
             keypairs: None,
-            chain_id: depin_sdk_types::app::ChainId(1),
+            chain_id: ioi_types::app::ChainId(1),
             genesis_modifiers: Vec::new(),
             consensus_type: "ProofOfAuthority".to_string(),
             agentic_model_path: None,

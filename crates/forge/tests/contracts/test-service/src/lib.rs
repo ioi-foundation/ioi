@@ -4,7 +4,7 @@
 extern crate alloc;
 
 use alloc::string::String;
-use depin_sdk_contract as sdk;
+use ioi_contract_sdk as sdk;
 
 /// Helper to return a byte slice from a WASM function by packing its pointer and length into a u64.
 /// This ABI is specific to wasm32.

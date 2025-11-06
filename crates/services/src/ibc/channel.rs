@@ -10,9 +10,9 @@
 //! handshake protocols to succeed.
 
 use async_trait::async_trait;
-use depin_sdk_api::impl_service_base;
-use depin_sdk_api::services::UpgradableService;
-use depin_sdk_types::error::UpgradeError;
+use ioi_types::error::UpgradeError;
+use ioi_api::impl_service_base;
+use ioi_api::services::UpgradableService;
 
 /// A service that acts as an IBC application module placeholder.
 ///

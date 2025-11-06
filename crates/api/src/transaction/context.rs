@@ -2,7 +2,7 @@
 //! Defines the stable context for transaction execution.
 
 use crate::services::access::ServiceDirectory;
-use depin_sdk_types::app::{AccountId, ChainId};
+use ioi_types::app::{AccountId, ChainId};
 // [+] Add the ibc_primitives::Timestamp import
 use ibc_primitives::Timestamp;
 

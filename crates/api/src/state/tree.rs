@@ -1,7 +1,7 @@
 // Path: crates/api/src/state/tree.rs
 //! Defines the `StateTree` trait for key-value storage with cryptographic commitments.
 
-use depin_sdk_types::error::StateError;
+use ioi_types::error::StateError;
 use std::any::Any;
 
 /// A trait for generic state tree operations.

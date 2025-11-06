@@ -1,11 +1,11 @@
 [package]
-name = "depin-sdk-test-utils"
+name = "ioi-test-utils"
 version = "0.1.0"
 edition = "2021"
 description = "Utilities for testing the DePIN SDK components"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-depin-sdk-types = { path = "../types" }
+ioi-types = { path = "../types" }
 rand = { workspace = true }
 serde_json = { workspace = true }

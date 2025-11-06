@@ -23,8 +23,8 @@ macro_rules! impl_service_base {
             fn state_schema(&self) -> &str {
                 "v1"
             }
-            fn capabilities(&self) -> depin_sdk_types::service_configs::Capabilities {
-                depin_sdk_types::service_configs::Capabilities::empty()
+            fn capabilities(&self) -> ioi_types::service_configs::Capabilities {
+                ioi_types::service_configs::Capabilities::empty()
             }
             fn as_any(&self) -> &dyn std::any::Any {
                 self

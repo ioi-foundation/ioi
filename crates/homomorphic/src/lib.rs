@@ -25,10 +25,10 @@ pub mod error;
 pub mod operations;
 pub mod proof;
 
-pub use depin_sdk_api::commitment::{
+pub use ioi_api::commitment::{
     CommitmentScheme, HomomorphicCommitmentScheme, HomomorphicOperation,
 };
-pub use depin_sdk_api::homomorphic::{CommitmentOperation, OperationResult};
+pub use ioi_api::homomorphic::{CommitmentOperation, OperationResult};
 
 // Re-export key components for easier access
 pub use computation::HomomorphicComputation;

@@ -9,9 +9,9 @@ use crate::state::{StateManager, Verifier};
 use crate::transaction::TransactionModel;
 use crate::validator::WorkloadContainer;
 use async_trait::async_trait;
-use depin_sdk_types::config::ConsensusType;
-use depin_sdk_types::error::ChainError;
-use depin_sdk_types::Result;
+use ioi_types::config::ConsensusType;
+use ioi_types::error::ChainError;
+use ioi_types::Result;
 use libp2p::identity::Keypair;
 use std::any::Any;
 use std::collections::BTreeMap;
@@ -171,11 +171,11 @@ where
     async fn get_staked_validators(
         &self,
         workload: &WorkloadContainer<ST>,
-    ) -> Result<BTreeMap<depin_sdk_types::app::AccountId, u64>, ChainError>;
+    ) -> Result<BTreeMap<ioi_types::app::AccountId, u64>, ChainError>;
 
     /// Retrieves the pending next set of staked validators and their stakes.
     async fn get_next_staked_validators(
         &self,
         workload: &WorkloadContainer<ST>,
-    ) -> Result<BTreeMap<depin_sdk_types::app::AccountId, u64>, ChainError>;
+    ) -> Result<BTreeMap<ioi_types::app::AccountId, u64>, ChainError>;
 }

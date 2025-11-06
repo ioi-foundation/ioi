@@ -20,8 +20,8 @@ use prometheus::{
     exponential_buckets, register_histogram_vec, register_int_counter_vec, HistogramVec,
     IntCounterVec,
 };
-use std::time::Instant as StdInstant;
 use serde::{Deserialize, Serialize};
+use std::time::Instant as StdInstant;
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
@@ -64,7 +64,7 @@ fn install_gateway_metrics() {
     // Safe to call multiple times (OnceCell ensures single init)
     let _ = GATEWAY_REQ_TOTAL.set(
         register_int_counter_vec!(
-            "depin_sdk_ibc_gateway_requests_total",
+            "ioi_ibc_gateway_requests_total",
             "Total HTTP IBC-gateway requests",
             &["chain_id", "route", "result", "height"]
         )
@@ -72,7 +72,7 @@ fn install_gateway_metrics() {
     );
     let _ = GATEWAY_REQ_LATENCY.set(
         register_histogram_vec!(
-            "depin_sdk_ibc_gateway_request_duration_seconds",
+            "ioi_ibc_gateway_request_duration_seconds",
             "Latency of HTTP IBC-gateway requests (seconds)",
             &["chain_id", "route", "result", "height"],
             exponential_buckets(0.001, 2.0, 15).expect("buckets")

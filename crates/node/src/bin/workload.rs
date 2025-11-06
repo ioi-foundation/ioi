@@ -13,33 +13,31 @@
 //!   receive blocks for processing and respond to state queries.
 //!
 //! This binary is configured via a `workload.toml` file and is launched by the
-//! `depin-sdk-node` process or a similar orchestration mechanism.
+//! `ioi-node` process or a similar orchestration mechanism.
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
-use depin_sdk_api::services::access::ServiceDirectory;
-use depin_sdk_api::services::BlockchainService;
-use depin_sdk_api::{
-    commitment::CommitmentScheme, state::StateManager, validator::WorkloadContainer,
-};
-use depin_sdk_chain::util::load_state_from_genesis_file;
-use depin_sdk_chain::Chain;
-use depin_sdk_consensus::util::engine_from_config;
-use depin_sdk_services::governance::GovernanceModule;
+use ioi_api::services::access::ServiceDirectory;
+use ioi_api::services::BlockchainService;
+use ioi_api::{commitment::CommitmentScheme, state::StateManager, validator::WorkloadContainer};
+use ioi_consensus::util::engine_from_config;
+use ioi_execution::util::load_state_from_genesis_file;
+use ioi_execution::Chain;
+use ioi_services::governance::GovernanceModule;
 // --- IBC Service Imports ---
 #[cfg(feature = "ibc-deps")]
-use depin_sdk_services::ibc::{
+use ioi_services::ibc::{
     channel::ChannelManager, light_client::tendermint::TendermintVerifier,
     registry::VerifierRegistry,
 };
-use depin_sdk_services::identity::IdentityHub;
-use depin_sdk_services::oracle::OracleService;
-use depin_sdk_storage::metrics as storage_metrics;
-use depin_sdk_storage::RedbEpochStore;
-use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-use depin_sdk_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
-use depin_sdk_validator::standard::WorkloadIpcServer;
-use depin_sdk_vm_wasm::WasmRuntime;
+use ioi_services::identity::IdentityHub;
+use ioi_services::oracle::OracleService;
+use ioi_storage::metrics as storage_metrics;
+use ioi_storage::RedbEpochStore;
+use ioi_tx::unified::UnifiedTransactionModel;
+use ioi_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
+use ioi_validator::standard::WorkloadIpcServer;
+use ioi_vm_wasm::WasmRuntime;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -47,15 +45,15 @@ use tokio::sync::Mutex;
 
 // Imports for concrete types used in the factory
 #[cfg(feature = "primitive-hash")]
-use depin_sdk_commitment::primitives::hash::HashCommitmentScheme;
+use ioi_state::primitives::hash::HashCommitmentScheme;
 #[cfg(feature = "primitive-kzg")]
-use depin_sdk_commitment::primitives::kzg::{KZGCommitmentScheme, KZGParams};
+use ioi_state::primitives::kzg::{KZGCommitmentScheme, KZGParams};
 #[cfg(feature = "tree-iavl")]
-use depin_sdk_commitment::tree::iavl::IAVLTree;
+use ioi_state::tree::iavl::IAVLTree;
 #[cfg(feature = "tree-sparse-merkle")]
-use depin_sdk_commitment::tree::sparse_merkle::SparseMerkleTree;
+use ioi_state::tree::sparse_merkle::SparseMerkleTree;
 #[cfg(feature = "tree-verkle")]
-use depin_sdk_commitment::tree::verkle::VerkleTree;
+use ioi_state::tree::verkle::VerkleTree;
 
 #[derive(Parser, Debug)]
 struct WorkloadOpts {
@@ -102,19 +100,19 @@ where
                 tracing::info!(target: "workload", event = "service_init", name = "IdentityHub", impl="native", capabilities="identity_view, tx_decorator, on_end_block");
                 let hub = IdentityHub::new(migration_config.clone());
                 initial_services
-                    .push(Arc::new(hub) as Arc<dyn depin_sdk_api::services::UpgradableService>);
+                    .push(Arc::new(hub) as Arc<dyn ioi_api::services::UpgradableService>);
             }
             InitialServiceConfig::Governance(params) => {
                 tracing::info!(target: "workload", event = "service_init", name = "Governance", impl="native", capabilities="on_end_block");
                 let gov = GovernanceModule::new(params.clone());
                 initial_services
-                    .push(Arc::new(gov) as Arc<dyn depin_sdk_api::services::UpgradableService>);
+                    .push(Arc::new(gov) as Arc<dyn ioi_api::services::UpgradableService>);
             }
             InitialServiceConfig::Oracle(_params) => {
                 tracing::info!(target: "workload", event = "service_init", name = "Oracle", impl="native", capabilities="");
                 let oracle = OracleService::new();
                 initial_services
-                    .push(Arc::new(oracle) as Arc<dyn depin_sdk_api::services::UpgradableService>);
+                    .push(Arc::new(oracle) as Arc<dyn ioi_api::services::UpgradableService>);
             }
             // --- IBC Service Instantiation ---
             #[cfg(feature = "ibc-deps")]
@@ -133,11 +131,12 @@ where
                         verifier_registry.register(Arc::new(tm_verifier));
                     }
                 }
-                initial_services.push(Arc::new(verifier_registry)
-                    as Arc<dyn depin_sdk_api::services::UpgradableService>);
+                initial_services
+                    .push(Arc::new(verifier_registry)
+                        as Arc<dyn ioi_api::services::UpgradableService>);
                 // The ChannelManager is also a required part of the IBC service suite.
                 initial_services.push(Arc::new(ChannelManager::new())
-                    as Arc<dyn depin_sdk_api::services::UpgradableService>);
+                    as Arc<dyn ioi_api::services::UpgradableService>);
             }
             #[cfg(not(feature = "ibc-deps"))]
             InitialServiceConfig::Ibc(_) => {
@@ -225,14 +224,17 @@ fn check_features() {
     }
 
     if enabled_features.len() != 1 {
-        panic!("Error: Please enable exactly one 'tree-*' feature for the depin-sdk-node crate. Found: {:?}", enabled_features);
+        panic!(
+            "Error: Please enable exactly one 'tree-*' feature for the ioi-node crate. Found: {:?}",
+            enabled_features
+        );
     }
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    depin_sdk_telemetry::init::init_tracing()?;
-    let metrics_sink = depin_sdk_telemetry::prometheus::install()?;
+    ioi_telemetry::init::init_tracing()?;
+    let metrics_sink = ioi_telemetry::prometheus::install()?;
     storage_metrics::SINK
         .set(metrics_sink)
         .expect("SINK must only be set once");
@@ -240,7 +242,7 @@ async fn main() -> Result<()> {
     let telemetry_addr_str =
         std::env::var("TELEMETRY_ADDR").unwrap_or_else(|_| "127.0.0.1:9616".to_string());
     let telemetry_addr = telemetry_addr_str.parse()?;
-    tokio::spawn(depin_sdk_telemetry::http::run_server(telemetry_addr));
+    tokio::spawn(ioi_telemetry::http::run_server(telemetry_addr));
 
     check_features();
 
@@ -256,10 +258,7 @@ async fn main() -> Result<()> {
 
     match (config.state_tree.clone(), config.commitment_scheme.clone()) {
         #[cfg(all(feature = "tree-iavl", feature = "primitive-hash"))]
-        (
-            depin_sdk_types::config::StateTreeType::IAVL,
-            depin_sdk_types::config::CommitmentSchemeType::Hash,
-        ) => {
+        (ioi_types::config::StateTreeType::IAVL, ioi_types::config::CommitmentSchemeType::Hash) => {
             tracing::info!(target: "workload", "Instantiating state backend: IAVLTree<HashCommitmentScheme>");
             let commitment_scheme = HashCommitmentScheme::new();
             let state_tree = IAVLTree::new(commitment_scheme.clone());
@@ -268,8 +267,8 @@ async fn main() -> Result<()> {
 
         #[cfg(all(feature = "tree-sparse-merkle", feature = "primitive-hash"))]
         (
-            depin_sdk_types::config::StateTreeType::SparseMerkle,
-            depin_sdk_types::config::CommitmentSchemeType::Hash,
+            ioi_types::config::StateTreeType::SparseMerkle,
+            ioi_types::config::CommitmentSchemeType::Hash,
         ) => {
             tracing::info!(target: "workload", "Instantiating state backend: SparseMerkleTree<HashCommitmentScheme>");
             let commitment_scheme = HashCommitmentScheme::new();
@@ -279,8 +278,8 @@ async fn main() -> Result<()> {
 
         #[cfg(all(feature = "tree-verkle", feature = "primitive-kzg"))]
         (
-            depin_sdk_types::config::StateTreeType::Verkle,
-            depin_sdk_types::config::CommitmentSchemeType::KZG,
+            ioi_types::config::StateTreeType::Verkle,
+            ioi_types::config::CommitmentSchemeType::KZG,
         ) => {
             tracing::info!(target: "workload", "Instantiating state backend: VerkleTree<KZGCommitmentScheme>");
             let params = if let Some(srs_path) = &config.srs_file_path {

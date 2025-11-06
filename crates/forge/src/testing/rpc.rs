@@ -1,7 +1,7 @@
 // Path: crates/forge/src/testing/rpc.rs
 
 use anyhow::{anyhow, Result};
-use depin_sdk_types::{
+use ioi_types::{
     app::{AccountId, BlockHeader, ChainStatus, Membership, Proposal, StateEntry, StateRoot},
     codec,
     keys::{
@@ -22,7 +22,10 @@ const RPC_RETRY_BASE_MS: u64 = 80;
 /// Robust get_block_by_height:
 /// - Retries transient -32000 decode/network errors
 /// - Treats future/hemi-available heights as Ok(None)
-pub async fn get_block_by_height_resilient(rpc_addr: &str, height: u64) -> Result<Option<BlockHeader>> {
+pub async fn get_block_by_height_resilient(
+    rpc_addr: &str,
+    height: u64,
+) -> Result<Option<BlockHeader>> {
     let mut attempt = 0usize;
     loop {
         match get_block_by_height(rpc_addr, height).await {
@@ -30,7 +33,9 @@ pub async fn get_block_by_height_resilient(rpc_addr: &str, height: u64) -> Resul
             Err(e) => {
                 let msg = e.to_string();
                 // Normalize transient JSON-RPC decoding / workload start-up hiccups
-                if msg.contains("Invalid JSON-RPC response") || msg.contains("getBlockByHeight failed") {
+                if msg.contains("Invalid JSON-RPC response")
+                    || msg.contains("getBlockByHeight failed")
+                {
                     attempt += 1;
                     if attempt >= RPC_RETRY_MAX {
                         // As a *resilience* choice, return None rather than error out.
@@ -63,7 +68,7 @@ pub async fn tip_height_resilient(rpc_addr: &str) -> Result<u64> {
 /// Submits a transaction and waits for the next block to be produced, ensuring inclusion.
 pub async fn submit_transaction_and_wait_block(
     rpc_addr: &str,
-    tx: &depin_sdk_types::app::ChainTransaction,
+    tx: &ioi_types::app::ChainTransaction,
 ) -> Result<()> {
     submit_transaction(rpc_addr, tx).await?;
     let tip = tip_height_resilient(rpc_addr).await?;
@@ -154,11 +159,11 @@ pub async fn query_state_key(rpc_addr: &str, key: &[u8]) -> Result<Option<Vec<u8
 /// The `submit_transaction` helper in `forge` needs to be updated to serialize the tx canonically.
 pub async fn submit_transaction(
     rpc_addr: &str,
-    tx: &depin_sdk_types::app::ChainTransaction,
+    tx: &ioi_types::app::ChainTransaction,
 ) -> Result<()> {
     let initial_height = get_chain_height(rpc_addr).await.unwrap_or(0);
 
-    // Directly use the canonical SCALE codec from depin-sdk-types.
+    // Directly use the canonical SCALE codec from ioi-types.
     let tx_bytes = codec::to_bytes_canonical(tx).map_err(|e| anyhow!(e))?;
     let tx_hex = hex::encode(tx_bytes);
     // Use the new, dedicated endpoint for submitting transactions.
@@ -322,7 +327,7 @@ pub async fn query_state_key_at_root(
     let result_val = resp
         .get("result")
         .ok_or_else(|| anyhow!("Missing result field"))?;
-    let response_struct: depin_sdk_client::workload_client::QueryStateAtIpcResponse =
+    let response_struct: ioi_client::workload_client::QueryStateAtIpcResponse =
         serde_json::from_value(result_val.clone())?;
 
     match response_struct.membership {

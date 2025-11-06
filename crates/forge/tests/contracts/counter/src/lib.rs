@@ -7,7 +7,7 @@ extern crate alloc;
 use alloc::vec;
 use alloc::vec::Vec;
 // Use the crate name directly as specified in its Cargo.toml
-use depin_sdk_contract::{self as sdk, state};
+use ioi_contract_sdk::{self as sdk, state};
 
 // A simple ABI: the first byte of the input data determines the function.
 const FUNC_GET: u8 = 0;

@@ -3,7 +3,7 @@
 //!
 use crate::error::CryptoError;
 use crate::security::SecurityLevel;
-use depin_sdk_api::crypto::{SerializableKey, Signature, SigningKey, SigningKeyPair, VerifyingKey};
+use ioi_api::crypto::{SerializableKey, Signature, SigningKey, SigningKeyPair, VerifyingKey};
 // Import the trait needed for the signature operations
 use dcrypt::api::Signature as SignatureTrait;
 // Import the Dilithium implementations and types from the correct module path

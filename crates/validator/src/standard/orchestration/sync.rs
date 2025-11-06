@@ -3,21 +3,21 @@
 //! The part of the libp2p implementation handling the BlockSync trait.
 
 use super::context::{MainLoopContext, SyncProgress};
-use depin_sdk_api::{
+use ioi_api::{
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
     state::{StateCommitment, StateManager, Verifier},
 };
 // [+] CORRECTED: Import the canonical definitions from the network crate.
-use depin_sdk_network::libp2p::{SwarmCommand, SyncResponse};
-use depin_sdk_network::traits::NodeState;
-use depin_sdk_types::app::{Block, ChainTransaction};
+use ioi_networking::libp2p::{SwarmCommand, SyncResponse};
+use ioi_networking::traits::NodeState;
+use ioi_types::app::{Block, ChainTransaction};
 use libp2p::{request_response::ResponseChannel, PeerId};
 use serde::Serialize;
 use std::fmt::Debug;
 
 // [-] REMOVED: Unused imports flagged by the compiler.
-// use depin_sdk_network::libp2p::SyncRequest;
+// use ioi_networking::libp2p::SyncRequest;
 // use tokio::sync::Mutex;
 
 // --- BlockSync Trait Implementation ---
@@ -116,7 +116,7 @@ pub async fn handle_status_response<CS, ST, CE, V>(
     peer: PeerId,
     peer_height: u64,
     _peer_head_hash: [u8; 32],
-    peer_chain_id: depin_sdk_types::app::ChainId,
+    peer_chain_id: ioi_types::app::ChainId,
     peer_genesis_root: Vec<u8>,
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,

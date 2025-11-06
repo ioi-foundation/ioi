@@ -1,0 +1,32 @@
+# Path: crates/network/Cargo.toml
+[package]
+name = "ioi-networking"
+version = "0.1.0"
+rust-version = "1.78"
+edition = "2021"
+description = "Block synchronization and networking components for the DePIN SDK"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+ioi-api = { path = "../api" }
+ioi-types = { path = "../types" }
+ioi-consensus = { path = "../consensus" }
+ioi-telemetry = { path = "../telemetry" }
+ioi-tx = { path = "../tx" }
+ioi-state = { path = "../state" }
+parity-scale-codec = { workspace = true, features = ["std"] }
+once_cell = { workspace = true }
+log = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+serde_bytes = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+libp2p = { workspace = true }
+futures = { workspace = true }
+async-trait = { workspace = true }
+
+[features]
+default = []

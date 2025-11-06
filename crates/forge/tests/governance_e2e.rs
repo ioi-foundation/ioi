@@ -4,12 +4,12 @@
 
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use depin_sdk_forge::testing::{
+use ioi_forge::testing::{
     build_test_artifacts,
     poll::{confirm_proposal_passed_state, wait_for_height},
     submit_transaction, TestCluster,
 };
-use depin_sdk_types::{
+use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
         Credential, Proposal, ProposalStatus, ProposalType, SignHeader, SignatureProof,
@@ -111,7 +111,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
             let gov_account_id_hash = account_id_from_key_material(suite, &gov_pk_bytes).unwrap();
             let governance_account_id = AccountId(gov_account_id_hash);
 
-            let vs_blob = depin_sdk_types::app::ValidatorSetBlob {
+            let vs_blob = ioi_types::app::ValidatorSetBlob {
                 schema_version: 2,
                 payload: ValidatorSetsV1 {
                     current: ValidatorSetV1 {
@@ -130,7 +130,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                     next: None,
                 },
             };
-            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload).unwrap();
+            let vs_bytes = ioi_types::app::write_validator_sets(&vs_blob.payload).unwrap();
 
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),

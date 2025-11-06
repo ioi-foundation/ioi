@@ -3,7 +3,7 @@
 
 use crate::error::CryptoError;
 use dcrypt::api::Signature as SignatureTrait;
-use depin_sdk_api::crypto::{SerializableKey, Signature, SigningKey, SigningKeyPair, VerifyingKey};
+use ioi_api::crypto::{SerializableKey, Signature, SigningKey, SigningKeyPair, VerifyingKey};
 use rand::rngs::OsRng;
 
 // Import dcrypt Ed25519 module with module qualification

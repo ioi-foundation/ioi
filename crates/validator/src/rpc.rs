@@ -15,12 +15,12 @@ use axum::{
     Json, Router,
 };
 use dashmap::DashMap;
-use depin_sdk_api::transaction::TransactionModel;
-use depin_sdk_client::WorkloadClient;
-use depin_sdk_network::libp2p::SwarmCommand;
-use depin_sdk_transaction_models::unified::UnifiedTransactionModel;
-use depin_sdk_types::app::{ApplicationTransaction, ChainTransaction};
-use depin_sdk_types::config::OrchestrationConfig;
+use ioi_client::WorkloadClient;
+use ioi_api::transaction::TransactionModel;
+use ioi_networking::libp2p::SwarmCommand;
+use ioi_tx::unified::UnifiedTransactionModel;
+use ioi_types::app::{ApplicationTransaction, ChainTransaction};
+use ioi_types::config::OrchestrationConfig;
 use ipnetwork::IpNetwork;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -288,9 +288,8 @@ async fn rpc_handler(
         };
 
         // Use a dummy model instance just for its deserialization logic.
-        let dummy_model = UnifiedTransactionModel::new(
-            depin_sdk_commitment::primitives::hash::HashCommitmentScheme::new(),
-        );
+        let dummy_model =
+            UnifiedTransactionModel::new(ioi_state::primitives::hash::HashCommitmentScheme::new());
         let tx = match dummy_model.deserialize_transaction(&tx_bytes) {
             Ok(t) => t,
             Err(e) => {
@@ -439,7 +438,7 @@ async fn rpc_handler(
                         let address_res = addr_val.as_str().and_then(|s| hex::decode(s).ok());
                         let input_res = input_val.as_str().and_then(|s| hex::decode(s).ok());
                         if let (Some(address), Some(input_data)) = (address_res, input_res) {
-                            let context = depin_sdk_api::vm::ExecutionContext {
+                            let context = ioi_api::vm::ExecutionContext {
                                 caller: vec![],
                                 block_height: 0,
                                 gas_limit: app_state.config.default_query_gas_limit,

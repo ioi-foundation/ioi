@@ -8,8 +8,8 @@
 
 use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use depin_sdk_forge::testing::{build_test_artifacts, poll::wait_for_height, TestCluster};
-use depin_sdk_types::{
+use ioi_forge::testing::{build_test_artifacts, poll::wait_for_height, TestCluster};
+use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, SignatureSuite, ValidatorSetBlob,
         ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
@@ -68,7 +68,7 @@ async fn test_verkle_tree_e2e() -> Result<()> {
                     next: None,
                 },
             };
-            let vs_bytes = depin_sdk_types::app::write_validator_sets(&vs_blob.payload).unwrap();
+            let vs_bytes = ioi_types::app::write_validator_sets(&vs_blob.payload).unwrap();
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
@@ -95,14 +95,13 @@ async fn test_verkle_tree_e2e() -> Result<()> {
             );
 
             // Initial credentials for the IdentityHub
-            let initial_cred = depin_sdk_types::app::Credential {
+            let initial_cred = ioi_types::app::Credential {
                 suite,
                 public_key_hash: acct_hash,
                 activation_height: 0,
                 l2_location: None,
             };
-            let creds_array: [Option<depin_sdk_types::app::Credential>; 2] =
-                [Some(initial_cred), None];
+            let creds_array: [Option<ioi_types::app::Credential>; 2] = [Some(initial_cred), None];
             let creds_bytes = serde_json::to_vec(&creds_array).unwrap();
             let creds_key = [IDENTITY_CREDENTIALS_PREFIX, acct.as_ref()].concat();
             genesis_state.insert(

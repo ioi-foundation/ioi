@@ -1,8 +1,8 @@
 // Path: crates/homomorphic/src/computation/tests/mod.rs
 use super::*;
-use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, Selector};
-use depin_sdk_api::homomorphic::{CommitmentOperation, OperationResult};
-use depin_sdk_commitment::primitives::pedersen::{PedersenCommitment, PedersenCommitmentScheme};
+use ioi_state::primitives::pedersen::{PedersenCommitment, PedersenCommitmentScheme};
+use ioi_api::commitment::{CommitmentScheme, ProofContext, Selector};
+use ioi_api::homomorphic::{CommitmentOperation, OperationResult};
 
 use std::any::Any;
 

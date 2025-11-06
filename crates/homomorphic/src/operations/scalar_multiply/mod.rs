@@ -1,7 +1,7 @@
 // Path: crates/homomorphic/src/operations/scalar_multiply/mod.rs
 use crate::error::{HomomorphicError, HomomorphicResult};
-use depin_sdk_api::commitment::HomomorphicCommitmentScheme;
-use depin_sdk_api::homomorphic::{CommitmentOperation, OperationResult};
+use ioi_api::commitment::HomomorphicCommitmentScheme;
+use ioi_api::homomorphic::{CommitmentOperation, OperationResult};
 use std::sync::Arc;
 
 /// Multiply a commitment by a scalar
