@@ -2,13 +2,20 @@
 
 use crate::{ConsensusDecision, ConsensusEngine, PenaltyMechanism};
 use async_trait::async_trait;
-use ioi_types::app::{read_validator_sets, AccountId, Block, FailureReport};
-use ioi_types::error::{ConsensusError, StateError, TransactionError};
-use ioi_types::keys::{QUARANTINED_VALIDATORS_KEY, VALIDATOR_SET_KEY};
 use ioi_api::chain::{AnchoredStateView, ChainView};
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::ChainStateReader;
 use ioi_api::state::{StateAccessor, StateManager};
+use ioi_types::app::{
+    compute_interval_from_parent_state, read_validator_sets, AccountId, Block, BlockTimingParams,
+    BlockTimingRuntime, ChainStatus, FailureReport,
+};
+use ioi_types::codec;
+use ioi_types::error::{ConsensusError, StateError, TransactionError};
+use ioi_types::keys::{
+    BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, QUARANTINED_VALIDATORS_KEY, STATUS_KEY,
+    VALIDATOR_SET_KEY,
+};
 use libp2p::PeerId;
 use std::collections::{BTreeSet, HashSet};
 use std::time::{Duration, Instant};
@@ -60,9 +67,7 @@ impl PenaltyMechanism for RoundRobinBftEngine {
 
         let quarantined: BTreeSet<AccountId> = state
             .get(QUARANTINED_VALIDATORS_KEY)?
-            .map(|b| {
-                ioi_types::codec::from_bytes_canonical(&b).map_err(StateError::InvalidValue)
-            })
+            .map(|b| ioi_types::codec::from_bytes_canonical(&b).map_err(StateError::InvalidValue))
             .transpose()?
             .unwrap_or_default();
 
@@ -135,9 +140,55 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             .map(|v| v.account_id)
             .collect();
 
+        // Consistent timestamp calculation for this engine.
+        let expected_timestamp_secs = {
+            let parent_ts = if height > 1 {
+                let status_bytes = match parent_view.get(STATUS_KEY).await {
+                    Ok(Some(b)) => b,
+                    _ => return ConsensusDecision::Stall,
+                };
+                let parent_status: ChainStatus = match codec::from_bytes_canonical(&status_bytes) {
+                    Ok(s) => s,
+                    Err(_) => return ConsensusDecision::Stall,
+                };
+                parent_status.latest_timestamp
+            } else {
+                0
+            };
+
+            let timing_params_bytes = match parent_view.get(BLOCK_TIMING_PARAMS_KEY).await {
+                Ok(Some(b)) => b,
+                _ => return ConsensusDecision::Stall,
+            };
+            let timing_runtime_bytes = match parent_view.get(BLOCK_TIMING_RUNTIME_KEY).await {
+                Ok(Some(b)) => b,
+                _ => return ConsensusDecision::Stall,
+            };
+            let timing_params: BlockTimingParams =
+                match codec::from_bytes_canonical(&timing_params_bytes) {
+                    Ok(x) => x,
+                    Err(_) => return ConsensusDecision::Stall,
+                };
+            let timing_runtime: BlockTimingRuntime =
+                match codec::from_bytes_canonical(&timing_runtime_bytes) {
+                    Ok(x) => x,
+                    Err(_) => return ConsensusDecision::Stall,
+                };
+            let interval = compute_interval_from_parent_state(
+                &timing_params,
+                &timing_runtime,
+                height.saturating_sub(1),
+                0,
+            );
+            parent_ts + interval
+        };
+
         if validator_set.is_empty() {
             return if height == 1 {
-                ConsensusDecision::ProduceBlock(vec![])
+                ConsensusDecision::ProduceBlock {
+                    transactions: vec![],
+                    expected_timestamp_secs,
+                }
             } else {
                 ConsensusDecision::Stall
             };
@@ -148,7 +199,10 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             .unwrap_or(0)) as usize;
         if let Some(leader) = validator_set.get(leader_index) {
             if *leader == *our_account_id {
-                ConsensusDecision::ProduceBlock(vec![])
+                ConsensusDecision::ProduceBlock {
+                    transactions: vec![],
+                    expected_timestamp_secs,
+                }
             } else {
                 ConsensusDecision::WaitForBlock
             }
@@ -170,9 +224,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
 
         let parent_state_ref = ioi_api::chain::StateRef {
             height: header.height - 1,
-            state_root: header.parent_state_root.as_ref().try_into().map_err(|_| {
-                ConsensusError::BlockVerificationFailed("Invalid parent state root".into())
-            })?,
+            state_root: header.parent_state_root.as_ref().to_vec(),
             block_hash: header.parent_hash,
         };
 

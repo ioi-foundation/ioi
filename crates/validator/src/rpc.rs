@@ -15,8 +15,8 @@ use axum::{
     Json, Router,
 };
 use dashmap::DashMap;
-use ioi_client::WorkloadClient;
 use ioi_api::transaction::TransactionModel;
+use ioi_client::WorkloadClient;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{ApplicationTransaction, ChainTransaction};
@@ -319,8 +319,7 @@ async fn rpc_handler(
             );
         }
 
-        // [+] MODIFICATION: Pre-flight check via IPC to workload. This ensures
-        // the mempool and block proposer use the same validation logic.
+        // Pre-flight check via IPC to workload.
         let check_res = {
             let root_res = app_state.workload_client.get_state_root().await;
             match root_res {
@@ -328,9 +327,17 @@ async fn rpc_handler(
                     let anchor_res = root.to_anchor();
                     match anchor_res {
                         Ok(anchor) => {
+                            // The timestamp here is a best-effort guess. The final, authoritative
+                            // timestamp is only known by the consensus leader. This check is primarily
+                            // for signature, nonce, and non-time-sensitive state validation.
+                            let now_secs = std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs();
+
                             app_state
                                 .workload_client
-                                .check_transactions_at(anchor, vec![tx.clone()])
+                                .check_transactions_at(anchor, now_secs, vec![tx.clone()])
                                 .await
                         }
                         Err(e) => Err(anyhow!("Failed to create anchor from root: {}", e)),
@@ -364,7 +371,6 @@ async fn rpc_handler(
                 );
             }
         }
-        // [+] END MODIFICATION
 
         {
             let mut pool = app_state.tx_pool.lock().await;

@@ -7,7 +7,7 @@
 pub mod backend;
 pub mod poll;
 pub mod rpc;
-pub use rpc::submit_transaction;
+pub use rpc::{submit_transaction, submit_transaction_no_wait};
 
 use crate::testing::poll::{wait_for, wait_for_height};
 use anyhow::{anyhow, Result};

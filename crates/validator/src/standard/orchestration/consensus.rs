@@ -4,9 +4,6 @@ use crate::standard::orchestration::context::MainLoopContext;
 use crate::standard::orchestration::gossip::prune_mempool;
 use crate::standard::orchestration::view_resolver::DefaultViewResolver;
 use anyhow::{anyhow, Result};
-use async_trait::async_trait;
-use ioi_networking::libp2p::SwarmCommand;
-use ioi_networking::traits::NodeState;
 use ioi_api::{
     chain::StateRef,
     commitment::CommitmentScheme,
@@ -14,14 +11,15 @@ use ioi_api::{
     crypto::{SerializableKey, SigningKeyPair},
     state::{StateManager, Verifier},
 };
+use ioi_networking::libp2p::SwarmCommand;
+use ioi_networking::traits::NodeState;
 use ioi_types::{
     app::{
-        account_id_from_key_material, compute_interval_from_parent_state, to_root_hash, AccountId,
-        Block, BlockHeader, BlockTimingParams, BlockTimingRuntime, ChainTransaction,
-        SignatureSuite, StateRoot, SystemPayload,
+        account_id_from_key_material, to_root_hash, AccountId, Block, BlockHeader,
+        ChainTransaction, SignatureSuite, StateRoot, SystemPayload,
     },
     codec, // Import the canonical codec
-    keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, VALIDATOR_SET_KEY},
+    keys::VALIDATOR_SET_KEY,
 };
 use serde::Serialize;
 use std::collections::HashSet;
@@ -148,7 +146,11 @@ where
 
     tracing::info!(target: "consensus", event = "decision", decision = ?decision, height = height_being_built);
 
-    if let ioi_api::consensus::ConsensusDecision::ProduceBlock(_) = decision {
+    if let ioi_api::consensus::ConsensusDecision::ProduceBlock {
+        expected_timestamp_secs,
+        ..
+    } = decision
+    {
         metrics().inc_blocks_produced();
         let parent_ref = if let Some(last) = last_committed_block_opt.as_ref() {
             let block_hash = to_root_hash(last.header.hash()?)?;
@@ -207,8 +209,9 @@ where
             .map_err(|e| anyhow!("Failed to create parent anchor: {}", e))?;
 
         for (i, tx) in candidate_txs.iter().enumerate() {
+            // Timestamp-aware precheck (authoritative)
             match workload_client
-                .check_transactions_at(parent_anchor, vec![tx.clone()])
+                .check_transactions_at(parent_anchor, expected_timestamp_secs, vec![tx.clone()])
                 .await
             {
                 Ok(res) if res.first().is_some_and(|r| r.is_ok()) => valid_txs.push(tx.clone()),
@@ -297,22 +300,6 @@ where
         tracing::info!(target: "consensus", event = "producing_block", height = height_being_built, num_txs = valid_txs.len());
 
         let parent_view = view_resolver.resolve_anchored(&parent_ref).await?;
-        let (timing_params_bytes, timing_runtime_bytes) = tokio::try_join!(
-            parent_view.get(BLOCK_TIMING_PARAMS_KEY),
-            parent_view.get(BLOCK_TIMING_RUNTIME_KEY),
-        )?;
-
-        let timing_params: BlockTimingParams = timing_params_bytes
-            .and_then(|b| codec::from_bytes_canonical(&b).ok())
-            .ok_or_else(|| anyhow!("BlockTimingParams not found in state"))?;
-
-        let timing_runtime: BlockTimingRuntime = timing_runtime_bytes
-            .and_then(|b| codec::from_bytes_canonical(&b).ok())
-            .ok_or_else(|| anyhow!("BlockTimingRuntime not found in state"))?;
-
-        // TODO: The gas_used of the parent block is needed. For now, we use a placeholder.
-        // This should be retrieved from the parent block's metadata.
-        let parent_gas_used_placeholder = 0;
 
         let vs_bytes = parent_view
             .get(VALIDATOR_SET_KEY)
@@ -385,24 +372,7 @@ where
                 parent_state_root: ioi_types::app::StateRoot(parent_ref.state_root.clone()),
                 state_root: ioi_types::app::StateRoot(vec![]),
                 transactions_root: vec![0; 32],
-                timestamp: {
-                    let parent_ts = last_committed_block_opt
-                        .as_ref()
-                        .map(|b| b.header.timestamp)
-                        .unwrap_or(0);
-                    let interval = match last_committed_block_opt.as_ref() {
-                        Some(pb) => compute_interval_from_parent_state(
-                            &timing_params,
-                            &timing_runtime,
-                            pb.header.height,
-                            parent_gas_used_placeholder,
-                        ),
-                        None => timing_params.base_interval_secs, // genesis
-                    };
-                    parent_ts
-                        .checked_add(interval)
-                        .ok_or_else(|| anyhow!("timestamp overflow"))?
-                },
+                timestamp: expected_timestamp_secs,
                 validator_set: header_validator_set,
                 producer_account_id: our_account_id,
                 producer_key_suite,

@@ -76,6 +76,67 @@ pub async fn submit_transaction_and_wait_block(
     Ok(())
 }
 
+/// Submits a transaction but does NOT wait for it to be included in a block.
+/// Returns the raw JSON-RPC response `Value`. This is useful for testing
+/// transactions that are expected to be rejected by the state machine, causing a chain halt.
+pub async fn submit_transaction_no_wait(
+    rpc_addr: &str,
+    tx: &ioi_types::app::ChainTransaction,
+) -> Result<serde_json::Value> {
+    // Directly use the canonical SCALE codec from ioi-types.
+    let tx_bytes = codec::to_bytes_canonical(tx).map_err(|e| anyhow!(e))?;
+    let tx_hex = hex::encode(tx_bytes);
+    // Use the new, dedicated endpoint for submitting transactions.
+    let url = format!("http://{}/rpc/submit", rpc_addr);
+    let client = Client::new();
+
+    // Use the canonical method name.
+    let method = "submit_tx";
+    let params = json!([tx_hex]);
+
+    let req = json!({ "jsonrpc":"2.0", "method": method, "params": params, "id": 1 });
+    let resp = client.post(&url).json(&req).send().await?;
+    let status = resp.status();
+    let text = resp.text().await?;
+
+    if !status.is_success() {
+        return Err(anyhow!(
+            "RPC submission failed with status {}: {}",
+            status,
+            text
+        ));
+    }
+
+    serde_json::from_str(&text).map_err(|e| anyhow!("Failed to parse JSON RPC response: {}", e))
+}
+
+/// The `submit_transaction` helper in `forge` needs to be updated to serialize the tx canonically.
+pub async fn submit_transaction(
+    rpc_addr: &str,
+    tx: &ioi_types::app::ChainTransaction,
+) -> Result<()> {
+    let initial_height = get_chain_height(rpc_addr).await.unwrap_or(0);
+
+    let v = submit_transaction_no_wait(rpc_addr, tx).await?;
+
+    if v.get("error").is_some() && !v["error"].is_null() {
+        return Err(anyhow!("RPC error: {}", v["error"]));
+    }
+
+    // Check for a successful result and then wait for the next block
+    if v.get("result").is_some() {
+        log::info!("submit_transaction: accepted -> {}", v);
+        // Wait for the next block to be produced to ensure the tx is processed.
+        super::poll::wait_for_height(rpc_addr, initial_height + 1, Duration::from_secs(20)).await?;
+        return Ok(());
+    }
+
+    Err(anyhow!(
+        "RPC submission was accepted but did not return a valid result: {}",
+        v
+    ))
+}
+
 /// Queries a raw key from the workload state via RPC.
 pub async fn query_state_key(rpc_addr: &str, key: &[u8]) -> Result<Option<Vec<u8>>> {
     let client = Client::new();
@@ -154,57 +215,6 @@ pub async fn query_state_key(rpc_addr: &str, key: &[u8]) -> Result<Option<Vec<u8
         }
     }
     Err(anyhow!("RPC state query timed out after retries"))
-}
-
-/// The `submit_transaction` helper in `forge` needs to be updated to serialize the tx canonically.
-pub async fn submit_transaction(
-    rpc_addr: &str,
-    tx: &ioi_types::app::ChainTransaction,
-) -> Result<()> {
-    let initial_height = get_chain_height(rpc_addr).await.unwrap_or(0);
-
-    // Directly use the canonical SCALE codec from ioi-types.
-    let tx_bytes = codec::to_bytes_canonical(tx).map_err(|e| anyhow!(e))?;
-    let tx_hex = hex::encode(tx_bytes);
-    // Use the new, dedicated endpoint for submitting transactions.
-    let url = format!("http://{}/rpc/submit", rpc_addr);
-    let client = Client::new();
-
-    // Use the canonical method name.
-    let method = "submit_tx";
-    let params = json!([tx_hex]);
-
-    let req = json!({ "jsonrpc":"2.0", "method": method, "params": params, "id": 1 });
-    let resp = client.post(&url).json(&req).send().await?;
-    let status = resp.status();
-    let text = resp.text().await?;
-
-    if !status.is_success() {
-        return Err(anyhow!(
-            "RPC submission failed with status {}: {}",
-            status,
-            text
-        ));
-    }
-
-    let v: serde_json::Value = serde_json::from_str(&text)?;
-
-    if v.get("error").is_some() && !v["error"].is_null() {
-        return Err(anyhow!("RPC error: {}", v["error"]));
-    }
-
-    // Check for a successful result and then wait for the next block
-    if v.get("result").is_some() {
-        log::info!("submit_transaction: {} accepted -> {}", method, text);
-        // Wait for the next block to be produced to ensure the tx is processed.
-        super::poll::wait_for_height(rpc_addr, initial_height + 1, Duration::from_secs(20)).await?;
-        return Ok(());
-    }
-
-    Err(anyhow!(
-        "RPC submission was accepted but did not return a valid result: {}",
-        text
-    ))
 }
 
 /// Gets the current chain height from the state.

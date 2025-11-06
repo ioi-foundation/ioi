@@ -1,8 +1,8 @@
 // Path: crates/validator/src/ante/service_call.rs
+use ioi_api::state::StateAccessor;
 use ioi_types::service_configs::{ActiveServiceMeta, MethodPermission};
 use ioi_types::{codec, error::TransactionError, keys::active_service_key};
-use ioi_api::state::StateAccessor;
-use tracing::{debug, warn};
+use tracing::debug;
 
 /// Ante precheck for CallService.
 /// Ensures ABI presence or applies the narrow ibc-deps fallback for ibc::msg_dispatch@v1.
