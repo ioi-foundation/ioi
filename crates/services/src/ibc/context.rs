@@ -1,6 +1,6 @@
 // Path: crates/services/src/ibc/context.rs
 #![forbid(unsafe_code)]
-//! IBC <-> DePIN SDK context adapter (ibc-rs v0.50+ compatible)
+//! IBC <-> IOI SDK context adapter (ibc-rs v0.50+ compatible)
 
 use core::fmt::Display;
 use std::collections::BTreeMap;

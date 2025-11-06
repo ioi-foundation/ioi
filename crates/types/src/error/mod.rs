@@ -1,5 +1,5 @@
 // Path: crates/types/src/error/mod.rs
-//! Core error types for the DePIN SDK.
+//! Core error types for the IOI SDK.
 
 use crate::app::AccountId;
 use thiserror::Error;

@@ -1,5 +1,5 @@
 // Path: crates/client/src/lib.rs
-//! # DePIN SDK Client Crate Lints
+//! # IOI SDK Client Crate Lints
 //!
 //! This crate enforces a strict set of lints to ensure high-quality,
 //! panic-free, and well-documented code. Panics are disallowed in non-test
@@ -16,7 +16,7 @@
     )
 )]
 
-//! # DePIN SDK Client
+//! # IOI SDK Client
 //!
 //! Provides client-side logic for interacting with validator containers via IPC.
 

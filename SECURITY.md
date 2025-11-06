@@ -8,7 +8,7 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in DePIN SDK, please follow these steps:
+If you discover a security vulnerability in IOI SDK, please follow these steps:
 
 1. **Do not disclose the vulnerability publicly**
 2. Email [security@example.com](mailto:security@example.com) with details about the vulnerability
@@ -19,7 +19,7 @@ If you discover a security vulnerability in DePIN SDK, please follow these steps
 
 ## Security Principles
 
-DePIN SDK follows these security principles:
+IOI SDK follows these security principles:
 
 1. **Defense in Depth**: Multiple layers of security controls
 2. **Least Privilege**: Components only have access to what they strictly need
@@ -30,7 +30,7 @@ DePIN SDK follows these security principles:
 
 ## Post-Quantum Security
 
-DePIN SDK provides post-quantum security through:
+IOI SDK provides post-quantum security through:
 
 - Kyber for key encapsulation
 - Dilithium, Falcon, and SPHINCS+ for signatures

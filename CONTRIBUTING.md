@@ -1,6 +1,6 @@
-# Contributing to DePIN SDK
+# Contributing to IOI SDK
 
-Thank you for considering contributing to DePIN SDK! This document outlines the process for contributing to the project.
+Thank you for considering contributing to IOI SDK! This document outlines the process for contributing to the project.
 
 ## Development Environment
 
@@ -65,4 +65,4 @@ Follow the [Conventional Commits](https://www.conventionalcommits.org/) specific
 
 ## License
 
-By contributing to DePIN SDK, you agree that your contributions will be licensed under both the MIT and Apache 2.0 licenses.
+By contributing to IOI SDK, you agree that your contributions will be licensed under both the MIT and Apache 2.0 licenses.

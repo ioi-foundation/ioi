@@ -3,7 +3,7 @@
 name = "ioi-tx"
 version = "0.1.0"
 edition = "2021"
-description = "Transaction model implementations for the DePIN SDK"
+description = "Transaction model implementations for the IOI SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]

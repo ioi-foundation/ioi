@@ -3,7 +3,7 @@
 name = "ioi-types"
 version = "0.1.0"
 edition = "2021"
-description = "Core data structures and error types for the DePIN SDK"
+description = "Core data structures and error types for the IOI SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]

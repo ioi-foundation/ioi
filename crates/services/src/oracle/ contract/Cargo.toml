@@ -3,7 +3,7 @@
 name = "oracle-service-contract"
 version = "0.1.0"
 edition = "2021"
-description = "On-chain WASM component for the DePIN SDK Oracle service"
+description = "On-chain WASM component for the IOI SDK Oracle service"
 license = "MIT OR Apache-2.0"
 
 [lib]

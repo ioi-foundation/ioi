@@ -1,4 +1,4 @@
-name: DePIN SDK CI
+name: IOI SDK CI
 
 on:
   push:

@@ -11,14 +11,14 @@
     )
 )]
 
-//! # DePIN SDK Forge CLI
+//! # IOI SDK Forge CLI
 //!
 //! This is the command-line interface for `forge`, the primary developer
-//! tool for building, testing, and deploying on the DePIN SDK.
+//! tool for building, testing, and deploying on the IOI SDK.
 use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
-#[clap(name = "forge", version, about = "A development toolkit for the DePIN SDK.", long_about = None)]
+#[clap(name = "forge", version, about = "A development toolkit for the IOI SDK.", long_about = None)]
 struct ForgeCli {
     #[clap(subcommand)]
     command: Commands,

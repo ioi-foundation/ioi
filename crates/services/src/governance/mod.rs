@@ -1,5 +1,5 @@
 // Path: crates/services/src/governance/mod.rs
-//! Governance module implementations for the DePIN SDK
+//! Governance module implementations for the IOI SDK
 
 use async_trait::async_trait;
 use ioi_types::app::{

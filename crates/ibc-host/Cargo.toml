@@ -3,7 +3,7 @@
 name = "ibc-host"
 version = "0.1.0"
 edition = "2021"
-description = "Transport-agnostic, byte-oriented IBC host trait for the DePIN SDK"
+description = "Transport-agnostic, byte-oriented IBC host trait for the IOI SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]

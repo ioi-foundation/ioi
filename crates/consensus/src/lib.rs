@@ -10,7 +10,7 @@
         clippy::indexing_slicing
     )
 )]
-//! Consensus module implementations for the DePIN SDK
+//! Consensus module implementations for the IOI SDK
 
 #[cfg(feature = "round-robin")]
 pub mod round_robin;

@@ -1,5 +1,5 @@
 // Path: crates/chain/src/lib.rs
-//! # DePIN SDK Chain Crate Lints
+//! # IOI SDK Chain Crate Lints
 //!
 //! This crate enforces a strict set of lints to ensure high-quality,
 //! panic-free, and well-documented code. Panics are disallowed in non-test
@@ -15,7 +15,7 @@
         clippy::indexing_slicing
     )
 )]
-//! # DePIN SDK Chain
+//! # IOI SDK Chain
 //!
 //! This crate provides the implementation logic for the `AppChain` state machine.
 

@@ -11,9 +11,9 @@
     )
 )]
 
-//! # DePIN SDK Telemetry
+//! # IOI SDK Telemetry
 //!
-//! This crate provides the observability infrastructure for the DePIN SDK,
+//! This crate provides the observability infrastructure for the IOI SDK,
 //! including structured logging initialization, a Prometheus metrics endpoint,
 //! and abstract sinks for decoupling metric instrumentation from the backend.
 

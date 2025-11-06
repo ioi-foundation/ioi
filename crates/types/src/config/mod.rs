@@ -1,6 +1,6 @@
 // Path: crates/types/src/config/mod.rs
 
-//! Shared configuration structures for core DePIN SDK components.
+//! Shared configuration structures for core IOI SDK components.
 use crate::app::ChainId;
 use crate::service_configs::{GovernanceParams, MigrationConfig};
 use serde::{Deserialize, Serialize};

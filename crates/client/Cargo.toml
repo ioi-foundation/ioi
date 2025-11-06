@@ -4,7 +4,7 @@ name = "ioi-client"
 version = "0.1.0"
 rust-version = "1.78"
 edition = "2021"
-description = "IPC Client for DePIN SDK validator containers"
+description = "IPC Client for IOI SDK validator containers"
 license = "MIT OR Apache-2.0"
 
 [dependencies]

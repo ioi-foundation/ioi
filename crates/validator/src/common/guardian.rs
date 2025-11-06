@@ -49,7 +49,7 @@ pub fn generate_certificates_if_needed(certs_dir: &Path) -> Result<()> {
     );
     std::fs::create_dir_all(certs_dir)?;
 
-    let mut ca_params = CertificateParams::new(vec!["DePIN SDK Local CA".to_string()]);
+    let mut ca_params = CertificateParams::new(vec!["IOI SDK Local CA".to_string()]);
     ca_params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
     ca_params.key_usages = vec![KeyUsagePurpose::KeyCertSign, KeyUsagePurpose::CrlSign];
     let ca_cert = Certificate::from_params(ca_params)?;

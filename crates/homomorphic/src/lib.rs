@@ -1,5 +1,5 @@
 // Path: crates/homomorphic/src/lib.rs
-//! # DePIN SDK Homomorphic Crate Lints
+//! # IOI SDK Homomorphic Crate Lints
 //!
 //! This crate enforces a strict set of lints to ensure high-quality,
 //! panic-free, and well-documented code. Panics are disallowed in non-test
@@ -16,9 +16,9 @@
     )
 )]
 
-//! # DePIN SDK Homomorphic Operations
+//! # IOI SDK Homomorphic Operations
 //!
-//! Implementation of homomorphic operations on commitments for the DePIN SDK.
+//! Implementation of homomorphic operations on commitments for the IOI SDK.
 
 pub mod computation;
 pub mod error;

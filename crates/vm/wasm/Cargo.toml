@@ -3,7 +3,7 @@
 name = "ioi-vm-wasm"
 version = "0.1.0"
 edition = "2021"
-description = "Wasmtime-based VM for the DePIN SDK"
+description = "Wasmtime-based VM for the IOI SDK"
 license = "MIT OR Apache-2.0"
 
 [dependencies]

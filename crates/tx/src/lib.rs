@@ -1,5 +1,5 @@
 // Path: crates/transaction_models/src/lib.rs
-//! # DePIN SDK Transaction Models Crate Lints
+//! # IOI SDK Transaction Models Crate Lints
 //!
 //! This crate enforces a strict set of lints to ensure high-quality,
 //! panic-free, and well-documented code. Panics are disallowed in non-test

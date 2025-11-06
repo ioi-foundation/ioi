@@ -1,5 +1,5 @@
 # deny.toml - Configuration for cargo-deny
-# This file enforces security and dependency hygiene policies for the DePIN SDK.
+# This file enforces security and dependency hygiene policies for the IOI SDK.
 # To check for violations, run `cargo deny check` in the workspace root.
 
 # Check for security vulnerabilities in all dependencies.
