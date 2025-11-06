@@ -1,0 +1,115 @@
+Bootstrap Business Source License 1.1
+
+Licensor: IOI Foundation
+Licensed Work: The IOI Blockchain Framework (the “IOI SDK”) as defined in this repository.
+Change Date: November 6, 2029
+Change License: Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
+
+--------------------------------------------------------------------------------
+1. License Grant
+--------------------------------------------------------------------------------
+Under this Business Source License (the “License”), the Licensor hereby grants you a
+worldwide, non-exclusive, non-transferable, royalty-free, and revocable license to use,
+copy, modify, create derivative works of, publicly perform, publicly display, and
+distribute the Licensed Work, subject to the terms and conditions set forth herein.
+
+You may use the Licensed Work in any field of endeavor, provided that your use does
+not violate the Use Limitation described in Section 2 below.
+
+--------------------------------------------------------------------------------
+2. Use Limitation
+--------------------------------------------------------------------------------
+You may not use the Licensed Work, in whole or in part, to create, market, or
+distribute a **blockchain development framework, software development kit (SDK),
+or similar product** whose primary purpose is to enable third parties to build,
+deploy, or operate independent blockchain networks or validator frameworks that
+compete with the IOI SDK.
+
+For the avoidance of doubt, **the following activities are NOT restricted** by this
+Use Limitation:
+
+  a. Building, deploying, and operating **sovereign Layer-1 or Layer-2 blockchains**
+     that utilize the IOI SDK or its components.
+
+  b. Creating **application-specific blockchains**, **AI or agentic networks**, **DePIN
+     platforms**, **data or oracle networks**, or **research testnets**.
+
+  c. Developing and deploying **smart contracts**, **services**, **modules**, or
+     **extensions** on top of IOI-based chains.
+
+  d. Providing **consulting, hosting, validation, or support services** related to
+     the Licensed Work.
+
+  e. Maintaining **private or internal forks** of the Licensed Work for testing,
+     audit, or experimental purposes.
+
+The intention of this Use Limitation is solely to prevent direct competitors from
+replicating and redistributing the IOI SDK or its core framework components as a
+substitute product.
+
+--------------------------------------------------------------------------------
+3. Change Date and Automatic License Conversion
+--------------------------------------------------------------------------------
+On the Change Date specified above, the Use Limitation in Section 2 shall expire,
+and this License shall automatically convert to the Change License (Apache License,
+Version 2.0). From that date forward, the Licensed Work shall be governed exclusively
+by the Change License.
+
+--------------------------------------------------------------------------------
+4. Contributions
+--------------------------------------------------------------------------------
+Any contributions to the Licensed Work are accepted under the same License terms
+and will become part of the Licensed Work, governed by this License and its eventual
+conversion to the Change License on the Change Date.
+
+--------------------------------------------------------------------------------
+5. Trademarks
+--------------------------------------------------------------------------------
+This License does not grant you any rights to use the Licensor’s trademarks,
+service marks, or logos, including the names “IOI,” “IOI Network,” or “IOI SDK,”
+except as required for reasonable and customary use in describing the origin of
+the Licensed Work and reproducing the content of notices.
+
+--------------------------------------------------------------------------------
+6. Disclaimer of Warranty
+--------------------------------------------------------------------------------
+THE LICENSED WORK IS PROVIDED “AS IS,” WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT. IN NO EVENT SHALL THE
+LICENSOR OR ANY CONTRIBUTORS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN
+CONNECTION WITH THE LICENSED WORK OR THE USE OR OTHER DEALINGS IN THE LICENSED WORK.
+
+--------------------------------------------------------------------------------
+7. Limitation of Liability
+--------------------------------------------------------------------------------
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL THE LICENSOR OR ITS
+AFFILIATES BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES, INCLUDING BUT NOT LIMITED TO LOSS OF PROFITS, GOODWILL,
+USE, DATA, OR OTHER INTANGIBLE LOSSES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+DAMAGES.
+
+--------------------------------------------------------------------------------
+8. Termination
+--------------------------------------------------------------------------------
+If you violate any term or condition of this License, your rights under this License
+will automatically terminate without notice from the Licensor. Upon termination,
+you must immediately cease use of the Licensed Work and destroy all copies in your
+possession or control.
+
+--------------------------------------------------------------------------------
+9. Governing Law
+--------------------------------------------------------------------------------
+This License shall be governed by and construed in accordance with the laws of the
+State of Delaware, United States of America, without regard to its conflict of laws
+principles.
+
+--------------------------------------------------------------------------------
+10. Change License Text
+--------------------------------------------------------------------------------
+The following text from the Apache License 2.0 is incorporated by reference and
+will automatically apply to the Licensed Work on the Change Date.
+
+--------------------------------------------------------------------------------
+END OF TERMS
+--------------------------------------------------------------------------------

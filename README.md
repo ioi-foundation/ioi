@@ -375,10 +375,33 @@ We welcome community contributions! 🎉
 
 ## License
 
-This project is dual-licensed under:
+The IOI SDK is released under a **hybrid open-source model** designed to balance transparency, community adoption, and protection against direct framework cloning.
 
-- **Apache License 2.0** ([LICENSE-APACHE](./LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-- **MIT License** ([LICENSE-MIT](./LICENSE-MIT) or http://opensource.org/licenses/MIT)
+### 🧩 Licensing Overview
+
+| Layer                                         | Scope                                                                        | License                                                                                     |
+| --------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| **Core Cryptography & Primitives**            | Foundational crates (`crypto`, `commitment`, `homomorphic`, `types`)         | **Apache License 2.0** — fully open source and freely reusable.                             |
+| **Framework & Validator Orchestration Layer** | Core SDK crates (`api`, `chain`, `validator`, `node`, `network`, `services`) | **IOI Business Source License 1.1 (BBSL)** — source-available with limited use restriction. |
+| **Developer & Testing Tools**                 | Tooling crates (`forge`, `contract`)                                         | **Apache License 2.0** — open for integration, testing, and research.                       |
+
+### ⚖️ Summary of Terms
+
+* The **BBSL** grants broad rights to use, modify, and deploy the IOI SDK for any purpose, **including**:
+
+  * Building and launching **sovereign Layer-1 or Layer-2 blockchains**.
+  * Developing **agentic**, **DePIN**, **AI**, or **application-specific** chains.
+  * Running validators, governance systems, or distributed AI networks.
+* The **only restriction** is that the IOI SDK **may not be used to create or distribute a competing blockchain development framework or SDK** whose primary purpose is to enable third parties to build blockchains or validator frameworks in direct competition with IOI.
+* All restrictions automatically terminate, and the license converts to **Apache 2.0**, on **November 6, 2029**.
+* All cryptographic and protocol crates are **already Apache 2.0 today** and can be freely reused or audited.
+
+### 🔐 Legal Text
+
+* **Business Source License:** [`LICENSE-BBSL`](./LICENSE-BBSL)
+* **Apache 2.0 License:** [`LICENSE-APACHE`](http://www.apache.org/licenses/LICENSE-2.0)
+* © 2025 IOI Foundation. All rights reserved.
+
 
 ---
 
