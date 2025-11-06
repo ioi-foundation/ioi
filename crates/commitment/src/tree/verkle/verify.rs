@@ -3,6 +3,7 @@ use super::proof::{
     map_child_commitment_to_value, map_leaf_payload_to_value, SchemeId, Terminal, VerklePathProof,
 };
 use depin_sdk_api::commitment::{CommitmentScheme, ProofContext, Selector};
+use parity_scale_codec::Decode;
 
 /// Verifies a serialized Verkle path proof against a root commitment.
 pub fn verify_path_with_scheme<CS: CommitmentScheme>(
@@ -17,7 +18,7 @@ where
     CS::Proof: From<Vec<u8>>,
     CS::Value: From<Vec<u8>>,
 {
-    let proof: VerklePathProof = match bincode::deserialize(proof_bytes) {
+    let proof: VerklePathProof = match VerklePathProof::decode(&mut &*proof_bytes) {
         Ok(p) => p,
         Err(_) => return false,
     };

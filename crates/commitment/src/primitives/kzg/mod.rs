@@ -30,7 +30,7 @@ const KZG_DST_VALUE_TO_SCALAR: &[u8] = b"DEP-SDK-KZG-VALUE-TO-SCALAR-V1";
 const KZG_DST_KEY_TO_SCALAR: &[u8] = b"DEP-SDK-KZG-KEY-TO-SCALAR-V1";
 
 /// Opaque witness that lets you produce proofs later without re-supplying the entire input.
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Encode, Decode, Debug)]
 pub struct KZGWitness {
     /// Coefficients of P(X) in little-endian field byte representation.
     pub coeffs: Vec<[u8; 32]>,

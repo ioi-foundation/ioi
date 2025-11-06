@@ -55,35 +55,35 @@ The DePIN SDK follows an SDK-first methodology. Core components are provided as 
 
 ## Current Status
 
-> ⚠️ **Important**: The project is currently in rapid prototyping phase. The `main` branch contains a functional implementation of the polymorphic framework.
+> ⚠️ **Important**: The project is in an active development phase. The `main` branch contains a functional, end-to-end implementation of the polymorphic framework.
 >
 > **The software is not yet mainnet-ready.**
 
-### Implementation Status: Phase 4 - Polymorphic Framework & Core Logic
+### Implementation Status: Phase 4 - Foundational Implementation
 
 | Component | Status | Description |
 |-----------|--------|-------------|
-| ✅ Polymorphic Consensus | Complete | `orchestration` binary dynamically loads consensus engines (PoA, PoS) |
-| ✅ Polymorphic State Management | Complete | `workload` binary acts as factory for state trees and commitment schemes |
-| ✅ Feature-Gated Components | Complete | Compile-time features produce lean, specialized binaries |
-| ✅ Dynamic Test Harness | Complete | `forge` crate builds clusters with different architectures |
-| ✅ Comprehensive E2E Validation | Complete | Core polymorphic capabilities validated by concurrent chain tests |
+| ✅ Polymorphic Consensus | Complete | `orchestration` binary correctly dispatches to PoA and PoS engines based on config. |
+| ✅ Polymorphic State | Complete | `workload` binary acts as a factory for state trees (IAVL, SMT, Verkle) and commitment schemes. |
+| ✅ IPC-Based Validator | Complete | The triple-container model communicates securely via mTLS + PQC KEM. |
+| ✅ Modular Services | Complete | Core services (Identity, Governance, Oracle) are functional and upgradable via on-chain governance. |
+| ✅ E2E Test Harness | Complete | `forge` crate successfully builds and validates multi-node clusters with diverse configurations. |
 
-**Next Phase**: Hardening foundation, refining transaction lifecycle, implementing advanced features.
+**Next Phase**: Mainnet hardening, performance optimization, and expanding the service ecosystem.
 
 ## Quick Start
 
 ### Prerequisites
 
 - **Rust**: Latest stable version via `rustup`
-- **Build Tools**: C compiler (GCC or Clang)
+- **Build Tools**: C compiler (GCC or Clang), `protobuf-compiler`, `pkg-config`, `libssl-dev`
 
 ### Build Example
 
 ```bash
-# Build with PoA consensus and IAVL state tree
+# Build with PoS consensus, IAVL state tree, and IBC support
 cargo build -p depin-sdk-node --release --no-default-features \
-    --features "validator-bins,consensus-poa,vm-wasm,tree-iavl,primitive-hash"
+    --features "validator-bins,consensus-pos,vm-wasm,tree-iavl,primitive-hash,ibc-deps"
 ```
 
 Compiled binaries (`orchestration`, `workload`) will be in `target/release/`.
@@ -92,73 +92,72 @@ Compiled binaries (`orchestration`, `workload`) will be in `target/release/`.
 
 > 💡 **Recommended**: Use the automated E2E suite in the `forge` crate for testing. Manual setup is for experimentation.
 
+### Step 0: Generate Certificates
+
+Validator containers communicate over secure mTLS channels. Generate the necessary certificates first.
+
+```bash
+# This command will create a `certs` directory in your current location
+CERTS_DIR=./certs ./target/release/guardian --config-dir . --agentic-model-path /dev/null
+# You only need to run it once. Ignore the output after the certs are created.
+# Press Ctrl+C to exit.
+```
+
 ### Step 1: Create Configuration Files
 
-Create these files in your project root:
+Create these files in your project root. This example sets up a single Proof-of-Authority validator.
 
-**`genesis.json`** (Replace with actual authority PeerIDs):
+**`genesis.json`** (For a single validator)
 ```json
 {
   "genesis_state": {
-    "system::authorities": [
-      [2, ...],
-      [2, ...]
-    ]
+    "b64:aWRlbnRpdHk6OmNyZWRzOjpiNjg5M2FhN2FhMWU3Y2EzYjZkZTllZTA2ODU4MDQ0MzI1N2ZmMzU0YmMzYjJmMWU2NDFhNzFhMjY2Yzk5MjZl": "b64:BQAAAAABAAACAAAG0qO5kS06i2hJ+m/gU5Jc8yR+i+Z8jVlT1uC169LJAQAAAAAAAAAA",
+    "b64:aWRlbnRpdHk6OmtleV9yZWNvcmQ6OmI2ODkzYWE3YWExZTdjYTNiNmRlOWVlMDY4NTgwNDQzMjU3ZmYzNTRiYzNiMmYxZTY0MWE3MWEyNjZjOTkyNmU=": "b64:AAAG0qO5kS06i2hJ+m/gU5Jc8yR+i+Z8jVlT1uC169LJAQAAAAAAAAA=",
+    "b64:aWRlbnRpdHk6OnB1YmtleTo6YjY4OTNhYTdhYTFlN2NhM2I2ZGU5ZWUwNjg1ODA0NDMyNTdmZjM1NGJjM2IyZjFlNjQxYTcxYTI2NmM5OTI2ZQ==": "b64:CAESIMf0pY2q39pGzRkQDIaVoh2Bztx3C9zFjYqP/sS9xZ5X",
+    "system::validators::current": "b64:AgQAAAAAAAABAAAAAAAAAAEAAAAAABiNqO5kS06i2hJ+m/gU5Jc8yR+i+Z8jVlT1uC169LJAQAAAAAAAACAAACAAAYjajqZUtOotoSfpv4FOSXPMkforifI1ZU9bgtevSyQEAAAAAAAAAA"
   }
 }
 ```
 
 **`workload.toml`**:
 ```toml
-enabled_vms = ["WASM"]
+runtimes = ["WASM"]
 state_tree = "IAVL"
 commitment_scheme = "Hash"
 consensus_type = "ProofOfAuthority"
 genesis_file = "genesis.json"
-state_file = "state.json"
+state_file = "state.db"
+epoch_size = 100
 ```
 
 **`orchestration.toml`**:
 ```toml
+chain_id = 1
 consensus_type = "ProofOfAuthority"
 rpc_listen_address = "127.0.0.1:9944"
 initial_sync_timeout_secs = 5
 ```
 
-### Step 2: Launch Two-Node Network
+### Step 2: Launch a Single Node
 
-You'll need **4 terminals** for a two-node network:
+You'll need **2 terminals** for a single-node network:
 
-#### Node 1
-**Terminal 1 (Workload 1):**
+**Terminal 1 (Workload):**
 ```bash
-WORKLOAD_IPC_ADDR=127.0.0.1:8555 ./target/release/workload --config ./workload.toml
+CERTS_DIR=./certs IPC_SERVER_ADDR=127.0.0.1:8555 \
+./target/release/workload --config ./workload.toml
 ```
 
-**Terminal 2 (Orchestration 1):**
+**Terminal 2 (Orchestration):**
 ```bash
-WORKLOAD_IPC_ADDR=127.0.0.1:8555 ./target/release/orchestration \
+# This command generates `node1.key` on first run.
+CERTS_DIR=./certs WORKLOAD_IPC_ADDR=127.0.0.1:8555 \
+./target/release/orchestration \
     --config ./orchestration.toml \
     --identity-key-file ./node1.key \
-    --listen-address /ip4/127.0.0.1/tcp/0
+    --listen-address /ip4/127.0.0.1/tcp/9000
 ```
-> 📝 Note the listening address it prints (e.g., `/ip4/127.0.0.1/tcp/51234`)
-
-#### Node 2
-**Terminal 3 (Workload 2):**
-```bash
-WORKLOAD_IPC_ADDR=127.0.0.1:8556 ./target/release/workload --config ./workload.toml
-```
-
-**Terminal 4 (Orchestration 2):**
-```bash
-# Replace bootnode address with output from Terminal 2
-WORKLOAD_IPC_ADDR=127.0.0.1:8556 ./target/release/orchestration \
-    --config ./orchestration.toml \
-    --identity-key-file ./node2.key \
-    --listen-address /ip4/0.0.0.0/tcp/0 \
-    --bootnode /ip4/127.0.0.1/tcp/51234
-```
+> 📝 For a multi-node setup, adjust ports and use the `--bootnode` flag as shown in the E2E tests.
 
 ## Development & Testing
 
@@ -176,9 +175,9 @@ cargo test --workspace
 
 ### 3. End-to-End Test Suite
 
-> 🔧 **Key Change**: You must specify features via `--features` flag. The harness automatically builds required artifacts.
+> 🔧 **Key Change**: You must specify features via the `--features` flag. The test harness automatically builds the required node binaries with those features.
 
-#### Individual E2E Tests
+#### Core E2E Tests
 
 | Test | Command |
 |------|---------|
@@ -190,16 +189,6 @@ cargo test --workspace
 | **Service Architecture** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" --test service_architecture_e2e -- --nocapture` |
 | **Agentic Consensus** | `cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash" --test agentic_consensus_e2e -- --nocapture --test-threads=1` |
 | **Oracle** | `cargo test -p depin-sdk-forge --release --features "consensus-pos,vm-wasm,tree-iavl,primitive-hash" --test oracle_e2e -- --nocapture` |
-| **Interoperability** | `RUST_LOG=build=info,ante=debug,mempool=debug,service_dispatch=debug,ibc=debug,state=info,chain=info \
-cargo test -p depin-sdk-forge --release \
-  --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash,ibc-deps" \
-  --test ibc_e2e -- --nocapture` |
-
-cargo test -p depin-sdk-forge --test proof_verification_e2e --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash,malicious-bin" -- --nocapture
-
-cargo test --package depin-sdk-forge --test sync_e2e --features "consensus-poa,vm-wasm,tree-iavl" -- --nocapture --test-threads=1
-
-cargo test --package depin-sdk-forge --test infra_e2e --features "consensus-poa,vm-wasm,tree-iavl" -- --nocapture --test-threads=1
 
 #### Penalty Mechanism Tests
 
@@ -215,6 +204,17 @@ cargo test --package depin-sdk-forge --test infra_e2e --features "consensus-poa,
 | **IAVL Tree** | `cargo test -p depin-sdk-forge --test state_iavl_e2e --no-default-features -F "consensus-poa,vm-wasm,tree-iavl,primitive-hash" -- --nocapture` |
 | **Sparse Merkle** | `cargo test -p depin-sdk-forge --test state_sparse_merkle_e2e --no-default-features -F "consensus-poa,vm-wasm,tree-sparse-merkle,primitive-hash" -- --nocapture` |
 | **Verkle Tree** | `cargo test -p depin-sdk-forge --test state_verkle_e2e --no-default-features -F "consensus-poa,vm-wasm,tree-verkle,primitive-kzg" -- --nocapture` |
+
+#### Specialized & Infrastructure Tests
+
+| Test | Command |
+|------|---------|
+| **IBC Gateway Metrics** | `GATEWAY_CHAIN_ID=localnet-1 cargo run -p depin-sdk-node && curl -s localhost:9100/metrics | grep depin_sdk_ibc_gateway_` |
+| **Update IBC Golden Files** | `UPDATE_GOLDENS=1 cargo test -p depin-sdk-forge --release --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash,ibc-deps" --test ibc_golden_e2e -- --nocapture` |
+| **IBC Relayer E2E** | ```bash RUST_LOG=trace RUST_BACKTRACE=1 cargo test -p depin-sdk-forge --release \ --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash,ibc-deps" \ --test ibc_relayer_e2e -- --nocapture 2>&1 \| tee /tmp/e2e.log ``` |
+| **Proof Verification** | `cargo test -p depin-sdk-forge --test proof_verification_e2e --features "consensus-poa,vm-wasm,tree-iavl,primitive-hash,malicious-bin" -- --nocapture` |
+| **Network Sync** | `cargo test --package depin-sdk-forge --test sync_e2e --features "consensus-poa,vm-wasm,tree-iavl" -- --nocapture --test-threads=1` |
+| **Infrastructure (Metrics)** | `cargo test --package depin-sdk-forge --test infra_e2e --features "consensus-poa,vm-wasm,tree-iavl" -- --nocapture --test-threads=1` |
 
 ### Docker Testing
 
@@ -347,16 +347,16 @@ crates/
 
 ## Roadmap
 
-### ✅ Phase 4: Polymorphic Framework & Core Logic
-*Complete* - Established polymorphic architecture and validation
+### ✅ Phase 4: Foundational Implementation
+*Complete* - Established polymorphic architecture, IPC-based validator model, and comprehensive E2E validation with the `forge` crate.
 
 ### ➡️ Phase 5: Mainnet Hardening & Advanced Features
 *In Progress*
-- Robust mempool and transaction validation
-- State proof logic implementation
-- Post-Quantum Cryptography migration path
-- Identity Hub development
-- Hybrid Validator model and tiered economics
+- Robust mempool and transaction validation.
+- State proof logic implementation and verification.
+- Post-Quantum Cryptography migration path demonstrated.
+- Identity Hub and on-chain Governance services implemented.
+- Hybrid Validator model and tiered economics.
 
 ### ▶️ Phase 6: Ecosystem Expansion & Evolution
 *Planned*

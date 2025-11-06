@@ -76,6 +76,12 @@ pub const EVIDENCE_REGISTRY_KEY: &[u8] = b"system::penalties::evidence";
 /// barred from consensus participation.
 pub const QUARANTINED_VALIDATORS_KEY: &[u8] = b"system::penalties::quarantined_poa";
 
+// --- Block Timing Keys ---
+/// State key for the governance-controlled BlockTimingParams.
+pub const BLOCK_TIMING_PARAMS_KEY: &[u8] = b"system::timing::params";
+/// State key for the dynamically updated BlockTimingRuntime.
+pub const BLOCK_TIMING_RUNTIME_KEY: &[u8] = b"system::timing::runtime";
+
 // --- Identity Hub Keys ---
 /// State key prefix for an account's credentials array.
 pub const IDENTITY_CREDENTIALS_PREFIX: &[u8] = b"identity::creds::";

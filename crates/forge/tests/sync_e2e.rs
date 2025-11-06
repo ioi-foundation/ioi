@@ -9,16 +9,16 @@ use depin_sdk_forge::testing::{
 };
 use depin_sdk_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
-        Credential, Proposal, ProposalStatus, ProposalType, SignHeader, SignatureProof,
-        SignatureSuite, StateEntry, SystemPayload, SystemTransaction, ValidatorSetV1,
-        ValidatorSetsV1, ValidatorV1, VoteOption,
+        account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
+        BlockTimingRuntime, ChainId, ChainTransaction, Credential, Proposal, ProposalStatus,
+        ProposalType, SignHeader, SignatureProof, SignatureSuite, StateEntry, SystemPayload,
+        SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1, VoteOption,
     },
     codec,
     config::InitialServiceConfig,
     keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, GOVERNANCE_PROPOSAL_KEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX,
-        VALIDATOR_SET_KEY,
+        ACCOUNT_ID_TO_PUBKEY_PREFIX, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY,
+        GOVERNANCE_PROPOSAL_KEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
     },
     service_configs::MigrationConfig,
 };
@@ -187,6 +187,37 @@ async fn test_multi_batch_sync() -> Result<()> {
             json!(format!("b64:{}", BASE64_STANDARD.encode(&entry_bytes))),
         );
 
+        // *** FIX START: Add mandatory block timing parameters to genesis ***
+        let timing_params = BlockTimingParams {
+            base_interval_secs: 5,
+            retarget_every_blocks: 0, // Disable adaptive timing for simplicity.
+            ..Default::default()
+        };
+        let timing_runtime = BlockTimingRuntime {
+            effective_interval_secs: timing_params.base_interval_secs,
+            ..Default::default()
+        };
+
+        genesis_entries.insert(
+            std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
+                .unwrap()
+                .to_string(),
+            json!(format!(
+                "b64:{}",
+                BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
+            )),
+        );
+        genesis_entries.insert(
+            std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
+                .unwrap()
+                .to_string(),
+            json!(format!(
+                "b64:{}",
+                BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
+            )),
+        );
+        // *** FIX END ***
+
         // Apply sorted entries to the final JSON object
         let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
         for (k, v) in genesis_entries {
@@ -293,6 +324,37 @@ async fn test_sync_with_peer_drop() -> Result<()> {
             format!("b64:{}", BASE64_STANDARD.encode(proposal_key_bytes)),
             json!(format!("b64:{}", BASE64_STANDARD.encode(&entry_bytes))),
         );
+
+        // *** FIX START: Add mandatory block timing parameters to genesis ***
+        let timing_params = BlockTimingParams {
+            base_interval_secs: 5,
+            retarget_every_blocks: 0, // Disable adaptive timing for simplicity.
+            ..Default::default()
+        };
+        let timing_runtime = BlockTimingRuntime {
+            effective_interval_secs: timing_params.base_interval_secs,
+            ..Default::default()
+        };
+
+        genesis_entries.insert(
+            std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
+                .unwrap()
+                .to_string(),
+            json!(format!(
+                "b64:{}",
+                BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
+            )),
+        );
+        genesis_entries.insert(
+            std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
+                .unwrap()
+                .to_string(),
+            json!(format!(
+                "b64:{}",
+                BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
+            )),
+        );
+        // *** FIX END ***
 
         // Atomically insert all sorted entries into the final JSON object
         let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();

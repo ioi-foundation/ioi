@@ -1,9 +1,10 @@
 // Path: crates/commitment/src/tree/sparse_merkle/tests.rs
 
-use super::{Node, SparseMerkleProof, SparseMerkleTree, to_root_hash};
+use super::{Node, SparseMerkleProof, SparseMerkleTree};
 use crate::primitives::hash::HashCommitmentScheme;
 use depin_sdk_api::state::{StateCommitment, StateManager};
 use depin_sdk_types::app::Membership;
+use parity_scale_codec::Decode;
 use proptest::prelude::*;
 
 #[test]
@@ -29,8 +30,8 @@ fn test_smt_presence_and_absence_proofs() {
         depin_sdk_types::app::Membership::Present(b"value1".to_vec())
     );
 
-    let proof_present_inner: SparseMerkleProof =
-        serde_json::from_slice(proof_present_outer.as_ref()).unwrap();
+    let proof_present_inner =
+        SparseMerkleProof::decode(&mut proof_present_outer.as_ref()).unwrap();
     assert!(
         SparseMerkleTree::<HashCommitmentScheme>::verify_proof_static(
             root.as_ref(),
@@ -48,8 +49,7 @@ fn test_smt_presence_and_absence_proofs() {
 
     assert_eq!(membership_absent, depin_sdk_types::app::Membership::Absent);
 
-    let proof_absent_inner: SparseMerkleProof =
-        serde_json::from_slice(proof_absent_outer.as_ref()).unwrap();
+    let proof_absent_inner = SparseMerkleProof::decode(&mut proof_absent_outer.as_ref()).unwrap();
 
     // --- FIX START ---
     // More robust assertions:
@@ -78,8 +78,7 @@ fn test_smt_presence_and_absence_proofs() {
         .get_with_proof_at(&root, b"\xBB\x00")
         .expect("Should generate empty proof");
     assert_eq!(membership_empty, depin_sdk_types::app::Membership::Absent);
-    let proof_empty_inner: SparseMerkleProof =
-        serde_json::from_slice(proof_empty_outer.as_ref()).unwrap();
+    let proof_empty_inner = SparseMerkleProof::decode(&mut proof_empty_outer.as_ref()).unwrap();
     assert!(proof_empty_inner.leaf.is_none());
     assert!(
         SparseMerkleTree::<HashCommitmentScheme>::verify_proof_static(
@@ -133,7 +132,7 @@ proptest! {
 
         // Assert: The proof must be valid for an absent key.
         prop_assert_eq!(membership, Membership::Absent, "Membership for constructed key should be Absent");
-        let proof_inner: SparseMerkleProof = serde_json::from_slice(proof_outer.as_ref()).unwrap();
+        let proof_inner = SparseMerkleProof::decode(&mut proof_outer.as_ref()).unwrap();
 
         // The core assertion: the generated proof must be verifiable.
         prop_assert!(

@@ -1,0 +1,38 @@
+# Path: crates/relayer/Cargo.toml
+[package]
+name = "depin-sdk-relayer"
+version = "0.1.0"
+edition = "2021"
+description = "A native IBC relayer implementation for the DePIN SDK test suite"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+depin-sdk-types = { path = "../types" }
+anyhow = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+reqwest = { workspace = true, features = ["json"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+base64 = { workspace = true }
+hex = { workspace = true }
+tracing = { workspace = true }
+
+# IBC Dependencies
+ibc-proto = { workspace = true }
+ibc-core-host-types = { workspace = true, features = ["std"] }
+ibc-core-client-types = { workspace = true, features = ["std"] }
+ibc-core-commitment-types = { workspace = true, features = ["std"] }
+prost = { workspace = true }
+
+# Added for proof processing and header creation
+ics23 = "0.11"
+ibc-client-tendermint = { workspace = true }
+tendermint = { workspace = true }
+tendermint-proto = { workspace = true }
+tendermint-testgen = { workspace = true }
+dcrypt = { workspace = true }
+
+# New dependencies for decoding and hashing native IAVL proofs
+depin-sdk-commitment = { path = "../commitment" }
+depin-sdk-crypto = { path = "../crypto" }
+parity-scale-codec = { workspace = true, features = ["std"] }

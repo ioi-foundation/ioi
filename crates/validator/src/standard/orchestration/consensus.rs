@@ -4,6 +4,7 @@ use crate::standard::orchestration::context::MainLoopContext;
 use crate::standard::orchestration::gossip::prune_mempool;
 use crate::standard::orchestration::view_resolver::DefaultViewResolver;
 use anyhow::{anyhow, Result};
+use async_trait::async_trait;
 use depin_sdk_api::{
     chain::StateRef,
     commitment::CommitmentScheme,
@@ -15,17 +16,17 @@ use depin_sdk_network::libp2p::SwarmCommand;
 use depin_sdk_network::traits::NodeState;
 use depin_sdk_types::{
     app::{
-        account_id_from_key_material, to_root_hash, AccountId, Block, BlockHeader,
-        ChainTransaction, SignatureSuite, StateRoot, SystemPayload,
+        account_id_from_key_material, compute_interval_from_parent_state, to_root_hash, AccountId,
+        Block, BlockHeader, BlockTimingParams, BlockTimingRuntime, ChainTransaction,
+        SignatureSuite, StateRoot, SystemPayload,
     },
     codec, // Import the canonical codec
-    keys::VALIDATOR_SET_KEY,
+    keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, VALIDATOR_SET_KEY},
 };
 use serde::Serialize;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 
 /// Helper function to canonically hash a transaction using the SDK's crypto abstractions.
@@ -168,7 +169,7 @@ where
         let (candidate_txs, mempool_len_before) = {
             let pool = tx_pool_ref.lock().await;
             tracing::debug!(
-                target = "mempool",
+                target: "mempool",
                 "consensus view mempool_size={}, ptr = {:p}",
                 pool.len(),
                 Arc::as_ptr(&tx_pool_ref)
@@ -297,74 +298,87 @@ where
         tracing::info!(target: "consensus", event = "producing_block", height = height_being_built, num_txs = valid_txs.len());
 
         let parent_view = view_resolver.resolve_anchored(&parent_ref).await?;
-        let vs_bytes = match parent_view.get(VALIDATOR_SET_KEY).await {
-            Ok(Some(b)) => b,
-            _ => {
-                let msg = "[Orch Tick] Could not load ValidatorSet at parent; aborting production.";
-                tracing::error!(target: "consensus", "{}", msg);
-                return Err(anyhow!(msg));
-            }
-        };
+        let (timing_params_bytes, timing_runtime_bytes) = tokio::try_join!(
+            parent_view.get(BLOCK_TIMING_PARAMS_KEY),
+            parent_view.get(BLOCK_TIMING_RUNTIME_KEY),
+        )?;
+
+        let timing_params: BlockTimingParams = timing_params_bytes
+            .and_then(|b| codec::from_bytes_canonical(&b).ok())
+            .ok_or_else(|| anyhow!("BlockTimingParams not found in state"))?;
+
+        let timing_runtime: BlockTimingRuntime = timing_runtime_bytes
+            .and_then(|b| codec::from_bytes_canonical(&b).ok())
+            .ok_or_else(|| anyhow!("BlockTimingRuntime not found in state"))?;
+
+        // TODO: The gas_used of the parent block is needed. For now, we use a placeholder.
+        // This should be retrieved from the parent block's metadata.
+        let parent_gas_used_placeholder = 0;
+
+        let vs_bytes = parent_view
+            .get(VALIDATOR_SET_KEY)
+            .await?
+            .ok_or_else(|| anyhow!("Validator set missing in parent state"))?;
+
         let sets = depin_sdk_types::app::read_validator_sets(&vs_bytes)?;
         let effective_vs = if let Some(next) = &sets.next {
             if height_being_built >= next.effective_from_height
                 && !next.validators.is_empty()
                 && next.total_weight > 0
             {
-                next
+                &sets.next.as_ref().unwrap()
             } else {
                 &sets.current
             }
         } else {
             &sets.current
         };
+
+        let header_validator_set: Vec<Vec<u8>> = effective_vs
+            .validators
+            .iter()
+            .map(|v| v.account_id.0.to_vec())
+            .collect();
+
         let Some(me) = effective_vs
             .validators
             .iter()
             .find(|v| v.account_id == our_account_id)
         else {
-            tracing::info!(target: "consensus", event = "not_in_validator_set", height = height_being_built, "We are not in the effective validator set; will not produce.");
+            tracing::info!(target:"consensus", event="not_in_validator_set", height = height_being_built, "Will not produce.");
             return Ok(());
         };
         let required_suite = me.consensus_key.suite;
-        tracing::info!(target: "consensus", event = "signing_info", height = height_being_built, ?required_suite);
-        let (producer_key_suite, producer_pubkey, producer_pubkey_hash, signature_fn): (
+
+        let (producer_key_suite, producer_pubkey, signature_fn): (
             SignatureSuite,
             Vec<u8>,
-            [u8; 32],
             SignatureFn,
         ) = match required_suite {
             SignatureSuite::Ed25519 => {
                 let pk = local_keypair.public().encode_protobuf();
-                let hash = account_id_from_key_material(SignatureSuite::Ed25519, &pk)?;
-                let signer = {
-                    let kp = local_keypair.clone();
-                    Box::new(move |msg: &[u8]| kp.sign(msg).map_err(|e| anyhow!(e)))
-                };
-                (SignatureSuite::Ed25519, pk, hash, signer)
+                (
+                    SignatureSuite::Ed25519,
+                    pk,
+                    Box::new(move |msg: &[u8]| Ok(local_keypair.sign(msg)?)) as SignatureFn,
+                )
             }
             SignatureSuite::Dilithium2 => {
-                let Some(pqc_signer) = pqc_signer.as_ref() else {
-                    let msg = "[Orch Tick] Dilithium signing required but no PQC signer configured. Refusing to produce.";
-                    tracing::error!(target: "consensus", "{}", msg);
-                    return Err(anyhow!(msg));
-                };
-                let pqc_signer_clone = pqc_signer.clone();
-                let pk = SigningKeyPair::public_key(&pqc_signer_clone).to_bytes();
-                let hash = account_id_from_key_material(SignatureSuite::Dilithium2, &pk)?;
-                let signer = Box::new(move |msg: &[u8]| {
-                    SigningKeyPair::sign(&pqc_signer_clone, msg)
-                        .map(|sig| sig.to_bytes())
-                        .map_err(|e| anyhow!(e))
-                });
-                (SignatureSuite::Dilithium2, pk, hash, signer)
+                let kp = pqc_signer.clone().ok_or_else(|| {
+                    anyhow!("Dilithium required by validator set, but no PQC signer configured")
+                })?;
+                let pk = kp.public_key().to_bytes();
+                (
+                    SignatureSuite::Dilithium2,
+                    pk,
+                    Box::new(move |msg: &[u8]| Ok(kp.sign(msg)?.to_bytes())) as SignatureFn,
+                )
             }
         };
-        let header_validator_set = effective_vs
-            .validators
-            .iter()
-            .map(|v| v.account_id.0.to_vec())
-            .collect();
+
+        let producer_pubkey_hash =
+            account_id_from_key_material(producer_key_suite, &producer_pubkey)?;
+
         let new_block_template = Block {
             header: BlockHeader {
                 height: height_being_built,
@@ -372,7 +386,24 @@ where
                 parent_state_root: depin_sdk_types::app::StateRoot(parent_ref.state_root.clone()),
                 state_root: depin_sdk_types::app::StateRoot(vec![]),
                 transactions_root: vec![0; 32],
-                timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
+                timestamp: {
+                    let parent_ts = last_committed_block_opt
+                        .as_ref()
+                        .map(|b| b.header.timestamp)
+                        .unwrap_or(0);
+                    let interval = match last_committed_block_opt.as_ref() {
+                        Some(pb) => compute_interval_from_parent_state(
+                            &timing_params,
+                            &timing_runtime,
+                            pb.header.height,
+                            parent_gas_used_placeholder,
+                        ),
+                        None => timing_params.base_interval_secs, // genesis
+                    };
+                    parent_ts
+                        .checked_add(interval)
+                        .ok_or_else(|| anyhow!("timestamp overflow"))?
+                },
                 validator_set: header_validator_set,
                 producer_account_id: our_account_id,
                 producer_key_suite,
@@ -390,14 +421,23 @@ where
         match workload_client.process_block(new_block_template).await {
             Ok((mut final_block, _)) => {
                 let block_height = final_block.header.height;
-                tracing::info!(target: "consensus", event = "block_processed", height = block_height);
+                tracing::info!(
+                    target: "consensus",
+                    event = "block_processed",
+                    height = block_height
+                );
                 let preimage = final_block.header.to_preimage_for_signing()?;
                 final_block.header.signature = signature_fn(&preimage)?;
                 {
                     let mut ctx = context_arc.lock().await;
                     ctx.last_committed_block = Some(final_block.clone());
                 }
-                tracing::debug!(target: "consensus", event = "tip_advanced", height = final_block.header.height, root = hex::encode(final_block.header.state_root.as_ref()));
+                tracing::debug!(
+                    target: "consensus",
+                    event = "tip_advanced",
+                    height = final_block.header.height,
+                    root = hex::encode(final_block.header.state_root.as_ref())
+                );
                 {
                     let data = codec::to_bytes_canonical(&final_block).map_err(|e| anyhow!(e))?;
                     let _ = swarm_commander.send(SwarmCommand::PublishBlock(data)).await;
@@ -426,7 +466,11 @@ where
             }
         }
     } else {
-        tracing::debug!(target: "consensus", event = "tick_skip", "Engine decision was not ProduceBlock; will retry next tick.");
+        tracing::debug!(
+            target: "consensus",
+            event = "tick_skip",
+            "Engine decision was not ProduceBlock; will retry next tick."
+        );
     }
     Ok(())
 }

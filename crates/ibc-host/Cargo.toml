@@ -13,6 +13,7 @@ depin-sdk-client = { path = "../client" }
 depin-sdk-network = { path = "../network" }
 depin-sdk-crypto = { path = "../crypto" }
 depin-sdk-validator = { path = "../validator" }
+depin-sdk-commitment = { path = "../commitment" }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
@@ -23,5 +24,8 @@ serde = { workspace = true }
 parity-scale-codec = { workspace = true }
 dcrypt = { workspace = true }
 ibc-core-host-types = { workspace = true, features = ["std"] }
+ibc-proto = { workspace = true }
+ics23 = "0.11"
+prost = { workspace = true }
 libp2p = { workspace = true }
 tracing = { workspace = true }
