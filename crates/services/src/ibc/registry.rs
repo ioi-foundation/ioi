@@ -2,8 +2,6 @@
 
 use crate::ibc::context::IbcExecutionContext;
 use async_trait::async_trait;
-use ioi_types::error::{TransactionError, UpgradeError};
-use ioi_types::service_configs::Capabilities;
 use ibc::core::entrypoint::dispatch;
 use ibc_core_client_types::msgs::MsgUpdateClient; // For optional decode preview
 use ibc_core_client_types::Height;
@@ -13,10 +11,12 @@ use ibc_core_router::{module::Module, router::Router};
 use ibc_core_router_types::module::ModuleId;
 use ibc_proto::cosmos::tx::v1beta1::TxBody;
 use ibc_proto::Protobuf; // [+] FIX: Add the missing trait import
-use ioi_api::ibc::InterchainVerifier;
+use ioi_api::ibc::LightClient;
 use ioi_api::services::{BlockchainService, UpgradableService};
 use ioi_api::state::{StateAccessor, StateOverlay};
 use ioi_api::transaction::context::TxContext;
+use ioi_types::error::{TransactionError, UpgradeError};
+use ioi_types::service_configs::Capabilities;
 use prost::Message;
 use std::any::Any;
 use std::collections::{BTreeMap, HashMap};
@@ -46,7 +46,7 @@ impl Router for RouterBox {
 }
 
 pub struct VerifierRegistry {
-    verifiers: HashMap<String, Arc<dyn InterchainVerifier>>,
+    verifiers: HashMap<String, Arc<dyn LightClient>>,
 }
 
 impl fmt::Debug for VerifierRegistry {
@@ -70,7 +70,7 @@ impl VerifierRegistry {
         }
     }
 
-    pub fn register(&mut self, verifier: Arc<dyn InterchainVerifier>) {
+    pub fn register(&mut self, verifier: Arc<dyn LightClient>) {
         let chain_id = verifier.chain_id().to_string();
         log::info!(
             "[VerifierRegistry] Registering verifier for chain_id: {}",
@@ -79,7 +79,7 @@ impl VerifierRegistry {
         self.verifiers.insert(chain_id, verifier);
     }
 
-    pub fn get(&self, chain_id: &str) -> Option<Arc<dyn InterchainVerifier>> {
+    pub fn get(&self, chain_id: &str) -> Option<Arc<dyn LightClient>> {
         self.verifiers.get(chain_id).cloned()
     }
 }

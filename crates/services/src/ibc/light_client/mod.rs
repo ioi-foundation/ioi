@@ -1,6 +1,6 @@
 // Path: crates/services/src/ibc/light_client/mod.rs
 
-//! Contains concrete, chain-specific implementations of the `InterchainVerifier` trait.
+//! Contains concrete, chain-specific implementations of the `LightClient` trait.
 
 pub mod tendermint;
 

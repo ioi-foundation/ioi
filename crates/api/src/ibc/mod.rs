@@ -19,7 +19,7 @@ pub struct VerifyCtx {
 
 /// A generic verifier for an external blockchain's state and consensus.
 #[async_trait]
-pub trait InterchainVerifier: Send + Sync {
+pub trait LightClient: Send + Sync {
     /// The unique identifier for the chain this verifier targets (e.g., "eth-mainnet").
     fn chain_id(&self) -> &str;
 
