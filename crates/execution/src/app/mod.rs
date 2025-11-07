@@ -1,5 +1,5 @@
 // Path: crates/execution/src/app/mod.rs
-use crate::upgrade_manager::ModuleUpgradeManager;
+use crate::upgrade_manager::ServiceUpgradeManager;
 use anyhow::Result;
 use async_trait::async_trait;
 use ioi_api::app::{Block, BlockHeader, ChainStatus, ChainTransaction};
@@ -84,7 +84,7 @@ pub struct ChainState<CS: CommitmentScheme + Clone> {
 pub struct Chain<CS: CommitmentScheme + Clone, ST: StateManager> {
     pub state: ChainState<CS>,
     pub services: ServiceDirectory,
-    pub service_manager: ModuleUpgradeManager,
+    pub service_manager: ServiceUpgradeManager,
     pub consensus_engine: Consensus<ioi_types::app::ChainTransaction>,
     workload_container: Arc<WorkloadContainer<ST>>,
     /// In-memory cache for fast access to on-chain service metadata.
@@ -170,7 +170,7 @@ where
             .collect();
         let service_directory = ServiceDirectory::new(services_for_dir);
 
-        let mut service_manager = ModuleUpgradeManager::new();
+        let mut service_manager = ServiceUpgradeManager::new();
         for service in initial_services {
             service_manager.register_service(service);
         }
