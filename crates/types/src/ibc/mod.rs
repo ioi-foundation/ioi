@@ -57,8 +57,13 @@ pub enum StateProofScheme {
 /// An ICS23-compliant Merkle proof.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct ICS23Proof {
-    /// The raw bytes of the ICS23 proof data.
+    /// The raw bytes of the ICS-23 CommitmentProof (prost-encoded).
     pub proof_bytes: Vec<u8>,
+    /// ICS-24 storage path **without** the store prefix (e.g. `clients/07-tendermint-0/clientState`).
+    /// If you pass a full path including the store prefix, the verifier will detect and avoid double prefixing.
+    pub path: String,
+    /// The exact value committed at `path` (the right-hand side of the membership assertion).
+    pub value: Vec<u8>,
 }
 
 /// A proof of a Solana account's state.

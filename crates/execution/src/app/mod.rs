@@ -1,4 +1,4 @@
-// Path: crates/chain/src/app/mod.rs
+// Path: crates/execution/src/app/mod.rs
 use crate::upgrade_manager::ModuleUpgradeManager;
 use anyhow::Result;
 use async_trait::async_trait;

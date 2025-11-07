@@ -33,6 +33,8 @@ pub trait InterchainVerifier: Send + Sync {
     ) -> Result<(), CoreError>;
 
     /// Verifies that the given inclusion proof is valid for the given header.
+    /// For ICS-23, the proof must include `path` (ICS-24 key, usually without the store prefix)
+    /// and the committed `value` in addition to `proof_bytes`.
     async fn verify_inclusion(
         &self,
         proof: &InclusionProof,
