@@ -1,5 +1,5 @@
 // Path: crates/api/src/chain/mod.rs
-//! Defines the core `AppChain` trait for blockchain state machines.
+//! Defines the core `ChainStateMachine` trait for blockchain state machines.
 
 use crate::app::{Block, ChainStatus, ChainTransaction};
 use crate::commitment::CommitmentScheme;
@@ -114,7 +114,7 @@ pub struct PreparedBlock {
 
 /// A trait that defines the logic and capabilities of an application-specific blockchain.
 #[async_trait]
-pub trait AppChain<CS, TM, ST>: ChainView<CS, ST>
+pub trait ChainStateMachine<CS, TM, ST>: ChainView<CS, ST>
 where
     CS: CommitmentScheme,
     TM: TransactionModel<CommitmentScheme = CS> + ?Sized,

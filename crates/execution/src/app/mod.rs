@@ -4,7 +4,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use ioi_api::app::{Block, BlockHeader, ChainStatus, ChainTransaction};
 use ioi_api::chain::{
-    AnchoredStateView, AppChain, ChainView, PreparedBlock, RemoteStateView, StateRef,
+    AnchoredStateView, ChainStateMachine, ChainView, PreparedBlock, RemoteStateView, StateRef,
 };
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::PenaltyMechanism;
@@ -551,7 +551,7 @@ where
 }
 
 #[async_trait]
-impl<CS, ST> AppChain<CS, UnifiedTransactionModel<CS>, ST> for Chain<CS, ST>
+impl<CS, ST> ChainStateMachine<CS, UnifiedTransactionModel<CS>, ST> for Chain<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>

@@ -12,7 +12,7 @@ pub use ioi_types::app::{
 };
 
 /// A struct that holds the core, serializable state of a blockchain.
-/// This is distinct from its logic, which is defined by the `AppChain` trait.
+/// This is distinct from its logic, which is defined by the `ChainStateMachine` trait.
 #[derive(Debug)]
 pub struct ChainState<CS, TM: TransactionModel> {
     /// The cryptographic commitment scheme used by the chain.

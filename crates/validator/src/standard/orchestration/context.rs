@@ -1,7 +1,8 @@
 // Path: crates/validator/src/standard/orchestration/context.rs
 use crate::config::OrchestrationConfig;
 use ioi_api::{
-    chain::AppChain, commitment::CommitmentScheme, consensus::ConsensusEngine, state::StateManager,
+    chain::ChainStateMachine, commitment::CommitmentScheme, consensus::ConsensusEngine,
+    state::StateManager,
 };
 use ioi_crypto::sign::dilithium::DilithiumKeyPair;
 use ioi_networking::libp2p::SwarmCommand;
@@ -14,8 +15,9 @@ use std::fmt::Debug;
 use std::sync::{atomic::AtomicBool, Arc};
 use tokio::sync::{mpsc, Mutex};
 
-pub type ChainFor<CS, ST> =
-    Arc<Mutex<dyn AppChain<CS, ioi_tx::unified::UnifiedTransactionModel<CS>, ST> + Send + Sync>>;
+pub type ChainFor<CS, ST> = Arc<
+    Mutex<dyn ChainStateMachine<CS, ioi_tx::unified::UnifiedTransactionModel<CS>, ST> + Send + Sync>,
+>;
 
 #[derive(Debug, Clone)]
 pub struct SyncProgress {
