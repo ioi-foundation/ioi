@@ -31,7 +31,7 @@ use ioi_validator::metrics as validator_metrics;
 use ioi_validator::standard::orchestration::OrchestrationDependencies;
 use ioi_validator::standard::{
     orchestration::verifier_select::{create_default_verifier, DefaultVerifier},
-    OrchestrationContainer,
+    Orchestrator,
 };
 use ioi_vm_wasm::WasmRuntime;
 use libp2p::identity;
@@ -260,7 +260,7 @@ where
         verifier: verifier.clone(),
     };
 
-    let orchestration = Arc::new(OrchestrationContainer::new(&opts.config, deps)?);
+    let orchestration = Arc::new(Orchestrator::new(&opts.config, deps)?);
 
     // Share the same consensus engine instance between Orchestrator and Chain.
     let consensus_for_chain = consensus_engine.clone();

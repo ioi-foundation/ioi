@@ -13,7 +13,6 @@
 //! The main logic for the Orchestration container, handling consensus and peer communication.
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use ioi_client::WorkloadClient;
 use ioi_api::crypto::SerializableKey;
 use ioi_api::{
     commitment::CommitmentScheme,
@@ -22,6 +21,7 @@ use ioi_api::{
     state::{StateCommitment, StateManager, Verifier},
     validator::Container,
 };
+use ioi_client::WorkloadClient;
 use ioi_crypto::sign::dilithium::DilithiumKeyPair;
 use ioi_networking::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use ioi_networking::traits::NodeState;
@@ -68,7 +68,7 @@ use futures::FutureExt;
 use operator_tasks::run_oracle_operator_task;
 use sync as sync_handlers;
 
-/// A struct to hold the numerous dependencies for the OrchestrationContainer,
+/// A struct to hold the numerous dependencies for the Orchestrator,
 /// improving constructor readability and maintainability.
 pub struct OrchestrationDependencies<CE, V> {
     /// The network synchronization engine.
@@ -96,11 +96,11 @@ type ProofCache = Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>;
 type NetworkEventReceiver = Mutex<Option<mpsc::Receiver<NetworkEvent>>>;
 type ConsensusKickReceiver = Mutex<Option<mpsc::UnboundedReceiver<()>>>;
 
-/// The OrchestrationContainer is the central component of a validator node, responsible for
+/// The Orchestrator is the central component of a validator node, responsible for
 /// coordinating consensus, networking, and state transitions. It communicates with the
 /// Workload container via IPC to process blocks and verify state, and with other nodes
 /// via the libp2p network to participate in consensus and gossip blocks and transactions.
-pub struct OrchestrationContainer<CS, ST, CE, V>
+pub struct Orchestrator<CS, ST, CE, V>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -147,7 +147,7 @@ where
     pub nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
 }
 
-impl<CS, ST, CE, V> OrchestrationContainer<CS, ST, CE, V>
+impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -167,7 +167,7 @@ where
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
-    /// Creates a new OrchestrationContainer from its configuration and dependencies.
+    /// Creates a new Orchestrator from its configuration and dependencies.
     pub fn new(
         config_path: &std::path::Path,
         deps: OrchestrationDependencies<CE, V>,
@@ -212,18 +212,16 @@ where
         workload_client_ref: Arc<WorkloadClient>,
     ) {
         if self.chain.set(chain_ref).is_err() {
-            log::warn!("Attempted to set Chain ref on OrchestrationContainer more than once.");
+            log::warn!("Attempted to set Chain ref on Orchestrator more than once.");
         }
         if self.workload_client.set(workload_client_ref).is_err() {
-            log::warn!(
-                "Attempted to set WorkloadClient ref on OrchestrationContainer more than once."
-            );
+            log::warn!("Attempted to set WorkloadClient ref on Orchestrator more than once.");
         }
     }
 }
 
 // ---------- ticker + main loop ----------
-impl<CS, ST, CE, V> OrchestrationContainer<CS, ST, CE, V>
+impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
@@ -542,7 +540,7 @@ async fn handle_network_event<CS, ST, CE, V>(
 }
 
 #[async_trait]
-impl<CS, ST, CE, V> Container for OrchestrationContainer<CS, ST, CE, V>
+impl<CS, ST, CE, V> Container for Orchestrator<CS, ST, CE, V>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
@@ -574,7 +572,7 @@ where
         if self.is_running() {
             return Err(ValidatorError::AlreadyRunning(self.id().to_string()));
         }
-        log::info!("OrchestrationContainer starting...");
+        log::info!("Orchestrator starting...");
 
         self.syncer
             .start()
@@ -728,7 +726,7 @@ where
         if !self.is_running() {
             return Ok(());
         }
-        log::info!("OrchestrationContainer stopping...");
+        log::info!("Orchestrator stopping...");
         self.shutdown_sender.send(true).ok();
 
         tokio::time::sleep(Duration::from_millis(100)).await;
@@ -750,7 +748,7 @@ where
     }
 }
 
-impl<CS, ST, CE, V> OrchestrationContainer<CS, ST, CE, V>
+impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
