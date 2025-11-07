@@ -6,7 +6,7 @@ pub mod methods;
 pub mod router;
 
 use anyhow::{anyhow, Result};
-use ioi_api::chain::AppChain;
+use ioi_api::chain::ChainStateMachine;
 use ioi_api::{
     commitment::CommitmentScheme,
     state::{PrunePlan, StateManager},
@@ -200,7 +200,8 @@ where
 
                 // --- PHASE 1: Build PrunePlan (async, no locks on state tree) ---
                 let plan = {
-                    let current_height = AppChain::status(&*chain_for_gc.lock().await).height;
+                    let current_height =
+                        ChainStateMachine::status(&*chain_for_gc.lock().await).height;
                     let finalized_height = current_height; // Placeholder for real finality
 
                     let horizon_cutoff =

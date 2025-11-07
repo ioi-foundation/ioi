@@ -3,7 +3,7 @@
 use super::RpcContext;
 use crate::standard::workload_ipc_server::router::{RequestContext, RpcMethod};
 use anyhow::{anyhow, Result};
-use ioi_api::chain::AppChain;
+use ioi_api::chain::ChainStateMachine;
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::state::StateManager;
 use serde::{Deserialize, Serialize};

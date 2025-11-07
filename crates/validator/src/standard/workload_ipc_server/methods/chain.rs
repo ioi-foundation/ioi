@@ -3,7 +3,7 @@ use super::RpcContext;
 use crate::ante::check_tx;
 use crate::standard::workload_ipc_server::router::{RequestContext, RpcMethod};
 use anyhow::{anyhow, Result};
-use ioi_api::{chain::AppChain, commitment::CommitmentScheme, transaction::TransactionModel};
+use ioi_api::{chain::ChainStateMachine, commitment::CommitmentScheme, transaction::TransactionModel};
 use ioi_types::app::{
     ApplicationTransaction, Block, BlockHeader, ChainTransaction, Membership, StateAnchor,
 };

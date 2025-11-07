@@ -4,7 +4,7 @@ use super::RpcContext;
 use crate::standard::workload_ipc_server::router::{RequestContext, RpcMethod};
 use anyhow::{anyhow, Result};
 use ioi_types::config::WorkloadConfig;
-use ioi_api::{chain::AppChain, commitment::CommitmentScheme, state::StateManager};
+use ioi_api::{chain::ChainStateMachine, commitment::CommitmentScheme, state::StateManager};
 use serde::{Deserialize, Serialize};
 use std::{any::Any, marker::PhantomData, sync::Arc};
 
@@ -53,7 +53,7 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetStatusV1"))?;
         let chain = ctx.chain.lock().await;
-        // The AppChain trait must be in scope to call .status()
+        // The ChainStateMachine trait must be in scope to call .status()
         let status_ref = (*chain).status();
         Ok(ioi_types::app::ChainStatus {
             height: status_ref.height,

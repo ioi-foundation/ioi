@@ -17,7 +17,7 @@
 )]
 //! # IOI SDK Chain
 //!
-//! This crate provides the implementation logic for the `AppChain` state machine.
+//! This crate provides the implementation logic for the `ChainStateMachine` state machine.
 
 pub mod app;
 pub mod runtime_service;

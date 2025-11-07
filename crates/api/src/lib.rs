@@ -61,7 +61,8 @@ pub mod vm;
 /// A curated set of the most commonly used traits and types.
 pub mod prelude {
     pub use crate::chain::{
-        AnchoredStateView, AppChain, LiveStateView, RemoteStateView, StateRef, ViewResolver,
+        AnchoredStateView, ChainStateMachine, LiveStateView, RemoteStateView, StateRef,
+        ViewResolver,
     };
     pub use crate::commitment::{CommitmentScheme, HomomorphicCommitmentScheme};
     pub use crate::error::{
