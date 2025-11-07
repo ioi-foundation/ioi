@@ -1,9 +1,13 @@
-// Path: crates/chain/src/util.rs
-//! Utility functions for chain and state management.
+// Path: crates/execution/src/util.rs
 
 use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine};
 use ioi_api::state::StateManager;
+// [+] Add imports for validator set structs and keys
+use ioi_types::{
+    app::{read_validator_sets, write_validator_sets},
+    keys::VALIDATOR_SET_KEY,
+};
 use serde_json::Value;
 use std::fs;
 
@@ -32,11 +36,30 @@ pub fn load_state_from_genesis_file<S: StateManager + ?Sized>(
                 key_str.as_bytes().to_vec()
             };
 
-            let value_bytes = if let Some(s) = value.as_str().and_then(|s| s.strip_prefix("b64:")) {
-                BASE64_STANDARD.decode(s)?
-            } else {
-                serde_json::to_vec(value)?
-            };
+            let mut value_bytes =
+                if let Some(s) = value.as_str().and_then(|s| s.strip_prefix("b64:")) {
+                    BASE64_STANDARD.decode(s)?
+                } else {
+                    serde_json::to_vec(value)?
+                };
+
+            // [+] ADDED: Canonicalization logic for critical keys
+            if key_bytes == VALIDATOR_SET_KEY {
+                log::debug!("Canonicalizing VALIDATOR_SET_KEY from genesis...");
+                // 1. Decode the validator set blob from the raw bytes in the file.
+                let mut sets = read_validator_sets(&value_bytes)?;
+                // 2. Sort the validators in-place to enforce canonical order.
+                sets.current
+                    .validators
+                    .sort_by(|a, b| a.account_id.cmp(&b.account_id));
+                if let Some(next) = &mut sets.next {
+                    next.validators
+                        .sort_by(|a, b| a.account_id.cmp(&b.account_id));
+                }
+                // 3. Re-serialize the now-sorted struct back into canonical bytes.
+                value_bytes = write_validator_sets(&sets)?;
+            }
+
             pairs_to_insert.push((key_bytes, value_bytes));
         }
 
