@@ -11,7 +11,7 @@ pub mod channel;
 /// with the IOI SDK's `StateAccessor`.
 pub mod context;
 
-/// Contains concrete, chain-specific implementations of the `InterchainVerifier` trait.
+/// Contains concrete, chain-specific implementations of the `LightClient` trait.
 pub mod light_client;
 
 /// Implements the `VerifierRegistry` for managing multiple light client instances

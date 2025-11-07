@@ -36,7 +36,7 @@ use tendermint_proto::crypto::ProofOps as TmProofOps;
 
 use ics23::HostFunctionsManager;
 use ioi_api::error::CoreError;
-use ioi_api::ibc::{InterchainVerifier, VerifyCtx};
+use ioi_api::ibc::{LightClient, VerifyCtx};
 use ioi_api::state::StateAccessor;
 use ioi_types::ibc::{Finality, Header, InclusionProof};
 use prost::Message;
@@ -345,7 +345,7 @@ impl TendermintVerifier {
 }
 
 #[async_trait]
-impl InterchainVerifier for TendermintVerifier {
+impl LightClient for TendermintVerifier {
     fn chain_id(&self) -> &str {
         &self.chain_id
     }
