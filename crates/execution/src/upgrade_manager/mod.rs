@@ -83,15 +83,15 @@ fn validate_service_id(id: &str) -> Result<(), CoreError> {
     Ok(())
 }
 
-pub struct ModuleUpgradeManager {
+pub struct ServiceUpgradeManager {
     active_services: HashMap<String, Arc<dyn UpgradableService>>,
     upgrade_history: HashMap<String, Vec<u64>>,
     runtimes: HashMap<String, Arc<dyn Runtime>>,
 }
 
-impl fmt::Debug for ModuleUpgradeManager {
+impl fmt::Debug for ServiceUpgradeManager {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ModuleUpgradeManager")
+        f.debug_struct("ServiceUpgradeManager")
             .field("active_services", &self.active_services.keys())
             .field("upgrade_history", &self.upgrade_history)
             .field("runtimes", &self.runtimes.keys())
@@ -99,7 +99,7 @@ impl fmt::Debug for ModuleUpgradeManager {
     }
 }
 
-impl ModuleUpgradeManager {
+impl ServiceUpgradeManager {
     pub fn new() -> Self {
         Self {
             active_services: HashMap::new(),
