@@ -1,7 +1,6 @@
 // Path: crates/services/src/ibc/light_client/tendermint.rs
 use crate::ibc::light_client::errors::IbcError;
 use async_trait::async_trait;
-use ioi_types::ibc::{Finality, Header, InclusionProof};
 use ibc_client_tendermint::types::proto::v1::{
     ClientState as RawTmClientState, ConsensusState as RawTmConsensusState, Header as RawTmHeader,
 };
@@ -16,7 +15,7 @@ use ibc_core_client_context::{
     ClientValidationContext,
 };
 use ibc_core_client_types::{error::ClientError as IbcClientError, Height};
-use ibc_core_commitment_types::commitment::{CommitmentProofBytes, CommitmentRoot};
+use ibc_core_commitment_types::specs::ProofSpecs;
 use ibc_core_handler_types::error::ContextError;
 use ibc_core_host_types::{
     identifiers::ClientId,
@@ -24,14 +23,43 @@ use ibc_core_host_types::{
 };
 use ibc_primitives::Timestamp;
 use ibc_proto::google::protobuf::Any as PbAny;
+
+// ✅ Verify at the Merkle layer
+use ibc_core_commitment_types::merkle::MerkleProof as IbcMerkleProof;
+use ibc_proto::ibc::core::commitment::v1::{
+    MerklePath as PbMerklePath, MerkleProof as RawMerkleProof, MerkleRoot as PbMerkleRoot,
+};
+use ibc_proto::ics23 as pb_ics23;
+// NEW: Tendermint ProofOps support
+use tendermint_proto::crypto::ProofOps as TmProofOps;
+// (Field name is `r#type` on ProofOp due to Rust keyword; we don't need the type itself in imports.)
+
+use ics23::HostFunctionsManager;
 use ioi_api::error::CoreError;
 use ioi_api::ibc::{InterchainVerifier, VerifyCtx};
 use ioi_api::state::StateAccessor;
+use ioi_types::ibc::{Finality, Header, InclusionProof};
 use prost::Message;
 
 use std::fmt;
 use std::str::FromStr;
 use std::sync::Arc;
+
+/// A helper to build a Merkle path that includes the "ibc" store prefix.
+fn pb_merkle_path_with_ibc_prefix(path_str: &str) -> PbMerklePath {
+    let mut segments: Vec<String> = path_str
+        .split('/')
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .collect();
+
+    // Ensure the multistore prefix is present for this API variant.
+    if segments.first().map(|s| s.as_str()) != Some("ibc") {
+        segments.insert(0, "ibc".to_string());
+    }
+
+    PbMerklePath { key_path: segments }
+}
 
 /// A helper to decode an `Any`-wrapped message from bytes.
 fn decode_any<T: prost::Message + Default>(
@@ -54,6 +82,117 @@ fn decode_any<T: prost::Message + Default>(
     })
 }
 
+/// Convert a Tendermint `ProofOps` (possibly containing ICS-23 ops) into an IBC MerkleProof.
+fn tm_proofops_to_ibc_merkle(raw: TmProofOps) -> Result<IbcMerkleProof, CoreError> {
+    // Typical pattern: a single op where `op.r#type` contains "ics23" and `op.data`
+    // holds a serialized `ics23.CommitmentProof`. But be tolerant and collect any ICS-23 ops.
+    let mut proofs: Vec<pb_ics23::CommitmentProof> = Vec::new();
+    for op in raw.ops {
+        // Heuristic: many stacks label the op type with "ics23" or "iavl". We don't hard fail if it doesn't match.
+        // Try to decode the op.data as an ICS-23 CommitmentProof; if it works, include it.
+        if let Ok(cp) = pb_ics23::CommitmentProof::decode(op.data.as_slice()) {
+            proofs.push(cp);
+        }
+    }
+    if proofs.is_empty() {
+        return Err(CoreError::Custom(
+            "tendermint ProofOps contained no decodable ICS-23 CommitmentProof".into(),
+        ));
+    }
+    let raw_mp = RawMerkleProof { proofs };
+    IbcMerkleProof::try_from(raw_mp)
+        .map_err(|e| CoreError::Custom(format!("convert ProofOps->MerkleProof: {e}")))
+}
+
+fn decode_merkle_proof_flex(bytes: &[u8]) -> Result<IbcMerkleProof, CoreError> {
+    // Path A: The bytes are a google.protobuf.Any wrapper.
+    if let Ok(any) = PbAny::decode(bytes) {
+        let t = any.type_url.trim_start_matches('/');
+
+        // A0) Any -> Tendermint ProofOps -> (extract ICS-23) -> MerkleProof
+        if t == "tendermint.crypto.ProofOps"
+            || t == "tendermint.crypto.merkle.ProofOps"
+            || t == "type.googleapis.com/tendermint.crypto.ProofOps"
+            || t == "type.googleapis.com/tendermint.crypto.merkle.ProofOps"
+        {
+            let tm = TmProofOps::decode(any.value.as_slice())
+                .map_err(|e| CoreError::Custom(format!("decode Any(ProofOps): {e}")))?;
+            return tm_proofops_to_ibc_merkle(tm);
+        }
+
+        // 1) Any -> MerkleProof
+        if t == "ibc.core.commitment.v1.MerkleProof"
+            || t == "type.googleapis.com/ibc.core.commitment.v1.MerkleProof"
+        {
+            let raw = RawMerkleProof::decode(any.value.as_slice())
+                .map_err(|e| CoreError::Custom(format!("decode Any(MerkleProof): {e}")))?;
+            return IbcMerkleProof::try_from(raw)
+                .map_err(|e| CoreError::Custom(format!("convert Any(MerkleProof): {e}")));
+        }
+
+        // 2) Any -> ICS23 CommitmentProof -> wrap into MerkleProof
+        if t == "ics23.CommitmentProof"
+            || t == "cosmos.ics23.v1.CommitmentProof"
+            || t == "cosmos.crypto.ics23.v1.CommitmentProof"
+            || t == "type.googleapis.com/ics23.CommitmentProof"
+            || t == "type.googleapis.com/cosmos.crypto.ics23.v1.CommitmentProof"
+        {
+            let cp = pb_ics23::CommitmentProof::decode(any.value.as_slice())
+                .map_err(|e| CoreError::Custom(format!("decode Any(CommitmentProof): {e}")))?;
+            let raw = RawMerkleProof { proofs: vec![cp] };
+            return IbcMerkleProof::try_from(raw).map_err(|e| {
+                CoreError::Custom(format!("convert Any(CommitmentProof)->MerkleProof: {e}"))
+            });
+        }
+
+        // Unknown Any type_url: fall through to raw attempts below using `any.value`.
+        // Try to be helpful by attempting all variants on the inner bytes.
+        if let Ok(tm) = TmProofOps::decode(any.value.as_slice()) {
+            // If inner bytes are actually ProofOps, extract ICS-23 and return.
+            return tm_proofops_to_ibc_merkle(tm);
+        }
+        if let Ok(raw) = RawMerkleProof::decode(any.value.as_slice()) {
+            return IbcMerkleProof::try_from(raw)
+                .map_err(|e| CoreError::Custom(format!("convert Any.value(MerkleProof): {e}")));
+        }
+        if let Ok(cp) = pb_ics23::CommitmentProof::decode(any.value.as_slice()) {
+            let raw = RawMerkleProof { proofs: vec![cp] };
+            return IbcMerkleProof::try_from(raw).map_err(|e| {
+                CoreError::Custom(format!(
+                    "convert Any.value(CommitmentProof)->MerkleProof: {e}"
+                ))
+            });
+        }
+
+        return Err(CoreError::Custom(format!(
+            "unsupported Any type_url '{}' and inner bytes not ProofOps/MerkleProof/CommitmentProof",
+            t
+        )));
+    }
+
+    // Path B: Outer bytes are MerkleProof directly.
+    if let Ok(raw) = RawMerkleProof::decode(bytes) {
+        return IbcMerkleProof::try_from(raw)
+            .map_err(|e| CoreError::Custom(format!("convert MerkleProof: {e}")));
+    }
+
+    // Path B2: Outer bytes are Tendermint ProofOps directly.
+    if let Ok(tm) = TmProofOps::decode(bytes) {
+        return tm_proofops_to_ibc_merkle(tm);
+    }
+
+    // Path C: Outer bytes are ICS23 CommitmentProof directly.
+    if let Ok(cp) = pb_ics23::CommitmentProof::decode(bytes) {
+        let raw = RawMerkleProof { proofs: vec![cp] };
+        return IbcMerkleProof::try_from(raw)
+            .map_err(|e| CoreError::Custom(format!("convert CommitmentProof->MerkleProof: {e}")));
+    }
+
+    Err(CoreError::Custom(
+        "proof bytes are neither Any(ProofOps|MerkleProof|CommitmentProof) nor raw ProofOps/MerkleProof/CommitmentProof".into(),
+    ))
+}
+
 /// A verifier for Tendermint-based chains using the `ibc-rs` implementation.
 #[derive(Clone)]
 pub struct TendermintVerifier {
@@ -63,7 +202,7 @@ pub struct TendermintVerifier {
 }
 
 impl fmt::Debug for TendermintVerifier {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TendermintVerifier")
             .field("chain_id", &self.chain_id)
             .field("client_id", &self.client_id)
@@ -294,18 +433,21 @@ impl InterchainVerifier for TendermintVerifier {
         header: &Header,
         _ctx: &mut VerifyCtx,
     ) -> Result<(), CoreError> {
-        let ics23_proof = match proof {
+        // 0) Inputs
+        let p = match proof {
             InclusionProof::Ics23(p) => p,
             _ => {
                 return Err(CoreError::Custom(
-                    "Invalid proof type for TendermintVerifier".into(),
+                    "TendermintVerifier expects ICS-23 proof".into(),
                 ))
             }
         };
 
-        let tm_header: TmHeader = match header {
-            Header::Tendermint(h) => TmHeader::try_from(RawTmHeader::decode(&*h.data)?)
-                .map_err(|e| CoreError::Custom(e.to_string()))?,
+        // 1) Extract app_hash (state root) and proof height from the Tendermint header.
+        let raw_header: RawTmHeader = match header {
+            Header::Tendermint(h) => RawTmHeader::decode(&*h.data).map_err(|e| {
+                CoreError::Custom(format!("failed to decode Tendermint header bytes: {e}"))
+            })?,
             _ => {
                 return Err(CoreError::Custom(
                     "Invalid header type for TendermintVerifier".into(),
@@ -313,30 +455,46 @@ impl InterchainVerifier for TendermintVerifier {
             }
         };
 
-        let client_id =
-            ClientId::from_str(&self.client_id).map_err(|e| CoreError::Custom(e.to_string()))?;
+        let (app_hash_bytes, proof_height): (Vec<u8>, u64) = {
+            let sh = raw_header
+                .signed_header
+                .as_ref()
+                .ok_or_else(|| CoreError::Custom("header missing signed_header".into()))?;
+            let hdr = sh
+                .header
+                .as_ref()
+                .ok_or_else(|| CoreError::Custom("header missing inner header".into()))?;
 
-        let client_state_path = ClientStatePath::new(client_id).to_string().into_bytes();
-        let client_state_bytes = self
-            .state_accessor
-            .get(&client_state_path)?
-            .ok_or_else(|| IbcError::ClientStateNotFound(self.client_id.clone()))?;
-        let client_state_raw: RawTmClientState = decode_any(
-            &client_state_bytes,
-            "/ibc.lightclients.tendermint.v1.ClientState",
-        )
-        .map_err(|e| CoreError::Custom(e.to_string()))?;
-        let client_state: TmClientState = TmClientState::try_from(client_state_raw)
-            .map_err(|e| CoreError::Custom(e.to_string()))?;
+            let h: u64 = hdr.height.try_into().unwrap_or(0);
+            (hdr.app_hash.clone(), h)
+        };
 
-        let proof_bytes = CommitmentProofBytes::try_from(ics23_proof.proof_bytes.clone())
-            .map_err(|e| CoreError::Custom(format!("Invalid proof bytes format: {}", e)))?;
+        // Merkle root is the proto type expected by this verify method (taken by value).
+        let merkle_root = PbMerkleRoot {
+            hash: app_hash_bytes,
+        };
 
-        let root =
-            CommitmentRoot::from(tm_header.signed_header.header.app_hash.as_bytes().to_vec());
+        // 2) Build a Merkle path that *includes* the "ibc" store prefix (this method variant has no prefix arg).
+        let pb_path = pb_merkle_path_with_ibc_prefix(&p.path);
 
-        let _ = (client_state, root, proof_bytes);
-        log::warn!("'verify_inclusion' is currently a no-op due to API mismatch with ibc-rs 0.53.0. The `verify_membership` method now requires path and value which are not available in this function's signature.");
+        // 3) Decode proof bytes robustly (Any/MerkleProof/CommitmentProof)
+        let merkle_proof: IbcMerkleProof = decode_merkle_proof_flex(&p.proof_bytes)?;
+
+        // 4) Cosmos proof specs and verification.
+        let proof_specs = ProofSpecs::cosmos();
+
+        // NOTE: In this ibc-rs snapshot, verify_membership takes:
+        //   (&ProofSpecs, MerkleRoot (by value), MerklePath (by value), value, height)
+        merkle_proof
+            .verify_membership::<HostFunctionsManager>(
+                &proof_specs,
+                merkle_root,     // by value (not &)
+                pb_path,         // by value (not &)
+                p.value.clone(), // expected value bytes
+                proof_height,    // proof height from the header
+            )
+            .map_err(|e| CoreError::Custom(format!("ICS-23 membership check failed: {e}")))?;
+
         Ok(())
     }
 
