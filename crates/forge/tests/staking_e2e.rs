@@ -105,7 +105,9 @@ async fn test_staking_lifecycle() -> Result<()> {
                     }
                 })
                 .collect();
+            // --- FIX START: Sort validators by AccountId for a deterministic genesis state ---
             validators.sort_by(|a, b| a.account_id.cmp(&b.account_id));
+            // --- FIX END ---
 
             let total_weight = validators.iter().map(|v| v.weight).sum();
 
