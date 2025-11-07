@@ -1,6 +1,6 @@
 // Path: crates/chain/src/upgrade_manager/mod.rs
 
-use crate::runtime_service::RuntimeBackedService;
+use crate::runtime_service::RuntimeService;
 use ioi_api::runtime::Runtime;
 use ioi_api::services::UpgradableService;
 use ioi_api::state::StateAccessor;
@@ -318,7 +318,7 @@ impl ServiceUpgradeManager {
             .to_active_meta(artifact_hash, activation_height)?;
 
         if !self.active_services.contains_key(service_id) {
-            let new_service_arc = Arc::new(RuntimeBackedService::new(
+            let new_service_arc = Arc::new(RuntimeService::new(
                 parsed.id,
                 parsed.abi_version,
                 parsed.state_schema,
@@ -350,14 +350,13 @@ impl ServiceUpgradeManager {
             })?;
             let snapshot = active_service.prepare_upgrade(artifact).await?;
 
-            let mut new_service_arc: Arc<dyn UpgradableService> =
-                Arc::new(RuntimeBackedService::new(
-                    parsed.id,
-                    parsed.abi_version,
-                    parsed.state_schema,
-                    runnable,
-                    full_meta.caps,
-                ));
+            let mut new_service_arc: Arc<dyn UpgradableService> = Arc::new(RuntimeService::new(
+                parsed.id,
+                parsed.abi_version,
+                parsed.state_schema,
+                runnable,
+                full_meta.caps,
+            ));
 
             if new_service_arc.abi_version() != active_service.abi_version() {
                 return Err(CoreError::Upgrade(UpgradeError::InvalidUpgrade(

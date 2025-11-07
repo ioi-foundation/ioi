@@ -1,18 +1,18 @@
 // Path: crates/chain/src/runtime_service/mod.rs
 
 use async_trait::async_trait;
-use ioi_types::{
-    app::ChainTransaction,
-    codec::{self, to_bytes_canonical},
-    error::{StateError, TransactionError, UpgradeError, VmError},
-    service_configs::Capabilities,
-};
 use ioi_api::{
     lifecycle::OnEndBlock,
     runtime::Runnable,
     services::{BlockchainService, UpgradableService},
     state::StateAccessor,
     transaction::{context::TxContext, decorator::TxDecorator},
+};
+use ioi_types::{
+    app::ChainTransaction,
+    codec::{self, to_bytes_canonical},
+    error::{StateError, TransactionError, UpgradeError, VmError},
+    service_configs::Capabilities,
 };
 use parity_scale_codec::{Decode, Encode};
 use std::{any::Any, fmt};
@@ -25,7 +25,7 @@ struct AnteHandleRequest {
 
 /// A generic wrapper that makes any `Runnable` artifact conform to the `BlockchainService` traits.
 /// This struct is `Sync` because it synchronizes access to the `!Sync` `Runnable` via a `Mutex`.
-pub struct RuntimeBackedService {
+pub struct RuntimeService {
     id: String,
     abi_version: u32,
     state_schema: String,
@@ -33,9 +33,9 @@ pub struct RuntimeBackedService {
     caps: Capabilities,
 }
 
-impl fmt::Debug for RuntimeBackedService {
+impl fmt::Debug for RuntimeService {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RuntimeBackedService")
+        f.debug_struct("RuntimeService")
             .field("id", &self.id)
             .field("abi_version", &self.abi_version)
             .field("state_schema", &self.state_schema)
@@ -44,7 +44,7 @@ impl fmt::Debug for RuntimeBackedService {
     }
 }
 
-impl RuntimeBackedService {
+impl RuntimeService {
     pub fn new(
         id: String,
         abi_version: u32,
@@ -63,7 +63,7 @@ impl RuntimeBackedService {
 }
 
 #[async_trait]
-impl BlockchainService for RuntimeBackedService {
+impl BlockchainService for RuntimeService {
     fn id(&self) -> &str {
         &self.id
     }
@@ -127,7 +127,7 @@ impl BlockchainService for RuntimeBackedService {
 }
 
 #[async_trait]
-impl UpgradableService for RuntimeBackedService {
+impl UpgradableService for RuntimeService {
     async fn prepare_upgrade(&mut self, artifact: &[u8]) -> Result<Vec<u8>, UpgradeError> {
         let mut runnable = self.runnable.lock().await;
         runnable
@@ -147,7 +147,7 @@ impl UpgradableService for RuntimeBackedService {
 }
 
 #[async_trait]
-impl TxDecorator for RuntimeBackedService {
+impl TxDecorator for RuntimeService {
     async fn ante_handle(
         &self,
         state: &mut dyn StateAccessor,
@@ -169,7 +169,7 @@ impl TxDecorator for RuntimeBackedService {
 }
 
 #[async_trait]
-impl OnEndBlock for RuntimeBackedService {
+impl OnEndBlock for RuntimeService {
     async fn on_end_block(
         &self,
         state: &mut dyn StateAccessor,
