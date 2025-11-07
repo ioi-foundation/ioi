@@ -69,7 +69,7 @@ impl<'a> PenaltyMechanism for PenaltyDelegator<'a> {
 }
 
 #[derive(Debug)]
-pub struct ChainState<CS: CommitmentScheme + Clone> {
+pub struct ExecutionState<CS: CommitmentScheme + Clone> {
     pub commitment_scheme: CS,
     pub transaction_model: UnifiedTransactionModel<CS>,
     pub chain_id: ChainId,
@@ -82,7 +82,7 @@ pub struct ChainState<CS: CommitmentScheme + Clone> {
 }
 
 pub struct Chain<CS: CommitmentScheme + Clone, ST: StateManager> {
-    pub state: ChainState<CS>,
+    pub state: ExecutionState<CS>,
     pub services: ServiceDirectory,
     pub service_manager: ServiceUpgradeManager,
     pub consensus_engine: Consensus<ioi_types::app::ChainTransaction>,
@@ -175,7 +175,7 @@ where
             service_manager.register_service(service);
         }
 
-        let state = ChainState {
+        let state = ExecutionState {
             commitment_scheme,
             transaction_model,
             chain_id,
