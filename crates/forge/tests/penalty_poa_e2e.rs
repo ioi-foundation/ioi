@@ -9,7 +9,7 @@ use ioi_forge::testing::{
     poll::{wait_for_height, wait_for_quarantine_status},
     rpc,
     rpc::get_quarantined_set,
-    TestCluster,
+    TestValidator, // Use the validator struct directly instead of the cluster builder
 };
 use ioi_types::{
     app::{
@@ -26,9 +26,11 @@ use ioi_types::{
     },
     service_configs::MigrationConfig,
 };
-use libp2p::identity::Keypair;
-use serde_json::json;
+use libp2p::identity::{self, Keypair};
+use libp2p::Multiaddr; // Added for bootnode address
+use serde_json::json; // FIX: Removed unused 'Value' import
 use std::collections::BTreeMap;
+use std::mem::ManuallyDrop;
 use std::time::Duration;
 use tokio::time;
 
@@ -74,161 +76,260 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
     println!("\n--- Running PoA Non-Economic Quarantine and Liveness Guard Test ---");
     build_test_artifacts();
 
-    let mut cluster = TestCluster::builder()
-        .with_validators(3) // Start with 3 to test the liveness boundary of MIN_LIVE_AUTHORITIES=2
-        .with_consensus_type("ProofOfAuthority")
-        .with_chain_id(1)
-        .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
-            chain_id: 1,
-            grace_period_blocks: 5,
-            accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
-            allow_downgrade: false,
-        }))
-        .with_genesis_modifier(|genesis, keys| {
-            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
-            // 1. Derive AccountIds and sort them for canonical representation.
-            let mut authorities: Vec<AccountId> = keys
-                .iter()
-                .map(|k| {
-                    let pk_bytes = k.public().encode_protobuf();
-                    let hash =
-                        account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
-                    AccountId(hash)
-                })
-                .collect();
-            authorities.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+    // --- SETUP: Deterministic Leader-First Launch ---
 
-            let validators: Vec<ValidatorV1> = authorities
-                .iter()
-                .map(|acct_id| {
-                    let pk_hash = acct_id.0;
-                    ValidatorV1 {
-                        account_id: *acct_id,
-                        weight: 1, // PoA
-                        consensus_key: ActiveKeyRecord {
-                            suite: SignatureSuite::Ed25519,
-                            public_key_hash: pk_hash,
-                            since_height: 0,
-                        },
-                    }
-                })
-                .collect();
+    // 1. Manually create keys for all nodes.
+    let k0 = identity::Keypair::generate_ed25519();
+    let k1 = identity::Keypair::generate_ed25519();
+    let k2 = identity::Keypair::generate_ed25519();
+    let all_keys = vec![k0.clone(), k1.clone(), k2.clone()];
 
-            let vs_blob = ValidatorSetBlob {
-                schema_version: 2,
-                payload: ValidatorSetsV1 {
-                    current: ValidatorSetV1 {
-                        effective_from_height: 1,
-                        total_weight: validators.len() as u128,
-                        validators,
-                    },
-                    next: None,
-                },
-            };
-            let vs_bytes = ioi_types::app::write_validator_sets(&vs_blob.payload).unwrap();
-            genesis_state.insert(
-                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
+    // 2. Derive AccountIds and sort the keys to find the canonical leader for H=1.
+    let suite = SignatureSuite::Ed25519;
+    let mut account_ids_with_keys = all_keys
+        .iter()
+        .map(|k| {
+            let id = AccountId(
+                account_id_from_key_material(suite, &k.public().encode_protobuf()).unwrap(),
             );
-
-            // *** FIX START: Add mandatory block timing parameters to genesis ***
-            let timing_params = BlockTimingParams {
-                base_interval_secs: 5,
-                retarget_every_blocks: 0, // Disable adaptive timing for simplicity.
-                ..Default::default()
-            };
-            let timing_runtime = BlockTimingRuntime {
-                effective_interval_secs: timing_params.base_interval_secs,
-                ..Default::default()
-            };
-            genesis_state.insert(
-                std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
-                )),
-            );
-            genesis_state.insert(
-                std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
-                )),
-            );
-            // *** FIX END ***
-
-            // 3. Build a stable map AccountId -> public key bytes.
-            let suite = SignatureSuite::Ed25519;
-            let id_to_pk: BTreeMap<AccountId, Vec<u8>> = keys
-                .iter()
-                .map(|k| {
-                    let pk = k.public().encode_protobuf();
-                    let id = AccountId(
-                        account_id_from_key_material(suite, &pk).expect("derive account id"),
-                    );
-                    (id, pk)
-                })
-                .collect();
-
-            // 4. Populate ActiveKeyRecord, IdentityHub creds, and pk map per authority using that mapping.
-            for acct_id in &authorities {
-                let pk_bytes = id_to_pk.get(acct_id).expect("missing pubkey for authority");
-
-                // Create the core consensus key record.
-                let record = ActiveKeyRecord {
-                    suite,
-                    // This equals *acct_id* by construction; using the derived value keeps it explicit.
-                    public_key_hash: account_id_from_key_material(suite, pk_bytes).unwrap(),
-                    since_height: 0, // Active from genesis
-                };
-                let record_key = [b"identity::key_record::", acct_id.as_ref()].concat();
-                let record_bytes = ioi_types::codec::to_bytes_canonical(&record).unwrap();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
-                );
-
-                // IdentityHub credentials for this authority
-                let cred = Credential {
-                    suite,
-                    public_key_hash: acct_id.0,
-                    activation_height: 0,
-                    l2_location: None,
-                };
-                let creds_array: [Option<Credential>; 2] = [Some(cred), None];
-                let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
-                let creds_key = [IDENTITY_CREDENTIALS_PREFIX, acct_id.as_ref()].concat();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
-                );
-
-                // AccountId -> PublicKey mapping
-                let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, acct_id.as_ref()].concat();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(pk_bytes))),
-                );
-            }
+            (id, k.clone())
         })
-        .build()
-        .await?;
+        .collect::<Vec<_>>();
+    // Sort by AccountId to find the leader (index 0).
+    account_ids_with_keys.sort_by(|a, b| a.0.cmp(&b.0));
 
-    let (reporter_slice, offenders_slice) = cluster.validators.split_at_mut(1);
-    let reporter = &mut reporter_slice[0];
-    let (offender1_slice, offender2_slice) = offenders_slice.split_at_mut(1);
-    let offender1 = &offender1_slice[0];
-    let offender2 = &offender2_slice[0];
+    // The first key in the sorted list is the leader for block 1.
+    let leader_key = account_ids_with_keys[0].1.clone();
+    let follower_keys: Vec<_> = account_ids_with_keys
+        .iter()
+        .skip(1)
+        .map(|(_, k)| k.clone())
+        .collect();
 
+    // 3. Create a single genesis string to be shared by all nodes.
+    let genesis_content = {
+        let mut genesis = json!({ "genesis_state": {} });
+        let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+        // 1. Derive AccountIds and sort them for canonical representation.
+        let mut authorities: Vec<AccountId> = all_keys
+            .iter()
+            .map(|k| {
+                let pk_bytes = k.public().encode_protobuf();
+                let hash =
+                    account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
+                AccountId(hash)
+            })
+            .collect();
+        authorities.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+
+        let validators: Vec<ValidatorV1> = authorities
+            .iter()
+            .map(|acct_id| {
+                let pk_hash = acct_id.0;
+                ValidatorV1 {
+                    account_id: *acct_id,
+                    weight: 1, // PoA
+                    consensus_key: ActiveKeyRecord {
+                        suite: SignatureSuite::Ed25519,
+                        public_key_hash: pk_hash,
+                        since_height: 0,
+                    },
+                }
+            })
+            .collect();
+
+        let vs_blob = ValidatorSetBlob {
+            schema_version: 2,
+            payload: ValidatorSetsV1 {
+                current: ValidatorSetV1 {
+                    effective_from_height: 1,
+                    total_weight: validators.len() as u128,
+                    validators,
+                },
+                next: None,
+            },
+        };
+        let vs_bytes = ioi_types::app::write_validator_sets(&vs_blob.payload).unwrap();
+        genesis_state.insert(
+            std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
+            json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
+        );
+
+        let timing_params = BlockTimingParams {
+            base_interval_secs: 5,
+            retarget_every_blocks: 0, // Disable adaptive timing for simplicity.
+            ..Default::default()
+        };
+        let timing_runtime = BlockTimingRuntime {
+            effective_interval_secs: timing_params.base_interval_secs,
+            ..Default::default()
+        };
+        genesis_state.insert(
+            std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
+                .unwrap()
+                .to_string(),
+            json!(format!(
+                "b64:{}",
+                BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
+            )),
+        );
+        genesis_state.insert(
+            std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
+                .unwrap()
+                .to_string(),
+            json!(format!(
+                "b64:{}",
+                BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
+            )),
+        );
+        let id_to_pk: BTreeMap<AccountId, Vec<u8>> = all_keys
+            .iter()
+            .map(|k| {
+                let pk = k.public().encode_protobuf();
+                let id =
+                    AccountId(account_id_from_key_material(suite, &pk).expect("derive account id"));
+                (id, pk)
+            })
+            .collect();
+
+        for acct_id in &authorities {
+            let pk_bytes = id_to_pk.get(acct_id).expect("missing pubkey for authority");
+            let record = ActiveKeyRecord {
+                suite,
+                public_key_hash: account_id_from_key_material(suite, pk_bytes).unwrap(),
+                since_height: 0,
+            };
+            let record_key = [b"identity::key_record::", acct_id.as_ref()].concat();
+            let record_bytes = ioi_types::codec::to_bytes_canonical(&record).unwrap();
+            genesis_state.insert(
+                format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
+            );
+            let cred = Credential {
+                suite,
+                public_key_hash: acct_id.0,
+                activation_height: 0,
+                l2_location: None,
+            };
+            let creds_array: [Option<Credential>; 2] = [Some(cred), None];
+            let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
+            let creds_key = [IDENTITY_CREDENTIALS_PREFIX, acct_id.as_ref()].concat();
+            genesis_state.insert(
+                format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
+            );
+            let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, acct_id.as_ref()].concat();
+            genesis_state.insert(
+                format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
+                json!(format!("b64:{}", BASE64_STANDARD.encode(pk_bytes))),
+            );
+        }
+        genesis.to_string()
+    };
+
+    // 4. Launch leader node, wait for block 1, then launch followers.
+    let leader_node = ManuallyDrop::new(
+        TestValidator::launch(
+            leader_key,
+            genesis_content.clone(),
+            5000,
+            1.into(),
+            None,
+            "ProofOfAuthority",
+            "IAVL",
+            "Hash",
+            None,
+            None, // [+] FIX: Added missing agentic_model_path argument
+            false,
+            vec![InitialServiceConfig::IdentityHub(MigrationConfig {
+                chain_id: 1,
+                grace_period_blocks: 5,
+                accept_staged_during_grace: true,
+                allowed_target_suites: vec![SignatureSuite::Ed25519],
+                allow_downgrade: false,
+            })],
+            false,
+            false,
+            &[],
+        )
+        .await?,
+    );
+    wait_for_height(&leader_node.rpc_addr, 1, Duration::from_secs(20)).await?;
+
+    let bootnode_addrs: Vec<Multiaddr> = vec![leader_node.p2p_addr.clone()];
+
+    let follower1 = ManuallyDrop::new(
+        TestValidator::launch(
+            follower_keys[0].clone(),
+            genesis_content.clone(),
+            6000,
+            1.into(),
+            Some(&bootnode_addrs),
+            "ProofOfAuthority",
+            "IAVL",
+            "Hash",
+            None,
+            None, // [+] FIX: Added missing agentic_model_path argument
+            false,
+            vec![InitialServiceConfig::IdentityHub(MigrationConfig {
+                chain_id: 1,
+                grace_period_blocks: 5,
+                accept_staged_during_grace: true,
+                allowed_target_suites: vec![SignatureSuite::Ed25519],
+                allow_downgrade: false,
+            })],
+            false,
+            false,
+            &[],
+        )
+        .await?,
+    );
+    let follower2 = ManuallyDrop::new(
+        TestValidator::launch(
+            follower_keys[1].clone(),
+            genesis_content.clone(),
+            7000,
+            1.into(),
+            Some(&bootnode_addrs),
+            "ProofOfAuthority",
+            "IAVL",
+            "Hash",
+            None,
+            None, // [+] FIX: Added missing agentic_model_path argument
+            false,
+            vec![InitialServiceConfig::IdentityHub(MigrationConfig {
+                chain_id: 1,
+                grace_period_blocks: 5,
+                accept_staged_during_grace: true,
+                allowed_target_suites: vec![SignatureSuite::Ed25519],
+                allow_downgrade: false,
+            })],
+            false,
+            false,
+            &[],
+        )
+        .await?,
+    );
+
+    // Re-assemble validators and sort by PeerId for a stable test order
+    let mut validators = vec![
+        ManuallyDrop::into_inner(leader_node),
+        ManuallyDrop::into_inner(follower1),
+        ManuallyDrop::into_inner(follower2),
+    ];
+    validators.sort_by(|a, b| a.peer_id.cmp(&b.peer_id));
+
+    // The rest of the test logic proceeds from here...
+    let reporter = &validators[0];
+    let offender1 = &validators[1];
+    let offender2 = &validators[2];
     let rpc_addr = &reporter.rpc_addr;
 
-    // Wait for network to be ready
-    wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
+    // Wait for network to be ready and synced
+    wait_for_height(rpc_addr, 2, Duration::from_secs(30)).await?;
+    wait_for_height(&offender1.rpc_addr, 2, Duration::from_secs(30)).await?;
+    wait_for_height(&offender2.rpc_addr, 2, Duration::from_secs(30)).await?;
+    println!("--- All nodes synced. Cluster is ready. ---");
 
     // Action 1: Quarantine the first offender. This should succeed.
     let offender1_pk_bytes = offender1.keypair.public().encode_protobuf();
