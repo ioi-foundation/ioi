@@ -2,7 +2,7 @@
 
 use crate::runtime_service::RuntimeService;
 use ioi_api::runtime::Runtime;
-use ioi_api::services::UpgradableService;
+use ioi_api::services::{BlockchainService, UpgradableService};
 use ioi_api::state::StateAccess;
 use ioi_types::codec;
 use ioi_types::error::{CoreError, UpgradeError};
@@ -339,57 +339,39 @@ impl ServiceUpgradeManager {
             return Ok(());
         }
 
-        let mut active_service_arc = self
+        let active_service = self
             .active_services
-            .remove(service_id)
+            .get(service_id)
             .ok_or_else(|| CoreError::ServiceNotFound(service_id.to_string()))?;
 
-        let upgrade_result: Result<Arc<dyn UpgradableService>, CoreError> = async {
-            let active_service = Arc::get_mut(&mut active_service_arc).ok_or_else(|| {
-                CoreError::Upgrade(UpgradeError::OperationFailed("Service in use".to_string()))
-            })?;
-            let snapshot = active_service.prepare_upgrade(artifact).await?;
+        // Call &self methods directly on the Arc, no `get_mut` needed.
+        let snapshot = active_service.prepare_upgrade(artifact).await?;
 
-            let mut new_service_arc: Arc<dyn UpgradableService> = Arc::new(RuntimeService::new(
-                parsed.id,
-                parsed.abi_version,
-                parsed.state_schema,
-                runnable,
-                full_meta.caps,
-            ));
+        let new_service_arc = Arc::new(RuntimeService::new(
+            parsed.id,
+            parsed.abi_version,
+            parsed.state_schema,
+            runnable,
+            full_meta.caps,
+        ));
 
-            if new_service_arc.abi_version() != active_service.abi_version() {
-                return Err(CoreError::Upgrade(UpgradeError::InvalidUpgrade(
-                    "Incompatible ABI version".to_string(),
-                )));
-            }
-
-            let new_service = Arc::get_mut(&mut new_service_arc).ok_or_else(|| {
-                CoreError::Upgrade(UpgradeError::OperationFailed(
-                    "Failed to get mut ref to new service".to_string(),
-                ))
-            })?;
-            new_service.complete_upgrade(&snapshot).await?;
-            Ok(new_service_arc)
+        if new_service_arc.abi_version() != active_service.abi_version() {
+            return Err(CoreError::Upgrade(UpgradeError::InvalidUpgrade(
+                "Incompatible ABI version".to_string(),
+            )));
         }
-        .await;
 
-        match upgrade_result {
-            Ok(new_service_arc) => {
-                self.active_services
-                    .insert(service_id.to_string(), new_service_arc);
-                let meta_bytes = ioi_types::codec::to_bytes_canonical(&full_meta)?;
-                state
-                    .insert(&active_service_key(service_id), &meta_bytes)
-                    .map_err(|e| CoreError::Custom(e.to_string()))?;
-                Ok(())
-            }
-            Err(e) => {
-                self.active_services
-                    .insert(service_id.to_string(), active_service_arc);
-                Err(e)
-            }
-        }
+        new_service_arc.complete_upgrade(&snapshot).await?;
+
+        // Atomically replace the old service with the new one.
+        self.active_services
+            .insert(service_id.to_string(), new_service_arc);
+        let meta_bytes = ioi_types::codec::to_bytes_canonical(&full_meta)?;
+        state
+            .insert(&active_service_key(service_id), &meta_bytes)
+            .map_err(|e| CoreError::Custom(e.to_string()))?;
+
+        Ok(())
     }
 
     pub fn disable_service(

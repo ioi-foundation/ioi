@@ -226,11 +226,11 @@ impl BlockchainService for VerifierRegistry {
 
 #[async_trait]
 impl UpgradableService for VerifierRegistry {
-    async fn prepare_upgrade(&mut self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
+    async fn prepare_upgrade(&self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
         Ok(Vec::new())
     }
 
-    async fn complete_upgrade(&mut self, _snapshot: &[u8]) -> Result<(), UpgradeError> {
+    async fn complete_upgrade(&self, _snapshot: &[u8]) -> Result<(), UpgradeError> {
         Ok(())
     }
 }

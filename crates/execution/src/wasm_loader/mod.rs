@@ -1,4 +1,4 @@
-// Path: crates/chain/src/wasm_loader/mod.rs
+// Path: crates/execution/src/wasm_loader/mod.rs
 
 use async_trait::async_trait;
 use ioi_api::{
@@ -169,11 +169,11 @@ impl OnEndBlock for WasmService {
 
 #[async_trait]
 impl UpgradableService for WasmService {
-    async fn prepare_upgrade(&mut self, new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
+    async fn prepare_upgrade(&self, new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
         self.call_wasm_fn("prepare_upgrade", new_module_wasm)
     }
 
-    async fn complete_upgrade(&mut self, snapshot: &[u8]) -> Result<(), UpgradeError> {
+    async fn complete_upgrade(&self, snapshot: &[u8]) -> Result<(), UpgradeError> {
         self.call_wasm_fn("complete_upgrade", snapshot)?;
         Ok(())
     }

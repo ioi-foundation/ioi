@@ -128,7 +128,7 @@ impl BlockchainService for RuntimeService {
 
 #[async_trait]
 impl UpgradableService for RuntimeService {
-    async fn prepare_upgrade(&mut self, artifact: &[u8]) -> Result<Vec<u8>, UpgradeError> {
+    async fn prepare_upgrade(&self, artifact: &[u8]) -> Result<Vec<u8>, UpgradeError> {
         let mut runnable = self.runnable.lock().await;
         runnable
             .call("prepare_upgrade", artifact)
@@ -136,7 +136,7 @@ impl UpgradableService for RuntimeService {
             .map_err(|e| UpgradeError::InvalidUpgrade(e.to_string()))
     }
 
-    async fn complete_upgrade(&mut self, snapshot: &[u8]) -> Result<(), UpgradeError> {
+    async fn complete_upgrade(&self, snapshot: &[u8]) -> Result<(), UpgradeError> {
         let mut runnable = self.runnable.lock().await;
         runnable
             .call("complete_upgrade", snapshot)
