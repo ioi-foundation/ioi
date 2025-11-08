@@ -10,7 +10,7 @@ use axum::{routing::get, serve, Router};
 use ioi_forge::testing::{
     assert_log_contains,
     backend::ProcessBackend,
-    poll::{wait_for, wait_for_height, wait_for_pending_oracle_request},
+    wait_for, wait_for_height, wait_for_pending_oracle_request,
     rpc, submit_transaction, TestCluster,
 };
 use ioi_types::{

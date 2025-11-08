@@ -72,7 +72,7 @@ pub async fn submit_transaction_and_wait_block(
 ) -> Result<()> {
     submit_transaction(rpc_addr, tx).await?;
     let tip = tip_height_resilient(rpc_addr).await?;
-    super::poll::wait_for_height(rpc_addr, tip + 1, Duration::from_secs(20)).await?;
+    super::assert::wait_for_height(rpc_addr, tip + 1, Duration::from_secs(20)).await?;
     Ok(())
 }
 
@@ -127,7 +127,8 @@ pub async fn submit_transaction(
     if v.get("result").is_some() {
         log::info!("submit_transaction: accepted -> {}", v);
         // Wait for the next block to be produced to ensure the tx is processed.
-        super::poll::wait_for_height(rpc_addr, initial_height + 1, Duration::from_secs(20)).await?;
+        super::assert::wait_for_height(rpc_addr, initial_height + 1, Duration::from_secs(20))
+            .await?;
         return Ok(());
     }
 

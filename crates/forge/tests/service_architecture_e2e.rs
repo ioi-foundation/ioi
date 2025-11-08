@@ -5,7 +5,7 @@ use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
     assert_log_contains,
-    poll::{wait_for_height, wait_until},
+    wait_for_height, wait_until,
     rpc::{query_state_key, query_state_key_at_root, tip_height_resilient},
     submit_transaction, TestCluster,
 };
