@@ -1,4 +1,4 @@
-// Path: crates/services/src/ibc/light_client/mod.rs
+// Path: crates/services/src/ibc/light_clients/mod.rs
 
 //! Contains concrete, chain-specific implementations of the `LightClient` trait.
 

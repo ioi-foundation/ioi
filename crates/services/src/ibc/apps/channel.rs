@@ -1,4 +1,4 @@
-// Path: crates/services/src/ibc/channel.rs
+// Path: crates/services/src/ibc/apps/channel.rs
 
 //! Implements the `ChannelManager` service, which serves as a placeholder for
 //! an IBC application module (e.g., ICS-20 transfer).

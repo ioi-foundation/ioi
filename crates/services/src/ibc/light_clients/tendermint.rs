@@ -1,5 +1,5 @@
-// Path: crates/services/src/ibc/light_client/tendermint.rs
-use crate::ibc::light_client::errors::IbcError;
+// Path: crates/services/src/ibc/light_clients/tendermint.rs
+use crate::ibc::light_clients::errors::IbcError;
 use async_trait::async_trait;
 use ibc_client_tendermint::types::proto::v1::{
     ClientState as RawTmClientState, ConsensusState as RawTmConsensusState, Header as RawTmHeader,

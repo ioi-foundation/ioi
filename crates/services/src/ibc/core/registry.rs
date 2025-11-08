@@ -1,6 +1,6 @@
-// Path: crates/services/src/ibc/registry.rs
+// Path: crates/services/src/ibc/core/registry.rs
 
-use crate::ibc::context::IbcExecutionContext;
+use crate::ibc::core::context::IbcExecutionContext;
 use async_trait::async_trait;
 use ibc::core::entrypoint::dispatch;
 use ibc_core_client_types::msgs::MsgUpdateClient; // For optional decode preview

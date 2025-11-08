@@ -1,19 +1,13 @@
 // Path: crates/services/src/ibc/mod.rs
 #![allow(clippy::module_inception)] // Allow the module name to match its parent directory
 
-//! Implements the core IBC services, including light client verifiers,
-//! a channel manager, and a registry to coordinate them.
+//! Implements the core IBC services, restructured to align with ICS standards.
 
-/// Implements the IBC channel lifecycle (handshakes, packet ordering, timeouts).
-pub mod channel;
+/// Core host machinery (ICS-24, ICS-26 dispatch).
+pub mod core;
 
-/// Contains the adapter `IbcExecutionContext` that allows `ibc-rs` to interact
-/// with the IOI SDK's `StateAccessor`.
-pub mod context;
+/// Light client implementations (ICS-02, ICS-07, etc.).
+pub mod light_clients;
 
-/// Contains concrete, chain-specific implementations of the `LightClient` trait.
-pub mod light_client;
-
-/// Implements the `VerifierRegistry` for managing multiple light client instances
-/// and dispatching all IBC messages.
-pub mod registry;
+/// IBC application modules (e.g., ICS-20 token transfer).
+pub mod apps;
