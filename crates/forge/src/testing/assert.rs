@@ -1,8 +1,10 @@
-// Path: crates/forge/src/testing/poll.rs
+// Path: crates/forge/src/testing/assert.rs
 
+use super::rpc::{get_chain_height, get_quarantined_set, query_state_key};
+use crate::testing::rpc::get_contract_code;
 use anyhow::{anyhow, Result};
-use ioi_client::WorkloadClient;
 use ioi_api::consensus::ChainStateReader;
+use ioi_client::WorkloadClient;
 use ioi_types::{
     app::{AccountId, Proposal, ProposalStatus, StateEntry},
     codec,
@@ -10,10 +12,127 @@ use ioi_types::{
 };
 use std::future::Future;
 use std::time::{Duration, Instant};
-use tokio::time::sleep;
+use tokio::{
+    sync::broadcast,
+    time::{sleep, timeout},
+};
 
-use super::rpc::{get_chain_height, get_quarantined_set, query_state_key};
-use crate::testing::rpc::get_contract_code;
+// --- Test Configuration ---
+pub(crate) const LOG_ASSERT_TIMEOUT: Duration = Duration::from_secs(45);
+pub(crate) const LOG_CHANNEL_CAPACITY: usize = 8192;
+
+// --- Log Assertions ---
+
+pub async fn assert_log_contains(
+    label: &str,
+    log_stream: &mut broadcast::Receiver<String>,
+    pattern: &str,
+) -> Result<()> {
+    let start = Instant::now();
+    let mut received_lines = Vec::new();
+
+    loop {
+        // Manually check overall timeout
+        if start.elapsed() > LOG_ASSERT_TIMEOUT {
+            let combined_logs = received_lines.join("\n");
+            return Err(anyhow!(
+                "[{}] Timeout waiting for pattern '{}'.\n--- Received Logs ---\n{}\n--- End Logs ---",
+                label,
+                pattern,
+                combined_logs
+            ));
+        }
+
+        // Use a short timeout on recv to prevent blocking forever if no new logs arrive
+        match timeout(Duration::from_millis(500), log_stream.recv()).await {
+            Ok(Ok(line)) => {
+                println!("[LOGS-{}] {}", label, line); // Live logging
+                received_lines.push(line.clone());
+                if line.contains(pattern) {
+                    return Ok(());
+                }
+            }
+            Ok(Err(broadcast::error::RecvError::Lagged(count))) => {
+                let msg = format!(
+                    "[WARN] Log assertion for '{}' may have missed {} lines.",
+                    label, count
+                );
+                println!("{}", &msg);
+                received_lines.push(msg);
+            }
+            Ok(Err(broadcast::error::RecvError::Closed)) => {
+                let combined_logs = received_lines.join("\n");
+                return Err(anyhow!(
+                    "Log stream for '{}' ended before pattern '{}' was found.\n--- Received Logs ---\n{}\n--- End Logs ---",
+                    label,
+                    pattern,
+                    combined_logs
+                ));
+            }
+            Err(_) => {
+                // recv timed out, continue outer loop to check overall timeout
+                continue;
+            }
+        }
+    }
+}
+
+pub async fn assert_log_contains_and_return_line(
+    label: &str,
+    log_stream: &mut broadcast::Receiver<String>,
+    pattern: &str,
+) -> Result<String> {
+    let start = Instant::now();
+    let mut received_lines = Vec::new();
+
+    loop {
+        // Manually check overall timeout
+        if start.elapsed() > LOG_ASSERT_TIMEOUT {
+            let combined_logs = received_lines.join("\n");
+            return Err(anyhow!(
+                "[{}] Timeout waiting for pattern '{}'.\n--- Received Logs ---\n{}\n--- End Logs ---",
+                label,
+                pattern,
+                combined_logs
+            ));
+        }
+
+        // Use a short timeout on recv to prevent blocking forever if no new logs arrive
+        match timeout(Duration::from_millis(500), log_stream.recv()).await {
+            Ok(Ok(line)) => {
+                println!("[LOGS-{}] {}", label, line);
+                let line_clone = line.clone();
+                received_lines.push(line);
+                if line_clone.contains(pattern) {
+                    return Ok(line_clone);
+                }
+            }
+            Ok(Err(broadcast::error::RecvError::Lagged(count))) => {
+                let msg = format!(
+                    "[WARN] Log assertion for '{}' may have missed {} lines.",
+                    label, count
+                );
+                println!("{}", &msg);
+                received_lines.push(msg);
+            }
+            Ok(Err(broadcast::error::RecvError::Closed)) => {
+                let combined_logs = received_lines.join("\n");
+                return Err(anyhow!(
+                    "Log stream for '{}' ended before pattern '{}' was found.\n--- Received Logs ---\n{}\n--- End Logs ---",
+                    label,
+                    pattern,
+                    combined_logs
+                ));
+            }
+            Err(_) => {
+                // recv timed out, continue outer loop to check overall timeout
+                continue;
+            }
+        }
+    }
+}
+
+// --- Polling Helpers (from `poll.rs`) ---
 
 /// Generic polling function that waits for an async condition to be met.
 pub async fn wait_for<F, Fut, T>(

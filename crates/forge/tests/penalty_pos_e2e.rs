@@ -7,7 +7,7 @@ use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_client::WorkloadClient;
 use ioi_forge::testing::{
     build_test_artifacts,
-    poll::{wait_for_evidence, wait_for_height, wait_for_stake_to_be},
+    wait_for_evidence, wait_for_height, wait_for_stake_to_be,
     rpc::query_state_key,
     submit_transaction, TestCluster,
 };

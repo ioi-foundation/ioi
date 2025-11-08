@@ -31,7 +31,7 @@ use ibc_proto::{
 };
 use ioi_forge::testing::{
     build_test_artifacts,
-    poll::{wait_for, wait_for_height},
+    wait_for, wait_for_height,
     rpc::query_state_key,
     TestCluster,
 };

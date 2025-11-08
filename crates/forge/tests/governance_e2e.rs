@@ -6,7 +6,7 @@ use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
     build_test_artifacts,
-    poll::{confirm_proposal_passed_state, wait_for_height},
+    confirm_proposal_passed_state, wait_for_height,
     submit_transaction, TestCluster,
 };
 use ioi_types::{

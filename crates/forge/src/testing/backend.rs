@@ -1,6 +1,6 @@
 // Path: crates/forge/src/testing/backend.rs
 
-use super::{ensure_docker_image_exists, DOCKER_BUILD_CHECK, DOCKER_IMAGE_TAG};
+use super::docker::{ensure_docker_image_exists, DOCKER_BUILD_CHECK, DOCKER_IMAGE_TAG};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use bollard::{

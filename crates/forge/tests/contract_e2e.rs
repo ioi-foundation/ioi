@@ -6,7 +6,8 @@ use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_client::WorkloadClient;
 use ioi_forge::testing::{
     build_test_artifacts,
-    poll::{wait_for_contract_deployment, wait_for_height},
+    // FIX: Import directly from the `testing` module
+    wait_for_contract_deployment, wait_for_height,
     submit_transaction, TestCluster,
 };
 use ioi_crypto::algorithms::hash::sha256;

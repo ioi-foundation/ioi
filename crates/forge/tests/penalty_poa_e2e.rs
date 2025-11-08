@@ -6,7 +6,7 @@ use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
     build_test_artifacts,
-    poll::{wait_for_height, wait_for_quarantine_status},
+    wait_for_height, wait_for_quarantine_status,
     rpc,
     rpc::get_quarantined_set,
     TestValidator, // Use the validator struct directly instead of the cluster builder
