@@ -16,14 +16,18 @@ use ioi_forge::testing::{
 };
 use ioi_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
-        Credential, SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
-        ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
+        BlockTimingRuntime, ChainId, ChainTransaction, Credential, SignHeader, SignatureProof,
+        SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetV1, ValidatorSetsV1,
+        ValidatorV1,
     },
     codec,
     // [+] FIX: Add the missing import for OracleParams
     config::{InitialServiceConfig, OracleParams},
-    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
+    keys::{
+        ACCOUNT_ID_TO_PUBKEY_PREFIX, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY,
+        IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
+    },
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
@@ -164,6 +168,35 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
+            );
+
+            // [+] FIX: Add mandatory block timing parameters to genesis
+            let timing_params = BlockTimingParams {
+                base_interval_secs: 5,
+                retarget_every_blocks: 0, // Disable adaptive timing for simplicity.
+                ..Default::default()
+            };
+            let timing_runtime = BlockTimingRuntime {
+                effective_interval_secs: timing_params.base_interval_secs,
+                ..Default::default()
+            };
+            genesis_state.insert(
+                std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
+                    .unwrap()
+                    .to_string(),
+                json!(format!(
+                    "b64:{}",
+                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
+                )),
+            );
+            genesis_state.insert(
+                std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
+                    .unwrap()
+                    .to_string(),
+                json!(format!(
+                    "b64:{}",
+                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
+                )),
             );
 
             // Populate identity records for all validators using the original key order
