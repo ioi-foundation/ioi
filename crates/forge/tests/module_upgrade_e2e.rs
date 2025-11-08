@@ -1,5 +1,5 @@
 // Path: crates/forge/tests/module_upgrade_e2e.rs
-#![cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "tree-iavl"))]
+#![cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
 
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};

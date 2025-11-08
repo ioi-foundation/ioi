@@ -50,7 +50,7 @@ pub(crate) fn resolve_node_features(user_supplied: &str) -> String {
     fn has_tree_feature(s: &str) -> bool {
         s.split(',')
             .map(|f| f.trim())
-            .any(|f| matches!(f, "tree-iavl" | "tree-sparse-merkle" | "tree-verkle"))
+            .any(|f| matches!(f, "state-iavl" | "state-sparse-merkle" | "state-verkle"))
     }
 
     if !user_supplied.trim().is_empty() && has_tree_feature(user_supplied) {
@@ -61,31 +61,31 @@ pub(crate) fn resolve_node_features(user_supplied: &str) -> String {
 
     // --- State tree (must be exactly one) ---
     let mut tree_count = 0usize;
-    if cfg!(feature = "tree-iavl") {
-        feats.push("tree-iavl");
+    if cfg!(feature = "state-iavl") {
+        feats.push("state-iavl");
         tree_count += 1;
     }
-    if cfg!(feature = "tree-sparse-merkle") {
-        feats.push("tree-sparse-merkle");
+    if cfg!(feature = "state-sparse-merkle") {
+        feats.push("state-sparse-merkle");
         tree_count += 1;
     }
-    if cfg!(feature = "tree-verkle") {
-        feats.push("tree-verkle");
+    if cfg!(feature = "state-verkle") {
+        feats.push("state-verkle");
         tree_count += 1;
     }
     if tree_count == 0 {
-        panic!("No 'tree-*' feature was provided and none are enabled on ioi-forge. Enable exactly one of: tree-iavl, tree-sparse-merkle, tree-verkle.");
+        panic!("No 'tree-*' feature was provided and none are enabled on ioi-forge. Enable exactly one of: state-iavl, state-sparse-merkle, state-verkle.");
     }
     if tree_count > 1 {
         panic!("Multiple 'tree-*' features are enabled on ioi-forge. Enable exactly one.");
     }
 
     // --- Commitment primitives ---
-    if cfg!(feature = "primitive-hash") {
-        feats.push("primitive-hash");
+    if cfg!(feature = "commitment-hash") {
+        feats.push("commitment-hash");
     }
-    if cfg!(feature = "primitive-kzg") {
-        feats.push("primitive-kzg");
+    if cfg!(feature = "commitment-kzg") {
+        feats.push("commitment-kzg");
     }
 
     // --- Consensus engines ---

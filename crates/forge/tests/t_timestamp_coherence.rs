@@ -4,7 +4,7 @@
 //! the timestamp used during pre-flight checks (mempool admission) is the same
 //! one used during block execution and written to the block header.
 
-#![cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "tree-iavl"))]
+#![cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
 
 use anyhow::Result;
 use ioi_forge::testing::{

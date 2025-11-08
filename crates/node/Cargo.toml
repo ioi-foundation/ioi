@@ -70,19 +70,23 @@ malicious-bin = []
 
 # State Tree features must propagate to BOTH commitment and validator crates
 
-tree-iavl = ["ioi-state/tree-iavl", "ioi-validator/tree-iavl", "primitive-hash"]
-tree-sparse-merkle = [
-    "ioi-state/tree-sparse-merkle",
-    "ioi-validator/tree-sparse-merkle",
-    "primitive-hash",
+state-iavl = [
+    "ioi-state/state-iavl",
+    "ioi-validator/state-iavl",
+    "commitment-hash",
 ]
-tree-verkle = [
-    "ioi-state/tree-verkle",
-    "ioi-validator/tree-verkle",
-    "primitive-kzg",
+state-sparse-merkle = [
+    "ioi-state/state-sparse-merkle",
+    "ioi-validator/state-sparse-merkle",
+    "commitment-hash",
 ]
-primitive-hash = ["ioi-state/primitive-hash", "ioi-validator/primitive-hash"]
-primitive-kzg = ["ioi-state/primitive-kzg", "ioi-validator/primitive-kzg"]
+state-verkle = [
+    "ioi-state/state-verkle",
+    "ioi-validator/state-verkle",
+    "commitment-kzg",
+]
+commitment-hash = ["ioi-state/commitment-hash", "ioi-validator/commitment-hash"]
+commitment-kzg = ["ioi-state/commitment-kzg", "ioi-validator/commitment-kzg"]
 
 # Consensus engine features
 consensus-round-robin = [

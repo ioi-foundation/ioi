@@ -46,15 +46,15 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 // Imports for concrete types used in the factory
-#[cfg(feature = "primitive-hash")]
+#[cfg(feature = "commitment-hash")]
 use ioi_state::primitives::hash::HashCommitmentScheme;
-#[cfg(feature = "primitive-kzg")]
+#[cfg(feature = "commitment-kzg")]
 use ioi_state::primitives::kzg::{KZGCommitmentScheme, KZGParams};
-#[cfg(feature = "tree-iavl")]
+#[cfg(feature = "state-iavl")]
 use ioi_state::tree::iavl::IAVLTree;
-#[cfg(feature = "tree-sparse-merkle")]
+#[cfg(feature = "state-sparse-merkle")]
 use ioi_state::tree::sparse_merkle::SparseMerkleTree;
-#[cfg(feature = "tree-verkle")]
+#[cfg(feature = "state-verkle")]
 use ioi_state::tree::verkle::VerkleTree;
 
 #[derive(Parser, Debug)]
@@ -215,14 +215,14 @@ where
 
 fn check_features() {
     let mut enabled_features = Vec::new();
-    if cfg!(feature = "tree-iavl") {
-        enabled_features.push("tree-iavl");
+    if cfg!(feature = "state-iavl") {
+        enabled_features.push("state-iavl");
     }
-    if cfg!(feature = "tree-sparse-merkle") {
-        enabled_features.push("tree-sparse-merkle");
+    if cfg!(feature = "state-sparse-merkle") {
+        enabled_features.push("state-sparse-merkle");
     }
-    if cfg!(feature = "tree-verkle") {
-        enabled_features.push("tree-verkle");
+    if cfg!(feature = "state-verkle") {
+        enabled_features.push("state-verkle");
     }
 
     if enabled_features.len() != 1 {
@@ -259,7 +259,7 @@ async fn main() -> Result<()> {
     let config: WorkloadConfig = toml::from_str(&config_str)?;
 
     match (config.state_tree.clone(), config.commitment_scheme.clone()) {
-        #[cfg(all(feature = "tree-iavl", feature = "primitive-hash"))]
+        #[cfg(all(feature = "state-iavl", feature = "commitment-hash"))]
         (ioi_types::config::StateTreeType::IAVL, ioi_types::config::CommitmentSchemeType::Hash) => {
             tracing::info!(target: "workload", "Instantiating state backend: IAVLTree<HashCommitmentScheme>");
             let commitment_scheme = HashCommitmentScheme::new();
@@ -267,7 +267,7 @@ async fn main() -> Result<()> {
             run_workload(state_tree, commitment_scheme, config).await
         }
 
-        #[cfg(all(feature = "tree-sparse-merkle", feature = "primitive-hash"))]
+        #[cfg(all(feature = "state-sparse-merkle", feature = "commitment-hash"))]
         (
             ioi_types::config::StateTreeType::SparseMerkle,
             ioi_types::config::CommitmentSchemeType::Hash,
@@ -278,7 +278,7 @@ async fn main() -> Result<()> {
             run_workload(state_tree, commitment_scheme, config).await
         }
 
-        #[cfg(all(feature = "tree-verkle", feature = "primitive-kzg"))]
+        #[cfg(all(feature = "state-verkle", feature = "commitment-kzg"))]
         (
             ioi_types::config::StateTreeType::Verkle,
             ioi_types::config::CommitmentSchemeType::KZG,

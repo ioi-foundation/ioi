@@ -56,9 +56,9 @@ use tokio::{
 use tokio_rustls::TlsAcceptor;
 
 // Imports for concrete types used in the factory
-#[cfg(feature = "primitive-hash")]
+#[cfg(feature = "commitment-hash")]
 use ioi_state::primitives::hash::HashCommitmentScheme;
-#[cfg(feature = "tree-iavl")]
+#[cfg(feature = "state-iavl")]
 use ioi_state::tree::iavl::IAVLTree;
 
 #[derive(Parser, Debug)]
@@ -168,14 +168,14 @@ where
 
 fn check_features() {
     let mut enabled_features = Vec::new();
-    if cfg!(feature = "tree-iavl") {
-        enabled_features.push("tree-iavl");
+    if cfg!(feature = "state-iavl") {
+        enabled_features.push("state-iavl");
     }
-    if cfg!(feature = "tree-sparse-merkle") {
-        enabled_features.push("tree-sparse-merkle");
+    if cfg!(feature = "state-sparse-merkle") {
+        enabled_features.push("state-sparse-merkle");
     }
-    if cfg!(feature = "tree-verkle") {
-        enabled_features.push("tree-verkle");
+    if cfg!(feature = "state-verkle") {
+        enabled_features.push("state-verkle");
     }
 
     if enabled_features.len() != 1 {
@@ -200,7 +200,7 @@ async fn main() -> Result<()> {
     let config_str = fs::read_to_string(&opts.config)?;
     let config: WorkloadConfig = toml::from_str(&config_str)?;
     match (config.state_tree.clone(), config.commitment_scheme.clone()) {
-        #[cfg(all(feature = "tree-iavl", feature = "primitive-hash"))]
+        #[cfg(all(feature = "state-iavl", feature = "commitment-hash"))]
         (ioi_types::config::StateTreeType::IAVL, ioi_types::config::CommitmentSchemeType::Hash) => {
             log::info!("Instantiating state backend: IAVLTree<HashCommitmentScheme>");
             let commitment_scheme = HashCommitmentScheme::new();
