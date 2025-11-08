@@ -1,9 +1,9 @@
-// Path: crates/chain/src/upgrade_manager/mod.rs
+// Path: crates/execution/src/upgrade_manager/mod.rs
 
 use crate::runtime_service::RuntimeService;
 use ioi_api::runtime::Runtime;
 use ioi_api::services::UpgradableService;
-use ioi_api::state::StateAccessor;
+use ioi_api::state::StateAccess;
 use ioi_types::codec;
 use ioi_types::error::{CoreError, UpgradeError};
 use ioi_types::keys::{
@@ -149,7 +149,7 @@ impl ServiceUpgradeManager {
     pub async fn apply_upgrades_at_height(
         &mut self,
         height: u64,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
     ) -> Result<usize, CoreError> {
         let index_key = [UPGRADE_PENDING_PREFIX, &height.to_le_bytes()].concat();
         let Some(index_bytes) = state.get(&index_key).map_err(CoreError::from)? else {
@@ -219,7 +219,7 @@ impl ServiceUpgradeManager {
         service_id: &str,
         manifest_str: &str,
         artifact: &[u8],
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         activation_height: u64,
     ) -> Result<(), CoreError> {
         // First, parse the manifest to determine which runtime to use.
@@ -395,7 +395,7 @@ impl ServiceUpgradeManager {
     pub fn disable_service(
         &mut self,
         service_id: &str,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
     ) -> Result<(), CoreError> {
         validate_service_id(service_id)?;
         if !self.active_services.contains_key(service_id) {

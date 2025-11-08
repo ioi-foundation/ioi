@@ -65,7 +65,7 @@ pub trait BlockchainService: Any + Send + Sync {
     /// this method to expose callable functions.
     async fn handle_service_call(
         &self,
-        state: &mut dyn crate::state::StateAccessor,
+        state: &mut dyn crate::state::StateAccess,
         method: &str,
         params: &[u8],
         ctx: &mut TxContext<'_>,

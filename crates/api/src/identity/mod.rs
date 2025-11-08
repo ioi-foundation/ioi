@@ -3,7 +3,7 @@
 //! Defines the `CredentialsView` trait for decoupled identity lookups.
 
 use crate::services::BlockchainService;
-use crate::state::StateAccessor;
+use crate::state::StateAccess;
 use ioi_types::app::{AccountId, Credential};
 use ioi_types::error::TransactionError;
 
@@ -17,7 +17,7 @@ pub trait CredentialsView: BlockchainService {
     /// An empty array `[None, None]` indicates the account has not been bootstrapped.
     fn get_credentials(
         &self,
-        state: &dyn StateAccessor,
+        state: &dyn StateAccess,
         account_id: &AccountId,
     ) -> Result<[Option<Credential>; 2], TransactionError>;
 

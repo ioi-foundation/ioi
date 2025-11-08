@@ -3,7 +3,7 @@
 
 use crate::chain::ChainView;
 use crate::commitment::CommitmentScheme;
-use crate::state::{StateAccessor, StateManager};
+use crate::state::{ProofProvider, StateAccess, StateManager};
 use crate::transaction::context::TxContext;
 use async_trait::async_trait;
 use ioi_types::error::TransactionError;
@@ -38,7 +38,7 @@ pub trait TransactionModel: Send + Sync {
     async fn apply_payload<ST, CV>(
         &self,
         chain: &CV,                    // ChainView for read-only context
-        state: &mut dyn StateAccessor, // The transactional state overlay for writes
+        state: &mut dyn StateAccess, // The transactional state overlay for writes
         tx: &Self::Transaction,
         ctx: &mut TxContext<'_>,
     ) -> Result<(), TransactionError>
@@ -52,21 +52,21 @@ pub trait TransactionModel: Send + Sync {
         CV: ChainView<Self::CommitmentScheme, ST> + Send + Sync + ?Sized;
 
     /// Generates a proof for a transaction.
-    fn generate_proof<S>(
+    fn generate_proof<P>(
         &self,
         tx: &Self::Transaction,
-        state: &S,
+        state: &P,
     ) -> Result<Self::Proof, TransactionError>
     where
-        S: StateManager<
+        P: ProofProvider<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
             > + ?Sized;
 
     /// Verifies a proof for a transaction.
-    fn verify_proof<S>(&self, proof: &Self::Proof, state: &S) -> Result<bool, TransactionError>
+    fn verify_proof<P>(&self, proof: &Self::Proof, state: &P) -> Result<bool, TransactionError>
     where
-        S: StateManager<
+        P: ProofProvider<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
             > + ?Sized;

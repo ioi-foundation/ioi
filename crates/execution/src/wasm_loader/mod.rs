@@ -1,17 +1,17 @@
 // Path: crates/chain/src/wasm_loader/mod.rs
 
 use async_trait::async_trait;
+use ioi_api::{
+    lifecycle::OnEndBlock,
+    services::{BlockchainService, UpgradableService},
+    state::StateAccess,
+    transaction::{context::TxContext, decorator::TxDecorator},
+};
 use ioi_types::{
     app::ChainTransaction,
     codec::{from_bytes_canonical, to_bytes_canonical},
     error::{CoreError, StateError, TransactionError, UpgradeError},
     service_configs::Capabilities,
-};
-use ioi_api::{
-    lifecycle::OnEndBlock,
-    services::{BlockchainService, UpgradableService},
-    state::StateAccessor,
-    transaction::{context::TxContext, decorator::TxDecorator},
 };
 use parity_scale_codec::{Decode, Encode};
 use std::any::Any;
@@ -136,7 +136,7 @@ impl BlockchainService for WasmService {
 impl TxDecorator for WasmService {
     async fn ante_handle(
         &self,
-        _state: &mut dyn StateAccessor,
+        _state: &mut dyn StateAccess,
         tx: &ChainTransaction,
         _ctx: &TxContext,
     ) -> Result<(), TransactionError> {
@@ -156,7 +156,7 @@ impl TxDecorator for WasmService {
 impl OnEndBlock for WasmService {
     async fn on_end_block(
         &self,
-        _state: &mut dyn StateAccessor,
+        _state: &mut dyn StateAccess,
         _ctx: &TxContext,
     ) -> Result<(), StateError> {
         log::info!(

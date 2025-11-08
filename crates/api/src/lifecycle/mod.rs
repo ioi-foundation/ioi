@@ -2,7 +2,7 @@
 //! Defines traits for services that hook into the block processing lifecycle.
 
 use crate::services::BlockchainService;
-use crate::state::StateAccessor;
+use crate::state::StateAccess;
 use crate::transaction::context::TxContext;
 use async_trait::async_trait;
 use ioi_types::error::StateError;
@@ -13,7 +13,7 @@ pub trait OnEndBlock: BlockchainService {
     /// Called after all transactions in a block have been processed.
     async fn on_end_block(
         &self,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         ctx: &TxContext,
     ) -> Result<(), StateError>;
 }

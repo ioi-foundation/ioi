@@ -6,7 +6,7 @@ pub mod service_call;
 
 use crate::ante::service_call::precheck_call_service;
 use ibc_primitives::Timestamp;
-use ioi_api::state::StateOverlay;
+use ioi_api::state::{StateAccess, StateOverlay};
 use ioi_api::transaction::context::TxContext;
 use ioi_tx::system::{nonce, validation};
 use ioi_types::app::{ChainTransaction, SystemPayload};
@@ -16,7 +16,7 @@ use ioi_types::error::TransactionError;
 /// This function mirrors the validation and decorator logic from the chain's `process_transaction`
 /// and requires an authoritative block timestamp to ensure consistency.
 pub async fn check_tx(
-    state: &dyn ioi_api::state::StateAccessor,
+    state: &dyn StateAccess,
     services: &ioi_api::services::access::ServiceDirectory,
     tx: &ChainTransaction,
     chain_id: ioi_types::app::ChainId,

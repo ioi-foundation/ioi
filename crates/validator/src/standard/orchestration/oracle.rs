@@ -6,10 +6,11 @@
 //! once a quorum is reached.
 
 use super::context::MainLoopContext;
+use anyhow::{anyhow, Result};
 use ioi_api::{
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
-    state::{StateCommitment, StateManager, Verifier},
+    state::{StateManager, Verifier},
 };
 use ioi_services::oracle::SubmitDataParams;
 use ioi_types::{
@@ -39,7 +40,6 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE, V>(
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
         + 'static
@@ -189,7 +189,6 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
         + 'static

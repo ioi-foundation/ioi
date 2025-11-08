@@ -18,7 +18,7 @@ use ioi_api::{
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
     crypto::SigningKeyPair,
-    state::{StateCommitment, StateManager, Verifier},
+    state::{StateManager, Verifier},
     validator::Container,
 };
 use ioi_client::WorkloadClient;
@@ -227,7 +227,6 @@ where
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
         + 'static
@@ -408,7 +407,6 @@ async fn handle_network_event<CS, ST, CE, V>(
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
         + 'static
@@ -543,16 +541,12 @@ async fn handle_network_event<CS, ST, CE, V>(
 impl<CS, ST, CE, V> Container for Orchestrator<CS, ST, CE, V>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
         + 'static
         + Debug
         + Clone,
-    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
@@ -560,6 +554,9 @@ where
         + Sync
         + 'static
         + Debug,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     fn id(&self) -> &'static str {
         "orchestration_container"

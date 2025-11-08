@@ -2,7 +2,7 @@
 
 //! A copy-on-write state overlay for transaction simulation.
 
-use crate::state::{StateAccessor, StateError, StateKVPair, StateScanIter};
+use crate::state::{StateAccess, StateError, StateKVPair, StateScanIter};
 use ioi_types::error::StateError as DepinStateError;
 use std::collections::btree_map;
 use std::collections::BTreeMap;
@@ -84,20 +84,20 @@ impl<'a> Iterator for MergingIterator<'a> {
     }
 }
 
-/// An in-memory, copy-on-write overlay for any `StateAccessor`.
+/// An in-memory, copy-on-write overlay for any `StateAccess`.
 ///
 /// Reads are first checked against the local `writes` cache. If a key is not
 /// found, the read is passed through to the underlying `base` state.
 /// All writes are captured in the local cache and do not affect the `base` state.
 #[derive(Clone)]
 pub struct StateOverlay<'a> {
-    base: &'a dyn StateAccessor,
+    base: &'a dyn StateAccess,
     writes: BTreeMap<Vec<u8>, Option<Vec<u8>>>, // Use BTreeMap for deterministic commit order.
 }
 
 impl<'a> StateOverlay<'a> {
     /// Creates a new, empty overlay on top of a base state accessor.
-    pub fn new(base: &'a dyn StateAccessor) -> Self {
+    pub fn new(base: &'a dyn StateAccess) -> Self {
         Self {
             base,
             writes: BTreeMap::new(),
@@ -120,7 +120,7 @@ impl<'a> StateOverlay<'a> {
     }
 }
 
-impl<'a> StateAccessor for StateOverlay<'a> {
+impl<'a> StateAccess for StateOverlay<'a> {
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
         // The `if let` was correct, but let's make it more explicit for clarity.
         match self.writes.get(key) {
@@ -159,5 +159,19 @@ impl<'a> StateAccessor for StateOverlay<'a> {
         let writes = self.writes.range((start, end)).peekable();
 
         Ok(Box::new(MergingIterator { base, writes }))
+    }
+
+    fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
+        let mut results = Vec::with_capacity(keys.len());
+        for key in keys {
+            results.push(self.get(key)?);
+        }
+        Ok(results)
+    }
+
+    fn batch_apply(&mut self, inserts: &[(Vec<u8>, Vec<u8>)], deletes: &[Vec<u8>]) -> Result<(), StateError> {
+        for key in deletes { self.delete(key)?; }
+        for (key, value) in inserts { self.insert(key, value)?; }
+        Ok(())
     }
 }

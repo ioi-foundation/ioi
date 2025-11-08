@@ -1,11 +1,11 @@
-// Path: crates/chain/src/runtime_service/mod.rs
+// Path: crates/execution/src/runtime_service/mod.rs
 
 use async_trait::async_trait;
 use ioi_api::{
     lifecycle::OnEndBlock,
     runtime::Runnable,
     services::{BlockchainService, UpgradableService},
-    state::StateAccessor,
+    state::StateAccess,
     transaction::{context::TxContext, decorator::TxDecorator},
 };
 use ioi_types::{
@@ -88,7 +88,7 @@ impl BlockchainService for RuntimeService {
 
     async fn handle_service_call(
         &self,
-        _state: &mut dyn StateAccessor, // State is managed inside the guest via host calls
+        _state: &mut dyn StateAccess, // State is managed inside the guest via host calls
         method: &str,
         params: &[u8],
         _ctx: &mut TxContext<'_>,
@@ -150,7 +150,7 @@ impl UpgradableService for RuntimeService {
 impl TxDecorator for RuntimeService {
     async fn ante_handle(
         &self,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         tx: &ChainTransaction,
         ctx: &TxContext,
     ) -> Result<(), TransactionError> {
@@ -172,7 +172,7 @@ impl TxDecorator for RuntimeService {
 impl OnEndBlock for RuntimeService {
     async fn on_end_block(
         &self,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         ctx: &TxContext,
     ) -> Result<(), StateError> {
         // The on_end_block hook is also a versioned service call.

@@ -37,7 +37,7 @@ use tendermint_proto::crypto::ProofOps as TmProofOps;
 use ics23::HostFunctionsManager;
 use ioi_api::error::CoreError;
 use ioi_api::ibc::{LightClient, VerifyCtx};
-use ioi_api::state::StateAccessor;
+use ioi_api::state::StateAccess;
 use ioi_types::ibc::{Finality, Header, InclusionProof};
 use prost::Message;
 
@@ -198,7 +198,7 @@ fn decode_merkle_proof_flex(bytes: &[u8]) -> Result<IbcMerkleProof, CoreError> {
 pub struct TendermintVerifier {
     chain_id: String,
     client_id: String, // e.g., "07-tendermint-0"
-    state_accessor: Arc<dyn StateAccessor>,
+    state_accessor: Arc<dyn StateAccess>,
 }
 
 impl fmt::Debug for TendermintVerifier {
@@ -211,7 +211,7 @@ impl fmt::Debug for TendermintVerifier {
 }
 
 // A minimal mock context to satisfy the new API requirements.
-pub struct MockClientCtx<'a, S: StateAccessor + ?Sized> {
+pub struct MockClientCtx<'a, S: StateAccess + ?Sized> {
     pub state_accessor: &'a S,
     pub client_id: ClientId,
     // Current block height on the host chain (fallback if no override is set).
@@ -221,7 +221,7 @@ pub struct MockClientCtx<'a, S: StateAccessor + ?Sized> {
     pub host_timestamp_override: Option<Timestamp>,
 }
 
-impl<'a, S: StateAccessor + ?Sized> ExtClientValidationContext for MockClientCtx<'a, S> {
+impl<'a, S: StateAccess + ?Sized> ExtClientValidationContext for MockClientCtx<'a, S> {
     fn host_timestamp(&self) -> Result<Timestamp, ContextError> {
         if let Some(ts) = self.host_timestamp_override {
             return Ok(ts);
@@ -266,7 +266,7 @@ impl<'a, S: StateAccessor + ?Sized> ExtClientValidationContext for MockClientCtx
     }
 }
 
-impl<'a, S: StateAccessor + ?Sized> ClientValidationContext for MockClientCtx<'a, S> {
+impl<'a, S: StateAccess + ?Sized> ClientValidationContext for MockClientCtx<'a, S> {
     type ClientStateRef = TmClientState;
     type ConsensusStateRef = TmConsensusState;
 
@@ -334,7 +334,7 @@ impl TendermintVerifier {
     pub fn new(
         chain_id: String,
         client_id: String,
-        state_accessor: Arc<dyn StateAccessor>,
+        state_accessor: Arc<dyn StateAccess>,
     ) -> Self {
         Self {
             chain_id,

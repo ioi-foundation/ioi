@@ -31,7 +31,7 @@ use ioi_api::{
     chain::{AnchoredStateView, ChainView},
     commitment::CommitmentScheme,
     consensus::{ChainStateReader, ConsensusDecision, ConsensusEngine, PenaltyMechanism},
-    state::{StateAccessor, StateManager},
+    state::{StateAccess, StateManager},
 };
 use libp2p::PeerId;
 use std::collections::HashSet;
@@ -80,7 +80,7 @@ where
 {
     async fn apply_penalty(
         &self,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         report: &FailureReport,
     ) -> Result<(), TransactionError> {
         match self {

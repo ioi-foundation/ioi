@@ -1,12 +1,13 @@
-// Path: crates/transaction_models/src/utxo/mod.rs
+// Path: crates/tx/src/utxo/mod.rs
 use async_trait::async_trait;
-pub use ioi_types::app::{Input, Output, UTXOTransaction};
-use ioi_types::codec;
-use ioi_types::error::TransactionError;
 use ioi_api::commitment::CommitmentScheme;
-use ioi_api::state::{StateAccessor, StateManager};
+use ioi_api::state::{ProofProvider, StateAccess, StateManager};
 use ioi_api::transaction::context::TxContext;
 use ioi_api::transaction::TransactionModel;
+pub use ioi_types::app::{Input, Output, UTXOTransaction};
+use ioi_types::app::Membership;
+use ioi_types::codec;
+use ioi_types::error::TransactionError;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -64,7 +65,7 @@ impl<CS: CommitmentScheme> UTXOOperations for UTXOModel<CS> {
 #[async_trait]
 impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UTXOModel<CS>
 where
-    <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de>,
+    <CS as CommitmentScheme>::Proof: Serialize + for<'de> serde::Deserialize<'de>,
 {
     type Transaction = UTXOTransaction;
     type CommitmentScheme = CS;
@@ -83,7 +84,7 @@ where
     async fn apply_payload<ST, CV>(
         &self,
         _chain: &CV,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         tx: &Self::Transaction,
         _ctx: &mut TxContext<'_>,
     ) -> Result<(), TransactionError>
@@ -153,26 +154,31 @@ where
         })
     }
 
-    fn generate_proof<S>(
+    fn generate_proof<P>(
         &self,
         tx: &Self::Transaction,
-        state: &S,
+        state: &P,
     ) -> Result<Self::Proof, TransactionError>
     where
-        S: StateManager<
+        P: ProofProvider<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
             > + ?Sized,
     {
         let mut input_proofs = Vec::with_capacity(tx.inputs.len());
+        let root_commitment = state.root_commitment();
+
         for input in &tx.inputs {
             let key = self.create_utxo_key(&input.tx_hash, input.output_index);
-            let value = state.get(&key)?.ok_or_else(|| {
-                TransactionError::Invalid("Input UTXO for proof generation not found".to_string())
-            })?;
-            let inclusion_proof = state.create_proof(&key).ok_or_else(|| {
-                TransactionError::Invalid("Failed to create inclusion proof for input".to_string())
-            })?;
+            let (membership, inclusion_proof) = state.get_with_proof_at(&root_commitment, &key)?;
+            let value = match membership {
+                Membership::Present(v) => v,
+                Membership::Absent => {
+                    return Err(TransactionError::Invalid(
+                        "Input UTXO for proof generation not found".to_string(),
+                    ))
+                }
+            };
             input_proofs.push(InputProof {
                 utxo_key: key,
                 utxo_value: value,
@@ -182,9 +188,9 @@ where
         Ok(UTXOTransactionProof { input_proofs })
     }
 
-    fn verify_proof<S>(&self, proof: &Self::Proof, state: &S) -> Result<bool, TransactionError>
+    fn verify_proof<P>(&self, proof: &Self::Proof, state: &P) -> Result<bool, TransactionError>
     where
-        S: StateManager<
+        P: ProofProvider<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
             > + ?Sized,

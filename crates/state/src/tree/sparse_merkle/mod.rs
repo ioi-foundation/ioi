@@ -1,15 +1,14 @@
-// Path: crates/commitment/src/tree/sparse_merkle/mod.rs
-
+// Path: crates/state/src/tree/sparse_merkle/mod.rs
 //! Sparse Merkle tree implementation with cryptographic security
 
 pub mod verifier;
 
-use ioi_storage::adapter::{commit_and_persist, DeltaAccumulator};
 use ioi_api::commitment::{CommitmentScheme, Selector};
-use ioi_api::state::{PrunePlan, StateCommitment, StateManager, StateScanIter};
+use ioi_api::state::{PrunePlan, ProofProvider, StateAccess, StateManager, StateScanIter, VerifiableState};
 use ioi_api::storage::{NodeHash as StoreNodeHash, NodeStore};
 use ioi_types::app::{to_root_hash, Membership, RootHash};
 use ioi_types::error::{ProofError, StateError};
+use ioi_storage::adapter::{commit_and_persist, DeltaAccumulator};
 use parity_scale_codec::{Decode, Encode};
 use std::any::Any;
 use std::collections::{BTreeMap, HashMap};
@@ -108,7 +107,6 @@ impl Node {
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct SparseMerkleProof {
     pub siblings: Vec<Vec<u8>>,
-    // No explicit path needed; the key itself provides the path.
     pub leaf: Option<(Vec<u8>, Vec<u8>)>, // (key, value) if an item exists at this key.
 }
 
@@ -151,7 +149,6 @@ where
 {
     const TREE_HEIGHT: usize = 256; // For 256-bit keys
 
-    /// Create a new sparse Merkle tree
     pub fn new(scheme: CS) -> Self {
         Self {
             root: Arc::new(Node::Empty),
@@ -262,7 +259,6 @@ where
         CS::Value::from(bytes.to_vec())
     }
 
-    /// Get the bits of a key for path navigation
     fn get_bit(key: &[u8], position: usize) -> bool {
         if position >= key.len() * 8 {
             return false;
@@ -273,7 +269,6 @@ where
             .is_some_and(|&byte| (byte >> bit_index) & 1 == 1)
     }
 
-    /// Update the tree with a new key-value pair
     #[allow(clippy::only_used_in_recursion)]
     fn update_node(
         &self,
@@ -299,7 +294,6 @@ where
                 if value.is_none() {
                     return Arc::new(Node::Empty);
                 }
-                // Path is empty. Create a new path of branches down to the leaf.
                 let child = self.update_node(&Arc::new(Node::Empty), key, value, depth + 1);
                 let bit = Self::get_bit(key, depth);
                 let (left, right) = if bit {
@@ -321,7 +315,6 @@ where
                 ..
             } => {
                 if leaf_key == key {
-                    // Exact key match: update the value or delete the leaf.
                     return if let Some(v) = value {
                         Arc::new(Node::Leaf {
                             key: key.to_vec(),
@@ -332,11 +325,7 @@ where
                         Arc::new(Node::Empty)
                     };
                 }
-
-                // A different key exists at this path. Split them into a new branch.
-                // First, create a branch for the new key as if this spot were empty.
                 let new_node_branch = self.update_node(&Arc::new(Node::Empty), key, value, depth);
-                // Then, insert the old leaf into that new structure.
                 self.update_node(&new_node_branch, leaf_key, Some(leaf_value), depth)
             }
             Node::Branch { left, right, .. } => {
@@ -362,44 +351,6 @@ where
         }
     }
 
-    /// Generate a proof for a key
-    fn generate_proof(&self, key: &[u8]) -> SparseMerkleProof {
-        let mut siblings = Vec::new();
-        let mut current = self.root.clone();
-
-        for depth in 0..Self::TREE_HEIGHT {
-            match current.as_ref() {
-                Node::Empty => break,
-                Node::Leaf { .. } => {
-                    break;
-                }
-                Node::Branch { left, right, .. } => {
-                    let bit = Self::get_bit(key, depth);
-                    if bit {
-                        siblings.push(left.hash().to_vec());
-                        current = right.clone();
-                    } else {
-                        siblings.push(right.hash().to_vec());
-                        current = left.clone();
-                    }
-                }
-            }
-        }
-
-        let leaf = if let Node::Leaf {
-            key: leaf_key,
-            value,
-            ..
-        } = current.as_ref()
-        {
-            Some((leaf_key.clone(), value.clone()))
-        } else {
-            None
-        };
-
-        SparseMerkleProof { siblings, leaf }
-    }
-
     fn get_from_snapshot(node: &Arc<Node>, key: &[u8], depth: usize) -> Option<Vec<u8>> {
         match node.as_ref() {
             Node::Empty => None,
@@ -421,12 +372,7 @@ where
         let mut current = start.clone();
         for depth in 0..Self::TREE_HEIGHT {
             match current.as_ref() {
-                Node::Empty => break,
-                Node::Leaf { .. } => {
-                    // Path terminates here. The verifier will determine if this is the
-                    // target leaf or a witness for an absence proof.
-                    break;
-                }
+                Node::Empty | Node::Leaf { .. } => break,
                 Node::Branch { left, right, .. } => {
                     if Self::get_bit(key, depth) {
                         siblings.push(left.hash().to_vec());
@@ -438,78 +384,56 @@ where
                 }
             }
         }
-
         let leaf = match current.as_ref() {
             Node::Leaf { key, value, .. } => Some((key.clone(), value.clone())),
             _ => None,
         };
-
         SparseMerkleProof { siblings, leaf }
     }
 
-    /// **[COMPLETED]** Verify a proof against a root hash. Made static.
     pub fn verify_proof_static(
         root_hash: &[u8],
         key: &[u8],
         value: Option<&[u8]>,
         proof: &SparseMerkleProof,
     ) -> Result<bool, ProofError> {
-        // Determine the starting hash for the fold-up based on the proof type.
         let leaf_hash = match (&proof.leaf, value) {
-            // Case 1: Proving PRESENCE.
-            // proof.leaf must be Some, value must be Some.
-            // proof_key must equal the query key.
             (Some((proof_key, proof_value)), Some(val)) => {
                 if proof_key != key || proof_value != val {
-                    log::debug!("[SMT Verify] Presence proof failed: key or value mismatch.");
                     return Ok(false);
                 }
-                let mut data = Vec::with_capacity(1 + proof_key.len() + proof_value.len());
-                data.push(0x00); // leaf prefix
+                let mut data = Vec::new();
+                data.push(0x00);
                 data.extend_from_slice(proof_key);
                 data.extend_from_slice(proof_value);
                 ioi_crypto::algorithms::hash::sha256(&data)
                     .map_err(|e| ProofError::Crypto(e.to_string()))?
                     .to_vec()
             }
-            // Case 2: Proving ABSENCE because the path ends at an EMPTY node.
-            // proof.leaf must be None, value must be None.
             (None, None) => vec![0u8; 32],
-
-            // Case 3: Proving ABSENCE because the path ends at a *different* leaf (a witness).
-            // proof.leaf is Some (the witness), value is None.
-            // The witness key must NOT be the query key.
             (Some((witness_key, witness_value)), None) => {
                 if witness_key == key {
-                    log::debug!("[SMT Verify] Absence proof failed: witness key is the same as the query key.");
                     return Ok(false);
                 }
                 let mut data = Vec::new();
-                data.push(0x00); // leaf prefix
+                data.push(0x00);
                 data.extend_from_slice(witness_key);
                 data.extend_from_slice(witness_value);
                 ioi_crypto::algorithms::hash::sha256(&data)
                     .map_err(|e| ProofError::Crypto(e.to_string()))?
                     .to_vec()
             }
-            // All other combinations are invalid.
-            _ => {
-                log::debug!("[SMT Verify] Invalid proof/value combination.");
-                return Ok(false);
-            }
+            _ => return Ok(false),
         };
 
-        // Fold up the tree using the siblings from the proof.
         let mut acc = leaf_hash;
         let path_len = proof.siblings.len();
         for i in (0..path_len).rev() {
             let sib = proof.siblings.get(i).ok_or_else(|| {
-                ProofError::InvalidExistence(
-                    "Proof has fewer siblings than its path length indicates".into(),
-                )
+                ProofError::InvalidExistence("Proof has fewer siblings than path".into())
             })?;
-            let mut data = Vec::with_capacity(1 + 32 + 32);
-            data.push(0x01); // branch prefix
+            let mut data = Vec::new();
+            data.push(0x01);
             if Self::get_bit(key, i) {
                 data.extend_from_slice(sib);
                 data.extend_from_slice(&acc);
@@ -521,7 +445,6 @@ where
                 .map_err(|e| ProofError::Crypto(e.to_string()))?
                 .to_vec();
         }
-
         Ok(acc.as_slice() == root_hash)
     }
 
@@ -554,13 +477,7 @@ where
         &mut self,
         height: u64,
         store: &S,
-    ) -> Result<RootHash, StateError>
-    where
-        CS: CommitmentScheme,
-        CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
-        CS::Commitment: From<Vec<u8>>,
-        CS::Proof: AsRef<[u8]>,
-    {
+    ) -> Result<RootHash, StateError> where <CS as CommitmentScheme>::Commitment: From<Vec<u8>>, <CS as CommitmentScheme>::Proof: AsRef<[u8]> {
         self.current_height = height;
         self.collect_height_delta();
         let root_hash = to_root_hash(self.root_commitment().as_ref())?;
@@ -572,26 +489,21 @@ where
     }
 }
 
-impl<CS: CommitmentScheme> StateCommitment for SparseMerkleTree<CS>
+impl<CS: CommitmentScheme> StateAccess for SparseMerkleTree<CS>
 where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
-    CS::Commitment: From<Vec<u8>>,
-    CS::Proof: AsRef<[u8]>,
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
 {
-    type Commitment = CS::Commitment;
-    type Proof = CS::Proof;
-
-    fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
-        self.root = self.update_node(&self.root, key, Some(value), 0);
-        self.cache.insert(key.to_vec(), value.to_vec());
-        Ok(())
-    }
-
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
         if let Some(value) = self.cache.get(key) {
             return Ok(Some(value.clone()));
         }
         Ok(Self::get_from_snapshot(&self.root, key, 0))
+    }
+
+    fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
+        self.root = self.update_node(&self.root, key, Some(value), 0);
+        self.cache.insert(key.to_vec(), value.to_vec());
+        Ok(())
     }
 
     fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
@@ -600,14 +512,81 @@ where
         Ok(())
     }
 
+    fn prefix_scan(&self, prefix: &[u8]) -> Result<StateScanIter<'_>, StateError> {
+        let mut results: Vec<_> = self
+            .cache
+            .iter()
+            .filter(|(key, _)| key.starts_with(prefix))
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect();
+        results.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+        let iter = results
+            .into_iter()
+            .map(|(k, v)| Ok((Arc::from(k), Arc::from(v))));
+        Ok(Box::new(iter))
+    }
+
+    fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
+        for (key, value) in updates {
+            self.insert(key, value)?;
+        }
+        Ok(())
+    }
+
+    fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
+        let mut results = Vec::with_capacity(keys.len());
+        for key in keys {
+            results.push(self.get(key)?);
+        }
+        Ok(results)
+    }
+
+    fn batch_apply(
+        &mut self,
+        inserts: &[(Vec<u8>, Vec<u8>)],
+        deletes: &[Vec<u8>],
+    ) -> Result<(), StateError> {
+        for key in deletes {
+            self.delete(key)?;
+        }
+        for (key, value) in inserts {
+            self.insert(key, value)?;
+        }
+        Ok(())
+    }
+}
+
+impl<CS: CommitmentScheme> VerifiableState for SparseMerkleTree<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+    CS::Commitment: From<Vec<u8>>,
+    CS::Proof: AsRef<[u8]>,
+{
+    type Commitment = CS::Commitment;
+    type Proof = CS::Proof;
+
     fn root_commitment(&self) -> Self::Commitment {
-        // Identity: commitment bytes ARE the SMT root bytes.
         let root_hash = self.root.hash();
         <CS as CommitmentScheme>::Commitment::from(root_hash.to_vec())
     }
 
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+impl<CS: CommitmentScheme> ProofProvider for SparseMerkleTree<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+    CS::Commitment: From<Vec<u8>>,
+    CS::Proof: AsRef<[u8]>,
+{
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
-        let merkle_proof = self.generate_proof(key);
+        let merkle_proof = Self::generate_proof_from_snapshot(&self.root, key);
         let proof_data = merkle_proof.encode();
         let value_typed = self.to_value(&proof_data);
         self.scheme
@@ -637,42 +616,6 @@ where
         }
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn export_kv_pairs(&self) -> Vec<(Vec<u8>, Vec<u8>)> {
-        self.cache
-            .iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect()
-    }
-
-    fn prefix_scan(&self, prefix: &[u8]) -> Result<StateScanIter<'_>, StateError> {
-        let mut results: Vec<_> = self
-            .cache
-            .iter()
-            .filter(|(key, _)| key.starts_with(prefix))
-            .map(|(key, value)| (key.clone(), value.clone()))
-            .collect();
-        results.sort_unstable_by(|a, b| a.0.cmp(&b.0));
-        let iter = results
-            .into_iter()
-            .map(|(k, v)| Ok((Arc::from(k), Arc::from(v))));
-        Ok(Box::new(iter))
-    }
-}
-
-impl<CS: CommitmentScheme> StateManager for SparseMerkleTree<CS>
-where
-    CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
-    CS::Commitment: From<Vec<u8>>,
-    CS::Proof: AsRef<[u8]>,
-{
     fn get_with_proof_at(
         &self,
         root: &Self::Commitment,
@@ -680,14 +623,12 @@ where
     ) -> Result<(Membership, Self::Proof), StateError> {
         let root_hash: RootHash = to_root_hash(root.as_ref())?;
 
-        // Try in-memory path first
         if let Some(historical_root_node) = self.indices.roots.get(&root_hash).cloned() {
             let membership = match Self::get_from_snapshot(&historical_root_node, key, 0) {
                 Some(v) => Membership::Present(v),
                 None => Membership::Absent,
             };
             let merkle_proof = Self::generate_proof_from_snapshot(&historical_root_node, key);
-            // Self-verify
             if !Self::verify_proof_static(
                 &root_hash,
                 key,
@@ -738,12 +679,10 @@ where
                 .map_err(|e| StateError::Backend(e.to_string()))?;
             return Ok((membership, proof));
         }
-
         Err(StateError::StaleAnchor)
     }
 
     fn commitment_from_anchor(&self, anchor: &[u8; 32]) -> Option<Self::Commitment> {
-        // For SMT, the anchor is the commitment.
         self.commitment_from_bytes(anchor).ok()
     }
 
@@ -754,36 +693,14 @@ where
     fn commitment_to_bytes(&self, c: &Self::Commitment) -> Vec<u8> {
         c.as_ref().to_vec()
     }
+}
 
-    fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
-        for (key, value) in updates {
-            self.insert(key, value)?;
-        }
-        Ok(())
-    }
-
-    fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
-        let mut results = Vec::with_capacity(keys.len());
-        for key in keys {
-            results.push(self.get(key)?);
-        }
-        Ok(results)
-    }
-
-    fn batch_apply(
-        &mut self,
-        inserts: &[(Vec<u8>, Vec<u8>)],
-        deletes: &[Vec<u8>],
-    ) -> Result<(), StateError> {
-        for key in deletes {
-            self.delete(key)?;
-        }
-        for (key, value) in inserts {
-            self.insert(key, value)?;
-        }
-        Ok(())
-    }
-
+impl<CS: CommitmentScheme> StateManager for SparseMerkleTree<CS>
+where
+    CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+    CS::Commitment: From<Vec<u8>>,
+    CS::Proof: AsRef<[u8]>,
+{
     fn prune(&mut self, plan: &PrunePlan) -> Result<(), StateError> {
         let to_prune: Vec<u64> = self
             .indices
@@ -825,31 +742,23 @@ where
         let root_hash = to_root_hash(self.root.hash())?;
 
         match self.indices.versions_by_height.insert(height, root_hash) {
-            // Case 1: This is a new height, or a reorg to a different root.
             None => {
                 let count = self.indices.root_refcount.entry(root_hash).or_insert(0);
                 if *count == 0 {
-                    // First time seeing this root hash, store the actual node.
                     self.indices.roots.insert(root_hash, self.root.clone());
                 }
                 *count += 1;
             }
             Some(prev_root) if prev_root != root_hash => {
-                // It's a reorg. Decrement the old root's count and increment the new one's.
                 self.decrement_refcount(prev_root);
-
                 let count = self.indices.root_refcount.entry(root_hash).or_insert(0);
                 if *count == 0 {
                     self.indices.roots.insert(root_hash, self.root.clone());
                 }
                 *count += 1;
             }
-            // Case 2: Same root hash was already recorded for this height. Do nothing.
-            Some(_prev_same_root) => {
-                // The refcount for this root is already correct for this height. No-op.
-            }
+            Some(_prev_same_root) => {}
         }
-
         Ok(root_hash)
     }
 
@@ -871,20 +780,11 @@ where
 
     fn adopt_known_root(&mut self, root_bytes: &[u8], version: u64) -> Result<(), StateError> {
         let root_hash = to_root_hash(root_bytes)?;
-
-        // The purpose of this function is to make the state manager aware of a version
-        // that exists *only in durable storage*. We populate the version-to-root mapping
-        // and the refcount, but critically, we DO NOT insert into `self.indices.roots`.
-        // This ensures that a subsequent `get_with_proof_at` for this root will fail
-        // the in-memory lookup and correctly fall back to the store-based proof builder.
         self.indices.versions_by_height.insert(version, root_hash);
         *self.indices.root_refcount.entry(root_hash).or_insert(0) += 1;
-
-        // Ensure the tree's internal version counter is aligned with the recovered state.
         if self.current_height < version {
             self.current_height = version;
         }
-
         Ok(())
     }
 

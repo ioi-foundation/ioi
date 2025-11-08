@@ -1,63 +1,19 @@
 // Path: crates/api/src/state/manager.rs
-//! Defines the `StateManager` trait, a higher-level abstraction over `StateCommitment`.
+//! Defines the `StateManager` trait for versioning and lifecycle management of state.
 
-use crate::state::PrunePlan;
-use crate::state::StateCommitment;
+use crate::state::{PrunePlan, StateAccess, VerifiableState, ProofProvider};
 use crate::storage::NodeStore;
-use ioi_types::app::{Membership, RootHash};
+use ioi_types::app::RootHash;
 use ioi_types::error::StateError;
 use std::sync::Arc;
 
-/// The state manager interface, adding proof generation and batching capabilities.
+/// The state manager interface, adding versioning and lifecycle management capabilities
+/// on top of the base state and proof traits.
 ///
-/// `StateManager` is a higher-level abstraction that must also be a `StateCommitment`.
-/// It provides all the same core methods as `StateCommitment` (via inheritance) and adds
-/// methods for generating historical proofs and managing the state's lifecycle.
-pub trait StateManager: StateCommitment {
-    /// Generates a proof for a key's membership or non-membership against a historical root.
-    fn get_with_proof_at(
-        &self,
-        root: &Self::Commitment,
-        key: &[u8],
-    ) -> Result<(Membership, Self::Proof), StateError>;
-
-    /// Resolves a 32-byte anchor hash into the full, potentially variable-length commitment.
-    fn commitment_from_anchor(&self, anchor: &[u8; 32]) -> Option<Self::Commitment>;
-
-    /// Generates a proof for a key's membership or non-membership against a historical anchor.
-    /// This method resolves the 32-byte anchor hash into the full, potentially variable-length
-    /// state root commitment before generating the proof.
-    fn get_with_proof_at_anchor(
-        &self,
-        anchor: &[u8; 32],
-        key: &[u8],
-    ) -> Result<(Membership, Self::Proof), StateError> {
-        let commitment = self
-            .commitment_from_anchor(anchor)
-            .ok_or_else(|| StateError::UnknownAnchor(hex::encode(anchor)))?;
-        self.get_with_proof_at(&commitment, key)
-    }
-
-    /// Converts raw bytes into the concrete Commitment type.
-    fn commitment_from_bytes(&self, bytes: &[u8]) -> Result<Self::Commitment, StateError>;
-
-    /// Converts a concrete Commitment type into raw bytes for transport.
-    fn commitment_to_bytes(&self, c: &Self::Commitment) -> Vec<u8>;
-
-    /// Sets multiple key-value pairs in a single batch operation.
-    fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError>;
-
-    /// Gets multiple values by keys in a single batch operation.
-    fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError>;
-
-    /// Atomically applies a batch of inserts/updates and deletes.
-    /// This should be the primary method for committing transactional changes.
-    fn batch_apply(
-        &mut self,
-        inserts: &[(Vec<u8>, Vec<u8>)],
-        deletes: &[Vec<u8>],
-    ) -> Result<(), StateError>;
-
+/// `StateManager` provides the highest-level abstraction for interacting with the
+/// complete state backend, including its history. It inherits key-value, commitment,
+/// and proof-generation capabilities from its super-traits.
+pub trait StateManager: StateAccess + VerifiableState + ProofProvider {
     /// Prunes historical state versions according to a specific plan.
     /// The plan defines a cutoff height and a set of pinned heights to exclude, ensuring
     /// that versions required for consensus or active operations are not deleted.
@@ -120,50 +76,6 @@ pub trait StateManager: StateCommitment {
 
 // Blanket implementation to allow any `StateManager` to be used behind a `Box` trait object.
 impl<T: StateManager + ?Sized> StateManager for Box<T> {
-    fn get_with_proof_at(
-        &self,
-        root: &Self::Commitment,
-        key: &[u8],
-    ) -> Result<(Membership, Self::Proof), StateError> {
-        (**self).get_with_proof_at(root, key)
-    }
-
-    fn commitment_from_anchor(&self, anchor: &[u8; 32]) -> Option<Self::Commitment> {
-        (**self).commitment_from_anchor(anchor)
-    }
-
-    fn get_with_proof_at_anchor(
-        &self,
-        anchor: &[u8; 32],
-        key: &[u8],
-    ) -> Result<(Membership, Self::Proof), StateError> {
-        (**self).get_with_proof_at_anchor(anchor, key)
-    }
-
-    fn commitment_from_bytes(&self, bytes: &[u8]) -> Result<Self::Commitment, StateError> {
-        (**self).commitment_from_bytes(bytes)
-    }
-
-    fn commitment_to_bytes(&self, c: &Self::Commitment) -> Vec<u8> {
-        (**self).commitment_to_bytes(c)
-    }
-
-    fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
-        (**self).batch_set(updates)
-    }
-
-    fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
-        (**self).batch_get(keys)
-    }
-
-    fn batch_apply(
-        &mut self,
-        inserts: &[(Vec<u8>, Vec<u8>)],
-        deletes: &[Vec<u8>],
-    ) -> Result<(), StateError> {
-        (**self).batch_apply(inserts, deletes)
-    }
-
     fn prune(&mut self, plan: &PrunePlan) -> Result<(), StateError> {
         (**self).prune(plan)
     }

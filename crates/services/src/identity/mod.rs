@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use ioi_api::identity::CredentialsView;
 use ioi_api::lifecycle::OnEndBlock;
 use ioi_api::services::{BlockchainService, UpgradableService};
-use ioi_api::state::StateAccessor;
+use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_crypto::sign::{dilithium::DilithiumPublicKey, eddsa::Ed25519PublicKey};
 use ioi_types::app::{
@@ -55,7 +55,7 @@ impl IdentityHub {
 
     fn load_credentials(
         &self,
-        state: &dyn StateAccessor,
+        state: &dyn StateAccess,
         account_id: &AccountId,
     ) -> Result<[Option<Credential>; 2], StateError> {
         let key = Self::get_credentials_key(account_id);
@@ -69,7 +69,7 @@ impl IdentityHub {
 
     fn save_credentials(
         &self,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         account_id: &AccountId,
         creds: &[Option<Credential>; 2],
     ) -> Result<(), StateError> {
@@ -78,10 +78,9 @@ impl IdentityHub {
         state.insert(&Self::get_credentials_key(account_id), &creds_bytes)
     }
 
-    /// Helper: bump validator set so the rotated key becomes active at next height
     fn apply_validator_key_update(
         &self,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         account_id: &AccountId,
         new_suite: SignatureSuite,
         new_pubkey_hash: [u8; 32],
@@ -160,7 +159,7 @@ impl IdentityHub {
 
     pub fn rotation_challenge(
         &self,
-        state: &dyn StateAccessor,
+        state: &dyn StateAccess,
         account_id: &AccountId,
     ) -> Result<[u8; 32], StateError> {
         let nonce = u64_from_le_bytes(state.get(&Self::get_nonce_key(account_id))?.as_ref());
@@ -176,7 +175,7 @@ impl IdentityHub {
 
     pub fn rotate(
         &self,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         account_id: &AccountId,
         proof: &RotationProof,
         current_height: u64,
@@ -288,18 +287,15 @@ impl BlockchainService for IdentityHub {
 
     async fn handle_service_call(
         &self,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         method: &str,
         params: &[u8],
         ctx: &mut TxContext<'_>,
     ) -> Result<(), TransactionError> {
         match method {
             "rotate_key@v1" => {
-                // Deserialize the parameters for this specific method.
                 let p: RotateKeyParams = codec::from_bytes_canonical(params)?;
-                // The signer of the transaction is the account being rotated.
                 let account_id = ctx.signer_account_id;
-
                 self.rotate(state, &account_id, &p.proof, ctx.block_height)
                     .map_err(TransactionError::Invalid)
             }
@@ -324,7 +320,7 @@ impl UpgradableService for IdentityHub {
 impl CredentialsView for IdentityHub {
     fn get_credentials(
         &self,
-        state: &dyn StateAccessor,
+        state: &dyn StateAccess,
         account_id: &AccountId,
     ) -> Result<[Option<Credential>; 2], TransactionError> {
         self.load_credentials(state, account_id)
@@ -340,7 +336,7 @@ impl CredentialsView for IdentityHub {
 impl OnEndBlock for IdentityHub {
     async fn on_end_block(
         &self,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         ctx: &TxContext,
     ) -> Result<(), StateError> {
         let height = ctx.block_height;
