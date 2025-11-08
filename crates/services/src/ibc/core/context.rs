@@ -1,4 +1,4 @@
-// Path: crates/services/src/ibc/context.rs
+// Path: crates/services/src/ibc/core/context.rs
 #![forbid(unsafe_code)]
 //! IBC <-> IOI SDK context adapter (ibc-rs v0.50+ compatible)
 

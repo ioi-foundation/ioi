@@ -27,8 +27,10 @@ use ioi_services::governance::GovernanceModule;
 // --- IBC Service Imports ---
 #[cfg(feature = "ibc-deps")]
 use ioi_services::ibc::{
-    channel::ChannelManager, light_client::tendermint::TendermintVerifier,
-    registry::VerifierRegistry,
+    // Updated paths
+    apps::channel::ChannelManager,
+    core::registry::VerifierRegistry,
+    light_clients::tendermint::TendermintVerifier,
 };
 use ioi_services::identity::IdentityHub;
 use ioi_services::oracle::OracleService;
