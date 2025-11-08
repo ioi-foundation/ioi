@@ -29,12 +29,12 @@ impl_service_base!(ChannelManager, "ibc_channel_manager");
 
 #[async_trait]
 impl UpgradableService for ChannelManager {
-    async fn prepare_upgrade(&mut self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
+    async fn prepare_upgrade(&self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
         // This service is stateless; all state is in the chain's StateAccessor.
         Ok(Vec::new())
     }
 
-    async fn complete_upgrade(&mut self, _snapshot: &[u8]) -> Result<(), UpgradeError> {
+    async fn complete_upgrade(&self, _snapshot: &[u8]) -> Result<(), UpgradeError> {
         Ok(())
     }
 }
