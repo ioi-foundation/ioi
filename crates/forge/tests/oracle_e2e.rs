@@ -2,8 +2,8 @@
 #![cfg(all(
     feature = "consensus-pos",
     feature = "vm-wasm",
-    feature = "tree-iavl",
-    feature = "primitive-hash"
+    feature = "state-iavl",
+    feature = "commitment-hash"
 ))]
 
 use anyhow::{anyhow, Result};

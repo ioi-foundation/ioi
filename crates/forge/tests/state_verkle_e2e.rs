@@ -2,8 +2,8 @@
 #![cfg(all(
     feature = "consensus-poa",
     feature = "vm-wasm",
-    feature = "tree-verkle",
-    feature = "primitive-kzg"
+    feature = "state-verkle",
+    feature = "commitment-kzg"
 ))]
 
 use anyhow::Result;

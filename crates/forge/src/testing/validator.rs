@@ -174,16 +174,16 @@ impl TestValidator {
             }
         };
         let tree_feature = match state_tree_type {
-            "IAVL" => "tree-iavl",
-            "SparseMerkle" => "tree-sparse-merkle",
-            "Verkle" => "tree-verkle",
+            "IAVL" => "state-iavl",
+            "SparseMerkle" => "state-sparse-merkle",
+            "Verkle" => "state-verkle",
             _ => return Err(anyhow!("Unsupported test state tree: {}", state_tree_type)),
         };
         let primitive_feature = match commitment_scheme_type {
-            "Hash" => "primitive-hash",
-            "Pedersen" => "primitive-pedersen",
-            "KZG" => "primitive-kzg",
-            "Lattice" => "primitive-lattice",
+            "Hash" => "commitment-hash",
+            "Pedersen" => "commitment-pedersen",
+            "KZG" => "commitment-kzg",
+            "Lattice" => "commitment-lattice",
             _ => {
                 return Err(anyhow!(
                     "Unsupported commitment scheme: {}",

@@ -36,15 +36,15 @@ proptest = "1.2.0"
 default = []
 
 # Primitives
-primitive-hash = []
-primitive-kzg = []
-primitive-lattice = []
-primitive-pedersen = ["ioi-api/homomorphic"]
+commitment-hash = []
+commitment-kzg = []
+commitment-lattice = []
+commitment-pedersen = ["ioi-api/homomorphic"]
 
 # Trees (depend on primitives)
-tree-iavl = ["primitive-hash"]
-tree-sparse-merkle = ["primitive-hash"]
-tree-verkle = ["primitive-kzg"]
+state-iavl = ["commitment-hash"]
+state-sparse-merkle = ["commitment-hash"]
+state-verkle = ["commitment-kzg"]
 
 # Debugging feature
 strict_iavl = []

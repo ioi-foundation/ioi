@@ -7,18 +7,18 @@
 use cfg_if::cfg_if;
 
 // Only bring KZGParams into scope when the corresponding feature is enabled.
-#[cfg(feature = "primitive-kzg")]
+#[cfg(feature = "commitment-kzg")]
 use ioi_state::primitives::kzg::KZGParams;
 
 // --- Define the Verifier Type Alias based on tree features using cfg_if ---
 // This creates a mutually exclusive if/else-if/else block, guaranteeing that
 // `DefaultVerifier` is only defined once, even when multiple features are enabled.
 cfg_if! {
-    if #[cfg(feature = "tree-iavl")] {
+    if #[cfg(feature = "state-iavl")] {
         pub use ioi_state::tree::iavl::verifier::IAVLHashVerifier as DefaultVerifier;
-    } else if #[cfg(feature = "tree-sparse-merkle")] {
+    } else if #[cfg(feature = "state-sparse-merkle")] {
         pub use ioi_state::tree::sparse_merkle::verifier::SparseMerkleVerifier as DefaultVerifier;
-    } else if #[cfg(feature = "tree-verkle")] {
+    } else if #[cfg(feature = "state-verkle")] {
         pub use ioi_state::tree::verkle::verifier::KZGVerifier as DefaultVerifier;
     } else {
         // Fallback for when no tree feature is enabled, preventing compile errors in those cases.
@@ -30,21 +30,21 @@ cfg_if! {
 /// Creates the default verifier. The signature and implementation of this function
 /// adapt based on whether a KZG-based primitive is enabled.
 pub fn create_default_verifier(
-    #[cfg(feature = "primitive-kzg")] params: Option<KZGParams>,
-    #[cfg(not(feature = "primitive-kzg"))] _params: Option<()>,
+    #[cfg(feature = "commitment-kzg")] params: Option<KZGParams>,
+    #[cfg(not(feature = "commitment-kzg"))] _params: Option<()>,
 ) -> DefaultVerifier {
     // THIS IS THE FIX: The logic inside this function now exactly mirrors the
     // structure of the type alias block above, ensuring consistency.
     cfg_if! {
-        if #[cfg(feature = "tree-iavl")] {
+        if #[cfg(feature = "state-iavl")] {
             // In this branch, DefaultVerifier IS IAVLHashVerifier.
             // IAVLHashVerifier is a simple struct with no `::new()` method.
             DefaultVerifier
-        } else if #[cfg(feature = "tree-sparse-merkle")] {
+        } else if #[cfg(feature = "state-sparse-merkle")] {
             // In this branch, DefaultVerifier IS SparseMerkleVerifier.
             // Also a simple struct.
             DefaultVerifier
-        } else if #[cfg(feature = "tree-verkle")] {
+        } else if #[cfg(feature = "state-verkle")] {
             // This branch is only taken if the above are false.
             // DefaultVerifier IS KZGVerifier, which requires `::new(params)`.
             DefaultVerifier::new(params.expect("KZGVerifier requires SRS parameters"))
@@ -59,9 +59,9 @@ pub fn create_default_verifier(
 // This allows the codebase to compile, while a runtime check in `main.rs`
 // will provide a clear error message to the user.
 #[cfg(not(any(
-    feature = "tree-iavl",
-    feature = "tree-sparse-merkle",
-    feature = "tree-verkle"
+    feature = "state-iavl",
+    feature = "state-sparse-merkle",
+    feature = "state-verkle"
 )))]
 mod fallback {
     use ioi_types::app::Membership;

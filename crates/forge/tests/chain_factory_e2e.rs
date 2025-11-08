@@ -4,9 +4,9 @@
     feature = "consensus-poa",
     feature = "consensus-pos",
     feature = "vm-wasm",
-    feature = "tree-iavl",
-    feature = "tree-sparse-merkle",
-    feature = "primitive-hash"
+    feature = "state-iavl",
+    feature = "state-sparse-merkle",
+    feature = "commitment-hash"
 ))]
 
 use anyhow::Result;

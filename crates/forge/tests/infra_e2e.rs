@@ -2,7 +2,7 @@
 #![cfg(all(
     any(feature = "consensus-poa", feature = "consensus-pos"),
     feature = "vm-wasm",
-    feature = "tree-iavl"
+    feature = "state-iavl"
 ))]
 
 use anyhow::{anyhow, Result};

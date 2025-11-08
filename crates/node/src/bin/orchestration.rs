@@ -45,15 +45,15 @@ use std::sync::{atomic::AtomicBool, Arc};
 
 // Imports for concrete types used in the factory
 use ioi_api::{commitment::CommitmentScheme, state::StateManager};
-#[cfg(feature = "primitive-hash")]
+#[cfg(feature = "commitment-hash")]
 use ioi_state::primitives::hash::HashCommitmentScheme;
-#[cfg(feature = "primitive-kzg")]
+#[cfg(feature = "commitment-kzg")]
 use ioi_state::primitives::kzg::{KZGCommitmentScheme, KZGParams};
-#[cfg(feature = "tree-iavl")]
+#[cfg(feature = "state-iavl")]
 use ioi_state::tree::iavl::IAVLTree;
-#[cfg(feature = "tree-sparse-merkle")]
+#[cfg(feature = "state-sparse-merkle")]
 use ioi_state::tree::sparse_merkle::SparseMerkleTree;
-#[cfg(feature = "tree-verkle")]
+#[cfg(feature = "state-verkle")]
 use ioi_state::tree::verkle::VerkleTree;
 
 #[derive(Parser, Debug)]
@@ -84,14 +84,14 @@ struct OrchestrationOpts {
 /// Runtime check to ensure exactly one state tree feature is enabled.
 fn check_features() {
     let mut enabled_features = Vec::new();
-    if cfg!(feature = "tree-iavl") {
-        enabled_features.push("tree-iavl");
+    if cfg!(feature = "state-iavl") {
+        enabled_features.push("state-iavl");
     }
-    if cfg!(feature = "tree-sparse-merkle") {
-        enabled_features.push("tree-sparse-merkle");
+    if cfg!(feature = "state-sparse-merkle") {
+        enabled_features.push("state-sparse-merkle");
     }
-    if cfg!(feature = "tree-verkle") {
-        enabled_features.push("tree-verkle");
+    if cfg!(feature = "state-verkle") {
+        enabled_features.push("state-verkle");
     }
 
     if enabled_features.len() != 1 {
@@ -105,9 +105,9 @@ fn check_features() {
 // Conditionally define a type alias for the optional KZG parameters.
 // This allows the run_orchestration function to have a single signature
 // that adapts based on compile-time features.
-#[cfg(feature = "primitive-kzg")]
+#[cfg(feature = "commitment-kzg")]
 type OptionalKzgParams = Option<KZGParams>;
-#[cfg(not(feature = "primitive-kzg"))]
+#[cfg(not(feature = "commitment-kzg"))]
 #[allow(dead_code)]
 type OptionalKzgParams = Option<()>;
 
@@ -490,13 +490,13 @@ async fn main() -> Result<()> {
         workload_config.state_tree.clone(),
         workload_config.commitment_scheme.clone(),
     ) {
-        #[cfg(all(feature = "tree-iavl", feature = "primitive-hash"))]
+        #[cfg(all(feature = "state-iavl", feature = "commitment-hash"))]
         (ioi_types::config::StateTreeType::IAVL, ioi_types::config::CommitmentSchemeType::Hash) => {
             let scheme = HashCommitmentScheme::new();
             let tree = IAVLTree::new(scheme.clone());
             run_orchestration(opts, config, local_key, tree, scheme, workload_config, None).await
         }
-        #[cfg(all(feature = "tree-sparse-merkle", feature = "primitive-hash"))]
+        #[cfg(all(feature = "state-sparse-merkle", feature = "commitment-hash"))]
         (
             ioi_types::config::StateTreeType::SparseMerkle,
             ioi_types::config::CommitmentSchemeType::Hash,
@@ -505,7 +505,7 @@ async fn main() -> Result<()> {
             let tree = SparseMerkleTree::new(scheme.clone());
             run_orchestration(opts, config, local_key, tree, scheme, workload_config, None).await
         }
-        #[cfg(all(feature = "tree-verkle", feature = "primitive-kzg"))]
+        #[cfg(all(feature = "state-verkle", feature = "commitment-kzg"))]
         (
             ioi_types::config::StateTreeType::Verkle,
             ioi_types::config::CommitmentSchemeType::KZG,

@@ -39,7 +39,7 @@ ibc-primitives = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
-ioi-state = { path = "../state", features = ["tree-iavl"] }
+ioi-state = { path = "../state", features = ["state-iavl"] }
 ioi-vm-wasm = { path = "../vm/wasm" }
 
 [features]

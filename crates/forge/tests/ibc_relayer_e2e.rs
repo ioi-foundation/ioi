@@ -2,8 +2,8 @@
 #![cfg(all(
     feature = "consensus-poa",
     feature = "vm-wasm",
-    feature = "tree-iavl",
-    feature = "primitive-hash",
+    feature = "state-iavl",
+    feature = "commitment-hash",
     feature = "ibc-deps"
 ))]
 

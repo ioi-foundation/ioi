@@ -79,11 +79,11 @@ consensus-pos = ["ioi-consensus/pos"]
 vm-wasm = ["dep:ioi-vm-wasm"]
 
 # --- FIX START: Add tree and primitive features so cfg attributes work correctly ---
-tree-iavl = ["ioi-state/tree-iavl"]
-tree-sparse-merkle = ["ioi-state/tree-sparse-merkle"]
-tree-verkle = ["ioi-state/tree-verkle"]
-primitive-hash = ["ioi-state/primitive-hash"]
-primitive-kzg = ["ioi-state/primitive-kzg"]
+state-iavl = ["ioi-state/state-iavl"]
+state-sparse-merkle = ["ioi-state/state-sparse-merkle"]
+state-verkle = ["ioi-state/state-verkle"]
+commitment-hash = ["ioi-state/commitment-hash"]
+commitment-kzg = ["ioi-state/commitment-kzg"]
 # --- FIX END ---
 
 # Service Features
