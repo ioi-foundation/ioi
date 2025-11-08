@@ -31,6 +31,4 @@ pub mod prelude {
     // non-membership proofs required for light clients and interoperability.
     // Please use IAVLTree, SparseMerkleTree, or VerkleTree instead.
 
-    // Re-export the core API trait, which now lives in the API crate
-    pub use ioi_api::state::StateCommitment;
 }

@@ -2,7 +2,7 @@
 //! Defines the trait for transaction pre-processing handlers (Ante Handlers).
 
 use crate::services::BlockchainService;
-use crate::state::StateAccessor;
+use crate::state::StateAccess;
 use crate::transaction::context::TxContext;
 use async_trait::async_trait;
 use ioi_types::app::ChainTransaction;
@@ -18,7 +18,7 @@ pub trait TxDecorator: BlockchainService {
     /// This method can perform read-only checks or mutate state (e.g., deduct fees).
     async fn ante_handle(
         &self,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         tx: &ChainTransaction,
         ctx: &TxContext,
     ) -> Result<(), TransactionError>;

@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, ChainView};
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::ChainStateReader;
-use ioi_api::state::{StateAccessor, StateManager};
+use ioi_api::state::{StateAccess, StateManager};
 use ioi_types::app::{
     compute_interval_from_parent_state, read_validator_sets, AccountId, Block, BlockTimingParams,
     BlockTimingRuntime, ChainStatus, FailureReport,
@@ -45,7 +45,7 @@ impl PenaltyMechanism for RoundRobinBftEngine {
     // This penalty mechanism is identical to the one in PoA.
     async fn apply_penalty(
         &self,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         report: &FailureReport,
     ) -> Result<(), TransactionError> {
         const MIN_LIVE_AUTHORITIES: usize = 2;

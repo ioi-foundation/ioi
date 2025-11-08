@@ -6,7 +6,7 @@ use super::context::{MainLoopContext, SyncProgress};
 use ioi_api::{
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
-    state::{StateCommitment, StateManager, Verifier},
+    state::{StateManager, Verifier},
 };
 // [+] CORRECTED: Import the canonical definitions from the network crate.
 use ioi_networking::libp2p::{SwarmCommand, SyncResponse};
@@ -181,7 +181,6 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + StateCommitment<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
         + 'static

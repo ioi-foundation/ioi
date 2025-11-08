@@ -6,7 +6,7 @@ use ioi_types::error::{TransactionError, UpgradeError};
 use ioi_types::keys::{ORACLE_DATA_PREFIX, ORACLE_PENDING_REQUEST_PREFIX};
 use ioi_types::service_configs::Capabilities;
 use ioi_api::services::{BlockchainService, UpgradableService};
-use ioi_api::state::StateAccessor;
+use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use parity_scale_codec::{Decode, Encode};
 use std::any::Any;
@@ -69,7 +69,7 @@ impl BlockchainService for OracleService {
     // Implement the on-chain logic here.
     async fn handle_service_call(
         &self,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         method: &str,
         params: &[u8],
         ctx: &mut TxContext<'_>,

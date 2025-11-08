@@ -2,6 +2,10 @@
 //! Governance module implementations for the IOI SDK
 
 use async_trait::async_trait;
+use ioi_api::lifecycle::OnEndBlock;
+use ioi_api::services::{BlockchainService, UpgradableService};
+use ioi_api::state::StateAccess;
+use ioi_api::transaction::context::TxContext;
 use ioi_types::app::{
     read_validator_sets, AccountId, Proposal, ProposalStatus, ProposalType, StateEntry,
     TallyResult, VoteOption,
@@ -12,10 +16,6 @@ use ioi_types::keys::{
     VALIDATOR_SET_KEY,
 };
 use ioi_types::service_configs::{Capabilities, GovernanceParams};
-use ioi_api::lifecycle::OnEndBlock;
-use ioi_api::services::{BlockchainService, UpgradableService};
-use ioi_api::state::StateAccessor;
-use ioi_api::transaction::context::TxContext;
 use parity_scale_codec::{Decode, Encode};
 use std::any::Any;
 use std::collections::BTreeMap;
@@ -73,13 +73,11 @@ impl BlockchainService for GovernanceModule {
 
     async fn handle_service_call(
         &self,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         method: &str,
         params: &[u8],
         ctx: &mut TxContext<'_>,
     ) -> Result<(), TransactionError> {
-        // For now, all governance actions are user-signed. A future version
-        // could add governance-only or internal methods with ACL checks here.
         let signer_account_id = ctx.signer_account_id;
 
         match method {
@@ -111,11 +109,9 @@ impl BlockchainService for GovernanceModule {
 #[async_trait]
 impl UpgradableService for GovernanceModule {
     async fn prepare_upgrade(&mut self, _new_module_wasm: &[u8]) -> Result<Vec<u8>, UpgradeError> {
-        // A real implementation would serialize its `params` struct here.
         Ok(Vec::new())
     }
     async fn complete_upgrade(&mut self, _snapshot: &[u8]) -> Result<(), UpgradeError> {
-        // A real implementation would deserialize the snapshot to restore its `params`.
         Ok(())
     }
 }
@@ -124,7 +120,7 @@ impl UpgradableService for GovernanceModule {
 impl OnEndBlock for GovernanceModule {
     async fn on_end_block(
         &self,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         ctx: &TxContext,
     ) -> Result<(), StateError> {
         let proposals_to_tally: Vec<u64> = {
@@ -177,7 +173,7 @@ impl GovernanceModule {
         Self { params }
     }
 
-    fn get_next_proposal_id<S: StateAccessor + ?Sized>(
+    fn get_next_proposal_id<S: StateAccess + ?Sized>(
         &self,
         state: &mut S,
     ) -> Result<u64, String> {
@@ -210,7 +206,7 @@ impl GovernanceModule {
         .concat()
     }
 
-    pub fn submit_proposal<S: StateAccessor + ?Sized>(
+    pub fn submit_proposal<S: StateAccess + ?Sized>(
         &self,
         state: &mut S,
         params: SubmitProposalParams,
@@ -220,7 +216,6 @@ impl GovernanceModule {
         if params.deposit < self.params.min_deposit {
             return Err("Initial deposit is less than min_deposit".to_string());
         }
-        // In a real implementation, we would lock the proposer's deposit here.
 
         let id = self.get_next_proposal_id(state)?;
         let deposit_end_height = current_height + self.params.max_deposit_period_blocks;
@@ -254,7 +249,7 @@ impl GovernanceModule {
 
     pub fn vote(
         &self,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         proposal_id: u64,
         voter: &AccountId,
         option: VoteOption,
@@ -273,16 +268,13 @@ impl GovernanceModule {
         if proposal.status != ProposalStatus::VotingPeriod {
             return Err("Proposal is not in voting period".to_string());
         }
-
         if current_height < proposal.voting_start_height {
             return Err("Voting period has not started yet".to_string());
         }
-
         if current_height > proposal.voting_end_height {
             return Err("Voting period has ended".to_string());
         }
 
-        // In a real implementation, we would check the voter's voting power (stake).
         let vote_key = Self::vote_key(proposal_id, voter);
         let vote_bytes = ioi_types::codec::to_bytes_canonical(&option)?;
         state
@@ -292,8 +284,7 @@ impl GovernanceModule {
         Ok(())
     }
 
-    /// Tallies the votes for a concluded proposal and updates its status.
-    pub fn tally_proposal<S: StateAccessor + ?Sized>(
+    pub fn tally_proposal<S: StateAccess + ?Sized>(
         &self,
         state: &mut S,
         proposal_id: u64,

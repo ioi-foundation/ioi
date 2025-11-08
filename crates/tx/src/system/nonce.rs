@@ -1,11 +1,11 @@
-// Path: crates/transaction_models/src/system/nonce.rs
+// Path: crates/tx/src/system/nonce.rs
 
 //! Core, non-optional system logic for transaction nonce management.
 
 use ioi_types::app::{AccountId, ChainTransaction, SystemPayload};
 use ioi_types::error::TransactionError::{self, NonceMismatch};
 use ioi_types::keys::ACCOUNT_NONCE_PREFIX;
-use ioi_api::state::StateAccessor;
+use ioi_api::state::StateAccess;
 use tracing::warn;
 
 fn get_tx_nonce_key(account_id: &AccountId) -> Vec<u8> {
@@ -32,7 +32,7 @@ fn get_tx_details(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
 
 /// A core system function to assert that a transaction's nonce is correct.
 /// This is a READ-ONLY check.
-pub fn assert_next_nonce<S: StateAccessor + ?Sized>(
+pub fn assert_next_nonce<S: StateAccess + ?Sized>(
     state: &S,
     tx: &ChainTransaction,
 ) -> Result<(), TransactionError> {
@@ -69,7 +69,7 @@ pub fn assert_next_nonce<S: StateAccessor + ?Sized>(
 
 /// A core system function to atomically bump a transaction nonce.
 /// This is a WRITE operation and should be called after all validation has passed.
-pub fn bump_nonce<S: StateAccessor + ?Sized>(
+pub fn bump_nonce<S: StateAccess + ?Sized>(
     state: &mut S,
     tx: &ChainTransaction,
 ) -> Result<(), TransactionError> {

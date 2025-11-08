@@ -13,7 +13,7 @@ use ibc_proto::cosmos::tx::v1beta1::TxBody;
 use ibc_proto::Protobuf; // [+] FIX: Add the missing trait import
 use ioi_api::ibc::LightClient;
 use ioi_api::services::{BlockchainService, UpgradableService};
-use ioi_api::state::{StateAccessor, StateOverlay};
+use ioi_api::state::{StateAccess, StateOverlay};
 use ioi_api::transaction::context::TxContext;
 use ioi_types::error::{TransactionError, UpgradeError};
 use ioi_types::service_configs::Capabilities;
@@ -50,7 +50,7 @@ pub struct VerifierRegistry {
 }
 
 impl fmt::Debug for VerifierRegistry {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("VerifierRegistry")
             .field("registered_chains", &self.verifiers.keys())
             .finish()
@@ -108,7 +108,7 @@ impl BlockchainService for VerifierRegistry {
 
     async fn handle_service_call(
         &self,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         method: &str,
         params: &[u8],
         ctx: &mut TxContext<'_>,

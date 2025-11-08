@@ -5,7 +5,7 @@ use ioi_types::error::UpgradeError;
 use ioi_types::keys::{ACCOUNT_KEY_PREFIX, GAS_ESCROW_KEY_PREFIX};
 use ioi_api::impl_service_base;
 use ioi_api::services::{BlockchainService, UpgradableService};
-use ioi_api::state::StateAccessor;
+use ioi_api::state::StateAccess;
 use parity_scale_codec::{Decode, Encode};
 
 #[derive(Encode, Decode, Debug, Default, Clone)]
@@ -20,13 +20,13 @@ pub struct EscrowEntry {
 }
 
 pub trait GasEscrowHandler: BlockchainService {
-    fn bond<S: StateAccessor + ?Sized>(
+    fn bond<S: StateAccess + ?Sized>(
         &self,
         state: &mut S,
         user_account: &[u8],
         max_gas: u64,
     ) -> Result<(), String>;
-    fn settle<S: StateAccessor + ?Sized>(
+    fn settle<S: StateAccess + ?Sized>(
         &self,
         state: &mut S,
         user_account: &[u8],
@@ -44,7 +44,7 @@ impl GasEscrowService {
     fn escrow_key(user_account: &[u8]) -> Vec<u8> {
         [GAS_ESCROW_KEY_PREFIX, user_account].concat()
     }
-    fn get_account<S: StateAccessor + ?Sized>(
+    fn get_account<S: StateAccess + ?Sized>(
         &self,
         state: &S,
         user_account: &[u8],
@@ -71,7 +71,7 @@ impl UpgradableService for GasEscrowService {
 }
 
 impl GasEscrowHandler for GasEscrowService {
-    fn bond<S: StateAccessor + ?Sized>(
+    fn bond<S: StateAccess + ?Sized>(
         &self,
         state: &mut S,
         user_account: &[u8],
@@ -103,7 +103,7 @@ impl GasEscrowHandler for GasEscrowService {
         Ok(())
     }
 
-    fn settle<S: StateAccessor + ?Sized>(
+    fn settle<S: StateAccess + ?Sized>(
         &self,
         state: &mut S,
         user_account: &[u8],

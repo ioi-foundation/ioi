@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 use byte_slice_cast::AsByteSlice; // for `as_byte_slice()` on commitments
-use ioi_api::state::StateAccessor;
+use ioi_api::state::StateAccess;
 
 use ibc_client_tendermint::client_state::ClientState as TmClientState;
 use ibc_client_tendermint::consensus_state::ConsensusState as TmConsensusState;
@@ -53,7 +53,7 @@ use ibc_proto::ibc::core::{
 use prost::Message;
 
 /// Transaction-scoped IBC execution/validation context.
-pub struct IbcExecutionContext<'a, S: StateAccessor + ?Sized> {
+pub struct IbcExecutionContext<'a, S: StateAccess + ?Sized> {
     /// Transaction-local state view (usually a StateOverlay you commit on success).
     pub state: &'a mut S,
     /// Deterministic host height (e.g., `{revision_number: 0, revision_height: block_height}`).
@@ -71,7 +71,7 @@ pub struct IbcExecutionContext<'a, S: StateAccessor + ?Sized> {
 }
 
 /// Implement the `Router` trait required by `dispatch`.
-impl<'a, S: StateAccessor + ?Sized> Router for IbcExecutionContext<'a, S> {
+impl<'a, S: StateAccess + ?Sized> Router for IbcExecutionContext<'a, S> {
     fn get_route(&self, module_id: &ModuleId) -> Option<&dyn Module> {
         self.modules.get(module_id).map(|b| b.as_ref())
     }
@@ -91,7 +91,7 @@ impl<'a, S: StateAccessor + ?Sized> Router for IbcExecutionContext<'a, S> {
 }
 
 // ----------------------------- Small helpers -----------------------------
-impl<'a, S: StateAccessor + ?Sized> IbcExecutionContext<'a, S> {
+impl<'a, S: StateAccess + ?Sized> IbcExecutionContext<'a, S> {
     /// Convenience builder for tests and service wiring.
     pub fn new(state_overlay: &'a mut S, host_height: Height, host_timestamp: Timestamp) -> Self {
         Self {
@@ -176,7 +176,7 @@ impl<'a, S: StateAccessor + ?Sized> IbcExecutionContext<'a, S> {
 }
 
 // ----------------------- ClientValidationContext ------------------------
-impl<'a, S: StateAccessor + ?Sized> ClientValidationContext for IbcExecutionContext<'a, S> {
+impl<'a, S: StateAccess + ?Sized> ClientValidationContext for IbcExecutionContext<'a, S> {
     type ClientStateRef = TmClientState;
     type ConsensusStateRef = TmConsensusState;
 
@@ -224,7 +224,7 @@ impl<'a, S: StateAccessor + ?Sized> ClientValidationContext for IbcExecutionCont
 }
 
 // ------------------------ ClientExecutionContext ------------------------
-impl<'a, S: StateAccessor + ?Sized> ClientExecutionContext for IbcExecutionContext<'a, S> {
+impl<'a, S: StateAccess + ?Sized> ClientExecutionContext for IbcExecutionContext<'a, S> {
     type ClientStateMut = TmClientState;
 
     fn store_client_state(
@@ -273,7 +273,7 @@ impl<'a, S: StateAccessor + ?Sized> ClientExecutionContext for IbcExecutionConte
 
 // --------------------------- Host Validation ----------------------------
 // In v0.50+, HostValidationContext also exposes channel/connection/packet getters/setters.
-impl<'a, S: StateAccessor + ?Sized> HostValidationContext for IbcExecutionContext<'a, S> {
+impl<'a, S: StateAccess + ?Sized> HostValidationContext for IbcExecutionContext<'a, S> {
     type V = Self;
     type HostClientState = TmClientState;
     type HostConsensusState = TmConsensusState;
@@ -400,7 +400,7 @@ impl<'a, S: StateAccessor + ?Sized> HostValidationContext for IbcExecutionContex
 }
 
 // --------------------------- Host Execution -----------------------------
-impl<'a, S: StateAccessor + ?Sized> HostExecutionContext for IbcExecutionContext<'a, S> {
+impl<'a, S: StateAccess + ?Sized> HostExecutionContext for IbcExecutionContext<'a, S> {
     type E = Self;
 
     fn get_client_execution_context(&mut self) -> &mut Self::E {
@@ -522,7 +522,7 @@ impl<'a, S: StateAccessor + ?Sized> HostExecutionContext for IbcExecutionContext
 }
 
 // Tendermint’s client needs this tiny extension trait:
-impl<'a, S: StateAccessor + ?Sized> ExtClientValidationContext for IbcExecutionContext<'a, S> {
+impl<'a, S: StateAccess + ?Sized> ExtClientValidationContext for IbcExecutionContext<'a, S> {
     fn host_height(&self) -> Result<Height, ContextError> {
         Ok(self.host_height)
     }
@@ -530,7 +530,7 @@ impl<'a, S: StateAccessor + ?Sized> ExtClientValidationContext for IbcExecutionC
         Ok(self.host_timestamp)
     }
 
-    // If your StateAccessor can't enumerate keys yet, return "no data".
+    // If your StateAccess can't enumerate keys yet, return "no data".
     // These stubs are acceptable until you wire iteration over ClientConsensusStatePath.
     fn consensus_state_heights(&self, _client_id: &ClientId) -> Result<Vec<Height>, ContextError> {
         Ok(Vec::new())

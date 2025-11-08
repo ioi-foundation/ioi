@@ -1,5 +1,5 @@
 // Path: crates/validator/src/ante/service_call.rs
-use ioi_api::state::StateAccessor;
+use ioi_api::state::StateAccess;
 use ioi_types::service_configs::{ActiveServiceMeta, MethodPermission};
 use ioi_types::{codec, error::TransactionError, keys::active_service_key};
 use tracing::debug;
@@ -8,7 +8,7 @@ use tracing::debug;
 /// Ensures ABI presence or applies the narrow ibc-deps fallback for ibc::msg_dispatch@v1.
 /// Also enforces that Internal methods are not callable by user txs.
 pub fn precheck_call_service(
-    state: &dyn StateAccessor,
+    state: &dyn StateAccess,
     service_id: &str,
     method: &str,
     is_internal: bool,

@@ -10,10 +10,11 @@ use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::PenaltyMechanism;
 use ioi_api::services::access::ServiceDirectory;
 use ioi_api::services::{BlockchainService, UpgradableService};
-use ioi_api::state::{PinGuard, StateAccessor, StateManager, StateOverlay};
+use ioi_api::state::{PinGuard, StateAccess, StateManager, StateOverlay};
 use ioi_api::transaction::context::TxContext;
 use ioi_api::transaction::TransactionModel;
 use ioi_api::validator::WorkloadContainer;
+use ioi_consensus::Consensus;
 use ioi_tx::system::{nonce, validation};
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{
@@ -28,7 +29,6 @@ use ioi_types::keys::{
     BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, STATUS_KEY, VALIDATOR_SET_KEY,
 };
 use ioi_types::service_configs::{ActiveServiceMeta, Capabilities, MethodPermission};
-// [+] ADD import for IBC Timestamp
 use ibc_primitives::Timestamp;
 use libp2p::identity::Keypair;
 use serde::Serialize;
@@ -50,18 +50,16 @@ pub enum GenesisState {
     },
 }
 
-use ioi_consensus::Consensus;
-
 // Delegates PenaltyMechanism to the borrowed Consensus engine.
 struct PenaltyDelegator<'a> {
-    inner: &'a ioi_consensus::Consensus<ioi_types::app::ChainTransaction>,
+    inner: &'a Consensus<ioi_types::app::ChainTransaction>,
 }
 
 #[async_trait]
 impl<'a> PenaltyMechanism for PenaltyDelegator<'a> {
     async fn apply_penalty(
         &self,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         report: &FailureReport,
     ) -> Result<(), TransactionError> {
         self.inner.apply_penalty(state, report).await
@@ -260,17 +258,12 @@ where
                     }
                 }
 
-                tracing::info!(
-                    target: "chain",
-                    event = "status_init",
-                    "No existing chain status found. Initializing and saving genesis status."
-                );
+                tracing::info!(target: "chain", event = "status_init", "No existing chain status found. Initializing and saving genesis status.");
 
                 for service in self.service_manager.all_services() {
                     let service_id = service.id();
                     let key = ioi_types::keys::active_service_key(service_id);
                     let mut methods = BTreeMap::new();
-                    // Populate the ABI for built-in services so CallService can dispatch to them.
                     match service_id {
                         "governance" => {
                             methods.insert("submit_proposal@v1".into(), MethodPermission::User);
@@ -295,30 +288,18 @@ where
                         abi_version: service.abi_version(),
                         state_schema: service.state_schema().into(),
                         caps: service.capabilities(),
-                        artifact_hash: [0u8; 32], // [0; 32] signifies a native service.
+                        artifact_hash: [0u8; 32],
                         activated_at: 0,
                         methods,
                     };
                     let meta_bytes = codec::to_bytes_canonical(&meta)
                         .map_err(|e| ChainError::Transaction(e.to_string()))?;
-                    tracing::debug!(
-                        target = "genesis",
-                        "ActiveServiceMeta for {} has methods: {:?}",
-                        service_id,
-                        meta.methods.keys().collect::<Vec<_>>()
-                    );
                     state
                         .insert(&key, &meta_bytes)
                         .map_err(|e| ChainError::Transaction(e.to_string()))?;
-                    tracing::info!(
-                        target: "chain",
-                        "Registered initial service '{}' as active in genesis state.",
-                        service_id
-                    );
+                    tracing::info!(target: "chain", "Registered initial service '{}' as active in genesis state.", service_id);
                 }
 
-                // Seed initial timing params at genesis.
-                // Start with a fixed 5-second block time (retarget_every_blocks = 0).
                 let timing_params = BlockTimingParams {
                     base_interval_secs: 5,
                     min_interval_secs: 2,
@@ -370,11 +351,7 @@ where
                         tracing::debug!(target: "chain", "[Chain] Genesis self-check passed.");
                     }
                     ioi_types::app::Membership::Absent => {
-                        tracing::error!(
-                            target: "chain",
-                            "[Chain] Genesis self-check FAILED: query for '{}' returned Absent.",
-                            hex::encode(STATUS_KEY)
-                        );
+                        tracing::error!(target: "chain", "[Chain] Genesis self-check FAILED: query for '{}' returned Absent.", hex::encode(STATUS_KEY));
                         return Err(ChainError::from(StateError::Validation(
                             "Committed genesis state is not provable".into(),
                         )));
@@ -391,18 +368,13 @@ where
         }
 
         if let GenesisState::Ready { root, .. } = &self.state.genesis_state {
-            tracing::info!(
-                target: "chain",
-                event = "genesis_ready",
-                root = hex::encode(root)
-            );
+            tracing::info!(target: "chain", event = "genesis_ready", root = hex::encode(root));
         }
 
         Ok(())
     }
 
     /// Internal helper to process a single transaction against a state overlay.
-    // [+] MODIFIED: Added block_timestamp parameter
     async fn process_transaction(
         &self,
         tx: &ChainTransaction,
@@ -411,7 +383,6 @@ where
         block_timestamp: u64,
     ) -> Result<(), ChainError> {
         let signer_account_id = signer_from_tx(tx);
-        // [+] MODIFIED: Instantiate TxContext with the block_timestamp
         let mut tx_ctx = TxContext {
             block_height,
             block_timestamp: Timestamp::from_nanoseconds(block_timestamp * 1_000_000_000)
@@ -420,7 +391,7 @@ where
             signer_account_id,
             services: &self.services,
             simulation: false,
-            is_internal: false, // User transactions are never internal.
+            is_internal: false,
         };
 
         preflight_capabilities(&self.services, tx)?;
@@ -505,12 +476,7 @@ where
         } else {
             self.state.recent_blocks.iter().rev().find_map(|b| {
                 if b.header.state_root.as_ref() == state_ref.state_root {
-                    tracing::info!(
-                        target = "state",
-                        event = "view_at_resolve",
-                        height = b.header.height,
-                        root = hex::encode(b.header.state_root.as_ref())
-                    );
+                    tracing::info!(target: "state", event = "view_at_resolve", height = b.header.height, root = hex::encode(b.header.state_root.as_ref()));
                     Some(b.header.state_root.0.clone())
                 } else {
                     None
@@ -521,11 +487,7 @@ where
         let root = resolved_root_bytes
             .ok_or_else(|| ChainError::UnknownStateAnchor(hex::encode(&state_ref.state_root)))?;
 
-        tracing::info!(
-            target = "state",
-            event = "view_at_resolved",
-            root = hex::encode(&root)
-        );
+        tracing::info!(target: "state", event = "view_at_resolved", root = hex::encode(&root));
 
         let view = ChainStateView {
             state_tree: self.workload_container.state_tree(),
@@ -599,7 +561,6 @@ where
             let mut overlay = StateOverlay::new(&snapshot_state);
 
             for tx in &block.transactions {
-                // [+] MODIFIED: Pass the block timestamp to process_transaction
                 if let Err(e) = self
                     .process_transaction(
                         tx,
@@ -609,12 +570,7 @@ where
                     )
                     .await
                 {
-                    tracing::error!(
-                        target = "block",
-                        height = block.header.height,
-                        error = %e,
-                        "process_transaction failed; rejecting block proposal"
-                    );
+                    tracing::error!(target: "block", height = block.header.height, error = %e, "process_transaction failed; rejecting block proposal");
                     return Err(e);
                 }
             }
@@ -664,7 +620,6 @@ where
             let mut state = state_tree_arc.write().await;
 
             state.begin_block_writes(block.header.height);
-
             state.batch_apply(inserts, deletes)?;
 
             let upgrade_count = self
@@ -673,13 +628,7 @@ where
                 .await
                 .map_err(|e| ChainError::State(StateError::Apply(e.to_string())))?;
             if upgrade_count > 0 {
-                tracing::info!(
-                    target = "chain",
-                    event = "module_upgrade",
-                    height = block.header.height,
-                    num_applied = upgrade_count,
-                    "Successfully applied on-chain service upgrades."
-                );
+                tracing::info!(target: "chain", event = "module_upgrade", height = block.header.height, num_applied = upgrade_count, "Successfully applied on-chain service upgrades.");
                 let all_services = self.service_manager.all_services();
                 let services_for_dir: Vec<Arc<dyn BlockchainService>> = all_services
                     .iter()
@@ -688,7 +637,6 @@ where
                 self.services = ServiceDirectory::new(services_for_dir);
             }
 
-            // [+] MODIFIED: Instantiate TxContext with the block_timestamp
             let end_block_ctx = TxContext {
                 block_height: block.header.height,
                 block_timestamp: Timestamp::from_nanoseconds(
@@ -699,7 +647,7 @@ where
                 signer_account_id: AccountId::default(),
                 services: &self.services,
                 simulation: false,
-                is_internal: true, // This is an internal call
+                is_internal: true,
             };
             for service in self.services.services_in_deterministic_order() {
                 if service.capabilities().contains(Capabilities::ON_END_BLOCK) {
@@ -717,12 +665,7 @@ where
                     let mut modified = false;
                     if let Some(next_vs) = &sets.next {
                         if block.header.height >= next_vs.effective_from_height {
-                            tracing::info!(
-                                target = "chain",
-                                event = "validator_set_promotion",
-                                height = block.header.height,
-                                "Promoting validator set"
-                            );
+                            tracing::info!(target: "chain", event = "validator_set_promotion", height = block.header.height, "Promoting validator set");
                             let promoted_from_height = next_vs.effective_from_height;
                             sets.current = next_vs.clone();
                             if sets
@@ -744,16 +687,10 @@ where
                     }
                 }
                 None => {
-                    tracing::error!(
-                        target = "chain",
-                        event = "end_block",
-                        height = block.header.height,
-                        "MISSING VALIDATOR_SET_KEY before commit. The next block may stall or fail without it."
-                    );
+                    tracing::error!(target: "chain", event = "end_block", height = block.header.height, "MISSING VALIDATOR_SET_KEY before commit.");
                 }
             }
 
-            // [+] End-of-Block Hook: Update BlockTimingRuntime for adaptive intervals
             let timing_params_bytes = state.get(BLOCK_TIMING_PARAMS_KEY)?;
             let timing_runtime_bytes = state.get(BLOCK_TIMING_RUNTIME_KEY)?;
             if let (Some(params_bytes), Some(runtime_bytes)) =
@@ -765,16 +702,10 @@ where
                     codec::from_bytes_canonical(&runtime_bytes).map_err(ChainError::Transaction)?;
                 let mut new_runtime = old_runtime.clone();
 
-                // Only perform updates if adaptive timing is enabled and it's a retarget block.
                 if params.retarget_every_blocks > 0
                     && block.header.height % params.retarget_every_blocks as u64 == 0
                 {
-                    // TODO: Replace this placeholder with the actual gas used by the block.
-                    // This could be stored in the block header or a dedicated state key.
                     let gas_used_this_block = 0;
-
-                    // Re-compute the interval that *should* have been used for the *next* block.
-                    // This is the value we persist for the subsequent proposer/verifier.
                     let next_interval = compute_interval_from_parent_state(
                         &params,
                         &old_runtime,
@@ -787,7 +718,6 @@ where
                         / 1000;
                     new_runtime.effective_interval_secs = next_interval;
 
-                    // Persist the new runtime state if it changed.
                     if new_runtime.ema_gas_used != old_runtime.ema_gas_used
                         || new_runtime.effective_interval_secs
                             != old_runtime.effective_interval_secs
@@ -810,44 +740,24 @@ where
             state.insert(STATUS_KEY, &status_bytes)?;
 
             state.commit_version_persist(block.header.height, &*workload.store)?;
-
             let final_root_bytes = state.root_commitment().as_ref().to_vec();
 
             {
                 use ioi_types::app::Membership;
-
                 let final_commitment = state.commitment_from_bytes(&final_root_bytes)?;
                 if cfg!(debug_assertions) && !state.version_exists_for_root(&final_commitment) {
-                    return Err(ChainError::State(StateError::Validation(format!(
-                        "FATAL INVARIANT VIOLATION: The committed root for height {} is not mapped to a queryable version!",
-                        block.header.height
-                    ))));
+                    return Err(ChainError::State(StateError::Validation(format!("FATAL INVARIANT VIOLATION: The committed root for height {} is not mapped to a queryable version!", block.header.height))));
                 }
-
                 if self.consensus_engine.consensus_type() == ConsensusType::ProofOfStake {
                     match state.get_with_proof_at(&final_commitment, VALIDATOR_SET_KEY) {
                         Ok((Membership::Present(_), _)) => {
-                            tracing::info!(
-                                target = "pos_finality_check",
-                                event = "validator_set_provable",
-                                height = block.header.height,
-                                root = hex::encode(&final_root_bytes),
-                                "OK"
-                            );
+                            tracing::info!(target: "pos_finality_check", event = "validator_set_provable", height = block.header.height, root = hex::encode(&final_root_bytes), "OK");
                         }
                         Ok((other, _)) => {
-                            return Err(ChainError::State(StateError::Validation(format!(
-                                "INVARIANT: Validator set missing at end of block {} (membership={:?}, root={})",
-                                block.header.height,
-                                other,
-                                hex::encode(&final_root_bytes),
-                            ))));
+                            return Err(ChainError::State(StateError::Validation(format!("INVARIANT: Validator set missing at end of block {} (membership={:?}, root={})", block.header.height, other, hex::encode(&final_root_bytes)))));
                         }
                         Err(e) => {
-                            return Err(ChainError::State(StateError::Validation(format!(
-                                "INVARIANT: get_with_proof_at failed for validator set at end of block {}: {}",
-                                block.header.height, e
-                            ))));
+                            return Err(ChainError::State(StateError::Validation(format!("INVARIANT: get_with_proof_at failed for validator set at end of block {}: {}", block.header.height, e))));
                         }
                     }
                 }
@@ -861,13 +771,7 @@ where
         let anchor = StateRoot(block.header.state_root.0.clone())
             .to_anchor()
             .map_err(|e| ChainError::Transaction(e.to_string()))?;
-        tracing::info!(
-            target = "chain",
-            event = "commit",
-            height = block.header.height,
-            state_root = hex::encode(&block.header.state_root.0),
-            anchor = hex::encode(anchor.as_ref())
-        );
+        tracing::info!(target: "chain", event = "commit", height = block.header.height, state_root = hex::encode(&block.header.state_root.0), anchor = hex::encode(anchor.as_ref()));
 
         let block_bytes = codec::to_bytes_canonical(&block)
             .map_err(|e| ChainError::Transaction(e.to_string()))?;

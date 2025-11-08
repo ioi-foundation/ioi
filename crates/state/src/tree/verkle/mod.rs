@@ -1,4 +1,4 @@
-// Path: crates/commitment/src/tree/verkle/mod.rs
+// Path: crates/state/src/tree/verkle/mod.rs
 //! Verkle tree implementation with cryptographic security
 
 mod proof;
@@ -9,12 +9,14 @@ use crate::primitives::kzg::{KZGCommitment, KZGCommitmentScheme, KZGProof, KZGWi
 use crate::tree::verkle::proof::{
     map_child_commitment_to_value, map_leaf_payload_to_value, Terminal, VerklePathProof,
 };
-use ioi_storage::adapter::{commit_and_persist, DeltaAccumulator};
 use ioi_api::commitment::{CommitmentScheme, Selector};
-use ioi_api::state::{PrunePlan, StateCommitment, StateManager, StateScanIter};
+use ioi_api::state::{
+    PrunePlan, ProofProvider, StateAccess, StateManager, StateScanIter, VerifiableState,
+};
 use ioi_api::storage::{NodeHash as StoreNodeHash, NodeStore};
 use ioi_types::app::{to_root_hash, Membership, RootHash};
 use ioi_types::error::StateError;
+use ioi_storage::adapter::{commit_and_persist, DeltaAccumulator};
 use parity_scale_codec::{Decode, Encode};
 use std::any::Any;
 use std::collections::{BTreeMap, HashMap};
@@ -39,7 +41,6 @@ enum VerkleNode {
 }
 
 /// Encodes a `VerkleNode` into its canonical byte format for storage.
-/// Note: This is for the storage adapter, not for the KZG commitment itself.
 fn encode_node_canonical(n: &VerkleNode) -> Result<Vec<u8>, StateError> {
     Ok(n.encode())
 }
@@ -101,7 +102,6 @@ impl<CS: CommitmentScheme + Clone> Clone for VerkleTree<CS> {
     }
 }
 
-// Type aliases to improve readability and address the `type_complexity` lint.
 type KeyValueSlice<'a> = (&'a [u8], &'a [u8]);
 type GroupedItems<'a> = BTreeMap<u8, Vec<KeyValueSlice<'a>>>;
 
@@ -129,8 +129,6 @@ impl VerkleTree<KZGCommitmentScheme> {
         })
     }
 
-    /// An optimized method to build an internal node from a pre-sorted slice of key-value pairs.
-    /// This is much faster than sequential insertion for bootstrapping the tree.
     fn build_from_sorted(
         &self,
         items: &[(&[u8], &[u8])],
@@ -141,8 +139,6 @@ impl VerkleTree<KZGCommitmentScheme> {
         }
 
         if items.len() == 1 {
-            // FIX: Use `.first()` and `ok_or` to safely access the element without indexing or unwrapping.
-            // This is logically safe due to the `len() == 1` check.
             let &(key, value) = items.first().ok_or_else(|| {
                 StateError::InvalidValue("Internal error: item slice should not be empty".into())
             })?;
@@ -156,7 +152,6 @@ impl VerkleTree<KZGCommitmentScheme> {
             if let Some(&byte) = key.get(depth) {
                 groups.entry(byte).or_default().push((key, value));
             } else {
-                // Key terminates at this depth.
                 terminal.push((key, value));
             }
         }
@@ -164,27 +159,19 @@ impl VerkleTree<KZGCommitmentScheme> {
         if !terminal.is_empty() {
             if terminal.len() > 1 {
                 return Err(StateError::InvalidValue(
-                    "Multiple terminal keys with identical prefix; normalize key length or add a terminator".into(),
+                    "Multiple terminal keys with identical prefix".into(),
                 ));
             }
-            // FIX: Use `.first()` and `ok_or` for safe access.
             let &(key, value) = terminal.first().ok_or_else(|| {
-                StateError::InvalidValue(
-                    "Internal error: terminal slice should not be empty".into(),
-                )
+                StateError::InvalidValue("Internal error: terminal slice should not be empty".into())
             })?;
-            // The `update_node` logic will correctly create the leaf.
             return self.update_node(&Arc::new(VerkleNode::Empty), key, Some(value), depth);
         }
 
-        // Optimization: if there's only one subgroup, we are just traversing down a path
-        // with no siblings. We can skip creating an intermediate internal node and recurse.
         if groups.len() == 1 {
-            // FIX: Use `if let Some` to safely destructure the single item without unwrapping.
             if let Some((_, group)) = groups.into_iter().next() {
                 return self.build_from_sorted(&group, depth + 1);
             }
-            // This branch is logically unreachable due to the `len() == 1` check.
             return Err(StateError::InvalidValue("Internal logic error".into()));
         }
 
@@ -589,24 +576,126 @@ impl VerkleTree<KZGCommitmentScheme> {
         let _ = <Self as StateManager>::commit_version(self, height)?;
         Ok(root_hash)
     }
+
+    fn fetch_node_any_epoch(
+        store: &dyn NodeStore,
+        prefer_epoch: u64,
+        hash: [u8; 32],
+    ) -> Result<Option<Vec<u8>>, StateError> {
+        if let Some(bytes) = store
+            .get_node(prefer_epoch, StoreNodeHash(hash))
+            .map_err(|e| StateError::Backend(e.to_string()))?
+        {
+            return Ok(Some(bytes));
+        }
+        let (head_h, _) = store
+            .head()
+            .map_err(|e| StateError::Backend(e.to_string()))?;
+        let head_epoch = store.epoch_of(head_h);
+        let start = prefer_epoch.min(head_epoch);
+        for e in (0..start).rev() {
+            if let Some(bytes) = store
+                .get_node(e, StoreNodeHash(hash))
+                .map_err(|e| StateError::Backend(e.to_string()))?
+            {
+                return Ok(Some(bytes));
+            }
+        }
+        Ok(None)
+    }
 }
 
-impl StateCommitment for VerkleTree<KZGCommitmentScheme> {
+impl StateAccess for VerkleTree<KZGCommitmentScheme> {
+    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
+        Ok(self.cache.get(key).cloned())
+    }
+
+    fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
+        self.root = self.update_node(&self.root, key, Some(value), 0)?;
+        self.cache.insert(key.to_vec(), value.to_vec());
+        Ok(())
+    }
+
+    fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
+        self.root = self.update_node(&self.root, key, None, 0)?;
+        self.cache.remove(key);
+        Ok(())
+    }
+
+    fn prefix_scan(&self, prefix: &[u8]) -> Result<StateScanIter<'_>, StateError> {
+        let mut results: Vec<_> = self
+            .cache
+            .iter()
+            .filter(|(key, _)| key.starts_with(prefix))
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect();
+        results.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+        let iter = results
+            .into_iter()
+            .map(|(k, v)| Ok((Arc::from(k), Arc::from(v))));
+        Ok(Box::new(iter))
+    }
+
+    fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
+        let mut all_items = self.cache.clone();
+        all_items.extend(updates.iter().cloned());
+
+        let mut refs: Vec<(&[u8], &[u8])> = all_items
+            .iter()
+            .map(|(k, v)| (k.as_slice(), v.as_slice()))
+            .collect();
+        refs.sort_unstable_by(|(ka, _), (kb, _)| ka.cmp(kb));
+
+        self.root = self.build_from_sorted(&refs, 0)?;
+        self.cache = all_items;
+        Ok(())
+    }
+
+    fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
+        let mut results = Vec::with_capacity(keys.len());
+        for key in keys {
+            results.push(self.get(key)?);
+        }
+        Ok(results)
+    }
+
+    fn batch_apply(
+        &mut self,
+        inserts: &[(Vec<u8>, Vec<u8>)],
+        deletes: &[Vec<u8>],
+    ) -> Result<(), StateError> {
+        for key in deletes {
+            self.delete(key)?;
+        }
+        for (key, value) in inserts {
+            self.insert(key, value)?;
+        }
+        Ok(())
+    }
+}
+
+impl VerifiableState for VerkleTree<KZGCommitmentScheme> {
     type Commitment = KZGCommitment;
     type Proof = KZGProof;
 
     fn root_commitment(&self) -> Self::Commitment {
         match self.root.as_ref() {
             VerkleNode::Internal { kzg_commitment, .. } => kzg_commitment.clone(),
-            VerkleNode::Leaf { .. } => {
-                // This case should not be reachable in a correctly functioning tree.
-                // If it is, it indicates a bug. Using a deterministic "error" commitment.
-                self.empty_commitment.clone()
-            }
+            VerkleNode::Leaf { .. } => self.empty_commitment.clone(),
             VerkleNode::Empty => self.empty_commitment.clone(),
         }
     }
 
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+impl ProofProvider for VerkleTree<KZGCommitmentScheme> {
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
         let proof = self.build_proof_from_node(&self.root, key)?;
 
@@ -621,7 +710,6 @@ impl StateCommitment for VerkleTree<KZGCommitmentScheme> {
                 }
             }
         }
-
         Some(proof)
     }
 
@@ -665,53 +753,6 @@ impl StateCommitment for VerkleTree<KZGCommitmentScheme> {
         }
     }
 
-    fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
-        self.root = self.update_node(&self.root, key, Some(value), 0)?;
-        self.cache.insert(key.to_vec(), value.to_vec());
-        Ok(())
-    }
-
-    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
-        Ok(self.cache.get(key).cloned())
-    }
-
-    fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
-        self.root = self.update_node(&self.root, key, None, 0)?;
-        self.cache.remove(key);
-        Ok(())
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn export_kv_pairs(&self) -> Vec<(Vec<u8>, Vec<u8>)> {
-        self.cache
-            .iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect()
-    }
-
-    fn prefix_scan(&self, prefix: &[u8]) -> Result<StateScanIter<'_>, StateError> {
-        let mut results: Vec<_> = self
-            .cache
-            .iter()
-            .filter(|(key, _)| key.starts_with(prefix))
-            .map(|(key, value)| (key.clone(), value.clone()))
-            .collect();
-        results.sort_unstable_by(|a, b| a.0.cmp(&b.0));
-        let iter = results
-            .into_iter()
-            .map(|(k, v)| Ok((Arc::from(k), Arc::from(v))));
-        Ok(Box::new(iter))
-    }
-}
-
-impl StateManager for VerkleTree<KZGCommitmentScheme> {
     fn get_with_proof_at(
         &self,
         root: &Self::Commitment,
@@ -769,45 +810,9 @@ impl StateManager for VerkleTree<KZGCommitmentScheme> {
     fn commitment_to_bytes(&self, c: &Self::Commitment) -> Vec<u8> {
         c.as_ref().to_vec()
     }
+}
 
-    fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
-        let mut all_items = self.cache.clone();
-        all_items.extend(updates.iter().cloned());
-
-        let mut refs: Vec<(&[u8], &[u8])> = all_items
-            .iter()
-            .map(|(k, v)| (k.as_slice(), v.as_slice()))
-            .collect();
-        refs.sort_unstable_by(|(ka, _), (kb, _)| ka.cmp(kb));
-
-        self.root = self.build_from_sorted(&refs, 0)?;
-        self.cache = all_items;
-        Ok(())
-    }
-
-    fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
-        let mut results = Vec::with_capacity(keys.len());
-        for key in keys {
-            results.push(self.get(key)?);
-        }
-        Ok(results)
-    }
-
-    fn batch_apply(
-        &mut self,
-        inserts: &[(Vec<u8>, Vec<u8>)],
-        deletes: &[Vec<u8>],
-    ) -> Result<(), StateError> {
-        // Slower, but correct implementation for now.
-        for key in deletes {
-            self.delete(key)?;
-        }
-        for (key, value) in inserts {
-            self.insert(key, value)?;
-        }
-        Ok(())
-    }
-
+impl StateManager for VerkleTree<KZGCommitmentScheme> {
     fn prune(&mut self, plan: &PrunePlan) -> Result<(), StateError> {
         let to_prune: Vec<u64> = self
             .indices
@@ -849,11 +854,9 @@ impl StateManager for VerkleTree<KZGCommitmentScheme> {
         let root_hash = to_root_hash(self.root_commitment().as_ref())?;
 
         match self.indices.versions_by_height.insert(height, root_hash) {
-            // Case 1: This is a new height, or a reorg to a different root.
             None => {
                 let count = self.indices.root_refcount.entry(root_hash).or_insert(0);
                 if *count == 0 {
-                    // First time seeing this root hash, store the actual node.
                     if let Some(root_node) =
                         Some(self.root.clone()).filter(|n| !matches!(n.as_ref(), VerkleNode::Empty))
                     {
@@ -863,9 +866,7 @@ impl StateManager for VerkleTree<KZGCommitmentScheme> {
                 *count += 1;
             }
             Some(prev_root) if prev_root != root_hash => {
-                // It's a reorg. Decrement the old root's count and increment the new one's.
                 self.decrement_refcount(prev_root);
-
                 let count = self.indices.root_refcount.entry(root_hash).or_insert(0);
                 if *count == 0 {
                     if let Some(root_node) =
@@ -876,12 +877,8 @@ impl StateManager for VerkleTree<KZGCommitmentScheme> {
                 }
                 *count += 1;
             }
-            // Case 2: Same root hash was already recorded for this height. Do nothing.
-            Some(_prev_same_root) => {
-                // The refcount for this root is already correct for this height. No-op.
-            }
+            Some(_prev_same_root) => {}
         }
-
         Ok(root_hash)
     }
 
@@ -903,49 +900,21 @@ impl StateManager for VerkleTree<KZGCommitmentScheme> {
 
     fn adopt_known_root(&mut self, root_bytes: &[u8], version: u64) -> Result<(), StateError> {
         let root_hash = to_root_hash(root_bytes)?;
-
         self.indices.versions_by_height.insert(version, root_hash);
         self.indices.roots.insert(root_hash, self.root.clone());
         *self.indices.root_refcount.entry(root_hash).or_insert(0) += 1;
-
         if self.current_height < version {
             self.current_height = version;
         }
-
         Ok(())
     }
 
     fn attach_store(&mut self, store: Arc<dyn NodeStore>) {
         self.store = Some(store);
     }
-}
 
-impl VerkleTree<KZGCommitmentScheme> {
-    fn fetch_node_any_epoch(
-        store: &dyn NodeStore,
-        prefer_epoch: u64,
-        hash: [u8; 32],
-    ) -> Result<Option<Vec<u8>>, StateError> {
-        if let Some(bytes) = store
-            .get_node(prefer_epoch, StoreNodeHash(hash))
-            .map_err(|e| StateError::Backend(e.to_string()))?
-        {
-            return Ok(Some(bytes));
-        }
-        let (head_h, _) = store
-            .head()
-            .map_err(|e| StateError::Backend(e.to_string()))?;
-        let head_epoch = store.epoch_of(head_h);
-        let start = prefer_epoch.min(head_epoch);
-        for e in (0..start).rev() {
-            if let Some(bytes) = store
-                .get_node(e, StoreNodeHash(hash))
-                .map_err(|e| StateError::Backend(e.to_string()))?
-            {
-                return Ok(Some(bytes));
-            }
-        }
-        Ok(None)
+    fn begin_block_writes(&mut self, height: u64) {
+        self.current_height = height;
     }
 }
 

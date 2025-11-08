@@ -1,9 +1,9 @@
-// Path: crates/transaction_models/src/system/validation.rs
+// Path: crates/tx/src/system/validation.rs
 
 //! Core, non-optional system logic for transaction signature validation.
 
 use ioi_api::services::access::ServiceDirectory;
-use ioi_api::state::StateAccessor;
+use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_crypto::sign::{dilithium::DilithiumPublicKey, eddsa::Ed25519PublicKey};
 use ioi_types::app::{
@@ -130,7 +130,7 @@ fn enforce_credential_policy(
 }
 
 /// Verifies the signature of a transaction against the on-chain credentials or allows bootstrapping.
-pub fn verify_transaction_signature<S: StateAccessor>(
+pub fn verify_transaction_signature<S: StateAccess>(
     state: &S,
     services: &ServiceDirectory,
     tx: &ChainTransaction,
@@ -143,7 +143,7 @@ pub fn verify_transaction_signature<S: StateAccessor>(
 
     let creds_view = services.services().find_map(|s| s.as_credentials_view());
     let creds = if let Some(view) = &creds_view {
-        let state_accessor: &dyn StateAccessor = state;
+        let state_accessor: &dyn StateAccess = state;
         view.get_credentials(state_accessor, &header.account_id)?
     } else {
         [None, None]

@@ -4,8 +4,7 @@
 use crate::app::{Block, ChainStatus, ChainTransaction};
 use crate::commitment::CommitmentScheme;
 use crate::consensus::PenaltyMechanism;
-use crate::state::StateChangeSet;
-use crate::state::{StateManager, Verifier};
+use crate::state::{ProofProvider, StateManager, VerifiableState, Verifier};
 use crate::transaction::TransactionModel;
 use crate::validator::WorkloadContainer;
 use async_trait::async_trait;
@@ -103,7 +102,7 @@ pub struct PreparedBlock {
     /// The full block, including header and transactions.
     pub block: Block<ChainTransaction>,
     /// The complete set of state modifications derived from executing the block's transactions.
-    pub state_changes: Arc<StateChangeSet>,
+    pub state_changes: Arc<(Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)>,
     /// The raw state root of the parent block, for validation during commit.
     pub parent_state_root: Vec<u8>,
     /// The Merkle root of the transactions in the block.

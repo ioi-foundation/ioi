@@ -47,7 +47,7 @@ pub mod lifecycle;
 pub mod runtime;
 /// Traits for pluggable, upgradable blockchain services.
 pub mod services;
-/// Core traits for state management, including `StateCommitment` and `StateManager`.
+/// Core traits for state management, including `StateAccess` and `StateManager`.
 pub mod state;
 /// An API for a durable, epoch-sharded, content-addressed node store.
 pub mod storage;
@@ -72,7 +72,7 @@ pub mod prelude {
     pub use crate::lifecycle::OnEndBlock;
     pub use crate::services::access::ServiceDirectory;
     pub use crate::services::{BlockchainService, UpgradableService};
-    pub use crate::state::{StateCommitment, StateManager};
+    pub use crate::state::{StateAccess, StateManager, VerifiableState};
     pub use crate::storage::NodeStore;
     pub use crate::transaction::context::TxContext;
     pub use crate::transaction::decorator::TxDecorator;

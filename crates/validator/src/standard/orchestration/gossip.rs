@@ -1,11 +1,11 @@
 // Path: crates/validator/src/standard/orchestration/gossip.rs
 use super::context::MainLoopContext;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, StateRef};
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::{ConsensusEngine, PenaltyMechanism};
-use ioi_api::state::{StateAccessor, StateManager, Verifier};
+use ioi_api::state::{StateAccess, StateManager, Verifier};
 use ioi_networking::traits::NodeState;
 use ioi_types::{
     app::{Block, ChainTransaction, FailureReport, StateRoot, SystemPayload},
@@ -53,7 +53,7 @@ struct NoopPenalty;
 impl PenaltyMechanism for NoopPenalty {
     async fn apply_penalty(
         &self,
-        _state: &mut dyn StateAccessor,
+        _state: &mut dyn StateAccess,
         _report: &FailureReport,
     ) -> Result<(), TransactionError> {
         Ok(())

@@ -15,7 +15,7 @@ use ioi_types::keys::{
 use ioi_api::chain::{AnchoredStateView, ChainView};
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::ChainStateReader;
-use ioi_api::state::{StateAccessor, StateManager};
+use ioi_api::state::{StateAccess, StateManager};
 use std::collections::HashSet;
 
 use crate::proof_of_authority::{hash_key, verify_signature};
@@ -96,7 +96,7 @@ impl ProofOfStakeEngine {
 impl PenaltyMechanism for ProofOfStakeEngine {
     async fn apply_penalty(
         &self,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         report: &FailureReport,
     ) -> Result<(), TransactionError> {
         const PENALTY_PERCENTAGE: u128 = 10;

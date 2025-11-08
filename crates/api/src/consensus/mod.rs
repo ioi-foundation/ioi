@@ -4,7 +4,7 @@
 
 use crate::chain::{AnchoredStateView, ChainView};
 use crate::commitment::CommitmentScheme;
-use crate::state::{StateAccessor, StateManager};
+use crate::state::{StateAccess, StateManager};
 use async_trait::async_trait;
 use ioi_types::app::{AccountId, Block};
 use ioi_types::error::{ConsensusError, TransactionError};
@@ -52,7 +52,7 @@ pub trait PenaltyMechanism: Send + Sync {
     /// in a PoS system or quarantining an authority in a PoA system.
     async fn apply_penalty(
         &self,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         report: &ioi_types::app::FailureReport,
     ) -> Result<(), TransactionError>;
 }
@@ -61,7 +61,7 @@ pub trait PenaltyMechanism: Send + Sync {
 impl<T: PenaltyMechanism + ?Sized> PenaltyMechanism for &T {
     async fn apply_penalty(
         &self,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         report: &ioi_types::app::FailureReport,
     ) -> Result<(), TransactionError> {
         (**self).apply_penalty(state, report).await

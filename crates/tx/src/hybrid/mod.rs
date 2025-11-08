@@ -1,13 +1,13 @@
-// Path: crates/transaction_models/src/hybrid/mod.rs
+// Path: crates/tx/src/hybrid/mod.rs
 use crate::account::{AccountConfig, AccountModel, AccountTransaction, AccountTransactionProof};
 use crate::utxo::{UTXOConfig, UTXOModel, UTXOTransaction, UTXOTransactionProof};
 use async_trait::async_trait;
-use ioi_types::codec;
-use ioi_types::error::TransactionError;
 use ioi_api::commitment::CommitmentScheme;
-use ioi_api::state::{StateAccessor, StateManager};
+use ioi_api::state::{ProofProvider, StateAccess, StateManager};
 use ioi_api::transaction::context::TxContext;
 use ioi_api::transaction::TransactionModel;
+use ioi_types::codec;
+use ioi_types::error::TransactionError;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
@@ -53,7 +53,7 @@ impl<CS: CommitmentScheme + Clone> HybridModel<CS> {
 #[async_trait]
 impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for HybridModel<CS>
 where
-    <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de> + Clone,
+    <CS as CommitmentScheme>::Proof: Serialize + for<'de> serde::Deserialize<'de> + Clone,
 {
     type Transaction = HybridTransaction;
     type CommitmentScheme = CS;
@@ -82,7 +82,7 @@ where
     async fn apply_payload<ST, CV>(
         &self,
         chain: &CV,
-        state: &mut dyn StateAccessor,
+        state: &mut dyn StateAccess,
         tx: &Self::Transaction,
         ctx: &mut TxContext<'_>,
     ) -> Result<(), TransactionError>
@@ -109,13 +109,13 @@ where
         }
     }
 
-    fn generate_proof<S>(
+    fn generate_proof<P>(
         &self,
         tx: &Self::Transaction,
-        state: &S,
+        state: &P,
     ) -> Result<Self::Proof, TransactionError>
     where
-        S: StateManager<
+        P: ProofProvider<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
             > + ?Sized,
@@ -132,9 +132,9 @@ where
         }
     }
 
-    fn verify_proof<S>(&self, proof: &Self::Proof, state: &S) -> Result<bool, TransactionError>
+    fn verify_proof<P>(&self, proof: &Self::Proof, state: &P) -> Result<bool, TransactionError>
     where
-        S: StateManager<
+        P: ProofProvider<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
             > + ?Sized,
