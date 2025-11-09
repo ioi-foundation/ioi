@@ -1,9 +1,12 @@
 // Path: crates/http-rpc-gateway/src/lib.rs
 #![forbid(unsafe_code)]
 
+mod proof_converter;
+
 use anyhow::Result;
 use axum::{
     body::Body,
+    error_handling::HandleErrorLayer,
     extract::{ConnectInfo, State},
     http::{Request, StatusCode},
     middleware::{self, Next},
@@ -20,16 +23,21 @@ use prometheus::{
     exponential_buckets, register_histogram_vec, register_int_counter_vec, HistogramVec,
     IntCounterVec,
 };
+use proof_converter::{convert_proof, ProofFormat};
 use serde::{Deserialize, Serialize};
 use std::time::Instant as StdInstant;
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
     sync::Arc,
-    time::Instant,
+    time::{Duration, Instant},
 };
 use tokio::sync::watch;
-use tower_http::{limit::RequestBodyLimitLayer, trace::TraceLayer};
+use tower::{
+    limit::ConcurrencyLimitLayer, load_shed::LoadShedLayer, timeout::TimeoutLayer, BoxError,
+    ServiceBuilder,
+};
+use tower_http::{catch_panic::CatchPanicLayer, limit::RequestBodyLimitLayer, trace::TraceLayer};
 use tracing;
 
 // --- Error Handling ---
@@ -41,18 +49,19 @@ pub enum AppError {
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let (status, msg) = match self {
-            AppError::BadRequest(s) => (StatusCode::BAD_REQUEST, s),
-            AppError::NotFound(s) => (StatusCode::NOT_FOUND, s),
+        let (status, msg, code) = match self {
+            AppError::BadRequest(s) => (StatusCode::BAD_REQUEST, s, "INVALID_REQUEST"),
+            AppError::NotFound(s) => (StatusCode::NOT_FOUND, s, "NOT_FOUND"),
             AppError::Internal(e) => {
                 tracing::error!(target: "http-gateway", "Internal error: {:?}", e);
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "Internal server error".to_string(),
+                    "INTERNAL_ERROR",
                 )
             }
         };
-        (status, Json(serde_json::json!({ "error": msg }))).into_response()
+        (status, Json(serde_json::json!({ "error": {"code": code, "message": msg} }))).into_response()
     }
 }
 
@@ -61,7 +70,6 @@ static GATEWAY_REQ_TOTAL: OnceCell<IntCounterVec> = OnceCell::new();
 static GATEWAY_REQ_LATENCY: OnceCell<HistogramVec> = OnceCell::new();
 
 fn install_gateway_metrics() {
-    // Safe to call multiple times (OnceCell ensures single init)
     let _ = GATEWAY_REQ_TOTAL.set(
         register_int_counter_vec!(
             "ioi_ibc_gateway_requests_total",
@@ -91,10 +99,7 @@ macro_rules! get_metric {
 #[derive(Clone)]
 struct GatewayState {
     host: Arc<dyn IbcHost>,
-    /// Label value for `chain_id`.
-    ///
-    /// Sourced from env `GATEWAY_CHAIN_ID` or defaults to "unknown" to avoid
-    /// API changes to GatewayConfig.
+    /// Label value for `chain_id` used in metrics.
     chain_id: String,
 }
 
@@ -126,16 +131,8 @@ impl IpLimiter {
             .get::<ConnectInfo<SocketAddr>>()
             .map(|c| c.0.ip())
         {
-            if self
-                .trusted_proxy_cidrs
-                .iter()
-                .any(|cidr| cidr.contains(peer_ip))
-            {
-                if let Some(xff) = req
-                    .headers()
-                    .get("x-forwarded-for")
-                    .and_then(|h| h.to_str().ok())
-                {
+            if self.trusted_proxy_cidrs.iter().any(|cidr| cidr.contains(peer_ip)) {
+                if let Some(xff) = req.headers().get("x-forwarded-for").and_then(|h| h.to_str().ok()) {
                     if let Some(first) = xff.split(',').next() {
                         if let Ok(ip) = first.trim().parse::<IpAddr>() {
                             return ip;
@@ -177,13 +174,35 @@ async fn rate_limit_middleware(
     }
 }
 
+// Small helper used by HandleErrorLayer to produce structured responses.
+async fn map_middleware_error(err: BoxError) -> impl IntoResponse {
+    if err.is::<tower::timeout::error::Elapsed>() {
+        (
+            StatusCode::REQUEST_TIMEOUT,
+            Json(serde_json::json!({
+                "error": { "code": "TIMEOUT", "message": "request timed out" }
+            })),
+        )
+    } else {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "error": { "code": "OVERLOADED", "message": err.to_string() }
+            })),
+        )
+    }
+}
+
 // --- Request/Response Types ---
 #[derive(Deserialize)]
 struct QueryRequest {
     path: String,
-    height: Option<String>, // Use string to support u64
+    height: Option<String>,
     #[serde(default)]
     latest: bool,
+    /// Optional: "native" | "ics23" | "proofops" (defaults to "ics23")
+    #[serde(default)]
+    proof_format: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -191,6 +210,7 @@ struct QueryResponse {
     value_pb: String,
     proof_pb: Option<String>,
     height: String,
+    proof_format: String,
 }
 
 #[derive(Deserialize)]
@@ -221,30 +241,30 @@ async fn query_handler(
     Json(payload): Json<QueryRequest>,
 ) -> Result<Json<QueryResponse>, AppError> {
     let started = StdInstant::now();
+    if (payload.height.is_some() && payload.latest) || (payload.height.is_none() && !payload.latest)
+    {
+        return Err(AppError::BadRequest(
+            "Exactly one of 'height' or 'latest' must be specified".to_string(),
+        ));
+    }
     let height = payload
         .height
         .map(|h| h.parse::<u64>())
         .transpose()
         .map_err(|_| AppError::BadRequest("Invalid height".into()))?;
-    let query_response = state
-        .host
-        .query(&payload.path, height, payload.latest)
-        .await
-        .map_err(|e| {
-            // Metrics on error
-            let route = "/v1/ibc/query";
-            let result = "error";
-            let height_label = "0";
-            get_metric!(GATEWAY_REQ_TOTAL)
-                .with_label_values(&[&state.chain_id, route, result, height_label])
-                .inc();
-            get_metric!(GATEWAY_REQ_LATENCY)
-                .with_label_values(&[&state.chain_id, route, result, height_label])
-                .observe(started.elapsed().as_secs_f64());
-            AppError::Internal(e)
-        })?;
+    let mut query_response = state.host.query(&payload.path, height).await.map_err(|e| {
+        let route = "/v1/ibc/query";
+        let result = "error";
+        let height_label = "0";
+        get_metric!(GATEWAY_REQ_TOTAL)
+            .with_label_values(&[&state.chain_id, route, result, height_label])
+            .inc();
+        get_metric!(GATEWAY_REQ_LATENCY)
+            .with_label_values(&[&state.chain_id, route, result, height_label])
+            .observe(started.elapsed().as_secs_f64());
+        AppError::Internal(e)
+    })?;
 
-    // Metrics on success
     let route = "/v1/ibc/query";
     let height_label = query_response.height.to_string();
     get_metric!(GATEWAY_REQ_TOTAL)
@@ -254,10 +274,47 @@ async fn query_handler(
         .with_label_values(&[&state.chain_id, route, "ok", &height_label])
         .observe(started.elapsed().as_secs_f64());
 
+    // Default to ICS-23, but allow explicit "native" or "proofops" formats.
+    #[derive(Clone, Copy)]
+    enum DesiredProofFormat {
+        Native,
+        Ics23,
+        ProofOps,
+    }
+    let desired = match payload.proof_format.as_deref() {
+        Some(s) if s.eq_ignore_ascii_case("native") => DesiredProofFormat::Native,
+        Some(s) if s.eq_ignore_ascii_case("proofops") => DesiredProofFormat::ProofOps,
+        _ => DesiredProofFormat::Ics23, // default
+    };
+
+    let proof_pb = match (desired, query_response.proof.take()) {
+        (_, None) => None, // No proof was available from the host.
+        (DesiredProofFormat::Native, Some(raw)) => Some(BASE64.encode(raw)),
+        (DesiredProofFormat::Ics23, Some(raw)) => {
+            match convert_proof(&raw, ProofFormat::Ics23) {
+                Ok(ics) => Some(BASE64.encode(ics)),
+                Err(err) => return Err(AppError::Internal(err)),
+            }
+        }
+        (DesiredProofFormat::ProofOps, Some(raw)) => {
+            match convert_proof(&raw, ProofFormat::ProofOps) {
+                Ok(ops) => Some(BASE64.encode(ops)),
+                Err(err) => return Err(AppError::Internal(err)),
+            }
+        }
+    };
+
+    let proof_format_str = match desired {
+        DesiredProofFormat::Native => "native",
+        DesiredProofFormat::Ics23 => "ics23",
+        DesiredProofFormat::ProofOps => "proofops",
+    };
+
     Ok(Json(QueryResponse {
         value_pb: BASE64.encode(query_response.value),
-        proof_pb: query_response.proof.map(|p| BASE64.encode(p)),
+        proof_pb,
         height: query_response.height.to_string(),
+        proof_format: proof_format_str.to_string(),
     }))
 }
 
@@ -266,6 +323,12 @@ async fn root_handler(
     Json(payload): Json<RootRequest>,
 ) -> Result<Json<RootResponse>, AppError> {
     let started = StdInstant::now();
+    if (payload.height.is_some() && payload.latest) || (payload.height.is_none() && !payload.latest)
+    {
+        return Err(AppError::BadRequest(
+            "Exactly one of 'height' or 'latest' must be specified".to_string(),
+        ));
+    }
 
     let height = payload
         .height
@@ -273,20 +336,16 @@ async fn root_handler(
         .transpose()
         .map_err(|_| AppError::BadRequest("Invalid height".into()))?;
 
-    let (root, h) = state
-        .host
-        .commitment_root(height, payload.latest)
-        .await
-        .map_err(|e| {
-            let route = "/v1/ibc/root";
-            get_metric!(GATEWAY_REQ_TOTAL)
-                .with_label_values(&[&state.chain_id, route, "error", "0"])
-                .inc();
-            get_metric!(GATEWAY_REQ_LATENCY)
-                .with_label_values(&[&state.chain_id, route, "error", "0"])
-                .observe(started.elapsed().as_secs_f64());
-            AppError::Internal(e)
-        })?;
+    let (root, h) = state.host.commitment_root(height).await.map_err(|e| {
+        let route = "/v1/ibc/root";
+        get_metric!(GATEWAY_REQ_TOTAL)
+            .with_label_values(&[&state.chain_id, route, "error", "0"])
+            .inc();
+        get_metric!(GATEWAY_REQ_LATENCY)
+            .with_label_values(&[&state.chain_id, route, "error", "0"])
+            .observe(started.elapsed().as_secs_f64());
+        AppError::Internal(e)
+    })?;
 
     let route = "/v1/ibc/root";
     let height_label = h.to_string();
@@ -312,7 +371,7 @@ async fn submit_handler(
         .decode(payload.msgs_pb)
         .map_err(|e| AppError::BadRequest(e.to_string()))?;
     tracing::debug!(
-        target = "http-gateway",
+        target: "http-gateway",
         "submit_handler: msgs_len={}",
         msgs_bytes.len()
     );
@@ -323,7 +382,6 @@ async fn submit_handler(
         .await
         .map_err(|e| {
             let route = "/v1/ibc/submit";
-            // We don't know the height on error → label "0".
             get_metric!(GATEWAY_REQ_TOTAL)
                 .with_label_values(&[&state.chain_id, route, "error", "0"])
                 .inc();
@@ -334,12 +392,11 @@ async fn submit_handler(
         })?;
 
     tracing::debug!(
-        target = "http-gateway",
+        target: "http-gateway",
         "submit_handler: returned tx_hash={}",
         hex::encode(tx_hash)
     );
 
-    // Metrics on success; height unknown at submit time -> "latest"
     let route = "/v1/ibc/submit";
     get_metric!(GATEWAY_REQ_TOTAL)
         .with_label_values(&[&state.chain_id, route, "ok", "latest"])
@@ -348,9 +405,7 @@ async fn submit_handler(
         .with_label_values(&[&state.chain_id, route, "ok", "latest"])
         .observe(started.elapsed().as_secs_f64());
 
-    Ok(Json(SubmitResponse {
-        tx_hash: hex::encode(tx_hash),
-    }))
+    Ok(Json(SubmitResponse { tx_hash: hex::encode(tx_hash) }))
 }
 
 // --- Server ---
@@ -367,7 +422,6 @@ pub async fn run_server(
     host: Arc<dyn IbcHost>,
     mut shutdown_rx: watch::Receiver<bool>,
 ) -> Result<()> {
-    // Install metrics (no-op if already installed)
     install_gateway_metrics();
 
     let cidrs = Arc::new(
@@ -379,14 +433,11 @@ pub async fn run_server(
     );
     let limiter = IpLimiter::new(config.rps, config.burst, cidrs);
 
-    // Compose gateway state with a label for `chain_id`.
-    // We avoid changing GatewayConfig—use env var if provided.
     let chain_id_label = std::env::var("GATEWAY_CHAIN_ID").unwrap_or_else(|_| "unknown".into());
-    let state = GatewayState {
+    let state = Arc::new(GatewayState {
         host,
         chain_id: chain_id_label,
-    };
-    let state = Arc::new(state);
+    });
 
     let app = Router::new()
         .route("/v1/ibc/query", post(query_handler))
@@ -397,6 +448,17 @@ pub async fn run_server(
             rate_limit_middleware,
         ))
         .with_state(state.clone())
+        // Apply layers. The order is important.
+        // `HandleErrorLayer` must wrap the fallible layers to make the service infallible.
+        .layer(
+            ServiceBuilder::new()
+                .layer(HandleErrorLayer::new(map_middleware_error))
+                .layer(LoadShedLayer::new())
+                .layer(ConcurrencyLimitLayer::new(128))
+                .layer(TimeoutLayer::new(Duration::from_secs(2))),
+        )
+        // These layers are infallible and can be applied outside the error-handling wrapper.
+        .layer(CatchPanicLayer::new())
         .layer(TraceLayer::new_for_http())
         .layer(RequestBodyLimitLayer::new(config.body_limit_kb * 1024));
 
@@ -404,7 +466,7 @@ pub async fn run_server(
     tracing::info!(target: "http-gateway", "IBC HTTP Gateway listening on {}", addr);
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
-    let graceful = axum::serve(
+    let server = axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
@@ -413,8 +475,8 @@ pub async fn run_server(
         tracing::info!(target: "http-gateway", "shutting down gracefully");
     });
 
-    if let Err(e) = graceful.await {
-        tracing::error!(target="http-gateway", error=%e, "server error");
+    if let Err(e) = server.await {
+        tracing::error!(target = "http-gateway", error = %e, "server error");
     }
 
     Ok(())

@@ -13,17 +13,16 @@ use dcrypt::{api::Signature as DcryptSignature, sign::eddsa::Ed25519SecretKey};
 use ibc_client_tendermint::consensus_state::ConsensusState as TmConsensusState;
 use ibc_client_tendermint::types::proto::v1::{
     ClientState as RawTmClientState, ConsensusState as RawTmConsensusState,
-    Fraction as TmTrustFraction,
+    Fraction as TmTrustFraction, Header as RawTmHeader,
 };
 use ibc_core_client_types::msgs::MsgUpdateClient;
 use ibc_core_client_types::Height as IbcHeight;
 use ibc_core_commitment_types::specs::ProofSpecs;
 use ibc_core_host_types::{
-    identifiers::{ChannelId, ClientId, PortId},
-    path::{ChannelEndPath, ClientConsensusStatePath, ClientStatePath},
+    identifiers::ClientId,
+    path::{ClientConsensusStatePath, ClientStatePath},
 };
 use ibc_primitives::ToProto;
-use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawTmHeader;
 use ibc_proto::{
     cosmos::tx::v1beta1::TxBody, google::protobuf::Any, google::protobuf::Duration as PbDuration,
     ibc::core::commitment::v1::MerkleRoot,
@@ -36,15 +35,15 @@ use ioi_forge::testing::{
 };
 use ioi_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
-        SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1,
-        ValidatorSetsV1, ValidatorV1,
+        account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
+        BlockTimingRuntime, ChainTransaction, Credential, SignatureSuite, SystemPayload,
+        SystemTransaction, ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
     keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, ACCOUNT_NONCE_PREFIX, IDENTITY_CREDENTIALS_PREFIX,
-        VALIDATOR_SET_KEY,
+        ACCOUNT_ID_TO_PUBKEY_PREFIX, ACCOUNT_NONCE_PREFIX, BLOCK_TIMING_PARAMS_KEY,
+        BLOCK_TIMING_RUNTIME_KEY, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
     },
     service_configs::MigrationConfig,
 };
@@ -212,7 +211,8 @@ fn add_full_identity_to_genesis(
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn ibc_relayer_e2e() -> Result<()> {
+async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
+    // 1. SETUP & BUILD
     build_test_artifacts();
 
     let client_id = "07-tendermint-0";
@@ -237,7 +237,7 @@ async fn ibc_relayer_e2e() -> Result<()> {
         .with_initial_service(InitialServiceConfig::Ibc(ioi_types::config::IbcConfig {
             // Allow the canonical ICS‑07 type; keep the alias if your host uses it elsewhere.
             enabled_clients: vec!["07-tendermint".to_string(), "tendermint-v0.34".to_string()],
-        })) // <-- [+] FIX: The trailing comma was removed here
+        }))
         .with_genesis_modifier({
             let shared_vals_hash = shared_vals_hash.clone();
             move |genesis, keys| {
@@ -279,17 +279,14 @@ async fn ibc_relayer_e2e() -> Result<()> {
                 );
 
                 // [+] FIX: Add block timing parameters to genesis
-                use ioi_types::app::{BlockTimingParams, BlockTimingRuntime};
-                use ioi_types::keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY};
-
                 let timing_params = BlockTimingParams {
                     base_interval_secs: 5,
-                    min_interval_secs: 2,
-                    max_interval_secs: 10,
-                    target_gas_per_block: 1_000_000,
-                    ema_alpha_milli: 200,
-                    interval_step_bps: 500,
-                    retarget_every_blocks: 0, // Disable adaptive for simplicity in test
+                    retarget_every_blocks: 0, // Disable adaptive timing for simplicity in test
+                    ..Default::default()
+                };
+                let timing_runtime = BlockTimingRuntime {
+                    effective_interval_secs: timing_params.base_interval_secs,
+                    ..Default::default()
                 };
                 genesis_state.insert(
                     std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
@@ -300,11 +297,6 @@ async fn ibc_relayer_e2e() -> Result<()> {
                         BASE64.encode(codec::to_bytes_canonical(&timing_params).unwrap())
                     )),
                 );
-
-                let timing_runtime = BlockTimingRuntime {
-                    ema_gas_used: 0,
-                    effective_interval_secs: timing_params.base_interval_secs,
-                };
                 genesis_state.insert(
                     std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
                         .unwrap()

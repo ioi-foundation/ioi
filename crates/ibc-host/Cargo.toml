@@ -21,11 +21,11 @@ lru = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 hex = { workspace = true }
 serde = { workspace = true }
-parity-scale-codec = { workspace = true }
+parity-scale-codec = { workspace = true, features = ["std"] }
 dcrypt = { workspace = true }
 ibc-core-host-types = { workspace = true, features = ["std"] }
 ibc-proto = { workspace = true }
-ics23 = "0.11"
+ics23 = { workspace = true }
 prost = { workspace = true }
 libp2p = { workspace = true }
 tracing = { workspace = true }

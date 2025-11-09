@@ -210,6 +210,7 @@ cargo test --workspace
 | Test | Command |
 |------|---------|
 | **IBC Gateway Metrics** | `GATEWAY_CHAIN_ID=localnet-1 cargo run -p ioi-node && curl -s localhost:9100/metrics | grep ioi_ibc_gateway_` |
+| **Interopability** | `cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,state-iavl,commitment-hash,ibc-deps" --test ibc_e2e -- --nocapture` |
 | **Update IBC Golden Files** | `UPDATE_GOLDENS=1 cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,state-iavl,commitment-hash,ibc-deps" --test ibc_golden_e2e -- --nocapture` |
 | **IBC Relayer E2E** | ```bash RUST_LOG=trace RUST_BACKTRACE=1 cargo test -p ioi-forge --release  --features "consensus-poa,vm-wasm,state-iavl,commitment-hash,ibc-deps"  --test ibc_relayer_e2e -- --nocapture 2>&1 | tee /tmp/e2e.log``` |
 | **Proof Verification** | `cargo test -p ioi-forge --test proof_verification_e2e --features "consensus-poa,vm-wasm,state-iavl,commitment-hash,malicious-bin" -- --nocapture` |
