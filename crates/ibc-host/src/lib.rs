@@ -173,85 +173,95 @@ fn root_from_scale_iavl_bytes(proof_bytes: &[u8]) -> Option<Vec<u8>> {
 /// Supports single `ExistenceProof`, `BatchProof` (first existence entry),
 /// and `CompressedBatchProof` (first compressed existence entry).
 pub fn existence_root_from_proof_bytes(proof_pb: &[u8]) -> Result<Vec<u8>> {
-    // [+] ADDED: First, try the native SCALE/IAVL format.
-    if let Some(root) = root_from_scale_iavl_bytes(proof_pb) {
-        return Ok(root);
-    }
-    use ibc_proto::ics23::batch_entry;
-    use ibc_proto::ics23::commitment_proof::Proof as PbProofVariant;
-    use ibc_proto::ics23::compressed_batch_entry;
-    use ibc_proto::ics23::{
-        CommitmentProof as PbCommitmentProof, ExistenceProof as PbExistenceProof,
-    };
-
-    let cp: PbCommitmentProof =
-        CommitmentProof::decode(proof_pb).context("decode ICS-23 CommitmentProof")?;
-
-    let ex_pb: PbExistenceProof = match cp.proof.ok_or_else(|| anyhow!("empty ICS-23 proof"))? {
-        PbProofVariant::Exist(ex) => ex,
-
-        PbProofVariant::Batch(b) => {
-            // Take the first Existence entry
-            let ex = b
-                .entries
-                .into_iter()
-                .find_map(|entry| match entry.proof {
-                    Some(batch_entry::Proof::Exist(ex)) => Some(ex),
-                    _ => None,
-                })
-                .ok_or_else(|| anyhow!("batch proof missing existence entry"))?;
-            ex
+    // 1.1: Provenance Logging
+    let mut input_variant = "unknown";
+    let result = (|| {
+        // The main logic is wrapped in a closure to allow early returns
+        // while still executing the log statement at the end.
+        if let Some(root) = root_from_scale_iavl_bytes(proof_pb) {
+            input_variant = "scale_native";
+            return Ok(root);
         }
+        use ibc_proto::ics23::batch_entry;
+        use ibc_proto::ics23::commitment_proof::Proof as PbProofVariant;
+        use ibc_proto::ics23::compressed_batch_entry;
+        use ibc_proto::ics23::{
+            CommitmentProof as PbCommitmentProof, ExistenceProof as PbExistenceProof,
+        };
 
-        PbProofVariant::Compressed(c) => {
-            // Reconstruct the first ExistenceProof from compressed form.
-            let first = c
-                .entries
-                .get(0)
-                .ok_or_else(|| anyhow!("compressed proof missing entries"))?;
+        let cp: PbCommitmentProof =
+            CommitmentProof::decode(proof_pb).context("decode ICS-23 CommitmentProof")?;
 
-            let comp_exist = match &first.proof {
-                Some(compressed_batch_entry::Proof::Exist(ex)) => ex,
-                _ => return Err(anyhow!("first compressed entry is not existence proof")),
-            };
-
-            // Build the path by mapping indices into lookup_inners.
-            let mut path: Vec<ibc_proto::ics23::InnerOp> =
-                Vec::with_capacity(comp_exist.path.len());
-            for &idx in &comp_exist.path {
-                let u = usize::try_from(idx).map_err(|_| anyhow!("negative inner-op index"))?;
-                let op = c
-                    .lookup_inners
-                    .get(u)
-                    .ok_or_else(|| anyhow!("inner-op index {} out of range", u))?
-                    .clone();
-                path.push(op);
+        let ex_pb: PbExistenceProof = match cp.proof.ok_or_else(|| anyhow!("empty ICS-23 proof"))? {
+            PbProofVariant::Exist(ex) => {
+                input_variant = "raw(commitment_proof)";
+                ex
             }
-
-            PbExistenceProof {
-                key: comp_exist.key.clone(),
-                value: comp_exist.value.clone(),
-                leaf: comp_exist.leaf.clone(),
-                path,
+            PbProofVariant::Batch(b) => {
+                input_variant = "raw(batch_proof)";
+                let ex = b
+                    .entries
+                    .into_iter()
+                    .find_map(|entry| match entry.proof {
+                        Some(batch_entry::Proof::Exist(ex)) => Some(ex),
+                        _ => None,
+                    })
+                    .ok_or_else(|| anyhow!("batch proof missing existence entry"))?;
+                ex
             }
-        }
+            PbProofVariant::Compressed(c) => {
+                input_variant = "raw(compressed_batch_proof)";
+                let first = c
+                    .entries
+                    .get(0)
+                    .ok_or_else(|| anyhow!("compressed proof missing entries"))?;
+                let comp_exist = match &first.proof {
+                    Some(compressed_batch_entry::Proof::Exist(ex)) => ex,
+                    _ => return Err(anyhow!("first compressed entry is not existence proof")),
+                };
+                let mut path: Vec<ibc_proto::ics23::InnerOp> =
+                    Vec::with_capacity(comp_exist.path.len());
+                for &idx in &comp_exist.path {
+                    let u = usize::try_from(idx).map_err(|_| anyhow!("negative inner-op index"))?;
+                    let op = c
+                        .lookup_inners
+                        .get(u)
+                        .ok_or_else(|| anyhow!("inner-op index {} out of range", u))?
+                        .clone();
+                    path.push(op);
+                }
+                PbExistenceProof {
+                    key: comp_exist.key.clone(),
+                    value: comp_exist.value.clone(),
+                    leaf: comp_exist.leaf.clone(),
+                    path,
+                }
+            }
+            PbProofVariant::Nonexist(_) => {
+                return Err(anyhow!(
+                    "non-existence proof cannot be used to compute root"
+                ))
+            }
+        };
 
-        PbProofVariant::Nonexist(_) => {
-            return Err(anyhow!(
-                "non-existence proof cannot be used to compute root"
-            ))
-        }
-    };
+        let ex_native: ics23::ExistenceProof = ex_pb
+            .try_into()
+            .map_err(|_| anyhow!("convert prost ExistenceProof -> native ics23::ExistenceProof"))?;
+        ics23::calculate_existence_root::<HostFunctionsManager>(&ex_native)
+            .map(|r| r.to_vec())
+            .map_err(|e| anyhow!("calculate_existence_root: {e}"))
+    })(); // Immediately call the closure.
 
-    // Convert prost proof -> native ics23 proof, then compute the root.
-    let ex_native: ics23::ExistenceProof = ex_pb
-        .try_into()
-        .map_err(|_| anyhow!("convert prost ExistenceProof -> native ics23::ExistenceProof"))?;
+    tracing::debug!(
+        target = "ibc.proof",
+        event = "root_recompute",
+        input_variant = %input_variant,
+        proof_len = proof_pb.len(),
+        result = if result.is_ok() { "ok" } else { "err" },
+        root_len = result.as_ref().map(|r| r.len()).unwrap_or(0),
+    );
 
-    // ✅ Specify the host functions provider and convert to Vec<u8>
-    ics23::calculate_existence_root::<HostFunctionsManager>(&ex_native)
-        .map(|r| r.to_vec())
-        .map_err(|e| anyhow!("calculate_existence_root: {e}"))
+    result
 }
 
 pub struct DefaultIbcHost<V: Verifier> {

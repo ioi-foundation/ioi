@@ -37,20 +37,27 @@ impl std::str::FromStr for ProofFormat {
 }
 
 /// Converts a raw, native proof from the Workload into a canonical IBC Protobuf format.
-pub fn convert_proof(raw_proof_bytes: &[u8], format: ProofFormat) -> Result<Vec<u8>> {
+pub fn convert_proof(
+    raw_proof_bytes: &[u8],
+    format: ProofFormat,
+    path_hint: Option<&str>,
+) -> Result<Vec<u8>> {
+    let t0 = std::time::Instant::now();
+    let buf_in_len = raw_proof_bytes.len();
+
     // 1) Parse the native proof, tolerating common wrappers (HashProof, Vec<u8>, 0x-hex).
-    let iavl_proof = decode_iavl_proof_flex(raw_proof_bytes)?;
+    let (iavl_proof, steps_applied, parsed_format) = decode_iavl_proof_flex(raw_proof_bytes)?;
 
     // 2) Convert the native proof into a standard ICS‑23 CommitmentProof (protobuf).
     let commitment_proof = convert_iavl_to_ics23(&iavl_proof)?;
 
     // 3) Package and serialize according to the requested format.
-    match format {
+    let out = match format {
         ProofFormat::Ics23 => {
             let merkle_proof = PbMerkleProof {
                 proofs: vec![commitment_proof],
             };
-            Ok(merkle_proof.encode_to_vec())
+            merkle_proof.encode_to_vec()
         }
         ProofFormat::ProofOps => {
             // Tendermint ProofOps wrapper carrying a MerkleProof.
@@ -63,32 +70,44 @@ pub fn convert_proof(raw_proof_bytes: &[u8], format: ProofFormat) -> Result<Vec<
                 data: merkle_proof.encode_to_vec(),
             };
             let proof_ops = ProofOps { ops: vec![proof_op] };
-            Ok(proof_ops.encode_to_vec())
+            proof_ops.encode_to_vec()
         }
-    }
+    };
+
+    // 1.1: Provenance Logging
+    tracing::debug!(
+        target: "ibc.proof", event = "convert", parsed_format = %parsed_format, steps_applied = ?steps_applied,
+        proof_len_in = buf_in_len, proof_len_out = out.len(), convert_ms = t0.elapsed().as_millis(), path = %path_hint.unwrap_or("?"),
+    );
+
+    Ok(out)
 }
 
 /// Try to decode an `IavlProof`, peeling common wrappers used by the workload:
 ///  - ioi_state::primitives::hash::HashProof { value: Vec<u8> }
 ///  - SCALE `Vec<u8>` indirection
 ///  - ASCII "0x..." hex wrapper
-fn decode_iavl_proof_flex(input: &[u8]) -> Result<IavlProof> {
+fn decode_iavl_proof_flex(input: &[u8]) -> Result<(IavlProof, Vec<&'static str>, &'static str)> {
+    let mut steps_applied = Vec::new();
+
     // Work on an owned buffer we can mutate as we peel.
     let mut buf: Vec<u8> = input.to_vec();
     // Limit peeling attempts to avoid loops on malformed inputs.
     for _ in 0..6 {
         // Direct attempt: SCALE-decode IavlProof
         if let Ok(proof) = IavlProof::decode(&mut &*buf) {
-            return Ok(proof);
+            return Ok((proof, steps_applied, "scale_iavl"));
         }
         // Peel HashProof wrapper (extract .value)
         if let Ok(hp) = HashProof::decode(&mut &*buf) {
             buf = hp.value;
+            steps_applied.push("hashproof");
             continue;
         }
         // Peel SCALE Vec<u8> indirection
         if let Ok(inner) = <Vec<u8> as parity_scale_codec::Decode>::decode(&mut &*buf) {
             buf = inner;
+            steps_applied.push("scale_vec");
             continue;
         }
         // Peel 0x-hex textual encoding
@@ -97,6 +116,7 @@ fn decode_iavl_proof_flex(input: &[u8]) -> Result<IavlProof> {
                 if hexstr.len() % 2 == 0 && hexstr.chars().all(|c| c.is_ascii_hexdigit()) {
                     if let Ok(raw) = hex::decode(hexstr) {
                         buf = raw;
+                        steps_applied.push("hex");
                         continue;
                     }
                 }
@@ -106,7 +126,17 @@ fn decode_iavl_proof_flex(input: &[u8]) -> Result<IavlProof> {
         break;
     }
     // Final attempt as IavlProof; if this fails, report a clear error.
-    IavlProof::decode(&mut &*buf)
+    let final_res = IavlProof::decode(&mut &*buf);
+
+    // Decide on parsed_format for logging before returning
+    let parsed_format = if final_res.is_ok() {
+        "scale_iavl"
+    } else {
+        "unknown"
+    };
+
+    final_res
+        .map(|p| (p, steps_applied, parsed_format))
         .map_err(|e| anyhow!("unsupported proof encoding (IAVL/SCALE wrappers): {e}"))
 }
 

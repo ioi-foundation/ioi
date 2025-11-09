@@ -31,7 +31,7 @@ use ioi_types::{
 use libp2p::identity::Keypair;
 use prost::Message;
 use reqwest::Client;
-use serde_json::json;
+use serde_json::{json, Value};
 use std::{collections::BTreeMap, env, fs, path::PathBuf, str::FromStr, time::Duration};
 
 // Recompute proof roots using the flexible decoder from ibc-host.
@@ -436,6 +436,41 @@ async fn ibc_golden_paths_match_fixtures() -> Result<()> {
             );
         }
     }
+
+    // --- NEW: Automated Metrics Validation with Retry ---
+    println!("--- Validating Metrics Endpoint ---");
+    let mut metrics_ok = false;
+    for _ in 0..5 {
+        // Poll for up to 2.5 seconds
+        tokio::time::sleep(Duration::from_millis(500)).await;
+
+        let metrics_body_res = reqwest::get(format!("http://{}/metrics", gateway_addr))
+            .await?
+            .text()
+            .await;
+
+        if let Ok(metrics_body) = metrics_body_res {
+            if metrics_body.contains("ioi_ibc_gateway_requests_total")
+                && metrics_body.contains("chain_id=\"33\"")
+                && metrics_body.contains("proof_format=\"ics23\"")
+                && metrics_body.contains("result=\"ok\"")
+                && metrics_body.contains("route=\"/v1/ibc/query\"")
+                && metrics_body.contains("ioi_ibc_gateway_query_bytes_out_total")
+                && metrics_body.contains("field=\"proof\"")
+                && metrics_body.contains("field=\"value\"")
+                && metrics_body.contains("ioi_ibc_gateway_proof_convert_duration_seconds")
+            {
+                metrics_ok = true;
+                break;
+            }
+        }
+    }
+    assert!(
+        metrics_ok,
+        "Failed to find all expected IBC metrics after polling"
+    );
+    println!("SUCCESS: All new and updated metrics were found.");
+    // --- END: Automated Metrics Validation ---
 
     Ok(())
 }
