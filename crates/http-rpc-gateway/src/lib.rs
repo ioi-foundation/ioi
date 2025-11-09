@@ -3,7 +3,7 @@
 
 mod proof_converter;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use axum::{
     body::Body,
     error_handling::HandleErrorLayer,
@@ -11,7 +11,7 @@ use axum::{
     http::{Request, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Json, Response},
-    routing::post,
+    routing::{get, post},
     Router,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
@@ -20,7 +20,7 @@ use ibc_host::IbcHost;
 use ipnetwork::IpNetwork;
 use once_cell::sync::OnceCell;
 use prometheus::{
-    exponential_buckets, register_histogram_vec, register_int_counter_vec, HistogramVec,
+    exponential_buckets, register_histogram_vec, register_int_counter_vec, Encoder, HistogramVec,
     IntCounterVec,
 };
 use proof_converter::{convert_proof, ProofFormat};
@@ -68,13 +68,16 @@ impl IntoResponse for AppError {
 // --- Metrics (local to gateway) ---
 static GATEWAY_REQ_TOTAL: OnceCell<IntCounterVec> = OnceCell::new();
 static GATEWAY_REQ_LATENCY: OnceCell<HistogramVec> = OnceCell::new();
+static GATEWAY_BYTES_OUT: OnceCell<IntCounterVec> = OnceCell::new();
+static GATEWAY_CONVERT_FAILURES: OnceCell<IntCounterVec> = OnceCell::new();
+static GATEWAY_CONVERT_LATENCY: OnceCell<HistogramVec> = OnceCell::new();
 
 fn install_gateway_metrics() {
     let _ = GATEWAY_REQ_TOTAL.set(
         register_int_counter_vec!(
             "ioi_ibc_gateway_requests_total",
             "Total HTTP IBC-gateway requests",
-            &["chain_id", "route", "result", "height"]
+            &["chain_id", "route", "result", "height", "proof_format"]
         )
         .expect("register_int_counter_vec"),
     );
@@ -82,7 +85,32 @@ fn install_gateway_metrics() {
         register_histogram_vec!(
             "ioi_ibc_gateway_request_duration_seconds",
             "Latency of HTTP IBC-gateway requests (seconds)",
-            &["chain_id", "route", "result", "height"],
+            &["chain_id", "route", "result", "height", "proof_format"],
+            exponential_buckets(0.001, 2.0, 15).expect("buckets")
+        )
+        .expect("register_histogram_vec"),
+    );
+    let _ = GATEWAY_BYTES_OUT.set(
+        register_int_counter_vec!(
+            "ioi_ibc_gateway_query_bytes_out_total",
+            "Total bytes returned by successful /query responses, by field",
+            &["chain_id", "route", "proof_format", "field"]
+        )
+        .expect("register_int_counter_vec"),
+    );
+    let _ = GATEWAY_CONVERT_FAILURES.set(
+        register_int_counter_vec!(
+            "ioi_ibc_gateway_proof_convert_failures_total",
+            "Total failures to convert a native proof to an IBC-compatible format",
+            &["chain_id", "reason"]
+        )
+        .expect("register_int_counter_vec"),
+    );
+    let _ = GATEWAY_CONVERT_LATENCY.set(
+        register_histogram_vec!(
+            "ioi_ibc_gateway_proof_convert_duration_seconds",
+            "Latency of proof conversion (seconds)",
+            &["chain_id", "proof_format"],
             exponential_buckets(0.001, 2.0, 15).expect("buckets")
         )
         .expect("register_histogram_vec"),
@@ -193,6 +221,9 @@ async fn map_middleware_error(err: BoxError) -> impl IntoResponse {
     }
 }
 
+const MAX_PATH_LEN: usize = 256;
+const MAX_PROOF_BYTES_OUT: usize = 512 * 1024; // 512 KiB
+
 // --- Request/Response Types ---
 #[derive(Deserialize)]
 struct QueryRequest {
@@ -241,6 +272,13 @@ async fn query_handler(
     Json(payload): Json<QueryRequest>,
 ) -> Result<Json<QueryResponse>, AppError> {
     let started = StdInstant::now();
+
+    // --- 1.3: Input Validation ---
+    if payload.path.len() > MAX_PATH_LEN {
+        return Err(AppError::BadRequest("Path exceeds maximum length".into()));
+    }
+    // ---
+
     if (payload.height.is_some() && payload.latest) || (payload.height.is_none() && !payload.latest)
     {
         return Err(AppError::BadRequest(
@@ -253,26 +291,18 @@ async fn query_handler(
         .transpose()
         .map_err(|_| AppError::BadRequest("Invalid height".into()))?;
     let mut query_response = state.host.query(&payload.path, height).await.map_err(|e| {
+        let proof_format_str = payload.proof_format.as_deref().unwrap_or("ics23");
         let route = "/v1/ibc/query";
         let result = "error";
         let height_label = "0";
         get_metric!(GATEWAY_REQ_TOTAL)
-            .with_label_values(&[&state.chain_id, route, result, height_label])
+            .with_label_values(&[&state.chain_id, route, result, height_label, proof_format_str])
             .inc();
         get_metric!(GATEWAY_REQ_LATENCY)
-            .with_label_values(&[&state.chain_id, route, result, height_label])
+            .with_label_values(&[&state.chain_id, route, result, height_label, proof_format_str])
             .observe(started.elapsed().as_secs_f64());
         AppError::Internal(e)
     })?;
-
-    let route = "/v1/ibc/query";
-    let height_label = query_response.height.to_string();
-    get_metric!(GATEWAY_REQ_TOTAL)
-        .with_label_values(&[&state.chain_id, route, "ok", &height_label])
-        .inc();
-    get_metric!(GATEWAY_REQ_LATENCY)
-        .with_label_values(&[&state.chain_id, route, "ok", &height_label])
-        .observe(started.elapsed().as_secs_f64());
 
     // Default to ICS-23, but allow explicit "native" or "proofops" formats.
     #[derive(Clone, Copy)]
@@ -281,40 +311,88 @@ async fn query_handler(
         Ics23,
         ProofOps,
     }
-    let desired = match payload.proof_format.as_deref() {
-        Some(s) if s.eq_ignore_ascii_case("native") => DesiredProofFormat::Native,
-        Some(s) if s.eq_ignore_ascii_case("proofops") => DesiredProofFormat::ProofOps,
-        _ => DesiredProofFormat::Ics23, // default
+    let (desired, proof_format_str) = match payload.proof_format.as_deref() {
+        Some(s) if s.eq_ignore_ascii_case("native") => (DesiredProofFormat::Native, "native"),
+        Some(s) if s.eq_ignore_ascii_case("proofops") => (DesiredProofFormat::ProofOps, "proofops"),
+        _ => (DesiredProofFormat::Ics23, "ics23"), // default
     };
 
+    // --- 1.2: Metrics for conversion ---
+    let t0_convert = StdInstant::now();
     let proof_pb = match (desired, query_response.proof.take()) {
         (_, None) => None, // No proof was available from the host.
-        (DesiredProofFormat::Native, Some(raw)) => Some(BASE64.encode(raw)),
+        (DesiredProofFormat::Native, Some(raw)) => Some(raw),
         (DesiredProofFormat::Ics23, Some(raw)) => {
-            match convert_proof(&raw, ProofFormat::Ics23) {
-                Ok(ics) => Some(BASE64.encode(ics)),
-                Err(err) => return Err(AppError::Internal(err)),
+            match convert_proof(&raw, ProofFormat::Ics23, Some(&payload.path)) {
+                Ok(ics) => Some(ics),
+                Err(err) => {
+                    get_metric!(GATEWAY_CONVERT_FAILURES)
+                        .with_label_values(&[&state.chain_id, "ics23_conversion_failed"])
+                        .inc();
+                    return Err(AppError::Internal(err));
+                }
             }
         }
         (DesiredProofFormat::ProofOps, Some(raw)) => {
-            match convert_proof(&raw, ProofFormat::ProofOps) {
-                Ok(ops) => Some(BASE64.encode(ops)),
-                Err(err) => return Err(AppError::Internal(err)),
+            match convert_proof(&raw, ProofFormat::ProofOps, Some(&payload.path)) {
+                Ok(ops) => Some(ops),
+                Err(err) => {
+                    get_metric!(GATEWAY_CONVERT_FAILURES)
+                        .with_label_values(&[&state.chain_id, "proofops_conversion_failed"])
+                        .inc();
+                    return Err(AppError::Internal(err));
+                }
             }
         }
     };
+    get_metric!(GATEWAY_CONVERT_LATENCY)
+        .with_label_values(&[&state.chain_id, proof_format_str])
+        .observe(t0_convert.elapsed().as_secs_f64());
+    // ---
 
-    let proof_format_str = match desired {
+    // --- 1.3: Proof Size Validation ---
+    if let Some(p) = &proof_pb {
+        if p.len() > MAX_PROOF_BYTES_OUT {
+            get_metric!(GATEWAY_CONVERT_FAILURES)
+                .with_label_values(&[&state.chain_id, "proof_too_large"])
+                .inc();
+            return Err(AppError::BadRequest(
+                "Generated proof exceeds maximum size limit".into(),
+            ));
+        }
+    }
+    // ---
+
+    let route = "/v1/ibc/query";
+    let height_label = query_response.height.to_string();
+    get_metric!(GATEWAY_REQ_TOTAL)
+        .with_label_values(&[&state.chain_id, route, "ok", &height_label, proof_format_str])
+        .inc();
+    get_metric!(GATEWAY_REQ_LATENCY)
+        .with_label_values(&[&state.chain_id, route, "ok", &height_label, proof_format_str])
+        .observe(started.elapsed().as_secs_f64());
+    get_metric!(GATEWAY_BYTES_OUT)
+        .with_label_values(&[&state.chain_id, route, proof_format_str, "value"])
+        .inc_by(query_response.value.len() as u64);
+    if let Some(p_bytes) = &proof_pb {
+        get_metric!(GATEWAY_BYTES_OUT)
+            .with_label_values(&[&state.chain_id, route, proof_format_str, "proof"])
+            .inc_by(p_bytes.len() as u64);
+    }
+
+    let proof_format_str_resp = match desired {
         DesiredProofFormat::Native => "native",
         DesiredProofFormat::Ics23 => "ics23",
         DesiredProofFormat::ProofOps => "proofops",
     };
 
     Ok(Json(QueryResponse {
-        value_pb: BASE64.encode(query_response.value),
-        proof_pb,
+        // Borrow to avoid moving fields out of `query_response`.
+        value_pb: BASE64.encode(&query_response.value),
+        // Use a closure: `Engine::encode` is a method, not a function pointer.
+        proof_pb: proof_pb.map(|p| BASE64.encode(&p)),
         height: query_response.height.to_string(),
-        proof_format: proof_format_str.to_string(),
+        proof_format: proof_format_str_resp.to_string(),
     }))
 }
 
@@ -339,10 +417,10 @@ async fn root_handler(
     let (root, h) = state.host.commitment_root(height).await.map_err(|e| {
         let route = "/v1/ibc/root";
         get_metric!(GATEWAY_REQ_TOTAL)
-            .with_label_values(&[&state.chain_id, route, "error", "0"])
+            .with_label_values(&[&state.chain_id, route, "error", "0", "none"])
             .inc();
         get_metric!(GATEWAY_REQ_LATENCY)
-            .with_label_values(&[&state.chain_id, route, "error", "0"])
+            .with_label_values(&[&state.chain_id, route, "error", "0", "none"])
             .observe(started.elapsed().as_secs_f64());
         AppError::Internal(e)
     })?;
@@ -350,10 +428,10 @@ async fn root_handler(
     let route = "/v1/ibc/root";
     let height_label = h.to_string();
     get_metric!(GATEWAY_REQ_TOTAL)
-        .with_label_values(&[&state.chain_id, route, "ok", &height_label])
+        .with_label_values(&[&state.chain_id, route, "ok", &height_label, "none"])
         .inc();
     get_metric!(GATEWAY_REQ_LATENCY)
-        .with_label_values(&[&state.chain_id, route, "ok", &height_label])
+        .with_label_values(&[&state.chain_id, route, "ok", &height_label, "none"])
         .observe(started.elapsed().as_secs_f64());
 
     Ok(Json(RootResponse {
@@ -368,7 +446,7 @@ async fn submit_handler(
 ) -> Result<Json<SubmitResponse>, AppError> {
     let started = StdInstant::now();
     let msgs_bytes = BASE64
-        .decode(payload.msgs_pb)
+        .decode(&payload.msgs_pb)
         .map_err(|e| AppError::BadRequest(e.to_string()))?;
     tracing::debug!(
         target: "http-gateway",
@@ -383,10 +461,10 @@ async fn submit_handler(
         .map_err(|e| {
             let route = "/v1/ibc/submit";
             get_metric!(GATEWAY_REQ_TOTAL)
-                .with_label_values(&[&state.chain_id, route, "error", "0"])
+                .with_label_values(&[&state.chain_id, route, "error", "0", "none"])
                 .inc();
             get_metric!(GATEWAY_REQ_LATENCY)
-                .with_label_values(&[&state.chain_id, route, "error", "0"])
+                .with_label_values(&[&state.chain_id, route, "error", "0", "none"])
                 .observe(started.elapsed().as_secs_f64());
             AppError::Internal(e)
         })?;
@@ -399,13 +477,27 @@ async fn submit_handler(
 
     let route = "/v1/ibc/submit";
     get_metric!(GATEWAY_REQ_TOTAL)
-        .with_label_values(&[&state.chain_id, route, "ok", "latest"])
+        .with_label_values(&[&state.chain_id, route, "ok", "latest", "none"])
         .inc();
     get_metric!(GATEWAY_REQ_LATENCY)
-        .with_label_values(&[&state.chain_id, route, "ok", "latest"])
+        .with_label_values(&[&state.chain_id, route, "ok", "latest", "none"])
         .observe(started.elapsed().as_secs_f64());
 
     Ok(Json(SubmitResponse { tx_hash: hex::encode(tx_hash) }))
+}
+
+// Helper function borrowed from ioi-telemetry to serve metrics.
+async fn metrics_handler() -> ([(axum::http::HeaderName, String); 1], axum::body::Bytes) {
+    let encoder = prometheus::TextEncoder::new();
+    let metric_families = prometheus::gather();
+    let mut buf = Vec::with_capacity(1 << 20); // Pre-allocate 1MB
+    if let Err(e) = encoder.encode(&metric_families, &mut buf) {
+        tracing::error!(error=%e, "Failed to encode prometheus metrics");
+    }
+    (
+        [(axum::http::header::CONTENT_TYPE, encoder.format_type().to_string())],
+        buf.into(),
+    )
 }
 
 // --- Server ---
@@ -421,6 +513,7 @@ pub async fn run_server(
     config: GatewayConfig,
     host: Arc<dyn IbcHost>,
     mut shutdown_rx: watch::Receiver<bool>,
+    chain_id_label: String,
 ) -> Result<()> {
     install_gateway_metrics();
 
@@ -433,7 +526,6 @@ pub async fn run_server(
     );
     let limiter = IpLimiter::new(config.rps, config.burst, cidrs);
 
-    let chain_id_label = std::env::var("GATEWAY_CHAIN_ID").unwrap_or_else(|_| "unknown".into());
     let state = Arc::new(GatewayState {
         host,
         chain_id: chain_id_label,
@@ -443,6 +535,7 @@ pub async fn run_server(
         .route("/v1/ibc/query", post(query_handler))
         .route("/v1/ibc/submit", post(submit_handler))
         .route("/v1/ibc/root", post(root_handler))
+        .route("/metrics", get(metrics_handler)) // Add the metrics endpoint here
         .route_layer(middleware::from_fn_with_state(
             limiter.clone(),
             rate_limit_middleware,

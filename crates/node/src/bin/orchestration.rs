@@ -374,6 +374,9 @@ where
 
     orchestration.set_chain_and_workload_client(chain_ref, workload_client.clone());
 
+    // Set the chain_id env var so the gateway can label metrics correctly.
+    std::env::set_var("GATEWAY_CHAIN_ID", config.chain_id.to_string());
+
     // --- NEW: IBC Host & Gateway Setup ---
     if let Some(gateway_addr) = config.ibc_gateway_listen_address.clone() {
         tracing::info!(target: "orchestration", "Enabling IBC HTTP Gateway.");
@@ -395,9 +398,10 @@ where
             trusted_proxies: vec![],
         };
         let shutdown_rx_for_gateway = orchestration.shutdown_sender.subscribe();
+        let chain_id_for_gateway = config.chain_id.to_string();
         let gateway_handle = tokio::spawn(async move {
             if let Err(e) =
-                http_rpc_gateway::run_server(gateway_config, ibc_host, shutdown_rx_for_gateway)
+                http_rpc_gateway::run_server(gateway_config, ibc_host, shutdown_rx_for_gateway, chain_id_for_gateway)
                     .await
             {
                 tracing::error!(target: "http-gateway", "IBC HTTP Gateway failed: {}", e);
