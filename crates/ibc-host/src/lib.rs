@@ -4,12 +4,10 @@
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use ioi_client::WorkloadClient;
-use ibc_core_host_types::path::NextClientSequencePath;
 use ibc_proto::ics23::CommitmentProof;
 use ioi_api::state::Verifier;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_networking::libp2p::SwarmCommand;
-use ioi_state::primitives::hash::HashProof; // NEW
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ChainId, ChainTransaction, SignHeader,
@@ -77,7 +75,6 @@ mod iavl_wire {
 }
 use iavl_wire::{ExistenceProof, IavlProof, InnerOp, LeafOp, NonExistenceProof, Side};
 
-// ✅ Use the re-exported provider (module `host_functions` is private)
 use ics23::HostFunctionsManager;
 
 #[derive(Debug, Clone)]
@@ -89,14 +86,9 @@ pub struct QueryHostResponse {
 
 #[async_trait]
 pub trait IbcHost: Send + Sync {
-    async fn query(
-        &self,
-        path: &str,
-        height: Option<u64>,
-        latest: bool,
-    ) -> Result<QueryHostResponse>;
+    async fn query(&self, path: &str, height: Option<u64>) -> Result<QueryHostResponse>;
     async fn submit_ibc_messages(&self, msgs_pb: Vec<u8>) -> Result<[u8; 32]>;
-    async fn commitment_root(&self, height: Option<u64>, latest: bool) -> Result<(Vec<u8>, u64)>;
+    async fn commitment_root(&self, height: Option<u64>) -> Result<(Vec<u8>, u64)>;
 }
 
 // [SCALE-IAVL START]
@@ -142,8 +134,8 @@ fn compute_iavl_root_from_existence(p: &ExistenceProof) -> Result<[u8; 32]> {
     let mut acc = hash_leaf_canonical(&p.leaf, &p.key, &p.value)?;
     for step in &p.path {
         let (left, right) = match step.side {
-            Side::Left => (acc, step.sibling_hash),
-            Side::Right => (step.sibling_hash, acc),
+            Side::Left => (step.sibling_hash, acc),
+            Side::Right => (acc, step.sibling_hash),
         };
         acc = hash_inner_canonical(step, &left, &right)?;
     }
@@ -180,36 +172,7 @@ fn root_from_scale_iavl_bytes(proof_bytes: &[u8]) -> Option<Vec<u8>> {
 /// Helper to compute the Merkle root from a raw ICS23 proof (prost bytes).
 /// Supports single `ExistenceProof`, `BatchProof` (first existence entry),
 /// and `CompressedBatchProof` (first compressed existence entry).
-fn compute_root_from_proof_bytes(proof_pb: &[u8]) -> Result<Vec<u8>> {
-    // [00] Peel outer HashProof wrapper first (IAVLTree<HashCommitmentScheme>)
-    if let Ok(hp) = codec::from_bytes_canonical::<HashProof>(proof_pb) {
-        // The actual IAVL/ICS‑23 payload lives in hp.value
-        return compute_root_from_proof_bytes(&hp.value);
-    }
-
-    // [00] Peel SCALE(Vec<u8>) wrapper and recurse: the inner may be IAVL *or* ICS‑23/ProofOps/JSON.
-    if let Ok(inner) = codec::from_bytes_canonical::<Vec<u8>>(proof_pb) {
-        // Try IAVL first on the inner
-        if let Some(root) = root_from_scale_iavl_bytes(&inner) {
-            return Ok(root);
-        }
-        // Then recurse to reuse all other decoders (ICS‑23, ProofOps, JSON, etc.)
-        if let Ok(root) = compute_root_from_proof_bytes(&inner) {
-            return Ok(root);
-        }
-    }
-
-    // [01] Peel 0x‑prefixed hex and recurse
-    if let Ok(s) = std::str::from_utf8(proof_pb) {
-        if let Some(stripped) = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")) {
-            if stripped.len() % 2 == 0 && stripped.chars().all(|c| c.is_ascii_hexdigit()) {
-                if let Ok(raw) = hex::decode(stripped) {
-                    return compute_root_from_proof_bytes(&raw);
-                }
-            }
-        }
-    }
-
+pub fn existence_root_from_proof_bytes(proof_pb: &[u8]) -> Result<Vec<u8>> {
     // [+] ADDED: First, try the native SCALE/IAVL format.
     if let Some(root) = root_from_scale_iavl_bytes(proof_pb) {
         return Ok(root);
@@ -334,35 +297,22 @@ impl<V: Verifier + 'static> DefaultIbcHost<V> {
 
 #[async_trait]
 impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
-    async fn query(
-        &self,
-        path: &str,
-        height: Option<u64>,
-        latest: bool,
-    ) -> Result<QueryHostResponse> {
-        if (height.is_some() && latest) || (height.is_none() && !latest) {
-            return Err(anyhow!(
-                "Exactly one of 'height' or 'latest' must be specified"
-            ));
-        }
-
-        let (query_height, state_root) = if latest {
-            let status = self.workload_client.get_status().await?;
-            let root = self.workload_client.get_state_root().await?;
-            (status.height, root)
+    async fn query(&self, path: &str, height: Option<u64>) -> Result<QueryHostResponse> {
+        let query_height = if let Some(h) = height {
+            h
         } else {
-            let h = height.unwrap();
-            let header = self
-                .workload_client
-                .get_block_by_height(h)
-                .await?
-                .ok_or_else(|| anyhow!("Block at height {} not found", h))?;
-            (h, header.state_root)
+            self.workload_client.get_status().await?.height
         };
+
+        let header = self
+            .workload_client
+            .get_block_by_height(query_height)
+            .await?
+            .ok_or_else(|| anyhow!("Block at height {} not found for query", query_height))?;
 
         let response = self
             .workload_client
-            .query_state_at(state_root, path.as_bytes())
+            .query_state_at(header.state_root, path.as_bytes())
             .await?;
 
         Ok(QueryHostResponse {
@@ -450,13 +400,19 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
         Ok(tx_hash)
     }
 
-    async fn commitment_root(&self, height: Option<u64>, latest: bool) -> Result<(Vec<u8>, u64)> {
-        let path = NextClientSequencePath.to_string();
-        let query_response = self.query(&path, height, latest).await?;
-        let proof_bytes = query_response
-            .proof
-            .ok_or_else(|| anyhow!("commitment_root: query for known path returned no proof"))?;
-        let root = compute_root_from_proof_bytes(&proof_bytes)?;
-        Ok((root, query_response.height))
+    async fn commitment_root(&self, height: Option<u64>) -> Result<(Vec<u8>, u64)> {
+        let query_height = if let Some(h) = height {
+            h
+        } else {
+            self.workload_client.get_status().await?.height
+        };
+
+        let header = self
+            .workload_client
+            .get_block_by_height(query_height)
+            .await?
+            .ok_or_else(|| anyhow!("Block at height {} not found", query_height))?;
+
+        Ok((header.state_root.0, query_height))
     }
 }

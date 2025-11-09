@@ -61,49 +61,9 @@ fn pb_merkle_path_with_ibc_prefix(path_str: &str) -> PbMerklePath {
     PbMerklePath { key_path: segments }
 }
 
-/// A helper to decode an `Any`-wrapped message from bytes.
-fn decode_any<T: prost::Message + Default>(
-    bytes: &[u8],
-    expected_type_url: &str,
-) -> Result<T, ClientError> {
-    let any = PbAny::decode(bytes).map_err(|e| ClientError::Other {
-        description: format!("failed to decode Any: {e}"),
-    })?;
-    if any.type_url != expected_type_url {
-        return Err(ClientError::Other {
-            description: format!(
-                "unexpected Any type_url: got {}, expected {}",
-                any.type_url, expected_type_url
-            ),
-        });
-    }
-    T::decode(any.value.as_slice()).map_err(|e| ClientError::Other {
-        description: format!("failed to decode inner message: {e}"),
-    })
-}
-
-/// Convert a Tendermint `ProofOps` (possibly containing ICS-23 ops) into an IBC MerkleProof.
-fn tm_proofops_to_ibc_merkle(raw: TmProofOps) -> Result<IbcMerkleProof, CoreError> {
-    // Typical pattern: a single op where `op.r#type` contains "ics23" and `op.data`
-    // holds a serialized `ics23.CommitmentProof`. But be tolerant and collect any ICS-23 ops.
-    let mut proofs: Vec<pb_ics23::CommitmentProof> = Vec::new();
-    for op in raw.ops {
-        // Heuristic: many stacks label the op type with "ics23" or "iavl". We don't hard fail if it doesn't match.
-        // Try to decode the op.data as an ICS-23 CommitmentProof; if it works, include it.
-        if let Ok(cp) = pb_ics23::CommitmentProof::decode(op.data.as_slice()) {
-            proofs.push(cp);
-        }
-    }
-    if proofs.is_empty() {
-        return Err(CoreError::Custom(
-            "tendermint ProofOps contained no decodable ICS-23 CommitmentProof".into(),
-        ));
-    }
-    let raw_mp = RawMerkleProof { proofs };
-    IbcMerkleProof::try_from(raw_mp)
-        .map_err(|e| CoreError::Custom(format!("convert ProofOps->MerkleProof: {e}")))
-}
-
+/// A helper to robustly decode proof bytes, which may be wrapped in various ways.
+/// Supports Any(ProofOps), Any(MerkleProof), Any(CommitmentProof), raw ProofOps,
+/// raw MerkleProof, and raw CommitmentProof.
 fn decode_merkle_proof_flex(bytes: &[u8]) -> Result<IbcMerkleProof, CoreError> {
     // Path A: The bytes are a google.protobuf.Any wrapper.
     if let Ok(any) = PbAny::decode(bytes) {
@@ -141,7 +101,9 @@ fn decode_merkle_proof_flex(bytes: &[u8]) -> Result<IbcMerkleProof, CoreError> {
                 .map_err(|e| CoreError::Custom(format!("decode Any(CommitmentProof): {e}")))?;
             let raw = RawMerkleProof { proofs: vec![cp] };
             return IbcMerkleProof::try_from(raw).map_err(|e| {
-                CoreError::Custom(format!("convert Any(CommitmentProof)->MerkleProof: {e}"))
+                CoreError::Custom(format!(
+                    "convert Any(CommitmentProof)->MerkleProof: {e}"
+                ))
             });
         }
 
@@ -191,6 +153,49 @@ fn decode_merkle_proof_flex(bytes: &[u8]) -> Result<IbcMerkleProof, CoreError> {
     Err(CoreError::Custom(
         "proof bytes are neither Any(ProofOps|MerkleProof|CommitmentProof) nor raw ProofOps/MerkleProof/CommitmentProof".into(),
     ))
+}
+
+/// A helper to decode an `Any`-wrapped message from bytes.
+fn decode_any<T: prost::Message + Default>(
+    bytes: &[u8],
+    expected_type_url: &str,
+) -> Result<T, ClientError> {
+    let any = PbAny::decode(bytes).map_err(|e| ClientError::Other {
+        description: format!("failed to decode Any: {e}"),
+    })?;
+    if any.type_url != expected_type_url {
+        return Err(ClientError::Other {
+            description: format!(
+                "unexpected Any type_url: got {}, expected {}",
+                any.type_url, expected_type_url
+            ),
+        });
+    }
+    T::decode(any.value.as_slice()).map_err(|e| ClientError::Other {
+        description: format!("failed to decode inner message: {e}"),
+    })
+}
+
+/// Convert a Tendermint `ProofOps` (possibly containing ICS-23 ops) into an IBC MerkleProof.
+fn tm_proofops_to_ibc_merkle(raw: TmProofOps) -> Result<IbcMerkleProof, CoreError> {
+    // Typical pattern: a single op where `op.r#type` contains "ics23" and `op.data`
+    // holds a serialized `ics23.CommitmentProof`. But be tolerant and collect any ICS-23 ops.
+    let mut proofs: Vec<pb_ics23::CommitmentProof> = Vec::new();
+    for op in raw.ops {
+        // Heuristic: many stacks label the op type with "ics23" or "iavl". We don't hard fail if it doesn't match.
+        // Try to decode the op.data as an ICS-23 CommitmentProof; if it works, include it.
+        if let Ok(cp) = pb_ics23::CommitmentProof::decode(op.data.as_slice()) {
+            proofs.push(cp);
+        }
+    }
+    if proofs.is_empty() {
+        return Err(CoreError::Custom(
+            "tendermint ProofOps contained no decodable ICS-23 CommitmentProof".into(),
+        ));
+    }
+    let raw_mp = RawMerkleProof { proofs };
+    IbcMerkleProof::try_from(raw_mp)
+        .map_err(|e| CoreError::Custom(format!("convert ProofOps->MerkleProof: {e}")))
 }
 
 /// A verifier for Tendermint-based chains using the `ibc-rs` implementation.

@@ -10,6 +10,7 @@ license = "MIT OR Apache-2.0"
 ioi-api = { path = "../api" }
 ioi-types = { path = "../types" }
 ibc-host = { path = "../ibc-host" }
+ioi-state = { path = "../state" }
 
 anyhow = { workspace = true }
 axum = { workspace = true }
@@ -18,10 +19,18 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 base64 = { workspace = true }
 tower = { workspace = true, features = ["full"] }
-tower-http = { workspace = true, features = ["full"] }
+tower-http = { workspace = true, features = ["limit", "trace", "catch-panic"] }
 tracing = { workspace = true }
 ipnetwork = { workspace = true }
 dashmap = { workspace = true }
 hex = { workspace = true }
 prometheus = { workspace = true }
-once_cell = "1.19"
+once_cell = { workspace = true }
+prost = { workspace = true }
+
+# IBC proof dependencies
+ibc-core-commitment-types = { workspace = true, features = ["std"] }
+ibc-proto = { workspace = true, features = ["serde", "std"] }
+tendermint-proto = { workspace = true }
+ics23 = { workspace = true }
+parity-scale-codec = { workspace = true, features = ["derive", "std"] }

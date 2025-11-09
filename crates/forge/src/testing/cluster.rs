@@ -1,11 +1,15 @@
 // Path: crates/forge/src/testing/cluster.rs
-
 use super::assert::wait_for_height;
 use super::validator::TestValidator;
 use anyhow::Result;
 use futures_util::{stream::FuturesUnordered, StreamExt};
+// [+] Add dcrypt and libp2p ed25519 imports for the new helper function.
+use dcrypt::sign::eddsa::Ed25519SecretKey;
 use ioi_types::config::InitialServiceConfig;
-use libp2p::{identity, Multiaddr};
+use libp2p::{
+    identity::{self, ed25519, Keypair},
+    Multiaddr,
+};
 use serde_json::Value;
 use std::time::Duration;
 
@@ -38,6 +42,8 @@ pub struct TestClusterBuilder {
     use_malicious_workload: bool,
     // [+] MODIFIED: a generic list for extra features
     extra_features: Vec<String>,
+    // [+] NEW: Add a field to hold the deterministic keypair for the first validator.
+    validator0_key_override: Option<identity::Keypair>,
 }
 
 impl Default for TestClusterBuilder {
@@ -57,13 +63,42 @@ impl Default for TestClusterBuilder {
             use_malicious_workload: false,
             // [+] MODIFIED: Initialize the new field
             extra_features: Vec::new(),
+            // [+] NEW: Initialize the override to None by default.
+            validator0_key_override: None,
         }
     }
+}
+
+// [+] NEW: Add helper to derive a libp2p keypair from a dcrypt seed.
+/// Helper: derive a libp2p Ed25519 keypair from a dcrypt Ed25519 seed.
+fn libp2p_keypair_from_dcrypt_seed(seed: [u8; 32]) -> libp2p::identity::Keypair {
+    let sk = Ed25519SecretKey::from_seed(&seed).expect("dcrypt ed25519 from seed");
+    let pk = sk.public_key().expect("dcrypt(ed25519) public");
+    let mut bytes = [0u8; 64];
+    bytes[..32].copy_from_slice(&seed);
+    bytes[32..].copy_from_slice(&pk.to_bytes());
+    let ed = ed25519::Keypair::try_from_bytes(&mut bytes[..])
+        .expect("libp2p ed25519 keypair from (seed||pub)");
+    Keypair::from(ed)
 }
 
 impl TestClusterBuilder {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    // [+] NEW: Add a method to set the first validator's key from a seed.
+    /// Provide a deterministic seed for the first validator’s key (dcrypt Ed25519).
+    pub fn with_validator_seed(mut self, seed: [u8; 32]) -> Self {
+        self.validator0_key_override = Some(libp2p_keypair_from_dcrypt_seed(seed));
+        self
+    }
+
+    // [+] NEW: Add a method to set the first validator's key directly.
+    /// Provide a fully formed libp2p keypair to use for validator 0.
+    pub fn with_validator_keypair(mut self, kp: libp2p::identity::Keypair) -> Self {
+        self.validator0_key_override = Some(kp);
+        self
     }
 
     pub fn with_validators(mut self, count: usize) -> Self {
@@ -143,11 +178,20 @@ impl TestClusterBuilder {
     }
 
     pub async fn build(mut self) -> Result<TestCluster> {
-        let validator_keys = self.keypairs.take().unwrap_or_else(|| {
+        // [+] MODIFIED: Make validator_keys mutable and apply the override.
+        let mut validator_keys = self.keypairs.take().unwrap_or_else(|| {
             (0..self.num_validators)
                 .map(|_| identity::Keypair::generate_ed25519())
                 .collect()
         });
+
+        if let Some(kp0) = self.validator0_key_override.take() {
+            if !validator_keys.is_empty() {
+                validator_keys[0] = kp0;
+            } else if self.num_validators > 0 {
+                validator_keys.push(kp0);
+            }
+        }
 
         let mut genesis = serde_json::json!({ "genesis_state": {} });
         for modifier in self.genesis_modifiers.drain(..) {

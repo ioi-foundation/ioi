@@ -9,7 +9,7 @@
 ))]
 
 use anyhow::{anyhow, Result};
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use dcrypt::{api::Signature as DcryptSignature, sign::eddsa::Ed25519SecretKey};
 use ibc_client_tendermint::consensus_state::ConsensusState as TmConsensusState;
 use ibc_client_tendermint::types::proto::v1::{
@@ -37,15 +37,15 @@ use ioi_forge::testing::{
 };
 use ioi_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, Credential,
-        SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1,
-        ValidatorSetsV1, ValidatorV1,
+        account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
+        BlockTimingRuntime, ChainTransaction, Credential, SignatureSuite, SystemPayload,
+        SystemTransaction, ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
     keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, ACCOUNT_NONCE_PREFIX, IDENTITY_CREDENTIALS_PREFIX,
-        VALIDATOR_SET_KEY,
+        ACCOUNT_ID_TO_PUBKEY_PREFIX, ACCOUNT_NONCE_PREFIX, BLOCK_TIMING_PARAMS_KEY,
+        BLOCK_TIMING_RUNTIME_KEY, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
     },
     service_configs::MigrationConfig,
 };
@@ -187,8 +187,8 @@ fn add_full_identity_to_genesis(
     let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
     let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
     genesis_state.insert(
-        format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
-        json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
+        format!("b64:{}", BASE64.encode(&creds_key)),
+        json!(format!("b64:{}", BASE64.encode(&creds_bytes))),
     );
 
     let record = ActiveKeyRecord {
@@ -199,14 +199,14 @@ fn add_full_identity_to_genesis(
     let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
     let record_bytes = codec::to_bytes_canonical(&record).unwrap();
     genesis_state.insert(
-        format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
-        json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
+        format!("b64:{}", BASE64.encode(&record_key)),
+        json!(format!("b64:{}", BASE64.encode(&record_bytes))),
     );
 
     let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
     genesis_state.insert(
-        format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
-        json!(format!("b64:{}", BASE64_STANDARD.encode(&public_key_bytes))),
+        format!("b64:{}", BASE64.encode(&pubkey_map_key)),
+        json!(format!("b64:{}", BASE64.encode(&public_key_bytes))),
     );
 
     account_id
@@ -251,7 +251,7 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                 let client_type_key = format!("clients/{}/clientType", client_id);
                 genesis_state.insert(
                     client_type_key,
-                    serde_json::json!(format!("b64:{}", BASE64_STANDARD.encode("07-tendermint"))),
+                    serde_json::json!(format!("b64:{}", BASE64.encode("07-tendermint"))),
                 );
 
                 let validator_account_id = add_full_identity_to_genesis(genesis_state, keypair);
@@ -277,7 +277,36 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                 let vs_bytes = ioi_types::app::write_validator_sets(&vs_blob.payload).unwrap();
                 genesis_state.insert(
                     std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
+                    json!(format!("b64:{}", BASE64.encode(vs_bytes))),
+                );
+
+                // [+] FIX: Add block timing parameters to genesis
+                let timing_params = BlockTimingParams {
+                    base_interval_secs: 5,
+                    retarget_every_blocks: 0, // Disable adaptive timing for simplicity in test
+                    ..Default::default()
+                };
+                let timing_runtime = BlockTimingRuntime {
+                    effective_interval_secs: timing_params.base_interval_secs,
+                    ..Default::default()
+                };
+                genesis_state.insert(
+                    std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
+                        .unwrap()
+                        .to_string(),
+                    json!(format!(
+                        "b64:{}",
+                        BASE64.encode(codec::to_bytes_canonical(&timing_params).unwrap())
+                    )),
+                );
+                genesis_state.insert(
+                    std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
+                        .unwrap()
+                        .to_string(),
+                    json!(format!(
+                        "b64:{}",
+                        BASE64.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
+                    )),
                 );
 
                 // --- Store ClientState as google.protobuf.Any (expected by ibc-rs) ---
@@ -320,7 +349,7 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                     cs_path.to_string(),
                     json!(format!(
                         "b64:{}",
-                        BASE64_STANDARD.encode(client_state_any.encode_to_vec())
+                        BASE64.encode(client_state_any.encode_to_vec())
                     )),
                 );
 
@@ -343,7 +372,7 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                     ccs_path.to_string(),
                     json!(format!(
                         "b64:{}",
-                        BASE64_STANDARD.encode(consensus_state_any.encode_to_vec())
+                        BASE64.encode(consensus_state_any.encode_to_vec())
                     )),
                 );
             }
@@ -369,7 +398,7 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
     let value_pb_b64 = query_resp["value_pb"]
         .as_str()
         .ok_or_else(|| anyhow!("Missing value_pb"))?;
-    let value_bytes = BASE64_STANDARD.decode(value_pb_b64)?;
+    let value_bytes = BASE64.decode(value_pb_b64)?;
     // Stored value is Any(ClientState)
     let any_wrapped = Any::decode(value_bytes.as_slice())?;
     assert_eq!(
