@@ -8,7 +8,7 @@ use ioi_client::WorkloadClient;
 use ioi_forge::testing::{
     build_test_artifacts,
     wait_for_evidence, wait_for_height, wait_for_stake_to_be,
-    rpc::query_state_key,
+    rpc::{get_chain_timestamp, query_state_key},
     submit_transaction, TestCluster,
 };
 use ioi_types::{
@@ -44,11 +44,16 @@ fn create_report_tx(
     offender_id: AccountId,
     nonce: u64,
     chain_id: ChainId,
+    target_url: &str,
+    probe_timestamp: u64,
 ) -> Result<(ChainTransaction, FailureReport)> {
     let report = FailureReport {
         offender: offender_id,
         offense_type: OffenseType::FailedCalibrationProbe,
-        facts: OffenseFacts::FailedCalibrationProbe { probe_id: [1; 32] },
+        facts: OffenseFacts::FailedCalibrationProbe {
+            target_url: target_url.trim().to_ascii_lowercase(),
+            probe_timestamp,
+        },
         proof: b"mock_proof_data".to_vec(),
     };
 
@@ -101,6 +106,8 @@ async fn submit_report_with_retry(
     reporter_account_id: &AccountId,
     offender_account_id: AccountId,
     chain_id: ChainId,
+    target_url: &str,
+    probe_timestamp: u64,
 ) -> Result<FailureReport> {
     const MAX_ATTEMPTS: usize = 3;
 
@@ -108,7 +115,14 @@ async fn submit_report_with_retry(
 
     for _attempt in 0..MAX_ATTEMPTS {
         let n = fetch_next_nonce(rpc_reporter, reporter_account_id).await;
-        let (tx, report) = create_report_tx(reporter_key, offender_account_id, n, chain_id)?;
+        let (tx, report) = create_report_tx(
+            reporter_key,
+            offender_account_id,
+            n,
+            chain_id,
+            target_url,
+            probe_timestamp,
+        )?;
 
         // Try local node first.
         let r1 = submit_transaction(rpc_reporter, &tx).await;
@@ -294,6 +308,10 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
     let reporter_account_id = AccountId(reporter_account_hash);
 
     // ACTION 1: Report the offender using the validator account, with nonce-race retry.
+    // Canonical facts for the probe
+    let probe_ts = get_chain_timestamp(rpc_addr_reporter).await?;
+    let target_url = "https://calibration.ioi/heartbeat@v1";
+
     let report1 = submit_report_with_retry(
         rpc_addr_reporter,
         rpc_addr_offender,
@@ -301,6 +319,8 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
         &reporter_account_id,
         offender_account_id,
         1u32.into(),
+        target_url,
+        probe_ts,
     )
     .await?;
 
@@ -325,7 +345,14 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
 
     // ACTION 2: Submit the same report again with the *next* correct nonce (exercise replay protection).
     let n1 = fetch_next_nonce(rpc_addr_reporter, &reporter_account_id).await;
-    let (replay_tx, _) = create_report_tx(&reporter.keypair, offender_account_id, n1, 1u32.into())?;
+    let (replay_tx, _) = create_report_tx(
+        &reporter.keypair,
+        offender_account_id,
+        n1,
+        1u32.into(),
+        target_url,
+        probe_ts, // same canonical facts → same evidence_id
+    )?;
     // It’s fine if one RPC rejects due to duplication; the behavior we care about is
     // that it does not cause a second slash and that the chain remains live.
     let _ = submit_transaction(rpc_addr_reporter, &replay_tx).await;

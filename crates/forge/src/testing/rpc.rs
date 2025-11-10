@@ -228,6 +228,16 @@ pub async fn get_chain_height(rpc_addr: &str) -> Result<u64> {
     Ok(status.height)
 }
 
+/// Gets the latest on-chain UNIX timestamp (seconds).
+pub async fn get_chain_timestamp(rpc_addr: &str) -> Result<u64> {
+    let status_bytes = query_state_key(rpc_addr, STATUS_KEY)
+        .await?
+        .ok_or_else(|| anyhow!("STATUS_KEY not found in state"))?;
+    let status: ChainStatus = codec::from_bytes_canonical(&status_bytes)
+        .map_err(|e| anyhow!("Failed to decode ChainStatus: {}", e))?;
+    Ok(status.latest_timestamp)
+}
+
 /// Gets the current set of quarantined validators for PoA.
 pub async fn get_quarantined_set(rpc_addr: &str) -> Result<BTreeSet<AccountId>> {
     let bytes_opt = query_state_key(rpc_addr, QUARANTINED_VALIDATORS_KEY).await?;

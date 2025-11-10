@@ -8,7 +8,7 @@ use ioi_forge::testing::{
     build_test_artifacts,
     wait_for_height, wait_for_quarantine_status,
     rpc,
-    rpc::get_quarantined_set,
+    rpc::{get_chain_timestamp, get_quarantined_set},
     TestValidator, // Use the validator struct directly instead of the cluster builder
 };
 use ioi_types::{
@@ -28,7 +28,7 @@ use ioi_types::{
 };
 use libp2p::identity::{self, Keypair};
 use libp2p::Multiaddr; // Added for bootnode address
-use serde_json::json; // FIX: Removed unused 'Value' import
+use serde_json::json;
 use std::collections::BTreeMap;
 use std::mem::ManuallyDrop;
 use std::time::Duration;
@@ -39,11 +39,16 @@ fn create_report_tx(
     offender_id: AccountId,
     nonce: u64,
     chain_id: ChainId,
+    target_url: &str,
+    probe_timestamp: u64,
 ) -> Result<ChainTransaction> {
     let report = FailureReport {
         offender: offender_id,
         offense_type: OffenseType::FailedCalibrationProbe,
-        facts: OffenseFacts::FailedCalibrationProbe { probe_id: [1; 32] },
+        facts: OffenseFacts::FailedCalibrationProbe {
+            target_url: target_url.trim().to_ascii_lowercase(),
+            probe_timestamp,
+        },
         proof: b"mock_proof_data".to_vec(),
     };
     let public_key_bytes = reporter_key.public().encode_protobuf();
@@ -331,12 +336,16 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
     wait_for_height(&offender2.rpc_addr, 2, Duration::from_secs(30)).await?;
     println!("--- All nodes synced. Cluster is ready. ---");
 
+    // Canonical probe facts to use in this test
+    let target_url = "https://calibration.ioi/heartbeat@v1";
+    let probe_ts = get_chain_timestamp(rpc_addr).await?;
+
     // Action 1: Quarantine the first offender. This should succeed.
     let offender1_pk_bytes = offender1.keypair.public().encode_protobuf();
     let offender1_id_hash =
         account_id_from_key_material(SignatureSuite::Ed25519, &offender1_pk_bytes)?;
     let offender1_id = AccountId(offender1_id_hash);
-    let tx1 = create_report_tx(&reporter.keypair, offender1_id, 0, 1.into())?;
+    let tx1 = create_report_tx(&reporter.keypair, offender1_id, 0, 1.into(), target_url, probe_ts)?;
     rpc::submit_transaction(rpc_addr, &tx1).await?;
 
     // Assert 1: Poll state until the offender is quarantined.
@@ -359,7 +368,7 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
     let offender2_id_hash =
         account_id_from_key_material(SignatureSuite::Ed25519, &offender2_pk_bytes)?;
     let offender2_id = AccountId(offender2_id_hash);
-    let tx2 = create_report_tx(&reporter.keypair, offender2_id, 1, 1.into())?; // increment nonce
+    let tx2 = create_report_tx(&reporter.keypair, offender2_id, 1, 1.into(), target_url, probe_ts)?; // increment nonce
 
     let submission_result = rpc::submit_transaction_no_wait(rpc_addr, &tx2).await?;
     assert!(
