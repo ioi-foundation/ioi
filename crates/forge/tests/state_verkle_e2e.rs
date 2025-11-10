@@ -8,7 +8,7 @@
 
 use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use ioi_forge::testing::{build_test_artifacts, poll::wait_for_height, TestCluster};
+use ioi_forge::testing::{build_test_artifacts, wait_for_height, TestCluster};
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, SignatureSuite, ValidatorSetBlob,
