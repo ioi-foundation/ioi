@@ -31,7 +31,7 @@ use ioi_types::error::{ConsensusError, TransactionError};
 use ioi_api::{
     chain::{AnchoredStateView, ChainView},
     commitment::CommitmentScheme,
-    consensus::{ChainStateReader, ConsensusDecision, ConsensusEngine, PenaltyMechanism},
+    consensus::{ConsensusDecision, ConsensusEngine, PenaltyMechanism},
     state::{StateAccess, StateManager},
 };
 use libp2p::PeerId;
@@ -101,14 +101,6 @@ impl<T> ConsensusEngine<T> for Consensus<T>
 where
     T: Clone + Send + Sync + 'static + parity_scale_codec::Encode,
 {
-    async fn get_validator_data(
-        &self,
-        _state_reader: &dyn ChainStateReader,
-    ) -> Result<Vec<Vec<u8>>, ConsensusError> {
-        // This method is deprecated. Return a default value.
-        Ok(vec![])
-    }
-
     async fn decide(
         &mut self,
         our_account_id: &AccountId,

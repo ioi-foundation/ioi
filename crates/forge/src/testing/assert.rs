@@ -3,7 +3,6 @@
 use super::rpc::{get_chain_height, get_quarantined_set, query_state_key};
 use crate::testing::rpc::get_contract_code;
 use anyhow::{anyhow, Result};
-use ioi_api::consensus::ChainStateReader;
 use ioi_client::WorkloadClient;
 use ioi_types::{
     app::{AccountId, Proposal, ProposalStatus, StateEntry},
@@ -200,10 +199,7 @@ pub async fn wait_for_stake_to_be(
         Duration::from_millis(500),
         timeout,
         || async {
-            let stakes = client
-                .get_next_staked_validators()
-                .await
-                .map_err(|e: String| anyhow!(e))?;
+            let stakes = client.get_next_staked_validators().await?;
             let current_stake = stakes.get(staker_account_id).copied().unwrap_or(0);
             if current_stake == target_stake {
                 Ok(Some(()))
