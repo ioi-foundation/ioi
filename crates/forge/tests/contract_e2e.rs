@@ -1,7 +1,7 @@
 // Path: crates/forge/tests/contract_e2e.rs
 //! End-to-End Test: Smart Contract Execution Lifecycle
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_client::WorkloadClient;
 use ioi_forge::testing::{
@@ -24,6 +24,7 @@ use ioi_types::{
 };
 use libp2p::identity::Keypair;
 use serde_json::json;
+use std::path::Path;
 use std::time::{Duration, Instant};
 
 // Helper function to create a signed transaction with proper nonce and account_id
@@ -91,8 +92,17 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
 
     // 1. SETUP & BUILD
     build_test_artifacts();
-    let counter_wasm =
-        std::fs::read("../../target/wasm32-unknown-unknown/release/counter_contract.wasm")?;
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let workspace_root = manifest_dir.parent().and_then(|p| p.parent()).unwrap();
+    let wasm_path =
+        workspace_root.join("target/wasm32-unknown-unknown/release/counter_contract.wasm");
+    let counter_wasm = std::fs::read(&wasm_path).map_err(|e| {
+        anyhow!(
+            "Failed to read contract artifact at {:?}: {}. Ensure `build_test_artifacts()` ran correctly.",
+            wasm_path,
+            e
+        )
+    })?;
     let mut nonce = 0;
 
     // 2. SETUP NETWORK
