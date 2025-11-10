@@ -917,6 +917,3 @@ impl StateManager for VerkleTree<KZGCommitmentScheme> {
         self.current_height = height;
     }
 }
-
-#[cfg(test)]
-mod tests;

@@ -9,7 +9,6 @@ mod ops;
 pub mod proof;
 mod proof_builder;
 mod store_proof;
-mod tests;
 mod tree;
 pub mod verifier;
 

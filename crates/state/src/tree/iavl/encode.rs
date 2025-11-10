@@ -1,34 +1,37 @@
 // Path: crates/state/src/tree/iavl/encode.rs
 
 use super::node::IAVLNode;
+use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::error::StateError;
 
 /// Encodes a leaf node using ICS-23 VarProto length prefixes.
+/// MODIFICATION: Aligned with the common Cosmos SDK IAVL profile. The value is
+/// pre-hashed with SHA-256 before being included in the final preimage. The prefix
+/// is simplified to just the leaf tag `0x00`.
 #[inline]
 fn encode_leaf_canonical(n: &IAVLNode) -> Result<Vec<u8>, StateError> {
     let key = &n.key;
-    let val = &n.value;
+    // Pre-hash the value to align with the new LeafOp profile.
+    let value_hash =
+        sha256(&n.value).map_err(|e| StateError::Backend(format!("pre-hash value failed: {e}")))?;
 
     let mut buf = Vec::with_capacity(
-        1 + 8 + 4 + 8 // prefix
+        1 // prefix
         + prost::length_delimiter_len(key.len()) + key.len()
-        + prost::length_delimiter_len(val.len()) + val.len(),
+        + prost::length_delimiter_len(value_hash.len()) + value_hash.len(),
     );
 
-    // Leaf prefix (must match LeafOp.prefix in proofs)
+    // Simplified leaf prefix (0x00).
     buf.push(0x00);
-    buf.extend_from_slice(&n.version.to_le_bytes());
-    buf.extend_from_slice(&0i32.to_le_bytes()); // height is always 0 for leaves
-    buf.extend_from_slice(&1u64.to_le_bytes()); // size is always 1 for leaves
 
-    // ICS-23: LengthOp::VarProto for key and value
+    // ICS-23: LengthOp::VarProto for key and the pre-hashed value.
     prost::encode_length_delimiter(key.len(), &mut buf)
         .map_err(|e| StateError::Backend(format!("encode varint(key_len): {e}")))?;
     buf.extend_from_slice(key);
 
-    prost::encode_length_delimiter(val.len(), &mut buf)
-        .map_err(|e| StateError::Backend(format!("encode varint(value_len): {e}")))?;
-    buf.extend_from_slice(val);
+    prost::encode_length_delimiter(value_hash.len(), &mut buf)
+        .map_err(|e| StateError::Backend(format!("encode varint(value_hash_len): {e}")))?;
+    buf.extend_from_slice(&value_hash);
 
     Ok(buf)
 }
