@@ -3,39 +3,70 @@
 use super::node::IAVLNode;
 use ioi_types::error::StateError;
 
+/// Encodes a leaf node using ICS-23 VarProto length prefixes.
+#[inline]
+fn encode_leaf_canonical(n: &IAVLNode) -> Result<Vec<u8>, StateError> {
+    let key = &n.key;
+    let val = &n.value;
+
+    let mut buf = Vec::with_capacity(
+        1 + 8 + 4 + 8 // prefix
+        + prost::length_delimiter_len(key.len()) + key.len()
+        + prost::length_delimiter_len(val.len()) + val.len(),
+    );
+
+    // Leaf prefix (must match LeafOp.prefix in proofs)
+    buf.push(0x00);
+    buf.extend_from_slice(&n.version.to_le_bytes());
+    buf.extend_from_slice(&0i32.to_le_bytes()); // height is always 0 for leaves
+    buf.extend_from_slice(&1u64.to_le_bytes()); // size is always 1 for leaves
+
+    // ICS-23: LengthOp::VarProto for key and value
+    prost::encode_length_delimiter(key.len(), &mut buf)
+        .map_err(|e| StateError::Backend(format!("encode varint(key_len): {e}")))?;
+    buf.extend_from_slice(key);
+
+    prost::encode_length_delimiter(val.len(), &mut buf)
+        .map_err(|e| StateError::Backend(format!("encode varint(value_len): {e}")))?;
+    buf.extend_from_slice(val);
+
+    Ok(buf)
+}
+
+/// Encodes an inner node using the established format.
+#[inline]
+fn encode_inner_canonical(n: &IAVLNode) -> Vec<u8> {
+    // This format remains unchanged:
+    // 0x01 | version | height | size | u32LE(len(split_key)) | split_key | left_hash | right_hash
+    let mut buf = Vec::with_capacity(1 + 8 + 4 + 8 + 4 + n.key.len() + 32 + 32);
+    buf.push(0x01);
+    buf.extend_from_slice(&n.version.to_le_bytes());
+    buf.extend_from_slice(&n.height.to_le_bytes());
+    buf.extend_from_slice(&n.size.to_le_bytes());
+    buf.extend_from_slice(&(n.key.len() as u32).to_le_bytes());
+    buf.extend_from_slice(&n.key);
+    let left = n
+        .left
+        .as_ref()
+        .map(|x| x.hash.clone())
+        .unwrap_or_else(IAVLNode::empty_hash);
+    let right = n
+        .right
+        .as_ref()
+        .map(|x| x.hash.clone())
+        .unwrap_or_else(IAVLNode::empty_hash);
+    buf.extend_from_slice(&left);
+    buf.extend_from_slice(&right);
+    buf
+}
+
 /// Encodes an `IAVLNode` into its canonical byte format, which is the preimage for its hash.
 pub(super) fn encode_node_canonical(n: &IAVLNode) -> Result<Vec<u8>, StateError> {
-    let mut data = Vec::new();
     if n.is_leaf() {
-        data.push(0x00);
-        data.extend_from_slice(&n.version.to_le_bytes());
-        data.extend_from_slice(&0i32.to_le_bytes()); // height
-        data.extend_from_slice(&1u64.to_le_bytes()); // size
-        data.extend_from_slice(&(n.key.len() as u32).to_le_bytes());
-        data.extend_from_slice(&n.key);
-        data.extend_from_slice(&(n.value.len() as u32).to_le_bytes());
-        data.extend_from_slice(&n.value);
+        encode_leaf_canonical(n)
     } else {
-        data.push(0x01);
-        data.extend_from_slice(&n.version.to_le_bytes());
-        data.extend_from_slice(&n.height.to_le_bytes());
-        data.extend_from_slice(&n.size.to_le_bytes());
-        data.extend_from_slice(&(n.key.len() as u32).to_le_bytes());
-        data.extend_from_slice(&n.key);
-        let left = n
-            .left
-            .as_ref()
-            .map(|x| x.hash.clone())
-            .unwrap_or_else(IAVLNode::empty_hash);
-        let right = n
-            .right
-            .as_ref()
-            .map(|x| x.hash.clone())
-            .unwrap_or_else(IAVLNode::empty_hash);
-        data.extend_from_slice(&left);
-        data.extend_from_slice(&right);
+        Ok(encode_inner_canonical(n))
     }
-    Ok(data)
 }
 
 // A parsed inner/leaf view (no allocations beyond what's necessary)
@@ -52,26 +83,38 @@ pub(super) struct DecodedNode {
     pub(super) right_hash: [u8; 32], // for inner
 }
 
+/// Helper to advance a slice cursor by `n` bytes, returning the advanced part.
+fn take<'a>(cursor: &mut &'a [u8], n: usize) -> Option<&'a [u8]> {
+    if cursor.len() < n {
+        return None;
+    }
+    let (head, tail) = cursor.split_at(n);
+    *cursor = tail;
+    Some(head)
+}
+
 // minimal decoder matching `encode_node_canonical`
 pub(super) fn decode_node(bytes: &[u8]) -> Option<DecodedNode> {
-    let mut rd = bytes;
-    let mut take = |n: usize| -> Option<&[u8]> {
-        if rd.len() < n {
-            return None;
-        }
-        let (a, b) = rd.split_at(n);
-        rd = b;
-        Some(a)
-    };
-    let tag = *take(1)?.get(0)?;
-    let ver = u64::from_le_bytes(take(8)?.try_into().ok()?);
+    let mut cursor = bytes;
+
+    let tag = *take(&mut cursor, 1)?.first()?;
+    let ver = u64::from_le_bytes(take(&mut cursor, 8)?.try_into().ok()?);
+
     if tag == 0x00 {
-        let _height = i32::from_le_bytes(take(4)?.try_into().ok()?); // 0
-        let _size = u64::from_le_bytes(take(8)?.try_into().ok()?); // 1
-        let klen = u32::from_le_bytes(take(4)?.try_into().ok()?) as usize;
-        let key = take(klen)?.to_vec();
-        let vlen = u32::from_le_bytes(take(4)?.try_into().ok()?) as usize;
-        let value = take(vlen)?.to_vec();
+        // Leaf node with VarProto lengths
+        let _height = i32::from_le_bytes(take(&mut cursor, 4)?.try_into().ok()?); // 0
+        let _size = u64::from_le_bytes(take(&mut cursor, 8)?.try_into().ok()?); // 1
+
+        // Use prost to decode varint lengths from the mutable cursor
+        let key_len = prost::decode_length_delimiter(&mut cursor).ok()?;
+        let key = take(&mut cursor, key_len)?.to_vec();
+        let val_len = prost::decode_length_delimiter(&mut cursor).ok()?;
+        let value = take(&mut cursor, val_len)?.to_vec();
+
+        if !cursor.is_empty() {
+            return None;
+        } // Ensure all bytes are consumed
+
         Some(DecodedNode {
             is_leaf: true,
             version: ver,
@@ -84,14 +127,15 @@ pub(super) fn decode_node(bytes: &[u8]) -> Option<DecodedNode> {
             right_hash: [0u8; 32],
         })
     } else {
-        let h = i32::from_le_bytes(take(4)?.try_into().ok()?);
-        let sz = u64::from_le_bytes(take(8)?.try_into().ok()?);
-        let klen = u32::from_le_bytes(take(4)?.try_into().ok()?) as usize;
-        let split = take(klen)?.to_vec();
+        // Inner node logic is unchanged
+        let h = i32::from_le_bytes(take(&mut cursor, 4)?.try_into().ok()?);
+        let sz = u64::from_le_bytes(take(&mut cursor, 8)?.try_into().ok()?);
+        let klen = u32::from_le_bytes(take(&mut cursor, 4)?.try_into().ok()?) as usize;
+        let split = take(&mut cursor, klen)?.to_vec();
         let mut lh = [0u8; 32];
-        lh.copy_from_slice(take(32)?);
+        lh.copy_from_slice(take(&mut cursor, 32)?);
         let mut rh = [0u8; 32];
-        rh.copy_from_slice(take(32)?);
+        rh.copy_from_slice(take(&mut cursor, 32)?);
         Some(DecodedNode {
             is_leaf: false,
             version: ver,

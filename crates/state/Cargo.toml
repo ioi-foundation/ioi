@@ -1,4 +1,4 @@
-# Path: crates/commitment/Cargo.toml
+# Path: crates/state/Cargo.toml
 [package]
 name = "ioi-state"
 version = "0.1.0"
@@ -28,6 +28,7 @@ hex = { workspace = true }
 bincode = { workspace = true }
 lazy_static = "1.4.0"
 parity-scale-codec = { workspace = true, features = ["derive", "std"] }
+prost = { workspace = true }
 
 [dev-dependencies]
 proptest = "1.2.0"

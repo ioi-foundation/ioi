@@ -34,3 +34,16 @@ ibc-proto = { workspace = true, features = ["serde", "std"] }
 tendermint-proto = { workspace = true }
 ics23 = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["derive", "std"] }
+
+[dev-dependencies]
+anyhow = { workspace = true }
+ioi-state = { path = "../state", features = ["state-iavl"] }
+ioi-types = { path = "../types" }
+ioi-crypto = { path = "../crypto" }
+ioi-api = { path = "../api" }
+ibc-host = { path = "../ibc-host" }
+ibc-proto = { workspace = true, features = ["serde"] }
+ics23 = { workspace = true }
+parity-scale-codec = { workspace = true, features = ["derive", "std"] }
+hex = { workspace = true }
+proptest = "1.2.0"

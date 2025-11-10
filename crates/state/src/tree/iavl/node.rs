@@ -1,8 +1,7 @@
 // Path: crates/state/src/tree/iavl/node.rs
-use super::encode::encode_node_canonical;
+use super::encode;
 use ioi_types::error::StateError;
 use ioi_types::prelude::OptionExt;
-// FIX: Removed unused import `Ordering`.
 use std::cmp::max;
 use std::sync::Arc;
 
@@ -42,7 +41,7 @@ impl IAVLNode {
 
     /// Compute the hash of this node according to the canonical specification.
     fn compute_hash(&self) -> Result<Vec<u8>, StateError> {
-        let data = encode_node_canonical(self)?;
+        let data = encode::encode_node_canonical(self)?;
         ioi_crypto::algorithms::hash::sha256(&data)
             .map(|h| h.to_vec())
             .map_err(|e| StateError::Backend(e.to_string()))
