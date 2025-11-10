@@ -101,3 +101,14 @@ pub struct ValidatorV1 {
     /// An embedded copy of the validator's active consensus key record for atomic retrieval.
     pub consensus_key: ActiveKeyRecord,
 }
+
+/// Selects the validator set that is effective for the given height.
+/// This is the canonical, single source of truth for validator set promotion logic.
+pub fn effective_set_for_height(sets: &ValidatorSetsV1, h: u64) -> &ValidatorSetV1 {
+    if let Some(next) = &sets.next {
+        if h >= next.effective_from_height && !next.validators.is_empty() && next.total_weight > 0 {
+            return next;
+        }
+    }
+    &sets.current
+}

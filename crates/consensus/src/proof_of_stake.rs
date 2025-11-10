@@ -4,8 +4,8 @@ use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, ChainView, StateRef};
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::{
-    read_validator_sets, write_validator_sets, AccountId,
-    Block, BlockTimingParams, BlockTimingRuntime, ChainStatus, FailureReport, ValidatorSetV1,
+    effective_set_for_height, read_validator_sets, write_validator_sets, AccountId, Block,
+    BlockTimingParams, BlockTimingRuntime, ChainStatus, FailureReport, ValidatorSetV1,
     ValidatorSetsV1,
 };
 use ioi_types::codec;
@@ -20,15 +20,6 @@ use std::collections::HashSet;
 use crate::proof_of_authority::{hash_key, verify_signature};
 use hex;
 use tracing::warn;
-
-fn effective_set_for_height(sets: &ValidatorSetsV1, h: u64) -> &ValidatorSetV1 {
-    if let Some(next) = &sets.next {
-        if h >= next.effective_from_height && !next.validators.is_empty() && next.total_weight > 0 {
-            return next;
-        }
-    }
-    &sets.current
-}
 
 fn log_vs(label: &str, h: u64, sets: &ValidatorSetsV1) {
     let log_one = |name: &str, vs: &ValidatorSetV1| {
