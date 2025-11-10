@@ -29,8 +29,9 @@ use ioi_types::error::{ChainError, StateError, TransactionError};
 use ioi_types::keys::{
     BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, STATUS_KEY, VALIDATOR_SET_KEY,
 };
-use ioi_types::service_configs::{ActiveServiceMeta, MethodPermission};
+// FIX: Add Timestamp import for TxContext construction.
 use ibc_primitives::Timestamp;
+use ioi_types::service_configs::{ActiveServiceMeta, MethodPermission};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -385,8 +386,14 @@ where
         let signer_account_id = signer_from_tx(tx);
         let mut tx_ctx = TxContext {
             block_height,
-            block_timestamp: Timestamp::from_nanoseconds(block_timestamp * 1_000_000_000)
-                .map_err(|e| ChainError::Transaction(format!("Invalid timestamp: {}", e)))?,
+            // to prevent potential overflows and ensure correct Timestamp creation.
+            block_timestamp: Timestamp::from_nanoseconds(
+                (block_timestamp as u128)
+                    .saturating_mul(1_000_000_000)
+                    .try_into()
+                    .map_err(|_| ChainError::Transaction("Timestamp overflow".to_string()))?,
+            )
+            .map_err(|e| ChainError::Transaction(format!("Invalid timestamp: {}", e)))?,
             chain_id: self.state.chain_id,
             signer_account_id,
             services: &self.services,

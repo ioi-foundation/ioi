@@ -64,13 +64,41 @@ pub fn compute_interval_from_parent_state(
 }
 
 /// A centralized helper to compute the timestamp for the next block.
+///
+/// This is the canonical implementation that MUST be used by both `decide` and
+/// `handle_block_proposal` to ensure consensus.
+///
+/// # Arguments
+/// * `params` - The on-chain `BlockTimingParams` from the parent state.
+/// * `runtime_state` - The on-chain `BlockTimingRuntime` from the parent state.
+/// * `parent_height` - The height of the parent block (H-1).
+/// * `parent_timestamp` - The timestamp (UNIX seconds) of the parent block.
+/// * `parent_gas_used` - The total gas used in the parent block.
+///
+/// # Returns
+/// The authoritative UNIX timestamp (in seconds) for the next block (height H).
 pub fn compute_next_timestamp(
     params: &BlockTimingParams,
     runtime_state: &BlockTimingRuntime,
-    parent_header: &crate::app::BlockHeader,
+    parent_height: u64,
+    parent_timestamp: u64,
     parent_gas_used: u64,
 ) -> Option<u64> {
-    let interval =
-        compute_interval_from_parent_state(params, runtime_state, parent_header.height, parent_gas_used);
-    parent_header.timestamp.checked_add(interval)
+    // If genesis block (height 0), its timestamp is determined by the application,
+    // so we can't compute a "next" timestamp from it in this context.
+    // The first block to be produced is block 1.
+    if parent_height == 0 {
+        // A fixed interval for the very first block can be used.
+        return parent_timestamp.checked_add(params.base_interval_secs);
+    }
+
+    let interval = compute_interval_from_parent_state(
+        params,
+        runtime_state,
+        parent_height,
+        parent_gas_used,
+    );
+
+    // The next block's timestamp is the parent's timestamp plus the computed interval.
+    parent_timestamp.checked_add(interval)
 }
