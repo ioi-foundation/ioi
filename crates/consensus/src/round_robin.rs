@@ -5,7 +5,6 @@ use crate::{ConsensusDecision, ConsensusEngine, PenaltyMechanism};
 use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, ChainView};
 use ioi_api::commitment::CommitmentScheme;
-use ioi_api::consensus::ChainStateReader;
 use ioi_api::state::{StateAccess, StateManager};
 use ioi_types::app::{
     compute_interval_from_parent_state, read_validator_sets, AccountId, Block, BlockTimingParams,
@@ -56,13 +55,6 @@ impl PenaltyMechanism for RoundRobinBftEngine {
 impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
     for RoundRobinBftEngine
 {
-    async fn get_validator_data(
-        &self,
-        _state_reader: &dyn ChainStateReader,
-    ) -> Result<Vec<Vec<u8>>, ConsensusError> {
-        Ok(vec![])
-    }
-
     async fn decide(
         &mut self,
         our_account_id: &AccountId,

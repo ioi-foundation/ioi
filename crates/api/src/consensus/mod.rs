@@ -8,8 +8,8 @@ use crate::state::{StateAccess, StateManager};
 use async_trait::async_trait;
 use ioi_types::app::{AccountId, Block};
 use ioi_types::error::{ConsensusError, TransactionError};
-use libp2p::{identity::PublicKey, PeerId};
-use std::collections::{BTreeMap, HashSet};
+use libp2p::PeerId;
+use std::collections::HashSet;
 
 /// Represents the decision a node should take in a given consensus round.
 #[derive(Debug)]
@@ -27,20 +27,6 @@ pub enum ConsensusDecision<T> {
     ProposeViewChange,
     /// The node is unable to make a decision and should stall, neither producing nor waiting.
     Stall,
-}
-
-/// Provides a read-only, abstract view of chain state needed by the consensus engine.
-#[async_trait]
-pub trait ChainStateReader: Send + Sync {
-    /// Fetches the current set of authorities for a Proof-of-Authority chain.
-    async fn get_authority_set(&self) -> Result<Vec<Vec<u8>>, String>;
-    /// Fetches the pending next set of staked validators for a Proof-of-Stake chain.
-    async fn get_next_staked_validators(&self) -> Result<BTreeMap<AccountId, u64>, String>;
-    /// Resolves an `AccountId` to its corresponding full `PublicKey`.
-    async fn get_public_key_for_account(
-        &self,
-        account_id: &ioi_types::app::AccountId,
-    ) -> Result<PublicKey, String>;
 }
 
 /// Defines the logic for applying penalties for misbehavior, specific to a consensus type.
@@ -73,15 +59,6 @@ impl<T: PenaltyMechanism + ?Sized> PenaltyMechanism for &T {
 pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
     PenaltyMechanism + Send + Sync
 {
-    /// Retrieves the data necessary for consensus leader election (e.g., PoA authorities, PoS stakes).
-    #[deprecated(
-        note = "Consensus data should now be read from the AnchoredStateView passed to decide/handle_block_proposal"
-    )]
-    async fn get_validator_data(
-        &self,
-        state_reader: &dyn ChainStateReader,
-    ) -> Result<Vec<Vec<u8>>, ConsensusError>;
-
     /// Makes a consensus decision for the current round, determining if the local node should
     /// produce a block, wait, or propose a view change.
     async fn decide(

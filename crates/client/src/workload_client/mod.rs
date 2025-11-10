@@ -7,17 +7,12 @@ use actor::{ClientActor, ClientRequest, PendingRequestMap};
 use anyhow::{anyhow, Result};
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
-use ioi_api::{
-    consensus::ChainStateReader,
-    vm::{ExecutionContext, ExecutionOutput},
-};
+use ioi_api::vm::{ExecutionContext, ExecutionOutput};
 use ioi_ipc::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest};
 use ioi_types::app::{
     AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction, Membership, StateAnchor,
     StateRoot,
 };
-use ioi_types::keys::ACCOUNT_ID_TO_PUBKEY_PREFIX;
-use libp2p::identity::PublicKey;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
 use std::collections::{BTreeMap, HashMap};
@@ -424,6 +419,20 @@ impl WorkloadClient {
             .collect()
     }
 
+    pub async fn get_next_staked_validators(&self) -> Result<BTreeMap<AccountId, u64>> {
+        let map_with_str_keys: BTreeMap<String, u64> =
+            self.send_rpc("staking.getNextStakes.v1", json!({})).await?;
+        map_with_str_keys
+            .into_iter()
+            .map(|(hex_key, stake)| {
+                let bytes: [u8; 32] = hex::decode(hex_key)?
+                    .try_into()
+                    .map_err(|_| anyhow!("Invalid AccountId length"))?;
+                Ok((AccountId(bytes), stake))
+            })
+            .collect()
+    }
+
     pub async fn get_state_root(&self) -> Result<StateRoot> {
         let bytes: Vec<u8> = self.send_rpc("state.getStateRoot.v1", json!({})).await?;
         Ok(StateRoot(bytes))
@@ -490,53 +499,6 @@ impl WorkloadClient {
         }
         let params = Params { height };
         self.send_rpc("chain.getBlockByHeight.v1", params).await
-    }
-}
-
-#[async_trait]
-impl ChainStateReader for WorkloadClient {
-    async fn get_authority_set(&self) -> Result<Vec<Vec<u8>>, String> {
-        self.send_rpc("chain.getAuthoritySet.v1", json!({}))
-            .await
-            .map_err(|e| e.to_string())
-    }
-
-    async fn get_next_staked_validators(&self) -> Result<BTreeMap<AccountId, u64>, String> {
-        let map_with_str_keys: BTreeMap<String, u64> = self
-            .send_rpc("staking.getNextStakes.v1", json!({}))
-            .await
-            .map_err(|e| e.to_string())?;
-
-        map_with_str_keys
-            .into_iter()
-            .map(|(hex_key, stake)| {
-                let bytes: [u8; 32] = hex::decode(hex_key)
-                    .map_err(|e| e.to_string())?
-                    .try_into()
-                    .map_err(|_| "Invalid AccountId length".to_string())?;
-                Ok((AccountId(bytes), stake))
-            })
-            .collect::<Result<_, String>>()
-    }
-
-    async fn get_public_key_for_account(
-        &self,
-        account_id: &AccountId,
-    ) -> Result<PublicKey, String> {
-        let key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-        let pk_bytes = self
-            .query_raw_state(&key)
-            .await
-            .map_err(|e| e.to_string())?
-            .ok_or_else(|| {
-                format!(
-                    "Public key not found for AccountId: {}",
-                    hex::encode(account_id)
-                )
-            })?;
-
-        PublicKey::try_decode_protobuf(&pk_bytes)
-            .map_err(|e| format!("Failed to decode public key protobuf: {}", e))
     }
 }
 

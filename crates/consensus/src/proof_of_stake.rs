@@ -14,7 +14,6 @@ use ioi_types::keys::{
 };
 use ioi_api::chain::{AnchoredStateView, ChainView};
 use ioi_api::commitment::CommitmentScheme;
-use ioi_api::consensus::ChainStateReader;
 use ioi_api::state::{StateAccess, StateManager};
 use std::collections::HashSet;
 
@@ -133,13 +132,6 @@ impl PenaltyMechanism for ProofOfStakeEngine {
 impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
     for ProofOfStakeEngine
 {
-    async fn get_validator_data(
-        &self,
-        _state_reader: &dyn ChainStateReader,
-    ) -> Result<Vec<Vec<u8>>, ConsensusError> {
-        Ok(vec![])
-    }
-
     async fn decide(
         &mut self,
         our_account_id: &AccountId,
