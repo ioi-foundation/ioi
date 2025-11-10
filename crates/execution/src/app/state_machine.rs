@@ -3,7 +3,7 @@
 use super::Chain;
 use async_trait::async_trait;
 use ioi_api::app::{Block, BlockHeader, ChainStatus, ChainTransaction};
-use ioi_api::chain::{ChainStateMachine, PreparedBlock};
+use ioi_api::chain::{ChainStateMachine, ChainView, PreparedBlock};
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::state::{PinGuard, StateManager, StateOverlay, ProofProvider};
 use ioi_api::transaction::context::TxContext;
@@ -193,10 +193,14 @@ where
 
             let end_block_ctx = TxContext {
                 block_height: block.header.height,
-                block_timestamp: Timestamp::from_nanoseconds(
-                    block.header.timestamp * 1_000_000_000,
-                )
-                .map_err(|e| ChainError::Transaction(format!("Invalid timestamp: {}", e)))?,
+                block_timestamp: {
+                    let ts_ns: u64 = (block.header.timestamp as u128)
+                        .saturating_mul(1_000_000_000)
+                        .try_into()
+                        .map_err(|_| ChainError::Transaction("Timestamp overflow".to_string()))?;
+                    Timestamp::from_nanoseconds(ts_ns)
+                        .map_err(|e| ChainError::Transaction(format!("Invalid timestamp: {}", e)))?
+                },
                 chain_id: self.state.chain_id,
                 signer_account_id: AccountId::default(),
                 services: &self.services,

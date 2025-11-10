@@ -33,7 +33,7 @@ futures = { workspace = true }                                # Add futures
 parity-scale-codec = { workspace = true, features = ["std"] }
 toml = { workspace = true }
 
-# [+] FIX: Add the missing dependency here
+# FIX: Add the missing dependency for TxContext's timestamp.
 ibc-primitives = { workspace = true }
 
 

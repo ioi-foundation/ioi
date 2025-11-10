@@ -2,12 +2,12 @@
 use crate::common::penalty::apply_quarantine_penalty;
 use crate::{ConsensusDecision, ConsensusEngine, PenaltyMechanism};
 use async_trait::async_trait;
-use ioi_api::chain::{AnchoredStateView, ChainView};
+use ioi_api::chain::{AnchoredStateView, ChainView, StateRef};
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::state::{StateAccess, StateManager};
 use ioi_types::app::{
-    account_id_from_key_material, compute_interval_from_parent_state, read_validator_sets,
-    AccountId, Block, BlockTimingParams, BlockTimingRuntime, ChainStatus, FailureReport,
+    account_id_from_key_material, compute_next_timestamp, read_validator_sets, AccountId, Block,
+    BlockTimingParams, BlockTimingRuntime, ChainStatus, FailureReport,
     SignatureSuite, ValidatorSetV1, ValidatorSetsV1,
 };
 use ioi_types::codec;
@@ -120,47 +120,33 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
 
         // Compute the authoritative timestamp for block at `height`.
         // This mirrors verification logic in handle_block_proposal.
-        let expected_timestamp_secs = {
+        let expected_timestamp_secs_res = async {
             // Timing params/runtime from parent state
-            let timing_params_bytes = match parent_view.get(BLOCK_TIMING_PARAMS_KEY).await {
-                Ok(Some(b)) => b,
-                _ => return ConsensusDecision::Stall,
-            };
-            let timing_runtime_bytes = match parent_view.get(BLOCK_TIMING_RUNTIME_KEY).await {
-                Ok(Some(b)) => b,
-                _ => return ConsensusDecision::Stall,
-            };
+            let timing_params_bytes = parent_view.get(BLOCK_TIMING_PARAMS_KEY).await.map_err(|_| ())?.ok_or(())?;
+            let timing_runtime_bytes = parent_view.get(BLOCK_TIMING_RUNTIME_KEY).await.map_err(|_| ())?.ok_or(())?;
+
             let timing_params: BlockTimingParams =
-                match codec::from_bytes_canonical(&timing_params_bytes) {
-                    Ok(x) => x,
-                    Err(_) => return ConsensusDecision::Stall,
-                };
+                codec::from_bytes_canonical(&timing_params_bytes).map_err(|_| ())?;
             let timing_runtime: BlockTimingRuntime =
-                match codec::from_bytes_canonical(&timing_runtime_bytes) {
-                    Ok(x) => x,
-                    Err(_) => return ConsensusDecision::Stall,
-                };
+                codec::from_bytes_canonical(&timing_runtime_bytes).map_err(|_| ())?;
+
             // Parent timestamp from ChainStatus in parent state
-            let status_bytes = match parent_view.get(STATUS_KEY).await {
-                Ok(Some(b)) => b,
-                _ => return ConsensusDecision::Stall,
-            };
-            let parent_status: ChainStatus = match codec::from_bytes_canonical(&status_bytes) {
-                Ok(s) => s,
-                Err(_) => return ConsensusDecision::Stall,
-            };
-            let parent_ts = parent_status.latest_timestamp; // seconds
-            let parent_gas_used_placeholder = 0u64;
-            let interval = compute_interval_from_parent_state(
+            let status_bytes = parent_view.get(STATUS_KEY).await.map_err(|_| ())?.ok_or(())?;
+            let parent_status: ChainStatus =
+                codec::from_bytes_canonical(&status_bytes).map_err(|_| ())?;
+
+            // This replaces the duplicated logic with a single, verifiable source of truth.
+            compute_next_timestamp(
                 &timing_params,
                 &timing_runtime,
                 height.saturating_sub(1),
-                parent_gas_used_placeholder,
-            );
-            match parent_ts.checked_add(interval) {
-                Some(v) => v,
-                None => return ConsensusDecision::Stall,
-            }
+                parent_status.latest_timestamp,
+                0, // parent_gas_used is not yet tracked, placeholder
+            )
+            .ok_or(())
+        };
+        let Ok(expected_timestamp_secs) = expected_timestamp_secs_res.await else {
+            return ConsensusDecision::Stall;
         };
 
         let n = validator_set.len() as u64;
@@ -198,9 +184,8 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             ));
         }
 
-        let parent_state_ref = ioi_api::chain::StateRef {
+        let parent_state_ref = StateRef {
             height: header.height - 1,
-            // [+] FIX: Use .to_vec() to support variable-length state roots.
             state_root: header.parent_state_root.as_ref().to_vec(),
             block_hash: header.parent_hash,
         };
@@ -214,35 +199,26 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         })?;
 
         // [+] VERIFY TIMESTAMP (Deterministic from parent state)
-        let timing_params_bytes = parent_view
-            .get(BLOCK_TIMING_PARAMS_KEY)
-            .await
-            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?;
-        let timing_runtime_bytes = parent_view
-            .get(BLOCK_TIMING_RUNTIME_KEY)
-            .await
-            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?;
+        let timing_params_bytes = parent_view.get(BLOCK_TIMING_PARAMS_KEY).await.map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?.ok_or_else(
+            || ConsensusError::BlockVerificationFailed("BlockTimingParams not found".into()),
+        )?;
+        let timing_runtime_bytes = parent_view.get(BLOCK_TIMING_RUNTIME_KEY).await.map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?.ok_or_else(
+            || ConsensusError::BlockVerificationFailed("BlockTimingRuntime not found".into()),
+        )?;
 
         let timing_params: BlockTimingParams =
-            codec::from_bytes_canonical(&timing_params_bytes.ok_or_else(|| {
-                ConsensusError::BlockVerificationFailed("BlockTimingParams not found".into())
-            })?)
-            .map_err(|_| {
+            codec::from_bytes_canonical(&timing_params_bytes).map_err(|_| {
                 ConsensusError::BlockVerificationFailed("Decode BlockTimingParams failed".into())
             })?;
         let timing_runtime: BlockTimingRuntime =
-            codec::from_bytes_canonical(&timing_runtime_bytes.ok_or_else(|| {
-                ConsensusError::BlockVerificationFailed("BlockTimingRuntime not found".into())
-            })?)
-            .map_err(|_| {
+            codec::from_bytes_canonical(&timing_runtime_bytes).map_err(|_| {
                 ConsensusError::BlockVerificationFailed("Decode BlockTimingRuntime failed".into())
             })?;
 
         // Parent timestamp from parent ChainStatus in state (deterministic and universal).
         let status_bytes = parent_view
             .get(STATUS_KEY)
-            .await
-            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
+            .await.map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
             .ok_or_else(|| {
                 ConsensusError::BlockVerificationFailed(
                     "ChainStatus missing in parent state".into(),
@@ -252,19 +228,17 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             codec::from_bytes_canonical(&status_bytes).map_err(|_| {
                 ConsensusError::BlockVerificationFailed("Decode ChainStatus failed".into())
             })?;
-        let parent_timestamp = parent_status.latest_timestamp;
 
         let parent_gas_used_placeholder = 0u64; // TODO: replace when gas_used is recorded.
         let parent_height = header.height - 1;
-        let interval = compute_interval_from_parent_state(
+        let expected_ts = compute_next_timestamp(
             &timing_params,
             &timing_runtime,
             parent_height,
+            parent_status.latest_timestamp,
             parent_gas_used_placeholder,
-        );
-        let expected_ts = parent_timestamp
-            .checked_add(interval)
-            .ok_or_else(|| ConsensusError::BlockVerificationFailed("Timestamp overflow".into()))?;
+        )
+        .ok_or_else(|| ConsensusError::BlockVerificationFailed("Timestamp overflow".into()))?;
 
         if header.timestamp != expected_ts {
             return Err(ConsensusError::BlockVerificationFailed(format!(
