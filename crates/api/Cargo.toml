@@ -17,7 +17,7 @@ thiserror = { workspace = true }
 bytes = { workspace = true }
 libp2p = { workspace = true }
 dcrypt = { workspace = true }
-tokio = { workspace = true, features = ["sync"] }
+tokio = { workspace = true, features = ["sync", "time"] }
 hex = { workspace = true }
 dashmap = { workspace = true }
 lru = { workspace = true }
@@ -28,6 +28,10 @@ anyhow = { workspace = true }
 # FIX: Add the missing dependency on ibc-primitives.
 # This is required because TxContext now contains an ibc_primitives::Timestamp.
 ibc-primitives = { workspace = true }
+
+[dev-dependencies]
+rand = { workspace = true }
+futures-util = { workspace = true }
 
 [features]
 default = []

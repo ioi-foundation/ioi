@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use ioi_api::app::{Block, BlockHeader, ChainStatus, ChainTransaction};
 use ioi_api::chain::{ChainStateMachine, ChainView, PreparedBlock};
 use ioi_api::commitment::CommitmentScheme;
-use ioi_api::state::{PinGuard, StateManager, StateOverlay, ProofProvider};
+use ioi_api::state::{PinGuard, ProofProvider, StateManager, StateOverlay};
 use ioi_api::transaction::context::TxContext;
 use ioi_api::validator::WorkloadContainer;
 use ioi_tx::unified::{UnifiedProof, UnifiedTransactionModel};
@@ -38,8 +38,15 @@ where
         + 'static
         + Clone,
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
-    <CS as CommitmentScheme>::Proof:
-        AsRef<[u8]> + Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Decode + Debug,
+    <CS as CommitmentScheme>::Proof: AsRef<[u8]>
+        + Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Decode
+        + Debug,
     <CS as CommitmentScheme>::Commitment: From<Vec<u8>>,
 {
     fn status(&self) -> &ChainStatus {
@@ -69,7 +76,7 @@ where
 
         let mut proofs_out = Vec::with_capacity(block.transactions.len());
         let state_changes = {
-            let _pin_guard = PinGuard::new(workload.pins.clone(), self.state.status.height).await;
+            let _pin_guard = PinGuard::new(workload.pins.clone(), self.state.status.height);
             let snapshot_state = {
                 let state_tree_arc = workload.state_tree();
                 let backend_guard = state_tree_arc.read().await;
