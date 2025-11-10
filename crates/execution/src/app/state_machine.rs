@@ -218,7 +218,10 @@ where
                     let mut sets = read_validator_sets(bytes)?;
                     let mut modified = false;
                     if let Some(next_vs) = &sets.next {
-                        if block.header.height >= next_vs.effective_from_height {
+                        if block.header.height >= next_vs.effective_from_height
+                            && !next_vs.validators.is_empty()
+                            && next_vs.total_weight > 0
+                        {
                             tracing::info!(target: "chain", event = "validator_set_promotion", height = block.header.height, "Promoting validator set");
                             let promoted_from_height = next_vs.effective_from_height;
                             sets.current = next_vs.clone();
