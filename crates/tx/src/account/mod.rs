@@ -20,14 +20,13 @@ pub struct AccountTransaction {
 #[derive(Serialize, Deserialize, Debug, Clone, Encode, Decode)]
 pub struct Account {
     pub balance: u64,
-    pub nonce: u64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Encode, Decode)]
 pub struct AccountTransactionProof<P> {
     pub account_key: Vec<u8>,
-    pub account_value: Vec<u8>,
-    pub inclusion_proof: P,
+    pub account_value: Option<Vec<u8>>, // None means non-membership
+    pub membership_proof: P,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -66,7 +65,6 @@ impl<CS: CommitmentScheme> AccountModel<CS> {
             Some(data) => self.decode_account(&data),
             None => Ok(Account {
                 balance: self.config.initial_balance,
-                nonce: 0,
             }),
         }
     }
@@ -84,7 +82,8 @@ impl<CS: CommitmentScheme> AccountModel<CS> {
 #[async_trait]
 impl<CS: CommitmentScheme + Send + Sync> TransactionModel for AccountModel<CS>
 where
-    <CS as CommitmentScheme>::Proof: Serialize + for<'de> Deserialize<'de>,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> serde::Deserialize<'de> + Encode + Decode + std::fmt::Debug,
 {
     type Transaction = AccountTransaction;
     type CommitmentScheme = CS;
@@ -96,45 +95,60 @@ where
 
     async fn apply_payload<ST, CV>(
         &self,
-        _chain: &CV,
+        chain: &CV,
         state: &mut dyn StateAccess,
         tx: &Self::Transaction,
         _ctx: &mut TxContext<'_>,
-    ) -> Result<(), TransactionError>
+    ) -> Result<Self::Proof, TransactionError>
     where
         ST: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + Send
+            > + ProofProvider
+            + Send
             + Sync
             + 'static,
         CV: ioi_api::chain::ChainView<Self::CommitmentScheme, ST> + Send + Sync + ?Sized,
     {
-        // Perform stateful validation just-in-time
+        // --- 1) Read pre-state via overlay (for execution logic) ---
         let sender_account = self.get_account(state, &tx.from)?;
+
+        // --- 2) Generate anchored proof from the immutable backend ---
+        let backend_arc = chain.workload_container().state_tree();
+        let backend_guard = backend_arc.read().await;
+        let backend = &*backend_guard;
+        let pre_root = backend.root_commitment();
+        let (membership, membership_proof) = backend
+            .get_with_proof_at(&pre_root, &tx.from)
+            .map_err(TransactionError::State)?;
+        let account_value = match membership {
+            ioi_types::app::Membership::Present(v) => Some(v),
+            ioi_types::app::Membership::Absent => None,
+        };
+        let proof = AccountTransactionProof {
+            account_key: tx.from.clone(),
+            account_value,
+            membership_proof,
+        };
+
+        // --- 3) Stateful checks (NO nonce check here; it's an ante handler concern) ---
         if sender_account.balance < tx.amount {
-            return Err(TransactionError::Invalid(
-                "Insufficient balance".to_string(),
-            ));
-        }
-        if sender_account.nonce != tx.nonce {
-            return Err(TransactionError::Invalid("Invalid nonce".to_string()));
+            return Err(TransactionError::Invalid("Insufficient balance".into()));
         }
 
-        // Apply state changes
+        // --- 4) Apply writes to overlay ---
         let mut new_sender_account = sender_account;
         new_sender_account.balance -= tx.amount;
-        new_sender_account.nonce += 1;
         state.insert(&tx.from, &self.encode_account(&new_sender_account)?)?;
 
         let mut receiver_account = self.get_account(state, &tx.to)?;
         receiver_account.balance = receiver_account
             .balance
             .checked_add(tx.amount)
-            .ok_or(TransactionError::Invalid("Balance overflow".to_string()))?;
+            .ok_or(TransactionError::Invalid("Balance overflow".into()))?;
         state.insert(&tx.to, &self.encode_account(&receiver_account)?)?;
 
-        Ok(())
+        Ok(proof)
     }
 
     fn create_coinbase_transaction(
@@ -145,49 +159,6 @@ where
         Err(TransactionError::Invalid(
             "Coinbase not supported for account model".to_string(),
         ))
-    }
-
-    fn generate_proof<P>(
-        &self,
-        tx: &Self::Transaction,
-        state: &P,
-    ) -> Result<Self::Proof, TransactionError>
-    where
-        P: ProofProvider<
-                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + ?Sized,
-    {
-        let key = tx.from.clone();
-        // ProofProvider does not have `get`, so we cannot generate proof this way anymore.
-        // This indicates a deeper refactoring is needed for proof generation logic.
-        // For now, return a placeholder to satisfy the compiler.
-        // TODO: Re-architect proof generation to not depend on state reads.
-        let inclusion_proof = state.create_proof(&key).ok_or_else(|| {
-            TransactionError::Invalid("Failed to create inclusion proof for account".to_string())
-        })?;
-        Ok(AccountTransactionProof {
-            account_key: key,
-            account_value: vec![], // This value is no longer available here.
-            inclusion_proof,
-        })
-    }
-
-    fn verify_proof<P>(&self, proof: &Self::Proof, state: &P) -> Result<bool, TransactionError>
-    where
-        P: ProofProvider<
-                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + ?Sized,
-    {
-        let root_commitment = state.root_commitment();
-        let is_valid = state.verify_proof(
-            &root_commitment,
-            &proof.inclusion_proof,
-            &proof.account_key,
-            &proof.account_value,
-        );
-        Ok(is_valid.is_ok())
     }
 
     fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError> {

@@ -128,10 +128,10 @@ fn signer_from_tx(tx: &ChainTransaction) -> AccountId {
 
 impl<CS, ST> Chain<CS, ST>
 where
-    CS: CommitmentScheme + Clone,
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        serde::Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+        serde::Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
 {
     /// Select the validator set that is effective for the given height.
     fn select_set_for_height(sets: &ValidatorSetsV1, h: u64) -> &ValidatorSetV1 {
@@ -380,6 +380,7 @@ where
         overlay: &mut StateOverlay<'_>,
         block_height: u64,
         block_timestamp: u64,
+        proofs_out: &mut Vec<Vec<u8>>,
     ) -> Result<(), ChainError> {
         let signer_account_id = signer_from_tx(tx);
         let mut tx_ctx = TxContext {
@@ -406,10 +407,13 @@ where
 
         nonce::bump_nonce(overlay, tx)?;
 
-        self.state
+        let proof = self
+            .state
             .transaction_model
             .apply_payload(self, overlay, tx, &mut tx_ctx)
             .await?;
+        proofs_out
+            .push(ioi_types::codec::to_bytes_canonical(&proof).map_err(ChainError::Transaction)?);
 
         Ok(())
     }

@@ -8,16 +8,18 @@ pub use ioi_types::app::{Input, Output, UTXOTransaction};
 use ioi_types::app::Membership;
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
+use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Encode, Decode)]
 pub struct InputProof<P> {
     pub utxo_key: Vec<u8>,
     pub utxo_value: Vec<u8>,
     pub inclusion_proof: P,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Encode, Decode)]
 pub struct UTXOTransactionProof<P> {
     pub input_proofs: Vec<InputProof<P>>,
 }
@@ -65,7 +67,8 @@ impl<CS: CommitmentScheme> UTXOOperations for UTXOModel<CS> {
 #[async_trait]
 impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UTXOModel<CS>
 where
-    <CS as CommitmentScheme>::Proof: Serialize + for<'de> serde::Deserialize<'de>,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> serde::Deserialize<'de> + Encode + Decode + Debug,
 {
     type Transaction = UTXOTransaction;
     type CommitmentScheme = CS;
@@ -83,21 +86,22 @@ where
 
     async fn apply_payload<ST, CV>(
         &self,
-        _chain: &CV,
+        chain: &CV,
         state: &mut dyn StateAccess,
         tx: &Self::Transaction,
         _ctx: &mut TxContext<'_>,
-    ) -> Result<(), TransactionError>
+    ) -> Result<Self::Proof, TransactionError>
     where
         ST: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + Send
+            > + ProofProvider
+            + Send
             + Sync
             + 'static,
         CV: ioi_api::chain::ChainView<Self::CommitmentScheme, ST> + Send + Sync + ?Sized,
     {
-        // Stateful validation
+        // 1) Stateful validation & read values from overlay
         if tx.inputs.is_empty() {
             if tx.outputs.is_empty() {
                 return Err(TransactionError::Invalid(
@@ -106,6 +110,7 @@ where
             }
         } else {
             let mut total_input: u64 = 0;
+            let mut materialized_inputs = Vec::with_capacity(tx.inputs.len());
             for input in &tx.inputs {
                 let key = self.create_utxo_key(&input.tx_hash, input.output_index);
                 let utxo_bytes = state
@@ -116,28 +121,56 @@ where
                 total_input = total_input
                     .checked_add(utxo.value)
                     .ok_or_else(|| TransactionError::Invalid("Input value overflow".to_string()))?;
+                materialized_inputs.push((key, utxo_bytes));
             }
             let total_output: u64 = tx.outputs.iter().map(|o| o.value).sum();
             if total_input < total_output {
                 return Err(TransactionError::Invalid("Insufficient funds".to_string()));
             }
-        }
 
-        // Apply state changes
-        for input in &tx.inputs {
-            let key = self.create_utxo_key(&input.tx_hash, input.output_index);
-            state.delete(&key)?;
-        }
+            // 2) Generate anchored proofs BEFORE we touch overlay deletes
+            let backend_arc = chain.workload_container().state_tree();
+            let backend_guard = backend_arc.read().await;
+            let backend = &*backend_guard;
+            let pre_root = backend.root_commitment();
 
-        let tx_hash = tx
-            .hash()
-            .map_err(|e| TransactionError::Invalid(e.to_string()))?;
-        for (index, output) in tx.outputs.iter().enumerate() {
-            let key = self.create_utxo_key(&tx_hash, index as u32);
-            let value = codec::to_bytes_canonical(output)?;
-            state.insert(&key, &value)?;
+            let mut input_proofs = Vec::with_capacity(materialized_inputs.len());
+            for (key, value) in &materialized_inputs {
+                let (membership, inclusion_proof) = backend
+                    .get_with_proof_at(&pre_root, key)
+                    .map_err(TransactionError::State)?;
+                match membership {
+                    Membership::Present(_) => {
+                        input_proofs.push(InputProof {
+                            utxo_key: key.clone(),
+                            utxo_value: value.clone(),
+                            inclusion_proof,
+                        });
+                    }
+                    Membership::Absent => {
+                        return Err(TransactionError::Invalid(
+                            "Input UTXO non-membership at pre-state".into(),
+                        ));
+                    }
+                }
+            }
+
+            // 3) Apply overlay deletes/inserts
+            for (key, _) in &materialized_inputs {
+                state.delete(key)?;
+            }
+            let tx_hash = tx
+                .hash()
+                .map_err(|e| TransactionError::Invalid(e.to_string()))?;
+            for (index, output) in tx.outputs.iter().enumerate() {
+                let key = self.create_utxo_key(&tx_hash, index as u32);
+                let value = codec::to_bytes_canonical(output)?;
+                state.insert(&key, &value)?;
+            }
+            return Ok(UTXOTransactionProof { input_proofs });
         }
-        Ok(())
+        // This path is for coinbase, which has no inputs to prove.
+        Ok(UTXOTransactionProof { input_proofs: vec![] })
     }
 
     fn create_coinbase_transaction(
@@ -152,64 +185,6 @@ where
                 public_key: recipient.to_vec(),
             }],
         })
-    }
-
-    fn generate_proof<P>(
-        &self,
-        tx: &Self::Transaction,
-        state: &P,
-    ) -> Result<Self::Proof, TransactionError>
-    where
-        P: ProofProvider<
-                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + ?Sized,
-    {
-        let mut input_proofs = Vec::with_capacity(tx.inputs.len());
-        let root_commitment = state.root_commitment();
-
-        for input in &tx.inputs {
-            let key = self.create_utxo_key(&input.tx_hash, input.output_index);
-            let (membership, inclusion_proof) = state.get_with_proof_at(&root_commitment, &key)?;
-            let value = match membership {
-                Membership::Present(v) => v,
-                Membership::Absent => {
-                    return Err(TransactionError::Invalid(
-                        "Input UTXO for proof generation not found".to_string(),
-                    ))
-                }
-            };
-            input_proofs.push(InputProof {
-                utxo_key: key,
-                utxo_value: value,
-                inclusion_proof,
-            });
-        }
-        Ok(UTXOTransactionProof { input_proofs })
-    }
-
-    fn verify_proof<P>(&self, proof: &Self::Proof, state: &P) -> Result<bool, TransactionError>
-    where
-        P: ProofProvider<
-                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + ?Sized,
-    {
-        let root_commitment = state.root_commitment();
-        for input_proof in &proof.input_proofs {
-            if state
-                .verify_proof(
-                    &root_commitment,
-                    &input_proof.inclusion_proof,
-                    &input_proof.utxo_key,
-                    &input_proof.utxo_value,
-                )
-                .is_err()
-            {
-                return Ok(false);
-            }
-        }
-        Ok(true)
     }
 
     fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError> {

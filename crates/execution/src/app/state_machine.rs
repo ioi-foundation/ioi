@@ -3,28 +3,28 @@
 use super::Chain;
 use async_trait::async_trait;
 use ioi_api::app::{Block, BlockHeader, ChainStatus, ChainTransaction};
-use ioi_api::chain::{ChainStateMachine, PreparedBlock, ChainView};
+use ioi_api::chain::{ChainStateMachine, PreparedBlock};
 use ioi_api::commitment::CommitmentScheme;
-use ioi_api::state::{PinGuard, StateManager, StateOverlay};
+use ioi_api::state::{PinGuard, StateManager, StateOverlay, ProofProvider};
 use ioi_api::transaction::context::TxContext;
 use ioi_api::validator::WorkloadContainer;
-use ioi_tx::unified::UnifiedTransactionModel;
-// FIX: Add missing imports for functions and types used in this module.
+use ioi_tx::unified::{UnifiedProof, UnifiedTransactionModel};
 use ioi_types::app::{
     account_id_from_key_material, compute_interval_from_parent_state, read_validator_sets,
     to_root_hash, write_validator_sets, AccountId, BlockTimingParams, BlockTimingRuntime,
     SignatureSuite, StateRoot,
 };
 use ioi_types::codec;
-// FIX: Add missing import for the ConsensusType enum.
 use ioi_types::config::ConsensusType;
 use ioi_types::error::{BlockError, ChainError, StateError};
 use ioi_types::keys::{STATUS_KEY, VALIDATOR_SET_KEY};
 use ioi_types::service_configs::Capabilities;
 use ibc_primitives::Timestamp;
 use libp2p::identity::Keypair;
+use parity_scale_codec::Decode;
 use serde::Serialize;
 use std::collections::BTreeMap;
+use std::fmt::Debug;
 use std::sync::Arc;
 
 #[async_trait]
@@ -32,13 +32,14 @@ impl<CS, ST> ChainStateMachine<CS, UnifiedTransactionModel<CS>, ST> for Chain<CS
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + ProofProvider
         + Send
         + Sync
         + 'static
         + Clone,
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
     <CS as CommitmentScheme>::Proof:
-        AsRef<[u8]> + Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+        AsRef<[u8]> + Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Decode + Debug,
     <CS as CommitmentScheme>::Commitment: From<Vec<u8>>,
 {
     fn status(&self) -> &ChainStatus {
@@ -66,27 +67,32 @@ where
             }));
         }
 
+        let mut proofs_out = Vec::with_capacity(block.transactions.len());
         let state_changes = {
             let _pin_guard = PinGuard::new(workload.pins.clone(), self.state.status.height).await;
             let snapshot_state = {
                 let state_tree_arc = workload.state_tree();
-                let base_state = state_tree_arc.read().await;
-                base_state.clone()
+                let backend_guard = state_tree_arc.read().await;
+                backend_guard.clone()
             };
             let mut overlay = StateOverlay::new(&snapshot_state);
 
             for tx in &block.transactions {
-                if let Err(e) = self
+                match self
                     .process_transaction(
                         tx,
                         &mut overlay,
                         block.header.height,
                         block.header.timestamp,
+                        &mut proofs_out,
                     )
                     .await
                 {
-                    tracing::error!(target: "block", height = block.header.height, error = %e, "process_transaction failed; rejecting block proposal");
-                    return Err(e);
+                    Ok(()) => {}
+                    Err(e) => {
+                        tracing::error!(target: "block", height = block.header.height, error = %e, "process_transaction failed; rejecting block proposal");
+                        return Err(e);
+                    }
                 }
             }
 
@@ -107,6 +113,7 @@ where
             parent_state_root: self.state.last_state_root.clone(),
             transactions_root,
             validator_set_hash,
+            tx_proofs: proofs_out,
         })
     }
 
@@ -129,6 +136,38 @@ where
                 "Stale preparation: Parent state root has changed since block was prepared".into(),
             ));
         }
+
+        // --- VERIFY PROOFS ---
+        let backend = {
+            let tree_arc = workload.state_tree();
+            let guard = tree_arc.read().await;
+            guard.clone()
+        };
+        let commit = backend
+            .commitment_from_bytes(&prepared.parent_state_root)
+            .map_err(ChainError::State)?;
+
+        for (i, _tx) in block.transactions.iter().enumerate() {
+            let proof_bytes = prepared.tx_proofs.get(i).ok_or_else(|| {
+                ChainError::Transaction("Missing proof for transaction".to_string())
+            })?;
+
+            let proof: UnifiedProof<<CS as CommitmentScheme>::Proof> =
+                codec::from_bytes_canonical(proof_bytes).map_err(ChainError::Transaction)?;
+
+            match proof {
+                UnifiedProof::UTXO(p) => {
+                    for ip in p.input_proofs {
+                        backend
+                            .verify_proof(&commit, &ip.inclusion_proof, &ip.utxo_key, &ip.utxo_value)
+                            .map_err(ChainError::State)?;
+                    }
+                }
+                _ => { /* Verification for other proof types would go here */ }
+            }
+        }
+
+        drop(backend); // Release read lock before acquiring write lock
 
         let final_state_root_bytes = {
             let state_tree_arc = workload.state_tree();
@@ -221,7 +260,6 @@ where
                     && block.header.height % params.retarget_every_blocks as u64 == 0
                 {
                     let gas_used_this_block = 0;
-                    // FIX: Call the newly imported function directly.
                     let next_interval = compute_interval_from_parent_state(
                         &params,
                         &old_runtime,
@@ -265,7 +303,6 @@ where
                 if cfg!(debug_assertions) && !state.version_exists_for_root(&final_commitment) {
                     return Err(ChainError::State(StateError::Validation(format!("FATAL INVARIANT VIOLATION: The committed root for height {} is not mapped to a queryable version!", block.header.height))));
                 }
-                // FIX: Use the newly imported enum directly.
                 if self.consensus_engine.consensus_type() == ConsensusType::ProofOfStake {
                     match state.get_with_proof_at(&final_commitment, VALIDATOR_SET_KEY) {
                         Ok((Membership::Present(_), _)) => {

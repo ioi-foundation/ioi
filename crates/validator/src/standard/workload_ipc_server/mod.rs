@@ -110,8 +110,14 @@ where
         + Clone,
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     CS::Commitment: std::fmt::Debug + Send + Sync + From<Vec<u8>>,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + AsRef<[u8]>,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + AsRef<[u8]>
+        + std::fmt::Debug,
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
     /// Creates a new `WorkloadIpcServer`.
@@ -303,7 +309,6 @@ where
                     Ok(s) => s,
                     Err(e) => return log::error!("[WorkloadIPC] TLS accept error: {}", e),
                 };
-                // FIX: Wrap the concrete server stream into the generic TlsStream enum
                 let mut tls_stream = TlsStream::Server(server_conn);
 
                 // --- POST-HANDSHAKE HYBRID KEY EXCHANGE (before any app bytes) ---

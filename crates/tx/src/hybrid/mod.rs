@@ -10,6 +10,7 @@ use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub enum HybridTransaction {
@@ -17,7 +18,7 @@ pub enum HybridTransaction {
     UTXO(UTXOTransaction),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Encode, Decode)]
 pub enum HybridProof<AP, UP> {
     Account(AccountTransactionProof<AP>),
     UTXO(UTXOTransactionProof<UP>),
@@ -53,7 +54,8 @@ impl<CS: CommitmentScheme + Clone> HybridModel<CS> {
 #[async_trait]
 impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for HybridModel<CS>
 where
-    <CS as CommitmentScheme>::Proof: Serialize + for<'de> serde::Deserialize<'de> + Clone,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Encode + Decode + Debug,
 {
     type Transaction = HybridTransaction;
     type CommitmentScheme = CS;
@@ -85,65 +87,32 @@ where
         state: &mut dyn StateAccess,
         tx: &Self::Transaction,
         ctx: &mut TxContext<'_>,
-    ) -> Result<(), TransactionError>
+    ) -> Result<Self::Proof, TransactionError>
     where
         ST: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + Send
+            > + ProofProvider
+            + Send
             + Sync
             + 'static,
         CV: ioi_api::chain::ChainView<Self::CommitmentScheme, ST> + Send + Sync + ?Sized,
     {
         match tx {
             HybridTransaction::Account(account_tx) => {
-                self.account_model
+                let proof = self
+                    .account_model
                     .apply_payload(chain, state, account_tx, ctx)
-                    .await
+                    .await?;
+                Ok(HybridProof::Account(proof))
             }
             HybridTransaction::UTXO(utxo_tx) => {
-                self.utxo_model
+                let proof = self
+                    .utxo_model
                     .apply_payload(chain, state, utxo_tx, ctx)
-                    .await
+                    .await?;
+                Ok(HybridProof::UTXO(proof))
             }
-        }
-    }
-
-    fn generate_proof<P>(
-        &self,
-        tx: &Self::Transaction,
-        state: &P,
-    ) -> Result<Self::Proof, TransactionError>
-    where
-        P: ProofProvider<
-                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + ?Sized,
-    {
-        match tx {
-            HybridTransaction::Account(account_tx) => {
-                let account_proof = self.account_model.generate_proof(account_tx, state)?;
-                Ok(HybridProof::Account(account_proof))
-            }
-            HybridTransaction::UTXO(utxo_tx) => {
-                let utxo_proof = self.utxo_model.generate_proof(utxo_tx, state)?;
-                Ok(HybridProof::UTXO(utxo_proof))
-            }
-        }
-    }
-
-    fn verify_proof<P>(&self, proof: &Self::Proof, state: &P) -> Result<bool, TransactionError>
-    where
-        P: ProofProvider<
-                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + ?Sized,
-    {
-        match proof {
-            HybridProof::Account(account_proof) => {
-                self.account_model.verify_proof(account_proof, state)
-            }
-            HybridProof::UTXO(utxo_proof) => self.utxo_model.verify_proof(utxo_proof, state),
         }
     }
 

@@ -6,7 +6,7 @@ use anyhow::{anyhow, Result};
 use ioi_types::config::WorkloadConfig;
 use ioi_api::{chain::ChainStateMachine, commitment::CommitmentScheme, state::StateManager};
 use serde::{Deserialize, Serialize};
-use std::{any::Any, marker::PhantomData, sync::Arc};
+use std::{any::Any, fmt::Debug, marker::PhantomData, sync::Arc};
 
 // --- system.getStatus.v1 ---
 
@@ -35,7 +35,7 @@ where
         + Sync
         + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + AsRef<[u8]>,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + AsRef<[u8]> + Debug,
     <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync + From<Vec<u8>>,
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {

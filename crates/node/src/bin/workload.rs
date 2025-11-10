@@ -78,11 +78,11 @@ where
         + 'static
         + Clone,
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
-    CS::Proof: AsRef<[u8]> + serde::Serialize + for<'de> serde::Deserialize<'de>,
+    CS::Proof:
+        AsRef<[u8]> + serde::Serialize + for<'de> serde::Deserialize<'de> + std::fmt::Debug,
     CS::Commitment: std::fmt::Debug + From<Vec<u8>>,
 {
-    let store_path = Path::new(&config.state_file).with_extension("db");
-    if !store_path.exists() {
+    if !Path::new(&config.state_file).exists() {
         load_state_from_genesis_file(&mut state_tree, &config.genesis_file)?;
     } else {
         tracing::info!(
@@ -155,6 +155,7 @@ where
         .collect();
     let service_directory = ServiceDirectory::new(services_for_dir);
 
+    let store_path = Path::new(&config.state_file).with_extension("db");
     let store = Arc::new(RedbEpochStore::open(store_path, config.epoch_size)?);
     state_tree.attach_store(store.clone());
 

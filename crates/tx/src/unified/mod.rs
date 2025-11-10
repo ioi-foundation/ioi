@@ -28,14 +28,16 @@ use ioi_types::service_configs::{
     ActiveServiceMeta, GovernancePolicy, GovernanceSigner, MethodPermission,
 };
 use libp2p::identity::PublicKey as Libp2pPublicKey;
+use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
+use std::fmt::Debug;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Encode, Decode)]
 pub enum UnifiedProof<P> {
     UTXO(UTXOTransactionProof<P>),
-    Application,
-    System,
+    Application, // no reads proven
+    System,      // no reads proven
 }
 
 #[derive(Clone, Debug)]
@@ -69,7 +71,8 @@ fn validate_service_id(id: &str) -> Result<(), TransactionError> {
 #[async_trait]
 impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UnifiedTransactionModel<CS>
 where
-    <CS as CommitmentScheme>::Proof: Serialize + for<'de> serde::Deserialize<'de> + Clone,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + Debug + Encode + Decode,
 {
     type Transaction = ChainTransaction;
     type CommitmentScheme = CS;
@@ -98,23 +101,25 @@ where
         state: &mut dyn StateAccess,
         tx: &Self::Transaction,
         ctx: &mut TxContext<'_>,
-    ) -> Result<(), TransactionError>
+    ) -> Result<Self::Proof, TransactionError>
     where
         ST: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + Send
+            > + ProofProvider
+            + Send
             + Sync
             + 'static,
         CV: ChainView<Self::CommitmentScheme, ST> + Send + Sync + ?Sized,
     {
-        // NOTE: Nonce logic is now correctly handled in the IdentityHub ante handler.
         match tx {
             ChainTransaction::Application(app_tx) => match app_tx {
                 ApplicationTransaction::UTXO(utxo_tx) => {
-                    self.utxo_model
+                    let p = self
+                        .utxo_model
                         .apply_payload(chain_ref, state, utxo_tx, ctx)
-                        .await
+                        .await?;
+                    Ok(UnifiedProof::UTXO(p))
                 }
                 ApplicationTransaction::DeployContract { code, header, .. } => {
                     let workload = chain_ref.workload_container();
@@ -140,7 +145,7 @@ where
                             .collect::<Result<_, _>>()?;
                         state.batch_set(&versioned_delta)?;
                     }
-                    Ok(())
+                    Ok(UnifiedProof::Application)
                 }
                 ApplicationTransaction::CallContract {
                     address,
@@ -190,7 +195,7 @@ where
                             .collect::<Result<_, _>>()?;
                         state.batch_set(&versioned_inserts)?;
                     }
-                    Ok(())
+                    Ok(UnifiedProof::Application)
                 }
             },
             ChainTransaction::System(sys_tx) => {
@@ -337,7 +342,7 @@ where
                             error_metrics().inc_error("service_dispatch", e.code());
                             service_metrics().inc_dispatch_error(service.id(), method, e.code());
                         }
-                        result
+                        result?;
                     }
                     SystemPayload::StoreModule { manifest, artifact } => {
                         let manifest_hash = sha256(manifest.as_bytes())?;
@@ -350,7 +355,6 @@ where
                         if state.get(&artifact_key)?.is_none() {
                             state.insert(&artifact_key, artifact)?;
                         }
-                        Ok(())
                     }
                     SystemPayload::SwapModule {
                         service_id,
@@ -400,7 +404,6 @@ where
                             .unwrap_or_default();
                         pending.push((service_id.clone(), *manifest_hash, *artifact_hash));
                         state.insert(&key, &codec::to_bytes_canonical(&pending)?)?;
-                        Ok(())
                     }
                     #[allow(deprecated)]
                     SystemPayload::RotateKey(proof) => {
@@ -414,7 +417,7 @@ where
                             ))?;
                         service
                             .handle_service_call(state, "rotate_key@v1", &params_bytes, ctx)
-                            .await
+                            .await?;
                     }
                     #[allow(deprecated)]
                     SystemPayload::Vote {
@@ -431,7 +434,7 @@ where
                             ))?;
                         service
                             .handle_service_call(state, "vote@v1", &params_bytes, ctx)
-                            .await
+                            .await?;
                     }
                     SystemPayload::Stake { public_key, amount } => {
                         if chain_ref.consensus_type() != ConsensusType::ProofOfStake {
@@ -523,7 +526,6 @@ where
                             .sort_by(|a, b| a.account_id.cmp(&b.account_id));
                         next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
                         state.insert(VALIDATOR_SET_KEY, &write_validator_sets(&sets)?)?;
-                        Ok(())
                     }
                     SystemPayload::Unstake { amount } => {
                         if chain_ref.consensus_type() != ConsensusType::ProofOfStake {
@@ -577,7 +579,6 @@ where
                             .sort_by(|a, b| a.account_id.cmp(&b.account_id));
                         next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
                         state.insert(VALIDATOR_SET_KEY, &write_validator_sets(&sets)?)?;
-                        Ok(())
                     }
                     SystemPayload::ReportMisbehavior { report } => {
                         let reporter_id = &sys_tx.header.account_id;
@@ -647,53 +648,21 @@ where
                         )?;
                         let penalty_mechanism = chain_ref.get_penalty_mechanism();
                         match penalty_mechanism.apply_penalty(state, report).await {
-                            Ok(()) => Ok(()),
+                            Ok(()) => {}
                             Err(e) => {
                                 log::warn!("[Penalty] Report rejected: {}", e);
-                                Err(e)
+                                return Err(e);
                             }
                         }
                     }
-                    _ => Err(TransactionError::Unsupported(
-                        "Unhandled SystemPayload variant".into(),
-                    )),
+                    _ => {
+                        return Err(TransactionError::Unsupported(
+                            "Unhandled SystemPayload variant".into(),
+                        ))
+                    }
                 }
+                Ok(UnifiedProof::System)
             }
-        }
-    }
-
-    fn generate_proof<P>(
-        &self,
-        tx: &Self::Transaction,
-        state: &P,
-    ) -> Result<Self::Proof, TransactionError>
-    where
-        P: ProofProvider<
-                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + ?Sized,
-    {
-        match tx {
-            ChainTransaction::Application(ApplicationTransaction::UTXO(utxo_tx)) => self
-                .utxo_model
-                .generate_proof(utxo_tx, state)
-                .map(UnifiedProof::UTXO),
-            ChainTransaction::Application(_) => Ok(UnifiedProof::Application),
-            ChainTransaction::System(_) => Ok(UnifiedProof::System),
-        }
-    }
-
-    fn verify_proof<P>(&self, proof: &Self::Proof, state: &P) -> Result<bool, TransactionError>
-    where
-        P: ProofProvider<
-                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + ?Sized,
-    {
-        match proof {
-            UnifiedProof::UTXO(utxo_proof) => self.utxo_model.verify_proof(utxo_proof, state),
-            UnifiedProof::Application => Ok(true),
-            UnifiedProof::System => Ok(true),
         }
     }
 
