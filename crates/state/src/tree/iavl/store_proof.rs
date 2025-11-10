@@ -1,7 +1,7 @@
 // Path: crates/state/src/tree/iavl/store_proof.rs
 
 use super::encode::decode_node;
-use super::proof::{ExistenceProof, InnerOp, LeafOp, NonExistenceProof, Side};
+use super::proof::{ExistenceProof, HashOp, InnerOp, LeafOp, LengthOp, NonExistenceProof, Side};
 use super::tree::IAVLTree;
 use ioi_api::commitment::{CommitmentScheme, Selector};
 use ioi_api::storage::{NodeHash as StoreNodeHash, NodeStore};
@@ -48,7 +48,18 @@ where
                         key: node.key.clone(),
                         value: node.value.clone(),
                         leaf: LeafOp {
-                            version: node.version,
+                            hash: HashOp::Sha256,
+                            prehash_key: HashOp::NoHash,
+                            prehash_value: HashOp::NoHash,
+                            length: LengthOp::VarProto,
+                            prefix: {
+                                let mut p = Vec::new();
+                                p.push(0x00);
+                                p.extend_from_slice(&node.version.to_le_bytes());
+                                p.extend_from_slice(&0i32.to_le_bytes());
+                                p.extend_from_slice(&1u64.to_le_bytes());
+                                p
+                            },
                         },
                         path,
                     };
@@ -155,7 +166,20 @@ where
             Ok(ExistenceProof {
                 key: n.key.clone(),
                 value: n.value.clone(),
-                leaf: LeafOp { version: n.version },
+                leaf: LeafOp {
+                    hash: HashOp::Sha256,
+                    prehash_key: HashOp::NoHash,
+                    prehash_value: HashOp::NoHash,
+                    length: LengthOp::VarProto,
+                    prefix: {
+                        let mut p = Vec::new();
+                        p.push(0x00);
+                        p.extend_from_slice(&n.version.to_le_bytes());
+                        p.extend_from_slice(&0i32.to_le_bytes());
+                        p.extend_from_slice(&1u64.to_le_bytes());
+                        p
+                    },
+                },
                 path: base_path,
             })
         };

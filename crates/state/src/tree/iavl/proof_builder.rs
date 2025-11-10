@@ -1,13 +1,12 @@
 // Path: crates/state/src/tree/iavl/proof_builder.rs
 
 use super::node::IAVLNode;
-use super::proof::{self, ExistenceProof, InnerOp, LeafOp, NonExistenceProof, Side};
+use super::proof::{self, ExistenceProof, HashOp, InnerOp, LeafOp, LengthOp, NonExistenceProof, Side};
 use super::tree::IAVLTree;
 use ioi_api::commitment::{CommitmentScheme, Selector};
 use parity_scale_codec::Encode;
 use std::sync::Arc;
 
-// FIX: Add the full, correct `where` clause to satisfy trait bounds for called methods.
 impl<CS: CommitmentScheme> IAVLTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
@@ -48,12 +47,28 @@ where
             if current_node.is_leaf() {
                 if current_node.key == key {
                     path.reverse();
+
+                    // Define the canonical LeafOp for your chain's IAVL tree here.
+                    // This MUST match the logic in `hash_leaf`.
+                    let leaf_op = LeafOp {
+                        hash: HashOp::Sha256,
+                        prehash_key: HashOp::NoHash,
+                        prehash_value: HashOp::NoHash,
+                        length: LengthOp::VarProto,
+                        prefix: {
+                            let mut p = Vec::with_capacity(1 + 8 + 4 + 8);
+                            p.push(0x00); // leaf tag
+                            p.extend_from_slice(&current_node.version.to_le_bytes());
+                            p.extend_from_slice(&0i32.to_le_bytes()); // height is always 0 for leaves
+                            p.extend_from_slice(&1u64.to_le_bytes()); // size is always 1 for leaves
+                            p
+                        },
+                    };
+
                     return Some(ExistenceProof {
                         key: current_node.key.clone(),
                         value: current_node.value.clone(),
-                        leaf: LeafOp {
-                            version: current_node.version,
-                        },
+                        leaf: leaf_op,
                         path,
                     });
                 } else {

@@ -1,4 +1,4 @@
-// Path: crates/commitment/src/tree/iavl/proof.rs
+// Path: crates/state/src/tree/iavl/proof.rs
 //! Production-grade, ICS-23-inspired proof verification for the IAVL tree.
 //! This module contains the proof data structures and the pure, stateless verifier function.
 
@@ -10,25 +10,73 @@ fn hash(data: &[u8]) -> Result<[u8; 32], ProofError> {
     ioi_crypto::algorithms::hash::sha256(data).map_err(|e| ProofError::Crypto(e.to_string()))
 }
 
-// --- Canonical Hashing Rules ---
+// --- ICS-23 Style Hashing Primitives ---
 
-/// Computes the hash of a leaf node according to the canonical specification.
-/// H(tag || version || height=0 || size=1 || len(key) || key || len(value) || value)
+/// Defines the hash operation to apply to a key or value before concatenation.
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+pub enum HashOp {
+    /// Do not hash the data; use it directly.
+    NoHash,
+    /// Apply SHA-256 to the data.
+    Sha256,
+}
+
+/// Defines how the length of a key or value is encoded in the preimage.
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+pub enum LengthOp {
+    /// No length prefix is used.
+    NoPrefix,
+    /// A protobuf-style varint length prefix is used.
+    VarProto,
+}
+
+// --- Canonical Hashing Rules (Now ICS-23 Compliant) ---
+
+/// Computes the hash of a leaf node by interpreting an `LeafOp` structure.
+/// This function is designed to be directly compatible with ICS-23 verifiers.
 pub(super) fn hash_leaf(
     leaf_op: &LeafOp,
     key: &[u8],
     value: &[u8],
 ) -> Result<[u8; 32], ProofError> {
-    let mut data = Vec::with_capacity(1 + 8 + 4 + 8 + 4 + key.len() + 4 + value.len());
-    data.push(0x00); // Leaf tag
-    data.extend_from_slice(&leaf_op.version.to_le_bytes());
-    data.extend_from_slice(&0i32.to_le_bytes()); // height
-    data.extend_from_slice(&1u64.to_le_bytes()); // size
-    data.extend_from_slice(&(key.len() as u32).to_le_bytes());
-    data.extend_from_slice(key);
-    data.extend_from_slice(&(value.len() as u32).to_le_bytes());
-    data.extend_from_slice(value);
-    hash(&data)
+    fn apply_hash(op: &HashOp, data: &[u8]) -> Result<Vec<u8>, ProofError> {
+        match op {
+            HashOp::NoHash => Ok(data.to_vec()),
+            HashOp::Sha256 => hash(data).map(|h| h.to_vec()),
+        }
+    }
+
+    fn apply_length(op: &LengthOp, data: &[u8]) -> Result<Vec<u8>, ProofError> {
+        match op {
+            LengthOp::NoPrefix => Ok(data.to_vec()),
+            LengthOp::VarProto => {
+                let mut len_prefixed = Vec::with_capacity(prost::length_delimiter_len(data.len()) + data.len());
+                // prost::encode_length_delimiter can return a prost::EncodeError, which we need to handle.
+                prost::encode_length_delimiter(data.len(), &mut len_prefixed)?;
+                len_prefixed.extend_from_slice(data);
+                Ok(len_prefixed)
+            }
+        }
+    }
+
+    let hashed_key = apply_hash(&leaf_op.prehash_key, key)?;
+    let hashed_value = apply_hash(&leaf_op.prehash_value, value)?;
+
+    let mut data = Vec::new();
+    data.extend_from_slice(&leaf_op.prefix);
+    data.extend_from_slice(&apply_length(&leaf_op.length, &hashed_key)?);
+    data.extend_from_slice(&apply_length(&leaf_op.length, &hashed_value)?);
+
+    match leaf_op.hash {
+        HashOp::Sha256 => hash(&data),
+        HashOp::NoHash => {
+            // This case should not be used for Merkle trees but is included for completeness.
+            let hash_vec = hash(&data)?;
+            let mut h = [0u8; 32];
+            h.copy_from_slice(&hash_vec[..32]);
+            Ok(h)
+        }
+    }
 }
 
 /// Computes the hash of an inner node according to the canonical specification.
@@ -77,7 +125,11 @@ pub struct NonExistenceProof {
 
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 pub struct LeafOp {
-    pub version: u64,
+    pub hash: HashOp,
+    pub prehash_key: HashOp,
+    pub prehash_value: HashOp,
+    pub length: LengthOp,
+    pub prefix: Vec<u8>,
 }
 
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
@@ -180,9 +232,9 @@ fn verify_non_existence(
         return Ok(false);
     }
     if proof.left.is_none() && proof.right.is_none() {
-        return Err(ProofError::InvalidNonExistence(
-            "Proof must have at least one neighbor.".into(),
-        ));
+        // For an empty tree, a proof with no neighbors is valid.
+        // A real verifier should check if the root is the empty hash.
+        return Ok(*root == ioi_crypto::algorithms::hash::sha256([]).unwrap_or_default());
     }
 
     let mut left_valid = false;

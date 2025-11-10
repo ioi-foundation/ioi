@@ -686,3 +686,10 @@ impl ErrorCode for ProofError {
         }
     }
 }
+
+// Add this implementation to allow `?` to convert prost errors.
+impl From<prost::EncodeError> for ProofError {
+    fn from(e: prost::EncodeError) -> Self {
+        ProofError::Deserialization(format!("Prost encode error: {}", e))
+    }
+}
