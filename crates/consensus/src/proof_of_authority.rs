@@ -94,7 +94,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         &mut self,
         our_account_id: &AccountId,
         height: u64,
-        view: u64,
+        _view: u64,
         parent_view: &dyn AnchoredStateView,
         _known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
@@ -172,8 +172,10 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         };
 
         let n = validator_set.len() as u64;
-        // Height 1 -> index 0, Height 2 -> index 1, etc. (then add view)
-        let round = height.saturating_sub(1).saturating_add(view);
+        // The round number should only depend on height for this simple PoA model.
+        // The `view` is not part of the block header and cannot be verified by other nodes,
+        // leading to a consensus failure if it's used here.
+        let round = height.saturating_sub(1);
         let leader_index = (round % n) as usize;
 
         match validator_set.get(leader_index) {
