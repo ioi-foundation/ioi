@@ -7,7 +7,7 @@ use ioi_api::chain::ChainStateMachine;
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::state::StateManager;
 use serde::{Deserialize, Serialize};
-use std::{any::Any, collections::BTreeMap, marker::PhantomData, sync::Arc};
+use std::{any::Any, collections::BTreeMap, fmt::Debug, marker::PhantomData, sync::Arc};
 
 // --- staking.getStakes.v1 ---
 
@@ -36,7 +36,7 @@ where
         + Sync
         + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + AsRef<[u8]>,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + AsRef<[u8]> + Debug,
     <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync + From<Vec<u8>>,
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
@@ -93,7 +93,7 @@ where
         + Sync
         + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + AsRef<[u8]>,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + AsRef<[u8]> + Debug,
     <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync + From<Vec<u8>>,
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {

@@ -9,7 +9,7 @@ use ioi_api::{
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
     crypto::{SerializableKey, SigningKeyPair},
-    state::{StateManager, Verifier},
+    state::{ProofProvider, StateManager, Verifier},
 };
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::traits::NodeState;
@@ -45,8 +45,9 @@ pub async fn drive_consensus_tick<CS, ST, CE, V>(
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + ProofProvider
         + Send
         + Sync
         + 'static

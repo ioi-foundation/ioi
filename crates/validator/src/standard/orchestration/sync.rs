@@ -8,17 +8,12 @@ use ioi_api::{
     consensus::ConsensusEngine,
     state::{StateManager, Verifier},
 };
-// [+] CORRECTED: Import the canonical definitions from the network crate.
 use ioi_networking::libp2p::{SwarmCommand, SyncResponse};
 use ioi_networking::traits::NodeState;
 use ioi_types::app::{Block, ChainTransaction};
 use libp2p::{request_response::ResponseChannel, PeerId};
 use serde::Serialize;
 use std::fmt::Debug;
-
-// [-] REMOVED: Unused imports flagged by the compiler.
-// use ioi_networking::libp2p::SyncRequest;
-// use tokio::sync::Mutex;
 
 // --- BlockSync Trait Implementation ---
 
@@ -37,7 +32,7 @@ pub async fn handle_status_request<CS, ST, CE, V>(
         + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
@@ -87,7 +82,7 @@ pub async fn handle_blocks_request<CS, ST, CE, V>(
         + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
@@ -128,7 +123,7 @@ pub async fn handle_status_response<CS, ST, CE, V>(
         + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
@@ -188,7 +183,7 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
         + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
@@ -260,7 +255,7 @@ where
         + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
@@ -301,7 +296,7 @@ pub async fn handle_outbound_failure<CS, ST, CE, V>(
         + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {

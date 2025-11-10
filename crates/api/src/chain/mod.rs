@@ -109,6 +109,8 @@ pub struct PreparedBlock {
     pub transactions_root: Vec<u8>,
     /// A hash of the validator set that was active for this block.
     pub validator_set_hash: [u8; 32],
+    /// Canonically encoded proofs for each transaction in the block.
+    pub tx_proofs: Vec<Vec<u8>>,
 }
 
 /// A trait that defines the logic and capabilities of an application-specific blockchain.

@@ -19,7 +19,7 @@ pub trait TransactionModel: Send + Sync {
     /// The transaction type for this model.
     type Transaction: Debug + Send + Sync;
     /// The proof type for this model.
-    type Proof;
+    type Proof: Send + Sync + Debug;
     /// The commitment scheme used by this model.
     type CommitmentScheme: CommitmentScheme;
 
@@ -33,7 +33,7 @@ pub trait TransactionModel: Send + Sync {
     /// Validates static properties of a transaction that do not require state access.
     fn validate_stateless(&self, tx: &Self::Transaction) -> Result<(), TransactionError>;
 
-    /// Applies the core state transition logic of a transaction's payload.
+    /// Applies the core state transition logic of a transaction's payload and returns a proof of the state that was read.
     /// This is called *after* all `TxDecorator` handlers have passed.
     async fn apply_payload<ST, CV>(
         &self,
@@ -41,35 +41,16 @@ pub trait TransactionModel: Send + Sync {
         state: &mut dyn StateAccess, // The transactional state overlay for writes
         tx: &Self::Transaction,
         ctx: &mut TxContext<'_>,
-    ) -> Result<(), TransactionError>
+    ) -> Result<Self::Proof, TransactionError>
     where
         ST: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
                 Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + Send
+            > + ProofProvider
+            + Send
             + Sync
             + 'static,
         CV: ChainView<Self::CommitmentScheme, ST> + Send + Sync + ?Sized;
-
-    /// Generates a proof for a transaction.
-    fn generate_proof<P>(
-        &self,
-        tx: &Self::Transaction,
-        state: &P,
-    ) -> Result<Self::Proof, TransactionError>
-    where
-        P: ProofProvider<
-                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + ?Sized;
-
-    /// Verifies a proof for a transaction.
-    fn verify_proof<P>(&self, proof: &Self::Proof, state: &P) -> Result<bool, TransactionError>
-    where
-        P: ProofProvider<
-                Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
-                Proof = <Self::CommitmentScheme as CommitmentScheme>::Proof,
-            > + ?Sized;
 
     /// Serializes a transaction to bytes.
     fn serialize_transaction(&self, tx: &Self::Transaction) -> Result<Vec<u8>, TransactionError>;

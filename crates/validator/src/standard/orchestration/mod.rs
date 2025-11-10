@@ -56,8 +56,8 @@ mod operator_tasks;
 mod oracle;
 mod peer_management;
 mod remote_state_view;
-mod sync;
 pub mod verifier_select;
+mod sync;
 mod view_resolver;
 
 // --- Use statements for handler functions ---
@@ -66,7 +66,7 @@ use consensus::drive_consensus_tick;
 use context::{ChainFor, MainLoopContext};
 use futures::FutureExt;
 use operator_tasks::run_oracle_operator_task;
-use sync as sync_handlers;
+use self::sync as sync_handlers;
 
 /// A struct to hold the numerous dependencies for the Orchestrator,
 /// improving constructor readability and maintainability.
@@ -164,7 +164,7 @@ where
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     /// Creates a new Orchestrator from its configuration and dependencies.
@@ -225,7 +225,7 @@ impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
@@ -405,7 +405,7 @@ async fn handle_network_event<CS, ST, CE, V>(
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
@@ -555,7 +555,7 @@ where
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     fn id(&self) -> &'static str {
@@ -762,7 +762,7 @@ where
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     async fn perform_guardian_attestation(
