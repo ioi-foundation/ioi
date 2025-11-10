@@ -1,4 +1,4 @@
-// crates/crypto/src/algorithms/hash/mod.rs
+// Path: crates/crypto/src/algorithms/hash/mod.rs
 //! Cryptographic hash functions using dcrypt
 
 use crate::error::CryptoError;
@@ -24,11 +24,11 @@ pub struct Sha256Hash;
 
 impl HashFunction for Sha256Hash {
     fn hash(&self, message: &[u8]) -> Result<Vec<u8>, CryptoError> {
-        // Use dcrypt's SHA-256 implementation
-        // FIX: Use `?` to propagate and convert the error from dcrypt::algorithms::Error to dcrypt::Error
-        DcryptSha256::digest(message)
-            .map(|d| d.to_bytes())
-            .map_err(|e| CryptoError::OperationFailed(e.to_string()))
+        // Use dcrypt's SHA-256 implementation.
+        // Explicitly map the specific algorithm error to the general `dcrypt::Error`
+        // to resolve the ambiguity for the `?` operator.
+        let digest = DcryptSha256::digest(message).map_err(dcrypt::Error::from)?;
+        Ok(digest.to_bytes())
     }
 
     fn digest_size(&self) -> usize {
@@ -46,11 +46,11 @@ pub struct Sha512Hash;
 
 impl HashFunction for Sha512Hash {
     fn hash(&self, message: &[u8]) -> Result<Vec<u8>, CryptoError> {
-        // Use dcrypt's SHA-512 implementation
-        // FIX: Use `?` to propagate and convert the error from dcrypt::algorithms::Error to dcrypt::Error
-        DcryptSha512::digest(message)
-            .map(|d| d.to_bytes())
-            .map_err(|e| CryptoError::OperationFailed(e.to_string()))
+        // Use dcrypt's SHA-512 implementation.
+        // Explicitly map the specific algorithm error to the general `dcrypt::Error`
+        // to resolve the ambiguity for the `?` operator.
+        let digest = DcryptSha512::digest(message).map_err(dcrypt::Error::from)?;
+        Ok(digest.to_bytes())
     }
 
     fn digest_size(&self) -> usize {
