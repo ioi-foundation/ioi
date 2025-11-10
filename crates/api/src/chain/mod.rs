@@ -4,7 +4,7 @@
 use crate::app::{Block, ChainStatus, ChainTransaction};
 use crate::commitment::CommitmentScheme;
 use crate::consensus::PenaltyMechanism;
-use crate::state::{ProofProvider, StateManager, VerifiableState, Verifier};
+use crate::state::{StateManager, Verifier};
 use crate::transaction::TransactionModel;
 use crate::validator::WorkloadContainer;
 use async_trait::async_trait;

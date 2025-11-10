@@ -6,7 +6,7 @@
 //! once a quorum is reached.
 
 use super::context::MainLoopContext;
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
 use ioi_api::{
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,

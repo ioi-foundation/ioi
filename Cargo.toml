@@ -74,6 +74,9 @@ futures = { version = "0.3" }
 async-trait = { version = "0.1" }
 arc-swap = "1.6"
 
+# FIX: Add the missing futures-util dependency to the workspace.
+futures-util = "0.3"
+
 # Serialization & Data Formats
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }

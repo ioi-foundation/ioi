@@ -4,8 +4,8 @@
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
-    assert_log_contains, build_test_artifacts, poll::wait_for_height, submit_transaction,
-    TestCluster, TestValidator,
+    assert_log_contains, build_test_artifacts, submit_transaction, wait_for_height, TestCluster,
+    TestValidator,
 };
 use ioi_types::{
     app::{

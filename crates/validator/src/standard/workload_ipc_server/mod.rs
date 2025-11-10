@@ -219,7 +219,7 @@ where
                     // Defensive clamp: ensure we never try to prune the current height.
                     let cutoff_height = cutoff_height.min(current_height);
 
-                    let excluded_heights = pins_for_gc.snapshot().await;
+                    let excluded_heights = pins_for_gc.snapshot();
 
                     PrunePlan {
                         cutoff_height,

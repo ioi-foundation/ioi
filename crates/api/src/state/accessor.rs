@@ -3,7 +3,6 @@
 
 use crate::state::StateScanIter;
 use ioi_types::error::StateError;
-use std::sync::Arc;
 
 /// A dyn-safe trait that provides a complete interface for key-value storage operations,
 /// including single-item, batch, and scanning methods.
@@ -13,7 +12,7 @@ use std::sync::Arc;
 pub trait StateAccess: Send + Sync {
     /// Gets a value by key.
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError>;
-    
+
     /// Inserts a key-value pair.
     fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError>;
 
