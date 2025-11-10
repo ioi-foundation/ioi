@@ -1,4 +1,5 @@
 // Path: crates/consensus/src/proof_of_authority.rs
+use crate::common::penalty::apply_quarantine_penalty;
 use crate::{ConsensusDecision, ConsensusEngine, PenaltyMechanism};
 use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, ChainView};
@@ -13,12 +14,11 @@ use ioi_types::app::{
 use ioi_types::codec;
 use ioi_types::error::{ConsensusError, CoreError, StateError, TransactionError};
 use ioi_types::keys::{
-    BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, QUARANTINED_VALIDATORS_KEY, STATUS_KEY,
-    VALIDATOR_SET_KEY,
+    BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, STATUS_KEY, VALIDATOR_SET_KEY,
 };
 use libp2p::identity::PublicKey;
 use libp2p::PeerId;
-use std::collections::{BTreeSet, HashSet};
+use std::collections::HashSet;
 use tracing::warn;
 
 /// A centralized helper for verifying cryptographic signatures.
@@ -75,51 +75,7 @@ impl PenaltyMechanism for ProofOfAuthorityEngine {
         state: &mut dyn StateAccess,
         report: &FailureReport,
     ) -> Result<(), TransactionError> {
-        const MIN_LIVE_AUTHORITIES: usize = 2;
-        let authorities_bytes = state
-            .get(VALIDATOR_SET_KEY)?
-            .ok_or_else(|| TransactionError::State(StateError::KeyNotFound))?;
-        let sets = read_validator_sets(&authorities_bytes)?;
-        let authorities: Vec<AccountId> = sets
-            .current
-            .validators
-            .into_iter()
-            .map(|v| v.account_id)
-            .collect();
-        if !authorities.contains(&report.offender) {
-            return Err(TransactionError::Invalid(
-                "Reported offender is not a current authority.".into(),
-            ));
-        }
-        let quarantined: BTreeSet<AccountId> = state
-            .get(QUARANTINED_VALIDATORS_KEY)?
-            .map(|b| ioi_types::codec::from_bytes_canonical(&b).map_err(StateError::InvalidValue))
-            .transpose()?
-            .unwrap_or_default();
-        if !quarantined.contains(&report.offender) {
-            let live_after = authorities
-                .len()
-                .saturating_sub(quarantined.len())
-                .saturating_sub(1);
-            if live_after < MIN_LIVE_AUTHORITIES {
-                return Err(TransactionError::Invalid(
-                    "Quarantine would jeopardize network liveness".into(),
-                ));
-            }
-        }
-        let mut new_quarantined = quarantined;
-        if new_quarantined.insert(report.offender) {
-            state.insert(
-                QUARANTINED_VALIDATORS_KEY,
-                &ioi_types::codec::to_bytes_canonical(&new_quarantined)?,
-            )?;
-            log::info!(
-                "[PoA penalty] Quarantined authority: 0x{} (set size = {})",
-                hex::encode(report.offender.as_ref()),
-                new_quarantined.len()
-            );
-        }
-        Ok(())
+        apply_quarantine_penalty(state, report).await
     }
 }
 

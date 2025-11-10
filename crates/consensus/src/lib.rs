@@ -22,6 +22,7 @@ pub mod proof_of_authority;
 pub mod proof_of_stake;
 
 pub mod util;
+pub mod common;
 
 use async_trait::async_trait;
 use ioi_types::app::{AccountId, Block, FailureReport};
