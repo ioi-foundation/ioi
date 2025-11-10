@@ -6,9 +6,9 @@ use ioi_api::chain::{AnchoredStateView, ChainView, StateRef};
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::state::{StateAccess, StateManager};
 use ioi_types::app::{
-    account_id_from_key_material, compute_next_timestamp, read_validator_sets, AccountId, Block,
-    BlockTimingParams, BlockTimingRuntime, ChainStatus, FailureReport,
-    SignatureSuite, ValidatorSetV1, ValidatorSetsV1,
+    account_id_from_key_material, compute_next_timestamp, effective_set_for_height,
+    read_validator_sets, AccountId, Block, BlockTimingParams, BlockTimingRuntime, ChainStatus,
+    FailureReport, SignatureSuite, ValidatorSetV1, ValidatorSetsV1,
 };
 use ioi_types::codec;
 use ioi_types::error::{ConsensusError, CoreError, StateError, TransactionError};
@@ -43,17 +43,6 @@ pub(crate) fn hash_key(suite: SignatureSuite, pubkey: &[u8]) -> Result<[u8; 32],
 
 #[derive(Debug, Clone)]
 pub struct ProofOfAuthorityEngine {}
-
-/// Selects the validator set that is effective for the given height.
-/// Mirrors the logic from the PoS engine for consistency.
-fn effective_set_for_height(sets: &ValidatorSetsV1, h: u64) -> &ValidatorSetV1 {
-    if let Some(next) = &sets.next {
-        if h >= next.effective_from_height && !next.validators.is_empty() && next.total_weight > 0 {
-            return next;
-        }
-    }
-    &sets.current
-}
 
 impl Default for ProofOfAuthorityEngine {
     fn default() -> Self {

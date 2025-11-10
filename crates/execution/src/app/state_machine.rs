@@ -10,9 +10,9 @@ use ioi_api::transaction::context::TxContext;
 use ioi_api::validator::WorkloadContainer;
 use ioi_tx::unified::{UnifiedProof, UnifiedTransactionModel};
 use ioi_types::app::{
-    account_id_from_key_material, compute_interval_from_parent_state, read_validator_sets,
-    to_root_hash, write_validator_sets, AccountId, BlockTimingParams, BlockTimingRuntime,
-    SignatureSuite, StateRoot,
+    account_id_from_key_material, compute_interval_from_parent_state, effective_set_for_height,
+    read_validator_sets, to_root_hash, write_validator_sets, AccountId, BlockTimingParams,
+    BlockTimingRuntime, SignatureSuite, StateRoot, ValidatorSetV1, ValidatorSetsV1,
 };
 use ioi_types::codec;
 use ioi_types::config::ConsensusType;
@@ -444,7 +444,7 @@ where
             .get(VALIDATOR_SET_KEY)?
             .ok_or(ChainError::from(StateError::KeyNotFound))?;
         let sets = read_validator_sets(&bytes)?;
-        let effective_set = Self::select_set_for_height(&sets, height);
+        let effective_set = effective_set_for_height(&sets, height);
         Ok(effective_set
             .validators
             .iter()
