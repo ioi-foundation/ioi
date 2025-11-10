@@ -50,19 +50,14 @@ where
 
                     // Define the canonical LeafOp for your chain's IAVL tree here.
                     // This MUST match the logic in `hash_leaf`.
+                    // MODIFICATION: Align with common Cosmos SDK IAVL profile.
+                    // The value is now pre-hashed, and the complex prefix is removed.
                     let leaf_op = LeafOp {
                         hash: HashOp::Sha256,
                         prehash_key: HashOp::NoHash,
-                        prehash_value: HashOp::NoHash,
+                        prehash_value: HashOp::Sha256, // Changed from NoHash
                         length: LengthOp::VarProto,
-                        prefix: {
-                            let mut p = Vec::with_capacity(1 + 8 + 4 + 8);
-                            p.push(0x00); // leaf tag
-                            p.extend_from_slice(&current_node.version.to_le_bytes());
-                            p.extend_from_slice(&0i32.to_le_bytes()); // height is always 0 for leaves
-                            p.extend_from_slice(&1u64.to_le_bytes()); // size is always 1 for leaves
-                            p
-                        },
+                        prefix: vec![0x00], // Simplified from version/height/size prefix
                     };
 
                     return Some(ExistenceProof {

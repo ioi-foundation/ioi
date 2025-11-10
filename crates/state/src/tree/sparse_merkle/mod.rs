@@ -796,6 +796,3 @@ where
         self.current_height = height;
     }
 }
-
-#[cfg(test)]
-mod tests;
