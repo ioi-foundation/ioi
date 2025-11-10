@@ -33,10 +33,18 @@ pub enum OffenseType {
 /// It must not contain any transient or non-deterministic data.
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum OffenseFacts {
-    /// The facts for a failed calibration probe.
+    /// Canonical facts for a failed calibration probe.
+    ///
+    /// - `target_url` MUST be the canonical, lowercase URL emitted by the probe scheduler
+    ///   (no surrounding whitespace; no fragments; no trailing slash unless root).
+    /// - `probe_timestamp` MUST be the on-chain UNIX timestamp (seconds) of the block
+    ///   that triggered the probe.
     FailedCalibrationProbe {
-        /// The unique, deterministic identifier of the probe that failed.
-        probe_id: [u8; 32],
+        /// The canonical, lowercase URL emitted by the probe scheduler
+        /// (no surrounding whitespace; no fragments; no trailing slash unless root).
+        target_url: String,
+        /// The on-chain UNIX timestamp (seconds) of the block that triggered the probe.
+        probe_timestamp: u64,
     },
     // Facts for other offenses would be defined here, corresponding to their OffenseType.
 }

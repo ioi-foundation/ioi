@@ -13,15 +13,16 @@ use ioi_api::vm::ExecutionContext;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_telemetry::sinks::{error_metrics, service_metrics};
 use ioi_types::app::{
-    evidence_id, write_validator_sets, ActiveKeyRecord, ApplicationTransaction, ChainTransaction,
-    SignatureSuite, StateEntry, SystemPayload, ValidatorV1,
+    evidence_id, write_validator_sets, ActiveKeyRecord, ApplicationTransaction, ChainStatus,
+    ChainTransaction, OffenseFacts, SignatureSuite, StateEntry, SystemPayload, ValidatorV1,
 };
 use ioi_types::codec;
 use ioi_types::config::ConsensusType;
 use ioi_types::error::{StateError, TransactionError};
 use ioi_types::keys::{
     active_service_key, ACCOUNT_ID_TO_PUBKEY_PREFIX, EVIDENCE_REGISTRY_KEY, GOVERNANCE_KEY,
-    UPGRADE_ARTIFACT_PREFIX, UPGRADE_MANIFEST_PREFIX, UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY,
+    STATUS_KEY, UPGRADE_ARTIFACT_PREFIX, UPGRADE_MANIFEST_PREFIX, UPGRADE_PENDING_PREFIX,
+    VALIDATOR_SET_KEY,
 };
 use ioi_types::service_configs::{
     ActiveServiceMeta, GovernancePolicy, GovernanceSigner, MethodPermission,
@@ -594,6 +595,38 @@ where
                                 "Reporter is not an active validator.".into(),
                             ));
                         }
+
+                        // --- Basic facts sanity checks (defense-in-depth) ---
+                        // These checks prevent obvious canonicalization abuse and future-dating.
+                        let status_bytes = state
+                            .get(STATUS_KEY)?
+                            .ok_or(TransactionError::State(StateError::KeyNotFound))?;
+                        let chain_status: ChainStatus =
+                            codec::from_bytes_canonical(&status_bytes)
+                                .map_err(|e| TransactionError::State(StateError::InvalidValue(e.to_string())))?;
+
+                        match &report.facts {
+                            OffenseFacts::FailedCalibrationProbe {
+                                target_url,
+                                probe_timestamp,
+                            } => {
+                                // Enforce canonical URL form: trimmed + lowercase.
+                                let normalized = target_url.trim().to_ascii_lowercase();
+                                if *target_url != normalized {
+                                    return Err(TransactionError::Invalid(
+                                        "facts.target_url must be canonical (trimmed, lowercase)".into(),
+                                    ));
+                                }
+                                // Probe timestamp must not be in the future.
+                                if *probe_timestamp > chain_status.latest_timestamp {
+                                    return Err(TransactionError::Invalid(
+                                        "facts.probe_timestamp is in the future".into(),
+                                    ));
+                                }
+                            }
+                        }
+                        // ----------------------------------------------------
+
                         let handled_evidence: BTreeSet<[u8; 32]> = state
                             .get(EVIDENCE_REGISTRY_KEY)?
                             .as_deref()
