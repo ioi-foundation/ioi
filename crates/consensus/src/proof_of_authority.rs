@@ -111,8 +111,16 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         // This mirrors verification logic in handle_block_proposal.
         let expected_timestamp_secs_res = async {
             // Timing params/runtime from parent state
-            let timing_params_bytes = parent_view.get(BLOCK_TIMING_PARAMS_KEY).await.map_err(|_| ())?.ok_or(())?;
-            let timing_runtime_bytes = parent_view.get(BLOCK_TIMING_RUNTIME_KEY).await.map_err(|_| ())?.ok_or(())?;
+            let timing_params_bytes = parent_view
+                .get(BLOCK_TIMING_PARAMS_KEY)
+                .await
+                .map_err(|_| ())?
+                .ok_or(())?;
+            let timing_runtime_bytes = parent_view
+                .get(BLOCK_TIMING_RUNTIME_KEY)
+                .await
+                .map_err(|_| ())?
+                .ok_or(())?;
 
             let timing_params: BlockTimingParams =
                 codec::from_bytes_canonical(&timing_params_bytes).map_err(|_| ())?;
@@ -120,7 +128,11 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 codec::from_bytes_canonical(&timing_runtime_bytes).map_err(|_| ())?;
 
             // Parent timestamp from ChainStatus in parent state
-            let status_bytes = parent_view.get(STATUS_KEY).await.map_err(|_| ())?.ok_or(())?;
+            let status_bytes = parent_view
+                .get(STATUS_KEY)
+                .await
+                .map_err(|_| ())?
+                .ok_or(())?;
             let parent_status: ChainStatus =
                 codec::from_bytes_canonical(&status_bytes).map_err(|_| ())?;
 
@@ -139,6 +151,14 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         };
 
         let n = validator_set.len() as u64;
+        // [+] FIX: Add guard against division by zero if validator set is empty.
+        if n == 0 {
+            log::error!(
+                "[PoA Decide] The effective validator set for height {} is empty. Stalling.",
+                height
+            );
+            return ConsensusDecision::Stall;
+        }
         // The round number should only depend on height for this simple PoA model.
         // The `view` is not part of the block header and cannot be verified by other nodes,
         // leading to a consensus failure if it's used here.
@@ -188,26 +208,35 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         })?;
 
         // [+] VERIFY TIMESTAMP (Deterministic from parent state)
-        let timing_params_bytes = parent_view.get(BLOCK_TIMING_PARAMS_KEY).await.map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?.ok_or_else(
-            || ConsensusError::BlockVerificationFailed("BlockTimingParams not found".into()),
-        )?;
-        let timing_runtime_bytes = parent_view.get(BLOCK_TIMING_RUNTIME_KEY).await.map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?.ok_or_else(
-            || ConsensusError::BlockVerificationFailed("BlockTimingRuntime not found".into()),
-        )?;
+        let timing_params_bytes = parent_view
+            .get(BLOCK_TIMING_PARAMS_KEY)
+            .await
+            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
+            .ok_or_else(|| {
+                ConsensusError::BlockVerificationFailed("BlockTimingParams not found".into())
+            })?;
+        let timing_runtime_bytes = parent_view
+            .get(BLOCK_TIMING_RUNTIME_KEY)
+            .await
+            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
+            .ok_or_else(|| {
+                ConsensusError::BlockVerificationFailed("BlockTimingRuntime not found".into())
+            })?;
 
-        let timing_params: BlockTimingParams =
-            codec::from_bytes_canonical(&timing_params_bytes).map_err(|_| {
+        let timing_params: BlockTimingParams = codec::from_bytes_canonical(&timing_params_bytes)
+            .map_err(|_| {
                 ConsensusError::BlockVerificationFailed("Decode BlockTimingParams failed".into())
             })?;
-        let timing_runtime: BlockTimingRuntime =
-            codec::from_bytes_canonical(&timing_runtime_bytes).map_err(|_| {
+        let timing_runtime: BlockTimingRuntime = codec::from_bytes_canonical(&timing_runtime_bytes)
+            .map_err(|_| {
                 ConsensusError::BlockVerificationFailed("Decode BlockTimingRuntime failed".into())
             })?;
 
         // Parent timestamp from parent ChainStatus in state (deterministic and universal).
         let status_bytes = parent_view
             .get(STATUS_KEY)
-            .await.map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
+            .await
+            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
             .ok_or_else(|| {
                 ConsensusError::BlockVerificationFailed(
                     "ChainStatus missing in parent state".into(),
@@ -293,6 +322,12 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         verify_signature(&preimage, pubkey, active_key_suite, &header.signature)?;
 
         let n = validator_set.len() as u64;
+        // [+] FIX: Add guard against division by zero if validator set is empty.
+        if n == 0 {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "Block cannot be validated against an empty validator set.".into(),
+            ));
+        }
         // Verify using the same schedule: Height 1 -> index 0
         let leader_index = (header.height.saturating_sub(1) % n) as usize;
 
