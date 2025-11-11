@@ -551,7 +551,7 @@ where
 {
     const NAME: &'static str = "chain.getBlockByHeight.v1";
     type Params = GetBlockByHeightParams;
-    type Result = Option<BlockHeader>;
+    type Result = Option<Block<ChainTransaction>>;
 
     async fn call(
         &self,
@@ -577,6 +577,6 @@ where
             }
         };
 
-        Ok(block_opt.map(|b| b.header))
+        Ok(block_opt)
     }
 }

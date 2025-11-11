@@ -1,10 +1,15 @@
 // Path: crates/forge/tests/pqc_migration_e2e.rs
 
+// [FIX] Allow this test to run with either PoA or PoS consensus features.
+#![cfg(all(any(feature = "consensus-poa", feature = "consensus-pos"), feature = "vm-wasm"))]
+
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
-    build_test_artifacts, poll::wait_for_height, rpc::query_state_key, submit_transaction,
-    TestCluster,
+    build_test_artifacts,
+    // [FIX] Removed `poll::` from the path as wait_for_height is now directly in `testing`.
+    wait_for_height,
+    rpc::query_state_key, submit_transaction, TestCluster,
 };
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_crypto::security::SecurityLevel;
@@ -25,7 +30,8 @@ use ioi_types::{
     },
     service_configs::MigrationConfig,
 };
-use libp2p::identity::{self, Keypair};
+// [FIX] Removed unused `self` and `Keypair` imports to resolve the warning.
+use libp2p::identity;
 use parity_scale_codec::Encode;
 use serde_json::{json, Value};
 use std::time::Duration;

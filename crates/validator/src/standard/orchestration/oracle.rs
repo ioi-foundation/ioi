@@ -1,12 +1,11 @@
 // Path: crates/validator/src/standard/orchestration/oracle.rs
-
 //! Contains the reactive, off-chain logic for the Oracle service.
 //! This module handles incoming gossip events (attestations) from other validators,
 //! verifies them, aggregates them, and submits a finalization transaction
 //! once a quorum is reached.
 
 use super::context::MainLoopContext;
-use anyhow::anyhow;
+use anyhow::Result;
 use ioi_api::{
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
@@ -120,6 +119,10 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE, V>(
             return;
         }
     };
+
+    if validator_stakes.is_empty() {
+        return;
+    }
 
     let signer_account_id =
         match account_id_from_key_material(SignatureSuite::Ed25519, &pubkey.encode_protobuf()) {

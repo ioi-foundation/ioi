@@ -2,7 +2,7 @@
 
 use anyhow::{anyhow, Result};
 use ioi_types::{
-    app::{AccountId, BlockHeader, ChainStatus, Membership, Proposal, StateEntry, StateRoot},
+    app::{AccountId, Block, ChainStatus, ChainTransaction, Membership, Proposal, StateEntry, StateRoot},
     codec,
     keys::{
         EVIDENCE_REGISTRY_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, QUARANTINED_VALIDATORS_KEY,
@@ -25,7 +25,7 @@ const RPC_RETRY_BASE_MS: u64 = 80;
 pub async fn get_block_by_height_resilient(
     rpc_addr: &str,
     height: u64,
-) -> Result<Option<BlockHeader>> {
+) -> Result<Option<Block<ChainTransaction>>> {
     let mut attempt = 0usize;
     loop {
         match get_block_by_height(rpc_addr, height).await {
@@ -65,16 +65,21 @@ pub async fn tip_height_resilient(rpc_addr: &str) -> Result<u64> {
     }
 }
 
+// [+] NEW HELPER for time-sensitive tests
 /// Submits a transaction and waits for the next block to be produced, ensuring inclusion.
-pub async fn submit_transaction_and_wait_block(
+/// Returns the block that included the transaction.
+pub async fn submit_transaction_and_get_block(
     rpc_addr: &str,
     tx: &ioi_types::app::ChainTransaction,
-) -> Result<()> {
-    submit_transaction(rpc_addr, tx).await?;
-    let tip = tip_height_resilient(rpc_addr).await?;
-    super::assert::wait_for_height(rpc_addr, tip + 1, Duration::from_secs(20)).await?;
-    Ok(())
+) -> Result<Block<ChainTransaction>> {
+    let initial_height = tip_height_resilient(rpc_addr).await?;
+    submit_transaction_no_wait(rpc_addr, tx).await?;
+    super::assert::wait_for_height(rpc_addr, initial_height + 1, Duration::from_secs(20)).await?;
+    get_block_by_height_resilient(rpc_addr, initial_height + 1)
+        .await?
+        .ok_or_else(|| anyhow!("Block was not produced after transaction submission"))
 }
+
 
 /// Submits a transaction but does NOT wait for it to be included in a block.
 /// Returns the raw JSON-RPC response `Value`. This is useful for testing
@@ -285,7 +290,7 @@ pub async fn get_evidence_set(rpc_addr: &str) -> Result<BTreeSet<[u8; 32]>> {
 }
 
 /// Queries the block header for a specific, committed block height via the HTTP RPC.
-pub async fn get_block_by_height(rpc_addr: &str, height: u64) -> Result<Option<BlockHeader>> {
+pub async fn get_block_by_height(rpc_addr: &str, height: u64) -> Result<Option<Block<ChainTransaction>>> {
     let client = Client::new();
     let request_body = json!({
         "jsonrpc": "2.0",
@@ -308,7 +313,7 @@ pub async fn get_block_by_height(rpc_addr: &str, height: u64) -> Result<Option<B
 
     serde_json::from_value(resp["result"].clone()).map_err(|e| {
         anyhow!(
-            "Failed to parse BlockHeader from response for height {}: {}",
+            "Failed to parse Block from response for height {}: {}",
             height,
             e
         )

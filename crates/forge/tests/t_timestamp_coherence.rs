@@ -7,49 +7,48 @@
 #![cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
 
 use anyhow::Result;
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
-    poll::wait_for_height,
-    rpc::{get_block_by_height_resilient, submit_transaction},
-    TestCluster,
+    rpc::{get_block_by_height_resilient, submit_transaction_and_get_block},
+    wait_for_height, TestCluster,
 };
 use ioi_types::{
     app::{
-        account_id_from_key_material, AccountId, ChainId, ChainTransaction, Credential,
-        SignatureSuite, SystemPayload, SystemTransaction,
+        account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
+        BlockTimingRuntime, ChainTransaction, Credential, SignHeader, SignatureSuite,
+        SystemPayload, SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     config::InitialServiceConfig,
-    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX},
+    keys::{
+        ACCOUNT_ID_TO_PUBKEY_PREFIX, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY,
+        IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
+    },
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
-use parity_scale_codec::Encode;
-use serde_json::{json, Value};
+use serde_json::json;
 use std::time::Duration;
-
-/// A mock time-sensitive transaction that succeeds only if the block timestamp
-/// is exactly equal to a target timestamp.
-#[derive(Encode)]
-struct TimeSensitiveParams {
-    required_timestamp: u64,
-}
 
 /// A simplified test setup that boots a single-node network and provides helpers.
 struct TestNet {
     cluster: TestCluster,
     nonce: u64,
+    // Store the user keypair to be used in the test
+    user_keypair: Keypair,
 }
 
 impl TestNet {
     async fn setup() -> Self {
-        let keypair = Keypair::generate_ed25519();
-        let suite = SignatureSuite::Ed25519;
-        let pk_bytes = keypair.public().encode_protobuf();
-        let account_id = AccountId(account_id_from_key_material(suite, &pk_bytes).unwrap());
+        // Generate the user keypair *before* building the cluster so it can be added to genesis.
+        let user_keypair = Keypair::generate_ed25519();
+        let user_suite = SignatureSuite::Ed25519;
+        let user_pk_bytes = user_keypair.public().encode_protobuf();
+        let user_account_id =
+            AccountId(account_id_from_key_material(user_suite, &user_pk_bytes).unwrap());
 
         let cluster = TestCluster::builder()
             .with_validators(1)
-            .with_keypairs(vec![keypair.clone()])
-            .with_consensus_type("ProofOfAuthority") // Use PoA for simple, predictable leader
+            .with_consensus_type("ProofOfAuthority")
             .with_state_tree("IAVL")
             .with_chain_id(1)
             .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
@@ -59,28 +58,94 @@ impl TestNet {
                 allowed_target_suites: vec![SignatureSuite::Ed25519],
                 allow_downgrade: false,
             }))
-            .with_genesis_modifier(move |genesis, _keys| {
+            .with_genesis_modifier(move |genesis, keys| {
                 let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
-                // Add identity for the user account
-                let cred = Credential {
-                    suite,
-                    public_key_hash: account_id.0,
-                    activation_height: 0,
-                    l2_location: None,
+                let validator_keypair = &keys[0];
+                let suite = SignatureSuite::Ed25519;
+
+                let validator_pk_bytes = validator_keypair.public().encode_protobuf();
+                let validator_account_id =
+                    AccountId(account_id_from_key_material(suite, &validator_pk_bytes).unwrap());
+
+                let vs = ValidatorSetV1 {
+                    effective_from_height: 1,
+                    total_weight: 1,
+                    validators: vec![ValidatorV1 {
+                        account_id: validator_account_id,
+                        weight: 1,
+                        consensus_key: ActiveKeyRecord {
+                            suite,
+                            public_key_hash: validator_account_id.0,
+                            since_height: 0,
+                        },
+                    }],
                 };
-                let creds_array: [Option<Credential>; 2] = [Some(cred), None];
-                let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
+                let vs_bytes = ioi_types::app::write_validator_sets(&ValidatorSetsV1 {
+                    current: vs,
+                    next: None,
+                })
+                .unwrap();
                 genesis_state.insert(
-                    format!("b64:{}", base64::encode(&creds_key)),
+                    std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
+                );
+
+                for (id, pk) in [
+                    (user_account_id, &user_pk_bytes),
+                    (validator_account_id, &validator_pk_bytes),
+                ] {
+                    let cred = Credential {
+                        suite,
+                        public_key_hash: id.0,
+                        activation_height: 0,
+                        l2_location: None,
+                    };
+                    let creds_array: [Option<Credential>; 2] = [Some(cred), None];
+                    let creds_key = [IDENTITY_CREDENTIALS_PREFIX, id.as_ref()].concat();
+                    genesis_state.insert(
+                        format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
+                        json!(format!(
+                            "b64:{}",
+                            BASE64_STANDARD.encode(
+                                ioi_types::codec::to_bytes_canonical(&creds_array).unwrap()
+                            )
+                        )),
+                    );
+                    let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, id.as_ref()].concat();
+                    genesis_state.insert(
+                        format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
+                        json!(format!("b64:{}", BASE64_STANDARD.encode(pk))),
+                    );
+                }
+
+                let timing_params = BlockTimingParams {
+                    base_interval_secs: 5,
+                    ..Default::default()
+                };
+                let timing_runtime = BlockTimingRuntime {
+                    effective_interval_secs: timing_params.base_interval_secs,
+                    ..Default::default()
+                };
+                genesis_state.insert(
+                    std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
+                        .unwrap()
+                        .to_string(),
                     json!(format!(
                         "b64:{}",
-                        base64::encode(ioi_types::codec::to_bytes_canonical(&creds_array).unwrap())
+                        BASE64_STANDARD
+                            .encode(ioi_types::codec::to_bytes_canonical(&timing_params).unwrap())
                     )),
                 );
-                let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
                 genesis_state.insert(
-                    format!("b64:{}", base64::encode(&pubkey_map_key)),
-                    json!(format!("b64:{}", base64::encode(&pk_bytes))),
+                    std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
+                        .unwrap()
+                        .to_string(),
+                    json!(format!(
+                        "b64:{}",
+                        BASE64_STANDARD.encode(
+                            ioi_types::codec::to_bytes_canonical(&timing_runtime).unwrap()
+                        )
+                    )),
                 );
             })
             .build()
@@ -91,55 +156,50 @@ impl TestNet {
             .await
             .unwrap();
 
-        Self { cluster, nonce: 0 }
+        Self {
+            cluster,
+            nonce: 0,
+            user_keypair,
+        }
     }
 
-    async fn latest_timestamp_secs(&self) -> u64 {
+    async fn latest_timestamp_secs(&self) -> Result<u64> {
         let rpc_addr = &self.cluster.validators[0].rpc_addr;
-        let height = ioi_forge::testing::rpc::tip_height_resilient(rpc_addr)
-            .await
-            .unwrap();
-        get_block_by_height_resilient(rpc_addr, height)
-            .await
+        let height = ioi_forge::testing::rpc::tip_height_resilient(rpc_addr).await?;
+        Ok(get_block_by_height_resilient(rpc_addr, height)
+            .await?
             .unwrap()
-            .unwrap()
-            .timestamp
+            .header
+            .timestamp)
     }
 
-    // In a real test, this would read timing params from state.
-    // For this demonstration, we know it's a fixed 5s interval.
     fn expected_interval_secs(&self) -> u64 {
         5
-    }
-
-    async fn submit_tx(&mut self, tx: ChainTransaction) -> Result<()> {
-        let rpc_addr = &self.cluster.validators[0].rpc_addr;
-        submit_transaction(rpc_addr, &tx).await
     }
 }
 
 #[tokio::test]
 async fn time_sensitive_tx_precheck_equals_execution() -> Result<()> {
     let mut net = TestNet::setup().await;
-    let validator = &net.cluster.validators[0];
+    let validator_rpc_addr = net.cluster.validators[0].rpc_addr.clone();
+    let user_keypair = net.user_keypair.clone();
+    let user_account_id = AccountId(
+        account_id_from_key_material(
+            SignatureSuite::Ed25519,
+            &user_keypair.public().encode_protobuf(),
+        )
+        .unwrap(),
+    );
 
-    // Determine the exact timestamp the next block will have.
-    let parent_ts = net.latest_timestamp_secs().await;
+    // Fetch the latest state *immediately* before calculating and submitting.
+    let parent_ts = net.latest_timestamp_secs().await?;
     let interval = net.expected_interval_secs();
     let expected_ts = parent_ts + interval;
 
     // Create a transaction that is only valid at that exact timestamp.
-    // We mock this by creating a no-op `StoreModule` transaction, which is simple
-    // and doesn't require a complex service setup. The principle is the same for any tx.
     let tx = ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {
-            account_id: AccountId(
-                account_id_from_key_material(
-                    SignatureSuite::Ed25519,
-                    &validator.keypair.public().encode_protobuf(),
-                )
-                .unwrap(),
-            ),
+            account_id: user_account_id,
             nonce: net.nonce,
             chain_id: 1.into(),
             tx_version: 1,
@@ -148,41 +208,34 @@ async fn time_sensitive_tx_precheck_equals_execution() -> Result<()> {
             manifest: format!("timestamp = {}", expected_ts), // The "time-sensitive" part
             artifact: vec![],
         },
-        signature_proof: Default::default(), // Signing is handled inside submit_tx
+        signature_proof: {
+            let temp_tx = SystemTransaction { header: SignHeader { account_id: user_account_id, nonce: net.nonce, chain_id: 1.into(), tx_version: 1 }, payload: SystemPayload::StoreModule { manifest: format!("timestamp = {}", expected_ts), artifact: vec![] }, signature_proof: Default::default() };
+            let sign_bytes = temp_tx.to_sign_bytes().unwrap();
+            let signature = user_keypair.sign(&sign_bytes).unwrap();
+            ioi_types::app::SignatureProof { suite: SignatureSuite::Ed25519, public_key: user_keypair.public().encode_protobuf(), signature }
+        },
     }));
     net.nonce += 1;
 
-    // 1. Submit the transaction. It must be accepted into the mempool because the pre-check
-    // now uses the same authoritative timestamp.
-    net.submit_tx(tx.clone())
+    // 1. Submit the transaction and wait for the block that includes it.
+    let block = submit_transaction_and_get_block(&validator_rpc_addr, &tx)
         .await
-        .expect("Mempool should admit time-sensitive transaction");
+        .expect("Transaction should be included in the next block");
 
-    // 2. Wait for the next block to be produced.
-    let current_height = ioi_forge::testing::rpc::tip_height_resilient(&validator.rpc_addr).await?;
-    let next_height = current_height + 1;
-    wait_for_height(&validator.rpc_addr, next_height, Duration::from_secs(20)).await?;
-
-    // 3. Assert the transaction was included and the block header has the correct timestamp.
-    let block = get_block_by_height_resilient(&validator.rpc_addr, next_height)
-        .await?
-        .expect("Next block must have been produced");
-
-    // Assert that the block's timestamp is exactly what consensus decided.
+    // 2. Assert the transaction was included and the block header has the correct timestamp.
     assert_eq!(
-        block.timestamp, expected_ts,
+        block.header.timestamp, expected_ts,
         "Block header timestamp must equal the authoritative timestamp from consensus"
     );
 
-    // The transaction should have been included because the execution context matched the pre-check context.
-    // Note: A real test would check for a specific state change, but for this test, inclusion is sufficient.
-    let tx_found = block
-        .hash()
-        .map_or(false, |h| h == ioi_types::app::to_root_hash(&h).unwrap());
-    if !tx_found {
-        // This is a simplified check. A robust check would hash the tx and find it in the block.
-        // For this fix, confirming the block timestamp is correct is the key assertion.
-    }
+    // 3. The transaction should have been included because the execution context matched the pre-check context.
+    let tx_found = block.transactions.iter().any(|btx| {
+        let Ok(ser_btx) = ioi_types::codec::to_bytes_canonical(btx) else { return false; };
+        let Ok(ser_tx) = ioi_types::codec::to_bytes_canonical(&tx) else { return false; };
+        ser_btx == ser_tx
+    });
+
+    assert!(tx_found, "The time-sensitive transaction was not included in the block");
 
     Ok(())
 }

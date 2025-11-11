@@ -189,6 +189,7 @@ cargo test --workspace
 | **Service Architecture** | `cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,state-iavl,commitment-hash" --test service_architecture_e2e -- --nocapture` |
 | **Agentic Consensus** | `cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,state-iavl,commitment-hash" --test agentic_consensus_e2e -- --nocapture --test-threads=1` |
 | **Oracle** | `cargo test -p ioi-forge --release --features "consensus-pos,vm-wasm,state-iavl,commitment-hash" --test oracle_e2e -- --nocapture` |
+| **Deterministic Timestamps** | `cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,state-iavl,commitment-hash" --test t_timestamp_coherence -- --nocapture` |
 
 #### Penalty Mechanism Tests
 

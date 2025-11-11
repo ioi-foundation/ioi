@@ -22,7 +22,7 @@ use ioi_tx::system::{nonce, validation};
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{
     to_root_hash, AccountId, BlockTimingParams, BlockTimingRuntime, ChainId, FailureReport,
-    Membership, ValidatorSetV1, ValidatorSetsV1,
+    Membership, ValidatorSetsV1,
 };
 use ioi_types::codec;
 use ioi_types::error::{ChainError, StateError, TransactionError};
@@ -134,19 +134,6 @@ where
     <CS as CommitmentScheme>::Proof:
         serde::Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
 {
-    /// Select the validator set that is effective for the given height.
-    fn select_set_for_height(sets: &ValidatorSetsV1, h: u64) -> &ValidatorSetV1 {
-        if let Some(next) = &sets.next {
-            if h >= next.effective_from_height
-                && !next.validators.is_empty()
-                && next.total_weight > 0
-            {
-                return next;
-            }
-        }
-        &sets.current
-    }
-
     pub fn new(
         commitment_scheme: CS,
         transaction_model: UnifiedTransactionModel<CS>,

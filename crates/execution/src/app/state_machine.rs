@@ -3,7 +3,7 @@
 use super::Chain;
 use async_trait::async_trait;
 use ioi_api::app::{Block, BlockHeader, ChainStatus, ChainTransaction};
-use ioi_api::chain::{ChainStateMachine, ChainView, PreparedBlock};
+use ioi_api::chain::{ChainStateMachine, PreparedBlock};
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::state::{PinGuard, ProofProvider, StateManager, StateOverlay};
 use ioi_api::transaction::context::TxContext;
@@ -12,7 +12,7 @@ use ioi_tx::unified::{UnifiedProof, UnifiedTransactionModel};
 use ioi_types::app::{
     account_id_from_key_material, compute_interval_from_parent_state, effective_set_for_height,
     read_validator_sets, to_root_hash, write_validator_sets, AccountId, BlockTimingParams,
-    BlockTimingRuntime, SignatureSuite, StateRoot, ValidatorSetV1, ValidatorSetsV1,
+    BlockTimingRuntime, SignatureSuite, StateRoot, ValidatorV1,
 };
 use ioi_types::codec;
 use ioi_types::config::ConsensusType;
@@ -277,7 +277,7 @@ where
                     let next_interval = compute_interval_from_parent_state(
                         &params,
                         &old_runtime,
-                        block.header.height,
+                        block.header.height.saturating_sub(1),
                         gas_used_this_block,
                     );
                     let alpha = params.ema_alpha_milli as u128;

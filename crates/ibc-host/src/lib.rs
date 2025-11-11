@@ -314,7 +314,7 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
             self.workload_client.get_status().await?.height
         };
 
-        let header = self
+        let block = self
             .workload_client
             .get_block_by_height(query_height)
             .await?
@@ -322,7 +322,7 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
 
         let response = self
             .workload_client
-            .query_state_at(header.state_root, path.as_bytes())
+            .query_state_at(block.header.state_root, path.as_bytes())
             .await?;
 
         Ok(QueryHostResponse {
@@ -417,12 +417,12 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
             self.workload_client.get_status().await?.height
         };
 
-        let header = self
+        let block = self
             .workload_client
             .get_block_by_height(query_height)
             .await?
             .ok_or_else(|| anyhow!("Block at height {} not found", query_height))?;
 
-        Ok((header.state_root.0, query_height))
+        Ok((block.header.state_root.0, query_height))
     }
 }
