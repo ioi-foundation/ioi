@@ -5,9 +5,8 @@ use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
     assert_log_contains,
-    wait_for_height, wait_until,
     rpc::{query_state_key, query_state_key_at_root, tip_height_resilient},
-    submit_transaction, TestCluster,
+    submit_transaction, wait_for_height, wait_until, TestCluster,
 };
 use ioi_types::{
     app::{
@@ -44,6 +43,7 @@ fn add_identity_to_genesis(genesis_state: &mut Map<String, Value>, keypair: &Key
     let account_id_hash = account_id_from_key_material(suite, &public_key_bytes).unwrap();
     let account_id = AccountId(account_id_hash);
 
+    // Set IdentityHub credentials
     let initial_cred = Credential {
         suite,
         public_key_hash: account_id_hash,
@@ -107,11 +107,11 @@ async fn service_v2_registered(
         activation_height + 2,
     ] {
         // Swallow transient RPC errors here; let the outer `wait_until` keep polling.
-        if let Ok(Some(header)) =
+        if let Ok(Some(block)) =
             ioi_forge::testing::rpc::get_block_by_height_resilient(rpc_addr, h).await
         {
             if let Ok(Some(meta_bytes)) =
-                query_state_key_at_root(rpc_addr, &header.state_root, &fee_v2_key).await
+                query_state_key_at_root(rpc_addr, &block.header.state_root, &fee_v2_key).await
             {
                 if let Ok(meta) = codec::from_bytes_canonical::<ActiveServiceMeta>(&meta_bytes) {
                     if meta.id == "fee_calculator" && meta.artifact_hash == expected_artifact_hash {

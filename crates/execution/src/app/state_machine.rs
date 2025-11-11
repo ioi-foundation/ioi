@@ -1,25 +1,24 @@
 // Path: crates/execution/src/app/state_machine.rs
 
-use super::Chain;
+use super::{end_block, Chain};
 use async_trait::async_trait;
+use ibc_primitives::Timestamp;
 use ioi_api::app::{Block, BlockHeader, ChainStatus, ChainTransaction};
 use ioi_api::chain::{ChainStateMachine, PreparedBlock};
 use ioi_api::commitment::CommitmentScheme;
+use ioi_api::services::access::ServiceDirectory;
 use ioi_api::state::{PinGuard, ProofProvider, StateManager, StateOverlay};
 use ioi_api::transaction::context::TxContext;
 use ioi_api::validator::WorkloadContainer;
 use ioi_tx::unified::{UnifiedProof, UnifiedTransactionModel};
 use ioi_types::app::{
-    account_id_from_key_material, compute_interval_from_parent_state, effective_set_for_height,
-    read_validator_sets, to_root_hash, write_validator_sets, AccountId, BlockTimingParams,
-    BlockTimingRuntime, SignatureSuite, StateRoot, ValidatorV1,
+    account_id_from_key_material, read_validator_sets, to_root_hash, AccountId, Membership,
+    SignatureSuite, StateRoot,
 };
 use ioi_types::codec;
 use ioi_types::config::ConsensusType;
 use ioi_types::error::{BlockError, ChainError, StateError};
 use ioi_types::keys::{STATUS_KEY, VALIDATOR_SET_KEY};
-use ioi_types::service_configs::Capabilities;
-use ibc_primitives::Timestamp;
 use libp2p::identity::Keypair;
 use parity_scale_codec::Decode;
 use serde::Serialize;
@@ -166,7 +165,12 @@ where
                 UnifiedProof::UTXO(p) => {
                     for ip in p.input_proofs {
                         backend
-                            .verify_proof(&commit, &ip.inclusion_proof, &ip.utxo_key, &ip.utxo_value)
+                            .verify_proof(
+                                &commit,
+                                &ip.inclusion_proof,
+                                &ip.utxo_key,
+                                &ip.utxo_value,
+                            )
                             .map_err(ChainError::State)?;
                     }
                 }
@@ -183,21 +187,21 @@ where
             state.begin_block_writes(block.header.height);
             state.batch_apply(inserts, deletes)?;
 
-            let upgrade_count = self
-                .service_manager
-                .apply_upgrades_at_height(block.header.height, &mut *state)
-                .await
-                .map_err(|e| ChainError::State(StateError::Apply(e.to_string())))?;
+            // --- REFACTORED: Run end-of-block handlers ---
+            let upgrade_count = end_block::handle_service_upgrades(
+                &mut self.service_manager,
+                block.header.height,
+                &mut *state,
+            )
+            .await?;
+
             if upgrade_count > 0 {
-                tracing::info!(target: "chain", event = "module_upgrade", height = block.header.height, num_applied = upgrade_count, "Successfully applied on-chain service upgrades.");
-                let all_services = self.service_manager.all_services();
-                let services_for_dir: Vec<Arc<dyn ioi_api::services::BlockchainService>> = all_services
-                    .iter()
-                    .map(|s| s.clone() as Arc<dyn ioi_api::services::BlockchainService>)
-                    .collect();
-                self.services = ioi_api::services::access::ServiceDirectory::new(services_for_dir);
+                // If upgrades occurred, we MUST rebuild the ServiceDirectory before using it.
+                self.services =
+                    ServiceDirectory::new(self.service_manager.all_services_as_trait_objects());
             }
 
+            // Now that services are stable for this block, create the context.
             let end_block_ctx = TxContext {
                 block_height: block.header.height,
                 block_timestamp: {
@@ -210,109 +214,29 @@ where
                 },
                 chain_id: self.state.chain_id,
                 signer_account_id: AccountId::default(),
-                services: &self.services,
+                services: &self.services, // Borrow the (potentially updated) directory
                 simulation: false,
                 is_internal: true,
             };
-            for service in self.services.services_in_deterministic_order() {
-                if service.capabilities().contains(Capabilities::ON_END_BLOCK) {
-                    if let Some(hook) = service.as_on_end_block() {
-                        hook.on_end_block(&mut *state, &end_block_ctx)
-                            .await
-                            .map_err(ChainError::State)?;
-                    }
-                }
-            }
 
-            match state.get(VALIDATOR_SET_KEY)? {
-                Some(ref bytes) => {
-                    let mut sets = read_validator_sets(bytes)?;
-                    let mut modified = false;
-                    if let Some(next_vs) = &sets.next {
-                        if block.header.height >= next_vs.effective_from_height
-                            && !next_vs.validators.is_empty()
-                            && next_vs.total_weight > 0
-                        {
-                            tracing::info!(target: "chain", event = "validator_set_promotion", height = block.header.height, "Promoting validator set");
-                            let promoted_from_height = next_vs.effective_from_height;
-                            sets.current = next_vs.clone();
-                            if sets
-                                .next
-                                .as_ref()
-                                .is_some_and(|n| n.effective_from_height == promoted_from_height)
-                            {
-                                sets.next = None;
-                            }
-                            modified = true;
-                        }
-                    };
-                    let out = write_validator_sets(&sets)?;
-                    state.insert(VALIDATOR_SET_KEY, &out)?;
-                    if modified {
-                        tracing::info!(target: "chain", event = "validator_set_promotion", "Validator set updated and carried forward.");
-                    } else {
-                        tracing::debug!(target: "chain", event = "validator_set_promotion", "Validator set carried forward unchanged.");
-                    }
-                }
-                None => {
-                    tracing::error!(target: "chain", event = "end_block", height = block.header.height, "MISSING VALIDATOR_SET_KEY before commit.");
-                }
-            }
-
-            let timing_params_bytes = state.get(super::BLOCK_TIMING_PARAMS_KEY)?;
-            let timing_runtime_bytes = state.get(super::BLOCK_TIMING_RUNTIME_KEY)?;
-            if let (Some(params_bytes), Some(runtime_bytes)) =
-                (timing_params_bytes, timing_runtime_bytes)
-            {
-                let params: BlockTimingParams =
-                    codec::from_bytes_canonical(&params_bytes).map_err(ChainError::Transaction)?;
-                let old_runtime: BlockTimingRuntime =
-                    codec::from_bytes_canonical(&runtime_bytes).map_err(ChainError::Transaction)?;
-                let mut new_runtime = old_runtime.clone();
-
-                if params.retarget_every_blocks > 0
-                    && block.header.height % params.retarget_every_blocks as u64 == 0
-                {
-                    let gas_used_this_block = 0;
-                    let next_interval = compute_interval_from_parent_state(
-                        &params,
-                        &old_runtime,
-                        block.header.height.saturating_sub(1),
-                        gas_used_this_block,
-                    );
-                    let alpha = params.ema_alpha_milli as u128;
-                    new_runtime.ema_gas_used = (alpha * gas_used_this_block as u128
-                        + (1000 - alpha) * old_runtime.ema_gas_used)
-                        / 1000;
-                    new_runtime.effective_interval_secs = next_interval;
-
-                    if new_runtime.ema_gas_used != old_runtime.ema_gas_used
-                        || new_runtime.effective_interval_secs
-                            != old_runtime.effective_interval_secs
-                    {
-                        state
-                            .insert(
-                                super::BLOCK_TIMING_RUNTIME_KEY,
-                                &codec::to_bytes_canonical(&new_runtime)
-                                    .map_err(ChainError::Transaction)?,
-                            )?;
-                    }
-                }
-            }
+            end_block::run_on_end_block_hooks(&self.services, &mut *state, &end_block_ctx).await?;
+            end_block::handle_validator_set_promotion(&mut *state, block.header.height)?;
+            // TODO: Track gas used per block and pass it here.
+            end_block::handle_timing_update(&mut *state, block.header.height, 0)?;
+            // --- END REFACTOR ---
 
             self.state.status.height = block.header.height;
             self.state.status.latest_timestamp = block.header.timestamp;
             self.state.status.total_transactions += block.transactions.len() as u64;
 
-            let status_bytes = codec::to_bytes_canonical(&self.state.status)
-                .map_err(|e| ChainError::Transaction(e.to_string()))?;
+            let status_bytes =
+                codec::to_bytes_canonical(&self.state.status).map_err(ChainError::Transaction)?;
             state.insert(STATUS_KEY, &status_bytes)?;
 
             state.commit_version_persist(block.header.height, &*workload.store)?;
             let final_root_bytes = state.root_commitment().as_ref().to_vec();
 
             {
-                use ioi_types::app::Membership;
                 let final_commitment = state.commitment_from_bytes(&final_root_bytes)?;
                 if cfg!(debug_assertions) && !state.version_exists_for_root(&final_commitment) {
                     return Err(ChainError::State(StateError::Validation(format!("FATAL INVARIANT VIOLATION: The committed root for height {} is not mapped to a queryable version!", block.header.height))));
@@ -342,8 +266,7 @@ where
             .map_err(|e| ChainError::Transaction(e.to_string()))?;
         tracing::info!(target: "chain", event = "commit", height = block.header.height, state_root = hex::encode(&block.header.state_root.0), anchor = hex::encode(anchor.as_ref()));
 
-        let block_bytes = codec::to_bytes_canonical(&block)
-            .map_err(|e| ChainError::Transaction(e.to_string()))?;
+        let block_bytes = codec::to_bytes_canonical(&block).map_err(ChainError::Transaction)?;
         workload
             .store
             .put_block(block.header.height, &block_bytes)
@@ -451,7 +374,7 @@ where
             .get(VALIDATOR_SET_KEY)?
             .ok_or(ChainError::from(StateError::KeyNotFound))?;
         let sets = read_validator_sets(&bytes)?;
-        let effective_set = effective_set_for_height(&sets, height);
+        let effective_set = ioi_types::app::effective_set_for_height(&sets, height);
         Ok(effective_set
             .validators
             .iter()

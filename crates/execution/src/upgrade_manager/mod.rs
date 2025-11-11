@@ -87,10 +87,11 @@ pub struct ServiceUpgradeManager {
     active_services: HashMap<String, Arc<dyn UpgradableService>>,
     upgrade_history: HashMap<String, Vec<u64>>,
     runtimes: HashMap<String, Arc<dyn Runtime>>,
+    refreshed_this_block: bool,
 }
 
 impl fmt::Debug for ServiceUpgradeManager {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ServiceUpgradeManager")
             .field("active_services", &self.active_services.keys())
             .field("upgrade_history", &self.upgrade_history)
@@ -105,7 +106,18 @@ impl ServiceUpgradeManager {
             active_services: HashMap::new(),
             upgrade_history: HashMap::new(),
             runtimes: HashMap::new(),
+            refreshed_this_block: false,
         }
+    }
+
+    /// Checks if the service directory was modified in the current block.
+    pub fn refreshed_this_block(&self) -> bool {
+        self.refreshed_this_block
+    }
+
+    /// Resets the `refreshed_this_block` flag at the end of a block.
+    pub fn clear_refreshed_flag(&mut self) {
+        self.refreshed_this_block = false;
     }
 
     pub fn register_service(&mut self, service: Arc<dyn UpgradableService>) {
@@ -134,6 +146,14 @@ impl ServiceUpgradeManager {
         keys.sort();
         keys.into_iter()
             .filter_map(|k| self.active_services.get(&k).cloned())
+            .collect()
+    }
+
+    /// Helper for the `Chain` struct to rebuild its `ServiceDirectory`.
+    pub fn all_services_as_trait_objects(&self) -> Vec<Arc<dyn BlockchainService>> {
+        self.all_services()
+            .into_iter()
+            .map(|s| s as Arc<dyn BlockchainService>)
             .collect()
     }
 
@@ -196,6 +216,7 @@ impl ServiceUpgradeManager {
             {
                 Ok(()) => {
                     applied_count += 1;
+                    self.refreshed_this_block = true;
                     if let Some(history) = self.upgrade_history.get_mut(&service_id) {
                         history.push(height);
                     }

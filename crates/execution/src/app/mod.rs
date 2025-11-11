@@ -1,5 +1,6 @@
 // Path: crates/execution/src/app/mod.rs
 // NEW: Declare the new modules containing the trait implementations.
+mod end_block;
 mod state_machine;
 mod view;
 
@@ -22,7 +23,7 @@ use ioi_tx::system::{nonce, validation};
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{
     to_root_hash, AccountId, BlockTimingParams, BlockTimingRuntime, ChainId, FailureReport,
-    Membership, ValidatorSetsV1,
+    Membership,
 };
 use ioi_types::codec;
 use ioi_types::error::{ChainError, StateError, TransactionError};
