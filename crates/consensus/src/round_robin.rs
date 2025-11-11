@@ -7,8 +7,8 @@ use ioi_api::chain::{AnchoredStateView, ChainView};
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::state::{StateAccess, StateManager};
 use ioi_types::app::{
-    compute_interval_from_parent_state, read_validator_sets, AccountId, Block, BlockTimingParams,
-    BlockTimingRuntime, ChainStatus, FailureReport,
+    compute_interval_from_parent_state, effective_set_for_height, read_validator_sets, AccountId,
+    Block, BlockTimingParams, BlockTimingRuntime, ChainStatus, FailureReport,
 };
 use ioi_types::codec;
 use ioi_types::error::{ConsensusError, StateError, TransactionError};
@@ -78,12 +78,14 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             Ok(s) => s,
             _ => return ConsensusDecision::Stall,
         };
-        let validator_set: Vec<_> = sets
-            .current
+
+        let effective_vs = effective_set_for_height(&sets, height);
+        let mut validator_set: Vec<_> = effective_vs
             .validators
-            .into_iter()
+            .iter()
             .map(|v| v.account_id)
             .collect();
+        validator_set.sort();
 
         // Consistent timestamp calculation for this engine.
         let expected_timestamp_secs = {
@@ -185,12 +187,14 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             .ok_or_else(|| ConsensusError::StateAccess(StateError::KeyNotFound))?;
         let sets = read_validator_sets(&vs_bytes)
             .map_err(|e| ConsensusError::StateAccess(StateError::InvalidValue(e.to_string())))?;
-        let validator_set: Vec<_> = sets
-            .current
+
+        let effective_vs = effective_set_for_height(&sets, block.header.height);
+        let mut validator_set: Vec<_> = effective_vs
             .validators
-            .into_iter()
+            .iter()
             .map(|v| v.account_id)
             .collect();
+        validator_set.sort();
 
         if validator_set
             .binary_search(&header.producer_account_id)
