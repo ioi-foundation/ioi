@@ -8,7 +8,7 @@ use ioi_api::state::{StateAccess, StateManager};
 use ioi_types::app::{
     account_id_from_key_material, compute_next_timestamp, effective_set_for_height,
     read_validator_sets, AccountId, Block, BlockTimingParams, BlockTimingRuntime, ChainStatus,
-    FailureReport, SignatureSuite, ValidatorSetV1, ValidatorSetsV1,
+    FailureReport, SignatureSuite,
 };
 use ioi_types::codec;
 use ioi_types::error::{ConsensusError, CoreError, StateError, TransactionError};

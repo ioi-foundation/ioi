@@ -6,7 +6,6 @@ use crate::security::{SecureStream, SecurityChannel};
 use actor::{ClientActor, ClientRequest, PendingRequestMap};
 use anyhow::{anyhow, Result};
 use arc_swap::ArcSwap;
-use async_trait::async_trait;
 use ioi_api::vm::{ExecutionContext, ExecutionOutput};
 use ioi_ipc::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest};
 use ioi_types::app::{
@@ -492,7 +491,7 @@ impl WorkloadClient {
     pub async fn get_block_by_height(
         &self,
         height: u64,
-    ) -> Result<Option<ioi_types::app::BlockHeader>> {
+    ) -> Result<Option<ioi_types::app::Block<ChainTransaction>>> {
         #[derive(Serialize)]
         struct Params {
             height: u64,

@@ -19,7 +19,14 @@ use ioi_api::transaction::TransactionModel;
 use ioi_client::WorkloadClient;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_tx::unified::UnifiedTransactionModel;
-use ioi_types::app::{ApplicationTransaction, ChainTransaction};
+use ioi_types::{
+    app::{
+        compute_interval_from_parent_state, ApplicationTransaction, BlockTimingParams,
+        BlockTimingRuntime, ChainTransaction,
+    },
+    codec,
+    keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY},
+};
 use ioi_types::config::OrchestrationConfig;
 use ipnetwork::IpNetwork;
 use serde::{Deserialize, Serialize};
@@ -204,7 +211,7 @@ fn is_transient_state_err(e: &str) -> bool {
 async fn query_raw_state_resilient(
     wc: &WorkloadClient,
     key: &[u8],
-) -> Result<Option<Vec<u8>>, String> {
+) -> Result<Option<Vec<u8>>, anyhow::Error> {
     let mut backoff = 60u64; // milliseconds
     for _ in 0..3 {
         match wc.query_raw_state(key).await {
@@ -217,7 +224,7 @@ async fn query_raw_state_resilient(
                     continue;
                 }
                 // Non-transient: bubble exact error once
-                return Err(msg);
+                return Err(anyhow!(msg));
             }
         }
     }
@@ -228,6 +235,32 @@ async fn query_raw_state_resilient(
         hex::encode(key)
     );
     Ok(None)
+}
+
+/// Helper function to calculate the expected timestamp for the next block.
+async fn calculate_expected_timestamp(app_state: &RpcAppState) -> Result<u64, anyhow::Error> {
+    let parent_status = app_state.workload_client.get_status().await?;
+    let params_bytes =
+        query_raw_state_resilient(&app_state.workload_client, BLOCK_TIMING_PARAMS_KEY)
+            .await?
+            .ok_or_else(|| anyhow!("BlockTimingParams not found in state"))?;
+    let runtime_bytes =
+        query_raw_state_resilient(&app_state.workload_client, BLOCK_TIMING_RUNTIME_KEY)
+            .await?
+            .ok_or_else(|| anyhow!("BlockTimingRuntime not found in state"))?;
+
+    let params: BlockTimingParams = codec::from_bytes_canonical(&params_bytes)
+        .map_err(|e| anyhow!("Failed to decode BlockTimingParams: {}", e))?;
+    let runtime: BlockTimingRuntime = codec::from_bytes_canonical(&runtime_bytes)
+        .map_err(|e| anyhow!("Failed to decode BlockTimingRuntime: {}", e))?;
+
+    let parent_gas_used_placeholder = 0u64;
+    let interval =
+        compute_interval_from_parent_state(&params, &runtime, parent_status.height, parent_gas_used_placeholder);
+    parent_status
+        .latest_timestamp
+        .checked_add(interval)
+        .ok_or_else(|| anyhow!("Timestamp overflow"))
 }
 
 /// The single handler for all incoming JSON-RPC requests.
@@ -327,17 +360,30 @@ async fn rpc_handler(
                     let anchor_res = root.to_anchor();
                     match anchor_res {
                         Ok(anchor) => {
-                            // The timestamp here is a best-effort guess. The final, authoritative
-                            // timestamp is only known by the consensus leader. This check is primarily
-                            // for signature, nonce, and non-time-sensitive state validation.
-                            let now_secs = std::time::SystemTime::now()
-                                .duration_since(std::time::UNIX_EPOCH)
-                                .unwrap_or_default()
-                                .as_secs();
-
+                            let expected_timestamp_secs =
+                                match calculate_expected_timestamp(&app_state).await {
+                                    Ok(ts) => ts,
+                                    Err(e) => {
+                                        return (
+                                            StatusCode::OK,
+                                            make_err(
+                                                &payload.id,
+                                                -32000,
+                                                format!(
+                                                    "Failed to determine next block timestamp: {}",
+                                                    e
+                                                ),
+                                            ),
+                                        );
+                                    }
+                                };
                             app_state
                                 .workload_client
-                                .check_transactions_at(anchor, now_secs, vec![tx.clone()])
+                                .check_transactions_at(
+                                    anchor,
+                                    expected_timestamp_secs,
+                                    vec![tx.clone()],
+                                )
                                 .await
                         }
                         Err(e) => Err(anyhow!("Failed to create anchor from root: {}", e)),
@@ -510,8 +556,8 @@ async fn rpc_handler(
                     );
                 };
                 match app_state.workload_client.get_block_by_height(height).await {
-                    Ok(header_opt) => {
-                        let result_value = match serde_json::to_value(header_opt) {
+                    Ok(block_opt) => {
+                        let result_value = match serde_json::to_value(block_opt) {
                             Ok(v) => v,
                             Err(_) => json!({"error": "serialization failed"}),
                         };
