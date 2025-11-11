@@ -65,10 +65,18 @@ impl ClientActor {
                     // Insert the pending response sender *before* sending the request.
                     pending_write.write().await.insert(id, req.response_tx);
 
-                    if write_half.write_all(&req_bytes).await.is_err() {
-                        log::error!("[WorkloadClientActor] Failed to write request to stream. Closing write task.");
+                    // --- FIX START: Implement length-prefixing ---
+                    // Write the 4-byte length prefix first.
+                    if let Err(e) = write_half.write_u32(req_bytes.len() as u32).await {
+                        log::error!("[WorkloadClientActor] Failed to write request length prefix: {}. Closing write task.", e);
                         break;
                     }
+                    // Then write the message payload.
+                    if let Err(e) = write_half.write_all(&req_bytes).await {
+                        log::error!("[WorkloadClientActor] Failed to write request payload: {}. Closing write task.", e);
+                        break;
+                    }
+                    // --- FIX END ---
                 }
             }
         });
@@ -77,39 +85,46 @@ impl ClientActor {
         // This task continuously reads from the socket and dispatches responses.
         let pending_read = self.pending.clone();
         let read_task = tokio::spawn(async move {
-            let mut buf = vec![0; 65536]; // 64KiB buffer
+            // --- FIX START: Implement length-prefixed reading ---
             loop {
-                let n = match read_half.read(&mut buf).await {
-                    Ok(0) => {
+                // 1. Read the 4-byte length prefix. read_u32 handles partial reads.
+                let len = match read_half.read_u32().await {
+                    Ok(len) => len as usize,
+                    Err(ref e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
                         log::info!(
                             "[WorkloadClientActor] Connection closed by server. Closing read task."
                         );
-                        break; // EOF
+                        break; // Clean EOF
                     }
-                    Ok(n) => n,
-                    Err(_) => {
-                        log::error!(
-                            "[WorkloadClientActor] Failed to read from stream. Closing read task."
-                        );
+                    Err(e) => {
+                        log::error!("[WorkloadClientActor] Failed to read response length prefix: {}. Closing read task.", e);
                         break;
                     }
                 };
 
-                let response_slice = match buf.get(..n) {
-                    Some(slice) => slice,
-                    None => {
-                        log::error!("[WorkloadClientActor] Slicing error: read returned more bytes than buffer capacity. This is a bug.");
-                        continue;
-                    }
-                };
+                // 2. Sanity check the length to prevent allocation attacks.
+                const MAX_IPC_MESSAGE_SIZE: usize = 1_048_576; // 1 MiB
+                if len == 0 || len > MAX_IPC_MESSAGE_SIZE {
+                    log::error!("[WorkloadClientActor] Received invalid message length: {}. Closing connection.", len);
+                    break;
+                }
 
-                let response: JsonRpcResponse = match serde_json::from_slice(response_slice) {
+                // 3. Read the exact number of bytes for the message payload.
+                let mut response_buf = vec![0; len];
+                if let Err(e) = read_half.read_exact(&mut response_buf).await {
+                    log::error!("[WorkloadClientActor] Failed to read full response payload (len={}): {}. Closing read task.", len, e);
+                    break;
+                }
+
+                // 4. Deserialize and dispatch the complete message.
+                let response: JsonRpcResponse = match serde_json::from_slice(&response_buf) {
                     Ok(res) => res,
                     Err(e) => {
                         log::error!("[WorkloadClientActor] Failed to parse response: {}", e);
-                        continue;
+                        continue; // Don't break for a single malformed message.
                     }
                 };
+                // --- FIX END ---
 
                 // Find the pending request and send the response back.
                 if let Some(response_tx) = pending_read.write().await.remove(&response.id) {
