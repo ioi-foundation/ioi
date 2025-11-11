@@ -372,13 +372,14 @@ where
                         }
                     };
 
-                    let mut request_buf = vec![0; 65536]; // Max request size buffer
-                    let n = match read_half.read(&mut request_buf).await {
-                        Ok(0) => {
+                    // --- FIX START: Implement length-prefixed reading ---
+                    // 1. Read the 4-byte length prefix.
+                    let len = match read_half.read_u32().await {
+                        Ok(len) => len as usize,
+                        Err(ref e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
                             log::info!("IPC connection closed by {}", peer_addr);
-                            return;
-                        } // EOF
-                        Ok(n) => n,
+                            return; // Clean EOF
+                        }
                         Err(e) => {
                             log::info!(
                                 "IPC receive error from {}: {}. Closing connection.",
@@ -389,15 +390,23 @@ where
                         }
                     };
 
-                    let request_slice = match request_buf.get(..n) {
-                        Some(slice) => slice,
-                        None => {
-                            log::error!("[WorkloadIPC] Slicing error: read returned more bytes than buffer capacity. This is a bug.");
-                            continue;
-                        }
-                    };
+                    // 2. Sanity check the length.
+                    const MAX_IPC_MESSAGE_SIZE: usize = 1_048_576; // 1 MiB
+                    if len == 0 || len > MAX_IPC_MESSAGE_SIZE {
+                        log::error!("[WorkloadIPCServer] Received invalid message length: {}. Closing connection.", len);
+                        return;
+                    }
+
+                    // 3. Read the exact number of bytes for the message payload.
+                    let mut request_buf = vec![0; len];
+                    if let Err(e) = read_half.read_exact(&mut request_buf).await {
+                        log::error!("[WorkloadIPCServer] Failed to read full request payload (len={}): {}. Closing connection.", len, e);
+                        return;
+                    }
+                    // --- FIX END ---
+
                     let response = handle_request(
-                        request_slice,
+                        &request_buf,
                         shared_ctx_clone.clone(),
                         router_clone.clone(),
                     )
@@ -423,10 +432,29 @@ where
                                 serde_json::to_vec(&err_res).unwrap_or_default()
                             }
                         };
-                        if let Err(e) = write_half.write_all(&response_bytes).await {
-                            log::error!("Failed to send IPC response to {}: {}", peer_addr, e);
+
+                        // --- FIX START: Implement length-prefixing for writing ---
+                        // Write the 4-byte length prefix.
+                        if let Err(e) = write_half.write_u32(response_bytes.len() as u32).await {
+                            log::error!(
+                                "Failed to send IPC response length prefix to {}: {}",
+                                peer_addr,
+                                e
+                            );
+                            continue;
                         }
+
+                        // Write the payload.
+                        if let Err(e) = write_half.write_all(&response_bytes).await {
+                            log::error!(
+                                "Failed to send IPC response payload to {}: {}",
+                                peer_addr,
+                                e
+                            );
+                        }
+                        // --- FIX END ---
                     }
+                    drop(_permit);
                 }
             });
         }
