@@ -9,9 +9,8 @@ use anyhow::{anyhow, Result};
 use axum::{routing::get, serve, Router};
 use ioi_forge::testing::{
     assert_log_contains,
-    backend::ProcessBackend,
-    wait_for, wait_for_height, wait_for_pending_oracle_request,
-    rpc, submit_transaction, TestCluster,
+    rpc::{self, submit_transaction},
+    wait_for_height, wait_for_pending_oracle_request, TestCluster,
 };
 use ioi_types::{
     app::{
@@ -23,7 +22,6 @@ use ioi_types::{
     service_configs::MigrationConfig,
 };
 use parity_scale_codec::Encode;
-use std::mem::ManuallyDrop;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
@@ -102,7 +100,6 @@ async fn start_local_http_stub() -> (String, tokio::task::JoinHandle<()>) {
 
 #[tokio::test]
 async fn test_metrics_endpoint() -> Result<()> {
-    // Scope imports here to avoid unused import warnings when this test is disabled by features.
     use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
     use cfg_if::cfg_if;
     use ioi_types::{
@@ -116,10 +113,9 @@ async fn test_metrics_endpoint() -> Result<()> {
 
     println!("\n--- Running Metrics Endpoint Test ---");
 
-    // 1. Conditionally build the TestCluster based on the active consensus feature.
     let mut builder = TestCluster::builder()
         .with_validators(1)
-        .with_state_tree("IAVL") // Keep this consistent with the cfg
+        .with_state_tree("IAVL")
         .with_commitment_scheme("Hash")
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
@@ -155,8 +151,6 @@ async fn test_metrics_endpoint() -> Result<()> {
                         std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                         json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
                     );
-
-                    // Add Identity
                     let cred = Credential { suite, public_key_hash: account_hash, activation_height: 0, l2_location: None };
                     let creds_array: [Option<Credential>; 2] = [Some(cred), None];
                     let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
@@ -182,7 +176,6 @@ async fn test_metrics_endpoint() -> Result<()> {
                     let account_hash = account_id_from_key_material(suite, &pk_bytes).unwrap();
                     let account_id = AccountId(account_hash);
                     let initial_stake = 100_000u128;
-
                     let vs = ValidatorSetV1 {
                         effective_from_height: 1,
                         total_weight: initial_stake,
@@ -197,9 +190,7 @@ async fn test_metrics_endpoint() -> Result<()> {
                         std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                         json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
                     );
-
-                     // Add Identity
-                    let cred = Credential { suite, public_key_hash: account_hash, activation_height: 0, l2_location: None };
+                     let cred = Credential { suite, public_key_hash: account_hash, activation_height: 0, l2_location: None };
                     let creds_array: [Option<Credential>; 2] = [Some(cred), None];
                     let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
                     let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
@@ -216,41 +207,23 @@ async fn test_metrics_endpoint() -> Result<()> {
         }
     }
 
-    let cluster = builder.build().await?;
-    let node = &cluster.validators[0];
-
-    // Wait for the node to be ready.
+    let mut cluster = builder.build().await?;
+    let node_guard = cluster.validators.remove(0);
+    let node = node_guard.validator();
     wait_for_height(&node.rpc_addr, 1, Duration::from_secs(30)).await?;
-
-    // 2. Scrape the /metrics endpoint from the CORRECT container.
     let metrics_body = scrape_metrics(&node.orchestration_telemetry_addr).await?;
-
-    // 3. Assert that the response contains expected metric names.
-    assert!(
-        metrics_body.contains("ioi_storage_disk_usage_bytes"),
-        "Metrics should contain disk usage"
-    );
-    assert!(
-        metrics_body.contains("ioi_networking_connected_peers"),
-        "Metrics should contain connected peers count"
-    );
-    assert!(
-        metrics_body.contains("ioi_rpc_requests_total"),
-        "Metrics should contain rpc request count"
-    );
-    assert!(
-        get_metric_value(&metrics_body, "ioi_mempool_size").is_some(),
-        "Mempool size metric should be present"
-    );
-
+    assert!(metrics_body.contains("ioi_storage_disk_usage_bytes"));
+    assert!(metrics_body.contains("ioi_networking_connected_peers"));
+    assert!(metrics_body.contains("ioi_rpc_requests_total"));
+    assert!(get_metric_value(&metrics_body, "ioi_mempool_size").is_some());
+    node_guard.shutdown().await?;
     println!("--- Metrics Endpoint Test Passed ---");
     Ok(())
 }
 
 #[tokio::test]
-#[cfg(not(windows))] // `kill -9` is not applicable on Windows.
+#[cfg(not(windows))]
 async fn test_storage_crash_recovery() -> Result<()> {
-    // Scope imports here to avoid unused import warnings when this test is disabled by features.
     use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
     use ioi_types::{
         app::{
@@ -263,13 +236,10 @@ async fn test_storage_crash_recovery() -> Result<()> {
 
     println!("\n--- Running Storage Crash Recovery Test ---");
 
-    // Start a local http stub for the oracle request
     let (stub_url, _stub_handle) = start_local_http_stub().await;
-
-    // 1. Setup: Launch a node using the local process backend.
-    let mut cluster = TestCluster::builder()
+    let cluster = TestCluster::builder()
         .with_validators(1)
-        .use_docker_backend(false) // Must use processes to kill one
+        .use_docker_backend(false)
         .with_initial_service(InitialServiceConfig::Oracle(OracleParams::default()))
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
@@ -283,10 +253,9 @@ async fn test_storage_crash_recovery() -> Result<()> {
             let keypair = &keys[0];
             let suite = SignatureSuite::Ed25519;
             let pk_bytes = keypair.public().encode_protobuf();
-            let account_id_hash = account_id_from_key_material(suite, &pk_bytes).unwrap();
+            let account_id_hash =
+                ioi_types::app::account_id_from_key_material(suite, &pk_bytes).unwrap();
             let account_id = AccountId(account_id_hash);
-
-            // 1. Validator Set
             let vs = ValidatorSetV1 {
                 effective_from_height: 1,
                 total_weight: 1,
@@ -309,8 +278,6 @@ async fn test_storage_crash_recovery() -> Result<()> {
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
             );
-
-            // 2. IdentityHub Credentials (required for tx signing)
             let initial_cred = Credential {
                 suite,
                 public_key_hash: account_id_hash,
@@ -324,8 +291,6 @@ async fn test_storage_crash_recovery() -> Result<()> {
                 format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
             );
-
-            // 3. AccountID -> Pubkey Mapping
             let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
             genesis_state.insert(
                 format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
@@ -335,107 +300,101 @@ async fn test_storage_crash_recovery() -> Result<()> {
         .build()
         .await?;
 
-    // Use ManuallyDrop to prevent the Drop handler from cleaning up prematurely.
-    let mut node = ManuallyDrop::new(cluster.validators.remove(0));
-    let rpc_addr = node.rpc_addr.clone();
+    let mut node_guard = cluster.validators.into_iter().next().unwrap();
 
-    // 2. Action: Submit a VALID, SIGNED transaction to change state.
-    let request_id = 12345;
-    let params = RequestOracleDataParams {
-        url: format!("{}/recovery-test", stub_url),
-        request_id,
-    };
-    let params_bytes = ioi_types::codec::to_bytes_canonical(&params).map_err(anyhow::Error::msg)?;
-    let payload = SystemPayload::CallService {
-        service_id: "oracle".to_string(),
-        method: "request_data@v1".to_string(),
-        params: params_bytes,
-    };
-    let tx = create_signed_system_tx(&node.keypair, payload, 0, 1.into())?;
-    submit_transaction(&rpc_addr, &tx).await?;
+    let test_logic_result = async {
+        let rpc_addr = node_guard.validator().rpc_addr.clone();
 
-    // 3. Verify: Poll state until the transaction is committed.
-    wait_for_pending_oracle_request(&rpc_addr, request_id, Duration::from_secs(30)).await?;
-    println!("State was successfully written before crash.");
+        let request_id = 12345;
+        let params = RequestOracleDataParams {
+            url: format!("{}/recovery-test", stub_url),
+            request_id,
+        };
+        let params_bytes =
+            ioi_types::codec::to_bytes_canonical(&params).map_err(anyhow::Error::msg)?;
+        let payload = SystemPayload::CallService {
+            service_id: "oracle".to_string(),
+            method: "request_data@v1".to_string(),
+            params: params_bytes,
+        };
+        let tx = create_signed_system_tx(&node_guard.validator().keypair, payload, 0, 1.into())?;
+        submit_transaction(&rpc_addr, &tx).await?;
 
-    // 4. Action: Forcefully kill the workload process.
-    println!("Killing workload process...");
-    let workload_pid = {
-        let backend = node
-            .backend
-            .as_any()
-            .downcast_ref::<ProcessBackend>()
-            .expect("This test must run with the ProcessBackend");
+        wait_for_pending_oracle_request(&rpc_addr, request_id, Duration::from_secs(30)).await?;
+        println!("State was successfully written before crash.");
 
-        backend
-            .workload_process
-            .as_ref()
-            .expect("Should have workload process handle")
-            .id()
-            .expect("Process should have an ID")
-    };
-    let kill_output = std::process::Command::new("kill")
-        .args(["-9", &workload_pid.to_string()])
-        .output()?;
-    if !kill_output.status.success() {
-        return Err(anyhow!(
-            "Failed to kill workload process: {}",
-            String::from_utf8_lossy(&kill_output.stderr)
-        ));
+        println!("Killing workload process...");
+        let workload_pid = {
+            // --- FIX START: Correctly specify the path to ProcessBackend ---
+            let backend = node_guard
+                .validator_mut()
+                .backend
+                .as_any_mut()
+                .downcast_mut::<ioi_forge::testing::backend::ProcessBackend>()
+                .expect("This test must run with the ProcessBackend");
+            // --- FIX END ---
+
+            let child = backend
+                .workload_process
+                .take()
+                .expect("Should have workload process handle");
+
+            child.id().expect("Process should have an ID")
+        };
+        let kill_output = std::process::Command::new("kill")
+            .args(["-9", &workload_pid.to_string()])
+            .output()?;
+        if !kill_output.status.success() {
+            return Err(anyhow!(
+                "Failed to kill workload process: {}",
+                String::from_utf8_lossy(&kill_output.stderr)
+            ));
+        }
+        tokio::time::sleep(Duration::from_secs(2)).await;
+
+        println!("Restarting workload process...");
+        node_guard
+            .validator_mut()
+            .restart_workload_process()
+            .await?;
+
+        ioi_forge::testing::assert::wait_for(
+            "orchestration RPC to become responsive after workload restart",
+            Duration::from_millis(500),
+            Duration::from_secs(45),
+            || async {
+                if rpc::get_chain_height(&rpc_addr).await.is_ok() {
+                    Ok(Some(()))
+                } else {
+                    Ok(None)
+                }
+            },
+        )
+        .await?;
+        println!("Workload process restarted and orchestrator reconnected.");
+
+        let key_to_check = [
+            ioi_types::keys::ORACLE_PENDING_REQUEST_PREFIX,
+            &request_id.to_le_bytes(),
+        ]
+        .concat();
+        let state_after = rpc::query_state_key(&rpc_addr, &key_to_check).await?;
+        assert!(state_after.is_some(), "State was lost after crash");
+
+        Ok(())
     }
-    // Allow the orchestration process to notice the connection drop
-    tokio::time::sleep(Duration::from_secs(2)).await;
+    .await;
 
-    // 5. Action: Restart the workload process.
-    println!("Restarting workload process...");
-    let backend_mut = node
-        .backend
-        .as_any_mut()
-        .downcast_mut::<ProcessBackend>()
-        .unwrap();
+    node_guard.shutdown().await?;
+    test_logic_result?;
 
-    backend_mut.workload_process = None; // Clear the old handle before restart
-
-    backend_mut.restart_workload_process().await?;
-
-    // Wait for the orchestrator's internal client to reconnect
-    wait_for(
-        "orchestration RPC to become responsive after workload restart",
-        Duration::from_millis(500),
-        Duration::from_secs(45),
-        || async {
-            if rpc::get_chain_height(&rpc_addr).await.is_ok() {
-                Ok(Some(()))
-            } else {
-                Ok(None)
-            }
-        },
-    )
-    .await?;
-    println!("Workload process restarted and orchestrator reconnected.");
-
-    // 6. Assert: The state from the original transaction must still be present.
-    let key_to_check = [
-        ioi_types::keys::ORACLE_PENDING_REQUEST_PREFIX,
-        &request_id.to_le_bytes(),
-    ]
-    .concat();
-    let state_after = rpc::query_state_key(&rpc_addr, &key_to_check).await?;
-    assert!(state_after.is_some(), "State was lost after crash");
-
-    // Manually clean up the validator and its processes.
-    unsafe { ManuallyDrop::drop(&mut node) };
     println!("--- Storage Crash Recovery Test Passed ---");
     Ok(())
 }
 
 #[tokio::test]
-#[ignore] // FIXME: This test is disabled because it calls methods (`with_gc_config`, `with_gc_interval_secs`) that are not defined on `TestClusterBuilder`.
+#[ignore]
 async fn test_gc_respects_pinned_epochs() -> Result<()> {
-    // This test is a placeholder as its implementation requires a test-only RPC
-    // to instruct the server to pin a version. The `PinGuard` is an internal server
-    // mechanism and cannot be used from a client-side test.
-    // The logic has been commented out to allow the rest of the suite to pass.
     println!(
         "\n--- SKIPPING GC Pinning Test (requires test-only RPC to be architecturally sound) ---"
     );
@@ -443,26 +402,20 @@ async fn test_gc_respects_pinned_epochs() -> Result<()> {
 }
 
 #[tokio::test]
-#[ignore] // FIXME: This test is disabled because it calls methods (`with_gc_config`, `with_gc_interval_secs`) that are not defined on `TestClusterBuilder`.
+#[ignore]
 async fn test_storage_soak_test() -> Result<()> {
     println!("\n--- Running Storage Soak Test ---");
-
-    // 1. Setup: Node with aggressive GC.
-    let cluster = TestCluster::builder()
-        .with_validators(1)
-        // .with_gc_config(20, 10, 50)
-        // .with_gc_interval_secs(5)
-        .build()
-        .await?;
-    let node = &cluster.validators[0];
+    let mut cluster = TestCluster::builder().with_validators(1).build().await?;
+    let node_guard = cluster.validators.remove(0);
+    let node = node_guard.validator();
     let (mut orch_logs, _, _) = node.subscribe_logs();
 
     let test_duration = Duration::from_secs(90);
     let load_duration = Duration::from_secs(60);
 
-    // 2. Action: Transaction firehose task.
     let rpc_addr_clone = node.rpc_addr.clone();
-    let account_id_bytes = node.keypair.public().to_peer_id().to_bytes();
+    let keypair_clone = node.keypair.clone();
+    let account_id_bytes = keypair_clone.public().encode_protobuf();
     let account_id = AccountId(ioi_types::app::account_id_from_key_material(
         SignatureSuite::Ed25519,
         &account_id_bytes,
@@ -483,24 +436,14 @@ async fn test_storage_soak_test() -> Result<()> {
                 method: "request_data@v1".to_string(),
                 params: params_bytes,
             };
-            let tx = ChainTransaction::System(Box::new(SystemTransaction {
-                header: SignHeader {
-                    account_id,
-                    nonce,
-                    chain_id: 1.into(),
-                    tx_version: 1,
-                },
-                payload,
-                signature_proof: Default::default(),
-            }));
+            let tx = create_signed_system_tx(&keypair_clone, payload, nonce, 1.into()).unwrap();
             let _ = submit_transaction(&rpc_addr_clone, &tx).await;
             nonce += 1;
             request_id_counter += 1;
-            tokio::time::sleep(Duration::from_millis(100)).await; // Prevents overwhelming the mempool instantly
+            tokio::time::sleep(Duration::from_millis(100)).await;
         }
     });
 
-    // 3. Action: Metrics monitoring task.
     let telemetry_addr_clone = node.workload_telemetry_addr.clone();
     let monitor_handle = tokio::spawn(async move {
         let mut gc_counts = Vec::new();
@@ -520,15 +463,11 @@ async fn test_storage_soak_test() -> Result<()> {
         (gc_counts, disk_usages)
     });
 
-    // Run the test.
     let _ = tx_firehose_handle.await;
     let (gc_counts, disk_usages) = monitor_handle.await?;
-
-    // 4. Assertions
     println!("Collected GC Counts: {:?}", gc_counts);
     println!("Collected Disk Usages: {:?}", disk_usages);
 
-    // Assertion 1: GC is active. The dropped count must be increasing after a warmup.
     let warmup_period = gc_counts.len() / 4;
     let gc_active_slice = &gc_counts[warmup_period..];
     assert!(
@@ -540,7 +479,6 @@ async fn test_storage_soak_test() -> Result<()> {
         "GC should have dropped at least one epoch"
     );
 
-    // Assertion 2: Disk usage plateaus.
     let n = disk_usages.len();
     assert!(n > 10, "Not enough data points for disk usage analysis");
     let midpoint = n / 2;
@@ -550,8 +488,6 @@ async fn test_storage_soak_test() -> Result<()> {
 
     let avg_middle: f64 = middle_slice.iter().sum::<f64>() / middle_slice.len() as f64;
     let max_last: f64 = last_slice.iter().fold(0.0, |a, &b| a.max(b));
-
-    // Allow for some fluctuation, but prevent unbounded growth.
     let tolerance_factor = 1.5;
     assert!(
         max_last < avg_middle * tolerance_factor,
@@ -564,6 +500,7 @@ async fn test_storage_soak_test() -> Result<()> {
         .await
         .ok();
 
+    node_guard.shutdown().await?;
     println!("--- Storage Soak Test Passed ---");
     Ok(())
 }

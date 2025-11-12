@@ -78,17 +78,22 @@ where
         + 'static
         + Clone,
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
-    CS::Proof:
-        AsRef<[u8]> + serde::Serialize + for<'de> serde::Deserialize<'de> + std::fmt::Debug,
+    CS::Proof: AsRef<[u8]> + serde::Serialize + for<'de> serde::Deserialize<'de> + std::fmt::Debug,
     CS::Commitment: std::fmt::Debug + From<Vec<u8>>,
 {
-    if !Path::new(&config.state_file).exists() {
+    // --- FIX START: Check for the .db file, not the .json file ---
+    // The RedbEpochStore creates a file with a .db extension. The `state_file` config
+    // entry is a base path without an extension. This logic now correctly checks for
+    // the actual database file to decide whether to load from genesis.
+    let db_path = Path::new(&config.state_file).with_extension("db");
+    if !db_path.exists() {
+        // --- FIX END ---
         load_state_from_genesis_file(&mut state_tree, &config.genesis_file)?;
     } else {
         tracing::info!(
             target: "workload",
             event = "state_init",
-            path = %config.state_file,
+            path = %db_path.display(),
             "Found existing state file, skipping genesis init."
         );
     }

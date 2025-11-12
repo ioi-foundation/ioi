@@ -8,8 +8,8 @@ use ioi_api::storage::{NodeHash as StoreNodeHash, NodeStore};
 use ioi_types::app::Membership;
 use ioi_types::error::StateError;
 use parity_scale_codec::Encode;
+use std::sync::Arc;
 
-// FIX: Add the full, correct `where` clause to satisfy trait bounds for called methods.
 impl<CS: CommitmentScheme> IAVLTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
@@ -50,16 +50,9 @@ where
                         leaf: LeafOp {
                             hash: HashOp::Sha256,
                             prehash_key: HashOp::NoHash,
-                            prehash_value: HashOp::NoHash,
+                            prehash_value: HashOp::Sha256,
                             length: LengthOp::VarProto,
-                            prefix: {
-                                let mut p = Vec::new();
-                                p.push(0x00);
-                                p.extend_from_slice(&node.version.to_le_bytes());
-                                p.extend_from_slice(&0i32.to_le_bytes());
-                                p.extend_from_slice(&1u64.to_le_bytes());
-                                p
-                            },
+                            prefix: vec![0x00],
                         },
                         path,
                     };
@@ -169,16 +162,9 @@ where
                 leaf: LeafOp {
                     hash: HashOp::Sha256,
                     prehash_key: HashOp::NoHash,
-                    prehash_value: HashOp::NoHash,
+                    prehash_value: HashOp::Sha256,
                     length: LengthOp::VarProto,
-                    prefix: {
-                        let mut p = Vec::new();
-                        p.push(0x00);
-                        p.extend_from_slice(&n.version.to_le_bytes());
-                        p.extend_from_slice(&0i32.to_le_bytes());
-                        p.extend_from_slice(&1u64.to_le_bytes());
-                        p
-                    },
+                    prefix: vec![0x00],
                 },
                 path: base_path,
             })

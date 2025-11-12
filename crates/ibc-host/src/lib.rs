@@ -3,9 +3,9 @@
 
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
-use ioi_client::WorkloadClient;
 use ibc_proto::ics23::CommitmentProof;
 use ioi_api::state::Verifier;
+use ioi_client::WorkloadClient;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_types::{
@@ -32,6 +32,18 @@ mod iavl_wire {
     use parity_scale_codec::Decode;
 
     #[derive(Decode, Debug, Clone, PartialEq, Eq)]
+    pub enum HashOp {
+        NoHash,
+        Sha256,
+    }
+
+    #[derive(Decode, Debug, Clone, PartialEq, Eq)]
+    pub enum LengthOp {
+        NoPrefix,
+        VarProto,
+    }
+
+    #[derive(Decode, Debug, Clone, PartialEq, Eq)]
     pub enum IavlProof {
         Existence(ExistenceProof),
         NonExistence(NonExistenceProof),
@@ -54,7 +66,11 @@ mod iavl_wire {
 
     #[derive(Decode, Debug, Clone, PartialEq, Eq)]
     pub struct LeafOp {
-        pub version: u64,
+        pub hash: HashOp,
+        pub prehash_key: HashOp,
+        pub prehash_value: HashOp,
+        pub length: LengthOp,
+        pub prefix: Vec<u8>,
     }
 
     #[derive(Decode, Debug, Clone, PartialEq, Eq)]
@@ -73,7 +89,9 @@ mod iavl_wire {
         pub sibling_hash: [u8; 32],
     }
 }
-use iavl_wire::{ExistenceProof, IavlProof, InnerOp, LeafOp, NonExistenceProof, Side};
+use iavl_wire::{
+    ExistenceProof, HashOp, IavlProof, InnerOp, LeafOp, LengthOp, NonExistenceProof, Side,
+};
 
 use ics23::HostFunctionsManager;
 
@@ -103,17 +121,48 @@ fn decode_scale_iavl_proof(bytes: &[u8]) -> Option<IavlProof> {
 }
 
 #[inline]
-fn hash_leaf_canonical(leaf: &LeafOp, key: &[u8], value: &[u8]) -> Result<[u8; 32]> {
-    let mut data = Vec::with_capacity(1 + 8 + 4 + 8 + 4 + key.len() + 4 + value.len());
-    data.push(0x00);
-    data.extend_from_slice(&leaf.version.to_le_bytes());
-    data.extend_from_slice(&0i32.to_le_bytes()); // height
-    data.extend_from_slice(&1u64.to_le_bytes()); // size
-    data.extend_from_slice(&(key.len() as u32).to_le_bytes());
-    data.extend_from_slice(key);
-    data.extend_from_slice(&(value.len() as u32).to_le_bytes());
-    data.extend_from_slice(value);
-    sha256(&data).map_err(|e| anyhow!("sha256: {e}"))
+fn hash_leaf_canonical(
+    leaf_op: &LeafOp,
+    key: &[u8],
+    value: &[u8],
+) -> Result<[u8; 32], anyhow::Error> {
+    fn apply_hash(op: &HashOp, data: &[u8]) -> Result<Vec<u8>, anyhow::Error> {
+        match op {
+            HashOp::NoHash => Ok(data.to_vec()),
+            HashOp::Sha256 => Ok(sha256(data)?.to_vec()),
+        }
+    }
+
+    fn apply_length(op: &LengthOp, data: &[u8]) -> Result<Vec<u8>, anyhow::Error> {
+        match op {
+            LengthOp::NoPrefix => Ok(data.to_vec()),
+            LengthOp::VarProto => {
+                let mut len_prefixed =
+                    Vec::with_capacity(prost::length_delimiter_len(data.len()) + data.len());
+                prost::encode_length_delimiter(data.len(), &mut len_prefixed)?;
+                len_prefixed.extend_from_slice(data);
+                Ok(len_prefixed)
+            }
+        }
+    }
+
+    let hashed_key = apply_hash(&leaf_op.prehash_key, key)?;
+    let hashed_value = apply_hash(&leaf_op.prehash_value, value)?;
+
+    let mut data = Vec::new();
+    data.extend_from_slice(&leaf_op.prefix);
+    data.extend_from_slice(&apply_length(&leaf_op.length, &hashed_key)?);
+    data.extend_from_slice(&apply_length(&leaf_op.length, &hashed_value)?);
+
+    match leaf_op.hash {
+        HashOp::Sha256 => sha256(&data).map_err(|e| anyhow!("sha256: {e}")),
+        HashOp::NoHash => {
+            let hash_vec = sha256(&data)?;
+            let mut h = [0u8; 32];
+            h.copy_from_slice(&hash_vec[..32]);
+            Ok(h)
+        }
+    }
 }
 
 #[inline]

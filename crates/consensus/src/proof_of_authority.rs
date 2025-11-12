@@ -20,7 +20,7 @@ use libp2p::PeerId;
 use std::collections::HashSet;
 use tracing::warn;
 
-/// A centralized helper for verifying cryptographic signatures.
+// ... (verify_signature and hash_key helpers remain unchanged) ...
 pub(crate) fn verify_signature(
     message: &[u8],
     public_key: &[u8],
@@ -35,8 +35,6 @@ pub(crate) fn verify_signature(
         Err(ConsensusError::InvalidSignature)
     }
 }
-
-/// A centralized helper to hash a public key.
 pub(crate) fn hash_key(suite: SignatureSuite, pubkey: &[u8]) -> Result<[u8; 32], CoreError> {
     account_id_from_key_material(suite, pubkey).map_err(|e| CoreError::Custom(e.to_string()))
 }
@@ -127,14 +125,22 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             let timing_runtime: BlockTimingRuntime =
                 codec::from_bytes_canonical(&timing_runtime_bytes).map_err(|_| ())?;
 
-            // Parent timestamp from ChainStatus in parent state
-            let status_bytes = parent_view
-                .get(STATUS_KEY)
-                .await
-                .map_err(|_| ())?
-                .ok_or(())?;
-            let parent_status: ChainStatus =
-                codec::from_bytes_canonical(&status_bytes).map_err(|_| ())?;
+            // --- FIX START: Handle missing STATUS_KEY for the genesis case ---
+            // Parent timestamp from ChainStatus in parent state (or 0 for genesis).
+            let parent_status: ChainStatus = match parent_view.get(STATUS_KEY).await {
+                Ok(Some(status_bytes)) => {
+                    codec::from_bytes_canonical(&status_bytes).map_err(|_| ())?
+                }
+                Ok(None) if height == 1 => {
+                    // For the first block, the parent is genesis, which has no status key. Default to 0.
+                    ChainStatus::default()
+                }
+                _ => {
+                    // For any other block, the status key MUST be present.
+                    return Err(());
+                }
+            };
+            // --- FIX END ---
 
             // This replaces the duplicated logic with a single, verifiable source of truth.
             compute_next_timestamp(
@@ -175,6 +181,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         }
     }
 
+    // ... (the rest of the file remains unchanged) ...
     async fn handle_block_proposal<CS, ST>(
         &mut self,
         block: Block<T>,

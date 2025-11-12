@@ -24,7 +24,10 @@ use std::time::Duration;
 use tempfile::TempDir;
 use tokio::io::AsyncBufReadExt;
 use tokio::process::{Child, Command as TokioCommand};
+use tokio::sync::{broadcast, Mutex};
+use tokio::task::JoinHandle;
 use tokio::time::timeout;
+use tracing;
 
 /// A type alias for a stream that yields lines of text, abstracting over the log source.
 pub type LogStream = Pin<Box<dyn Stream<Item = Result<String, io::Error>> + Send>>;
@@ -44,6 +47,13 @@ pub trait TestBackend: Send {
     /// Cleans up all resources (processes, containers, temp files).
     async fn cleanup(&mut self) -> Result<()>;
 
+    /// Restarts the workload process. Only implemented for `ProcessBackend`.
+    async fn restart_workload_process(
+        &mut self,
+        log_tx: broadcast::Sender<String>,
+        log_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
+    ) -> Result<()>;
+
     /// Provides access to the concrete backend type for downcasting.
     fn as_any(&self) -> &dyn Any;
 
@@ -61,7 +71,6 @@ pub struct ProcessBackend {
     pub p2p_addr: Multiaddr,
     pub orchestration_telemetry_addr: Option<String>,
     pub workload_telemetry_addr: Option<String>,
-    // [+] Store paths needed for restart
     binary_path: PathBuf,
     workload_config_path: PathBuf,
     workload_ipc_addr: String,
@@ -69,7 +78,6 @@ pub struct ProcessBackend {
 }
 
 impl ProcessBackend {
-    // [+] Update constructor signature
     pub fn new(
         rpc_addr: String,
         p2p_addr: Multiaddr,
@@ -92,34 +100,11 @@ impl ProcessBackend {
             certs_dir_path,
         }
     }
-
-    // [+] Add the restart method here, in its proper home.
-    pub async fn restart_workload_process(&mut self) -> Result<()> {
-        if self.workload_process.is_some() {
-            return Err(anyhow!("Workload process is already running."));
-        }
-
-        let mut workload_cmd = TokioCommand::new(self.binary_path.join("workload"));
-        workload_cmd
-            .args(["--config", &self.workload_config_path.to_string_lossy()])
-            .env(
-                "TELEMETRY_ADDR",
-                self.workload_telemetry_addr.as_ref().unwrap(),
-            )
-            .env("IPC_SERVER_ADDR", &self.workload_ipc_addr)
-            .env("CERTS_DIR", self.certs_dir_path.to_string_lossy().as_ref())
-            .stderr(Stdio::piped())
-            .kill_on_drop(true);
-
-        self.workload_process = Some(workload_cmd.spawn()?);
-        Ok(())
-    }
 }
 
 #[async_trait]
 impl TestBackend for ProcessBackend {
     async fn launch(&mut self) -> Result<()> {
-        // The actual process spawning is handled in TestValidator::launch
         Ok(())
     }
 
@@ -189,6 +174,60 @@ impl TestBackend for ProcessBackend {
         Ok(())
     }
 
+    async fn restart_workload_process(
+        &mut self,
+        log_tx: broadcast::Sender<String>,
+        log_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
+    ) -> Result<()> {
+        // --- FIX START: Clean up the database lock file before restarting ---
+        // This simulates a recovery script cleaning up after a hard crash.
+        let workload_state_path = self
+            .workload_config_path
+            .with_file_name("workload_state.db.lock");
+        if workload_state_path.exists() {
+            tracing::warn!(
+                target: "forge",
+                "Removing stale database lock file at {}",
+                workload_state_path.display()
+            );
+            std::fs::remove_file(&workload_state_path)?;
+        }
+        // --- FIX END ---
+
+        if self.workload_process.is_some() {
+            return Err(anyhow!("Workload process is already running."));
+        }
+
+        let mut workload_cmd = TokioCommand::new(self.binary_path.join("workload"));
+        workload_cmd
+            .args(["--config", &self.workload_config_path.to_string_lossy()])
+            .env(
+                "TELEMETRY_ADDR",
+                self.workload_telemetry_addr.as_ref().unwrap(),
+            )
+            .env("IPC_SERVER_ADDR", &self.workload_ipc_addr)
+            .env("CERTS_DIR", self.certs_dir_path.to_string_lossy().as_ref())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true);
+
+        let mut child = workload_cmd.spawn()?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| anyhow!("Failed to take stderr from restarted workload"))?;
+
+        let handle = tokio::spawn(async move {
+            let mut lines = tokio::io::BufReader::new(stderr).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                let _ = log_tx.send(line);
+            }
+        });
+        log_handles.lock().await.push(handle);
+
+        self.workload_process = Some(child);
+        Ok(())
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -199,8 +238,6 @@ impl TestBackend for ProcessBackend {
 }
 
 // --- DockerBackend Implementation ---
-
-/// Configuration struct to hold parameters for initializing the DockerBackend.
 pub struct DockerBackendConfig {
     pub rpc_addr: String,
     pub p2p_addr: Multiaddr,
@@ -210,7 +247,6 @@ pub struct DockerBackendConfig {
     pub certs_dir_path: PathBuf,
 }
 
-/// Backend that launches validator components as Docker containers.
 pub struct DockerBackend {
     docker: Docker,
     network_id: String,
@@ -303,14 +339,12 @@ impl TestBackend for DockerBackend {
 
         generate_certificates_if_needed(&self.certs_dir_path)?;
 
-        // Define paths as they will appear inside the containers
         let container_data_dir = "/tmp/test-data";
         let container_certs_dir = "/tmp/certs";
         let container_workload_config = "/tmp/test-data/workload.toml";
         let container_orch_config = "/tmp/test-data/orchestration.toml";
         let container_identity_key = "/tmp/test-data/identity.key";
 
-        // Base volume mount for all generated configs and keys
         let base_binds = vec![
             format!(
                 "{}:{}",
@@ -401,14 +435,15 @@ impl TestBackend for DockerBackend {
             }))
         }
 
-        let mut orch_stream =
+        let mut orch_stream: LogStream =
             convert_stream(self.docker.logs("orchestration", log_options.clone()));
         self.work_stream = Some(convert_stream(
             self.docker.logs("workload", log_options.clone()),
         ));
 
         if self.agentic_model_path.is_some() {
-            let mut guard_stream = convert_stream(self.docker.logs("guardian", log_options));
+            let mut guard_stream: LogStream =
+                convert_stream(self.docker.logs("guardian", log_options));
             timeout(ready_timeout, async {
                 while let Some(Ok(log)) = guard_stream.next().await {
                     if log.contains("Guardian container started") {
@@ -478,6 +513,16 @@ impl TestBackend for DockerBackend {
 
         self.docker.remove_network(&self.network_id).await?;
         Ok(())
+    }
+
+    async fn restart_workload_process(
+        &mut self,
+        _log_tx: broadcast::Sender<String>,
+        _log_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
+    ) -> Result<()> {
+        Err(anyhow!(
+            "Restarting a single container is not supported in the Docker backend"
+        ))
     }
 
     fn as_any(&self) -> &dyn Any {

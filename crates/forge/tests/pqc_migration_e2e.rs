@@ -1,20 +1,20 @@
 // Path: crates/forge/tests/pqc_migration_e2e.rs
 
-// [FIX] Allow this test to run with either PoA or PoS consensus features.
-#![cfg(all(any(feature = "consensus-poa", feature = "consensus-pos"), feature = "vm-wasm"))]
+#![cfg(all(
+    any(feature = "consensus-poa", feature = "consensus-pos"),
+    feature = "vm-wasm"
+))]
 
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use ioi_forge::testing::{
-    build_test_artifacts,
-    // [FIX] Removed `poll::` from the path as wait_for_height is now directly in `testing`.
-    wait_for_height,
-    rpc::query_state_key, submit_transaction, TestCluster,
-};
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_crypto::security::SecurityLevel;
 use ioi_crypto::sign::dilithium::{DilithiumKeyPair, DilithiumScheme};
 use ioi_crypto::sign::eddsa::Ed25519KeyPair;
+use ioi_forge::testing::{
+    build_test_artifacts, rpc::query_state_key, submit_transaction, wait_for_height, TestCluster,
+};
+use ioi_services::{governance::VoteParams, identity::RotateKeyParams};
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
@@ -30,25 +30,12 @@ use ioi_types::{
     },
     service_configs::MigrationConfig,
 };
-// [FIX] Removed unused `self` and `Keypair` imports to resolve the warning.
-use libp2p::identity;
+use libp2p::identity::Keypair;
 use parity_scale_codec::Encode;
 use serde_json::{json, Value};
 use std::time::Duration;
 
-// --- Service Parameter Structs (Client-side representation of the ABI) ---
-#[derive(Encode)]
-struct RotateKeyParams {
-    proof: RotationProof,
-}
-
-#[derive(Encode)]
-struct VoteParams {
-    proposal_id: u64,
-    option: VoteOption,
-}
-
-// Trait to unify signing for different key types in tests
+// --- Trait to unify signing for different key types in tests ---
 trait TestSigner {
     fn public_bytes(&self) -> Vec<u8>;
     fn sign(&self, msg: &[u8]) -> Vec<u8>;
@@ -198,7 +185,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     let ed25519_key_clone_for_genesis = ed25519_key.clone();
 
     // 2. LAUNCH CLUSTER
-    let node = TestCluster::builder()
+    let mut cluster = TestCluster::builder()
         .with_validators(1)
         .with_keypairs(vec![validator_keypair.clone()])
         .with_consensus_type("ProofOfStake")
@@ -294,157 +281,168 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
             );
         })
         .build()
-        .await?
-        .validators
-        .remove(0);
+        .await?;
 
-    let rpc_addr = &node.rpc_addr;
-    wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
+    // --- FIX: Add explicit type annotation to the async block ---
+    let test_result: anyhow::Result<()> = async {
+        let node = &cluster.validators[0];
+        let rpc_addr = &node.validator().rpc_addr;
+        wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
 
-    // 3. INITIATE ROTATION
-    let challenge = {
-        let mut preimage = b"DePIN-PQ-MIGRATE/v1".to_vec();
-        preimage.extend_from_slice(&<ChainId as Into<u32>>::into(chain_id).to_le_bytes());
-        preimage.extend_from_slice(account_id.as_ref());
-        let rotation_nonce = 0u64;
-        preimage.extend_from_slice(&rotation_nonce.to_le_bytes());
-        ioi_crypto::algorithms::hash::sha256(&preimage).unwrap()
-    };
-    let rotation_proof = RotationProof {
-        old_public_key: ed25519_key.public_bytes(),
-        old_signature: TestSigner::sign(&ed25519_key, &challenge),
-        new_public_key: dilithium_key.public_bytes(),
-        new_signature: TestSigner::sign(&dilithium_key, &challenge),
-        target_suite: SignatureSuite::Dilithium2,
-        l2_location: None,
-    };
-    let rotate_tx = create_call_service_tx(
-        &ed25519_key,
-        account_id,
-        "identity_hub",
-        "rotate_key@v1",
-        RotateKeyParams {
-            proof: rotation_proof,
-        },
-        nonce,
-        chain_id,
-    )?;
-    submit_transaction(rpc_addr, &rotate_tx).await?;
-    nonce += 1;
+        // 3. INITIATE ROTATION
+        let challenge = {
+            let mut preimage = b"DePIN-PQ-MIGRATE/v1".to_vec();
+            preimage.extend_from_slice(&<ChainId as Into<u32>>::into(chain_id).to_le_bytes());
+            preimage.extend_from_slice(account_id.as_ref());
+            let rotation_nonce = 0u64;
+            preimage.extend_from_slice(&rotation_nonce.to_le_bytes());
+            ioi_crypto::algorithms::hash::sha256(&preimage).unwrap()
+        };
+        let rotation_proof = RotationProof {
+            old_public_key: ed25519_key.public_bytes(),
+            old_signature: TestSigner::sign(&ed25519_key, &challenge),
+            new_public_key: dilithium_key.public_bytes(),
+            new_signature: TestSigner::sign(&dilithium_key, &challenge),
+            target_suite: SignatureSuite::Dilithium2,
+            l2_location: None,
+        };
+        let rotate_tx = create_call_service_tx(
+            &ed25519_key,
+            account_id,
+            "identity_hub",
+            "rotate_key@v1",
+            RotateKeyParams {
+                proof: rotation_proof,
+            },
+            nonce,
+            chain_id,
+        )?;
+        submit_transaction(rpc_addr, &rotate_tx).await?;
+        nonce += 1;
 
-    wait_for_height(rpc_addr, 2, Duration::from_secs(20)).await?;
+        wait_for_height(rpc_addr, 2, Duration::from_secs(20)).await?;
 
-    // 4. TEST GRACE PERIOD
-    // Send with old key (nonce=1)
-    let old_key_tx = create_call_service_tx(
-        &ed25519_key,
-        account_id,
-        "governance",
-        "vote@v1",
-        VoteParams {
-            proposal_id: 1,
-            option: VoteOption::Yes,
-        },
-        nonce,
-        chain_id,
-    )?;
-    submit_transaction(rpc_addr, &old_key_tx).await?;
-    nonce += 1;
+        // 4. TEST GRACE PERIOD
+        // Send with old key (nonce=1)
+        let old_key_tx = create_call_service_tx(
+            &ed25519_key,
+            account_id,
+            "governance",
+            "vote@v1",
+            VoteParams {
+                proposal_id: 1,
+                option: VoteOption::Yes,
+            },
+            nonce,
+            chain_id,
+        )?;
+        submit_transaction(rpc_addr, &old_key_tx).await?;
+        nonce += 1;
 
-    wait_for_height(rpc_addr, 3, Duration::from_secs(20)).await?;
+        wait_for_height(rpc_addr, 3, Duration::from_secs(20)).await?;
 
-    // Send with new key (nonce=2)
-    let new_key_tx = create_call_service_tx(
-        &dilithium_key,
-        account_id,
-        "governance",
-        "vote@v1",
-        VoteParams {
-            proposal_id: 1,
-            option: VoteOption::No,
-        },
-        nonce,
-        chain_id,
-    )?;
-    submit_transaction(rpc_addr, &new_key_tx).await?;
-    nonce += 1;
+        // Send with new key (nonce=2)
+        let new_key_tx = create_call_service_tx(
+            &dilithium_key,
+            account_id,
+            "governance",
+            "vote@v1",
+            VoteParams {
+                proposal_id: 1,
+                option: VoteOption::No,
+            },
+            nonce,
+            chain_id,
+        )?;
+        submit_transaction(rpc_addr, &new_key_tx).await?;
+        nonce += 1;
 
-    wait_for_height(rpc_addr, 4, Duration::from_secs(20)).await?;
+        wait_for_height(rpc_addr, 4, Duration::from_secs(20)).await?;
 
-    // 5. TEST POST-GRACE PERIOD
-    wait_for_height(rpc_addr, 8, Duration::from_secs(60)).await?;
+        // 5. TEST POST-GRACE PERIOD
+        wait_for_height(rpc_addr, 8, Duration::from_secs(60)).await?;
 
-    // 5a. Submit tx with OLD, EXPIRED key. It should be rejected.
-    let old_key_tx = create_call_service_tx(
-        &ed25519_key,
-        account_id,
-        "governance",
-        "vote@v1",
-        VoteParams {
-            proposal_id: 1,
-            option: VoteOption::Yes,
-        },
-        nonce,
-        chain_id,
-    )?;
-    let _ = submit_transaction(rpc_addr, &old_key_tx).await;
+        // 5a. Submit tx with OLD, EXPIRED key. It should be rejected.
+        let old_key_tx = create_call_service_tx(
+            &ed25519_key,
+            account_id,
+            "governance",
+            "vote@v1",
+            VoteParams {
+                proposal_id: 1,
+                option: VoteOption::Yes,
+            },
+            nonce,
+            chain_id,
+        )?;
+        let _ = submit_transaction(rpc_addr, &old_key_tx).await;
 
-    // 5b. Submit tx with NEW, ACTIVE key with the same nonce. This should succeed.
-    let new_key_tx = create_call_service_tx(
-        &dilithium_key,
-        account_id,
-        "governance",
-        "vote@v1",
-        VoteParams {
-            proposal_id: 1,
-            option: VoteOption::NoWithVeto, // Use a different vote to ensure state changes
-        },
-        nonce,
-        chain_id,
-    )?;
-    submit_transaction(rpc_addr, &new_key_tx).await?;
-    nonce += 1;
+        // 5b. Submit tx with NEW, ACTIVE key with the same nonce. This should succeed.
+        let new_key_tx = create_call_service_tx(
+            &dilithium_key,
+            account_id,
+            "governance",
+            "vote@v1",
+            VoteParams {
+                proposal_id: 1,
+                option: VoteOption::NoWithVeto, // Use a different vote to ensure state changes
+            },
+            nonce,
+            chain_id,
+        )?;
+        submit_transaction(rpc_addr, &new_key_tx).await?;
+        nonce += 1;
 
-    // 5c. VERIFY THE STATE
-    let current_height = ioi_forge::testing::rpc::get_chain_height(rpc_addr).await?;
-    wait_for_height(rpc_addr, current_height + 2, Duration::from_secs(20)).await?;
+        // 5c. VERIFY THE STATE
+        let current_height = ioi_forge::testing::rpc::get_chain_height(rpc_addr).await?;
+        wait_for_height(rpc_addr, current_height + 2, Duration::from_secs(20)).await?;
 
-    let vote_key = {
-        let mut key = ioi_types::keys::GOVERNANCE_VOTE_KEY_PREFIX.to_vec();
-        key.extend_from_slice(&1u64.to_le_bytes()); // proposal_id
-        key.extend_from_slice(b"::");
-        key.extend_from_slice(account_id.as_ref());
-        key
-    };
-    let vote_val_bytes = query_state_key(rpc_addr, &vote_key)
-        .await?
-        .ok_or_else(|| anyhow!("Vote from new active key must be present in state"))?;
-    let vote_option: VoteOption = codec::from_bytes_canonical(&vote_val_bytes)
-        .map_err(|e| anyhow!("Failed to decode vote option from state: {}", e))?;
-    assert_eq!(
-        vote_option,
-        VoteOption::NoWithVeto,
-        "The vote should reflect the last successful transaction from the new key"
-    );
+        let vote_key = {
+            let mut key = ioi_types::keys::GOVERNANCE_VOTE_KEY_PREFIX.to_vec();
+            key.extend_from_slice(&1u64.to_le_bytes()); // proposal_id
+            key.extend_from_slice(b"::");
+            key.extend_from_slice(account_id.as_ref());
+            key
+        };
+        let vote_val_bytes = query_state_key(rpc_addr, &vote_key)
+            .await?
+            .ok_or_else(|| anyhow!("Vote from new active key must be present in state"))?;
+        let vote_option: VoteOption = codec::from_bytes_canonical(&vote_val_bytes)
+            .map_err(|e| anyhow!("Failed to decode vote option from state: {}", e))?;
+        assert_eq!(
+            vote_option,
+            VoteOption::NoWithVeto,
+            "The vote should reflect the last successful transaction from the new key"
+        );
 
-    println!("SUCCESS: State correctly mutated by new PQC key post-grace period, and not by expired key.");
+        println!("SUCCESS: State correctly mutated by new PQC key post-grace period, and not by expired key.");
 
-    // 5d. Final check that the new key can continue to submit transactions.
-    let final_tx = create_call_service_tx(
-        &dilithium_key,
-        account_id,
-        "governance",
-        "vote@v1",
-        VoteParams {
-            proposal_id: 1,
-            option: VoteOption::Abstain,
-        },
-        nonce,
-        chain_id,
-    )?;
-    submit_transaction(rpc_addr, &final_tx).await?;
-    let final_height = ioi_forge::testing::rpc::get_chain_height(rpc_addr).await?;
-    wait_for_height(rpc_addr, final_height + 1, Duration::from_secs(20)).await?;
+        // 5d. Final check that the new key can continue to submit transactions.
+        let final_tx = create_call_service_tx(
+            &dilithium_key,
+            account_id,
+            "governance",
+            "vote@v1",
+            VoteParams {
+                proposal_id: 1,
+                option: VoteOption::Abstain,
+            },
+            nonce,
+            chain_id,
+        )?;
+        submit_transaction(rpc_addr, &final_tx).await?;
+        let final_height = ioi_forge::testing::rpc::get_chain_height(rpc_addr).await?;
+        wait_for_height(rpc_addr, final_height + 1, Duration::from_secs(20)).await?;
+
+        Ok(())
+    }
+    .await;
+
+    for guard in cluster.validators {
+        guard.shutdown().await?;
+    }
+
+    test_result?;
 
     println!("--- PQC Identity Migration E2E Test Passed ---");
     Ok(())

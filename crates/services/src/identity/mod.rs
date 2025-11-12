@@ -17,7 +17,7 @@ use ioi_types::keys::{
     VALIDATOR_SET_KEY,
 };
 use ioi_types::service_configs::{Capabilities, MigrationConfig};
-use parity_scale_codec::Decode;
+use parity_scale_codec::{Decode, Encode};
 use std::any::Any;
 
 #[derive(Debug, Clone)]
@@ -25,11 +25,13 @@ pub struct IdentityHub {
     pub config: MigrationConfig,
 }
 
+// --- FIX START: Add Encode trait to RotateKeyParams ---
 /// Helper struct for deserializing parameters for the `rotate_key` method.
-#[derive(Decode)]
-struct RotateKeyParams {
-    proof: RotationProof,
+#[derive(Encode, Decode)]
+pub struct RotateKeyParams {
+    pub proof: RotationProof,
 }
+// --- FIX END ---
 
 fn u64_from_le_bytes(bytes: Option<&Vec<u8>>) -> u64 {
     bytes

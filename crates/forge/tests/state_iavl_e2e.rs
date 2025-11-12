@@ -51,7 +51,7 @@ async fn test_iavl_tree_e2e() -> Result<()> {
     build_test_artifacts();
 
     // 2. Launch a cluster configured to use the IAVLTree
-    let mut cluster = TestCluster::builder()
+    let cluster = TestCluster::builder()
         .with_validators(1)
         .with_consensus_type("ProofOfAuthority")
         .with_state_tree("IAVL")
@@ -114,8 +114,8 @@ async fn test_iavl_tree_e2e() -> Result<()> {
         .await?;
 
     // 3. Assert that the node can produce a block by polling its state.
-    let node = &mut cluster.validators[0];
-    let rpc_addr = &node.rpc_addr;
+    let node_guard = &cluster.validators[0];
+    let rpc_addr = &node_guard.validator().rpc_addr;
     let mut ok = false;
     for _ in 0..20 {
         sleep(Duration::from_secs(2)).await;
@@ -133,5 +133,11 @@ async fn test_iavl_tree_e2e() -> Result<()> {
     }
 
     println!("--- IAVL Tree E2E Test Passed ---");
+
+    // 4. Explicitly shut down the cluster to disarm the ValidatorGuards.
+    for guard in cluster.validators {
+        guard.shutdown().await?;
+    }
+
     Ok(())
 }
