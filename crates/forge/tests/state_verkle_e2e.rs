@@ -113,8 +113,8 @@ async fn test_verkle_tree_e2e() -> Result<()> {
         .await?;
 
     // 3. Get handles and wait for node to be ready
-    let node = &cluster.validators[0];
-    let rpc_addr = &node.rpc_addr;
+    let node_guard = &cluster.validators[0];
+    let rpc_addr = &node_guard.validator().rpc_addr;
 
     println!("--- Verkle Node Launched ---");
 
@@ -123,5 +123,11 @@ async fn test_verkle_tree_e2e() -> Result<()> {
     println!("--- Bootstrap Block #1 Processed ---");
 
     println!("--- Verkle Tree E2E Test Passed ---");
+
+    // 4. Explicitly shut down the cluster to disarm the ValidatorGuards.
+    for guard in cluster.validators {
+        guard.shutdown().await?;
+    }
+
     Ok(())
 }

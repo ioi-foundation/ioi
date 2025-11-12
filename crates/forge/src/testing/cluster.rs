@@ -1,10 +1,9 @@
 // Path: crates/forge/src/testing/cluster.rs
 use super::assert::wait_for_height;
-use super::validator::TestValidator;
+use super::validator::{TestValidator, ValidatorGuard};
 use anyhow::Result;
-use futures_util::{stream::FuturesUnordered, StreamExt};
-// [+] Add dcrypt and libp2p ed25519 imports for the new helper function.
 use dcrypt::sign::eddsa::Ed25519SecretKey;
+use futures_util::{stream::FuturesUnordered, StreamExt};
 use ioi_types::config::InitialServiceConfig;
 use libp2p::{
     identity::{self, ed25519, Keypair},
@@ -17,7 +16,7 @@ use std::time::Duration;
 type GenesisModifier = Box<dyn FnOnce(&mut Value, &Vec<identity::Keypair>) + Send>;
 
 pub struct TestCluster {
-    pub validators: Vec<TestValidator>,
+    pub validators: Vec<ValidatorGuard>,
     pub genesis_content: String,
 }
 
@@ -40,9 +39,7 @@ pub struct TestClusterBuilder {
     ibc_gateway_addr: Option<String>,
     initial_services: Vec<InitialServiceConfig>,
     use_malicious_workload: bool,
-    // [+] MODIFIED: a generic list for extra features
     extra_features: Vec<String>,
-    // [+] NEW: Add a field to hold the deterministic keypair for the first validator.
     validator0_key_override: Option<identity::Keypair>,
 }
 
@@ -61,15 +58,12 @@ impl Default for TestClusterBuilder {
             ibc_gateway_addr: None,
             initial_services: Vec::new(),
             use_malicious_workload: false,
-            // [+] MODIFIED: Initialize the new field
             extra_features: Vec::new(),
-            // [+] NEW: Initialize the override to None by default.
             validator0_key_override: None,
         }
     }
 }
 
-// [+] NEW: Add helper to derive a libp2p keypair from a dcrypt seed.
 /// Helper: derive a libp2p Ed25519 keypair from a dcrypt Ed25519 seed.
 fn libp2p_keypair_from_dcrypt_seed(seed: [u8; 32]) -> libp2p::identity::Keypair {
     let sk = Ed25519SecretKey::from_seed(&seed).expect("dcrypt ed25519 from seed");
@@ -87,14 +81,12 @@ impl TestClusterBuilder {
         Self::default()
     }
 
-    // [+] NEW: Add a method to set the first validator's key from a seed.
     /// Provide a deterministic seed for the first validator’s key (dcrypt Ed25519).
     pub fn with_validator_seed(mut self, seed: [u8; 32]) -> Self {
         self.validator0_key_override = Some(libp2p_keypair_from_dcrypt_seed(seed));
         self
     }
 
-    // [+] NEW: Add a method to set the first validator's key directly.
     /// Provide a fully formed libp2p keypair to use for validator 0.
     pub fn with_validator_keypair(mut self, kp: libp2p::identity::Keypair) -> Self {
         self.validator0_key_override = Some(kp);
@@ -154,7 +146,6 @@ impl TestClusterBuilder {
     }
 
     pub fn with_initial_service(mut self, service_config: InitialServiceConfig) -> Self {
-        // [+] MODIFIED: Automatically detect required features.
         if let InitialServiceConfig::Ibc(_) = &service_config {
             if !self.extra_features.contains(&"ibc-deps".to_string()) {
                 self.extra_features.push("ibc-deps".to_string());
@@ -178,7 +169,6 @@ impl TestClusterBuilder {
     }
 
     pub async fn build(mut self) -> Result<TestCluster> {
-        // [+] MODIFIED: Make validator_keys mutable and apply the override.
         let mut validator_keys = self.keypairs.take().unwrap_or_else(|| {
             (0..self.num_validators)
                 .map(|_| identity::Keypair::generate_ed25519())
@@ -198,12 +188,12 @@ impl TestClusterBuilder {
             modifier(&mut genesis, &validator_keys);
         }
         let genesis_content = genesis.to_string();
-        let mut validators = Vec::new();
+        let mut validators: Vec<ValidatorGuard> = Vec::new();
 
         let mut bootnode_addrs: Vec<Multiaddr> = Vec::new();
 
         if let Some(boot_key) = validator_keys.first() {
-            let bootnode = TestValidator::launch(
+            let bootnode_guard = TestValidator::launch(
                 boot_key.clone(),
                 genesis_content.clone(),
                 5000,
@@ -222,8 +212,8 @@ impl TestClusterBuilder {
             )
             .await?;
 
-            bootnode_addrs.push(bootnode.p2p_addr.clone());
-            validators.push(bootnode);
+            bootnode_addrs.push(bootnode_guard.validator().p2p_addr.clone());
+            validators.push(bootnode_guard);
         }
 
         if validator_keys.len() > 1 {
@@ -271,7 +261,7 @@ impl TestClusterBuilder {
                 validators.push(result?);
             }
         }
-        validators.sort_by(|a, b| a.peer_id.cmp(&b.peer_id));
+        validators.sort_by(|a, b| a.validator().peer_id.cmp(&b.validator().peer_id));
 
         // Wait for all nodes in the cluster to reach a common height.
         if validators.len() > 1 {
@@ -279,11 +269,11 @@ impl TestClusterBuilder {
             // Wait for each node to see at least height 1, then height 2 overall.
             // This is more robust than just waiting for height 2 on all, as it ensures
             // the genesis block was processed by all before expecting further progress.
-            for v in &validators {
-                wait_for_height(&v.rpc_addr, 1, Duration::from_secs(30)).await?;
+            for v_guard in &validators {
+                wait_for_height(&v_guard.validator().rpc_addr, 1, Duration::from_secs(30)).await?;
             }
-            for v in &validators {
-                wait_for_height(&v.rpc_addr, 2, Duration::from_secs(30)).await?;
+            for v_guard in &validators {
+                wait_for_height(&v_guard.validator().rpc_addr, 2, Duration::from_secs(30)).await?;
             }
             println!("--- All nodes synced. Cluster is ready. ---");
         }

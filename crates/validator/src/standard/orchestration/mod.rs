@@ -31,6 +31,7 @@ use ioi_types::{
     error::ValidatorError,
 };
 use libp2p::identity;
+use libp2p::Multiaddr;
 use lru::LruCache;
 use rand::seq::SliceRandom;
 use serde::Serialize;
@@ -56,17 +57,17 @@ mod operator_tasks;
 mod oracle;
 mod peer_management;
 mod remote_state_view;
-pub mod verifier_select;
 mod sync;
+pub mod verifier_select;
 mod view_resolver;
 
 // --- Use statements for handler functions ---
+use self::sync as sync_handlers;
 use crate::config::OrchestrationConfig;
 use consensus::drive_consensus_tick;
 use context::{ChainFor, MainLoopContext};
 use futures::FutureExt;
 use operator_tasks::run_oracle_operator_task;
-use self::sync as sync_handlers;
 
 /// A struct to hold the numerous dependencies for the Orchestrator,
 /// improving constructor readability and maintainability.
@@ -611,6 +612,9 @@ where
                 Err(e) => {
                     log::error!("[Orchestrator] CRITICAL: Agentic attestation failed: {}. Quarantining node.", e);
                     self.is_quarantined.store(true, Ordering::SeqCst);
+                    // *** FIX START: Halt startup by returning an error ***
+                    return Err(ValidatorError::Attestation(e.to_string()));
+                    // *** FIX END ***
                 }
             }
         } else {

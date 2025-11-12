@@ -7,21 +7,42 @@ use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_client::WorkloadClient;
 use ioi_forge::testing::{
     build_test_artifacts,
-    wait_for_evidence, wait_for_height, wait_for_stake_to_be,
     rpc::{get_chain_timestamp, query_state_key},
-    submit_transaction, TestCluster,
+    submit_transaction, wait_for_evidence, wait_for_height, wait_for_stake_to_be, TestCluster,
 };
 use ioi_types::{
     app::{
-        account_id_from_key_material, evidence_id, AccountId, ActiveKeyRecord, ChainId,
-        ChainTransaction, Credential, FailureReport, OffenseFacts, OffenseType, SignHeader,
-        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetV1,
-        ValidatorSetsV1, ValidatorV1,
+        account_id_from_key_material,
+        evidence_id,
+        AccountId,
+        ActiveKeyRecord,
+        // --- FIX: Add the missing struct imports ---
+        BlockTimingParams,
+        BlockTimingRuntime,
+        ChainId,
+        ChainTransaction,
+        Credential,
+        FailureReport,
+        OffenseFacts,
+        OffenseType,
+        SignHeader,
+        SignatureProof,
+        SignatureSuite,
+        SystemPayload,
+        SystemTransaction,
+        ValidatorSetV1,
+        ValidatorSetsV1,
+        ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
     keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, ACCOUNT_NONCE_PREFIX, IDENTITY_CREDENTIALS_PREFIX,
+        ACCOUNT_ID_TO_PUBKEY_PREFIX,
+        ACCOUNT_NONCE_PREFIX,
+        // --- FIX: Add the missing key imports ---
+        BLOCK_TIMING_PARAMS_KEY,
+        BLOCK_TIMING_RUNTIME_KEY,
+        IDENTITY_CREDENTIALS_PREFIX,
         VALIDATOR_SET_KEY,
     },
     service_configs::MigrationConfig,
@@ -30,15 +51,8 @@ use libp2p::identity::Keypair;
 use serde_json::json;
 use std::time::Duration;
 
-/// Helper: fetch current on-chain next_nonce for an account (defaults to 0 if missing).
-async fn fetch_next_nonce(rpc_addr: &str, acct: &AccountId) -> u64 {
-    let key = [ACCOUNT_NONCE_PREFIX, acct.as_ref()].concat();
-    match query_state_key(rpc_addr, &key).await {
-        Ok(Some(bytes)) => codec::from_bytes_canonical::<u64>(&bytes).unwrap_or(0),
-        _ => 0,
-    }
-}
-
+// ... (The rest of the file remains unchanged) ...
+// Helper function to create a signed system transaction
 fn create_report_tx(
     reporter_key: &Keypair,
     offender_id: AccountId,
@@ -89,6 +103,15 @@ fn create_report_tx(
     Ok((ChainTransaction::System(Box::new(tx_to_sign)), report))
 }
 
+/// Helper: fetch current on-chain next_nonce for an account (defaults to 0 if missing).
+async fn fetch_next_nonce(rpc_addr: &str, acct: &AccountId) -> u64 {
+    let key = [ACCOUNT_NONCE_PREFIX, acct.as_ref()].concat();
+    match query_state_key(rpc_addr, &key).await {
+        Ok(Some(bytes)) => codec::from_bytes_canonical::<u64>(&bytes).unwrap_or(0),
+        _ => 0,
+    }
+}
+
 /// Returns true if an error looks like a nonce mismatch from RPC/ante.
 fn is_nonce_mismatch(err: &anyhow::Error) -> bool {
     let s = err.to_string();
@@ -129,29 +152,25 @@ async fn submit_report_with_retry(
         // And propagate to the other validator as well (ok if this one rejects as dup).
         let r2 = submit_transaction(rpc_other, &tx).await;
 
-        match (r1.as_ref().err(), r2.as_ref().err()) {
-            // Either node accepted it: success.
-            (None, _) | (_, None) => return Ok(report),
-            // Both failed with nonce mismatch: refresh nonce and retry.
-            (Some(e1), Some(e2)) if is_nonce_mismatch(e1) || is_nonce_mismatch(e2) => {
-                last_err = Some(anyhow::anyhow!(
-                    "Nonce race detected on submit; will retry with fresh nonce."
-                ));
-                // tiny backoff
-                tokio::time::sleep(Duration::from_millis(25)).await;
-                continue;
-            }
-            // Both failed for a non-nonce reason: bubble up a combined error.
-            (Some(e1), Some(e2)) => {
-                return Err(anyhow::anyhow!(
+        match (r1, r2) {
+            // Success if either node accepted it.
+            (Ok(_), _) | (_, Ok(_)) => return Ok(report),
+            // Both failed.
+            (Err(e1), Err(e2)) => {
+                // If either was a nonce mismatch, retry.
+                if is_nonce_mismatch(&e1) || is_nonce_mismatch(&e2) {
+                    last_err = Some(anyhow!(
+                        "Nonce race detected on submit; will retry with fresh nonce."
+                    ));
+                    tokio::time::sleep(Duration::from_millis(25)).await;
+                    continue;
+                }
+                // Otherwise, it's a hard failure.
+                return Err(anyhow!(
                     "Report submit failed on both nodes: [{}] | [{}]",
                     e1,
                     e2
-                ))
-            }
-            // One failed (non-nonce) and the other failed (nonce): treat as failure.
-            (Some(e1), None) | (None, Some(e1)) => {
-                return Err(anyhow::anyhow!("Report submit failed: {}", e1))
+                ));
             }
         }
     }
@@ -199,8 +218,8 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                     }
                 })
                 .collect();
-            // Ensure deterministic order in the emitted validator set
             validators.sort_by(|a, b| a.account_id.cmp(&b.account_id));
+
             let total_weight = validators.iter().map(|v| v.weight).sum();
 
             let validator_sets = ValidatorSetsV1 {
@@ -218,7 +237,35 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
             );
 
-            // Identity records & credentials for validators
+            let timing_params = BlockTimingParams {
+                base_interval_secs: 5,
+                retarget_every_blocks: 0,
+                ..Default::default()
+            };
+            let timing_runtime = BlockTimingRuntime {
+                effective_interval_secs: timing_params.base_interval_secs,
+                ..Default::default()
+            };
+
+            genesis_state.insert(
+                std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
+                    .unwrap()
+                    .to_string(),
+                json!(format!(
+                    "b64:{}",
+                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
+                )),
+            );
+            genesis_state.insert(
+                std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
+                    .unwrap()
+                    .to_string(),
+                json!(format!(
+                    "b64:{}",
+                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
+                )),
+            );
+
             for keypair in keys {
                 let pk_bytes = keypair.public().encode_protobuf();
                 let suite = SignatureSuite::Ed25519;
@@ -226,14 +273,12 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                 let account_id = AccountId(account_id_hash);
                 let pubkey_hash = account_id_from_key_material(suite, &pk_bytes).unwrap();
 
-                // AccountId -> PubKey mapping
                 let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
                 genesis_state.insert(
                     format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
                     json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes))),
                 );
 
-                // ActiveKeyRecord
                 let record = ActiveKeyRecord {
                     suite,
                     public_key_hash: pubkey_hash,
@@ -246,7 +291,6 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                     json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
                 );
 
-                // Credentials
                 let cred = Credential {
                     suite,
                     public_key_hash: account_id.0,
@@ -262,7 +306,6 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                 );
             }
 
-            // Explicitly set initial nonce to 0 for all validator accounts
             for keypair in keys {
                 let pk_bytes = keypair.public().encode_protobuf();
                 let account_id_hash =
@@ -279,102 +322,109 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
         .build()
         .await?;
 
-    let (reporter_slice, offender_slice) = cluster.validators.split_at_mut(1);
-    let reporter = &mut reporter_slice[0];
-    let offender = &mut offender_slice[0];
-    let rpc_addr_reporter = &reporter.rpc_addr;
-    let rpc_addr_offender = &offender.rpc_addr;
+    let test_result: anyhow::Result<()> = async {
+        let (reporter_slice, offender_slice) = cluster.validators.split_at_mut(1);
+        let reporter = &mut reporter_slice[0];
+        let offender = &mut offender_slice[0];
 
-    let certs_path = &reporter.certs_dir_path;
-    let reporter_client = WorkloadClient::new(
-        &reporter.workload_ipc_addr,
-        &certs_path.join("ca.pem").to_string_lossy(),
-        &certs_path.join("orchestration.pem").to_string_lossy(),
-        &certs_path.join("orchestration.key").to_string_lossy(),
-    )
-    .await?;
+        let rpc_addr_reporter = &reporter.validator().rpc_addr;
+        let rpc_addr_offender = &offender.validator().rpc_addr;
 
-    wait_for_height(rpc_addr_reporter, 1, Duration::from_secs(30)).await?;
-    wait_for_height(rpc_addr_offender, 1, Duration::from_secs(30)).await?;
+        let certs_path = &reporter.validator().certs_dir_path;
+        let reporter_client = WorkloadClient::new(
+            &reporter.validator().workload_ipc_addr,
+            &certs_path.join("ca.pem").to_string_lossy(),
+            &certs_path.join("orchestration.pem").to_string_lossy(),
+            &certs_path.join("orchestration.key").to_string_lossy(),
+        )
+        .await?;
 
-    let offender_pk_bytes = offender.keypair.public().encode_protobuf();
-    let offender_account_id_hash =
-        account_id_from_key_material(SignatureSuite::Ed25519, &offender_pk_bytes)?;
-    let offender_account_id = AccountId(offender_account_id_hash);
+        wait_for_height(rpc_addr_reporter, 1, Duration::from_secs(30)).await?;
+        wait_for_height(rpc_addr_offender, 1, Duration::from_secs(30)).await?;
 
-    let reporter_pk_bytes = reporter.keypair.public().encode_protobuf();
-    let reporter_account_hash =
-        account_id_from_key_material(SignatureSuite::Ed25519, &reporter_pk_bytes)?;
-    let reporter_account_id = AccountId(reporter_account_hash);
+        let offender_pk_bytes = offender.validator().keypair.public().encode_protobuf();
+        let offender_account_id_hash =
+            account_id_from_key_material(SignatureSuite::Ed25519, &offender_pk_bytes)?;
+        let offender_account_id = AccountId(offender_account_id_hash);
 
-    // ACTION 1: Report the offender using the validator account, with nonce-race retry.
-    // Canonical facts for the probe
-    let probe_ts = get_chain_timestamp(rpc_addr_reporter).await?;
-    let target_url = "https://calibration.ioi/heartbeat@v1";
+        let reporter_pk_bytes = reporter.validator().keypair.public().encode_protobuf();
+        let reporter_account_hash =
+            account_id_from_key_material(SignatureSuite::Ed25519, &reporter_pk_bytes)?;
+        let reporter_account_id = AccountId(reporter_account_hash);
 
-    let report1 = submit_report_with_retry(
-        rpc_addr_reporter,
-        rpc_addr_offender,
-        &reporter.keypair,
-        &reporter_account_id,
-        offender_account_id,
-        1u32.into(),
-        target_url,
-        probe_ts,
-    )
-    .await?;
+        let probe_ts = get_chain_timestamp(rpc_addr_reporter).await?;
+        let target_url = "https://calibration.ioi/heartbeat@v1";
 
-    // VERIFY 1: Poll state until stake is slashed
-    println!("Waiting for stake to be slashed...");
-    wait_for_stake_to_be(
-        &reporter_client,
-        &offender_account_id,
-        expected_stake_after_slash,
-        Duration::from_secs(20),
-    )
-    .await?;
-    println!(
-        "SUCCESS: Offender's stake was correctly slashed to {}.",
-        expected_stake_after_slash
-    );
+        let report1 = submit_report_with_retry(
+            rpc_addr_reporter,
+            rpc_addr_offender,
+            &reporter.validator().keypair,
+            &reporter_account_id,
+            offender_account_id,
+            1u32.into(),
+            target_url,
+            probe_ts,
+        )
+        .await?;
 
-    // VERIFY 2: Evidence ID recorded
-    let id1 = evidence_id(&report1)?;
-    wait_for_evidence(rpc_addr_reporter, &id1, Duration::from_secs(10)).await?;
-    println!("SUCCESS: Evidence ID was correctly recorded in the registry.");
+        println!("Waiting for stake to be slashed...");
+        wait_for_stake_to_be(
+            &reporter_client,
+            &offender_account_id,
+            expected_stake_after_slash,
+            Duration::from_secs(20),
+        )
+        .await?;
+        println!(
+            "SUCCESS: Offender's stake was correctly slashed to {}.",
+            expected_stake_after_slash
+        );
 
-    // ACTION 2: Submit the same report again with the *next* correct nonce (exercise replay protection).
-    let n1 = fetch_next_nonce(rpc_addr_reporter, &reporter_account_id).await;
-    let (replay_tx, _) = create_report_tx(
-        &reporter.keypair,
-        offender_account_id,
-        n1,
-        1u32.into(),
-        target_url,
-        probe_ts, // same canonical facts → same evidence_id
-    )?;
-    // It’s fine if one RPC rejects due to duplication; the behavior we care about is
-    // that it does not cause a second slash and that the chain remains live.
-    let _ = submit_transaction(rpc_addr_reporter, &replay_tx).await;
-    let _ = submit_transaction(rpc_addr_offender, &replay_tx).await;
+        let id1 = evidence_id(&report1)?;
+        wait_for_evidence(rpc_addr_reporter, &id1, Duration::from_secs(10)).await?;
+        println!("SUCCESS: Evidence ID was correctly recorded in the registry.");
 
-    // VERIFY 3: Chain remains live; no double-slashing
-    println!("Waiting to confirm no double-slashing occurs and chain remains live...");
-    wait_for_height(rpc_addr_reporter, 3, Duration::from_secs(30)).await?;
+        let n1 = fetch_next_nonce(rpc_addr_reporter, &reporter_account_id).await;
+        let (replay_tx, _) = create_report_tx(
+            &reporter.validator().keypair,
+            offender_account_id,
+            n1,
+            1u32.into(),
+            target_url,
+            probe_ts,
+        )?;
 
-    let final_offender_stake = reporter_client
-        .get_staked_validators()
-        .await
-        .map_err(|e| anyhow::anyhow!(e))?
-        .get(&offender_account_id)
-        .copied()
-        .unwrap_or(0);
+        let _ = submit_transaction(rpc_addr_reporter, &replay_tx).await;
+        let _ = submit_transaction(rpc_addr_offender, &replay_tx).await;
 
-    assert_eq!(
-        final_offender_stake, expected_stake_after_slash,
-        "Stake was slashed a second time, replay protection failed"
-    );
-    println!("SUCCESS: Replay transaction was correctly rejected by the state machine and the chain did not halt.");
+        println!("Waiting to confirm no double-slashing occurs and chain remains live...");
+        wait_for_height(rpc_addr_reporter, 3, Duration::from_secs(30)).await?;
+
+        let final_offender_stake = reporter_client
+            .get_staked_validators()
+            .await
+            .map_err(|e| anyhow::anyhow!(e))?
+            .get(&offender_account_id)
+            .copied()
+            .unwrap_or(0);
+
+        assert_eq!(
+            final_offender_stake, expected_stake_after_slash,
+            "Stake was slashed a second time, replay protection failed"
+        );
+        println!("SUCCESS: Replay transaction was correctly rejected by the state machine and the chain did not halt.");
+
+        Ok(())
+    }
+    .await;
+
+    for guard in cluster.validators {
+        if let Err(e) = guard.shutdown().await {
+            eprintln!("Error during validator shutdown: {}", e);
+        }
+    }
+
+    test_result?;
 
     Ok(())
 }

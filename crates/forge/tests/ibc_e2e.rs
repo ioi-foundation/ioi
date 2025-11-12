@@ -14,7 +14,7 @@ use dcrypt::{api::Signature as DcryptSignature, sign::eddsa::Ed25519SecretKey};
 use ibc_client_tendermint::consensus_state::ConsensusState as TmConsensusState;
 use ibc_client_tendermint::types::proto::v1::{
     ClientState as RawTmClientState, ConsensusState as RawTmConsensusState,
-    Fraction as TmTrustFraction,
+    Fraction as TmTrustFraction, Header as RawTmHeader,
 };
 use ibc_core_client_types::msgs::MsgUpdateClient;
 use ibc_core_client_types::Height as IbcHeight;
@@ -24,16 +24,14 @@ use ibc_core_host_types::{
     path::{ClientConsensusStatePath, ClientStatePath},
 };
 use ibc_primitives::ToProto;
-use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawTmHeader;
 use ibc_proto::{
     cosmos::tx::v1beta1::TxBody, google::protobuf::Any, google::protobuf::Duration as PbDuration,
     ibc::core::commitment::v1::MerkleRoot,
 };
 use ioi_forge::testing::{
     build_test_artifacts,
-    wait_for, wait_for_height,
-    rpc::query_state_key,
-    TestCluster,
+    rpc::{get_block_by_height_resilient, query_state_key, submit_transaction_and_get_block},
+    wait_for_height, TestCluster,
 };
 use ioi_types::{
     app::{
@@ -380,7 +378,8 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
         .build()
         .await?;
 
-    let node = &cluster.validators[0];
+    let node_guard = &cluster.validators[0];
+    let node = node_guard.validator();
     let rpc_addr = &node.rpc_addr;
     wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
 
@@ -474,7 +473,7 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
         ibc_header.encode_to_vec()
     };
 
-    let validator_key = &cluster.validators[0].keypair;
+    let validator_key = &node.keypair;
     let validator_account_id = AccountId(account_id_from_key_material(
         SignatureSuite::Ed25519,
         &validator_key.public().encode_protobuf(),
@@ -537,7 +536,7 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
             signature,
         };
         let call_tx = ChainTransaction::System(Box::new(sys));
-        ioi_forge::testing::rpc::submit_transaction_and_wait_block(node_rpc_addr, &call_tx).await?;
+        submit_transaction_and_get_block(node_rpc_addr, &call_tx).await?;
         Ok(())
     }
 
@@ -546,7 +545,7 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
         client_id,
         hdr_type_url,
         hdr_value,
-        &cluster.validators[0].keypair,
+        &node.keypair,
         validator_account_id,
         &node.rpc_addr,
         nonce,
@@ -557,7 +556,7 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
     // 5. VERIFY ON-CHAIN STATE
     let consensus_state_path_h2 =
         ClientConsensusStatePath::new(ClientId::from_str(client_id)?, 0, 2);
-    let cs_bytes = wait_for(
+    let cs_bytes = ioi_forge::testing::assert::wait_for(
         "consensus state for height 2",
         Duration::from_millis(250),
         Duration::from_secs(30),
@@ -575,6 +574,11 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
     let cs_pb = RawTmConsensusState::decode(cs_any.value.as_slice())?;
     let _cs_h2 = TmConsensusState::try_from(cs_pb)?;
     println!("SUCCESS: Tendermint consensus state for height 2 was written and decoded.");
+
+    // 6. CLEANUP
+    for guard in cluster.validators {
+        guard.shutdown().await?;
+    }
 
     println!("--- Universal Interoperability (Tendermint) E2E Test Passed ---");
     Ok(())

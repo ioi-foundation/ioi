@@ -254,9 +254,11 @@ capabilities = ["TxDecorator"]
         .build()
         .await?;
 
+    // --- FIX START: Use .validator() accessor ---
     let node = &mut cluster.validators[0];
-    let rpc_addr = &node.rpc_addr;
-    let (mut orch_logs, mut workload_logs, _) = node.subscribe_logs();
+    let rpc_addr = &node.validator().rpc_addr;
+    let (mut orch_logs, mut workload_logs, _) = node.validator().subscribe_logs();
+    // --- FIX END ---
     wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
 
     // --- SANITY CHECK: Ensure governance policy is readable and correct ---
@@ -424,5 +426,11 @@ capabilities = ["TxDecorator"]
     println!("SUCCESS: Activated WASM service's TxDecorator hook was correctly invoked.");
 
     println!("--- Forkless Module Upgrade E2E Test Passed ---");
+
+    // --- FIX START: Add explicit shutdown logic ---
+    for guard in cluster.validators {
+        guard.shutdown().await?;
+    }
+    // --- FIX END ---
     Ok(())
 }

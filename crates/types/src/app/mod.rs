@@ -54,7 +54,7 @@ pub struct StateEntry {
 }
 
 /// Represents the current status of the blockchain.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode, Default)]
 pub struct ChainStatus {
     /// The current block height.
     pub height: u64,

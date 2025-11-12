@@ -9,15 +9,14 @@
 
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
-use ioi_forge::testing::{build_test_artifacts, wait_for_height, TestCluster};
 use ibc_core_host_types::{
     identifiers::ClientId,
     path::{ClientConsensusStatePath, ClientStatePath},
 };
 use ibc_proto::google::protobuf::Any;
+use ioi_forge::testing::{build_test_artifacts, wait_for_height, TestCluster};
 // [+] Add MerkleProof for the new hard assertion
 use ibc_proto::ibc::core::commitment::v1::MerkleProof as PbMerkleProof;
-use tendermint_proto::crypto::ProofOps;
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, Credential, SignatureSuite,
@@ -31,8 +30,9 @@ use ioi_types::{
 use libp2p::identity::Keypair;
 use prost::Message;
 use reqwest::Client;
-use serde_json::{json, Value};
+use serde_json::json;
 use std::{collections::BTreeMap, env, fs, path::PathBuf, str::FromStr, time::Duration};
+use tendermint_proto::crypto::ProofOps;
 
 // Recompute proof roots using the flexible decoder from ibc-host.
 use ibc_host::existence_root_from_proof_bytes;
@@ -126,7 +126,9 @@ async fn ibc_golden_paths_match_fixtures() -> Result<()> {
             "consensusState-0-1.proof_pb.b64",
         ];
         if !required_files.iter().all(|f| dir.join(f).exists()) {
-            println!("[SKIP] Golden files are missing and UPDATE_GOLDENS is not set. Skipping test.");
+            println!(
+                "[SKIP] Golden files are missing and UPDATE_GOLDENS is not set. Skipping test."
+            );
             return Ok(());
         }
     }
@@ -229,7 +231,7 @@ async fn ibc_golden_paths_match_fixtures() -> Result<()> {
         .build()
         .await?;
 
-    let node = &cluster.validators[0];
+    let node = cluster.validators[0].validator();
     wait_for_height(&node.rpc_addr, 1, Duration::from_secs(40)).await?;
 
     let http = Client::new();
@@ -303,7 +305,9 @@ async fn ibc_golden_paths_match_fixtures() -> Result<()> {
 
                 if url.ends_with("CommitmentProof") || url.ends_with("ics23.CommitmentProof") {
                     existence_root_from_proof_bytes(&envelope.value)?
-                } else if url.ends_with("MerkleProof") || url.ends_with("ibc.core.commitment.v1.MerkleProof") {
+                } else if url.ends_with("MerkleProof")
+                    || url.ends_with("ibc.core.commitment.v1.MerkleProof")
+                {
                     let mp = PbMerkleProof::decode(&*envelope.value)
                         .map_err(|e| anyhow!("decode Any(MerkleProof): {e}"))?;
                     let mut matched = None;
@@ -471,6 +475,11 @@ async fn ibc_golden_paths_match_fixtures() -> Result<()> {
     );
     println!("SUCCESS: All new and updated metrics were found.");
     // --- END: Automated Metrics Validation ---
+
+    // 8. CLEANUP: Explicitly shut down all validators.
+    for guard in cluster.validators {
+        guard.shutdown().await?;
+    }
 
     Ok(())
 }

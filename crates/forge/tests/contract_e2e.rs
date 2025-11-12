@@ -4,13 +4,15 @@
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_client::WorkloadClient;
+use ioi_crypto::algorithms::hash::sha256;
 use ioi_forge::testing::{
     build_test_artifacts,
+    submit_transaction,
     // FIX: Import directly from the `testing` module
-    wait_for_contract_deployment, wait_for_height,
-    submit_transaction, TestCluster,
+    wait_for_contract_deployment,
+    wait_for_height,
+    TestCluster,
 };
-use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ApplicationTransaction, ChainId,
@@ -192,7 +194,7 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
         .build()
         .await?;
 
-    let node = &mut cluster.validators[0];
+    let node = cluster.validators[0].validator();
     let rpc_addr = &node.rpc_addr;
     let keypair = &node.keypair;
     let certs_path = &node.certs_dir_path;
@@ -325,5 +327,11 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     // Clean up the background task
     let _ = tx_stop.send(());
     let _ = log_task.await;
+
+    // Explicitly shut down the cluster
+    for guard in cluster.validators {
+        guard.shutdown().await?;
+    }
+
     Ok(())
 }

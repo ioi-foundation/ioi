@@ -1,4 +1,4 @@
-// Path: forge/tests/staking_e2e.rs
+// Path: crates/forge/tests/staking_e2e.rs
 
 #![cfg(all(feature = "consensus-pos", feature = "vm-wasm"))]
 
@@ -7,9 +7,11 @@ use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_client::WorkloadClient;
 use ioi_forge::testing::{
     build_test_artifacts,
+    submit_transaction,
     // FIX: Import directly from the `testing` module
-    wait_for_height, wait_for_stake_to_be,
-    submit_transaction, TestCluster,
+    wait_for_height,
+    wait_for_stake_to_be,
+    TestCluster,
 };
 use ioi_types::{
     app::{
@@ -71,7 +73,7 @@ async fn test_staking_lifecycle() -> Result<()> {
 
     let initial_stake = 100_000u64;
 
-    let cluster = TestCluster::builder()
+    let mut cluster = TestCluster::builder()
         .with_validators(3)
         .with_consensus_type("ProofOfStake")
         .with_state_tree("IAVL")
@@ -203,7 +205,7 @@ async fn test_staking_lifecycle() -> Result<()> {
         .await?;
 
     // Get cert paths for node 0
-    let certs0_path = &cluster.validators[0].certs_dir_path;
+    let certs0_path = &cluster.validators[0].validator().certs_dir_path;
     let ca0_path = certs0_path.join("ca.pem").to_string_lossy().to_string();
     let cert0_path = certs0_path
         .join("orchestration.pem")
@@ -214,7 +216,7 @@ async fn test_staking_lifecycle() -> Result<()> {
         .to_string_lossy()
         .to_string();
     // Get cert paths for node 1
-    let certs1_path = &cluster.validators[1].certs_dir_path;
+    let certs1_path = &cluster.validators[1].validator().certs_dir_path;
     let ca1_path = certs1_path.join("ca.pem").to_string_lossy().to_string();
     let cert1_path = certs1_path
         .join("orchestration.pem")
@@ -225,29 +227,29 @@ async fn test_staking_lifecycle() -> Result<()> {
         .to_string_lossy()
         .to_string();
 
-    let rpc_addr = cluster.validators[0].rpc_addr.clone();
+    let rpc_addr = cluster.validators[0].validator().rpc_addr.clone();
     let client0 = WorkloadClient::new(
-        &cluster.validators[0].workload_ipc_addr,
+        &cluster.validators[0].validator().workload_ipc_addr,
         &ca0_path,
         &cert0_path,
         &key0_path,
     )
     .await?;
     let client1 = WorkloadClient::new(
-        &cluster.validators[1].workload_ipc_addr,
+        &cluster.validators[1].validator().workload_ipc_addr,
         &ca1_path,
         &cert1_path,
         &key1_path,
     )
     .await?;
-    let keypair0 = cluster.validators[0].keypair.clone();
-    let keypair1 = cluster.validators[1].keypair.clone();
-    let client1_rpc_addr = cluster.validators[1].rpc_addr.clone(); // For waiting on node 1
+    let keypair0 = cluster.validators[0].validator().keypair.clone();
+    let keypair1 = cluster.validators[1].validator().keypair.clone();
+    let client1_rpc_addr = cluster.validators[1].validator().rpc_addr.clone(); // For waiting on node 1
 
     // Spawn a background task to continuously drain logs to prevent backpressure stalls.
-    let (mut orch_logs_0, mut work_logs_0, _) = cluster.validators[0].subscribe_logs();
-    let (mut orch_logs_1, mut work_logs_1, _) = cluster.validators[1].subscribe_logs();
-    let (mut orch_logs_2, mut work_logs_2, _) = cluster.validators[2].subscribe_logs();
+    let (mut orch_logs_0, mut work_logs_0, _) = cluster.validators[0].validator().subscribe_logs();
+    let (mut orch_logs_1, mut work_logs_1, _) = cluster.validators[1].validator().subscribe_logs();
+    let (mut orch_logs_2, mut work_logs_2, _) = cluster.validators[2].validator().subscribe_logs();
 
     let (tx_stop, mut rx_stop) = tokio::sync::oneshot::channel::<()>();
     let logging_task = tokio::spawn(async move {
@@ -308,6 +310,13 @@ async fn test_staking_lifecycle() -> Result<()> {
 
     tx_stop.send(()).ok();
     let _ = logging_task.await;
+
+    // *** FIX START: Add explicit shutdown logic for all validators ***
+    for guard in cluster.validators {
+        guard.shutdown().await?;
+    }
+    // *** FIX END ***
+
     println!("--- Staking Lifecycle E2E Test Passed ---");
     Ok(())
 }

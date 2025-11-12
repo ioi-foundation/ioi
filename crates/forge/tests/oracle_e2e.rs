@@ -10,9 +10,8 @@ use anyhow::{anyhow, Result};
 use axum::{routing::get, serve, Router};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
-    build_test_artifacts,
-    wait_for_height, wait_for_oracle_data, wait_for_pending_oracle_request,
-    submit_transaction, TestCluster,
+    build_test_artifacts, submit_transaction, wait_for_height, wait_for_oracle_data,
+    wait_for_pending_oracle_request, TestCluster,
 };
 use ioi_types::{
     app::{
@@ -114,7 +113,7 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
     // Launch a local HTTP stub the oracle can call deterministically.
     let (stub_url, _stub_handle) = start_local_price_stub().await;
 
-    let cluster = TestCluster::builder()
+    let mut cluster = TestCluster::builder()
         .with_validators(4)
         .with_consensus_type("ProofOfStake")
         .with_state_tree("IAVL")
@@ -240,14 +239,15 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
         .build()
         .await?;
 
-    let node0_rpc = &cluster.validators[0].rpc_addr;
+    // --- FIX START: Use .validator() accessor on the guard ---
+    let node0_rpc = &cluster.validators[0].validator().rpc_addr;
 
     // Wait for deterministic chain readiness.
     wait_for_height(node0_rpc, 2, std::time::Duration::from_secs(30)).await?;
 
     // 2. SUBMIT ORACLE REQUEST TRANSACTION
     let request_id = 101;
-    let signer_keypair = &cluster.validators[0].keypair;
+    let signer_keypair = &cluster.validators[0].validator().keypair;
     let request_tx = create_call_service_tx(
         signer_keypair,
         "oracle",
@@ -261,8 +261,9 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
     )?;
     // Best-effort broadcast to all validators so at least one mempool admits it.
     for v in &cluster.validators {
-        let _ = submit_transaction(&v.rpc_addr, &request_tx).await;
+        let _ = submit_transaction(&v.validator().rpc_addr, &request_tx).await;
     }
+    // --- FIX END ---
 
     wait_for_pending_oracle_request(node0_rpc, request_id, std::time::Duration::from_secs(30))
         .await?;
@@ -277,6 +278,12 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
         std::time::Duration::from_secs(45),
     )
     .await?;
+
+    // --- FIX START: Add explicit shutdown logic ---
+    for guard in cluster.validators {
+        guard.shutdown().await?;
+    }
+    // --- FIX END ---
 
     println!("--- Validator-Native Oracle E2E Test Passed ---");
     Ok(())

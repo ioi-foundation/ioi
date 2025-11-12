@@ -2,10 +2,9 @@
 
 use super::{
     assert::{assert_log_contains, LOG_CHANNEL_CAPACITY},
-    backend::{DockerBackend, DockerBackendConfig, LogStream, ProcessBackend, TestBackend},
+    backend::{DockerBackend, DockerBackendConfig, ProcessBackend, TestBackend},
 };
 use anyhow::{anyhow, Result};
-use async_trait::async_trait;
 use futures_util::StreamExt;
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_client::WorkloadClient;
@@ -17,7 +16,6 @@ use ioi_types::config::{
 };
 use ioi_validator::common::generate_certificates_if_needed;
 use libp2p::{identity, Multiaddr, PeerId};
-use std::any::Any;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Arc;
@@ -43,76 +41,66 @@ pub struct TestValidator {
     _temp_dir: Arc<TempDir>,
     pub backend: Box<dyn TestBackend>,
     orch_log_tx: broadcast::Sender<String>,
-    workload_log_tx: broadcast::Sender<String>,
+    pub workload_log_tx: broadcast::Sender<String>,
     guardian_log_tx: Option<broadcast::Sender<String>>,
-    log_drain_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
+    pub log_drain_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
 }
 
-struct NullBackend;
-#[async_trait]
-impl TestBackend for NullBackend {
-    async fn launch(&mut self) -> Result<()> {
+/// An RAII guard to ensure `TestValidator` is explicitly shut down.
+#[must_use = "ValidatorGuard must be explicitly shut down to prevent resource leaks"]
+pub struct ValidatorGuard {
+    validator: Option<TestValidator>,
+    disarmed: bool,
+}
+
+impl ValidatorGuard {
+    /// Creates a new guard that takes ownership of a `TestValidator`.
+    pub fn new(validator: TestValidator) -> Self {
+        Self {
+            validator: Some(validator),
+            disarmed: false,
+        }
+    }
+
+    /// Provides immutable access to the underlying `TestValidator`.
+    pub fn validator(&self) -> &TestValidator {
+        self.validator
+            .as_ref()
+            .expect("ValidatorGuard is empty; it has already been shut down")
+    }
+
+    /// Provides mutable access to the underlying `TestValidator`.
+    pub fn validator_mut(&mut self) -> &mut TestValidator {
+        self.validator
+            .as_mut()
+            .expect("ValidatorGuard is empty; it has already been shut down")
+    }
+
+    /// Explicitly shuts down the validator and all its resources.
+    pub async fn shutdown(mut self) -> Result<()> {
+        if let Some(mut validator) = self.validator.take() {
+            validator.shutdown().await?;
+        }
+        self.disarmed = true;
         Ok(())
-    }
-    fn get_addresses(&self) -> (String, Multiaddr) {
-        ("".into(), "/ip4/127.0.0.1/tcp/0".parse().unwrap())
-    }
-    fn get_log_streams(&mut self) -> Result<(LogStream, LogStream, Option<LogStream>)> {
-        Err(anyhow!("null backend"))
-    }
-    async fn cleanup(&mut self) -> Result<()> {
-        Ok(())
-    }
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
     }
 }
 
-impl Drop for TestValidator {
+impl Drop for ValidatorGuard {
     fn drop(&mut self) {
-        // Take ownership of the backend to ensure it's cleaned up.
-        let mut backend = std::mem::replace(&mut self.backend, Box::new(NullBackend));
-        let handles = self.log_drain_handles.clone();
-
-        let cleanup_future = async move {
-            // Abort log draining tasks first to prevent them from interfering.
-            for handle in handles.lock().await.iter() {
-                handle.abort();
+        if let Some(validator) = self.validator.take() {
+            if !self.disarmed && !std::thread::panicking() {
+                panic!(
+                    "ValidatorGuard for peer {} was dropped without calling .shutdown(). Explicit cleanup is required to prevent resource leaks.",
+                    validator.peer_id
+                );
             }
-            // Now, cleanup the backend which kills the processes/containers.
-            if let Err(e) = backend.cleanup().await {
-                // Use eprintln! because logging might not be available during panic unwinding.
-                eprintln!("[WARN] Failed to cleanup test validator backend: {}", e);
-            }
-        };
-
-        // If we are in an async context, spawn the task without blocking.
-        // This is the common case when a test finishes without panicking.
-        if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            handle.spawn(cleanup_future);
-        } else {
-            // If `try_current()` fails, we are likely in a drop during a panic
-            // where the test runtime is being torn down.
-            // Create a new, simple runtime just for our cleanup task and BLOCK on it.
-            let rt = tokio::runtime::Builder::new_current_thread()
-                .enable_io()
-                .build()
-                .expect("Failed to create temporary runtime for cleanup");
-            rt.block_on(cleanup_future);
         }
     }
 }
 
 impl TestValidator {
     /// Subscribes to the non-blocking log streams for this validator's containers.
-    ///
-    /// This method should be called once at the beginning of a test. The returned
-    /// receivers will receive log lines from the moment of subscription. Slow consumption
-    /// of these receivers will cause logs to be dropped, but will not block the
-    /// underlying validator process.
     pub fn subscribe_logs(
         &self,
     ) -> (
@@ -128,19 +116,23 @@ impl TestValidator {
     }
 
     /// Explicitly shuts down the validator and all its associated resources.
-    /// This is the preferred way to tear down a validator in a controlled test,
-    /// as it avoids the unpredictable timing of `Drop`.
     pub async fn shutdown(&mut self) -> Result<()> {
-        // Abort this validator's log drainers first.
-        // This prevents them from holding any resources or panicking during backend cleanup.
         let handles = self.log_drain_handles.lock().await;
         for handle in handles.iter() {
             handle.abort();
         }
-        drop(handles); // Release lock
-
-        // Now, trigger the backend cleanup for just this node.
+        drop(handles);
         self.backend.cleanup().await
+    }
+
+    /// Restarts the workload process. This is only supported by the `ProcessBackend`.
+    pub async fn restart_workload_process(&mut self) -> Result<()> {
+        // --- FIX: Clone the required fields *before* the mutable borrow ---
+        // This resolves a borrow-checker error and ensures the logging for the
+        // restarted process is correctly handled.
+        self.backend
+            .restart_workload_process(self.workload_log_tx.clone(), self.log_drain_handles.clone())
+            .await
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -159,10 +151,8 @@ impl TestValidator {
         initial_services: Vec<InitialServiceConfig>,
         use_malicious_workload: bool,
         light_readiness_check: bool,
-        // [+] MODIFIED: Use a generic slice of strings for features
         extra_features: &[String],
-    ) -> Result<Self> {
-        // --- NEW: Per-validator build step with corrected feature names ---
+    ) -> Result<ValidatorGuard> {
         let consensus_feature = match consensus_type {
             "ProofOfAuthority" => "consensus-poa",
             "ProofOfStake" => "consensus-pos",
@@ -192,7 +182,6 @@ impl TestValidator {
             }
         };
 
-        // [+] MODIFIED: Dynamically construct the features string.
         let mut features = format!(
             "validator-bins,{},{},{},vm-wasm{}",
             consensus_feature,
@@ -226,7 +215,6 @@ impl TestValidator {
         if !status_node.success() {
             panic!("Node binary build failed for features: {}", features);
         }
-        // --- END MODIFIED BUILD STEP ---
 
         let peer_id = keypair.public().to_peer_id();
         let temp_dir = Arc::new(tempfile::tempdir()?);
@@ -236,7 +224,7 @@ impl TestValidator {
         let pqc_keypair = Some(
             DilithiumScheme::new(ioi_crypto::security::SecurityLevel::Level2).generate_keypair(),
         )
-        .transpose()?; // This handles the Result correctly.
+        .transpose()?;
 
         let p2p_port = portpicker::pick_unused_port().unwrap_or(base_port);
         let rpc_port = portpicker::pick_unused_port().unwrap_or(base_port + 1);
@@ -252,7 +240,6 @@ impl TestValidator {
 
         let config_dir_path = temp_dir.path().to_path_buf();
 
-        // Persist PQC keypair for the orchestrator binary to load.
         let pqc_key_path = config_dir_path.join("pqc_key.json");
         if let Some(kp) = pqc_keypair.as_ref() {
             let pub_hex = hex::encode(SigningKeyPair::public_key(kp).to_bytes());
@@ -313,7 +300,7 @@ impl TestValidator {
                 rpc_addr.clone()
             },
             rpc_hardening: Default::default(),
-            initial_sync_timeout_secs: 180, // avoid premature “no peers” timeouts in CI
+            initial_sync_timeout_secs: 180,
             block_production_interval_secs: 5,
             round_robin_view_timeout_secs: 20,
             default_query_gas_limit: 1_000_000_000,
@@ -387,10 +374,10 @@ impl TestValidator {
                 certs_dir_path: certs_dir_path.clone(),
             };
             let mut docker_backend = DockerBackend::new(docker_config).await?;
-            docker_backend.launch().await?; // Just starts containers
+            docker_backend.launch().await?;
             workload_ipc_addr = "127.0.0.1:8555".to_string();
-            orchestration_telemetry_addr = format!("127.0.0.1:{}", rpc_port + 100); // Placeholder
-            workload_telemetry_addr = format!("127.0.0.1:{}", rpc_port + 200); // Placeholder
+            orchestration_telemetry_addr = format!("127.0.0.1:{}", rpc_port + 100);
+            workload_telemetry_addr = format!("127.0.0.1:{}", rpc_port + 200);
             Box::new(docker_backend)
         } else {
             generate_certificates_if_needed(&certs_dir_path)?;
@@ -428,7 +415,6 @@ impl TestValidator {
             pb.orchestration_telemetry_addr = Some(orchestration_telemetry_addr.clone());
             pb.workload_telemetry_addr = Some(workload_telemetry_addr.clone());
 
-            // --- Spawn Guardian ---
             if let Some(model_path) = agentic_model_path {
                 let telemetry_addr_guard = format!(
                     "127.0.0.1:{}",
@@ -450,7 +436,6 @@ impl TestValidator {
                 pb.guardian_process = Some(process);
             }
 
-            // --- Spawn Workload ---
             let workload_binary_name = if use_malicious_workload {
                 "malicious-workload"
             } else {
@@ -469,7 +454,6 @@ impl TestValidator {
             }
             pb.workload_process = Some(workload_cmd.spawn()?);
 
-            // --- Spawn Orchestration ---
             let mut orch_args = vec![
                 "--config".to_string(),
                 orch_config_path.to_string_lossy().to_string(),
@@ -491,7 +475,7 @@ impl TestValidator {
             let mut orch_cmd = TokioCommand::new(node_binary_path.join("orchestration"));
             orch_cmd
                 .args(&orch_args)
-                .env("RUST_BACKTRACE", "1") // Add backtrace for debugging
+                .env("RUST_BACKTRACE", "1")
                 .env("TELEMETRY_ADDR", &orchestration_telemetry_addr)
                 .env("WORKLOAD_IPC_ADDR", &workload_ipc_addr)
                 .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())
@@ -505,7 +489,6 @@ impl TestValidator {
             Box::new(pb)
         };
 
-        // --- START LOG DRAINING AND READINESS CHECKS ---
         let (mut orch_logs, mut workload_logs, guardian_logs_opt) = backend.get_log_streams()?;
 
         let orch_tx_clone = orch_log_tx.clone();
@@ -551,7 +534,6 @@ impl TestValidator {
         .await?;
 
         if !use_docker {
-            // Only probe genesis for process backend; docker backend has network delays
             let temp_workload_client = WorkloadClient::new(
                 &workload_ipc_addr,
                 &certs_dir_path.join("ca.pem").to_string_lossy(),
@@ -591,9 +573,7 @@ impl TestValidator {
             log::info!("[Forge] Light readiness check complete. Bypassing wait for startup-complete signal.");
         }
 
-        // --- END READINESS CHECKS ---
-
-        Ok(TestValidator {
+        Ok(ValidatorGuard::new(TestValidator {
             keypair,
             pqc_keypair,
             peer_id,
@@ -609,6 +589,6 @@ impl TestValidator {
             workload_log_tx,
             guardian_log_tx,
             log_drain_handles: Arc::new(Mutex::new(log_drain_handles)),
-        })
+        }))
     }
 }

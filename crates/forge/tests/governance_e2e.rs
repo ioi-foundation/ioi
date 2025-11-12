@@ -5,9 +5,8 @@
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
-    build_test_artifacts,
-    confirm_proposal_passed_state, wait_for_height,
-    submit_transaction, TestCluster,
+    build_test_artifacts, confirm_proposal_passed_state, submit_transaction, wait_for_height,
+    TestCluster,
 };
 use ioi_types::{
     app::{
@@ -84,7 +83,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
     build_test_artifacts();
 
     // 2. LAUNCH CLUSTER with a custom genesis state
-    let mut cluster = TestCluster::builder()
+    let cluster = TestCluster::builder()
         .with_validators(1)
         .with_consensus_type("ProofOfAuthority")
         .with_state_tree("IAVL")
@@ -206,7 +205,8 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
         .await?;
 
     // 3. GET HANDLES to the node
-    let node = &mut cluster.validators[0];
+    let node_guard = &cluster.validators[0];
+    let node = node_guard.validator();
     let rpc_addr = &node.rpc_addr;
     let validator_key = &node.keypair;
 
@@ -232,6 +232,11 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
 
     // 7. ASSERT the tallying outcome via state.
     confirm_proposal_passed_state(rpc_addr, 1, Duration::from_secs(20)).await?;
+
+    // 8. CLEANUP: Explicitly shut down all validators.
+    for guard in cluster.validators {
+        guard.shutdown().await?;
+    }
 
     println!("--- Governance Lifecycle E2E Test Successful ---");
     Ok(())
