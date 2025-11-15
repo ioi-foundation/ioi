@@ -9,8 +9,8 @@ use anyhow::Result;
 use async_trait::async_trait;
 use ioi_api::app::{Block, ChainStatus, ChainTransaction};
 // FIX: Import PenaltyMechanism from its canonical public path.
-use ioi_api::consensus::PenaltyMechanism;
 use ioi_api::commitment::CommitmentScheme;
+use ioi_api::consensus::PenaltyMechanism;
 use ioi_api::services::access::ServiceDirectory;
 use ioi_api::services::{BlockchainService, UpgradableService};
 // FIX: `PinGuard` was moved, but `StateOverlay` is still used by `process_transaction` here.
@@ -22,14 +22,11 @@ use ioi_consensus::Consensus;
 use ioi_tx::system::{nonce, validation};
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{
-    to_root_hash, AccountId, BlockTimingParams, BlockTimingRuntime, ChainId, FailureReport,
-    Membership,
+    AccountId, BlockTimingParams, BlockTimingRuntime, ChainId, FailureReport,
 };
 use ioi_types::codec;
 use ioi_types::error::{ChainError, StateError, TransactionError};
-use ioi_types::keys::{
-    BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, STATUS_KEY, VALIDATOR_SET_KEY,
-};
+use ioi_types::keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, STATUS_KEY};
 // FIX: Add Timestamp import for TxContext construction.
 use ibc_primitives::Timestamp;
 use ioi_types::service_configs::{ActiveServiceMeta, MethodPermission};
@@ -203,49 +200,6 @@ where
                 };
             }
             Ok(None) => {
-                if let Ok((head_height, _)) = workload.store.head() {
-                    if head_height > 0 {
-                        if let Ok(Some(head_block)) =
-                            workload.store.get_block_by_height(head_height)
-                        {
-                            let recovered_root = &head_block.header.state_root.0;
-                            state
-                                .adopt_known_root(recovered_root, head_height)
-                                .map_err(ChainError::State)?;
-
-                            let status = ChainStatus {
-                                height: head_block.header.height,
-                                latest_timestamp: head_block.header.timestamp,
-                                total_transactions: 0,
-                                is_running: true,
-                            };
-                            tracing::warn!(target: "chain", event = "status_recovered_from_store", height = status.height, "Recovered and adopted durable head into state backend.");
-
-                            let anchor = to_root_hash(recovered_root)?;
-                            if let Ok((Membership::Present(status_bytes), _)) =
-                                state.get_with_proof_at_anchor(&anchor, STATUS_KEY)
-                            {
-                                state.insert(STATUS_KEY, &status_bytes)?;
-                                tracing::info!(target: "chain", "Re-hydrated STATUS_KEY into current state.");
-                            }
-                            if let Ok((Membership::Present(vs_bytes), _)) =
-                                state.get_with_proof_at_anchor(&anchor, VALIDATOR_SET_KEY)
-                            {
-                                state.insert(VALIDATOR_SET_KEY, &vs_bytes)?;
-                                tracing::info!(target: "chain", "Re-hydrated VALIDATOR_SET_KEY into current state.");
-                            }
-
-                            self.state.status = status;
-                            self.state.last_state_root = recovered_root.clone();
-                            self.state.genesis_state = GenesisState::Ready {
-                                root: self.state.last_state_root.clone(),
-                                chain_id: self.state.chain_id,
-                            };
-                            return Ok(());
-                        }
-                    }
-                }
-
                 tracing::info!(target: "chain", event = "status_init", "No existing chain status found. Initializing and saving genesis status.");
 
                 for service in self.service_manager.all_services() {
@@ -317,17 +271,14 @@ where
                     )
                     .map_err(|e| ChainError::Transaction(e.to_string()))?;
 
-                state.commit_version(0)?;
-                tracing::debug!(target: "chain", "[Chain] Committed full genesis state.");
-
                 let status_bytes = ioi_types::codec::to_bytes_canonical(&self.state.status)
                     .map_err(ChainError::Transaction)?;
                 state
                     .insert(STATUS_KEY, &status_bytes)
                     .map_err(|e| ChainError::Transaction(e.to_string()))?;
 
-                state.commit_version(0)?;
-                tracing::debug!(target: "chain", "[Chain] Committed genesis state including status key.");
+                state.commit_version_persist(0, &*workload.store)?;
+                tracing::debug!(target: "chain", "[Chain] Committed genesis state.");
 
                 let final_root = state.root_commitment().as_ref().to_vec();
                 let root_commitment_for_check = state.commitment_from_bytes(&final_root)?;

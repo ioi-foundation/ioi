@@ -1,4 +1,5 @@
 // Path: crates/node/src/bin/workload.rs
+#![forbid(unsafe_code)]
 
 //! The main binary for the Workload container.
 //!
@@ -17,45 +18,46 @@
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
-use ioi_api::services::access::ServiceDirectory;
-use ioi_api::services::BlockchainService;
-use ioi_api::{commitment::CommitmentScheme, state::StateManager, validator::WorkloadContainer};
+use ioi_api::services::{access::ServiceDirectory, BlockchainService, UpgradableService};
+use ioi_api::{
+    commitment::CommitmentScheme,
+    state::{ProofProvider, StateManager},
+    storage::NodeStore,
+    validator::WorkloadContainer,
+};
 use ioi_consensus::util::engine_from_config;
 use ioi_execution::util::load_state_from_genesis_file;
 use ioi_execution::Chain;
 use ioi_services::governance::GovernanceModule;
-// --- IBC Service Imports ---
 #[cfg(feature = "ibc-deps")]
 use ioi_services::ibc::{
-    // Updated paths
-    apps::channel::ChannelManager,
-    core::registry::VerifierRegistry,
+    apps::channel::ChannelManager, core::registry::VerifierRegistry,
     light_clients::tendermint::TendermintVerifier,
 };
 use ioi_services::identity::IdentityHub;
 use ioi_services::oracle::OracleService;
-use ioi_storage::metrics as storage_metrics;
-use ioi_storage::RedbEpochStore;
-use ioi_tx::unified::UnifiedTransactionModel;
-use ioi_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
-use ioi_validator::standard::WorkloadIpcServer;
-use ioi_vm_wasm::WasmRuntime;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use tokio::sync::Mutex;
-
-// Imports for concrete types used in the factory
-#[cfg(feature = "commitment-hash")]
 use ioi_state::primitives::hash::HashCommitmentScheme;
 #[cfg(feature = "commitment-kzg")]
 use ioi_state::primitives::kzg::{KZGCommitmentScheme, KZGParams};
-#[cfg(feature = "state-iavl")]
 use ioi_state::tree::iavl::IAVLTree;
 #[cfg(feature = "state-sparse-merkle")]
 use ioi_state::tree::sparse_merkle::SparseMerkleTree;
 #[cfg(feature = "state-verkle")]
 use ioi_state::tree::verkle::VerkleTree;
+use ioi_storage::metrics as storage_metrics;
+use ioi_storage::RedbEpochStore;
+use ioi_tx::unified::UnifiedTransactionModel;
+use ioi_types::app::{to_root_hash, Membership};
+use ioi_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
+use ioi_types::keys::{STATUS_KEY, VALIDATOR_SET_KEY};
+use ioi_validator::standard::workload_ipc_server::WorkloadIpcServer;
+use ioi_vm_wasm::WasmRuntime;
+use serde::Serialize;
+use std::fmt::Debug;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 #[derive(Parser, Debug)]
 struct WorkloadOpts {
@@ -73,29 +75,64 @@ async fn run_workload<CS, ST>(
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + ProofProvider // This bound is required by ChainStateMachine
         + Send
         + Sync
         + 'static
-        + Clone,
-    CS::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
-    CS::Proof: AsRef<[u8]> + serde::Serialize + for<'de> serde::Deserialize<'de> + std::fmt::Debug,
-    CS::Commitment: std::fmt::Debug + From<Vec<u8>>,
+        + Clone
+        + Debug,
+    CS::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + Debug,
+    CS::Proof: AsRef<[u8]> + Serialize + for<'de> serde::Deserialize<'de> + Debug,
+    CS::Commitment: Debug + From<Vec<u8>>,
 {
-    // --- FIX START: Check for the .db file, not the .json file ---
-    // The RedbEpochStore creates a file with a .db extension. The `state_file` config
-    // entry is a base path without an extension. This logic now correctly checks for
-    // the actual database file to decide whether to load from genesis.
     let db_path = Path::new(&config.state_file).with_extension("db");
-    if !db_path.exists() {
-        // --- FIX END ---
+    let db_preexisted = db_path.exists();
+
+    let store = Arc::new(RedbEpochStore::open(&db_path, config.epoch_size)?);
+    state_tree.attach_store(store.clone());
+
+    if !db_preexisted {
+        tracing::info!(
+            target: "workload",
+            event = "state_init",
+            path = %db_path.display(),
+            "No existing state DB found. Initializing from genesis {}.",
+            config.genesis_file
+        );
         load_state_from_genesis_file(&mut state_tree, &config.genesis_file)?;
     } else {
         tracing::info!(
             target: "workload",
             event = "state_init",
             path = %db_path.display(),
-            "Found existing state file, skipping genesis init."
+            "Existing state DB found. Attempting recovery from stored state.",
         );
+        // RECOVERY LOGIC: Re-hydrate live state from the last committed version in the store.
+        if let Ok((head_height, _)) = store.head() {
+            if head_height > 0 {
+                if let Ok(Some(head_block)) = store.get_block_by_height(head_height) {
+                    let recovered_root = &head_block.header.state_root.0;
+                    state_tree.adopt_known_root(recovered_root, head_height)?;
+                    tracing::warn!(target: "workload", event = "state_recovered", height = head_height, "Recovered and adopted durable head into state backend.");
+
+                    let anchor = to_root_hash(recovered_root)?;
+
+                    // Re-hydrate critical keys into the live state to make it usable.
+                    if let Ok((Membership::Present(status_bytes), _)) =
+                        state_tree.get_with_proof_at_anchor(&anchor, STATUS_KEY)
+                    {
+                        state_tree.insert(STATUS_KEY, &status_bytes)?;
+                        tracing::info!(target: "workload", "Re-hydrated STATUS_KEY into current state.");
+                    }
+                    if let Ok((Membership::Present(vs_bytes), _)) =
+                        state_tree.get_with_proof_at_anchor(&anchor, VALIDATOR_SET_KEY)
+                    {
+                        state_tree.insert(VALIDATOR_SET_KEY, &vs_bytes)?;
+                        tracing::info!(target: "workload", "Re-hydrated VALIDATOR_SET_KEY into current state.");
+                    }
+                }
+            }
+        }
     }
 
     let wasm_vm = Box::new(WasmRuntime::new(config.fuel_costs.clone())?);
@@ -160,10 +197,6 @@ where
         .collect();
     let service_directory = ServiceDirectory::new(services_for_dir);
 
-    let store_path = Path::new(&config.state_file).with_extension("db");
-    let store = Arc::new(RedbEpochStore::open(store_path, config.epoch_size)?);
-    state_tree.attach_store(store.clone());
-
     let workload_container = Arc::new(WorkloadContainer::new(
         config.clone(),
         state_tree,
@@ -212,7 +245,8 @@ where
     let ipc_server_addr =
         std::env::var("IPC_SERVER_ADDR").unwrap_or_else(|_| "0.0.0.0:8555".to_string());
 
-    let ipc_server = WorkloadIpcServer::new(ipc_server_addr, workload_container, chain_arc).await?;
+    let ipc_server: WorkloadIpcServer<ST, CS> =
+        WorkloadIpcServer::new(ipc_server_addr, workload_container, chain_arc).await?;
 
     tracing::info!(target: "workload", "State, VM, and Chain initialized. Running IPC server.");
     ipc_server.run().await?;
@@ -279,8 +313,9 @@ async fn main() -> Result<()> {
             ioi_types::config::CommitmentSchemeType::Hash,
         ) => {
             tracing::info!(target: "workload", "Instantiating state backend: SparseMerkleTree<HashCommitmentScheme>");
-            let commitment_scheme = HashCommitmentScheme::new();
-            let state_tree = SparseMerkleTree::new(commitment_scheme.clone());
+            let commitment_scheme = ioi_state::primitives::hash::HashCommitmentScheme::new();
+            let state_tree =
+                ioi_state::tree::sparse_merkle::SparseMerkleTree::new(commitment_scheme.clone());
             run_workload(state_tree, commitment_scheme, config).await
         }
 
@@ -292,14 +327,16 @@ async fn main() -> Result<()> {
             tracing::info!(target: "workload", "Instantiating state backend: VerkleTree<KZGCommitmentScheme>");
             let params = if let Some(srs_path) = &config.srs_file_path {
                 tracing::info!(target: "workload", "Loading KZG SRS from file: {}", srs_path);
-                KZGParams::load_from_file(Path::new(srs_path)).map_err(|e| anyhow!(e))?
+                ioi_state::primitives::kzg::KZGParams::load_from_file(Path::new(srs_path))
+                    .map_err(|e| anyhow!(e))?
             } else {
                 tracing::warn!(target: "workload", "Generating insecure KZG parameters for testing. This is slow. DO NOT USE IN PRODUCTION.");
-                KZGParams::new_insecure_for_testing(12345, 255)
+                ioi_state::primitives::kzg::KZGParams::new_insecure_for_testing(12345, 255)
             };
-            let commitment_scheme = KZGCommitmentScheme::new(params);
+            let commitment_scheme = ioi_state::primitives::kzg::KZGCommitmentScheme::new(params);
             let state_tree =
-                VerkleTree::new(commitment_scheme.clone(), 256).map_err(|e| anyhow!(e))?;
+                ioi_state::tree::verkle::VerkleTree::new(commitment_scheme.clone(), 256)
+                    .map_err(|e| anyhow!(e))?;
             run_workload(state_tree, commitment_scheme, config).await
         }
 

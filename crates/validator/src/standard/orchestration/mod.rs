@@ -31,7 +31,6 @@ use ioi_types::{
     error::ValidatorError,
 };
 use libp2p::identity;
-use libp2p::Multiaddr;
 use lru::LruCache;
 use rand::seq::SliceRandom;
 use serde::Serialize;
@@ -254,14 +253,13 @@ where
                 .and_then(|s| s.parse::<u64>().ok())
                 .unwrap_or_else(|| ctx.config.block_production_interval_secs.max(1))
         };
-        log::info!("[Consensus] Ticker starting ({}s).", interval_secs);
+        tracing::info!(
+            target: "consensus",
+            "Consensus ticker started ({}s interval).",
+            interval_secs
+        );
         let mut ticker = time::interval(Duration::from_secs(interval_secs));
         ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
-
-        let _ = {
-            let ctx = context_arc.lock().await;
-            ctx.consensus_kick_tx.send(())
-        };
 
         loop {
             tokio::select! {
@@ -269,35 +267,35 @@ where
                     let cause = "timer";
                     let is_quarantined = context_arc.lock().await.is_quarantined.load(Ordering::SeqCst);
                     if is_quarantined {
-                        log::info!("[Consensus] Skipping tick (node is quarantined).");
+                        tracing::info!(target: "consensus", "Skipping tick (node is quarantined).");
                         continue;
                     }
                     let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
                     if let Err(e) = result.map_err(|e| anyhow!("Consensus tick panicked: {:?}", e)).and_then(|res| res) {
-                        log::error!("[Orch Tick] Consensus tick panicked: {:?}. Continuing loop.", e);
+                        tracing::error!(target: "consensus", "[Orch Tick] Consensus tick panicked: {:?}. Continuing loop.", e);
                     }
                 }
                 Some(()) = kick_rx.recv() => {
                     let cause = "kick";
                      let is_quarantined = context_arc.lock().await.is_quarantined.load(Ordering::SeqCst);
                     if is_quarantined {
-                        log::info!("[Consensus] Skipping kicked tick (node is quarantined).");
+                        tracing::info!(target: "consensus", "Skipping kicked tick (node is quarantined).");
                         continue;
                     }
                     let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
                      if let Err(e) = result.map_err(|e| anyhow!("Kicked consensus tick panicked: {:?}", e)).and_then(|res| res) {
-                        log::error!("[Orch Tick] Kicked consensus tick panicked: {:?}. Continuing loop.", e);
+                        tracing::error!(target: "consensus", "[Orch Tick] Kicked consensus tick panicked: {:?}. Continuing loop.", e);
                     }
                 }
                  _ = shutdown_rx.changed() => {
                     if *shutdown_rx.borrow() {
-                        log::info!("Consensus ticker received shutdown signal.");
+                        tracing::info!(target: "consensus", "Consensus ticker received shutdown signal.");
                         break;
                     }
                 }
             }
         }
-        log::info!("Consensus ticker finished.");
+        tracing::info!(target: "consensus", "Consensus ticker finished.");
     }
 
     async fn run_sync_discoverer(
@@ -329,13 +327,13 @@ where
                 }
                 _ = shutdown_rx.changed() => {
                     if *shutdown_rx.borrow() {
-                        log::info!("Sync discoverer received shutdown signal.");
+                        tracing::info!(target: "orchestration", "Sync discoverer received shutdown signal.");
                         break;
                     }
                 }
             }
         }
-        log::info!("Sync discoverer finished.");
+        tracing::info!(target: "orchestration", "Sync discoverer finished.");
     }
 
     async fn run_main_loop(
@@ -343,22 +341,44 @@ where
         mut shutdown_receiver: watch::Receiver<bool>,
         context_arc: Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
     ) {
-        let sync_timeout = {
-            let context = context_arc.lock().await;
-            time::sleep(Duration::from_secs(
-                context.config.initial_sync_timeout_secs,
-            ))
-        };
-        tokio::pin!(sync_timeout);
-
+        let mut sync_check_interval = time::interval(Duration::from_secs(
+            context_arc.lock().await.config.initial_sync_timeout_secs,
+        ));
+        sync_check_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
         let mut operator_ticker = time::interval(Duration::from_secs(10));
         operator_ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
         {
             let context = context_arc.lock().await;
             *context.node_state.lock().await = NodeState::Syncing;
-            log::info!("[Orchestrator] State -> Syncing.");
+            tracing::info!(target: "orchestration", "State -> Syncing.");
         }
+
+        // --- CONSOLIDATED BOOTSTRAP LOGIC ---
+        {
+            let context = context_arc.lock().await;
+            let is_bootstrap_consensus = matches!(
+                context.config.consensus_type,
+                ioi_types::config::ConsensusType::ProofOfAuthority
+                    | ioi_types::config::ConsensusType::ProofOfStake
+            );
+            // Check for no peers to identify a single-node startup.
+            if is_bootstrap_consensus && context.known_peers_ref.lock().await.is_empty() {
+                // For a single-node startup, we are effectively "synced".
+                let mut node_state = context.node_state.lock().await;
+                if *node_state == NodeState::Syncing {
+                    *node_state = NodeState::Synced;
+                    tracing::info!(
+                        target: "orchestration",
+                        event = "bootstrap_kick",
+                        "Single-node startup detected. State -> Synced. Sending initial consensus kick."
+                    );
+                    // This is now the ONLY initial kick.
+                    let _ = context.consensus_kick_tx.send(());
+                }
+            }
+        }
+        // --- END CONSOLIDATED BOOTSTRAP LOGIC ---
 
         loop {
             tokio::select! {
@@ -375,27 +395,28 @@ where
                     }
                 }
 
-                _ = &mut sync_timeout, if *context_arc.lock().await.node_state.lock().await == NodeState::Syncing => {
+                _ = sync_check_interval.tick(), if *context_arc.lock().await.node_state.lock().await == NodeState::Syncing => {
                     let context = context_arc.lock().await;
                     if context.known_peers_ref.lock().await.is_empty() {
-                        tracing::warn!(target: "orchestration", "Initial sync timeout elapsed with no peers found. Assuming genesis node role and transitioning to Synced.");
+                        tracing::warn!(target: "orchestration", "Sync check: No peers found while in Syncing state. Assuming synced.");
                         let mut node_state = context.node_state.lock().await;
                         if *node_state == NodeState::Syncing {
                             *node_state = NodeState::Synced;
                             let _ = context.consensus_kick_tx.send(());
+                            tracing::info!(target: "orchestration", "State -> Synced (by sync checker).");
                         }
                     }
                 },
 
                 _ = shutdown_receiver.changed() => {
                     if *shutdown_receiver.borrow() {
-                        log::info!("Orchestration main loop received shutdown signal.");
+                        tracing::info!(target: "orchestration", "Orchestration main loop received shutdown signal.");
                         break;
                     }
                 }
             }
         }
-        log::info!("Orchestration main loop finished.");
+        tracing::info!(target: "orchestration", "Orchestration main loop finished.");
     }
 }
 
@@ -468,7 +489,7 @@ async fn handle_network_event<CS, ST, CE, V>(
                 || our_pqc_id_opt.map(|id| id == producer_id).unwrap_or(false);
 
             if is_ours {
-                log::info!(
+                tracing::info!(target: "orchestration",
                     "[Orchestrator] Skipping verification of our own gossiped block #{}.",
                     block.header.height
                 );
@@ -570,7 +591,7 @@ where
         if self.is_running() {
             return Err(ValidatorError::AlreadyRunning(self.id().to_string()));
         }
-        log::info!("Orchestrator starting...");
+        tracing::info!(target: "orchestration", "Orchestrator starting...");
 
         self.syncer
             .start()
@@ -603,14 +624,16 @@ where
 
         let guardian_addr = std::env::var("GUARDIAN_ADDR").unwrap_or_default();
         if !guardian_addr.is_empty() {
-            log::info!("[Orchestrator] Performing agentic attestation with Guardian...");
+            tracing::info!(target: "orchestration", "[Orchestrator] Performing agentic attestation with Guardian...");
             match self
                 .perform_guardian_attestation(&guardian_addr, &workload_client)
                 .await
             {
-                Ok(()) => log::info!("[Orchestrator] Agentic attestation successful."),
+                Ok(()) => {
+                    tracing::info!(target: "orchestration", "[Orchestrator] Agentic attestation successful.")
+                }
                 Err(e) => {
-                    log::error!("[Orchestrator] CRITICAL: Agentic attestation failed: {}. Quarantining node.", e);
+                    tracing::error!(target: "orchestration", "[Orchestrator] CRITICAL: Agentic attestation failed: {}. Quarantining node.", e);
                     self.is_quarantined.store(true, Ordering::SeqCst);
                     // *** FIX START: Halt startup by returning an error ***
                     return Err(ValidatorError::Attestation(e.to_string()));
@@ -618,7 +641,7 @@ where
                 }
             }
         } else {
-            log::warn!("GUARDIAN_ADDR not set, skipping Guardian attestation.");
+            tracing::warn!(target: "orchestration", "GUARDIAN_ADDR not set, skipping Guardian attestation.");
         }
 
         let chain = self
@@ -727,7 +750,7 @@ where
         if !self.is_running() {
             return Ok(());
         }
-        log::info!("Orchestrator stopping...");
+        tracing::info!(target: "orchestration", "Orchestrator stopping...");
         self.shutdown_sender.send(true).ok();
 
         tokio::time::sleep(Duration::from_millis(100)).await;
@@ -788,9 +811,9 @@ where
                 &format!("{}/orchestration.key", certs_dir),
             )
             .await?;
-        log::info!("[Orchestration] Attestation channel to Guardian established.");
+        tracing::info!(target: "orchestration", "[Orchestration] Attestation channel to Guardian established.");
 
-        log::info!("[Orchestrator] Waiting for agentic attestation report from Guardian...");
+        tracing::info!(target: "orchestration", "[Orchestrator] Waiting for agentic attestation report from Guardian...");
         let mut stream = guardian_channel
             .take_stream()
             .await
@@ -802,7 +825,8 @@ where
             .map_err(|e| anyhow!("Failed to deserialize Guardian report: {}", e))?;
 
         let local_hash = report.map_err(|e| anyhow!("Guardian reported error: {}", e))?;
-        log::info!(
+        tracing::info!(
+            target: "orchestration",
             "[Orchestrator] Received local model hash from Guardian: {}",
             hex::encode(&local_hash)
         );

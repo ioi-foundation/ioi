@@ -1,11 +1,15 @@
 // Path: crates/state/src/tree/iavl/node.rs
-use super::encode;
-use ioi_types::error::StateError;
-use ioi_types::prelude::OptionExt;
-use std::cmp::max;
-use std::sync::Arc;
 
-/// IAVL tree node with immutable structure
+use super::encode;
+use ioi_crypto::algorithms::hash::sha256;
+use ioi_types::error::StateError;
+
+/// A hash representing a child node.
+pub(crate) type NodeHash = [u8; 32];
+/// A canonical hash for an empty/nil child node.
+pub(crate) const EMPTY_HASH: NodeHash = [0; 32];
+
+/// IAVL tree node with immutable structure. Now references children by hash.
 #[derive(Debug, Clone)]
 pub(crate) struct IAVLNode {
     pub(crate) key: Vec<u8>,
@@ -13,252 +17,80 @@ pub(crate) struct IAVLNode {
     pub(crate) version: u64,
     pub(crate) height: i32,
     pub(crate) size: u64,
-    pub(crate) hash: Vec<u8>,
-    pub(crate) left: Option<Arc<IAVLNode>>,
-    pub(crate) right: Option<Arc<IAVLNode>>,
+    /// The hash of this node's canonical representation.
+    pub hash: NodeHash,
+    /// The hash of the left child, if it exists.
+    pub left_hash: Option<NodeHash>,
+    /// The hash of the right child, if it exists.
+    pub right_hash: Option<NodeHash>,
 }
 
 impl IAVLNode {
-    /// Create a new leaf node
-    pub(crate) fn new_leaf(
-        key: Vec<u8>,
-        value: Vec<u8>,
-        version: u64,
-    ) -> Result<Self, StateError> {
+    /// Create a new leaf node and compute its hash.
+    pub(crate) fn new_leaf(key: Vec<u8>, value: Vec<u8>, version: u64) -> Result<Self, StateError> {
         let mut node = Self {
             key,
             value,
             version,
             height: 0,
             size: 1,
-            hash: Vec::new(),
-            left: None,
-            right: None,
+            hash: EMPTY_HASH, // Temp value, will be computed next.
+            left_hash: None,
+            right_hash: None,
         };
         node.hash = node.compute_hash()?;
         Ok(node)
     }
 
     /// Compute the hash of this node according to the canonical specification.
-    fn compute_hash(&self) -> Result<Vec<u8>, StateError> {
-        let data = encode::encode_node_canonical(self)?;
-        ioi_crypto::algorithms::hash::sha256(&data)
-            .map(|h| h.to_vec())
-            .map_err(|e| StateError::Backend(e.to_string()))
-    }
+    pub(crate) fn compute_hash(&self) -> Result<NodeHash, StateError> {
+        if self.is_leaf() {
+            // Build the ICS-23 compliant preimage for hashing.
+            // HASH THE VALUE here, for the preimage only.
+            let value_hash = sha256(&self.value).map_err(|e| StateError::Backend(e.to_string()))?;
 
-    /// Provides the canonical hash of an empty/nil child node.
-    pub(crate) fn empty_hash() -> Vec<u8> {
-        ioi_crypto::algorithms::hash::sha256([])
-            .unwrap_or_else(|e| {
-                log::error!("CRITICAL: SHA256 of empty slice should not fail: {}", e);
-                [0u8; 32]
-            })
-            .to_vec()
-    }
+            let mut preimage = vec![0x00]; // Leaf prefix
 
-    /// Check if this is a leaf node
-    pub(crate) fn is_leaf(&self) -> bool {
-        self.left.is_none() && self.right.is_none()
-    }
+            // Key Preimage (VarProto length prefixed)
+            prost::encode_length_delimiter(self.key.len(), &mut preimage)
+                .map_err(|e| StateError::Backend(format!("encode key len: {e}")))?;
+            preimage.extend_from_slice(&self.key);
 
-    /// Get the height of a node (None is -1)
-    fn node_height(node: &Option<Arc<IAVLNode>>) -> i32 {
-        node.as_ref().map_or(-1, |n| n.height)
-    }
+            // Value Preimage (VarProto length prefixed HASH of the value)
+            prost::encode_length_delimiter(value_hash.len(), &mut preimage)
+                .map_err(|e| StateError::Backend(format!("encode value_hash len: {e}")))?;
+            preimage.extend_from_slice(&value_hash);
 
-    /// Get the size of a node (None is 0)
-    fn node_size(node: &Option<Arc<IAVLNode>>) -> u64 {
-        node.as_ref().map_or(0, |n| n.size)
-    }
-
-    /// Create a new node with updated children, recomputing the split key.
-    pub(crate) fn with_children(
-        _key: Vec<u8>, // Key is ignored and recomputed from left subtree
-        value: Vec<u8>,
-        version: u64,
-        left: Option<Arc<IAVLNode>>,
-        right: Option<Arc<IAVLNode>>,
-    ) -> Result<Self, StateError> {
-        let key = if let Some(l) = &left {
-            Self::find_max(l).key.clone()
+            return sha256(&preimage).map_err(|e| StateError::Backend(e.to_string()));
         } else {
-            Vec::new()
-        };
-        let height = 1 + max(Self::node_height(&left), Self::node_height(&right));
-        let size = 1 + Self::node_size(&left) + Self::node_size(&right);
+            // Inner node logic remains unchanged, using the persistence encoding for its preimage.
+            let data = encode::encode_node_canonical(self)?;
+            sha256(&data).map_err(|e| StateError::Backend(e.to_string()))
+        }
+    }
 
-        let mut node = Self {
-            key,
-            value,
-            version,
-            height,
-            size,
-            hash: Vec::new(),
-            left,
-            right,
+    /// Check if this is a leaf node.
+    pub(crate) fn is_leaf(&self) -> bool {
+        self.left_hash.is_none() && self.right_hash.is_none()
+    }
+
+    /// Reconstructs an `IAVLNode` from the raw parts provided by the decoder.
+    pub(crate) fn from_decoded(decoded: encode::DecodedNode) -> Result<Self, StateError> {
+        let mut node = IAVLNode {
+            key: if decoded.is_leaf {
+                decoded.key
+            } else {
+                decoded.split_key
+            },
+            value: decoded.value,
+            version: decoded.version,
+            height: decoded.height,
+            size: decoded.size,
+            hash: EMPTY_HASH, // Will be recomputed and validated.
+            left_hash: (decoded.left_hash != EMPTY_HASH).then_some(decoded.left_hash),
+            right_hash: (decoded.right_hash != EMPTY_HASH).then_some(decoded.right_hash),
         };
         node.hash = node.compute_hash()?;
         Ok(node)
-    }
-
-    /// Balance factor (right height - left height)
-    fn balance_factor(&self) -> i32 {
-        Self::node_height(&self.right) - Self::node_height(&self.left)
-    }
-
-    /// Single left rotation (RR case around `node`)
-    pub(crate) fn rotate_left(
-        node: Arc<IAVLNode>,
-        version: u64,
-    ) -> Result<Arc<IAVLNode>, StateError> {
-        let r = node
-            .right
-            .as_ref()
-            .required(StateError::Validation(
-                "rotate_left requires right child".into(),
-            ))?
-            .clone();
-
-        let new_left = Arc::new(Self::with_children(
-            Vec::new(),
-            Vec::new(),
-            version,
-            node.left.clone(),
-            r.left.clone(),
-        )?);
-
-        Ok(Arc::new(Self::with_children(
-            Vec::new(),
-            Vec::new(),
-            version,
-            Some(new_left),
-            r.right.clone(),
-        )?))
-    }
-
-    /// Single right rotation (LL case around `node`)
-    pub(crate) fn rotate_right(
-        node: Arc<IAVLNode>,
-        version: u64,
-    ) -> Result<Arc<IAVLNode>, StateError> {
-        let l = node
-            .left
-            .as_ref()
-            .required(StateError::Validation(
-                "rotate_right requires left child".into(),
-            ))?
-            .clone();
-
-        let new_right = Arc::new(Self::with_children(
-            Vec::new(),
-            Vec::new(),
-            version,
-            l.right.clone(),
-            node.right.clone(),
-        )?);
-
-        Ok(Arc::new(Self::with_children(
-            Vec::new(),
-            Vec::new(),
-            version,
-            l.left.clone(),
-            Some(new_right),
-        )?))
-    }
-
-    /// AVL rebalancing
-    pub(crate) fn balance(
-        mut node: Arc<IAVLNode>,
-        version: u64,
-    ) -> Result<Arc<IAVLNode>, StateError> {
-        let bf = node.balance_factor();
-
-        if bf > 1 {
-            if let Some(r) = &node.right {
-                if r.balance_factor() < 0 {
-                    let rotated_right = Self::rotate_right(r.clone(), version)?;
-                    node = Arc::new(Self::with_children(
-                        Vec::new(),
-                        Vec::new(),
-                        version,
-                        node.left.clone(),
-                        Some(rotated_right),
-                    )?);
-                }
-            }
-            return Self::rotate_left(node, version);
-        }
-
-        if bf < -1 {
-            if let Some(l) = &node.left {
-                if l.balance_factor() > 0 {
-                    let rotated_left = Self::rotate_left(l.clone(), version)?;
-                    node = Arc::new(Self::with_children(
-                        Vec::new(),
-                        Vec::new(),
-                        version,
-                        Some(rotated_left),
-                        node.right.clone(),
-                    )?);
-                }
-            }
-            return Self::rotate_right(node, version);
-        }
-
-        Ok(node)
-    }
-
-    /// Find the minimum node in a subtree
-    pub(crate) fn find_min(node: &Arc<IAVLNode>) -> Arc<IAVLNode> {
-        node.left
-            .as_ref()
-            .map_or_else(|| node.clone(), Self::find_min)
-    }
-
-    /// Find the maximum node in a subtree
-    pub(crate) fn find_max(node: &Arc<IAVLNode>) -> Arc<IAVLNode> {
-        node.right
-            .as_ref()
-            .map_or_else(|| node.clone(), Self::find_max)
-    }
-
-    /// Get a value by key
-    pub(crate) fn get(node: &Option<Arc<IAVLNode>>, key: &[u8]) -> Option<Vec<u8>> {
-        node.as_ref().and_then(|n| {
-            if n.is_leaf() {
-                if key == n.key.as_slice() {
-                    Some(n.value.clone())
-                } else {
-                    None
-                }
-            } else if key <= n.key.as_slice() {
-                Self::get(&n.left, key)
-            } else {
-                Self::get(&n.right, key)
-            }
-        })
-    }
-
-    /// Recursively scan the tree for keys matching a prefix.
-    pub(crate) fn range_scan(
-        node: &Option<Arc<IAVLNode>>,
-        prefix: &[u8],
-        results: &mut Vec<(Vec<u8>, Vec<u8>)>,
-    ) {
-        if let Some(n) = node {
-            if n.is_leaf() {
-                if n.key.starts_with(prefix) {
-                    results.push((n.key.clone(), n.value.clone()));
-                }
-            } else {
-                if prefix <= n.key.as_slice() {
-                    Self::range_scan(&n.left, prefix, results);
-                }
-                if prefix > n.key.as_slice() || n.key.starts_with(prefix) {
-                    Self::range_scan(&n.right, prefix, results);
-                }
-            }
-        }
     }
 }

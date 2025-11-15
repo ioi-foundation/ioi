@@ -8,7 +8,6 @@ use ioi_api::storage::{NodeHash as StoreNodeHash, NodeStore};
 use ioi_types::app::Membership;
 use ioi_types::error::StateError;
 use parity_scale_codec::Encode;
-use std::sync::Arc;
 
 impl<CS: CommitmentScheme> IAVLTree<CS>
 where
@@ -35,7 +34,7 @@ where
         let mut path: Vec<InnerOp> = Vec::new();
 
         loop {
-            let node_bytes = Self::fetch_node_any_epoch(store, epoch, cur_hash)?
+            let node_bytes = fetch_node_any_epoch(store, epoch, cur_hash)?
                 .ok_or_else(|| StateError::Backend("Missing node bytes in store".into()))?;
 
             let node = decode_node(&node_bytes)
@@ -50,7 +49,7 @@ where
                         leaf: LeafOp {
                             hash: HashOp::Sha256,
                             prehash_key: HashOp::NoHash,
-                            prehash_value: HashOp::Sha256,
+                            prehash_value: HashOp::Sha256, // <-- FIX: Align with ICS-23 profile
                             length: LengthOp::VarProto,
                             prefix: vec![0x00],
                         },
@@ -118,7 +117,7 @@ where
         key: &[u8],
     ) -> Result<(Option<ExistenceProof>, Option<ExistenceProof>), String> {
         let fetch = |h: [u8; 32]| -> Result<super::encode::DecodedNode, String> {
-            let bytes = Self::fetch_node_any_epoch(store, epoch, h)
+            let bytes = fetch_node_any_epoch(store, epoch, h)
                 .map_err(|e| e.to_string())?
                 .ok_or_else(|| "Missing node".to_string())?;
             decode_node(&bytes).ok_or_else(|| "Decode error".to_string())
@@ -162,7 +161,7 @@ where
                 leaf: LeafOp {
                     hash: HashOp::Sha256,
                     prehash_key: HashOp::NoHash,
-                    prehash_value: HashOp::Sha256,
+                    prehash_value: HashOp::Sha256, // <-- FIX: Align with ICS-23 profile
                     length: LengthOp::VarProto,
                     prefix: vec![0x00],
                 },
@@ -209,33 +208,37 @@ where
 
         Ok((left_proof, right_proof))
     }
+}
 
-    pub(super) fn fetch_node_any_epoch<S: NodeStore + ?Sized>(
-        store: &S,
-        prefer_epoch: u64,
-        hash: [u8; 32],
-    ) -> Result<Option<Vec<u8>>, StateError> {
+pub(crate) fn fetch_node_any_epoch<S: NodeStore + ?Sized>(
+    store: &S,
+    prefer_epoch: u64,
+    hash: [u8; 32],
+) -> Result<Option<Vec<u8>>, StateError> {
+    if let Some(bytes) = store
+        .get_node(prefer_epoch, StoreNodeHash(hash))
+        .map_err(|e| StateError::Backend(e.to_string()))?
+    {
+        return Ok(Some(bytes));
+    }
+
+    let head_epoch = match store.head() {
+        Ok((head_h, _)) => store.epoch_of(head_h),
+        Err(ioi_api::storage::StorageError::NotFound) => {
+            // Store is empty, nothing to find.
+            return Ok(None);
+        }
+        Err(e) => return Err(StateError::Backend(e.to_string())),
+    };
+
+    let start = prefer_epoch.min(head_epoch);
+    for e in (0..=start).rev() {
         if let Some(bytes) = store
-            .get_node(prefer_epoch, StoreNodeHash(hash))
+            .get_node(e, StoreNodeHash(hash))
             .map_err(|e| StateError::Backend(e.to_string()))?
         {
             return Ok(Some(bytes));
         }
-
-        let (head_h, _) = store
-            .head()
-            .map_err(|e| StateError::Backend(e.to_string()))?;
-        let head_epoch = store.epoch_of(head_h);
-
-        let start = prefer_epoch.min(head_epoch);
-        for e in (0..=start).rev() {
-            if let Some(bytes) = store
-                .get_node(e, StoreNodeHash(hash))
-                .map_err(|e| StateError::Backend(e.to_string()))?
-            {
-                return Ok(Some(bytes));
-            }
-        }
-        Ok(None)
     }
+    Ok(None)
 }

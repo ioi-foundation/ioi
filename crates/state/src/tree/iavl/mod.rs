@@ -5,7 +5,6 @@
 mod encode;
 mod indices;
 mod node;
-mod ops;
 pub mod proof;
 mod proof_builder;
 mod store_proof;

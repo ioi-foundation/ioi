@@ -372,8 +372,6 @@ where
                         }
                     };
 
-                    // --- FIX START: Implement length-prefixed reading ---
-                    // 1. Read the 4-byte length prefix.
                     let len = match read_half.read_u32().await {
                         Ok(len) => len as usize,
                         Err(ref e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
@@ -390,20 +388,17 @@ where
                         }
                     };
 
-                    // 2. Sanity check the length.
                     const MAX_IPC_MESSAGE_SIZE: usize = 1_048_576; // 1 MiB
                     if len == 0 || len > MAX_IPC_MESSAGE_SIZE {
                         log::error!("[WorkloadIPCServer] Received invalid message length: {}. Closing connection.", len);
                         return;
                     }
 
-                    // 3. Read the exact number of bytes for the message payload.
                     let mut request_buf = vec![0; len];
                     if let Err(e) = read_half.read_exact(&mut request_buf).await {
                         log::error!("[WorkloadIPCServer] Failed to read full request payload (len={}): {}. Closing connection.", len, e);
                         return;
                     }
-                    // --- FIX END ---
 
                     let response = handle_request(
                         &request_buf,
@@ -433,21 +428,15 @@ where
                             }
                         };
 
-                        // --- FIX START: Implement length-prefixing for writing ---
-                        // Write the 4-byte length prefix.
-                        if let Err(e) = write_half.write_u32(response_bytes.len() as u32).await {
-                            log::error!(
-                                "Failed to send IPC response length prefix to {}: {}",
-                                peer_addr,
-                                e
-                            );
-                            continue;
-                        }
+                        // --- FIX START: Combine length prefix and payload into a single write ---
+                        let frame_len_bytes = (response_bytes.len() as u32).to_be_bytes();
+                        let mut frame_to_write = Vec::with_capacity(4 + response_bytes.len());
+                        frame_to_write.extend_from_slice(&frame_len_bytes);
+                        frame_to_write.extend_from_slice(&response_bytes);
 
-                        // Write the payload.
-                        if let Err(e) = write_half.write_all(&response_bytes).await {
+                        if let Err(e) = write_half.write_all(&frame_to_write).await {
                             log::error!(
-                                "Failed to send IPC response payload to {}: {}",
+                                "Failed to send IPC response frame to {}: {}",
                                 peer_addr,
                                 e
                             );

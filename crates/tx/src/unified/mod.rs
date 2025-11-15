@@ -71,8 +71,14 @@ fn validate_service_id(id: &str) -> Result<(), TransactionError> {
 #[async_trait]
 impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for UnifiedTransactionModel<CS>
 where
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + Debug + Encode + Decode,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + Debug
+        + Encode
+        + Decode,
 {
     type Transaction = ChainTransaction;
     type CommitmentScheme = CS;
@@ -452,21 +458,16 @@ where
                             .transpose()?
                             .unwrap_or_default();
 
-                        if sets
-                            .next
-                            .as_ref()
-                            .map_or(true, |n| n.effective_from_height != target_activation)
-                        {
-                            let mut new_next =
-                                sets.next.clone().unwrap_or_else(|| sets.current.clone());
+                        // --- FIX START: Correctly modify or create the 'next' validator set ---
+                        // If there is no pending 'next' set, create one based on the current set.
+                        if sets.next.is_none() {
+                            let mut new_next = sets.current.clone();
                             new_next.effective_from_height = target_activation;
                             sets.next = Some(new_next);
                         }
-                        let next_vs = sets.next.as_mut().ok_or_else(|| {
-                            TransactionError::Invalid(
-                                "Could not access pending validator set for staking".to_string(),
-                            )
-                        })?;
+                        // Now we are guaranteed to have a 'next' set. Modify it.
+                        let next_vs = sets.next.as_mut().unwrap();
+                        // --- FIX END ---
 
                         if let Some(validator) = next_vs
                             .validators
@@ -543,21 +544,16 @@ where
                         })?;
                         let mut sets = ioi_types::app::read_validator_sets(&blob_bytes)?;
 
-                        if sets
-                            .next
-                            .as_ref()
-                            .map_or(true, |n| n.effective_from_height != target_activation)
-                        {
-                            let mut new_next =
-                                sets.next.clone().unwrap_or_else(|| sets.current.clone());
+                        // --- FIX START: Correctly modify or create the 'next' validator set ---
+                        // If there is no pending 'next' set, create one based on the current set.
+                        if sets.next.is_none() {
+                            let mut new_next = sets.current.clone();
                             new_next.effective_from_height = target_activation;
                             sets.next = Some(new_next);
                         }
-                        let next_vs = sets.next.as_mut().ok_or_else(|| {
-                            TransactionError::Invalid(
-                                "Could not access pending validator set for unstaking".to_string(),
-                            )
-                        })?;
+                        // Now we are guaranteed to have a 'next' set. Modify it.
+                        let next_vs = sets.next.as_mut().unwrap();
+                        // --- FIX END ---
 
                         let mut validator_found = false;
                         next_vs.validators.retain_mut(|v| {
@@ -602,9 +598,10 @@ where
                         let status_bytes = state
                             .get(STATUS_KEY)?
                             .ok_or(TransactionError::State(StateError::KeyNotFound))?;
-                        let chain_status: ChainStatus =
-                            codec::from_bytes_canonical(&status_bytes)
-                                .map_err(|e| TransactionError::State(StateError::InvalidValue(e.to_string())))?;
+                        let chain_status: ChainStatus = codec::from_bytes_canonical(&status_bytes)
+                            .map_err(|e| {
+                                TransactionError::State(StateError::InvalidValue(e.to_string()))
+                            })?;
 
                         match &report.facts {
                             OffenseFacts::FailedCalibrationProbe {
@@ -615,7 +612,8 @@ where
                                 let normalized = target_url.trim().to_ascii_lowercase();
                                 if *target_url != normalized {
                                     return Err(TransactionError::Invalid(
-                                        "facts.target_url must be canonical (trimmed, lowercase)".into(),
+                                        "facts.target_url must be canonical (trimmed, lowercase)"
+                                            .into(),
                                     ));
                                 }
                                 // Probe timestamp must not be in the future.

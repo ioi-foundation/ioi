@@ -127,9 +127,6 @@ impl TestValidator {
 
     /// Restarts the workload process. This is only supported by the `ProcessBackend`.
     pub async fn restart_workload_process(&mut self) -> Result<()> {
-        // --- FIX: Clone the required fields *before* the mutable borrow ---
-        // This resolves a borrow-checker error and ensures the logging for the
-        // restarted process is correctly handled.
         self.backend
             .restart_workload_process(self.workload_log_tx.clone(), self.log_drain_handles.clone())
             .await
@@ -387,7 +384,7 @@ impl TestValidator {
                 "127.0.0.1:{}",
                 portpicker::pick_unused_port().unwrap_or(base_port + 3)
             );
-            workload_ipc_addr = format!("127.0.0.1:{}", ipc_port_workload);
+            let initial_workload_ipc_addr = format!("127.0.0.1:{}", ipc_port_workload);
             workload_telemetry_addr = format!(
                 "127.0.0.1:{}",
                 portpicker::pick_unused_port().unwrap_or(base_port + 4)
@@ -409,9 +406,11 @@ impl TestValidator {
                 p2p_addr.clone(),
                 node_binary_path.clone(),
                 workload_config_path.clone(),
-                workload_ipc_addr.clone(),
+                initial_workload_ipc_addr,
                 certs_dir_path.clone(),
             );
+            workload_ipc_addr = pb.workload_ipc_addr.clone();
+
             pb.orchestration_telemetry_addr = Some(orchestration_telemetry_addr.clone());
             pb.workload_telemetry_addr = Some(workload_telemetry_addr.clone());
 
@@ -526,6 +525,7 @@ impl TestValidator {
             .await?;
         }
 
+        // Wait for workload to signal it is listening before trying to connect.
         assert_log_contains(
             "Workload",
             &mut workload_sub,
@@ -533,6 +533,8 @@ impl TestValidator {
         )
         .await?;
 
+        // Now that the workload is listening, connect a client and wait for it to report genesis is ready.
+        // This is a much more robust readiness check than just listening for log lines.
         if !use_docker {
             let temp_workload_client = WorkloadClient::new(
                 &workload_ipc_addr,
