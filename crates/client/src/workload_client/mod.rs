@@ -1,4 +1,5 @@
 // Path: crates/client/src/workload_client/mod.rs
+// UPDATED
 
 mod actor;
 
@@ -7,7 +8,7 @@ use actor::{ClientActor, ClientRequest, PendingRequestMap};
 use anyhow::{anyhow, Result};
 use arc_swap::ArcSwap;
 use ioi_api::vm::{ExecutionContext, ExecutionOutput};
-use ioi_ipc::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest};
+use ioi_ipc::jsonrpc::{JsonRpcId, JsonRpcRequest};
 use ioi_types::app::{
     AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction, Membership, StateAnchor,
     StateRoot,
@@ -111,6 +112,11 @@ pub struct GenesisStatus {
 }
 
 const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(90);
+const IPC_RESPONSE_TIMEOUT: Duration = Duration::from_secs(10);
+const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(1);
+const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(3);
+const RPC_RETRY_ATTEMPTS: usize = 2;
+const RPC_RETRY_WAIT: Duration = Duration::from_secs(3);
 
 /// The internal state of the WorkloadClient, managed by ArcSwap for atomic updates.
 #[derive(Debug)]
@@ -198,44 +204,62 @@ impl WorkloadClient {
         state: Arc<ArcSwap<ClientState>>,
         shutdown: Arc<Notify>,
     ) {
-        let mut backoff = 100u64;
+        let mut backoff = 200u64;
         let pending_requests: PendingRequestMap = Arc::new(RwLock::new(HashMap::new()));
 
         loop {
             tokio::select! {
+                biased;
                 _ = shutdown.notified() => {
                     log::info!("[WorkloadClient] Shutdown signal received. Terminating run loop.");
                     break;
                 }
                 _ = tokio::time::sleep(Duration::from_millis(backoff)) => {
+                    log::info!("[WorkloadClient] Attempting connect to {}", addr);
                     match Self::connect_once(&addr, &ca, &cert, &key).await {
                         Ok(stream) => {
                             let (to_actor, from_client) = mpsc::channel(128);
                             let actor = ClientActor::new(stream, from_client, pending_requests.clone());
-                            state.store(Arc::new(ClientState::Connected { to_actor }));
+
+                            state.store(Arc::new(ClientState::Connected { to_actor: to_actor.clone() }));
                             let _ = ready_tx.send(true);
                             log::info!("[WorkloadClient] Connection established.");
-                            backoff = 100; // Reset backoff on success
+                            backoff = 200; // Reset backoff on success
 
-                            // The actor's run loop will block until the connection is lost.
-                            if let Err(e) = actor.run().await {
-                                log::warn!("[WorkloadClient] Actor terminated with error: {}. Will reconnect.", e);
+                            // --- Spawn actor and heartbeat; reconnect when EITHER ends. ---
+                            let mut actor_handle = tokio::spawn(async move { actor.run().await });
+                            let mut hb_handle = Self::spawn_heartbeat(to_actor.clone());
+
+                            tokio::select! {
+                                res = &mut actor_handle => {
+                                    match res {
+                                        Ok(Ok(())) => log::info!("[WorkloadClient] Actor finished cleanly."),
+                                        Ok(Err(e)) => log::warn!("[WorkloadClient] Actor terminated with error: {}.", e),
+                                        Err(e) if e.is_cancelled() => { /* aborted by heartbeat */ },
+                                        Err(e) => log::warn!("[WorkloadClient] Actor join error: {}", e),
+                                    }
+                                    hb_handle.abort();
+                                    let _ = hb_handle.await;
+                                }
+                                res = &mut hb_handle => {
+                                    match res {
+                                        Ok(()) => log::warn!("[WorkloadClient] Heartbeat indicated failure; aborting actor for reconnect."),
+                                        Err(e) if e.is_cancelled() => { /* actor ended first */ },
+                                        Err(e) => log::warn!("[WorkloadClient] Heartbeat join error: {}", e),
+                                    }
+                                    actor_handle.abort();
+                                    let _ = actor_handle.await;
+                                }
                             }
 
-                            // Connection lost, transition to disconnected state
                             state.store(Arc::new(ClientState::Disconnected));
                             let _ = ready_tx.send(false);
-                            // Fail any in-flight requests
-                            let mut pending = pending_requests.write().await;
-                            for (_, response_tx) in pending.drain() {
-                                let _ = response_tx.send(Err(JsonRpcError { code: -32001, message: "Connection to Workload container was lost".into(), data: None }));
-                            }
                         }
                         Err(e) => {
                             log::warn!("[WorkloadClient] Connection attempt failed: {}. Retrying in {}ms.", e, backoff);
                             state.store(Arc::new(ClientState::Disconnected));
                             let _ = ready_tx.send(false);
-                            backoff = (backoff * 2).min(5_000); // Exponential backoff with cap
+                            backoff = (backoff * 2).min(5_000);
                         }
                     }
                 }
@@ -253,6 +277,46 @@ impl WorkloadClient {
             .take_stream()
             .await
             .ok_or_else(|| anyhow!("Failed to take ownership of secure stream after establishment"))
+    }
+
+    /// Periodically sends a lightweight RPC to force I/O so that we detect half-open sockets.
+    fn spawn_heartbeat(to_actor: mpsc::Sender<ClientRequest>) -> JoinHandle<()> {
+        tokio::spawn(async move {
+            use tokio::time::{interval, timeout};
+            let mut ticker = interval(HEARTBEAT_INTERVAL);
+            let mut hb_id: i64 = i64::MIN / 2;
+            loop {
+                ticker.tick().await;
+                hb_id = hb_id.wrapping_add(1);
+
+                let (tx, rx) = oneshot::channel();
+                let req = JsonRpcRequest {
+                    jsonrpc: "2.0".to_string(),
+                    method: "system.getStatus.v1".to_string(),
+                    params: serde_json::json!({}),
+                    id: Some(JsonRpcId::Num(hb_id)),
+                };
+
+                if to_actor
+                    .send(ClientRequest {
+                        request: req,
+                        response_tx: tx,
+                    })
+                    .await
+                    .is_err()
+                {
+                    break;
+                }
+
+                match timeout(HEARTBEAT_TIMEOUT, rx).await {
+                    Ok(Ok(Ok(_))) => {}
+                    _ => {
+                        log::warn!("[WorkloadClient] Heartbeat failed; connection likely down.");
+                        break;
+                    }
+                }
+            }
+        })
     }
 
     /// Waits for the client to be in a connected state.
@@ -276,38 +340,76 @@ impl WorkloadClient {
         method: &str,
         params: P,
     ) -> Result<R> {
-        let state_guard = self.state.load();
-        let to_actor = match state_guard.as_ref() {
-            ClientState::Connected { to_actor } => to_actor.clone(),
-            ClientState::Disconnected => return Err(anyhow!("Workload client is disconnected")),
-        };
+        // Serialize params once so we can reuse them across retries.
+        let params_value = serde_json::to_value(params)?;
+        let mut attempt = 0usize;
+        let mut last_err: Option<anyhow::Error> = None;
 
-        let id = self.request_id.fetch_add(1, Ordering::SeqCst);
-        let (response_tx, response_rx) = oneshot::channel();
+        while attempt < RPC_RETRY_ATTEMPTS {
+            attempt += 1;
 
-        let request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            method: method.to_string(),
-            params: serde_json::to_value(params)?,
-            id: Some(JsonRpcId::Num(id)),
-        };
+            // Snapshot the current state for this attempt.
+            let to_actor = match self.state.load().as_ref() {
+                ClientState::Connected { to_actor } => to_actor.clone(),
+                ClientState::Disconnected => {
+                    last_err = Some(anyhow!("Workload client is disconnected"));
+                    let _ = self.wait_ready(RPC_RETRY_WAIT).await;
+                    continue;
+                }
+            };
 
-        let client_request = ClientRequest {
-            request,
-            response_tx,
-        };
+            let id = self.request_id.fetch_add(1, Ordering::SeqCst);
+            let (response_tx, response_rx) = oneshot::channel();
 
-        to_actor.send(client_request).await.map_err(|_| {
-            anyhow!("Failed to send request to client actor; connection may be down")
-        })?;
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                method: method.to_string(),
+                params: params_value.clone(),
+                id: Some(JsonRpcId::Num(id)),
+            };
 
-        // Wait for the response from the actor with a timeout.
-        let result = tokio::time::timeout(Duration::from_secs(30), response_rx).await??;
+            if let Err(e) = to_actor
+                .send(ClientRequest {
+                    request,
+                    response_tx,
+                })
+                .await
+            {
+                last_err = Some(anyhow!("Failed to send request to client actor: {}", e));
+                let _ = self.wait_ready(RPC_RETRY_WAIT).await;
+                continue;
+            }
 
-        match result {
-            Ok(value) => Ok(serde_json::from_value(value)?),
-            Err(e) => Err(anyhow!("RPC Error (code {}): {}", e.code, e.message)),
+            match tokio::time::timeout(IPC_RESPONSE_TIMEOUT, response_rx).await {
+                Err(_) => {
+                    last_err = Some(anyhow!("IPC response timed out"));
+                    let _ = self.wait_ready(RPC_RETRY_WAIT).await;
+                    continue;
+                }
+                Ok(Err(_canceled)) => {
+                    last_err = Some(anyhow!("IPC responder dropped (actor terminated)"));
+                    let _ = self.wait_ready(RPC_RETRY_WAIT).await;
+                    continue;
+                }
+                Ok(Ok(result)) => match result {
+                    Ok(value) => {
+                        let decoded = serde_json::from_value::<R>(value)?;
+                        return Ok(decoded);
+                    }
+                    Err(e) => {
+                        // -32001 is the sentinel the actor uses for "connection lost".
+                        if e.code == -32001 && attempt < RPC_RETRY_ATTEMPTS {
+                            last_err = Some(anyhow!("IPC connection lost; retrying"));
+                            let _ = self.wait_ready(RPC_RETRY_WAIT).await;
+                            continue;
+                        }
+                        return Err(anyhow!("RPC Error (code {}): {}", e.code, e.message));
+                    }
+                },
+            }
         }
+
+        Err(last_err.unwrap_or_else(|| anyhow!("RPC failed after {} attempts", RPC_RETRY_ATTEMPTS)))
     }
 
     pub fn destination_addr(&self) -> &str {

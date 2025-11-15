@@ -2,6 +2,8 @@
 use crate::{ConsensusDecision, ConsensusEngine, PenaltyMechanism};
 use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, ChainView, StateRef};
+use ioi_api::commitment::CommitmentScheme;
+use ioi_api::state::{StateAccess, StateManager};
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::{
     effective_set_for_height, read_validator_sets, write_validator_sets, AccountId, Block,
@@ -13,8 +15,6 @@ use ioi_types::error::{ConsensusError, StateError, TransactionError};
 use ioi_types::keys::{
     BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, STATUS_KEY, VALIDATOR_SET_KEY,
 };
-use ioi_api::commitment::CommitmentScheme;
-use ioi_api::state::{StateAccess, StateManager};
 use std::collections::HashSet;
 
 use crate::proof_of_authority::{hash_key, verify_signature};
@@ -234,15 +234,29 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         if let Some(leader_account_id) = self.select_leader(height, vs) {
             // --- Compute authoritative timestamp (same as verify) ---
             let expected_timestamp_secs_res = async {
-                let timing_params_bytes = parent_view.get(BLOCK_TIMING_PARAMS_KEY).await.map_err(|_| ())?.ok_or(())?;
-                let timing_runtime_bytes = parent_view.get(BLOCK_TIMING_RUNTIME_KEY).await.map_err(|_| ())?.ok_or(())?;
+                let timing_params_bytes = parent_view
+                    .get(BLOCK_TIMING_PARAMS_KEY)
+                    .await
+                    .map_err(|_| ())?
+                    .ok_or(())?;
+                let timing_runtime_bytes = parent_view
+                    .get(BLOCK_TIMING_RUNTIME_KEY)
+                    .await
+                    .map_err(|_| ())?
+                    .ok_or(())?;
                 let timing_params: BlockTimingParams =
                     codec::from_bytes_canonical(&timing_params_bytes).map_err(|_| ())?;
                 let timing_runtime: BlockTimingRuntime =
                     codec::from_bytes_canonical(&timing_runtime_bytes).map_err(|_| ())?;
-                let status_bytes = parent_view.get(STATUS_KEY).await.map_err(|_| ())?.ok_or(())?;
-                let parent_status: ChainStatus =
-                    codec::from_bytes_canonical(&status_bytes).map_err(|_| ())?;
+                let parent_status: ChainStatus = match parent_view.get(STATUS_KEY).await {
+                    Ok(Some(status_bytes)) => {
+                        codec::from_bytes_canonical(&status_bytes).map_err(|_| ())?
+                    }
+                    Ok(None) if height == 1 => ChainStatus::default(),
+                    _ => {
+                        return Err(());
+                    }
+                };
 
                 let parent_gas_used_placeholder = 0u64;
                 ioi_types::app::compute_next_timestamp(
@@ -338,34 +352,46 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
 
         // [+] VERIFY TIMESTAMP (Deterministic)
         // Timing blobs from parent state
-        let timing_params_bytes = parent_view.get(BLOCK_TIMING_PARAMS_KEY).await.map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?.ok_or_else(
-            || ConsensusError::BlockVerificationFailed("BlockTimingParams not found".into()),
-        )?;
-        let timing_runtime_bytes = parent_view.get(BLOCK_TIMING_RUNTIME_KEY).await.map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?.ok_or_else(
-            || ConsensusError::BlockVerificationFailed("BlockTimingRuntime not found".into()),
-        )?;
+        let timing_params_bytes = parent_view
+            .get(BLOCK_TIMING_PARAMS_KEY)
+            .await
+            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
+            .ok_or_else(|| {
+                ConsensusError::BlockVerificationFailed("BlockTimingParams not found".into())
+            })?;
+        let timing_runtime_bytes = parent_view
+            .get(BLOCK_TIMING_RUNTIME_KEY)
+            .await
+            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
+            .ok_or_else(|| {
+                ConsensusError::BlockVerificationFailed("BlockTimingRuntime not found".into())
+            })?;
 
-        let timing_params: BlockTimingParams =
-            codec::from_bytes_canonical(&timing_params_bytes).map_err(|_| {
+        let timing_params: BlockTimingParams = codec::from_bytes_canonical(&timing_params_bytes)
+            .map_err(|_| {
                 ConsensusError::BlockVerificationFailed("Decode BlockTimingParams failed".into())
             })?;
-        let timing_runtime: BlockTimingRuntime =
-            codec::from_bytes_canonical(&timing_runtime_bytes).map_err(|_| {
+        let timing_runtime: BlockTimingRuntime = codec::from_bytes_canonical(&timing_runtime_bytes)
+            .map_err(|_| {
                 ConsensusError::BlockVerificationFailed("Decode BlockTimingRuntime failed".into())
             })?;
-        // Parent timestamp from ChainStatus in parent state
-        let status_bytes = parent_view
-            .get(STATUS_KEY)
-            .await.map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
-            .ok_or_else(|| {
-                ConsensusError::BlockVerificationFailed(
-                    "ChainStatus missing in parent state".into(),
-                )
-            })?;
-        let parent_status: ChainStatus =
-            codec::from_bytes_canonical(&status_bytes).map_err(|_| {
+        // --- FIX START: Handle missing STATUS_KEY for the genesis case ---
+        let parent_status: ChainStatus = match parent_view.get(STATUS_KEY).await {
+            Ok(Some(status_bytes)) => codec::from_bytes_canonical(&status_bytes).map_err(|_| {
                 ConsensusError::BlockVerificationFailed("Decode ChainStatus failed".into())
-            })?;
+            })?,
+            Ok(None) if header.height == 1 => {
+                // For the first block, the parent is genesis, which has no status key.
+                ChainStatus::default()
+            }
+            _ => {
+                // For any other block, the status key MUST be present.
+                return Err(ConsensusError::BlockVerificationFailed(
+                    "ChainStatus missing in parent state".into(),
+                ));
+            }
+        };
+        // --- FIX END ---
 
         let parent_gas_used_placeholder = 0u64;
         let parent_height = header.height - 1;

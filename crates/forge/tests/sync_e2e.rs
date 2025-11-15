@@ -246,16 +246,33 @@ async fn test_multi_batch_sync() -> Result<()> {
     let target_height = 40;
     let mut nonce = 0;
     for _ in 0..target_height {
-        let tx = create_dummy_tx(&node0.keypair, nonce, 1.into())?;
+        let tx = create_dummy_tx(&node0.validator().keypair, nonce, 1.into())?;
         // Submit to either node; it will be gossiped.
-        submit_transaction(&node0.rpc_addr, &tx).await.ok();
+        submit_transaction(&node0.validator().rpc_addr, &tx)
+            .await
+            .ok();
         nonce += 1;
         tokio::time::sleep(Duration::from_millis(50)).await; // Give mempool time
     }
 
     // 3. Assert that BOTH nodes eventually sync to the target height.
-    wait_for_height(&node0.rpc_addr, target_height, Duration::from_secs(240)).await?;
-    wait_for_height(&node1.rpc_addr, target_height, Duration::from_secs(240)).await?;
+    wait_for_height(
+        &node0.validator().rpc_addr,
+        target_height,
+        Duration::from_secs(240),
+    )
+    .await?;
+    wait_for_height(
+        &node1.validator().rpc_addr,
+        target_height,
+        Duration::from_secs(240),
+    )
+    .await?;
+
+    // --- FIX: Add explicit shutdown logic ---
+    for guard in cluster.validators {
+        guard.shutdown().await?;
+    }
 
     Ok(())
 }
@@ -380,7 +397,7 @@ async fn test_sync_with_peer_drop() -> Result<()> {
 
     let target_height = 10;
     wait_for_height(
-        &cluster.validators[0].rpc_addr,
+        &cluster.validators[0].validator().rpc_addr,
         target_height,
         Duration::from_secs(60),
     )
@@ -389,18 +406,18 @@ async fn test_sync_with_peer_drop() -> Result<()> {
     println!("--- Seed cluster reached height {} ---", target_height);
 
     // 2. Explicitly shut down one validator to create a stable 2-node seed cluster.
-    if let Some(mut node_to_shutdown) = cluster.validators.pop() {
+    if let Some(node_to_shutdown) = cluster.validators.pop() {
         println!(
             "Shutting down node ({}) to create a stable 2-node seed cluster.",
-            node_to_shutdown.peer_id
+            node_to_shutdown.validator().peer_id
         );
         node_to_shutdown.shutdown().await?;
     }
 
     // Now `cluster.validators` contains 2 stable nodes.
     let bootnodes = vec![
-        cluster.validators[0].p2p_addr.clone(),
-        cluster.validators[1].p2p_addr.clone(),
+        cluster.validators[0].validator().p2p_addr.clone(),
+        cluster.validators[1].validator().p2p_addr.clone(),
     ];
 
     // 3. Launch a new node (node3) that needs to sync.
@@ -434,21 +451,32 @@ async fn test_sync_with_peer_drop() -> Result<()> {
     .await?;
 
     // Optional: subscribe for nice diagnostics (not required for correctness anymore).
-    let (mut orch_logs, _, _) = node3.subscribe_logs();
+    let (mut orch_logs, _, _) = node3.validator().subscribe_logs();
 
     // Give node3 a moment to pick an initial peer, then drop one seed deterministically.
     tokio::time::sleep(Duration::from_secs(1)).await;
     // Drop the first seed (by index) to simulate a target disappearing soon after sync begins.
     // Whether or not it was the initial target, node3 must still complete sync.
-    let mut dropped = cluster.validators.remove(0);
-    println!("Dropping one seed peer: {}", dropped.peer_id);
+    let dropped = cluster.validators.remove(0);
+    println!("Dropping one seed peer: {}", dropped.validator().peer_id);
     dropped.shutdown().await?;
 
     // Node3 must reach the target height via the remaining seed.
-    wait_for_height(&node3.rpc_addr, target_height, Duration::from_secs(180)).await?;
+    wait_for_height(
+        &node3.validator().rpc_addr,
+        target_height,
+        Duration::from_secs(180),
+    )
+    .await?;
     // Nice-to-have: confirm completion line if we catch it.
     let _ = assert_log_contains("node3", &mut orch_logs, "Block sync complete!").await;
     println!("--- Sync with peer drop successful ---");
+
+    // --- FIX: Add explicit shutdown for all remaining validators ---
+    for guard in cluster.validators {
+        guard.shutdown().await?;
+    }
+    node3.shutdown().await?;
 
     Ok(())
 }

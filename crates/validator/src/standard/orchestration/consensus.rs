@@ -92,14 +92,27 @@ where
     let producing_h = parent_h + 1;
     tracing::info!(target: "consensus", event = "tick", %cause, ?node_state, parent_h, producing_h);
 
-    let allow_bootstrap = matches!(
+    let consensus_allows_bootstrap = matches!(
         cons_ty,
         ioi_types::config::ConsensusType::ProofOfAuthority
             | ioi_types::config::ConsensusType::ProofOfStake
     );
-    if node_state != NodeState::Synced && !allow_bootstrap {
+
+    // --- REVISED GUARD LOGIC ---
+    // Allow a tick if:
+    // 1. The node is fully synced.
+    // OR
+    // 2. It's a PoA/PoS chain, and we are trying to produce the very first block (height 1).
+    //    This allows all nodes in a fresh cluster to participate in bootstrapping.
+    if node_state != NodeState::Synced && !(consensus_allows_bootstrap && producing_h == 1) {
+        tracing::debug!(
+            target = "consensus",
+            event = "tick_skipped",
+            reason = "not synced and not bootstrapping block 1"
+        );
         return Ok(());
     }
+    // --- END REVISED GUARD LOGIC ---
 
     let our_account_id = AccountId(
         account_id_from_key_material(

@@ -73,7 +73,8 @@ pub struct ProcessBackend {
     pub workload_telemetry_addr: Option<String>,
     binary_path: PathBuf,
     workload_config_path: PathBuf,
-    workload_ipc_addr: String,
+    /// Pinned workload IPC address (never :0 after constructor runs).
+    pub workload_ipc_addr: String,
     certs_dir_path: PathBuf,
 }
 
@@ -83,9 +84,22 @@ impl ProcessBackend {
         p2p_addr: Multiaddr,
         binary_path: PathBuf,
         workload_config_path: PathBuf,
-        workload_ipc_addr: String,
+        mut workload_ipc_addr: String,
         certs_dir_path: PathBuf,
     ) -> Self {
+        // Normalize ":0" to a concrete free port so the address is stable across restarts.
+        if workload_ipc_addr.ends_with(":0") {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0")
+                .expect("failed to allocate a free port for workload IPC");
+            let port = listener.local_addr().unwrap().port();
+            drop(listener);
+            workload_ipc_addr = format!("127.0.0.1:{port}");
+            tracing::info!(
+                target: "forge",
+                "Pinned workload IPC address to {} (replaces :0)",
+                workload_ipc_addr
+            );
+        }
         Self {
             orchestration_process: None,
             workload_process: None,
@@ -179,25 +193,29 @@ impl TestBackend for ProcessBackend {
         log_tx: broadcast::Sender<String>,
         log_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     ) -> Result<()> {
-        // --- FIX START: Clean up the database lock file before restarting ---
-        // This simulates a recovery script cleaning up after a hard crash.
-        let workload_state_path = self
-            .workload_config_path
-            .with_file_name("workload_state.db.lock");
-        if workload_state_path.exists() {
-            tracing::warn!(
-                target: "forge",
-                "Removing stale database lock file at {}",
-                workload_state_path.display()
-            );
-            std::fs::remove_file(&workload_state_path)?;
+        // Best-effort cleanup of stale DB artifacts (only if present).
+        // We parse the workload config to discover the <state_file> prefix.
+        // Then remove common leftover lock/journal files if they exist.
+        let cfg_str = std::fs::read_to_string(&self.workload_config_path)?;
+        let cfg: ioi_types::config::WorkloadConfig = toml::from_str(&cfg_str)?;
+        let db_prefix = std::path::Path::new(&cfg.state_file).with_extension("db");
+        for suffix in [".lock", ".lck", ".LOCK", ".journal"] {
+            let p = db_prefix.with_extension(format!("db{}", suffix));
+            if p.exists() {
+                tracing::warn!(target: "forge", "Removing stale DB artifact: {}", p.display());
+                let _ = std::fs::remove_file(&p);
+            }
         }
-        // --- FIX END ---
 
         if self.workload_process.is_some() {
             return Err(anyhow!("Workload process is already running."));
         }
 
+        tracing::info!(
+            target: "forge",
+            "Re-launching workload with IPC_SERVER_ADDR={}",
+            self.workload_ipc_addr
+        );
         let mut workload_cmd = TokioCommand::new(self.binary_path.join("workload"));
         workload_cmd
             .args(["--config", &self.workload_config_path.to_string_lossy()])
@@ -216,15 +234,34 @@ impl TestBackend for ProcessBackend {
             .take()
             .ok_or_else(|| anyhow!("Failed to take stderr from restarted workload"))?;
 
+        let log_tx_clone = log_tx.clone();
         let handle = tokio::spawn(async move {
             let mut lines = tokio::io::BufReader::new(stderr).lines();
             while let Ok(Some(line)) = lines.next_line().await {
-                let _ = log_tx.send(line);
+                let _ = log_tx_clone.send(line);
             }
         });
         log_handles.lock().await.push(handle);
 
         self.workload_process = Some(child);
+
+        // Wait until the restarted workload announces its IPC server.
+        // This avoids racing the orchestrator’s reconnect loop.
+        let mut rx = log_tx.subscribe();
+        tokio::time::timeout(Duration::from_secs(30), async move {
+            tracing::info!(
+                target: "forge",
+                "Waiting for restarted workload to announce its IPC listener..."
+            );
+            while let Ok(line) = rx.recv().await {
+                if line.contains("WORKLOAD_IPC_LISTENING_ON_") {
+                    return Ok::<(), anyhow::Error>(());
+                }
+            }
+            Err(anyhow!("Workload did not announce IPC listening in time"))
+        })
+        .await??;
+
         Ok(())
     }
 
@@ -444,30 +481,30 @@ impl TestBackend for DockerBackend {
         if self.agentic_model_path.is_some() {
             let mut guard_stream: LogStream =
                 convert_stream(self.docker.logs("guardian", log_options));
-            timeout(ready_timeout, async {
+            let guard_stream_after_wait = timeout(ready_timeout, async {
                 while let Some(Ok(log)) = guard_stream.next().await {
                     if log.contains("Guardian container started") {
-                        return Ok(());
+                        return Ok(guard_stream);
                     }
                 }
                 Err(anyhow!("Guardian did not become ready in time"))
             })
             .await??;
-            self.guard_stream = Some(guard_stream);
+            self.guard_stream = Some(guard_stream_after_wait);
         }
 
-        timeout(ready_timeout, async {
+        let orch_stream_after_wait = timeout(ready_timeout, async {
             let ready_signal = "ORCHESTRATION_RPC_LISTENING_ON_0.0.0.0:9999";
             while let Some(Ok(log)) = orch_stream.next().await {
                 if log.contains(ready_signal) {
-                    return Ok(());
+                    return Ok(orch_stream);
                 }
             }
             Err(anyhow!("Orchestration did not become ready in time"))
         })
         .await??;
 
-        self.orch_stream = Some(orch_stream);
+        self.orch_stream = Some(orch_stream_after_wait);
         Ok(())
     }
 

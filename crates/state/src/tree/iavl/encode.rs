@@ -1,37 +1,28 @@
 // Path: crates/state/src/tree/iavl/encode.rs
 
-use super::node::IAVLNode;
-use ioi_crypto::algorithms::hash::sha256;
+use super::node::{IAVLNode, EMPTY_HASH};
 use ioi_types::error::StateError;
 
 /// Encodes a leaf node using ICS-23 VarProto length prefixes.
-/// MODIFICATION: Aligned with the common Cosmos SDK IAVL profile. The value is
-/// pre-hashed with SHA-256 before being included in the final preimage. The prefix
-/// is simplified to just the leaf tag `0x00`.
 #[inline]
 fn encode_leaf_canonical(n: &IAVLNode) -> Result<Vec<u8>, StateError> {
     let key = &n.key;
-    // Pre-hash the value to align with the new LeafOp profile.
-    let value_hash =
-        sha256(&n.value).map_err(|e| StateError::Backend(format!("pre-hash value failed: {e}")))?;
+    let value = &n.value;
 
     let mut buf = Vec::with_capacity(
         1 // prefix
         + prost::length_delimiter_len(key.len()) + key.len()
-        + prost::length_delimiter_len(value_hash.len()) + value_hash.len(),
+        + prost::length_delimiter_len(value.len()) + value.len(),
     );
 
-    // Simplified leaf prefix (0x00).
     buf.push(0x00);
-
-    // ICS-23: LengthOp::VarProto for key and the pre-hashed value.
     prost::encode_length_delimiter(key.len(), &mut buf)
         .map_err(|e| StateError::Backend(format!("encode varint(key_len): {e}")))?;
     buf.extend_from_slice(key);
 
-    prost::encode_length_delimiter(value_hash.len(), &mut buf)
-        .map_err(|e| StateError::Backend(format!("encode varint(value_hash_len): {e}")))?;
-    buf.extend_from_slice(&value_hash);
+    prost::encode_length_delimiter(value.len(), &mut buf)
+        .map_err(|e| StateError::Backend(format!("encode varint(value_len): {e}")))?;
+    buf.extend_from_slice(value);
 
     Ok(buf)
 }
@@ -39,8 +30,6 @@ fn encode_leaf_canonical(n: &IAVLNode) -> Result<Vec<u8>, StateError> {
 /// Encodes an inner node using the established format.
 #[inline]
 fn encode_inner_canonical(n: &IAVLNode) -> Vec<u8> {
-    // This format remains unchanged:
-    // 0x01 | version | height | size | u32LE(len(split_key)) | split_key | left_hash | right_hash
     let mut buf = Vec::with_capacity(1 + 8 + 4 + 8 + 4 + n.key.len() + 32 + 32);
     buf.push(0x01);
     buf.extend_from_slice(&n.version.to_le_bytes());
@@ -48,18 +37,8 @@ fn encode_inner_canonical(n: &IAVLNode) -> Vec<u8> {
     buf.extend_from_slice(&n.size.to_le_bytes());
     buf.extend_from_slice(&(n.key.len() as u32).to_le_bytes());
     buf.extend_from_slice(&n.key);
-    let left = n
-        .left
-        .as_ref()
-        .map(|x| x.hash.clone())
-        .unwrap_or_else(IAVLNode::empty_hash);
-    let right = n
-        .right
-        .as_ref()
-        .map(|x| x.hash.clone())
-        .unwrap_or_else(IAVLNode::empty_hash);
-    buf.extend_from_slice(&left);
-    buf.extend_from_slice(&right);
+    buf.extend_from_slice(n.left_hash.as_ref().unwrap_or(&EMPTY_HASH));
+    buf.extend_from_slice(n.right_hash.as_ref().unwrap_or(&EMPTY_HASH));
     buf
 }
 
@@ -101,16 +80,13 @@ pub(super) fn decode_node(bytes: &[u8]) -> Option<DecodedNode> {
     let mut cursor = bytes;
 
     let tag = *take(&mut cursor, 1)?.first()?;
-    let ver = u64::from_le_bytes(take(&mut cursor, 8)?.try_into().ok()?);
 
     if tag == 0x00 {
-        // Leaf node with VarProto lengths
-        let _height = i32::from_le_bytes(take(&mut cursor, 4)?.try_into().ok()?); // 0
-        let _size = u64::from_le_bytes(take(&mut cursor, 8)?.try_into().ok()?); // 1
-
-        // Use prost to decode varint lengths from the mutable cursor
+        // Leaf node with VarProto lengths. No version/height/size encoded.
         let key_len = prost::decode_length_delimiter(&mut cursor).ok()?;
         let key = take(&mut cursor, key_len)?.to_vec();
+
+        // The stored value is the raw value.
         let val_len = prost::decode_length_delimiter(&mut cursor).ok()?;
         let value = take(&mut cursor, val_len)?.to_vec();
 
@@ -120,17 +96,18 @@ pub(super) fn decode_node(bytes: &[u8]) -> Option<DecodedNode> {
 
         Some(DecodedNode {
             is_leaf: true,
-            version: ver,
+            version: 0, // Not part of leaf encoding
             height: 0,
             size: 1,
             split_key: Vec::new(),
             key,
             value,
-            left_hash: [0u8; 32],
-            right_hash: [0u8; 32],
+            left_hash: EMPTY_HASH,
+            right_hash: EMPTY_HASH,
         })
     } else {
-        // Inner node logic is unchanged
+        // Inner node logic: tag is not 0x00, full metadata is present.
+        let ver = u64::from_le_bytes(take(&mut cursor, 8)?.try_into().ok()?);
         let h = i32::from_le_bytes(take(&mut cursor, 4)?.try_into().ok()?);
         let sz = u64::from_le_bytes(take(&mut cursor, 8)?.try_into().ok()?);
         let klen = u32::from_le_bytes(take(&mut cursor, 4)?.try_into().ok()?) as usize;

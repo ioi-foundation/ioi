@@ -1,5 +1,4 @@
 // Path: crates/forge/tests/staking_e2e.rs
-
 #![cfg(all(feature = "consensus-pos", feature = "vm-wasm"))]
 
 use anyhow::{anyhow, Result};
@@ -21,7 +20,7 @@ use ioi_types::{
         ValidatorV1,
     },
     codec,
-    // [+] FIX: Add the missing import for timing keys
+    // [+] FIX: Add the missing import for OracleParams
     config::InitialServiceConfig,
     keys::{
         ACCOUNT_ID_TO_PUBKEY_PREFIX, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY,
@@ -67,13 +66,13 @@ fn create_system_tx(
     Ok(ChainTransaction::System(Box::new(tx_to_sign)))
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_staking_lifecycle() -> Result<()> {
     build_test_artifacts();
 
     let initial_stake = 100_000u64;
 
-    let mut cluster = TestCluster::builder()
+    let cluster = TestCluster::builder()
         .with_validators(3)
         .with_consensus_type("ProofOfStake")
         .with_state_tree("IAVL")

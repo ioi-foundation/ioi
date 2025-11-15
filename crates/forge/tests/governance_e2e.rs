@@ -10,16 +10,17 @@ use ioi_forge::testing::{
 };
 use ioi_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
-        Credential, Proposal, ProposalStatus, ProposalType, SignHeader, SignatureProof,
-        SignatureSuite, StateEntry, SystemPayload, SystemTransaction, ValidatorSetV1,
-        ValidatorSetsV1, ValidatorV1, VoteOption,
+        account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
+        BlockTimingRuntime, ChainId, ChainTransaction, Credential, Proposal, ProposalStatus,
+        ProposalType, SignHeader, SignatureProof, SignatureSuite, StateEntry, SystemPayload,
+        SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1, VoteOption,
     },
     codec,
     config::InitialServiceConfig,
     keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, GOVERNANCE_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX,
-        IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
+        ACCOUNT_ID_TO_PUBKEY_PREFIX, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY,
+        GOVERNANCE_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX,
+        VALIDATOR_SET_KEY,
     },
     service_configs::{GovernanceParams, GovernancePolicy, GovernanceSigner, MigrationConfig},
 };
@@ -168,6 +169,39 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
             genesis_state.insert(
                 format!("b64:{}", BASE64_STANDARD.encode(proposal_key_bytes)),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&entry_bytes))),
+            );
+
+            // Add the mandatory block timing parameters required by the consensus engine.
+            let timing_params = BlockTimingParams {
+                base_interval_secs: 5,
+                min_interval_secs: 1,
+                max_interval_secs: 30,
+                target_gas_per_block: 1_000_000,
+                ema_alpha_milli: 0,
+                interval_step_bps: 0,
+                retarget_every_blocks: 0,
+            };
+            let timing_runtime = BlockTimingRuntime {
+                ema_gas_used: 0,
+                effective_interval_secs: timing_params.base_interval_secs,
+            };
+            genesis_state.insert(
+                std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
+                    .unwrap()
+                    .to_string(),
+                json!(format!(
+                    "b64:{}",
+                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
+                )),
+            );
+            genesis_state.insert(
+                std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
+                    .unwrap()
+                    .to_string(),
+                json!(format!(
+                    "b64:{}",
+                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
+                )),
             );
 
             // The governance key is now generated inside, so we pass it along with the validator key

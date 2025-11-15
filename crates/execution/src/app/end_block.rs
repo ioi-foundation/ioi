@@ -3,7 +3,6 @@
 //! This includes service upgrades, lifecycle hooks, validator set promotion, and timing updates.
 
 use crate::upgrade_manager::ServiceUpgradeManager;
-use ioi_api::lifecycle::OnEndBlock;
 use ioi_api::services::access::ServiceDirectory;
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
@@ -12,9 +11,7 @@ use ioi_types::app::{
 };
 use ioi_types::codec;
 use ioi_types::error::{ChainError, StateError};
-use ioi_types::keys::{
-    BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, VALIDATOR_SET_KEY,
-};
+use ioi_types::keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, VALIDATOR_SET_KEY};
 use ioi_types::service_configs::Capabilities;
 
 /// Applies any pending service upgrades scheduled for the given block height.
@@ -110,8 +107,7 @@ pub(super) fn handle_timing_update(
     let old_runtime: BlockTimingRuntime =
         codec::from_bytes_canonical(&runtime_bytes).map_err(ChainError::Transaction)?;
 
-    if params.retarget_every_blocks > 0
-        && current_height % params.retarget_every_blocks as u64 == 0
+    if params.retarget_every_blocks > 0 && current_height % params.retarget_every_blocks as u64 == 0
     {
         let mut new_runtime = old_runtime.clone();
         let parent_height = current_height.saturating_sub(1);
@@ -123,9 +119,9 @@ pub(super) fn handle_timing_update(
         );
 
         let alpha = params.ema_alpha_milli as u128;
-        new_runtime.ema_gas_used =
-            (alpha * gas_used_this_block as u128 + (1000 - alpha) * old_runtime.ema_gas_used)
-                / 1000;
+        new_runtime.ema_gas_used = (alpha * gas_used_this_block as u128
+            + (1000 - alpha) * old_runtime.ema_gas_used)
+            / 1000;
         new_runtime.effective_interval_secs = next_interval;
 
         if new_runtime.ema_gas_used != old_runtime.ema_gas_used

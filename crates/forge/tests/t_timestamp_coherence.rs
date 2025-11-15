@@ -142,9 +142,8 @@ impl TestNet {
                         .to_string(),
                     json!(format!(
                         "b64:{}",
-                        BASE64_STANDARD.encode(
-                            ioi_types::codec::to_bytes_canonical(&timing_runtime).unwrap()
-                        )
+                        BASE64_STANDARD
+                            .encode(ioi_types::codec::to_bytes_canonical(&timing_runtime).unwrap())
                     )),
                 );
             })
@@ -152,9 +151,13 @@ impl TestNet {
             .await
             .unwrap();
 
-        wait_for_height(&cluster.validators[0].rpc_addr, 1, Duration::from_secs(20))
-            .await
-            .unwrap();
+        wait_for_height(
+            &cluster.validators[0].validator().rpc_addr,
+            1,
+            Duration::from_secs(20),
+        )
+        .await
+        .unwrap();
 
         Self {
             cluster,
@@ -164,7 +167,7 @@ impl TestNet {
     }
 
     async fn latest_timestamp_secs(&self) -> Result<u64> {
-        let rpc_addr = &self.cluster.validators[0].rpc_addr;
+        let rpc_addr = &self.cluster.validators[0].validator().rpc_addr;
         let height = ioi_forge::testing::rpc::tip_height_resilient(rpc_addr).await?;
         Ok(get_block_by_height_resilient(rpc_addr, height)
             .await?
@@ -181,7 +184,7 @@ impl TestNet {
 #[tokio::test]
 async fn time_sensitive_tx_precheck_equals_execution() -> Result<()> {
     let mut net = TestNet::setup().await;
-    let validator_rpc_addr = net.cluster.validators[0].rpc_addr.clone();
+    let validator_rpc_addr = net.cluster.validators[0].validator().rpc_addr.clone();
     let user_keypair = net.user_keypair.clone();
     let user_account_id = AccountId(
         account_id_from_key_material(
@@ -209,10 +212,26 @@ async fn time_sensitive_tx_precheck_equals_execution() -> Result<()> {
             artifact: vec![],
         },
         signature_proof: {
-            let temp_tx = SystemTransaction { header: SignHeader { account_id: user_account_id, nonce: net.nonce, chain_id: 1.into(), tx_version: 1 }, payload: SystemPayload::StoreModule { manifest: format!("timestamp = {}", expected_ts), artifact: vec![] }, signature_proof: Default::default() };
+            let temp_tx = SystemTransaction {
+                header: SignHeader {
+                    account_id: user_account_id,
+                    nonce: net.nonce,
+                    chain_id: 1.into(),
+                    tx_version: 1,
+                },
+                payload: SystemPayload::StoreModule {
+                    manifest: format!("timestamp = {}", expected_ts),
+                    artifact: vec![],
+                },
+                signature_proof: Default::default(),
+            };
             let sign_bytes = temp_tx.to_sign_bytes().unwrap();
             let signature = user_keypair.sign(&sign_bytes).unwrap();
-            ioi_types::app::SignatureProof { suite: SignatureSuite::Ed25519, public_key: user_keypair.public().encode_protobuf(), signature }
+            ioi_types::app::SignatureProof {
+                suite: SignatureSuite::Ed25519,
+                public_key: user_keypair.public().encode_protobuf(),
+                signature,
+            }
         },
     }));
     net.nonce += 1;
@@ -230,12 +249,24 @@ async fn time_sensitive_tx_precheck_equals_execution() -> Result<()> {
 
     // 3. The transaction should have been included because the execution context matched the pre-check context.
     let tx_found = block.transactions.iter().any(|btx| {
-        let Ok(ser_btx) = ioi_types::codec::to_bytes_canonical(btx) else { return false; };
-        let Ok(ser_tx) = ioi_types::codec::to_bytes_canonical(&tx) else { return false; };
+        let Ok(ser_btx) = ioi_types::codec::to_bytes_canonical(btx) else {
+            return false;
+        };
+        let Ok(ser_tx) = ioi_types::codec::to_bytes_canonical(&tx) else {
+            return false;
+        };
         ser_btx == ser_tx
     });
 
-    assert!(tx_found, "The time-sensitive transaction was not included in the block");
+    assert!(
+        tx_found,
+        "The time-sensitive transaction was not included in the block"
+    );
+
+    // Explicitly shut down the cluster to disarm the ValidatorGuard.
+    for guard in net.cluster.validators {
+        guard.shutdown().await?;
+    }
 
     Ok(())
 }
