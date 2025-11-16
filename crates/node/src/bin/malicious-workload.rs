@@ -7,10 +7,17 @@
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
-// FIX: Import BlockchainService from the correct path. The `Service` alias is gone.
 use ioi_api::services::{access::ServiceDirectory, BlockchainService};
-use ioi_api::{commitment::CommitmentScheme, state::StateManager, validator::WorkloadContainer};
+use ioi_api::{
+    commitment::CommitmentScheme,
+    state::StateManager,
+    storage::NodeStore, // <-- FIX: Add the missing import for the NodeStore trait
+    validator::WorkloadContainer,
+};
 use ioi_consensus::util::engine_from_config;
+use ioi_crypto::transport::hybrid_kem_tls::{
+    derive_application_key, server_post_handshake, AeadWrappedStream,
+};
 use ioi_execution::util::load_state_from_genesis_file;
 use ioi_execution::Chain;
 use ioi_ipc::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest, JsonRpcResponse};
@@ -19,10 +26,10 @@ use ioi_state::primitives::hash::{HashCommitmentScheme, HashProof};
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_storage::RedbEpochStore;
 use ioi_tx::unified::UnifiedTransactionModel;
-use ioi_types::app::Membership;
+use ioi_types::app::{to_root_hash, Membership};
 use ioi_types::codec;
 use ioi_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
-use ioi_types::keys::VALIDATOR_SET_KEY;
+use ioi_types::keys::{STATUS_KEY, VALIDATOR_SET_KEY};
 use ioi_validator::standard::workload_ipc_server::{
     create_ipc_server_config,
     methods::{
@@ -45,7 +52,6 @@ use ioi_validator::standard::workload_ipc_server::{
     },
     router::{RequestContext, Router},
 };
-// FIX: WasmVm was renamed to WasmRuntime
 use ioi_vm_wasm::WasmRuntime;
 use serde::Serialize;
 use std::fs;
@@ -56,10 +62,6 @@ use tokio::{
     sync::{Mutex, Semaphore},
 };
 use tokio_rustls::TlsAcceptor;
-// FIX: Add missing imports for the updated IPC server logic
-use ioi_crypto::transport::hybrid_kem_tls::{
-    derive_application_key, server_post_handshake, AeadWrappedStream,
-};
 use tokio_rustls::TlsStream;
 
 #[derive(Parser, Debug)]
@@ -83,21 +85,59 @@ where
         + 'static
         + Clone,
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
-    // FIX: Add Debug bound to the Proof type
     CS::Proof: AsRef<[u8]> + serde::Serialize + for<'de> serde::Deserialize<'de> + std::fmt::Debug,
     CS::Commitment: std::fmt::Debug + From<Vec<u8>>,
 {
     let db_path = Path::new(&config.state_file).with_extension("db");
-    if !db_path.exists() {
+    let db_preexisted = db_path.exists();
+
+    let store = Arc::new(RedbEpochStore::open(&db_path, config.epoch_size)?);
+    state_tree.attach_store(store.clone());
+
+    if !db_preexisted {
+        tracing::info!(
+            target: "workload",
+            event = "state_init",
+            path = %db_path.display(),
+            "No existing state DB found. Initializing from genesis {}.",
+            config.genesis_file
+        );
         load_state_from_genesis_file(&mut state_tree, &config.genesis_file)?;
     } else {
-        log::info!(
-            "Found existing state file at '{}'. Skipping genesis initialization.",
-            &config.state_file
+        tracing::info!(
+            target: "workload",
+            event = "state_init",
+            path = %db_path.display(),
+            "Existing state DB found. Attempting recovery from stored state.",
         );
+        // RECOVERY LOGIC: Re-hydrate live state from the last committed version in the store.
+        if let Ok((head_height, _)) = store.head() {
+            if head_height > 0 {
+                if let Ok(Some(head_block)) = store.get_block_by_height(head_height) {
+                    let recovered_root = &head_block.header.state_root.0;
+                    state_tree.adopt_known_root(recovered_root, head_height)?;
+                    tracing::warn!(target: "workload", event = "state_recovered", height = head_height, "Recovered and adopted durable head into state backend.");
+
+                    let anchor = to_root_hash(recovered_root)?;
+
+                    // Re-hydrate critical keys into the live state to make it usable.
+                    if let Ok((Membership::Present(status_bytes), _)) =
+                        state_tree.get_with_proof_at_anchor(&anchor, STATUS_KEY)
+                    {
+                        state_tree.insert(STATUS_KEY, &status_bytes)?;
+                        tracing::info!(target: "workload", "Re-hydrated STATUS_KEY into current state.");
+                    }
+                    if let Ok((Membership::Present(vs_bytes), _)) =
+                        state_tree.get_with_proof_at_anchor(&anchor, VALIDATOR_SET_KEY)
+                    {
+                        state_tree.insert(VALIDATOR_SET_KEY, &vs_bytes)?;
+                        tracing::info!(target: "workload", "Re-hydrated VALIDATOR_SET_KEY into current state.");
+                    }
+                }
+            }
+        }
     }
 
-    // FIX: WasmVm -> WasmRuntime
     let wasm_vm = Box::new(WasmRuntime::new(config.fuel_costs.clone())?);
 
     let mut initial_services = Vec::new();
@@ -120,9 +160,6 @@ where
         .map(|s| s.clone() as Arc<dyn BlockchainService>)
         .collect();
     let service_directory = ServiceDirectory::new(services_for_dir);
-
-    let store_path = Path::new(&config.state_file).with_extension("db");
-    let store = Arc::new(RedbEpochStore::open(store_path, config.epoch_size)?);
 
     let workload_container = Arc::new(WorkloadContainer::new(
         config.clone(),
@@ -226,7 +263,6 @@ struct MaliciousWorkloadIpcServer<ST, CS>
 where
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    // FIX: Add Debug bound
     <CS as CommitmentScheme>::Proof: Serialize
         + for<'de> serde::Deserialize<'de>
         + Clone
@@ -252,7 +288,6 @@ where
         + Clone,
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     CS::Commitment: std::fmt::Debug + Send + Sync + From<Vec<u8>>,
-    // FIX: Add Debug bound
     <CS as CommitmentScheme>::Proof: Serialize
         + for<'de> serde::Deserialize<'de>
         + Clone
@@ -267,7 +302,6 @@ where
         address: String,
         workload_container: Arc<WorkloadContainer<ST>>,
         chain_arc: Arc<Mutex<Chain<CS, ST>>>,
-        // FIX: Add trait bound for Debug on CS::Proof
     ) -> Result<Self>
     where
         <CS as CommitmentScheme>::Proof: std::fmt::Debug,
@@ -278,11 +312,9 @@ where
         router.add_method(ProcessBlockV1::<CS, ST>::default());
         router.add_method(CheckTransactionsV1::<CS, ST>::default());
         router.add_method(GetLastBlockHashV1::<CS, ST>::default());
-        // FIX: Add missing method
         router.add_method(GetBlocksRangeV1::<CS, ST>::default());
         router.add_method(GetExpectedModelHashV1::<CS, ST>::default());
         router.add_method(GetStakesV1::<CS, ST>::default());
-        // FIX: Add missing method
         router.add_method(GetBlockByHeightV1::<CS, ST>::default());
         router.add_method(GetNextStakesV1::<CS, ST>::default());
         router.add_method(GetAuthoritySetV1::<CS, ST>::default());
@@ -434,7 +466,6 @@ where
         }
     }
 }
-
 async fn handle_request<CS, ST>(
     request_bytes: &[u8],
     shared_ctx: Arc<RpcContext<CS, ST>>,
@@ -490,7 +521,6 @@ where
                     selector: ioi_api::commitment::Selector::Key(params.key),
                     additional_data: vec![],
                 };
-                // FIX: Unwrap the result from to_bytes_canonical
                 let proof_bytes = codec::to_bytes_canonical(&fake_proof).unwrap();
                 let response_data = QueryStateAtResponse {
                     msg_version: 1,
