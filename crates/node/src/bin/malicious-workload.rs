@@ -19,7 +19,7 @@ use ioi_crypto::transport::hybrid_kem_tls::{
     derive_application_key, server_post_handshake, AeadWrappedStream,
 };
 use ioi_execution::util::load_state_from_genesis_file;
-use ioi_execution::Chain;
+use ioi_execution::ExecutionMachine;
 use ioi_ipc::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest, JsonRpcResponse};
 use ioi_services::identity::IdentityHub;
 use ioi_state::primitives::hash::{HashCommitmentScheme, HashProof};
@@ -183,7 +183,7 @@ where
     };
     let consensus_engine = engine_from_config(&temp_orch_config)?;
 
-    let mut chain = Chain::new(
+    let mut machine = ExecutionMachine::new(
         commitment_scheme.clone(),
         UnifiedTransactionModel::new(commitment_scheme),
         1.into(),
@@ -191,17 +191,21 @@ where
         consensus_engine,
         workload_container.clone(),
     );
-    chain.load_or_initialize_status(&workload_container).await?;
-    let chain_arc = Arc::new(Mutex::new(chain));
+    machine
+        .load_or_initialize_status(&workload_container)
+        .await?;
+    let machine_arc = Arc::new(Mutex::new(machine));
 
     let ipc_server_addr =
         std::env::var("IPC_SERVER_ADDR").unwrap_or_else(|_| "0.0.0.0:8555".to_string());
 
     // Use a modified IPC server for malicious behavior
     let ipc_server =
-        MaliciousWorkloadIpcServer::new(ipc_server_addr, workload_container, chain_arc).await?;
+        MaliciousWorkloadIpcServer::new(ipc_server_addr, workload_container, machine_arc).await?;
 
-    log::info!("MALICIOUS Workload: State, VM, and Chain initialized. Running IPC server.");
+    log::info!(
+        "MALICIOUS Workload: State, VM, and ExecutionMachine initialized. Running IPC server."
+    );
     ipc_server.run().await?;
     Ok(())
 }
@@ -273,7 +277,7 @@ where
 {
     address: String,
     workload_container: Arc<WorkloadContainer<ST>>,
-    chain_arc: Arc<Mutex<Chain<CS, ST>>>,
+    machine_arc: Arc<Mutex<ExecutionMachine<CS, ST>>>,
     router: Arc<Router>,
     semaphore: Arc<Semaphore>,
 }
@@ -301,7 +305,7 @@ where
     pub async fn new(
         address: String,
         workload_container: Arc<WorkloadContainer<ST>>,
-        chain_arc: Arc<Mutex<Chain<CS, ST>>>,
+        machine_arc: Arc<Mutex<ExecutionMachine<CS, ST>>>,
     ) -> Result<Self>
     where
         <CS as CommitmentScheme>::Proof: std::fmt::Debug,
@@ -337,7 +341,7 @@ where
         Ok(Self {
             address,
             workload_container,
-            chain_arc,
+            machine_arc,
             router: Arc::new(router),
             semaphore: Arc::new(Semaphore::new(64)),
         })
@@ -361,7 +365,7 @@ where
         let acceptor = TlsAcceptor::from(server_config);
 
         let shared_ctx = Arc::new(RpcContext {
-            chain: self.chain_arc.clone(),
+            machine: self.machine_arc.clone(),
             workload: self.workload_container.clone(),
         });
 

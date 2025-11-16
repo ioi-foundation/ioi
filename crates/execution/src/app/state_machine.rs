@@ -1,6 +1,6 @@
 // Path: crates/execution/src/app/state_machine.rs
 
-use super::{end_block, Chain};
+use super::{end_block, ExecutionMachine};
 use async_trait::async_trait;
 use ibc_primitives::Timestamp;
 use ioi_api::app::{Block, BlockHeader, ChainStatus, ChainTransaction};
@@ -27,7 +27,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 #[async_trait]
-impl<CS, ST> ChainStateMachine<CS, UnifiedTransactionModel<CS>, ST> for Chain<CS, ST>
+impl<CS, ST> ChainStateMachine<CS, UnifiedTransactionModel<CS>, ST> for ExecutionMachine<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -264,7 +264,7 @@ where
         let anchor = StateRoot(block.header.state_root.0.clone())
             .to_anchor()
             .map_err(|e| ChainError::Transaction(e.to_string()))?;
-        tracing::info!(target: "chain", event = "commit", height = block.header.height, state_root = hex::encode(&block.header.state_root.0), anchor = hex::encode(anchor.as_ref()));
+        tracing::info!(target: "execution", event = "commit", height = block.header.height, state_root = hex::encode(&block.header.state_root.0), anchor = hex::encode(anchor.as_ref()));
 
         let block_bytes = codec::to_bytes_canonical(&block).map_err(ChainError::Transaction)?;
         workload

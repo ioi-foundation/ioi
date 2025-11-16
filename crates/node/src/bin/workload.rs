@@ -18,16 +18,20 @@
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
-use ioi_api::services::{access::ServiceDirectory, BlockchainService, UpgradableService};
+use ioi_api::services::{access::ServiceDirectory, BlockchainService};
 use ioi_api::{
     commitment::CommitmentScheme,
     state::{ProofProvider, StateManager},
-    storage::NodeStore,
+    storage::NodeStore, // <-- FIX: Add the missing import for the NodeStore trait
     validator::WorkloadContainer,
 };
 use ioi_consensus::util::engine_from_config;
+use ioi_crypto::transport::hybrid_kem_tls::{
+    derive_application_key, server_post_handshake, AeadWrappedStream,
+};
 use ioi_execution::util::load_state_from_genesis_file;
-use ioi_execution::Chain;
+use ioi_execution::ExecutionMachine;
+use ioi_ipc::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest, JsonRpcResponse};
 use ioi_services::governance::GovernanceModule;
 #[cfg(feature = "ibc-deps")]
 use ioi_services::ibc::{
@@ -48,6 +52,7 @@ use ioi_storage::metrics as storage_metrics;
 use ioi_storage::RedbEpochStore;
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{to_root_hash, Membership};
+use ioi_types::codec;
 use ioi_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
 use ioi_types::keys::{STATUS_KEY, VALIDATOR_SET_KEY};
 use ioi_validator::standard::workload_ipc_server::WorkloadIpcServer;
@@ -219,7 +224,7 @@ where
     };
     let consensus_engine = engine_from_config(&temp_orch_config)?;
 
-    let mut chain = Chain::new(
+    let mut machine = ExecutionMachine::new(
         commitment_scheme.clone(),
         UnifiedTransactionModel::new(commitment_scheme),
         1.into(),
@@ -233,22 +238,24 @@ where
         if id == "wasm" {
             tracing::info!(target: "workload", "Registering WasmRuntime for service upgrades.");
             let wasm_runtime = WasmRuntime::new(config.fuel_costs.clone())?;
-            chain
+            machine
                 .service_manager
                 .register_runtime("wasm", Arc::new(wasm_runtime));
         }
     }
 
-    chain.load_or_initialize_status(&workload_container).await?;
-    let chain_arc = Arc::new(Mutex::new(chain));
+    machine
+        .load_or_initialize_status(&workload_container)
+        .await?;
+    let machine_arc = Arc::new(Mutex::new(machine));
 
     let ipc_server_addr =
         std::env::var("IPC_SERVER_ADDR").unwrap_or_else(|_| "0.0.0.0:8555".to_string());
 
     let ipc_server: WorkloadIpcServer<ST, CS> =
-        WorkloadIpcServer::new(ipc_server_addr, workload_container, chain_arc).await?;
+        WorkloadIpcServer::new(ipc_server_addr, workload_container, machine_arc).await?;
 
-    tracing::info!(target: "workload", "State, VM, and Chain initialized. Running IPC server.");
+    tracing::info!(target: "workload", "State, VM, and ExecutionMachine initialized. Running IPC server.");
     ipc_server.run().await?;
     Ok(())
 }

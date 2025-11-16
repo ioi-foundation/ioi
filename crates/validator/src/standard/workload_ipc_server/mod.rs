@@ -15,7 +15,7 @@ use ioi_api::{
 use ioi_crypto::transport::hybrid_kem_tls::{
     derive_application_key, server_post_handshake, AeadWrappedStream,
 };
-use ioi_execution::Chain;
+use ioi_execution::ExecutionMachine;
 use ioi_ipc::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest, JsonRpcResponse};
 use methods::{
     chain::{
@@ -95,7 +95,7 @@ where
 {
     address: String,
     workload_container: Arc<WorkloadContainer<ST>>,
-    chain_arc: Arc<Mutex<Chain<CS, ST>>>,
+    machine_arc: Arc<Mutex<ExecutionMachine<CS, ST>>>,
     router: Arc<Router>,
     semaphore: Arc<Semaphore>,
 }
@@ -124,7 +124,7 @@ where
     pub async fn new(
         address: String,
         workload_container: Arc<WorkloadContainer<ST>>,
-        chain_arc: Arc<Mutex<Chain<CS, ST>>>,
+        machine_arc: Arc<Mutex<ExecutionMachine<CS, ST>>>,
     ) -> Result<Self> {
         let mut router = Router::new();
         // Register all methods
@@ -157,7 +157,7 @@ where
         Ok(Self {
             address,
             workload_container,
-            chain_arc,
+            machine_arc,
             router: Arc::new(router),
             semaphore: Arc::new(Semaphore::new(64)),
         })
@@ -181,7 +181,7 @@ where
 
         // --- PHASE 3: INCREMENTAL GC TASK ---
         let state_tree_for_gc = self.workload_container.state_tree();
-        let chain_for_gc = self.chain_arc.clone();
+        let machine_for_gc = self.machine_arc.clone();
         let gc_config = self.workload_container.config().clone();
         let pins_for_gc = self.workload_container.pins.clone();
         let store_for_gc = self.workload_container.store.clone();
@@ -207,7 +207,7 @@ where
                 // --- PHASE 1: Build PrunePlan (async, no locks on state tree) ---
                 let plan = {
                     let current_height =
-                        ChainStateMachine::status(&*chain_for_gc.lock().await).height;
+                        ChainStateMachine::status(&*machine_for_gc.lock().await).height;
                     let finalized_height = current_height; // Placeholder for real finality
 
                     let horizon_cutoff =
@@ -288,7 +288,7 @@ where
         });
 
         let shared_ctx = Arc::new(RpcContext {
-            chain: self.chain_arc.clone(),
+            machine: self.machine_arc.clone(),
             workload: self.workload_container.clone(),
         });
 

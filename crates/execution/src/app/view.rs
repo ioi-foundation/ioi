@@ -1,6 +1,6 @@
 // Path: crates/execution/src/app/view.rs
 
-use super::{Chain, PenaltyDelegator};
+use super::{ExecutionMachine, PenaltyDelegator};
 use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, ChainView, RemoteStateView, StateRef};
 use ioi_api::commitment::CommitmentScheme;
@@ -55,7 +55,7 @@ impl<ST: StateManager + Send + Sync + 'static> RemoteStateView for ChainStateVie
 impl<ST: StateManager + Send + Sync + 'static> AnchoredStateView for ChainStateView<ST> {}
 
 #[async_trait]
-impl<CS, ST> ChainView<CS, ST> for Chain<CS, ST>
+impl<CS, ST> ChainView<CS, ST> for ExecutionMachine<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
