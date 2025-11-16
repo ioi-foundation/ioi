@@ -25,5 +25,5 @@ pub mod upgrade_manager;
 pub mod util;
 pub mod wasm_loader;
 
-pub use crate::app::Chain;
+pub use crate::app::ExecutionMachine;
 pub use upgrade_manager::ServiceUpgradeManager;

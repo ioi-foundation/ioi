@@ -115,7 +115,7 @@ where
             .map_err(|_| anyhow!("Invalid context type for ProcessBlockV1"))?;
 
         {
-            let chain = ctx.chain.lock().await;
+            let machine = ctx.machine.lock().await;
             let enable_coinbase = std::env::var("ENABLE_COINBASE")
                 .map(|s| s != "0")
                 .unwrap_or(false);
@@ -129,7 +129,7 @@ where
                     )
                 })
             {
-                let coinbase = (*chain).transaction_model().create_coinbase_transaction(
+                let coinbase = (*machine).transaction_model().create_coinbase_transaction(
                     block.header.height,
                     &block.header.producer_account_id.0,
                 )?;
@@ -138,13 +138,13 @@ where
         }
 
         let prepared_block = {
-            let chain = ctx.chain.lock().await;
-            chain.prepare_block(block, &ctx.workload).await?
+            let machine = ctx.machine.lock().await;
+            machine.prepare_block(block, &ctx.workload).await?
         };
 
         let (processed_block, events) = {
-            let mut chain = ctx.chain.lock().await;
-            chain.commit_block(prepared_block, &ctx.workload).await?
+            let mut machine = ctx.machine.lock().await;
+            machine.commit_block(prepared_block, &ctx.workload).await?
         };
 
         Ok((processed_block, events))
@@ -211,7 +211,7 @@ where
             .map_err(|_| anyhow!("Invalid context type for CheckTransactionsV1"))?;
 
         let mut results = Vec::with_capacity(params.txs.len());
-        let chain_guard = ctx.chain.lock().await;
+        let chain_guard = ctx.machine.lock().await;
         let base_state_tree = ctx.workload.state_tree();
         let base_state = base_state_tree.read().await;
 
@@ -286,8 +286,8 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetLastBlockHashV1"))?;
 
-        let chain = ctx.chain.lock().await;
-        let hash = match chain.state.recent_blocks.last() {
+        let machine = ctx.machine.lock().await;
+        let hash = match machine.state.recent_blocks.last() {
             Some(b) => b.header.hash()?,
             None => vec![0; 32],
         };
@@ -346,10 +346,10 @@ where
         let ctx = shared_ctx
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetAuthoritySetV1"))?;
-        let chain = ctx.chain.lock().await;
-        let h = (*chain).status().height;
+        let machine = ctx.machine.lock().await;
+        let h = (*machine).status().height;
         log::debug!("[RPC] {} -> height={} (current)", Self::NAME, h);
-        let set = (*chain).get_validator_set_for(&ctx.workload, h).await?;
+        let set = (*machine).get_validator_set_for(&ctx.workload, h).await?;
         log::debug!(
             "[RPC] {} -> height={} returned {} validators",
             Self::NAME,
@@ -411,9 +411,9 @@ where
         let ctx = shared_ctx
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetNextValidatorSetV1"))?;
-        let chain = ctx.chain.lock().await;
-        let next_height = (*chain).status().height + 1;
-        let set = (*chain)
+        let machine = ctx.machine.lock().await;
+        let next_height = (*machine).status().height + 1;
+        let set = (*machine)
             .get_validator_set_for(&ctx.workload, next_height)
             .await?;
         Ok(set)
@@ -474,8 +474,8 @@ where
         let ctx = shared_ctx
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetValidatorSetForV1"))?;
-        let chain = ctx.chain.lock().await;
-        let set = (*chain)
+        let machine = ctx.machine.lock().await;
+        let set = (*machine)
             .get_validator_set_for(&ctx.workload, params.height)
             .await?;
         Ok(set)

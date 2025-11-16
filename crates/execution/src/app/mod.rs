@@ -21,9 +21,7 @@ use ioi_api::validator::WorkloadContainer;
 use ioi_consensus::Consensus;
 use ioi_tx::system::{nonce, validation};
 use ioi_tx::unified::UnifiedTransactionModel;
-use ioi_types::app::{
-    AccountId, BlockTimingParams, BlockTimingRuntime, ChainId, FailureReport,
-};
+use ioi_types::app::{AccountId, BlockTimingParams, BlockTimingRuntime, ChainId, FailureReport};
 use ioi_types::codec;
 use ioi_types::error::{ChainError, StateError, TransactionError};
 use ioi_types::keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, STATUS_KEY};
@@ -65,7 +63,7 @@ impl<'a> PenaltyMechanism for PenaltyDelegator<'a> {
 }
 
 #[derive(Debug)]
-pub struct ExecutionState<CS: CommitmentScheme + Clone> {
+pub struct ExecutionMachineState<CS: CommitmentScheme + Clone> {
     pub commitment_scheme: CS,
     pub transaction_model: UnifiedTransactionModel<CS>,
     pub chain_id: ChainId,
@@ -77,8 +75,8 @@ pub struct ExecutionState<CS: CommitmentScheme + Clone> {
     pub genesis_state: GenesisState,
 }
 
-pub struct Chain<CS: CommitmentScheme + Clone, ST: StateManager> {
-    pub state: ExecutionState<CS>,
+pub struct ExecutionMachine<CS: CommitmentScheme + Clone, ST: StateManager> {
+    pub state: ExecutionMachineState<CS>,
     pub services: ServiceDirectory,
     pub service_manager: ServiceUpgradeManager,
     pub consensus_engine: Consensus<ioi_types::app::ChainTransaction>,
@@ -87,13 +85,13 @@ pub struct Chain<CS: CommitmentScheme + Clone, ST: StateManager> {
     service_meta_cache: HashMap<String, Arc<ActiveServiceMeta>>,
 }
 
-impl<CS, ST> Debug for Chain<CS, ST>
+impl<CS, ST> Debug for ExecutionMachine<CS, ST>
 where
     CS: CommitmentScheme + Clone,
     ST: StateManager,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Chain")
+        f.debug_struct("ExecutionMachine")
             .field("state", &self.state)
             .field("services", &self.services)
             .field("consensus_type", &self.consensus_engine.consensus_type())
@@ -125,7 +123,7 @@ fn signer_from_tx(tx: &ChainTransaction) -> AccountId {
     }
 }
 
-impl<CS, ST> Chain<CS, ST>
+impl<CS, ST> ExecutionMachine<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
@@ -158,7 +156,7 @@ where
             service_manager.register_service(service);
         }
 
-        let state = ExecutionState {
+        let state = ExecutionMachineState {
             commitment_scheme,
             transaction_model,
             chain_id,
@@ -190,7 +188,7 @@ where
             Ok(Some(ref status_bytes)) => {
                 let status: ChainStatus =
                     codec::from_bytes_canonical(status_bytes).map_err(ChainError::Transaction)?;
-                tracing::info!(target: "chain", event = "status_loaded", height = status.height, "Successfully loaded existing chain status from state manager.");
+                tracing::info!(target: "execution", event = "status_loaded", height = status.height, "Successfully loaded existing chain status from state manager.");
                 self.state.status = status;
                 let root = state.root_commitment().as_ref().to_vec();
                 self.state.last_state_root = root.clone();
@@ -200,7 +198,7 @@ where
                 };
             }
             Ok(None) => {
-                tracing::info!(target: "chain", event = "status_init", "No existing chain status found. Initializing and saving genesis status.");
+                tracing::info!(target: "execution", event = "status_init", "No existing chain status found. Initializing and saving genesis status.");
 
                 for service in self.service_manager.all_services() {
                     let service_id = service.id();
@@ -239,7 +237,7 @@ where
                     state
                         .insert(&key, &meta_bytes)
                         .map_err(|e| ChainError::Transaction(e.to_string()))?;
-                    tracing::info!(target: "chain", "Registered initial service '{}' as active in genesis state.", service_id);
+                    tracing::info!(target: "execution", "Registered initial service '{}' as active in genesis state.", service_id);
                 }
 
                 let timing_params = BlockTimingParams {
@@ -278,7 +276,7 @@ where
                     .map_err(|e| ChainError::Transaction(e.to_string()))?;
 
                 state.commit_version_persist(0, &*workload.store)?;
-                tracing::debug!(target: "chain", "[Chain] Committed genesis state.");
+                tracing::debug!(target: "execution", "[ExecutionMachine] Committed genesis state.");
 
                 let final_root = state.root_commitment().as_ref().to_vec();
                 let root_commitment_for_check = state.commitment_from_bytes(&final_root)?;
@@ -287,10 +285,10 @@ where
                     state.get_with_proof_at(&root_commitment_for_check, STATUS_KEY)?;
                 match membership {
                     ioi_types::app::Membership::Present(_) => {
-                        tracing::debug!(target: "chain", "[Chain] Genesis self-check passed.");
+                        tracing::debug!(target: "execution", "[ExecutionMachine] Genesis self-check passed.");
                     }
                     ioi_types::app::Membership::Absent => {
-                        tracing::error!(target: "chain", "[Chain] Genesis self-check FAILED: query for '{}' returned Absent.", hex::encode(STATUS_KEY));
+                        tracing::error!(target: "execution", "[ExecutionMachine] Genesis self-check FAILED: query for '{}' returned Absent.", hex::encode(STATUS_KEY));
                         return Err(ChainError::from(StateError::Validation(
                             "Committed genesis state is not provable".into(),
                         )));
@@ -307,7 +305,7 @@ where
         }
 
         if let GenesisState::Ready { root, .. } = &self.state.genesis_state {
-            tracing::info!(target: "chain", event = "genesis_ready", root = hex::encode(root));
+            tracing::info!(target: "execution", event = "genesis_ready", root = hex::encode(root));
         }
 
         Ok(())

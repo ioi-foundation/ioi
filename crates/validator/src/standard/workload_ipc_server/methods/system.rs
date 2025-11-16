@@ -3,8 +3,8 @@
 use super::RpcContext;
 use crate::standard::workload_ipc_server::router::{RequestContext, RpcMethod};
 use anyhow::{anyhow, Result};
-use ioi_types::config::WorkloadConfig;
 use ioi_api::{chain::ChainStateMachine, commitment::CommitmentScheme, state::StateManager};
+use ioi_types::config::WorkloadConfig;
 use serde::{Deserialize, Serialize};
 use std::{any::Any, fmt::Debug, marker::PhantomData, sync::Arc};
 
@@ -34,8 +34,14 @@ where
         + Send
         + Sync
         + 'static,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + AsRef<[u8]> + Debug,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + AsRef<[u8]>
+        + Debug,
     <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync + From<Vec<u8>>,
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
@@ -52,9 +58,9 @@ where
         let ctx = shared_ctx
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetStatusV1"))?;
-        let chain = ctx.chain.lock().await;
+        let machine = ctx.machine.lock().await;
         // The ChainStateMachine trait must be in scope to call .status()
-        let status_ref = (*chain).status();
+        let status_ref = (*machine).status();
         Ok(ioi_types::app::ChainStatus {
             height: status_ref.height,
             latest_timestamp: status_ref.latest_timestamp,
@@ -302,9 +308,9 @@ where
         let ctx: Arc<RpcContext<CS, ST>> = shared_ctx
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetGenesisStatusV1"))?;
-        let chain = ctx.chain.lock().await;
+        let machine = ctx.machine.lock().await;
 
-        match &chain.state.genesis_state {
+        match &machine.state.genesis_state {
             ioi_execution::app::GenesisState::Ready { root, chain_id } => Ok(GenesisStatus {
                 ready: true,
                 root: root.clone(),

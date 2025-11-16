@@ -53,9 +53,9 @@ where
         let ctx = shared_ctx
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetStakesV1"))?;
-        let chain = ctx.chain.lock().await;
+        let machine = ctx.machine.lock().await;
 
-        let stakes_by_account_id = (*chain).get_staked_validators(&ctx.workload).await?;
+        let stakes_by_account_id = (*machine).get_staked_validators(&ctx.workload).await?;
 
         let stakes_by_hex_id = stakes_by_account_id
             .into_iter()
@@ -110,9 +110,9 @@ where
         let ctx = shared_ctx
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetNextStakesV1"))?;
-        let chain = ctx.chain.lock().await;
+        let machine = ctx.machine.lock().await;
 
-        let stakes_by_account_id = (*chain).get_next_staked_validators(&ctx.workload).await?;
+        let stakes_by_account_id = (*machine).get_next_staked_validators(&ctx.workload).await?;
 
         let stakes_by_hex_id = stakes_by_account_id
             .into_iter()

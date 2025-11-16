@@ -165,8 +165,8 @@ where
         // 2) Fallback: if not in memory, attempt an anchored read at the last known root.
         // This handles queries immediately after a crash before the in-memory tree is fully re-hydrated.
         let last_root = {
-            let chain = ctx.chain.lock().await;
-            chain.state.last_state_root.clone()
+            let machine = ctx.machine.lock().await;
+            machine.state.last_state_root.clone()
         };
 
         if !last_root.is_empty() {

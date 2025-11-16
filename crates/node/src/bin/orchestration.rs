@@ -10,7 +10,7 @@ use ioi_api::validator::container::Container;
 use ioi_client::WorkloadClient;
 use ioi_consensus::util::engine_from_config;
 use ioi_crypto::sign::dilithium::DilithiumKeyPair;
-use ioi_execution::Chain;
+use ioi_execution::ExecutionMachine;
 use ioi_networking::libp2p::Libp2pSync;
 use ioi_networking::metrics as network_metrics;
 use ioi_services::governance::GovernanceModule;
@@ -264,7 +264,7 @@ where
 
     let orchestration = Arc::new(Orchestrator::new(&opts.config, deps)?);
 
-    // Share the same consensus engine instance between Orchestrator and Chain.
+    // Share the same consensus engine instance between Orchestrator and ExecutionMachine.
     let consensus_for_chain = consensus_engine.clone();
     let chain_ref = {
         let tm = UnifiedTransactionModel::new(commitment_scheme.clone());
@@ -347,7 +347,7 @@ where
             service_directory, // <-- Pass the populated directory here
             dummy_store,
         )?);
-        let mut chain = Chain::new(
+        let mut machine = ExecutionMachine::new(
             commitment_scheme,
             tm,
             config.chain_id,
@@ -364,12 +364,12 @@ where
                     "Registering WasmRuntime for tx pre-checks."
                 );
                 let wasm_runtime = WasmRuntime::new(Default::default())?;
-                chain
+                machine
                     .service_manager
                     .register_runtime("wasm", Arc::new(wasm_runtime));
             }
         }
-        Arc::new(tokio::sync::Mutex::new(chain))
+        Arc::new(tokio::sync::Mutex::new(machine))
     };
 
     orchestration.set_chain_and_workload_client(chain_ref, workload_client.clone());
@@ -400,9 +400,13 @@ where
         let shutdown_rx_for_gateway = orchestration.shutdown_sender.subscribe();
         let chain_id_for_gateway = config.chain_id.to_string();
         let gateway_handle = tokio::spawn(async move {
-            if let Err(e) =
-                http_rpc_gateway::run_server(gateway_config, ibc_host, shutdown_rx_for_gateway, chain_id_for_gateway)
-                    .await
+            if let Err(e) = http_rpc_gateway::run_server(
+                gateway_config,
+                ibc_host,
+                shutdown_rx_for_gateway,
+                chain_id_for_gateway,
+            )
+            .await
             {
                 tracing::error!(target: "http-gateway", "IBC HTTP Gateway failed: {}", e);
             }

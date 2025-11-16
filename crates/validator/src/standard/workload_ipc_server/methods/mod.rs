@@ -3,8 +3,8 @@
 //! This module defines the shared context for all RPC method handlers and
 //! exports the individual method implementations from sub-modules.
 
-use ioi_execution::Chain;
 use ioi_api::{commitment::CommitmentScheme, state::StateManager, validator::WorkloadContainer};
+use ioi_execution::ExecutionMachine;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -31,7 +31,7 @@ where
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>,
 {
     /// A thread-safe handle to the core blockchain state machine.
-    pub chain: Arc<Mutex<Chain<CS, ST>>>,
+    pub machine: Arc<Mutex<ExecutionMachine<CS, ST>>>,
     /// A thread-safe handle to the workload container, which manages the VM and state tree.
     pub workload: Arc<WorkloadContainer<ST>>,
 }
