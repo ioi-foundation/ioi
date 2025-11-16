@@ -3,7 +3,7 @@
 
 mod proof_converter;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use axum::{
     body::Body,
     error_handling::HandleErrorLayer,
@@ -61,7 +61,11 @@ impl IntoResponse for AppError {
                 )
             }
         };
-        (status, Json(serde_json::json!({ "error": {"code": code, "message": msg} }))).into_response()
+        (
+            status,
+            Json(serde_json::json!({ "error": {"code": code, "message": msg} })),
+        )
+            .into_response()
     }
 }
 
@@ -159,8 +163,16 @@ impl IpLimiter {
             .get::<ConnectInfo<SocketAddr>>()
             .map(|c| c.0.ip())
         {
-            if self.trusted_proxy_cidrs.iter().any(|cidr| cidr.contains(peer_ip)) {
-                if let Some(xff) = req.headers().get("x-forwarded-for").and_then(|h| h.to_str().ok()) {
+            if self
+                .trusted_proxy_cidrs
+                .iter()
+                .any(|cidr| cidr.contains(peer_ip))
+            {
+                if let Some(xff) = req
+                    .headers()
+                    .get("x-forwarded-for")
+                    .and_then(|h| h.to_str().ok())
+                {
                     if let Some(first) = xff.split(',').next() {
                         if let Ok(ip) = first.trim().parse::<IpAddr>() {
                             return ip;
@@ -296,10 +308,22 @@ async fn query_handler(
         let result = "error";
         let height_label = "0";
         get_metric!(GATEWAY_REQ_TOTAL)
-            .with_label_values(&[&state.chain_id, route, result, height_label, proof_format_str])
+            .with_label_values(&[
+                &state.chain_id,
+                route,
+                result,
+                height_label,
+                proof_format_str,
+            ])
             .inc();
         get_metric!(GATEWAY_REQ_LATENCY)
-            .with_label_values(&[&state.chain_id, route, result, height_label, proof_format_str])
+            .with_label_values(&[
+                &state.chain_id,
+                route,
+                result,
+                height_label,
+                proof_format_str,
+            ])
             .observe(started.elapsed().as_secs_f64());
         AppError::Internal(e)
     })?;
@@ -366,10 +390,22 @@ async fn query_handler(
     let route = "/v1/ibc/query";
     let height_label = query_response.height.to_string();
     get_metric!(GATEWAY_REQ_TOTAL)
-        .with_label_values(&[&state.chain_id, route, "ok", &height_label, proof_format_str])
+        .with_label_values(&[
+            &state.chain_id,
+            route,
+            "ok",
+            &height_label,
+            proof_format_str,
+        ])
         .inc();
     get_metric!(GATEWAY_REQ_LATENCY)
-        .with_label_values(&[&state.chain_id, route, "ok", &height_label, proof_format_str])
+        .with_label_values(&[
+            &state.chain_id,
+            route,
+            "ok",
+            &height_label,
+            proof_format_str,
+        ])
         .observe(started.elapsed().as_secs_f64());
     get_metric!(GATEWAY_BYTES_OUT)
         .with_label_values(&[&state.chain_id, route, proof_format_str, "value"])
@@ -483,7 +519,9 @@ async fn submit_handler(
         .with_label_values(&[&state.chain_id, route, "ok", "latest", "none"])
         .observe(started.elapsed().as_secs_f64());
 
-    Ok(Json(SubmitResponse { tx_hash: hex::encode(tx_hash) }))
+    Ok(Json(SubmitResponse {
+        tx_hash: hex::encode(tx_hash),
+    }))
 }
 
 // Helper function borrowed from ioi-telemetry to serve metrics.
@@ -495,7 +533,10 @@ async fn metrics_handler() -> ([(axum::http::HeaderName, String); 1], axum::body
         tracing::error!(error=%e, "Failed to encode prometheus metrics");
     }
     (
-        [(axum::http::header::CONTENT_TYPE, encoder.format_type().to_string())],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            encoder.format_type().to_string(),
+        )],
         buf.into(),
     )
 }
