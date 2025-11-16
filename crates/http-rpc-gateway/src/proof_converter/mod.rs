@@ -1,6 +1,7 @@
 // Path: crates/http-rpc-gateway/src/proof_converter/mod.rs
 
 use anyhow::{anyhow, Result};
+use hex;
 use ibc_proto::{
     ibc::core::commitment::v1::MerkleProof as PbMerkleProof,
     ics23::{
@@ -9,11 +10,9 @@ use ibc_proto::{
         LeafOp as PbLeafOp, LengthOp as PbLengthOp, NonExistenceProof as PbNonExistenceProof,
     },
 };
-use ioi_state::primitives::hash::HashProof;
 use ioi_state::tree::iavl::{ExistenceProof, IavlProof, NonExistenceProof, Side};
 use parity_scale_codec::Decode; // enables IavlProof::decode
 use prost::Message;
-use hex;
 use tendermint_proto::crypto::{ProofOp, ProofOps};
 
 /// The target Protobuf format for the converted proof.
@@ -47,7 +46,7 @@ pub fn convert_proof(
 
     // In a multi-tree system, we would first detect the proof type here.
     // For now, we assume IAVL.
-    
+
     // Example of how Verkle would be handled:
     // if is_verkle_proof(raw_proof_bytes) {
     //     let commitment_proof = convert_verkle_to_ics23(raw_proof_bytes)?;
@@ -78,7 +77,9 @@ pub fn convert_proof(
                 key: Vec::new(),
                 data: merkle_proof.encode_to_vec(),
             };
-            let proof_ops = ProofOps { ops: vec![proof_op] };
+            let proof_ops = ProofOps {
+                ops: vec![proof_op],
+            };
             proof_ops.encode_to_vec()
         }
     };
@@ -91,63 +92,20 @@ pub fn convert_proof(
     Ok(out)
 }
 
-/// Try to decode an `IavlProof`, peeling common wrappers used by the workload:
-///  - ioi_state::primitives::hash::HashProof { value: Vec<u8> }
-///  - SCALE `Vec<u8>` indirection
-///  - ASCII "0x..." hex wrapper
+/// Try to decode an `IavlProof`, tolerating an optional hex prefix.
 fn decode_iavl_proof_flex(input: &[u8]) -> Result<(IavlProof, Vec<&'static str>, &'static str)> {
-    let mut steps_applied = Vec::new();
-    let mut buf: Vec<u8> = input.to_vec();
+    // The only remaining tolerance is for an optional "0x" hex prefix, which is a
+    // common convenience for RPC interfaces. All other wrappers are gone.
+    let (bytes_result, steps) = if input.starts_with(b"0x") {
+        (hex::decode(&input[2..]), vec!["hex"])
+    } else {
+        (Ok(input.to_vec()), vec![])
+    };
+    let bytes = bytes_result?;
 
-    for _ in 0..6 {
-        // Try to decode as IavlProof directly. If it works, we're done.
-        // This handles the case where the input is already the correct format, or we've finished peeling.
-        if let Ok(proof) = IavlProof::decode(&mut &*buf) {
-            return Ok((proof, steps_applied, "scale_iavl"));
-        }
-
-        // Try peeling wrappers, from most specific/unambiguous to least.
-
-        // 1. Peel 0x-hex textual encoding first, as it's unambiguous.
-        if let Ok(s) = std::str::from_utf8(&buf) {
-            if let Some(hexstr) = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")) {
-                if let Ok(raw) = hex::decode(hexstr) {
-                    buf = raw;
-                    steps_applied.push("hex");
-                    continue; // Restart loop with the raw bytes.
-                }
-            }
-        }
-
-        // 2. Peel HashProof wrapper (contains proof in `.value`). This is a specific struct.
-        if let Ok(hp) = HashProof::decode(&mut &*buf) {
-            buf = hp.value;
-            steps_applied.push("hashproof");
-            continue; // Restart loop with the inner bytes.
-        }
-
-        // 3. Peel generic SCALE Vec<u8> wrapper. This is ambiguous, so it's last.
-        // We use a temporary cursor and check if the *entire* buffer is consumed as a single Vec<u8>.
-        // This is a strong indicator of a `Vec<u8>` wrapper.
-        let mut temp_cursor = &buf[..];
-        if let Ok(inner) = <Vec<u8> as parity_scale_codec::Decode>::decode(&mut temp_cursor) {
-            if temp_cursor.is_empty() {
-                // <-- This check is key to avoid false positives
-                buf = inner;
-                steps_applied.push("scale_vec");
-                continue; // Restart loop with the inner bytes.
-            }
-        }
-
-        // If we tried all peels and none matched, break the loop. The buffer is in its final form.
-        break;
-    }
-
-    // Perform a final decode attempt on whatever bytes are left after peeling.
-    // If this fails, the input format is truly unsupported.
-    IavlProof::decode(&mut &*buf)
-        .map(|p| (p, steps_applied, "scale_iavl"))
-        .map_err(|e| anyhow!("unsupported proof encoding (IAVL/SCALE wrappers): {e}"))
+    IavlProof::decode(&mut &*bytes)
+        .map(|proof| (proof, steps, "scale_iavl"))
+        .map_err(|e| anyhow!("Failed to decode canonical IavlProof bytes: {}", e))
 }
 
 /// Converts a native IAVL proof into a standard ICS‑23 `CommitmentProof` (protobuf).
@@ -184,7 +142,7 @@ fn build_ics23_existence(ex: &ExistenceProof) -> Result<PbExistenceProof> {
         },
         prefix: ex.leaf.prefix.clone(),
     };
-    
+
     // Build the InnerOp path. The "header" encodes the native step metadata;
     // the sibling hash is placed on the left (prefix) or right (suffix) by step.side.
     let mut path: Vec<PbInnerOp> = Vec::with_capacity(ex.path.len());
@@ -247,7 +205,6 @@ fn convert_verkle_to_ics23(_proof_bytes: &[u8]) -> Result<PbCommitmentProof> {
         "Verkle-to-ICS23 proof conversion is not yet implemented"
     ))
 }
-
 
 #[cfg(test)]
 mod tests;

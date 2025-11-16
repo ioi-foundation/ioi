@@ -374,9 +374,19 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
             .query_state_at(block.header.state_root, path.as_bytes())
             .await?;
 
+        // --- START REFACTOR ---
+        // Unwrap the HashProof to expose the canonical IavlProof bytes.
+        use ioi_state::primitives::hash::HashProof;
+        use ioi_types::codec::from_bytes_canonical;
+
+        let canonical_proof_bytes = from_bytes_canonical::<HashProof>(&response.proof_bytes)
+            .map(|hash_proof| hash_proof.value)
+            .map_err(|e| anyhow!("Failed to unwrap HashProof from workload: {}", e))?;
+        // --- END REFACTOR ---
+
         Ok(QueryHostResponse {
             value: response.membership.into_option().unwrap_or_default(),
-            proof: Some(response.proof_bytes),
+            proof: Some(canonical_proof_bytes), // Now contains raw IavlProof bytes
             height: query_height,
         })
     }
