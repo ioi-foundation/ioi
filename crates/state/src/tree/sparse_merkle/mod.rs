@@ -4,11 +4,13 @@
 pub mod verifier;
 
 use ioi_api::commitment::{CommitmentScheme, Selector};
-use ioi_api::state::{PrunePlan, ProofProvider, StateAccess, StateManager, StateScanIter, VerifiableState};
+use ioi_api::state::{
+    ProofProvider, PrunePlan, StateAccess, StateManager, StateScanIter, VerifiableState,
+};
 use ioi_api::storage::{NodeHash as StoreNodeHash, NodeStore};
+use ioi_storage::adapter::{commit_and_persist, DeltaAccumulator};
 use ioi_types::app::{to_root_hash, Membership, RootHash};
 use ioi_types::error::{ProofError, StateError};
-use ioi_storage::adapter::{commit_and_persist, DeltaAccumulator};
 use parity_scale_codec::{Decode, Encode};
 use std::any::Any;
 use std::collections::{BTreeMap, HashMap};
@@ -146,6 +148,7 @@ struct Indices {
 impl<CS: CommitmentScheme> SparseMerkleTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+    CS::Witness: Default,
 {
     const TREE_HEIGHT: usize = 256; // For 256-bit keys
 
@@ -234,7 +237,7 @@ where
             .map_err(|e| StateError::Backend(e.to_string()))?;
         let head_epoch = store.epoch_of(head_h);
         let start = prefer_epoch.min(head_epoch);
-        for e in (0..=start).rev() {
+        for e in (0..start).rev() {
             if let Some(bytes) = store
                 .get_node(e, StoreNodeHash(hash))
                 .map_err(|e| StateError::Backend(e.to_string()))?
@@ -477,7 +480,11 @@ where
         &mut self,
         height: u64,
         store: &S,
-    ) -> Result<RootHash, StateError> where <CS as CommitmentScheme>::Commitment: From<Vec<u8>>, <CS as CommitmentScheme>::Proof: AsRef<[u8]> {
+    ) -> Result<RootHash, StateError>
+    where
+        <CS as CommitmentScheme>::Commitment: From<Vec<u8>>,
+        <CS as CommitmentScheme>::Proof: AsRef<[u8]>,
+    {
         self.current_height = height;
         self.collect_height_delta();
         let root_hash = to_root_hash(self.root_commitment().as_ref())?;
@@ -492,6 +499,7 @@ where
 impl<CS: CommitmentScheme> StateAccess for SparseMerkleTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
+    CS::Witness: Default,
 {
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
         if let Some(value) = self.cache.get(key) {
@@ -561,6 +569,7 @@ where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
     CS::Commitment: From<Vec<u8>>,
     CS::Proof: AsRef<[u8]>,
+    CS::Witness: Default,
 {
     type Commitment = CS::Commitment;
     type Proof = CS::Proof;
@@ -584,13 +593,15 @@ where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
     CS::Commitment: From<Vec<u8>>,
     CS::Proof: AsRef<[u8]>,
+    CS::Witness: Default,
 {
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
         let merkle_proof = Self::generate_proof_from_snapshot(&self.root, key);
         let proof_data = merkle_proof.encode();
         let value_typed = self.to_value(&proof_data);
+        let witness = CS::Witness::default();
         self.scheme
-            .create_proof(&Selector::Key(key.to_vec()), &value_typed)
+            .create_proof(&witness, &Selector::Key(key.to_vec()), &value_typed)
             .ok()
     }
 
@@ -641,9 +652,10 @@ where
             }
             let proof_bytes = merkle_proof.encode();
             let proof_value = self.to_value(&proof_bytes);
+            let witness = CS::Witness::default();
             let proof = self
                 .scheme
-                .create_proof(&Selector::Key(key.to_vec()), &proof_value)
+                .create_proof(&witness, &Selector::Key(key.to_vec()), &proof_value)
                 .map_err(|e| StateError::Backend(e.to_string()))?;
             return Ok((membership, proof));
         }
@@ -673,9 +685,10 @@ where
             }
             let proof_bytes = merkle_proof.encode();
             let proof_value = self.to_value(&proof_bytes);
+            let witness = CS::Witness::default();
             let proof = self
                 .scheme
-                .create_proof(&Selector::Key(key.to_vec()), &proof_value)
+                .create_proof(&witness, &Selector::Key(key.to_vec()), &proof_value)
                 .map_err(|e| StateError::Backend(e.to_string()))?;
             return Ok((membership, proof));
         }
@@ -700,6 +713,7 @@ where
     CS::Value: From<Vec<u8>> + AsRef<[u8]>,
     CS::Commitment: From<Vec<u8>>,
     CS::Proof: AsRef<[u8]>,
+    CS::Witness: Default,
 {
     fn prune(&mut self, plan: &PrunePlan) -> Result<(), StateError> {
         let to_prune: Vec<u64> = self

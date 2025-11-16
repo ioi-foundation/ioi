@@ -14,6 +14,7 @@ where
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + std::fmt::Debug,
     CS::Commitment: From<Vec<u8>>,
     CS::Proof: AsRef<[u8]>,
+    CS::Witness: Default,
 {
     /// Build a proof for `key` at `root_hash32` by lazily fetching nodes from `store`.
     /// Returns (Membership, Proof) on success.
@@ -58,9 +59,10 @@ where
                     let proof_obj = super::proof::IavlProof::Existence(existence);
                     let proof_bytes = proof_obj.encode();
                     let proof_value = self.to_value(&proof_bytes);
+                    let witness = CS::Witness::default();
                     let scheme_proof = self
                         .scheme
-                        .create_proof(&Selector::Key(key.to_vec()), &proof_value)
+                        .create_proof(&witness, &Selector::Key(key.to_vec()), &proof_value)
                         .map_err(|e| StateError::Backend(format!("Failed to wrap proof: {}", e)))?;
                     return Ok((Membership::Present(node.value), scheme_proof));
                 } else {
@@ -83,9 +85,10 @@ where
                     let proof_obj = super::proof::IavlProof::NonExistence(non_existence);
                     let proof_bytes = proof_obj.encode();
                     let proof_value = self.to_value(&proof_bytes);
+                    let witness = CS::Witness::default();
                     let scheme_proof = self
                         .scheme
-                        .create_proof(&Selector::Key(key.to_vec()), &proof_value)
+                        .create_proof(&witness, &Selector::Key(key.to_vec()), &proof_value)
                         .map_err(|e| StateError::Backend(format!("Failed to wrap proof: {}", e)))?;
                     return Ok((Membership::Absent, scheme_proof));
                 }

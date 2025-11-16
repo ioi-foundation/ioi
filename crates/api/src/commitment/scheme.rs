@@ -69,12 +69,28 @@ pub trait CommitmentScheme: CommitmentStructure + Debug + Send + Sync + 'static 
     /// The type of values this scheme commits to.
     type Value: AsRef<[u8]> + Clone + Send + Sync + 'static;
 
-    /// Commits to a vector of optional values.
-    fn commit(&self, values: &[Option<Self::Value>]) -> Result<Self::Commitment, CryptoError>;
+    /// NEW: The data required to generate a proof after committing.
+    /// For stateless schemes like hashing, this can be the unit type `()`.
+    /// For stateful schemes like KZG, this will contain the full polynomial.
+    type Witness: Clone + Send + Sync + 'static;
 
-    /// Creates a proof for a specific value identified by a selector.
+    /// Commits to a vector of optional values and returns a witness that can be used
+    /// to construct proofs later.
+    fn commit_with_witness(
+        &self,
+        values: &[Option<Self::Value>],
+    ) -> Result<(Self::Commitment, Self::Witness), CryptoError>;
+
+    /// A convenience method that discards the witness if you only need the commitment.
+    fn commit(&self, values: &[Option<Self::Value>]) -> Result<Self::Commitment, CryptoError> {
+        self.commit_with_witness(values).map(|(c, _w)| c)
+    }
+
+    /// Creates a proof for a specific value identified by a selector, using the witness
+    /// generated during the commit phase.
     fn create_proof(
         &self,
+        witness: &Self::Witness,
         selector: &Selector,
         value: &Self::Value,
     ) -> Result<Self::Proof, CryptoError>;
@@ -93,22 +109,24 @@ pub trait CommitmentScheme: CommitmentStructure + Debug + Send + Sync + 'static 
     fn scheme_id() -> SchemeIdentifier;
 
     /// A convenience method to create a position-based proof.
-    // MODIFICATION: Changed usize to u64.
+    // MODIFICATION: Changed usize to u64 and added witness parameter.
     fn create_proof_at_position(
         &self,
+        witness: &Self::Witness,
         position: u64,
         value: &Self::Value,
     ) -> Result<Self::Proof, CryptoError> {
-        self.create_proof(&Selector::Position(position), value)
+        self.create_proof(witness, &Selector::Position(position), value)
     }
 
     /// A convenience method to create a key-based proof.
     fn create_proof_for_key(
         &self,
+        witness: &Self::Witness,
         key: &[u8],
         value: &Self::Value,
     ) -> Result<Self::Proof, CryptoError> {
-        self.create_proof(&Selector::Key(key.to_vec()), value)
+        self.create_proof(witness, &Selector::Key(key.to_vec()), value)
     }
 
     /// A convenience method to verify a position-based proof.

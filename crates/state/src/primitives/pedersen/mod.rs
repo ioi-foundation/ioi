@@ -1,4 +1,4 @@
-// Path: crates/commitment/src/primitives/pedersen/mod.rs
+// Path: crates/state/src/primitives/pedersen/mod.rs
 //! Pedersen Commitment Scheme implementation using the k256 elliptic curve.
 
 use dcrypt::algorithms::ec::k256::{self as k256, Point, Scalar};
@@ -157,8 +157,12 @@ impl CommitmentScheme for PedersenCommitmentScheme {
     type Commitment = PedersenCommitment;
     type Proof = PedersenProof;
     type Value = Vec<u8>;
+    type Witness = ();
 
-    fn commit(&self, values: &[Option<Self::Value>]) -> Result<Self::Commitment, CryptoError> {
+    fn commit_with_witness(
+        &self,
+        values: &[Option<Self::Value>],
+    ) -> Result<(Self::Commitment, Self::Witness), CryptoError> {
         let (position, value) = values
             .iter()
             .enumerate()
@@ -191,11 +195,13 @@ impl CommitmentScheme for PedersenCommitmentScheme {
             .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
         let commitment_point = value_term.add(&blinding_term);
 
-        Ok(PedersenCommitment(commitment_point.serialize_compressed()))
+        let commitment = PedersenCommitment(commitment_point.serialize_compressed());
+        Ok((commitment, ()))
     }
 
     fn create_proof(
         &self,
+        _witness: &Self::Witness,
         selector: &Selector,
         value: &Self::Value,
     ) -> Result<Self::Proof, CryptoError> {

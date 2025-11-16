@@ -1,4 +1,4 @@
-// Path: crates/commitment/src/primitives/kzg/mod.rs
+// Path: crates/state/src/primitives/kzg/mod.rs
 //! KZG Polynomial Commitment Scheme Implementation using dcrypt's BLS12-381 curve.
 //!
 //! This module provides a working implementation of the KZG scheme, focusing on
@@ -405,28 +405,23 @@ impl CommitmentScheme for KZGCommitmentScheme {
     type Commitment = KZGCommitment;
     type Proof = KZGProof;
     type Value = Vec<u8>;
+    type Witness = KZGWitness;
 
-    /// `commit(&[Option<Value>])` treats `Value` as **evaluation payload bytes** at positions `0..n-1`
-    /// which are converted to field with `value_to_scalar(DST)`, then interpolated over points `0..n-1`.
-    /// For production, **use** `commit_with_witness` and `create_proof_from_witness`.
-    fn commit(&self, values: &[Option<Self::Value>]) -> Result<Self::Commitment, CryptoError> {
-        let values_ref: Vec<_> = values.iter().map(|v| v.as_deref()).collect();
-        self.commit_with_witness(&values_ref).map(|(c, _w)| c)
+    fn commit_with_witness(
+        &self,
+        values: &[Option<Self::Value>],
+    ) -> Result<(Self::Commitment, Self::Witness), CryptoError> {
+        let values_ref: Vec<Option<&[u8]>> = values.iter().map(|v| v.as_deref()).collect();
+        self.commit_with_witness(&values_ref)
     }
 
     fn create_proof(
         &self,
-        _selector: &Selector,
+        witness: &Self::Witness,
+        selector: &Selector,
         value: &Self::Value,
     ) -> Result<Self::Proof, CryptoError> {
-        // This implementation of the trait is problematic because it lacks the full
-        // polynomial context (the witness). We deserialize the witness from the `value`
-        // bytes as a workaround for simple test cases.
-        // PRODUCTION USE: Call `commit_with_witness` and `create_proof_from_witness` directly.
-        let (witness, selector, opened_value): (KZGWitness, Selector, Vec<u8>) =
-            serde_json::from_slice(value.as_ref())
-                .map_err(|e| CryptoError::Deserialization(e.to_string()))?;
-        self.create_proof_from_witness(&witness, &selector, &opened_value)
+        self.create_proof_from_witness(witness, selector, value.as_ref())
     }
 
     fn verify(

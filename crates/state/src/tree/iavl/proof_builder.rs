@@ -25,6 +25,7 @@ where
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + Debug,
     CS::Commitment: From<Vec<u8>>,
     CS::Proof: AsRef<[u8]>,
+    CS::Witness: Default,
 {
     // Determine membership by performing a store-aware get.
     let proof = if tree.get_recursive(root_hash, key).ok()?.is_some() {
@@ -37,8 +38,12 @@ where
     // The inner IAVL proof is SCALE-encoded and becomes the "value" for the outer proof wrapper.
     let proof_data = proof.encode();
     let value = tree.to_value(&proof_data);
+
+    // Create a default witness. For HashCommitmentScheme, this is `()`.
+    let witness = CS::Witness::default();
+
     tree.scheme
-        .create_proof(&Selector::Key(key.to_vec()), &value)
+        .create_proof(&witness, &Selector::Key(key.to_vec()), &value)
         .ok()
 }
 
