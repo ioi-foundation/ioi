@@ -641,22 +641,9 @@ where
     ) -> Result<(Membership, Self::Proof), StateError> {
         let root_hash = to_root_hash(root.as_ref())?;
 
-        // FIX: Handle requests for the current root directly, which is needed for the
-        // genesis self-check on a "cold" tree (empty cache but attached store).
-        // The `create_proof` -> `build_proof_for_root` -> `get_node` path is store-aware,
-        // so it can serve this request correctly as long as `self.store` is Some.
-        if self.root_hash == Some(root_hash) {
-            let membership = match self.get_recursive(self.root_hash, key)? {
-                Some(value) => Membership::Present(value),
-                None => Membership::Absent,
-            };
-            let proof = self.create_proof(key).ok_or_else(|| {
-                StateError::Backend("Failed to generate IAVL proof for current root".to_string())
-            })?;
-            return Ok((membership, proof));
-        }
-
-        // The original logic for historical proofs remains.
+        // The logic for historical proofs remains. All queries for a committed root are
+        // treated as historical, ensuring consistency between the chain's self-check and
+        // external verifiers.
         if let Some(store) = &self.store {
             self.build_proof_from_store_at(store.as_ref(), root_hash, key)
         } else {
