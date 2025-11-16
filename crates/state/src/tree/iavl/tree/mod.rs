@@ -480,14 +480,24 @@ where
         &mut self,
         height: u64,
         store: &S,
-    ) -> Result<RootHash, StateError> {
+    ) -> Result<RootHash, StateError>
+    where
+        CS::Witness: Default,
+    {
         self.current_height = height;
         self.collect_height_delta()?;
         let root_hash = self.root_hash.unwrap_or(EMPTY_HASH);
         commit_and_persist(store, height, root_hash, &self.delta)
             .map_err(|e| ioi_types::error::StateError::Backend(e.to_string()))?;
         self.delta.clear();
+
+        // Let the StateManager logic update indices, refcounts, etc.
         let _ = <Self as StateManager>::commit_version(self, height)?;
+
+        // Now that everything is persisted, it is safe to drop the caches.
+        self.node_cache.clear();
+        self.kv_cache.clear();
+
         Ok(root_hash)
     }
 }
@@ -602,6 +612,7 @@ where
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + Debug,
     CS::Commitment: From<Vec<u8>>,
     CS::Proof: AsRef<[u8]>,
+    CS::Witness: Default,
 {
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
         proof_builder::build_proof_for_root(self, self.root_hash, key)
@@ -669,6 +680,7 @@ where
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + Debug,
     CS::Commitment: From<Vec<u8>>,
     CS::Proof: AsRef<[u8]>,
+    CS::Witness: Default,
 {
     fn prune(&mut self, plan: &PrunePlan) -> Result<(), StateError> {
         let to_prune: Vec<u64> = self
@@ -733,8 +745,10 @@ where
         }
         *count += 1;
 
-        self.node_cache.clear();
-        self.kv_cache.clear();
+        // This logic is now moved to `commit_version_with_store`
+        // self.node_cache.clear();
+        // self.kv_cache.clear();
+
         Ok(root_hash)
     }
 
@@ -782,3 +796,6 @@ where
         self.current_height = height;
     }
 }
+
+#[cfg(test)]
+mod tests;

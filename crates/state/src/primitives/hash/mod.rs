@@ -1,4 +1,4 @@
-// Path: crates/commitment/src/primitives/hash/mod.rs
+// Path: crates/state/src/primitives/hash/mod.rs
 //! Hash-based commitment scheme implementations
 
 use ioi_api::commitment::{
@@ -116,8 +116,12 @@ impl CommitmentScheme for HashCommitmentScheme {
     type Commitment = HashCommitment;
     type Proof = HashProof;
     type Value = Vec<u8>;
+    type Witness = ();
 
-    fn commit(&self, values: &[Option<Self::Value>]) -> Result<Self::Commitment, CryptoError> {
+    fn commit_with_witness(
+        &self,
+        values: &[Option<Self::Value>],
+    ) -> Result<(Self::Commitment, Self::Witness), CryptoError> {
         // Simple commitment: hash the concatenation of all values
         let mut combined = Vec::new();
 
@@ -133,16 +137,19 @@ impl CommitmentScheme for HashCommitmentScheme {
         }
 
         // If there are no values, hash an empty array
-        if combined.is_empty() {
-            return Ok(HashCommitment(self.hash_data(&[])?));
-        }
+        let commitment = if combined.is_empty() {
+            HashCommitment(self.hash_data(&[])?)
+        } else {
+            // Return the hash of the combined data
+            HashCommitment(self.hash_data(&combined)?)
+        };
 
-        // Return the hash of the combined data
-        Ok(HashCommitment(self.hash_data(&combined)?))
+        Ok((commitment, ()))
     }
 
     fn create_proof(
         &self,
+        _witness: &Self::Witness,
         selector: &Selector,
         value: &Self::Value,
     ) -> Result<Self::Proof, CryptoError> {

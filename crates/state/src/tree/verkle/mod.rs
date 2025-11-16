@@ -11,12 +11,12 @@ use crate::tree::verkle::proof::{
 };
 use ioi_api::commitment::{CommitmentScheme, Selector};
 use ioi_api::state::{
-    PrunePlan, ProofProvider, StateAccess, StateManager, StateScanIter, VerifiableState,
+    ProofProvider, PrunePlan, StateAccess, StateManager, StateScanIter, VerifiableState,
 };
 use ioi_api::storage::{NodeHash as StoreNodeHash, NodeStore};
+use ioi_storage::adapter::{commit_and_persist, DeltaAccumulator};
 use ioi_types::app::{to_root_hash, Membership, RootHash};
 use ioi_types::error::StateError;
-use ioi_storage::adapter::{commit_and_persist, DeltaAccumulator};
 use parity_scale_codec::{Decode, Encode};
 use std::any::Any;
 use std::collections::{BTreeMap, HashMap};
@@ -163,7 +163,9 @@ impl VerkleTree<KZGCommitmentScheme> {
                 ));
             }
             let &(key, value) = terminal.first().ok_or_else(|| {
-                StateError::InvalidValue("Internal error: terminal slice should not be empty".into())
+                StateError::InvalidValue(
+                    "Internal error: terminal slice should not be empty".into(),
+                )
             })?;
             return self.update_node(&Arc::new(VerkleNode::Empty), key, Some(value), depth);
         }
@@ -917,3 +919,6 @@ impl StateManager for VerkleTree<KZGCommitmentScheme> {
         self.current_height = height;
     }
 }
+
+#[cfg(test)]
+mod tests;

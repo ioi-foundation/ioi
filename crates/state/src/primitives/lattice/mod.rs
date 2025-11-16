@@ -1,4 +1,4 @@
-// Path: crates/commitment/src/primitives/lattice/mod.rs
+// Path: crates/state/src/primitives/lattice/mod.rs
 //! Lattice-based commitment scheme implementation.
 //!
 //! This module implements a Matrix-Vector commitment scheme based on the hardness
@@ -230,8 +230,12 @@ impl CommitmentScheme for LatticeCommitmentScheme {
     type Commitment = LatticeCommitment;
     type Proof = LatticeProof;
     type Value = Vec<u8>;
+    type Witness = ();
 
-    fn commit(&self, values: &[Option<Self::Value>]) -> Result<Self::Commitment, CryptoError> {
+    fn commit_with_witness(
+        &self,
+        values: &[Option<Self::Value>],
+    ) -> Result<(Self::Commitment, Self::Witness), CryptoError> {
         let mut combined = Vec::new();
         for value in values.iter().flatten() {
             combined.extend_from_slice(value.as_ref());
@@ -269,14 +273,17 @@ impl CommitmentScheme for LatticeCommitmentScheme {
             temp_commit.to_bytes()
         };
         let digest = sha256(&digest_bytes)?;
-        Ok(LatticeCommitment {
+        let commitment = LatticeCommitment {
             coeffs: commitment_coeffs,
             digest,
-        })
+        };
+
+        Ok((commitment, ()))
     }
 
     fn create_proof(
         &self,
+        _witness: &Self::Witness,
         _selector: &Selector,
         value: &Self::Value,
     ) -> Result<Self::Proof, CryptoError> {

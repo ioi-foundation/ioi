@@ -63,7 +63,7 @@ impl IAVLNode {
 
             return sha256(&preimage).map_err(|e| StateError::Backend(e.to_string()));
         } else {
-            // Inner node logic remains unchanged, using the persistence encoding for its preimage.
+            // Inner node logic uses the persistence encoding for its preimage.
             let data = encode::encode_node_canonical(self)?;
             sha256(&data).map_err(|e| StateError::Backend(e.to_string()))
         }
