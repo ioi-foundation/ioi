@@ -2,10 +2,10 @@
 
 //! Core, non-optional system logic for transaction nonce management.
 
-use ioi_types::app::{AccountId, ChainTransaction, SystemPayload};
+use ioi_api::state::StateAccess;
+use ioi_types::app::{AccountId, ChainTransaction};
 use ioi_types::error::TransactionError::{self, NonceMismatch};
 use ioi_types::keys::ACCOUNT_NONCE_PREFIX;
-use ioi_api::state::StateAccess;
 use tracing::warn;
 
 fn get_tx_nonce_key(account_id: &AccountId) -> Vec<u8> {
@@ -16,10 +16,11 @@ fn get_tx_nonce_key(account_id: &AccountId) -> Vec<u8> {
 /// Returns None for transaction types that do not use the account-based nonce system.
 fn get_tx_details(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
     match tx {
-        ChainTransaction::System(sys_tx) => match sys_tx.payload {
-            SystemPayload::UpdateAuthorities { .. } => None,
-            _ => Some((sys_tx.header.account_id, sys_tx.header.nonce)),
-        },
+        ChainTransaction::System(sys_tx) => {
+            // After refactoring, all SystemTransactions are CallService and are signed.
+            // The UpdateAuthorities special case is gone.
+            Some((sys_tx.header.account_id, sys_tx.header.nonce))
+        }
         ChainTransaction::Application(app_tx) => match app_tx {
             ioi_types::app::ApplicationTransaction::DeployContract { header, .. }
             | ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {

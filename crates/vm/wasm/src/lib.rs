@@ -13,12 +13,9 @@
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use ioi_types::{config::VmFuelCosts, error::VmError};
-use ioi_api::runtime::{Runnable, Runtime, RuntimeError};
 use ioi_api::state::VmStateAccessor;
 use ioi_api::vm::{ExecutionContext, ExecutionOutput, VirtualMachine};
-use std::collections::HashSet;
-use std::sync::Arc;
+use ioi_types::{config::VmFuelCosts, error::VmError};
 use wasmtime::*;
 
 /// A Wasmtime-based runtime for WASM artifacts.
@@ -39,9 +36,21 @@ impl WasmRuntime {
     }
 }
 
+/// A wrapper around a raw pointer to make it `Send` + `Sync`.
+///
+/// # Safety
+/// This is safe because the `VmStateAccessor` trait is `Send + Sync`, and the
+/// lifetime of the reference (`'a`) passed to `execute` is guaranteed to outlive
+/// the entire Wasmtime execution, including all async host calls. The pointer
+/// is never accessed after the `execute` function returns.
+struct SendSyncPtr<T: ?Sized>(*const T);
+unsafe impl<T: ?Sized> Send for SendSyncPtr<T> {}
+unsafe impl<T: ?Sized> Sync for SendSyncPtr<T> {}
+
 /// This struct holds all host-side state accessible to the WASM module.
 struct HostState {
-    state_accessor: Arc<dyn VmStateAccessor>,
+    // Use a raw pointer to hold the borrowed state accessor for the duration of the call.
+    state_accessor: SendSyncPtr<dyn VmStateAccessor>,
     context: Option<ExecutionContext>,
     memory: Option<Memory>,
     fuel_costs: VmFuelCosts,
@@ -99,9 +108,18 @@ async fn host_state_set(
         .clone();
     let namespaced_key = get_namespaced_key(&contract_address, &contract_key);
 
-    caller
-        .data()
-        .state_accessor
+    // SAFETY: The pointer is guaranteed to be valid for the lifetime of the 'execute' call.
+    // The `AssertUnwindSafe` in the caller ensures we don't access it after a panic.
+    let accessor: &dyn VmStateAccessor = unsafe {
+        caller
+            .data()
+            .state_accessor
+            .0
+            .as_ref()
+            .ok_or_else(|| anyhow!("HostState state_accessor is null"))?
+    };
+
+    accessor
         .insert(&namespaced_key, &value)
         .await
         .map_err(|_| anyhow!("State write failed"))?;
@@ -144,9 +162,17 @@ async fn host_state_delete(
     let fuel = caller.get_fuel()?;
     caller.set_fuel(fuel.saturating_sub(cost))?;
 
-    caller
-        .data()
-        .state_accessor
+    // SAFETY: The pointer is guaranteed to be valid for the lifetime of the 'execute' call.
+    let accessor: &dyn VmStateAccessor = unsafe {
+        caller
+            .data()
+            .state_accessor
+            .0
+            .as_ref()
+            .ok_or_else(|| anyhow!("HostState state_accessor is null"))?
+    };
+
+    accessor
         .delete(&namespaced_key)
         .await
         .map_err(|_| anyhow!("State delete failed"))?;
@@ -189,9 +215,17 @@ async fn host_state_get(
     let fuel = caller.get_fuel()?;
     caller.set_fuel(fuel.saturating_sub(cost))?;
 
-    let value = caller
-        .data()
-        .state_accessor
+    // SAFETY: The pointer is guaranteed to be valid for the lifetime of the 'execute' call.
+    let accessor: &dyn VmStateAccessor = unsafe {
+        caller
+            .data()
+            .state_accessor
+            .0
+            .as_ref()
+            .ok_or_else(|| anyhow!("HostState state_accessor is null"))?
+    };
+
+    let value = accessor
         .get(&namespaced_key)
         .await
         .map_err(|_| anyhow!("State read failed"))?;
@@ -310,85 +344,6 @@ async fn host_call(
     Ok(status)
 }
 
-pub struct WasmRunnable {
-    instance: Instance,
-    store: Store<HostState>,
-}
-
-#[async_trait]
-impl Runnable for WasmRunnable {
-    async fn call(&mut self, entry: &str, req: &[u8]) -> Result<Vec<u8>, RuntimeError> {
-        self.store
-            .set_fuel(u64::MAX)
-            .map_err(|e| RuntimeError::CallFailed(format!("Failed to set fuel: {}", e)))?;
-
-        // First, try resolving a function with signature () -> u64 for no-arg calls.
-        let packed_result = if let Ok(func) = self
-            .instance
-            .get_typed_func::<(), u64>(&mut self.store, entry)
-        {
-            if !req.is_empty() {
-                return Err(RuntimeError::CallFailed(format!(
-                    "Entrypoint '{}' takes no arguments, but arguments were provided.",
-                    entry
-                )));
-            }
-            func.call_async(&mut self.store, ())
-                .await
-                .map_err(|e| RuntimeError::CallFailed(e.to_string()))
-        }
-        // If that fails, try resolving a function with signature (u32, u32) -> u64.
-        else if let Ok(func) = self
-            .instance
-            .get_typed_func::<(u32, u32), u64>(&mut self.store, entry)
-        {
-            let alloc = self
-                .instance
-                .get_typed_func::<u32, u32>(&mut self.store, "allocate")
-                .map_err(|e| RuntimeError::EntrypointNotFound(format!("allocate: {}", e)))?;
-            let mem = self
-                .instance
-                .get_memory(&mut self.store, "memory")
-                .ok_or_else(|| RuntimeError::LoadFailed("memory export missing".into()))?;
-
-            let (ptr, len) = if req.is_empty() {
-                (0, 0)
-            } else {
-                let ptr = alloc
-                    .call_async(&mut self.store, req.len() as u32)
-                    .await
-                    .map_err(|e| RuntimeError::CallFailed(e.to_string()))?;
-                mem.write(&mut self.store, ptr as usize, req)
-                    .map_err(|e| RuntimeError::CallFailed(e.to_string()))?;
-                (ptr, req.len() as u32)
-            };
-
-            func.call_async(&mut self.store, (ptr, len))
-                .await
-                .map_err(|e| RuntimeError::CallFailed(e.to_string()))
-        }
-        // If neither signature matches, the entrypoint is considered not found.
-        else {
-            return Err(RuntimeError::EntrypointNotFound(entry.to_string()));
-        };
-
-        let packed = packed_result?;
-
-        let mem = self
-            .instance
-            .get_memory(&mut self.store, "memory")
-            .ok_or_else(|| RuntimeError::LoadFailed("memory export missing".into()))?;
-
-        let out_ptr = (packed >> 32) as u32;
-        let out_len = (packed & 0xFFFF_FFFF) as u32;
-
-        let mut out = vec![0; out_len as usize];
-        mem.read(&self.store, out_ptr as usize, &mut out)
-            .map_err(|e| RuntimeError::CallFailed(e.to_string()))?;
-        Ok(out)
-    }
-}
-
 #[async_trait]
 impl VirtualMachine for WasmRuntime {
     async fn execute(
@@ -396,7 +351,7 @@ impl VirtualMachine for WasmRuntime {
         contract_bytecode: &[u8],
         entrypoint: &str,
         input_data: &[u8],
-        state_accessor: Arc<dyn VmStateAccessor>,
+        state_accessor: &dyn VmStateAccessor,
         execution_context: ExecutionContext,
     ) -> Result<ExecutionOutput, VmError> {
         let mut linker = Linker::new(&self.engine);
@@ -452,8 +407,19 @@ impl VirtualMachine for WasmRuntime {
             })
             .map_err(|e| VmError::Initialization(e.to_string()))?;
 
+        // The `state_accessor` has a lifetime tied to the `execute` function call.
+        // Wasmtime's `Store` requires its data to be `'static`. To bridge this, we
+        // use an `unsafe` block to transmute the lifetime to `'static`.
+        //
+        // SAFETY: This is safe because the `Store` and all async operations
+        // within it (which hold `HostState`) are created and dropped within the
+        // scope of this `execute` function. Therefore, the original `state_accessor`
+        // reference is guaranteed to outlive the `Store` and any operations
+        // that might use the transmuted pointer.
+        let state_accessor_static: &'static dyn VmStateAccessor =
+            unsafe { std::mem::transmute(state_accessor) };
         let host_state = HostState {
-            state_accessor,
+            state_accessor: SendSyncPtr(state_accessor_static as *const _),
             context: Some(execution_context.clone()),
             memory: None,
             fuel_costs: self.fuel_costs.clone(),
@@ -475,28 +441,49 @@ impl VirtualMachine for WasmRuntime {
             .ok_or_else(|| VmError::Initialization("Memory export not found".to_string()))?;
         store.data_mut().memory = Some(memory);
 
-        let allocate_func = instance
-            .get_typed_func::<u32, u32>(&mut store, "allocate")
-            .map_err(|e| VmError::FunctionNotFound(format!("'allocate': {e}")))?;
-        let call_func = instance
-            .get_typed_func::<(u32, u32), u64>(&mut store, entrypoint)
-            .map_err(|e| VmError::FunctionNotFound(format!("'{entrypoint}': {e}")))?;
+        // First, try resolving a function with signature () -> u64 for no-arg calls.
+        let packed_result = if let Ok(func) =
+            instance.get_typed_func::<(), u64>(&mut store, entrypoint)
+        {
+            if !input_data.is_empty() {
+                return Err(VmError::FunctionNotFound(format!(
+                    "Entrypoint '{}' takes no arguments, but arguments were provided.",
+                    entrypoint
+                )));
+            }
+            func.call_async(&mut store, ()).await
+        }
+        // If that fails, try resolving a function with signature (u32, u32) -> u64.
+        else if let Ok(func) = instance.get_typed_func::<(u32, u32), u64>(&mut store, entrypoint)
+        {
+            let alloc = instance
+                .get_typed_func::<u32, u32>(&mut store, "allocate")
+                .map_err(|e| VmError::FunctionNotFound(format!("allocate: {}", e)))?;
 
-        let input_ptr = allocate_func
-            .call_async(&mut store, input_data.len() as u32)
-            .await
-            .map_err(|e| VmError::ExecutionTrap(e.to_string()))?;
-        memory
-            .write(&mut store, input_ptr as usize, input_data)
-            .map_err(|e| VmError::MemoryError(e.to_string()))?;
+            let (ptr, len) = if input_data.is_empty() {
+                (0, 0)
+            } else {
+                let ptr = alloc
+                    .call_async(&mut store, input_data.len() as u32)
+                    .await
+                    .map_err(|e| VmError::ExecutionTrap(e.to_string()))?;
+                memory
+                    .write(&mut store, ptr as usize, input_data)
+                    .map_err(|e| VmError::MemoryError(e.to_string()))?;
+                (ptr, input_data.len() as u32)
+            };
 
-        let result_packed = call_func
-            .call_async(&mut store, (input_ptr, input_data.len() as u32))
-            .await
-            .map_err(|e| VmError::ExecutionTrap(e.to_string()))?;
+            func.call_async(&mut store, (ptr, len)).await
+        }
+        // If neither signature matches, the entrypoint is considered not found.
+        else {
+            return Err(VmError::FunctionNotFound(entrypoint.to_string()));
+        };
 
-        let result_ptr = (result_packed >> 32) as u32;
-        let result_len = result_packed as u32;
+        let packed = packed_result.map_err(|e| VmError::ExecutionTrap(e.to_string()))?;
+
+        let result_ptr = (packed >> 32) as u32;
+        let result_len = packed as u32;
         let mut return_data = vec![0; result_len as usize];
         memory
             .read(&store, result_ptr as usize, &mut return_data)
@@ -511,85 +498,5 @@ impl VirtualMachine for WasmRuntime {
             gas_used,
             return_data,
         })
-    }
-}
-
-#[async_trait]
-impl Runtime for WasmRuntime {
-    async fn load(&self, artifact: &[u8]) -> Result<Box<dyn Runnable>, RuntimeError> {
-        let module = Module::new(&self.engine, artifact)
-            .map_err(|e| RuntimeError::LoadFailed(e.to_string()))?;
-
-        let required_exports: HashSet<&str> = [
-            "id",
-            "abi_version",
-            "state_schema",
-            "prepare_upgrade",
-            "complete_upgrade",
-            "manifest",
-        ]
-        .iter()
-        .cloned()
-        .collect();
-
-        let actual_exports: HashSet<&str> = module.exports().map(|e| e.name()).collect();
-
-        if !required_exports.is_subset(&actual_exports) {
-            return Err(RuntimeError::LoadFailed(format!(
-                "WASM module is missing required ABI exports. Missing: {:?}",
-                required_exports.difference(&actual_exports)
-            )));
-        }
-
-        let host_state = HostState {
-            state_accessor: Arc::new(NullStateAccessor), // A dummy accessor for setup
-            context: None,
-            memory: None,
-            fuel_costs: self.fuel_costs.clone(),
-        };
-        let mut store = Store::new(&self.engine, host_state);
-        store
-            .set_fuel(u64::MAX)
-            .map_err(|e| RuntimeError::LoadFailed(format!("Failed to set initial fuel: {}", e)))?;
-
-        let mut linker = Linker::new(&self.engine);
-        linker
-            .func_wrap5_async("env", "host_call", |c, p1, p2, p3, p4, p5| {
-                Box::new(host_call(c, p1, p2, p3, p4, p5))
-            })
-            .unwrap();
-
-        let instance = linker
-            .instantiate_async(&mut store, &module)
-            .await
-            .map_err(|e| RuntimeError::LoadFailed(e.to_string()))?;
-
-        let memory = instance
-            .get_memory(&mut store, "memory")
-            .ok_or_else(|| RuntimeError::LoadFailed("Memory not found".into()))?;
-        store.data_mut().memory = Some(memory);
-
-        Ok(Box::new(WasmRunnable { instance, store }))
-    }
-}
-
-struct NullStateAccessor;
-#[async_trait]
-impl VmStateAccessor for NullStateAccessor {
-    async fn get(
-        &self,
-        _key: &[u8],
-    ) -> Result<Option<Vec<u8>>, ioi_types::error::StateError> {
-        Ok(None)
-    }
-    async fn insert(
-        &self,
-        _key: &[u8],
-        _value: &[u8],
-    ) -> Result<(), ioi_types::error::StateError> {
-        Ok(())
-    }
-    async fn delete(&self, _key: &[u8]) -> Result<(), ioi_types::error::StateError> {
-        Ok(())
     }
 }

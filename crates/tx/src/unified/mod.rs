@@ -5,32 +5,25 @@ use async_trait::async_trait;
 use ioi_api::chain::ChainView;
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::error::ErrorCode;
-use ioi_api::identity::CredentialsView;
-use ioi_api::state::{ProofProvider, StateAccess, StateManager};
+use ioi_api::state::{
+    service_namespace_prefix, NamespacedStateAccess, ProofProvider, StateAccess, StateManager,
+};
 use ioi_api::transaction::context::TxContext;
 use ioi_api::transaction::TransactionModel;
 use ioi_api::vm::ExecutionContext;
-use ioi_crypto::algorithms::hash::sha256;
 use ioi_telemetry::sinks::{error_metrics, service_metrics};
 use ioi_types::app::{
-    evidence_id, write_validator_sets, ActiveKeyRecord, ApplicationTransaction, ChainStatus,
-    ChainTransaction, OffenseFacts, SignatureSuite, StateEntry, SystemPayload, ValidatorV1,
+    ApplicationTransaction, ChainStatus, ChainTransaction, StateEntry, SystemPayload,
 };
 use ioi_types::codec;
-use ioi_types::config::ConsensusType;
 use ioi_types::error::{StateError, TransactionError};
-use ioi_types::keys::{
-    active_service_key, ACCOUNT_ID_TO_PUBKEY_PREFIX, EVIDENCE_REGISTRY_KEY, GOVERNANCE_KEY,
-    STATUS_KEY, UPGRADE_ARTIFACT_PREFIX, UPGRADE_MANIFEST_PREFIX, UPGRADE_PENDING_PREFIX,
-    VALIDATOR_SET_KEY,
-};
+use ioi_types::keys::active_service_key;
+use ioi_types::keys::GOVERNANCE_KEY;
 use ioi_types::service_configs::{
     ActiveServiceMeta, GovernancePolicy, GovernanceSigner, MethodPermission,
 };
-use libp2p::identity::PublicKey as Libp2pPublicKey;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
 use std::fmt::Debug;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Encode, Decode)]
@@ -130,7 +123,13 @@ where
                 ApplicationTransaction::DeployContract { code, header, .. } => {
                     let workload = chain_ref.workload_container();
                     let public_key_bytes = state
-                        .get(&[ACCOUNT_ID_TO_PUBKEY_PREFIX, header.account_id.as_ref()].concat())?
+                        .get(
+                            &[
+                                ioi_types::keys::ACCOUNT_ID_TO_PUBKEY_PREFIX,
+                                header.account_id.as_ref(),
+                            ]
+                            .concat(),
+                        )?
                         .ok_or(TransactionError::UnauthorizedByCredentials)?;
 
                     let (_address, state_delta) = workload
@@ -168,7 +167,13 @@ where
                     let code = stored_entry.value;
 
                     let public_key_bytes = state
-                        .get(&[ACCOUNT_ID_TO_PUBKEY_PREFIX, header.account_id.as_ref()].concat())?
+                        .get(
+                            &[
+                                ioi_types::keys::ACCOUNT_ID_TO_PUBKEY_PREFIX,
+                                header.account_id.as_ref(),
+                            ]
+                            .concat(),
+                        )?
                         .ok_or(TransactionError::UnauthorizedByCredentials)?;
 
                     let workload = chain_ref.workload_container();
@@ -221,7 +226,6 @@ where
                         }
                         validate_service_id(service_id)?;
 
-                        // Always log that we received a CallService so we can see ingress even if we bail early.
                         tracing::debug!(
                             target = "service_dispatch",
                             "incoming CallService: {}::{} (params_len={})",
@@ -231,46 +235,28 @@ where
                         );
 
                         let meta_key = active_service_key(service_id);
-                        let maybe_meta_bytes = state.get(&meta_key)?;
+                        let meta_bytes = state.get(&meta_key)?.ok_or_else(|| {
+                            TransactionError::Unsupported(format!(
+                                "Service '{}' is not active",
+                                service_id
+                            ))
+                        })?;
+                        let meta: ActiveServiceMeta = codec::from_bytes_canonical(&meta_bytes)?;
 
-                        // Parse meta if present; otherwise, allow a test-only fallback for ibc::msg_dispatch@v1.
-                        let meta_opt: Option<ActiveServiceMeta> =
-                            if let Some(bytes) = maybe_meta_bytes {
-                                Some(codec::from_bytes_canonical::<ActiveServiceMeta>(&bytes)?)
-                            } else {
-                                return Err(TransactionError::Unsupported(format!(
-                                    "Service '{}' is not active",
-                                    service_id
-                                )));
-                            };
-
-                        // Check administrative disablement (safe to do even if meta was missing).
                         let disabled_key = [meta_key.as_slice(), b"::disabled"].concat();
                         if state.get(&disabled_key)?.is_some() {
-                            tracing::warn!(
-                                target = "service_dispatch",
-                                "Service '{}' is administratively disabled",
-                                service_id
-                            );
                             return Err(TransactionError::Unsupported(format!(
                                 "Service '{}' is administratively disabled",
                                 service_id
                             )));
                         }
 
-                        // Determine permission (from meta if present, else test-only fallback).
-                        let permission = match meta_opt
-                            .as_ref()
-                            .and_then(|m| m.methods.get(method).cloned())
-                        {
-                            Some(p) => p,
-                            None => {
-                                return Err(TransactionError::Unsupported(format!(
-                                    "Method '{}' not found in service '{}' ABI",
-                                    method, service_id
-                                )))
-                            }
-                        };
+                        let permission = meta.methods.get(method).ok_or_else(|| {
+                            TransactionError::Unsupported(format!(
+                                "Method '{}' not found in service '{}' ABI",
+                                method, service_id
+                            ))
+                        })?;
                         match permission {
                             MethodPermission::Internal => {
                                 if !ctx.is_internal {
@@ -305,28 +291,108 @@ where
                             MethodPermission::User => {}
                         }
 
-                        tracing::debug!(
-                            target = "service_dispatch",
-                            "dispatching CallService: {}::{} (params_len={})",
-                            service_id,
-                            method,
-                            params.len()
-                        );
+                        // --- SPECIAL CASE: Misbehavior Reporting ---
+                        // This is a system-critical function that directly invokes the consensus engine's
+                        // penalty logic. We intercept it here before generic service dispatch.
+                        if service_id == "governance" && method == "report_misbehavior@v1" {
+                            use ioi_services::governance::ReportMisbehaviorParams;
+                            use ioi_types::app::{FailureReport, OffenseFacts};
+                            use ioi_types::keys::{EVIDENCE_REGISTRY_KEY, STATUS_KEY};
+                            use std::collections::BTreeSet;
+
+                            // Decode params
+                            let params: ReportMisbehaviorParams =
+                                codec::from_bytes_canonical(params)?;
+                            let report: FailureReport = params.report;
+
+                            // 1. Basic validator check: reporter must be an active validator
+                            let vs_blob_bytes = state
+                                .get(ioi_types::keys::VALIDATOR_SET_KEY)?
+                                .ok_or(TransactionError::State(StateError::KeyNotFound))?;
+                            let vs_sets = ioi_types::app::read_validator_sets(&vs_blob_bytes)
+                                .map_err(|e| {
+                                    TransactionError::State(StateError::InvalidValue(e.to_string()))
+                                })?;
+
+                            if !vs_sets
+                                .current
+                                .validators
+                                .iter()
+                                .any(|v| v.account_id == ctx.signer_account_id)
+                            {
+                                return Err(TransactionError::Invalid(
+                                    "Reporter is not an active validator.".into(),
+                                ));
+                            }
+
+                            // 2. Defense-in-depth on facts: canonical URL and no future timestamp
+                            if let OffenseFacts::FailedCalibrationProbe {
+                                target_url,
+                                probe_timestamp,
+                            } = &report.facts
+                            {
+                                let normalized = target_url.trim().to_ascii_lowercase();
+                                if *target_url != normalized {
+                                    return Err(TransactionError::Invalid(
+                                        "facts.target_url must be canonical (trimmed, lowercase)"
+                                            .into(),
+                                    ));
+                                }
+                                let status_bytes = state
+                                    .get(STATUS_KEY)?
+                                    .ok_or(TransactionError::State(StateError::KeyNotFound))?;
+                                let chain_status: ChainStatus =
+                                    codec::from_bytes_canonical(&status_bytes)?;
+                                if *probe_timestamp > chain_status.latest_timestamp {
+                                    return Err(TransactionError::Invalid(
+                                        "facts.probe_timestamp is in the future".into(),
+                                    ));
+                                }
+                            }
+
+                            // 3. Evidence replay protection via registry
+                            let handled_evidence: BTreeSet<[u8; 32]> = state
+                                .get(EVIDENCE_REGISTRY_KEY)?
+                                .as_deref()
+                                .map(|b| codec::from_bytes_canonical(b).unwrap_or_default())
+                                .unwrap_or_default();
+
+                            let mut new_handled_evidence = handled_evidence;
+                            let id = ioi_types::app::evidence_id(&report)
+                                .map_err(|e| TransactionError::Invalid(e.to_string()))?;
+                            if !new_handled_evidence.insert(id) {
+                                return Err(TransactionError::Invalid(
+                                    "Duplicate evidence: this offense has already been penalized."
+                                        .to_string(),
+                                ));
+                            }
+                            state.insert(
+                                EVIDENCE_REGISTRY_KEY,
+                                &codec::to_bytes_canonical(&new_handled_evidence)?,
+                            )?;
+
+                            // 4. Delegate actual penalty computation to the consensus engine
+                            let penalty_mechanism = chain_ref.get_penalty_mechanism();
+                            penalty_mechanism.apply_penalty(state, &report).await?;
+
+                            // Done: skip normal service call, we've already handled this system-level effect.
+                            return Ok(UnifiedProof::System);
+                        }
+
                         let service = ctx
                             .services
                             .services()
                             .find(|s| s.id() == service_id)
                             .ok_or_else(|| {
-                                tracing::warn!(
-                                    target = "service_dispatch",
-                                    "Service '{}' not found or not enabled",
-                                    service_id
-                                );
                                 TransactionError::Unsupported(format!(
                                     "Service '{}' not found or not enabled",
                                     service_id
                                 ))
                             })?;
+
+                        // Create the namespaced state wrapper and dispatch.
+                        let prefix = service_namespace_prefix(service.id());
+                        let mut namespaced_state = NamespacedStateAccess::new(state, prefix, &meta);
 
                         tracing::debug!(
                             target = "service_dispatch",
@@ -336,7 +402,7 @@ where
                         );
                         let start = std::time::Instant::now();
                         let result = service
-                            .handle_service_call(state, method, params, ctx)
+                            .handle_service_call(&mut namespaced_state, method, params, ctx)
                             .await;
                         let latency = start.elapsed().as_secs_f64();
                         service_metrics().observe_service_dispatch_latency(
@@ -349,314 +415,6 @@ where
                             service_metrics().inc_dispatch_error(service.id(), method, e.code());
                         }
                         result?;
-                    }
-                    SystemPayload::StoreModule { manifest, artifact } => {
-                        let manifest_hash = sha256(manifest.as_bytes())?;
-                        let artifact_hash = sha256(artifact)?;
-                        let manifest_key = [UPGRADE_MANIFEST_PREFIX, &manifest_hash].concat();
-                        let artifact_key = [UPGRADE_ARTIFACT_PREFIX, &artifact_hash].concat();
-                        if state.get(&manifest_key)?.is_none() {
-                            state.insert(&manifest_key, manifest.as_bytes())?;
-                        }
-                        if state.get(&artifact_key)?.is_none() {
-                            state.insert(&artifact_key, artifact)?;
-                        }
-                    }
-                    SystemPayload::SwapModule {
-                        service_id,
-                        manifest_hash,
-                        artifact_hash,
-                        activation_height,
-                    } => {
-                        let policy_bytes = state
-                            .get(GOVERNANCE_KEY)?
-                            .ok_or(TransactionError::State(StateError::KeyNotFound))?;
-                        let policy: GovernancePolicy = codec::from_bytes_canonical(&policy_bytes)?;
-                        match policy.signer {
-                            GovernanceSigner::Single(gov_id) => {
-                                tracing::warn!(
-                                    target = "governance",
-                                    "SwapModule auth check: signer_account_id={} gov_id={}",
-                                    hex::encode(ctx.signer_account_id.as_ref()),
-                                    hex::encode(gov_id.as_ref())
-                                );
-                                if ctx.signer_account_id != gov_id {
-                                    return Err(TransactionError::Invalid(
-                                        "Caller is not the governance account".into(),
-                                    ));
-                                }
-                            }
-                        }
-                        validate_service_id(service_id)?;
-                        let manifest_key = [UPGRADE_MANIFEST_PREFIX, manifest_hash].concat();
-                        if state.get(&manifest_key)?.is_none() {
-                            return Err(TransactionError::Invalid(format!(
-                                "Manifest not found for hash {}",
-                                hex::encode(manifest_hash)
-                            )));
-                        }
-                        let artifact_key = [UPGRADE_ARTIFACT_PREFIX, artifact_hash].concat();
-                        if state.get(&artifact_key)?.is_none() {
-                            return Err(TransactionError::Invalid(format!(
-                                "Artifact not found for hash {}",
-                                hex::encode(artifact_hash)
-                            )));
-                        }
-                        let key =
-                            [UPGRADE_PENDING_PREFIX, &activation_height.to_le_bytes()].concat();
-                        let mut pending: Vec<(String, [u8; 32], [u8; 32])> = state
-                            .get(&key)?
-                            .and_then(|b| codec::from_bytes_canonical(&b).ok())
-                            .unwrap_or_default();
-                        pending.push((service_id.clone(), *manifest_hash, *artifact_hash));
-                        state.insert(&key, &codec::to_bytes_canonical(&pending)?)?;
-                    }
-                    #[allow(deprecated)]
-                    SystemPayload::RotateKey(proof) => {
-                        let params_bytes = codec::to_bytes_canonical(proof)?;
-                        let service = ctx
-                            .services
-                            .services()
-                            .find(|s| s.id() == "identity_hub")
-                            .ok_or(TransactionError::Unsupported(
-                                "IdentityHub service not found".into(),
-                            ))?;
-                        service
-                            .handle_service_call(state, "rotate_key@v1", &params_bytes, ctx)
-                            .await?;
-                    }
-                    #[allow(deprecated)]
-                    SystemPayload::Vote {
-                        proposal_id,
-                        option,
-                    } => {
-                        let params_bytes = codec::to_bytes_canonical(&(*proposal_id, *option))?;
-                        let service = ctx
-                            .services
-                            .services()
-                            .find(|s| s.id() == "governance")
-                            .ok_or(TransactionError::Unsupported(
-                                "Governance service not found".into(),
-                            ))?;
-                        service
-                            .handle_service_call(state, "vote@v1", &params_bytes, ctx)
-                            .await?;
-                    }
-                    SystemPayload::Stake { public_key, amount } => {
-                        if chain_ref.consensus_type() != ConsensusType::ProofOfStake {
-                            return Err(TransactionError::Unsupported(
-                                "Stake operations are not supported on non-PoS chains".into(),
-                            ));
-                        }
-                        let staker_account_id = sys_tx.header.account_id;
-                        let target_activation = ctx.block_height + 2;
-
-                        let maybe_blob_bytes = state.get(VALIDATOR_SET_KEY)?;
-                        let mut sets = maybe_blob_bytes
-                            .as_ref()
-                            .map(|b| ioi_types::app::read_validator_sets(b))
-                            .transpose()?
-                            .unwrap_or_default();
-
-                        // --- FIX START: Correctly modify or create the 'next' validator set ---
-                        // If there is no pending 'next' set, create one based on the current set.
-                        if sets.next.is_none() {
-                            let mut new_next = sets.current.clone();
-                            new_next.effective_from_height = target_activation;
-                            sets.next = Some(new_next);
-                        }
-                        // Now we are guaranteed to have a 'next' set. Modify it.
-                        let next_vs = sets.next.as_mut().unwrap();
-                        // --- FIX END ---
-
-                        if let Some(validator) = next_vs
-                            .validators
-                            .iter_mut()
-                            .find(|v| v.account_id == staker_account_id)
-                        {
-                            validator.weight = validator.weight.saturating_add(*amount as u128);
-                        } else {
-                            let creds = ctx
-                                .services
-                                .get::<ioi_services::identity::IdentityHub>()
-                                .ok_or_else(|| {
-                                    TransactionError::Unsupported(
-                                        "IdentityHub service not found for staking".into(),
-                                    )
-                                })?
-                                .get_credentials(state, &staker_account_id)?;
-                            let active_cred = creds[0].as_ref().ok_or_else(|| {
-                                TransactionError::Invalid("Staker has no active key".to_string())
-                            })?;
-
-                            next_vs.validators.push(ValidatorV1 {
-                                account_id: staker_account_id,
-                                weight: *amount as u128,
-                                consensus_key: ActiveKeyRecord {
-                                    suite: active_cred.suite,
-                                    public_key_hash: active_cred.public_key_hash,
-                                    since_height: active_cred.activation_height,
-                                },
-                            });
-
-                            let pubkey_map_key =
-                                [ACCOUNT_ID_TO_PUBKEY_PREFIX, staker_account_id.as_ref()].concat();
-                            if state.get(&pubkey_map_key)?.is_none() {
-                                let pk_to_store = match sys_tx.signature_proof.suite {
-                                    SignatureSuite::Ed25519 => {
-                                        if Libp2pPublicKey::try_decode_protobuf(public_key).is_ok()
-                                        {
-                                            public_key.clone()
-                                        } else {
-                                            let ed = libp2p::identity::ed25519::PublicKey::try_from_bytes(
-                                            &sys_tx.signature_proof.public_key
-                                        ).map_err(|_| TransactionError::Invalid("Malformed Ed25519 key".into()))?;
-                                            libp2p::identity::PublicKey::from(ed).encode_protobuf()
-                                        }
-                                    }
-                                    SignatureSuite::Dilithium2 => {
-                                        sys_tx.signature_proof.public_key.clone()
-                                    }
-                                };
-                                state.insert(&pubkey_map_key, &pk_to_store)?;
-                            }
-                        }
-
-                        next_vs
-                            .validators
-                            .sort_by(|a, b| a.account_id.cmp(&b.account_id));
-                        next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
-                        state.insert(VALIDATOR_SET_KEY, &write_validator_sets(&sets)?)?;
-                    }
-                    SystemPayload::Unstake { amount } => {
-                        if chain_ref.consensus_type() != ConsensusType::ProofOfStake {
-                            return Err(TransactionError::Unsupported(
-                                "Unstake operations are not supported on non-PoS chains".into(),
-                            ));
-                        }
-                        let staker_account_id = sys_tx.header.account_id;
-                        let target_activation = ctx.block_height + 2;
-                        let maybe_blob_bytes = state.get(VALIDATOR_SET_KEY)?;
-                        let blob_bytes = maybe_blob_bytes.ok_or_else(|| {
-                            TransactionError::Invalid(
-                                "Validator set does not exist to unstake from".into(),
-                            )
-                        })?;
-                        let mut sets = ioi_types::app::read_validator_sets(&blob_bytes)?;
-
-                        // --- FIX START: Correctly modify or create the 'next' validator set ---
-                        // If there is no pending 'next' set, create one based on the current set.
-                        if sets.next.is_none() {
-                            let mut new_next = sets.current.clone();
-                            new_next.effective_from_height = target_activation;
-                            sets.next = Some(new_next);
-                        }
-                        // Now we are guaranteed to have a 'next' set. Modify it.
-                        let next_vs = sets.next.as_mut().unwrap();
-                        // --- FIX END ---
-
-                        let mut validator_found = false;
-                        next_vs.validators.retain_mut(|v| {
-                            if v.account_id == staker_account_id {
-                                validator_found = true;
-                                v.weight = v.weight.saturating_sub(*amount as u128);
-                                v.weight > 0
-                            } else {
-                                true
-                            }
-                        });
-                        if !validator_found {
-                            return Err(TransactionError::Invalid(
-                                "Staker not in validator set".into(),
-                            ));
-                        }
-                        next_vs
-                            .validators
-                            .sort_by(|a, b| a.account_id.cmp(&b.account_id));
-                        next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
-                        state.insert(VALIDATOR_SET_KEY, &write_validator_sets(&sets)?)?;
-                    }
-                    SystemPayload::ReportMisbehavior { report } => {
-                        let reporter_id = &sys_tx.header.account_id;
-                        let vs_blob_bytes = state
-                            .get(VALIDATOR_SET_KEY)?
-                            .ok_or(TransactionError::State(StateError::KeyNotFound))?;
-                        let vs_sets = ioi_types::app::read_validator_sets(&vs_blob_bytes)?;
-                        if !vs_sets
-                            .current
-                            .validators
-                            .iter()
-                            .any(|v| v.account_id == *reporter_id)
-                        {
-                            return Err(TransactionError::Invalid(
-                                "Reporter is not an active validator.".into(),
-                            ));
-                        }
-
-                        // --- Basic facts sanity checks (defense-in-depth) ---
-                        // These checks prevent obvious canonicalization abuse and future-dating.
-                        let status_bytes = state
-                            .get(STATUS_KEY)?
-                            .ok_or(TransactionError::State(StateError::KeyNotFound))?;
-                        let chain_status: ChainStatus = codec::from_bytes_canonical(&status_bytes)
-                            .map_err(|e| {
-                                TransactionError::State(StateError::InvalidValue(e.to_string()))
-                            })?;
-
-                        match &report.facts {
-                            OffenseFacts::FailedCalibrationProbe {
-                                target_url,
-                                probe_timestamp,
-                            } => {
-                                // Enforce canonical URL form: trimmed + lowercase.
-                                let normalized = target_url.trim().to_ascii_lowercase();
-                                if *target_url != normalized {
-                                    return Err(TransactionError::Invalid(
-                                        "facts.target_url must be canonical (trimmed, lowercase)"
-                                            .into(),
-                                    ));
-                                }
-                                // Probe timestamp must not be in the future.
-                                if *probe_timestamp > chain_status.latest_timestamp {
-                                    return Err(TransactionError::Invalid(
-                                        "facts.probe_timestamp is in the future".into(),
-                                    ));
-                                }
-                            }
-                        }
-                        // ----------------------------------------------------
-
-                        let handled_evidence: BTreeSet<[u8; 32]> = state
-                            .get(EVIDENCE_REGISTRY_KEY)?
-                            .as_deref()
-                            .map(|b| codec::from_bytes_canonical(b).unwrap_or_default())
-                            .unwrap_or_default();
-                        let mut new_handled_evidence = handled_evidence;
-                        let id = evidence_id(report)
-                            .map_err(|e| TransactionError::Invalid(e.to_string()))?;
-                        if !new_handled_evidence.insert(id) {
-                            return Err(TransactionError::Invalid(
-                                "Duplicate evidence: this offense has already been penalized."
-                                    .to_string(),
-                            ));
-                        }
-                        state.insert(
-                            EVIDENCE_REGISTRY_KEY,
-                            &codec::to_bytes_canonical(&new_handled_evidence)?,
-                        )?;
-                        let penalty_mechanism = chain_ref.get_penalty_mechanism();
-                        match penalty_mechanism.apply_penalty(state, report).await {
-                            Ok(()) => {}
-                            Err(e) => {
-                                log::warn!("[Penalty] Report rejected: {}", e);
-                                return Err(e);
-                            }
-                        }
-                    }
-                    _ => {
-                        return Err(TransactionError::Unsupported(
-                            "Unhandled SystemPayload variant".into(),
-                        ))
                     }
                 }
                 Ok(UnifiedProof::System)

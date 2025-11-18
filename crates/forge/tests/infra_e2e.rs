@@ -14,9 +14,8 @@ use ioi_forge::testing::{
 };
 use ioi_types::{
     app::{
-        account_id_from_key_material, AccountId, BlockTimingParams, BlockTimingRuntime, ChainId,
-        ChainTransaction, SignHeader, SignatureProof, SignatureSuite, SystemPayload,
-        SystemTransaction,
+        AccountId, BlockTimingParams, BlockTimingRuntime, ChainId, ChainTransaction, SignHeader,
+        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
     },
     codec,
     config::{InitialServiceConfig, OracleParams},
@@ -488,7 +487,9 @@ async fn test_storage_crash_recovery() -> Result<()> {
         .await?;
         println!("Workload process restarted and orchestrator reconnected.");
 
+        // FIX: Use the namespaced key for the query
         let key_to_check = [
+            ioi_api::state::service_namespace_prefix("oracle").as_slice(),
             ioi_types::keys::ORACLE_PENDING_REQUEST_PREFIX,
             &request_id.to_le_bytes(),
         ]

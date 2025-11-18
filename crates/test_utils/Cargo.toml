@@ -3,7 +3,8 @@ name = "ioi-test-utils"
 version = "0.1.0"
 edition = "2021"
 description = "Utilities for testing the IOI SDK components"
-license = "MIT OR Apache-2.0"
+license-file = "../../LICENSE-BBSL"
+repository = "https://github.com/ioi-foundation/ioi-sdk"
 
 [dependencies]
 ioi-types = { path = "../types" }

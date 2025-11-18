@@ -82,11 +82,7 @@ impl<ST: StateManager + Send + Sync> VmStateAccessor for StateAccessorWrapper<ST
     }
 
     /// Delegates the `insert` call to the underlying state manager, handling the lock.
-    async fn insert(
-        &self,
-        key: &[u8],
-        value: &[u8],
-    ) -> Result<(), ioi_types::error::StateError> {
+    async fn insert(&self, key: &[u8], value: &[u8]) -> Result<(), ioi_types::error::StateError> {
         self.state_tree.write().await.insert(key, value)
     }
 
@@ -181,7 +177,7 @@ where
 
         let output = self
             .vm
-            .execute(&code, "call", &input_data, overlay_arc.clone(), context)
+            .execute(&code, "call", &input_data, overlay_arc.as_ref(), context)
             .await?;
 
         let state_delta = overlay_arc.snapshot_writes();
@@ -212,9 +208,7 @@ where
                 .ok_or_else(|| ValidatorError::Other("Contract not found".to_string()))?;
             let stored_entry: StateEntry =
                 codec::from_bytes_canonical(&stored_bytes).map_err(|e| {
-                    ValidatorError::State(ioi_types::error::StateError::InvalidValue(
-                        e.to_string(),
-                    ))
+                    ValidatorError::State(ioi_types::error::StateError::InvalidValue(e.to_string()))
                 })?;
             stored_entry.value
         };
@@ -240,9 +234,7 @@ where
                 .ok_or_else(|| ValidatorError::Other("Contract not found".to_string()))?;
             let stored_entry: StateEntry =
                 codec::from_bytes_canonical(&stored_bytes).map_err(|e| {
-                    ValidatorError::State(ioi_types::error::StateError::InvalidValue(
-                        e.to_string(),
-                    ))
+                    ValidatorError::State(ioi_types::error::StateError::InvalidValue(e.to_string()))
                 })?;
             stored_entry.value
         };
@@ -256,7 +248,7 @@ where
 
         let output = self
             .vm
-            .execute(&code, "call", &input_data, Arc::new(overlay), context)
+            .execute(&code, "call", &input_data, &overlay, context)
             .await?;
 
         Ok(output)

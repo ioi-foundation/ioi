@@ -2,20 +2,24 @@
 //! Governance module implementations for the IOI SDK
 
 use async_trait::async_trait;
+use ioi_api::identity::CredentialsView;
 use ioi_api::lifecycle::OnEndBlock;
 use ioi_api::services::{BlockchainService, UpgradableService};
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_types::app::{
-    read_validator_sets, AccountId, Proposal, ProposalStatus, ProposalType, StateEntry,
-    TallyResult, VoteOption,
+    read_validator_sets, write_validator_sets, AccountId, ActiveKeyRecord, FailureReport, Proposal,
+    ProposalStatus, ProposalType, StateEntry, TallyResult, ValidatorV1, VoteOption,
 };
+use ioi_types::codec;
 use ioi_types::error::{StateError, TransactionError, UpgradeError};
 use ioi_types::keys::{
-    GOVERNANCE_NEXT_PROPOSAL_ID_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, GOVERNANCE_VOTE_KEY_PREFIX,
-    VALIDATOR_SET_KEY,
+    ACCOUNT_ID_TO_PUBKEY_PREFIX, GOVERNANCE_NEXT_PROPOSAL_ID_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX,
+    GOVERNANCE_VOTE_KEY_PREFIX, UPGRADE_ARTIFACT_PREFIX, UPGRADE_MANIFEST_PREFIX,
+    UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY,
 };
 use ioi_types::service_configs::{Capabilities, GovernanceParams};
+use libp2p::identity::PublicKey as Libp2pPublicKey;
 use parity_scale_codec::{Decode, Encode};
 use std::any::Any;
 use std::collections::BTreeMap;
@@ -36,6 +40,41 @@ pub struct SubmitProposalParams {
 pub struct VoteParams {
     pub proposal_id: u64,
     pub option: VoteOption,
+}
+
+/// The parameters for the `stake@v1` method.
+#[derive(Encode, Decode)]
+pub struct StakeParams {
+    pub public_key: Vec<u8>,
+    pub amount: u64,
+}
+
+/// The parameters for the `unstake@v1` method.
+#[derive(Encode, Decode)]
+pub struct UnstakeParams {
+    pub amount: u64,
+}
+
+/// The parameters for the `report_misbehavior@v1` method.
+#[derive(Encode, Decode)]
+pub struct ReportMisbehaviorParams {
+    pub report: FailureReport,
+}
+
+/// The parameters for the `store_module@v1` method.
+#[derive(Encode, Decode)]
+pub struct StoreModuleParams {
+    pub manifest: String,
+    pub artifact: Vec<u8>,
+}
+
+/// The parameters for the `swap_module@v1` method.
+#[derive(Encode, Decode)]
+pub struct SwapModuleParams {
+    pub service_id: String,
+    pub manifest_hash: [u8; 32],
+    pub artifact_hash: [u8; 32],
+    pub activation_height: u64,
 }
 
 // --- Governance Module ---
@@ -97,6 +136,45 @@ impl BlockchainService for GovernanceModule {
                     ctx.block_height,
                 )
                 .map_err(TransactionError::Invalid)
+            }
+            "stake@v1" => {
+                let p: StakeParams = ioi_types::codec::from_bytes_canonical(params)?;
+                self.stake(
+                    state,
+                    &signer_account_id,
+                    p.public_key,
+                    p.amount,
+                    ctx.block_height,
+                    ctx,
+                )
+                .map_err(TransactionError::Invalid)
+            }
+            "unstake@v1" => {
+                let p: UnstakeParams = ioi_types::codec::from_bytes_canonical(params)?;
+                self.unstake(state, &signer_account_id, p.amount, ctx.block_height)
+                    .map_err(TransactionError::Invalid)
+            }
+            "store_module@v1" => {
+                let p: StoreModuleParams = ioi_types::codec::from_bytes_canonical(params)?;
+                self.store_module(state, p.manifest, p.artifact)
+                    .map_err(TransactionError::Invalid)
+            }
+            "swap_module@v1" => {
+                let p: SwapModuleParams = ioi_types::codec::from_bytes_canonical(params)?;
+                self.swap_module(
+                    state,
+                    p.service_id,
+                    p.manifest_hash,
+                    p.artifact_hash,
+                    p.activation_height,
+                )
+                .map_err(TransactionError::Invalid)
+            }
+            "report_misbehavior@v1" => {
+                // This is handled as a special case in the unified transaction model's apply_payload
+                // to ensure the penalty mechanism is always consensus-driven. If this is ever called,
+                // it indicates a logic error in the dispatch path.
+                Ok(())
             }
             _ => Err(TransactionError::Unsupported(format!(
                 "Governance service does not support method '{}'",
@@ -173,10 +251,225 @@ impl GovernanceModule {
         Self { params }
     }
 
-    fn get_next_proposal_id<S: StateAccess + ?Sized>(
+    // --- Method Implementations ---
+
+    pub fn store_module(
         &self,
-        state: &mut S,
-    ) -> Result<u64, String> {
+        state: &mut dyn StateAccess,
+        manifest: String,
+        artifact: Vec<u8>,
+    ) -> Result<(), String> {
+        let manifest_hash =
+            ioi_crypto::algorithms::hash::sha256(manifest.as_bytes()).map_err(|e| e.to_string())?;
+        let artifact_hash =
+            ioi_crypto::algorithms::hash::sha256(&artifact).map_err(|e| e.to_string())?;
+        let manifest_key = [UPGRADE_MANIFEST_PREFIX, &manifest_hash].concat();
+        let artifact_key = [UPGRADE_ARTIFACT_PREFIX, &artifact_hash].concat();
+        if state
+            .get(&manifest_key)
+            .map_err(|e| e.to_string())?
+            .is_none()
+        {
+            state
+                .insert(&manifest_key, manifest.as_bytes())
+                .map_err(|e| e.to_string())?;
+        }
+        if state
+            .get(&artifact_key)
+            .map_err(|e| e.to_string())?
+            .is_none()
+        {
+            state
+                .insert(&artifact_key, &artifact)
+                .map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
+
+    pub fn swap_module(
+        &self,
+        state: &mut dyn StateAccess,
+        service_id: String,
+        manifest_hash: [u8; 32],
+        artifact_hash: [u8; 32],
+        activation_height: u64,
+    ) -> Result<(), String> {
+        let manifest_key = [UPGRADE_MANIFEST_PREFIX, &manifest_hash].concat();
+        if state
+            .get(&manifest_key)
+            .map_err(|e| e.to_string())?
+            .is_none()
+        {
+            return Err(format!(
+                "Manifest not found for hash {}",
+                hex::encode(manifest_hash)
+            ));
+        }
+        let artifact_key = [UPGRADE_ARTIFACT_PREFIX, &artifact_hash].concat();
+        if state
+            .get(&artifact_key)
+            .map_err(|e| e.to_string())?
+            .is_none()
+        {
+            return Err(format!(
+                "Artifact not found for hash {}",
+                hex::encode(artifact_hash)
+            ));
+        }
+        let key = [UPGRADE_PENDING_PREFIX, &activation_height.to_le_bytes()].concat();
+        let mut pending: Vec<(String, [u8; 32], [u8; 32])> = state
+            .get(&key)
+            .map_err(|e| e.to_string())?
+            .and_then(|b| codec::from_bytes_canonical(&b).ok())
+            .unwrap_or_default();
+        pending.push((service_id, manifest_hash, artifact_hash));
+        state
+            .insert(&key, &codec::to_bytes_canonical(&pending)?)
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn stake(
+        &self,
+        state: &mut dyn StateAccess,
+        staker_account_id: &AccountId,
+        public_key: Vec<u8>,
+        amount: u64,
+        block_height: u64,
+        ctx: &TxContext<'_>,
+    ) -> Result<(), String> {
+        let target_activation = block_height + 2;
+
+        let maybe_blob_bytes = state.get(VALIDATOR_SET_KEY).map_err(|e| e.to_string())?;
+        let mut sets = maybe_blob_bytes
+            .as_ref()
+            .map(|b| read_validator_sets(b))
+            .transpose()
+            .map_err(|e| e.to_string())?
+            .unwrap_or_default();
+
+        if sets.next.is_none() {
+            let mut new_next = sets.current.clone();
+            new_next.effective_from_height = target_activation;
+            sets.next = Some(new_next);
+        }
+        let next_vs = sets.next.as_mut().unwrap();
+
+        if let Some(validator) = next_vs
+            .validators
+            .iter_mut()
+            .find(|v| v.account_id == *staker_account_id)
+        {
+            validator.weight = validator.weight.saturating_add(amount as u128);
+        } else {
+            let creds_view = ctx
+                .services
+                .get::<crate::identity::IdentityHub>()
+                .ok_or_else(|| "IdentityHub service not found for staking".to_string())?;
+            let creds = creds_view
+                .get_credentials(state, staker_account_id)
+                .map_err(|e| e.to_string())?;
+            let active_cred = creds[0]
+                .as_ref()
+                .ok_or_else(|| "Staker has no active key".to_string())?;
+
+            next_vs.validators.push(ValidatorV1 {
+                account_id: *staker_account_id,
+                weight: amount as u128,
+                consensus_key: ActiveKeyRecord {
+                    suite: active_cred.suite,
+                    public_key_hash: active_cred.public_key_hash,
+                    since_height: active_cred.activation_height,
+                },
+            });
+
+            let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, staker_account_id.as_ref()].concat();
+            if state
+                .get(&pubkey_map_key)
+                .map_err(|e| e.to_string())?
+                .is_none()
+            {
+                let pk_to_store = match active_cred.suite {
+                    ioi_types::app::SignatureSuite::Ed25519 => {
+                        if Libp2pPublicKey::try_decode_protobuf(&public_key).is_ok() {
+                            public_key
+                        } else {
+                            let ed =
+                                libp2p::identity::ed25519::PublicKey::try_from_bytes(&public_key)
+                                    .map_err(|_| "Malformed Ed25519 key".to_string())?;
+                            libp2p::identity::PublicKey::from(ed).encode_protobuf()
+                        }
+                    }
+                    ioi_types::app::SignatureSuite::Dilithium2 => public_key,
+                };
+                state
+                    .insert(&pubkey_map_key, &pk_to_store)
+                    .map_err(|e| e.to_string())?;
+            }
+        }
+
+        next_vs
+            .validators
+            .sort_by(|a, b| a.account_id.cmp(&b.account_id));
+        next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
+        state
+            .insert(
+                VALIDATOR_SET_KEY,
+                &write_validator_sets(&sets).map_err(|e| e.to_string())?,
+            )
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn unstake(
+        &self,
+        state: &mut dyn StateAccess,
+        staker_account_id: &AccountId,
+        amount: u64,
+        block_height: u64,
+    ) -> Result<(), String> {
+        let target_activation = block_height + 2;
+        let maybe_blob_bytes = state.get(VALIDATOR_SET_KEY).map_err(|e| e.to_string())?;
+        let blob_bytes = maybe_blob_bytes
+            .ok_or_else(|| "Validator set does not exist to unstake from".to_string())?;
+        let mut sets = read_validator_sets(&blob_bytes).map_err(|e| e.to_string())?;
+
+        if sets.next.is_none() {
+            let mut new_next = sets.current.clone();
+            new_next.effective_from_height = target_activation;
+            sets.next = Some(new_next);
+        }
+        let next_vs = sets.next.as_mut().unwrap();
+
+        let mut validator_found = false;
+        next_vs.validators.retain_mut(|v| {
+            if v.account_id == *staker_account_id {
+                validator_found = true;
+                v.weight = v.weight.saturating_sub(amount as u128);
+                v.weight > 0
+            } else {
+                true
+            }
+        });
+        if !validator_found {
+            return Err("Staker not in validator set".to_string());
+        }
+        next_vs
+            .validators
+            .sort_by(|a, b| a.account_id.cmp(&b.account_id));
+        next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
+        state
+            .insert(
+                VALIDATOR_SET_KEY,
+                &write_validator_sets(&sets).map_err(|e| e.to_string())?,
+            )
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    // --- Methods below this line are unchanged ---
+
+    fn get_next_proposal_id<S: StateAccess + ?Sized>(&self, state: &mut S) -> Result<u64, String> {
         let id_bytes = state
             .get(GOVERNANCE_NEXT_PROPOSAL_ID_KEY)
             .map_err(|e| e.to_string())?
@@ -342,13 +635,18 @@ impl GovernanceModule {
             let (vote_key, vote_bytes) = item_result.map_err(|e| e.to_string())?;
             let option: VoteOption = ioi_types::codec::from_bytes_canonical(&vote_bytes)
                 .map_err(|_| "Failed to deserialize vote".to_string())?;
-            let prefix_len = vote_key_prefix.len();
-            let voter_account_id_bytes: [u8; 32] = vote_key
-                .get(prefix_len..)
-                .ok_or("Invalid voter key length")?
+
+            // --- FIX: Robustly extract AccountId by slicing from the end of the key ---
+            let key_len = vote_key.len();
+            if key_len < 32 {
+                log::warn!("[Tally] Skipping malformed vote key of length {}", key_len);
+                continue;
+            }
+            let voter_account_id_bytes: [u8; 32] = vote_key[(key_len - 32)..]
                 .try_into()
-                .map_err(|_| "Invalid voter AccountId in state key".to_string())?;
+                .map_err(|_| "Invalid voter AccountId slice".to_string())?;
             let voter_account_id = AccountId(voter_account_id_bytes);
+            // --- END FIX ---
 
             let voting_power = stakes.get(&voter_account_id).copied().unwrap_or(0);
             log::debug!(

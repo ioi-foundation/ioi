@@ -4,7 +4,6 @@ use crate::state::VmStateAccessor;
 use async_trait::async_trait;
 use ioi_types::error::VmError;
 use serde::{Deserialize, Serialize}; // Add this import
-use std::sync::Arc;
 
 mod overlay;
 pub use overlay::VmStateOverlay;
@@ -18,14 +17,13 @@ pub trait VirtualMachine: Send + Sync {
     /// * `contract_bytecode`: The compiled WASM or EVM code.
     /// * `entrypoint`: The name of the function to call (e.g., "call").
     /// * `input_data`: The serialized arguments for the function call.
-    /// * `state_accessor`: A thread-safe, dyn-safe handle for the VM to access chain state.
-    /// * `execution_context`: Contains metadata like the caller's address, block height, etc.
+    /// * `state_accessor`: A mutable, dyn-safe handle for the VM to access chain state transactionally.
     async fn execute(
         &self,
         contract_bytecode: &[u8],
         entrypoint: &str,
         input_data: &[u8],
-        state_accessor: Arc<dyn VmStateAccessor>,
+        state_accessor: &dyn VmStateAccessor,
         execution_context: ExecutionContext,
     ) -> Result<ExecutionOutput, VmError>;
 }
@@ -40,7 +38,7 @@ pub struct ExecutionOutput {
 }
 
 /// Provides contextual information to the smart contract during execution.
-#[derive(Debug, Clone, Serialize, Deserialize)] // Add Serialize and Deserialize
+#[derive(Debug, Clone, Default, Serialize, Deserialize)] // Add Serialize and Deserialize
 pub struct ExecutionContext {
     /// The address of the entity that initiated the contract call.
     pub caller: Vec<u8>,

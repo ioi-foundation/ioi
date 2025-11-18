@@ -4,7 +4,7 @@
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use ibc_proto::ics23::CommitmentProof;
-use ioi_api::state::Verifier;
+use ioi_api::state::{service_namespace_prefix, Verifier}; // [+] Added service_namespace_prefix
 use ioi_client::WorkloadClient;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_networking::libp2p::SwarmCommand;
@@ -369,9 +369,15 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
             .await?
             .ok_or_else(|| anyhow!("Block at height {} not found for query", query_height))?;
 
+        // [+] FIX: Prepend the IBC service namespace to the query path.
+        // The HTTP Gateway (and relayers) use raw ICS-24 paths (e.g. "clients/..."),
+        // but the state is physically stored under the "ibc" service's namespace.
+        let ns_prefix = service_namespace_prefix("ibc");
+        let full_key = [ns_prefix.as_slice(), path.as_bytes()].concat();
+
         let response = self
             .workload_client
-            .query_state_at(block.header.state_root, path.as_bytes())
+            .query_state_at(block.header.state_root, &full_key)
             .await?;
 
         // --- START REFACTOR ---

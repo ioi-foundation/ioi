@@ -6,17 +6,19 @@ pub mod service_call;
 
 use crate::ante::service_call::precheck_call_service;
 use ibc_primitives::Timestamp;
-use ioi_api::state::{StateAccess, StateOverlay};
+use ioi_api::state::{service_namespace_prefix, NamespacedStateAccess, StateAccess, StateOverlay};
 use ioi_api::transaction::context::TxContext;
 use ioi_tx::system::{nonce, validation};
 use ioi_types::app::{ChainTransaction, SystemPayload};
 use ioi_types::error::TransactionError;
+use ioi_types::keys::active_service_key;
+use ioi_types::service_configs::ActiveServiceMeta;
 
 /// Unified ante check used by mempool admission and block recheck.
 /// This function mirrors the validation and decorator logic from the chain's `process_transaction`
 /// and requires an authoritative block timestamp to ensure consistency.
 pub async fn check_tx(
-    state: &dyn StateAccess,
+    state: &mut dyn StateAccess, // MODIFIED: Changed to mutable to support namespaced state in verification
     services: &ioi_api::services::access::ServiceDirectory,
     tx: &ChainTransaction,
     chain_id: ioi_types::app::ChainId,
@@ -38,16 +40,17 @@ pub async fn check_tx(
         },
     };
 
-    // to prevent potential overflows and ensure correct Timestamp creation.
-    let next_timestamp_ns = (expected_timestamp_secs as u128)
-        .saturating_mul(1_000_000_000u128);
+    let next_timestamp_ns = (expected_timestamp_secs as u128).saturating_mul(1_000_000_000u128);
     let next_timestamp = Timestamp::from_nanoseconds(
         next_timestamp_ns
-            .try_into() // u128 -> u64
+            .try_into()
             .map_err(|_| TransactionError::Invalid("Timestamp overflow".to_string()))?,
     )
     .map_err(|e| {
-        TransactionError::Invalid(format!("Failed to create timestamp from nanoseconds: {}", e))
+        TransactionError::Invalid(format!(
+            "Failed to create timestamp from nanoseconds: {}",
+            e
+        ))
     })?;
 
     let tx_ctx = TxContext {
@@ -56,28 +59,39 @@ pub async fn check_tx(
         chain_id,
         signer_account_id,
         services,
-        simulation: true,   // This is a pre-check/simulation
-        is_internal: false, // User transactions are never internal
+        simulation: true,
+        is_internal: false,
     };
 
     // 1. Core validation: signature and nonce (read-only against the overlay).
-    validation::verify_transaction_signature(&overlay, services, tx, &tx_ctx)?;
+    // MODIFIED: Pass mutable reference to overlay to satisfy the updated signature.
+    validation::verify_transaction_signature(&mut overlay, services, tx, &tx_ctx)?;
     nonce::assert_next_nonce(&overlay, tx)?;
 
     // 2. Service-level precheck for CallService.
     if let ChainTransaction::System(sys) = tx {
-        if let SystemPayload::CallService {
+        // After refactoring, all system payloads are CallService.
+        let SystemPayload::CallService {
             service_id, method, ..
-        } = &sys.payload
-        {
-            let _perm = precheck_call_service(&overlay, service_id, method, tx_ctx.is_internal)?;
-        }
+        } = &sys.payload;
+        let _perm = precheck_call_service(&overlay, service_id, method, tx_ctx.is_internal)?;
     }
 
-    // 3. Run TxDecorators.
+    // 3. Run TxDecorators with proper namespacing to match block execution.
     for svc in services.services_in_deterministic_order() {
         if let Some(decorator) = svc.as_tx_decorator() {
-            decorator.ante_handle(&mut overlay, tx, &tx_ctx).await?;
+            let meta_key = active_service_key(svc.id());
+            let meta_bytes = overlay.get(&meta_key)?.ok_or_else(|| {
+                TransactionError::Unsupported(format!("Service '{}' is not active", svc.id()))
+            })?;
+            let meta: ActiveServiceMeta = ioi_types::codec::from_bytes_canonical(&meta_bytes)?;
+
+            let prefix = service_namespace_prefix(svc.id());
+            let mut namespaced_overlay = NamespacedStateAccess::new(&mut overlay, prefix, &meta);
+
+            decorator
+                .ante_handle(&mut namespaced_overlay, tx, &tx_ctx)
+                .await?;
         }
     }
 

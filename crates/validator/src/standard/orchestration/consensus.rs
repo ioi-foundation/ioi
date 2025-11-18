@@ -98,12 +98,6 @@ where
             | ioi_types::config::ConsensusType::ProofOfStake
     );
 
-    // --- REVISED GUARD LOGIC ---
-    // Allow a tick if:
-    // 1. The node is fully synced.
-    // OR
-    // 2. It's a PoA/PoS chain, and we are trying to produce the very first block (height 1).
-    //    This allows all nodes in a fresh cluster to participate in bootstrapping.
     if node_state != NodeState::Synced && !(consensus_allows_bootstrap && producing_h == 1) {
         tracing::debug!(
             target = "consensus",
@@ -112,7 +106,6 @@ where
         );
         return Ok(());
     }
-    // --- END REVISED GUARD LOGIC ---
 
     let our_account_id = AccountId(
         account_id_from_key_material(
@@ -192,15 +185,16 @@ where
             );
             (pool.iter().cloned().collect::<Vec<_>>(), pool.len())
         };
-        // log every candidate kind so we see the IBC CallService
+
         for (i, tx) in candidate_txs.iter().enumerate() {
             let payload_kind = match tx {
-                ChainTransaction::System(s) => match &s.payload {
-                    SystemPayload::CallService {
+                ChainTransaction::System(s) => {
+                    // After refactoring, all system payloads are CallService.
+                    let SystemPayload::CallService {
                         service_id, method, ..
-                    } => format!("CallService({service_id}::{method})"),
-                    other => format!("{other:?}"),
-                },
+                    } = &s.payload;
+                    format!("CallService({service_id}::{method})")
+                }
                 ChainTransaction::Application(a) => format!("{a:?}"),
             };
             tracing::debug!(target="orchestration", event="precheck_candidate", idx=i, %payload_kind);
@@ -208,7 +202,6 @@ where
 
         tracing::info!(target: "consensus", event = "precheck_start", mempool_size = mempool_len_before);
 
-        // Canonical pre-check: call into Workload IPC (which now mirrors process_transaction)
         let mut valid_txs = Vec::new();
         let mut invalid_tx_hashes = HashSet::new();
         let workload_client = view_resolver
@@ -217,13 +210,11 @@ where
             .ok_or_else(|| anyhow!("Could not downcast ViewResolver to get WorkloadClient"))?
             .workload_client();
 
-        // Anchor pre-checks at the parent view’s root (block N is built on state at N-1)
         let parent_anchor = StateRoot(parent_ref.state_root.clone())
             .to_anchor()
             .map_err(|e| anyhow!("Failed to create parent anchor: {}", e))?;
 
         for (i, tx) in candidate_txs.iter().enumerate() {
-            // Timestamp-aware precheck (authoritative)
             match workload_client
                 .check_transactions_at(parent_anchor, expected_timestamp_secs, vec![tx.clone()])
                 .await
@@ -236,15 +227,16 @@ where
                         .cloned()
                         .unwrap_or_else(|| "Unknown pre-check failure".into());
                     let (signer, nonce, payload_kind) = match tx {
-                        ChainTransaction::System(s) => (
-                            s.header.account_id,
-                            s.header.nonce,
-                            format!("{:?}", s.payload)
-                                .split_whitespace()
-                                .next()
-                                .unwrap_or("Unknown")
-                                .to_string(),
-                        ),
+                        ChainTransaction::System(s) => {
+                            let SystemPayload::CallService {
+                                service_id, method, ..
+                            } = &s.payload;
+                            (
+                                s.header.account_id,
+                                s.header.nonce,
+                                format!("CallService({}::{})", service_id, method),
+                            )
+                        }
                         ChainTransaction::Application(a) => match a {
                             ioi_types::app::ApplicationTransaction::DeployContract {
                                 header,
@@ -301,12 +293,12 @@ where
 
         for (i, tx) in valid_txs.iter().enumerate() {
             let payload_kind = match tx {
-                ChainTransaction::System(s) => match &s.payload {
-                    SystemPayload::CallService {
+                ChainTransaction::System(s) => {
+                    let SystemPayload::CallService {
                         service_id, method, ..
-                    } => format!("CallService({service_id}::{method})"),
-                    other => format!("{other:?}"),
-                },
+                    } = &s.payload;
+                    format!("CallService({service_id}::{method})")
+                }
                 ChainTransaction::Application(a) => format!("{a:?}"),
             };
             tracing::debug!(target="orchestration", event="precheck_valid", idx=i, %payload_kind);

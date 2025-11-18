@@ -4,7 +4,10 @@ use crate::ante::check_tx;
 use crate::standard::workload_ipc_server::router::{RequestContext, RpcMethod};
 use anyhow::{anyhow, Result};
 use ioi_api::{
-    chain::ChainStateMachine, commitment::CommitmentScheme, transaction::TransactionModel,
+    chain::ChainStateMachine,
+    commitment::CommitmentScheme,
+    state::StateOverlay, // FIX: Import StateOverlay
+    transaction::TransactionModel,
 };
 use ioi_types::app::{ApplicationTransaction, Block, ChainTransaction, Membership, StateAnchor};
 use serde::{Deserialize, Serialize};
@@ -215,9 +218,14 @@ where
         let base_state_tree = ctx.workload.state_tree();
         let base_state = base_state_tree.read().await;
 
+        // FIX: Create a mutable StateOverlay for the pre-check simulation.
+        // This allows `check_tx` to have the mutable reference it needs for
+        // namespaced state lookups during signature verification.
+        let mut overlay = StateOverlay::new(&*base_state);
+
         for tx in params.txs {
             let check_result = check_tx(
-                &*base_state,
+                &mut overlay, // Pass the mutable overlay
                 &chain_guard.services,
                 &tx,
                 chain_guard.state.chain_id,

@@ -6,24 +6,39 @@
 
 #![cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
     rpc::{get_block_by_height_resilient, submit_transaction_and_get_block},
     wait_for_height, TestCluster,
 };
+// FIX: Add necessary imports for the new service-based architecture.
+use ioi_services::governance::StoreModuleParams;
 use ioi_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
-        BlockTimingRuntime, ChainTransaction, Credential, SignHeader, SignatureSuite,
-        SystemPayload, SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        account_id_from_key_material,
+        AccountId,
+        ActiveKeyRecord,
+        BlockTimingParams,
+        BlockTimingRuntime,
+        ChainTransaction,
+        Credential,
+        SignHeader,
+        SignatureProof, // FIX: Remove unused ChainId import
+        SignatureSuite,
+        SystemPayload,
+        SystemTransaction,
+        ValidatorSetV1,
+        ValidatorSetsV1,
+        ValidatorV1,
     },
+    codec,
     config::InitialServiceConfig,
     keys::{
         ACCOUNT_ID_TO_PUBKEY_PREFIX, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY,
-        IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
+        GOVERNANCE_KEY, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
     },
-    service_configs::MigrationConfig,
+    service_configs::{GovernanceParams, GovernancePolicy, GovernanceSigner, MigrationConfig},
 };
 use libp2p::identity::Keypair;
 use serde_json::json;
@@ -58,6 +73,8 @@ impl TestNet {
                 allowed_target_suites: vec![SignatureSuite::Ed25519],
                 allow_downgrade: false,
             }))
+            // FIX: Add the Governance service to the initial services.
+            .with_initial_service(InitialServiceConfig::Governance(GovernanceParams::default()))
             .with_genesis_modifier(move |genesis, keys| {
                 let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
                 let validator_keypair = &keys[0];
@@ -66,6 +83,16 @@ impl TestNet {
                 let validator_pk_bytes = validator_keypair.public().encode_protobuf();
                 let validator_account_id =
                     AccountId(account_id_from_key_material(suite, &validator_pk_bytes).unwrap());
+
+                // FIX: Set the governance policy to make the user account the governor.
+                let policy = GovernancePolicy {
+                    signer: GovernanceSigner::Single(user_account_id),
+                };
+                let policy_bytes = codec::to_bytes_canonical(&policy).unwrap();
+                genesis_state.insert(
+                    std::str::from_utf8(GOVERNANCE_KEY).unwrap().to_string(),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(policy_bytes))),
+                );
 
                 let vs = ValidatorSetV1 {
                     effective_from_height: 1,
@@ -200,40 +227,40 @@ async fn time_sensitive_tx_precheck_equals_execution() -> Result<()> {
     let expected_ts = parent_ts + interval;
 
     // Create a transaction that is only valid at that exact timestamp.
-    let tx = ChainTransaction::System(Box::new(SystemTransaction {
+    // FIX: Use `CallService` to dispatch a `store_module` call to the governance service.
+    let store_params = StoreModuleParams {
+        manifest: format!("timestamp = {}", expected_ts), // The "time-sensitive" part
+        artifact: vec![],
+    };
+    let payload = SystemPayload::CallService {
+        service_id: "governance".to_string(),
+        method: "store_module@v1".to_string(),
+        // FIX: Manually map the String error to anyhow::Error so `?` works.
+        params: codec::to_bytes_canonical(&store_params).map_err(|e| anyhow!(e))?,
+    };
+
+    let mut system_tx = SystemTransaction {
         header: SignHeader {
             account_id: user_account_id,
             nonce: net.nonce,
             chain_id: 1.into(),
             tx_version: 1,
         },
-        payload: SystemPayload::StoreModule {
-            manifest: format!("timestamp = {}", expected_ts), // The "time-sensitive" part
-            artifact: vec![],
-        },
-        signature_proof: {
-            let temp_tx = SystemTransaction {
-                header: SignHeader {
-                    account_id: user_account_id,
-                    nonce: net.nonce,
-                    chain_id: 1.into(),
-                    tx_version: 1,
-                },
-                payload: SystemPayload::StoreModule {
-                    manifest: format!("timestamp = {}", expected_ts),
-                    artifact: vec![],
-                },
-                signature_proof: Default::default(),
-            };
-            let sign_bytes = temp_tx.to_sign_bytes().unwrap();
-            let signature = user_keypair.sign(&sign_bytes).unwrap();
-            ioi_types::app::SignatureProof {
-                suite: SignatureSuite::Ed25519,
-                public_key: user_keypair.public().encode_protobuf(),
-                signature,
-            }
-        },
-    }));
+        payload,
+        signature_proof: Default::default(),
+    };
+
+    // FIX: Use `?` with proper error mapping instead of `.unwrap()`.
+    let sign_bytes = system_tx.to_sign_bytes().map_err(|e| anyhow!(e))?;
+    let signature = user_keypair.sign(&sign_bytes)?;
+
+    system_tx.signature_proof = SignatureProof {
+        suite: SignatureSuite::Ed25519,
+        public_key: user_keypair.public().encode_protobuf(),
+        signature,
+    };
+
+    let tx = ChainTransaction::System(Box::new(system_tx));
     net.nonce += 1;
 
     // 1. Submit the transaction and wait for the block that includes it.

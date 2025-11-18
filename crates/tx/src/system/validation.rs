@@ -3,7 +3,11 @@
 //! Core, non-optional system logic for transaction signature validation.
 
 use ioi_api::services::access::ServiceDirectory;
-use ioi_api::state::StateAccess;
+// --- FIX START: Add necessary imports for namespacing ---
+use ioi_api::state::{service_namespace_prefix, NamespacedStateAccess, StateAccess};
+use ioi_types::keys::active_service_key;
+use ioi_types::service_configs::ActiveServiceMeta;
+// --- FIX END ---
 use ioi_api::transaction::context::TxContext;
 use ioi_crypto::sign::{dilithium::DilithiumPublicKey, eddsa::Ed25519PublicKey};
 use ioi_types::app::{
@@ -131,7 +135,7 @@ fn enforce_credential_policy(
 
 /// Verifies the signature of a transaction against the on-chain credentials or allows bootstrapping.
 pub fn verify_transaction_signature<S: StateAccess>(
-    state: &S,
+    state: &mut S, // --- FIX: Make state mutable to support NamespacedStateAccess ---
     services: &ServiceDirectory,
     tx: &ChainTransaction,
     ctx: &TxContext,
@@ -143,8 +147,18 @@ pub fn verify_transaction_signature<S: StateAccess>(
 
     let creds_view = services.services().find_map(|s| s.as_credentials_view());
     let creds = if let Some(view) = &creds_view {
-        let state_accessor: &dyn StateAccess = state;
-        view.get_credentials(state_accessor, &header.account_id)?
+        // --- FIX START: Use NamespacedStateAccess for the IdentityHub lookup ---
+        let meta_key = active_service_key(view.id());
+        let meta_bytes = state.get(&meta_key)?.ok_or_else(|| {
+            TransactionError::Unsupported(format!("Service '{}' is not active", view.id()))
+        })?;
+        let meta: ActiveServiceMeta = ioi_types::codec::from_bytes_canonical(&meta_bytes)?;
+
+        let prefix = service_namespace_prefix(view.id());
+        // We need a mutable reference to state to create the namespaced view.
+        let mut namespaced_state = NamespacedStateAccess::new(state, prefix, &meta);
+        view.get_credentials(&mut namespaced_state, &header.account_id)?
+        // --- FIX END ---
     } else {
         [None, None]
     };

@@ -1,5 +1,4 @@
 // Path: crates/forge/tests/pqc_migration_e2e.rs
-
 #![cfg(all(
     any(feature = "consensus-poa", feature = "consensus-pos"),
     feature = "vm-wasm"
@@ -25,14 +24,15 @@ use ioi_types::{
     codec,
     config::InitialServiceConfig,
     keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, GOVERNANCE_PROPOSAL_KEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX,
+        // NOTE: We will construct keys manually with namespaces, so direct key imports are less critical here.
+        GOVERNANCE_PROPOSAL_KEY_PREFIX,
         VALIDATOR_SET_KEY,
     },
     service_configs::MigrationConfig,
 };
-use libp2p::identity::Keypair;
+use libp2p::identity::{self, Keypair};
 use parity_scale_codec::Encode;
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use std::time::Duration;
 
 // --- Trait to unify signing for different key types in tests ---
@@ -134,6 +134,9 @@ fn add_identity_to_genesis(
     account_id: AccountId,
     libp2p_pk_bytes: &[u8],
 ) {
+    // --- FIX START: Use the correct namespace for IdentityHub data ---
+    let ns = ioi_api::state::service_namespace_prefix("identity_hub");
+
     let initial_cred = Credential {
         suite,
         public_key_hash: account_id.0,
@@ -142,7 +145,12 @@ fn add_identity_to_genesis(
     };
     let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
     let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
-    let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
+    let creds_key = [
+        ns.as_slice(),
+        ioi_types::keys::IDENTITY_CREDENTIALS_PREFIX,
+        account_id.as_ref(),
+    ]
+    .concat();
     genesis_state.insert(
         format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
         json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
@@ -153,18 +161,29 @@ fn add_identity_to_genesis(
         public_key_hash: account_id.0,
         since_height: 0,
     };
-    let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
+    let record_key = [
+        ns.as_slice(),
+        b"identity::key_record::",
+        account_id.as_ref(),
+    ]
+    .concat();
     let record_bytes = codec::to_bytes_canonical(&record).unwrap();
     genesis_state.insert(
         format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
         json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
     );
 
-    let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
+    let pubkey_map_key = [
+        ns.as_slice(),
+        ioi_types::keys::ACCOUNT_ID_TO_PUBKEY_PREFIX,
+        account_id.as_ref(),
+    ]
+    .concat();
     genesis_state.insert(
         format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
         json!(format!("b64:{}", BASE64_STANDARD.encode(libp2p_pk_bytes))),
     );
+    // --- FIX END ---
 }
 
 #[tokio::test]
@@ -185,7 +204,8 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     let ed25519_key_clone_for_genesis = ed25519_key.clone();
 
     // 2. LAUNCH CLUSTER
-    let mut cluster = TestCluster::builder()
+    let governance_key_for_test = ed25519_key.clone(); // The user key will also be the governor for this test
+    let cluster = TestCluster::builder()
         .with_validators(1)
         .with_keypairs(vec![validator_keypair.clone()])
         .with_consensus_type("ProofOfStake")
@@ -202,6 +222,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
         .with_genesis_modifier(move |genesis, _keys| {
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
 
+            // Setup identity for the validator
             add_identity_to_genesis(
                 genesis_state,
                 SignatureSuite::Ed25519,
@@ -214,6 +235,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
                 ),
                 &validator_keypair.public().encode_protobuf(),
             );
+            // Setup identity for the user account that will rotate its key
             add_identity_to_genesis(
                 genesis_state,
                 ed25519_key_clone_for_genesis.suite(),
@@ -269,21 +291,27 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
                 total_deposit: 0,
                 final_tally: None,
             };
-            let proposal_key_bytes = [GOVERNANCE_PROPOSAL_KEY_PREFIX, &1u64.to_le_bytes()].concat();
+
+            // Write the proposal into the governance service namespace
+            let proposal_key_bytes = [
+                ioi_api::state::service_namespace_prefix("governance").as_slice(),
+                GOVERNANCE_PROPOSAL_KEY_PREFIX,
+                &1u64.to_le_bytes(),
+            ]
+            .concat();
             let entry = StateEntry {
                 value: codec::to_bytes_canonical(&proposal).unwrap(),
                 block_height: 0,
             };
             let entry_bytes = codec::to_bytes_canonical(&entry).unwrap();
             genesis_state.insert(
-                format!("b64:{}", BASE64_STANDARD.encode(proposal_key_bytes)),
+                format!("b64:{}", BASE64_STANDARD.encode(&proposal_key_bytes)),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&entry_bytes))),
             );
         })
         .build()
         .await?;
 
-    // --- FIX: Add explicit type annotation to the async block ---
     let test_result: anyhow::Result<()> = async {
         let node = &cluster.validators[0];
         let rpc_addr = &node.validator().rpc_addr;
@@ -397,13 +425,17 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
         let current_height = ioi_forge::testing::rpc::get_chain_height(rpc_addr).await?;
         wait_for_height(rpc_addr, current_height + 2, Duration::from_secs(20)).await?;
 
-        let vote_key = {
-            let mut key = ioi_types::keys::GOVERNANCE_VOTE_KEY_PREFIX.to_vec();
-            key.extend_from_slice(&1u64.to_le_bytes()); // proposal_id
-            key.extend_from_slice(b"::");
-            key.extend_from_slice(account_id.as_ref());
-            key
-        };
+        // --- FIX START: Use the correct namespaced key to query the vote ---
+        let vote_key = [
+            ioi_api::state::service_namespace_prefix("governance").as_slice(),
+            ioi_types::keys::GOVERNANCE_VOTE_KEY_PREFIX,
+            &1u64.to_le_bytes(), // proposal_id
+            b"::",
+            account_id.as_ref(),
+        ]
+        .concat();
+        // --- FIX END ---
+
         let vote_val_bytes = query_state_key(rpc_addr, &vote_key)
             .await?
             .ok_or_else(|| anyhow!("Vote from new active key must be present in state"))?;

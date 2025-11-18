@@ -4,7 +4,8 @@ name = "ioi-storage"
 version = "0.1.0"
 edition = "2021"
 description = "Pure-Rust persistent storage (redb + epoch sharding) for StateManager backends"
-license = "MIT OR Apache-2.0"
+license-file = "../../LICENSE-BBSL"
+repository = "https://github.com/ioi-foundation/ioi-sdk"
 
 [dependencies]
 ioi-api = { path = "../api" }

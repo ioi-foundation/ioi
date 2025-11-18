@@ -18,7 +18,8 @@ use ioi_types::app::{
 use ioi_types::codec;
 use ioi_types::config::ConsensusType;
 use ioi_types::error::{BlockError, ChainError, StateError};
-use ioi_types::keys::{STATUS_KEY, VALIDATOR_SET_KEY};
+use ioi_types::keys::{STATUS_KEY, UPGRADE_ACTIVE_SERVICE_PREFIX, VALIDATOR_SET_KEY};
+use ioi_types::service_configs::ActiveServiceMeta;
 use libp2p::identity::Keypair;
 use parity_scale_codec::Decode;
 use serde::Serialize;
@@ -187,7 +188,6 @@ where
             state.begin_block_writes(block.header.height);
             state.batch_apply(inserts, deletes)?;
 
-            // --- REFACTORED: Run end-of-block handlers ---
             let upgrade_count = end_block::handle_service_upgrades(
                 &mut self.service_manager,
                 block.header.height,
@@ -196,12 +196,21 @@ where
             .await?;
 
             if upgrade_count > 0 {
-                // If upgrades occurred, we MUST rebuild the ServiceDirectory before using it.
                 self.services =
                     ServiceDirectory::new(self.service_manager.all_services_as_trait_objects());
+                // MODIFIED: Refresh the metadata cache after upgrades.
+                self.service_meta_cache.clear();
+                let service_iter = state.prefix_scan(UPGRADE_ACTIVE_SERVICE_PREFIX)?;
+                for item in service_iter {
+                    let (_key, meta_bytes) = item?;
+                    if let Ok(meta) = codec::from_bytes_canonical::<ActiveServiceMeta>(&meta_bytes)
+                    {
+                        self.service_meta_cache
+                            .insert(meta.id.clone(), Arc::new(meta));
+                    }
+                }
             }
 
-            // Now that services are stable for this block, create the context.
             let end_block_ctx = TxContext {
                 block_height: block.header.height,
                 block_timestamp: {
@@ -214,16 +223,20 @@ where
                 },
                 chain_id: self.state.chain_id,
                 signer_account_id: AccountId::default(),
-                services: &self.services, // Borrow the (potentially updated) directory
+                services: &self.services,
                 simulation: false,
                 is_internal: true,
             };
 
-            end_block::run_on_end_block_hooks(&self.services, &mut *state, &end_block_ctx).await?;
+            end_block::run_on_end_block_hooks(
+                &self.services,
+                &mut *state,
+                &end_block_ctx,
+                &self.service_meta_cache,
+            )
+            .await?;
             end_block::handle_validator_set_promotion(&mut *state, block.header.height)?;
-            // TODO: Track gas used per block and pass it here.
             end_block::handle_timing_update(&mut *state, block.header.height, 0)?;
-            // --- END REFACTOR ---
 
             self.state.status.height = block.header.height;
             self.state.status.latest_timestamp = block.header.timestamp;

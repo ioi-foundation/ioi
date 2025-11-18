@@ -1,5 +1,4 @@
 // Path: crates/execution/src/app/mod.rs
-// NEW: Declare the new modules containing the trait implementations.
 mod end_block;
 mod state_machine;
 mod view;
@@ -7,14 +6,15 @@ mod view;
 use crate::upgrade_manager::ServiceUpgradeManager;
 use anyhow::Result;
 use async_trait::async_trait;
+use ibc_primitives::Timestamp;
 use ioi_api::app::{Block, ChainStatus, ChainTransaction};
-// FIX: Import PenaltyMechanism from its canonical public path.
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::PenaltyMechanism;
 use ioi_api::services::access::ServiceDirectory;
 use ioi_api::services::{BlockchainService, UpgradableService};
-// FIX: `PinGuard` was moved, but `StateOverlay` is still used by `process_transaction` here.
-use ioi_api::state::{StateAccess, StateManager, StateOverlay};
+use ioi_api::state::{
+    service_namespace_prefix, NamespacedStateAccess, StateAccess, StateManager, StateOverlay,
+};
 use ioi_api::transaction::context::TxContext;
 use ioi_api::transaction::TransactionModel;
 use ioi_api::validator::WorkloadContainer;
@@ -24,9 +24,9 @@ use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{AccountId, BlockTimingParams, BlockTimingRuntime, ChainId, FailureReport};
 use ioi_types::codec;
 use ioi_types::error::{ChainError, StateError, TransactionError};
-use ioi_types::keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, STATUS_KEY};
-// FIX: Add Timestamp import for TxContext construction.
-use ibc_primitives::Timestamp;
+use ioi_types::keys::{
+    BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, STATUS_KEY, UPGRADE_ACTIVE_SERVICE_PREFIX,
+};
 use ioi_types::service_configs::{ActiveServiceMeta, MethodPermission};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
@@ -82,7 +82,7 @@ pub struct ExecutionMachine<CS: CommitmentScheme + Clone, ST: StateManager> {
     pub consensus_engine: Consensus<ioi_types::app::ChainTransaction>,
     workload_container: Arc<WorkloadContainer<ST>>,
     /// In-memory cache for fast access to on-chain service metadata.
-    service_meta_cache: HashMap<String, Arc<ActiveServiceMeta>>,
+    pub service_meta_cache: HashMap<String, Arc<ActiveServiceMeta>>,
 }
 
 impl<CS, ST> Debug for ExecutionMachine<CS, ST>
@@ -196,6 +196,16 @@ where
                     root,
                     chain_id: self.state.chain_id,
                 };
+
+                let service_iter = state.prefix_scan(UPGRADE_ACTIVE_SERVICE_PREFIX)?;
+                for item in service_iter {
+                    let (_key, meta_bytes) = item?;
+                    if let Ok(meta) = codec::from_bytes_canonical::<ActiveServiceMeta>(&meta_bytes)
+                    {
+                        self.service_meta_cache
+                            .insert(meta.id.clone(), Arc::new(meta));
+                    }
+                }
             }
             Ok(None) => {
                 tracing::info!(target: "execution", event = "status_init", "No existing chain status found. Initializing and saving genesis status.");
@@ -203,26 +213,53 @@ where
                 for service in self.service_manager.all_services() {
                     let service_id = service.id();
                     let key = ioi_types::keys::active_service_key(service_id);
-                    let mut methods = BTreeMap::new();
-                    match service_id {
+
+                    let (methods, allowed_system_prefixes) = match service_id {
                         "governance" => {
-                            methods.insert("submit_proposal@v1".into(), MethodPermission::User);
-                            methods.insert("vote@v1".into(), MethodPermission::User);
+                            let mut m = BTreeMap::new();
+                            // User-facing proposal API
+                            m.insert("submit_proposal@v1".into(), MethodPermission::User);
+                            m.insert("vote@v1".into(), MethodPermission::User);
+                            // Staking API
+                            m.insert("stake@v1".into(), MethodPermission::User);
+                            m.insert("unstake@v1".into(), MethodPermission::User);
+                            // Upgrade API (governance-gated)
+                            m.insert("store_module@v1".into(), MethodPermission::Governance);
+                            m.insert("swap_module@v1".into(), MethodPermission::Governance);
+                            // Misbehavior reporting endpoint
+                            m.insert("report_misbehavior@v1".into(), MethodPermission::User);
+                            // Permissions
+                            (
+                                m,
+                                vec![
+                                    "system::validators::".to_string(),
+                                    "identity::".to_string(),
+                                    "upgrade::".to_string(),
+                                ],
+                            )
                         }
                         "identity_hub" => {
-                            methods.insert("rotate_key@v1".into(), MethodPermission::User);
+                            let mut m = BTreeMap::new();
+                            m.insert("rotate_key@v1".into(), MethodPermission::User);
+                            // Permissions
+                            (m, vec!["system::validators::".to_string()])
                         }
                         "oracle" => {
-                            methods.insert("request_data@v1".into(), MethodPermission::User);
-                            methods.insert("submit_data@v1".into(), MethodPermission::User);
+                            let mut m = BTreeMap::new();
+                            m.insert("request_data@v1".into(), MethodPermission::User);
+                            m.insert("submit_data@v1".into(), MethodPermission::User);
+                            (m, Vec::new())
                         }
                         "ibc" => {
-                            methods.insert("verify_header@v1".into(), MethodPermission::User);
-                            methods.insert("recv_packet@v1".into(), MethodPermission::User);
-                            methods.insert("msg_dispatch@v1".into(), MethodPermission::User);
+                            let mut m = BTreeMap::new();
+                            m.insert("verify_header@v1".into(), MethodPermission::User);
+                            m.insert("recv_packet@v1".into(), MethodPermission::User);
+                            m.insert("msg_dispatch@v1".into(), MethodPermission::User);
+                            (m, Vec::new())
                         }
-                        _ => {}
-                    }
+                        _ => (BTreeMap::new(), Vec::new()),
+                    };
+
                     let meta = ActiveServiceMeta {
                         id: service_id.to_string(),
                         abi_version: service.abi_version(),
@@ -231,12 +268,15 @@ where
                         artifact_hash: [0u8; 32],
                         activated_at: 0,
                         methods,
+                        allowed_system_prefixes,
                     };
                     let meta_bytes = codec::to_bytes_canonical(&meta)
                         .map_err(|e| ChainError::Transaction(e.to_string()))?;
                     state
                         .insert(&key, &meta_bytes)
                         .map_err(|e| ChainError::Transaction(e.to_string()))?;
+                    self.service_meta_cache
+                        .insert(service_id.to_string(), Arc::new(meta));
                     tracing::info!(target: "execution", "Registered initial service '{}' as active in genesis state.", service_id);
                 }
 
@@ -323,7 +363,6 @@ where
         let signer_account_id = signer_from_tx(tx);
         let mut tx_ctx = TxContext {
             block_height,
-            // to prevent potential overflows and ensure correct Timestamp creation.
             block_timestamp: Timestamp::from_nanoseconds(
                 (block_timestamp as u128)
                     .saturating_mul(1_000_000_000)
@@ -345,7 +384,17 @@ where
 
         for service in self.services.services_in_deterministic_order() {
             if let Some(decorator) = service.as_tx_decorator() {
-                decorator.ante_handle(overlay, tx, &tx_ctx).await?;
+                let meta = self.service_meta_cache.get(service.id()).ok_or_else(|| {
+                    ChainError::Transaction(format!(
+                        "Metadata not found in cache for active service decorator '{}'",
+                        service.id()
+                    ))
+                })?;
+                let prefix = service_namespace_prefix(service.id());
+                let mut namespaced_overlay = NamespacedStateAccess::new(overlay, prefix, meta);
+                decorator
+                    .ante_handle(&mut namespaced_overlay, tx, &tx_ctx)
+                    .await?;
             }
         }
 

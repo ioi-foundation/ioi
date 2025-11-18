@@ -9,6 +9,7 @@
 use anyhow::{anyhow, Result};
 use axum::{routing::get, serve, Router};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use ioi_api::state::service_namespace_prefix;
 use ioi_forge::testing::{
     build_test_artifacts, submit_transaction, wait_for_height, wait_for_oracle_data,
     wait_for_pending_oracle_request, TestCluster,
@@ -113,7 +114,7 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
     // Launch a local HTTP stub the oracle can call deterministically.
     let (stub_url, _stub_handle) = start_local_price_stub().await;
 
-    let mut cluster = TestCluster::builder()
+    let cluster = TestCluster::builder()
         .with_validators(4)
         .with_consensus_type("ProofOfStake")
         .with_state_tree("IAVL")
@@ -129,6 +130,7 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
         .with_genesis_modifier(|genesis, keys| {
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
             let initial_stake = 100_000u128;
+            let ns_prefix = service_namespace_prefix("identity_hub");
 
             // --- FIX START: Create a deterministically sorted list of validators ---
             let mut validators: Vec<ValidatorV1> = keys
@@ -205,7 +207,7 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
                 let account_id_hash = account_id_from_key_material(suite, &pk_bytes).unwrap();
                 let account_id = AccountId(account_id_hash);
 
-                // Add IdentityHub credentials
+                // Add IdentityHub credentials (namespaced)
                 let cred = Credential {
                     suite: SignatureSuite::Ed25519,
                     public_key_hash: account_id.0,
@@ -214,17 +216,30 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
                 };
                 let creds_array: [Option<Credential>; 2] = [Some(cred), None];
                 let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
-                let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
-                genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&creds_key))] =
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes)));
+                let creds_key = [
+                    ns_prefix.as_slice(),
+                    IDENTITY_CREDENTIALS_PREFIX,
+                    account_id.as_ref(),
+                ]
+                .concat();
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
+                );
 
-                // Add AccountId -> PublicKey mapping
-                let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-                genesis["genesis_state"]
-                    [format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key))] =
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes)));
+                // Add AccountId -> PublicKey mapping (namespaced)
+                let pubkey_map_key = [
+                    ns_prefix.as_slice(),
+                    ACCOUNT_ID_TO_PUBKEY_PREFIX,
+                    account_id.as_ref(),
+                ]
+                .concat();
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes))),
+                );
 
-                // Add ActiveKeyRecord for consensus
+                // Add ActiveKeyRecord for consensus (namespaced)
                 let record = ActiveKeyRecord {
                     suite,
                     public_key_hash: account_id.0,
@@ -232,57 +247,64 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
                 };
                 let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
                 let record_bytes = codec::to_bytes_canonical(&record).unwrap();
-                genesis["genesis_state"][format!("b64:{}", BASE64_STANDARD.encode(&record_key))] =
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes)));
+                let record_key_namespaced = [ns_prefix.as_slice(), &record_key].concat();
+                genesis_state.insert(
+                    format!("b64:{}", BASE64_STANDARD.encode(&record_key_namespaced)),
+                    json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
+                );
             }
         })
         .build()
         .await?;
 
-    // --- FIX START: Use .validator() accessor on the guard ---
-    let node0_rpc = &cluster.validators[0].validator().rpc_addr;
+    // --- FIX START: Wrap test logic in an async block to guarantee cleanup ---
+    let test_result: Result<()> = async {
+        let node0_rpc = &cluster.validators[0].validator().rpc_addr;
 
-    // Wait for deterministic chain readiness.
-    wait_for_height(node0_rpc, 2, std::time::Duration::from_secs(30)).await?;
+        // Wait for deterministic chain readiness.
+        wait_for_height(node0_rpc, 2, std::time::Duration::from_secs(30)).await?;
 
-    // 2. SUBMIT ORACLE REQUEST TRANSACTION
-    let request_id = 101;
-    let signer_keypair = &cluster.validators[0].validator().keypair;
-    let request_tx = create_call_service_tx(
-        signer_keypair,
-        "oracle",
-        "request_data@v1",
-        RequestOracleDataParams {
-            url: stub_url,
+        // 2. SUBMIT ORACLE REQUEST TRANSACTION
+        let request_id = 101;
+        let signer_keypair = &cluster.validators[0].validator().keypair;
+        let request_tx = create_call_service_tx(
+            signer_keypair,
+            "oracle",
+            "request_data@v1",
+            RequestOracleDataParams {
+                url: stub_url,
+                request_id,
+            },
+            0,
+            1.into(),
+        )?;
+        // Best-effort broadcast to all validators so at least one mempool admits it.
+        for v in &cluster.validators {
+            let _ = submit_transaction(&v.validator().rpc_addr, &request_tx).await;
+        }
+
+        wait_for_pending_oracle_request(node0_rpc, request_id, std::time::Duration::from_secs(30))
+            .await?;
+        println!("SUCCESS: Oracle request tx was included in a block and is now pending.");
+
+        // 3. ASSERT ON-CHAIN FINALIZATION
+        let expected_data = br#"{"bitcoin":{"usd":42000}}"#.to_vec();
+        wait_for_oracle_data(
+            node0_rpc,
             request_id,
-        },
-        0,
-        1.into(),
-    )?;
-    // Best-effort broadcast to all validators so at least one mempool admits it.
-    for v in &cluster.validators {
-        let _ = submit_transaction(&v.validator().rpc_addr, &request_tx).await;
-    }
-    // --- FIX END ---
-
-    wait_for_pending_oracle_request(node0_rpc, request_id, std::time::Duration::from_secs(30))
+            &expected_data,
+            std::time::Duration::from_secs(45),
+        )
         .await?;
-    println!("SUCCESS: Oracle request tx was included in a block and is now pending.");
-
-    // 3. ASSERT ON-CHAIN FINALIZATION
-    let expected_data = br#"{"bitcoin":{"usd":42000}}"#.to_vec();
-    wait_for_oracle_data(
-        node0_rpc,
-        request_id,
-        &expected_data,
-        std::time::Duration::from_secs(45),
-    )
-    .await?;
+        Ok(())
+    }
+    .await;
 
     // --- FIX START: Add explicit shutdown logic ---
     for guard in cluster.validators {
         guard.shutdown().await?;
     }
+    test_result?;
     // --- FIX END ---
 
     println!("--- Validator-Native Oracle E2E Test Passed ---");

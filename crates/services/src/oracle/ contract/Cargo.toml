@@ -4,7 +4,8 @@ name = "oracle-service-contract"
 version = "0.1.0"
 edition = "2021"
 description = "On-chain WASM component for the IOI SDK Oracle service"
-license = "MIT OR Apache-2.0"
+license-file = "../../../../LICENSE-BBSL"
+repository = "https://github.com/ioi-foundation/ioi-sdk"
 
 [lib]
 crate-type = ["cdylib"]

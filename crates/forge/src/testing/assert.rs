@@ -3,6 +3,7 @@
 use super::rpc::{get_chain_height, get_quarantined_set, query_state_key};
 use crate::testing::rpc::get_contract_code;
 use anyhow::{anyhow, Result};
+use ioi_api::state::service_namespace_prefix;
 use ioi_client::WorkloadClient;
 use ioi_types::{
     app::{AccountId, Proposal, ProposalStatus, StateEntry},
@@ -245,7 +246,14 @@ pub async fn confirm_proposal_passed_state(
     proposal_id: u64,
     timeout: Duration,
 ) -> Result<()> {
-    let proposal_key = [GOVERNANCE_PROPOSAL_KEY_PREFIX, &proposal_id.to_le_bytes()].concat();
+    // --- FIX: Construct the fully namespaced key ---
+    let proposal_key = [
+        ioi_api::state::service_namespace_prefix("governance").as_slice(),
+        GOVERNANCE_PROPOSAL_KEY_PREFIX,
+        &proposal_id.to_le_bytes(),
+    ]
+    .concat();
+    // --- END FIX ---
 
     wait_for(
         &format!("proposal {} to be passed", proposal_id),
@@ -327,7 +335,13 @@ pub async fn wait_for_pending_oracle_request(
     request_id: u64,
     timeout: Duration,
 ) -> Result<()> {
-    let key = [ORACLE_PENDING_REQUEST_PREFIX, &request_id.to_le_bytes()].concat();
+    // FIX: Use the correct namespaced key for the oracle service.
+    let key = [
+        service_namespace_prefix("oracle").as_slice(),
+        ORACLE_PENDING_REQUEST_PREFIX,
+        &request_id.to_le_bytes(),
+    ]
+    .concat();
 
     wait_for(
         &format!("pending oracle request for id {}", request_id),
@@ -377,7 +391,13 @@ pub async fn wait_for_oracle_data(
     expected_value: &[u8],
     timeout: Duration,
 ) -> Result<()> {
-    let key = [ORACLE_DATA_PREFIX, &request_id.to_le_bytes()].concat();
+    // FIX: Use the correct namespaced key for the oracle service.
+    let key = [
+        service_namespace_prefix("oracle").as_slice(),
+        ORACLE_DATA_PREFIX,
+        &request_id.to_le_bytes(),
+    ]
+    .concat();
 
     wait_for(
         &format!("oracle data for request_id {} to be finalized", request_id),
