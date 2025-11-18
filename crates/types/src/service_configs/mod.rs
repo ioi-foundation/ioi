@@ -147,4 +147,7 @@ pub struct ActiveServiceMeta {
     /// This is the on-chain source of truth for the ACL.
     #[serde(default)]
     pub methods: BTreeMap<String, MethodPermission>,
+    /// A list of `system::` key prefixes that this service is permitted to access.
+    #[serde(default)]
+    pub allowed_system_prefixes: Vec<String>,
 }

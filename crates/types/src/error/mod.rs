@@ -43,6 +43,9 @@ pub enum StateError {
     /// An operation was attempted on a stale state anchor.
     #[error("The provided state anchor is stale and does not match the latest known root")]
     StaleAnchor,
+    /// The operation was denied due to insufficient permissions on a state key.
+    #[error("Permission denied for state key: {0}")]
+    PermissionDenied(String),
 }
 
 impl ErrorCode for StateError {
@@ -58,6 +61,7 @@ impl ErrorCode for StateError {
             Self::ProofDidNotAnchor => "STATE_PROOF_NO_ANCHOR",
             Self::UnknownAnchor(_) => "STATE_UNKNOWN_ANCHOR",
             Self::StaleAnchor => "STATE_STALE_ANCHOR",
+            Self::PermissionDenied(_) => "STATE_PERMISSION_DENIED",
         }
     }
 }

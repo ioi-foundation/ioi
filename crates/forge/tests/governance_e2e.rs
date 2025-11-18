@@ -160,7 +160,13 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                 total_deposit: 10000,
                 final_tally: None,
             };
-            let proposal_key_bytes = [GOVERNANCE_PROPOSAL_KEY_PREFIX, &1u64.to_le_bytes()].concat();
+            // --- FIX: Write proposal data to the correct service namespace ---
+            let proposal_key_bytes = [
+                ioi_api::state::service_namespace_prefix("governance").as_slice(),
+                GOVERNANCE_PROPOSAL_KEY_PREFIX,
+                &1u64.to_le_bytes(),
+            ]
+            .concat();
             let entry = StateEntry {
                 value: codec::to_bytes_canonical(&proposal).unwrap(),
                 block_height: 0,
@@ -238,39 +244,46 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
         .build()
         .await?;
 
-    // 3. GET HANDLES to the node
-    let node_guard = &cluster.validators[0];
-    let node = node_guard.validator();
-    let rpc_addr = &node.rpc_addr;
-    let validator_key = &node.keypair;
+    // Wrap the test logic in an async block to guarantee cleanup
+    let test_result: anyhow::Result<()> = async {
+        // 3. GET HANDLES to the node
+        let node_guard = &cluster.validators[0];
+        let node = node_guard.validator();
+        let rpc_addr = &node.rpc_addr;
+        let validator_key = &node.keypair;
 
-    // 4. SUBMIT a VOTE from the validator using the new CallService transaction
-    let tx = create_call_service_tx(
-        validator_key,
-        "governance",
-        "vote@v1",
-        VoteParams {
-            proposal_id: 1,
-            option: VoteOption::Yes,
-        },
-        0, // Use nonce 0 for the validator's first transaction
-        1.into(),
-    )?;
-    submit_transaction(rpc_addr, &tx).await?;
+        // 4. SUBMIT a VOTE from the validator using the new CallService transaction
+        let tx = create_call_service_tx(
+            validator_key,
+            "governance",
+            "vote@v1",
+            VoteParams {
+                proposal_id: 1,
+                option: VoteOption::Yes,
+            },
+            0, // Use nonce 0 for the validator's first transaction
+            1.into(),
+        )?;
+        submit_transaction(rpc_addr, &tx).await?;
 
-    // 5. Ensure the chain makes progress after submission.
-    wait_for_height(rpc_addr, 2, Duration::from_secs(30)).await?;
+        // 5. Ensure the chain makes progress after submission.
+        wait_for_height(rpc_addr, 2, Duration::from_secs(30)).await?;
 
-    // 6. WAIT for the voting period to end (ends at height 3, wait for height 4).
-    wait_for_height(rpc_addr, 4, Duration::from_secs(30)).await?;
+        // 6. WAIT for the voting period to end (ends at height 3, wait for height 4).
+        wait_for_height(rpc_addr, 4, Duration::from_secs(30)).await?;
 
-    // 7. ASSERT the tallying outcome via state.
-    confirm_proposal_passed_state(rpc_addr, 1, Duration::from_secs(20)).await?;
+        // 7. ASSERT the tallying outcome via state.
+        confirm_proposal_passed_state(rpc_addr, 1, Duration::from_secs(20)).await?;
+        Ok(())
+    }
+    .await;
 
     // 8. CLEANUP: Explicitly shut down all validators.
     for guard in cluster.validators {
         guard.shutdown().await?;
     }
+
+    test_result?;
 
     println!("--- Governance Lifecycle E2E Test Successful ---");
     Ok(())

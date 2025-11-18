@@ -1,12 +1,11 @@
 // Path: crates/validator/src/standard/orchestration/operator_tasks.rs
-//! Contains off-chain, state-gated operator tasks for native services.
 
 use super::context::MainLoopContext;
 use anyhow::{anyhow, Result};
 use ioi_api::{
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
-    state::{StateManager, Verifier},
+    state::{service_namespace_prefix, StateManager, Verifier},
 };
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_services::oracle::OracleService;
@@ -71,10 +70,13 @@ where
 
     let oracle_service = OracleService::new();
 
-    let pending_requests = match workload_client
-        .prefix_scan(ORACLE_PENDING_REQUEST_PREFIX)
-        .await
-    {
+    // Pending requests are written by OracleService *under its namespace* via NamespacedStateAccess.
+    // The actual stored keys look like:
+    //   _service_data::oracle::ORACLE_PENDING_REQUEST_PREFIX || request_id_le
+    let ns_prefix = service_namespace_prefix("oracle");
+    let pending_prefix: Vec<u8> = [ns_prefix.as_slice(), ORACLE_PENDING_REQUEST_PREFIX].concat();
+
+    let pending_requests = match workload_client.prefix_scan(&pending_prefix).await {
         Ok(kvs) => kvs,
         Err(e) => {
             log::error!(
@@ -108,7 +110,8 @@ where
     }
 
     for (key, value_bytes) in &pending_requests {
-        let suffix = key.get(ORACLE_PENDING_REQUEST_PREFIX.len()..);
+        // Strip the full namespaced prefix to recover the raw request_id bytes.
+        let suffix = key.get(pending_prefix.len()..);
         let request_id = match suffix
             .and_then(|s| s.try_into().ok())
             .map(u64::from_le_bytes)
@@ -161,7 +164,7 @@ where
                 let attestation_bytes =
                     codec::to_bytes_canonical(&attestation).map_err(|e| anyhow!(e))?;
                 context
-                    .swarm_commander // <-- CORRECTED FIELD NAME
+                    .swarm_commander
                     .send(SwarmCommand::GossipOracleAttestation(attestation_bytes))
                     .await
                     .ok();

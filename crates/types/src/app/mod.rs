@@ -16,7 +16,7 @@ pub use penalties::*;
 pub use timing::*;
 
 use crate::error::{CoreError, StateError};
-use crate::ibc::{Finality, Header, InclusionProof, Packet};
+// REMOVED unused IBC imports
 use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
 use dcrypt::algorithms::ByteSerializable;
 use parity_scale_codec::{Decode, Encode};
@@ -533,51 +533,12 @@ pub struct OracleConsensusProof {
 }
 
 /// The specific action being requested by a SystemTransaction.
+/// All system-level state changes are dispatched through the `CallService` variant,
+/// ensuring consistent application of permissions and namespacing.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub enum SystemPayload {
-    /// **[CORE]** Updates the set of authorities for a Proof-of-Authority chain.
-    UpdateAuthorities {
-        /// The new list of authority AccountIds.
-        new_authorities: Vec<AccountId>,
-    },
-    /// **[CORE]** Stakes a certain amount for a validator.
-    Stake {
-        /// The protobuf-encoded libp2p public key of the staker.
-        public_key: Vec<u8>,
-        /// The amount to stake.
-        amount: u64,
-    },
-    /// **[CORE]** Unstakes a certain amount for a validator.
-    Unstake {
-        /// The amount to unstake.
-        amount: u64,
-    },
-    /// **[CORE]** Schedules a forkless upgrade of a core service module.
-    SwapModule {
-        /// The unique ID of the service to be installed or upgraded.
-        service_id: String,
-        /// The SHA-256 hash of the service's TOML manifest.
-        manifest_hash: [u8; 32],
-        /// The SHA-256 hash of the service's WASM or EVM bytecode artifact.
-        artifact_hash: [u8; 32],
-        /// The block height at which the upgrade becomes active.
-        activation_height: u64,
-    },
-    /// **[CORE]** Stores a service module's manifest and artifact on-chain for a future upgrade.
-    StoreModule {
-        /// The TOML manifest content.
-        manifest: String,
-        /// The raw WASM or EVM bytecode.
-        artifact: Vec<u8>,
-    },
-    /// **[CORE]** Reports misbehavior by another agentic component, providing verifiable evidence.
-    ReportMisbehavior {
-        /// The full report, including the offender, facts, and proof.
-        report: FailureReport,
-    },
-
-    // --- NEW: GENERIC SERVICE DISPATCH ---
-    /// **[NEW]** A generic payload to call a method on any registered on-chain service.
+    /// A generic payload to call a method on any registered on-chain service.
+    /// This is the unified entrypoint for all system and user-level service logic.
     CallService {
         /// The unique, lowercase, alphanumeric identifier of the target service (e.g., "identity_hub", "ibc").
         service_id: String,
@@ -585,127 +546,5 @@ pub enum SystemPayload {
         method: String,
         /// The SCALE-encoded parameters for the method call.
         params: Vec<u8>,
-    },
-
-    // --- DEPRECATED PAYLOADS (to be removed in a future version) ---
-    /// Casts a vote on a governance proposal.
-    #[deprecated(
-        note = "Use CallService { service_id: \"governance\", method: \"vote@v1\", params: SCALE_ENCODE((proposal_id, option)) }"
-    )]
-    Vote {
-        /// The unique identifier of the proposal being voted on.
-        proposal_id: u64,
-        /// The voter's chosen option.
-        option: VoteOption,
-    },
-    /// Submits a request for external data to be brought on-chain by the oracle.
-    #[deprecated(
-        note = "Use CallService { service_id: \"oracle\", method: \"request_data@v1\", params: SCALE_ENCODE((url, request_id)) }"
-    )]
-    RequestOracleData {
-        /// The URL or identifier for the data to be fetched.
-        url: String,
-        /// A unique ID for this request, specified by the user.
-        request_id: u64,
-    },
-    /// Submits the final, tallied result and consensus proof for an oracle request.
-    #[deprecated(
-        note = "Use CallService { service_id: \"oracle\", method: \"submit_data@v1\", params: SCALE_ENCODE((request_id, final_value, proof)) }"
-    )]
-    SubmitOracleData {
-        /// The ID of the request being fulfilled.
-        request_id: u64,
-        /// The final, aggregated value for the oracle data.
-        final_value: Vec<u8>,
-        /// The cryptographic proof of consensus from the validator set.
-        consensus_proof: OracleConsensusProof,
-    },
-    /// Initiates a key rotation for the transaction's signer.
-    #[deprecated(
-        note = "Use CallService { service_id: \"identity_hub\", method: \"rotate_key@v1\", params: SCALE_ENCODE(proof) }"
-    )]
-    RotateKey(RotationProof),
-
-    /// Explicitly submit a header update to an on-chain light client.
-    #[cfg_attr(not(feature = "ibc-deps"), allow(dead_code))]
-    #[deprecated(
-        note = "Use CallService { service_id: \"ibc\", method: \"verify_header@v1\", params: SCALE_ENCODE((chain_id, header, finality)) }"
-    )]
-    VerifyHeader {
-        /// The unique identifier of the target chain's light client.
-        chain_id: String,
-        /// The header to verify and store.
-        header: Header,
-        /// The finality proof for the header (e.g., Tendermint commit).
-        finality: Finality,
-    },
-    /// Submits a ZK proof to be verified by a ZkDriver, targeting a specific verifier.
-    #[deprecated(
-        note = "Use CallService { service_id: \"zk_verifier\", method: \"submit_proof@v1\", ... }"
-    )]
-    SubmitProof {
-        /// The identifier of the verifier that should handle this proof.
-        target_verifier_id: String,
-        /// The raw bytes of the ZK proof.
-        proof_bytes: Vec<u8>,
-        /// The raw bytes of the public inputs for the ZK proof.
-        public_inputs: Vec<u8>,
-    },
-    /// Send an IBC-style packet.
-    #[cfg_attr(not(feature = "ibc-deps"), allow(dead_code))]
-    #[deprecated(
-        note = "Use CallService { service_id: \"ibc_channel_manager\", method: \"send_packet@v1\", ... }"
-    )]
-    SendPacket {
-        /// The port on the source chain.
-        source_port: String,
-        /// The channel on the source chain.
-        source_channel: String,
-        /// The packet data to be sent.
-        packet: Packet,
-        /// The block height on the destination chain after which the packet times out.
-        timeout_height: u64,
-        /// The timestamp on the destination chain after which the packet times out.
-        timeout_timestamp: u64,
-    },
-    /// Receive an IBC-style packet, proven against a verified header.
-    #[cfg_attr(not(feature = "ibc-deps"), allow(dead_code))]
-    #[deprecated(
-        note = "Use CallService { service_id: \"ibc_channel_manager\", method: \"recv_packet@v1\", ... }"
-    )]
-    RecvPacket {
-        /// The packet that was received.
-        packet: Packet,
-        /// A cryptographic proof of the packet's inclusion on the source chain.
-        proof: InclusionProof,
-        /// The height on the source chain at which the proof was generated.
-        proof_height: u64,
-    },
-    /// Acknowledge a received packet.
-    #[cfg_attr(not(feature = "ibc-deps"), allow(dead_code))]
-    #[deprecated(
-        note = "Use CallService { service_id: \"ibc_channel_manager\", method: \"acknowledge_packet@v1\", ... }"
-    )]
-    AcknowledgePacket {
-        /// The original packet that is being acknowledged.
-        packet: Packet,
-        /// The acknowledgement data from the receiving application.
-        acknowledgement: Vec<u8>,
-        /// A cryptographic proof of the acknowledgement's inclusion on the acknowledging chain.
-        proof: InclusionProof,
-        /// The height on the acknowledging chain at which the proof was generated.
-        proof_height: u64,
-    },
-    /// Submits a receipt from a foreign chain for verification.
-    #[deprecated(note = "Use IBC packets for interoperability.")]
-    VerifyForeignReceipt {
-        /// The chain ID of the foreign chain where the event originated.
-        chain_id: u32,
-        /// A unique identifier for the receipt, derived from its content on the foreign chain.
-        unique_leaf_id: [u8; 32],
-        /// The raw, opaque receipt data.
-        receipt: Vec<u8>,
-        /// A cryptographic proof of the receipt's inclusion in the foreign chain's state.
-        proof: Vec<u8>,
     },
 }

@@ -1,5 +1,4 @@
 // Path: crates/forge/tests/penalty_pos_e2e.rs
-
 #![cfg(all(feature = "consensus-pos", feature = "vm-wasm"))]
 
 use anyhow::{anyhow, Result};
@@ -10,48 +9,26 @@ use ioi_forge::testing::{
     rpc::{get_chain_timestamp, query_state_key},
     submit_transaction, wait_for_evidence, wait_for_height, wait_for_stake_to_be, TestCluster,
 };
+use ioi_services::governance::ReportMisbehaviorParams;
 use ioi_types::{
     app::{
-        account_id_from_key_material,
-        evidence_id,
-        AccountId,
-        ActiveKeyRecord,
-        // --- FIX: Add the missing struct imports ---
-        BlockTimingParams,
-        BlockTimingRuntime,
-        ChainId,
-        ChainTransaction,
-        Credential,
-        FailureReport,
-        OffenseFacts,
-        OffenseType,
-        SignHeader,
-        SignatureProof,
-        SignatureSuite,
-        SystemPayload,
-        SystemTransaction,
-        ValidatorSetV1,
-        ValidatorSetsV1,
-        ValidatorV1,
+        account_id_from_key_material, evidence_id, AccountId, ActiveKeyRecord, BlockTimingParams,
+        BlockTimingRuntime, ChainId, ChainTransaction, Credential, FailureReport, OffenseFacts,
+        OffenseType, SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+        ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
     keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX,
-        ACCOUNT_NONCE_PREFIX,
-        // --- FIX: Add the missing key imports ---
-        BLOCK_TIMING_PARAMS_KEY,
-        BLOCK_TIMING_RUNTIME_KEY,
-        IDENTITY_CREDENTIALS_PREFIX,
-        VALIDATOR_SET_KEY,
+        ACCOUNT_ID_TO_PUBKEY_PREFIX, ACCOUNT_NONCE_PREFIX, BLOCK_TIMING_PARAMS_KEY,
+        BLOCK_TIMING_RUNTIME_KEY, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
     },
-    service_configs::MigrationConfig,
+    service_configs::{GovernanceParams, MigrationConfig},
 };
 use libp2p::identity::Keypair;
 use serde_json::json;
 use std::time::Duration;
 
-// ... (The rest of the file remains unchanged) ...
 // Helper function to create a signed system transaction
 fn create_report_tx(
     reporter_key: &Keypair,
@@ -71,6 +48,17 @@ fn create_report_tx(
         proof: b"mock_proof_data".to_vec(),
     };
 
+    let params = ReportMisbehaviorParams {
+        report: report.clone(),
+    };
+    let params_bytes = codec::to_bytes_canonical(&params).map_err(|e| anyhow!(e))?;
+
+    let payload = SystemPayload::CallService {
+        service_id: "governance".to_string(), // Penalties are a governance/staking concern.
+        method: "report_misbehavior@v1".to_string(), // Assumed new method name.
+        params: params_bytes,
+    };
+
     let reporter_pk_bytes = reporter_key.public().encode_protobuf();
     let reporter_account_hash =
         account_id_from_key_material(SignatureSuite::Ed25519, &reporter_pk_bytes)?;
@@ -85,9 +73,7 @@ fn create_report_tx(
 
     let mut tx_to_sign = SystemTransaction {
         header,
-        payload: SystemPayload::ReportMisbehavior {
-            report: report.clone(),
-        },
+        payload, // Use the new payload
         signature_proof: SignatureProof::default(),
     };
 
@@ -195,6 +181,7 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
             allowed_target_suites: vec![SignatureSuite::Ed25519],
             allow_downgrade: false,
         }))
+        .with_initial_service(InitialServiceConfig::Governance(GovernanceParams::default()))
         .with_genesis_modifier(move |genesis, keys| {
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
             let initial_stake = 100_000u128;

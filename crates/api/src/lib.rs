@@ -43,8 +43,6 @@ pub mod ibc;
 pub mod identity;
 /// Defines traits for services that hook into the block processing lifecycle.
 pub mod lifecycle;
-/// Traits for abstracting execution runtimes (e.g., WASM, EVM).
-pub mod runtime;
 /// Traits for pluggable, upgradable blockchain services.
 pub mod services;
 /// Core traits for state management, including `StateAccess` and `StateManager`.

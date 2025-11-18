@@ -1,11 +1,11 @@
 // Path: crates/execution/src/upgrade_manager/mod.rs
 
 use crate::runtime_service::RuntimeService;
-use ioi_api::runtime::Runtime;
 use ioi_api::services::{BlockchainService, UpgradableService};
-use ioi_api::state::StateAccess;
+use ioi_api::state::{StateAccess, VmStateAccessor};
+use ioi_api::vm::VirtualMachine;
 use ioi_types::codec;
-use ioi_types::error::{CoreError, UpgradeError};
+use ioi_types::error::{CoreError, StateError, UpgradeError};
 use ioi_types::keys::{
     active_service_key, UPGRADE_ARTIFACT_PREFIX, UPGRADE_MANIFEST_PREFIX, UPGRADE_PENDING_PREFIX,
 };
@@ -27,6 +27,8 @@ struct OnChainManifest {
     capabilities: Vec<String>,
     #[serde(default)]
     methods: BTreeMap<String, String>, // e.g., "ante_handle@v1" = "Internal"
+    #[serde(default)]
+    allowed_system_prefixes: Vec<String>,
 }
 
 impl OnChainManifest {
@@ -64,6 +66,7 @@ impl OnChainManifest {
             artifact_hash,
             activated_at,
             methods: perms,
+            allowed_system_prefixes: self.allowed_system_prefixes,
         })
     }
 }
@@ -86,7 +89,7 @@ fn validate_service_id(id: &str) -> Result<(), CoreError> {
 pub struct ServiceUpgradeManager {
     active_services: HashMap<String, Arc<dyn UpgradableService>>,
     upgrade_history: HashMap<String, Vec<u64>>,
-    runtimes: HashMap<String, Arc<dyn Runtime>>,
+    runtimes: HashMap<String, Arc<dyn VirtualMachine>>,
     refreshed_this_block: bool,
 }
 
@@ -133,7 +136,7 @@ impl ServiceUpgradeManager {
         self.upgrade_history.entry(service_id).or_default();
     }
 
-    pub fn register_runtime(&mut self, id: &str, runtime: Arc<dyn Runtime>) {
+    pub fn register_runtime(&mut self, id: &str, runtime: Arc<dyn VirtualMachine>) {
         self.runtimes.insert(id.to_string(), runtime);
     }
 
@@ -173,8 +176,12 @@ impl ServiceUpgradeManager {
     ) -> Result<usize, CoreError> {
         let index_key = [UPGRADE_PENDING_PREFIX, &height.to_le_bytes()].concat();
         let Some(index_bytes) = state.get(&index_key).map_err(CoreError::from)? else {
+            // This is normal; most blocks have no upgrades. Use trace level.
+            tracing::trace!(target: "upgrade_manager", height=height, "No pending upgrades found for this height.");
             return Ok(0); // No upgrades scheduled for this height.
         };
+
+        tracing::info!(target: "upgrade_manager", height=height, "Found pending upgrades for this height. Applying...");
 
         let upgrades_to_apply: Vec<(String, [u8; 32], [u8; 32])> =
             codec::from_bytes_canonical(&index_bytes).map_err(CoreError::Custom)?;
@@ -182,6 +189,8 @@ impl ServiceUpgradeManager {
         let mut applied_count = 0;
 
         for (service_id, manifest_hash, artifact_hash) in upgrades_to_apply {
+            tracing::info!(target: "upgrade_manager", service_id=%service_id, manifest_hash=%hex::encode(manifest_hash), artifact_hash=%hex::encode(artifact_hash), "Attempting to apply upgrade.");
+
             let manifest_key = [UPGRADE_MANIFEST_PREFIX, &manifest_hash].concat();
             let artifact_key = [UPGRADE_ARTIFACT_PREFIX, &artifact_hash].concat();
 
@@ -243,6 +252,7 @@ impl ServiceUpgradeManager {
         state: &mut dyn StateAccess,
         activation_height: u64,
     ) -> Result<(), CoreError> {
+        tracing::info!(target: "upgrade_manager", service_id=%service_id, "Executing upgrade.");
         // First, parse the manifest to determine which runtime to use.
         let parsed: OnChainManifest = toml::from_str(manifest_str).map_err(|e| {
             CoreError::Upgrade(UpgradeError::InvalidUpgrade(format!(
@@ -250,6 +260,7 @@ impl ServiceUpgradeManager {
                 e
             )))
         })?;
+        tracing::debug!(target: "upgrade_manager", service_id=%service_id, "Parsed manifest successfully.");
 
         // Select the runtime based on the manifest.
         let runtime_id = parsed.runtime.to_ascii_lowercase();
@@ -259,20 +270,26 @@ impl ServiceUpgradeManager {
                 runtime_id
             )))
         })?;
+        tracing::debug!(target: "upgrade_manager", service_id=%service_id, "Selected runtime '{}'.", runtime_id);
 
-        // Now, load the artifact using the correct runtime.
-        let mut runnable = runtime
-            .load(artifact)
+        // --- Security Constraint: `manifest()` must be pure ---
+        // The `manifest()` function is called here to verify the artifact's integrity
+        // before it is trusted with state access. It is executed in a null state context.
+        let manifest_exec_context = ioi_api::vm::ExecutionContext {
+            gas_limit: 1_000_000_000, // Generous gas limit for pure manifest retrieval.
+            ..Default::default()
+        };
+        let temp_instance_output = runtime
+            .execute(
+                artifact,
+                "manifest",
+                &[],
+                &NullStateAccessor,
+                manifest_exec_context,
+            )
             .await
             .map_err(|e| CoreError::Upgrade(UpgradeError::InvalidUpgrade(e.to_string())))?;
-
-        // Sanity check: ensure the manifest embedded in the artifact matches the one from state.
-        let embedded_manifest_bytes = runnable.call("manifest", &[]).await.map_err(|e| {
-            CoreError::Upgrade(UpgradeError::InvalidUpgrade(format!(
-                "Failed to call manifest(): {}",
-                e
-            )))
-        })?;
+        let embedded_manifest_bytes = temp_instance_output.return_data;
         let embedded_manifest_str = String::from_utf8(embedded_manifest_bytes).map_err(|e| {
             CoreError::Upgrade(UpgradeError::InvalidUpgrade(format!(
                 "Embedded manifest is not valid UTF-8: {}",
@@ -312,6 +329,7 @@ impl ServiceUpgradeManager {
                 "Mismatch between stored and embedded manifest".to_string(),
             )));
         }
+        tracing::debug!(target: "upgrade_manager", service_id=%service_id, "Manifests match.");
 
         if parsed.id != service_id {
             return Err(CoreError::Upgrade(UpgradeError::InvalidUpgrade(
@@ -343,7 +361,8 @@ impl ServiceUpgradeManager {
                 parsed.id,
                 parsed.abi_version,
                 parsed.state_schema,
-                runnable,
+                runtime.clone(),
+                artifact.to_vec(),
                 full_meta.caps,
             ));
             self.register_service(new_service_arc as Arc<dyn UpgradableService>);
@@ -351,11 +370,12 @@ impl ServiceUpgradeManager {
             state
                 .insert(&active_service_key(service_id), &meta_bytes)
                 .map_err(|e| CoreError::Custom(e.to_string()))?;
-            log::info!(
-                "Installed new service '{}' at height {} (artifact {}).",
-                service_id,
-                activation_height,
-                hex::encode(artifact_hash)
+            tracing::info!(
+                target = "upgrade_manager",
+                service_id=%service_id,
+                height = activation_height,
+                artifact_hash = %hex::encode(artifact_hash),
+                "Successfully INSTALLED and ACTIVATED new service.",
             );
             return Ok(());
         }
@@ -365,14 +385,14 @@ impl ServiceUpgradeManager {
             .get(service_id)
             .ok_or_else(|| CoreError::ServiceNotFound(service_id.to_string()))?;
 
-        // Call &self methods directly on the Arc, no `get_mut` needed.
         let snapshot = active_service.prepare_upgrade(artifact).await?;
 
         let new_service_arc = Arc::new(RuntimeService::new(
             parsed.id,
             parsed.abi_version,
             parsed.state_schema,
-            runnable,
+            runtime.clone(),
+            artifact.to_vec(),
             full_meta.caps,
         ));
 
@@ -391,7 +411,13 @@ impl ServiceUpgradeManager {
         state
             .insert(&active_service_key(service_id), &meta_bytes)
             .map_err(|e| CoreError::Custom(e.to_string()))?;
-
+        tracing::info!(
+            target = "upgrade_manager",
+            service_id=%service_id,
+            height = activation_height,
+            artifact_hash = %hex::encode(artifact_hash),
+            "Successfully SWAPPED and ACTIVATED service.",
+        );
         Ok(())
     }
 
@@ -431,5 +457,22 @@ impl ServiceUpgradeManager {
                 (service_id.clone(), is_healthy)
             })
             .collect()
+    }
+}
+
+/// A dummy, no-op state accessor for use in contexts where state access is not expected,
+/// such as calling a pure `manifest()` function on a WASM service artifact.
+struct NullStateAccessor;
+
+#[async_trait::async_trait]
+impl VmStateAccessor for NullStateAccessor {
+    async fn get(&self, _key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
+        Ok(None)
+    }
+    async fn insert(&self, _key: &[u8], _value: &[u8]) -> Result<(), StateError> {
+        Ok(())
+    }
+    async fn delete(&self, _key: &[u8]) -> Result<(), StateError> {
+        Ok(())
     }
 }

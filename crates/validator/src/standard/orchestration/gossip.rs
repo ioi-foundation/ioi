@@ -1,6 +1,6 @@
 // Path: crates/validator/src/standard/orchestration/gossip.rs
 use super::context::MainLoopContext;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, StateRef};
 use ioi_api::commitment::CommitmentScheme;
@@ -121,19 +121,21 @@ pub fn prune_mempool(
         .transactions
         .iter()
         .filter_map(|tx| match tx {
-            ChainTransaction::System(sys_tx) => match &sys_tx.payload {
-                SystemPayload::CallService {
+            ChainTransaction::System(sys_tx) => {
+                let SystemPayload::CallService {
                     service_id,
                     method,
                     params,
-                } if service_id == "oracle" && method == "submit_data@v1" => {
+                } = &sys_tx.payload;
+                if service_id == "oracle" && method == "submit_data@v1" {
                     use ioi_services::oracle::SubmitDataParams;
                     ioi_types::codec::from_bytes_canonical::<SubmitDataParams>(params)
                         .map(|p| p.request_id)
                         .ok()
+                } else {
+                    None
                 }
-                _ => None,
-            },
+            }
             _ => None,
         })
         .collect();
@@ -149,20 +151,18 @@ pub fn prune_mempool(
         }
 
         if let ChainTransaction::System(sys_tx) = tx_in_pool {
-            if let SystemPayload::CallService {
+            let SystemPayload::CallService {
                 service_id,
                 method,
                 params,
-            } = &sys_tx.payload
-            {
-                if service_id == "oracle" && method == "submit_data@v1" {
-                    if let Ok(p) = ioi_types::codec::from_bytes_canonical::<
-                        ioi_services::oracle::SubmitDataParams,
-                    >(params)
-                    {
-                        if finalized_oracle_ids.contains(&p.request_id) {
-                            return false;
-                        }
+            } = &sys_tx.payload;
+            if service_id == "oracle" && method == "submit_data@v1" {
+                if let Ok(p) = ioi_types::codec::from_bytes_canonical::<
+                    ioi_services::oracle::SubmitDataParams,
+                >(params)
+                {
+                    if finalized_oracle_ids.contains(&p.request_id) {
+                        return false;
                     }
                 }
             }

@@ -3,9 +3,9 @@
 
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use ioi_api::state::service_namespace_prefix;
 use ioi_forge::testing::{
-    assert_log_contains, build_test_artifacts, submit_transaction, wait_for_height, TestCluster,
-    TestValidator,
+    assert_log_contains, build_test_artifacts, rpc, wait_for_height, TestCluster, TestValidator,
 };
 use ioi_types::{
     app::{
@@ -176,7 +176,12 @@ async fn test_multi_batch_sync() -> Result<()> {
             total_deposit: 0,
             final_tally: None,
         };
-        let proposal_key_bytes = [GOVERNANCE_PROPOSAL_KEY_PREFIX, &1u64.to_le_bytes()].concat();
+        let proposal_key_bytes = [
+            service_namespace_prefix("governance").as_slice(),
+            GOVERNANCE_PROPOSAL_KEY_PREFIX,
+            &1u64.to_le_bytes(),
+        ]
+        .concat();
         let entry = StateEntry {
             value: codec::to_bytes_canonical(&proposal).unwrap(),
             block_height: 0,
@@ -239,41 +244,51 @@ async fn test_multi_batch_sync() -> Result<()> {
         .with_initial_service(InitialServiceConfig::Governance(Default::default()))
         .build()
         .await?;
-    let node0 = &cluster.validators[0];
-    let node1 = &cluster.validators[1];
 
-    // 2. Produce enough blocks to trigger multiple sync batches.
-    let target_height = 40;
-    let mut nonce = 0;
-    for _ in 0..target_height {
-        let tx = create_dummy_tx(&node0.validator().keypair, nonce, 1.into())?;
-        // Submit to either node; it will be gossiped.
-        submit_transaction(&node0.validator().rpc_addr, &tx)
-            .await
-            .ok();
-        nonce += 1;
-        tokio::time::sleep(Duration::from_millis(50)).await; // Give mempool time
+    let test_result = async {
+        let node0 = &cluster.validators[0];
+        let node1 = &cluster.validators[1];
+
+        // 2. Produce enough blocks to trigger multiple sync batches.
+        let target_height = 40;
+        let mut nonce = 0;
+        // --- FIX: Submit transactions without waiting for each one to be included ---
+        for _ in 0..target_height {
+            let tx = create_dummy_tx(&node0.validator().keypair, nonce, 1.into())?;
+            // Submit to either node; it will be gossiped.
+            // Use `submit_transaction_no_wait` to fill the mempool quickly.
+            rpc::submit_transaction_no_wait(&node0.validator().rpc_addr, &tx)
+                .await
+                .ok();
+            nonce += 1;
+            tokio::time::sleep(Duration::from_millis(50)).await; // Give mempool time
+        }
+
+        // 3. Assert that BOTH nodes eventually sync to the target height.
+        wait_for_height(
+            &node0.validator().rpc_addr,
+            target_height,
+            Duration::from_secs(240),
+        )
+        .await?;
+        wait_for_height(
+            &node1.validator().rpc_addr,
+            target_height,
+            Duration::from_secs(240),
+        )
+        .await?;
+        // --- END FIX ---
+        Ok::<(), anyhow::Error>(())
     }
+    .await;
 
-    // 3. Assert that BOTH nodes eventually sync to the target height.
-    wait_for_height(
-        &node0.validator().rpc_addr,
-        target_height,
-        Duration::from_secs(240),
-    )
-    .await?;
-    wait_for_height(
-        &node1.validator().rpc_addr,
-        target_height,
-        Duration::from_secs(240),
-    )
-    .await?;
-
-    // --- FIX: Add explicit shutdown logic ---
+    // Guaranteed cleanup
     for guard in cluster.validators {
         guard.shutdown().await?;
     }
 
+    // Propagate the test result
+    test_result?;
     Ok(())
 }
 
@@ -331,7 +346,12 @@ async fn test_sync_with_peer_drop() -> Result<()> {
             total_deposit: 0,
             final_tally: None,
         };
-        let proposal_key_bytes = [GOVERNANCE_PROPOSAL_KEY_PREFIX, &1u64.to_le_bytes()].concat();
+        let proposal_key_bytes = [
+            service_namespace_prefix("governance").as_slice(),
+            GOVERNANCE_PROPOSAL_KEY_PREFIX,
+            &1u64.to_le_bytes(),
+        ]
+        .concat();
         let entry = StateEntry {
             value: codec::to_bytes_canonical(&proposal).unwrap(),
             block_height: 0,
@@ -395,88 +415,95 @@ async fn test_sync_with_peer_drop() -> Result<()> {
         .build()
         .await?;
 
-    let target_height = 10;
-    wait_for_height(
-        &cluster.validators[0].validator().rpc_addr,
-        target_height,
-        Duration::from_secs(60),
-    )
-    .await?;
+    let test_result: Result<()> = async {
+        let target_height = 10;
+        wait_for_height(
+            &cluster.validators[0].validator().rpc_addr,
+            target_height,
+            Duration::from_secs(60),
+        )
+        .await?;
 
-    println!("--- Seed cluster reached height {} ---", target_height);
+        println!("--- Seed cluster reached height {} ---", target_height);
 
-    // 2. Explicitly shut down one validator to create a stable 2-node seed cluster.
-    if let Some(node_to_shutdown) = cluster.validators.pop() {
-        println!(
-            "Shutting down node ({}) to create a stable 2-node seed cluster.",
-            node_to_shutdown.validator().peer_id
-        );
-        node_to_shutdown.shutdown().await?;
+        // 2. Explicitly shut down one validator to create a stable 2-node seed cluster.
+        if let Some(node_to_shutdown) = cluster.validators.pop() {
+            println!(
+                "Shutting down node ({}) to create a stable 2-node seed cluster.",
+                node_to_shutdown.validator().peer_id
+            );
+            node_to_shutdown.shutdown().await?;
+        }
+
+        // Now `cluster.validators` contains 2 stable nodes.
+        let bootnodes = vec![
+            cluster.validators[0].validator().p2p_addr.clone(),
+            cluster.validators[1].validator().p2p_addr.clone(),
+        ];
+
+        // 3. Launch a new node (node3) that needs to sync.
+        let node3 = TestValidator::launch(
+            Keypair::generate_ed25519(),
+            cluster.genesis_content.clone(),
+            8000, // new base port
+            1.into(),
+            Some(&bootnodes),
+            "ProofOfAuthority",
+            "IAVL",
+            "Hash",
+            None, // ibc_gateway_addr
+            None, // agentic_model_path
+            false,
+            vec![
+                InitialServiceConfig::IdentityHub(MigrationConfig {
+                    chain_id: 1,
+                    grace_period_blocks: 5,
+                    accept_staged_during_grace: true,
+                    allowed_target_suites: vec![SignatureSuite::Ed25519],
+                    allow_downgrade: false,
+                }),
+                InitialServiceConfig::Governance(Default::default()),
+            ],
+            false,
+            true,
+            &[],
+        )
+        .await?;
+
+        // Optional: subscribe for nice diagnostics (not required for correctness anymore).
+        let (mut orch_logs, _, _) = node3.validator().subscribe_logs();
+
+        // Give node3 a moment to pick an initial peer, then drop one seed deterministically.
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        // Drop the first seed (by index) to simulate a target disappearing soon after sync begins.
+        // Whether or not it was the initial target, node3 must still complete sync.
+        let dropped = cluster.validators.remove(0);
+        println!("Dropping one seed peer: {}", dropped.validator().peer_id);
+        dropped.shutdown().await?;
+
+        // Node3 must reach the target height via the remaining seed.
+        wait_for_height(
+            &node3.validator().rpc_addr,
+            target_height,
+            Duration::from_secs(180),
+        )
+        .await?;
+        // Nice-to-have: confirm completion line if we catch it.
+        let _ = assert_log_contains("node3", &mut orch_logs, "Block sync complete!").await;
+        println!("--- Sync with peer drop successful ---");
+
+        // --- FIX: Move cleanup logic inside the async block ---
+        for guard in cluster.validators {
+            guard.shutdown().await?;
+        }
+        node3.shutdown().await?;
+
+        Ok(())
     }
+    .await;
 
-    // Now `cluster.validators` contains 2 stable nodes.
-    let bootnodes = vec![
-        cluster.validators[0].validator().p2p_addr.clone(),
-        cluster.validators[1].validator().p2p_addr.clone(),
-    ];
-
-    // 3. Launch a new node (node3) that needs to sync.
-    let node3 = TestValidator::launch(
-        Keypair::generate_ed25519(),
-        cluster.genesis_content.clone(),
-        8000, // new base port
-        1.into(),
-        Some(&bootnodes),
-        "ProofOfAuthority",
-        "IAVL",
-        "Hash",
-        None, // ibc_gateway_addr
-        None, // agentic_model_path
-        false,
-        vec![
-            InitialServiceConfig::IdentityHub(MigrationConfig {
-                chain_id: 1,
-                grace_period_blocks: 5,
-                accept_staged_during_grace: true,
-                allowed_target_suites: vec![SignatureSuite::Ed25519],
-                allow_downgrade: false,
-            }),
-            InitialServiceConfig::Governance(Default::default()),
-        ],
-        false,
-        true,
-        // [+] FIX: Add the missing 14th argument (empty slice as no special features are needed)
-        &[],
-    )
-    .await?;
-
-    // Optional: subscribe for nice diagnostics (not required for correctness anymore).
-    let (mut orch_logs, _, _) = node3.validator().subscribe_logs();
-
-    // Give node3 a moment to pick an initial peer, then drop one seed deterministically.
-    tokio::time::sleep(Duration::from_secs(1)).await;
-    // Drop the first seed (by index) to simulate a target disappearing soon after sync begins.
-    // Whether or not it was the initial target, node3 must still complete sync.
-    let dropped = cluster.validators.remove(0);
-    println!("Dropping one seed peer: {}", dropped.validator().peer_id);
-    dropped.shutdown().await?;
-
-    // Node3 must reach the target height via the remaining seed.
-    wait_for_height(
-        &node3.validator().rpc_addr,
-        target_height,
-        Duration::from_secs(180),
-    )
-    .await?;
-    // Nice-to-have: confirm completion line if we catch it.
-    let _ = assert_log_contains("node3", &mut orch_logs, "Block sync complete!").await;
-    println!("--- Sync with peer drop successful ---");
-
-    // --- FIX: Add explicit shutdown for all remaining validators ---
-    for guard in cluster.validators {
-        guard.shutdown().await?;
-    }
-    node3.shutdown().await?;
+    // --- PROPAGATE TEST RESULT ---
+    test_result?;
 
     Ok(())
 }

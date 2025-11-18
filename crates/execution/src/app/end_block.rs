@@ -1,10 +1,11 @@
 // Path: crates/execution/src/app/end_block.rs
+
 //! Contains handler functions for logic that runs at the end of a block commit.
 //! This includes service upgrades, lifecycle hooks, validator set promotion, and timing updates.
 
 use crate::upgrade_manager::ServiceUpgradeManager;
 use ioi_api::services::access::ServiceDirectory;
-use ioi_api::state::StateAccess;
+use ioi_api::state::{service_namespace_prefix, NamespacedStateAccess, StateAccess};
 use ioi_api::transaction::context::TxContext;
 use ioi_types::app::{
     read_validator_sets, write_validator_sets, BlockTimingParams, BlockTimingRuntime,
@@ -12,7 +13,9 @@ use ioi_types::app::{
 use ioi_types::codec;
 use ioi_types::error::{ChainError, StateError};
 use ioi_types::keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, VALIDATOR_SET_KEY};
-use ioi_types::service_configs::Capabilities;
+use ioi_types::service_configs::{ActiveServiceMeta, Capabilities};
+use std::collections::HashMap; // Import HashMap for the cache type
+use std::sync::Arc; // Import Arc for the cache type
 
 /// Applies any pending service upgrades scheduled for the given block height.
 /// Returns the number of upgrades applied.
@@ -21,10 +24,21 @@ pub(super) async fn handle_service_upgrades<S: StateAccess>(
     height: u64,
     state: &mut S,
 ) -> Result<usize, ChainError> {
-    service_manager
+    tracing::debug!(target: "end_block", height=height, "Checking for service upgrades.");
+    let result = service_manager
         .apply_upgrades_at_height(height, state)
         .await
-        .map_err(|e| ChainError::State(StateError::Apply(e.to_string())))
+        .map_err(|e| ChainError::State(StateError::Apply(e.to_string())));
+
+    if let Ok(count) = result {
+        if count > 0 {
+            tracing::info!(target: "end_block", height=height, upgrades_applied=count, "Service upgrades applied successfully.");
+        }
+    } else if let Err(ref e) = result {
+        tracing::error!(target: "end_block", height=height, error=%e, "Service upgrade application failed.");
+    }
+
+    result
 }
 
 /// Runs the `on_end_block` hook for all services that implement the capability.
@@ -32,11 +46,22 @@ pub(super) async fn run_on_end_block_hooks(
     services: &ServiceDirectory,
     state: &mut dyn StateAccess,
     ctx: &TxContext<'_>,
+    // Pass the cache from the execution machine
+    service_meta_cache: &HashMap<String, Arc<ActiveServiceMeta>>,
 ) -> Result<(), ChainError> {
     for service in services.services_in_deterministic_order() {
         if service.capabilities().contains(Capabilities::ON_END_BLOCK) {
             if let Some(hook) = service.as_on_end_block() {
-                hook.on_end_block(state, ctx).await?;
+                // MODIFIED: Use the in-memory cache instead of hitting the state.
+                let meta = service_meta_cache.get(service.id()).ok_or_else(|| {
+                    StateError::Apply(format!(
+                        "Metadata not found in cache for active service hook '{}'",
+                        service.id()
+                    ))
+                })?;
+                let prefix = service_namespace_prefix(service.id());
+                let mut namespaced_state = NamespacedStateAccess::new(state, prefix, meta);
+                hook.on_end_block(&mut namespaced_state, ctx).await?;
             }
         }
     }

@@ -32,6 +32,7 @@ pub type StateScanIter<'a> = Box<dyn Iterator<Item = Result<StateKVPair, StateEr
 mod accessor;
 mod commitment;
 mod manager;
+pub mod namespaced;
 mod overlay;
 pub mod pins;
 mod proof; // New module for proof-related traits
@@ -41,6 +42,7 @@ mod proof; // New module for proof-related traits
 pub use accessor::*;
 pub use commitment::*;
 pub use manager::*;
+pub use namespaced::{service_namespace_prefix, NamespacedStateAccess};
 pub use overlay::*;
 pub use pins::{PinGuard, StateVersionPins};
 pub use proof::*;

@@ -4,6 +4,7 @@
 
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use ioi_api::state::service_namespace_prefix;
 use ioi_forge::testing::{
     build_test_artifacts,
     rpc::{self, get_chain_timestamp, get_quarantined_set},
@@ -11,6 +12,7 @@ use ioi_forge::testing::{
     wait_for_quarantine_status,
     TestValidator, // Use the validator struct directly instead of the cluster builder
 };
+use ioi_services::governance::ReportMisbehaviorParams;
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
@@ -24,10 +26,10 @@ use ioi_types::{
         ACCOUNT_ID_TO_PUBKEY_PREFIX, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY,
         IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
     },
-    service_configs::MigrationConfig,
+    service_configs::{GovernanceParams, MigrationConfig},
 };
 use libp2p::identity::{self, Keypair};
-use serde_json::json;
+use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::time::Duration;
 use tokio::time;
@@ -49,6 +51,18 @@ fn create_report_tx(
         },
         proof: b"mock_proof_data".to_vec(),
     };
+
+    // 1. Create the parameters for the service call
+    let params = ReportMisbehaviorParams { report };
+    let params_bytes = codec::to_bytes_canonical(&params).map_err(|e| anyhow!(e))?;
+
+    // 2. Construct the CallService payload
+    let payload = SystemPayload::CallService {
+        service_id: "governance".to_string(),
+        method: "report_misbehavior@v1".to_string(),
+        params: params_bytes,
+    };
+
     let public_key_bytes = reporter_key.public().encode_protobuf();
     let account_id_hash = account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)?;
     let account_id = AccountId(account_id_hash);
@@ -61,7 +75,7 @@ fn create_report_tx(
     };
     let mut tx_to_sign = SystemTransaction {
         header,
-        payload: SystemPayload::ReportMisbehavior { report },
+        payload,
         signature_proof: SignatureProof::default(),
     };
     let sign_bytes = tx_to_sign.to_sign_bytes().unwrap();
@@ -72,6 +86,61 @@ fn create_report_tx(
         signature,
     };
     Ok(ChainTransaction::System(Box::new(tx_to_sign)))
+}
+
+/// Helper function to add a full identity record for a PoA authority to the genesis state.
+fn add_poa_identity_to_genesis(keypair: &Keypair) -> (AccountId, Vec<(String, Value)>) {
+    let mut entries = Vec::new();
+    let suite = SignatureSuite::Ed25519;
+    let public_key_bytes = keypair.public().encode_protobuf();
+    let account_id_hash = account_id_from_key_material(suite, &public_key_bytes).unwrap();
+    let account_id = AccountId(account_id_hash);
+
+    // --- DATA FOR IDENTITY HUB SERVICE (NAMESPACED) ---
+    let ns_prefix = service_namespace_prefix("identity_hub");
+
+    let initial_cred = Credential {
+        suite,
+        public_key_hash: account_id_hash,
+        activation_height: 0,
+        l2_location: None,
+    };
+    let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
+    let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
+    let creds_key = [
+        ns_prefix.as_slice(),
+        IDENTITY_CREDENTIALS_PREFIX,
+        account_id.as_ref(),
+    ]
+    .concat();
+    entries.push((
+        format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
+        json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
+    ));
+
+    // --- DATA FOR CONSENSUS ENGINE (RAW/SYSTEM PATH) ---
+
+    // C. Set the ActiveKeyRecord for consensus verification (RAW path)
+    let record = ActiveKeyRecord {
+        suite,
+        public_key_hash: account_id_hash,
+        since_height: 0,
+    };
+    let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
+    let record_bytes = codec::to_bytes_canonical(&record).unwrap();
+    entries.push((
+        format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
+        json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
+    ));
+
+    // D. Set the AccountId -> PublicKey mapping for consensus verification (RAW path)
+    let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
+    entries.push((
+        format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
+        json!(format!("b64:{}", BASE64_STANDARD.encode(&public_key_bytes))),
+    ));
+
+    (account_id, entries)
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -113,15 +182,23 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
     let genesis_content = {
         let mut genesis = json!({ "genesis_state": {} });
         let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
-        // 1. Derive AccountIds and sort them for canonical representation.
-        let mut authorities: Vec<AccountId> = all_keys
+        // 1. Generate identity entries and validator structs for all keys
+        let authorities_with_entries = all_keys
             .iter()
-            .map(|k| {
-                let pk_bytes = k.public().encode_protobuf();
-                let hash =
-                    account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
-                AccountId(hash)
-            })
+            .map(add_poa_identity_to_genesis)
+            .collect::<Vec<_>>();
+
+        // Add all identity-related entries to the genesis state
+        for (_, entries) in &authorities_with_entries {
+            for (k, v) in entries {
+                genesis_state.insert(k.clone(), v.clone());
+            }
+        }
+
+        // Now extract just the AccountIds and sort them for the validator set
+        let mut authorities: Vec<AccountId> = authorities_with_entries
+            .into_iter()
+            .map(|(id, _)| id)
             .collect();
         authorities.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
 
@@ -185,48 +262,7 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
                 BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
             )),
         );
-        let id_to_pk: BTreeMap<AccountId, Vec<u8>> = all_keys
-            .iter()
-            .map(|k| {
-                let pk = k.public().encode_protobuf();
-                let id =
-                    AccountId(account_id_from_key_material(suite, &pk).expect("derive account id"));
-                (id, pk)
-            })
-            .collect();
 
-        for acct_id in &authorities {
-            let pk_bytes = id_to_pk.get(acct_id).expect("missing pubkey for authority");
-            let record = ActiveKeyRecord {
-                suite,
-                public_key_hash: account_id_from_key_material(suite, pk_bytes).unwrap(),
-                since_height: 0,
-            };
-            let record_key = [b"identity::key_record::", acct_id.as_ref()].concat();
-            let record_bytes = ioi_types::codec::to_bytes_canonical(&record).unwrap();
-            genesis_state.insert(
-                format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
-            );
-            let cred = Credential {
-                suite,
-                public_key_hash: acct_id.0,
-                activation_height: 0,
-                l2_location: None,
-            };
-            let creds_array: [Option<Credential>; 2] = [Some(cred), None];
-            let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
-            let creds_key = [IDENTITY_CREDENTIALS_PREFIX, acct_id.as_ref()].concat();
-            genesis_state.insert(
-                format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
-            );
-            let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, acct_id.as_ref()].concat();
-            genesis_state.insert(
-                format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(pk_bytes))),
-            );
-        }
         genesis.to_string()
     };
 
@@ -243,13 +279,16 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         None,
         None,
         false,
-        vec![InitialServiceConfig::IdentityHub(MigrationConfig {
-            chain_id: 1,
-            grace_period_blocks: 5,
-            accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
-            allow_downgrade: false,
-        })],
+        vec![
+            InitialServiceConfig::IdentityHub(MigrationConfig {
+                chain_id: 1,
+                grace_period_blocks: 5,
+                accept_staged_during_grace: true,
+                allowed_target_suites: vec![SignatureSuite::Ed25519],
+                allow_downgrade: false,
+            }),
+            InitialServiceConfig::Governance(GovernanceParams::default()),
+        ],
         false,
         false,
         &[],
@@ -276,13 +315,16 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         None,
         None,
         false,
-        vec![InitialServiceConfig::IdentityHub(MigrationConfig {
-            chain_id: 1,
-            grace_period_blocks: 5,
-            accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
-            allow_downgrade: false,
-        })],
+        vec![
+            InitialServiceConfig::IdentityHub(MigrationConfig {
+                chain_id: 1,
+                grace_period_blocks: 5,
+                accept_staged_during_grace: true,
+                allowed_target_suites: vec![SignatureSuite::Ed25519],
+                allow_downgrade: false,
+            }),
+            InitialServiceConfig::Governance(GovernanceParams::default()),
+        ],
         false,
         false,
         &[],
@@ -300,13 +342,16 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         None,
         None,
         false,
-        vec![InitialServiceConfig::IdentityHub(MigrationConfig {
-            chain_id: 1,
-            grace_period_blocks: 5,
-            accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
-            allow_downgrade: false,
-        })],
+        vec![
+            InitialServiceConfig::IdentityHub(MigrationConfig {
+                chain_id: 1,
+                grace_period_blocks: 5,
+                accept_staged_during_grace: true,
+                allowed_target_suites: vec![SignatureSuite::Ed25519],
+                allow_downgrade: false,
+            }),
+            InitialServiceConfig::Governance(GovernanceParams::default()),
+        ],
         false,
         false,
         &[],
