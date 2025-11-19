@@ -18,6 +18,7 @@
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
+use ioi_api::services::UpgradableService; // Import UpgradableService trait
 use ioi_api::services::{access::ServiceDirectory, BlockchainService};
 use ioi_api::{
     commitment::CommitmentScheme,
@@ -142,7 +143,31 @@ where
 
     let wasm_vm = Box::new(WasmRuntime::new(config.fuel_costs.clone())?);
 
+    // --- START: Initialize Services ---
+    // We need to set up the consensus engine first to create the PenaltiesService,
+    // mirroring the Orchestrator setup.
+    let temp_orch_config = OrchestrationConfig {
+        chain_id: 1.into(),
+        config_schema_version: 0,
+        consensus_type: config.consensus_type,
+        rpc_listen_address: String::new(),
+        rpc_hardening: Default::default(),
+        initial_sync_timeout_secs: 0,
+        block_production_interval_secs: 0,
+        round_robin_view_timeout_secs: 0,
+        default_query_gas_limit: 0,
+        ibc_gateway_listen_address: None,
+    };
+    let consensus_engine = engine_from_config(&temp_orch_config)?;
+
     let mut initial_services = Vec::new();
+
+    // 1. Wire Penalties Service (Kernel Space)
+    let penalty_engine: Arc<dyn ioi_consensus::PenaltyEngine> = Arc::new(consensus_engine.clone());
+    let penalties_service = Arc::new(ioi_consensus::PenaltiesService::new(penalty_engine));
+    initial_services.push(penalties_service as Arc<dyn UpgradableService>);
+
+    // 2. Wire User Space Services
     for service_config in &config.initial_services {
         match service_config {
             InitialServiceConfig::IdentityHub(migration_config) => {
@@ -195,6 +220,7 @@ where
             }
         }
     }
+    // --- END: Initialize Services ---
 
     let services_for_dir: Vec<Arc<dyn BlockchainService>> = initial_services
         .iter()
@@ -209,20 +235,6 @@ where
         service_directory,
         store.clone(),
     )?);
-
-    let temp_orch_config = OrchestrationConfig {
-        chain_id: 1.into(),
-        config_schema_version: 0,
-        consensus_type: config.consensus_type,
-        rpc_listen_address: String::new(),
-        rpc_hardening: Default::default(),
-        initial_sync_timeout_secs: 0,
-        block_production_interval_secs: 0,
-        round_robin_view_timeout_secs: 0,
-        default_query_gas_limit: 0,
-        ibc_gateway_listen_address: None,
-    };
-    let consensus_engine = engine_from_config(&temp_orch_config)?;
 
     let mut machine = ExecutionMachine::new(
         commitment_scheme.clone(),

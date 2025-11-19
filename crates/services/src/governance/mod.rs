@@ -8,7 +8,7 @@ use ioi_api::services::{BlockchainService, UpgradableService};
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_types::app::{
-    read_validator_sets, write_validator_sets, AccountId, ActiveKeyRecord, FailureReport, Proposal,
+    read_validator_sets, write_validator_sets, AccountId, ActiveKeyRecord, Proposal,
     ProposalStatus, ProposalType, StateEntry, TallyResult, ValidatorV1, VoteOption,
 };
 use ioi_types::codec;
@@ -55,11 +55,7 @@ pub struct UnstakeParams {
     pub amount: u64,
 }
 
-/// The parameters for the `report_misbehavior@v1` method.
-#[derive(Encode, Decode)]
-pub struct ReportMisbehaviorParams {
-    pub report: FailureReport,
-}
+// --- REMOVED: ReportMisbehaviorParams is now in `ioi-types` ---
 
 /// The parameters for the `store_module@v1` method.
 #[derive(Encode, Decode)]
@@ -171,10 +167,8 @@ impl BlockchainService for GovernanceModule {
                 .map_err(TransactionError::Invalid)
             }
             "report_misbehavior@v1" => {
-                // This is handled as a special case in the unified transaction model's apply_payload
-                // to ensure the penalty mechanism is always consensus-driven. If this is ever called,
-                // it indicates a logic error in the dispatch path.
-                Ok(())
+                // --- CHANGED: Governance no longer handles penalties. This is now a kernel function. ---
+                Err(TransactionError::Unsupported("Moved to 'penalties' service. Use service_id='penalties'.".into()))
             }
             _ => Err(TransactionError::Unsupported(format!(
                 "Governance service does not support method '{}'",

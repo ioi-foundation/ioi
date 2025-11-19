@@ -21,19 +21,21 @@ pub mod proof_of_authority;
 #[cfg(feature = "pos")]
 pub mod proof_of_stake;
 
-pub mod util;
 pub mod common;
+pub mod service;
+pub mod util;
 
 use async_trait::async_trait;
-use ioi_types::app::{AccountId, Block, FailureReport};
-use ioi_types::config::ConsensusType;
-use ioi_types::error::{ConsensusError, TransactionError};
 use ioi_api::{
     chain::{AnchoredStateView, ChainView},
     commitment::CommitmentScheme,
     consensus::{ConsensusDecision, ConsensusEngine, PenaltyMechanism},
     state::{StateAccess, StateManager},
 };
+use ioi_system::SystemState;
+use ioi_types::app::{AccountId, Block, FailureReport};
+use ioi_types::config::ConsensusType;
+use ioi_types::error::{ConsensusError, TransactionError};
 use libp2p::PeerId;
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -45,6 +47,19 @@ use proof_of_authority::ProofOfAuthorityEngine;
 use proof_of_stake::ProofOfStakeEngine;
 #[cfg(feature = "round-robin")]
 use round_robin::RoundRobinBftEngine;
+
+// Re-export the new service.
+pub use service::PenaltiesService;
+
+/// Defines logic for applying penalties (PoA rules vs PoS rules).
+/// Replaces the old `PenaltyMechanism`.
+pub trait PenaltyEngine: Send + Sync {
+    fn apply(
+        &self,
+        system: &mut dyn SystemState,
+        report: &FailureReport,
+    ) -> Result<(), TransactionError>;
+}
 
 /// An enum that wraps the various consensus engine implementations.
 #[derive(Debug, Clone)]
@@ -91,6 +106,25 @@ where
             Consensus::ProofOfAuthority(e) => e.apply_penalty(state, report).await,
             #[cfg(feature = "pos")]
             Consensus::ProofOfStake(e) => e.apply_penalty(state, report).await,
+            Consensus::_Phantom(_) => unreachable!("No consensus engine feature is enabled."),
+        }
+    }
+}
+
+// NEW: Implement PenaltyEngine for the wrapper enum to satisfy the trait object requirements.
+impl<T: Clone + Send + Sync + 'static> PenaltyEngine for Consensus<T> {
+    fn apply(
+        &self,
+        sys: &mut dyn SystemState,
+        report: &FailureReport,
+    ) -> Result<(), TransactionError> {
+        match self {
+            #[cfg(feature = "round-robin")]
+            Consensus::RoundRobin(e) => e.as_ref().apply(sys, report),
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(e) => e.apply(sys, report),
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(e) => e.apply(sys, report),
             Consensus::_Phantom(_) => unreachable!("No consensus engine feature is enabled."),
         }
     }

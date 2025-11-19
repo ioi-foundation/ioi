@@ -27,7 +27,7 @@ use ioi_types::error::{ChainError, StateError, TransactionError};
 use ioi_types::keys::{
     BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, STATUS_KEY, UPGRADE_ACTIVE_SERVICE_PREFIX,
 };
-use ioi_types::service_configs::{ActiveServiceMeta, MethodPermission};
+use ioi_types::service_configs::{ActiveServiceMeta, Capabilities, MethodPermission};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -226,8 +226,8 @@ where
                             // Upgrade API (governance-gated)
                             m.insert("store_module@v1".into(), MethodPermission::Governance);
                             m.insert("swap_module@v1".into(), MethodPermission::Governance);
-                            // Misbehavior reporting endpoint
-                            m.insert("report_misbehavior@v1".into(), MethodPermission::User);
+                            // Misbehavior reporting endpoint (Deprecated here, moved to penalties)
+                            // m.insert("report_misbehavior@v1".into(), MethodPermission::User);
                             // Permissions
                             (
                                 m,
@@ -255,6 +255,14 @@ where
                             m.insert("verify_header@v1".into(), MethodPermission::User);
                             m.insert("recv_packet@v1".into(), MethodPermission::User);
                             m.insert("msg_dispatch@v1".into(), MethodPermission::User);
+                            (m, Vec::new())
+                        }
+                        // FIX: Add ABI definition for the penalties service
+                        "penalties" => {
+                            let mut m = BTreeMap::new();
+                            m.insert("report_misbehavior@v1".into(), MethodPermission::User);
+                            // Penalties is a kernel service and its state access is privileged in the transaction model,
+                            // but we define the method here so `precheck_call_service` sees it.
                             (m, Vec::new())
                         }
                         _ => (BTreeMap::new(), Vec::new()),

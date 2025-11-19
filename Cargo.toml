@@ -26,6 +26,7 @@ members = [
     "crates/networking",
     "crates/services",
     "crates/storage",
+    "crates/system",
     "crates/telemetry",
     "crates/test_utils",
     "crates/tx",

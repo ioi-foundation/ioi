@@ -1,0 +1,12 @@
+[package]
+name = "ioi-system"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ioi-api = { path = "../api" }
+ioi-types = { path = "../types" }
+parity-scale-codec = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

@@ -12,25 +12,25 @@ use ioi_forge::testing::{
     wait_for_quarantine_status,
     TestValidator, // Use the validator struct directly instead of the cluster builder
 };
-use ioi_services::governance::ReportMisbehaviorParams;
+use ioi_system::keys::VALIDATOR_SET_KEY_STR;
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
         BlockTimingRuntime, ChainId, ChainTransaction, Credential, FailureReport, OffenseFacts,
-        OffenseType, SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
-        ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        OffenseType, ReportMisbehaviorParams, SignHeader, SignatureProof, SignatureSuite,
+        SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1,
+        ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
     keys::{
         ACCOUNT_ID_TO_PUBKEY_PREFIX, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY,
-        IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
+        IDENTITY_CREDENTIALS_PREFIX,
     },
     service_configs::{GovernanceParams, MigrationConfig},
 };
 use libp2p::identity::{self, Keypair};
 use serde_json::{json, Value};
-use std::collections::BTreeMap;
 use std::time::Duration;
 use tokio::time;
 
@@ -41,7 +41,7 @@ fn create_report_tx(
     chain_id: ChainId,
     target_url: &str,
     probe_timestamp: u64,
-) -> Result<ChainTransaction> {
+) -> Result<(ChainTransaction, FailureReport)> {
     let report = FailureReport {
         offender: offender_id,
         offense_type: OffenseType::FailedCalibrationProbe,
@@ -53,12 +53,14 @@ fn create_report_tx(
     };
 
     // 1. Create the parameters for the service call
-    let params = ReportMisbehaviorParams { report };
+    let params = ReportMisbehaviorParams {
+        report: report.clone(),
+    };
     let params_bytes = codec::to_bytes_canonical(&params).map_err(|e| anyhow!(e))?;
 
     // 2. Construct the CallService payload
     let payload = SystemPayload::CallService {
-        service_id: "governance".to_string(),
+        service_id: "penalties".to_string(), // Use the canonical service ID
         method: "report_misbehavior@v1".to_string(),
         params: params_bytes,
     };
@@ -85,7 +87,7 @@ fn create_report_tx(
         public_key: public_key_bytes,
         signature,
     };
-    Ok(ChainTransaction::System(Box::new(tx_to_sign)))
+    Ok((ChainTransaction::System(Box::new(tx_to_sign)), report))
 }
 
 /// Helper function to add a full identity record for a PoA authority to the genesis state.
@@ -230,8 +232,9 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
             },
         };
         let vs_bytes = ioi_types::app::write_validator_sets(&vs_blob.payload).unwrap();
+        // Use the string constant from the system crate
         genesis_state.insert(
-            std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
+            VALIDATOR_SET_KEY_STR.to_string(),
             json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
         );
 
@@ -385,7 +388,7 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         let offender1_id_hash =
             account_id_from_key_material(SignatureSuite::Ed25519, &offender1_pk_bytes)?;
         let offender1_id = AccountId(offender1_id_hash);
-        let tx1 = create_report_tx(
+        let (tx1, _) = create_report_tx(
             &reporter.validator().keypair,
             offender1_id,
             0,
@@ -415,7 +418,7 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         let offender2_id_hash =
             account_id_from_key_material(SignatureSuite::Ed25519, &offender2_pk_bytes)?;
         let offender2_id = AccountId(offender2_id_hash);
-        let tx2 = create_report_tx(
+        let (tx2, _) = create_report_tx(
             &reporter.validator().keypair,
             offender2_id,
             1,
@@ -424,12 +427,11 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
             probe_ts,
         )?; // increment nonce
 
-        let submission_result = rpc::submit_transaction_no_wait(rpc_addr, &tx2).await?;
-        assert!(
-            submission_result.get("error").is_none() || submission_result["error"].is_null(),
-            "Submission of liveness-violating tx should be accepted by mempool, but was rejected with: {}",
-            submission_result
-        );
+        // Broadcast to ALL nodes to ensure global halt
+        // This prevents partial progress if only some nodes have the poison pill.
+        for v in &validators {
+            let _ = rpc::submit_transaction_no_wait(&v.validator().rpc_addr, &tx2).await;
+        }
 
         // Assert 2: Chain should halt. Wait for a duration longer than block time and assert height hasn't changed.
         println!("Waiting to confirm chain has halted due to invalid transaction...");
