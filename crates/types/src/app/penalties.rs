@@ -66,6 +66,17 @@ pub struct FailureReport {
     pub proof: Vec<u8>,
 }
 
+/// The parameters for the `report_misbehavior@v1` method.
+///
+/// This defines the ABI for submitting evidence of validator misconduct via a
+/// CallService transaction. It was moved here from the governance service to
+/// decouple the kernel-level penalty mechanism from user-space services.
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
+pub struct ReportMisbehaviorParams {
+    /// The detailed report of the alleged misbehavior.
+    pub report: FailureReport,
+}
+
 /// Generates a unique, deterministic ID for a piece of evidence from its canonical facts.
 ///
 /// This function is the cornerstone of the system's replay protection. It hashes the

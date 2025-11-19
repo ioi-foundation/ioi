@@ -31,6 +31,7 @@ ioi-types = { path = "../types" }
 ioi-api = { path = "../api" }
 ioi-crypto = { path = "../crypto" }
 ioi-validator = { path = "../validator", default-features = false }
+ioi-system = { path = "../system" }
 ioi-state = { path = "../state", default-features = false }
 ioi-client = { path = "../client" }
 ioi-tx = { path = "../tx" }

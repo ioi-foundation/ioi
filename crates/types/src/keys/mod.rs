@@ -11,6 +11,7 @@ pub const VALIDATOR_SET_KEY: &[u8] = b"system::validators::current";
 
 /// The state key for the persisted chain status.
 pub const STATUS_KEY: &[u8] = b"chain::status";
+
 /// The state key for the Proof-of-Authority authority set.
 #[deprecated(note = "Use VALIDATOR_SET_KEY with a PoA-configured ValidatorSetBlob")]
 pub const AUTHORITY_SET_KEY: &[u8] = b"system::authorities";
@@ -71,6 +72,7 @@ pub fn active_service_key<S: AsRef<str>>(service_type: S) -> Vec<u8> {
 /// The state key for the set of all evidence that has already been processed.
 /// Stores a `BTreeSet<[u8; 32]>` of evidence IDs, providing replay protection.
 pub const EVIDENCE_REGISTRY_KEY: &[u8] = b"system::penalties::evidence";
+
 /// The state key for the set of quarantined PoA validators.
 /// Stores a `BTreeSet<AccountId>`, representing authorities that are temporarily
 /// barred from consensus participation.

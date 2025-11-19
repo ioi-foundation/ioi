@@ -1,10 +1,11 @@
 // Path: crates/consensus/src/proof_of_stake.rs
-use crate::{ConsensusDecision, ConsensusEngine, PenaltyMechanism};
+use crate::{ConsensusDecision, ConsensusEngine, PenaltyEngine, PenaltyMechanism};
 use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, ChainView, StateRef};
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::state::{StateAccess, StateManager};
 use ioi_crypto::algorithms::hash::sha256;
+use ioi_system::SystemState;
 use ioi_types::app::{
     effective_set_for_height, read_validator_sets, write_validator_sets, AccountId, Block,
     BlockTimingParams, BlockTimingRuntime, ChainStatus, FailureReport, ValidatorSetV1,
@@ -115,6 +116,53 @@ impl PenaltyMechanism for ProofOfStakeEngine {
         vs.total_weight = vs.validators.iter().map(|v| v.weight).sum();
         sets.current = vs;
         state.insert(VALIDATOR_SET_KEY, &write_validator_sets(&sets)?)?;
+        Ok(())
+    }
+}
+
+impl PenaltyEngine for ProofOfStakeEngine {
+    fn apply(
+        &self,
+        sys: &mut dyn SystemState,
+        report: &FailureReport,
+    ) -> Result<(), TransactionError> {
+        const PENALTY_PERCENTAGE: u128 = 10;
+
+        // 1. Load validator sets using the safe SystemState API
+        let mut sets = sys
+            .validators()
+            .current_sets()
+            .map_err(TransactionError::State)?;
+        let mut vs = sets.current;
+
+        let mut validator_found = false;
+        for validator in &mut vs.validators {
+            if validator.account_id == report.offender {
+                let slash_amount = (validator.weight * PENALTY_PERCENTAGE) / 100;
+                validator.weight = validator.weight.saturating_sub(slash_amount);
+                validator_found = true;
+                break;
+            }
+        }
+
+        if !validator_found {
+            return Err(TransactionError::Invalid(format!(
+                "Unknown validator to slash: {:?}",
+                report.offender
+            )));
+        }
+
+        // Resort and recalc
+        vs.validators
+            .sort_by(|a, b| a.account_id.cmp(&b.account_id));
+        vs.total_weight = vs.validators.iter().map(|v| v.weight).sum();
+        sets.current = vs;
+
+        // 2. Save using the safe SystemState API
+        sys.validators_mut()
+            .set_sets(&sets)
+            .map_err(TransactionError::State)?;
+
         Ok(())
     }
 }

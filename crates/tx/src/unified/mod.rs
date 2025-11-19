@@ -11,6 +11,7 @@ use ioi_api::state::{
 use ioi_api::transaction::context::TxContext;
 use ioi_api::transaction::TransactionModel;
 use ioi_api::vm::ExecutionContext;
+// REMOVED: use ioi_consensus::PenaltiesService;
 use ioi_telemetry::sinks::{error_metrics, service_metrics};
 use ioi_types::app::{
     ApplicationTransaction, ChainStatus, ChainTransaction, StateEntry, SystemPayload,
@@ -234,6 +235,25 @@ where
                             params.len()
                         );
 
+                        // --- KERNEL-SPACE DISPATCH ---
+                        if service_id == "penalties" {
+                            let service_arc = ctx
+                                .services
+                                .services()
+                                .find(|s| s.id() == "penalties")
+                                .ok_or(TransactionError::Unsupported(
+                                    "Penalties service inactive".into(),
+                                ))?;
+
+                            // Privileged Call: Pass raw state, NOT namespaced.
+                            // service_arc is Arc<dyn BlockchainService>, so we call the trait method.
+                            service_arc
+                                .handle_service_call(state, method, params, ctx)
+                                .await?;
+                            return Ok(UnifiedProof::System);
+                        }
+
+                        // --- USER-SPACE DISPATCH ---
                         let meta_key = active_service_key(service_id);
                         let meta_bytes = state.get(&meta_key)?.ok_or_else(|| {
                             TransactionError::Unsupported(format!(
@@ -289,94 +309,6 @@ where
                                 }
                             }
                             MethodPermission::User => {}
-                        }
-
-                        // --- SPECIAL CASE: Misbehavior Reporting ---
-                        // This is a system-critical function that directly invokes the consensus engine's
-                        // penalty logic. We intercept it here before generic service dispatch.
-                        if service_id == "governance" && method == "report_misbehavior@v1" {
-                            use ioi_services::governance::ReportMisbehaviorParams;
-                            use ioi_types::app::{FailureReport, OffenseFacts};
-                            use ioi_types::keys::{EVIDENCE_REGISTRY_KEY, STATUS_KEY};
-                            use std::collections::BTreeSet;
-
-                            // Decode params
-                            let params: ReportMisbehaviorParams =
-                                codec::from_bytes_canonical(params)?;
-                            let report: FailureReport = params.report;
-
-                            // 1. Basic validator check: reporter must be an active validator
-                            let vs_blob_bytes = state
-                                .get(ioi_types::keys::VALIDATOR_SET_KEY)?
-                                .ok_or(TransactionError::State(StateError::KeyNotFound))?;
-                            let vs_sets = ioi_types::app::read_validator_sets(&vs_blob_bytes)
-                                .map_err(|e| {
-                                    TransactionError::State(StateError::InvalidValue(e.to_string()))
-                                })?;
-
-                            if !vs_sets
-                                .current
-                                .validators
-                                .iter()
-                                .any(|v| v.account_id == ctx.signer_account_id)
-                            {
-                                return Err(TransactionError::Invalid(
-                                    "Reporter is not an active validator.".into(),
-                                ));
-                            }
-
-                            // 2. Defense-in-depth on facts: canonical URL and no future timestamp
-                            if let OffenseFacts::FailedCalibrationProbe {
-                                target_url,
-                                probe_timestamp,
-                            } = &report.facts
-                            {
-                                let normalized = target_url.trim().to_ascii_lowercase();
-                                if *target_url != normalized {
-                                    return Err(TransactionError::Invalid(
-                                        "facts.target_url must be canonical (trimmed, lowercase)"
-                                            .into(),
-                                    ));
-                                }
-                                let status_bytes = state
-                                    .get(STATUS_KEY)?
-                                    .ok_or(TransactionError::State(StateError::KeyNotFound))?;
-                                let chain_status: ChainStatus =
-                                    codec::from_bytes_canonical(&status_bytes)?;
-                                if *probe_timestamp > chain_status.latest_timestamp {
-                                    return Err(TransactionError::Invalid(
-                                        "facts.probe_timestamp is in the future".into(),
-                                    ));
-                                }
-                            }
-
-                            // 3. Evidence replay protection via registry
-                            let handled_evidence: BTreeSet<[u8; 32]> = state
-                                .get(EVIDENCE_REGISTRY_KEY)?
-                                .as_deref()
-                                .map(|b| codec::from_bytes_canonical(b).unwrap_or_default())
-                                .unwrap_or_default();
-
-                            let mut new_handled_evidence = handled_evidence;
-                            let id = ioi_types::app::evidence_id(&report)
-                                .map_err(|e| TransactionError::Invalid(e.to_string()))?;
-                            if !new_handled_evidence.insert(id) {
-                                return Err(TransactionError::Invalid(
-                                    "Duplicate evidence: this offense has already been penalized."
-                                        .to_string(),
-                                ));
-                            }
-                            state.insert(
-                                EVIDENCE_REGISTRY_KEY,
-                                &codec::to_bytes_canonical(&new_handled_evidence)?,
-                            )?;
-
-                            // 4. Delegate actual penalty computation to the consensus engine
-                            let penalty_mechanism = chain_ref.get_penalty_mechanism();
-                            penalty_mechanism.apply_penalty(state, &report).await?;
-
-                            // Done: skip normal service call, we've already handled this system-level effect.
-                            return Ok(UnifiedProof::System);
                         }
 
                         let service = ctx

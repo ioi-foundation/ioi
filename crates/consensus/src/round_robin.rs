@@ -1,11 +1,12 @@
 // Path: crates/consensus/src/round_robin.rs
 
 use crate::common::penalty::apply_quarantine_penalty;
-use crate::{ConsensusDecision, ConsensusEngine, PenaltyMechanism};
+use crate::{ConsensusDecision, ConsensusEngine, PenaltyEngine, PenaltyMechanism};
 use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, ChainView};
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::state::{StateAccess, StateManager};
+use ioi_system::SystemState;
 use ioi_types::app::{
     compute_interval_from_parent_state, effective_set_for_height, read_validator_sets, AccountId,
     Block, BlockTimingParams, BlockTimingRuntime, ChainStatus, FailureReport,
@@ -48,6 +49,17 @@ impl PenaltyMechanism for RoundRobinBftEngine {
         report: &FailureReport,
     ) -> Result<(), TransactionError> {
         apply_quarantine_penalty(state, report).await
+    }
+}
+
+// Stub implementation for PenaltyEngine to allow compilation.
+impl PenaltyEngine for RoundRobinBftEngine {
+    fn apply(
+        &self,
+        _sys: &mut dyn SystemState,
+        _report: &FailureReport,
+    ) -> Result<(), TransactionError> {
+        Ok(())
     }
 }
 

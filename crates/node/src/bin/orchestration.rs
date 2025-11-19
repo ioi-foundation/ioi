@@ -271,6 +271,14 @@ where
 
         // This is necessary for the transaction pre-check simulation to find required services.
         let mut initial_services = Vec::new();
+
+        // --- WIRE PENALTIES SERVICE ---
+        let penalty_engine: Arc<dyn ioi_consensus::PenaltyEngine> =
+            Arc::new(consensus_engine.clone());
+        let penalties_service = Arc::new(ioi_consensus::PenaltiesService::new(penalty_engine));
+        // Cast to UpgradableService (we added the impl in consensus/service.rs)
+        initial_services.push(penalties_service as Arc<dyn UpgradableService>);
+
         for service_config in &workload_config.initial_services {
             match service_config {
                 InitialServiceConfig::IdentityHub(migration_config) => {

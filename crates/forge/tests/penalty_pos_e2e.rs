@@ -9,19 +9,19 @@ use ioi_forge::testing::{
     rpc::{get_chain_timestamp, query_state_key},
     submit_transaction, wait_for_evidence, wait_for_height, wait_for_stake_to_be, TestCluster,
 };
-use ioi_services::governance::ReportMisbehaviorParams;
+use ioi_system::keys::VALIDATOR_SET_KEY_STR; // Use the public string constant
 use ioi_types::{
     app::{
         account_id_from_key_material, evidence_id, AccountId, ActiveKeyRecord, BlockTimingParams,
         BlockTimingRuntime, ChainId, ChainTransaction, Credential, FailureReport, OffenseFacts,
-        OffenseType, SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
-        ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        OffenseType, ReportMisbehaviorParams, SignHeader, SignatureProof, SignatureSuite,
+        SystemPayload, SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
     keys::{
         ACCOUNT_ID_TO_PUBKEY_PREFIX, ACCOUNT_NONCE_PREFIX, BLOCK_TIMING_PARAMS_KEY,
-        BLOCK_TIMING_RUNTIME_KEY, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
+        BLOCK_TIMING_RUNTIME_KEY, IDENTITY_CREDENTIALS_PREFIX,
     },
     service_configs::{GovernanceParams, MigrationConfig},
 };
@@ -54,8 +54,8 @@ fn create_report_tx(
     let params_bytes = codec::to_bytes_canonical(&params).map_err(|e| anyhow!(e))?;
 
     let payload = SystemPayload::CallService {
-        service_id: "governance".to_string(), // Penalties are a governance/staking concern.
-        method: "report_misbehavior@v1".to_string(), // Assumed new method name.
+        service_id: "penalties".to_string(), // NEW: Use the new penalties service ID
+        method: "report_misbehavior@v1".to_string(),
         params: params_bytes,
     };
 
@@ -219,8 +219,9 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
             };
 
             let vs_bytes = ioi_types::app::write_validator_sets(&validator_sets).unwrap();
+            // Use the public string constant from ioi-system
             genesis_state.insert(
-                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
+                VALIDATOR_SET_KEY_STR.to_string(),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
             );
 

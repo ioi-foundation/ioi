@@ -1,4 +1,4 @@
-# Path: crates/transaction_models/Cargo.toml
+# Path: crates/tx/Cargo.toml
 [package]
 name = "ioi-tx"
 version = "0.1.0"
@@ -11,6 +11,7 @@ repository = "https://github.com/ioi-foundation/ioi-sdk"
 ioi-api = { path = "../api" }
 ioi-types = { path = "../types" }
 ioi-services = { path = "../services", default-features = false }
+# REMOVED: ioi-consensus = { path = "../consensus" }
 ioi-crypto = { path = "../crypto" }
 ioi-telemetry = { path = "../telemetry" }
 dcrypt = { workspace = true }
