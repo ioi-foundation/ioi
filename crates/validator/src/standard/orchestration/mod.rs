@@ -818,8 +818,22 @@ where
             .take_stream()
             .await
             .ok_or_else(|| anyhow!("Failed to take stream from Guardian channel"))?;
-        let mut report_bytes = Vec::new();
-        stream.read_to_end(&mut report_bytes).await?;
+
+        // FIX: Replace unbounded read_to_end with length-prefixed read and size limit.
+        // This prevents a malicious or malfunctioning Guardian from crashing the Orchestrator via OOM.
+        let len = stream.read_u32().await?;
+
+        const MAX_REPORT_SIZE: u32 = 10 * 1024 * 1024; // 10 MiB limit
+        if len > MAX_REPORT_SIZE {
+            return Err(anyhow!(
+                "Guardian attestation report too large: {} bytes (limit: {})",
+                len,
+                MAX_REPORT_SIZE
+            ));
+        }
+
+        let mut report_bytes = vec![0u8; len as usize];
+        stream.read_exact(&mut report_bytes).await?;
 
         let report: std::result::Result<Vec<u8>, String> = serde_json::from_slice(&report_bytes)
             .map_err(|e| anyhow!("Failed to deserialize Guardian report: {}", e))?;
