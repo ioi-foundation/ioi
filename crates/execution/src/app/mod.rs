@@ -288,34 +288,51 @@ where
                     tracing::info!(target: "execution", "Registered initial service '{}' as active in genesis state.", service_id);
                 }
 
-                let timing_params = BlockTimingParams {
-                    base_interval_secs: 5,
-                    min_interval_secs: 2,
-                    max_interval_secs: 10,
-                    target_gas_per_block: 1_000_000,
-                    ema_alpha_milli: 200,
-                    interval_step_bps: 500,
-                    retarget_every_blocks: 0,
-                };
-                state
-                    .insert(
-                        BLOCK_TIMING_PARAMS_KEY,
-                        &codec::to_bytes_canonical(&timing_params)
-                            .map_err(ChainError::Transaction)?,
-                    )
-                    .map_err(|e| ChainError::Transaction(e.to_string()))?;
+                // Check if timing parameters were loaded from genesis file before applying defaults.
+                if state.get(BLOCK_TIMING_PARAMS_KEY)?.is_none() {
+                    tracing::info!(target: "execution", "Initializing default BlockTimingParams.");
+                    let timing_params = BlockTimingParams {
+                        base_interval_secs: 5,
+                        min_interval_secs: 2,
+                        max_interval_secs: 10,
+                        target_gas_per_block: 1_000_000,
+                        ema_alpha_milli: 200,
+                        interval_step_bps: 500,
+                        retarget_every_blocks: 0,
+                    };
+                    state
+                        .insert(
+                            BLOCK_TIMING_PARAMS_KEY,
+                            &codec::to_bytes_canonical(&timing_params)
+                                .map_err(ChainError::Transaction)?,
+                        )
+                        .map_err(|e| ChainError::Transaction(e.to_string()))?;
+                } else {
+                    tracing::info!(target: "execution", "Found existing BlockTimingParams in genesis.");
+                }
 
-                let timing_runtime = BlockTimingRuntime {
-                    ema_gas_used: 0,
-                    effective_interval_secs: timing_params.base_interval_secs,
-                };
-                state
-                    .insert(
-                        BLOCK_TIMING_RUNTIME_KEY,
-                        &codec::to_bytes_canonical(&timing_runtime)
-                            .map_err(ChainError::Transaction)?,
-                    )
-                    .map_err(|e| ChainError::Transaction(e.to_string()))?;
+                if state.get(BLOCK_TIMING_RUNTIME_KEY)?.is_none() {
+                    tracing::info!(target: "execution", "Initializing default BlockTimingRuntime.");
+                    // We need to know the base interval to initialize runtime.
+                    // Re-read params we just wrote (or that existed).
+                    let params_bytes = state
+                        .get(BLOCK_TIMING_PARAMS_KEY)?
+                        .ok_or(ChainError::Transaction("Missing params".into()))?;
+                    let params: BlockTimingParams = codec::from_bytes_canonical(&params_bytes)
+                        .map_err(ChainError::Transaction)?;
+
+                    let timing_runtime = BlockTimingRuntime {
+                        ema_gas_used: 0,
+                        effective_interval_secs: params.base_interval_secs,
+                    };
+                    state
+                        .insert(
+                            BLOCK_TIMING_RUNTIME_KEY,
+                            &codec::to_bytes_canonical(&timing_runtime)
+                                .map_err(ChainError::Transaction)?,
+                        )
+                        .map_err(|e| ChainError::Transaction(e.to_string()))?;
+                }
 
                 let status_bytes = ioi_types::codec::to_bytes_canonical(&self.state.status)
                     .map_err(ChainError::Transaction)?;
@@ -367,7 +384,7 @@ where
         block_height: u64,
         block_timestamp: u64,
         proofs_out: &mut Vec<Vec<u8>>,
-    ) -> Result<(), ChainError> {
+    ) -> Result<u64, ChainError> {
         let signer_account_id = signer_from_tx(tx);
         let mut tx_ctx = TxContext {
             block_height,
@@ -408,7 +425,7 @@ where
 
         nonce::bump_nonce(overlay, tx)?;
 
-        let proof = self
+        let (proof, gas_used) = self
             .state
             .transaction_model
             .apply_payload(self, overlay, tx, &mut tx_ctx)
@@ -416,6 +433,6 @@ where
         proofs_out
             .push(ioi_types::codec::to_bytes_canonical(&proof).map_err(ChainError::Transaction)?);
 
-        Ok(())
+        Ok(gas_used)
     }
 }

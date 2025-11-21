@@ -87,7 +87,7 @@ where
         state: &mut dyn StateAccess,
         tx: &Self::Transaction,
         ctx: &mut TxContext<'_>,
-    ) -> Result<Self::Proof, TransactionError>
+    ) -> Result<(Self::Proof, u64), TransactionError>
     where
         ST: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
@@ -100,18 +100,18 @@ where
     {
         match tx {
             HybridTransaction::Account(account_tx) => {
-                let proof = self
+                let (proof, gas) = self
                     .account_model
                     .apply_payload(chain, state, account_tx, ctx)
                     .await?;
-                Ok(HybridProof::Account(proof))
+                Ok((HybridProof::Account(proof), gas))
             }
             HybridTransaction::UTXO(utxo_tx) => {
-                let proof = self
+                let (proof, gas) = self
                     .utxo_model
                     .apply_payload(chain, state, utxo_tx, ctx)
                     .await?;
-                Ok(HybridProof::UTXO(proof))
+                Ok((HybridProof::UTXO(proof), gas))
             }
         }
     }

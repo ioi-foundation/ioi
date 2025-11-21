@@ -180,6 +180,8 @@ pub struct PreparedBlock {
     pub validator_set_hash: [u8; 32],
     /// Canonically encoded proofs for each transaction in the block.
     pub tx_proofs: Vec<Vec<u8>>,
+    /// The total gas consumed by transactions in this block.
+    pub gas_used: u64,
 }
 
 /// A trait that defines the logic and capabilities of an application-specific blockchain.

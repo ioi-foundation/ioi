@@ -24,4 +24,4 @@ pub use assert::{
 pub use build::build_test_artifacts;
 pub use cluster::{TestCluster, TestClusterBuilder};
 pub use rpc::{submit_transaction, submit_transaction_no_wait};
-pub use validator::TestValidator;
+pub use validator::{TestValidator, ValidatorGuard}; // Export ValidatorGuard

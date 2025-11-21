@@ -99,7 +99,7 @@ where
         state: &mut dyn StateAccess,
         tx: &Self::Transaction,
         _ctx: &mut TxContext<'_>,
-    ) -> Result<Self::Proof, TransactionError>
+    ) -> Result<(Self::Proof, u64), TransactionError>
     where
         ST: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
@@ -148,7 +148,8 @@ where
             .ok_or(TransactionError::Invalid("Balance overflow".into()))?;
         state.insert(&tx.to, &self.encode_account(&receiver_account)?)?;
 
-        Ok(proof)
+        // TODO: Calculate actual gas usage
+        Ok((proof, 0))
     }
 
     fn create_coinbase_transaction(

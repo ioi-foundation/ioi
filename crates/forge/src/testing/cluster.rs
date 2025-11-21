@@ -258,7 +258,16 @@ impl TestClusterBuilder {
             }
 
             while let Some(result) = launch_futures.next().await {
-                validators.push(result?);
+                match result {
+                    Ok(guard) => validators.push(guard),
+                    Err(e) => {
+                        // Cleanup already launched validators before returning error
+                        for guard in validators {
+                            let _ = guard.shutdown().await;
+                        }
+                        return Err(e);
+                    }
+                }
             }
         }
         validators.sort_by(|a, b| a.validator().peer_id.cmp(&b.validator().peer_id));
@@ -266,14 +275,28 @@ impl TestClusterBuilder {
         // Wait for all nodes in the cluster to reach a common height.
         if validators.len() > 1 {
             println!("--- Waiting for cluster to sync to height 2 ---");
-            // Wait for each node to see at least height 1, then height 2 overall.
-            // This is more robust than just waiting for height 2 on all, as it ensures
-            // the genesis block was processed by all before expecting further progress.
+            // Wrap wait_for_height calls in a way that handles cleanup on failure
             for v_guard in &validators {
-                wait_for_height(&v_guard.validator().rpc_addr, 1, Duration::from_secs(30)).await?;
+                if let Err(e) =
+                    wait_for_height(&v_guard.validator().rpc_addr, 1, Duration::from_secs(30)).await
+                {
+                    // Cleanup before propagating error
+                    for guard in validators {
+                        let _ = guard.shutdown().await;
+                    }
+                    return Err(e);
+                }
             }
             for v_guard in &validators {
-                wait_for_height(&v_guard.validator().rpc_addr, 2, Duration::from_secs(30)).await?;
+                if let Err(e) =
+                    wait_for_height(&v_guard.validator().rpc_addr, 2, Duration::from_secs(30)).await
+                {
+                    // Cleanup before propagating error
+                    for guard in validators {
+                        let _ = guard.shutdown().await;
+                    }
+                    return Err(e);
+                }
             }
             println!("--- All nodes synced. Cluster is ready. ---");
         }

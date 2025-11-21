@@ -132,9 +132,16 @@ pub(super) fn handle_timing_update(
     let old_runtime: BlockTimingRuntime =
         codec::from_bytes_canonical(&runtime_bytes).map_err(ChainError::Transaction)?;
 
+    // Always update EMA gas used, regardless of whether we retarget the interval.
+    let mut new_runtime = old_runtime.clone();
+    let alpha = params.ema_alpha_milli as u128;
+    new_runtime.ema_gas_used = (alpha * gas_used_this_block as u128
+        + (1000 - alpha) * old_runtime.ema_gas_used)
+        / 1000;
+
+    // Only recalculate the effective interval if we are on a retargeting block.
     if params.retarget_every_blocks > 0 && current_height % params.retarget_every_blocks as u64 == 0
     {
-        let mut new_runtime = old_runtime.clone();
         let parent_height = current_height.saturating_sub(1);
         let next_interval = ioi_types::app::compute_interval_from_parent_state(
             &params,
@@ -142,21 +149,24 @@ pub(super) fn handle_timing_update(
             parent_height,
             gas_used_this_block,
         );
-
-        let alpha = params.ema_alpha_milli as u128;
-        new_runtime.ema_gas_used = (alpha * gas_used_this_block as u128
-            + (1000 - alpha) * old_runtime.ema_gas_used)
-            / 1000;
         new_runtime.effective_interval_secs = next_interval;
+        tracing::info!(
+            target: "chain",
+            event = "timing_retarget",
+            height = current_height,
+            old_interval = old_runtime.effective_interval_secs,
+            new_interval = next_interval,
+            ema_gas = new_runtime.ema_gas_used
+        );
+    }
 
-        if new_runtime.ema_gas_used != old_runtime.ema_gas_used
-            || new_runtime.effective_interval_secs != old_runtime.effective_interval_secs
-        {
-            state.insert(
-                BLOCK_TIMING_RUNTIME_KEY,
-                &codec::to_bytes_canonical(&new_runtime).map_err(ChainError::Transaction)?,
-            )?;
-        }
+    if new_runtime.ema_gas_used != old_runtime.ema_gas_used
+        || new_runtime.effective_interval_secs != old_runtime.effective_interval_secs
+    {
+        state.insert(
+            BLOCK_TIMING_RUNTIME_KEY,
+            &codec::to_bytes_canonical(&new_runtime).map_err(ChainError::Transaction)?,
+        )?;
     }
 
     Ok(())
