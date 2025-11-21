@@ -282,12 +282,27 @@ pub enum TransactionError {
     /// An error originating from the state manager.
     #[error("State error: {0}")]
     State(#[from] StateError),
+
     /// The transaction's fee was insufficient.
     #[error("Insufficient fee")]
     InsufficientFee,
     /// The account has insufficient funds to cover the transaction amount.
     #[error("Insufficient funds")]
     InsufficientFunds,
+    /// The transaction resulted in a balance overflow (u64 limit).
+    #[error("Balance overflow")]
+    BalanceOverflow,
+
+    /// The transaction inputs are invalid (e.g., count limit, missing UTXO).
+    #[error("Invalid transaction input: {0}")]
+    InvalidInput(String),
+    /// The transaction outputs are invalid (e.g., count limit).
+    #[error("Invalid transaction output: {0}")]
+    InvalidOutput(String),
+
+    /// The smart contract execution reverted.
+    #[error("Contract execution reverted: {0}")]
+    ContractRevert(String),
 
     /// The transaction nonce does not match the expected nonce for the account.
     #[error("Nonce mismatch. Expected: {expected}, Got: {got}")]
@@ -325,6 +340,10 @@ impl ErrorCode for TransactionError {
             Self::State(_) => "TX_STATE_ERROR",
             Self::InsufficientFee => "TX_INSUFFICIENT_FEE",
             Self::InsufficientFunds => "TX_INSUFFICIENT_FUNDS",
+            Self::BalanceOverflow => "TX_BALANCE_OVERFLOW",
+            Self::InvalidInput(_) => "TX_INVALID_INPUT",
+            Self::InvalidOutput(_) => "TX_INVALID_OUTPUT",
+            Self::ContractRevert(_) => "TX_CONTRACT_REVERT",
             Self::NonceMismatch { .. } => "TX_NONCE_MISMATCH",
             Self::InvalidSignature(_) => "TX_INVALID_SIGNATURE",
             Self::ExpiredKey => "TX_EXPIRED_KEY",

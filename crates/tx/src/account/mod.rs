@@ -133,7 +133,7 @@ where
 
         // --- 3) Stateful checks (NO nonce check here; it's an ante handler concern) ---
         if sender_account.balance < tx.amount {
-            return Err(TransactionError::Invalid("Insufficient balance".into()));
+            return Err(TransactionError::InsufficientFunds);
         }
 
         // --- 4) Apply writes to overlay ---
@@ -145,7 +145,7 @@ where
         receiver_account.balance = receiver_account
             .balance
             .checked_add(tx.amount)
-            .ok_or(TransactionError::Invalid("Balance overflow".into()))?;
+            .ok_or(TransactionError::BalanceOverflow)?;
         state.insert(&tx.to, &self.encode_account(&receiver_account)?)?;
 
         // TODO: Calculate actual gas usage
