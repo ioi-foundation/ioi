@@ -2,7 +2,10 @@
 
 use anyhow::{anyhow, Result};
 use ioi_types::{
-    app::{AccountId, Block, ChainStatus, ChainTransaction, Membership, Proposal, StateEntry, StateRoot},
+    app::{
+        AccountId, Block, ChainStatus, ChainTransaction, Membership, Proposal, StateEntry,
+        StateRoot,
+    },
     codec,
     keys::{
         EVIDENCE_REGISTRY_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, QUARANTINED_VALIDATORS_KEY,
@@ -79,7 +82,6 @@ pub async fn submit_transaction_and_get_block(
         .await?
         .ok_or_else(|| anyhow!("Block was not produced after transaction submission"))
 }
-
 
 /// Submits a transaction but does NOT wait for it to be included in a block.
 /// Returns the raw JSON-RPC response `Value`. This is useful for testing
@@ -290,7 +292,10 @@ pub async fn get_evidence_set(rpc_addr: &str) -> Result<BTreeSet<[u8; 32]>> {
 }
 
 /// Queries the block header for a specific, committed block height via the HTTP RPC.
-pub async fn get_block_by_height(rpc_addr: &str, height: u64) -> Result<Option<Block<ChainTransaction>>> {
+pub async fn get_block_by_height(
+    rpc_addr: &str,
+    height: u64,
+) -> Result<Option<Block<ChainTransaction>>> {
     let client = Client::new();
     let request_body = json!({
         "jsonrpc": "2.0",
@@ -353,7 +358,8 @@ pub async fn query_state_key_at_root(
     let result_val = resp
         .get("result")
         .ok_or_else(|| anyhow!("Missing result field"))?;
-    let response_struct: ioi_client::workload_client::QueryStateAtIpcResponse =
+    // CHANGED: Use the new response type from api/chain
+    let response_struct: ioi_api::chain::QueryStateResponse =
         serde_json::from_value(result_val.clone())?;
 
     match response_struct.membership {

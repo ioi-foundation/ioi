@@ -1,8 +1,7 @@
 // Path: crates/validator/src/standard/orchestration/remote_state_view.rs
 
 use async_trait::async_trait;
-use ioi_client::WorkloadClient;
-use ioi_api::chain::{AnchoredStateView, RemoteStateView};
+use ioi_api::chain::{AnchoredStateView, RemoteStateView, WorkloadClientApi};
 use ioi_api::state::Verifier;
 use ioi_types::app::{StateAnchor, StateRoot};
 use ioi_types::codec;
@@ -17,7 +16,8 @@ use tokio::sync::Mutex;
 pub struct DefaultAnchoredStateView<V: Verifier> {
     _anchor: StateAnchor,
     root: StateRoot,
-    client: Arc<WorkloadClient>,
+    height: u64,
+    client: Arc<dyn WorkloadClientApi>,
     verifier: V,
     proof_cache: Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>,
 }
@@ -26,13 +26,15 @@ impl<V: Verifier> DefaultAnchoredStateView<V> {
     pub fn new(
         _anchor: StateAnchor,
         root: StateRoot,
-        client: Arc<WorkloadClient>,
+        height: u64,
+        client: Arc<dyn WorkloadClientApi>,
         verifier: V,
         proof_cache: Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>,
     ) -> Self {
         Self {
             _anchor,
             root,
+            height,
             client,
             verifier,
             proof_cache,
@@ -47,9 +49,7 @@ where
     V::Proof: Decode,
 {
     fn height(&self) -> u64 {
-        // Height is part of StateRef, but not directly in the view.
-        // A full implementation might pass height in the constructor.
-        0
+        self.height
     }
 
     fn state_root(&self) -> &[u8] {

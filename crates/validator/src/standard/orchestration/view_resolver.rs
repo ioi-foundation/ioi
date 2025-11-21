@@ -3,9 +3,9 @@ use async_trait::async_trait;
 use lru::LruCache;
 use std::{any::Any, sync::Arc};
 
-use ioi_client::WorkloadClient;
-use ioi_api::chain::{AnchoredStateView, StateRef, ViewResolver};
+use ioi_api::chain::{AnchoredStateView, StateRef, ViewResolver, WorkloadClientApi};
 use ioi_api::state::Verifier;
+use ioi_client::WorkloadClient;
 use ioi_types::{
     app::{to_root_hash, StateAnchor},
     error::ChainError,
@@ -15,7 +15,9 @@ use tokio::sync::Mutex;
 use super::remote_state_view::DefaultAnchoredStateView;
 
 pub struct DefaultViewResolver<V: Verifier> {
+    // Store client as both concrete type and trait object
     client: Arc<WorkloadClient>,
+    client_api: Arc<dyn WorkloadClientApi>,
     verifier: V,
     proof_cache: Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>,
 }
@@ -36,8 +38,11 @@ impl<V: Verifier> DefaultViewResolver<V> {
         verifier: V,
         proof_cache: Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>,
     ) -> Self {
+        // Upcast the concrete client to the trait object immediately
+        let client_api = client.clone() as Arc<dyn WorkloadClientApi>;
         Self {
             client,
+            client_api,
             verifier,
             proof_cache,
         }
@@ -62,7 +67,8 @@ where
         let view = DefaultAnchoredStateView::new(
             anchor,
             root,
-            self.client.clone(),
+            r.height,
+            self.client_api.clone(), // Pass the trait object, not the concrete type
             self.verifier.clone(),
             self.proof_cache.clone(),
         );
@@ -77,24 +83,35 @@ where
     }
 
     async fn genesis_root(&self) -> Result<Vec<u8>, ChainError> {
-        // Use the dedicated, robust RPC call.
-        let status = self
-            .client
+        // Use the dedicated, robust RPC call via the trait interface
+        let ready = self
+            .client_api
             .get_genesis_status()
             .await
             .map_err(|e| ChainError::Transaction(e.to_string()))?;
-        if status.ready {
-            Ok(status.root)
+
+        if ready {
+            let status = self
+                .client
+                .get_genesis_status()
+                .await
+                .map_err(|e| ChainError::Transaction(e.to_string()))?;
+            if status.ready {
+                Ok(status.root)
+            } else {
+                Err(ChainError::Transaction(
+                    "Genesis state is not ready yet.".into(),
+                ))
+            }
         } else {
-            // If genesis isn't ready, it's a transient error. Returning an error is better than a zero hash.
             Err(ChainError::Transaction(
                 "Genesis state is not ready yet.".into(),
             ))
         }
     }
 
-    fn workload_client(&self) -> &dyn Any {
-        self.client.as_ref()
+    fn workload_client(&self) -> &Arc<dyn WorkloadClientApi> {
+        &self.client_api
     }
 
     fn as_any(&self) -> &dyn Any {

@@ -442,7 +442,7 @@ async fn test_sync_with_peer_drop() -> Result<()> {
         ];
 
         // 3. Launch a new node (node3) that needs to sync.
-        let node3 = TestValidator::launch(
+        let mut node3 = TestValidator::launch(
             Keypair::generate_ed25519(),
             cluster.genesis_content.clone(),
             8000, // new base port
@@ -492,17 +492,19 @@ async fn test_sync_with_peer_drop() -> Result<()> {
         let _ = assert_log_contains("node3", &mut orch_logs, "Block sync complete!").await;
         println!("--- Sync with peer drop successful ---");
 
-        // --- FIX: Move cleanup logic inside the async block ---
-        for guard in cluster.validators {
-            guard.shutdown().await?;
-        }
+        // --- FIX: Explicitly shutdown the syncing node ---
         node3.shutdown().await?;
 
         Ok(())
     }
     .await;
 
-    // --- PROPAGATE TEST RESULT ---
+    // Guaranteed cleanup for the cluster
+    for guard in cluster.validators {
+        guard.shutdown().await?;
+    }
+
+    // Propagate test result
     test_result?;
 
     Ok(())

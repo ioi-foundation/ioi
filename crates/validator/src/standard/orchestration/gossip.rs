@@ -1,8 +1,8 @@
 // Path: crates/validator/src/standard/orchestration/gossip.rs
 use super::context::MainLoopContext;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use async_trait::async_trait;
-use ioi_api::chain::{AnchoredStateView, StateRef};
+use ioi_api::chain::{AnchoredStateView, StateRef, WorkloadClientApi};
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::{ConsensusEngine, PenaltyMechanism};
 use ioi_api::state::{StateAccess, StateManager, Verifier};
@@ -25,7 +25,7 @@ type ProofCache = Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>;
 
 #[derive(Debug)]
 struct WorkloadChainView<V> {
-    client: Arc<ioi_client::WorkloadClient>,
+    client_api: Arc<dyn WorkloadClientApi>,
     consensus: ConsensusType,
     verifier: V,
     proof_cache: ProofCache,
@@ -33,13 +33,13 @@ struct WorkloadChainView<V> {
 
 impl<V: Clone> WorkloadChainView<V> {
     fn new(
-        client: Arc<ioi_client::WorkloadClient>,
+        client_api: Arc<dyn WorkloadClientApi>,
         consensus: ConsensusType,
         verifier: V,
         proof_cache: ProofCache,
     ) -> Self {
         Self {
-            client,
+            client_api,
             consensus,
             verifier,
             proof_cache,
@@ -81,10 +81,12 @@ where
             .to_anchor()
             .map_err(|e| ChainError::Transaction(e.to_string()))?;
         let root = StateRoot(state_ref.state_root.clone());
+
         let view = super::remote_state_view::DefaultAnchoredStateView::new(
             anchor,
             root,
-            self.client.clone(),
+            state_ref.height,
+            self.client_api.clone(), // No downcast needed, pass the trait object directly
             self.verifier.clone(),
             self.proof_cache.clone(),
         );
@@ -244,24 +246,27 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
     );
 
     let (engine_ref, cv) = {
-        let resolver = match context
-            .view_resolver
-            .as_any()
-            .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
-        {
-            Some(r) => r,
-            None => {
-                tracing::error!("CRITICAL: Could not downcast ViewResolver in handle_gossip_block. This indicates a severe logic error.");
-                return;
-            }
-        };
+        let resolver = context.view_resolver.as_ref();
+        // Use explicit dereferencing to call `as_any()` on the trait object.
+        let default_resolver: &super::view_resolver::DefaultViewResolver<V> =
+            match (*resolver).as_any().downcast_ref() {
+                Some(r) => r,
+                None => {
+                    tracing::error!(
+                        "CRITICAL: Could not downcast ViewResolver in handle_gossip_block."
+                    );
+                    return;
+                }
+            };
+
         (
             context.consensus_engine_ref.clone(),
             WorkloadChainView::new(
+                // Use the trait object returned by workload_client()
                 resolver.workload_client().clone(),
                 context.config.consensus_type,
-                resolver.verifier().clone(),
-                resolver.proof_cache().clone(),
+                default_resolver.verifier().clone(),
+                default_resolver.proof_cache().clone(),
             ),
         )
     };
@@ -287,20 +292,14 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         height = block_height,
         "Forwarding to workload."
     );
-    let resolver = match context
+
+    // CHANGED: Use trait accessor directly
+    match context
         .view_resolver
-        .as_any()
-        .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
+        .workload_client()
+        .process_block(block)
+        .await
     {
-        Some(r) => r,
-        None => {
-            tracing::error!(
-                "CRITICAL: Could not downcast ViewResolver in handle_gossip_block. This indicates a severe logic error."
-            );
-            return;
-        }
-    };
-    match resolver.workload_client().process_block(block).await {
         Ok((processed_block, _)) => {
             tracing::info!(
                 target: "gossip",

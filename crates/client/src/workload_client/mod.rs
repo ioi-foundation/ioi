@@ -7,12 +7,15 @@ use crate::security::{SecureStream, SecurityChannel};
 use actor::{ClientActor, ClientRequest, PendingRequestMap};
 use anyhow::{anyhow, Result};
 use arc_swap::ArcSwap;
+use async_trait::async_trait;
+use ioi_api::chain::{QueryStateResponse, WorkloadClientApi};
 use ioi_api::vm::{ExecutionContext, ExecutionOutput};
 use ioi_ipc::jsonrpc::{JsonRpcId, JsonRpcRequest};
 use ioi_types::app::{
     AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction, Membership, StateAnchor,
     StateRoot,
 };
+use ioi_types::error::ChainError;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
 use std::collections::{BTreeMap, HashMap};
@@ -22,8 +25,7 @@ use std::time::Duration;
 use tokio::sync::{mpsc, oneshot, watch, Notify, RwLock};
 use tokio::task::JoinHandle;
 
-// --- Structs for RPC method parameters and results ---
-
+// ... (intermediate structs remain unchanged) ...
 #[derive(Serialize)]
 struct GetBlocksRangeParams {
     since: u64,
@@ -79,15 +81,6 @@ struct QueryStateAtParams<'a> {
     key: &'a [u8],
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct QueryStateAtIpcResponse {
-    pub msg_version: u32,
-    pub scheme_id: u16,
-    pub scheme_version: u16,
-    pub membership: Membership,
-    pub proof_bytes: Vec<u8>,
-}
-
 #[derive(Serialize)]
 struct GetValidatorSetAtParams {
     anchor: StateAnchor,
@@ -140,6 +133,84 @@ pub struct WorkloadClient {
     _run_handle: JoinHandle<()>,
 }
 
+#[async_trait]
+impl WorkloadClientApi for WorkloadClient {
+    async fn process_block(
+        &self,
+        block: Block<ChainTransaction>,
+    ) -> ioi_types::Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError> {
+        self.process_block(block)
+            .await
+            .map_err(|e| ChainError::Transaction(e.to_string()))
+    }
+
+    async fn get_blocks_range(
+        &self,
+        since: u64,
+        max_blocks: u32,
+        max_bytes: u32,
+    ) -> ioi_types::Result<Vec<Block<ChainTransaction>>, ChainError> {
+        self.get_blocks_range(since, max_blocks, max_bytes)
+            .await
+            .map_err(|e| ChainError::Transaction(e.to_string()))
+    }
+
+    async fn check_transactions_at(
+        &self,
+        anchor: StateAnchor,
+        expected_timestamp_secs: u64,
+        txs: Vec<ChainTransaction>,
+    ) -> ioi_types::Result<Vec<Result<(), String>>, ChainError> {
+        self.check_transactions_at(anchor, expected_timestamp_secs, txs)
+            .await
+            .map_err(|e| ChainError::Transaction(e.to_string()))
+    }
+
+    async fn query_state_at(
+        &self,
+        root: StateRoot,
+        key: &[u8],
+    ) -> ioi_types::Result<QueryStateResponse, ChainError> {
+        self.query_state_at(root, key)
+            .await
+            .map_err(|e| ChainError::Transaction(e.to_string()))
+    }
+
+    async fn query_raw_state(&self, key: &[u8]) -> ioi_types::Result<Option<Vec<u8>>, ChainError> {
+        self.query_raw_state(key)
+            .await
+            .map_err(|e| ChainError::Transaction(e.to_string()))
+    }
+
+    async fn prefix_scan(
+        &self,
+        prefix: &[u8],
+    ) -> ioi_types::Result<Vec<(Vec<u8>, Vec<u8>)>, ChainError> {
+        self.prefix_scan(prefix)
+            .await
+            .map_err(|e| ChainError::Transaction(e.to_string()))
+    }
+
+    async fn get_staked_validators(
+        &self,
+    ) -> ioi_types::Result<BTreeMap<AccountId, u64>, ChainError> {
+        self.get_staked_validators()
+            .await
+            .map_err(|e| ChainError::Transaction(e.to_string()))
+    }
+
+    async fn get_genesis_status(&self) -> ioi_types::Result<bool, ChainError> {
+        self.get_genesis_status()
+            .await
+            .map(|s| s.ready)
+            .map_err(|e| ChainError::Transaction(e.to_string()))
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
 impl Drop for WorkloadClient {
     fn drop(&mut self) {
         self.shutdown.notify_one();
@@ -147,6 +218,7 @@ impl Drop for WorkloadClient {
 }
 
 impl WorkloadClient {
+    // ... (rest of implementation unchanged) ...
     /// Establishes a secure connection to the Workload container and spawns
     /// a dedicated management task to maintain the connection.
     pub async fn new(
@@ -560,11 +632,7 @@ impl WorkloadClient {
         self.send_rpc("state.getRawState.v1", params).await
     }
 
-    pub async fn query_state_at(
-        &self,
-        root: StateRoot,
-        key: &[u8],
-    ) -> Result<QueryStateAtIpcResponse> {
+    pub async fn query_state_at(&self, root: StateRoot, key: &[u8]) -> Result<QueryStateResponse> {
         let params = QueryStateAtParams { root, key };
         self.send_rpc("state.queryStateAt.v1", params).await
     }

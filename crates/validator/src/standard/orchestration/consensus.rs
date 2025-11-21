@@ -2,7 +2,6 @@
 use crate::metrics::consensus_metrics as metrics;
 use crate::standard::orchestration::context::MainLoopContext;
 use crate::standard::orchestration::gossip::prune_mempool;
-use crate::standard::orchestration::view_resolver::DefaultViewResolver;
 use anyhow::{anyhow, Result};
 use ioi_api::{
     chain::StateRef,
@@ -204,11 +203,9 @@ where
 
         let mut valid_txs = Vec::new();
         let mut invalid_tx_hashes = HashSet::new();
-        let workload_client = view_resolver
-            .as_any()
-            .downcast_ref::<DefaultViewResolver<V>>()
-            .ok_or_else(|| anyhow!("Could not downcast ViewResolver to get WorkloadClient"))?
-            .workload_client();
+        
+        // CHANGED: Use the safe accessor from the trait, no downcasting needed.
+        let workload_client = view_resolver.workload_client();
 
         let parent_anchor = StateRoot(parent_ref.state_root.clone())
             .to_anchor()
@@ -388,11 +385,9 @@ where
             },
             transactions: valid_txs,
         };
-        let workload_client = view_resolver
-            .as_any()
-            .downcast_ref::<DefaultViewResolver<V>>()
-            .ok_or_else(|| anyhow!("Could not downcast ViewResolver to get WorkloadClient"))?
-            .workload_client();
+        
+        // CHANGED: Use trait accessor, no downcasting needed.
+        let workload_client = view_resolver.workload_client();
         match workload_client.process_block(new_block_template).await {
             Ok((mut final_block, _)) => {
                 let block_height = final_block.header.height;

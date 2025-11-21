@@ -8,10 +8,12 @@ use crate::state::{StateManager, Verifier};
 use crate::transaction::TransactionModel;
 use crate::validator::WorkloadContainer;
 use async_trait::async_trait;
+use ioi_types::app::{AccountId, Membership, StateAnchor, StateRoot};
 use ioi_types::config::ConsensusType;
 use ioi_types::error::ChainError;
 use ioi_types::Result;
 use libp2p::identity::Keypair;
+use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
@@ -26,6 +28,70 @@ pub struct StateRef {
     pub state_root: Vec<u8>,
     /// The hash of the block that produced this state.
     pub block_hash: [u8; 32],
+}
+
+/// The response structure for state queries via the Workload API.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct QueryStateResponse {
+    /// The version of the response message format.
+    pub msg_version: u32,
+    /// The numeric ID of the commitment scheme used.
+    pub scheme_id: u16,
+    /// The version of the commitment scheme.
+    pub scheme_version: u16,
+    /// The proven membership outcome (Present or Absent).
+    pub membership: Membership,
+    /// The raw bytes of the cryptographic proof.
+    pub proof_bytes: Vec<u8>,
+}
+
+/// A trait defining the interface for interacting with a Workload container (local or remote).
+/// This abstracts the IPC client to prevent circular dependencies and runtime downcasting panics.
+#[async_trait]
+pub trait WorkloadClientApi: Send + Sync + Debug {
+    /// Processes a block, updating the state and returning the processed block + events.
+    async fn process_block(
+        &self,
+        block: Block<ChainTransaction>,
+    ) -> Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError>;
+
+    /// Fetches a range of blocks.
+    async fn get_blocks_range(
+        &self,
+        since: u64,
+        max_blocks: u32,
+        max_bytes: u32,
+    ) -> Result<Vec<Block<ChainTransaction>>, ChainError>;
+
+    /// Performs pre-execution checks on transactions against a specific state anchor.
+    async fn check_transactions_at(
+        &self,
+        anchor: StateAnchor,
+        expected_timestamp_secs: u64,
+        txs: Vec<ChainTransaction>,
+    ) -> Result<Vec<Result<(), String>>, ChainError>;
+
+    /// Queries the state at a specific root hash, returning a proof.
+    async fn query_state_at(
+        &self,
+        root: StateRoot,
+        key: &[u8],
+    ) -> Result<QueryStateResponse, ChainError>;
+
+    /// Queries the raw state value (without proof) for a key.
+    async fn query_raw_state(&self, key: &[u8]) -> Result<Option<Vec<u8>>, ChainError>;
+
+    /// Scans keys with a given prefix.
+    async fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, ChainError>;
+
+    /// Gets the current set of staked validators.
+    async fn get_staked_validators(&self) -> Result<BTreeMap<AccountId, u64>, ChainError>;
+
+    /// Gets the genesis status.
+    async fn get_genesis_status(&self) -> Result<bool, ChainError>;
+
+    /// Returns the client as a type-erased `Any` trait object.
+    fn as_any(&self) -> &dyn Any;
 }
 
 /// A base trait for a read-only, proof-verifying view of the world state.
@@ -70,10 +136,13 @@ pub trait ViewResolver: Send + Sync {
     async fn resolve_live(&self) -> Result<Arc<dyn LiveStateView>, ChainError>;
     /// Fetches the raw root commitment of the genesis block.
     async fn genesis_root(&self) -> Result<Vec<u8>, ChainError>;
-    /// Returns the workload client as a type-erased `Any` trait object.
-    /// The caller is responsible for downcasting it to the concrete `WorkloadClient` type.
-    /// This approach avoids a circular dependency between the `api` and `client` crates.
-    fn workload_client(&self) -> &dyn Any;
+
+    /// Returns the workload client interface.
+    ///
+    /// This returns a trait object `Arc<dyn WorkloadClientApi>` instead of `&dyn Any`,
+    /// providing compile-time safety and eliminating the risk of runtime panics due to bad downcasts.
+    fn workload_client(&self) -> &Arc<dyn WorkloadClientApi>;
+
     /// Provides access to the concrete type for downcasting.
     fn as_any(&self) -> &dyn Any;
 }
