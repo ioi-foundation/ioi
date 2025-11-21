@@ -79,10 +79,28 @@ async fn main() -> Result<()> {
         let local_hash_result = guardian_clone
             .attest_weights(&opts.agentic_model_path)
             .await;
-        let report_bytes = serde_json::to_vec(&local_hash_result)?;
+
+        // FIX: Handle serialization errors gracefully and ensure report_bytes is available
+        let report_bytes = match serde_json::to_vec(&local_hash_result) {
+            Ok(b) => b,
+            Err(e) => {
+                tracing::error!(target: "guardian", event = "attestation_serialize_fail", error = %e, "Failed to serialize attestation report");
+                return Ok::<(), anyhow::Error>(());
+            }
+        };
 
         if let Some(mut stream) = guardian_clone.orchestration_channel.take_stream().await {
-            if let Err(e) = stream.write_all(&report_bytes).await {
+            // FIX: Send length prefix to prevent OOM on the receiver side (Orchestrator).
+            // We chain the write operations to handle errors in one place.
+            let write_result = async {
+                let len = report_bytes.len() as u32;
+                stream.write_u32(len).await?;
+                stream.write_all(&report_bytes).await?;
+                Ok::<(), std::io::Error>(())
+            }
+            .await;
+
+            if let Err(e) = write_result {
                 tracing::error!(
                     target: "guardian",
                     event = "attestation_send_fail",
