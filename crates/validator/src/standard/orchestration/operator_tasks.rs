@@ -41,17 +41,8 @@ where
     <CS as CommitmentScheme>::Proof:
         serde::Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
 {
-    let workload_client = match context
-        .view_resolver
-        .as_any()
-        .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
-    {
-        Some(resolver) => resolver.workload_client(),
-        None => {
-            log::error!("Oracle Operator: Could not downcast ViewResolver to get WorkloadClient.");
-            return Ok(());
-        }
-    };
+    // CHANGED: Use trait method instead of downcasting
+    let workload_client = context.view_resolver.workload_client();
 
     // --- STATE GATE ---
     // The operator task only runs if the 'oracle' service is marked as active on-chain.

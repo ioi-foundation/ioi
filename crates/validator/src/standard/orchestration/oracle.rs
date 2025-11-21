@@ -21,7 +21,7 @@ use ioi_types::{
 };
 use libp2p::{identity::PublicKey as Libp2pPublicKey, PeerId};
 use serde::Serialize;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::fmt::Debug;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -96,28 +96,21 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE, V>(
         );
     }
 
-    let workload_client = match context
-        .view_resolver
-        .as_any()
-        .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
-    {
-        Some(resolver) => resolver.workload_client(),
-        None => {
-            log::error!("Oracle: Could not get WorkloadClient for verification.");
-            return;
-        }
-    };
+    // CHANGED: Use trait method instead of downcasting
+    let workload_client = context.view_resolver.workload_client();
 
-    let validator_stakes = match workload_client.get_staked_validators().await {
-        Ok(vs) => vs,
-        Err(e) => {
-            log::error!(
-                "Oracle: Could not get validator stakes for verification: {}",
-                e
-            );
-            return;
-        }
-    };
+    // Explicit type to help inference
+    let validator_stakes: BTreeMap<AccountId, u64> =
+        match workload_client.get_staked_validators().await {
+            Ok(vs) => vs,
+            Err(e) => {
+                log::error!(
+                    "Oracle: Could not get validator stakes for verification: {}",
+                    e
+                );
+                return;
+            }
+        };
 
     if validator_stakes.is_empty() {
         return;
@@ -205,21 +198,15 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
         None => return,
     };
 
-    let workload_client = match context
-        .view_resolver
-        .as_any()
-        .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
-    {
-        Some(resolver) => resolver.workload_client(),
-        None => {
-            log::error!("Oracle: Could not get WorkloadClient for quorum check.");
-            return;
-        }
-    };
-    let validator_stakes = match workload_client.get_staked_validators().await {
-        Ok(vs) => vs,
-        Err(_) => return,
-    };
+    // CHANGED: Use trait method instead of downcasting
+    let workload_client = context.view_resolver.workload_client();
+
+    // Explicit type to help inference
+    let validator_stakes: BTreeMap<AccountId, u64> =
+        match workload_client.get_staked_validators().await {
+            Ok(vs) => vs,
+            Err(_) => return,
+        };
 
     if validator_stakes.is_empty() {
         return;

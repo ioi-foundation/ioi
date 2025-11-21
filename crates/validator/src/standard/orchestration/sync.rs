@@ -86,15 +86,10 @@ pub async fn handle_blocks_request<CS, ST, CE, V>(
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
-    let workload_client = match context
+    // CHANGED: Use trait method instead of downcast
+    let blocks = context
         .view_resolver
-        .as_any()
-        .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
-    {
-        Some(resolver) => resolver.workload_client(),
-        None => return,
-    };
-    let blocks = workload_client
+        .workload_client()
         .get_blocks_range(since + 1, max_blocks, max_bytes)
         .await
         .unwrap_or_default();
@@ -214,17 +209,8 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
         return;
     }
 
-    let workload_client = match context
-        .view_resolver
-        .as_any()
-        .downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
-    {
-        Some(resolver) => resolver.workload_client(),
-        None => {
-            context.sync_progress = None;
-            return;
-        }
-    };
+    // CHANGED: Use trait method instead of downcast
+    let workload_client = context.view_resolver.workload_client();
 
     for block in blocks {
         if workload_client.process_block(block.clone()).await.is_err() {
