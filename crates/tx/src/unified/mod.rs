@@ -101,7 +101,7 @@ where
         state: &mut dyn StateAccess,
         tx: &Self::Transaction,
         ctx: &mut TxContext<'_>,
-    ) -> Result<Self::Proof, TransactionError>
+    ) -> Result<(Self::Proof, u64), TransactionError>
     where
         ST: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
@@ -115,11 +115,11 @@ where
         match tx {
             ChainTransaction::Application(app_tx) => match app_tx {
                 ApplicationTransaction::UTXO(utxo_tx) => {
-                    let p = self
+                    let (p, gas) = self
                         .utxo_model
                         .apply_payload(chain_ref, state, utxo_tx, ctx)
                         .await?;
-                    Ok(UnifiedProof::UTXO(p))
+                    Ok((UnifiedProof::UTXO(p), gas))
                 }
                 ApplicationTransaction::DeployContract { code, header, .. } => {
                     let workload = chain_ref.workload_container();
@@ -138,10 +138,17 @@ where
                         .await
                         .map_err(|e| TransactionError::Invalid(e.to_string()))?;
 
+                    let fuel_costs = &workload.config().fuel_costs;
+                    let mut gas_used = fuel_costs.base_cost;
+
                     if !state_delta.is_empty() {
                         let versioned_delta: Vec<(Vec<u8>, Vec<u8>)> = state_delta
                             .into_iter()
                             .map(|(key, value)| {
+                                // Accumulate gas for storage writes
+                                gas_used += (key.len() as u64 + value.len() as u64)
+                                    * fuel_costs.state_set_per_byte;
+
                                 let entry = StateEntry {
                                     value,
                                     block_height: ctx.block_height,
@@ -151,7 +158,7 @@ where
                             .collect::<Result<_, _>>()?;
                         state.batch_set(&versioned_delta)?;
                     }
-                    Ok(UnifiedProof::Application)
+                    Ok((UnifiedProof::Application, gas_used))
                 }
                 ApplicationTransaction::CallContract {
                     address,
@@ -185,7 +192,7 @@ where
                         contract_address: address.clone(),
                     };
 
-                    let (_output, (inserts, deletes)) = workload
+                    let (output, (inserts, deletes)) = workload
                         .execute_loaded_contract(code, input_data.clone(), exec_context)
                         .await
                         .map_err(|e| TransactionError::Invalid(e.to_string()))?;
@@ -207,7 +214,7 @@ where
                             .collect::<Result<_, _>>()?;
                         state.batch_set(&versioned_inserts)?;
                     }
-                    Ok(UnifiedProof::Application)
+                    Ok((UnifiedProof::Application, output.gas_used))
                 }
             },
             ChainTransaction::System(sys_tx) => {
@@ -250,7 +257,7 @@ where
                             service_arc
                                 .handle_service_call(state, method, params, ctx)
                                 .await?;
-                            return Ok(UnifiedProof::System);
+                            return Ok((UnifiedProof::System, 0));
                         }
 
                         // --- USER-SPACE DISPATCH ---
@@ -349,7 +356,8 @@ where
                         result?;
                     }
                 }
-                Ok(UnifiedProof::System)
+                // TODO: Add gas accounting for system transactions
+                Ok((UnifiedProof::System, 0))
             }
         }
     }

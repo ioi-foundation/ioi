@@ -90,7 +90,7 @@ where
         state: &mut dyn StateAccess,
         tx: &Self::Transaction,
         _ctx: &mut TxContext<'_>,
-    ) -> Result<Self::Proof, TransactionError>
+    ) -> Result<(Self::Proof, u64), TransactionError>
     where
         ST: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
@@ -167,10 +167,11 @@ where
                 let value = codec::to_bytes_canonical(output)?;
                 state.insert(&key, &value)?;
             }
-            return Ok(UTXOTransactionProof { input_proofs });
+            // TODO: Calculate actual gas usage
+            return Ok((UTXOTransactionProof { input_proofs }, 0));
         }
         // This path is for coinbase, which has no inputs to prove.
-        Ok(UTXOTransactionProof { input_proofs: vec![] })
+        Ok((UTXOTransactionProof { input_proofs: vec![] }, 0))
     }
 
     fn create_coinbase_transaction(

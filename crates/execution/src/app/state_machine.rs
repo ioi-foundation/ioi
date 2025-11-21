@@ -75,6 +75,7 @@ where
         }
 
         let mut proofs_out = Vec::with_capacity(block.transactions.len());
+        let mut block_gas_used = 0u64;
         let state_changes = {
             let _pin_guard = PinGuard::new(workload.pins.clone(), self.state.status.height);
             let snapshot_state = {
@@ -95,7 +96,9 @@ where
                     )
                     .await
                 {
-                    Ok(()) => {}
+                    Ok(gas) => {
+                        block_gas_used += gas;
+                    }
                     Err(e) => {
                         tracing::error!(target: "block", height = block.header.height, error = %e, "process_transaction failed; rejecting block proposal");
                         return Err(e);
@@ -121,6 +124,7 @@ where
             transactions_root,
             validator_set_hash,
             tx_proofs: proofs_out,
+            gas_used: block_gas_used,
         })
     }
 
@@ -236,7 +240,7 @@ where
             )
             .await?;
             end_block::handle_validator_set_promotion(&mut *state, block.header.height)?;
-            end_block::handle_timing_update(&mut *state, block.header.height, 0)?;
+            end_block::handle_timing_update(&mut *state, block.header.height, prepared.gas_used)?;
 
             self.state.status.height = block.header.height;
             self.state.status.latest_timestamp = block.header.timestamp;

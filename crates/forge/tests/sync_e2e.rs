@@ -5,7 +5,13 @@ use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_api::state::service_namespace_prefix;
 use ioi_forge::testing::{
-    assert_log_contains, build_test_artifacts, rpc, wait_for_height, TestCluster, TestValidator,
+    assert_log_contains,
+    build_test_artifacts,
+    rpc,
+    wait_for_height,
+    TestCluster,
+    TestValidator,
+    ValidatorGuard, // Now correctly re-exported
 };
 use ioi_types::{
     app::{
@@ -231,7 +237,7 @@ async fn test_multi_batch_sync() -> Result<()> {
     };
 
     // 1. Launch a 2-node cluster together to ensure shared genesis.
-    let cluster = TestCluster::builder()
+    let mut cluster = TestCluster::builder()
         .with_validators(2)
         .with_genesis_modifier(genesis_modifier)
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
@@ -415,6 +421,9 @@ async fn test_sync_with_peer_drop() -> Result<()> {
         .build()
         .await?;
 
+    // Holds the validator to ensure it stays alive during the async block
+    let mut node3_guard: Option<ValidatorGuard> = None;
+
     let test_result: Result<()> = async {
         let target_height = 10;
         wait_for_height(
@@ -442,7 +451,9 @@ async fn test_sync_with_peer_drop() -> Result<()> {
         ];
 
         // 3. Launch a new node (node3) that needs to sync.
-        let mut node3 = TestValidator::launch(
+        // We store it in the outer option to keep it alive past this block if needed,
+        // and to ensure we can call shutdown on it in the finally block.
+        let node3 = TestValidator::launch(
             Keypair::generate_ed25519(),
             cluster.genesis_content.clone(),
             8000, // new base port
@@ -470,8 +481,11 @@ async fn test_sync_with_peer_drop() -> Result<()> {
         )
         .await?;
 
+        node3_guard = Some(node3);
+        let node3_ref = node3_guard.as_ref().unwrap();
+
         // Optional: subscribe for nice diagnostics (not required for correctness anymore).
-        let (mut orch_logs, _, _) = node3.validator().subscribe_logs();
+        let (mut orch_logs, _, _) = node3_ref.validator().subscribe_logs();
 
         // Give node3 a moment to pick an initial peer, then drop one seed deterministically.
         tokio::time::sleep(Duration::from_secs(1)).await;
@@ -483,7 +497,7 @@ async fn test_sync_with_peer_drop() -> Result<()> {
 
         // Node3 must reach the target height via the remaining seed.
         wait_for_height(
-            &node3.validator().rpc_addr,
+            &node3_ref.validator().rpc_addr,
             target_height,
             Duration::from_secs(180),
         )
@@ -492,12 +506,14 @@ async fn test_sync_with_peer_drop() -> Result<()> {
         let _ = assert_log_contains("node3", &mut orch_logs, "Block sync complete!").await;
         println!("--- Sync with peer drop successful ---");
 
-        // --- FIX: Explicitly shutdown the syncing node ---
-        node3.shutdown().await?;
-
         Ok(())
     }
     .await;
+
+    // Explicitly shutdown node3 if it exists
+    if let Some(guard) = node3_guard {
+        guard.shutdown().await?;
+    }
 
     // Guaranteed cleanup for the cluster
     for guard in cluster.validators {

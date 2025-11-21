@@ -35,13 +35,17 @@ pub trait TransactionModel: Send + Sync {
 
     /// Applies the core state transition logic of a transaction's payload and returns a proof of the state that was read.
     /// This is called *after* all `TxDecorator` handlers have passed.
+    ///
+    /// Returns a tuple containing:
+    /// 1. The cryptographic proof of the state read during execution.
+    /// 2. The total gas consumed by the transaction execution.
     async fn apply_payload<ST, CV>(
         &self,
         chain: &CV,                    // ChainView for read-only context
         state: &mut dyn StateAccess, // The transactional state overlay for writes
         tx: &Self::Transaction,
         ctx: &mut TxContext<'_>,
-    ) -> Result<Self::Proof, TransactionError>
+    ) -> Result<(Self::Proof, u64), TransactionError>
     where
         ST: StateManager<
                 Commitment = <Self::CommitmentScheme as CommitmentScheme>::Commitment,
