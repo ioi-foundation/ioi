@@ -91,13 +91,34 @@ impl PenaltyMechanism for ProofOfStakeEngine {
         report: &FailureReport,
     ) -> Result<(), TransactionError> {
         const PENALTY_PERCENTAGE: u128 = 10;
+
+        // 1. Read chain status to determine current height
+        let status_bytes = state
+            .get(STATUS_KEY)?
+            .ok_or(TransactionError::State(StateError::KeyNotFound))?;
+        let status: ChainStatus = codec::from_bytes_canonical(&status_bytes)
+            .map_err(|e| TransactionError::State(StateError::Decode(e)))?;
+        let current_height = status.height;
+
+        // 2. Read validator sets
         let blob_bytes = state
             .get(VALIDATOR_SET_KEY)?
             .ok_or(TransactionError::State(StateError::KeyNotFound))?;
         let mut sets = read_validator_sets(&blob_bytes)?;
-        let mut vs = sets.current;
+
+        // 3. Modify `sets.next` to ensure current epoch stability.
+        // If `next` is None, branch off `current` for the next possible activation point.
+        if sets.next.is_none() {
+            let mut next_vs = sets.current.clone();
+            // Activate strictly after the current block to prevent leader grinding.
+            next_vs.effective_from_height = current_height + 1;
+            sets.next = Some(next_vs);
+        }
+
+        let next_vs = sets.next.as_mut().unwrap();
         let mut validator_found = false;
-        for validator in &mut vs.validators {
+
+        for validator in &mut next_vs.validators {
             if validator.account_id == report.offender {
                 let slash_amount = (validator.weight * PENALTY_PERCENTAGE) / 100;
                 validator.weight = validator.weight.saturating_sub(slash_amount);
@@ -105,16 +126,21 @@ impl PenaltyMechanism for ProofOfStakeEngine {
                 break;
             }
         }
+
         if !validator_found {
             return Err(TransactionError::Invalid(format!(
-                "Unknown validator to slash: {:?}",
+                "Unknown validator to slash in pending set: {:?}",
                 report.offender
             )));
         }
-        vs.validators
+
+        // 4. Re-sort and recalculate weights for the next set
+        next_vs
+            .validators
             .sort_by(|a, b| a.account_id.cmp(&b.account_id));
-        vs.total_weight = vs.validators.iter().map(|v| v.weight).sum();
-        sets.current = vs;
+        next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
+
+        // 5. Write back
         state.insert(VALIDATOR_SET_KEY, &write_validator_sets(&sets)?)?;
         Ok(())
     }
@@ -128,15 +154,28 @@ impl PenaltyEngine for ProofOfStakeEngine {
     ) -> Result<(), TransactionError> {
         const PENALTY_PERCENTAGE: u128 = 10;
 
-        // 1. Load validator sets using the safe SystemState API
+        // 1. Get current status for height
+        let status = sys.status().map_err(TransactionError::State)?;
+        let current_height = status.height;
+
+        // 2. Load validator sets using the safe SystemState API
         let mut sets = sys
             .validators()
             .current_sets()
             .map_err(TransactionError::State)?;
-        let mut vs = sets.current;
 
+        // 3. Ensure we are modifying the `next` set to preserve current epoch stability.
+        if sets.next.is_none() {
+            let mut next_vs = sets.current.clone();
+            // Activate strictly after the current block to prevent leader grinding.
+            next_vs.effective_from_height = current_height + 1;
+            sets.next = Some(next_vs);
+        }
+
+        let next_vs = sets.next.as_mut().unwrap();
         let mut validator_found = false;
-        for validator in &mut vs.validators {
+
+        for validator in &mut next_vs.validators {
             if validator.account_id == report.offender {
                 let slash_amount = (validator.weight * PENALTY_PERCENTAGE) / 100;
                 validator.weight = validator.weight.saturating_sub(slash_amount);
@@ -147,18 +186,18 @@ impl PenaltyEngine for ProofOfStakeEngine {
 
         if !validator_found {
             return Err(TransactionError::Invalid(format!(
-                "Unknown validator to slash: {:?}",
+                "Unknown validator to slash in pending set: {:?}",
                 report.offender
             )));
         }
 
-        // Resort and recalc
-        vs.validators
+        // 4. Resort and recalc for the next set
+        next_vs
+            .validators
             .sort_by(|a, b| a.account_id.cmp(&b.account_id));
-        vs.total_weight = vs.validators.iter().map(|v| v.weight).sum();
-        sets.current = vs;
+        next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
 
-        // 2. Save using the safe SystemState API
+        // 5. Save using the safe SystemState API
         sys.validators_mut()
             .set_sets(&sets)
             .map_err(TransactionError::State)?;
