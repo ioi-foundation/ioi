@@ -170,10 +170,11 @@ impl BlockchainService for RuntimeService {
             if e_str.contains("Unauthorized") {
                 TransactionError::UnauthorizedByCredentials
             } else if e_str.contains("OutOfGas") {
-                // [+] FIX: Wrap the VmError in the generic Invalid variant.
-                TransactionError::Invalid(VmError::ExecutionTrap("OutOfGas".into()).to_string())
+                // We might map this to a specific Gas error if we add one later,
+                // but ContractRevert is better than Invalid.
+                TransactionError::ContractRevert("OutOfGas".into())
             } else {
-                TransactionError::Invalid(e_str)
+                TransactionError::ContractRevert(e_str)
             }
         })
     }

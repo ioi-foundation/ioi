@@ -4,8 +4,8 @@ use ioi_api::commitment::CommitmentScheme;
 use ioi_api::state::{ProofProvider, StateAccess, StateManager};
 use ioi_api::transaction::context::TxContext;
 use ioi_api::transaction::TransactionModel;
-pub use ioi_types::app::{Input, Output, UTXOTransaction};
 use ioi_types::app::Membership;
+pub use ioi_types::app::{Input, Output, UTXOTransaction};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use parity_scale_codec::{Decode, Encode};
@@ -76,10 +76,14 @@ where
 
     fn validate_stateless(&self, tx: &Self::Transaction) -> Result<(), TransactionError> {
         if self.config.max_inputs > 0 && tx.inputs.len() > self.config.max_inputs {
-            return Err(TransactionError::Invalid("Too many inputs".to_string()));
+            return Err(TransactionError::InvalidInput(
+                "Too many inputs".to_string(),
+            ));
         }
         if self.config.max_outputs > 0 && tx.outputs.len() > self.config.max_outputs {
-            return Err(TransactionError::Invalid("Too many outputs".to_string()));
+            return Err(TransactionError::InvalidOutput(
+                "Too many outputs".to_string(),
+            ));
         }
         Ok(())
     }
@@ -104,7 +108,7 @@ where
         // 1) Stateful validation & read values from overlay
         if tx.inputs.is_empty() {
             if tx.outputs.is_empty() {
-                return Err(TransactionError::Invalid(
+                return Err(TransactionError::InvalidOutput(
                     "Coinbase transaction must have outputs".to_string(),
                 ));
             }
@@ -113,19 +117,19 @@ where
             let mut materialized_inputs = Vec::with_capacity(tx.inputs.len());
             for input in &tx.inputs {
                 let key = self.create_utxo_key(&input.tx_hash, input.output_index);
-                let utxo_bytes = state
-                    .get(&key)?
-                    .ok_or_else(|| TransactionError::Invalid("Input UTXO not found".to_string()))?;
+                let utxo_bytes = state.get(&key)?.ok_or_else(|| {
+                    TransactionError::InvalidInput("Input UTXO not found".to_string())
+                })?;
                 let utxo: Output = codec::from_bytes_canonical(&utxo_bytes)
-                    .map_err(|e| TransactionError::Invalid(format!("Deserialize error: {}", e)))?;
+                    .map_err(|e| TransactionError::Deserialization(format!("UTXO error: {}", e)))?;
                 total_input = total_input
                     .checked_add(utxo.value)
-                    .ok_or_else(|| TransactionError::Invalid("Input value overflow".to_string()))?;
+                    .ok_or_else(|| TransactionError::BalanceOverflow)?;
                 materialized_inputs.push((key, utxo_bytes));
             }
             let total_output: u64 = tx.outputs.iter().map(|o| o.value).sum();
             if total_input < total_output {
-                return Err(TransactionError::Invalid("Insufficient funds".to_string()));
+                return Err(TransactionError::InsufficientFunds);
             }
 
             // 2) Generate anchored proofs BEFORE we touch overlay deletes
@@ -148,7 +152,7 @@ where
                         });
                     }
                     Membership::Absent => {
-                        return Err(TransactionError::Invalid(
+                        return Err(TransactionError::InvalidInput(
                             "Input UTXO non-membership at pre-state".into(),
                         ));
                     }
@@ -171,7 +175,12 @@ where
             return Ok((UTXOTransactionProof { input_proofs }, 0));
         }
         // This path is for coinbase, which has no inputs to prove.
-        Ok((UTXOTransactionProof { input_proofs: vec![] }, 0))
+        Ok((
+            UTXOTransactionProof {
+                input_proofs: vec![],
+            },
+            0,
+        ))
     }
 
     fn create_coinbase_transaction(
