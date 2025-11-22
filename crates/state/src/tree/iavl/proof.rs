@@ -50,7 +50,8 @@ pub(super) fn hash_leaf(
         match op {
             LengthOp::NoPrefix => Ok(data.to_vec()),
             LengthOp::VarProto => {
-                let mut len_prefixed = Vec::with_capacity(prost::length_delimiter_len(data.len()) + data.len());
+                let mut len_prefixed =
+                    Vec::with_capacity(prost::length_delimiter_len(data.len()) + data.len());
                 // prost::encode_length_delimiter can return a prost::EncodeError, which we need to handle.
                 prost::encode_length_delimiter(data.len(), &mut len_prefixed)?;
                 len_prefixed.extend_from_slice(data);
@@ -148,6 +149,68 @@ pub struct InnerOp {
     pub sibling_hash: [u8; 32],
 }
 
+// --- Public Root Computation API ---
+
+/// Computes the Merkle root hash implied by the given proof.
+///
+/// This function does not verify the proof against a known root or key;
+/// it simply calculates the root hash that this proof asserts.
+pub fn compute_root_from_proof(proof: &IavlProof) -> Result<[u8; 32], ProofError> {
+    match proof {
+        IavlProof::Existence(p) => compute_root_from_existence(p),
+        IavlProof::NonExistence(p) => compute_root_from_non_existence(p),
+    }
+}
+
+/// Computes the root hash from an ExistenceProof using the key and value contained within it.
+pub fn compute_root_from_existence(p: &ExistenceProof) -> Result<[u8; 32], ProofError> {
+    let mut current_hash = hash_leaf(&p.leaf, &p.key, &p.value)?;
+
+    for step in &p.path {
+        let (left, right) = match step.side {
+            Side::Left => (step.sibling_hash, current_hash),
+            Side::Right => (current_hash, step.sibling_hash),
+        };
+        current_hash = hash_inner(step, &left, &right)?;
+    }
+    Ok(current_hash)
+}
+
+/// Computes the root hash from a NonExistenceProof.
+///
+/// A NonExistenceProof implies a specific root hash by proving the existence of
+/// the left and/or right neighbors of the missing key.
+pub fn compute_root_from_non_existence(p: &NonExistenceProof) -> Result<[u8; 32], ProofError> {
+    // If both are None, it implies an empty tree.
+    if p.left.is_none() && p.right.is_none() {
+        // Return the hash of an empty tree (SHA256 of empty bytes)
+        return hash(&[]);
+    }
+
+    let left_root = p
+        .left
+        .as_ref()
+        .map(compute_root_from_existence)
+        .transpose()?;
+    let right_root = p
+        .right
+        .as_ref()
+        .map(compute_root_from_existence)
+        .transpose()?;
+
+    match (left_root, right_root) {
+        (Some(l), None) => Ok(l),
+        (None, Some(r)) => Ok(r),
+        (Some(l), Some(r)) => {
+            if l != r {
+                return Err(ProofError::RootMismatch); // Neighbors imply different roots
+            }
+            Ok(l)
+        }
+        (None, None) => unreachable!(), // Handled by the empty tree check above
+    }
+}
+
 // --- Verifier Logic ---
 
 /// The single, canonical entry point for all IAVL proof verification.
@@ -157,110 +220,48 @@ pub fn verify_iavl_proof(
     expected_value: Option<&[u8]>,
     proof: &IavlProof,
 ) -> Result<bool, ProofError> {
+    // 1. Structure and Semantics Check
     match (expected_value, proof) {
-        (Some(value), IavlProof::Existence(existence_proof)) => {
-            verify_existence(root, key, value, existence_proof)?;
-            Ok(true)
+        (Some(val), IavlProof::Existence(p)) => {
+            if p.key != key || p.value != val {
+                return Err(ProofError::InvalidExistence(
+                    "Proof is for a different key/value pair".into(),
+                ));
+            }
         }
-        (None, IavlProof::NonExistence(non_existence_proof)) => {
-            verify_non_existence(root, key, non_existence_proof)
+        (None, IavlProof::NonExistence(p)) => {
+            if p.missing_key != key {
+                return Ok(false);
+            }
+            // Verify neighbor ordering logic for non-existence
+            if let Some(l) = &p.left {
+                if l.key >= p.missing_key {
+                    return Ok(false);
+                }
+            }
+            if let Some(r) = &p.right {
+                if r.key <= p.missing_key {
+                    return Ok(false);
+                }
+            }
+            if let (Some(l), Some(r)) = (&p.left, &p.right) {
+                if l.key >= r.key {
+                    return Ok(false);
+                }
+            }
         }
-        _ => Ok(false),
-    }
-}
-
-fn verify_existence(
-    root: &[u8; 32],
-    key: &[u8],
-    value: &[u8],
-    proof: &ExistenceProof,
-) -> Result<(), ProofError> {
-    if proof.key != key || proof.value != value {
-        return Err(ProofError::InvalidExistence(
-            "Proof is for a different key/value pair".into(),
-        ));
+        // Mismatched expectations (e.g., expecting a value but got NonExistence proof)
+        _ => return Ok(false),
     }
 
-    let mut current_hash = hash_leaf(&proof.leaf, key, value)?;
+    // 2. Cryptographic Verification
+    // Recompute the root hash asserted by the proof.
+    let calculated_root = compute_root_from_proof(proof)?;
 
-    log::debug!(
-        "[IAVL Verifier] Verifying existence for key: {}",
-        hex::encode(key)
-    );
-    log::debug!("[IAVL Verifier] Trusted Root: {}", hex::encode(root));
-    log::debug!(
-        "[IAVL Verifier]   - Step 0 (Leaf): hash={:.8}",
-        hex::encode(current_hash).get(..8).unwrap_or("")
-    );
-
-    for (i, step) in proof.path.iter().enumerate() {
-        let (left, right) = match step.side {
-            Side::Left => (step.sibling_hash, current_hash),
-            Side::Right => (current_hash, step.sibling_hash),
-        };
-        let new_hash_vec = hash_inner(step, &left, &right)?;
-
-        log::debug!(
-            "[IAVL Verifier] step={} side={:?} split={:.8} h={} sz={} acc={:.8} sib={:.8} -> new={:.8}",
-            i + 1, step.side,
-            hex::encode(&step.split_key).get(..8).unwrap_or(""),
-            step.height, step.size,
-            hex::encode(current_hash).get(..8).unwrap_or(""),
-            hex::encode(step.sibling_hash).get(..8).unwrap_or(""),
-            hex::encode(new_hash_vec).get(..8).unwrap_or(""),
-        );
-        current_hash = new_hash_vec;
-    }
-
-    log::debug!(
-        "[IAVL Verifier] Final Recomputed Root: {}",
-        hex::encode(current_hash)
-    );
-
-    if current_hash != *root {
+    // 3. Root Match
+    if calculated_root != *root {
         return Err(ProofError::RootMismatch);
     }
-    Ok(())
-}
 
-fn verify_non_existence(
-    root: &[u8; 32],
-    missing_key: &[u8],
-    proof: &NonExistenceProof,
-) -> Result<bool, ProofError> {
-    if proof.missing_key.as_slice() != missing_key {
-        return Ok(false);
-    }
-    if proof.left.is_none() && proof.right.is_none() {
-        // For an empty tree, a proof with no neighbors is valid.
-        // A real verifier should check if the root is the empty hash.
-        return Ok(*root == ioi_crypto::algorithms::hash::sha256([]).unwrap_or_default());
-    }
-
-    let mut left_valid = false;
-    if let Some(left_proof) = &proof.left {
-        if left_proof.key.as_slice() >= missing_key {
-            return Ok(false);
-        }
-        verify_existence(root, &left_proof.key, &left_proof.value, left_proof)?;
-        left_valid = true;
-    }
-
-    let mut right_valid = false;
-    if let Some(right_proof) = &proof.right {
-        if right_proof.key.as_slice() <= missing_key {
-            return Ok(false);
-        }
-        verify_existence(root, &right_proof.key, &right_proof.value, right_proof)?;
-        right_valid = true;
-    }
-
-    if let (Some(left_proof), Some(right_proof)) = (&proof.left, &proof.right) {
-        if left_proof.key >= right_proof.key {
-            return Ok(false); // Neighbors are incorrectly ordered.
-        }
-        Ok(left_valid && right_valid)
-    } else {
-        Ok(left_valid || right_valid) // At least one must be valid.
-    }
+    Ok(true)
 }
