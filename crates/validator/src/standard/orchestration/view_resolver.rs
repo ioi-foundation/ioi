@@ -24,6 +24,7 @@ pub struct DefaultViewResolver<V: Verifier> {
 
 impl<V: Verifier> DefaultViewResolver<V> {
     // Helper getters used by orchestration/gossip
+    #[allow(dead_code)] // Suppress warning as this helper is intended for external use
     pub fn workload_client(&self) -> &Arc<WorkloadClient> {
         &self.client
     }

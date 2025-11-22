@@ -2,6 +2,8 @@
 use crate::metrics::consensus_metrics as metrics;
 use crate::standard::orchestration::context::MainLoopContext;
 use crate::standard::orchestration::gossip::prune_mempool;
+// NEW: Import hash_transaction from tx_hash
+use crate::standard::orchestration::tx_hash::{hash_transaction, TxHash};
 use anyhow::{anyhow, Result};
 use ioi_api::{
     chain::StateRef,
@@ -17,7 +19,7 @@ use ioi_types::{
         account_id_from_key_material, to_root_hash, AccountId, Block, BlockHeader,
         ChainTransaction, SignatureSuite, StateRoot, SystemPayload,
     },
-    codec, // Import the canonical codec
+    codec, // FIX: Added missing codec import
     keys::VALIDATOR_SET_KEY,
 };
 use serde::Serialize;
@@ -25,13 +27,6 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-
-/// Helper function to canonically hash a transaction using the SDK's crypto abstractions.
-fn hash_transaction(tx: &ChainTransaction) -> Result<Vec<u8>, anyhow::Error> {
-    let serialized = codec::to_bytes_canonical(tx).map_err(|e| anyhow!(e))?;
-    let digest = ioi_crypto::algorithms::hash::sha256(&serialized)?;
-    Ok(digest.to_vec())
-}
 
 // A type alias for the complex signature function to resolve the `type_complexity` lint.
 type SignatureFn = Box<dyn Fn(&[u8]) -> Result<Vec<u8>> + Send>;
@@ -174,6 +169,7 @@ where
             }
         };
 
+        // MODIFIED: Extract transactions from the tuple pool (tx, hash)
         let (candidate_txs, mempool_len_before) = {
             let pool = tx_pool_ref.lock().await;
             tracing::debug!(
@@ -182,7 +178,11 @@ where
                 pool.len(),
                 Arc::as_ptr(&tx_pool_ref)
             );
-            (pool.iter().cloned().collect::<Vec<_>>(), pool.len())
+            // Extract only the transaction part of the tuple for candidate processing
+            (
+                pool.iter().map(|(tx, _)| tx.clone()).collect::<Vec<_>>(),
+                pool.len(),
+            )
         };
 
         for (i, tx) in candidate_txs.iter().enumerate() {
@@ -202,8 +202,8 @@ where
         tracing::info!(target: "consensus", event = "precheck_start", mempool_size = mempool_len_before);
 
         let mut valid_txs = Vec::new();
-        let mut invalid_tx_hashes = HashSet::new();
-        
+        let mut invalid_tx_hashes: HashSet<TxHash> = HashSet::new(); // MODIFIED: Use TxHash
+
         // CHANGED: Use the safe accessor from the trait, no downcasting needed.
         let workload_client = view_resolver.workload_client();
 
@@ -259,6 +259,7 @@ where
                         error = %err,
                         "pre-check rejected tx"
                     );
+                    // MODIFIED: Use shared hash helper
                     if let Ok(tx_hash) = hash_transaction(tx) {
                         invalid_tx_hashes.insert(tx_hash);
                     }
@@ -271,6 +272,7 @@ where
                         error=%e,
                         "treating as rejection"
                     );
+                    // MODIFIED: Use shared hash helper
                     if let Ok(tx_hash) = hash_transaction(tx) {
                         invalid_tx_hashes.insert(tx_hash);
                     }
@@ -280,11 +282,8 @@ where
 
         if !invalid_tx_hashes.is_empty() {
             let mut pool = tx_pool_ref.lock().await;
-            pool.retain(|tx| {
-                hash_transaction(tx)
-                    .map(|id| !invalid_tx_hashes.contains(&id))
-                    .unwrap_or(true)
-            });
+            // Efficient pruning using the pre-calculated hash in the pool
+            pool.retain(|(_tx, hash)| !invalid_tx_hashes.contains(hash));
             tracing::info!(target: "consensus", event = "mempool_prune", num_pruned = invalid_tx_hashes.len());
         }
 
@@ -385,7 +384,7 @@ where
             },
             transactions: valid_txs,
         };
-        
+
         // CHANGED: Use trait accessor, no downcasting needed.
         let workload_client = view_resolver.workload_client();
         match workload_client.process_block(new_block_template).await {

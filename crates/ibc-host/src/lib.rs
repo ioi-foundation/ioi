@@ -6,7 +6,6 @@ use async_trait::async_trait;
 use ibc_proto::ics23::CommitmentProof;
 use ioi_api::state::{service_namespace_prefix, Verifier}; // [+] Added service_namespace_prefix
 use ioi_client::WorkloadClient;
-use ioi_crypto::algorithms::hash::sha256;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_types::{
     app::{
@@ -23,11 +22,12 @@ use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc};
 use tokio::sync::{mpsc, Mutex};
 use tracing;
 
-// --------------------------------------------------------------------------------------
-// Local SCALE wire types for IAVL proofs (mirror of commitment/src/tree/iavl/proof.rs).
-// This avoids importing the private `proof` module across crate boundaries.
-// Keep field and variant order exactly in sync with the canonical types.
-// --------------------------------------------------------------------------------------
+// Use the helper function from the validator crate
+// Note: Since ibc-host depends on ioi-validator, we can import this.
+use ioi_crypto::algorithms::hash::sha256;
+use ioi_validator::standard::orchestration::tx_hash::{hash_transaction_bytes, TxHash}; // Still needed for inner helpers
+
+// ... [iavl_wire module and other imports/defs remain same] ...
 mod iavl_wire {
     use parity_scale_codec::Decode;
 
@@ -109,8 +109,7 @@ pub trait IbcHost: Send + Sync {
     async fn commitment_root(&self, height: Option<u64>) -> Result<(Vec<u8>, u64)>;
 }
 
-// [SCALE-IAVL START]
-// Inlined helpers for SCALE/IAVL proof root computation
+// ... [inlined helpers: decode_scale_iavl_proof, hash_leaf_canonical, hash_inner_canonical, etc. remain same] ...
 fn decode_scale_iavl_proof(bytes: &[u8]) -> Option<IavlProof> {
     if let Ok(inner) = codec::from_bytes_canonical::<Vec<u8>>(bytes) {
         if let Ok(p) = IavlProof::decode(&mut &*inner) {
@@ -216,17 +215,12 @@ fn root_from_scale_iavl_bytes(proof_bytes: &[u8]) -> Option<Vec<u8>> {
     .ok()?;
     Some(root.to_vec())
 }
-// [SCALE-IAVL END]
 
 /// Helper to compute the Merkle root from a raw ICS23 proof (prost bytes).
-/// Supports single `ExistenceProof`, `BatchProof` (first existence entry),
-/// and `CompressedBatchProof` (first compressed existence entry).
 pub fn existence_root_from_proof_bytes(proof_pb: &[u8]) -> Result<Vec<u8>> {
-    // 1.1: Provenance Logging
+    // ... [root recompute logic remains same] ...
     let mut input_variant = "unknown";
     let result = (|| {
-        // The main logic is wrapped in a closure to allow early returns
-        // while still executing the log statement at the end.
         if let Some(root) = root_from_scale_iavl_bytes(proof_pb) {
             input_variant = "scale_native";
             return Ok(root);
@@ -299,7 +293,7 @@ pub fn existence_root_from_proof_bytes(proof_pb: &[u8]) -> Result<Vec<u8>> {
         ics23::calculate_existence_root::<HostFunctionsManager>(&ex_native)
             .map(|r| r.to_vec())
             .map_err(|e| anyhow!("calculate_existence_root: {e}"))
-    })(); // Immediately call the closure.
+    })();
 
     tracing::debug!(
         target = "ibc.proof",
@@ -315,8 +309,9 @@ pub fn existence_root_from_proof_bytes(proof_pb: &[u8]) -> Result<Vec<u8>> {
 
 pub struct DefaultIbcHost<V: Verifier> {
     workload_client: Arc<WorkloadClient>,
-    _verifier: V, // Keep verifier for type parameter matching, though not used directly here
-    tx_pool: Arc<Mutex<std::collections::VecDeque<ChainTransaction>>>,
+    _verifier: V,
+    // MODIFIED: Type updated
+    tx_pool: Arc<Mutex<std::collections::VecDeque<(ChainTransaction, TxHash)>>>,
     swarm_commander: mpsc::Sender<SwarmCommand>,
     signer: Keypair,
     nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
@@ -328,7 +323,8 @@ impl<V: Verifier + 'static> DefaultIbcHost<V> {
     pub fn new(
         workload_client: Arc<WorkloadClient>,
         verifier: V,
-        tx_pool: Arc<Mutex<std::collections::VecDeque<ChainTransaction>>>,
+        // MODIFIED: Type updated
+        tx_pool: Arc<Mutex<std::collections::VecDeque<(ChainTransaction, TxHash)>>>,
         swarm_commander: mpsc::Sender<SwarmCommand>,
         signer: Keypair,
         nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
@@ -357,6 +353,7 @@ impl<V: Verifier + 'static> DefaultIbcHost<V> {
 #[async_trait]
 impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
     async fn query(&self, path: &str, height: Option<u64>) -> Result<QueryHostResponse> {
+        // ... [query implementation remains same] ...
         let query_height = if let Some(h) = height {
             h
         } else {
@@ -369,9 +366,6 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
             .await?
             .ok_or_else(|| anyhow!("Block at height {} not found for query", query_height))?;
 
-        // [+] FIX: Prepend the IBC service namespace to the query path.
-        // The HTTP Gateway (and relayers) use raw ICS-24 paths (e.g. "clients/..."),
-        // but the state is physically stored under the "ibc" service's namespace.
         let ns_prefix = service_namespace_prefix("ibc");
         let full_key = [ns_prefix.as_slice(), path.as_bytes()].concat();
 
@@ -380,19 +374,16 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
             .query_state_at(block.header.state_root, &full_key)
             .await?;
 
-        // --- START REFACTOR ---
-        // Unwrap the HashProof to expose the canonical IavlProof bytes.
         use ioi_state::primitives::hash::HashProof;
         use ioi_types::codec::from_bytes_canonical;
 
         let canonical_proof_bytes = from_bytes_canonical::<HashProof>(&response.proof_bytes)
             .map(|hash_proof| hash_proof.value)
             .map_err(|e| anyhow!("Failed to unwrap HashProof from workload: {}", e))?;
-        // --- END REFACTOR ---
 
         Ok(QueryHostResponse {
             value: response.membership.into_option().unwrap_or_default(),
-            proof: Some(canonical_proof_bytes), // Now contains raw IavlProof bytes
+            proof: Some(canonical_proof_bytes),
             height: query_height,
         })
     }
@@ -403,8 +394,6 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
             return Ok(*tx_hash);
         }
 
-        // The account_id MUST be derived from the keypair that is present in the genesis state.
-        // For the test setup, the orchestrator's identity keypair IS the validator.
         let account_id = AccountId(account_id_from_key_material(
             SignatureSuite::Ed25519,
             &self.signer.public().encode_protobuf(),
@@ -412,7 +401,7 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
 
         let nonce = {
             let mut manager = self.nonce_manager.lock().await;
-            let n = manager.entry(account_id).or_insert(0); // Use the correct account_id here.
+            let n = manager.entry(account_id).or_insert(0);
             let current = *n;
             *n += 1;
             current
@@ -430,11 +419,9 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
                 method: "msg_dispatch@v1".to_string(),
                 params: msgs_pb,
             },
-            signature_proof: SignatureProof::default(), // Will be filled in
+            signature_proof: SignatureProof::default(),
         }));
 
-        // A proper implementation would use a signer trait here.
-        // For now, we manually sign.
         let (signed_tx, tx_bytes) = {
             if let ChainTransaction::System(mut sys_tx) = tx {
                 let sign_bytes = sys_tx.to_sign_bytes().map_err(|e| anyhow!(e))?;
@@ -450,12 +437,15 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
                 unreachable!();
             }
         };
-        let tx_hash = sha256(&tx_bytes)?;
+
+        // MODIFIED: Use helper to hash bytes
+        let tx_hash = hash_transaction_bytes(&tx_bytes)?;
 
         {
             let mut pool = self.tx_pool.lock().await;
             let before = pool.len();
-            pool.push_back(signed_tx);
+            // MODIFIED: Push tuple (tx, hash)
+            pool.push_back((signed_tx, tx_hash));
             let after = pool.len();
             tracing::debug!(
                 target = "mempool",
