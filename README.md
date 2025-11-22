@@ -219,6 +219,11 @@ cargo test --workspace
 | **Infrastructure (+Metrics)** | `RUST_LOG=trace,ioi_client::workload_client=trace,ioi_client::security=trace,ioi_client::workload_client::actor=trace \
 cargo test -p ioi-forge --test infra_e2e --features "consensus-poa,vm-wasm,state-iavl" -- --nocapture --test-threads=1` |
 
+
+cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,state-iavl,commitment-hash" --test adaptive_timing_e2e -- --nocapture
+
+cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,state-iavl,commitment-hash" --test t_timestamp_coherence -- --nocapture
+
 ### Docker Testing
 
 For an isolated testing environment:

@@ -5,20 +5,19 @@ use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_client::WorkloadClient;
 use ioi_forge::testing::{
-    build_test_artifacts, submit_transaction, wait_for_height, wait_for_stake_to_be, TestCluster,
+    add_genesis_identity, build_test_artifacts, submit_transaction, wait_for_height,
+    wait_for_stake_to_be, TestCluster,
 };
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
-        BlockTimingRuntime, ChainId, ChainTransaction, Credential, SignHeader, SignatureProof,
-        SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetV1, ValidatorSetsV1,
-        ValidatorV1,
+        BlockTimingRuntime, ChainId, ChainTransaction, SignHeader, SignatureProof, SignatureSuite,
+        SystemPayload, SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
     keys::{
-        active_service_key, ACCOUNT_ID_TO_PUBKEY_PREFIX, BLOCK_TIMING_PARAMS_KEY,
-        BLOCK_TIMING_RUNTIME_KEY, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
+        active_service_key, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, VALIDATOR_SET_KEY,
     },
     service_configs::{ActiveServiceMeta, Capabilities, MethodPermission, MigrationConfig},
 };
@@ -79,7 +78,7 @@ async fn test_staking_lifecycle() -> Result<()> {
 
     let initial_stake = 100_000u64;
 
-    let cluster = TestCluster::builder()
+    let mut cluster = TestCluster::builder()
         .with_validators(3)
         .with_consensus_type("ProofOfStake")
         .with_state_tree("IAVL")
@@ -168,44 +167,9 @@ async fn test_staking_lifecycle() -> Result<()> {
                 )),
             );
 
+            // Use shared helper for identity injection
             for keypair in keys {
-                let pk_bytes = keypair.public().encode_protobuf();
-                let suite = SignatureSuite::Ed25519;
-                let account_id_hash = account_id_from_key_material(suite, &pk_bytes).unwrap();
-                let account_id = AccountId(account_id_hash);
-                let pubkey_hash = account_id_from_key_material(suite, &pk_bytes).unwrap();
-
-                let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes))),
-                );
-
-                let record = ActiveKeyRecord {
-                    suite,
-                    public_key_hash: pubkey_hash,
-                    since_height: 0,
-                };
-                let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
-                let record_bytes = codec::to_bytes_canonical(&record).unwrap();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
-                );
-
-                let cred = Credential {
-                    suite,
-                    public_key_hash: account_id.0,
-                    activation_height: 0,
-                    l2_location: None,
-                };
-                let creds_array: [Option<Credential>; 2] = [Some(cred), None];
-                let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
-                let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
-                );
+                add_genesis_identity(genesis_state, keypair);
             }
 
             let mut methods = BTreeMap::new();
@@ -238,7 +202,6 @@ async fn test_staking_lifecycle() -> Result<()> {
         .build()
         .await?;
 
-    // --- FIX: Wrap test logic in an `async` block and ensure cleanup runs afterward ---
     let test_result: anyhow::Result<()> = async {
         let certs0_path = &cluster.validators[0].validator().certs_dir_path;
         let ca0_path = certs0_path.join("ca.pem").to_string_lossy().to_string();
@@ -334,7 +297,6 @@ async fn test_staking_lifecycle() -> Result<()> {
     }
 
     test_result?;
-    // --- FIX END ---
 
     println!("--- Staking Lifecycle E2E Test Passed ---");
     Ok(())

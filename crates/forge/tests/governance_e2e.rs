@@ -5,22 +5,21 @@
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
-    build_test_artifacts, confirm_proposal_passed_state, submit_transaction, wait_for_height,
-    TestCluster,
+    add_genesis_identity, build_test_artifacts, confirm_proposal_passed_state, submit_transaction,
+    wait_for_height, TestCluster,
 };
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
-        BlockTimingRuntime, ChainId, ChainTransaction, Credential, Proposal, ProposalStatus,
-        ProposalType, SignHeader, SignatureProof, SignatureSuite, StateEntry, SystemPayload,
-        SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1, VoteOption,
+        BlockTimingRuntime, ChainId, ChainTransaction, Proposal, ProposalStatus, ProposalType,
+        SignHeader, SignatureProof, SignatureSuite, StateEntry, SystemPayload, SystemTransaction,
+        ValidatorSetV1, ValidatorSetsV1, ValidatorV1, VoteOption,
     },
     codec,
     config::InitialServiceConfig,
     keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY,
-        GOVERNANCE_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX,
-        VALIDATOR_SET_KEY,
+        BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, GOVERNANCE_KEY,
+        GOVERNANCE_PROPOSAL_KEY_PREFIX, VALIDATOR_SET_KEY,
     },
     service_configs::{GovernanceParams, GovernancePolicy, GovernanceSigner, MigrationConfig},
 };
@@ -46,7 +45,8 @@ fn create_call_service_tx<P: Encode>(
     chain_id: ChainId,
 ) -> Result<ChainTransaction> {
     let public_key_bytes = keypair.public().encode_protobuf();
-    let account_id_hash = account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)?;
+    let account_id_hash =
+        account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)?;
     let account_id = AccountId(account_id_hash);
 
     let payload = SystemPayload::CallService {
@@ -98,19 +98,21 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
         }))
         .with_genesis_modifier(move |genesis, keys| {
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+            
+            // --- VALIDATOR IDENTITY ---
             let validator_key = &keys[0];
-            let suite = SignatureSuite::Ed25519;
-            let validator_pk_bytes = validator_key.public().encode_protobuf();
-            let validator_account_id_hash =
-                account_id_from_key_material(suite, &validator_pk_bytes).unwrap();
-            let validator_account_id = AccountId(validator_account_id_hash);
+            // Use the shared helper to insert credentials, key records, and pubkey mapping
+            let validator_account_id = add_genesis_identity(genesis_state, validator_key);
+            
+            // We still need the hash to construct the ActiveKeyRecord inside ValidatorV1 manually
+            let validator_account_id_hash = validator_account_id.0;
 
-            // Create and configure a separate governance identity
+            // --- GOVERNANCE IDENTITY ---
             let governance_key = identity::Keypair::generate_ed25519();
-            let gov_pk_bytes = governance_key.public().encode_protobuf();
-            let gov_account_id_hash = account_id_from_key_material(suite, &gov_pk_bytes).unwrap();
-            let governance_account_id = AccountId(gov_account_id_hash);
+            // Use the shared helper
+            let governance_account_id = add_genesis_identity(genesis_state, &governance_key);
 
+            // --- VALIDATOR SET BLOB ---
             let vs_blob = ioi_types::app::ValidatorSetBlob {
                 schema_version: 2,
                 payload: ValidatorSetsV1 {
@@ -137,6 +139,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                 json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
             );
 
+            // --- GOVERNANCE POLICY ---
             let policy = GovernancePolicy {
                 signer: GovernanceSigner::Single(governance_account_id),
             };
@@ -146,6 +149,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                 json!(format!("b64:{}", BASE64_STANDARD.encode(policy_bytes))),
             );
 
+            // --- DUMMY PROPOSAL ---
             let proposal = Proposal {
                 id: 1,
                 title: "Test Proposal".to_string(),
@@ -160,7 +164,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                 total_deposit: 10000,
                 final_tally: None,
             };
-            // --- FIX: Write proposal data to the correct service namespace ---
+            // Note: We must write this to the governance service namespace
             let proposal_key_bytes = [
                 ioi_api::state::service_namespace_prefix("governance").as_slice(),
                 GOVERNANCE_PROPOSAL_KEY_PREFIX,
@@ -177,7 +181,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&entry_bytes))),
             );
 
-            // Add the mandatory block timing parameters required by the consensus engine.
+            // --- BLOCK TIMING ---
             let timing_params = BlockTimingParams {
                 base_interval_secs: 5,
                 min_interval_secs: 1,
@@ -209,35 +213,6 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                     BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
                 )),
             );
-
-            // The governance key is now generated inside, so we pass it along with the validator key
-            let keys_to_add = [validator_key, &governance_key];
-
-            for key in &keys_to_add {
-                let acct_id_hash =
-                    account_id_from_key_material(suite, &key.public().encode_protobuf()).unwrap();
-                let acct_id = AccountId(acct_id_hash);
-                let pk_bytes = key.public().encode_protobuf();
-                let cred = Credential {
-                    suite,
-                    public_key_hash: acct_id.0,
-                    activation_height: 0,
-                    l2_location: None,
-                };
-                let creds_array: [Option<Credential>; 2] = [Some(cred), None];
-                let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
-                let creds_key = [IDENTITY_CREDENTIALS_PREFIX, acct_id.as_ref()].concat();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
-                );
-
-                let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, acct_id.as_ref()].concat();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes))),
-                );
-            }
         })
         // The governance service must be enabled for the vote transaction to succeed.
         .with_initial_service(InitialServiceConfig::Governance(GovernanceParams::default()))
@@ -252,7 +227,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
         let rpc_addr = &node.rpc_addr;
         let validator_key = &node.keypair;
 
-        // 4. SUBMIT a VOTE from the validator using the new CallService transaction
+        // 4. SUBMIT a VOTE from the validator using the CallService transaction
         let tx = create_call_service_tx(
             validator_key,
             "governance",

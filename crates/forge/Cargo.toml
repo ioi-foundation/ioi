@@ -1,5 +1,4 @@
 # Path: crates/forge/Cargo.toml
-
 [package]
 name = "ioi-forge"
 version = "0.1.0"
@@ -24,7 +23,7 @@ serde_json = { workspace = true }
 hex = { workspace = true }
 serde_jcs = "0.1.0"
 rand = { workspace = true }
-
+base64 = { workspace = true }
 
 # Workspace library crates (Forge consumes the SDK as a user would)
 ioi-types = { path = "../types" }
@@ -63,7 +62,6 @@ ioi-relayer = { path = "../relayer" }
 ioi-services = { path = "../services" }
 ioi-execution = { path = "../execution" }
 ioi-networking = { path = "../networking" }
-base64 = { workspace = true }
 once_cell = { workspace = true }
 cfg-if = "1.0"
 ibc-client-tendermint = { workspace = true }
