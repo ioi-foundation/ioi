@@ -6,9 +6,8 @@ use async_trait::async_trait;
 use ibc_proto::ics23::CommitmentProof;
 use ioi_api::state::{service_namespace_prefix, Verifier};
 use ioi_client::WorkloadClient;
-use ioi_crypto::algorithms::hash::sha256;
 use ioi_networking::libp2p::SwarmCommand;
-use ioi_state::tree::iavl::{self, IavlProof}; // Using the public API from ioi-state
+use ioi_state::tree::iavl::{self, IavlProof};
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ChainId, ChainTransaction, SignHeader,
@@ -23,6 +22,10 @@ use prost::Message;
 use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc};
 use tokio::sync::{mpsc, Mutex};
 use tracing;
+
+// Import for MerkleProof decoding
+use ibc_proto::ibc::core::commitment::v1::MerkleProof as PbMerkleProof;
+use ioi_crypto::algorithms::hash::sha256;
 
 use ics23::HostFunctionsManager;
 
@@ -53,14 +56,11 @@ fn decode_scale_iavl_proof(bytes: &[u8]) -> Option<IavlProof> {
 /// Extracts the root hash from a native IAVL proof.
 fn root_from_scale_iavl_bytes(proof_bytes: &[u8]) -> Option<Vec<u8>> {
     let p = decode_scale_iavl_proof(proof_bytes)?;
-    // Use the public API from ioi-state to recompute the root.
-    // This prevents logic duplication and drift between state and ibc-host.
     let root_arr = iavl::proof::compute_root_from_proof(&p).ok()?;
     Some(root_arr.to_vec())
 }
 
 /// Helper to compute the Merkle root from a raw ICS23 proof (prost bytes).
-/// This supports both native IAVL proofs (for local optimization) and standard ICS-23 proofs.
 pub fn existence_root_from_proof_bytes(proof_pb: &[u8]) -> Result<Vec<u8>> {
     let mut input_variant = "unknown";
     let result = (|| {
@@ -70,75 +70,21 @@ pub fn existence_root_from_proof_bytes(proof_pb: &[u8]) -> Result<Vec<u8>> {
             return Ok(root);
         }
 
-        // 2. Fallback to standard ICS-23 decoding (interoperable path).
-        use ibc_proto::ics23::batch_entry;
-        use ibc_proto::ics23::commitment_proof::Proof as PbProofVariant;
-        use ibc_proto::ics23::compressed_batch_entry;
-        use ibc_proto::ics23::{
-            CommitmentProof as PbCommitmentProof, ExistenceProof as PbExistenceProof,
-        };
+        // 2. Try decoding as a MerkleProof (standard IBC format from gateway).
+        if let Ok(mp) = PbMerkleProof::decode(proof_pb) {
+            if !mp.proofs.is_empty() {
+                input_variant = "raw(merkle_proof)";
+                // Use the first proof in the path.
+                let first_cp = &mp.proofs[0];
+                return compute_root_from_commitment_proof(first_cp);
+            }
+        }
 
-        let cp: PbCommitmentProof =
+        // 3. Fallback to standard ICS-23 CommitmentProof decoding (direct).
+        let cp: CommitmentProof =
             CommitmentProof::decode(proof_pb).context("decode ICS-23 CommitmentProof")?;
-
-        let ex_pb: PbExistenceProof = match cp.proof.ok_or_else(|| anyhow!("empty ICS-23 proof"))? {
-            PbProofVariant::Exist(ex) => {
-                input_variant = "raw(commitment_proof)";
-                ex
-            }
-            PbProofVariant::Batch(b) => {
-                input_variant = "raw(batch_proof)";
-                let ex = b
-                    .entries
-                    .into_iter()
-                    .find_map(|entry| match entry.proof {
-                        Some(batch_entry::Proof::Exist(ex)) => Some(ex),
-                        _ => None,
-                    })
-                    .ok_or_else(|| anyhow!("batch proof missing existence entry"))?;
-                ex
-            }
-            PbProofVariant::Compressed(c) => {
-                input_variant = "raw(compressed_batch_proof)";
-                let first = c
-                    .entries
-                    .get(0)
-                    .ok_or_else(|| anyhow!("compressed proof missing entries"))?;
-                let comp_exist = match &first.proof {
-                    Some(compressed_batch_entry::Proof::Exist(ex)) => ex,
-                    _ => return Err(anyhow!("first compressed entry is not existence proof")),
-                };
-                let mut path: Vec<ibc_proto::ics23::InnerOp> =
-                    Vec::with_capacity(comp_exist.path.len());
-                for &idx in &comp_exist.path {
-                    let u = usize::try_from(idx).map_err(|_| anyhow!("negative inner-op index"))?;
-                    let op = c
-                        .lookup_inners
-                        .get(u)
-                        .ok_or_else(|| anyhow!("inner-op index {} out of range", u))?
-                        .clone();
-                    path.push(op);
-                }
-                PbExistenceProof {
-                    key: comp_exist.key.clone(),
-                    value: comp_exist.value.clone(),
-                    leaf: comp_exist.leaf.clone(),
-                    path,
-                }
-            }
-            PbProofVariant::Nonexist(_) => {
-                return Err(anyhow!(
-                    "non-existence proof cannot be used to compute root"
-                ))
-            }
-        };
-
-        let ex_native: ics23::ExistenceProof = ex_pb
-            .try_into()
-            .map_err(|_| anyhow!("convert prost ExistenceProof -> native ics23::ExistenceProof"))?;
-        ics23::calculate_existence_root::<HostFunctionsManager>(&ex_native)
-            .map(|r| r.to_vec())
-            .map_err(|e| anyhow!("calculate_existence_root: {e}"))
+        input_variant = "raw(commitment_proof)";
+        compute_root_from_commitment_proof(&cp)
     })();
 
     tracing::debug!(
@@ -151,6 +97,74 @@ pub fn existence_root_from_proof_bytes(proof_pb: &[u8]) -> Result<Vec<u8>> {
     );
 
     result
+}
+
+// Helper to share logic between MerkleProof unwrapping and direct CommitmentProof handling.
+fn compute_root_from_commitment_proof(cp: &CommitmentProof) -> Result<Vec<u8>> {
+    use ibc_proto::ics23::batch_entry;
+    use ibc_proto::ics23::commitment_proof::Proof as PbProofVariant;
+    use ibc_proto::ics23::compressed_batch_entry;
+    use ibc_proto::ics23::ExistenceProof as PbExistenceProof;
+
+    let ex_pb: PbExistenceProof = match cp
+        .proof
+        .as_ref()
+        .ok_or_else(|| anyhow!("empty ICS-23 proof"))?
+    {
+        PbProofVariant::Exist(ex) => ex.clone(),
+        PbProofVariant::Batch(b) => b
+            .entries
+            .iter()
+            .find_map(|entry| match &entry.proof {
+                Some(batch_entry::Proof::Exist(ex)) => Some(ex.clone()),
+                _ => None,
+            })
+            .ok_or_else(|| anyhow!("batch proof missing existence entry"))?,
+        PbProofVariant::Compressed(c) => {
+            let first = c
+                .entries
+                .get(0)
+                .ok_or_else(|| anyhow!("compressed proof missing entries"))?;
+            let comp_exist = match &first.proof {
+                Some(compressed_batch_entry::Proof::Exist(ex)) => ex,
+                _ => return Err(anyhow!("first compressed entry is not existence proof")),
+            };
+            let mut path: Vec<ibc_proto::ics23::InnerOp> =
+                Vec::with_capacity(comp_exist.path.len());
+            for &idx in &comp_exist.path {
+                let u = usize::try_from(idx).map_err(|_| anyhow!("negative inner-op index"))?;
+                let op = c
+                    .lookup_inners
+                    .get(u)
+                    .ok_or_else(|| anyhow!("inner-op index {} out of range", u))?
+                    .clone();
+                path.push(op);
+            }
+            PbExistenceProof {
+                key: comp_exist.key.clone(),
+                value: comp_exist.value.clone(),
+                leaf: comp_exist.leaf.clone(),
+                path,
+            }
+        }
+        PbProofVariant::Nonexist(_) => {
+            return Err(anyhow!(
+                "non-existence proof cannot be used to compute root"
+            ))
+        }
+    };
+
+    let ex_native: ics23::ExistenceProof = ex_pb
+        .try_into()
+        .map_err(|_| anyhow!("convert prost ExistenceProof -> native ics23::ExistenceProof"))?;
+
+    if ex_native.key.is_empty() {
+        return Err(anyhow!("Existence proof key is empty"));
+    }
+
+    ics23::calculate_existence_root::<HostFunctionsManager>(&ex_native)
+        .map(|r| r.to_vec())
+        .map_err(|e| anyhow!("calculate_existence_root: {e}"))
 }
 
 pub struct DefaultIbcHost<V: Verifier> {

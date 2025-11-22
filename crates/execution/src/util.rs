@@ -3,7 +3,6 @@
 use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine};
 use ioi_api::state::StateManager;
-// [+] Add imports for validator set structs and keys
 use ioi_types::{
     app::{read_validator_sets, write_validator_sets},
     keys::VALIDATOR_SET_KEY,
@@ -42,6 +41,14 @@ pub fn load_state_from_genesis_file<S: StateManager + ?Sized>(
                 } else {
                     serde_json::to_vec(value)?
                 };
+
+            // [+] Debug log for empty values to trace ibc_golden_e2e failure
+            if value_bytes.is_empty() {
+                log::warn!(
+                    "[Genesis] Inserting EMPTY value for key: 0x{}",
+                    hex::encode(&key_bytes)
+                );
+            }
 
             // [+] ADDED: Canonicalization logic for critical keys
             if key_bytes == VALIDATOR_SET_KEY {
