@@ -5,14 +5,11 @@ use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_api::state::service_namespace_prefix;
 use ioi_forge::testing::{
-    assert_log_contains,
-    build_test_artifacts,
-    rpc,
-    wait_for_height,
-    TestCluster,
-    TestValidator,
-    ValidatorGuard, // Now correctly re-exported
+    add_genesis_identity, assert_log_contains, build_test_artifacts, rpc, wait_for_height,
+    TestCluster, TestValidator, ValidatorGuard,
 };
+// [+] Import VoteParams
+use ioi_services::governance::VoteParams;
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
@@ -23,8 +20,8 @@ use ioi_types::{
     codec,
     config::InitialServiceConfig,
     keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY,
-        GOVERNANCE_PROPOSAL_KEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
+        BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX,
+        VALIDATOR_SET_KEY,
     },
     service_configs::MigrationConfig,
 };
@@ -34,57 +31,7 @@ use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::time::Duration;
 
-/// Helper function to add a full identity record for a PoA authority to the genesis state.
-fn add_poa_identity_to_genesis(keypair: &Keypair) -> (AccountId, Vec<(String, Value)>) {
-    let mut entries = Vec::new();
-    let suite = SignatureSuite::Ed25519;
-    let public_key_bytes = keypair.public().encode_protobuf();
-    let account_id_hash = account_id_from_key_material(suite, &public_key_bytes).unwrap();
-    let account_id = AccountId(account_id_hash);
-
-    // B. Set the initial IdentityHub credentials
-    let initial_cred = Credential {
-        suite,
-        public_key_hash: account_id_hash,
-        activation_height: 0,
-        l2_location: None,
-    };
-    let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
-    let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
-    let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
-    entries.push((
-        format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
-        json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
-    ));
-
-    // C. Set the ActiveKeyRecord for consensus verification
-    let record = ActiveKeyRecord {
-        suite,
-        public_key_hash: account_id_hash,
-        since_height: 0,
-    };
-    let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
-    let record_bytes = codec::to_bytes_canonical(&record).unwrap();
-    entries.push((
-        format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
-        json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
-    ));
-
-    // D. Set the AccountId -> PublicKey mapping for consensus verification
-    let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-    entries.push((
-        format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
-        json!(format!("b64:{}", BASE64_STANDARD.encode(&public_key_bytes))),
-    ));
-
-    (account_id, entries)
-}
-
-#[derive(Encode)]
-struct VoteParams {
-    proposal_id: u64,
-    option: VoteOption,
-}
+// ... [create_dummy_tx remains unchanged] ...
 
 fn create_dummy_tx(keypair: &Keypair, nonce: u64, chain_id: ChainId) -> Result<ChainTransaction> {
     let vote_yes = (nonce & 1) == 0;
@@ -132,14 +79,14 @@ async fn test_multi_batch_sync() -> Result<()> {
     build_test_artifacts();
 
     let genesis_modifier = |genesis: &mut serde_json::Value, keys: &Vec<Keypair>| {
-        let mut genesis_entries = BTreeMap::new();
+        // [+] Specify types for BTreeMap to resolve inference error
+        let mut genesis_entries: BTreeMap<String, Value> = BTreeMap::new();
+        let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
         let mut validators = Vec::new();
 
         for key in keys {
-            let (account_id, entries) = add_poa_identity_to_genesis(key);
-            for (k, v) in entries {
-                genesis_entries.insert(k, v);
-            }
+            let account_id = add_genesis_identity(genesis_state, key);
+
             validators.push(ValidatorV1 {
                 account_id,
                 weight: 1,
@@ -198,10 +145,9 @@ async fn test_multi_batch_sync() -> Result<()> {
             json!(format!("b64:{}", BASE64_STANDARD.encode(&entry_bytes))),
         );
 
-        // *** FIX START: Add mandatory block timing parameters to genesis ***
         let timing_params = BlockTimingParams {
             base_interval_secs: 5,
-            retarget_every_blocks: 0, // Disable adaptive timing for simplicity.
+            retarget_every_blocks: 0,
             ..Default::default()
         };
         let timing_runtime = BlockTimingRuntime {
@@ -227,16 +173,13 @@ async fn test_multi_batch_sync() -> Result<()> {
                 BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
             )),
         );
-        // *** FIX END ***
 
-        // Apply sorted entries to the final JSON object
-        let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
         for (k, v) in genesis_entries {
             genesis_state.insert(k, v);
         }
     };
 
-    // 1. Launch a 2-node cluster together to ensure shared genesis.
+    // ... [Rest of test logic remains the same] ...
     let mut cluster = TestCluster::builder()
         .with_validators(2)
         .with_genesis_modifier(genesis_modifier)
@@ -255,22 +198,17 @@ async fn test_multi_batch_sync() -> Result<()> {
         let node0 = &cluster.validators[0];
         let node1 = &cluster.validators[1];
 
-        // 2. Produce enough blocks to trigger multiple sync batches.
         let target_height = 40;
         let mut nonce = 0;
-        // --- FIX: Submit transactions without waiting for each one to be included ---
         for _ in 0..target_height {
             let tx = create_dummy_tx(&node0.validator().keypair, nonce, 1.into())?;
-            // Submit to either node; it will be gossiped.
-            // Use `submit_transaction_no_wait` to fill the mempool quickly.
             rpc::submit_transaction_no_wait(&node0.validator().rpc_addr, &tx)
                 .await
                 .ok();
             nonce += 1;
-            tokio::time::sleep(Duration::from_millis(50)).await; // Give mempool time
+            tokio::time::sleep(Duration::from_millis(50)).await;
         }
 
-        // 3. Assert that BOTH nodes eventually sync to the target height.
         wait_for_height(
             &node0.validator().rpc_addr,
             target_height,
@@ -283,17 +221,14 @@ async fn test_multi_batch_sync() -> Result<()> {
             Duration::from_secs(240),
         )
         .await?;
-        // --- END FIX ---
         Ok::<(), anyhow::Error>(())
     }
     .await;
 
-    // Guaranteed cleanup
     for guard in cluster.validators {
         guard.shutdown().await?;
     }
 
-    // Propagate the test result
     test_result?;
     Ok(())
 }
@@ -303,15 +238,11 @@ async fn test_sync_with_peer_drop() -> Result<()> {
     build_test_artifacts();
 
     let genesis_modifier = |genesis: &mut serde_json::Value, keys: &Vec<Keypair>| {
-        let mut genesis_entries = BTreeMap::new(); // Use BTreeMap for deterministic key order
+        let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
         let mut validators = Vec::new();
 
-        // Generate identity entries and validator structs for all keys
         for key in keys {
-            let (account_id, entries) = add_poa_identity_to_genesis(key);
-            for (k, v) in entries {
-                genesis_entries.insert(k, v);
-            }
+            let account_id = add_genesis_identity(genesis_state, key);
             validators.push(ValidatorV1 {
                 account_id,
                 weight: 1,
@@ -334,10 +265,11 @@ async fn test_sync_with_peer_drop() -> Result<()> {
             next: None,
         })
         .unwrap();
-        genesis_entries.insert(
+        genesis_state.insert(
             std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
             json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
         );
+
         let proposal = Proposal {
             id: 1,
             title: "Sync Test Dummy Proposal".to_string(),
@@ -363,15 +295,14 @@ async fn test_sync_with_peer_drop() -> Result<()> {
             block_height: 0,
         };
         let entry_bytes = codec::to_bytes_canonical(&entry).unwrap();
-        genesis_entries.insert(
+        genesis_state.insert(
             format!("b64:{}", BASE64_STANDARD.encode(proposal_key_bytes)),
             json!(format!("b64:{}", BASE64_STANDARD.encode(&entry_bytes))),
         );
 
-        // *** FIX START: Add mandatory block timing parameters to genesis ***
         let timing_params = BlockTimingParams {
             base_interval_secs: 5,
-            retarget_every_blocks: 0, // Disable adaptive timing for simplicity.
+            retarget_every_blocks: 0,
             ..Default::default()
         };
         let timing_runtime = BlockTimingRuntime {
@@ -379,7 +310,7 @@ async fn test_sync_with_peer_drop() -> Result<()> {
             ..Default::default()
         };
 
-        genesis_entries.insert(
+        genesis_state.insert(
             std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
                 .unwrap()
                 .to_string(),
@@ -388,7 +319,7 @@ async fn test_sync_with_peer_drop() -> Result<()> {
                 BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
             )),
         );
-        genesis_entries.insert(
+        genesis_state.insert(
             std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
                 .unwrap()
                 .to_string(),
@@ -397,16 +328,9 @@ async fn test_sync_with_peer_drop() -> Result<()> {
                 BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
             )),
         );
-        // *** FIX END ***
-
-        // Atomically insert all sorted entries into the final JSON object
-        let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
-        for (k, v) in genesis_entries {
-            genesis_state.insert(k, v);
-        }
     };
 
-    // 1. Launch a 3-node cluster and let it produce blocks.
+    // ... [Rest of test unchanged] ...
     let mut cluster = TestCluster::builder()
         .with_validators(3)
         .with_genesis_modifier(genesis_modifier)
@@ -421,7 +345,6 @@ async fn test_sync_with_peer_drop() -> Result<()> {
         .build()
         .await?;
 
-    // Holds the validator to ensure it stays alive during the async block
     let mut node3_guard: Option<ValidatorGuard> = None;
 
     let test_result: Result<()> = async {
@@ -435,7 +358,6 @@ async fn test_sync_with_peer_drop() -> Result<()> {
 
         println!("--- Seed cluster reached height {} ---", target_height);
 
-        // 2. Explicitly shut down one validator to create a stable 2-node seed cluster.
         if let Some(node_to_shutdown) = cluster.validators.pop() {
             println!(
                 "Shutting down node ({}) to create a stable 2-node seed cluster.",
@@ -444,26 +366,22 @@ async fn test_sync_with_peer_drop() -> Result<()> {
             node_to_shutdown.shutdown().await?;
         }
 
-        // Now `cluster.validators` contains 2 stable nodes.
         let bootnodes = vec![
             cluster.validators[0].validator().p2p_addr.clone(),
             cluster.validators[1].validator().p2p_addr.clone(),
         ];
 
-        // 3. Launch a new node (node3) that needs to sync.
-        // We store it in the outer option to keep it alive past this block if needed,
-        // and to ensure we can call shutdown on it in the finally block.
         let node3 = TestValidator::launch(
             Keypair::generate_ed25519(),
             cluster.genesis_content.clone(),
-            8000, // new base port
+            8000,
             1.into(),
             Some(&bootnodes),
             "ProofOfAuthority",
             "IAVL",
             "Hash",
-            None, // ibc_gateway_addr
-            None, // agentic_model_path
+            None,
+            None,
             false,
             vec![
                 InitialServiceConfig::IdentityHub(MigrationConfig {
@@ -484,25 +402,19 @@ async fn test_sync_with_peer_drop() -> Result<()> {
         node3_guard = Some(node3);
         let node3_ref = node3_guard.as_ref().unwrap();
 
-        // Optional: subscribe for nice diagnostics (not required for correctness anymore).
         let (mut orch_logs, _, _) = node3_ref.validator().subscribe_logs();
 
-        // Give node3 a moment to pick an initial peer, then drop one seed deterministically.
         tokio::time::sleep(Duration::from_secs(1)).await;
-        // Drop the first seed (by index) to simulate a target disappearing soon after sync begins.
-        // Whether or not it was the initial target, node3 must still complete sync.
         let dropped = cluster.validators.remove(0);
         println!("Dropping one seed peer: {}", dropped.validator().peer_id);
         dropped.shutdown().await?;
 
-        // Node3 must reach the target height via the remaining seed.
         wait_for_height(
             &node3_ref.validator().rpc_addr,
             target_height,
             Duration::from_secs(180),
         )
         .await?;
-        // Nice-to-have: confirm completion line if we catch it.
         let _ = assert_log_contains("node3", &mut orch_logs, "Block sync complete!").await;
         println!("--- Sync with peer drop successful ---");
 
@@ -510,17 +422,14 @@ async fn test_sync_with_peer_drop() -> Result<()> {
     }
     .await;
 
-    // Explicitly shutdown node3 if it exists
     if let Some(guard) = node3_guard {
         guard.shutdown().await?;
     }
 
-    // Guaranteed cleanup for the cluster
     for guard in cluster.validators {
         guard.shutdown().await?;
     }
 
-    // Propagate test result
     test_result?;
 
     Ok(())

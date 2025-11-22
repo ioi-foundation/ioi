@@ -11,7 +11,11 @@
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
-    assert_log_contains, build_test_artifacts, wait_for_height, TestValidator,
+    add_genesis_identity, // [+] Import
+    assert_log_contains,
+    build_test_artifacts,
+    wait_for_height,
+    TestValidator,
 };
 use ioi_types::{
     app::{
@@ -21,10 +25,7 @@ use ioi_types::{
     },
     codec,
     config::InitialServiceConfig,
-    keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY,
-        IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
-    },
+    keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, VALIDATOR_SET_KEY},
     service_configs::MigrationConfig,
 };
 use libp2p::identity;
@@ -33,25 +34,23 @@ use std::time::Duration;
 
 #[tokio::test]
 async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
-    // 1. Build test-only artifacts (contracts).
     build_test_artifacts();
 
-    // 2. Programmatically generate a minimal but valid genesis for a single PoA node.
     let keypair = identity::Keypair::generate_ed25519();
     let genesis_content = {
         let mut genesis = json!({ "genesis_state": {} });
         let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
-        let suite = SignatureSuite::Ed25519;
-        let pk = keypair.public().encode_protobuf();
-        let acct_hash = account_id_from_key_material(suite, &pk).unwrap();
-        let acct = AccountId(acct_hash);
+
+        // [+] Use shared helper
+        let account_id = add_genesis_identity(genesis_state, &keypair);
+        let acct_hash = account_id.0;
 
         // Define the validator set
         let vs = ValidatorSetV1 {
             effective_from_height: 1,
             total_weight: 1,
             validators: vec![ValidatorV1 {
-                account_id: acct,
+                account_id,
                 weight: 1,
                 consensus_key: ActiveKeyRecord {
                     suite: SignatureSuite::Ed25519,
@@ -70,36 +69,7 @@ async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
             json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
         );
 
-        // Add identity records required for startup and signing
-        let record = ActiveKeyRecord {
-            suite,
-            public_key_hash: acct.0,
-            since_height: 0,
-        };
-        let record_key = [b"identity::key_record::", acct.as_ref()].concat();
-        let record_bytes = codec::to_bytes_canonical(&record).unwrap();
-        genesis_state.insert(
-            format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
-            json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
-        );
-        let map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, acct.as_ref()].concat();
-        genesis_state.insert(
-            format!("b64:{}", BASE64_STANDARD.encode(&map_key)),
-            json!(format!("b64:{}", BASE64_STANDARD.encode(&pk))),
-        );
-        let initial_cred = Credential {
-            suite,
-            public_key_hash: acct_hash,
-            activation_height: 0,
-            l2_location: None,
-        };
-        let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
-        let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
-        let creds_key = [IDENTITY_CREDENTIALS_PREFIX, acct.as_ref()].concat();
-        genesis_state.insert(
-            format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
-            json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
-        );
+        // [-] REMOVED: Manual Identity Records insertion
 
         // Add required block timing params
         let timing_params = BlockTimingParams {
@@ -132,9 +102,6 @@ async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
         genesis.to_string()
     };
 
-    // 3. Launch a single node with the malicious workload.
-    // Use a light readiness check because we EXPECT consensus to stall, so the full
-    // startup complete signal will never be emitted.
     let node_guard = TestValidator::launch(
         keypair,
         genesis_content,
@@ -144,8 +111,8 @@ async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
         "ProofOfAuthority",
         "IAVL",
         "Hash",
-        None, // ibc_gateway_addr
-        None, // agentic_model_path
+        None,
+        None,
         false,
         vec![InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
@@ -156,27 +123,22 @@ async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
         })],
         true, // use_malicious_workload
         true, // light_readiness_check
-        &[],  // extra_features
+        &[],
     )
     .await?;
 
-    // 4. Wrap the test logic in an async block to ensure cleanup happens on failure.
     let test_result: anyhow::Result<()> = async {
         let node = node_guard.validator();
         let (mut orch_logs, _, _) = node.subscribe_logs();
 
-        // The node, connected to a malicious workload, should fail its internal proof
-        // verification and stall consensus. It should NEVER produce block 1.
-        // We assert this by waiting for height 1 and expecting the wait to time out.
-        // A timeout here is the sign of a successful test.
+        // The node should stall.
         let wait_result = wait_for_height(&node.rpc_addr, 1, Duration::from_secs(15)).await;
 
         assert!(
             wait_result.is_err(),
-            "Node should have stalled due to invalid proofs, but it successfully produced a block."
+            "Node should have stalled due to invalid proofs."
         );
 
-        // Additionally, check the orchestrator logs for the "CRITICAL" proof verification failure message.
         assert_log_contains(
             "Orchestration",
             &mut orch_logs,
@@ -188,12 +150,9 @@ async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
     }
     .await;
 
-    // 5. Guaranteed cleanup.
     node_guard.shutdown().await?;
-
-    // 6. Propagate the test result.
     test_result?;
 
-    println!("--- Negative E2E Test Passed: Orchestration correctly stalled after receiving tampered proof ---");
+    println!("--- Negative E2E Test Passed ---");
     Ok(())
 }

@@ -75,12 +75,31 @@ pub async fn submit_transaction_and_get_block(
     rpc_addr: &str,
     tx: &ioi_types::app::ChainTransaction,
 ) -> Result<Block<ChainTransaction>> {
-    let initial_height = tip_height_resilient(rpc_addr).await?;
+    // Use state-based height as it is the primary signal for consensus progress.
+    let initial_height = get_chain_height(rpc_addr).await?;
+    let target_height = initial_height + 1;
+
     submit_transaction_no_wait(rpc_addr, tx).await?;
-    super::assert::wait_for_height(rpc_addr, initial_height + 1, Duration::from_secs(20)).await?;
-    get_block_by_height_resilient(rpc_addr, initial_height + 1)
-        .await?
-        .ok_or_else(|| anyhow!("Block was not produced after transaction submission"))
+
+    // Wait for consensus to commit the next height
+    super::assert::wait_for_height(rpc_addr, target_height, Duration::from_secs(60)).await?;
+
+    // Poll for the block data itself, handling the small race between state commit and block store commit.
+    let start = std::time::Instant::now();
+    loop {
+        if let Ok(Some(b)) = get_block_by_height_resilient(rpc_addr, target_height).await {
+            return Ok(b);
+        }
+        if start.elapsed() > Duration::from_secs(10) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+
+    Err(anyhow!(
+        "Block {} committed but not found in store after polling",
+        target_height
+    ))
 }
 
 /// Submits a transaction but does NOT wait for it to be included in a block.
@@ -134,7 +153,8 @@ pub async fn submit_transaction(
     if v.get("result").is_some() {
         log::info!("submit_transaction: accepted -> {}", v);
         // Wait for the next block to be produced to ensure the tx is processed.
-        super::assert::wait_for_height(rpc_addr, initial_height + 1, Duration::from_secs(20))
+        // Increased timeout to 60s to handle adaptive timing tests and slow CI environments.
+        super::assert::wait_for_height(rpc_addr, initial_height + 1, Duration::from_secs(60))
             .await?;
         return Ok(());
     }

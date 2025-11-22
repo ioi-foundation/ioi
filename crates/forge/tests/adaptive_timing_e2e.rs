@@ -4,23 +4,22 @@
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
+    add_genesis_identity,
     build_test_artifacts,
-    rpc::{query_state_key, submit_transaction},
-    wait_for_height, TestCluster,
+    rpc::{query_state_key, submit_transaction_no_wait}, // Changed to no_wait
+    wait_for_height,
+    TestCluster,
 };
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ApplicationTransaction,
-        BlockTimingParams, BlockTimingRuntime, ChainId, ChainTransaction, Credential, SignHeader,
+        BlockTimingParams, BlockTimingRuntime, ChainId, ChainTransaction, SignHeader,
         SignatureProof, SignatureSuite, ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1,
         ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
-    keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY,
-        IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
-    },
+    keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, VALIDATOR_SET_KEY},
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
@@ -107,13 +106,14 @@ async fn test_adaptive_block_timing_responds_to_load() -> Result<()> {
             allow_downgrade: false,
         }))
         .with_genesis_modifier(move |genesis, keys| {
-            let keypair = &keys[0];
-            let suite = SignatureSuite::Ed25519;
-            let public_key_bytes = keypair.public().encode_protobuf();
-            let account_id_hash = account_id_from_key_material(suite, &public_key_bytes).unwrap();
-            let account_id = AccountId(account_id_hash);
-
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+
+            let keypair = &keys[0];
+            // Use shared helper
+            let account_id = add_genesis_identity(genesis_state, keypair);
+
+            // Manual construction of ValidatorV1 required for consensus weights
+            let account_id_hash = account_id.0;
 
             // Standard PoA Validator Setup
             let vs_blob = ValidatorSetBlob {
@@ -139,27 +139,6 @@ async fn test_adaptive_block_timing_responds_to_load() -> Result<()> {
             genesis_state.insert(
                 std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
-            );
-
-            // Identity Records
-            let initial_cred = Credential {
-                suite,
-                public_key_hash: account_id_hash,
-                activation_height: 0,
-                l2_location: None,
-            };
-            let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
-            let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
-            let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
-            genesis_state.insert(
-                format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
-            );
-
-            let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-            genesis_state.insert(
-                format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&public_key_bytes))),
             );
 
             // --- ADAPTIVE TIMING CONFIGURATION ---
@@ -202,55 +181,78 @@ async fn test_adaptive_block_timing_responds_to_load() -> Result<()> {
         .build()
         .await?;
 
-    let node = cluster.validators[0].validator();
-    let rpc_addr = &node.rpc_addr;
-    let keypair = &node.keypair;
+    // Wrap test logic in an async block
+    let test_result: Result<()> = async {
+        let node = cluster.validators[0].validator();
+        let rpc_addr = &node.rpc_addr;
+        let keypair = &node.keypair;
 
-    // 3. Wait for chain start
-    wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
+        // Subscribe to logs to debug stall
+        let (mut orch_logs, _, _) = node.subscribe_logs();
+        tokio::spawn(async move {
+            while let Ok(line) = orch_logs.recv().await {
+                println!("[LOG] {}", line);
+            }
+        });
 
-    // 4. Send a High-Gas Transaction (Deploy Contract)
-    let deploy_tx_unsigned = ApplicationTransaction::DeployContract {
-        header: Default::default(),
-        code: counter_wasm.clone(),
-        signature_proof: Default::default(),
-    };
-    let deploy_tx = create_signed_app_tx(keypair, deploy_tx_unsigned, 0, 1.into());
+        // 3. Wait for chain start
+        wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
 
-    println!("Submitting high-gas transaction...");
-    submit_transaction(rpc_addr, &deploy_tx).await?;
+        // 4. Send a High-Gas Transaction (Deploy Contract)
+        let deploy_tx_unsigned = ApplicationTransaction::DeployContract {
+            header: Default::default(),
+            code: counter_wasm.clone(),
+            signature_proof: Default::default(),
+        };
+        let deploy_tx = create_signed_app_tx(keypair, deploy_tx_unsigned, 0, 1.into());
 
-    // 5. Wait for Retargeting
-    // Genesis (0) -> Block 1 (empty) -> Block 2 (empty) -> Block 3 (tx) -> Block 4 (retarget) -> Block 5.
-    // We wait for Height 5 to ensure the retargeting update at Height 4 is visible in the query.
-    wait_for_height(rpc_addr, 5, Duration::from_secs(30)).await?;
+        println!("Submitting high-gas transaction...");
+        // Use no_wait to avoid the internal wait_for_height in the library which uses a hardcoded timeout
+        let resp = submit_transaction_no_wait(rpc_addr, &deploy_tx).await?;
+        if let Some(err) = resp.get("error") {
+            return Err(anyhow!("RPC error: {}", err));
+        }
+        println!("Submission result: {}", resp);
 
-    // 6. Verify Adaptation
-    let height = ioi_forge::testing::rpc::get_chain_height(rpc_addr).await?;
-    println!("Checking BlockTimingRuntime state at height {}...", height);
+        // 5. Wait for Retargeting
+        // Genesis (0) -> Block 1 (empty) -> Block 2 (empty) -> Block 3 (tx) -> Block 4 (retarget) -> Block 5.
+        // We wait for Height 5 to ensure the retargeting update at Height 4 is visible in the query.
+        // Timeout is generous (60s) because the chain might slow down initially (up to 10s/block).
+        println!("Waiting for height 5...");
+        wait_for_height(rpc_addr, 5, Duration::from_secs(60)).await?;
 
-    let runtime_bytes_opt = query_state_key(rpc_addr, BLOCK_TIMING_RUNTIME_KEY).await?;
-    let runtime_bytes =
-        runtime_bytes_opt.ok_or_else(|| anyhow!("BlockTimingRuntime key missing"))?;
-    let runtime: BlockTimingRuntime = codec::from_bytes_canonical(&runtime_bytes)
-        .map_err(|e| anyhow!("Failed to decode runtime: {}", e))?;
+        // 6. Verify Adaptation
+        let height = ioi_forge::testing::rpc::get_chain_height(rpc_addr).await?;
+        println!("Checking BlockTimingRuntime state at height {}...", height);
 
-    println!("New Runtime State: {:?}", runtime);
+        let runtime_bytes_opt = query_state_key(rpc_addr, BLOCK_TIMING_RUNTIME_KEY).await?;
+        let runtime_bytes =
+            runtime_bytes_opt.ok_or_else(|| anyhow!("BlockTimingRuntime key missing"))?;
+        let runtime: BlockTimingRuntime = codec::from_bytes_canonical(&runtime_bytes)
+            .map_err(|e| anyhow!("Failed to decode runtime: {}", e))?;
 
-    // Assertions
-    assert!(runtime.ema_gas_used > 0, "EMA gas used should be non-zero");
+        println!("New Runtime State: {:?}", runtime);
 
-    assert!(
-        runtime.effective_interval_secs < 5,
-        "Effective interval should have decreased due to high load (expected < 5, got {})",
-        runtime.effective_interval_secs
-    );
+        // Assertions
+        assert!(runtime.ema_gas_used > 0, "EMA gas used should be non-zero");
 
-    println!("--- Adaptive Timing E2E Test Passed ---");
+        assert!(
+            runtime.effective_interval_secs < 5,
+            "Effective interval should have decreased due to high load (expected < 5, got {})",
+            runtime.effective_interval_secs
+        );
 
-    // Cleanup
+        Ok(())
+    }
+    .await;
+
+    // Guaranteed cleanup
     for guard in cluster.validators {
         guard.shutdown().await?;
     }
+
+    test_result?;
+
+    println!("--- Adaptive Timing E2E Test Passed ---");
     Ok(())
 }

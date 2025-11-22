@@ -4,7 +4,7 @@
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
-    assert_log_contains,
+    add_genesis_identity, assert_log_contains,
     rpc::{query_state_key, query_state_key_at_root, tip_height_resilient},
     submit_transaction, wait_for_height, wait_until, TestCluster,
 };
@@ -12,16 +12,15 @@ use ioi_services::governance::{StoreModuleParams, SwapModuleParams};
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
-        BlockTimingRuntime, ChainId, ChainTransaction, Credential, Proposal, ProposalStatus,
-        ProposalType, SignHeader, SignatureProof, SignatureSuite, StateEntry, SystemPayload,
-        SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1, VoteOption,
+        BlockTimingRuntime, ChainId, ChainTransaction, Proposal, ProposalStatus, ProposalType,
+        SignHeader, SignatureProof, SignatureSuite, StateEntry, SystemPayload, SystemTransaction,
+        ValidatorSetV1, ValidatorSetsV1, ValidatorV1, VoteOption,
     },
     codec,
     config::InitialServiceConfig,
     keys::{
-        active_service_key, ACCOUNT_ID_TO_PUBKEY_PREFIX, BLOCK_TIMING_PARAMS_KEY,
-        BLOCK_TIMING_RUNTIME_KEY, GOVERNANCE_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX,
-        IDENTITY_CREDENTIALS_PREFIX, UPGRADE_ARTIFACT_PREFIX, UPGRADE_MANIFEST_PREFIX,
+        active_service_key, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, GOVERNANCE_KEY,
+        GOVERNANCE_PROPOSAL_KEY_PREFIX, UPGRADE_ARTIFACT_PREFIX, UPGRADE_MANIFEST_PREFIX,
         UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY,
     },
     service_configs::{
@@ -31,8 +30,7 @@ use ioi_types::{
 };
 use libp2p::identity::{self, Keypair};
 use parity_scale_codec::Encode;
-use serde_json::{json, Map, Value};
-use std::collections::BTreeMap;
+use serde_json::{json, Value};
 use std::path::Path;
 use std::time::Duration;
 
@@ -41,69 +39,6 @@ use std::time::Duration;
 struct VoteParams {
     proposal_id: u64,
     option: VoteOption,
-}
-
-/// Helper function to add a full identity record for a key to the genesis state.
-fn add_identity_to_genesis(genesis_state: &mut Map<String, Value>, keypair: &Keypair) -> AccountId {
-    let suite = SignatureSuite::Ed25519;
-    let public_key_bytes = keypair.public().encode_protobuf();
-    let account_id_hash = account_id_from_key_material(suite, &public_key_bytes).unwrap();
-    let account_id = AccountId(account_id_hash);
-
-    // --- FIX: Write IdentityHub data into its own namespace ---
-    let ns_prefix = ioi_api::state::service_namespace_prefix("identity_hub");
-
-    // Set IdentityHub credentials
-    let initial_cred = Credential {
-        suite,
-        public_key_hash: account_id_hash,
-        activation_height: 0,
-        l2_location: None,
-    };
-    let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
-    let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
-    let creds_key = [
-        ns_prefix.as_slice(),
-        IDENTITY_CREDENTIALS_PREFIX,
-        account_id.as_ref(),
-    ]
-    .concat();
-    genesis_state.insert(
-        format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
-        json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
-    );
-
-    // Set ActiveKeyRecord for consensus verification
-    let record = ActiveKeyRecord {
-        suite,
-        public_key_hash: account_id_hash,
-        since_height: 0,
-    };
-    let record_key = [
-        ns_prefix.as_slice(),
-        b"identity::key_record::",
-        account_id.as_ref(),
-    ]
-    .concat();
-    let record_bytes = codec::to_bytes_canonical(&record).unwrap();
-    genesis_state.insert(
-        format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
-        json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
-    );
-
-    // Set the AccountId -> PublicKey mapping for consensus verification
-    let pubkey_map_key = [
-        ns_prefix.as_slice(),
-        ACCOUNT_ID_TO_PUBKEY_PREFIX,
-        account_id.as_ref(),
-    ]
-    .concat();
-    genesis_state.insert(
-        format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
-        json!(format!("b64:{}", BASE64_STANDARD.encode(&public_key_bytes))),
-    );
-
-    account_id
 }
 
 /// Helper to create a signed System transaction.
@@ -236,11 +171,14 @@ capabilities = ["TxDecorator"]
         .with_initial_service(InitialServiceConfig::Governance(Default::default()))
         .with_genesis_modifier(move |genesis, keys| {
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
-            let validator_id = add_identity_to_genesis(genesis_state, &keys[0]);
-            let governance_id =
-                add_identity_to_genesis(genesis_state, &governance_key_clone_for_genesis);
-            add_identity_to_genesis(genesis_state, &user_key_clone_for_genesis);
 
+            // Use shared helper for identity injection (IdentityHub service data)
+            let validator_id = add_genesis_identity(genesis_state, &keys[0]);
+            let governance_id =
+                add_genesis_identity(genesis_state, &governance_key_clone_for_genesis);
+            add_genesis_identity(genesis_state, &user_key_clone_for_genesis);
+
+            // Governance Policy
             let policy = GovernancePolicy {
                 signer: GovernanceSigner::Single(governance_id),
             };
@@ -250,6 +188,9 @@ capabilities = ["TxDecorator"]
                 json!(format!("b64:{}", BASE64_STANDARD.encode(policy_bytes))),
             );
 
+            // Validator Set (Consensus)
+            // Note: We must manually construct the validator set blob as it contains logic specific
+            // to the consensus engine (weights, etc) and embedding the consensus key.
             let vs_bytes = codec::to_bytes_canonical(&ValidatorSetsV1 {
                 current: ValidatorSetV1 {
                     effective_from_height: 1,
@@ -288,8 +229,7 @@ capabilities = ["TxDecorator"]
                 final_tally: None,
             };
 
-            // Write the proposal into the governance service namespace, because the GovernanceModule
-            // now runs under a NamespacedStateAccess view.
+            // Write the proposal into the governance service namespace
             let proposal_key_bytes = [
                 ioi_api::state::service_namespace_prefix("governance").as_slice(),
                 GOVERNANCE_PROPOSAL_KEY_PREFIX,
@@ -306,7 +246,7 @@ capabilities = ["TxDecorator"]
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&entry_bytes))),
             );
 
-            // Add mandatory block timing parameters to genesis
+            // Add mandatory block timing parameters
             let timing_params = BlockTimingParams {
                 base_interval_secs: 5,
                 retarget_every_blocks: 0,

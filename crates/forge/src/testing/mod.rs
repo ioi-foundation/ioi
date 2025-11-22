@@ -1,5 +1,4 @@
 // Path: crates/forge/src/testing/mod.rs
-
 //! Contains helper functions for building and running end-to-end tests.
 //! These functions are exposed as a public library to allow users of the
 //! SDK to write their own integration tests with the same tooling.
@@ -12,6 +11,8 @@ pub mod assert;
 pub mod build;
 pub mod cluster;
 pub mod docker;
+// [+] Add genesis module
+pub mod genesis;
 pub mod validator;
 
 // Re-export public items to preserve the API and avoid breaking changes in tests.
@@ -23,5 +24,7 @@ pub use assert::{
 };
 pub use build::build_test_artifacts;
 pub use cluster::{TestCluster, TestClusterBuilder};
+// [+] Export genesis helpers
+pub use genesis::{add_genesis_identity, add_genesis_identity_custom};
 pub use rpc::{submit_transaction, submit_transaction_no_wait};
-pub use validator::{TestValidator, ValidatorGuard}; // Export ValidatorGuard
+pub use validator::{TestValidator, ValidatorGuard};
