@@ -3,6 +3,8 @@
 //! internal communication for transaction submission and state queries.
 
 use crate::metrics::rpc_metrics as metrics;
+// NEW: Import tx_hash module helpers
+use crate::standard::orchestration::tx_hash::{hash_transaction_bytes, TxHash};
 use anyhow::{anyhow, Result};
 use axum::{
     body::Body,
@@ -178,7 +180,8 @@ struct JsonRpcRequest {
 }
 
 struct RpcAppState {
-    tx_pool: Arc<Mutex<VecDeque<ChainTransaction>>>,
+    // MODIFIED: Type updated to tuple
+    tx_pool: Arc<Mutex<VecDeque<(ChainTransaction, TxHash)>>>,
     workload_client: Arc<WorkloadClient>,
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
     consensus_kick_tx: mpsc::UnboundedSender<()>,
@@ -427,7 +430,15 @@ async fn rpc_handler(
                     make_err(&payload.id, -32001, "Mempool is full".into()),
                 );
             }
-            pool.push_back(tx);
+            
+            // MODIFIED: Compute hash using helper
+            let tx_hash = match hash_transaction_bytes(&tx_bytes) {
+                Ok(h) => h,
+                Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, make_err(&payload.id, -32603, format!("Hashing failed: {}", e))),
+            };
+
+            // MODIFIED: Push tuple
+            pool.push_back((tx, tx_hash));
             metrics().inc_mempool_transactions_added();
             metrics().set_mempool_size(pool.len() as f64);
             tracing::info!(target: "rpc", event = "mempool_add", new_size = pool.len());
@@ -694,7 +705,8 @@ async fn track_rpc_metrics(req: Request<Body>, next: Next) -> Response {
 /// `orchestration.toml`.
 pub async fn run_rpc_server(
     listen_address: &str,
-    tx_pool: Arc<Mutex<VecDeque<ChainTransaction>>>,
+    // MODIFIED: Type updated
+    tx_pool: Arc<Mutex<VecDeque<(ChainTransaction, TxHash)>>>,
     workload_client: Arc<WorkloadClient>,
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
     consensus_kick_tx: mpsc::UnboundedSender<()>,

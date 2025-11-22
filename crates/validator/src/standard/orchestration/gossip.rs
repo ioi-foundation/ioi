@@ -1,5 +1,7 @@
 // Path: crates/validator/src/standard/orchestration/gossip.rs
 use super::context::MainLoopContext;
+// NEW: Import hash helper and type
+use crate::standard::orchestration::tx_hash::{hash_transaction, TxHash};
 use anyhow::Result;
 use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, StateRef, WorkloadClientApi};
@@ -14,7 +16,7 @@ use ioi_types::{
 };
 use lru::LruCache;
 use serde::{Deserialize, Serialize};
-use serde_jcs;
+// serde_jcs removed
 use std::collections::{HashSet, VecDeque};
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -110,14 +112,15 @@ where
 
 /// Prunes the mempool by removing transactions that were included in a newly processed block.
 pub fn prune_mempool(
-    pool: &mut VecDeque<ChainTransaction>,
+    pool: &mut VecDeque<(ChainTransaction, TxHash)>, // MODIFIED: Tuple with TxHash
     processed_block: &Block<ChainTransaction>,
-) -> Result<(), serde_json::Error> {
-    let block_txs_canonical: HashSet<Vec<u8>> = processed_block
+) -> Result<(), anyhow::Error> {
+    // MODIFIED: Calculate hashes of block transactions once
+    let block_tx_hashes: HashSet<TxHash> = processed_block
         .transactions
         .iter()
-        .map(serde_jcs::to_vec)
-        .collect::<Result<_, _>>()?;
+        .map(|tx| hash_transaction(tx))
+        .collect::<Result<HashSet<_>, anyhow::Error>>()?;
 
     let finalized_oracle_ids: HashSet<u64> = processed_block
         .transactions
@@ -143,13 +146,10 @@ pub fn prune_mempool(
         .collect();
 
     let original_size = pool.len();
-    pool.retain(|tx_in_pool| {
-        if let Ok(tx_in_pool_canonical) = serde_jcs::to_vec(tx_in_pool) {
-            if block_txs_canonical.contains(&tx_in_pool_canonical) {
-                return false;
-            }
-        } else {
-            return true; // Keep malformed tx in mempool for now
+    // MODIFIED: Prune based on hash comparison
+    pool.retain(|(tx_in_pool, tx_hash)| {
+        if block_tx_hashes.contains(tx_hash) {
+            return false;
         }
 
         if let ChainTransaction::System(sys_tx) = tx_in_pool {

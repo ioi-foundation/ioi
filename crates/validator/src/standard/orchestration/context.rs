@@ -14,9 +14,13 @@ use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fmt::Debug;
 use std::sync::{atomic::AtomicBool, Arc};
 use tokio::sync::{mpsc, Mutex};
+// NEW: Import TxHash
+use crate::standard::orchestration::tx_hash::TxHash;
 
 pub type ChainFor<CS, ST> = Arc<
-    Mutex<dyn ChainStateMachine<CS, ioi_tx::unified::UnifiedTransactionModel<CS>, ST> + Send + Sync>,
+    Mutex<
+        dyn ChainStateMachine<CS, ioi_tx::unified::UnifiedTransactionModel<CS>, ST> + Send + Sync,
+    >,
 >;
 
 #[derive(Debug, Clone)]
@@ -48,7 +52,8 @@ where
     pub genesis_hash: [u8; 32],
     pub chain_ref: ChainFor<CS, ST>,
     pub view_resolver: Arc<dyn ioi_api::chain::ViewResolver<Verifier = V>>,
-    pub tx_pool_ref: Arc<Mutex<VecDeque<ChainTransaction>>>,
+    // MODIFIED: Mempool now stores transactions with their computed hashes.
+    pub tx_pool_ref: Arc<Mutex<VecDeque<(ChainTransaction, TxHash)>>>,
     pub swarm_commander: mpsc::Sender<SwarmCommand>,
     pub consensus_engine_ref: Arc<Mutex<CE>>,
     pub node_state: Arc<Mutex<NodeState>>,

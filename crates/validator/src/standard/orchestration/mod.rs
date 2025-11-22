@@ -57,11 +57,14 @@ mod oracle;
 mod peer_management;
 mod remote_state_view;
 mod sync;
+/// Transaction hashing utilities.
+pub mod tx_hash;
 pub mod verifier_select;
-mod view_resolver;
+mod view_resolver; // FIX: Added documentation
 
 // --- Use statements for handler functions ---
 use self::sync as sync_handlers;
+use self::tx_hash::{hash_transaction, TxHash}; // Import TxHash and helper
 use crate::config::OrchestrationConfig;
 use consensus::drive_consensus_tick;
 use context::{ChainFor, MainLoopContext};
@@ -117,7 +120,7 @@ where
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     config: OrchestrationConfig,
@@ -125,7 +128,8 @@ where
     chain: Arc<OnceCell<ChainFor<CS, ST>>>,
     workload_client: Arc<OnceCell<Arc<WorkloadClient>>>,
     /// The local mempool for pending transactions.
-    pub tx_pool: Arc<Mutex<VecDeque<ChainTransaction>>>,
+    // MODIFIED: Use VecDeque<(ChainTransaction, TxHash)>
+    pub tx_pool: Arc<Mutex<VecDeque<(ChainTransaction, TxHash)>>>,
     syncer: Arc<Libp2pSync>,
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
     network_event_receiver: NetworkEventReceiver,
@@ -182,6 +186,7 @@ where
             genesis_hash: deps.genesis_hash,
             chain: Arc::new(OnceCell::new()),
             workload_client: Arc::new(OnceCell::new()),
+            // MODIFIED: Empty pool
             tx_pool: Arc::new(Mutex::new(VecDeque::new())),
             syncer: deps.syncer,
             swarm_command_sender: deps.swarm_command_sender,
@@ -445,13 +450,23 @@ async fn handle_network_event<CS, ST, CE, V>(
 {
     match event {
         NetworkEvent::GossipTransaction(tx) => {
+            // MODIFIED: Compute hash once on ingress
+            let tx_hash = match hash_transaction(&tx) {
+                Ok(h) => h,
+                Err(e) => {
+                    tracing::warn!(target: "gossip", "Failed to hash gossiped transaction: {}", e);
+                    return;
+                }
+            };
+
             let (tx_pool_ref, kick_tx) = {
                 let ctx = context_arc.lock().await;
                 (ctx.tx_pool_ref.clone(), ctx.consensus_kick_tx.clone())
             };
             {
                 let mut pool = tx_pool_ref.lock().await;
-                pool.push_back(*tx);
+                // Store tuple (tx, hash)
+                pool.push_back((*tx, tx_hash));
                 log::debug!("[Orchestrator] Mempool size is now {}", pool.len());
                 let _ = kick_tx.send(());
             }
@@ -624,7 +639,7 @@ where
 
         let guardian_addr = std::env::var("GUARDIAN_ADDR").unwrap_or_default();
         if !guardian_addr.is_empty() {
-            tracing::info!(target: "orchestration", "[Orchestrator] Performing agentic attestation with Guardian...");
+            tracing::info!(target: "orchestration", "[Orchestration] Performing agentic attestation with Guardian...");
             match self
                 .perform_guardian_attestation(&guardian_addr, &workload_client)
                 .await
