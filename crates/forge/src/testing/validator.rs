@@ -328,6 +328,7 @@ impl TestValidator {
             min_finality_depth: 1000,
             keep_recent_heights: 100_000,
             epoch_size: 50_000,
+            service_policies: ioi_types::config::default_service_policies(), // Use the shared helper
         };
 
         if state_tree_type == "Verkle" {
@@ -583,7 +584,7 @@ impl TestValidator {
             workload_ipc_addr,
             orchestration_telemetry_addr,
             workload_telemetry_addr,
-            p2p_addr,
+            p2p_addr, // Fixed variable name
             certs_dir_path,
             _temp_dir: temp_dir,
             backend,

@@ -23,6 +23,7 @@ use ioi_tx::system::{nonce, validation};
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{AccountId, BlockTimingParams, BlockTimingRuntime, ChainId, FailureReport};
 use ioi_types::codec;
+use ioi_types::config::ServicePolicy;
 use ioi_types::error::{ChainError, StateError, TransactionError};
 use ioi_types::keys::{
     BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, STATUS_KEY, UPGRADE_ACTIVE_SERVICE_PREFIX,
@@ -83,6 +84,8 @@ pub struct ExecutionMachine<CS: CommitmentScheme + Clone, ST: StateManager> {
     workload_container: Arc<WorkloadContainer<ST>>,
     /// In-memory cache for fast access to on-chain service metadata.
     pub service_meta_cache: HashMap<String, Arc<ActiveServiceMeta>>,
+    /// Holds the configuration-driven policies for services
+    service_policies: BTreeMap<String, ServicePolicy>,
 }
 
 impl<CS, ST> Debug for ExecutionMachine<CS, ST>
@@ -137,6 +140,7 @@ where
         initial_services: Vec<Arc<dyn UpgradableService>>,
         consensus_engine: Consensus<ioi_types::app::ChainTransaction>,
         workload_container: Arc<WorkloadContainer<ST>>,
+        service_policies: BTreeMap<String, ServicePolicy>,
     ) -> Self {
         let status = ChainStatus {
             height: 0,
@@ -174,6 +178,7 @@ where
             consensus_engine,
             workload_container,
             service_meta_cache: HashMap::new(),
+            service_policies,
         }
     }
 
@@ -214,59 +219,21 @@ where
                     let service_id = service.id();
                     let key = ioi_types::keys::active_service_key(service_id);
 
-                    let (methods, allowed_system_prefixes) = match service_id {
-                        "governance" => {
-                            let mut m = BTreeMap::new();
-                            // User-facing proposal API
-                            m.insert("submit_proposal@v1".into(), MethodPermission::User);
-                            m.insert("vote@v1".into(), MethodPermission::User);
-                            // Staking API
-                            m.insert("stake@v1".into(), MethodPermission::User);
-                            m.insert("unstake@v1".into(), MethodPermission::User);
-                            // Upgrade API (governance-gated)
-                            m.insert("store_module@v1".into(), MethodPermission::Governance);
-                            m.insert("swap_module@v1".into(), MethodPermission::Governance);
-                            // Misbehavior reporting endpoint (Deprecated here, moved to penalties)
-                            // m.insert("report_misbehavior@v1".into(), MethodPermission::User);
-                            // Permissions
-                            (
-                                m,
-                                vec![
-                                    "system::validators::".to_string(),
-                                    "identity::".to_string(),
-                                    "upgrade::".to_string(),
-                                ],
-                            )
-                        }
-                        "identity_hub" => {
-                            let mut m = BTreeMap::new();
-                            m.insert("rotate_key@v1".into(), MethodPermission::User);
-                            // Permissions
-                            (m, vec!["system::validators::".to_string()])
-                        }
-                        "oracle" => {
-                            let mut m = BTreeMap::new();
-                            m.insert("request_data@v1".into(), MethodPermission::User);
-                            m.insert("submit_data@v1".into(), MethodPermission::User);
-                            (m, Vec::new())
-                        }
-                        "ibc" => {
-                            let mut m = BTreeMap::new();
-                            m.insert("verify_header@v1".into(), MethodPermission::User);
-                            m.insert("recv_packet@v1".into(), MethodPermission::User);
-                            m.insert("msg_dispatch@v1".into(), MethodPermission::User);
-                            (m, Vec::new())
-                        }
-                        // FIX: Add ABI definition for the penalties service
-                        "penalties" => {
-                            let mut m = BTreeMap::new();
-                            m.insert("report_misbehavior@v1".into(), MethodPermission::User);
-                            // Penalties is a kernel service and its state access is privileged in the transaction model,
-                            // but we define the method here so `precheck_call_service` sees it.
-                            (m, Vec::new())
-                        }
-                        _ => (BTreeMap::new(), Vec::new()),
-                    };
+                    // Lookup security policy from configuration or fall back to default (empty)
+                    let policy = self
+                        .service_policies
+                        .get(service_id)
+                        .cloned()
+                        .unwrap_or_default();
+
+                    if policy.methods.is_empty() && service_id != "gas_escrow" {
+                        tracing::warn!(target: "execution", "Service '{}' has no method permissions configured.", service_id);
+                        debug_assert!(
+                            false,
+                            "Service '{}' has no method permissions configured.",
+                            service_id
+                        );
+                    }
 
                     let meta = ActiveServiceMeta {
                         id: service_id.to_string(),
@@ -275,8 +242,8 @@ where
                         caps: service.capabilities(),
                         artifact_hash: [0u8; 32],
                         activated_at: 0,
-                        methods,
-                        allowed_system_prefixes,
+                        methods: policy.methods,
+                        allowed_system_prefixes: policy.allowed_system_prefixes,
                     };
                     let meta_bytes = codec::to_bytes_canonical(&meta)
                         .map_err(|e| ChainError::Transaction(e.to_string()))?;

@@ -339,6 +339,8 @@ where
             srs_file_path: workload_config.srs_file_path.clone(),
             fuel_costs: Default::default(),
             initial_services: vec![],
+            // [FIX] Use default_service_policies() for consistent dummy config
+            service_policies: ioi_types::config::default_service_policies(),
             min_finality_depth: workload_config.min_finality_depth,
             keep_recent_heights: workload_config.keep_recent_heights,
             epoch_size: workload_config.epoch_size,
@@ -362,6 +364,7 @@ where
             initial_services,    // <-- And pass the instantiated services here
             consensus_for_chain, // Use the cloned engine
             workload_container,
+            workload_config.service_policies.clone(), // [NEW] Pass policies
         );
 
         for runtime_id in &workload_config.runtimes {

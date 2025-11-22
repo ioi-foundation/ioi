@@ -243,6 +243,7 @@ where
         initial_services,
         consensus_engine,
         workload_container.clone(),
+        config.service_policies.clone(), // Pass service policies
     );
 
     for runtime_id in &config.runtimes {

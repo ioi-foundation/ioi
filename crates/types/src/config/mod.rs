@@ -2,8 +2,9 @@
 
 //! Shared configuration structures for core IOI SDK components.
 use crate::app::ChainId;
-use crate::service_configs::{GovernanceParams, MigrationConfig};
+use crate::service_configs::{GovernanceParams, MethodPermission, MigrationConfig};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 pub mod consensus;
 pub use consensus::*;
@@ -95,6 +96,15 @@ pub enum InitialServiceConfig {
     Oracle(OracleParams),
 }
 
+/// Defines the security policy for a service.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct ServicePolicy {
+    /// Map of method names to their required permission level.
+    pub methods: BTreeMap<String, MethodPermission>,
+    /// List of system key prefixes this service is allowed to access.
+    pub allowed_system_prefixes: Vec<String>,
+}
+
 /// Configuration for the Workload container (`workload.toml`).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WorkloadConfig {
@@ -119,6 +129,12 @@ pub struct WorkloadConfig {
     /// A list of services to instantiate at startup.
     #[serde(default)]
     pub initial_services: Vec<InitialServiceConfig>,
+
+    /// Map of service_id to its security policy (ACLs and Namespaces).
+    /// Defaults to the standard IOI policy set if omitted.
+    #[serde(default = "default_service_policies")]
+    pub service_policies: BTreeMap<String, ServicePolicy>,
+
     /// The number of recent blocks to preserve from pruning, even if finalized.
     /// Acts as a safety buffer for reorgs. Defaults to 1000.
     #[serde(default = "default_min_finality_depth")]
@@ -130,6 +146,86 @@ pub struct WorkloadConfig {
     /// The size of a state history epoch in blocks for the `redb` backend. Defaults to 50,000.
     #[serde(default = "default_epoch_size")]
     pub epoch_size: u64,
+}
+
+/// Generates the default set of service security policies.
+///
+/// This function returns a map containing the standard permissions and system key
+/// access rules for the core services (Governance, Identity, Oracle, IBC, Penalties).
+/// It is used as the default value for `WorkloadConfig::service_policies` and by
+/// testing harnesses to replicate the standard environment.
+pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
+    let mut map = BTreeMap::new();
+
+    // Governance
+    let mut gov_methods = BTreeMap::new();
+    gov_methods.insert("submit_proposal@v1".into(), MethodPermission::User);
+    gov_methods.insert("vote@v1".into(), MethodPermission::User);
+    gov_methods.insert("stake@v1".into(), MethodPermission::User);
+    gov_methods.insert("unstake@v1".into(), MethodPermission::User);
+    gov_methods.insert("store_module@v1".into(), MethodPermission::Governance);
+    gov_methods.insert("swap_module@v1".into(), MethodPermission::Governance);
+
+    map.insert(
+        "governance".to_string(),
+        ServicePolicy {
+            methods: gov_methods,
+            allowed_system_prefixes: vec![
+                "system::validators::".to_string(),
+                "identity::".to_string(),
+                "upgrade::".to_string(),
+            ],
+        },
+    );
+
+    // Identity Hub
+    let mut id_methods = BTreeMap::new();
+    id_methods.insert("rotate_key@v1".into(), MethodPermission::User);
+    map.insert(
+        "identity_hub".to_string(),
+        ServicePolicy {
+            methods: id_methods,
+            allowed_system_prefixes: vec!["system::validators::".to_string()],
+        },
+    );
+
+    // Oracle
+    let mut oracle_methods = BTreeMap::new();
+    oracle_methods.insert("request_data@v1".into(), MethodPermission::User);
+    oracle_methods.insert("submit_data@v1".into(), MethodPermission::User);
+    map.insert(
+        "oracle".to_string(),
+        ServicePolicy {
+            methods: oracle_methods,
+            allowed_system_prefixes: vec![],
+        },
+    );
+
+    // IBC
+    let mut ibc_methods = BTreeMap::new();
+    ibc_methods.insert("verify_header@v1".into(), MethodPermission::User);
+    ibc_methods.insert("recv_packet@v1".into(), MethodPermission::User);
+    ibc_methods.insert("msg_dispatch@v1".into(), MethodPermission::User);
+    map.insert(
+        "ibc".to_string(),
+        ServicePolicy {
+            methods: ibc_methods,
+            allowed_system_prefixes: vec![],
+        },
+    );
+
+    // Penalties
+    let mut pen_methods = BTreeMap::new();
+    pen_methods.insert("report_misbehavior@v1".into(), MethodPermission::User);
+    map.insert(
+        "penalties".to_string(),
+        ServicePolicy {
+            methods: pen_methods,
+            allowed_system_prefixes: vec![],
+        },
+    );
+
+    map
 }
 
 fn default_min_finality_depth() -> u64 {
