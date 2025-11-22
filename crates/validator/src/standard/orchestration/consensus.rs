@@ -2,8 +2,6 @@
 use crate::metrics::consensus_metrics as metrics;
 use crate::standard::orchestration::context::MainLoopContext;
 use crate::standard::orchestration::gossip::prune_mempool;
-// NEW: Import hash_transaction from tx_hash
-use crate::standard::orchestration::tx_hash::{hash_transaction, TxHash};
 use anyhow::{anyhow, Result};
 use ioi_api::{
     chain::StateRef,
@@ -17,11 +15,12 @@ use ioi_networking::traits::NodeState;
 use ioi_types::{
     app::{
         account_id_from_key_material, to_root_hash, AccountId, Block, BlockHeader,
-        ChainTransaction, SignatureSuite, StateRoot, SystemPayload,
+        ChainTransaction, SignatureSuite, StateRoot, SystemPayload, TxHash, // Added TxHash
     },
-    codec, // FIX: Added missing codec import
+    codec,
     keys::VALIDATOR_SET_KEY,
 };
+// REMOVED: use crate::standard::orchestration::tx_hash::{hash_transaction, TxHash};
 use serde::Serialize;
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -260,7 +259,7 @@ where
                         "pre-check rejected tx"
                     );
                     // MODIFIED: Use shared hash helper
-                    if let Ok(tx_hash) = hash_transaction(tx) {
+                    if let Ok(tx_hash) = tx.hash() {
                         invalid_tx_hashes.insert(tx_hash);
                     }
                 }
@@ -273,7 +272,7 @@ where
                         "treating as rejection"
                     );
                     // MODIFIED: Use shared hash helper
-                    if let Ok(tx_hash) = hash_transaction(tx) {
+                    if let Ok(tx_hash) = tx.hash() {
                         invalid_tx_hashes.insert(tx_hash);
                     }
                 }

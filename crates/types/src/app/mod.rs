@@ -16,11 +16,13 @@ pub use penalties::*;
 pub use timing::*;
 
 use crate::error::{CoreError, StateError};
-// REMOVED unused IBC imports
 use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
 use dcrypt::algorithms::ByteSerializable;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
+
+/// A fixed-size, 32-byte hash of a transaction.
+pub type TxHash = [u8; 32];
 
 /// Represents the proven outcome of a key's existence in the state.
 /// This enum is canonically encoded for transport and storage.
@@ -412,6 +414,22 @@ pub enum ChainTransaction {
     Application(ApplicationTransaction),
     /// A privileged transaction for system-level changes.
     System(Box<SystemTransaction>),
+}
+
+impl ChainTransaction {
+    /// Computes the canonical SHA-256 hash of the transaction.
+    /// This is the single source of truth for transaction identity.
+    pub fn hash(&self) -> Result<TxHash, CoreError> {
+        let bytes = crate::codec::to_bytes_canonical(self).map_err(CoreError::Custom)?;
+
+        let digest =
+            DcryptSha256::digest(&bytes).map_err(|e| CoreError::Crypto(e.to_string()))?;
+
+        let hash_bytes = digest.to_bytes();
+        hash_bytes
+            .try_into()
+            .map_err(|_| CoreError::Crypto("Invalid hash length".into()))
+    }
 }
 
 /// An enum wrapping all possible user-level transaction models.

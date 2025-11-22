@@ -26,6 +26,7 @@ use ioi_crypto::sign::dilithium::DilithiumKeyPair;
 use ioi_networking::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use ioi_networking::traits::NodeState;
 use ioi_networking::BlockSync;
+use ioi_types::app::TxHash; // Add this import
 use ioi_types::{
     app::{account_id_from_key_material, AccountId, ChainTransaction, SignatureSuite},
     error::ValidatorError,
@@ -57,14 +58,11 @@ mod oracle;
 mod peer_management;
 mod remote_state_view;
 mod sync;
-/// Transaction hashing utilities.
-pub mod tx_hash;
 pub mod verifier_select;
 mod view_resolver; // FIX: Added documentation
 
 // --- Use statements for handler functions ---
 use self::sync as sync_handlers;
-use self::tx_hash::{hash_transaction, TxHash}; // Import TxHash and helper
 use crate::config::OrchestrationConfig;
 use consensus::drive_consensus_tick;
 use context::{ChainFor, MainLoopContext};
@@ -451,7 +449,7 @@ async fn handle_network_event<CS, ST, CE, V>(
     match event {
         NetworkEvent::GossipTransaction(tx) => {
             // MODIFIED: Compute hash once on ingress
-            let tx_hash = match hash_transaction(&tx) {
+            let tx_hash = match tx.hash() {
                 Ok(h) => h,
                 Err(e) => {
                     tracing::warn!(target: "gossip", "Failed to hash gossiped transaction: {}", e);
