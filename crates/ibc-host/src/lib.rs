@@ -4,21 +4,15 @@
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use ibc_proto::ics23::CommitmentProof;
-use ioi_api::state::{service_namespace_prefix, Verifier}; // [+] Added service_namespace_prefix
+use ioi_api::state::{service_namespace_prefix, Verifier};
 use ioi_client::WorkloadClient;
+use ioi_crypto::algorithms::hash::sha256;
 use ioi_networking::libp2p::SwarmCommand;
+use ioi_state::tree::iavl::{self, IavlProof}; // Using the public API from ioi-state
 use ioi_types::{
     app::{
-        account_id_from_key_material,
-        AccountId,
-        ChainId,
-        ChainTransaction,
-        SignHeader,
-        SignatureProof,
-        SignatureSuite,
-        SystemPayload,
-        SystemTransaction,
-        TxHash, // Added TxHash
+        account_id_from_key_material, AccountId, ChainId, ChainTransaction, SignHeader,
+        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction, TxHash,
     },
     codec,
 };
@@ -29,77 +23,6 @@ use prost::Message;
 use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc};
 use tokio::sync::{mpsc, Mutex};
 use tracing;
-
-// Use the helper function from the validator crate
-// Note: Since ibc-host depends on ioi-validator, we can import this.
-use ioi_crypto::algorithms::hash::sha256;
-// REMOVED: use ioi_validator::standard::orchestration::tx_hash::{hash_transaction_bytes, TxHash};
-
-// ... [iavl_wire module and other imports/defs remain same] ...
-mod iavl_wire {
-    use parity_scale_codec::Decode;
-
-    #[derive(Decode, Debug, Clone, PartialEq, Eq)]
-    pub enum HashOp {
-        NoHash,
-        Sha256,
-    }
-
-    #[derive(Decode, Debug, Clone, PartialEq, Eq)]
-    pub enum LengthOp {
-        NoPrefix,
-        VarProto,
-    }
-
-    #[derive(Decode, Debug, Clone, PartialEq, Eq)]
-    pub enum IavlProof {
-        Existence(ExistenceProof),
-        NonExistence(NonExistenceProof),
-    }
-
-    #[derive(Decode, Debug, Clone, PartialEq, Eq)]
-    pub struct ExistenceProof {
-        pub key: Vec<u8>,
-        pub value: Vec<u8>,
-        pub leaf: LeafOp,
-        pub path: Vec<InnerOp>,
-    }
-
-    #[derive(Decode, Debug, Clone, PartialEq, Eq)]
-    pub struct NonExistenceProof {
-        pub missing_key: Vec<u8>,
-        pub left: Option<ExistenceProof>,
-        pub right: Option<ExistenceProof>,
-    }
-
-    #[derive(Decode, Debug, Clone, PartialEq, Eq)]
-    pub struct LeafOp {
-        pub hash: HashOp,
-        pub prehash_key: HashOp,
-        pub prehash_value: HashOp,
-        pub length: LengthOp,
-        pub prefix: Vec<u8>,
-    }
-
-    #[derive(Decode, Debug, Clone, PartialEq, Eq)]
-    pub enum Side {
-        Left,
-        Right,
-    }
-
-    #[derive(Decode, Debug, Clone, PartialEq, Eq)]
-    pub struct InnerOp {
-        pub version: u64,
-        pub height: i32,
-        pub size: u64,
-        pub split_key: Vec<u8>,
-        pub side: Side,
-        pub sibling_hash: [u8; 32],
-    }
-}
-use iavl_wire::{
-    ExistenceProof, HashOp, IavlProof, InnerOp, LeafOp, LengthOp, NonExistenceProof, Side,
-};
 
 use ics23::HostFunctionsManager;
 
@@ -117,7 +40,7 @@ pub trait IbcHost: Send + Sync {
     async fn commitment_root(&self, height: Option<u64>) -> Result<(Vec<u8>, u64)>;
 }
 
-// ... [inlined helpers: decode_scale_iavl_proof, hash_leaf_canonical, hash_inner_canonical, etc. remain same] ...
+/// Decodes an IavlProof from bytes that might be wrapped in a `Vec<u8>` envelope (SCALE).
 fn decode_scale_iavl_proof(bytes: &[u8]) -> Option<IavlProof> {
     if let Ok(inner) = codec::from_bytes_canonical::<Vec<u8>>(bytes) {
         if let Ok(p) = IavlProof::decode(&mut &*inner) {
@@ -127,112 +50,27 @@ fn decode_scale_iavl_proof(bytes: &[u8]) -> Option<IavlProof> {
     IavlProof::decode(&mut &*bytes).ok()
 }
 
-#[inline]
-fn hash_leaf_canonical(
-    leaf_op: &LeafOp,
-    key: &[u8],
-    value: &[u8],
-) -> Result<[u8; 32], anyhow::Error> {
-    fn apply_hash(op: &HashOp, data: &[u8]) -> Result<Vec<u8>, anyhow::Error> {
-        match op {
-            HashOp::NoHash => Ok(data.to_vec()),
-            HashOp::Sha256 => Ok(sha256(data)?.to_vec()),
-        }
-    }
-
-    fn apply_length(op: &LengthOp, data: &[u8]) -> Result<Vec<u8>, anyhow::Error> {
-        match op {
-            LengthOp::NoPrefix => Ok(data.to_vec()),
-            LengthOp::VarProto => {
-                let mut len_prefixed =
-                    Vec::with_capacity(prost::length_delimiter_len(data.len()) + data.len());
-                prost::encode_length_delimiter(data.len(), &mut len_prefixed)?;
-                len_prefixed.extend_from_slice(data);
-                Ok(len_prefixed)
-            }
-        }
-    }
-
-    let hashed_key = apply_hash(&leaf_op.prehash_key, key)?;
-    let hashed_value = apply_hash(&leaf_op.prehash_value, value)?;
-
-    let mut data = Vec::new();
-    data.extend_from_slice(&leaf_op.prefix);
-    data.extend_from_slice(&apply_length(&leaf_op.length, &hashed_key)?);
-    data.extend_from_slice(&apply_length(&leaf_op.length, &hashed_value)?);
-
-    match leaf_op.hash {
-        HashOp::Sha256 => sha256(&data).map_err(|e| anyhow!("sha256: {e}")),
-        HashOp::NoHash => {
-            let hash_vec = sha256(&data)?;
-            let mut h = [0u8; 32];
-            h.copy_from_slice(&hash_vec[..32]);
-            Ok(h)
-        }
-    }
-}
-
-#[inline]
-fn hash_inner_canonical(op: &InnerOp, left: &[u8; 32], right: &[u8; 32]) -> Result<[u8; 32]> {
-    let mut data = Vec::with_capacity(1 + 8 + 4 + 8 + 4 + op.split_key.len() + 32 + 32);
-    data.push(0x01);
-    data.extend_from_slice(&op.version.to_le_bytes());
-    data.extend_from_slice(&op.height.to_le_bytes());
-    data.extend_from_slice(&op.size.to_le_bytes());
-    data.extend_from_slice(&(op.split_key.len() as u32).to_le_bytes());
-    data.extend_from_slice(&op.split_key);
-    data.extend_from_slice(left);
-    data.extend_from_slice(right);
-    sha256(&data).map_err(|e| anyhow!("sha256: {e}"))
-}
-
-fn compute_iavl_root_from_existence(p: &ExistenceProof) -> Result<[u8; 32]> {
-    let mut acc = hash_leaf_canonical(&p.leaf, &p.key, &p.value)?;
-    for step in &p.path {
-        let (left, right) = match step.side {
-            Side::Left => (step.sibling_hash, acc),
-            Side::Right => (acc, step.sibling_hash),
-        };
-        acc = hash_inner_canonical(step, &left, &right)?;
-    }
-    Ok(acc)
-}
-
-fn compute_iavl_root_from_nonexistence(p: &NonExistenceProof) -> Result<[u8; 32]> {
-    match (&p.left, &p.right) {
-        (Some(l), None) => compute_iavl_root_from_existence(l),
-        (None, Some(r)) => compute_iavl_root_from_existence(r),
-        (Some(l), Some(r)) => {
-            let rl = compute_iavl_root_from_existence(l)?;
-            let rr = compute_iavl_root_from_existence(r)?;
-            if rl != rr {
-                return Err(anyhow!("non-existence neighbors yield different roots"));
-            }
-            Ok(rl)
-        }
-        (None, None) => Err(anyhow!("non-existence proof has no neighbors")),
-    }
-}
-
+/// Extracts the root hash from a native IAVL proof.
 fn root_from_scale_iavl_bytes(proof_bytes: &[u8]) -> Option<Vec<u8>> {
     let p = decode_scale_iavl_proof(proof_bytes)?;
-    let root = match p {
-        IavlProof::Existence(ex) => compute_iavl_root_from_existence(&ex),
-        IavlProof::NonExistence(nex) => compute_iavl_root_from_nonexistence(&nex),
-    }
-    .ok()?;
-    Some(root.to_vec())
+    // Use the public API from ioi-state to recompute the root.
+    // This prevents logic duplication and drift between state and ibc-host.
+    let root_arr = iavl::proof::compute_root_from_proof(&p).ok()?;
+    Some(root_arr.to_vec())
 }
 
 /// Helper to compute the Merkle root from a raw ICS23 proof (prost bytes).
+/// This supports both native IAVL proofs (for local optimization) and standard ICS-23 proofs.
 pub fn existence_root_from_proof_bytes(proof_pb: &[u8]) -> Result<Vec<u8>> {
-    // ... [root recompute logic remains same] ...
     let mut input_variant = "unknown";
     let result = (|| {
+        // 1. Attempt to decode as a native IAVL proof first (fast path for internal services).
         if let Some(root) = root_from_scale_iavl_bytes(proof_pb) {
             input_variant = "scale_native";
             return Ok(root);
         }
+
+        // 2. Fallback to standard ICS-23 decoding (interoperable path).
         use ibc_proto::ics23::batch_entry;
         use ibc_proto::ics23::commitment_proof::Proof as PbProofVariant;
         use ibc_proto::ics23::compressed_batch_entry;
@@ -318,7 +156,6 @@ pub fn existence_root_from_proof_bytes(proof_pb: &[u8]) -> Result<Vec<u8>> {
 pub struct DefaultIbcHost<V: Verifier> {
     workload_client: Arc<WorkloadClient>,
     _verifier: V,
-    // MODIFIED: Type updated
     tx_pool: Arc<Mutex<std::collections::VecDeque<(ChainTransaction, TxHash)>>>,
     swarm_commander: mpsc::Sender<SwarmCommand>,
     signer: Keypair,
@@ -331,7 +168,6 @@ impl<V: Verifier + 'static> DefaultIbcHost<V> {
     pub fn new(
         workload_client: Arc<WorkloadClient>,
         verifier: V,
-        // MODIFIED: Type updated
         tx_pool: Arc<Mutex<std::collections::VecDeque<(ChainTransaction, TxHash)>>>,
         swarm_commander: mpsc::Sender<SwarmCommand>,
         signer: Keypair,
@@ -361,7 +197,6 @@ impl<V: Verifier + 'static> DefaultIbcHost<V> {
 #[async_trait]
 impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
     async fn query(&self, path: &str, height: Option<u64>) -> Result<QueryHostResponse> {
-        // ... [query implementation remains same] ...
         let query_height = if let Some(h) = height {
             h
         } else {
@@ -446,13 +281,11 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
             }
         };
 
-        // MODIFIED: Use the method on the final ChainTransaction
         let tx_hash = signed_tx.hash().map_err(|e| anyhow!(e))?;
 
         {
             let mut pool = self.tx_pool.lock().await;
             let before = pool.len();
-            // MODIFIED: Push tuple (tx, hash)
             pool.push_back((signed_tx, tx_hash));
             let after = pool.len();
             tracing::debug!(
