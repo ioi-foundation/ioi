@@ -7,15 +7,14 @@ use ioi_api::{
 use ioi_crypto::sign::dilithium::DilithiumKeyPair;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::traits::NodeState;
-use ioi_types::app::{AccountId, Block, ChainTransaction, OracleAttestation};
+use ioi_types::app::{AccountId, Block, ChainTransaction, OracleAttestation, TxHash}; // Added TxHash
+// REMOVED: use crate::standard::orchestration::tx_hash::TxHash;
 use libp2p::{identity, PeerId};
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fmt::Debug;
 use std::sync::{atomic::AtomicBool, Arc};
 use tokio::sync::{mpsc, Mutex};
-// NEW: Import TxHash
-use crate::standard::orchestration::tx_hash::TxHash;
 
 pub type ChainFor<CS, ST> = Arc<
     Mutex<

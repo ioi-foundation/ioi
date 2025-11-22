@@ -1,7 +1,5 @@
 // Path: crates/validator/src/standard/orchestration/gossip.rs
 use super::context::MainLoopContext;
-// NEW: Import hash helper and type
-use crate::standard::orchestration::tx_hash::{hash_transaction, TxHash};
 use anyhow::Result;
 use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, StateRef, WorkloadClientApi};
@@ -10,7 +8,7 @@ use ioi_api::consensus::{ConsensusEngine, PenaltyMechanism};
 use ioi_api::state::{StateAccess, StateManager, Verifier};
 use ioi_networking::traits::NodeState;
 use ioi_types::{
-    app::{Block, ChainTransaction, FailureReport, StateRoot, SystemPayload},
+    app::{Block, ChainTransaction, FailureReport, StateRoot, SystemPayload, TxHash}, // Added TxHash
     config::ConsensusType,
     error::{ChainError, TransactionError},
 };
@@ -115,11 +113,11 @@ pub fn prune_mempool(
     pool: &mut VecDeque<(ChainTransaction, TxHash)>, // MODIFIED: Tuple with TxHash
     processed_block: &Block<ChainTransaction>,
 ) -> Result<(), anyhow::Error> {
-    // MODIFIED: Calculate hashes of block transactions once
+    // MODIFIED: Use method
     let block_tx_hashes: HashSet<TxHash> = processed_block
         .transactions
         .iter()
-        .map(|tx| hash_transaction(tx))
+        .map(|tx| tx.hash().map_err(|e| anyhow::anyhow!(e)))
         .collect::<Result<HashSet<_>, anyhow::Error>>()?;
 
     let finalized_oracle_ids: HashSet<u64> = processed_block

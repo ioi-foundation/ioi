@@ -3,8 +3,7 @@
 //! internal communication for transaction submission and state queries.
 
 use crate::metrics::rpc_metrics as metrics;
-// NEW: Import tx_hash module helpers
-use crate::standard::orchestration::tx_hash::{hash_transaction_bytes, TxHash};
+// REMOVED: use crate::standard::orchestration::tx_hash::{hash_transaction_bytes, TxHash};
 use anyhow::{anyhow, Result};
 use axum::{
     body::Body,
@@ -24,7 +23,7 @@ use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::{
     app::{
         compute_interval_from_parent_state, ApplicationTransaction, BlockTimingParams,
-        BlockTimingRuntime, ChainTransaction,
+        BlockTimingRuntime, ChainTransaction, TxHash, // Added TxHash
     },
     codec,
     keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY},
@@ -431,8 +430,8 @@ async fn rpc_handler(
                 );
             }
             
-            // MODIFIED: Compute hash using helper
-            let tx_hash = match hash_transaction_bytes(&tx_bytes) {
+            // MODIFIED: Use the method on the struct
+            let tx_hash = match tx.hash() {
                 Ok(h) => h,
                 Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, make_err(&payload.id, -32603, format!("Hashing failed: {}", e))),
             };

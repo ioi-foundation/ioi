@@ -5,8 +5,6 @@
 //! once a quorum is reached.
 
 use super::context::MainLoopContext;
-// FIX: Import hash_transaction from the tx_hash module
-use crate::standard::orchestration::tx_hash::hash_transaction;
 use ioi_api::{
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
@@ -340,8 +338,8 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
 
         let tx = ChainTransaction::System(Box::new(sys_tx));
 
-        // MODIFIED: Calculate hash and push tuple to mempool
-        let tx_hash = match hash_transaction(&tx) {
+        // MODIFIED: Use tx.hash() instead of hash_transaction(&tx)
+        let tx_hash = match tx.hash() {
             Ok(h) => h,
             Err(e) => {
                 log::error!("Oracle: Failed to hash transaction: {}", e);

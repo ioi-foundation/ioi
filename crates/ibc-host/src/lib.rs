@@ -9,8 +9,16 @@ use ioi_client::WorkloadClient;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_types::{
     app::{
-        account_id_from_key_material, AccountId, ChainId, ChainTransaction, SignHeader,
-        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+        account_id_from_key_material,
+        AccountId,
+        ChainId,
+        ChainTransaction,
+        SignHeader,
+        SignatureProof,
+        SignatureSuite,
+        SystemPayload,
+        SystemTransaction,
+        TxHash, // Added TxHash
     },
     codec,
 };
@@ -25,7 +33,7 @@ use tracing;
 // Use the helper function from the validator crate
 // Note: Since ibc-host depends on ioi-validator, we can import this.
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_validator::standard::orchestration::tx_hash::{hash_transaction_bytes, TxHash}; // Still needed for inner helpers
+// REMOVED: use ioi_validator::standard::orchestration::tx_hash::{hash_transaction_bytes, TxHash};
 
 // ... [iavl_wire module and other imports/defs remain same] ...
 mod iavl_wire {
@@ -438,8 +446,8 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
             }
         };
 
-        // MODIFIED: Use helper to hash bytes
-        let tx_hash = hash_transaction_bytes(&tx_bytes)?;
+        // MODIFIED: Use the method on the final ChainTransaction
+        let tx_hash = signed_tx.hash().map_err(|e| anyhow!(e))?;
 
         {
             let mut pool = self.tx_pool.lock().await;
