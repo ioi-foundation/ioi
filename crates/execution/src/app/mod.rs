@@ -76,6 +76,16 @@ pub struct ExecutionMachineState<CS: CommitmentScheme + Clone> {
     pub genesis_state: GenesisState,
 }
 
+/// The primary state machine that orchestrates block execution, service dispatch, and state updates.
+///
+/// # State Isolation Enforcement
+///
+/// The `ExecutionMachine` enforces the "Namespaced Storage" invariant. When dispatching
+/// lifecycle hooks (like `on_end_block`) or transaction payloads (via `UnifiedTransactionModel`),
+/// it wraps the raw `StateAccess` in a `NamespacedStateAccess`.
+///
+/// This ensures that a service cannot accidentally or maliciously corrupt the state of
+/// another service or the kernel, unless explicitly authorized via security policy.
 pub struct ExecutionMachine<CS: CommitmentScheme + Clone, ST: StateManager> {
     pub state: ExecutionMachineState<CS>,
     pub services: ServiceDirectory,

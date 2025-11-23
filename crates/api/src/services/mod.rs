@@ -39,6 +39,23 @@ impl std::fmt::Display for ServiceType {
 }
 
 /// The base trait for any service managed by the chain.
+///
+/// # Storage Invariant: Namespaced Access
+///
+/// To ensure state isolation, all reads and writes performed by a service via the
+/// `handle_service_call` method are automatically scoped to a private namespace.
+///
+/// *   **Runtime Access:** The `StateAccess` passed to the service is a `NamespacedStateAccess`.
+///     Any key `k` accessed by the service is physically stored as:
+///     `_service_data::{service_id}::{k}`.
+///
+/// *   **System Access:** Services can only access global system keys (e.g., `system::...`)
+///     if the key prefix is explicitly listed in the service's `allowed_system_prefixes` configuration.
+///
+/// *   **Genesis & Testing Warning:** When seeding the initial state for a service in `genesis.json`
+///     or during test setup, the automatic namespacing logic is **NOT** applied. You must manually
+///     construct the full key using the helper:
+///     `ioi_api::state::service_namespace_prefix(service_id) + your_key`.
 #[async_trait]
 pub trait BlockchainService: Any + Send + Sync {
     /// A unique, static, lowercase string identifier for the service.
