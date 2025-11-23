@@ -5,7 +5,7 @@ use ioi_types::ibc::{Finality, Header, InclusionProof};
 use std::collections::HashMap;
 
 pub mod zk;
-pub use zk::*;
+pub use zk::IbcZkVerifier;
 
 /// A cache to amortize expensive deserialization across multiple verifications in a single block.
 #[derive(Default, Debug)]

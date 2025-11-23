@@ -12,8 +12,7 @@ use ioi_api::chain::{QueryStateResponse, WorkloadClientApi};
 use ioi_api::vm::{ExecutionContext, ExecutionOutput};
 use ioi_ipc::jsonrpc::{JsonRpcId, JsonRpcRequest};
 use ioi_types::app::{
-    AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction, Membership, StateAnchor,
-    StateRoot,
+    AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction, StateAnchor, StateRoot,
 };
 use ioi_types::error::ChainError;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};

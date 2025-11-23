@@ -10,12 +10,13 @@ use ibc_core_host_types::identifiers::PortId;
 use ibc_core_router::{module::Module, router::Router};
 use ibc_core_router_types::module::ModuleId;
 use ibc_proto::cosmos::tx::v1beta1::TxBody;
-use ibc_proto::Protobuf; // [+] FIX: Add the missing trait import
-use ioi_api::ibc::LightClient;
+use ibc_proto::Protobuf;
+use ioi_api::ibc::{LightClient, VerifyCtx};
 use ioi_api::services::{BlockchainService, UpgradableService};
 use ioi_api::state::{StateAccess, StateOverlay};
 use ioi_api::transaction::context::TxContext;
 use ioi_types::error::{TransactionError, UpgradeError};
+use ioi_types::ibc::{Header, InclusionProof, SubmitHeaderParams, VerifyStateParams};
 use ioi_types::service_configs::Capabilities;
 use prost::Message;
 use std::any::Any;
@@ -216,6 +217,135 @@ impl BlockchainService for VerifierRegistry {
 
                 Ok(())
             }
+
+            // [NEW] Handle ZK Header Submission
+            "submit_header@v1" => {
+                let p: SubmitHeaderParams = ioi_types::codec::from_bytes_canonical(params)?;
+
+                let verifier = self.verifiers.get(&p.chain_id).ok_or_else(|| {
+                    TransactionError::Invalid(format!(
+                        "No verifier registered for chain {}",
+                        p.chain_id
+                    ))
+                })?;
+
+                // Verify
+                let mut verify_ctx = VerifyCtx::default();
+                verifier
+                    .verify_header(&p.header, &p.finality, &mut verify_ctx)
+                    .await
+                    .map_err(|e| TransactionError::Invalid(e.to_string()))?;
+
+                // Persist Verified Header
+                match p.header {
+                    Header::Ethereum(h) => {
+                        // Key: ibc::light_clients::{chain_id}::state_root::{state_root_hex}
+                        let key = format!(
+                            "ibc::light_clients::{}::state_root::{}",
+                            p.chain_id,
+                            hex::encode(h.state_root)
+                        );
+
+                        // We store the serialized header as proof of verification.
+                        // Clone `h` here because we need to use `h.state_root` for logging later.
+                        let value =
+                            ioi_types::codec::to_bytes_canonical(&Header::Ethereum(h.clone()))
+                                .map_err(TransactionError::Serialization)?;
+
+                        // FIX: Use insert, not set
+                        state.insert(key.as_bytes(), &value)?;
+                        tracing::info!(
+                            target: "ibc_zk",
+                            event = "HeaderVerified",
+                            chain_id = %p.chain_id,
+                            root = %hex::encode(h.state_root)
+                        );
+                    }
+                    _ => {
+                        return Err(TransactionError::Invalid(
+                            "Unsupported header type for ZK submission".into(),
+                        ))
+                    }
+                }
+                Ok(())
+            }
+
+            // [NEW] Handle Bridgeless State Verification
+            "verify_state@v1" => {
+                let p: VerifyStateParams = ioi_types::codec::from_bytes_canonical(params)?;
+
+                let verifier = self.verifiers.get(&p.chain_id).ok_or_else(|| {
+                    TransactionError::Invalid(format!(
+                        "No verifier registered for chain {}",
+                        p.chain_id
+                    ))
+                })?;
+
+                // 1. Retrieve trusted root from state
+                // For the E2E simulation using SimulatedGroth16, hash(proof) == root.
+                // We use this property to find which root the user is claiming to prove against.
+                let claimed_root_hash = match &p.proof {
+                    InclusionProof::Evm { proof_bytes, .. } => {
+                        // Use ioi_crypto::algorithms::hash::sha256 for consistency
+                        ioi_crypto::algorithms::hash::sha256(proof_bytes).map_err(
+                            |e: ioi_api::error::CryptoError| {
+                                TransactionError::Invalid(e.to_string())
+                            },
+                        )?
+                    }
+                    _ => return Err(TransactionError::Invalid("Unsupported proof type".into())),
+                };
+
+                // Convert Digest to [u8; 32] explicitly
+                let claimed_root: [u8; 32] = claimed_root_hash
+                    .try_into()
+                    .map_err(|_| TransactionError::Invalid("Proof hash length invalid".into()))?;
+
+                let root_key = format!(
+                    "ibc::light_clients::{}::state_root::{}",
+                    p.chain_id,
+                    hex::encode(claimed_root)
+                );
+
+                let stored_header_bytes =
+                    state
+                        .get(root_key.as_bytes())?
+                        .ok_or(TransactionError::Invalid(
+                            "Untrusted or unknown state root".into(),
+                        ))?;
+
+                let trusted_header: Header =
+                    ioi_types::codec::from_bytes_canonical(&stored_header_bytes)
+                        .map_err(TransactionError::Deserialization)?;
+
+                // 2. Verify Inclusion
+                let mut verify_ctx = VerifyCtx::default();
+                verifier
+                    .verify_inclusion(&p.proof, &trusted_header, &mut verify_ctx)
+                    .await
+                    .map_err(|e| TransactionError::Invalid(e.to_string()))?;
+
+                // 3. Materialize Data (Bridgeless Oracle)
+                // Key: ibc::verified::kv::{chain_id}::{path_hex}
+                let storage_key = format!(
+                    "ibc::verified::kv::{}::{}",
+                    p.chain_id,
+                    hex::encode(&p.path)
+                );
+
+                // FIX: Use insert, not set
+                state.insert(storage_key.as_bytes(), &p.value)?;
+                tracing::info!(
+                    target: "ibc_zk",
+                    event = "StateMaterialized",
+                    chain_id = %p.chain_id,
+                    path = %hex::encode(&p.path),
+                    value_len = p.value.len()
+                );
+
+                Ok(())
+            }
+
             _ => Err(TransactionError::Unsupported(format!(
                 "IBC service does not support method '{}'",
                 method

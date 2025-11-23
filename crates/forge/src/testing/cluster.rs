@@ -160,6 +160,11 @@ impl TestClusterBuilder {
         self
     }
 
+    pub fn with_extra_feature(mut self, feature: impl Into<String>) -> Self {
+        self.extra_features.push(feature.into());
+        self
+    }
+
     pub fn with_genesis_modifier<F>(mut self, modifier: F) -> Self
     where
         F: FnOnce(&mut Value, &Vec<identity::Keypair>) + Send + 'static,

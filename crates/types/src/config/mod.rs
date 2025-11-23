@@ -206,6 +206,10 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
     ibc_methods.insert("verify_header@v1".into(), MethodPermission::User);
     ibc_methods.insert("recv_packet@v1".into(), MethodPermission::User);
     ibc_methods.insert("msg_dispatch@v1".into(), MethodPermission::User);
+    // [NEW] ZK Methods
+    ibc_methods.insert("submit_header@v1".into(), MethodPermission::User);
+    ibc_methods.insert("verify_state@v1".into(), MethodPermission::User);
+
     map.insert(
         "ibc".to_string(),
         ServicePolicy {

@@ -106,6 +106,9 @@ consensus-pos = ["ioi-validator/consensus-pos"]
 # Service Features
 ibc-deps = ["ioi-validator/ibc-deps"]
 
+# ZK Features (Test runner gate only)
+ethereum-zk = []
+
 # Feature for building the malicious binary for testing
 # This does not need to be propagated, as the test runner handles it.
 malicious-bin = []
