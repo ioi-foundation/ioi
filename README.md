@@ -224,6 +224,10 @@ cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,state-iavl,c
 
 cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,state-iavl,commitment-hash" --test t_timestamp_coherence -- --nocapture
 
+cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,state-iavl,commitment-hash,ibc-deps,ethereum-zk" --test ibc_zk_e2e -- --nocapture --test-threads=1
+
+
+
 ### Docker Testing
 
 For an isolated testing environment:

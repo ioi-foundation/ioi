@@ -105,6 +105,17 @@ pub struct ServicePolicy {
     pub allowed_system_prefixes: Vec<String>,
 }
 
+/// Configuration for Zero-Knowledge Light Clients.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct ZkConfig {
+    /// The verification key hash for the Ethereum Beacon Update circuit.
+    #[serde(default)]
+    pub ethereum_beacon_vkey: String,
+    /// The verification key hash for the State Inclusion circuit.
+    #[serde(default)]
+    pub state_inclusion_vkey: String,
+}
+
 /// Configuration for the Workload container (`workload.toml`).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WorkloadConfig {
@@ -146,6 +157,9 @@ pub struct WorkloadConfig {
     /// The size of a state history epoch in blocks for the `redb` backend. Defaults to 50,000.
     #[serde(default = "default_epoch_size")]
     pub epoch_size: u64,
+    /// Configuration for Zero-Knowledge Light Clients.
+    #[serde(default)]
+    pub zk_config: ZkConfig,
 }
 
 /// Generates the default set of service security policies.
@@ -333,7 +347,7 @@ impl Default for RpcHardeningConfig {
 /// Configuration for the Orchestration container (`orchestration.toml`).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct OrchestrationConfig {
-    /// The unique identifier for the blockchain instance, used in transaction signing.
+    /// The unique identifier for the blockchain instance, used to prevent cross-chain replay attacks.
     #[serde(default = "default_chain_id")]
     pub chain_id: ChainId,
     /// The version of the configuration file schema, for managing future upgrades.

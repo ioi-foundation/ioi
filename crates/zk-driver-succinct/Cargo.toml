@@ -1,3 +1,4 @@
+# Path: crates/zk-driver-succinct/Cargo.toml
 [package]
 name = "zk-driver-succinct"
 version = "0.1.0"
@@ -5,6 +6,13 @@ edition = "2021"
 description = "ZkDriver implementation for Succinct Labs / SP1 proofs"
 license-file = "../../LICENSE-BBSL"
 repository = "https://github.com/ioi-foundation/ioi-sdk"
+
+[features]
+default = ["mock"]
+# The current simulation behavior (hashing proof to check against public inputs)
+mock = []
+# Real SP1 verification (requires sp1-verifier)
+native = ["dep:sp1-verifier", "dep:bincode"]
 
 [dependencies]
 ioi-api = { path = "../api" }
@@ -15,3 +23,7 @@ serde_json = { workspace = true }
 hex = { workspace = true }
 dcrypt = { workspace = true }
 thiserror = { workspace = true }
+
+# Optional dependencies for native SP1 verification
+bincode = { workspace = true, optional = true }
+sp1-verifier = { version = "5.2.3", optional = true }
