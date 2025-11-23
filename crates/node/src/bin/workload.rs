@@ -2,19 +2,6 @@
 #![forbid(unsafe_code)]
 
 //! The main binary for the Workload container.
-//!
-//! The Workload container is the primary component responsible for all deterministic,
-//! state-related operations in a validator node. Its responsibilities include:
-//!
-//! - Managing the state tree (e.g., IAVL, Verkle).
-//! - Executing smart contracts within a virtual machine (e.g., Wasmtime).
-//! - Processing blocks by applying transactions and updating the state.
-//! - Generating cryptographic proofs of state for queries.
-//! - Communicating with the Orchestration container via a secure IPC channel to
-//!   receive blocks for processing and respond to state queries.
-//!
-//! This binary is configured via a `workload.toml` file and is launched by the
-//! `ioi-node` process or a similar orchestration mechanism.
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
@@ -22,8 +9,9 @@ use ioi_api::services::UpgradableService; // Import UpgradableService trait
 use ioi_api::services::{access::ServiceDirectory, BlockchainService};
 use ioi_api::{
     commitment::CommitmentScheme,
+    ibc::LightClient, // Added import
     state::{ProofProvider, StateManager},
-    storage::NodeStore, // <-- FIX: Add the missing import for the NodeStore trait
+    storage::NodeStore,
     validator::WorkloadContainer,
 };
 use ioi_consensus::util::engine_from_config;
@@ -39,6 +27,10 @@ use ioi_services::ibc::{
     apps::channel::ChannelManager, core::registry::VerifierRegistry,
     light_clients::tendermint::TendermintVerifier,
 };
+// [NEW] Import for ZK client
+#[cfg(all(feature = "ibc-deps", feature = "ethereum-zk"))]
+use ioi_services::ibc::light_clients::ethereum_zk::EthereumZkLightClient;
+
 use ioi_services::identity::IdentityHub;
 use ioi_services::oracle::OracleService;
 use ioi_state::primitives::hash::HashCommitmentScheme;
@@ -205,6 +197,15 @@ where
                         verifier_registry.register(Arc::new(tm_verifier));
                     }
                 }
+
+                // [NEW] Register Ethereum ZK Client if enabled
+                #[cfg(feature = "ethereum-zk")]
+                {
+                    tracing::info!(target: "workload", "Initializing Ethereum ZK Light Client for 'eth-mainnet'");
+                    let eth_verifier = EthereumZkLightClient::new("eth-mainnet".to_string());
+                    verifier_registry.register(Arc::new(eth_verifier) as Arc<dyn LightClient>);
+                }
+
                 initial_services
                     .push(Arc::new(verifier_registry)
                         as Arc<dyn ioi_api::services::UpgradableService>);

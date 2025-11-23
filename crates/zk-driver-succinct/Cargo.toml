@@ -1,0 +1,17 @@
+[package]
+name = "zk-driver-succinct"
+version = "0.1.0"
+edition = "2021"
+description = "ZkDriver implementation for Succinct Labs / SP1 proofs"
+license-file = "../../LICENSE-BBSL"
+repository = "https://github.com/ioi-foundation/ioi-sdk"
+
+[dependencies]
+ioi-api = { path = "../api" }
+ioi-types = { path = "../types" }
+anyhow = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+hex = { workspace = true }
+dcrypt = { workspace = true }
+thiserror = { workspace = true }

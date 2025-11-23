@@ -28,6 +28,8 @@ ioi-telemetry = { path = "../telemetry" }
 http-rpc-gateway = { path = "../http-rpc-gateway" }
 ibc-host = { path = "../ibc-host" }
 ioi-ipc = { path = "../ipc" }
+zk-driver-succinct = { path = "../zk-driver-succinct", optional = true }
+
 bincode = { workspace = true }
 uuid = { version = "1.8.0", features = ["v4"] }
 anyhow = { workspace = true }
@@ -102,6 +104,9 @@ vm-wasm = ["dep:ioi-vm-wasm"]
 
 # Service Features
 ibc-deps = ["ioi-services/ibc-deps", "ioi-validator/ibc-deps"]
+
+# Ethereum ZK Light Client Support
+ethereum-zk = ["ioi-services/ethereum-zk", "dep:zk-driver-succinct"]
 
 # Feature for building the malicious binary for testing
 # This does not need to be propagated, as the test runner handles it.

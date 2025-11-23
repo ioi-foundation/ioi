@@ -64,11 +64,13 @@ tendermint-proto = { workspace = true, optional = true }
 tendermint = { workspace = true, optional = true }
 ibc = { workspace = true, features = ["std"], optional = true }
 ics23 = { version = "0.11", optional = true }
+zk-driver-succinct = { path = "../zk-driver-succinct", optional = true }
 
 [features]
 default = ["ibc-deps"]
 gas-escrow = []
 agentic = ["gas-escrow"]
+ethereum-zk = ["dep:zk-driver-succinct"]
 # This feature flag bundles all dependencies required for the native IBC service.
 ibc-deps = [
     "dep:ibc-client-tendermint",

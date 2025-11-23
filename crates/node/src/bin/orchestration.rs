@@ -311,6 +311,16 @@ where
                             verifier_registry.register(Arc::new(tm_verifier));
                         }
                     }
+
+                    #[cfg(feature = "ethereum-zk")]
+                    {
+                        use ioi_api::ibc::LightClient;
+                        use ioi_services::ibc::light_clients::ethereum_zk::EthereumZkLightClient;
+                        let eth_verifier = EthereumZkLightClient::new("eth-mainnet".to_string());
+                        verifier_registry.register(Arc::new(eth_verifier) as Arc<dyn LightClient>);
+                        tracing::info!("Registered Ethereum ZK Light Client for 'eth-mainnet'");
+                    }
+
                     initial_services
                         .push(Arc::new(verifier_registry) as Arc<dyn UpgradableService>);
                     initial_services

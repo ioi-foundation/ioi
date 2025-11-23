@@ -55,6 +55,8 @@ pub mod transaction;
 pub mod validator;
 /// Defines the core traits and types for virtual machines.
 pub mod vm;
+/// Definitions for the Zero-Knowledge Stack.
+pub mod zk;
 
 /// A curated set of the most commonly used traits and types.
 pub mod prelude {

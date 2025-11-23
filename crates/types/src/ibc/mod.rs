@@ -124,3 +124,29 @@ pub struct Packet {
     /// The opaque data payload of the packet.
     pub data: Vec<u8>,
 }
+
+/// Parameters for submitting a ZK-proven header (beacon update).
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct SubmitHeaderParams {
+    /// The unique identifier of the chain.
+    pub chain_id: String,
+    /// The header to be submitted.
+    pub header: Header,
+    /// Evidence of finality for the header.
+    pub finality: Finality,
+}
+
+/// Parameters for verifying a state inclusion proof against a stored header.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct VerifyStateParams {
+    /// The unique identifier of the chain.
+    pub chain_id: String,
+    /// The block height at which the state is being verified.
+    pub height: u64,
+    /// The path to the key being verified.
+    pub path: Vec<u8>,
+    /// The expected value at the given path.
+    pub value: Vec<u8>,
+    /// The inclusion proof validating the key-value pair.
+    pub proof: InclusionProof,
+}

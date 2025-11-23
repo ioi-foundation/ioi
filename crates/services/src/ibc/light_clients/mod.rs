@@ -4,6 +4,9 @@
 
 pub mod tendermint;
 
+#[cfg(feature = "ethereum-zk")]
+pub mod ethereum_zk;
+
 // Define a common error module for all light clients.
 pub mod errors {
     use thiserror::Error;
