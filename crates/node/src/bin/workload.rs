@@ -27,9 +27,11 @@ use ioi_services::ibc::{
     apps::channel::ChannelManager, core::registry::VerifierRegistry,
     light_clients::tendermint::TendermintVerifier,
 };
-// [NEW] Import for ZK client
+// [NEW] Import for ZK client and driver
 #[cfg(all(feature = "ibc-deps", feature = "ethereum-zk"))]
 use ioi_services::ibc::light_clients::ethereum_zk::EthereumZkLightClient;
+#[cfg(all(feature = "ibc-deps", feature = "ethereum-zk"))]
+use zk_driver_succinct::config::SuccinctDriverConfig;
 
 use ioi_services::identity::IdentityHub;
 use ioi_services::oracle::OracleService;
@@ -202,7 +204,16 @@ where
                 #[cfg(feature = "ethereum-zk")]
                 {
                     tracing::info!(target: "workload", "Initializing Ethereum ZK Light Client for 'eth-mainnet'");
-                    let eth_verifier = EthereumZkLightClient::new("eth-mainnet".to_string());
+
+                    // Convert WorkloadConfig ZK settings to SuccinctDriverConfig
+                    let driver_config = SuccinctDriverConfig {
+                        beacon_vkey_hash: config.zk_config.ethereum_beacon_vkey.clone(),
+                        state_inclusion_vkey_hash: config.zk_config.state_inclusion_vkey.clone(),
+                    };
+
+                    // Initialize with the driver config (which sets the verification keys for native mode)
+                    let eth_verifier =
+                        EthereumZkLightClient::new("eth-mainnet".to_string(), driver_config);
                     verifier_registry.register(Arc::new(eth_verifier) as Arc<dyn LightClient>);
                 }
 

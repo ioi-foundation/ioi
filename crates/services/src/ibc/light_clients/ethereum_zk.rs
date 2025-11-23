@@ -3,10 +3,9 @@
 use async_trait::async_trait;
 use ioi_api::error::CoreError;
 use ioi_api::ibc::{IbcZkVerifier, LightClient, VerifyCtx};
-use ioi_api::state::StateAccess;
 use ioi_types::ibc::{Finality, Header, InclusionProof};
 use std::sync::Arc;
-use zk_driver_succinct::SuccinctDriver;
+use zk_driver_succinct::{config::SuccinctDriverConfig, SuccinctDriver};
 
 /// A light client verifier for Ethereum that uses a ZK driver.
 #[derive(Clone)]
@@ -17,10 +16,20 @@ pub struct EthereumZkLightClient {
 }
 
 impl EthereumZkLightClient {
-    pub fn new(chain_id: String) -> Self {
+    /// Create a new client with a specific driver configuration.
+    pub fn new(chain_id: String, config: SuccinctDriverConfig) -> Self {
         Self {
             chain_id,
-            zk_driver: Arc::new(SuccinctDriver::new()),
+            zk_driver: Arc::new(SuccinctDriver::new(config)),
+        }
+    }
+
+    /// Create a new client with default (mock) configuration.
+    /// Useful for tests that don't care about specific vkeys.
+    pub fn new_mock(chain_id: String) -> Self {
+        Self {
+            chain_id,
+            zk_driver: Arc::new(SuccinctDriver::new_mock()),
         }
     }
 }
@@ -39,10 +48,12 @@ impl LightClient for EthereumZkLightClient {
     ) -> Result<(), CoreError> {
         // 1. Extract fields based on types
         let (eth_header, update_ssz) = match (header, finality) {
-            (Header::Ethereum(h), Finality::EthereumBeaconUpdate { update_ssz }) => {
-                (h, update_ssz)
+            (Header::Ethereum(h), Finality::EthereumBeaconUpdate { update_ssz }) => (h, update_ssz),
+            _ => {
+                return Err(CoreError::Custom(
+                    "Invalid header/finality type for EthereumZkVerifier".into(),
+                ))
             }
-            _ => return Err(CoreError::Custom("Invalid header/finality type for EthereumZkVerifier".into())),
         };
 
         // 2. Delegate to the ZK driver.
@@ -71,18 +82,29 @@ impl LightClient for EthereumZkLightClient {
         // 1. Extract the trusted root from the header.
         let eth_header = match header {
             Header::Ethereum(h) => h,
-            _ => return Err(CoreError::Custom("Invalid header type for EthereumZkVerifier".into())),
+            _ => {
+                return Err(CoreError::Custom(
+                    "Invalid header type for EthereumZkVerifier".into(),
+                ))
+            }
         };
 
         // 2. Delegate to ZK driver.
         match proof {
-            InclusionProof::Evm { scheme, proof_bytes } => {
+            InclusionProof::Evm {
+                scheme,
+                proof_bytes,
+            } => {
                 self.zk_driver
                     .verify_state_inclusion(*scheme, proof_bytes, eth_header.state_root)
-                    .map_err(|e| CoreError::Custom(format!("ZK State Inclusion verification failed: {}", e)))?;
+                    .map_err(|e| {
+                        CoreError::Custom(format!("ZK State Inclusion verification failed: {}", e))
+                    })?;
                 Ok(())
             }
-            _ => Err(CoreError::Custom("Invalid proof type for EthereumZkVerifier".into())),
+            _ => Err(CoreError::Custom(
+                "Invalid proof type for EthereumZkVerifier".into(),
+            )),
         }
     }
 

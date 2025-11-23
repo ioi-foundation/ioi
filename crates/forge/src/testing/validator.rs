@@ -329,6 +329,7 @@ impl TestValidator {
             keep_recent_heights: 100_000,
             epoch_size: 50_000,
             service_policies: ioi_types::config::default_service_policies(), // Use the shared helper
+            zk_config: Default::default(), // [FIX] Add default ZK config
         };
 
         if state_tree_type == "Verkle" {

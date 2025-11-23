@@ -55,6 +55,9 @@ use ioi_state::tree::iavl::IAVLTree;
 use ioi_state::tree::sparse_merkle::SparseMerkleTree;
 #[cfg(feature = "state-verkle")]
 use ioi_state::tree::verkle::VerkleTree;
+// [NEW] Import for ZK client config
+#[cfg(all(feature = "ibc-deps", feature = "ethereum-zk"))]
+use zk_driver_succinct::config::SuccinctDriverConfig;
 
 #[derive(Parser, Debug)]
 struct OrchestrationOpts {
@@ -316,7 +319,22 @@ where
                     {
                         use ioi_api::ibc::LightClient;
                         use ioi_services::ibc::light_clients::ethereum_zk::EthereumZkLightClient;
-                        let eth_verifier = EthereumZkLightClient::new("eth-mainnet".to_string());
+
+                        // Create config from workload_config
+                        let driver_config = SuccinctDriverConfig {
+                            beacon_vkey_hash: workload_config
+                                .zk_config
+                                .ethereum_beacon_vkey
+                                .clone(),
+                            state_inclusion_vkey_hash: workload_config
+                                .zk_config
+                                .state_inclusion_vkey
+                                .clone(),
+                        };
+
+                        // Initialize with real config
+                        let eth_verifier =
+                            EthereumZkLightClient::new("eth-mainnet".to_string(), driver_config);
                         verifier_registry.register(Arc::new(eth_verifier) as Arc<dyn LightClient>);
                         tracing::info!("Registered Ethereum ZK Light Client for 'eth-mainnet'");
                     }
@@ -354,6 +372,8 @@ where
             min_finality_depth: workload_config.min_finality_depth,
             keep_recent_heights: workload_config.keep_recent_heights,
             epoch_size: workload_config.epoch_size,
+            // [FIX] Add default ZK config
+            zk_config: Default::default(),
         };
 
         let data_dir = opts.config.parent().unwrap_or_else(|| Path::new("."));
