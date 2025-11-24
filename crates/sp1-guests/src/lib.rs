@@ -1,3 +1,3 @@
 // Path: crates/sp1-guests/src/lib.rs
-pub mod beacon_update;
-pub mod state_inclusion;
+// This file is intentionally empty.
+// The guest programs are defined as binaries in `beacon_update.rs` and `state_inclusion.rs`.

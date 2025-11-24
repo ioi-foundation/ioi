@@ -1,11 +1,9 @@
-# Path: crates/zk-types/Cargo.toml
 [package]
 name = "zk-types"
 version = "0.1.0"
 edition = "2021"
-description = "Shared public input types for IOI SDK ZK circuits"
-license-file = "../../LICENSE-BBSL"
-repository = "https://github.com/ioi-foundation/ioi-sdk"
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
+# We need fixed-size byte arrays for zero-copy serialization
+serde_bytes = "0.11"

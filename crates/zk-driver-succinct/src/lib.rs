@@ -165,3 +165,6 @@ impl IbcZkVerifier for SuccinctDriver {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

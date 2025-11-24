@@ -1,3 +1,5 @@
+# Path: crates/test_utils/Cargo.toml
+
 [package]
 name = "ioi-test-utils"
 version = "0.1.0"
@@ -6,7 +8,27 @@ description = "Utilities for testing the IOI SDK components"
 license-file = "../../LICENSE-BBSL"
 repository = "https://github.com/ioi-foundation/ioi-sdk"
 
+[features]
+default = []
+# Feature to enable ZK fixture generation tools (pulls in heavy dependencies)
+zk-gen = ["dep:sp1-sdk", "dep:alloy-primitives", "dep:alloy-trie", "dep:ssz_rs"]
+
 [dependencies]
 ioi-types = { path = "../types" }
+zk-types = { path = "../zk-types" }
 rand = { workspace = true }
 serde_json = { workspace = true }
+anyhow = { workspace = true }
+bincode = { workspace = true }
+hex = { workspace = true }
+
+# Dependencies for ZK fixture generation (Optional)
+sp1-sdk = { version = "3.0.0", optional = true }
+alloy-primitives = { version = "0.7", optional = true }
+alloy-trie = { version = "0.4", optional = true }
+ssz_rs = { version = "0.9", optional = true }
+
+[[bin]]
+name = "generate_zk_fixtures"
+path = "src/bin/generate_zk_fixtures.rs"
+required-features = ["zk-gen"]

@@ -1,14 +1,14 @@
-// Path: crates/zk-driver-succinct/tests/native_verification.rs
+// Path: crates/zk-driver-succinct/src/tests/native_verification.rs
 
 #![cfg(feature = "native")] // Only compile when native SP1 verification is enabled
 
 use std::fs;
 use std::path::PathBuf;
 
-use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use ioi_api::ibc::IbcZkVerifier; // Import the trait
 use ioi_types::ibc::StateProofScheme;
-use zk_driver_succinct::{
+// FIX: Use `crate::` to refer to the library items when inside `src/`
+use crate::{
     config::SuccinctDriverConfig, BeaconPublicInputs, StateInclusionPublicInputs, SuccinctDriver,
 };
 
@@ -19,18 +19,14 @@ fn fixtures_dir() -> PathBuf {
         .join("fixtures")
 }
 
-/// Helper: compute hex(SHA256(bytes))
-fn hex_sha256(data: &[u8]) -> String {
-    let digest = Sha256::digest(data).expect("sha256 should not fail");
-    hex::encode(digest.as_ref())
-}
-
 /// Helper: build a driver config for beacon verification from fixtures
 fn load_beacon_driver_config() -> SuccinctDriverConfig {
     let dir = fixtures_dir();
+    // FIX: This file now contains the 32-byte hash directly
     let vk_bytes = fs::read(dir.join("beacon_vk.bin")).expect("missing beacon_vk.bin fixture");
 
-    let vk_hash = hex_sha256(&vk_bytes);
+    // The hash string is just the hex of the bytes
+    let vk_hash = hex::encode(&vk_bytes);
 
     SuccinctDriverConfig {
         beacon_vkey_hash: vk_hash,
@@ -44,9 +40,10 @@ fn load_beacon_driver_config() -> SuccinctDriverConfig {
 /// Helper: build a driver config for state inclusion verification from fixtures
 fn load_state_driver_config() -> SuccinctDriverConfig {
     let dir = fixtures_dir();
+    // FIX: This file now contains the 32-byte hash directly
     let vk_bytes = fs::read(dir.join("state_vk.bin")).expect("missing state_vk.bin fixture");
 
-    let vk_hash = hex_sha256(&vk_bytes);
+    let vk_hash = hex::encode(&vk_bytes);
 
     SuccinctDriverConfig {
         beacon_vkey_hash: "00".repeat(32),
