@@ -2,44 +2,57 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
-use serde::{Deserialize, Serialize};
+use alloy_primitives::{Bytes, B256};
+use alloy_trie::{proof::verify_proof, Nibbles};
 use zk_types::StateInclusionPublicInputs;
 
 pub fn main() {
     // 1. Read Public Inputs
-    let public_input_bytes: Vec<u8> = sp1_zkvm::io::read();
-    let inputs: StateInclusionPublicInputs = bincode::deserialize(&public_input_bytes)
-        .expect("Failed to deserialize StateInclusionPublicInputs");
+    let inputs = sp1_zkvm::io::read::<StateInclusionPublicInputs>();
 
-    // 2. Read Private Inputs (The Merkle Proof)
-    let proof_bytes: Vec<u8> = sp1_zkvm::io::read();
+    // 2. Read the Witness (The Proof)
+    // The proof is a vector of RLP-encoded nodes.
+    let proof_nodes_raw = sp1_zkvm::io::read::<Vec<Vec<u8>>>();
 
-    // 3. Verification Logic (Placeholder)
-    match inputs.scheme_id {
-        0 => verify_mpt(&inputs, &proof_bytes),
-        1 => verify_verkle(&inputs, &proof_bytes),
-        _ => panic!("Unsupported proof scheme ID"),
+    // 3. Prepare Verification Data
+    let root = B256::from(inputs.state_root);
+
+    if inputs.key.len() != 32 {
+        panic!(
+            "MPT key must be 32 bytes (keccak hash), got {}",
+            inputs.key.len()
+        );
     }
 
-    // 4. Commit Public Values
-    sp1_zkvm::io::commit(&public_input_bytes);
-}
+    // FIX: Convert key hash to Nibbles
+    let key_hash = B256::from_slice(&inputs.key);
+    let key_nibbles = Nibbles::unpack(key_hash);
 
-fn verify_mpt(inputs: &StateInclusionPublicInputs, _proof: &[u8]) {
-    // TODO: Implement MPT verification logic:
-    // 1. Decode proof (RLP).
-    // 2. Traverse trie from inputs.state_root using inputs.key.
-    // 3. Assert value found matches inputs.value.
+    // FIX: Expected value must be Option<Vec<u8>>
+    let expected_value = if inputs.value.is_empty() {
+        None
+    } else {
+        Some(inputs.value.clone())
+    };
 
-    // Placeholder: just succeed
-    sp1_zkvm::io::commit(&inputs.state_root); // Use to prevent unused var warning in mock
-}
+    // FIX: Convert raw proof nodes to Bytes
+    let proof_nodes: Vec<Bytes> = proof_nodes_raw.into_iter().map(Bytes::from).collect();
 
-fn verify_verkle(inputs: &StateInclusionPublicInputs, _proof: &[u8]) {
-    // TODO: Implement Verkle verification logic:
-    // 1. Decode proof (IPA/KZG).
-    // 2. Verify commitments against inputs.state_root.
+    // 4. Verify
+    if inputs.scheme_id == 0 {
+        // Scheme 0 = Ethereum MPT
+        match verify_proof(root, key_nibbles, expected_value, &proof_nodes) {
+            Ok(_) => {
+                // Success
+            }
+            Err(e) => {
+                panic!("MPT Verification Failed: {:?}", e);
+            }
+        }
+    } else {
+        panic!("Unsupported proof scheme ID: {}", inputs.scheme_id);
+    }
 
-    // Placeholder: just succeed
-    sp1_zkvm::io::commit(&inputs.state_root); // Use to prevent unused var warning in mock
+    // 5. Commit Inputs
+    sp1_zkvm::io::commit(&inputs);
 }

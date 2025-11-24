@@ -226,7 +226,77 @@ cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,state-iavl,c
 
 cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,state-iavl,commitment-hash,ibc-deps,ethereum-zk" --test ibc_zk_e2e -- --nocapture --test-threads=1
 
+Next steps are purely “fill in the real ZK logic”:
 
+Integrate the actual SP1 APIs (replace sp1-zkvm placeholders with the real crates).
+
+Implement actual:
+
+Beacon update checks in verify_beacon_update.
+
+MPT/Verkle verification in verify_mpt / verify_verkle.
+
+Use SP1’s tooling (e.g., sp1 build) to compile these into ELF programs and generate:
+
+VKs (*_vk.bin).
+
+Proofs + public_inputs fixtures (*_proof.bin, *_public_inputs.bin).
+
+Drop those fixtures into zk-driver-succinct/tests/fixtures and un-ignore your native tests.
+
+Based on the codebase snapshot, you are at **Step 4 (Generation)** of the workflow. The implementation logic is complete, and the tooling to generate the artifacts is written, but the artifacts themselves and the final test enablement are pending.
+
+Here is the detailed status breakdown:
+
+### 1. Integrate Actual SP1 APIs ✅ **(Done)**
+*   **Evidence:**
+    *   `crates/sp1-guests/Cargo.toml` imports `sp1-zkvm = "1.1.0"` and `sp1-lib`.
+    *   `crates/zk-driver-succinct/Cargo.toml` imports `sp1-verifier = "5.2.3"` (optional).
+    *   `crates/zk-driver-succinct/src/sp1_backend.rs` implements the `ZkProofSystem` trait using the real `Groth16Verifier` from the `sp1-verifier` crate.
+
+### 2. Implement Guest Logic ⚠️ **(Partial)**
+*   **Beacon Update:** ✅ **Done.**
+    *   `crates/sp1-guests/src/beacon_update.rs` uses `ssz_rs` to deserialize the header and verifies the slot and state root against public inputs.
+*   **MPT Verification:** ✅ **Done.**
+    *   `crates/sp1-guests/src/state_inclusion.rs` uses `alloy_trie::proof::verify_proof` to verify Ethereum MPT proofs.
+*   **Verkle Verification:** ❌ **Pending.**
+    *   `crates/sp1-guests/src/state_inclusion.rs` explicitly panics if `scheme_id != 0` (MPT), creating a gap for Verkle tree support.
+
+### 3. Compile ELFs & Generate Artifacts ⏳ **(Ready to Run)**
+The logic is written, but the output artifacts are not checked in, and the generator script implies this step needs to be executed manually.
+
+*   **Generator Script:** `crates/test_utils/src/bin/generate_zk_fixtures.rs` exists. It imports `sp1_sdk::ProverClient`, sets up the prover with the ELFs, and writes the required `*_vk.bin`, `*_proof.bin`, and `*_public_inputs.bin` files to the specific fixtures directory.
+*   **ELF Paths:** The generator expects ELFs at `../../../sp1-guests/elf/riscv32im-succinct-zkvm-elf-*`, which implies you simply need to run `cargo prove build` in the guests directory.
+
+### 4. Enable Native Tests ❌ **(Pending)**
+The infrastructure is in place, but the tests are currently disabled.
+
+*   `crates/zk-driver-succinct/src/tests/fixtures/native_verification.rs`:
+    *   Tests like `native_beacon_verification_succeeds` are marked with `#[ignore = "Requires real SP1 ... fixtures"]`.
+    *   The tests use `cfg(feature = "native")`, so you must run tests with `--features native`.
+
+---
+
+### Immediate Action Items
+To complete the workflow, you need to execute the tooling you have built:
+
+1.  **Build Guests:**
+    ```bash
+    cd crates/sp1-guests
+    cargo prove build
+    ```
+2.  **Generate Fixtures:**
+    ```bash
+    # Run the generator binary defined in test_utils
+    cargo run -p ioi-test-utils --features zk-gen --bin generate_zk_fixtures
+    ```
+3.  **Run Native Tests:**
+    ```bash
+    # Un-ignore tests by running them specifically with the native feature
+    cargo test -p zk-driver-succinct --features native -- --include-ignored
+    ```
+
+cargo test -p zk-driver-succinct --features native -- --include-ignored native_beacon_verification_succeeds
 
 ### Docker Testing
 
