@@ -17,13 +17,13 @@ native = ["dep:sp1-verifier"]
 [dependencies]
 ioi-api = { path = "../api" }
 ioi-types = { path = "../types" }
+zk-types = { path = "../zk-types" }                 # [NEW]
 anyhow = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 hex = { workspace = true }
 dcrypt = { workspace = true }
 thiserror = { workspace = true }
-# bincode is now required for canonical input serialization in both mock and native modes
 bincode = { workspace = true }
 
 # Optional dependencies for native SP1 verification

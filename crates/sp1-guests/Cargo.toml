@@ -1,0 +1,15 @@
+# Path: crates/sp1-guests/Cargo.toml
+[package]
+name = "sp1-guests"
+version = "0.1.0"
+edition = "2021"
+description = "SP1 guest programs for IOI ZK circuits"
+
+# Note: This crate is typically compiled to riscv32im via SP1 toolchain
+[dependencies]
+zk-types = { path = "../zk-types" }
+serde = { workspace = true, features = ["derive"] }
+bincode = { workspace = true }
+
+# SP1 Guest SDK (placeholder; use real version in production)
+sp1-zkvm = { version = "5.2.3" }

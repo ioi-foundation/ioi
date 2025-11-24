@@ -36,6 +36,9 @@ members = [
     # Interop
     "crates/ibc-host",
     "crates/http-rpc-gateway",
+    "crates/zk-types",
+    "crates/zk-driver-succinct",
+    "crates/sp1-guests",
 ]
 
 [workspace.dependencies]

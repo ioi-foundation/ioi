@@ -9,34 +9,10 @@ use anyhow::Result;
 use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use ioi_api::{error::CoreError, ibc::IbcZkVerifier, zk::ZkProofSystem};
 use ioi_types::ibc::StateProofScheme;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-// --- Canonical Public Input Definitions ---
-
-/// The public inputs expected by the Ethereum Beacon Update circuit.
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct BeaconPublicInputs {
-    /// The trusted state root before this update.
-    pub previous_state_root: [u8; 32],
-    /// The new state root being attested to.
-    pub new_state_root: [u8; 32],
-    /// The slot number of the new header.
-    pub slot: u64,
-}
-
-/// The public inputs expected by the State Inclusion circuit.
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct StateInclusionPublicInputs {
-    /// The state root against which inclusion is being proven.
-    pub state_root: [u8; 32],
-    /// The key being verified.
-    pub key: Vec<u8>,
-    /// The value being verified.
-    pub value: Vec<u8>,
-    /// The proof scheme identifier (0=Mpt, 1=Verkle).
-    pub scheme_id: u8,
-}
+// Re-export canonical types from the shared crate
+pub use zk_types::{BeaconPublicInputs, StateInclusionPublicInputs};
 
 /// A dummy ZK backend for simulation, fulfilling the ZkProofSystem trait.
 #[derive(Debug, Clone, Default)]
@@ -53,7 +29,6 @@ impl ZkProofSystem for SimulatedGroth16 {
         public_inputs: &Self::PublicInputs,
     ) -> Result<bool, ioi_api::error::CryptoError> {
         // Simulation Rule: hash(proof) == state_root
-        // We need to extract the `state_root` from the serialized `public_inputs`.
 
         // Try to interpret inputs as BeaconPublicInputs
         let target_root: [u8; 32] = if let Ok(inputs) =
@@ -66,7 +41,7 @@ impl ZkProofSystem for SimulatedGroth16 {
         {
             inputs.state_root
         }
-        // Fallback for legacy tests where inputs ARE the root bytes directly
+        // Fallback for legacy/raw tests: assume inputs IS the root bytes directly
         else if public_inputs.len() == 32 {
             let mut root = [0u8; 32];
             root.copy_from_slice(public_inputs);
@@ -77,7 +52,7 @@ impl ZkProofSystem for SimulatedGroth16 {
             ));
         };
 
-        // Check if SHA256(proof) matches the target root
+        // Explicitly map the dcrypt error to CryptoError
         let hash = Sha256::digest(proof)
             .map_err(|e| ioi_api::error::CryptoError::OperationFailed(e.to_string()))?;
 
@@ -180,7 +155,6 @@ impl IbcZkVerifier for SuccinctDriver {
 
         #[cfg(not(feature = "native"))]
         {
-            // Mock mode: verify hash(proof) == inputs.root
             let valid = SimulatedGroth16::verify(&(), &proof.to_vec(), &inputs_bytes)
                 .map_err(|e| CoreError::Crypto(e.to_string()))?;
 
