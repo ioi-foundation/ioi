@@ -5,6 +5,7 @@ use ioi_api::error::CoreError;
 use ioi_api::ibc::{IbcZkVerifier, LightClient, VerifyCtx};
 use ioi_types::ibc::{Finality, Header, InclusionProof};
 use std::sync::Arc;
+use zk_driver_succinct::BeaconPublicInputs;
 use zk_driver_succinct::{config::SuccinctDriverConfig, SuccinctDriver};
 
 /// A light client verifier for Ethereum that uses a ZK driver.
@@ -25,7 +26,6 @@ impl EthereumZkLightClient {
     }
 
     /// Create a new client with default (mock) configuration.
-    /// Useful for tests that don't care about specific vkeys.
     pub fn new_mock(chain_id: String) -> Self {
         Self {
             chain_id,
@@ -46,7 +46,6 @@ impl LightClient for EthereumZkLightClient {
         finality: &Finality,
         _ctx: &mut VerifyCtx,
     ) -> Result<(), CoreError> {
-        // 1. Extract fields based on types
         let (eth_header, update_ssz) = match (header, finality) {
             (Header::Ethereum(h), Finality::EthereumBeaconUpdate { update_ssz }) => (h, update_ssz),
             _ => {
@@ -56,12 +55,23 @@ impl LightClient for EthereumZkLightClient {
             }
         };
 
-        // 2. Delegate to the ZK driver.
-        // In the simulation, the public input is the state root we are committing to.
-        let public_inputs = eth_header.state_root.to_vec();
+        // 1. Construct Canonical Public Inputs
+        let inputs = BeaconPublicInputs {
+            // TODO: Retrieve the trusted previous state root from the client store
+            // to enforce continuity of the beacon chain.
+            previous_state_root: [0u8; 32],
+            new_state_root: eth_header.state_root,
+            // TODO: Extract the slot number from the Ethereum header.
+            slot: 0,
+        };
 
+        // 2. Serialize Inputs using bincode
+        let public_inputs_bytes = bincode::serialize(&inputs)
+            .map_err(|e| CoreError::Custom(format!("Failed to serialize public inputs: {}", e)))?;
+
+        // 3. Delegate to the ZK driver.
         self.zk_driver
-            .verify_beacon_update(update_ssz, &public_inputs)
+            .verify_beacon_update(update_ssz, &public_inputs_bytes)
             .map_err(|e| CoreError::Custom(format!("ZK Beacon verification failed: {}", e)))?;
 
         log::info!(
@@ -79,7 +89,6 @@ impl LightClient for EthereumZkLightClient {
         header: &Header,
         _ctx: &mut VerifyCtx,
     ) -> Result<(), CoreError> {
-        // 1. Extract the trusted root from the header.
         let eth_header = match header {
             Header::Ethereum(h) => h,
             _ => {
@@ -89,17 +98,19 @@ impl LightClient for EthereumZkLightClient {
             }
         };
 
-        // 2. Delegate to ZK driver.
         match proof {
             InclusionProof::Evm {
                 scheme,
                 proof_bytes,
             } => {
+                // We pass the proof bytes directly. The driver constructs the
+                // canonical public inputs (containing the root) internally.
                 self.zk_driver
                     .verify_state_inclusion(*scheme, proof_bytes, eth_header.state_root)
                     .map_err(|e| {
                         CoreError::Custom(format!("ZK State Inclusion verification failed: {}", e))
                     })?;
+
                 Ok(())
             }
             _ => Err(CoreError::Custom(

@@ -27,6 +27,7 @@ libp2p = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["std"] }
 prost = { workspace = true }
 byte-slice-cast = "1.2"
+bincode = { workspace = true }
 
 ibc-client-tendermint = { workspace = true, features = [
     "std",

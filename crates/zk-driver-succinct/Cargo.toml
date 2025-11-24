@@ -12,7 +12,7 @@ default = ["mock"]
 # The current simulation behavior (hashing proof to check against public inputs)
 mock = []
 # Real SP1 verification (requires sp1-verifier)
-native = ["dep:sp1-verifier", "dep:bincode"]
+native = ["dep:sp1-verifier"]
 
 [dependencies]
 ioi-api = { path = "../api" }
@@ -23,7 +23,8 @@ serde_json = { workspace = true }
 hex = { workspace = true }
 dcrypt = { workspace = true }
 thiserror = { workspace = true }
+# bincode is now required for canonical input serialization in both mock and native modes
+bincode = { workspace = true }
 
 # Optional dependencies for native SP1 verification
-bincode = { workspace = true, optional = true }
 sp1-verifier = { version = "5.2.3", optional = true }

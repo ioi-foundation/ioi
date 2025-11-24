@@ -1,6 +1,8 @@
 // Path: crates/zk-driver-succinct/src/sp1_backend.rs
 
 #[cfg(feature = "native")]
+use dcrypt::algorithms::hash::{HashFunction, Sha256};
+#[cfg(feature = "native")]
 use ioi_api::error::CryptoError;
 #[cfg(feature = "native")]
 use ioi_api::zk::ZkProofSystem;
@@ -14,22 +16,26 @@ pub struct Sp1ProofSystem;
 impl ZkProofSystem for Sp1ProofSystem {
     // SP1 Proofs are opaque byte buffers
     type Proof = Vec<u8>;
-    // The Verification Key Hash (vkey) as a hex string
-    type VerifyingKey = String;
-    // The encoded public values (inputs/outputs)
+    // The Verification Key bytes (raw)
+    type VerifyingKey = Vec<u8>;
+    // The encoded public values (inputs/outputs) - these should be bincode serialized
     type PublicInputs = Vec<u8>;
 
     fn verify(
-        vk_hash: &Self::VerifyingKey,
+        vk: &Self::VerifyingKey,
         proof: &Self::Proof,
         public_inputs: &Self::PublicInputs,
     ) -> Result<bool, CryptoError> {
-        // sp1-verifier v5.2.3 signature:
-        // verify(proof: &[u8], public_inputs: &[u8], vkey_hash: &str, groth16_vk: &[u8])
+        // 1. Compute the vkey hash string required by sp1-verifier.
+        // The verifier expects a hex string of the SHA-256 hash of the VK bytes.
+        let vk_digest = Sha256::digest(vk)
+            .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
+        let vkey_hash_str = hex::encode(vk_digest);
 
-        // Pass GROTH16_VK_BYTES by reference
-        Groth16Verifier::verify(proof, public_inputs, vk_hash, &GROTH16_VK_BYTES)
-            .map_err(|_| CryptoError::VerificationFailed)
+        // 2. Call sp1-verifier.
+        // verify(proof: &[u8], public_inputs: &[u8], vkey_hash: &str, groth16_vk: &[u8])
+        Groth16Verifier::verify(proof, public_inputs, &vkey_hash_str, &GROTH16_VK_BYTES)
+            .map_err(|e| CryptoError::Custom(format!("SP1 Verification Error: {}", e)))
             .map(|_| true)
     }
 }

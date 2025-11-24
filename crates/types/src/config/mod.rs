@@ -108,12 +108,25 @@ pub struct ServicePolicy {
 /// Configuration for Zero-Knowledge Light Clients.
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct ZkConfig {
-    /// The verification key hash for the Ethereum Beacon Update circuit.
+    /// Hex-encoded SHA256 hash of the Ethereum Beacon Update verification key.
+    /// This acts as the on-chain trust anchor.
     #[serde(default)]
     pub ethereum_beacon_vkey: String,
-    /// The verification key hash for the State Inclusion circuit.
+
+    /// Optional path to the raw verification key file for the Ethereum Beacon Update circuit.
+    /// Required for nodes running with the `ethereum-zk` feature in native verification mode.
+    #[serde(default)]
+    pub beacon_vk_path: Option<String>,
+
+    /// Hex-encoded SHA256 hash of the State Inclusion verification key.
+    /// This acts as the on-chain trust anchor.
     #[serde(default)]
     pub state_inclusion_vkey: String,
+
+    /// Optional path to the raw verification key file for the State Inclusion circuit.
+    /// Required for nodes running with the `ethereum-zk` feature in native verification mode.
+    #[serde(default)]
+    pub state_vk_path: Option<String>,
 }
 
 /// Configuration for the Workload container (`workload.toml`).

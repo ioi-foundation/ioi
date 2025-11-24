@@ -58,6 +58,9 @@ use ioi_state::tree::verkle::VerkleTree;
 // [NEW] Import for ZK client config
 #[cfg(all(feature = "ibc-deps", feature = "ethereum-zk"))]
 use zk_driver_succinct::config::SuccinctDriverConfig;
+// [NEW] Import for VK loading in native mode
+#[cfg(feature = "ethereum-zk")]
+use ioi_crypto::algorithms::hash::sha256;
 
 #[derive(Parser, Debug)]
 struct OrchestrationOpts {
@@ -320,16 +323,53 @@ where
                         use ioi_api::ibc::LightClient;
                         use ioi_services::ibc::light_clients::ethereum_zk::EthereumZkLightClient;
 
-                        // Create config from workload_config
+                        // Convert WorkloadConfig ZK settings to SuccinctDriverConfig
+                        // NOTE: In the orchestrator, we don't enforce the VK hash match strictly
+                        // during pre-checks unless we also load the keys here.
+                        // For simplicity in this plumbing phase, we load if paths are present,
+                        // or default to empty. The Workload container is the primary enforcer.
+
+                        let zk_cfg = &workload_config.zk_config;
+                        let load_vk = |path: &Option<String>,
+                                       expected_hash: &str,
+                                       label: &str|
+                         -> Result<Vec<u8>> {
+                            if let Some(p) = path {
+                                let bytes = fs::read(p)
+                                    .map_err(|e| anyhow!("Failed to read {} VK: {}", label, e))?;
+                                let hash = hex::encode(sha256(&bytes)?);
+                                if hash != expected_hash {
+                                    tracing::warn!(
+                                        "Configured {} VK hash {} does not match file {}",
+                                        label,
+                                        expected_hash,
+                                        hash
+                                    );
+                                }
+                                Ok(bytes)
+                            } else {
+                                Ok(vec![])
+                            }
+                        };
+
+                        // We use unwrap_or_default on the result of load_vk because the orchestrator
+                        // doesn't strictly need to verify the proofs, just route them.
+                        // However, constructing the verifier requires the config.
+                        let beacon_bytes = load_vk(
+                            &zk_cfg.beacon_vk_path,
+                            &zk_cfg.ethereum_beacon_vkey,
+                            "Beacon",
+                        )
+                        .unwrap_or_default();
+                        let state_bytes =
+                            load_vk(&zk_cfg.state_vk_path, &zk_cfg.state_inclusion_vkey, "State")
+                                .unwrap_or_default();
+
                         let driver_config = SuccinctDriverConfig {
-                            beacon_vkey_hash: workload_config
-                                .zk_config
-                                .ethereum_beacon_vkey
-                                .clone(),
-                            state_inclusion_vkey_hash: workload_config
-                                .zk_config
-                                .state_inclusion_vkey
-                                .clone(),
+                            beacon_vkey_hash: zk_cfg.ethereum_beacon_vkey.clone(),
+                            beacon_vkey_bytes: beacon_bytes,
+                            state_inclusion_vkey_hash: zk_cfg.state_inclusion_vkey.clone(),
+                            state_inclusion_vkey_bytes: state_bytes,
                         };
 
                         // Initialize with real config
