@@ -59,6 +59,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+// [NEW] Import for VK loading in native mode
+#[cfg(feature = "ethereum-zk")]
+use ioi_crypto::algorithms::hash::sha256;
+
 #[derive(Parser, Debug)]
 struct WorkloadOpts {
     #[clap(long, help = "Path to the workload.toml configuration file.")]
@@ -204,11 +208,46 @@ where
                 #[cfg(feature = "ethereum-zk")]
                 {
                     tracing::info!(target: "workload", "Initializing Ethereum ZK Light Client for 'eth-mainnet'");
+                    let zk_cfg = &config.zk_config;
+
+                    // Helper to load and hash VK files
+                    let load_vk = |path: &Option<String>,
+                                   expected_hash: &str,
+                                   label: &str|
+                     -> Result<Vec<u8>> {
+                        if let Some(p) = path {
+                            let bytes = fs::read(p).map_err(|e| {
+                                anyhow!("Failed to read {} VK from {}: {}", label, p, e)
+                            })?;
+                            let hash = hex::encode(sha256(&bytes)?);
+                            if hash != expected_hash {
+                                return Err(anyhow!("SECURITY CRITICAL: {} VK hash mismatch! Config expects: {}, File has: {}", label, expected_hash, hash));
+                            }
+                            tracing::info!(target: "workload", "Loaded {} VK from {} (hash match)", label, p);
+                            Ok(bytes)
+                        } else {
+                            // In mock mode or if no file is provided, return empty vec.
+                            // The driver will panic/error if it tries to verify without bytes in native mode.
+                            // Check cfg!(feature = "native") via a runtime check for better error messaging if needed,
+                            // but for now we just allow the empty vec which mock mode handles fine.
+                            Ok(vec![])
+                        }
+                    };
+
+                    let beacon_bytes = load_vk(
+                        &zk_cfg.beacon_vk_path,
+                        &zk_cfg.ethereum_beacon_vkey,
+                        "Beacon",
+                    )?;
+                    let state_bytes =
+                        load_vk(&zk_cfg.state_vk_path, &zk_cfg.state_inclusion_vkey, "State")?;
 
                     // Convert WorkloadConfig ZK settings to SuccinctDriverConfig
                     let driver_config = SuccinctDriverConfig {
-                        beacon_vkey_hash: config.zk_config.ethereum_beacon_vkey.clone(),
-                        state_inclusion_vkey_hash: config.zk_config.state_inclusion_vkey.clone(),
+                        beacon_vkey_hash: zk_cfg.ethereum_beacon_vkey.clone(),
+                        beacon_vkey_bytes: beacon_bytes,
+                        state_inclusion_vkey_hash: zk_cfg.state_inclusion_vkey.clone(),
+                        state_inclusion_vkey_bytes: state_bytes,
                     };
 
                     // Initialize with the driver config (which sets the verification keys for native mode)
