@@ -7,9 +7,9 @@ use ioi_api::state::{StateAccess, StateManager};
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_system::SystemState;
 use ioi_types::app::{
-    effective_set_for_height, read_validator_sets, write_validator_sets, AccountId, Block,
-    BlockTimingParams, BlockTimingRuntime, ChainStatus, FailureReport, ValidatorSetV1,
-    ValidatorSetsV1,
+    account_id_from_key_material, effective_set_for_height, read_validator_sets,
+    write_validator_sets, AccountId, Block, BlockTimingParams, BlockTimingRuntime, ChainStatus,
+    FailureReport, ValidatorSetV1, ValidatorSetsV1,
 };
 use ioi_types::codec;
 use ioi_types::error::{ConsensusError, StateError, TransactionError};
@@ -18,7 +18,7 @@ use ioi_types::keys::{
 };
 use std::collections::HashSet;
 
-use crate::proof_of_authority::{hash_key, verify_signature};
+use crate::proof_of_authority::verify_signature;
 use hex;
 use tracing::warn;
 
@@ -65,7 +65,7 @@ impl ProofOfStakeEngine {
             return None;
         }
         // Rely on the invariant that vs.validators is already sorted by AccountId via write_validator_sets.
-        
+
         let seed = height.to_le_bytes();
         let hash = sha256(seed).ok()?;
         let winning_ticket =
@@ -496,10 +496,14 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             producer_short_id
         );
         let active_key = &v_entry.consensus_key;
-        let derived_from_header_ok = hash_key(header.producer_key_suite, &header.producer_pubkey)
-            .is_ok_and(|h| h == header.producer_pubkey_hash);
-        let derived_from_state_ok = hash_key(active_key.suite, &header.producer_pubkey)
-            .is_ok_and(|h| h == active_key.public_key_hash);
+
+        // Replaced local hash_key usages with account_id_from_key_material
+        let derived_from_header_ok =
+            account_id_from_key_material(header.producer_key_suite, &header.producer_pubkey)
+                .is_ok_and(|h| h == header.producer_pubkey_hash);
+        let derived_from_state_ok =
+            account_id_from_key_material(active_key.suite, &header.producer_pubkey)
+                .is_ok_and(|h| h == active_key.public_key_hash);
 
         log::info!(
             "[PoS Verify H={}] Producer acct=0x{} header.suite={:?} state.suite={:?} since={} hash.match.header={} hash.match.state={}",
@@ -521,8 +525,10 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 "Header key suite does not match active key".into(),
             ));
         }
-        let derived_hash = hash_key(active_key.suite, &header.producer_pubkey)
+        // Replaced hash_key
+        let derived_hash = account_id_from_key_material(active_key.suite, &header.producer_pubkey)
             .map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))?;
+
         if header.producer_pubkey_hash != derived_hash {
             return Err(ConsensusError::BlockVerificationFailed(
                 "Header public key hash mismatch".into(),

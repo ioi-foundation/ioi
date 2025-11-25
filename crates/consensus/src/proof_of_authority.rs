@@ -22,7 +22,6 @@ use libp2p::PeerId;
 use std::collections::{BTreeSet, HashSet};
 use tracing::warn;
 
-// ... (verify_signature and hash_key helpers remain unchanged) ...
 pub(crate) fn verify_signature(
     message: &[u8],
     public_key: &[u8],
@@ -37,6 +36,9 @@ pub(crate) fn verify_signature(
         Err(ConsensusError::InvalidSignature)
     }
 }
+
+/// Helper retained for compatibility with round_robin consensus engine.
+/// New implementations should use `ioi_types::app::account_id_from_key_material` directly.
 pub(crate) fn hash_key(suite: SignatureSuite, pubkey: &[u8]) -> Result<[u8; 32], CoreError> {
     account_id_from_key_material(suite, pubkey).map_err(|e| CoreError::Custom(e.to_string()))
 }
@@ -172,7 +174,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             .map(|v| v.account_id)
             .filter(|id| !quarantined.contains(id))
             .collect();
-        
+
         // Validator set is sorted in state, filtering preserves order. No sort needed.
 
         // Compute the authoritative timestamp for block at `height`.
@@ -251,7 +253,6 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         }
     }
 
-    // ... (the rest of the file remains unchanged) ...
     async fn handle_block_proposal<CS, ST>(
         &mut self,
         block: Block<T>,
@@ -366,7 +367,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             .filter(|id| !quarantined.contains(id))
             .collect();
         // Validator set is already sorted in state.
-        
+
         if validator_set
             .binary_search(&header.producer_account_id)
             .is_err()
@@ -400,8 +401,10 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         }
 
         let pubkey = &header.producer_pubkey;
-        let derived_hash = hash_key(active_key_suite, pubkey)
+        // Replaced usage of local hash_key helper with canonical function
+        let derived_hash = account_id_from_key_material(active_key_suite, pubkey)
             .map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))?;
+
         if derived_hash != active_key_hash {
             return Err(ConsensusError::BlockVerificationFailed(
                 "Public key in header does not match its hash".into(),
