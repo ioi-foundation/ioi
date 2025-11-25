@@ -166,14 +166,14 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
 
         // FIX: Use the effective validator set for the target height.
         let vs = effective_set_for_height(&sets, height);
-        let mut validator_set: Vec<_> = vs
+        let validator_set: Vec<_> = vs
             .validators
             .iter()
             .map(|v| v.account_id)
             .filter(|id| !quarantined.contains(id))
             .collect();
-        // >>> Normalize order across nodes <<<
-        validator_set.sort();
+        
+        // Validator set is sorted in state, filtering preserves order. No sort needed.
 
         // Compute the authoritative timestamp for block at `height`.
         // This mirrors verification logic in handle_block_proposal.
@@ -359,13 +359,14 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
 
         // [+] FIX: Use the effective validator set for the block being verified.
         let vs = effective_set_for_height(&sets, header.height);
-        let mut validator_set: Vec<_> = vs
+        let validator_set: Vec<_> = vs
             .validators
             .iter()
             .map(|v| v.account_id)
             .filter(|id| !quarantined.contains(id))
             .collect();
-        validator_set.sort();
+        // Validator set is already sorted in state.
+        
         if validator_set
             .binary_search(&header.producer_account_id)
             .is_err()

@@ -92,12 +92,12 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         };
 
         let effective_vs = effective_set_for_height(&sets, height);
-        let mut validator_set: Vec<_> = effective_vs
+        let validator_set: Vec<_> = effective_vs
             .validators
             .iter()
             .map(|v| v.account_id)
             .collect();
-        validator_set.sort();
+        // Validator set is already sorted in state.
 
         // Consistent timestamp calculation for this engine.
         let expected_timestamp_secs = {
@@ -204,12 +204,12 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             .map_err(|e| ConsensusError::StateAccess(StateError::InvalidValue(e.to_string())))?;
 
         let effective_vs = effective_set_for_height(&sets, block.header.height);
-        let mut validator_set: Vec<_> = effective_vs
+        let validator_set: Vec<_> = effective_vs
             .validators
             .iter()
             .map(|v| v.account_id)
             .collect();
-        validator_set.sort();
+        // Validator set is already sorted in state.
 
         if validator_set
             .binary_search(&header.producer_account_id)

@@ -58,11 +58,31 @@ pub fn read_validator_sets(bytes: &[u8]) -> Result<ValidatorSetsV1, StateError> 
     ))
 }
 
-/// Always write V2 (schema_version=2) going forward.
+/// Writes the validator set to a canonical binary format.
+///
+/// **Invariant:** This function automatically sorts the validator lists in both
+/// `current` and `next` (if present) by `account_id`. This ensures that
+/// consensus engines can rely on the state being pre-sorted, avoiding O(N log N)
+/// operations in the hot path.
 pub fn write_validator_sets(sets: &ValidatorSetsV1) -> Result<Vec<u8>, StateError> {
+    // Clone to sort without mutating the input reference
+    let mut sorted_sets = sets.clone();
+
+    // Sort current set
+    sorted_sets
+        .current
+        .validators
+        .sort_by(|a, b| a.account_id.cmp(&b.account_id));
+
+    // Sort next set if it exists
+    if let Some(next) = &mut sorted_sets.next {
+        next.validators
+            .sort_by(|a, b| a.account_id.cmp(&b.account_id));
+    }
+
     codec::to_bytes_canonical(&ValidatorSetBlob {
         schema_version: 2,
-        payload: sets.clone(),
+        payload: sorted_sets,
     })
     .map_err(StateError::Decode)
 }

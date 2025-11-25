@@ -126,9 +126,7 @@ impl IdentityHub {
             return Ok(());
         }
 
-        next_vs
-            .validators
-            .sort_by(|a, b| a.account_id.cmp(&b.account_id));
+        // No manual sort needed; write_validator_sets enforces sorting.
         next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
 
         state.insert(VALIDATOR_SET_KEY, &write_validator_sets(&sets)?)?;

@@ -64,16 +64,14 @@ impl ProofOfStakeEngine {
         if vs.validators.is_empty() || vs.total_weight == 0 {
             return None;
         }
-        // >>> Ensure identical ordering across all nodes <<<
-        let mut ordered = vs.validators.clone();
-        ordered.sort_by(|a, b| a.account_id.cmp(&b.account_id));
-
+        // Rely on the invariant that vs.validators is already sorted by AccountId via write_validator_sets.
+        
         let seed = height.to_le_bytes();
         let hash = sha256(seed).ok()?;
         let winning_ticket =
             u128::from_le_bytes(hash.get(0..16)?.try_into().ok()?) % vs.total_weight;
         let mut cumulative_weight: u128 = 0;
-        for v in &ordered {
+        for v in &vs.validators {
             cumulative_weight += v.weight;
             if winning_ticket < cumulative_weight {
                 return Some(v.account_id);
@@ -134,13 +132,10 @@ impl PenaltyMechanism for ProofOfStakeEngine {
             )));
         }
 
-        // 4. Re-sort and recalculate weights for the next set
-        next_vs
-            .validators
-            .sort_by(|a, b| a.account_id.cmp(&b.account_id));
+        // 4. Re-calculate weights for the next set. Sorting is handled by write_validator_sets.
         next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
 
-        // 5. Write back
+        // 5. Write back (auto-sorts)
         state.insert(VALIDATOR_SET_KEY, &write_validator_sets(&sets)?)?;
         Ok(())
     }
@@ -191,10 +186,7 @@ impl PenaltyEngine for ProofOfStakeEngine {
             )));
         }
 
-        // 4. Resort and recalc for the next set
-        next_vs
-            .validators
-            .sort_by(|a, b| a.account_id.cmp(&b.account_id));
+        // 4. Recalc weight. Sorting handled by the write path.
         next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
 
         // 5. Save using the safe SystemState API

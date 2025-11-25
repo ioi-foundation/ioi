@@ -168,7 +168,9 @@ impl BlockchainService for GovernanceModule {
             }
             "report_misbehavior@v1" => {
                 // --- CHANGED: Governance no longer handles penalties. This is now a kernel function. ---
-                Err(TransactionError::Unsupported("Moved to 'penalties' service. Use service_id='penalties'.".into()))
+                Err(TransactionError::Unsupported(
+                    "Moved to 'penalties' service. Use service_id='penalties'.".into(),
+                ))
             }
             _ => Err(TransactionError::Unsupported(format!(
                 "Governance service does not support method '{}'",
@@ -402,9 +404,7 @@ impl GovernanceModule {
             }
         }
 
-        next_vs
-            .validators
-            .sort_by(|a, b| a.account_id.cmp(&b.account_id));
+        // No manual sort needed; write_validator_sets enforces sorting.
         next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
         state
             .insert(
@@ -448,9 +448,8 @@ impl GovernanceModule {
         if !validator_found {
             return Err("Staker not in validator set".to_string());
         }
-        next_vs
-            .validators
-            .sort_by(|a, b| a.account_id.cmp(&b.account_id));
+
+        // No manual sort needed; write_validator_sets enforces sorting.
         next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
         state
             .insert(
@@ -460,8 +459,6 @@ impl GovernanceModule {
             .map_err(|e| e.to_string())?;
         Ok(())
     }
-
-    // --- Methods below this line are unchanged ---
 
     fn get_next_proposal_id<S: StateAccess + ?Sized>(&self, state: &mut S) -> Result<u64, String> {
         let id_bytes = state
