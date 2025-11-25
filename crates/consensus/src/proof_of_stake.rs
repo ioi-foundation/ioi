@@ -345,13 +345,14 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                     }
                 };
 
-                let parent_gas_used_placeholder = 0u64;
+                let parent_gas_used = parent_view.gas_used().await.map_err(|_| ())?;
+
                 ioi_types::app::compute_next_timestamp(
                     &timing_params,
                     &timing_runtime,
                     height.saturating_sub(1),
                     parent_status.latest_timestamp,
-                    parent_gas_used_placeholder,
+                    parent_gas_used,
                 )
                 .ok_or(())
             };
@@ -480,14 +481,18 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         };
         // --- FIX END ---
 
-        let parent_gas_used_placeholder = 0u64;
+        let parent_gas_used = parent_view
+            .gas_used()
+            .await
+            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?;
+
         let parent_height = header.height - 1;
         let expected_ts = ioi_types::app::compute_next_timestamp(
             &timing_params,
             &timing_runtime,
             parent_height,
             parent_status.latest_timestamp,
-            parent_gas_used_placeholder,
+            parent_gas_used,
         )
         .ok_or_else(|| ConsensusError::BlockVerificationFailed("Timestamp overflow".into()))?;
 

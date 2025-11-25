@@ -276,6 +276,7 @@ where
         };
 
         block.header.state_root = StateRoot(final_state_root_bytes.clone());
+        block.header.gas_used = prepared.gas_used;
         self.state.last_state_root = final_state_root_bytes;
 
         let anchor = StateRoot(block.header.state_root.0.clone())
@@ -342,6 +343,7 @@ where
             state_root: StateRoot(vec![]),
             transactions_root: vec![],
             timestamp,
+            gas_used: 0,
             validator_set: current_validator_set.to_vec(),
             producer_account_id,
             producer_key_suite: suite,
