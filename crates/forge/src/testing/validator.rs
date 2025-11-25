@@ -297,7 +297,7 @@ impl TestValidator {
                 rpc_addr.clone()
             },
             rpc_hardening: Default::default(),
-            initial_sync_timeout_secs: 180,
+            initial_sync_timeout_secs: 5,
             block_production_interval_secs: 5,
             round_robin_view_timeout_secs: 20,
             default_query_gas_limit: 1_000_000_000,

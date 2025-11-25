@@ -1,8 +1,13 @@
 // Path: crates/forge/tests/sync_e2e.rs
-#![cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
+#![cfg(all(
+    any(feature = "consensus-poa", feature = "consensus-pos"),
+    feature = "vm-wasm",
+    feature = "state-iavl"
+))]
 
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use cfg_if::cfg_if;
 use ioi_api::state::service_namespace_prefix;
 use ioi_forge::testing::{
     add_genesis_identity, assert_log_contains, build_test_artifacts, rpc, wait_for_height,
@@ -13,9 +18,9 @@ use ioi_services::governance::VoteParams;
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
-        BlockTimingRuntime, ChainId, ChainTransaction, Credential, Proposal, ProposalStatus,
-        ProposalType, SignHeader, SignatureProof, SignatureSuite, StateEntry, SystemPayload,
-        SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1, VoteOption,
+        BlockTimingRuntime, ChainId, ChainTransaction, Proposal, ProposalStatus, ProposalType,
+        SignHeader, SignatureProof, SignatureSuite, StateEntry, SystemPayload, SystemTransaction,
+        ValidatorSetV1, ValidatorSetsV1, ValidatorV1, VoteOption,
     },
     codec,
     config::InitialServiceConfig,
@@ -78,7 +83,12 @@ fn create_dummy_tx(keypair: &Keypair, nonce: u64, chain_id: ChainId) -> Result<C
 async fn test_multi_batch_sync() -> Result<()> {
     build_test_artifacts();
 
-    let genesis_modifier = |genesis: &mut serde_json::Value, keys: &Vec<Keypair>| {
+    #[cfg(feature = "consensus-pos")]
+    let (consensus_type, initial_weight) = ("ProofOfStake", 100_000u128);
+    #[cfg(not(feature = "consensus-pos"))]
+    let (consensus_type, initial_weight) = ("ProofOfAuthority", 1u128);
+
+    let genesis_modifier = move |genesis: &mut serde_json::Value, keys: &Vec<Keypair>| {
         // [+] Specify types for BTreeMap to resolve inference error
         let mut genesis_entries: BTreeMap<String, Value> = BTreeMap::new();
         let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
@@ -89,7 +99,7 @@ async fn test_multi_batch_sync() -> Result<()> {
 
             validators.push(ValidatorV1 {
                 account_id,
-                weight: 1,
+                weight: initial_weight,
                 consensus_key: ActiveKeyRecord {
                     suite: SignatureSuite::Ed25519,
                     public_key_hash: account_id.0,
@@ -101,7 +111,7 @@ async fn test_multi_batch_sync() -> Result<()> {
 
         let vs = ValidatorSetV1 {
             effective_from_height: 1,
-            total_weight: validators.len() as u128,
+            total_weight: validators.iter().map(|v| v.weight).sum(),
             validators,
         };
         let vs_bytes = ioi_types::app::write_validator_sets(&ValidatorSetsV1 {
@@ -180,8 +190,9 @@ async fn test_multi_batch_sync() -> Result<()> {
     };
 
     // ... [Rest of test logic remains the same] ...
-    let mut cluster = TestCluster::builder()
+    let cluster = TestCluster::builder()
         .with_validators(2)
+        .with_consensus_type(consensus_type)
         .with_genesis_modifier(genesis_modifier)
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
@@ -237,7 +248,12 @@ async fn test_multi_batch_sync() -> Result<()> {
 async fn test_sync_with_peer_drop() -> Result<()> {
     build_test_artifacts();
 
-    let genesis_modifier = |genesis: &mut serde_json::Value, keys: &Vec<Keypair>| {
+    #[cfg(feature = "consensus-pos")]
+    let (consensus_type, initial_weight) = ("ProofOfStake", 100_000u128);
+    #[cfg(not(feature = "consensus-pos"))]
+    let (consensus_type, initial_weight) = ("ProofOfAuthority", 1u128);
+
+    let genesis_modifier = move |genesis: &mut serde_json::Value, keys: &Vec<Keypair>| {
         let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
         let mut validators = Vec::new();
 
@@ -245,7 +261,7 @@ async fn test_sync_with_peer_drop() -> Result<()> {
             let account_id = add_genesis_identity(genesis_state, key);
             validators.push(ValidatorV1 {
                 account_id,
-                weight: 1,
+                weight: initial_weight,
                 consensus_key: ActiveKeyRecord {
                     suite: SignatureSuite::Ed25519,
                     public_key_hash: account_id.0,
@@ -257,7 +273,7 @@ async fn test_sync_with_peer_drop() -> Result<()> {
 
         let vs = ValidatorSetV1 {
             effective_from_height: 1,
-            total_weight: validators.len() as u128,
+            total_weight: validators.iter().map(|v| v.weight).sum(),
             validators,
         };
         let vs_bytes = ioi_types::app::write_validator_sets(&ValidatorSetsV1 {
@@ -333,6 +349,7 @@ async fn test_sync_with_peer_drop() -> Result<()> {
     // ... [Rest of test unchanged] ...
     let mut cluster = TestCluster::builder()
         .with_validators(3)
+        .with_consensus_type(consensus_type)
         .with_genesis_modifier(genesis_modifier)
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
@@ -377,7 +394,7 @@ async fn test_sync_with_peer_drop() -> Result<()> {
             8000,
             1.into(),
             Some(&bootnodes),
-            "ProofOfAuthority",
+            consensus_type,
             "IAVL",
             "Hash",
             None,

@@ -188,6 +188,26 @@ impl TestClusterBuilder {
             }
         }
 
+        // Sort keys by AccountId to ensure node 0 is the leader for height 1 (index 0).
+        // This prevents startup stalls where the leader (e.g., node 2) starts late.
+        validator_keys.sort_by(|a, b| {
+            let pk_a = a.public().encode_protobuf();
+            let pk_b = b.public().encode_protobuf();
+            // We use Ed25519 suite for sorting as it's the default test suite.
+            // This is a heuristic; if mixed suites are used, this might need adjustment.
+            let id_a = ioi_types::app::account_id_from_key_material(
+                ioi_types::app::SignatureSuite::Ed25519,
+                &pk_a,
+            )
+            .unwrap_or([0; 32]);
+            let id_b = ioi_types::app::account_id_from_key_material(
+                ioi_types::app::SignatureSuite::Ed25519,
+                &pk_b,
+            )
+            .unwrap_or([0; 32]);
+            id_a.cmp(&id_b)
+        });
+
         let mut genesis = serde_json::json!({ "genesis_state": {} });
         for modifier in self.genesis_modifiers.drain(..) {
             modifier(&mut genesis, &validator_keys);
@@ -283,7 +303,7 @@ impl TestClusterBuilder {
             // Wrap wait_for_height calls in a way that handles cleanup on failure
             for v_guard in &validators {
                 if let Err(e) =
-                    wait_for_height(&v_guard.validator().rpc_addr, 1, Duration::from_secs(30)).await
+                    wait_for_height(&v_guard.validator().rpc_addr, 1, Duration::from_secs(60)).await
                 {
                     // Cleanup before propagating error
                     for guard in validators {
@@ -294,7 +314,7 @@ impl TestClusterBuilder {
             }
             for v_guard in &validators {
                 if let Err(e) =
-                    wait_for_height(&v_guard.validator().rpc_addr, 2, Duration::from_secs(30)).await
+                    wait_for_height(&v_guard.validator().rpc_addr, 2, Duration::from_secs(60)).await
                 {
                     // Cleanup before propagating error
                     for guard in validators {

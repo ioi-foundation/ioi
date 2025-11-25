@@ -224,12 +224,12 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
     }
 
     let node_state = { context.node_state.lock().await.clone() };
-    if node_state == NodeState::Syncing {
+    if node_state == NodeState::Syncing && block.header.height != our_height + 1 {
         tracing::debug!(
             target: "gossip",
             event = "block_ignored",
             height = block.header.height,
-            reason = "Node is currently syncing"
+            reason = "Node is currently syncing and block is not immediate successor"
         );
         return;
     }
