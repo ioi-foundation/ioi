@@ -1,4 +1,3 @@
-# Path: crates/services/Cargo.toml
 [package]
 name = "ioi-services"
 version = "0.1.0"
@@ -11,6 +10,7 @@ repository = "https://github.com/ioi-foundation/ioi-sdk"
 [dependencies]
 ioi-api = { path = "../api" }
 ioi-types = { path = "../types" }
+ioi-macros = { path = "../macros" }                           # [NEW]
 log = { workspace = true }
 tracing = { workspace = true }
 serde = { workspace = true }
@@ -72,7 +72,6 @@ default = ["ibc-deps"]
 gas-escrow = []
 agentic = ["gas-escrow"]
 ethereum-zk = ["dep:zk-driver-succinct"]
-# This feature flag bundles all dependencies required for the native IBC service.
 ibc-deps = [
     "dep:ibc-client-tendermint",
     "dep:ibc-core-client-types",
