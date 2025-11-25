@@ -179,6 +179,8 @@ pub struct BlockHeader {
     pub transactions_root: Vec<u8>,
     /// The UNIX timestamp (in seconds) when the block was created.
     pub timestamp: u64,
+    /// The total gas consumed by transactions in this block.
+    pub gas_used: u64,
     /// The full, sorted list of PeerIds (in bytes) that constituted the validator
     /// set when this block was created.
     pub validator_set: Vec<Vec<u8>>,
@@ -223,6 +225,8 @@ impl BlockHeader {
             &self.state_root.0,
             &self.transactions_root,
             self.timestamp,
+            self.gas_used,
+            &self.validator_set,
             &self.producer_account_id,
             &self.producer_key_suite,
             &self.producer_pubkey_hash,

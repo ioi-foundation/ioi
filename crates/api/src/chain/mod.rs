@@ -106,7 +106,11 @@ pub trait RemoteStateView: Send + Sync {
 }
 
 /// A marker trait for an immutable, anchored snapshot of the state.
-pub trait AnchoredStateView: RemoteStateView {}
+#[async_trait]
+pub trait AnchoredStateView: RemoteStateView {
+    /// Returns the total gas used in the block corresponding to this state view.
+    async fn gas_used(&self) -> Result<u64, ChainError>;
+}
 
 /// A marker trait for a read-through view that follows the chain's head.
 pub trait LiveStateView: RemoteStateView {

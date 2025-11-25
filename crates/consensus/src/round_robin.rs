@@ -133,11 +133,14 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                     Ok(x) => x,
                     Err(_) => return ConsensusDecision::Stall,
                 };
+
+            let parent_gas_used = parent_view.gas_used().await.unwrap_or(0);
+
             let interval = compute_interval_from_parent_state(
                 &timing_params,
                 &timing_runtime,
                 height.saturating_sub(1),
-                0,
+                parent_gas_used,
             );
             parent_ts + interval
         };

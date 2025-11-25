@@ -14,8 +14,16 @@ use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::traits::NodeState;
 use ioi_types::{
     app::{
-        account_id_from_key_material, to_root_hash, AccountId, Block, BlockHeader,
-        ChainTransaction, SignatureSuite, StateRoot, SystemPayload, TxHash, // Added TxHash
+        account_id_from_key_material,
+        to_root_hash,
+        AccountId,
+        Block,
+        BlockHeader,
+        ChainTransaction,
+        SignatureSuite,
+        StateRoot,
+        SystemPayload,
+        TxHash, // Added TxHash
     },
     codec,
     keys::VALIDATOR_SET_KEY,
@@ -93,7 +101,7 @@ where
 
     if node_state != NodeState::Synced && !(consensus_allows_bootstrap && producing_h == 1) {
         tracing::debug!(
-            target = "consensus",
+            target: "consensus",
             event = "tick_skipped",
             reason = "not synced and not bootstrapping block 1"
         );
@@ -374,6 +382,7 @@ where
                 state_root: ioi_types::app::StateRoot(vec![]),
                 transactions_root: vec![0; 32],
                 timestamp: expected_timestamp_secs,
+                gas_used: 0, // <--- ADDED
                 validator_set: header_validator_set,
                 producer_account_id: our_account_id,
                 producer_key_suite,
@@ -384,7 +393,7 @@ where
             transactions: valid_txs,
         };
 
-        // CHANGED: Use trait accessor, no downcasting needed.
+        // CHANGED: Use trait accessor directly
         let workload_client = view_resolver.workload_client();
         match workload_client.process_block(new_block_template).await {
             Ok((mut final_block, _)) => {

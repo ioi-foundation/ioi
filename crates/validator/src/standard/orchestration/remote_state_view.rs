@@ -115,7 +115,32 @@ where
 }
 
 // Mark this implementation as an AnchoredStateView.
-impl<V: Verifier + Send + Sync> AnchoredStateView for DefaultAnchoredStateView<V> where
-    V::Proof: Decode
+#[async_trait]
+impl<V: Verifier + Send + Sync> AnchoredStateView for DefaultAnchoredStateView<V>
+where
+    V::Proof: Decode,
 {
+    async fn gas_used(&self) -> Result<u64, ChainError> {
+        if self.height == 0 {
+            return Ok(0);
+        }
+        // Use get_blocks_range to fetch the specific block header info.
+        // We pass `self.height` because the store treats it as an inclusive start index.
+        let blocks = self
+            .client
+            .get_blocks_range(self.height, 1, 1024 * 1024)
+            .await
+            .map_err(|e| ChainError::Transaction(e.to_string()))?;
+
+        blocks
+            .into_iter()
+            .find(|b| b.header.height == self.height)
+            .map(|b| b.header.gas_used)
+            .ok_or_else(|| {
+                ChainError::Block(ioi_types::error::BlockError::Invalid(format!(
+                    "Block at height {} not found for gas lookup",
+                    self.height
+                )))
+            })
+    }
 }

@@ -17,6 +17,8 @@ pub struct ChainStateView<ST: StateManager> {
     state_tree: Arc<RwLock<ST>>,
     height: u64,
     root: Vec<u8>,
+    // Added to support gas_used lookups without scanning blocks
+    gas_used: u64,
 }
 
 #[async_trait]
@@ -52,7 +54,12 @@ impl<ST: StateManager + Send + Sync + 'static> RemoteStateView for ChainStateVie
     }
 }
 
-impl<ST: StateManager + Send + Sync + 'static> AnchoredStateView for ChainStateView<ST> {}
+#[async_trait]
+impl<ST: StateManager + Send + Sync + 'static> AnchoredStateView for ChainStateView<ST> {
+    async fn gas_used(&self) -> Result<u64, ChainError> {
+        Ok(self.gas_used)
+    }
+}
 
 #[async_trait]
 impl<CS, ST> ChainView<CS, ST> for ExecutionMachine<CS, ST>
@@ -64,21 +71,32 @@ where
         &self,
         state_ref: &StateRef,
     ) -> Result<Arc<dyn AnchoredStateView>, ChainError> {
-        let resolved_root_bytes = if state_ref.state_root.is_empty() {
+        let (resolved_root_bytes, gas_used) = if state_ref.state_root.is_empty() {
             return Err(ChainError::UnknownStateAnchor(
                 "Cannot create view for empty state root".to_string(),
             ));
         } else if self.state.last_state_root == state_ref.state_root {
-            Some(self.state.last_state_root.clone())
+            // Look up gas_used for the head block from recent_blocks
+            let gas = self
+                .state
+                .recent_blocks
+                .last()
+                .map(|b| b.header.gas_used)
+                .unwrap_or(0);
+            (Some(self.state.last_state_root.clone()), gas)
         } else {
-            self.state.recent_blocks.iter().rev().find_map(|b| {
+            let found = self.state.recent_blocks.iter().rev().find_map(|b| {
                 if b.header.state_root.as_ref() == state_ref.state_root {
                     tracing::info!(target: "state", event = "view_at_resolve", height = b.header.height, root = hex::encode(b.header.state_root.as_ref()));
-                    Some(b.header.state_root.0.clone())
+                    Some((b.header.state_root.0.clone(), b.header.gas_used))
                 } else {
                     None
                 }
-            })
+            });
+            match found {
+                Some((root, gas)) => (Some(root), gas),
+                None => (None, 0),
+            }
         };
 
         let root = resolved_root_bytes
@@ -90,6 +108,7 @@ where
             state_tree: self.workload_container.state_tree(),
             height: state_ref.height,
             root,
+            gas_used,
         };
         Ok(Arc::new(view))
     }
