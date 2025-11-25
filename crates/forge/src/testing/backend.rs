@@ -415,7 +415,11 @@ impl TestBackend for DockerBackend {
                 container_model_path,
             ];
 
-            let guardian_env: Vec<String> = vec![certs_env_str.clone()];
+            // FIX: Ensure Guardian binds to 0.0.0.0 so it's reachable by other containers
+            let guardian_env: Vec<String> = vec![
+                certs_env_str.clone(),
+                "GUARDIAN_LISTEN_ADDR=0.0.0.0:8443".to_string(),
+            ];
             self.launch_container("guardian", guardian_cmd, guardian_env, guardian_binds)
                 .await?;
         }

@@ -1,11 +1,11 @@
 # Path: crates/node/Dockerfile
-
 # Stage 1: Build the binary
 FROM rust:1.78-slim-bullseye as builder
 
 WORKDIR /usr/src/ioi
 # FIX: Add pkg-config and libssl-dev to the list of installed packages.
-RUN apt-get update && apt-get install -y protobuf-compiler build-essential pkg-config libssl-dev
+# UPDATED: Added 'git' to support fetching dependencies from git repositories.
+RUN apt-get update && apt-get install -y protobuf-compiler build-essential pkg-config libssl-dev git
 
 # Add a build argument to accept features from the command line.
 # The default value ensures that if no arg is provided, it still builds the base bins.

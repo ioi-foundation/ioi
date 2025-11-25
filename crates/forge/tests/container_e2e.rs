@@ -4,8 +4,8 @@
 #![cfg(all(feature = "consensus-poa", feature = "vm-wasm"))]
 
 use anyhow::Result;
-use ioi_forge::testing::{build_test_artifacts, TestCluster};
 use ioi_crypto::algorithms::hash::sha256;
+use ioi_forge::testing::{build_test_artifacts, TestCluster};
 use serde_json::json;
 use tempfile::tempdir;
 
@@ -25,7 +25,7 @@ async fn test_secure_channel_and_attestation_flow_docker() -> Result<()> {
     // (guardian, workload, orchestration) have started, connected, and that the
     // orchestration container has passed its agentic attestation check.
     // The successful completion of this line is the entire test.
-    let _cluster = TestCluster::builder()
+    let cluster = TestCluster::builder()
         .with_validators(1)
         .use_docker_backend(true)
         .with_state_tree("IAVL") // Use a valid, production-grade tree
@@ -40,6 +40,10 @@ async fn test_secure_channel_and_attestation_flow_docker() -> Result<()> {
 
     // 3. CLEANUP & FINISH
     // If we reach this point without `build()` returning a timeout error, the test has passed.
+    // Explicitly shut down all validators to satisfy the ValidatorGuard requirement.
+    for guard in cluster.validators {
+        guard.shutdown().await?;
+    }
 
     println!("--- Secure Channel and Attestation E2E Test Passed ---");
     Ok(())
