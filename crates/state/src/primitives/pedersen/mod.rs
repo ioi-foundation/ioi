@@ -1,6 +1,4 @@
 // Path: crates/state/src/primitives/pedersen/mod.rs
-//! Pedersen Commitment Scheme implementation using the k256 elliptic curve.
-
 use dcrypt::algorithms::ec::k256::{self as k256, Point, Scalar};
 use dcrypt::algorithms::hash::{sha2::Sha256 as dcrypt_sha256, HashFunction};
 use ioi_api::commitment::{
@@ -157,7 +155,7 @@ impl CommitmentScheme for PedersenCommitmentScheme {
     type Commitment = PedersenCommitment;
     type Proof = PedersenProof;
     type Value = Vec<u8>;
-    type Witness = ();
+    type Witness = Scalar;
 
     fn commit_with_witness(
         &self,
@@ -196,12 +194,13 @@ impl CommitmentScheme for PedersenCommitmentScheme {
         let commitment_point = value_term.add(&blinding_term);
 
         let commitment = PedersenCommitment(commitment_point.serialize_compressed());
-        Ok((commitment, ()))
+        // Return the blinding scalar so the commitment can be opened later.
+        Ok((commitment, blinding_scalar))
     }
 
     fn create_proof(
         &self,
-        _witness: &Self::Witness,
+        witness: &Self::Witness,
         selector: &Selector,
         value: &Self::Value,
     ) -> Result<Self::Proof, CryptoError> {
@@ -221,7 +220,8 @@ impl CommitmentScheme for PedersenCommitmentScheme {
             )));
         }
 
-        let blinding = Self::random_blinding();
+        // Use the blinding factor provided in the witness.
+        let blinding = witness.clone();
 
         Ok(PedersenProof {
             blinding,
@@ -328,5 +328,68 @@ impl HomomorphicCommitmentScheme for PedersenCommitmentScheme {
             operation,
             HomomorphicOperation::Addition | HomomorphicOperation::ScalarMultiplication
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ioi_api::commitment::Selector;
+
+    #[test]
+    fn test_pedersen_witness_and_verification_flow() {
+        // 1. Setup: Create scheme with 1 value generator
+        let scheme = PedersenCommitmentScheme::new(1).expect("Failed to create scheme");
+        let value = b"secret_data";
+
+        // 2. Commit: Ensure we get a witness (scalar) back, not just ()
+        // The type hint here ensures your change to `type Witness = Scalar` is correct.
+        let (commitment, witness): (PedersenCommitment, Scalar) = scheme
+            .commit_with_witness(&[Some(value.to_vec())])
+            .expect("Commitment failed");
+
+        // 3. Prove: Use the returned witness to create the proof
+        // If the witness was lost (previous bug), we wouldn't be able to call this
+        // effectively if `create_proof` actually required the scalar.
+        let proof = scheme
+            .create_proof(&witness, &Selector::Position(0), &value.to_vec())
+            .expect("Proof generation failed");
+
+        // 4. Verify: The proof (containing the blinding factor) must satisfy the verification equation
+        // C == v*G + r*H
+        let valid = scheme.verify(
+            &commitment,
+            &proof,
+            &Selector::Position(0),
+            &value.to_vec(),
+            &ProofContext::default(),
+        );
+
+        assert!(valid, "Proof verification failed with valid witness");
+    }
+
+    #[test]
+    fn test_pedersen_verify_fails_with_wrong_value() {
+        let scheme = PedersenCommitmentScheme::new(1).unwrap();
+        let value = b"secret_data";
+        let wrong_value = b"wrong_data";
+
+        let (commitment, witness) = scheme.commit_with_witness(&[Some(value.to_vec())]).unwrap();
+
+        // Create proof for the *correct* value
+        let proof = scheme
+            .create_proof(&witness, &Selector::Position(0), &value.to_vec())
+            .unwrap();
+
+        // Try to verify against the *wrong* value
+        let valid = scheme.verify(
+            &commitment,
+            &proof,
+            &Selector::Position(0),
+            &wrong_value.to_vec(),
+            &ProofContext::default(),
+        );
+
+        assert!(!valid, "Verification should fail for mismatched value");
     }
 }
