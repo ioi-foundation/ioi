@@ -4,7 +4,7 @@ use crate::standard::orchestration::context::MainLoopContext;
 use crate::standard::orchestration::gossip::prune_mempool;
 use anyhow::{anyhow, Result};
 use ioi_api::{
-    chain::StateRef,
+    chain::{StateRef, ViewResolver},
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
     crypto::{SerializableKey, SigningKeyPair},
@@ -14,26 +14,18 @@ use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::traits::NodeState;
 use ioi_types::{
     app::{
-        account_id_from_key_material,
-        to_root_hash,
-        AccountId,
-        Block,
-        BlockHeader,
-        ChainTransaction,
-        SignatureSuite,
-        StateRoot,
-        SystemPayload,
-        TxHash, // Added TxHash
+        account_id_from_key_material, to_root_hash, AccountId, Block, BlockHeader,
+        ChainTransaction, SignatureSuite, StateAnchor, StateRoot, SystemPayload, TxHash,
     },
     codec,
     keys::VALIDATOR_SET_KEY,
 };
-// REMOVED: use crate::standard::orchestration::tx_hash::{hash_transaction, TxHash};
+use libp2p::PeerId;
 use serde::Serialize;
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::fmt::Debug;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, Mutex};
 
 // A type alias for the complex signature function to resolve the `type_complexity` lint.
 type SignatureFn = Box<dyn Fn(&[u8]) -> Result<Vec<u8>> + Send>;
@@ -116,43 +108,20 @@ where
         .map_err(|e| anyhow!("[Orch Tick] failed to derive local account id: {e}"))?,
     );
 
-    let height_being_built = match last_committed_block_opt.as_ref() {
-        Some(b) => b.header.height + 1,
-        None => 1,
-    };
+    // --- Step 1: Consensus Decision ---
+    let (parent_ref, parent_anchor) =
+        resolve_parent_ref_and_anchor(&last_committed_block_opt, view_resolver.as_ref()).await?;
 
     let decision = {
-        let parent_ref = if let Some(last) = last_committed_block_opt.as_ref() {
-            let block_hash = to_root_hash(last.header.hash()?)?;
-            StateRef {
-                height: last.header.height,
-                state_root: last.header.state_root.as_ref().to_vec(),
-                block_hash,
-            }
-        } else {
-            let genesis_root_bytes = view_resolver.genesis_root().await?;
-            StateRef {
-                height: 0,
-                state_root: genesis_root_bytes,
-                block_hash: [0; 32],
-            }
-        };
-
         let parent_view = view_resolver.resolve_anchored(&parent_ref).await?;
         let mut engine = consensus_engine_ref.lock().await;
         let known_peers = known_peers_ref.lock().await;
         engine
-            .decide(
-                &our_account_id,
-                height_being_built,
-                0,
-                &*parent_view,
-                &known_peers,
-            )
+            .decide(&our_account_id, producing_h, 0, &*parent_view, &known_peers)
             .await
     };
 
-    tracing::info!(target: "consensus", event = "decision", decision = ?decision, height = height_being_built);
+    tracing::info!(target: "consensus", event = "decision", decision = ?decision, height = producing_h);
 
     if let ioi_api::consensus::ConsensusDecision::ProduceBlock {
         expected_timestamp_secs,
@@ -160,174 +129,29 @@ where
     } = decision
     {
         metrics().inc_blocks_produced();
-        let parent_ref = if let Some(last) = last_committed_block_opt.as_ref() {
-            let block_hash = to_root_hash(last.header.hash()?)?;
-            StateRef {
-                height: last.header.height,
-                state_root: last.header.state_root.as_ref().to_vec(),
-                block_hash,
-            }
-        } else {
-            let genesis_root_bytes = view_resolver.genesis_root().await?;
-            StateRef {
-                height: 0,
-                state_root: genesis_root_bytes,
-                block_hash: [0; 32],
-            }
-        };
 
-        // MODIFIED: Extract transactions from the tuple pool (tx, hash)
-        let (candidate_txs, mempool_len_before) = {
-            let pool = tx_pool_ref.lock().await;
-            tracing::debug!(
-                target: "mempool",
-                "consensus view mempool_size={}, ptr = {:p}",
-                pool.len(),
-                Arc::as_ptr(&tx_pool_ref)
-            );
-            // Extract only the transaction part of the tuple for candidate processing
-            (
-                pool.iter().map(|(tx, _)| tx.clone()).collect::<Vec<_>>(),
-                pool.len(),
-            )
-        };
+        // --- Step 2: Gather Valid Transactions (Pre-check) ---
+        let valid_txs = gather_valid_transactions(
+            &view_resolver,
+            &tx_pool_ref,
+            parent_anchor,
+            expected_timestamp_secs,
+        )
+        .await?;
 
-        for (i, tx) in candidate_txs.iter().enumerate() {
-            let payload_kind = match tx {
-                ChainTransaction::System(s) => {
-                    // After refactoring, all system payloads are CallService.
-                    let SystemPayload::CallService {
-                        service_id, method, ..
-                    } = &s.payload;
-                    format!("CallService({service_id}::{method})")
-                }
-                ChainTransaction::Application(a) => format!("{a:?}"),
-            };
-            tracing::debug!(target="orchestration", event="precheck_candidate", idx=i, %payload_kind);
-        }
+        tracing::info!(target: "consensus", event = "producing_block", height = producing_h, num_txs = valid_txs.len());
 
-        tracing::info!(target: "consensus", event = "precheck_start", mempool_size = mempool_len_before);
-
-        let mut valid_txs = Vec::new();
-        let mut invalid_tx_hashes: HashSet<TxHash> = HashSet::new(); // MODIFIED: Use TxHash
-
-        // CHANGED: Use the safe accessor from the trait, no downcasting needed.
-        let workload_client = view_resolver.workload_client();
-
-        let parent_anchor = StateRoot(parent_ref.state_root.clone())
-            .to_anchor()
-            .map_err(|e| anyhow!("Failed to create parent anchor: {}", e))?;
-
-        for (i, tx) in candidate_txs.iter().enumerate() {
-            match workload_client
-                .check_transactions_at(parent_anchor, expected_timestamp_secs, vec![tx.clone()])
-                .await
-            {
-                Ok(res) if res.first().is_some_and(|r| r.is_ok()) => valid_txs.push(tx.clone()),
-                Ok(res) => {
-                    let err = res
-                        .first()
-                        .and_then(|r| r.as_ref().err())
-                        .cloned()
-                        .unwrap_or_else(|| "Unknown pre-check failure".into());
-                    let (signer, nonce, payload_kind) = match tx {
-                        ChainTransaction::System(s) => {
-                            let SystemPayload::CallService {
-                                service_id, method, ..
-                            } = &s.payload;
-                            (
-                                s.header.account_id,
-                                s.header.nonce,
-                                format!("CallService({}::{})", service_id, method),
-                            )
-                        }
-                        ChainTransaction::Application(a) => match a {
-                            ioi_types::app::ApplicationTransaction::DeployContract {
-                                header,
-                                ..
-                            } => (
-                                header.account_id,
-                                header.nonce,
-                                "DeployContract".to_string(),
-                            ),
-                            ioi_types::app::ApplicationTransaction::CallContract {
-                                header, ..
-                            } => (header.account_id, header.nonce, "CallContract".to_string()),
-                            _ => (AccountId::default(), 0, "UTXO".to_string()),
-                        },
-                    };
-                    tracing::warn!(
-                        target: "orchestration",
-                        event = "tx_filtered",
-                        tx_index = i,
-                        signer = %hex::encode(signer.as_ref()),
-                        nonce = nonce,
-                        payload = %payload_kind,
-                        error = %err,
-                        "pre-check rejected tx"
-                    );
-                    // MODIFIED: Use shared hash helper
-                    if let Ok(tx_hash) = tx.hash() {
-                        invalid_tx_hashes.insert(tx_hash);
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!(
-                        target: "orchestration",
-                        event = "check_tx_ipc_error",
-                        tx_index = i,
-                        error=%e,
-                        "treating as rejection"
-                    );
-                    // MODIFIED: Use shared hash helper
-                    if let Ok(tx_hash) = tx.hash() {
-                        invalid_tx_hashes.insert(tx_hash);
-                    }
-                }
-            }
-        }
-
-        if !invalid_tx_hashes.is_empty() {
-            let mut pool = tx_pool_ref.lock().await;
-            // Efficient pruning using the pre-calculated hash in the pool
-            pool.retain(|(_tx, hash)| !invalid_tx_hashes.contains(hash));
-            tracing::info!(target: "consensus", event = "mempool_prune", num_pruned = invalid_tx_hashes.len());
-        }
-
-        for (i, tx) in valid_txs.iter().enumerate() {
-            let payload_kind = match tx {
-                ChainTransaction::System(s) => {
-                    let SystemPayload::CallService {
-                        service_id, method, ..
-                    } = &s.payload;
-                    format!("CallService({service_id}::{method})")
-                }
-                ChainTransaction::Application(a) => format!("{a:?}"),
-            };
-            tracing::debug!(target="orchestration", event="precheck_valid", idx=i, %payload_kind);
-        }
-        tracing::info!(target: "consensus", event = "producing_block", height = height_being_built, num_txs = valid_txs.len());
-
+        // --- Step 3: Determine Validator Set & Signer ---
+        // We need to resolve the validator set *before* we construct the block template
+        // so we can embed the correct set in the header.
         let parent_view = view_resolver.resolve_anchored(&parent_ref).await?;
-
         let vs_bytes = parent_view
             .get(VALIDATOR_SET_KEY)
             .await?
             .ok_or_else(|| anyhow!("Validator set missing in parent state"))?;
 
         let sets = ioi_types::app::read_validator_sets(&vs_bytes)?;
-        let effective_vs = if let Some(next) = &sets.next {
-            if height_being_built >= next.effective_from_height
-                && !next.validators.is_empty()
-                && next.total_weight > 0
-            {
-                &sets.next.as_ref().unwrap()
-            } else {
-                &sets.current
-            }
-        } else {
-            &sets.current
-        };
+        let effective_vs = ioi_types::app::effective_set_for_height(&sets, producing_h);
 
         let header_validator_set: Vec<Vec<u8>> = effective_vs
             .validators
@@ -340,16 +164,15 @@ where
             .iter()
             .find(|v| v.account_id == our_account_id)
         else {
-            tracing::info!(target:"consensus", event="not_in_validator_set", height = height_being_built, "Will not produce.");
+            tracing::info!(target:"consensus", event="not_in_validator_set", height = producing_h, "Will not produce.");
             return Ok(());
         };
-        let required_suite = me.consensus_key.suite;
 
         let (producer_key_suite, producer_pubkey, signature_fn): (
             SignatureSuite,
             Vec<u8>,
             SignatureFn,
-        ) = match required_suite {
+        ) = match me.consensus_key.suite {
             SignatureSuite::Ed25519 => {
                 let pk = local_keypair.public().encode_protobuf();
                 (
@@ -374,67 +197,40 @@ where
         let producer_pubkey_hash =
             account_id_from_key_material(producer_key_suite, &producer_pubkey)?;
 
+        // --- Step 4: Construct & Process Block Template ---
         let new_block_template = Block {
             header: BlockHeader {
-                height: height_being_built,
+                height: producing_h,
                 parent_hash: parent_ref.block_hash,
                 parent_state_root: ioi_types::app::StateRoot(parent_ref.state_root.clone()),
                 state_root: ioi_types::app::StateRoot(vec![]),
-                transactions_root: vec![0; 32],
+                transactions_root: vec![0; 32], // Will be computed by Workload
                 timestamp: expected_timestamp_secs,
-                gas_used: 0, // <--- ADDED
+                gas_used: 0, // Will be computed by Workload
                 validator_set: header_validator_set,
                 producer_account_id: our_account_id,
                 producer_key_suite,
                 producer_pubkey_hash,
                 producer_pubkey,
-                signature: vec![],
+                signature: vec![], // Will be signed in finalization
             },
             transactions: valid_txs,
         };
 
-        // CHANGED: Use trait accessor directly
         let workload_client = view_resolver.workload_client();
         match workload_client.process_block(new_block_template).await {
-            Ok((mut final_block, _)) => {
-                let block_height = final_block.header.height;
-                tracing::info!(
-                    target: "consensus",
-                    event = "block_processed",
-                    height = block_height
-                );
-                let preimage = final_block.header.to_preimage_for_signing()?;
-                final_block.header.signature = signature_fn(&preimage)?;
-                {
-                    let mut ctx = context_arc.lock().await;
-                    ctx.last_committed_block = Some(final_block.clone());
-                }
-                tracing::debug!(
-                    target: "consensus",
-                    event = "tip_advanced",
-                    height = final_block.header.height,
-                    root = hex::encode(final_block.header.state_root.as_ref())
-                );
-                {
-                    let data = codec::to_bytes_canonical(&final_block).map_err(|e| anyhow!(e))?;
-                    let _ = swarm_commander.send(SwarmCommand::PublishBlock(data)).await;
-                }
-                {
-                    let mut pool = tx_pool_ref.lock().await;
-                    if let Err(e) = prune_mempool(&mut pool, &final_block) {
-                        tracing::error!(target: "consensus", event = "mempool_prune_fail", error=%e);
-                    }
-                }
-                {
-                    consensus_engine_ref.lock().await.reset(block_height);
-                }
-                {
-                    let mut ns = node_state_arc.lock().await;
-                    if *ns == ioi_networking::traits::NodeState::Syncing {
-                        *ns = ioi_networking::traits::NodeState::Synced;
-                        tracing::info!(target: "orchestration", "State -> Synced.");
-                    }
-                }
+            Ok((final_block, _)) => {
+                // --- Step 5: Finalize, Broadcast, and Clean Up ---
+                finalize_and_broadcast_block(
+                    context_arc,
+                    final_block,
+                    signature_fn,
+                    &swarm_commander,
+                    &consensus_engine_ref,
+                    &tx_pool_ref,
+                    &node_state_arc,
+                )
+                .await?;
             }
             Err(e) => {
                 let msg = format!("[Orch Tick] Workload failed to process a pre-validated block proposal: {}. This should not happen.", e);
@@ -449,5 +245,223 @@ where
             "Engine decision was not ProduceBlock; will retry next tick."
         );
     }
+    Ok(())
+}
+
+// -----------------------------------------------------------------------------
+// Helper Functions
+// -----------------------------------------------------------------------------
+
+async fn resolve_parent_ref_and_anchor<V>(
+    last_committed_block_opt: &Option<Block<ChainTransaction>>,
+    view_resolver: &dyn ioi_api::chain::ViewResolver<Verifier = V>,
+) -> Result<(StateRef, StateAnchor)>
+where
+    V: Verifier,
+{
+    let parent_ref = if let Some(last) = last_committed_block_opt.as_ref() {
+        let block_hash = to_root_hash(last.header.hash()?)?;
+        StateRef {
+            height: last.header.height,
+            state_root: last.header.state_root.as_ref().to_vec(),
+            block_hash,
+        }
+    } else {
+        let genesis_root_bytes = view_resolver.genesis_root().await?;
+        StateRef {
+            height: 0,
+            state_root: genesis_root_bytes,
+            block_hash: [0; 32],
+        }
+    };
+
+    let parent_anchor = StateRoot(parent_ref.state_root.clone())
+        .to_anchor()
+        .map_err(|e| anyhow!("Failed to create parent anchor: {}", e))?;
+
+    Ok((parent_ref, parent_anchor))
+}
+
+/// EXTRACTED: Mempool Pre-check Logic
+/// Fetches transactions, validates them against the parent state, and prunes invalid ones.
+async fn gather_valid_transactions<V>(
+    view_resolver: &Arc<dyn ViewResolver<Verifier = V>>,
+    tx_pool_ref: &Arc<Mutex<VecDeque<(ChainTransaction, TxHash)>>>,
+    parent_anchor: StateAnchor,
+    expected_timestamp_secs: u64,
+) -> Result<Vec<ChainTransaction>>
+where
+    V: Verifier,
+{
+    let (candidate_txs, mempool_len_before) = {
+        let pool = tx_pool_ref.lock().await;
+        (
+            pool.iter().map(|(tx, _)| tx.clone()).collect::<Vec<_>>(),
+            pool.len(),
+        )
+    };
+
+    if candidate_txs.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    tracing::info!(target: "consensus", event = "precheck_start", mempool_size = mempool_len_before);
+
+    let mut valid_txs = Vec::new();
+    let mut invalid_tx_hashes: HashSet<TxHash> = HashSet::new();
+    let workload_client = view_resolver.workload_client();
+
+    for (i, tx) in candidate_txs.iter().enumerate() {
+        match workload_client
+            .check_transactions_at(parent_anchor, expected_timestamp_secs, vec![tx.clone()])
+            .await
+        {
+            Ok(res) if res.first().is_some_and(|r| r.is_ok()) => valid_txs.push(tx.clone()),
+            Ok(res) => {
+                let err = res
+                    .first()
+                    .and_then(|r| r.as_ref().err())
+                    .cloned()
+                    .unwrap_or_else(|| "Unknown pre-check failure".into());
+
+                // Log details for debugging
+                let (signer, nonce, payload_kind) = match tx {
+                    ChainTransaction::System(s) => {
+                        let SystemPayload::CallService {
+                            service_id, method, ..
+                        } = &s.payload;
+                        (
+                            s.header.account_id,
+                            s.header.nonce,
+                            format!("CallService({service_id}::{method})"),
+                        )
+                    }
+                    ChainTransaction::Application(a) => match a {
+                        ioi_types::app::ApplicationTransaction::DeployContract {
+                            header, ..
+                        } => (
+                            header.account_id,
+                            header.nonce,
+                            "DeployContract".to_string(),
+                        ),
+                        ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
+                            (header.account_id, header.nonce, "CallContract".to_string())
+                        }
+                        _ => (AccountId::default(), 0, "UTXO".to_string()),
+                    },
+                };
+                tracing::warn!(
+                    target: "orchestration",
+                    event = "tx_filtered",
+                    tx_index = i,
+                    signer = %hex::encode(signer.as_ref()),
+                    nonce = nonce,
+                    payload = %payload_kind,
+                    error = %err,
+                    "pre-check rejected tx"
+                );
+
+                if let Ok(tx_hash) = tx.hash() {
+                    invalid_tx_hashes.insert(tx_hash);
+                }
+            }
+            Err(e) => {
+                tracing::warn!(
+                    target: "orchestration",
+                    event = "check_tx_ipc_error",
+                    tx_index = i,
+                    error=%e,
+                    "treating as rejection"
+                );
+                if let Ok(tx_hash) = tx.hash() {
+                    invalid_tx_hashes.insert(tx_hash);
+                }
+            }
+        }
+    }
+
+    // Prune invalid transactions from the pool
+    if !invalid_tx_hashes.is_empty() {
+        let mut pool = tx_pool_ref.lock().await;
+        pool.retain(|(_tx, hash)| !invalid_tx_hashes.contains(hash));
+        tracing::info!(target: "consensus", event = "mempool_prune", num_pruned = invalid_tx_hashes.len());
+    }
+
+    Ok(valid_txs)
+}
+
+/// EXTRACTED: Block Finalization Logic
+/// Signs the block, updates local state, broadcasts, cleans mempool, and resets consensus.
+async fn finalize_and_broadcast_block<CS, ST, CE, V>(
+    context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    mut final_block: Block<ChainTransaction>,
+    signature_fn: SignatureFn,
+    swarm_commander: &mpsc::Sender<SwarmCommand>,
+    consensus_engine_ref: &Arc<Mutex<CE>>,
+    tx_pool_ref: &Arc<Mutex<VecDeque<(ChainTransaction, TxHash)>>>,
+    node_state_arc: &Arc<Mutex<NodeState>>,
+) -> Result<()>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    let block_height = final_block.header.height;
+
+    // 1. Sign the block
+    let preimage = final_block.header.to_preimage_for_signing()?;
+    final_block.header.signature = signature_fn(&preimage)?;
+
+    // 2. Update Context (Last Committed Block)
+    {
+        let mut ctx = context_arc.lock().await;
+        ctx.last_committed_block = Some(final_block.clone());
+    }
+
+    tracing::info!(
+        target: "consensus",
+        event = "block_finalized",
+        height = block_height,
+        tx_count = final_block.transactions.len(),
+        root = hex::encode(final_block.header.state_root.as_ref())
+    );
+
+    // 3. Broadcast Block
+    {
+        let data = codec::to_bytes_canonical(&final_block).map_err(|e| anyhow!(e))?;
+        let _ = swarm_commander.send(SwarmCommand::PublishBlock(data)).await;
+    }
+
+    // 4. Prune Mempool (Transactions included in the block)
+    {
+        let mut pool = tx_pool_ref.lock().await;
+        if let Err(e) = prune_mempool(&mut pool, &final_block) {
+            tracing::error!(target: "consensus", event = "mempool_prune_fail", error=%e);
+        }
+    }
+
+    // 5. Reset Consensus Engine for next height
+    {
+        consensus_engine_ref.lock().await.reset(block_height);
+    }
+
+    // 6. Update Node State (if syncing)
+    {
+        let mut ns = node_state_arc.lock().await;
+        if *ns == NodeState::Syncing {
+            *ns = NodeState::Synced;
+            tracing::info!(target: "orchestration", "State -> Synced.");
+        }
+    }
+
     Ok(())
 }
