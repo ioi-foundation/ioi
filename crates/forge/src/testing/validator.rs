@@ -519,6 +519,8 @@ impl TestValidator {
         let mut workload_sub = workload_log_tx.subscribe();
 
         if agentic_model_path.is_some() {
+            // FIX: Expect 0.0.0.0 when in Docker, otherwise allow flexibility.
+            // The simple "GUARDIAN_IPC_LISTENING_ON_" pattern matches both.
             assert_log_contains(
                 "Guardian",
                 guardian_sub.as_mut().unwrap(),
@@ -528,10 +530,17 @@ impl TestValidator {
         }
 
         // Wait for workload to signal it is listening before trying to connect.
+        // FIX: Adjust expectation based on backend.
+        let expected_workload_addr = if use_docker {
+            "0.0.0.0:8555"
+        } else {
+            &workload_ipc_addr
+        };
+
         assert_log_contains(
             "Workload",
             &mut workload_sub,
-            &format!("WORKLOAD_IPC_LISTENING_ON_{}", workload_ipc_addr),
+            &format!("WORKLOAD_IPC_LISTENING_ON_{}", expected_workload_addr),
         )
         .await?;
 
@@ -559,12 +568,26 @@ impl TestValidator {
             .await?;
         }
 
-        assert_log_contains(
-            "Orchestration",
-            &mut orch_sub,
-            &format!("ORCHESTRATION_RPC_LISTENING_ON_{}", rpc_addr),
-        )
-        .await?;
+        // FIX: Adjust Orchestration log expectation for Docker.
+        let expected_orch_addr = if use_docker {
+            "0.0.0.0:9999"
+        } else {
+            &rpc_addr
+        };
+
+        // In Docker mode, the backend launch logic consumes the "RPC_LISTENING_ON" log line
+        // to determine readiness. We cannot match it again here because the stream
+        // has moved past it. We only verify it for the process backend.
+        if !use_docker {
+            assert_log_contains(
+                "Orchestration",
+                &mut orch_sub,
+                &format!("ORCHESTRATION_RPC_LISTENING_ON_{}", expected_orch_addr),
+            )
+            .await?;
+        } else {
+            log::info!("[Forge] Docker backend already verified Orchestration RPC readiness.");
+        }
 
         if !light_readiness_check {
             assert_log_contains(

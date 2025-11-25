@@ -7,6 +7,7 @@ use ioi_crypto::security::SecurityLevel;
 use ioi_crypto::transport::hybrid_kem_tls::{
     client_post_handshake, derive_application_key, AeadWrappedStream,
 };
+use ioi_ipc::IpcClientType;
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
@@ -124,12 +125,12 @@ impl SecurityChannel {
         // --- WRAP STREAM WITH AEAD LAYER ---
         let mut aead_stream = AeadWrappedStream::new(secure_stream, app_key);
 
-        // NEW: Send an identification byte to the Guardian.
+        // NEW: Send an identification byte to the Guardian using shared enum.
         // This helps the Guardian route the connection.
         let id_byte = if self.source == "orchestration" {
-            IpcClientId::Orchestration as u8
+            IpcClientType::Orchestrator as u8
         } else {
-            IpcClientId::Workload as u8
+            IpcClientType::Workload as u8
         };
         aead_stream.write_all(&[id_byte]).await?; // Use write_all for single byte
 

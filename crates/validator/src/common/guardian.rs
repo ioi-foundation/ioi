@@ -11,12 +11,13 @@ use crate::config::GuardianConfig;
 use crate::standard::workload_ipc_server::create_ipc_server_config;
 use anyhow::Result;
 use async_trait::async_trait;
-use ioi_client::security::SecurityChannel;
 use ioi_api::validator::Container;
+use ioi_client::security::SecurityChannel;
 use ioi_crypto::{
     algorithms::hash::sha256,
     transport::hybrid_kem_tls::{derive_application_key, server_post_handshake, AeadWrappedStream},
 };
+use ioi_ipc::IpcClientType;
 use ioi_types::error::ValidatorError;
 use rcgen::{Certificate, CertificateParams, KeyUsagePurpose, SanType};
 use std::net::Ipv4Addr;
@@ -175,10 +176,15 @@ impl Container for GuardianContainer {
                                 "[Guardian] Post-quantum channel established for client {}",
                                 client_id_byte
                             );
-                            match client_id_byte {
-                                1 => orch_c.accept_server_connection(aead_stream).await,
-                                2 => work_c.accept_server_connection(aead_stream).await,
-                                _ => log::warn!(
+                            // Use the shared enum instead of magic numbers
+                            match IpcClientType::try_from(client_id_byte) {
+                                Ok(IpcClientType::Orchestrator) => {
+                                    orch_c.accept_server_connection(aead_stream).await
+                                }
+                                Ok(IpcClientType::Workload) => {
+                                    work_c.accept_server_connection(aead_stream).await
+                                }
+                                Err(_) => log::warn!(
                                     "[Guardian] Unknown client ID byte: {}",
                                     client_id_byte
                                 ),
