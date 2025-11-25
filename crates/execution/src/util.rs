@@ -54,16 +54,9 @@ pub fn load_state_from_genesis_file<S: StateManager + ?Sized>(
             if key_bytes == VALIDATOR_SET_KEY {
                 log::debug!("Canonicalizing VALIDATOR_SET_KEY from genesis...");
                 // 1. Decode the validator set blob from the raw bytes in the file.
-                let mut sets = read_validator_sets(&value_bytes)?;
-                // 2. Sort the validators in-place to enforce canonical order.
-                sets.current
-                    .validators
-                    .sort_by(|a, b| a.account_id.cmp(&b.account_id));
-                if let Some(next) = &mut sets.next {
-                    next.validators
-                        .sort_by(|a, b| a.account_id.cmp(&b.account_id));
-                }
-                // 3. Re-serialize the now-sorted struct back into canonical bytes.
+                let sets = read_validator_sets(&value_bytes)?;
+                
+                // 2. Re-serialize via write_validator_sets, which enforces sorting.
                 value_bytes = write_validator_sets(&sets)?;
             }
 
