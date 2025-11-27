@@ -1,5 +1,4 @@
 // Path: crates/forge/tests/proof_verification_e2e.rs
-
 #![cfg(all(
     feature = "consensus-poa",
     feature = "vm-wasm",
@@ -8,7 +7,7 @@
     feature = "malicious-bin"
 ))]
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
     add_genesis_identity, // [+] Import
@@ -19,9 +18,8 @@ use ioi_forge::testing::{
 };
 use ioi_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
-        BlockTimingRuntime, Credential, SignatureSuite, ValidatorSetV1, ValidatorSetsV1,
-        ValidatorV1,
+        ActiveKeyRecord, BlockTimingParams, BlockTimingRuntime, SignatureSuite, ValidatorSetV1,
+        ValidatorSetsV1, ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
@@ -68,8 +66,6 @@ async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
             std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
             json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
         );
-
-        // [-] REMOVED: Manual Identity Records insertion
 
         // Add required block timing params
         let timing_params = BlockTimingParams {
@@ -124,6 +120,10 @@ async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
         true, // use_malicious_workload
         true, // light_readiness_check
         &[],
+        None, // epoch_size
+        None, // keep_recent_heights
+        None, // gc_interval_secs
+        None, // min_finality_depth
     )
     .await?;
 
