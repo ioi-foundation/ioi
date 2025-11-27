@@ -132,6 +132,11 @@ impl TestValidator {
             .await
     }
 
+    /// Kills the workload process. This is only supported by the `ProcessBackend`.
+    pub async fn kill_workload(&mut self) -> Result<()> {
+        self.backend.kill_workload_process().await
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub async fn launch(
         keypair: identity::Keypair,

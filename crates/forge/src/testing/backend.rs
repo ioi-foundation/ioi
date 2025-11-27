@@ -54,6 +54,9 @@ pub trait TestBackend: Send {
         log_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     ) -> Result<()>;
 
+    /// Kills the workload process. Only implemented for `ProcessBackend`.
+    async fn kill_workload_process(&mut self) -> Result<()>;
+
     /// Provides access to the concrete backend type for downcasting.
     fn as_any(&self) -> &dyn Any;
 
@@ -262,6 +265,20 @@ impl TestBackend for ProcessBackend {
         })
         .await??;
 
+        Ok(())
+    }
+
+    async fn kill_workload_process(&mut self) -> Result<()> {
+        if let Some(mut child) = self.workload_process.take() {
+            tracing::info!(target: "forge", "Killing workload process (handle-based)...");
+            child.start_kill()?;
+            // Wait for the process to actually exit to ensure resources/ports are released
+            // and to prevent zombie processes.
+            let status = child.wait().await?;
+            tracing::info!(target: "forge", "Workload process exited with: {}", status);
+        } else {
+            tracing::warn!(target: "forge", "kill_workload_process called but no process handle found.");
+        }
         Ok(())
     }
 
@@ -563,6 +580,12 @@ impl TestBackend for DockerBackend {
     ) -> Result<()> {
         Err(anyhow!(
             "Restarting a single container is not supported in the Docker backend"
+        ))
+    }
+
+    async fn kill_workload_process(&mut self) -> Result<()> {
+        Err(anyhow!(
+            "Killing single container not supported in the Docker backend"
         ))
     }
 

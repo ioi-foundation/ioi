@@ -10,7 +10,6 @@ use axum::{routing::get, serve, Router};
 use ioi_client::WorkloadClient;
 use ioi_forge::testing::{
     add_genesis_identity,
-    assert_log_contains,
     build_test_artifacts, // Added add_genesis_identity
     rpc::{self, submit_transaction},
     wait_for_height,
@@ -401,7 +400,7 @@ async fn test_storage_crash_recovery() -> Result<()> {
 
     let mut node_guard = cluster.validators.into_iter().next().unwrap();
 
-    let test_logic_result = async {
+    let test_logic_result: Result<(), anyhow::Error> = async {
         let rpc_addr = node_guard.validator().rpc_addr.clone();
 
         let request_id = 12345;
@@ -423,31 +422,14 @@ async fn test_storage_crash_recovery() -> Result<()> {
         println!("State was successfully written before crash.");
 
         println!("Killing workload process...");
-        let workload_pid = {
-            // Ensure we are using the in-process backend and access the child handle.
-            let backend = node_guard
-                .validator_mut()
-                .backend
-                .as_any_mut()
-                .downcast_mut::<ioi_forge::testing::backend::ProcessBackend>()
-                .expect("This test must run with the ProcessBackend");
+        // Replaced flaky PID-based shell kill with handle-based kill.
+        // This ensures we kill the exact process we started, even if PIDs wrap or are reused.
+        node_guard
+            .validator_mut()
+            .kill_workload()
+            .await?;
 
-            let child = backend
-                .workload_process
-                .take()
-                .expect("Should have workload process handle");
-
-            child.id().expect("Process should have an ID")
-        };
-        let kill_output = std::process::Command::new("kill")
-            .args(["-9", &workload_pid.to_string()])
-            .output()?;
-        if !kill_output.status.success() {
-            return Err(anyhow!(
-                "Failed to kill workload process: {}",
-                String::from_utf8_lossy(&kill_output.stderr)
-            ));
-        }
+        // Small sleep to ensure OS reclaims ports fully, though wait() in backend helps.
         tokio::time::sleep(Duration::from_secs(2)).await;
 
         println!("Restarting workload process...");
@@ -806,7 +788,7 @@ async fn test_storage_soak_test() -> Result<()> {
         .build()
         .await?;
 
-    let mut node_guard = cluster.validators.remove(0);
+    let node_guard = cluster.validators.remove(0);
     let telemetry_addr = node_guard.validator().workload_telemetry_addr.clone();
     let rpc_addr = node_guard.validator().rpc_addr.clone();
     let keypair = node_guard.validator().keypair.clone();
