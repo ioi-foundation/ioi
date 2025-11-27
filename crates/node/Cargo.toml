@@ -55,6 +55,7 @@ toml = { workspace = true }
 axum = { workspace = true }
 serde = { workspace = true }
 serde_jcs = "0.1.0"
+rand = { workspace = true } # Added rand
 
 [features]
 default = []

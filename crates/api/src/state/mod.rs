@@ -14,6 +14,7 @@ use ioi_types::app::Membership;
 use ioi_types::error::{ProofError, StateError};
 use parity_scale_codec::{Decode, Encode};
 use std::collections::BTreeSet;
+use std::fmt::Debug;
 use std::sync::Arc;
 
 // --- Type Aliases for common state patterns ---
@@ -36,6 +37,7 @@ pub mod namespaced;
 mod overlay;
 pub mod pins;
 mod proof; // New module for proof-related traits
+pub mod retention; // [NEW]
 
 // --- Public Exports ---
 
@@ -46,6 +48,7 @@ pub use namespaced::{service_namespace_prefix, NamespacedStateAccess};
 pub use overlay::*;
 pub use pins::{PinGuard, StateVersionPins};
 pub use proof::*;
+pub use retention::{RetentionManager, RetentionHandle}; // [NEW]
 
 /// A plan detailing which historical state versions should be pruned.
 #[derive(Debug, Clone, Default)]
@@ -64,6 +67,26 @@ impl PrunePlan {
     pub fn excludes(&self, height: u64) -> bool {
         self.excluded_heights.contains(&height)
     }
+}
+
+/// A trait for components that need to prevent historical state from being pruned.
+///
+/// Implementing this trait allows a subsystem (e.g., a light client verifier,
+/// a long-running computation job, or a fraud proof window tracker) to express
+/// a "hard floor" on state retention.
+///
+/// The Garbage Collector guarantees that no state version `v` where `v >= min_required_height()`
+/// will be deleted.
+pub trait PruningGuard: Debug + Send + Sync {
+    /// Returns the minimum block height that this component requires to remain accessible.
+    ///
+    /// # Semantics
+    /// - Return `u64::MAX` if you have *no constraint* on pruning (GC will ignore you).
+    /// - Return `0` if you require that *no historical state is ever pruned* (effectively disabling GC).
+    ///
+    /// In the context of `WorkloadContainer::run_gc_pass`, the GC determines the cutoff as:
+    /// `cutoff = min(config_retention, guard_1.min(), guard_2.min(), ...)`
+    fn min_required_height(&self) -> u64;
 }
 
 /// A trait for a stateless cryptographic proof verifier.

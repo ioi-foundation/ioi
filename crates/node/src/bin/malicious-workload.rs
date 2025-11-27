@@ -191,7 +191,7 @@ where
         consensus_engine,
         workload_container.clone(),
         config.service_policies.clone(), // [NEW] Pass policies
-    );
+    )?;
     machine
         .load_or_initialize_status(&workload_container)
         .await?;

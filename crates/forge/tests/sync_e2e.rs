@@ -7,7 +7,6 @@
 
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use cfg_if::cfg_if;
 use ioi_api::state::service_namespace_prefix;
 use ioi_forge::testing::{
     add_genesis_identity, assert_log_contains, build_test_artifacts, rpc, wait_for_height,
@@ -31,7 +30,6 @@ use ioi_types::{
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
-use parity_scale_codec::Encode;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::time::Duration;
@@ -413,6 +411,10 @@ async fn test_sync_with_peer_drop() -> Result<()> {
             false,
             true,
             &[],
+            None, // epoch_size
+            None, // keep_recent_heights
+            None, // gc_interval_secs
+            None, // min_finality_depth
         )
         .await?;
 

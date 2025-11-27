@@ -149,6 +149,10 @@ impl TestValidator {
         use_malicious_workload: bool,
         light_readiness_check: bool,
         extra_features: &[String],
+        epoch_size: Option<u64>,
+        keep_recent_heights: Option<u64>,
+        gc_interval_secs: Option<u64>,
+        min_finality_depth: Option<u64>,
     ) -> Result<ValidatorGuard> {
         let consensus_feature = match consensus_type {
             "ProofOfAuthority" => "consensus-poa",
@@ -325,9 +329,10 @@ impl TestValidator {
             srs_file_path: None,
             fuel_costs: VmFuelCosts::default(),
             initial_services,
-            min_finality_depth: 1000,
-            keep_recent_heights: 100_000,
-            epoch_size: 50_000,
+            min_finality_depth: min_finality_depth.unwrap_or(1000),
+            keep_recent_heights: keep_recent_heights.unwrap_or(100_000),
+            epoch_size: epoch_size.unwrap_or(50_000),
+            gc_interval_secs: gc_interval_secs.unwrap_or(3600),
             service_policies: ioi_types::config::default_service_policies(), // Use the shared helper
             zk_config: Default::default(), // [FIX] Add default ZK config
         };

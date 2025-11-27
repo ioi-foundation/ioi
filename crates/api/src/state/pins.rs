@@ -2,6 +2,7 @@
 
 //! A lock-free, thread-safe mechanism for pinning state versions to prevent premature pruning.
 
+use crate::state::PruningGuard;
 use dashmap::DashMap;
 use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -66,6 +67,29 @@ impl StateVersionPins {
             .filter(|entry| entry.value().load(Ordering::Acquire) > 0)
             .map(|entry| *entry.key())
             .collect()
+    }
+
+    /// Returns the minimum height currently pinned by any consumer.
+    /// Returns `u64::MAX` if no heights are pinned.
+    pub fn min_pinned_height(&self) -> u64 {
+        let mut min_h = u64::MAX;
+
+        for entry in self.inner.iter() {
+            if entry.value().load(Ordering::Acquire) > 0 {
+                let h = *entry.key();
+                if h < min_h {
+                    min_h = h;
+                }
+            }
+        }
+
+        min_h
+    }
+}
+
+impl PruningGuard for StateVersionPins {
+    fn min_required_height(&self) -> u64 {
+        self.min_pinned_height()
     }
 }
 
