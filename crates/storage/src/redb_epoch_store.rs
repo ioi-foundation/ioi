@@ -1,11 +1,11 @@
 // Path: crates/storage/src/redb_epoch_store.rs
 
 use crate::metrics::metrics;
-use ioi_types::app::{Block, ChainTransaction};
-use ioi_types::codec;
 use ioi_api::storage::{
     be32, be64, CommitInput, Epoch, Height, NodeHash, NodeStore, PruneStats, RootHash, StorageError,
 };
+use ioi_types::app::{Block, ChainTransaction};
+use ioi_types::codec;
 use redb::{Database, ReadTransaction, ReadableTable, TableDefinition, WriteTransaction};
 use std::path::Path;
 use std::sync::Arc;
@@ -393,7 +393,8 @@ impl NodeStore for RedbEpochStore {
         }
         let cutoff_epoch = self.tip_epoch_of(cutoff_height);
         let excluded: ahash::AHashSet<Height> = excluded_heights.iter().copied().collect();
-        let mut nodes_deleted = 0;
+        // Node deletion is disabled to ensure safety for pinned states relying on old nodes.
+        let nodes_deleted = 0;
         let mut heights_pruned = 0;
 
         let w = self.write_txn()?;
@@ -401,29 +402,36 @@ impl NodeStore for RedbEpochStore {
             let mut ver = w
                 .open_table(VERSIONS)
                 .map_err(|e| StorageError::Backend(e.to_string()))?;
-            let mut refs = w
-                .open_table(REFS)
-                .map_err(|e| StorageError::Backend(e.to_string()))?;
-            let mut nods = w
-                .open_table(NODES)
-                .map_err(|e| StorageError::Backend(e.to_string()))?;
             let mut chng = w
                 .open_table(CHANGES)
+                .map_err(|e| StorageError::Backend(e.to_string()))?;
+            // We need ROOT_INDEX to remove reverse mapping so height_for_root returns None for pruned heights.
+            let mut ri = w
+                .open_table(ROOT_INDEX)
                 .map_err(|e| StorageError::Backend(e.to_string()))?;
 
             let end_cutoff_key = k_versions(cutoff_epoch, cutoff_height);
 
-            let keys_to_prune: Vec<Vec<u8>> = ver
+            // Collect (key, root_hash) pairs to prune.
+            // We need the value (root_hash) to clean up ROOT_INDEX.
+            let items_to_prune: Vec<(Vec<u8>, [u8; 32])> = ver
                 .range(..end_cutoff_key.as_slice())
                 .map_err(|e| StorageError::Backend(e.to_string()))?
                 .filter_map(|entry| {
-                    if let Ok((k, _v)) = entry {
+                    if let Ok((k, v)) = entry {
                         let key = k.value();
                         let height_bytes = key.get(8..16)?;
                         let height_arr: [u8; 8] = height_bytes.try_into().ok()?;
                         let height = u64::from_be_bytes(height_arr);
                         if !excluded.contains(&height) {
-                            Some(key.to_vec())
+                            let val_bytes = v.value();
+                            if val_bytes.len() == 32 {
+                                let mut rh = [0u8; 32];
+                                rh.copy_from_slice(val_bytes);
+                                Some((key.to_vec(), rh))
+                            } else {
+                                None
+                            }
                         } else {
                             None
                         }
@@ -434,58 +442,53 @@ impl NodeStore for RedbEpochStore {
                 .take(limit)
                 .collect();
 
-            for key in keys_to_prune {
-                let epoch_bytes = key
-                    .get(0..8)
-                    .and_then(|s| s.try_into().ok())
-                    .ok_or_else(|| StorageError::Decode("Invalid epoch bytes in key".into()))?;
-                let height_bytes = key
-                    .get(8..16)
-                    .and_then(|s| s.try_into().ok())
-                    .ok_or_else(|| StorageError::Decode("Invalid height bytes in key".into()))?;
+            for (key, root_hash) in items_to_prune {
+                let epoch_bytes = &key[0..8];
+                let height_bytes = &key[8..16];
 
-                let epoch = u64::from_be_bytes(epoch_bytes);
-                let height = u64::from_be_bytes(height_bytes);
+                let epoch = parse_u64(epoch_bytes);
+                let height = parse_u64(height_bytes);
 
-                let changes_to_process: Vec<_> = chng
+                let changes_to_process: Vec<Vec<u8>> = chng
                     .range(
                         k_changes(epoch, height, 0).as_slice()
                             ..k_changes(epoch, height, u32::MAX).as_slice(),
                     )
                     .map_err(|e| StorageError::Backend(e.to_string()))?
-                    .map(|r| r.map(|(k, v)| (k.value().to_vec(), v.value().to_vec())))
+                    .map(|r| r.map(|(k, _)| k.value().to_vec()))
                     .collect::<Result<Vec<_>, _>>()
                     .map_err(|e| StorageError::Backend(e.to_string()))?;
 
-                for (ck, cv) in changes_to_process {
-                    let nh_bytes = cv.as_slice();
-                    let mut nh = [0u8; 32];
-                    nh.copy_from_slice(nh_bytes);
-                    let node = NodeHash(nh);
-                    let rk = k_refs(epoch, &node);
-
-                    let old_count = refs
-                        .get(rk.as_slice())
-                        .map_err(|e| StorageError::Backend(e.to_string()))?
-                        .map(|old| parse_u64(old.value()))
-                        .unwrap_or(0);
-
-                    let new_count = old_count.saturating_sub(1);
-                    if new_count == 0 {
-                        refs.remove(rk.as_slice())
-                            .map_err(|e| StorageError::Backend(e.to_string()))?;
-                        nods.remove(k_nodes(epoch, &node).as_slice())
-                            .map_err(|e| StorageError::Backend(e.to_string()))?;
-                        nodes_deleted += 1;
-                    } else {
-                        refs.insert(rk.as_slice(), &v_u64(new_count))
-                            .map_err(|e| StorageError::Backend(e.to_string()))?;
-                    }
+                for ck in changes_to_process {
                     chng.remove(ck.as_slice())
                         .map_err(|e| StorageError::Backend(e.to_string()))?;
                 }
 
-                ver.remove(&key as &[u8])
+                // Clean up ROOT_INDEX if it points to this height.
+                // This ensures that `height_for_root` returns None for pruned heights, preventing
+                // accidental reconstruction of pruned state via root lookups.
+                let should_remove_index = match ri
+                    .get(&root_hash)
+                    .map_err(|e| StorageError::Backend(e.to_string()))?
+                {
+                    Some(v) => {
+                        let bytes = v.value();
+                        if bytes.len() >= 16 {
+                            let indexed_height = parse_u64(&bytes[8..16]);
+                            indexed_height == height
+                        } else {
+                            false
+                        }
+                    }
+                    None => false,
+                };
+
+                if should_remove_index {
+                    ri.remove(&root_hash)
+                        .map_err(|e| StorageError::Backend(e.to_string()))?;
+                }
+
+                ver.remove(key.as_slice())
                     .map_err(|e| StorageError::Backend(e.to_string()))?;
                 heights_pruned += 1;
             }

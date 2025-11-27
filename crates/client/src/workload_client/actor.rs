@@ -1,5 +1,4 @@
 // Path: crates/client/src/workload_client/actor.rs
-// UPDATED
 
 use crate::security::SecureStream;
 use ioi_ipc::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest, JsonRpcResponse};
@@ -140,6 +139,9 @@ impl ClientActor {
                 if let Some(response_tx) = pending_read.write().await.remove(&response.id) {
                     let result = match (response.result, response.error) {
                         (Some(r), None) => Ok(r),
+                        // FIX: Treat (None, None) as a valid success with Null value.
+                        // This happens when the server returns Ok(()) -> result: null.
+                        (None, None) => Ok(serde_json::Value::Null),
                         (None, Some(e)) => Err(e),
                         _ => Err(JsonRpcError {
                             code: -32000,

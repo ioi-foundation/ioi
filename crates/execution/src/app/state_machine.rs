@@ -10,7 +10,8 @@ use ioi_api::services::access::ServiceDirectory;
 use ioi_api::state::{PinGuard, ProofProvider, StateManager, StateOverlay};
 use ioi_api::transaction::context::TxContext;
 use ioi_api::validator::WorkloadContainer;
-use ioi_tx::unified::{UnifiedProof, UnifiedTransactionModel};
+use ioi_tx::unified::UnifiedProof;
+use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{
     account_id_from_key_material, read_validator_sets, to_root_hash, AccountId, Membership,
     SignatureSuite, StateRoot,
@@ -77,7 +78,8 @@ where
         let mut proofs_out = Vec::with_capacity(block.transactions.len());
         let mut block_gas_used = 0u64;
         let state_changes = {
-            let _pin_guard = PinGuard::new(workload.pins.clone(), self.state.status.height);
+            // [CHANGED] Use the pins() method exposed by WorkloadContainer
+            let _pin_guard = PinGuard::new(workload.pins().clone(), self.state.status.height);
             let snapshot_state = {
                 let state_tree_arc = workload.state_tree();
                 let backend_guard = state_tree_arc.read().await;

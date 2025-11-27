@@ -412,6 +412,8 @@ where
             min_finality_depth: workload_config.min_finality_depth,
             keep_recent_heights: workload_config.keep_recent_heights,
             epoch_size: workload_config.epoch_size,
+            // [FIX] Initialize gc_interval_secs
+            gc_interval_secs: workload_config.gc_interval_secs,
             // [FIX] Add default ZK config
             zk_config: Default::default(),
         };
@@ -435,7 +437,8 @@ where
             consensus_for_chain, // Use the cloned engine
             workload_container,
             workload_config.service_policies.clone(), // [NEW] Pass policies
-        );
+        )
+        .map_err(|e| anyhow!("Failed to initialize ExecutionMachine: {}", e))?;
 
         for runtime_id in &workload_config.runtimes {
             let id = runtime_id.to_ascii_lowercase();

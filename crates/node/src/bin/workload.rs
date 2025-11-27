@@ -8,19 +8,17 @@ use clap::Parser;
 use ioi_api::services::UpgradableService; // Import UpgradableService trait
 use ioi_api::services::{access::ServiceDirectory, BlockchainService};
 use ioi_api::{
+    chain::ChainStateMachine, // Added import for ChainStateMachine trait
     commitment::CommitmentScheme,
-    ibc::LightClient, // Added import
     state::{ProofProvider, StateManager},
     storage::NodeStore,
     validator::WorkloadContainer,
 };
 use ioi_consensus::util::engine_from_config;
-use ioi_crypto::transport::hybrid_kem_tls::{
-    derive_application_key, server_post_handshake, AeadWrappedStream,
-};
+// Removed unused imports from ioi_crypto
 use ioi_execution::util::load_state_from_genesis_file;
 use ioi_execution::ExecutionMachine;
-use ioi_ipc::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest, JsonRpcResponse};
+// Removed unused imports from ioi_ipc
 use ioi_services::governance::GovernanceModule;
 #[cfg(feature = "ibc-deps")]
 use ioi_services::ibc::{
@@ -47,17 +45,20 @@ use ioi_storage::metrics as storage_metrics;
 use ioi_storage::RedbEpochStore;
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{to_root_hash, Membership};
-use ioi_types::codec;
+// Removed unused ioi_types::codec
 use ioi_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
 use ioi_types::keys::{STATUS_KEY, VALIDATOR_SET_KEY};
 use ioi_validator::standard::workload_ipc_server::WorkloadIpcServer;
 use ioi_vm_wasm::WasmRuntime;
+use rand::{thread_rng, Rng};
 use serde::Serialize;
 use std::fmt::Debug;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::Mutex;
+use tokio::time::interval;
 
 // [NEW] Import for VK loading in native mode
 #[cfg(feature = "ethereum-zk")]
@@ -86,7 +87,7 @@ where
         + Clone
         + Debug,
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + Debug,
-    CS::Proof: AsRef<[u8]> + Serialize + for<'de> serde::Deserialize<'de> + Debug,
+    CS::Proof: serde::Serialize + for<'de> serde::Deserialize<'de> + AsRef<[u8]> + Debug, // Fix trait bounds for Proof
     CS::Commitment: Debug + From<Vec<u8>>,
 {
     let db_path = Path::new(&config.state_file).with_extension("db");
@@ -295,7 +296,7 @@ where
         consensus_engine,
         workload_container.clone(),
         config.service_policies.clone(), // Pass service policies
-    );
+    )?;
 
     for runtime_id in &config.runtimes {
         let id = runtime_id.to_ascii_lowercase();
@@ -312,6 +313,48 @@ where
         .load_or_initialize_status(&workload_container)
         .await?;
     let machine_arc = Arc::new(Mutex::new(machine));
+
+    // --- PHASE 3: INCREMENTAL GC TASK (Refactored) ---
+    let machine_for_gc = machine_arc.clone();
+    let workload_for_gc = workload_container.clone();
+
+    tokio::spawn(async move {
+        // Use configured interval (default 3600s)
+        let gc_interval_secs = workload_for_gc.config().gc_interval_secs.max(1);
+        let mut ticker = interval(Duration::from_secs(gc_interval_secs));
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        loop {
+            ticker.tick().await;
+
+            // Add jitter only if interval is large enough to matter (avoid jitter on 1s test intervals)
+            if gc_interval_secs > 10 {
+                let jitter_factor = thread_rng().gen_range(-0.10..=0.10);
+                let jitter_millis =
+                    ((gc_interval_secs as f64 * jitter_factor).abs() * 1000.0) as u64;
+                if jitter_millis > 0 {
+                    tokio::time::sleep(Duration::from_millis(jitter_millis)).await;
+                }
+            }
+
+            // Get current height from the machine
+            let current_height = {
+                let guard = machine_for_gc.lock().await;
+                // The ChainStateMachine trait must be in scope to call .status()
+                // This is provided by the import `use ioi_api::chain::ChainStateMachine;`
+                // which we removed earlier because it was unused.
+                // But now we need it here to call .status().
+                // Re-adding it locally or ensuring trait is visible.
+                use ioi_api::chain::ChainStateMachine;
+                guard.status().height
+            };
+
+            // Delegate logic to the container
+            if let Err(e) = workload_for_gc.run_gc_pass(current_height).await {
+                log::error!("[GC] Background pass failed: {}", e);
+            }
+        }
+    });
 
     let ipc_server_addr =
         std::env::var("IPC_SERVER_ADDR").unwrap_or_else(|_| "0.0.0.0:8555".to_string());

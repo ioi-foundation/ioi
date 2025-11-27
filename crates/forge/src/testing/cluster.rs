@@ -4,7 +4,7 @@ use super::validator::{TestValidator, ValidatorGuard};
 use anyhow::Result;
 use dcrypt::sign::eddsa::Ed25519SecretKey;
 use futures_util::{stream::FuturesUnordered, StreamExt};
-use ioi_types::config::InitialServiceConfig;
+use ioi_types::config::InitialServiceConfig; // Removed WorkloadConfig
 use libp2p::{
     identity::{self, ed25519, Keypair},
     Multiaddr,
@@ -41,6 +41,10 @@ pub struct TestClusterBuilder {
     use_malicious_workload: bool,
     extra_features: Vec<String>,
     validator0_key_override: Option<identity::Keypair>,
+    epoch_size: Option<u64>,
+    keep_recent_heights: Option<u64>,
+    gc_interval_secs: Option<u64>,
+    min_finality_depth: Option<u64>,
 }
 
 impl Default for TestClusterBuilder {
@@ -60,6 +64,10 @@ impl Default for TestClusterBuilder {
             use_malicious_workload: false,
             extra_features: Vec::new(),
             validator0_key_override: None,
+            epoch_size: None,
+            keep_recent_heights: None,
+            gc_interval_secs: None,
+            min_finality_depth: None,
         }
     }
 }
@@ -173,6 +181,26 @@ impl TestClusterBuilder {
         self
     }
 
+    pub fn with_epoch_size(mut self, size: u64) -> Self {
+        self.epoch_size = Some(size);
+        self
+    }
+
+    pub fn with_keep_recent_heights(mut self, keep: u64) -> Self {
+        self.keep_recent_heights = Some(keep);
+        self
+    }
+
+    pub fn with_gc_interval(mut self, interval: u64) -> Self {
+        self.gc_interval_secs = Some(interval);
+        self
+    }
+
+    pub fn with_min_finality_depth(mut self, depth: u64) -> Self {
+        self.min_finality_depth = Some(depth);
+        self
+    }
+
     pub async fn build(mut self) -> Result<TestCluster> {
         let mut validator_keys = self.keypairs.take().unwrap_or_else(|| {
             (0..self.num_validators)
@@ -217,6 +245,9 @@ impl TestClusterBuilder {
 
         let mut bootnode_addrs: Vec<Multiaddr> = Vec::new();
 
+        // Capture the new field for the closure
+        let captured_min_finality = self.min_finality_depth;
+
         if let Some(boot_key) = validator_keys.first() {
             let bootnode_guard = TestValidator::launch(
                 boot_key.clone(),
@@ -234,6 +265,10 @@ impl TestClusterBuilder {
                 self.use_malicious_workload,
                 false, // Full readiness check for the bootnode
                 &self.extra_features,
+                self.epoch_size,
+                self.keep_recent_heights,
+                self.gc_interval_secs,
+                self.min_finality_depth,
             )
             .await?;
 
@@ -257,6 +292,10 @@ impl TestClusterBuilder {
                 let captured_services = self.initial_services.clone();
                 let captured_malicious = self.use_malicious_workload;
                 let captured_extra_features = self.extra_features.clone();
+                let captured_epoch_size = self.epoch_size;
+                let captured_keep_recent = self.keep_recent_heights;
+                let captured_gc_interval = self.gc_interval_secs;
+                let captured_min_finality = self.min_finality_depth;
                 let key_clone = key.clone();
 
                 let fut = async move {
@@ -276,6 +315,10 @@ impl TestClusterBuilder {
                         captured_malicious,
                         false, // Full readiness check for subsequent nodes
                         &captured_extra_features,
+                        captured_epoch_size,
+                        captured_keep_recent,
+                        captured_gc_interval,
+                        captured_min_finality,
                     )
                     .await
                 };

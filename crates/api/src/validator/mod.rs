@@ -1,10 +1,8 @@
 // Path: crates/api/src/validator/mod.rs
-//! Defines the core traits and structures for the validator architecture.
-
 use crate::{
     services::access::ServiceDirectory,
-    state::{StateManager, StateVersionPins, VmStateAccessor},
-    storage::NodeStore,
+    state::{RetentionManager, StateManager, StateVersionPins, VmStateAccessor}, // [UPDATED]
+    storage::{NodeStore, PruneStats},
     vm::{ExecutionContext, ExecutionOutput, VirtualMachine, VmStateOverlay},
 };
 use async_trait::async_trait;
@@ -48,8 +46,8 @@ pub struct WorkloadContainer<ST: StateManager> {
     /// The key is a tuple of (state_root, key), and the value is the proof.
     /// This is made public to allow the IPC server to access it.
     pub proof_cache: ProofCache<ST::Proof>,
-    /// A service to pin state versions, preventing them from being pruned during active use.
-    pub pins: Arc<StateVersionPins>,
+    /// The retention manager for handling state pruning and historical access.
+    pub retention_manager: Arc<RetentionManager>, // [CHANGED]
     /// The durable, epoch-sharded storage backend for state tree nodes.
     pub store: Arc<dyn NodeStore>,
 }
@@ -62,6 +60,7 @@ impl<ST: StateManager + Debug> Debug for WorkloadContainer<ST> {
             .field("vm", &"Box<dyn VirtualMachine>")
             .field("services", &"ServiceDirectory")
             .field("proof_cache", &"LruCache")
+            .field("retention_manager", &self.retention_manager) // [CHANGED]
             .field("store", &"Arc<dyn NodeStore>")
             .finish()
     }
@@ -107,6 +106,10 @@ where
         let nz_one = NonZeroUsize::new(1).ok_or(ValidatorError::Config(
             "NonZeroUsize::new failed for LRU cache".into(),
         ))?;
+
+        // [CHANGED] Initialize RetentionManager
+        let retention_manager = Arc::new(RetentionManager::new());
+
         Ok(Self {
             config,
             state_tree: Arc::new(RwLock::new(state_tree)),
@@ -115,9 +118,15 @@ where
             proof_cache: Arc::new(Mutex::new(LruCache::new(
                 NonZeroUsize::new(1024).unwrap_or(nz_one),
             ))),
-            pins: Arc::new(StateVersionPins::default()),
+            retention_manager, // [CHANGED]
             store,
         })
+    }
+
+    /// Access the underlying sparse pins system (e.g., for creating PinGuards).
+    // [NEW] Helper to keep API compatibility
+    pub fn pins(&self) -> &Arc<StateVersionPins> {
+        self.retention_manager.pins()
     }
 
     /// Returns a reference to the workload's configuration.
@@ -252,6 +261,104 @@ where
             .await?;
 
         Ok(output)
+    }
+
+    /// Runs a single pass of the Garbage Collector.
+    ///
+    /// This method delegates the calculation of the pruning plan to the `RetentionManager`,
+    /// which aggregates configuration, sparse pins, and long-running retention clients.
+    ///
+    /// # Arguments
+    ///
+    /// * `current_height` - The current block height of the chain.
+    ///
+    /// # Returns
+    ///
+    /// * `PruneStats` - Statistics about what was pruned (heights and nodes).
+    pub async fn run_gc_pass(&self, current_height: u64) -> Result<PruneStats, ValidatorError> {
+        const BATCH_LIMIT: usize = 1_000;
+        const MAX_BATCHES_PER_TICK: usize = 10;
+
+        let gc_config = &self.config;
+
+        // [CHANGED] Delegate plan calculation to the RetentionManager
+        let plan = self.retention_manager.calculate_prune_plan(
+            current_height,
+            gc_config.keep_recent_heights,
+            gc_config.min_finality_depth,
+        );
+
+        if plan.cutoff_height == 0 {
+            return Ok(PruneStats::default());
+        }
+
+        // 4. Prune In-Memory State (StateManager)
+        // We try to acquire a write lock. If we can't, we skip this part to avoid stalling the node.
+        if let Ok(mut state_tree) = self.state_tree.try_write() {
+            if let Err(e) = state_tree.prune_batch(&plan, BATCH_LIMIT * MAX_BATCHES_PER_TICK) {
+                log::error!("[GC] Failed to prune in-memory state versions: {}", e);
+            }
+        } else {
+            log::warn!("[GC] Could not acquire lock for in-memory prune, skipping this cycle.");
+        }
+
+        // 5. Drop Sealed Epochs (NodeStore)
+        // [FIX] Disabled: drop_sealed_epoch is unsafe because nodes created in old epochs
+        // are shared/referenced by newer versions. Deleting them breaks historical access
+        // for pinned heights.
+        /*
+        let cutoff_epoch = self.store.epoch_of(plan.cutoff_height);
+
+        // The cutoff_epoch will naturally be 0 if cutoff_height was forced to 0 above,
+        // effectively disabling this loop as well.
+        for epoch_id in 0..cutoff_epoch {
+            if self.store.is_sealed(epoch_id).unwrap_or(false) {
+                if let Err(err) = self.store.drop_sealed_epoch(epoch_id) {
+                    log::error!("[GC] Failed to drop sealed epoch {}: {}", epoch_id, err);
+                } else {
+                    log::info!("[GC] Dropped sealed epoch {}", epoch_id);
+                }
+            }
+        }
+        */
+
+        // 6. Prune Heights from NodeStore
+        let mut total_stats = PruneStats::default();
+        for _ in 0..MAX_BATCHES_PER_TICK {
+            let excluded_vec: Vec<u64> = plan.excluded_heights.iter().cloned().collect();
+            match self
+                .store
+                .prune_batch(plan.cutoff_height, &excluded_vec, BATCH_LIMIT)
+            {
+                Ok(stats) => {
+                    total_stats.heights_pruned += stats.heights_pruned;
+                    total_stats.nodes_deleted += stats.nodes_deleted;
+                    if stats.heights_pruned < BATCH_LIMIT {
+                        break;
+                    }
+                }
+                Err(e) => {
+                    log::error!("[GC] Store prune_batch failed: {}", e);
+                    return Err(ValidatorError::Other(e.to_string()));
+                }
+            }
+            tokio::task::yield_now().await;
+        }
+
+        if total_stats.heights_pruned > 0 {
+            log::debug!(
+                "[GC] Pruned {} heights, deleted {} nodes (cutoff {})",
+                total_stats.heights_pruned,
+                total_stats.nodes_deleted,
+                plan.cutoff_height,
+            );
+        }
+
+        // Clear the proof cache after GC to ensure we don't serve stale proofs
+        // for data that has been pruned from the backing store.
+        self.proof_cache.lock().await.clear();
+
+        Ok(total_stats)
     }
 }
 

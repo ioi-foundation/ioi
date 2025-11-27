@@ -20,7 +20,7 @@ use ioi_types::{
     codec,
     keys::VALIDATOR_SET_KEY,
 };
-use libp2p::PeerId;
+// Removed unused import: use libp2p::PeerId;
 use serde::Serialize;
 use std::collections::{HashSet, VecDeque};
 use std::fmt::Debug;

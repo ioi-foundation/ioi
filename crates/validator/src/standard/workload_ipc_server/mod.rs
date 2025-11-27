@@ -6,10 +6,10 @@ pub mod methods;
 pub mod router;
 
 use anyhow::{anyhow, Result};
-use ioi_api::chain::ChainStateMachine;
+// Removed unused ChainStateMachine
 use ioi_api::{
     commitment::CommitmentScheme,
-    state::{PrunePlan, StateManager},
+    state::StateManager, // Removed unused PrunePlan
     validator::WorkloadContainer,
 };
 use ioi_crypto::transport::hybrid_kem_tls::{
@@ -27,8 +27,16 @@ use methods::{
     staking::{GetNextStakesV1, GetStakesV1},
     state::{GetActiveKeyAtV1, GetRawStateV1, GetStateRootV1, PrefixScanV1, QueryStateAtV1},
     system::{
-        CallServiceV1, CheckAndTallyProposalsV1, GetExpectedModelHashV1, GetGenesisStatusV1,
-        GetStatusV1, GetWorkloadConfigV1,
+        CallServiceV1,
+        CheckAndTallyProposalsV1,
+        // [NEW] Debug methods
+        DebugPinHeightV1,
+        DebugTriggerGcV1,
+        DebugUnpinHeightV1,
+        GetExpectedModelHashV1,
+        GetGenesisStatusV1,
+        GetStatusV1,
+        GetWorkloadConfigV1,
     },
     RpcContext,
 };
@@ -154,6 +162,11 @@ where
         router.add_method(GetWorkloadConfigV1::<CS, ST>::default());
         router.add_method(GetGenesisStatusV1::<CS, ST>::default());
 
+        // [NEW] Register Debug Methods
+        router.add_method(DebugPinHeightV1::<CS, ST>::default());
+        router.add_method(DebugUnpinHeightV1::<CS, ST>::default());
+        router.add_method(DebugTriggerGcV1::<CS, ST>::default());
+
         Ok(Self {
             address,
             workload_container,
@@ -179,110 +192,45 @@ where
         )?;
         let acceptor = TlsAcceptor::from(server_config);
 
-        // --- PHASE 3: INCREMENTAL GC TASK ---
-        let state_tree_for_gc = self.workload_container.state_tree();
+        // --- PHASE 3: INCREMENTAL GC TASK (Refactored) ---
+        // This task is now much simpler as it delegates logic to `WorkloadContainer`.
+        let workload_for_gc = self.workload_container.clone();
         let machine_for_gc = self.machine_arc.clone();
-        let gc_config = self.workload_container.config().clone();
-        let pins_for_gc = self.workload_container.pins.clone();
-        let store_for_gc = self.workload_container.store.clone();
-        tokio::spawn(async move {
-            const GC_INTERVAL_SECS: u64 = 3600; // Prune every hour
-            const BATCH_LIMIT: usize = 1_000;
-            const MAX_BATCHES_PER_TICK: usize = 10;
 
-            let mut interval = interval(Duration::from_secs(GC_INTERVAL_SECS));
-            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        tokio::spawn(async move {
+            // Use configured interval (default 3600s)
+            let gc_interval_secs = workload_for_gc.config().gc_interval_secs.max(1);
+            let mut ticker = interval(Duration::from_secs(gc_interval_secs));
+            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
             loop {
-                interval.tick().await;
+                ticker.tick().await;
 
-                // Add +/- 10% jitter to the interval to desynchronize nodes
-                let jitter_factor = thread_rng().gen_range(-0.10..=0.10);
-                let jitter_millis =
-                    ((GC_INTERVAL_SECS as f64 * jitter_factor).abs() * 1000.0) as u64;
-                if jitter_millis > 0 {
-                    tokio::time::sleep(Duration::from_millis(jitter_millis)).await;
+                // Add jitter only if interval is large enough to matter (avoid jitter on 1s test intervals)
+                if gc_interval_secs > 10 {
+                    let jitter_factor = thread_rng().gen_range(-0.10..=0.10);
+                    let jitter_millis =
+                        ((gc_interval_secs as f64 * jitter_factor).abs() * 1000.0) as u64;
+                    if jitter_millis > 0 {
+                        tokio::time::sleep(Duration::from_millis(jitter_millis)).await;
+                    }
                 }
 
-                // --- PHASE 1: Build PrunePlan (async, no locks on state tree) ---
-                let plan = {
-                    let current_height =
-                        ChainStateMachine::status(&*machine_for_gc.lock().await).height;
-                    let finalized_height = current_height; // Placeholder for real finality
-
-                    let horizon_cutoff =
-                        current_height.saturating_sub(gc_config.keep_recent_heights);
-                    let finality_cutoff =
-                        finalized_height.saturating_sub(gc_config.min_finality_depth);
-                    let cutoff_height = horizon_cutoff.min(finality_cutoff);
-
-                    // Defensive clamp: ensure we never try to prune the current height.
-                    let cutoff_height = cutoff_height.min(current_height);
-
-                    let excluded_heights = pins_for_gc.snapshot();
-
-                    PrunePlan {
-                        cutoff_height,
-                        excluded_heights,
-                    }
+                // Get current height from the machine
+                let current_height = {
+                    let guard = machine_for_gc.lock().await;
+                    // The ChainStateMachine trait must be in scope to call .status()
+                    // This is provided by the import `use ioi_api::chain::ChainStateMachine;`
+                    // which we removed earlier because it was unused.
+                    // But now we need it here to call .status().
+                    // Re-adding it locally or ensuring trait is visible.
+                    use ioi_api::chain::ChainStateMachine;
+                    guard.status().height
                 };
 
-                if let Ok(mut state_tree) = state_tree_for_gc.try_write() {
-                    if let Err(e) =
-                        state_tree.prune_batch(&plan, BATCH_LIMIT * MAX_BATCHES_PER_TICK)
-                    {
-                        log::error!("[GC] Failed to prune in-memory state versions: {}", e);
-                    }
-                } else {
-                    log::warn!(
-                        "[GC] Could not acquire lock for in-memory prune, skipping this cycle."
-                    );
-                }
-
-                let cutoff_epoch = store_for_gc.epoch_of(plan.cutoff_height);
-                let pinned_epochs: std::collections::BTreeSet<u64> = plan
-                    .excluded_heights
-                    .iter()
-                    .map(|h| store_for_gc.epoch_of(*h))
-                    .collect();
-
-                for epoch_id in 0..cutoff_epoch {
-                    if pinned_epochs.contains(&epoch_id) {
-                        continue;
-                    }
-                    if store_for_gc.is_sealed(epoch_id).unwrap_or(false) {
-                        if let Err(err) = store_for_gc.drop_sealed_epoch(epoch_id) {
-                            log::error!("[GC] Failed to drop sealed epoch {}: {}", epoch_id, err);
-                        } else {
-                            log::info!("[GC] Dropped sealed epoch {}", epoch_id);
-                        }
-                    }
-                }
-
-                let mut total_pruned = 0;
-                for _ in 0..MAX_BATCHES_PER_TICK {
-                    let excluded_vec: Vec<u64> = plan.excluded_heights.iter().cloned().collect();
-                    match store_for_gc.prune_batch(plan.cutoff_height, &excluded_vec, BATCH_LIMIT) {
-                        Ok(stats) => {
-                            total_pruned += stats.heights_pruned;
-                            if stats.heights_pruned < BATCH_LIMIT {
-                                break;
-                            }
-                        }
-                        Err(e) => {
-                            log::error!("[GC] Store prune_batch failed: {}", e);
-                            break;
-                        }
-                    }
-                    tokio::task::yield_now().await;
-                }
-                if total_pruned > 0 {
-                    log::debug!(
-                        "[GC] Pruned {} heights (cutoff {}, excluded {})",
-                        total_pruned,
-                        plan.cutoff_height,
-                        plan.excluded_heights.len()
-                    );
+                // Delegate logic to the container
+                if let Err(e) = workload_for_gc.run_gc_pass(current_height).await {
+                    log::error!("[GC] Background pass failed: {}", e);
                 }
             }
         });

@@ -4,6 +4,9 @@ use super::RpcContext;
 use crate::standard::workload_ipc_server::router::{RequestContext, RpcMethod};
 use anyhow::{anyhow, Result};
 use ioi_api::{chain::ChainStateMachine, commitment::CommitmentScheme, state::StateManager};
+use ioi_types::app::{
+    DebugPinHeightParams, DebugTriggerGcParams, DebugTriggerGcResponse, DebugUnpinHeightParams,
+};
 use ioi_types::config::WorkloadConfig;
 use serde::{Deserialize, Serialize};
 use std::{any::Any, fmt::Debug, marker::PhantomData, sync::Arc};
@@ -322,5 +325,158 @@ where
                 chain_id: "".to_string(),
             }),
         }
+    }
+}
+
+// --- system.debugPinHeight.v1 ---
+
+/// The RPC method handler for `system.debugPinHeight.v1`.
+pub struct DebugPinHeightV1<CS, ST> {
+    _p: PhantomData<(CS, ST)>,
+}
+impl<CS, ST> Default for DebugPinHeightV1<CS, ST> {
+    fn default() -> Self {
+        Self { _p: PhantomData }
+    }
+}
+
+#[async_trait::async_trait]
+impl<CS, ST> RpcMethod for DebugPinHeightV1<CS, ST>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static,
+{
+    const NAME: &'static str = "system.debugPinHeight.v1";
+    type Params = DebugPinHeightParams;
+    type Result = ();
+
+    async fn call(
+        &self,
+        _req_ctx: RequestContext,
+        shared_ctx: Arc<dyn Any + Send + Sync>,
+        params: Self::Params,
+    ) -> Result<Self::Result> {
+        let ctx = shared_ctx
+            .downcast::<RpcContext<CS, ST>>()
+            .map_err(|_| anyhow!("Invalid context"))?;
+        // [CHANGED] Access pins() via helper
+        ctx.workload.pins().pin(params.height);
+        log::info!("[Debug] Pinned height {}", params.height);
+        Ok(())
+    }
+}
+
+// --- system.debugUnpinHeight.v1 ---
+
+/// The RPC method handler for `system.debugUnpinHeight.v1`.
+pub struct DebugUnpinHeightV1<CS, ST> {
+    _p: PhantomData<(CS, ST)>,
+}
+impl<CS, ST> Default for DebugUnpinHeightV1<CS, ST> {
+    fn default() -> Self {
+        Self { _p: PhantomData }
+    }
+}
+
+#[async_trait::async_trait]
+impl<CS, ST> RpcMethod for DebugUnpinHeightV1<CS, ST>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static,
+{
+    const NAME: &'static str = "system.debugUnpinHeight.v1";
+    type Params = DebugUnpinHeightParams;
+    type Result = ();
+
+    async fn call(
+        &self,
+        _req_ctx: RequestContext,
+        shared_ctx: Arc<dyn Any + Send + Sync>,
+        params: Self::Params,
+    ) -> Result<Self::Result> {
+        let ctx = shared_ctx
+            .downcast::<RpcContext<CS, ST>>()
+            .map_err(|_| anyhow!("Invalid context"))?;
+        // [CHANGED] Access pins() via helper
+        ctx.workload.pins().unpin(params.height);
+        log::info!("[Debug] Unpinned height {}", params.height);
+        Ok(())
+    }
+}
+
+// --- system.debugTriggerGc.v1 ---
+
+/// The RPC method handler for `system.debugTriggerGc.v1`.
+pub struct DebugTriggerGcV1<CS, ST> {
+    _p: PhantomData<(CS, ST)>,
+}
+impl<CS, ST> Default for DebugTriggerGcV1<CS, ST> {
+    fn default() -> Self {
+        Self { _p: PhantomData }
+    }
+}
+
+#[async_trait::async_trait]
+impl<CS, ST> RpcMethod for DebugTriggerGcV1<CS, ST>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + AsRef<[u8]>
+        + Debug,
+    <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync + From<Vec<u8>>,
+    <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
+{
+    const NAME: &'static str = "system.debugTriggerGc.v1";
+    type Params = DebugTriggerGcParams;
+    type Result = DebugTriggerGcResponse;
+
+    async fn call(
+        &self,
+        _req_ctx: RequestContext,
+        shared_ctx: Arc<dyn Any + Send + Sync>,
+        _params: Self::Params,
+    ) -> Result<Self::Result> {
+        let ctx = shared_ctx
+            .downcast::<RpcContext<CS, ST>>()
+            .map_err(|_| anyhow!("Invalid context"))?;
+
+        // Get current height from machine
+        let current_height = {
+            let guard = ctx.machine.lock().await;
+            guard.status().height
+        };
+
+        log::info!(
+            "[Debug] Triggering GC pass manually at height {}",
+            current_height
+        );
+        let stats = ctx
+            .workload
+            .run_gc_pass(current_height)
+            .await
+            .map_err(|e| anyhow!(e.to_string()))?;
+
+        Ok(DebugTriggerGcResponse {
+            heights_pruned: stats.heights_pruned,
+            nodes_deleted: stats.nodes_deleted,
+        })
     }
 }

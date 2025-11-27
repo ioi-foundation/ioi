@@ -24,7 +24,7 @@ use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{AccountId, BlockTimingParams, BlockTimingRuntime, ChainId, FailureReport};
 use ioi_types::codec;
 use ioi_types::config::ServicePolicy;
-use ioi_types::error::{ChainError, StateError, TransactionError};
+use ioi_types::error::{ChainError, CoreError, StateError, TransactionError};
 use ioi_types::keys::{
     BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, STATUS_KEY, UPGRADE_ACTIVE_SERVICE_PREFIX,
 };
@@ -151,7 +151,7 @@ where
         consensus_engine: Consensus<ioi_types::app::ChainTransaction>,
         workload_container: Arc<WorkloadContainer<ST>>,
         service_policies: BTreeMap<String, ServicePolicy>,
-    ) -> Self {
+    ) -> Result<Self, CoreError> {
         let status = ChainStatus {
             height: 0,
             latest_timestamp: 0,
@@ -167,7 +167,7 @@ where
 
         let mut service_manager = ServiceUpgradeManager::new();
         for service in initial_services {
-            service_manager.register_service(service);
+            service_manager.register_service(service)?;
         }
 
         let state = ExecutionMachineState {
@@ -181,7 +181,7 @@ where
             genesis_state: GenesisState::Pending,
         };
 
-        Self {
+        Ok(Self {
             state,
             services: service_directory,
             service_manager,
@@ -189,7 +189,7 @@ where
             workload_container,
             service_meta_cache: HashMap::new(),
             service_policies,
-        }
+        })
     }
 
     pub async fn load_or_initialize_status(

@@ -123,17 +123,18 @@ impl ServiceUpgradeManager {
         self.refreshed_this_block = false;
     }
 
-    pub fn register_service(&mut self, service: Arc<dyn UpgradableService>) {
+    pub fn register_service(
+        &mut self,
+        service: Arc<dyn UpgradableService>,
+    ) -> Result<(), CoreError> {
         let service_id = service.id().to_string(); // Create owned String immediately.
         if let Err(e) = validate_service_id(&service_id) {
-            panic!(
-                "FATAL: Attempted to register service with invalid ID '{}': {}",
-                service_id, e
-            );
+            return Err(e);
         }
         log::info!("Registering service: {}", service_id);
         self.active_services.insert(service_id.clone(), service);
         self.upgrade_history.entry(service_id).or_default();
+        Ok(())
     }
 
     pub fn register_runtime(&mut self, id: &str, runtime: Arc<dyn VirtualMachine>) {
@@ -365,7 +366,7 @@ impl ServiceUpgradeManager {
                 artifact.to_vec(),
                 full_meta.caps,
             ));
-            self.register_service(new_service_arc as Arc<dyn UpgradableService>);
+            self.register_service(new_service_arc as Arc<dyn UpgradableService>)?;
             let meta_bytes = ioi_types::codec::to_bytes_canonical(&full_meta)?;
             state
                 .insert(&active_service_key(service_id), &meta_bytes)

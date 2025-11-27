@@ -170,6 +170,10 @@ pub struct WorkloadConfig {
     /// The size of a state history epoch in blocks for the `redb` backend. Defaults to 50,000.
     #[serde(default = "default_epoch_size")]
     pub epoch_size: u64,
+    /// The interval in seconds between garbage collection passes. Defaults to 3600 (1 hour).
+    #[serde(default = "default_gc_interval_secs")]
+    pub gc_interval_secs: u64,
+
     /// Configuration for Zero-Knowledge Light Clients.
     #[serde(default)]
     pub zk_config: ZkConfig,
@@ -269,6 +273,10 @@ fn default_keep_recent_heights() -> u64 {
 
 fn default_epoch_size() -> u64 {
     50_000
+}
+
+fn default_gc_interval_secs() -> u64 {
+    3600
 }
 
 fn default_chain_id() -> ChainId {

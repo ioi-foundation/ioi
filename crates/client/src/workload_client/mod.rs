@@ -13,6 +13,8 @@ use ioi_api::vm::{ExecutionContext, ExecutionOutput};
 use ioi_ipc::jsonrpc::{JsonRpcId, JsonRpcRequest};
 use ioi_types::app::{
     AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction, StateAnchor, StateRoot,
+    // [NEW] Debug structs
+    DebugPinHeightParams, DebugTriggerGcParams, DebugTriggerGcResponse, DebugUnpinHeightParams,
 };
 use ioi_types::error::ChainError;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -667,6 +669,23 @@ impl WorkloadClient {
         }
         let params = Params { height };
         self.send_rpc("chain.getBlockByHeight.v1", params).await
+    }
+
+    // [NEW] Debug RPC methods for testing
+
+    pub async fn debug_pin_height(&self, height: u64) -> Result<()> {
+        let params = DebugPinHeightParams { height };
+        self.send_rpc("system.debugPinHeight.v1", params).await
+    }
+
+    pub async fn debug_unpin_height(&self, height: u64) -> Result<()> {
+        let params = DebugUnpinHeightParams { height };
+        self.send_rpc("system.debugUnpinHeight.v1", params).await
+    }
+
+    pub async fn debug_trigger_gc(&self) -> Result<DebugTriggerGcResponse> {
+        let params = DebugTriggerGcParams {};
+        self.send_rpc("system.debugTriggerGc.v1", params).await
     }
 }
 

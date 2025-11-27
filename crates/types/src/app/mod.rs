@@ -426,8 +426,7 @@ impl ChainTransaction {
     pub fn hash(&self) -> Result<TxHash, CoreError> {
         let bytes = crate::codec::to_bytes_canonical(self).map_err(CoreError::Custom)?;
 
-        let digest =
-            DcryptSha256::digest(&bytes).map_err(|e| CoreError::Crypto(e.to_string()))?;
+        let digest = DcryptSha256::digest(&bytes).map_err(|e| CoreError::Crypto(e.to_string()))?;
 
         let hash_bytes = digest.to_bytes();
         hash_bytes
@@ -569,4 +568,33 @@ pub enum SystemPayload {
         /// The SCALE-encoded parameters for the method call.
         params: Vec<u8>,
     },
+}
+
+// --- Debug RPC Data Structures ---
+
+/// Parameters for pinning a specific block height to prevent it from being pruned.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DebugPinHeightParams {
+    /// The block height to pin.
+    pub height: u64,
+}
+
+/// Parameters for unpinning a previously pinned block height.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DebugUnpinHeightParams {
+    /// The block height to unpin.
+    pub height: u64,
+}
+
+/// Parameters for triggering an immediate Garbage Collection pass.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DebugTriggerGcParams {}
+
+/// Response containing statistics from a triggered GC pass.
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct DebugTriggerGcResponse {
+    /// The number of block heights pruned from the index.
+    pub heights_pruned: usize,
+    /// The number of state tree nodes deleted from storage.
+    pub nodes_deleted: usize,
 }
