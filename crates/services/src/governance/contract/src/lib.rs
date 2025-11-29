@@ -1,11 +1,15 @@
 // Path: crates/services/src/governance/contract/src/lib.rs
 #![no_std]
-#![cfg(target_arch = "wasm32")]
 extern crate alloc;
 
-use alloc::{collections::BTreeMap, format, string::String, vec, vec::Vec};
+use alloc::{collections::BTreeMap, format, string::String, string::ToString, vec, vec::Vec};
 use ioi_contract_sdk::{self as sdk, context, state};
 use parity_scale_codec::{Decode, Encode};
+
+mod bindings {
+    pub use ioi_contract_sdk::bindings::*;
+}
+use bindings::Guest;
 
 // --- Canonical Data Structures & Keys ---
 const GOVERNANCE_NEXT_PROPOSAL_ID_KEY: &[u8] = b"gov::next_id";
@@ -74,10 +78,19 @@ struct StateEntry {
 }
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default, Hash)]
 struct AccountId(pub [u8; 32]);
+
+#[derive(Encode, Decode, Clone, Default)]
+struct ActiveKeyRecord {
+    suite: u8, // SignatureSuite enum usually encodes as u8 variant index
+    public_key_hash: [u8; 32],
+    since_height: u64,
+}
+
 #[derive(Encode, Decode, Clone)]
 struct ValidatorV1 {
     account_id: AccountId,
-    weight: u128, /*...redacted...*/
+    weight: u128,
+    consensus_key: ActiveKeyRecord,
 }
 #[derive(Encode, Decode, Clone, Default)]
 struct ValidatorSetV1 {
@@ -91,24 +104,8 @@ struct ValidatorSetsV1 {
     next: Option<ValidatorSetV1>,
 }
 
-// --- FFI Helpers ---
-fn return_result(res: Result<(), String>) -> u64 {
-    let resp_bytes = res.encode();
-    let ptr = sdk::allocate(resp_bytes.len() as u32);
-    unsafe {
-        core::ptr::copy_nonoverlapping(resp_bytes.as_ptr(), ptr, resp_bytes.len());
-    }
-    ((ptr as u64) << 32) | (resp_bytes.len() as u64)
-}
-fn return_data(data: &[u8]) -> u64 {
-    let ptr = sdk::allocate(data.len() as u32);
-    unsafe {
-        core::ptr::copy_nonoverlapping(data.as_ptr(), ptr, data.len());
-    }
-    ((ptr as u64) << 32) | (data.len() as u64)
-}
-
 // --- On-Chain Logic ---
+
 fn submit_proposal(submitter: &AccountId, params: &[u8]) -> Result<(), String> {
     let p: SubmitProposalParams = Decode::decode(&mut &*params).map_err(|e| e.to_string())?;
 
@@ -118,7 +115,7 @@ fn submit_proposal(submitter: &AccountId, params: &[u8]) -> Result<(), String> {
     state::set(GOVERNANCE_NEXT_PROPOSAL_ID_KEY, &(id + 1).encode());
 
     let current_height = context::block_height();
-    let voting_period_blocks = 20_000; // Placeholder, would come from on-chain params
+    let voting_period_blocks = 20_000; // Placeholder
     let voting_end_height = current_height + voting_period_blocks;
 
     let proposal = Proposal {
@@ -192,7 +189,7 @@ fn on_end_block() -> Result<(), String> {
 
         // This is inefficient but necessary without a `prefix_scan` FFI.
         // A real implementation would require that host capability.
-        let stakes = state::get(VALIDATOR_SET_KEY)
+        let _stakes = state::get(VALIDATOR_SET_KEY)
             .and_then(|b| Decode::decode::<ValidatorSetsV1>(&mut &*b).ok())
             .map(|sets| {
                 sets.current
@@ -228,34 +225,25 @@ fn on_end_block() -> Result<(), String> {
     Ok(())
 }
 
-// --- Service ABI Exports ---
-#[no_mangle]
-pub extern "C" fn handle_service_call(
-    method_ptr: *const u8,
-    method_len: u32,
-    params_ptr: *const u8,
-    params_len: u32,
-) -> u64 {
-    let method = unsafe {
-        core::str::from_utf8(core::slice::from_raw_parts(method_ptr, method_len as usize))
-            .unwrap_or("")
-    };
-    let params = unsafe { core::slice::from_raw_parts(params_ptr, params_len as usize) };
-    let account_id_bytes: [u8; 32] = [0; 32]; // Passed from host context
-    let account_id = AccountId(account_id_bytes);
+// --- Component Model Implementation ---
 
-    let result = match method {
-        "submit_proposal@v1" => submit_proposal(&account_id, params),
-        "vote@v1" => vote(&account_id, params),
-        "on_end_block@v1" => on_end_block(),
-        _ => Err(format!("Unknown method: {}", method)),
-    };
-    return_result(result)
-}
+struct GovernanceService;
 
-#[no_mangle]
-pub extern "C" fn manifest() -> u64 {
-    let manifest_str = r#"
+impl Guest for GovernanceService {
+    fn id() -> String {
+        "governance".to_string()
+    }
+
+    fn abi_version() -> u32 {
+        1
+    }
+
+    fn state_schema() -> String {
+        "v1".to_string()
+    }
+
+    fn manifest() -> String {
+        r#"
 id = "governance"
 abi_version = 1
 state_schema = "v1"
@@ -266,28 +254,43 @@ capabilities = ["OnEndBlock"]
 "submit_proposal@v1" = "User"
 "vote@v1" = "User"
 "on_end_block@v1" = "Internal"
-"#;
-    return_data(manifest_str.as_bytes())
+"#
+        .to_string()
+    }
+
+    fn handle_service_call(method: String, params: Vec<u8>) -> Result<Vec<u8>, String> {
+        // Retrieve the caller from the execution context.
+        // The context::get_caller() returns Vec<u8>, expected to be 32 bytes for AccountId.
+        let caller_bytes = context::sender();
+        let account_id = if caller_bytes.len() == 32 {
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(&caller_bytes);
+            AccountId(arr)
+        } else {
+            // For Internal calls (like on_end_block), caller might be empty or special.
+            // on_end_block doesn't use the account_id argument, so default is fine.
+            // For user calls, a valid account ID is required.
+            AccountId([0u8; 32])
+        };
+
+        let result = match method.as_str() {
+            "submit_proposal@v1" => submit_proposal(&account_id, &params),
+            "vote@v1" => vote(&account_id, &params),
+            "on_end_block@v1" => on_end_block(),
+            _ => Err(format!("Unknown method: {}", method)),
+        };
+
+        // The host expects a SCALE-encoded Result<(), String> for the return data.
+        Ok(result.encode())
+    }
+
+    fn prepare_upgrade(_input: Vec<u8>) -> Vec<u8> {
+        Vec::new()
+    }
+
+    fn complete_upgrade(_input: Vec<u8>) -> Vec<u8> {
+        Vec::new()
+    }
 }
 
-// Standard service exports
-#[no_mangle]
-pub extern "C" fn id() -> u64 {
-    return_data(b"governance")
-}
-#[no_mangle]
-pub extern "C" fn abi_version() -> u32 {
-    1
-}
-#[no_mangle]
-pub extern "C" fn state_schema() -> u64 {
-    return_data(b"v1")
-}
-#[no_mangle]
-pub extern "C" fn prepare_upgrade(_input_ptr: *const u8, _input_len: u32) -> u64 {
-    return_data(&[])
-}
-#[no_mangle]
-pub extern "C" fn complete_upgrade(_input_ptr: *const u8, _input_len: u32) -> u64 {
-    return_data(&[])
-}
+bindings::export!(GovernanceService with_types_in bindings);

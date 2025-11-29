@@ -12,40 +12,58 @@ pub fn build_test_artifacts() {
     BUILD.call_once(|| {
         println!("--- Building Test Artifacts (one-time setup) ---");
 
-        // Construct the path to the contract relative to the forge crate's manifest directory.
-        // This is robust and works regardless of where `cargo test` is invoked from.
         let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let counter_manifest_path = manifest_dir.join("tests/contracts/counter/Cargo.toml");
+        // Resolve workspace root relative to crates/forge
+        let workspace_root = manifest_dir
+            .parent()
+            .and_then(|p| p.parent())
+            .expect("Failed to resolve workspace root");
+        let target_dir = workspace_root.join("target");
 
-        let status_contract = Command::new("cargo")
-            .args([
-                "build",
-                "--manifest-path", // Use --manifest-path instead of -p
-                counter_manifest_path
-                    .to_str()
-                    .expect("Path to counter contract manifest is not valid UTF-8"),
-                "--release",
-                "--target",
-                "wasm32-unknown-unknown",
-            ])
-            .status()
-            .expect("Failed to execute cargo build for counter-contract");
+        // Counter contract component (used by contract_e2e)
+        let counter_dir = manifest_dir.join("tests/contracts/counter");
+        build_contract_component(&counter_dir, &target_dir, "counter-contract");
 
-        if !status_contract.success() {
-            panic!("Counter contract build failed");
-        }
+        // Fee calculator component (already ports cleanly to components;
+        // used by future upgrade/module tests, but harmless to build here).
+        let fee_dir = manifest_dir.join("tests/contracts/fee-calculator-service");
+        build_contract_component(&fee_dir, &target_dir, "fee-calculator-service");
 
-        // The build for `test-service-v2` is removed. It was replaced by `fee-calculator-service`,
-        // which is now built just-in-time within the `module_upgrade_e2e.rs` test,
-        // making this build step obsolete.
+        // [UNCOMMENTED] Build Test Service V2 (needed for module_upgrade_e2e)
+        let test_service_dir = manifest_dir.join("tests/contracts/test-service");
+        build_contract_component(&test_service_dir, &target_dir, "test-service-v2");
 
         println!("--- Test Artifacts built successfully ---");
     });
 }
 
-/// Infer a correct feature string for `ioi-node` if the caller did not
-/// supply one with an explicit `tree-*` feature.
-#[allow(dead_code)] // This is a library function for test consumers
+/// Helper to build a contract using `cargo component`.
+fn build_contract_component(contract_dir: &Path, target_dir: &Path, package_name: &str) {
+    println!(
+        "Building component for {} in {:?}",
+        package_name, contract_dir
+    );
+
+    let status = Command::new("cargo")
+        .env("CARGO_TARGET_DIR", target_dir)
+        .args([
+            "component",
+            "build",
+            "--release",
+            "--target",
+            "wasm32-wasip1",
+        ])
+        .current_dir(contract_dir)
+        .status()
+        .expect("Failed to execute `cargo component build`. Ensure cargo-component is installed.");
+
+    if !status.success() {
+        panic!("Failed to build component for {}", package_name);
+    }
+}
+
+/// Infer a correct feature string for `ioi-node`.
+#[allow(dead_code)]
 pub(crate) fn resolve_node_features(user_supplied: &str) -> String {
     fn has_tree_feature(s: &str) -> bool {
         s.split(',')

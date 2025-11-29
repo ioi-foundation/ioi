@@ -89,12 +89,16 @@ impl ValidatorGuard {
 impl Drop for ValidatorGuard {
     fn drop(&mut self) {
         if let Some(validator) = self.validator.take() {
+            // Only panic if we are NOT already panicking. This allows the original
+            // test failure message to be displayed instead of this cleanup error.
             if !self.disarmed && !std::thread::panicking() {
                 panic!(
                     "ValidatorGuard for peer {} was dropped without calling .shutdown(). Explicit cleanup is required to prevent resource leaks.",
                     validator.peer_id
                 );
             }
+            // If we ARE panicking, we skip the explicit shutdown since we can't
+            // easily block on async cleanup here, and the OS will reap the child processes.
         }
     }
 }

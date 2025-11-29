@@ -58,6 +58,9 @@ dcrypt = { workspace = true }
 bytes = "1"
 http-body-util = "0.1"
 
+# WASM Component Model tooling for test artifact generation
+wit-component = "0.201.0"
+
 [dev-dependencies]
 ioi-relayer = { path = "../relayer" }
 ioi-services = { path = "../services" }

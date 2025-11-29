@@ -96,8 +96,10 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     build_test_artifacts();
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let workspace_root = manifest_dir.parent().and_then(|p| p.parent()).unwrap();
-    let wasm_path =
-        workspace_root.join("target/wasm32-unknown-unknown/release/counter_contract.wasm");
+
+    // [UPDATED] Path uses wasm32-wasip1
+    let wasm_path = workspace_root.join("target/wasm32-wasip1/release/counter_contract.wasm");
+
     let counter_wasm = std::fs::read(&wasm_path).map_err(|e| {
         anyhow!(
             "Failed to read contract artifact at {:?}: {}. Ensure `build_test_artifacts()` ran correctly.",
@@ -108,7 +110,7 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     let mut nonce = 0;
 
     // 2. SETUP NETWORK
-    let mut cluster = TestCluster::builder()
+    let cluster = TestCluster::builder()
         .with_validators(1)
         .with_consensus_type("ProofOfAuthority")
         .with_state_tree("IAVL")
@@ -195,16 +197,10 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
         .await?;
 
     let node = cluster.validators[0].validator();
-    let rpc_addr = &node.rpc_addr;
-    let keypair = &node.keypair;
-    let certs_path = &node.certs_dir_path;
-    let workload_client = WorkloadClient::new(
-        &node.workload_ipc_addr,
-        &certs_path.join("ca.pem").to_string_lossy(),
-        &certs_path.join("orchestration.pem").to_string_lossy(),
-        &certs_path.join("orchestration.key").to_string_lossy(),
-    )
-    .await?;
+    let rpc_addr = node.rpc_addr.clone();
+    let keypair = node.keypair.clone();
+    let certs_path = node.certs_dir_path.clone();
+    let ipc_addr = node.workload_ipc_addr.clone();
 
     // --- Spawn a background task to continuously drain logs ---
     let (mut orch_logs, _, _) = node.subscribe_logs();
@@ -222,116 +218,127 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
         }
     });
 
-    // Wait for node to be ready
-    wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
-
-    // Sanity check the RPC endpoint
-    let ping = reqwest::Client::new()
-        .post(format!("http://{}/rpc", rpc_addr))
-        .json(&serde_json::json!({
-            "jsonrpc":"2.0","method":"system.getStatus.v1","params":{},"id":1
-        }))
-        .send()
-        .await?
-        .text()
-        .await?;
-    println!("RPC status probe: {}", ping);
-
-    // 3. DEPLOY CONTRACT
-    let deployer_pubkey = keypair.public().encode_protobuf();
-    let contract_address =
-        sha256([deployer_pubkey.as_slice(), counter_wasm.as_slice()].concat()).unwrap();
-    let contract_address_hex = hex::encode(&contract_address);
-
-    let deploy_tx_unsigned = ApplicationTransaction::DeployContract {
-        header: Default::default(),
-        code: counter_wasm.clone(),
-        signature_proof: Default::default(),
-    };
-    let deploy_tx = create_signed_app_tx(keypair, deploy_tx_unsigned, nonce, 1.into());
-    nonce += 1;
-
-    println!("Attempting to submit DEPLOY transaction to {}", rpc_addr);
-    submit_transaction(rpc_addr, &deploy_tx).await?;
-    println!("Successfully submitted DEPLOY transaction.");
-
-    // 4. WAIT FOR DEPLOYMENT to be confirmed in state
-    wait_for_contract_deployment(rpc_addr, &contract_address, Duration::from_secs(20)).await?;
-    println!(
-        "Contract deployed and found in state at address: {}",
-        contract_address_hex
-    );
-
-    // 5. QUERY INITIAL STATE
-    let get_input = vec![0]; // ABI for get()
-    let query_context = ioi_api::vm::ExecutionContext {
-        caller: vec![],
-        block_height: 0,
-        gas_limit: 1_000_000_000,
-        contract_address: vec![],
-    };
-    let query_output = workload_client
-        .query_contract(
-            contract_address.to_vec(),
-            get_input.clone(),
-            query_context.clone(),
+    let test_result: Result<()> = async move {
+        let workload_client = WorkloadClient::new(
+            &ipc_addr,
+            &certs_path.join("ca.pem").to_string_lossy(),
+            &certs_path.join("orchestration.pem").to_string_lossy(),
+            &certs_path.join("orchestration.key").to_string_lossy(),
         )
         .await?;
-    assert_eq!(
-        query_output.return_data,
-        vec![0],
-        "Initial count should be 0"
-    );
 
-    // 6. CALL INCREMENT
-    let increment_input = vec![1]; // ABI for increment()
-    let call_tx_unsigned = ApplicationTransaction::CallContract {
-        header: Default::default(),
-        address: contract_address.to_vec(),
-        input_data: increment_input,
-        gas_limit: 1_000_000,
-        signature_proof: Default::default(),
-    };
-    let call_tx = create_signed_app_tx(keypair, call_tx_unsigned, nonce, 1.into());
-    println!("Attempting to submit CALL transaction to {}", rpc_addr);
-    submit_transaction(rpc_addr, &call_tx).await?;
-    println!("Successfully submitted CALL transaction.");
+        // Wait for node to be ready
+        wait_for_height(&rpc_addr, 1, Duration::from_secs(20)).await?;
 
-    // 7. VERIFY FINAL STATE by polling the contract result directly
-    let deadline = Instant::now() + Duration::from_secs(20); // 20-second timeout
-    loop {
-        let current_query_output = workload_client
+        // Sanity check the RPC endpoint
+        let ping = reqwest::Client::new()
+            .post(format!("http://{}/rpc", rpc_addr))
+            .json(&serde_json::json!({
+                "jsonrpc":"2.0","method":"system.getStatus.v1","params":{},"id":1
+            }))
+            .send()
+            .await?
+            .text()
+            .await?;
+        println!("RPC status probe: {}", ping);
+
+        // 3. DEPLOY CONTRACT
+        let deployer_pubkey = keypair.public().encode_protobuf();
+        let contract_address =
+            sha256([deployer_pubkey.as_slice(), counter_wasm.as_slice()].concat()).unwrap();
+        let contract_address_hex = hex::encode(&contract_address);
+
+        let deploy_tx_unsigned = ApplicationTransaction::DeployContract {
+            header: Default::default(),
+            code: counter_wasm.clone(),
+            signature_proof: Default::default(),
+        };
+        let deploy_tx = create_signed_app_tx(&keypair, deploy_tx_unsigned, nonce, 1.into());
+        // nonce must be updated manually since we are using local variables
+        let next_nonce = nonce + 1;
+
+        println!("Attempting to submit DEPLOY transaction to {}", rpc_addr);
+        submit_transaction(&rpc_addr, &deploy_tx).await?;
+        println!("Successfully submitted DEPLOY transaction.");
+
+        // 4. WAIT FOR DEPLOYMENT to be confirmed in state
+        wait_for_contract_deployment(&rpc_addr, &contract_address, Duration::from_secs(20)).await?;
+        println!(
+            "Contract deployed and found in state at address: {}",
+            contract_address_hex
+        );
+
+        // 5. QUERY INITIAL STATE
+        let get_input = vec![0]; // ABI for get()
+        let query_context = ioi_api::vm::ExecutionContext {
+            caller: vec![],
+            block_height: 0,
+            gas_limit: 1_000_000_000,
+            contract_address: vec![],
+        };
+        let query_output = workload_client
             .query_contract(
                 contract_address.to_vec(),
                 get_input.clone(),
                 query_context.clone(),
             )
             .await?;
+        assert_eq!(
+            query_output.return_data,
+            vec![0],
+            "Initial count should be 0"
+        );
 
-        if current_query_output.return_data == vec![1] {
-            println!("--- Counter is 1. Verification successful. ---");
-            break;
+        // 6. CALL INCREMENT
+        let increment_input = vec![1]; // ABI for increment()
+        let call_tx_unsigned = ApplicationTransaction::CallContract {
+            header: Default::default(),
+            address: contract_address.to_vec(),
+            input_data: increment_input,
+            gas_limit: 1_000_000,
+            signature_proof: Default::default(),
+        };
+        let call_tx = create_signed_app_tx(&keypair, call_tx_unsigned, next_nonce, 1.into());
+        println!("Attempting to submit CALL transaction to {}", rpc_addr);
+        submit_transaction(&rpc_addr, &call_tx).await?;
+        println!("Successfully submitted CALL transaction.");
+
+        // 7. VERIFY FINAL STATE by polling the contract result directly
+        let deadline = Instant::now() + Duration::from_secs(20); // 20-second timeout
+        loop {
+            let current_query_output = workload_client
+                .query_contract(
+                    contract_address.to_vec(),
+                    get_input.clone(),
+                    query_context.clone(),
+                )
+                .await?;
+
+            if current_query_output.return_data == vec![1] {
+                println!("--- Counter is 1. Verification successful. ---");
+                break;
+            }
+
+            if Instant::now() >= deadline {
+                anyhow::bail!(
+                    "Timeout waiting for counter to be 1. Current value: {:?}",
+                    current_query_output.return_data
+                );
+            }
+            tokio::time::sleep(Duration::from_millis(250)).await;
         }
 
-        if Instant::now() >= deadline {
-            anyhow::bail!(
-                "Timeout waiting for counter to be 1. Current value: {:?}",
-                current_query_output.return_data
-            );
-        }
-        tokio::time::sleep(Duration::from_millis(250)).await;
+        println!("--- E2E Contract Test Successful ---");
+        Ok(())
     }
-
-    println!("--- E2E Contract Test Successful ---");
+    .await;
 
     // Clean up the background task
     let _ = tx_stop.send(());
     let _ = log_task.await;
 
-    // Explicitly shut down the cluster
-    for guard in cluster.validators {
-        guard.shutdown().await?;
-    }
+    // Explicitly shut down the cluster to prevent ValidatorGuard panic, even if test failed
+    cluster.shutdown().await?;
 
-    Ok(())
+    test_result
 }

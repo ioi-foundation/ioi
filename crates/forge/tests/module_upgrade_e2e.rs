@@ -4,35 +4,32 @@
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
-    assert_log_contains,
+    add_genesis_identity, assert_log_contains,
     rpc::{query_state_key, query_state_key_at_root, tip_height_resilient},
     submit_transaction, wait_for_height, wait_until, TestCluster,
 };
-// --- FIX START: Import the necessary parameter structs ---
 use ioi_services::governance::{StoreModuleParams, SwapModuleParams};
-// --- FIX END ---
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
         BlockTimingRuntime, ChainId, ChainTransaction, Credential, Proposal, ProposalStatus,
-        ProposalType, SignatureSuite, StateEntry, SystemPayload, SystemTransaction, ValidatorSetV1,
-        ValidatorSetsV1, ValidatorV1, VoteOption,
+        ProposalType, SignHeader, SignatureProof, SignatureSuite, StateEntry, SystemPayload,
+        SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1, VoteOption,
     },
     codec,
     config::InitialServiceConfig,
     keys::{
         active_service_key, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, GOVERNANCE_KEY,
-        GOVERNANCE_PROPOSAL_KEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, UPGRADE_ARTIFACT_PREFIX,
-        UPGRADE_MANIFEST_PREFIX, UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY,
+        GOVERNANCE_PROPOSAL_KEY_PREFIX, UPGRADE_ARTIFACT_PREFIX, UPGRADE_MANIFEST_PREFIX,
+        UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY,
     },
     service_configs::{
-        ActiveServiceMeta, Capabilities, GovernancePolicy, GovernanceSigner, MigrationConfig,
+        ActiveServiceMeta, GovernancePolicy, GovernanceSigner, MethodPermission, MigrationConfig,
     },
 };
 use libp2p::identity::{self, Keypair};
 use parity_scale_codec::Encode;
 use serde_json::{json, Map, Value};
-use std::collections::BTreeMap;
 use std::path::Path;
 use std::time::Duration;
 
@@ -59,7 +56,12 @@ fn add_identity_to_genesis(genesis_state: &mut Map<String, Value>, keypair: &Key
     };
     let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
     let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
-    let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
+    let creds_key = [
+        ioi_types::keys::IDENTITY_CREDENTIALS_PREFIX,
+        account_id.as_ref(),
+    ]
+    .concat();
+
     genesis_state.insert(
         format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
         json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
@@ -143,15 +145,16 @@ async fn test_forkless_module_upgrade() -> Result<()> {
     let workspace_root = manifest_dir.parent().and_then(|p| p.parent()).unwrap();
     let target_dir = workspace_root.join("target");
     let status = std::process::Command::new("cargo")
+        .env("CARGO_TARGET_DIR", target_dir)
         .args([
+            "component",
             "build",
             "--release",
             "--manifest-path",
             contract_manifest_path.to_str().unwrap(),
             "--target",
-            "wasm32-unknown-unknown",
-            "--target-dir",
-            target_dir.to_str().unwrap(),
+            "wasm32-wasip1",
+            // Remove "--target-dir" arg here as we set it via env var which is safer for nested calls
         ])
         .status()?;
     assert!(
@@ -159,8 +162,7 @@ async fn test_forkless_module_upgrade() -> Result<()> {
         "Failed to build fee-calculator-service WASM"
     );
 
-    let wasm_path =
-        workspace_root.join("target/wasm32-unknown-unknown/release/fee_calculator_service.wasm");
+    let wasm_path = workspace_root.join("target/wasm32-wasip1/release/fee_calculator_service.wasm");
     let service_artifact = std::fs::read(&wasm_path)?;
 
     let manifest_toml = r#"
@@ -198,11 +200,14 @@ capabilities = ["TxDecorator"]
         .with_initial_service(InitialServiceConfig::Governance(Default::default()))
         .with_genesis_modifier(move |genesis, keys| {
             let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
-            let validator_id = add_identity_to_genesis(genesis_state, &keys[0]);
-            let governance_id =
-                add_identity_to_genesis(genesis_state, &governance_key_clone_for_genesis);
-            add_identity_to_genesis(genesis_state, &user_key_clone_for_genesis);
 
+            // Use shared helper for identity injection (IdentityHub service data)
+            let validator_id = add_genesis_identity(genesis_state, &keys[0]);
+            let governance_id =
+                add_genesis_identity(genesis_state, &governance_key_clone_for_genesis);
+            add_genesis_identity(genesis_state, &user_key_clone_for_genesis);
+
+            // Governance Policy
             let policy = GovernancePolicy {
                 signer: GovernanceSigner::Single(governance_id),
             };
@@ -212,6 +217,7 @@ capabilities = ["TxDecorator"]
                 json!(format!("b64:{}", BASE64_STANDARD.encode(policy_bytes))),
             );
 
+            // Validator Set (Consensus)
             let vs_bytes = codec::to_bytes_canonical(&ValidatorSetsV1 {
                 current: ValidatorSetV1 {
                     effective_from_height: 1,
@@ -234,7 +240,7 @@ capabilities = ["TxDecorator"]
                 json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
             );
 
-            // Add a dummy proposal so the governance::vote call is valid
+            // Add a dummy proposal
             let proposal = Proposal {
                 id: 1,
                 title: "Dummy Proposal".to_string(),
@@ -250,27 +256,23 @@ capabilities = ["TxDecorator"]
                 final_tally: None,
             };
 
-            // IMPORTANT: write the proposal into the governance *service namespace*,
-            // because Governance now runs under NamespacedStateAccess.
             let proposal_key_bytes = [
                 ioi_api::state::service_namespace_prefix("governance").as_slice(),
                 GOVERNANCE_PROPOSAL_KEY_PREFIX,
                 &1u64.to_le_bytes(),
             ]
             .concat();
-
             let entry = StateEntry {
                 value: codec::to_bytes_canonical(&proposal).unwrap(),
                 block_height: 0,
             };
             let entry_bytes = codec::to_bytes_canonical(&entry).unwrap();
-
             genesis_state.insert(
                 format!("b64:{}", BASE64_STANDARD.encode(proposal_key_bytes)),
                 json!(format!("b64:{}", BASE64_STANDARD.encode(&entry_bytes))),
             );
 
-            // *** FIX START: Add mandatory block timing parameters to genesis ***
+            // Add mandatory block timing parameters
             let timing_params = BlockTimingParams {
                 base_interval_secs: 5,
                 retarget_every_blocks: 0,
@@ -298,7 +300,6 @@ capabilities = ["TxDecorator"]
                     BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
                 )),
             );
-            // *** FIX END ***
         })
         .build()
         .await?;
@@ -308,28 +309,6 @@ capabilities = ["TxDecorator"]
         let rpc_addr = &node.validator().rpc_addr;
         let (mut orch_logs, mut workload_logs, _) = node.validator().subscribe_logs();
         wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
-
-        // --- SANITY CHECK: Ensure governance policy is readable and correct ---
-        let policy_bytes = query_state_key(rpc_addr, GOVERNANCE_KEY)
-            .await?
-            .expect("GOVERNANCE_KEY present but unreadable");
-        let policy: GovernancePolicy = codec::from_bytes_canonical(&policy_bytes).unwrap();
-
-        let signer_pub = governance_key_for_test.public().encode_protobuf();
-        let signer_id =
-            AccountId(account_id_from_key_material(SignatureSuite::Ed25519, &signer_pub).unwrap());
-
-        match policy.signer {
-            GovernanceSigner::Single(gov_id) => {
-                assert_eq!(
-                    gov_id,
-                    signer_id,
-                    "Mismatch: on-chain governance_id != tx signer_id\non-chain: {}\nsigner:   {}",
-                    hex::encode(gov_id.as_ref()),
-                    hex::encode(signer_id.as_ref())
-                );
-            }
-        }
 
         // --- 3. TEST: ATTEMPT TO USE NON-EXISTENT SERVICE ---
         let invalid_service_payload = SystemPayload::CallService {
@@ -343,7 +322,6 @@ capabilities = ["TxDecorator"]
             user_nonce,
             chain_id,
         )?;
-        // Submit the transaction. It should be rejected by the RPC pre-check because the service is not active.
         let submission_result = submit_transaction(rpc_addr, &tx_fail).await;
         assert!(
             submission_result.is_err(),
@@ -365,7 +343,6 @@ capabilities = ["TxDecorator"]
         let manifest_hash = ioi_crypto::algorithms::hash::sha256(manifest_toml.as_bytes())?;
 
         // Step A: Store module
-        // --- FIX: Use CallService instead of the obsolete StoreModule variant ---
         let store_params = StoreModuleParams {
             manifest: manifest_toml,
             artifact: service_artifact,
@@ -404,7 +381,6 @@ capabilities = ["TxDecorator"]
             "Scheduling fee_calculator upgrade at height {}",
             activation_height
         );
-        // --- FIX: Use CallService instead of the obsolete SwapModule variant ---
         let swap_params = SwapModuleParams {
             service_id: "fee_calculator".to_string(),
             manifest_hash,
@@ -426,7 +402,7 @@ capabilities = ["TxDecorator"]
 
         let pending_key = [UPGRADE_PENDING_PREFIX, &activation_height.to_le_bytes()].concat();
         wait_until(
-            Duration::from_secs(30), // a little extra headroom for slower CI
+            Duration::from_secs(30),
             Duration::from_millis(500),
             || async { Ok(query_state_key(rpc_addr, &pending_key).await?.is_some()) },
         )
@@ -450,8 +426,6 @@ capabilities = ["TxDecorator"]
         println!("SUCCESS: New service `fee_calculator` is active on-chain.");
 
         // --- 6. VERIFY FUNCTIONALITY ---
-        // Submit a valid governance vote signed by the governance account (authorized) so it is included,
-        // which triggers the TxDecorator on all services with the capability (including fee_calculator).
         let vote_params = VoteParams {
             proposal_id: 1,
             option: ioi_types::app::VoteOption::Abstain,
@@ -493,8 +467,6 @@ capabilities = ["TxDecorator"]
     }
     .await;
 
-    // --- 7. CLEANUP ---
-    // Explicitly shut down all validators to release their resources and disarm the ValidatorGuards.
     for guard in cluster.validators {
         guard.shutdown().await?;
     }

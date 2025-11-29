@@ -3,15 +3,20 @@
 name = "ioi-vm-wasm"
 version = "0.1.0"
 edition = "2021"
-description = "Wasmtime-based VM for the IOI SDK"
-license-file = "../../../LICENSE-BBSL"
-repository = "https://github.com/ioi-foundation/ioi-sdk"
 
 [dependencies]
 ioi-api = { path = "../../api" }
 ioi-types = { path = "../../types" }
-wasmtime = { workspace = true }
+ioi-crypto = { path = "../../crypto" }
+
+# Explicitly set wasmtime to 21.0.0 to match wasmtime-wasi 21.0.0
+# This resolves the "two different versions" error for Linker and ResourceTable
+wasmtime = { version = "21.0.0", features = ["component-model", "async"] }
+wasmtime-wasi = { version = "21.0.0" }
+wit-component = "0.21.0"
+
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 thiserror = { workspace = true }
+log = { workspace = true }
