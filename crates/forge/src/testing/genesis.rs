@@ -68,7 +68,6 @@ impl GenesisState {
         let creds_key_ns = [ns.as_slice(), &creds_key_base].concat();
 
         self.insert(&creds_key_ns, &creds_bytes);
-        self.insert(&creds_key_base, &creds_bytes);
 
         // 2. ActiveKeyRecord
         let record = ActiveKeyRecord {
@@ -82,14 +81,12 @@ impl GenesisState {
         let record_key_ns = [ns.as_slice(), &record_key_base].concat();
 
         self.insert(&record_key_ns, &record_bytes);
-        self.insert(&record_key_base, &record_bytes);
 
         // 3. PubKey Map
         let pubkey_key_base = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
         let pubkey_key_ns = [ns.as_slice(), &pubkey_key_base].concat();
 
         self.insert(&pubkey_key_ns, public_key_bytes);
-        self.insert(&pubkey_key_base, public_key_bytes);
 
         account_id
     }
@@ -128,8 +125,8 @@ pub fn add_genesis_identity(genesis_map: &mut Map<String, Value>, keypair: &Keyp
 
 /// Adds a complete identity record for a custom key configuration (e.g., PQC) to the genesis state.
 ///
-/// Writes records to BOTH the global namespace (for legacy/PoA lookups) AND the service namespace
-/// (for IdentityHub), ensuring compatibility across all execution paths.
+/// Writes records exclusively to the IdentityHub service namespace, as the kernel no longer
+/// performs raw lookups against the global namespace.
 pub fn add_genesis_identity_custom(
     genesis_map: &mut Map<String, Value>,
     suite: SignatureSuite,
@@ -141,7 +138,7 @@ pub fn add_genesis_identity_custom(
 
     let ns = service_namespace_prefix("identity_hub");
 
-    // --- 1. Credentials (Dual Write) ---
+    // --- 1. Credentials ---
     let cred = Credential {
         suite,
         public_key_hash: account_hash,
@@ -152,18 +149,14 @@ pub fn add_genesis_identity_custom(
     let creds: [Option<Credential>; 2] = [Some(cred), None];
     let creds_bytes = codec::to_bytes_canonical(&creds).expect("Failed to encode credentials");
 
-    // Base key (global)
     let creds_key_base = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
 
     // A. Namespaced (IdentityHub service)
     let creds_key_ns = [ns.as_slice(), &creds_key_base].concat();
     safe_insert_json(genesis_map, &creds_key_ns, &creds_bytes);
 
-    // B. Global (Legacy/Fallback)
-    safe_insert_json(genesis_map, &creds_key_base, &creds_bytes);
-
-    // --- 2. ActiveKeyRecord (Dual Write) ---
-    // Used for consensus key lookups within the service and by the engine.
+    // --- 2. ActiveKeyRecord ---
+    // Used for internal service lookups.
     let record = ActiveKeyRecord {
         suite,
         public_key_hash: account_hash,
@@ -177,18 +170,12 @@ pub fn add_genesis_identity_custom(
     let record_key_ns = [ns.as_slice(), &record_key_base].concat();
     safe_insert_json(genesis_map, &record_key_ns, &record_bytes);
 
-    // B. Global
-    safe_insert_json(genesis_map, &record_key_base, &record_bytes);
-
-    // --- 3. PubKey Map (Dual Write) ---
+    // --- 3. PubKey Map ---
     let pubkey_key_base = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
 
     // A. Namespaced
     let pubkey_key_ns = [ns.as_slice(), &pubkey_key_base].concat();
     safe_insert_json(genesis_map, &pubkey_key_ns, public_key_bytes);
-
-    // B. Global
-    safe_insert_json(genesis_map, &pubkey_key_base, public_key_bytes);
 
     account_id
 }

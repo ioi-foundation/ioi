@@ -4,9 +4,8 @@
 
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use ioi_api::state::service_namespace_prefix;
 use ioi_forge::testing::{
-    add_genesis_identity, // [+] Import
+    add_genesis_identity,
     build_test_artifacts,
     rpc::{self, get_chain_timestamp, get_quarantined_set},
     wait_for_height,
@@ -17,7 +16,7 @@ use ioi_system::keys::VALIDATOR_SET_KEY_STR;
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
-        BlockTimingRuntime, ChainId, ChainTransaction, Credential, FailureReport, OffenseFacts,
+        BlockTimingRuntime, ChainId, ChainTransaction, FailureReport, OffenseFacts,
         OffenseType, ReportMisbehaviorParams, SignHeader, SignatureProof, SignatureSuite,
         SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1,
         ValidatorV1,
@@ -30,7 +29,7 @@ use ioi_types::{
     service_configs::{GovernanceParams, MigrationConfig},
 };
 use libp2p::identity::{self, Keypair};
-use serde_json::{json, Value};
+use serde_json::json;
 use std::time::Duration;
 use tokio::time;
 
@@ -88,8 +87,6 @@ fn create_report_tx(
     };
     Ok((ChainTransaction::System(Box::new(tx_to_sign)), report))
 }
-
-// [-] REMOVED: add_poa_identity_to_genesis local helper
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
@@ -204,7 +201,7 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         genesis.to_string()
     };
 
-    // ... [Rest of test logic remains unchanged] ...
+    // ... [Rest of test logic updated with correct launch signature] ...
     let leader_node = TestValidator::launch(
         leader_key,
         genesis_content.clone(),
@@ -230,6 +227,10 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         false,
         false,
         &[],
+        None, // epoch_size
+        None, // keep_recent_heights
+        None, // gc_interval_secs
+        None, // min_finality_depth
     )
     .await?;
     wait_for_height(
@@ -266,6 +267,10 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         false,
         false,
         &[],
+        None, // epoch_size
+        None, // keep_recent_heights
+        None, // gc_interval_secs
+        None, // min_finality_depth
     )
     .await?;
     let follower2 = TestValidator::launch(
@@ -293,6 +298,10 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         false,
         false,
         &[],
+        None, // epoch_size
+        None, // keep_recent_heights
+        None, // gc_interval_secs
+        None, // min_finality_depth
     )
     .await?;
 

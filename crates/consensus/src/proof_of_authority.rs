@@ -229,7 +229,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         };
 
         let n = validator_set.len() as u64;
-        // [+] FIX: Add guard against division by zero if validator set is empty.
+        // [+] GUARD: Prevent division by zero if validator set is empty.
         if n == 0 {
             log::error!(
                 "[PoA Decide] The effective validator set for height {} is empty. Stalling.",
@@ -238,8 +238,6 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             return ConsensusDecision::Stall;
         }
         // The round number should only depend on height for this simple PoA model.
-        // The `view` is not part of the block header and cannot be verified by other nodes,
-        // leading to a consensus failure if it's used here.
         let round = height.saturating_sub(1);
         let leader_index = (round % n) as usize;
 
@@ -358,75 +356,84 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 _ => BTreeSet::new(),
             };
 
-        // [+] FIX: Use the effective validator set for the block being verified.
+        // Use effective set for the current block height
         let vs = effective_set_for_height(&sets, header.height);
-        let validator_set: Vec<_> = vs
+
+        // 1. Validate Membership & Quarantine
+        // Binary search for the validator record in the sorted list
+        let validator_entry = vs
+            .validators
+            .binary_search_by_key(&header.producer_account_id, |v| v.account_id)
+            .map_or(None, |idx| Some(&vs.validators[idx]))
+            .ok_or_else(|| {
+                ConsensusError::BlockVerificationFailed("Producer not in authority set".into())
+            })?;
+
+        if quarantined.contains(&header.producer_account_id) {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "Producer is quarantined".into(),
+            ));
+        }
+
+        // 2. Retrieve Authoritative Key Record
+        // We use the record embedded in the ValidatorSet, which is the single source of truth.
+        // This removes the need for a secondary lookup in global state, resolving the "dual write" technical debt.
+        let active_key_record = &validator_entry.consensus_key;
+
+        // 3. Verify Key Metadata
+        if header.height < active_key_record.since_height {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "Validator key not yet active at this height".into(),
+            ));
+        }
+
+        if header.producer_key_suite != active_key_record.suite {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "Header key suite does not match authorized consensus key".into(),
+            ));
+        }
+
+        let pubkey = &header.producer_pubkey;
+        let derived_hash = account_id_from_key_material(active_key_record.suite, pubkey)
+            .map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))?;
+
+        if derived_hash != active_key_record.public_key_hash {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "Public key in header does not match authorized consensus key hash".into(),
+            ));
+        }
+
+        // 4. Verify Signature
+        let preimage = header.to_preimage_for_signing().map_err(|e| {
+            ConsensusError::BlockVerificationFailed(format!("Failed to create preimage: {}", e))
+        })?;
+        verify_signature(
+            &preimage,
+            pubkey,
+            active_key_record.suite,
+            &header.signature,
+        )?;
+
+        // 5. Verify Leadership Schedule
+        let active_validator_ids: Vec<_> = vs
             .validators
             .iter()
             .map(|v| v.account_id)
             .filter(|id| !quarantined.contains(id))
             .collect();
-        // Validator set is already sorted in state.
 
-        if validator_set
-            .binary_search(&header.producer_account_id)
-            .is_err()
-        {
-            return Err(ConsensusError::BlockVerificationFailed(
-                "Producer not in authority set (or quarantined)".into(),
-            ));
-        }
-
-        let active_key_suite;
-        let active_key_hash;
-        {
-            const KEY_PREFIX: &[u8] = b"identity::key_record::";
-            let key = [KEY_PREFIX, header.producer_account_id.as_ref()].concat();
-            let bytes = parent_view
-                .get(&key)
-                .await
-                .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
-                .ok_or_else(|| {
-                    ConsensusError::BlockVerificationFailed("Producer has no active key".into())
-                })?;
-            let record: ioi_types::app::ActiveKeyRecord =
-                ioi_types::codec::from_bytes_canonical(&bytes).map_err(|e| {
-                    ConsensusError::BlockVerificationFailed(format!(
-                        "Failed to decode ActiveKeyRecord: {}",
-                        e
-                    ))
-                })?;
-            active_key_suite = record.suite;
-            active_key_hash = record.public_key_hash;
-        }
-
-        let pubkey = &header.producer_pubkey;
-        // Replaced usage of local hash_key helper with canonical function
-        let derived_hash = account_id_from_key_material(active_key_suite, pubkey)
-            .map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))?;
-
-        if derived_hash != active_key_hash {
-            return Err(ConsensusError::BlockVerificationFailed(
-                "Public key in header does not match its hash".into(),
-            ));
-        }
-        let preimage = header.to_preimage_for_signing().map_err(|e| {
-            ConsensusError::BlockVerificationFailed(format!("Failed to create preimage: {}", e))
-        })?;
-        verify_signature(&preimage, pubkey, active_key_suite, &header.signature)?;
-
-        let n = validator_set.len() as u64;
-        // [+] FIX: Add guard against division by zero if validator set is empty.
+        let n = active_validator_ids.len() as u64;
         if n == 0 {
             return Err(ConsensusError::BlockVerificationFailed(
                 "Block cannot be validated against an empty validator set.".into(),
             ));
         }
+
         // Verify using the same schedule: Height 1 -> index 0
         let leader_index = (header.height.saturating_sub(1) % n) as usize;
 
         let expected_leader =
-            validator_set
+            active_validator_ids
                 .get(leader_index)
                 .ok_or(ConsensusError::InvalidLeader {
                     expected: AccountId::default(),
