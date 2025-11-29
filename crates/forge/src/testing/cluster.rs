@@ -24,6 +24,15 @@ impl TestCluster {
     pub fn builder() -> TestClusterBuilder {
         TestClusterBuilder::new()
     }
+
+    /// Gracefully shut down all validators in this cluster.
+    /// This must be called to avoid the `ValidatorGuard` drop panic.
+    pub async fn shutdown(self) -> Result<()> {
+        for guard in self.validators {
+            guard.shutdown().await?;
+        }
+        Ok(())
+    }
 }
 
 pub struct TestClusterBuilder {
@@ -244,9 +253,6 @@ impl TestClusterBuilder {
         let mut validators: Vec<ValidatorGuard> = Vec::new();
 
         let mut bootnode_addrs: Vec<Multiaddr> = Vec::new();
-
-        // Capture the new field for the closure
-        let captured_min_finality = self.min_finality_depth;
 
         if let Some(boot_key) = validator_keys.first() {
             let bootnode_guard = TestValidator::launch(

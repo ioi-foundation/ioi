@@ -1,10 +1,9 @@
-# Path: crates/contract/Cargo.toml
+# Path: crates/contract-sdk/Cargo.toml
 [package]
 name = "ioi-contract-sdk"
-version = "0.1.0"
-rust-version = "1.78"
+version = "0.2.0"
 edition = "2021"
-description = "SDK for writing smart contracts for the IOI SDK"
+description = "SDK for writing smart contracts for the IOI SDK using WASM Components"
 license-file = "../../LICENSE-BBSL"
 repository = "https://github.com/ioi-foundation/ioi-sdk"
 
@@ -12,13 +11,14 @@ repository = "https://github.com/ioi-foundation/ioi-sdk"
 crate-type = ["rlib"]
 
 [dependencies]
-# This SDK is for the WASM environment, so it doesn't have host-side dependencies.
-wee_alloc = { version = "0.4.5", optional = true }
-# DO NOT inherit from workspace. Specify version and features directly for no_std compatibility.
+# Bindgen for the Component Model. 'macros' is REQUIRED for the generate! macro.
+wit-bindgen = { version = "0.21.0", default-features = false, features = [
+    "macros",
+] }
 parity-scale-codec = { version = "3.7.5", default-features = false, features = [
     "derive",
 ] }
 
 [features]
-default = ["wee_alloc"]
+default = []
 std = []

@@ -1,187 +1,64 @@
-// Path: crates/contract/src/lib.rs
-#![cfg_attr(
-    not(test),
-    deny(
-        clippy::unwrap_used,
-        clippy::expect_used,
-        clippy::panic,
-        clippy::todo,
-        clippy::unimplemented,
-        clippy::indexing_slicing
-    )
-)]
-#![allow(unsafe_code)]
-//
-// This crate is an exception to the `#![forbid(unsafe_code)]` policy.
-// It defines the Foreign Function Interface (FFI) boundary between a smart contract
-// (WASM) and the host runtime. All `unsafe` blocks herein are necessary to cross
-// this boundary and must be rigorously audited to ensure they uphold the safety
-// invariants required by the safe wrapper functions they implement.
-//
+// Path: crates/contract-sdk/src/lib.rs
 #![no_std]
-#![allow(dead_code)] // Allow unused functions for this example
 
-// This attribute makes macros from the `alloc` crate (like vec!) available throughout this crate.
-#[macro_use]
-extern crate alloc;
-use alloc::vec::Vec;
-// This is only needed for the panic handler, which is not used in tests.
-#[cfg(all(not(test), not(feature = "std")))]
-use core::panic::PanicInfo;
+pub extern crate alloc;
 
-// We use `wee_alloc` as a lightweight allocator suitable for WASM.
-// This is enabled by the `wee_alloc` feature in Cargo.toml and solves the
-// "no global memory allocator found" error.
-#[cfg(feature = "wee_alloc")]
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
-
-/// FFI (Foreign Function Interface) for host functions.
-/// These are the low-level, unsafe functions imported from the blockchain node.
-mod ffi {
-    #[link(wasm_import_module = "env")]
-    extern "C" {
-        // State management
-        pub fn state_set(key_ptr: *const u8, key_len: u32, value_ptr: *const u8, value_len: u32);
-        pub fn state_get(key_ptr: *const u8, key_len: u32, result_ptr: *mut u8) -> u32;
-        pub fn state_delete(key_ptr: *const u8, key_len: u32);
-
-        // Unified host call
-        pub fn host_call(
-            cap_ptr: *const u8,
-            cap_len: u32,
-            req_ptr: *const u8,
-            req_len: u32,
-            resp_out_ptr: *mut u32,
-        ) -> u32;
-
-        // Context
-        pub fn get_caller(result_ptr: *mut u8) -> u32;
-        pub fn ctx_block_height() -> u64;
-    }
+// All WIT-generated code lives under this module.
+pub mod bindings {
+    wit_bindgen::generate!({
+        path: "../types/wit/ioi.wit",
+        world: "service",
+        // This makes `__export_service_impl!` visible to other crates.
+        pub_export_macro: true,
+    });
 }
 
-/// High-level, safe API for interacting with the host environment via capabilities.
-pub mod host {
-    use super::ffi;
-    use crate::alloc::vec::Vec;
-    use parity_scale_codec::{Decode, Encode};
+// Re-export the Guest trait so contracts can `use ioi_contract_sdk::Guest;`
+pub use bindings::Guest;
 
-    #[derive(Debug)]
-    pub enum HostError {
-        CallFailed(u32),
-        Serialization,
-        Deserialization,
-    }
+// IMPORTANT: Do NOT re-export the macro here to avoid E0255 conflicts.
+// Contracts will access the export macro via `#[macro_use] extern crate ioi_contract_sdk`
+// and then call `__export_service_impl!(...)`.
 
-    /// Calls a host capability with a SCALE-encodable request and decodes the SCALE-encodable response.
-    pub fn call<Req: Encode, Res: Decode>(capability: &str, req: &Req) -> Result<Res, HostError> {
-        let req_bytes = req.encode();
-        let mut resp_ptr_len = [0u32; 2]; // [ptr, len]
+use alloc::{string::String, vec::Vec};
 
-        let status = unsafe {
-            ffi::host_call(
-                capability.as_ptr(),
-                capability.len() as u32,
-                req_bytes.as_ptr(),
-                req_bytes.len() as u32,
-                resp_ptr_len.as_mut_ptr(),
-            )
-        };
-
-        if status != 0 {
-            return Err(HostError::CallFailed(status));
-        }
-
-        let resp_ptr = resp_ptr_len[0];
-        let resp_len = resp_ptr_len[1];
-        let resp_bytes =
-            unsafe { core::slice::from_raw_parts(resp_ptr as *const u8, resp_len as usize) };
-
-        Res::decode(&mut &resp_bytes[..]).map_err(|_| HostError::Deserialization)
-    }
-}
-
-/// High-level, safe API for interacting with the blockchain state.
-pub mod state {
-    use super::ffi;
-    use crate::alloc::vec::Vec;
-
-    /// Stores a key-value pair in the contract's storage.
-    pub fn set(key: &[u8], value: &[u8]) {
-        unsafe {
-            ffi::state_set(
-                key.as_ptr(),
-                key.len() as u32,
-                value.as_ptr(),
-                value.len() as u32,
-            );
-        }
-    }
-
-    /// Retrieves a value from storage by key. Returns `None` if the key doesn't exist.
-    pub fn get(key: &[u8]) -> Option<Vec<u8>> {
-        // Allocate a buffer for the host to write the result into.
-        // A real SDK would have a more robust max value size handling.
-        let mut result_buffer = vec![0u8; 1024];
-        let result_len =
-            unsafe { ffi::state_get(key.as_ptr(), key.len() as u32, result_buffer.as_mut_ptr()) };
-
-        if result_len > 0 {
-            Some(
-                result_buffer
-                    .get(..result_len as usize)
-                    .unwrap_or_default()
-                    .to_vec(),
-            )
-        } else {
-            None
-        }
-    }
-
-    /// Deletes a key-value pair from the contract's storage.
-    pub fn delete(key: &[u8]) {
-        unsafe {
-            ffi::state_delete(key.as_ptr(), key.len() as u32);
-        }
-    }
-}
-
-/// High-level API for accessing execution context information.
-pub mod context {
-    use super::ffi;
-    use crate::alloc::vec::Vec;
-
-    /// Gets the address of the entity that initiated the contract call.
-    pub fn caller() -> Vec<u8> {
-        let mut result_buffer = vec![0u8; 32]; // Standard address size
-        let result_len = unsafe { ffi::get_caller(result_buffer.as_mut_ptr()) };
-        result_buffer
-            .get(..result_len as usize)
-            .unwrap_or_default()
-            .to_vec()
-    }
-
-    /// Gets the current block height.
-    pub fn block_height() -> u64 {
-        unsafe { ffi::ctx_block_height() }
-    }
-}
-
-// --- Memory Management & Panic Handler (Required for WASM no_std) ---
-
+// -----------------------------------------------------------------------------
+// Provide `memcmp` so Rust core/alloc don’t import it from `env`.
+// This avoids the `env::memcmp` import that `wit-component` rejects.
+// -----------------------------------------------------------------------------
 #[no_mangle]
-pub extern "C" fn allocate(size: u32) -> *mut u8 {
-    let mut buffer = Vec::with_capacity(size as usize);
-    let ptr = buffer.as_mut_ptr();
-    core::mem::forget(buffer); // Prevent Rust from dropping the memory
-    ptr
+pub unsafe extern "C" fn memcmp(s1: *const u8, s2: *const u8, n: usize) -> i32 {
+    use core::ptr;
+
+    // Standard C semantics: compare byte-by-byte, return <0, 0, or >0.
+    for i in 0..n {
+        let a = ptr::read(s1.add(i));
+        let b = ptr::read(s2.add(i));
+        if a != b {
+            return (a as i32) - (b as i32);
+        }
+    }
+    0
 }
 
-// The panic handler is required for `no_std` builds, but conflicts with
-// the standard library's handler when running tests or when the `std` feature is enabled.
-#[cfg(all(not(test), not(feature = "std")))]
-#[panic_handler]
-fn handle_panic(_info: &PanicInfo) -> ! {
-    loop {}
+/// Convenience trait for IOI services.
+pub trait IoiService {
+    fn id() -> String;
+    fn abi_version() -> u32;
+    fn state_schema() -> String;
+    fn manifest() -> String;
+
+    fn handle_service_call(method: String, params: Vec<u8>) -> Result<Vec<u8>, String>;
+
+    fn prepare_upgrade(_input: Vec<u8>) -> Vec<u8> {
+        Vec::new()
+    }
+
+    fn complete_upgrade(_input: Vec<u8>) -> Vec<u8> {
+        Vec::new()
+    }
 }
+
+pub mod context;
+pub mod host;
+pub mod state;

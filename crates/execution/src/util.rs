@@ -55,7 +55,7 @@ pub fn load_state_from_genesis_file<S: StateManager + ?Sized>(
                 log::debug!("Canonicalizing VALIDATOR_SET_KEY from genesis...");
                 // 1. Decode the validator set blob from the raw bytes in the file.
                 let sets = read_validator_sets(&value_bytes)?;
-                
+
                 // 2. Re-serialize via write_validator_sets, which enforces sorting.
                 value_bytes = write_validator_sets(&sets)?;
             }

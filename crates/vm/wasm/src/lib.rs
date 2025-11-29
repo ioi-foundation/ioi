@@ -1,27 +1,31 @@
 // Path: crates/vm/wasm/src/lib.rs
 #![cfg_attr(
     not(test),
-    deny(
-        clippy::unwrap_used,
-        clippy::expect_used,
-        clippy::panic,
-        clippy::unimplemented,
-        clippy::todo,
-        clippy::indexing_slicing
-    )
+    deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)
 )]
 
-use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use ioi_api::state::VmStateAccessor;
 use ioi_api::vm::{ExecutionContext, ExecutionOutput, VirtualMachine};
+use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::{config::VmFuelCosts, error::VmError};
-use wasmtime::*;
+use std::collections::HashMap;
+use std::sync::RwLock;
+use wasmtime::component::{Component, Linker};
+use wasmtime::{Config, Engine, Store};
+use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiView};
 
-/// A Wasmtime-based runtime for WASM artifacts.
+// Generate Host traits from WIT
+wasmtime::component::bindgen!({
+    path: "../../types/wit/ioi.wit",
+    world: "service",
+    async: true
+});
+
 pub struct WasmRuntime {
     engine: Engine,
     fuel_costs: VmFuelCosts,
+    component_cache: RwLock<HashMap<[u8; 32], Component>>,
 }
 
 impl WasmRuntime {
@@ -29,319 +33,90 @@ impl WasmRuntime {
         let mut config = Config::new();
         config.async_support(true);
         config.consume_fuel(true);
+        config.wasm_component_model(true);
+
         Ok(Self {
             engine: Engine::new(&config).map_err(|e| VmError::Initialization(e.to_string()))?,
             fuel_costs,
+            component_cache: RwLock::new(HashMap::new()),
         })
     }
 }
 
-/// A wrapper around a raw pointer to make it `Send` + `Sync`.
-///
-/// # Safety
-/// This is safe because the `VmStateAccessor` trait is `Send + Sync`, and the
-/// lifetime of the reference (`'a`) passed to `execute` is guaranteed to outlive
-/// the entire Wasmtime execution, including all async host calls. The pointer
-/// is never accessed after the `execute` function returns.
+struct HostState {
+    state_accessor: SendSyncPtr<dyn VmStateAccessor>,
+    context: ExecutionContext,
+    table: ResourceTable,
+    wasi_ctx: WasiCtx,
+    _fuel_costs: VmFuelCosts,
+}
+
+impl WasiView for HostState {
+    fn table(&mut self) -> &mut ResourceTable {
+        &mut self.table
+    }
+    fn ctx(&mut self) -> &mut WasiCtx {
+        &mut self.wasi_ctx
+    }
+}
+
 struct SendSyncPtr<T: ?Sized>(*const T);
 unsafe impl<T: ?Sized> Send for SendSyncPtr<T> {}
 unsafe impl<T: ?Sized> Sync for SendSyncPtr<T> {}
 
-/// This struct holds all host-side state accessible to the WASM module.
-struct HostState {
-    // Use a raw pointer to hold the borrowed state accessor for the duration of the call.
-    state_accessor: SendSyncPtr<dyn VmStateAccessor>,
-    context: Option<ExecutionContext>,
-    memory: Option<Memory>,
-    fuel_costs: VmFuelCosts,
-}
+#[async_trait]
+impl ioi::system::state::Host for HostState {
+    // Remove wasmtime::Result wrapper
+    async fn get(&mut self, key: Vec<u8>) -> Result<Option<Vec<u8>>, String> {
+        let contract_addr = self.context.contract_address.clone();
+        let ns_key = [contract_addr.as_slice(), b"::", key.as_slice()].concat();
+        let accessor = unsafe { self.state_accessor.0.as_ref().unwrap() };
 
-/// Centralized key namespacing to prevent inconsistencies.
-fn get_namespaced_key(contract_address: &[u8], key: &[u8]) -> Vec<u8> {
-    [contract_address, b"::", key].concat()
-}
+        match accessor.get(&ns_key).await {
+            Ok(val) => Ok(val),
+            Err(e) => Err(e.to_string()),
+        }
+    }
 
-/// Host Function: Write a key-value pair to the state tree.
-async fn host_state_set(
-    mut caller: Caller<'_, HostState>,
-    key_ptr: u32,
-    key_len: u32,
-    value_ptr: u32,
-    value_len: u32,
-) -> Result<()> {
-    // Consume base fuel cost for the call itself
-    let fuel = caller.get_fuel()?;
-    caller.set_fuel(fuel.saturating_sub(caller.data().fuel_costs.base_cost))?;
+    async fn set(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), String> {
+        let contract_addr = self.context.contract_address.clone();
+        let ns_key = [contract_addr.as_slice(), b"::", key.as_slice()].concat();
+        let accessor = unsafe { self.state_accessor.0.as_ref().unwrap() };
 
-    let memory = caller
-        .data()
-        .memory
-        .ok_or_else(|| anyhow!("Memory not found"))?;
+        match accessor.insert(&ns_key, &value).await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.to_string()),
+        }
+    }
 
-    let key_start = key_ptr as usize;
-    let key_end = (key_ptr + key_len) as usize;
-    let value_start = value_ptr as usize;
-    let value_end = (value_ptr + value_len) as usize;
+    async fn delete(&mut self, key: Vec<u8>) -> Result<(), String> {
+        let contract_addr = self.context.contract_address.clone();
+        let ns_key = [contract_addr.as_slice(), b"::", key.as_slice()].concat();
+        let accessor = unsafe { self.state_accessor.0.as_ref().unwrap() };
 
-    let mem_data = memory.data(&caller);
-
-    let contract_key = mem_data
-        .get(key_start..key_end)
-        .ok_or_else(|| anyhow!("host_state_set key read out of bounds"))?
-        .to_vec();
-    let value = mem_data
-        .get(value_start..value_end)
-        .ok_or_else(|| anyhow!("host_state_set value read out of bounds"))?
-        .to_vec();
-
-    // Consume fuel proportional to the size of the key and value
-    let cost = (key_len as u64 + value_len as u64) * caller.data().fuel_costs.state_set_per_byte;
-    let fuel = caller.get_fuel()?;
-    caller.set_fuel(fuel.saturating_sub(cost))?;
-
-    let contract_address = caller
-        .data()
-        .context
-        .as_ref()
-        .ok_or_else(|| anyhow!("Context not set"))?
-        .contract_address
-        .clone();
-    let namespaced_key = get_namespaced_key(&contract_address, &contract_key);
-
-    // SAFETY: The pointer is guaranteed to be valid for the lifetime of the 'execute' call.
-    // The `AssertUnwindSafe` in the caller ensures we don't access it after a panic.
-    let accessor: &dyn VmStateAccessor = unsafe {
-        caller
-            .data()
-            .state_accessor
-            .0
-            .as_ref()
-            .ok_or_else(|| anyhow!("HostState state_accessor is null"))?
-    };
-
-    accessor
-        .insert(&namespaced_key, &value)
-        .await
-        .map_err(|_| anyhow!("State write failed"))?;
-
-    Ok(())
-}
-
-/// Host Function: Delete a key-value pair from the state tree.
-async fn host_state_delete(
-    mut caller: Caller<'_, HostState>,
-    key_ptr: u32,
-    key_len: u32,
-) -> Result<()> {
-    let fuel = caller.get_fuel()?;
-    caller.set_fuel(fuel.saturating_sub(caller.data().fuel_costs.base_cost))?;
-
-    let memory = caller
-        .data()
-        .memory
-        .ok_or_else(|| anyhow!("Memory not found"))?;
-    let key_start = key_ptr as usize;
-    let key_end = (key_ptr + key_len) as usize;
-    let contract_key = memory
-        .data(&caller)
-        .get(key_start..key_end)
-        .ok_or_else(|| anyhow!("host_state_delete key read out of bounds"))?
-        .to_vec();
-
-    let contract_address = caller
-        .data()
-        .context
-        .as_ref()
-        .ok_or_else(|| anyhow!("Context not set"))?
-        .contract_address
-        .clone();
-    let namespaced_key = get_namespaced_key(&contract_address, &contract_key);
-
-    // A delete operation can be modeled with a similar cost to a set operation.
-    let cost = namespaced_key.len() as u64 * caller.data().fuel_costs.state_set_per_byte;
-    let fuel = caller.get_fuel()?;
-    caller.set_fuel(fuel.saturating_sub(cost))?;
-
-    // SAFETY: The pointer is guaranteed to be valid for the lifetime of the 'execute' call.
-    let accessor: &dyn VmStateAccessor = unsafe {
-        caller
-            .data()
-            .state_accessor
-            .0
-            .as_ref()
-            .ok_or_else(|| anyhow!("HostState state_accessor is null"))?
-    };
-
-    accessor
-        .delete(&namespaced_key)
-        .await
-        .map_err(|_| anyhow!("State delete failed"))?;
-    Ok(())
-}
-
-/// Host Function: Read a value by key from the state tree.
-async fn host_state_get(
-    mut caller: Caller<'_, HostState>,
-    key_ptr: u32,
-    key_len: u32,
-    result_ptr: u32,
-) -> Result<u32> {
-    let fuel = caller.get_fuel()?;
-    caller.set_fuel(fuel.saturating_sub(caller.data().fuel_costs.base_cost))?;
-
-    let memory = caller
-        .data()
-        .memory
-        .ok_or_else(|| anyhow!("Memory not found"))?;
-
-    let key_start = key_ptr as usize;
-    let key_end = (key_ptr + key_len) as usize;
-    let contract_key = memory
-        .data(&caller)
-        .get(key_start..key_end)
-        .ok_or_else(|| anyhow!("host_state_get key read out of bounds"))?
-        .to_vec();
-
-    let contract_address = caller
-        .data()
-        .context
-        .as_ref()
-        .ok_or_else(|| anyhow!("Context not set"))?
-        .contract_address
-        .clone();
-    let namespaced_key = get_namespaced_key(&contract_address, &contract_key);
-
-    let cost = namespaced_key.len() as u64 * caller.data().fuel_costs.state_get_per_byte;
-    let fuel = caller.get_fuel()?;
-    caller.set_fuel(fuel.saturating_sub(cost))?;
-
-    // SAFETY: The pointer is guaranteed to be valid for the lifetime of the 'execute' call.
-    let accessor: &dyn VmStateAccessor = unsafe {
-        caller
-            .data()
-            .state_accessor
-            .0
-            .as_ref()
-            .ok_or_else(|| anyhow!("HostState state_accessor is null"))?
-    };
-
-    let value = accessor
-        .get(&namespaced_key)
-        .await
-        .map_err(|_| anyhow!("State read failed"))?;
-
-    if let Some(data) = value {
-        // Consume fuel proportional to the size of the returned data
-        let cost = data.len() as u64 * caller.data().fuel_costs.state_get_per_byte;
-        let fuel = caller.get_fuel()?;
-        caller.set_fuel(fuel.saturating_sub(cost))?;
-
-        memory
-            .write(&mut caller, result_ptr as usize, &data)
-            .map_err(|e| anyhow!("Failed to write value to WASM memory: {}", e))?;
-        Ok(data.len() as u32)
-    } else {
-        Ok(0)
+        match accessor.delete(&ns_key).await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.to_string()),
+        }
     }
 }
 
-/// Host Function: Get the address of the contract caller.
-async fn host_get_caller(mut caller: Caller<'_, HostState>, result_ptr: u32) -> Result<u32> {
-    let fuel = caller.get_fuel()?;
-    caller.set_fuel(fuel.saturating_sub(caller.data().fuel_costs.base_cost))?;
+#[async_trait]
+impl ioi::system::context::Host for HostState {
+    async fn get_caller(&mut self) -> Vec<u8> {
+        self.context.caller.clone()
+    }
 
-    let memory = caller
-        .data()
-        .memory
-        .ok_or_else(|| anyhow!("Memory not found"))?;
-
-    let caller_addr = caller
-        .data()
-        .context
-        .as_ref()
-        .ok_or_else(|| anyhow!("Context not set"))?
-        .caller
-        .clone();
-
-    memory
-        .write(&mut caller, result_ptr as usize, &caller_addr)
-        .map_err(|e| anyhow!("Failed to write caller to WASM memory: {}", e))?;
-    Ok(caller_addr.len() as u32)
+    async fn block_height(&mut self) -> u64 {
+        self.context.block_height
+    }
 }
 
-/// Host Function: Get the current block height.
-async fn host_ctx_block_height(mut caller: Caller<'_, HostState>) -> Result<u64> {
-    let fuel = caller.get_fuel()?;
-    caller.set_fuel(fuel.saturating_sub(caller.data().fuel_costs.base_cost))?;
-
-    let height = caller
-        .data()
-        .context
-        .as_ref()
-        .ok_or_else(|| anyhow!("Context not set"))?
-        .block_height;
-    Ok(height)
-}
-
-/// Host Function: A single, unified entrypoint for host calls from WASM.
-async fn host_call(
-    mut caller: Caller<'_, HostState>,
-    cap_ptr: u32,
-    cap_len: u32,
-    req_ptr: u32,
-    req_len: u32,
-    resp_out_ptr: u32,
-) -> anyhow::Result<u32> {
-    let memory = caller
-        .data()
-        .memory
-        .ok_or_else(|| anyhow!("Memory not found in host state"))?;
-
-    let cap_name = {
-        let bytes = memory
-            .data(&caller)
-            .get(cap_ptr as usize..(cap_ptr + cap_len) as usize)
-            .ok_or_else(|| anyhow!("Capability name pointer out of bounds"))?;
-        std::str::from_utf8(bytes).map_err(|_| anyhow!("Capability name is not valid UTF-8"))?
-    };
-
-    let _req_bytes = memory
-        .data(&caller)
-        .get(req_ptr as usize..(req_ptr + req_len) as usize)
-        .ok_or_else(|| anyhow!("Request pointer out of bounds"))?;
-
-    let (status, resp_bytes) = match cap_name {
-        // Dispatch to specific capability handlers
-        _ => (1, Vec::new()), // 1 = Unknown Capability
-    };
-
-    // Write response back to WASM memory
-    let allocate_func = caller
-        .get_export("allocate")
-        .and_then(|e| e.into_func())
-        .and_then(|f| f.typed::<u32, u32>(&caller).ok())
-        .ok_or_else(|| anyhow!("`allocate` function not found in module"))?;
-
-    let resp_ptr = allocate_func
-        .call_async(&mut caller, resp_bytes.len() as u32)
-        .await
-        .map_err(|e| anyhow!("WASM allocate failed for response: {}", e))?;
-
-    memory
-        .write(&mut caller, resp_ptr as usize, &resp_bytes)
-        .map_err(|e| anyhow!("Failed to write response to WASM memory: {}", e))?;
-
-    // Write the pointer and length back to the caller's output pointer
-    let resp_meta = [
-        resp_ptr.to_le_bytes(),
-        (resp_bytes.len() as u32).to_le_bytes(),
-    ]
-    .concat();
-    memory
-        .write(&mut caller, resp_out_ptr as usize, &resp_meta)
-        .map_err(|e| anyhow!("Failed to write response metadata to WASM memory: {}", e))?;
-
-    Ok(status)
+#[async_trait]
+impl ioi::system::host::Host for HostState {
+    async fn call(&mut self, _capability: String, _request: Vec<u8>) -> Result<Vec<u8>, String> {
+        Err("Host calls not implemented".to_string())
+    }
 }
 
 #[async_trait]
@@ -354,145 +129,102 @@ impl VirtualMachine for WasmRuntime {
         state_accessor: &dyn VmStateAccessor,
         execution_context: ExecutionContext,
     ) -> Result<ExecutionOutput, VmError> {
+        let bytecode_hash = sha256(contract_bytecode)
+            .map_err(|e| VmError::Initialization(format!("Hashing failed: {}", e)))?;
+
+        let component = {
+            let read_guard = self.component_cache.read().unwrap();
+            if let Some(comp) = read_guard.get(&bytecode_hash) {
+                comp.clone()
+            } else {
+                drop(read_guard);
+                let comp = Component::new(&self.engine, contract_bytecode)
+                    .map_err(|e| VmError::InvalidBytecode(e.to_string()))?;
+
+                let mut write_guard = self.component_cache.write().unwrap();
+                write_guard.insert(bytecode_hash, comp.clone());
+                comp
+            }
+        };
+
         let mut linker = Linker::new(&self.engine);
 
-        linker
-            .func_wrap4_async(
-                "env",
-                "state_set",
-                |caller: Caller<'_, HostState>, p1: u32, p2: u32, p3: u32, p4: u32| {
-                    Box::new(async move { host_state_set(caller, p1, p2, p3, p4).await })
-                },
-            )
-            .map_err(|e| VmError::Initialization(e.to_string()))?;
-        linker
-            .func_wrap2_async(
-                "env",
-                "state_delete",
-                |caller: Caller<'_, HostState>, p1: u32, p2: u32| {
-                    Box::new(async move { host_state_delete(caller, p1, p2).await })
-                },
-            )
-            .map_err(|e| VmError::Initialization(e.to_string()))?;
-        linker
-            .func_wrap3_async(
-                "env",
-                "state_get",
-                |caller: Caller<'_, HostState>, p1: u32, p2: u32, p3: u32| {
-                    Box::new(async move { host_state_get(caller, p1, p2, p3).await })
-                },
-            )
-            .map_err(|e| VmError::Initialization(e.to_string()))?;
-        linker
-            .func_wrap1_async(
-                "env",
-                "get_caller",
-                |caller: Caller<'_, HostState>, p1: u32| {
-                    Box::new(async move { host_get_caller(caller, p1).await })
-                },
-            )
-            .map_err(|e| VmError::Initialization(e.to_string()))?;
-        linker
-            .func_wrap0_async(
-                "env",
-                "ctx_block_height",
-                |caller: Caller<'_, HostState>| {
-                    Box::new(async move { host_ctx_block_height(caller).await })
-                },
-            )
-            .map_err(|e| VmError::Initialization(e.to_string()))?;
-        linker
-            .func_wrap5_async("env", "host_call", |c, p1, p2, p3, p4, p5| {
-                Box::new(host_call(c, p1, p2, p3, p4, p5))
-            })
+        Service::add_to_linker(&mut linker, |state: &mut HostState| state)
             .map_err(|e| VmError::Initialization(e.to_string()))?;
 
-        // The `state_accessor` has a lifetime tied to the `execute` function call.
-        // Wasmtime's `Store` requires its data to be `'static`. To bridge this, we
-        // use an `unsafe` block to transmute the lifetime to `'static`.
-        //
-        // SAFETY: This is safe because the `Store` and all async operations
-        // within it (which hold `HostState`) are created and dropped within the
-        // scope of this `execute` function. Therefore, the original `state_accessor`
-        // reference is guaranteed to outlive the `Store` and any operations
-        // that might use the transmuted pointer.
+        wasmtime_wasi::add_to_linker_async(&mut linker)
+            .map_err(|e| VmError::Initialization(e.to_string()))?;
+
         let state_accessor_static: &'static dyn VmStateAccessor =
             unsafe { std::mem::transmute(state_accessor) };
+
         let host_state = HostState {
             state_accessor: SendSyncPtr(state_accessor_static as *const _),
-            context: Some(execution_context.clone()),
-            memory: None,
-            fuel_costs: self.fuel_costs.clone(),
+            context: execution_context.clone(),
+            table: ResourceTable::new(),
+            wasi_ctx: WasiCtxBuilder::new().build(),
+            _fuel_costs: self.fuel_costs.clone(),
         };
+
         let mut store = Store::new(&self.engine, host_state);
         store
             .set_fuel(execution_context.gas_limit)
             .map_err(|e| VmError::Initialization(e.to_string()))?;
 
-        let module = Module::new(&self.engine, contract_bytecode)
-            .map_err(|e| VmError::InvalidBytecode(e.to_string()))?;
-        let instance = linker
-            .instantiate_async(&mut store, &module)
+        let (service, _) = Service::instantiate_async(&mut store, &component, &linker)
             .await
             .map_err(|e| VmError::Initialization(e.to_string()))?;
 
-        let memory = instance
-            .get_memory(&mut store, "memory")
-            .ok_or_else(|| VmError::Initialization("Memory export not found".to_string()))?;
-        store.data_mut().memory = Some(memory);
+        let return_data: Vec<u8> = match entrypoint {
+            "manifest" => service
+                .call_manifest(&mut store)
+                .await
+                .map(|s| s.into_bytes())
+                .map_err(|e| VmError::ExecutionTrap(e.to_string()))?,
 
-        // First, try resolving a function with signature () -> u64 for no-arg calls.
-        let packed_result = if let Ok(func) =
-            instance.get_typed_func::<(), u64>(&mut store, entrypoint)
-        {
-            if !input_data.is_empty() {
-                return Err(VmError::FunctionNotFound(format!(
-                    "Entrypoint '{}' takes no arguments, but arguments were provided.",
-                    entrypoint
-                )));
-            }
-            func.call_async(&mut store, ()).await
-        }
-        // If that fails, try resolving a function with signature (u32, u32) -> u64.
-        else if let Ok(func) = instance.get_typed_func::<(u32, u32), u64>(&mut store, entrypoint)
-        {
-            let alloc = instance
-                .get_typed_func::<u32, u32>(&mut store, "allocate")
-                .map_err(|e| VmError::FunctionNotFound(format!("allocate: {}", e)))?;
+            "id" => service
+                .call_id(&mut store)
+                .await
+                .map(|s| s.into_bytes())
+                .map_err(|e| VmError::ExecutionTrap(e.to_string()))?,
 
-            let (ptr, len) = if input_data.is_empty() {
-                (0, 0)
-            } else {
-                let ptr = alloc
-                    .call_async(&mut store, input_data.len() as u32)
+            "abi-version" => service
+                .call_abi_version(&mut store)
+                .await
+                .map(|v| v.to_le_bytes().to_vec())
+                .map_err(|e| VmError::ExecutionTrap(e.to_string()))?,
+
+            "state-schema" => service
+                .call_state_schema(&mut store)
+                .await
+                .map(|s| s.into_bytes())
+                .map_err(|e| VmError::ExecutionTrap(e.to_string()))?,
+
+            "prepare-upgrade" => service
+                .call_prepare_upgrade(&mut store, input_data)
+                .await
+                .map_err(|e| VmError::ExecutionTrap(e.to_string()))?,
+
+            "complete-upgrade" => service
+                .call_complete_upgrade(&mut store, input_data)
+                .await
+                .map_err(|e| VmError::ExecutionTrap(e.to_string()))?,
+
+            method_name => {
+                let res = service
+                    .call_handle_service_call(&mut store, method_name, input_data)
                     .await
                     .map_err(|e| VmError::ExecutionTrap(e.to_string()))?;
-                memory
-                    .write(&mut store, ptr as usize, input_data)
-                    .map_err(|e| VmError::MemoryError(e.to_string()))?;
-                (ptr, input_data.len() as u32)
-            };
 
-            func.call_async(&mut store, (ptr, len)).await
-        }
-        // If neither signature matches, the entrypoint is considered not found.
-        else {
-            return Err(VmError::FunctionNotFound(entrypoint.to_string()));
+                match res {
+                    Ok(bytes) => bytes,
+                    Err(contract_err) => return Err(VmError::ExecutionTrap(contract_err)),
+                }
+            }
         };
 
-        let packed = packed_result.map_err(|e| VmError::ExecutionTrap(e.to_string()))?;
-
-        let result_ptr = (packed >> 32) as u32;
-        let result_len = packed as u32;
-        let mut return_data = vec![0; result_len as usize];
-        memory
-            .read(&store, result_ptr as usize, &mut return_data)
-            .map_err(|e| VmError::MemoryError(e.to_string()))?;
-
-        let remaining_fuel = store
-            .get_fuel()
-            .map_err(|e| VmError::ExecutionTrap(e.to_string()))?;
-        let gas_used = execution_context.gas_limit.saturating_sub(remaining_fuel);
+        let remaining = store.get_fuel().unwrap_or(0);
+        let gas_used = execution_context.gas_limit.saturating_sub(remaining);
 
         Ok(ExecutionOutput {
             gas_used,

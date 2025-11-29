@@ -1,0 +1,48 @@
+package ioi:system@0.2.0;
+
+/// Interface for accessing the blockchain state.
+interface state {
+    /// Retrieves a value from the state by key.
+    get: func(key: list<u8>) -> result<option<list<u8>>, string>;
+    
+    /// Sets a value in the state.
+    set: func(key: list<u8>, value: list<u8>) -> result<_, string>;
+    
+    /// Deletes a value from the state.
+    delete: func(key: list<u8>) -> result<_, string>;
+}
+
+/// Interface for accessing execution context.
+interface context {
+    /// Gets the address of the entity that called the service.
+    get-caller: func() -> list<u8>;
+    
+    /// Gets the current block height.
+    block-height: func() -> u64;
+}
+
+/// Interface for calling other services (Host Capabilities).
+interface host {
+    /// Calls a method on another service or a host capability.
+    call: func(capability: string, request: list<u8>) -> result<list<u8>, string>;
+}
+
+/// The world defines the full environment for a Service.
+world service {
+    import state;
+    import context;
+    import host;
+
+    /// The main entrypoint for dynamic dispatch.
+    export handle-service-call: func(method: string, params: list<u8>) -> result<list<u8>, string>;
+
+    /// Canonical metadata exports.
+    export id: func() -> string;
+    export abi-version: func() -> u32;
+    export state-schema: func() -> string;
+    export manifest: func() -> string;
+
+    /// Lifecycle hooks.
+    export prepare-upgrade: func(input: list<u8>) -> list<u8>;
+    export complete-upgrade: func(input: list<u8>) -> list<u8>;
+}

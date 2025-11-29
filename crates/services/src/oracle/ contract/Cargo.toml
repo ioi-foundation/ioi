@@ -1,4 +1,3 @@
-# Path: crates/services/oracle/contract/Cargo.toml
 [package]
 name = "oracle-service-contract"
 version = "0.1.0"
@@ -11,9 +10,7 @@ repository = "https://github.com/ioi-foundation/ioi-sdk"
 crate-type = ["cdylib"]
 
 [dependencies]
-ioi-contract-sdk = { path = "../../../../contract-sdk", features = [
-    "wee_alloc",
-] }
+ioi-contract-sdk = { path = "../../../../contract-sdk" }
 # DO NOT inherit from workspace. Specify version and features directly for no_std compatibility.
 parity-scale-codec = { version = "3.7.5", default-features = false, features = [
     "derive",

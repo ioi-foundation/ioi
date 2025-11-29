@@ -1,22 +1,28 @@
-# Path: crates/forge/tests/contracts/fee-calculator-service/Cargo.toml
-
 [package]
 name = "fee-calculator-service"
 version = "0.1.0"
 edition = "2021"
 
-# This empty table marks this crate as a virtual workspace root,
-# preventing it from inheriting the parent workspace's properties.
 [workspace]
 
 [lib]
-crate-type = ["cdylib"] # Compile to a dynamic system library for WASM
+crate-type = ["cdylib"]
 
 [dependencies]
-ioi-contract-sdk = { path = "../../../../contract-sdk", features = [
-    "wee_alloc",
-] }
-# DO NOT inherit from workspace. Specify version and features directly for no_std compatibility.
+ioi-contract-sdk = { path = "../../../../contract-sdk" }
 parity-scale-codec = { version = "3.7.5", default-features = false, features = [
     "derive",
 ] }
+
+# ❌ REMOVE this whole block (it’s what causes the error)
+# [package.metadata.component]
+# package = "ioi:fee-calculator"
+# target = "../../../../types/wit/ioi.wit"
+# world  = "service"
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+panic = "abort"
+strip = true
