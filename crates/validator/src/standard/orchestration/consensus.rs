@@ -125,6 +125,7 @@ where
 
     if let ioi_api::consensus::ConsensusDecision::ProduceBlock {
         expected_timestamp_secs,
+        view, // <--- Extract view from decision
         ..
     } = decision
     {
@@ -201,6 +202,7 @@ where
         let new_block_template = Block {
             header: BlockHeader {
                 height: producing_h,
+                view, // <--- Use view
                 parent_hash: parent_ref.block_hash,
                 parent_state_root: ioi_types::app::StateRoot(parent_ref.state_root.clone()),
                 state_root: ioi_types::app::StateRoot(vec![]),

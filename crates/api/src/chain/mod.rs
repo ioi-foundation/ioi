@@ -229,6 +229,7 @@ where
         known_peers_bytes: &[Vec<u8>],
         producer_keypair: &Keypair,
         expected_timestamp: u64,
+        view: u64, // <--- NEW parameter
     ) -> Result<Block<ChainTransaction>, ChainError>;
 
     /// Retrieves a block from the recent block cache by height.
