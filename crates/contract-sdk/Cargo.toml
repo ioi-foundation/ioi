@@ -19,6 +19,9 @@ parity-scale-codec = { version = "3.7.5", default-features = false, features = [
     "derive",
 ] }
 
+# Add the macros crate dependency
+ioi-macros = { path = "../macros" }
+
 [features]
 default = []
 std = []

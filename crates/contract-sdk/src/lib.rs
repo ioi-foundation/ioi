@@ -59,6 +59,9 @@ pub trait IoiService {
     }
 }
 
+// Re-export the procedural macro for convenient use
+pub use ioi_macros::ioi_contract;
+
 pub mod context;
 pub mod host;
 pub mod state;

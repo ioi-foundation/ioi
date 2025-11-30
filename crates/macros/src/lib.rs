@@ -233,3 +233,173 @@ pub fn service_interface(args: TokenStream, input: TokenStream) -> TokenStream {
 
     TokenStream::from(output)
 }
+
+/// Procedural macro to drastically simplify writing WASM smart contracts for the IOI SDK.
+///
+/// This macro automatically:
+/// 1. Injects a lightweight bump allocator and panic handler.
+/// 2. Implements the `cabi_realloc` function required by the Component Model ABI.
+/// 3. Generates the boilerplate `impl Guest` block that bridges the WIT exports to your
+///    high-level `impl IoiService` trait.
+/// 4. Calls the `export!` macro to finalize the component.
+///
+/// # Usage
+/// Apply this to your `impl IoiService for MyContract`.
+#[proc_macro_attribute]
+pub fn ioi_contract(_args: TokenStream, input: TokenStream) -> TokenStream {
+    let item_impl = parse_macro_input!(input as ItemImpl);
+    let struct_type = &item_impl.self_ty;
+
+    // 1. Define the BumpAllocator and GlobalAlloc implementation
+    //    This provides a minimal, no-std compatible allocator for the WASM environment.
+    let allocator_impl = quote! {
+        const HEAP_SIZE: usize = 32 * 1024; // 32 KiB heap
+
+        struct BumpAllocator {
+            heap: core::cell::UnsafeCell<[u8; HEAP_SIZE]>,
+            offset: core::cell::UnsafeCell<usize>,
+        }
+
+        unsafe impl Sync for BumpAllocator {}
+
+        unsafe impl core::alloc::GlobalAlloc for BumpAllocator {
+            unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
+                let heap_ptr = (*self.heap.get()).as_ptr() as usize;
+                let offset = *self.offset.get();
+                let align = layout.align();
+                let size = layout.size();
+
+                let aligned = (heap_ptr + offset + align - 1) & !(align - 1);
+                let new_offset = aligned + size - heap_ptr;
+
+                if new_offset > HEAP_SIZE {
+                    core::ptr::null_mut()
+                } else {
+                    *self.offset.get() = new_offset;
+                    aligned as *mut u8
+                }
+            }
+
+            unsafe fn dealloc(&self, _ptr: *mut u8, _layout: core::alloc::Layout) {
+                // bump allocator: leak memory, no-op dealloc
+            }
+        }
+
+        #[global_allocator]
+        static ALLOC: BumpAllocator = BumpAllocator {
+            heap: core::cell::UnsafeCell::new([0; HEAP_SIZE]),
+            offset: core::cell::UnsafeCell::new(0),
+        };
+
+        #[panic_handler]
+        fn panic(_info: &core::panic::PanicInfo) -> ! {
+            loop {}
+        }
+    };
+
+    // 2. Define cabi_realloc for the Component Model ABI
+    //    The host calls this to allocate memory in the guest for passing arguments.
+    let cabi_realloc_impl = quote! {
+        #[no_mangle]
+        pub unsafe extern "C" fn cabi_realloc(
+            ptr: *mut u8,
+            old_size: usize,
+            align: usize,
+            new_size: usize,
+        ) -> *mut u8 {
+            use core::{cmp::min, ptr::null_mut};
+            use alloc::alloc::{alloc, dealloc, Layout};
+
+            fn layout(size: usize, align: usize) -> Option<Layout> {
+                Layout::from_size_align(size.max(1), align).ok()
+            }
+
+            // Allocate new
+            if ptr.is_null() {
+                if new_size == 0 {
+                    return null_mut();
+                }
+                if let Some(new_layout) = layout(new_size, align) {
+                    return alloc(new_layout);
+                }
+                return null_mut();
+            }
+
+            // Free
+            if new_size == 0 {
+                if let Some(old_layout) = layout(old_size, align) {
+                    dealloc(ptr, old_layout);
+                }
+                return null_mut();
+            }
+
+            // Reallocate: allocate new, copy, free old
+            let Some(new_layout) = layout(new_size, align) else {
+                return null_mut();
+            };
+            let new_ptr = alloc(new_layout);
+            if new_ptr.is_null() {
+                return null_mut();
+            }
+
+            let count = min(old_size, new_size);
+            core::ptr::copy_nonoverlapping(ptr, new_ptr, count);
+
+            if let Some(old_layout) = layout(old_size, align) {
+                dealloc(ptr, old_layout);
+            }
+
+            new_ptr
+        }
+    };
+
+    // 3. Bridge the IoiService trait to the generated Guest trait
+    //    This connects the high-level `impl IoiService` to the low-level `impl Guest` required by wit-bindgen.
+    let bridge_impl = quote! {
+        // Wrapper struct to satisfy wit-bindgen requirements without modifying user code
+        struct IoiContractComponent;
+
+        impl ioi_contract_sdk::Guest for IoiContractComponent {
+            fn id() -> alloc::string::String {
+                <#struct_type as ioi_contract_sdk::IoiService>::id()
+            }
+
+            fn abi_version() -> u32 {
+                <#struct_type as ioi_contract_sdk::IoiService>::abi_version()
+            }
+
+            fn state_schema() -> alloc::string::String {
+                <#struct_type as ioi_contract_sdk::IoiService>::state_schema()
+            }
+
+            fn manifest() -> alloc::string::String {
+                <#struct_type as ioi_contract_sdk::IoiService>::manifest()
+            }
+
+            fn handle_service_call(method: alloc::string::String, params: alloc::vec::Vec<u8>) -> Result<alloc::vec::Vec<u8>, alloc::string::String> {
+                <#struct_type as ioi_contract_sdk::IoiService>::handle_service_call(method, params)
+            }
+
+            fn prepare_upgrade(input: alloc::vec::Vec<u8>) -> alloc::vec::Vec<u8> {
+                <#struct_type as ioi_contract_sdk::IoiService>::prepare_upgrade(input)
+            }
+
+            fn complete_upgrade(input: alloc::vec::Vec<u8>) -> alloc::vec::Vec<u8> {
+                <#struct_type as ioi_contract_sdk::IoiService>::complete_upgrade(input)
+            }
+        }
+
+        // 4. Generate the export macro call
+        //    This registers the component exports defined in the WIT file.
+        ioi_contract_sdk::bindings::export!(IoiContractComponent with_types_in ioi_contract_sdk::bindings);
+    };
+
+    let output = quote! {
+        #item_impl
+        #allocator_impl
+        #cabi_realloc_impl
+        #bridge_impl
+    };
+
+    TokenStream::from(output)
+}
