@@ -150,6 +150,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 ConsensusDecision::ProduceBlock {
                     transactions: vec![],
                     expected_timestamp_secs,
+                    view: 0, // <---
                 }
             } else {
                 ConsensusDecision::Stall
@@ -164,6 +165,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 ConsensusDecision::ProduceBlock {
                     transactions: vec![],
                     expected_timestamp_secs,
+                    view: self.current_view, // <--- Pass back internal view state
                 }
             } else {
                 ConsensusDecision::WaitForBlock
@@ -239,10 +241,20 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             &header.signature,
         )?;
 
-        // For RoundRobin, leader depends on view. We can't verify this without knowing the remote peer's view.
-        // A full BFT implementation would have votes that establish the view. For this simplified model,
-        // we accept any valid authority's block.
-        // A stricter check could be added if view numbers were part of the block header.
+        // For RoundRobin, leader depends on view.
+        // Check that the producer corresponds to the leader for the view in the header.
+        let leader_index = ((header.height + header.view)
+             .checked_rem(validator_set.len() as u64)
+             .unwrap_or(0)) as usize;
+        
+        let expected_leader = validator_set.get(leader_index).ok_or(ConsensusError::BlockVerificationFailed("Leader index out of bounds".into()))?;
+        
+        if *expected_leader != header.producer_account_id {
+             return Err(ConsensusError::InvalidLeader {
+                expected: *expected_leader,
+                got: header.producer_account_id,
+            });
+        }
 
         Ok(())
     }

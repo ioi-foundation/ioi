@@ -17,9 +17,11 @@ pub enum ConsensusDecision<T> {
     /// The node is the leader and should produce a block with the given transactions.
     /// `expected_timestamp_secs` is the exact block timestamp (UNIX seconds) the engine
     /// will later verify against. Pre-flight checks **must** use this same value.
+    /// `view` is the consensus view number in which the block is produced.
     ProduceBlock {
         transactions: Vec<T>,
         expected_timestamp_secs: u64,
+        view: u64, // <--- NEW
     },
     /// The node is not the leader and should wait for a block proposal from a peer.
     WaitForBlock,

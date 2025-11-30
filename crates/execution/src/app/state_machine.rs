@@ -308,6 +308,7 @@ where
         _known_peers_bytes: &[Vec<u8>],
         producer_keypair: &Keypair,
         expected_timestamp: u64,
+        view: u64, // <--- NEW parameter
     ) -> Result<Block<ChainTransaction>, ChainError> {
         let height = self.state.status.height + 1;
         let (parent_hash_vec, parent_state_root) = self.state.recent_blocks.last().map_or_else(
@@ -340,6 +341,7 @@ where
 
         let mut header = BlockHeader {
             height,
+            view, // <--- Set view
             parent_hash,
             parent_state_root,
             state_root: StateRoot(vec![]),

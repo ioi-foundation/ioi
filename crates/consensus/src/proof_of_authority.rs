@@ -132,7 +132,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         &mut self,
         our_account_id: &AccountId,
         height: u64,
-        _view: u64,
+        view: u64, // <--- Use this
         parent_view: &dyn AnchoredStateView,
         _known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
@@ -237,14 +237,18 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             );
             return ConsensusDecision::Stall;
         }
-        // The round number should only depend on height for this simple PoA model.
-        let round = height.saturating_sub(1);
-        let leader_index = (round % n) as usize;
+        
+        // Round 0 of height H corresponds to index (H-1) % n.
+        // Round V corresponds to index (H-1 + V) % n.
+        // View is 0-indexed round within the height.
+        let round_index = height.saturating_sub(1).saturating_add(view);
+        let leader_index = (round_index % n) as usize;
 
         match validator_set.get(leader_index) {
             Some(leader) if *leader == *our_account_id => ConsensusDecision::ProduceBlock {
                 transactions: vec![],
                 expected_timestamp_secs,
+                view, // <--- Pass the view back
             },
             Some(_) => ConsensusDecision::WaitForBlock,
             None => ConsensusDecision::Stall,
@@ -429,8 +433,9 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             ));
         }
 
-        // Verify using the same schedule: Height 1 -> index 0
-        let leader_index = (header.height.saturating_sub(1) % n) as usize;
+        // Verify using the same schedule: Round index includes view
+        let round_index = header.height.saturating_sub(1).saturating_add(header.view);
+        let leader_index = (round_index % n) as usize;
 
         let expected_leader =
             active_validator_ids

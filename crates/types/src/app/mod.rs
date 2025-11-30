@@ -169,6 +169,8 @@ impl AsRef<[u8]> for StateAnchor {
 pub struct BlockHeader {
     /// The height of this block.
     pub height: u64,
+    /// The view/round in which this block was produced.
+    pub view: u64,
     /// The hash of the parent block's header.
     pub parent_hash: [u8; 32],
     /// The state root committed by the parent block (the state against which this block is verified).
@@ -220,6 +222,7 @@ impl BlockHeader {
         crate::codec::to_bytes_canonical(&(
             SigDomain::BlockHeaderV1 as u8,
             self.height,
+            self.view,
             self.parent_hash,
             &self.parent_state_root.0,
             &self.state_root.0,

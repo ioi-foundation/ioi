@@ -336,6 +336,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 ConsensusDecision::ProduceBlock {
                     transactions: vec![],
                     expected_timestamp_secs,
+                    view: 0, // Simple PoS ignores view
                 }
             } else {
                 log::info!(
