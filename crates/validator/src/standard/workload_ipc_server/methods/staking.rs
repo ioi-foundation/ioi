@@ -35,8 +35,14 @@ where
         + Send
         + Sync
         + 'static,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + AsRef<[u8]> + Debug,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + AsRef<[u8]>
+        + Debug,
     <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync + From<Vec<u8>>,
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
@@ -55,7 +61,8 @@ where
             .map_err(|_| anyhow!("Invalid context type for GetStakesV1"))?;
         let machine = ctx.machine.lock().await;
 
-        let stakes_by_account_id = (*machine).get_staked_validators(&ctx.workload).await?;
+        // REMOVED: &ctx.workload argument
+        let stakes_by_account_id = (*machine).get_staked_validators().await?;
 
         let stakes_by_hex_id = stakes_by_account_id
             .into_iter()
@@ -92,8 +99,14 @@ where
         + Send
         + Sync
         + 'static,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + AsRef<[u8]> + Debug,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + AsRef<[u8]>
+        + Debug,
     <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync + From<Vec<u8>>,
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
@@ -112,7 +125,8 @@ where
             .map_err(|_| anyhow!("Invalid context type for GetNextStakesV1"))?;
         let machine = ctx.machine.lock().await;
 
-        let stakes_by_account_id = (*machine).get_next_staked_validators(&ctx.workload).await?;
+        // REMOVED: &ctx.workload argument
+        let stakes_by_account_id = (*machine).get_next_staked_validators().await?;
 
         let stakes_by_hex_id = stakes_by_account_id
             .into_iter()

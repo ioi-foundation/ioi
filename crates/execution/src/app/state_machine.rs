@@ -65,8 +65,8 @@ where
     async fn prepare_block(
         &self,
         block: Block<ChainTransaction>,
-        workload: &WorkloadContainer<ST>,
     ) -> Result<PreparedBlock, ChainError> {
+        let workload = &self.workload_container;
         let expected_height = self.state.status.height + 1;
         if block.header.height != expected_height {
             return Err(ChainError::Block(BlockError::InvalidHeight {
@@ -113,9 +113,7 @@ where
 
         let transactions_root = ioi_types::codec::to_bytes_canonical(&block.transactions)
             .map_err(ChainError::Transaction)?;
-        let vs_bytes = self
-            .get_validator_set_for(workload, block.header.height)
-            .await?;
+        let vs_bytes = self.get_validator_set_for(block.header.height).await?;
         let validator_set_hash = ioi_crypto::algorithms::hash::sha256(vs_bytes.concat())
             .map_err(|e| ChainError::Transaction(e.to_string()))?;
 
@@ -133,8 +131,8 @@ where
     async fn commit_block(
         &mut self,
         prepared: PreparedBlock,
-        workload: &WorkloadContainer<ST>,
     ) -> Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError> {
+        let workload = &self.workload_container;
         let mut block = prepared.block;
         let state_changes = prepared.state_changes;
         let (inserts, deletes) = state_changes.as_ref();
@@ -386,11 +384,8 @@ where
             .collect()
     }
 
-    async fn get_validator_set_for(
-        &self,
-        workload: &WorkloadContainer<ST>,
-        height: u64,
-    ) -> Result<Vec<Vec<u8>>, ChainError> {
+    async fn get_validator_set_for(&self, height: u64) -> Result<Vec<Vec<u8>>, ChainError> {
+        let workload = &self.workload_container;
         let state = workload.state_tree();
         let state_guard = state.read().await;
         let bytes = state_guard
@@ -407,7 +402,6 @@ where
 
     async fn get_staked_validators(
         &self,
-        _workload: &WorkloadContainer<ST>,
     ) -> Result<BTreeMap<AccountId, u64>, ChainError> {
         let state = self.workload_container.state_tree();
         let guard = state.read().await;
@@ -425,7 +419,6 @@ where
 
     async fn get_next_staked_validators(
         &self,
-        _workload: &WorkloadContainer<ST>,
     ) -> Result<BTreeMap<AccountId, u64>, ChainError> {
         let state = self.workload_container.state_tree();
         let guard = state.read().await;

@@ -142,12 +142,14 @@ where
 
         let prepared_block = {
             let machine = ctx.machine.lock().await;
-            machine.prepare_block(block, &ctx.workload).await?
+            // REMOVED: &ctx.workload argument
+            machine.prepare_block(block).await?
         };
 
         let (processed_block, events) = {
             let mut machine = ctx.machine.lock().await;
-            machine.commit_block(prepared_block, &ctx.workload).await?
+            // REMOVED: &ctx.workload argument
+            machine.commit_block(prepared_block).await?
         };
 
         Ok((processed_block, events))
@@ -357,7 +359,8 @@ where
         let machine = ctx.machine.lock().await;
         let h = (*machine).status().height;
         log::debug!("[RPC] {} -> height={} (current)", Self::NAME, h);
-        let set = (*machine).get_validator_set_for(&ctx.workload, h).await?;
+        // REMOVED: &ctx.workload argument
+        let set = (*machine).get_validator_set_for(h).await?;
         log::debug!(
             "[RPC] {} -> height={} returned {} validators",
             Self::NAME,
@@ -421,9 +424,8 @@ where
             .map_err(|_| anyhow!("Invalid context type for GetNextValidatorSetV1"))?;
         let machine = ctx.machine.lock().await;
         let next_height = (*machine).status().height + 1;
-        let set = (*machine)
-            .get_validator_set_for(&ctx.workload, next_height)
-            .await?;
+        // REMOVED: &ctx.workload argument
+        let set = (*machine).get_validator_set_for(next_height).await?;
         Ok(set)
     }
 }
@@ -483,9 +485,8 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetValidatorSetForV1"))?;
         let machine = ctx.machine.lock().await;
-        let set = (*machine)
-            .get_validator_set_for(&ctx.workload, params.height)
-            .await?;
+        // REMOVED: &ctx.workload argument
+        let set = (*machine).get_validator_set_for(params.height).await?;
         Ok(set)
     }
 }
