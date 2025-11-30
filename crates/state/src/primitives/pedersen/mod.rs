@@ -2,8 +2,7 @@
 use dcrypt::algorithms::ec::k256::{self as k256, Point, Scalar};
 use dcrypt::algorithms::hash::{sha2::Sha256 as dcrypt_sha256, HashFunction};
 use ioi_api::commitment::{
-    CommitmentScheme, CommitmentStructure, HomomorphicCommitmentScheme, HomomorphicOperation,
-    ProofContext, SchemeIdentifier, Selector,
+    CommitmentScheme, CommitmentStructure, ProofContext, SchemeIdentifier, Selector,
 };
 use ioi_api::error::CryptoError;
 use ioi_crypto::algorithms::hash::sha256;
@@ -11,6 +10,11 @@ use parity_scale_codec::{Decode, Encode, Error};
 use rand::{rngs::OsRng, RngCore};
 
 /// A Pedersen commitment scheme over the k256 curve.
+///
+/// This implementation provides a vector commitment scheme using elliptic curve points.
+/// While Pedersen commitments support homomorphic properties, this implementation
+/// exposes only the base `CommitmentScheme` interface for state root calculation
+/// and proof verification.
 #[derive(Debug, Clone)]
 pub struct PedersenCommitmentScheme {
     /// Generator points for values (G_i)
@@ -285,52 +289,6 @@ impl CommitmentScheme for PedersenCommitmentScheme {
     }
 }
 
-impl HomomorphicCommitmentScheme for PedersenCommitmentScheme {
-    fn add(
-        &self,
-        a: &Self::Commitment,
-        b: &Self::Commitment,
-    ) -> Result<Self::Commitment, CryptoError> {
-        let point_a = Point::deserialize_compressed(a.as_ref())
-            .map_err(|e| CryptoError::InvalidKey(e.to_string()))?;
-        let point_b = Point::deserialize_compressed(b.as_ref())
-            .map_err(|e| CryptoError::InvalidKey(e.to_string()))?;
-        let result_point = point_a.add(&point_b);
-        Ok(PedersenCommitment(result_point.serialize_compressed()))
-    }
-
-    fn scalar_multiply(
-        &self,
-        a: &Self::Commitment,
-        scalar: i32,
-    ) -> Result<Self::Commitment, CryptoError> {
-        if scalar <= 0 {
-            return Err(CryptoError::InvalidInput(
-                "Scalar must be positive".to_string(),
-            ));
-        }
-        let point = Point::deserialize_compressed(a.as_ref())
-            .map_err(|e| CryptoError::InvalidKey(e.to_string()))?;
-        let mut scalar_bytes = [0u8; 32];
-        // --- FIX: Use safe slice access ---
-        if let Some(slice) = scalar_bytes.get_mut(..4) {
-            slice.copy_from_slice(&scalar.to_le_bytes());
-        }
-        let s = Scalar::new(scalar_bytes).map_err(|e| CryptoError::InvalidKey(e.to_string()))?;
-        let result_point = point
-            .mul(&s)
-            .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-        Ok(PedersenCommitment(result_point.serialize_compressed()))
-    }
-
-    fn supports_operation(&self, operation: HomomorphicOperation) -> bool {
-        matches!(
-            operation,
-            HomomorphicOperation::Addition | HomomorphicOperation::ScalarMultiplication
-        )
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -342,21 +300,17 @@ mod tests {
         let scheme = PedersenCommitmentScheme::new(1).expect("Failed to create scheme");
         let value = b"secret_data";
 
-        // 2. Commit: Ensure we get a witness (scalar) back, not just ()
-        // The type hint here ensures your change to `type Witness = Scalar` is correct.
+        // 2. Commit: Ensure we get a witness (scalar) back
         let (commitment, witness): (PedersenCommitment, Scalar) = scheme
             .commit_with_witness(&[Some(value.to_vec())])
             .expect("Commitment failed");
 
         // 3. Prove: Use the returned witness to create the proof
-        // If the witness was lost (previous bug), we wouldn't be able to call this
-        // effectively if `create_proof` actually required the scalar.
         let proof = scheme
             .create_proof(&witness, &Selector::Position(0), &value.to_vec())
             .expect("Proof generation failed");
 
         // 4. Verify: The proof (containing the blinding factor) must satisfy the verification equation
-        // C == v*G + r*H
         let valid = scheme.verify(
             &commitment,
             &proof,
@@ -376,12 +330,10 @@ mod tests {
 
         let (commitment, witness) = scheme.commit_with_witness(&[Some(value.to_vec())]).unwrap();
 
-        // Create proof for the *correct* value
         let proof = scheme
             .create_proof(&witness, &Selector::Position(0), &value.to_vec())
             .unwrap();
 
-        // Try to verify against the *wrong* value
         let valid = scheme.verify(
             &commitment,
             &proof,

@@ -23,7 +23,6 @@ members = [
     "crates/api",
     "crates/types",
     "crates/crypto",
-    "crates/homomorphic",
     "crates/networking",
     "crates/services",
     "crates/storage",

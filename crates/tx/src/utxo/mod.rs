@@ -1,4 +1,16 @@
 // Path: crates/tx/src/utxo/mod.rs
+
+//! A transparent UTXO transaction model.
+//!
+//! This model validates that the sum of input values is greater than or equal to
+//! the sum of output values. All values are public `u64` integers. This implementation
+//! prioritizes high throughput and auditability over privacy.
+//!
+//! To support Confidential Transactions, this module would need to be extended
+//! (or replaced) with a model that utilizes Zero-Knowledge Proofs (e.g., Zk-SNARKs via SP1)
+//! to prove value conservation without revealing amounts, rather than using
+//! homomorphic commitment arithmetic directly in the validator logic.
+
 use async_trait::async_trait;
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::state::{ProofProvider, StateAccess, StateManager};
@@ -122,12 +134,15 @@ where
                 })?;
                 let utxo: Output = codec::from_bytes_canonical(&utxo_bytes)
                     .map_err(|e| TransactionError::Deserialization(format!("UTXO error: {}", e)))?;
+
+                // Explicit transparent value summation check
                 total_input = total_input
                     .checked_add(utxo.value)
                     .ok_or_else(|| TransactionError::BalanceOverflow)?;
                 materialized_inputs.push((key, utxo_bytes));
             }
             let total_output: u64 = tx.outputs.iter().map(|o| o.value).sum();
+
             if total_input < total_output {
                 return Err(TransactionError::InsufficientFunds);
             }

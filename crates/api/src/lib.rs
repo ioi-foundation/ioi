@@ -35,8 +35,6 @@ pub mod consensus;
 pub mod crypto;
 /// Re-exports all core error types from the central `ioi-types` crate.
 pub mod error;
-/// Defines the core enums for representing homomorphic operations and their results.
-pub mod homomorphic;
 /// Defines traits for Inter-Blockchain Communication (IBC).
 pub mod ibc;
 /// Defines the `CredentialsView` trait for decoupled identity lookups.
@@ -64,7 +62,7 @@ pub mod prelude {
         AnchoredStateView, ChainStateMachine, LiveStateView, RemoteStateView, StateRef,
         ViewResolver,
     };
-    pub use crate::commitment::{CommitmentScheme, HomomorphicCommitmentScheme};
+    pub use crate::commitment::CommitmentScheme;
     pub use crate::error::{
         ChainError, CoreError, CryptoError, ErrorCode, StateError, TransactionError, ValidatorError,
     };
