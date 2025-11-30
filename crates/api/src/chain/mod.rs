@@ -211,14 +211,12 @@ where
     async fn prepare_block(
         &self,
         block: Block<ChainTransaction>,
-        workload: &WorkloadContainer<ST>,
     ) -> Result<PreparedBlock, ChainError>;
 
     /// Applies the state changes from a `PreparedBlock` to the canonical state.
     async fn commit_block(
         &mut self,
         prepared: PreparedBlock,
-        workload: &WorkloadContainer<ST>,
     ) -> Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError>;
 
     /// Constructs a new block template.
@@ -238,21 +236,15 @@ where
     fn get_blocks_since(&self, height: u64) -> Vec<Block<ChainTransaction>>;
 
     /// Retrieves the active validator set for a specific block height.
-    async fn get_validator_set_for(
-        &self,
-        workload: &WorkloadContainer<ST>,
-        height: u64,
-    ) -> Result<Vec<Vec<u8>>, ChainError>;
+    async fn get_validator_set_for(&self, height: u64) -> Result<Vec<Vec<u8>>, ChainError>;
 
     /// Retrieves the current set of staked validators and their stakes.
     async fn get_staked_validators(
         &self,
-        workload: &WorkloadContainer<ST>,
     ) -> Result<BTreeMap<ioi_types::app::AccountId, u64>, ChainError>;
 
     /// Retrieves the pending next set of staked validators and their stakes.
     async fn get_next_staked_validators(
         &self,
-        workload: &WorkloadContainer<ST>,
     ) -> Result<BTreeMap<ioi_types::app::AccountId, u64>, ChainError>;
 }
