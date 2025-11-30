@@ -27,6 +27,62 @@ use tokio::time::Duration;
 
 const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(30);
 
+/// Helper configuration to resolve Cargo features for the node binary.
+/// This decouples the test runner from the internal feature flag names.
+struct BinaryFeatureConfig<'a> {
+    consensus_type: &'a str,
+    state_tree_type: &'a str,
+    commitment_scheme_type: &'a str,
+    use_malicious_workload: bool,
+    extra_features: &'a [String],
+}
+
+impl<'a> BinaryFeatureConfig<'a> {
+    fn resolve(&self) -> Result<String> {
+        let consensus_feature = match self.consensus_type {
+            "ProofOfAuthority" => "consensus-poa",
+            "ProofOfStake" => "consensus-pos",
+            other => return Err(anyhow!("Unsupported test consensus type: {}", other)),
+        };
+
+        let tree_feature = match self.state_tree_type {
+            "IAVL" => "state-iavl",
+            "SparseMerkle" => "state-sparse-merkle",
+            "Verkle" => "state-verkle",
+            other => return Err(anyhow!("Unsupported test state tree: {}", other)),
+        };
+
+        let primitive_feature = match self.commitment_scheme_type {
+            "Hash" => "commitment-hash",
+            "Pedersen" => "commitment-pedersen",
+            "KZG" => "commitment-kzg",
+            "Lattice" => "commitment-lattice",
+            other => return Err(anyhow!("Unsupported commitment scheme: {}", other)),
+        };
+
+        let mut features = vec![
+            "validator-bins",
+            consensus_feature,
+            tree_feature,
+            primitive_feature,
+            "vm-wasm",
+        ];
+
+        if self.use_malicious_workload {
+            features.push("malicious-bin");
+        }
+
+        let mut feature_string = features.join(",");
+
+        if !self.extra_features.is_empty() {
+            feature_string.push(',');
+            feature_string.push_str(&self.extra_features.join(","));
+        }
+
+        Ok(feature_string)
+    }
+}
+
 /// Represents a complete, logical validator node, abstracting over its execution backend.
 pub struct TestValidator {
     pub keypair: identity::Keypair,
@@ -163,51 +219,14 @@ impl TestValidator {
         gc_interval_secs: Option<u64>,
         min_finality_depth: Option<u64>,
     ) -> Result<ValidatorGuard> {
-        let consensus_feature = match consensus_type {
-            "ProofOfAuthority" => "consensus-poa",
-            "ProofOfStake" => "consensus-pos",
-            _ => {
-                return Err(anyhow!(
-                    "Unsupported test consensus type: {}",
-                    consensus_type
-                ))
-            }
-        };
-        let tree_feature = match state_tree_type {
-            "IAVL" => "state-iavl",
-            "SparseMerkle" => "state-sparse-merkle",
-            "Verkle" => "state-verkle",
-            _ => return Err(anyhow!("Unsupported test state tree: {}", state_tree_type)),
-        };
-        let primitive_feature = match commitment_scheme_type {
-            "Hash" => "commitment-hash",
-            "Pedersen" => "commitment-pedersen",
-            "KZG" => "commitment-kzg",
-            "Lattice" => "commitment-lattice",
-            _ => {
-                return Err(anyhow!(
-                    "Unsupported commitment scheme: {}",
-                    commitment_scheme_type
-                ))
-            }
-        };
-
-        let mut features = format!(
-            "validator-bins,{},{},{},vm-wasm{}",
-            consensus_feature,
-            tree_feature,
-            primitive_feature,
-            if use_malicious_workload {
-                ",malicious-bin"
-            } else {
-                ""
-            }
-        );
-
-        if !extra_features.is_empty() {
-            features.push(',');
-            features.push_str(&extra_features.join(","));
+        let features = BinaryFeatureConfig {
+            consensus_type,
+            state_tree_type,
+            commitment_scheme_type,
+            use_malicious_workload,
+            extra_features,
         }
+        .resolve()?;
 
         println!("--- Building node binaries with features: {} ---", features);
         let status_node = Command::new("cargo")
