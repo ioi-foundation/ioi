@@ -3,7 +3,6 @@
 //! internal communication for transaction submission and state queries.
 
 use crate::metrics::rpc_metrics as metrics;
-// REMOVED: use crate::standard::orchestration::tx_hash::{hash_transaction_bytes, TxHash};
 use anyhow::{anyhow, Result};
 use axum::{
     body::Body,
@@ -20,15 +19,15 @@ use ioi_api::transaction::TransactionModel;
 use ioi_client::WorkloadClient;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_tx::unified::UnifiedTransactionModel;
+use ioi_types::config::OrchestrationConfig;
 use ioi_types::{
     app::{
         compute_interval_from_parent_state, ApplicationTransaction, BlockTimingParams,
-        BlockTimingRuntime, ChainTransaction, TxHash, // Added TxHash
+        BlockTimingRuntime, ChainTransaction, TxHash,
     },
     codec,
     keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY},
 };
-use ioi_types::config::OrchestrationConfig;
 use ipnetwork::IpNetwork;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -179,7 +178,6 @@ struct JsonRpcRequest {
 }
 
 struct RpcAppState {
-    // MODIFIED: Type updated to tuple
     tx_pool: Arc<Mutex<VecDeque<(ChainTransaction, TxHash)>>>,
     workload_client: Arc<WorkloadClient>,
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
@@ -200,7 +198,6 @@ fn extract_tx_param(params: &Params) -> Option<serde_json::Value> {
 
 /// Checks if a client error string indicates a transient transport issue.
 fn is_transient_state_err(e: &str) -> bool {
-    // Be conservative; include the precise messages we’ve seen in logs.
     e.contains("Invalid JSON-RPC response")
         || e.contains("unexpected eof")
         || e.contains("close_notify")
@@ -209,7 +206,6 @@ fn is_transient_state_err(e: &str) -> bool {
 }
 
 /// A resilient wrapper around `workload_client.query_raw_state`.
-/// It retries on transient errors and downgrades persistent transport failures to `Ok(None)`.
 async fn query_raw_state_resilient(
     wc: &WorkloadClient,
     key: &[u8],
@@ -225,12 +221,10 @@ async fn query_raw_state_resilient(
                     backoff *= 2;
                     continue;
                 }
-                // Non-transient: bubble exact error once
                 return Err(anyhow!(msg));
             }
         }
     }
-    // After retries, treat transient failure as “not found”
     tracing::warn!(
         target = "rpc",
         "query_state downgraded persistent IPC error to None for key {}",
@@ -257,16 +251,302 @@ async fn calculate_expected_timestamp(app_state: &RpcAppState) -> Result<u64, an
         .map_err(|e| anyhow!("Failed to decode BlockTimingRuntime: {}", e))?;
 
     let parent_gas_used_placeholder = 0u64;
-    let interval =
-        compute_interval_from_parent_state(&params, &runtime, parent_status.height, parent_gas_used_placeholder);
+    let interval = compute_interval_from_parent_state(
+        &params,
+        &runtime,
+        parent_status.height,
+        parent_gas_used_placeholder,
+    );
     parent_status
         .latest_timestamp
         .checked_add(interval)
         .ok_or_else(|| anyhow!("Timestamp overflow"))
 }
 
+// --- Response Helpers ---
+
+mod rpc_response {
+    use super::*;
+    pub fn ok(id: &JsonId, result: serde_json::Value) -> (StatusCode, Json<serde_json::Value>) {
+        (
+            StatusCode::OK,
+            Json(json!({"jsonrpc":"2.0", "id": id, "result": result})),
+        )
+    }
+
+    pub fn error(id: &JsonId, code: i64, msg: String) -> (StatusCode, Json<serde_json::Value>) {
+        (
+            StatusCode::OK,
+            Json(json!({"jsonrpc":"2.0", "id": id, "error": {"code": code, "message": msg}})),
+        )
+    }
+}
+
+// --- Helper Handlers ---
+
+async fn handle_submit_tx(
+    app_state: Arc<RpcAppState>,
+    id: &JsonId,
+    params: &Params,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let Some(tx_val) = extract_tx_param(params) else {
+        return rpc_response::error(id, -32602, "Missing transaction parameter".into());
+    };
+
+    let tx_bytes = match tx_val.as_str().and_then(|s| hex::decode(s).ok()) {
+        Some(bytes) => bytes,
+        None => {
+            return rpc_response::error(
+                id,
+                -32602,
+                "Transaction parameter must be a hex-encoded string of canonical bytes".into(),
+            )
+        }
+    };
+
+    // Use a dummy model instance just for its deserialization logic.
+    let dummy_model =
+        UnifiedTransactionModel::new(ioi_state::primitives::hash::HashCommitmentScheme::new());
+    let tx = match dummy_model.deserialize_transaction(&tx_bytes) {
+        Ok(t) => t,
+        Err(e) => return rpc_response::error(id, -32602, format!("Bad tx format: {}", e)),
+    };
+
+    let expected_chain_id = app_state.config.chain_id;
+    let tx_chain_id = match &tx {
+        ChainTransaction::Application(ApplicationTransaction::DeployContract {
+            header, ..
+        })
+        | ChainTransaction::Application(ApplicationTransaction::CallContract { header, .. }) => {
+            header.chain_id
+        }
+        ChainTransaction::System(sys_tx) => sys_tx.header.chain_id,
+        _ => expected_chain_id,
+    };
+    if tx_chain_id != expected_chain_id {
+        return rpc_response::error(id, -32001, "Wrong chain ID".to_string());
+    }
+
+    // Pre-flight check via IPC to workload.
+    let check_res = {
+        let root_res = app_state.workload_client.get_state_root().await;
+        match root_res {
+            Ok(root) => {
+                let anchor_res = root.to_anchor();
+                match anchor_res {
+                    Ok(anchor) => {
+                        let expected_timestamp_secs =
+                            match calculate_expected_timestamp(&app_state).await {
+                                Ok(ts) => ts,
+                                Err(e) => {
+                                    return rpc_response::error(
+                                        id,
+                                        -32000,
+                                        format!("Failed to determine next block timestamp: {}", e),
+                                    );
+                                }
+                            };
+                        app_state
+                            .workload_client
+                            .check_transactions_at(
+                                anchor,
+                                expected_timestamp_secs,
+                                vec![tx.clone()],
+                            )
+                            .await
+                    }
+                    Err(e) => Err(anyhow!("Failed to create anchor from root: {}", e)),
+                }
+            }
+            Err(e) => Err(anyhow!("Failed to get state root for pre-check: {}", e)),
+        }
+    };
+
+    match check_res {
+        Ok(results) => {
+            if let Some(Err(e)) = results.first() {
+                return rpc_response::error(
+                    id,
+                    -32000,
+                    format!("Transaction rejected by pre-check: {}", e),
+                );
+            }
+        }
+        Err(e) => {
+            return rpc_response::error(id, -32000, format!("Transaction pre-check failed: {}", e));
+        }
+    }
+
+    {
+        let mut pool = app_state.tx_pool.lock().await;
+        metrics().set_mempool_size(pool.len() as f64);
+        if pool.len() >= app_state.config.rpc_hardening.mempool_max {
+            return rpc_response::error(id, -32001, "Mempool is full".into());
+        }
+
+        let tx_hash = match tx.hash() {
+            Ok(h) => h,
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    rpc_response::error(id, -32603, format!("Hashing failed: {}", e)).1,
+                )
+            }
+        };
+
+        pool.push_back((tx, tx_hash));
+        metrics().inc_mempool_transactions_added();
+        metrics().set_mempool_size(pool.len() as f64);
+        tracing::info!(target: "rpc", event = "mempool_add", new_size = pool.len());
+    }
+
+    // Kick consensus and gossip the canonical transaction bytes
+    let _ = app_state.consensus_kick_tx.send(());
+    let _ = app_state
+        .swarm_command_sender
+        .send(SwarmCommand::PublishTransaction(tx_bytes))
+        .await;
+
+    rpc_response::ok(id, json!("Transaction accepted"))
+}
+
+async fn handle_query_state(
+    app_state: Arc<RpcAppState>,
+    id: &JsonId,
+    params: &Params,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let key_hex_opt = match params {
+        Params::Array(v) => v.first().and_then(|x| x.as_str()),
+        _ => None,
+    };
+    if let Some(key_hex) = key_hex_opt {
+        match hex::decode(key_hex) {
+            Ok(key) => match query_raw_state_resilient(&app_state.workload_client, &key).await {
+                Ok(Some(value_bytes)) => rpc_response::ok(id, json!(hex::encode(value_bytes))),
+                Ok(None) => rpc_response::ok(id, Value::Null),
+                Err(e) => rpc_response::error(id, -32000, format!("State query failed: {}", e)),
+            },
+            Err(_) => rpc_response::error(id, -32602, "Failed to decode hex key".into()),
+        }
+    } else {
+        rpc_response::error(id, -32602, "Missing key parameter".into())
+    }
+}
+
+async fn handle_query_contract(
+    app_state: Arc<RpcAppState>,
+    id: &JsonId,
+    params: &Params,
+) -> (StatusCode, Json<serde_json::Value>) {
+    if let Params::Array(v) = params {
+        if let (Some(addr_val), Some(input_val)) = (v.get(0), v.get(1)) {
+            let address_res = addr_val.as_str().and_then(|s| hex::decode(s).ok());
+            let input_res = input_val.as_str().and_then(|s| hex::decode(s).ok());
+            if let (Some(address), Some(input_data)) = (address_res, input_res) {
+                let context = ioi_api::vm::ExecutionContext {
+                    caller: vec![],
+                    block_height: 0,
+                    gas_limit: app_state.config.default_query_gas_limit,
+                    contract_address: vec![],
+                };
+                return match app_state
+                    .workload_client
+                    .query_contract(address, input_data, context)
+                    .await
+                {
+                    Ok(output) => rpc_response::ok(id, json!(hex::encode(output.return_data))),
+                    Err(e) => {
+                        rpc_response::error(id, -32000, format!("Contract query failed: {}", e))
+                    }
+                };
+            }
+        }
+    }
+    rpc_response::error(id, -32602, "Invalid params for query_contract".into())
+}
+
+async fn handle_get_status(
+    app_state: Arc<RpcAppState>,
+    id: &JsonId,
+) -> (StatusCode, Json<serde_json::Value>) {
+    match app_state.workload_client.get_status().await {
+        Ok(status) => rpc_response::ok(
+            id,
+            serde_json::to_value(status)
+                .unwrap_or_else(|_| json!({"error": "serialization failed"})),
+        ),
+        Err(e) => rpc_response::error(id, -32000, format!("Failed to get status: {}", e)),
+    }
+}
+
+async fn handle_get_block_by_height(
+    app_state: Arc<RpcAppState>,
+    id: &JsonId,
+    params: &Params,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let height = match params {
+        Params::Object(m) => m.get("height").and_then(|v| v.as_u64()),
+        _ => None,
+    };
+    let Some(height) = height else {
+        return rpc_response::error(id, -32602, "Missing/invalid 'height' parameter".into());
+    };
+    match app_state.workload_client.get_block_by_height(height).await {
+        Ok(block_opt) => {
+            let result_value = match serde_json::to_value(block_opt) {
+                Ok(v) => v,
+                Err(_) => json!({"error": "serialization failed"}),
+            };
+            rpc_response::ok(id, result_value)
+        }
+        Err(e) => rpc_response::error(id, -32000, format!("getBlockByHeight failed: {}", e)),
+    }
+}
+
+async fn handle_query_state_at(
+    app_state: Arc<RpcAppState>,
+    id: &JsonId,
+    params: &Params,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let (root, key) = match params {
+        Params::Object(m) => {
+            let root_val = m.get("root").cloned();
+            let key_val = m.get("key").cloned();
+            (root_val, key_val)
+        }
+        _ => (None, None),
+    };
+
+    let (Some(root), Some(key)) = (root, key) else {
+        return rpc_response::error(id, -32602, "Missing 'root' or 'key' parameters".into());
+    };
+
+    let root_obj_res = serde_json::from_value(root);
+    let key_bytes_res: Result<Vec<u8>, _> = serde_json::from_value(key);
+
+    if let (Ok(root_obj), Ok(key_bytes)) = (root_obj_res, key_bytes_res) {
+        match app_state
+            .workload_client
+            .query_state_at(root_obj, &key_bytes)
+            .await
+        {
+            Ok(resp) => rpc_response::ok(
+                id,
+                serde_json::to_value(resp)
+                    .unwrap_or_else(|_| json!({"error": "serialization failed"})),
+            ),
+            Err(e) => rpc_response::error(id, -32000, format!("queryStateAt failed: {}", e)),
+        }
+    } else {
+        rpc_response::error(
+            id,
+            -32602,
+            "Invalid 'root' or 'key' parameter format".into(),
+        )
+    }
+}
+
 /// The single handler for all incoming JSON-RPC requests.
-/// It dispatches to specific logic based on the method name.
 async fn rpc_handler(
     headers: HeaderMap,
     State(app_state): State<Arc<RpcAppState>>,
@@ -285,363 +565,24 @@ async fn rpc_handler(
         );
     }
 
-    // JSON-RPC response helpers
-    let make_ok = |id: &JsonId, result: serde_json::Value| {
-        Json(json!({"jsonrpc":"2.0","id": id, "result": result}))
-    };
-    let make_err = |id: &JsonId, code: i64, msg: String| {
-        Json(json!({"jsonrpc":"2.0","id": id, "error": {"code": code, "message": msg}}))
-    };
-
-    let is_submit_method = matches!(
+    if matches!(
         payload.method.as_str(),
         "submit_transaction" | "submit_tx" | "broadcast_tx" | "sendTransaction"
-    );
+    ) {
+        return handle_submit_tx(app_state, &payload.id, &payload.params).await;
+    }
 
-    // --- TRANSACTION SUBMISSION LOGIC ---
-    if is_submit_method {
-        let Some(tx_val) = extract_tx_param(&payload.params) else {
-            return (
-                StatusCode::OK,
-                make_err(&payload.id, -32602, "Missing transaction parameter".into()),
-            );
-        };
-
-        let tx_bytes = match tx_val.as_str().and_then(|s| hex::decode(s).ok()) {
-            Some(bytes) => bytes,
-            None => {
-                return (
-                    StatusCode::OK,
-                    make_err(
-                        &payload.id,
-                        -32602,
-                        "Transaction parameter must be a hex-encoded string of canonical bytes"
-                            .into(),
-                    ),
-                )
-            }
-        };
-
-        // Use a dummy model instance just for its deserialization logic.
-        let dummy_model =
-            UnifiedTransactionModel::new(ioi_state::primitives::hash::HashCommitmentScheme::new());
-        let tx = match dummy_model.deserialize_transaction(&tx_bytes) {
-            Ok(t) => t,
-            Err(e) => {
-                return (
-                    StatusCode::OK,
-                    make_err(&payload.id, -32602, format!("Bad tx format: {}", e)),
-                )
-            }
-        };
-
-        let expected_chain_id = app_state.config.chain_id;
-        let tx_chain_id = match &tx {
-            ChainTransaction::Application(ApplicationTransaction::DeployContract {
-                header,
-                ..
-            })
-            | ChainTransaction::Application(ApplicationTransaction::CallContract {
-                header, ..
-            }) => header.chain_id,
-            ChainTransaction::System(sys_tx) => sys_tx.header.chain_id,
-            _ => expected_chain_id,
-        };
-        if tx_chain_id != expected_chain_id {
-            return (
-                StatusCode::OK,
-                make_err(&payload.id, -32001, "Wrong chain ID".to_string()),
-            );
+    match payload.method.as_str() {
+        "query_state" => handle_query_state(app_state, &payload.id, &payload.params).await,
+        "query_contract" => handle_query_contract(app_state, &payload.id, &payload.params).await,
+        "system.getStatus.v1" => handle_get_status(app_state, &payload.id).await,
+        "chain.getBlockByHeight.v1" => {
+            handle_get_block_by_height(app_state, &payload.id, &payload.params).await
         }
-
-        // Pre-flight check via IPC to workload.
-        let check_res = {
-            let root_res = app_state.workload_client.get_state_root().await;
-            match root_res {
-                Ok(root) => {
-                    let anchor_res = root.to_anchor();
-                    match anchor_res {
-                        Ok(anchor) => {
-                            let expected_timestamp_secs =
-                                match calculate_expected_timestamp(&app_state).await {
-                                    Ok(ts) => ts,
-                                    Err(e) => {
-                                        return (
-                                            StatusCode::OK,
-                                            make_err(
-                                                &payload.id,
-                                                -32000,
-                                                format!(
-                                                    "Failed to determine next block timestamp: {}",
-                                                    e
-                                                ),
-                                            ),
-                                        );
-                                    }
-                                };
-                            app_state
-                                .workload_client
-                                .check_transactions_at(
-                                    anchor,
-                                    expected_timestamp_secs,
-                                    vec![tx.clone()],
-                                )
-                                .await
-                        }
-                        Err(e) => Err(anyhow!("Failed to create anchor from root: {}", e)),
-                    }
-                }
-                Err(e) => Err(anyhow!("Failed to get state root for pre-check: {}", e)),
-            }
-        };
-
-        match check_res {
-            Ok(results) => {
-                if let Some(Err(e)) = results.first() {
-                    return (
-                        StatusCode::OK,
-                        make_err(
-                            &payload.id,
-                            -32000,
-                            format!("Transaction rejected by pre-check: {}", e),
-                        ),
-                    );
-                }
-            }
-            Err(e) => {
-                return (
-                    StatusCode::OK,
-                    make_err(
-                        &payload.id,
-                        -32000,
-                        format!("Transaction pre-check failed: {}", e),
-                    ),
-                );
-            }
+        "state.queryStateAt.v1" => {
+            handle_query_state_at(app_state, &payload.id, &payload.params).await
         }
-
-        {
-            let mut pool = app_state.tx_pool.lock().await;
-            metrics().set_mempool_size(pool.len() as f64);
-            if pool.len() >= app_state.config.rpc_hardening.mempool_max {
-                return (
-                    StatusCode::OK,
-                    make_err(&payload.id, -32001, "Mempool is full".into()),
-                );
-            }
-            
-            // MODIFIED: Use the method on the struct
-            let tx_hash = match tx.hash() {
-                Ok(h) => h,
-                Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, make_err(&payload.id, -32603, format!("Hashing failed: {}", e))),
-            };
-
-            // MODIFIED: Push tuple
-            pool.push_back((tx, tx_hash));
-            metrics().inc_mempool_transactions_added();
-            metrics().set_mempool_size(pool.len() as f64);
-            tracing::info!(target: "rpc", event = "mempool_add", new_size = pool.len());
-        }
-
-        // Kick consensus and gossip the canonical transaction bytes
-        let _ = app_state.consensus_kick_tx.send(());
-        let _ = app_state
-            .swarm_command_sender
-            .send(SwarmCommand::PublishTransaction(tx_bytes))
-            .await;
-
-        (
-            StatusCode::OK,
-            make_ok(&payload.id, json!("Transaction accepted")),
-        )
-    } else {
-        // --- QUERY LOGIC ---
-        match payload.method.as_str() {
-            "query_state" => {
-                let key_hex_opt = match &payload.params {
-                    Params::Array(v) => v.first().and_then(|x| x.as_str()),
-                    _ => None,
-                };
-                if let Some(key_hex) = key_hex_opt {
-                    match hex::decode(key_hex) {
-                        Ok(key) => {
-                            match query_raw_state_resilient(&app_state.workload_client, &key).await
-                            {
-                                Ok(Some(value_bytes)) => (
-                                    StatusCode::OK,
-                                    make_ok(&payload.id, json!(hex::encode(value_bytes))),
-                                ),
-                                Ok(None) => (StatusCode::OK, make_ok(&payload.id, Value::Null)),
-                                Err(e) => (
-                                    StatusCode::OK,
-                                    make_err(
-                                        &payload.id,
-                                        -32000,
-                                        format!("State query failed: {}", e),
-                                    ),
-                                ),
-                            }
-                        }
-                        Err(_) => (
-                            StatusCode::OK,
-                            make_err(&payload.id, -32602, "Failed to decode hex key".into()),
-                        ),
-                    }
-                } else {
-                    (
-                        StatusCode::OK,
-                        make_err(&payload.id, -32602, "Missing key parameter".into()),
-                    )
-                }
-            }
-            "query_contract" => {
-                if let Params::Array(v) = &payload.params {
-                    if let (Some(addr_val), Some(input_val)) = (v.get(0), v.get(1)) {
-                        let address_res = addr_val.as_str().and_then(|s| hex::decode(s).ok());
-                        let input_res = input_val.as_str().and_then(|s| hex::decode(s).ok());
-                        if let (Some(address), Some(input_data)) = (address_res, input_res) {
-                            let context = ioi_api::vm::ExecutionContext {
-                                caller: vec![],
-                                block_height: 0,
-                                gas_limit: app_state.config.default_query_gas_limit,
-                                contract_address: vec![],
-                            };
-                            return match app_state
-                                .workload_client
-                                .query_contract(address, input_data, context)
-                                .await
-                            {
-                                Ok(output) => (
-                                    StatusCode::OK,
-                                    make_ok(&payload.id, json!(hex::encode(output.return_data))),
-                                ),
-                                Err(e) => (
-                                    StatusCode::OK,
-                                    make_err(
-                                        &payload.id,
-                                        -32000,
-                                        format!("Contract query failed: {}", e),
-                                    ),
-                                ),
-                            };
-                        }
-                    }
-                }
-                (
-                    StatusCode::OK,
-                    make_err(
-                        &payload.id,
-                        -32602,
-                        "Invalid params for query_contract".into(),
-                    ),
-                )
-            }
-            "system.getStatus.v1" => match app_state.workload_client.get_status().await {
-                Ok(status) => (
-                    StatusCode::OK,
-                    make_ok(
-                        &payload.id,
-                        serde_json::to_value(status)
-                            .unwrap_or_else(|_| json!({"error": "serialization failed"})),
-                    ),
-                ),
-                Err(e) => (
-                    StatusCode::OK,
-                    make_err(&payload.id, -32000, format!("Failed to get status: {}", e)),
-                ),
-            },
-            "chain.getBlockByHeight.v1" => {
-                let height = match &payload.params {
-                    Params::Object(m) => m.get("height").and_then(|v| v.as_u64()),
-                    _ => None,
-                };
-                let Some(height) = height else {
-                    return (
-                        StatusCode::OK,
-                        make_err(
-                            &payload.id,
-                            -32602,
-                            "Missing/invalid 'height' parameter".into(),
-                        ),
-                    );
-                };
-                match app_state.workload_client.get_block_by_height(height).await {
-                    Ok(block_opt) => {
-                        let result_value = match serde_json::to_value(block_opt) {
-                            Ok(v) => v,
-                            Err(_) => json!({"error": "serialization failed"}),
-                        };
-                        (StatusCode::OK, make_ok(&payload.id, result_value))
-                    }
-                    Err(e) => (
-                        StatusCode::OK,
-                        make_err(
-                            &payload.id,
-                            -32000,
-                            format!("getBlockByHeight failed: {}", e),
-                        ),
-                    ),
-                }
-            }
-            "state.queryStateAt.v1" => {
-                let (root, key) = match &payload.params {
-                    Params::Object(m) => {
-                        let root_val = m.get("root").cloned();
-                        let key_val = m.get("key").cloned();
-                        (root_val, key_val)
-                    }
-                    _ => (None, None),
-                };
-
-                let (Some(root), Some(key)) = (root, key) else {
-                    return (
-                        StatusCode::OK,
-                        make_err(
-                            &payload.id,
-                            -32602,
-                            "Missing 'root' or 'key' parameters".into(),
-                        ),
-                    );
-                };
-
-                let root_obj_res = serde_json::from_value(root);
-                let key_bytes_res: Result<Vec<u8>, _> = serde_json::from_value(key);
-
-                if let (Ok(root_obj), Ok(key_bytes)) = (root_obj_res, key_bytes_res) {
-                    match app_state
-                        .workload_client
-                        .query_state_at(root_obj, &key_bytes)
-                        .await
-                    {
-                        Ok(resp) => (
-                            StatusCode::OK,
-                            make_ok(
-                                &payload.id,
-                                serde_json::to_value(resp)
-                                    .unwrap_or_else(|_| json!({"error": "serialization failed"})),
-                            ),
-                        ),
-                        Err(e) => (
-                            StatusCode::OK,
-                            make_err(&payload.id, -32000, format!("queryStateAt failed: {}", e)),
-                        ),
-                    }
-                } else {
-                    (
-                        StatusCode::OK,
-                        make_err(
-                            &payload.id,
-                            -32602,
-                            "Invalid 'root' or 'key' parameter format".into(),
-                        ),
-                    )
-                }
-            }
-            _ => (
-                StatusCode::OK,
-                make_err(&payload.id, -32601, "Method not found".into()),
-            ),
-        }
+        _ => rpc_response::error(&payload.id, -32601, "Method not found".into()),
     }
 }
 
@@ -697,14 +638,8 @@ async fn track_rpc_metrics(req: Request<Body>, next: Next) -> Response {
 
 // ---------- Server wiring ----------
 /// Initializes and runs the JSON-RPC server for the Orchestration container.
-///
-/// This server exposes endpoints for transaction submission (`/rpc/submit`) and
-/// state queries (`/rpc/query`). It includes middleware for rate limiting,
-/// timeout, concurrency control, and logging, which can be configured via
-/// `orchestration.toml`.
 pub async fn run_rpc_server(
     listen_address: &str,
-    // MODIFIED: Type updated
     tx_pool: Arc<Mutex<VecDeque<(ChainTransaction, TxHash)>>>,
     workload_client: Arc<WorkloadClient>,
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
