@@ -1,33 +1,32 @@
-// Path: crates/validator/src/standard/workload_ipc_server/methods/chain.rs
+// crates/validator/src/standard/workload/ipc/methods/chain.rs
 use super::RpcContext;
 use crate::ante::check_tx;
-use crate::standard::workload_ipc_server::router::{RequestContext, RpcMethod};
+use crate::standard::workload::ipc::router::{RequestContext, RpcMethod};
 use anyhow::{anyhow, Result};
 use ioi_api::{
-    chain::ChainStateMachine,
-    commitment::CommitmentScheme,
-    state::StateOverlay, // FIX: Import StateOverlay
+    chain::ChainStateMachine, commitment::CommitmentScheme, state::StateOverlay,
     transaction::TransactionModel,
 };
+// [FIX] Added Membership to imports
 use ioi_types::app::{ApplicationTransaction, Block, ChainTransaction, Membership, StateAnchor};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::{any::Any, fmt::Debug, marker::PhantomData, sync::Arc};
 
 // --- chain.getBlocksRange.v1 ---
 
-/// The parameters for the `chain.getBlocksRange.v1` RPC method.
+/// Parameters for the `chain.getBlocksRange.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetBlocksRangeParams {
-    /// The block height after which to start fetching blocks.
+    /// The block height from which to start fetching (exclusive).
     pub since: u64,
-    /// The maximum number of blocks to return in the response.
+    /// The maximum number of blocks to return.
     pub max_blocks: u32,
-    /// The maximum total size in bytes for the returned blocks.
+    /// The maximum total size of blocks to return in bytes.
     pub max_bytes: u32,
 }
 
-/// The RPC method handler for `chain.getBlocksRange.v1`.
+/// Handler for the `chain.getBlocksRange.v1` RPC method.
 pub struct GetBlocksRangeV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -72,7 +71,7 @@ where
 
 // --- chain.processBlock.v1 ---
 
-/// The RPC method handler for `chain.processBlock.v1`.
+/// Handler for the `chain.processBlock.v1` RPC method.
 pub struct ProcessBlockV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -92,7 +91,7 @@ where
         + Sync
         + 'static
         + std::fmt::Debug,
-    <CS as CommitmentScheme>::Proof: Serialize
+    <CS as CommitmentScheme>::Proof: serde::Serialize
         + for<'de> serde::Deserialize<'de>
         + Clone
         + Send
@@ -142,13 +141,11 @@ where
 
         let prepared_block = {
             let machine = ctx.machine.lock().await;
-            // REMOVED: &ctx.workload argument
             machine.prepare_block(block).await?
         };
 
         let (processed_block, events) = {
             let mut machine = ctx.machine.lock().await;
-            // REMOVED: &ctx.workload argument
             machine.commit_block(prepared_block).await?
         };
 
@@ -158,19 +155,19 @@ where
 
 // --- chain.checkTransactions.v1 ---
 
-/// The parameters for the `chain.checkTransactions.v1` RPC method.
+/// Parameters for the `chain.checkTransactions.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct CheckTransactionsParams {
-    /// The state anchor against which to validate the transactions.
+    /// The state anchor against which to check the transactions.
     pub anchor: StateAnchor,
-    /// The authoritative timestamp for the block being checked.
+    /// The expected timestamp of the block containing these transactions.
     pub expected_timestamp_secs: u64,
-    /// The list of transactions to validate.
+    /// The list of transactions to check.
     pub txs: Vec<ChainTransaction>,
 }
 
-/// The RPC method handler for `chain.checkTransactions.v1`.
+/// Handler for the `chain.checkTransactions.v1` RPC method.
 pub struct CheckTransactionsV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -190,7 +187,7 @@ where
         + Sync
         + 'static
         + std::fmt::Debug,
-    <CS as CommitmentScheme>::Proof: Serialize
+    <CS as CommitmentScheme>::Proof: serde::Serialize
         + for<'de> serde::Deserialize<'de>
         + Clone
         + Send
@@ -220,14 +217,11 @@ where
         let base_state_tree = ctx.workload.state_tree();
         let base_state = base_state_tree.read().await;
 
-        // FIX: Create a mutable StateOverlay for the pre-check simulation.
-        // This allows `check_tx` to have the mutable reference it needs for
-        // namespaced state lookups during signature verification.
         let mut overlay = StateOverlay::new(&*base_state);
 
         for tx in params.txs {
             let check_result = check_tx(
-                &mut overlay, // Pass the mutable overlay
+                &mut overlay,
                 &chain_guard.services,
                 &tx,
                 chain_guard.state.chain_id,
@@ -246,12 +240,12 @@ where
 
 // --- chain.getLastBlockHash.v1 ---
 
-/// The parameters for the `chain.getLastBlockHash.v1` RPC method.
+/// Parameters for the `chain.getLastBlockHash.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetLastBlockHashParams {}
 
-/// The RPC method handler for `chain.getLastBlockHash.v1`.
+/// Handler for the `chain.getLastBlockHash.v1` RPC method.
 pub struct GetLastBlockHashV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -271,7 +265,7 @@ where
         + Sync
         + 'static
         + std::fmt::Debug,
-    <CS as CommitmentScheme>::Proof: Serialize
+    <CS as CommitmentScheme>::Proof: serde::Serialize
         + for<'de> serde::Deserialize<'de>
         + Clone
         + Send
@@ -307,12 +301,12 @@ where
 
 // --- chain.getAuthoritySet.v1 ---
 
-/// The parameters for the `chain.getAuthoritySet.v1` RPC method.
+/// Parameters for the `chain.getAuthoritySet.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetAuthoritySetParams {}
 
-/// The RPC method handler for `chain.getAuthoritySet.v1`.
+/// Handler for the `chain.getAuthoritySet.v1` RPC method.
 pub struct GetAuthoritySetV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -332,7 +326,7 @@ where
         + Sync
         + 'static
         + std::fmt::Debug,
-    <CS as CommitmentScheme>::Proof: Serialize
+    <CS as CommitmentScheme>::Proof: serde::Serialize
         + for<'de> serde::Deserialize<'de>
         + Clone
         + Send
@@ -358,27 +352,19 @@ where
             .map_err(|_| anyhow!("Invalid context type for GetAuthoritySetV1"))?;
         let machine = ctx.machine.lock().await;
         let h = (*machine).status().height;
-        log::debug!("[RPC] {} -> height={} (current)", Self::NAME, h);
-        // REMOVED: &ctx.workload argument
         let set = (*machine).get_validator_set_for(h).await?;
-        log::debug!(
-            "[RPC] {} -> height={} returned {} validators",
-            Self::NAME,
-            h,
-            set.len()
-        );
         Ok(set)
     }
 }
 
 // --- chain.getNextValidatorSet.v1 ---
 
-/// The parameters for the `chain.getNextValidatorSet.v1` RPC method.
+/// Parameters for the `chain.getNextValidatorSet.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetNextValidatorSetParams {}
 
-/// The RPC method handler for `chain.getNextValidatorSet.v1`.
+/// Handler for the `chain.getNextValidatorSet.v1` RPC method.
 pub struct GetNextValidatorSetV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -398,7 +384,7 @@ where
         + Sync
         + 'static
         + std::fmt::Debug,
-    <CS as CommitmentScheme>::Proof: Serialize
+    <CS as CommitmentScheme>::Proof: serde::Serialize
         + for<'de> serde::Deserialize<'de>
         + Clone
         + Send
@@ -424,7 +410,6 @@ where
             .map_err(|_| anyhow!("Invalid context type for GetNextValidatorSetV1"))?;
         let machine = ctx.machine.lock().await;
         let next_height = (*machine).status().height + 1;
-        // REMOVED: &ctx.workload argument
         let set = (*machine).get_validator_set_for(next_height).await?;
         Ok(set)
     }
@@ -432,15 +417,15 @@ where
 
 // --- chain.getValidatorSetFor.v1 ---
 
-/// The parameters for the `chain.getValidatorSetFor.v1` RPC method.
+/// Parameters for the `chain.getValidatorSetFor.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetValidatorSetForParams {
-    /// The block height for which to retrieve the validator set.
+    /// The height at which to retrieve the validator set.
     pub height: u64,
 }
 
-/// The RPC method handler for `chain.getValidatorSetFor.v1`.
+/// Handler for the `chain.getValidatorSetFor.v1` RPC method.
 pub struct GetValidatorSetForV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -460,7 +445,7 @@ where
         + Sync
         + 'static
         + std::fmt::Debug,
-    <CS as CommitmentScheme>::Proof: Serialize
+    <CS as CommitmentScheme>::Proof: serde::Serialize
         + for<'de> serde::Deserialize<'de>
         + Clone
         + Send
@@ -485,7 +470,6 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetValidatorSetForV1"))?;
         let machine = ctx.machine.lock().await;
-        // REMOVED: &ctx.workload argument
         let set = (*machine).get_validator_set_for(params.height).await?;
         Ok(set)
     }
@@ -493,7 +477,7 @@ where
 
 // --- chain.getValidatorSetAt.v1 ---
 
-/// The parameters for the `chain.getValidatorSetAt.v1` RPC method.
+/// Parameters for the `chain.getValidatorSetAt.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetValidatorSetAtParams {
@@ -501,7 +485,7 @@ pub struct GetValidatorSetAtParams {
     pub anchor: StateAnchor,
 }
 
-/// The RPC method handler for `chain.getValidatorSetAt.v1`.
+/// Handler for the `chain.getValidatorSetAt.v1` RPC method.
 pub struct GetValidatorSetAtV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -521,7 +505,7 @@ where
         + Sync
         + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+        serde::Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
     <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync,
 {
     const NAME: &'static str = "chain.getValidatorSetAt.v1";
@@ -561,7 +545,7 @@ where
 
 // --- chain.getBlockByHeight.v1 ---
 
-/// The parameters for the `chain.getBlockByHeight.v1` RPC method.
+/// Parameters for the `chain.getBlockByHeight.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetBlockByHeightParams {
@@ -569,7 +553,7 @@ pub struct GetBlockByHeightParams {
     pub height: u64,
 }
 
-/// The RPC method handler for `chain.getBlockByHeight.v1`.
+/// Handler for the `chain.getBlockByHeight.v1` RPC method.
 pub struct GetBlockByHeightV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -589,7 +573,7 @@ where
         + Sync
         + 'static
         + std::fmt::Debug,
-    <CS as CommitmentScheme>::Proof: Serialize
+    <CS as CommitmentScheme>::Proof: serde::Serialize
         + for<'de> serde::Deserialize<'de>
         + Clone
         + Send
@@ -617,8 +601,6 @@ where
         let block_opt = match ctx.workload.store.get_block_by_height(params.height) {
             Ok(v) => v,
             Err(e) => {
-                // Normalize transport/parse glitches into "None" (not yet produced).
-                // Keep only hard storage errors as real failures if you can distinguish.
                 log::warn!(
                     "get_block_by_height({}) transient error: {}",
                     params.height,

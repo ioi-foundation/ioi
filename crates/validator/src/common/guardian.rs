@@ -1,14 +1,10 @@
 // crates/validator/src/common/guardian.rs
 
 //! Implements the Guardian container, the root of trust for the validator.
-//!
-//! The `GuardianContainer` is responsible for establishing secure mTLS channels
-//! with other containers and performing attestations, such as verifying the
-//! integrity of an agentic AI model's weights before the validator participates in consensus.
-//! It also includes helper functions for generating the necessary mTLS certificates.
 
 use crate::config::GuardianConfig;
-use crate::standard::workload_ipc_server::create_ipc_server_config;
+// [FIX] Import from correct path
+use crate::standard::workload::ipc::create_ipc_server_config;
 use anyhow::Result;
 use async_trait::async_trait;
 use ioi_api::validator::Container;
@@ -32,14 +28,14 @@ use tokio_rustls::{rustls::ServerConfig, TlsAcceptor, TlsStream};
 /// The GuardianContainer is the root of trust.
 #[derive(Debug, Clone)]
 pub struct GuardianContainer {
-    /// A secure mTLS channel for communicating with the Orchestration container.
+    /// The secure channel to the Orchestrator container.
     pub orchestration_channel: SecurityChannel,
-    /// A secure mTLS channel for communicating with the Workload container.
+    /// The secure channel to the Workload container.
     pub workload_channel: SecurityChannel,
     is_running: Arc<AtomicBool>,
 }
 
-/// Generates a self-signed CA and server/client certificates for mTLS if they do not already exist.
+/// Generates a self-signed CA and server/client certificates for mTLS.
 pub fn generate_certificates_if_needed(certs_dir: &Path) -> Result<()> {
     if certs_dir.join("ca.pem").exists() {
         return Ok(());
@@ -87,7 +83,7 @@ pub fn generate_certificates_if_needed(certs_dir: &Path) -> Result<()> {
 }
 
 impl GuardianContainer {
-    /// Creates a new, unstarted GuardianContainer.
+    /// Creates a new Guardian container instance.
     pub fn new(_config: GuardianConfig) -> Result<Self> {
         Ok(Self {
             orchestration_channel: SecurityChannel::new("guardian", "orchestration"),
@@ -96,7 +92,7 @@ impl GuardianContainer {
         })
     }
 
-    /// Computes the SHA-256 hash of the agentic model file.
+    /// Attests to the integrity of an agentic model file by computing its hash.
     pub async fn attest_weights(&self, model_path: &str) -> Result<Vec<u8>, String> {
         let model_bytes = std::fs::read(model_path)
             .map_err(|e| format!("Failed to read agentic model file: {}", e))?;
@@ -139,10 +135,8 @@ impl Container for GuardianContainer {
                         Ok(s) => s,
                         Err(e) => return log::error!("[Guardian] TLS accept error: {}", e),
                     };
-                    // Wrap the concrete server stream into the generic TlsStream enum
                     let mut tls_stream = TlsStream::Server(server_conn);
 
-                    // --- POST-HANDSHAKE HYBRID KEY EXCHANGE (before any app bytes) ---
                     let mut kem_ss = match server_post_handshake(
                         &mut tls_stream,
                         ioi_crypto::security::SecurityLevel::Level3,
@@ -158,7 +152,6 @@ impl Container for GuardianContainer {
                         }
                     };
 
-                    // --- BIND & WRAP ---
                     let app_key = match derive_application_key(&tls_stream, &mut kem_ss) {
                         Ok(k) => k,
                         Err(e) => {
@@ -167,7 +160,6 @@ impl Container for GuardianContainer {
                     };
                     let mut aead_stream = AeadWrappedStream::new(tls_stream, app_key);
 
-                    // Now, read the first application byte (the client ID) from the AEAD stream.
                     let mut id_buf = [0u8; 1];
                     match aead_stream.read(&mut id_buf).await {
                         Ok(1) => {
@@ -176,7 +168,6 @@ impl Container for GuardianContainer {
                                 "[Guardian] Post-quantum channel established for client {}",
                                 client_id_byte
                             );
-                            // Use the shared enum instead of magic numbers
                             match IpcClientType::try_from(client_id_byte) {
                                 Ok(IpcClientType::Orchestrator) => {
                                     orch_c.accept_server_connection(aead_stream).await

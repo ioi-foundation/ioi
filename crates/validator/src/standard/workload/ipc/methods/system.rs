@@ -1,7 +1,8 @@
-// Path: crates/validator/src/standard/workload_ipc_server/methods/system.rs
+// crates/validator/src/standard/workload/ipc/methods/system.rs
 
 use super::RpcContext;
-use crate::standard::workload_ipc_server::router::{RequestContext, RpcMethod};
+// [FIX] Corrected import path
+use crate::standard::workload::ipc::router::{RequestContext, RpcMethod};
 use anyhow::{anyhow, Result};
 use ioi_api::{chain::ChainStateMachine, commitment::CommitmentScheme, state::StateManager};
 use ioi_types::app::{
@@ -13,12 +14,12 @@ use std::{any::Any, fmt::Debug, marker::PhantomData, sync::Arc};
 
 // --- system.getStatus.v1 ---
 
-/// The parameters for the `system.getStatus.v1` RPC method.
+/// Parameters for the `system.getStatus.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetStatusParams {}
 
-/// The RPC method handler for `system.getStatus.v1`.
+/// Handler for the `system.getStatus.v1` RPC method.
 pub struct GetStatusV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -37,7 +38,7 @@ where
         + Send
         + Sync
         + 'static,
-    <CS as CommitmentScheme>::Proof: Serialize
+    <CS as CommitmentScheme>::Proof: serde::Serialize
         + for<'de> serde::Deserialize<'de>
         + Clone
         + Send
@@ -62,7 +63,6 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetStatusV1"))?;
         let machine = ctx.machine.lock().await;
-        // The ChainStateMachine trait must be in scope to call .status()
         let status_ref = (*machine).status();
         Ok(ioi_types::app::ChainStatus {
             height: status_ref.height,
@@ -75,12 +75,12 @@ where
 
 // --- system.getExpectedModelHash.v1 ---
 
-/// The parameters for the `system.getExpectedModelHash.v1` RPC method.
+/// Parameters for the `system.getExpectedModelHash.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetExpectedModelHashParams {}
 
-/// The RPC method handler for `system.getExpectedModelHash.v1`.
+/// Handler for the `system.getExpectedModelHash.v1` RPC method.
 pub struct GetExpectedModelHashV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -124,15 +124,15 @@ where
 
 // --- system.checkAndTallyProposals.v1 ---
 
-/// The parameters for the `system.checkAndTallyProposals.v1` RPC method.
+/// Parameters for the `system.checkAndTallyProposals.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct CheckAndTallyProposalsParams {
-    /// The current block height, used to determine which proposals have ended.
+    /// The current block height.
     pub current_height: u64,
 }
 
-/// The RPC method handler for `system.checkAndTallyProposals.v1`.
+/// Handler for the `system.checkAndTallyProposals.v1` RPC method.
 pub struct CheckAndTallyProposalsV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -162,27 +162,25 @@ where
         _shared_ctx: Arc<dyn Any + Send + Sync>,
         _params: Self::Params,
     ) -> Result<Self::Result> {
-        // This logic is now handled by the OnEndBlock hook in the GovernanceModule.
-        // This RPC endpoint is deprecated and will be removed. For now, return an empty list.
         Ok(vec![])
     }
 }
 
 // --- system.callService.v1 ---
 
-/// The parameters for the `system.callService.v1` RPC method.
+/// Parameters for the `system.callService.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct CallServiceParams {
-    /// The unique identifier of the service to call.
+    /// The ID of the service to call.
     pub service_id: String,
-    /// The name of the method to invoke on the service.
+    /// The method name to call.
     pub method_id: String,
-    /// The parameters for the service method, as a JSON value.
+    /// The parameters for the method call.
     pub params: serde_json::Value,
 }
 
-/// The RPC method handler for `system.callService.v1`.
+/// Handler for the `system.callService.v1` RPC method.
 pub struct CallServiceV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -212,19 +210,18 @@ where
         _shared_ctx: Arc<dyn Any + Send + Sync>,
         _params: Self::Params,
     ) -> Result<Self::Result> {
-        // This is a placeholder for future implementation.
         Ok(serde_json::json!({"status": "not_implemented"}))
     }
 }
 
 // --- system.getWorkloadConfig.v1 ---
 
-/// The parameters for the `system.getWorkloadConfig.v1` RPC method.
+/// Parameters for the `system.getWorkloadConfig.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetWorkloadConfigParams {}
 
-/// The RPC method handler for `system.getWorkloadConfig.v1`.
+/// Handler for the `system.getWorkloadConfig.v1` RPC method.
 pub struct GetWorkloadConfigV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -263,22 +260,22 @@ where
 
 // --- system.getGenesisStatus.v1 ---
 
-/// The response structure for the `system.getGenesisStatus.v1` RPC method.
+/// Response structure for the `system.getGenesisStatus.v1` RPC method.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GenesisStatus {
-    /// Whether the genesis block has been successfully processed.
+    /// Whether the genesis block is ready.
     pub ready: bool,
-    /// The root hash of the genesis state.
+    /// The genesis root hash.
     pub root: Vec<u8>,
     /// The chain ID.
     pub chain_id: String,
 }
 
-/// The parameters for the `system.getGenesisStatus.v1` RPC method.
+/// Parameters for the `system.getGenesisStatus.v1` RPC method.
 #[derive(Deserialize, Debug)]
 pub struct GetGenesisStatusParams {}
 
-/// The RPC method handler for `system.getGenesisStatus.v1`.
+/// Handler for the `system.getGenesisStatus.v1` RPC method.
 pub struct GetGenesisStatusV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -330,7 +327,7 @@ where
 
 // --- system.debugPinHeight.v1 ---
 
-/// The RPC method handler for `system.debugPinHeight.v1`.
+/// Handler for the `system.debugPinHeight.v1` RPC method.
 pub struct DebugPinHeightV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -363,7 +360,6 @@ where
         let ctx = shared_ctx
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context"))?;
-        // [CHANGED] Access pins() via helper
         ctx.workload.pins().pin(params.height);
         log::info!("[Debug] Pinned height {}", params.height);
         Ok(())
@@ -372,7 +368,7 @@ where
 
 // --- system.debugUnpinHeight.v1 ---
 
-/// The RPC method handler for `system.debugUnpinHeight.v1`.
+/// Handler for the `system.debugUnpinHeight.v1` RPC method.
 pub struct DebugUnpinHeightV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -405,7 +401,6 @@ where
         let ctx = shared_ctx
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context"))?;
-        // [CHANGED] Access pins() via helper
         ctx.workload.pins().unpin(params.height);
         log::info!("[Debug] Unpinned height {}", params.height);
         Ok(())
@@ -414,7 +409,7 @@ where
 
 // --- system.debugTriggerGc.v1 ---
 
-/// The RPC method handler for `system.debugTriggerGc.v1`.
+/// Handler for the `system.debugTriggerGc.v1` RPC method.
 pub struct DebugTriggerGcV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -433,7 +428,7 @@ where
         + Send
         + Sync
         + 'static,
-    <CS as CommitmentScheme>::Proof: Serialize
+    <CS as CommitmentScheme>::Proof: serde::Serialize
         + for<'de> serde::Deserialize<'de>
         + Clone
         + Send
@@ -458,7 +453,6 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context"))?;
 
-        // Get current height from machine
         let current_height = {
             let guard = ctx.machine.lock().await;
             guard.status().height

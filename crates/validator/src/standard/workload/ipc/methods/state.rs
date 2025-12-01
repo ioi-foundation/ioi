@@ -1,22 +1,23 @@
-// Path: crates/validator/src/standard/workload_ipc_server/methods/state.rs
+// crates/validator/src/standard/workload/ipc/methods/state.rs
 
 use super::RpcContext;
-use crate::standard::workload_ipc_server::router::{RequestContext, RpcMethod};
+// [FIX] Corrected import path
+use crate::standard::workload::ipc::router::{RequestContext, RpcMethod};
 use anyhow::{anyhow, Result};
-use ioi_types::app::{AccountId, ActiveKeyRecord, Membership, StateAnchor, StateRoot};
-use ioi_types::codec; // Import the canonical codec
 use ioi_api::{commitment::CommitmentScheme, state::StateManager};
+use ioi_types::app::{AccountId, ActiveKeyRecord, Membership, StateAnchor, StateRoot};
+use ioi_types::codec;
 use serde::{Deserialize, Serialize};
 use std::{any::Any, marker::PhantomData, sync::Arc};
 
 // --- state.getStateRoot.v1 ---
 
-/// The parameters for the `state.getStateRoot.v1` RPC method.
+/// Parameters for the `state.getStateRoot.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetStateRootParams {}
 
-/// The RPC method handler for `state.getStateRoot.v1`.
+/// Handler for the `state.getStateRoot.v1` RPC method.
 pub struct GetStateRootV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -59,7 +60,7 @@ where
 
 // --- state.prefixScan.v1 ---
 
-/// The parameters for the `state.prefixScan.v1` RPC method.
+/// Parameters for the `state.prefixScan.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct PrefixScanParams {
@@ -67,7 +68,7 @@ pub struct PrefixScanParams {
     pub prefix: Vec<u8>,
 }
 
-/// The RPC method handler for `state.prefixScan.v1`.
+/// Handler for the `state.prefixScan.v1` RPC method.
 pub struct PrefixScanV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -112,7 +113,7 @@ where
 
 // --- state.getRawState.v1 ---
 
-/// The parameters for the `state.getRawState.v1` RPC method.
+/// Parameters for the `state.getRawState.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetRawStateParams {
@@ -120,7 +121,7 @@ pub struct GetRawStateParams {
     pub key: Vec<u8>,
 }
 
-/// The RPC method handler for `state.getRawState.v1`.
+/// Handler for the `state.getRawState.v1` RPC method.
 pub struct GetRawStateV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -154,16 +155,12 @@ where
             .downcast::<RpcContext<CS, ST>>()
             .map_err(|_| anyhow!("Invalid context type for GetRawStateV1"))?;
         let state_tree = ctx.workload.state_tree();
-        // Use a write lock to allow for cache warming.
         let mut state = state_tree.write().await;
 
-        // 1) Fast path: check current in-memory state.
         if let Some(bytes) = state.get(&params.key)? {
             return Ok(Some(bytes));
         }
 
-        // 2) Fallback: if not in memory, attempt an anchored read at the last known root.
-        // This handles queries immediately after a crash before the in-memory tree is fully re-hydrated.
         let last_root = {
             let machine = ctx.machine.lock().await;
             machine.state.last_state_root.clone()
@@ -171,10 +168,8 @@ where
 
         if !last_root.is_empty() {
             if let Ok(anchor) = ioi_types::app::to_root_hash(&last_root) {
-                // `get_with_proof_at_anchor` can be called on `&mut` because `StateManager` is `?Sized`.
                 match state.get_with_proof_at_anchor(&anchor, &params.key) {
                     Ok((Membership::Present(bytes), _proof)) => {
-                        // Optional: warm the live state so subsequent reads are hot.
                         log::trace!(
                             "getRawState: cache miss, served from anchored read for key 0x{}",
                             hex::encode(&params.key)
@@ -182,45 +177,43 @@ where
                         let _ = state.insert(&params.key, &bytes);
                         return Ok(Some(bytes));
                     }
-                    // If the proof is Absent or an error occurs, we fall through to return None.
                     _ => {}
                 }
             }
         }
 
-        // 3) If not found in either live state or last committed state, it doesn't exist.
         Ok(None)
     }
 }
 
 // --- state.queryStateAt.v1 ---
 
-/// The response structure for the `state.queryStateAt.v1` RPC method.
+/// Response structure for the `state.queryStateAt.v1` RPC method.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct QueryStateAtResponse {
-    /// The version of the response message format.
+    /// The message version.
     pub msg_version: u32,
-    /// The numeric ID of the commitment scheme used.
+    /// The commitment scheme ID.
     pub scheme_id: u16,
-    /// The version of the commitment scheme.
+    /// The commitment scheme version.
     pub scheme_version: u16,
-    /// The proven membership outcome (Present or Absent).
+    /// The membership status of the key.
     pub membership: Membership,
-    /// The raw bytes of the cryptographic proof.
+    /// The proof bytes.
     pub proof_bytes: Vec<u8>,
 }
 
-/// The parameters for the `state.queryStateAt.v1` RPC method.
+/// Parameters for the `state.queryStateAt.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct QueryStateAtParams {
-    /// The historical state root to query against.
+    /// The state root at which to query.
     pub root: StateRoot,
     /// The key to query.
     pub key: Vec<u8>,
 }
 
-/// The RPC method handler for `state.queryStateAt.v1`.
+/// Handler for the `state.queryStateAt.v1` RPC method.
 pub struct QueryStateAtV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -263,13 +256,12 @@ where
                 "[WorkloadIPC] Proof cache hit for root {}",
                 hex::encode(params.root.0.get(..8).unwrap_or_default())
             );
-            // Use the canonical SCALE codec for serialization. Handle potential serialization errors.
             let proof_bytes = codec::to_bytes_canonical(proof)
                 .map_err(|e| anyhow!("Failed to serialize cached proof: {}", e))?;
 
             return Ok(QueryStateAtResponse {
                 msg_version: 1,
-                scheme_id: 1, // Placeholder
+                scheme_id: 1,
                 scheme_version: 1,
                 membership: membership.clone(),
                 proof_bytes,
@@ -290,12 +282,11 @@ where
             start_time.elapsed()
         );
 
-        // Use the canonical SCALE codec for serialization
         let proof_bytes = codec::to_bytes_canonical(&proof)
             .map_err(|e| anyhow!("Failed to serialize generated proof: {}", e))?;
 
         let mut cache = ctx.workload.proof_cache.lock().await;
-        cache.put(cache_key, (membership.clone(), proof)); // Cache the original proof object
+        cache.put(cache_key, (membership.clone(), proof));
 
         Ok(QueryStateAtResponse {
             msg_version: 1,
@@ -309,17 +300,17 @@ where
 
 // --- state.getActiveKeyAt.v1 ---
 
-/// The parameters for the `state.getActiveKeyAt.v1` RPC method.
+/// Parameters for the `state.getActiveKeyAt.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetActiveKeyAtParams {
-    /// The state anchor at which to retrieve the active key.
+    /// The state anchor at which to query.
     pub anchor: StateAnchor,
-    /// The account ID for which to retrieve the active key.
+    /// The account ID to query.
     pub account_id: AccountId,
 }
 
-/// The RPC method handler for `state.getActiveKeyAt.v1`.
+/// Handler for the `state.getActiveKeyAt.v1` RPC method.
 pub struct GetActiveKeyAtV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -361,7 +352,6 @@ where
 
         let key = [b"identity::key_record::", params.account_id.as_ref()].concat();
 
-        // Use the new anchor-based query method, which correctly handles all tree types.
         let (membership, _proof) = state.get_with_proof_at_anchor(&params.anchor.0, &key)?;
 
         let record = match membership {

@@ -5,34 +5,10 @@
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
-use ioi_api::services::UpgradableService; // Import UpgradableService trait
-use ioi_api::services::{access::ServiceDirectory, BlockchainService};
 use ioi_api::{
-    chain::ChainStateMachine, // Added import for ChainStateMachine trait
     commitment::CommitmentScheme,
     state::{ProofProvider, StateManager},
-    storage::NodeStore,
-    validator::WorkloadContainer,
 };
-use ioi_consensus::util::engine_from_config;
-// Removed unused imports from ioi_crypto
-use ioi_execution::util::load_state_from_genesis_file;
-use ioi_execution::ExecutionMachine;
-// Removed unused imports from ioi_ipc
-use ioi_services::governance::GovernanceModule;
-#[cfg(feature = "ibc-deps")]
-use ioi_services::ibc::{
-    apps::channel::ChannelManager, core::registry::VerifierRegistry,
-    light_clients::tendermint::TendermintVerifier,
-};
-// [NEW] Import for ZK client and driver
-#[cfg(all(feature = "ibc-deps", feature = "ethereum-zk"))]
-use ioi_services::ibc::light_clients::ethereum_zk::EthereumZkLightClient;
-#[cfg(all(feature = "ibc-deps", feature = "ethereum-zk"))]
-use zk_driver_succinct::config::SuccinctDriverConfig;
-
-use ioi_services::identity::IdentityHub;
-use ioi_services::oracle::OracleService;
 use ioi_state::primitives::hash::HashCommitmentScheme;
 #[cfg(feature = "commitment-kzg")]
 use ioi_state::primitives::kzg::{KZGCommitmentScheme, KZGParams};
@@ -42,27 +18,13 @@ use ioi_state::tree::sparse_merkle::SparseMerkleTree;
 #[cfg(feature = "state-verkle")]
 use ioi_state::tree::verkle::VerkleTree;
 use ioi_storage::metrics as storage_metrics;
-use ioi_storage::RedbEpochStore;
-use ioi_tx::unified::UnifiedTransactionModel;
-use ioi_types::app::{to_root_hash, Membership};
-// Removed unused ioi_types::codec
-use ioi_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
-use ioi_types::keys::{STATUS_KEY, VALIDATOR_SET_KEY};
-use ioi_validator::standard::workload_ipc_server::WorkloadIpcServer;
-use ioi_vm_wasm::WasmRuntime;
-use rand::{thread_rng, Rng};
+use ioi_types::config::WorkloadConfig;
+// Import the shared components from the validator library
+use ioi_validator::standard::workload::{ipc::WorkloadIpcServer, setup::setup_workload};
 use serde::Serialize;
 use std::fmt::Debug;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::Mutex;
-use tokio::time::interval;
-
-// [NEW] Import for VK loading in native mode
-#[cfg(feature = "ethereum-zk")]
-use ioi_crypto::algorithms::hash::sha256;
 
 #[derive(Parser, Debug)]
 struct WorkloadOpts {
@@ -70,299 +32,37 @@ struct WorkloadOpts {
     config: PathBuf,
 }
 
-/// Generic function containing all logic after component instantiation.
-#[allow(dead_code)]
-async fn run_workload<CS, ST>(
-    mut state_tree: ST,
+/// Thin wrapper to invoke shared setup and run the standard IPC server.
+async fn run_standard_workload<CS, ST>(
+    state_tree: ST,
     commitment_scheme: CS,
     config: WorkloadConfig,
 ) -> Result<()>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + ProofProvider // This bound is required by ChainStateMachine
+        + ProofProvider
         + Send
         + Sync
         + 'static
         + Clone
         + Debug,
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + Debug,
-    CS::Proof: serde::Serialize + for<'de> serde::Deserialize<'de> + AsRef<[u8]> + Debug, // Fix trait bounds for Proof
+    CS::Proof: serde::Serialize + for<'de> serde::Deserialize<'de> + AsRef<[u8]> + Debug + Clone,
     CS::Commitment: Debug + From<Vec<u8>>,
 {
-    let db_path = Path::new(&config.state_file).with_extension("db");
-    let db_preexisted = db_path.exists();
+    // 1. Run Shared Initialization
+    let (workload_container, machine_arc) =
+        setup_workload(state_tree, commitment_scheme, config).await?;
 
-    let store = Arc::new(RedbEpochStore::open(&db_path, config.epoch_size)?);
-    state_tree.attach_store(store.clone());
-
-    if !db_preexisted {
-        tracing::info!(
-            target: "workload",
-            event = "state_init",
-            path = %db_path.display(),
-            "No existing state DB found. Initializing from genesis {}.",
-            config.genesis_file
-        );
-        load_state_from_genesis_file(&mut state_tree, &config.genesis_file)?;
-    } else {
-        tracing::info!(
-            target: "workload",
-            event = "state_init",
-            path = %db_path.display(),
-            "Existing state DB found. Attempting recovery from stored state.",
-        );
-        // RECOVERY LOGIC: Re-hydrate live state from the last committed version in the store.
-        if let Ok((head_height, _)) = store.head() {
-            if head_height > 0 {
-                if let Ok(Some(head_block)) = store.get_block_by_height(head_height) {
-                    let recovered_root = &head_block.header.state_root.0;
-                    state_tree.adopt_known_root(recovered_root, head_height)?;
-                    tracing::warn!(target: "workload", event = "state_recovered", height = head_height, "Recovered and adopted durable head into state backend.");
-
-                    let anchor = to_root_hash(recovered_root)?;
-
-                    // Re-hydrate critical keys into the live state to make it usable.
-                    if let Ok((Membership::Present(status_bytes), _)) =
-                        state_tree.get_with_proof_at_anchor(&anchor, STATUS_KEY)
-                    {
-                        state_tree.insert(STATUS_KEY, &status_bytes)?;
-                        tracing::info!(target: "workload", "Re-hydrated STATUS_KEY into current state.");
-                    }
-                    if let Ok((Membership::Present(vs_bytes), _)) =
-                        state_tree.get_with_proof_at_anchor(&anchor, VALIDATOR_SET_KEY)
-                    {
-                        state_tree.insert(VALIDATOR_SET_KEY, &vs_bytes)?;
-                        tracing::info!(target: "workload", "Re-hydrated VALIDATOR_SET_KEY into current state.");
-                    }
-                }
-            }
-        }
-    }
-
-    let wasm_vm = Box::new(WasmRuntime::new(config.fuel_costs.clone())?);
-
-    // --- START: Initialize Services ---
-    // We need to set up the consensus engine first to create the PenaltiesService,
-    // mirroring the Orchestrator setup.
-    let temp_orch_config = OrchestrationConfig {
-        chain_id: 1.into(),
-        config_schema_version: 0,
-        consensus_type: config.consensus_type,
-        rpc_listen_address: String::new(),
-        rpc_hardening: Default::default(),
-        initial_sync_timeout_secs: 0,
-        block_production_interval_secs: 0,
-        round_robin_view_timeout_secs: 0,
-        default_query_gas_limit: 0,
-        ibc_gateway_listen_address: None,
-    };
-    let consensus_engine = engine_from_config(&temp_orch_config)?;
-
-    let mut initial_services = Vec::new();
-
-    // 1. Wire Penalties Service (Kernel Space)
-    let penalty_engine: Arc<dyn ioi_consensus::PenaltyEngine> = Arc::new(consensus_engine.clone());
-    let penalties_service = Arc::new(ioi_consensus::PenaltiesService::new(penalty_engine));
-    initial_services.push(penalties_service as Arc<dyn UpgradableService>);
-
-    // 2. Wire User Space Services
-    for service_config in &config.initial_services {
-        match service_config {
-            InitialServiceConfig::IdentityHub(migration_config) => {
-                tracing::info!(target: "workload", event = "service_init", name = "IdentityHub", impl="native", capabilities="identity_view, tx_decorator, on_end_block");
-                let hub = IdentityHub::new(migration_config.clone());
-                initial_services
-                    .push(Arc::new(hub) as Arc<dyn ioi_api::services::UpgradableService>);
-            }
-            InitialServiceConfig::Governance(params) => {
-                tracing::info!(target: "workload", event = "service_init", name = "Governance", impl="native", capabilities="on_end_block");
-                let gov = GovernanceModule::new(params.clone());
-                initial_services
-                    .push(Arc::new(gov) as Arc<dyn ioi_api::services::UpgradableService>);
-            }
-            InitialServiceConfig::Oracle(_params) => {
-                tracing::info!(target: "workload", event = "service_init", name = "Oracle", impl="native", capabilities="");
-                let oracle = OracleService::new();
-                initial_services
-                    .push(Arc::new(oracle) as Arc<dyn ioi_api::services::UpgradableService>);
-            }
-            // --- IBC Service Instantiation ---
-            #[cfg(feature = "ibc-deps")]
-            InitialServiceConfig::Ibc(ibc_config) => {
-                tracing::info!(target: "workload", event = "service_init", name = "IBC", impl="native", capabilities="");
-                // A real implementation would load client configurations from a file or config.
-                let mut verifier_registry = VerifierRegistry::new();
-                for client_name in &ibc_config.enabled_clients {
-                    if client_name.starts_with("tendermint") {
-                        // For Milestone A, we instantiate the Tendermint verifier for a mock Cosmos chain.
-                        let tm_verifier = TendermintVerifier::new(
-                            "cosmos-hub-test".to_string(),
-                            "07-tendermint-0".to_string(),
-                            Arc::new(state_tree.clone()), // The verifier needs access to the state.
-                        );
-                        verifier_registry.register(Arc::new(tm_verifier));
-                    }
-                }
-
-                // [NEW] Register Ethereum ZK Client if enabled
-                #[cfg(feature = "ethereum-zk")]
-                {
-                    tracing::info!(target: "workload", "Initializing Ethereum ZK Light Client for 'eth-mainnet'");
-                    let zk_cfg = &config.zk_config;
-
-                    // Helper to load and hash VK files
-                    let load_vk = |path: &Option<String>,
-                                   expected_hash: &str,
-                                   label: &str|
-                     -> Result<Vec<u8>> {
-                        if let Some(p) = path {
-                            let bytes = fs::read(p).map_err(|e| {
-                                anyhow!("Failed to read {} VK from {}: {}", label, p, e)
-                            })?;
-                            let hash = hex::encode(sha256(&bytes)?);
-                            if hash != expected_hash {
-                                return Err(anyhow!("SECURITY CRITICAL: {} VK hash mismatch! Config expects: {}, File has: {}", label, expected_hash, hash));
-                            }
-                            tracing::info!(target: "workload", "Loaded {} VK from {} (hash match)", label, p);
-                            Ok(bytes)
-                        } else {
-                            // In mock mode or if no file is provided, return empty vec.
-                            // The driver will panic/error if it tries to verify without bytes in native mode.
-                            // Check cfg!(feature = "native") via a runtime check for better error messaging if needed,
-                            // but for now we just allow the empty vec which mock mode handles fine.
-                            Ok(vec![])
-                        }
-                    };
-
-                    let beacon_bytes = load_vk(
-                        &zk_cfg.beacon_vk_path,
-                        &zk_cfg.ethereum_beacon_vkey,
-                        "Beacon",
-                    )?;
-                    let state_bytes =
-                        load_vk(&zk_cfg.state_vk_path, &zk_cfg.state_inclusion_vkey, "State")?;
-
-                    // Convert WorkloadConfig ZK settings to SuccinctDriverConfig
-                    let driver_config = SuccinctDriverConfig {
-                        beacon_vkey_hash: zk_cfg.ethereum_beacon_vkey.clone(),
-                        beacon_vkey_bytes: beacon_bytes,
-                        state_inclusion_vkey_hash: zk_cfg.state_inclusion_vkey.clone(),
-                        state_inclusion_vkey_bytes: state_bytes,
-                    };
-
-                    // Initialize with the driver config (which sets the verification keys for native mode)
-                    let eth_verifier =
-                        EthereumZkLightClient::new("eth-mainnet".to_string(), driver_config);
-                    verifier_registry.register(Arc::new(eth_verifier) as Arc<dyn LightClient>);
-                }
-
-                initial_services
-                    .push(Arc::new(verifier_registry)
-                        as Arc<dyn ioi_api::services::UpgradableService>);
-                // The ChannelManager is also a required part of the IBC service suite.
-                initial_services.push(Arc::new(ChannelManager::new())
-                    as Arc<dyn ioi_api::services::UpgradableService>);
-            }
-            #[cfg(not(feature = "ibc-deps"))]
-            InitialServiceConfig::Ibc(_) => {
-                return Err(anyhow!(
-                    "Workload configured for IBC, but not compiled with 'ibc-deps' feature."
-                ));
-            }
-        }
-    }
-    // --- END: Initialize Services ---
-
-    let services_for_dir: Vec<Arc<dyn BlockchainService>> = initial_services
-        .iter()
-        .map(|s| s.clone() as Arc<dyn BlockchainService>)
-        .collect();
-    let service_directory = ServiceDirectory::new(services_for_dir);
-
-    let workload_container = Arc::new(WorkloadContainer::new(
-        config.clone(),
-        state_tree,
-        wasm_vm,
-        service_directory,
-        store.clone(),
-    )?);
-
-    let mut machine = ExecutionMachine::new(
-        commitment_scheme.clone(),
-        UnifiedTransactionModel::new(commitment_scheme),
-        1.into(),
-        initial_services,
-        consensus_engine,
-        workload_container.clone(),
-        config.service_policies.clone(), // Pass service policies
-    )?;
-
-    for runtime_id in &config.runtimes {
-        let id = runtime_id.to_ascii_lowercase();
-        if id == "wasm" {
-            tracing::info!(target: "workload", "Registering WasmRuntime for service upgrades.");
-            let wasm_runtime = WasmRuntime::new(config.fuel_costs.clone())?;
-            machine
-                .service_manager
-                .register_runtime("wasm", Arc::new(wasm_runtime));
-        }
-    }
-
-    machine
-        .load_or_initialize_status(&workload_container)
-        .await?;
-    let machine_arc = Arc::new(Mutex::new(machine));
-
-    // --- PHASE 3: INCREMENTAL GC TASK (Refactored) ---
-    let machine_for_gc = machine_arc.clone();
-    let workload_for_gc = workload_container.clone();
-
-    tokio::spawn(async move {
-        // Use configured interval (default 3600s)
-        let gc_interval_secs = workload_for_gc.config().gc_interval_secs.max(1);
-        let mut ticker = interval(Duration::from_secs(gc_interval_secs));
-        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-
-        loop {
-            ticker.tick().await;
-
-            // Add jitter only if interval is large enough to matter (avoid jitter on 1s test intervals)
-            if gc_interval_secs > 10 {
-                let jitter_factor = thread_rng().gen_range(-0.10..=0.10);
-                let jitter_millis =
-                    ((gc_interval_secs as f64 * jitter_factor).abs() * 1000.0) as u64;
-                if jitter_millis > 0 {
-                    tokio::time::sleep(Duration::from_millis(jitter_millis)).await;
-                }
-            }
-
-            // Get current height from the machine
-            let current_height = {
-                let guard = machine_for_gc.lock().await;
-                // The ChainStateMachine trait must be in scope to call .status()
-                // This is provided by the import `use ioi_api::chain::ChainStateMachine;`
-                // which we removed earlier because it was unused.
-                // But now we need it here to call .status().
-                // Re-adding it locally or ensuring trait is visible.
-                use ioi_api::chain::ChainStateMachine;
-                guard.status().height
-            };
-
-            // Delegate logic to the container
-            if let Err(e) = workload_for_gc.run_gc_pass(current_height).await {
-                log::error!("[GC] Background pass failed: {}", e);
-            }
-        }
-    });
-
+    // 2. Start the Standard IPC Server
     let ipc_server_addr =
         std::env::var("IPC_SERVER_ADDR").unwrap_or_else(|_| "0.0.0.0:8555".to_string());
 
     let ipc_server: WorkloadIpcServer<ST, CS> =
         WorkloadIpcServer::new(ipc_server_addr, workload_container, machine_arc).await?;
 
-    tracing::info!(target: "workload", "State, VM, and ExecutionMachine initialized. Running IPC server.");
+    tracing::info!(target: "workload", "Standard Workload initialized. Running IPC server.");
     ipc_server.run().await?;
     Ok(())
 }
@@ -418,7 +118,7 @@ async fn main() -> Result<()> {
             tracing::info!(target: "workload", "Instantiating state backend: IAVLTree<HashCommitmentScheme>");
             let commitment_scheme = HashCommitmentScheme::new();
             let state_tree = IAVLTree::new(commitment_scheme.clone());
-            run_workload(state_tree, commitment_scheme, config).await
+            run_standard_workload(state_tree, commitment_scheme, config).await
         }
 
         #[cfg(all(feature = "state-sparse-merkle", feature = "commitment-hash"))]
@@ -430,7 +130,7 @@ async fn main() -> Result<()> {
             let commitment_scheme = ioi_state::primitives::hash::HashCommitmentScheme::new();
             let state_tree =
                 ioi_state::tree::sparse_merkle::SparseMerkleTree::new(commitment_scheme.clone());
-            run_workload(state_tree, commitment_scheme, config).await
+            run_standard_workload(state_tree, commitment_scheme, config).await
         }
 
         #[cfg(all(feature = "state-verkle", feature = "commitment-kzg"))]
@@ -451,7 +151,7 @@ async fn main() -> Result<()> {
             let state_tree =
                 ioi_state::tree::verkle::VerkleTree::new(commitment_scheme.clone(), 256)
                     .map_err(|e| anyhow!(e))?;
-            run_workload(state_tree, commitment_scheme, config).await
+            run_standard_workload(state_tree, commitment_scheme, config).await
         }
 
         _ => {
