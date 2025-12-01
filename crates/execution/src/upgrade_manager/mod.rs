@@ -476,4 +476,7 @@ impl VmStateAccessor for NullStateAccessor {
     async fn delete(&self, _key: &[u8]) -> Result<(), StateError> {
         Ok(())
     }
+    async fn prefix_scan(&self, _prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StateError> {
+        Ok(Vec::new())
+    }
 }
