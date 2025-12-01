@@ -9,7 +9,7 @@ use ioi_api::commitment::CommitmentScheme;
 use ioi_api::services::access::ServiceDirectory;
 use ioi_api::state::{PinGuard, ProofProvider, StateManager, StateOverlay};
 use ioi_api::transaction::context::TxContext;
-use ioi_api::validator::WorkloadContainer;
+// REMOVED: use ioi_api::validator::WorkloadContainer;
 use ioi_tx::unified::UnifiedProof;
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{
@@ -48,7 +48,8 @@ where
         + 'static
         + Decode
         + Debug,
-    <CS as CommitmentScheme>::Commitment: From<Vec<u8>>,
+    // UPDATED: Added Debug + Send + Sync to match ExecutionMachine impl bounds
+    <CS as CommitmentScheme>::Commitment: From<Vec<u8>> + Debug + Send + Sync,
 {
     fn status(&self) -> &ChainStatus {
         &self.state.status
@@ -400,9 +401,7 @@ where
             .collect())
     }
 
-    async fn get_staked_validators(
-        &self,
-    ) -> Result<BTreeMap<AccountId, u64>, ChainError> {
+    async fn get_staked_validators(&self) -> Result<BTreeMap<AccountId, u64>, ChainError> {
         let state = self.workload_container.state_tree();
         let guard = state.read().await;
         let bytes = guard
@@ -417,9 +416,7 @@ where
             .collect())
     }
 
-    async fn get_next_staked_validators(
-        &self,
-    ) -> Result<BTreeMap<AccountId, u64>, ChainError> {
+    async fn get_next_staked_validators(&self) -> Result<BTreeMap<AccountId, u64>, ChainError> {
         let state = self.workload_container.state_tree();
         let guard = state.read().await;
         let bytes = guard

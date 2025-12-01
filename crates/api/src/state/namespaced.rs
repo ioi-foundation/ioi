@@ -111,6 +111,102 @@ impl<'a> StateAccess for NamespacedStateAccess<'a> {
     }
 }
 
+/// A read-only version of `NamespacedStateAccess` that wraps an immutable reference
+/// to `StateAccess`.
+///
+/// This is used during the `validate_ante` phase of transaction processing to enforce
+/// that no state mutations occur during validation checks, while still applying
+/// correct namespace isolation rules.
+pub struct ReadOnlyNamespacedStateAccess<'a> {
+    inner: &'a dyn StateAccess,
+    prefix: Vec<u8>,
+    meta: &'a ActiveServiceMeta,
+}
+
+impl<'a> ReadOnlyNamespacedStateAccess<'a> {
+    /// Creates a new read-only namespaced state accessor.
+    pub fn new(
+        inner: &'a dyn StateAccess,
+        prefix: Vec<u8>,
+        meta: &'a ActiveServiceMeta,
+    ) -> Self {
+        Self {
+            inner,
+            prefix,
+            meta,
+        }
+    }
+
+    /// Qualifies a key (same logic as mutable version).
+    #[inline]
+    fn qualify(&self, key: &[u8]) -> Result<Vec<u8>, StateError> {
+        if self
+            .meta
+            .allowed_system_prefixes
+            .iter()
+            .any(|p| key.starts_with(p.as_bytes()))
+        {
+            Ok(key.to_vec())
+        } else {
+            if key.starts_with(b"_service_data::") {
+                return Err(StateError::PermissionDenied(format!(
+                    "Service '{}' attempted to access raw service data key '{}'",
+                    self.meta.id,
+                    String::from_utf8_lossy(key)
+                )));
+            }
+            Ok([self.prefix.as_slice(), key].concat())
+        }
+    }
+}
+
+impl<'a> StateAccess for ReadOnlyNamespacedStateAccess<'a> {
+    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
+        self.inner.get(&self.qualify(key)?)
+    }
+
+    fn insert(&mut self, _key: &[u8], _value: &[u8]) -> Result<(), StateError> {
+        Err(StateError::PermissionDenied(
+            "Write attempted in read-only validation context".into(),
+        ))
+    }
+
+    fn delete(&mut self, _key: &[u8]) -> Result<(), StateError> {
+        Err(StateError::PermissionDenied(
+            "Delete attempted in read-only validation context".into(),
+        ))
+    }
+
+    fn batch_set(&mut self, _updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
+        Err(StateError::PermissionDenied(
+            "Batch set attempted in read-only validation context".into(),
+        ))
+    }
+
+    fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
+        let mapped: Vec<Vec<u8>> = keys
+            .iter()
+            .map(|k| self.qualify(k))
+            .collect::<Result<_, _>>()?;
+        self.inner.batch_get(&mapped)
+    }
+
+    fn batch_apply(
+        &mut self,
+        _inserts: &[(Vec<u8>, Vec<u8>)],
+        _deletes: &[Vec<u8>],
+    ) -> Result<(), StateError> {
+        Err(StateError::PermissionDenied(
+            "Batch apply attempted in read-only validation context".into(),
+        ))
+    }
+
+    fn prefix_scan(&self, prefix: &[u8]) -> Result<StateScanIter<'_>, StateError> {
+        let effective_prefix = self.qualify(prefix)?;
+        self.inner.prefix_scan(&effective_prefix)
+    }
+}
+
 /// Helper to generate a canonical namespace prefix for a service.
 pub fn service_namespace_prefix(service_id: &str) -> Vec<u8> {
     format!("_service_data::{}::", service_id).into_bytes()

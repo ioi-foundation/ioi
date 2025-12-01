@@ -134,7 +134,24 @@ impl BlockchainService for WasmService {
 
 #[async_trait]
 impl TxDecorator for WasmService {
-    async fn ante_handle(
+    async fn validate_ante(
+        &self,
+        _state: &dyn StateAccess,
+        tx: &ChainTransaction,
+        _ctx: &TxContext,
+    ) -> Result<(), TransactionError> {
+        let req = AnteHandleRequest { tx: tx.clone() };
+        let req_bytes = to_bytes_canonical(&req).map_err(TransactionError::Serialization)?;
+        log::info!("[WasmService {}] Calling ante_validate in WASM", self.id());
+        let resp_bytes = self
+            .call_wasm_fn("ante_validate", &req_bytes)
+            .map_err(|e| TransactionError::Invalid(format!("WASM ante_validate failed: {}", e)))?;
+        let resp: AnteHandleResponse =
+            from_bytes_canonical(&resp_bytes).map_err(TransactionError::Deserialization)?;
+        resp.result.map_err(TransactionError::Invalid)
+    }
+
+    async fn write_ante(
         &self,
         _state: &mut dyn StateAccess,
         tx: &ChainTransaction,
@@ -142,10 +159,10 @@ impl TxDecorator for WasmService {
     ) -> Result<(), TransactionError> {
         let req = AnteHandleRequest { tx: tx.clone() };
         let req_bytes = to_bytes_canonical(&req).map_err(TransactionError::Serialization)?;
-        log::info!("[WasmService {}] Calling ante_handle in WASM", self.id());
+        log::info!("[WasmService {}] Calling ante_write in WASM", self.id());
         let resp_bytes = self
-            .call_wasm_fn("ante_handle", &req_bytes)
-            .map_err(|e| TransactionError::Invalid(format!("WASM ante_handle failed: {}", e)))?;
+            .call_wasm_fn("ante_write", &req_bytes)
+            .map_err(|e| TransactionError::Invalid(format!("WASM ante_write failed: {}", e)))?;
         let resp: AnteHandleResponse =
             from_bytes_canonical(&resp_bytes).map_err(TransactionError::Deserialization)?;
         resp.result.map_err(TransactionError::Invalid)

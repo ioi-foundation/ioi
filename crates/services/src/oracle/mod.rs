@@ -3,8 +3,8 @@ use async_trait::async_trait;
 use ioi_api::services::{BlockchainService, UpgradableService};
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
-use ioi_api::transaction::decorator::TxDecorator; // Added import
-use ioi_types::app::{ChainTransaction, SystemPayload}; // Added imports
+use ioi_api::transaction::decorator::TxDecorator;
+use ioi_types::app::{ChainTransaction, SystemPayload};
 use ioi_types::app::{OracleConsensusProof, StateEntry};
 use ioi_types::codec;
 use ioi_types::error::{TransactionError, UpgradeError};
@@ -140,9 +140,9 @@ impl BlockchainService for OracleService {
 
 #[async_trait]
 impl TxDecorator for OracleService {
-    async fn ante_handle(
+    async fn validate_ante(
         &self,
-        state: &mut dyn StateAccess,
+        state: &dyn StateAccess,
         tx: &ChainTransaction,
         _ctx: &TxContext,
     ) -> Result<(), TransactionError> {
@@ -177,6 +177,17 @@ impl TxDecorator for OracleService {
                 }
             }
         }
+        Ok(())
+    }
+
+    async fn write_ante(
+        &self,
+        _state: &mut dyn StateAccess,
+        _tx: &ChainTransaction,
+        _ctx: &TxContext,
+    ) -> Result<(), TransactionError> {
+        // The Oracle service has no pre-execution state changes (e.g., fees).
+        // All state changes happen in the main execution phase.
         Ok(())
     }
 }

@@ -188,11 +188,11 @@ runtime = "wasm"
 capabilities = ["TxDecorator"]
 
 [methods]
-"ante_handle@v1" = "Internal"
+"ante_validate@v1" = "Internal"
+"ante_write@v1" = "Internal"
 "#
     .to_string();
 
-    // ... [Cluster setup remains the same] ...
     let governance_key = identity::Keypair::generate_ed25519();
     let user_key = identity::Keypair::generate_ed25519();
     let chain_id: ChainId = 1.into();
@@ -468,7 +468,7 @@ capabilities = ["TxDecorator"]
         assert_log_contains(
             "Workload",
             &mut workload_logs,
-            "[WasmService fee_calculator] Calling method 'ante_handle@v1' in WASM",
+            "[WasmService fee_calculator] Calling method 'ante_validate@v1' in WASM", // Changed from ante_handle
         )
         .await?;
         println!("SUCCESS: Activated WASM service's TxDecorator hook was correctly invoked.");
