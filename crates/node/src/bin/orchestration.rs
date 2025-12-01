@@ -558,6 +558,8 @@ async fn main() -> Result<()> {
 
     let config_path = opts.config.clone();
     let config: OrchestrationConfig = toml::from_str(&fs::read_to_string(&config_path)?)?;
+    config.validate().map_err(|e| anyhow!(e))?;
+
     let local_key = {
         let key_path = &opts.identity_key_file;
         if key_path.exists() {
@@ -577,6 +579,7 @@ async fn main() -> Result<()> {
     let workload_config_path = opts.config.parent().unwrap().join("workload.toml");
     let workload_config_str = fs::read_to_string(&workload_config_path)?;
     let workload_config: WorkloadConfig = toml::from_str(&workload_config_str)?;
+    workload_config.validate().map_err(|e| anyhow!(e))?;
 
     match (
         workload_config.state_tree.clone(),
