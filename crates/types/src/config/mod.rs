@@ -179,6 +179,30 @@ pub struct WorkloadConfig {
     pub zk_config: ZkConfig,
 }
 
+impl WorkloadConfig {
+    /// Validates the configuration for semantic correctness.
+    pub fn validate(&self) -> Result<(), String> {
+        let needs_srs = matches!(self.state_tree, StateTreeType::Verkle)
+            || matches!(self.commitment_scheme, CommitmentSchemeType::KZG);
+
+        if needs_srs && self.srs_file_path.is_none() {
+            return Err("Configuration Error: 'srs_file_path' is required when using Verkle trees or KZG commitments.".to_string());
+        }
+
+        if self.epoch_size == 0 {
+            return Err("Configuration Error: 'epoch_size' must be greater than 0.".to_string());
+        }
+
+        if self.gc_interval_secs == 0 {
+            return Err(
+                "Configuration Error: 'gc_interval_secs' must be greater than 0.".to_string(),
+            );
+        }
+
+        Ok(())
+    }
+}
+
 /// Generates the default set of service security policies.
 ///
 /// This function returns a map containing the standard permissions and system key
@@ -396,6 +420,19 @@ pub struct OrchestrationConfig {
     /// Optional: The listen address for the IBC HTTP gateway. If present, the gateway is enabled.
     #[serde(default)]
     pub ibc_gateway_listen_address: Option<String>,
+}
+
+impl OrchestrationConfig {
+    /// Validates the configuration for semantic correctness.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.block_production_interval_secs == 0 {
+            return Err(
+                "Configuration Error: 'block_production_interval_secs' must be greater than 0."
+                    .to_string(),
+            );
+        }
+        Ok(())
+    }
 }
 
 fn default_sync_timeout_secs() -> u64 {
