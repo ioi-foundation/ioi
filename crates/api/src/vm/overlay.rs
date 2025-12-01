@@ -89,4 +89,30 @@ impl VmStateAccessor for VmStateOverlay {
         self.writes.insert(key.to_vec(), None);
         Ok(())
     }
+
+    async fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StateError> {
+        // 1. Get from parent first
+        let mut results_map: std::collections::BTreeMap<Vec<u8>, Vec<u8>> =
+            self.parent.prefix_scan(prefix).await?.into_iter().collect();
+
+        // 2. Overlay local writes
+        // Iterate over the DashMap. Since we need to find keys starting with prefix,
+        // and DashMap isn't ordered, we scan all entries.
+        // (Note: In a high-throughput scenario with massive write sets, this might need optimization,
+        //  but for typical tx execution it's acceptable).
+        for entry in self.writes.iter() {
+            if entry.key().starts_with(prefix) {
+                match entry.value() {
+                    Some(val) => {
+                        results_map.insert(entry.key().clone(), val.clone());
+                    }
+                    None => {
+                        results_map.remove(entry.key());
+                    }
+                }
+            }
+        }
+
+        Ok(results_map.into_iter().collect())
+    }
 }

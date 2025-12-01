@@ -48,7 +48,7 @@ pub use namespaced::{service_namespace_prefix, NamespacedStateAccess};
 pub use overlay::*;
 pub use pins::{PinGuard, StateVersionPins};
 pub use proof::*;
-pub use retention::{RetentionManager, RetentionHandle}; // [NEW]
+pub use retention::{RetentionHandle, RetentionManager}; // [NEW]
 
 /// A plan detailing which historical state versions should be pruned.
 #[derive(Debug, Clone, Default)]
@@ -118,6 +118,13 @@ pub trait VmStateAccessor: Send + Sync {
     async fn insert(&self, key: &[u8], value: &[u8]) -> Result<(), StateError>;
     /// Deletes a key-value pair from the state.
     async fn delete(&self, key: &[u8]) -> Result<(), StateError>;
+
+    /// Scans keys with the given prefix and returns all matching key-value pairs.
+    ///
+    /// Returns a vector rather than an iterator because standard Rust iterators/streams
+    /// are difficult to make object-safe across async boundaries without pinning/boxing overhead
+    /// that complicates the VM host bridge.
+    async fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StateError>;
 }
 
 // --- Type Aliases ---

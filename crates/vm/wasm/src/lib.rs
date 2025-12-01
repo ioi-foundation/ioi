@@ -99,6 +99,37 @@ impl ioi::system::state::Host for HostState {
             Err(e) => Err(e.to_string()),
         }
     }
+
+    async fn prefix_scan(&mut self, prefix: Vec<u8>) -> Result<Vec<(Vec<u8>, Vec<u8>)>, String> {
+        let contract_addr = self.context.contract_address.clone();
+        // The VM enforces isolation by prepending the contract address.
+        // Format: {contract_addr}::{prefix}
+        let ns_prefix = [contract_addr.as_slice(), b"::", prefix.as_slice()].concat();
+
+        let accessor = unsafe { self.state_accessor.0.as_ref().unwrap() };
+
+        match accessor.prefix_scan(&ns_prefix).await {
+            Ok(results) => {
+                // We must strip the namespace prefix so the guest sees keys relative to itself.
+                let prefix_len = contract_addr.len() + 2; // len(addr) + len("::")
+
+                let mapped_results = results
+                    .into_iter()
+                    .map(|(k, v)| {
+                        // Safety check: key must start with the namespace prefix
+                        if k.len() >= prefix_len {
+                            (k[prefix_len..].to_vec(), v)
+                        } else {
+                            (k, v)
+                        }
+                    })
+                    .collect();
+
+                Ok(mapped_results)
+            }
+            Err(e) => Err(e.to_string()),
+        }
+    }
 }
 
 #[async_trait]

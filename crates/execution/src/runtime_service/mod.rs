@@ -55,6 +55,17 @@ impl<'a> VmStateAccessor for VmStateBridge<'a> {
         let mut guard = self.inner.lock().await;
         guard.delete(key)
     }
+
+    async fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StateError> {
+        let guard = self.inner.lock().await;
+        let iter = guard.prefix_scan(prefix)?;
+        let mut results = Vec::new();
+        for item in iter {
+            let (k, v) = item?;
+            results.push((k.to_vec(), v.to_vec()));
+        }
+        Ok(results)
+    }
 }
 
 /// A generic wrapper that makes a WASM artifact conform to the `BlockchainService` traits.

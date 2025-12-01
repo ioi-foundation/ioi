@@ -16,3 +16,11 @@ pub fn set(key: &[u8], value: &[u8]) {
 pub fn delete(key: &[u8]) {
     let _ = state::delete(key);
 }
+
+/// Scans the state for keys matching the given prefix.
+pub fn prefix_scan(prefix: &[u8]) -> Vec<(Vec<u8>, Vec<u8>)> {
+    match state::prefix_scan(prefix) {
+        Ok(results) => results,
+        Err(_) => Vec::new(), // Return empty on error for simplicity, or panic
+    }
+}

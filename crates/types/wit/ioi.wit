@@ -10,6 +10,10 @@ interface state {
     
     /// Deletes a value from the state.
     delete: func(key: list<u8>) -> result<_, string>;
+    
+    /// Scans the state for keys matching the prefix.
+    /// Returns a list of (key, value) tuples.
+    prefix-scan: func(prefix: list<u8>) -> result<list<tuple<list<u8>, list<u8>>>, string>;
 }
 
 /// Interface for accessing execution context.

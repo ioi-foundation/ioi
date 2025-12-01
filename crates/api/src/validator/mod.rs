@@ -89,6 +89,22 @@ impl<ST: StateManager + Send + Sync> VmStateAccessor for StateAccessorWrapper<ST
     async fn delete(&self, key: &[u8]) -> Result<(), ioi_types::error::StateError> {
         self.state_tree.write().await.delete(key)
     }
+
+    /// Scans keys with the given prefix and returns all matching key-value pairs.
+    async fn prefix_scan(
+        &self,
+        prefix: &[u8],
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>, ioi_types::error::StateError> {
+        let state = self.state_tree.read().await;
+        let iter = state.prefix_scan(prefix)?;
+        // Collect the iterator into a Vec to satisfy the async trait signature
+        let mut results = Vec::new();
+        for item in iter {
+            let (k, v) = item?;
+            results.push((k.to_vec(), v.to_vec()));
+        }
+        Ok(results)
+    }
 }
 
 impl<ST> WorkloadContainer<ST>

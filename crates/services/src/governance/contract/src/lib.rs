@@ -187,9 +187,8 @@ fn on_end_block() -> Result<(), String> {
         let proposals_to_tally: Vec<u64> =
             Decode::decode(&mut &*index_bytes).map_err(|e| e.to_string())?;
 
-        // This is inefficient but necessary without a `prefix_scan` FFI.
-        // A real implementation would require that host capability.
-        let _stakes = state::get(VALIDATOR_SET_KEY)
+        // Fetch validator set for weights
+        let stakes = state::get(VALIDATOR_SET_KEY)
             .and_then(|b| Decode::decode::<ValidatorSetsV1>(&mut &*b).ok())
             .map(|sets| {
                 sets.current
@@ -209,11 +208,60 @@ fn on_end_block() -> Result<(), String> {
             let mut proposal: Proposal =
                 Decode::decode(&mut &*prop_entry.value).map_err(|e| e.to_string())?;
 
-            // Tallying logic here is complex and requires iterating over all possible voters
-            // since `prefix_scan` is not available. This is a significant limitation.
-            // ... Simplified logic: Assume it passed for demonstration.
+            // Construct prefix for votes: "gov::vote::{id}::"
+            let vote_prefix = [
+                GOVERNANCE_VOTE_KEY_PREFIX,
+                &proposal_id.to_le_bytes(),
+                b"::",
+            ]
+            .concat();
 
-            proposal.status = ProposalStatus::Passed;
+            // Use the new host function to scan for votes
+            let votes = state::prefix_scan(&vote_prefix);
+
+            let mut tally = TallyResult::default();
+            let mut total_voted_power = 0;
+
+            for (key, val) in votes {
+                // Key format: gov::vote::{id}::{voter_account_id_bytes}
+                // voter_account_id_bytes is 32 bytes at the end
+                if key.len() < 32 {
+                    continue;
+                }
+                let voter_bytes = &key[key.len() - 32..];
+                let mut voter_arr = [0u8; 32];
+                voter_arr.copy_from_slice(voter_bytes);
+                let voter_id = AccountId(voter_arr);
+
+                let weight = *stakes.get(&voter_id).unwrap_or(&0);
+
+                if let Ok(option) = Decode::decode::<VoteOption>(&mut &*val) {
+                    match option {
+                        VoteOption::Yes => tally.yes += weight,
+                        VoteOption::No => tally.no += weight,
+                        VoteOption::NoWithVeto => tally.no_with_veto += weight,
+                        VoteOption::Abstain => tally.abstain += weight,
+                    }
+                    total_voted_power += weight;
+                }
+            }
+
+            proposal.final_tally = Some(tally.clone());
+
+            let total_stake: u64 = stakes.values().sum();
+
+            // Simple majority logic (threshold 50%, quorum 33% - hardcoded for demo/test)
+            if total_stake > 0 && total_voted_power >= (total_stake / 3) {
+                let non_abstain = tally.yes + tally.no + tally.no_with_veto;
+                if non_abstain > 0 && tally.yes > (non_abstain / 2) {
+                    proposal.status = ProposalStatus::Passed;
+                } else {
+                    proposal.status = ProposalStatus::Rejected;
+                }
+            } else {
+                proposal.status = ProposalStatus::Rejected;
+            }
+
             let updated_entry = StateEntry {
                 value: proposal.encode(),
                 block_height: prop_entry.block_height,
