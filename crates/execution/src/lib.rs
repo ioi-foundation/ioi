@@ -1,5 +1,5 @@
-// Path: crates/chain/src/lib.rs
-//! # IOI SDK Chain Crate Lints
+// Path: crates/execution/src/lib.rs
+//! # IOI SDK Execution Crate Lints
 //!
 //! This crate enforces a strict set of lints to ensure high-quality,
 //! panic-free, and well-documented code. Panics are disallowed in non-test
@@ -15,7 +15,7 @@
         clippy::indexing_slicing
     )
 )]
-//! # IOI SDK Chain
+//! # IOI SDK Execution
 //!
 //! This crate provides the implementation logic for the `ChainStateMachine` state machine.
 
@@ -23,7 +23,6 @@ pub mod app;
 pub mod runtime_service;
 pub mod upgrade_manager;
 pub mod util;
-pub mod wasm_loader;
 
 pub use crate::app::ExecutionMachine;
 pub use upgrade_manager::ServiceUpgradeManager;

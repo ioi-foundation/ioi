@@ -10,7 +10,6 @@ ioi-types = { path = "../../types" }
 ioi-crypto = { path = "../../crypto" }
 
 # Explicitly set wasmtime to 21.0.0 to match wasmtime-wasi 21.0.0
-# This resolves the "two different versions" error for Linker and ResourceTable
 wasmtime = { version = "21.0.0", features = ["component-model", "async"] }
 wasmtime-wasi = { version = "21.0.0" }
 wit-component = "0.21.0"
@@ -20,3 +19,8 @@ async-trait = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 thiserror = { workspace = true }
 log = { workspace = true }
+
+# Dependencies added for wasm_service
+parity-scale-codec = { workspace = true, features = ["derive", "std"] }
+serde = { workspace = true, features = ["derive"] }
+toml = { workspace = true }

@@ -15,6 +15,9 @@ use wasmtime::component::{Component, Linker};
 use wasmtime::{Config, Engine, Store};
 use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiView};
 
+// Expose the new module
+pub mod wasm_service;
+
 // Generate Host traits from WIT
 wasmtime::component::bindgen!({
     path: "../../types/wit/ioi.wit",
