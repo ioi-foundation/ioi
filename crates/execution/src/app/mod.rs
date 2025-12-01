@@ -12,6 +12,7 @@ use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::PenaltyMechanism;
 use ioi_api::services::access::ServiceDirectory;
 use ioi_api::services::{BlockchainService, UpgradableService};
+use ioi_api::state::namespaced::ReadOnlyNamespacedStateAccess;
 use ioi_api::state::{
     service_namespace_prefix, NamespacedStateAccess, StateAccess, StateManager, StateOverlay,
 };
@@ -28,7 +29,7 @@ use ioi_types::error::{ChainError, CoreError, StateError, TransactionError};
 use ioi_types::keys::{
     BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, STATUS_KEY, UPGRADE_ACTIVE_SERVICE_PREFIX,
 };
-use ioi_types::service_configs::{ActiveServiceMeta, Capabilities, MethodPermission};
+use ioi_types::service_configs::ActiveServiceMeta;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -142,6 +143,7 @@ where
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
         serde::Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+    <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync,
 {
     pub fn new(
         commitment_scheme: CS,
@@ -381,32 +383,59 @@ where
 
         preflight_capabilities(&self.services, tx)?;
 
-        validation::verify_transaction_signature(overlay, &self.services, tx, &tx_ctx)?;
-        nonce::assert_next_nonce(overlay, tx)?;
+        // --- PHASE 1: READ-ONLY VALIDATION ---
+        // 1. System Checks
+        // Pass immutable reference to overlay to prevent side effects during validation.
+        validation::verify_transaction_signature(&*overlay, &self.services, tx, &tx_ctx)?;
+        nonce::assert_next_nonce(&*overlay, tx)?;
 
-        for service in self.services.services_in_deterministic_order() {
-            if let Some(decorator) = service.as_tx_decorator() {
-                let meta = self.service_meta_cache.get(service.id()).ok_or_else(|| {
-                    ChainError::Transaction(format!(
-                        "Metadata not found in cache for active service decorator '{}'",
-                        service.id()
-                    ))
-                })?;
-                let prefix = service_namespace_prefix(service.id());
-                let mut namespaced_overlay = NamespacedStateAccess::new(overlay, prefix, meta);
-                decorator
-                    .ante_handle(&mut namespaced_overlay, tx, &tx_ctx)
-                    .await?;
-            }
+        // 2. Service Decorator Checks (Validation)
+        // Collect decorators to avoid multiple borrows
+        let decorators: Vec<(&str, &dyn ioi_api::transaction::decorator::TxDecorator)> = self
+            .services
+            .services_in_deterministic_order()
+            .filter_map(|s| s.as_tx_decorator().map(|d| (s.id(), d)))
+            .collect();
+
+        for (id, decorator) in &decorators {
+            let meta = self.service_meta_cache.get(*id).ok_or_else(|| {
+                ChainError::Transaction(format!("Metadata missing for service '{}'", id))
+            })?;
+            let prefix = service_namespace_prefix(id);
+
+            // Immutable namespaced state for validation phase
+            let namespaced_view = ReadOnlyNamespacedStateAccess::new(&*overlay, prefix, meta);
+            decorator
+                .validate_ante(&namespaced_view, tx, &tx_ctx)
+                .await?;
         }
 
+        // --- PHASE 2: STATE MUTATION ---
+        // If we reached here, all validations passed. Now apply side effects.
+
+        // 1. Service Decorator Writes
+        for (id, decorator) in decorators {
+            // Safe to unwrap: verified existence in Phase 1
+            let meta = self.service_meta_cache.get(id).unwrap();
+            let prefix = service_namespace_prefix(id);
+
+            // Mutable namespaced state for write phase
+            let mut namespaced_write = NamespacedStateAccess::new(overlay, prefix, meta);
+            decorator
+                .write_ante(&mut namespaced_write, tx, &tx_ctx)
+                .await?;
+        }
+
+        // 2. System Writes
         nonce::bump_nonce(overlay, tx)?;
 
+        // --- PHASE 3: PAYLOAD EXECUTION ---
         let (proof, gas_used) = self
             .state
             .transaction_model
             .apply_payload(self, overlay, tx, &mut tx_ctx)
             .await?;
+
         proofs_out
             .push(ioi_types::codec::to_bytes_canonical(&proof).map_err(ChainError::Transaction)?);
 

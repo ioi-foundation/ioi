@@ -12,7 +12,7 @@ use alloc::alloc::{alloc, dealloc};
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-// --- Minimal Bump Allocator --------------------------------------------------
+// --- Minimal Bump Allocator (Omitted for brevity, same as before) ---
 const HEAP_SIZE: usize = 32 * 1024;
 
 struct BumpAllocator {
@@ -56,9 +56,7 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}
 }
 
-// -----------------------------------------------------------------------------
-// Canonical ABI allocator expected by `cargo component`.
-// -----------------------------------------------------------------------------
+// --- ABI Allocator ---
 #[no_mangle]
 pub unsafe extern "C" fn cabi_realloc(
     ptr: *mut u8,
@@ -72,40 +70,25 @@ pub unsafe extern "C" fn cabi_realloc(
         Layout::from_size_align(size.max(1), align).ok()
     }
 
-    // Allocate new
     if ptr.is_null() {
-        if new_size == 0 {
-            return null_mut();
-        }
-        if let Some(new_layout) = layout(new_size, align) {
-            return alloc(new_layout);
-        }
+        if new_size == 0 { return null_mut(); }
+        if let Some(new_layout) = layout(new_size, align) { return alloc(new_layout); }
         return null_mut();
     }
 
-    // Free
     if new_size == 0 {
-        if let Some(old_layout) = layout(old_size, align) {
-            dealloc(ptr, old_layout);
-        }
+        if let Some(old_layout) = layout(old_size, align) { dealloc(ptr, old_layout); }
         return null_mut();
     }
 
-    // Reallocate: allocate new, copy, free old
-    let Some(new_layout) = layout(new_size, align) else {
-        return null_mut();
-    };
+    let Some(new_layout) = layout(new_size, align) else { return null_mut(); };
     let new_ptr = alloc(new_layout);
-    if new_ptr.is_null() {
-        return null_mut();
-    }
+    if new_ptr.is_null() { return null_mut(); }
 
     let count = min(old_size, new_size);
     core::ptr::copy_nonoverlapping(ptr, new_ptr, count);
 
-    if let Some(old_layout) = layout(old_size, align) {
-        dealloc(ptr, old_layout);
-    }
+    if let Some(old_layout) = layout(old_size, align) { dealloc(ptr, old_layout); }
 
     new_ptr
 }
@@ -113,6 +96,7 @@ pub unsafe extern "C" fn cabi_realloc(
 // --- Service implementation --------------------------------------------------
 
 use ioi_contract_sdk::{Guest, IoiService};
+use parity_scale_codec::Encode;
 
 struct FeeCalculator;
 
@@ -139,15 +123,21 @@ runtime = "wasm"
 capabilities = ["TxDecorator"]
 
 [methods]
-"ante_handle@v1" = "Internal"
+"ante_validate@v1" = "Internal"
+"ante_write@v1" = "Internal"
 "#
         )
     }
 
     fn handle_service_call(method: String, _params: Vec<u8>) -> Result<Vec<u8>, String> {
         match method.as_str() {
-            "ante_handle@v1" => {
-                use parity_scale_codec::Encode;
+            // Read-only validation phase
+            "ante_validate@v1" => {
+                let res: Result<(), String> = Ok(());
+                Ok(res.encode())
+            }
+            // State-changing execution phase
+            "ante_write@v1" => {
                 let res: Result<(), String> = Ok(());
                 Ok(res.encode())
             }
@@ -182,5 +172,4 @@ impl Guest for Component {
     }
 }
 
-// Export via the same wit-bindgen macro.
 __export_service_impl!(Component with_types_in ioi_contract_sdk::bindings);

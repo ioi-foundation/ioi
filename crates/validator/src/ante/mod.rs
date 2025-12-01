@@ -6,7 +6,8 @@ pub mod service_call;
 
 use crate::ante::service_call::precheck_call_service;
 use ibc_primitives::Timestamp;
-use ioi_api::state::{service_namespace_prefix, NamespacedStateAccess, StateAccess, StateOverlay};
+use ioi_api::state::namespaced::{NamespacedStateAccess, ReadOnlyNamespacedStateAccess};
+use ioi_api::state::{service_namespace_prefix, StateAccess, StateOverlay};
 use ioi_api::transaction::context::TxContext;
 use ioi_tx::system::{nonce, validation};
 use ioi_types::app::{ChainTransaction, SystemPayload};
@@ -18,7 +19,7 @@ use ioi_types::service_configs::ActiveServiceMeta;
 /// This function mirrors the validation and decorator logic from the chain's `process_transaction`
 /// and requires an authoritative block timestamp to ensure consistency.
 pub async fn check_tx(
-    state: &mut dyn StateAccess, // MODIFIED: Changed to mutable to support namespaced state in verification
+    state: &mut dyn StateAccess,
     services: &ioi_api::services::access::ServiceDirectory,
     tx: &ChainTransaction,
     chain_id: ioi_types::app::ChainId,
@@ -63,39 +64,60 @@ pub async fn check_tx(
         is_internal: false,
     };
 
-    // 1. Core validation: signature and nonce (read-only against the overlay).
-    // MODIFIED: Pass mutable reference to overlay to satisfy the updated signature.
-    validation::verify_transaction_signature(&mut overlay, services, tx, &tx_ctx)?;
+    // 1. Phase 1: Read-Only Validation
+    // Pass immutable reference to overlay to satisfy StateAccess
+    validation::verify_transaction_signature(&overlay, services, tx, &tx_ctx)?;
     nonce::assert_next_nonce(&overlay, tx)?;
 
     // 2. Service-level precheck for CallService.
     if let ChainTransaction::System(sys) = tx {
-        // After refactoring, all system payloads are CallService.
         let SystemPayload::CallService {
             service_id, method, ..
         } = &sys.payload;
         let _perm = precheck_call_service(&overlay, service_id, method, tx_ctx.is_internal)?;
     }
 
-    // 3. Run TxDecorators with proper namespacing to match block execution.
-    for svc in services.services_in_deterministic_order() {
-        if let Some(decorator) = svc.as_tx_decorator() {
-            let meta_key = active_service_key(svc.id());
-            let meta_bytes = overlay.get(&meta_key)?.ok_or_else(|| {
-                TransactionError::Unsupported(format!("Service '{}' is not active", svc.id()))
-            })?;
-            let meta: ActiveServiceMeta = ioi_types::codec::from_bytes_canonical(&meta_bytes)?;
+    // 3. Run TxDecorators (Validation Phase)
+    // We collect decorators first to avoid borrowing issues
+    let decorators: Vec<(&str, &dyn ioi_api::transaction::decorator::TxDecorator)> = services
+        .services_in_deterministic_order()
+        .filter_map(|s| s.as_tx_decorator().map(|d| (s.id(), d)))
+        .collect();
 
-            let prefix = service_namespace_prefix(svc.id());
-            let mut namespaced_overlay = NamespacedStateAccess::new(&mut overlay, prefix, &meta);
+    for (id, decorator) in &decorators {
+        let meta_key = active_service_key(id);
+        let meta_bytes = overlay.get(&meta_key)?.ok_or_else(|| {
+            TransactionError::Unsupported(format!("Service '{}' is not active", id))
+        })?;
+        let meta: ActiveServiceMeta = ioi_types::codec::from_bytes_canonical(&meta_bytes)?;
 
-            decorator
-                .ante_handle(&mut namespaced_overlay, tx, &tx_ctx)
-                .await?;
-        }
+        let prefix = service_namespace_prefix(id);
+        // Use ReadOnly wrapper to enforce immutability
+        let namespaced_view = ReadOnlyNamespacedStateAccess::new(&overlay, prefix, &meta);
+
+        decorator
+            .validate_ante(&namespaced_view, tx, &tx_ctx)
+            .await?;
     }
 
-    // 4. Bump nonce in the overlay so subsequent txs in the same batch see the correct next nonce.
+    // 4. Phase 2: Writes (Mutable)
+    // Run TxDecorators (Write Phase)
+    for (id, decorator) in &decorators {
+        // We need to re-fetch meta or clone it. Since we are inside an async loop, re-fetching is safer/easier.
+        let meta_key = active_service_key(id);
+        // Safe to unwrap here as it was checked in Phase 1
+        let meta_bytes = overlay.get(&meta_key)?.unwrap();
+        let meta: ActiveServiceMeta = ioi_types::codec::from_bytes_canonical(&meta_bytes)?;
+
+        let prefix = service_namespace_prefix(id);
+        let mut namespaced_write = NamespacedStateAccess::new(&mut overlay, prefix, &meta);
+
+        decorator
+            .write_ante(&mut namespaced_write, tx, &tx_ctx)
+            .await?;
+    }
+
+    // 5. System Writes (Nonce Bump)
     nonce::bump_nonce(&mut overlay, tx)?;
 
     Ok(())

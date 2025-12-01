@@ -3,11 +3,9 @@
 //! Core, non-optional system logic for transaction signature validation.
 
 use ioi_api::services::access::ServiceDirectory;
-// --- FIX START: Add necessary imports for namespacing ---
-use ioi_api::state::{service_namespace_prefix, NamespacedStateAccess, StateAccess};
-use ioi_types::keys::active_service_key;
-use ioi_types::service_configs::ActiveServiceMeta;
-// --- FIX END ---
+use ioi_api::state::{service_namespace_prefix, StateAccess};
+// FIX: Import ReadOnlyNamespacedStateAccess from the correct module path.
+use ioi_api::state::namespaced::ReadOnlyNamespacedStateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_crypto::sign::{dilithium::DilithiumPublicKey, eddsa::Ed25519PublicKey};
 use ioi_types::app::{
@@ -15,6 +13,8 @@ use ioi_types::app::{
     SignatureProof, SignatureSuite,
 };
 use ioi_types::error::TransactionError;
+use ioi_types::keys::active_service_key;
+use ioi_types::service_configs::ActiveServiceMeta;
 use libp2p::identity::PublicKey as Libp2pPublicKey;
 
 /// A centralized helper for verifying cryptographic signatures.
@@ -134,8 +134,13 @@ fn enforce_credential_policy(
 }
 
 /// Verifies the signature of a transaction against the on-chain credentials or allows bootstrapping.
-pub fn verify_transaction_signature<S: StateAccess>(
-    state: &mut S, // --- FIX: Make state mutable to support NamespacedStateAccess ---
+///
+/// This function takes an immutable `&dyn StateAccess` because signature verification
+/// is a read-only operation and should not mutate state. It performs reads through
+/// `ReadOnlyNamespacedStateAccess` to ensure correct isolation rules are applied
+/// even during validation.
+pub fn verify_transaction_signature(
+    state: &dyn StateAccess,
     services: &ServiceDirectory,
     tx: &ChainTransaction,
     ctx: &TxContext,
@@ -147,7 +152,7 @@ pub fn verify_transaction_signature<S: StateAccess>(
 
     let creds_view = services.services().find_map(|s| s.as_credentials_view());
     let creds = if let Some(view) = &creds_view {
-        // --- FIX START: Use NamespacedStateAccess for the IdentityHub lookup ---
+        // Get active service metadata to configure namespaced access
         let meta_key = active_service_key(view.id());
         let meta_bytes = state.get(&meta_key)?.ok_or_else(|| {
             TransactionError::Unsupported(format!("Service '{}' is not active", view.id()))
@@ -155,10 +160,9 @@ pub fn verify_transaction_signature<S: StateAccess>(
         let meta: ActiveServiceMeta = ioi_types::codec::from_bytes_canonical(&meta_bytes)?;
 
         let prefix = service_namespace_prefix(view.id());
-        // We need a mutable reference to state to create the namespaced view.
-        let mut namespaced_state = NamespacedStateAccess::new(state, prefix, &meta);
-        view.get_credentials(&mut namespaced_state, &header.account_id)?
-        // --- FIX END ---
+        // Use ReadOnlyNamespacedStateAccess for read-only validation context
+        let namespaced_state = ReadOnlyNamespacedStateAccess::new(state, prefix, &meta);
+        view.get_credentials(&namespaced_state, &header.account_id)?
     } else {
         [None, None]
     };

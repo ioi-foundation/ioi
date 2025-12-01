@@ -24,15 +24,6 @@ struct AnteHandleRequest {
 
 /// A bridge that adapts a synchronous, mutable `StateAccess` trait object into
 /// an asynchronous `VmStateAccessor` suitable for the `VirtualMachine`.
-///
-/// # Design Rationale
-/// The `VirtualMachine::execute` method takes `&dyn VmStateAccessor`, which has `&self`
-/// methods for `get`, `insert`, and `delete`. This makes the trait object `Send + Sync` and
-/// easy to share across async tasks. However, the underlying `StateAccess` trait uses `&mut self`
-/// for write operations.
-///
-/// This bridge uses an internal `TokioMutex` to safely allow mutations from `&self` async methods,
-/// providing the necessary interior mutability to bridge the two trait designs in a concurrent environment.
 struct VmStateBridge<'a> {
     inner: TokioMutex<&'a mut dyn StateAccess>,
 }
@@ -40,8 +31,6 @@ struct VmStateBridge<'a> {
 #[async_trait]
 impl<'a> VmStateAccessor for VmStateBridge<'a> {
     async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
-        // We only need a read lock here, but since the inner type is `&mut`, we must
-        // acquire the mutex to access it at all.
         let guard = self.inner.lock().await;
         guard.get(key)
     }
@@ -68,11 +57,44 @@ impl<'a> VmStateAccessor for VmStateBridge<'a> {
     }
 }
 
-/// A generic wrapper that makes a WASM artifact conform to the `BlockchainService` traits.
+/// A read-only bridge that adapts an immutable `StateAccess` reference for the VM.
 ///
-/// It holds the compiled WASM bytecode and uses a `VirtualMachine` implementation
-/// (like `WasmRuntime`) to execute it. This acts as the bridge between the chain's
-/// service model and a sandboxed execution environment.
+/// This allows read operations during the `validate_ante` phase but strictly
+/// prohibits writes by returning errors if the VM attempts any mutations.
+struct ReadOnlyVmStateBridge<'a> {
+    inner: &'a dyn StateAccess,
+}
+
+#[async_trait]
+impl<'a> VmStateAccessor for ReadOnlyVmStateBridge<'a> {
+    async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
+        self.inner.get(key)
+    }
+
+    async fn insert(&self, _key: &[u8], _value: &[u8]) -> Result<(), StateError> {
+        Err(StateError::PermissionDenied(
+            "Write operation attempted in read-only VM context".into(),
+        ))
+    }
+
+    async fn delete(&self, _key: &[u8]) -> Result<(), StateError> {
+        Err(StateError::PermissionDenied(
+            "Delete operation attempted in read-only VM context".into(),
+        ))
+    }
+
+    async fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StateError> {
+        let iter = self.inner.prefix_scan(prefix)?;
+        let mut results = Vec::new();
+        for item in iter {
+            let (k, v) = item?;
+            results.push((k.to_vec(), v.to_vec()));
+        }
+        Ok(results)
+    }
+}
+
+/// A generic wrapper that makes a WASM artifact conform to the `BlockchainService` traits.
 pub struct RuntimeService {
     id: String,
     abi_version: u32,
@@ -112,6 +134,51 @@ impl RuntimeService {
             caps,
         }
     }
+
+    /// Internal helper to execute a WASM call with a specific state accessor.
+    async fn execute_call(
+        &self,
+        accessor: &dyn VmStateAccessor,
+        method: &str,
+        params: &[u8],
+        ctx: &TxContext<'_>,
+    ) -> Result<(), TransactionError> {
+        log::info!(
+            "[WasmService {}] Calling method '{}' in WASM",
+            self.id(),
+            method
+        );
+
+        // 1. Create the execution context for the VM.
+        let exec_context = ExecutionContext {
+            caller: ctx.signer_account_id.as_ref().to_vec(),
+            block_height: ctx.block_height,
+            gas_limit: u64::MAX, // TODO: Plumb gas from TxContext/config
+            contract_address: self.id.as_bytes().to_vec(),
+        };
+
+        // 2. Call the VM with the artifact, state bridge, and context.
+        let output = self
+            .vm
+            .execute(&self.artifact, method, params, accessor, exec_context)
+            .await
+            .map_err(|e| TransactionError::Invalid(format!("WASM call failed: {}", e)))?;
+
+        // Assume the WASM service returns a SCALE-encoded Result<(), String>
+        // and translate the inner error string to a structured TransactionError.
+        let resp: Result<(), String> = codec::from_bytes_canonical(&output.return_data)
+            .map_err(TransactionError::Deserialization)?;
+
+        resp.map_err(|e_str| {
+            if e_str.contains("Unauthorized") {
+                TransactionError::UnauthorizedByCredentials
+            } else if e_str.contains("OutOfGas") {
+                TransactionError::ContractRevert("OutOfGas".into())
+            } else {
+                TransactionError::ContractRevert(e_str)
+            }
+        })
+    }
 }
 
 #[async_trait]
@@ -145,87 +212,59 @@ impl BlockchainService for RuntimeService {
         params: &[u8],
         ctx: &mut TxContext<'_>,
     ) -> Result<(), TransactionError> {
-        log::info!(
-            "[WasmService {}] Calling method '{}' in WASM",
-            self.id(),
-            method
-        );
-
-        // 1. Create the execution context for the VM.
-        let exec_context = ExecutionContext {
-            caller: ctx.signer_account_id.as_ref().to_vec(),
-            block_height: ctx.block_height,
-            gas_limit: u64::MAX, // TODO: Plumb gas from TxContext/config
-            contract_address: self.id.as_bytes().to_vec(),
-        };
-
-        // 2. Create the state accessor bridge. This correctly wires the transactional state.
+        // Create mutable bridge for general service calls
         let bridge = VmStateBridge {
             inner: TokioMutex::new(state),
         };
-
-        // 3. Call the VM with the artifact, state bridge, and context.
-        let output = self
-            .vm
-            .execute(&self.artifact, method, params, &bridge, exec_context)
-            .await
-            .map_err(|e| TransactionError::Invalid(format!("WASM call failed: {}", e)))?;
-
-        // Assume the WASM service returns a SCALE-encoded Result<(), String>
-        // and translate the inner error string to a structured TransactionError.
-        let resp: Result<(), String> = codec::from_bytes_canonical(&output.return_data)
-            .map_err(TransactionError::Deserialization)?;
-
-        resp.map_err(|e_str| {
-            // Simple mapping for now. Can be made more sophisticated based on error content.
-            if e_str.contains("Unauthorized") {
-                TransactionError::UnauthorizedByCredentials
-            } else if e_str.contains("OutOfGas") {
-                // We might map this to a specific Gas error if we add one later,
-                // but ContractRevert is better than Invalid.
-                TransactionError::ContractRevert("OutOfGas".into())
-            } else {
-                TransactionError::ContractRevert(e_str)
-            }
-        })
+        self.execute_call(&bridge, method, params, ctx).await
     }
 }
 
 #[async_trait]
 impl UpgradableService for RuntimeService {
     async fn prepare_upgrade(&self, _artifact: &[u8]) -> Result<Vec<u8>, UpgradeError> {
-        // The RuntimeService itself is stateless. State migration is handled
-        // inside the WASM module, which would need a state accessor.
-        // For now, this is a no-op at the host level.
         Ok(Vec::new())
     }
 
     async fn complete_upgrade(&self, _snapshot: &[u8]) -> Result<(), UpgradeError> {
-        // Similar to prepare_upgrade, the new instance will handle state
-        // migration internally when it's first called.
         Ok(())
     }
 }
 
 #[async_trait]
 impl TxDecorator for RuntimeService {
-    async fn ante_handle(
+    async fn validate_ante(
+        &self,
+        state: &dyn StateAccess,
+        tx: &ChainTransaction,
+        ctx: &TxContext,
+    ) -> Result<(), TransactionError> {
+        let method = "ante_validate@v1";
+        let req = AnteHandleRequest { tx: tx.clone() };
+        let params_bytes = to_bytes_canonical(&req).map_err(TransactionError::Serialization)?;
+
+        // Use the ReadOnly bridge to enforce immutability
+        let bridge = ReadOnlyVmStateBridge { inner: state };
+
+        self.execute_call(&bridge, method, &params_bytes, ctx).await
+    }
+
+    async fn write_ante(
         &self,
         state: &mut dyn StateAccess,
         tx: &ChainTransaction,
         ctx: &TxContext,
     ) -> Result<(), TransactionError> {
-        let method = "ante_handle@v1";
-
+        let method = "ante_write@v1";
         let req = AnteHandleRequest { tx: tx.clone() };
         let params_bytes = to_bytes_canonical(&req).map_err(TransactionError::Serialization)?;
 
-        // Create a mutable context to pass down, even if we don't modify it here.
-        let mut mutable_ctx = ctx.clone();
+        // Use the mutable bridge for state changes
+        let bridge = VmStateBridge {
+            inner: TokioMutex::new(state),
+        };
 
-        // Dispatch to the generic handler.
-        self.handle_service_call(state, method, &params_bytes, &mut mutable_ctx)
-            .await
+        self.execute_call(&bridge, method, &params_bytes, ctx).await
     }
 }
 
@@ -236,15 +275,11 @@ impl OnEndBlock for RuntimeService {
         state: &mut dyn StateAccess,
         ctx: &TxContext,
     ) -> Result<(), StateError> {
-        // The on_end_block hook is also a versioned service call.
         let method = "on_end_block@v1";
-        // This hook is simple and doesn't require complex parameters, just the context.
-        // We can pass an empty byte slice for params.
         let params_bytes = [];
 
         let mut mutable_ctx = ctx.clone();
 
-        // Dispatch and map the error type from TransactionError to StateError.
         self.handle_service_call(state, method, &params_bytes, &mut mutable_ctx)
             .await
             .map_err(|e| StateError::Apply(e.to_string()))
