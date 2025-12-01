@@ -21,6 +21,9 @@ ioi-crypto = { path = "../crypto" }
 ioi-services = { path = "../services" }
 ioi-client = { path = "../client" }
 ioi-telemetry = { path = "../telemetry" }
+# [FIX] Added ioi-storage dependency
+ioi-storage = { path = "../storage" }
+
 log = { workspace = true }
 tracing = { workspace = true }
 anyhow = { workspace = true }
@@ -63,6 +66,9 @@ tower = { workspace = true }
 tower-http = { workspace = true, features = ["limit", "trace", "catch-panic"] }
 ipnetwork = "0.20"
 
+# [FIX] Added zk-driver-succinct for ethereum-zk feature
+zk-driver-succinct = { path = "../zk-driver-succinct", optional = true }
+
 [features]
 default = []
 # This new feature will be used by Docker to build the node binary correctly.
@@ -89,6 +95,9 @@ commitment-kzg = ["ioi-state/commitment-kzg"]
 
 # Service Features
 ibc-deps = ["ioi-services/ibc-deps"]
+
+# [FIX] Added ethereum-zk feature
+ethereum-zk = ["ioi-services/ethereum-zk", "dep:zk-driver-succinct"]
 
 [[bin]]
 name = "orchestration"

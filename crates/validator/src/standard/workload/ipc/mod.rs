@@ -1,4 +1,4 @@
-// Path: crates/validator/src/standard/workload_ipc_server/mod.rs
+// Path: crates/validator/src/standard/workload/ipc/mod.rs
 
 //! Defines the individual RPC method handlers for the Workload IPC server.
 pub mod methods;
@@ -6,12 +6,7 @@ pub mod methods;
 pub mod router;
 
 use anyhow::{anyhow, Result};
-// Removed unused ChainStateMachine
-use ioi_api::{
-    commitment::CommitmentScheme,
-    state::StateManager, // Removed unused PrunePlan
-    validator::WorkloadContainer,
-};
+use ioi_api::{commitment::CommitmentScheme, state::StateManager, validator::WorkloadContainer};
 use ioi_crypto::transport::hybrid_kem_tls::{
     derive_application_key, server_post_handshake, AeadWrappedStream,
 };
@@ -27,27 +22,17 @@ use methods::{
     staking::{GetNextStakesV1, GetStakesV1},
     state::{GetActiveKeyAtV1, GetRawStateV1, GetStateRootV1, PrefixScanV1, QueryStateAtV1},
     system::{
-        CallServiceV1,
-        CheckAndTallyProposalsV1,
-        // [NEW] Debug methods
-        DebugPinHeightV1,
-        DebugTriggerGcV1,
-        DebugUnpinHeightV1,
-        GetExpectedModelHashV1,
-        GetGenesisStatusV1,
-        GetStatusV1,
+        CallServiceV1, CheckAndTallyProposalsV1, DebugPinHeightV1, DebugTriggerGcV1,
+        DebugUnpinHeightV1, GetExpectedModelHashV1, GetGenesisStatusV1, GetStatusV1,
         GetWorkloadConfigV1,
     },
     RpcContext,
 };
-use rand::{thread_rng, Rng};
 use router::{RequestContext, Router};
 use serde::Serialize;
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
-use std::time::Duration;
-use tokio::time::interval;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     sync::{Mutex, Semaphore},
@@ -58,7 +43,6 @@ use tokio_rustls::{
 };
 
 /// Creates the mTLS server configuration for the IPC server.
-/// It configures the server to require client certificates signed by the provided CA.
 pub fn create_ipc_server_config(
     ca_cert_path: &str,
     server_cert_path: &str,
@@ -81,7 +65,7 @@ pub fn create_ipc_server_config(
     let server_key = rustls_pemfile::private_key(&mut reader)?
         .ok_or_else(|| anyhow!("No private key found in {}", server_key_path))?;
 
-    // Create a client verifier that trusts our CA. This is the modern, correct way.
+    // Create a client verifier that trusts our CA.
     let client_verifier =
         rustls::server::WebPkiClientVerifier::builder(Arc::new(root_store)).build()?;
 
@@ -92,8 +76,6 @@ pub fn create_ipc_server_config(
 }
 
 /// The IPC server for the Workload container.
-/// It listens for secure mTLS connections from the Orchestration container
-/// and handles JSON-RPC requests for block processing and state queries.
 pub struct WorkloadIpcServer<ST, CS>
 where
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
@@ -133,9 +115,11 @@ where
         address: String,
         workload_container: Arc<WorkloadContainer<ST>>,
         machine_arc: Arc<Mutex<ExecutionMachine<CS, ST>>>,
-    ) -> Result<Self> {
+    ) -> Result<Self>
+    where
+        <CS as CommitmentScheme>::Proof: std::fmt::Debug,
+    {
         let mut router = Router::new();
-        // Register all methods
         router.add_method(GetStatusV1::<CS, ST>::default());
         router.add_method(ProcessBlockV1::<CS, ST>::default());
         router.add_method(CheckTransactionsV1::<CS, ST>::default());
@@ -161,8 +145,6 @@ where
         router.add_method(CallServiceV1::<CS, ST>::default());
         router.add_method(GetWorkloadConfigV1::<CS, ST>::default());
         router.add_method(GetGenesisStatusV1::<CS, ST>::default());
-
-        // [NEW] Register Debug Methods
         router.add_method(DebugPinHeightV1::<CS, ST>::default());
         router.add_method(DebugUnpinHeightV1::<CS, ST>::default());
         router.add_method(DebugTriggerGcV1::<CS, ST>::default());
@@ -176,64 +158,20 @@ where
         })
     }
 
-    /// Starts the IPC server and listens for incoming connections.
-    /// This function runs indefinitely until the process is terminated.
+    /// Runs the IPC server loop, accepting connections and handling requests.
     pub async fn run(self) -> Result<()> {
         let listener = tokio::net::TcpListener::bind(&self.address).await?;
         log::info!("Workload: IPC server listening on {}", self.address);
         eprintln!("WORKLOAD_IPC_LISTENING_ON_{}", self.address);
 
-        let certs_dir = std::env::var("CERTS_DIR")
-            .map_err(|_| anyhow!("CERTS_DIR environment variable must be set"))?;
+        let certs_dir =
+            std::env::var("CERTS_DIR").expect("CERTS_DIR environment variable must be set");
         let server_config = create_ipc_server_config(
             &format!("{}/ca.pem", certs_dir),
             &format!("{}/workload-server.pem", certs_dir),
             &format!("{}/workload-server.key", certs_dir),
         )?;
         let acceptor = TlsAcceptor::from(server_config);
-
-        // --- PHASE 3: INCREMENTAL GC TASK (Refactored) ---
-        // This task is now much simpler as it delegates logic to `WorkloadContainer`.
-        let workload_for_gc = self.workload_container.clone();
-        let machine_for_gc = self.machine_arc.clone();
-
-        tokio::spawn(async move {
-            // Use configured interval (default 3600s)
-            let gc_interval_secs = workload_for_gc.config().gc_interval_secs.max(1);
-            let mut ticker = interval(Duration::from_secs(gc_interval_secs));
-            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-
-            loop {
-                ticker.tick().await;
-
-                // Add jitter only if interval is large enough to matter (avoid jitter on 1s test intervals)
-                if gc_interval_secs > 10 {
-                    let jitter_factor = thread_rng().gen_range(-0.10..=0.10);
-                    let jitter_millis =
-                        ((gc_interval_secs as f64 * jitter_factor).abs() * 1000.0) as u64;
-                    if jitter_millis > 0 {
-                        tokio::time::sleep(Duration::from_millis(jitter_millis)).await;
-                    }
-                }
-
-                // Get current height from the machine
-                let current_height = {
-                    let guard = machine_for_gc.lock().await;
-                    // The ChainStateMachine trait must be in scope to call .status()
-                    // This is provided by the import `use ioi_api::chain::ChainStateMachine;`
-                    // which we removed earlier because it was unused.
-                    // But now we need it here to call .status().
-                    // Re-adding it locally or ensuring trait is visible.
-                    use ioi_api::chain::ChainStateMachine;
-                    guard.status().height
-                };
-
-                // Delegate logic to the container
-                if let Err(e) = workload_for_gc.run_gc_pass(current_height).await {
-                    log::error!("[GC] Background pass failed: {}", e);
-                }
-            }
-        });
 
         let shared_ctx = Arc::new(RpcContext {
             machine: self.machine_arc.clone(),
@@ -253,13 +191,13 @@ where
             let semaphore_clone = self.semaphore.clone();
 
             tokio::spawn(async move {
+                // [FIX] Correct type wrapping
                 let server_conn = match acceptor_clone.accept(stream).await {
                     Ok(s) => s,
                     Err(e) => return log::error!("[WorkloadIPC] TLS accept error: {}", e),
                 };
                 let mut tls_stream = TlsStream::Server(server_conn);
 
-                // --- POST-HANDSHAKE HYBRID KEY EXCHANGE (before any app bytes) ---
                 let mut kem_ss = match server_post_handshake(
                     &mut tls_stream,
                     ioi_crypto::security::SecurityLevel::Level3,
@@ -267,84 +205,36 @@ where
                 .await
                 {
                     Ok(ss) => ss,
-                    Err(e) => {
-                        return log::error!("[WorkloadIPC] PQC key exchange FAILED: {}", e);
-                    }
+                    Err(e) => return log::error!("[WorkloadIPC] PQC key exchange FAILED: {}", e),
                 };
 
-                // --- BIND & WRAP ---
                 let app_key = match derive_application_key(&tls_stream, &mut kem_ss) {
                     Ok(k) => k,
                     Err(e) => return log::error!("[WorkloadIPC] App key derivation FAILED: {}", e),
                 };
                 let mut stream = AeadWrappedStream::new(tls_stream, app_key);
 
-                let client_id_byte = match async {
-                    let mut id_buf = [0u8; 1];
-                    match stream.read(&mut id_buf).await {
-                        Ok(1) => Ok(id_buf[0]),
-                        Ok(0) => Err(anyhow!(
-                            "Connection closed by {} before client ID was sent",
-                            peer_addr
-                        )),
-                        Ok(n) => Err(anyhow!("Expected 1-byte client ID frame, got {} bytes", n)),
-                        Err(e) => Err(anyhow!("Failed to read client ID frame: {}", e)),
-                    }
-                }
-                .await
-                {
-                    Ok(id) => id,
-                    Err(e) => {
-                        log::error!("{}", e);
-                        return;
-                    }
-                };
-
-                log::info!(
-                    "Workload: Client ID {} connected from {}",
-                    client_id_byte,
-                    peer_addr
-                );
+                let _client_id_byte = stream.read_u8().await.ok();
 
                 let (mut read_half, mut write_half) = tokio::io::split(stream);
 
                 loop {
                     let _permit = match semaphore_clone.clone().acquire_owned().await {
                         Ok(p) => p,
-                        Err(_) => {
-                            log::info!(
-                                "IPC handler for {} shutting down (semaphore closed).",
-                                peer_addr
-                            );
-                            return;
-                        }
+                        Err(_) => return,
                     };
 
                     let len = match read_half.read_u32().await {
                         Ok(len) => len as usize,
-                        Err(ref e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
-                            log::info!("IPC connection closed by {}", peer_addr);
-                            return; // Clean EOF
-                        }
-                        Err(e) => {
-                            log::info!(
-                                "IPC receive error from {}: {}. Closing connection.",
-                                peer_addr,
-                                e
-                            );
-                            return;
-                        }
+                        Err(_) => return,
                     };
 
-                    const MAX_IPC_MESSAGE_SIZE: usize = 1_048_576; // 1 MiB
-                    if len == 0 || len > MAX_IPC_MESSAGE_SIZE {
-                        log::error!("[WorkloadIPCServer] Received invalid message length: {}. Closing connection.", len);
+                    if len == 0 || len > 10 * 1024 * 1024 {
                         return;
                     }
 
                     let mut request_buf = vec![0; len];
-                    if let Err(e) = read_half.read_exact(&mut request_buf).await {
-                        log::error!("[WorkloadIPCServer] Failed to read full request payload (len={}): {}. Closing connection.", len, e);
+                    if read_half.read_exact(&mut request_buf).await.is_err() {
                         return;
                     }
 
@@ -376,20 +266,11 @@ where
                             }
                         };
 
-                        // --- FIX START: Combine length prefix and payload into a single write ---
                         let frame_len_bytes = (response_bytes.len() as u32).to_be_bytes();
                         let mut frame_to_write = Vec::with_capacity(4 + response_bytes.len());
                         frame_to_write.extend_from_slice(&frame_len_bytes);
                         frame_to_write.extend_from_slice(&response_bytes);
-
-                        if let Err(e) = write_half.write_all(&frame_to_write).await {
-                            log::error!(
-                                "Failed to send IPC response frame to {}: {}",
-                                peer_addr,
-                                e
-                            );
-                        }
-                        // --- FIX END ---
+                        let _ = write_half.write_all(&frame_to_write).await;
                     }
                     drop(_permit);
                 }
@@ -397,6 +278,7 @@ where
         }
     }
 }
+
 async fn handle_request<CS, ST>(
     request_bytes: &[u8],
     shared_ctx: Arc<RpcContext<CS, ST>>,
@@ -435,7 +317,6 @@ where
     };
 
     let Some(id) = req.id else {
-        // It's a notification, do nothing.
         return None;
     };
 

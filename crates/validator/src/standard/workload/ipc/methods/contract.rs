@@ -1,7 +1,8 @@
-// Path: crates/validator/src/standard/workload_ipc_server/methods/contract.rs
+// crates/validator/src/standard/workload/ipc/methods/contract.rs
 
 use super::RpcContext;
-use crate::standard::workload_ipc_server::router::{RequestContext, RpcMethod};
+// [FIX] Corrected import path
+use crate::standard::workload::ipc::router::{RequestContext, RpcMethod};
 use anyhow::{anyhow, Result};
 use ioi_api::{
     commitment::CommitmentScheme,
@@ -13,17 +14,17 @@ use std::{any::Any, collections::HashMap, marker::PhantomData, sync::Arc};
 
 // --- contract.deploy.v1 ---
 
-/// The parameters for the `contract.deploy.v1` RPC method.
+/// Parameters for the `contract.deploy.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct DeployContractParams {
-    /// The WASM bytecode of the contract to deploy.
+    /// The bytecode of the contract to deploy.
     pub code: Vec<u8>,
-    /// The address of the account deploying the contract.
+    /// The address of the sender deploying the contract.
     pub sender: Vec<u8>,
 }
 
-/// The RPC method handler for `contract.deploy.v1`.
+/// Handler for the `contract.deploy.v1` RPC method.
 pub struct DeployContractV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -66,19 +67,19 @@ where
 
 // --- contract.call.v1 ---
 
-/// The parameters for the `contract.call.v1` RPC method.
+/// Parameters for the `contract.call.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct CallContractParams {
     /// The address of the contract to call.
     pub address: Vec<u8>,
-    /// The ABI-encoded input data for the contract function.
+    /// The input data for the contract call.
     pub input_data: Vec<u8>,
-    /// The execution context for the call, including caller and gas limits.
+    /// The execution context for the call.
     pub context: ExecutionContext,
 }
 
-/// The RPC method handler for `contract.call.v1`.
+/// Handler for the `contract.call.v1` RPC method.
 pub struct CallContractV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -121,19 +122,19 @@ where
 
 // --- contract.query.v1 ---
 
-/// The parameters for the `contract.query.v1` RPC method.
+/// Parameters for the `contract.query.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct QueryContractParams {
     /// The address of the contract to query.
     pub address: Vec<u8>,
-    /// The ABI-encoded input data for the contract function.
+    /// The input data for the query.
     pub input_data: Vec<u8>,
-    /// The execution context for the query, including caller and gas limits.
+    /// The execution context for the query.
     pub context: ExecutionContext,
 }
 
-/// The RPC method handler for `contract.query.v1`.
+/// Handler for the `contract.query.v1` RPC method.
 pub struct QueryContractV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }

@@ -1,22 +1,23 @@
-// Path: crates/validator/src/standard/workload_ipc_server/methods/staking.rs
+// crates/validator/src/standard/workload/ipc/methods/staking.rs
 
 use super::RpcContext;
-use crate::standard::workload_ipc_server::router::{RequestContext, RpcMethod};
+use crate::standard::workload::ipc::router::{RequestContext, RpcMethod};
 use anyhow::{anyhow, Result};
 use ioi_api::chain::ChainStateMachine;
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::state::StateManager;
-use serde::{Deserialize, Serialize};
+// [FIX] Removed unused Serialize
+use serde::Deserialize;
 use std::{any::Any, collections::BTreeMap, fmt::Debug, marker::PhantomData, sync::Arc};
 
 // --- staking.getStakes.v1 ---
 
-/// The parameters for the `staking.getStakes.v1` RPC method.
+/// Parameters for the `staking.getStakes.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetStakesParams {}
 
-/// The RPC method handler for `staking.getStakes.v1`.
+/// Handler for the `staking.getStakes.v1` RPC method.
 pub struct GetStakesV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -35,7 +36,7 @@ where
         + Send
         + Sync
         + 'static,
-    <CS as CommitmentScheme>::Proof: Serialize
+    <CS as CommitmentScheme>::Proof: serde::Serialize
         + for<'de> serde::Deserialize<'de>
         + Clone
         + Send
@@ -61,7 +62,6 @@ where
             .map_err(|_| anyhow!("Invalid context type for GetStakesV1"))?;
         let machine = ctx.machine.lock().await;
 
-        // REMOVED: &ctx.workload argument
         let stakes_by_account_id = (*machine).get_staked_validators().await?;
 
         let stakes_by_hex_id = stakes_by_account_id
@@ -75,12 +75,12 @@ where
 
 // --- staking.getNextStakes.v1 ---
 
-/// The parameters for the `staking.getNextStakes.v1` RPC method.
+/// Parameters for the `staking.getNextStakes.v1` RPC method.
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GetNextStakesParams {}
 
-/// The RPC method handler for `staking.getNextStakes.v1`.
+/// Handler for the `staking.getNextStakes.v1` RPC method.
 pub struct GetNextStakesV1<CS, ST> {
     _p: PhantomData<(CS, ST)>,
 }
@@ -99,7 +99,7 @@ where
         + Send
         + Sync
         + 'static,
-    <CS as CommitmentScheme>::Proof: Serialize
+    <CS as CommitmentScheme>::Proof: serde::Serialize
         + for<'de> serde::Deserialize<'de>
         + Clone
         + Send
@@ -125,7 +125,6 @@ where
             .map_err(|_| anyhow!("Invalid context type for GetNextStakesV1"))?;
         let machine = ctx.machine.lock().await;
 
-        // REMOVED: &ctx.workload argument
         let stakes_by_account_id = (*machine).get_next_staked_validators().await?;
 
         let stakes_by_hex_id = stakes_by_account_id
