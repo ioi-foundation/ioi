@@ -79,6 +79,7 @@ pub async fn submit_transaction_and_get_block(
     let initial_height = get_chain_height(rpc_addr).await?;
     let target_height = initial_height + 1;
 
+    // FIX: Return error immediately if RPC returns error, instead of waiting for timeout
     submit_transaction_no_wait(rpc_addr, tx).await?;
 
     // Wait for consensus to commit the next height
@@ -133,7 +134,21 @@ pub async fn submit_transaction_no_wait(
         ));
     }
 
-    serde_json::from_str(&text).map_err(|e| anyhow!("Failed to parse JSON RPC response: {}", e))
+    // FIX: Parse JSON and check for application-level error
+    let json_resp: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|e| anyhow!("Failed to parse JSON RPC response: {}", e))?;
+
+    if let Some(err) = json_resp.get("error") {
+        if !err.is_null() {
+            let msg = err
+                .get("message")
+                .and_then(|s| s.as_str())
+                .unwrap_or("Unknown RPC error");
+            return Err(anyhow!("RPC returned error: {}", msg));
+        }
+    }
+
+    Ok(json_resp)
 }
 
 /// The `submit_transaction` helper in `forge` needs to be updated to serialize the tx canonically.

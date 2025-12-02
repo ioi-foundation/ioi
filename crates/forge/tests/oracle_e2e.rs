@@ -8,7 +8,6 @@
 
 use anyhow::{anyhow, Result};
 use axum::{routing::get, serve, Router};
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_api::state::service_namespace_prefix;
 use ioi_forge::testing::{
     build_test_artifacts, submit_transaction, wait_for_height, wait_for_oracle_data,
@@ -17,22 +16,16 @@ use ioi_forge::testing::{
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
-        BlockTimingRuntime, ChainId, ChainTransaction, Credential, SignHeader, SignatureProof,
-        SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetV1, ValidatorSetsV1,
-        ValidatorV1,
+        BlockTimingRuntime, ChainId, ChainTransaction, SignHeader, SignatureProof, SignatureSuite,
+        SystemPayload, SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
-    // [+] FIX: Add the missing import for OracleParams
     config::{InitialServiceConfig, OracleParams},
-    keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY,
-        IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
-    },
+    keys::{ORACLE_DATA_PREFIX, ORACLE_PENDING_REQUEST_PREFIX},
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
 use parity_scale_codec::Encode;
-use serde_json::json;
 use std::net::SocketAddr;
 use tokio::task::JoinHandle;
 
@@ -127,19 +120,21 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
             allow_downgrade: false,
         }))
         .with_initial_service(InitialServiceConfig::Oracle(OracleParams::default()))
-        .with_genesis_modifier(|genesis, keys| {
-            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+        // --- UPDATED: Using GenesisBuilder API ---
+        .with_genesis_modifier(|builder, keys| {
             let initial_stake = 100_000u128;
-            let ns_prefix = service_namespace_prefix("identity_hub");
 
-            // --- FIX START: Create a deterministically sorted list of validators ---
+            // Create a deterministically sorted list of validators
+            // The builder handles identity registration internally
             let mut validators: Vec<ValidatorV1> = keys
                 .iter()
                 .map(|keypair| {
+                    // Use the builder to register identity (credentials, pubkey map)
+                    let account_id = builder.add_identity(keypair);
+
+                    // Re-derive hash for consensus key record
                     let pk_bytes = keypair.public().encode_protobuf();
-                    let account_id_hash =
-                        account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
-                    let account_id = AccountId(account_id_hash);
+                    let account_id_hash = account_id.0;
 
                     ValidatorV1 {
                         account_id,
@@ -152,8 +147,8 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
                     }
                 })
                 .collect();
+
             validators.sort_by(|a, b| a.account_id.cmp(&b.account_id));
-            // --- FIX END ---
 
             let total_weight = validators.iter().map(|v| v.weight).sum();
             let validator_sets = ValidatorSetsV1 {
@@ -165,13 +160,10 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
                 next: None,
             };
 
-            let vs_bytes = ioi_types::app::write_validator_sets(&validator_sets).unwrap();
-            genesis_state.insert(
-                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
-            );
+            // Set canonical validator set
+            builder.set_validators(&validator_sets);
 
-            // [+] FIX: Add mandatory block timing parameters to genesis
+            // Set block timing
             let timing_params = BlockTimingParams {
                 base_interval_secs: 5,
                 retarget_every_blocks: 0, // Disable adaptive timing for simplicity.
@@ -181,78 +173,12 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
                 effective_interval_secs: timing_params.base_interval_secs,
                 ..Default::default()
             };
-            genesis_state.insert(
-                std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
-                )),
-            );
-            genesis_state.insert(
-                std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
-                )),
-            );
+            builder.set_block_timing(&timing_params, &timing_runtime);
 
-            // Populate identity records for all validators using the original key order
-            for keypair in keys {
-                let suite = SignatureSuite::Ed25519;
-                let pk_bytes = keypair.public().encode_protobuf();
-                let account_id_hash = account_id_from_key_material(suite, &pk_bytes).unwrap();
-                let account_id = AccountId(account_id_hash);
-
-                // Add IdentityHub credentials (namespaced)
-                let cred = Credential {
-                    suite: SignatureSuite::Ed25519,
-                    public_key_hash: account_id.0,
-                    activation_height: 0,
-                    l2_location: None,
-                };
-                let creds_array: [Option<Credential>; 2] = [Some(cred), None];
-                let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
-                let creds_key = [
-                    ns_prefix.as_slice(),
-                    IDENTITY_CREDENTIALS_PREFIX,
-                    account_id.as_ref(),
-                ]
-                .concat();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
-                );
-
-                // Add AccountId -> PublicKey mapping (namespaced)
-                let pubkey_map_key = [
-                    ns_prefix.as_slice(),
-                    ACCOUNT_ID_TO_PUBKEY_PREFIX,
-                    account_id.as_ref(),
-                ]
-                .concat();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes))),
-                );
-
-                // Add ActiveKeyRecord for consensus (namespaced)
-                let record = ActiveKeyRecord {
-                    suite,
-                    public_key_hash: account_id.0,
-                    since_height: 0,
-                };
-                let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
-                let record_bytes = codec::to_bytes_canonical(&record).unwrap();
-                let record_key_namespaced = [ns_prefix.as_slice(), &record_key].concat();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64_STANDARD.encode(&record_key_namespaced)),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
-                );
-            }
+            // Identities were already added in the map loop above.
+            // However, the original code also added the ActiveKeyRecord to the identity namespace explicitly.
+            // The `add_identity` helper does this automatically (creates `identity::key_record::{id}`).
+            // So we don't need to duplicate that logic here.
         })
         .build()
         .await?;

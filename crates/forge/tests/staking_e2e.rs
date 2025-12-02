@@ -2,11 +2,9 @@
 #![cfg(all(feature = "consensus-pos", feature = "vm-wasm"))]
 
 use anyhow::{anyhow, Result};
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_client::WorkloadClient;
 use ioi_forge::testing::{
-    add_genesis_identity, build_test_artifacts, submit_transaction, wait_for_height,
-    wait_for_stake_to_be, TestCluster,
+    build_test_artifacts, submit_transaction, wait_for_height, wait_for_stake_to_be, TestCluster,
 };
 use ioi_types::{
     app::{
@@ -16,14 +14,11 @@ use ioi_types::{
     },
     codec,
     config::InitialServiceConfig,
-    keys::{
-        active_service_key, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, VALIDATOR_SET_KEY,
-    },
+    keys::active_service_key,
     service_configs::{ActiveServiceMeta, Capabilities, MethodPermission, MigrationConfig},
 };
 use libp2p::identity::Keypair;
 use parity_scale_codec::Encode;
-use serde_json::json;
 use std::collections::BTreeMap;
 use std::time::Duration;
 
@@ -92,33 +87,35 @@ async fn test_staking_lifecycle() -> Result<()> {
             allow_downgrade: false,
         }))
         .with_initial_service(InitialServiceConfig::Governance(Default::default()))
-        .with_genesis_modifier(move |genesis, keys| {
-            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
-            let initial_stake = 100_000u128;
+        // --- UPDATED: Using GenesisBuilder API ---
+        .with_genesis_modifier(move |builder, keys| {
+            // 1. Setup Identities (and get AccountIds)
+            let mut validators: Vec<ValidatorV1> = Vec::new();
 
-            let mut validators: Vec<ValidatorV1> = keys
-                .iter()
-                .map(|keypair| {
-                    let pk_bytes = keypair.public().encode_protobuf();
-                    let account_id_hash =
-                        account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
-                    let account_id = AccountId(account_id_hash);
+            for keypair in keys {
+                // Register identity using the builder helper
+                let account_id = builder.add_identity(keypair);
 
-                    ValidatorV1 {
-                        account_id,
-                        weight: initial_stake,
-                        consensus_key: ActiveKeyRecord {
-                            suite: SignatureSuite::Ed25519,
-                            public_key_hash: account_id_hash,
-                            since_height: 0,
-                        },
-                    }
-                })
-                .collect();
+                // Construct ValidatorV1 manually as we need the hash for consensus key record
+                let pk_bytes = keypair.public().encode_protobuf();
+                let account_id_hash = account_id.0;
+
+                validators.push(ValidatorV1 {
+                    account_id,
+                    weight: initial_stake as u128,
+                    consensus_key: ActiveKeyRecord {
+                        suite: SignatureSuite::Ed25519,
+                        public_key_hash: account_id_hash,
+                        since_height: 0,
+                    },
+                });
+            }
+
+            // Sort to ensure deterministic consensus
             validators.sort_by(|a, b| a.account_id.cmp(&b.account_id));
-
             let total_weight = validators.iter().map(|v| v.weight).sum();
 
+            // 2. Set Validator Set
             let validator_sets = ValidatorSetsV1 {
                 current: ValidatorSetV1 {
                     effective_from_height: 1,
@@ -127,13 +124,9 @@ async fn test_staking_lifecycle() -> Result<()> {
                 },
                 next: None,
             };
+            builder.set_validators(&validator_sets);
 
-            let vs_bytes = ioi_types::app::write_validator_sets(&validator_sets).unwrap();
-            genesis_state.insert(
-                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
-            );
-
+            // 3. Set Block Timing
             let timing_params = BlockTimingParams {
                 base_interval_secs: 5,
                 min_interval_secs: 2,
@@ -147,34 +140,13 @@ async fn test_staking_lifecycle() -> Result<()> {
                 ema_gas_used: 0,
                 effective_interval_secs: timing_params.base_interval_secs,
             };
+            builder.set_block_timing(&timing_params, &timing_runtime);
 
-            genesis_state.insert(
-                std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
-                )),
-            );
-            genesis_state.insert(
-                std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
-                )),
-            );
-
-            // Use shared helper for identity injection
-            for keypair in keys {
-                add_genesis_identity(genesis_state, keypair);
-            }
-
+            // 4. Manually register Governance Service Meta (as it has custom permissions in this test)
             let mut methods = BTreeMap::new();
             methods.insert("stake@v1".to_string(), MethodPermission::User);
             methods.insert("unstake@v1".to_string(), MethodPermission::User);
+
             let meta = ActiveServiceMeta {
                 id: "governance".to_string(),
                 abi_version: 1,
@@ -188,16 +160,9 @@ async fn test_staking_lifecycle() -> Result<()> {
                     "identity::".to_string(),
                 ],
             };
-            let meta_key = active_service_key("governance");
-            let entry = ioi_types::app::StateEntry {
-                value: codec::to_bytes_canonical(&meta).unwrap(),
-                block_height: 0,
-            };
-            let entry_bytes = codec::to_bytes_canonical(&entry).unwrap();
-            genesis_state.insert(
-                format!("b64:{}", BASE64_STANDARD.encode(&meta_key)),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&entry_bytes))),
-            );
+
+            // Insert the metadata using the builder's typed insertion
+            builder.insert_typed(active_service_key("governance"), &meta);
         })
         .build()
         .await?;

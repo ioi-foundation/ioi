@@ -9,8 +9,8 @@ use anyhow::{anyhow, Result};
 use axum::{routing::get, serve, Router};
 use ioi_client::WorkloadClient;
 use ioi_forge::testing::{
-    add_genesis_identity,
     build_test_artifacts, // Added add_genesis_identity
+    genesis::GenesisBuilder,
     rpc::{self, submit_transaction},
     wait_for_height,
     wait_for_pending_oracle_request,
@@ -18,8 +18,9 @@ use ioi_forge::testing::{
 };
 use ioi_types::{
     app::{
-        AccountId, BlockTimingParams, BlockTimingRuntime, ChainId, ChainTransaction, SignHeader,
-        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+        AccountId, ActiveKeyRecord, BlockTimingParams, BlockTimingRuntime, ChainId,
+        ChainTransaction, SignHeader, SignatureProof, SignatureSuite, SystemPayload,
+        SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
     config::{InitialServiceConfig, OracleParams},
@@ -107,16 +108,7 @@ async fn start_local_http_stub() -> (String, tokio::task::JoinHandle<()>) {
 
 #[tokio::test]
 async fn test_metrics_endpoint() -> Result<()> {
-    use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
     use cfg_if::cfg_if;
-    use ioi_types::{
-        app::{
-            ActiveKeyRecord, Credential, SignatureSuite, ValidatorSetV1, ValidatorSetsV1,
-            ValidatorV1,
-        },
-        keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
-    };
-    use serde_json::json;
 
     println!("\n--- Running Metrics Endpoint Test ---");
 
@@ -136,42 +128,26 @@ async fn test_metrics_endpoint() -> Result<()> {
         if #[cfg(feature = "consensus-poa")] {
             println!("--- Configuring for Proof of Authority ---");
             builder = builder.with_consensus_type("ProofOfAuthority")
-                .with_genesis_modifier(|genesis, keys| {
-                    let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+                .with_genesis_modifier(|builder: &mut GenesisBuilder, keys| {
                     let keypair = &keys[0];
-                    let pk_bytes = keypair.public().encode_protobuf();
-                    let suite = SignatureSuite::Ed25519;
-                    let account_hash = ioi_types::app::account_id_from_key_material(suite, &pk_bytes).unwrap();
-                    let account_id = AccountId(account_hash);
+                    // 1. Identities (and get AccountId)
+                    let account_id = builder.add_identity(keypair);
+                    let account_hash = account_id.0;
 
+                    // 2. Validator Set (PoA)
                     let vs = ValidatorSetV1 {
                         effective_from_height: 1,
                         total_weight: 1,
                         validators: vec![ValidatorV1 {
                             account_id,
                             weight: 1,
-                            consensus_key: ActiveKeyRecord { suite, public_key_hash: account_hash, since_height: 0 },
+                            consensus_key: ActiveKeyRecord { suite: SignatureSuite::Ed25519, public_key_hash: account_hash, since_height: 0 },
                         }],
                     };
-                    let vs_bytes = ioi_types::app::write_validator_sets(&ValidatorSetsV1 { current: vs, next: None }).unwrap();
-                    genesis_state.insert(
-                        std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                        json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
-                    );
-                    let cred = Credential { suite, public_key_hash: account_hash, activation_height: 0, l2_location: None };
-                    let creds_array: [Option<Credential>; 2] = [Some(cred), None];
-                    let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
-                    let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
-                    genesis_state.insert(
-                        format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
-                        json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
-                    );
-                    let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-                    genesis_state.insert(
-                        format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
-                        json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes))),
-                    );
-                    // *** FIX: Use fully explicit initialization for timing parameters ***
+                    let vs_blob = ValidatorSetsV1 { current: vs, next: None };
+                    builder.set_validators(&vs_blob);
+
+                    // 3. Block Timing
                     let timing_params = BlockTimingParams {
                         base_interval_secs: 5,
                         min_interval_secs: 2,
@@ -185,25 +161,18 @@ async fn test_metrics_endpoint() -> Result<()> {
                         ema_gas_used: 0,
                         effective_interval_secs: timing_params.base_interval_secs,
                     };
-                    genesis_state.insert(
-                        std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY).unwrap().to_string(),
-                        json!(format!("b64:{}", BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap()))),
-                    );
-                    genesis_state.insert(
-                        std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY).unwrap().to_string(),
-                        json!(format!("b64:{}", BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap()))),
-                    );
+                    builder.set_block_timing(&timing_params, &timing_runtime);
                 });
         } else if #[cfg(feature = "consensus-pos")] {
             println!("--- Configuring for Proof of Stake ---");
             builder = builder.with_consensus_type("ProofOfStake")
-                .with_genesis_modifier(|genesis, keys| {
-                    let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+                .with_genesis_modifier(|builder: &mut GenesisBuilder, keys| {
                     let keypair = &keys[0];
-                    let pk_bytes = keypair.public().encode_protobuf();
-                    let suite = SignatureSuite::Ed25519;
-                    let account_hash = ioi_types::app::account_id_from_key_material(suite, &pk_bytes).unwrap();
-                    let account_id = AccountId(account_hash);
+                    // 1. Identities
+                    let account_id = builder.add_identity(keypair);
+                    let account_hash = account_id.0;
+
+                    // 2. Validator Set (PoS)
                     let initial_stake = 100_000u128;
                     let vs = ValidatorSetV1 {
                         effective_from_height: 1,
@@ -211,28 +180,13 @@ async fn test_metrics_endpoint() -> Result<()> {
                         validators: vec![ValidatorV1 {
                             account_id,
                             weight: initial_stake,
-                            consensus_key: ActiveKeyRecord { suite, public_key_hash: account_hash, since_height: 0 },
+                            consensus_key: ActiveKeyRecord { suite: SignatureSuite::Ed25519, public_key_hash: account_hash, since_height: 0 },
                         }],
                     };
-                    let vs_bytes = ioi_types::app::write_validator_sets(&ValidatorSetsV1 { current: vs, next: None }).unwrap();
-                    genesis_state.insert(
-                        std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                        json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
-                    );
-                     let cred = Credential { suite, public_key_hash: account_hash, activation_height: 0, l2_location: None };
-                    let creds_array: [Option<Credential>; 2] = [Some(cred), None];
-                    let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
-                    let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
-                    genesis_state.insert(
-                        format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
-                        json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
-                    );
-                    let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-                    genesis_state.insert(
-                        format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
-                        json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes))),
-                    );
-                    // *** FIX: Add mandatory block timing parameters to genesis ***
+                    let vs_blob = ValidatorSetsV1 { current: vs, next: None };
+                    builder.set_validators(&vs_blob);
+
+                    // 3. Block Timing
                     let timing_params = BlockTimingParams {
                         base_interval_secs: 5,
                         min_interval_secs: 2,
@@ -246,14 +200,7 @@ async fn test_metrics_endpoint() -> Result<()> {
                         ema_gas_used: 0,
                         effective_interval_secs: timing_params.base_interval_secs,
                     };
-                    genesis_state.insert(
-                        std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY).unwrap().to_string(),
-                        json!(format!("b64:{}", BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap()))),
-                    );
-                    genesis_state.insert(
-                        std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY).unwrap().to_string(),
-                        json!(format!("b64:{}", BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap()))),
-                    );
+                    builder.set_block_timing(&timing_params, &timing_runtime);
                 });
         }
     }
@@ -290,16 +237,6 @@ async fn test_metrics_endpoint() -> Result<()> {
 #[tokio::test]
 #[cfg(not(windows))]
 async fn test_storage_crash_recovery() -> Result<()> {
-    use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-    use ioi_types::{
-        app::{
-            ActiveKeyRecord, Credential, SignatureSuite, ValidatorSetV1, ValidatorSetsV1,
-            ValidatorV1,
-        },
-        keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
-    };
-    use serde_json::json;
-
     println!("\n--- Running Storage Crash Recovery Test ---");
 
     let (stub_url, _stub_handle) = start_local_http_stub().await;
@@ -314,14 +251,17 @@ async fn test_storage_crash_recovery() -> Result<()> {
             allowed_target_suites: vec![ioi_types::app::SignatureSuite::Ed25519],
             allow_downgrade: false,
         }))
-        .with_genesis_modifier(|genesis, keys| {
-            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+        // --- UPDATED: Using GenesisBuilder API ---
+        .with_genesis_modifier(|builder, keys| {
             let keypair = &keys[0];
             let suite = SignatureSuite::Ed25519;
             let pk_bytes = keypair.public().encode_protobuf();
-            let account_id_hash =
-                ioi_types::app::account_id_from_key_material(suite, &pk_bytes).unwrap();
-            let account_id = AccountId(account_id_hash);
+
+            // 1. Identity
+            let account_id = builder.add_identity(keypair);
+            let account_id_hash = account_id.0;
+
+            // 2. Validator Set
             let vs = ValidatorSetV1 {
                 effective_from_height: 1,
                 total_weight: 1,
@@ -335,34 +275,13 @@ async fn test_storage_crash_recovery() -> Result<()> {
                     },
                 }],
             };
-            let vs_bytes = ioi_types::app::write_validator_sets(&ValidatorSetsV1 {
+            let vs_blob = ValidatorSetsV1 {
                 current: vs,
                 next: None,
-            })
-            .unwrap();
-            genesis_state.insert(
-                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
-            );
-            let initial_cred = Credential {
-                suite,
-                public_key_hash: account_id_hash,
-                activation_height: 0,
-                l2_location: None,
             };
-            let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
-            let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
-            let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
-            genesis_state.insert(
-                format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
-            );
-            let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-            genesis_state.insert(
-                format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes))),
-            );
-            // *** FIX: Use fully explicit initialization for timing parameters ***
+            builder.set_validators(&vs_blob);
+
+            // 3. Block Timing
             let timing_params = BlockTimingParams {
                 base_interval_secs: 5,
                 min_interval_secs: 2,
@@ -376,24 +295,7 @@ async fn test_storage_crash_recovery() -> Result<()> {
                 ema_gas_used: 0,
                 effective_interval_secs: timing_params.base_interval_secs,
             };
-            genesis_state.insert(
-                std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
-                )),
-            );
-            genesis_state.insert(
-                std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
-                )),
-            );
+            builder.set_block_timing(&timing_params, &timing_runtime);
         })
         .build()
         .await?;
@@ -521,27 +423,15 @@ async fn test_gc_respects_pinned_epochs() -> Result<()> {
         .with_gc_interval(gc_interval)
         // FIX: Ensure safety buffer doesn't prevent pruning in this short test
         .with_min_finality_depth(0)
-        // FIX: Add genesis configuration to enable consensus and block production
-        .with_genesis_modifier(|genesis, keys| {
-            use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-            use ioi_types::{
-                app::{
-                    ActiveKeyRecord, BlockTimingParams, BlockTimingRuntime, SignatureSuite,
-                    ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
-                },
-                codec,
-                keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, VALIDATOR_SET_KEY},
-            };
-            use serde_json::json;
-
-            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+        // --- UPDATED: Using GenesisBuilder API ---
+        .with_genesis_modifier(|builder, keys| {
             let keypair = &keys[0];
 
-            // Register identity
-            let account_id = add_genesis_identity(genesis_state, keypair);
+            // 1. Identity
+            let account_id = builder.add_identity(keypair);
             let acct_hash = account_id.0;
 
-            // Setup Validator Set for PoA
+            // 2. Validator Set
             let vs = ValidatorSetV1 {
                 effective_from_height: 1,
                 total_weight: 1,
@@ -555,17 +445,13 @@ async fn test_gc_respects_pinned_epochs() -> Result<()> {
                     },
                 }],
             };
-            let vs_bytes = ioi_types::app::write_validator_sets(&ValidatorSetsV1 {
+            let vs_blob = ValidatorSetsV1 {
                 current: vs,
                 next: None,
-            })
-            .unwrap();
-            genesis_state.insert(
-                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
-            );
+            };
+            builder.set_validators(&vs_blob);
 
-            // Setup Block Timing (Fast)
+            // 3. Block Timing (Fast)
             let timing_params = BlockTimingParams {
                 base_interval_secs: 1,
                 min_interval_secs: 1,
@@ -578,24 +464,7 @@ async fn test_gc_respects_pinned_epochs() -> Result<()> {
                 ema_gas_used: 0,
                 effective_interval_secs: timing_params.base_interval_secs,
             };
-            genesis_state.insert(
-                std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
-                )),
-            );
-            genesis_state.insert(
-                std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
-                )),
-            );
+            builder.set_block_timing(&timing_params, &timing_runtime);
         })
         .build()
         .await?;
@@ -711,25 +580,14 @@ async fn test_storage_soak_test() -> Result<()> {
         .with_gc_interval(1)
         // FIX: Ensure aggressive pruning occurs
         .with_min_finality_depth(0)
-        // FIX: Add genesis configuration
-        .with_genesis_modifier(|genesis, keys| {
-            use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-            use ioi_types::{
-                app::{
-                    ActiveKeyRecord, BlockTimingParams, BlockTimingRuntime, SignatureSuite,
-                    ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
-                },
-                codec,
-                keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, VALIDATOR_SET_KEY},
-            };
-            use serde_json::json;
-
-            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+        // --- UPDATED: Using GenesisBuilder API ---
+        .with_genesis_modifier(|builder, keys| {
             let keypair = &keys[0];
-            let account_id = add_genesis_identity(genesis_state, keypair);
+            // 1. Identity
+            let account_id = builder.add_identity(keypair);
             let acct_hash = account_id.0;
 
-            // Validator Set
+            // 2. Validator Set
             let vs = ValidatorSetV1 {
                 effective_from_height: 1,
                 total_weight: 1,
@@ -743,17 +601,13 @@ async fn test_storage_soak_test() -> Result<()> {
                     },
                 }],
             };
-            let vs_bytes = ioi_types::app::write_validator_sets(&ValidatorSetsV1 {
+            let vs_blob = ValidatorSetsV1 {
                 current: vs,
                 next: None,
-            })
-            .unwrap();
-            genesis_state.insert(
-                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
-            );
+            };
+            builder.set_validators(&vs_blob);
 
-            // Timing Params
+            // 3. Timing Params
             let timing_params = BlockTimingParams {
                 base_interval_secs: 1,
                 min_interval_secs: 1,
@@ -766,24 +620,7 @@ async fn test_storage_soak_test() -> Result<()> {
                 ema_gas_used: 0,
                 effective_interval_secs: timing_params.base_interval_secs,
             };
-            genesis_state.insert(
-                std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
-                )),
-            );
-            genesis_state.insert(
-                std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
-                )),
-            );
+            builder.set_block_timing(&timing_params, &timing_runtime);
         })
         .build()
         .await?;

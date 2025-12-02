@@ -1,4 +1,4 @@
-// crates/forge/src/lib.rs
+// Path: crates/forge/src/lib.rs
 // Lints are removed from the library file and moved to the binary.
 // This is a common pattern for testing libraries where panics are acceptable.
 
@@ -38,3 +38,13 @@
 //! - `client`: (Future) A lightweight client for interacting with a running node's RPC.
 
 pub mod testing;
+
+// Re-export core testing primitives for ergonomic top-level access.
+// This allows tests to use `ioi_forge::TestCluster` directly.
+pub use testing::cluster::{TestCluster, TestClusterBuilder};
+pub use testing::genesis::GenesisBuilder;
+pub use testing::validator::{TestValidator, ValidatorGuard};
+
+// Re-export helper functions for backward compatibility and convenience.
+pub use testing::genesis::{add_genesis_identity, add_genesis_identity_custom};
+pub use testing::rpc::{submit_transaction, submit_transaction_no_wait};

@@ -2,30 +2,22 @@
 //! End-to-End Test: Smart Contract Execution Lifecycle
 
 use anyhow::{anyhow, Result};
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_client::WorkloadClient;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_forge::testing::{
-    build_test_artifacts,
-    submit_transaction,
-    // FIX: Import directly from the `testing` module
-    wait_for_contract_deployment,
-    wait_for_height,
+    build_test_artifacts, submit_transaction, wait_for_contract_deployment, wait_for_height,
     TestCluster,
 };
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ApplicationTransaction, ChainId,
-        ChainTransaction, Credential, SignHeader, SignatureProof, SignatureSuite, ValidatorSetBlob,
-        ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        ChainTransaction, SignHeader, SignatureProof, SignatureSuite, ValidatorSetV1,
+        ValidatorSetsV1, ValidatorV1,
     },
-    codec,
     config::InitialServiceConfig,
-    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY},
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
-use serde_json::json;
 use std::path::Path;
 use std::time::{Duration, Instant};
 
@@ -97,7 +89,6 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let workspace_root = manifest_dir.parent().and_then(|p| p.parent()).unwrap();
 
-    // [UPDATED] Path uses wasm32-wasip1
     let wasm_path = workspace_root.join("target/wasm32-wasip1/release/counter_contract.wasm");
 
     let counter_wasm = std::fs::read(&wasm_path).map_err(|e| {
@@ -122,76 +113,38 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
             allowed_target_suites: vec![SignatureSuite::Ed25519],
             allow_downgrade: false,
         }))
-        .with_genesis_modifier(|genesis, keys| {
+        // --- UPDATED: Using GenesisBuilder API ---
+        .with_genesis_modifier(|builder, keys| {
             let keypair = &keys[0];
             let suite = SignatureSuite::Ed25519;
-            let public_key_bytes = keypair.public().encode_protobuf();
-            let account_id_hash = account_id_from_key_material(suite, &public_key_bytes).unwrap();
-            let account_id = AccountId(account_id_hash);
+            let pk_bytes = keypair.public().encode_protobuf();
 
-            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+            // A. Register Identity using the builder helper
+            // This handles Credentials, ActiveKeyRecord, and PubKey mapping automatically.
+            let account_id = builder.add_identity(keypair);
 
-            // A. Set the canonical validator set
-            let vs_blob = ValidatorSetBlob {
-                schema_version: 2,
-                payload: ValidatorSetsV1 {
-                    current: ValidatorSetV1 {
-                        effective_from_height: 1,
-                        total_weight: 1,
-                        validators: vec![ValidatorV1 {
-                            account_id,
-                            weight: 1,
-                            consensus_key: ActiveKeyRecord {
-                                suite: SignatureSuite::Ed25519,
-                                public_key_hash: account_id_hash,
-                                since_height: 0,
-                            },
-                        }],
-                    },
-                    next: None,
+            // Manually get the hash for constructing the ValidatorV1 record
+            let account_id_hash = account_id.0;
+
+            // B. Set Canonical Validator Set
+            let vs = ValidatorSetsV1 {
+                current: ValidatorSetV1 {
+                    effective_from_height: 1,
+                    total_weight: 1,
+                    validators: vec![ValidatorV1 {
+                        account_id,
+                        weight: 1,
+                        consensus_key: ActiveKeyRecord {
+                            suite,
+                            public_key_hash: account_id_hash,
+                            since_height: 0,
+                        },
+                    }],
                 },
+                next: None,
             };
-            let vs_bytes = ioi_types::app::write_validator_sets(&vs_blob.payload).unwrap();
-            genesis_state.insert(
-                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
-            );
 
-            // B. Set the initial IdentityHub credentials
-            let initial_cred = Credential {
-                suite,
-                public_key_hash: account_id_hash,
-                activation_height: 0,
-                l2_location: None,
-            };
-            let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
-            let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
-            let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
-            let creds_key_b64 = format!("b64:{}", BASE64_STANDARD.encode(&creds_key));
-            genesis_state.insert(
-                creds_key_b64,
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
-            );
-
-            // C. Set the ActiveKeyRecord for consensus verification
-            let record = ActiveKeyRecord {
-                suite,
-                public_key_hash: account_id_hash,
-                since_height: 0,
-            };
-            let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
-            let record_bytes = codec::to_bytes_canonical(&record).unwrap();
-            genesis_state.insert(
-                format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
-            );
-
-            // D. Set the AccountId -> PublicKey mapping for consensus verification
-            let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-            genesis_state.insert(
-                format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&public_key_bytes))),
-            );
+            builder.set_validators(&vs);
         })
         .build()
         .await?;

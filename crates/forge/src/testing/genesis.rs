@@ -2,60 +2,88 @@
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_api::state::service_namespace_prefix;
 use ioi_types::{
-    app::{account_id_from_key_material, AccountId, ActiveKeyRecord, Credential, SignatureSuite},
+    app::{
+        account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
+        BlockTimingRuntime, Credential, SignatureSuite, ValidatorSetsV1,
+    },
     codec,
-    keys::{ACCOUNT_ID_TO_PUBKEY_PREFIX, IDENTITY_CREDENTIALS_PREFIX},
+    keys::{
+        ACCOUNT_ID_TO_PUBKEY_PREFIX, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY,
+        GOVERNANCE_KEY, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
+    },
+    service_configs::GovernancePolicy,
 };
 use libp2p::identity::Keypair;
+use parity_scale_codec::Encode;
 use serde::{Serialize, Serializer};
-use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
 
-/// A robust builder for the genesis state that handles binary-to-string encoding automatically.
-///
-/// This struct prevents errors related to manual `b64:` prefixing and ensures
-/// consistent serialization of keys and values.
+/// A strongly-typed builder for constructing the genesis state.
 #[derive(Default, Debug, Clone)]
-pub struct GenesisState {
+pub struct GenesisBuilder {
     entries: BTreeMap<Vec<u8>, Vec<u8>>,
 }
 
-impl GenesisState {
-    /// Creates a new, empty genesis state.
+impl GenesisBuilder {
+    /// Creates a new, empty genesis builder.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Inserts a key-value pair into the genesis state.
-    ///
-    /// Both key and value are raw bytes. They will be automatically encoded
-    /// to base64 with the required prefix during serialization.
-    pub fn insert(&mut self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> &mut Self {
+    /// Inserts a raw byte key and value.
+    pub fn insert_raw(&mut self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> &mut Self {
         self.entries
             .insert(key.as_ref().to_vec(), value.as_ref().to_vec());
         self
     }
 
-    /// Helper to add an identity to this state (wraps `add_genesis_identity`).
+    /// Inserts a typed value, automatically SCALE encoding it.
+    pub fn insert_typed<V: Encode>(&mut self, key: impl AsRef<[u8]>, value: &V) -> &mut Self {
+        let bytes = codec::to_bytes_canonical(value).expect("Failed to encode genesis value");
+        self.insert_raw(key, bytes)
+    }
+
+    // --- Domain Specific Setters ---
+
+    pub fn set_validators(&mut self, sets: &ValidatorSetsV1) -> &mut Self {
+        let blob_bytes = ioi_types::app::write_validator_sets(sets)
+            .expect("Failed to encode validator set blob");
+        self.insert_raw(VALIDATOR_SET_KEY, blob_bytes)
+    }
+
+    pub fn set_block_timing(
+        &mut self,
+        params: &BlockTimingParams,
+        runtime: &BlockTimingRuntime,
+    ) -> &mut Self {
+        self.insert_typed(BLOCK_TIMING_PARAMS_KEY, params);
+        self.insert_typed(BLOCK_TIMING_RUNTIME_KEY, runtime);
+        self
+    }
+
+    pub fn set_governance_policy(&mut self, policy: &GovernancePolicy) -> &mut Self {
+        self.insert_typed(GOVERNANCE_KEY, policy)
+    }
+
+    // --- Identity Helpers ---
+
     pub fn add_identity(&mut self, keypair: &Keypair) -> AccountId {
         let suite = SignatureSuite::Ed25519;
         let pk_bytes = keypair.public().encode_protobuf();
         self.add_identity_custom(suite, &pk_bytes)
     }
 
-    /// Helper to add a custom identity to this state (wraps `add_genesis_identity_custom`).
     pub fn add_identity_custom(
         &mut self,
         suite: SignatureSuite,
         public_key_bytes: &[u8],
     ) -> AccountId {
-        // We adapt the logic from add_genesis_identity_custom to write to self.entries
         let account_hash = account_id_from_key_material(suite, public_key_bytes)
             .expect("Failed to derive account ID");
         let account_id = AccountId(account_hash);
         let ns = service_namespace_prefix("identity_hub");
 
-        // 1. Credentials
+        // 1. Credentials -> Namespaced (read by IdentityHub via NamespacedStateAccess)
         let cred = Credential {
             suite,
             public_key_hash: account_hash,
@@ -63,36 +91,38 @@ impl GenesisState {
             l2_location: None,
         };
         let creds: [Option<Credential>; 2] = [Some(cred), None];
-        let creds_bytes = codec::to_bytes_canonical(&creds).expect("Failed to encode credentials");
-        let creds_key_base = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
-        let creds_key_ns = [ns.as_slice(), &creds_key_base].concat();
+        let creds_key = [
+            ns.as_slice(),
+            IDENTITY_CREDENTIALS_PREFIX,
+            account_id.as_ref(),
+        ]
+        .concat();
+        self.insert_typed(creds_key, &creds);
 
-        self.insert(&creds_key_ns, &creds_bytes);
-
-        // 2. ActiveKeyRecord
+        // 2. ActiveKeyRecord -> Namespaced (internal bookkeeping)
         let record = ActiveKeyRecord {
             suite,
             public_key_hash: account_hash,
             since_height: 0,
         };
-        let record_bytes =
-            codec::to_bytes_canonical(&record).expect("Failed to encode ActiveKeyRecord");
-        let record_key_base = [b"identity::key_record::", account_id.as_ref()].concat();
-        let record_key_ns = [ns.as_slice(), &record_key_base].concat();
+        let record_key = [
+            ns.as_slice(),
+            b"identity::key_record::",
+            account_id.as_ref(),
+        ]
+        .concat();
+        self.insert_typed(record_key, &record);
 
-        self.insert(&record_key_ns, &record_bytes);
-
-        // 3. PubKey Map
-        let pubkey_key_base = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-        let pubkey_key_ns = [ns.as_slice(), &pubkey_key_base].concat();
-
-        self.insert(&pubkey_key_ns, public_key_bytes);
+        // 3. PubKey Map -> GLOBAL (read by UnifiedTransactionModel via raw StateAccess)
+        // FIX: Removed `ns` prefix here.
+        let pubkey_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
+        self.insert_raw(pubkey_key, public_key_bytes);
 
         account_id
     }
 }
 
-impl Serialize for GenesisState {
+impl Serialize for GenesisBuilder {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -108,74 +138,16 @@ impl Serialize for GenesisState {
     }
 }
 
-/// Internal helper to safely insert bytes into a raw JSON map using the required format.
-/// This preserves backward compatibility for existing tests using `Map<String, Value>`.
-pub fn safe_insert_json(genesis_map: &mut Map<String, Value>, key: &[u8], value: &[u8]) {
-    let k = format!("b64:{}", BASE64_STANDARD.encode(key));
-    let v = format!("b64:{}", BASE64_STANDARD.encode(value));
-    genesis_map.insert(k, json!(v));
+// --- Standalone Helpers for Backward Compatibility ---
+
+pub fn add_genesis_identity(builder: &mut GenesisBuilder, keypair: &Keypair) -> AccountId {
+    builder.add_identity(keypair)
 }
 
-/// Adds a complete identity record for a standard Ed25519 libp2p keypair to the genesis state.
-pub fn add_genesis_identity(genesis_map: &mut Map<String, Value>, keypair: &Keypair) -> AccountId {
-    let suite = SignatureSuite::Ed25519;
-    let pk_bytes = keypair.public().encode_protobuf();
-    add_genesis_identity_custom(genesis_map, suite, &pk_bytes)
-}
-
-/// Adds a complete identity record for a custom key configuration (e.g., PQC) to the genesis state.
-///
-/// Writes records exclusively to the IdentityHub service namespace, as the kernel no longer
-/// performs raw lookups against the global namespace.
 pub fn add_genesis_identity_custom(
-    genesis_map: &mut Map<String, Value>,
+    builder: &mut GenesisBuilder,
     suite: SignatureSuite,
     public_key_bytes: &[u8],
 ) -> AccountId {
-    let account_hash =
-        account_id_from_key_material(suite, public_key_bytes).expect("Failed to derive account ID");
-    let account_id = AccountId(account_hash);
-
-    let ns = service_namespace_prefix("identity_hub");
-
-    // --- 1. Credentials ---
-    let cred = Credential {
-        suite,
-        public_key_hash: account_hash,
-        activation_height: 0,
-        l2_location: None,
-    };
-    // Create the standard array [Active, Staged]
-    let creds: [Option<Credential>; 2] = [Some(cred), None];
-    let creds_bytes = codec::to_bytes_canonical(&creds).expect("Failed to encode credentials");
-
-    let creds_key_base = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
-
-    // A. Namespaced (IdentityHub service)
-    let creds_key_ns = [ns.as_slice(), &creds_key_base].concat();
-    safe_insert_json(genesis_map, &creds_key_ns, &creds_bytes);
-
-    // --- 2. ActiveKeyRecord ---
-    // Used for internal service lookups.
-    let record = ActiveKeyRecord {
-        suite,
-        public_key_hash: account_hash,
-        since_height: 0,
-    };
-    let record_bytes =
-        codec::to_bytes_canonical(&record).expect("Failed to encode ActiveKeyRecord");
-    let record_key_base = [b"identity::key_record::", account_id.as_ref()].concat();
-
-    // A. Namespaced
-    let record_key_ns = [ns.as_slice(), &record_key_base].concat();
-    safe_insert_json(genesis_map, &record_key_ns, &record_bytes);
-
-    // --- 3. PubKey Map ---
-    let pubkey_key_base = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-
-    // A. Namespaced
-    let pubkey_key_ns = [ns.as_slice(), &pubkey_key_base].concat();
-    safe_insert_json(genesis_map, &pubkey_key_ns, public_key_bytes);
-
-    account_id
+    builder.add_identity_custom(suite, public_key_bytes)
 }

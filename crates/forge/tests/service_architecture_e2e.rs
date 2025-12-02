@@ -2,9 +2,7 @@
 #![cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
 
 use anyhow::{anyhow, Result};
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
-    add_genesis_identity,
     assert_log_contains,
     build_test_artifacts, // Ensure this is imported
     rpc::{query_state_key, query_state_key_at_root, tip_height_resilient},
@@ -18,23 +16,19 @@ use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
         BlockTimingRuntime, ChainId, ChainTransaction, Credential, Proposal, ProposalStatus,
-        ProposalType, SignHeader, SignatureProof, SignatureSuite, StateEntry, SystemPayload,
-        SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1, VoteOption,
+        ProposalType, SignatureSuite, StateEntry, SystemPayload, SystemTransaction, ValidatorSetV1,
+        ValidatorSetsV1, ValidatorV1, VoteOption,
     },
     codec,
     config::InitialServiceConfig,
     keys::{
-        active_service_key, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, GOVERNANCE_KEY,
-        GOVERNANCE_PROPOSAL_KEY_PREFIX, UPGRADE_ARTIFACT_PREFIX, UPGRADE_MANIFEST_PREFIX,
-        UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY,
+        active_service_key, GOVERNANCE_PROPOSAL_KEY_PREFIX, UPGRADE_ARTIFACT_PREFIX,
+        UPGRADE_MANIFEST_PREFIX, UPGRADE_PENDING_PREFIX,
     },
-    service_configs::{
-        ActiveServiceMeta, GovernancePolicy, GovernanceSigner, MethodPermission, MigrationConfig,
-    },
+    service_configs::{ActiveServiceMeta, GovernancePolicy, GovernanceSigner, MigrationConfig},
 };
 use libp2p::identity::{self, Keypair};
 use parity_scale_codec::Encode;
-use serde_json::{json, Map, Value};
 use std::path::Path;
 use std::time::Duration;
 
@@ -43,34 +37,6 @@ use std::time::Duration;
 struct VoteParams {
     proposal_id: u64,
     option: VoteOption,
-}
-
-fn add_identity_to_genesis(genesis_state: &mut Map<String, Value>, keypair: &Keypair) -> AccountId {
-    let suite = SignatureSuite::Ed25519;
-    let public_key_bytes = keypair.public().encode_protobuf();
-    let account_id_hash = account_id_from_key_material(suite, &public_key_bytes).unwrap();
-    let account_id = AccountId(account_id_hash);
-
-    let initial_cred = Credential {
-        suite,
-        public_key_hash: account_id_hash,
-        activation_height: 0,
-        l2_location: None,
-    };
-    let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
-    let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
-    let creds_key = [
-        ioi_types::keys::IDENTITY_CREDENTIALS_PREFIX,
-        account_id.as_ref(),
-    ]
-    .concat();
-
-    genesis_state.insert(
-        format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
-        json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
-    );
-
-    account_id
 }
 
 fn create_system_tx(
@@ -213,27 +179,21 @@ capabilities = ["TxDecorator"]
             allow_downgrade: false,
         }))
         .with_initial_service(InitialServiceConfig::Governance(Default::default()))
-        .with_genesis_modifier(move |genesis, keys| {
-            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+        // --- UPDATED: Using GenesisBuilder API ---
+        .with_genesis_modifier(move |builder, keys| {
+            // 1. Register Identities
+            let validator_id = builder.add_identity(&keys[0]);
+            let governance_id = builder.add_identity(&governance_key_clone_for_genesis);
+            builder.add_identity(&user_key_clone_for_genesis);
 
-            // Use shared helper for identity injection (IdentityHub service data)
-            let validator_id = add_genesis_identity(genesis_state, &keys[0]);
-            let governance_id =
-                add_genesis_identity(genesis_state, &governance_key_clone_for_genesis);
-            add_genesis_identity(genesis_state, &user_key_clone_for_genesis);
-
-            // Governance Policy
+            // 2. Governance Policy
             let policy = GovernancePolicy {
                 signer: GovernanceSigner::Single(governance_id),
             };
-            let policy_bytes = codec::to_bytes_canonical(&policy).unwrap();
-            genesis_state.insert(
-                format!("b64:{}", BASE64_STANDARD.encode(GOVERNANCE_KEY)),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(policy_bytes))),
-            );
+            builder.set_governance_policy(&policy);
 
-            // Validator Set (Consensus)
-            let vs_bytes = codec::to_bytes_canonical(&ValidatorSetsV1 {
+            // 3. Validator Set
+            let vs = ValidatorSetsV1 {
                 current: ValidatorSetV1 {
                     effective_from_height: 1,
                     total_weight: 1,
@@ -248,14 +208,10 @@ capabilities = ["TxDecorator"]
                     }],
                 },
                 next: None,
-            })
-            .unwrap();
-            genesis_state.insert(
-                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
-            );
+            };
+            builder.set_validators(&vs);
 
-            // Add a dummy proposal
+            // 4. Add Dummy Proposal
             let proposal = Proposal {
                 id: 1,
                 title: "Dummy Proposal".to_string(),
@@ -281,13 +237,11 @@ capabilities = ["TxDecorator"]
                 value: codec::to_bytes_canonical(&proposal).unwrap(),
                 block_height: 0,
             };
-            let entry_bytes = codec::to_bytes_canonical(&entry).unwrap();
-            genesis_state.insert(
-                format!("b64:{}", BASE64_STANDARD.encode(proposal_key_bytes)),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&entry_bytes))),
-            );
 
-            // Add mandatory block timing parameters
+            // Use typed insertion
+            builder.insert_typed(proposal_key_bytes, &entry);
+
+            // 5. Block Timing
             let timing_params = BlockTimingParams {
                 base_interval_secs: 5,
                 retarget_every_blocks: 0,
@@ -297,24 +251,7 @@ capabilities = ["TxDecorator"]
                 effective_interval_secs: timing_params.base_interval_secs,
                 ..Default::default()
             };
-            genesis_state.insert(
-                std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
-                )),
-            );
-            genesis_state.insert(
-                std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
-                )),
-            );
+            builder.set_block_timing(&timing_params, &timing_runtime);
         })
         .build()
         .await?;
@@ -452,6 +389,7 @@ capabilities = ["TxDecorator"]
             method: "vote@v1".to_string(),
             params: encoded_vote,
         };
+        // Use governance_key (+nonce) to ensure authorization and inclusion.
         let dummy_tx = create_system_tx(
             &governance_key_for_test,
             dummy_tx_payload,

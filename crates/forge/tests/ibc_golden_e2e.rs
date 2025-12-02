@@ -54,39 +54,6 @@ fn normalize_b64(s: &str) -> &str {
     s.strip_prefix("b64:").unwrap_or(s).trim()
 }
 
-fn add_full_identity(
-    genesis: &mut serde_json::Map<String, serde_json::Value>,
-    kp: &Keypair,
-) -> AccountId {
-    let suite = SignatureSuite::Ed25519;
-    let pk = kp.public().encode_protobuf();
-    let id_hash = account_id_from_key_material(suite, &pk).unwrap();
-    let account_id = AccountId(id_hash);
-    // creds
-    let cred = Credential {
-        suite,
-        public_key_hash: id_hash,
-        activation_height: 0,
-        l2_location: None,
-    };
-    let arr: [Option<Credential>; 2] = [Some(cred), None];
-    let key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
-    genesis.insert(
-        format!("b64:{}", BASE64.encode(&key)),
-        json!(format!(
-            "b64:{}",
-            BASE64.encode(codec::to_bytes_canonical(&arr).unwrap())
-        )),
-    );
-    // pubkey map
-    let map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-    genesis.insert(
-        format!("b64:{}", BASE64.encode(&map_key)),
-        json!(format!("b64:{}", BASE64.encode(&pk))),
-    );
-    account_id
-}
-
 fn golden_dir() -> PathBuf {
     let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     p.push("tests");
@@ -166,36 +133,32 @@ async fn ibc_golden_paths_match_fixtures() -> Result<()> {
         .with_initial_service(InitialServiceConfig::Ibc(ioi_types::config::IbcConfig {
             enabled_clients: vec!["07-tendermint".into(), "tendermint-v0.34".into()],
         }))
-        .with_genesis_modifier(move |genesis, keys| {
-            let gs = genesis["genesis_state"].as_object_mut().unwrap();
+        // --- UPDATED: Using GenesisBuilder API ---
+        .with_genesis_modifier(move |builder, keys| {
             // Use the *same* key the node runs with (keys[0]).
             let kp = &keys[0];
-            let val_id = add_full_identity(gs, kp);
+            let val_id = builder.add_identity(kp);
 
-            let vs_blob = ValidatorSetBlob {
-                schema_version: 2,
-                payload: ValidatorSetsV1 {
-                    current: ValidatorSetV1 {
-                        effective_from_height: 1,
-                        total_weight: 1,
-                        validators: vec![ValidatorV1 {
-                            account_id: val_id,
-                            weight: 1,
-                            consensus_key: ActiveKeyRecord {
-                                suite: SignatureSuite::Ed25519,
-                                public_key_hash: val_id.0,
-                                since_height: 0,
-                            },
-                        }],
+            // Create Validator Set
+            let vs = ValidatorSetV1 {
+                effective_from_height: 1,
+                total_weight: 1,
+                validators: vec![ValidatorV1 {
+                    account_id: val_id,
+                    weight: 1,
+                    consensus_key: ActiveKeyRecord {
+                        suite: SignatureSuite::Ed25519,
+                        public_key_hash: val_id.0,
+                        since_height: 0,
                     },
-                    next: None,
-                },
+                }],
             };
-            let vs_bytes = ioi_types::app::write_validator_sets(&vs_blob.payload).unwrap();
-            gs.insert(
-                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64.encode(vs_bytes))),
-            );
+            
+            let vs_blob = ValidatorSetsV1 {
+                current: vs,
+                next: None,
+            };
+            builder.set_validators(&vs_blob);
 
             // [+] FIX: Add mandatory block timing parameters to genesis
             let timing_params = BlockTimingParams {
@@ -207,24 +170,7 @@ async fn ibc_golden_paths_match_fixtures() -> Result<()> {
                 effective_interval_secs: timing_params.base_interval_secs,
                 ..Default::default()
             };
-            gs.insert(
-                std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64.encode(codec::to_bytes_canonical(&timing_params).unwrap())
-                )),
-            );
-            gs.insert(
-                std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
-                )),
-            );
+            builder.set_block_timing(&timing_params, &timing_runtime);
 
             // Re-create the exact genesis state that generated the golden files
             let client_type_path = format!("clients/{}/clientType", client_id);
@@ -238,14 +184,14 @@ async fn ibc_golden_paths_match_fixtures() -> Result<()> {
             let ibc_ns = ioi_api::state::service_namespace_prefix("ibc");
 
             // clientType (global + namespaced)
-            gs.insert(
+            builder.insert_raw(
                 client_type_path.clone(),
-                json!(format!("b64:{}", BASE64.encode("07-tendermint"))),
+                "07-tendermint".as_bytes(),
             );
             let client_type_key_ns = [ibc_ns.as_slice(), client_type_path.as_bytes()].concat();
-            gs.insert(
-                format!("b64:{}", BASE64.encode(&client_type_key_ns)),
-                json!(format!("b64:{}", BASE64.encode("07-tendermint"))),
+            builder.insert_raw(
+                client_type_key_ns,
+                "07-tendermint".as_bytes(),
             );
 
             // clientState
@@ -302,20 +248,14 @@ async fn ibc_golden_paths_match_fixtures() -> Result<()> {
             assert!(!cs_val.is_empty(), "clientState encoded value is empty!");
             println!("DEBUG: Inserting clientState, len: {}", cs_val.len());
 
-            gs.insert(
+            builder.insert_raw(
                 client_state_path.clone(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64.encode(&cs_val)
-                )),
+                &cs_val,
             );
             let client_state_key_ns = [ibc_ns.as_slice(), client_state_path.as_bytes()].concat();
-             gs.insert(
-                format!("b64:{}", BASE64.encode(&client_state_key_ns)),
-                json!(format!(
-                    "b64:{}",
-                    BASE64.encode(&cs_val)
-                )),
+            builder.insert_raw(
+                client_state_key_ns,
+                &cs_val,
             );
 
             // consensusState
@@ -347,20 +287,14 @@ async fn ibc_golden_paths_match_fixtures() -> Result<()> {
             assert!(!ccs_val.is_empty(), "consensusState encoded value is empty!");
             println!("DEBUG: Inserting consensusState, len: {}", ccs_val.len());
 
-            gs.insert(
+            builder.insert_raw(
                 consensus_state_path.clone(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64.encode(&ccs_val)
-                )),
+                &ccs_val,
             );
             let consensus_state_key_ns = [ibc_ns.as_slice(), consensus_state_path.as_bytes()].concat();
-            gs.insert(
-                format!("b64:{}", BASE64.encode(&consensus_state_key_ns)),
-                json!(format!(
-                    "b64:{}",
-                    BASE64.encode(&ccs_val)
-                )),
+            builder.insert_raw(
+                consensus_state_key_ns,
+                &ccs_val,
             );
         })
         .build()

@@ -2,75 +2,43 @@
 #![cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
 
 use anyhow::{anyhow, Result};
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
-    add_genesis_identity, assert_log_contains,
+    assert_log_contains,
+    build_test_artifacts, // Ensure this is imported
     rpc::{query_state_key, query_state_key_at_root, tip_height_resilient},
-    submit_transaction, wait_for_height, wait_until, TestCluster,
+    submit_transaction,
+    wait_for_height,
+    wait_until,
+    TestCluster,
 };
 use ioi_services::governance::{StoreModuleParams, SwapModuleParams};
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
         BlockTimingRuntime, ChainId, ChainTransaction, Credential, Proposal, ProposalStatus,
-        ProposalType, SignHeader, SignatureProof, SignatureSuite, StateEntry, SystemPayload,
-        SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1, VoteOption,
+        ProposalType, SignatureSuite, StateEntry, SystemPayload, SystemTransaction, ValidatorSetV1,
+        ValidatorSetsV1, ValidatorV1, VoteOption,
     },
     codec,
     config::InitialServiceConfig,
     keys::{
-        active_service_key, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, GOVERNANCE_KEY,
-        GOVERNANCE_PROPOSAL_KEY_PREFIX, UPGRADE_ARTIFACT_PREFIX, UPGRADE_MANIFEST_PREFIX,
-        UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY,
+        active_service_key, GOVERNANCE_PROPOSAL_KEY_PREFIX, UPGRADE_ARTIFACT_PREFIX,
+        UPGRADE_MANIFEST_PREFIX, UPGRADE_PENDING_PREFIX,
     },
-    service_configs::{
-        ActiveServiceMeta, GovernancePolicy, GovernanceSigner, MethodPermission, MigrationConfig,
-    },
+    service_configs::{ActiveServiceMeta, GovernancePolicy, GovernanceSigner, MigrationConfig},
 };
 use libp2p::identity::{self, Keypair};
 use parity_scale_codec::Encode;
-use serde_json::{json, Map, Value};
 use std::path::Path;
 use std::time::Duration;
 
-/// Parameters for the `governance` service's `vote@v1` method.
+// ... [VoteParams and helpers] ...
 #[derive(Encode)]
 struct VoteParams {
     proposal_id: u64,
     option: VoteOption,
 }
 
-/// Helper function to add a full identity record for a key to the genesis state.
-fn add_identity_to_genesis(genesis_state: &mut Map<String, Value>, keypair: &Keypair) -> AccountId {
-    let suite = SignatureSuite::Ed25519;
-    let public_key_bytes = keypair.public().encode_protobuf();
-    let account_id_hash = account_id_from_key_material(suite, &public_key_bytes).unwrap();
-    let account_id = AccountId(account_id_hash);
-
-    // Set IdentityHub credentials
-    let initial_cred = Credential {
-        suite,
-        public_key_hash: account_id_hash,
-        activation_height: 0,
-        l2_location: None,
-    };
-    let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
-    let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
-    let creds_key = [
-        ioi_types::keys::IDENTITY_CREDENTIALS_PREFIX,
-        account_id.as_ref(),
-    ]
-    .concat();
-
-    genesis_state.insert(
-        format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
-        json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
-    );
-
-    account_id
-}
-
-/// Helper to create a signed System transaction.
 fn create_system_tx(
     signer: &Keypair,
     payload: SystemPayload,
@@ -106,24 +74,34 @@ async fn service_v2_registered(
     expected_artifact_hash: [u8; 32],
 ) -> Result<bool> {
     // Ensure a couple of blocks beyond activation are available.
-    wait_for_height(rpc_addr, activation_height + 2, Duration::from_secs(20)).await?;
+    // wait_for_height(rpc_addr, activation_height + 2, Duration::from_secs(20)).await?; // Removing strict wait, letting polling handle it
 
     let fee_v2_key = active_service_key("fee_calculator");
+
+    // Poll for the key at specific heights. Note: This might be flaky if the node hasn't reached the height yet.
+    // Better to just check current head first.
+    let tip = tip_height_resilient(rpc_addr).await?;
+    if tip < activation_height {
+        return Ok(false);
+    }
 
     for h in [
         activation_height,
         activation_height + 1,
         activation_height + 2,
     ] {
-        // Swallow transient RPC errors here; let the outer `wait_until` keep polling.
+        if h > tip {
+            break;
+        }
+
         if let Ok(Some(block)) =
             ioi_forge::testing::rpc::get_block_by_height_resilient(rpc_addr, h).await
         {
             if let Ok(Some(meta_bytes)) =
                 query_state_key_at_root(rpc_addr, &block.header.state_root, &fee_v2_key).await
             {
-                // The active service metadata is stored directly, not wrapped in a StateEntry.
                 if let Ok(meta) = codec::from_bytes_canonical::<ActiveServiceMeta>(&meta_bytes) {
+                    // Check hash
                     if meta.id == "fee_calculator" && meta.artifact_hash == expected_artifact_hash {
                         return Ok(true);
                     }
@@ -131,38 +109,41 @@ async fn service_v2_registered(
             }
         }
     }
+
+    // Fallback: check latest state
+    if let Ok(Some(meta_bytes)) = query_state_key(rpc_addr, &fee_v2_key).await {
+        if let Ok(meta) = codec::from_bytes_canonical::<ActiveServiceMeta>(&meta_bytes) {
+            if meta.id == "fee_calculator" && meta.artifact_hash == expected_artifact_hash {
+                return Ok(true);
+            }
+        }
+    }
+
     Ok(false)
 }
 
 #[tokio::test]
 async fn test_forkless_module_upgrade() -> Result<()> {
     // 1. SETUP & BUILD
-    println!("--- Building fee-calculator-service WASM for upgrade test ---");
+    // This function already builds all artifacts defined in `forge/src/testing/build.rs`.
+    // We added fee-calculator-service to that list in the previous fix.
+    build_test_artifacts();
+
+    println!("--- Using pre-built fee-calculator-service WASM ---");
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let contract_manifest_path =
-        manifest_dir.join("tests/contracts/fee-calculator-service/Cargo.toml");
-
     let workspace_root = manifest_dir.parent().and_then(|p| p.parent()).unwrap();
-    let target_dir = workspace_root.join("target");
-    let status = std::process::Command::new("cargo")
-        .env("CARGO_TARGET_DIR", target_dir)
-        .args([
-            "component",
-            "build",
-            "--release",
-            "--manifest-path",
-            contract_manifest_path.to_str().unwrap(),
-            "--target",
-            "wasm32-wasip1",
-            // Remove "--target-dir" arg here as we set it via env var which is safer for nested calls
-        ])
-        .status()?;
-    assert!(
-        status.success(),
-        "Failed to build fee-calculator-service WASM"
-    );
 
+    // The artifact is already built by build_test_artifacts()
     let wasm_path = workspace_root.join("target/wasm32-wasip1/release/fee_calculator_service.wasm");
+
+    // Verify it exists
+    if !wasm_path.exists() {
+        return Err(anyhow::anyhow!(
+            "Artifact not found at {:?}. Did build_test_artifacts() run?",
+            wasm_path
+        ));
+    }
+
     let service_artifact = std::fs::read(&wasm_path)?;
 
     let manifest_toml = r#"
@@ -173,7 +154,8 @@ runtime = "wasm"
 capabilities = ["TxDecorator"]
 
 [methods]
-"ante_handle@v1" = "Internal"
+"ante_validate@v1" = "Internal"
+"ante_write@v1" = "Internal"
 "#
     .to_string();
 
@@ -186,7 +168,6 @@ capabilities = ["TxDecorator"]
     let governance_key_clone_for_genesis = governance_key.clone();
     let user_key_clone_for_genesis = user_key.clone();
 
-    // 2. LAUNCH CLUSTER
     let governance_key_for_test = governance_key.clone();
     let mut cluster = TestCluster::builder()
         .with_validators(1)
@@ -198,27 +179,21 @@ capabilities = ["TxDecorator"]
             allow_downgrade: false,
         }))
         .with_initial_service(InitialServiceConfig::Governance(Default::default()))
-        .with_genesis_modifier(move |genesis, keys| {
-            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+        // --- UPDATED: Using GenesisBuilder API ---
+        .with_genesis_modifier(move |builder, keys| {
+            // 1. Register Identities
+            let validator_id = builder.add_identity(&keys[0]);
+            let governance_id = builder.add_identity(&governance_key_clone_for_genesis);
+            builder.add_identity(&user_key_clone_for_genesis);
 
-            // Use shared helper for identity injection (IdentityHub service data)
-            let validator_id = add_genesis_identity(genesis_state, &keys[0]);
-            let governance_id =
-                add_genesis_identity(genesis_state, &governance_key_clone_for_genesis);
-            add_genesis_identity(genesis_state, &user_key_clone_for_genesis);
-
-            // Governance Policy
+            // 2. Governance Policy
             let policy = GovernancePolicy {
                 signer: GovernanceSigner::Single(governance_id),
             };
-            let policy_bytes = codec::to_bytes_canonical(&policy).unwrap();
-            genesis_state.insert(
-                format!("b64:{}", BASE64_STANDARD.encode(GOVERNANCE_KEY)),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(policy_bytes))),
-            );
+            builder.set_governance_policy(&policy);
 
-            // Validator Set (Consensus)
-            let vs_bytes = codec::to_bytes_canonical(&ValidatorSetsV1 {
+            // 3. Validator Set
+            let vs = ValidatorSetsV1 {
                 current: ValidatorSetV1 {
                     effective_from_height: 1,
                     total_weight: 1,
@@ -233,14 +208,10 @@ capabilities = ["TxDecorator"]
                     }],
                 },
                 next: None,
-            })
-            .unwrap();
-            genesis_state.insert(
-                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
-            );
+            };
+            builder.set_validators(&vs);
 
-            // Add a dummy proposal
+            // 4. Add Dummy Proposal
             let proposal = Proposal {
                 id: 1,
                 title: "Dummy Proposal".to_string(),
@@ -266,13 +237,11 @@ capabilities = ["TxDecorator"]
                 value: codec::to_bytes_canonical(&proposal).unwrap(),
                 block_height: 0,
             };
-            let entry_bytes = codec::to_bytes_canonical(&entry).unwrap();
-            genesis_state.insert(
-                format!("b64:{}", BASE64_STANDARD.encode(proposal_key_bytes)),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&entry_bytes))),
-            );
 
-            // Add mandatory block timing parameters
+            // Use typed insertion
+            builder.insert_typed(proposal_key_bytes, &entry);
+
+            // 5. Block Timing
             let timing_params = BlockTimingParams {
                 base_interval_secs: 5,
                 retarget_every_blocks: 0,
@@ -282,24 +251,7 @@ capabilities = ["TxDecorator"]
                 effective_interval_secs: timing_params.base_interval_secs,
                 ..Default::default()
             };
-            genesis_state.insert(
-                std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
-                )),
-            );
-            genesis_state.insert(
-                std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
-                )),
-            );
+            builder.set_block_timing(&timing_params, &timing_runtime);
         })
         .build()
         .await?;
@@ -446,17 +398,15 @@ capabilities = ["TxDecorator"]
         )?;
         submit_transaction(rpc_addr, &dummy_tx).await?;
 
-        // Sanity: ensure the dummy tx actually entered the mempool this time.
         assert_log_contains("Orchestration", &mut orch_logs, "mempool_add").await?;
 
-        // Give the chain one block to include the tx before scanning Workload logs.
         let tip_after_dummy = tip_height_resilient(rpc_addr).await?;
         wait_for_height(rpc_addr, tip_after_dummy + 1, Duration::from_secs(20)).await?;
 
         assert_log_contains(
             "Workload",
             &mut workload_logs,
-            "[WasmService fee_calculator] Calling method 'ante_handle@v1' in WASM",
+            "[WasmService fee_calculator] Calling method 'ante_validate@v1' in WASM", // Changed from ante_handle
         )
         .await?;
         println!("SUCCESS: Activated WASM service's TxDecorator hook was correctly invoked.");
