@@ -2,31 +2,25 @@
 #![cfg(all(feature = "consensus-pos", feature = "vm-wasm"))]
 
 use anyhow::{anyhow, Result};
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_client::WorkloadClient;
 use ioi_forge::testing::{
     build_test_artifacts,
     rpc::{get_chain_timestamp, query_state_key},
     submit_transaction, wait_for_evidence, wait_for_height, wait_for_stake_to_be, TestCluster,
 };
-use ioi_system::keys::VALIDATOR_SET_KEY_STR; // Use the public string constant
 use ioi_types::{
     app::{
         account_id_from_key_material, evidence_id, AccountId, ActiveKeyRecord, BlockTimingParams,
-        BlockTimingRuntime, ChainId, ChainTransaction, Credential, FailureReport, OffenseFacts,
-        OffenseType, ReportMisbehaviorParams, SignHeader, SignatureProof, SignatureSuite,
-        SystemPayload, SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        BlockTimingRuntime, ChainId, ChainTransaction, FailureReport, OffenseFacts, OffenseType,
+        ReportMisbehaviorParams, SignHeader, SignatureProof, SignatureSuite, SystemPayload,
+        SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
-    keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, ACCOUNT_NONCE_PREFIX, BLOCK_TIMING_PARAMS_KEY,
-        BLOCK_TIMING_RUNTIME_KEY, IDENTITY_CREDENTIALS_PREFIX,
-    },
+    keys::ACCOUNT_NONCE_PREFIX,
     service_configs::{GovernanceParams, MigrationConfig},
 };
 use libp2p::identity::Keypair;
-use serde_json::json;
 use std::time::Duration;
 
 // Helper function to create a signed system transaction
@@ -182,17 +176,16 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
             allow_downgrade: false,
         }))
         .with_initial_service(InitialServiceConfig::Governance(GovernanceParams::default()))
-        .with_genesis_modifier(move |genesis, keys| {
-            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+        // --- UPDATED: Using GenesisBuilder API ---
+        .with_genesis_modifier(move |builder, keys| {
             let initial_stake = 100_000u128;
 
             let mut validators: Vec<ValidatorV1> = keys
                 .iter()
                 .map(|keypair| {
-                    let pk_bytes = keypair.public().encode_protobuf();
-                    let account_id_hash =
-                        account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
-                    let account_id = AccountId(account_id_hash);
+                    // 1. Add identities (Credentials, Key Record, PubKey Map)
+                    let account_id = builder.add_identity(keypair);
+                    let account_id_hash = account_id.0;
 
                     ValidatorV1 {
                         account_id,
@@ -209,6 +202,7 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
 
             let total_weight = validators.iter().map(|v| v.weight).sum();
 
+            // 2. Set Validator Sets
             let validator_sets = ValidatorSetsV1 {
                 current: ValidatorSetV1 {
                     effective_from_height: 1,
@@ -217,14 +211,9 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                 },
                 next: None,
             };
+            builder.set_validators(&validator_sets);
 
-            let vs_bytes = ioi_types::app::write_validator_sets(&validator_sets).unwrap();
-            // Use the public string constant from ioi-system
-            genesis_state.insert(
-                VALIDATOR_SET_KEY_STR.to_string(),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&vs_bytes))),
-            );
-
+            // 3. Set Block Timing
             let timing_params = BlockTimingParams {
                 base_interval_secs: 5,
                 retarget_every_blocks: 0,
@@ -234,77 +223,19 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                 effective_interval_secs: timing_params.base_interval_secs,
                 ..Default::default()
             };
+            builder.set_block_timing(&timing_params, &timing_runtime);
 
-            genesis_state.insert(
-                std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
-                )),
-            );
-            genesis_state.insert(
-                std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
-                )),
-            );
-
-            for keypair in keys {
-                let pk_bytes = keypair.public().encode_protobuf();
-                let suite = SignatureSuite::Ed25519;
-                let account_id_hash = account_id_from_key_material(suite, &pk_bytes).unwrap();
-                let account_id = AccountId(account_id_hash);
-                let pubkey_hash = account_id_from_key_material(suite, &pk_bytes).unwrap();
-
-                let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64_STANDARD.encode(&pubkey_map_key)),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&pk_bytes))),
-                );
-
-                let record = ActiveKeyRecord {
-                    suite,
-                    public_key_hash: pubkey_hash,
-                    since_height: 0,
-                };
-                let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
-                let record_bytes = codec::to_bytes_canonical(&record).unwrap();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64_STANDARD.encode(&record_key)),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&record_bytes))),
-                );
-
-                let cred = Credential {
-                    suite,
-                    public_key_hash: account_id.0,
-                    activation_height: 0,
-                    l2_location: None,
-                };
-                let creds_array: [Option<Credential>; 2] = [Some(cred), None];
-                let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
-                let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64_STANDARD.encode(&creds_key)),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&creds_bytes))),
-                );
-            }
-
+            // 4. Initialize Nonces
+            // The previous manual code inserted nonce 0.
+            // Although the system defaults to 0 if missing, we preserve this behavior.
             for keypair in keys {
                 let pk_bytes = keypair.public().encode_protobuf();
                 let account_id_hash =
                     account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
                 let account_id = AccountId(account_id_hash);
+
                 let nonce_key = [ACCOUNT_NONCE_PREFIX, account_id.as_ref()].concat();
-                let nonce_bytes = codec::to_bytes_canonical(&0u64).unwrap();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64_STANDARD.encode(&nonce_key)),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(&nonce_bytes))),
-                );
+                builder.insert_typed(nonce_key, &0u64);
             }
         })
         .build()

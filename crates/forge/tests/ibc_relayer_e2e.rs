@@ -36,21 +36,17 @@ use ioi_forge::testing::{
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
-        BlockTimingRuntime, ChainTransaction, Credential, SignatureSuite, SystemPayload,
-        SystemTransaction, ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        BlockTimingRuntime, ChainTransaction, SignatureSuite, SystemPayload, SystemTransaction,
+        ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
-    codec,
     config::InitialServiceConfig,
-    keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, ACCOUNT_NONCE_PREFIX, BLOCK_TIMING_PARAMS_KEY,
-        BLOCK_TIMING_RUNTIME_KEY, IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
-    },
+    keys::ACCOUNT_NONCE_PREFIX,
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
 use prost::Message;
 use reqwest::Client;
-use serde_json::{json, Value};
+use serde_json::json;
 use std::{str::FromStr, time::Duration};
 use tendermint::{
     account,
@@ -69,6 +65,8 @@ use tendermint_proto::types::{
 };
 use tendermint_proto::version::Consensus as TmProtoConsensus;
 use tendermint_testgen::{light_block::LightBlock as TmLightBlock, Header as TmHeaderGen};
+// [FIX] Added codec import
+use ioi_types::codec;
 
 // ── Local compatibility wrapper for on-wire ClientMessage ──────────────────────
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -166,50 +164,6 @@ fn one_validator_set_and_key() -> (
     )
 }
 
-fn add_full_identity_to_genesis(
-    genesis_state: &mut serde_json::Map<String, Value>,
-    keypair: &Keypair,
-) -> AccountId {
-    let suite = SignatureSuite::Ed25519;
-    let public_key_bytes = keypair.public().encode_protobuf();
-    let account_id_hash = account_id_from_key_material(suite, &public_key_bytes).unwrap();
-    let account_id = AccountId(account_id_hash);
-
-    let initial_cred = Credential {
-        suite,
-        public_key_hash: account_id_hash,
-        activation_height: 0,
-        l2_location: None,
-    };
-    let creds_array: [Option<Credential>; 2] = [Some(initial_cred), None];
-    let creds_bytes = codec::to_bytes_canonical(&creds_array).unwrap();
-    let creds_key = [IDENTITY_CREDENTIALS_PREFIX, account_id.as_ref()].concat();
-    genesis_state.insert(
-        format!("b64:{}", BASE64.encode(&creds_key)),
-        json!(format!("b64:{}", BASE64.encode(&creds_bytes))),
-    );
-
-    let record = ActiveKeyRecord {
-        suite,
-        public_key_hash: account_id_hash,
-        since_height: 0,
-    };
-    let record_key = [b"identity::key_record::", account_id.as_ref()].concat();
-    let record_bytes = codec::to_bytes_canonical(&record).unwrap();
-    genesis_state.insert(
-        format!("b64:{}", BASE64.encode(&record_key)),
-        json!(format!("b64:{}", BASE64.encode(&record_bytes))),
-    );
-
-    let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat();
-    genesis_state.insert(
-        format!("b64:{}", BASE64.encode(&pubkey_map_key)),
-        json!(format!("b64:{}", BASE64.encode(&public_key_bytes))),
-    );
-
-    account_id
-}
-
 #[tokio::test(flavor = "multi_thread")]
 async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
     // 1. SETUP & BUILD
@@ -237,48 +191,38 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
         .with_initial_service(InitialServiceConfig::Ibc(ioi_types::config::IbcConfig {
             enabled_clients: vec!["07-tendermint".to_string(), "tendermint-v0.34".to_string()],
         }))
+        // --- UPDATED: Using GenesisBuilder API ---
         .with_genesis_modifier({
             let shared_vals_hash = shared_vals_hash.clone();
-            move |genesis, keys| {
-                let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+            move |builder, keys| {
                 let keypair = &keys[0];
 
-                // clientType under global ICS-24 path
+                // --- Seed clientType so ibc-rs can route updates to the Tendermint client ---
                 let client_type_key = format!("clients/{}/clientType", client_id);
-                genesis_state.insert(
-                    client_type_key,
-                    json!(format!("b64:{}", BASE64.encode("07-tendermint"))),
-                );
+                builder.insert_raw(client_type_key, "07-tendermint".as_bytes());
 
-                let validator_account_id = add_full_identity_to_genesis(genesis_state, keypair);
+                let validator_account_id = builder.add_identity(keypair);
+                let account_id_hash = validator_account_id.0;
 
-                // canonical validator set
-                let vs_blob = ValidatorSetBlob {
-                    schema_version: 2,
-                    payload: ValidatorSetsV1 {
-                        current: ValidatorSetV1 {
-                            effective_from_height: 1,
-                            total_weight: 1,
-                            validators: vec![ValidatorV1 {
-                                account_id: validator_account_id,
-                                weight: 1,
-                                consensus_key: ActiveKeyRecord {
-                                    suite: SignatureSuite::Ed25519,
-                                    public_key_hash: validator_account_id.0,
-                                    since_height: 0,
-                                },
-                            }],
-                        },
-                        next: None,
+                let vs = ValidatorSetsV1 {
+                    current: ValidatorSetV1 {
+                        effective_from_height: 1,
+                        total_weight: 1,
+                        validators: vec![ValidatorV1 {
+                            account_id: validator_account_id,
+                            weight: 1,
+                            consensus_key: ActiveKeyRecord {
+                                suite: SignatureSuite::Ed25519,
+                                public_key_hash: account_id_hash,
+                                since_height: 0,
+                            },
+                        }],
                     },
+                    next: None,
                 };
-                let vs_bytes = ioi_types::app::write_validator_sets(&vs_blob.payload).unwrap();
-                genesis_state.insert(
-                    std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                    json!(format!("b64:{}", BASE64.encode(vs_bytes))),
-                );
+                builder.set_validators(&vs);
 
-                // block timing params
+                // [+] FIX: Add block timing parameters to genesis
                 let timing_params = BlockTimingParams {
                     base_interval_secs: 5,
                     retarget_every_blocks: 0,
@@ -288,26 +232,9 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                     effective_interval_secs: timing_params.base_interval_secs,
                     ..Default::default()
                 };
-                genesis_state.insert(
-                    std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
-                        .unwrap()
-                        .to_string(),
-                    json!(format!(
-                        "b64:{}",
-                        BASE64.encode(codec::to_bytes_canonical(&timing_params).unwrap())
-                    )),
-                );
-                genesis_state.insert(
-                    std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
-                        .unwrap()
-                        .to_string(),
-                    json!(format!(
-                        "b64:{}",
-                        BASE64.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
-                    )),
-                );
+                builder.set_block_timing(&timing_params, &timing_runtime);
 
-                // ClientState as Any under both global + namespaced paths
+                // --- Store ClientState ---
                 let client_state_any = Any {
                     type_url: "/ibc.lightclients.tendermint.v1.ClientState".to_string(),
                     value: RawTmClientState {
@@ -345,26 +272,15 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                 let cs_path = ClientStatePath::new(ClientId::from_str(client_id).unwrap());
                 let cs_key_str = cs_path.to_string();
 
-                // global
-                genesis_state.insert(
-                    cs_key_str.clone(),
-                    json!(format!(
-                        "b64:{}",
-                        BASE64.encode(client_state_any.encode_to_vec())
-                    )),
-                );
-                // namespaced
+                // 2a. Global
+                builder.insert_raw(cs_key_str.clone(), client_state_any.encode_to_vec());
+
+                // 2b. Namespaced
                 let ibc_ns = service_namespace_prefix("ibc");
                 let cs_key_ns: Vec<u8> = [ibc_ns.as_slice(), cs_key_str.as_bytes()].concat();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64.encode(&cs_key_ns)),
-                    json!(format!(
-                        "b64:{}",
-                        BASE64.encode(client_state_any.encode_to_vec())
-                    )),
-                );
+                builder.insert_raw(cs_key_ns, client_state_any.encode_to_vec());
 
-                // ConsensusState(h=1) global + namespaced
+                // --- Store ConsensusState ---
                 let consensus_state_any = Any {
                     type_url: "/ibc.lightclients.tendermint.v1.ConsensusState".to_string(),
                     value: RawTmConsensusState {
@@ -381,21 +297,12 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                     ClientConsensusStatePath::new(ClientId::from_str(client_id).unwrap(), 0, 1);
                 let ccs_key_str = ccs_path.to_string();
 
-                genesis_state.insert(
-                    ccs_key_str.clone(),
-                    json!(format!(
-                        "b64:{}",
-                        BASE64.encode(consensus_state_any.encode_to_vec())
-                    )),
-                );
+                // 2c. Global
+                builder.insert_raw(ccs_key_str.clone(), consensus_state_any.encode_to_vec());
+
+                // 2d. Namespaced
                 let ccs_key_ns: Vec<u8> = [ibc_ns.as_slice(), ccs_key_str.as_bytes()].concat();
-                genesis_state.insert(
-                    format!("b64:{}", BASE64.encode(&ccs_key_ns)),
-                    json!(format!(
-                        "b64:{}",
-                        BASE64.encode(consensus_state_any.encode_to_vec())
-                    )),
-                );
+                builder.insert_raw(ccs_key_ns, consensus_state_any.encode_to_vec());
             }
         })
         .build()

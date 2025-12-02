@@ -10,11 +10,7 @@
 use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
-    add_genesis_identity, // [+] Import
-    assert_log_contains,
-    build_test_artifacts,
-    wait_for_height,
-    TestValidator,
+    assert_log_contains, build_test_artifacts, wait_for_height, TestValidator,
 };
 use ioi_types::{
     app::{
@@ -30,20 +26,24 @@ use libp2p::identity;
 use serde_json::json;
 use std::time::Duration;
 
+// Import the new builder
+use ioi_forge::testing::genesis::GenesisBuilder;
+
 #[tokio::test]
 async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
     build_test_artifacts();
 
     let keypair = identity::Keypair::generate_ed25519();
-    let genesis_content = {
-        let mut genesis = json!({ "genesis_state": {} });
-        let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
 
-        // [+] Use shared helper
-        let account_id = add_genesis_identity(genesis_state, &keypair);
+    // --- CHANGED: Use GenesisBuilder manually here ---
+    let genesis_content = {
+        let mut builder = GenesisBuilder::new();
+
+        // 1. Register Identity
+        let account_id = builder.add_identity(&keypair);
         let acct_hash = account_id.0;
 
-        // Define the validator set
+        // 2. Validator Set
         let vs = ValidatorSetV1 {
             effective_from_height: 1,
             total_weight: 1,
@@ -57,17 +57,14 @@ async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
                 },
             }],
         };
-        let vs_bytes = ioi_types::app::write_validator_sets(&ValidatorSetsV1 {
+
+        let vs_blob = ValidatorSetsV1 {
             current: vs,
             next: None,
-        })
-        .unwrap();
-        genesis_state.insert(
-            std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-            json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
-        );
+        };
+        builder.set_validators(&vs_blob);
 
-        // Add required block timing params
+        // 3. Block Timing
         let timing_params = BlockTimingParams {
             base_interval_secs: 5,
             ..Default::default()
@@ -76,26 +73,13 @@ async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
             effective_interval_secs: timing_params.base_interval_secs,
             ..Default::default()
         };
-        genesis_state.insert(
-            std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
-                .unwrap()
-                .to_string(),
-            json!(format!(
-                "b64:{}",
-                BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
-            )),
-        );
-        genesis_state.insert(
-            std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
-                .unwrap()
-                .to_string(),
-            json!(format!(
-                "b64:{}",
-                BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
-            )),
-        );
+        builder.set_block_timing(&timing_params, &timing_runtime);
 
-        genesis.to_string()
+        // Serialize
+        serde_json::json!({
+            "genesis_state": builder
+        })
+        .to_string()
     };
 
     let node_guard = TestValidator::launch(

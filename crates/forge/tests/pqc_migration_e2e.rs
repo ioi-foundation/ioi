@@ -5,7 +5,6 @@
 ))]
 
 use anyhow::{anyhow, Result};
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_crypto::security::SecurityLevel;
 use ioi_crypto::sign::dilithium::{DilithiumKeyPair, DilithiumScheme};
@@ -18,18 +17,18 @@ use ioi_services::{governance::VoteParams, identity::RotateKeyParams};
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
-        Credential, Proposal, ProposalStatus, ProposalType, RotationProof, SignHeader,
-        SignatureProof, SignatureSuite, StateEntry, SystemPayload, SystemTransaction,
-        ValidatorSetV1, ValidatorSetsV1, ValidatorV1, VoteOption,
+        Proposal, ProposalStatus, ProposalType, RotationProof, SignHeader, SignatureProof,
+        SignatureSuite, StateEntry, SystemPayload, SystemTransaction, ValidatorSetV1,
+        ValidatorSetsV1, ValidatorV1, VoteOption,
     },
     codec,
     config::InitialServiceConfig,
-    keys::{GOVERNANCE_PROPOSAL_KEY_PREFIX, GOVERNANCE_VOTE_KEY_PREFIX, VALIDATOR_SET_KEY},
+    keys::{GOVERNANCE_PROPOSAL_KEY_PREFIX, GOVERNANCE_VOTE_KEY_PREFIX},
     service_configs::MigrationConfig,
 };
-use libp2p::identity::{self, Keypair};
+// [FIX] Removed unused libp2p::identity import
+use libp2p::identity::Keypair;
 use parity_scale_codec::Encode;
-use serde_json::{json, Value};
 use std::time::Duration;
 
 // --- Trait to unify signing for different key types in tests ---
@@ -138,7 +137,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     let grace_period_blocks = 5u64;
     let chain_id: ChainId = 1.into();
 
-    let validator_keypair = libp2p::identity::Keypair::generate_ed25519();
+    let validator_keypair = Keypair::generate_ed25519();
     let ed25519_key_clone_for_genesis = ed25519_key.clone();
 
     // 2. LAUNCH CLUSTER
@@ -156,19 +155,18 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
             allow_downgrade: false,
         }))
         .with_initial_service(InitialServiceConfig::Governance(Default::default()))
-        .with_genesis_modifier(move |genesis, _keys| {
-            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
-
-            // Setup identity for the validator
+        // --- UPDATED: Using GenesisBuilder API ---
+        .with_genesis_modifier(move |builder, _keys| {
+            // Setup identity for the validator using custom helper to control suite/bytes directly
             let validator_account_id = add_genesis_identity_custom(
-                genesis_state,
+                builder,
                 SignatureSuite::Ed25519,
                 &validator_keypair.public().encode_protobuf(),
             );
 
             // Setup identity for the user account that will rotate its key
             add_genesis_identity_custom(
-                genesis_state,
+                builder,
                 ed25519_key_clone_for_genesis.suite(),
                 &ed25519_key_clone_for_genesis.libp2p_public_bytes(),
             );
@@ -195,12 +193,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
                 },
                 next: None,
             };
-
-            let vs_bytes = ioi_types::app::write_validator_sets(&validator_sets).unwrap();
-            genesis_state.insert(
-                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
-            );
+            builder.set_validators(&validator_sets);
 
             // Add a dummy proposal so the governance::vote call is valid
             let proposal = Proposal {
@@ -225,15 +218,14 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
                 &1u64.to_le_bytes(),
             ]
             .concat();
+            
             let entry = StateEntry {
                 value: codec::to_bytes_canonical(&proposal).unwrap(),
                 block_height: 0,
             };
-            let entry_bytes = codec::to_bytes_canonical(&entry).unwrap();
-            genesis_state.insert(
-                format!("b64:{}", BASE64_STANDARD.encode(&proposal_key_bytes)),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&entry_bytes))),
-            );
+            
+            // Use typed insertion
+            builder.insert_typed(proposal_key_bytes, &entry);
         })
         .build()
         .await?;
@@ -252,6 +244,8 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
             preimage.extend_from_slice(&rotation_nonce.to_le_bytes());
             ioi_crypto::algorithms::hash::sha256(&preimage).unwrap()
         };
+        
+        // [FIX] RotationProof is now correctly imported
         let rotation_proof = RotationProof {
             old_public_key: ed25519_key.public_bytes(),
             old_signature: TestSigner::sign(&ed25519_key, &challenge),

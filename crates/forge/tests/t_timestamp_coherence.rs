@@ -2,9 +2,7 @@
 #![cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
 
 use anyhow::{anyhow, Result};
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
-    add_genesis_identity,
     rpc::{get_block_by_height_resilient, get_chain_height, submit_transaction_no_wait},
     wait_for_height, TestCluster,
 };
@@ -12,17 +10,14 @@ use ioi_services::governance::StoreModuleParams;
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
-        BlockTimingRuntime, ChainTransaction, Credential, SignHeader, SignatureProof,
-        SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetV1, ValidatorSetsV1,
-        ValidatorV1,
+        BlockTimingRuntime, ChainTransaction, SignHeader, SignatureProof, SignatureSuite,
+        SystemPayload, SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
-    keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, GOVERNANCE_KEY, VALIDATOR_SET_KEY},
     service_configs::{GovernanceParams, GovernancePolicy, GovernanceSigner, MigrationConfig},
 };
 use libp2p::identity::Keypair;
-use serde_json::json;
 use std::time::Duration;
 
 struct TestNet {
@@ -49,47 +44,41 @@ impl TestNet {
                 allow_downgrade: false,
             }))
             .with_initial_service(InitialServiceConfig::Governance(GovernanceParams::default()))
-            .with_genesis_modifier(move |genesis, keys| {
-                let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+            // --- UPDATED: Using GenesisBuilder API ---
+            .with_genesis_modifier(move |builder, keys| {
                 let validator_keypair = &keys[0];
 
-                let user_account_id =
-                    add_genesis_identity(genesis_state, &user_keypair_for_genesis);
-                let validator_account_id = add_genesis_identity(genesis_state, validator_keypair);
+                // 1. Identities
+                let user_account_id = builder.add_identity(&user_keypair_for_genesis);
+                let validator_account_id = builder.add_identity(validator_keypair);
                 let validator_hash = validator_account_id.0;
 
+                // 2. Governance Policy
                 let policy = GovernancePolicy {
                     signer: GovernanceSigner::Single(user_account_id),
                 };
-                let policy_bytes = codec::to_bytes_canonical(&policy).unwrap();
-                genesis_state.insert(
-                    std::str::from_utf8(GOVERNANCE_KEY).unwrap().to_string(),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(policy_bytes))),
-                );
+                builder.set_governance_policy(&policy);
 
-                let vs = ValidatorSetV1 {
-                    effective_from_height: 1,
-                    total_weight: 1,
-                    validators: vec![ValidatorV1 {
-                        account_id: validator_account_id,
-                        weight: 1,
-                        consensus_key: ActiveKeyRecord {
-                            suite: SignatureSuite::Ed25519,
-                            public_key_hash: validator_hash,
-                            since_height: 0,
-                        },
-                    }],
-                };
-                let vs_bytes = ioi_types::app::write_validator_sets(&ValidatorSetsV1 {
-                    current: vs,
+                // 3. Validator Set
+                let vs = ValidatorSetsV1 {
+                    current: ValidatorSetV1 {
+                        effective_from_height: 1,
+                        total_weight: 1,
+                        validators: vec![ValidatorV1 {
+                            account_id: validator_account_id,
+                            weight: 1,
+                            consensus_key: ActiveKeyRecord {
+                                suite: SignatureSuite::Ed25519,
+                                public_key_hash: validator_hash,
+                                since_height: 0,
+                            },
+                        }],
+                    },
                     next: None,
-                })
-                .unwrap();
-                genesis_state.insert(
-                    std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                    json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
-                );
+                };
+                builder.set_validators(&vs);
 
+                // 4. Block Timing
                 // [+] FIX: Set valid min/max intervals to prevent clamping to 0
                 let timing_params = BlockTimingParams {
                     base_interval_secs: 5,
@@ -101,26 +90,7 @@ impl TestNet {
                     effective_interval_secs: timing_params.base_interval_secs,
                     ..Default::default()
                 };
-                genesis_state.insert(
-                    std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
-                        .unwrap()
-                        .to_string(),
-                    json!(format!(
-                        "b64:{}",
-                        BASE64_STANDARD
-                            .encode(ioi_types::codec::to_bytes_canonical(&timing_params).unwrap())
-                    )),
-                );
-                genesis_state.insert(
-                    std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
-                        .unwrap()
-                        .to_string(),
-                    json!(format!(
-                        "b64:{}",
-                        BASE64_STANDARD
-                            .encode(ioi_types::codec::to_bytes_canonical(&timing_runtime).unwrap())
-                    )),
-                );
+                builder.set_block_timing(&timing_params, &timing_runtime);
             })
             .build()
             .await

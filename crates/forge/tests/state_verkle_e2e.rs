@@ -7,21 +7,12 @@
 ))]
 
 use anyhow::Result;
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use ioi_forge::testing::{
-    add_genesis_identity, build_test_artifacts, wait_for_height, TestCluster,
-}; // [+] Import
+use ioi_forge::testing::{build_test_artifacts, wait_for_height, TestCluster};
 use ioi_types::{
-    app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, SignatureSuite, ValidatorSetBlob,
-        ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
-    },
-    codec,
+    app::{ActiveKeyRecord, SignatureSuite, ValidatorSetV1, ValidatorSetsV1, ValidatorV1},
     config::InitialServiceConfig,
-    keys::VALIDATOR_SET_KEY, // Removed other keys as helper handles them
     service_configs::MigrationConfig,
 };
-use serde_json::json;
 use std::time::Duration;
 
 #[tokio::test]
@@ -40,14 +31,15 @@ async fn test_verkle_tree_e2e() -> Result<()> {
             allow_downgrade: false,
             chain_id: 1,
         }))
-        .with_genesis_modifier(|genesis, keys| {
-            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
-
-            // [+] Use shared helper
+        // --- UPDATED: Using GenesisBuilder API ---
+        .with_genesis_modifier(|builder, keys| {
             let key = &keys[0];
-            let account_id = add_genesis_identity(genesis_state, key);
+
+            // 1. Register Identity
+            let account_id = builder.add_identity(key);
             let acct_hash = account_id.0;
 
+            // 2. Validator Set
             let validator_set = ValidatorSetV1 {
                 effective_from_height: 1,
                 total_weight: 1,
@@ -62,20 +54,11 @@ async fn test_verkle_tree_e2e() -> Result<()> {
                 }],
             };
 
-            let vs_blob = ValidatorSetBlob {
-                schema_version: 2,
-                payload: ValidatorSetsV1 {
-                    current: validator_set,
-                    next: None,
-                },
+            let vs = ValidatorSetsV1 {
+                current: validator_set,
+                next: None,
             };
-            let vs_bytes = ioi_types::app::write_validator_sets(&vs_blob.payload).unwrap();
-            genesis_state.insert(
-                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
-            );
-
-            // [-] REMOVED: Manual identity record insertion
+            builder.set_validators(&vs);
         })
         .build()
         .await?;

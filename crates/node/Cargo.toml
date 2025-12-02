@@ -107,7 +107,12 @@ vm-wasm = ["dep:ioi-vm-wasm"]
 ibc-deps = ["ioi-services/ibc-deps", "ioi-validator/ibc-deps"]
 
 # Ethereum ZK Light Client Support
-ethereum-zk = ["ioi-services/ethereum-zk", "dep:zk-driver-succinct"]
+# FIX: Added "ioi-validator/ethereum-zk" to ensure propagation
+ethereum-zk = [
+    "ioi-services/ethereum-zk",
+    "dep:zk-driver-succinct",
+    "ioi-validator/ethereum-zk",
+]
 
 # Feature for building the malicious binary for testing
 # This does not need to be propagated, as the test runner handles it.

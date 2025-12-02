@@ -1,19 +1,21 @@
 // Path: crates/forge/src/testing/cluster.rs
+
 use super::assert::wait_for_height;
+use super::genesis::GenesisBuilder; // Use the new Builder
 use super::validator::{TestValidator, ValidatorGuard};
 use anyhow::Result;
 use dcrypt::sign::eddsa::Ed25519SecretKey;
 use futures_util::{stream::FuturesUnordered, StreamExt};
-use ioi_types::config::InitialServiceConfig; // Removed WorkloadConfig
+use ioi_types::config::InitialServiceConfig;
 use libp2p::{
     identity::{self, ed25519, Keypair},
     Multiaddr,
 };
-use serde_json::Value;
 use std::time::Duration;
 
 /// A type alias for a closure that modifies the genesis state.
-type GenesisModifier = Box<dyn FnOnce(&mut Value, &Vec<identity::Keypair>) + Send>;
+/// Changed: Now takes `&mut GenesisBuilder` instead of `&mut Value`.
+type GenesisModifier = Box<dyn FnOnce(&mut GenesisBuilder, &Vec<identity::Keypair>) + Send>;
 
 pub struct TestCluster {
     pub validators: Vec<ValidatorGuard>,
@@ -25,8 +27,6 @@ impl TestCluster {
         TestClusterBuilder::new()
     }
 
-    /// Gracefully shut down all validators in this cluster.
-    /// This must be called to avoid the `ValidatorGuard` drop panic.
     pub async fn shutdown(self) -> Result<()> {
         for guard in self.validators {
             guard.shutdown().await?;
@@ -81,7 +81,6 @@ impl Default for TestClusterBuilder {
     }
 }
 
-/// Helper: derive a libp2p Ed25519 keypair from a dcrypt Ed25519 seed.
 fn libp2p_keypair_from_dcrypt_seed(seed: [u8; 32]) -> libp2p::identity::Keypair {
     let sk = Ed25519SecretKey::from_seed(&seed).expect("dcrypt ed25519 from seed");
     let pk = sk.public_key().expect("dcrypt(ed25519) public");
@@ -98,13 +97,11 @@ impl TestClusterBuilder {
         Self::default()
     }
 
-    /// Provide a deterministic seed for the first validator’s key (dcrypt Ed25519).
     pub fn with_validator_seed(mut self, seed: [u8; 32]) -> Self {
         self.validator0_key_override = Some(libp2p_keypair_from_dcrypt_seed(seed));
         self
     }
 
-    /// Provide a fully formed libp2p keypair to use for validator 0.
     pub fn with_validator_keypair(mut self, kp: libp2p::identity::Keypair) -> Self {
         self.validator0_key_override = Some(kp);
         self
@@ -128,7 +125,7 @@ impl TestClusterBuilder {
 
     pub fn with_random_chain_id(mut self) -> Self {
         use rand::Rng;
-        self.chain_id = (rand::thread_rng().gen::<u32>() | 1).into(); // Avoid 0
+        self.chain_id = (rand::thread_rng().gen::<u32>() | 1).into();
         self
     }
 
@@ -182,9 +179,10 @@ impl TestClusterBuilder {
         self
     }
 
+    // UPDATED: Signature matches the new GenesisBuilder
     pub fn with_genesis_modifier<F>(mut self, modifier: F) -> Self
     where
-        F: FnOnce(&mut Value, &Vec<identity::Keypair>) + Send + 'static,
+        F: FnOnce(&mut GenesisBuilder, &Vec<identity::Keypair>) + Send + 'static,
     {
         self.genesis_modifiers.push(Box::new(modifier));
         self
@@ -225,13 +223,10 @@ impl TestClusterBuilder {
             }
         }
 
-        // Sort keys by AccountId to ensure node 0 is the leader for height 1 (index 0).
-        // This prevents startup stalls where the leader (e.g., node 2) starts late.
+        // Sort keys by AccountId to ensure deterministic leader selection
         validator_keys.sort_by(|a, b| {
             let pk_a = a.public().encode_protobuf();
             let pk_b = b.public().encode_protobuf();
-            // We use Ed25519 suite for sorting as it's the default test suite.
-            // This is a heuristic; if mixed suites are used, this might need adjustment.
             let id_a = ioi_types::app::account_id_from_key_material(
                 ioi_types::app::SignatureSuite::Ed25519,
                 &pk_a,
@@ -245,13 +240,19 @@ impl TestClusterBuilder {
             id_a.cmp(&id_b)
         });
 
-        let mut genesis = serde_json::json!({ "genesis_state": {} });
+        // --- CHANGED: Use GenesisBuilder instead of raw JSON Map ---
+        let mut builder = GenesisBuilder::new();
         for modifier in self.genesis_modifiers.drain(..) {
-            modifier(&mut genesis, &validator_keys);
+            modifier(&mut builder, &validator_keys);
         }
-        let genesis_content = genesis.to_string();
-        let mut validators: Vec<ValidatorGuard> = Vec::new();
+        // Wrap the builder's output in the top-level "genesis_state" object
+        let genesis_content = serde_json::json!({
+            "genesis_state": builder
+        })
+        .to_string();
+        // -----------------------------------------------------------
 
+        let mut validators: Vec<ValidatorGuard> = Vec::new();
         let mut bootnode_addrs: Vec<Multiaddr> = Vec::new();
 
         if let Some(boot_key) = validator_keys.first() {
@@ -260,7 +261,7 @@ impl TestClusterBuilder {
                 genesis_content.clone(),
                 5000,
                 self.chain_id,
-                None, // No bootnode for the bootnode itself
+                None,
                 &self.consensus_type,
                 &self.state_tree,
                 &self.commitment_scheme,
@@ -269,7 +270,7 @@ impl TestClusterBuilder {
                 self.use_docker,
                 self.initial_services.clone(),
                 self.use_malicious_workload,
-                false, // Full readiness check for the bootnode
+                false,
                 &self.extra_features,
                 self.epoch_size,
                 self.keep_recent_heights,
@@ -319,7 +320,7 @@ impl TestClusterBuilder {
                         captured_use_docker,
                         captured_services,
                         captured_malicious,
-                        false, // Full readiness check for subsequent nodes
+                        false,
                         &captured_extra_features,
                         captured_epoch_size,
                         captured_keep_recent,
@@ -335,7 +336,6 @@ impl TestClusterBuilder {
                 match result {
                     Ok(guard) => validators.push(guard),
                     Err(e) => {
-                        // Cleanup already launched validators before returning error
                         for guard in validators {
                             let _ = guard.shutdown().await;
                         }
@@ -346,15 +346,12 @@ impl TestClusterBuilder {
         }
         validators.sort_by(|a, b| a.validator().peer_id.cmp(&b.validator().peer_id));
 
-        // Wait for all nodes in the cluster to reach a common height.
         if validators.len() > 1 {
             println!("--- Waiting for cluster to sync to height 2 ---");
-            // Wrap wait_for_height calls in a way that handles cleanup on failure
             for v_guard in &validators {
                 if let Err(e) =
                     wait_for_height(&v_guard.validator().rpc_addr, 1, Duration::from_secs(60)).await
                 {
-                    // Cleanup before propagating error
                     for guard in validators {
                         let _ = guard.shutdown().await;
                     }
@@ -365,7 +362,6 @@ impl TestClusterBuilder {
                 if let Err(e) =
                     wait_for_height(&v_guard.validator().rpc_addr, 2, Duration::from_secs(60)).await
                 {
-                    // Cleanup before propagating error
                     for guard in validators {
                         let _ = guard.shutdown().await;
                     }

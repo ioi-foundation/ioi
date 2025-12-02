@@ -2,38 +2,34 @@
 #![cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
 
 use anyhow::{anyhow, Result};
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
-    add_genesis_identity,
     build_test_artifacts,
-    rpc::{query_state_key, submit_transaction_no_wait}, // Changed to no_wait
-    wait_for_height,
-    TestCluster,
+    rpc::{query_state_key, submit_transaction_no_wait},
+    wait_for_height, TestCluster,
 };
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, ApplicationTransaction,
         BlockTimingParams, BlockTimingRuntime, ChainId, ChainTransaction, SignHeader,
-        SignatureProof, SignatureSuite, ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1,
-        ValidatorV1,
+        SignatureProof, SignatureSuite, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
-    keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, VALIDATOR_SET_KEY},
+    keys::BLOCK_TIMING_RUNTIME_KEY,
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
-use serde_json::json;
 use std::path::Path;
 use std::time::Duration;
 
-// Helper to create a signed Application Transaction (copied from contract_e2e)
+// Helper to create a signed Application Transaction (unchanged)
 fn create_signed_app_tx(
     keypair: &Keypair,
     mut tx: ApplicationTransaction,
     nonce: u64,
     chain_id: ChainId,
 ) -> ChainTransaction {
+    // ... (signature logic same as before) ...
     let public_key = keypair.public().encode_protobuf();
     let account_id_hash =
         account_id_from_key_material(SignatureSuite::Ed25519, &public_key).unwrap();
@@ -105,100 +101,64 @@ async fn test_adaptive_block_timing_responds_to_load() -> Result<()> {
             allowed_target_suites: vec![SignatureSuite::Ed25519],
             allow_downgrade: false,
         }))
-        .with_genesis_modifier(move |genesis, keys| {
-            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
-
+        // --- CHANGED: Use the new builder API in the modifier ---
+        .with_genesis_modifier(move |genesis_builder, keys| {
             let keypair = &keys[0];
-            // Use shared helper
-            let account_id = add_genesis_identity(genesis_state, keypair);
 
-            // Manual construction of ValidatorV1 required for consensus weights
-            let account_id_hash = account_id.0;
+            // 1. Register Identity using the builder helper
+            let account_id = genesis_builder.add_identity(keypair);
 
-            // Standard PoA Validator Setup
-            let vs_blob = ValidatorSetBlob {
-                schema_version: 2,
-                payload: ValidatorSetsV1 {
-                    current: ValidatorSetV1 {
-                        effective_from_height: 1,
-                        total_weight: 1,
-                        validators: vec![ValidatorV1 {
-                            account_id,
-                            weight: 1,
-                            consensus_key: ActiveKeyRecord {
-                                suite: SignatureSuite::Ed25519,
-                                public_key_hash: account_id_hash,
-                                since_height: 0,
-                            },
-                        }],
-                    },
-                    next: None,
+            // 2. Set Validators
+            let vs = ValidatorSetsV1 {
+                current: ValidatorSetV1 {
+                    effective_from_height: 1,
+                    total_weight: 1,
+                    validators: vec![ValidatorV1 {
+                        account_id,
+                        weight: 1,
+                        consensus_key: ActiveKeyRecord {
+                            suite: SignatureSuite::Ed25519,
+                            public_key_hash: account_id.0,
+                            since_height: 0,
+                        },
+                    }],
                 },
+                next: None,
             };
-            let vs_bytes = ioi_types::app::write_validator_sets(&vs_blob.payload).unwrap();
-            genesis_state.insert(
-                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
-            );
+            genesis_builder.set_validators(&vs);
 
-            // --- ADAPTIVE TIMING CONFIGURATION ---
-            // We set a very low target gas so any substantial transaction will trigger
-            // an "overloaded" state, causing the block time to decrease (speed up).
-            // Increased step to 5000 (50%) to ensure it can drop below 5s even after an initial increase.
+            // 3. Set Block Timing (Adaptive Configuration)
             let timing_params = BlockTimingParams {
                 base_interval_secs: 5,
                 min_interval_secs: 1,
                 max_interval_secs: 10,
                 target_gas_per_block: 100, // Low target to ensure we exceed it
                 ema_alpha_milli: 800,      // High alpha for fast reaction
-                interval_step_bps: 5000,   // 50% change allowed per retarget (increased)
-                retarget_every_blocks: 2,  // Retarget frequently (every 2 blocks)
+                interval_step_bps: 5000,   // 50% change allowed per retarget
+                retarget_every_blocks: 2,
             };
             let timing_runtime = BlockTimingRuntime {
                 ema_gas_used: 0,
                 effective_interval_secs: timing_params.base_interval_secs,
             };
 
-            genesis_state.insert(
-                std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
-                )),
-            );
-            genesis_state.insert(
-                std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
-                )),
-            );
+            // Use the new typed method! No more manual base64 or SCALE encoding.
+            genesis_builder.set_block_timing(&timing_params, &timing_runtime);
         })
+        // ---------------------------------------------------------
         .build()
         .await?;
 
-    // Wrap test logic in an async block
+    // ... (Rest of the test logic remains identical) ...
     let test_result: Result<()> = async {
         let node = cluster.validators[0].validator();
         let rpc_addr = &node.rpc_addr;
         let keypair = &node.keypair;
 
-        // Subscribe to logs to debug stall
-        let (mut orch_logs, _, _) = node.subscribe_logs();
-        tokio::spawn(async move {
-            while let Ok(line) = orch_logs.recv().await {
-                println!("[LOG] {}", line);
-            }
-        });
-
         // 3. Wait for chain start
         wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
 
-        // 4. Send a High-Gas Transaction (Deploy Contract)
+        // 4. Send a High-Gas Transaction
         let deploy_tx_unsigned = ApplicationTransaction::DeployContract {
             header: Default::default(),
             code: counter_wasm.clone(),
@@ -207,24 +167,16 @@ async fn test_adaptive_block_timing_responds_to_load() -> Result<()> {
         let deploy_tx = create_signed_app_tx(keypair, deploy_tx_unsigned, 0, 1.into());
 
         println!("Submitting high-gas transaction...");
-        // Use no_wait to avoid the internal wait_for_height in the library which uses a hardcoded timeout
         let resp = submit_transaction_no_wait(rpc_addr, &deploy_tx).await?;
         if let Some(err) = resp.get("error") {
             return Err(anyhow!("RPC error: {}", err));
         }
-        println!("Submission result: {}", resp);
 
         // 5. Wait for Retargeting
-        // Genesis (0) -> Block 1 (empty) -> Block 2 (empty) -> Block 3 (tx) -> Block 4 (retarget) -> Block 5.
-        // We wait for Height 5 to ensure the retargeting update at Height 4 is visible in the query.
-        // Timeout is generous (60s) because the chain might slow down initially (up to 10s/block).
         println!("Waiting for height 5...");
         wait_for_height(rpc_addr, 5, Duration::from_secs(60)).await?;
 
         // 6. Verify Adaptation
-        let height = ioi_forge::testing::rpc::get_chain_height(rpc_addr).await?;
-        println!("Checking BlockTimingRuntime state at height {}...", height);
-
         let runtime_bytes_opt = query_state_key(rpc_addr, BLOCK_TIMING_RUNTIME_KEY).await?;
         let runtime_bytes =
             runtime_bytes_opt.ok_or_else(|| anyhow!("BlockTimingRuntime key missing"))?;
@@ -233,26 +185,20 @@ async fn test_adaptive_block_timing_responds_to_load() -> Result<()> {
 
         println!("New Runtime State: {:?}", runtime);
 
-        // Assertions
         assert!(runtime.ema_gas_used > 0, "EMA gas used should be non-zero");
-
         assert!(
             runtime.effective_interval_secs < 5,
-            "Effective interval should have decreased due to high load (expected < 5, got {})",
-            runtime.effective_interval_secs
+            "Effective interval should have decreased due to high load"
         );
 
         Ok(())
     }
     .await;
 
-    // Guaranteed cleanup
     for guard in cluster.validators {
         guard.shutdown().await?;
     }
 
     test_result?;
-
-    println!("--- Adaptive Timing E2E Test Passed ---");
     Ok(())
 }

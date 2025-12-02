@@ -11,7 +11,7 @@ use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_forge::testing::{
-    add_genesis_identity, build_test_artifacts,
+    build_test_artifacts,
     rpc::{query_state_key, submit_transaction_and_get_block},
     TestCluster,
 };
@@ -88,10 +88,10 @@ async fn test_bridgeless_zk_interoperability() -> Result<()> {
         .with_initial_service(InitialServiceConfig::Ibc(IbcConfig {
             enabled_clients: vec![], // No Tendermint clients needed, but service must be active
         }))
-        .with_genesis_modifier(|genesis, keys| {
-            let gs = genesis["genesis_state"].as_object_mut().unwrap();
+        // --- UPDATED: Using GenesisBuilder API ---
+        .with_genesis_modifier(|builder, keys| {
             let kp = &keys[0];
-            let acc_id = add_genesis_identity(gs, kp);
+            let acc_id = builder.add_identity(kp);
 
             // Minimal Validator Set
             let vs = ValidatorSetV1 {
@@ -107,18 +107,11 @@ async fn test_bridgeless_zk_interoperability() -> Result<()> {
                     },
                 }],
             };
-            let vs_blob = ValidatorSetBlob {
-                schema_version: 2,
-                payload: ValidatorSetsV1 {
-                    current: vs,
-                    next: None,
-                },
+            let vs_blob = ValidatorSetsV1 {
+                current: vs,
+                next: None,
             };
-            let vs_bytes = ioi_types::app::write_validator_sets(&vs_blob.payload).unwrap();
-            gs.insert(
-                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64.encode(vs_bytes))),
-            );
+            builder.set_validators(&vs_blob);
 
             // Block Timing
             let timing = BlockTimingParams {
@@ -129,132 +122,124 @@ async fn test_bridgeless_zk_interoperability() -> Result<()> {
                 effective_interval_secs: 2,
                 ..Default::default()
             };
-            gs.insert(
-                std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64.encode(codec::to_bytes_canonical(&timing).unwrap())
-                )),
-            );
-            gs.insert(
-                std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64.encode(codec::to_bytes_canonical(&runtime).unwrap())
-                )),
-            );
+            builder.set_block_timing(&timing, &runtime);
         })
         .build()
         .await?;
 
-    let node = cluster.validators[0].validator();
-    let rpc = &node.rpc_addr;
-    let kp = &node.keypair;
+    // Wrap test logic in an async block for guaranteed cleanup
+    let test_result: Result<()> = async {
+        let node = cluster.validators[0].validator();
+        let rpc = &node.rpc_addr;
+        let kp = &node.keypair;
 
-    // 2. PREPARE FAKE ZK DATA
-    // SimulatedGroth16 rule: hash(proof) == public_inputs
+        // 2. PREPARE FAKE ZK DATA
+        // SimulatedGroth16 rule: hash(proof) == public_inputs
 
-    // A. ZK Proof for Header (Simulating a beacon client update)
-    let zk_proof_bytes = b"zk_proof_of_valid_header".to_vec();
-    // The root is the public input for the circuit
-    let state_root_hash = sha256(&zk_proof_bytes)?;
-    let mut state_root = [0u8; 32];
-    state_root.copy_from_slice(&state_root_hash);
+        // A. ZK Proof for Header (Simulating a beacon client update)
+        let zk_proof_bytes = b"zk_proof_of_valid_header".to_vec();
+        // The root is the public input for the circuit
+        let state_root_hash = sha256(&zk_proof_bytes)?;
+        let mut state_root = [0u8; 32];
+        state_root.copy_from_slice(&state_root_hash);
 
-    let eth_header = EthereumHeader { state_root };
+        let eth_header = EthereumHeader { state_root };
 
-    // B. Submit Header Transaction
-    let submit_params = SubmitHeaderParams {
-        chain_id: "eth-mainnet".to_string(),
-        header: Header::Ethereum(eth_header.clone()),
-        finality: Finality::EthereumBeaconUpdate {
-            update_ssz: zk_proof_bytes.clone(),
-        },
-    };
+        // B. Submit Header Transaction
+        let submit_params = SubmitHeaderParams {
+            chain_id: "eth-mainnet".to_string(),
+            header: Header::Ethereum(eth_header.clone()),
+            finality: Finality::EthereumBeaconUpdate {
+                update_ssz: zk_proof_bytes.clone(),
+            },
+        };
 
-    let submit_tx = create_zk_system_tx(
-        kp,
-        SystemPayload::CallService {
-            service_id: "ibc".to_string(),
-            method: "submit_header@v1".to_string(),
-            params: codec::to_bytes_canonical(&submit_params).unwrap(),
-        },
-        0,
-    )?;
+        let submit_tx = create_zk_system_tx(
+            kp,
+            SystemPayload::CallService {
+                service_id: "ibc".to_string(),
+                method: "submit_header@v1".to_string(),
+                params: codec::to_bytes_canonical(&submit_params).unwrap(),
+            },
+            0,
+        )?;
 
-    println!("Submitting ZK Header...");
-    submit_transaction_and_get_block(rpc, &submit_tx).await?;
+        println!("Submitting ZK Header...");
+        submit_transaction_and_get_block(rpc, &submit_tx).await?;
 
-    // 3. VERIFY PERSISTENCE
-    // The registry should have stored the root.
-    // Key: ibc::light_clients::eth-mainnet::state_root::{hex_root}
-    let root_hex = hex::encode(state_root);
-    let ns = ioi_api::state::service_namespace_prefix("ibc");
-    let check_key = [
-        ns.as_slice(),
-        format!("ibc::light_clients::eth-mainnet::state_root::{}", root_hex).as_bytes(),
-    ]
-    .concat();
+        // 3. VERIFY PERSISTENCE
+        // The registry should have stored the root.
+        // Key: ibc::light_clients::eth-mainnet::state_root::{hex_root}
+        let root_hex = hex::encode(state_root);
+        let ns = ioi_api::state::service_namespace_prefix("ibc");
+        let check_key = [
+            ns.as_slice(),
+            format!("ibc::light_clients::eth-mainnet::state_root::{}", root_hex).as_bytes(),
+        ]
+        .concat();
 
-    let stored = query_state_key(rpc, &check_key).await?;
-    assert!(stored.is_some(), "Header root was not persisted!");
-    println!("Header persisted successfully.");
+        let stored = query_state_key(rpc, &check_key).await?;
+        assert!(stored.is_some(), "Header root was not persisted!");
+        println!("Header persisted successfully.");
 
-    // 4. PROVE INCLUSION (Bridgeless Read)
-    // SimulatedGroth16 rule: hash(proof) == public_inputs
-    // For inclusion, public_input is the root.
-    // We reuse the same proof bytes so they hash to the same root we just trusted.
+        // 4. PROVE INCLUSION (Bridgeless Read)
+        // SimulatedGroth16 rule: hash(proof) == public_inputs
+        // For inclusion, public_input is the root.
+        // We reuse the same proof bytes so they hash to the same root we just trusted.
 
-    let verify_params = VerifyStateParams {
-        chain_id: "eth-mainnet".to_string(),
-        height: 0,
-        path: b"accounts/0x1234".to_vec(),
-        value: b"1337".to_vec(),
-        proof: InclusionProof::Evm {
-            scheme: StateProofScheme::Verkle,
-            proof_bytes: zk_proof_bytes, // Same bytes -> Same hash -> Matches stored root
-        },
-    };
+        let verify_params = VerifyStateParams {
+            chain_id: "eth-mainnet".to_string(),
+            height: 0,
+            path: b"accounts/0x1234".to_vec(),
+            value: b"1337".to_vec(),
+            proof: InclusionProof::Evm {
+                scheme: StateProofScheme::Verkle,
+                proof_bytes: zk_proof_bytes, // Same bytes -> Same hash -> Matches stored root
+            },
+        };
 
-    let verify_tx = create_zk_system_tx(
-        kp,
-        SystemPayload::CallService {
-            service_id: "ibc".to_string(),
-            method: "verify_state@v1".to_string(),
-            params: codec::to_bytes_canonical(&verify_params).unwrap(),
-        },
-        1,
-    )?;
+        let verify_tx = create_zk_system_tx(
+            kp,
+            SystemPayload::CallService {
+                service_id: "ibc".to_string(),
+                method: "verify_state@v1".to_string(),
+                params: codec::to_bytes_canonical(&verify_params).unwrap(),
+            },
+            1,
+        )?;
 
-    println!("Submitting Inclusion Verification...");
-    submit_transaction_and_get_block(rpc, &verify_tx).await?;
+        println!("Submitting Inclusion Verification...");
+        submit_transaction_and_get_block(rpc, &verify_tx).await?;
 
-    // 5. VERIFY MATERIALIZATION
-    let materialized_key = [
-        ns.as_slice(),
-        format!(
-            "ibc::verified::kv::eth-mainnet::{}",
-            hex::encode(b"accounts/0x1234")
-        )
-        .as_bytes(),
-    ]
-    .concat();
+        // 5. VERIFY MATERIALIZATION
+        let materialized_key = [
+            ns.as_slice(),
+            format!(
+                "ibc::verified::kv::eth-mainnet::{}",
+                hex::encode(b"accounts/0x1234")
+            )
+            .as_bytes(),
+        ]
+        .concat();
 
-    let val = query_state_key(rpc, &materialized_key)
-        .await?
-        .expect("Value should be materialized");
-    assert_eq!(val, b"1337");
+        let val = query_state_key(rpc, &materialized_key)
+            .await?
+            .expect("Value should be materialized");
+        assert_eq!(val, b"1337");
 
-    println!("--- Bridgeless ZK Interoperability E2E Passed ---");
-
-    for guard in cluster.validators {
-        guard.shutdown().await?;
+        println!("--- Bridgeless ZK Interoperability E2E Passed ---");
+        Ok(())
     }
-    Ok(())
+    .await;
+
+    // FIX: Robust cleanup
+    for guard in cluster.validators {
+        if let Err(e) = guard.shutdown().await {
+            println!("Error shutting down validator: {}", e);
+        }
+    }
+
+    test_result
 }
 
 #[tokio::test]
@@ -278,11 +263,10 @@ async fn test_bridgeless_zk_interoperability_failure_case() -> Result<()> {
         .with_initial_service(InitialServiceConfig::Ibc(IbcConfig {
             enabled_clients: vec![],
         }))
-        .with_genesis_modifier(|genesis, keys| {
-            // ... same genesis logic as positive test ...
-            let gs = genesis["genesis_state"].as_object_mut().unwrap();
+        // --- UPDATED: Using GenesisBuilder API ---
+        .with_genesis_modifier(|builder, keys| {
             let kp = &keys[0];
-            let acc_id = add_genesis_identity(gs, kp);
+            let acc_id = builder.add_identity(kp);
 
             let vs = ValidatorSetV1 {
                 effective_from_height: 1,
@@ -297,18 +281,11 @@ async fn test_bridgeless_zk_interoperability_failure_case() -> Result<()> {
                     },
                 }],
             };
-            let vs_blob = ValidatorSetBlob {
-                schema_version: 2,
-                payload: ValidatorSetsV1 {
-                    current: vs,
-                    next: None,
-                },
+            let vs_blob = ValidatorSetsV1 {
+                current: vs,
+                next: None,
             };
-            let vs_bytes = ioi_types::app::write_validator_sets(&vs_blob.payload).unwrap();
-            gs.insert(
-                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64.encode(vs_bytes))),
-            );
+            builder.set_validators(&vs_blob);
 
             let timing = BlockTimingParams {
                 base_interval_secs: 2,
@@ -318,104 +295,95 @@ async fn test_bridgeless_zk_interoperability_failure_case() -> Result<()> {
                 effective_interval_secs: 2,
                 ..Default::default()
             };
-            gs.insert(
-                std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64.encode(codec::to_bytes_canonical(&timing).unwrap())
-                )),
-            );
-            gs.insert(
-                std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64.encode(codec::to_bytes_canonical(&runtime).unwrap())
-                )),
-            );
+            builder.set_block_timing(&timing, &runtime);
         })
         .build()
         .await?;
 
-    let node = cluster.validators[0].validator();
-    let rpc = &node.rpc_addr;
-    let kp = &node.keypair;
+    // Wrap logic to ensure shutdown
+    let test_result = async {
+        let node = cluster.validators[0].validator();
+        let rpc = &node.rpc_addr;
+        let kp = &node.keypair;
 
-    // 2. PREPARE MALICIOUS ZK DATA
+        // 2. PREPARE MALICIOUS ZK DATA
 
-    // Valid proof bytes
-    let zk_proof_bytes = b"zk_proof_of_valid_header".to_vec();
+        // Valid proof bytes
+        let zk_proof_bytes = b"zk_proof_of_valid_header".to_vec();
 
-    // But the header claims a root that does NOT match hash(proof)
-    let fake_root = [0xAA; 32]; // Just some random bytes
-    let eth_header = EthereumHeader {
-        state_root: fake_root,
-    };
+        // But the header claims a root that does NOT match hash(proof)
+        let fake_root = [0xAA; 32]; // Just some random bytes
+        let eth_header = EthereumHeader {
+            state_root: fake_root,
+        };
 
-    let submit_params = SubmitHeaderParams {
-        chain_id: "eth-mainnet".to_string(),
-        header: Header::Ethereum(eth_header.clone()),
-        finality: Finality::EthereumBeaconUpdate {
-            update_ssz: zk_proof_bytes.clone(),
-        },
-    };
+        let submit_params = SubmitHeaderParams {
+            chain_id: "eth-mainnet".to_string(),
+            header: Header::Ethereum(eth_header.clone()),
+            finality: Finality::EthereumBeaconUpdate {
+                update_ssz: zk_proof_bytes.clone(),
+            },
+        };
 
-    let submit_tx = create_zk_system_tx(
-        kp,
-        SystemPayload::CallService {
-            service_id: "ibc".to_string(),
-            method: "submit_header@v1".to_string(),
-            params: codec::to_bytes_canonical(&submit_params).unwrap(),
-        },
-        0,
-    )?;
+        let submit_tx = create_zk_system_tx(
+            kp,
+            SystemPayload::CallService {
+                service_id: "ibc".to_string(),
+                method: "submit_header@v1".to_string(),
+                params: codec::to_bytes_canonical(&submit_params).unwrap(),
+            },
+            0,
+        )?;
 
-    println!("Submitting MALICIOUS ZK Header...");
-    // We expect this to fail verification.
-    // submit_transaction will fail if the RPC returns an error from check_tx.
+        println!("Submitting MALICIOUS ZK Header...");
+        // We expect this to fail verification.
+        // submit_transaction will fail if the RPC returns an error from check_tx.
 
-    let result = ioi_forge::testing::rpc::submit_transaction_no_wait(rpc, &submit_tx).await?;
+        let result = ioi_forge::testing::rpc::submit_transaction_no_wait(rpc, &submit_tx).await?;
 
-    // Check if the RPC returned an error object
-    if let Some(err) = result.get("error") {
-        let msg = err.get("message").and_then(|s| s.as_str()).unwrap_or("");
-        println!("Got expected error: {}", msg);
-        assert!(
-            msg.contains("ZK Beacon verification failed")
-                || msg.contains("Transaction pre-check failed"),
-            "Error message mismatch: {}",
-            msg
-        );
-    } else {
-        // If it was accepted into mempool, it will fail during block execution.
-        // The block containing it will essentially be rejected (node stalls on bad block production),
-        // or if the system design allows dropping failed txs, the state update won't happen.
-        // We wait 4 seconds (2 block times) to give it a chance to process.
+        // Check if the RPC returned an error object
+        if let Some(err) = result.get("error") {
+            let msg = err.get("message").and_then(|s| s.as_str()).unwrap_or("");
+            println!("Got expected error: {}", msg);
+            assert!(
+                msg.contains("ZK Beacon verification failed")
+                    || msg.contains("Transaction pre-check failed"),
+                "Error message mismatch: {}",
+                msg
+            );
+        } else {
+            // If it was accepted into mempool, it will fail during block execution.
+            // The block containing it will essentially be rejected (node stalls on bad block production),
+            // or if the system design allows dropping failed txs, the state update won't happen.
+            // We wait 4 seconds (2 block times) to give it a chance to process.
 
-        tokio::time::sleep(Duration::from_secs(4)).await;
+            tokio::time::sleep(Duration::from_secs(4)).await;
 
-        let root_hex = hex::encode(fake_root);
-        let ns = ioi_api::state::service_namespace_prefix("ibc");
-        let check_key = [
-            ns.as_slice(),
-            format!("ibc::light_clients::eth-mainnet::state_root::{}", root_hex).as_bytes(),
-        ]
-        .concat();
+            let root_hex = hex::encode(fake_root);
+            let ns = ioi_api::state::service_namespace_prefix("ibc");
+            let check_key = [
+                ns.as_slice(),
+                format!("ibc::light_clients::eth-mainnet::state_root::{}", root_hex).as_bytes(),
+            ]
+            .concat();
 
-        let stored = query_state_key(rpc, &check_key).await?;
-        assert!(
-            stored.is_none(),
-            "Malicious header SHOULD NOT be persisted!"
-        );
+            let stored = query_state_key(rpc, &check_key).await?;
+            assert!(
+                stored.is_none(),
+                "Malicious header SHOULD NOT be persisted!"
+            );
+        }
+
+        println!("--- Negative ZK Test Passed ---");
+        Ok(())
     }
-
-    println!("--- Negative ZK Test Passed ---");
+    .await;
 
     for guard in cluster.validators {
-        guard.shutdown().await?;
+        if let Err(e) = guard.shutdown().await {
+            println!("Error shutting down validator: {}", e);
+        }
     }
-    Ok(())
+
+    test_result
 }

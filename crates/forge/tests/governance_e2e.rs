@@ -3,10 +3,10 @@
 #![cfg(all(feature = "consensus-poa", feature = "vm-wasm"))]
 
 use anyhow::{anyhow, Result};
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use ioi_api::state::service_namespace_prefix;
 use ioi_forge::testing::{
-    add_genesis_identity, build_test_artifacts, confirm_proposal_passed_state, submit_transaction,
-    wait_for_height, TestCluster,
+    build_test_artifacts, confirm_proposal_passed_state, submit_transaction, wait_for_height,
+    TestCluster,
 };
 use ioi_types::{
     app::{
@@ -17,15 +17,11 @@ use ioi_types::{
     },
     codec,
     config::InitialServiceConfig,
-    keys::{
-        BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, GOVERNANCE_KEY,
-        GOVERNANCE_PROPOSAL_KEY_PREFIX, VALIDATOR_SET_KEY,
-    },
+    keys::GOVERNANCE_PROPOSAL_KEY_PREFIX,
     service_configs::{GovernanceParams, GovernancePolicy, GovernanceSigner, MigrationConfig},
 };
 use libp2p::identity::{self, Keypair};
 use parity_scale_codec::Encode;
-use serde_json::json;
 use std::time::Duration;
 
 /// Parameters for the `governance` service's `vote@v1` method.
@@ -45,8 +41,7 @@ fn create_call_service_tx<P: Encode>(
     chain_id: ChainId,
 ) -> Result<ChainTransaction> {
     let public_key_bytes = keypair.public().encode_protobuf();
-    let account_id_hash =
-        account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)?;
+    let account_id_hash = account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)?;
     let account_id = AccountId(account_id_hash);
 
     let payload = SystemPayload::CallService {
@@ -96,60 +91,43 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
             allowed_target_suites: vec![SignatureSuite::Ed25519],
             allow_downgrade: false,
         }))
-        .with_genesis_modifier(move |genesis, keys| {
-            let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
-            
-            // --- VALIDATOR IDENTITY ---
+        // --- UPDATED: Using GenesisBuilder API ---
+        .with_genesis_modifier(move |builder, keys| {
+            // 1. Validator Identity
             let validator_key = &keys[0];
-            // Use the shared helper to insert credentials, key records, and pubkey mapping
-            let validator_account_id = add_genesis_identity(genesis_state, validator_key);
-            
-            // We still need the hash to construct the ActiveKeyRecord inside ValidatorV1 manually
+            let validator_account_id = builder.add_identity(validator_key);
             let validator_account_id_hash = validator_account_id.0;
 
-            // --- GOVERNANCE IDENTITY ---
+            // 2. Governance Identity
             let governance_key = identity::Keypair::generate_ed25519();
-            // Use the shared helper
-            let governance_account_id = add_genesis_identity(genesis_state, &governance_key);
+            let governance_account_id = builder.add_identity(&governance_key);
 
-            // --- VALIDATOR SET BLOB ---
-            let vs_blob = ioi_types::app::ValidatorSetBlob {
-                schema_version: 2,
-                payload: ValidatorSetsV1 {
-                    current: ValidatorSetV1 {
-                        effective_from_height: 1,
-                        total_weight: 1_000_000,
-                        validators: vec![ValidatorV1 {
-                            account_id: validator_account_id,
-                            weight: 1_000_000,
-                            consensus_key: ActiveKeyRecord {
-                                suite: SignatureSuite::Ed25519,
-                                public_key_hash: validator_account_id_hash,
-                                since_height: 0,
-                            },
-                        }],
-                    },
-                    next: None,
+            // 3. Validator Set
+            let vs = ValidatorSetsV1 {
+                current: ValidatorSetV1 {
+                    effective_from_height: 1,
+                    total_weight: 1_000_000,
+                    validators: vec![ValidatorV1 {
+                        account_id: validator_account_id,
+                        weight: 1_000_000,
+                        consensus_key: ActiveKeyRecord {
+                            suite: SignatureSuite::Ed25519,
+                            public_key_hash: validator_account_id_hash,
+                            since_height: 0,
+                        },
+                    }],
                 },
+                next: None,
             };
-            let vs_bytes = ioi_types::app::write_validator_sets(&vs_blob.payload).unwrap();
+            builder.set_validators(&vs);
 
-            genesis_state.insert(
-                std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
-            );
-
-            // --- GOVERNANCE POLICY ---
+            // 4. Governance Policy
             let policy = GovernancePolicy {
                 signer: GovernanceSigner::Single(governance_account_id),
             };
-            let policy_bytes = codec::to_bytes_canonical(&policy).unwrap();
-            genesis_state.insert(
-                std::str::from_utf8(GOVERNANCE_KEY).unwrap().to_string(),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(policy_bytes))),
-            );
+            builder.set_governance_policy(&policy);
 
-            // --- DUMMY PROPOSAL ---
+            // 5. Dummy Proposal
             let proposal = Proposal {
                 id: 1,
                 title: "Test Proposal".to_string(),
@@ -164,9 +142,10 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                 total_deposit: 10000,
                 final_tally: None,
             };
-            // Note: We must write this to the governance service namespace
+
+            // We must write this to the governance service namespace
             let proposal_key_bytes = [
-                ioi_api::state::service_namespace_prefix("governance").as_slice(),
+                service_namespace_prefix("governance").as_slice(),
                 GOVERNANCE_PROPOSAL_KEY_PREFIX,
                 &1u64.to_le_bytes(),
             ]
@@ -175,13 +154,11 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                 value: codec::to_bytes_canonical(&proposal).unwrap(),
                 block_height: 0,
             };
-            let entry_bytes = codec::to_bytes_canonical(&entry).unwrap();
-            genesis_state.insert(
-                format!("b64:{}", BASE64_STANDARD.encode(proposal_key_bytes)),
-                json!(format!("b64:{}", BASE64_STANDARD.encode(&entry_bytes))),
-            );
 
-            // --- BLOCK TIMING ---
+            // Use typed insertion (value is StateEntry, key is raw bytes)
+            builder.insert_typed(proposal_key_bytes, &entry);
+
+            // 6. Block Timing
             let timing_params = BlockTimingParams {
                 base_interval_secs: 5,
                 min_interval_secs: 1,
@@ -195,24 +172,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                 ema_gas_used: 0,
                 effective_interval_secs: timing_params.base_interval_secs,
             };
-            genesis_state.insert(
-                std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
-                )),
-            );
-            genesis_state.insert(
-                std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
-                    .unwrap()
-                    .to_string(),
-                json!(format!(
-                    "b64:{}",
-                    BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
-                )),
-            );
+            builder.set_block_timing(&timing_params, &timing_runtime);
         })
         // The governance service must be enabled for the vote transaction to succeed.
         .with_initial_service(InitialServiceConfig::Governance(GovernanceParams::default()))

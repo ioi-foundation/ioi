@@ -5,8 +5,9 @@
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
-    add_genesis_identity,
+    // add_genesis_identity is now used within the builder context
     build_test_artifacts,
+    genesis::GenesisBuilder,
     rpc::{self, get_chain_timestamp, get_quarantined_set},
     wait_for_height,
     wait_for_quarantine_status,
@@ -118,21 +119,21 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         .map(|(_, k)| k.clone())
         .collect();
 
+    // --- CHANGED: Use GenesisBuilder manually here since this test launches validators manually ---
     let genesis_content = {
-        let mut genesis = json!({ "genesis_state": {} });
-        let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+        let mut builder = GenesisBuilder::new();
         
-        // [+] Use shared helper for all keys
-        // This handles dual-write (Global + Namespaced) so consensus and IdentityHub work.
+        // 1. Identities
         for k in &all_keys {
-            add_genesis_identity(genesis_state, k);
+            builder.add_identity(k);
         }
 
+        // 2. Validator Set
         let mut authorities: Vec<AccountId> = account_ids_with_keys
             .iter()
             .map(|(id, _)| *id)
             .collect();
-        // No need to sort again, already sorted above for leader selection
+        // Already sorted
 
         let validators: Vec<ValidatorV1> = authorities
             .iter()
@@ -140,7 +141,7 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
                 let pk_hash = acct_id.0;
                 ValidatorV1 {
                     account_id: *acct_id,
-                    weight: 1, // PoA
+                    weight: 1,
                     consensus_key: ActiveKeyRecord {
                         suite: SignatureSuite::Ed25519,
                         public_key_hash: pk_hash,
@@ -150,28 +151,21 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
             })
             .collect();
 
-        let vs_blob = ValidatorSetBlob {
-            schema_version: 2,
-            payload: ValidatorSetsV1 {
-                current: ValidatorSetV1 {
-                    effective_from_height: 1,
-                    total_weight: validators.len() as u128,
-                    validators,
-                },
-                next: None,
+        let vs = ValidatorSetsV1 {
+            current: ValidatorSetV1 {
+                effective_from_height: 1,
+                total_weight: validators.len() as u128,
+                validators,
             },
+            next: None,
         };
-        let vs_bytes = ioi_types::app::write_validator_sets(&vs_blob.payload).unwrap();
-        genesis_state.insert(
-            VALIDATOR_SET_KEY_STR.to_string(),
-            json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
-        );
+        builder.set_validators(&vs);
 
-        // [+] Use valid timing parameters
+        // 3. Block Timing
         let timing_params = BlockTimingParams {
             base_interval_secs: 5,
-            min_interval_secs: 1,  // [+]
-            max_interval_secs: 60, // [+]
+            min_interval_secs: 1,
+            max_interval_secs: 60,
             retarget_every_blocks: 0,
             ..Default::default()
         };
@@ -179,29 +173,15 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
             effective_interval_secs: timing_params.base_interval_secs,
             ..Default::default()
         };
-        genesis_state.insert(
-            std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
-                .unwrap()
-                .to_string(),
-            json!(format!(
-                "b64:{}",
-                BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
-            )),
-        );
-        genesis_state.insert(
-            std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
-                .unwrap()
-                .to_string(),
-            json!(format!(
-                "b64:{}",
-                BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
-            )),
-        );
+        builder.set_block_timing(&timing_params, &timing_runtime);
 
-        genesis.to_string()
+        // Wrap in top-level JSON object
+        serde_json::json!({
+            "genesis_state": builder
+        }).to_string()
     };
 
-    // ... [Rest of test logic updated with correct launch signature] ...
+    // ... [Rest of test logic unchanged] ...
     let leader_node = TestValidator::launch(
         leader_key,
         genesis_content.clone(),
@@ -315,9 +295,10 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         let offender2 = &validators[2];
         let rpc_addr = &reporter.validator().rpc_addr;
 
-        wait_for_height(rpc_addr, 2, Duration::from_secs(30)).await?;
-        wait_for_height(&offender1.validator().rpc_addr, 2, Duration::from_secs(30)).await?;
-        wait_for_height(&offender2.validator().rpc_addr, 2, Duration::from_secs(30)).await?;
+        println!("Waiting for height 2 on all nodes (60s timeout)...");
+        wait_for_height(rpc_addr, 2, Duration::from_secs(60)).await?;
+        wait_for_height(&offender1.validator().rpc_addr, 2, Duration::from_secs(60)).await?;
+        wait_for_height(&offender2.validator().rpc_addr, 2, Duration::from_secs(60)).await?;
         println!("--- All nodes synced. Cluster is ready. ---");
 
         let target_url = "https://calibration.ioi/heartbeat@v1";

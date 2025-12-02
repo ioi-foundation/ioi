@@ -9,7 +9,7 @@ use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_api::state::service_namespace_prefix;
 use ioi_forge::testing::{
-    add_genesis_identity, assert_log_contains, build_test_artifacts, rpc, wait_for_height,
+    assert_log_contains, build_test_artifacts, genesis::GenesisBuilder, rpc, wait_for_height,
     TestCluster, TestValidator, ValidatorGuard,
 };
 // [+] Import VoteParams
@@ -30,11 +30,8 @@ use ioi_types::{
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
-use serde_json::{json, Value};
-use std::collections::BTreeMap;
+use serde_json::json;
 use std::time::Duration;
-
-// ... [create_dummy_tx remains unchanged] ...
 
 fn create_dummy_tx(keypair: &Keypair, nonce: u64, chain_id: ChainId) -> Result<ChainTransaction> {
     let vote_yes = (nonce & 1) == 0;
@@ -86,14 +83,11 @@ async fn test_multi_batch_sync() -> Result<()> {
     #[cfg(not(feature = "consensus-pos"))]
     let (consensus_type, initial_weight) = ("ProofOfAuthority", 1u128);
 
-    let genesis_modifier = move |genesis: &mut serde_json::Value, keys: &Vec<Keypair>| {
-        // [+] Specify types for BTreeMap to resolve inference error
-        let mut genesis_entries: BTreeMap<String, Value> = BTreeMap::new();
-        let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+    let genesis_modifier = move |builder: &mut GenesisBuilder, keys: &Vec<Keypair>| {
         let mut validators = Vec::new();
 
         for key in keys {
-            let account_id = add_genesis_identity(genesis_state, key);
+            let account_id = builder.add_identity(key);
 
             validators.push(ValidatorV1 {
                 account_id,
@@ -107,20 +101,15 @@ async fn test_multi_batch_sync() -> Result<()> {
         }
         validators.sort_by(|a, b| a.account_id.cmp(&b.account_id));
 
-        let vs = ValidatorSetV1 {
-            effective_from_height: 1,
-            total_weight: validators.iter().map(|v| v.weight).sum(),
-            validators,
-        };
-        let vs_bytes = ioi_types::app::write_validator_sets(&ValidatorSetsV1 {
-            current: vs,
+        let vs = ValidatorSetsV1 {
+            current: ValidatorSetV1 {
+                effective_from_height: 1,
+                total_weight: validators.iter().map(|v| v.weight).sum(),
+                validators,
+            },
             next: None,
-        })
-        .unwrap();
-        genesis_entries.insert(
-            std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-            json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
-        );
+        };
+        builder.set_validators(&vs);
 
         // Add dummy proposal
         let proposal = Proposal {
@@ -147,11 +136,7 @@ async fn test_multi_batch_sync() -> Result<()> {
             value: codec::to_bytes_canonical(&proposal).unwrap(),
             block_height: 0,
         };
-        let entry_bytes = codec::to_bytes_canonical(&entry).unwrap();
-        genesis_entries.insert(
-            format!("b64:{}", BASE64_STANDARD.encode(proposal_key_bytes)),
-            json!(format!("b64:{}", BASE64_STANDARD.encode(&entry_bytes))),
-        );
+        builder.insert_typed(proposal_key_bytes, &entry);
 
         let timing_params = BlockTimingParams {
             base_interval_secs: 5,
@@ -162,29 +147,7 @@ async fn test_multi_batch_sync() -> Result<()> {
             effective_interval_secs: timing_params.base_interval_secs,
             ..Default::default()
         };
-
-        genesis_entries.insert(
-            std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
-                .unwrap()
-                .to_string(),
-            json!(format!(
-                "b64:{}",
-                BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
-            )),
-        );
-        genesis_entries.insert(
-            std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
-                .unwrap()
-                .to_string(),
-            json!(format!(
-                "b64:{}",
-                BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
-            )),
-        );
-
-        for (k, v) in genesis_entries {
-            genesis_state.insert(k, v);
-        }
+        builder.set_block_timing(&timing_params, &timing_runtime);
     };
 
     // ... [Rest of test logic remains the same] ...
@@ -251,12 +214,11 @@ async fn test_sync_with_peer_drop() -> Result<()> {
     #[cfg(not(feature = "consensus-pos"))]
     let (consensus_type, initial_weight) = ("ProofOfAuthority", 1u128);
 
-    let genesis_modifier = move |genesis: &mut serde_json::Value, keys: &Vec<Keypair>| {
-        let genesis_state = genesis["genesis_state"].as_object_mut().unwrap();
+    let genesis_modifier = move |builder: &mut GenesisBuilder, keys: &Vec<Keypair>| {
         let mut validators = Vec::new();
 
         for key in keys {
-            let account_id = add_genesis_identity(genesis_state, key);
+            let account_id = builder.add_identity(key);
             validators.push(ValidatorV1 {
                 account_id,
                 weight: initial_weight,
@@ -269,20 +231,15 @@ async fn test_sync_with_peer_drop() -> Result<()> {
         }
         validators.sort_by(|a, b| a.account_id.cmp(&b.account_id));
 
-        let vs = ValidatorSetV1 {
-            effective_from_height: 1,
-            total_weight: validators.iter().map(|v| v.weight).sum(),
-            validators,
-        };
-        let vs_bytes = ioi_types::app::write_validator_sets(&ValidatorSetsV1 {
-            current: vs,
+        let vs = ValidatorSetsV1 {
+            current: ValidatorSetV1 {
+                effective_from_height: 1,
+                total_weight: validators.iter().map(|v| v.weight).sum(),
+                validators,
+            },
             next: None,
-        })
-        .unwrap();
-        genesis_state.insert(
-            std::str::from_utf8(VALIDATOR_SET_KEY).unwrap().to_string(),
-            json!(format!("b64:{}", BASE64_STANDARD.encode(vs_bytes))),
-        );
+        };
+        builder.set_validators(&vs);
 
         let proposal = Proposal {
             id: 1,
@@ -308,11 +265,7 @@ async fn test_sync_with_peer_drop() -> Result<()> {
             value: codec::to_bytes_canonical(&proposal).unwrap(),
             block_height: 0,
         };
-        let entry_bytes = codec::to_bytes_canonical(&entry).unwrap();
-        genesis_state.insert(
-            format!("b64:{}", BASE64_STANDARD.encode(proposal_key_bytes)),
-            json!(format!("b64:{}", BASE64_STANDARD.encode(&entry_bytes))),
-        );
+        builder.insert_typed(proposal_key_bytes, &entry);
 
         let timing_params = BlockTimingParams {
             base_interval_secs: 5,
@@ -323,25 +276,7 @@ async fn test_sync_with_peer_drop() -> Result<()> {
             effective_interval_secs: timing_params.base_interval_secs,
             ..Default::default()
         };
-
-        genesis_state.insert(
-            std::str::from_utf8(BLOCK_TIMING_PARAMS_KEY)
-                .unwrap()
-                .to_string(),
-            json!(format!(
-                "b64:{}",
-                BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_params).unwrap())
-            )),
-        );
-        genesis_state.insert(
-            std::str::from_utf8(BLOCK_TIMING_RUNTIME_KEY)
-                .unwrap()
-                .to_string(),
-            json!(format!(
-                "b64:{}",
-                BASE64_STANDARD.encode(codec::to_bytes_canonical(&timing_runtime).unwrap())
-            )),
-        );
+        builder.set_block_timing(&timing_params, &timing_runtime);
     };
 
     // ... [Rest of test unchanged] ...
