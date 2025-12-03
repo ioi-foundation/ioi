@@ -3,7 +3,6 @@
 #![cfg(all(feature = "consensus-poa", feature = "vm-wasm"))]
 
 use anyhow::{anyhow, Result};
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
     // add_genesis_identity is now used within the builder context
     build_test_artifacts,
@@ -13,24 +12,19 @@ use ioi_forge::testing::{
     wait_for_quarantine_status,
     TestValidator, 
 };
-use ioi_system::keys::VALIDATOR_SET_KEY_STR;
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
         BlockTimingRuntime, ChainId, ChainTransaction, FailureReport, OffenseFacts,
         OffenseType, ReportMisbehaviorParams, SignHeader, SignatureProof, SignatureSuite,
-        SystemPayload, SystemTransaction, ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1,
+        SystemPayload, SystemTransaction, ValidatorSetV1, ValidatorSetsV1,
         ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
-    keys::{
-        BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY,
-    },
     service_configs::{GovernanceParams, MigrationConfig},
 };
 use libp2p::identity::{self, Keypair};
-use serde_json::json;
 use std::time::Duration;
 use tokio::time;
 
@@ -129,7 +123,7 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         }
 
         // 2. Validator Set
-        let mut authorities: Vec<AccountId> = account_ids_with_keys
+        let authorities: Vec<AccountId> = account_ids_with_keys
             .iter()
             .map(|(id, _)| *id)
             .collect();

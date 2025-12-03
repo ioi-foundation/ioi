@@ -10,7 +10,8 @@ use ioi_api::vm::{ExecutionContext, VirtualMachine};
 use ioi_types::{
     app::ChainTransaction,
     codec::{self, to_bytes_canonical},
-    error::{StateError, TransactionError, UpgradeError, VmError},
+    // [FIXED] Removed unused VmError
+    error::{StateError, TransactionError, UpgradeError},
     service_configs::Capabilities,
 };
 use parity_scale_codec::{Decode, Encode};

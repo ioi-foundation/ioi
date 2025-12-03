@@ -14,9 +14,16 @@ use ioi_execution::ExecutionMachine;
 use ioi_ipc::jsonrpc::{JsonRpcError, JsonRpcId, JsonRpcRequest, JsonRpcResponse};
 use methods::{
     chain::{
-        CheckTransactionsV1, GetAuthoritySetV1, GetBlockByHeightV1, GetBlocksRangeV1,
-        GetLastBlockHashV1, GetNextValidatorSetV1, GetValidatorSetAtV1, GetValidatorSetForV1,
+        CheckTransactionsV1,
+        GetAuthoritySetV1,
+        GetBlockByHeightV1,
+        GetBlocksRangeV1,
+        GetLastBlockHashV1,
+        GetNextValidatorSetV1,
+        GetValidatorSetAtV1,
+        GetValidatorSetForV1,
         ProcessBlockV1,
+        UpdateBlockHeaderV1, // [NEW] Imported UpdateBlockHeaderV1
     },
     contract::{CallContractV1, DeployContractV1, QueryContractV1},
     staking::{GetNextStakesV1, GetStakesV1},
@@ -148,6 +155,7 @@ where
         router.add_method(DebugPinHeightV1::<CS, ST>::default());
         router.add_method(DebugUnpinHeightV1::<CS, ST>::default());
         router.add_method(DebugTriggerGcV1::<CS, ST>::default());
+        router.add_method(UpdateBlockHeaderV1::<CS, ST>::default()); // [NEW] Registered handler
 
         Ok(Self {
             address,

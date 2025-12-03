@@ -11,11 +11,12 @@ pub mod assert;
 pub mod build;
 pub mod cluster;
 pub mod docker;
-// [+] Add genesis module
 pub mod genesis;
 pub mod validator;
+// [RENAMED]
+pub mod signing_oracle;
 
-// Re-export public items to preserve the API and avoid breaking changes in tests.
+// Re-export public items
 pub use assert::{
     assert_log_contains, assert_log_contains_and_return_line, confirm_proposal_passed_state,
     wait_for, wait_for_contract_deployment, wait_for_evidence, wait_for_height,
@@ -24,7 +25,8 @@ pub use assert::{
 };
 pub use build::build_test_artifacts;
 pub use cluster::{TestCluster, TestClusterBuilder};
-// [+] Export genesis helpers
 pub use genesis::{add_genesis_identity, add_genesis_identity_custom};
 pub use rpc::{submit_transaction, submit_transaction_no_wait};
+// [RENAMED] Re-export SigningOracleGuard
+pub use signing_oracle::SigningOracleGuard;
 pub use validator::{TestValidator, ValidatorGuard};

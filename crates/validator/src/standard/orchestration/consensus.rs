@@ -20,15 +20,14 @@ use ioi_types::{
     codec,
     keys::VALIDATOR_SET_KEY,
 };
-// Removed unused import: use libp2p::PeerId;
 use serde::Serialize;
 use std::collections::{HashSet, VecDeque};
 use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
 
-// A type alias for the complex signature function to resolve the `type_complexity` lint.
-type SignatureFn = Box<dyn Fn(&[u8]) -> Result<Vec<u8>> + Send>;
+// [FIX] Import GuardianSigner trait to use the signer instance
+use crate::common::GuardianSigner;
 
 /// Drive one consensus tick without holding the MainLoopContext lock across awaits.
 pub async fn drive_consensus_tick<CS, ST, CE, V>(
@@ -51,6 +50,8 @@ where
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
 {
     let _tick_timer = ioi_telemetry::time::Timer::new(metrics());
+
+    // [FIX] Explicitly type the extracted tuple to help inference
     let (
         cons_ty,
         view_resolver,
@@ -62,6 +63,7 @@ where
         pqc_signer,
         last_committed_block_opt,
         node_state_arc,
+        signer,
     ) = {
         let ctx = context_arc.lock().await;
         (
@@ -75,9 +77,16 @@ where
             ctx.pqc_signer.clone(),
             ctx.last_committed_block.clone(),
             ctx.node_state.clone(),
+            ctx.signer.clone(),
         )
     };
-    let node_state = node_state_arc.lock().await.clone();
+
+    // [FIX] Separate lock from clone to help inference
+    let node_state = {
+        let guard = node_state_arc.lock().await;
+        guard.clone()
+    };
+
     let parent_h = last_committed_block_opt
         .as_ref()
         .map(|b| b.header.height)
@@ -113,9 +122,11 @@ where
         resolve_parent_ref_and_anchor(&last_committed_block_opt, view_resolver.as_ref()).await?;
 
     let decision = {
+        // [FIX] Resolve view first
         let parent_view = view_resolver.resolve_anchored(&parent_ref).await?;
         let mut engine = consensus_engine_ref.lock().await;
         let known_peers = known_peers_ref.lock().await;
+        // [FIX] Deref parent_view explicitly for the trait object
         engine
             .decide(&our_account_id, producing_h, 0, &*parent_view, &known_peers)
             .await
@@ -125,7 +136,7 @@ where
 
     if let ioi_api::consensus::ConsensusDecision::ProduceBlock {
         expected_timestamp_secs,
-        view, // <--- Extract view from decision
+        view,
         ..
     } = decision
     {
@@ -143,8 +154,6 @@ where
         tracing::info!(target: "consensus", event = "producing_block", height = producing_h, num_txs = valid_txs.len());
 
         // --- Step 3: Determine Validator Set & Signer ---
-        // We need to resolve the validator set *before* we construct the block template
-        // so we can embed the correct set in the header.
         let parent_view = view_resolver.resolve_anchored(&parent_ref).await?;
         let vs_bytes = parent_view
             .get(VALIDATOR_SET_KEY)
@@ -169,29 +178,18 @@ where
             return Ok(());
         };
 
-        let (producer_key_suite, producer_pubkey, signature_fn): (
-            SignatureSuite,
-            Vec<u8>,
-            SignatureFn,
-        ) = match me.consensus_key.suite {
-            SignatureSuite::Ed25519 => {
-                let pk = local_keypair.public().encode_protobuf();
-                (
-                    SignatureSuite::Ed25519,
-                    pk,
-                    Box::new(move |msg: &[u8]| Ok(local_keypair.sign(msg)?)) as SignatureFn,
-                )
-            }
+        // Determine keys for the header
+        let (producer_key_suite, producer_pubkey) = match me.consensus_key.suite {
+            SignatureSuite::Ed25519 => (
+                SignatureSuite::Ed25519,
+                local_keypair.public().encode_protobuf(),
+            ),
             SignatureSuite::Dilithium2 => {
-                let kp = pqc_signer.clone().ok_or_else(|| {
+                // [FIX] Help inference for pqc_signer
+                let kp = pqc_signer.as_ref().ok_or_else(|| {
                     anyhow!("Dilithium required by validator set, but no PQC signer configured")
                 })?;
-                let pk = kp.public_key().to_bytes();
-                (
-                    SignatureSuite::Dilithium2,
-                    pk,
-                    Box::new(move |msg: &[u8]| Ok(kp.sign(msg)?.to_bytes())) as SignatureFn,
-                )
+                (SignatureSuite::Dilithium2, kp.public_key().to_bytes())
             }
         };
 
@@ -202,19 +200,21 @@ where
         let new_block_template = Block {
             header: BlockHeader {
                 height: producing_h,
-                view, // <--- Use view
+                view,
                 parent_hash: parent_ref.block_hash,
                 parent_state_root: ioi_types::app::StateRoot(parent_ref.state_root.clone()),
                 state_root: ioi_types::app::StateRoot(vec![]),
-                transactions_root: vec![0; 32], // Will be computed by Workload
+                transactions_root: vec![0; 32], // Computed by Workload
                 timestamp: expected_timestamp_secs,
-                gas_used: 0, // Will be computed by Workload
+                gas_used: 0, // Computed by Workload
                 validator_set: header_validator_set,
                 producer_account_id: our_account_id,
                 producer_key_suite,
                 producer_pubkey_hash,
-                producer_pubkey,
-                signature: vec![], // Will be signed in finalization
+                producer_pubkey: producer_pubkey.to_vec(), // [FIX] Ensure Vec<u8>
+                signature: vec![],                         // Computed in finalization
+                oracle_counter: 0,
+                oracle_trace_hash: [0u8; 32],
             },
             transactions: valid_txs,
         };
@@ -226,7 +226,7 @@ where
                 finalize_and_broadcast_block(
                     context_arc,
                     final_block,
-                    signature_fn,
+                    signer, // [FIX] Pass the GuardianSigner
                     &swarm_commander,
                     &consensus_engine_ref,
                     &tx_pool_ref,
@@ -285,7 +285,6 @@ where
 }
 
 /// EXTRACTED: Mempool Pre-check Logic
-/// Fetches transactions, validates them against the parent state, and prunes invalid ones.
 async fn gather_valid_transactions<V>(
     view_resolver: &Arc<dyn ViewResolver<Verifier = V>>,
     tx_pool_ref: &Arc<Mutex<VecDeque<(ChainTransaction, TxHash)>>>,
@@ -326,7 +325,6 @@ where
                     .cloned()
                     .unwrap_or_else(|| "Unknown pre-check failure".into());
 
-                // Log details for debugging
                 let (signer, nonce, payload_kind) = match tx {
                     ChainTransaction::System(s) => {
                         let SystemPayload::CallService {
@@ -382,7 +380,6 @@ where
         }
     }
 
-    // Prune invalid transactions from the pool
     if !invalid_tx_hashes.is_empty() {
         let mut pool = tx_pool_ref.lock().await;
         pool.retain(|(_tx, hash)| !invalid_tx_hashes.contains(hash));
@@ -393,11 +390,10 @@ where
 }
 
 /// EXTRACTED: Block Finalization Logic
-/// Signs the block, updates local state, broadcasts, cleans mempool, and resets consensus.
 async fn finalize_and_broadcast_block<CS, ST, CE, V>(
     context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
     mut final_block: Block<ChainTransaction>,
-    signature_fn: SignatureFn,
+    signer: Arc<dyn GuardianSigner>, // [FIX] Use the trait object
     swarm_commander: &mpsc::Sender<SwarmCommand>,
     consensus_engine_ref: &Arc<Mutex<CE>>,
     tx_pool_ref: &Arc<Mutex<VecDeque<(ChainTransaction, TxHash)>>>,
@@ -421,7 +417,29 @@ where
 
     // 1. Sign the block
     let preimage = final_block.header.to_preimage_for_signing()?;
-    final_block.header.signature = signature_fn(&preimage)?;
+    // Hash the preimage first, as the signer expects a 32-byte hash
+    let preimage_hash = ioi_crypto::algorithms::hash::sha256(&preimage)?;
+
+    let bundle = signer.sign_consensus_payload(preimage_hash).await?;
+
+    final_block.header.signature = bundle.signature;
+    final_block.header.oracle_counter = bundle.counter;
+    final_block.header.oracle_trace_hash = bundle.trace_hash;
+
+    // [NEW] Persist the fully signed block back to Workload storage
+    // This prevents the workload from serving an unsigned/unverified block on restart or query.
+    {
+        let workload_client = context_arc
+            .lock()
+            .await
+            .view_resolver
+            .workload_client()
+            .clone();
+        workload_client
+            .update_block_header(final_block.clone())
+            .await
+            .map_err(|e| anyhow!("Failed to update block header in workload: {}", e))?;
+    }
 
     // 2. Update Context (Last Committed Block)
     {

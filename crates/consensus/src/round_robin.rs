@@ -234,23 +234,32 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         let preimage = header.to_preimage_for_signing().map_err(|e| {
             ConsensusError::BlockVerificationFailed(format!("Failed to create preimage: {}", e))
         })?;
+
+        // [FIXED] Pass oracle_counter and oracle_trace_hash to verify_signature
         verify_signature(
             &preimage,
             pubkey,
             header.producer_key_suite,
             &header.signature,
+            header.oracle_counter,
+            &header.oracle_trace_hash,
         )?;
 
         // For RoundRobin, leader depends on view.
         // Check that the producer corresponds to the leader for the view in the header.
         let leader_index = ((header.height + header.view)
-             .checked_rem(validator_set.len() as u64)
-             .unwrap_or(0)) as usize;
-        
-        let expected_leader = validator_set.get(leader_index).ok_or(ConsensusError::BlockVerificationFailed("Leader index out of bounds".into()))?;
-        
+            .checked_rem(validator_set.len() as u64)
+            .unwrap_or(0)) as usize;
+
+        let expected_leader =
+            validator_set
+                .get(leader_index)
+                .ok_or(ConsensusError::BlockVerificationFailed(
+                    "Leader index out of bounds".into(),
+                ))?;
+
         if *expected_leader != header.producer_account_id {
-             return Err(ConsensusError::InvalidLeader {
+            return Err(ConsensusError::InvalidLeader {
                 expected: *expected_leader,
                 got: header.producer_account_id,
             });
