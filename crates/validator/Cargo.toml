@@ -53,6 +53,7 @@ cfg-if = "1.0"
 dashmap = { workspace = true }
 # [FIX] Added reqwest for RemoteSigner
 reqwest = { version = "0.11", features = ["json"] }
+dcrypt = { workspace = true }
 
 # FIX: Add the missing dependency for TxContext's timestamp.
 ibc-primitives = { workspace = true }
@@ -70,6 +71,10 @@ ipnetwork = "0.20"
 
 # [FIX] Added zk-driver-succinct for ethereum-zk feature
 zk-driver-succinct = { path = "../zk-driver-succinct", optional = true }
+
+# [NEW] Dependencies for secure key loading
+rpassword = "7.0"
+atty = "0.2"
 
 [features]
 default = []

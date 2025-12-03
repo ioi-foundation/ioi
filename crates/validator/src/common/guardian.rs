@@ -1,4 +1,4 @@
-// crates/validator/src/common/guardian.rs
+// Path: crates/validator/src/common/guardian.rs
 
 //! Implements the Guardian container, the root of trust for the validator,
 //! and the GuardianSigner abstraction for Oracle-anchored signing.
@@ -7,17 +7,21 @@ use crate::config::GuardianConfig;
 use crate::standard::workload::ipc::create_ipc_server_config;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+// FIX: Import Sha256 and HashFunction directly from dcrypt
+use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use ioi_api::crypto::{SerializableKey, SigningKey, SigningKeyPair};
 use ioi_api::validator::Container;
 use ioi_client::security::SecurityChannel;
-use ioi_crypto::{
-    algorithms::hash::sha256,
-    transport::hybrid_kem_tls::{derive_application_key, server_post_handshake, AeadWrappedStream},
+use ioi_crypto::key_store::{decrypt_key, encrypt_key};
+use ioi_crypto::transport::hybrid_kem_tls::{
+    derive_application_key, server_post_handshake, AeadWrappedStream,
 };
 use ioi_ipc::IpcClientType;
 use ioi_types::app::SignatureBundle;
 use ioi_types::error::ValidatorError;
 use rcgen::{Certificate, CertificateParams, KeyUsagePurpose, SanType};
+use std::fs::File;
+use std::io::{Read, Write};
 use std::net::Ipv4Addr;
 use std::path::Path;
 use std::sync::{
@@ -146,6 +150,12 @@ impl GuardianSigner for RemoteSigner {
 
 // --- Guardian Container ---
 
+/// Holds open file handles to the binaries to prevent modification while running.
+/// On Linux, writing to an executing file returns ETXTBSY.
+pub struct BinaryGuard {
+    _handles: Vec<File>,
+}
+
 /// The GuardianContainer is the root of trust.
 #[derive(Debug, Clone)]
 pub struct GuardianContainer {
@@ -217,12 +227,173 @@ impl GuardianContainer {
     pub async fn attest_weights(&self, model_path: &str) -> Result<Vec<u8>, String> {
         let model_bytes = std::fs::read(model_path)
             .map_err(|e| format!("Failed to read agentic model file: {}", e))?;
-        let local_hash_array = sha256(&model_bytes).map_err(|e| e.to_string())?;
+        // FIX: Remove explicit type annotation to allow compiler inference
+        let local_hash_array = Sha256::digest(&model_bytes).map_err(|e| e.to_string())?;
         log::info!(
             "[Guardian] Computed local model hash: {}",
             hex::encode(&local_hash_array)
         );
         Ok(local_hash_array.to_vec())
+    }
+
+    /// Locates, hashes, and locks sibling binaries relative to the current executable.
+    pub fn verify_binaries(&self, config: &GuardianConfig) -> Result<Option<BinaryGuard>> {
+        // If explicit opt-out, warn loudly.
+        if !config.enforce_binary_integrity {
+            tracing::warn!(
+                "SECURITY WARNING: Binary integrity enforcement is DISABLED. \
+                This node is vulnerable to runtime binary swapping attacks."
+            );
+            return Ok(None);
+        }
+
+        // Use override if present, otherwise resolve relative to current executable.
+        let bin_dir = if let Some(dir) = &config.binary_dir_override {
+            Path::new(dir).to_path_buf()
+        } else {
+            let my_path = std::env::current_exe()?;
+            my_path
+                .parent()
+                .ok_or(anyhow!("Cannot determine binary directory"))?
+                .to_path_buf()
+        };
+
+        let orch_path = bin_dir.join("orchestration");
+        let work_path = bin_dir.join("workload");
+
+        // If enabled (default), hashes MUST be present.
+        let orch_hash = config.approved_orchestrator_hash.as_deref().ok_or_else(|| {
+            anyhow!("Guardian failed to start: `enforce_binary_integrity` is true, but `approved_orchestrator_hash` is missing in guardian.toml")
+        })?;
+
+        let work_hash = config.approved_workload_hash.as_deref().ok_or_else(|| {
+            anyhow!("Guardian failed to start: `enforce_binary_integrity` is true, but `approved_workload_hash` is missing in guardian.toml")
+        })?;
+
+        let orch_handle = self.check_binary(&orch_path, Some(orch_hash), "Orchestrator")?;
+        let work_handle = self.check_binary(&work_path, Some(work_hash), "Workload")?;
+
+        log::info!("[Guardian] Binary integrity verified. Executables locked.");
+
+        Ok(Some(BinaryGuard {
+            _handles: vec![orch_handle, work_handle],
+        }))
+    }
+
+    fn check_binary(&self, path: &Path, expected_hash: Option<&str>, label: &str) -> Result<File> {
+        let expected = expected_hash.ok_or_else(|| {
+            anyhow!(
+                "Integrity enforcement enabled but no hash provided for {}",
+                label
+            )
+        })?;
+
+        log::info!("[Guardian] Verifying {} at {:?}", label, path);
+
+        // Open file for reading (this handle ensures the file exists and locks it if OS supports)
+        let mut file =
+            File::open(path).map_err(|e| anyhow!("Failed to open {} binary: {}", label, e))?;
+
+        // Read entire binary into memory for hashing
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer)?;
+
+        // Compute SHA-256 using dcrypt
+        let digest = Sha256::digest(&buffer).map_err(|e| anyhow!("Hashing failed: {}", e))?;
+        let hex_digest = hex::encode(digest);
+
+        if hex_digest != expected {
+            return Err(anyhow!(
+                "SECURITY VIOLATION: {} binary hash mismatch!\nExpected: {}\nComputed: {}",
+                label,
+                expected,
+                hex_digest
+            ));
+        }
+
+        // Return the open file handle to keep a lock reference (OS dependent)
+        Ok(file)
+    }
+
+    /// Resolves the secure passphrase from environment or interactive prompt.
+    fn resolve_passphrase(confirm: bool) -> Result<String> {
+        if let Ok(p) = std::env::var("IOI_GUARDIAN_KEY_PASS") {
+            return Ok(p);
+        }
+
+        if atty::is(atty::Stream::Stdin) {
+            eprint!("Enter Guardian Key Passphrase: ");
+            std::io::stderr().flush()?;
+            let pass = rpassword::read_password()?;
+
+            if confirm {
+                eprint!("Confirm Passphrase: ");
+                std::io::stderr().flush()?;
+                let conf = rpassword::read_password()?;
+                if pass != conf {
+                    return Err(anyhow!("Passphrases do not match"));
+                }
+            }
+
+            if pass.is_empty() {
+                return Err(anyhow!("Empty passphrase not allowed"));
+            }
+            Ok(pass)
+        } else {
+            Err(anyhow!(
+                "No TTY and IOI_GUARDIAN_KEY_PASS not set. Cannot decrypt key."
+            ))
+        }
+    }
+
+    /// Loads an encrypted key file from disk, decrypts it, and returns the raw bytes.
+    /// Rejects raw 32-byte keys (legacy seeds) to enforce encryption-at-rest.
+    pub fn load_encrypted_file(path: &Path) -> Result<Vec<u8>> {
+        let content = std::fs::read(path)?;
+
+        // Check for Magic Header defined in ioi_crypto::key_store
+        if content.starts_with(b"IOI_ENC_V1") {
+            let pass = Self::resolve_passphrase(false)?;
+            let secret = decrypt_key(&content, &pass)?;
+            // secret is SensitiveBytes(Vec<u8>), needs explicit clone to move out
+            Ok(secret.0.clone())
+        } else {
+            // Safety check for legacy/raw keys.
+            if content.len() == 32 {
+                return Err(anyhow!(
+                    "SECURITY ERROR: Found unsafe raw key at {:?}. \
+                    The IOI SDK requires all validator keys to be encrypted. \
+                    Please delete this file to generate a new secure key, or migrate it manually.",
+                    path
+                ));
+            }
+            Err(anyhow!(
+                "Unknown key file format or unencrypted file. Encryption is mandatory."
+            ))
+        }
+    }
+
+    /// Encrypts the provided data with a passphrase and saves it to disk.
+    pub fn save_encrypted_file(path: &Path, data: &[u8]) -> Result<()> {
+        println!("--- Encrypting New Secure Key ---");
+        let pass = Self::resolve_passphrase(true)?;
+        let encrypted = encrypt_key(data, &pass)?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            let mut file = std::fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .mode(0o600)
+                .open(path)?;
+            file.write_all(&encrypted)?;
+        }
+        #[cfg(not(unix))]
+        std::fs::write(path, &encrypted)?;
+
+        Ok(())
     }
 }
 

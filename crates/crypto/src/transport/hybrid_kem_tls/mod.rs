@@ -257,7 +257,9 @@ impl<S: AsyncRead + Unpin> AsyncRead for AeadWrappedStream<S> {
                     debug_assert_eq!(*have, *need);
 
                     let nonce = nonce_from_counter(me.recv_nonce);
-                    let ciphertext_obj = dcrypt::api::types::Ciphertext::new(buf);
+                    // FIX: Use std::mem::take to move the vector out of the mutable reference,
+                    // satisfying the Into<Vec<u8>> trait bound.
+                    let ciphertext_obj = dcrypt::api::types::Ciphertext::new(std::mem::take(buf));
                     let pt = SymmetricCipher::decrypt(&me.cipher)
                         .with_nonce(&nonce)
                         .decrypt(&ciphertext_obj)

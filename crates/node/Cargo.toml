@@ -45,7 +45,6 @@ hex = { workspace = true }
 libp2p = { workspace = true }
 log = { workspace = true }
 tracing = { workspace = true }
-# [FIX] Added tracing-subscriber
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 tokio = { workspace = true, features = ["full"] }
 tokio-rustls = { workspace = true }
@@ -58,12 +57,15 @@ axum = { workspace = true }
 serde = { workspace = true }
 serde_jcs = "0.1.0"
 rand = { workspace = true }
-# [FIX] Added dcrypt explicitly
 dcrypt = { workspace = true }
 
-# [NEW] Dependencies for ioi-signer
+# Dependencies for ioi-signer and Oracle
 warp = "0.3"
 libc = "0.2"
+
+# [NEW] Dependencies for Guardian Key Encryption (Terminal I/O)
+rpassword = "7.0"
+atty = "0.2"
 
 [features]
 default = []

@@ -117,3 +117,5 @@ ethereum-zk = []
 # Feature for building the malicious binary for testing
 # This does not need to be propagated, as the test runner handles it.
 malicious-bin = []
+
+validator-bins = ["ioi-validator/validator-bins"]

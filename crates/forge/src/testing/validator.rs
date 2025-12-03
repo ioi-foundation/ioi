@@ -247,8 +247,20 @@ impl TestValidator {
         let p2p_addr: Multiaddr = p2p_addr_str.parse()?;
         let rpc_addr = format!("127.0.0.1:{}", rpc_port);
 
+        // We will not write raw bytes here anymore, but instead rely on Orchestration to
+        // generate and encrypt a new key if the file doesn't exist.
+        // However, for tests we pass the key in memory to Orchestration which isn't supported via CLI args easily.
+        // Wait, Orchestration takes `--identity-key-file`.
+        // We need to supply the key file.
+        // Since Orchestrator's `main` now calls `GuardianContainer::load_encrypted_file`, we must write an ENCRYPTED file here.
         let keypair_path = temp_dir.path().join("identity.key");
-        std::fs::write(&keypair_path, keypair.to_protobuf_encoding()?)?;
+        // We use a known password for tests, set via env var later.
+        let test_password = "test-password";
+        std::env::set_var("IOI_GUARDIAN_KEY_PASS", test_password);
+        ioi_validator::common::GuardianContainer::save_encrypted_file(
+            &keypair_path,
+            &keypair.to_protobuf_encoding()?,
+        )?;
 
         let genesis_path = temp_dir.path().join("genesis.json");
         std::fs::write(&genesis_path, genesis_content)?;
@@ -366,7 +378,12 @@ impl TestValidator {
 
         std::fs::write(&workload_config_path, toml::to_string(&workload_config)?)?;
 
-        let guardian_config = r#"signature_policy = "FollowChain""#.to_string();
+        // [FIX] Explicitly disable binary integrity enforcement for general tests to avoid hash mismatch
+        let guardian_config = r#"
+            signature_policy = "FollowChain"
+            enforce_binary_integrity = false
+        "#
+        .to_string();
         std::fs::write(config_dir_path.join("guardian.toml"), guardian_config)?;
 
         let (orch_log_tx, _) = broadcast::channel(LOG_CHANNEL_CAPACITY);
@@ -466,6 +483,7 @@ impl TestValidator {
                     .env("TELEMETRY_ADDR", &telemetry_addr_guard)
                     .env("GUARDIAN_LISTEN_ADDR", &guardian_addr)
                     .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())
+                    .env("IOI_GUARDIAN_KEY_PASS", "test-password") // Set test password
                     .stderr(Stdio::piped())
                     .kill_on_drop(true)
                     .spawn()?;
@@ -520,6 +538,7 @@ impl TestValidator {
                 .env("TELEMETRY_ADDR", &orchestration_telemetry_addr)
                 .env("WORKLOAD_IPC_ADDR", &workload_ipc_addr)
                 .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())
+                .env("IOI_GUARDIAN_KEY_PASS", "test-password") // Set test password
                 .stderr(Stdio::piped())
                 .kill_on_drop(true);
             if agentic_model_path.is_some() {

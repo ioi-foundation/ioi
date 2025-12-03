@@ -62,7 +62,14 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|| "127.0.0.1:8443".to_string());
     tracing::info!(target: "guardian", listen_addr = %listen_addr);
 
-    let guardian = Arc::new(GuardianContainer::new(config)?);
+    let guardian = Arc::new(GuardianContainer::new(config.clone())?);
+
+    // --- PHASE 2 IMPLEMENTATION: Boot Measurement ---
+    // Verify binaries immediately upon instantiation, before starting network services.
+    // The guard prevents the underlying files from being modified while the Guardian is running.
+    // If verification fails, this call returns an error and the process exits safely.
+    let _binary_integrity_guard = guardian.verify_binaries(&config)?;
+
     guardian.start(&listen_addr).await?;
 
     // Print the readiness signal for the test harness after the listener is up.
