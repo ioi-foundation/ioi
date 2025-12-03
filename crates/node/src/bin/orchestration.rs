@@ -64,7 +64,7 @@ use zk_driver_succinct::config::SuccinctDriverConfig;
 use ioi_crypto::algorithms::hash::sha256;
 
 // [NEW] Import GuardianSigner types
-use ioi_validator::common::{GuardianSigner, LocalSigner, RemoteSigner};
+use ioi_validator::common::{GuardianContainer, GuardianSigner, LocalSigner, RemoteSigner};
 
 #[derive(Parser, Debug)]
 struct OrchestrationOpts {
@@ -600,16 +600,17 @@ async fn main() -> Result<()> {
 
     let local_key = {
         let key_path = &opts.identity_key_file;
+        // [CHANGE] Use the secure key loading
         if key_path.exists() {
-            let mut bytes = Vec::new();
-            fs::File::open(key_path)?.read_to_end(&mut bytes)?;
-            identity::Keypair::from_protobuf_encoding(&bytes)?
+            let raw = GuardianContainer::load_encrypted_file(key_path)?;
+            identity::Keypair::from_protobuf_encoding(&raw)?
         } else {
             let keypair = identity::Keypair::generate_ed25519();
             if let Some(parent) = key_path.parent() {
                 fs::create_dir_all(parent)?;
             }
-            fs::File::create(key_path)?.write_all(&keypair.to_protobuf_encoding()?)?;
+            // [CHANGE] Use secure saving
+            GuardianContainer::save_encrypted_file(key_path, &keypair.to_protobuf_encoding()?)?;
             keypair
         }
     };

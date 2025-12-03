@@ -8,6 +8,7 @@ use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use dcrypt::algorithms::ByteSerializable;
 use ioi_api::crypto::{SerializableKey, SigningKey, SigningKeyPair};
 use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
+use ioi_validator::common::GuardianContainer;
 use serde::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
@@ -75,28 +76,20 @@ fn secure_memory() -> Result<()> {
     Ok(())
 }
 
+/// Loads the keypair from disk.
+/// Enforces encryption-at-rest using shared Guardian helpers.
 fn load_keypair(path: &Path) -> Result<Ed25519KeyPair> {
     if path.exists() {
-        let seed = std::fs::read(path)?;
-        let sk = Ed25519PrivateKey::from_bytes(&seed)?;
+        tracing::info!("Loading encrypted keypair from {:?}", path);
+        let raw = GuardianContainer::load_encrypted_file(path)?;
+        let sk = Ed25519PrivateKey::from_bytes(&raw)?;
         Ok(Ed25519KeyPair::from_private_key(&sk)?)
     } else {
+        tracing::info!("Generating NEW Guardian keypair...");
         let kp = Ed25519KeyPair::generate()?;
         let seed = kp.private_key().to_bytes();
-
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            let mut file = OpenOptions::new()
-                .write(true)
-                .create(true)
-                .mode(0o600)
-                .open(path)?;
-            file.write_all(&seed)?;
-        }
-        #[cfg(not(unix))]
-        std::fs::write(path, &seed)?;
-
+        GuardianContainer::save_encrypted_file(path, &seed)?;
+        tracing::info!("Keypair generated and encrypted successfully.");
         Ok(kp)
     }
 }
@@ -192,7 +185,15 @@ async fn main() -> Result<()> {
         tracing::info!("Memory locked successfully.");
     }
 
-    let keypair = load_keypair(&opts.key_file)?;
+    // Load keypair with encryption support
+    let keypair = match load_keypair(&opts.key_file) {
+        Ok(kp) => kp,
+        Err(e) => {
+            tracing::error!("Failed to load key: {}", e);
+            std::process::exit(1);
+        }
+    };
+
     let (state, file) = load_or_init_state(&opts.state_file)?;
 
     tracing::info!(

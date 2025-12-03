@@ -1,7 +1,9 @@
 // Path: crates/forge/src/testing/signing_oracle.rs
 use anyhow::{anyhow, Result};
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
+use ioi_crypto::key_store::encrypt_key; // NEW
 use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
+use std::io::Write; // NEW
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::Duration;
@@ -21,12 +23,19 @@ impl SigningOracleGuard {
         let state_path = temp_dir.path().join("signer_state.bin");
         let key_path = temp_dir.path().join("signer_key.seed");
 
-        if let Some(seed) = key_seed {
-            std::fs::write(&key_path, seed)?;
+        // Default test password
+        let password = "test-password";
+
+        let seed_bytes = if let Some(seed) = key_seed {
+            seed.to_vec()
         } else {
             let kp = Ed25519KeyPair::generate()?;
-            std::fs::write(&key_path, kp.private_key().as_bytes())?;
-        }
+            kp.private_key().as_bytes().to_vec()
+        };
+
+        // [FIX] Encrypt the key before writing to disk
+        let encrypted_key = encrypt_key(&seed_bytes, password)?;
+        std::fs::write(&key_path, encrypted_key)?;
 
         // Pick a random port
         let port = portpicker::pick_unused_port().ok_or(anyhow!("No free ports"))?;
@@ -47,18 +56,24 @@ impl SigningOracleGuard {
             return Err(anyhow!("ioi-signer binary not found. Run `cargo build -p ioi-node --bin ioi-signer --features validator-bins` first."));
         };
 
-        let process = Command::new(binary_path)
+        let mut process = Command::new(binary_path)
             .arg("--state-file")
             .arg(&state_path)
             .arg("--key-file")
             .arg(&key_path)
             .arg("--listen-addr")
             .arg(&addr)
-            // Suppress logs unless test fails/captures them, or set to info/debug for verbose
             .env("RUST_LOG", "error")
+            .stdin(Stdio::piped()) // [FIX] Pipe stdin for password
             .stderr(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()?;
+
+        // [FIX] Write password to stdin immediately
+        if let Some(mut stdin) = process.stdin.take() {
+            stdin.write_all(password.as_bytes())?;
+            // Close stdin to signal EOF (some readers might wait for newline or EOF)
+        }
 
         // Wait for the port to be open
         let start = std::time::Instant::now();
@@ -72,7 +87,13 @@ impl SigningOracleGuard {
         }
 
         if !connected {
-            return Err(anyhow!("Timed out waiting for ioi-signer to bind to {}", addr));
+            // If failed, try to read stderr to see why
+            let _ = process.kill();
+            let output = process.wait_with_output()?;
+            return Err(anyhow!(
+                "Timed out waiting for ioi-signer. Stderr: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ));
         }
 
         Ok(Self {
@@ -84,14 +105,18 @@ impl SigningOracleGuard {
     }
 
     pub fn get_keypair(&self) -> Result<libp2p::identity::Keypair> {
-        let seed = std::fs::read(&self.key_path)?;
-        let oracle_sk = Ed25519PrivateKey::from_bytes(&seed)?;
+        // To return the keypair to the test, we must decrypt what we wrote.
+        // In a real test scenario, we know the password ("test-password").
+        let encrypted = std::fs::read(&self.key_path)?;
+        let decrypted = ioi_crypto::key_store::decrypt_key(&encrypted, "test-password")?;
+
+        let oracle_sk = Ed25519PrivateKey::from_bytes(&decrypted.0)?;
         let oracle_kp = Ed25519KeyPair::from_private_key(&oracle_sk)?;
 
         let oracle_pk_bytes = oracle_kp.public_key().to_bytes();
 
         let mut libp2p_bytes = [0u8; 64];
-        libp2p_bytes[..32].copy_from_slice(&seed);
+        libp2p_bytes[..32].copy_from_slice(&decrypted.0);
         libp2p_bytes[32..].copy_from_slice(&oracle_pk_bytes);
         Ok(libp2p::identity::Keypair::from(
             libp2p::identity::ed25519::Keypair::try_from_bytes(&mut libp2p_bytes)?,
