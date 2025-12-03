@@ -8,13 +8,15 @@ use ioi_crypto::sign::dilithium::DilithiumKeyPair;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::traits::NodeState;
 use ioi_types::app::{AccountId, Block, ChainTransaction, OracleAttestation, TxHash}; // Added TxHash
-// REMOVED: use crate::standard::orchestration::tx_hash::TxHash;
+                                                                                     // REMOVED: use crate::standard::orchestration::tx_hash::TxHash;
 use libp2p::{identity, PeerId};
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fmt::Debug;
 use std::sync::{atomic::AtomicBool, Arc};
 use tokio::sync::{mpsc, Mutex};
+// [FIX] Import GuardianSigner
+use crate::common::GuardianSigner;
 
 pub type ChainFor<CS, ST> = Arc<
     Mutex<
@@ -66,4 +68,6 @@ where
     pub sync_progress: Option<SyncProgress>,
     /// A local, atomically-managed nonce for self-generated transactions.
     pub nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
+    /// [NEW] The signer for block headers (Local or Remote Oracle).
+    pub signer: Arc<dyn GuardianSigner>,
 }

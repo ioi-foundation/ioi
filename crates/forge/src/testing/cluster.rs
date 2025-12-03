@@ -14,7 +14,6 @@ use libp2p::{
 use std::time::Duration;
 
 /// A type alias for a closure that modifies the genesis state.
-/// Changed: Now takes `&mut GenesisBuilder` instead of `&mut Value`.
 type GenesisModifier = Box<dyn FnOnce(&mut GenesisBuilder, &Vec<identity::Keypair>) + Send>;
 
 pub struct TestCluster {
@@ -179,7 +178,6 @@ impl TestClusterBuilder {
         self
     }
 
-    // UPDATED: Signature matches the new GenesisBuilder
     pub fn with_genesis_modifier<F>(mut self, modifier: F) -> Self
     where
         F: FnOnce(&mut GenesisBuilder, &Vec<identity::Keypair>) + Send + 'static,
@@ -223,7 +221,6 @@ impl TestClusterBuilder {
             }
         }
 
-        // Sort keys by AccountId to ensure deterministic leader selection
         validator_keys.sort_by(|a, b| {
             let pk_a = a.public().encode_protobuf();
             let pk_b = b.public().encode_protobuf();
@@ -240,17 +237,14 @@ impl TestClusterBuilder {
             id_a.cmp(&id_b)
         });
 
-        // --- CHANGED: Use GenesisBuilder instead of raw JSON Map ---
         let mut builder = GenesisBuilder::new();
         for modifier in self.genesis_modifiers.drain(..) {
             modifier(&mut builder, &validator_keys);
         }
-        // Wrap the builder's output in the top-level "genesis_state" object
         let genesis_content = serde_json::json!({
             "genesis_state": builder
         })
         .to_string();
-        // -----------------------------------------------------------
 
         let mut validators: Vec<ValidatorGuard> = Vec::new();
         let mut bootnode_addrs: Vec<Multiaddr> = Vec::new();

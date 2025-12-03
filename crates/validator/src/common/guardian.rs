@@ -1,12 +1,13 @@
 // crates/validator/src/common/guardian.rs
 
-//! Implements the Guardian container, the root of trust for the validator.
+//! Implements the Guardian container, the root of trust for the validator,
+//! and the GuardianSigner abstraction for Oracle-anchored signing.
 
 use crate::config::GuardianConfig;
-// [FIX] Import from correct path
 use crate::standard::workload::ipc::create_ipc_server_config;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use ioi_api::crypto::{SerializableKey, SigningKey, SigningKeyPair};
 use ioi_api::validator::Container;
 use ioi_client::security::SecurityChannel;
 use ioi_crypto::{
@@ -14,6 +15,7 @@ use ioi_crypto::{
     transport::hybrid_kem_tls::{derive_application_key, server_post_handshake, AeadWrappedStream},
 };
 use ioi_ipc::IpcClientType;
+use ioi_types::app::SignatureBundle;
 use ioi_types::error::ValidatorError;
 use rcgen::{Certificate, CertificateParams, KeyUsagePurpose, SanType};
 use std::net::Ipv4Addr;
@@ -24,6 +26,125 @@ use std::sync::{
 };
 use tokio::io::AsyncReadExt;
 use tokio_rustls::{rustls::ServerConfig, TlsAcceptor, TlsStream};
+
+// --- Signing Abstraction for Oracle-Anchored Consensus ---
+
+/// Abstract interface for a signing authority.
+/// This allows the Orchestrator to use either a local key (for development)
+/// or a remote, cryptographically isolated Oracle (for production non-equivocation enforcement).
+#[async_trait]
+pub trait GuardianSigner: Send + Sync {
+    /// Signs a consensus payload (usually a block header hash).
+    /// Returns the signature along with the Oracle's counter and trace.
+    async fn sign_consensus_payload(&self, payload_hash: [u8; 32]) -> Result<SignatureBundle>;
+
+    /// Returns the public key bytes of the signer.
+    fn public_key(&self) -> Vec<u8>;
+}
+
+/// Local implementation for development/testing.
+/// Mimics the Oracle's interface but uses an in-memory keypair and zeroed metadata.
+pub struct LocalSigner {
+    keypair: ioi_crypto::sign::eddsa::Ed25519KeyPair,
+}
+
+impl LocalSigner {
+    /// Creates a new `LocalSigner` with the given keypair.
+    pub fn new(keypair: ioi_crypto::sign::eddsa::Ed25519KeyPair) -> Self {
+        Self { keypair }
+    }
+}
+
+#[async_trait]
+impl GuardianSigner for LocalSigner {
+    async fn sign_consensus_payload(&self, payload_hash: [u8; 32]) -> Result<SignatureBundle> {
+        // To support Oracle-anchored logic even in dev mode, we must construct the same payload structure:
+        // Payload_Hash || Counter (0) || Trace (0)
+        // This ensures verification logic in the consensus engine remains consistent.
+        let mut sig_input = Vec::new();
+        sig_input.extend_from_slice(&payload_hash);
+        sig_input.extend_from_slice(&0u64.to_be_bytes());
+        sig_input.extend_from_slice(&[0u8; 32]);
+
+        let signature = self.keypair.private_key().sign(&sig_input)?.to_bytes();
+
+        Ok(SignatureBundle {
+            signature,
+            counter: 0,
+            trace_hash: [0u8; 32],
+        })
+    }
+
+    fn public_key(&self) -> Vec<u8> {
+        self.keypair.public_key().to_bytes()
+    }
+}
+
+/// Remote implementation connecting to the `ioi-signer` Oracle.
+pub struct RemoteSigner {
+    url: String,
+    client: reqwest::Client,
+    // Cache public key on startup to avoid async overhead in tight loops
+    public_key: Vec<u8>,
+}
+
+impl RemoteSigner {
+    /// Creates a new `RemoteSigner` that connects to the specified Oracle URL
+    /// and uses the provided public key for validation.
+    pub fn new(url: String, public_key: Vec<u8>) -> Self {
+        Self {
+            url,
+            client: reqwest::Client::new(),
+            public_key,
+        }
+    }
+}
+
+#[async_trait]
+impl GuardianSigner for RemoteSigner {
+    async fn sign_consensus_payload(&self, payload_hash: [u8; 32]) -> Result<SignatureBundle> {
+        // The Oracle expects the hash as a hex string.
+        let resp = self
+            .client
+            .post(format!("{}/sign", self.url))
+            .json(&serde_json::json!({
+                "payload_hash": hex::encode(payload_hash)
+            }))
+            .send()
+            .await?
+            .json::<serde_json::Value>()
+            .await?;
+
+        // Parse response: { signature: "hex", counter: 123, trace_hash: "hex" }
+        let sig_hex = resp["signature"]
+            .as_str()
+            .ok_or(anyhow!("Missing signature in Oracle response"))?;
+        let counter = resp["counter"]
+            .as_u64()
+            .ok_or(anyhow!("Missing counter in Oracle response"))?;
+        let trace_hex = resp["trace_hash"]
+            .as_str()
+            .ok_or(anyhow!("Missing trace_hash in Oracle response"))?;
+
+        let signature = hex::decode(sig_hex)?;
+        let trace_hash_vec = hex::decode(trace_hex)?;
+        let trace_hash: [u8; 32] = trace_hash_vec
+            .try_into()
+            .map_err(|_| anyhow!("Invalid trace hash length"))?;
+
+        Ok(SignatureBundle {
+            signature,
+            counter,
+            trace_hash,
+        })
+    }
+
+    fn public_key(&self) -> Vec<u8> {
+        self.public_key.clone()
+    }
+}
+
+// --- Guardian Container ---
 
 /// The GuardianContainer is the root of trust.
 #[derive(Debug, Clone)]

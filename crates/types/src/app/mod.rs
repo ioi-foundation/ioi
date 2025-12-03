@@ -165,6 +165,9 @@ impl AsRef<[u8]> for StateAnchor {
 }
 
 /// The header of a block, containing metadata and commitments.
+///
+/// MODIFIED: Includes Oracle-anchored fields `oracle_counter` and `oracle_trace_hash`
+/// to enforce non-equivocation via the Signing Oracle.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct BlockHeader {
     /// The height of this block.
@@ -194,8 +197,32 @@ pub struct BlockHeader {
     pub producer_pubkey_hash: [u8; 32],
     /// The full public key bytes. Mandatory if state stores only hashes.
     pub producer_pubkey: Vec<u8>,
-    /// The signature of the block header's canonical preimage, signed by the producer's active consensus key.
+
+    // --- Oracle-Anchored Signing Extensions ---
+    // These fields enable non-equivocation enforcement by binding signatures
+    // to a monotonic counter and execution trace from a trusted Signing Oracle.
+    // This is a prerequisite for protocols like A-DMFT.
+    /// The monotonic counter from the Signing Oracle.
+    /// Enforces strict ordering of signatures to prevent equivocation.
+    pub oracle_counter: u64,
+    /// The cryptographic trace hash from the Signing Oracle.
+    /// Links this block signature to the previous signature history.
+    pub oracle_trace_hash: [u8; 32],
+    // ------------------------------------------
+    /// The signature of the block header's canonical preimage.
+    /// Signed payload is: Preimage || oracle_counter || oracle_trace_hash
     pub signature: Vec<u8>,
+}
+
+/// A container for the result of a signing operation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SignatureBundle {
+    /// The raw cryptographic signature bytes.
+    pub signature: Vec<u8>,
+    /// The monotonic counter value enforced by the Signing Oracle.
+    pub counter: u64,
+    /// The execution trace hash binding this signature to the Oracle's history.
+    pub trace_hash: [u8; 32],
 }
 
 /// A domain tag to prevent hash collisions for different signature purposes.
@@ -210,14 +237,17 @@ impl BlockHeader {
     pub fn hash(&self) -> Result<Vec<u8>, CoreError> {
         let mut temp = self.clone();
         temp.signature = vec![];
-        let serialized =
-            crate::codec::to_bytes_canonical(&temp).map_err(|e| CoreError::Custom(e))?;
+        let serialized = crate::codec::to_bytes_canonical(&temp).map_err(CoreError::Custom)?;
         let digest =
             DcryptSha256::digest(&serialized).map_err(|e| CoreError::Custom(e.to_string()))?;
         Ok(digest.to_bytes())
     }
 
     /// Creates the canonical, domain-separated byte string that is hashed for signing.
+    ///
+    /// NOTE: This does *not* include the `oracle_counter` or `oracle_trace_hash`, as those
+    /// are outputs of the signing process. The Oracle constructs the final signed payload
+    /// by appending those values to the hash of this preimage.
     pub fn to_preimage_for_signing(&self) -> Result<Vec<u8>, CoreError> {
         crate::codec::to_bytes_canonical(&(
             SigDomain::BlockHeaderV1 as u8,

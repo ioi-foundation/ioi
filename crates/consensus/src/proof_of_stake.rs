@@ -543,12 +543,17 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         let preimage = header.to_preimage_for_signing().map_err(|e| {
             ConsensusError::BlockVerificationFailed(format!("Failed to create preimage: {}", e))
         })?;
+
+        // [FIXED] Pass oracle_counter and oracle_trace_hash to verify_signature
         verify_signature(
             &preimage,
             &header.producer_pubkey,
             active_key.suite,
             &header.signature,
+            header.oracle_counter,
+            &header.oracle_trace_hash,
         )?;
+
         log::debug!(
             "[PoS Verify H={}] Block signature verified successfully.",
             header.height

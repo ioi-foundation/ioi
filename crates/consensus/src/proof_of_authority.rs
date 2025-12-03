@@ -22,15 +22,36 @@ use libp2p::PeerId;
 use std::collections::{BTreeSet, HashSet};
 use tracing::warn;
 
+/// Verifies the block producer's signature against the Oracle-anchored extended payload.
+///
+/// The signature covers: `Hash(BlockHeader) || oracle_counter || oracle_trace`.
+/// This binds the block irrevocably to a specific point in the signer's execution history,
+/// preventing equivocation (signing two different blocks at the same height/view).
 pub(crate) fn verify_signature(
-    message: &[u8],
+    preimage: &[u8], // The canonical serialization of the header content (sans sig/oracle fields)
     public_key: &[u8],
     _suite: SignatureSuite,
     signature: &[u8],
+    oracle_counter: u64,
+    oracle_trace: &[u8; 32],
 ) -> Result<(), ConsensusError> {
     let pk = PublicKey::try_decode_protobuf(public_key)
         .map_err(|_e| ConsensusError::InvalidSignature)?;
-    if pk.verify(message, signature) {
+
+    // Reconstruct the exact payload the Oracle signed:
+    // 1. Hash the header content to get the 32-byte digest.
+    let header_hash = ioi_crypto::algorithms::hash::sha256(preimage).map_err(|e| {
+        warn!("Failed to hash header preimage: {}", e);
+        ConsensusError::InvalidSignature
+    })?;
+
+    // 2. Concatenate: Hash || Counter || Trace
+    let mut signed_payload = Vec::with_capacity(32 + 8 + 32);
+    signed_payload.extend_from_slice(&header_hash);
+    signed_payload.extend_from_slice(&oracle_counter.to_be_bytes());
+    signed_payload.extend_from_slice(oracle_trace);
+
+    if pk.verify(&signed_payload, signature) {
         Ok(())
     } else {
         Err(ConsensusError::InvalidSignature)
@@ -237,7 +258,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             );
             return ConsensusDecision::Stall;
         }
-        
+
         // Round 0 of height H corresponds to index (H-1) % n.
         // Round V corresponds to index (H-1 + V) % n.
         // View is 0-indexed round within the height.
@@ -381,7 +402,6 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
 
         // 2. Retrieve Authoritative Key Record
         // We use the record embedded in the ValidatorSet, which is the single source of truth.
-        // This removes the need for a secondary lookup in global state, resolving the "dual write" technical debt.
         let active_key_record = &validator_entry.consensus_key;
 
         // 3. Verify Key Metadata
@@ -407,15 +427,18 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             ));
         }
 
-        // 4. Verify Signature
+        // 4. Verify Signature with Oracle-Anchored Enforcement
         let preimage = header.to_preimage_for_signing().map_err(|e| {
             ConsensusError::BlockVerificationFailed(format!("Failed to create preimage: {}", e))
         })?;
+
         verify_signature(
             &preimage,
             pubkey,
             active_key_record.suite,
             &header.signature,
+            header.oracle_counter,     // [NEW] Check against counter
+            &header.oracle_trace_hash, // [NEW] Check against trace
         )?;
 
         // 5. Verify Leadership Schedule

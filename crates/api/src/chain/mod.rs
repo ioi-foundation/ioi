@@ -90,6 +90,9 @@ pub trait WorkloadClientApi: Send + Sync + Debug {
     /// Gets the genesis status.
     async fn get_genesis_status(&self) -> Result<bool, ChainError>;
 
+    /// [NEW] Updates the header of a stored block (used for adding signatures/oracle data after execution).
+    async fn update_block_header(&self, block: Block<ChainTransaction>) -> Result<(), ChainError>;
+
     /// Returns the client as a type-erased `Any` trait object.
     fn as_any(&self) -> &dyn Any;
 }
@@ -142,9 +145,6 @@ pub trait ViewResolver: Send + Sync {
     async fn genesis_root(&self) -> Result<Vec<u8>, ChainError>;
 
     /// Returns the workload client interface.
-    ///
-    /// This returns a trait object `Arc<dyn WorkloadClientApi>` instead of `&dyn Any`,
-    /// providing compile-time safety and eliminating the risk of runtime panics due to bad downcasts.
     fn workload_client(&self) -> &Arc<dyn WorkloadClientApi>;
 
     /// Provides access to the concrete type for downcasting.

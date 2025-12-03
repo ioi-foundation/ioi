@@ -49,6 +49,9 @@ use tokio::{
     time::{self, Duration, MissedTickBehavior},
 };
 
+// [FIX] Import GuardianSigner trait
+use crate::common::GuardianSigner;
+
 // --- Submodule Declarations ---
 mod consensus;
 mod context;
@@ -90,6 +93,8 @@ pub struct OrchestrationDependencies<CE, V> {
     pub genesis_hash: [u8; 32],
     /// The proof verifier matching the workload's state tree.
     pub verifier: V,
+    /// [NEW] The signer for block headers (Local or Remote Oracle).
+    pub signer: Arc<dyn GuardianSigner>,
 }
 
 // Type aliases to simplify complex types used in the main struct.
@@ -147,6 +152,8 @@ where
     consensus_kick_rx: ConsensusKickReceiver,
     /// A local, atomically-managed nonce for self-generated transactions.
     pub nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
+    /// [NEW] The signer for block headers (Local or Remote Oracle).
+    pub signer: Arc<dyn GuardianSigner>,
 }
 
 impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
@@ -204,6 +211,7 @@ where
             consensus_kick_tx,
             consensus_kick_rx: Mutex::new(Some(consensus_kick_rx)),
             nonce_manager: Arc::new(Mutex::new(BTreeMap::new())),
+            signer: deps.signer, // [FIX] Initialize signer from deps
         })
     }
 
@@ -219,6 +227,72 @@ where
         }
         if self.workload_client.set(workload_client_ref).is_err() {
             log::warn!("Attempted to set WorkloadClient ref on Orchestrator more than once.");
+        }
+    }
+
+    /// Performs agentic attestation with the Guardian.
+    /// This ensures the workload is running with the correct model and weights.
+    async fn perform_guardian_attestation(
+        &self,
+        guardian_addr: &str,
+        workload_client: &WorkloadClient,
+    ) -> Result<()> {
+        let guardian_channel =
+            ioi_client::security::SecurityChannel::new("orchestration", "guardian");
+        let certs_dir = std::env::var("CERTS_DIR").map_err(|_| {
+            ValidatorError::Config("CERTS_DIR environment variable must be set".to_string())
+        })?;
+        guardian_channel
+            .establish_client(
+                guardian_addr,
+                "guardian",
+                &format!("{}/ca.pem", certs_dir),
+                &format!("{}/orchestration.pem", certs_dir),
+                &format!("{}/orchestration.key", certs_dir),
+            )
+            .await?;
+        tracing::info!(target: "orchestration", "[Orchestration] Attestation channel to Guardian established.");
+
+        tracing::info!(target: "orchestration", "[Orchestrator] Waiting for agentic attestation report from Guardian...");
+        let mut stream = guardian_channel
+            .take_stream()
+            .await
+            .ok_or_else(|| anyhow!("Failed to take stream from Guardian channel"))?;
+
+        // Read length prefix
+        let len = stream.read_u32().await?;
+
+        const MAX_REPORT_SIZE: u32 = 10 * 1024 * 1024; // 10 MiB limit
+        if len > MAX_REPORT_SIZE {
+            return Err(anyhow!(
+                "Guardian attestation report too large: {} bytes (limit: {})",
+                len,
+                MAX_REPORT_SIZE
+            ));
+        }
+
+        let mut report_bytes = vec![0u8; len as usize];
+        stream.read_exact(&mut report_bytes).await?;
+
+        let report: std::result::Result<Vec<u8>, String> = serde_json::from_slice(&report_bytes)
+            .map_err(|e| anyhow!("Failed to deserialize Guardian report: {}", e))?;
+
+        let local_hash = report.map_err(|e| anyhow!("Guardian reported error: {}", e))?;
+        tracing::info!(
+            target: "orchestration",
+            "[Orchestrator] Received local model hash from Guardian: {}",
+            hex::encode(&local_hash)
+        );
+
+        let expected_hash = workload_client.get_expected_model_hash().await?;
+        if local_hash == expected_hash {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "Model Integrity Failure! Local hash {} != on-chain hash {}",
+                hex::encode(local_hash),
+                hex::encode(expected_hash)
+            ))
         }
     }
 }
@@ -648,9 +722,8 @@ where
                 Err(e) => {
                     tracing::error!(target: "orchestration", "[Orchestrator] CRITICAL: Agentic attestation failed: {}. Quarantining node.", e);
                     self.is_quarantined.store(true, Ordering::SeqCst);
-                    // *** FIX START: Halt startup by returning an error ***
+                    // *** FIX: Halt startup by returning an error and cast `e` to concrete type if needed ***
                     return Err(ValidatorError::Attestation(e.to_string()));
-                    // *** FIX END ***
                 }
             }
         } else {
@@ -714,6 +787,7 @@ where
             consensus_kick_tx: self.consensus_kick_tx.clone(),
             sync_progress: None,
             nonce_manager: self.nonce_manager.clone(),
+            signer: self.signer.clone(), // [FIX] Initialize signer field
         };
 
         let mut receiver_opt = self.network_event_receiver.lock().await;
@@ -782,91 +856,5 @@ where
                 .map_err(|e| ValidatorError::Other(format!("Task panicked: {e}")))?;
         }
         Ok(())
-    }
-}
-
-impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
-where
-    CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Send
-        + Sync
-        + 'static
-        + Debug
-        + Clone,
-    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
-    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Clone
-        + Send
-        + Sync
-        + 'static
-        + Debug,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
-    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-{
-    async fn perform_guardian_attestation(
-        &self,
-        guardian_addr: &str,
-        workload_client: &WorkloadClient,
-    ) -> Result<()> {
-        let guardian_channel =
-            ioi_client::security::SecurityChannel::new("orchestration", "guardian");
-        let certs_dir = std::env::var("CERTS_DIR").map_err(|_| {
-            ValidatorError::Config("CERTS_DIR environment variable must be set".to_string())
-        })?;
-        guardian_channel
-            .establish_client(
-                guardian_addr,
-                "guardian",
-                &format!("{}/ca.pem", certs_dir),
-                &format!("{}/orchestration.pem", certs_dir),
-                &format!("{}/orchestration.key", certs_dir),
-            )
-            .await?;
-        tracing::info!(target: "orchestration", "[Orchestration] Attestation channel to Guardian established.");
-
-        tracing::info!(target: "orchestration", "[Orchestrator] Waiting for agentic attestation report from Guardian...");
-        let mut stream = guardian_channel
-            .take_stream()
-            .await
-            .ok_or_else(|| anyhow!("Failed to take stream from Guardian channel"))?;
-
-        // FIX: Replace unbounded read_to_end with length-prefixed read and size limit.
-        // This prevents a malicious or malfunctioning Guardian from crashing the Orchestrator via OOM.
-        let len = stream.read_u32().await?;
-
-        const MAX_REPORT_SIZE: u32 = 10 * 1024 * 1024; // 10 MiB limit
-        if len > MAX_REPORT_SIZE {
-            return Err(anyhow!(
-                "Guardian attestation report too large: {} bytes (limit: {})",
-                len,
-                MAX_REPORT_SIZE
-            ));
-        }
-
-        let mut report_bytes = vec![0u8; len as usize];
-        stream.read_exact(&mut report_bytes).await?;
-
-        let report: std::result::Result<Vec<u8>, String> = serde_json::from_slice(&report_bytes)
-            .map_err(|e| anyhow!("Failed to deserialize Guardian report: {}", e))?;
-
-        let local_hash = report.map_err(|e| anyhow!("Guardian reported error: {}", e))?;
-        tracing::info!(
-            target: "orchestration",
-            "[Orchestrator] Received local model hash from Guardian: {}",
-            hex::encode(&local_hash)
-        );
-
-        let expected_hash = workload_client.get_expected_model_hash().await?;
-        if local_hash == expected_hash {
-            Ok(())
-        } else {
-            Err(anyhow!(
-                "Model Integrity Failure! Local hash {} != on-chain hash {}",
-                hex::encode(local_hash),
-                hex::encode(expected_hash)
-            ))
-        }
     }
 }

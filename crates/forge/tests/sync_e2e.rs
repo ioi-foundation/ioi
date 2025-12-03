@@ -6,7 +6,6 @@
 ))]
 
 use anyhow::{anyhow, Result};
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_api::state::service_namespace_prefix;
 use ioi_forge::testing::{
     assert_log_contains, build_test_artifacts, genesis::GenesisBuilder, rpc, wait_for_height,
@@ -23,14 +22,10 @@ use ioi_types::{
     },
     codec,
     config::InitialServiceConfig,
-    keys::{
-        BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX,
-        VALIDATOR_SET_KEY,
-    },
+    keys::GOVERNANCE_PROPOSAL_KEY_PREFIX,
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
-use serde_json::json;
 use std::time::Duration;
 
 fn create_dummy_tx(keypair: &Keypair, nonce: u64, chain_id: ChainId) -> Result<ChainTransaction> {

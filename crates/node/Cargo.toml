@@ -45,6 +45,8 @@ hex = { workspace = true }
 libp2p = { workspace = true }
 log = { workspace = true }
 tracing = { workspace = true }
+# [FIX] Added tracing-subscriber
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 tokio = { workspace = true, features = ["full"] }
 tokio-rustls = { workspace = true }
 rcgen = { workspace = true }
@@ -55,7 +57,13 @@ toml = { workspace = true }
 axum = { workspace = true }
 serde = { workspace = true }
 serde_jcs = "0.1.0"
-rand = { workspace = true } # Added rand
+rand = { workspace = true }
+# [FIX] Added dcrypt explicitly
+dcrypt = { workspace = true }
+
+# [NEW] Dependencies for ioi-signer
+warp = "0.3"
+libc = "0.2"
 
 [features]
 default = []
@@ -73,7 +81,6 @@ validator-bins = [
 malicious-bin = []
 
 # State Tree features must propagate to BOTH commitment and validator crates
-
 state-iavl = [
     "ioi-state/state-iavl",
     "ioi-validator/state-iavl",
@@ -107,15 +114,11 @@ vm-wasm = ["dep:ioi-vm-wasm"]
 ibc-deps = ["ioi-services/ibc-deps", "ioi-validator/ibc-deps"]
 
 # Ethereum ZK Light Client Support
-# FIX: Added "ioi-validator/ethereum-zk" to ensure propagation
 ethereum-zk = [
     "ioi-services/ethereum-zk",
     "dep:zk-driver-succinct",
     "ioi-validator/ethereum-zk",
 ]
-
-# Feature for building the malicious binary for testing
-# This does not need to be propagated, as the test runner handles it.
 
 
 [[bin]]
@@ -137,3 +140,9 @@ required-features = ["validator-bins"]
 name = "malicious-workload"
 path = "src/bin/malicious-workload.rs"
 required-features = ["malicious-bin", "validator-bins", "vm-wasm"]
+
+# [NEW] Signer Binary
+[[bin]]
+name = "ioi-signer"
+path = "src/bin/signer.rs"
+required-features = ["validator-bins"]

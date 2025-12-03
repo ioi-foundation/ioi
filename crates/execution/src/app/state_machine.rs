@@ -353,6 +353,10 @@ where
             producer_pubkey_hash,
             producer_pubkey,
             signature: vec![],
+            // [FIXED] Initialize new fields with default values.
+            // The Oracle will overwrite these during the signing process.
+            oracle_counter: 0,
+            oracle_trace_hash: [0u8; 32],
         };
 
         let preimage = header

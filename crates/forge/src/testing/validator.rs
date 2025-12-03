@@ -4,6 +4,7 @@ use super::{
     assert::{assert_log_contains, LOG_CHANNEL_CAPACITY},
     backend::{DockerBackend, DockerBackendConfig, ProcessBackend, TestBackend},
 };
+use crate::testing::signing_oracle::SigningOracleGuard;
 use anyhow::{anyhow, Result};
 use futures_util::StreamExt;
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
@@ -27,8 +28,6 @@ use tokio::time::Duration;
 
 const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(30);
 
-/// Helper configuration to resolve Cargo features for the node binary.
-/// This decouples the test runner from the internal feature flag names.
 struct BinaryFeatureConfig<'a> {
     consensus_type: &'a str,
     state_tree_type: &'a str,
@@ -83,7 +82,6 @@ impl<'a> BinaryFeatureConfig<'a> {
     }
 }
 
-/// Represents a complete, logical validator node, abstracting over its execution backend.
 pub struct TestValidator {
     pub keypair: identity::Keypair,
     pub pqc_keypair: Option<DilithiumKeyPair>,
@@ -100,9 +98,9 @@ pub struct TestValidator {
     pub workload_log_tx: broadcast::Sender<String>,
     guardian_log_tx: Option<broadcast::Sender<String>>,
     pub log_drain_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
+    pub signing_oracle_guard: Option<SigningOracleGuard>,
 }
 
-/// An RAII guard to ensure `TestValidator` is explicitly shut down.
 #[must_use = "ValidatorGuard must be explicitly shut down to prevent resource leaks"]
 pub struct ValidatorGuard {
     validator: Option<TestValidator>,
@@ -110,7 +108,6 @@ pub struct ValidatorGuard {
 }
 
 impl ValidatorGuard {
-    /// Creates a new guard that takes ownership of a `TestValidator`.
     pub fn new(validator: TestValidator) -> Self {
         Self {
             validator: Some(validator),
@@ -118,21 +115,18 @@ impl ValidatorGuard {
         }
     }
 
-    /// Provides immutable access to the underlying `TestValidator`.
     pub fn validator(&self) -> &TestValidator {
         self.validator
             .as_ref()
             .expect("ValidatorGuard is empty; it has already been shut down")
     }
 
-    /// Provides mutable access to the underlying `TestValidator`.
     pub fn validator_mut(&mut self) -> &mut TestValidator {
         self.validator
             .as_mut()
             .expect("ValidatorGuard is empty; it has already been shut down")
     }
 
-    /// Explicitly shuts down the validator and all its resources.
     pub async fn shutdown(mut self) -> Result<()> {
         if let Some(mut validator) = self.validator.take() {
             validator.shutdown().await?;
@@ -145,22 +139,17 @@ impl ValidatorGuard {
 impl Drop for ValidatorGuard {
     fn drop(&mut self) {
         if let Some(validator) = self.validator.take() {
-            // Only panic if we are NOT already panicking. This allows the original
-            // test failure message to be displayed instead of this cleanup error.
             if !self.disarmed && !std::thread::panicking() {
                 panic!(
-                    "ValidatorGuard for peer {} was dropped without calling .shutdown(). Explicit cleanup is required to prevent resource leaks.",
+                    "ValidatorGuard for peer {} was dropped without calling .shutdown().",
                     validator.peer_id
                 );
             }
-            // If we ARE panicking, we skip the explicit shutdown since we can't
-            // easily block on async cleanup here, and the OS will reap the child processes.
         }
     }
 }
 
 impl TestValidator {
-    /// Subscribes to the non-blocking log streams for this validator's containers.
     pub fn subscribe_logs(
         &self,
     ) -> (
@@ -175,7 +164,6 @@ impl TestValidator {
         )
     }
 
-    /// Explicitly shuts down the validator and all its associated resources.
     pub async fn shutdown(&mut self) -> Result<()> {
         let handles = self.log_drain_handles.lock().await;
         for handle in handles.iter() {
@@ -185,14 +173,12 @@ impl TestValidator {
         self.backend.cleanup().await
     }
 
-    /// Restarts the workload process. This is only supported by the `ProcessBackend`.
     pub async fn restart_workload_process(&mut self) -> Result<()> {
         self.backend
             .restart_workload_process(self.workload_log_tx.clone(), self.log_drain_handles.clone())
             .await
     }
 
-    /// Kills the workload process. This is only supported by the `ProcessBackend`.
     pub async fn kill_workload(&mut self) -> Result<()> {
         self.backend.kill_workload_process().await
     }
@@ -330,7 +316,7 @@ impl TestValidator {
             },
             rpc_hardening: Default::default(),
             initial_sync_timeout_secs: 5,
-            block_production_interval_secs: 5,
+            block_production_interval_secs: 1,
             round_robin_view_timeout_secs: 20,
             default_query_gas_limit: 1_000_000_000,
             ibc_gateway_listen_address: ibc_gateway_addr.map(String::from),
@@ -361,8 +347,8 @@ impl TestValidator {
             keep_recent_heights: keep_recent_heights.unwrap_or(100_000),
             epoch_size: epoch_size.unwrap_or(50_000),
             gc_interval_secs: gc_interval_secs.unwrap_or(3600),
-            service_policies: ioi_types::config::default_service_policies(), // Use the shared helper
-            zk_config: Default::default(), // [FIX] Add default ZK config
+            service_policies: ioi_types::config::default_service_policies(),
+            zk_config: Default::default(),
         };
 
         if state_tree_type == "Verkle" {
@@ -385,7 +371,7 @@ impl TestValidator {
 
         let (orch_log_tx, _) = broadcast::channel(LOG_CHANNEL_CAPACITY);
         let (workload_log_tx, _) = broadcast::channel(LOG_CHANNEL_CAPACITY);
-        let (guardian_log_tx, mut guardian_sub) = {
+        let (guardian_log_tx, mut _guardian_sub) = {
             let (tx, rx) = broadcast::channel(LOG_CHANNEL_CAPACITY);
             (Some(tx), Some(rx))
         };
@@ -395,6 +381,22 @@ impl TestValidator {
         let workload_ipc_addr;
         let orchestration_telemetry_addr;
         let workload_telemetry_addr;
+
+        let mut signing_oracle_guard = None;
+        let mut oracle_url_arg = None;
+
+        if !use_docker {
+            let ed_kp = keypair
+                .clone()
+                .try_into_ed25519()
+                .map_err(|_| anyhow!("Validator key must be Ed25519 for Oracle auto-spawn"))?;
+            let secret = ed_kp.secret();
+
+            println!("--- Spawning Dedicated Signing Oracle for validator ---");
+            let guard = SigningOracleGuard::spawn(Some(secret.as_ref()))?;
+            oracle_url_arg = Some(guard.url.clone());
+            signing_oracle_guard = Some(guard);
+        }
 
         let mut backend: Box<dyn TestBackend> = if use_docker {
             let docker_config = DockerBackendConfig {
@@ -506,6 +508,11 @@ impl TestValidator {
                 orch_args.push("--pqc-key-file".to_string());
                 orch_args.push(pqc_key_path.to_string_lossy().to_string());
             }
+            if let Some(url) = oracle_url_arg {
+                orch_args.push("--oracle-url".to_string());
+                orch_args.push(url);
+            }
+
             let mut orch_cmd = TokioCommand::new(node_binary_path.join("orchestration"));
             orch_cmd
                 .args(&orch_args)
@@ -556,7 +563,7 @@ impl TestValidator {
             // The simple "GUARDIAN_IPC_LISTENING_ON_" pattern matches both.
             assert_log_contains(
                 "Guardian",
-                guardian_sub.as_mut().unwrap(),
+                _guardian_sub.as_mut().unwrap(),
                 &format!("GUARDIAN_IPC_LISTENING_ON_"),
             )
             .await?;
@@ -649,6 +656,7 @@ impl TestValidator {
             workload_log_tx,
             guardian_log_tx,
             log_drain_handles: Arc::new(Mutex::new(log_drain_handles)),
+            signing_oracle_guard,
         }))
     }
 }

@@ -44,7 +44,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{atomic::AtomicBool, Arc};
 
 // Imports for concrete types used in the factory
-use ioi_api::{commitment::CommitmentScheme, state::StateManager};
+// [FIX] Import SerializableKey for from_bytes
+use ioi_api::{commitment::CommitmentScheme, crypto::SerializableKey, state::StateManager};
 #[cfg(feature = "commitment-hash")]
 use ioi_state::primitives::hash::HashCommitmentScheme;
 #[cfg(feature = "commitment-kzg")]
@@ -61,6 +62,9 @@ use zk_driver_succinct::config::SuccinctDriverConfig;
 // [NEW] Import for VK loading in native mode
 #[cfg(feature = "ethereum-zk")]
 use ioi_crypto::algorithms::hash::sha256;
+
+// [NEW] Import GuardianSigner types
+use ioi_validator::common::{GuardianSigner, LocalSigner, RemoteSigner};
 
 #[derive(Parser, Debug)]
 struct OrchestrationOpts {
@@ -85,6 +89,11 @@ struct OrchestrationOpts {
     /// { "public": "<hex>", "private": "<hex>" }
     #[clap(long)]
     pqc_key_file: Option<PathBuf>,
+
+    /// [NEW] URL of the remote ioi-signer Oracle. If set, the node will use
+    /// the Oracle for signing block headers instead of the local key file.
+    #[clap(long, env = "ORACLE_URL")]
+    oracle_url: Option<String>,
 }
 
 /// Runtime check to ensure exactly one state tree feature is enabled.
@@ -256,16 +265,45 @@ where
     let verifier = create_default_verifier(kzg_params);
     let is_quarantined = Arc::new(AtomicBool::new(false));
 
+    // [NEW] Determine Signing Strategy based on CLI arguments.
+    // If an Oracle URL is provided, we use the RemoteSigner which connects to the
+    // cryptographically isolated Signing Oracle.
+    // If not, we fall back to the LocalSigner which signs using the key file directly.
+    let signer: Arc<dyn GuardianSigner> = if let Some(oracle_url) = &opts.oracle_url {
+        tracing::info!(target: "orchestration", "Using REMOTE Signing Oracle at {}", oracle_url);
+
+        // Extract the raw ed25519 public key bytes for the RemoteSigner constructor
+        let pk_bytes = local_key.public().encode_protobuf();
+        let ed_pk = libp2p::identity::PublicKey::try_decode_protobuf(&pk_bytes)?
+            .try_into_ed25519()?
+            .to_bytes()
+            .to_vec();
+
+        Arc::new(RemoteSigner::new(oracle_url.clone(), ed_pk))
+    } else {
+        tracing::info!(target: "orchestration", "Using LOCAL signing key (Dev Mode).");
+        // Convert the libp2p keypair to the internal crypto type used by LocalSigner
+        // This requires exporting the secret key bytes and re-importing.
+        // [FIX] Clone local_key before moving it into try_into_ed25519
+        let sk_bytes = local_key.clone().try_into_ed25519()?.secret();
+        let internal_sk =
+            ioi_crypto::sign::eddsa::Ed25519PrivateKey::from_bytes(sk_bytes.as_ref())?;
+        let internal_kp = ioi_crypto::sign::eddsa::Ed25519KeyPair::from_private_key(&internal_sk)?;
+
+        Arc::new(LocalSigner::new(internal_kp))
+    };
+
     let deps = OrchestrationDependencies {
         syncer,
         network_event_receiver,
         swarm_command_sender: real_swarm_commander.clone(),
-        consensus_engine: consensus_engine.clone(), // Pass a clone to the container
+        consensus_engine: consensus_engine.clone(),
         local_keypair: local_key.clone(),
         pqc_keypair,
         is_quarantined,
         genesis_hash: derived_genesis_hash,
         verifier: verifier.clone(),
+        signer, // [NEW] Inject the configured signer
     };
 
     let orchestration = Arc::new(Orchestrator::new(&opts.config, deps)?);

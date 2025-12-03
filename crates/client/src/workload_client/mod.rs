@@ -12,9 +12,18 @@ use ioi_api::chain::{QueryStateResponse, WorkloadClientApi};
 use ioi_api::vm::{ExecutionContext, ExecutionOutput};
 use ioi_ipc::jsonrpc::{JsonRpcId, JsonRpcRequest};
 use ioi_types::app::{
-    AccountId, ActiveKeyRecord, Block, ChainStatus, ChainTransaction, StateAnchor, StateRoot,
+    AccountId,
+    ActiveKeyRecord,
+    Block,
+    ChainStatus,
+    ChainTransaction,
     // [NEW] Debug structs
-    DebugPinHeightParams, DebugTriggerGcParams, DebugTriggerGcResponse, DebugUnpinHeightParams,
+    DebugPinHeightParams,
+    DebugTriggerGcParams,
+    DebugTriggerGcResponse,
+    DebugUnpinHeightParams,
+    StateAnchor,
+    StateRoot,
 };
 use ioi_types::error::ChainError;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -26,7 +35,6 @@ use std::time::Duration;
 use tokio::sync::{mpsc, oneshot, watch, Notify, RwLock};
 use tokio::task::JoinHandle;
 
-// ... (intermediate structs remain unchanged) ...
 #[derive(Serialize)]
 struct GetBlocksRangeParams {
     since: u64,
@@ -207,6 +215,16 @@ impl WorkloadClientApi for WorkloadClient {
             .map_err(|e| ChainError::Transaction(e.to_string()))
     }
 
+    // [NEW] Implementation for post-signing header update
+    async fn update_block_header(
+        &self,
+        block: Block<ChainTransaction>,
+    ) -> ioi_types::Result<(), ChainError> {
+        self.update_block_header(block)
+            .await
+            .map_err(|e| ChainError::Transaction(e.to_string()))
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -219,7 +237,6 @@ impl Drop for WorkloadClient {
 }
 
 impl WorkloadClient {
-    // ... (rest of implementation unchanged) ...
     /// Establishes a secure connection to the Workload container and spawns
     /// a dedicated management task to maintain the connection.
     pub async fn new(
@@ -494,6 +511,11 @@ impl WorkloadClient {
         block: Block<ChainTransaction>,
     ) -> Result<(Block<ChainTransaction>, Vec<Vec<u8>>)> {
         self.send_rpc("chain.processBlock.v1", block).await
+    }
+
+    // [NEW] Method to update the header of an existing block (e.g. after signing).
+    pub async fn update_block_header(&self, block: Block<ChainTransaction>) -> Result<()> {
+        self.send_rpc("chain.updateBlockHeader.v1", block).await
     }
 
     pub async fn get_blocks_range(

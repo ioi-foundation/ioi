@@ -153,6 +153,63 @@ where
     }
 }
 
+// --- chain.updateBlockHeader.v1 ---
+
+/// Handler for the `chain.updateBlockHeader.v1` RPC method.
+pub struct UpdateBlockHeaderV1<CS, ST> {
+    _p: PhantomData<(CS, ST)>,
+}
+impl<CS, ST> Default for UpdateBlockHeaderV1<CS, ST> {
+    fn default() -> Self {
+        Self { _p: PhantomData }
+    }
+}
+
+#[async_trait::async_trait]
+impl<CS, ST> RpcMethod for UpdateBlockHeaderV1<CS, ST>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: ioi_api::state::StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static,
+{
+    const NAME: &'static str = "chain.updateBlockHeader.v1";
+    type Params = Block<ChainTransaction>;
+    type Result = ();
+
+    async fn call(
+        &self,
+        _req_ctx: RequestContext,
+        shared_ctx: Arc<dyn Any + Send + Sync>,
+        block: Self::Params,
+    ) -> Result<Self::Result> {
+        let ctx = shared_ctx
+            .downcast::<RpcContext<CS, ST>>()
+            .map_err(|_| anyhow!("Invalid context type for UpdateBlockHeaderV1"))?;
+
+        // Overwrite the block in the store to persist the signature/oracle fields.
+        // [FIX] Map string error to anyhow::Error
+        let block_bytes = ioi_types::codec::to_bytes_canonical(&block).map_err(|e| anyhow!(e))?;
+
+        ctx.workload
+            .store
+            .put_block(block.header.height, &block_bytes)?;
+
+        // Also update the cache in ExecutionMachine to ensure subsequent queries see the signature.
+        let mut machine = ctx.machine.lock().await;
+        if let Some(last) = machine.state.recent_blocks.last_mut() {
+            if last.header.height == block.header.height {
+                *last = block;
+                tracing::info!(target: "workload", "Updated cached block header for height {}", last.header.height);
+            }
+        }
+
+        Ok(())
+    }
+}
+
 // --- chain.checkTransactions.v1 ---
 
 /// Parameters for the `chain.checkTransactions.v1` RPC method.

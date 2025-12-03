@@ -8,7 +8,6 @@
 ))]
 
 use anyhow::Result;
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{
     assert_log_contains, build_test_artifacts, wait_for_height, TestValidator,
 };
@@ -17,13 +16,10 @@ use ioi_types::{
         ActiveKeyRecord, BlockTimingParams, BlockTimingRuntime, SignatureSuite, ValidatorSetV1,
         ValidatorSetsV1, ValidatorV1,
     },
-    codec,
     config::InitialServiceConfig,
-    keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, VALIDATOR_SET_KEY},
     service_configs::MigrationConfig,
 };
 use libp2p::identity;
-use serde_json::json;
 use std::time::Duration;
 
 // Import the new builder
