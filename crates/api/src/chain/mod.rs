@@ -13,6 +13,7 @@ use ioi_types::config::ConsensusType;
 use ioi_types::error::ChainError;
 use ioi_types::Result;
 use libp2p::identity::Keypair;
+use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::BTreeMap;
@@ -31,7 +32,7 @@ pub struct StateRef {
 }
 
 /// The response structure for state queries via the Workload API.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Encode, Decode)]
 pub struct QueryStateResponse {
     /// The version of the response message format.
     pub msg_version: u32,

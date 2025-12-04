@@ -21,7 +21,8 @@
 //! Provides client-side logic for interacting with validator containers via IPC.
 
 pub mod security;
-pub mod workload_client;
+pub mod shmem;
+pub mod workload_client; // [FIX] Exported the shmem module
 
 // Re-export for convenience
 pub use workload_client::WorkloadClient;

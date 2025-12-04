@@ -17,6 +17,8 @@ use axum::{
 use dashmap::DashMap;
 use ioi_api::transaction::TransactionModel;
 use ioi_client::WorkloadClient;
+// [FIX] Import WorkloadClientApi trait
+use ioi_api::chain::WorkloadClientApi;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::config::OrchestrationConfig;
@@ -215,7 +217,8 @@ async fn query_raw_state_resilient(
         match wc.query_raw_state(key).await {
             Ok(v) => return Ok(v),
             Err(e) => {
-                let msg = e.to_string();
+                // [FIX] Added explicit type annotation for error message
+                let msg: String = e.to_string();
                 if is_transient_state_err(&msg) {
                     sleep(Duration::from_millis(backoff)).await;
                     backoff *= 2;
@@ -328,7 +331,8 @@ async fn handle_submit_tx(
     }
 
     // Pre-flight check via IPC to workload.
-    let check_res = {
+    // [FIX] Added explicit type for check_res
+    let check_res: Result<Vec<Result<(), String>>, anyhow::Error> = {
         let root_res = app_state.workload_client.get_state_root().await;
         match root_res {
             Ok(root) => {
@@ -346,6 +350,8 @@ async fn handle_submit_tx(
                                     );
                                 }
                             };
+                        // [FIX] Explicitly import and use the trait method
+                        use ioi_api::chain::WorkloadClientApi;
                         app_state
                             .workload_client
                             .check_transactions_at(
@@ -354,6 +360,7 @@ async fn handle_submit_tx(
                                 vec![tx.clone()],
                             )
                             .await
+                            .map_err(|e| anyhow!(e))
                     }
                     Err(e) => Err(anyhow!("Failed to create anchor from root: {}", e)),
                 }

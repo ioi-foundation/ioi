@@ -1,12 +1,28 @@
-# Path: crates/ioi-ipc/Cargo.toml
+# Path: crates/ipc/Cargo.toml
 [package]
 name = "ioi-ipc"
-version = "0.1.0"
-rust-version = "1.78"
+version = "0.2.0"
 edition = "2021"
 license-file = "../../LICENSE-BBSL"
 repository = "https://github.com/ioi-foundation/ioi-sdk"
 
 [dependencies]
+# Control Plane (gRPC)
+tonic = "0.11"
+prost = "0.12"
+tokio = { workspace = true, features = ["full"] }
+
+# Data Plane (Zero-Copy)
+rkyv = { version = "0.7", features = ["validation", "std", "alloc"] }
+bytecheck = "0.6"
+
+# Legacy JSON-RPC Support
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+
+# Utilities
+bytes = { workspace = true }
+thiserror = { workspace = true }
+
+[build-dependencies]
+tonic-build = "0.11"

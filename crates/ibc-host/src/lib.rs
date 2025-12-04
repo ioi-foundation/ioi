@@ -4,6 +4,8 @@
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use ibc_proto::ics23::CommitmentProof;
+// [FIX] Import WorkloadClientApi to enable calling query_state_at on WorkloadClient
+use ioi_api::chain::WorkloadClientApi;
 use ioi_api::state::{service_namespace_prefix, Verifier};
 use ioi_client::WorkloadClient;
 use ioi_networking::libp2p::SwarmCommand;

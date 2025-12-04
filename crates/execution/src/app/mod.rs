@@ -7,7 +7,7 @@ use crate::upgrade_manager::ServiceUpgradeManager;
 use anyhow::Result;
 use async_trait::async_trait;
 use ibc_primitives::Timestamp;
-use ioi_api::app::{Block, ChainStatus, ChainTransaction};
+use ioi_api::app::{Block, BlockHeader, ChainStatus, ChainTransaction};
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::PenaltyMechanism;
 use ioi_api::services::access::ServiceDirectory;
@@ -22,7 +22,9 @@ use ioi_api::validator::WorkloadContainer;
 use ioi_consensus::Consensus;
 use ioi_tx::system::{nonce, validation};
 use ioi_tx::unified::UnifiedTransactionModel;
-use ioi_types::app::{AccountId, BlockTimingParams, BlockTimingRuntime, ChainId, FailureReport};
+use ioi_types::app::{
+    AccountId, BlockTimingParams, BlockTimingRuntime, ChainId, FailureReport, StateRoot,
+};
 use ioi_types::codec;
 use ioi_types::config::ServicePolicy;
 use ioi_types::error::{ChainError, CoreError, StateError, TransactionError};
@@ -323,6 +325,41 @@ where
                 tracing::debug!(target: "execution", "[ExecutionMachine] Committed genesis state.");
 
                 let final_root = state.root_commitment().as_ref().to_vec();
+
+                // Create and persist the genesis block (Height 0) so that queries for the head block succeed.
+                // This fixes regressions where the chain head was not found immediately after start.
+                let genesis_block = Block {
+                    header: BlockHeader {
+                        height: 0,
+                        view: 0,
+                        parent_hash: [0u8; 32],
+                        parent_state_root: StateRoot(vec![]),
+                        state_root: StateRoot(final_root.clone()),
+                        transactions_root: vec![],
+                        timestamp: self.state.status.latest_timestamp,
+                        gas_used: 0,
+                        validator_set: vec![],
+                        producer_account_id: AccountId::default(),
+                        producer_key_suite: Default::default(),
+                        producer_pubkey_hash: [0u8; 32],
+                        producer_pubkey: vec![],
+                        oracle_counter: 0,
+                        oracle_trace_hash: [0u8; 32],
+                        signature: vec![],
+                    },
+                    transactions: vec![],
+                };
+
+                let genesis_block_bytes =
+                    codec::to_bytes_canonical(&genesis_block).map_err(ChainError::Transaction)?;
+
+                workload
+                    .store
+                    .put_block(0, &genesis_block_bytes)
+                    .map_err(|e| ChainError::State(StateError::Backend(e.to_string())))?;
+
+                self.state.recent_blocks.push(genesis_block);
+
                 let root_commitment_for_check = state.commitment_from_bytes(&final_root)?;
 
                 let (membership, _proof) =
