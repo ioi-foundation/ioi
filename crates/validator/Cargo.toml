@@ -55,6 +55,12 @@ dashmap = { workspace = true }
 reqwest = { version = "0.11", features = ["json"] }
 dcrypt = { workspace = true }
 
+# Hybrid IPC Stack
+tonic = "0.11"
+prost = "0.12"
+shared_memory = "0.12"
+rkyv = { version = "0.7", features = ["validation"] }
+
 # FIX: Add the missing dependency for TxContext's timestamp.
 ibc-primitives = { workspace = true }
 

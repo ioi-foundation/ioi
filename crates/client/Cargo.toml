@@ -1,7 +1,7 @@
 # Path: crates/client/Cargo.toml
 [package]
 name = "ioi-client"
-version = "0.1.0"
+version = "0.2.0"
 rust-version = "1.78"
 edition = "2021"
 description = "IPC Client for IOI SDK validator containers"
@@ -15,9 +15,21 @@ ioi-crypto = { path = "../crypto" }
 ioi-ipc = { path = "../ipc" }
 anyhow = { workspace = true }
 log = { workspace = true }
+# Control Plane
+tonic = "0.11"
+prost = "0.12"
+tokio = { workspace = true, features = ["full"] }
+# Shared Memory
+shared_memory = "0.12"
+# Zero Copy
+rkyv = { version = "0.7", features = ["validation"] }
+bytecheck = "0.6"
+
+# Legacy Support
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-tokio = { workspace = true, features = ["full"] }
+
+# TLS/Security dependencies
 tokio-rustls = { workspace = true }
 rustls = { workspace = true, features = ["ring"] }
 rustls-pemfile = { workspace = true }

@@ -1,0 +1,52 @@
+// Path: crates/ipc/proto/control.proto
+syntax = "proto3";
+package ioi.control.v1;
+
+// The service provided by the Workload container to the Orchestrator.
+// Used for high-frequency, low-latency signaling.
+service WorkloadControl {
+  // Prepares a model or execution context in memory.
+  rpc LoadModel (LoadModelRequest) returns (LoadModelResponse);
+
+  // Triggers execution of a job. 
+  // Inputs/Outputs are read/written directly from Shared Memory via the Data Plane.
+  rpc ExecuteJob (ExecuteJobRequest) returns (ExecuteJobResponse);
+  
+  // Liveness probe.
+  rpc HealthCheck (HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+message LoadModelRequest {
+  string model_id = 1;
+  // Identifier for the shared memory region (e.g., shm_open name)
+  string shmem_region_id = 2;
+}
+
+message LoadModelResponse {
+  bool success = 1;
+  // Bytes allocated in shared memory for this context
+  uint64 memory_usage_bytes = 2;
+}
+
+message ExecuteJobRequest {
+  uint64 job_id = 1;
+  // Offset in the shared memory region where the input (AgentContext) begins
+  uint64 input_offset = 2;
+  // Length of the input data
+  uint64 input_length = 3;
+}
+
+message ExecuteJobResponse {
+  bool success = 1;
+  // Offset in shared memory where the output (InferenceOutput) was written
+  uint64 output_offset = 2;
+  uint64 output_length = 3;
+  uint64 gas_used = 4;
+  string error_message = 5;
+}
+
+message HealthCheckRequest {}
+message HealthCheckResponse {
+  bool ready = 1;
+  string status = 2;
+}

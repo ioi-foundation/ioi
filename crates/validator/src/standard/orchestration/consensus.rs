@@ -10,6 +10,7 @@ use ioi_api::{
     crypto::{SerializableKey, SigningKeyPair},
     state::{ProofProvider, StateManager, Verifier},
 };
+// [FIX] Removed unused ioi_ipc import
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::traits::NodeState;
 use ioi_types::{
@@ -26,7 +27,6 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
 
-// [FIX] Import GuardianSigner trait to use the signer instance
 use crate::common::GuardianSigner;
 
 /// Drive one consensus tick without holding the MainLoopContext lock across awaits.
@@ -51,7 +51,6 @@ where
 {
     let _tick_timer = ioi_telemetry::time::Timer::new(metrics());
 
-    // [FIX] Explicitly type the extracted tuple to help inference
     let (
         cons_ty,
         view_resolver,
@@ -81,7 +80,6 @@ where
         )
     };
 
-    // [FIX] Separate lock from clone to help inference
     let node_state = {
         let guard = node_state_arc.lock().await;
         guard.clone()
@@ -122,11 +120,9 @@ where
         resolve_parent_ref_and_anchor(&last_committed_block_opt, view_resolver.as_ref()).await?;
 
     let decision = {
-        // [FIX] Resolve view first
         let parent_view = view_resolver.resolve_anchored(&parent_ref).await?;
         let mut engine = consensus_engine_ref.lock().await;
         let known_peers = known_peers_ref.lock().await;
-        // [FIX] Deref parent_view explicitly for the trait object
         engine
             .decide(&our_account_id, producing_h, 0, &*parent_view, &known_peers)
             .await
@@ -185,7 +181,6 @@ where
                 local_keypair.public().encode_protobuf(),
             ),
             SignatureSuite::Dilithium2 => {
-                // [FIX] Help inference for pqc_signer
                 let kp = pqc_signer.as_ref().ok_or_else(|| {
                     anyhow!("Dilithium required by validator set, but no PQC signer configured")
                 })?;
@@ -211,8 +206,8 @@ where
                 producer_account_id: our_account_id,
                 producer_key_suite,
                 producer_pubkey_hash,
-                producer_pubkey: producer_pubkey.to_vec(), // [FIX] Ensure Vec<u8>
-                signature: vec![],                         // Computed in finalization
+                producer_pubkey: producer_pubkey.to_vec(),
+                signature: vec![], // Computed in finalization
                 oracle_counter: 0,
                 oracle_trace_hash: [0u8; 32],
             },
@@ -220,13 +215,18 @@ where
         };
 
         let workload_client = view_resolver.workload_client();
-        match workload_client.process_block(new_block_template).await {
+
+        // The updated WorkloadClient internally handles switching to DataPlane
+        // if the block size exceeds the threshold.
+        let processed_result = workload_client.process_block(new_block_template).await;
+
+        match processed_result {
             Ok((final_block, _)) => {
                 // --- Step 5: Finalize, Broadcast, and Clean Up ---
                 finalize_and_broadcast_block(
                     context_arc,
                     final_block,
-                    signer, // [FIX] Pass the GuardianSigner
+                    signer,
                     &swarm_commander,
                     &consensus_engine_ref,
                     &tx_pool_ref,
@@ -284,7 +284,6 @@ where
     Ok((parent_ref, parent_anchor))
 }
 
-/// EXTRACTED: Mempool Pre-check Logic
 async fn gather_valid_transactions<V>(
     view_resolver: &Arc<dyn ViewResolver<Verifier = V>>,
     tx_pool_ref: &Arc<Mutex<VecDeque<(ChainTransaction, TxHash)>>>,
@@ -389,11 +388,10 @@ where
     Ok(valid_txs)
 }
 
-/// EXTRACTED: Block Finalization Logic
 async fn finalize_and_broadcast_block<CS, ST, CE, V>(
     context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
     mut final_block: Block<ChainTransaction>,
-    signer: Arc<dyn GuardianSigner>, // [FIX] Use the trait object
+    signer: Arc<dyn GuardianSigner>,
     swarm_commander: &mpsc::Sender<SwarmCommand>,
     consensus_engine_ref: &Arc<Mutex<CE>>,
     tx_pool_ref: &Arc<Mutex<VecDeque<(ChainTransaction, TxHash)>>>,
@@ -426,15 +424,11 @@ where
     final_block.header.oracle_counter = bundle.counter;
     final_block.header.oracle_trace_hash = bundle.trace_hash;
 
-    // [NEW] Persist the fully signed block back to Workload storage
-    // This prevents the workload from serving an unsigned/unverified block on restart or query.
+    // Persist the fully signed block back to Workload storage.
+    // This prevents the workload from serving an unsigned block on query.
     {
-        let workload_client = context_arc
-            .lock()
-            .await
-            .view_resolver
-            .workload_client()
-            .clone();
+        let view_resolver = context_arc.lock().await.view_resolver.clone();
+        let workload_client = view_resolver.workload_client();
         workload_client
             .update_block_header(final_block.clone())
             .await

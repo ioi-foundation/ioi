@@ -1,0 +1,283 @@
+// Path: crates/ipc/proto/blockchain.proto
+syntax = "proto3";
+package ioi.blockchain.v1;
+
+import "google/protobuf/empty.proto";
+
+// -----------------------------------------------------------------------------
+// Service Definitions
+// -----------------------------------------------------------------------------
+
+// Services for blockchain lifecycle management (Consensus -> Execution)
+service ChainControl {
+  // Processes a block. Supports Hybrid Data Plane (Inline vs Shared Memory).
+  rpc ProcessBlock (ProcessBlockRequest) returns (ProcessBlockResponse);
+  
+  // Fetches a range of blocks for sync. Supports Hybrid Data Plane.
+  rpc GetBlocksRange (GetBlocksRangeRequest) returns (GetBlocksRangeResponse);
+  
+  // Updates the header of a stored block (used for adding signatures/oracle data).
+  rpc UpdateBlockHeader (UpdateBlockHeaderRequest) returns (UpdateBlockHeaderResponse);
+  
+  // Checks if the chain genesis is ready.
+  rpc GetGenesisStatus (GetGenesisStatusRequest) returns (GetGenesisStatusResponse);
+  
+  // Gets the current chain status (height, timestamp, etc.).
+  rpc GetStatus (GetStatusRequest) returns (GetStatusResponse);
+}
+
+// Services for state queries and transaction pre-checks
+service StateQuery {
+  // Performs pre-execution checks on transactions against a specific state anchor.
+  rpc CheckTransactions (CheckTransactionsRequest) returns (CheckTransactionsResponse);
+  
+  // Queries the state at a specific root hash, returning a Merkle proof.
+  rpc QueryStateAt (QueryStateAtRequest) returns (QueryStateAtResponse);
+  
+  // Queries the raw state value (without proof).
+  rpc QueryRawState (QueryRawStateRequest) returns (QueryRawStateResponse);
+  
+  // Scans keys with a given prefix.
+  rpc PrefixScan (PrefixScanRequest) returns (PrefixScanResponse);
+}
+
+// Services for Smart Contract interaction (VM)
+service ContractControl {
+  // Deploys a new smart contract.
+  rpc DeployContract (DeployContractRequest) returns (DeployContractResponse);
+  
+  // Calls a smart contract (state transition).
+  rpc CallContract (CallContractRequest) returns (CallContractResponse);
+  
+  // Queries a smart contract (read-only).
+  rpc QueryContract (QueryContractRequest) returns (QueryContractResponse);
+}
+
+// Services for Staking and Validator Set management
+service StakingControl {
+  // Gets the current set of staked validators and their weights.
+  rpc GetStakedValidators (GetStakedValidatorsRequest) returns (GetStakedValidatorsResponse);
+  
+  // Gets the pending next set of staked validators.
+  rpc GetNextStakedValidators (GetNextStakedValidatorsRequest) returns (GetNextStakedValidatorsResponse);
+}
+
+// Services for System operations and Debugging
+service SystemControl {
+  // Gets the expected hash of the semantic model (AI/Agentic).
+  rpc GetExpectedModelHash (google.protobuf.Empty) returns (GetExpectedModelHashResponse);
+  
+  // Triggers proposal tallying (legacy governance hook).
+  rpc CheckAndTallyProposals (CheckAndTallyProposalsRequest) returns (CheckAndTallyProposalsResponse);
+  
+  // Pins a state version to prevent pruning.
+  rpc DebugPinHeight (DebugPinHeightRequest) returns (google.protobuf.Empty);
+  
+  // Unpins a state version.
+  rpc DebugUnpinHeight (DebugUnpinHeightRequest) returns (google.protobuf.Empty);
+  
+  // Triggers a manual Garbage Collection pass.
+  rpc DebugTriggerGc (google.protobuf.Empty) returns (DebugTriggerGcResponse);
+}
+
+// -----------------------------------------------------------------------------
+// Data Plane Primitives
+// -----------------------------------------------------------------------------
+
+// A pointer to data residing in the shared memory region (Zero-Copy).
+message SharedMemoryHandle {
+  // The identifier of the shared memory region (e.g., "/ioi_shmem_data_plane")
+  string region_id = 1;
+  // The byte offset where the data begins
+  uint64 offset = 2;
+  // The length of the data in bytes
+  uint64 length = 3;
+}
+
+// -----------------------------------------------------------------------------
+// Message Definitions
+// -----------------------------------------------------------------------------
+
+// --- ChainControl Messages ---
+
+message ProcessBlockRequest {
+  // Hybrid payload: Use 'inline' for small blocks, 'shmem' for bulk/heavy blocks.
+  oneof payload {
+    // SCALE-encoded Block<ChainTransaction> passed directly over gRPC.
+    bytes block_bytes_inline = 1; 
+    
+    // Pointer to block data in shared memory.
+    SharedMemoryHandle shmem_handle = 2;
+  }
+}
+
+message ProcessBlockResponse {
+  bytes block_bytes = 1; // SCALE-encoded Block<ChainTransaction> (processed)
+  repeated bytes events = 2;
+}
+
+message GetBlocksRangeRequest {
+  uint64 since = 1;
+  uint32 max_blocks = 2;
+  uint32 max_bytes = 3;
+}
+
+message GetBlocksRangeResponse {
+  oneof data {
+    // Standard gRPC list of blocks.
+    BlockList inline = 1;
+
+    // Pointer to serialized vector of blocks in shared memory.
+    SharedMemoryHandle shmem = 2;
+  }
+}
+
+// Wrapper message because `repeated` cannot be inside `oneof`.
+message BlockList {
+  repeated bytes blocks = 1; // SCALE-encoded blocks
+}
+
+message UpdateBlockHeaderRequest {
+  bytes block_bytes = 1; // SCALE-encoded Block
+}
+message UpdateBlockHeaderResponse {}
+
+message GetGenesisStatusRequest {}
+message GetGenesisStatusResponse {
+  bool ready = 1;
+  bytes root = 2;
+  string chain_id = 3;
+}
+
+message GetStatusRequest {}
+message GetStatusResponse {
+  uint64 height = 1;
+  uint64 latest_timestamp = 2;
+  uint64 total_transactions = 3;
+  bool is_running = 4;
+}
+
+// --- StateQuery Messages ---
+
+message CheckTransactionsRequest {
+  bytes anchor = 1; // StateAnchor (32 bytes)
+  uint64 expected_timestamp_secs = 2;
+  repeated bytes txs = 3; // SCALE-encoded ChainTransaction
+}
+
+message CheckTransactionsResponse {
+  repeated CheckResult results = 1;
+}
+
+message CheckResult {
+  bool success = 1;
+  string error = 2;
+}
+
+message QueryStateAtRequest {
+  bytes root = 1; // StateRoot raw bytes
+  bytes key = 2;
+}
+
+message QueryStateAtResponse {
+  // SCALE-encoded QueryStateResponse struct (from api/chain)
+  bytes response_bytes = 1; 
+}
+
+message QueryRawStateRequest {
+  bytes key = 1;
+}
+
+message QueryRawStateResponse {
+  bytes value = 1; // Empty if null
+  bool found = 2;
+}
+
+message PrefixScanRequest {
+  bytes prefix = 1;
+}
+
+message PrefixScanResponse {
+  repeated KeyValuePair pairs = 1;
+}
+
+message KeyValuePair {
+  bytes key = 1;
+  bytes value = 2;
+}
+
+// --- ContractControl Messages ---
+
+message DeployContractRequest {
+  bytes code = 1;
+  bytes sender = 2;
+}
+
+message DeployContractResponse {
+  bytes address = 1;
+  repeated KeyValuePair state_changes = 2;
+}
+
+message CallContractRequest {
+  bytes address = 1;
+  bytes input_data = 2;
+  // SCALE-encoded ioi_api::vm::ExecutionContext
+  bytes context_bytes = 3; 
+}
+
+message CallContractResponse {
+  bytes execution_output = 1; // SCALE-encoded ExecutionOutput
+  repeated KeyValuePair state_changes = 2; // Insertions/Updates
+  repeated bytes deletions = 3; // Keys to delete
+}
+
+message QueryContractRequest {
+  bytes address = 1;
+  bytes input_data = 2;
+  bytes context_bytes = 3;
+}
+
+message QueryContractResponse {
+  bytes execution_output = 1;
+}
+
+// --- StakingControl Messages ---
+
+message GetStakedValidatorsRequest {}
+message GetStakedValidatorsResponse {
+  // AccountId (hex string) -> stake
+  map<string, uint64> validators = 1;
+}
+
+message GetNextStakedValidatorsRequest {}
+message GetNextStakedValidatorsResponse {
+  // AccountId (hex string) -> stake
+  map<string, uint64> validators = 1;
+}
+
+// --- SystemControl Messages ---
+
+message GetExpectedModelHashResponse {
+  bytes hash = 1;
+}
+
+message CheckAndTallyProposalsRequest {
+  uint64 current_height = 1;
+}
+
+message CheckAndTallyProposalsResponse {
+  repeated string logs = 1;
+}
+
+message DebugPinHeightRequest {
+  uint64 height = 1;
+}
+
+message DebugUnpinHeightRequest {
+  uint64 height = 1;
+}
+
+message DebugTriggerGcResponse {
+  uint64 heights_pruned = 1;
+  uint64 nodes_deleted = 2;
+}

@@ -9,6 +9,8 @@ use anyhow::{anyhow, Result};
 use futures_util::StreamExt;
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_client::WorkloadClient;
+// [FIX] Import the trait to make get_genesis_status available
+use ioi_api::chain::WorkloadClientApi;
 use ioi_crypto::sign::dilithium::{DilithiumKeyPair, DilithiumScheme};
 use ioi_state::primitives::kzg::KZGParams;
 use ioi_types::config::{
@@ -618,8 +620,9 @@ impl TestValidator {
                 Duration::from_millis(250),
                 WORKLOAD_READY_TIMEOUT,
                 || async {
+                    // [FIX] get_genesis_status returns Result<bool, ...>, check for Ok(true)
                     match temp_workload_client.get_genesis_status().await {
-                        Ok(status) if status.ready => Ok(Some(())),
+                        Ok(true) => Ok(Some(())),
                         _ => Ok(None),
                     }
                 },

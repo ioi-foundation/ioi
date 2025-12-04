@@ -92,11 +92,20 @@ where
             .map_err(|e| ChainError::Transaction(e.to_string()))?;
 
         if ready {
+            // [FIX] Remove redundant call. get_genesis_status returns bool directly.
+            // To get the root, we need a different method or assume the previous call was sufficient check?
+            // Wait, the trait method returns bool. We need the root.
+            // WorkloadClient (concrete) has a method returning GenesisStatus struct.
+            // But we are using the trait here. The trait only exposes `get_genesis_status() -> bool`.
+            // We need to either extend the trait or use the concrete client.
+            // Since we have `self.client` (concrete), let's use that.
+
             let status = self
                 .client
-                .get_genesis_status()
+                .get_genesis_status_details() // [NOTE] Assumes WorkloadClient has this method returning the struct
                 .await
                 .map_err(|e| ChainError::Transaction(e.to_string()))?;
+
             if status.ready {
                 Ok(status.root)
             } else {

@@ -3,7 +3,8 @@
 use crate::state::VmStateAccessor;
 use async_trait::async_trait;
 use ioi_types::error::VmError;
-use serde::{Deserialize, Serialize}; // Add this import
+use parity_scale_codec::{Decode, Encode}; // [FIX] Added imports
+use serde::{Deserialize, Serialize};
 
 mod overlay;
 pub use overlay::VmStateOverlay;
@@ -17,7 +18,7 @@ pub trait VirtualMachine: Send + Sync {
     /// * `contract_bytecode`: The compiled WASM or EVM code.
     /// * `entrypoint`: The name of the function to call (e.g., "call").
     /// * `input_data`: The serialized arguments for the function call.
-    /// * `state_accessor`: A mutable, dyn-safe handle for the VM to access chain state transactionally.
+    /// * `state_accessor`: A mutable, dyn-safe handle for the VM to access state transactionally.
     async fn execute(
         &self,
         contract_bytecode: &[u8],
@@ -29,7 +30,7 @@ pub trait VirtualMachine: Send + Sync {
 }
 
 /// Contains the results of a successful contract execution.
-#[derive(Debug, Default, Serialize, Deserialize)] // Add Serialize and Deserialize
+#[derive(Debug, Default, Serialize, Deserialize, Encode, Decode)] // [FIX] Added Encode, Decode
 pub struct ExecutionOutput {
     /// The amount of gas consumed by the execution.
     pub gas_used: u64,
@@ -38,7 +39,7 @@ pub struct ExecutionOutput {
 }
 
 /// Provides contextual information to the smart contract during execution.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)] // Add Serialize and Deserialize
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Encode, Decode)] // [FIX] Added Encode, Decode
 pub struct ExecutionContext {
     /// The address of the entity that initiated the contract call.
     pub caller: Vec<u8>,

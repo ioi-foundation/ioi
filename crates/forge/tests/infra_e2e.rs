@@ -7,6 +7,8 @@
 
 use anyhow::{anyhow, Result};
 use axum::{routing::get, serve, Router};
+// [FIX] Import WorkloadClientApi to enable calling query_state_at
+use ioi_api::chain::WorkloadClientApi;
 use ioi_client::WorkloadClient;
 use ioi_forge::testing::{
     build_test_artifacts, // Added add_genesis_identity
@@ -24,7 +26,7 @@ use ioi_types::{
     },
     codec,
     config::{InitialServiceConfig, OracleParams},
-    keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY},
+    // [FIX] Removed unused BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY
     service_configs::MigrationConfig,
 };
 use parity_scale_codec::Encode;
@@ -255,7 +257,7 @@ async fn test_storage_crash_recovery() -> Result<()> {
         .with_genesis_modifier(|builder, keys| {
             let keypair = &keys[0];
             let suite = SignatureSuite::Ed25519;
-            let pk_bytes = keypair.public().encode_protobuf();
+            // [FIX] Removed unused pk_bytes
 
             // 1. Identity
             let account_id = builder.add_identity(keypair);
@@ -378,7 +380,6 @@ async fn test_storage_crash_recovery() -> Result<()> {
         .await?;
         println!("Workload process restarted and orchestrator reconnected.");
 
-        // FIX: Use the namespaced key for the query
         let key_to_check = [
             ioi_api::state::service_namespace_prefix("oracle").as_slice(),
             ioi_types::keys::ORACLE_PENDING_REQUEST_PREFIX,

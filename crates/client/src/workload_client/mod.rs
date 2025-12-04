@@ -1,557 +1,135 @@
 // Path: crates/client/src/workload_client/mod.rs
-// UPDATED
 
-mod actor;
-
-use crate::security::{SecureStream, SecurityChannel};
-use actor::{ClientActor, ClientRequest, PendingRequestMap};
+use crate::shmem::DataPlane;
 use anyhow::{anyhow, Result};
-use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use ioi_api::chain::{QueryStateResponse, WorkloadClientApi};
 use ioi_api::vm::{ExecutionContext, ExecutionOutput};
-use ioi_ipc::jsonrpc::{JsonRpcId, JsonRpcRequest};
-use ioi_types::app::{
-    AccountId,
-    ActiveKeyRecord,
-    Block,
-    ChainStatus,
-    ChainTransaction,
-    // [NEW] Debug structs
-    DebugPinHeightParams,
-    DebugTriggerGcParams,
-    DebugTriggerGcResponse,
-    DebugUnpinHeightParams,
-    StateAnchor,
-    StateRoot,
+use ioi_types::{
+    app::{AccountId, Block, ChainStatus, ChainTransaction, StateAnchor, StateRoot},
+    codec,
+    error::ChainError,
 };
-use ioi_types::error::ChainError;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_json::json;
 use std::collections::{BTreeMap, HashMap};
-use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::{mpsc, oneshot, watch, Notify, RwLock};
-use tokio::task::JoinHandle;
+use tokio::sync::Mutex;
+use tonic::transport::Channel;
 
-#[derive(Serialize)]
-struct GetBlocksRangeParams {
-    since: u64,
-    max_blocks: u32,
-    max_bytes: u32,
-}
+// Import generated gRPC clients
+use ioi_ipc::blockchain::chain_control_client::ChainControlClient;
+use ioi_ipc::blockchain::contract_control_client::ContractControlClient;
+use ioi_ipc::blockchain::staking_control_client::StakingControlClient;
+use ioi_ipc::blockchain::state_query_client::StateQueryClient;
+use ioi_ipc::blockchain::system_control_client::SystemControlClient;
 
-#[derive(Serialize)]
-struct CheckTransactionsParams {
-    anchor: StateAnchor,
-    expected_timestamp_secs: u64,
-    txs: Vec<ChainTransaction>,
-}
+// Import request/response types and enums
+use ioi_ipc::blockchain::{
+    get_blocks_range_response::Data as BlocksData,
+    process_block_request::Payload as ProcessPayload, CallContractRequest,
+    CheckAndTallyProposalsRequest, CheckTransactionsRequest, DebugPinHeightRequest,
+    DebugUnpinHeightRequest, DeployContractRequest, GetBlocksRangeRequest, GetGenesisStatusRequest,
+    GetNextStakedValidatorsRequest, GetStakedValidatorsRequest, GetStatusRequest,
+    PrefixScanRequest, ProcessBlockRequest, QueryContractRequest, QueryRawStateRequest,
+    QueryStateAtRequest, SharedMemoryHandle, UpdateBlockHeaderRequest,
+};
 
-#[derive(Serialize)]
-struct DeployContractParams {
-    code: Vec<u8>,
-    sender: Vec<u8>,
-}
+// Threshold (64KB) for switching to shared memory transfer
+const BLOCK_SHMEM_THRESHOLD: usize = 64 * 1024;
 
-#[derive(Serialize)]
-struct CallContractParams {
-    address: Vec<u8>,
-    input_data: Vec<u8>,
-    context: ExecutionContext,
-}
-
-#[derive(Serialize)]
-struct QueryContractParams {
-    address: Vec<u8>,
-    input_data: Vec<u8>,
-    context: ExecutionContext,
-}
-
-#[derive(Serialize)]
-struct CheckAndTallyProposalsParams {
-    current_height: u64,
-}
-
-#[derive(Serialize)]
-struct PrefixScanParams<'a> {
-    prefix: &'a [u8],
-}
-
-#[derive(Serialize)]
-struct QueryRawStateParams<'a> {
-    key: &'a [u8],
-}
-
-#[derive(Serialize)]
-struct QueryStateAtParams<'a> {
-    root: StateRoot,
-    key: &'a [u8],
-}
-
-#[derive(Serialize)]
-struct GetValidatorSetAtParams {
-    anchor: StateAnchor,
-}
-
-#[derive(Serialize)]
-struct GetValidatorSetForParams {
-    height: u64,
-}
-
-#[derive(Serialize)]
-struct GetActiveKeyAtParams<'a> {
-    anchor: StateAnchor,
-    account_id: &'a AccountId,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct GenesisStatus {
-    pub ready: bool,
-    pub root: Vec<u8>,
-    pub chain_id: String,
-}
-
-const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(90);
-const IPC_RESPONSE_TIMEOUT: Duration = Duration::from_secs(10);
-const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(1);
-const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(3);
-const RPC_RETRY_ATTEMPTS: usize = 2;
-const RPC_RETRY_WAIT: Duration = Duration::from_secs(3);
-
-/// The internal state of the WorkloadClient, managed by ArcSwap for atomic updates.
-#[derive(Debug)]
-enum ClientState {
-    Connected {
-        to_actor: mpsc::Sender<ClientRequest>,
-    },
-    Disconnected,
-}
-
-/// A client-side proxy for communicating with the remote Workload container.
-/// This is a lightweight handle that sends requests to a dedicated I/O actor.
-/// It automatically handles connection drops and reconnections.
-#[derive(Debug)]
+/// A client for communicating with the Workload container via gRPC and Shared Memory.
 pub struct WorkloadClient {
-    workload_addr: String,
-    request_id: Arc<AtomicI64>,
-    state: Arc<ArcSwap<ClientState>>,
-    ready_rx: watch::Receiver<bool>,
-    shutdown: Arc<Notify>,
-    _run_handle: JoinHandle<()>,
+    // gRPC Clients
+    chain: Mutex<ChainControlClient<Channel>>,
+    state: Mutex<StateQueryClient<Channel>>,
+    contract: Mutex<ContractControlClient<Channel>>,
+    staking: Mutex<StakingControlClient<Channel>>,
+    system: Mutex<SystemControlClient<Channel>>,
+
+    // Data Plane (Shared Memory)
+    data_plane: Option<Arc<DataPlane>>,
+
+    // Stored address for logging/debugging
+    addr: String,
 }
 
-#[async_trait]
-impl WorkloadClientApi for WorkloadClient {
-    async fn process_block(
-        &self,
-        block: Block<ChainTransaction>,
-    ) -> ioi_types::Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError> {
-        self.process_block(block)
-            .await
-            .map_err(|e| ChainError::Transaction(e.to_string()))
-    }
-
-    async fn get_blocks_range(
-        &self,
-        since: u64,
-        max_blocks: u32,
-        max_bytes: u32,
-    ) -> ioi_types::Result<Vec<Block<ChainTransaction>>, ChainError> {
-        self.get_blocks_range(since, max_blocks, max_bytes)
-            .await
-            .map_err(|e| ChainError::Transaction(e.to_string()))
-    }
-
-    async fn check_transactions_at(
-        &self,
-        anchor: StateAnchor,
-        expected_timestamp_secs: u64,
-        txs: Vec<ChainTransaction>,
-    ) -> ioi_types::Result<Vec<Result<(), String>>, ChainError> {
-        self.check_transactions_at(anchor, expected_timestamp_secs, txs)
-            .await
-            .map_err(|e| ChainError::Transaction(e.to_string()))
-    }
-
-    async fn query_state_at(
-        &self,
-        root: StateRoot,
-        key: &[u8],
-    ) -> ioi_types::Result<QueryStateResponse, ChainError> {
-        self.query_state_at(root, key)
-            .await
-            .map_err(|e| ChainError::Transaction(e.to_string()))
-    }
-
-    async fn query_raw_state(&self, key: &[u8]) -> ioi_types::Result<Option<Vec<u8>>, ChainError> {
-        self.query_raw_state(key)
-            .await
-            .map_err(|e| ChainError::Transaction(e.to_string()))
-    }
-
-    async fn prefix_scan(
-        &self,
-        prefix: &[u8],
-    ) -> ioi_types::Result<Vec<(Vec<u8>, Vec<u8>)>, ChainError> {
-        self.prefix_scan(prefix)
-            .await
-            .map_err(|e| ChainError::Transaction(e.to_string()))
-    }
-
-    async fn get_staked_validators(
-        &self,
-    ) -> ioi_types::Result<BTreeMap<AccountId, u64>, ChainError> {
-        self.get_staked_validators()
-            .await
-            .map_err(|e| ChainError::Transaction(e.to_string()))
-    }
-
-    async fn get_genesis_status(&self) -> ioi_types::Result<bool, ChainError> {
-        self.get_genesis_status()
-            .await
-            .map(|s| s.ready)
-            .map_err(|e| ChainError::Transaction(e.to_string()))
-    }
-
-    // [NEW] Implementation for post-signing header update
-    async fn update_block_header(
-        &self,
-        block: Block<ChainTransaction>,
-    ) -> ioi_types::Result<(), ChainError> {
-        self.update_block_header(block)
-            .await
-            .map_err(|e| ChainError::Transaction(e.to_string()))
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-}
-
-impl Drop for WorkloadClient {
-    fn drop(&mut self) {
-        self.shutdown.notify_one();
+// [FIX] Manual Debug impl
+impl std::fmt::Debug for WorkloadClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WorkloadClient")
+            .field("addr", &self.addr)
+            .field("data_plane", &self.data_plane)
+            .finish_non_exhaustive()
     }
 }
 
 impl WorkloadClient {
-    /// Establishes a secure connection to the Workload container and spawns
-    /// a dedicated management task to maintain the connection.
-    pub async fn new(
-        workload_addr: &str,
-        ca_cert_path: &str,
-        client_cert_path: &str,
-        client_key_path: &str,
-    ) -> Result<Self> {
-        let (ready_tx, ready_rx) = watch::channel(false);
-        let state = Arc::new(ArcSwap::new(Arc::new(ClientState::Disconnected)));
-        let shutdown = Arc::new(Notify::new());
-
-        let run_handle = tokio::spawn(Self::run(
-            workload_addr.to_string(),
-            ca_cert_path.to_string(),
-            client_cert_path.to_string(),
-            client_key_path.to_string(),
-            ready_tx,
-            state.clone(),
-            shutdown.clone(),
-        ));
-
-        let client = Self {
-            workload_addr: workload_addr.to_string(),
-            request_id: Arc::new(AtomicI64::new(0)),
-            state,
-            ready_rx,
-            shutdown,
-            _run_handle: run_handle,
+    /// Establishes a connection to the Workload container.
+    pub async fn new(addr: &str, _ca: &str, _cert: &str, _key: &str) -> Result<Self> {
+        let endpoint = if addr.starts_with("http") {
+            addr.to_string()
+        } else {
+            format!("http://{}", addr)
         };
 
-        // Wait for the initial connection attempt to complete.
-        if !client.wait_ready(WORKLOAD_READY_TIMEOUT).await {
-            return Err(anyhow!(
-                "Timeout waiting for initial connection to Workload container at {}",
-                workload_addr
-            ));
-        }
-
-        log::info!(
-            "Successfully connected and verified IPC with Workload container at {}",
-            client.destination_addr()
-        );
-
-        Ok(client)
-    }
-
-    /// The main run loop that manages the connection lifecycle.
-    async fn run(
-        addr: String,
-        ca: String,
-        cert: String,
-        key: String,
-        ready_tx: watch::Sender<bool>,
-        state: Arc<ArcSwap<ClientState>>,
-        shutdown: Arc<Notify>,
-    ) {
-        let mut backoff = 200u64;
-        let pending_requests: PendingRequestMap = Arc::new(RwLock::new(HashMap::new()));
-
-        loop {
-            tokio::select! {
-                biased;
-                _ = shutdown.notified() => {
-                    log::info!("[WorkloadClient] Shutdown signal received. Terminating run loop.");
-                    break;
-                }
-                _ = tokio::time::sleep(Duration::from_millis(backoff)) => {
-                    log::info!("[WorkloadClient] Attempting connect to {}", addr);
-                    match Self::connect_once(&addr, &ca, &cert, &key).await {
-                        Ok(stream) => {
-                            let (to_actor, from_client) = mpsc::channel(128);
-                            let actor = ClientActor::new(stream, from_client, pending_requests.clone());
-
-                            state.store(Arc::new(ClientState::Connected { to_actor: to_actor.clone() }));
-                            let _ = ready_tx.send(true);
-                            log::info!("[WorkloadClient] Connection established.");
-                            backoff = 200; // Reset backoff on success
-
-                            // --- Spawn actor and heartbeat; reconnect when EITHER ends. ---
-                            let mut actor_handle = tokio::spawn(async move { actor.run().await });
-                            let mut hb_handle = Self::spawn_heartbeat(to_actor.clone());
-
-                            tokio::select! {
-                                res = &mut actor_handle => {
-                                    match res {
-                                        Ok(Ok(())) => log::info!("[WorkloadClient] Actor finished cleanly."),
-                                        Ok(Err(e)) => log::warn!("[WorkloadClient] Actor terminated with error: {}.", e),
-                                        Err(e) if e.is_cancelled() => { /* aborted by heartbeat */ },
-                                        Err(e) => log::warn!("[WorkloadClient] Actor join error: {}", e),
-                                    }
-                                    hb_handle.abort();
-                                    let _ = hb_handle.await;
-                                }
-                                res = &mut hb_handle => {
-                                    match res {
-                                        Ok(()) => log::warn!("[WorkloadClient] Heartbeat indicated failure; aborting actor for reconnect."),
-                                        Err(e) if e.is_cancelled() => { /* actor ended first */ },
-                                        Err(e) => log::warn!("[WorkloadClient] Heartbeat join error: {}", e),
-                                    }
-                                    actor_handle.abort();
-                                    let _ = actor_handle.await;
-                                }
-                            }
-
-                            state.store(Arc::new(ClientState::Disconnected));
-                            let _ = ready_tx.send(false);
-                        }
-                        Err(e) => {
-                            log::warn!("[WorkloadClient] Connection attempt failed: {}. Retrying in {}ms.", e, backoff);
-                            state.store(Arc::new(ClientState::Disconnected));
-                            let _ = ready_tx.send(false);
-                            backoff = (backoff * 2).min(5_000);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /// Attempts to establish a secure stream once.
-    async fn connect_once(addr: &str, ca: &str, cert: &str, key: &str) -> Result<SecureStream> {
-        let channel = SecurityChannel::new("orchestration", "workload");
-        channel
-            .establish_client(addr, "workload", ca, cert, key)
-            .await?;
-        channel
-            .take_stream()
+        let channel = Channel::from_shared(endpoint.clone())?
+            .connect()
             .await
-            .ok_or_else(|| anyhow!("Failed to take ownership of secure stream after establishment"))
-    }
+            .map_err(|e| anyhow!("Failed to connect to Workload gRPC at {}: {}", endpoint, e))?;
 
-    /// Periodically sends a lightweight RPC to force I/O so that we detect half-open sockets.
-    fn spawn_heartbeat(to_actor: mpsc::Sender<ClientRequest>) -> JoinHandle<()> {
-        tokio::spawn(async move {
-            use tokio::time::{interval, timeout};
-            let mut ticker = interval(HEARTBEAT_INTERVAL);
-            let mut hb_id: i64 = i64::MIN / 2;
-            loop {
-                ticker.tick().await;
-                hb_id = hb_id.wrapping_add(1);
+        let shmem_id =
+            std::env::var("IOI_SHMEM_ID").unwrap_or_else(|_| "ioi_workload_shm_default".into());
+        let data_plane = DataPlane::connect(&shmem_id).ok().map(Arc::new);
 
-                let (tx, rx) = oneshot::channel();
-                let req = JsonRpcRequest {
-                    jsonrpc: "2.0".to_string(),
-                    method: "system.getStatus.v1".to_string(),
-                    params: serde_json::json!({}),
-                    id: Some(JsonRpcId::Num(hb_id)),
-                };
+        if data_plane.is_none() {
+            log::warn!(
+                "WorkloadClient could not connect to Data Plane '{}'. Falling back to pure gRPC.",
+                shmem_id
+            );
+        } else {
+            log::info!("WorkloadClient connected to Data Plane '{}'.", shmem_id);
+        }
 
-                if to_actor
-                    .send(ClientRequest {
-                        request: req,
-                        response_tx: tx,
-                    })
-                    .await
-                    .is_err()
-                {
-                    break;
-                }
-
-                match timeout(HEARTBEAT_TIMEOUT, rx).await {
-                    Ok(Ok(Ok(_))) => {}
-                    _ => {
-                        log::warn!("[WorkloadClient] Heartbeat failed; connection likely down.");
-                        break;
-                    }
-                }
-            }
+        Ok(Self {
+            chain: Mutex::new(ChainControlClient::new(channel.clone())),
+            state: Mutex::new(StateQueryClient::new(channel.clone())),
+            contract: Mutex::new(ContractControlClient::new(channel.clone())),
+            staking: Mutex::new(StakingControlClient::new(channel.clone())),
+            system: Mutex::new(SystemControlClient::new(channel)),
+            data_plane,
+            addr: addr.to_string(),
         })
     }
 
-    /// Waits for the client to be in a connected state.
-    pub async fn wait_ready(&self, timeout: Duration) -> bool {
-        if *self.ready_rx.borrow() {
-            return true;
-        }
-        tokio::time::timeout(timeout, self.ready_rx.clone().wait_for(|b| *b))
-            .await
-            .is_ok()
-    }
-
-    /// Checks if the client is currently connected.
-    pub fn is_connected(&self) -> bool {
-        *self.ready_rx.borrow()
-    }
-
-    /// Sends an RPC request to the actor and waits for the response.
-    async fn send_rpc<P: serde::Serialize, R: DeserializeOwned>(
-        &self,
-        method: &str,
-        params: P,
-    ) -> Result<R> {
-        // Serialize params once so we can reuse them across retries.
-        let params_value = serde_json::to_value(params)?;
-        let mut attempt = 0usize;
-        let mut last_err: Option<anyhow::Error> = None;
-
-        while attempt < RPC_RETRY_ATTEMPTS {
-            attempt += 1;
-
-            // Snapshot the current state for this attempt.
-            let to_actor = match self.state.load().as_ref() {
-                ClientState::Connected { to_actor } => to_actor.clone(),
-                ClientState::Disconnected => {
-                    last_err = Some(anyhow!("Workload client is disconnected"));
-                    let _ = self.wait_ready(RPC_RETRY_WAIT).await;
-                    continue;
-                }
-            };
-
-            let id = self.request_id.fetch_add(1, Ordering::SeqCst);
-            let (response_tx, response_rx) = oneshot::channel();
-
-            let request = JsonRpcRequest {
-                jsonrpc: "2.0".to_string(),
-                method: method.to_string(),
-                params: params_value.clone(),
-                id: Some(JsonRpcId::Num(id)),
-            };
-
-            if let Err(e) = to_actor
-                .send(ClientRequest {
-                    request,
-                    response_tx,
-                })
-                .await
-            {
-                last_err = Some(anyhow!("Failed to send request to client actor: {}", e));
-                let _ = self.wait_ready(RPC_RETRY_WAIT).await;
-                continue;
-            }
-
-            match tokio::time::timeout(IPC_RESPONSE_TIMEOUT, response_rx).await {
-                Err(_) => {
-                    last_err = Some(anyhow!("IPC response timed out"));
-                    let _ = self.wait_ready(RPC_RETRY_WAIT).await;
-                    continue;
-                }
-                Ok(Err(_canceled)) => {
-                    last_err = Some(anyhow!("IPC responder dropped (actor terminated)"));
-                    let _ = self.wait_ready(RPC_RETRY_WAIT).await;
-                    continue;
-                }
-                Ok(Ok(result)) => match result {
-                    Ok(value) => {
-                        let decoded = serde_json::from_value::<R>(value)?;
-                        return Ok(decoded);
-                    }
-                    Err(e) => {
-                        // -32001 is the sentinel the actor uses for "connection lost".
-                        if e.code == -32001 && attempt < RPC_RETRY_ATTEMPTS {
-                            last_err = Some(anyhow!("IPC connection lost; retrying"));
-                            let _ = self.wait_ready(RPC_RETRY_WAIT).await;
-                            continue;
-                        }
-                        return Err(anyhow!("RPC Error (code {}): {}", e.code, e.message));
-                    }
-                },
-            }
-        }
-
-        Err(last_err.unwrap_or_else(|| anyhow!("RPC failed after {} attempts", RPC_RETRY_ATTEMPTS)))
-    }
-
     pub fn destination_addr(&self) -> &str {
-        &self.workload_addr
-    }
-
-    pub async fn process_block(
-        &self,
-        block: Block<ChainTransaction>,
-    ) -> Result<(Block<ChainTransaction>, Vec<Vec<u8>>)> {
-        self.send_rpc("chain.processBlock.v1", block).await
-    }
-
-    // [NEW] Method to update the header of an existing block (e.g. after signing).
-    pub async fn update_block_header(&self, block: Block<ChainTransaction>) -> Result<()> {
-        self.send_rpc("chain.updateBlockHeader.v1", block).await
-    }
-
-    pub async fn get_blocks_range(
-        &self,
-        since: u64,
-        max_blocks: u32,
-        max_bytes: u32,
-    ) -> Result<Vec<Block<ChainTransaction>>> {
-        let params = GetBlocksRangeParams {
-            since,
-            max_blocks,
-            max_bytes,
-        };
-        self.send_rpc("chain.getBlocksRange.v1", params).await
+        &self.addr
     }
 
     pub async fn get_status(&self) -> Result<ChainStatus> {
-        self.send_rpc("system.getStatus.v1", json!({})).await
+        let mut client = self.chain.lock().await;
+        let resp = client
+            .get_status(GetStatusRequest {})
+            .await
+            .map_err(|e| anyhow!("gRPC get_status failed: {}", e))?
+            .into_inner();
+
+        Ok(ChainStatus {
+            height: resp.height,
+            latest_timestamp: resp.latest_timestamp,
+            total_transactions: resp.total_transactions,
+            is_running: resp.is_running,
+        })
     }
 
-    pub async fn get_last_block_hash(&self) -> Result<Vec<u8>> {
-        self.send_rpc("chain.getLastBlockHash.v1", json!({})).await
-    }
-
-    pub async fn check_transactions_at(
+    pub async fn get_genesis_status_details(
         &self,
-        anchor: StateAnchor,
-        expected_timestamp_secs: u64,
-        txs: Vec<ChainTransaction>,
-    ) -> Result<Vec<Result<(), String>>> {
-        let params = CheckTransactionsParams {
-            anchor,
-            expected_timestamp_secs,
-            txs,
-        };
-        self.send_rpc("chain.checkTransactions.v1", params).await
+    ) -> Result<ioi_ipc::blockchain::GetGenesisStatusResponse> {
+        let mut client = self.chain.lock().await;
+        let resp = client
+            .get_genesis_status(GetGenesisStatusRequest {})
+            .await
+            .map_err(|e| anyhow!("gRPC get_genesis_status failed: {}", e))?
+            .into_inner();
+        Ok(resp)
     }
 
     pub async fn deploy_contract(
@@ -559,8 +137,19 @@ impl WorkloadClient {
         code: Vec<u8>,
         sender: Vec<u8>,
     ) -> Result<(Vec<u8>, HashMap<Vec<u8>, Vec<u8>>)> {
-        let params = DeployContractParams { code, sender };
-        self.send_rpc("contract.deploy.v1", params).await
+        let req = DeployContractRequest { code, sender };
+        let mut client = self.contract.lock().await;
+        let resp = client
+            .deploy_contract(req)
+            .await
+            .map_err(|e| anyhow!("gRPC deploy_contract failed: {}", e))?
+            .into_inner();
+
+        let mut changes = HashMap::new();
+        for kv in resp.state_changes {
+            changes.insert(kv.key, kv.value);
+        }
+        Ok((resp.address, changes))
     }
 
     pub async fn call_contract(
@@ -569,12 +158,27 @@ impl WorkloadClient {
         input_data: Vec<u8>,
         context: ExecutionContext,
     ) -> Result<(ExecutionOutput, HashMap<Vec<u8>, Vec<u8>>)> {
-        let params = CallContractParams {
+        // [FIX] Map codec string error to anyhow
+        let context_bytes = codec::to_bytes_canonical(&context).map_err(|e| anyhow!(e))?;
+        let req = CallContractRequest {
             address,
             input_data,
-            context,
+            context_bytes,
         };
-        self.send_rpc("contract.call.v1", params).await
+        let mut client = self.contract.lock().await;
+        let resp = client
+            .call_contract(req)
+            .await
+            .map_err(|e| anyhow!("gRPC call_contract failed: {}", e))?
+            .into_inner();
+
+        // [FIX] Map codec string error to anyhow
+        let output = codec::from_bytes_canonical(&resp.execution_output).map_err(|e| anyhow!(e))?;
+        let mut changes = HashMap::new();
+        for kv in resp.state_changes {
+            changes.insert(kv.key, kv.value);
+        }
+        Ok((output, changes))
     }
 
     pub async fn query_contract(
@@ -583,142 +187,424 @@ impl WorkloadClient {
         input_data: Vec<u8>,
         context: ExecutionContext,
     ) -> Result<ExecutionOutput> {
-        let params = QueryContractParams {
+        // [FIX] Map codec string error to anyhow
+        let context_bytes = codec::to_bytes_canonical(&context).map_err(|e| anyhow!(e))?;
+        let req = QueryContractRequest {
             address,
             input_data,
-            context,
+            context_bytes,
         };
-        self.send_rpc("contract.query.v1", params).await
-    }
-
-    pub async fn get_validator_set(&self) -> Result<Vec<Vec<u8>>> {
-        self.send_rpc("chain.getNextValidatorSet.v1", json!({}))
+        let mut client = self.contract.lock().await;
+        let resp = client
+            .query_contract(req)
             .await
-    }
+            .map_err(|e| anyhow!("gRPC query_contract failed: {}", e))?
+            .into_inner();
 
-    pub async fn get_validator_set_for(&self, height: u64) -> Result<Vec<Vec<u8>>> {
-        let params = GetValidatorSetForParams { height };
-        self.send_rpc("chain.getValidatorSetFor.v1", params).await
-    }
-
-    pub async fn get_staked_validators(&self) -> Result<BTreeMap<AccountId, u64>> {
-        let map_with_str_keys: BTreeMap<String, u64> =
-            self.send_rpc("staking.getStakes.v1", json!({})).await?;
-        map_with_str_keys
-            .into_iter()
-            .map(|(hex_key, stake)| {
-                let bytes: [u8; 32] = hex::decode(hex_key)?
-                    .try_into()
-                    .map_err(|_| anyhow!("Invalid AccountId length"))?;
-                Ok((AccountId(bytes), stake))
-            })
-            .collect()
-    }
-
-    pub async fn get_next_staked_validators(&self) -> Result<BTreeMap<AccountId, u64>> {
-        let map_with_str_keys: BTreeMap<String, u64> =
-            self.send_rpc("staking.getNextStakes.v1", json!({})).await?;
-        map_with_str_keys
-            .into_iter()
-            .map(|(hex_key, stake)| {
-                let bytes: [u8; 32] = hex::decode(hex_key)?
-                    .try_into()
-                    .map_err(|_| anyhow!("Invalid AccountId length"))?;
-                Ok((AccountId(bytes), stake))
-            })
-            .collect()
-    }
-
-    pub async fn get_state_root(&self) -> Result<StateRoot> {
-        let bytes: Vec<u8> = self.send_rpc("state.getStateRoot.v1", json!({})).await?;
-        Ok(StateRoot(bytes))
+        // [FIX] Map codec string error to anyhow
+        let output = codec::from_bytes_canonical(&resp.execution_output).map_err(|e| anyhow!(e))?;
+        Ok(output)
     }
 
     pub async fn get_expected_model_hash(&self) -> Result<Vec<u8>> {
-        self.send_rpc("system.getExpectedModelHash.v1", json!({}))
+        let mut client = self.system.lock().await;
+        let resp = client
+            .get_expected_model_hash(())
             .await
+            .map_err(|e| anyhow!("gRPC get_expected_model_hash failed: {}", e))?
+            .into_inner();
+        Ok(resp.hash)
     }
 
     pub async fn check_and_tally_proposals(&self, current_height: u64) -> Result<Vec<String>> {
-        let params = CheckAndTallyProposalsParams { current_height };
-        self.send_rpc("system.checkAndTallyProposals.v1", params)
+        let mut client = self.system.lock().await;
+        let resp = client
+            .check_and_tally_proposals(CheckAndTallyProposalsRequest { current_height })
             .await
+            .map_err(|e| anyhow!("gRPC check_and_tally_proposals failed: {}", e))?
+            .into_inner();
+        Ok(resp.logs)
     }
 
-    pub async fn prefix_scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
-        let params = PrefixScanParams { prefix };
-        self.send_rpc("state.prefixScan.v1", params).await
+    pub async fn debug_pin_height(&self, height: u64) -> Result<()> {
+        let mut client = self.system.lock().await;
+        client
+            .debug_pin_height(DebugPinHeightRequest { height })
+            .await
+            .map_err(|e| anyhow!("gRPC debug_pin_height failed: {}", e))?;
+        Ok(())
     }
 
-    pub async fn query_raw_state(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
-        let params = QueryRawStateParams { key };
-        self.send_rpc("state.getRawState.v1", params).await
+    pub async fn debug_unpin_height(&self, height: u64) -> Result<()> {
+        let mut client = self.system.lock().await;
+        client
+            .debug_unpin_height(DebugUnpinHeightRequest { height })
+            .await
+            .map_err(|e| anyhow!("gRPC debug_unpin_height failed: {}", e))?;
+        Ok(())
     }
 
-    pub async fn query_state_at(&self, root: StateRoot, key: &[u8]) -> Result<QueryStateResponse> {
-        let params = QueryStateAtParams { root, key };
-        self.send_rpc("state.queryStateAt.v1", params).await
+    pub async fn debug_trigger_gc(&self) -> Result<ioi_types::app::DebugTriggerGcResponse> {
+        let mut client = self.system.lock().await;
+        let resp = client
+            .debug_trigger_gc(())
+            .await
+            .map_err(|e| anyhow!("gRPC debug_trigger_gc failed: {}", e))?
+            .into_inner();
+
+        Ok(ioi_types::app::DebugTriggerGcResponse {
+            heights_pruned: resp.heights_pruned as usize,
+            nodes_deleted: resp.nodes_deleted as usize,
+        })
     }
 
-    pub async fn get_validator_set_at(&self, anchor: StateAnchor) -> Result<Vec<AccountId>> {
-        let params = GetValidatorSetAtParams { anchor };
-        self.send_rpc("chain.getValidatorSetAt.v1", params).await
+    pub async fn get_next_staked_validators(&self) -> Result<BTreeMap<AccountId, u64>> {
+        let mut client = self.staking.lock().await;
+        let resp = client
+            .get_next_staked_validators(GetNextStakedValidatorsRequest {})
+            .await
+            .map_err(|e| anyhow!("gRPC get_next_staked_validators failed: {}", e))?
+            .into_inner();
+
+        let mut result = BTreeMap::new();
+        for (hex_key, stake) in resp.validators {
+            let bytes = hex::decode(hex_key)?;
+            let mut arr = [0u8; 32];
+            if bytes.len() == 32 {
+                arr.copy_from_slice(&bytes);
+                result.insert(AccountId(arr), stake);
+            }
+        }
+        Ok(result)
     }
 
-    pub async fn get_active_key_at(
-        &self,
-        anchor: StateAnchor,
-        acct: &AccountId,
-    ) -> Result<Option<ActiveKeyRecord>> {
-        let params = GetActiveKeyAtParams {
-            anchor,
-            account_id: acct,
-        };
-        self.send_rpc("state.getActiveKeyAt.v1", params).await
-    }
-
-    pub async fn get_genesis_status(&self) -> Result<GenesisStatus> {
-        self.send_rpc("system.getGenesisStatus.v1", json!({})).await
+    pub async fn get_state_root(&self) -> Result<StateRoot> {
+        let status = self.get_status().await?;
+        let block = self
+            .get_block_by_height(status.height)
+            .await?
+            .ok_or_else(|| anyhow!("Head block not found"))?;
+        Ok(block.header.state_root)
     }
 
     pub async fn get_block_by_height(
         &self,
         height: u64,
-    ) -> Result<Option<ioi_types::app::Block<ChainTransaction>>> {
-        #[derive(Serialize)]
-        struct Params {
-            height: u64,
+    ) -> Result<Option<Block<ChainTransaction>>> {
+        // Reusing get_blocks_range logic locally since there's no direct RPC in trait
+        // Note: get_blocks_range logic below
+        let req = GetBlocksRangeRequest {
+            since: height,
+            max_blocks: 1,
+            max_bytes: 10 * 1024 * 1024,
+        };
+
+        let mut client = self.chain.lock().await;
+        let response = client
+            .get_blocks_range(req)
+            .await
+            .map_err(|e| anyhow!("gRPC get_blocks_range failed: {}", e))?
+            .into_inner();
+
+        // Process response logic copied from get_blocks_range to avoid &self borrow conflict
+        let raw_blocks = match response.data {
+            Some(BlocksData::Inline(list)) => list.blocks,
+            Some(BlocksData::Shmem(handle)) => {
+                if let Some(dp) = &self.data_plane {
+                    if handle.region_id != dp.id() {
+                        return Err(anyhow!("Shmem region ID mismatch"));
+                    }
+                    let bytes = dp.read_raw(handle.offset, handle.length)?;
+                    use prost::Message;
+                    let block_list = ioi_ipc::blockchain::BlockList::decode(bytes)
+                        .map_err(|e| anyhow!("Failed to decode BlockList: {}", e))?;
+                    block_list.blocks
+                } else {
+                    return Err(anyhow!(
+                        "Received Shmem response but Data Plane not configured"
+                    ));
+                }
+            }
+            None => vec![],
+        };
+
+        if let Some(b_bytes) = raw_blocks.into_iter().next() {
+            let b: Block<ChainTransaction> = codec::from_bytes_canonical(&b_bytes)
+                .map_err(|e| anyhow!("Failed to decode block: {}", e))?;
+            if b.header.height == height {
+                return Ok(Some(b));
+            }
         }
-        let params = Params { height };
-        self.send_rpc("chain.getBlockByHeight.v1", params).await
-    }
-
-    // [NEW] Debug RPC methods for testing
-
-    pub async fn debug_pin_height(&self, height: u64) -> Result<()> {
-        let params = DebugPinHeightParams { height };
-        self.send_rpc("system.debugPinHeight.v1", params).await
-    }
-
-    pub async fn debug_unpin_height(&self, height: u64) -> Result<()> {
-        let params = DebugUnpinHeightParams { height };
-        self.send_rpc("system.debugUnpinHeight.v1", params).await
-    }
-
-    pub async fn debug_trigger_gc(&self) -> Result<DebugTriggerGcResponse> {
-        let params = DebugTriggerGcParams {};
-        self.send_rpc("system.debugTriggerGc.v1", params).await
+        Ok(None)
     }
 }
 
-// --- Re-exports to maintain public API ---
+#[async_trait]
+impl WorkloadClientApi for WorkloadClient {
+    async fn process_block(
+        &self,
+        block: Block<ChainTransaction>,
+    ) -> ioi_types::Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError> {
+        // [FIX] Map codec string error to ChainError
+        let block_bytes = codec::to_bytes_canonical(&block)
+            .map_err(|e| ChainError::Transaction(e.to_string()))?;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct CallServiceParams {
-    pub service_id: String,
-    pub method_id: String,
-    pub params: serde_json::Value,
+        // Hybrid Data Plane Logic
+        let payload = if block_bytes.len() > BLOCK_SHMEM_THRESHOLD {
+            if let Some(dp) = &self.data_plane {
+                // Write raw bytes to shared memory (Zero-Copy transfer)
+                match dp.write_raw(&block_bytes, None) {
+                    Ok(handle) => {
+                        log::debug!(
+                            "Transmitting block {} via Data Plane ({} bytes, offset {})",
+                            block.header.height,
+                            handle.length,
+                            handle.offset
+                        );
+                        ProcessPayload::ShmemHandle(SharedMemoryHandle {
+                            region_id: handle.region_id,
+                            offset: handle.offset,
+                            length: handle.length,
+                        })
+                    }
+                    Err(e) => {
+                        log::warn!("Data Plane write failed, falling back to inline: {}", e);
+                        ProcessPayload::BlockBytesInline(block_bytes)
+                    }
+                }
+            } else {
+                ProcessPayload::BlockBytesInline(block_bytes)
+            }
+        } else {
+            ProcessPayload::BlockBytesInline(block_bytes)
+        };
+
+        let req = ProcessBlockRequest {
+            payload: Some(payload),
+        };
+        let mut client = self.chain.lock().await;
+        let resp = client
+            .process_block(req)
+            .await
+            .map_err(|e| ChainError::Transaction(format!("gRPC process_block failed: {}", e)))?
+            .into_inner();
+
+        let processed = codec::from_bytes_canonical(&resp.block_bytes).map_err(|e| {
+            ChainError::Transaction(format!("Failed to decode processed block: {}", e))
+        })?;
+
+        Ok((processed, resp.events))
+    }
+
+    async fn get_blocks_range(
+        &self,
+        since: u64,
+        max_blocks: u32,
+        max_bytes: u32,
+    ) -> ioi_types::Result<Vec<Block<ChainTransaction>>, ChainError> {
+        let request = GetBlocksRangeRequest {
+            since,
+            max_blocks,
+            max_bytes,
+        };
+
+        let mut client = self.chain.lock().await;
+        let response = client
+            .get_blocks_range(request)
+            .await
+            .map_err(|e| ChainError::Transaction(format!("gRPC get_blocks_range failed: {}", e)))?
+            .into_inner();
+
+        let raw_blocks = match response.data {
+            Some(BlocksData::Inline(list)) => list.blocks,
+            Some(BlocksData::Shmem(handle)) => {
+                if let Some(dp) = &self.data_plane {
+                    if handle.region_id != dp.id() {
+                        return Err(ChainError::Transaction("Shmem region ID mismatch".into()));
+                    }
+                    let bytes = dp.read_raw(handle.offset, handle.length).map_err(|e| {
+                        ChainError::Transaction(format!("Shmem read failed: {}", e))
+                    })?;
+                    use prost::Message;
+                    let block_list =
+                        ioi_ipc::blockchain::BlockList::decode(bytes).map_err(|e| {
+                            ChainError::Transaction(format!(
+                                "Failed to decode BlockList from shmem: {}",
+                                e
+                            ))
+                        })?;
+                    block_list.blocks
+                } else {
+                    return Err(ChainError::Transaction(
+                        "Received Shmem response but Data Plane is not configured client-side"
+                            .into(),
+                    ));
+                }
+            }
+            None => vec![],
+        };
+
+        let mut blocks = Vec::with_capacity(raw_blocks.len());
+        for b_bytes in raw_blocks {
+            let b = codec::from_bytes_canonical(&b_bytes)
+                .map_err(|e| ChainError::Transaction(format!("Failed to decode block: {}", e)))?;
+            blocks.push(b);
+        }
+        Ok(blocks)
+    }
+
+    async fn check_transactions_at(
+        &self,
+        anchor: StateAnchor,
+        expected_timestamp_secs: u64,
+        txs: Vec<ChainTransaction>,
+    ) -> ioi_types::Result<Vec<Result<(), String>>, ChainError> {
+        let mut encoded_txs = Vec::with_capacity(txs.len());
+        for tx in txs {
+            encoded_txs.push(
+                codec::to_bytes_canonical(&tx)
+                    .map_err(|e| ChainError::Transaction(e.to_string()))?,
+            );
+        }
+
+        let request = CheckTransactionsRequest {
+            anchor: anchor.0.to_vec(),
+            expected_timestamp_secs,
+            txs: encoded_txs,
+        };
+
+        let mut client = self.state.lock().await;
+        let response = client
+            .check_transactions(request)
+            .await
+            .map_err(|e| ChainError::Transaction(format!("gRPC check_transactions failed: {}", e)))?
+            .into_inner();
+
+        let results = response
+            .results
+            .into_iter()
+            .map(|r| if r.success { Ok(()) } else { Err(r.error) })
+            .collect();
+
+        Ok(results)
+    }
+
+    async fn query_state_at(
+        &self,
+        root: StateRoot,
+        key: &[u8],
+    ) -> ioi_types::Result<QueryStateResponse, ChainError> {
+        let request = QueryStateAtRequest {
+            root: root.0,
+            key: key.to_vec(),
+        };
+
+        let mut client = self.state.lock().await;
+        let response = client
+            .query_state_at(request)
+            .await
+            .map_err(|e| ChainError::Transaction(format!("gRPC query_state_at failed: {}", e)))?
+            .into_inner();
+
+        codec::from_bytes_canonical(&response.response_bytes).map_err(|e| {
+            ChainError::Transaction(format!("Failed to decode QueryStateResponse: {}", e))
+        })
+    }
+
+    async fn query_raw_state(&self, key: &[u8]) -> ioi_types::Result<Option<Vec<u8>>, ChainError> {
+        let request = QueryRawStateRequest { key: key.to_vec() };
+
+        let mut client = self.state.lock().await;
+        let response = client
+            .query_raw_state(request)
+            .await
+            .map_err(|e| ChainError::Transaction(format!("gRPC query_raw_state failed: {}", e)))?
+            .into_inner();
+
+        if response.found {
+            Ok(Some(response.value))
+        } else {
+            Ok(None)
+        }
+    }
+
+    async fn prefix_scan(
+        &self,
+        prefix: &[u8],
+    ) -> ioi_types::Result<Vec<(Vec<u8>, Vec<u8>)>, ChainError> {
+        let request = PrefixScanRequest {
+            prefix: prefix.to_vec(),
+        };
+
+        let mut client = self.state.lock().await;
+        let response = client
+            .prefix_scan(request)
+            .await
+            .map_err(|e| ChainError::Transaction(format!("gRPC prefix_scan failed: {}", e)))?
+            .into_inner();
+
+        let pairs = response
+            .pairs
+            .into_iter()
+            .map(|kv| (kv.key, kv.value))
+            .collect();
+        Ok(pairs)
+    }
+
+    async fn get_staked_validators(
+        &self,
+    ) -> ioi_types::Result<BTreeMap<AccountId, u64>, ChainError> {
+        let request = GetStakedValidatorsRequest {};
+        let mut client = self.staking.lock().await;
+        let response = client
+            .get_staked_validators(request)
+            .await
+            .map_err(|e| {
+                ChainError::Transaction(format!("gRPC get_staked_validators failed: {}", e))
+            })?
+            .into_inner();
+
+        let mut result = BTreeMap::new();
+        for (hex_key, stake) in response.validators {
+            let bytes = hex::decode(&hex_key)
+                .map_err(|e| ChainError::Transaction(format!("Invalid AccountId hex: {}", e)))?;
+            if bytes.len() != 32 {
+                return Err(ChainError::Transaction("Invalid AccountId length".into()));
+            }
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(&bytes);
+            result.insert(AccountId(arr), stake);
+        }
+        Ok(result)
+    }
+
+    async fn get_genesis_status(&self) -> ioi_types::Result<bool, ChainError> {
+        let request = GetGenesisStatusRequest {};
+        let mut client = self.chain.lock().await;
+        let response = client
+            .get_genesis_status(request)
+            .await
+            .map_err(|e| ChainError::Transaction(format!("gRPC get_genesis_status failed: {}", e)))?
+            .into_inner();
+        Ok(response.ready)
+    }
+
+    async fn update_block_header(
+        &self,
+        block: Block<ChainTransaction>,
+    ) -> ioi_types::Result<(), ChainError> {
+        let block_bytes = codec::to_bytes_canonical(&block)
+            .map_err(|e| ChainError::Transaction(e.to_string()))?;
+        let request = UpdateBlockHeaderRequest { block_bytes };
+
+        let mut client = self.chain.lock().await;
+        client.update_block_header(request).await.map_err(|e| {
+            ChainError::Transaction(format!("gRPC update_block_header failed: {}", e))
+        })?;
+        Ok(())
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct GetWorkloadConfigParams {}

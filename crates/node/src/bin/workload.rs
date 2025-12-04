@@ -56,13 +56,14 @@ where
         setup_workload(state_tree, commitment_scheme, config).await?;
 
     // 2. Start the Standard IPC Server
+    // The IPC server now internally handles both Legacy JSON-RPC and the new gRPC Data Plane
     let ipc_server_addr =
         std::env::var("IPC_SERVER_ADDR").unwrap_or_else(|_| "0.0.0.0:8555".to_string());
 
     let ipc_server: WorkloadIpcServer<ST, CS> =
         WorkloadIpcServer::new(ipc_server_addr, workload_container, machine_arc).await?;
 
-    tracing::info!(target: "workload", "Standard Workload initialized. Running IPC server.");
+    tracing::info!(target: "workload", "Standard Workload initialized. Running Hybrid IPC server.");
     ipc_server.run().await?;
     Ok(())
 }

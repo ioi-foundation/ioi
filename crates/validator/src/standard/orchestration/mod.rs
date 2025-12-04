@@ -15,6 +15,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use ioi_api::crypto::SerializableKey;
 use ioi_api::{
+    chain::WorkloadClientApi,
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
     crypto::SigningKeyPair,
@@ -26,7 +27,7 @@ use ioi_crypto::sign::dilithium::DilithiumKeyPair;
 use ioi_networking::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use ioi_networking::traits::NodeState;
 use ioi_networking::BlockSync;
-use ioi_types::app::TxHash; // Add this import
+use ioi_types::app::TxHash;
 use ioi_types::{
     app::{account_id_from_key_material, AccountId, ChainTransaction, SignatureSuite},
     error::ValidatorError,
@@ -49,7 +50,6 @@ use tokio::{
     time::{self, Duration, MissedTickBehavior},
 };
 
-// [FIX] Import GuardianSigner trait
 use crate::common::GuardianSigner;
 
 // --- Submodule Declarations ---
@@ -62,7 +62,7 @@ mod peer_management;
 mod remote_state_view;
 mod sync;
 pub mod verifier_select;
-mod view_resolver; // FIX: Added documentation
+mod view_resolver;
 
 // --- Use statements for handler functions ---
 use self::sync as sync_handlers;
@@ -131,7 +131,6 @@ where
     chain: Arc<OnceCell<ChainFor<CS, ST>>>,
     workload_client: Arc<OnceCell<Arc<WorkloadClient>>>,
     /// The local mempool for pending transactions.
-    // MODIFIED: Use VecDeque<(ChainTransaction, TxHash)>
     pub tx_pool: Arc<Mutex<VecDeque<(ChainTransaction, TxHash)>>>,
     syncer: Arc<Libp2pSync>,
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
@@ -191,7 +190,6 @@ where
             genesis_hash: deps.genesis_hash,
             chain: Arc::new(OnceCell::new()),
             workload_client: Arc::new(OnceCell::new()),
-            // MODIFIED: Empty pool
             tx_pool: Arc::new(Mutex::new(VecDeque::new())),
             syncer: deps.syncer,
             swarm_command_sender: deps.swarm_command_sender,
@@ -211,7 +209,7 @@ where
             consensus_kick_tx,
             consensus_kick_rx: Mutex::new(Some(consensus_kick_rx)),
             nonce_manager: Arc::new(Mutex::new(BTreeMap::new())),
-            signer: deps.signer, // [FIX] Initialize signer from deps
+            signer: deps.signer,
         })
     }
 
@@ -522,7 +520,6 @@ async fn handle_network_event<CS, ST, CE, V>(
 {
     match event {
         NetworkEvent::GossipTransaction(tx) => {
-            // MODIFIED: Compute hash once on ingress
             let tx_hash = match tx.hash() {
                 Ok(h) => h,
                 Err(e) => {
@@ -537,7 +534,6 @@ async fn handle_network_event<CS, ST, CE, V>(
             };
             {
                 let mut pool = tx_pool_ref.lock().await;
-                // Store tuple (tx, hash)
                 pool.push_back((*tx, tx_hash));
                 log::debug!("[Orchestrator] Mempool size is now {}", pool.len());
                 let _ = kick_tx.send(());
@@ -722,7 +718,6 @@ where
                 Err(e) => {
                     tracing::error!(target: "orchestration", "[Orchestrator] CRITICAL: Agentic attestation failed: {}. Quarantining node.", e);
                     self.is_quarantined.store(true, Ordering::SeqCst);
-                    // *** FIX: Halt startup by returning an error and cast `e` to concrete type if needed ***
                     return Err(ValidatorError::Attestation(e.to_string()));
                 }
             }
@@ -758,8 +753,15 @@ where
             local_account_id.as_ref(),
         ]
         .concat();
+
         let initial_nonce = match workload_client.query_raw_state(&nonce_key).await {
-            Ok(Some(bytes)) => bytes.try_into().ok().map(u64::from_le_bytes).unwrap_or(0),
+            Ok(Some(bytes)) => {
+                let arr: [u8; 8] = match bytes.try_into() {
+                    Ok(a) => a,
+                    Err(_) => [0; 8],
+                };
+                u64::from_le_bytes(arr)
+            }
             _ => 0,
         };
         self.nonce_manager
@@ -787,7 +789,7 @@ where
             consensus_kick_tx: self.consensus_kick_tx.clone(),
             sync_progress: None,
             nonce_manager: self.nonce_manager.clone(),
-            signer: self.signer.clone(), // [FIX] Initialize signer field
+            signer: self.signer.clone(),
         };
 
         let mut receiver_opt = self.network_event_receiver.lock().await;
