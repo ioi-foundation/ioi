@@ -110,7 +110,8 @@ consensus-poa = ["ioi-validator/consensus-poa", "ioi-consensus/poa"]
 consensus-pos = ["ioi-validator/consensus-pos", "ioi-consensus/pos"]
 
 # VM Features
-vm-wasm = ["dep:ioi-vm-wasm"]
+# [FIX] Propagate vm-wasm to ioi-validator
+vm-wasm = ["dep:ioi-vm-wasm", "ioi-validator/vm-wasm"]
 
 # Service Features
 ibc-deps = ["ioi-services/ibc-deps", "ioi-validator/ibc-deps"]
