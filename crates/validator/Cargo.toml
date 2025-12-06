@@ -82,6 +82,9 @@ zk-driver-succinct = { path = "../zk-driver-succinct", optional = true }
 rpassword = "7.0"
 atty = "0.2"
 
+[dev-dependencies]
+tempfile = "3.3"
+
 [features]
 default = []
 # This new feature will be used by Docker to build the node binary correctly.

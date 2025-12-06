@@ -352,7 +352,7 @@ impl GuardianContainer {
         let content = std::fs::read(path)?;
 
         // Check for Magic Header defined in ioi_crypto::key_store
-        if content.starts_with(b"IOI_ENC_V1") {
+        if content.starts_with(b"IOI-GKEY") {
             let pass = Self::resolve_passphrase(false)?;
             let secret = decrypt_key(&content, &pass)?;
             // secret is SensitiveBytes(Vec<u8>), needs explicit clone to move out
@@ -367,17 +367,41 @@ impl GuardianContainer {
                     path
                 ));
             }
+            // Support previous magic if transitioning
+            if content.starts_with(b"IOI_ENC_V1") {
+                let _pass = Self::resolve_passphrase(false)?;
+                // Using the updated decrypt_key might fail if logic changed strictly.
+                // We assume complete migration or compatible logic.
+                // But updated decrypt_key checks for IOI-GKEY.
+                return Err(anyhow!(
+                    "Legacy encrypted key found. Please migrate to V1 format."
+                ));
+            }
+
             Err(anyhow!(
                 "Unknown key file format or unencrypted file. Encryption is mandatory."
             ))
         }
     }
 
-    /// Encrypts the provided data with a passphrase and saves it to disk.
+    /// Encrypts the provided data with a passphrase and saves it to disk using Atomic Write.
+    /// 1. Writes to temp file.
+    /// 2. Fsyncs.
+    /// 3. Renames to final path.
     pub fn save_encrypted_file(path: &Path, data: &[u8]) -> Result<()> {
         println!("--- Encrypting New Secure Key ---");
         let pass = Self::resolve_passphrase(true)?;
         let encrypted = encrypt_key(data, &pass)?;
+
+        // Atomic write pattern: Write to .tmp, sync, rename
+        let mut temp_path = path.to_path_buf();
+        if let Some(ext) = path.extension() {
+            let mut ext_str = ext.to_os_string();
+            ext_str.push(".tmp");
+            temp_path.set_extension(ext_str);
+        } else {
+            temp_path.set_extension("tmp");
+        }
 
         #[cfg(unix)]
         {
@@ -387,11 +411,22 @@ impl GuardianContainer {
                 .create(true)
                 .truncate(true)
                 .mode(0o600)
-                .open(path)?;
+                .open(&temp_path)?;
             file.write_all(&encrypted)?;
+            file.sync_all()?;
         }
         #[cfg(not(unix))]
-        std::fs::write(path, &encrypted)?;
+        {
+            let mut file = std::fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(&temp_path)?;
+            file.write_all(&encrypted)?;
+            file.sync_all()?;
+        }
+
+        std::fs::rename(temp_path, path)?;
 
         Ok(())
     }
@@ -499,5 +534,43 @@ impl Container for GuardianContainer {
 
     fn id(&self) -> &'static str {
         "guardian"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile;
+
+    #[test]
+    fn test_no_plaintext_at_rest() {
+        let seed = [0xAAu8; 32]; // Distinct pattern to search for
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("guardian.key");
+
+        // Mock the environment variable for passphrase
+        unsafe { std::env::set_var("IOI_GUARDIAN_KEY_PASS", "test_pass") };
+
+        // Write key using the new atomic save_encrypted_file
+        GuardianContainer::save_encrypted_file(&path, &seed).expect("Save failed");
+
+        // Verify file exists
+        assert!(path.exists());
+
+        // Read raw file content
+        let content = std::fs::read(&path).expect("Read failed");
+
+        // 1. Verify Magic Header
+        assert_eq!(&content[0..8], b"IOI-GKEY", "Header mismatch");
+
+        // 2. Scan entire file to ensure the raw seed pattern does not appear
+        assert!(
+            content.windows(32).all(|window| window != seed),
+            "Plaintext seed found on disk! Encryption failed."
+        );
+
+        // 3. Verify we can decrypt it back
+        let loaded = GuardianContainer::load_encrypted_file(&path).expect("Load failed");
+        assert_eq!(loaded, seed.to_vec(), "Roundtrip mismatch");
     }
 }

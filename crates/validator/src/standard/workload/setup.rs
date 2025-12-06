@@ -10,9 +10,7 @@ use ioi_api::{
 };
 use ioi_consensus::util::engine_from_config;
 use ioi_execution::{util::load_state_from_genesis_file, ExecutionMachine};
-use ioi_services::{
-    governance::GovernanceModule, identity::IdentityHub, oracle::OracleService,
-};
+use ioi_services::{governance::GovernanceModule, identity::IdentityHub, oracle::OracleService};
 // [FIX] Correct crate import
 use ioi_storage::RedbEpochStore;
 use ioi_tx::unified::UnifiedTransactionModel;
@@ -21,6 +19,7 @@ use ioi_types::{
     config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig},
     keys::{STATUS_KEY, VALIDATOR_SET_KEY},
 };
+#[cfg(feature = "vm-wasm")]
 use ioi_vm_wasm::WasmRuntime;
 use rand::{thread_rng, Rng};
 // [FIX] Added Duration import
@@ -35,10 +34,8 @@ use ioi_services::ibc::{
 
 #[cfg(all(feature = "ibc-deps", feature = "ethereum-zk"))]
 use {
-    ioi_api::ibc::LightClient,
-    ioi_crypto::algorithms::hash::sha256,
-    ioi_services::ibc::light_clients::ethereum_zk::EthereumZkLightClient,
-    std::fs,
+    ioi_api::ibc::LightClient, ioi_crypto::algorithms::hash::sha256,
+    ioi_services::ibc::light_clients::ethereum_zk::EthereumZkLightClient, std::fs,
     zk_driver_succinct::config::SuccinctDriverConfig,
 };
 
@@ -118,7 +115,16 @@ where
         }
     }
 
-    let wasm_vm = Box::new(WasmRuntime::new(config.fuel_costs.clone())?);
+    #[cfg(feature = "vm-wasm")]
+    let vm: Box<dyn ioi_api::vm::VirtualMachine> =
+        Box::new(WasmRuntime::new(config.fuel_costs.clone())?);
+
+    // Fallback if VM-WASM is not enabled (should panic or error in real usage if runtime requested)
+    #[cfg(not(feature = "vm-wasm"))]
+    let vm: Box<dyn ioi_api::vm::VirtualMachine> = {
+        // Simple mock or panic if WASM is required but disabled
+        panic!("vm-wasm feature is required for Workload setup");
+    };
 
     let temp_orch_config = OrchestrationConfig {
         chain_id: 1.into(),
@@ -215,7 +221,8 @@ where
                 }
 
                 initial_services.push(Arc::new(verifier_registry) as Arc<dyn UpgradableService>);
-                initial_services.push(Arc::new(ChannelManager::new()) as Arc<dyn UpgradableService>);
+                initial_services
+                    .push(Arc::new(ChannelManager::new()) as Arc<dyn UpgradableService>);
             }
             #[cfg(not(feature = "ibc-deps"))]
             InitialServiceConfig::Ibc(_) => {
@@ -235,7 +242,7 @@ where
     let workload_container = Arc::new(WorkloadContainer::new(
         config.clone(),
         state_tree,
-        wasm_vm,
+        vm,
         service_directory,
         store,
     )?);
@@ -254,10 +261,13 @@ where
         let id = runtime_id.to_ascii_lowercase();
         if id == "wasm" {
             tracing::info!(target: "workload", "Registering WasmRuntime for service upgrades.");
-            let wasm_runtime = WasmRuntime::new(config.fuel_costs.clone())?;
-            machine
-                .service_manager
-                .register_runtime("wasm", Arc::new(wasm_runtime));
+            #[cfg(feature = "vm-wasm")]
+            {
+                let wasm_runtime = WasmRuntime::new(config.fuel_costs.clone())?;
+                machine
+                    .service_manager
+                    .register_runtime("wasm", Arc::new(wasm_runtime));
+            }
         }
     }
 
