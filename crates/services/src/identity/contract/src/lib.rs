@@ -266,6 +266,7 @@ capabilities = ["OnEndBlock"]
 
 [methods]
 "rotate_key@v1" = "User"
+"register_attestation@v1" = "User"
 "on_end_block@v1" = "Internal"
 "#;
     return_data(manifest_str.as_bytes())

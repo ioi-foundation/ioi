@@ -8,7 +8,7 @@ use ioi_api::transaction::context::TxContext;
 use ioi_crypto::sign::{dilithium::DilithiumPublicKey, eddsa::Ed25519PublicKey};
 use ioi_types::app::{
     account_id_from_key_material, read_validator_sets, write_validator_sets, AccountId,
-    ActiveKeyRecord, Credential, RotationProof, SignatureSuite, ValidatorSetV1,
+    ActiveKeyRecord, BootAttestation, Credential, RotationProof, SignatureSuite, ValidatorSetV1,
 };
 use ioi_types::codec;
 use ioi_types::error::{StateError, TransactionError, UpgradeError};
@@ -17,8 +17,11 @@ use ioi_types::keys::{
     VALIDATOR_SET_KEY,
 };
 use ioi_types::service_configs::{Capabilities, MigrationConfig};
+use libp2p::identity::PublicKey as Libp2pPublicKey;
 use parity_scale_codec::{Decode, Encode};
 use std::any::Any;
+
+const IDENTITY_ATTESTATION_PREFIX: &[u8] = b"identity::attestation::";
 
 #[derive(Debug, Clone)]
 pub struct IdentityHub {
@@ -143,6 +146,15 @@ impl IdentityHub {
 
         match suite {
             SignatureSuite::Ed25519 => {
+                // [FIX] Support both Libp2p-encoded and raw Ed25519 keys
+                if let Ok(pk) = Libp2pPublicKey::try_decode_protobuf(public_key) {
+                    if pk.verify(message, signature) {
+                        return Ok(());
+                    } else {
+                        return Err("Libp2p signature verification failed".into());
+                    }
+                }
+
                 let pk = Ed25519PublicKey::from_bytes(public_key).map_err(|e| e.to_string())?;
                 let sig = ioi_crypto::sign::eddsa::Ed25519Signature::from_bytes(signature)
                     .map_err(|e| e.to_string())?;
@@ -207,7 +219,7 @@ impl IdentityHub {
             .map_err(|e| e.to_string())?;
 
         if old_pk_hash != active_cred.public_key_hash {
-            return Err("old_public_key does not match active credential".to_string());
+            return Err("old_public_key does not_match active credential".to_string());
         }
         Self::verify_rotation_signature(
             active_cred.suite,
@@ -298,6 +310,78 @@ impl BlockchainService for IdentityHub {
                 let account_id = ctx.signer_account_id;
                 self.rotate(state, &account_id, &p.proof, ctx.block_height)
                     .map_err(TransactionError::Invalid)
+            }
+            "register_attestation@v1" => {
+                let attestation: BootAttestation = codec::from_bytes_canonical(params)?;
+
+                // 1. Authorization Check
+                // The transaction signer MUST match the validator_account_id in the attestation.
+                if ctx.signer_account_id != attestation.validator_account_id {
+                    return Err(TransactionError::Invalid(
+                        "Signer does not match attestation validator ID".into(),
+                    ));
+                }
+
+                // 2. Signature Verification
+                // Retrieve the validator's active public key from state.
+                let creds = self
+                    .load_credentials(state, &attestation.validator_account_id)
+                    .map_err(TransactionError::State)?;
+
+                let active_cred = creds[0].as_ref().ok_or(TransactionError::Invalid(
+                    "Validator has no active credentials".into(),
+                ))?;
+
+                // Retrieve the full public key bytes
+                let pubkey_map_key = [
+                    ioi_types::keys::ACCOUNT_ID_TO_PUBKEY_PREFIX,
+                    attestation.validator_account_id.as_ref(),
+                ]
+                .concat();
+                let pubkey_bytes = state
+                    .get(&pubkey_map_key)
+                    .map_err(TransactionError::State)?
+                    .ok_or_else(|| {
+                        TransactionError::Invalid(
+                            "Validator public key not found in registry".into(),
+                        )
+                    })?;
+
+                // Verify the attestation signature using the on-chain key.
+                let sign_bytes = attestation
+                    .to_sign_bytes()
+                    .map_err(|e| TransactionError::Invalid(e.to_string()))?;
+
+                Self::verify_rotation_signature(
+                    active_cred.suite,
+                    &pubkey_bytes,
+                    &sign_bytes,
+                    &attestation.signature,
+                )
+                .map_err(|e| {
+                    TransactionError::Invalid(format!("Attestation signature invalid: {}", e))
+                })?;
+
+                // 3. Store
+                let key = [
+                    IDENTITY_ATTESTATION_PREFIX,
+                    attestation.validator_account_id.as_ref(),
+                ]
+                .concat();
+                let value = ioi_types::codec::to_bytes_canonical(&attestation)
+                    .map_err(TransactionError::Serialization)?;
+
+                state
+                    .insert(&key, &value)
+                    .map_err(TransactionError::State)?;
+
+                log::info!(
+                    "Registered binary attestation for 0x{}. Guardian Hash: {}",
+                    hex::encode(attestation.validator_account_id),
+                    hex::encode(attestation.guardian.sha256)
+                );
+
+                Ok(())
             }
             _ => Err(TransactionError::Unsupported(format!(
                 "IdentityHub does not support method '{}'",

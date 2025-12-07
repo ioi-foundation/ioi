@@ -6,11 +6,12 @@ use super::validator::{TestValidator, ValidatorGuard};
 use anyhow::Result;
 use dcrypt::sign::eddsa::Ed25519SecretKey;
 use futures_util::{stream::FuturesUnordered, StreamExt};
-use ioi_types::config::InitialServiceConfig;
+use ioi_types::config::{InitialServiceConfig, ServicePolicy}; // [FIX] Import ServicePolicy
 use libp2p::{
     identity::{self, ed25519, Keypair},
     Multiaddr,
 };
+use std::collections::BTreeMap; // [FIX] Import BTreeMap
 use std::time::Duration;
 
 /// A type alias for a closure that modifies the genesis state.
@@ -53,6 +54,8 @@ pub struct TestClusterBuilder {
     keep_recent_heights: Option<u64>,
     gc_interval_secs: Option<u64>,
     min_finality_depth: Option<u64>,
+    // [FIX] Add override field
+    service_policies_override: BTreeMap<String, ServicePolicy>,
 }
 
 impl Default for TestClusterBuilder {
@@ -76,6 +79,7 @@ impl Default for TestClusterBuilder {
             keep_recent_heights: None,
             gc_interval_secs: None,
             min_finality_depth: None,
+            service_policies_override: BTreeMap::new(),
         }
     }
 }
@@ -206,6 +210,12 @@ impl TestClusterBuilder {
         self
     }
 
+    // [FIX] Add method to override service policy
+    pub fn with_service_policy(mut self, service_id: &str, policy: ServicePolicy) -> Self {
+        self.service_policies_override.insert(service_id.to_string(), policy);
+        self
+    }
+
     pub async fn build(mut self) -> Result<TestCluster> {
         let mut validator_keys = self.keypairs.take().unwrap_or_else(|| {
             (0..self.num_validators)
@@ -246,6 +256,12 @@ impl TestClusterBuilder {
         })
         .to_string();
 
+        // [FIX] Merge default policies with overrides
+        let mut service_policies = ioi_types::config::default_service_policies();
+        for (k, v) in self.service_policies_override.clone() {
+            service_policies.insert(k, v);
+        }
+
         let mut validators: Vec<ValidatorGuard> = Vec::new();
         let mut bootnode_addrs: Vec<Multiaddr> = Vec::new();
 
@@ -270,6 +286,8 @@ impl TestClusterBuilder {
                 self.keep_recent_heights,
                 self.gc_interval_secs,
                 self.min_finality_depth,
+                // [FIX] Pass the merged policies
+                service_policies.clone(),
             )
             .await?;
 
@@ -297,6 +315,7 @@ impl TestClusterBuilder {
                 let captured_keep_recent = self.keep_recent_heights;
                 let captured_gc_interval = self.gc_interval_secs;
                 let captured_min_finality = self.min_finality_depth;
+                let captured_policies = service_policies.clone();
                 let key_clone = key.clone();
 
                 let fut = async move {
@@ -320,6 +339,7 @@ impl TestClusterBuilder {
                         captured_keep_recent,
                         captured_gc_interval,
                         captured_min_finality,
+                        captured_policies,
                     )
                     .await
                 };

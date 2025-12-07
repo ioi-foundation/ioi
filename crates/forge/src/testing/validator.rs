@@ -13,12 +13,14 @@ use ioi_client::WorkloadClient;
 use ioi_api::chain::WorkloadClientApi;
 use ioi_crypto::sign::dilithium::{DilithiumKeyPair, DilithiumScheme};
 use ioi_state::primitives::kzg::KZGParams;
+// [FIX] Import ServicePolicy and BTreeMap
 use ioi_types::config::{
-    CommitmentSchemeType, ConsensusType, InitialServiceConfig, OrchestrationConfig, StateTreeType,
-    VmFuelCosts, WorkloadConfig,
+    CommitmentSchemeType, ConsensusType, InitialServiceConfig, OrchestrationConfig, ServicePolicy,
+    StateTreeType, VmFuelCosts, WorkloadConfig,
 };
 use ioi_validator::common::generate_certificates_if_needed;
 use libp2p::{identity, Multiaddr, PeerId};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Arc;
@@ -206,6 +208,8 @@ impl TestValidator {
         keep_recent_heights: Option<u64>,
         gc_interval_secs: Option<u64>,
         min_finality_depth: Option<u64>,
+        // [FIX] New argument
+        service_policies: BTreeMap<String, ServicePolicy>,
     ) -> Result<ValidatorGuard> {
         let features = BinaryFeatureConfig {
             consensus_type,
@@ -361,7 +365,8 @@ impl TestValidator {
             keep_recent_heights: keep_recent_heights.unwrap_or(100_000),
             epoch_size: epoch_size.unwrap_or(50_000),
             gc_interval_secs: gc_interval_secs.unwrap_or(3600),
-            service_policies: ioi_types::config::default_service_policies(),
+            // [FIX] Use the passed policies
+            service_policies,
             zk_config: Default::default(),
         };
 

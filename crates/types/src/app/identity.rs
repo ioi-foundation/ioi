@@ -152,3 +152,60 @@ pub fn account_id_from_key_material(
         .try_into()
         .map_err(|_| TransactionError::Invalid("SHA256 digest was not 32 bytes".into()))
 }
+
+// -----------------------------------------------------------------------------
+// Binary Integrity & Boot Attestation Types
+// -----------------------------------------------------------------------------
+
+/// Represents a cryptographic measurement of a specific binary file.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct BinaryMeasurement {
+    /// The filename (e.g., "orchestration", "workload").
+    pub name: String,
+    /// The SHA-256 hash of the binary file.
+    pub sha256: [u8; 32],
+    /// The size of the binary in bytes.
+    pub size: u64,
+}
+
+/// A signed attestation from a Guardian proving the integrity of the node's boot process.
+/// This structure is serialized, signed, and stored on-chain to provide an immutable
+/// audit trail of the software running on the network.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct BootAttestation {
+    /// The AccountId of the validator issuing this attestation.
+    pub validator_account_id: AccountId,
+    /// The UNIX timestamp (seconds) when the measurement was taken.
+    pub timestamp: u64,
+    /// Measurement of the Guardian binary itself.
+    pub guardian: BinaryMeasurement,
+    /// Measurement of the Orchestrator binary.
+    pub orchestration: BinaryMeasurement,
+    /// Measurement of the Workload binary.
+    pub workload: BinaryMeasurement,
+    /// Optional metadata string (e.g., git commit hash, version tag).
+    pub build_metadata: String,
+    /// The cryptographic signature over the canonical encoding of the fields above.
+    /// This signature DOES NOT cover itself; it covers the serialized struct with this field empty.
+    pub signature: Vec<u8>,
+}
+
+impl BootAttestation {
+    /// Creates the canonical byte buffer for signing (excluding the signature field).
+    pub fn to_sign_bytes(&self) -> Result<Vec<u8>, crate::error::CoreError> {
+        let mut temp = self.clone();
+        temp.signature = Vec::new();
+        crate::codec::to_bytes_canonical(&temp).map_err(crate::error::CoreError::Custom)
+    }
+}
+
+/// The payload sent from Guardian to Orchestrator via the secure IPC channel.
+/// It aggregates the agentic model hash (for logic integrity) and the boot
+/// attestation (for binary integrity).
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GuardianReport {
+    /// The hash of the agentic model (for model integrity checks).
+    pub agentic_hash: Vec<u8>,
+    /// The signed boot attestation (for binary integrity checks).
+    pub binary_attestation: BootAttestation,
+}

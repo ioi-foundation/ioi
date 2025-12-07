@@ -14,6 +14,7 @@
 use anyhow::Result;
 use clap::Parser;
 use ioi_api::validator::Container;
+use ioi_types::app::GuardianReport;
 use ioi_validator::common::{generate_certificates_if_needed, GuardianContainer};
 use ioi_validator::config::GuardianConfig;
 use std::path::Path;
@@ -75,23 +76,65 @@ async fn main() -> Result<()> {
     // Print the readiness signal for the test harness after the listener is up.
     eprintln!("GUARDIAN_IPC_LISTENING_ON_{}", listen_addr);
 
+    // Prepare key for boot attestation logic.
+    // In production, the key is already loaded, but here we reload or access it.
+    // This is safe because the file is encrypted-at-rest.
+    let identity_key_path = Path::new(&certs_dir)
+        .parent()
+        .ok_or(anyhow::anyhow!("Invalid certs dir path"))?
+        .join("identity.key");
+
     let guardian_clone = guardian.clone();
     tokio::spawn(async move {
         // Wait for the orchestration channel to be established before sending the report.
         // This resolves the race condition that caused the test timeout.
-        while !guardian_clone.orchestration_channel.is_established().await {
+        while !guardian_clone
+            .orchestration_channel
+            .is_established()
+            .await
+        {
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
 
+        // 1. Agentic Model Hash
         let local_hash_result = guardian_clone
             .attest_weights(&opts.agentic_model_path)
             .await;
 
-        // FIX: Handle serialization errors gracefully and ensure report_bytes is available
-        let report_bytes = match serde_json::to_vec(&local_hash_result) {
+        // FIX: Propagate errors or log them, don't just return Ok(()) silently on error cases
+        // inside the Result-returning async block.
+        let agentic_hash = match local_hash_result {
+            Ok(hash) => hash,
+            Err(e) => {
+                tracing::error!(target: "guardian", event = "agentic_attest_fail", error = %e);
+                return Ok::<(), anyhow::Error>(());
+            }
+        };
+
+        // 2. Binary Boot Attestation
+        let keypair_bytes = GuardianContainer::load_encrypted_file(&identity_key_path)?;
+        let keypair = libp2p::identity::Keypair::from_protobuf_encoding(&keypair_bytes)?;
+
+        let boot_attestation =
+            match guardian_clone.generate_boot_attestation(&keypair, &config) {
+                Ok(att) => att,
+                Err(e) => {
+                    tracing::error!(target: "guardian", event = "boot_attest_fail", error = %e);
+                    return Ok::<(), anyhow::Error>(());
+                }
+            };
+
+        // 3. Construct Combined Report
+        let report = GuardianReport {
+            agentic_hash,
+            binary_attestation: boot_attestation,
+        };
+
+        // Serialize
+        let report_bytes = match serde_json::to_vec(&report) {
             Ok(b) => b,
             Err(e) => {
-                tracing::error!(target: "guardian", event = "attestation_serialize_fail", error = %e, "Failed to serialize attestation report");
+                tracing::error!(target: "guardian", event = "report_serialize_fail", error = %e, "Failed to serialize attestation report");
                 return Ok::<(), anyhow::Error>(());
             }
         };
@@ -118,7 +161,7 @@ async fn main() -> Result<()> {
                 tracing::info!(
                     target: "guardian",
                     event = "attestation_sent",
-                    "Sent agentic attestation report to Orchestrator."
+                    "Sent comprehensive attestation report to Orchestrator."
                 );
                 // Gracefully shut down the write side of the stream to signal EOF to the reader.
                 if let Err(e) = stream.shutdown().await {
