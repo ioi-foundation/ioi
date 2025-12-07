@@ -21,10 +21,9 @@ use ioi_storage::metrics as storage_metrics;
 use ioi_types::config::WorkloadConfig;
 // Import the shared components from the validator library
 use ioi_validator::standard::workload::{ipc::WorkloadIpcServer, setup::setup_workload};
-use serde::Serialize;
 use std::fmt::Debug;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 struct WorkloadOpts {
@@ -149,7 +148,7 @@ async fn main() -> Result<()> {
                 .expect("SRS file path validated");
 
             tracing::info!(target: "workload", "Loading KZG SRS from file: {}", srs_path);
-            let params = ioi_state::primitives::kzg::KZGParams::load_from_file(Path::new(srs_path))
+            let params = ioi_state::primitives::kzg::KZGParams::load_from_file(std::path::Path::new(srs_path))
                 .map_err(|e| anyhow!(e))?;
 
             let commitment_scheme = ioi_state::primitives::kzg::KZGCommitmentScheme::new(params);

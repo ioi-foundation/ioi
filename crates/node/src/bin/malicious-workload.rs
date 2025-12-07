@@ -9,9 +9,7 @@ use clap::Parser;
 use ioi_api::{
     commitment::CommitmentScheme,
     state::{ProofProvider, StateManager},
-    validator::WorkloadContainer,
 };
-use ioi_execution::ExecutionMachine;
 use ioi_state::primitives::hash::{HashCommitmentScheme, HashProof};
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::Membership;
@@ -26,7 +24,7 @@ use ioi_validator::standard::workload::{
             ChainControlImpl, ContractControlImpl, StakingControlImpl, StateQueryImpl,
             SystemControlImpl,
         },
-        methods::RpcContext,
+        RpcContext,
     },
     setup::setup_workload,
 };
@@ -47,7 +45,6 @@ use std::fmt::Debug;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 
 #[derive(Parser, Debug)]
 struct WorkloadOpts {
