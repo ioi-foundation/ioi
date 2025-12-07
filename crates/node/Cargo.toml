@@ -59,6 +59,9 @@ serde_jcs = "0.1.0"
 rand = { workspace = true }
 dcrypt = { workspace = true }
 
+# Added for gRPC server implementation
+tonic = "0.11"
+
 # Dependencies for ioi-signer and Oracle
 warp = "0.3"
 libc = "0.2"

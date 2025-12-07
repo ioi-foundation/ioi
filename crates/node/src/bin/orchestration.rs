@@ -39,7 +39,6 @@ use ioi_vm_wasm::WasmRuntime;
 use libp2p::identity;
 use libp2p::Multiaddr;
 use std::fs;
-use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{atomic::AtomicBool, Arc};
 
