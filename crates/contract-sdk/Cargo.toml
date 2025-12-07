@@ -18,6 +18,8 @@ wit-bindgen = { version = "0.21.0", default-features = false, features = [
 parity-scale-codec = { version = "3.7.5", default-features = false, features = [
     "derive",
 ] }
+# [NEW] Handles memcmp/memset/memcpy for wasm32-unknown-unknown
+rlibc = "1.0"
 
 # Add the macros crate dependency
 ioi-macros = { path = "../macros" }

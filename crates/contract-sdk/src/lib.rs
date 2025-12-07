@@ -3,6 +3,9 @@
 
 pub extern crate alloc;
 
+// [NEW] Use rlibc to satisfy linker requirements for memcmp/memset
+extern crate rlibc;
+
 // All WIT-generated code lives under this module.
 pub mod bindings {
     wit_bindgen::generate!({
@@ -16,30 +19,9 @@ pub mod bindings {
 // Re-export the Guest trait so contracts can `use ioi_contract_sdk::Guest;`
 pub use bindings::Guest;
 
-// IMPORTANT: Do NOT re-export the macro here to avoid E0255 conflicts.
-// Contracts will access the export macro via `#[macro_use] extern crate ioi_contract_sdk`
-// and then call `__export_service_impl!(...)`.
-
 use alloc::{string::String, vec::Vec};
 
-// -----------------------------------------------------------------------------
-// Provide `memcmp` so Rust core/alloc don’t import it from `env`.
-// This avoids the `env::memcmp` import that `wit-component` rejects.
-// -----------------------------------------------------------------------------
-#[no_mangle]
-pub unsafe extern "C" fn memcmp(s1: *const u8, s2: *const u8, n: usize) -> i32 {
-    use core::ptr;
-
-    // Standard C semantics: compare byte-by-byte, return <0, 0, or >0.
-    for i in 0..n {
-        let a = ptr::read(s1.add(i));
-        let b = ptr::read(s2.add(i));
-        if a != b {
-            return (a as i32) - (b as i32);
-        }
-    }
-    0
-}
+// [REMOVED] Manual unsafe extern "C" fn memcmp is no longer needed due to rlibc.
 
 /// Convenience trait for IOI services.
 pub trait IoiService {
@@ -65,3 +47,9 @@ pub use ioi_macros::ioi_contract;
 pub mod context;
 pub mod host;
 pub mod state;
+
+// Helper for FFI allocation (used by macros/generated code)
+pub fn allocate(size: u32) -> *mut u8 {
+    let layout = core::alloc::Layout::from_size_align(size as usize, 1).unwrap();
+    unsafe { alloc::alloc::alloc(layout) }
+}

@@ -226,7 +226,9 @@ cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,state-iavl,c
 
 cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,state-iavl,commitment-hash,ibc-deps,ethereum-zk" --test ibc_zk_e2e -- --nocapture --test-threads=1
 
-cargo test -p ioi-forge --test security_e2e --features validator-bins -- --nocapture --test-threads=1
+cargo test -p ioi-forge --test security_e2e \
+  --features "validator-bins,consensus-poa,vm-wasm,state-iavl" \
+  -- --nocapture --test-threads=1
 
 Next steps are purely “fill in the real ZK logic”:
 
