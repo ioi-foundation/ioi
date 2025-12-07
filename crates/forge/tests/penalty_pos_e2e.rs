@@ -2,6 +2,8 @@
 #![cfg(all(feature = "consensus-pos", feature = "vm-wasm"))]
 
 use anyhow::{anyhow, Result};
+// [FIX] Import WorkloadClientApi trait
+use ioi_api::chain::WorkloadClientApi;
 use ioi_client::WorkloadClient;
 use ioi_forge::testing::{
     build_test_artifacts,
@@ -319,10 +321,11 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
         println!("Waiting to confirm no double-slashing occurs and chain remains live...");
         wait_for_height(rpc_addr_reporter, 3, Duration::from_secs(30)).await?;
 
+        // [FIX] Explicit error type for map_err to help type inference
         let final_offender_stake = reporter_client
             .get_staked_validators()
             .await
-            .map_err(|e| anyhow::anyhow!(e))?
+            .map_err(|e: ioi_types::error::ChainError| anyhow::anyhow!(e))?
             .get(&offender_account_id)
             .copied()
             .unwrap_or(0);

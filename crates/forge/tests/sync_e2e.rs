@@ -21,12 +21,12 @@ use ioi_types::{
         ValidatorSetV1, ValidatorSetsV1, ValidatorV1, VoteOption,
     },
     codec,
-    config::InitialServiceConfig,
+    config::{InitialServiceConfig, ValidatorRole}, // [FIX] Import ValidatorRole
     keys::GOVERNANCE_PROPOSAL_KEY_PREFIX,
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
-use std::collections::BTreeMap; // [FIX] Import BTreeMap
+// [FIX] Removed unused BTreeMap import
 use std::time::Duration;
 
 fn create_dummy_tx(keypair: &Keypair, nonce: u64, chain_id: ChainId) -> Result<ChainTransaction> {
@@ -348,6 +348,8 @@ async fn test_sync_with_peer_drop() -> Result<()> {
             None, // min_finality_depth
             // [FIX] Use default policies to ensure governance txs are accepted
             ioi_types::config::default_service_policies(),
+            // [FIX] Pass default Consensus role
+            ValidatorRole::Consensus,
         )
         .await?;
 

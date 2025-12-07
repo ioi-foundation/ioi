@@ -6,6 +6,7 @@ use super::validator::{TestValidator, ValidatorGuard};
 use anyhow::Result;
 use dcrypt::sign::eddsa::Ed25519SecretKey;
 use futures_util::{stream::FuturesUnordered, StreamExt};
+use ioi_types::config::ValidatorRole; // [NEW]
 use ioi_types::config::{InitialServiceConfig, ServicePolicy}; // [FIX] Import ServicePolicy
 use libp2p::{
     identity::{self, ed25519, Keypair},
@@ -56,6 +57,8 @@ pub struct TestClusterBuilder {
     min_finality_depth: Option<u64>,
     // [FIX] Add override field
     service_policies_override: BTreeMap<String, ServicePolicy>,
+    // [NEW] Map of validator index to Role
+    roles: BTreeMap<usize, ValidatorRole>,
 }
 
 impl Default for TestClusterBuilder {
@@ -80,6 +83,7 @@ impl Default for TestClusterBuilder {
             gc_interval_secs: None,
             min_finality_depth: None,
             service_policies_override: BTreeMap::new(),
+            roles: BTreeMap::new(),
         }
     }
 }
@@ -212,7 +216,14 @@ impl TestClusterBuilder {
 
     // [FIX] Add method to override service policy
     pub fn with_service_policy(mut self, service_id: &str, policy: ServicePolicy) -> Self {
-        self.service_policies_override.insert(service_id.to_string(), policy);
+        self.service_policies_override
+            .insert(service_id.to_string(), policy);
+        self
+    }
+
+    // [NEW] Set role for a specific validator index
+    pub fn with_role(mut self, index: usize, role: ValidatorRole) -> Self {
+        self.roles.insert(index, role);
         self
     }
 
@@ -256,7 +267,6 @@ impl TestClusterBuilder {
         })
         .to_string();
 
-        // [FIX] Merge default policies with overrides
         let mut service_policies = ioi_types::config::default_service_policies();
         for (k, v) in self.service_policies_override.clone() {
             service_policies.insert(k, v);
@@ -266,6 +276,13 @@ impl TestClusterBuilder {
         let mut bootnode_addrs: Vec<Multiaddr> = Vec::new();
 
         if let Some(boot_key) = validator_keys.first() {
+            // [NEW] Get role for index 0 (default Consensus)
+            let role = self
+                .roles
+                .get(&0)
+                .cloned()
+                .unwrap_or(ValidatorRole::Consensus);
+
             let bootnode_guard = TestValidator::launch(
                 boot_key.clone(),
                 genesis_content.clone(),
@@ -286,8 +303,8 @@ impl TestClusterBuilder {
                 self.keep_recent_heights,
                 self.gc_interval_secs,
                 self.min_finality_depth,
-                // [FIX] Pass the merged policies
                 service_policies.clone(),
+                role, // <--- PASS ROLE
             )
             .await?;
 
@@ -318,6 +335,13 @@ impl TestClusterBuilder {
                 let captured_policies = service_policies.clone();
                 let key_clone = key.clone();
 
+                // [NEW] Get role for index i (default Consensus)
+                let role = self
+                    .roles
+                    .get(&i)
+                    .cloned()
+                    .unwrap_or(ValidatorRole::Consensus);
+
                 let fut = async move {
                     TestValidator::launch(
                         key_clone,
@@ -340,6 +364,7 @@ impl TestClusterBuilder {
                         captured_gc_interval,
                         captured_min_finality,
                         captured_policies,
+                        role, // <--- PASS ROLE
                     )
                     .await
                 };
@@ -358,7 +383,23 @@ impl TestClusterBuilder {
                 }
             }
         }
-        validators.sort_by(|a, b| a.validator().peer_id.cmp(&b.validator().peer_id));
+
+        // [FIX] Sort by AccountID (same as launch order) instead of PeerID to ensure index stability
+        validators.sort_by(|a, b| {
+            let pk_a = a.validator().keypair.public().encode_protobuf();
+            let pk_b = b.validator().keypair.public().encode_protobuf();
+            let id_a = ioi_types::app::account_id_from_key_material(
+                ioi_types::app::SignatureSuite::Ed25519,
+                &pk_a,
+            )
+            .unwrap_or([0; 32]);
+            let id_b = ioi_types::app::account_id_from_key_material(
+                ioi_types::app::SignatureSuite::Ed25519,
+                &pk_b,
+            )
+            .unwrap_or([0; 32]);
+            id_a.cmp(&id_b)
+        });
 
         if validators.len() > 1 {
             println!("--- Waiting for cluster to sync to height 2 ---");

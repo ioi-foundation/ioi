@@ -148,32 +148,30 @@ impl TxDecorator for OracleService {
     ) -> Result<(), TransactionError> {
         // Inspect the transaction to see if it is an oracle submission
         if let ChainTransaction::System(sys_tx) = tx {
-            if let SystemPayload::CallService {
+            let SystemPayload::CallService {
                 service_id,
                 method,
                 params,
-            } = &sys_tx.payload
-            {
-                if service_id == "oracle" && method == "submit_data@v1" {
-                    // Efficiently pre-validate the request
-                    let p: SubmitDataParams =
-                        codec::from_bytes_canonical(params).map_err(|_| {
-                            TransactionError::Invalid("Malformed oracle submission params".into())
-                        })?;
+            } = &sys_tx.payload;
 
-                    let pending_key =
-                        [ORACLE_PENDING_REQUEST_PREFIX, &p.request_id.to_le_bytes()].concat();
+            if service_id == "oracle" && method == "submit_data@v1" {
+                // Efficiently pre-validate the request
+                let p: SubmitDataParams = codec::from_bytes_canonical(params).map_err(|_| {
+                    TransactionError::Invalid("Malformed oracle submission params".into())
+                })?;
 
-                    // If the pending key is missing, the request is either:
-                    // 1. Already finalized (duplicate/replay)
-                    // 2. Non-existent (invalid ID)
-                    // In either case, reject from mempool/block to save space.
-                    if state.get(&pending_key)?.is_none() {
-                        return Err(TransactionError::Invalid(format!(
-                            "Oracle request {} is not pending (already finalized or invalid ID)",
-                            p.request_id
-                        )));
-                    }
+                let pending_key =
+                    [ORACLE_PENDING_REQUEST_PREFIX, &p.request_id.to_le_bytes()].concat();
+
+                // If the pending key is missing, the request is either:
+                // 1. Already finalized (duplicate/replay)
+                // 2. Non-existent (invalid ID)
+                // In either case, reject from mempool/block to save space.
+                if state.get(&pending_key)?.is_none() {
+                    return Err(TransactionError::Invalid(format!(
+                        "Oracle request {} is not pending (already finalized or invalid ID)",
+                        p.request_id
+                    )));
                 }
             }
         }

@@ -13,10 +13,10 @@ use ioi_client::WorkloadClient;
 use ioi_api::chain::WorkloadClientApi;
 use ioi_crypto::sign::dilithium::{DilithiumKeyPair, DilithiumScheme};
 use ioi_state::primitives::kzg::KZGParams;
-// [FIX] Import ServicePolicy and BTreeMap
+// [FIX] Import ServicePolicy and BTreeMap and ValidatorRole
 use ioi_types::config::{
     CommitmentSchemeType, ConsensusType, InitialServiceConfig, OrchestrationConfig, ServicePolicy,
-    StateTreeType, VmFuelCosts, WorkloadConfig,
+    StateTreeType, ValidatorRole, VmFuelCosts, WorkloadConfig,
 };
 use ioi_validator::common::generate_certificates_if_needed;
 use libp2p::{identity, Multiaddr, PeerId};
@@ -32,6 +32,7 @@ use tokio::time::Duration;
 
 const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(30);
 
+// ... BinaryFeatureConfig (unchanged) ...
 struct BinaryFeatureConfig<'a> {
     consensus_type: &'a str,
     state_tree_type: &'a str,
@@ -208,9 +209,10 @@ impl TestValidator {
         keep_recent_heights: Option<u64>,
         gc_interval_secs: Option<u64>,
         min_finality_depth: Option<u64>,
-        // [FIX] New argument
         service_policies: BTreeMap<String, ServicePolicy>,
+        role: ValidatorRole,
     ) -> Result<ValidatorGuard> {
+        // ... (feature check same as before) ...
         let features = BinaryFeatureConfig {
             consensus_type,
             state_tree_type,
@@ -253,14 +255,7 @@ impl TestValidator {
         let p2p_addr: Multiaddr = p2p_addr_str.parse()?;
         let rpc_addr = format!("127.0.0.1:{}", rpc_port);
 
-        // We will not write raw bytes here anymore, but instead rely on Orchestration to
-        // generate and encrypt a new key if the file doesn't exist.
-        // However, for tests we pass the key in memory to Orchestration which isn't supported via CLI args easily.
-        // Wait, Orchestration takes `--identity-key-file`.
-        // We need to supply the key file.
-        // Since Orchestrator's `main` now calls `GuardianContainer::load_encrypted_file`, we must write an ENCRYPTED file here.
         let keypair_path = temp_dir.path().join("identity.key");
-        // We use a known password for tests, set via env var later.
         let test_password = "test-password";
         std::env::set_var("IOI_GUARDIAN_KEY_PASS", test_password);
         ioi_validator::common::GuardianContainer::save_encrypted_file(
@@ -326,6 +321,7 @@ impl TestValidator {
         let orchestration_config = OrchestrationConfig {
             chain_id,
             config_schema_version: 0,
+            validator_role: role,
             consensus_type: consensus_enum,
             rpc_listen_address: if use_docker {
                 "0.0.0.0:9999".to_string()
@@ -365,17 +361,14 @@ impl TestValidator {
             keep_recent_heights: keep_recent_heights.unwrap_or(100_000),
             epoch_size: epoch_size.unwrap_or(50_000),
             gc_interval_secs: gc_interval_secs.unwrap_or(3600),
-            // [FIX] Use the passed policies
             service_policies,
             zk_config: Default::default(),
         };
 
         if state_tree_type == "Verkle" {
             let srs_path = temp_dir.path().join("srs.bin");
-            println!("Generating Verkle SRS, this may take a moment...");
             let params = KZGParams::new_insecure_for_testing(12345, 255);
             params.save_to_file(&srs_path).map_err(|e| anyhow!(e))?;
-            println!("SRS generation complete.");
             workload_config.srs_file_path = Some(if use_docker {
                 "/tmp/test-data/srs.bin".to_string()
             } else {
@@ -385,7 +378,6 @@ impl TestValidator {
 
         std::fs::write(&workload_config_path, toml::to_string(&workload_config)?)?;
 
-        // [FIX] Explicitly disable binary integrity enforcement for general tests to avoid hash mismatch
         let guardian_config = r#"
             signature_policy = "FollowChain"
             enforce_binary_integrity = false
@@ -415,8 +407,6 @@ impl TestValidator {
                 .try_into_ed25519()
                 .map_err(|_| anyhow!("Validator key must be Ed25519 for Oracle auto-spawn"))?;
             let secret = ed_kp.secret();
-
-            println!("--- Spawning Dedicated Signing Oracle for validator ---");
             let guard = SigningOracleGuard::spawn(Some(secret.as_ref()))?;
             oracle_url_arg = Some(guard.url.clone());
             signing_oracle_guard = Some(guard);
@@ -490,7 +480,7 @@ impl TestValidator {
                     .env("TELEMETRY_ADDR", &telemetry_addr_guard)
                     .env("GUARDIAN_LISTEN_ADDR", &guardian_addr)
                     .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())
-                    .env("IOI_GUARDIAN_KEY_PASS", "test-password") // Set test password
+                    .env("IOI_GUARDIAN_KEY_PASS", "test-password")
                     .stderr(Stdio::piped())
                     .kill_on_drop(true)
                     .spawn()?;
@@ -545,7 +535,7 @@ impl TestValidator {
                 .env("TELEMETRY_ADDR", &orchestration_telemetry_addr)
                 .env("WORKLOAD_IPC_ADDR", &workload_ipc_addr)
                 .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())
-                .env("IOI_GUARDIAN_KEY_PASS", "test-password") // Set test password
+                .env("IOI_GUARDIAN_KEY_PASS", "test-password")
                 .stderr(Stdio::piped())
                 .kill_on_drop(true);
             if agentic_model_path.is_some() {
@@ -585,8 +575,6 @@ impl TestValidator {
         let mut workload_sub = workload_log_tx.subscribe();
 
         if agentic_model_path.is_some() {
-            // FIX: Expect 0.0.0.0 when in Docker, otherwise allow flexibility.
-            // The simple "GUARDIAN_IPC_LISTENING_ON_" pattern matches both.
             assert_log_contains(
                 "Guardian",
                 _guardian_sub.as_mut().unwrap(),
@@ -595,14 +583,11 @@ impl TestValidator {
             .await?;
         }
 
-        // Wait for workload to signal it is listening before trying to connect.
-        // FIX: Adjust expectation based on backend.
         let expected_workload_addr = if use_docker {
             "0.0.0.0:8555"
         } else {
             &workload_ipc_addr
         };
-
         assert_log_contains(
             "Workload",
             &mut workload_sub,
@@ -610,22 +595,43 @@ impl TestValidator {
         )
         .await?;
 
-        // Now that the workload is listening, connect a client and wait for it to report genesis is ready.
-        // This is a much more robust readiness check than just listening for log lines.
         if !use_docker {
-            let temp_workload_client = WorkloadClient::new(
-                &workload_ipc_addr,
-                &certs_dir_path.join("ca.pem").to_string_lossy(),
-                &certs_dir_path.join("orchestration.pem").to_string_lossy(),
-                &certs_dir_path.join("orchestration.key").to_string_lossy(),
-            )
-            .await?;
+            // [FIX] Add retry logic for Workload client connection
+            let mut client = None;
+            for i in 0..10 {
+                let ca = certs_dir_path.join("ca.pem").to_string_lossy().to_string();
+                let cert = certs_dir_path
+                    .join("orchestration.pem")
+                    .to_string_lossy()
+                    .to_string();
+                let key = certs_dir_path
+                    .join("orchestration.key")
+                    .to_string_lossy()
+                    .to_string();
+
+                match WorkloadClient::new(&workload_ipc_addr, &ca, &cert, &key).await {
+                    Ok(c) => {
+                        client = Some(c);
+                        break;
+                    }
+                    Err(e) => {
+                        if i == 9 {
+                            return Err(anyhow!(
+                                "Failed to connect to Workload after retries: {}",
+                                e
+                            ));
+                        }
+                        tokio::time::sleep(Duration::from_millis(500)).await;
+                    }
+                }
+            }
+            let temp_workload_client = client.unwrap();
+
             super::assert::wait_for(
                 "workload genesis to be ready",
                 Duration::from_millis(250),
                 WORKLOAD_READY_TIMEOUT,
                 || async {
-                    // [FIX] get_genesis_status returns Result<bool, ...>, check for Ok(true)
                     match temp_workload_client.get_genesis_status().await {
                         Ok(true) => Ok(Some(())),
                         _ => Ok(None),
@@ -635,16 +641,11 @@ impl TestValidator {
             .await?;
         }
 
-        // FIX: Adjust Orchestration log expectation for Docker.
         let expected_orch_addr = if use_docker {
             "0.0.0.0:9999"
         } else {
             &rpc_addr
         };
-
-        // In Docker mode, the backend launch logic consumes the "RPC_LISTENING_ON" log line
-        // to determine readiness. We cannot match it again here because the stream
-        // has moved past it. We only verify it for the process backend.
         if !use_docker {
             assert_log_contains(
                 "Orchestration",
@@ -652,10 +653,7 @@ impl TestValidator {
                 &format!("ORCHESTRATION_RPC_LISTENING_ON_{}", expected_orch_addr),
             )
             .await?;
-        } else {
-            log::info!("[Forge] Docker backend already verified Orchestration RPC readiness.");
         }
-
         if !light_readiness_check {
             assert_log_contains(
                 "Orchestration",
@@ -663,8 +661,6 @@ impl TestValidator {
                 "ORCHESTRATION_STARTUP_COMPLETE",
             )
             .await?;
-        } else {
-            log::info!("[Forge] Light readiness check complete. Bypassing wait for startup-complete signal.");
         }
 
         Ok(ValidatorGuard::new(TestValidator {
@@ -675,7 +671,7 @@ impl TestValidator {
             workload_ipc_addr,
             orchestration_telemetry_addr,
             workload_telemetry_addr,
-            p2p_addr, // Fixed variable name
+            p2p_addr,
             certs_dir_path,
             _temp_dir: temp_dir,
             backend,

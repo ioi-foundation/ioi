@@ -16,7 +16,8 @@ use ioi_types::{
         ActiveKeyRecord, BlockTimingParams, BlockTimingRuntime, SignatureSuite, ValidatorSetV1,
         ValidatorSetsV1, ValidatorV1,
     },
-    config::InitialServiceConfig,
+    // [FIX] Import ValidatorRole
+    config::{InitialServiceConfig, ValidatorRole},
     service_configs::MigrationConfig,
 };
 use libp2p::identity;
@@ -24,7 +25,7 @@ use std::time::Duration;
 
 // Import the new builder
 use ioi_forge::testing::genesis::GenesisBuilder;
-use std::collections::BTreeMap; // [FIX] Import BTreeMap
+// [FIX] Removed unused BTreeMap import
 
 #[tokio::test]
 async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
@@ -107,6 +108,8 @@ async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
         None, // min_finality_depth
         // [FIX] Use default policies
         ioi_types::config::default_service_policies(),
+        // [FIX] Pass default Consensus role
+        ValidatorRole::Consensus,
     )
     .await?;
 

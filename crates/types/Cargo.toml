@@ -19,6 +19,9 @@ parity-scale-codec = { workspace = true }
 prost = { workspace = true }
 bitflags = { workspace = true }
 
+[dev-dependencies]
+toml = { workspace = true }
+
 [features]
 default = []
 # Experimental PQC algorithms are gated here, not in the API.
