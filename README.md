@@ -230,6 +230,8 @@ cargo test -p ioi-forge --test security_e2e \
   --features "validator-bins,consensus-poa,vm-wasm,state-iavl" \
   -- --nocapture --test-threads=1
 
+cargo test --package ioi-forge --test topology_e2e --features "consensus-poa,vm-wasm,state-iavl" -- --nocapture
+
 Next steps are purely “fill in the real ZK logic”:
 
 Integrate the actual SP1 APIs (replace sp1-zkvm placeholders with the real crates).

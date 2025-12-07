@@ -14,9 +14,10 @@ use ioi_services::{governance::GovernanceModule, identity::IdentityHub, oracle::
 // [FIX] Correct crate import
 use ioi_storage::RedbEpochStore;
 use ioi_tx::unified::UnifiedTransactionModel;
+// [FIX] Import ValidatorRole
 use ioi_types::{
     app::{to_root_hash, Membership},
-    config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig},
+    config::{InitialServiceConfig, OrchestrationConfig, ValidatorRole, WorkloadConfig},
     keys::{STATUS_KEY, VALIDATOR_SET_KEY},
 };
 #[cfg(feature = "vm-wasm")]
@@ -137,6 +138,8 @@ where
         round_robin_view_timeout_secs: 0,
         default_query_gas_limit: 0,
         ibc_gateway_listen_address: None,
+        // [FIX] Initialize validator_role with default (Consensus)
+        validator_role: ValidatorRole::Consensus,
     };
     let consensus_engine = engine_from_config(&temp_orch_config)?;
 

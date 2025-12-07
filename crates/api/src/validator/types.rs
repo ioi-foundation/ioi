@@ -1,12 +1,12 @@
-// Path: crates/api/src/validator/types.rs
+// crates/api/src/validator/types.rs
 //! Defines validator model types and traits.
 
+use ioi_types::config::ValidatorRole;
 use ioi_types::error::ValidatorError;
 
 /// A trait representing a complete validator model.
 pub trait ValidatorModel {
     /// An associated type representing the specific WorkloadContainer implementation this validator uses.
-    /// This allows us to access it generically without knowing the validator's concrete type.
     type WorkloadContainerType;
 
     /// Starts the validator and all its containers.
@@ -15,8 +15,10 @@ pub trait ValidatorModel {
     fn stop(&self) -> Result<(), ValidatorError>;
     /// Checks if the validator is running.
     fn is_running(&self) -> bool;
-    /// Gets the type of the validator.
+    /// Gets the type of the validator architecture (Standard vs Hybrid).
     fn validator_type(&self) -> ValidatorType;
+    /// Gets the functional role of the validator (Consensus vs Compute).
+    fn role(&self) -> ValidatorRole; // [NEW]
     /// Provides generic access to the validator's workload container.
     fn workload_container(&self) -> &Self::WorkloadContainerType;
 }

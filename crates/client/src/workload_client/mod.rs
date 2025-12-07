@@ -71,10 +71,11 @@ impl WorkloadClient {
             format!("http://{}", addr)
         };
 
-        let channel = Channel::from_shared(endpoint.clone())?
-            .connect()
-            .await
-            .map_err(|e| anyhow!("Failed to connect to Workload gRPC at {}: {}", endpoint, e))?;
+        // FIX: Use connect_lazy() to allow the client structure to be created
+        // even if the server is not yet listening. This prevents the Orchestrator
+        // from crashing during startup race conditions. Connection errors will be
+        // surfaced when the first RPC is attempted (which is handled by the retry loop).
+        let channel = Channel::from_shared(endpoint.clone())?.connect_lazy();
 
         let shmem_id =
             std::env::var("IOI_SHMEM_ID").unwrap_or_else(|_| "ioi_workload_shm_default".into());

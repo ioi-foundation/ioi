@@ -9,6 +9,11 @@ use std::collections::BTreeMap;
 pub mod consensus;
 pub use consensus::*;
 
+// [NEW]
+/// Configuration structures for validator roles and capabilities.
+pub mod validator_role;
+pub use validator_role::*;
+
 /// Selects the underlying data structure for the state manager.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
@@ -243,7 +248,10 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
         "identity_hub".to_string(),
         ServicePolicy {
             methods: id_methods,
-            allowed_system_prefixes: vec!["system::validators::".to_string()],
+            allowed_system_prefixes: vec![
+                "system::validators::".to_string(),
+                "identity::pubkey::".to_string(), // <--- ADDED: Allow access to global pubkey registry
+            ],
         },
     );
 
@@ -395,32 +403,35 @@ impl Default for RpcHardeningConfig {
 /// Configuration for the Orchestration container (`orchestration.toml`).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct OrchestrationConfig {
-    /// The unique identifier for the blockchain instance, used to prevent cross-chain replay attacks.
+    /// The unique identifier for the blockchain instance.
     #[serde(default = "default_chain_id")]
     pub chain_id: ChainId,
-    /// The version of the configuration file schema, for managing future upgrades.
+    /// The version of the configuration file schema.
     #[serde(default)]
     pub config_schema_version: u16,
-    /// The consensus engine to use (e.g., ProofOfAuthority, ProofOfStake).
+    /// The functional role of this validator node (Consensus vs Compute).
+    #[serde(default)]
+    pub validator_role: ValidatorRole, // [NEW]
+    /// The consensus engine to use.
     pub consensus_type: ConsensusType,
-    /// The network address and port for the JSON-RPC server to listen on.
+    /// The network address and port for the JSON-RPC server.
     pub rpc_listen_address: String,
-    /// Hardening and DDoS protection configuration for the RPC server.
+    /// Hardening and DDoS protection configuration.
     #[serde(default)]
     pub rpc_hardening: RpcHardeningConfig,
-    /// The number of seconds to wait for initial peer discovery before assuming genesis node status.
+    /// The number of seconds to wait for initial peer discovery.
     #[serde(default = "default_sync_timeout_secs")]
     pub initial_sync_timeout_secs: u64,
-    /// The interval, in seconds, at which the node attempts to produce a new block if it is the leader.
+    /// The interval, in seconds, at which the node attempts to produce a new block.
     #[serde(default = "default_block_production_interval_secs")]
     pub block_production_interval_secs: u64,
-    /// The timeout, in seconds, before a node proposes a view change in the RoundRobin BFT consensus engine.
+    /// The timeout, in seconds, before a node proposes a view change.
     #[serde(default = "default_round_robin_view_timeout_secs")]
     pub round_robin_view_timeout_secs: u64,
     /// The default gas limit for read-only `query_contract` RPC calls.
     #[serde(default = "default_query_gas_limit")]
     pub default_query_gas_limit: u64,
-    /// Optional: The listen address for the IBC HTTP gateway. If present, the gateway is enabled.
+    /// Optional: The listen address for the IBC HTTP gateway.
     #[serde(default)]
     pub ibc_gateway_listen_address: Option<String>,
 }

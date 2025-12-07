@@ -20,11 +20,12 @@ use ioi_types::{
         SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
-    config::InitialServiceConfig,
+    // [FIX] Import ValidatorRole
+    config::{InitialServiceConfig, ValidatorRole},
     service_configs::{GovernanceParams, MigrationConfig},
 };
 use libp2p::identity::{self, Keypair};
-use std::collections::BTreeMap; // [FIX] Import BTreeMap
+// [FIX] Removed unused BTreeMap import
 use std::time::Duration;
 use tokio::time;
 
@@ -173,7 +174,7 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         .to_string()
     };
 
-    // ... [Rest of test logic unchanged] ...
+    // --- SAFE LAUNCH PATTERN ---
     let leader_node = TestValidator::launch(
         leader_key,
         genesis_content.clone(),
@@ -199,24 +200,31 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         false,
         false,
         &[],
-        None, // epoch_size
-        None, // keep_recent_heights
-        None, // gc_interval_secs
-        None, // min_finality_depth
-        // [FIX] Use default policies
+        None,
+        None,
+        None,
+        None,
         ioi_types::config::default_service_policies(),
+        ValidatorRole::Consensus,
     )
     .await?;
-    wait_for_height(
+
+    // Wait for leader to be ready before starting followers
+    if let Err(e) = wait_for_height(
         &leader_node.validator().rpc_addr,
         1,
         Duration::from_secs(20),
     )
-    .await?;
+    .await
+    {
+        leader_node.shutdown().await?;
+        return Err(e);
+    }
 
     let bootnode_addrs = vec![leader_node.validator().p2p_addr.clone()];
 
-    let follower1 = TestValidator::launch(
+    // Launch Follower 1
+    let follower1_res = TestValidator::launch(
         follower_keys[0].clone(),
         genesis_content.clone(),
         6000,
@@ -241,15 +249,25 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         false,
         false,
         &[],
-        None, // epoch_size
-        None, // keep_recent_heights
-        None, // gc_interval_secs
-        None, // min_finality_depth
-        // [FIX] Use default policies
+        None,
+        None,
+        None,
+        None,
         ioi_types::config::default_service_policies(),
+        ValidatorRole::Consensus,
     )
-    .await?;
-    let follower2 = TestValidator::launch(
+    .await;
+
+    let follower1 = match follower1_res {
+        Ok(v) => v,
+        Err(e) => {
+            leader_node.shutdown().await?;
+            return Err(e);
+        }
+    };
+
+    // Launch Follower 2
+    let follower2_res = TestValidator::launch(
         follower_keys[1].clone(),
         genesis_content,
         7000,
@@ -274,14 +292,23 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         false,
         false,
         &[],
-        None, // epoch_size
-        None, // keep_recent_heights
-        None, // gc_interval_secs
-        None, // min_finality_depth
-        // [FIX] Use default policies
+        None,
+        None,
+        None,
+        None,
         ioi_types::config::default_service_policies(),
+        ValidatorRole::Consensus,
     )
-    .await?;
+    .await;
+
+    let follower2 = match follower2_res {
+        Ok(v) => v,
+        Err(e) => {
+            leader_node.shutdown().await?;
+            follower1.shutdown().await?;
+            return Err(e);
+        }
+    };
 
     let mut validators = vec![leader_node, follower1, follower2];
 
