@@ -1,18 +1,102 @@
 // Path: crates/forge/tests/security_e2e.rs
 #![cfg(all(feature = "validator-bins"))]
 
-use anyhow::Result;
-// FIX: Import Sha256 directly from dcrypt, as ioi_crypto does not re-export it
-use dcrypt::algorithms::hash::{HashFunction, Sha256};
+// --- Common Imports ---
+use anyhow::{anyhow, Result};
 use ioi_forge::testing::build_test_artifacts;
-use ioi_validator::common::GuardianContainer;
-use ioi_validator::config::GuardianConfig;
-use std::fs::File;
-use std::io::{Read, Write};
-use std::path::PathBuf;
-use tempfile::tempdir;
 
-/// Helper to get path to a built binary in target/release
+// --- Imports for Local Binary Integrity Test ---
+#[cfg(feature = "validator-bins")]
+use dcrypt::algorithms::hash::{HashFunction, Sha256};
+#[cfg(feature = "validator-bins")]
+use std::io::Write; // REMOVED: Read
+#[cfg(feature = "validator-bins")]
+use std::path::PathBuf;
+#[cfg(feature = "validator-bins")]
+use tempfile::tempdir;
+// REMOVED: ioi_validator imports and std::fs::File
+
+// --- Imports for On-Chain Attestation Test ---
+#[cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
+use ioi_api::state::service_namespace_prefix;
+#[cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
+use ioi_forge::testing::{
+    rpc::{query_state_key, submit_transaction},
+    wait_for_height, TestCluster,
+};
+#[cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
+use ioi_types::{
+    app::{
+        account_id_from_key_material, AccountId, ActiveKeyRecord, BinaryMeasurement,
+        BlockTimingParams, BlockTimingRuntime, BootAttestation, ChainId, ChainTransaction,
+        SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+        ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+    },
+    codec,
+    config::{InitialServiceConfig, ServicePolicy}, // [FIX] Import ServicePolicy
+    service_configs::{MethodPermission, MigrationConfig}, // [FIX] Import MethodPermission
+};
+#[cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
+use libp2p::identity::Keypair;
+#[cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
+use std::collections::BTreeMap; // [FIX] Import BTreeMap
+#[cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
+use std::time::{Duration, SystemTime, UNIX_EPOCH}; // [FIX] Import namespace helper
+
+// -----------------------------------------------------------------------------
+// HELPER: Create Attestation Transaction
+// -----------------------------------------------------------------------------
+
+#[cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
+fn create_attestation_tx(
+    keypair: &Keypair,
+    attestation: BootAttestation,
+    nonce: u64,
+    chain_id: ChainId,
+) -> Result<ChainTransaction> {
+    // FIX: Map string error to anyhow
+    let payload_bytes = codec::to_bytes_canonical(&attestation).map_err(|e| anyhow!(e))?;
+
+    let payload = SystemPayload::CallService {
+        service_id: "identity_hub".to_string(),
+        method: "register_attestation@v1".to_string(),
+        params: payload_bytes,
+    };
+
+    let public_key = keypair.public().encode_protobuf();
+    let account_id_hash =
+        account_id_from_key_material(SignatureSuite::Ed25519, &public_key).unwrap();
+    let account_id = AccountId(account_id_hash);
+
+    let header = SignHeader {
+        account_id,
+        nonce,
+        chain_id,
+        tx_version: 1,
+    };
+
+    let mut tx_to_sign = SystemTransaction {
+        header,
+        payload,
+        signature_proof: SignatureProof::default(),
+    };
+    let sign_bytes = tx_to_sign.to_sign_bytes().map_err(|e| anyhow!(e))?;
+    let signature = keypair.sign(&sign_bytes)?;
+
+    tx_to_sign.signature_proof = SignatureProof {
+        suite: SignatureSuite::Ed25519,
+        public_key,
+        signature,
+    };
+
+    Ok(ChainTransaction::System(Box::new(tx_to_sign)))
+}
+
+// -----------------------------------------------------------------------------
+// HELPER: Binary Path Resolution
+// -----------------------------------------------------------------------------
+
+#[cfg(feature = "validator-bins")]
 fn get_binary_path(name: &str) -> PathBuf {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let root = manifest_dir.parent().unwrap().parent().unwrap();
@@ -26,11 +110,14 @@ fn get_binary_path(name: &str) -> PathBuf {
     path
 }
 
+// -----------------------------------------------------------------------------
+// TEST 1: Local Binary Integrity Enforcement
+// -----------------------------------------------------------------------------
+
 #[tokio::test]
+#[cfg(feature = "validator-bins")]
 async fn test_guardian_binary_integrity_enforcement() -> Result<()> {
     // 0. Rebuild Validator Binaries to ensure they have the latest code changes
-    // This is crucial because we modified the Guardian source code to support test overrides,
-    // and the test runs the binary from target/release which might be stale.
     println!("--- Rebuilding Guardian Binary ---");
     let status = std::process::Command::new("cargo")
         .args([
@@ -69,24 +156,12 @@ async fn test_guardian_binary_integrity_enforcement() -> Result<()> {
     let work_hash = hex::encode(Sha256::digest(&work_bytes)?);
 
     // 4. Test Case: Valid Configuration
-    // We fake "current_exe" logic by manually pointing to the temp dir in the check if possible,
-    // BUT Guardian::verify_binaries uses std::env::current_exe().
-    // To test this unit-style without spawning a process, we can instantiate GuardianContainer
-    // and call a modified check function, OR we can use the public API if we trick it.
-    // Since we can't easily mock current_exe safely in parallel tests, we will mock the logic
-    // by creating a mock structure or checking the logic directly if we exposed `check_file`.
-    //
-    // Better approach: Spawn `guardian` process with a config file in the temp dir.
-    // However, `guardian` binary expects to be in the same folder as `orchestration`.
-    // So we copy `guardian` there too.
-
     let guard_src = get_binary_path("guardian");
     let guard_dst = bin_dir.join("guardian");
     std::fs::copy(&guard_src, &guard_dst)?;
 
     // Create valid config
     let valid_config_path = bin_dir.join("guardian.toml");
-    // [FIX] Use binary_dir_override to point the guardian to the temp dir, ensuring it checks the copied binaries.
     let valid_config = format!(
         r#"
         signature_policy = "Fixed"
@@ -101,9 +176,7 @@ async fn test_guardian_binary_integrity_enforcement() -> Result<()> {
     );
     std::fs::write(&valid_config_path, valid_config)?;
 
-    // Spawn Guardian and expect it to start (or at least pass init)
-    // It will fail binding ports eventually or connecting to things, but if it passes binary check
-    // it proceeds. If it fails check, it panics immediately.
+    // Spawn Guardian
     let mut valid_proc = std::process::Command::new(&guard_dst)
         .arg("--config-dir")
         .arg(&bin_dir)
@@ -138,7 +211,6 @@ async fn test_guardian_binary_integrity_enforcement() -> Result<()> {
     );
 
     // Spawn again
-    // We use spawn + polling instead of output() to avoid hanging if the security check fails (false negative)
     let mut tampered_proc = std::process::Command::new(&guard_dst)
         .arg("--config-dir")
         .arg(&bin_dir)
@@ -174,19 +246,180 @@ async fn test_guardian_binary_integrity_enforcement() -> Result<()> {
         if start.elapsed() > std::time::Duration::from_secs(5) {
             let _ = tampered_proc.kill();
 
-            // Attempt to read what it said
-            let mut stderr_out = String::new();
-            if let Some(mut stderr) = tampered_proc.stderr.take() {
-                let _ = stderr.read_to_string(&mut stderr_out);
-            }
-
-            panic!(
-                "Guardian failed to detect binary tampering (process continued running instead of exiting).\nGuardian Logs:\n{}",
-                stderr_out
-            );
+            // To consume stderr we would need to read it, but since we are panicking
+            // and `Read` trait was causing warnings, we omit complex reading logic here.
+            panic!("Guardian failed to detect binary tampering (process continued running).");
         }
         std::thread::sleep(std::time::Duration::from_millis(100));
     }
 
     Ok(())
+}
+
+// -----------------------------------------------------------------------------
+// TEST 2: On-Chain Binary Attestation Flow
+// -----------------------------------------------------------------------------
+
+#[tokio::test]
+#[cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
+async fn test_binary_integrity_attestation_flow() -> Result<()> {
+    println!("--- Running On-Chain Attestation E2E Test ---");
+    build_test_artifacts();
+
+    // [FIX] Define custom policy for IdentityHub
+    let mut id_methods = BTreeMap::new();
+    id_methods.insert("rotate_key@v1".into(), MethodPermission::User);
+    id_methods.insert("register_attestation@v1".into(), MethodPermission::User);
+
+    let id_policy = ServicePolicy {
+        methods: id_methods,
+        allowed_system_prefixes: vec![
+            "system::validators::".to_string(),
+            "identity::pubkey::".to_string(), // <--- ADDED: Allow access to global pubkey registry
+        ],
+    };
+
+    let cluster = TestCluster::builder()
+        // [FIX] Inject policy
+        .with_service_policy("identity_hub", id_policy)
+        .with_validators(1)
+        .with_consensus_type("ProofOfAuthority")
+        .with_state_tree("IAVL")
+        .with_chain_id(1)
+        .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
+            chain_id: 1,
+            grace_period_blocks: 5,
+            accept_staged_during_grace: true,
+            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            allow_downgrade: false,
+        }))
+        // --- UPDATED: Using GenesisBuilder API ---
+        .with_genesis_modifier(move |builder, keys| {
+            let keypair = &keys[0];
+
+            // 1. Register Identity
+            let account_id = builder.add_identity(keypair);
+            let account_id_hash = account_id.0;
+
+            // 2. Validator Set
+            let vs = ValidatorSetV1 {
+                effective_from_height: 1,
+                total_weight: 1,
+                validators: vec![ValidatorV1 {
+                    account_id,
+                    weight: 1,
+                    consensus_key: ActiveKeyRecord {
+                        suite: SignatureSuite::Ed25519,
+                        public_key_hash: account_id_hash,
+                        since_height: 0,
+                    },
+                }],
+            };
+            let vs_blob = ValidatorSetsV1 {
+                current: vs,
+                next: None,
+            };
+            builder.set_validators(&vs_blob);
+
+            // 3. Block Timing
+            let timing_params = BlockTimingParams {
+                base_interval_secs: 2, // Fast blocks
+                retarget_every_blocks: 0,
+                ..Default::default()
+            };
+            let timing_runtime = BlockTimingRuntime {
+                effective_interval_secs: timing_params.base_interval_secs,
+                ..Default::default()
+            };
+            builder.set_block_timing(&timing_params, &timing_runtime);
+        })
+        .build()
+        .await?;
+
+    let test_result: Result<()> = async {
+        let node = cluster.validators[0].validator();
+        let rpc_addr = &node.rpc_addr;
+        let keypair = &node.keypair;
+
+        wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
+
+        // 1. Construct a valid BootAttestation
+        let public_key = keypair.public().encode_protobuf();
+        let account_id_hash =
+            account_id_from_key_material(SignatureSuite::Ed25519, &public_key).unwrap();
+        let account_id = AccountId(account_id_hash);
+
+        let dummy_meas = BinaryMeasurement {
+            name: "test".to_string(),
+            sha256: [0xAA; 32],
+            size: 12345,
+        };
+
+        let mut attestation = BootAttestation {
+            validator_account_id: account_id,
+            timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
+            guardian: dummy_meas.clone(),
+            orchestration: dummy_meas.clone(),
+            workload: dummy_meas.clone(),
+            build_metadata: "e2e-test".to_string(),
+            signature: Vec::new(),
+        };
+
+        // Sign the attestation payload
+        let attest_sign_bytes = attestation.to_sign_bytes()?;
+        attestation.signature = keypair.sign(&attest_sign_bytes)?;
+
+        // 2. Wrap in Transaction
+        // Nonce 0 because it's the first tx for this validator
+        let tx = create_attestation_tx(keypair, attestation.clone(), 0, 1.into())?;
+
+        // 3. Submit
+        println!("Submitting binary attestation transaction...");
+        submit_transaction(rpc_addr, &tx).await?;
+
+        // 4. Verify State
+        wait_for_height(rpc_addr, 2, Duration::from_secs(20)).await?;
+
+        // FIX: Construct the namespaced key.
+        // IdentityHub stores data in its private namespace: _service_data::identity_hub::
+        // The service logic appends b"identity::attestation::" + account_id.
+        let ns = service_namespace_prefix("identity_hub");
+        let key = [
+            ns.as_slice(),
+            b"identity::attestation::",
+            account_id.as_ref(),
+        ]
+        .concat();
+
+        let stored_bytes = query_state_key(rpc_addr, &key)
+            .await?
+            .ok_or(anyhow::anyhow!("Attestation not found in state"))?;
+
+        // FIX: Map string error to anyhow
+        let stored_attestation: BootAttestation =
+            codec::from_bytes_canonical(&stored_bytes).map_err(|e| anyhow!(e))?;
+
+        assert_eq!(
+            stored_attestation.validator_account_id, account_id,
+            "Stored Account ID mismatch"
+        );
+        assert_eq!(
+            stored_attestation.guardian.sha256, [0xAA; 32],
+            "Stored hash mismatch"
+        );
+        assert_eq!(
+            stored_attestation.signature, attestation.signature,
+            "Stored signature mismatch"
+        );
+
+        println!("SUCCESS: Binary attestation verified on-chain.");
+        Ok(())
+    }
+    .await;
+
+    for guard in cluster.validators {
+        guard.shutdown().await?;
+    }
+
+    test_result
 }

@@ -236,6 +236,9 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
     // Identity Hub
     let mut id_methods = BTreeMap::new();
     id_methods.insert("rotate_key@v1".into(), MethodPermission::User);
+    // [NEW] Allow binary attestation registration
+    id_methods.insert("register_attestation@v1".into(), MethodPermission::User);
+
     map.insert(
         "identity_hub".to_string(),
         ServicePolicy {

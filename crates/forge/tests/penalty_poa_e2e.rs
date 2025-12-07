@@ -10,21 +10,21 @@ use ioi_forge::testing::{
     rpc::{self, get_chain_timestamp, get_quarantined_set},
     wait_for_height,
     wait_for_quarantine_status,
-    TestValidator, 
+    TestValidator,
 };
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
-        BlockTimingRuntime, ChainId, ChainTransaction, FailureReport, OffenseFacts,
-        OffenseType, ReportMisbehaviorParams, SignHeader, SignatureProof, SignatureSuite,
-        SystemPayload, SystemTransaction, ValidatorSetV1, ValidatorSetsV1,
-        ValidatorV1,
+        BlockTimingRuntime, ChainId, ChainTransaction, FailureReport, OffenseFacts, OffenseType,
+        ReportMisbehaviorParams, SignHeader, SignatureProof, SignatureSuite, SystemPayload,
+        SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
     config::InitialServiceConfig,
     service_configs::{GovernanceParams, MigrationConfig},
 };
 use libp2p::identity::{self, Keypair};
+use std::collections::BTreeMap; // [FIX] Import BTreeMap
 use std::time::Duration;
 use tokio::time;
 
@@ -116,17 +116,14 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
     // --- CHANGED: Use GenesisBuilder manually here since this test launches validators manually ---
     let genesis_content = {
         let mut builder = GenesisBuilder::new();
-        
+
         // 1. Identities
         for k in &all_keys {
             builder.add_identity(k);
         }
 
         // 2. Validator Set
-        let authorities: Vec<AccountId> = account_ids_with_keys
-            .iter()
-            .map(|(id, _)| *id)
-            .collect();
+        let authorities: Vec<AccountId> = account_ids_with_keys.iter().map(|(id, _)| *id).collect();
         // Already sorted
 
         let validators: Vec<ValidatorV1> = authorities
@@ -172,7 +169,8 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         // Wrap in top-level JSON object
         serde_json::json!({
             "genesis_state": builder
-        }).to_string()
+        })
+        .to_string()
     };
 
     // ... [Rest of test logic unchanged] ...
@@ -205,6 +203,8 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         None, // keep_recent_heights
         None, // gc_interval_secs
         None, // min_finality_depth
+        // [FIX] Use default policies
+        ioi_types::config::default_service_policies(),
     )
     .await?;
     wait_for_height(
@@ -245,6 +245,8 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         None, // keep_recent_heights
         None, // gc_interval_secs
         None, // min_finality_depth
+        // [FIX] Use default policies
+        ioi_types::config::default_service_policies(),
     )
     .await?;
     let follower2 = TestValidator::launch(
@@ -276,6 +278,8 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
         None, // keep_recent_heights
         None, // gc_interval_secs
         None, // min_finality_depth
+        // [FIX] Use default policies
+        ioi_types::config::default_service_policies(),
     )
     .await?;
 
@@ -291,8 +295,18 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
 
         println!("Waiting for height 2 on all nodes (60s timeout)...");
         wait_for_height(rpc_addr, 2, Duration::from_secs(60)).await?;
-        wait_for_height(&offender1.validator().rpc_addr, 2, Duration::from_secs(60)).await?;
-        wait_for_height(&offender2.validator().rpc_addr, 2, Duration::from_secs(60)).await?;
+        wait_for_height(
+            &offender1.validator().rpc_addr,
+            2,
+            Duration::from_secs(60),
+        )
+        .await?;
+        wait_for_height(
+            &offender2.validator().rpc_addr,
+            2,
+            Duration::from_secs(60),
+        )
+        .await?;
         println!("--- All nodes synced. Cluster is ready. ---");
 
         let target_url = "https://calibration.ioi/heartbeat@v1";
@@ -336,14 +350,14 @@ async fn test_poa_quarantine_and_liveness_guard() -> Result<()> {
             1.into(),
             target_url,
             probe_ts,
-        )?; 
+        )?;
 
         for v in &validators {
             let _ = rpc::submit_transaction_no_wait(&v.validator().rpc_addr, &tx2).await;
         }
 
         println!("Waiting to confirm chain has halted due to invalid transaction...");
-        time::sleep(Duration::from_secs(10)).await; 
+        time::sleep(Duration::from_secs(10)).await;
         let height_after_halt = rpc::get_chain_height(rpc_addr).await?;
         assert_eq!(
             height_after_halt, height_before_halt,

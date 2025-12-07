@@ -17,7 +17,10 @@ use ioi_crypto::transport::hybrid_kem_tls::{
     derive_application_key, server_post_handshake, AeadWrappedStream,
 };
 use ioi_ipc::IpcClientType;
-use ioi_types::app::SignatureBundle;
+use ioi_types::app::{
+    account_id_from_key_material, AccountId, BinaryMeasurement, BootAttestation, SignatureBundle,
+    SignatureSuite,
+};
 use ioi_types::error::ValidatorError;
 use rcgen::{Certificate, CertificateParams, KeyUsagePurpose, SanType};
 use std::fs::File;
@@ -28,6 +31,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::io::AsyncReadExt;
 use tokio_rustls::{rustls::ServerConfig, TlsAcceptor, TlsStream};
 
@@ -234,6 +238,76 @@ impl GuardianContainer {
             hex::encode(&local_hash_array)
         );
         Ok(local_hash_array.to_vec())
+    }
+
+    /// Generates a signed `BootAttestation` by hashing the local binaries.
+    ///
+    /// # Arguments
+    /// * `keypair`: The identity keypair used to sign the attestation.
+    /// * `config`: The Guardian configuration (used to resolve binary paths).
+    pub fn generate_boot_attestation(
+        &self,
+        keypair: &libp2p::identity::Keypair,
+        config: &GuardianConfig,
+    ) -> Result<BootAttestation> {
+        // Resolve binary directory
+        let bin_dir = if let Some(dir) = &config.binary_dir_override {
+            Path::new(dir).to_path_buf()
+        } else {
+            std::env::current_exe()?
+                .parent()
+                .ok_or(anyhow!("Cannot determine binary directory"))?
+                .to_path_buf()
+        };
+
+        let measure = |name: &str| -> Result<BinaryMeasurement> {
+            let path = bin_dir.join(name);
+            if !path.exists() {
+                return Err(anyhow!("Binary not found: {:?}", path));
+            }
+            let bytes = std::fs::read(&path)?;
+            let hash = Sha256::digest(&bytes).map_err(|e| anyhow!(e))?;
+            let mut sha256 = [0u8; 32];
+            sha256.copy_from_slice(&hash);
+
+            Ok(BinaryMeasurement {
+                name: name.to_string(),
+                sha256,
+                size: bytes.len() as u64,
+            })
+        };
+
+        let guardian_meas = measure("guardian")?;
+        let orch_meas = measure("orchestration")?;
+        let workload_meas = measure("workload")?;
+
+        let pk_bytes = keypair.public().encode_protobuf();
+        // Assuming Ed25519 for the identity key
+        let account_hash = account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes)
+            .map_err(|e| anyhow!(e))?;
+
+        let mut attestation = BootAttestation {
+            validator_account_id: AccountId(account_hash),
+            timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
+            guardian: guardian_meas,
+            orchestration: orch_meas,
+            workload: workload_meas,
+            build_metadata: env!("CARGO_PKG_VERSION").to_string(), // Or inject git hash via env
+            signature: Vec::new(),
+        };
+
+        // Sign it
+        let sign_bytes = attestation.to_sign_bytes()?;
+        let signature = keypair.sign(&sign_bytes)?;
+        attestation.signature = signature;
+
+        log::info!(
+            "[Guardian] Generated BootAttestation for validator {}. Guardian Hash: {}",
+            hex::encode(account_hash),
+            hex::encode(attestation.guardian.sha256)
+        );
+
+        Ok(attestation)
     }
 
     /// Locates, hashes, and locks sibling binaries relative to the current executable.

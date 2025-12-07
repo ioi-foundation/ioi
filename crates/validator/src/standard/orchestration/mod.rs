@@ -29,7 +29,11 @@ use ioi_networking::traits::NodeState;
 use ioi_networking::BlockSync;
 use ioi_types::app::TxHash;
 use ioi_types::{
-    app::{account_id_from_key_material, AccountId, ChainTransaction, SignatureSuite},
+    app::{
+        account_id_from_key_material, AccountId, ChainTransaction, GuardianReport, SignHeader,
+        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+    },
+    codec,
     error::ValidatorError,
 };
 use libp2p::identity;
@@ -229,7 +233,8 @@ where
     }
 
     /// Performs agentic attestation with the Guardian.
-    /// This ensures the workload is running with the correct model and weights.
+    /// This ensures the workload is running with the correct model and weights,
+    /// and now also receives the BootAttestation for binary integrity.
     async fn perform_guardian_attestation(
         &self,
         guardian_addr: &str,
@@ -272,26 +277,76 @@ where
         let mut report_bytes = vec![0u8; len as usize];
         stream.read_exact(&mut report_bytes).await?;
 
-        let report: std::result::Result<Vec<u8>, String> = serde_json::from_slice(&report_bytes)
+        let report: GuardianReport = serde_json::from_slice(&report_bytes)
             .map_err(|e| anyhow!("Failed to deserialize Guardian report: {}", e))?;
 
-        let local_hash = report.map_err(|e| anyhow!("Guardian reported error: {}", e))?;
+        // 1. Verify Model Hash (Agentic Integrity)
         tracing::info!(
             target: "orchestration",
             "[Orchestrator] Received local model hash from Guardian: {}",
-            hex::encode(&local_hash)
+            hex::encode(&report.agentic_hash)
         );
 
         let expected_hash = workload_client.get_expected_model_hash().await?;
-        if local_hash == expected_hash {
-            Ok(())
-        } else {
-            Err(anyhow!(
+        if report.agentic_hash != expected_hash {
+            return Err(anyhow!(
                 "Model Integrity Failure! Local hash {} != on-chain hash {}",
-                hex::encode(local_hash),
+                hex::encode(&report.agentic_hash),
                 hex::encode(expected_hash)
-            ))
+            ));
         }
+
+        // 2. Submit Binary Attestation (Boot Integrity)
+        tracing::info!(target: "orchestration", "Submitting signed binary boot attestation to IdentityHub...");
+
+        let payload_bytes =
+            codec::to_bytes_canonical(&report.binary_attestation).map_err(|e| anyhow!(e))?;
+
+        let sys_payload = SystemPayload::CallService {
+            service_id: "identity_hub".to_string(),
+            method: "register_attestation@v1".to_string(),
+            params: payload_bytes,
+        };
+
+        let our_pk = self.local_keypair.public().encode_protobuf();
+        let our_account_id = AccountId(
+            account_id_from_key_material(SignatureSuite::Ed25519, &our_pk)
+                .map_err(|e| anyhow!(e))?,
+        );
+
+        let nonce = {
+            let mut nm = self.nonce_manager.lock().await;
+            let n = nm.entry(our_account_id).or_insert(0);
+            let cur = *n;
+            *n += 1;
+            cur
+        };
+
+        let mut sys_tx = SystemTransaction {
+            header: SignHeader {
+                account_id: our_account_id,
+                nonce,
+                chain_id: self.config.chain_id,
+                tx_version: 1,
+            },
+            payload: sys_payload,
+            signature_proof: SignatureProof::default(),
+        };
+
+        let sign_bytes = sys_tx.to_sign_bytes().map_err(|e| anyhow!(e))?;
+        let signature = self.local_keypair.sign(&sign_bytes)?;
+
+        sys_tx.signature_proof = SignatureProof {
+            suite: SignatureSuite::Ed25519,
+            public_key: our_pk,
+            signature,
+        };
+
+        let tx = ChainTransaction::System(Box::new(sys_tx));
+        let tx_hash = tx.hash()?;
+        self.tx_pool.lock().await.push_back((tx, tx_hash));
+
+        Ok(())
     }
 }
 

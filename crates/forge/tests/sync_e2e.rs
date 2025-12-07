@@ -26,6 +26,7 @@ use ioi_types::{
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
+use std::collections::BTreeMap; // [FIX] Import BTreeMap
 use std::time::Duration;
 
 fn create_dummy_tx(keypair: &Keypair, nonce: u64, chain_id: ChainId) -> Result<ChainTransaction> {
@@ -345,6 +346,8 @@ async fn test_sync_with_peer_drop() -> Result<()> {
             None, // keep_recent_heights
             None, // gc_interval_secs
             None, // min_finality_depth
+            // [FIX] Use default policies to ensure governance txs are accepted
+            ioi_types::config::default_service_policies(),
         )
         .await?;
 
