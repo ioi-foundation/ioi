@@ -7,6 +7,7 @@ use ioi_api::{
     state::{ProofProvider, StateManager},
     storage::NodeStore,
     validator::WorkloadContainer,
+    vm::inference::mock::MockInferenceRuntime, // [NEW] Import Mock Runtime
 };
 use ioi_consensus::util::engine_from_config;
 use ioi_execution::{util::load_state_from_genesis_file, ExecutionMachine};
@@ -129,6 +130,12 @@ where
         panic!("vm-wasm feature is required for Workload setup");
     };
 
+    // [NEW] Instantiate the Mock Inference Runtime
+    // In a production environment, this would switch based on config to a PyTorch/ONNX runtime.
+    let inference: Box<dyn ioi_api::vm::inference::InferenceRuntime> =
+        Box::new(MockInferenceRuntime::default());
+    tracing::info!(target: "workload", "Initialized Mock Inference Runtime for agentic tasks.");
+
     // [FIX] Move the temp config creation outside the if/else to be used later
     // or simplify. Actually we only need consensus_engine.
     let temp_orch_config = OrchestrationConfig {
@@ -245,12 +252,12 @@ where
         .collect();
     let service_directory = ServiceDirectory::new(services_for_dir);
 
-    // [FIX] Pass None for inference runtime
+    // [FIX] Pass Some(inference) to WorkloadContainer
     let workload_container = Arc::new(WorkloadContainer::new(
         config.clone(),
         state_tree,
         vm,
-        None, // inference
+        Some(inference), // [CHANGED]
         service_directory,
         store,
     )?);
