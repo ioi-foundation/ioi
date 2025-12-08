@@ -120,13 +120,17 @@ where
     let vm: Box<dyn ioi_api::vm::VirtualMachine> =
         Box::new(WasmRuntime::new(config.fuel_costs.clone())?);
 
-    // Fallback if VM-WASM is not enabled (should panic or error in real usage if runtime requested)
+    // Fallback if VM-WASM is not enabled
     #[cfg(not(feature = "vm-wasm"))]
     let vm: Box<dyn ioi_api::vm::VirtualMachine> = {
-        // Simple mock or panic if WASM is required but disabled
+        // [FIX] Avoid unreachable code warning in normal builds
+        // This block is only compiled if vm-wasm is disabled.
+        // We return a dummy or panic.
         panic!("vm-wasm feature is required for Workload setup");
     };
 
+    // [FIX] Move the temp config creation outside the if/else to be used later
+    // or simplify. Actually we only need consensus_engine.
     let temp_orch_config = OrchestrationConfig {
         chain_id: 1.into(),
         config_schema_version: 0,
@@ -138,7 +142,6 @@ where
         round_robin_view_timeout_secs: 0,
         default_query_gas_limit: 0,
         ibc_gateway_listen_address: None,
-        // [FIX] Initialize validator_role with default (Consensus)
         validator_role: ValidatorRole::Consensus,
     };
     let consensus_engine = engine_from_config(&temp_orch_config)?;
@@ -242,10 +245,12 @@ where
         .collect();
     let service_directory = ServiceDirectory::new(services_for_dir);
 
+    // [FIX] Pass None for inference runtime
     let workload_container = Arc::new(WorkloadContainer::new(
         config.clone(),
         state_tree,
         vm,
+        None, // inference
         service_directory,
         store,
     )?);

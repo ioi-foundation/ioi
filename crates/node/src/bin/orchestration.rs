@@ -463,6 +463,7 @@ where
             dummy_workload_config,
             state_tree,
             Box::new(ioi_vm_wasm::WasmRuntime::new(Default::default())?), // Dummy VM
+            None,              // [FIX] No inference runtime for orchestrator dummy workload
             service_directory, // <-- Pass the populated directory here
             dummy_store,
         )?);

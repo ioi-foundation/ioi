@@ -9,11 +9,14 @@ pub mod identity;
 pub mod penalties;
 /// Data structures for deterministic block timing.
 pub mod timing;
+/// Data structures for agentic semantic consensus.
+pub mod agentic;
 
 pub use consensus::*;
 pub use identity::*;
 pub use penalties::*;
 pub use timing::*;
+pub use agentic::*;
 
 use crate::error::{CoreError, StateError};
 use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
@@ -451,6 +454,15 @@ pub enum ChainTransaction {
     Application(ApplicationTransaction),
     /// A privileged transaction for system-level changes.
     System(Box<SystemTransaction>),
+    /// [NEW] A semantic transition proposed by a DIM committee.
+    Semantic {
+        /// The canonical result (JSON/Blob).
+        result: Vec<u8>,
+        /// The proof (BLS Aggregate) that the committee agreed on this result.
+        proof: CommitteeCertificate,
+        /// The transaction header (must match a committee leader/relayer).
+        header: SignHeader,
+    },
 }
 
 impl ChainTransaction {

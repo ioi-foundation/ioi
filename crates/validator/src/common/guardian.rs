@@ -23,6 +23,7 @@ use ioi_types::app::{
 };
 use ioi_types::error::ValidatorError;
 use rcgen::{Certificate, CertificateParams, KeyUsagePurpose, SanType};
+use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::net::Ipv4Addr;
@@ -152,6 +153,20 @@ impl GuardianSigner for RemoteSigner {
     }
 }
 
+/// A signed attestation for a specific AI model snapshot.
+/// Used to authorize the loading of large weights into the Workload container.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ModelAttestation {
+    /// The canonical account ID of the validator issuing this attestation.
+    pub validator_id: AccountId,
+    /// The SHA-256 hash of the model weights file.
+    pub model_hash: [u8; 32],
+    /// The UNIX timestamp when the attestation was generated.
+    pub timestamp: u64,
+    /// The cryptographic signature over the attestation data.
+    pub signature: Vec<u8>,
+}
+
 // --- Guardian Container ---
 
 /// Holds open file handles to the binaries to prevent modification while running.
@@ -238,6 +253,68 @@ impl GuardianContainer {
             hex::encode(&local_hash_array)
         );
         Ok(local_hash_array.to_vec())
+    }
+
+    /// Measures a model file and issues an attestation.
+    /// This is called before the Workload is allowed to load the model into VRAM.
+    pub async fn attest_model_snapshot(
+        &self,
+        keypair: &libp2p::identity::Keypair,
+        model_path: &Path,
+    ) -> Result<ModelAttestation> {
+        log::info!("[Guardian] Attesting model snapshot at {:?}", model_path);
+
+        if !model_path.exists() {
+            return Err(anyhow!("Model file not found: {:?}", model_path));
+        }
+
+        // Compute SHA-256 of the model file
+        // For large models (GBs), we stream read.
+        let mut file = File::open(model_path)?;
+        let mut hasher = Sha256::new();
+        let mut buffer = [0; 8192];
+
+        loop {
+            let count = file.read(&mut buffer)?;
+            if count == 0 {
+                break;
+            }
+            hasher
+                .update(&buffer[..count])
+                .map_err(|e| anyhow!(e.to_string()))?;
+        }
+
+        let hash_digest = hasher.finalize().map_err(|e| anyhow!(e.to_string()))?;
+        let mut model_hash = [0u8; 32];
+        // [FIX] Unwrap the result of finalize() before using as_ref() and handle error with ?
+        model_hash.copy_from_slice(hash_digest.as_ref());
+
+        // Construct attestation
+        let pk_bytes = keypair.public().encode_protobuf();
+        let account_hash = account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes)
+            .map_err(|e| anyhow!(e))?;
+
+        let mut attestation = ModelAttestation {
+            validator_id: AccountId(account_hash),
+            model_hash,
+            timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
+            signature: Vec::new(),
+        };
+
+        // Sign the deterministic tuple (validator_id, model_hash, timestamp)
+        // Note: Real impl would use a dedicated serialization for signing
+        let sign_payload = bincode::serialize(&(
+            &attestation.validator_id,
+            &attestation.model_hash,
+            &attestation.timestamp,
+        ))?;
+        attestation.signature = keypair.sign(&sign_payload)?;
+
+        log::info!(
+            "[Guardian] Generated attestation for model hash: {}",
+            hex::encode(model_hash)
+        );
+        Ok(attestation)
     }
 
     /// Generates a signed `BootAttestation` by hashing the local binaries.

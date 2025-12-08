@@ -5,12 +5,11 @@ use ioi_api::impl_service_base;
 
 pub mod normaliser;
 pub mod prompt_wrapper;
+pub mod firewall; // [NEW]
 
 /// A service for agentic operations.
 pub struct AgenticService {
     // Add your implementation fields here
 }
 
-// Implement the base BlockchainService trait using the helper macro.
-// "agentic" is the unique, static ID for this service.
 impl_service_base!(AgenticService, "agentic");

@@ -28,6 +28,10 @@ fn get_tx_details(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
             }
             _ => None,
         },
+        // [FIX] Semantic transactions are signed by a committee, not a single account with a nonce.
+        // They effectively bypass the standard nonce check because their replay protection
+        // is provided by the CommitteeCertificate (epoch + committee_id).
+        ChainTransaction::Semantic { .. } => None,
     }
 }
 

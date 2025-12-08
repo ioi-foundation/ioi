@@ -32,6 +32,10 @@ pub enum UnifiedProof<P> {
     UTXO(UTXOTransactionProof<P>),
     Application, // no reads proven
     System,      // no reads proven
+    // [NEW] Proof type for semantic transactions.
+    // The "proof" is actually the CommitteeCertificate in the tx itself, verified by consensus.
+    // This variant is a placeholder to satisfy the type system.
+    Semantic,
 }
 
 #[derive(Clone, Debug)]
@@ -358,6 +362,12 @@ where
                 }
                 // TODO: Add gas accounting for system transactions
                 Ok((UnifiedProof::System, 0))
+            }
+            // [FIX] Handle Semantic transactions.
+            // Currently a placeholder that assumes consensus has verified the CommitteeCertificate.
+            ChainTransaction::Semantic { .. } => {
+                // Future: Apply result to state if it's a callback.
+                Ok((UnifiedProof::Semantic, 0))
             }
         }
     }
