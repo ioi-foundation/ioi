@@ -39,6 +39,8 @@ pub async fn check_tx(
             }
             ioi_types::app::ApplicationTransaction::UTXO(_) => ioi_types::app::AccountId::default(),
         },
+        // [FIX] Extract account_id from the header for Semantic transactions.
+        ChainTransaction::Semantic { header, .. } => header.account_id,
     };
 
     let next_timestamp_ns = (expected_timestamp_secs as u128).saturating_mul(1_000_000_000u128);

@@ -136,6 +136,9 @@ fn signer_from_tx(tx: &ChainTransaction) -> AccountId {
             }
             ioi_types::app::ApplicationTransaction::UTXO(_) => AccountId::default(),
         },
+        // [FIX] Semantic transactions are signed by a committee aggregate, not a single account.
+        // Return default AccountId as there is no single "signer".
+        ChainTransaction::Semantic { .. } => AccountId::default(),
     }
 }
 

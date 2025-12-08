@@ -1,4 +1,4 @@
-// crates/api/src/validator/types.rs
+// Path: crates/api/src/validator/types.rs
 //! Defines validator model types and traits.
 
 use ioi_types::config::ValidatorRole;
@@ -18,7 +18,7 @@ pub trait ValidatorModel {
     /// Gets the type of the validator architecture (Standard vs Hybrid).
     fn validator_type(&self) -> ValidatorType;
     /// Gets the functional role of the validator (Consensus vs Compute).
-    fn role(&self) -> ValidatorRole; // [NEW]
+    fn role(&self) -> ValidatorRole; 
     /// Provides generic access to the validator's workload container.
     fn workload_container(&self) -> &Self::WorkloadContainerType;
 }

@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 mod overlay;
 pub use overlay::VmStateOverlay;
 
+pub mod inference;
+
 /// A trait representing a sandboxed execution environment for smart contracts.
 #[async_trait]
 pub trait VirtualMachine: Send + Sync {

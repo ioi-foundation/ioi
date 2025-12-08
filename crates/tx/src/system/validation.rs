@@ -88,6 +88,9 @@ fn get_signature_components(
             }
             ApplicationTransaction::UTXO(_) => Ok(None),
         },
+        // [FIX] Semantic transactions rely on BLS CommitteeCertificates, not single-signer proofs.
+        // They are verified by the consensus engine or a specialized handler, not this general function.
+        ChainTransaction::Semantic { .. } => Ok(None),
     }
 }
 

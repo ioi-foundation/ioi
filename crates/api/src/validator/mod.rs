@@ -1,4 +1,5 @@
 // Path: crates/api/src/validator/mod.rs
+use crate::vm::inference::InferenceRuntime;
 use crate::{
     services::access::ServiceDirectory,
     state::{RetentionManager, StateManager, StateVersionPins, VmStateAccessor}, // [UPDATED]
@@ -41,6 +42,8 @@ pub struct WorkloadContainer<ST: StateManager> {
     config: WorkloadConfig,
     state_tree: Arc<RwLock<ST>>,
     vm: Box<dyn VirtualMachine>,
+    // [NEW] The AI Inference Runtime (Optional, as Consensus nodes might not have GPUs)
+    inference: Option<Box<dyn InferenceRuntime>>,
     services: ServiceDirectory,
     /// A concurrent, in-memory cache for recently generated state proofs.
     /// The key is a tuple of (state_root, key), and the value is the proof.
@@ -58,6 +61,7 @@ impl<ST: StateManager + Debug> Debug for WorkloadContainer<ST> {
             .field("config", &self.config)
             .field("state_tree", &self.state_tree)
             .field("vm", &"Box<dyn VirtualMachine>")
+            .field("inference", &"Option<Box<dyn InferenceRuntime>>")
             .field("services", &"ServiceDirectory")
             .field("proof_cache", &"LruCache")
             .field("retention_manager", &self.retention_manager) // [CHANGED]
@@ -116,6 +120,7 @@ where
         config: WorkloadConfig,
         state_tree: ST,
         vm: Box<dyn VirtualMachine>,
+        inference: Option<Box<dyn InferenceRuntime>>,
         services: ServiceDirectory,
         store: Arc<dyn NodeStore>,
     ) -> Result<Self, ValidatorError> {
@@ -130,6 +135,7 @@ where
             config,
             state_tree: Arc::new(RwLock::new(state_tree)),
             vm,
+            inference,
             services,
             proof_cache: Arc::new(Mutex::new(LruCache::new(
                 NonZeroUsize::new(1024).unwrap_or(nz_one),
@@ -158,6 +164,13 @@ where
     /// Returns a read-only directory of available services.
     pub fn services(&self) -> &ServiceDirectory {
         &self.services
+    }
+
+    /// Access the inference runtime. Returns error if this node is not a Compute Validator.
+    pub fn inference(&self) -> Result<&dyn InferenceRuntime, ValidatorError> {
+        self.inference.as_deref().ok_or_else(|| {
+            ValidatorError::Config("Inference runtime not available on this node".into())
+        })
     }
 
     /// Prepares the deployment of a new smart contract.

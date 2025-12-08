@@ -348,6 +348,10 @@ where
                         }
                         _ => (AccountId::default(), 0, "UTXO".to_string()),
                     },
+                    // [FIX] Handle Semantic transactions
+                    ChainTransaction::Semantic { header, .. } => {
+                        (header.account_id, header.nonce, "Semantic".to_string())
+                    }
                 };
                 tracing::warn!(
                     target: "orchestration",
