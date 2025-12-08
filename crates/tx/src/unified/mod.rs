@@ -26,6 +26,7 @@ use ioi_types::service_configs::{
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use ioi_services::agentic::firewall::SemanticFirewall;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Encode, Decode)]
 pub enum UnifiedProof<P> {
@@ -363,10 +364,39 @@ where
                 // TODO: Add gas accounting for system transactions
                 Ok((UnifiedProof::System, 0))
             }
-            // [FIX] Handle Semantic transactions.
-            // Currently a placeholder that assumes consensus has verified the CommitteeCertificate.
-            ChainTransaction::Semantic { .. } => {
-                // Future: Apply result to state if it's a callback.
+            // [NEW] Semantic Transaction Handler
+            ChainTransaction::Semantic { result, proof, header } => {
+                // 1. Verify "Proof of Meaning" Binding
+                // The intent_hash in the certificate must match the hash of the canonical result.
+                let computed_hash = SemanticFirewall::compute_intent_hash(result)
+                    .map_err(|e| TransactionError::Invalid(format!("Semantic hash mismatch: {}", e)))?;
+                
+                if computed_hash != proof.intent_hash {
+                     return Err(TransactionError::Invalid(format!(
+                        "Semantic Integrity Failure: Certificate hash {:?} does not match result hash {:?}",
+                        hex::encode(proof.intent_hash),
+                        hex::encode(computed_hash)
+                    )));
+                }
+
+                // 2. Future: Verify BLS Signature against Committee.
+                // For Phase 1 implementation, we simply check that the proof exists and matches the data.
+                // In Phase 2, we will look up the CommitteeRegistry service state using `proof.committee_id` 
+                // and `proof.epoch`, retrieve the aggregate public key, and verify `proof.aggregated_signature`.
+
+                tracing::info!(
+                    target: "semantic_consensus", 
+                    "Verified Semantic Transaction: intent_hash={}, committee={}", 
+                    hex::encode(proof.intent_hash),
+                    proof.committee_id
+                );
+
+                // 3. Execution (Callback)
+                // Semantic transactions often trigger a callback to an Agentic Service to post results.
+                // Here we perform a simplified dispatch if the result encoding allows it.
+                // For now, we simply accept the semantic transition as valid without state side-effects 
+                // beyond the log, effectively acting as a Data Availability post.
+                
                 Ok((UnifiedProof::Semantic, 0))
             }
         }

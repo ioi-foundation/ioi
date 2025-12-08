@@ -1,10 +1,13 @@
 // Path: crates/api/src/vm/inference.rs
+
 use async_trait::async_trait;
 use ioi_types::error::VmError;
 use std::path::Path;
 
+pub mod mock;
+
 /// A runtime capable of executing deterministic AI inference.
-/// 
+///
 /// Implementations (e.g., ONNX Runtime, Llama.cpp) must ensure:
 /// 1. Fixed floating point modes (if supported).
 /// 2. Fixed RNG seeds.
