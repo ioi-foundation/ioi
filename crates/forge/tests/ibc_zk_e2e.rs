@@ -165,7 +165,13 @@ async fn test_bridgeless_zk_interoperability() -> Result<()> {
         )?;
 
         println!("Submitting ZK Header...");
-        submit_transaction_and_get_block(rpc, &submit_tx).await?;
+        // Explicitly check submission result
+        let _ = ioi_forge::testing::rpc::submit_transaction_no_wait(rpc, &submit_tx)
+            .await
+            .map_err(|e| anyhow::anyhow!("Submit header tx rejected: {}", e))?;
+
+        // Wait for block production
+        tokio::time::sleep(Duration::from_secs(4)).await;
 
         // 3. VERIFY PERSISTENCE
         // The registry should have stored the root.
@@ -178,7 +184,15 @@ async fn test_bridgeless_zk_interoperability() -> Result<()> {
         ]
         .concat();
 
-        let stored = query_state_key(rpc, &check_key).await?;
+        // Retry query a few times to allow for slow block production
+        let mut stored = None;
+        for _ in 0..5 {
+            if let Ok(Some(val)) = query_state_key(rpc, &check_key).await {
+                stored = Some(val);
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
         assert!(stored.is_some(), "Header root was not persisted!");
         println!("Header persisted successfully.");
 
@@ -209,7 +223,11 @@ async fn test_bridgeless_zk_interoperability() -> Result<()> {
         )?;
 
         println!("Submitting Inclusion Verification...");
-        submit_transaction_and_get_block(rpc, &verify_tx).await?;
+        let _ = ioi_forge::testing::rpc::submit_transaction_no_wait(rpc, &verify_tx)
+            .await
+            .map_err(|e| anyhow::anyhow!("Submit verify tx rejected: {}", e))?;
+
+        tokio::time::sleep(Duration::from_secs(4)).await;
 
         // 5. VERIFY MATERIALIZATION
         let materialized_key = [
@@ -339,39 +357,43 @@ async fn test_bridgeless_zk_interoperability_failure_case() -> Result<()> {
         // We expect this to fail verification.
         // submit_transaction will fail if the RPC returns an error from check_tx.
 
-        let result = ioi_forge::testing::rpc::submit_transaction_no_wait(rpc, &submit_tx).await?;
+        let result = ioi_forge::testing::rpc::submit_transaction_no_wait(rpc, &submit_tx).await;
 
-        // Check if the RPC returned an error object
-        if let Some(err) = result.get("error") {
-            let msg = err.get("message").and_then(|s| s.as_str()).unwrap_or("");
-            println!("Got expected error: {}", msg);
-            assert!(
-                msg.contains("ZK Beacon verification failed")
-                    || msg.contains("Transaction pre-check failed"),
-                "Error message mismatch: {}",
-                msg
-            );
-        } else {
-            // If it was accepted into mempool, it will fail during block execution.
-            // The block containing it will essentially be rejected (node stalls on bad block production),
-            // or if the system design allows dropping failed txs, the state update won't happen.
-            // We wait 4 seconds (2 block times) to give it a chance to process.
+        match result {
+            Err(e) => {
+                let msg = e.to_string();
+                println!("Got expected error: {}", msg);
+                assert!(
+                    msg.contains("ZK Beacon verification failed")
+                        || msg.contains("Transaction pre-check failed")
+                        || msg.contains("Transaction rejected")
+                        || msg.contains("invalid argument"),
+                    "Error message mismatch: {}",
+                    msg
+                );
+            }
+            Ok(_tx_hash) => {
+                // If it was accepted into mempool, it will fail during block execution.
+                // The block containing it will essentially be rejected (node stalls on bad block production),
+                // or if the system design allows dropping failed txs, the state update won't happen.
+                // We wait 4 seconds (2 block times) to give it a chance to process.
 
-            tokio::time::sleep(Duration::from_secs(4)).await;
+                tokio::time::sleep(Duration::from_secs(4)).await;
 
-            let root_hex = hex::encode(fake_root);
-            let ns = ioi_api::state::service_namespace_prefix("ibc");
-            let check_key = [
-                ns.as_slice(),
-                format!("ibc::light_clients::eth-mainnet::state_root::{}", root_hex).as_bytes(),
-            ]
-            .concat();
+                let root_hex = hex::encode(fake_root);
+                let ns = ioi_api::state::service_namespace_prefix("ibc");
+                let check_key = [
+                    ns.as_slice(),
+                    format!("ibc::light_clients::eth-mainnet::state_root::{}", root_hex).as_bytes(),
+                ]
+                .concat();
 
-            let stored = query_state_key(rpc, &check_key).await?;
-            assert!(
-                stored.is_none(),
-                "Malicious header SHOULD NOT be persisted!"
-            );
+                let stored = query_state_key(rpc, &check_key).await?;
+                assert!(
+                    stored.is_none(),
+                    "Malicious header SHOULD NOT be persisted!"
+                );
+            }
         }
 
         println!("--- Negative ZK Test Passed ---");

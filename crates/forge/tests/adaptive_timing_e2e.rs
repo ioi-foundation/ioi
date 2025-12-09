@@ -167,10 +167,8 @@ async fn test_adaptive_block_timing_responds_to_load() -> Result<()> {
         let deploy_tx = create_signed_app_tx(keypair, deploy_tx_unsigned, 0, 1.into());
 
         println!("Submitting high-gas transaction...");
-        let resp = submit_transaction_no_wait(rpc_addr, &deploy_tx).await?;
-        if let Some(err) = resp.get("error") {
-            return Err(anyhow!("RPC error: {}", err));
-        }
+        // If this returns Ok, the transaction was accepted. Errors are returned as Err.
+        let _tx_hash = submit_transaction_no_wait(rpc_addr, &deploy_tx).await?;
 
         // 5. Wait for Retargeting
         println!("Waiting for height 5...");

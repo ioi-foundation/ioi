@@ -279,6 +279,7 @@ impl WorkloadClient {
         Ok(result)
     }
 
+    /// Retrieves the state root of the latest block.
     pub async fn get_state_root(&self) -> Result<StateRoot> {
         let status = self.get_status().await?;
         let block = self
@@ -459,7 +460,7 @@ impl WorkloadClientApi for WorkloadClient {
         anchor: StateAnchor,
         expected_timestamp_secs: u64,
         txs: Vec<ChainTransaction>,
-    ) -> ioi_types::Result<Vec<Result<(), String>>, ChainError> {
+    ) -> ioi_types::Result<Vec<std::result::Result<(), String>>, ChainError> {
         let mut encoded_txs = Vec::with_capacity(txs.len());
         for tx in txs {
             encoded_txs.push(
@@ -603,6 +604,22 @@ impl WorkloadClientApi for WorkloadClient {
             ChainError::Transaction(format!("gRPC update_block_header failed: {}", e))
         })?;
         Ok(())
+    }
+
+    // [NEW] Implementation via delegation to inherent method
+    async fn get_state_root(&self) -> std::result::Result<StateRoot, ChainError> {
+        // We use the inherent method on the struct
+        self.get_state_root()
+            .await
+            .map_err(|e| ChainError::Transaction(e.to_string()))
+    }
+
+    // [NEW] Implementation via delegation to inherent method
+    async fn get_status(&self) -> std::result::Result<ChainStatus, ChainError> {
+        // We use the inherent method on the struct
+        self.get_status()
+            .await
+            .map_err(|e| ChainError::Transaction(e.to_string()))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

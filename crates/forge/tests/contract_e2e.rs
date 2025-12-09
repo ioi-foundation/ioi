@@ -183,18 +183,6 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
         // Wait for node to be ready
         wait_for_height(&rpc_addr, 1, Duration::from_secs(20)).await?;
 
-        // Sanity check the RPC endpoint
-        let ping = reqwest::Client::new()
-            .post(format!("http://{}/rpc", rpc_addr))
-            .json(&serde_json::json!({
-                "jsonrpc":"2.0","method":"system.getStatus.v1","params":{},"id":1
-            }))
-            .send()
-            .await?
-            .text()
-            .await?;
-        println!("RPC status probe: {}", ping);
-
         // 3. DEPLOY CONTRACT
         let deployer_pubkey = keypair.public().encode_protobuf();
         let contract_address =
