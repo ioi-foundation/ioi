@@ -12,8 +12,24 @@ pub mod control {
     tonic::include_proto!("ioi.control.v1");
 }
 
+// Blockchain Service
+// We nest inside `v1` to match the proto package hierarchy `ioi.blockchain.v1`
+// so that relative imports from other proto packages work correctly.
 pub mod blockchain {
-    tonic::include_proto!("ioi.blockchain.v1");
+    pub mod v1 {
+        tonic::include_proto!("ioi.blockchain.v1");
+    }
+    // Flatten the API for users
+    pub use v1::*;
+}
+
+// Public API
+// Nested inside `v1` to allow `super::super::blockchain::v1` references to resolve.
+pub mod public {
+    pub mod v1 {
+        tonic::include_proto!("ioi.public.v1");
+    }
+    pub use v1::*;
 }
 
 // Use the top-level re-export for AlignedVec
@@ -42,7 +58,6 @@ impl TryFrom<u8> for IpcClientType {
         }
     }
 }
-// --- LEGACY SUPPORT END ---
 
 /// Helper to serialize data into an Rkyv aligned buffer (Data Plane Sender).
 pub fn to_rkyv_bytes<T>(value: &T) -> AlignedVec

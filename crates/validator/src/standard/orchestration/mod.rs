@@ -55,11 +55,15 @@ use tokio::{
 };
 
 use crate::common::GuardianSigner;
+use crate::standard::orchestration::grpc_public::PublicApiImpl;
+use ioi_ipc::public::public_api_server::PublicApiServer;
+use tonic::transport::Server;
 
 // --- Submodule Declarations ---
 mod consensus;
 mod context;
 mod gossip;
+mod grpc_public;
 mod operator_tasks;
 mod oracle;
 mod peer_management;
@@ -736,19 +740,32 @@ where
             .await
             .map_err(|e| ValidatorError::Other(e.to_string()))?;
 
-        let rpc_handle = crate::rpc::run_rpc_server(
-            &self.config.rpc_listen_address,
-            self.tx_pool.clone(),
-            self.workload_client
-                .get()
-                .ok_or_else(|| ValidatorError::Other("Workload client not set".to_string()))?
-                .clone(),
-            self.swarm_command_sender.clone(),
-            self.consensus_kick_tx.clone(),
-            self.config.clone(),
-        )
-        .await
-        .map_err(|e| ValidatorError::Other(e.to_string()))?;
+        // --- NEW: Public gRPC Server Start ---
+        // [FIX] Pass the wrapper directly. Do NOT try to unwrap the inner context yet.
+        let public_service = PublicApiImpl {
+            context_wrapper: self.main_loop_context.clone(),
+        };
+
+        let rpc_addr =
+            self.config.rpc_listen_address.parse().map_err(|e| {
+                ValidatorError::Config(format!("Invalid RPC listen address: {}", e))
+            })?;
+
+        tracing::info!(target: "rpc", "Public gRPC API listening on {}", rpc_addr);
+        eprintln!("ORCHESTRATION_RPC_LISTENING_ON_{}", rpc_addr);
+
+        let rpc_handle = tokio::spawn(async move {
+            if let Err(e) = Server::builder()
+                .add_service(PublicApiServer::new(public_service))
+                .serve(rpc_addr)
+                .await
+            {
+                tracing::error!(target: "rpc", "Public API server failed: {}", e);
+            }
+        });
+
+        let mut handles = self.task_handles.lock().await;
+        handles.push(rpc_handle);
 
         let workload_client = self
             .workload_client
@@ -855,8 +872,7 @@ where
         let context_arc = Arc::new(Mutex::new(context));
         *self.main_loop_context.lock().await = Some(context_arc.clone());
 
-        let mut handles = self.task_handles.lock().await;
-        handles.push(rpc_handle);
+        // Note: RPC server was spawned earlier after main_loop_context was initialized.
 
         let ticker_kick_rx = match self.consensus_kick_rx.lock().await.take() {
             Some(rx) => rx,

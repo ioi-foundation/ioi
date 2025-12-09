@@ -94,6 +94,12 @@ pub trait WorkloadClientApi: Send + Sync + Debug {
     /// [NEW] Updates the header of a stored block (used for adding signatures/oracle data after execution).
     async fn update_block_header(&self, block: Block<ChainTransaction>) -> Result<(), ChainError>;
 
+    // [NEW] Added for Public API access via trait object
+    async fn get_state_root(&self) -> Result<StateRoot, ChainError>;
+
+    // [NEW] Added for Public API access via trait object
+    async fn get_status(&self) -> Result<ChainStatus, ChainError>;
+
     /// Returns the client as a type-erased `Any` trait object.
     fn as_any(&self) -> &dyn Any;
 }

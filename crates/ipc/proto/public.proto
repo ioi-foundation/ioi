@@ -1,0 +1,43 @@
+// Path: crates/ipc/proto/public.proto
+syntax = "proto3";
+package ioi.public.v1;
+
+import "blockchain.proto";
+
+service PublicApi {
+  // Submit a transaction to the mempool.
+  // Returns the transaction hash on success.
+  rpc SubmitTransaction (SubmitTransactionRequest) returns (SubmitTransactionResponse);
+
+  // Proxy queries to the underlying Workload state (Merklized proof).
+  rpc QueryState (ioi.blockchain.v1.QueryStateAtRequest) returns (ioi.blockchain.v1.QueryStateAtResponse);
+
+  // Queries the raw state value directly from the latest committed state.
+  // Useful for testing and simple lookups where proofs are not required.
+  rpc QueryRawState (ioi.blockchain.v1.QueryRawStateRequest) returns (ioi.blockchain.v1.QueryRawStateResponse);
+
+  // Get the current status of the chain (Height, etc).
+  rpc GetStatus (ioi.blockchain.v1.GetStatusRequest) returns (ioi.blockchain.v1.GetStatusResponse);
+
+  // Get a block by its height.
+  rpc GetBlockByHeight (GetBlockByHeightRequest) returns (GetBlockByHeightResponse);
+}
+
+message SubmitTransactionRequest {
+    // Canonical SCALE-encoded bytes of the transaction.
+    bytes transaction_bytes = 1;
+}
+
+message SubmitTransactionResponse {
+    // SHA-256 hash of the accepted transaction (hex encoded).
+    string tx_hash = 1;
+}
+
+message GetBlockByHeightRequest {
+  uint64 height = 1;
+}
+
+message GetBlockByHeightResponse {
+  // Canonical SCALE-encoded bytes of the Block. Empty if not found.
+  bytes block_bytes = 1;
+}

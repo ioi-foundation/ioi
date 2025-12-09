@@ -73,7 +73,8 @@ async fn test_staking_lifecycle() -> Result<()> {
 
     let initial_stake = 100_000u64;
 
-    let mut cluster = TestCluster::builder()
+    // [FIX] Removed `mut` as it is not needed
+    let cluster = TestCluster::builder()
         .with_validators(3)
         .with_consensus_type("ProofOfStake")
         .with_state_tree("IAVL")
