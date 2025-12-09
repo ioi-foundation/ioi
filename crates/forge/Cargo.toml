@@ -35,6 +35,8 @@ ioi-system = { path = "../system" }
 ioi-state = { path = "../state", default-features = false }
 ioi-client = { path = "../client" }
 ioi-tx = { path = "../tx" }
+# [FIX] Added ioi-ipc for control plane tests
+ioi-ipc = { path = "../ipc" }
 toml = { workspace = true }
 
 # Dependencies for testing helpers that are now part of the library
@@ -62,6 +64,11 @@ http-body-util = "0.1"
 
 # WASM Component Model tooling for test artifact generation
 wit-component = "0.201.0"
+
+# [FIX] Add tonic for gRPC client tests
+tonic = { version = "0.11", features = ["tls", "transport"] }
+# [FIX] Add rkyv for zero-copy tests
+rkyv = { version = "0.7", features = ["validation", "std", "alloc"] }
 
 [dev-dependencies]
 ioi-relayer = { path = "../relayer" }
