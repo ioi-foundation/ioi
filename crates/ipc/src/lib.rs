@@ -60,3 +60,6 @@ where
 {
     check_archived_root::<T>(bytes).map_err(|e| e.to_string())
 }
+
+#[cfg(test)]
+mod tests;

@@ -7,6 +7,8 @@
 
 /// Implements the gRPC services defined in the blockchain protobuf.
 pub mod grpc_blockchain;
+/// Implements the gRPC services for workload control (Agentic/AI).
+pub mod grpc_control; // [NEW]
 
 use anyhow::{anyhow, Result};
 use ioi_api::{commitment::CommitmentScheme, state::StateManager, validator::WorkloadContainer};
@@ -16,12 +18,14 @@ use ioi_execution::ExecutionMachine;
 use crate::standard::workload::ipc::grpc_blockchain::{
     ChainControlImpl, ContractControlImpl, StakingControlImpl, StateQueryImpl, SystemControlImpl,
 };
+use crate::standard::workload::ipc::grpc_control::WorkloadControlImpl; // [NEW]
 
 use ioi_ipc::blockchain::chain_control_server::ChainControlServer;
 use ioi_ipc::blockchain::contract_control_server::ContractControlServer;
 use ioi_ipc::blockchain::staking_control_server::StakingControlServer;
 use ioi_ipc::blockchain::state_query_server::StateQueryServer;
 use ioi_ipc::blockchain::system_control_server::SystemControlServer;
+use ioi_ipc::control::workload_control_server::WorkloadControlServer; // [NEW]
 
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -194,6 +198,10 @@ where
         let system_svc = SystemControlImpl {
             ctx: shared_ctx.clone(),
         };
+        // [NEW] Initialize Control service
+        let control_svc = WorkloadControlImpl {
+            ctx: shared_ctx.clone(),
+        };
 
         Server::builder()
             .add_service(ChainControlServer::new(chain_svc))
@@ -201,6 +209,7 @@ where
             .add_service(ContractControlServer::new(contract_svc))
             .add_service(StakingControlServer::new(staking_svc))
             .add_service(SystemControlServer::new(system_svc))
+            .add_service(WorkloadControlServer::new(control_svc)) // [NEW] Register service
             .serve(grpc_addr)
             .await?;
 
