@@ -186,6 +186,26 @@ where
                 })?;
                 (SignatureSuite::Dilithium2, kp.public_key().to_bytes())
             }
+            SignatureSuite::Falcon512 => {
+                return Err(anyhow!(
+                    "Falcon512 required by validator set, but not supported"
+                ));
+            }
+            SignatureSuite::HybridEd25519Dilithium2 => {
+                let kp = pqc_signer.as_ref().ok_or_else(|| {
+                    anyhow!("Hybrid required by validator set, but no PQC signer configured")
+                })?;
+                let ed_bytes = local_keypair.public().encode_protobuf();
+                // [FIX] Convert libp2p pubkey to raw 32 bytes for consistency with validation logic
+                let ed_raw = libp2p::identity::PublicKey::try_decode_protobuf(&ed_bytes)?
+                    .try_into_ed25519()?
+                    .to_bytes()
+                    .to_vec();
+
+                let pqc_bytes = kp.public_key().to_bytes();
+                let combined = [ed_raw, pqc_bytes].concat();
+                (SignatureSuite::HybridEd25519Dilithium2, combined)
+            }
         };
 
         let producer_pubkey_hash =
@@ -348,7 +368,6 @@ where
                         }
                         _ => (AccountId::default(), 0, "UTXO".to_string()),
                     },
-                    // [FIX] Handle Semantic transactions
                     ChainTransaction::Semantic { header, .. } => {
                         (header.account_id, header.nonce, "Semantic".to_string())
                     }

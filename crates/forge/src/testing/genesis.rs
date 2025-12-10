@@ -89,6 +89,9 @@ impl GenesisBuilder {
             public_key_hash: account_hash,
             activation_height: 0,
             l2_location: None,
+            // [NEW] Explicitly set weight. Defaults to 1.
+            // This prepares the state for future weighted voting/multisig features.
+            weight: 1,
         };
         let creds: [Option<Credential>; 2] = [Some(cred), None];
         let creds_key = [

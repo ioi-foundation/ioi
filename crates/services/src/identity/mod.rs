@@ -28,13 +28,11 @@ pub struct IdentityHub {
     pub config: MigrationConfig,
 }
 
-// --- FIX START: Add Encode trait to RotateKeyParams ---
-/// Helper struct for deserializing parameters for the `rotate_key` method.
+// --- Helper struct for deserializing parameters for the `rotate_key` method ---
 #[derive(Encode, Decode)]
 pub struct RotateKeyParams {
     pub proof: RotationProof,
 }
-// --- FIX END ---
 
 fn u64_from_le_bytes(bytes: Option<&Vec<u8>>) -> u64 {
     bytes
@@ -166,6 +164,45 @@ impl IdentityHub {
                     .map_err(|e| e.to_string())?;
                 pk.verify(message, &sig).map_err(|e| e.to_string())
             }
+            SignatureSuite::Falcon512 => {
+                // Stub for Falcon512 support
+                Err("Falcon512 verification not yet implemented".to_string())
+            }
+            SignatureSuite::HybridEd25519Dilithium2 => {
+                // Hybrid Scheme: Ed25519 + Dilithium2
+                // Public Key structure: [Ed25519 (32 bytes)] || [Dilithium2 (1312 bytes)]
+                // Signature structure:  [Ed25519 (64 bytes)] || [Dilithium2 (2420 bytes)]
+
+                const ED_PK_LEN: usize = 32;
+                const ED_SIG_LEN: usize = 64;
+
+                if public_key.len() < ED_PK_LEN || signature.len() < ED_SIG_LEN {
+                    return Err("Hybrid key or signature too short".to_string());
+                }
+
+                let (ed_pk_bytes, dil_pk_bytes) = public_key.split_at(ED_PK_LEN);
+                let (ed_sig_bytes, dil_sig_bytes) = signature.split_at(ED_SIG_LEN);
+
+                // 1. Verify Classical (Ed25519)
+                let ed_pk = Ed25519PublicKey::from_bytes(ed_pk_bytes).map_err(|e| e.to_string())?;
+                let ed_sig = ioi_crypto::sign::eddsa::Ed25519Signature::from_bytes(ed_sig_bytes)
+                    .map_err(|e| e.to_string())?;
+                ed_pk
+                    .verify(message, &ed_sig)
+                    .map_err(|e| format!("Hybrid classical fail: {}", e))?;
+
+                // 2. Verify Post-Quantum (Dilithium2)
+                let dil_pk =
+                    DilithiumPublicKey::from_bytes(dil_pk_bytes).map_err(|e| e.to_string())?;
+                let dil_sig =
+                    ioi_crypto::sign::dilithium::DilithiumSignature::from_bytes(dil_sig_bytes)
+                        .map_err(|e| e.to_string())?;
+                dil_pk
+                    .verify(message, &dil_sig)
+                    .map_err(|e| format!("Hybrid PQ fail: {}", e))?;
+
+                Ok(())
+            }
         }
     }
 
@@ -244,6 +281,8 @@ impl IdentityHub {
             .map_err(|e| e.to_string())?,
             activation_height,
             l2_location: proof.l2_location.clone(),
+            // [NEW] Initialize weight. For now, we default to 1 (standard account).
+            weight: 1,
         };
         let mut creds_mut = creds;
         creds_mut[1] = Some(new_cred);

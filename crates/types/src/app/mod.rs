@@ -1,6 +1,8 @@
 // Path: crates/types/src/app/mod.rs
 //! Core application-level data structures like Blocks and Transactions.
 
+/// Data structures for agentic semantic consensus.
+pub mod agentic;
 /// Data structures related to consensus, such as the canonical validator set
 pub mod consensus;
 /// Data structures for on-chain identity, including the canonical AccountId.
@@ -9,14 +11,16 @@ pub mod identity;
 pub mod penalties;
 /// Data structures for deterministic block timing.
 pub mod timing;
-/// Data structures for agentic semantic consensus.
-pub mod agentic;
 
 pub use consensus::*;
-pub use identity::*;
+// Only re-export types that are actually defined in identity.rs
+pub use agentic::*;
+pub use identity::{
+    account_id_from_key_material, AccountId, ActiveKeyRecord, BinaryMeasurement, BootAttestation,
+    ChainId, Credential, GuardianReport, SignatureSuite,
+};
 pub use penalties::*;
 pub use timing::*;
-pub use agentic::*;
 
 use crate::error::{CoreError, StateError};
 use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
@@ -270,29 +274,6 @@ impl BlockHeader {
         ))
         .map_err(CoreError::Custom)
     }
-}
-
-/// Defines the cryptographic algorithm suite used for a key or signature.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default, Encode, Decode)]
-pub enum SignatureSuite {
-    /// The Ed25519 signature scheme.
-    #[default]
-    Ed25519,
-    /// The CRYSTALS-Dilithium2 post-quantum signature scheme.
-    Dilithium2,
-}
-
-/// A cryptographic credential defining an account's active key.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
-pub struct Credential {
-    /// The algorithm used by this credential.
-    pub suite: SignatureSuite,
-    /// The SHA-256 hash of the public key.
-    pub public_key_hash: [u8; 32],
-    /// The block height at which this credential becomes active.
-    pub activation_height: u64,
-    /// Optional location of the full public key on a Layer 2 or DA layer.
-    pub l2_location: Option<String>,
 }
 
 /// A cryptographic proof required to execute a key rotation.
