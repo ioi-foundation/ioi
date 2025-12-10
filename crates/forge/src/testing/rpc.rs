@@ -5,12 +5,9 @@ use ioi_ipc::blockchain::{GetStatusRequest, QueryRawStateRequest};
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::{GetBlockByHeightRequest, SubmitTransactionRequest};
 use ioi_types::{
-    app::{Block, ChainStatus, ChainTransaction, Membership, Proposal, StateEntry, StateRoot},
+    app::{Block, ChainTransaction, Proposal, StateEntry, StateRoot},
     codec,
-    keys::{
-        EVIDENCE_REGISTRY_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, QUARANTINED_VALIDATORS_KEY,
-        STATUS_KEY,
-    },
+    keys::{EVIDENCE_REGISTRY_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX, QUARANTINED_VALIDATORS_KEY},
 };
 use std::collections::BTreeSet;
 use std::time::Duration;

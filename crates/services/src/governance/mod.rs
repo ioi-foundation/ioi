@@ -111,14 +111,6 @@ impl GovernanceModule {
         .concat()
     }
 
-    fn get_index_key(height: u64) -> Vec<u8> {
-        // Helper needed for on_end_block not visible here?
-        // Assuming on_end_block impl below handles it or it is private.
-        // Since OnEndBlock is a trait, we implement it separately.
-        // But we also need to expose tally_proposal for that trait.
-        vec![] // Placeholder
-    }
-
     // Helper for the OnEndBlock trait implementation
     pub fn tally_proposal<S: StateAccess + ?Sized>(
         &self,

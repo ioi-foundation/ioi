@@ -1,6 +1,15 @@
 // Path: crates/forge/src/lib.rs
-// Lints are removed from the library file and moved to the binary.
-// This is a common pattern for testing libraries where panics are acceptable.
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::unimplemented,
+        clippy::todo,
+        clippy::indexing_slicing
+    )
+)]
 
 //! # IOI SDK Forge Library
 //!
@@ -44,6 +53,9 @@ pub mod testing;
 pub use testing::cluster::{TestCluster, TestClusterBuilder};
 pub use testing::genesis::GenesisBuilder;
 pub use testing::validator::{TestValidator, ValidatorGuard};
+
+// [FIX] Export build_test_artifacts so the CLI can use it
+pub use testing::build::build_test_artifacts;
 
 // Re-export helper functions for backward compatibility and convenience.
 pub use testing::genesis::{add_genesis_identity, add_genesis_identity_custom};
