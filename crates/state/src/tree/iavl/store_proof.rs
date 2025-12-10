@@ -16,8 +16,6 @@ where
     CS::Proof: AsRef<[u8]>,
     CS::Witness: Default,
 {
-    /// Build a proof for `key` at `root_hash32` by lazily fetching nodes from `store`.
-    /// Returns (Membership, Proof) on success.
     pub(super) fn build_proof_from_store_at<S: NodeStore + ?Sized>(
         &self,
         store: &S,
@@ -50,7 +48,7 @@ where
                         leaf: LeafOp {
                             hash: HashOp::Sha256,
                             prehash_key: HashOp::NoHash,
-                            prehash_value: HashOp::Sha256, // <-- FIX: Align with ICS-23 profile
+                            prehash_value: HashOp::Sha256,
                             length: LengthOp::VarProto,
                             prefix: vec![0x00],
                         },
@@ -164,7 +162,7 @@ where
                 leaf: LeafOp {
                     hash: HashOp::Sha256,
                     prehash_key: HashOp::NoHash,
-                    prehash_value: HashOp::Sha256, // <-- FIX: Align with ICS-23 profile
+                    prehash_value: HashOp::Sha256,
                     length: LengthOp::VarProto,
                     prefix: vec![0x00],
                 },
@@ -182,7 +180,19 @@ where
                 break;
             }
             if key <= node.split_key.as_slice() {
-                succ_candidate = Some((node.right_hash, path.clone()));
+                // Going Left. Right child is a successor candidate.
+                let mut succ_path = path.clone();
+                // [FIX] Push the op connecting Current -> Right Child
+                succ_path.push(InnerOp {
+                    version: node.version,
+                    height: node.height,
+                    size: node.size,
+                    split_key: node.split_key.clone(),
+                    side: Side::Left, // Sibling is Left (since we go Right)
+                    sibling_hash: node.left_hash,
+                });
+                succ_candidate = Some((node.right_hash, succ_path));
+
                 path.push(InnerOp {
                     version: node.version,
                     height: node.height,
@@ -193,7 +203,19 @@ where
                 });
                 current_hash = node.left_hash;
             } else {
-                pred_candidate = Some((node.left_hash, path.clone()));
+                // Going Right. Left child is a predecessor candidate.
+                let mut pred_path = path.clone();
+                // [FIX] Push the op connecting Current -> Left Child
+                pred_path.push(InnerOp {
+                    version: node.version,
+                    height: node.height,
+                    size: node.size,
+                    split_key: node.split_key.clone(),
+                    side: Side::Right, // Sibling is Right (since we go Left)
+                    sibling_hash: node.right_hash,
+                });
+                pred_candidate = Some((node.left_hash, pred_path));
+
                 path.push(InnerOp {
                     version: node.version,
                     height: node.height,
@@ -224,16 +246,11 @@ pub(crate) fn fetch_node_any_epoch<S: NodeStore + ?Sized>(
     {
         return Ok(Some(bytes));
     }
-
     let head_epoch = match store.head() {
         Ok((head_h, _)) => store.epoch_of(head_h),
-        Err(ioi_api::storage::StorageError::NotFound) => {
-            // Store is empty, nothing to find.
-            return Ok(None);
-        }
+        Err(ioi_api::storage::StorageError::NotFound) => return Ok(None),
         Err(e) => return Err(StateError::Backend(e.to_string())),
     };
-
     let start = prefer_epoch.min(head_epoch);
     for e in (0..=start).rev() {
         if let Some(bytes) = store

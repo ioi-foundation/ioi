@@ -132,13 +132,13 @@ where
 
     // [NEW] Instantiate the Mock Inference Runtime
     // In a production environment, this would switch based on config to a PyTorch/ONNX runtime.
-    let inference: Box<dyn ioi_api::vm::inference::InferenceRuntime> =
+    let _inference: Box<dyn ioi_api::vm::inference::InferenceRuntime> =
         Box::new(MockInferenceRuntime::default());
     tracing::info!(target: "workload", "Initialized Mock Inference Runtime for agentic tasks.");
 
     // [FIX] Move the temp config creation outside the if/else to be used later
     // or simplify. Actually we only need consensus_engine.
-    let temp_orch_config = OrchestrationConfig {
+    let _temp_orch_config = OrchestrationConfig {
         chain_id: 1.into(),
         config_schema_version: 0,
         consensus_type: config.consensus_type,
@@ -151,32 +151,33 @@ where
         ibc_gateway_listen_address: None,
         validator_role: ValidatorRole::Consensus,
     };
-    let consensus_engine = engine_from_config(&temp_orch_config)?;
+    let _consensus_engine = engine_from_config(&_temp_orch_config)?;
 
     let mut initial_services = Vec::new();
-    let penalty_engine: Arc<dyn ioi_consensus::PenaltyEngine> = Arc::new(consensus_engine.clone());
-    let penalties_service = Arc::new(ioi_consensus::PenaltiesService::new(penalty_engine));
-    initial_services.push(penalties_service as Arc<dyn UpgradableService>);
+    let _penalty_engine: Arc<dyn ioi_consensus::PenaltyEngine> =
+        Arc::new(_consensus_engine.clone());
+    let _penalties_service = Arc::new(ioi_consensus::PenaltiesService::new(_penalty_engine));
+    initial_services.push(_penalties_service as Arc<dyn UpgradableService>);
 
-    for service_config in &config.initial_services {
-        match service_config {
-            InitialServiceConfig::IdentityHub(migration_config) => {
+    for _service_config in &config.initial_services {
+        match _service_config {
+            InitialServiceConfig::IdentityHub(_migration_config) => {
                 tracing::info!(target: "workload", event = "service_init", name = "IdentityHub", impl="native", capabilities="identity_view, tx_decorator, on_end_block");
-                let hub = IdentityHub::new(migration_config.clone());
+                let _hub = IdentityHub::new(_migration_config.clone());
                 initial_services
-                    .push(Arc::new(hub) as Arc<dyn ioi_api::services::UpgradableService>);
+                    .push(Arc::new(_hub) as Arc<dyn ioi_api::services::UpgradableService>);
             }
-            InitialServiceConfig::Governance(params) => {
+            InitialServiceConfig::Governance(_params) => {
                 tracing::info!(target: "workload", event = "service_init", name = "Governance", impl="native", capabilities="on_end_block");
-                let gov = GovernanceModule::new(params.clone());
+                let _gov = GovernanceModule::new(_params.clone());
                 initial_services
-                    .push(Arc::new(gov) as Arc<dyn ioi_api::services::UpgradableService>);
+                    .push(Arc::new(_gov) as Arc<dyn ioi_api::services::UpgradableService>);
             }
             InitialServiceConfig::Oracle(_params) => {
                 tracing::info!(target: "workload", event = "service_init", name = "Oracle", impl="native", capabilities="");
-                let oracle = OracleService::new();
+                let _oracle = OracleService::new();
                 initial_services
-                    .push(Arc::new(oracle) as Arc<dyn ioi_api::services::UpgradableService>);
+                    .push(Arc::new(_oracle) as Arc<dyn ioi_api::services::UpgradableService>);
             }
             #[cfg(feature = "ibc-deps")]
             InitialServiceConfig::Ibc(ibc_config) => {
@@ -246,56 +247,56 @@ where
         }
     }
 
-    let services_for_dir: Vec<Arc<dyn BlockchainService>> = initial_services
+    let _services_for_dir: Vec<Arc<dyn BlockchainService>> = initial_services
         .iter()
         .map(|s| s.clone() as Arc<dyn BlockchainService>)
         .collect();
-    let service_directory = ServiceDirectory::new(services_for_dir);
+    let _service_directory = ServiceDirectory::new(_services_for_dir);
 
     // [FIX] Pass Some(inference) to WorkloadContainer
-    let workload_container = Arc::new(WorkloadContainer::new(
+    let _workload_container = Arc::new(WorkloadContainer::new(
         config.clone(),
         state_tree,
         vm,
-        Some(inference), // [CHANGED]
-        service_directory,
+        Some(_inference), // [CHANGED]
+        _service_directory,
         store,
     )?);
 
-    let mut machine = ExecutionMachine::new(
+    let mut _machine = ExecutionMachine::new(
         commitment_scheme.clone(),
         UnifiedTransactionModel::new(commitment_scheme),
         1.into(),
         initial_services,
-        consensus_engine,
-        workload_container.clone(),
+        _consensus_engine,
+        _workload_container.clone(),
         config.service_policies.clone(),
     )?;
 
-    for runtime_id in &config.runtimes {
-        let id = runtime_id.to_ascii_lowercase();
-        if id == "wasm" {
+    for _runtime_id in &config.runtimes {
+        let _id = _runtime_id.to_ascii_lowercase();
+        if _id == "wasm" {
             tracing::info!(target: "workload", "Registering WasmRuntime for service upgrades.");
             #[cfg(feature = "vm-wasm")]
             {
                 let wasm_runtime = WasmRuntime::new(config.fuel_costs.clone())?;
-                machine
+                _machine
                     .service_manager
                     .register_runtime("wasm", Arc::new(wasm_runtime));
             }
         }
     }
 
-    machine
-        .load_or_initialize_status(&workload_container)
+    _machine
+        .load_or_initialize_status(&_workload_container)
         .await?;
-    let machine_arc = Arc::new(Mutex::new(machine));
+    let _machine_arc = Arc::new(Mutex::new(_machine));
 
-    let machine_for_gc = machine_arc.clone();
-    let workload_for_gc = workload_container.clone();
+    let _machine_for_gc = _machine_arc.clone();
+    let _workload_for_gc = _workload_container.clone();
 
     tokio::spawn(async move {
-        let gc_interval_secs = workload_for_gc.config().gc_interval_secs.max(1);
+        let gc_interval_secs = _workload_for_gc.config().gc_interval_secs.max(1);
         let mut ticker = interval(Duration::from_secs(gc_interval_secs));
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
@@ -310,15 +311,15 @@ where
                 }
             }
             let current_height = {
-                let guard = machine_for_gc.lock().await;
+                let guard = _machine_for_gc.lock().await;
                 use ioi_api::chain::ChainStateMachine;
                 guard.status().height
             };
-            if let Err(e) = workload_for_gc.run_gc_pass(current_height).await {
+            if let Err(e) = _workload_for_gc.run_gc_pass(current_height).await {
                 log::error!("[GC] Background pass failed: {}", e);
             }
         }
     });
 
-    Ok((workload_container, machine_arc))
+    Ok((_workload_container, _machine_arc))
 }

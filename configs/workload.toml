@@ -1,0 +1,68 @@
+runtimes = ["wasm"]
+state_tree = "IAVL"
+commitment_scheme = "Hash"
+consensus_type = "ProofOfAuthority"
+genesis_file = "./genesis.json"
+state_file = "./data/state.db"
+initial_services = []
+min_finality_depth = 100
+keep_recent_heights = 10000
+epoch_size = 5000
+gc_interval_secs = 3600
+
+[fuel_costs]
+base_cost = 1000
+state_set_per_byte = 10
+state_get_per_byte = 5
+
+[service_policies.governance]
+allowed_system_prefixes = [
+    "system::validators::",
+    "identity::",
+    "upgrade::",
+]
+
+[service_policies.governance.methods]
+"stake@v1" = "User"
+"store_module@v1" = "Governance"
+"submit_proposal@v1" = "User"
+"swap_module@v1" = "Governance"
+"unstake@v1" = "User"
+"vote@v1" = "User"
+
+[service_policies.ibc]
+allowed_system_prefixes = []
+
+[service_policies.ibc.methods]
+"msg_dispatch@v1" = "User"
+"recv_packet@v1" = "User"
+"submit_header@v1" = "User"
+"verify_header@v1" = "User"
+"verify_state@v1" = "User"
+
+[service_policies.identity_hub]
+allowed_system_prefixes = [
+    "system::validators::",
+    "identity::pubkey::",
+]
+
+[service_policies.identity_hub.methods]
+"register_attestation@v1" = "User"
+"rotate_key@v1" = "User"
+
+[service_policies.oracle]
+allowed_system_prefixes = []
+
+[service_policies.oracle.methods]
+"request_data@v1" = "User"
+"submit_data@v1" = "User"
+
+[service_policies.penalties]
+allowed_system_prefixes = []
+
+[service_policies.penalties.methods]
+"report_misbehavior@v1" = "User"
+
+[zk_config]
+ethereum_beacon_vkey = ""
+state_inclusion_vkey = ""

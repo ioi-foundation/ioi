@@ -16,6 +16,7 @@ The IOI SDK is a next-generation blockchain framework written entirely in Rust, 
 - [Architectural Overview](#architectural-overview)
 - [Current Status](#current-status)
 - [Quick Start](#quick-start)
+- [Forge CLI Guide](#forge-cli-guide)
 - [Running a Manual Testnet](#running-a-manual-testnet)
 - [Development & Testing](#development--testing)
 - [Logging and Debugging](#logging-and-debugging)
@@ -59,7 +60,7 @@ The IOI SDK follows an SDK-first methodology. Core components are provided as co
 >
 > **The software is not yet mainnet-ready.**
 
-### Implementation Status: Phase 4 - Foundational Implementation
+### Implementation Status
 
 | Component | Status | Description |
 |-----------|--------|-------------|
@@ -67,97 +68,69 @@ The IOI SDK follows an SDK-first methodology. Core components are provided as co
 | ✅ Polymorphic State | Complete | `workload` binary acts as a factory for state trees (IAVL, SMT, Verkle) and commitment schemes. |
 | ✅ IPC-Based Validator | Complete | The triple-container model communicates securely via mTLS + PQC KEM. |
 | ✅ Modular Services | Complete | Core services (Identity, Governance, Oracle) are functional and upgradable via on-chain governance. |
-| ✅ E2E Test Harness | Complete | `forge` crate successfully builds and validates multi-node clusters with diverse configurations. |
-
-**Next Phase**: Mainnet hardening, performance optimization, and expanding the service ecosystem.
+| ✅ Forge Developer CLI | Complete | The `forge` binary provides scaffolding, key management, and devnet orchestration. |
 
 ## Quick Start
 
 ### Prerequisites
 
 - **Rust**: Latest stable version via `rustup`
-- **Build Tools**: C compiler (GCC or Clang), `protobuf-compiler`, `pkg-config`, `libssl-dev`
+- **Build Tools**: C compiler (GCC or Clang), `protobuf-compiler`, `pkg-config`, `libssl-dev`, `git`
 
-### Build Example
+### Forge CLI Guide
 
-```bash
-# Build with PoS consensus, IAVL state tree, and IBC support
-cargo build -p ioi-node --release --no-default-features \
-    --features "validator-bins,consensus-pos,vm-wasm,state-iavl,commitment-hash,ibc-deps"
-```
+The `forge` toolchain is your primary interface for developing with the IOI SDK.
 
-Compiled binaries (`orchestration`, `workload`) will be in `target/release/`.
-
-## Running a Manual Testnet
-
-> 💡 **Recommended**: Use the automated E2E suite in the `forge` crate for testing. Manual setup is for experimentation.
-
-### Step 0: Generate Certificates
-
-Validator containers communicate over secure mTLS channels. Generate the necessary certificates first.
+#### 1. Project Scaffolding
+Initialize a new project and scaffold components.
 
 ```bash
-# This command will create a `certs` directory in your current location
-CERTS_DIR=./certs ./target/release/guardian --config-dir . --agentic-model-path /dev/null
-# You only need to run it once. Ignore the output after the certs are created.
-# Press Ctrl+C to exit.
+# Initialize a new project
+cargo run -p ioi-forge --bin forge -- init my-sovereign-chain --chain-id 100
+
+# Enter the directory
+cd my-sovereign-chain
+
+# Scaffold a native service module
+# Note: When running from the mono-repo, we point back to the root manifest
+cargo run --manifest-path ../crates/forge/Cargo.toml --bin forge -- scaffold service --name dex_module
+
+# Scaffold a WASM smart contract
+cargo run --manifest-path ../crates/forge/Cargo.toml --bin forge -- scaffold contract --name counter_contract
 ```
 
-### Step 1: Create Configuration Files
+#### 2. Key Management
+Generate cryptographic identities for testing and production.
 
-Create these files in your project root. This example sets up a single Proof-of-Authority validator.
-
-**`genesis.json`** (For a single validator)
-```json
-{
-  "genesis_state": {
-    "b64:aWRlbnRpdHk6OmNyZWRzOjpiNjg5M2FhN2FhMWU3Y2EzYjZkZTllZTA2ODU4MDQ0MzI1N2ZmMzU0YmMzYjJmMWU2NDFhNzFhMjY2Yzk5MjZl": "b64:BQAAAAABAAACAAAG0qO5kS06i2hJ+m/gU5Jc8yR+i+Z8jVlT1uC169LJAQAAAAAAAAAA",
-    "b64:aWRlbnRpdHk6OmtleV9yZWNvcmQ6OmI2ODkzYWE3YWExZTdjYTNiNmRlOWVlMDY4NTgwNDQzMjU3ZmYzNTRiYzNiMmYxZTY0MWE3MWEyNjZjOTkyNmU=": "b64:AAAG0qO5kS06i2hJ+m/gU5Jc8yR+i+Z8jVlT1uC169LJAQAAAAAAAAA=",
-    "b64:aWRlbnRpdHk6OnB1YmtleTo6YjY4OTNhYTdhYTFlN2NhM2I2ZGU5ZWUwNjg1ODA0NDMyNTdmZjM1NGJjM2IyZjFlNjQxYTcxYTI2NmM5OTI2ZQ==": "b64:CAESIMf0pY2q39pGzRkQDIaVoh2Bztx3C9zFjYqP/sS9xZ5X",
-    "system::validators::current": "b64:AgQAAAAAAAABAAAAAAAAAAEAAAAAABiNqO5kS06i2hJ+m/gU5Jc8yR+i+Z8jVlT1uC169LJAQAAAAAAAACAAACAAAYjajqZUtOotoSfpv4FOSXPMkforifI1ZU9bgtevSyQEAAAAAAAAAA"
-  }
-}
-```
-
-**`workload.toml`**:
-```toml
-runtimes = ["WASM"]
-state_tree = "IAVL"
-commitment_scheme = "Hash"
-consensus_type = "ProofOfAuthority"
-genesis_file = "genesis.json"
-state_file = "state.db"
-epoch_size = 100
-```
-
-**`orchestration.toml`**:
-```toml
-chain_id = 1
-consensus_type = "ProofOfAuthority"
-rpc_listen_address = "127.0.0.1:9944"
-initial_sync_timeout_secs = 5
-```
-
-### Step 2: Launch a Single Node
-
-You'll need **2 terminals** for a single-node network:
-
-**Terminal 1 (Workload):**
 ```bash
-CERTS_DIR=./certs IPC_SERVER_ADDR=127.0.0.1:8555 \
-./target/release/workload --config ./workload.toml
+# Generate a standard Ed25519 key
+cargo run -p ioi-forge --bin forge -- keys generate --suite ed25519
+
+# Generate a Post-Quantum Dilithium2 key
+cargo run -p ioi-forge --bin forge -- keys generate --suite dilithium2
+
+# Inspect a raw public key to derive its Account ID
+cargo run -p ioi-forge --bin forge -- keys inspect --suite ed25519 <HEX_KEY>
 ```
 
-**Terminal 2 (Orchestration):**
+#### 3. Local Devnet
+Spin up a local, single-node cluster for rapid iteration. This command blocks until stopped.
+
 ```bash
-# This command generates `node1.key` on first run.
-CERTS_DIR=./certs WORKLOAD_IPC_ADDR=127.0.0.1:8555 \
-./target/release/orchestration \
-    --config ./orchestration.toml \
-    --identity-key-file ./node1.key \
-    --listen-address /ip4/127.0.0.1/tcp/9000
+# Start a single-node PoA chain with 1s block times
+cargo run -p ioi-forge --bin forge -- node --validators 1 --consensus poa --block-time 1
 ```
-> 📝 For a multi-node setup, adjust ports and use the `--bootnode` flag as shown in the E2E tests.
+
+#### 4. Interaction (Query)
+While the node is running, use `query` commands to inspect state.
+
+```bash
+# Query chain status (height, timestamp)
+cargo run -p ioi-forge --bin forge -- query status
+
+# Query a raw state key (hex)
+cargo run -p ioi-forge --bin forge -- query state --key <HEX_KEY>
+```
 
 ## Development & Testing
 
@@ -218,20 +191,13 @@ cargo test --workspace
 | **Network Sync** | `cargo test --package ioi-forge --test sync_e2e --features "consensus-poa,vm-wasm,state-iavl" -- --nocapture --test-threads=1` |
 | **Infrastructure (+Metrics)** | `RUST_LOG=trace,ioi_client::workload_client=trace,ioi_client::security=trace,ioi_client::workload_client::actor=trace \
 cargo test -p ioi-forge --test infra_e2e --features "consensus-poa,vm-wasm,state-iavl" -- --nocapture --test-threads=1` |
+| **Bridgeless ZK** | `cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,state-iavl,commitment-hash,ibc-deps,ethereum-zk" --test ibc_zk_e2e -- --nocapture --test-threads=1` |
+| **Security & Attestation** | `cargo test -p ioi-forge --test security_e2e --features "validator-bins,consensus-poa,vm-wasm,state-iavl" -- --nocapture --test-threads=1` |
+| **Validator Topology** | `cargo test --package ioi-forge --test topology_e2e --features "consensus-poa,vm-wasm,state-iavl" -- --nocapture` |
 
+### **ZK & SP1 Workflow (Pending GPU Upgrade)**
 
-cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,state-iavl,commitment-hash" --test adaptive_timing_e2e -- --nocapture
-
-cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,state-iavl,commitment-hash" --test t_timestamp_coherence -- --nocapture
-
-cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,state-iavl,commitment-hash,ibc-deps,ethereum-zk" --test ibc_zk_e2e -- --nocapture --test-threads=1
-
-cargo test -p ioi-forge --test security_e2e \
-  --features "validator-bins,consensus-poa,vm-wasm,state-iavl" \
-  -- --nocapture --test-threads=1
-
-cargo test --package ioi-forge --test topology_e2e --features "consensus-poa,vm-wasm,state-iavl" -- --nocapture
-
+The logic for bridgeless Ethereum verification is implemented, but requires the generation of large ZK artifacts which are resource-intensive. Once a suitable GPU environment is available, execute the following to enable the native ZK tests:
 Next steps are purely “fill in the real ZK logic”:
 
 Integrate the actual SP1 APIs (replace sp1-zkvm placeholders with the real crates).
@@ -435,22 +401,20 @@ crates/
 
 ## Roadmap
 
-### ✅ Phase 4: Foundational Implementation
-*Complete* - Established polymorphic architecture, IPC-based validator model, and comprehensive E2E validation with the `forge` crate.
-
-### ➡️ Phase 5: Mainnet Hardening & Advanced Features
-*In Progress*
+### ✅ Phase 5: Mainnet Hardening & Advanced Features
+*Complete*
 - Robust mempool and transaction validation.
 - State proof logic implementation and verification.
 - Post-Quantum Cryptography migration path demonstrated.
 - Identity Hub and on-chain Governance services implemented.
 - Hybrid Validator model and tiered economics.
+- Complete `forge` CLI for developer ergonomics.
 
-### ▶️ Phase 6: Ecosystem Expansion & Evolution
-*Planned*
-- `forge` CLI and multi-language SDKs
-- IBC and Ethereum compatibility modules
-- Production-ready distributed AI for agentic Layer
+### ➡️ Phase 6: Ecosystem Expansion & Evolution
+*In Progress*
+- Production-ready distributed AI for agentic Layer.
+- IBC and Ethereum compatibility modules.
+- Multi-language SDKs for smart contract development.
 
 ## Contributing
 

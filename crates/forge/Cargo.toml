@@ -100,7 +100,17 @@ name = "forge"
 path = "src/main.rs"
 
 [features]
-default = []
+default = [
+    "validator-bins",
+    "vm-wasm",
+    "state-iavl",
+    "state-sparse-merkle",
+    "state-verkle",
+    "commitment-hash",
+    "commitment-kzg",
+    "consensus-poa",
+    "consensus-pos",
+]
 # Features must propagate to the validator library, which is a direct dependency.
 # The node binaries are built separately by the test runner, which handles passing features.
 state-iavl = ["ioi-validator/state-iavl"]
