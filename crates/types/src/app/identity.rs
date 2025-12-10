@@ -6,7 +6,6 @@
 //! This module serves as the foundational source of truth for on-chain identity,
 //! ensuring consistency across all services, transaction models, and state transitions.
 
-use crate::app::SignatureSuite;
 use crate::error::TransactionError;
 use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
 use dcrypt::algorithms::ByteSerializable;
@@ -95,6 +94,43 @@ pub struct ActiveKeyRecord {
     pub since_height: u64,
 }
 
+/// Defines the cryptographic algorithm suite used for a key or signature.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default, Encode, Decode)]
+pub enum SignatureSuite {
+    /// The Ed25519 signature scheme.
+    #[default]
+    Ed25519,
+    /// The CRYSTALS-Dilithium2 post-quantum signature scheme.
+    Dilithium2,
+    /// The Falcon-512 post-quantum signature scheme.
+    Falcon512,
+    /// A hybrid scheme combining Ed25519 and Dilithium2.
+    /// PubKey = Pk_Ed || Pk_Dilithium
+    /// Signature = Sig_Ed || Sig_Dilithium
+    HybridEd25519Dilithium2,
+}
+
+/// A cryptographic credential defining an account's active key.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct Credential {
+    /// The algorithm used by this credential.
+    pub suite: SignatureSuite,
+    /// The SHA-256 hash of the public key.
+    pub public_key_hash: [u8; 32],
+    /// The block height at which this credential becomes active.
+    pub activation_height: u64,
+    /// Optional location of the full public key on a Layer 2 or DA layer.
+    pub l2_location: Option<String>,
+    /// The voting weight associated with this credential.
+    /// Used for multisig threshold calculations. Defaults to 1 for standard accounts.
+    #[serde(default = "default_weight")]
+    pub weight: u64,
+}
+
+fn default_weight() -> u64 {
+    1
+}
+
 /// Derives a canonical, deterministic `AccountId` from a public key's raw material.
 ///
 /// This is the **SINGLE SOURCE OF TRUTH** for account ID generation across the entire system.
@@ -113,6 +149,8 @@ pub fn account_id_from_key_material(
     data_to_hash.push(match suite {
         SignatureSuite::Ed25519 => 0x01,
         SignatureSuite::Dilithium2 => 0x02,
+        SignatureSuite::Falcon512 => 0x03,
+        SignatureSuite::HybridEd25519Dilithium2 => 0x04,
     });
 
     // Reduce different key encodings to a single canonical representation before hashing.
@@ -138,8 +176,13 @@ pub fn account_id_from_key_material(
                 };
             data_to_hash.extend_from_slice(&raw_key);
         }
-        SignatureSuite::Dilithium2 => {
-            // Dilithium keys have a single representation, so just hash the bytes.
+        SignatureSuite::Dilithium2 | SignatureSuite::Falcon512 => {
+            // PQC keys have a single representation, so just hash the bytes.
+            data_to_hash.extend_from_slice(public_key);
+        }
+        SignatureSuite::HybridEd25519Dilithium2 => {
+            // Hybrid keys are hashed directly (concatenated bytes).
+            // Validation that the length == 32 (Ed) + 1312 (Dilithium2) happens at signature verification time.
             data_to_hash.extend_from_slice(public_key);
         }
     }

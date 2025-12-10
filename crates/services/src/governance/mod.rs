@@ -407,6 +407,8 @@ impl GovernanceModule {
                         }
                     }
                     ioi_types::app::SignatureSuite::Dilithium2 => params.public_key,
+                    // Handle future suites if needed
+                    _ => params.public_key,
                 };
                 state
                     .insert(&pubkey_map_key, &pk_to_store)
@@ -552,11 +554,6 @@ impl GovernanceModule {
             .map_err(|e| e.to_string())?;
         Ok(())
     }
-
-    // [DEPRECATED]: Penalties moved to `ioi-consensus::PenaltiesService`.
-    // We can define a dummy method here if we want to gracefully handle calls,
-    // or simply remove it and rely on the default fallback which errors.
-    // The requirement is to remove the manual matching, so this method is omitted.
 }
 
 #[async_trait]
