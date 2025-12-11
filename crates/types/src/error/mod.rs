@@ -546,6 +546,13 @@ impl ErrorCode for UpgradeError {
     }
 }
 
+// [NEW] Implementation of From<UpgradeError> for TransactionError
+impl From<UpgradeError> for TransactionError {
+    fn from(e: UpgradeError) -> Self {
+        TransactionError::Invalid(format!("Upgrade error: {}", e))
+    }
+}
+
 /// General errors for core SDK services.
 #[derive(Debug, Error)]
 pub enum CoreError {

@@ -7,7 +7,7 @@ use ioi_api::transaction::decorator::TxDecorator;
 use ioi_types::app::{ChainTransaction, SystemPayload};
 use ioi_types::app::{OracleConsensusProof, StateEntry};
 use ioi_types::codec;
-use ioi_types::error::{TransactionError, UpgradeError};
+use ioi_types::error::{OracleError, TransactionError, UpgradeError};
 use ioi_types::keys::{ORACLE_DATA_PREFIX, ORACLE_PENDING_REQUEST_PREFIX};
 use ioi_types::service_configs::Capabilities;
 use parity_scale_codec::{Decode, Encode};
@@ -106,7 +106,11 @@ impl BlockchainService for OracleService {
             "submit_data@v1" => {
                 let p: SubmitDataParams = codec::from_bytes_canonical(params)?;
                 if p.consensus_proof.attestations.is_empty() {
-                    return Err(TransactionError::Invalid("Oracle proof is empty".into()));
+                    return Err(OracleError::InvalidAttestation {
+                        signer: libp2p::PeerId::random(), // Placeholder, not used in validation here
+                        reason: "Oracle proof is empty".into(),
+                    }
+                    .into());
                 }
                 let pending_key =
                     [ORACLE_PENDING_REQUEST_PREFIX, &p.request_id.to_le_bytes()].concat();
@@ -115,9 +119,7 @@ impl BlockchainService for OracleService {
                 // Final check: ensure the request is actually pending before finalizing.
                 // The ante_handle catches most of these, but this is the final authority.
                 if state.get(&pending_key)?.is_none() {
-                    return Err(TransactionError::Invalid(
-                        "Request not pending or already finalized".into(),
-                    ));
+                    return Err(OracleError::RequestNotFound(p.request_id).into());
                 }
 
                 let entry = StateEntry {
@@ -168,10 +170,7 @@ impl TxDecorator for OracleService {
                 // 2. Non-existent (invalid ID)
                 // In either case, reject from mempool/block to save space.
                 if state.get(&pending_key)?.is_none() {
-                    return Err(TransactionError::Invalid(format!(
-                        "Oracle request {} is not pending (already finalized or invalid ID)",
-                        p.request_id
-                    )));
+                    return Err(OracleError::RequestNotFound(p.request_id).into());
                 }
             }
         }
