@@ -1,11 +1,11 @@
 // Path: crates/services/src/gas_escrow/mod.rs
 use async_trait::async_trait;
-use ioi_types::codec;
-use ioi_types::error::UpgradeError;
-use ioi_types::keys::{ACCOUNT_KEY_PREFIX, GAS_ESCROW_KEY_PREFIX};
 use ioi_api::impl_service_base;
 use ioi_api::services::{BlockchainService, UpgradableService};
 use ioi_api::state::StateAccess;
+use ioi_types::codec;
+use ioi_types::error::{TransactionError, UpgradeError};
+use ioi_types::keys::{ACCOUNT_KEY_PREFIX, GAS_ESCROW_KEY_PREFIX};
 use parity_scale_codec::{Decode, Encode};
 
 #[derive(Encode, Decode, Debug, Default, Clone)]
@@ -25,14 +25,15 @@ pub trait GasEscrowHandler: BlockchainService {
         state: &mut S,
         user_account: &[u8],
         max_gas: u64,
-    ) -> Result<(), String>;
+    ) -> Result<(), TransactionError>;
+
     fn settle<S: StateAccess + ?Sized>(
         &self,
         state: &mut S,
         user_account: &[u8],
         gas_used: u64,
         quality_score: f32,
-    ) -> Result<(), String>;
+    ) -> Result<(), TransactionError>;
 }
 
 pub struct GasEscrowService;
@@ -48,13 +49,15 @@ impl GasEscrowService {
         &self,
         state: &S,
         user_account: &[u8],
-    ) -> Result<Account, String> {
+    ) -> Result<Account, TransactionError> {
         let key = Self::account_key(user_account);
         let bytes = state
             .get(&key)
-            .map_err(|e| e.to_string())?
+            .map_err(TransactionError::State)?
             .unwrap_or_default();
-        codec::from_bytes_canonical(&bytes).or(Ok(Account::default()))
+        codec::from_bytes_canonical(&bytes)
+            .map_err(|e| TransactionError::Deserialization(e))
+            .or(Ok(Account::default()))
     }
 }
 
@@ -76,13 +79,10 @@ impl GasEscrowHandler for GasEscrowService {
         state: &mut S,
         user_account: &[u8],
         max_gas: u64,
-    ) -> Result<(), String> {
+    ) -> Result<(), TransactionError> {
         let mut account = self.get_account(state, user_account)?;
         if account.balance < max_gas {
-            return Err(format!(
-                "Insufficient funds: required {}, available {}",
-                max_gas, account.balance
-            ));
+            return Err(TransactionError::InsufficientFunds);
         }
         let escrow_entry = EscrowEntry {
             account: user_account.to_vec(),
@@ -92,14 +92,15 @@ impl GasEscrowHandler for GasEscrowService {
         let updates = &[
             (
                 Self::account_key(user_account),
-                codec::to_bytes_canonical(&account)?,
+                codec::to_bytes_canonical(&account).map_err(TransactionError::Serialization)?,
             ),
             (
                 Self::escrow_key(user_account),
-                codec::to_bytes_canonical(&escrow_entry)?,
+                codec::to_bytes_canonical(&escrow_entry)
+                    .map_err(TransactionError::Serialization)?,
             ),
         ];
-        state.batch_set(updates).map_err(|e| e.to_string())?;
+        state.batch_set(updates).map_err(TransactionError::State)?;
         Ok(())
     }
 
@@ -109,24 +110,28 @@ impl GasEscrowHandler for GasEscrowService {
         user_account: &[u8],
         gas_used: u64,
         _quality_score: f32,
-    ) -> Result<(), String> {
+    ) -> Result<(), TransactionError> {
         let escrow_key = Self::escrow_key(user_account);
         let escrow_bytes = state
             .get(&escrow_key)
-            .map_err(|e| e.to_string())?
-            .ok_or("No escrow found for user")?;
-        state.delete(&escrow_key).map_err(|e| e.to_string())?;
-        let escrow: EscrowEntry = codec::from_bytes_canonical(&escrow_bytes)?;
+            .map_err(TransactionError::State)?
+            .ok_or(TransactionError::Invalid("No escrow found for user".into()))?;
+        state.delete(&escrow_key).map_err(TransactionError::State)?;
+        let escrow: EscrowEntry = codec::from_bytes_canonical(&escrow_bytes)
+            .map_err(TransactionError::Deserialization)?;
         if gas_used > escrow.amount {
-            return Err("gas_used exceeds bonded amount".to_string());
+            return Err(TransactionError::Invalid(
+                "gas_used exceeds bonded amount".to_string(),
+            ));
         }
         let refund = escrow.amount - gas_used;
         let mut account = self.get_account(state, user_account)?;
         account.balance += refund;
-        let account_bytes = codec::to_bytes_canonical(&account)?;
+        let account_bytes =
+            codec::to_bytes_canonical(&account).map_err(TransactionError::Serialization)?;
         state
             .insert(&Self::account_key(user_account), &account_bytes)
-            .map_err(|e| e.to_string())?;
+            .map_err(TransactionError::State)?;
         Ok(())
     }
 }

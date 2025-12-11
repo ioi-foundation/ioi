@@ -13,7 +13,7 @@ use ioi_types::app::{
     ProposalStatus, ProposalType, StateEntry, TallyResult, ValidatorV1, VoteOption,
 };
 use ioi_types::codec;
-use ioi_types::error::{StateError, UpgradeError};
+use ioi_types::error::{GovernanceError, StateError, TransactionError, UpgradeError};
 use ioi_types::keys::{
     ACCOUNT_ID_TO_PUBKEY_PREFIX, GOVERNANCE_NEXT_PROPOSAL_ID_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX,
     GOVERNANCE_VOTE_KEY_PREFIX, UPGRADE_ARTIFACT_PREFIX, UPGRADE_MANIFEST_PREFIX,
@@ -81,19 +81,19 @@ impl GovernanceModule {
     // or kept inline. Here we keep helper logic in the main impl for simplicity,
     // but they are not decorated with #[method] so they are not exposed via dispatch.
 
-    fn get_next_proposal_id<S: StateAccess + ?Sized>(&self, state: &mut S) -> Result<u64, String> {
+    fn get_next_proposal_id<S: StateAccess + ?Sized>(
+        &self,
+        state: &mut S,
+    ) -> Result<u64, StateError> {
         let id_bytes = state
-            .get(GOVERNANCE_NEXT_PROPOSAL_ID_KEY)
-            .map_err(|e| e.to_string())?
+            .get(GOVERNANCE_NEXT_PROPOSAL_ID_KEY)?
             .unwrap_or_else(|| 0u64.to_le_bytes().to_vec());
         let id = u64::from_le_bytes(
             id_bytes
                 .try_into()
-                .map_err(|_| "Invalid proposal ID bytes")?,
+                .map_err(|_| StateError::InvalidValue("Invalid proposal ID bytes".into()))?,
         );
-        state
-            .insert(GOVERNANCE_NEXT_PROPOSAL_ID_KEY, &(id + 1).to_le_bytes())
-            .map_err(|e| e.to_string())?;
+        state.insert(GOVERNANCE_NEXT_PROPOSAL_ID_KEY, &(id + 1).to_le_bytes())?;
         Ok(id)
     }
 
@@ -118,16 +118,14 @@ impl GovernanceModule {
         proposal_id: u64,
         stakes: &BTreeMap<AccountId, u64>,
         _current_height: u64,
-    ) -> Result<(), String> {
+    ) -> Result<(), StateError> {
         let key = Self::proposal_key(proposal_id);
-        let entry_bytes = state
-            .get(&key)
-            .map_err(|e| e.to_string())?
-            .ok_or_else(|| "Tally failed: Proposal not found".to_string())?;
+        let entry_bytes = state.get(&key)?.ok_or_else(|| StateError::KeyNotFound)?;
+
         let entry: StateEntry = ioi_types::codec::from_bytes_canonical(&entry_bytes)
-            .map_err(|e| format!("StateEntry decode failed: {}", e))?;
+            .map_err(StateError::InvalidValue)?;
         let mut proposal: Proposal = ioi_types::codec::from_bytes_canonical(&entry.value)
-            .map_err(|e| format!("Proposal decode failed: {}", e))?;
+            .map_err(StateError::InvalidValue)?;
 
         let total_voting_power: u64 = stakes.values().sum();
         log::debug!(
@@ -138,13 +136,13 @@ impl GovernanceModule {
         if total_voting_power == 0 {
             proposal.status = ProposalStatus::Rejected;
             let updated_entry = StateEntry {
-                value: ioi_types::codec::to_bytes_canonical(&proposal)?,
+                value: ioi_types::codec::to_bytes_canonical(&proposal)
+                    .map_err(StateError::InvalidValue)?,
                 block_height: entry.block_height,
             };
-            let updated_value_bytes = ioi_types::codec::to_bytes_canonical(&updated_entry)?;
-            state
-                .insert(&key, &updated_value_bytes)
-                .map_err(|e| e.to_string())?;
+            let updated_value_bytes = ioi_types::codec::to_bytes_canonical(&updated_entry)
+                .map_err(StateError::InvalidValue)?;
+            state.insert(&key, &updated_value_bytes)?;
             log::warn!(
                 "[Tally] Proposal {} rejected: total voting power is zero.",
                 proposal_id
@@ -158,18 +156,16 @@ impl GovernanceModule {
             b"::",
         ]
         .concat();
-        let votes_iter = state
-            .prefix_scan(&vote_key_prefix)
-            .map_err(|e| e.to_string())?;
+        let votes_iter = state.prefix_scan(&vote_key_prefix)?;
         log::debug!("[Tally] Scanning votes for proposal {}", proposal_id);
 
         let mut tally = TallyResult::default();
         let mut total_voted_power = 0;
 
         for item_result in votes_iter {
-            let (vote_key, vote_bytes) = item_result.map_err(|e| e.to_string())?;
+            let (vote_key, vote_bytes) = item_result?;
             let option: VoteOption = ioi_types::codec::from_bytes_canonical(&vote_bytes)
-                .map_err(|_| "Failed to deserialize vote".to_string())?;
+                .map_err(|e| StateError::InvalidValue(e))?;
 
             let key_len = vote_key.len();
             if key_len < 32 {
@@ -178,7 +174,7 @@ impl GovernanceModule {
             }
             let voter_account_id_bytes: [u8; 32] = vote_key[(key_len - 32)..]
                 .try_into()
-                .map_err(|_| "Invalid voter AccountId slice".to_string())?;
+                .map_err(|_| StateError::InvalidValue("Invalid voter AccountId slice".into()))?;
             let voter_account_id = AccountId(voter_account_id_bytes);
 
             let voting_power = stakes.get(&voter_account_id).copied().unwrap_or(0);
@@ -230,13 +226,13 @@ impl GovernanceModule {
         }
 
         let updated_entry = StateEntry {
-            value: ioi_types::codec::to_bytes_canonical(&proposal)?,
+            value: ioi_types::codec::to_bytes_canonical(&proposal)
+                .map_err(StateError::InvalidValue)?,
             block_height: entry.block_height,
         };
-        let updated_value_bytes = ioi_types::codec::to_bytes_canonical(&updated_entry)?;
-        state
-            .insert(&key, &updated_value_bytes)
-            .map_err(|e| e.to_string())?;
+        let updated_value_bytes = ioi_types::codec::to_bytes_canonical(&updated_entry)
+            .map_err(StateError::InvalidValue)?;
+        state.insert(&key, &updated_value_bytes)?;
 
         Ok(())
     }
@@ -255,12 +251,12 @@ impl GovernanceModule {
         state: &mut dyn StateAccess,
         params: SubmitProposalParams,
         ctx: &TxContext,
-    ) -> Result<(), String> {
+    ) -> Result<(), TransactionError> {
         let proposer = &ctx.signer_account_id;
         let current_height = ctx.block_height;
 
         if params.deposit < self.params.min_deposit {
-            return Err("Initial deposit is less than min_deposit".to_string());
+            return Err(TransactionError::InsufficientFunds);
         }
 
         let id = self.get_next_proposal_id(state)?;
@@ -282,13 +278,13 @@ impl GovernanceModule {
 
         let key = Self::proposal_key(id);
         let entry = StateEntry {
-            value: ioi_types::codec::to_bytes_canonical(&proposal)?,
+            value: ioi_types::codec::to_bytes_canonical(&proposal)
+                .map_err(TransactionError::Serialization)?,
             block_height: current_height,
         };
-        let value_bytes = ioi_types::codec::to_bytes_canonical(&entry)?;
-        state
-            .insert(&key, &value_bytes)
-            .map_err(|e| e.to_string())?;
+        let value_bytes = ioi_types::codec::to_bytes_canonical(&entry)
+            .map_err(TransactionError::Serialization)?;
+        state.insert(&key, &value_bytes)?;
 
         Ok(())
     }
@@ -299,7 +295,7 @@ impl GovernanceModule {
         state: &mut dyn StateAccess,
         params: VoteParams,
         ctx: &TxContext,
-    ) -> Result<(), String> {
+    ) -> Result<(), TransactionError> {
         let voter = &ctx.signer_account_id;
         let current_height = ctx.block_height;
         let proposal_id = params.proposal_id;
@@ -307,29 +303,27 @@ impl GovernanceModule {
 
         let key = Self::proposal_key(proposal_id);
         let entry_bytes = state
-            .get(&key)
-            .map_err(|e| e.to_string())?
-            .ok_or("Proposal does not exist")?;
+            .get(&key)?
+            .ok_or(GovernanceError::ProposalNotFound(proposal_id))?;
         let entry: StateEntry = ioi_types::codec::from_bytes_canonical(&entry_bytes)
-            .map_err(|e| format!("StateEntry decode failed: {}", e))?;
+            .map_err(TransactionError::Deserialization)?;
         let proposal: Proposal = ioi_types::codec::from_bytes_canonical(&entry.value)
-            .map_err(|e| format!("Proposal decode failed: {}", e))?;
+            .map_err(TransactionError::Deserialization)?;
 
         if proposal.status != ProposalStatus::VotingPeriod {
-            return Err("Proposal is not in voting period".to_string());
+            return Err(GovernanceError::NotVotingPeriod.into());
         }
         if current_height < proposal.voting_start_height {
-            return Err("Voting period has not started yet".to_string());
+            return Err(GovernanceError::NotVotingPeriod.into());
         }
         if current_height > proposal.voting_end_height {
-            return Err("Voting period has ended".to_string());
+            return Err(GovernanceError::NotVotingPeriod.into());
         }
 
         let vote_key = Self::vote_key(proposal_id, voter);
-        let vote_bytes = ioi_types::codec::to_bytes_canonical(&option)?;
-        state
-            .insert(&vote_key, &vote_bytes)
-            .map_err(|e| e.to_string())?;
+        let vote_bytes = ioi_types::codec::to_bytes_canonical(&option)
+            .map_err(TransactionError::Serialization)?;
+        state.insert(&vote_key, &vote_bytes)?;
 
         Ok(())
     }
@@ -340,17 +334,17 @@ impl GovernanceModule {
         state: &mut dyn StateAccess,
         params: StakeParams,
         ctx: &TxContext,
-    ) -> Result<(), String> {
+    ) -> Result<(), TransactionError> {
         let staker_account_id = &ctx.signer_account_id;
         let block_height = ctx.block_height;
         let target_activation = block_height + 2;
 
-        let maybe_blob_bytes = state.get(VALIDATOR_SET_KEY).map_err(|e| e.to_string())?;
+        let maybe_blob_bytes = state.get(VALIDATOR_SET_KEY)?;
         let mut sets = maybe_blob_bytes
             .as_ref()
             .map(|b| read_validator_sets(b))
             .transpose()
-            .map_err(|e| e.to_string())?
+            .map_err(TransactionError::State)?
             .unwrap_or_default();
 
         if sets.next.is_none() {
@@ -370,13 +364,11 @@ impl GovernanceModule {
             let creds_view = ctx
                 .services
                 .get::<crate::identity::IdentityHub>()
-                .ok_or_else(|| "IdentityHub service not found for staking".to_string())?;
-            let creds = creds_view
-                .get_credentials(state, staker_account_id)
-                .map_err(|e| e.to_string())?;
+                .ok_or_else(|| TransactionError::Unsupported("IdentityHub not found".into()))?;
+            let creds = creds_view.get_credentials(state, staker_account_id)?;
             let active_cred = creds[0]
                 .as_ref()
-                .ok_or_else(|| "Staker has no active key".to_string())?;
+                .ok_or_else(|| TransactionError::Invalid("Staker has no active key".to_string()))?;
 
             next_vs.validators.push(ValidatorV1 {
                 account_id: *staker_account_id,
@@ -389,11 +381,7 @@ impl GovernanceModule {
             });
 
             let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, staker_account_id.as_ref()].concat();
-            if state
-                .get(&pubkey_map_key)
-                .map_err(|e| e.to_string())?
-                .is_none()
-            {
+            if state.get(&pubkey_map_key)?.is_none() {
                 let pk_to_store = match active_cred.suite {
                     ioi_types::app::SignatureSuite::Ed25519 => {
                         if Libp2pPublicKey::try_decode_protobuf(&params.public_key).is_ok() {
@@ -402,7 +390,9 @@ impl GovernanceModule {
                             let ed = libp2p::identity::ed25519::PublicKey::try_from_bytes(
                                 &params.public_key,
                             )
-                            .map_err(|_| "Malformed Ed25519 key".to_string())?;
+                            .map_err(|_| {
+                                TransactionError::Invalid("Malformed Ed25519 key".to_string())
+                            })?;
                             libp2p::identity::PublicKey::from(ed).encode_protobuf()
                         }
                     }
@@ -410,19 +400,15 @@ impl GovernanceModule {
                     // Handle future suites if needed
                     _ => params.public_key,
                 };
-                state
-                    .insert(&pubkey_map_key, &pk_to_store)
-                    .map_err(|e| e.to_string())?;
+                state.insert(&pubkey_map_key, &pk_to_store)?;
             }
         }
 
         next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
-        state
-            .insert(
-                VALIDATOR_SET_KEY,
-                &write_validator_sets(&sets).map_err(|e| e.to_string())?,
-            )
-            .map_err(|e| e.to_string())?;
+        state.insert(
+            VALIDATOR_SET_KEY,
+            &write_validator_sets(&sets).map_err(TransactionError::State)?,
+        )?;
         Ok(())
     }
 
@@ -432,14 +418,14 @@ impl GovernanceModule {
         state: &mut dyn StateAccess,
         params: UnstakeParams,
         ctx: &TxContext,
-    ) -> Result<(), String> {
+    ) -> Result<(), TransactionError> {
         let staker_account_id = &ctx.signer_account_id;
         let block_height = ctx.block_height;
         let target_activation = block_height + 2;
-        let maybe_blob_bytes = state.get(VALIDATOR_SET_KEY).map_err(|e| e.to_string())?;
+        let maybe_blob_bytes = state.get(VALIDATOR_SET_KEY)?;
         let blob_bytes = maybe_blob_bytes
-            .ok_or_else(|| "Validator set does not exist to unstake from".to_string())?;
-        let mut sets = read_validator_sets(&blob_bytes).map_err(|e| e.to_string())?;
+            .ok_or_else(|| TransactionError::Invalid("Validator set does not exist".to_string()))?;
+        let mut sets = read_validator_sets(&blob_bytes).map_err(TransactionError::State)?;
 
         if sets.next.is_none() {
             let mut new_next = sets.current.clone();
@@ -459,16 +445,16 @@ impl GovernanceModule {
             }
         });
         if !validator_found {
-            return Err("Staker not in validator set".to_string());
+            return Err(TransactionError::Invalid(
+                "Staker not in validator set".to_string(),
+            ));
         }
 
         next_vs.total_weight = next_vs.validators.iter().map(|v| v.weight).sum();
-        state
-            .insert(
-                VALIDATOR_SET_KEY,
-                &write_validator_sets(&sets).map_err(|e| e.to_string())?,
-            )
-            .map_err(|e| e.to_string())?;
+        state.insert(
+            VALIDATOR_SET_KEY,
+            &write_validator_sets(&sets).map_err(TransactionError::State)?,
+        )?;
         Ok(())
     }
 
@@ -478,32 +464,34 @@ impl GovernanceModule {
         state: &mut dyn StateAccess,
         params: StoreModuleParams,
         _ctx: &TxContext,
-    ) -> Result<(), String> {
+    ) -> Result<(), TransactionError> {
         let manifest = params.manifest;
         let artifact = params.artifact;
-        let manifest_hash =
-            ioi_crypto::algorithms::hash::sha256(manifest.as_bytes()).map_err(|e| e.to_string())?;
-        let artifact_hash =
-            ioi_crypto::algorithms::hash::sha256(&artifact).map_err(|e| e.to_string())?;
+        // [FIX] Removed incorrect .map_err(CoreError::Crypto)
+        // TransactionError implements From<CryptoError>, so ? works directly.
+        let manifest_hash = ioi_crypto::algorithms::hash::sha256(manifest.as_bytes())?;
+        let artifact_hash = ioi_crypto::algorithms::hash::sha256(&artifact)?;
+
         let manifest_key = [UPGRADE_MANIFEST_PREFIX, &manifest_hash].concat();
         let artifact_key = [UPGRADE_ARTIFACT_PREFIX, &artifact_hash].concat();
+
         if state
             .get(&manifest_key)
-            .map_err(|e| e.to_string())?
+            .map_err(TransactionError::State)?
             .is_none()
         {
             state
                 .insert(&manifest_key, manifest.as_bytes())
-                .map_err(|e| e.to_string())?;
+                .map_err(TransactionError::State)?;
         }
         if state
             .get(&artifact_key)
-            .map_err(|e| e.to_string())?
+            .map_err(TransactionError::State)?
             .is_none()
         {
             state
                 .insert(&artifact_key, &artifact)
-                .map_err(|e| e.to_string())?;
+                .map_err(TransactionError::State)?;
         }
         Ok(())
     }
@@ -514,7 +502,7 @@ impl GovernanceModule {
         state: &mut dyn StateAccess,
         params: SwapModuleParams,
         _ctx: &TxContext,
-    ) -> Result<(), String> {
+    ) -> Result<(), TransactionError> {
         let service_id = params.service_id;
         let manifest_hash = params.manifest_hash;
         let artifact_hash = params.artifact_hash;
@@ -523,35 +511,40 @@ impl GovernanceModule {
         let manifest_key = [UPGRADE_MANIFEST_PREFIX, &manifest_hash].concat();
         if state
             .get(&manifest_key)
-            .map_err(|e| e.to_string())?
+            .map_err(TransactionError::State)?
             .is_none()
         {
-            return Err(format!(
+            return Err(UpgradeError::InvalidUpgrade(format!(
                 "Manifest not found for hash {}",
                 hex::encode(manifest_hash)
-            ));
+            ))
+            .into());
         }
         let artifact_key = [UPGRADE_ARTIFACT_PREFIX, &artifact_hash].concat();
         if state
             .get(&artifact_key)
-            .map_err(|e| e.to_string())?
+            .map_err(TransactionError::State)?
             .is_none()
         {
-            return Err(format!(
+            return Err(UpgradeError::InvalidUpgrade(format!(
                 "Artifact not found for hash {}",
                 hex::encode(artifact_hash)
-            ));
+            ))
+            .into());
         }
         let key = [UPGRADE_PENDING_PREFIX, &activation_height.to_le_bytes()].concat();
         let mut pending: Vec<(String, [u8; 32], [u8; 32])> = state
             .get(&key)
-            .map_err(|e| e.to_string())?
+            .map_err(TransactionError::State)?
             .and_then(|b| codec::from_bytes_canonical(&b).ok())
             .unwrap_or_default();
         pending.push((service_id, manifest_hash, artifact_hash));
         state
-            .insert(&key, &codec::to_bytes_canonical(&pending)?)
-            .map_err(|e| e.to_string())?;
+            .insert(
+                &key,
+                &codec::to_bytes_canonical(&pending).map_err(TransactionError::Serialization)?,
+            )
+            .map_err(TransactionError::State)?;
         Ok(())
     }
 }
@@ -611,8 +604,7 @@ impl OnEndBlock for GovernanceModule {
 
             for proposal_id in proposals_to_tally {
                 log::info!("[Governance OnEndBlock] Tallying proposal {}", proposal_id);
-                self.tally_proposal(state, proposal_id, &stakes, ctx.block_height)
-                    .map_err(StateError::Apply)?;
+                self.tally_proposal(state, proposal_id, &stakes, ctx.block_height)?;
             }
         }
         Ok(())

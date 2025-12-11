@@ -228,48 +228,53 @@ impl IdentityHub {
         account_id: &AccountId,
         proof: &RotationProof,
         current_height: u64,
-    ) -> Result<(), String> {
+    ) -> Result<(), TransactionError> {
         if !self
             .config
             .allowed_target_suites
             .contains(&proof.target_suite)
         {
-            return Err("Target suite not allowed by chain policy".to_string());
+            return Err(TransactionError::Invalid(
+                "Target suite not allowed by chain policy".to_string(),
+            ));
         }
-        let creds = self
-            .load_credentials(state, account_id)
-            .map_err(|e| e.to_string())?;
-        let active_cred = creds[0]
-            .as_ref()
-            .ok_or("No active credential to rotate from")?;
+        let creds = self.load_credentials(state, account_id)?;
+        let active_cred = creds[0].as_ref().ok_or(TransactionError::Invalid(
+            "No active credential to rotate from".to_string(),
+        ))?;
         if creds[1].is_some() {
-            return Err("Rotation already in progress for this account".to_string());
+            return Err(TransactionError::Invalid(
+                "Rotation already in progress for this account".to_string(),
+            ));
         }
         if !self.config.allow_downgrade && (proof.target_suite as u8) < (active_cred.suite as u8) {
-            return Err("Cryptographic downgrade is forbidden by policy".to_string());
+            return Err(TransactionError::Invalid(
+                "Cryptographic downgrade is forbidden by policy".to_string(),
+            ));
         }
 
-        let challenge = self
-            .rotation_challenge(state, account_id)
-            .map_err(|e| e.to_string())?;
-        let old_pk_hash = account_id_from_key_material(active_cred.suite, &proof.old_public_key)
-            .map_err(|e| e.to_string())?;
+        let challenge = self.rotation_challenge(state, account_id)?;
+        let old_pk_hash = account_id_from_key_material(active_cred.suite, &proof.old_public_key)?;
 
         if old_pk_hash != active_cred.public_key_hash {
-            return Err("old_public_key does not_match active credential".to_string());
+            return Err(TransactionError::Invalid(
+                "old_public_key does not_match active credential".to_string(),
+            ));
         }
         Self::verify_rotation_signature(
             active_cred.suite,
             &proof.old_public_key,
             &challenge,
             &proof.old_signature,
-        )?;
+        )
+        .map_err(|e| TransactionError::Invalid(e))?;
         Self::verify_rotation_signature(
             proof.target_suite,
             &proof.new_public_key,
             &challenge,
             &proof.new_signature,
-        )?;
+        )
+        .map_err(|e| TransactionError::Invalid(e))?;
 
         let activation_height = current_height + self.config.grace_period_blocks;
         let new_cred = Credential {
@@ -277,8 +282,7 @@ impl IdentityHub {
             public_key_hash: account_id_from_key_material(
                 proof.target_suite,
                 &proof.new_public_key,
-            )
-            .map_err(|e| e.to_string())?,
+            )?,
             activation_height,
             l2_location: proof.l2_location.clone(),
             // [NEW] Initialize weight. For now, we default to 1 (standard account).
@@ -286,28 +290,24 @@ impl IdentityHub {
         };
         let mut creds_mut = creds;
         creds_mut[1] = Some(new_cred);
-        self.save_credentials(state, account_id, &creds_mut)
-            .map_err(|e| e.to_string())?;
+        self.save_credentials(state, account_id, &creds_mut)?;
 
         let idx_key = Self::get_index_key(activation_height);
         let mut list: Vec<AccountId> = state
-            .get(&idx_key)
-            .map_err(|e| e.to_string())?
+            .get(&idx_key)?
             .and_then(|b| codec::from_bytes_canonical(&b).ok())
             .unwrap_or_default();
         if !list.contains(account_id) {
             list.push(*account_id);
-            state
-                .insert(&idx_key, &codec::to_bytes_canonical(&list).map_err(|e| e)?)
-                .map_err(|e| e.to_string())?;
+            state.insert(
+                &idx_key,
+                &codec::to_bytes_canonical(&list).map_err(TransactionError::Serialization)?,
+            )?;
         }
 
         let nonce_key = Self::get_nonce_key(account_id);
-        let next_nonce =
-            u64_from_le_bytes(state.get(&nonce_key).map_err(|e| e.to_string())?.as_ref()) + 1;
-        state
-            .insert(&nonce_key, &next_nonce.to_le_bytes())
-            .map_err(|e| e.to_string())?;
+        let next_nonce = u64_from_le_bytes(state.get(&nonce_key)?.as_ref()) + 1;
+        state.insert(&nonce_key, &next_nonce.to_le_bytes())?;
         Ok(())
     }
 }
@@ -348,7 +348,6 @@ impl BlockchainService for IdentityHub {
                 let p: RotateKeyParams = codec::from_bytes_canonical(params)?;
                 let account_id = ctx.signer_account_id;
                 self.rotate(state, &account_id, &p.proof, ctx.block_height)
-                    .map_err(TransactionError::Invalid)
             }
             "register_attestation@v1" => {
                 let attestation: BootAttestation = codec::from_bytes_canonical(params)?;
@@ -468,7 +467,9 @@ impl OnEndBlock for IdentityHub {
         if let Some(bytes) = state.get(&idx_key)? {
             let accounts: Vec<AccountId> = codec::from_bytes_canonical(&bytes).unwrap_or_default();
             for account_id in accounts {
-                let mut creds = self.load_credentials(state, &account_id)?;
+                let mut creds = self
+                    .load_credentials(state, &account_id)
+                    .map_err(|e| StateError::InvalidValue(e.to_string()))?;
                 if let Some(staged) = creds[1].as_ref() {
                     if height >= staged.activation_height {
                         if let Some(staged_taken) = creds[1].take() {

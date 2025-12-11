@@ -2,8 +2,8 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    parse::Parse, parse::ParseStream, parse_macro_input, punctuated::Punctuated,
-    FnArg, ImplItem, ItemImpl, LitInt, LitStr, Meta, Token,
+    parse::Parse, parse::ParseStream, parse_macro_input, punctuated::Punctuated, FnArg, ImplItem,
+    ItemImpl, LitInt, LitStr, Meta, Token,
 };
 
 struct ServiceAttributes {
@@ -157,11 +157,14 @@ pub fn service_interface(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
 
                 if let Some(p_type) = param_type {
+                    // [MODIFIED] Changed .map_err(...) to .map_err(ioi_types::error::TransactionError::from)
+                    // This allows the method to return Result<(), TransactionError> directly,
+                    // or Result<(), String> which converts to TransactionError::Invalid(String).
                     match_arms.push(quote! {
                         #method_str => {
                             let p: #p_type = ioi_types::codec::from_bytes_canonical(params)?;
                             self.#method_name(state, p, ctx)
-                                .map_err(ioi_types::error::TransactionError::Invalid)?;
+                                .map_err(ioi_types::error::TransactionError::from)?;
                             Ok(())
                         }
                     });
@@ -171,7 +174,7 @@ pub fn service_interface(args: TokenStream, input: TokenStream) -> TokenStream {
                     match_arms.push(quote! {
                         #method_str => {
                              self.#method_name(state, ctx)
-                                .map_err(ioi_types::error::TransactionError::Invalid)?;
+                                .map_err(ioi_types::error::TransactionError::from)?;
                             Ok(())
                         }
                     });
