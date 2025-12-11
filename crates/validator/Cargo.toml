@@ -114,18 +114,3 @@ ibc-deps = ["ioi-services/ibc-deps"]
 
 # [FIX] Added ethereum-zk feature
 ethereum-zk = ["ioi-services/ethereum-zk", "dep:zk-driver-succinct"]
-
-[[bin]]
-name = "orchestration"
-path = "src/bin/orchestration.rs"
-required-features = ["validator-bins"]
-
-[[bin]]
-name = "workload"
-path = "src/bin/workload.rs"
-required-features = ["validator-bins", "vm-wasm"]
-
-[[bin]]
-name = "guardian"
-path = "src/bin/guardian.rs"
-required-features = ["validator-bins"]

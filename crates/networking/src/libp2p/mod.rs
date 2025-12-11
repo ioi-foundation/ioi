@@ -1,4 +1,4 @@
-// Path: crates/network/src/libp2p/mod.rs
+// Path: crates/networking/src/libp2p/mod.rs
 
 //! A libp2p-based implementation of the network traits.
 
@@ -390,8 +390,10 @@ impl Libp2pSync {
                     gossipsub::MessageAuthenticity::Signed(key.clone()),
                     gossipsub::Config::default(),
                 )?;
-                let mut cfg = request_response::Config::default();
-                cfg.set_request_timeout(Duration::from_secs(30));
+                // [FIX] Use builder pattern instead of deprecated setter
+                let cfg = request_response::Config::default()
+                    .with_request_timeout(Duration::from_secs(30));
+
                 let request_response = request_response::Behaviour::new(
                     iter::once(("/ioi/sync/2", request_response::ProtocolSupport::Full)),
                     cfg,

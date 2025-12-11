@@ -2,8 +2,8 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    parse::Parse, parse::ParseStream, parse_macro_input, punctuated::Punctuated, spanned::Spanned,
-    Attribute, FnArg, Ident, ImplItem, ItemImpl, LitInt, LitStr, Meta, Token, Type,
+    parse::Parse, parse::ParseStream, parse_macro_input, punctuated::Punctuated,
+    FnArg, ImplItem, ItemImpl, LitInt, LitStr, Meta, Token,
 };
 
 struct ServiceAttributes {

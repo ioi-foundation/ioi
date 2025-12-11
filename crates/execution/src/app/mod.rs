@@ -412,8 +412,7 @@ where
                     .saturating_mul(1_000_000_000)
                     .try_into()
                     .map_err(|_| ChainError::Transaction("Timestamp overflow".to_string()))?,
-            )
-            .map_err(|e| ChainError::Transaction(format!("Invalid timestamp: {}", e)))?,
+            ),
             chain_id: self.state.chain_id,
             signer_account_id,
             services: &self.services,

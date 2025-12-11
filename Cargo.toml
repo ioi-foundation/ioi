@@ -9,14 +9,9 @@ cargo-features = ["profile-rustflags"]
 resolver = "2"
 exclude = ["crates/sp1-guests"]
 members = [
-    # Renamed from "binaries"
     "crates/node",
-    # New developer toolkit and E2E test crate
     "crates/forge",
-
     "crates/contract-sdk",
-
-    # Core SDK library crates
     "crates/execution",
     "crates/state",
     "crates/consensus",
@@ -32,8 +27,6 @@ members = [
     "crates/tx",
     "crates/validator",
     "crates/vm/wasm",
-
-    # Interop
     "crates/ibc-host",
     "crates/http-rpc-gateway",
     "crates/zk-types",
@@ -41,14 +34,11 @@ members = [
 ]
 
 [workspace.dependencies]
-# Add ioi-contract-sdk to the workspace dependencies
+# --- Internal Crates ---
 ioi-contract-sdk = { path = "crates/contract-sdk", default-features = false }
 
-# Networking & HTTP Ecosystem
-# Version pins for hyper, axum, tower, tendermint, and time have been removed.
-# This allows cargo to resolve versions compatible with the updated ibc-rs dependencies,
-# which require hyper v1.x and a newer version of the `time` crate.
-libp2p = { version = "0.52", features = [
+# --- Networking & HTTP ---
+libp2p = { version = "0.53", features = [
     "tokio",
     "gossipsub",
     "mdns",
@@ -62,48 +52,50 @@ libp2p = { version = "0.52", features = [
 reqwest = { version = "0.11", features = ["json"] }
 axum = "0.7"
 hyper = "1"
+# Tower updated for Axum 0.7 compat
 tower = "0.4"
 tower-http = { version = "0.5", features = ["limit", "trace", "catch-panic"] }
 
-# Metrics
+# --- Metrics ---
 prometheus = { version = "0.13" }
 
-# RPC Hardening & Middleware
+# --- RPC Hardening ---
 ipnetwork = { version = "0.20" }
 
-# Async
+# --- Async ---
 tokio = { version = "1", features = ["full"] }
 futures = { version = "0.3" }
 async-trait = { version = "0.1" }
 arc-swap = "1.6"
-
-# FIX: Add the missing futures-util dependency to the workspace.
 futures-util = "0.3"
 
-# Serialization & Data Formats
+# --- Serialization ---
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 toml = { version = "0.8" }
 bytes = { version = "1" }
 hex = { version = "0.4" }
 serde_bytes = { version = "0.11" }
-prost = { version = "0.12" }
+# [FIX] Bumped to match ibc-proto requirements
+prost = "0.13"
 base64 = { version = "0.21" }
 bincode = { version = "1.3.3" }
 zeroize = { version = "1.5", features = ["zeroize_derive"] }
 
-# mTLS
-tokio-rustls = { version = "0.25.0" }
-rustls = { version = "0.22.2", features = ["ring"] }
-rcgen = { version = "0.12.0" }
-webpki-roots = { version = "0.26.0" }
+# --- mTLS ---
+tokio-rustls = { version = "0.26" }
+rustls = { version = "0.23", features = ["ring"] }
+rcgen = { version = "0.13" }
+webpki-roots = { version = "0.26" }
 rustls-pemfile = { version = "2.1" }
+# [FIX] Bumped to match prost 0.13
+tonic = { version = "0.12", features = ["tls", "transport"] }
 
-# Cryptography1.1.1
+# --- Cryptography ---
 rand = { version = "0.8" }
-dcrypt = { version = "1.1.1", features = ["full"] }
+dcrypt = { version = "1.2.2", features = ["full"] }
 
-# CLI & Logging / Telemetry
+# --- CLI & Logging ---
 clap = { version = "4", features = ["derive"] }
 log = { version = "0.4" }
 env_logger = { version = "0.10" }
@@ -116,76 +108,83 @@ tracing-subscriber = { version = "0.3", features = [
 ] }
 tracing-log = "0.2"
 
-# Error Handling
+# --- Error Handling ---
 thiserror = { version = "1.0" }
 anyhow = { version = "1.0" }
 
-# VM
-wasmtime = { version = "19.0.1" }
+# --- VM ---
+wasmtime = { version = "21.0.0", features = ["component-model", "async"] }
+wasmtime-wasi = { version = "21.0.0" }
+wit-bindgen = "0.25.0"
+wit-component = "0.201.0"
 
-# Codecs
+# --- Codecs ---
 parity-scale-codec = { version = "3", features = ["derive"] }
 
-# Caching & Hashing
+# --- Caching & Utils ---
 lru = { version = "0.12.3" }
 dashmap = { version = "5.5" }
 once_cell = { version = "1.19" }
 ahash = { version = "0.8" }
-
-# Bitflags for Capabilities
 bitflags = { version = "2", features = ["serde"] }
+portpicker = "0.1"
+bollard = "0.16"
+tar = "0.4"
+cfg-if = "1.0"
+regex = "1.10"
+libc = "0.2"
+bcs = "0.1"
+tempfile = "3.10"
+uuid = { version = "1.8", features = ["v4"] }
+http-body-util = "0.1"
 
-# IBC
-tendermint = "0.36.0"
-tendermint-proto = "0.36.0"
-tendermint-testgen = "0.36.0"
-ibc-client-tendermint = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-client-tendermint-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-client = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-channel = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-connection = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-router = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-client-context = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-client-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-commitment-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-connection-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-channel-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-handler-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-handler = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-host = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-host-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-router-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-primitives = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-proto = { git = "https://github.com/cosmos/ibc-proto-rs.git", tag = "v0.44.0" }
-ibc = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ics23 = { version = "0.11" }
+# =============================================================================
+# IBC Ecosystem (Modern Stable)
+# =============================================================================
 
-# This entry is REQUIRED for `workspace = true` inheritance to work.
-# It defines the "default" version and features for workspace members.
+# Latest stable ibc-rs (v0.57.0)
+ibc = { version = "0.57.0", default-features = false }
+ibc-proto = { version = "0.51.0", features = ["serde"] }
+ibc-primitives = { version = "0.57.0", features = ["serde"] }
+
+# Core components
+ibc-core-client = { version = "0.57.0", features = ["serde"] }
+ibc-core-client-types = { version = "0.57.0", features = ["serde"] }
+ibc-core-client-context = { version = "0.57.0", features = ["serde"] }
+ibc-core-connection = { version = "0.57.0", features = ["serde"] }
+ibc-core-connection-types = { version = "0.57.0", features = ["serde"] }
+ibc-core-channel = { version = "0.57.0", features = ["serde"] }
+ibc-core-channel-types = { version = "0.57.0", features = ["serde"] }
+ibc-core-handler-types = { version = "0.57.0", features = ["serde"] }
+ibc-core-host = { version = "0.57.0", features = ["serde"] }
+ibc-core-host-types = { version = "0.57.0", features = ["serde"] }
+ibc-core-router = { version = "0.57.0", features = ["serde"] }
+ibc-core-router-types = { version = "0.57.0", features = ["serde"] }
+ibc-core-commitment-types = { version = "0.57.0", features = ["serde"] }
+
+# Tendermint Client
+ibc-client-tendermint = { version = "0.57.0", features = ["serde"] }
+
+# CometBFT / Tendermint v0.40 compatibility
+tendermint = { version = "0.40.0", features = ["secp256k1"] }
+tendermint-proto = "0.40.0"
+tendermint-testgen = "0.40.0"
+
+# ICS-23 Proofs - Bumped to 0.12.0 to match ibc-rs dependencies
+ics23 = { version = "0.12.0", default-features = false, features = [
+    "host-functions",
+] }
+
 time = { version = "0.3.36", features = ["macros", "serde"] }
 
-# --- PATCH START ---
-# This section tells Cargo to use specific git repositories for ALL ibc-rs crates,
-# overriding any attempt to fetch them from crates.io. This is the definitive fix
-# for ensuring the correct git-tagged versions are used throughout the dependency graph.
-[patch.crates-io]
-ibc-client-tendermint = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-client-tendermint-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-client = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-channel = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-connection = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-router = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-client-context = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-client-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-commitment-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-connection-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-channel-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-handler-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-handler = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-host = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-host-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-core-router-types = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-primitives = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-ibc-proto = { git = "https://github.com/cosmos/ibc-proto-rs.git", tag = "v0.44.0" }
-ibc = { git = "https://github.com/cosmos/ibc-rs.git", rev = "c43c5c8a2cc35359d91c9ef757371af447e4938f" }
-# --- PATCH END ---
+[profile.release]
+opt-level = 3
+lto = "thin"
+debug = false
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true

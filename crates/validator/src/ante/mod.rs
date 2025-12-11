@@ -44,17 +44,13 @@ pub async fn check_tx(
     };
 
     let next_timestamp_ns = (expected_timestamp_secs as u128).saturating_mul(1_000_000_000u128);
+    // [FIX] Timestamp::from_nanoseconds is now infallible (returns Timestamp directly).
+    // map_err removed.
     let next_timestamp = Timestamp::from_nanoseconds(
         next_timestamp_ns
             .try_into()
             .map_err(|_| TransactionError::Invalid("Timestamp overflow".to_string()))?,
-    )
-    .map_err(|e| {
-        TransactionError::Invalid(format!(
-            "Failed to create timestamp from nanoseconds: {}",
-            e
-        ))
-    })?;
+    );
 
     let tx_ctx = TxContext {
         block_height: next_block_height,

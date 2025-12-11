@@ -30,7 +30,9 @@ cfg_if! {
 /// Creates the default verifier. The signature and implementation of this function
 /// adapt based on whether a KZG-based primitive is enabled.
 pub fn create_default_verifier(
-    #[cfg(feature = "commitment-kzg")] params: Option<KZGParams>,
+    #[cfg(feature = "commitment-kzg")]
+    #[allow(unused_variables)] // [FIX] Allow unused for when other trees are selected
+    params: Option<KZGParams>,
     #[cfg(not(feature = "commitment-kzg"))] _params: Option<()>,
 ) -> DefaultVerifier {
     // THIS IS THE FIX: The logic inside this function now exactly mirrors the
@@ -64,10 +66,10 @@ pub fn create_default_verifier(
     feature = "state-verkle"
 )))]
 mod fallback {
-    use ioi_types::app::Membership;
-    use ioi_types::error::ProofError;
     use ioi_api::error::StateError;
     use ioi_api::state::Verifier;
+    use ioi_types::app::Membership;
+    use ioi_types::error::ProofError;
     use parity_scale_codec::{Decode, Encode};
 
     /// A fallback `Verifier` implementation that always fails.

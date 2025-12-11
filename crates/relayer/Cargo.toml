@@ -9,6 +9,7 @@ repository = "https://github.com/ioi-foundation/ioi-sdk"
 
 [dependencies]
 ioi-types = { path = "../types" }
+ioi-api = { path = "../api" }                       # Added ioi-api
 anyhow = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 reqwest = { workspace = true, features = ["json"] }
@@ -26,7 +27,7 @@ ibc-core-commitment-types = { workspace = true, features = ["std"] }
 prost = { workspace = true }
 
 # Added for proof processing and header creation
-ics23 = "0.11"
+ics23 = "0.12.0"
 ibc-client-tendermint = { workspace = true }
 tendermint = { workspace = true }
 tendermint-proto = { workspace = true }

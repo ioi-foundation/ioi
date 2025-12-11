@@ -1,38 +1,41 @@
-// Path: crates/relayer/src/lib.rs
-#![forbid(unsafe_code)]
+// Path: crates/relayer/src/handshake/mod.rs
 
-pub mod gateway;
-pub mod handshake;
+//! High-level IBC handshake orchestration logic.
+
+pub mod builders;
+pub mod proofs;
 
 use crate::gateway::Gateway;
-// Re-export handshake builder helpers and proof logic
-use crate::handshake::{
-    build_chan_open_ack_any, build_chan_open_confirm_any, build_chan_open_init_any,
-    build_chan_open_try_any, build_conn_open_ack_any, build_conn_open_confirm_any,
-    build_conn_open_init_any, build_conn_open_try_any, build_create_client_any,
-    build_update_client_any, existence_root_from_proof_bytes, 
-    infer_allocated_channel_id, // Imported from handshake mod
-    infer_allocated_connection_id,
-};
 use anyhow::{anyhow, Result};
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
-use ibc_core_commitment_types::specs::ProofSpecs;
-use ibc_core_host_types::path::{NextChannelSequencePath, NextConnectionSequencePath};
-use ibc_proto::{
-    cosmos::tx::v1beta1::TxBody,
-    google::protobuf::Any as PbAny,
-    ibc::lightclients::tendermint::v1::{
-        ClientState as RawTmClientState, ConsensusState as RawTmConsensusState,
-        Fraction as TmTrustFraction, Header as RawTmHeader,
-    },
-};
+use builders::*;
 use prost::Message;
 use std::time::Duration;
 use tokio::time::sleep;
 use tracing::info;
 
-// ---- Deterministic one‑validator machinery (same pattern as ibc_e2e) ----
+// [FIX] Import BASE64
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+
+// Re-export specific builders for external use if needed
+// [FIX] Re-export infer functions so they are visible to lib.rs via crate::handshake::...
+pub use crate::handshake::proofs::{infer_allocated_channel_id, infer_allocated_connection_id};
+pub use builders::{
+    build_chan_open_ack_any, build_chan_open_confirm_any, build_chan_open_init_any,
+    build_chan_open_try_any, build_conn_open_ack_any, build_conn_open_confirm_any,
+    build_conn_open_init_any, build_conn_open_try_any, build_create_client_any,
+    build_update_client_any,
+};
+pub use proofs::{
+    existence_root_from_proof_bytes, proof_indicates_membership, query_proof_bytes_at,
+};
+
+// --- Imports for Deterministic Test Setup ---
 use dcrypt::sign::eddsa::Ed25519SecretKey;
+use ibc_proto::google::protobuf::Any as PbAny;
+use ibc_proto::ibc::lightclients::tendermint::v1::{
+    ClientState as RawTmClientState, ConsensusState as RawTmConsensusState,
+    Fraction as TmTrustFraction, Header as RawTmHeader,
+};
 use tendermint::{
     account,
     block::{
@@ -49,58 +52,12 @@ use tendermint_proto::types::{
 };
 use tendermint_testgen::{light_block::LightBlock as TmLightBlock, Header as TmHeaderGen};
 
-/// Try `/v1/ibc/root` a few times, then fall back to deriving the root from a proof.
-pub async fn commitment_root_latest_robust(gw: &Gateway) -> Result<(Vec<u8>, u64)> {
-    // Small retry loop to cover transient startup races.
-    for _ in 0..4 {
-        if let Ok((root, h)) = gw.commitment_root_latest().await {
-            if root.len() == 32 {
-                return Ok((root, h));
-            }
-        }
-        tokio::time::sleep(Duration::from_millis(250)).await;
-    }
-    // Fallback: derive from a membership proof for a well-known path.
-    for path in [
-        NextConnectionSequencePath.to_string(),
-        NextChannelSequencePath.to_string(),
-    ] {
-        let (_v, proof_opt, h) = gw.query_latest(&path).await?;
-        if let Some(proof) = proof_opt {
-            let root = existence_root_from_proof_bytes(&proof)?;
-            if root.len() == 32 {
-                return Ok((root, h));
-            }
-        }
-    }
-    Err(anyhow!(
-        "unable to obtain commitment root (endpoint + proof fallbacks failed)"
-    ))
-}
+use crate::{commitment_root_at_height_robust, commitment_root_latest_robust};
 
-/// Robust variant for a specific height (tries endpoint, then proof at that height).
-pub async fn commitment_root_at_height_robust(gw: &Gateway, height: u64) -> Result<(Vec<u8>, u64)> {
-    if let Ok((root, h)) = gw.commitment_root_at_height(height).await {
-        if root.len() == 32 {
-            return Ok((root, h));
-        }
-    }
-    for path in [
-        NextConnectionSequencePath.to_string(),
-        NextChannelSequencePath.to_string(),
-    ] {
-        let (_v, proof_opt, h) = gw.query_at_height(&path, height).await?;
-        if let Some(proof) = proof_opt {
-            let root = existence_root_from_proof_bytes(&proof)?;
-            if root.len() == 32 {
-                return Ok((root, h));
-            }
-        }
-    }
-    Err(anyhow!(
-        "unable to obtain commitment root at height {height} (endpoint + proof fallbacks failed)"
-    ))
-}
+/// Canonical IBC key prefix used in Merkle proofs (ICS‑24).
+pub const IBC_PREFIX: &[u8] = b"ibc";
+
+// --- Deterministic one‑validator machinery ---
 
 fn one_validator_set_and_key() -> (
     Vec<u8>,                        // validators_hash
