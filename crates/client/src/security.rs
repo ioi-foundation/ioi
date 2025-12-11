@@ -25,6 +25,7 @@ use tokio_rustls::{
 
 /// An enum to identify the client connecting to the Guardian.
 #[repr(u8)]
+#[allow(dead_code)]
 enum IpcClientId {
     Orchestration = 1,
     Workload = 2,

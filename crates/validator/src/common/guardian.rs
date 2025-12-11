@@ -22,7 +22,8 @@ use ioi_types::app::{
     SignatureSuite,
 };
 use ioi_types::error::ValidatorError;
-use rcgen::{Certificate, CertificateParams, KeyUsagePurpose, SanType};
+// [FIX] Added Ia5String and KeyPair for rcgen 0.13 compatibility
+use rcgen::{CertificateParams, Ia5String, KeyPair, KeyUsagePurpose, SanType};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{Read, Write};
@@ -196,15 +197,19 @@ pub fn generate_certificates_if_needed(certs_dir: &Path) -> Result<()> {
     );
     std::fs::create_dir_all(certs_dir)?;
 
-    let mut ca_params = CertificateParams::new(vec!["IOI SDK Local CA".to_string()]);
+    // [FIX] rcgen 0.13 changes: CertificateParams::new returns Result
+    let mut ca_params = CertificateParams::new(vec!["IOI SDK Local CA".to_string()])?;
     ca_params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
     ca_params.key_usages = vec![KeyUsagePurpose::KeyCertSign, KeyUsagePurpose::CrlSign];
-    let ca_cert = Certificate::from_params(ca_params)?;
-    std::fs::write(certs_dir.join("ca.pem"), ca_cert.serialize_pem()?)?;
-    std::fs::write(
-        certs_dir.join("ca.key"),
-        ca_cert.serialize_private_key_pem(),
-    )?;
+
+    // [FIX] Generate keypair explicitly
+    let ca_keypair = KeyPair::generate()?;
+    // [FIX] Use self_signed
+    let ca_cert = ca_params.self_signed(&ca_keypair)?;
+
+    // [FIX] Use pem() instead of serialize_pem()
+    std::fs::write(certs_dir.join("ca.pem"), ca_cert.pem())?;
+    std::fs::write(certs_dir.join("ca.key"), ca_keypair.serialize_pem())?;
 
     let signers = [
         ("guardian-server", vec!["guardian", "localhost"]),
@@ -213,20 +218,25 @@ pub fn generate_certificates_if_needed(certs_dir: &Path) -> Result<()> {
         ("workload", vec![]),
     ];
     for (name, domains) in &signers {
-        let mut params = CertificateParams::new(vec![name.to_string()]);
+        // [FIX] CertificateParams::new returns Result
+        let mut params = CertificateParams::new(vec![name.to_string()])?;
         params.subject_alt_names = domains
             .iter()
-            .map(|d| SanType::DnsName(d.to_string()))
+            .map(|d| {
+                // [FIX] Use Ia5String for DnsName
+                SanType::DnsName(Ia5String::try_from(d.to_string()).expect("valid dns name"))
+            })
             .chain(vec![SanType::IpAddress(Ipv4Addr::LOCALHOST.into())])
             .collect();
-        let cert = Certificate::from_params(params)?;
-        std::fs::write(
-            certs_dir.join(format!("{}.pem", name)),
-            cert.serialize_pem_with_signer(&ca_cert)?,
-        )?;
+
+        let keypair = KeyPair::generate()?;
+        // [FIX] Use signed_by
+        let cert = params.signed_by(&keypair, &ca_cert, &ca_keypair)?;
+
+        std::fs::write(certs_dir.join(format!("{}.pem", name)), cert.pem())?;
         std::fs::write(
             certs_dir.join(format!("{}.key", name)),
-            cert.serialize_private_key_pem(),
+            keypair.serialize_pem(),
         )?;
     }
     Ok(())

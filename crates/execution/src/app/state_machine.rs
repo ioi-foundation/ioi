@@ -224,7 +224,7 @@ where
                         .try_into()
                         .map_err(|_| ChainError::Transaction("Timestamp overflow".to_string()))?;
                     Timestamp::from_nanoseconds(ts_ns)
-                        .map_err(|e| ChainError::Transaction(format!("Invalid timestamp: {}", e)))?
+                    // [FIX] Removed .map_err(...)
                 },
                 chain_id: self.state.chain_id,
                 signer_account_id: AccountId::default(),

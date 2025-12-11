@@ -1,4 +1,4 @@
-// Path: crates/network/src/libp2p/sync.rs
+// Path: crates/networking/src/libp2p/sync.rs
 
 //! The part of the libp2p implementation handling the BlockSync trait.
 
@@ -6,13 +6,13 @@ use crate::traits::{BlockSync, NodeState, SyncError};
 use async_trait::async_trait;
 use ioi_types::app::{Block, ChainId, ChainTransaction};
 use ioi_types::codec;
-use futures::io::{AsyncRead, AsyncWrite};
+// [FIX] Added AsyncReadExt/AsyncWriteExt for read_exact/write_all
+use futures::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use libp2p::{
-    core::upgrade::{read_length_prefixed, write_length_prefixed},
+    // [FIX] Removed core::upgrade imports
     request_response::Codec,
     PeerId,
 };
-// [+] ADD these imports
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, sync::Arc};
@@ -22,7 +22,6 @@ use super::{Libp2pSync, SwarmCommand};
 
 // --- Block Sync Protocol Definitions ---
 
-// [+] ADD all the derive macros here
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub enum SyncRequest {
     GetStatus,
@@ -31,11 +30,9 @@ pub enum SyncRequest {
         max_blocks: u32,
         max_bytes: u32,
     },
-    // [NEW] Add a variant to carry a agentic prompt to a peer.
     AgenticPrompt(String),
 }
 
-// [+] ADD all the derive macros here
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub enum SyncResponse {
     Status {
@@ -45,12 +42,80 @@ pub enum SyncResponse {
         genesis_root: Vec<u8>,
     },
     Blocks(Vec<Block<ChainTransaction>>),
-    // [NEW] Add a simple acknowledgement for agentic prompts.
     AgenticAck,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct SyncCodec;
+
+// [FIX] Local implementation of length-prefixed reading (UVI varint)
+async fn read_length_prefixed<T: AsyncRead + Unpin + Send>(
+    io: &mut T,
+    max_len: usize,
+) -> std::io::Result<Vec<u8>> {
+    let mut buf = [0u8; 10]; // Max varint size for u64
+    let mut i = 0;
+    let mut len: u64 = 0;
+    let mut shift = 0;
+
+    loop {
+        if i >= buf.len() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Varint too long",
+            ));
+        }
+        let mut b = [0u8; 1];
+        io.read_exact(&mut b).await?;
+        let byte = b[0];
+
+        len |= ((byte & 0x7f) as u64) << shift;
+        shift += 7;
+
+        if (byte & 0x80) == 0 {
+            break;
+        }
+        i += 1;
+    }
+
+    if len > max_len as u64 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "Message too large",
+        ));
+    }
+
+    let mut vec = vec![0u8; len as usize];
+    io.read_exact(&mut vec).await?;
+    Ok(vec)
+}
+
+// [FIX] Local implementation of length-prefixed writing (UVI varint)
+async fn write_length_prefixed<T: AsyncWrite + Unpin + Send>(
+    io: &mut T,
+    data: Vec<u8>,
+) -> std::io::Result<()> {
+    let mut len = data.len() as u64;
+    let mut buf = [0u8; 10];
+    let mut i = 0;
+
+    loop {
+        let mut byte = (len & 0x7f) as u8;
+        len >>= 7;
+        if len != 0 {
+            byte |= 0x80;
+        }
+        buf[i] = byte;
+        i += 1;
+        if len == 0 {
+            break;
+        }
+    }
+
+    io.write_all(&buf[..i]).await?;
+    io.write_all(&data).await?;
+    Ok(())
+}
 
 #[async_trait]
 impl Codec for SyncCodec {

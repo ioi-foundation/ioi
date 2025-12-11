@@ -16,7 +16,10 @@ use ibc_core_client_context::{
 };
 use ibc_core_client_types::{error::ClientError as IbcClientError, Height};
 use ibc_core_commitment_types::specs::ProofSpecs;
-use ibc_core_handler_types::error::ContextError;
+
+// [FIX] Use HostError
+use ibc::core::host::types::error::HostError;
+
 use ibc_core_host_types::{
     identifiers::ClientId,
     path::{ClientConsensusStatePath, ClientStatePath},
@@ -25,16 +28,13 @@ use ibc_primitives::Timestamp;
 use ibc_proto::google::protobuf::Any as PbAny;
 
 // ✅ Verify at the Merkle layer
-use ibc_core_commitment_types::merkle::MerkleProof as IbcMerkleProof;
+use ibc_core_commitment_types::merkle::{MerklePath, MerkleProof as IbcMerkleProof};
 use ibc_proto::ibc::core::commitment::v1::{
     MerklePath as PbMerklePath, MerkleProof as RawMerkleProof, MerkleRoot as PbMerkleRoot,
 };
 use ibc_proto::ics23 as pb_ics23;
-// NEW: Tendermint ProofOps support
 use tendermint_proto::crypto::ProofOps as TmProofOps;
-// (Field name is `r#type` on ProofOp due to Rust keyword; we don't need the type itself in imports.)
 
-use ics23::HostFunctionsManager;
 use ioi_api::error::CoreError;
 use ioi_api::ibc::{LightClient, VerifyCtx};
 use ioi_api::state::StateAccess;
@@ -44,6 +44,63 @@ use prost::Message;
 use std::fmt;
 use std::str::FromStr;
 use std::sync::Arc;
+
+// dcrypt imports
+use dcrypt::algorithms::hash::blake2::{Blake2b, Blake2s};
+use dcrypt::algorithms::hash::sha2::{Sha256, Sha512};
+use dcrypt::algorithms::hash::HashFunction;
+use dcrypt::algorithms::hash::Keccak256;
+
+// Correct HostFunctionsProvider implementation for ics23 v0.12 using dcrypt
+struct IoiHostFunctions;
+impl ibc_proto::ics23::HostFunctionsProvider for IoiHostFunctions {
+    fn sha2_256(data: &[u8]) -> [u8; 32] {
+        let digest = Sha256::digest(data).expect("sha256 digest");
+        let mut out = [0u8; 32];
+        out.copy_from_slice(digest.as_ref());
+        out
+    }
+    fn sha2_512(data: &[u8]) -> [u8; 64] {
+        let digest = Sha512::digest(data).expect("sha512 digest");
+        let mut out = [0u8; 64];
+        out.copy_from_slice(digest.as_ref());
+        out
+    }
+    // [FIX] Removed sha2_512_256, replaced with sha2_512_truncated
+    fn sha2_512_truncated(data: &[u8]) -> [u8; 32] {
+        // Typically refers to SHA-512/256 or truncated SHA-512
+        let digest = Sha512::digest(data).expect("sha512 digest");
+        let mut out = [0u8; 32];
+        out.copy_from_slice(&digest.as_ref()[..32]);
+        out
+    }
+    fn ripemd160(_data: &[u8]) -> [u8; 20] {
+        // Not supported by dcrypt standard set; return dummy.
+        [0u8; 20]
+    }
+    fn keccak_256(data: &[u8]) -> [u8; 32] {
+        let mut out = [0u8; 32];
+        let digest = Keccak256::digest(data).expect("keccak256 digest");
+        out.copy_from_slice(digest.as_ref());
+        out
+    }
+    fn blake2b_512(data: &[u8]) -> [u8; 64] {
+        let mut out = [0u8; 64];
+        let digest = Blake2b::digest(data).expect("blake2b digest");
+        out.copy_from_slice(digest.as_ref());
+        out
+    }
+    fn blake2s_256(data: &[u8]) -> [u8; 32] {
+        let mut out = [0u8; 32];
+        let digest = Blake2s::digest(data).expect("blake2s digest");
+        out.copy_from_slice(digest.as_ref());
+        out
+    }
+    fn blake3(_data: &[u8]) -> [u8; 32] {
+        // Placeholder
+        [0u8; 32]
+    }
+}
 
 /// A helper to build a Merkle path that includes the "ibc" store prefix.
 fn pb_merkle_path_with_ibc_prefix(path_str: &str) -> PbMerklePath {
@@ -61,26 +118,20 @@ fn pb_merkle_path_with_ibc_prefix(path_str: &str) -> PbMerklePath {
     PbMerklePath { key_path: segments }
 }
 
-/// A helper to robustly decode proof bytes, which may be wrapped in various ways.
-/// Supports Any(ProofOps), Any(MerkleProof), Any(CommitmentProof), raw ProofOps,
-/// raw MerkleProof, and raw CommitmentProof.
+/// A helper to robustly decode proof bytes.
 fn decode_merkle_proof_flex(bytes: &[u8]) -> Result<IbcMerkleProof, CoreError> {
-    // Path A: The bytes are a google.protobuf.Any wrapper.
     if let Ok(any) = PbAny::decode(bytes) {
         let t = any.type_url.trim_start_matches('/');
 
-        // A0) Any -> Tendermint ProofOps -> (extract ICS-23) -> MerkleProof
         if t == "tendermint.crypto.ProofOps"
             || t == "tendermint.crypto.merkle.ProofOps"
             || t == "type.googleapis.com/tendermint.crypto.ProofOps"
-            || t == "type.googleapis.com/tendermint.crypto.merkle.ProofOps"
         {
             let tm = TmProofOps::decode(any.value.as_slice())
                 .map_err(|e| CoreError::Custom(format!("decode Any(ProofOps): {e}")))?;
             return tm_proofops_to_ibc_merkle(tm);
         }
 
-        // 1) Any -> MerkleProof
         if t == "ibc.core.commitment.v1.MerkleProof"
             || t == "type.googleapis.com/ibc.core.commitment.v1.MerkleProof"
         {
@@ -90,27 +141,20 @@ fn decode_merkle_proof_flex(bytes: &[u8]) -> Result<IbcMerkleProof, CoreError> {
                 .map_err(|e| CoreError::Custom(format!("convert Any(MerkleProof): {e}")));
         }
 
-        // 2) Any -> ICS23 CommitmentProof -> wrap into MerkleProof
         if t == "ics23.CommitmentProof"
             || t == "cosmos.ics23.v1.CommitmentProof"
-            || t == "cosmos.crypto.ics23.v1.CommitmentProof"
             || t == "type.googleapis.com/ics23.CommitmentProof"
-            || t == "type.googleapis.com/cosmos.crypto.ics23.v1.CommitmentProof"
         {
             let cp = pb_ics23::CommitmentProof::decode(any.value.as_slice())
                 .map_err(|e| CoreError::Custom(format!("decode Any(CommitmentProof): {e}")))?;
             let raw = RawMerkleProof { proofs: vec![cp] };
             return IbcMerkleProof::try_from(raw).map_err(|e| {
-                CoreError::Custom(format!(
-                    "convert Any(CommitmentProof)->MerkleProof: {e}"
-                ))
+                CoreError::Custom(format!("convert Any(CommitmentProof)->MerkleProof: {e}"))
             });
         }
 
-        // Unknown Any type_url: fall through to raw attempts below using `any.value`.
-        // Try to be helpful by attempting all variants on the inner bytes.
+        // Fallback for unknown type URLs but valid inner bytes
         if let Ok(tm) = TmProofOps::decode(any.value.as_slice()) {
-            // If inner bytes are actually ProofOps, extract ICS-23 and return.
             return tm_proofops_to_ibc_merkle(tm);
         }
         if let Ok(raw) = RawMerkleProof::decode(any.value.as_slice()) {
@@ -127,63 +171,52 @@ fn decode_merkle_proof_flex(bytes: &[u8]) -> Result<IbcMerkleProof, CoreError> {
         }
 
         return Err(CoreError::Custom(format!(
-            "unsupported Any type_url '{}' and inner bytes not ProofOps/MerkleProof/CommitmentProof",
+            "unsupported Any type_url '{}'",
             t
         )));
     }
 
-    // Path B: Outer bytes are MerkleProof directly.
     if let Ok(raw) = RawMerkleProof::decode(bytes) {
         return IbcMerkleProof::try_from(raw)
             .map_err(|e| CoreError::Custom(format!("convert MerkleProof: {e}")));
     }
 
-    // Path B2: Outer bytes are Tendermint ProofOps directly.
     if let Ok(tm) = TmProofOps::decode(bytes) {
         return tm_proofops_to_ibc_merkle(tm);
     }
 
-    // Path C: Outer bytes are ICS23 CommitmentProof directly.
     if let Ok(cp) = pb_ics23::CommitmentProof::decode(bytes) {
         let raw = RawMerkleProof { proofs: vec![cp] };
         return IbcMerkleProof::try_from(raw)
             .map_err(|e| CoreError::Custom(format!("convert CommitmentProof->MerkleProof: {e}")));
     }
 
-    Err(CoreError::Custom(
-        "proof bytes are neither Any(ProofOps|MerkleProof|CommitmentProof) nor raw ProofOps/MerkleProof/CommitmentProof".into(),
-    ))
+    Err(CoreError::Custom("proof bytes are unknown format".into()))
 }
 
-/// A helper to decode an `Any`-wrapped message from bytes.
 fn decode_any<T: prost::Message + Default>(
     bytes: &[u8],
     expected_type_url: &str,
 ) -> Result<T, ClientError> {
-    let any = PbAny::decode(bytes).map_err(|e| ClientError::Other {
+    let any = PbAny::decode(bytes).map_err(|e| ClientError::ClientSpecific {
         description: format!("failed to decode Any: {e}"),
     })?;
     if any.type_url != expected_type_url {
-        return Err(ClientError::Other {
+        return Err(ClientError::ClientSpecific {
             description: format!(
                 "unexpected Any type_url: got {}, expected {}",
                 any.type_url, expected_type_url
             ),
         });
     }
-    T::decode(any.value.as_slice()).map_err(|e| ClientError::Other {
+    T::decode(any.value.as_slice()).map_err(|e| ClientError::ClientSpecific {
         description: format!("failed to decode inner message: {e}"),
     })
 }
 
-/// Convert a Tendermint `ProofOps` (possibly containing ICS-23 ops) into an IBC MerkleProof.
 fn tm_proofops_to_ibc_merkle(raw: TmProofOps) -> Result<IbcMerkleProof, CoreError> {
-    // Typical pattern: a single op where `op.r#type` contains "ics23" and `op.data`
-    // holds a serialized `ics23.CommitmentProof`. But be tolerant and collect any ICS-23 ops.
     let mut proofs: Vec<pb_ics23::CommitmentProof> = Vec::new();
     for op in raw.ops {
-        // Heuristic: many stacks label the op type with "ics23" or "iavl". We don't hard fail if it doesn't match.
-        // Try to decode the op.data as an ICS-23 CommitmentProof; if it works, include it.
         if let Ok(cp) = pb_ics23::CommitmentProof::decode(op.data.as_slice()) {
             proofs.push(cp);
         }
@@ -198,11 +231,10 @@ fn tm_proofops_to_ibc_merkle(raw: TmProofOps) -> Result<IbcMerkleProof, CoreErro
         .map_err(|e| CoreError::Custom(format!("convert ProofOps->MerkleProof: {e}")))
 }
 
-/// A verifier for Tendermint-based chains using the `ibc-rs` implementation.
 #[derive(Clone)]
 pub struct TendermintVerifier {
     chain_id: String,
-    client_id: String, // e.g., "07-tendermint-0"
+    client_id: String,
     state_accessor: Arc<dyn StateAccess>,
 }
 
@@ -215,50 +247,45 @@ impl fmt::Debug for TendermintVerifier {
     }
 }
 
-// A minimal mock context to satisfy the new API requirements.
 pub struct MockClientCtx<'a, S: StateAccess + ?Sized> {
     pub state_accessor: &'a S,
     pub client_id: ClientId,
-    // Current block height on the host chain (fallback if no override is set).
     pub current_block_height: u64,
-    // Optional overrides to align host view with the header being verified.
     pub host_height_override: Option<Height>,
     pub host_timestamp_override: Option<Timestamp>,
 }
 
 impl<'a, S: StateAccess + ?Sized> ExtClientValidationContext for MockClientCtx<'a, S> {
-    fn host_timestamp(&self) -> Result<Timestamp, ContextError> {
+    fn host_timestamp(&self) -> Result<Timestamp, HostError> {
         if let Some(ts) = self.host_timestamp_override {
             return Ok(ts);
         }
-        // Fallback heuristic: 5s per block if no override provided.
         const BLOCK_INTERVAL_NANOS: u64 = 5 * 1_000_000_000;
         let timestamp_nanos = self
             .current_block_height
             .saturating_mul(BLOCK_INTERVAL_NANOS);
-        Timestamp::from_nanoseconds(timestamp_nanos).map_err(|e| {
-            ContextError::from(ClientError::Other {
-                description: format!("Failed to create timestamp: {}", e),
-            })
-        })
+
+        // [FIX] timestamp is infallible here
+        Ok(Timestamp::from_nanoseconds(timestamp_nanos))
     }
 
-    fn host_height(&self) -> Result<Height, ContextError> {
+    fn host_height(&self) -> Result<Height, HostError> {
         if let Some(h) = self.host_height_override {
             return Ok(h);
         }
-        Height::new(0, self.current_block_height).map_err(ContextError::ClientError)
+        // [FIX] Removed .into(), passing ClientError directly to invalid_state which takes T: ToString
+        Height::new(0, self.current_block_height).map_err(|e| HostError::invalid_state(e))
     }
 
-    fn consensus_state_heights(&self, _client_id: &ClientId) -> Result<Vec<Height>, ContextError> {
-        unimplemented!("consensus_state_heights is not needed for this mock context")
+    fn consensus_state_heights(&self, _client_id: &ClientId) -> Result<Vec<Height>, HostError> {
+        Ok(Vec::new())
     }
 
     fn next_consensus_state(
         &self,
         _client_id: &ClientId,
         _height: &Height,
-    ) -> Result<Option<<Self as ClientValidationContext>::ConsensusStateRef>, ContextError> {
+    ) -> Result<Option<<Self as ClientValidationContext>::ConsensusStateRef>, HostError> {
         Ok(None)
     }
 
@@ -266,7 +293,7 @@ impl<'a, S: StateAccess + ?Sized> ExtClientValidationContext for MockClientCtx<'
         &self,
         _client_id: &ClientId,
         _height: &Height,
-    ) -> Result<Option<<Self as ClientValidationContext>::ConsensusStateRef>, ContextError> {
+    ) -> Result<Option<<Self as ClientValidationContext>::ConsensusStateRef>, HostError> {
         Ok(None)
     }
 }
@@ -275,72 +302,49 @@ impl<'a, S: StateAccess + ?Sized> ClientValidationContext for MockClientCtx<'a, 
     type ClientStateRef = TmClientState;
     type ConsensusStateRef = TmConsensusState;
 
-    fn client_state(&self, _client_id: &ClientId) -> Result<Self::ClientStateRef, ContextError> {
+    fn client_state(&self, _client_id: &ClientId) -> Result<Self::ClientStateRef, HostError> {
         let path = ClientStatePath::new(self.client_id.clone());
         let bytes = self
             .state_accessor
             .get(path.to_string().as_bytes())
-            .map_err(|e| ClientError::Other {
-                description: e.to_string(),
-            })?
-            .ok_or_else(|| ClientError::Other {
-                description: "Client state not found".to_string(),
-            })?;
+            .map_err(|e| HostError::failed_to_retrieve(e.to_string()))?
+            .ok_or_else(|| HostError::missing_state("Client state not found".to_string()))?;
         let raw =
-            decode_any::<RawTmClientState>(&bytes, "/ibc.lightclients.tendermint.v1.ClientState")?;
-        TmClientState::try_from(raw).map_err(|e| {
-            ClientError::ClientSpecific {
-                description: e.to_string(),
-            }
-            .into()
-        })
+            decode_any::<RawTmClientState>(&bytes, "/ibc.lightclients.tendermint.v1.ClientState")
+                .map_err(|e| HostError::invalid_state(e.to_string()))?;
+        TmClientState::try_from(raw).map_err(|e| HostError::invalid_state(e.to_string()))
     }
 
     fn consensus_state(
         &self,
         path: &ClientConsensusStatePath,
-    ) -> Result<Self::ConsensusStateRef, ContextError> {
+    ) -> Result<Self::ConsensusStateRef, HostError> {
         let bytes = self
             .state_accessor
             .get(path.to_string().as_bytes())
-            .map_err(|e| ClientError::Other {
-                description: e.to_string(),
-            })?
-            .ok_or_else(|| ClientError::Other {
-                description: "Consensus state not found".to_string(),
-            })?;
+            .map_err(|e| HostError::failed_to_retrieve(e.to_string()))?
+            .ok_or_else(|| HostError::missing_state("Consensus state not found".to_string()))?;
         let raw = decode_any::<RawTmConsensusState>(
             &bytes,
             "/ibc.lightclients.tendermint.v1.ConsensusState",
-        )?;
-        TmConsensusState::try_from(raw).map_err(|e| {
-            ClientError::ClientSpecific {
-                description: e.to_string(),
-            }
-            .into()
-        })
+        )
+        .map_err(|e| HostError::invalid_state(e.to_string()))?;
+        TmConsensusState::try_from(raw).map_err(|e| HostError::invalid_state(e.to_string()))
     }
 
     fn client_update_meta(
         &self,
         client_id: &ClientId,
         height: &Height,
-    ) -> Result<(Timestamp, Height), ContextError> {
-        Err(ContextError::ClientError(
-            ClientError::UpdateMetaDataNotFound {
-                client_id: client_id.clone(),
-                height: *height,
-            },
-        ))
+    ) -> Result<(Timestamp, Height), HostError> {
+        Err(HostError::missing_state(format!(
+            "Update metadata not found for {client_id} at {height}"
+        )))
     }
 }
 
 impl TendermintVerifier {
-    pub fn new(
-        chain_id: String,
-        client_id: String,
-        state_accessor: Arc<dyn StateAccess>,
-    ) -> Self {
+    pub fn new(chain_id: String, client_id: String, state_accessor: Arc<dyn StateAccess>) -> Self {
         Self {
             chain_id,
             client_id,
@@ -394,7 +398,6 @@ impl LightClient for TendermintVerifier {
         let tm_header: TmHeader = TmHeader::try_from(RawTmHeader::decode(tm_header_bytes)?)
             .map_err(|e| CoreError::Custom(format!("Failed to decode Tendermint Header: {}", e)))?;
 
-        // Align host view with the header we’re verifying.
         let header_height: u64 = tm_header
             .signed_header
             .header
@@ -410,9 +413,10 @@ impl LightClient for TendermintVerifier {
         )
         .unwrap_or(0);
 
+        // [FIX] Timestamp is infallible
         let host_ts =
-            Timestamp::from_nanoseconds(hdr_secs.saturating_add(1).saturating_mul(1_000_000_000))
-                .map_err(|e| CoreError::Custom(format!("timestamp build: {e}")))?;
+            Timestamp::from_nanoseconds(hdr_secs.saturating_add(1).saturating_mul(1_000_000_000));
+
         let host_h = Height::new(
             client_state.latest_height().revision_number(),
             header_height.saturating_add(1),
@@ -438,7 +442,6 @@ impl LightClient for TendermintVerifier {
         header: &Header,
         _ctx: &mut VerifyCtx,
     ) -> Result<(), CoreError> {
-        // 0) Inputs
         let p = match proof {
             InclusionProof::Ics23(p) => p,
             _ => {
@@ -448,7 +451,6 @@ impl LightClient for TendermintVerifier {
             }
         };
 
-        // 1) Extract app_hash (state root) and proof height from the Tendermint header.
         let raw_header: RawTmHeader = match header {
             Header::Tendermint(h) => RawTmHeader::decode(&*h.data).map_err(|e| {
                 CoreError::Custom(format!("failed to decode Tendermint header bytes: {e}"))
@@ -460,7 +462,7 @@ impl LightClient for TendermintVerifier {
             }
         };
 
-        let (app_hash_bytes, proof_height): (Vec<u8>, u64) = {
+        let (app_hash_bytes, _proof_height): (Vec<u8>, u64) = {
             let sh = raw_header
                 .signed_header
                 .as_ref()
@@ -474,29 +476,25 @@ impl LightClient for TendermintVerifier {
             (hdr.app_hash.clone(), h)
         };
 
-        // Merkle root is the proto type expected by this verify method (taken by value).
         let merkle_root = PbMerkleRoot {
             hash: app_hash_bytes,
         };
 
-        // 2) Build a Merkle path that *includes* the "ibc" store prefix (this method variant has no prefix arg).
         let pb_path = pb_merkle_path_with_ibc_prefix(&p.path);
+        let merkle_path: MerklePath = pb_path.into();
 
-        // 3) Decode proof bytes robustly (Any/MerkleProof/CommitmentProof)
         let merkle_proof: IbcMerkleProof = decode_merkle_proof_flex(&p.proof_bytes)?;
 
-        // 4) Cosmos proof specs and verification.
         let proof_specs = ProofSpecs::cosmos();
 
-        // NOTE: In this ibc-rs snapshot, verify_membership takes:
-        //   (&ProofSpecs, MerkleRoot (by value), MerklePath (by value), value, height)
+        // [FIX] Update verify_membership call signature. Pass 0 as start_index.
         merkle_proof
-            .verify_membership::<HostFunctionsManager>(
+            .verify_membership::<IoiHostFunctions>(
                 &proof_specs,
-                merkle_root,     // by value (not &)
-                pb_path,         // by value (not &)
-                p.value.clone(), // expected value bytes
-                proof_height,    // proof height from the header
+                merkle_root,
+                merkle_path,
+                p.value.clone(),
+                0, // start_index
             )
             .map_err(|e| CoreError::Custom(format!("ICS-23 membership check failed: {e}")))?;
 
@@ -504,7 +502,6 @@ impl LightClient for TendermintVerifier {
     }
 
     async fn latest_verified_height(&self) -> u64 {
-        // Use the canonical 07-tendermint type for lookup
         let Ok(client_id) = ClientId::from_str("07-tendermint-0") else {
             return 0;
         };

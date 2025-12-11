@@ -1,3 +1,4 @@
+# Path: crates/services/Cargo.toml
 [package]
 name = "ioi-services"
 version = "0.1.0"
@@ -10,7 +11,7 @@ repository = "https://github.com/ioi-foundation/ioi-sdk"
 [dependencies]
 ioi-api = { path = "../api" }
 ioi-types = { path = "../types" }
-ioi-macros = { path = "../macros" }                           # [NEW]
+ioi-macros = { path = "../macros" }
 log = { workspace = true }
 tracing = { workspace = true }
 serde = { workspace = true }
@@ -28,6 +29,7 @@ parity-scale-codec = { workspace = true, features = ["std"] }
 prost = { workspace = true }
 byte-slice-cast = "1.2"
 bincode = { workspace = true }
+dcrypt = { workspace = true }
 
 ibc-client-tendermint = { workspace = true, features = [
     "std",
@@ -64,7 +66,7 @@ ibc-proto = { workspace = true, features = ["serde", "std"], optional = true }
 tendermint-proto = { workspace = true, optional = true }
 tendermint = { workspace = true, optional = true }
 ibc = { workspace = true, features = ["std"], optional = true }
-ics23 = { version = "0.11", optional = true }
+ics23 = { version = "0.12.0", optional = true }
 zk-driver-succinct = { path = "../zk-driver-succinct", optional = true }
 
 [features]
