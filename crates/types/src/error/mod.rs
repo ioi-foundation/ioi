@@ -494,6 +494,10 @@ pub enum ChainError {
     /// An attempt was made to resolve an unknown or pruned state anchor.
     #[error("Could not resolve unknown state anchor: {0}")]
     UnknownStateAnchor(String),
+    /// An error occurred communicating with the execution backend (Workload).
+    /// This implies the transaction/block validity is unknown/undetermined.
+    #[error("Execution client transport error: {0}")]
+    ExecutionClient(String),
 }
 
 impl ErrorCode for ChainError {
@@ -504,6 +508,7 @@ impl ErrorCode for ChainError {
             Self::State(_) => "CHAIN_STATE_ERROR",
             Self::Time(_) => "CHAIN_TIME_ERROR",
             Self::UnknownStateAnchor(_) => "CHAIN_UNKNOWN_ANCHOR",
+            Self::ExecutionClient(_) => "CHAIN_EXECUTION_CLIENT_ERROR",
         }
     }
 }

@@ -36,6 +36,20 @@ use ioi_ipc::blockchain::{
 // Threshold (64KB) for switching to shared memory transfer
 const BLOCK_SHMEM_THRESHOLD: usize = 64 * 1024;
 
+/// Helper to distinguish logic errors (from the remote) vs transport errors (from tonic)
+fn map_grpc_error(status: tonic::Status) -> ChainError {
+    match status.code() {
+        // If the server explicitly returns InvalidArgument, it likely processed it
+        // and rejected it logically (e.g., bad signature, state conflict).
+        tonic::Code::InvalidArgument => ChainError::Transaction(status.message().to_string()),
+        tonic::Code::FailedPrecondition => ChainError::Transaction(status.message().to_string()),
+
+        // Everything else (Unavailable, DeadlineExceeded, Internal, etc.)
+        // suggests the infrastructure failed, not the logic.
+        _ => ChainError::ExecutionClient(status.to_string()),
+    }
+}
+
 /// A client for communicating with the Workload container via gRPC and Shared Memory.
 pub struct WorkloadClient {
     // gRPC Clients
@@ -388,7 +402,7 @@ impl WorkloadClientApi for WorkloadClient {
         let resp = client
             .process_block(req)
             .await
-            .map_err(|e| ChainError::Transaction(format!("gRPC process_block failed: {}", e)))?
+            .map_err(map_grpc_error)?
             .into_inner();
 
         let processed = codec::from_bytes_canonical(&resp.block_bytes).map_err(|e| {
@@ -414,7 +428,7 @@ impl WorkloadClientApi for WorkloadClient {
         let response = client
             .get_blocks_range(request)
             .await
-            .map_err(|e| ChainError::Transaction(format!("gRPC get_blocks_range failed: {}", e)))?
+            .map_err(map_grpc_error)?
             .into_inner();
 
         let raw_blocks = match response.data {
@@ -479,7 +493,7 @@ impl WorkloadClientApi for WorkloadClient {
         let response = client
             .check_transactions(request)
             .await
-            .map_err(|e| ChainError::Transaction(format!("gRPC check_transactions failed: {}", e)))?
+            .map_err(map_grpc_error)?
             .into_inner();
 
         let results = response
@@ -505,7 +519,7 @@ impl WorkloadClientApi for WorkloadClient {
         let response = client
             .query_state_at(request)
             .await
-            .map_err(|e| ChainError::Transaction(format!("gRPC query_state_at failed: {}", e)))?
+            .map_err(map_grpc_error)?
             .into_inner();
 
         codec::from_bytes_canonical(&response.response_bytes).map_err(|e| {
@@ -520,7 +534,7 @@ impl WorkloadClientApi for WorkloadClient {
         let response = client
             .query_raw_state(request)
             .await
-            .map_err(|e| ChainError::Transaction(format!("gRPC query_raw_state failed: {}", e)))?
+            .map_err(map_grpc_error)?
             .into_inner();
 
         if response.found {
@@ -542,7 +556,7 @@ impl WorkloadClientApi for WorkloadClient {
         let response = client
             .prefix_scan(request)
             .await
-            .map_err(|e| ChainError::Transaction(format!("gRPC prefix_scan failed: {}", e)))?
+            .map_err(map_grpc_error)?
             .into_inner();
 
         let pairs = response
@@ -561,9 +575,7 @@ impl WorkloadClientApi for WorkloadClient {
         let response = client
             .get_staked_validators(request)
             .await
-            .map_err(|e| {
-                ChainError::Transaction(format!("gRPC get_staked_validators failed: {}", e))
-            })?
+            .map_err(map_grpc_error)?
             .into_inner();
 
         let mut result = BTreeMap::new();
@@ -586,7 +598,7 @@ impl WorkloadClientApi for WorkloadClient {
         let response = client
             .get_genesis_status(request)
             .await
-            .map_err(|e| ChainError::Transaction(format!("gRPC get_genesis_status failed: {}", e)))?
+            .map_err(map_grpc_error)?
             .into_inner();
         Ok(response.ready)
     }
@@ -600,9 +612,10 @@ impl WorkloadClientApi for WorkloadClient {
         let request = UpdateBlockHeaderRequest { block_bytes };
 
         let mut client = self.chain.lock().await;
-        client.update_block_header(request).await.map_err(|e| {
-            ChainError::Transaction(format!("gRPC update_block_header failed: {}", e))
-        })?;
+        client
+            .update_block_header(request)
+            .await
+            .map_err(map_grpc_error)?;
         Ok(())
     }
 
