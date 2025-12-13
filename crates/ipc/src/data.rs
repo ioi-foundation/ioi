@@ -44,3 +44,18 @@ pub struct InferenceOutput {
     pub generated_tokens: Vec<u32>,
     pub stop_reason: u8,
 }
+
+/// A zero-copy optimized block structure for direct memory access by the Workload execution engine.
+/// 4KB alignment ensures compatibility with page-based memory mapping.
+#[derive(Archive, Deserialize, Serialize, Debug)]
+#[archive(check_bytes)]
+#[repr(C, align(4096))]
+pub struct ZeroCopyBlock {
+    /// The block height.
+    pub height: u64,
+    /// The block timestamp.
+    pub timestamp: u64,
+    /// Raw bytes of canonical transactions.
+    /// The VM will parse them individually, preventing a massive allocation for the whole vector.
+    pub transactions: Vec<Vec<u8>>,
+}

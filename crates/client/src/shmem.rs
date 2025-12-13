@@ -4,7 +4,11 @@ use ioi_ipc::access_rkyv_bytes;
 use rkyv::{Archive, Serialize};
 use shared_memory::{Shmem, ShmemConf};
 use std::fmt;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, TryLockError};
+
+// Use the ZeroCopyBlock from IPC
+use ioi_ipc::data::ZeroCopyBlock;
 
 /// A handle pointing to data written into the shared memory region.
 /// This corresponds directly to the `SharedMemoryHandle` in `blockchain.proto`.
@@ -34,6 +38,8 @@ pub struct DataPlane {
     size: usize,
     /// A simple mutex to coordinate writes within this process.
     write_lock: Mutex<()>,
+    /// Ring buffer write cursor.
+    write_cursor: AtomicU64,
 }
 
 impl fmt::Debug for DataPlane {
@@ -62,6 +68,7 @@ impl DataPlane {
             shmem: SafeShmem(shmem),
             size,
             write_lock: Mutex::new(()),
+            write_cursor: AtomicU64::new(0),
         })
     }
 
@@ -78,6 +85,7 @@ impl DataPlane {
             shmem: SafeShmem(shmem),
             size,
             write_lock: Mutex::new(()),
+            write_cursor: AtomicU64::new(0),
         })
     }
 
@@ -151,6 +159,57 @@ impl DataPlane {
             region_id: self.os_id.clone(),
             offset: offset as u64,
             length: len as u64,
+        })
+    }
+
+    /// Writes a ZeroCopyBlock to the ring buffer.
+    pub fn write_zero_copy_block(&self, block: &ZeroCopyBlock) -> Result<ShmemHandle> {
+        // Acquire lock to serialize writes to the ring buffer
+        let _guard = match self.write_lock.try_lock() {
+            Ok(g) => g,
+            Err(TryLockError::WouldBlock) => {
+                return Err(anyhow!("Data plane is currently busy (write contention)"));
+            }
+            Err(e) => return Err(anyhow!("Data plane lock poisoned: {}", e)),
+        };
+
+        let bytes = rkyv::to_bytes::<_, 4096>(block)
+            .map_err(|e| anyhow!("Rkyv serialization failed: {}", e))?;
+        let len = bytes.len() as u64;
+
+        let mut start = self.write_cursor.load(Ordering::Relaxed);
+        let capacity = self.size as u64;
+
+        // Reserve header space (e.g., first 1024 bytes) if needed, otherwise wrap logic
+        // Simplified ring logic:
+        if start + len > capacity {
+            // Wrap to beginning (skip header space if defined, here we assume start=1024)
+            start = 1024;
+        }
+
+        if start + len > capacity {
+             return Err(anyhow!(
+                "Block too large for ring buffer: {} bytes, capacity {}",
+                len,
+                capacity
+            ));
+        }
+
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                bytes.as_ptr(),
+                self.shmem.0.as_ptr().add(start as usize),
+                len as usize,
+            );
+        }
+
+        // Update cursor
+        self.write_cursor.store(start + len, Ordering::Relaxed);
+
+        Ok(ShmemHandle {
+            region_id: self.os_id.clone(),
+            offset: start,
+            length: len,
         })
     }
 

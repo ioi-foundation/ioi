@@ -459,6 +459,15 @@ impl ChainTransaction {
             .try_into()
             .map_err(|_| CoreError::Crypto("Invalid hash length".into()))
     }
+
+    /// Computes the 6-byte short ID of the transaction for compact block propagation.
+    /// This is derived from the full hash.
+    pub fn short_id(&self) -> ShortTxId {
+        let hash = self.hash().unwrap_or([0u8; 32]);
+        let mut out = [0u8; 6];
+        out.copy_from_slice(&hash[0..6]);
+        out
+    }
 }
 
 /// An enum wrapping all possible user-level transaction models.

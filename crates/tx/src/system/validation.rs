@@ -3,9 +3,8 @@
 //! Core, non-optional system logic for transaction signature validation.
 
 use ioi_api::services::access::ServiceDirectory;
-use ioi_api::state::{service_namespace_prefix, StateAccess};
-// FIX: Import ReadOnlyNamespacedStateAccess from the correct module path.
 use ioi_api::state::namespaced::ReadOnlyNamespacedStateAccess;
+use ioi_api::state::{service_namespace_prefix, StateAccess};
 use ioi_api::transaction::context::TxContext;
 use ioi_crypto::sign::{dilithium::DilithiumPublicKey, eddsa::Ed25519PublicKey};
 use ioi_types::app::{
@@ -55,10 +54,6 @@ fn verify_signature(
             Err("Falcon512 verification not yet implemented in crypto backend".to_string())
         }
         SignatureSuite::HybridEd25519Dilithium2 => {
-            // Hybrid Scheme: Ed25519 + Dilithium2
-            // Public Key structure: [Ed25519 (32 bytes)] || [Dilithium2 (1312 bytes)]
-            // Signature structure:  [Ed25519 (64 bytes)] || [Dilithium2 (2420 bytes)]
-
             const ED_PK_LEN: usize = 32;
             const ED_SIG_LEN: usize = 64;
 
@@ -79,8 +74,9 @@ fn verify_signature(
 
             // 2. Verify Post-Quantum (Dilithium2)
             let dil_pk = DilithiumPublicKey::from_bytes(dil_pk_bytes).map_err(|e| e.to_string())?;
-            let dil_sig = ioi_crypto::sign::dilithium::DilithiumSignature::from_bytes(dil_sig_bytes)
-                .map_err(|e| e.to_string())?;
+            let dil_sig =
+                ioi_crypto::sign::dilithium::DilithiumSignature::from_bytes(dil_sig_bytes)
+                    .map_err(|e| e.to_string())?;
             dil_pk
                 .verify(message, &dil_sig)
                 .map_err(|e| format!("Hybrid PQ fail: {}", e))?;
@@ -101,7 +97,6 @@ fn get_signature_components(
 ) -> Result<Option<SignatureComponents<'_>>, TransactionError> {
     match tx {
         ChainTransaction::System(sys_tx) => {
-            // Any transaction that changes state or requires replay protection must be signed.
             let sign_bytes = sys_tx
                 .to_sign_bytes()
                 .map_err(TransactionError::Serialization)?;
@@ -125,8 +120,6 @@ fn get_signature_components(
             }
             ApplicationTransaction::UTXO(_) => Ok(None),
         },
-        // [FIX] Semantic transactions rely on BLS CommitteeCertificates, not single-signer proofs.
-        // They are verified by the consensus engine or a specialized handler, not this general function.
         ChainTransaction::Semantic { .. } => Ok(None),
     }
 }
@@ -173,19 +166,35 @@ fn enforce_credential_policy(
     }
 }
 
-/// Verifies the signature of a transaction against the on-chain credentials or allows bootstrapping.
+/// Pure cryptographic verification. No state access.
+/// Can be run in parallel on a thread pool.
+pub fn verify_stateless_signature(tx: &ChainTransaction) -> Result<(), TransactionError> {
+    let (_, proof, sign_bytes) = match get_signature_components(tx)? {
+        Some(t) => t,
+        None => return Ok(()), // Unsigned tx (e.g. genesis/internal/utxo/semantic)
+    };
+
+    // Pure math check: sig matches pk
+    verify_signature(
+        proof.suite,
+        &proof.public_key,
+        &sign_bytes,
+        &proof.signature,
+    )
+    .map_err(TransactionError::InvalidSignature)
+}
+
+/// Stateful authorization check. Must run sequentially during execution.
+/// Verifies that the public key is actually authorized by the AccountId in state.
 ///
-/// This function takes an immutable `&dyn StateAccess` because signature verification
-/// is a read-only operation and should not mutate state. It performs reads through
-/// `ReadOnlyNamespacedStateAccess` to ensure correct isolation rules are applied
-/// even during validation.
-pub fn verify_transaction_signature(
+/// This function relies on the fact that `verify_stateless_signature` has ALREADY successfully run.
+pub fn verify_stateful_authorization(
     state: &dyn StateAccess,
     services: &ServiceDirectory,
     tx: &ChainTransaction,
     ctx: &TxContext,
 ) -> Result<(), TransactionError> {
-    let (header, proof, sign_bytes) = match get_signature_components(tx)? {
+    let (header, proof, _) = match get_signature_components(tx)? {
         Some(t) => t,
         None => return Ok(()),
     };
@@ -214,13 +223,13 @@ pub fn verify_transaction_signature(
     }
 
     if creds[0].is_none() && creds[1].is_none() {
-        // BOOTSTRAP PATH
+        // BOOTSTRAP PATH: Account must derive directly from key
         let derived_pk_hash = account_id_from_key_material(proof.suite, &proof.public_key)?;
         if header.account_id.0 != derived_pk_hash {
             return Err(TransactionError::AccountIdMismatch);
         }
     } else {
-        // CREDENTIAL PATH
+        // CREDENTIAL PATH: Key must be in the account's credentials
         let derived_pk_hash_array = account_id_from_key_material(proof.suite, &proof.public_key)?;
         let accept_staged = creds_view
             .as_ref()
@@ -234,13 +243,18 @@ pub fn verify_transaction_signature(
         )?;
     }
 
-    verify_signature(
-        proof.suite,
-        &proof.public_key,
-        &sign_bytes,
-        &proof.signature,
-    )
-    .map_err(TransactionError::InvalidSignature)?;
+    Ok(())
+}
 
+/// Legacy wrapper for backwards compatibility with tests that haven't updated to the split model.
+/// Performs both stateless verification and stateful authorization.
+pub fn verify_transaction_signature(
+    state: &dyn StateAccess,
+    services: &ServiceDirectory,
+    tx: &ChainTransaction,
+    ctx: &TxContext,
+) -> Result<(), TransactionError> {
+    verify_stateless_signature(tx)?;
+    verify_stateful_authorization(state, services, tx, ctx)?;
     Ok(())
 }

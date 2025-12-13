@@ -31,6 +31,9 @@ pub enum SyncRequest {
         max_bytes: u32,
     },
     AgenticPrompt(String),
+    // [NEW] Request missing transactions for compact block reconstruction
+    // Changed usize to u32 for deterministic SCALE encoding
+    RequestMissingTxs(Vec<u32>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
@@ -43,6 +46,8 @@ pub enum SyncResponse {
     },
     Blocks(Vec<Block<ChainTransaction>>),
     AgenticAck,
+    // [NEW] Response with missing transactions
+    MissingTxs(Vec<ChainTransaction>),
 }
 
 #[derive(Debug, Clone, Default)]
@@ -53,7 +58,7 @@ async fn read_length_prefixed<T: AsyncRead + Unpin + Send>(
     io: &mut T,
     max_len: usize,
 ) -> std::io::Result<Vec<u8>> {
-    let mut buf = [0u8; 10]; // Max varint size for u64
+    let buf = [0u8; 10]; // Max varint size for u64
     let mut i = 0;
     let mut len: u64 = 0;
     let mut shift = 0;
@@ -96,8 +101,11 @@ async fn write_length_prefixed<T: AsyncWrite + Unpin + Send>(
     data: Vec<u8>,
 ) -> std::io::Result<()> {
     let mut len = data.len() as u64;
-    let mut buf = [0u8; 10];
+    let buf = [0u8; 10]; // [FIX] Removed unused mut
     let mut i = 0;
+
+    // Use a separate buffer for encoding
+    let mut encoded_len = [0u8; 10];
 
     loop {
         let mut byte = (len & 0x7f) as u8;
@@ -105,14 +113,14 @@ async fn write_length_prefixed<T: AsyncWrite + Unpin + Send>(
         if len != 0 {
             byte |= 0x80;
         }
-        buf[i] = byte;
+        encoded_len[i] = byte;
         i += 1;
         if len == 0 {
             break;
         }
     }
 
-    io.write_all(&buf[..i]).await?;
+    io.write_all(&encoded_len[..i]).await?;
     io.write_all(&data).await?;
     Ok(())
 }

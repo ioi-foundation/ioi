@@ -1,6 +1,6 @@
 // Path: crates/types/src/app/consensus.rs
 
-use crate::app::{AccountId, ActiveKeyRecord};
+use crate::app::{AccountId, ActiveKeyRecord, BlockHeader, ChainTransaction};
 use crate::codec;
 use crate::error::StateError;
 use parity_scale_codec::{Decode, Encode};
@@ -131,4 +131,19 @@ pub fn effective_set_for_height(sets: &ValidatorSetsV1, h: u64) -> &ValidatorSet
         }
     }
     &sets.current
+}
+
+/// 6-byte short ID is sufficient for mempool deduplication within a short time window.
+pub type ShortTxId = [u8; 6];
+
+/// A bandwidth-optimized representation of a block for gossip.
+#[derive(Encode, Decode, Debug, Clone)]
+pub struct CompactBlock {
+    /// The full block header.
+    pub header: BlockHeader,
+    /// Short identifiers for all transactions in the block.
+    /// Peers use this list to reconstruct the block from their local mempool.
+    pub short_ids: Vec<ShortTxId>,
+    /// Full bytes of transactions that the proposer predicts peers might miss (optional).
+    pub prefilled_txs: Vec<ChainTransaction>,
 }

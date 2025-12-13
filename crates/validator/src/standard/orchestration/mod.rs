@@ -161,6 +161,8 @@ where
     pub nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
     /// [NEW] The signer for block headers (Local or Remote Oracle).
     pub signer: Arc<dyn GuardianSigner>,
+    /// Thread pool for CPU-intensive ingress tasks (signature verification).
+    cpu_pool: Arc<rayon::ThreadPool>,
 }
 
 impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
@@ -193,6 +195,12 @@ where
 
         let (consensus_kick_tx, consensus_kick_rx) = mpsc::unbounded_channel();
 
+        // Initialize thread pool for CPU bound tasks
+        let cpu_pool = Arc::new(rayon::ThreadPoolBuilder::new()
+            .num_threads(num_cpus::get())
+            .build()
+            .map_err(|e| anyhow::anyhow!("Failed to build CPU thread pool: {}", e))?);
+
         Ok(Self {
             config,
             genesis_hash: deps.genesis_hash,
@@ -218,6 +226,7 @@ where
             consensus_kick_rx: Mutex::new(Some(consensus_kick_rx)),
             nonce_manager: Arc::new(Mutex::new(BTreeMap::new())),
             signer: deps.signer,
+            cpu_pool,
         })
     }
 
