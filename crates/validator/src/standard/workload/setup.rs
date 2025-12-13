@@ -7,15 +7,13 @@ use ioi_api::{
     state::{ProofProvider, StateManager},
     storage::NodeStore,
     validator::WorkloadContainer,
-    vm::inference::mock::MockInferenceRuntime, // [NEW] Import Mock Runtime
+    vm::inference::mock::MockInferenceRuntime,
 };
 use ioi_consensus::util::engine_from_config;
 use ioi_execution::{util::load_state_from_genesis_file, ExecutionMachine};
 use ioi_services::{governance::GovernanceModule, identity::IdentityHub, oracle::OracleService};
-// [FIX] Correct crate import
 use ioi_storage::RedbEpochStore;
 use ioi_tx::unified::UnifiedTransactionModel;
-// [FIX] Import ValidatorRole
 use ioi_types::{
     app::{to_root_hash, Membership},
     config::{InitialServiceConfig, OrchestrationConfig, ValidatorRole, WorkloadConfig},
@@ -24,7 +22,6 @@ use ioi_types::{
 #[cfg(feature = "vm-wasm")]
 use ioi_vm_wasm::WasmRuntime;
 use rand::{thread_rng, Rng};
-// [FIX] Added Duration import
 use std::{path::Path, sync::Arc, time::Duration};
 use tokio::{sync::Mutex, time::interval};
 
@@ -117,27 +114,45 @@ where
         }
     }
 
+    // --- VM Setup ---
+
     #[cfg(feature = "vm-wasm")]
-    let vm: Box<dyn ioi_api::vm::VirtualMachine> =
-        Box::new(WasmRuntime::new(config.fuel_costs.clone())?);
+    struct VmWrapper(Arc<WasmRuntime>);
+
+    #[cfg(feature = "vm-wasm")]
+    #[async_trait::async_trait]
+    impl ioi_api::vm::VirtualMachine for VmWrapper {
+        async fn execute(
+            &self,
+            code: &[u8],
+            method: &str,
+            input: &[u8],
+            state: &dyn ioi_api::state::VmStateAccessor,
+            ctx: ioi_api::vm::ExecutionContext,
+        ) -> Result<ioi_api::vm::ExecutionOutput, ioi_types::error::VmError> {
+            self.0.execute(code, method, input, state, ctx).await
+        }
+    }
+
+    #[cfg(feature = "vm-wasm")]
+    let (wasm_runtime_arc, vm): (Arc<WasmRuntime>, Box<dyn ioi_api::vm::VirtualMachine>) = {
+        let runtime = WasmRuntime::new(config.fuel_costs.clone())?;
+        let arc = Arc::new(runtime);
+        // Correctly wrap the Arc in the adapter struct
+        (arc.clone(), Box::new(VmWrapper(arc)))
+    };
 
     // Fallback if VM-WASM is not enabled
     #[cfg(not(feature = "vm-wasm"))]
     let vm: Box<dyn ioi_api::vm::VirtualMachine> = {
-        // [FIX] Avoid unreachable code warning in normal builds
-        // This block is only compiled if vm-wasm is disabled.
-        // We return a dummy or panic.
         panic!("vm-wasm feature is required for Workload setup");
     };
 
     // [NEW] Instantiate the Mock Inference Runtime
-    // In a production environment, this would switch based on config to a PyTorch/ONNX runtime.
     let _inference: Box<dyn ioi_api::vm::inference::InferenceRuntime> =
         Box::new(MockInferenceRuntime::default());
     tracing::info!(target: "workload", "Initialized Mock Inference Runtime for agentic tasks.");
 
-    // [FIX] Move the temp config creation outside the if/else to be used later
-    // or simplify. Actually we only need consensus_engine.
     let _temp_orch_config = OrchestrationConfig {
         chain_id: 1.into(),
         config_schema_version: 0,
@@ -182,7 +197,17 @@ where
             #[cfg(feature = "ibc-deps")]
             InitialServiceConfig::Ibc(ibc_config) => {
                 tracing::info!(target: "workload", event = "service_init", name = "IBC", impl="native", capabilities="");
-                let mut verifier_registry = VerifierRegistry::new();
+
+                // [FIX] Pass the WasmRuntime Arc to the registry constructor
+                #[cfg(feature = "vm-wasm")]
+                let mut verifier_registry = VerifierRegistry::new(wasm_runtime_arc.clone());
+
+                // [FIX] Fallback if vm-wasm is disabled (though setup panics earlier)
+                #[cfg(not(feature = "vm-wasm"))]
+                let mut verifier_registry = {
+                    panic!("vm-wasm feature is required for IBC setup");
+                };
+
                 for client_name in &ibc_config.enabled_clients {
                     if client_name.starts_with("tendermint") {
                         let tm_verifier = TendermintVerifier::new(
@@ -279,10 +304,10 @@ where
             tracing::info!(target: "workload", "Registering WasmRuntime for service upgrades.");
             #[cfg(feature = "vm-wasm")]
             {
-                let wasm_runtime = WasmRuntime::new(config.fuel_costs.clone())?;
+                // We reuse the runtime created earlier for the registry to ensure resource sharing
                 _machine
                     .service_manager
-                    .register_runtime("wasm", Arc::new(wasm_runtime));
+                    .register_runtime("wasm", wasm_runtime_arc.clone());
             }
         }
     }

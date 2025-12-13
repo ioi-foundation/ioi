@@ -3,6 +3,7 @@
 //! Contains concrete, chain-specific implementations of the `LightClient` trait.
 
 pub mod tendermint;
+pub mod wasm;
 
 #[cfg(feature = "ethereum-zk")]
 pub mod ethereum_zk;

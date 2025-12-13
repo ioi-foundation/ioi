@@ -44,6 +44,13 @@ impl WasmRuntime {
             component_cache: RwLock::new(HashMap::new()),
         })
     }
+
+    /// Returns a reference to the underlying Wasmtime Engine.
+    /// This allows other components (like IBC light clients) to share the same engine
+    /// for instantiation efficiency.
+    pub fn engine(&self) -> &Engine {
+        &self.engine
+    }
 }
 
 struct HostState {

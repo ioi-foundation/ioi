@@ -501,12 +501,20 @@ impl GovernanceModule {
         &self,
         state: &mut dyn StateAccess,
         params: SwapModuleParams,
-        _ctx: &TxContext,
+        ctx: &TxContext,
     ) -> Result<(), TransactionError> {
         let service_id = params.service_id;
         let manifest_hash = params.manifest_hash;
         let artifact_hash = params.artifact_hash;
         let activation_height = params.activation_height;
+
+        // [FIX] Validate activation height is in the future relative to current block
+        if activation_height < ctx.block_height {
+            return Err(TransactionError::Invalid(format!(
+                "Activation height {} must be at least current block height {}",
+                activation_height, ctx.block_height
+            )));
+        }
 
         let manifest_key = [UPGRADE_MANIFEST_PREFIX, &manifest_hash].concat();
         if state

@@ -7,7 +7,13 @@ cargo-features = ["profile-rustflags"]
 
 [workspace]
 resolver = "2"
-exclude = ["crates/sp1-guests"]
+exclude = [
+    "crates/forge/tests/contracts/counter",
+    "crates/forge/tests/contracts/fee-calculator-service",
+    "crates/forge/tests/contracts/test-service",
+    "crates/forge/tests/contracts/mock-verifier",
+    "crates/sp1-guests",
+]
 members = [
     "crates/node",
     "crates/forge",
