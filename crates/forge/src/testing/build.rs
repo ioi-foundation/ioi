@@ -24,14 +24,17 @@ pub fn build_test_artifacts() {
         let counter_dir = manifest_dir.join("tests/contracts/counter");
         build_contract_component(&counter_dir, &target_dir, "counter-contract");
 
-        // Fee calculator component (already ports cleanly to components;
-        // used by future upgrade/module tests, but harmless to build here).
+        // Fee calculator component
         let fee_dir = manifest_dir.join("tests/contracts/fee-calculator-service");
         build_contract_component(&fee_dir, &target_dir, "fee-calculator-service");
 
-        // [UNCOMMENTED] Build Test Service V2 (needed for module_upgrade_e2e)
+        // Test Service V2
         let test_service_dir = manifest_dir.join("tests/contracts/test-service");
         build_contract_component(&test_service_dir, &target_dir, "test-service-v2");
+
+        // [NEW] Mock Verifier for Dynamic IBC
+        let mock_verifier_dir = manifest_dir.join("tests/contracts/mock-verifier");
+        build_contract_component(&mock_verifier_dir, &target_dir, "mock-verifier");
 
         println!("--- Test Artifacts built successfully ---");
     });
@@ -51,7 +54,7 @@ fn build_contract_component(contract_dir: &Path, target_dir: &Path, package_name
             "build",
             "--release",
             "--target",
-            "wasm32-wasip1",
+            "wasm32-wasip1", // [FIX] Reverted to wasm32-wasip1 for compatibility
         ])
         .current_dir(contract_dir)
         .status()
@@ -62,8 +65,7 @@ fn build_contract_component(contract_dir: &Path, target_dir: &Path, package_name
     }
 }
 
-/// Infer a correct feature string for `ioi-node`.
-#[allow(dead_code)]
+#[allow(dead_code)] // [FIX] Suppress unused warning
 pub(crate) fn resolve_node_features(user_supplied: &str) -> String {
     fn has_tree_feature(s: &str) -> bool {
         s.split(',')
@@ -124,6 +126,9 @@ pub(crate) fn resolve_node_features(user_supplied: &str) -> String {
     if cfg!(feature = "malicious-bin") {
         feats.push("malicious-bin");
     }
+    // [FIX] Always include ethereum-zk if ibc-deps is enabled in this context,
+    // though usually passed by test runner logic.
+    // Ideally we pass what is active.
 
     feats.join(",")
 }

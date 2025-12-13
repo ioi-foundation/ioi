@@ -322,6 +322,12 @@ where
         // Cast to UpgradableService (we added the impl in consensus/service.rs)
         initial_services.push(penalties_service as Arc<dyn UpgradableService>);
 
+        // Initialize WasmRuntime for Orchestrator usage (used by both VerifierRegistry and ExecutionMachine)
+        let wasm_runtime = Arc::new(
+            WasmRuntime::new(workload_config.fuel_costs.clone())
+                .map_err(|e| anyhow!("Failed to init WasmRuntime: {}", e))?,
+        );
+
         for service_config in &workload_config.initial_services {
             match service_config {
                 InitialServiceConfig::IdentityHub(migration_config) => {
@@ -343,7 +349,10 @@ where
                     // even if the full logic lives in the workload.
                     // The verifier here uses a dummy state accessor since it's only for type resolution.
                     tracing::info!(target: "orchestration", event = "service_init", name = "IBC", impl="proxy", capabilities="ibc_handler");
-                    let mut verifier_registry = VerifierRegistry::new();
+
+                    // [FIX] Pass WasmRuntime to VerifierRegistry
+                    let mut verifier_registry = VerifierRegistry::new(wasm_runtime.clone());
+
                     for client_name_str in &ibc_config.enabled_clients {
                         if client_name_str.starts_with("tendermint") {
                             let tm_verifier = TendermintVerifier::new(
@@ -359,12 +368,6 @@ where
                     {
                         use ioi_api::ibc::LightClient;
                         use ioi_services::ibc::light_clients::ethereum_zk::EthereumZkLightClient;
-
-                        // Convert WorkloadConfig ZK settings to SuccinctDriverConfig
-                        // NOTE: In the orchestrator, we don't enforce the VK hash match strictly
-                        // during pre-checks unless we also load the keys here.
-                        // For simplicity in this plumbing phase, we load if paths are present,
-                        // or default to empty. The Workload container is the primary enforcer.
 
                         let zk_cfg = &workload_config.zk_config;
                         let load_vk = |path: &Option<String>,
@@ -389,9 +392,6 @@ where
                             }
                         };
 
-                        // We use unwrap_or_default on the result of load_vk because the orchestrator
-                        // doesn't strictly need to verify the proofs, just route them.
-                        // However, constructing the verifier requires the config.
                         let beacon_bytes = load_vk(
                             &zk_cfg.beacon_vk_path,
                             &zk_cfg.ethereum_beacon_vkey,
@@ -459,11 +459,13 @@ where
         let dummy_store_path = data_dir.join("orchestrator_dummy_store.db");
         let dummy_store = Arc::new(RedbEpochStore::open(&dummy_store_path, 50_000)?);
 
+        // [FIX] Pass Some(inference) is not needed for orchestrator dummy workload, use None.
+        // The orchestrator workload container is just for tx pre-checks, it doesn't do inference.
         let workload_container = Arc::new(ioi_api::validator::WorkloadContainer::new(
             dummy_workload_config,
             state_tree,
             Box::new(ioi_vm_wasm::WasmRuntime::new(Default::default())?), // Dummy VM
-            None,              // [FIX] No inference runtime for orchestrator dummy workload
+            None,
             service_directory, // <-- Pass the populated directory here
             dummy_store,
         )?);
@@ -485,10 +487,10 @@ where
                     target: "orchestration",
                     "Registering WasmRuntime for tx pre-checks."
                 );
-                let wasm_runtime = WasmRuntime::new(Default::default())?;
+                // Register the SAME runtime instance created earlier
                 machine
                     .service_manager
-                    .register_runtime("wasm", Arc::new(wasm_runtime));
+                    .register_runtime("wasm", wasm_runtime.clone());
             }
         }
         Arc::new(tokio::sync::Mutex::new(machine))

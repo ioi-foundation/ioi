@@ -12,6 +12,11 @@ repository = "https://github.com/ioi-foundation/ioi-sdk"
 ioi-api = { path = "../api" }
 ioi-types = { path = "../types" }
 ioi-macros = { path = "../macros" }
+# Add VM dependency for dynamic verifiers
+ioi-vm-wasm = { path = "../vm/wasm" }
+# Add Wasmtime for component instantiation in light clients
+wasmtime = { version = "21.0.0", features = ["component-model", "async"] }
+
 log = { workspace = true }
 tracing = { workspace = true }
 serde = { workspace = true }

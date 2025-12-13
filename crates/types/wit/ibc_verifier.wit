@@ -1,0 +1,11 @@
+package ioi:ibc@0.1.0;
+
+interface light-client {
+    verify-header: func(header-bytes: list<u8>, trusted-consensus-state: list<u8>) -> result<list<u8>, string>;
+    verify-membership: func(proof: list<u8>, root: list<u8>, path: list<u8>, value: list<u8>) -> result<bool, string>;
+    chain-id: func() -> string;
+}
+
+world verifier-module {
+    export light-client;
+}

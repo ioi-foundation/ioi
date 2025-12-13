@@ -1,0 +1,13 @@
+[package]
+name = "mock-verifier"
+version = "0.1.0"
+edition = "2021"
+
+# Explicitly opt-out of the parent workspace to allow standalone compilation
+[workspace]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wit-bindgen = { version = "0.21.0" }

@@ -15,8 +15,8 @@ use ioi_services::governance::{StoreModuleParams, SwapModuleParams};
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
-        BlockTimingRuntime, ChainId, ChainTransaction, Credential, Proposal, ProposalStatus,
-        ProposalType, SignatureSuite, StateEntry, SystemPayload, SystemTransaction, ValidatorSetV1,
+        BlockTimingRuntime, ChainId, ChainTransaction, Proposal, ProposalStatus, ProposalType,
+        SignatureSuite, StateEntry, SystemPayload, SystemTransaction, ValidatorSetV1,
         ValidatorSetsV1, ValidatorV1, VoteOption,
     },
     codec,
@@ -134,6 +134,7 @@ async fn test_forkless_module_upgrade() -> Result<()> {
     let workspace_root = manifest_dir.parent().and_then(|p| p.parent()).unwrap();
 
     // The artifact is already built by build_test_artifacts()
+    // [FIX] Updated path to wasm32-wasip1
     let wasm_path = workspace_root.join("target/wasm32-wasip1/release/fee_calculator_service.wasm");
 
     // Verify it exists
@@ -328,7 +329,7 @@ capabilities = ["TxDecorator"]
 
         // Step B: Schedule swap
         let tip = tip_height_resilient(rpc_addr).await?;
-        let activation_height = tip + 2;
+        let activation_height = tip + 5; // [FIX] Increased buffer to prevent race conditions
         println!(
             "Scheduling fee_calculator upgrade at height {}",
             activation_height

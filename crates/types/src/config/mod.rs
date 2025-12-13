@@ -275,6 +275,8 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
     // [NEW] ZK Methods
     ibc_methods.insert("submit_header@v1".into(), MethodPermission::User);
     ibc_methods.insert("verify_state@v1".into(), MethodPermission::User);
+    // [NEW] Dynamic Verifier Registration (Governance Only)
+    ibc_methods.insert("register_verifier@v1".into(), MethodPermission::Governance);
 
     map.insert(
         "ibc".to_string(),
