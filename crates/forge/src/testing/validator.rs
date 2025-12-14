@@ -53,6 +53,7 @@ impl<'a> BinaryFeatureConfig<'a> {
             "IAVL" => "state-iavl",
             "SparseMerkle" => "state-sparse-merkle",
             "Verkle" => "state-verkle",
+            "Jellyfish" => "state-jellyfish", // [NEW]
             other => return Err(anyhow!("Unsupported test state tree: {}", other)),
         };
 
@@ -301,6 +302,7 @@ impl TestValidator {
             "IAVL" => StateTreeType::IAVL,
             "SparseMerkle" => StateTreeType::SparseMerkle,
             "Verkle" => StateTreeType::Verkle,
+            "Jellyfish" => StateTreeType::Jellyfish, // [NEW]
             _ => return Err(anyhow!("Unsupported state tree type: {}", state_tree_type)),
         };
 
@@ -412,6 +414,10 @@ impl TestValidator {
             signing_oracle_guard = Some(guard);
         }
 
+        // [FIX] Generate a unique Shared Memory ID for this validator instance to prevent
+        // data plane collisions when multiple nodes run on the same machine.
+        let shmem_id = format!("ioi_shmem_{}", base_port);
+
         let mut backend: Box<dyn TestBackend> = if use_docker {
             let docker_config = DockerBackendConfig {
                 rpc_addr: rpc_addr.clone(),
@@ -498,6 +504,7 @@ impl TestValidator {
                 .env("TELEMETRY_ADDR", &workload_telemetry_addr)
                 .env("IPC_SERVER_ADDR", &workload_ipc_addr)
                 .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())
+                .env("IOI_SHMEM_ID", &shmem_id) // <--- INJECT UNIQUE ID
                 .stderr(Stdio::piped())
                 .kill_on_drop(true);
             if agentic_model_path.is_some() {
@@ -536,6 +543,7 @@ impl TestValidator {
                 .env("WORKLOAD_IPC_ADDR", &workload_ipc_addr)
                 .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())
                 .env("IOI_GUARDIAN_KEY_PASS", "test-password")
+                .env("IOI_SHMEM_ID", &shmem_id) // <--- INJECT UNIQUE ID
                 .stderr(Stdio::piped())
                 .kill_on_drop(true);
             if agentic_model_path.is_some() {

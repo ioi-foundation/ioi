@@ -51,6 +51,9 @@ use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::primitives::kzg::{KZGCommitmentScheme, KZGParams};
 #[cfg(feature = "state-iavl")]
 use ioi_state::tree::iavl::IAVLTree;
+// [NEW] Import JMT
+#[cfg(feature = "state-jellyfish")]
+use ioi_state::tree::jellyfish::JellyfishMerkleTree;
 #[cfg(feature = "state-sparse-merkle")]
 use ioi_state::tree::sparse_merkle::SparseMerkleTree;
 #[cfg(feature = "state-verkle")]
@@ -107,6 +110,9 @@ fn check_features() {
     if cfg!(feature = "state-verkle") {
         enabled_features.push("state-verkle");
     }
+    if cfg!(feature = "state-jellyfish") {
+        enabled_features.push("state-jellyfish");
+    } // [NEW]
 
     if enabled_features.len() != 1 {
         panic!(
@@ -666,6 +672,17 @@ async fn main() -> Result<()> {
             )
             .await
         }
+        // [NEW] Jellyfish Merkle Tree instantiation
+        #[cfg(all(feature = "state-jellyfish", feature = "commitment-hash"))]
+        (
+            ioi_types::config::StateTreeType::Jellyfish,
+            ioi_types::config::CommitmentSchemeType::Hash,
+        ) => {
+            let scheme = HashCommitmentScheme::new();
+            let tree = JellyfishMerkleTree::new(scheme.clone());
+            run_orchestration(opts, config, local_key, tree, scheme, workload_config, None).await
+        }
+
         _ => {
             let err_msg = format!("Unsupported or disabled state configuration: StateTree={:?}, CommitmentScheme={:?}. Please check your config and compile-time features.", workload_config.state_tree, workload_config.commitment_scheme);
             Err(anyhow!(err_msg))

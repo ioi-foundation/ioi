@@ -178,6 +178,7 @@ cargo test --workspace
 | **IAVL Tree** | `cargo test -p ioi-forge --test state_iavl_e2e --no-default-features -F "consensus-poa,vm-wasm,state-iavl,commitment-hash" -- --nocapture` |
 | **Sparse Merkle** | `cargo test -p ioi-forge --test state_sparse_merkle_e2e --no-default-features -F "consensus-poa,vm-wasm,state-sparse-merkle,commitment-hash" -- --nocapture` |
 | **Verkle Tree** | `cargo test -p ioi-forge --test state_verkle_e2e --no-default-features -F "consensus-poa,vm-wasm,state-verkle,commitment-kzg" -- --nocapture` |
+| **Jellyfish Tree** | `cargo test -p ioi-forge --test state_jellyfish_e2e --no-default-features -F "consensus-poa,vm-wasm,state-jellyfish,commitment-hash" -- --nocapture` |
 
 #### Specialized & Infrastructure Tests
 

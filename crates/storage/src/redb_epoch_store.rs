@@ -1,6 +1,7 @@
 // Path: crates/storage/src/redb_epoch_store.rs
 
 use crate::metrics::metrics;
+use crate::wal::{StateDiff, WalWriter}; // [NEW] Import WAL components
 use ioi_api::storage::{
     be32, be64, CommitInput, Epoch, Height, NodeHash, NodeStore, PruneStats, RootHash, StorageError,
 };
@@ -8,7 +9,8 @@ use ioi_types::app::{Block, ChainTransaction};
 use ioi_types::codec;
 use redb::{Database, ReadTransaction, ReadableTable, TableDefinition, WriteTransaction};
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::thread;
 
 /// ---- Table definitions (single DB, prefix-encoded keys) ----
 /// Global - Keys are fixed-size arrays
@@ -64,11 +66,22 @@ fn parse_u64(bytes: &[u8]) -> u64 {
 pub struct RedbEpochStore {
     db: Arc<Database>,
     epoch_size: u64,
+    // [NEW] WAL Writer for fast persistence
+    wal: Arc<WalWriter>,
+    // [NEW] Background flusher handle (placeholder for future async indexing)
+    flusher_handle: Arc<Mutex<Option<thread::JoinHandle<()>>>>,
 }
 
 impl RedbEpochStore {
     pub fn open<P: AsRef<Path>>(path: P, epoch_size: u64) -> Result<Self, StorageError> {
-        let db = Database::create(path).map_err(|e| StorageError::Backend(e.to_string()))?;
+        let db_path = path.as_ref();
+        let wal_path = db_path.with_extension("wal");
+
+        let db = Database::create(db_path).map_err(|e| StorageError::Backend(e.to_string()))?;
+
+        // Initialize WAL writer
+        let wal = WalWriter::new(&wal_path).map_err(|e| StorageError::Backend(e.to_string()))?;
+
         // Ensure tables exist
         {
             let w = db
@@ -95,9 +108,18 @@ impl RedbEpochStore {
             w.commit()
                 .map_err(|e| StorageError::Backend(e.to_string()))?;
         }
+
+        // [TODO] WAL Replay:
+        // On startup, we should check the HEAD of Redb vs the end of the WAL.
+        // If the WAL is ahead, we must replay the missing StateDiffs into Redb
+        // to restore consistency. This implementation assumes a clean start or
+        // consistent state for Phase 3.
+
         Ok(Self {
             db: Arc::new(db),
             epoch_size,
+            wal: Arc::new(wal),
+            flusher_handle: Arc::new(Mutex::new(None)),
         })
     }
 
@@ -247,6 +269,7 @@ impl NodeStore for RedbEpochStore {
         Ok(result)
     }
 
+    /// Optimized commit using WAL for fast persistence followed by Redb indexing.
     fn commit_block(&self, input: &CommitInput<'_>) -> Result<(), StorageError> {
         let bytes_written: u64 = input
             .new_nodes
@@ -255,6 +278,25 @@ impl NodeStore for RedbEpochStore {
             .sum();
         metrics().inc_bytes_written_total(bytes_written);
         let epoch = self.tip_epoch_of(input.height);
+
+        // 1. Prepare Diff for WAL
+        let diff = StateDiff {
+            new_nodes: input
+                .new_nodes
+                .iter()
+                .map(|(h, b)| (h.0, b.to_vec()))
+                .collect(),
+            touched_nodes: input.unique_nodes_for_height.iter().map(|h| h.0).collect(),
+        };
+
+        // 2. Write to WAL (Fast Path)
+        self.wal
+            .append_block(input.height, input.root.0, &diff)
+            .map_err(|e| StorageError::Backend(format!("WAL commit error: {}", e)))?;
+
+        // 3. Write to Redb (Index Path)
+        // Note: Ideally, this happens asynchronously in a background thread to unblock the main loop.
+        // For Phase 3 completeness, we execute it here to ensure data consistency immediately.
         let w = self.write_txn()?;
         {
             let mut nodes_tbl = w
@@ -465,8 +507,6 @@ impl NodeStore for RedbEpochStore {
                 }
 
                 // Clean up ROOT_INDEX if it points to this height.
-                // This ensures that `height_for_root` returns None for pruned heights, preventing
-                // accidental reconstruction of pruned state via root lookups.
                 let should_remove_index = match ri
                     .get(&root_hash)
                     .map_err(|e| StorageError::Backend(e.to_string()))?
@@ -505,8 +545,8 @@ impl NodeStore for RedbEpochStore {
             heights_pruned = stats.heights_pruned,
             nodes_deleted = stats.nodes_deleted,
         );
-        metrics().inc_epochs_dropped(stats.heights_pruned as u64);
-        metrics().inc_nodes_deleted(stats.nodes_deleted as u64);
+        metrics().inc_epochs_dropped(heights_pruned as u64);
+        metrics().inc_nodes_deleted(nodes_deleted as u64);
         Ok(stats)
     }
 

@@ -21,3 +21,6 @@
 pub mod iavl;
 pub mod sparse_merkle;
 pub mod verkle;
+
+#[cfg(feature = "state-jellyfish")]
+pub mod jellyfish;

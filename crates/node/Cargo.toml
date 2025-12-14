@@ -101,6 +101,12 @@ state-verkle = [
     "ioi-validator/state-verkle",
     "commitment-kzg",
 ]
+# [NEW] Add Jellyfish feature
+state-jellyfish = [
+    "ioi-state/state-jellyfish",
+    "ioi-validator/state-jellyfish",
+    "commitment-hash",
+]
 commitment-hash = ["ioi-state/commitment-hash", "ioi-validator/commitment-hash"]
 commitment-kzg = ["ioi-state/commitment-kzg", "ioi-validator/commitment-kzg"]
 

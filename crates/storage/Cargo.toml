@@ -17,3 +17,8 @@ ahash = { workspace = true }
 hex = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+
+# [NEW] Dependencies for WAL serialization
+serde = { workspace = true, features = ["derive"] }
+bincode = { workspace = true }
+anyhow = { workspace = true }
