@@ -3,6 +3,9 @@ mod end_block;
 mod state_machine;
 mod view;
 
+// [NEW] Include parallel execution modules
+pub mod parallel_state;
+
 use crate::upgrade_manager::ServiceUpgradeManager;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -117,6 +120,7 @@ where
 }
 
 /// Checks if the services required for a specific transaction type are enabled.
+#[allow(dead_code)]
 fn preflight_capabilities(
     services: &ServiceDirectory,
     tx: &ioi_types::app::ChainTransaction,
@@ -126,6 +130,7 @@ fn preflight_capabilities(
 }
 
 /// Extracts the signer's AccountId from any transaction type that has a SignHeader.
+#[allow(dead_code)]
 fn signer_from_tx(tx: &ChainTransaction) -> AccountId {
     match tx {
         ChainTransaction::System(s) => s.header.account_id,
@@ -136,7 +141,7 @@ fn signer_from_tx(tx: &ChainTransaction) -> AccountId {
             }
             ioi_types::app::ApplicationTransaction::UTXO(_) => AccountId::default(),
         },
-        // [FIX] Semantic transactions are signed by a committee aggregate, not a single account.
+        // Semantic transactions are signed by a committee aggregate, not a single account.
         // Return default AccountId as there is no single "signer".
         ChainTransaction::Semantic { .. } => AccountId::default(),
     }
@@ -396,6 +401,7 @@ where
     }
 
     /// Internal helper to process a single transaction against a state overlay.
+    #[allow(dead_code)]
     async fn process_transaction(
         &self,
         tx: &ChainTransaction,

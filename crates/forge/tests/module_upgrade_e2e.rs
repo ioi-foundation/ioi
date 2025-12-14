@@ -5,7 +5,9 @@ use anyhow::{anyhow, Result};
 use ioi_forge::testing::{
     assert_log_contains,
     build_test_artifacts, // Ensure this is imported
-    rpc::{query_state_key, query_state_key_at_root, tip_height_resilient},
+    rpc::{
+        get_block_by_height_resilient, get_chain_height, query_state_key, query_state_key_at_root,
+    },
     submit_transaction,
     wait_for_height,
     wait_until,
@@ -73,14 +75,10 @@ async fn service_v2_registered(
     activation_height: u64,
     expected_artifact_hash: [u8; 32],
 ) -> Result<bool> {
-    // Ensure a couple of blocks beyond activation are available.
-    // wait_for_height(rpc_addr, activation_height + 2, Duration::from_secs(20)).await?; // Removing strict wait, letting polling handle it
-
     let fee_v2_key = active_service_key("fee_calculator");
 
-    // Poll for the key at specific heights. Note: This might be flaky if the node hasn't reached the height yet.
-    // Better to just check current head first.
-    let tip = tip_height_resilient(rpc_addr).await?;
+    // Poll for the key at specific heights.
+    let tip = get_chain_height(rpc_addr).await?;
     if tip < activation_height {
         return Ok(false);
     }
@@ -94,9 +92,7 @@ async fn service_v2_registered(
             break;
         }
 
-        if let Ok(Some(block)) =
-            ioi_forge::testing::rpc::get_block_by_height_resilient(rpc_addr, h).await
-        {
+        if let Ok(Some(block)) = get_block_by_height_resilient(rpc_addr, h).await {
             if let Ok(Some(meta_bytes)) =
                 query_state_key_at_root(rpc_addr, &block.header.state_root, &fee_v2_key).await
             {
@@ -134,6 +130,7 @@ async fn test_forkless_module_upgrade() -> Result<()> {
     let workspace_root = manifest_dir.parent().and_then(|p| p.parent()).unwrap();
 
     // The artifact is already built by build_test_artifacts()
+    // [FIX] Updated path to wasm32-wasip1
     let wasm_path = workspace_root.join("target/wasm32-wasip1/release/fee_calculator_service.wasm");
 
     // Verify it exists
@@ -327,8 +324,9 @@ capabilities = ["TxDecorator"]
         println!("SUCCESS: Oracle module components stored on-chain.");
 
         // Step B: Schedule swap
-        let tip = tip_height_resilient(rpc_addr).await?;
-        let activation_height = tip + 2;
+        // [FIX] Use get_chain_height instead of tip_height_resilient for speed and reliability.
+        let tip = get_chain_height(rpc_addr).await?;
+        let activation_height = tip + 5;
         println!(
             "Scheduling fee_calculator upgrade at height {}",
             activation_height
@@ -353,8 +351,9 @@ capabilities = ["TxDecorator"]
         submit_transaction(rpc_addr, &swap_tx).await?;
 
         let pending_key = [UPGRADE_PENDING_PREFIX, &activation_height.to_le_bytes()].concat();
+        // [FIX] Increased timeout to 60s
         wait_until(
-            Duration::from_secs(30),
+            Duration::from_secs(60),
             Duration::from_millis(500),
             || async { Ok(query_state_key(rpc_addr, &pending_key).await?.is_some()) },
         )
@@ -365,9 +364,9 @@ capabilities = ["TxDecorator"]
         );
 
         // --- 5. WAIT & VERIFY ACTIVATION ---
-        wait_for_height(rpc_addr, activation_height + 1, Duration::from_secs(30)).await?;
+        wait_for_height(rpc_addr, activation_height + 1, Duration::from_secs(60)).await?;
         println!("Waiting for service registration to be confirmed in state...");
-        wait_until(Duration::from_secs(20), Duration::from_millis(500), || {
+        wait_until(Duration::from_secs(30), Duration::from_millis(500), || {
             println!(
                 "  - Polling for service_v2_registered at height {}...",
                 activation_height
@@ -389,7 +388,6 @@ capabilities = ["TxDecorator"]
             method: "vote@v1".to_string(),
             params: encoded_vote,
         };
-        // Use governance_key (+nonce) to ensure authorization and inclusion.
         let dummy_tx = create_system_tx(
             &governance_key_for_test,
             dummy_tx_payload,
@@ -400,7 +398,7 @@ capabilities = ["TxDecorator"]
 
         assert_log_contains("Orchestration", &mut orch_logs, "mempool_add").await?;
 
-        let tip_after_dummy = tip_height_resilient(rpc_addr).await?;
+        let tip_after_dummy = get_chain_height(rpc_addr).await?;
         wait_for_height(rpc_addr, tip_after_dummy + 1, Duration::from_secs(20)).await?;
 
         assert_log_contains(

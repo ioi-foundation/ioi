@@ -1,6 +1,7 @@
 // Path: crates/execution/src/app/view.rs
 
-use super::{ExecutionMachine, PenaltyDelegator};
+use super::ExecutionMachine;
+use super::PenaltyDelegator; // Added PenaltyDelegator to imports
 use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, ChainView, RemoteStateView, StateRef};
 use ioi_api::commitment::CommitmentScheme;
@@ -14,11 +15,11 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 pub struct ChainStateView<ST: StateManager> {
-    state_tree: Arc<RwLock<ST>>,
-    height: u64,
-    root: Vec<u8>,
+    pub(crate) state_tree: Arc<RwLock<ST>>,
+    pub(crate) height: u64,
+    pub(crate) root: Vec<u8>,
     // Added to support gas_used lookups without scanning blocks
-    gas_used: u64,
+    pub(crate) gas_used: u64,
 }
 
 #[async_trait]
@@ -32,7 +33,6 @@ impl<ST: StateManager + Send + Sync + 'static> RemoteStateView for ChainStateVie
     }
 
     async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, ChainError> {
-        // FIX: Removed the unused `use ioi_types::error::StateError;` statement.
         let state = self.state_tree.read().await;
         let key_hex = hex::encode(key);
 

@@ -20,6 +20,10 @@
 //! This crate provides the implementation logic for the `ChainStateMachine` state machine.
 
 pub mod app;
+// [NEW] Export parallel execution components
+pub mod mv_memory;
+pub mod scheduler;
+
 pub mod runtime_service;
 pub mod upgrade_manager;
 pub mod util;
