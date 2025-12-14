@@ -113,6 +113,7 @@ enum TreeType {
     Iavl,
     Smt,
     Verkle,
+    Jellyfish, // [NEW]
 }
 
 #[derive(Parser, Debug)]
@@ -537,6 +538,7 @@ async fn run_node(args: NodeArgs) -> Result<()> {
         TreeType::Iavl => ("IAVL", "Hash"),
         TreeType::Smt => ("SparseMerkle", "Hash"),
         TreeType::Verkle => ("Verkle", "KZG"),
+        TreeType::Jellyfish => ("Jellyfish", "Hash"), // [NEW]
     };
 
     let cluster = TestCluster::builder()

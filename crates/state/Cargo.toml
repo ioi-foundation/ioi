@@ -1,4 +1,3 @@
-# Path: crates/state/Cargo.toml
 [package]
 name = "ioi-state"
 version = "0.1.0"
@@ -17,10 +16,7 @@ ahash = "0.8"
 dcrypt = { workspace = true }
 log = { workspace = true }
 tracing = { workspace = true }
-serde = { workspace = true, features = [
-    "derive",
-    "rc",
-] } # Added "rc" feature for Arc/Rc support
+serde = { workspace = true, features = ["derive", "rc"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 bytes = { workspace = true }
@@ -30,6 +26,8 @@ bincode = { workspace = true }
 lazy_static = "1.4.0"
 parity-scale-codec = { workspace = true, features = ["derive", "std"] }
 prost = { workspace = true }
+# [NEW] Parallel processing for JMT hashing
+rayon = "1.8"
 
 [dev-dependencies]
 proptest = "1.2.0"
@@ -47,6 +45,8 @@ commitment-pedersen = ["ioi-api/homomorphic"]
 state-iavl = ["commitment-hash"]
 state-sparse-merkle = ["commitment-hash"]
 state-verkle = ["commitment-kzg"]
+# [NEW] Jellyfish Merkle Tree feature
+state-jellyfish = ["commitment-hash"]
 
 # Debugging feature
 strict_iavl = []

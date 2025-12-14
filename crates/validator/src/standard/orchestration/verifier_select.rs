@@ -20,6 +20,9 @@ cfg_if! {
         pub use ioi_state::tree::sparse_merkle::verifier::SparseMerkleVerifier as DefaultVerifier;
     } else if #[cfg(feature = "state-verkle")] {
         pub use ioi_state::tree::verkle::verifier::KZGVerifier as DefaultVerifier;
+    } else if #[cfg(feature = "state-jellyfish")] {
+        // [NEW] Wire up Jellyfish Verifier
+        pub use ioi_state::tree::jellyfish::verifier::JellyfishVerifier as DefaultVerifier;
     } else {
         // Fallback for when no tree feature is enabled, preventing compile errors in those cases.
         // A runtime check in the binary will catch this misconfiguration.
@@ -50,6 +53,9 @@ pub fn create_default_verifier(
             // This branch is only taken if the above are false.
             // DefaultVerifier IS KZGVerifier, which requires `::new(params)`.
             DefaultVerifier::new(params.expect("KZGVerifier requires SRS parameters"))
+        } else if #[cfg(feature = "state-jellyfish")] {
+            // [NEW] DefaultVerifier IS JellyfishVerifier (simple struct).
+            DefaultVerifier
         } else {
             // Fallback branch for the dummy verifier.
             DefaultVerifier
@@ -63,7 +69,8 @@ pub fn create_default_verifier(
 #[cfg(not(any(
     feature = "state-iavl",
     feature = "state-sparse-merkle",
-    feature = "state-verkle"
+    feature = "state-verkle",
+    feature = "state-jellyfish"
 )))]
 mod fallback {
     use ioi_api::error::StateError;

@@ -17,6 +17,9 @@ use ioi_state::tree::iavl::IAVLTree;
 use ioi_state::tree::sparse_merkle::SparseMerkleTree;
 #[cfg(feature = "state-verkle")]
 use ioi_state::tree::verkle::VerkleTree;
+// [NEW] Import JMT
+#[cfg(feature = "state-jellyfish")]
+use ioi_state::tree::jellyfish::JellyfishMerkleTree;
 use ioi_storage::metrics as storage_metrics;
 use ioi_types::config::WorkloadConfig;
 // Import the shared components from the validator library
@@ -78,6 +81,9 @@ fn check_features() {
     if cfg!(feature = "state-verkle") {
         enabled_features.push("state-verkle");
     }
+    if cfg!(feature = "state-jellyfish") {
+        enabled_features.push("state-jellyfish");
+    } // [NEW]
 
     if enabled_features.len() != 1 {
         panic!(
@@ -113,9 +119,15 @@ async fn main() -> Result<()> {
     let config: WorkloadConfig = toml::from_str(&config_str)?;
     config.validate().map_err(|e| anyhow!(e))?;
 
-    match (config.state_tree.clone(), config.commitment_scheme.clone()) {
+    match (
+        config.state_tree.clone(),
+        config.commitment_scheme.clone(),
+    ) {
         #[cfg(all(feature = "state-iavl", feature = "commitment-hash"))]
-        (ioi_types::config::StateTreeType::IAVL, ioi_types::config::CommitmentSchemeType::Hash) => {
+        (
+            ioi_types::config::StateTreeType::IAVL,
+            ioi_types::config::CommitmentSchemeType::Hash,
+        ) => {
             tracing::info!(target: "workload", "Instantiating state backend: IAVLTree<HashCommitmentScheme>");
             let commitment_scheme = HashCommitmentScheme::new();
             let state_tree = IAVLTree::new(commitment_scheme.clone());
@@ -142,19 +154,31 @@ async fn main() -> Result<()> {
             tracing::info!(target: "workload", "Instantiating state backend: VerkleTree<KZGCommitmentScheme>");
 
             // The config.validate() call ensures srs_file_path is Some.
-            let srs_path = config
-                .srs_file_path
-                .as_ref()
-                .expect("SRS file path validated");
+            let srs_path = config.srs_file_path.as_ref().expect("SRS file path validated");
 
             tracing::info!(target: "workload", "Loading KZG SRS from file: {}", srs_path);
-            let params = ioi_state::primitives::kzg::KZGParams::load_from_file(std::path::Path::new(srs_path))
+            let params =
+                ioi_state::primitives::kzg::KZGParams::load_from_file(std::path::Path::new(
+                    srs_path,
+                ))
                 .map_err(|e| anyhow!(e))?;
 
             let commitment_scheme = ioi_state::primitives::kzg::KZGCommitmentScheme::new(params);
             let state_tree =
                 ioi_state::tree::verkle::VerkleTree::new(commitment_scheme.clone(), 256)
                     .map_err(|e| anyhow!(e))?;
+            run_standard_workload(state_tree, commitment_scheme, config).await
+        }
+
+        // [NEW] Jellyfish Merkle Tree instantiation
+        #[cfg(all(feature = "state-jellyfish", feature = "commitment-hash"))]
+        (
+            ioi_types::config::StateTreeType::Jellyfish,
+            ioi_types::config::CommitmentSchemeType::Hash,
+        ) => {
+            tracing::info!(target: "workload", "Instantiating state backend: JellyfishMerkleTree<HashCommitmentScheme>");
+            let commitment_scheme = HashCommitmentScheme::new();
+            let state_tree = JellyfishMerkleTree::new(commitment_scheme.clone());
             run_standard_workload(state_tree, commitment_scheme, config).await
         }
 

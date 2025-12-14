@@ -19,5 +19,6 @@
 pub mod adapter;
 pub mod metrics;
 pub mod redb_epoch_store;
+pub mod wal; // [NEW] Export the Write-Ahead Log module
 
 pub use redb_epoch_store::RedbEpochStore;

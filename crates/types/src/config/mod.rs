@@ -24,6 +24,8 @@ pub enum StateTreeType {
     SparseMerkle,
     /// A Verkle Tree, offering smaller proof sizes.
     Verkle,
+    /// A Jellyfish Merkle Tree, optimized for parallel hashing.
+    Jellyfish, // [NEW]
 }
 
 /// Selects the cryptographic commitment primitive to use with the state tree.
