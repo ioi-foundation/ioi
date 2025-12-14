@@ -435,7 +435,7 @@ pub enum ChainTransaction {
     Application(ApplicationTransaction),
     /// A privileged transaction for system-level changes.
     System(Box<SystemTransaction>),
-    /// [NEW] A semantic transition proposed by a DIM committee.
+    /// A semantic transition proposed by a DIM committee.
     Semantic {
         /// The canonical result (JSON/Blob).
         result: Vec<u8>,

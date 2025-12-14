@@ -1,4 +1,3 @@
-# Path: crates/execution/Cargo.toml
 [package]
 name = "ioi-execution"
 version = "0.1.0"
@@ -27,13 +26,16 @@ libp2p = { workspace = true }
 async-trait = { workspace = true }
 bs58 = "0.4"
 base64 = { workspace = true }
-tokio = { workspace = true, features = ["sync"] }                    # Add tokio
-futures = { workspace = true }                                       # Add futures
+tokio = { workspace = true, features = ["sync"] }
+futures = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["std"] }
 toml = { workspace = true }
-
-# FIX: Add the missing dependency for TxContext's timestamp.
 ibc-primitives = { workspace = true }
+
+# [NEW] Dependencies for Parallel Execution
+dashmap = { workspace = true }
+rayon = "1.8"
+crossbeam-utils = "0.8"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }

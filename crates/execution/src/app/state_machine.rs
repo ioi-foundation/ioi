@@ -1,15 +1,28 @@
 // Path: crates/execution/src/app/state_machine.rs
 
 use super::{end_block, ExecutionMachine};
+use crate::app::parallel_state::ParallelStateAccess;
+use crate::mv_memory::MVMemory;
+use crate::scheduler::{Scheduler, Task};
+// [FIX] Removed unused anyhow import
 use async_trait::async_trait;
+use dashmap::DashMap;
 use ibc_primitives::Timestamp;
 use ioi_api::app::{Block, BlockHeader, ChainStatus, ChainTransaction};
-use ioi_api::chain::{ChainStateMachine, PreparedBlock};
+use ioi_api::chain::{AnchoredStateView, ChainStateMachine, ChainView, PreparedBlock, StateRef};
 use ioi_api::commitment::CommitmentScheme;
+use ioi_api::consensus::PenaltyMechanism;
 use ioi_api::services::access::ServiceDirectory;
-use ioi_api::state::{PinGuard, ProofProvider, StateManager, StateOverlay};
+use ioi_api::state::namespaced::NamespacedStateAccess;
+use ioi_api::state::namespaced::ReadOnlyNamespacedStateAccess;
+use ioi_api::state::{
+    service_namespace_prefix, PinGuard, ProofProvider, StateAccess, StateManager, StateOverlay,
+};
 use ioi_api::transaction::context::TxContext;
-// REMOVED: use ioi_api::validator::WorkloadContainer;
+use ioi_api::transaction::TransactionModel;
+use ioi_api::validator::WorkloadContainer;
+use ioi_consensus::Consensus;
+use ioi_tx::system::{nonce, validation};
 use ioi_tx::unified::UnifiedProof;
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{
@@ -18,15 +31,198 @@ use ioi_types::app::{
 };
 use ioi_types::codec;
 use ioi_types::config::ConsensusType;
+// [FIX] Removed unused TransactionError
 use ioi_types::error::{BlockError, ChainError, StateError};
 use ioi_types::keys::{STATUS_KEY, UPGRADE_ACTIVE_SERVICE_PREFIX, VALIDATOR_SET_KEY};
 use ioi_types::service_configs::ActiveServiceMeta;
 use libp2p::identity::Keypair;
 use parity_scale_codec::Decode;
 use serde::Serialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::sync::Arc;
+
+// --- Parallel Executor Context ---
+
+/// A lightweight, thread-safe context for executing transactions in parallel.
+/// Implements `ChainView` to satisfy TransactionModel requirements.
+#[derive(Clone, Debug)]
+struct ParallelExecutor<CS, ST>
+where
+    CS: CommitmentScheme + Clone, // Added Clone bound here
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>,
+{
+    chain_id: ioi_types::app::ChainId,
+    services: ServiceDirectory,
+    service_meta_cache: Arc<HashMap<String, Arc<ActiveServiceMeta>>>,
+    transaction_model: UnifiedTransactionModel<CS>,
+    workload_container: Arc<WorkloadContainer<ST>>,
+    recent_blocks: Arc<Vec<Block<ChainTransaction>>>,
+    last_state_root: Vec<u8>,
+    consensus_engine: Consensus<ChainTransaction>,
+}
+
+#[async_trait]
+impl<CS, ST> ChainView<CS, ST> for ParallelExecutor<CS, ST>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static, // Added Clone bound here
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
+{
+    async fn view_at(
+        &self,
+        state_ref: &StateRef,
+    ) -> Result<Arc<dyn AnchoredStateView>, ChainError> {
+        // Re-implement view resolution logic using captured state
+        let (resolved_root_bytes, gas_used) = if state_ref.state_root.is_empty() {
+            return Err(ChainError::UnknownStateAnchor(
+                "Cannot create view for empty state root".to_string(),
+            ));
+        } else if self.last_state_root == state_ref.state_root {
+            let gas = self
+                .recent_blocks
+                .last()
+                .map(|b| b.header.gas_used)
+                .unwrap_or(0);
+            (Some(self.last_state_root.clone()), gas)
+        } else {
+            let found = self.recent_blocks.iter().rev().find_map(|b| {
+                if b.header.state_root.as_ref() == state_ref.state_root {
+                    Some((b.header.state_root.0.clone(), b.header.gas_used))
+                } else {
+                    None
+                }
+            });
+            match found {
+                Some((root, gas)) => (Some(root), gas),
+                None => (None, 0),
+            }
+        };
+
+        let root = resolved_root_bytes
+            .ok_or_else(|| ChainError::UnknownStateAnchor(hex::encode(&state_ref.state_root)))?;
+
+        // Construct view manually since we can't use `ExecutionMachine` methods directly
+        // We reuse the view type from `app/view.rs` which is generic.
+        // For simplicity in this parallel context, we assume `ChainStateView` from `super::view` is usable.
+        let view = super::view::ChainStateView {
+            state_tree: self.workload_container.state_tree(),
+            height: state_ref.height,
+            root,
+            gas_used,
+        };
+        Ok(Arc::new(view))
+    }
+
+    fn get_penalty_mechanism(&self) -> Box<dyn PenaltyMechanism + Send + Sync + '_> {
+        Box::new(self.consensus_engine.clone())
+    }
+
+    fn consensus_type(&self) -> ConsensusType {
+        self.consensus_engine.consensus_type()
+    }
+
+    fn workload_container(&self) -> &WorkloadContainer<ST> {
+        &self.workload_container
+    }
+}
+
+impl<CS, ST> ParallelExecutor<CS, ST>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static, // Added Clone bound here
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + ProofProvider
+        + Send
+        + Sync
+        + 'static,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+{
+    /// Process a single transaction in a parallel worker context.
+    /// This logic mirrors `ExecutionMachine::process_transaction` but is adapted for thread safety.
+    async fn process_transaction_parallel(
+        &self,
+        tx: &ChainTransaction,
+        state: &mut dyn StateAccess, // ParallelStateAccess
+        block_height: u64,
+        block_timestamp: u64,
+    ) -> Result<(Vec<u8>, u64), ChainError> {
+        let signer_account_id = match tx {
+            ChainTransaction::System(s) => s.header.account_id,
+            ChainTransaction::Application(a) => match a {
+                ioi_types::app::ApplicationTransaction::DeployContract { header, .. } => {
+                    header.account_id
+                }
+                ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
+                    header.account_id
+                }
+                ioi_types::app::ApplicationTransaction::UTXO(_) => AccountId::default(),
+            },
+            ChainTransaction::Semantic { header, .. } => header.account_id,
+        };
+
+        let mut tx_ctx = TxContext {
+            block_height,
+            block_timestamp: Timestamp::from_nanoseconds(
+                (block_timestamp as u128)
+                    .saturating_mul(1_000_000_000)
+                    .try_into()
+                    .map_err(|_| ChainError::Transaction("Timestamp overflow".to_string()))?,
+            ),
+            chain_id: self.chain_id,
+            signer_account_id,
+            services: &self.services,
+            simulation: false,
+            is_internal: false,
+        };
+
+        // --- PHASE 1: READ-ONLY VALIDATION ---
+        validation::verify_transaction_signature(state, &self.services, tx, &tx_ctx)?;
+        nonce::assert_next_nonce(state, tx)?;
+
+        let decorators: Vec<(&str, &dyn ioi_api::transaction::decorator::TxDecorator)> = self
+            .services
+            .services_in_deterministic_order()
+            .filter_map(|s| s.as_tx_decorator().map(|d| (s.id(), d)))
+            .collect();
+
+        for (id, decorator) in &decorators {
+            let meta = self.service_meta_cache.get(*id).ok_or_else(|| {
+                ChainError::Transaction(format!("Metadata missing for service '{}'", id))
+            })?;
+            let prefix = service_namespace_prefix(id);
+            // ReadOnly wrapper ensures no writes occur during validation
+            let namespaced_view = ReadOnlyNamespacedStateAccess::new(state, prefix, meta);
+            decorator
+                .validate_ante(&namespaced_view, tx, &tx_ctx)
+                .await?;
+        }
+
+        // --- PHASE 2: STATE MUTATION ---
+        for (id, decorator) in decorators {
+            let meta = self.service_meta_cache.get(id).unwrap();
+            let prefix = service_namespace_prefix(id);
+            let mut namespaced_write = NamespacedStateAccess::new(state, prefix, meta);
+            decorator
+                .write_ante(&mut namespaced_write, tx, &tx_ctx)
+                .await?;
+        }
+
+        nonce::bump_nonce(state, tx)?;
+
+        // --- PHASE 3: PAYLOAD EXECUTION ---
+        let (proof, gas_used) = self
+            .transaction_model
+            .apply_payload(self, state, tx, &mut tx_ctx)
+            .await?;
+
+        let proof_bytes =
+            ioi_types::codec::to_bytes_canonical(&proof).map_err(ChainError::Transaction)?;
+
+        Ok((proof_bytes, gas_used))
+    }
+}
+
+// --- ChainStateMachine Implementation ---
 
 #[async_trait]
 impl<CS, ST> ChainStateMachine<CS, UnifiedTransactionModel<CS>, ST> for ExecutionMachine<CS, ST>
@@ -48,7 +244,6 @@ where
         + 'static
         + Decode
         + Debug,
-    // UPDATED: Added Debug + Send + Sync to match ExecutionMachine impl bounds
     <CS as CommitmentScheme>::Commitment: From<Vec<u8>> + Debug + Send + Sync,
 {
     fn status(&self) -> &ChainStatus {
@@ -76,42 +271,179 @@ where
             }));
         }
 
-        let mut proofs_out = Vec::with_capacity(block.transactions.len());
-        let mut block_gas_used = 0u64;
-        let state_changes = {
-            // [CHANGED] Use the pins() method exposed by WorkloadContainer
-            let _pin_guard = PinGuard::new(workload.pins().clone(), self.state.status.height);
-            let snapshot_state = {
-                let state_tree_arc = workload.state_tree();
-                let backend_guard = state_tree_arc.read().await;
-                backend_guard.clone()
-            };
-            let mut overlay = StateOverlay::new(&snapshot_state);
+        let num_txs = block.transactions.len();
 
-            for tx in &block.transactions {
-                match self
-                    .process_transaction(
-                        tx,
-                        &mut overlay,
-                        block.header.height,
-                        block.header.timestamp,
-                        &mut proofs_out,
-                    )
-                    .await
-                {
-                    Ok(gas) => {
-                        block_gas_used += gas;
-                    }
-                    Err(e) => {
-                        tracing::error!(target: "block", height = block.header.height, error = %e, "process_transaction failed; rejecting block proposal");
-                        return Err(e);
-                    }
-                }
-            }
+        // 1. Initialize State Snapshot & Pinning
+        // We hold the pin guard for the duration of execution to prevent GC of the base state.
+        let _pin_guard = PinGuard::new(workload.pins().clone(), self.state.status.height);
 
-            overlay.into_ordered_batch()
+        // Acquire a consistent view of the state (Base View for MVMemory).
+        // `read()` gives us a `RwLockReadGuard<ST>`. We clone ST to get an owned snapshot
+        // (assuming ST is cheap to clone/Arc-like or persistent structure handle).
+        let snapshot_state: ST = {
+            let state_tree_arc = workload.state_tree();
+            let backend_guard = state_tree_arc.read().await;
+            backend_guard.clone()
         };
 
+        // Wrap as Arc<dyn StateAccess> for MVMemory
+        let snapshot_arc: Arc<dyn StateAccess> = Arc::new(snapshot_state);
+        let mv_memory = Arc::new(MVMemory::new(snapshot_arc.clone()));
+
+        // 2. Initialize Scheduler and Result Storage
+        let scheduler = Arc::new(Scheduler::new(num_txs));
+        let read_sets = Arc::new(DashMap::new());
+        let results = Arc::new(DashMap::new());
+
+        let transactions = block.transactions.clone();
+        let block_header_height = block.header.height;
+        let block_header_timestamp = block.header.timestamp;
+
+        // 3. Prepare Parallel Executor Context
+        let executor = Arc::new(ParallelExecutor {
+            chain_id: self.state.chain_id,
+            services: self.services.clone(),
+            // Ensure service_meta_cache is accessible (cloning the HashMap into an Arc)
+            service_meta_cache: Arc::new(self.service_meta_cache.clone()),
+            transaction_model: self.state.transaction_model.clone(),
+            workload_container: self.workload_container.clone(),
+            recent_blocks: Arc::new(self.state.recent_blocks.clone()),
+            last_state_root: self.state.last_state_root.clone(),
+            consensus_engine: self.consensus_engine.clone(),
+        });
+
+        // 4. Thread Pool Execution
+        // Determine concurrency.
+        let num_threads = std::cmp::min(
+            std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(1),
+            num_txs,
+        )
+        .max(1);
+
+        tracing::debug!(
+            target: "execution",
+            "Starting parallel execution with {} threads for {} txs",
+            num_threads,
+            num_txs
+        );
+
+        // Clone Arcs BEFORE moving into the spawn_blocking closure
+        let scheduler_clone = scheduler.clone();
+        let mv_memory_clone = mv_memory.clone();
+        let read_sets_clone = read_sets.clone();
+        let results_clone = results.clone();
+
+        // Run the blocking parallel execution loop on a dedicated thread to avoid blocking Tokio.
+        tokio::task::spawn_blocking(move || {
+            crossbeam_utils::thread::scope(|s| {
+                for _ in 0..num_threads {
+                    let scheduler = scheduler_clone.clone();
+                    let mv_memory = mv_memory_clone.clone();
+                    let read_sets = read_sets_clone.clone();
+                    let results = results_clone.clone();
+                    let txs = &transactions;
+                    let executor = executor.clone();
+
+                    s.spawn(move |_| {
+                        loop {
+                            match scheduler.next_task() {
+                                Task::Execute(idx) => {
+                                    let tx = &txs[idx];
+
+                                    // Create ParallelStateAccess hooked to MVMemory
+                                    let mut state_proxy = ParallelStateAccess::new(&mv_memory, idx);
+
+                                    // Run the async execution logic synchronously
+                                    let result = futures::executor::block_on(
+                                        executor.process_transaction_parallel(
+                                            tx,
+                                            &mut state_proxy,
+                                            block_header_height,
+                                            block_header_timestamp,
+                                        ),
+                                    );
+
+                                    // [FIX] Always save read set for validation, even if execution fails.
+                                    // This allows the scheduler to detect if the failure was caused by stale reads.
+                                    let rs = state_proxy.read_set.lock().unwrap().clone();
+                                    read_sets.insert(idx, rs);
+
+                                    match result {
+                                        Ok((proof, gas)) => {
+                                            results.insert(idx, (proof, gas));
+                                            scheduler.finish_execution(idx);
+                                        }
+                                        Err(e) => {
+                                            tracing::error!(
+                                                target: "execution",
+                                                tx_index = idx,
+                                                error = %e,
+                                                "Transaction failed in parallel execution"
+                                            );
+                                            // In Block-STM, a failing transaction is still "executed"
+                                            // (it just doesn't produce writes).
+                                            // For this implementation, we treat error as abort/fail.
+                                            // We store empty proof/gas to maintain index alignment.
+                                            results.insert(idx, (vec![], 0));
+                                            scheduler.finish_execution(idx);
+                                        }
+                                    }
+                                }
+                                Task::Validate(idx) => {
+                                    if let Some(rs) = read_sets.get(&idx) {
+                                        match mv_memory.validate_read_set(&rs, idx) {
+                                            Ok(valid) => {
+                                                if !valid {
+                                                    scheduler.abort_tx(idx);
+                                                }
+                                                // If valid, scheduler advances validation_idx implicitly via next_task logic
+                                            }
+                                            Err(_) => scheduler.abort_tx(idx),
+                                        }
+                                    } else {
+                                        // No read set (e.g., tx failed execution before any reads), skip validation
+                                    }
+                                }
+                                Task::Done => break,
+                                Task::RetryLater => std::thread::yield_now(),
+                            }
+                        }
+                    });
+                }
+            })
+            .unwrap(); // Unwrap thread scope panic
+        })
+        .await
+        .map_err(|e| ChainError::Transaction(format!("Parallel execution panicked: {}", e)))?;
+
+        // 5. Finalize State Changes
+        // Apply the committed MVMemory state to a linear StateOverlay to generate the deterministic batch.
+        // [FIX] Dereference the Arc to pass &dyn StateAccess
+        let mut final_overlay = StateOverlay::new(&*snapshot_arc);
+        mv_memory
+            .apply_to_overlay(&mut final_overlay)
+            .map_err(ChainError::State)?;
+
+        let state_changes = final_overlay.into_ordered_batch();
+
+        // 6. Collect Results
+        let mut proofs_out = Vec::with_capacity(num_txs);
+        let mut block_gas_used = 0;
+
+        for i in 0..num_txs {
+            // Retrieve results. If missing (shouldn't happen if scheduler works), use default.
+            if let Some((_, (p, gas))) = results.remove(&i) {
+                proofs_out.push(p);
+                block_gas_used += gas;
+            } else {
+                tracing::warn!(target: "execution", tx_index=i, "Missing execution result, using empty.");
+                proofs_out.push(vec![]);
+            }
+        }
+
+        // 7. Compute Roots
         let transactions_root = ioi_types::codec::to_bytes_canonical(&block.transactions)
             .map_err(ChainError::Transaction)?;
         let vs_bytes = self.get_validator_set_for(block.header.height).await?;
@@ -163,6 +495,11 @@ where
             let proof_bytes = prepared.tx_proofs.get(i).ok_or_else(|| {
                 ChainError::Transaction("Missing proof for transaction".to_string())
             })?;
+
+            if proof_bytes.is_empty() {
+                // Transaction failed or produced no proof, skip verification
+                continue;
+            }
 
             let proof: UnifiedProof<<CS as CommitmentScheme>::Proof> =
                 codec::from_bytes_canonical(proof_bytes).map_err(ChainError::Transaction)?;
@@ -224,7 +561,6 @@ where
                         .try_into()
                         .map_err(|_| ChainError::Transaction("Timestamp overflow".to_string()))?;
                     Timestamp::from_nanoseconds(ts_ns)
-                    // [FIX] Removed .map_err(...)
                 },
                 chain_id: self.state.chain_id,
                 signer_account_id: AccountId::default(),

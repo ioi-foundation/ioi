@@ -10,7 +10,7 @@ use ioi_forge::testing::{
 };
 use ioi_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, ApplicationTransaction, ChainId,
+        account_id_from_key_material, ActiveKeyRecord, ApplicationTransaction, ChainId,
         ChainTransaction, SignHeader, SignatureProof, SignatureSuite, ValidatorSetV1,
         ValidatorSetsV1, ValidatorV1,
     },
