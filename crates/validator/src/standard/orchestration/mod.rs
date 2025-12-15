@@ -13,6 +13,7 @@
 //! The main logic for the Orchestration container, handling consensus and peer communication.
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use ioi_api::crypto::BatchVerifier; // [NEW] Added BatchVerifier
 use ioi_api::crypto::SerializableKey;
 use ioi_api::{
     chain::WorkloadClientApi,
@@ -103,6 +104,8 @@ pub struct OrchestrationDependencies<CE, V> {
     pub verifier: V,
     /// [NEW] The signer for block headers (Local or Remote Oracle).
     pub signer: Arc<dyn GuardianSigner>,
+    /// [NEW] The batch verifier for parallel signature verification.
+    pub batch_verifier: Arc<dyn BatchVerifier>,
 }
 
 // Type aliases to simplify complex types used in the main struct.
@@ -163,6 +166,8 @@ where
     pub signer: Arc<dyn GuardianSigner>,
     /// Thread pool for CPU-intensive ingress tasks (signature verification).
     cpu_pool: Arc<rayon::ThreadPool>,
+    /// [NEW] The batch verifier for parallel signature verification.
+    pub batch_verifier: Arc<dyn BatchVerifier>,
 }
 
 impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
@@ -196,10 +201,12 @@ where
         let (consensus_kick_tx, consensus_kick_rx) = mpsc::unbounded_channel();
 
         // Initialize thread pool for CPU bound tasks
-        let cpu_pool = Arc::new(rayon::ThreadPoolBuilder::new()
-            .num_threads(num_cpus::get())
-            .build()
-            .map_err(|e| anyhow::anyhow!("Failed to build CPU thread pool: {}", e))?);
+        let cpu_pool = Arc::new(
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(num_cpus::get())
+                .build()
+                .map_err(|e| anyhow::anyhow!("Failed to build CPU thread pool: {}", e))?,
+        );
 
         Ok(Self {
             config,
@@ -227,6 +234,7 @@ where
             nonce_manager: Arc::new(Mutex::new(BTreeMap::new())),
             signer: deps.signer,
             cpu_pool,
+            batch_verifier: deps.batch_verifier, // [NEW] Added
         })
     }
 
@@ -871,6 +879,7 @@ where
             sync_progress: None,
             nonce_manager: self.nonce_manager.clone(),
             signer: self.signer.clone(),
+            batch_verifier: self.batch_verifier.clone(), // [NEW] Added
         };
 
         let mut receiver_opt = self.network_event_receiver.lock().await;

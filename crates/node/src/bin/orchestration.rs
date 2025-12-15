@@ -9,6 +9,7 @@ use ioi_api::services::UpgradableService;
 use ioi_api::validator::container::Container;
 use ioi_client::WorkloadClient;
 use ioi_consensus::util::engine_from_config;
+use ioi_crypto::sign::batch::CpuBatchVerifier; // [NEW] Added CpuBatchVerifier
 use ioi_crypto::sign::dilithium::DilithiumKeyPair;
 use ioi_execution::ExecutionMachine;
 use ioi_networking::libp2p::Libp2pSync;
@@ -298,6 +299,9 @@ where
         Arc::new(LocalSigner::new(internal_kp))
     };
 
+    // [NEW] Initialize Batch Verifier
+    let batch_verifier = Arc::new(CpuBatchVerifier::new());
+
     let deps = OrchestrationDependencies {
         syncer,
         network_event_receiver,
@@ -308,7 +312,8 @@ where
         is_quarantined,
         genesis_hash: derived_genesis_hash,
         verifier: verifier.clone(),
-        signer, // [NEW] Inject the configured signer
+        signer,         // [NEW] Inject the configured signer
+        batch_verifier, // [NEW] Injected here
     };
 
     let orchestration = Arc::new(Orchestrator::new(&opts.config, deps)?);

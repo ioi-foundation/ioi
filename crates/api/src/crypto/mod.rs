@@ -2,6 +2,7 @@
 //! Defines unified traits for cryptographic primitives.
 
 use crate::error::CryptoError;
+use ioi_types::app::SignatureSuite; // [NEW] Added for BatchVerifier signature suite
 use zeroize::Zeroizing;
 
 /// A trait for any key that can be serialized to and from bytes.
@@ -99,4 +100,20 @@ pub trait Encapsulated: SerializableKey {
     fn ciphertext(&self) -> &[u8];
     /// Gets the shared secret component of the encapsulated data.
     fn shared_secret(&self) -> &[u8];
+}
+
+/// A trait for hardware-accelerated or parallelized batch signature verification.
+pub trait BatchVerifier: Send + Sync {
+    /// Verifies a batch of signatures.
+    ///
+    /// # Arguments
+    /// * `items`: A slice of tuples containing (public_key, message, signature, suite).
+    ///
+    /// # Returns
+    /// A vector of booleans indicating the validity of each item in the batch.
+    /// The order corresponds to the input slice.
+    fn verify_batch(
+        &self,
+        items: &[(&[u8], &[u8], &[u8], SignatureSuite)],
+    ) -> Result<Vec<bool>, CryptoError>;
 }

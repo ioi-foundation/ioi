@@ -1,5 +1,6 @@
 // Path: crates/validator/src/standard/orchestration/context.rs
 use crate::config::OrchestrationConfig;
+use ioi_api::crypto::BatchVerifier; // [NEW] Added BatchVerifier
 use ioi_api::{
     chain::ChainStateMachine, commitment::CommitmentScheme, consensus::ConsensusEngine,
     state::StateManager,
@@ -70,4 +71,6 @@ where
     pub nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
     /// [NEW] The signer for block headers (Local or Remote Oracle).
     pub signer: Arc<dyn GuardianSigner>,
+    /// [NEW] The batch verifier for parallel signature verification.
+    pub batch_verifier: Arc<dyn BatchVerifier>,
 }

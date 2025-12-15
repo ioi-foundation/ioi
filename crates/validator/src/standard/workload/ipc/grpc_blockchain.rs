@@ -281,6 +281,7 @@ where
                 chain_guard.state.chain_id,
                 chain_guard.status().height + 1,
                 req.expected_timestamp_secs,
+                false, // [FIX] Don't skip stateless checks for RPC checks
             )
             .await;
 

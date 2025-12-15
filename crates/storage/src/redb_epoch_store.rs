@@ -69,7 +69,7 @@ pub struct RedbEpochStore {
     // [NEW] WAL Writer for fast persistence
     wal: Arc<WalWriter>,
     // [NEW] Background flusher handle (placeholder for future async indexing)
-    flusher_handle: Arc<Mutex<Option<thread::JoinHandle<()>>>>,
+    _flusher_handle: Arc<Mutex<Option<thread::JoinHandle<()>>>>, // [FIX] Renamed with underscore
 }
 
 impl RedbEpochStore {
@@ -119,7 +119,7 @@ impl RedbEpochStore {
             db: Arc::new(db),
             epoch_size,
             wal: Arc::new(wal),
-            flusher_handle: Arc::new(Mutex::new(None)),
+            _flusher_handle: Arc::new(Mutex::new(None)), // [FIX] Renamed
         })
     }
 
