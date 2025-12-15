@@ -89,10 +89,10 @@ fn verify_signature(
 /// A tuple containing the three core components needed for signature verification:
 /// the header (with nonce and account ID), the proof (with key and signature),
 /// and the canonical bytes that were signed.
-type SignatureComponents<'a> = (&'a SignHeader, &'a SignatureProof, Vec<u8>);
+pub type SignatureComponents<'a> = (&'a SignHeader, &'a SignatureProof, Vec<u8>);
 
 /// Extracts the signature components from a transaction by borrowing, if it is a signed type.
-fn get_signature_components(
+pub fn get_signature_components(
     tx: &ChainTransaction,
 ) -> Result<Option<SignatureComponents<'_>>, TransactionError> {
     match tx {

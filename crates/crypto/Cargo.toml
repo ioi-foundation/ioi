@@ -10,6 +10,7 @@ repository = "https://github.com/ioi-foundation/ioi-sdk"
 
 [dependencies]
 ioi-api = { path = "../api" }
+ioi-types = { path = "../types" }
 log = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
@@ -21,6 +22,8 @@ tokio = { workspace = true }
 tokio-rustls = { workspace = true }
 rustls = { workspace = true }
 zeroize = { workspace = true, features = ["alloc"] }
+rayon = "1.8"
+libp2p = { workspace = true }                        # [FIX] Added missing dependency
 
 [features]
 default = []

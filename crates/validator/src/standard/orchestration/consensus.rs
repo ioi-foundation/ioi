@@ -3,6 +3,7 @@ use crate::metrics::consensus_metrics as metrics;
 use crate::standard::orchestration::context::MainLoopContext;
 use crate::standard::orchestration::gossip::prune_mempool;
 use anyhow::{anyhow, Result};
+use ioi_api::crypto::BatchVerifier; // [NEW] Added BatchVerifier
 use ioi_api::{
     chain::{StateRef, ViewResolver},
     commitment::CommitmentScheme,
@@ -13,6 +14,7 @@ use ioi_api::{
 // [FIX] Removed unused ioi_ipc import
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::traits::NodeState;
+use ioi_tx::system::validation::get_signature_components; // [NEW] Used for batching
 use ioi_types::{
     app::{
         account_id_from_key_material, to_root_hash, AccountId, Block, BlockHeader,
@@ -63,6 +65,7 @@ where
         last_committed_block_opt,
         node_state_arc,
         signer,
+        batch_verifier, // [NEW] Extract batch_verifier
     ) = {
         let ctx = context_arc.lock().await;
         (
@@ -77,6 +80,7 @@ where
             ctx.last_committed_block.clone(),
             ctx.node_state.clone(),
             ctx.signer.clone(),
+            ctx.batch_verifier.clone(), // [NEW]
         )
     };
 
@@ -139,11 +143,13 @@ where
         metrics().inc_blocks_produced();
 
         // --- Step 2: Gather Valid Transactions (Pre-check) ---
+        // [MODIFIED] Pass batch_verifier
         let valid_txs = gather_valid_transactions(
             &view_resolver,
             &tx_pool_ref,
             parent_anchor,
             expected_timestamp_secs,
+            batch_verifier.as_ref(), // [NEW]
         )
         .await?;
 
@@ -309,6 +315,7 @@ async fn gather_valid_transactions<V>(
     tx_pool_ref: &Arc<Mutex<VecDeque<(ChainTransaction, TxHash)>>>,
     parent_anchor: StateAnchor,
     expected_timestamp_secs: u64,
+    batch_verifier: &dyn BatchVerifier, // [NEW]
 ) -> Result<Vec<ChainTransaction>>
 where
     V: Verifier,
@@ -327,11 +334,71 @@ where
 
     tracing::info!(target: "consensus", event = "precheck_start", mempool_size = mempool_len_before);
 
-    let mut valid_txs = Vec::new();
-    let mut invalid_tx_hashes: HashSet<TxHash> = HashSet::new();
-    let workload_client = view_resolver.workload_client();
+    // --- PHASE 4: Parallel Batch Signature Verification ---
+    let mut batch_items = Vec::new();
+    let mut sig_indices = Vec::new();
+    let mut sign_bytes_storage = Vec::new(); // Store owned bytes to keep them alive
 
     for (i, tx) in candidate_txs.iter().enumerate() {
+        if let Ok(Some((_, proof, bytes))) = get_signature_components(tx) {
+            sign_bytes_storage.push(bytes);
+            sig_indices.push(i);
+        }
+    }
+
+    // Re-iterate to construct references now that storage is pinned
+    for (i, &idx) in sig_indices.iter().enumerate() {
+        let tx = &candidate_txs[idx];
+        if let Ok(Some((_, proof, _))) = get_signature_components(tx) {
+            batch_items.push((
+                proof.public_key.as_slice(),
+                sign_bytes_storage[i].as_slice(),
+                proof.signature.as_slice(),
+                proof.suite,
+            ));
+        }
+    }
+
+    let batch_results = if !batch_items.is_empty() {
+        batch_verifier
+            .verify_batch(&batch_items)
+            .map_err(|e| anyhow!("Batch verify failed: {}", e))?
+    } else {
+        Vec::new()
+    };
+
+    let mut invalid_tx_hashes: HashSet<TxHash> = HashSet::new();
+    let mut statelessly_valid_txs = Vec::new();
+
+    let mut result_iter = batch_results.into_iter();
+    let mut indices_iter = sig_indices.into_iter();
+    let mut next_sig_idx = indices_iter.next();
+
+    for (i, tx) in candidate_txs.iter().enumerate() {
+        // If this tx needed verification
+        if Some(i) == next_sig_idx {
+            let valid = result_iter.next().unwrap_or(false);
+            if !valid {
+                if let Ok(h) = tx.hash() {
+                    invalid_tx_hashes.insert(h);
+                }
+                tracing::warn!(target: "consensus", event = "batch_verify_fail", tx_index = i, "Signature invalid");
+                next_sig_idx = indices_iter.next();
+                continue;
+            }
+            next_sig_idx = indices_iter.next();
+        }
+        // If it didn't need verification (unsigned), or passed verification, keep it.
+        statelessly_valid_txs.push(tx.clone());
+    }
+    // ----------------------------------------------------
+
+    let mut valid_txs = Vec::new();
+    let workload_client = view_resolver.workload_client();
+
+    // Perform stateful checks sequentially via IPC
+    // (Optimization: In future, batch IPC call for CheckTransactions)
+    for (i, tx) in statelessly_valid_txs.iter().enumerate() {
         match workload_client
             .check_transactions_at(parent_anchor, expected_timestamp_secs, vec![tx.clone()])
             .await

@@ -25,6 +25,7 @@ pub async fn check_tx(
     chain_id: ioi_types::app::ChainId,
     next_block_height: u64,
     expected_timestamp_secs: u64,
+    skip_stateless_checks: bool, // [NEW] Argument
 ) -> Result<(), TransactionError> {
     let mut overlay = StateOverlay::new(state);
 
@@ -63,8 +64,14 @@ pub async fn check_tx(
     };
 
     // 1. Phase 1: Read-Only Validation
+    // [MODIFIED] Only run stateless verify if not skipped
+    if !skip_stateless_checks {
+        validation::verify_stateless_signature(tx)?;
+    }
+
+    // Always run stateful authorization (nonce, permissions)
     // Pass immutable reference to overlay to satisfy StateAccess
-    validation::verify_transaction_signature(&overlay, services, tx, &tx_ctx)?;
+    validation::verify_stateful_authorization(&overlay, services, tx, &tx_ctx)?;
     nonce::assert_next_nonce(&overlay, tx)?;
 
     // 2. Service-level precheck for CallService.
