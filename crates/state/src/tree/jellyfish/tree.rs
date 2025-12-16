@@ -3,24 +3,22 @@
 //! Parallelized Jellyfish Merkle Tree implementation.
 
 use super::nibble::NibblePath;
-use super::node::{InternalNode, LeafNode, Node, NodeHash};
+use super::node::{InternalNode, Node, NodeHash};
+use crate::primitives::hash::HashProof;
 use ioi_api::commitment::CommitmentScheme;
+use ioi_api::commitment::Selector;
 use ioi_api::state::{
     ProofProvider, PrunePlan, StateAccess, StateManager, StateScanIter, VerifiableState,
 };
 use ioi_api::storage::NodeStore;
 use ioi_storage::adapter::DeltaAccumulator;
-use ioi_types::app::{to_root_hash, Membership, RootHash};
+use ioi_types::app::{Membership, RootHash};
 use ioi_types::error::StateError;
 use rayon::prelude::*;
 use std::any::Any;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::sync::{Arc, RwLock};
-
-// Import HashProof/HashCommitment for the stub
-use crate::primitives::hash::{HashCommitment, HashProof};
-use ioi_api::commitment::Selector;
 
 type Key = [u8; 32];
 type Value = Vec<u8>;
@@ -96,7 +94,8 @@ where
             }
         }
 
-        self.root_hash = new_root.hash();
+        // [FIX] Pass self.scheme to hash()
+        self.root_hash = new_root.hash(&self.scheme);
         Ok(self.root_hash)
     }
 
@@ -160,9 +159,11 @@ where
                     let (nibble, update_res) = res?;
                     if let Some((new_child, created)) = update_res {
                         if new_child != Node::Null {
-                            new_internal_children.push((nibble, new_child.hash()));
+                            // [FIX] Pass self.scheme to hash()
+                            new_internal_children.push((nibble, new_child.hash(&self.scheme)));
                             all_created_nodes.extend(created);
-                            all_created_nodes.insert(new_child.hash(), new_child);
+                            all_created_nodes
+                                .insert(new_child.hash(&self.scheme), new_child);
                         }
                     } else {
                         // Missing logic for unmodified children re-attachment

@@ -196,6 +196,10 @@ cargo test -p ioi-forge --test infra_e2e --features "consensus-poa,vm-wasm,state
 | **Security & Attestation** | `cargo test -p ioi-forge --test security_e2e --features "validator-bins,consensus-poa,vm-wasm,state-iavl" -- --nocapture --test-threads=1` |
 | **Validator Topology** | `cargo test --package ioi-forge --test topology_e2e --features "consensus-poa,vm-wasm,state-iavl" -- --nocapture` |
 
+cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,state-iavl,commitment-hash" --test workload_control_e2e -- --nocapture
+
+cargo test -p ioi-forge --test benchmark_throughput --no-default-features -F "consensus-poa,vm-wasm,state-jellyfish,commitment-hash" -- --nocapture
+
 ### **ZK & SP1 Workflow (Pending GPU Upgrade)**
 
 The logic for bridgeless Ethereum verification is implemented, but requires the generation of large ZK artifacts which are resource-intensive. Once a suitable GPU environment is available, execute the following to enable the native ZK tests:

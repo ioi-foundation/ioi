@@ -1,7 +1,9 @@
 // Path: crates/validator/src/standard/orchestration/grpc_public.rs
 use crate::standard::orchestration::context::MainLoopContext;
-// [FIX] Removed unused anyhow import
+use crate::standard::orchestration::mempool::{AddResult, Mempool};
+use ioi_api::chain::WorkloadClientApi; // [FIX] Added missing import
 use ioi_api::{commitment::CommitmentScheme, state::StateManager, transaction::TransactionModel};
+use ioi_client::WorkloadClient;
 use ioi_ipc::blockchain::{
     GetStatusRequest, GetStatusResponse, QueryRawStateRequest, QueryRawStateResponse,
     QueryStateAtRequest, QueryStateAtResponse,
@@ -18,11 +20,11 @@ use ioi_types::codec;
 use serde::Serialize;
 use std::fmt::Debug;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use std::time::Instant;
+use tokio::sync::{mpsc, Mutex};
 use tonic::{Request, Response, Status};
 
 use crate::metrics::rpc_metrics as metrics;
-use std::time::Instant;
 
 pub struct PublicApiImpl<CS, ST, CE, V>
 where
@@ -44,8 +46,12 @@ where
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
 {
-    // [FIX] Hold the outer Arc which might be None initially
     pub context_wrapper: Arc<Mutex<Option<Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>>>>,
+    // Direct handles for hot-path optimization
+    pub workload_client: Arc<WorkloadClient>,
+    pub tx_pool: Arc<Mutex<Mempool>>,
+    pub swarm_sender: mpsc::Sender<SwarmCommand>,
+    pub consensus_kick_tx: mpsc::UnboundedSender<()>,
 }
 
 impl<CS, ST, CE, V> PublicApiImpl<CS, ST, CE, V>
@@ -112,71 +118,87 @@ where
             .deserialize_transaction(&req.transaction_bytes)
             .map_err(|e| Status::invalid_argument(format!("Invalid transaction bytes: {}", e)))?;
 
-        let context_arc = self.get_context().await?;
-        let (workload_client, _, tx_pool, swarm_sender, kick_tx) = {
-            let ctx = context_arc.lock().await;
-            (
-                ctx.view_resolver.workload_client().clone(),
-                ctx.chain_id,
-                ctx.tx_pool_ref.clone(),
-                ctx.swarm_commander.clone(),
-                ctx.consensus_kick_tx.clone(),
-            )
+        // Extract basic transaction info
+        let tx_info = match &tx {
+            ChainTransaction::System(s) => Some((s.header.account_id, s.header.nonce)),
+            ChainTransaction::Application(a) => match a {
+                ioi_types::app::ApplicationTransaction::DeployContract { header, .. }
+                | ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
+                    Some((header.account_id, header.nonce))
+                }
+                _ => None,
+            },
+            _ => None,
         };
-
-        // [FIX] Explicitly type the closure argument for map_err
-        let root =
-            workload_client
-                .get_state_root()
-                .await
-                .map_err(|e: ioi_types::error::ChainError| {
-                    Status::internal(format!("Failed to get state root: {}", e))
-                })?;
-        let anchor = root
-            .to_anchor()
-            .map_err(|e| Status::internal(format!("Failed to anchor root: {}", e)))?;
-
-        let expected_timestamp = 0;
-
-        let check_results = workload_client
-            .check_transactions_at(anchor, expected_timestamp, vec![tx.clone()])
-            .await
-            .map_err(|e: ioi_types::error::ChainError| {
-                Status::internal(format!("Pre-flight check IPC error: {}", e))
-            })?;
-
-        if let Some(Err(e)) = check_results.first() {
-            return Err(Status::invalid_argument(format!(
-                "Transaction rejected: {}",
-                e
-            )));
-        }
 
         let tx_hash = tx
             .hash()
             .map_err(|e| Status::internal(format!("Hashing failed: {}", e)))?;
         let tx_hash_hex = hex::encode(tx_hash);
 
-        {
-            let mut pool = tx_pool.lock().await;
-            if pool.iter().any(|(_, h)| *h == tx_hash) {
-                return Ok(Response::new(SubmitTransactionResponse {
-                    tx_hash: tx_hash_hex,
-                }));
+        // 2. ADD TO MEMPOOL
+        // Optimization: Only query state if account is not already in mempool.
+        let needs_state_query = if let Some((acct, _)) = tx_info {
+            let pool = self.tx_pool.lock().await;
+            !pool.contains_account(&acct)
+        } else {
+            false
+        };
+
+        let committed_nonce = if needs_state_query {
+            if let Some((acct, _)) = tx_info {
+                let key = [ioi_types::keys::ACCOUNT_NONCE_PREFIX, acct.as_ref()].concat();
+                // Use the direct WorkloadClient handle
+                match self.workload_client.query_raw_state(&key).await {
+                    Ok(Some(b)) => ioi_types::codec::from_bytes_canonical::<u64>(&b).unwrap_or(0),
+                    _ => 0,
+                }
+            } else {
+                0
             }
-            pool.push_back((tx, tx_hash));
-            metrics().inc_mempool_transactions_added();
+        } else {
+            0
+        };
+
+        // [FIX] Strict scope for the lock to ensure it is dropped immediately
+        {
+            let mut pool = self.tx_pool.lock().await;
+            let res = pool.add(tx, tx_hash, tx_info, committed_nonce);
+
+            match res {
+                AddResult::Ready => {
+                    metrics().inc_mempool_transactions_added();
+                    // [OPTIMIZATION] Lowered log level to DEBUG
+                    tracing::debug!(target: "rpc", event = "mempool_add", status="ready", tx_hash = tx_hash_hex);
+                }
+                AddResult::Future => {
+                    metrics().inc_mempool_transactions_added();
+                    // [OPTIMIZATION] Lowered log level to DEBUG
+                    tracing::debug!(target: "rpc", event = "mempool_add", status="future", tx_hash = tx_hash_hex);
+                }
+                AddResult::Rejected(reason) => {
+                    if reason.contains("already in") {
+                        return Ok(Response::new(SubmitTransactionResponse {
+                            tx_hash: tx_hash_hex,
+                        }));
+                    }
+                    return Err(Status::invalid_argument(format!(
+                        "Mempool rejected: {}",
+                        reason
+                    )));
+                }
+            }
             metrics().set_mempool_size(pool.len() as f64);
-            tracing::info!(target: "rpc", event = "mempool_add", new_size = pool.len());
         }
 
-        let _ = swarm_sender
+        let _ = self
+            .swarm_sender
             .send(SwarmCommand::PublishTransaction(req.transaction_bytes))
             .await;
-        let _ = kick_tx.send(());
+        let _ = self.consensus_kick_tx.send(());
 
         metrics().observe_request_duration("submit_transaction", start.elapsed().as_secs_f64());
-        metrics().inc_requests_total("submit_transaction", 0); // 0 = OK
+        metrics().inc_requests_total("submit_transaction", 0);
 
         Ok(Response::new(SubmitTransactionResponse {
             tx_hash: tx_hash_hex,
@@ -195,7 +217,7 @@ where
         };
 
         let root = ioi_types::app::StateRoot(req.root);
-        // [FIX] Explicitly type map_err
+        // Explicitly type the error to satisfy compiler
         let response = client
             .query_state_at(root, &req.key)
             .await
@@ -242,7 +264,6 @@ where
             ctx.view_resolver.workload_client().clone()
         };
 
-        // [FIX] Explicitly type map_err
         let status = client
             .get_status()
             .await

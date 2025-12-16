@@ -1,6 +1,8 @@
 // Path: crates/validator/src/standard/orchestration/context.rs
+use crate::common::GuardianSigner;
 use crate::config::OrchestrationConfig;
-use ioi_api::crypto::BatchVerifier; // [NEW] Added BatchVerifier
+use crate::standard::orchestration::mempool::Mempool; // [NEW] Import Mempool
+use ioi_api::crypto::BatchVerifier;
 use ioi_api::{
     chain::ChainStateMachine, commitment::CommitmentScheme, consensus::ConsensusEngine,
     state::StateManager,
@@ -8,16 +10,13 @@ use ioi_api::{
 use ioi_crypto::sign::dilithium::DilithiumKeyPair;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::traits::NodeState;
-use ioi_types::app::{AccountId, Block, ChainTransaction, OracleAttestation, TxHash}; // Added TxHash
-                                                                                     // REMOVED: use crate::standard::orchestration::tx_hash::TxHash;
+use ioi_types::app::{AccountId, Block, ChainTransaction, OracleAttestation};
 use libp2p::{identity, PeerId};
 use serde::Serialize;
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Debug;
 use std::sync::{atomic::AtomicBool, Arc};
 use tokio::sync::{mpsc, Mutex};
-// [FIX] Import GuardianSigner
-use crate::common::GuardianSigner;
 
 pub type ChainFor<CS, ST> = Arc<
     Mutex<
@@ -54,8 +53,9 @@ where
     pub genesis_hash: [u8; 32],
     pub chain_ref: ChainFor<CS, ST>,
     pub view_resolver: Arc<dyn ioi_api::chain::ViewResolver<Verifier = V>>,
-    // MODIFIED: Mempool now stores transactions with their computed hashes.
-    pub tx_pool_ref: Arc<Mutex<VecDeque<(ChainTransaction, TxHash)>>>,
+    // MODIFIED: Mempool now uses the structured Mempool struct instead of VecDeque.
+    // It manages Ready vs Future queues internally.
+    pub tx_pool_ref: Arc<Mutex<Mempool>>,
     pub swarm_commander: mpsc::Sender<SwarmCommand>,
     pub consensus_engine_ref: Arc<Mutex<CE>>,
     pub node_state: Arc<Mutex<NodeState>>,
@@ -69,8 +69,8 @@ where
     pub sync_progress: Option<SyncProgress>,
     /// A local, atomically-managed nonce for self-generated transactions.
     pub nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
-    /// [NEW] The signer for block headers (Local or Remote Oracle).
+    /// The signer for block headers (Local or Remote Oracle).
     pub signer: Arc<dyn GuardianSigner>,
-    /// [NEW] The batch verifier for parallel signature verification.
+    /// The batch verifier for parallel signature verification.
     pub batch_verifier: Arc<dyn BatchVerifier>,
 }

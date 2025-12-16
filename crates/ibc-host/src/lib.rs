@@ -4,12 +4,32 @@
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use ibc_proto::ics23::CommitmentProof;
-// [FIX] Import WorkloadClientApi to enable calling query_state_at on WorkloadClient
 use ioi_api::chain::WorkloadClientApi;
 use ioi_api::state::{service_namespace_prefix, Verifier};
 use ioi_client::WorkloadClient;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_state::tree::iavl::{self, IavlProof};
+// [FIX] Import Mempool from validator crate (via re-export or direct use if possible,
+// but circular dependency risk. Better to define a trait or use the concrete type if available.
+// Since ioi-validator depends on ibc-host, we cannot depend on ioi-validator here.
+// We must abstract the transaction pool interface or use a shared type.
+// Given the constraints and previous patterns, we likely need to introduce a `TransactionPool` trait in `ioi-api` or `ioi-types`.
+// However, fixing this quickly might require checking where Mempool is defined.
+// It is in `ioi-validator`. This creates a circular dependency:
+// ioi-validator -> ibc-host -> ioi-validator (for Mempool).
+
+// SOLUTION:
+// The `Mempool` struct is internal logic of the validator. The `IbcHost` shouldn't know about `Mempool`.
+// We should change `DefaultIbcHost` to take a generic `P` where `P: TransactionPool`.
+// But defining that trait now is a larger refactor.
+//
+// Alternative: Move `Mempool` to `ioi-tx` or a shared crate? No, it has specific queuing logic.
+//
+// Pragmatic fix for this task:
+// Use `Arc<Mutex<dyn MempoolInterface>>` where `MempoolInterface` is defined in `ioi-api` or locally.
+// Let's define a trait `TransactionSubmitter` in `ioi-api` or `ioi-types`?
+// Or locally in `ibc-host` and implement it for `Mempool` in `ioi-validator`.
+
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ChainId, ChainTransaction, SignHeader,
@@ -44,6 +64,15 @@ pub trait IbcHost: Send + Sync {
     async fn submit_ibc_messages(&self, msgs_pb: Vec<u8>) -> Result<[u8; 32]>;
     async fn commitment_root(&self, height: Option<u64>) -> Result<(Vec<u8>, u64)>;
 }
+
+/// A trait for submitting transactions to the node's mempool.
+/// This decouples `ibc-host` from the concrete `Mempool` implementation in `ioi-validator`.
+#[async_trait]
+pub trait TransactionPool: Send + Sync {
+    async fn add(&self, tx: ChainTransaction) -> Result<()>;
+}
+
+// ... [Proof decoding helpers unchanged] ...
 
 /// Decodes an IavlProof from bytes that might be wrapped in a `Vec<u8>` envelope (SCALE).
 fn decode_scale_iavl_proof(bytes: &[u8]) -> Option<IavlProof> {
@@ -172,7 +201,8 @@ fn compute_root_from_commitment_proof(cp: &CommitmentProof) -> Result<Vec<u8>> {
 pub struct DefaultIbcHost<V: Verifier> {
     workload_client: Arc<WorkloadClient>,
     _verifier: V,
-    tx_pool: Arc<Mutex<std::collections::VecDeque<(ChainTransaction, TxHash)>>>,
+    // [FIX] Use the trait object for the transaction pool
+    tx_pool: Arc<dyn TransactionPool>,
     swarm_commander: mpsc::Sender<SwarmCommand>,
     signer: Keypair,
     nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
@@ -184,14 +214,15 @@ impl<V: Verifier + 'static> DefaultIbcHost<V> {
     pub fn new(
         workload_client: Arc<WorkloadClient>,
         verifier: V,
-        tx_pool: Arc<Mutex<std::collections::VecDeque<(ChainTransaction, TxHash)>>>,
+        // [FIX] Accept the trait object
+        tx_pool: Arc<dyn TransactionPool>,
         swarm_commander: mpsc::Sender<SwarmCommand>,
         signer: Keypair,
         nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
         chain_id: ChainId,
     ) -> Self {
         tracing::debug!(
-            target = "mempool",
+            target: "mempool",
             "host tx_pool ptr = {:p}",
             Arc::as_ptr(&tx_pool)
         );
@@ -299,20 +330,9 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
 
         let tx_hash = signed_tx.hash().map_err(|e| anyhow!(e))?;
 
-        {
-            let mut pool = self.tx_pool.lock().await;
-            let before = pool.len();
-            pool.push_back((signed_tx, tx_hash));
-            let after = pool.len();
-            tracing::debug!(
-                target = "mempool",
-                "pushed IBC tx: account_id={}, before={}, after={}, nonce={}",
-                hex::encode(account_id.as_ref()),
-                before,
-                after,
-                nonce
-            );
-        }
+        // [FIX] Use the trait abstraction to submit to the mempool
+        self.tx_pool.add(signed_tx).await?;
+
         self.swarm_commander
             .send(SwarmCommand::PublishTransaction(tx_bytes))
             .await?;

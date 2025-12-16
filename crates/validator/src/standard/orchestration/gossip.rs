@@ -1,5 +1,6 @@
 // Path: crates/validator/src/standard/orchestration/gossip.rs
 use super::context::MainLoopContext;
+use crate::standard::orchestration::mempool::Mempool;
 use anyhow::Result;
 use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, StateRef, WorkloadClientApi};
@@ -7,20 +8,21 @@ use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::{ConsensusEngine, PenaltyMechanism};
 use ioi_api::state::{StateAccess, StateManager, Verifier};
 use ioi_networking::traits::NodeState;
+// [FIX] Removed SystemPayload, TxHash
 use ioi_types::{
-    app::{Block, ChainTransaction, FailureReport, StateRoot, SystemPayload, TxHash}, // Added TxHash
+    app::{AccountId, Block, ChainTransaction, FailureReport, StateRoot}, 
     config::ConsensusType,
     error::{ChainError, TransactionError},
 };
 use lru::LruCache;
 use serde::{Deserialize, Serialize};
-// serde_jcs removed
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet}; // Added HashMap
 use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-// Type alias to simplify the complex proof cache type.
+use crate::metrics::rpc_metrics as metrics;
+
 type ProofCache = Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>;
 
 #[derive(Debug)]
@@ -47,7 +49,6 @@ impl<V: Clone> WorkloadChainView<V> {
     }
 }
 
-// No-op penalty to satisfy the trait; not used during proposal verification.
 struct NoopPenalty;
 #[async_trait]
 impl PenaltyMechanism for NoopPenalty {
@@ -86,7 +87,7 @@ where
             anchor,
             root,
             state_ref.height,
-            self.client_api.clone(), // No downcast needed, pass the trait object directly
+            self.client_api.clone(),
             self.verifier.clone(),
             self.proof_cache.clone(),
         );
@@ -109,77 +110,64 @@ where
 }
 
 /// Prunes the mempool by removing transactions that were included in a newly processed block.
+/// Also updates the Mempool's tracking of committed nonces.
 pub fn prune_mempool(
-    pool: &mut VecDeque<(ChainTransaction, TxHash)>, // MODIFIED: Tuple with TxHash
+    pool: &mut Mempool,
     processed_block: &Block<ChainTransaction>,
 ) -> Result<(), anyhow::Error> {
-    // MODIFIED: Use method
-    let block_tx_hashes: HashSet<TxHash> = processed_block
-        .transactions
-        .iter()
-        .map(|tx| tx.hash().map_err(|e| anyhow::anyhow!(e)))
-        .collect::<Result<HashSet<_>, anyhow::Error>>()?;
+    // 1. Identify transactions to remove.
+    // OPTIMIZATION: We ONLY use remove_by_hash for transactions that do NOT have a stable AccountId/Nonce.
+    // For Account transactions, `update_account_nonce` will efficiently bulk-remove them from the specific queue.
+    // Calling `remove_by_hash` for account txs forces an O(N) scan of all queues, killing performance.
 
-    let finalized_oracle_ids: HashSet<u64> = processed_block
-        .transactions
-        .iter()
-        .filter_map(|tx| match tx {
-            ChainTransaction::System(sys_tx) => {
-                let SystemPayload::CallService {
-                    service_id,
-                    method,
-                    params,
-                } = &sys_tx.payload;
-                if service_id == "oracle" && method == "submit_data@v1" {
-                    use ioi_services::oracle::SubmitDataParams;
-                    ioi_types::codec::from_bytes_canonical::<SubmitDataParams>(params)
-                        .map(|p| p.request_id)
-                        .ok()
-                } else {
-                    None
-                }
+    let mut max_nonce_in_block: HashMap<AccountId, u64> = HashMap::new();
+
+    for tx in &processed_block.transactions {
+        if let Some((acct, nonce)) = get_tx_nonce(tx) {
+            // It's an account transaction. Record the nonce advancement.
+            let entry = max_nonce_in_block.entry(acct).or_insert(0);
+            *entry = std::cmp::max(*entry, nonce);
+        } else {
+            // It's a non-account transaction (e.g., Semantic, UTXO).
+            // We must remove these by hash explicitly.
+            if let Ok(h) = tx.hash() {
+                pool.remove_by_hash(&h);
+            }
+        }
+    }
+
+    // 2. Bulk update account queues.
+    // This efficiently removes all processed transactions for these accounts in O(1) per account.
+    for (acct, max_nonce) in max_nonce_in_block {
+        // The new committed nonce is max_nonce + 1
+        pool.update_account_nonce(&acct, max_nonce + 1);
+    }
+
+    metrics().set_mempool_size(pool.len() as f64);
+
+    tracing::info!(
+        target: "orchestration",
+        event = "mempool_pruned",
+        new_size = pool.len()
+    );
+
+    Ok(())
+}
+
+fn get_tx_nonce(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
+    match tx {
+        ChainTransaction::System(s) => Some((s.header.account_id, s.header.nonce)),
+        ChainTransaction::Application(a) => match a {
+            ioi_types::app::ApplicationTransaction::DeployContract { header, .. } => {
+                Some((header.account_id, header.nonce))
+            }
+            ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
+                Some((header.account_id, header.nonce))
             }
             _ => None,
-        })
-        .collect();
-
-    let original_size = pool.len();
-    // MODIFIED: Prune based on hash comparison
-    pool.retain(|(tx_in_pool, tx_hash)| {
-        if block_tx_hashes.contains(tx_hash) {
-            return false;
-        }
-
-        if let ChainTransaction::System(sys_tx) = tx_in_pool {
-            let SystemPayload::CallService {
-                service_id,
-                method,
-                params,
-            } = &sys_tx.payload;
-            if service_id == "oracle" && method == "submit_data@v1" {
-                if let Ok(p) = ioi_types::codec::from_bytes_canonical::<
-                    ioi_services::oracle::SubmitDataParams,
-                >(params)
-                {
-                    if finalized_oracle_ids.contains(&p.request_id) {
-                        return false;
-                    }
-                }
-            }
-        }
-        true
-    });
-
-    let new_size = pool.len();
-    if new_size < original_size {
-        tracing::info!(
-            target: "orchestration",
-            event = "mempool_pruned",
-            num_pruned = original_size - new_size,
-            new_size
-        );
+        },
+        _ => None,
     }
-    Ok(())
 }
 
 /// Handles an incoming gossiped block.
@@ -205,7 +193,6 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         + 'static
         + Debug,
 {
-    // --- GUARD: Ignore gossiped blocks if they are old or if we are syncing ---
     let our_height = {
         context
             .last_committed_block
@@ -233,7 +220,6 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         );
         return;
     }
-    // --- END GUARD ---
 
     let block_height = block.header.height;
     tracing::info!(
@@ -245,7 +231,6 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
 
     let (engine_ref, cv) = {
         let resolver = context.view_resolver.as_ref();
-        // Use explicit dereferencing to call `as_any()` on the trait object.
         let default_resolver: &super::view_resolver::DefaultViewResolver<V> =
             match (*resolver).as_any().downcast_ref() {
                 Some(r) => r,
@@ -260,7 +245,6 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         (
             context.consensus_engine_ref.clone(),
             WorkloadChainView::new(
-                // Use the trait object returned by workload_client()
                 resolver.workload_client().clone(),
                 context.config.consensus_type,
                 default_resolver.verifier().clone(),
@@ -291,7 +275,6 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         "Forwarding to workload."
     );
 
-    // CHANGED: Use trait accessor directly
     match context
         .view_resolver
         .workload_client()

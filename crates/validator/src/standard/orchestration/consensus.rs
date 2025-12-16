@@ -2,23 +2,24 @@
 use crate::metrics::consensus_metrics as metrics;
 use crate::standard::orchestration::context::MainLoopContext;
 use crate::standard::orchestration::gossip::prune_mempool;
+use crate::standard::orchestration::mempool::Mempool;
 use anyhow::{anyhow, Result};
-use ioi_api::crypto::BatchVerifier; // [NEW] Added BatchVerifier
+use ioi_api::crypto::BatchVerifier;
 use ioi_api::{
-    chain::{StateRef, ViewResolver},
+    // [FIX] Removed ViewResolver
+    chain::StateRef,
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
     crypto::{SerializableKey, SigningKeyPair},
     state::{ProofProvider, StateManager, Verifier},
 };
-// [FIX] Removed unused ioi_ipc import
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::traits::NodeState;
-use ioi_tx::system::validation::get_signature_components; // [NEW] Used for batching
+use ioi_tx::system::validation::get_signature_components;
 use ioi_types::{
     app::{
         account_id_from_key_material, to_root_hash, AccountId, Block, BlockHeader,
-        ChainTransaction, SignatureSuite, StateAnchor, StateRoot, SystemPayload, TxHash,
+        ChainTransaction, SignatureSuite, StateAnchor, StateRoot, TxHash,
     },
     codec,
     keys::VALIDATOR_SET_KEY,
@@ -65,7 +66,7 @@ where
         last_committed_block_opt,
         node_state_arc,
         signer,
-        batch_verifier, // [NEW] Extract batch_verifier
+        batch_verifier,
     ) = {
         let ctx = context_arc.lock().await;
         (
@@ -80,7 +81,7 @@ where
             ctx.last_committed_block.clone(),
             ctx.node_state.clone(),
             ctx.signer.clone(),
-            ctx.batch_verifier.clone(), // [NEW]
+            ctx.batch_verifier.clone(),
         )
     };
 
@@ -94,7 +95,8 @@ where
         .map(|b| b.header.height)
         .unwrap_or(0);
     let producing_h = parent_h + 1;
-    tracing::info!(target: "consensus", event = "tick", %cause, ?node_state, parent_h, producing_h);
+    // [OPTIMIZATION] Lowered log level to DEBUG
+    tracing::debug!(target: "consensus", event = "tick", %cause, ?node_state, parent_h, producing_h);
 
     let consensus_allows_bootstrap = matches!(
         cons_ty,
@@ -120,7 +122,7 @@ where
     );
 
     // --- Step 1: Consensus Decision ---
-    let (parent_ref, parent_anchor) =
+    let (parent_ref, _parent_anchor) =
         resolve_parent_ref_and_anchor(&last_committed_block_opt, view_resolver.as_ref()).await?;
 
     let decision = {
@@ -142,13 +144,10 @@ where
     {
         metrics().inc_blocks_produced();
 
-        // --- Step 2: Gather Valid Transactions (Pre-check) ---
-        // [MODIFIED] Pass batch_verifier
+        // --- Step 2: Gather Valid Transactions (OPTIMIZED) ---
+        // We skip the expensive IPC stateful check here.
         let valid_txs = gather_valid_transactions(
-            &view_resolver,
             &tx_pool_ref,
-            parent_anchor,
-            expected_timestamp_secs,
             batch_verifier.as_ref(), // [NEW]
         )
         .await?;
@@ -310,45 +309,42 @@ where
     Ok((parent_ref, parent_anchor))
 }
 
-async fn gather_valid_transactions<V>(
-    view_resolver: &Arc<dyn ViewResolver<Verifier = V>>,
-    tx_pool_ref: &Arc<Mutex<VecDeque<(ChainTransaction, TxHash)>>>,
-    parent_anchor: StateAnchor,
-    expected_timestamp_secs: u64,
-    batch_verifier: &dyn BatchVerifier, // [NEW]
-) -> Result<Vec<ChainTransaction>>
-where
-    V: Verifier,
-{
-    let (candidate_txs, mempool_len_before) = {
+// Optimized Gather: Only Stateless Checks (Batch Verify)
+async fn gather_valid_transactions(
+    tx_pool_ref: &Arc<Mutex<Mempool>>,
+    batch_verifier: &dyn BatchVerifier,
+) -> Result<Vec<ChainTransaction>> {
+    // 1. Select candidates from Mempool (which handles ordering/fairness)
+    let candidate_txs = {
         let pool = tx_pool_ref.lock().await;
-        (
-            pool.iter().map(|(tx, _)| tx.clone()).collect::<Vec<_>>(),
-            pool.len(),
-        )
+        // The Mempool logic now handles ordering and dependency resolution internally!
+        // We just ask it for the best 20k transactions.
+        pool.select_transactions(20_000)
     };
 
     if candidate_txs.is_empty() {
         return Ok(Vec::new());
     }
 
-    tracing::info!(target: "consensus", event = "precheck_start", mempool_size = mempool_len_before);
+    // [OPTIMIZATION] Lowered log level to DEBUG
+    tracing::debug!(target: "consensus", event = "gather_start", candidate_count = candidate_txs.len());
 
-    // --- PHASE 4: Parallel Batch Signature Verification ---
-    let mut batch_items = Vec::new();
-    let mut sig_indices = Vec::new();
-    let mut sign_bytes_storage = Vec::new(); // Store owned bytes to keep them alive
+    // 2. PHASE 4: Parallel Batch Signature Verification
+    let mut batch_items = Vec::with_capacity(candidate_txs.len());
+    let mut sig_indices = Vec::with_capacity(candidate_txs.len());
+    let mut sign_bytes_storage = Vec::with_capacity(candidate_txs.len());
 
     for (i, tx) in candidate_txs.iter().enumerate() {
-        if let Ok(Some((_, proof, bytes))) = get_signature_components(tx) {
+        // [FIX] Prefix unused proof
+        if let Ok(Some((_, _proof, bytes))) = get_signature_components(tx) {
             sign_bytes_storage.push(bytes);
             sig_indices.push(i);
         }
     }
 
-    // Re-iterate to construct references now that storage is pinned
     for (i, &idx) in sig_indices.iter().enumerate() {
         let tx = &candidate_txs[idx];
+        // [FIX] Prefix unused proof
         if let Ok(Some((_, proof, _))) = get_signature_components(tx) {
             batch_items.push((
                 proof.public_key.as_slice(),
@@ -368,113 +364,37 @@ where
     };
 
     let mut invalid_tx_hashes: HashSet<TxHash> = HashSet::new();
-    let mut statelessly_valid_txs = Vec::new();
-
+    let mut valid_txs = Vec::with_capacity(candidate_txs.len());
     let mut result_iter = batch_results.into_iter();
     let mut indices_iter = sig_indices.into_iter();
     let mut next_sig_idx = indices_iter.next();
 
     for (i, tx) in candidate_txs.iter().enumerate() {
-        // If this tx needed verification
         if Some(i) == next_sig_idx {
             let valid = result_iter.next().unwrap_or(false);
             if !valid {
+                tracing::warn!(target: "consensus", event = "batch_verify_fail", tx_index = i, "Signature invalid");
                 if let Ok(h) = tx.hash() {
                     invalid_tx_hashes.insert(h);
                 }
-                tracing::warn!(target: "consensus", event = "batch_verify_fail", tx_index = i, "Signature invalid");
                 next_sig_idx = indices_iter.next();
                 continue;
             }
             next_sig_idx = indices_iter.next();
         }
-        // If it didn't need verification (unsigned), or passed verification, keep it.
-        statelessly_valid_txs.push(tx.clone());
-    }
-    // ----------------------------------------------------
-
-    let mut valid_txs = Vec::new();
-    let workload_client = view_resolver.workload_client();
-
-    // Perform stateful checks sequentially via IPC
-    // (Optimization: In future, batch IPC call for CheckTransactions)
-    for (i, tx) in statelessly_valid_txs.iter().enumerate() {
-        match workload_client
-            .check_transactions_at(parent_anchor, expected_timestamp_secs, vec![tx.clone()])
-            .await
-        {
-            Ok(res) if res.first().is_some_and(|r| r.is_ok()) => valid_txs.push(tx.clone()),
-            Ok(res) => {
-                let err = res
-                    .first()
-                    .and_then(|r| r.as_ref().err())
-                    .cloned()
-                    .unwrap_or_else(|| "Unknown pre-check failure".into());
-
-                let (signer, nonce, payload_kind) = match tx {
-                    ChainTransaction::System(s) => {
-                        let SystemPayload::CallService {
-                            service_id, method, ..
-                        } = &s.payload;
-                        (
-                            s.header.account_id,
-                            s.header.nonce,
-                            format!("CallService({service_id}::{method})"),
-                        )
-                    }
-                    ChainTransaction::Application(a) => match a {
-                        ioi_types::app::ApplicationTransaction::DeployContract {
-                            header, ..
-                        } => (
-                            header.account_id,
-                            header.nonce,
-                            "DeployContract".to_string(),
-                        ),
-                        ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
-                            (header.account_id, header.nonce, "CallContract".to_string())
-                        }
-                        _ => (AccountId::default(), 0, "UTXO".to_string()),
-                    },
-                    ChainTransaction::Semantic { header, .. } => {
-                        (header.account_id, header.nonce, "Semantic".to_string())
-                    }
-                };
-                tracing::warn!(
-                    target: "orchestration",
-                    event = "tx_filtered",
-                    tx_index = i,
-                    signer = %hex::encode(signer.as_ref()),
-                    nonce = nonce,
-                    payload = %payload_kind,
-                    error = %err,
-                    "pre-check rejected tx"
-                );
-
-                if let Ok(tx_hash) = tx.hash() {
-                    invalid_tx_hashes.insert(tx_hash);
-                }
-            }
-            Err(e) => {
-                tracing::warn!(
-                    target: "orchestration",
-                    event = "check_tx_ipc_error",
-                    tx_index = i,
-                    error=%e,
-                    "treating as rejection"
-                );
-                if let Ok(tx_hash) = tx.hash() {
-                    invalid_tx_hashes.insert(tx_hash);
-                }
-            }
-        }
+        valid_txs.push(tx.clone());
     }
 
     if !invalid_tx_hashes.is_empty() {
         let mut pool = tx_pool_ref.lock().await;
-        pool.retain(|(_tx, hash)| !invalid_tx_hashes.contains(hash));
-        tracing::info!(target: "consensus", event = "mempool_prune", num_pruned = invalid_tx_hashes.len());
+        for hash in &invalid_tx_hashes {
+            pool.remove_by_hash(hash);
+        }
+        tracing::info!(target: "consensus", event = "mempool_prune_invalid", num_pruned = invalid_tx_hashes.len());
     }
 
+    // [OPTIMIZATION] Lowered log level to DEBUG
+    tracing::debug!(target: "consensus", event = "gather_complete", valid_count = valid_txs.len());
     Ok(valid_txs)
 }
 
@@ -484,7 +404,7 @@ async fn finalize_and_broadcast_block<CS, ST, CE, V>(
     signer: Arc<dyn GuardianSigner>,
     swarm_commander: &mpsc::Sender<SwarmCommand>,
     consensus_engine_ref: &Arc<Mutex<CE>>,
-    tx_pool_ref: &Arc<Mutex<VecDeque<(ChainTransaction, TxHash)>>>,
+    tx_pool_ref: &Arc<Mutex<Mempool>>,
     node_state_arc: &Arc<Mutex<NodeState>>,
 ) -> Result<()>
 where
@@ -502,20 +422,14 @@ where
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     let block_height = final_block.header.height;
-
-    // 1. Sign the block
     let preimage = final_block.header.to_preimage_for_signing()?;
-    // Hash the preimage first, as the signer expects a 32-byte hash
     let preimage_hash = ioi_crypto::algorithms::hash::sha256(&preimage)?;
-
     let bundle = signer.sign_consensus_payload(preimage_hash).await?;
 
     final_block.header.signature = bundle.signature;
     final_block.header.oracle_counter = bundle.counter;
     final_block.header.oracle_trace_hash = bundle.trace_hash;
 
-    // Persist the fully signed block back to Workload storage.
-    // This prevents the workload from serving an unsigned block on query.
     {
         let view_resolver = context_arc.lock().await.view_resolver.clone();
         let workload_client = view_resolver.workload_client();
@@ -525,7 +439,6 @@ where
             .map_err(|e| anyhow!("Failed to update block header in workload: {}", e))?;
     }
 
-    // 2. Update Context (Last Committed Block)
     {
         let mut ctx = context_arc.lock().await;
         ctx.last_committed_block = Some(final_block.clone());
@@ -539,13 +452,11 @@ where
         root = hex::encode(final_block.header.state_root.as_ref())
     );
 
-    // 3. Broadcast Block
     {
         let data = codec::to_bytes_canonical(&final_block).map_err(|e| anyhow!(e))?;
         let _ = swarm_commander.send(SwarmCommand::PublishBlock(data)).await;
     }
 
-    // 4. Prune Mempool (Transactions included in the block)
     {
         let mut pool = tx_pool_ref.lock().await;
         if let Err(e) = prune_mempool(&mut pool, &final_block) {
@@ -553,12 +464,10 @@ where
         }
     }
 
-    // 5. Reset Consensus Engine for next height
     {
         consensus_engine_ref.lock().await.reset(block_height);
     }
 
-    // 6. Update Node State (if syncing)
     {
         let mut ns = node_state_arc.lock().await;
         if *ns == NodeState::Syncing {
