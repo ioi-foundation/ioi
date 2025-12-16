@@ -13,7 +13,7 @@
 //! The main logic for the Orchestration container, handling consensus and peer communication.
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use ioi_api::crypto::BatchVerifier; // [NEW] Added BatchVerifier
+use ioi_api::crypto::BatchVerifier;
 use ioi_api::crypto::SerializableKey;
 use ioi_api::{
     chain::WorkloadClientApi,
@@ -28,7 +28,6 @@ use ioi_crypto::sign::dilithium::DilithiumKeyPair;
 use ioi_networking::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use ioi_networking::traits::NodeState;
 use ioi_networking::BlockSync;
-use ioi_types::app::TxHash;
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ChainTransaction, GuardianReport, SignHeader,
@@ -65,6 +64,8 @@ mod consensus;
 mod context;
 mod gossip;
 mod grpc_public;
+/// Transaction mempool logic.
+pub mod mempool;
 mod operator_tasks;
 mod oracle;
 mod peer_management;
@@ -73,7 +74,6 @@ mod sync;
 pub mod verifier_select;
 mod view_resolver;
 
-// --- Use statements for handler functions ---
 use self::sync as sync_handlers;
 use crate::config::OrchestrationConfig;
 use consensus::drive_consensus_tick;
@@ -102,9 +102,9 @@ pub struct OrchestrationDependencies<CE, V> {
     pub genesis_hash: [u8; 32],
     /// The proof verifier matching the workload's state tree.
     pub verifier: V,
-    /// [NEW] The signer for block headers (Local or Remote Oracle).
+    /// The signer for block headers (Local or Remote Oracle).
     pub signer: Arc<dyn GuardianSigner>,
-    /// [NEW] The batch verifier for parallel signature verification.
+    /// The batch verifier for parallel signature verification.
     pub batch_verifier: Arc<dyn BatchVerifier>,
 }
 
@@ -142,7 +142,7 @@ where
     chain: Arc<OnceCell<ChainFor<CS, ST>>>,
     workload_client: Arc<OnceCell<Arc<WorkloadClient>>>,
     /// The local mempool for pending transactions.
-    pub tx_pool: Arc<Mutex<VecDeque<(ChainTransaction, TxHash)>>>,
+    pub tx_pool: Arc<Mutex<crate::standard::orchestration::mempool::Mempool>>,
     syncer: Arc<Libp2pSync>,
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
     network_event_receiver: NetworkEventReceiver,
@@ -162,11 +162,12 @@ where
     consensus_kick_rx: ConsensusKickReceiver,
     /// A local, atomically-managed nonce for self-generated transactions.
     pub nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
-    /// [NEW] The signer for block headers (Local or Remote Oracle).
+    /// The signer for block headers (Local or Remote Oracle).
     pub signer: Arc<dyn GuardianSigner>,
     /// Thread pool for CPU-intensive ingress tasks (signature verification).
-    cpu_pool: Arc<rayon::ThreadPool>,
-    /// [NEW] The batch verifier for parallel signature verification.
+    #[allow(dead_code)] // Intended for future optimization
+    _cpu_pool: Arc<rayon::ThreadPool>,
+    /// The batch verifier for parallel signature verification.
     pub batch_verifier: Arc<dyn BatchVerifier>,
 }
 
@@ -197,10 +198,7 @@ where
     ) -> anyhow::Result<Self> {
         let config: OrchestrationConfig = toml::from_str(&std::fs::read_to_string(config_path)?)?;
         let (shutdown_sender, _) = watch::channel(false);
-
         let (consensus_kick_tx, consensus_kick_rx) = mpsc::unbounded_channel();
-
-        // Initialize thread pool for CPU bound tasks
         let cpu_pool = Arc::new(
             rayon::ThreadPoolBuilder::new()
                 .num_threads(num_cpus::get())
@@ -213,7 +211,9 @@ where
             genesis_hash: deps.genesis_hash,
             chain: Arc::new(OnceCell::new()),
             workload_client: Arc::new(OnceCell::new()),
-            tx_pool: Arc::new(Mutex::new(VecDeque::new())),
+            tx_pool: Arc::new(Mutex::new(
+                crate::standard::orchestration::mempool::Mempool::new(),
+            )),
             syncer: deps.syncer,
             swarm_command_sender: deps.swarm_command_sender,
             network_event_receiver: Mutex::new(Some(deps.network_event_receiver)),
@@ -233,8 +233,8 @@ where
             consensus_kick_rx: Mutex::new(Some(consensus_kick_rx)),
             nonce_manager: Arc::new(Mutex::new(BTreeMap::new())),
             signer: deps.signer,
-            cpu_pool,
-            batch_verifier: deps.batch_verifier, // [NEW] Added
+            _cpu_pool: cpu_pool,
+            batch_verifier: deps.batch_verifier,
         })
     }
 
@@ -253,9 +253,7 @@ where
         }
     }
 
-    /// Performs agentic attestation with the Guardian.
-    /// This ensures the workload is running with the correct model and weights,
-    /// and now also receives the BootAttestation for binary integrity.
+    // ... perform_guardian_attestation ... (unchanged)
     async fn perform_guardian_attestation(
         &self,
         guardian_addr: &str,
@@ -283,9 +281,7 @@ where
             .await
             .ok_or_else(|| anyhow!("Failed to take stream from Guardian channel"))?;
 
-        // Read length prefix
         let len = stream.read_u32().await?;
-
         const MAX_REPORT_SIZE: u32 = 10 * 1024 * 1024; // 10 MiB limit
         if len > MAX_REPORT_SIZE {
             return Err(anyhow!(
@@ -301,7 +297,6 @@ where
         let report: GuardianReport = serde_json::from_slice(&report_bytes)
             .map_err(|e| anyhow!("Failed to deserialize Guardian report: {}", e))?;
 
-        // 1. Verify Model Hash (Agentic Integrity)
         tracing::info!(
             target: "orchestration",
             "[Orchestrator] Received local model hash from Guardian: {}",
@@ -317,7 +312,6 @@ where
             ));
         }
 
-        // 2. Submit Binary Attestation (Boot Integrity)
         tracing::info!(target: "orchestration", "Submitting signed binary boot attestation to IdentityHub...");
 
         let payload_bytes =
@@ -365,33 +359,17 @@ where
 
         let tx = ChainTransaction::System(Box::new(sys_tx));
         let tx_hash = tx.hash()?;
-        self.tx_pool.lock().await.push_back((tx, tx_hash));
+
+        let committed_nonce = 0;
+        self.tx_pool
+            .lock()
+            .await
+            .add(tx, tx_hash, Some((our_account_id, nonce)), committed_nonce);
 
         Ok(())
     }
-}
 
-// ---------- ticker + main loop ----------
-impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
-where
-    CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Send
-        + Sync
-        + 'static
-        + Debug
-        + Clone,
-    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
-    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Clone
-        + Send
-        + Sync
-        + 'static
-        + Debug,
-{
+    // ... run_consensus_ticker ... (unchanged)
     async fn run_consensus_ticker(
         context_arc: Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
         mut kick_rx: mpsc::UnboundedReceiver<()>,
@@ -427,11 +405,17 @@ where
                     }
                 }
                 Some(()) = kick_rx.recv() => {
+                    let mut count = 1;
+                    while let Ok(_) = kick_rx.try_recv() {
+                        count += 1;
+                    }
+                    if count > 10 {
+                        tracing::debug!(target: "consensus", "Coalesced {} kicks into one tick", count);
+                    }
                     let cause = "kick";
-                     let is_quarantined = context_arc.lock().await.is_quarantined.load(Ordering::SeqCst);
+                    let is_quarantined = context_arc.lock().await.is_quarantined.load(Ordering::SeqCst);
                     if is_quarantined {
-                        tracing::info!(target: "consensus", "Skipping kicked tick (node is quarantined).");
-                        continue;
+                         continue;
                     }
                     let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
                      if let Err(e) = result.map_err(|e| anyhow!("Kicked consensus tick panicked: {:?}", e)).and_then(|res| res) {
@@ -449,6 +433,7 @@ where
         tracing::info!(target: "consensus", "Consensus ticker finished.");
     }
 
+    // ... run_sync_discoverer ... (unchanged)
     async fn run_sync_discoverer(
         context_arc: Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
         mut shutdown_rx: watch::Receiver<bool>,
@@ -487,6 +472,7 @@ where
         tracing::info!(target: "orchestration", "Sync discoverer finished.");
     }
 
+    // ... run_main_loop ... (unchanged)
     async fn run_main_loop(
         mut network_event_receiver: mpsc::Receiver<NetworkEvent>,
         mut shutdown_receiver: watch::Receiver<bool>,
@@ -505,7 +491,6 @@ where
             tracing::info!(target: "orchestration", "State -> Syncing.");
         }
 
-        // --- CONSOLIDATED BOOTSTRAP LOGIC ---
         {
             let context = context_arc.lock().await;
             let is_bootstrap_consensus = matches!(
@@ -513,9 +498,7 @@ where
                 ioi_types::config::ConsensusType::ProofOfAuthority
                     | ioi_types::config::ConsensusType::ProofOfStake
             );
-            // Check for no peers to identify a single-node startup.
             if is_bootstrap_consensus && context.known_peers_ref.lock().await.is_empty() {
-                // For a single-node startup, we are effectively "synced".
                 let mut node_state = context.node_state.lock().await;
                 if *node_state == NodeState::Syncing {
                     *node_state = NodeState::Synced;
@@ -524,12 +507,10 @@ where
                         event = "bootstrap_kick",
                         "Single-node startup detected. State -> Synced. Sending initial consensus kick."
                     );
-                    // This is now the ONLY initial kick.
                     let _ = context.consensus_kick_tx.send(());
                 }
             }
         }
-        // --- END CONSOLIDATED BOOTSTRAP LOGIC ---
 
         loop {
             tokio::select! {
@@ -571,7 +552,241 @@ where
     }
 }
 
-/// Dispatches network events to their respective handlers.
+// Implement Container for Orchestrator to hold start/stop/status methods
+#[async_trait]
+impl<CS, ST, CE, V> Container for Orchestrator<CS, ST, CE, V>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Clone
+        + Debug,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    fn id(&self) -> &'static str {
+        "orchestration_container"
+    }
+
+    fn is_running(&self) -> bool {
+        self.is_running.load(Ordering::SeqCst)
+    }
+
+    async fn start(&self, _listen_addr: &str) -> Result<(), ValidatorError> {
+        if self.is_running.load(Ordering::SeqCst) {
+            return Err(ValidatorError::AlreadyRunning(self.id().to_string()));
+        }
+        tracing::info!(target: "orchestration", "Orchestrator starting...");
+
+        self.syncer
+            .start()
+            .await
+            .map_err(|e| ValidatorError::Other(e.to_string()))?;
+
+        let workload_client = self
+            .workload_client
+            .get()
+            .ok_or_else(|| {
+                ValidatorError::Other(
+                    "Workload client ref not initialized before start".to_string(),
+                )
+            })?
+            .clone();
+
+        // --- NEW: Public gRPC Server Start ---
+        let public_service = PublicApiImpl {
+            context_wrapper: self.main_loop_context.clone(),
+            workload_client: workload_client.clone(),
+            tx_pool: self.tx_pool.clone(),
+            swarm_sender: self.swarm_command_sender.clone(),
+            consensus_kick_tx: self.consensus_kick_tx.clone(),
+        };
+
+        let rpc_addr =
+            self.config.rpc_listen_address.parse().map_err(|e| {
+                ValidatorError::Config(format!("Invalid RPC listen address: {}", e))
+            })?;
+
+        tracing::info!(target: "rpc", "Public gRPC API listening on {}", rpc_addr);
+        eprintln!("ORCHESTRATION_RPC_LISTENING_ON_{}", rpc_addr);
+
+        let rpc_handle = tokio::spawn(async move {
+            if let Err(e) = Server::builder()
+                .add_service(PublicApiServer::new(public_service))
+                .serve(rpc_addr)
+                .await
+            {
+                tracing::error!(target: "rpc", "Public API server failed: {}", e);
+            }
+        });
+
+        let mut handles = self.task_handles.lock().await;
+        handles.push(rpc_handle);
+
+        let guardian_addr = std::env::var("GUARDIAN_ADDR").unwrap_or_default();
+        if !guardian_addr.is_empty() {
+            tracing::info!(target: "orchestration", "[Orchestration] Performing agentic attestation with Guardian...");
+            match self
+                .perform_guardian_attestation(&guardian_addr, &workload_client)
+                .await
+            {
+                Ok(()) => {
+                    tracing::info!(target: "orchestration", "[Orchestrator] Agentic attestation successful.")
+                }
+                Err(e) => {
+                    tracing::error!(target: "orchestration", "[Orchestrator] CRITICAL: Agentic attestation failed: {}. Quarantining node.", e);
+                    self.is_quarantined.store(true, Ordering::SeqCst);
+                    return Err(ValidatorError::Attestation(e.to_string()));
+                }
+            }
+        } else {
+            tracing::warn!(target: "orchestration", "GUARDIAN_ADDR not set, skipping Guardian attestation.");
+        }
+
+        let chain = self
+            .chain
+            .get()
+            .ok_or_else(|| {
+                ValidatorError::Other("Chain ref not initialized before start".to_string())
+            })?
+            .clone();
+
+        let view_resolver = Arc::new(view_resolver::DefaultViewResolver::new(
+            workload_client.clone(),
+            self.verifier.clone(),
+            self.proof_cache.clone(),
+        ));
+
+        let local_account_id = AccountId(
+            account_id_from_key_material(
+                SignatureSuite::Ed25519,
+                &self.local_keypair.public().encode_protobuf(),
+            )
+            .map_err(|e| {
+                ValidatorError::Config(format!("Failed to derive local account ID: {}", e))
+            })?,
+        );
+        let nonce_key = [
+            ioi_types::keys::ACCOUNT_NONCE_PREFIX,
+            local_account_id.as_ref(),
+        ]
+        .concat();
+
+        let initial_nonce = match workload_client.query_raw_state(&nonce_key).await {
+            Ok(Some(bytes)) => {
+                let arr: [u8; 8] = match bytes.try_into() {
+                    Ok(a) => a,
+                    Err(_) => [0; 8],
+                };
+                u64::from_le_bytes(arr)
+            }
+            _ => 0,
+        };
+        self.nonce_manager
+            .lock()
+            .await
+            .insert(local_account_id, initial_nonce);
+        tracing::info!(target: "orchestration", initial_nonce = initial_nonce, "Primed local nonce manager for self-generated transactions.");
+
+        let context = MainLoopContext::<CS, ST, CE, V> {
+            chain_ref: chain,
+            tx_pool_ref: self.tx_pool.clone(),
+            view_resolver,
+            swarm_commander: self.swarm_command_sender.clone(),
+            consensus_engine_ref: self.consensus_engine.clone(),
+            node_state: self.syncer.get_node_state(),
+            local_keypair: self.local_keypair.clone(),
+            pqc_signer: self.pqc_signer.clone(),
+            known_peers_ref: self.syncer.get_known_peers(),
+            config: self.config.clone(),
+            chain_id: self.config.chain_id,
+            genesis_hash: self.genesis_hash,
+            is_quarantined: self.is_quarantined.clone(),
+            pending_attestations: std::collections::HashMap::new(),
+            last_committed_block: None,
+            consensus_kick_tx: self.consensus_kick_tx.clone(),
+            sync_progress: None,
+            nonce_manager: self.nonce_manager.clone(),
+            signer: self.signer.clone(),
+            batch_verifier: self.batch_verifier.clone(),
+        };
+
+        let mut receiver_opt = self.network_event_receiver.lock().await;
+        let receiver = receiver_opt.take().ok_or(ValidatorError::Other(
+            "Network event receiver already taken".to_string(),
+        ))?;
+
+        let context_arc = Arc::new(Mutex::new(context));
+        *self.main_loop_context.lock().await = Some(context_arc.clone());
+
+        let ticker_kick_rx = match self.consensus_kick_rx.lock().await.take() {
+            Some(rx) => rx,
+            None => {
+                return Err(ValidatorError::Other(
+                    "Consensus kick receiver already taken".into(),
+                ))
+            }
+        };
+        let ticker_context = context_arc.clone();
+        let ticker_shutdown_rx = self.shutdown_sender.subscribe();
+
+        handles.push(tokio::spawn(async move {
+            Self::run_consensus_ticker(ticker_context, ticker_kick_rx, ticker_shutdown_rx).await;
+        }));
+
+        let discoverer_context = context_arc.clone();
+        let discoverer_shutdown_rx = self.shutdown_sender.subscribe();
+        handles.push(tokio::spawn(async move {
+            Self::run_sync_discoverer(discoverer_context, discoverer_shutdown_rx).await;
+        }));
+
+        let shutdown_receiver_clone = self.shutdown_sender.subscribe();
+        let main_loop_context_clone = context_arc.clone();
+        handles.push(tokio::spawn(async move {
+            Self::run_main_loop(receiver, shutdown_receiver_clone, main_loop_context_clone).await;
+        }));
+
+        self.is_running.store(true, Ordering::SeqCst);
+        eprintln!("ORCHESTRATION_STARTUP_COMPLETE");
+        Ok(())
+    }
+
+    async fn stop(&self) -> Result<(), ValidatorError> {
+        if !self.is_running.load(Ordering::SeqCst) {
+            return Ok(());
+        }
+        tracing::info!(target: "orchestration", "Orchestrator stopping...");
+        self.shutdown_sender.send(true).ok();
+
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        self.is_running.store(false, Ordering::SeqCst);
+
+        self.syncer
+            .stop()
+            .await
+            .map_err(|e| ValidatorError::Other(e.to_string()))?;
+
+        let mut handles = self.task_handles.lock().await;
+        for handle in handles.drain(..) {
+            handle
+                .await
+                .map_err(|e| ValidatorError::Other(format!("Task panicked: {e}")))?;
+        }
+        Ok(())
+    }
+}
+
 async fn handle_network_event<CS, ST, CE, V>(
     event: NetworkEvent,
     context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
@@ -608,9 +823,25 @@ async fn handle_network_event<CS, ST, CE, V>(
                 let ctx = context_arc.lock().await;
                 (ctx.tx_pool_ref.clone(), ctx.consensus_kick_tx.clone())
             };
+
+            let tx_info = match tx.as_ref() {
+                ChainTransaction::System(s) => Some((s.header.account_id, s.header.nonce)),
+                ChainTransaction::Application(a) => match a {
+                    ioi_types::app::ApplicationTransaction::DeployContract { header, .. } => {
+                        Some((header.account_id, header.nonce))
+                    }
+                    ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
+                        Some((header.account_id, header.nonce))
+                    }
+                    _ => None,
+                },
+                _ => None,
+            };
+
             {
                 let mut pool = tx_pool_ref.lock().await;
-                pool.push_back((*tx, tx_hash));
+                pool.add(*tx, tx_hash, tx_info, 0);
+
                 log::debug!("[Orchestrator] Mempool size is now {}", pool.len());
                 let _ = kick_tx.send(());
             }
@@ -715,237 +946,5 @@ async fn handle_network_event<CS, ST, CE, V>(
             sync_handlers::handle_outbound_failure(&mut ctx, peer).await
         }
         _ => {}
-    }
-}
-
-#[async_trait]
-impl<CS, ST, CE, V> Container for Orchestrator<CS, ST, CE, V>
-where
-    CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Send
-        + Sync
-        + 'static
-        + Debug
-        + Clone,
-    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
-    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Clone
-        + Send
-        + Sync
-        + 'static
-        + Debug,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
-    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-{
-    fn id(&self) -> &'static str {
-        "orchestration_container"
-    }
-    fn is_running(&self) -> bool {
-        self.is_running.load(Ordering::SeqCst)
-    }
-
-    async fn start(&self, _listen_addr: &str) -> Result<(), ValidatorError> {
-        if self.is_running() {
-            return Err(ValidatorError::AlreadyRunning(self.id().to_string()));
-        }
-        tracing::info!(target: "orchestration", "Orchestrator starting...");
-
-        self.syncer
-            .start()
-            .await
-            .map_err(|e| ValidatorError::Other(e.to_string()))?;
-
-        // --- NEW: Public gRPC Server Start ---
-        // [FIX] Pass the wrapper directly. Do NOT try to unwrap the inner context yet.
-        let public_service = PublicApiImpl {
-            context_wrapper: self.main_loop_context.clone(),
-        };
-
-        let rpc_addr =
-            self.config.rpc_listen_address.parse().map_err(|e| {
-                ValidatorError::Config(format!("Invalid RPC listen address: {}", e))
-            })?;
-
-        tracing::info!(target: "rpc", "Public gRPC API listening on {}", rpc_addr);
-        eprintln!("ORCHESTRATION_RPC_LISTENING_ON_{}", rpc_addr);
-
-        let rpc_handle = tokio::spawn(async move {
-            if let Err(e) = Server::builder()
-                .add_service(PublicApiServer::new(public_service))
-                .serve(rpc_addr)
-                .await
-            {
-                tracing::error!(target: "rpc", "Public API server failed: {}", e);
-            }
-        });
-
-        let mut handles = self.task_handles.lock().await;
-        handles.push(rpc_handle);
-
-        let workload_client = self
-            .workload_client
-            .get()
-            .ok_or_else(|| {
-                ValidatorError::Other(
-                    "Workload client ref not initialized before start".to_string(),
-                )
-            })?
-            .clone();
-
-        let guardian_addr = std::env::var("GUARDIAN_ADDR").unwrap_or_default();
-        if !guardian_addr.is_empty() {
-            tracing::info!(target: "orchestration", "[Orchestration] Performing agentic attestation with Guardian...");
-            match self
-                .perform_guardian_attestation(&guardian_addr, &workload_client)
-                .await
-            {
-                Ok(()) => {
-                    tracing::info!(target: "orchestration", "[Orchestrator] Agentic attestation successful.")
-                }
-                Err(e) => {
-                    tracing::error!(target: "orchestration", "[Orchestrator] CRITICAL: Agentic attestation failed: {}. Quarantining node.", e);
-                    self.is_quarantined.store(true, Ordering::SeqCst);
-                    return Err(ValidatorError::Attestation(e.to_string()));
-                }
-            }
-        } else {
-            tracing::warn!(target: "orchestration", "GUARDIAN_ADDR not set, skipping Guardian attestation.");
-        }
-
-        let chain = self
-            .chain
-            .get()
-            .ok_or_else(|| {
-                ValidatorError::Other("Chain ref not initialized before start".to_string())
-            })?
-            .clone();
-
-        let view_resolver = Arc::new(view_resolver::DefaultViewResolver::new(
-            workload_client.clone(),
-            self.verifier.clone(),
-            self.proof_cache.clone(),
-        ));
-
-        let local_account_id = AccountId(
-            account_id_from_key_material(
-                SignatureSuite::Ed25519,
-                &self.local_keypair.public().encode_protobuf(),
-            )
-            .map_err(|e| {
-                ValidatorError::Config(format!("Failed to derive local account ID: {}", e))
-            })?,
-        );
-        let nonce_key = [
-            ioi_types::keys::ACCOUNT_NONCE_PREFIX,
-            local_account_id.as_ref(),
-        ]
-        .concat();
-
-        let initial_nonce = match workload_client.query_raw_state(&nonce_key).await {
-            Ok(Some(bytes)) => {
-                let arr: [u8; 8] = match bytes.try_into() {
-                    Ok(a) => a,
-                    Err(_) => [0; 8],
-                };
-                u64::from_le_bytes(arr)
-            }
-            _ => 0,
-        };
-        self.nonce_manager
-            .lock()
-            .await
-            .insert(local_account_id, initial_nonce);
-        tracing::info!(target: "orchestration", initial_nonce = initial_nonce, "Primed local nonce manager for self-generated transactions.");
-
-        let context = MainLoopContext::<CS, ST, CE, V> {
-            chain_ref: chain,
-            tx_pool_ref: self.tx_pool.clone(),
-            view_resolver,
-            swarm_commander: self.swarm_command_sender.clone(),
-            consensus_engine_ref: self.consensus_engine.clone(),
-            node_state: self.syncer.get_node_state(),
-            local_keypair: self.local_keypair.clone(),
-            pqc_signer: self.pqc_signer.clone(),
-            known_peers_ref: self.syncer.get_known_peers(),
-            config: self.config.clone(),
-            chain_id: self.config.chain_id,
-            genesis_hash: self.genesis_hash,
-            is_quarantined: self.is_quarantined.clone(),
-            pending_attestations: std::collections::HashMap::new(),
-            last_committed_block: None,
-            consensus_kick_tx: self.consensus_kick_tx.clone(),
-            sync_progress: None,
-            nonce_manager: self.nonce_manager.clone(),
-            signer: self.signer.clone(),
-            batch_verifier: self.batch_verifier.clone(), // [NEW] Added
-        };
-
-        let mut receiver_opt = self.network_event_receiver.lock().await;
-        let receiver = receiver_opt.take().ok_or(ValidatorError::Other(
-            "Network event receiver already taken".to_string(),
-        ))?;
-
-        let context_arc = Arc::new(Mutex::new(context));
-        *self.main_loop_context.lock().await = Some(context_arc.clone());
-
-        // Note: RPC server was spawned earlier after main_loop_context was initialized.
-
-        let ticker_kick_rx = match self.consensus_kick_rx.lock().await.take() {
-            Some(rx) => rx,
-            None => {
-                return Err(ValidatorError::Other(
-                    "Consensus kick receiver already taken".into(),
-                ))
-            }
-        };
-        let ticker_context = context_arc.clone();
-        let ticker_shutdown_rx = self.shutdown_sender.subscribe();
-
-        handles.push(tokio::spawn(async move {
-            Self::run_consensus_ticker(ticker_context, ticker_kick_rx, ticker_shutdown_rx).await;
-        }));
-
-        let discoverer_context = context_arc.clone();
-        let discoverer_shutdown_rx = self.shutdown_sender.subscribe();
-        handles.push(tokio::spawn(async move {
-            Self::run_sync_discoverer(discoverer_context, discoverer_shutdown_rx).await;
-        }));
-
-        let shutdown_receiver_clone = self.shutdown_sender.subscribe();
-        let main_loop_context_clone = context_arc.clone();
-        handles.push(tokio::spawn(async move {
-            Self::run_main_loop(receiver, shutdown_receiver_clone, main_loop_context_clone).await;
-        }));
-
-        self.is_running.store(true, Ordering::SeqCst);
-        eprintln!("ORCHESTRATION_STARTUP_COMPLETE");
-        Ok(())
-    }
-
-    async fn stop(&self) -> Result<(), ValidatorError> {
-        if !self.is_running() {
-            return Ok(());
-        }
-        tracing::info!(target: "orchestration", "Orchestrator stopping...");
-        self.shutdown_sender.send(true).ok();
-
-        tokio::time::sleep(Duration::from_millis(100)).await;
-
-        self.is_running.store(false, Ordering::SeqCst);
-
-        self.syncer
-            .stop()
-            .await
-            .map_err(|e| ValidatorError::Other(e.to_string()))?;
-
-        let mut handles = self.task_handles.lock().await;
-        for handle in handles.drain(..) {
-            handle
-                .await
-                .map_err(|e| ValidatorError::Other(format!("Task panicked: {e}")))?;
-        }
-        Ok(())
     }
 }

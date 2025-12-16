@@ -25,34 +25,6 @@ wasmtime::component::bindgen!({
     async: true
 });
 
-pub struct WasmRuntime {
-    engine: Engine,
-    fuel_costs: VmFuelCosts,
-    component_cache: RwLock<HashMap<[u8; 32], Component>>,
-}
-
-impl WasmRuntime {
-    pub fn new(fuel_costs: VmFuelCosts) -> Result<Self, VmError> {
-        let mut config = Config::new();
-        config.async_support(true);
-        config.consume_fuel(true);
-        config.wasm_component_model(true);
-
-        Ok(Self {
-            engine: Engine::new(&config).map_err(|e| VmError::Initialization(e.to_string()))?,
-            fuel_costs,
-            component_cache: RwLock::new(HashMap::new()),
-        })
-    }
-
-    /// Returns a reference to the underlying Wasmtime Engine.
-    /// This allows other components (like IBC light clients) to share the same engine
-    /// for instantiation efficiency.
-    pub fn engine(&self) -> &Engine {
-        &self.engine
-    }
-}
-
 struct HostState {
     state_accessor: SendSyncPtr<dyn VmStateAccessor>,
     context: ExecutionContext,
@@ -74,9 +46,51 @@ struct SendSyncPtr<T: ?Sized>(*const T);
 unsafe impl<T: ?Sized> Send for SendSyncPtr<T> {}
 unsafe impl<T: ?Sized> Sync for SendSyncPtr<T> {}
 
+pub struct WasmRuntime {
+    engine: Engine,
+    fuel_costs: VmFuelCosts,
+    component_cache: RwLock<HashMap<[u8; 32], Component>>,
+    /// Pre-configured linker with all host bindings and WASI registered.
+    /// Cloning this is cheap and avoids expensive re-registration per tx.
+    linker: Linker<HostState>,
+}
+
+impl WasmRuntime {
+    pub fn new(fuel_costs: VmFuelCosts) -> Result<Self, VmError> {
+        let mut config = Config::new();
+        config.async_support(true);
+        config.consume_fuel(true);
+        config.wasm_component_model(true);
+
+        let engine = Engine::new(&config).map_err(|e| VmError::Initialization(e.to_string()))?;
+
+        // [OPTIMIZATION] Initialize the Linker once at startup.
+        let mut linker = Linker::new(&engine);
+
+        // Register IOI Service bindings
+        Service::add_to_linker(&mut linker, |state: &mut HostState| state)
+            .map_err(|e| VmError::Initialization(e.to_string()))?;
+
+        // Register WASI bindings (Expensive operation moved to constructor)
+        wasmtime_wasi::add_to_linker_async(&mut linker)
+            .map_err(|e| VmError::Initialization(e.to_string()))?;
+
+        Ok(Self {
+            engine,
+            fuel_costs,
+            component_cache: RwLock::new(HashMap::new()),
+            linker,
+        })
+    }
+
+    /// Returns a reference to the underlying Wasmtime Engine.
+    pub fn engine(&self) -> &Engine {
+        &self.engine
+    }
+}
+
 #[async_trait]
 impl ioi::system::state::Host for HostState {
-    // Remove wasmtime::Result wrapper
     async fn get(&mut self, key: Vec<u8>) -> Result<Option<Vec<u8>>, String> {
         let contract_addr = self.context.contract_address.clone();
         let ns_key = [contract_addr.as_slice(), b"::", key.as_slice()].concat();
@@ -113,20 +127,16 @@ impl ioi::system::state::Host for HostState {
     async fn prefix_scan(&mut self, prefix: Vec<u8>) -> Result<Vec<(Vec<u8>, Vec<u8>)>, String> {
         let contract_addr = self.context.contract_address.clone();
         // The VM enforces isolation by prepending the contract address.
-        // Format: {contract_addr}::{prefix}
         let ns_prefix = [contract_addr.as_slice(), b"::", prefix.as_slice()].concat();
 
         let accessor = unsafe { self.state_accessor.0.as_ref().unwrap() };
 
         match accessor.prefix_scan(&ns_prefix).await {
             Ok(results) => {
-                // We must strip the namespace prefix so the guest sees keys relative to itself.
-                let prefix_len = contract_addr.len() + 2; // len(addr) + len("::")
-
+                let prefix_len = contract_addr.len() + 2;
                 let mapped_results = results
                     .into_iter()
                     .map(|(k, v)| {
-                        // Safety check: key must start with the namespace prefix
                         if k.len() >= prefix_len {
                             (k[prefix_len..].to_vec(), v)
                         } else {
@@ -188,13 +198,9 @@ impl VirtualMachine for WasmRuntime {
             }
         };
 
-        let mut linker = Linker::new(&self.engine);
-
-        Service::add_to_linker(&mut linker, |state: &mut HostState| state)
-            .map_err(|e| VmError::Initialization(e.to_string()))?;
-
-        wasmtime_wasi::add_to_linker_async(&mut linker)
-            .map_err(|e| VmError::Initialization(e.to_string()))?;
+        // [OPTIMIZATION] Clone the pre-configured linker instead of creating a new one.
+        // This avoids rebuilding the entire import table for every execution.
+        let linker = self.linker.clone();
 
         let state_accessor_static: &'static dyn VmStateAccessor =
             unsafe { std::mem::transmute(state_accessor) };
@@ -212,6 +218,7 @@ impl VirtualMachine for WasmRuntime {
             .set_fuel(execution_context.gas_limit)
             .map_err(|e| VmError::Initialization(e.to_string()))?;
 
+        // Instantiate using the cached linker
         let (service, _) = Service::instantiate_async(&mut store, &component, &linker)
             .await
             .map_err(|e| VmError::Initialization(e.to_string()))?;

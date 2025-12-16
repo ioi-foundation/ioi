@@ -4,14 +4,12 @@ use crate::ibc::core::context::IbcExecutionContext;
 use crate::ibc::light_clients::wasm::WasmLightClient;
 use async_trait::async_trait;
 use ibc::core::entrypoint::dispatch;
-use ibc_core_client_types::msgs::MsgUpdateClient;
 use ibc_core_client_types::Height;
 use ibc_core_handler_types::msgs::MsgEnvelope;
 use ibc_core_host_types::identifiers::PortId;
 use ibc_core_router::{module::Module, router::Router};
 use ibc_core_router_types::module::ModuleId;
 use ibc_proto::cosmos::tx::v1beta1::TxBody;
-// [FIX] Removed unused Protobuf import
 use ioi_api::ibc::{LightClient, VerifyCtx};
 use ioi_api::services::{BlockchainService, UpgradableService};
 use ioi_api::state::{StateAccess, StateOverlay};

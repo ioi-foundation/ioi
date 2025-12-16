@@ -17,7 +17,7 @@ use ioi_networking::metrics as network_metrics;
 use ioi_services::governance::GovernanceModule;
 // --- IBC Service Imports ---
 use http_rpc_gateway;
-use ibc_host::DefaultIbcHost;
+use ibc_host::{DefaultIbcHost, TransactionPool}; // [FIX] Import TransactionPool
 #[cfg(feature = "ibc-deps")]
 use ioi_services::ibc::{
     // Updated paths
@@ -67,7 +67,11 @@ use zk_driver_succinct::config::SuccinctDriverConfig;
 use ioi_crypto::algorithms::hash::sha256;
 
 // [NEW] Import GuardianSigner types
+use async_trait::async_trait;
+use ioi_types::app::ChainTransaction;
 use ioi_validator::common::{GuardianContainer, GuardianSigner, LocalSigner, RemoteSigner};
+use ioi_validator::standard::orchestration::mempool::Mempool;
+use tokio::sync::Mutex;
 
 #[derive(Parser, Debug)]
 struct OrchestrationOpts {
@@ -131,6 +135,35 @@ type OptionalKzgParams = Option<KZGParams>;
 #[cfg(not(feature = "commitment-kzg"))]
 #[allow(dead_code)]
 type OptionalKzgParams = Option<()>;
+
+/// Adapter to allow `Arc<Mutex<Mempool>>` to satisfy `TransactionPool`.
+struct MempoolAdapter {
+    inner: Arc<Mutex<Mempool>>,
+}
+
+#[async_trait]
+impl TransactionPool for MempoolAdapter {
+    async fn add(&self, tx: ChainTransaction) -> Result<()> {
+        let tx_hash = tx.hash()?;
+
+        let tx_info = match &tx {
+            ChainTransaction::System(s) => Some((s.header.account_id, s.header.nonce)),
+            ChainTransaction::Application(a) => match a {
+                ioi_types::app::ApplicationTransaction::DeployContract { header, .. }
+                | ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
+                    Some((header.account_id, header.nonce))
+                }
+                _ => None,
+            },
+            _ => None,
+        };
+
+        let mut pool = self.inner.lock().await;
+        // Use 0 as committed_nonce fallback; Mempool will queue if needed.
+        pool.add(tx, tx_hash, tx_info, 0);
+        Ok(())
+    }
+}
 
 /// Generic function containing all logic after component instantiation.
 #[allow(dead_code)]
@@ -515,10 +548,15 @@ where
     // --- NEW: IBC Host & Gateway Setup ---
     if let Some(gateway_addr) = config.ibc_gateway_listen_address.clone() {
         tracing::info!(target: "orchestration", "Enabling IBC HTTP Gateway.");
+
+        let mempool_adapter = Arc::new(MempoolAdapter {
+            inner: orchestration.tx_pool.clone(),
+        });
+
         let ibc_host = Arc::new(DefaultIbcHost::new(
             workload_client.clone(),
             verifier.clone(),
-            orchestration.tx_pool.clone(),
+            mempool_adapter, // [FIX] Updated argument
             real_swarm_commander.clone(),
             local_key.clone(),
             orchestration.nonce_manager.clone(),

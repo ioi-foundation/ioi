@@ -346,7 +346,16 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
                 return;
             }
         };
-        context.tx_pool_ref.lock().await.push_back((tx, tx_hash));
+
+        // [FIX] Use Mempool Add API
+        let tx_info = Some((our_account_id, current_nonce));
+        // We assume current_nonce is the expected one since we just incremented the manager.
+        // So we pass current_nonce as the committed state to ensure it is treated as ready.
+        context
+            .tx_pool_ref
+            .lock()
+            .await
+            .add(tx, tx_hash, tx_info, current_nonce);
 
         log::info!(
             "Oracle: Submitted finalization transaction for request_id {} to local mempool.",
