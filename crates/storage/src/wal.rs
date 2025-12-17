@@ -7,7 +7,6 @@
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
-// [FIX] Added BufRead for fill_buf; Removed Seek, SeekFrom
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::Path;
 use std::sync::Mutex;
@@ -87,7 +86,7 @@ impl Iterator for WalIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         // Peek to see if we have data
-        // [FIX] fill_buf requires BufRead trait to be in scope
+        // fill_buf requires BufRead trait to be in scope
         if self.reader.fill_buf().ok()?.is_empty() {
             return None;
         }

@@ -85,6 +85,10 @@ zk-driver-succinct = { path = "../zk-driver-succinct", optional = true }
 rpassword = "7.0"
 atty = "0.2"
 
+# [NEW] Dependencies for Sharded Mempool
+ahash = "0.8"
+parking_lot = "0.12"
+
 [dev-dependencies]
 tempfile = "3.3"
 

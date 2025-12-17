@@ -28,6 +28,7 @@ parity-scale-codec = { workspace = true, features = ["derive", "std"] }
 prost = { workspace = true }
 # [NEW] Parallel processing for JMT hashing
 rayon = "1.8"
+async-trait = { workspace = true }
 
 [dev-dependencies]
 proptest = "1.2.0"

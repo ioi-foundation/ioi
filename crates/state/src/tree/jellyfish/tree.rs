@@ -11,14 +11,17 @@ use ioi_api::state::{
     ProofProvider, PrunePlan, StateAccess, StateManager, StateScanIter, VerifiableState,
 };
 use ioi_api::storage::NodeStore;
-use ioi_storage::adapter::DeltaAccumulator;
-use ioi_types::app::{Membership, RootHash};
+use ioi_storage::adapter::{commit_and_persist, DeltaAccumulator};
+use ioi_types::app::{to_root_hash, Membership, RootHash};
 use ioi_types::error::StateError;
 use rayon::prelude::*;
 use std::any::Any;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::sync::{Arc, RwLock};
+
+// Add Async Trait support
+use async_trait::async_trait;
 
 type Key = [u8; 32];
 type Value = Vec<u8>;
@@ -162,8 +165,7 @@ where
                             // [FIX] Pass self.scheme to hash()
                             new_internal_children.push((nibble, new_child.hash(&self.scheme)));
                             all_created_nodes.extend(created);
-                            all_created_nodes
-                                .insert(new_child.hash(&self.scheme), new_child);
+                            all_created_nodes.insert(new_child.hash(&self.scheme), new_child);
                         }
                     } else {
                         // Missing logic for unmodified children re-attachment
@@ -347,6 +349,7 @@ where
     }
 }
 
+#[async_trait]
 impl<CS: CommitmentScheme> StateManager for JellyfishMerkleTree<CS>
 where
     CS::Commitment: From<Vec<u8>>,
@@ -367,8 +370,38 @@ where
         let new_root = ioi_crypto::algorithms::hash::sha256(&h_bytes).unwrap();
         self.root_hash = new_root;
 
-        // In 3.2 this connects to WAL via adapter
         Ok(self.root_hash)
+    }
+
+    // UPDATED: Async persistence with DeltaAccumulator
+    async fn commit_version_persist(
+        &mut self,
+        height: u64,
+        store: &dyn NodeStore,
+    ) -> Result<RootHash, StateError> {
+        // Collect delta from this block
+        // JMT in this version updates delta in apply_batch_parallel, so we just persist it.
+
+        let root_hash = self.commit_version(height)?;
+
+        // Take a snapshot of the delta to persist
+        // We do this inside a block to limit the scope of the lock guard
+        // but since RwLockWriteGuard is not Send, we clone the data out
+
+        let delta_snapshot = {
+            let mut delta = self.delta.write().unwrap();
+            let snapshot = delta.clone();
+            // Clear here since we are committing this batch
+            delta.clear();
+            snapshot
+        };
+
+        // Now await the async persistence logic using the owned snapshot
+        commit_and_persist(store, height, root_hash, &delta_snapshot)
+            .await
+            .map_err(|e| StateError::Backend(e.to_string()))?;
+
+        Ok(root_hash)
     }
 
     fn adopt_known_root(&mut self, root: &[u8], ver: u64) -> Result<(), StateError> {

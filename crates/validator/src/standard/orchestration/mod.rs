@@ -28,6 +28,7 @@ use ioi_crypto::sign::dilithium::DilithiumKeyPair;
 use ioi_networking::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use ioi_networking::traits::NodeState;
 use ioi_networking::BlockSync;
+use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ChainTransaction, GuardianReport, SignHeader,
@@ -40,7 +41,7 @@ use libp2p::identity;
 use lru::LruCache;
 use rand::seq::SliceRandom;
 use serde::Serialize;
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::panic::AssertUnwindSafe;
 use std::sync::{
@@ -169,6 +170,8 @@ where
     _cpu_pool: Arc<rayon::ThreadPool>,
     /// The batch verifier for parallel signature verification.
     pub batch_verifier: Arc<dyn BatchVerifier>,
+    /// The commitment scheme instance, stored for creating singletons like TxModel.
+    scheme: CS,
 }
 
 impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
@@ -195,6 +198,7 @@ where
     pub fn new(
         config_path: &std::path::Path,
         deps: OrchestrationDependencies<CE, V>,
+        scheme: CS,
     ) -> anyhow::Result<Self> {
         let config: OrchestrationConfig = toml::from_str(&std::fs::read_to_string(config_path)?)?;
         let (shutdown_sender, _) = watch::channel(false);
@@ -235,6 +239,7 @@ where
             signer: deps.signer,
             _cpu_pool: cpu_pool,
             batch_verifier: deps.batch_verifier,
+            scheme,
         })
     }
 
@@ -603,6 +608,8 @@ where
             })?
             .clone();
 
+        let tx_model = Arc::new(UnifiedTransactionModel::new(self.scheme.clone()));
+
         // --- NEW: Public gRPC Server Start ---
         let public_service = PublicApiImpl {
             context_wrapper: self.main_loop_context.clone(),
@@ -610,6 +617,7 @@ where
             tx_pool: self.tx_pool.clone(),
             swarm_sender: self.swarm_command_sender.clone(),
             consensus_kick_tx: self.consensus_kick_tx.clone(),
+            tx_model,
         };
 
         let rpc_addr =
@@ -839,7 +847,8 @@ async fn handle_network_event<CS, ST, CE, V>(
             };
 
             {
-                let mut pool = tx_pool_ref.lock().await;
+                // [FIX] Remove unnecessary mut
+                let pool = tx_pool_ref.lock().await;
                 pool.add(*tx, tx_hash, tx_info, 0);
 
                 log::debug!("[Orchestrator] Mempool size is now {}", pool.len());

@@ -18,7 +18,9 @@ hex = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 
-# [NEW] Dependencies for WAL serialization
+# [NEW] Dependencies for WAL serialization and Async Backpressure
 serde = { workspace = true, features = ["derive"] }
 bincode = { workspace = true }
 anyhow = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+async-trait = { workspace = true }

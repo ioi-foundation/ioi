@@ -3,6 +3,7 @@
 //! API for a durable, epoch-sharded, content-addressed node store.
 
 use crate::app::{Block, ChainTransaction};
+use async_trait::async_trait;
 use thiserror::Error;
 
 /// A type alias for an epoch identifier, typically derived from block height.
@@ -59,15 +60,16 @@ pub enum StorageError {
 }
 
 /// Minimal input required to atomically commit a block's state delta to the store.
-pub struct CommitInput<'a> {
+#[derive(Debug, Clone)]
+pub struct CommitInput {
     /// The block height being committed.
     pub height: Height,
     /// The state root hash for this height.
     pub root: RootHash,
     /// A comprehensive list of every unique node hash referenced by the state at this height.
-    pub unique_nodes_for_height: &'a [NodeHash],
+    pub unique_nodes_for_height: Vec<NodeHash>,
     /// The full byte representation of nodes that are being introduced to this epoch for the first time.
-    pub new_nodes: &'a [(NodeHash, &'a [u8])],
+    pub new_nodes: Vec<(NodeHash, Vec<u8>)>,
 }
 
 /// Contains statistics about a completed pruning operation.
@@ -83,6 +85,7 @@ pub struct PruneStats {
 ///
 /// This interface abstracts the underlying storage backend (like `redb`) and provides
 /// crash-safe methods for committing and pruning versioned state tree data.
+#[async_trait]
 pub trait NodeStore: Send + Sync {
     /// The size of a state history epoch in blocks, which is constant for the lifetime of the store.
     fn epoch_size(&self) -> u64;
@@ -111,18 +114,11 @@ pub trait NodeStore: Send + Sync {
 
     /// Atomically commits all state changes for a single block.
     /// This operation is designed to be crash-safe.
-    fn commit_block(&self, input: &CommitInput<'_>) -> Result<(), StorageError>;
+    ///
+    /// This is async to allow for backpressure if the persistence layer is lagging.
+    async fn commit_block(&self, input: CommitInput) -> Result<(), StorageError>;
 
     /// Prunes a limited number of historical state versions according to a `PrunePlan`.
-    ///
-    /// # Arguments
-    /// * `cutoff_height` - The upper bound (exclusive) for pruning. Any height less than this is a candidate.
-    /// * `excluded_heights` - A list of heights to explicitly skip, even if they are below the cutoff.
-    /// * `limit` - The maximum number of heights to prune in this single call.
-    ///
-    /// # Returns
-    /// `PruneStats` indicating the work done. If `stats.heights_pruned < limit`, the caller
-    /// can assume there is nothing more to prune in the current cycle.
     fn prune_batch(
         &self,
         cutoff_height: Height,
@@ -131,7 +127,6 @@ pub trait NodeStore: Send + Sync {
     ) -> Result<PruneStats, StorageError>;
 
     /// Atomically drops an entire sealed epoch from the database.
-    /// This is an efficient, O(1)-style operation for compliant backends.
     fn drop_sealed_epoch(&self, epoch: Epoch) -> Result<(), StorageError>;
 
     /// Stores the full, serialized bytes of a block at its height.

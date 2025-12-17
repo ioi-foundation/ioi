@@ -22,6 +22,7 @@ use std::any::Any;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::sync::Arc;
+use async_trait::async_trait; // [FIX] Added missing import
 
 /// Verkle tree node
 #[derive(Debug, Clone, Encode, Decode)]
@@ -564,7 +565,7 @@ impl VerkleTree<KZGCommitmentScheme> {
         }
     }
 
-    pub fn commit_version_with_store<S: NodeStore + ?Sized>(
+    pub async fn commit_version_with_store<S: NodeStore + ?Sized>(
         &mut self,
         height: u64,
         store: &S,
@@ -573,6 +574,7 @@ impl VerkleTree<KZGCommitmentScheme> {
         self.collect_height_delta()?;
         let root_hash = to_root_hash(self.root_commitment().as_ref())?;
         commit_and_persist(store, height, root_hash, &self.delta)
+            .await
             .map_err(|e| StateError::Backend(e.to_string()))?;
         self.delta.clear();
         let _ = <Self as StateManager>::commit_version(self, height)?;
@@ -814,6 +816,7 @@ impl ProofProvider for VerkleTree<KZGCommitmentScheme> {
     }
 }
 
+#[async_trait]
 impl StateManager for VerkleTree<KZGCommitmentScheme> {
     fn prune(&mut self, plan: &PrunePlan) -> Result<(), StateError> {
         let to_prune: Vec<u64> = self
@@ -892,12 +895,13 @@ impl StateManager for VerkleTree<KZGCommitmentScheme> {
         }
     }
 
-    fn commit_version_persist(
+    // UPDATED: Async
+    async fn commit_version_persist(
         &mut self,
         height: u64,
         store: &dyn NodeStore,
     ) -> Result<RootHash, StateError> {
-        self.commit_version_with_store(height, store)
+        self.commit_version_with_store(height, store).await
     }
 
     fn adopt_known_root(&mut self, root_bytes: &[u8], version: u64) -> Result<(), StateError> {

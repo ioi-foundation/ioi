@@ -539,6 +539,7 @@ impl TestValidator {
             orch_cmd
                 .args(&orch_args)
                 .env("RUST_BACKTRACE", "1")
+                .env("RUST_LOG", "info,rpc=debug")
                 .env("TELEMETRY_ADDR", &orchestration_telemetry_addr)
                 .env("WORKLOAD_IPC_ADDR", &workload_ipc_addr)
                 .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())

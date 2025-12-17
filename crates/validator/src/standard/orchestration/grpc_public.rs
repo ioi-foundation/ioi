@@ -1,7 +1,7 @@
 // Path: crates/validator/src/standard/orchestration/grpc_public.rs
 use crate::standard::orchestration::context::MainLoopContext;
 use crate::standard::orchestration::mempool::{AddResult, Mempool};
-use ioi_api::chain::WorkloadClientApi; // [FIX] Added missing import
+use ioi_api::chain::{StateRef, WorkloadClientApi};
 use ioi_api::{commitment::CommitmentScheme, state::StateManager, transaction::TransactionModel};
 use ioi_client::WorkloadClient;
 use ioi_ipc::blockchain::{
@@ -15,7 +15,9 @@ use ioi_ipc::public::{
 };
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_tx::unified::UnifiedTransactionModel;
-use ioi_types::app::ChainTransaction;
+use ioi_types::app::{
+    compute_next_timestamp, BlockTimingParams, BlockTimingRuntime, ChainTransaction, TxHash,
+};
 use ioi_types::codec;
 use serde::Serialize;
 use std::fmt::Debug;
@@ -33,8 +35,7 @@ where
         + Send
         + Sync
         + 'static
-        + Debug
-        + Clone,
+        + std::clone::Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ioi_api::consensus::ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
     V: ioi_api::state::Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -47,11 +48,11 @@ where
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
 {
     pub context_wrapper: Arc<Mutex<Option<Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>>>>,
-    // Direct handles for hot-path optimization
     pub workload_client: Arc<WorkloadClient>,
     pub tx_pool: Arc<Mutex<Mempool>>,
     pub swarm_sender: mpsc::Sender<SwarmCommand>,
     pub consensus_kick_tx: mpsc::UnboundedSender<()>,
+    pub tx_model: Arc<UnifiedTransactionModel<CS>>,
 }
 
 impl<CS, ST, CE, V> PublicApiImpl<CS, ST, CE, V>
@@ -112,13 +113,100 @@ where
         let start = Instant::now();
         let req = request.into_inner();
 
-        let dummy_model =
-            UnifiedTransactionModel::new(ioi_state::primitives::hash::HashCommitmentScheme::new());
-        let tx = dummy_model
-            .deserialize_transaction(&req.transaction_bytes)
-            .map_err(|e| Status::invalid_argument(format!("Invalid transaction bytes: {}", e)))?;
+        let model = self.tx_model.clone();
+        let tx_bytes = req.transaction_bytes.clone();
 
-        // Extract basic transaction info
+        let (tx, tx_hash) = tokio::task::spawn_blocking(move || {
+            let t = model.deserialize_transaction(&tx_bytes).map_err(|e| {
+                Status::invalid_argument(format!("Invalid transaction bytes: {}", e))
+            })?;
+            let h = t
+                .hash()
+                .map_err(|e| Status::internal(format!("Hashing failed: {}", e)))?;
+            Ok::<(ChainTransaction, TxHash), Status>((t, h))
+        })
+        .await
+        .map_err(|e| Status::internal(e.to_string()))??;
+
+        let tx_hash_hex = hex::encode(tx_hash);
+
+        // --- ANTE CHECK VIA WORKLOAD ---
+        {
+            let ctx_guard = self.get_context().await?;
+            let ctx = ctx_guard.lock().await;
+
+            let (parent_height, parent_timestamp, parent_gas_used, parent_root_vec) =
+                if let Some(last) = &ctx.last_committed_block {
+                    (
+                        last.header.height,
+                        last.header.timestamp,
+                        last.header.gas_used,
+                        last.header.state_root.0.clone(),
+                    )
+                } else {
+                    let root = ctx
+                        .view_resolver
+                        .genesis_root()
+                        .await
+                        .map_err(|e| Status::internal(e.to_string()))?;
+                    (0, 0, 0, root)
+                };
+
+            let parent_root = ioi_types::app::StateRoot(parent_root_vec.clone());
+            let anchor = parent_root
+                .to_anchor()
+                .map_err(|e| Status::internal(e.to_string()))?;
+
+            let parent_ref = StateRef {
+                height: parent_height,
+                state_root: parent_root_vec,
+                block_hash: [0; 32],
+            };
+
+            // Access state via the resolver to get timing params
+            let parent_view = ctx
+                .view_resolver
+                .resolve_anchored(&parent_ref)
+                .await
+                .map_err(|e| Status::internal(e.to_string()))?;
+
+            let timing_params: BlockTimingParams = parent_view
+                .get(ioi_types::keys::BLOCK_TIMING_PARAMS_KEY)
+                .await
+                .map_err(|e| Status::internal(e.to_string()))?
+                .and_then(|b| codec::from_bytes_canonical(&b).ok())
+                .unwrap_or_default();
+            let timing_runtime: BlockTimingRuntime = parent_view
+                .get(ioi_types::keys::BLOCK_TIMING_RUNTIME_KEY)
+                .await
+                .map_err(|e| Status::internal(e.to_string()))?
+                .and_then(|b| codec::from_bytes_canonical(&b).ok())
+                .unwrap_or_default();
+
+            let expected_ts = compute_next_timestamp(
+                &timing_params,
+                &timing_runtime,
+                parent_height,
+                parent_timestamp,
+                parent_gas_used,
+            )
+            .unwrap_or(0);
+
+            // Delegate full validation to the Workload container via IPC
+            let results = self
+                .workload_client
+                .check_transactions_at(anchor, expected_ts, vec![tx.clone()])
+                .await
+                .map_err(|e| Status::internal(format!("Workload check failed: {}", e)))?;
+
+            if let Some(Err(e)) = results.first() {
+                return Err(Status::invalid_argument(format!(
+                    "Transaction pre-check failed: {}",
+                    e
+                )));
+            }
+        }
+
         let tx_info = match &tx {
             ChainTransaction::System(s) => Some((s.header.account_id, s.header.nonce)),
             ChainTransaction::Application(a) => match a {
@@ -131,16 +219,8 @@ where
             _ => None,
         };
 
-        let tx_hash = tx
-            .hash()
-            .map_err(|e| Status::internal(format!("Hashing failed: {}", e)))?;
-        let tx_hash_hex = hex::encode(tx_hash);
-
-        // 2. ADD TO MEMPOOL
-        // Optimization: Only query state if account is not already in mempool.
         let needs_state_query = if let Some((acct, _)) = tx_info {
-            let pool = self.tx_pool.lock().await;
-            !pool.contains_account(&acct)
+            self.tx_pool.lock().await.contains_account(&acct) == false
         } else {
             false
         };
@@ -148,7 +228,6 @@ where
         let committed_nonce = if needs_state_query {
             if let Some((acct, _)) = tx_info {
                 let key = [ioi_types::keys::ACCOUNT_NONCE_PREFIX, acct.as_ref()].concat();
-                // Use the direct WorkloadClient handle
                 match self.workload_client.query_raw_state(&key).await {
                     Ok(Some(b)) => ioi_types::codec::from_bytes_canonical::<u64>(&b).unwrap_or(0),
                     _ => 0,
@@ -160,20 +239,17 @@ where
             0
         };
 
-        // [FIX] Strict scope for the lock to ensure it is dropped immediately
         {
-            let mut pool = self.tx_pool.lock().await;
+            let pool = self.tx_pool.lock().await;
             let res = pool.add(tx, tx_hash, tx_info, committed_nonce);
 
             match res {
                 AddResult::Ready => {
                     metrics().inc_mempool_transactions_added();
-                    // [OPTIMIZATION] Lowered log level to DEBUG
                     tracing::debug!(target: "rpc", event = "mempool_add", status="ready", tx_hash = tx_hash_hex);
                 }
                 AddResult::Future => {
                     metrics().inc_mempool_transactions_added();
-                    // [OPTIMIZATION] Lowered log level to DEBUG
                     tracing::debug!(target: "rpc", event = "mempool_add", status="future", tx_hash = tx_hash_hex);
                 }
                 AddResult::Rejected(reason) => {
@@ -209,22 +285,23 @@ where
         &self,
         request: Request<QueryStateAtRequest>,
     ) -> Result<Response<QueryStateAtResponse>, Status> {
+        let start = Instant::now();
         let req = request.into_inner();
         let context_arc = self.get_context().await?;
         let client = {
             let ctx = context_arc.lock().await;
             ctx.view_resolver.workload_client().clone()
         };
-
         let root = ioi_types::app::StateRoot(req.root);
-        // Explicitly type the error to satisfy compiler
         let response = client
             .query_state_at(root, &req.key)
             .await
             .map_err(|e: ioi_types::error::ChainError| Status::internal(e.to_string()))?;
+        let response_bytes =
+            codec::to_bytes_canonical(&response).map_err(|e| Status::internal(e))?;
 
-        let response_bytes = codec::to_bytes_canonical(&response)
-            .map_err(|e| Status::internal(format!("Serialization error: {}", e)))?;
+        metrics().observe_request_duration("query_state", start.elapsed().as_secs_f64());
+        metrics().inc_requests_total("query_state", 0);
 
         Ok(Response::new(QueryStateAtResponse { response_bytes }))
     }
@@ -233,14 +310,10 @@ where
         &self,
         request: Request<QueryRawStateRequest>,
     ) -> Result<Response<QueryRawStateResponse>, Status> {
+        let start = Instant::now();
         let req = request.into_inner();
-        let context_arc = self.get_context().await?;
-        let client = {
-            let ctx = context_arc.lock().await;
-            ctx.view_resolver.workload_client().clone()
-        };
-
-        match client.query_raw_state(&req.key).await {
+        let client = self.workload_client.clone();
+        let result = match client.query_raw_state(&req.key).await {
             Ok(Some(val)) => Ok(Response::new(QueryRawStateResponse {
                 value: val,
                 found: true,
@@ -250,28 +323,26 @@ where
                 found: false,
             })),
             Err(e) => Err(Status::internal(e.to_string())),
-        }
+        };
+
+        metrics().observe_request_duration("query_raw_state", start.elapsed().as_secs_f64());
+        metrics().inc_requests_total("query_raw_state", if result.is_ok() { 0 } else { 1 });
+
+        result
     }
 
     async fn get_status(
         &self,
-        _request: Request<GetStatusRequest>,
+        _: Request<GetStatusRequest>,
     ) -> Result<Response<GetStatusResponse>, Status> {
         let start = Instant::now();
-        let context_arc = self.get_context().await?;
-        let client = {
-            let ctx = context_arc.lock().await;
-            ctx.view_resolver.workload_client().clone()
-        };
-
+        let client = self.workload_client.clone();
         let status = client
             .get_status()
             .await
-            .map_err(|e: ioi_types::error::ChainError| Status::internal(e.to_string()))?;
-
+            .map_err(|e| Status::internal(e.to_string()))?;
         metrics().observe_request_duration("get_status", start.elapsed().as_secs_f64());
         metrics().inc_requests_total("get_status", 0);
-
         Ok(Response::new(GetStatusResponse {
             height: status.height,
             latest_timestamp: status.latest_timestamp,
@@ -286,28 +357,19 @@ where
     ) -> Result<Response<GetBlockByHeightResponse>, Status> {
         let start = Instant::now();
         let req = request.into_inner();
-        let context_arc = self.get_context().await?;
-        let client = {
-            let ctx = context_arc.lock().await;
-            ctx.view_resolver.workload_client().clone()
-        };
-
+        let client = self.workload_client.clone();
         let blocks = client
             .get_blocks_range(req.height, 1, 10 * 1024 * 1024)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
-
         let block = blocks.into_iter().find(|b| b.header.height == req.height);
-
         let block_bytes = if let Some(b) = block {
             codec::to_bytes_canonical(&b).map_err(|e| Status::internal(e))?
         } else {
             vec![]
         };
-
         metrics().observe_request_duration("get_block_by_height", start.elapsed().as_secs_f64());
         metrics().inc_requests_total("get_block_by_height", 0);
-
         Ok(Response::new(GetBlockByHeightResponse { block_bytes }))
     }
 }
