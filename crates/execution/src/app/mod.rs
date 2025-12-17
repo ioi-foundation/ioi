@@ -329,7 +329,8 @@ where
                     .insert(STATUS_KEY, &status_bytes)
                     .map_err(|e| ChainError::Transaction(e.to_string()))?;
 
-                state.commit_version_persist(0, &*workload.store)?;
+                // [FIX] Await async persist
+                state.commit_version_persist(0, &*workload.store).await?;
                 tracing::debug!(target: "execution", "[ExecutionMachine] Committed genesis state.");
 
                 let final_root = state.root_commitment().as_ref().to_vec();

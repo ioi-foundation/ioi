@@ -8,7 +8,6 @@ use ioi_api::storage::{
     CommitInput, NodeHash as StoreNodeHash, NodeStore, RootHash as StoreRootHash, StorageError,
 };
 
-// FIX: Add Debug and Clone traits.
 #[derive(Default, Debug, Clone)]
 pub struct DeltaAccumulator {
     /// Set of nodes referenced at this height (CHANGES; unique per height)
@@ -30,16 +29,13 @@ impl DeltaAccumulator {
         self.new_nodes.entry(node_hash).or_insert(bytes);
     }
 
-    pub fn build<'a>(&'a self) -> (Vec<StoreNodeHash>, Vec<(StoreNodeHash, &'a [u8])>) {
-        // CHANGES: unique_nodes_for_height
+    pub fn build<'a>(&'a self) -> (Vec<StoreNodeHash>, Vec<(StoreNodeHash, Vec<u8>)>) {
         let mut uniq: Vec<StoreNodeHash> = self.touched.iter().map(|h| StoreNodeHash(*h)).collect();
-        // (optional) stable order
         uniq.sort_by(|a, b| a.0.cmp(&b.0));
 
-        // NEW nodes: node bytes (borrow as &[u8])
-        let mut news: Vec<(StoreNodeHash, &'a [u8])> = Vec::with_capacity(self.new_nodes.len());
+        let mut news: Vec<(StoreNodeHash, Vec<u8>)> = Vec::with_capacity(self.new_nodes.len());
         for (h, bytes) in &self.new_nodes {
-            news.push((StoreNodeHash(*h), bytes.as_slice()));
+            news.push((StoreNodeHash(*h), bytes.clone()));
         }
         (uniq, news)
     }
@@ -55,7 +51,7 @@ impl DeltaAccumulator {
 ///
 /// - `root_hash32` is the 32-byte state root
 /// - `delta` is the per-height accumulator you just filled
-pub fn commit_and_persist<S: NodeStore + ?Sized>(
+pub async fn commit_and_persist<S: NodeStore + ?Sized>(
     store: &S,
     height: u64,
     root_hash32: [u8; 32],
@@ -65,8 +61,8 @@ pub fn commit_and_persist<S: NodeStore + ?Sized>(
     let input = CommitInput {
         height,
         root: StoreRootHash(root_hash32),
-        unique_nodes_for_height: &unique,
-        new_nodes: &newv,
+        unique_nodes_for_height: unique,
+        new_nodes: newv,
     };
-    store.commit_block(&input)
+    store.commit_block(input).await
 }

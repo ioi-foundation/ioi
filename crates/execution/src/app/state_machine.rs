@@ -587,7 +587,9 @@ where
                 codec::to_bytes_canonical(&self.state.status).map_err(ChainError::Transaction)?;
             state.insert(STATUS_KEY, &status_bytes)?;
 
-            state.commit_version_persist(block.header.height, &*workload.store)?;
+            state
+                .commit_version_persist(block.header.height, &*workload.store)
+                .await?;
             let final_root_bytes = state.root_commitment().as_ref().to_vec();
 
             {

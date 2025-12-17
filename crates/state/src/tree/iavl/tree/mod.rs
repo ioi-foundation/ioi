@@ -1,4 +1,4 @@
-// Path: crates/state/src/tree/iavl/tree.rs
+// Path: crates/state/src/tree/iavl/tree/mod.rs
 
 //! The core IAVLTree implementation. This version is store-aware and uses lazy-loading
 //! (demand-faulting) for its nodes, making it suitable for persistent state management.
@@ -24,6 +24,7 @@ use std::cmp::{max, Ordering};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::sync::Arc;
+use async_trait::async_trait;
 
 /// Calculates the lexicographical successor of a byte slice.
 /// Returns `None` if the slice is all `0xFF` bytes, as there is no successor.
@@ -476,7 +477,7 @@ where
         Ok(())
     }
 
-    pub fn commit_version_with_store<S: NodeStore + ?Sized>(
+    pub async fn commit_version_with_store<S: NodeStore + ?Sized>(
         &mut self,
         height: u64,
         store: &S,
@@ -488,6 +489,7 @@ where
         self.collect_height_delta()?;
         let root_hash = self.root_hash.unwrap_or(EMPTY_HASH);
         commit_and_persist(store, height, root_hash, &self.delta)
+            .await
             .map_err(|e| ioi_types::error::StateError::Backend(e.to_string()))?;
         self.delta.clear();
 
@@ -675,6 +677,7 @@ where
     }
 }
 
+#[async_trait]
 impl<CS: CommitmentScheme> StateManager for IAVLTree<CS>
 where
     CS::Value: From<Vec<u8>> + AsRef<[u8]> + Debug,
@@ -760,12 +763,12 @@ where
         }
     }
 
-    fn commit_version_persist(
+    async fn commit_version_persist(
         &mut self,
         height: u64,
         store: &dyn NodeStore,
     ) -> Result<RootHash, StateError> {
-        self.commit_version_with_store(height, store)
+        self.commit_version_with_store(height, store).await
     }
 
     fn adopt_known_root(&mut self, root_bytes: &[u8], version: u64) -> Result<(), StateError> {

@@ -1,3 +1,4 @@
+# Path: crates/execution/Cargo.toml
 [package]
 name = "ioi-execution"
 version = "0.1.0"
@@ -36,6 +37,7 @@ ibc-primitives = { workspace = true }
 dashmap = { workspace = true }
 rayon = "1.8"
 crossbeam-utils = "0.8"
+parking_lot = "0.12"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }

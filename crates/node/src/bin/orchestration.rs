@@ -9,7 +9,7 @@ use ioi_api::services::UpgradableService;
 use ioi_api::validator::container::Container;
 use ioi_client::WorkloadClient;
 use ioi_consensus::util::engine_from_config;
-use ioi_crypto::sign::batch::CpuBatchVerifier; // [NEW] Added CpuBatchVerifier
+use ioi_crypto::sign::batch::CpuBatchVerifier;
 use ioi_crypto::sign::dilithium::DilithiumKeyPair;
 use ioi_execution::ExecutionMachine;
 use ioi_networking::libp2p::Libp2pSync;
@@ -17,19 +17,17 @@ use ioi_networking::metrics as network_metrics;
 use ioi_services::governance::GovernanceModule;
 // --- IBC Service Imports ---
 use http_rpc_gateway;
-use ibc_host::{DefaultIbcHost, TransactionPool}; // [FIX] Import TransactionPool
+use ibc_host::{DefaultIbcHost, TransactionPool};
 #[cfg(feature = "ibc-deps")]
 use ioi_services::ibc::{
-    // Updated paths
-    apps::channel::ChannelManager,
-    core::registry::VerifierRegistry,
+    apps::channel::ChannelManager, core::registry::VerifierRegistry,
     light_clients::tendermint::TendermintVerifier,
 };
 use ioi_services::identity::IdentityHub;
 use ioi_services::oracle::OracleService;
 use ioi_storage::RedbEpochStore;
 use ioi_tx::unified::UnifiedTransactionModel;
-use ioi_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
+use ioi_types::config::{InitialServiceConfig, OrchestrationConfig, ValidatorRole, WorkloadConfig};
 use ioi_validator::metrics as validator_metrics;
 use ioi_validator::standard::orchestration::OrchestrationDependencies;
 use ioi_validator::standard::{
@@ -44,7 +42,6 @@ use std::path::{Path, PathBuf};
 use std::sync::{atomic::AtomicBool, Arc};
 
 // Imports for concrete types used in the factory
-// [FIX] Import SerializableKey for from_bytes
 use ioi_api::{commitment::CommitmentScheme, crypto::SerializableKey, state::StateManager};
 #[cfg(feature = "commitment-hash")]
 use ioi_state::primitives::hash::HashCommitmentScheme;
@@ -158,7 +155,7 @@ impl TransactionPool for MempoolAdapter {
             _ => None,
         };
 
-        let mut pool = self.inner.lock().await;
+        let pool = self.inner.lock().await;
         // Use 0 as committed_nonce fallback; Mempool will queue if needed.
         pool.add(tx, tx_hash, tx_info, 0);
         Ok(())
@@ -305,13 +302,9 @@ where
     let is_quarantined = Arc::new(AtomicBool::new(false));
 
     // [NEW] Determine Signing Strategy based on CLI arguments.
-    // If an Oracle URL is provided, we use the RemoteSigner which connects to the
-    // cryptographically isolated Signing Oracle.
-    // If not, we fall back to the LocalSigner which signs using the key file directly.
     let signer: Arc<dyn GuardianSigner> = if let Some(oracle_url) = &opts.oracle_url {
         tracing::info!(target: "orchestration", "Using REMOTE Signing Oracle at {}", oracle_url);
 
-        // Extract the raw ed25519 public key bytes for the RemoteSigner constructor
         let pk_bytes = local_key.public().encode_protobuf();
         let ed_pk = libp2p::identity::PublicKey::try_decode_protobuf(&pk_bytes)?
             .try_into_ed25519()?
@@ -321,9 +314,6 @@ where
         Arc::new(RemoteSigner::new(oracle_url.clone(), ed_pk))
     } else {
         tracing::info!(target: "orchestration", "Using LOCAL signing key (Dev Mode).");
-        // Convert the libp2p keypair to the internal crypto type used by LocalSigner
-        // This requires exporting the secret key bytes and re-importing.
-        // [FIX] Clone local_key before moving it into try_into_ed25519
         let sk_bytes = local_key.clone().try_into_ed25519()?.secret();
         let internal_sk =
             ioi_crypto::sign::eddsa::Ed25519PrivateKey::from_bytes(sk_bytes.as_ref())?;
@@ -345,28 +335,30 @@ where
         is_quarantined,
         genesis_hash: derived_genesis_hash,
         verifier: verifier.clone(),
-        signer,         // [NEW] Inject the configured signer
-        batch_verifier, // [NEW] Injected here
+        signer,
+        batch_verifier,
     };
 
-    let orchestration = Arc::new(Orchestrator::new(&opts.config, deps)?);
+    // [FIX] Pass commitment scheme into constructor
+    let orchestration = Arc::new(Orchestrator::new(
+        &opts.config,
+        deps,
+        commitment_scheme.clone(),
+    )?);
 
     // Share the same consensus engine instance between Orchestrator and ExecutionMachine.
     let consensus_for_chain = consensus_engine.clone();
     let chain_ref = {
         let tm = UnifiedTransactionModel::new(commitment_scheme.clone());
 
-        // This is necessary for the transaction pre-check simulation to find required services.
         let mut initial_services = Vec::new();
 
         // --- WIRE PENALTIES SERVICE ---
         let penalty_engine: Arc<dyn ioi_consensus::PenaltyEngine> =
             Arc::new(consensus_engine.clone());
         let penalties_service = Arc::new(ioi_consensus::PenaltiesService::new(penalty_engine));
-        // Cast to UpgradableService (we added the impl in consensus/service.rs)
         initial_services.push(penalties_service as Arc<dyn UpgradableService>);
 
-        // Initialize WasmRuntime for Orchestrator usage (used by both VerifierRegistry and ExecutionMachine)
         let wasm_runtime = Arc::new(
             WasmRuntime::new(workload_config.fuel_costs.clone())
                 .map_err(|e| anyhow!("Failed to init WasmRuntime: {}", e))?,
@@ -374,35 +366,42 @@ where
 
         for service_config in &workload_config.initial_services {
             match service_config {
-                InitialServiceConfig::IdentityHub(migration_config) => {
-                    let hub = IdentityHub::new(migration_config.clone());
-                    initial_services.push(Arc::new(hub) as Arc<dyn UpgradableService>);
+                InitialServiceConfig::IdentityHub(_migration_config) => {
+                    tracing::info!(target: "orchestration", event = "service_init", name = "IdentityHub", impl="native", capabilities="identity_view, tx_decorator, on_end_block");
+                    let _hub = IdentityHub::new(_migration_config.clone());
+                    initial_services
+                        .push(Arc::new(_hub) as Arc<dyn ioi_api::services::UpgradableService>);
                 }
-                InitialServiceConfig::Governance(params) => {
-                    let gov = GovernanceModule::new(params.clone());
-                    initial_services.push(Arc::new(gov) as Arc<dyn UpgradableService>);
+                InitialServiceConfig::Governance(_params) => {
+                    tracing::info!(target: "orchestration", event = "service_init", name = "Governance", impl="native", capabilities="on_end_block");
+                    let _gov = GovernanceModule::new(_params.clone());
+                    initial_services
+                        .push(Arc::new(_gov) as Arc<dyn ioi_api::services::UpgradableService>);
                 }
                 InitialServiceConfig::Oracle(_params) => {
                     tracing::info!(target: "orchestration", event = "service_init", name = "Oracle", impl="proxy", capabilities="");
-                    let oracle = OracleService::new();
-                    initial_services.push(Arc::new(oracle) as Arc<dyn UpgradableService>);
+                    let _oracle = OracleService::new();
+                    initial_services
+                        .push(Arc::new(_oracle) as Arc<dyn ioi_api::services::UpgradableService>);
                 }
                 #[cfg(feature = "ibc-deps")]
                 InitialServiceConfig::Ibc(ibc_config) => {
-                    // Orchestration needs to know about the IBC handler for tx pre-checks,
-                    // even if the full logic lives in the workload.
-                    // The verifier here uses a dummy state accessor since it's only for type resolution.
                     tracing::info!(target: "orchestration", event = "service_init", name = "IBC", impl="proxy", capabilities="ibc_handler");
 
-                    // [FIX] Pass WasmRuntime to VerifierRegistry
+                    #[cfg(feature = "vm-wasm")]
                     let mut verifier_registry = VerifierRegistry::new(wasm_runtime.clone());
 
-                    for client_name_str in &ibc_config.enabled_clients {
-                        if client_name_str.starts_with("tendermint") {
+                    #[cfg(not(feature = "vm-wasm"))]
+                    let mut verifier_registry = {
+                        panic!("vm-wasm feature is required for IBC setup");
+                    };
+
+                    for client_name in &ibc_config.enabled_clients {
+                        if client_name.starts_with("tendermint") {
                             let tm_verifier = TendermintVerifier::new(
-                                "cosmos-hub-test".to_string(), // Mock value, consistent with test
+                                "cosmos-hub-test".to_string(),
                                 "07-tendermint-0".to_string(),
-                                Arc::new(state_tree.clone()), // Use the orchestrator's dummy state tree
+                                Arc::new(state_tree.clone()),
                             );
                             verifier_registry.register(Arc::new(tm_verifier));
                         }
@@ -419,8 +418,9 @@ where
                                        label: &str|
                          -> Result<Vec<u8>> {
                             if let Some(p) = path {
-                                let bytes = fs::read(p)
-                                    .map_err(|e| anyhow!("Failed to read {} VK: {}", label, e))?;
+                                let bytes = fs::read(p).map_err(|e| {
+                                    anyhow!("Failed to read {} VK from {}: {}", label, p, e)
+                                })?;
                                 let hash = hex::encode(sha256(&bytes)?);
                                 if hash != expected_hash {
                                     tracing::warn!(
@@ -435,25 +435,19 @@ where
                                 Ok(vec![])
                             }
                         };
-
                         let beacon_bytes = load_vk(
                             &zk_cfg.beacon_vk_path,
                             &zk_cfg.ethereum_beacon_vkey,
                             "Beacon",
-                        )
-                        .unwrap_or_default();
+                        )?;
                         let state_bytes =
-                            load_vk(&zk_cfg.state_vk_path, &zk_cfg.state_inclusion_vkey, "State")
-                                .unwrap_or_default();
-
+                            load_vk(&zk_cfg.state_vk_path, &zk_cfg.state_inclusion_vkey, "State")?;
                         let driver_config = SuccinctDriverConfig {
                             beacon_vkey_hash: zk_cfg.ethereum_beacon_vkey.clone(),
                             beacon_vkey_bytes: beacon_bytes,
                             state_inclusion_vkey_hash: zk_cfg.state_inclusion_vkey.clone(),
                             state_inclusion_vkey_bytes: state_bytes,
                         };
-
-                        // Initialize with real config
                         let eth_verifier =
                             EthereumZkLightClient::new("eth-mainnet".to_string(), driver_config);
                         verifier_registry.register(Arc::new(eth_verifier) as Arc<dyn LightClient>);
@@ -467,8 +461,9 @@ where
                 }
                 #[cfg(not(feature = "ibc-deps"))]
                 InitialServiceConfig::Ibc(_) => {
-                    // IBC feature not compiled in, but config asks for it. Do nothing.
-                    // The transaction model will correctly reject the tx as unsupported.
+                    return Err(anyhow!(
+                        "Workload configured for IBC, but not compiled with 'ibc-deps' feature."
+                    ));
                 }
             }
         }
@@ -488,14 +483,11 @@ where
             srs_file_path: workload_config.srs_file_path.clone(),
             fuel_costs: Default::default(),
             initial_services: vec![],
-            // [FIX] Use default_service_policies() for consistent dummy config
             service_policies: ioi_types::config::default_service_policies(),
             min_finality_depth: workload_config.min_finality_depth,
             keep_recent_heights: workload_config.keep_recent_heights,
             epoch_size: workload_config.epoch_size,
-            // [FIX] Initialize gc_interval_secs
             gc_interval_secs: workload_config.gc_interval_secs,
-            // [FIX] Add default ZK config
             zk_config: Default::default(),
         };
 
@@ -503,8 +495,6 @@ where
         let dummy_store_path = data_dir.join("orchestrator_dummy_store.db");
         let dummy_store = Arc::new(RedbEpochStore::open(&dummy_store_path, 50_000)?);
 
-        // [FIX] Pass Some(inference) is not needed for orchestrator dummy workload, use None.
-        // The orchestrator workload container is just for tx pre-checks, it doesn't do inference.
         let workload_container = Arc::new(ioi_api::validator::WorkloadContainer::new(
             dummy_workload_config,
             state_tree,
@@ -514,7 +504,7 @@ where
             dummy_store,
         )?);
         let mut machine = ExecutionMachine::new(
-            commitment_scheme,
+            commitment_scheme.clone(),
             tm,
             config.chain_id,
             initial_services,    // <-- And pass the instantiated services here
@@ -527,14 +517,13 @@ where
         for runtime_id in &workload_config.runtimes {
             let id = runtime_id.to_ascii_lowercase();
             if id == "wasm" {
-                tracing::info!(
-                    target: "orchestration",
-                    "Registering WasmRuntime for tx pre-checks."
-                );
-                // Register the SAME runtime instance created earlier
-                machine
-                    .service_manager
-                    .register_runtime("wasm", wasm_runtime.clone());
+                tracing::info!(target: "orchestration", "Registering WasmRuntime for tx pre-checks.");
+                #[cfg(feature = "vm-wasm")]
+                {
+                    machine
+                        .service_manager
+                        .register_runtime("wasm", wasm_runtime.clone());
+                }
             }
         }
         Arc::new(tokio::sync::Mutex::new(machine))
@@ -542,10 +531,8 @@ where
 
     orchestration.set_chain_and_workload_client(chain_ref, workload_client.clone());
 
-    // Set the chain_id env var so the gateway can label metrics correctly.
     std::env::set_var("GATEWAY_CHAIN_ID", config.chain_id.to_string());
 
-    // --- NEW: IBC Host & Gateway Setup ---
     if let Some(gateway_addr) = config.ibc_gateway_listen_address.clone() {
         tracing::info!(target: "orchestration", "Enabling IBC HTTP Gateway.");
 
@@ -556,7 +543,7 @@ where
         let ibc_host = Arc::new(DefaultIbcHost::new(
             workload_client.clone(),
             verifier.clone(),
-            mempool_adapter, // [FIX] Updated argument
+            mempool_adapter,
             real_swarm_commander.clone(),
             local_key.clone(),
             orchestration.nonce_manager.clone(),
@@ -564,7 +551,6 @@ where
         ));
         let gateway_config = http_rpc_gateway::GatewayConfig {
             listen_addr: gateway_addr,
-            // These should come from config eventually
             rps: 20,
             burst: 50,
             body_limit_kb: 512,
@@ -607,13 +593,8 @@ where
 #[tokio::main]
 #[allow(unused_variables)]
 async fn main() -> Result<()> {
-    // 1. Initialize tracing FIRST
     ioi_telemetry::init::init_tracing()?;
-
-    // 2. Install the Prometheus sink
     let metrics_sink = ioi_telemetry::prometheus::install()?;
-
-    // 3. Set all static sinks
     ioi_storage::metrics::SINK
         .set(metrics_sink)
         .expect("SINK must be set only once");
@@ -627,7 +608,6 @@ async fn main() -> Result<()> {
         .set(metrics_sink)
         .expect("SINK must be set only once");
 
-    // 4. Spawn the telemetry server
     let telemetry_addr_str =
         std::env::var("TELEMETRY_ADDR").unwrap_or_else(|_| "127.0.0.1:9615".to_string());
     let telemetry_addr = telemetry_addr_str.parse()?;
@@ -651,7 +631,6 @@ async fn main() -> Result<()> {
 
     let local_key = {
         let key_path = &opts.identity_key_file;
-        // [CHANGE] Use the secure key loading
         if key_path.exists() {
             let raw = GuardianContainer::load_encrypted_file(key_path)?;
             identity::Keypair::from_protobuf_encoding(&raw)?
@@ -660,7 +639,6 @@ async fn main() -> Result<()> {
             if let Some(parent) = key_path.parent() {
                 fs::create_dir_all(parent)?;
             }
-            // [CHANGE] Use secure saving
             GuardianContainer::save_encrypted_file(key_path, &keypair.to_protobuf_encoding()?)?;
             keypair
         }
@@ -715,7 +693,6 @@ async fn main() -> Result<()> {
             )
             .await
         }
-        // [NEW] Jellyfish Merkle Tree instantiation
         #[cfg(all(feature = "state-jellyfish", feature = "commitment-hash"))]
         (
             ioi_types::config::StateTreeType::Jellyfish,

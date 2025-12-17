@@ -2,6 +2,7 @@
 
 use crate::metrics::metrics;
 use crate::wal::{StateDiff, WalWriter};
+use async_trait::async_trait;
 use ioi_api::storage::{
     be32, be64, CommitInput, Epoch, Height, NodeHash, NodeStore, PruneStats, RootHash, StorageError,
 };
@@ -10,8 +11,9 @@ use ioi_types::codec;
 use redb::{Database, ReadTransaction, ReadableTable, TableDefinition, WriteTransaction};
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::{mpsc, Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 use std::thread;
+use tokio::sync::{mpsc, Mutex};
 
 /// ---- Table definitions (single DB, prefix-encoded keys) ----
 /// Global - Keys are fixed-size arrays
@@ -64,6 +66,7 @@ fn parse_u64(bytes: &[u8]) -> u64 {
 }
 
 /// Payload sent to the background persistence thread.
+#[derive(Debug)]
 struct AsyncCommit {
     height: Height,
     root: RootHash,
@@ -75,16 +78,15 @@ struct AsyncCommit {
 pub struct RedbEpochStore {
     db: Arc<Database>,
     epoch_size: u64,
-    // [NEW] WAL Writer for fast persistence
-    // [FIX] Rename to suppress warning. The WAL is used by the background thread via clone.
+    // WAL Writer for fast persistence
     _wal: Arc<WalWriter>,
-    // [NEW] Memtable for write-through caching of un-indexed nodes (Hash -> Bytes)
+    // Memtable for write-through caching of un-indexed nodes (Hash -> Bytes)
     memtable: Arc<RwLock<HashMap<NodeHash, Vec<u8>>>>,
-    // [NEW] Pending roots cache for read-your-writes consistency on height_for_root
+    // Pending roots cache for read-your-writes consistency on height_for_root
     pending_roots: Arc<RwLock<HashMap<RootHash, Height>>>,
-    // [NEW] Channel for sending commits to background thread
+    // Channel for sending commits to background thread with backpressure
     tx_sender: mpsc::Sender<AsyncCommit>,
-    // [NEW] Background flusher handle
+    // Background flusher handle
     _flusher_handle: Arc<Mutex<Option<thread::JoinHandle<()>>>>,
 }
 
@@ -126,8 +128,8 @@ impl RedbEpochStore {
                 .map_err(|e| StorageError::Backend(e.to_string()))?;
         }
 
-        // Setup Async Persistence
-        let (tx, rx) = mpsc::channel::<AsyncCommit>();
+        // Setup Async Persistence with Bounded Channel (256 blocks backlog max)
+        let (tx, mut rx) = mpsc::channel::<AsyncCommit>(256);
         let memtable = Arc::new(RwLock::new(HashMap::new()));
         let pending_roots = Arc::new(RwLock::new(HashMap::new()));
         let db_arc = Arc::new(db);
@@ -139,8 +141,8 @@ impl RedbEpochStore {
         let wal_clone = wal_arc.clone(); // Clone WAL for thread
 
         let handle = thread::spawn(move || {
-            while let Ok(commit) = rx.recv() {
-                // [FIX] 1. Prepare Diff for WAL
+            while let Some(commit) = rx.blocking_recv() {
+                // 1. Prepare Diff for WAL
                 let diff = StateDiff {
                     new_nodes: commit
                         .new_nodes
@@ -150,7 +152,7 @@ impl RedbEpochStore {
                     touched_nodes: commit.unique_nodes.iter().map(|h| h.0).collect(),
                 };
 
-                // [FIX] 2. Write to WAL in background (offloading sync I/O)
+                // 2. Write to WAL in background (offloading sync I/O)
                 if let Err(e) = wal_clone.append_block(commit.height, commit.root.0, &diff) {
                     eprintln!("Async WAL Write Failed: {}", e);
                     // In production, this might trigger a panic or shutdown to preserve integrity.
@@ -231,7 +233,7 @@ impl RedbEpochStore {
         Ok(Self {
             db: db_arc,
             epoch_size,
-            _wal: wal_arc, // [FIX] Assigned here
+            _wal: wal_arc,
             memtable,
             pending_roots,
             tx_sender: tx,
@@ -289,6 +291,7 @@ impl RedbEpochStore {
     }
 }
 
+#[async_trait]
 impl NodeStore for RedbEpochStore {
     fn epoch_size(&self) -> u64 {
         self.epoch_size
@@ -404,8 +407,8 @@ impl NodeStore for RedbEpochStore {
         Ok(result)
     }
 
-    /// Async Commit with WAL Durability (Optimized)
-    fn commit_block(&self, input: &CommitInput<'_>) -> Result<(), StorageError> {
+    /// Async Commit with Backpressure
+    async fn commit_block(&self, input: CommitInput) -> Result<(), StorageError> {
         let bytes_written: u64 = input
             .new_nodes
             .iter()
@@ -416,8 +419,8 @@ impl NodeStore for RedbEpochStore {
         // Populate memtable synchronously (for read-your-writes)
         {
             let mut guard = self.memtable.write().unwrap();
-            for (nh, bytes) in input.new_nodes {
-                guard.insert(*nh, bytes.to_vec());
+            for (nh, bytes) in &input.new_nodes {
+                guard.insert(*nh, bytes.clone());
             }
         }
 
@@ -427,23 +430,19 @@ impl NodeStore for RedbEpochStore {
             guard.insert(input.root, input.height);
         }
 
-        // [FIX] REMOVED synchronous WAL write.
-        // It is now handled in the background thread.
-
         // Queue Redb + WAL Write (Async)
+        // Convert input into owned AsyncCommit struct
         let commit_task = AsyncCommit {
             height: input.height,
             root: input.root,
-            new_nodes: input
-                .new_nodes
-                .iter()
-                .map(|(h, b)| (*h, b.to_vec()))
-                .collect(),
-            unique_nodes: input.unique_nodes_for_height.to_vec(),
+            new_nodes: input.new_nodes,
+            unique_nodes: input.unique_nodes_for_height,
         };
 
+        // Send to background thread, applying backpressure if full.
         self.tx_sender
             .send(commit_task)
+            .await
             .map_err(|e| StorageError::Backend(format!("Failed to queue async commit: {}", e)))?;
 
         Ok(())
@@ -543,15 +542,12 @@ impl NodeStore for RedbEpochStore {
             let mut chng = w
                 .open_table(CHANGES)
                 .map_err(|e| StorageError::Backend(e.to_string()))?;
-            // We need ROOT_INDEX to remove reverse mapping so height_for_root returns None for pruned heights.
             let mut ri = w
                 .open_table(ROOT_INDEX)
                 .map_err(|e| StorageError::Backend(e.to_string()))?;
 
             let end_cutoff_key = k_versions(cutoff_epoch, cutoff_height);
 
-            // Collect (key, root_hash) pairs to prune.
-            // We need the value (root_hash) to clean up ROOT_INDEX.
             let items_to_prune: Vec<(Vec<u8>, [u8; 32])> = ver
                 .range(..end_cutoff_key.as_slice())
                 .map_err(|e| StorageError::Backend(e.to_string()))?
@@ -602,7 +598,6 @@ impl NodeStore for RedbEpochStore {
                         .map_err(|e| StorageError::Backend(e.to_string()))?;
                 }
 
-                // Clean up ROOT_INDEX if it points to this height.
                 let should_remove_index = match ri
                     .get(&root_hash)
                     .map_err(|e| StorageError::Backend(e.to_string()))?
