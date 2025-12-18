@@ -365,6 +365,7 @@ where
                 workload
                     .store
                     .put_block(0, &genesis_block_bytes)
+                    .await
                     .map_err(|e| ChainError::State(StateError::Backend(e.to_string())))?;
 
                 self.state.recent_blocks.push(genesis_block);

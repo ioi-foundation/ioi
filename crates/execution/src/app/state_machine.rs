@@ -625,6 +625,7 @@ where
         workload
             .store
             .put_block(block.header.height, &block_bytes)
+            .await // Add await
             .map_err(|e| ChainError::State(StateError::Backend(e.to_string())))?;
 
         if self.state.recent_blocks.len() >= self.state.max_recent_blocks {

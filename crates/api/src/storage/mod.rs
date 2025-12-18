@@ -115,7 +115,7 @@ pub trait NodeStore: Send + Sync {
     /// Atomically commits all state changes for a single block.
     /// This operation is designed to be crash-safe.
     ///
-    /// This is async to allow for backpressure if the persistence layer is lagging.
+    /// This is async to allow for backpressure handling from the persistence layer.
     async fn commit_block(&self, input: CommitInput) -> Result<(), StorageError>;
 
     /// Prunes a limited number of historical state versions according to a `PrunePlan`.
@@ -130,7 +130,8 @@ pub trait NodeStore: Send + Sync {
     fn drop_sealed_epoch(&self, epoch: Epoch) -> Result<(), StorageError>;
 
     /// Stores the full, serialized bytes of a block at its height.
-    fn put_block(&self, height: u64, block_bytes: &[u8]) -> Result<(), StorageError>;
+    /// This is async to allow offloading large writes to the background worker.
+    async fn put_block(&self, height: u64, block_bytes: &[u8]) -> Result<(), StorageError>;
 
     /// Retrieves a single block by its height from the durable store.
     fn get_block_by_height(

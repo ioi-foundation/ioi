@@ -146,6 +146,7 @@ where
             .workload
             .store
             .put_block(block.header.height, &req.block_bytes)
+            .await // Add await
             .map_err(|e| Status::internal(e.to_string()))?;
 
         let mut machine = self.ctx.machine.lock().await;

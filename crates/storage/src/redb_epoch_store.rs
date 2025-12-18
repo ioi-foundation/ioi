@@ -74,6 +74,13 @@ struct AsyncCommit {
     unique_nodes: Vec<NodeHash>,
 }
 
+/// Enum to multiplex different persistence operations on the same background channel.
+#[derive(Debug)]
+enum PersistenceOp {
+    CommitState(AsyncCommit),
+    WriteBlock(Height, Vec<u8>),
+}
+
 #[derive(Clone)]
 pub struct RedbEpochStore {
     db: Arc<Database>,
@@ -85,7 +92,7 @@ pub struct RedbEpochStore {
     // Pending roots cache for read-your-writes consistency on height_for_root
     pending_roots: Arc<RwLock<HashMap<RootHash, Height>>>,
     // Channel for sending commits to background thread with backpressure
-    tx_sender: mpsc::Sender<AsyncCommit>,
+    tx_sender: mpsc::Sender<PersistenceOp>,
     // Background flusher handle
     _flusher_handle: Arc<Mutex<Option<thread::JoinHandle<()>>>>,
 }
@@ -128,8 +135,8 @@ impl RedbEpochStore {
                 .map_err(|e| StorageError::Backend(e.to_string()))?;
         }
 
-        // Setup Async Persistence with Bounded Channel (256 blocks backlog max)
-        let (tx, mut rx) = mpsc::channel::<AsyncCommit>(256);
+        // Setup Async Persistence with Bounded Channel (256 items backlog max)
+        let (tx, mut rx) = mpsc::channel::<PersistenceOp>(256);
         let memtable = Arc::new(RwLock::new(HashMap::new()));
         let pending_roots = Arc::new(RwLock::new(HashMap::new()));
         let db_arc = Arc::new(db);
@@ -141,91 +148,113 @@ impl RedbEpochStore {
         let wal_clone = wal_arc.clone(); // Clone WAL for thread
 
         let handle = thread::spawn(move || {
-            while let Some(commit) = rx.blocking_recv() {
-                // 1. Prepare Diff for WAL
-                let diff = StateDiff {
-                    new_nodes: commit
-                        .new_nodes
-                        .iter()
-                        .map(|(h, b)| (h.0, b.clone()))
-                        .collect(),
-                    touched_nodes: commit.unique_nodes.iter().map(|h| h.0).collect(),
-                };
+            while let Some(op) = rx.blocking_recv() {
+                match op {
+                    PersistenceOp::CommitState(commit) => {
+                        // 1. Prepare Diff for WAL
+                        let diff = StateDiff {
+                            new_nodes: commit
+                                .new_nodes
+                                .iter()
+                                .map(|(h, b)| (h.0, b.clone()))
+                                .collect(),
+                            touched_nodes: commit.unique_nodes.iter().map(|h| h.0).collect(),
+                        };
 
-                // 2. Write to WAL in background (offloading sync I/O)
-                if let Err(e) = wal_clone.append_block(commit.height, commit.root.0, &diff) {
-                    eprintln!("Async WAL Write Failed: {}", e);
-                    // In production, this might trigger a panic or shutdown to preserve integrity.
-                }
+                        // 2. Write to WAL in background (offloading sync I/O)
+                        if let Err(e) = wal_clone.append_block(commit.height, commit.root.0, &diff)
+                        {
+                            eprintln!("Async WAL Write Failed: {}", e);
+                        }
 
-                let epoch = if epoch_size_clone == 0 {
-                    0
-                } else {
-                    commit.height / epoch_size_clone
-                };
+                        let epoch = if epoch_size_clone == 0 {
+                            0
+                        } else {
+                            commit.height / epoch_size_clone
+                        };
 
-                // Perform Redb write
-                let write_res = (|| -> Result<(), redb::Error> {
-                    let w = db_clone.begin_write()?;
-                    {
-                        let mut nodes_tbl = w.open_table(NODES)?;
-                        let mut refs_tbl = w.open_table(REFS)?;
+                        // Perform Redb write
+                        let write_res = (|| -> Result<(), redb::Error> {
+                            let w = db_clone.begin_write()?;
+                            {
+                                let mut nodes_tbl = w.open_table(NODES)?;
+                                let mut refs_tbl = w.open_table(REFS)?;
 
-                        for (nh, bytes) in &commit.new_nodes {
-                            let k = k_nodes(epoch, nh);
-                            // Only insert if not present (dedup)
-                            if nodes_tbl.get(k.as_slice())?.is_none() {
-                                nodes_tbl.insert(k.as_slice(), bytes.as_slice())?;
-                                let rk = k_refs(epoch, nh);
-                                // Init refcount 1
-                                refs_tbl.insert(rk.as_slice(), &v_u64(1))?;
+                                for (nh, bytes) in &commit.new_nodes {
+                                    let k = k_nodes(epoch, nh);
+                                    // Only insert if not present (dedup)
+                                    if nodes_tbl.get(k.as_slice())?.is_none() {
+                                        nodes_tbl.insert(k.as_slice(), bytes.as_slice())?;
+                                        let rk = k_refs(epoch, nh);
+                                        // Init refcount 1
+                                        refs_tbl.insert(rk.as_slice(), &v_u64(1))?;
+                                    }
+                                }
+
+                                let mut ch = w.open_table(CHANGES)?;
+                                for (i, nh) in commit.unique_nodes.iter().enumerate() {
+                                    ch.insert(
+                                        k_changes(epoch, commit.height, i as u32).as_slice(),
+                                        &nh.0,
+                                    )?;
+                                }
+
+                                let mut ver = w.open_table(VERSIONS)?;
+                                ver.insert(
+                                    k_versions(epoch, commit.height).as_slice(),
+                                    &commit.root.0,
+                                )?;
+
+                                let mut ri = w.open_table(ROOT_INDEX)?;
+                                let mut meta = [0u8; 16];
+                                meta[..8].copy_from_slice(&enc_epoch(epoch));
+                                meta[8..].copy_from_slice(&enc_height(commit.height));
+                                ri.insert(&commit.root.0, &meta)?;
+
+                                // Write head
+                                let mut head_buf = [0u8; 16];
+                                head_buf[..8].copy_from_slice(&enc_height(commit.height));
+                                head_buf[8..].copy_from_slice(&enc_epoch(epoch));
+                                let mut t_head = w.open_table(HEAD)?;
+                                t_head.insert(&key_head(), &head_buf)?;
+                            }
+                            w.commit()?;
+                            Ok(())
+                        })();
+
+                        if let Err(e) = write_res {
+                            eprintln!("Async DB Write Failed (State): {}", e);
+                        }
+
+                        // Cleanup memtable
+                        {
+                            let mut guard = memtable_clone.write().unwrap();
+                            for (nh, _) in &commit.new_nodes {
+                                guard.remove(nh);
                             }
                         }
 
-                        let mut ch = w.open_table(CHANGES)?;
-                        for (i, nh) in commit.unique_nodes.iter().enumerate() {
-                            ch.insert(k_changes(epoch, commit.height, i as u32).as_slice(), &nh.0)?;
-                            // Note: Refcount updates for existing nodes would go here in full impl.
+                        // Cleanup pending_roots
+                        {
+                            let mut guard = pending_roots_clone.write().unwrap();
+                            guard.remove(&commit.root);
                         }
-
-                        let mut ver = w.open_table(VERSIONS)?;
-                        ver.insert(k_versions(epoch, commit.height).as_slice(), &commit.root.0)?;
-
-                        let mut ri = w.open_table(ROOT_INDEX)?;
-                        let mut meta = [0u8; 16];
-                        meta[..8].copy_from_slice(&enc_epoch(epoch));
-                        meta[8..].copy_from_slice(&enc_height(commit.height));
-                        ri.insert(&commit.root.0, &meta)?;
-
-                        // Write head
-                        let mut head_buf = [0u8; 16];
-                        head_buf[..8].copy_from_slice(&enc_height(commit.height));
-                        head_buf[8..].copy_from_slice(&enc_epoch(epoch));
-                        let mut t_head = w.open_table(HEAD)?;
-                        t_head.insert(&key_head(), &head_buf)?;
                     }
-                    w.commit()?;
-                    Ok(())
-                })();
+                    PersistenceOp::WriteBlock(height, block_bytes) => {
+                        let write_res = (|| -> Result<(), redb::Error> {
+                            let w = db_clone.begin_write()?;
+                            {
+                                let mut table = w.open_table(BLOCKS)?;
+                                table.insert(&height.to_be_bytes(), block_bytes.as_slice())?;
+                            }
+                            w.commit()?;
+                            Ok(())
+                        })();
 
-                if let Err(e) = write_res {
-                    eprintln!("Async DB Write Failed: {}", e);
-                }
-
-                // Cleanup memtable
-                // Safe to remove now that data is in Redb.
-                {
-                    let mut guard = memtable_clone.write().unwrap();
-                    for (nh, _) in &commit.new_nodes {
-                        guard.remove(nh);
+                        if let Err(e) = write_res {
+                            eprintln!("Async DB Write Failed (Block): {}", e);
+                        }
                     }
-                }
-
-                // Cleanup pending_roots
-                // Remove the root hash from pending as it is now indexed in Redb
-                {
-                    let mut guard = pending_roots_clone.write().unwrap();
-                    guard.remove(&commit.root);
                 }
             }
         });
@@ -441,24 +470,23 @@ impl NodeStore for RedbEpochStore {
 
         // Send to background thread, applying backpressure if full.
         self.tx_sender
-            .send(commit_task)
+            .send(PersistenceOp::CommitState(commit_task))
             .await
             .map_err(|e| StorageError::Backend(format!("Failed to queue async commit: {}", e)))?;
 
         Ok(())
     }
 
-    fn put_block(&self, height: u64, block_bytes: &[u8]) -> Result<(), StorageError> {
-        let w = self.write_txn()?;
-        {
-            let mut table = w
-                .open_table(BLOCKS)
-                .map_err(|e| StorageError::Backend(e.to_string()))?;
-            table
-                .insert(&height.to_be_bytes(), block_bytes)
-                .map_err(|e| StorageError::Backend(e.to_string()))?;
-        }
-        w.commit().map_err(|e| StorageError::Backend(e.to_string()))
+    async fn put_block(&self, height: u64, block_bytes: &[u8]) -> Result<(), StorageError> {
+        // Offload block write to the same background thread to avoid lock contention.
+        let op = PersistenceOp::WriteBlock(height, block_bytes.to_vec());
+
+        self.tx_sender
+            .send(op)
+            .await
+            .map_err(|e| StorageError::Backend(format!("Failed to queue block write: {}", e)))?;
+
+        Ok(())
     }
 
     fn get_block_by_height(
