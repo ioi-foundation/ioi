@@ -135,8 +135,9 @@ impl RedbEpochStore {
                 .map_err(|e| StorageError::Backend(e.to_string()))?;
         }
 
-        // Setup Async Persistence with Bounded Channel (256 items backlog max)
-        let (tx, mut rx) = mpsc::channel::<PersistenceOp>(256);
+        // Setup Async Persistence with Bounded Channel.
+        // INCREASED BUFFER: Raised from 256 to 1024 to absorb I/O spikes during high throughput.
+        let (tx, mut rx) = mpsc::channel::<PersistenceOp>(1024);
         let memtable = Arc::new(RwLock::new(HashMap::new()));
         let pending_roots = Arc::new(RwLock::new(HashMap::new()));
         let db_arc = Arc::new(db);

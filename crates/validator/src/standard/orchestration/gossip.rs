@@ -125,10 +125,14 @@ pub fn prune_mempool(
         }
     }
 
-    // Bulk update account nonces. This efficiently removes all processed transactions for these accounts.
-    for (acct, max_nonce) in max_nonce_in_block {
-        pool.update_account_nonce(&acct, max_nonce + 1);
-    }
+    // Bulk update account nonces using the batched API
+    // This acquires shards locks only once per shard instead of once per account
+    let updates: HashMap<AccountId, u64> = max_nonce_in_block
+        .into_iter()
+        .map(|(acct, max_nonce)| (acct, max_nonce + 1))
+        .collect();
+        
+    pool.update_account_nonces_batch(&updates);
 
     metrics().set_mempool_size(pool.len() as f64);
     Ok(())
