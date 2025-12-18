@@ -1,4 +1,5 @@
 // Path: crates/validator/src/standard/orchestration/oracle.rs
+
 //! Contains the reactive, off-chain logic for the Oracle service.
 //! This module handles incoming gossip events (attestations) from other validators,
 //! verifies them, aggregates them, and submits a finalization transaction
@@ -35,17 +36,22 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE, V>(
     attestation: OracleAttestation,
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
         + 'static
         + Debug
         + Clone,
-    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
-    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     log::info!(
         "Oracle: Received attestation for request_id {} from peer {}",
@@ -91,15 +97,14 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE, V>(
 
     if pubkey.to_peer_id() != from {
         log::warn!(
-            "Oracle: Attestation signer PeerId {} does not match gossip source PeerId {}. This could indicate a relay, but signature must be valid.",
-            pubkey.to_peer_id(), from
+            "Oracle: Attestation signer PeerId {} does not match gossip source PeerId {}.",
+            pubkey.to_peer_id(),
+            from
         );
     }
 
-    // CHANGED: Use trait method instead of downcasting
     let workload_client = context.view_resolver.workload_client();
 
-    // Explicit type to help inference
     let validator_stakes: BTreeMap<AccountId, u64> =
         match workload_client.get_staked_validators().await {
             Ok(vs) => vs,
@@ -181,27 +186,30 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
     request_id: u64,
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
         + Send
         + Sync
         + 'static
         + Debug
         + Clone,
-    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
-    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     let attestations = match context.pending_attestations.get(&request_id) {
         Some(a) => a,
         None => return,
     };
 
-    // CHANGED: Use trait method instead of downcasting
     let workload_client = context.view_resolver.workload_client();
 
-    // Explicit type to help inference
     let validator_stakes: BTreeMap<AccountId, u64> =
         match workload_client.get_staked_validators().await {
             Ok(vs) => vs,
@@ -337,31 +345,19 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
         };
 
         let tx = ChainTransaction::System(Box::new(sys_tx));
-
-        // MODIFIED: Use tx.hash() instead of hash_transaction(&tx)
         let tx_hash = match tx.hash() {
             Ok(h) => h,
-            Err(e) => {
-                log::error!("Oracle: Failed to hash transaction: {}", e);
-                return;
-            }
+            Err(_) => return,
         };
 
-        // [FIX] Use Mempool Add API
+        // [FIX] No longer need to lock mempool.
         let tx_info = Some((our_account_id, current_nonce));
-        // We assume current_nonce is the expected one since we just incremented the manager.
-        // So we pass current_nonce as the committed state to ensure it is treated as ready.
-        context
-            .tx_pool_ref
-            .lock()
-            .await
-            .add(tx, tx_hash, tx_info, current_nonce);
+        context.tx_pool_ref.add(tx, tx_hash, tx_info, current_nonce);
 
         log::info!(
-            "Oracle: Submitted finalization transaction for request_id {} to local mempool.",
+            "Oracle: Submitted finalization tx for request_id {}",
             request_id
         );
-
         context.pending_attestations.remove(&request_id);
     }
 }

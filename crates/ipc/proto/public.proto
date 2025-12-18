@@ -5,9 +5,13 @@ package ioi.public.v1;
 import "blockchain.proto";
 
 service PublicApi {
-  // Submit a transaction to the mempool.
-  // Returns the transaction hash on success.
+  // Submit a transaction to the mempool/ingestion queue.
+  // Returns immediately with a receipt (hash).
+  // Clients should poll GetTransactionStatus to check validity and inclusion.
   rpc SubmitTransaction (SubmitTransactionRequest) returns (SubmitTransactionResponse);
+
+  // Check the status of a transaction hash.
+  rpc GetTransactionStatus (GetTransactionStatusRequest) returns (GetTransactionStatusResponse);
 
   // Proxy queries to the underlying Workload state (Merklized proof).
   rpc QueryState (ioi.blockchain.v1.QueryStateAtRequest) returns (ioi.blockchain.v1.QueryStateAtResponse);
@@ -31,6 +35,30 @@ message SubmitTransactionRequest {
 message SubmitTransactionResponse {
     // SHA-256 hash of the accepted transaction (hex encoded).
     string tx_hash = 1;
+}
+
+// Status lookup request
+message GetTransactionStatusRequest {
+  // The hex-encoded SHA-256 hash of the transaction bytes.
+  string tx_hash = 1;
+}
+
+// Transaction lifecycle status
+enum TxStatus {
+  UNKNOWN = 0;
+  PENDING = 1;      // In ingestion queue, waiting for validation
+  IN_MEMPOOL = 2;   // Passed validation, waiting for block inclusion
+  COMMITTED = 3;    // Included in a block
+  REJECTED = 4;     // Failed validation (see error_message)
+}
+
+// Status lookup response
+message GetTransactionStatusResponse {
+  TxStatus status = 1;
+  // If REJECTED, this contains the reason (e.g. "Nonce too low", "Bad signature")
+  string error_message = 2;
+  // If COMMITTED, the block height containing the transaction
+  uint64 block_height = 3;
 }
 
 message GetBlockByHeightRequest {

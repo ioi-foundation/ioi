@@ -65,6 +65,8 @@ mod consensus;
 mod context;
 mod gossip;
 mod grpc_public;
+// [NEW] Ingestion worker module
+mod ingestion;
 /// Transaction mempool logic.
 pub mod mempool;
 mod operator_tasks;
@@ -80,6 +82,7 @@ use crate::config::OrchestrationConfig;
 use consensus::drive_consensus_tick;
 use context::{ChainFor, MainLoopContext};
 use futures::FutureExt;
+use ingestion::{run_ingestion_worker, ChainTipInfo, IngestionConfig};
 use operator_tasks::run_oracle_operator_task;
 
 /// A struct to hold the numerous dependencies for the Orchestrator,
@@ -143,7 +146,8 @@ where
     chain: Arc<OnceCell<ChainFor<CS, ST>>>,
     workload_client: Arc<OnceCell<Arc<WorkloadClient>>>,
     /// The local mempool for pending transactions.
-    pub tx_pool: Arc<Mutex<crate::standard::orchestration::mempool::Mempool>>,
+    // [FIX] Changed from Arc<Mutex<Mempool>> to Arc<Mempool>
+    pub tx_pool: Arc<crate::standard::orchestration::mempool::Mempool>,
     syncer: Arc<Libp2pSync>,
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
     network_event_receiver: NetworkEventReceiver,
@@ -196,11 +200,10 @@ where
 {
     /// Creates a new Orchestrator from its configuration and dependencies.
     pub fn new(
-        config_path: &std::path::Path,
+        config: &OrchestrationConfig,
         deps: OrchestrationDependencies<CE, V>,
         scheme: CS,
     ) -> anyhow::Result<Self> {
-        let config: OrchestrationConfig = toml::from_str(&std::fs::read_to_string(config_path)?)?;
         let (shutdown_sender, _) = watch::channel(false);
         let (consensus_kick_tx, consensus_kick_rx) = mpsc::unbounded_channel();
         let cpu_pool = Arc::new(
@@ -211,13 +214,12 @@ where
         );
 
         Ok(Self {
-            config,
+            config: config.clone(),
             genesis_hash: deps.genesis_hash,
             chain: Arc::new(OnceCell::new()),
             workload_client: Arc::new(OnceCell::new()),
-            tx_pool: Arc::new(Mutex::new(
-                crate::standard::orchestration::mempool::Mempool::new(),
-            )),
+            // [FIX] Removed Mutex wrapping
+            tx_pool: Arc::new(crate::standard::orchestration::mempool::Mempool::new()),
             syncer: deps.syncer,
             swarm_command_sender: deps.swarm_command_sender,
             network_event_receiver: Mutex::new(Some(deps.network_event_receiver)),
@@ -258,7 +260,6 @@ where
         }
     }
 
-    // ... perform_guardian_attestation ... (unchanged)
     async fn perform_guardian_attestation(
         &self,
         guardian_addr: &str,
@@ -366,15 +367,13 @@ where
         let tx_hash = tx.hash()?;
 
         let committed_nonce = 0;
+        // [FIX] No lock
         self.tx_pool
-            .lock()
-            .await
             .add(tx, tx_hash, Some((our_account_id, nonce)), committed_nonce);
 
         Ok(())
     }
 
-    // ... run_consensus_ticker ... (unchanged)
     async fn run_consensus_ticker(
         context_arc: Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
         mut kick_rx: mpsc::UnboundedReceiver<()>,
@@ -395,6 +394,12 @@ where
         let mut ticker = time::interval(Duration::from_secs(interval_secs));
         ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
+        // [FIX] Throttling for block production
+        let min_block_time = Duration::from_millis(50);
+        let mut last_tick = tokio::time::Instant::now()
+            .checked_sub(min_block_time)
+            .unwrap();
+
         loop {
             tokio::select! {
                 _ = ticker.tick() => {
@@ -404,6 +409,10 @@ where
                         tracing::info!(target: "consensus", "Skipping tick (node is quarantined).");
                         continue;
                     }
+
+                    // Reset throttle
+                    last_tick = tokio::time::Instant::now();
+
                     let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
                     if let Err(e) = result.map_err(|e| anyhow!("Consensus tick panicked: {:?}", e)).and_then(|res| res) {
                         tracing::error!(target: "consensus", "[Orch Tick] Consensus tick panicked: {:?}. Continuing loop.", e);
@@ -422,6 +431,13 @@ where
                     if is_quarantined {
                          continue;
                     }
+
+                    // Throttle
+                    if last_tick.elapsed() < min_block_time {
+                        continue;
+                    }
+                    last_tick = tokio::time::Instant::now();
+
                     let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
                      if let Err(e) = result.map_err(|e| anyhow!("Kicked consensus tick panicked: {:?}", e)).and_then(|res| res) {
                         tracing::error!(target: "consensus", "[Orch Tick] Kicked consensus tick panicked: {:?}. Continuing loop.", e);
@@ -438,7 +454,6 @@ where
         tracing::info!(target: "consensus", "Consensus ticker finished.");
     }
 
-    // ... run_sync_discoverer ... (unchanged)
     async fn run_sync_discoverer(
         context_arc: Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
         mut shutdown_rx: watch::Receiver<bool>,
@@ -477,7 +492,6 @@ where
         tracing::info!(target: "orchestration", "Sync discoverer finished.");
     }
 
-    // ... run_main_loop ... (unchanged)
     async fn run_main_loop(
         mut network_event_receiver: mpsc::Receiver<NetworkEvent>,
         mut shutdown_receiver: watch::Receiver<bool>,
@@ -610,14 +624,36 @@ where
 
         let tx_model = Arc::new(UnifiedTransactionModel::new(self.scheme.clone()));
 
-        // --- NEW: Public gRPC Server Start ---
+        // [NEW] Setup Ingestion Channels
+        // 50k buffer allows bursting without backpressure on RPC
+        let (tx_ingest_tx, tx_ingest_rx) = mpsc::channel(50_000);
+
+        // [NEW] Setup Chain Tip Watcher
+        let (tip_tx, tip_rx) = watch::channel(ChainTipInfo {
+            height: 0,
+            timestamp: 0,
+            gas_used: 0,
+            state_root: vec![],
+            genesis_root: self.genesis_hash.to_vec(),
+        });
+
+        // [NEW] Setup Transaction Status Cache for Two-Phase Receipts
+        // Kept outside MainLoopContext to be passed to worker
+        let tx_status_cache = Arc::new(Mutex::new(LruCache::new(
+            std::num::NonZeroUsize::new(100_000).unwrap(),
+        )));
+
+        // [NEW] Cache mapping Canonical Hash -> Receipt Hash (Hex String)
+        let receipt_map = Arc::new(Mutex::new(LruCache::new(
+            std::num::NonZeroUsize::new(100_000).unwrap(),
+        )));
+
+        // --- Public gRPC Server Start ---
         let public_service = PublicApiImpl {
             context_wrapper: self.main_loop_context.clone(),
             workload_client: workload_client.clone(),
             tx_pool: self.tx_pool.clone(),
-            swarm_sender: self.swarm_command_sender.clone(),
-            consensus_kick_tx: self.consensus_kick_tx.clone(),
-            tx_model,
+            tx_ingest_tx, // [NEW] Pass channel sender
         };
 
         let rpc_addr =
@@ -640,6 +676,30 @@ where
 
         let mut handles = self.task_handles.lock().await;
         handles.push(rpc_handle);
+
+        // [NEW] Spawn Ingestion Worker
+        // Clone dependencies for the worker task
+        let ingestion_workload_client = workload_client.clone();
+        let ingestion_tx_pool = self.tx_pool.clone();
+        let ingestion_swarm = self.swarm_command_sender.clone();
+        let ingestion_kick = self.consensus_kick_tx.clone();
+        let ingestion_tx_model = tx_model.clone();
+        let ingestion_cache = tx_status_cache.clone();
+        let ingestion_receipt_map = receipt_map.clone(); // Pass clone
+
+        let ingestion_handle = tokio::spawn(run_ingestion_worker(
+            tx_ingest_rx,
+            ingestion_workload_client,
+            ingestion_tx_pool,
+            ingestion_swarm,
+            ingestion_kick,
+            ingestion_tx_model,
+            tip_rx,
+            ingestion_cache,
+            ingestion_receipt_map, // [NEW]
+            IngestionConfig::default(),
+        ));
+        handles.push(ingestion_handle);
 
         let guardian_addr = std::env::var("GUARDIAN_ADDR").unwrap_or_default();
         if !guardian_addr.is_empty() {
@@ -727,6 +787,10 @@ where
             nonce_manager: self.nonce_manager.clone(),
             signer: self.signer.clone(),
             batch_verifier: self.batch_verifier.clone(),
+            // [NEW] Added fields
+            tx_status_cache,
+            tip_sender: tip_tx,
+            receipt_map,
         };
 
         let mut receiver_opt = self.network_event_receiver.lock().await;
@@ -847,11 +911,10 @@ async fn handle_network_event<CS, ST, CE, V>(
             };
 
             {
-                // [FIX] Remove unnecessary mut
-                let pool = tx_pool_ref.lock().await;
-                pool.add(*tx, tx_hash, tx_info, 0);
+                // [FIX] No lock needed, call add directly on Arc<Mempool>
+                tx_pool_ref.add(*tx, tx_hash, tx_info, 0);
 
-                log::debug!("[Orchestrator] Mempool size is now {}", pool.len());
+                log::debug!("[Orchestrator] Mempool size is now {}", tx_pool_ref.len());
                 let _ = kick_tx.send(());
             }
         }

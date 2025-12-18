@@ -4,7 +4,6 @@ use super::{end_block, ExecutionMachine};
 use crate::app::parallel_state::ParallelStateAccess;
 use crate::mv_memory::MVMemory;
 use crate::scheduler::{Scheduler, Task};
-// [FIX] Removed unused anyhow import
 use async_trait::async_trait;
 use dashmap::DashMap;
 use ibc_primitives::Timestamp;
@@ -31,7 +30,6 @@ use ioi_types::app::{
 };
 use ioi_types::codec;
 use ioi_types::config::ConsensusType;
-// [FIX] Removed unused TransactionError
 use ioi_types::error::{BlockError, ChainError, StateError};
 use ioi_types::keys::{STATUS_KEY, UPGRADE_ACTIVE_SERVICE_PREFIX, VALIDATOR_SET_KEY};
 use ioi_types::service_configs::ActiveServiceMeta;
@@ -365,8 +363,7 @@ where
                                         ),
                                     );
 
-                                    // [FIX] Always save read set for validation, even if execution fails.
-                                    // This allows the scheduler to detect if the failure was caused by stale reads.
+                                    // Always save read set for validation, even if execution fails.
                                     let rs = state_proxy.read_set.lock().unwrap().clone();
                                     read_sets.insert(idx, rs);
 
@@ -382,10 +379,7 @@ where
                                                 error = %e,
                                                 "Transaction failed in parallel execution"
                                             );
-                                            // In Block-STM, a failing transaction is still "executed"
-                                            // (it just doesn't produce writes).
-                                            // For this implementation, we treat error as abort/fail.
-                                            // We store empty proof/gas to maintain index alignment.
+                                            // Store empty proof/gas to maintain index alignment.
                                             results.insert(idx, (vec![], 0));
                                             scheduler.finish_execution(idx);
                                         }
@@ -397,13 +391,18 @@ where
                                             Ok(valid) => {
                                                 if !valid {
                                                     scheduler.abort_tx(idx);
+                                                } else {
+                                                    // [FIX] Mark validation as finished to allow termination
+                                                    scheduler.finish_validation(idx);
                                                 }
-                                                // If valid, scheduler advances validation_idx implicitly via next_task logic
                                             }
-                                            Err(_) => scheduler.abort_tx(idx),
+                                            Err(_) => {
+                                                scheduler.abort_tx(idx);
+                                            }
                                         }
                                     } else {
-                                        // No read set (e.g., tx failed execution before any reads), skip validation
+                                        // No read set (e.g., tx failed execution); effectively validated as empty
+                                        scheduler.finish_validation(idx);
                                     }
                                 }
                                 Task::Done => break,
@@ -420,7 +419,6 @@ where
 
         // 5. Finalize State Changes
         // Apply the committed MVMemory state to a linear StateOverlay to generate the deterministic batch.
-        // [FIX] Dereference the Arc to pass &dyn StateAccess
         let mut final_overlay = StateOverlay::new(&*snapshot_arc);
         mv_memory
             .apply_to_overlay(&mut final_overlay)

@@ -65,10 +65,20 @@ use ioi_crypto::algorithms::hash::sha256;
 
 // [NEW] Import GuardianSigner types
 use async_trait::async_trait;
-use ioi_types::app::ChainTransaction;
+use ioi_types::{
+    app::{
+        account_id_from_key_material, AccountId, ChainTransaction, GuardianReport, SignHeader,
+        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+    },
+    codec,
+    config::ServicePolicy,
+};
 use ioi_validator::common::{GuardianContainer, GuardianSigner, LocalSigner, RemoteSigner};
 use ioi_validator::standard::orchestration::mempool::Mempool;
-use tokio::sync::Mutex;
+use serde::Serialize;
+use std::collections::BTreeMap;
+use std::fmt::Debug;
+use tokio::sync::{mpsc, watch, Mutex};
 
 #[derive(Parser, Debug)]
 struct OrchestrationOpts {
@@ -133,9 +143,9 @@ type OptionalKzgParams = Option<KZGParams>;
 #[allow(dead_code)]
 type OptionalKzgParams = Option<()>;
 
-/// Adapter to allow `Arc<Mutex<Mempool>>` to satisfy `TransactionPool`.
+/// Adapter to allow `Arc<Mempool>` to satisfy `TransactionPool`.
 struct MempoolAdapter {
-    inner: Arc<Mutex<Mempool>>,
+    inner: Arc<Mempool>,
 }
 
 #[async_trait]
@@ -155,9 +165,8 @@ impl TransactionPool for MempoolAdapter {
             _ => None,
         };
 
-        let pool = self.inner.lock().await;
         // Use 0 as committed_nonce fallback; Mempool will queue if needed.
-        pool.add(tx, tx_hash, tx_info, 0);
+        self.inner.add(tx, tx_hash, tx_info, 0);
         Ok(())
     }
 }
@@ -189,7 +198,7 @@ where
         + Clone,
     CS::Commitment: std::fmt::Debug + Send + Sync,
     <CS as CommitmentScheme>::Proof:
-        serde::Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
 {
     // Read genesis file once to get the hash for identity checks and the oracle domain.
@@ -340,11 +349,7 @@ where
     };
 
     // [FIX] Pass commitment scheme into constructor
-    let orchestration = Arc::new(Orchestrator::new(
-        &opts.config,
-        deps,
-        commitment_scheme.clone(),
-    )?);
+    let orchestration = Arc::new(Orchestrator::new(&config, deps, commitment_scheme.clone())?);
 
     // Share the same consensus engine instance between Orchestrator and ExecutionMachine.
     let consensus_for_chain = consensus_engine.clone();
@@ -520,6 +525,7 @@ where
                 tracing::info!(target: "orchestration", "Registering WasmRuntime for tx pre-checks.");
                 #[cfg(feature = "vm-wasm")]
                 {
+                    // We reuse the runtime created earlier for the registry to ensure resource sharing
                     machine
                         .service_manager
                         .register_runtime("wasm", wasm_runtime.clone());

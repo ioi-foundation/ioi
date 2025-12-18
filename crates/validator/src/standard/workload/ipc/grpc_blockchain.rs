@@ -1,6 +1,5 @@
 // Path: crates/validator/src/standard/workload/ipc/grpc_blockchain.rs
 
-// [FIX] Updated import path: RpcContext is now defined in the parent module
 use crate::standard::workload::ipc::RpcContext;
 use ioi_api::{chain::ChainStateMachine, commitment::CommitmentScheme, state::StateManager};
 use ioi_ipc::blockchain::{
@@ -19,9 +18,8 @@ use ioi_ipc::blockchain::{
     QueryStateAtRequest, QueryStateAtResponse, UpdateBlockHeaderRequest, UpdateBlockHeaderResponse,
 };
 use ioi_types::{
-    app::{Block, ChainTransaction, StateAnchor, StateRoot},
+    app::{Block, ChainTransaction, StateRoot},
     codec,
-    error::ChainError,
 };
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
@@ -30,7 +28,7 @@ use tonic::{Request, Response, Status};
 // ChainControl Service
 // -----------------------------------------------------------------------------
 
-/// Implementation of the `ChainControl` gRPC service.
+/// Implements the `ChainControl` gRPC service for blockchain lifecycle management.
 pub struct ChainControlImpl<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -71,29 +69,16 @@ where
             Some(ProcessPayload::BlockBytesInline(bytes)) => bytes,
             Some(ProcessPayload::ShmemHandle(handle)) => {
                 let dp = self.ctx.data_plane.as_ref().ok_or_else(|| {
-                    Status::failed_precondition(
-                        "Shared Memory Data Plane not initialized on Workload",
-                    )
+                    Status::failed_precondition("Shared Memory Data Plane not initialized")
                 })?;
-
                 if handle.region_id != dp.id() {
-                    return Err(Status::invalid_argument(format!(
-                        "Region ID mismatch: expected {}, got {}",
-                        dp.id(),
-                        handle.region_id
-                    )));
+                    return Err(Status::invalid_argument("Region ID mismatch"));
                 }
-
-                let bytes_ref = dp
-                    .read_raw(handle.offset, handle.length)
-                    .map_err(|e| Status::internal(format!("Shmem read failed: {}", e)))?;
-                bytes_ref.to_vec()
+                dp.read_raw(handle.offset, handle.length)
+                    .map_err(|e| Status::internal(e.to_string()))?
+                    .to_vec()
             }
-            None => {
-                return Err(Status::invalid_argument(
-                    "Missing payload in ProcessBlockRequest",
-                ))
-            }
+            None => return Err(Status::invalid_argument("Missing payload")),
         };
 
         let block: Block<ChainTransaction> =
@@ -104,7 +89,7 @@ where
             machine
                 .prepare_block(block)
                 .await
-                .map_err(|e: ChainError| Status::internal(e.to_string()))?
+                .map_err(|e| Status::internal(e.to_string()))?
         };
 
         let (processed_block, events) = {
@@ -112,7 +97,7 @@ where
             machine
                 .commit_block(prepared_block)
                 .await
-                .map_err(|e: ChainError| Status::internal(e.to_string()))?
+                .map_err(|e| Status::internal(e.to_string()))?
         };
 
         let block_bytes =
@@ -142,7 +127,6 @@ where
         }
 
         use ioi_ipc::blockchain::get_blocks_range_response::Data as BlocksData;
-
         Ok(Response::new(GetBlocksRangeResponse {
             data: Some(BlocksData::Inline(BlockList {
                 blocks: encoded_blocks,
@@ -189,8 +173,7 @@ where
             ioi_execution::app::GenesisState::Pending => {
                 Ok(Response::new(GetGenesisStatusResponse {
                     ready: false,
-                    root: vec![],
-                    chain_id: "".to_string(),
+                    ..Default::default()
                 }))
             }
         }
@@ -215,13 +198,13 @@ where
 // StateQuery Service
 // -----------------------------------------------------------------------------
 
-/// Implementation of the `StateQuery` gRPC service.
+/// Implementation of the `StateQuery` gRPC service for state queries and pre-checks.
 pub struct StateQueryImpl<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
 {
-    /// Shared RPC context containing the machine state and workload handle.
+    /// Shared RPC context.
     pub ctx: Arc<RpcContext<CS, ST>>,
 }
 
@@ -251,11 +234,15 @@ where
         request: Request<CheckTransactionsRequest>,
     ) -> Result<Response<CheckTransactionsResponse>, Status> {
         let req = request.into_inner();
-        let _anchor = StateAnchor(
-            req.anchor
-                .try_into()
-                .map_err(|_| Status::invalid_argument("Invalid anchor len"))?,
-        );
+
+        let (services, chain_id, height) = {
+            let chain_guard = self.ctx.machine.lock().await;
+            (
+                chain_guard.services.clone(),
+                chain_guard.state.chain_id,
+                chain_guard.status().height,
+            )
+        };
 
         let mut txs = Vec::new();
         for tx_bytes in req.txs {
@@ -265,23 +252,22 @@ where
             );
         }
 
-        let mut results = Vec::with_capacity(txs.len());
-        let chain_guard = self.ctx.machine.lock().await;
         let base_state_tree = self.ctx.workload.state_tree();
         let base_state = base_state_tree.read().await;
-
         let mut overlay = ioi_api::state::StateOverlay::new(&*base_state);
 
+        let mut results = Vec::with_capacity(txs.len());
         for tx in txs {
             use crate::ante::check_tx;
             let check_result = check_tx(
                 &mut overlay,
-                &chain_guard.services,
+                &services,
                 &tx,
-                chain_guard.state.chain_id,
-                chain_guard.status().height + 1,
+                chain_id,
+                height + 1,
                 req.expected_timestamp_secs,
-                false, // [FIX] Don't skip stateless checks for RPC checks
+                false,
+                true,
             )
             .await;
 
@@ -317,7 +303,6 @@ where
             .map_err(|e| Status::internal(e.to_string()))?;
 
         let proof_bytes = codec::to_bytes_canonical(&proof).map_err(|e| Status::internal(e))?;
-
         let resp_struct = ioi_api::chain::QueryStateResponse {
             msg_version: 1,
             scheme_id: 1,
@@ -378,13 +363,13 @@ where
 // ContractControl Service
 // -----------------------------------------------------------------------------
 
-/// Implementation of the `ContractControl` gRPC service.
+/// Implementation of the `ContractControl` gRPC service for smart contracts.
 pub struct ContractControlImpl<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
 {
-    /// Shared RPC context containing the machine state and workload handle.
+    /// Shared RPC context.
     pub ctx: Arc<RpcContext<CS, ST>>,
 }
 
@@ -420,15 +405,13 @@ where
             .deploy_contract(r.code, r.sender)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
-
-        let change_pairs = changes
+        let state_changes = changes
             .into_iter()
             .map(|(k, v)| KeyValuePair { key: k, value: v })
             .collect();
-
         Ok(Response::new(DeployContractResponse {
             address: addr,
-            state_changes: change_pairs,
+            state_changes,
         }))
     }
 
@@ -437,26 +420,24 @@ where
         req: Request<CallContractRequest>,
     ) -> Result<Response<CallContractResponse>, Status> {
         let r = req.into_inner();
-        let ctx: ioi_api::vm::ExecutionContext = codec::from_bytes_canonical(&r.context_bytes)
+        let exec_ctx = codec::from_bytes_canonical(&r.context_bytes)
             .map_err(|e| Status::invalid_argument(e))?;
-
-        let (output, (inserts, deletes)) = self
+        let (output, (inserts, deletions)) = self
             .ctx
             .workload
-            .call_contract(r.address, r.input_data, ctx)
+            .call_contract(r.address, r.input_data, exec_ctx)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
-
-        let out_bytes = codec::to_bytes_canonical(&output).map_err(|e| Status::internal(e))?;
-        let changes = inserts
+        let execution_output =
+            codec::to_bytes_canonical(&output).map_err(|e| Status::internal(e))?;
+        let state_changes = inserts
             .into_iter()
             .map(|(k, v)| KeyValuePair { key: k, value: v })
             .collect();
-
         Ok(Response::new(CallContractResponse {
-            execution_output: out_bytes,
-            state_changes: changes,
-            deletions: deletes,
+            execution_output,
+            state_changes,
+            deletions,
         }))
     }
 
@@ -465,12 +446,12 @@ where
         req: Request<QueryContractRequest>,
     ) -> Result<Response<QueryContractResponse>, Status> {
         let r = req.into_inner();
-        let ctx = codec::from_bytes_canonical(&r.context_bytes)
+        let exec_ctx = codec::from_bytes_canonical(&r.context_bytes)
             .map_err(|e| Status::invalid_argument(e))?;
         let output = self
             .ctx
             .workload
-            .query_contract(r.address, r.input_data, ctx)
+            .query_contract(r.address, r.input_data, exec_ctx)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
         Ok(Response::new(QueryContractResponse {
@@ -484,13 +465,13 @@ where
 // StakingControl Service
 // -----------------------------------------------------------------------------
 
-/// Implementation of the `StakingControl` gRPC service.
+/// Implementation of the `StakingControl` gRPC service for validator sets.
 pub struct StakingControlImpl<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
 {
-    /// Shared RPC context containing the machine state and workload handle.
+    /// Shared RPC context.
     pub ctx: Arc<RpcContext<CS, ST>>,
 }
 
@@ -527,13 +508,11 @@ where
             .get_staked_validators()
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
-        let map = stakes
+        let validators = stakes
             .into_iter()
             .map(|(k, v)| (hex::encode(k.0), v))
             .collect();
-        Ok(Response::new(GetStakedValidatorsResponse {
-            validators: map,
-        }))
+        Ok(Response::new(GetStakedValidatorsResponse { validators }))
     }
     async fn get_next_staked_validators(
         &self,
@@ -547,12 +526,12 @@ where
             .get_next_staked_validators()
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
-        let map = stakes
+        let validators = stakes
             .into_iter()
             .map(|(k, v)| (hex::encode(k.0), v))
             .collect();
         Ok(Response::new(GetNextStakedValidatorsResponse {
-            validators: map,
+            validators,
         }))
     }
 }
@@ -561,13 +540,13 @@ where
 // SystemControl Service
 // -----------------------------------------------------------------------------
 
-/// Implementation of the `SystemControl` gRPC service.
+/// Implementation of the `SystemControl` gRPC service for debug/system ops.
 pub struct SystemControlImpl<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
 {
-    /// Shared RPC context containing the machine state and workload handle.
+    /// Shared RPC context.
     pub ctx: Arc<RpcContext<CS, ST>>,
 }
 
@@ -615,8 +594,6 @@ where
         &self,
         _: Request<CheckAndTallyProposalsRequest>,
     ) -> Result<Response<CheckAndTallyProposalsResponse>, Status> {
-        // This is largely legacy behavior or triggered via OnEndBlock now.
-        // Returning empty logs as per current implementation.
         Ok(Response::new(CheckAndTallyProposalsResponse {
             logs: vec![],
         }))

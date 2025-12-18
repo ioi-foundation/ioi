@@ -19,11 +19,14 @@ use ioi_types::{
 };
 use std::collections::HashSet;
 use std::fmt::Debug;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// The state-gated operator task for the native Oracle service.
-/// It scans the chain state for pending oracle requests, fetches data from external
-/// URLs, creates signed attestations, and gossips them to other validators.
+///
+/// This function is periodically called by the main orchestration loop. It scans the
+/// chain state for pending oracle requests, fetches data from external URLs, creates
+/// signed attestations, and gossips them to other validators.
 pub async fn run_oracle_operator_task<CS, ST, CE, V>(
     context: &MainLoopContext<CS, ST, CE, V>,
 ) -> Result<()>
@@ -36,34 +39,36 @@ where
         + Debug
         + Clone,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
-    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof> + Clone + Send + Sync + 'static,
-    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
     <CS as CommitmentScheme>::Proof:
-        serde::Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+        serde::Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
-    // CHANGED: Use trait method instead of downcasting
     let workload_client = context.view_resolver.workload_client();
 
     // --- STATE GATE ---
-    // The operator task only runs if the 'oracle' service is marked as active on-chain.
+    // The operator task only runs if the 'oracle' service is active on-chain.
     let oracle_active_key = active_service_key("oracle");
     if workload_client
         .query_raw_state(&oracle_active_key)
         .await?
         .is_none()
     {
-        // Service is not active, do nothing and return.
         return Ok(());
     }
 
     // --- EGRESS ALLOWLIST (Future Enhancement) ---
-    // Here, an on-chain allowlist of permitted domains would be fetched before making HTTP requests.
+    // Here, an on-chain allowlist of permitted domains would be fetched.
 
     let oracle_service = OracleService::new();
 
-    // Pending requests are written by OracleService *under its namespace* via NamespacedStateAccess.
-    // The actual stored keys look like:
-    //   _service_data::oracle::ORACLE_PENDING_REQUEST_PREFIX || request_id_le
+    // Pending requests are written by OracleService under its namespace.
+    // The actual stored keys look like: _service_data::oracle::oracle::pending::{id}
     let ns_prefix = service_namespace_prefix("oracle");
     let pending_prefix: Vec<u8> = [ns_prefix.as_slice(), ORACLE_PENDING_REQUEST_PREFIX].concat();
 
@@ -96,8 +101,9 @@ where
         &context.local_keypair.public().encode_protobuf(),
     )?);
 
+    // This node is not a staked validator, do nothing.
     if !validator_account_ids.contains(&our_account_id) {
-        return Ok(()); // This node is not a staked validator, do nothing.
+        return Ok(());
     }
 
     for (key, value_bytes) in &pending_requests {

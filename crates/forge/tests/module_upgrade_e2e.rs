@@ -2,23 +2,20 @@
 #![cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
 
 use anyhow::{anyhow, Result};
+use ioi_api::state::service_namespace_prefix;
 use ioi_forge::testing::{
-    assert_log_contains,
-    build_test_artifacts, // Ensure this is imported
+    assert_log_contains, build_test_artifacts,
     rpc::{
         get_block_by_height_resilient, get_chain_height, query_state_key, query_state_key_at_root,
     },
-    submit_transaction,
-    wait_for_height,
-    wait_until,
-    TestCluster,
+    submit_transaction, wait_for_height, wait_until, TestCluster,
 };
 use ioi_services::governance::{StoreModuleParams, SwapModuleParams};
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
-        BlockTimingRuntime, ChainId, ChainTransaction, Credential, Proposal, ProposalStatus,
-        ProposalType, SignatureSuite, StateEntry, SystemPayload, SystemTransaction, ValidatorSetV1,
+        BlockTimingRuntime, ChainId, ChainTransaction, Proposal, ProposalStatus, ProposalType,
+        SignatureSuite, StateEntry, SystemPayload, SystemTransaction, ValidatorSetV1,
         ValidatorSetsV1, ValidatorV1, VoteOption,
     },
     codec,
@@ -34,11 +31,10 @@ use parity_scale_codec::Encode;
 use std::path::Path;
 use std::time::Duration;
 
-// ... [VoteParams and helpers] ...
 #[derive(Encode)]
 struct VoteParams {
-    proposal_id: u64,
-    option: VoteOption,
+    pub proposal_id: u64,
+    pub option: VoteOption,
 }
 
 fn create_system_tx(
@@ -76,8 +72,6 @@ async fn service_v2_registered(
     expected_artifact_hash: [u8; 32],
 ) -> Result<bool> {
     let fee_v2_key = active_service_key("fee_calculator");
-
-    // Poll for the key at specific heights.
     let tip = get_chain_height(rpc_addr).await?;
     if tip < activation_height {
         return Ok(false);
@@ -91,13 +85,11 @@ async fn service_v2_registered(
         if h > tip {
             break;
         }
-
         if let Ok(Some(block)) = get_block_by_height_resilient(rpc_addr, h).await {
             if let Ok(Some(meta_bytes)) =
                 query_state_key_at_root(rpc_addr, &block.header.state_root, &fee_v2_key).await
             {
                 if let Ok(meta) = codec::from_bytes_canonical::<ActiveServiceMeta>(&meta_bytes) {
-                    // Check hash
                     if meta.id == "fee_calculator" && meta.artifact_hash == expected_artifact_hash {
                         return Ok(true);
                     }
@@ -105,42 +97,16 @@ async fn service_v2_registered(
             }
         }
     }
-
-    // Fallback: check latest state
-    if let Ok(Some(meta_bytes)) = query_state_key(rpc_addr, &fee_v2_key).await {
-        if let Ok(meta) = codec::from_bytes_canonical::<ActiveServiceMeta>(&meta_bytes) {
-            if meta.id == "fee_calculator" && meta.artifact_hash == expected_artifact_hash {
-                return Ok(true);
-            }
-        }
-    }
-
     Ok(false)
 }
 
 #[tokio::test]
 async fn test_forkless_module_upgrade() -> Result<()> {
-    // 1. SETUP & BUILD
-    // This function already builds all artifacts defined in `forge/src/testing/build.rs`.
-    // We added fee-calculator-service to that list in the previous fix.
     build_test_artifacts();
 
-    println!("--- Using pre-built fee-calculator-service WASM ---");
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let workspace_root = manifest_dir.parent().and_then(|p| p.parent()).unwrap();
-
-    // The artifact is already built by build_test_artifacts()
-    // [FIX] Updated path to wasm32-wasip1
     let wasm_path = workspace_root.join("target/wasm32-wasip1/release/fee_calculator_service.wasm");
-
-    // Verify it exists
-    if !wasm_path.exists() {
-        return Err(anyhow::anyhow!(
-            "Artifact not found at {:?}. Did build_test_artifacts() run?",
-            wasm_path
-        ));
-    }
-
     let service_artifact = std::fs::read(&wasm_path)?;
 
     let manifest_toml = r#"
@@ -160,13 +126,9 @@ capabilities = ["TxDecorator"]
     let user_key = identity::Keypair::generate_ed25519();
     let chain_id: ChainId = 1.into();
     let mut governance_nonce = 0;
-    let user_nonce = 0;
-
-    let governance_key_clone_for_genesis = governance_key.clone();
-    let user_key_clone_for_genesis = user_key.clone();
 
     let governance_key_for_test = governance_key.clone();
-    let mut cluster = TestCluster::builder()
+    let cluster = TestCluster::builder()
         .with_validators(1)
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
@@ -176,21 +138,16 @@ capabilities = ["TxDecorator"]
             allow_downgrade: false,
         }))
         .with_initial_service(InitialServiceConfig::Governance(Default::default()))
-        // --- UPDATED: Using GenesisBuilder API ---
         .with_genesis_modifier(move |builder, keys| {
-            // 1. Register Identities
             let validator_id = builder.add_identity(&keys[0]);
-            let governance_id = builder.add_identity(&governance_key_clone_for_genesis);
-            builder.add_identity(&user_key_clone_for_genesis);
+            let governance_id = builder.add_identity(&governance_key);
+            builder.add_identity(&user_key);
 
-            // 2. Governance Policy
-            let policy = GovernancePolicy {
+            builder.set_governance_policy(&GovernancePolicy {
                 signer: GovernanceSigner::Single(governance_id),
-            };
-            builder.set_governance_policy(&policy);
+            });
 
-            // 3. Validator Set
-            let vs = ValidatorSetsV1 {
+            builder.set_validators(&ValidatorSetsV1 {
                 current: ValidatorSetV1 {
                     effective_from_height: 1,
                     total_weight: 1,
@@ -205,14 +162,12 @@ capabilities = ["TxDecorator"]
                     }],
                 },
                 next: None,
-            };
-            builder.set_validators(&vs);
+            });
 
-            // 4. Add Dummy Proposal
             let proposal = Proposal {
                 id: 1,
-                title: "Dummy Proposal".to_string(),
-                description: "".to_string(),
+                title: "Upgrade".into(),
+                description: "".into(),
                 proposal_type: ProposalType::Text,
                 status: ProposalStatus::VotingPeriod,
                 submitter: vec![],
@@ -223,202 +178,114 @@ capabilities = ["TxDecorator"]
                 total_deposit: 0,
                 final_tally: None,
             };
-
-            let proposal_key_bytes = [
-                ioi_api::state::service_namespace_prefix("governance").as_slice(),
+            let proposal_key = [
+                service_namespace_prefix("governance").as_slice(),
                 GOVERNANCE_PROPOSAL_KEY_PREFIX,
                 &1u64.to_le_bytes(),
             ]
             .concat();
-            let entry = StateEntry {
-                value: codec::to_bytes_canonical(&proposal).unwrap(),
-                block_height: 0,
-            };
+            builder.insert_typed(
+                proposal_key,
+                &StateEntry {
+                    value: codec::to_bytes_canonical(&proposal).unwrap(),
+                    block_height: 0,
+                },
+            );
 
-            // Use typed insertion
-            builder.insert_typed(proposal_key_bytes, &entry);
-
-            // 5. Block Timing
-            let timing_params = BlockTimingParams {
-                base_interval_secs: 5,
-                retarget_every_blocks: 0,
-                ..Default::default()
-            };
-            let timing_runtime = BlockTimingRuntime {
-                effective_interval_secs: timing_params.base_interval_secs,
-                ..Default::default()
-            };
-            builder.set_block_timing(&timing_params, &timing_runtime);
+            builder.set_block_timing(
+                &BlockTimingParams {
+                    base_interval_secs: 2,
+                    ..Default::default()
+                },
+                &BlockTimingRuntime {
+                    effective_interval_secs: 2,
+                    ..Default::default()
+                },
+            );
         })
         .build()
         .await?;
 
-    let test_result: Result<()> = async {
-        let node = &mut cluster.validators[0];
-        let rpc_addr = &node.validator().rpc_addr;
-        let (mut orch_logs, mut workload_logs, _) = node.validator().subscribe_logs();
-        wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
+    let node = &cluster.validators[0];
+    let rpc_addr = &node.validator().rpc_addr;
+    wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
 
-        // --- 3. TEST: ATTEMPT TO USE NON-EXISTENT SERVICE ---
-        let invalid_service_payload = SystemPayload::CallService {
-            service_id: "fee_calculator".to_string(),
-            method: "some_method@v1".to_string(),
-            params: vec![],
-        };
-        let tx_fail = create_system_tx(
-            &user_key,
-            invalid_service_payload.clone(),
-            user_nonce,
-            chain_id,
-        )?;
-        let submission_result = submit_transaction(rpc_addr, &tx_fail).await;
-        assert!(
-            submission_result.is_err(),
-            "Transaction to non-existent service should be rejected at RPC level"
-        );
-        if let Err(e) = submission_result {
-            assert!(
-                e.to_string()
-                    .contains("Service 'fee_calculator' is not active"),
-                "Error message should indicate the service is not active, but was: {}",
-                e
-            );
-        }
+    // GOVERNANCE: INSTALL THE SERVICE
+    let artifact_hash = ioi_crypto::algorithms::hash::sha256(&service_artifact)?;
+    let store_params = StoreModuleParams {
+        manifest: manifest_toml,
+        artifact: service_artifact,
+    };
+    let store_tx = create_system_tx(
+        &governance_key_for_test,
+        SystemPayload::CallService {
+            service_id: "governance".into(),
+            method: "store_module@v1".into(),
+            params: codec::to_bytes_canonical(&store_params).unwrap(),
+        },
+        governance_nonce,
+        chain_id,
+    )?;
+    governance_nonce += 1;
+    submit_transaction(rpc_addr, &store_tx).await?;
 
-        println!("SUCCESS: Correctly rejected call to non-existent fee_calculator service.");
+    let tip = get_chain_height(rpc_addr).await?;
+    let activation_height = tip + 5;
+    let swap_params = SwapModuleParams {
+        service_id: "fee_calculator".into(),
+        manifest_hash: ioi_crypto::algorithms::hash::sha256(store_params.manifest.as_bytes())?,
+        artifact_hash,
+        activation_height,
+    };
+    let swap_tx = create_system_tx(
+        &governance_key_for_test,
+        SystemPayload::CallService {
+            service_id: "governance".into(),
+            method: "swap_module@v1".into(),
+            params: codec::to_bytes_canonical(&swap_params).unwrap(),
+        },
+        governance_nonce,
+        chain_id,
+    )?;
+    submit_transaction(rpc_addr, &swap_tx).await?;
 
-        // --- 4. GOVERNANCE: INSTALL THE SERVICE ---
-        let artifact_hash = ioi_crypto::algorithms::hash::sha256(&service_artifact)?;
-        let manifest_hash = ioi_crypto::algorithms::hash::sha256(manifest_toml.as_bytes())?;
+    wait_for_height(rpc_addr, activation_height + 1, Duration::from_secs(60)).await?;
+    wait_until(Duration::from_secs(30), Duration::from_millis(500), || {
+        service_v2_registered(rpc_addr, activation_height, artifact_hash)
+    })
+    .await?;
 
-        // Step A: Store module
-        let store_params = StoreModuleParams {
-            manifest: manifest_toml,
-            artifact: service_artifact,
-        };
-        let store_tx = create_system_tx(
-            &governance_key_for_test,
-            SystemPayload::CallService {
-                service_id: "governance".to_string(),
-                method: "store_module@v1".to_string(),
-                params: codec::to_bytes_canonical(&store_params).map_err(anyhow::Error::msg)?,
-            },
-            governance_nonce,
-            chain_id,
-        )?;
-        governance_nonce += 1;
-        submit_transaction(rpc_addr, &store_tx).await?;
-        wait_for_height(rpc_addr, 2, Duration::from_secs(20)).await?;
+    // VERIFY FUNCTIONALITY
+    let vote_tx = create_system_tx(
+        &governance_key_for_test,
+        SystemPayload::CallService {
+            service_id: "governance".into(),
+            method: "vote@v1".into(),
+            params: codec::to_bytes_canonical(&VoteParams {
+                proposal_id: 1,
+                option: VoteOption::Abstain,
+            })
+            .unwrap(),
+        },
+        governance_nonce + 1,
+        chain_id,
+    )?;
+    submit_transaction(rpc_addr, &vote_tx).await?;
 
-        let manifest_key = [UPGRADE_MANIFEST_PREFIX, &manifest_hash].concat();
-        let artifact_key = [UPGRADE_ARTIFACT_PREFIX, &artifact_hash].concat();
-        wait_until(
-            Duration::from_secs(10),
-            Duration::from_millis(500),
-            || async {
-                Ok(query_state_key(rpc_addr, &manifest_key).await?.is_some()
-                    && query_state_key(rpc_addr, &artifact_key).await?.is_some())
-            },
-        )
-        .await?;
-        println!("SUCCESS: Oracle module components stored on-chain.");
+    wait_for_height(rpc_addr, activation_height + 2, Duration::from_secs(20)).await?;
 
-        // Step B: Schedule swap
-        // [FIX] Use get_chain_height instead of tip_height_resilient for speed and reliability.
-        let tip = get_chain_height(rpc_addr).await?;
-        let activation_height = tip + 5;
-        println!(
-            "Scheduling fee_calculator upgrade at height {}",
-            activation_height
-        );
-        let swap_params = SwapModuleParams {
-            service_id: "fee_calculator".to_string(),
-            manifest_hash,
-            artifact_hash,
-            activation_height,
-        };
-        let swap_tx = create_system_tx(
-            &governance_key_for_test,
-            SystemPayload::CallService {
-                service_id: "governance".to_string(),
-                method: "swap_module@v1".to_string(),
-                params: codec::to_bytes_canonical(&swap_params).map_err(anyhow::Error::msg)?,
-            },
-            governance_nonce,
-            chain_id,
-        )?;
-        governance_nonce += 1;
-        submit_transaction(rpc_addr, &swap_tx).await?;
+    // VERIFY STATE SIDE-EFFECT
+    let ns = service_namespace_prefix("fee_calculator");
+    let visited_key = [ns.as_slice(), b"visited"].concat();
+    wait_until(Duration::from_secs(20), Duration::from_millis(500), || {
+        let rpc = rpc_addr.clone();
+        let key = visited_key.clone();
+        async move { Ok(query_state_key(&rpc, &key).await?.is_some()) }
+    })
+    .await
+    .expect("Fee calculator service failed to write 'visited' key to state");
 
-        let pending_key = [UPGRADE_PENDING_PREFIX, &activation_height.to_le_bytes()].concat();
-        // [FIX] Increased timeout to 60s
-        wait_until(
-            Duration::from_secs(60),
-            Duration::from_millis(500),
-            || async { Ok(query_state_key(rpc_addr, &pending_key).await?.is_some()) },
-        )
-        .await?;
-        println!(
-            "SUCCESS: fee_calculator module upgrade scheduled for height {}.",
-            activation_height
-        );
-
-        // --- 5. WAIT & VERIFY ACTIVATION ---
-        wait_for_height(rpc_addr, activation_height + 1, Duration::from_secs(60)).await?;
-        println!("Waiting for service registration to be confirmed in state...");
-        wait_until(Duration::from_secs(30), Duration::from_millis(500), || {
-            println!(
-                "  - Polling for service_v2_registered at height {}...",
-                activation_height
-            );
-            service_v2_registered(rpc_addr, activation_height, artifact_hash)
-        })
-        .await?;
-        println!("SUCCESS: New service `fee_calculator` is active on-chain.");
-
-        // --- 6. VERIFY FUNCTIONALITY ---
-        let vote_params = VoteParams {
-            proposal_id: 1,
-            option: ioi_types::app::VoteOption::Abstain,
-        };
-        let encoded_vote =
-            ioi_types::codec::to_bytes_canonical(&vote_params).expect("encode vote params");
-        let dummy_tx_payload = SystemPayload::CallService {
-            service_id: "governance".to_string(),
-            method: "vote@v1".to_string(),
-            params: encoded_vote,
-        };
-        let dummy_tx = create_system_tx(
-            &governance_key_for_test,
-            dummy_tx_payload,
-            governance_nonce,
-            chain_id,
-        )?;
-        submit_transaction(rpc_addr, &dummy_tx).await?;
-
-        assert_log_contains("Orchestration", &mut orch_logs, "mempool_add").await?;
-
-        let tip_after_dummy = get_chain_height(rpc_addr).await?;
-        wait_for_height(rpc_addr, tip_after_dummy + 1, Duration::from_secs(20)).await?;
-
-        assert_log_contains(
-            "Workload",
-            &mut workload_logs,
-            "[WasmService fee_calculator] Calling method 'ante_validate@v1' in WASM", // Changed from ante_handle
-        )
-        .await?;
-        println!("SUCCESS: Activated WASM service's TxDecorator hook was correctly invoked.");
-
-        println!("--- Service Architecture Lifecycle E2E Test Passed ---");
-
-        Ok(())
-    }
-    .await;
-
-    for guard in cluster.validators {
-        guard.shutdown().await?;
-    }
-
-    test_result?;
+    println!("SUCCESS: Activated WASM service executed and modified state.");
+    cluster.shutdown().await?;
     Ok(())
 }

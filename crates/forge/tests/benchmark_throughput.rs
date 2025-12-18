@@ -5,10 +5,11 @@
     feature = "commitment-hash"
 ))]
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use ioi_forge::testing::{build_test_artifacts, TestCluster};
 use ioi_ipc::public::{public_api_client::PublicApiClient, SubmitTransactionRequest};
 use tonic::transport::Channel;
+use tonic::Code;
 
 use ioi_types::{
     app::ApplicationTransaction,
@@ -26,21 +27,25 @@ use std::time::{Duration, Instant};
 use tokio::time::sleep;
 
 // --- Configuration ---
-// [FIX] Using fewer accounts with deep nonce chains to verify Mempool queuing logic.
-// 100 accounts * 100 txs = 10,000 Total Txs.
-const NUM_ACCOUNTS: usize = 100;
-const TXS_PER_ACCOUNT: u64 = 100;
+// High concurrency: 500 accounts running in parallel.
+// Total Load: 100,000 Transactions.
+const NUM_ACCOUNTS: usize = 500;
+const TXS_PER_ACCOUNT: u64 = 200;
 const TOTAL_TXS: usize = NUM_ACCOUNTS * TXS_PER_ACCOUNT as usize;
 
+// Tuning Parameters for High Throughput
+const NUM_RPC_CONNECTIONS: usize = 16;
+const BACKOFF_MS: u64 = 50; // Retry backoff
+const MAX_RETRIES: usize = 100; // Give up eventually if system is dead
+
 const BLOCK_TIME_SECS: u64 = 1;
-const TIMEOUT_SECS: u64 = 180;
 
 /// Helper to create a signed native Account transaction.
 fn create_transfer_tx(
     sender_key: &Keypair,
     sender_id: AccountId,
-    _recipient: AccountId, // Unused in dummy load test
-    _amount: u64,          // Unused in dummy load test
+    _recipient: AccountId,
+    _amount: u64,
     nonce: u64,
     chain_id: u32,
 ) -> ChainTransaction {
@@ -55,10 +60,10 @@ fn create_transfer_tx(
 
     let app_tx = ApplicationTransaction::CallContract {
         header,
-        address: vec![0xAA; 32],   // Dummy contract address
-        input_data: vec![1, 2, 3], // Dummy data
+        address: vec![0xAA; 32],
+        input_data: vec![1, 2, 3],
         gas_limit: 100_000,
-        signature_proof: SignatureProof::default(), // Will be signed below
+        signature_proof: SignatureProof::default(),
     };
 
     let payload_bytes = app_tx.to_sign_bytes().unwrap();
@@ -91,15 +96,15 @@ fn create_transfer_tx(
 #[tokio::test(flavor = "multi_thread")]
 async fn test_benchmark_100k_throughput() -> Result<()> {
     // 0. Environment Setup
-    println!("--- Starting IOI SDK Throughput Benchmark ---");
+    println!("--- Starting IOI SDK Throughput Benchmark (Corrected) ---");
     println!("Configuration:");
     println!("  - Consensus: ProofOfAuthority");
     println!("  - State Tree: Jellyfish Merkle Tree");
-    println!("  - Execution: Block-STM");
-    println!("  - Persistence: WAL");
+    println!("  - Execution: Block-STM (Optimistic Parallel)");
+    println!("  - Client Strategy: Sequential Per-Account w/ Retry (Gap Healing)");
     println!(
-        "  - Accounts: {} ({} Txs each)",
-        NUM_ACCOUNTS, TXS_PER_ACCOUNT
+        "  - Workload:  {} Accounts x {} Txs = {} Total",
+        NUM_ACCOUNTS, TXS_PER_ACCOUNT, TOTAL_TXS
     );
 
     // Generate keys
@@ -120,10 +125,10 @@ async fn test_benchmark_100k_throughput() -> Result<()> {
     let cluster = TestCluster::builder()
         .with_validators(1)
         .with_consensus_type("ProofOfAuthority")
-        .with_state_tree("Jellyfish") // ENABLE PHASE 3.1
+        .with_state_tree("Jellyfish")
         .with_commitment_scheme("Hash")
         .with_role(0, ValidatorRole::Consensus)
-        .with_epoch_size(100_000) // Delay heavy checkpointing
+        .with_epoch_size(100_000)
         .with_genesis_modifier(move |builder, keys| {
             let val_key = &keys[0];
             let val_id = builder.add_identity(val_key);
@@ -152,7 +157,6 @@ async fn test_benchmark_100k_throughput() -> Result<()> {
 
             let timing = BlockTimingParams {
                 base_interval_secs: BLOCK_TIME_SECS,
-                // [FIX 1] Set min_interval_secs to 0 for maximum throughput (Instant Seal)
                 min_interval_secs: 0,
                 max_interval_secs: 10,
                 target_gas_per_block: 1_000_000_000,
@@ -172,25 +176,33 @@ async fn test_benchmark_100k_throughput() -> Result<()> {
     let rpc = node.validator().rpc_addr.clone();
 
     // 2. Pre-Generate Transactions
-    // We generate them sequentially per account so nonces are correct (0..99).
+    // We pre-generate to ensure we measure network/consensus throughput, not signing speed.
     println!("Pre-signing {} transactions...", TOTAL_TXS);
-    let mut transactions = Vec::with_capacity(TOTAL_TXS);
+    let mut account_txs: Vec<Vec<Vec<u8>>> = Vec::with_capacity(NUM_ACCOUNTS);
 
     for (key, id) in &accounts {
+        let mut txs = Vec::with_capacity(TXS_PER_ACCOUNT as usize);
         for nonce in 0..TXS_PER_ACCOUNT {
             let tx = create_transfer_tx(key, *id, *id, 1, nonce, 1);
-            transactions.push(tx);
+            let bytes = ioi_types::codec::to_bytes_canonical(&tx).map_err(|e| anyhow!(e))?;
+            txs.push(bytes);
         }
+        account_txs.push(txs);
     }
     println!("Generation complete.");
 
-    // [FIX] Establish a single channel to reuse for all requests
-    let channel = Channel::from_shared(format!("http://{}", rpc))?
-        .connect()
-        .await?;
+    // Create channel pool
+    println!("Establishing {} RPC connections...", NUM_RPC_CONNECTIONS);
+    let mut channels = Vec::with_capacity(NUM_RPC_CONNECTIONS);
+    for _ in 0..NUM_RPC_CONNECTIONS {
+        let ch = Channel::from_shared(format!("http://{}", rpc))?
+            .connect()
+            .await?;
+        channels.push(ch);
+    }
 
     // Check initial state
-    let mut status_client = PublicApiClient::new(channel.clone());
+    let mut status_client = PublicApiClient::new(channels[0].clone());
     let initial_status = status_client
         .get_status(ioi_ipc::blockchain::GetStatusRequest {})
         .await?
@@ -198,107 +210,179 @@ async fn test_benchmark_100k_throughput() -> Result<()> {
     let initial_tx_count = initial_status.total_transactions;
     println!("Initial Chain Tx Count: {}", initial_tx_count);
 
-    // 3. Injection Phase
-    println!("Injecting transactions via RPC...");
+    // 3. Injection Phase (Sequential per Account)
+    println!(
+        "Injecting transactions ({} accounts parallel, sequential within account)...",
+        NUM_ACCOUNTS
+    );
 
-    // [FIX 2] Track injection start separately
     let injection_start = Instant::now();
-
     let accepted_txs = Arc::new(AtomicUsize::new(0));
     let mut handles = Vec::new();
-    let batch_size = 1000;
 
-    for chunk in transactions.chunks(batch_size) {
-        let chunk = chunk.to_vec();
-        // Cloning a Channel is cheap (Arc internally) and shares the connection
-        let mut client = PublicApiClient::new(channel.clone());
+    // Spawn one task per account
+    for (i, txs) in account_txs.into_iter().enumerate() {
+        let channel = channels[i % NUM_RPC_CONNECTIONS].clone();
         let accepted_counter = accepted_txs.clone();
 
         handles.push(tokio::spawn(async move {
-            for tx in chunk {
-                let tx_bytes = match ioi_types::codec::to_bytes_canonical(&tx) {
-                    Ok(b) => b,
-                    Err(_) => continue,
-                };
-                let request = tonic::Request::new(SubmitTransactionRequest {
-                    transaction_bytes: tx_bytes,
-                });
+            let mut client = PublicApiClient::new(channel);
 
-                // We only count OK responses. Errors (e.g. mempool full) are dropped.
-                match client.submit_transaction(request).await {
-                    Ok(_) => {
-                        accepted_counter.fetch_add(1, Ordering::Relaxed);
-                    }
-                    Err(_e) => {
-                        // println!("Tx rejected: {}", _e);
+            for tx_bytes in txs {
+                let mut retries = 0;
+                loop {
+                    let req = tonic::Request::new(SubmitTransactionRequest {
+                        transaction_bytes: tx_bytes.clone(),
+                    });
+
+                    match client.submit_transaction(req).await {
+                        Ok(_) => {
+                            accepted_counter.fetch_add(1, Ordering::Relaxed);
+                            break; // Success, move to next nonce
+                        }
+                        Err(status) => {
+                            let should_retry = match status.code() {
+                                Code::ResourceExhausted => true, // Queue full, backoff
+                                Code::Unavailable => true,       // Network blip
+                                Code::Internal => true,          // Server busy
+                                Code::InvalidArgument => {
+                                    // Special handling for re-submission races
+                                    // If "nonce too low" or "already exists", we consider it a success
+                                    // because it means we (or a previous retry) already got it in.
+                                    let msg = status.message();
+                                    if msg.contains("Nonce") || msg.contains("Mempool") {
+                                        // Treat as success
+                                        accepted_counter.fetch_add(1, Ordering::Relaxed);
+                                        false // Break loop, next tx
+                                    } else {
+                                        // Genuine invalid arg, abort this account
+                                        return;
+                                    }
+                                }
+                                _ => false, // Fatal error
+                            };
+
+                            if should_retry {
+                                retries += 1;
+                                if retries > MAX_RETRIES {
+                                    // Too many failures, abort account
+                                    return;
+                                }
+                                sleep(Duration::from_millis(BACKOFF_MS)).await;
+                            } else if status.code() == Code::InvalidArgument {
+                                break; // Handled as success above
+                            } else {
+                                return; // Fatal
+                            }
+                        }
                     }
                 }
             }
         }));
     }
 
+    // Monitor Injection Progress
+    let monitor_handle = tokio::spawn({
+        let accepted = accepted_txs.clone();
+        async move {
+            let mut last_accepted = 0;
+            while last_accepted < TOTAL_TXS {
+                sleep(Duration::from_secs(1)).await;
+                let current = accepted.load(Ordering::Relaxed);
+                if current == last_accepted && current < TOTAL_TXS {
+                    // Just logging, not failing yet
+                }
+                last_accepted = current;
+                // println!("Accepted: {} / {}", current, TOTAL_TXS);
+            }
+        }
+    });
+
+    // Wait for all injection tasks
     for h in handles {
         let _ = h.await;
     }
+    monitor_handle.abort(); // Stop monitoring injection
 
+    let injection_duration = injection_start.elapsed();
     let total_accepted = accepted_txs.load(Ordering::SeqCst) as u64;
+    let injection_tps = total_accepted as f64 / injection_duration.as_secs_f64();
+
     println!(
         "Injection complete in {:.2}s. Accepted {} / {} transactions.",
-        injection_start.elapsed().as_secs_f64(),
+        injection_duration.as_secs_f64(),
         total_accepted,
         TOTAL_TXS
     );
-
-    // [FIX 2] Start benchmark timer here to measure processing throughput
-    let benchmark_start = Instant::now();
-
-    if total_accepted == 0 {
-        panic!("No transactions were accepted by the node. Check logs for rejection reasons.");
-    }
+    println!(">> INJECTION TPS: {:.2} <<", injection_tps);
 
     // 4. Execution Measurement (Wait for Commit)
+    // We now have a filled mempool with no gaps.
+    let benchmark_start = Instant::now();
     println!("Waiting for transactions to be committed...");
-    let mut last_log = Instant::now();
+
+    let mut last_processed = 0;
+    let mut stall_counter = 0;
     let mut final_tx_count = 0;
 
     loop {
-        let status = status_client
+        let status_res = status_client
             .get_status(ioi_ipc::blockchain::GetStatusRequest {})
-            .await?
-            .into_inner();
-        final_tx_count = status.total_transactions;
-        let processed = final_tx_count - initial_tx_count;
+            .await;
 
-        if processed >= total_accepted {
-            break;
+        if let Ok(resp) = status_res {
+            let status = resp.into_inner();
+            final_tx_count = status.total_transactions;
+            let processed = final_tx_count.saturating_sub(initial_tx_count);
+
+            if processed >= total_accepted {
+                println!("All accepted transactions committed!");
+                break;
+            }
+
+            if processed > last_processed {
+                println!(
+                    "Processed: {} / {} (Height: {})",
+                    processed, total_accepted, status.height
+                );
+                last_processed = processed;
+                stall_counter = 0;
+            } else {
+                stall_counter += 1;
+                if stall_counter >= 10 {
+                    // 10 seconds without a single commit -> STALL DETECTED
+                    println!(
+                        "\n!!! STALL DETECTED !!!\nProcessed: {} / {} stuck at Height {}.",
+                        processed, total_accepted, status.height
+                    );
+                    println!("Possible causes: Mempool dropped pending nonce, consensus deadlock, or execution panic.");
+                    break;
+                }
+            }
         }
 
-        if last_log.elapsed() > Duration::from_secs(1) {
-            println!("Processed: {} / {}", processed, total_accepted);
-            last_log = Instant::now();
-        }
-
-        if benchmark_start.elapsed() > Duration::from_secs(TIMEOUT_SECS) {
-            println!("WARN: Benchmark timed out.");
-            break;
-        }
-
-        sleep(Duration::from_millis(200)).await;
+        sleep(Duration::from_secs(1)).await;
     }
 
-    let duration = benchmark_start.elapsed();
-
-    // 5. Results
-    let processed_total = final_tx_count - initial_tx_count;
-    let tps = processed_total as f64 / duration.as_secs_f64();
+    let e2e_duration = Instant::now().duration_since(injection_start);
+    let processed_total = final_tx_count.saturating_sub(initial_tx_count);
+    let e2e_tps = processed_total as f64 / e2e_duration.as_secs_f64();
 
     println!("\n--- Benchmark Results ---");
     println!("Total Attempted:   {}", TOTAL_TXS);
     println!("Total Accepted:    {}", total_accepted);
     println!("Total Committed:   {}", processed_total);
-    println!("Processing Time:   {:.2}s", duration.as_secs_f64());
-    println!("Throughput:        {:.2} TPS", tps);
     println!("-------------------------");
+    println!("Injection Rate:    {:.2} TPS (Client Push)", injection_tps);
+    println!("End-to-End TPS:    {:.2} TPS (Sustained)", e2e_tps);
+    println!("-------------------------");
+
+    if processed_total < total_accepted {
+        panic!(
+            "Benchmark failed: Dropped {} transactions (Stall)",
+            total_accepted - processed_total
+        );
+    }
 
     cluster.shutdown().await?;
     Ok(())

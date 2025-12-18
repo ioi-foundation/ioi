@@ -9,27 +9,9 @@ use ioi_api::state::{service_namespace_prefix, Verifier};
 use ioi_client::WorkloadClient;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_state::tree::iavl::{self, IavlProof};
-// [FIX] Import Mempool from validator crate (via re-export or direct use if possible,
-// but circular dependency risk. Better to define a trait or use the concrete type if available.
-// Since ioi-validator depends on ibc-host, we cannot depend on ioi-validator here.
-// We must abstract the transaction pool interface or use a shared type.
-// Given the constraints and previous patterns, we likely need to introduce a `TransactionPool` trait in `ioi-api` or `ioi-types`.
-// However, fixing this quickly might require checking where Mempool is defined.
-// It is in `ioi-validator`. This creates a circular dependency:
-// ioi-validator -> ibc-host -> ioi-validator (for Mempool).
-
-// SOLUTION:
-// The `Mempool` struct is internal logic of the validator. The `IbcHost` shouldn't know about `Mempool`.
-// We should change `DefaultIbcHost` to take a generic `P` where `P: TransactionPool`.
-// But defining that trait now is a larger refactor.
-//
-// Alternative: Move `Mempool` to `ioi-tx` or a shared crate? No, it has specific queuing logic.
-//
-// Pragmatic fix for this task:
-// Use `Arc<Mutex<dyn MempoolInterface>>` where `MempoolInterface` is defined in `ioi-api` or locally.
-// Let's define a trait `TransactionSubmitter` in `ioi-api` or `ioi-types`?
-// Or locally in `ibc-host` and implement it for `Mempool` in `ioi-validator`.
-
+// [FIX] Use `Arc<Mempool>` instead of `Arc<Mutex<Mempool>>`.
+// The `Mempool` is now internally concurrent, so the outer lock is not needed.
+// This requires updating the `MempoolAdapter` struct and its implementation.
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ChainId, ChainTransaction, SignHeader,
@@ -37,6 +19,7 @@ use ioi_types::{
     },
     codec,
 };
+use ioi_validator::standard::orchestration::mempool::Mempool;
 use libp2p::identity::Keypair;
 use lru::LruCache;
 use parity_scale_codec::Decode;
@@ -119,7 +102,7 @@ pub fn existence_root_from_proof_bytes(proof_pb: &[u8]) -> Result<Vec<u8>> {
     })();
 
     tracing::debug!(
-        target = "ibc.proof",
+        target: "ibc.proof",
         event = "root_recompute",
         input_variant = %input_variant,
         proof_len = proof_pb.len(),
@@ -196,6 +179,34 @@ fn compute_root_from_commitment_proof(cp: &CommitmentProof) -> Result<Vec<u8>> {
     ics23::calculate_existence_root::<HostFunctionsManager>(&ex_native)
         .map(|r| r.to_vec())
         .map_err(|e| anyhow!("calculate_existence_root: {e}"))
+}
+
+/// Adapter to allow `Arc<Mempool>` to satisfy `TransactionPool`.
+struct MempoolAdapter {
+    inner: Arc<Mempool>,
+}
+
+#[async_trait]
+impl TransactionPool for MempoolAdapter {
+    async fn add(&self, tx: ChainTransaction) -> Result<()> {
+        let tx_hash = tx.hash()?;
+
+        let tx_info = match &tx {
+            ChainTransaction::System(s) => Some((s.header.account_id, s.header.nonce)),
+            ChainTransaction::Application(a) => match a {
+                ioi_types::app::ApplicationTransaction::DeployContract { header, .. }
+                | ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
+                    Some((header.account_id, header.nonce))
+                }
+                _ => None,
+            },
+            _ => None,
+        };
+
+        // Use 0 as committed_nonce fallback; Mempool will queue if needed.
+        self.inner.add(tx, tx_hash, tx_info, 0);
+        Ok(())
+    }
 }
 
 pub struct DefaultIbcHost<V: Verifier> {
