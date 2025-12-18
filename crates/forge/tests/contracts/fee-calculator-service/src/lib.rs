@@ -3,15 +3,10 @@
 extern crate alloc;
 
 // Use the macro instead of manual boilerplate
-use ioi_contract_sdk::{ioi_contract, IoiService};
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+use ioi_contract_sdk::{ioi_contract, IoiService};
 use parity_scale_codec::Encode;
-
-// [REMOVED] BumpAllocator struct and impl
-// [REMOVED] global_allocator static
-// [REMOVED] panic_handler
-// [REMOVED] cabi_realloc export
 
 struct FeeCalculator;
 
@@ -59,6 +54,9 @@ capabilities = ["TxDecorator"]
             }
             // State-changing execution phase
             "ante_write@v1" => {
+                // Write the 'visited' key to state to signal successful execution
+                ioi_contract_sdk::state::set(b"visited", b"1");
+
                 let res: Result<(), String> = Ok(());
                 Ok(res.encode())
             }
@@ -66,7 +64,3 @@ capabilities = ["TxDecorator"]
         }
     }
 }
-
-// [REMOVED] struct Component
-// [REMOVED] impl Guest for Component
-// [REMOVED] __export_service_impl! macro call

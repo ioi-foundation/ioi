@@ -4,15 +4,10 @@
 
 use crate::traits::{BlockSync, NodeState, SyncError};
 use async_trait::async_trait;
+use futures::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use ioi_types::app::{Block, ChainId, ChainTransaction};
 use ioi_types::codec;
-// [FIX] Added AsyncReadExt/AsyncWriteExt for read_exact/write_all
-use futures::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use libp2p::{
-    // [FIX] Removed core::upgrade imports
-    request_response::Codec,
-    PeerId,
-};
+use libp2p::{request_response::Codec, PeerId};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, sync::Arc};
@@ -101,7 +96,7 @@ async fn write_length_prefixed<T: AsyncWrite + Unpin + Send>(
     data: Vec<u8>,
 ) -> std::io::Result<()> {
     let mut len = data.len() as u64;
-    let buf = [0u8; 10]; // [FIX] Removed unused mut
+    let _buf = [0u8; 10];
     let mut i = 0;
 
     // Use a separate buffer for encoding

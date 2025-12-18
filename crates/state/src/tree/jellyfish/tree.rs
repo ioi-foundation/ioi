@@ -12,7 +12,7 @@ use ioi_api::state::{
 };
 use ioi_api::storage::NodeStore;
 use ioi_storage::adapter::{commit_and_persist, DeltaAccumulator};
-use ioi_types::app::{to_root_hash, Membership, RootHash};
+use ioi_types::app::{Membership, RootHash};
 use ioi_types::error::StateError;
 use rayon::prelude::*;
 use std::any::Any;

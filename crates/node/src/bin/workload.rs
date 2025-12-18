@@ -12,7 +12,6 @@ use ioi_api::{
 use ioi_state::primitives::hash::HashCommitmentScheme;
 #[cfg(feature = "commitment-kzg")]
 use ioi_state::primitives::kzg::{KZGCommitmentScheme, KZGParams};
-use ioi_state::tree::iavl::IAVLTree;
 #[cfg(feature = "state-sparse-merkle")]
 use ioi_state::tree::sparse_merkle::SparseMerkleTree;
 #[cfg(feature = "state-verkle")]
@@ -27,6 +26,7 @@ use ioi_validator::standard::workload::{ipc::WorkloadIpcServer, setup::setup_wor
 use std::fmt::Debug;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 #[derive(Parser, Debug)]
 struct WorkloadOpts {
@@ -119,16 +119,11 @@ async fn main() -> Result<()> {
     let config: WorkloadConfig = toml::from_str(&config_str)?;
     config.validate().map_err(|e| anyhow!(e))?;
 
-    match (
-        config.state_tree.clone(),
-        config.commitment_scheme.clone(),
-    ) {
+    match (config.state_tree.clone(), config.commitment_scheme.clone()) {
         #[cfg(all(feature = "state-iavl", feature = "commitment-hash"))]
-        (
-            ioi_types::config::StateTreeType::IAVL,
-            ioi_types::config::CommitmentSchemeType::Hash,
-        ) => {
+        (ioi_types::config::StateTreeType::IAVL, ioi_types::config::CommitmentSchemeType::Hash) => {
             tracing::info!(target: "workload", "Instantiating state backend: IAVLTree<HashCommitmentScheme>");
+            use ioi_state::tree::iavl::IAVLTree;
             let commitment_scheme = HashCommitmentScheme::new();
             let state_tree = IAVLTree::new(commitment_scheme.clone());
             run_standard_workload(state_tree, commitment_scheme, config).await
@@ -154,14 +149,16 @@ async fn main() -> Result<()> {
             tracing::info!(target: "workload", "Instantiating state backend: VerkleTree<KZGCommitmentScheme>");
 
             // The config.validate() call ensures srs_file_path is Some.
-            let srs_path = config.srs_file_path.as_ref().expect("SRS file path validated");
+            let srs_path = config
+                .srs_file_path
+                .as_ref()
+                .expect("SRS file path validated");
 
             tracing::info!(target: "workload", "Loading KZG SRS from file: {}", srs_path);
-            let params =
-                ioi_state::primitives::kzg::KZGParams::load_from_file(std::path::Path::new(
-                    srs_path,
-                ))
-                .map_err(|e| anyhow!(e))?;
+            let params = ioi_state::primitives::kzg::KZGParams::load_from_file(
+                std::path::Path::new(srs_path),
+            )
+            .map_err(|e| anyhow!(e))?;
 
             let commitment_scheme = ioi_state::primitives::kzg::KZGCommitmentScheme::new(params);
             let state_tree =

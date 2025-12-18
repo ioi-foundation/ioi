@@ -3,14 +3,14 @@
 use async_trait::async_trait;
 use ioi_api::lifecycle::OnEndBlock;
 use ioi_api::services::{BlockchainService, UpgradableService};
-use ioi_api::state::{StateAccess, VmStateAccessor};
+use ioi_api::state::StateAccess;
+use ioi_api::state::VmStateAccessor;
 use ioi_api::transaction::context::TxContext;
 use ioi_api::transaction::decorator::TxDecorator;
 use ioi_api::vm::{ExecutionContext, VirtualMachine};
 use ioi_types::{
     app::ChainTransaction,
     codec::{self, to_bytes_canonical},
-    // [FIXED] Removed unused VmError
     error::{StateError, TransactionError, UpgradeError},
     service_configs::Capabilities,
 };
@@ -59,9 +59,6 @@ impl<'a> VmStateAccessor for VmStateBridge<'a> {
 }
 
 /// A read-only bridge that adapts an immutable `StateAccess` reference for the VM.
-///
-/// This allows read operations during the `validate_ante` phase but strictly
-/// prohibits writes by returning errors if the VM attempts any mutations.
 struct ReadOnlyVmStateBridge<'a> {
     inner: &'a dyn StateAccess,
 }
@@ -78,6 +75,7 @@ impl<'a> VmStateAccessor for ReadOnlyVmStateBridge<'a> {
         ))
     }
 
+    // FIX: Corrected signature to match VmStateAccessor trait (removed _value parameter)
     async fn delete(&self, _key: &[u8]) -> Result<(), StateError> {
         Err(StateError::PermissionDenied(
             "Delete operation attempted in read-only VM context".into(),
@@ -136,7 +134,6 @@ impl RuntimeService {
         }
     }
 
-    /// Internal helper to execute a WASM call with a specific state accessor.
     async fn execute_call(
         &self,
         accessor: &dyn VmStateAccessor,
@@ -144,29 +141,26 @@ impl RuntimeService {
         params: &[u8],
         ctx: &TxContext<'_>,
     ) -> Result<(), TransactionError> {
-        log::info!(
+        // [OPTIMIZATION] Downgraded to debug
+        log::debug!(
             "[WasmService {}] Calling method '{}' in WASM",
             self.id(),
             method
         );
 
-        // 1. Create the execution context for the VM.
         let exec_context = ExecutionContext {
             caller: ctx.signer_account_id.as_ref().to_vec(),
             block_height: ctx.block_height,
-            gas_limit: u64::MAX, // TODO: Plumb gas from TxContext/config
+            gas_limit: u64::MAX,
             contract_address: self.id.as_bytes().to_vec(),
         };
 
-        // 2. Call the VM with the artifact, state bridge, and context.
         let output = self
             .vm
             .execute(&self.artifact, method, params, accessor, exec_context)
             .await
             .map_err(|e| TransactionError::Invalid(format!("WASM call failed: {}", e)))?;
 
-        // Assume the WASM service returns a SCALE-encoded Result<(), String>
-        // and translate the inner error string to a structured TransactionError.
         let resp: Result<(), String> = codec::from_bytes_canonical(&output.return_data)
             .map_err(TransactionError::Deserialization)?;
 
@@ -208,12 +202,11 @@ impl BlockchainService for RuntimeService {
 
     async fn handle_service_call(
         &self,
-        state: &mut dyn StateAccess, // This is the transactional, namespaced state
+        state: &mut dyn StateAccess,
         method: &str,
         params: &[u8],
         ctx: &mut TxContext<'_>,
     ) -> Result<(), TransactionError> {
-        // Create mutable bridge for general service calls
         let bridge = VmStateBridge {
             inner: TokioMutex::new(state),
         };
@@ -244,7 +237,6 @@ impl TxDecorator for RuntimeService {
         let req = AnteHandleRequest { tx: tx.clone() };
         let params_bytes = to_bytes_canonical(&req).map_err(TransactionError::Serialization)?;
 
-        // Use the ReadOnly bridge to enforce immutability
         let bridge = ReadOnlyVmStateBridge { inner: state };
 
         self.execute_call(&bridge, method, &params_bytes, ctx).await
@@ -260,7 +252,6 @@ impl TxDecorator for RuntimeService {
         let req = AnteHandleRequest { tx: tx.clone() };
         let params_bytes = to_bytes_canonical(&req).map_err(TransactionError::Serialization)?;
 
-        // Use the mutable bridge for state changes
         let bridge = VmStateBridge {
             inner: TokioMutex::new(state),
         };

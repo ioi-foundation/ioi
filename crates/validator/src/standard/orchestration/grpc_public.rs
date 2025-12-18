@@ -1,8 +1,9 @@
 // Path: crates/validator/src/standard/orchestration/grpc_public.rs
-use crate::standard::orchestration::context::MainLoopContext;
-use crate::standard::orchestration::mempool::{AddResult, Mempool};
-use ioi_api::chain::{StateRef, WorkloadClientApi};
-use ioi_api::{commitment::CommitmentScheme, state::StateManager, transaction::TransactionModel};
+
+use crate::standard::orchestration::context::{MainLoopContext, TxStatusEntry};
+use crate::standard::orchestration::mempool::Mempool;
+use ioi_api::chain::WorkloadClientApi;
+use ioi_api::{commitment::CommitmentScheme, state::StateManager};
 use ioi_client::WorkloadClient;
 use ioi_ipc::blockchain::{
     GetStatusRequest, GetStatusResponse, QueryRawStateRequest, QueryRawStateResponse,
@@ -10,14 +11,10 @@ use ioi_ipc::blockchain::{
 };
 use ioi_ipc::public::public_api_server::PublicApi;
 use ioi_ipc::public::{
-    GetBlockByHeightRequest, GetBlockByHeightResponse, SubmitTransactionRequest,
-    SubmitTransactionResponse,
+    GetBlockByHeightRequest, GetBlockByHeightResponse, GetTransactionStatusRequest,
+    GetTransactionStatusResponse, SubmitTransactionRequest, SubmitTransactionResponse, TxStatus,
 };
-use ioi_networking::libp2p::SwarmCommand;
-use ioi_tx::unified::UnifiedTransactionModel;
-use ioi_types::app::{
-    compute_next_timestamp, BlockTimingParams, BlockTimingRuntime, ChainTransaction, TxHash,
-};
+use ioi_types::app::{ChainTransaction, StateRoot, TxHash};
 use ioi_types::codec;
 use serde::Serialize;
 use std::fmt::Debug;
@@ -28,6 +25,10 @@ use tonic::{Request, Response, Status};
 
 use crate::metrics::rpc_metrics as metrics;
 
+/// Implementation of the Public gRPC API.
+///
+/// This implementation is optimized for high-concurrency by offloading transaction
+/// validation to a dedicated background ingestion worker.
 pub struct PublicApiImpl<CS, ST, CE, V>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -47,12 +48,14 @@ where
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
 {
+    /// Handle to the main loop context for status cache access.
     pub context_wrapper: Arc<Mutex<Option<Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>>>>,
+    /// Client for querying state from the Workload container.
     pub workload_client: Arc<WorkloadClient>,
-    pub tx_pool: Arc<Mutex<Mempool>>,
-    pub swarm_sender: mpsc::Sender<SwarmCommand>,
-    pub consensus_kick_tx: mpsc::UnboundedSender<()>,
-    pub tx_model: Arc<UnifiedTransactionModel<CS>>,
+    /// The sharded mempool.
+    pub tx_pool: Arc<Mempool>,
+    /// Channel to send raw transactions to the ingestion worker.
+    pub tx_ingest_tx: mpsc::Sender<(TxHash, Vec<u8>)>,
 }
 
 impl<CS, ST, CE, V> PublicApiImpl<CS, ST, CE, V>
@@ -75,6 +78,7 @@ where
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
 {
+    /// Safely retrieves the MainLoopContext.
     async fn get_context(&self) -> Result<Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>, Status> {
         let guard = self.context_wrapper.lock().await;
         if let Some(ctx) = guard.as_ref() {
@@ -106,214 +110,130 @@ where
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
 {
+    /// Accepts a raw transaction, hashes it, and returns a receipt immediately.
     async fn submit_transaction(
         &self,
         request: Request<SubmitTransactionRequest>,
     ) -> Result<Response<SubmitTransactionResponse>, Status> {
         let start = Instant::now();
         let req = request.into_inner();
+        let tx_bytes = req.transaction_bytes;
 
-        let model = self.tx_model.clone();
-        let tx_bytes = req.transaction_bytes.clone();
+        // 1. Generate Receipt Hash
+        let tx_hash_bytes = ioi_crypto::algorithms::hash::sha256(&tx_bytes)
+            .map_err(|e| Status::invalid_argument(format!("Hashing failed: {}", e)))?;
+        let tx_hash_hex = hex::encode(tx_hash_bytes);
 
-        let (tx, tx_hash) = tokio::task::spawn_blocking(move || {
-            let t = model.deserialize_transaction(&tx_bytes).map_err(|e| {
-                Status::invalid_argument(format!("Invalid transaction bytes: {}", e))
-            })?;
-            let h = t
-                .hash()
-                .map_err(|e| Status::internal(format!("Hashing failed: {}", e)))?;
-            Ok::<(ChainTransaction, TxHash), Status>((t, h))
-        })
-        .await
-        .map_err(|e| Status::internal(e.to_string()))??;
-
-        let tx_hash_hex = hex::encode(tx_hash);
-
-        // --- ANTE CHECK VIA WORKLOAD ---
+        // 2. Mark as Pending in status cache
         {
-            let ctx_guard = self.get_context().await?;
-            let ctx = ctx_guard.lock().await;
-
-            let (parent_height, parent_timestamp, parent_gas_used, parent_root_vec) =
-                if let Some(last) = &ctx.last_committed_block {
-                    (
-                        last.header.height,
-                        last.header.timestamp,
-                        last.header.gas_used,
-                        last.header.state_root.0.clone(),
-                    )
-                } else {
-                    let root = ctx
-                        .view_resolver
-                        .genesis_root()
-                        .await
-                        .map_err(|e| Status::internal(e.to_string()))?;
-                    (0, 0, 0, root)
-                };
-
-            let parent_root = ioi_types::app::StateRoot(parent_root_vec.clone());
-            let anchor = parent_root
-                .to_anchor()
-                .map_err(|e| Status::internal(e.to_string()))?;
-
-            let parent_ref = StateRef {
-                height: parent_height,
-                state_root: parent_root_vec,
-                block_hash: [0; 32],
-            };
-
-            // Access state via the resolver to get timing params
-            let parent_view = ctx
-                .view_resolver
-                .resolve_anchored(&parent_ref)
-                .await
-                .map_err(|e| Status::internal(e.to_string()))?;
-
-            let timing_params: BlockTimingParams = parent_view
-                .get(ioi_types::keys::BLOCK_TIMING_PARAMS_KEY)
-                .await
-                .map_err(|e| Status::internal(e.to_string()))?
-                .and_then(|b| codec::from_bytes_canonical(&b).ok())
-                .unwrap_or_default();
-            let timing_runtime: BlockTimingRuntime = parent_view
-                .get(ioi_types::keys::BLOCK_TIMING_RUNTIME_KEY)
-                .await
-                .map_err(|e| Status::internal(e.to_string()))?
-                .and_then(|b| codec::from_bytes_canonical(&b).ok())
-                .unwrap_or_default();
-
-            let expected_ts = compute_next_timestamp(
-                &timing_params,
-                &timing_runtime,
-                parent_height,
-                parent_timestamp,
-                parent_gas_used,
-            )
-            .unwrap_or(0);
-
-            // Delegate full validation to the Workload container via IPC
-            let results = self
-                .workload_client
-                .check_transactions_at(anchor, expected_ts, vec![tx.clone()])
-                .await
-                .map_err(|e| Status::internal(format!("Workload check failed: {}", e)))?;
-
-            if let Some(Err(e)) = results.first() {
-                return Err(Status::invalid_argument(format!(
-                    "Transaction pre-check failed: {}",
-                    e
-                )));
-            }
+            let ctx_arc = self.get_context().await?;
+            let ctx = ctx_arc.lock().await;
+            let mut cache = ctx.tx_status_cache.lock().await;
+            cache.put(
+                tx_hash_hex.clone(),
+                TxStatusEntry {
+                    status: TxStatus::Pending,
+                    error: None,
+                    block_height: None,
+                },
+            );
         }
 
-        let tx_info = match &tx {
-            ChainTransaction::System(s) => Some((s.header.account_id, s.header.nonce)),
-            ChainTransaction::Application(a) => match a {
-                ioi_types::app::ApplicationTransaction::DeployContract { header, .. }
-                | ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
-                    Some((header.account_id, header.nonce))
-                }
-                _ => None,
-            },
-            _ => None,
-        };
+        // 3. Offload to ingestion worker
+        match self.tx_ingest_tx.try_send((tx_hash_bytes, tx_bytes)) {
+            Ok(_) => {
+                metrics().inc_requests_total("submit_transaction", 200);
+                metrics()
+                    .observe_request_duration("submit_transaction", start.elapsed().as_secs_f64());
 
-        let needs_state_query = if let Some((acct, _)) = tx_info {
-            self.tx_pool.lock().await.contains_account(&acct) == false
-        } else {
-            false
-        };
-
-        let committed_nonce = if needs_state_query {
-            if let Some((acct, _)) = tx_info {
-                let key = [ioi_types::keys::ACCOUNT_NONCE_PREFIX, acct.as_ref()].concat();
-                match self.workload_client.query_raw_state(&key).await {
-                    Ok(Some(b)) => ioi_types::codec::from_bytes_canonical::<u64>(&b).unwrap_or(0),
-                    _ => 0,
-                }
-            } else {
-                0
+                Ok(Response::new(SubmitTransactionResponse {
+                    tx_hash: tx_hash_hex,
+                }))
             }
-        } else {
-            0
-        };
+            Err(_) => {
+                metrics().inc_requests_total("submit_transaction", 503);
 
-        {
-            let pool = self.tx_pool.lock().await;
-            let res = pool.add(tx, tx_hash, tx_info, committed_nonce);
+                // Update cache to REJECTED if queue is full
+                let ctx_arc = self.get_context().await?;
+                let ctx = ctx_arc.lock().await;
+                let mut cache = ctx.tx_status_cache.lock().await;
+                cache.put(
+                    tx_hash_hex,
+                    TxStatusEntry {
+                        status: TxStatus::Rejected,
+                        error: Some("Ingestion queue full".into()),
+                        block_height: None,
+                    },
+                );
 
-            match res {
-                AddResult::Ready => {
-                    metrics().inc_mempool_transactions_added();
-                    tracing::debug!(target: "rpc", event = "mempool_add", status="ready", tx_hash = tx_hash_hex);
-                }
-                AddResult::Future => {
-                    metrics().inc_mempool_transactions_added();
-                    tracing::debug!(target: "rpc", event = "mempool_add", status="future", tx_hash = tx_hash_hex);
-                }
-                AddResult::Rejected(reason) => {
-                    if reason.contains("already in") {
-                        return Ok(Response::new(SubmitTransactionResponse {
-                            tx_hash: tx_hash_hex,
-                        }));
-                    }
-                    return Err(Status::invalid_argument(format!(
-                        "Mempool rejected: {}",
-                        reason
-                    )));
-                }
+                Err(Status::resource_exhausted("Ingestion queue full"))
             }
-            metrics().set_mempool_size(pool.len() as f64);
         }
-
-        let _ = self
-            .swarm_sender
-            .send(SwarmCommand::PublishTransaction(req.transaction_bytes))
-            .await;
-        let _ = self.consensus_kick_tx.send(());
-
-        metrics().observe_request_duration("submit_transaction", start.elapsed().as_secs_f64());
-        metrics().inc_requests_total("submit_transaction", 0);
-
-        Ok(Response::new(SubmitTransactionResponse {
-            tx_hash: tx_hash_hex,
-        }))
     }
 
+    /// Queries the lifecycle status of a submitted transaction.
+    async fn get_transaction_status(
+        &self,
+        request: Request<GetTransactionStatusRequest>,
+    ) -> Result<Response<GetTransactionStatusResponse>, Status> {
+        let req = request.into_inner();
+        let ctx_arc = self.get_context().await?;
+        let ctx = ctx_arc.lock().await;
+
+        let mut cache = ctx.tx_status_cache.lock().await;
+        if let Some(entry) = cache.get(&req.tx_hash) {
+            Ok(Response::new(GetTransactionStatusResponse {
+                status: entry.status as i32,
+                error_message: entry.error.clone().unwrap_or_default(),
+                block_height: entry.block_height.unwrap_or(0),
+            }))
+        } else {
+            Ok(Response::new(GetTransactionStatusResponse {
+                status: TxStatus::Unknown as i32,
+                error_message: "Transaction not found".into(),
+                block_height: 0,
+            }))
+        }
+    }
+
+    /// Queries state at a specific root.
     async fn query_state(
         &self,
         request: Request<QueryStateAtRequest>,
     ) -> Result<Response<QueryStateAtResponse>, Status> {
         let start = Instant::now();
         let req = request.into_inner();
+
         let context_arc = self.get_context().await?;
         let client = {
             let ctx = context_arc.lock().await;
             ctx.view_resolver.workload_client().clone()
         };
-        let root = ioi_types::app::StateRoot(req.root);
+
+        let root = StateRoot(req.root);
         let response = client
             .query_state_at(root, &req.key)
             .await
-            .map_err(|e: ioi_types::error::ChainError| Status::internal(e.to_string()))?;
+            .map_err(|e| Status::internal(e.to_string()))?;
+
         let response_bytes =
             codec::to_bytes_canonical(&response).map_err(|e| Status::internal(e))?;
 
         metrics().observe_request_duration("query_state", start.elapsed().as_secs_f64());
-        metrics().inc_requests_total("query_state", 0);
+        metrics().inc_requests_total("query_state", 200);
 
         Ok(Response::new(QueryStateAtResponse { response_bytes }))
     }
 
+    /// Queries raw state value.
     async fn query_raw_state(
         &self,
         request: Request<QueryRawStateRequest>,
     ) -> Result<Response<QueryRawStateResponse>, Status> {
         let start = Instant::now();
         let req = request.into_inner();
-        let client = self.workload_client.clone();
-        let result = match client.query_raw_state(&req.key).await {
+
+        let result = match self.workload_client.query_raw_state(&req.key).await {
             Ok(Some(val)) => Ok(Response::new(QueryRawStateResponse {
                 value: val,
                 found: true,
@@ -326,23 +246,26 @@ where
         };
 
         metrics().observe_request_duration("query_raw_state", start.elapsed().as_secs_f64());
-        metrics().inc_requests_total("query_raw_state", if result.is_ok() { 0 } else { 1 });
+        metrics().inc_requests_total("query_raw_state", if result.is_ok() { 200 } else { 500 });
 
         result
     }
 
+    /// Gets the chain status.
     async fn get_status(
         &self,
         _: Request<GetStatusRequest>,
     ) -> Result<Response<GetStatusResponse>, Status> {
         let start = Instant::now();
-        let client = self.workload_client.clone();
-        let status = client
+        let status = self
+            .workload_client
             .get_status()
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
+
         metrics().observe_request_duration("get_status", start.elapsed().as_secs_f64());
-        metrics().inc_requests_total("get_status", 0);
+        metrics().inc_requests_total("get_status", 200);
+
         Ok(Response::new(GetStatusResponse {
             height: status.height,
             latest_timestamp: status.latest_timestamp,
@@ -351,25 +274,30 @@ where
         }))
     }
 
+    /// Fetches a block by height.
     async fn get_block_by_height(
         &self,
         request: Request<GetBlockByHeightRequest>,
     ) -> Result<Response<GetBlockByHeightResponse>, Status> {
         let start = Instant::now();
         let req = request.into_inner();
-        let client = self.workload_client.clone();
-        let blocks = client
+
+        let blocks = self
+            .workload_client
             .get_blocks_range(req.height, 1, 10 * 1024 * 1024)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
+
         let block = blocks.into_iter().find(|b| b.header.height == req.height);
         let block_bytes = if let Some(b) = block {
             codec::to_bytes_canonical(&b).map_err(|e| Status::internal(e))?
         } else {
             vec![]
         };
+
         metrics().observe_request_duration("get_block_by_height", start.elapsed().as_secs_f64());
-        metrics().inc_requests_total("get_block_by_height", 0);
+        metrics().inc_requests_total("get_block_by_height", 200);
+
         Ok(Response::new(GetBlockByHeightResponse { block_bytes }))
     }
 }

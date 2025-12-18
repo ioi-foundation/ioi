@@ -1,39 +1,57 @@
 // Path: crates/validator/src/standard/orchestration/context.rs
+
 use crate::common::GuardianSigner;
 use crate::config::OrchestrationConfig;
-use crate::standard::orchestration::mempool::Mempool; // [NEW] Import Mempool
+use crate::standard::orchestration::ingestion::ChainTipInfo;
+use crate::standard::orchestration::mempool::Mempool;
 use ioi_api::crypto::BatchVerifier;
 use ioi_api::{
     chain::ChainStateMachine, commitment::CommitmentScheme, consensus::ConsensusEngine,
     state::StateManager,
 };
 use ioi_crypto::sign::dilithium::DilithiumKeyPair;
+use ioi_ipc::public::TxStatus;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::traits::NodeState;
-use ioi_types::app::{AccountId, Block, ChainTransaction, OracleAttestation};
+use ioi_types::app::{AccountId, Block, ChainTransaction, OracleAttestation, TxHash};
 use libp2p::{identity, PeerId};
+use lru::LruCache;
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Debug;
 use std::sync::{atomic::AtomicBool, Arc};
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{mpsc, watch, Mutex};
 
+/// A type alias for the thread-safe, dynamically dispatched chain state machine.
 pub type ChainFor<CS, ST> = Arc<
     Mutex<
         dyn ChainStateMachine<CS, ioi_tx::unified::UnifiedTransactionModel<CS>, ST> + Send + Sync,
     >,
 >;
 
+/// Tracks the state of a multi-block sync process with a target peer.
 #[derive(Debug, Clone)]
 pub struct SyncProgress {
     pub target: Option<PeerId>,
     pub tip: u64,
-    pub next: u64, // We have blocks up to and including this height.
+    pub next: u64, // The height of the last block we have successfully processed.
     pub inflight: bool,
     pub req_id: u64,
 }
 
-/// Main state for the Orchestration Container's event loop.
+/// Stores the current lifecycle status of a transaction for client polling.
+#[derive(Debug, Clone)]
+pub struct TxStatusEntry {
+    pub status: TxStatus,
+    pub error: Option<String>,
+    pub block_height: Option<u64>,
+}
+
+/// The central, shared state for the Orchestration container's main event loop.
+///
+/// This struct holds all the necessary components for coordinating consensus, networking,
+/// and state transitions, wrapped in thread-safe containers (`Arc`, `Mutex`) to allow
+/// concurrent access from multiple background tasks.
 pub struct MainLoopContext<CS, ST, CE, V>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -45,17 +63,19 @@ where
         + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    // FIX: Added `Debug` bound to `CS::Proof` to satisfy trait bounds in worker functions.
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
 {
     pub config: OrchestrationConfig,
     pub chain_id: ioi_types::app::ChainId,
     pub genesis_hash: [u8; 32],
     pub chain_ref: ChainFor<CS, ST>,
     pub view_resolver: Arc<dyn ioi_api::chain::ViewResolver<Verifier = V>>,
-    // MODIFIED: Mempool now uses the structured Mempool struct instead of VecDeque.
-    // It manages Ready vs Future queues internally.
-    pub tx_pool_ref: Arc<Mutex<Mempool>>,
+
+    /// The sharded, high-performance mempool. Wrapped in `Arc` for shared access.
+    pub tx_pool_ref: Arc<Mempool>,
+
     pub swarm_commander: mpsc::Sender<SwarmCommand>,
     pub consensus_engine_ref: Arc<Mutex<CE>>,
     pub node_state: Arc<Mutex<NodeState>>,
@@ -67,10 +87,20 @@ where
     pub last_committed_block: Option<Block<ChainTransaction>>,
     pub consensus_kick_tx: mpsc::UnboundedSender<()>,
     pub sync_progress: Option<SyncProgress>,
-    /// A local, atomically-managed nonce for self-generated transactions.
     pub nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
-    /// The signer for block headers (Local or Remote Oracle).
     pub signer: Arc<dyn GuardianSigner>,
-    /// The batch verifier for parallel signature verification.
     pub batch_verifier: Arc<dyn BatchVerifier>,
+
+    // --- Ingestion & Async Status Tracking ---
+    /// Cache for tracking transaction fate (PENDING -> MEMPOOL -> COMMITTED/REJECTED).
+    /// Used by the Public gRPC API's `GetTransactionStatus` method.
+    pub tx_status_cache: Arc<Mutex<LruCache<String, TxStatusEntry>>>,
+
+    /// Reverse mapping used during block finalization to link canonical hashes back to
+    /// the receipt hashes provided to the client.
+    pub receipt_map: Arc<Mutex<LruCache<TxHash, String>>>,
+
+    /// Broadcast channel to notify the Ingestion Worker of the latest chain tip,
+    /// enabling correct nonce fetching and timestamp pre-checks.
+    pub tip_sender: watch::Sender<ChainTipInfo>,
 }

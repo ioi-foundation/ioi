@@ -38,7 +38,7 @@ impl WasmLightClient {
     }
 
     async fn instantiate(&self) -> Result<(VerifierModule, Store<()>), CoreError> {
-        let mut linker = Linker::new(&self.engine);
+        let linker = Linker::new(&self.engine);
         let mut store = Store::new(&self.engine, ());
         // Strict fuel metering for dynamic verifiers
         store
@@ -87,8 +87,8 @@ impl LightClient for WasmLightClient {
 
     async fn verify_inclusion(
         &self,
-        proof: &InclusionProof,
-        header: &Header,
+        _proof: &InclusionProof,
+        _header: &Header,
         _ctx: &mut VerifyCtx,
     ) -> Result<(), CoreError> {
         let (verifier, mut store) = self.instantiate().await?;

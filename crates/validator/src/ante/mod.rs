@@ -1,4 +1,5 @@
 // Path: crates/validator/src/ante/mod.rs
+
 //! Transaction pre-execution logic (ante handlers).
 
 /// Logic for pre-checking `CallService` transactions.
@@ -16,8 +17,13 @@ use ioi_types::keys::active_service_key;
 use ioi_types::service_configs::ActiveServiceMeta;
 
 /// Unified ante check used by mempool admission and block recheck.
-/// This function mirrors the validation and decorator logic from the chain's `process_transaction`
-/// and requires an authoritative block timestamp to ensure consistency.
+///
+/// This function mirrors the validation and decorator logic from the chain's `process_transaction`.
+///
+/// # Arguments
+/// * `skip_stateless_checks`: If true, assumes signatures have already been verified (e.g. by a batch verifier).
+/// * `allow_future_nonce`: If true, allows nonces higher than the current state (Mempool mode). 
+///    In this mode, state mutations (Phase 2) are skipped to prevent inconsistent simulations.
 pub async fn check_tx(
     state: &mut dyn StateAccess,
     services: &ioi_api::services::access::ServiceDirectory,
@@ -25,28 +31,26 @@ pub async fn check_tx(
     chain_id: ioi_types::app::ChainId,
     next_block_height: u64,
     expected_timestamp_secs: u64,
-    skip_stateless_checks: bool, // [NEW] Argument
+    skip_stateless_checks: bool,
+    allow_future_nonce: bool,
 ) -> Result<(), TransactionError> {
     let mut overlay = StateOverlay::new(state);
 
+    // 1. Identify the Signer
     let signer_account_id = match tx {
         ChainTransaction::System(s) => s.header.account_id,
         ChainTransaction::Application(a) => match a {
-            ioi_types::app::ApplicationTransaction::DeployContract { header, .. } => {
-                header.account_id
-            }
-            ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
+            ioi_types::app::ApplicationTransaction::DeployContract { header, .. }
+            | ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
                 header.account_id
             }
             ioi_types::app::ApplicationTransaction::UTXO(_) => ioi_types::app::AccountId::default(),
         },
-        // [FIX] Extract account_id from the header for Semantic transactions.
         ChainTransaction::Semantic { header, .. } => header.account_id,
     };
 
+    // 2. Construct Execution Context
     let next_timestamp_ns = (expected_timestamp_secs as u128).saturating_mul(1_000_000_000u128);
-    // [FIX] Timestamp::from_nanoseconds is now infallible (returns Timestamp directly).
-    // map_err removed.
     let next_timestamp = Timestamp::from_nanoseconds(
         next_timestamp_ns
             .try_into()
@@ -63,18 +67,24 @@ pub async fn check_tx(
         is_internal: false,
     };
 
-    // 1. Phase 1: Read-Only Validation
-    // [MODIFIED] Only run stateless verify if not skipped
+    // --- PHASE 1: READ-ONLY VALIDATION ---
+
+    // 1.1 Cryptographic Signatures
     if !skip_stateless_checks {
         validation::verify_stateless_signature(tx)?;
     }
-
-    // Always run stateful authorization (nonce, permissions)
-    // Pass immutable reference to overlay to satisfy StateAccess
     validation::verify_stateful_authorization(&overlay, services, tx, &tx_ctx)?;
-    nonce::assert_next_nonce(&overlay, tx)?;
 
-    // 2. Service-level precheck for CallService.
+    // 1.2 Nonce Assertion
+    if allow_future_nonce {
+        // For mempool admission: Allow pipelining nonces (e.g. 5, 6, 7)
+        nonce::assert_nonce_at_least(&overlay, tx)?;
+    } else {
+        // For block execution: Enforce strict sequential order
+        nonce::assert_next_nonce(&overlay, tx)?;
+    }
+
+    // 1.3 Service-level precheck for System Transactions
     if let ChainTransaction::System(sys) = tx {
         let SystemPayload::CallService {
             service_id, method, ..
@@ -82,8 +92,7 @@ pub async fn check_tx(
         let _perm = precheck_call_service(&overlay, service_id, method, tx_ctx.is_internal)?;
     }
 
-    // 3. Run TxDecorators (Validation Phase)
-    // We collect decorators first to avoid borrowing issues
+    // 1.4 Run TxDecorators (Validation Mode)
     let decorators: Vec<(&str, &dyn ioi_api::transaction::decorator::TxDecorator)> = services
         .services_in_deterministic_order()
         .filter_map(|s| s.as_tx_decorator().map(|d| (s.id(), d)))
@@ -97,7 +106,6 @@ pub async fn check_tx(
         let meta: ActiveServiceMeta = ioi_types::codec::from_bytes_canonical(&meta_bytes)?;
 
         let prefix = service_namespace_prefix(id);
-        // Use ReadOnly wrapper to enforce immutability
         let namespaced_view = ReadOnlyNamespacedStateAccess::new(&overlay, prefix, &meta);
 
         decorator
@@ -105,25 +113,28 @@ pub async fn check_tx(
             .await?;
     }
 
-    // 4. Phase 2: Writes (Mutable)
-    // Run TxDecorators (Write Phase)
-    for (id, decorator) in &decorators {
-        // We need to re-fetch meta or clone it. Since we are inside an async loop, re-fetching is safer/easier.
-        let meta_key = active_service_key(id);
-        // Safe to unwrap here as it was checked in Phase 1
-        let meta_bytes = overlay.get(&meta_key)?.unwrap();
-        let meta: ActiveServiceMeta = ioi_types::codec::from_bytes_canonical(&meta_bytes)?;
+    // --- PHASE 2: STATE MUTATION (Writes) ---
+    
+    // We only simulate writes if we are NOT in mempool admission mode.
+    // If allow_future_nonce is true, we might be missing intermediate transactions,
+    // making a full simulation of write-effects (like fee deduction) inaccurate.
+    if !allow_future_nonce {
+        for (id, decorator) in &decorators {
+            let meta_key = active_service_key(id);
+            let meta_bytes = overlay.get(&meta_key)?.unwrap(); // Verified in Phase 1
+            let meta: ActiveServiceMeta = ioi_types::codec::from_bytes_canonical(&meta_bytes)?;
 
-        let prefix = service_namespace_prefix(id);
-        let mut namespaced_write = NamespacedStateAccess::new(&mut overlay, prefix, &meta);
+            let prefix = service_namespace_prefix(id);
+            let mut namespaced_write = NamespacedStateAccess::new(&mut overlay, prefix, &meta);
 
-        decorator
-            .write_ante(&mut namespaced_write, tx, &tx_ctx)
-            .await?;
+            decorator
+                .write_ante(&mut namespaced_write, tx, &tx_ctx)
+                .await?;
+        }
+
+        // Increment the nonce in the state overlay.
+        nonce::bump_nonce(&mut overlay, tx)?;
     }
-
-    // 5. System Writes (Nonce Bump)
-    nonce::bump_nonce(&mut overlay, tx)?;
 
     Ok(())
 }

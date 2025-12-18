@@ -92,8 +92,18 @@ impl WasmRuntime {
 #[async_trait]
 impl ioi::system::state::Host for HostState {
     async fn get(&mut self, key: Vec<u8>) -> Result<Option<Vec<u8>>, String> {
-        let contract_addr = self.context.contract_address.clone();
-        let ns_key = [contract_addr.as_slice(), b"::", key.as_slice()].concat();
+        // If contract_address is 32 bytes, it's a hash address -> namespace it.
+        // If it's a short string (Service ID), it's already namespaced by the ExecutionMachine.
+        let ns_key = if self.context.contract_address.len() == 32 {
+            [
+                self.context.contract_address.as_slice(),
+                b"::",
+                key.as_slice(),
+            ]
+            .concat()
+        } else {
+            key
+        };
         let accessor = unsafe { self.state_accessor.0.as_ref().unwrap() };
 
         match accessor.get(&ns_key).await {
@@ -103,8 +113,16 @@ impl ioi::system::state::Host for HostState {
     }
 
     async fn set(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), String> {
-        let contract_addr = self.context.contract_address.clone();
-        let ns_key = [contract_addr.as_slice(), b"::", key.as_slice()].concat();
+        let ns_key = if self.context.contract_address.len() == 32 {
+            [
+                self.context.contract_address.as_slice(),
+                b"::",
+                key.as_slice(),
+            ]
+            .concat()
+        } else {
+            key
+        };
         let accessor = unsafe { self.state_accessor.0.as_ref().unwrap() };
 
         match accessor.insert(&ns_key, &value).await {
@@ -114,8 +132,16 @@ impl ioi::system::state::Host for HostState {
     }
 
     async fn delete(&mut self, key: Vec<u8>) -> Result<(), String> {
-        let contract_addr = self.context.contract_address.clone();
-        let ns_key = [contract_addr.as_slice(), b"::", key.as_slice()].concat();
+        let ns_key = if self.context.contract_address.len() == 32 {
+            [
+                self.context.contract_address.as_slice(),
+                b"::",
+                key.as_slice(),
+            ]
+            .concat()
+        } else {
+            key
+        };
         let accessor = unsafe { self.state_accessor.0.as_ref().unwrap() };
 
         match accessor.delete(&ns_key).await {
@@ -125,27 +151,38 @@ impl ioi::system::state::Host for HostState {
     }
 
     async fn prefix_scan(&mut self, prefix: Vec<u8>) -> Result<Vec<(Vec<u8>, Vec<u8>)>, String> {
-        let contract_addr = self.context.contract_address.clone();
-        // The VM enforces isolation by prepending the contract address.
-        let ns_prefix = [contract_addr.as_slice(), b"::", prefix.as_slice()].concat();
+        let is_contract = self.context.contract_address.len() == 32;
+        let ns_prefix = if is_contract {
+            [
+                self.context.contract_address.as_slice(),
+                b"::",
+                prefix.as_slice(),
+            ]
+            .concat()
+        } else {
+            prefix
+        };
 
         let accessor = unsafe { self.state_accessor.0.as_ref().unwrap() };
 
         match accessor.prefix_scan(&ns_prefix).await {
             Ok(results) => {
-                let prefix_len = contract_addr.len() + 2;
-                let mapped_results = results
-                    .into_iter()
-                    .map(|(k, v)| {
-                        if k.len() >= prefix_len {
-                            (k[prefix_len..].to_vec(), v)
-                        } else {
-                            (k, v)
-                        }
-                    })
-                    .collect();
-
-                Ok(mapped_results)
+                if is_contract {
+                    let prefix_len = self.context.contract_address.len() + 2;
+                    let mapped_results = results
+                        .into_iter()
+                        .map(|(k, v)| {
+                            if k.len() >= prefix_len {
+                                (k[prefix_len..].to_vec(), v)
+                            } else {
+                                (k, v)
+                            }
+                        })
+                        .collect();
+                    Ok(mapped_results)
+                } else {
+                    Ok(results)
+                }
             }
             Err(e) => Err(e.to_string()),
         }
