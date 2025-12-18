@@ -96,7 +96,9 @@ impl HashCommitmentScheme {
 
 impl CommitmentStructure for HashCommitmentScheme {
     fn commit_leaf(key: &[u8], value: &[u8]) -> Result<Vec<u8>, CryptoError> {
-        let mut data = vec![0x00]; // Leaf prefix
+        // [OPTIMIZED] Pre-allocate buffer to avoid reallocation during extend.
+        let mut data = Vec::with_capacity(1 + key.len() + value.len());
+        data.push(0x00); // Leaf prefix
         data.extend_from_slice(key);
         data.extend_from_slice(value);
         let hash = sha256(&data)?;
@@ -104,7 +106,9 @@ impl CommitmentStructure for HashCommitmentScheme {
     }
 
     fn commit_branch(left: &[u8], right: &[u8]) -> Result<Vec<u8>, CryptoError> {
-        let mut data = vec![0x01]; // Branch prefix
+        // [OPTIMIZED] Pre-allocate buffer.
+        let mut data = Vec::with_capacity(1 + left.len() + right.len());
+        data.push(0x01); // Branch prefix
         data.extend_from_slice(left);
         data.extend_from_slice(right);
         let hash = sha256(&data)?;

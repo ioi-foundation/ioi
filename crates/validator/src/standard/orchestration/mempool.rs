@@ -175,12 +175,6 @@ impl Mempool {
     }
 
     /// Adds a transaction to the pool, routing it to the appropriate queue based on its type and nonce.
-    ///
-    /// # Arguments
-    /// * `tx` - The transaction object.
-    /// * `hash` - The pre-computed canonical hash of the transaction.
-    /// * `account_info` - An `Option` containing the signer's `AccountId` and `nonce` if applicable.
-    /// * `committed_nonce_state` - The last known committed nonce for the account from the blockchain state.
     pub fn add(
         &self,
         tx: ChainTransaction,
@@ -218,6 +212,32 @@ impl Mempool {
         if let Some(queue) = guard.get_mut(account_id) {
             let removed = queue.prune_committed(new_committed_nonce);
             self.total_count.fetch_sub(removed, Ordering::Relaxed);
+        }
+    }
+
+    /// Efficiently updates multiple accounts in a batch, acquiring each shard lock only once.
+    pub fn update_account_nonces_batch(&self, updates: &HashMap<AccountId, u64>) {
+        // Group updates by shard index to minimize locking
+        let mut updates_by_shard: HashMap<usize, Vec<(&AccountId, u64)>> = HashMap::new();
+        
+        for (acct, &nonce) in updates {
+            let idx = self.get_shard_index(acct);
+            updates_by_shard.entry(idx).or_default().push((acct, nonce));
+        }
+
+        for (idx, account_updates) in updates_by_shard {
+            let mut guard = self.shards[idx].lock();
+            let mut total_removed = 0;
+            
+            for (acct, new_committed_nonce) in account_updates {
+                if let Some(queue) = guard.get_mut(acct) {
+                    total_removed += queue.prune_committed(new_committed_nonce);
+                }
+            }
+            
+            if total_removed > 0 {
+                self.total_count.fetch_sub(total_removed, Ordering::Relaxed);
+            }
         }
     }
 
