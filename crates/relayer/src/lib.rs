@@ -16,10 +16,8 @@ use crate::handshake::{
 };
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
-use ibc_core_commitment_types::specs::ProofSpecs;
 use ibc_core_host_types::path::{NextChannelSequencePath, NextConnectionSequencePath};
 use ibc_proto::{
-    cosmos::tx::v1beta1::TxBody,
     google::protobuf::Any as PbAny,
     ibc::lightclients::tendermint::v1::{
         ClientState as RawTmClientState, ConsensusState as RawTmConsensusState,

@@ -1,5 +1,5 @@
 // Path: crates/forge/tests/workload_control_e2e.rs
-#![cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
+#![cfg(all(feature = "consensus-poa", feature = "vm-wasm"))]
 
 use anyhow::{anyhow, Result};
 use ioi_client::shmem::DataPlane;
@@ -59,7 +59,8 @@ async fn test_workload_control_plane_flow() -> Result<()> {
             chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            // [FIX] Use SignatureSuite constant
+            allowed_target_suites: vec![SignatureSuite::ED25519],
             allow_downgrade: false,
         }))
         .build()
@@ -102,7 +103,7 @@ async fn test_workload_control_plane_flow() -> Result<()> {
         println!("LoadModel success!");
 
         // 4. Test ExecuteJob with Shared Memory
-        let shmem_id = "ioi_workload_shm_default";
+        let shmem_id = "ioi_shmem_5000"; // Based on default port for first validator
         println!("Connecting to Data Plane: {}", shmem_id);
         let data_plane = DataPlane::connect(shmem_id)?;
 

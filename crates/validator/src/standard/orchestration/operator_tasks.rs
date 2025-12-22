@@ -6,7 +6,8 @@ use async_trait::async_trait;
 use ioi_api::{
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
-    crypto::{SerializableKey, SigningKeyPair, VerifyingKey},
+    // [FIX] Add VerifyingKey to imports
+    crypto::{SerializableKey, VerifyingKey},
     state::{service_namespace_prefix, StateManager, Verifier},
 };
 use ioi_crypto::algorithms::hash::sha256;
@@ -28,7 +29,6 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use tokio::time::interval;
 
 // --- DCPP Canonical Definitions ---
 
@@ -46,18 +46,20 @@ pub struct JobTicket {
     pub owner: AccountId,
     pub specs: HardwareSpecs,
     pub max_bid: u64,
-    pub expiry_height: u64,
+    pub expiry_height: u64, // Consensus block height deadline
     pub security_tier: u8,
-    pub nonce: u64,
+    pub nonce: u64, // Anti-replay within the service
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
 pub struct ProvisioningReceipt {
     pub request_id: u64,
+    /// The Hash of the canonical JobTicket.
+    /// The Provider MUST include this in their signed acknowledgment.
     pub ticket_root: [u8; 32],
-    pub provider_id: Vec<u8>,
+    pub provider_id: Vec<u8>, // Provider's public key identifier
     pub endpoint_uri: String,
-    pub machine_id: String,
+    pub machine_id: String, // Unique hardware ID / instance ID
     pub expiry_height: u64,
     pub lease_id: String,
     pub provider_signature: Vec<u8>,
@@ -132,8 +134,6 @@ impl ProviderClient for MockProviderClient {
     }
 }
 
-// ... [Oracle Operator Task - Unchanged] ...
-// Re-inserting to keep file complete for output
 pub async fn run_oracle_operator_task<CS, ST, CE, V>(
     context: &MainLoopContext<CS, ST, CE, V>,
 ) -> Result<()>
@@ -197,7 +197,7 @@ where
     let validator_account_ids: HashSet<AccountId> = validator_stakes.keys().cloned().collect();
 
     let our_account_id = AccountId(account_id_from_key_material(
-        SignatureSuite::Ed25519,
+        SignatureSuite::ED25519,
         &context.local_keypair.public().encode_protobuf(),
     )?);
 
@@ -528,7 +528,7 @@ where
         // 9. Submit Transaction
         let our_pk = context.local_keypair.public().encode_protobuf();
         let our_account_id = AccountId(account_id_from_key_material(
-            SignatureSuite::Ed25519,
+            SignatureSuite::ED25519,
             &our_pk,
         )?);
 
@@ -563,7 +563,7 @@ where
         let signature = context.local_keypair.sign(&sign_bytes)?;
 
         sys_tx.signature_proof = SignatureProof {
-            suite: SignatureSuite::Ed25519,
+            suite: SignatureSuite::ED25519,
             public_key: our_pk,
             signature,
         };

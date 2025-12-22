@@ -7,13 +7,14 @@ use crate::standard::orchestration::mempool::Mempool;
 use anyhow::{anyhow, Result};
 use ioi_api::crypto::BatchVerifier;
 use ioi_api::{
-    chain::{StateRef, WorkloadClientApi},
+    chain::{StateRef, WorkloadClientApi, AnchoredStateView},
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
     crypto::{SerializableKey, SigningKeyPair},
     state::{ProofProvider, StateManager, Verifier},
 };
-use ioi_crypto::sign::dilithium::DilithiumKeyPair;
+// [FIX] Use local re-export if needed, or direct import if available. Assuming direct import for now based on context.
+use ioi_crypto::sign::dilithium::MldsaKeyPair;
 use ioi_ipc::public::TxStatus;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::traits::NodeState;
@@ -92,10 +93,11 @@ where
         )
     };
 
-    let node_state = node_state_arc.lock().await.clone();
+    // [FIX] Explicit type annotation for node_state
+    let node_state: NodeState = node_state_arc.lock().await.clone();
     let parent_h = last_committed_block_opt
         .as_ref()
-        .map_or(0, |b| b.header.height);
+        .map_or(0, |b: &Block<ChainTransaction>| b.header.height); // [FIX] explicit type
     let producing_h = parent_h + 1;
 
     tracing::debug!(target: "consensus", event = "tick", %cause, ?node_state, parent_h, producing_h);
@@ -112,7 +114,9 @@ where
 
     let our_account_id = AccountId(
         account_id_from_key_material(
-            SignatureSuite::Ed25519,
+            // [FIX] Use SignatureSuite::ED25519
+            SignatureSuite::ED25519,
+            // [FIX] Explicit type inference helper if needed, but protobuf encoding is Vec<u8>
             &local_keypair.public().encode_protobuf(),
         )
         .map_err(|e| anyhow!("[Consensus Tick] failed to derive local account id: {e}"))?,
@@ -123,7 +127,8 @@ where
 
     let decision = {
         let parent_view = view_resolver.resolve_anchored(&parent_ref).await?;
-        let mut engine = consensus_engine_ref.lock().await;
+        // [FIX] Type annotation for engine
+        let mut engine: tokio::sync::MutexGuard<'_, CE> = consensus_engine_ref.lock().await;
         let known_peers = known_peers_ref.lock().await;
         engine
             .decide(&our_account_id, producing_h, 0, &*parent_view, &known_peers)
@@ -138,11 +143,13 @@ where
     {
         metrics().inc_blocks_produced();
 
-        let candidate_txs = tx_pool_ref.select_transactions(20_000);
+        // [FIX] Type annotation
+        let candidate_txs: Vec<ChainTransaction> = tx_pool_ref.select_transactions(20_000);
         let valid_txs =
             verify_batch_and_filter(&candidate_txs, batch_verifier.as_ref(), &tx_pool_ref)?;
 
-        let parent_view = view_resolver.resolve_anchored(&parent_ref).await?;
+        // [FIX] Type annotation
+        let parent_view: Arc<dyn AnchoredStateView> = view_resolver.resolve_anchored(&parent_ref).await?;
         let vs_bytes = parent_view
             .get(VALIDATOR_SET_KEY)
             .await?
@@ -163,17 +170,21 @@ where
             .ok_or_else(|| anyhow!("Local node not in validator set for height {}", producing_h))?;
 
         let (producer_key_suite, producer_pubkey) = match me.consensus_key.suite {
-            SignatureSuite::Ed25519 => (
-                SignatureSuite::Ed25519,
+            // [FIX] Use SignatureSuite::ED25519
+            SignatureSuite::ED25519 => (
+                SignatureSuite::ED25519,
                 local_keypair.public().encode_protobuf(),
             ),
-            SignatureSuite::Dilithium2 => {
-                let kp = pqc_signer
+            // [FIX] Use SignatureSuite::ML_DSA_44
+            SignatureSuite::ML_DSA_44 => {
+                // [FIX] Explicit type for kp
+                let kp: &MldsaKeyPair = pqc_signer
                     .as_ref()
                     .ok_or_else(|| anyhow!("Dilithium required but no PQC signer configured"))?;
-                (SignatureSuite::Dilithium2, kp.public_key().to_bytes())
+                (SignatureSuite::ML_DSA_44, kp.public_key().to_bytes())
             }
-            SignatureSuite::HybridEd25519Dilithium2 => {
+            // [FIX] Use SignatureSuite::HYBRID_ED25519_ML_DSA_44
+            SignatureSuite::HYBRID_ED25519_ML_DSA_44 => {
                 let kp = pqc_signer
                     .as_ref()
                     .ok_or_else(|| anyhow!("Hybrid required but no PQC signer configured"))?;
@@ -184,7 +195,7 @@ where
                 .to_bytes()
                 .to_vec();
                 let combined = [ed_raw, kp.public_key().to_bytes()].concat();
-                (SignatureSuite::HybridEd25519Dilithium2, combined)
+                (SignatureSuite::HYBRID_ED25519_ML_DSA_44, combined)
             }
             _ => return Err(anyhow!("Unsupported signature suite in validator set")),
         };
@@ -223,7 +234,8 @@ where
                 let included_hashes: HashSet<TxHash> = final_block
                     .transactions
                     .iter()
-                    .filter_map(|tx| tx.hash().ok())
+                    // [FIX] Explicit type for filter_map
+                    .filter_map(|tx: &ChainTransaction| tx.hash().ok())
                     .collect();
                 for tx in valid_txs {
                     if let Ok(h) = tx.hash() {

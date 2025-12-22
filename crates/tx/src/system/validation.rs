@@ -6,7 +6,8 @@ use ioi_api::services::access::ServiceDirectory;
 use ioi_api::state::namespaced::ReadOnlyNamespacedStateAccess;
 use ioi_api::state::{service_namespace_prefix, StateAccess};
 use ioi_api::transaction::context::TxContext;
-use ioi_crypto::sign::{dilithium::DilithiumPublicKey, eddsa::Ed25519PublicKey};
+// [CHANGED] Use MldsaPublicKey instead of DilithiumPublicKey
+use ioi_crypto::sign::{dilithium::MldsaPublicKey, eddsa::Ed25519PublicKey};
 use ioi_types::app::{
     account_id_from_key_material, ApplicationTransaction, ChainTransaction, Credential, SignHeader,
     SignatureProof, SignatureSuite,
@@ -25,8 +26,9 @@ fn verify_signature(
 ) -> Result<(), String> {
     use ioi_api::crypto::{SerializableKey, VerifyingKey};
 
+    // [CHANGED] Switch from match on Enum to match on Constants/Int
     match suite {
-        SignatureSuite::Ed25519 => {
+        SignatureSuite::ED25519 => {
             if let Ok(pk) = Libp2pPublicKey::try_decode_protobuf(public_key) {
                 if pk.verify(message, signature) {
                     Ok(())
@@ -43,17 +45,20 @@ fn verify_signature(
                 Err("Could not decode Ed25519 public key".to_string())
             }
         }
-        SignatureSuite::Dilithium2 => {
-            let pk = DilithiumPublicKey::from_bytes(public_key).map_err(|e| e.to_string())?;
-            let sig = ioi_crypto::sign::dilithium::DilithiumSignature::from_bytes(signature)
+        SignatureSuite::ML_DSA_44 => {
+            // Updated to use Mldsa struct name
+            let pk = MldsaPublicKey::from_bytes(public_key).map_err(|e| e.to_string())?;
+            // Note: Signature struct in crypto crate should also be renamed/aliased to MldsaSignature
+            // Assuming MldsaSignature is available via ioi_crypto::sign::dilithium::MldsaSignature
+            let sig = ioi_crypto::sign::dilithium::MldsaSignature::from_bytes(signature)
                 .map_err(|e| e.to_string())?;
             pk.verify(message, &sig).map_err(|e| e.to_string())
         }
-        SignatureSuite::Falcon512 => {
+        SignatureSuite::FALCON_512 => {
             // Stub: Requires Falcon implementation in ioi-crypto
             Err("Falcon512 verification not yet implemented in crypto backend".to_string())
         }
-        SignatureSuite::HybridEd25519Dilithium2 => {
+        SignatureSuite::HYBRID_ED25519_ML_DSA_44 => {
             const ED_PK_LEN: usize = 32;
             const ED_SIG_LEN: usize = 64;
 
@@ -61,8 +66,8 @@ fn verify_signature(
                 return Err("Hybrid key or signature too short".to_string());
             }
 
-            let (ed_pk_bytes, dil_pk_bytes) = public_key.split_at(ED_PK_LEN);
-            let (ed_sig_bytes, dil_sig_bytes) = signature.split_at(ED_SIG_LEN);
+            let (ed_pk_bytes, pq_pk_bytes) = public_key.split_at(ED_PK_LEN);
+            let (ed_sig_bytes, pq_sig_bytes) = signature.split_at(ED_SIG_LEN);
 
             // 1. Verify Classical (Ed25519)
             let ed_pk = Ed25519PublicKey::from_bytes(ed_pk_bytes).map_err(|e| e.to_string())?;
@@ -72,17 +77,20 @@ fn verify_signature(
                 .verify(message, &ed_sig)
                 .map_err(|e| format!("Hybrid classical fail: {}", e))?;
 
-            // 2. Verify Post-Quantum (Dilithium2)
-            let dil_pk = DilithiumPublicKey::from_bytes(dil_pk_bytes).map_err(|e| e.to_string())?;
-            let dil_sig =
-                ioi_crypto::sign::dilithium::DilithiumSignature::from_bytes(dil_sig_bytes)
-                    .map_err(|e| e.to_string())?;
-            dil_pk
-                .verify(message, &dil_sig)
+            // 2. Verify PQ (ML-DSA)
+            let pq_pk = MldsaPublicKey::from_bytes(pq_pk_bytes).map_err(|e| e.to_string())?;
+            let pq_sig = ioi_crypto::sign::dilithium::MldsaSignature::from_bytes(pq_sig_bytes)
+                .map_err(|e| e.to_string())?;
+            pq_pk
+                .verify(message, &pq_sig)
                 .map_err(|e| format!("Hybrid PQ fail: {}", e))?;
 
             Ok(())
         }
+        _ => Err(format!(
+            "Unsupported or unknown signature suite ID: {}",
+            suite.0
+        )),
     }
 }
 
@@ -246,15 +254,5 @@ pub fn verify_stateful_authorization(
     Ok(())
 }
 
-/// Legacy wrapper for backwards compatibility with tests that haven't updated to the split model.
-/// Performs both stateless verification and stateful authorization.
-pub fn verify_transaction_signature(
-    state: &dyn StateAccess,
-    services: &ServiceDirectory,
-    tx: &ChainTransaction,
-    ctx: &TxContext,
-) -> Result<(), TransactionError> {
-    verify_stateless_signature(tx)?;
-    verify_stateful_authorization(state, services, tx, ctx)?;
-    Ok(())
-}
+// [MIGRATION] Legacy wrapper `verify_transaction_signature` removed.
+// All consumers must now call `verify_stateless_signature` and `verify_stateful_authorization`.

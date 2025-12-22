@@ -8,6 +8,7 @@ use ioi_api::chain::{AnchoredStateView, StateRef, WorkloadClientApi};
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::{ConsensusEngine, PenaltyMechanism};
 use ioi_api::state::{StateAccess, StateManager, Verifier};
+use ioi_ipc::public::TxStatus; // [FIX] Added import
 use ioi_networking::traits::NodeState;
 use ioi_types::{
     app::{AccountId, Block, ChainTransaction, FailureReport, StateRoot},
@@ -131,7 +132,7 @@ pub fn prune_mempool(
         .into_iter()
         .map(|(acct, max_nonce)| (acct, max_nonce + 1))
         .collect();
-        
+
     pool.update_account_nonces_batch(&updates);
 
     metrics().set_mempool_size(pool.len() as f64);
@@ -237,6 +238,26 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                 let status = chain_guard.status_mut();
                 status.height = processed_block.header.height;
                 status.latest_timestamp = processed_block.header.timestamp;
+            }
+
+            // [FIX] Update Tx Status for locally tracked transactions
+            // This ensures clients polling this node (which didn't produce the block)
+            // see the transaction as COMMITTED.
+            {
+                let receipt_guard = context.receipt_map.lock().await;
+                let mut status_guard = context.tx_status_cache.lock().await;
+                let block_height = processed_block.header.height;
+
+                for tx in &processed_block.transactions {
+                    if let Ok(h) = tx.hash() {
+                        if let Some(receipt_hex) = receipt_guard.peek(&h) {
+                            if let Some(entry) = status_guard.get_mut(receipt_hex) {
+                                entry.status = TxStatus::Committed;
+                                entry.block_height = Some(block_height);
+                            }
+                        }
+                    }
+                }
             }
 
             // [FIX] No lock needed for sharded mempool

@@ -46,7 +46,7 @@ fn create_dummy_tx(keypair: &Keypair, nonce: u64, chain_id: ChainId) -> Result<C
     };
 
     let public_key_bytes = keypair.public().encode_protobuf();
-    let account_id_hash = account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)?;
+    let account_id_hash = account_id_from_key_material(SignatureSuite::ED25519, &public_key_bytes)?;
     let account_id = AccountId(account_id_hash);
 
     let header = SignHeader {
@@ -63,7 +63,7 @@ fn create_dummy_tx(keypair: &Keypair, nonce: u64, chain_id: ChainId) -> Result<C
     let sign_bytes = tx_to_sign.to_sign_bytes().map_err(|e| anyhow!(e))?;
     let signature = keypair.sign(&sign_bytes)?;
     tx_to_sign.signature_proof = SignatureProof {
-        suite: SignatureSuite::Ed25519,
+        suite: SignatureSuite::ED25519,
         public_key: public_key_bytes,
         signature,
     };
@@ -89,7 +89,7 @@ async fn test_multi_batch_sync() -> Result<()> {
                 account_id,
                 weight: initial_weight,
                 consensus_key: ActiveKeyRecord {
-                    suite: SignatureSuite::Ed25519,
+                    suite: SignatureSuite::ED25519,
                     public_key_hash: account_id.0,
                     since_height: 0,
                 },
@@ -146,7 +146,6 @@ async fn test_multi_batch_sync() -> Result<()> {
         builder.set_block_timing(&timing_params, &timing_runtime);
     };
 
-    // ... [Rest of test logic remains the same] ...
     let cluster = TestCluster::builder()
         .with_validators(2)
         .with_consensus_type(consensus_type)
@@ -155,7 +154,7 @@ async fn test_multi_batch_sync() -> Result<()> {
             chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            allowed_target_suites: vec![SignatureSuite::ED25519],
             allow_downgrade: false,
         }))
         .with_initial_service(InitialServiceConfig::Governance(Default::default()))
@@ -219,7 +218,7 @@ async fn test_sync_with_peer_drop() -> Result<()> {
                 account_id,
                 weight: initial_weight,
                 consensus_key: ActiveKeyRecord {
-                    suite: SignatureSuite::Ed25519,
+                    suite: SignatureSuite::ED25519,
                     public_key_hash: account_id.0,
                     since_height: 0,
                 },
@@ -275,7 +274,6 @@ async fn test_sync_with_peer_drop() -> Result<()> {
         builder.set_block_timing(&timing_params, &timing_runtime);
     };
 
-    // ... [Rest of test unchanged] ...
     let mut cluster = TestCluster::builder()
         .with_validators(3)
         .with_consensus_type(consensus_type)
@@ -284,7 +282,7 @@ async fn test_sync_with_peer_drop() -> Result<()> {
             chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            allowed_target_suites: vec![SignatureSuite::ED25519],
             allow_downgrade: false,
         }))
         .with_initial_service(InitialServiceConfig::Governance(Default::default()))
@@ -334,7 +332,7 @@ async fn test_sync_with_peer_drop() -> Result<()> {
                     chain_id: 1,
                     grace_period_blocks: 5,
                     accept_staged_during_grace: true,
-                    allowed_target_suites: vec![SignatureSuite::Ed25519],
+                    allowed_target_suites: vec![SignatureSuite::ED25519],
                     allow_downgrade: false,
                 }),
                 InitialServiceConfig::Governance(Default::default()),

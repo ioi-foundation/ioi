@@ -24,7 +24,8 @@ use ioi_api::{
     validator::Container,
 };
 use ioi_client::WorkloadClient;
-use ioi_crypto::sign::dilithium::DilithiumKeyPair;
+// [FIX] Update import to MldsaKeyPair
+use ioi_crypto::sign::dilithium::MldsaKeyPair;
 use ioi_networking::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use ioi_networking::traits::NodeState;
 use ioi_networking::BlockSync;
@@ -38,6 +39,7 @@ use ioi_types::{
     error::ValidatorError,
 };
 use libp2p::identity;
+use libp2p::Multiaddr;
 use lru::LruCache;
 use rand::seq::SliceRandom;
 use serde::Serialize;
@@ -99,7 +101,7 @@ pub struct OrchestrationDependencies<CE, V> {
     /// The node's primary cryptographic identity.
     pub local_keypair: identity::Keypair,
     /// An optional post-quantum keypair for signing.
-    pub pqc_keypair: Option<DilithiumKeyPair>,
+    pub pqc_keypair: Option<MldsaKeyPair>, // [FIX] Updated type
     /// A flag indicating if the node has been quarantined due to misbehavior.
     pub is_quarantined: Arc<AtomicBool>,
     /// The SHA-256 hash of the canonical genesis file bytes.
@@ -153,7 +155,7 @@ where
     network_event_receiver: NetworkEventReceiver,
     consensus_engine: Arc<Mutex<CE>>,
     local_keypair: identity::Keypair,
-    pqc_signer: Option<DilithiumKeyPair>,
+    pqc_signer: Option<MldsaKeyPair>, // [FIX] Updated type
     /// A channel sender to signal graceful shutdown to all background tasks.
     pub shutdown_sender: Arc<watch::Sender<bool>>,
     /// Handles to background tasks for graceful shutdown.
@@ -331,7 +333,8 @@ where
 
         let our_pk = self.local_keypair.public().encode_protobuf();
         let our_account_id = AccountId(
-            account_id_from_key_material(SignatureSuite::Ed25519, &our_pk)
+            // [FIX] Use SignatureSuite::ED25519
+            account_id_from_key_material(SignatureSuite::ED25519, &our_pk)
                 .map_err(|e| anyhow!(e))?,
         );
 
@@ -358,7 +361,8 @@ where
         let signature = self.local_keypair.sign(&sign_bytes)?;
 
         sys_tx.signature_proof = SignatureProof {
-            suite: SignatureSuite::Ed25519,
+            // [FIX] Use SignatureSuite::ED25519
+            suite: SignatureSuite::ED25519,
             public_key: our_pk,
             signature,
         };
@@ -652,7 +656,6 @@ where
         let public_service = PublicApiImpl {
             context_wrapper: self.main_loop_context.clone(),
             workload_client: workload_client.clone(),
-            tx_pool: self.tx_pool.clone(),
             tx_ingest_tx, // [NEW] Pass channel sender
         };
 
@@ -737,7 +740,8 @@ where
 
         let local_account_id = AccountId(
             account_id_from_key_material(
-                SignatureSuite::Ed25519,
+                // [FIX] Use SignatureSuite::ED25519
+                SignatureSuite::ED25519,
                 &self.local_keypair.public().encode_protobuf(),
             )
             .map_err(|e| {
@@ -934,27 +938,34 @@ async fn handle_network_event<CS, ST, CE, V>(
                 let ctx = context_arc.lock().await;
 
                 let ed_pk = ctx.local_keypair.public().encode_protobuf();
-                let ed_id = account_id_from_key_material(SignatureSuite::Ed25519, &ed_pk)
+                // [FIX] Use SignatureSuite::ED25519
+                let ed_id = account_id_from_key_material(SignatureSuite::ED25519, &ed_pk)
                     .unwrap_or_default();
 
                 let pqc_id_opt = ctx.pqc_signer.as_ref().map(|kp| {
-                    let pqc_pk = SigningKeyPair::public_key(kp).to_bytes();
-                    account_id_from_key_material(SignatureSuite::Dilithium2, &pqc_pk)
+                    // [FIX] Explicit type annotation for MldsaKeyPair
+                    let pqc_pk: Vec<u8> = SigningKeyPair::public_key(kp).to_bytes();
+                    // [FIX] Use SignatureSuite::ML_DSA_44
+                    account_id_from_key_material(SignatureSuite::ML_DSA_44, &pqc_pk)
                         .unwrap_or_default()
                 });
 
                 (ed_id, pqc_id_opt, ctx.consensus_kick_tx.clone())
             };
 
+            // [FIX] Explicit type annotation for closure parameter
             let producer_id = block.header.producer_pubkey_hash;
             let is_ours = producer_id == our_ed_id
-                || our_pqc_id_opt.map(|id| id == producer_id).unwrap_or(false);
+                || our_pqc_id_opt
+                    .map(|id: [u8; 32]| id == producer_id)
+                    .unwrap_or(false);
 
             if is_ours {
                 tracing::info!(target: "orchestration",
                     "[Orchestrator] Skipping verification of our own gossiped block #{}.",
                     block.header.height
                 );
+                // [FIX] Explicit ignore of result
                 let _ = kick_tx.send(());
                 return;
             }

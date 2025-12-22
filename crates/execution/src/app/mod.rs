@@ -352,9 +352,9 @@ where
                         producer_key_suite: Default::default(),
                         producer_pubkey_hash: [0u8; 32],
                         producer_pubkey: vec![],
+                        signature: vec![],
                         oracle_counter: 0,
                         oracle_trace_hash: [0u8; 32],
-                        signature: vec![],
                     },
                     transactions: vec![],
                 };
@@ -432,8 +432,14 @@ where
 
         // --- PHASE 1: READ-ONLY VALIDATION ---
         // 1. System Checks
-        // Pass immutable reference to overlay to prevent side effects during validation.
-        validation::verify_transaction_signature(&*overlay, &self.services, tx, &tx_ctx)?;
+        
+        // [MIGRATION] Split validation into Stateless and Stateful phases
+        // 1a. Stateless: Verify Cryptographic Signatures (Pure Math)
+        validation::verify_stateless_signature(tx)?;
+        
+        // 1b. Stateful: Verify Authorization (Check Account ID & Credentials in State)
+        validation::verify_stateful_authorization(&*overlay, &self.services, tx, &tx_ctx)?;
+        
         nonce::assert_next_nonce(&*overlay, tx)?;
 
         // 2. Service Decorator Checks (Validation)

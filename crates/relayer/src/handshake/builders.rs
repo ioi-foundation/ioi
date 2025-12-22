@@ -5,11 +5,10 @@
 use crate::handshake::proofs::query_proof_bytes_at;
 use crate::gateway::Gateway;
 use anyhow::Result;
-use ibc_core_client_types::Height;
 use ibc_proto::{
     google::protobuf::Any as PbAny,
     ibc::core::{
-        channel::v1 as pbchan, client::v1 as pbclient, client::v1::Height as PbHeight,
+        channel::v1 as pbchan, client::v1::Height as PbHeight,
         commitment::v1::MerklePrefix, connection::v1 as pbconn,
     },
 };

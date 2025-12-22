@@ -3,7 +3,11 @@
 use anyhow::{anyhow, Result};
 use ioi_ipc::blockchain::{GetStatusRequest, QueryRawStateRequest};
 use ioi_ipc::public::public_api_client::PublicApiClient;
-use ioi_ipc::public::{GetBlockByHeightRequest, SubmitTransactionRequest};
+// [FIX] Import GetTransactionStatusRequest and TxStatus
+use ioi_ipc::public::{
+    GetBlockByHeightRequest, GetBlockByHeightResponse, GetTransactionStatusRequest,
+    SubmitTransactionRequest, SubmitTransactionResponse, TxStatus,
+};
 use ioi_types::{
     app::{Block, ChainTransaction, Proposal, StateEntry, StateRoot},
     codec,
@@ -121,15 +125,47 @@ pub async fn submit_transaction_no_wait(rpc_addr: &str, tx: &ChainTransaction) -
     Ok(tx_hash)
 }
 
-/// Submits a transaction and waits for inclusion (Legacy wrapper).
+/// Submits a transaction and waits for it to be COMMITTED.
+/// Returns error if the transaction is Rejected or times out.
 pub async fn submit_transaction(
     rpc_addr: &str,
     tx: &ioi_types::app::ChainTransaction,
 ) -> Result<()> {
-    let initial_height = get_chain_height(rpc_addr).await.unwrap_or(0);
-    let _tx_hash = submit_transaction_no_wait(rpc_addr, tx).await?;
-    super::assert::wait_for_height(rpc_addr, initial_height + 1, Duration::from_secs(60)).await?;
-    Ok(())
+    let tx_hash = submit_transaction_no_wait(rpc_addr, tx).await?;
+
+    // Poll for status
+    let start = std::time::Instant::now();
+    let timeout = Duration::from_secs(60);
+
+    let mut client = connect(rpc_addr).await?;
+
+    loop {
+        if start.elapsed() > timeout {
+            return Err(anyhow!("Timeout waiting for tx {} to commit", tx_hash));
+        }
+
+        let req = tonic::Request::new(GetTransactionStatusRequest {
+            tx_hash: tx_hash.clone(),
+        });
+
+        match client.get_transaction_status(req).await {
+            Ok(resp) => {
+                let r = resp.into_inner();
+                match TxStatus::try_from(r.status).unwrap_or(TxStatus::Unknown) {
+                    TxStatus::Committed => return Ok(()),
+                    TxStatus::Rejected => {
+                        return Err(anyhow!("Transaction rejected: {}", r.error_message));
+                    }
+                    _ => { /* Pending/InMempool, continue waiting */ }
+                }
+            }
+            Err(_) => {
+                // Ignore transient gRPC errors during polling
+            }
+        }
+
+        sleep(Duration::from_millis(500)).await;
+    }
 }
 
 /// Queries a raw key from the workload state via Public gRPC.

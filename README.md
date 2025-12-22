@@ -198,6 +198,8 @@ cargo test -p ioi-forge --test infra_e2e --features "consensus-poa,vm-wasm,state
 
 cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,state-iavl,commitment-hash" --test workload_control_e2e -- --nocapture
 
+cargo test -p ioi-forge --release --features "consensus-poa,vm-wasm,state-iavl,commitment-hash" --test adaptive_timing_e2e -- --nocapture
+
 cargo test -p ioi-forge --test benchmark_throughput --no-default-features -F "consensus-poa,vm-wasm,state-jellyfish,commitment-hash" -- --nocapture
 
 ### **ZK & SP1 Workflow (Pending GPU Upgrade)**

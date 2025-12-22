@@ -122,7 +122,8 @@ pub async fn handle_oracle_attestation_received<CS, ST, CE, V>(
     }
 
     let signer_account_id =
-        match account_id_from_key_material(SignatureSuite::Ed25519, &pubkey.encode_protobuf()) {
+        // [FIX] Use SignatureSuite::ED25519
+        match account_id_from_key_material(SignatureSuite::ED25519, &pubkey.encode_protobuf()) {
             Ok(hash) => AccountId(hash),
             Err(_) => {
                 log::error!("Oracle: Could not derive AccountId from public key.");
@@ -239,7 +240,8 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
         };
 
         let signer_account_id = match account_id_from_key_material(
-            SignatureSuite::Ed25519,
+            // [FIX] Use SignatureSuite::ED25519
+            SignatureSuite::ED25519,
             &pubkey.encode_protobuf(),
         ) {
             Ok(hash) => AccountId(hash),
@@ -305,7 +307,8 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
         let our_pk = context.local_keypair.public();
         let our_pk_bytes = our_pk.encode_protobuf();
         let our_account_id =
-            match account_id_from_key_material(SignatureSuite::Ed25519, &our_pk_bytes) {
+            // [FIX] Use SignatureSuite::ED25519
+            match account_id_from_key_material(SignatureSuite::ED25519, &our_pk_bytes) {
                 Ok(hash) => AccountId(hash),
                 Err(_) => return,
             };
@@ -339,7 +342,8 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
         };
 
         sys_tx.signature_proof = SignatureProof {
-            suite: SignatureSuite::Ed25519,
+            // [FIX] Use SignatureSuite::ED25519
+            suite: SignatureSuite::ED25519,
             public_key: our_pk_bytes,
             signature,
         };

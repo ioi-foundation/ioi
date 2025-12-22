@@ -39,7 +39,7 @@ async fn test_mixed_validator_topology() -> Result<()> {
             chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            allowed_target_suites: vec![SignatureSuite::ED25519],
             allow_downgrade: false,
         }))
         .with_genesis_modifier(move |builder: &mut GenesisBuilder, keys| {
@@ -47,13 +47,13 @@ async fn test_mixed_validator_topology() -> Result<()> {
             for key in keys {
                 let account_id = builder.add_identity(key);
                 let pk = key.public().encode_protobuf();
-                let hash = account_id_from_key_material(SignatureSuite::Ed25519, &pk).unwrap();
+                let hash = account_id_from_key_material(SignatureSuite::ED25519, &pk).unwrap();
 
                 validators.push(ValidatorV1 {
                     account_id,
                     weight: 1,
                     consensus_key: ActiveKeyRecord {
-                        suite: SignatureSuite::Ed25519,
+                        suite: SignatureSuite::ED25519,
                         public_key_hash: hash,
                         since_height: 0,
                     },

@@ -9,7 +9,8 @@ use ioi_api::{
     chain::ChainStateMachine, commitment::CommitmentScheme, consensus::ConsensusEngine,
     state::StateManager,
 };
-use ioi_crypto::sign::dilithium::DilithiumKeyPair;
+// [FIX] Update import
+use ioi_crypto::sign::dilithium::MldsaKeyPair;
 use ioi_ipc::public::TxStatus;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::traits::NodeState;
@@ -80,7 +81,7 @@ where
     pub consensus_engine_ref: Arc<Mutex<CE>>,
     pub node_state: Arc<Mutex<NodeState>>,
     pub local_keypair: identity::Keypair,
-    pub pqc_signer: Option<DilithiumKeyPair>,
+    pub pqc_signer: Option<MldsaKeyPair>, // [FIX] Updated type
     pub known_peers_ref: Arc<Mutex<HashSet<PeerId>>>,
     pub is_quarantined: Arc<AtomicBool>,
     pub pending_attestations: HashMap<u64, Vec<OracleAttestation>>,

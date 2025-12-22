@@ -83,6 +83,55 @@ impl core::fmt::Display for ChainId {
     }
 }
 
+/// Defines the cryptographic algorithm suite used for a key or signature.
+///
+/// Instead of a closed enum, this uses an `i32` identifier compatible with the
+/// IANA COSE Algorithms Registry. This provides cryptographic agility, allowing
+/// the chain to support new algorithms (e.g., ML-DSA, SLH-DSA) without breaking changes.
+#[derive(
+    Encode,
+    Decode,
+    Serialize,
+    Deserialize,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Debug,
+    Default,
+)]
+#[serde(transparent)]
+pub struct SignatureSuite(pub i32);
+
+impl SignatureSuite {
+    /// Ed25519 (Pure). IANA COSE ID: -8.
+    pub const ED25519: Self = Self(-8);
+
+    /// ML-DSA-44 (formerly Dilithium2).
+    /// Using tentative IANA assignment or private range for now (e.g., -17 based on drafts).
+    pub const ML_DSA_44: Self = Self(-17);
+
+    /// Falcon-512 (Round 3).
+    /// Private range ID for now.
+    pub const FALCON_512: Self = Self(-100);
+
+    /// Hybrid Scheme: Ed25519 + ML-DSA-44.
+    /// Concatenated Public Keys and Signatures.
+    /// Private range ID.
+    pub const HYBRID_ED25519_ML_DSA_44: Self = Self(-200);
+
+    /// Returns true if the algorithm is considered post-quantum secure.
+    pub fn is_post_quantum(&self) -> bool {
+        matches!(
+            *self,
+            Self::ML_DSA_44 | Self::FALCON_512 | Self::HYBRID_ED25519_ML_DSA_44
+        )
+    }
+}
+
 /// The minimal record of an active consensus key, stored in the core state map.
 #[derive(Serialize, Deserialize, Debug, Clone, Encode, Decode, Default)]
 pub struct ActiveKeyRecord {
@@ -92,22 +141,6 @@ pub struct ActiveKeyRecord {
     pub public_key_hash: [u8; 32],
     /// The first block height at which this key is valid for signing.
     pub since_height: u64,
-}
-
-/// Defines the cryptographic algorithm suite used for a key or signature.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default, Encode, Decode)]
-pub enum SignatureSuite {
-    /// The Ed25519 signature scheme.
-    #[default]
-    Ed25519,
-    /// The CRYSTALS-Dilithium2 post-quantum signature scheme.
-    Dilithium2,
-    /// The Falcon-512 post-quantum signature scheme.
-    Falcon512,
-    /// A hybrid scheme combining Ed25519 and Dilithium2.
-    /// PubKey = Pk_Ed || Pk_Dilithium
-    /// Signature = Sig_Ed || Sig_Dilithium
-    HybridEd25519Dilithium2,
 }
 
 /// A cryptographic credential defining an account's active key.
@@ -145,46 +178,33 @@ pub fn account_id_from_key_material(
     let mut data_to_hash = Vec::new();
     // Domain separate the hash to prevent collisions with other parts of the system.
     data_to_hash.extend_from_slice(b"IOI-ACCOUNT-ID::V1");
-    // Include the suite tag to prevent cross-algorithm collisions.
-    data_to_hash.push(match suite {
-        SignatureSuite::Ed25519 => 0x01,
-        SignatureSuite::Dilithium2 => 0x02,
-        SignatureSuite::Falcon512 => 0x03,
-        SignatureSuite::HybridEd25519Dilithium2 => 0x04,
-    });
+
+    // [CHANGED] Include the I32 suite ID in the hash preimage to bind ID to algorithm.
+    // We use Big Endian to ensure consistency across architectures.
+    data_to_hash.extend_from_slice(&suite.0.to_be_bytes());
 
     // Reduce different key encodings to a single canonical representation before hashing.
-    match suite {
-        SignatureSuite::Ed25519 => {
-            // --- FIX: Unambiguously reduce to raw 32-byte key ---
-            let raw_key =
-                if let Ok(pk) = libp2p::identity::PublicKey::try_decode_protobuf(public_key) {
-                    // If it's a libp2p key, convert it to its raw 32-byte form.
-                    pk.try_into_ed25519()
-                        .map_err(|_| {
-                            TransactionError::Invalid("Not an Ed25519 libp2p key".to_string())
-                        })?
-                        .to_bytes()
-                        .to_vec()
-                } else if public_key.len() == 32 {
-                    // If it's already a raw 32-byte key, use it directly.
-                    public_key.to_vec()
-                } else {
-                    return Err(TransactionError::Invalid(
-                        "Malformed Ed25519 public key".to_string(),
-                    ));
-                };
-            data_to_hash.extend_from_slice(&raw_key);
-        }
-        SignatureSuite::Dilithium2 | SignatureSuite::Falcon512 => {
-            // PQC keys have a single representation, so just hash the bytes.
-            data_to_hash.extend_from_slice(public_key);
-        }
-        SignatureSuite::HybridEd25519Dilithium2 => {
-            // Hybrid keys are hashed directly (concatenated bytes).
-            // Validation that the length == 32 (Ed) + 1312 (Dilithium2) happens at signature verification time.
-            data_to_hash.extend_from_slice(public_key);
-        }
+    if suite == SignatureSuite::ED25519 {
+        // --- FIX: Unambiguously reduce to raw 32-byte key ---
+        let raw_key = if let Ok(pk) = libp2p::identity::PublicKey::try_decode_protobuf(public_key) {
+            // If it's a libp2p key, convert it to its raw 32-byte form.
+            pk.try_into_ed25519()
+                .map_err(|_| TransactionError::Invalid("Not an Ed25519 libp2p key".to_string()))?
+                .to_bytes()
+                .to_vec()
+        } else if public_key.len() == 32 {
+            // If it's already a raw 32-byte key, use it directly.
+            public_key.to_vec()
+        } else {
+            return Err(TransactionError::Invalid(
+                "Malformed Ed25519 public key".to_string(),
+            ));
+        };
+        data_to_hash.extend_from_slice(&raw_key);
+    } else {
+        // For ML-DSA (Dilithium), Falcon, and Hybrids, the key representation is fixed/raw,
+        // so we hash the bytes directly.
+        data_to_hash.extend_from_slice(public_key);
     }
 
     let hash_bytes = DcryptSha256::digest(&data_to_hash)
@@ -199,6 +219,13 @@ pub fn account_id_from_key_material(
 // -----------------------------------------------------------------------------
 // Binary Integrity & Boot Attestation Types
 // -----------------------------------------------------------------------------
+
+/// A domain tag to prevent hash collisions for different signature purposes.
+#[derive(Encode, Decode)]
+pub enum SigDomain {
+    /// The domain for version 1 of the block header signing preimage.
+    BlockHeaderV1,
+}
 
 /// Represents a cryptographic measurement of a specific binary file.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]

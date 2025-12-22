@@ -60,7 +60,7 @@ fn create_call_service_tx<P: Encode>(
     chain_id: ChainId,
 ) -> Result<ChainTransaction> {
     let public_key_bytes = signer_keypair.public().encode_protobuf();
-    let account_id_hash = account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)?;
+    let account_id_hash = account_id_from_key_material(SignatureSuite::ED25519, &public_key_bytes)?;
     let account_id = AccountId(account_id_hash);
 
     let payload = SystemPayload::CallService {
@@ -85,7 +85,7 @@ fn create_call_service_tx<P: Encode>(
     let signature = signer_keypair.sign(&sign_bytes)?;
 
     tx_to_sign.signature_proof = SignatureProof {
-        suite: SignatureSuite::Ed25519,
+        suite: SignatureSuite::ED25519,
         public_key: public_key_bytes,
         signature,
     };
@@ -116,7 +116,7 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
             chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            allowed_target_suites: vec![SignatureSuite::ED25519],
             allow_downgrade: false,
         }))
         .with_initial_service(InitialServiceConfig::Oracle(OracleParams::default()))
@@ -140,7 +140,7 @@ async fn test_validator_native_oracle_e2e() -> Result<()> {
                         account_id,
                         weight: initial_stake,
                         consensus_key: ActiveKeyRecord {
-                            suite: SignatureSuite::Ed25519,
+                            suite: SignatureSuite::ED25519,
                             public_key_hash: account_id_hash,
                             since_height: 0,
                         },

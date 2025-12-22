@@ -382,8 +382,9 @@ impl GovernanceModule {
 
             let pubkey_map_key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, staker_account_id.as_ref()].concat();
             if state.get(&pubkey_map_key)?.is_none() {
+                // [CHANGED] Match on constants instead of enum variants
                 let pk_to_store = match active_cred.suite {
-                    ioi_types::app::SignatureSuite::Ed25519 => {
+                    ioi_types::app::SignatureSuite::ED25519 => {
                         if Libp2pPublicKey::try_decode_protobuf(&params.public_key).is_ok() {
                             params.public_key
                         } else {
@@ -396,7 +397,7 @@ impl GovernanceModule {
                             libp2p::identity::PublicKey::from(ed).encode_protobuf()
                         }
                     }
-                    ioi_types::app::SignatureSuite::Dilithium2 => params.public_key,
+                    ioi_types::app::SignatureSuite::ML_DSA_44 => params.public_key,
                     // Handle future suites if needed
                     _ => params.public_key,
                 };

@@ -18,7 +18,8 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
-use ioi_crypto::sign::{dilithium::DilithiumScheme, eddsa::Ed25519KeyPair};
+// [FIX] Update to MldsaScheme
+use ioi_crypto::sign::{dilithium::MldsaScheme, eddsa::Ed25519KeyPair};
 use ioi_forge::{build_test_artifacts, TestCluster};
 use ioi_types::{
     app::{
@@ -410,8 +411,9 @@ fn run_keys(args: KeysArgs) -> Result<()> {
                         libp2p::identity::ed25519::PublicKey::try_from_bytes(&pub_bytes).unwrap();
                     let proto_pk = libp2p::identity::PublicKey::from(libp2p_pk).encode_protobuf();
 
+                    // [FIX] Use SignatureSuite::ED25519
                     let acct =
-                        account_id_from_key_material(SignatureSuite::Ed25519, &proto_pk).unwrap();
+                        account_id_from_key_material(SignatureSuite::ED25519, &proto_pk).unwrap();
 
                     println!("--- New Ed25519 Identity ---");
                     println!(
@@ -422,14 +424,16 @@ fn run_keys(args: KeysArgs) -> Result<()> {
                     println!("Account ID:         0x{}", hex::encode(acct));
                 }
                 KeySuite::Dilithium2 => {
-                    let kp = DilithiumScheme::new(ioi_crypto::security::SecurityLevel::Level2)
+                    // [FIX] Use MldsaScheme
+                    let kp = MldsaScheme::new(ioi_crypto::security::SecurityLevel::Level2)
                         .generate_keypair()
                         .map_err(|e| anyhow!("PQC Gen failed: {}", e))?;
                     let pk_bytes = kp.public_key().to_bytes();
-                    let acct = account_id_from_key_material(SignatureSuite::Dilithium2, &pk_bytes)
-                        .unwrap();
+                    // [FIX] Use SignatureSuite::ML_DSA_44
+                    let acct =
+                        account_id_from_key_material(SignatureSuite::ML_DSA_44, &pk_bytes).unwrap();
 
-                    println!("--- New Dilithium2 (PQC) Identity ---");
+                    println!("--- New ML-DSA-44 (formerly Dilithium2) Identity ---");
                     println!(
                         "Public Key ({} bytes): {}",
                         pk_bytes.len(),
@@ -447,11 +451,13 @@ fn run_keys(args: KeysArgs) -> Result<()> {
                     let libp2p_pk = libp2p::identity::ed25519::PublicKey::try_from_bytes(&bytes)
                         .context("Invalid Ed25519 key bytes")?;
                     let proto_pk = libp2p::identity::PublicKey::from(libp2p_pk).encode_protobuf();
-                    let acct = account_id_from_key_material(SignatureSuite::Ed25519, &proto_pk)?;
+                    // [FIX] Use SignatureSuite::ED25519
+                    let acct = account_id_from_key_material(SignatureSuite::ED25519, &proto_pk)?;
                     println!("Account ID: 0x{}", hex::encode(acct));
                 }
                 KeySuite::Dilithium2 => {
-                    let acct = account_id_from_key_material(SignatureSuite::Dilithium2, &bytes)?;
+                    // [FIX] Use SignatureSuite::ML_DSA_44
+                    let acct = account_id_from_key_material(SignatureSuite::ML_DSA_44, &bytes)?;
                     println!("Account ID: 0x{}", hex::encode(acct));
                 }
             }
@@ -551,7 +557,7 @@ async fn run_node(args: NodeArgs) -> Result<()> {
             chain_id: 1337,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            allowed_target_suites: vec![SignatureSuite::ED25519],
             allow_downgrade: false,
         }))
         .with_initial_service(InitialServiceConfig::Governance(GovernanceParams::default()))
@@ -569,7 +575,7 @@ async fn run_node(args: NodeArgs) -> Result<()> {
                     account_id,
                     weight,
                     consensus_key: ActiveKeyRecord {
-                        suite: SignatureSuite::Ed25519,
+                        suite: SignatureSuite::ED25519,
                         public_key_hash: acct_hash,
                         since_height: 0,
                     },
@@ -609,7 +615,7 @@ async fn run_node(args: NodeArgs) -> Result<()> {
     for (i, guard) in cluster.validators.iter().enumerate() {
         let v = guard.validator();
         let pk = v.keypair.public().encode_protobuf();
-        let acc_bytes = account_id_from_key_material(SignatureSuite::Ed25519, &pk).unwrap();
+        let acc_bytes = account_id_from_key_material(SignatureSuite::ED25519, &pk).unwrap();
 
         println!("Node {}:", i);
         println!("  RPC:       http://{}", v.rpc_addr);

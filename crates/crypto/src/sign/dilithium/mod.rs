@@ -1,6 +1,13 @@
 // Path: crates/crypto/src/sign/dilithium/mod.rs
-//! Dilithium signature algorithm (using dcrypt implementation)
+//! ML-DSA (Module-Lattice-Based Digital Signature Algorithm) implementation.
+//! Formerly known as CRYSTALS-Dilithium.
 //!
+//! Uses the `dcrypt` library implementation.
+//! Mappings to NIST FIPS 204:
+//! - Level 2 -> ML-DSA-44
+//! - Level 3 -> ML-DSA-65
+//! - Level 5 -> ML-DSA-87
+
 use crate::error::CryptoError;
 use crate::security::SecurityLevel;
 use ioi_api::crypto::{SerializableKey, Signature, SigningKey, SigningKeyPair, VerifyingKey};
@@ -12,54 +19,55 @@ use dcrypt::sign::dilithium::{
     DilithiumSecretKey as DcryptSecretKey, DilithiumSignatureData as DcryptSignatureData,
 };
 
-/// Dilithium signature scheme
-pub struct DilithiumScheme {
+/// ML-DSA signature scheme
+pub struct MldsaScheme {
     /// Security level
     level: SecurityLevel,
 }
 
-/// Dilithium key pair
+/// ML-DSA key pair
 #[derive(Clone)]
-pub struct DilithiumKeyPair {
+pub struct MldsaKeyPair {
     /// Public key
-    public_key: DilithiumPublicKey,
+    pub public_key: MldsaPublicKey,
     /// Private key
-    private_key: DilithiumPrivateKey,
+    pub private_key: MldsaPrivateKey,
     /// Security level (needed for signing)
     level: SecurityLevel,
 }
 
-/// Dilithium public key
+/// ML-DSA public key
 #[derive(Clone)]
-pub struct DilithiumPublicKey(Vec<u8>);
+pub struct MldsaPublicKey(pub Vec<u8>);
 
-/// Dilithium private key
+/// ML-DSA private key
 #[derive(Clone)]
-pub struct DilithiumPrivateKey {
+pub struct MldsaPrivateKey {
     data: Vec<u8>,
     level: SecurityLevel,
 }
 
-/// Dilithium signature
-pub struct DilithiumSignature(Vec<u8>);
+/// ML-DSA signature
+pub struct MldsaSignature(Vec<u8>);
 
-impl DilithiumScheme {
-    /// Create a new Dilithium scheme with the specified security level
+impl MldsaScheme {
+    /// Create a new ML-DSA scheme with the specified security level
     pub fn new(level: SecurityLevel) -> Self {
         Self { level }
     }
 
     /// Generate a new key pair
-    pub fn generate_keypair(&self) -> Result<DilithiumKeyPair, CryptoError> {
+    pub fn generate_keypair(&self) -> Result<MldsaKeyPair, CryptoError> {
         let mut rng = rand::rngs::OsRng;
 
         match self.level {
             SecurityLevel::Level2 => {
+                // ML-DSA-44
                 let (pk, sk) = Dilithium2::keypair(&mut rng)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                Ok(DilithiumKeyPair {
-                    public_key: DilithiumPublicKey(pk.to_bytes().to_vec()),
-                    private_key: DilithiumPrivateKey {
+                Ok(MldsaKeyPair {
+                    public_key: MldsaPublicKey(pk.to_bytes().to_vec()),
+                    private_key: MldsaPrivateKey {
                         data: sk.to_bytes().to_vec(),
                         level: self.level,
                     },
@@ -67,11 +75,12 @@ impl DilithiumScheme {
                 })
             }
             SecurityLevel::Level3 => {
+                // ML-DSA-65
                 let (pk, sk) = Dilithium3::keypair(&mut rng)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                Ok(DilithiumKeyPair {
-                    public_key: DilithiumPublicKey(pk.to_bytes().to_vec()),
-                    private_key: DilithiumPrivateKey {
+                Ok(MldsaKeyPair {
+                    public_key: MldsaPublicKey(pk.to_bytes().to_vec()),
+                    private_key: MldsaPrivateKey {
                         data: sk.to_bytes().to_vec(),
                         level: self.level,
                     },
@@ -79,11 +88,12 @@ impl DilithiumScheme {
                 })
             }
             SecurityLevel::Level5 => {
+                // ML-DSA-87
                 let (pk, sk) = Dilithium5::keypair(&mut rng)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                Ok(DilithiumKeyPair {
-                    public_key: DilithiumPublicKey(pk.to_bytes().to_vec()),
-                    private_key: DilithiumPrivateKey {
+                Ok(MldsaKeyPair {
+                    public_key: MldsaPublicKey(pk.to_bytes().to_vec()),
+                    private_key: MldsaPrivateKey {
                         data: sk.to_bytes().to_vec(),
                         level: self.level,
                     },
@@ -91,12 +101,12 @@ impl DilithiumScheme {
                 })
             }
             _ => {
-                // Default to Level2 for any other security level
+                // Default to Level2 (ML-DSA-44) for any other security level
                 let (pk, sk) = Dilithium2::keypair(&mut rng)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                Ok(DilithiumKeyPair {
-                    public_key: DilithiumPublicKey(pk.to_bytes().to_vec()),
-                    private_key: DilithiumPrivateKey {
+                Ok(MldsaKeyPair {
+                    public_key: MldsaPublicKey(pk.to_bytes().to_vec()),
+                    private_key: MldsaPrivateKey {
                         data: sk.to_bytes().to_vec(),
                         level: SecurityLevel::Level2,
                     },
@@ -109,30 +119,30 @@ impl DilithiumScheme {
     /// Sign a message
     pub fn sign(
         &self,
-        private_key: &DilithiumPrivateKey,
+        private_key: &MldsaPrivateKey,
         message: &[u8],
-    ) -> Result<DilithiumSignature, CryptoError> {
+    ) -> Result<MldsaSignature, CryptoError> {
         match private_key.level {
             SecurityLevel::Level2 => {
                 let sk = DcryptSecretKey::from_bytes(&private_key.data)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
                 let signature = Dilithium2::sign(message, &sk)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                Ok(DilithiumSignature(signature.to_bytes().to_vec()))
+                Ok(MldsaSignature(signature.to_bytes().to_vec()))
             }
             SecurityLevel::Level3 => {
                 let sk = DcryptSecretKey::from_bytes(&private_key.data)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
                 let signature = Dilithium3::sign(message, &sk)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                Ok(DilithiumSignature(signature.to_bytes().to_vec()))
+                Ok(MldsaSignature(signature.to_bytes().to_vec()))
             }
             SecurityLevel::Level5 => {
                 let sk = DcryptSecretKey::from_bytes(&private_key.data)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
                 let signature = Dilithium5::sign(message, &sk)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                Ok(DilithiumSignature(signature.to_bytes().to_vec()))
+                Ok(MldsaSignature(signature.to_bytes().to_vec()))
             }
             _ => {
                 // Default to Level2
@@ -140,7 +150,7 @@ impl DilithiumScheme {
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
                 let signature = Dilithium2::sign(message, &sk)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                Ok(DilithiumSignature(signature.to_bytes().to_vec()))
+                Ok(MldsaSignature(signature.to_bytes().to_vec()))
             }
         }
     }
@@ -148,15 +158,15 @@ impl DilithiumScheme {
     /// Verify a signature
     pub fn verify(
         &self,
-        public_key: &DilithiumPublicKey,
+        public_key: &MldsaPublicKey,
         message: &[u8],
-        signature: &DilithiumSignature,
+        signature: &MldsaSignature,
     ) -> Result<(), CryptoError> {
         // Determine security level from key size
         let level = match public_key.0.len() {
-            1312 => SecurityLevel::Level2, // Dilithium2
-            1952 => SecurityLevel::Level3, // Dilithium3
-            2592 => SecurityLevel::Level5, // Dilithium5
+            1312 => SecurityLevel::Level2, // ML-DSA-44
+            1952 => SecurityLevel::Level3, // ML-DSA-65
+            2592 => SecurityLevel::Level5, // ML-DSA-87
             _ => return Err(CryptoError::InvalidKey("Invalid public key size".into())),
         };
 
@@ -191,17 +201,17 @@ impl DilithiumScheme {
     }
 }
 
-impl SigningKeyPair for DilithiumKeyPair {
-    type PublicKey = DilithiumPublicKey;
-    type PrivateKey = DilithiumPrivateKey;
-    type Signature = DilithiumSignature;
+impl SigningKeyPair for MldsaKeyPair {
+    type PublicKey = MldsaPublicKey;
+    type PrivateKey = MldsaPrivateKey;
+    type Signature = MldsaSignature;
 
     fn public_key(&self) -> Self::PublicKey {
-        DilithiumPublicKey(self.public_key.0.clone())
+        MldsaPublicKey(self.public_key.0.clone())
     }
 
     fn private_key(&self) -> Self::PrivateKey {
-        DilithiumPrivateKey {
+        MldsaPrivateKey {
             data: self.private_key.data.clone(),
             level: self.private_key.level,
         }
@@ -214,21 +224,21 @@ impl SigningKeyPair for DilithiumKeyPair {
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
                 let signature = Dilithium2::sign(message, &sk)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                Ok(DilithiumSignature(signature.to_bytes().to_vec()))
+                Ok(MldsaSignature(signature.to_bytes().to_vec()))
             }
             SecurityLevel::Level3 => {
                 let sk = DcryptSecretKey::from_bytes(&self.private_key.data)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
                 let signature = Dilithium3::sign(message, &sk)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                Ok(DilithiumSignature(signature.to_bytes().to_vec()))
+                Ok(MldsaSignature(signature.to_bytes().to_vec()))
             }
             SecurityLevel::Level5 => {
                 let sk = DcryptSecretKey::from_bytes(&self.private_key.data)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
                 let signature = Dilithium5::sign(message, &sk)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                Ok(DilithiumSignature(signature.to_bytes().to_vec()))
+                Ok(MldsaSignature(signature.to_bytes().to_vec()))
             }
             _ => {
                 // Default to Level2
@@ -236,21 +246,21 @@ impl SigningKeyPair for DilithiumKeyPair {
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
                 let signature = Dilithium2::sign(message, &sk)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                Ok(DilithiumSignature(signature.to_bytes().to_vec()))
+                Ok(MldsaSignature(signature.to_bytes().to_vec()))
             }
         }
     }
 }
 
-impl VerifyingKey for DilithiumPublicKey {
-    type Signature = DilithiumSignature;
+impl VerifyingKey for MldsaPublicKey {
+    type Signature = MldsaSignature;
 
     fn verify(&self, message: &[u8], signature: &Self::Signature) -> Result<(), CryptoError> {
         // Determine security level from key size
         let level = match self.0.len() {
-            1312 => SecurityLevel::Level2, // Dilithium2
-            1952 => SecurityLevel::Level3, // Dilithium3
-            2592 => SecurityLevel::Level5, // Dilithium5
+            1312 => SecurityLevel::Level2, // ML-DSA-44
+            1952 => SecurityLevel::Level3, // ML-DSA-65
+            2592 => SecurityLevel::Level5, // ML-DSA-87
             _ => return Err(CryptoError::InvalidKey("Invalid public key size".into())),
         };
 
@@ -284,24 +294,24 @@ impl VerifyingKey for DilithiumPublicKey {
     }
 }
 
-impl SerializableKey for DilithiumPublicKey {
+impl SerializableKey for MldsaPublicKey {
     fn to_bytes(&self) -> Vec<u8> {
         self.0.clone()
     }
 
     fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
         match bytes.len() {
-            1312 | 1952 | 2592 => Ok(DilithiumPublicKey(bytes.to_vec())),
+            1312 | 1952 | 2592 => Ok(MldsaPublicKey(bytes.to_vec())),
             n => Err(CryptoError::InvalidKey(format!(
-                "Invalid Dilithium public key size: {} bytes",
+                "Invalid ML-DSA public key size: {} bytes",
                 n
             ))),
         }
     }
 }
 
-impl SigningKey for DilithiumPrivateKey {
-    type Signature = DilithiumSignature;
+impl SigningKey for MldsaPrivateKey {
+    type Signature = MldsaSignature;
 
     fn sign(&self, message: &[u8]) -> Result<Self::Signature, CryptoError> {
         match self.level {
@@ -310,21 +320,21 @@ impl SigningKey for DilithiumPrivateKey {
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
                 let signature = Dilithium2::sign(message, &sk)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                Ok(DilithiumSignature(signature.to_bytes().to_vec()))
+                Ok(MldsaSignature(signature.to_bytes().to_vec()))
             }
             SecurityLevel::Level3 => {
                 let sk = DcryptSecretKey::from_bytes(&self.data)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
                 let signature = Dilithium3::sign(message, &sk)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                Ok(DilithiumSignature(signature.to_bytes().to_vec()))
+                Ok(MldsaSignature(signature.to_bytes().to_vec()))
             }
             SecurityLevel::Level5 => {
                 let sk = DcryptSecretKey::from_bytes(&self.data)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
                 let signature = Dilithium5::sign(message, &sk)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                Ok(DilithiumSignature(signature.to_bytes().to_vec()))
+                Ok(MldsaSignature(signature.to_bytes().to_vec()))
             }
             _ => {
                 // Default to Level2
@@ -332,13 +342,13 @@ impl SigningKey for DilithiumPrivateKey {
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
                 let signature = Dilithium2::sign(message, &sk)
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                Ok(DilithiumSignature(signature.to_bytes().to_vec()))
+                Ok(MldsaSignature(signature.to_bytes().to_vec()))
             }
         }
     }
 }
 
-impl SerializableKey for DilithiumPrivateKey {
+impl SerializableKey for MldsaPrivateKey {
     fn to_bytes(&self) -> Vec<u8> {
         self.data.clone()
     }
@@ -346,48 +356,48 @@ impl SerializableKey for DilithiumPrivateKey {
     fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
         // Determine security level from key size
         let level = match bytes.len() {
-            2560 => SecurityLevel::Level2, // Dilithium2
-            4032 => SecurityLevel::Level3, // Dilithium3
-            4896 => SecurityLevel::Level5, // Dilithium5
+            2560 => SecurityLevel::Level2, // ML-DSA-44
+            4032 => SecurityLevel::Level3, // ML-DSA-65
+            4896 => SecurityLevel::Level5, // ML-DSA-87
             _ => {
                 return Err(CryptoError::InvalidKey(
-                    "Invalid Dilithium private key size".into(),
+                    "Invalid ML-DSA private key size".into(),
                 ))
             }
         };
 
-        Ok(DilithiumPrivateKey {
+        Ok(MldsaPrivateKey {
             data: bytes.to_vec(),
             level,
         })
     }
 }
 
-impl SerializableKey for DilithiumSignature {
+impl SerializableKey for MldsaSignature {
     fn to_bytes(&self) -> Vec<u8> {
         self.0.clone()
     }
 
     fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
-        Ok(DilithiumSignature(bytes.to_vec()))
+        Ok(MldsaSignature(bytes.to_vec()))
     }
 }
 
-impl Signature for DilithiumSignature {}
+impl Signature for MldsaSignature {}
 
-impl DilithiumKeyPair {
+impl MldsaKeyPair {
     /// Rebuild a keypair from its serialized public & private keys.
     pub fn from_bytes(public: &[u8], private: &[u8]) -> Result<Self, CryptoError> {
-        let public_key = DilithiumPublicKey::from_bytes(public)
+        let public_key = MldsaPublicKey::from_bytes(public)
             .map_err(|e| CryptoError::InvalidKey(e.to_string()))?;
-        let private_key = DilithiumPrivateKey::from_bytes(private)?;
+        let private_key = MldsaPrivateKey::from_bytes(private)?;
 
         // Sanity check: public key length must match the level derived from the private key.
         let expected_pk_len = match private_key.level {
             SecurityLevel::Level2 => 1312,
             SecurityLevel::Level3 => 1952,
             SecurityLevel::Level5 => 2592,
-            _ => return Err(CryptoError::Unsupported("Dilithium security level".into())),
+            _ => return Err(CryptoError::Unsupported("ML-DSA security level".into())),
         };
         if public_key.0.len() != expected_pk_len {
             return Err(CryptoError::InvalidKey(format!(

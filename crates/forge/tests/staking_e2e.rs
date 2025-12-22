@@ -41,7 +41,7 @@ fn create_system_tx(
     chain_id: ChainId,
 ) -> Result<ChainTransaction> {
     let public_key_bytes = keypair.public().encode_protobuf();
-    let account_id_hash = account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)?;
+    let account_id_hash = account_id_from_key_material(SignatureSuite::ED25519, &public_key_bytes)?;
     let account_id = AccountId(account_id_hash);
 
     let header = SignHeader {
@@ -60,7 +60,7 @@ fn create_system_tx(
     let signature = keypair.sign(&sign_bytes)?;
 
     tx_to_sign.signature_proof = SignatureProof {
-        suite: SignatureSuite::Ed25519,
+        suite: SignatureSuite::ED25519,
         public_key: public_key_bytes,
         signature,
     };
@@ -73,7 +73,6 @@ async fn test_staking_lifecycle() -> Result<()> {
 
     let initial_stake = 100_000u64;
 
-    // [FIX] Removed `mut` as it is not needed
     let cluster = TestCluster::builder()
         .with_validators(3)
         .with_consensus_type("ProofOfStake")
@@ -84,7 +83,7 @@ async fn test_staking_lifecycle() -> Result<()> {
             chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            allowed_target_suites: vec![SignatureSuite::ED25519],
             allow_downgrade: false,
         }))
         .with_initial_service(InitialServiceConfig::Governance(Default::default()))
@@ -105,7 +104,7 @@ async fn test_staking_lifecycle() -> Result<()> {
                     account_id,
                     weight: initial_stake as u128,
                     consensus_key: ActiveKeyRecord {
-                        suite: SignatureSuite::Ed25519,
+                        suite: SignatureSuite::ED25519,
                         public_key_hash: account_id_hash,
                         since_height: 0,
                     },
@@ -238,11 +237,11 @@ async fn test_staking_lifecycle() -> Result<()> {
         wait_for_height(&rpc_addr, 3, Duration::from_secs(30)).await?;
 
         let node0_account_id = AccountId(account_id_from_key_material(
-            SignatureSuite::Ed25519,
+            SignatureSuite::ED25519,
             &keypair0.public().encode_protobuf(),
         )?);
         let node1_account_id = AccountId(account_id_from_key_material(
-            SignatureSuite::Ed25519,
+            SignatureSuite::ED25519,
             &keypair1.public().encode_protobuf(),
         )?);
 

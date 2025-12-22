@@ -174,7 +174,14 @@ where
         };
 
         // --- PHASE 1: READ-ONLY VALIDATION ---
-        validation::verify_transaction_signature(state, &self.services, tx, &tx_ctx)?;
+
+        // [MIGRATION] Split validation
+        // 1a. Stateless: Verify Signatures
+        validation::verify_stateless_signature(tx)?;
+
+        // 1b. Stateful: Verify Authorization (Reads from MVMemory)
+        validation::verify_stateful_authorization(state, &self.services, tx, &tx_ctx)?;
+
         nonce::assert_next_nonce(state, tx)?;
 
         let decorators: Vec<(&str, &dyn ioi_api::transaction::decorator::TxDecorator)> = self
@@ -669,7 +676,8 @@ where
         })?;
 
         let producer_pubkey = producer_keypair.public().encode_protobuf();
-        let suite = SignatureSuite::Ed25519;
+        // [FIX] Use CONSTANT instead of ENUM VARIANT for the new SignatureSuite struct
+        let suite = SignatureSuite::ED25519;
         let producer_pubkey_hash = account_id_from_key_material(suite, &producer_pubkey)?;
         let producer_account_id = AccountId(producer_pubkey_hash);
 
