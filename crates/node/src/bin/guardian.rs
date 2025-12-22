@@ -38,6 +38,9 @@ struct GuardianOpts {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // [FIX] Install default crypto provider for rustls 0.23+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
     // 1. Initialize tracing FIRST
     ioi_telemetry::init::init_tracing()?;
 

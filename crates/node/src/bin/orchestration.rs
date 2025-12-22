@@ -597,6 +597,9 @@ where
 #[tokio::main]
 #[allow(unused_variables)]
 async fn main() -> Result<()> {
+    // [FIX] Install default crypto provider for rustls 0.23+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
     ioi_telemetry::init::init_tracing()?;
     let metrics_sink = ioi_telemetry::prometheus::install()?;
     ioi_storage::metrics::SINK
