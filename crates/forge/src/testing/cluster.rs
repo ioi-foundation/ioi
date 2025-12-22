@@ -246,12 +246,14 @@ impl TestClusterBuilder {
             let pk_a = a.public().encode_protobuf();
             let pk_b = b.public().encode_protobuf();
             let id_a = ioi_types::app::account_id_from_key_material(
-                ioi_types::app::SignatureSuite::Ed25519,
+                // [FIX] Use SignatureSuite::ED25519
+                ioi_types::app::SignatureSuite::ED25519,
                 &pk_a,
             )
             .unwrap_or([0; 32]);
             let id_b = ioi_types::app::account_id_from_key_material(
-                ioi_types::app::SignatureSuite::Ed25519,
+                // [FIX] Use SignatureSuite::ED25519
+                ioi_types::app::SignatureSuite::ED25519,
                 &pk_b,
             )
             .unwrap_or([0; 32]);
@@ -389,12 +391,14 @@ impl TestClusterBuilder {
             let pk_a = a.validator().keypair.public().encode_protobuf();
             let pk_b = b.validator().keypair.public().encode_protobuf();
             let id_a = ioi_types::app::account_id_from_key_material(
-                ioi_types::app::SignatureSuite::Ed25519,
+                // [FIX] Use SignatureSuite::ED25519
+                ioi_types::app::SignatureSuite::ED25519,
                 &pk_a,
             )
             .unwrap_or([0; 32]);
             let id_b = ioi_types::app::account_id_from_key_material(
-                ioi_types::app::SignatureSuite::Ed25519,
+                // [FIX] Use SignatureSuite::ED25519
+                ioi_types::app::SignatureSuite::ED25519,
                 &pk_b,
             )
             .unwrap_or([0; 32]);

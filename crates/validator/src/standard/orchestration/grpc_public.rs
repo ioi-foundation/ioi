@@ -52,8 +52,6 @@ where
     pub context_wrapper: Arc<Mutex<Option<Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>>>>,
     /// Client for querying state from the Workload container.
     pub workload_client: Arc<WorkloadClient>,
-    /// The sharded mempool.
-    pub tx_pool: Arc<Mempool>,
     /// Channel to send raw transactions to the ingestion worker.
     pub tx_ingest_tx: mpsc::Sender<(TxHash, Vec<u8>)>,
 }

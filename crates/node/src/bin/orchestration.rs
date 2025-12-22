@@ -10,7 +10,8 @@ use ioi_api::validator::container::Container;
 use ioi_client::WorkloadClient;
 use ioi_consensus::util::engine_from_config;
 use ioi_crypto::sign::batch::CpuBatchVerifier;
-use ioi_crypto::sign::dilithium::DilithiumKeyPair;
+// [FIX] Update import to MldsaKeyPair
+use ioi_crypto::sign::dilithium::MldsaKeyPair;
 use ioi_execution::ExecutionMachine;
 use ioi_networking::libp2p::Libp2pSync;
 use ioi_networking::metrics as network_metrics;
@@ -27,7 +28,8 @@ use ioi_services::identity::IdentityHub;
 use ioi_services::oracle::OracleService;
 use ioi_storage::RedbEpochStore;
 use ioi_tx::unified::UnifiedTransactionModel;
-use ioi_types::config::{InitialServiceConfig, OrchestrationConfig, ValidatorRole, WorkloadConfig};
+// [FIX] Removed unused ValidatorRole
+use ioi_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
 use ioi_validator::metrics as validator_metrics;
 use ioi_validator::standard::orchestration::OrchestrationDependencies;
 use ioi_validator::standard::{
@@ -65,20 +67,16 @@ use ioi_crypto::algorithms::hash::sha256;
 
 // [NEW] Import GuardianSigner types
 use async_trait::async_trait;
-use ioi_types::{
-    app::{
-        account_id_from_key_material, AccountId, ChainTransaction, GuardianReport, SignHeader,
-        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
-    },
-    codec,
-    config::ServicePolicy,
-};
+use ioi_types::app::ChainTransaction;
+// [FIX] Added GuardianContainer back
 use ioi_validator::common::{GuardianContainer, GuardianSigner, LocalSigner, RemoteSigner};
 use ioi_validator::standard::orchestration::mempool::Mempool;
 use serde::Serialize;
-use std::collections::BTreeMap;
 use std::fmt::Debug;
-use tokio::sync::{mpsc, watch, Mutex};
+// [FIX] Re-added Mutex since it's used by OrchestrationDependencies builder implicitly via Arc<Mutex<...>>
+// actually, looking at `new` it constructs Arc<Mutex<...>> internally, but let's check usage.
+// `Arc::new(Mutex::new(...))` is used extensively.
+use tokio::sync::Mutex;
 
 #[derive(Parser, Debug)]
 struct OrchestrationOpts {
@@ -272,7 +270,7 @@ where
         };
 
     // Load optional Dilithium PQC keypair from the specified file.
-    let pqc_keypair: Option<DilithiumKeyPair> = if let Some(path) = opts.pqc_key_file.as_ref() {
+    let pqc_keypair: Option<MldsaKeyPair> = if let Some(path) = opts.pqc_key_file.as_ref() {
         let content = fs::read_to_string(path)?;
 
         #[derive(serde::Deserialize)]
@@ -293,7 +291,7 @@ where
         let sk_bytes =
             decode_hex(&private).map_err(|e| anyhow!("PQC private key hex decode failed: {e}"))?;
 
-        let kp = DilithiumKeyPair::from_bytes(&pk_bytes, &sk_bytes)
+        let kp = MldsaKeyPair::from_bytes(&pk_bytes, &sk_bytes)
             .map_err(|e| anyhow!("PQC key reconstruction failed: {e}"))?;
 
         tracing::info!(

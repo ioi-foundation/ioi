@@ -5,7 +5,8 @@ use ioi_api::lifecycle::OnEndBlock;
 use ioi_api::services::{BlockchainService, UpgradableService};
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
-use ioi_crypto::sign::{dilithium::DilithiumPublicKey, eddsa::Ed25519PublicKey};
+// [CHANGED] Use MldsaPublicKey instead of DilithiumPublicKey
+use ioi_crypto::sign::{dilithium::MldsaPublicKey, eddsa::Ed25519PublicKey};
 use ioi_types::app::{
     account_id_from_key_material, read_validator_sets, write_validator_sets, AccountId,
     ActiveKeyRecord, BootAttestation, Credential, RotationProof, SignatureSuite, ValidatorSetV1,
@@ -142,8 +143,9 @@ impl IdentityHub {
     ) -> Result<(), String> {
         use ioi_api::crypto::{SerializableKey, VerifyingKey};
 
+        // [CHANGED] Use constants for match
         match suite {
-            SignatureSuite::Ed25519 => {
+            SignatureSuite::ED25519 => {
                 // [FIX] Support both Libp2p-encoded and raw Ed25519 keys
                 if let Ok(pk) = Libp2pPublicKey::try_decode_protobuf(public_key) {
                     if pk.verify(message, signature) {
@@ -158,21 +160,19 @@ impl IdentityHub {
                     .map_err(|e| e.to_string())?;
                 pk.verify(message, &sig).map_err(|e| e.to_string())
             }
-            SignatureSuite::Dilithium2 => {
-                let pk = DilithiumPublicKey::from_bytes(public_key).map_err(|e| e.to_string())?;
-                let sig = ioi_crypto::sign::dilithium::DilithiumSignature::from_bytes(signature)
+            SignatureSuite::ML_DSA_44 => {
+                // [FIX] Use MldsaPublicKey and MldsaSignature
+                let pk = MldsaPublicKey::from_bytes(public_key).map_err(|e| e.to_string())?;
+                let sig = ioi_crypto::sign::dilithium::MldsaSignature::from_bytes(signature)
                     .map_err(|e| e.to_string())?;
                 pk.verify(message, &sig).map_err(|e| e.to_string())
             }
-            SignatureSuite::Falcon512 => {
+            SignatureSuite::FALCON_512 => {
                 // Stub for Falcon512 support
-                Err("Falcon512 verification not yet implemented".to_string())
+                Err("Falcon512 verification not yet implemented in crypto backend".to_string())
             }
-            SignatureSuite::HybridEd25519Dilithium2 => {
-                // Hybrid Scheme: Ed25519 + Dilithium2
-                // Public Key structure: [Ed25519 (32 bytes)] || [Dilithium2 (1312 bytes)]
-                // Signature structure:  [Ed25519 (64 bytes)] || [Dilithium2 (2420 bytes)]
-
+            SignatureSuite::HYBRID_ED25519_ML_DSA_44 => {
+                // Hybrid Scheme: Ed25519 + ML-DSA-44
                 const ED_PK_LEN: usize = 32;
                 const ED_SIG_LEN: usize = 64;
 
@@ -180,8 +180,8 @@ impl IdentityHub {
                     return Err("Hybrid key or signature too short".to_string());
                 }
 
-                let (ed_pk_bytes, dil_pk_bytes) = public_key.split_at(ED_PK_LEN);
-                let (ed_sig_bytes, dil_sig_bytes) = signature.split_at(ED_SIG_LEN);
+                let (ed_pk_bytes, pq_pk_bytes) = public_key.split_at(ED_PK_LEN);
+                let (ed_sig_bytes, pq_sig_bytes) = signature.split_at(ED_SIG_LEN);
 
                 // 1. Verify Classical (Ed25519)
                 let ed_pk = Ed25519PublicKey::from_bytes(ed_pk_bytes).map_err(|e| e.to_string())?;
@@ -191,18 +191,20 @@ impl IdentityHub {
                     .verify(message, &ed_sig)
                     .map_err(|e| format!("Hybrid classical fail: {}", e))?;
 
-                // 2. Verify Post-Quantum (Dilithium2)
-                let dil_pk =
-                    DilithiumPublicKey::from_bytes(dil_pk_bytes).map_err(|e| e.to_string())?;
-                let dil_sig =
-                    ioi_crypto::sign::dilithium::DilithiumSignature::from_bytes(dil_sig_bytes)
-                        .map_err(|e| e.to_string())?;
-                dil_pk
-                    .verify(message, &dil_sig)
+                // 2. Verify Post-Quantum (ML-DSA)
+                let pq_pk = MldsaPublicKey::from_bytes(pq_pk_bytes).map_err(|e| e.to_string())?;
+                let pq_sig = ioi_crypto::sign::dilithium::MldsaSignature::from_bytes(pq_sig_bytes)
+                    .map_err(|e| e.to_string())?;
+                pq_pk
+                    .verify(message, &pq_sig)
                     .map_err(|e| format!("Hybrid PQ fail: {}", e))?;
 
                 Ok(())
             }
+            _ => Err(format!(
+                "Unsupported or unknown signature suite ID: {}",
+                suite.0
+            )),
         }
     }
 
@@ -247,10 +249,18 @@ impl IdentityHub {
                 "Rotation already in progress for this account".to_string(),
             ));
         }
-        if !self.config.allow_downgrade && (proof.target_suite as u8) < (active_cred.suite as u8) {
-            return Err(TransactionError::Invalid(
-                "Cryptographic downgrade is forbidden by policy".to_string(),
-            ));
+
+        // [FIX] Correct downgrade logic.
+        // If target is PQ and active is not, it is an upgrade (ALLOWED).
+        let is_pq_upgrade =
+            proof.target_suite.is_post_quantum() && !active_cred.suite.is_post_quantum();
+
+        if !self.config.allow_downgrade && !is_pq_upgrade {
+            if proof.target_suite.0 < active_cred.suite.0 {
+                return Err(TransactionError::Invalid(
+                    "Cryptographic downgrade is forbidden by policy".to_string(),
+                ));
+            }
         }
 
         let challenge = self.rotation_challenge(state, account_id)?;

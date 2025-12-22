@@ -41,7 +41,8 @@ fn create_call_service_tx<P: Encode>(
     chain_id: ChainId,
 ) -> Result<ChainTransaction> {
     let public_key_bytes = keypair.public().encode_protobuf();
-    let account_id_hash = account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)?;
+    // [FIX] Use SignatureSuite::ED25519
+    let account_id_hash = account_id_from_key_material(SignatureSuite::ED25519, &public_key_bytes)?;
     let account_id = AccountId(account_id_hash);
 
     let payload = SystemPayload::CallService {
@@ -66,7 +67,8 @@ fn create_call_service_tx<P: Encode>(
     let signature = keypair.sign(&sign_bytes)?;
 
     tx_to_sign.signature_proof = SignatureProof {
-        suite: SignatureSuite::Ed25519,
+        // [FIX] Use SignatureSuite::ED25519
+        suite: SignatureSuite::ED25519,
         public_key: public_key_bytes,
         signature,
     };
@@ -88,7 +90,8 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
             chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            // [FIX] Use SignatureSuite::ED25519
+            allowed_target_suites: vec![SignatureSuite::ED25519],
             allow_downgrade: false,
         }))
         // --- UPDATED: Using GenesisBuilder API ---
@@ -111,7 +114,8 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
                         account_id: validator_account_id,
                         weight: 1_000_000,
                         consensus_key: ActiveKeyRecord {
-                            suite: SignatureSuite::Ed25519,
+                            // [FIX] Use SignatureSuite::ED25519
+                            suite: SignatureSuite::ED25519,
                             public_key_hash: validator_account_id_hash,
                             since_height: 0,
                         },

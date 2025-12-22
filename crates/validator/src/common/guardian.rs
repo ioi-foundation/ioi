@@ -301,7 +301,8 @@ impl GuardianContainer {
 
         // Construct attestation
         let pk_bytes = keypair.public().encode_protobuf();
-        let account_hash = account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes)
+        // [FIX] Use SignatureSuite::ED25519
+        let account_hash = account_id_from_key_material(SignatureSuite::ED25519, &pk_bytes)
             .map_err(|e| anyhow!(e))?;
 
         let mut attestation = ModelAttestation {
@@ -370,7 +371,8 @@ impl GuardianContainer {
 
         let pk_bytes = keypair.public().encode_protobuf();
         // Assuming Ed25519 for the identity key
-        let account_hash = account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes)
+        // [FIX] Use SignatureSuite::ED25519
+        let account_hash = account_id_from_key_material(SignatureSuite::ED25519, &pk_bytes)
             .map_err(|e| anyhow!(e))?;
 
         let mut attestation = BootAttestation {

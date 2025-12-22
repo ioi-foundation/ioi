@@ -68,7 +68,8 @@ impl GenesisBuilder {
     // --- Identity Helpers ---
 
     pub fn add_identity(&mut self, keypair: &Keypair) -> AccountId {
-        let suite = SignatureSuite::Ed25519;
+        // [CHANGED] Use Constant
+        let suite = SignatureSuite::ED25519;
         let pk_bytes = keypair.public().encode_protobuf();
         self.add_identity_custom(suite, &pk_bytes)
     }

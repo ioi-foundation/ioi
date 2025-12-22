@@ -43,7 +43,7 @@ fn create_system_tx(
 ) -> Result<ChainTransaction> {
     let public_key_bytes = signer.public().encode_protobuf();
     let account_id = AccountId(
-        account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes).unwrap(),
+        account_id_from_key_material(SignatureSuite::ED25519, &public_key_bytes).unwrap(),
     );
     let mut tx = SystemTransaction {
         header: ioi_types::app::SignHeader {
@@ -57,7 +57,7 @@ fn create_system_tx(
     };
     let sign_bytes = tx.to_sign_bytes().map_err(|e| anyhow!(e))?;
     tx.signature_proof = ioi_types::app::SignatureProof {
-        suite: SignatureSuite::Ed25519,
+        suite: SignatureSuite::ED25519,
         public_key: public_key_bytes,
         signature: signer.sign(&sign_bytes).unwrap(),
     };
@@ -134,7 +134,7 @@ capabilities = ["TxDecorator"]
             chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            allowed_target_suites: vec![SignatureSuite::ED25519],
             allow_downgrade: false,
         }))
         .with_initial_service(InitialServiceConfig::Governance(Default::default()))
@@ -155,7 +155,7 @@ capabilities = ["TxDecorator"]
                         account_id: validator_id,
                         weight: 1,
                         consensus_key: ActiveKeyRecord {
-                            suite: SignatureSuite::Ed25519,
+                            suite: SignatureSuite::ED25519,
                             public_key_hash: validator_id.0,
                             since_height: 0,
                         },

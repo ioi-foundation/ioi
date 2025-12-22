@@ -67,8 +67,8 @@ async fn test_dynamic_verifier_lifecycle() -> Result<()> {
     // Load WASM
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let workspace_root = manifest_dir.parent().and_then(|p| p.parent()).unwrap();
-    // Ensure we look in the correct release dir for the wasm artifact
-    let wasm_path = workspace_root.join("target/wasm32-unknown-unknown/release/mock_verifier.wasm");
+    // [FIX] Correct path: mock-verifier is built with cargo-component for wasm32-wasip1
+    let wasm_path = workspace_root.join("target/wasm32-wasip1/release/mock_verifier.wasm");
 
     if !wasm_path.exists() {
         println!(

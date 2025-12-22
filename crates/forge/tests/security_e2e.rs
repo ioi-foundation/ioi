@@ -14,7 +14,6 @@ use std::io::Write; // REMOVED: Read
 use std::path::PathBuf;
 #[cfg(feature = "validator-bins")]
 use tempfile::tempdir;
-// REMOVED: ioi_validator imports and std::fs::File
 
 // --- Imports for On-Chain Attestation Test ---
 #[cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
@@ -33,15 +32,15 @@ use ioi_types::{
         ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
-    config::{InitialServiceConfig, ServicePolicy}, // [FIX] Import ServicePolicy
-    service_configs::{MethodPermission, MigrationConfig}, // [FIX] Import MethodPermission
+    config::{InitialServiceConfig, ServicePolicy},
+    service_configs::{MethodPermission, MigrationConfig},
 };
 #[cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
 use libp2p::identity::Keypair;
 #[cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
-use std::collections::BTreeMap; // [FIX] Import BTreeMap
+use std::collections::BTreeMap;
 #[cfg(all(feature = "consensus-poa", feature = "vm-wasm", feature = "state-iavl"))]
-use std::time::{Duration, SystemTime, UNIX_EPOCH}; // [FIX] Import namespace helper
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 // -----------------------------------------------------------------------------
 // HELPER: Create Attestation Transaction
@@ -65,7 +64,7 @@ fn create_attestation_tx(
 
     let public_key = keypair.public().encode_protobuf();
     let account_id_hash =
-        account_id_from_key_material(SignatureSuite::Ed25519, &public_key).unwrap();
+        account_id_from_key_material(SignatureSuite::ED25519, &public_key).unwrap();
     let account_id = AccountId(account_id_hash);
 
     let header = SignHeader {
@@ -84,7 +83,7 @@ fn create_attestation_tx(
     let signature = keypair.sign(&sign_bytes)?;
 
     tx_to_sign.signature_proof = SignatureProof {
-        suite: SignatureSuite::Ed25519,
+        suite: SignatureSuite::ED25519,
         public_key,
         signature,
     };
@@ -290,7 +289,7 @@ async fn test_binary_integrity_attestation_flow() -> Result<()> {
             chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            allowed_target_suites: vec![SignatureSuite::ED25519],
             allow_downgrade: false,
         }))
         // --- UPDATED: Using GenesisBuilder API ---
@@ -302,29 +301,27 @@ async fn test_binary_integrity_attestation_flow() -> Result<()> {
             let account_id_hash = account_id.0;
 
             // 2. Validator Set
-            let vs = ValidatorSetV1 {
-                effective_from_height: 1,
-                total_weight: 1,
-                validators: vec![ValidatorV1 {
-                    account_id,
-                    weight: 1,
-                    consensus_key: ActiveKeyRecord {
-                        suite: SignatureSuite::Ed25519,
-                        public_key_hash: account_id_hash,
-                        since_height: 0,
-                    },
-                }],
-            };
-            let vs_blob = ValidatorSetsV1 {
-                current: vs,
+            let vs = ValidatorSetsV1 {
+                current: ValidatorSetV1 {
+                    effective_from_height: 1,
+                    total_weight: 1,
+                    validators: vec![ValidatorV1 {
+                        account_id,
+                        weight: 1,
+                        consensus_key: ActiveKeyRecord {
+                            suite: SignatureSuite::ED25519,
+                            public_key_hash: account_id_hash,
+                            since_height: 0,
+                        },
+                    }],
+                },
                 next: None,
             };
-            builder.set_validators(&vs_blob);
+            builder.set_validators(&vs);
 
             // 3. Block Timing
             let timing_params = BlockTimingParams {
                 base_interval_secs: 2, // Fast blocks
-                retarget_every_blocks: 0,
                 ..Default::default()
             };
             let timing_runtime = BlockTimingRuntime {
@@ -346,7 +343,7 @@ async fn test_binary_integrity_attestation_flow() -> Result<()> {
         // 1. Construct a valid BootAttestation
         let public_key = keypair.public().encode_protobuf();
         let account_id_hash =
-            account_id_from_key_material(SignatureSuite::Ed25519, &public_key).unwrap();
+            account_id_from_key_material(SignatureSuite::ED25519, &public_key).unwrap();
         let account_id = AccountId(account_id_hash);
 
         let dummy_meas = BinaryMeasurement {
@@ -361,13 +358,14 @@ async fn test_binary_integrity_attestation_flow() -> Result<()> {
             guardian: dummy_meas.clone(),
             orchestration: dummy_meas.clone(),
             workload: dummy_meas.clone(),
-            build_metadata: "e2e-test".to_string(),
+            build_metadata: env!("CARGO_PKG_VERSION").to_string(),
             signature: Vec::new(),
         };
 
         // Sign the attestation payload
-        let attest_sign_bytes = attestation.to_sign_bytes()?;
-        attestation.signature = keypair.sign(&attest_sign_bytes)?;
+        let sign_bytes = attestation.to_sign_bytes()?;
+        let signature = keypair.sign(&sign_bytes)?;
+        attestation.signature = signature;
 
         // 2. Wrap in Transaction
         // Nonce 0 because it's the first tx for this validator
@@ -393,7 +391,7 @@ async fn test_binary_integrity_attestation_flow() -> Result<()> {
 
         let stored_bytes = query_state_key(rpc_addr, &key)
             .await?
-            .ok_or(anyhow::anyhow!("Attestation not found in state"))?;
+            .ok_or_else(|| anyhow::anyhow!("Attestation not found in state"))?;
 
         // FIX: Map string error to anyhow
         let stored_attestation: BootAttestation =

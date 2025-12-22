@@ -15,7 +15,7 @@ use ioi_state::tree::iavl::{self, IavlProof};
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ChainId, ChainTransaction, SignHeader,
-        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction, TxHash,
+        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
     },
     codec,
 };
@@ -296,7 +296,8 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
         }
 
         let account_id = AccountId(account_id_from_key_material(
-            SignatureSuite::Ed25519,
+            // [FIX] Use SignatureSuite::ED25519
+            SignatureSuite::ED25519,
             &self.signer.public().encode_protobuf(),
         )?);
 
@@ -327,7 +328,8 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
             if let ChainTransaction::System(mut sys_tx) = tx {
                 let sign_bytes = sys_tx.to_sign_bytes().map_err(|e| anyhow!(e))?;
                 sys_tx.signature_proof = SignatureProof {
-                    suite: SignatureSuite::Ed25519,
+                    // [FIX] Use SignatureSuite::ED25519
+                    suite: SignatureSuite::ED25519,
                     public_key: self.signer.public().encode_protobuf(),
                     signature: self.signer.sign(&sign_bytes)?,
                 };

@@ -11,7 +11,8 @@ use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_client::WorkloadClient;
 // [FIX] Import the trait to make get_genesis_status available
 use ioi_api::chain::WorkloadClientApi;
-use ioi_crypto::sign::dilithium::{DilithiumKeyPair, DilithiumScheme};
+// [FIX] Updated imports to Mldsa
+use ioi_crypto::sign::dilithium::{MldsaKeyPair, MldsaScheme};
 use ioi_state::primitives::kzg::KZGParams;
 // [FIX] Import ServicePolicy and BTreeMap and ValidatorRole
 use ioi_types::config::{
@@ -90,7 +91,7 @@ impl<'a> BinaryFeatureConfig<'a> {
 
 pub struct TestValidator {
     pub keypair: identity::Keypair,
-    pub pqc_keypair: Option<DilithiumKeyPair>,
+    pub pqc_keypair: Option<MldsaKeyPair>, // [FIX] Updated type
     pub peer_id: PeerId,
     pub rpc_addr: String,
     pub workload_ipc_addr: String,
@@ -246,7 +247,8 @@ impl TestValidator {
         std::fs::create_dir_all(&certs_dir_path)?;
 
         let pqc_keypair = Some(
-            DilithiumScheme::new(ioi_crypto::security::SecurityLevel::Level2).generate_keypair(),
+            // [FIX] Updated scheme type and usage
+            MldsaScheme::new(ioi_crypto::security::SecurityLevel::Level2).generate_keypair(),
         )
         .transpose()?;
 
@@ -271,8 +273,13 @@ impl TestValidator {
 
         let pqc_key_path = config_dir_path.join("pqc_key.json");
         if let Some(kp) = pqc_keypair.as_ref() {
-            let pub_hex = hex::encode(SigningKeyPair::public_key(kp).to_bytes());
-            let priv_hex = hex::encode(SigningKeyPair::private_key(kp).to_bytes());
+            // [FIX] Explicit type annotation and usage of trait methods
+            let pub_bytes: Vec<u8> = SigningKeyPair::public_key(kp).to_bytes();
+            let priv_bytes: Vec<u8> = SigningKeyPair::private_key(kp).to_bytes();
+
+            let pub_hex = hex::encode(pub_bytes);
+            let priv_hex = hex::encode(priv_bytes);
+
             let body = serde_json::json!({ "public": pub_hex, "private": priv_hex }).to_string();
             #[cfg(unix)]
             {

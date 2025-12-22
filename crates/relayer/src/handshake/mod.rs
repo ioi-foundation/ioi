@@ -7,7 +7,6 @@ pub mod proofs;
 
 use crate::gateway::Gateway;
 use anyhow::{anyhow, Result};
-use builders::*;
 use prost::Message;
 use std::time::Duration;
 use tokio::time::sleep;

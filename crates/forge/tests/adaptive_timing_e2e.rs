@@ -22,17 +22,16 @@ use libp2p::identity::Keypair;
 use std::path::Path;
 use std::time::Duration;
 
-// Helper to create a signed Application Transaction (unchanged)
+// Helper to create a signed Application Transaction
 fn create_signed_app_tx(
     keypair: &Keypair,
     mut tx: ApplicationTransaction,
     nonce: u64,
     chain_id: ChainId,
 ) -> ChainTransaction {
-    // ... (signature logic same as before) ...
     let public_key = keypair.public().encode_protobuf();
     let account_id_hash =
-        account_id_from_key_material(SignatureSuite::Ed25519, &public_key).unwrap();
+        account_id_from_key_material(SignatureSuite::ED25519, &public_key).unwrap();
     let account_id = ioi_types::app::AccountId(account_id_hash);
 
     let header = SignHeader {
@@ -52,7 +51,7 @@ fn create_signed_app_tx(
     let signature = keypair.sign(&payload_bytes).unwrap();
 
     let proof = SignatureProof {
-        suite: SignatureSuite::Ed25519,
+        suite: SignatureSuite::ED25519,
         public_key,
         signature,
     };
@@ -78,8 +77,7 @@ async fn test_adaptive_block_timing_responds_to_load() -> Result<()> {
     // Locate the compiled contract
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let workspace_root = manifest_dir.parent().and_then(|p| p.parent()).unwrap();
-    let wasm_path =
-        workspace_root.join("target/wasm32-unknown-unknown/release/counter_contract.wasm");
+    let wasm_path = workspace_root.join("target/wasm32-wasip1/release/counter_contract.wasm");
     let counter_wasm = std::fs::read(&wasm_path).map_err(|e| {
         anyhow!(
             "Failed to read contract artifact at {:?}: {}. Ensure `build_test_artifacts()` ran.",
@@ -98,7 +96,7 @@ async fn test_adaptive_block_timing_responds_to_load() -> Result<()> {
             chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            allowed_target_suites: vec![SignatureSuite::ED25519],
             allow_downgrade: false,
         }))
         // --- CHANGED: Use the new builder API in the modifier ---
@@ -117,7 +115,7 @@ async fn test_adaptive_block_timing_responds_to_load() -> Result<()> {
                         account_id,
                         weight: 1,
                         consensus_key: ActiveKeyRecord {
-                            suite: SignatureSuite::Ed25519,
+                            suite: SignatureSuite::ED25519,
                             public_key_hash: account_id.0,
                             since_height: 0,
                         },
@@ -149,7 +147,7 @@ async fn test_adaptive_block_timing_responds_to_load() -> Result<()> {
         .build()
         .await?;
 
-    // ... (Rest of the test logic remains identical) ...
+    // Wrap the test logic in an async block to guarantee cleanup
     let test_result: Result<()> = async {
         let node = cluster.validators[0].validator();
         let rpc_addr = &node.rpc_addr;

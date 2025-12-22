@@ -3,14 +3,14 @@
 
 use anyhow::{anyhow, Result};
 use ioi_forge::testing::{
-    rpc::{get_block_by_height_resilient, get_chain_height, submit_transaction_no_wait},
+    rpc::{get_block_by_height_resilient, get_chain_height, submit_transaction},
     wait_for_height, TestCluster,
 };
 use ioi_services::governance::StoreModuleParams;
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
-        BlockTimingRuntime, ChainTransaction, SignHeader, SignatureProof, SignatureSuite,
+        BlockTimingRuntime, ChainId, ChainTransaction, SignHeader, SignatureProof, SignatureSuite,
         SystemPayload, SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
@@ -40,7 +40,7 @@ impl TestNet {
                 chain_id: 1,
                 grace_period_blocks: 5,
                 accept_staged_during_grace: true,
-                allowed_target_suites: vec![SignatureSuite::Ed25519],
+                allowed_target_suites: vec![SignatureSuite::ED25519],
                 allow_downgrade: false,
             }))
             .with_initial_service(InitialServiceConfig::Governance(GovernanceParams::default()))
@@ -68,7 +68,7 @@ impl TestNet {
                             account_id: validator_account_id,
                             weight: 1,
                             consensus_key: ActiveKeyRecord {
-                                suite: SignatureSuite::Ed25519,
+                                suite: SignatureSuite::ED25519,
                                 public_key_hash: validator_hash,
                                 since_height: 0,
                             },
@@ -130,12 +130,16 @@ impl TestNet {
 
 #[tokio::test]
 async fn time_sensitive_tx_precheck_equals_execution() -> Result<()> {
+    // [FIX] Slow down block production to ensure tx ingestion has time to complete
+    // before the consensus engine produces the next block.
+    std::env::set_var("ORCH_BLOCK_INTERVAL_SECS", "2");
+
     let mut net = TestNet::setup().await;
     let validator_rpc_addr = net.cluster.validators[0].validator().rpc_addr.clone();
     let user_keypair = net.user_keypair.clone();
     let user_account_id = AccountId(
         account_id_from_key_material(
-            SignatureSuite::Ed25519,
+            SignatureSuite::ED25519,
             &user_keypair.public().encode_protobuf(),
         )
         .unwrap(),
@@ -190,7 +194,7 @@ async fn time_sensitive_tx_precheck_equals_execution() -> Result<()> {
     let signature = user_keypair.sign(&sign_bytes)?;
 
     system_tx.signature_proof = SignatureProof {
-        suite: SignatureSuite::Ed25519,
+        suite: SignatureSuite::ED25519,
         public_key: user_keypair.public().encode_protobuf(),
         signature,
     };
@@ -199,7 +203,9 @@ async fn time_sensitive_tx_precheck_equals_execution() -> Result<()> {
     net.nonce += 1;
 
     println!("Submitting transaction...");
-    submit_transaction_no_wait(&validator_rpc_addr, &tx).await?;
+    // [FIX] Use blocking submit to ensure it is committed before we look for it.
+    // This prevents the race where we fetch block H+1 before the tx is included.
+    submit_transaction(&validator_rpc_addr, &tx).await?;
 
     let target_height = initial_height + 1;
     println!("Waiting for height {}...", target_height);

@@ -7,8 +7,8 @@
 use anyhow::{anyhow, Result};
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_crypto::security::SecurityLevel;
-use ioi_crypto::sign::dilithium::{DilithiumKeyPair, DilithiumScheme};
-use ioi_crypto::sign::eddsa::Ed25519KeyPair;
+// [FIX] Update to Mldsa types
+use ioi_crypto::sign::{dilithium::MldsaKeyPair, dilithium::MldsaScheme, eddsa::Ed25519KeyPair};
 use ioi_forge::testing::{
     add_genesis_identity_custom, build_test_artifacts, rpc::query_state_key, submit_transaction,
     wait_for_height, TestCluster,
@@ -26,7 +26,6 @@ use ioi_types::{
     keys::{GOVERNANCE_PROPOSAL_KEY_PREFIX, GOVERNANCE_VOTE_KEY_PREFIX},
     service_configs::MigrationConfig,
 };
-// [FIX] Removed unused libp2p::identity import
 use libp2p::identity::Keypair;
 use parity_scale_codec::Encode;
 use std::time::Duration;
@@ -53,7 +52,7 @@ impl TestSigner for Ed25519KeyPair {
         AccountId(account_hash)
     }
     fn suite(&self) -> SignatureSuite {
-        SignatureSuite::Ed25519
+        SignatureSuite::ED25519
     }
     fn libp2p_public_bytes(&self) -> Vec<u8> {
         let pk_bytes = self.public_key().to_bytes();
@@ -64,7 +63,8 @@ impl TestSigner for Ed25519KeyPair {
     }
 }
 
-impl TestSigner for DilithiumKeyPair {
+// [FIX] Update to MldsaKeyPair
+impl TestSigner for MldsaKeyPair {
     fn public_bytes(&self) -> Vec<u8> {
         SigningKeyPair::public_key(self).to_bytes()
     }
@@ -77,7 +77,8 @@ impl TestSigner for DilithiumKeyPair {
         AccountId(account_hash)
     }
     fn suite(&self) -> SignatureSuite {
-        SignatureSuite::Dilithium2
+        // [FIX] Use SignatureSuite::ML_DSA_44
+        SignatureSuite::ML_DSA_44
     }
     fn libp2p_public_bytes(&self) -> Vec<u8> {
         self.public_bytes()
@@ -130,7 +131,8 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
     // 1. SETUP
     build_test_artifacts();
     let ed25519_key = Ed25519KeyPair::generate().unwrap();
-    let dilithium_scheme = DilithiumScheme::new(SecurityLevel::Level2);
+    // [FIX] Use MldsaScheme
+    let dilithium_scheme = MldsaScheme::new(SecurityLevel::Level2);
     let dilithium_key = dilithium_scheme.generate_keypair().unwrap();
     let account_id = ed25519_key.account_id();
     let mut nonce = 0;
@@ -148,10 +150,11 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
         .with_state_tree("IAVL")
         .with_chain_id(chain_id.into())
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
-            grace_period_blocks,
             chain_id: chain_id.into(),
+            grace_period_blocks,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519, SignatureSuite::Dilithium2],
+            // [FIX] Use Constants
+            allowed_target_suites: vec![SignatureSuite::ED25519, SignatureSuite::ML_DSA_44],
             allow_downgrade: false,
         }))
         .with_initial_service(InitialServiceConfig::Governance(Default::default()))
@@ -160,7 +163,8 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
             // Setup identity for the validator using custom helper to control suite/bytes directly
             let validator_account_id = add_genesis_identity_custom(
                 builder,
-                SignatureSuite::Ed25519,
+                // [FIX] Use Constant
+                SignatureSuite::ED25519,
                 &validator_keypair.public().encode_protobuf(),
             );
 
@@ -179,7 +183,8 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
                 account_id: validator_account_id,
                 weight: initial_stake,
                 consensus_key: ActiveKeyRecord {
-                    suite: SignatureSuite::Ed25519,
+                    // [FIX] Use Constant
+                    suite: SignatureSuite::ED25519,
                     public_key_hash: validator_pk_hash,
                     since_height: 0,
                 },
@@ -245,13 +250,13 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
             ioi_crypto::algorithms::hash::sha256(&preimage).unwrap()
         };
         
-        // [FIX] RotationProof is now correctly imported
         let rotation_proof = RotationProof {
             old_public_key: ed25519_key.public_bytes(),
             old_signature: TestSigner::sign(&ed25519_key, &challenge),
             new_public_key: dilithium_key.public_bytes(),
             new_signature: TestSigner::sign(&dilithium_key, &challenge),
-            target_suite: SignatureSuite::Dilithium2,
+            // [FIX] Use SignatureSuite::ML_DSA_44
+            target_suite: SignatureSuite::ML_DSA_44,
             l2_location: None,
         };
         let rotate_tx = create_call_service_tx(
@@ -285,7 +290,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
             chain_id,
         )?;
         submit_transaction(rpc_addr, &old_key_tx).await?;
-        nonce += 1;
+        nonce += 1; // nonce is now 2
 
         wait_for_height(rpc_addr, 3, Duration::from_secs(20)).await?;
 
@@ -303,7 +308,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
             chain_id,
         )?;
         submit_transaction(rpc_addr, &new_key_tx).await?;
-        nonce += 1;
+        nonce += 1; // nonce is now 3
 
         wait_for_height(rpc_addr, 4, Duration::from_secs(20)).await?;
 
@@ -323,7 +328,11 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
             nonce,
             chain_id,
         )?;
-        let _ = submit_transaction(rpc_addr, &old_key_tx).await;
+        
+        // [CHANGED] Expect rejection for old key
+        let result_old = submit_transaction(rpc_addr, &old_key_tx).await;
+        assert!(result_old.is_err(), "Old key transaction should be rejected post-grace");
+        // Nonce was NOT consumed by the rejected tx, so we keep `nonce` as is for the next try.
 
         // 5b. Submit tx with NEW, ACTIVE key with the same nonce. This should succeed.
         let new_key_tx = create_call_service_tx(
@@ -333,12 +342,14 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
             "vote@v1",
             VoteParams {
                 proposal_id: 1,
-                option: VoteOption::NoWithVeto, // Use a different vote to ensure state changes
+                option: VoteOption::NoWithVeto, 
             },
-            nonce,
+            nonce, // Reuse nonce
             chain_id,
         )?;
-        submit_transaction(rpc_addr, &new_key_tx).await?;
+        submit_transaction(rpc_addr, &new_key_tx).await
+            .map_err(|e| anyhow!("New key tx failed: {}", e))?;
+            
         nonce += 1;
 
         // 5c. VERIFY THE STATE

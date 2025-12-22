@@ -31,8 +31,9 @@ fn create_signed_app_tx(
     let public_key = keypair.public().encode_protobuf();
 
     // Use the canonical function to derive the account ID
+    // [FIX] Use SignatureSuite::ED25519
     let account_id_hash =
-        account_id_from_key_material(SignatureSuite::Ed25519, &public_key).unwrap();
+        account_id_from_key_material(SignatureSuite::ED25519, &public_key).unwrap();
     let account_id = ioi_types::app::AccountId(account_id_hash);
 
     let header = SignHeader {
@@ -53,7 +54,8 @@ fn create_signed_app_tx(
     let signature = keypair.sign(&payload_bytes).unwrap();
 
     let proof = SignatureProof {
-        suite: SignatureSuite::Ed25519,
+        // [FIX] Use SignatureSuite::ED25519
+        suite: SignatureSuite::ED25519,
         public_key,
         signature,
     };
@@ -89,6 +91,8 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let workspace_root = manifest_dir.parent().and_then(|p| p.parent()).unwrap();
 
+    // [FIX] Target dir for component model is wasm32-wasip1
+    // [FIX] Rust normalizes package names with hyphens to underscores in filenames
     let wasm_path = workspace_root.join("target/wasm32-wasip1/release/counter_contract.wasm");
 
     let counter_wasm = std::fs::read(&wasm_path).map_err(|e| {
@@ -110,14 +114,15 @@ async fn test_contract_deployment_and_execution_lifecycle() -> Result<()> {
             chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            // [FIX] Use SignatureSuite::ED25519
+            allowed_target_suites: vec![SignatureSuite::ED25519],
             allow_downgrade: false,
         }))
         // --- UPDATED: Using GenesisBuilder API ---
         .with_genesis_modifier(|builder, keys| {
             let keypair = &keys[0];
-            let suite = SignatureSuite::Ed25519;
-            let pk_bytes = keypair.public().encode_protobuf();
+            // [FIX] Use SignatureSuite::ED25519
+            let suite = SignatureSuite::ED25519;
 
             // A. Register Identity using the builder helper
             // This handles Credentials, ActiveKeyRecord, and PubKey mapping automatically.

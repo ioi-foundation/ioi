@@ -1,7 +1,8 @@
 // Path: crates/crypto/src/sign/batch.rs
 
 use crate::error::CryptoError;
-use crate::sign::dilithium::DilithiumPublicKey;
+// [FIX] Updated import from DilithiumPublicKey to MldsaPublicKey
+use crate::sign::dilithium::MldsaPublicKey;
 use crate::sign::eddsa::Ed25519PublicKey;
 use ioi_api::crypto::{BatchVerifier, SerializableKey, VerifyingKey};
 use ioi_types::app::SignatureSuite;
@@ -25,33 +26,34 @@ impl CpuBatchVerifier {
         suite: SignatureSuite,
     ) -> bool {
         match suite {
-            SignatureSuite::Ed25519 => {
+            // [FIX] Updated constant name
+            SignatureSuite::ED25519 => {
                 // Try Libp2p first (protobuf encoded)
                 if let Ok(pk) = Libp2pPublicKey::try_decode_protobuf(public_key) {
                     return pk.verify(message, signature);
                 }
                 // Try Raw Ed25519
                 if let Ok(pk) = Ed25519PublicKey::from_bytes(public_key) {
-                    if let Ok(sig) =
-                        crate::sign::eddsa::Ed25519Signature::from_bytes(signature)
-                    {
+                    if let Ok(sig) = crate::sign::eddsa::Ed25519Signature::from_bytes(signature) {
                         return pk.verify(message, &sig).is_ok();
                     }
                 }
                 false
             }
-            SignatureSuite::Dilithium2 => {
-                if let Ok(pk) = DilithiumPublicKey::from_bytes(public_key) {
-                    if let Ok(sig) =
-                        crate::sign::dilithium::DilithiumSignature::from_bytes(signature)
-                    {
+            // [FIX] Updated constant name and implementation type (Mldsa)
+            SignatureSuite::ML_DSA_44 => {
+                if let Ok(pk) = MldsaPublicKey::from_bytes(public_key) {
+                    // [FIX] Use MldsaSignature
+                    if let Ok(sig) = crate::sign::dilithium::MldsaSignature::from_bytes(signature) {
                         return pk.verify(message, &sig).is_ok();
                     }
                 }
                 false
             }
-            SignatureSuite::Falcon512 => false, // Not implemented
-            SignatureSuite::HybridEd25519Dilithium2 => {
+            // [FIX] Updated constant name
+            SignatureSuite::FALCON_512 => false, // Not implemented
+            // [FIX] Updated constant name
+            SignatureSuite::HYBRID_ED25519_ML_DSA_44 => {
                 const ED_PK_LEN: usize = 32;
                 const ED_SIG_LEN: usize = 64;
 
@@ -64,20 +66,35 @@ impl CpuBatchVerifier {
 
                 // Verify Ed25519 part
                 let ed_valid = if let Ok(pk) = Ed25519PublicKey::from_bytes(ed_pk_bytes) {
-                    if let Ok(sig) = crate::sign::eddsa::Ed25519Signature::from_bytes(ed_sig_bytes) {
+                    if let Ok(sig) = crate::sign::eddsa::Ed25519Signature::from_bytes(ed_sig_bytes)
+                    {
                         pk.verify(message, &sig).is_ok()
-                    } else { false }
-                } else { false };
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                };
 
-                if !ed_valid { return false; }
+                if !ed_valid {
+                    return false;
+                }
 
-                // Verify Dilithium part
-                if let Ok(pk) = DilithiumPublicKey::from_bytes(dil_pk_bytes) {
-                     if let Ok(sig) = crate::sign::dilithium::DilithiumSignature::from_bytes(dil_sig_bytes) {
+                // Verify ML-DSA part
+                // [FIX] Use MldsaPublicKey and MldsaSignature
+                if let Ok(pk) = MldsaPublicKey::from_bytes(dil_pk_bytes) {
+                    if let Ok(sig) =
+                        crate::sign::dilithium::MldsaSignature::from_bytes(dil_sig_bytes)
+                    {
                         pk.verify(message, &sig).is_ok()
-                    } else { false }
-                } else { false }
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
             }
+            _ => false, // Fallback for unknown IDs
         }
     }
 }
