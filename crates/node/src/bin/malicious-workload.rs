@@ -231,6 +231,9 @@ fn check_features() {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // [FIX] Install default crypto provider for rustls 0.23+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
     check_features();
     env_logger::builder()
         .filter_level(log::LevelFilter::Info)

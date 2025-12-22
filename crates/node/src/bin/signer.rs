@@ -169,6 +169,9 @@ fn perform_sign(ctx: &mut SignerContext, payload_hash_hex: String) -> Result<Sig
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // [FIX] Install default crypto provider for rustls 0.23+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
     if std::env::var("RUST_LOG").is_err() {
         std::env::set_var("RUST_LOG", "info");
     }
