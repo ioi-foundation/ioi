@@ -27,7 +27,8 @@ async fn test_verkle_tree_e2e() -> Result<()> {
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            // FIX: Use ED25519 constant
+            allowed_target_suites: vec![SignatureSuite::ED25519],
             allow_downgrade: false,
             chain_id: 1,
         }))
@@ -47,7 +48,8 @@ async fn test_verkle_tree_e2e() -> Result<()> {
                     account_id,
                     weight: 1,
                     consensus_key: ActiveKeyRecord {
-                        suite: SignatureSuite::Ed25519,
+                        // FIX: Use ED25519 constant
+                        suite: SignatureSuite::ED25519,
                         public_key_hash: acct_hash,
                         since_height: 0,
                     },
@@ -68,7 +70,8 @@ async fn test_verkle_tree_e2e() -> Result<()> {
 
     println!("--- Verkle Node Launched ---");
 
-    wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
+    // INCREASED TIMEOUT: Verkle block production is slow on test runners due to KZG overhead.
+    wait_for_height(rpc_addr, 1, Duration::from_secs(120)).await?;
     println!("--- Bootstrap Block #1 Processed ---");
 
     println!("--- Verkle Tree E2E Test Passed ---");

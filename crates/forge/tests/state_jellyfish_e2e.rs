@@ -10,11 +10,10 @@ use anyhow::{anyhow, Result};
 use ioi_forge::testing::{build_test_artifacts, rpc::query_state_key, TestCluster};
 use ioi_types::{
     app::{
-        account_id_from_key_material, ActiveKeyRecord, ChainStatus, SignatureSuite,
-        ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        ActiveKeyRecord, ChainStatus, SignatureSuite, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
-    keys::{STATUS_KEY, VALIDATOR_SET_KEY},
+    keys::STATUS_KEY,
 };
 use tokio::time::{sleep, Duration};
 
@@ -44,7 +43,8 @@ async fn test_jellyfish_merkle_tree_e2e() -> Result<()> {
                     account_id,
                     weight: 1,
                     consensus_key: ActiveKeyRecord {
-                        suite: SignatureSuite::Ed25519,
+                        // FIX: Use ED25519 constant
+                        suite: SignatureSuite::ED25519,
                         public_key_hash: acct_hash,
                         since_height: 0,
                     },
@@ -65,7 +65,7 @@ async fn test_jellyfish_merkle_tree_e2e() -> Result<()> {
     // processing state updates (Apply Batch) and computing roots.
     let node_guard = &cluster.validators[0];
     let rpc_addr = &node_guard.validator().rpc_addr;
-    
+
     println!("Waiting for block production...");
     let mut ok = false;
     for _ in 0..20 {

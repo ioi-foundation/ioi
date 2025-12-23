@@ -38,13 +38,13 @@ use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
         BlockTimingRuntime, ChainTransaction, SignatureSuite, SystemPayload, SystemTransaction,
-        ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     config::InitialServiceConfig,
     keys::ACCOUNT_NONCE_PREFIX,
     service_configs::MigrationConfig,
 };
-// [FIX] Removed unused Keypair import. We use it from builder lambda params.
+use libp2p::identity::Keypair;
 use prost::Message;
 use reqwest::Client;
 use serde_json::json;
@@ -186,7 +186,8 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
             chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            // FIX: Use ED25519 constant
+            allowed_target_suites: vec![SignatureSuite::ED25519],
             allow_downgrade: false,
         }))
         .with_initial_service(InitialServiceConfig::Ibc(ioi_types::config::IbcConfig {
@@ -215,7 +216,8 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                             account_id: validator_account_id,
                             weight: 1,
                             consensus_key: ActiveKeyRecord {
-                                suite: SignatureSuite::Ed25519,
+                                // FIX: Use ED25519 constant
+                                suite: SignatureSuite::ED25519,
                                 public_key_hash: account_id_hash,
                                 since_height: 0,
                             },
@@ -410,7 +412,8 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
 
         let validator_key = &node.keypair;
         let validator_account_id = AccountId(account_id_from_key_material(
-            SignatureSuite::Ed25519,
+            // FIX: Use ED25519 constant
+            SignatureSuite::ED25519,
             &validator_key.public().encode_protobuf(),
         )?);
 
@@ -466,7 +469,8 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
             let sign_bytes = sys.to_sign_bytes().map_err(|e| anyhow!(e))?;
             let signature = validator_key.sign(&sign_bytes)?;
             sys.signature_proof = ioi_types::app::SignatureProof {
-                suite: SignatureSuite::Ed25519,
+                // FIX: Use ED25519 constant
+                suite: SignatureSuite::ED25519,
                 public_key: validator_key.public().encode_protobuf(),
                 signature,
             };

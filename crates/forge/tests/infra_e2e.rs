@@ -11,12 +11,10 @@ use axum::{routing::get, serve, Router};
 use ioi_api::chain::WorkloadClientApi;
 use ioi_client::WorkloadClient;
 use ioi_forge::testing::{
-    build_test_artifacts, // Added add_genesis_identity
+    build_test_artifacts,
     genesis::GenesisBuilder,
     rpc::{self, submit_transaction},
-    wait_for_height,
-    wait_for_pending_oracle_request,
-    TestCluster,
+    wait_for_height, wait_for_pending_oracle_request, TestCluster,
 };
 use ioi_types::{
     app::{
@@ -26,7 +24,6 @@ use ioi_types::{
     },
     codec,
     config::{InitialServiceConfig, OracleParams},
-    // [FIX] Removed unused BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY
     service_configs::MigrationConfig,
 };
 use parity_scale_codec::Encode;
@@ -66,7 +63,8 @@ fn create_signed_system_tx(
 ) -> Result<ChainTransaction> {
     let public_key_bytes = keypair.public().encode_protobuf();
     let account_id_hash =
-        ioi_types::app::account_id_from_key_material(SignatureSuite::Ed25519, &public_key_bytes)?;
+        // FIX: Ed25519 -> ED25519
+        ioi_types::app::account_id_from_key_material(SignatureSuite::ED25519, &public_key_bytes)?;
     let account_id = AccountId(account_id_hash);
 
     let header = SignHeader {
@@ -85,7 +83,8 @@ fn create_signed_system_tx(
     let signature = keypair.sign(&sign_bytes)?;
 
     tx_to_sign.signature_proof = SignatureProof {
-        suite: SignatureSuite::Ed25519,
+        // FIX: Ed25519 -> ED25519
+        suite: SignatureSuite::ED25519,
         public_key: public_key_bytes,
         signature,
     };
@@ -122,7 +121,8 @@ async fn test_metrics_endpoint() -> Result<()> {
             chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![ioi_types::app::SignatureSuite::Ed25519],
+            // FIX: Ed25519 -> ED25519
+            allowed_target_suites: vec![ioi_types::app::SignatureSuite::ED25519],
             allow_downgrade: false,
         }));
 
@@ -143,7 +143,8 @@ async fn test_metrics_endpoint() -> Result<()> {
                         validators: vec![ValidatorV1 {
                             account_id,
                             weight: 1,
-                            consensus_key: ActiveKeyRecord { suite: SignatureSuite::Ed25519, public_key_hash: account_hash, since_height: 0 },
+                            // FIX: Ed25519 -> ED25519
+                            consensus_key: ActiveKeyRecord { suite: SignatureSuite::ED25519, public_key_hash: account_hash, since_height: 0 },
                         }],
                     };
                     let vs_blob = ValidatorSetsV1 { current: vs, next: None };
@@ -182,7 +183,8 @@ async fn test_metrics_endpoint() -> Result<()> {
                         validators: vec![ValidatorV1 {
                             account_id,
                             weight: initial_stake,
-                            consensus_key: ActiveKeyRecord { suite: SignatureSuite::Ed25519, public_key_hash: account_hash, since_height: 0 },
+                            // FIX: Ed25519 -> ED25519
+                            consensus_key: ActiveKeyRecord { suite: SignatureSuite::ED25519, public_key_hash: account_hash, since_height: 0 },
                         }],
                     };
                     let vs_blob = ValidatorSetsV1 { current: vs, next: None };
@@ -250,14 +252,15 @@ async fn test_storage_crash_recovery() -> Result<()> {
             chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![ioi_types::app::SignatureSuite::Ed25519],
+            // FIX: Ed25519 -> ED25519
+            allowed_target_suites: vec![ioi_types::app::SignatureSuite::ED25519],
             allow_downgrade: false,
         }))
         // --- UPDATED: Using GenesisBuilder API ---
         .with_genesis_modifier(|builder, keys| {
             let keypair = &keys[0];
-            let suite = SignatureSuite::Ed25519;
-            // [FIX] Removed unused pk_bytes
+            // FIX: Ed25519 -> ED25519
+            let suite = SignatureSuite::ED25519;
 
             // 1. Identity
             let account_id = builder.add_identity(keypair);
@@ -440,7 +443,8 @@ async fn test_gc_respects_pinned_epochs() -> Result<()> {
                     account_id,
                     weight: 1,
                     consensus_key: ActiveKeyRecord {
-                        suite: SignatureSuite::Ed25519,
+                        // FIX: Use ED25519 constant
+                        suite: SignatureSuite::ED25519,
                         public_key_hash: acct_hash,
                         since_height: 0,
                     },
@@ -596,7 +600,8 @@ async fn test_storage_soak_test() -> Result<()> {
                     account_id,
                     weight: 1,
                     consensus_key: ActiveKeyRecord {
-                        suite: SignatureSuite::Ed25519,
+                        // FIX: Use ED25519 constant
+                        suite: SignatureSuite::ED25519,
                         public_key_hash: acct_hash,
                         since_height: 0,
                     },
