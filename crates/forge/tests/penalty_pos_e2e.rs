@@ -2,7 +2,6 @@
 #![cfg(all(feature = "consensus-pos", feature = "vm-wasm"))]
 
 use anyhow::{anyhow, Result};
-// [FIX] Import WorkloadClientApi trait
 use ioi_api::chain::WorkloadClientApi;
 use ioi_client::WorkloadClient;
 use ioi_forge::testing::{
@@ -23,6 +22,7 @@ use ioi_types::{
     service_configs::{GovernanceParams, MigrationConfig},
 };
 use libp2p::identity::Keypair;
+use std::collections::BTreeMap;
 use std::time::Duration;
 
 // Helper function to create a signed system transaction
@@ -57,7 +57,7 @@ fn create_report_tx(
 
     let reporter_pk_bytes = reporter_key.public().encode_protobuf();
     let reporter_account_hash =
-        account_id_from_key_material(SignatureSuite::Ed25519, &reporter_pk_bytes)?;
+        account_id_from_key_material(SignatureSuite::ED25519, &reporter_pk_bytes)?;
     let reporter_account_id = AccountId(reporter_account_hash);
 
     let header = SignHeader {
@@ -77,7 +77,7 @@ fn create_report_tx(
     let signature = reporter_key.sign(&sign_bytes)?;
 
     tx_to_sign.signature_proof = SignatureProof {
-        suite: SignatureSuite::Ed25519,
+        suite: SignatureSuite::ED25519,
         public_key: reporter_pk_bytes,
         signature,
     };
@@ -174,7 +174,7 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
             chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            allowed_target_suites: vec![SignatureSuite::ED25519],
             allow_downgrade: false,
         }))
         .with_initial_service(InitialServiceConfig::Governance(GovernanceParams::default()))
@@ -193,7 +193,7 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
                         account_id,
                         weight: initial_stake,
                         consensus_key: ActiveKeyRecord {
-                            suite: SignatureSuite::Ed25519,
+                            suite: SignatureSuite::ED25519,
                             public_key_hash: account_id_hash,
                             since_height: 0,
                         },
@@ -228,12 +228,10 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
             builder.set_block_timing(&timing_params, &timing_runtime);
 
             // 4. Initialize Nonces
-            // The previous manual code inserted nonce 0.
-            // Although the system defaults to 0 if missing, we preserve this behavior.
             for keypair in keys {
                 let pk_bytes = keypair.public().encode_protobuf();
                 let account_id_hash =
-                    account_id_from_key_material(SignatureSuite::Ed25519, &pk_bytes).unwrap();
+                    account_id_from_key_material(SignatureSuite::ED25519, &pk_bytes).unwrap();
                 let account_id = AccountId(account_id_hash);
 
                 let nonce_key = [ACCOUNT_NONCE_PREFIX, account_id.as_ref()].concat();
@@ -265,12 +263,12 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
 
         let offender_pk_bytes = offender.validator().keypair.public().encode_protobuf();
         let offender_account_id_hash =
-            account_id_from_key_material(SignatureSuite::Ed25519, &offender_pk_bytes)?;
+            account_id_from_key_material(SignatureSuite::ED25519, &offender_pk_bytes)?;
         let offender_account_id = AccountId(offender_account_id_hash);
 
         let reporter_pk_bytes = reporter.validator().keypair.public().encode_protobuf();
         let reporter_account_hash =
-            account_id_from_key_material(SignatureSuite::Ed25519, &reporter_pk_bytes)?;
+            account_id_from_key_material(SignatureSuite::ED25519, &reporter_pk_bytes)?;
         let reporter_account_id = AccountId(reporter_account_hash);
 
         let probe_ts = get_chain_timestamp(rpc_addr_reporter).await?;
@@ -321,7 +319,6 @@ async fn test_pos_slashing_and_replay_protection() -> Result<()> {
         println!("Waiting to confirm no double-slashing occurs and chain remains live...");
         wait_for_height(rpc_addr_reporter, 3, Duration::from_secs(30)).await?;
 
-        // [FIX] Explicit error type for map_err to help type inference
         let final_offender_stake = reporter_client
             .get_staked_validators()
             .await

@@ -7,17 +7,14 @@
 ))]
 
 use anyhow::{anyhow, Result};
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use ioi_forge::testing::{build_test_artifacts, rpc::query_state_key, TestCluster};
 use ioi_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainStatus, SignatureSuite,
-        ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        ActiveKeyRecord, ChainStatus, SignatureSuite, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
-    keys::{STATUS_KEY, VALIDATOR_SET_KEY},
+    keys::STATUS_KEY,
 };
-use serde_json::json;
 use tokio::time::{sleep, Duration};
 
 #[tokio::test]
@@ -46,7 +43,8 @@ async fn test_iavl_tree_e2e() -> Result<()> {
                     account_id,
                     weight: 1,
                     consensus_key: ActiveKeyRecord {
-                        suite: SignatureSuite::Ed25519,
+                        // FIX: Use ED25519 constant
+                        suite: SignatureSuite::ED25519,
                         public_key_hash: acct_hash,
                         since_height: 0,
                     },

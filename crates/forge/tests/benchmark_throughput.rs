@@ -82,7 +82,8 @@ fn create_transfer_tx(
             input_data,
             gas_limit,
             signature_proof: SignatureProof {
-                suite: SignatureSuite::Ed25519,
+                // FIX: Use ED25519 constant
+                suite: SignatureSuite::ED25519,
                 public_key,
                 signature,
             },
@@ -113,7 +114,8 @@ async fn test_benchmark_100k_throughput() -> Result<()> {
     for _ in 0..NUM_ACCOUNTS {
         let key = Keypair::generate_ed25519();
         let pk = key.public().encode_protobuf();
-        let id = AccountId(account_id_from_key_material(SignatureSuite::Ed25519, &pk)?);
+        // FIX: Use ED25519 constant
+        let id = AccountId(account_id_from_key_material(SignatureSuite::ED25519, &pk)?);
         accounts.push((key, id));
     }
 
@@ -145,7 +147,8 @@ async fn test_benchmark_100k_throughput() -> Result<()> {
                         account_id: val_id,
                         weight: 1,
                         consensus_key: ActiveKeyRecord {
-                            suite: SignatureSuite::Ed25519,
+                            // FIX: Use ED25519 constant
+                            suite: SignatureSuite::ED25519,
                             public_key_hash: val_id.0,
                             since_height: 0,
                         },

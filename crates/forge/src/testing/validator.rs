@@ -7,14 +7,11 @@ use super::{
 use crate::testing::signing_oracle::SigningOracleGuard;
 use anyhow::{anyhow, Result};
 use futures_util::StreamExt;
+use ioi_api::chain::WorkloadClientApi;
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_client::WorkloadClient;
-// [FIX] Import the trait to make get_genesis_status available
-use ioi_api::chain::WorkloadClientApi;
-// [FIX] Updated imports to Mldsa
 use ioi_crypto::sign::dilithium::{MldsaKeyPair, MldsaScheme};
 use ioi_state::primitives::kzg::KZGParams;
-// [FIX] Import ServicePolicy and BTreeMap and ValidatorRole
 use ioi_types::config::{
     CommitmentSchemeType, ConsensusType, InitialServiceConfig, OrchestrationConfig, ServicePolicy,
     StateTreeType, ValidatorRole, VmFuelCosts, WorkloadConfig,
@@ -31,7 +28,7 @@ use tokio::sync::{broadcast, Mutex};
 use tokio::task::JoinHandle;
 use tokio::time::Duration;
 
-const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(30);
+const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(120);
 
 // ... BinaryFeatureConfig (unchanged) ...
 struct BinaryFeatureConfig<'a> {
@@ -54,7 +51,7 @@ impl<'a> BinaryFeatureConfig<'a> {
             "IAVL" => "state-iavl",
             "SparseMerkle" => "state-sparse-merkle",
             "Verkle" => "state-verkle",
-            "Jellyfish" => "state-jellyfish", // [NEW]
+            "Jellyfish" => "state-jellyfish",
             other => return Err(anyhow!("Unsupported test state tree: {}", other)),
         };
 
@@ -91,7 +88,7 @@ impl<'a> BinaryFeatureConfig<'a> {
 
 pub struct TestValidator {
     pub keypair: identity::Keypair,
-    pub pqc_keypair: Option<MldsaKeyPair>, // [FIX] Updated type
+    pub pqc_keypair: Option<MldsaKeyPair>,
     pub peer_id: PeerId,
     pub rpc_addr: String,
     pub workload_ipc_addr: String,
@@ -246,11 +243,9 @@ impl TestValidator {
         let certs_dir_path = temp_dir.path().join("certs");
         std::fs::create_dir_all(&certs_dir_path)?;
 
-        let pqc_keypair = Some(
-            // [FIX] Updated scheme type and usage
-            MldsaScheme::new(ioi_crypto::security::SecurityLevel::Level2).generate_keypair(),
-        )
-        .transpose()?;
+        let pqc_keypair =
+            Some(MldsaScheme::new(ioi_crypto::security::SecurityLevel::Level2).generate_keypair())
+                .transpose()?;
 
         let p2p_port = portpicker::pick_unused_port().unwrap_or(base_port);
         let rpc_port = portpicker::pick_unused_port().unwrap_or(base_port + 1);
@@ -273,7 +268,6 @@ impl TestValidator {
 
         let pqc_key_path = config_dir_path.join("pqc_key.json");
         if let Some(kp) = pqc_keypair.as_ref() {
-            // [FIX] Explicit type annotation and usage of trait methods
             let pub_bytes: Vec<u8> = SigningKeyPair::public_key(kp).to_bytes();
             let priv_bytes: Vec<u8> = SigningKeyPair::private_key(kp).to_bytes();
 
@@ -309,7 +303,7 @@ impl TestValidator {
             "IAVL" => StateTreeType::IAVL,
             "SparseMerkle" => StateTreeType::SparseMerkle,
             "Verkle" => StateTreeType::Verkle,
-            "Jellyfish" => StateTreeType::Jellyfish, // [NEW]
+            "Jellyfish" => StateTreeType::Jellyfish,
             _ => return Err(anyhow!("Unsupported state tree type: {}", state_tree_type)),
         };
 
@@ -352,6 +346,7 @@ impl TestValidator {
             runtimes: vec!["WASM".to_string()],
             state_tree: state_tree_enum,
             commitment_scheme: commitment_scheme_enum,
+            // FIX: Use the `consensus_enum` variable instead of the non-existent `config`
             consensus_type: consensus_enum,
             genesis_file: if use_docker {
                 "/tmp/test-data/genesis.json".to_string()
@@ -366,11 +361,11 @@ impl TestValidator {
             srs_file_path: None,
             fuel_costs: VmFuelCosts::default(),
             initial_services,
+            service_policies,
             min_finality_depth: min_finality_depth.unwrap_or(1000),
             keep_recent_heights: keep_recent_heights.unwrap_or(100_000),
             epoch_size: epoch_size.unwrap_or(50_000),
             gc_interval_secs: gc_interval_secs.unwrap_or(3600),
-            service_policies,
             zk_config: Default::default(),
         };
 
@@ -421,8 +416,6 @@ impl TestValidator {
             signing_oracle_guard = Some(guard);
         }
 
-        // [FIX] Generate a unique Shared Memory ID for this validator instance to prevent
-        // data plane collisions when multiple nodes run on the same machine.
         let shmem_id = format!("ioi_shmem_{}", base_port);
 
         let mut backend: Box<dyn TestBackend> = if use_docker {

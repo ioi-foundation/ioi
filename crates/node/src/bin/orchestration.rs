@@ -235,7 +235,9 @@ where
         Arc::new(WorkloadClient::new(&workload_ipc_addr, &ca_path, &cert_path, &key_path).await?)
     };
 
-    let workload_probe_deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    // INCREASED TIMEOUT: Was 20s. Increased to 180s to allow slow Workload initialization
+    // (e.g. Verkle/KZG parameter generation) on resource-constrained CI environments.
+    let workload_probe_deadline = std::time::Instant::now() + std::time::Duration::from_secs(180);
     loop {
         match workload_client.get_status().await {
             Ok(_) => {

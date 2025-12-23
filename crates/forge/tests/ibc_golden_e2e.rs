@@ -18,20 +18,10 @@ use ioi_forge::testing::{build_test_artifacts, wait_for_height, TestCluster};
 // [+] Add MerkleProof for the new hard assertion
 use ibc_proto::ibc::core::commitment::v1::MerkleProof as PbMerkleProof;
 use ioi_types::{
-    app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
-        BlockTimingRuntime, Credential, SignatureSuite, ValidatorSetBlob, ValidatorSetV1,
-        ValidatorSetsV1, ValidatorV1,
-    },
-    codec,
+    app::{ActiveKeyRecord, BlockTimingParams, BlockTimingRuntime, SignatureSuite, ValidatorSetV1, ValidatorSetsV1, ValidatorV1},
     config::InitialServiceConfig,
-    keys::{
-        ACCOUNT_ID_TO_PUBKEY_PREFIX, BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY,
-        IDENTITY_CREDENTIALS_PREFIX, VALIDATOR_SET_KEY,
-    },
     service_configs::MigrationConfig,
 };
-use libp2p::identity::Keypair;
 use prost::Message;
 use reqwest::Client;
 use serde_json::json;
@@ -127,7 +117,8 @@ async fn ibc_golden_paths_match_fixtures() -> Result<()> {
             chain_id: 33,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            // FIX: Use ED25519 constant
+            allowed_target_suites: vec![SignatureSuite::ED25519],
             allow_downgrade: false,
         }))
         .with_initial_service(InitialServiceConfig::Ibc(ioi_types::config::IbcConfig {
@@ -147,7 +138,8 @@ async fn ibc_golden_paths_match_fixtures() -> Result<()> {
                     account_id: val_id,
                     weight: 1,
                     consensus_key: ActiveKeyRecord {
-                        suite: SignatureSuite::Ed25519,
+                        // FIX: Use ED25519 constant
+                        suite: SignatureSuite::ED25519,
                         public_key_hash: val_id.0,
                         since_height: 0,
                     },

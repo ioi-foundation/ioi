@@ -18,7 +18,9 @@ use tokio::{
 };
 
 // --- Test Configuration ---
-pub(crate) const LOG_ASSERT_TIMEOUT: Duration = Duration::from_secs(45);
+// INCREASED TIMEOUT: Raised from 45s to 180s to accommodate slow initialization
+// in heavy tests (like Verkle/KZG setup) on CI runners.
+pub(crate) const LOG_ASSERT_TIMEOUT: Duration = Duration::from_secs(180);
 pub(crate) const LOG_CHANNEL_CAPACITY: usize = 8192;
 
 // --- Log Assertions ---

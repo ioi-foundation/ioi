@@ -7,24 +7,30 @@ use ioi_crypto::algorithms::hash::sha256;
 use ioi_forge::testing::{build_test_artifacts, genesis::GenesisBuilder, TestCluster};
 use ioi_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, SignatureSuite, ValidatorSetV1,
-        ValidatorSetsV1, ValidatorV1,
+        // account_id_from_key_material is no longer used directly in this file
+        AccountId,
+        ActiveKeyRecord,
+        SignatureSuite,
+        ValidatorSetV1,
+        ValidatorSetsV1,
+        ValidatorV1,
     },
     config::InitialServiceConfig,
     keys::STATE_KEY_SEMANTIC_MODEL_HASH,
     service_configs::MigrationConfig,
 };
 use libp2p::identity;
-use serde_json::json;
+// serde_json::json is no longer used directly in this file
 use std::fs;
 use tempfile::tempdir;
 
-// ... helper ...
+// Helper function to add a PoA identity to the genesis state
 fn add_poa_identity_to_genesis(
     builder: &mut GenesisBuilder,
     keypair: &identity::Keypair,
 ) -> AccountId {
-    let suite = SignatureSuite::Ed25519;
+    // FIX: Ed25519 -> ED25519
+    let suite = SignatureSuite::ED25519;
     let pk_bytes = keypair.public().encode_protobuf();
     builder.add_identity_custom(suite, &pk_bytes)
 }
@@ -48,7 +54,8 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
             chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            // FIX: Ed25519 -> ED25519
+            allowed_target_suites: vec![SignatureSuite::ED25519],
             allow_downgrade: false,
         }))
         .with_genesis_modifier(move |builder, keys| {
@@ -59,7 +66,8 @@ async fn test_secure_agentic_consensus_e2e() -> Result<()> {
                     account_id,
                     weight: 1,
                     consensus_key: ActiveKeyRecord {
-                        suite: SignatureSuite::Ed25519,
+                        // FIX: Ed25519 -> ED25519
+                        suite: SignatureSuite::ED25519,
                         public_key_hash: account_id.0,
                         since_height: 0,
                     },
@@ -135,7 +143,8 @@ async fn test_mismatched_model_quarantine() -> Result<()> {
         chain_id: 1,
         grace_period_blocks: 5,
         accept_staged_during_grace: true,
-        allowed_target_suites: vec![SignatureSuite::Ed25519],
+        // FIX: Ed25519 -> ED25519
+        allowed_target_suites: vec![SignatureSuite::ED25519],
         allow_downgrade: false,
     })];
 
@@ -158,7 +167,8 @@ async fn test_mismatched_model_quarantine() -> Result<()> {
                             account_id: authority_id,
                             weight: 1,
                             consensus_key: ActiveKeyRecord {
-                                suite: SignatureSuite::Ed25519,
+                                // FIX: Ed25519 -> ED25519
+                                suite: SignatureSuite::ED25519,
                                 public_key_hash: authority_id.0,
                                 since_height: 0,
                             },

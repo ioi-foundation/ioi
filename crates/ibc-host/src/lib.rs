@@ -9,9 +9,6 @@ use ioi_api::state::{service_namespace_prefix, Verifier};
 use ioi_client::WorkloadClient;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_state::tree::iavl::{self, IavlProof};
-// [FIX] Use `Arc<Mempool>` instead of `Arc<Mutex<Mempool>>`.
-// The `Mempool` is now internally concurrent, so the outer lock is not needed.
-// This requires updating the `MempoolAdapter` struct and its implementation.
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ChainId, ChainTransaction, SignHeader,
@@ -19,7 +16,6 @@ use ioi_types::{
     },
     codec,
 };
-use ioi_validator::standard::orchestration::mempool::Mempool;
 use libp2p::identity::Keypair;
 use lru::LruCache;
 use parity_scale_codec::Decode;
@@ -181,38 +177,9 @@ fn compute_root_from_commitment_proof(cp: &CommitmentProof) -> Result<Vec<u8>> {
         .map_err(|e| anyhow!("calculate_existence_root: {e}"))
 }
 
-/// Adapter to allow `Arc<Mempool>` to satisfy `TransactionPool`.
-struct MempoolAdapter {
-    inner: Arc<Mempool>,
-}
-
-#[async_trait]
-impl TransactionPool for MempoolAdapter {
-    async fn add(&self, tx: ChainTransaction) -> Result<()> {
-        let tx_hash = tx.hash()?;
-
-        let tx_info = match &tx {
-            ChainTransaction::System(s) => Some((s.header.account_id, s.header.nonce)),
-            ChainTransaction::Application(a) => match a {
-                ioi_types::app::ApplicationTransaction::DeployContract { header, .. }
-                | ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
-                    Some((header.account_id, header.nonce))
-                }
-                _ => None,
-            },
-            _ => None,
-        };
-
-        // Use 0 as committed_nonce fallback; Mempool will queue if needed.
-        self.inner.add(tx, tx_hash, tx_info, 0);
-        Ok(())
-    }
-}
-
 pub struct DefaultIbcHost<V: Verifier> {
     workload_client: Arc<WorkloadClient>,
     _verifier: V,
-    // [FIX] Use the trait object for the transaction pool
     tx_pool: Arc<dyn TransactionPool>,
     swarm_commander: mpsc::Sender<SwarmCommand>,
     signer: Keypair,
@@ -225,7 +192,6 @@ impl<V: Verifier + 'static> DefaultIbcHost<V> {
     pub fn new(
         workload_client: Arc<WorkloadClient>,
         verifier: V,
-        // [FIX] Accept the trait object
         tx_pool: Arc<dyn TransactionPool>,
         swarm_commander: mpsc::Sender<SwarmCommand>,
         signer: Keypair,
@@ -296,7 +262,6 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
         }
 
         let account_id = AccountId(account_id_from_key_material(
-            // [FIX] Use SignatureSuite::ED25519
             SignatureSuite::ED25519,
             &self.signer.public().encode_protobuf(),
         )?);
@@ -328,7 +293,6 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
             if let ChainTransaction::System(mut sys_tx) = tx {
                 let sign_bytes = sys_tx.to_sign_bytes().map_err(|e| anyhow!(e))?;
                 sys_tx.signature_proof = SignatureProof {
-                    // [FIX] Use SignatureSuite::ED25519
                     suite: SignatureSuite::ED25519,
                     public_key: self.signer.public().encode_protobuf(),
                     signature: self.signer.sign(&sign_bytes)?,
@@ -343,7 +307,6 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
 
         let tx_hash = signed_tx.hash().map_err(|e| anyhow!(e))?;
 
-        // [FIX] Use the trait abstraction to submit to the mempool
         self.tx_pool.add(signed_tx).await?;
 
         self.swarm_commander

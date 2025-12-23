@@ -8,7 +8,6 @@
 ))]
 
 use anyhow::Result;
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_forge::testing::{
     build_test_artifacts,
@@ -19,7 +18,7 @@ use ioi_types::{
     app::{
         AccountId, ActiveKeyRecord, BlockTimingParams, BlockTimingRuntime, ChainId,
         ChainTransaction, SignHeader, SignatureProof, SignatureSuite, SystemPayload,
-        SystemTransaction, ValidatorSetBlob, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
     config::{IbcConfig, InitialServiceConfig},
@@ -27,11 +26,9 @@ use ioi_types::{
         EthereumHeader, Finality, Header, InclusionProof, StateProofScheme, SubmitHeaderParams,
         VerifyStateParams,
     },
-    keys::{BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, VALIDATOR_SET_KEY},
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
-use serde_json::json;
 use std::time::Duration;
 
 fn create_zk_system_tx(
@@ -40,7 +37,8 @@ fn create_zk_system_tx(
     nonce: u64,
 ) -> Result<ChainTransaction> {
     let pk = kp.public().encode_protobuf();
-    let acc_hash = ioi_types::app::account_id_from_key_material(SignatureSuite::Ed25519, &pk)?;
+    // FIX: Use ED25519 constant
+    let acc_hash = ioi_types::app::account_id_from_key_material(SignatureSuite::ED25519, &pk)?;
     let account_id = AccountId(acc_hash);
 
     let mut tx = SystemTransaction {
@@ -56,7 +54,8 @@ fn create_zk_system_tx(
 
     let sb = tx.to_sign_bytes().map_err(|e| anyhow::anyhow!(e))?;
     tx.signature_proof = SignatureProof {
-        suite: SignatureSuite::Ed25519,
+        // FIX: Use ED25519 constant
+        suite: SignatureSuite::ED25519,
         public_key: pk,
         signature: kp.sign(&sb)?,
     };
@@ -81,7 +80,8 @@ async fn test_bridgeless_zk_interoperability() -> Result<()> {
             chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            // FIX: Use ED25519 constant
+            allowed_target_suites: vec![SignatureSuite::ED25519],
             allow_downgrade: false,
         }))
         // Enable IBC service
@@ -101,7 +101,8 @@ async fn test_bridgeless_zk_interoperability() -> Result<()> {
                     account_id: acc_id,
                     weight: 1,
                     consensus_key: ActiveKeyRecord {
-                        suite: SignatureSuite::Ed25519,
+                        // FIX: Use ED25519 constant
+                        suite: SignatureSuite::ED25519,
                         public_key_hash: acc_id.0,
                         since_height: 0,
                     },
@@ -275,7 +276,8 @@ async fn test_bridgeless_zk_interoperability_failure_case() -> Result<()> {
             chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::Ed25519],
+            // FIX: Use ED25519 constant
+            allowed_target_suites: vec![SignatureSuite::ED25519],
             allow_downgrade: false,
         }))
         .with_initial_service(InitialServiceConfig::Ibc(IbcConfig {
@@ -293,7 +295,8 @@ async fn test_bridgeless_zk_interoperability_failure_case() -> Result<()> {
                     account_id: acc_id,
                     weight: 1,
                     consensus_key: ActiveKeyRecord {
-                        suite: SignatureSuite::Ed25519,
+                        // FIX: Use ED25519 constant
+                        suite: SignatureSuite::ED25519,
                         public_key_hash: acc_id.0,
                         since_height: 0,
                     },
