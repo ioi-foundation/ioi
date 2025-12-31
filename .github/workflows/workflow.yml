@@ -1,0 +1,37 @@
+name: Publish Python Distribution to PyPI
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers on tags like v0.1.0
+
+jobs:
+  build-n-publish:
+    name: Build and publish Python distro to PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+
+    - name: Install build dependencies
+      run: python -m pip install --upgrade pip hatch
+
+    - name: Build distribution
+      # CRITICAL: We must run the build from the directory containing pyproject.toml
+      working-directory: agent-sdk/python
+      run: hatch build
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        # Tell the publisher where to find the built files
+        packages-dir: agent-sdk/python/dist/
+        print-hash: true

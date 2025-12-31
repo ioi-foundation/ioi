@@ -9,19 +9,20 @@ import "google/protobuf/empty.proto";
 // -----------------------------------------------------------------------------
 
 // Services for blockchain lifecycle management (Consensus -> Execution)
+// Minimised for Guardian-driven consensus.
 service ChainControl {
   // Processes a block. Supports Hybrid Data Plane (Inline vs Shared Memory).
   rpc ProcessBlock (ProcessBlockRequest) returns (ProcessBlockResponse);
-  
+
   // Fetches a range of blocks for sync. Supports Hybrid Data Plane.
   rpc GetBlocksRange (GetBlocksRangeRequest) returns (GetBlocksRangeResponse);
-  
+
   // Updates the header of a stored block (used for adding signatures/oracle data).
   rpc UpdateBlockHeader (UpdateBlockHeaderRequest) returns (UpdateBlockHeaderResponse);
-  
+
   // Checks if the chain genesis is ready.
   rpc GetGenesisStatus (GetGenesisStatusRequest) returns (GetGenesisStatusResponse);
-  
+
   // Gets the current chain status (height, timestamp, etc.).
   rpc GetStatus (GetStatusRequest) returns (GetStatusResponse);
 }
@@ -30,13 +31,13 @@ service ChainControl {
 service StateQuery {
   // Performs pre-execution checks on transactions against a specific state anchor.
   rpc CheckTransactions (CheckTransactionsRequest) returns (CheckTransactionsResponse);
-  
+
   // Queries the state at a specific root hash, returning a Merkle proof.
   rpc QueryStateAt (QueryStateAtRequest) returns (QueryStateAtResponse);
-  
+
   // Queries the raw state value (without proof).
   rpc QueryRawState (QueryRawStateRequest) returns (QueryRawStateResponse);
-  
+
   // Scans keys with a given prefix.
   rpc PrefixScan (PrefixScanRequest) returns (PrefixScanResponse);
 }
@@ -45,10 +46,10 @@ service StateQuery {
 service ContractControl {
   // Deploys a new smart contract.
   rpc DeployContract (DeployContractRequest) returns (DeployContractResponse);
-  
+
   // Calls a smart contract (state transition).
   rpc CallContract (CallContractRequest) returns (CallContractResponse);
-  
+
   // Queries a smart contract (read-only).
   rpc QueryContract (QueryContractRequest) returns (QueryContractResponse);
 }
@@ -57,7 +58,7 @@ service ContractControl {
 service StakingControl {
   // Gets the current set of staked validators and their weights.
   rpc GetStakedValidators (GetStakedValidatorsRequest) returns (GetStakedValidatorsResponse);
-  
+
   // Gets the pending next set of staked validators.
   rpc GetNextStakedValidators (GetNextStakedValidatorsRequest) returns (GetNextStakedValidatorsResponse);
 }
@@ -66,16 +67,16 @@ service StakingControl {
 service SystemControl {
   // Gets the expected hash of the semantic model (AI/Agentic).
   rpc GetExpectedModelHash (google.protobuf.Empty) returns (GetExpectedModelHashResponse);
-  
+
   // Triggers proposal tallying (legacy governance hook).
   rpc CheckAndTallyProposals (CheckAndTallyProposalsRequest) returns (CheckAndTallyProposalsResponse);
-  
+
   // Pins a state version to prevent pruning.
   rpc DebugPinHeight (DebugPinHeightRequest) returns (google.protobuf.Empty);
-  
+
   // Unpins a state version.
   rpc DebugUnpinHeight (DebugUnpinHeightRequest) returns (google.protobuf.Empty);
-  
+
   // Triggers a manual Garbage Collection pass.
   rpc DebugTriggerGc (google.protobuf.Empty) returns (DebugTriggerGcResponse);
 }
@@ -104,8 +105,8 @@ message ProcessBlockRequest {
   // Hybrid payload: Use 'inline' for small blocks, 'shmem' for bulk/heavy blocks.
   oneof payload {
     // SCALE-encoded Block<ChainTransaction> passed directly over gRPC.
-    bytes block_bytes_inline = 1; 
-    
+    bytes block_bytes_inline = 1;
+
     // Pointer to block data in shared memory.
     SharedMemoryHandle shmem_handle = 2;
   }
@@ -181,7 +182,7 @@ message QueryStateAtRequest {
 
 message QueryStateAtResponse {
   // SCALE-encoded QueryStateResponse struct (from api/chain)
-  bytes response_bytes = 1; 
+  bytes response_bytes = 1;
 }
 
 message QueryRawStateRequest {
@@ -222,7 +223,7 @@ message CallContractRequest {
   bytes address = 1;
   bytes input_data = 2;
   // SCALE-encoded ioi_api::vm::ExecutionContext
-  bytes context_bytes = 3; 
+  bytes context_bytes = 3;
 }
 
 message CallContractResponse {

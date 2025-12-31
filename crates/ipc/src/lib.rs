@@ -6,6 +6,7 @@
 //! 2. **Data Plane**: Zero-copy shared memory via `rkyv` for bulk AI data.
 
 pub mod data;
+pub mod security; // [NEW]
 
 // Re-export the generated Protobuf/Tonic code
 pub mod control {

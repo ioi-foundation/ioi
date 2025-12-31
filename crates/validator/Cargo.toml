@@ -98,12 +98,10 @@ default = []
 validator-bins = [
     "dep:clap",
     "dep:env_logger",
-    "ioi-consensus/round-robin",
+    "ioi-consensus/admft",
     "dep:ioi-vm-wasm",
 ]
-consensus-round-robin = ["ioi-consensus/round-robin"]
-consensus-poa = ["ioi-consensus/poa"]
-consensus-pos = ["ioi-consensus/pos"]
+consensus-admft = ["ioi-consensus/admft"]
 
 # VM Features
 vm-wasm = ["dep:ioi-vm-wasm"]

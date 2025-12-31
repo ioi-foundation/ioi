@@ -134,12 +134,15 @@ fn preflight_capabilities(
 fn signer_from_tx(tx: &ChainTransaction) -> AccountId {
     match tx {
         ChainTransaction::System(s) => s.header.account_id,
+        // [FIX] Handle Settlement
+        ChainTransaction::Settlement(s) => s.header.account_id,
         ChainTransaction::Application(a) => match a {
             ioi_types::app::ApplicationTransaction::DeployContract { header, .. }
             | ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
                 header.account_id
             }
-            ioi_types::app::ApplicationTransaction::UTXO(_) => AccountId::default(),
+            // UTXO variant removed
+            _ => AccountId::default(),
         },
         // Semantic transactions are signed by a committee aggregate, not a single account.
         // Return default AccountId as there is no single "signer".
@@ -432,14 +435,14 @@ where
 
         // --- PHASE 1: READ-ONLY VALIDATION ---
         // 1. System Checks
-        
+
         // [MIGRATION] Split validation into Stateless and Stateful phases
         // 1a. Stateless: Verify Cryptographic Signatures (Pure Math)
         validation::verify_stateless_signature(tx)?;
-        
+
         // 1b. Stateful: Verify Authorization (Check Account ID & Credentials in State)
         validation::verify_stateful_authorization(&*overlay, &self.services, tx, &tx_ctx)?;
-        
+
         nonce::assert_next_nonce(&*overlay, tx)?;
 
         // 2. Service Decorator Checks (Validation)

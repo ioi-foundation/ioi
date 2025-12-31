@@ -1,6 +1,8 @@
 // Path: crates/types/src/app/mod.rs
 //! Core application-level data structures like Blocks and Transactions.
 
+/// Data structures for the Agency Firewall action requests.
+pub mod action;
 /// Data structures for agentic semantic consensus.
 pub mod agentic;
 /// Data structures related to consensus, such as the canonical validator set
@@ -9,9 +11,12 @@ pub mod consensus;
 pub mod identity;
 /// Data structures for reporting and penalizing misbehavior.
 pub mod penalties;
+/// Data structures for economic settlement.
+pub mod settlement;
 /// Data structures for deterministic block timing.
 pub mod timing;
 
+pub use action::*;
 pub use consensus::*;
 // Only re-export types that are actually defined in identity.rs
 pub use agentic::*;
@@ -20,6 +25,7 @@ pub use identity::{
     ChainId, Credential, GuardianReport, SignatureSuite,
 };
 pub use penalties::*;
+pub use settlement::*;
 pub use timing::*;
 
 use crate::error::{CoreError, StateError};
@@ -97,19 +103,13 @@ pub struct StateAnchor(pub [u8; 32]);
 pub type RootHash = [u8; 32];
 
 /// A helper to convert arbitrary commitment bytes into a fixed-size RootHash.
-///
-/// - If `bytes` are already 32 bytes (e.g., IAVL/SMT), we use them directly.
-/// - Otherwise (e.g., Verkle KZG commitment), we hash the bytes with SHA-256 to
-///   obtain a stable 32-byte key suitable for indexing historical versions.
 pub fn to_root_hash<C: AsRef<[u8]>>(c: C) -> Result<RootHash, StateError> {
     let s = c.as_ref();
     if s.len() == 32 {
-        // Exact fit: treat as canonical root hash
         let mut out = [0u8; 32];
         out.copy_from_slice(s);
         Ok(out)
     } else {
-        // Map arbitrary-length commitments to a 32-byte key via SHA-256
         let digest = dcrypt::algorithms::hash::Sha256::digest(s)
             .map_err(|e| StateError::Backend(e.to_string()))?
             .to_bytes();
@@ -159,7 +159,6 @@ impl StateRoot {
     }
 }
 
-// Add conversions to make them easier to work with
 impl AsRef<[u8]> for StateRoot {
     fn as_ref(&self) -> &[u8] {
         &self.0
@@ -171,10 +170,11 @@ impl AsRef<[u8]> for StateAnchor {
     }
 }
 
+// -----------------------------------------------------------------------------
+// Block Header
+// -----------------------------------------------------------------------------
+
 /// The header of a block, containing metadata and commitments.
-///
-/// MODIFIED: Includes Oracle-anchored fields `oracle_counter` and `oracle_trace_hash`
-/// to enforce non-equivocation via the Signing Oracle.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct BlockHeader {
     /// The height of this block.
@@ -206,9 +206,6 @@ pub struct BlockHeader {
     pub producer_pubkey: Vec<u8>,
 
     // --- Oracle-Anchored Signing Extensions ---
-    // These fields enable non-equivocation enforcement by binding signatures
-    // to a monotonic counter and execution trace from a trusted Signing Oracle.
-    // This is a prerequisite for protocols like A-DMFT.
     /// The monotonic counter from the Signing Oracle.
     /// Enforces strict ordering of signatures to prevent equivocation.
     pub oracle_counter: u64,
@@ -251,10 +248,6 @@ impl BlockHeader {
     }
 
     /// Creates the canonical, domain-separated byte string that is hashed for signing.
-    ///
-    /// NOTE: This does *not* include the `oracle_counter` or `oracle_trace_hash`, as those
-    /// are outputs of the signing process. The Oracle constructs the final signed payload
-    /// by appending those values to the hash of this preimage.
     pub fn to_preimage_for_signing(&self) -> Result<Vec<u8>, CoreError> {
         crate::codec::to_bytes_canonical(&(
             SigDomain::BlockHeaderV1 as u8,
@@ -276,6 +269,10 @@ impl BlockHeader {
     }
 }
 
+// -----------------------------------------------------------------------------
+// Account Abstraction & Authorization
+// -----------------------------------------------------------------------------
+
 /// A cryptographic proof required to execute a key rotation.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct RotationProof {
@@ -293,10 +290,28 @@ pub struct RotationProof {
     pub l2_location: Option<String>,
 }
 
+/// Authorization for a Session Key to act on behalf of a Master Identity.
+/// Implements the "Burner Wallet" pattern.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct SessionAuthorization {
+    /// The public key of the session (ephemeral) keypair.
+    pub session_key_pub: Vec<u8>,
+    /// Optional session ID binding.
+    pub session_id: Option<[u8; 32]>,
+    /// The hash of the policy restricting this session (capabilities, spend limits).
+    pub policy_hash: [u8; 32],
+    /// Maximum Labor Gas this session can spend.
+    pub max_spend: u64,
+    /// Block height or timestamp when this authorization expires.
+    pub expiry: u64,
+    /// Signature from the Master Identity (AccountId) over this struct.
+    pub signer_sig: Vec<u8>,
+}
+
 /// The header containing all data required for a valid, replay-protected signature.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default, Encode, Decode)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default, Encode, Decode)]
 pub struct SignHeader {
-    /// The stable identifier of the signing account.
+    /// The stable identifier of the signing account (Master Identity).
     pub account_id: AccountId,
     /// The per-account transaction nonce for replay protection.
     pub nonce: u64,
@@ -304,6 +319,8 @@ pub struct SignHeader {
     pub chain_id: ChainId,
     /// The version of the transaction format.
     pub tx_version: u8,
+    /// [NEW] Optional session authorization allowing a delegate key to sign.
+    pub session_auth: Option<SessionAuthorization>,
 }
 
 /// A generic structure holding the signature and related data.
@@ -317,48 +334,239 @@ pub struct SignatureProof {
     pub signature: Vec<u8>,
 }
 
-/// An input for a UTXO transaction, pointing to a previous output.
+// -----------------------------------------------------------------------------
+// Transaction Types (Agentic Economy)
+// -----------------------------------------------------------------------------
+
+/// A top-level enum representing any transaction the chain can process.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
-pub struct Input {
-    /// The hash of the transaction containing the output being spent.
-    pub tx_hash: Vec<u8>,
-    /// The index of the output in the previous transaction.
-    pub output_index: u32,
-    /// The signature authorizing the spending of the output.
+pub enum ChainTransaction {
+    /// A privileged transaction for kernel-level changes (Identity, Governance).
+    System(Box<SystemTransaction>),
+    /// A transaction for the agentic economy (Bonding, Settlement, Bridging).
+    Settlement(SettlementTransaction),
+    /// A semantic transition proposed by a DIM committee.
+    Semantic {
+        /// The canonical result (JSON/Blob).
+        result: Vec<u8>,
+        /// The proof (BLS Aggregate) that the committee agreed on this result.
+        proof: CommitteeCertificate,
+        /// The transaction header (must match a committee leader/relayer).
+        header: SignHeader,
+    },
+    /// A transaction initiated by a user or application (e.g. Deploy/Call Contract).
+    Application(ApplicationTransaction),
+}
+
+impl ChainTransaction {
+    /// Computes the canonical SHA-256 hash of the transaction.
+    pub fn hash(&self) -> Result<TxHash, CoreError> {
+        let bytes = crate::codec::to_bytes_canonical(self).map_err(CoreError::Custom)?;
+        let digest = DcryptSha256::digest(&bytes).map_err(|e| CoreError::Crypto(e.to_string()))?;
+        let hash_bytes = digest.to_bytes();
+        hash_bytes
+            .try_into()
+            .map_err(|_| CoreError::Crypto("Invalid hash length".into()))
+    }
+
+    /// Computes the 6-byte short ID of the transaction for compact block propagation.
+    pub fn short_id(&self) -> ShortTxId {
+        let hash = self.hash().unwrap_or([0u8; 32]);
+        let mut out = [0u8; 6];
+        out.copy_from_slice(&hash[0..6]);
+        out
+    }
+}
+
+/// An enum wrapping all possible user-level transaction models.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub enum ApplicationTransaction {
+    /// A transaction to deploy a new smart contract.
+    DeployContract {
+        /// The header containing replay protection data.
+        header: SignHeader,
+        /// The bytecode of the contract.
+        code: Vec<u8>,
+        /// The signature and public key of the deployer.
+        signature_proof: SignatureProof,
+    },
+    /// A transaction to call a method on an existing smart contract.
+    CallContract {
+        /// The header containing replay protection data.
+        header: SignHeader,
+        /// The address of the contract to call.
+        address: Vec<u8>,
+        /// The ABI-encoded input data for the contract call.
+        input_data: Vec<u8>,
+        /// The maximum gas allowed for this transaction.
+        gas_limit: u64,
+        /// The signature and public key of the caller.
+        signature_proof: SignatureProof,
+    },
+}
+
+impl ApplicationTransaction {
+    /// Creates a stable, serializable payload for signing by clearing signature fields.
+    pub fn to_sign_bytes(&self) -> Result<Vec<u8>, String> {
+        let mut temp = self.clone();
+        match &mut temp {
+            ApplicationTransaction::DeployContract {
+                signature_proof, ..
+            }
+            | ApplicationTransaction::CallContract {
+                signature_proof, ..
+            } => {
+                *signature_proof = SignatureProof::default();
+            }
+        }
+        crate::codec::to_bytes_canonical(&temp)
+    }
+}
+
+/// A privileged transaction for performing system-level state changes.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct SystemTransaction {
+    /// The header containing replay protection data.
+    pub header: SignHeader,
+    /// The specific action being requested.
+    pub payload: SystemPayload,
+    /// The signature and public key of the caller.
+    pub signature_proof: SignatureProof,
+}
+
+impl SystemTransaction {
+    /// Creates a stable, serializable payload for signing by clearing signature fields.
+    pub fn to_sign_bytes(&self) -> Result<Vec<u8>, String> {
+        let mut temp = self.clone();
+        temp.signature_proof = SignatureProof::default();
+        crate::codec::to_bytes_canonical(&temp)
+    }
+}
+
+/// A transaction for economic settlement in the Agentic Economy.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct SettlementTransaction {
+    /// The header containing replay protection data.
+    pub header: SignHeader,
+    /// The specific settlement action.
+    pub payload: SettlementPayload,
+    /// The signature and public key of the caller.
+    pub signature_proof: SignatureProof,
+}
+
+impl SettlementTransaction {
+    /// Creates a stable, serializable payload for signing by clearing signature fields.
+    pub fn to_sign_bytes(&self) -> Result<Vec<u8>, String> {
+        let mut temp = self.clone();
+        temp.signature_proof = SignatureProof::default();
+        crate::codec::to_bytes_canonical(&temp)
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Universal Artifacts (Receipts & Intent Contracts)
+// -----------------------------------------------------------------------------
+
+/// A canonical receipt proving the execution of a unit of work.
+/// This matches Whitepaper §8: Proof of Execution.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct Receipt {
+    /// Hash of the canonical ActionRequest or BurstPacket.
+    pub canonical_payload_hash: [u8; 32],
+    /// Commitment to the inputs used (e.g. ContextSlice hash).
+    pub inputs_commitment: [u8; 32],
+    /// Commitment to the outputs produced.
+    pub outputs_commitment: [u8; 32],
+    /// The hash of the model snapshot used for inference.
+    pub model_snapshot_id: [u8; 32],
+    /// The hash of the active policy governing this action.
+    pub policy_hash: [u8; 32],
+    /// Optional session ID if part of a session.
+    pub session_id: Option<[u8; 32]>,
+    /// Hash link to the prior receipt in the chain (Chain of Custody).
+    pub prev_receipt_hash: [u8; 32],
+    /// Identifier of the entity signing this receipt.
+    pub signer_id: AccountId,
+    /// Cryptographic signature over the above fields.
     pub signature: Vec<u8>,
 }
 
-/// An output for a UTXO transaction, creating a new unspent output.
+/// The types of outcomes an Intent Contract can specify.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
-pub struct Output {
-    /// The value of the output.
-    pub value: u64,
-    /// The public key of the recipient.
-    pub public_key: Vec<u8>,
+pub enum OutcomeType {
+    /// A raw computation result.
+    Result,
+    /// A verified receipt of execution.
+    Receipt,
+    /// A ZK-proven certificate of correctness.
+    Certificate,
 }
 
-/// A transaction following the UTXO model.
+/// The optimization objective for the Intent Contract matching engine.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
-pub struct UTXOTransaction {
-    /// A list of inputs to be spent.
-    pub inputs: Vec<Input>,
-    /// A list of new outputs to be created.
-    pub outputs: Vec<Output>,
+pub enum OptimizationObjective {
+    /// Minimize labor gas cost.
+    Cost,
+    /// Minimize execution latency.
+    Latency,
+    /// Maximize provider reputation/uptime.
+    Reliability,
+    /// Maximize data privacy (e.g. TEE required).
+    Privacy,
 }
 
-impl UTXOTransaction {
-    /// Creates a stable, serializable payload for hashing or signing.
-    pub fn to_sign_bytes(&self) -> Result<Vec<u8>, String> {
-        crate::codec::to_bytes_canonical(self)
-    }
-    /// Computes the hash of the transaction.
-    pub fn hash(&self) -> Result<Vec<u8>, CoreError> {
-        let serialized = self.to_sign_bytes().map_err(CoreError::Custom)?;
-        let digest =
-            DcryptSha256::digest(&serialized).map_err(|e| CoreError::Custom(e.to_string()))?;
-        Ok(digest.to_bytes())
-    }
+/// An Intent Contract Schema (ICS), defining the constraints for an agentic task.
+/// This matches Whitepaper §3.3.5 and §10.1.1.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct IntentContract {
+    /// Maximum price willing to pay (in Labor Gas).
+    pub max_price: u64,
+    /// Deadline for execution (block height or timestamp).
+    pub deadline_epoch: u64,
+    /// Minimum confidence score required from the model/provider (0-100).
+    pub min_confidence_score: u8,
+    /// List of allowed provider identities (allowlist). Empty means any.
+    pub allowed_providers: Vec<AccountId>,
+    /// Type of outcome expected.
+    pub outcome_type: OutcomeType,
+    /// Optimization preference.
+    pub optimize_for: OptimizationObjective,
 }
+
+/// A summary of the final state of a session, used for settlement.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct SettlementSummary {
+    /// The unique session ID.
+    pub session_id: [u8; 32],
+    /// The account ID of the provider.
+    pub provider_id: AccountId,
+    /// The account ID of the payer.
+    pub payer_id: AccountId,
+    /// Hash of the terms agreed upon.
+    pub terms_hash: [u8; 32],
+    /// The final sequence number of the payment ticket.
+    pub final_seq: u64,
+    /// The final amount to be paid.
+    pub final_amount: u128,
+    /// The Merkle root of all receipts in the session.
+    pub final_receipt_root: [u8; 32],
+    /// The close mode (0 = Cooperative, 1 = Unilateral).
+    pub mode: u8,
+}
+
+/// A package of evidence submitted to dispute a session or receipt.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct ChallengePackage {
+    /// The specific receipt being contested.
+    pub contested_receipt: Receipt,
+    /// A Merkle proof connecting the receipt to the session's receipt_root.
+    pub inclusion_proof: Vec<u8>, // Merkle Proof to receipt_root
+                                  // Additional evidence fields...
+}
+
+// -----------------------------------------------------------------------------
+// Governance & System Types
+// -----------------------------------------------------------------------------
 
 /// The category of a governance proposal.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
@@ -428,116 +636,6 @@ pub struct Proposal {
     pub final_tally: Option<TallyResult>,
 }
 
-/// A top-level enum representing any transaction the chain can process.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
-pub enum ChainTransaction {
-    /// A transaction initiated by a user or application.
-    Application(ApplicationTransaction),
-    /// A privileged transaction for system-level changes.
-    System(Box<SystemTransaction>),
-    /// A semantic transition proposed by a DIM committee.
-    Semantic {
-        /// The canonical result (JSON/Blob).
-        result: Vec<u8>,
-        /// The proof (BLS Aggregate) that the committee agreed on this result.
-        proof: CommitteeCertificate,
-        /// The transaction header (must match a committee leader/relayer).
-        header: SignHeader,
-    },
-}
-
-impl ChainTransaction {
-    /// Computes the canonical SHA-256 hash of the transaction.
-    /// This is the single source of truth for transaction identity.
-    pub fn hash(&self) -> Result<TxHash, CoreError> {
-        let bytes = crate::codec::to_bytes_canonical(self).map_err(CoreError::Custom)?;
-
-        let digest = DcryptSha256::digest(&bytes).map_err(|e| CoreError::Crypto(e.to_string()))?;
-
-        let hash_bytes = digest.to_bytes();
-        hash_bytes
-            .try_into()
-            .map_err(|_| CoreError::Crypto("Invalid hash length".into()))
-    }
-
-    /// Computes the 6-byte short ID of the transaction for compact block propagation.
-    /// This is derived from the full hash.
-    pub fn short_id(&self) -> ShortTxId {
-        let hash = self.hash().unwrap_or([0u8; 32]);
-        let mut out = [0u8; 6];
-        out.copy_from_slice(&hash[0..6]);
-        out
-    }
-}
-
-/// An enum wrapping all possible user-level transaction models.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
-pub enum ApplicationTransaction {
-    /// A transaction for a UTXO-based ledger.
-    UTXO(UTXOTransaction),
-    /// A transaction to deploy a new smart contract.
-    DeployContract {
-        /// The header containing replay protection data.
-        header: SignHeader,
-        /// The bytecode of the contract.
-        code: Vec<u8>,
-        /// The signature and public key of the deployer.
-        signature_proof: SignatureProof,
-    },
-    /// A transaction to call a method on an existing smart contract.
-    CallContract {
-        /// The header containing replay protection data.
-        header: SignHeader,
-        /// The address of the contract to call.
-        address: Vec<u8>,
-        /// The ABI-encoded input data for the contract call.
-        input_data: Vec<u8>,
-        /// The maximum gas allowed for this transaction.
-        gas_limit: u64,
-        /// The signature and public key of the caller.
-        signature_proof: SignatureProof,
-    },
-}
-
-impl ApplicationTransaction {
-    /// Creates a stable, serializable payload for signing by clearing signature fields.
-    pub fn to_sign_bytes(&self) -> Result<Vec<u8>, String> {
-        let mut temp = self.clone();
-        match &mut temp {
-            ApplicationTransaction::DeployContract {
-                signature_proof, ..
-            }
-            | ApplicationTransaction::CallContract {
-                signature_proof, ..
-            } => {
-                *signature_proof = SignatureProof::default();
-            }
-            ApplicationTransaction::UTXO(_) => {}
-        }
-        crate::codec::to_bytes_canonical(&temp)
-    }
-}
-
-/// A privileged transaction for performing system-level state changes.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
-pub struct SystemTransaction {
-    /// The header containing replay protection data.
-    pub header: SignHeader,
-    /// The specific action being requested.
-    pub payload: SystemPayload,
-    /// The signature and public key of the caller.
-    pub signature_proof: SignatureProof,
-}
-
-impl SystemTransaction {
-    /// Creates a stable, serializable payload for signing by clearing signature fields.
-    pub fn to_sign_bytes(&self) -> Result<Vec<u8>, String> {
-        let mut temp = self.clone();
-        temp.signature_proof = SignatureProof::default();
-        crate::codec::to_bytes_canonical(&temp)
-    }
-}
-
 /// A voting option for a governance proposal.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
 pub enum VoteOption {
@@ -589,18 +687,15 @@ pub struct OracleConsensusProof {
 }
 
 /// The specific action being requested by a SystemTransaction.
-/// All system-level state changes are dispatched through the `CallService` variant,
-/// ensuring consistent application of permissions and namespacing.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub enum SystemPayload {
     /// A generic payload to call a method on any registered on-chain service.
-    /// This is the unified entrypoint for all system and user-level service logic.
     CallService {
-        /// The unique, lowercase, alphanumeric identifier of the target service (e.g., "identity_hub", "ibc").
+        /// The ID of the service to call.
         service_id: String,
-        /// The versioned method name to call (e.g., "rotate_key@v1").
+        /// The method name to invoke.
         method: String,
-        /// The SCALE-encoded parameters for the method call.
+        /// The encoded parameters for the call.
         params: Vec<u8>,
     },
 }

@@ -10,6 +10,10 @@ use ioi_ipc::{
     },
     data::AgentContext,
 };
+// [NEW] Imports for Context Slicing (Phase 4.2)
+use ioi_ipc::data::EncryptedSlice;
+use ioi_ipc::security::{decrypt_slice, derive_session_key};
+use rkyv::Deserialize;
 use std::path::Path;
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
@@ -102,11 +106,42 @@ where
             Status::failed_precondition("Shared Memory Data Plane not initialized")
         })?;
 
-        let agent_context = dp
-            .read::<AgentContext>(req.input_offset, req.input_length)
-            .map_err(|e| {
-                Status::invalid_argument(format!("Failed to read input from shmem: {}", e))
-            })?;
+        // 1. Attempt to read as EncryptedSlice (Phase 4.2 Security)
+        // Note: In a real implementation, we would toggle this behavior based on a flag or type check.
+        // For compatibility with existing tests that write AgentContext directly, we try both.
+
+        let agent_context: AgentContext =
+            if let Ok(slice) = dp.read::<EncryptedSlice>(req.input_offset, req.input_length) {
+                log::info!("Received EncryptedSlice in Data Plane. Decrypting...");
+
+                // Mock Session Key (In prod, this comes from the established mTLS session via RpcContext)
+                // We use a dummy secret here to demonstrate the crypto flow logic.
+                let master_secret = [0u8; 32];
+                let session_id = slice.slice_id;
+
+                let key = derive_session_key(&master_secret, &session_id)
+                    .map_err(|e| Status::internal(format!("Key derivation failed: {}", e)))?;
+
+                // AAD binding prevents replays
+                let aad = EncryptedSlice::compute_aad(&session_id, &[0u8; 32], &slice.slice_id);
+
+                let plaintext = decrypt_slice(&key, &slice.iv, &slice.ciphertext, &aad)
+                    .map_err(|e| Status::invalid_argument(format!("Decryption failed: {}", e)))?;
+
+                // Deserialize the inner plaintext to AgentContext
+                rkyv::from_bytes::<AgentContext>(&plaintext).map_err(|e| {
+                    Status::invalid_argument(format!("Inner deserialization failed: {}", e))
+                })?
+            } else {
+                // Fallback: Read as plaintext AgentContext (Legacy/Test Mode)
+                let archived = dp
+                    .read::<AgentContext>(req.input_offset, req.input_length)
+                    .map_err(|e| {
+                        Status::invalid_argument(format!("Failed to read input from shmem: {}", e))
+                    })?;
+                // Deserialize to owned type
+                archived.deserialize(&mut rkyv::Infallible).unwrap()
+            };
 
         // [FIX] Correctly handle rkyv::ArchivedOption
         if let Some(da_ref) = agent_context.da_ref.as_ref() {

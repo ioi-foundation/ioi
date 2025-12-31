@@ -100,7 +100,11 @@ pub enum SwarmCommand {
 pub enum NetworkEvent {
     ConnectionEstablished(PeerId),
     ConnectionClosed(PeerId),
-    GossipBlock(Block<ChainTransaction>),
+    // MODIFIED: Added `mirror_id` field to GossipBlock for A-DMFT Mirror Channel support
+    GossipBlock {
+        block: Block<ChainTransaction>,
+        mirror_id: u8, // 0 for Mirror A, 1 for Mirror B
+    },
     GossipTransaction(Box<ChainTransaction>),
     StatusRequest(PeerId, ResponseChannel<SyncResponse>),
     BlocksRequest {
@@ -145,7 +149,8 @@ pub enum NetworkEvent {
 enum SwarmInternalEvent {
     ConnectionEstablished(PeerId),
     ConnectionClosed(PeerId),
-    GossipBlock(Vec<u8>, PeerId),
+    // MODIFIED: Added `mirror_id`
+    GossipBlock(Vec<u8>, PeerId, u8),
     GossipTransaction(Vec<u8>, PeerId),
     StatusRequest(PeerId, ResponseChannel<SyncResponse>),
     BlocksRequest {
@@ -319,9 +324,9 @@ impl Libp2pSync {
                     SwarmInternalEvent::BlocksResponse(p, b) => {
                         Some(NetworkEvent::BlocksResponse(p, b))
                     }
-                    SwarmInternalEvent::GossipBlock(data, _source) => {
+                    SwarmInternalEvent::GossipBlock(data, _source, mirror_id) => {
                         match codec::from_bytes_canonical(&data) {
-                            Ok(block) => Some(NetworkEvent::GossipBlock(block)),
+                            Ok(block) => Some(NetworkEvent::GossipBlock { block, mirror_id }),
                             Err(e) => {
                                 tracing::warn!(target: "gossip", event = "deser_fail", kind = "block", error = %e);
                                 None
@@ -441,7 +446,10 @@ impl Libp2pSync {
         event_sender: mpsc::Sender<SwarmInternalEvent>,
         mut shutdown_receiver: watch::Receiver<bool>,
     ) {
-        let block_topic = gossipsub::IdentTopic::new("blocks");
+        // DEFINE MIRROR TOPICS FOR A-DMFT
+        let block_topic_a = gossipsub::IdentTopic::new("blocks_mirror_a");
+        let block_topic_b = gossipsub::IdentTopic::new("blocks_mirror_b");
+        
         let tx_topic = gossipsub::IdentTopic::new("transactions");
         let oracle_attestations_topic = gossipsub::IdentTopic::new("oracle-attestations");
         let agentic_vote_topic = gossipsub::IdentTopic::new("agentic-votes");
@@ -451,8 +459,12 @@ impl Libp2pSync {
         let mut retry_interval = interval(Duration::from_millis(500));
         retry_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-        if let Err(e) = swarm.behaviour_mut().gossipsub.subscribe(&block_topic) {
-            tracing::warn!(error=%e, "Failed to subscribe to gossipsub topic: blocks");
+        // SUBSCRIBE TO BOTH MIRRORS
+        if let Err(e) = swarm.behaviour_mut().gossipsub.subscribe(&block_topic_a) {
+            tracing::warn!(error=%e, "Failed to subscribe to blocks_mirror_a");
+        }
+        if let Err(e) = swarm.behaviour_mut().gossipsub.subscribe(&block_topic_b) {
+            tracing::warn!(error=%e, "Failed to subscribe to blocks_mirror_b");
         }
         if let Err(e) = swarm.behaviour_mut().gossipsub.subscribe(&tx_topic) {
             tracing::warn!(error=%e, "Failed to subscribe to gossipsub topic: transactions");
@@ -478,7 +490,8 @@ impl Libp2pSync {
                     drain_pending_blocks(
                         &mut pending_blocks,
                         &mut swarm.behaviour_mut().gossipsub,
-                        &block_topic,
+                        &block_topic_a,
+                        &block_topic_b,
                     );
                 },
                 _ = shutdown_receiver.changed() => if *shutdown_receiver.borrow() { break; },
@@ -490,7 +503,8 @@ impl Libp2pSync {
                         drain_pending_blocks(
                             &mut pending_blocks,
                             &mut swarm.behaviour_mut().gossipsub,
-                            &block_topic,
+                            &block_topic_a,
+                            &block_topic_b,
                         );
                     }
                     SwarmEvent::ConnectionClosed { peer_id, .. } => {
@@ -499,7 +513,16 @@ impl Libp2pSync {
                     }
                     SwarmEvent::Behaviour(event) => match event {
                         SyncBehaviourEvent::Gossipsub(gossipsub::Event::Message { message, .. }) => {
-                            let topic_name = if message.topic == block_topic.hash() {
+                             // DETERMINE SOURCE MIRROR
+                            let mirror_id = if message.topic == block_topic_a.hash() {
+                                Some(0u8)
+                            } else if message.topic == block_topic_b.hash() {
+                                Some(1u8)
+                            } else {
+                                None
+                            };
+
+                            let topic_name = if mirror_id.is_some() {
                                 "blocks"
                             } else if message.topic == tx_topic.hash() {
                                 "transactions"
@@ -513,8 +536,8 @@ impl Libp2pSync {
                             metrics().inc_gossip_messages_received(topic_name);
 
                             if let Some(source) = message.source {
-                                if message.topic == block_topic.hash() {
-                                    event_sender.send(SwarmInternalEvent::GossipBlock(message.data, source)).await.ok();
+                                if let Some(mid) = mirror_id {
+                                    event_sender.send(SwarmInternalEvent::GossipBlock(message.data, source, mid)).await.ok();
                                 } else if message.topic == tx_topic.hash() {
                                     event_sender.send(SwarmInternalEvent::GossipTransaction(message.data, source)).await.ok();
                                 }
@@ -575,14 +598,18 @@ impl Libp2pSync {
                         SwarmCommand::Listen(addr) => { swarm.listen_on(addr).ok(); }
                         SwarmCommand::Dial(addr) => { swarm.dial(addr).ok(); }
                         SwarmCommand::PublishBlock(data) => {
-                            match swarm.behaviour_mut().gossipsub.publish(block_topic.clone(), data.clone()) {
-                                Ok(_) => { /* Success */ }
-                                Err(PublishError::InsufficientPeers) => {
-                                    tracing::warn!(target: "gossip", "Insufficient peers to publish block, queueing for later.");
+                            // DUAL BROADCAST: Publish to BOTH mirrors
+                            let res_a = swarm.behaviour_mut().gossipsub.publish(block_topic_a.clone(), data.clone());
+                            let res_b = swarm.behaviour_mut().gossipsub.publish(block_topic_b.clone(), data.clone());
+
+                            match (res_a, res_b) {
+                                (Ok(_), Ok(_)) => { /* Success on both */ },
+                                (Err(PublishError::InsufficientPeers), _) | (_, Err(PublishError::InsufficientPeers)) => {
+                                    tracing::warn!(target: "gossip", "Insufficient peers on one or more mirrors, queueing.");
                                     enqueue_block(&mut pending_blocks, data);
                                 }
-                                Err(e) => {
-                                    tracing::warn!(error = %e, "Failed to publish block to gossipsub");
+                                (Err(e), _) | (_, Err(e)) => {
+                                    tracing::warn!(error = %e, "Failed to publish block to at least one mirror");
                                 }
                             }
                         }
@@ -657,16 +684,18 @@ fn enqueue_block(pending: &mut VecDeque<Vec<u8>>, data: Vec<u8>) {
 fn drain_pending_blocks(
     pending: &mut VecDeque<Vec<u8>>,
     gossipsub: &mut GossipsubBehaviour,
-    block_topic: &gossipsub::IdentTopic,
+    block_topic_a: &gossipsub::IdentTopic,
+    block_topic_b: &gossipsub::IdentTopic,
 ) {
     if pending.is_empty() {
         return;
     }
 
-    // Crucially, check for peers subscribed to the specific topic, not just any connected peer.
-    if gossipsub.mesh_peers(&block_topic.hash()).next().is_none() {
-        return;
-    }
+    // Check if we have peers on EITHER topic to attempt flush
+    let peers_a = gossipsub.mesh_peers(&block_topic_a.hash()).count();
+    let peers_b = gossipsub.mesh_peers(&block_topic_b.hash()).count();
+    
+    if peers_a == 0 && peers_b == 0 { return; }
 
     tracing::info!(
         target: "gossip",
@@ -676,19 +705,16 @@ fn drain_pending_blocks(
 
     // Use retain to efficiently re-queue items that still fail to send.
     pending.retain(|block_data| {
-        match gossipsub.publish(block_topic.clone(), block_data.clone()) {
-            Ok(_) => {
-                tracing::info!(target: "gossip", event = "published_queued_block");
-                false // Remove from queue
-            }
-            Err(PublishError::InsufficientPeers) => {
-                // This can happen if the mesh changes between our check and the publish call.
-                true // Keep in queue for next retry
-            }
-            Err(e) => {
-                tracing::error!(error = %e, "Failed to publish queued block from outbox");
-                false // Drop on other errors
-            }
+        let ok_a = gossipsub.publish(block_topic_a.clone(), block_data.clone()).is_ok();
+        let ok_b = gossipsub.publish(block_topic_b.clone(), block_data.clone()).is_ok();
+        
+        if ok_a || ok_b {
+            tracing::info!(target: "gossip", event = "published_queued_block", mirror_a=ok_a, mirror_b=ok_b);
+            false // Remove from queue
+        } else {
+            // Log error if both failed
+            tracing::warn!("Failed to publish queued block to both mirrors, retrying later");
+            true // Keep in queue
         }
     });
 }

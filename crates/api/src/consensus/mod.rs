@@ -78,6 +78,7 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
         &mut self,
         block: Block<T>,
         chain_view: &dyn ChainView<CS, ST>,
+        // metadata: ProposalMetadata, // Future extension for full A-DMFT
     ) -> Result<(), ConsensusError>
     where
         CS: CommitmentScheme + Send + Sync,

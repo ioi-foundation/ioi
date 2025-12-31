@@ -25,7 +25,7 @@ use ioi_services::ibc::{
     light_clients::tendermint::TendermintVerifier,
 };
 use ioi_services::identity::IdentityHub;
-use ioi_services::oracle::OracleService;
+use ioi_services::provider_registry::ProviderRegistryService; // Replaced OracleService
 use ioi_storage::RedbEpochStore;
 use ioi_tx::unified::UnifiedTransactionModel;
 // [FIX] Removed unused ValidatorRole
@@ -153,6 +153,7 @@ impl TransactionPool for MempoolAdapter {
 
         let tx_info = match &tx {
             ChainTransaction::System(s) => Some((s.header.account_id, s.header.nonce)),
+            ChainTransaction::Settlement(s) => Some((s.header.account_id, s.header.nonce)), // Add Settlement handling
             ChainTransaction::Application(a) => match a {
                 ioi_types::app::ApplicationTransaction::DeployContract { header, .. }
                 | ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
@@ -384,10 +385,10 @@ where
                         .push(Arc::new(_gov) as Arc<dyn ioi_api::services::UpgradableService>);
                 }
                 InitialServiceConfig::Oracle(_params) => {
-                    tracing::info!(target: "orchestration", event = "service_init", name = "Oracle", impl="proxy", capabilities="");
-                    let _oracle = OracleService::new();
+                    tracing::info!(target: "orchestration", event = "service_init", name = "ProviderRegistry", impl="native", capabilities="");
+                    let _registry = ProviderRegistryService::default();
                     initial_services
-                        .push(Arc::new(_oracle) as Arc<dyn ioi_api::services::UpgradableService>);
+                        .push(Arc::new(_registry) as Arc<dyn ioi_api::services::UpgradableService>);
                 }
                 #[cfg(feature = "ibc-deps")]
                 InitialServiceConfig::Ibc(ibc_config) => {

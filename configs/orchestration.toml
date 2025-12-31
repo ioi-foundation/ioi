@@ -1,6 +1,6 @@
 chain_id = 42
 config_schema_version = 1
-consensus_type = "ProofOfAuthority"
+consensus_type = "Admft"
 rpc_listen_address = "127.0.0.1:8545"
 initial_sync_timeout_secs = 5
 block_production_interval_secs = 1

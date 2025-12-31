@@ -48,7 +48,9 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 tokio = { workspace = true, features = ["full"] }
 tokio-rustls = { workspace = true }
-rustls = { workspace = true, features = ["ring"] } # [FIX] Added direct rustls dependency
+rustls = { workspace = true, features = [
+    "ring",
+] } # [FIX] Added direct rustls dependency
 rcgen = { workspace = true }
 serde_json = { workspace = true }
 bs58 = "0.4"
@@ -60,6 +62,8 @@ serde_jcs = "0.1.0"
 rand = { workspace = true }
 dcrypt = { workspace = true }
 
+base64 = { workspace = true }
+parity-scale-codec = { workspace = true, features = ["std"] }
 # Added for gRPC server implementation
 tonic = "0.11"
 
@@ -85,8 +89,7 @@ default = []
 validator-bins = [
     "dep:clap",
     "dep:env_logger",
-    "ioi-validator/validator-bins",
-    "ioi-consensus/round-robin",
+    "ioi-consensus/admft", # Default to PoA (A-DMFT)
     "dep:ioi-vm-wasm",
 ]
 
@@ -99,11 +102,7 @@ state-iavl = [
     "ioi-validator/state-iavl",
     "commitment-hash",
 ]
-state-sparse-merkle = [
-    "ioi-state/state-sparse-merkle",
-    "ioi-validator/state-sparse-merkle",
-    "commitment-hash",
-]
+
 state-verkle = [
     "ioi-state/state-verkle",
     "ioi-validator/state-verkle",
@@ -119,12 +118,7 @@ commitment-hash = ["ioi-state/commitment-hash", "ioi-validator/commitment-hash"]
 commitment-kzg = ["ioi-state/commitment-kzg", "ioi-validator/commitment-kzg"]
 
 # Consensus engine features
-consensus-round-robin = [
-    "ioi-validator/consensus-round-robin",
-    "ioi-consensus/round-robin",
-]
-consensus-poa = ["ioi-validator/consensus-poa", "ioi-consensus/poa"]
-consensus-pos = ["ioi-validator/consensus-pos", "ioi-consensus/pos"]
+consensus-admft = ["ioi-validator/consensus-admft", "ioi-consensus/admft"]
 
 # VM Features
 # [FIX] Propagate vm-wasm to ioi-validator
@@ -166,3 +160,12 @@ required-features = ["malicious-bin", "validator-bins", "vm-wasm"]
 name = "ioi-signer"
 path = "src/bin/signer.rs"
 required-features = ["validator-bins"]
+
+[[bin]]
+name = "ioi-local"
+path = "src/bin/ioi-local.rs"
+required-features = [
+    "validator-bins",
+    "state-iavl",
+    "consensus-admft",
+] # Default stack

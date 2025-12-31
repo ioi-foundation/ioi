@@ -11,7 +11,8 @@ use ioi_api::{
 };
 use ioi_consensus::util::engine_from_config;
 use ioi_execution::{util::load_state_from_genesis_file, ExecutionMachine};
-use ioi_services::{governance::GovernanceModule, identity::IdentityHub, oracle::OracleService};
+// [FIX] Updated import
+use ioi_services::{governance::GovernanceModule, identity::IdentityHub, provider_registry::ProviderRegistryService};
 use ioi_storage::RedbEpochStore;
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::{
@@ -189,10 +190,11 @@ where
                     .push(Arc::new(_gov) as Arc<dyn ioi_api::services::UpgradableService>);
             }
             InitialServiceConfig::Oracle(_params) => {
-                tracing::info!(target: "workload", event = "service_init", name = "Oracle", impl="native", capabilities="");
-                let _oracle = OracleService::new();
+                tracing::info!(target: "workload", event = "service_init", name = "ProviderRegistry", impl="native", capabilities="");
+                // [FIX] Use ProviderRegistryService
+                let _registry = ProviderRegistryService::default();
                 initial_services
-                    .push(Arc::new(_oracle) as Arc<dyn ioi_api::services::UpgradableService>);
+                    .push(Arc::new(_registry) as Arc<dyn ioi_api::services::UpgradableService>);
             }
             #[cfg(feature = "ibc-deps")]
             InitialServiceConfig::Ibc(ibc_config) => {

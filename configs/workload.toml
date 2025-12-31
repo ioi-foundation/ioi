@@ -1,7 +1,7 @@
 runtimes = ["wasm"]
 state_tree = "IAVL"
 commitment_scheme = "Hash"
-consensus_type = "ProofOfAuthority"
+consensus_type = "Admft"
 genesis_file = "./genesis.json"
 state_file = "./data/state.db"
 initial_services = []
@@ -16,11 +16,7 @@ state_set_per_byte = 10
 state_get_per_byte = 5
 
 [service_policies.governance]
-allowed_system_prefixes = [
-    "system::validators::",
-    "identity::",
-    "upgrade::",
-]
+allowed_system_prefixes = ["system::validators::", "identity::", "upgrade::"]
 
 [service_policies.governance.methods]
 "stake@v1" = "User"
@@ -41,10 +37,7 @@ allowed_system_prefixes = []
 "verify_state@v1" = "User"
 
 [service_policies.identity_hub]
-allowed_system_prefixes = [
-    "system::validators::",
-    "identity::pubkey::",
-]
+allowed_system_prefixes = ["system::validators::", "identity::pubkey::"]
 
 [service_policies.identity_hub.methods]
 "register_attestation@v1" = "User"

@@ -1,9 +1,4 @@
-// Path: crates/transaction_models/src/lib.rs
-//! # IOI SDK Transaction Models Crate Lints
-//!
-//! This crate enforces a strict set of lints to ensure high-quality,
-//! panic-free, and well-documented code. Panics are disallowed in non-test
-//! code to promote robust error handling.
+// Path: crates/tx/src/lib.rs
 #![cfg_attr(
     not(test),
     deny(
@@ -16,13 +11,16 @@
     )
 )]
 
-pub mod account;
-pub mod hybrid;
-pub mod system; // Add this module
+pub mod settlement;
+pub mod system;
 pub mod unified;
-pub mod utxo;
 
-pub use account::{AccountConfig, AccountModel, AccountTransaction};
-pub use hybrid::{HybridConfig, HybridModel, HybridTransaction};
+// [FIX] Re-export SettlementTransaction from types directly or via settlement module if public
+// Since SettlementTransaction is in ioi_types, we can just re-export it here for convenience if desired,
+// but the previous code tried to re-export from `settlement` mod where it wasn't pub.
+// Let's just export SettlementModel from settlement, and let users get Transaction types from ioi_types.
+// OR, make it pub use in settlement.
+pub use ioi_types::app::SettlementTransaction;
+pub use settlement::SettlementModel;
+
 pub use unified::UnifiedTransactionModel;
-pub use utxo::{UTXOConfig, UTXOModel, UTXOTransaction};
