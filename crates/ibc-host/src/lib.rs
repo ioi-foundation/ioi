@@ -280,6 +280,7 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
                 nonce,
                 chain_id: self.chain_id,
                 tx_version: 1,
+                session_auth: None, // [FIX] Initialize session_auth
             },
             payload: SystemPayload::CallService {
                 service_id: "ibc".to_string(),

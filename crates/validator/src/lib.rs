@@ -16,9 +16,9 @@
 //!
 //! Validator implementation with container architecture for the IOI SDK.
 
-/// Transaction pre-execution logic (ante handlers).
-pub mod ante;
 pub mod common;
 pub mod config;
+/// The Agency Firewall (formerly ante handlers).
+pub mod firewall;
 pub mod metrics;
 pub mod standard;

@@ -1,0 +1,138 @@
+# Path: crates/cli/Cargo.toml
+[package]
+name = "ioi-cli"
+version = "0.1.0"
+edition = "2021"
+description = "A development toolkit and end-to-end testing library for the IOI SDK."
+license-file = "../../LICENSE-BBSL"
+repository = "https://github.com/ioi-foundation/ioi-sdk"
+
+[dependencies]
+# CLI framework
+clap = { workspace = true, features = ["derive", "cargo"] }
+
+# Async runtime
+tokio = { workspace = true, features = ["full"] }
+
+# Error handling and utilities
+anyhow = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+hex = { workspace = true }
+serde_jcs = "0.1.0"
+rand = { workspace = true }
+base64 = { workspace = true }
+
+# Workspace library crates (CLI consumes the SDK as a user would)
+ioi-types = { path = "../types" }
+ioi-api = { path = "../api" }
+ioi-crypto = { path = "../crypto" }
+ioi-validator = { path = "../validator", default-features = false }
+ioi-system = { path = "../system" }
+ioi-state = { path = "../state", default-features = false }
+ioi-client = { path = "../client" }
+ioi-tx = { path = "../tx" }
+# [FIX] Added ioi-ipc for control plane tests
+ioi-ipc = { path = "../ipc" }
+toml = { workspace = true }
+
+# Dependencies for testing helpers that are now part of the library
+reqwest = { workspace = true }
+tempfile = "3.3"
+bs58 = "0.4"
+libp2p = { workspace = true }
+prost = { workspace = true }
+portpicker = "0.1.1"
+bollard = "0.19"
+futures-util = "0.3"
+async-trait = { workspace = true }
+uuid = { version = "1.8.0", features = ["v4"] }
+tar = "0.4"
+hyper = { workspace = true }
+axum = { workspace = true }
+libc = "0.2"
+dcrypt = { workspace = true }
+# [+] Added missing dependency for GenesisBuilder
+parity-scale-codec = { workspace = true, features = ["derive", "std"] }
+
+# HTTP body helpers for hyper v1 (bollard expects these shapes)
+bytes = "1"
+http-body-util = "0.1"
+
+# WASM Component Model tooling for test artifact generation
+wit-component = "0.201.0"
+
+# [FIX] Add tonic for gRPC client tests
+tonic = { version = "0.11", features = ["tls", "transport"] }
+# [FIX] Add rkyv for zero-copy tests
+rkyv = { version = "0.7", features = ["validation", "std", "alloc"] }
+
+[dev-dependencies]
+ioi-relayer = { path = "../relayer" }
+ioi-services = { path = "../services" }
+ioi-execution = { path = "../execution" }
+ioi-networking = { path = "../networking" }
+once_cell = { workspace = true }
+cfg-if = "1.0"
+ibc-client-tendermint = { workspace = true }
+ibc-core-host-types = { workspace = true, features = ["std"] }
+ibc-core-client-types = { workspace = true, features = ["std"] }
+tendermint-testgen = { workspace = true }
+tendermint = { workspace = true }
+tendermint-proto = { workspace = true }
+ibc-core-client-context = { workspace = true, features = ["std"] }
+ibc-core-commitment-types = { workspace = true, features = ["std"] }
+ibc-primitives = { workspace = true, features = ["std"] }
+ibc-proto = { workspace = true, features = ["serde", "std"] }
+ibc-host = { path = "../ibc-host" }
+
+
+# The library exposes helpers, the binary provides the CLI
+[lib]
+name = "ioi_cli"
+path = "src/lib.rs"
+
+[[bin]]
+name = "cli"
+path = "src/main.rs"
+
+[features]
+default = [
+    "validator-bins",
+    "vm-wasm",
+    "state-iavl",
+    "state-sparse-merkle",
+    "state-verkle",
+    "state-jellyfish",
+    "commitment-hash",
+    "commitment-kzg",
+    "consensus-admft",
+]
+# Features must propagate to the validator library, which is a direct dependency.
+# The node binaries are built separately by the test runner, which handles passing features.
+state-iavl = ["ioi-validator/state-iavl"]
+state-sparse-merkle = ["ioi-validator/state-sparse-merkle"]
+state-verkle = ["ioi-validator/state-verkle"]
+# [NEW] Add Jellyfish feature
+state-jellyfish = ["ioi-validator/state-jellyfish"]
+commitment-hash = ["ioi-validator/commitment-hash"]
+commitment-kzg = ["ioi-validator/commitment-kzg"]
+
+# Other features also propagate to the validator lib
+vm-wasm = ["ioi-validator/vm-wasm"]
+consensus-admft = ["ioi-validator/consensus-admft"]
+
+# Service Features
+ibc-deps = ["ioi-validator/ibc-deps"]
+
+# ZK Features (Test runner gate only)
+ethereum-zk = []
+
+# Feature for building the malicious binary for testing
+# This does not need to be propagated, as the test runner handles it.
+malicious-bin = []
+
+validator-bins = ["ioi-validator/validator-bins"]

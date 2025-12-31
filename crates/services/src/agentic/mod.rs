@@ -3,9 +3,10 @@
 
 use ioi_api::impl_service_base;
 
+pub mod firewall;
 pub mod normaliser;
 pub mod prompt_wrapper;
-pub mod firewall; // [NEW]
+pub mod session; // [NEW]
 
 /// A service for agentic operations.
 pub struct AgenticService {

@@ -213,7 +213,7 @@ impl WorkloadConfig {
 /// Generates the default set of service security policies.
 ///
 /// This function returns a map containing the standard permissions and system key
-/// access rules for the core services (Governance, Identity, Oracle, IBC, Penalties).
+/// access rules for the core services (Governance, Identity, ProviderRegistry, IBC, Penalties).
 /// It is used as the default value for `WorkloadConfig::service_policies` and by
 /// testing harnesses to replicate the standard environment.
 pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
@@ -257,14 +257,14 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
         },
     );
 
-    // Oracle
-    let mut oracle_methods = BTreeMap::new();
-    oracle_methods.insert("request_data@v1".into(), MethodPermission::User);
-    oracle_methods.insert("submit_data@v1".into(), MethodPermission::User);
+    // Provider Registry
+    let mut prov_methods = BTreeMap::new();
+    prov_methods.insert("register@v1".into(), MethodPermission::User);
+    prov_methods.insert("heartbeat@v1".into(), MethodPermission::User);
     map.insert(
-        "oracle".to_string(),
+        "provider_registry".to_string(),
         ServicePolicy {
-            methods: oracle_methods,
+            methods: prov_methods,
             allowed_system_prefixes: vec![],
         },
     );

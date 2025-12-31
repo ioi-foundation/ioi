@@ -1,6 +1,6 @@
 // Path: crates/tx/src/unified/mod.rs
 
-use crate::utxo::{UTXOModel, UTXOTransactionProof};
+use crate::settlement::SettlementModel;
 use async_trait::async_trait;
 use ioi_api::chain::ChainView;
 use ioi_api::commitment::CommitmentScheme;
@@ -11,15 +11,9 @@ use ioi_api::state::{
 use ioi_api::transaction::context::TxContext;
 use ioi_api::transaction::TransactionModel;
 use ioi_api::vm::ExecutionContext;
-// REMOVED: use ioi_consensus::PenaltiesService;
 use ioi_services::agentic::firewall::SemanticFirewall;
 use ioi_telemetry::sinks::{error_metrics, service_metrics};
-use ioi_types::app::{
-    ApplicationTransaction,
-    ChainTransaction,
-    StateEntry,
-    SystemPayload, // REMOVED: ChainStatus
-};
+use ioi_types::app::{ApplicationTransaction, ChainTransaction, StateEntry, SystemPayload};
 use ioi_types::codec;
 use ioi_types::error::{StateError, TransactionError};
 use ioi_types::keys::active_service_key;
@@ -31,26 +25,24 @@ use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
+// [FIX] Removed generic <P>
 #[derive(Serialize, Deserialize, Debug, Clone, Encode, Decode)]
-pub enum UnifiedProof<P> {
-    UTXO(UTXOTransactionProof<P>),
-    Application, // no reads proven
-    System,      // no reads proven
-    // [NEW] Proof type for semantic transactions.
-    // The "proof" is actually the CommitteeCertificate in the tx itself, verified by consensus.
-    // This variant is a placeholder to satisfy the type system.
+pub enum UnifiedProof {
+    Settlement,
+    Application,
+    System,
     Semantic,
 }
 
 #[derive(Clone, Debug)]
 pub struct UnifiedTransactionModel<CS: CommitmentScheme + Clone> {
-    utxo_model: UTXOModel<CS>,
+    settlement_model: SettlementModel<CS>,
 }
 
 impl<CS: CommitmentScheme + Clone> UnifiedTransactionModel<CS> {
     pub fn new(scheme: CS) -> Self {
         Self {
-            utxo_model: UTXOModel::new(scheme),
+            settlement_model: SettlementModel::new(scheme),
         }
     }
 }
@@ -84,19 +76,17 @@ where
 {
     type Transaction = ChainTransaction;
     type CommitmentScheme = CS;
-    type Proof = UnifiedProof<CS::Proof>;
+    // [FIX] Updated to concrete type
+    type Proof = UnifiedProof;
 
     fn create_coinbase_transaction(
         &self,
-        block_height: u64,
-        recipient: &[u8],
+        _block_height: u64,
+        _recipient: &[u8],
     ) -> Result<Self::Transaction, TransactionError> {
-        let utxo_tx = self
-            .utxo_model
-            .create_coinbase_transaction(block_height, recipient)?;
-        Ok(ChainTransaction::Application(ApplicationTransaction::UTXO(
-            utxo_tx,
-        )))
+        Err(TransactionError::Unsupported(
+            "Coinbase generation not supported".into(),
+        ))
     }
 
     fn validate_stateless(&self, _tx: &Self::Transaction) -> Result<(), TransactionError> {
@@ -121,14 +111,14 @@ where
         CV: ChainView<Self::CommitmentScheme, ST> + Send + Sync + ?Sized,
     {
         match tx {
+            ChainTransaction::Settlement(settle_tx) => {
+                let (_, gas) = self
+                    .settlement_model
+                    .apply_payload(chain_ref, state, settle_tx, ctx)
+                    .await?;
+                Ok((UnifiedProof::Settlement, gas))
+            }
             ChainTransaction::Application(app_tx) => match app_tx {
-                ApplicationTransaction::UTXO(utxo_tx) => {
-                    let (p, gas) = self
-                        .utxo_model
-                        .apply_payload(chain_ref, state, utxo_tx, ctx)
-                        .await?;
-                    Ok((UnifiedProof::UTXO(p), gas))
-                }
                 ApplicationTransaction::DeployContract { code, header, .. } => {
                     let workload = chain_ref.workload_container();
                     let public_key_bytes = state
@@ -153,7 +143,6 @@ where
                         let versioned_delta: Vec<(Vec<u8>, Vec<u8>)> = state_delta
                             .into_iter()
                             .map(|(key, value)| {
-                                // Accumulate gas for storage writes
                                 gas_used += (key.len() as u64 + value.len() as u64)
                                     * fuel_costs.state_set_per_byte;
 
@@ -224,6 +213,9 @@ where
                     }
                     Ok((UnifiedProof::Application, output.gas_used))
                 }
+                _ => Err(TransactionError::Unsupported(
+                    "Legacy application transaction".into(),
+                )),
             },
             ChainTransaction::System(sys_tx) => {
                 ctx.signer_account_id = sys_tx.header.account_id;
@@ -242,15 +234,6 @@ where
                         }
                         validate_service_id(service_id)?;
 
-                        tracing::debug!(
-                            target = "service_dispatch",
-                            "incoming CallService: {}::{} (params_len={})",
-                            service_id,
-                            method,
-                            params.len()
-                        );
-
-                        // --- KERNEL-SPACE DISPATCH ---
                         if service_id == "penalties" {
                             let service_arc = ctx
                                 .services
@@ -260,15 +243,12 @@ where
                                     "Penalties service inactive".into(),
                                 ))?;
 
-                            // Privileged Call: Pass raw state, NOT namespaced.
-                            // service_arc is Arc<dyn BlockchainService>, so we call the trait method.
                             service_arc
                                 .handle_service_call(state, method, params, ctx)
                                 .await?;
                             return Ok((UnifiedProof::System, 0));
                         }
 
-                        // --- USER-SPACE DISPATCH ---
                         let meta_key = active_service_key(service_id);
                         let meta_bytes = state.get(&meta_key)?.ok_or_else(|| {
                             TransactionError::Unsupported(format!(
@@ -295,13 +275,6 @@ where
                         match permission {
                             MethodPermission::Internal => {
                                 if !ctx.is_internal {
-                                    tracing::warn!(
-                                        target = "service_dispatch",
-                                        "permission denied: internal method via txn: service='{}' method='{}' signer={}",
-                                        service_id,
-                                        method,
-                                        hex::encode(ctx.signer_account_id.as_ref())
-                                    );
                                     return Err(TransactionError::Invalid(
                                         "Internal method cannot be called via transaction".into(),
                                     ));
@@ -337,16 +310,9 @@ where
                                 ))
                             })?;
 
-                        // Create the namespaced state wrapper and dispatch.
                         let prefix = service_namespace_prefix(service.id());
                         let mut namespaced_state = NamespacedStateAccess::new(state, prefix, &meta);
 
-                        tracing::debug!(
-                            target = "service_dispatch",
-                            "invoking {}::{}",
-                            service.id(),
-                            method
-                        );
                         let start = std::time::Instant::now();
                         let result = service
                             .handle_service_call(&mut namespaced_state, method, params, ctx)
@@ -364,17 +330,13 @@ where
                         result?;
                     }
                 }
-                // TODO: Add gas accounting for system transactions
                 Ok((UnifiedProof::System, 0))
             }
-            // [NEW] Semantic Transaction Handler
             ChainTransaction::Semantic {
                 result,
                 proof,
                 header: _,
             } => {
-                // 1. Verify "Proof of Meaning" Binding
-                // The intent_hash in the certificate must match the hash of the canonical result.
                 let computed_hash = SemanticFirewall::compute_intent_hash(result).map_err(|e| {
                     TransactionError::Invalid(format!("Semantic hash mismatch: {}", e))
                 })?;
@@ -386,24 +348,6 @@ where
                         hex::encode(computed_hash)
                     )));
                 }
-
-                // 2. Future: Verify BLS Signature against Committee.
-                // For Phase 1 implementation, we simply check that the proof exists and matches the data.
-                // In Phase 2, we will look up the CommitteeRegistry service state using `proof.committee_id`
-                // and `proof.epoch`, retrieve the aggregate public key, and verify `proof.aggregated_signature`.
-
-                tracing::info!(
-                    target: "semantic_consensus",
-                    "Verified Semantic Transaction: intent_hash={}, committee={}",
-                    hex::encode(proof.intent_hash),
-                    proof.committee_id
-                );
-
-                // 3. Execution (Callback)
-                // Semantic transactions often trigger a callback to an Agentic Service to post results.
-                // Here we perform a simplified dispatch if the result encoding allows it.
-                // For now, we simply accept the semantic transition as valid without state side-effects
-                // beyond the log, effectively acting as a Data Availability post.
 
                 Ok((UnifiedProof::Semantic, 0))
             }

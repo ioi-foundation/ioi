@@ -39,7 +39,6 @@ use ioi_types::{
     error::ValidatorError,
 };
 use libp2p::identity;
-use libp2p::Multiaddr;
 use lru::LruCache;
 use rand::seq::SliceRandom;
 use serde::Serialize;
@@ -352,6 +351,7 @@ where
                 nonce,
                 chain_id: self.config.chain_id,
                 tx_version: 1,
+                session_auth: None, // [FIX] Added session_auth
             },
             payload: sys_payload,
             signature_proof: SignatureProof::default(),
@@ -518,7 +518,7 @@ where
             let context = context_arc.lock().await;
             let is_bootstrap_consensus = matches!(
                 context.config.consensus_type,
-                ioi_types::config::ConsensusType::ProofOfAuthority
+                ioi_types::config::ConsensusType::Admft
                     | ioi_types::config::ConsensusType::ProofOfStake
             );
             if is_bootstrap_consensus && context.known_peers_ref.lock().await.is_empty() {
@@ -902,6 +902,7 @@ async fn handle_network_event<CS, ST, CE, V>(
 
             let tx_info = match tx.as_ref() {
                 ChainTransaction::System(s) => Some((s.header.account_id, s.header.nonce)),
+                ChainTransaction::Settlement(s) => Some((s.header.account_id, s.header.nonce)),
                 ChainTransaction::Application(a) => match a {
                     ioi_types::app::ApplicationTransaction::DeployContract { header, .. } => {
                         Some((header.account_id, header.nonce))
@@ -909,7 +910,6 @@ async fn handle_network_event<CS, ST, CE, V>(
                     ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
                         Some((header.account_id, header.nonce))
                     }
-                    _ => None,
                 },
                 _ => None,
             };
@@ -922,7 +922,8 @@ async fn handle_network_event<CS, ST, CE, V>(
                 let _ = kick_tx.send(());
             }
         }
-        NetworkEvent::GossipBlock(block) => {
+        // MODIFIED: Destructure mirror_id
+        NetworkEvent::GossipBlock { block, mirror_id } => {
             let node_state = { context_arc.lock().await.node_state.lock().await.clone() };
             if node_state == NodeState::Syncing {
                 tracing::debug!(
@@ -971,7 +972,7 @@ async fn handle_network_event<CS, ST, CE, V>(
             }
 
             let mut ctx = context_arc.lock().await;
-            gossip::handle_gossip_block(&mut ctx, block).await
+            gossip::handle_gossip_block(&mut ctx, block, mirror_id).await
         }
         NetworkEvent::ConnectionEstablished(peer_id) => {
             let mut ctx = context_arc.lock().await;

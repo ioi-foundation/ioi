@@ -104,7 +104,7 @@ where
 
     let consensus_allows_bootstrap = matches!(
         cons_ty,
-        ioi_types::config::ConsensusType::ProofOfAuthority
+        ioi_types::config::ConsensusType::Admft
             | ioi_types::config::ConsensusType::ProofOfStake
     );
 

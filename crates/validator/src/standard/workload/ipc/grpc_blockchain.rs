@@ -259,8 +259,11 @@ where
 
         let mut results = Vec::with_capacity(txs.len());
         for tx in txs {
-            use crate::ante::check_tx;
-            let check_result = check_tx(
+            // [FIX] Updated import
+            use crate::firewall::enforce_firewall;
+            
+            // [FIX] Use enforce_firewall instead of check_tx
+            let check_result: Result<(), ioi_types::error::TransactionError> = enforce_firewall(
                 &mut overlay,
                 &services,
                 &tx,
@@ -268,7 +271,7 @@ where
                 height + 1,
                 req.expected_timestamp_secs,
                 false,
-                true,
+                true, // is_simulation
             )
             .await;
 

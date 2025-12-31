@@ -1,7 +1,6 @@
 // Path: crates/validator/src/standard/orchestration/grpc_public.rs
 
 use crate::standard::orchestration::context::{MainLoopContext, TxStatusEntry};
-use crate::standard::orchestration::mempool::Mempool;
 use ioi_api::chain::WorkloadClientApi;
 use ioi_api::{commitment::CommitmentScheme, state::StateManager};
 use ioi_client::WorkloadClient;

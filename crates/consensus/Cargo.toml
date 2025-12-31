@@ -33,9 +33,5 @@ tracing = { workspace = true }
 
 [features]
 default = []
-# A feature for each engine
-round-robin = ["dep:tokio", "dep:ioi-crypto"]
-poa = ["dep:tokio", "dep:ioi-crypto"]
-pos = ["dep:tokio", "dep:ioi-crypto", "dep:serde_json"]
-tendermint = []
+admft = ["dep:tokio", "dep:ioi-crypto"]
 custom-consensus = []

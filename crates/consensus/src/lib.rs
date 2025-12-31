@@ -12,15 +12,7 @@
 )]
 //! Consensus module implementations for the IOI SDK
 
-#[cfg(feature = "round-robin")]
-pub mod round_robin;
-
-#[cfg(feature = "poa")]
-pub mod proof_of_authority;
-
-#[cfg(feature = "pos")]
-pub mod proof_of_stake;
-
+pub mod admft;
 pub mod common;
 pub mod service;
 pub mod util;
@@ -40,19 +32,12 @@ use libp2p::PeerId;
 use std::collections::HashSet;
 use std::fmt::Debug;
 
-// Re-export the concrete engine types for use in the enum.
-#[cfg(feature = "poa")]
-use proof_of_authority::ProofOfAuthorityEngine;
-#[cfg(feature = "pos")]
-use proof_of_stake::ProofOfStakeEngine;
-#[cfg(feature = "round-robin")]
-use round_robin::RoundRobinBftEngine;
+// Export the new engine
+use admft::AdmftEngine;
 
-// Re-export the new service.
 pub use service::PenaltiesService;
 
-/// Defines logic for applying penalties (PoA rules vs PoS rules).
-/// Replaces the old `PenaltyMechanism`.
+/// Defines logic for applying penalties.
 pub trait PenaltyEngine: Send + Sync {
     fn apply(
         &self,
@@ -62,29 +47,19 @@ pub trait PenaltyEngine: Send + Sync {
 }
 
 /// An enum that wraps the various consensus engine implementations.
+/// Currently only A-DMFT is supported as the canonical engine.
 #[derive(Debug, Clone)]
 pub enum Consensus<T: Clone> {
-    #[cfg(feature = "round-robin")]
-    RoundRobin(Box<RoundRobinBftEngine>),
-    #[cfg(feature = "poa")]
-    ProofOfAuthority(ProofOfAuthorityEngine),
-    #[cfg(feature = "pos")]
-    ProofOfStake(ProofOfStakeEngine),
+    Admft(AdmftEngine),
     #[doc(hidden)]
     _Phantom(std::marker::PhantomData<T>),
 }
 
 impl<T: Clone> Consensus<T> {
-    /// Returns the `ConsensusType` enum variant corresponding to the active engine.
     pub fn consensus_type(&self) -> ConsensusType {
         match self {
-            #[cfg(feature = "round-robin")]
-            Consensus::RoundRobin(_) => ConsensusType::ProofOfAuthority,
-            #[cfg(feature = "poa")]
-            Consensus::ProofOfAuthority(_) => ConsensusType::ProofOfAuthority,
-            #[cfg(feature = "pos")]
-            Consensus::ProofOfStake(_) => ConsensusType::ProofOfStake,
-            Consensus::_Phantom(_) => unreachable!("No consensus engine feature is enabled."),
+            Consensus::Admft(_) => ConsensusType::Admft, // Map A-DMFT to PoA config for now
+            Consensus::_Phantom(_) => unreachable!(),
         }
     }
 }
@@ -100,18 +75,12 @@ where
         report: &FailureReport,
     ) -> Result<(), TransactionError> {
         match self {
-            #[cfg(feature = "round-robin")]
-            Consensus::RoundRobin(e) => e.as_ref().apply_penalty(state, report).await,
-            #[cfg(feature = "poa")]
-            Consensus::ProofOfAuthority(e) => e.apply_penalty(state, report).await,
-            #[cfg(feature = "pos")]
-            Consensus::ProofOfStake(e) => e.apply_penalty(state, report).await,
-            Consensus::_Phantom(_) => unreachable!("No consensus engine feature is enabled."),
+            Consensus::Admft(e) => e.apply_penalty(state, report).await,
+            Consensus::_Phantom(_) => unreachable!(),
         }
     }
 }
 
-// NEW: Implement PenaltyEngine for the wrapper enum to satisfy the trait object requirements.
 impl<T: Clone + Send + Sync + 'static> PenaltyEngine for Consensus<T> {
     fn apply(
         &self,
@@ -119,13 +88,8 @@ impl<T: Clone + Send + Sync + 'static> PenaltyEngine for Consensus<T> {
         report: &FailureReport,
     ) -> Result<(), TransactionError> {
         match self {
-            #[cfg(feature = "round-robin")]
-            Consensus::RoundRobin(e) => e.as_ref().apply(sys, report),
-            #[cfg(feature = "poa")]
-            Consensus::ProofOfAuthority(e) => e.apply(sys, report),
-            #[cfg(feature = "pos")]
-            Consensus::ProofOfStake(e) => e.apply(sys, report),
-            Consensus::_Phantom(_) => unreachable!("No consensus engine feature is enabled."),
+            Consensus::Admft(e) => e.apply(sys, report),
+            Consensus::_Phantom(_) => unreachable!(),
         }
     }
 }
@@ -144,22 +108,11 @@ where
         known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
         match self {
-            #[cfg(feature = "round-robin")]
-            Consensus::RoundRobin(e) => {
+            Consensus::Admft(e) => {
                 e.decide(our_account_id, height, view, parent_view, known_peers)
                     .await
             }
-            #[cfg(feature = "poa")]
-            Consensus::ProofOfAuthority(e) => {
-                e.decide(our_account_id, height, view, parent_view, known_peers)
-                    .await
-            }
-            #[cfg(feature = "pos")]
-            Consensus::ProofOfStake(e) => {
-                e.decide(our_account_id, height, view, parent_view, known_peers)
-                    .await
-            }
-            Consensus::_Phantom(_) => unreachable!("No consensus engine feature is enabled."),
+            Consensus::_Phantom(_) => unreachable!(),
         }
     }
 
@@ -173,20 +126,8 @@ where
         ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
     {
         match self {
-            #[cfg(feature = "round-robin")]
-            Consensus::RoundRobin(e) => {
-                <RoundRobinBftEngine as ConsensusEngine<T>>::handle_block_proposal(
-                    e.as_mut(),
-                    block,
-                    chain_view,
-                )
-                .await
-            }
-            #[cfg(feature = "poa")]
-            Consensus::ProofOfAuthority(e) => e.handle_block_proposal(block, chain_view).await,
-            #[cfg(feature = "pos")]
-            Consensus::ProofOfStake(e) => e.handle_block_proposal(block, chain_view).await,
-            Consensus::_Phantom(_) => unreachable!("No consensus engine feature is enabled."),
+            Consensus::Admft(e) => e.handle_block_proposal(block, chain_view).await,
+            Consensus::_Phantom(_) => unreachable!(),
         }
     }
 
@@ -197,49 +138,22 @@ where
         new_view: u64,
     ) -> Result<(), ConsensusError> {
         match self {
-            #[cfg(feature = "round-robin")]
-            Consensus::RoundRobin(e) => {
-                <RoundRobinBftEngine as ConsensusEngine<T>>::handle_view_change(
-                    e.as_mut(),
-                    from,
-                    height,
-                    new_view,
-                )
-                .await
+            Consensus::Admft(e) => {
+                // [FIX] Use fully qualified path for disambiguation
+                <AdmftEngine as ConsensusEngine<T>>::handle_view_change(e, from, height, new_view)
+                    .await
             }
-            #[cfg(feature = "poa")]
-            Consensus::ProofOfAuthority(e) => {
-                <ProofOfAuthorityEngine as ConsensusEngine<T>>::handle_view_change(
-                    e, from, height, new_view,
-                )
-                .await
-            }
-            #[cfg(feature = "pos")]
-            Consensus::ProofOfStake(e) => {
-                <ProofOfStakeEngine as ConsensusEngine<T>>::handle_view_change(
-                    e, from, height, new_view,
-                )
-                .await
-            }
-            Consensus::_Phantom(_) => unreachable!("No consensus engine feature is enabled."),
+            Consensus::_Phantom(_) => unreachable!(),
         }
     }
 
     fn reset(&mut self, height: u64) {
         match self {
-            #[cfg(feature = "round-robin")]
-            Consensus::RoundRobin(e) => {
-                <RoundRobinBftEngine as ConsensusEngine<T>>::reset(e.as_mut(), height)
+            Consensus::Admft(e) => {
+                // [FIX] Use fully qualified path for disambiguation
+                <AdmftEngine as ConsensusEngine<T>>::reset(e, height)
             }
-            #[cfg(feature = "poa")]
-            Consensus::ProofOfAuthority(e) => {
-                <ProofOfAuthorityEngine as ConsensusEngine<T>>::reset(e, height)
-            }
-            #[cfg(feature = "pos")]
-            Consensus::ProofOfStake(e) => {
-                <ProofOfStakeEngine as ConsensusEngine<T>>::reset(e, height)
-            }
-            Consensus::_Phantom(_) => unreachable!("No consensus engine feature is enabled."),
+            Consensus::_Phantom(_) => unreachable!(),
         }
     }
 }

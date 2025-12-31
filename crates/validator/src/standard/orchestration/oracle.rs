@@ -11,7 +11,8 @@ use ioi_api::{
     consensus::ConsensusEngine,
     state::{StateManager, Verifier},
 };
-use ioi_services::oracle::SubmitDataParams;
+// [FIX] Stubbed locally since provider_registry replaced oracle
+// use ioi_services::provider_registry::SubmitDataParams;
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ChainTransaction, OracleAttestation,
@@ -28,6 +29,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 // Time-to-live for attestations to prevent replay of old, potentially invalid data.
 const ATTESTATION_TTL_SECS: u64 = 300; // 5 minutes
+
+#[derive(parity_scale_codec::Encode)]
+struct SubmitDataParams {
+    request_id: u64,
+    final_value: Vec<u8>,
+    consensus_proof: OracleConsensusProof,
+}
 
 /// Handles a received oracle attestation from a peer validator.
 pub async fn handle_oracle_attestation_received<CS, ST, CE, V>(
@@ -327,6 +335,7 @@ pub async fn check_quorum_and_submit<CS, ST, CE, V>(
                 nonce: current_nonce,
                 chain_id: context.chain_id,
                 tx_version: 1,
+                session_auth: None, // [FIX] Added session_auth
             },
             payload,
             signature_proof: SignatureProof::default(),

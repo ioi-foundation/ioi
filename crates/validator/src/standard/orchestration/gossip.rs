@@ -2,7 +2,7 @@
 
 use super::context::MainLoopContext;
 use crate::standard::orchestration::mempool::Mempool;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, StateRef, WorkloadClientApi};
 use ioi_api::commitment::CommitmentScheme;
@@ -142,12 +142,12 @@ pub fn prune_mempool(
 fn get_tx_nonce(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
     match tx {
         ChainTransaction::System(s) => Some((s.header.account_id, s.header.nonce)),
+        ChainTransaction::Settlement(s) => Some((s.header.account_id, s.header.nonce)),
         ChainTransaction::Application(a) => match a {
             ioi_types::app::ApplicationTransaction::DeployContract { header, .. }
             | ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
                 Some((header.account_id, header.nonce))
             }
-            _ => None,
         },
         _ => None,
     }
@@ -157,6 +157,7 @@ fn get_tx_nonce(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
 pub async fn handle_gossip_block<CS, ST, CE, V>(
     context: &mut MainLoopContext<CS, ST, CE, V>,
     block: Block<ChainTransaction>,
+    mirror_id: u8, // [NEW] Added mirror_id
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -210,6 +211,13 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
             ),
         )
     };
+
+    // A-DMFT Divergence Detection Hook
+    tracing::debug!(target: "admft", "Received block {} on Mirror {}", block.header.height, if mirror_id == 0 { "A" } else { "B" });
+
+    // Note: To fully implement divergence detection, we would track received blocks by height/view/mirror
+    // in the Consensus Engine state and trigger a view change if we see conflicting valid blocks.
+    // For now, we pass the block to the engine which verifies the signature/counter validity.
 
     if let Err(e) = engine_ref
         .lock()

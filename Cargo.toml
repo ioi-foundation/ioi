@@ -7,17 +7,10 @@ cargo-features = ["profile-rustflags"]
 
 [workspace]
 resolver = "2"
-exclude = [
-    "crates/forge/tests/contracts/counter",
-    "crates/forge/tests/contracts/fee-calculator-service",
-    "crates/forge/tests/contracts/test-service",
-    "crates/forge/tests/contracts/mock-verifier",
-    "crates/sp1-guests",
-]
+exclude = ["crates/cli/tests/fixtures/mock-verifier", "crates/sp1-guests"]
 members = [
     "crates/node",
-    "crates/forge",
-    "crates/contract-sdk",
+    "crates/cli",
     "crates/execution",
     "crates/state",
     "crates/consensus",
@@ -40,9 +33,6 @@ members = [
 ]
 
 [workspace.dependencies]
-# --- Internal Crates ---
-ioi-contract-sdk = { path = "crates/contract-sdk", default-features = false }
-
 # --- Networking & HTTP ---
 libp2p = { version = "0.53", features = [
     "tokio",

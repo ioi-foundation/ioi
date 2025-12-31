@@ -17,10 +17,11 @@
 //!
 //! This module exports the various stateful data structures that implement
 //! the `StateCommitment` trait.
-
+//!
 pub mod iavl;
-pub mod sparse_merkle;
 pub mod verkle;
 
 #[cfg(feature = "state-jellyfish")]
 pub mod jellyfish;
+
+pub mod mhnsw;

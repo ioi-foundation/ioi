@@ -1,29 +1,29 @@
 // Path: crates/validator/src/standard/orchestration/ingestion.rs
 
 use crate::metrics::rpc_metrics as metrics;
-use crate::standard::orchestration::context::{TxStatusEntry};
+use crate::standard::orchestration::context::TxStatusEntry;
 use crate::standard::orchestration::mempool::{AddResult, Mempool};
+use futures::stream::{self, StreamExt};
 use ioi_api::chain::WorkloadClientApi;
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::transaction::TransactionModel;
 use ioi_client::WorkloadClient;
-use ioi_ipc::public::{TxStatus};
+use ioi_ipc::public::TxStatus;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{
     compute_next_timestamp, AccountId, BlockTimingParams, BlockTimingRuntime, ChainTransaction,
-    StateAnchor, StateRoot, TxHash,
+    StateRoot, TxHash,
 };
-use ioi_types::{codec};
+use ioi_types::codec;
 use ioi_types::keys::ACCOUNT_NONCE_PREFIX;
-use futures::stream::{self, StreamExt};
 use serde::Serialize;
-use std::collections::{HashSet, HashMap};
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, watch, Mutex};
-use tracing::{debug, error, info, warn};
+use tracing::{error, info}; // Removed unused imports
 
 /// Configuration for the ingestion worker.
 #[derive(Debug, Clone)]
@@ -79,7 +79,7 @@ pub async fn run_ingestion_worker<CS>(
     swarm_sender: mpsc::Sender<SwarmCommand>,
     consensus_kick_tx: mpsc::UnboundedSender<()>,
     tx_model: Arc<UnifiedTransactionModel<CS>>,
-    mut tip_watcher: watch::Receiver<ChainTipInfo>,
+    tip_watcher: watch::Receiver<ChainTipInfo>,
     status_cache: Arc<Mutex<lru::LruCache<String, TxStatusEntry>>>,
     receipt_map: Arc<Mutex<lru::LruCache<TxHash, String>>>,
     config: IngestionConfig,
@@ -96,7 +96,7 @@ pub async fn run_ingestion_worker<CS>(
     let mut batch = Vec::with_capacity(config.batch_size);
     let mut processed_batch = Vec::with_capacity(config.batch_size);
     let mut timing_cache: Option<TimingCache> = None;
-    
+
     // Local cache of committed nonces to avoid repeated DB hits for the same account in a burst.
     let mut nonce_cache: lru::LruCache<AccountId, u64> =
         lru::LruCache::new(std::num::NonZeroUsize::new(10000).unwrap());
@@ -114,7 +114,9 @@ pub async fn run_ingestion_worker<CS>(
 
         while batch.len() < config.batch_size {
             let remaining = timeout.saturating_sub(collect_start.elapsed());
-            if remaining.is_zero() { break; }
+            if remaining.is_zero() {
+                break;
+            }
 
             match tokio::time::timeout(remaining, rx.recv()).await {
                 Ok(Some(item)) => batch.push(item),
@@ -129,60 +131,78 @@ pub async fn run_ingestion_worker<CS>(
         for (receipt_hash, tx_bytes) in batch.drain(..) {
             let receipt_hash_hex = hex::encode(receipt_hash);
             match tx_model.deserialize_transaction(&tx_bytes) {
-                Ok(tx) => {
-                    match tx.hash() {
-                        Ok(canonical_hash) => {
-                            let (account_id, nonce) = match &tx {
-                                ChainTransaction::System(s) => (Some(s.header.account_id), Some(s.header.nonce)),
-                                ChainTransaction::Application(a) => match a {
-                                    ioi_types::app::ApplicationTransaction::DeployContract { header, .. } |
-                                    ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
-                                        (Some(header.account_id), Some(header.nonce))
-                                    }
-                                    _ => (None, None),
-                                },
-                                _ => (None, None),
-                            };
-
-                            if let Some(acc) = account_id {
-                                if !tx_pool.contains_account(&acc) && !nonce_cache.contains(&acc) {
-                                    accounts_needing_nonce.insert(acc);
-                                }
+                Ok(tx) => match tx.hash() {
+                    Ok(canonical_hash) => {
+                        let (account_id, nonce) = match &tx {
+                            ChainTransaction::System(s) => {
+                                (Some(s.header.account_id), Some(s.header.nonce))
                             }
+                            ChainTransaction::Settlement(s) => {
+                                (Some(s.header.account_id), Some(s.header.nonce))
+                            }
+                            ChainTransaction::Application(a) => match a {
+                                ioi_types::app::ApplicationTransaction::DeployContract {
+                                    header,
+                                    ..
+                                }
+                                | ioi_types::app::ApplicationTransaction::CallContract {
+                                    header,
+                                    ..
+                                } => (Some(header.account_id), Some(header.nonce)),
+                            },
+                            _ => (None, None),
+                        };
 
-                            processed_batch.push(ProcessedTx {
-                                tx,
-                                canonical_hash,
-                                raw_bytes: tx_bytes,
-                                receipt_hash_hex,
-                                account_id,
-                                nonce,
-                            });
+                        if let Some(acc) = account_id {
+                            if !tx_pool.contains_account(&acc) && !nonce_cache.contains(&acc) {
+                                accounts_needing_nonce.insert(acc);
+                            }
                         }
-                        Err(e) => {
-                            status_cache.lock().await.put(receipt_hash_hex, TxStatusEntry {
+
+                        processed_batch.push(ProcessedTx {
+                            tx,
+                            canonical_hash,
+                            raw_bytes: tx_bytes,
+                            receipt_hash_hex,
+                            account_id,
+                            nonce,
+                        });
+                    }
+                    Err(e) => {
+                        status_cache.lock().await.put(
+                            receipt_hash_hex,
+                            TxStatusEntry {
                                 status: TxStatus::Rejected,
                                 error: Some(format!("Canonical hashing failed: {}", e)),
                                 block_height: None,
-                            });
-                        }
+                            },
+                        );
                     }
-                }
+                },
                 Err(e) => {
-                    status_cache.lock().await.put(receipt_hash_hex, TxStatusEntry {
-                        status: TxStatus::Rejected,
-                        error: Some(format!("Deserialization failed: {}", e)),
-                        block_height: None,
-                    });
+                    status_cache.lock().await.put(
+                        receipt_hash_hex,
+                        TxStatusEntry {
+                            status: TxStatus::Rejected,
+                            error: Some(format!("Deserialization failed: {}", e)),
+                            block_height: None,
+                        },
+                    );
                 }
             }
         }
 
-        if processed_batch.is_empty() { continue; }
+        if processed_batch.is_empty() {
+            continue;
+        }
 
         // --- 3. Context & Nonce Resolution ---
         let tip = tip_watcher.borrow().clone();
-        let root_struct = StateRoot(if tip.height > 0 { tip.state_root.clone() } else { tip.genesis_root.clone() });
+        let root_struct = StateRoot(if tip.height > 0 {
+            tip.state_root.clone()
+        } else {
+            tip.genesis_root.clone()
+        });
 
         if !accounts_needing_nonce.is_empty() {
             let fetch_results = stream::iter(accounts_needing_nonce)
@@ -192,14 +212,19 @@ pub async fn run_ingestion_worker<CS>(
                     async move {
                         let key = [ACCOUNT_NONCE_PREFIX, acc.as_ref()].concat();
                         let nonce = match client.query_state_at(root, &key).await {
-                            Ok(resp) => resp.membership.into_option().map(|b| codec::from_bytes_canonical::<u64>(&b).unwrap_or(0)).unwrap_or(0),
+                            Ok(resp) => resp
+                                .membership
+                                .into_option()
+                                .map(|b| codec::from_bytes_canonical::<u64>(&b).unwrap_or(0))
+                                .unwrap_or(0),
                             _ => 0,
                         };
                         (acc, nonce)
                     }
                 })
                 .buffer_unordered(50)
-                .collect::<Vec<_>>().await;
+                .collect::<Vec<_>>()
+                .await;
 
             for (acc, nonce) in fetch_results {
                 nonce_cache.put(acc, nonce);
@@ -207,28 +232,56 @@ pub async fn run_ingestion_worker<CS>(
         }
 
         // Timing Parameter Refresh (every 2s)
-        if timing_cache.as_ref().map_or(true, |c| c.last_fetched.elapsed() > Duration::from_secs(2)) {
+        if timing_cache
+            .as_ref()
+            .map_or(true, |c| c.last_fetched.elapsed() > Duration::from_secs(2))
+        {
             let params_key = ioi_types::keys::BLOCK_TIMING_PARAMS_KEY;
             let runtime_key = ioi_types::keys::BLOCK_TIMING_RUNTIME_KEY;
             if let (Ok(p_resp), Ok(r_resp)) = tokio::join!(
                 workload_client.query_state_at(root_struct.clone(), params_key),
                 workload_client.query_state_at(root_struct.clone(), runtime_key)
             ) {
-                let params = p_resp.membership.into_option().and_then(|v| codec::from_bytes_canonical(&v).ok()).unwrap_or_default();
-                let runtime = r_resp.membership.into_option().and_then(|v| codec::from_bytes_canonical(&v).ok()).unwrap_or_default();
-                timing_cache = Some(TimingCache { params, runtime, last_fetched: Instant::now() });
+                let params = p_resp
+                    .membership
+                    .into_option()
+                    .and_then(|v| codec::from_bytes_canonical(&v).ok())
+                    .unwrap_or_default();
+                let runtime = r_resp
+                    .membership
+                    .into_option()
+                    .and_then(|v| codec::from_bytes_canonical(&v).ok())
+                    .unwrap_or_default();
+                timing_cache = Some(TimingCache {
+                    params,
+                    runtime,
+                    last_fetched: Instant::now(),
+                });
             }
         }
 
-        let expected_ts = timing_cache.as_ref().and_then(|c| {
-            compute_next_timestamp(&c.params, &c.runtime, tip.height, tip.timestamp, tip.gas_used)
-        }).unwrap_or(0);
+        let expected_ts = timing_cache
+            .as_ref()
+            .and_then(|c| {
+                compute_next_timestamp(
+                    &c.params,
+                    &c.runtime,
+                    tip.height,
+                    tip.timestamp,
+                    tip.gas_used,
+                )
+            })
+            .unwrap_or(0);
 
         let anchor = root_struct.to_anchor().unwrap_or_default();
-        let txs_to_check: Vec<ChainTransaction> = processed_batch.iter().map(|p| p.tx.clone()).collect();
+        let txs_to_check: Vec<ChainTransaction> =
+            processed_batch.iter().map(|p| p.tx.clone()).collect();
 
         // --- 4. Workload Validation ---
-        let check_results = match workload_client.check_transactions_at(anchor, expected_ts, txs_to_check).await {
+        let check_results = match workload_client
+            .check_transactions_at(anchor, expected_ts, txs_to_check)
+            .await
+        {
             Ok(res) => res,
             Err(e) => {
                 error!(target: "ingestion", "Validation IPC failed: {}", e);
@@ -246,38 +299,57 @@ pub async fn run_ingestion_worker<CS>(
             match result {
                 Ok(_) => {
                     let tx_info = p_tx.account_id.map(|acc| (acc, p_tx.nonce.unwrap()));
-                    let committed_nonce = p_tx.account_id.and_then(|acc| nonce_cache.get(&acc).copied()).unwrap_or(0);
-                    
-                    match tx_pool.add(p_tx.tx.clone(), p_tx.canonical_hash, tx_info, committed_nonce) {
+                    let committed_nonce = p_tx
+                        .account_id
+                        .and_then(|acc| nonce_cache.get(&acc).copied())
+                        .unwrap_or(0);
+
+                    match tx_pool.add(
+                        p_tx.tx.clone(),
+                        p_tx.canonical_hash,
+                        tx_info,
+                        committed_nonce,
+                    ) {
                         AddResult::Ready | AddResult::Future => {
                             accepted_count += 1;
-                            status_guard.put(p_tx.receipt_hash_hex.clone(), TxStatusEntry {
-                                status: TxStatus::InMempool,
-                                error: None,
-                                block_height: None,
-                            });
+                            status_guard.put(
+                                p_tx.receipt_hash_hex.clone(),
+                                TxStatusEntry {
+                                    status: TxStatus::InMempool,
+                                    error: None,
+                                    block_height: None,
+                                },
+                            );
                             receipt_guard.put(p_tx.canonical_hash, p_tx.receipt_hash_hex.clone());
-                            let _ = swarm_sender.send(SwarmCommand::PublishTransaction(p_tx.raw_bytes.clone())).await;
+                            let _ = swarm_sender
+                                .send(SwarmCommand::PublishTransaction(p_tx.raw_bytes.clone()))
+                                .await;
                         }
                         AddResult::Rejected(r) => {
-                            status_guard.put(p_tx.receipt_hash_hex.clone(), TxStatusEntry {
-                                status: TxStatus::Rejected,
-                                error: Some(format!("Mempool: {}", r)),
-                                block_height: None,
-                            });
+                            status_guard.put(
+                                p_tx.receipt_hash_hex.clone(),
+                                TxStatusEntry {
+                                    status: TxStatus::Rejected,
+                                    error: Some(format!("Mempool: {}", r)),
+                                    block_height: None,
+                                },
+                            );
                         }
                     }
                 }
                 Err(e) => {
-                    status_guard.put(p_tx.receipt_hash_hex.clone(), TxStatusEntry {
-                        status: TxStatus::Rejected,
-                        error: Some(format!("Validation: {}", e)),
-                        block_height: None,
-                    });
+                    status_guard.put(
+                        p_tx.receipt_hash_hex.clone(),
+                        TxStatusEntry {
+                            status: TxStatus::Rejected,
+                            error: Some(format!("Validation: {}", e)),
+                            block_height: None,
+                        },
+                    );
                 }
             }
         }
-        
+
         if accepted_count > 0 {
             let _ = consensus_kick_tx.send(());
         }

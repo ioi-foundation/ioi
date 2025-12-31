@@ -7,8 +7,8 @@ use crate::transaction::TransactionModel;
 // eliminating the duplicate definitions that were here previously and resolving
 // the deserialization bug.
 pub use ioi_types::app::{
-    ApplicationTransaction, Block, BlockHeader, ChainStatus, ChainTransaction, Input, Output,
-    SystemPayload, SystemTransaction, UTXOTransaction,
+    ApplicationTransaction, Block, BlockHeader, ChainStatus, ChainTransaction, SystemPayload,
+    SystemTransaction,
 };
 
 /// A struct that holds the core, serializable state of a blockchain.

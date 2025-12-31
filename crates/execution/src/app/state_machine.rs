@@ -146,6 +146,8 @@ where
     ) -> Result<(Vec<u8>, u64), ChainError> {
         let signer_account_id = match tx {
             ChainTransaction::System(s) => s.header.account_id,
+            // [FIX] Handle Settlement
+            ChainTransaction::Settlement(s) => s.header.account_id,
             ChainTransaction::Application(a) => match a {
                 ioi_types::app::ApplicationTransaction::DeployContract { header, .. } => {
                     header.account_id
@@ -153,7 +155,8 @@ where
                 ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
                     header.account_id
                 }
-                ioi_types::app::ApplicationTransaction::UTXO(_) => AccountId::default(),
+                // UTXO removed
+                _ => AccountId::default(),
             },
             ChainTransaction::Semantic { header, .. } => header.account_id,
         };
@@ -492,7 +495,8 @@ where
             let guard = tree_arc.read().await;
             guard.clone()
         };
-        let commit = backend
+        // Unused verify commit
+        let _commit = backend
             .commitment_from_bytes(&prepared.parent_state_root)
             .map_err(ChainError::State)?;
 
@@ -506,21 +510,15 @@ where
                 continue;
             }
 
-            let proof: UnifiedProof<<CS as CommitmentScheme>::Proof> =
+            // [FIX] Remove generic argument from UnifiedProof
+            let proof: UnifiedProof =
                 codec::from_bytes_canonical(proof_bytes).map_err(ChainError::Transaction)?;
 
             match proof {
-                UnifiedProof::UTXO(p) => {
-                    for ip in p.input_proofs {
-                        backend
-                            .verify_proof(
-                                &commit,
-                                &ip.inclusion_proof,
-                                &ip.utxo_key,
-                                &ip.utxo_value,
-                            )
-                            .map_err(ChainError::State)?;
-                    }
+                // [FIX] UTXO Removed. Settlement currently has empty proof, so nothing to verify against backend yet.
+                // In future, if Settlement returns Merkle proofs for balances, verify them here.
+                UnifiedProof::Settlement => {
+                    // No-op for now
                 }
                 _ => { /* Verification for other proof types would go here */ }
             }
