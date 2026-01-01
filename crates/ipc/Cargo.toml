@@ -4,7 +4,7 @@ name = "ioi-ipc"
 version = "0.2.0"
 edition = "2021"
 license-file = "../../LICENSE-BBSL"
-repository = "https://github.com/ioi-foundation/ioi-sdk"
+repository = "https://github.com/ioi-foundation/ioi"
 
 [dependencies]
 

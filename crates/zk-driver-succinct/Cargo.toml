@@ -5,7 +5,7 @@ version = "0.1.0"
 edition = "2021"
 description = "ZkDriver implementation for Succinct Labs / SP1 proofs"
 license-file = "../../LICENSE-BBSL"
-repository = "https://github.com/ioi-foundation/ioi-sdk"
+repository = "https://github.com/ioi-foundation/ioi"
 
 [features]
 default = ["mock"]

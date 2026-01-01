@@ -5,7 +5,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Pure-Rust persistent storage (redb + epoch sharding) for StateManager backends"
 license-file = "../../LICENSE-BBSL"
-repository = "https://github.com/ioi-foundation/ioi-sdk"
+repository = "https://github.com/ioi-foundation/ioi"
 
 [dependencies]
 ioi-api = { path = "../api" }

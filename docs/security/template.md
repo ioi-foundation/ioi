@@ -4,7 +4,7 @@
 **Severity:** <Critical | High | Medium | Low> (CVSS <score>)  
 **CVSS Vector:** <vector string>  
 **Status:** <✅ Patched | 🟠 Under Review | 🔴 Unpatched>  
-**Fixed In:** Commit [`<commit>`](https://github.com/ioi-network/ioi-sdk/commit/<commit>)
+**Fixed In:** Commit [`<commit>`](https://github.com/ioi-network/ioi/commit/<commit>)
 
 ---
 
@@ -87,7 +87,7 @@ Explain why this logic fails and how it can be exploited.
 
 ### Patch Reference
 
-* Commit: [`<commit>`](https://github.com/ioi-network/ioi-sdk/commit/<commit>)
+* Commit: [`<commit>`](https://github.com/ioi-network/ioi/commit/<commit>)
 * Modules: `<affected modules>`
 * Tag: `<version tag>`
 
