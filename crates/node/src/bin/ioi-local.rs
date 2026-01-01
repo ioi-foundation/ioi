@@ -1,16 +1,16 @@
 // Path: crates/node/src/bin/ioi-local.rs
 #![forbid(unsafe_code)]
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::Parser;
 use ioi_api::crypto::SerializableKey;
 use ioi_api::state::service_namespace_prefix;
 use ioi_api::validator::container::Container;
 use ioi_consensus::util::engine_from_config;
-use ioi_consensus::Consensus; // FIX: Added for type annotation
+use ioi_consensus::Consensus;
 use ioi_crypto::sign::eddsa::Ed25519PrivateKey;
-use ioi_state::primitives::hash::HashCommitmentScheme; // FIX: Added for type annotation
-use ioi_state::tree::iavl::IAVLTree; // FIX: Added for type annotation
+use ioi_state::primitives::hash::HashCommitmentScheme;
+use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::{
     account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, SignatureSuite,
     ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
@@ -20,13 +20,15 @@ use ioi_types::config::{
 };
 use ioi_types::service_configs::MigrationConfig;
 use ioi_validator::common::{GuardianContainer, LocalSigner};
-use ioi_validator::standard::orchestration::verifier_select::DefaultVerifier; // FIX: Added
+use ioi_validator::standard::orchestration::verifier_select::DefaultVerifier;
 use ioi_validator::standard::orchestration::OrchestrationDependencies;
+use ioi_validator::standard::workload::setup::setup_workload;
 use ioi_validator::standard::Orchestrator;
 use libp2p::identity;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{atomic::AtomicBool, Arc};
+use tokio::time::Duration;
 
 #[derive(Parser, Debug)]
 #[clap(name = "ioi-local", about = "IOI User Node (Mode 0)")]
@@ -43,7 +45,6 @@ async fn main() -> Result<()> {
     let opts = LocalOpts::parse();
     fs::create_dir_all(&opts.data_dir)?;
 
-    // 1. Generate Local Identity (Auto-generated on first run)
     let key_path = opts.data_dir.join("identity.key");
     let local_key = if key_path.exists() {
         let raw = GuardianContainer::load_encrypted_file(&key_path)?;
@@ -62,13 +63,15 @@ async fn main() -> Result<()> {
         &local_key.public().encode_protobuf(),
     )?);
 
-    // 2. Configure for Solo Mode
+    let rpc_addr = std::env::var("ORCHESTRATION_RPC_LISTEN_ADDRESS")
+        .unwrap_or_else(|_| "0.0.0.0:9000".to_string());
+
     let config = OrchestrationConfig {
         chain_id: ioi_types::app::ChainId(0),
         config_schema_version: 1,
         validator_role: ValidatorRole::Consensus,
         consensus_type: ConsensusType::Admft,
-        rpc_listen_address: "127.0.0.1:9000".to_string(),
+        rpc_listen_address: rpc_addr.clone(),
         rpc_hardening: Default::default(),
         initial_sync_timeout_secs: 0,
         block_production_interval_secs: 1,
@@ -109,23 +112,18 @@ async fn main() -> Result<()> {
         zk_config: Default::default(),
     };
 
-    // 3. Generate Genesis if it doesn't exist
     if !Path::new(&workload_config.genesis_file).exists() {
         println!("Generating new genesis file for local mode...");
         use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
         use ioi_types::codec::to_bytes_canonical;
         use ioi_types::keys::*;
         use ioi_types::service_configs::{GovernancePolicy, GovernanceSigner};
-
         let mut genesis_state = serde_json::Map::new();
-
         let mut insert_raw = |key: &[u8], encoded_val: Vec<u8>| {
             let key_str = format!("b64:{}", BASE64.encode(key));
             let val_str = format!("b64:{}", BASE64.encode(encoded_val));
             genesis_state.insert(key_str, serde_json::Value::String(val_str));
         };
-
-        // Identity
         let cred = ioi_types::app::Credential {
             suite: SignatureSuite::ED25519,
             public_key_hash: local_account_id.0,
@@ -133,22 +131,17 @@ async fn main() -> Result<()> {
             l2_location: None,
             weight: 1,
         };
-
         let creds_key = [
             service_namespace_prefix("identity_hub").as_slice(),
             IDENTITY_CREDENTIALS_PREFIX,
             local_account_id.as_ref(),
         ]
         .concat();
-
         insert_raw(&creds_key, to_bytes_canonical(&[Some(cred), None]).unwrap());
-
         insert_raw(
             &[ACCOUNT_ID_TO_PUBKEY_PREFIX, local_account_id.as_ref()].concat(),
             to_bytes_canonical(&local_key.public().encode_protobuf()).unwrap(),
         );
-
-        // Validator Set
         let vs = ValidatorSetsV1 {
             current: ValidatorSetV1 {
                 effective_from_height: 1,
@@ -166,8 +159,6 @@ async fn main() -> Result<()> {
             next: None,
         };
         insert_raw(VALIDATOR_SET_KEY, to_bytes_canonical(&vs).unwrap());
-
-        // Governance Policy
         insert_raw(
             GOVERNANCE_KEY,
             to_bytes_canonical(&GovernancePolicy {
@@ -175,7 +166,6 @@ async fn main() -> Result<()> {
             })
             .unwrap(),
         );
-
         let json = serde_json::json!({ "genesis_state": genesis_state });
         fs::write(
             &workload_config.genesis_file,
@@ -183,7 +173,45 @@ async fn main() -> Result<()> {
         )?;
     }
 
-    // 4. Initialize Orchestrator Dependencies
+    let scheme = HashCommitmentScheme::new();
+    let tree = IAVLTree::new(scheme.clone());
+    let (workload_container, machine) =
+        setup_workload(tree, scheme.clone(), workload_config.clone()).await?;
+
+    let workload_ipc_addr = "127.0.0.1:8555";
+    std::env::set_var("IPC_SERVER_ADDR", workload_ipc_addr);
+
+    let server_workload = workload_container.clone();
+    let server_machine = machine.clone();
+    let server_addr = workload_ipc_addr.to_string();
+
+    let workload_server_handle = tokio::spawn(async move {
+        let server = ioi_validator::standard::workload::ipc::WorkloadIpcServer::new(
+            server_addr,
+            server_workload,
+            server_machine,
+        )
+        .await
+        .map_err(|e| anyhow!(e))?;
+        server.run().await.map_err(|e| anyhow!(e))
+    });
+
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    let ca_path = opts.data_dir.join("ca.pem");
+    let cert_path = opts.data_dir.join("orchestration.pem");
+    let key_path = opts.data_dir.join("orchestration.key");
+
+    let workload_client = Arc::new(
+        ioi_client::WorkloadClient::new(
+            workload_ipc_addr,
+            &ca_path.to_string_lossy(),
+            &cert_path.to_string_lossy(),
+            &key_path.to_string_lossy(),
+        )
+        .await?,
+    );
+
     let (syncer, swarm_commander, network_events) = ioi_networking::libp2p::Libp2pSync::new(
         local_key.clone(),
         "/ip4/127.0.0.1/tcp/0".parse()?,
@@ -210,25 +238,38 @@ async fn main() -> Result<()> {
         batch_verifier: Arc::new(ioi_crypto::sign::batch::CpuBatchVerifier::new()),
     };
 
-    // 5. Launch Orchestrator
-    // FIX: Provide explicit type annotations to Orchestrator to resolve inference error.
-    let orchestrator = Arc::new(Orchestrator::<
-        HashCommitmentScheme,
-        IAVLTree<HashCommitmentScheme>,
-        Consensus<ChainTransaction>,
-        DefaultVerifier,
-    >::new(&config, deps, HashCommitmentScheme::new())?);
+    let orchestrator = Arc::new(Orchestrator::new(&config, deps, scheme)?);
+    orchestrator.set_chain_and_workload_client(machine, workload_client);
 
     println!("\n✅ IOI User Node (Mode 0) configuration is valid.");
     println!("   - Agency Firewall: Active");
     println!("   - Semantic FS: Mounted at {}", opts.data_dir.display());
     println!(
-        "   - RPC will listen on http://{}\n",
+        "   - RPC will listen on http://{}",
         config.rpc_listen_address
     );
     println!("Starting main components (press Ctrl+C to exit)...");
 
-    tokio::signal::ctrl_c().await?;
+    // 1. Actually trigger the startup (this emits ORCHESTRATION_STARTUP_COMPLETE)
+    orchestrator
+        .start(&config.rpc_listen_address)
+        .await
+        .map_err(|e| anyhow!("Failed to start: {}", e))?;
+
+    // 2. Monitoring loop: Fail if the background Workload server dies
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {
+            println!("\nShutdown signal received.");
+        }
+        res = workload_server_handle => {
+            match res {
+                Ok(Err(e)) => return Err(anyhow!("Workload IPC Server crashed: {}", e)),
+                Ok(Ok(_)) => return Err(anyhow!("Workload IPC Server exited unexpectedly.")),
+                Err(e) => return Err(anyhow!("Workload IPC Server task panicked: {}", e)),
+            }
+        }
+    }
+
     println!("\nShutting down...");
     orchestrator.stop().await?;
     println!("Bye!");
