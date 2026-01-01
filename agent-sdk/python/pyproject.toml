@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "The Agent Swarm Framework for the Internet of Intelligence"
 readme = "README.md"
 requires-python = ">=3.10"
-license = "BBSL"
+license = { text = "BBSL" }
 keywords = ["ai", "agent", "blockchain", "ioi", "web4"]
 dependencies = [
     "grpcio>=1.60.0",
