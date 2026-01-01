@@ -24,7 +24,6 @@ use ioi_api::{
     validator::Container,
 };
 use ioi_client::WorkloadClient;
-// [FIX] Update import to MldsaKeyPair
 use ioi_crypto::sign::dilithium::MldsaKeyPair;
 use ioi_networking::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
 use ioi_networking::traits::NodeState;
@@ -66,7 +65,6 @@ mod consensus;
 mod context;
 mod gossip;
 mod grpc_public;
-// [NEW] Ingestion worker module
 mod ingestion;
 /// Transaction mempool logic.
 pub mod mempool;
@@ -75,6 +73,7 @@ mod oracle;
 mod peer_management;
 mod remote_state_view;
 mod sync;
+/// Logic for selecting the correct verifier based on features.
 pub mod verifier_select;
 mod view_resolver;
 
@@ -100,7 +99,7 @@ pub struct OrchestrationDependencies<CE, V> {
     /// The node's primary cryptographic identity.
     pub local_keypair: identity::Keypair,
     /// An optional post-quantum keypair for signing.
-    pub pqc_keypair: Option<MldsaKeyPair>, // [FIX] Updated type
+    pub pqc_keypair: Option<MldsaKeyPair>,
     /// A flag indicating if the node has been quarantined due to misbehavior.
     pub is_quarantined: Arc<AtomicBool>,
     /// The SHA-256 hash of the canonical genesis file bytes.
@@ -113,15 +112,12 @@ pub struct OrchestrationDependencies<CE, V> {
     pub batch_verifier: Arc<dyn BatchVerifier>,
 }
 
-// Type aliases to simplify complex types used in the main struct.
 type ProofCache = Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>;
 type NetworkEventReceiver = Mutex<Option<mpsc::Receiver<NetworkEvent>>>;
 type ConsensusKickReceiver = Mutex<Option<mpsc::UnboundedReceiver<()>>>;
 
 /// The Orchestrator is the central component of a validator node, responsible for
-/// coordinating consensus, networking, and state transitions. It communicates with the
-/// Workload container via IPC to process blocks and verify state, and with other nodes
-/// via the libp2p network to participate in consensus and gossip blocks and transactions.
+/// coordinating consensus, networking, and state transitions.
 pub struct Orchestrator<CS, ST, CE, V>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -147,14 +143,13 @@ where
     chain: Arc<OnceCell<ChainFor<CS, ST>>>,
     workload_client: Arc<OnceCell<Arc<WorkloadClient>>>,
     /// The local mempool for pending transactions.
-    // [FIX] Changed from Arc<Mutex<Mempool>> to Arc<Mempool>
     pub tx_pool: Arc<crate::standard::orchestration::mempool::Mempool>,
     syncer: Arc<Libp2pSync>,
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
     network_event_receiver: NetworkEventReceiver,
     consensus_engine: Arc<Mutex<CE>>,
     local_keypair: identity::Keypair,
-    pqc_signer: Option<MldsaKeyPair>, // [FIX] Updated type
+    pqc_signer: Option<MldsaKeyPair>,
     /// A channel sender to signal graceful shutdown to all background tasks.
     pub shutdown_sender: Arc<watch::Sender<bool>>,
     /// Handles to background tasks for graceful shutdown.
@@ -170,12 +165,10 @@ where
     pub nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
     /// The signer for block headers (Local or Remote Oracle).
     pub signer: Arc<dyn GuardianSigner>,
-    /// Thread pool for CPU-intensive ingress tasks (signature verification).
-    #[allow(dead_code)] // Intended for future optimization
+    #[allow(dead_code)]
     _cpu_pool: Arc<rayon::ThreadPool>,
     /// The batch verifier for parallel signature verification.
     pub batch_verifier: Arc<dyn BatchVerifier>,
-    /// The commitment scheme instance, stored for creating singletons like TxModel.
     scheme: CS,
 }
 
@@ -219,7 +212,6 @@ where
             genesis_hash: deps.genesis_hash,
             chain: Arc::new(OnceCell::new()),
             workload_client: Arc::new(OnceCell::new()),
-            // [FIX] Removed Mutex wrapping
             tx_pool: Arc::new(crate::standard::orchestration::mempool::Mempool::new()),
             syncer: deps.syncer,
             swarm_command_sender: deps.swarm_command_sender,
@@ -280,16 +272,14 @@ where
                 &format!("{}/orchestration.key", certs_dir),
             )
             .await?;
-        tracing::info!(target: "orchestration", "[Orchestration] Attestation channel to Guardian established.");
 
-        tracing::info!(target: "orchestration", "[Orchestrator] Waiting for agentic attestation report from Guardian...");
         let mut stream = guardian_channel
             .take_stream()
             .await
             .ok_or_else(|| anyhow!("Failed to take stream from Guardian channel"))?;
 
         let len = stream.read_u32().await?;
-        const MAX_REPORT_SIZE: u32 = 10 * 1024 * 1024; // 10 MiB limit
+        const MAX_REPORT_SIZE: u32 = 10 * 1024 * 1024;
         if len > MAX_REPORT_SIZE {
             return Err(anyhow!(
                 "Guardian attestation report too large: {} bytes (limit: {})",
@@ -304,12 +294,6 @@ where
         let report: GuardianReport = serde_json::from_slice(&report_bytes)
             .map_err(|e| anyhow!("Failed to deserialize Guardian report: {}", e))?;
 
-        tracing::info!(
-            target: "orchestration",
-            "[Orchestrator] Received local model hash from Guardian: {}",
-            hex::encode(&report.agentic_hash)
-        );
-
         let expected_hash = workload_client.get_expected_model_hash().await?;
         if report.agentic_hash != expected_hash {
             return Err(anyhow!(
@@ -318,8 +302,6 @@ where
                 hex::encode(expected_hash)
             ));
         }
-
-        tracing::info!(target: "orchestration", "Submitting signed binary boot attestation to IdentityHub...");
 
         let payload_bytes =
             codec::to_bytes_canonical(&report.binary_attestation).map_err(|e| anyhow!(e))?;
@@ -332,7 +314,6 @@ where
 
         let our_pk = self.local_keypair.public().encode_protobuf();
         let our_account_id = AccountId(
-            // [FIX] Use SignatureSuite::ED25519
             account_id_from_key_material(SignatureSuite::ED25519, &our_pk)
                 .map_err(|e| anyhow!(e))?,
         );
@@ -351,7 +332,7 @@ where
                 nonce,
                 chain_id: self.config.chain_id,
                 tx_version: 1,
-                session_auth: None, // [FIX] Added session_auth
+                session_auth: None,
             },
             payload: sys_payload,
             signature_proof: SignatureProof::default(),
@@ -361,7 +342,6 @@ where
         let signature = self.local_keypair.sign(&sign_bytes)?;
 
         sys_tx.signature_proof = SignatureProof {
-            // [FIX] Use SignatureSuite::ED25519
             suite: SignatureSuite::ED25519,
             public_key: our_pk,
             signature,
@@ -371,7 +351,6 @@ where
         let tx_hash = tx.hash()?;
 
         let committed_nonce = 0;
-        // [FIX] No lock
         self.tx_pool
             .add(tx, tx_hash, Some((our_account_id, nonce)), committed_nonce);
 
@@ -388,8 +367,15 @@ where
             std::env::var("ORCH_BLOCK_INTERVAL_SECS")
                 .ok()
                 .and_then(|s| s.parse::<u64>().ok())
-                .unwrap_or_else(|| ctx.config.block_production_interval_secs.max(1))
+                .unwrap_or_else(|| ctx.config.block_production_interval_secs)
         };
+
+        if interval_secs == 0 {
+            tracing::info!(target: "consensus", "Consensus ticker disabled (interval=0).");
+            let _ = shutdown_rx.changed().await;
+            return;
+        }
+
         tracing::info!(
             target: "consensus",
             "Consensus ticker started ({}s interval).",
@@ -398,7 +384,6 @@ where
         let mut ticker = time::interval(Duration::from_secs(interval_secs));
         ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
-        // [FIX] Throttling for block production
         let min_block_time = Duration::from_millis(50);
         let mut last_tick = tokio::time::Instant::now()
             .checked_sub(min_block_time)
@@ -410,13 +395,9 @@ where
                     let cause = "timer";
                     let is_quarantined = context_arc.lock().await.is_quarantined.load(Ordering::SeqCst);
                     if is_quarantined {
-                        tracing::info!(target: "consensus", "Skipping tick (node is quarantined).");
                         continue;
                     }
-
-                    // Reset throttle
                     last_tick = tokio::time::Instant::now();
-
                     let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
                     if let Err(e) = result.map_err(|e| anyhow!("Consensus tick panicked: {:?}", e)).and_then(|res| res) {
                         tracing::error!(target: "consensus", "[Orch Tick] Consensus tick panicked: {:?}. Continuing loop.", e);
@@ -424,45 +405,41 @@ where
                 }
                 Some(()) = kick_rx.recv() => {
                     let mut count = 1;
-                    while let Ok(_) = kick_rx.try_recv() {
-                        count += 1;
-                    }
-                    if count > 10 {
-                        tracing::debug!(target: "consensus", "Coalesced {} kicks into one tick", count);
-                    }
+                    while let Ok(_) = kick_rx.try_recv() { count += 1; }
                     let cause = "kick";
                     let is_quarantined = context_arc.lock().await.is_quarantined.load(Ordering::SeqCst);
-                    if is_quarantined {
+                    if is_quarantined || last_tick.elapsed() < min_block_time {
                          continue;
                     }
-
-                    // Throttle
-                    if last_tick.elapsed() < min_block_time {
-                        continue;
-                    }
                     last_tick = tokio::time::Instant::now();
-
                     let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
                      if let Err(e) = result.map_err(|e| anyhow!("Kicked consensus tick panicked: {:?}", e)).and_then(|res| res) {
-                        tracing::error!(target: "consensus", "[Orch Tick] Kicked consensus tick panicked: {:?}. Continuing loop.", e);
+                        tracing::error!(target: "consensus", "[Orch Tick] Kicked panicked: {:?}.", e);
                     }
                 }
                  _ = shutdown_rx.changed() => {
-                    if *shutdown_rx.borrow() {
-                        tracing::info!(target: "consensus", "Consensus ticker received shutdown signal.");
-                        break;
-                    }
+                    if *shutdown_rx.borrow() { break; }
                 }
             }
         }
-        tracing::info!(target: "consensus", "Consensus ticker finished.");
     }
 
     async fn run_sync_discoverer(
         context_arc: Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
         mut shutdown_rx: watch::Receiver<bool>,
     ) {
-        let mut interval = time::interval(Duration::from_secs(30));
+        let interval_secs = {
+            let ctx = context_arc.lock().await;
+            ctx.config.initial_sync_timeout_secs
+        };
+
+        if interval_secs == 0 {
+            tracing::info!(target: "orchestration", "Sync discoverer disabled (interval=0).");
+            let _ = shutdown_rx.changed().await;
+            return;
+        }
+
+        let mut interval = time::interval(Duration::from_secs(interval_secs));
         interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
         loop {
@@ -472,28 +449,21 @@ where
                         let ctx = context_arc.lock().await;
                         (ctx.known_peers_ref.clone(), ctx.swarm_commander.clone())
                     };
-
                     let random_peer_opt = {
                         let peers: Vec<_> = known_peers.lock().await.iter().cloned().collect();
                         peers.choose(&mut rand::thread_rng()).cloned()
                     };
-
                     if let Some(random_peer) = random_peer_opt {
-                        log::debug!("Sending periodic status request to random peer: {}", random_peer);
                         if swarm_commander.send(SwarmCommand::SendStatusRequest(random_peer)).await.is_err() {
                             log::warn!("Failed to send periodic status request to swarm.");
                         }
                     }
                 }
                 _ = shutdown_rx.changed() => {
-                    if *shutdown_rx.borrow() {
-                        tracing::info!(target: "orchestration", "Sync discoverer received shutdown signal.");
-                        break;
-                    }
+                    if *shutdown_rx.borrow() { break; }
                 }
             }
         }
-        tracing::info!(target: "orchestration", "Sync discoverer finished.");
     }
 
     async fn run_main_loop(
@@ -501,39 +471,37 @@ where
         mut shutdown_receiver: watch::Receiver<bool>,
         context_arc: Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
     ) {
-        let mut sync_check_interval = time::interval(Duration::from_secs(
-            context_arc.lock().await.config.initial_sync_timeout_secs,
-        ));
-        sync_check_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
-        let mut operator_ticker = time::interval(Duration::from_secs(10));
-        operator_ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
+        let sync_timeout = {
+            let ctx = context_arc.lock().await;
+            ctx.config.initial_sync_timeout_secs
+        };
 
-        {
+        // Unified 0 semantics: Immediate transition to Synced
+        if sync_timeout == 0 {
+            let context = context_arc.lock().await;
+            let mut ns = context.node_state.lock().await;
+            if *ns == NodeState::Syncing {
+                *ns = NodeState::Synced;
+                let _ = context.consensus_kick_tx.send(());
+                tracing::info!(target: "orchestration", "State -> Synced (direct/local mode).");
+            }
+        } else {
             let context = context_arc.lock().await;
             *context.node_state.lock().await = NodeState::Syncing;
             tracing::info!(target: "orchestration", "State -> Syncing.");
         }
 
-        {
-            let context = context_arc.lock().await;
-            let is_bootstrap_consensus = matches!(
-                context.config.consensus_type,
-                ioi_types::config::ConsensusType::Admft
-                    | ioi_types::config::ConsensusType::ProofOfStake
-            );
-            if is_bootstrap_consensus && context.known_peers_ref.lock().await.is_empty() {
-                let mut node_state = context.node_state.lock().await;
-                if *node_state == NodeState::Syncing {
-                    *node_state = NodeState::Synced;
-                    tracing::info!(
-                        target: "orchestration",
-                        event = "bootstrap_kick",
-                        "Single-node startup detected. State -> Synced. Sending initial consensus kick."
-                    );
-                    let _ = context.consensus_kick_tx.send(());
-                }
-            }
-        }
+        // Only create the timer if timeout is non-zero
+        let mut sync_check_interval_opt = if sync_timeout > 0 {
+            let mut i = time::interval(Duration::from_secs(sync_timeout));
+            i.set_missed_tick_behavior(MissedTickBehavior::Delay);
+            Some(i)
+        } else {
+            None
+        };
+
+        let mut operator_ticker = time::interval(Duration::from_secs(10));
+        operator_ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
         loop {
             tokio::select! {
@@ -546,36 +514,37 @@ where
                 _ = operator_ticker.tick() => {
                     let ctx = context_arc.lock().await;
                     if let Err(e) = run_oracle_operator_task(&ctx).await {
-                         tracing::error!(target: "operator_task", "Oracle operator task failed: {}", e);
+                         tracing::error!(target: "operator_task", "Oracle operator failed: {}", e);
                     }
                 }
 
-                _ = sync_check_interval.tick(), if *context_arc.lock().await.node_state.lock().await == NodeState::Syncing => {
+                // Conditional Tick: Only runs if interval exists
+                _ = async {
+                    if let Some(ref mut i) = sync_check_interval_opt {
+                        i.tick().await
+                    } else {
+                        futures::future::pending().await
+                    }
+                }, if *context_arc.lock().await.node_state.lock().await == NodeState::Syncing => {
                     let context = context_arc.lock().await;
                     if context.known_peers_ref.lock().await.is_empty() {
-                        tracing::warn!(target: "orchestration", "Sync check: No peers found while in Syncing state. Assuming synced.");
                         let mut node_state = context.node_state.lock().await;
                         if *node_state == NodeState::Syncing {
                             *node_state = NodeState::Synced;
                             let _ = context.consensus_kick_tx.send(());
-                            tracing::info!(target: "orchestration", "State -> Synced (by sync checker).");
+                            tracing::info!(target: "orchestration", "State -> Synced (no peers).");
                         }
                     }
                 },
 
                 _ = shutdown_receiver.changed() => {
-                    if *shutdown_receiver.borrow() {
-                        tracing::info!(target: "orchestration", "Orchestration main loop received shutdown signal.");
-                        break;
-                    }
+                    if *shutdown_receiver.borrow() { break; }
                 }
             }
         }
-        tracing::info!(target: "orchestration", "Orchestration main loop finished.");
     }
 }
 
-// Implement Container for Orchestrator to hold start/stop/status methods
 #[async_trait]
 impl<CS, ST, CE, V> Container for Orchestrator<CS, ST, CE, V>
 where
@@ -627,12 +596,7 @@ where
             .clone();
 
         let tx_model = Arc::new(UnifiedTransactionModel::new(self.scheme.clone()));
-
-        // [NEW] Setup Ingestion Channels
-        // 50k buffer allows bursting without backpressure on RPC
         let (tx_ingest_tx, tx_ingest_rx) = mpsc::channel(50_000);
-
-        // [NEW] Setup Chain Tip Watcher
         let (tip_tx, tip_rx) = watch::channel(ChainTipInfo {
             height: 0,
             timestamp: 0,
@@ -640,29 +604,23 @@ where
             state_root: vec![],
             genesis_root: self.genesis_hash.to_vec(),
         });
-
-        // [NEW] Setup Transaction Status Cache for Two-Phase Receipts
-        // Kept outside MainLoopContext to be passed to worker
         let tx_status_cache = Arc::new(Mutex::new(LruCache::new(
             std::num::NonZeroUsize::new(100_000).unwrap(),
         )));
-
-        // [NEW] Cache mapping Canonical Hash -> Receipt Hash (Hex String)
         let receipt_map = Arc::new(Mutex::new(LruCache::new(
             std::num::NonZeroUsize::new(100_000).unwrap(),
         )));
-
-        // --- Public gRPC Server Start ---
         let public_service = PublicApiImpl {
             context_wrapper: self.main_loop_context.clone(),
             workload_client: workload_client.clone(),
-            tx_ingest_tx, // [NEW] Pass channel sender
+            tx_ingest_tx,
         };
 
-        let rpc_addr =
-            self.config.rpc_listen_address.parse().map_err(|e| {
-                ValidatorError::Config(format!("Invalid RPC listen address: {}", e))
-            })?;
+        let rpc_addr = self
+            .config
+            .rpc_listen_address
+            .parse()
+            .map_err(|e| ValidatorError::Config(format!("Invalid RPC address: {}", e)))?;
 
         tracing::info!(target: "rpc", "Public gRPC API listening on {}", rpc_addr);
         eprintln!("ORCHESTRATION_RPC_LISTENING_ON_{}", rpc_addr);
@@ -680,26 +638,16 @@ where
         let mut handles = self.task_handles.lock().await;
         handles.push(rpc_handle);
 
-        // [NEW] Spawn Ingestion Worker
-        // Clone dependencies for the worker task
-        let ingestion_workload_client = workload_client.clone();
-        let ingestion_tx_pool = self.tx_pool.clone();
-        let ingestion_swarm = self.swarm_command_sender.clone();
-        let ingestion_kick = self.consensus_kick_tx.clone();
-        let ingestion_tx_model = tx_model.clone();
-        let ingestion_cache = tx_status_cache.clone();
-        let ingestion_receipt_map = receipt_map.clone(); // Pass clone
-
         let ingestion_handle = tokio::spawn(run_ingestion_worker(
             tx_ingest_rx,
-            ingestion_workload_client,
-            ingestion_tx_pool,
-            ingestion_swarm,
-            ingestion_kick,
-            ingestion_tx_model,
+            workload_client.clone(),
+            self.tx_pool.clone(),
+            self.swarm_command_sender.clone(),
+            self.consensus_kick_tx.clone(),
+            tx_model.clone(),
             tip_rx,
-            ingestion_cache,
-            ingestion_receipt_map, // [NEW]
+            tx_status_cache.clone(),
+            receipt_map.clone(),
             IngestionConfig::default(),
         ));
         handles.push(ingestion_handle);
@@ -720,8 +668,6 @@ where
                     return Err(ValidatorError::Attestation(e.to_string()));
                 }
             }
-        } else {
-            tracing::warn!(target: "orchestration", "GUARDIAN_ADDR not set, skipping Guardian attestation.");
         }
 
         let chain = self
@@ -740,7 +686,6 @@ where
 
         let local_account_id = AccountId(
             account_id_from_key_material(
-                // [FIX] Use SignatureSuite::ED25519
                 SignatureSuite::ED25519,
                 &self.local_keypair.public().encode_protobuf(),
             )
@@ -768,7 +713,6 @@ where
             .lock()
             .await
             .insert(local_account_id, initial_nonce);
-        tracing::info!(target: "orchestration", initial_nonce = initial_nonce, "Primed local nonce manager for self-generated transactions.");
 
         let context = MainLoopContext::<CS, ST, CE, V> {
             chain_ref: chain,
@@ -791,7 +735,6 @@ where
             nonce_manager: self.nonce_manager.clone(),
             signer: self.signer.clone(),
             batch_verifier: self.batch_verifier.clone(),
-            // [NEW] Added fields
             tx_status_cache,
             tip_sender: tip_tx,
             receipt_map,
@@ -813,24 +756,22 @@ where
                 ))
             }
         };
-        let ticker_context = context_arc.clone();
-        let ticker_shutdown_rx = self.shutdown_sender.subscribe();
 
-        handles.push(tokio::spawn(async move {
-            Self::run_consensus_ticker(ticker_context, ticker_kick_rx, ticker_shutdown_rx).await;
-        }));
-
-        let discoverer_context = context_arc.clone();
-        let discoverer_shutdown_rx = self.shutdown_sender.subscribe();
-        handles.push(tokio::spawn(async move {
-            Self::run_sync_discoverer(discoverer_context, discoverer_shutdown_rx).await;
-        }));
-
-        let shutdown_receiver_clone = self.shutdown_sender.subscribe();
-        let main_loop_context_clone = context_arc.clone();
-        handles.push(tokio::spawn(async move {
-            Self::run_main_loop(receiver, shutdown_receiver_clone, main_loop_context_clone).await;
-        }));
+        let shutdown_rx = self.shutdown_sender.subscribe();
+        handles.push(tokio::spawn(Self::run_consensus_ticker(
+            context_arc.clone(),
+            ticker_kick_rx,
+            shutdown_rx.clone(),
+        )));
+        handles.push(tokio::spawn(Self::run_sync_discoverer(
+            context_arc.clone(),
+            shutdown_rx.clone(),
+        )));
+        handles.push(tokio::spawn(Self::run_main_loop(
+            receiver,
+            shutdown_rx,
+            context_arc,
+        )));
 
         self.is_running.store(true, Ordering::SeqCst);
         eprintln!("ORCHESTRATION_STARTUP_COMPLETE");
@@ -915,14 +856,11 @@ async fn handle_network_event<CS, ST, CE, V>(
             };
 
             {
-                // [FIX] No lock needed, call add directly on Arc<Mempool>
                 tx_pool_ref.add(*tx, tx_hash, tx_info, 0);
-
                 log::debug!("[Orchestrator] Mempool size is now {}", tx_pool_ref.len());
                 let _ = kick_tx.send(());
             }
         }
-        // MODIFIED: Destructure mirror_id
         NetworkEvent::GossipBlock { block, mirror_id } => {
             let node_state = { context_arc.lock().await.node_state.lock().await.clone() };
             if node_state == NodeState::Syncing {
@@ -939,14 +877,11 @@ async fn handle_network_event<CS, ST, CE, V>(
                 let ctx = context_arc.lock().await;
 
                 let ed_pk = ctx.local_keypair.public().encode_protobuf();
-                // [FIX] Use SignatureSuite::ED25519
                 let ed_id = account_id_from_key_material(SignatureSuite::ED25519, &ed_pk)
                     .unwrap_or_default();
 
                 let pqc_id_opt = ctx.pqc_signer.as_ref().map(|kp| {
-                    // [FIX] Explicit type annotation for MldsaKeyPair
                     let pqc_pk: Vec<u8> = SigningKeyPair::public_key(kp).to_bytes();
-                    // [FIX] Use SignatureSuite::ML_DSA_44
                     account_id_from_key_material(SignatureSuite::ML_DSA_44, &pqc_pk)
                         .unwrap_or_default()
                 });
@@ -954,7 +889,6 @@ async fn handle_network_event<CS, ST, CE, V>(
                 (ed_id, pqc_id_opt, ctx.consensus_kick_tx.clone())
             };
 
-            // [FIX] Explicit type annotation for closure parameter
             let producer_id = block.header.producer_pubkey_hash;
             let is_ours = producer_id == our_ed_id
                 || our_pqc_id_opt
@@ -966,7 +900,6 @@ async fn handle_network_event<CS, ST, CE, V>(
                     "[Orchestrator] Skipping verification of our own gossiped block #{}.",
                     block.header.height
                 );
-                // [FIX] Explicit ignore of result
                 let _ = kick_tx.send(());
                 return;
             }

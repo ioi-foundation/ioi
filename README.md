@@ -152,6 +152,26 @@ IOI agents are "Trace-First". You define logic, and the system auto-generates th
     ioi-cli ghost run my_agent.py
     ```
 
+4. **Helpful test commands**
+
+    ```bash
+    IOI_GUARDIAN_KEY_PASS="local-mode" cargo run --bin ioi-local --features="validator-bins state-iavl consensus-admft"
+    ```
+
+    2.  **Restart the Node:**
+    ```bash
+    LISTEN_ADDRESS="/ip4/0.0.0.0/tcp/9000" \
+    ORCHESTRATION_RPC_LISTEN_ADDRESS="0.0.0.0:9000" \
+    IOI_GUARDIAN_KEY_PASS="local-mode" \
+    cargo run --bin ioi-local --features="validator-bins state-iavl consensus-admft"
+    ```
+3.  **Run the Agent Script:**
+    ```bash
+    export PYTHONPATH=$PYTHONPATH:$(pwd)/agent-sdk/python/src
+    python3 examples/test_agent.py
+    ```
+
+    
 ---
 
 ## 🔐 Cryptography & Security

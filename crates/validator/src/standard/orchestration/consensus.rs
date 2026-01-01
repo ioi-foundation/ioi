@@ -7,7 +7,7 @@ use crate::standard::orchestration::mempool::Mempool;
 use anyhow::{anyhow, Result};
 use ioi_api::crypto::BatchVerifier;
 use ioi_api::{
-    chain::{StateRef, WorkloadClientApi, AnchoredStateView},
+    chain::{AnchoredStateView, StateRef, WorkloadClientApi},
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
     crypto::{SerializableKey, SigningKeyPair},
@@ -104,8 +104,7 @@ where
 
     let consensus_allows_bootstrap = matches!(
         cons_ty,
-        ioi_types::config::ConsensusType::Admft
-            | ioi_types::config::ConsensusType::ProofOfStake
+        ioi_types::config::ConsensusType::Admft | ioi_types::config::ConsensusType::ProofOfStake
     );
 
     if node_state != NodeState::Synced && !(consensus_allows_bootstrap && producing_h == 1) {
@@ -149,7 +148,8 @@ where
             verify_batch_and_filter(&candidate_txs, batch_verifier.as_ref(), &tx_pool_ref)?;
 
         // [FIX] Type annotation
-        let parent_view: Arc<dyn AnchoredStateView> = view_resolver.resolve_anchored(&parent_ref).await?;
+        let parent_view: Arc<dyn AnchoredStateView> =
+            view_resolver.resolve_anchored(&parent_ref).await?;
         let vs_bytes = parent_view
             .get(VALIDATOR_SET_KEY)
             .await?
@@ -427,6 +427,20 @@ where
     let mut ns = node_state_arc.lock().await;
     if *ns == NodeState::Syncing {
         *ns = NodeState::Synced;
+    }
+
+    // [NEW] Loud Log
+    if !final_block.transactions.is_empty() {
+        tracing::info!(
+            target: "consensus",
+            "🧱 BLOCK #{} COMMITTED | Tx Count: {} | State Root: 0x{}",
+            final_block.header.height,
+            final_block.transactions.len(),
+            hex::encode(&final_block.header.state_root.0[..4]) // First 4 bytes for brevity
+        );
+    } else {
+        // Optional: Log empty blocks at debug level to keep noise down
+        tracing::debug!(target: "consensus", "Committed empty block #{}", final_block.header.height);
     }
 
     Ok(())
