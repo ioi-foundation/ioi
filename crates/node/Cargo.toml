@@ -6,7 +6,7 @@ version = "0.1.0"
 edition = "2021"
 description = "The primary validator node binary for the IOI SDK"
 license-file = "../../LICENSE-BBSL"
-repository = "https://github.com/ioi-foundation/ioi-sdk"
+repository = "https://github.com/ioi-foundation/ioi"
 
 [dependencies]
 # Workspace Library Crates

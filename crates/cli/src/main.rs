@@ -274,7 +274,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-ioi-sdk = {{ git = "https://github.com/ioi-foundation/ioi-sdk" }}
+ioi = {{ git = "https://github.com/ioi-foundation/ioi" }}
 "#,
         args.name
     );
@@ -328,7 +328,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-ioi-sdk = {{ git = "https://github.com/ioi-foundation/ioi-sdk" }}
+ioi = {{ git = "https://github.com/ioi-foundation/ioi" }}
 "#,
                 name
             );
@@ -374,7 +374,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-ioi-contract-sdk = {{ git = "https://github.com/ioi-foundation/ioi-sdk" }}
+ioi-contract-sdk = {{ git = "https://github.com/ioi-foundation/ioi" }}
 "#,
                 name
             );

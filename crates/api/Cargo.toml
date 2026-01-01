@@ -6,7 +6,7 @@ rust-version = "1.78"
 edition = "2021"
 description = "Core traits and APIs for the IOI SDK"
 license-file = "../../LICENSE-BBSL"
-repository = "https://github.com/ioi-foundation/ioi-sdk"
+repository = "https://github.com/ioi-foundation/ioi"
 
 [dependencies]
 ioi-types = { path = "../types" }

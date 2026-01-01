@@ -6,7 +6,7 @@ rust-version = "1.78"
 edition = "2021"
 description = "IPC Client for IOI SDK validator containers"
 license-file = "../../LICENSE-BBSL"
-repository = "https://github.com/ioi-foundation/ioi-sdk"
+repository = "https://github.com/ioi-foundation/ioi"
 
 [dependencies]
 ioi-api = { path = "../api" }

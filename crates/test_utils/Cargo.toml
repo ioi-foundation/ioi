@@ -6,7 +6,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Utilities for testing the IOI SDK components"
 license-file = "../../LICENSE-BBSL"
-repository = "https://github.com/ioi-foundation/ioi-sdk"
+repository = "https://github.com/ioi-foundation/ioi"
 
 [features]
 default = []
