@@ -480,7 +480,7 @@ where
         if sync_timeout == 0 {
             let context = context_arc.lock().await;
             let mut ns = context.node_state.lock().await;
-            if *ns == NodeState::Syncing {
+            if *ns == NodeState::Syncing || *ns == NodeState::Initializing {
                 *ns = NodeState::Synced;
                 let _ = context.consensus_kick_tx.send(());
                 tracing::info!(target: "orchestration", "State -> Synced (direct/local mode).");
@@ -625,10 +625,14 @@ where
         tracing::info!(target: "rpc", "Public gRPC API listening on {}", rpc_addr);
         eprintln!("ORCHESTRATION_RPC_LISTENING_ON_{}", rpc_addr);
 
+        let mut shutdown_rx = self.shutdown_sender.subscribe();
+
         let rpc_handle = tokio::spawn(async move {
             if let Err(e) = Server::builder()
                 .add_service(PublicApiServer::new(public_service))
-                .serve(rpc_addr)
+                .serve_with_shutdown(rpc_addr, async move {
+                    let _ = shutdown_rx.changed().await;
+                })
                 .await
             {
                 tracing::error!(target: "rpc", "Public API server failed: {}", e);

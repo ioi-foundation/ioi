@@ -321,6 +321,13 @@ pub async fn run_ingestion_worker<CS>(
                                 },
                             );
                             receipt_guard.put(p_tx.canonical_hash, p_tx.receipt_hash_hex.clone());
+
+                            info!(
+                                target: "ingestion",
+                                "Added transaction to mempool: {}",
+                                p_tx.receipt_hash_hex
+                            );
+
                             let _ = swarm_sender
                                 .send(SwarmCommand::PublishTransaction(p_tx.raw_bytes.clone()))
                                 .await;
