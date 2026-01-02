@@ -143,6 +143,12 @@ where
                 metrics()
                     .observe_request_duration("submit_transaction", start.elapsed().as_secs_f64());
 
+                tracing::info!(
+                    target: "rpc",
+                    "Received transaction via gRPC. Hash: {}",
+                    tx_hash_hex
+                );
+
                 Ok(Response::new(SubmitTransactionResponse {
                     tx_hash: tx_hash_hex,
                 }))
