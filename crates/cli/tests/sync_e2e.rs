@@ -1,6 +1,6 @@
 // Path: crates/cli/tests/sync_e2e.rs
 #![cfg(all(
-    any(feature = "consensus-poa", feature = "consensus-pos"),
+    any(feature = "consensus-admft", feature = "consensus-pos"),
     feature = "vm-wasm",
     feature = "state-iavl"
 ))]
@@ -11,7 +11,6 @@ use ioi_cli::testing::{
     assert_log_contains, build_test_artifacts, genesis::GenesisBuilder, rpc, wait_for_height,
     TestCluster, TestValidator, ValidatorGuard,
 };
-// [+] Import VoteParams
 use ioi_services::governance::VoteParams;
 use ioi_types::{
     app::{
@@ -21,12 +20,11 @@ use ioi_types::{
         ValidatorSetV1, ValidatorSetsV1, ValidatorV1, VoteOption,
     },
     codec,
-    config::{InitialServiceConfig, ValidatorRole}, // [FIX] Import ValidatorRole
+    config::{InitialServiceConfig, ValidatorRole},
     keys::GOVERNANCE_PROPOSAL_KEY_PREFIX,
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
-// [FIX] Removed unused BTreeMap import
 use std::time::Duration;
 
 fn create_dummy_tx(keypair: &Keypair, nonce: u64, chain_id: ChainId) -> Result<ChainTransaction> {
@@ -54,6 +52,7 @@ fn create_dummy_tx(keypair: &Keypair, nonce: u64, chain_id: ChainId) -> Result<C
         nonce,
         chain_id,
         tx_version: 1,
+        session_auth: None, // [FIX] Initialize session_auth
     };
     let mut tx_to_sign = SystemTransaction {
         header,
@@ -344,9 +343,7 @@ async fn test_sync_with_peer_drop() -> Result<()> {
             None, // keep_recent_heights
             None, // gc_interval_secs
             None, // min_finality_depth
-            // [FIX] Use default policies to ensure governance txs are accepted
             ioi_types::config::default_service_policies(),
-            // [FIX] Pass default Consensus role
             ValidatorRole::Consensus,
         )
         .await?;
