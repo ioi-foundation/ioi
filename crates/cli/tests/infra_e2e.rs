@@ -14,7 +14,7 @@ use ioi_cli::testing::{
     build_test_artifacts,
     genesis::GenesisBuilder,
     rpc::{self, submit_transaction},
-    wait_for_height, wait_for_pending_oracle_request, TestCluster,
+    wait_for_height, TestCluster,
 };
 use ioi_types::{
     app::{
@@ -64,7 +64,6 @@ fn create_signed_system_tx(
 ) -> Result<ChainTransaction> {
     let public_key_bytes = keypair.public().encode_protobuf();
     let account_id_hash =
-        // FIX: Ed25519 -> ED25519
         ioi_types::app::account_id_from_key_material(SignatureSuite::ED25519, &public_key_bytes)?;
     let account_id = AccountId(account_id_hash);
 
@@ -85,7 +84,6 @@ fn create_signed_system_tx(
     let signature = keypair.sign(&sign_bytes)?;
 
     tx_to_sign.signature_proof = SignatureProof {
-        // FIX: Ed25519 -> ED25519
         suite: SignatureSuite::ED25519,
         public_key: public_key_bytes,
         signature,
@@ -123,7 +121,6 @@ async fn test_metrics_endpoint() -> Result<()> {
             chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            // FIX: Ed25519 -> ED25519
             allowed_target_suites: vec![ioi_types::app::SignatureSuite::ED25519],
             allow_downgrade: false,
         }));
@@ -145,7 +142,6 @@ async fn test_metrics_endpoint() -> Result<()> {
                         validators: vec![ValidatorV1 {
                             account_id,
                             weight: 1,
-                            // FIX: Ed25519 -> ED25519
                             consensus_key: ActiveKeyRecord { suite: SignatureSuite::ED25519, public_key_hash: account_hash, since_height: 0 },
                         }],
                     };
@@ -185,7 +181,6 @@ async fn test_metrics_endpoint() -> Result<()> {
                         validators: vec![ValidatorV1 {
                             account_id,
                             weight: initial_stake,
-                            // FIX: Ed25519 -> ED25519
                             consensus_key: ActiveKeyRecord { suite: SignatureSuite::ED25519, public_key_hash: account_hash, since_height: 0 },
                         }],
                     };
@@ -309,22 +304,25 @@ async fn test_storage_crash_recovery() -> Result<()> {
     let test_logic_result: Result<(), anyhow::Error> = async {
         let rpc_addr = node_guard.validator().rpc_addr.clone();
 
-        let request_id = 12345;
-        let params = RequestOracleDataParams {
-            url: format!("{}/recovery-test", stub_url),
-            request_id,
+        // [FIX] Use the provider_registry service which is registered as native by default.
+        use ioi_services::provider_registry::{RegisterProviderParams, SupplyTier};
+        let params = RegisterProviderParams {
+            tier: SupplyTier::Community,
+            endpoint: format!("{}/recovery-test", stub_url),
+            capabilities: vec!["gpu".to_string()],
         };
         let params_bytes =
             ioi_types::codec::to_bytes_canonical(&params).map_err(anyhow::Error::msg)?;
         let payload = SystemPayload::CallService {
-            service_id: "oracle".to_string(),
-            method: "request_data@v1".to_string(),
+            service_id: "provider_registry".to_string(),
+            method: "register@v1".to_string(),
             params: params_bytes,
         };
         let tx = create_signed_system_tx(&node_guard.validator().keypair, payload, 0, 1.into())?;
         submit_transaction(&rpc_addr, &tx).await?;
 
-        wait_for_pending_oracle_request(&rpc_addr, request_id, Duration::from_secs(30)).await?;
+        // [FIX] Wait for block inclusion.
+        wait_for_height(&rpc_addr, 2, Duration::from_secs(30)).await?;
         println!("State was successfully written before crash.");
 
         // --- NEW: Verify WAL Existence ---
@@ -377,12 +375,6 @@ async fn test_storage_crash_recovery() -> Result<()> {
                         let msg = e.to_string();
                         println!("[DEBUG] get_chain_height failed after restart: {}", msg);
 
-                        // For readiness, a structured RPC error means:
-                        // - HTTP RPC server is up
-                        // - Orchestrator ↔ Workload IPC is alive
-                        //
-                        // `STATUS_KEY not found in state` is a *logical* crash‑recovery bug,
-                        // not an availability problem, so we treat it as "responsive" here.
                         if msg.contains("STATUS_KEY not found in state") {
                             println!(
                                 "[DEBUG] treating STATUS_KEY-not-found as RPC-responsive for readiness check"
@@ -398,12 +390,21 @@ async fn test_storage_crash_recovery() -> Result<()> {
         .await?;
         println!("Workload process restarted and orchestrator reconnected.");
 
+        // [FIX] Derive the correct key to check after recovery.
+        let pk_bytes = node_guard.validator().keypair.public().encode_protobuf();
+        let account_id = AccountId(ioi_types::app::account_id_from_key_material(
+            SignatureSuite::ED25519,
+            &pk_bytes,
+        )?);
+
+        let ns = ioi_api::state::service_namespace_prefix("provider_registry");
         let key_to_check = [
-            ioi_api::state::service_namespace_prefix("oracle").as_slice(),
-            ioi_types::keys::ORACLE_PENDING_REQUEST_PREFIX,
-            &request_id.to_le_bytes(),
+            ns.as_slice(),
+            b"providers::",
+            account_id.as_ref(),
         ]
         .concat();
+
         let state_after = rpc::query_state_key(&rpc_addr, &key_to_check).await?;
         assert!(state_after.is_some(), "State was lost after crash");
 
@@ -440,7 +441,7 @@ async fn test_gc_respects_pinned_epochs() -> Result<()> {
         .with_keep_recent_heights(keep_recent)
         .with_epoch_size(epoch_size)
         .with_gc_interval(gc_interval)
-        // FIX: Ensure aggressive pruning occurs
+        // FIX: Ensure safety buffer doesn't prevent pruning in this short test
         .with_min_finality_depth(0)
         // --- UPDATED: Using GenesisBuilder API ---
         .with_genesis_modifier(|builder, keys| {
@@ -675,15 +676,17 @@ async fn test_storage_soak_test() -> Result<()> {
             }
 
             // Keep chain moving with dummy transactions if needed
-            // PoA *should* produce empty blocks, but let's be robust
+            // [FIX] Use provider_registry
+            use ioi_services::provider_registry::{SupplyTier, RegisterProviderParams};
             let tx = create_signed_system_tx(
                 &keypair,
                 SystemPayload::CallService {
-                    service_id: "oracle".to_string(), // Use any valid service
-                    method: "request_data@v1".to_string(),
-                    params: codec::to_bytes_canonical(&RequestOracleDataParams {
-                        url: "http://dummy".into(),
-                        request_id: 99999 + nonce,
+                    service_id: "provider_registry".to_string(),
+                    method: "register@v1".to_string(),
+                    params: codec::to_bytes_canonical(&RegisterProviderParams {
+                        tier: SupplyTier::Community,
+                        endpoint: format!("http://dummy/{}", nonce),
+                        capabilities: vec![],
                     })
                     .unwrap(),
                 },
