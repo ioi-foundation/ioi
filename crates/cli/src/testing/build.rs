@@ -1,6 +1,7 @@
 // Path: crates/cli/src/testing/build.rs
 
-use std::path::Path;
+use std::env;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Once;
 
@@ -21,11 +22,90 @@ pub fn build_test_artifacts() {
         let target_dir = workspace_root.join("target");
 
         // [NEW] Mock Verifier for Dynamic IBC
-        let mock_verifier_dir = manifest_dir.join("tests/contracts/mock-verifier");
+        // [FIX] Correct path is tests/fixtures/mock-verifier
+        let mock_verifier_dir = manifest_dir.join("tests/fixtures/mock-verifier");
         build_contract_component(&mock_verifier_dir, &target_dir, "mock-verifier");
 
         println!("--- Test Artifacts built successfully ---");
     });
+}
+
+#[cfg(windows)]
+fn exe_name(name: &str) -> String {
+    format!("{name}.exe")
+}
+
+#[cfg(not(windows))]
+fn exe_name(name: &str) -> String {
+    name.to_string()
+}
+
+fn cargo_bin_dirs() -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+
+    // Respect explicit CARGO_HOME when present.
+    if let Some(ch) = env::var_os("CARGO_HOME") {
+        dirs.push(PathBuf::from(ch).join("bin"));
+    }
+
+    // Default rustup install location.
+    if let Some(home) = env::var_os("HOME") {
+        dirs.push(PathBuf::from(home).join(".cargo").join("bin"));
+    }
+
+    dirs
+}
+
+fn find_on_path(program: &str) -> Option<PathBuf> {
+    let program = exe_name(program);
+
+    // Search our known cargo bin dirs first, then inherited PATH.
+    let mut search_dirs = cargo_bin_dirs();
+    if let Some(path_os) = env::var_os("PATH") {
+        search_dirs.extend(env::split_paths(&path_os));
+    }
+
+    for dir in search_dirs {
+        let candidate = dir.join(&program);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    None
+}
+
+fn augment_cmd_path(cmd: &mut Command) {
+    // Prepend cargo bin dirs to PATH for the child process.
+    let mut paths = cargo_bin_dirs();
+    if let Some(path_os) = env::var_os("PATH") {
+        paths.extend(env::split_paths(&path_os));
+    }
+
+    if let Ok(joined) = env::join_paths(paths) {
+        cmd.env("PATH", joined);
+    }
+}
+
+fn resolve_cargo() -> PathBuf {
+    // Only trust CARGO if it points to an actual file.
+    if let Ok(cargo_env) = env::var("CARGO") {
+        let p = PathBuf::from(&cargo_env);
+        if p.is_file() {
+            return p;
+        }
+        // If it's not a real path, ignore it and fall back to PATH search.
+    }
+
+    find_on_path("cargo").unwrap_or_else(|| {
+        let path = env::var("PATH").unwrap_or_default();
+        let cargo_home = env::var("CARGO_HOME").unwrap_or_default();
+        let home = env::var("HOME").unwrap_or_default();
+        panic!(
+            "Unable to locate `cargo` executable.\n\
+             PATH={path}\nCARGO_HOME={cargo_home}\nHOME={home}\n\
+             Looked in: $CARGO_HOME/bin and $HOME/.cargo/bin and PATH."
+        );
+    })
 }
 
 /// Helper to build a contract using `cargo component`.
@@ -35,18 +115,56 @@ fn build_contract_component(contract_dir: &Path, target_dir: &Path, package_name
         package_name, contract_dir
     );
 
-    let status = Command::new("cargo")
-        .env("CARGO_TARGET_DIR", target_dir)
-        .args([
-            "component",
+    let manifest_path = contract_dir.join("Cargo.toml");
+    if !manifest_path.is_file() {
+        panic!("Contract manifest not found: {}", manifest_path.display());
+    }
+
+    // Prefer invoking cargo-component directly if available.
+    let cargo_component = find_on_path("cargo-component");
+
+    let mut cmd = if let Some(cc) = cargo_component {
+        println!("Using cargo-component at {}", cc.display());
+        let mut c = Command::new(cc);
+        c.args([
             "build",
+            "--manifest-path",
+            manifest_path.to_string_lossy().as_ref(),
             "--release",
             "--target",
-            "wasm32-wasip1", // [FIX] Reverted to wasm32-wasip1 for compatibility
-        ])
-        .current_dir(contract_dir)
-        .status()
-        .expect("Failed to execute `cargo component build`. Ensure cargo-component is installed.");
+            "wasm32-wasip1",
+        ]);
+        c
+    } else {
+        let cargo = resolve_cargo();
+        println!("Using cargo at {}", cargo.display());
+        let mut c = Command::new(cargo);
+        c.args([
+            "component",
+            "build",
+            "--manifest-path",
+            manifest_path.to_string_lossy().as_ref(),
+            "--release",
+            "--target",
+            "wasm32-wasip1",
+        ]);
+        c
+    };
+
+    cmd.env("CARGO_TARGET_DIR", target_dir);
+
+    augment_cmd_path(&mut cmd);
+
+    let status = cmd.status().unwrap_or_else(|e| {
+        let path = env::var("PATH").unwrap_or_default();
+        let cargo_home = env::var("CARGO_HOME").unwrap_or_default();
+        let home = env::var("HOME").unwrap_or_default();
+        panic!(
+            "Failed to spawn component build command: {e:?}\n\
+             PATH={path}\nCARGO_HOME={cargo_home}\nHOME={home}\n\
+             Hint: ensure `cargo` and `cargo-component` are installed inside this environment."
+        )
+    });
 
     if !status.success() {
         panic!("Failed to build component for {}", package_name);
@@ -58,7 +176,7 @@ pub(crate) fn resolve_node_features(user_supplied: &str) -> String {
     fn has_tree_feature(s: &str) -> bool {
         s.split(',')
             .map(|f| f.trim())
-            .any(|f| matches!(f, "state-iavl" | "state-verkle"))
+            .any(|f| matches!(f, "state-iavl" | "state-sparse-merkle" | "state-verkle"))
     }
 
     if !user_supplied.trim().is_empty() && has_tree_feature(user_supplied) {

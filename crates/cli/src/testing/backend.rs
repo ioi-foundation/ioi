@@ -74,11 +74,11 @@ pub struct ProcessBackend {
     pub p2p_addr: Multiaddr,
     pub orchestration_telemetry_addr: Option<String>,
     pub workload_telemetry_addr: Option<String>,
-    binary_path: PathBuf,
-    workload_config_path: PathBuf,
+    pub binary_path: PathBuf,
+    pub workload_config_path: PathBuf,
     /// Pinned workload IPC address (never :0 after constructor runs).
     pub workload_ipc_addr: String,
-    certs_dir_path: PathBuf,
+    pub certs_dir_path: PathBuf,
 }
 
 impl ProcessBackend {

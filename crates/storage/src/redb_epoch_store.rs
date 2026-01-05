@@ -319,6 +319,27 @@ impl RedbEpochStore {
             .map_err(|e| StorageError::Backend(e.to_string()))?;
         Ok(())
     }
+
+    /// Safely drops a sealed epoch, ensuring no pinned heights are deleted.
+    /// This requires the caller (Workload) to pass in the set of excluded (pinned) heights.
+    ///
+    /// Note: The trait definition for `drop_sealed_epoch` takes only `epoch`.
+    /// To support safety, we rely on `prune_batch` for granular cleanup,
+    /// and `drop_sealed_epoch` for bulk cleanup ONLY when we are sure the WHOLE epoch is dead.
+    pub fn safe_drop_epoch(&self, epoch: Epoch, pins: &[Height]) -> Result<bool, StorageError> {
+        let start_height = epoch * self.epoch_size;
+        let end_height = (epoch + 1) * self.epoch_size;
+
+        for pin in pins {
+            if *pin >= start_height && *pin < end_height {
+                // Epoch contains a pinned height, cannot drop.
+                return Ok(false);
+            }
+        }
+
+        self.drop_sealed_epoch(epoch)?;
+        Ok(true)
+    }
 }
 
 #[async_trait]
