@@ -221,18 +221,35 @@ impl TestValidator {
         .resolve()?;
 
         println!("--- Building node binaries with features: {} ---", features);
-        let status_node = Command::new("cargo")
-            .args([
-                "build",
-                "-p",
-                "ioi-node",
-                "--release",
-                "--no-default-features",
-                "--features",
-                &features,
-            ])
+
+        // Use the CARGO env var set by the test runner
+        let cargo_bin = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
+
+        let mut cmd = Command::new(cargo_bin);
+        cmd.args([
+            "build",
+            "-p",
+            "ioi-node",
+            "--release",
+            "--no-default-features",
+            "--features",
+            &features,
+        ]);
+
+        // Attempt to add ~/.cargo/bin to PATH if not present
+        if let Ok(home) = std::env::var("HOME") {
+            let cargo_bin_dir = std::path::Path::new(&home).join(".cargo/bin");
+            if cargo_bin_dir.exists() {
+                let current_path = std::env::var("PATH").unwrap_or_default();
+                let new_path = format!("{}:{}", cargo_bin_dir.display(), current_path);
+                cmd.env("PATH", new_path);
+            }
+        }
+
+        let status_node = cmd
             .status()
             .expect("Failed to execute cargo build for node");
+
         if !status_node.success() {
             panic!("Node binary build failed for features: {}", features);
         }

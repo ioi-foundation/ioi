@@ -1,6 +1,6 @@
 // Path: crates/cli/tests/infra_e2e.rs
 #![cfg(all(
-    any(feature = "consensus-poa", feature = "consensus-pos"),
+    any(feature = "consensus-admft", feature = "consensus-pos"),
     feature = "vm-wasm",
     feature = "state-iavl"
 ))]
@@ -29,6 +29,7 @@ use ioi_types::{
 use parity_scale_codec::Encode;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
+use std::fs;
 
 // --- Helper functions for metrics ---
 
@@ -72,6 +73,7 @@ fn create_signed_system_tx(
         nonce,
         chain_id,
         tx_version: 1,
+        session_auth: None, // [FIX] Initialize session_auth
     };
 
     let mut tx_to_sign = SystemTransaction {
@@ -127,7 +129,7 @@ async fn test_metrics_endpoint() -> Result<()> {
         }));
 
     cfg_if! {
-        if #[cfg(feature = "consensus-poa")] {
+        if #[cfg(feature = "consensus-admft")] {
             println!("--- Configuring for Proof of Authority ---");
             builder = builder.with_consensus_type("Admft")
                 .with_genesis_modifier(|builder: &mut GenesisBuilder, keys| {
@@ -252,14 +254,11 @@ async fn test_storage_crash_recovery() -> Result<()> {
             chain_id: 1,
             grace_period_blocks: 5,
             accept_staged_during_grace: true,
-            // FIX: Ed25519 -> ED25519
             allowed_target_suites: vec![ioi_types::app::SignatureSuite::ED25519],
             allow_downgrade: false,
         }))
-        // --- UPDATED: Using GenesisBuilder API ---
         .with_genesis_modifier(|builder, keys| {
             let keypair = &keys[0];
-            // FIX: Ed25519 -> ED25519
             let suite = SignatureSuite::ED25519;
 
             // 1. Identity
@@ -328,9 +327,25 @@ async fn test_storage_crash_recovery() -> Result<()> {
         wait_for_pending_oracle_request(&rpc_addr, request_id, Duration::from_secs(30)).await?;
         println!("State was successfully written before crash.");
 
+        // --- NEW: Verify WAL Existence ---
+        // Locate the WAL file based on the validator's config
+        let workload_config_path = node_guard.validator().backend.as_any()
+             .downcast_ref::<ioi_cli::testing::backend::ProcessBackend>()
+             .map(|p| p.workload_config_path.clone())
+             .ok_or(anyhow!("Could not get config path"))?;
+             
+        let config_str = fs::read_to_string(&workload_config_path)?;
+        let cfg: ioi_types::config::WorkloadConfig = toml::from_str(&config_str)?;
+        let db_path = std::path::Path::new(&cfg.state_file).with_extension("db");
+        let wal_path = db_path.with_extension("wal");
+        
+        assert!(wal_path.exists(), "WAL file should exist before crash");
+        let meta = fs::metadata(&wal_path)?;
+        println!("WAL File Size: {} bytes", meta.len());
+        assert!(meta.len() > 0, "WAL file should not be empty");
+        // ---------------------------------
+
         println!("Killing workload process...");
-        // Replaced flaky PID-based shell kill with handle-based kill.
-        // This ensures we kill the exact process we started, even if PIDs wrap or are reused.
         node_guard
             .validator_mut()
             .kill_workload()
@@ -425,12 +440,11 @@ async fn test_gc_respects_pinned_epochs() -> Result<()> {
         .with_keep_recent_heights(keep_recent)
         .with_epoch_size(epoch_size)
         .with_gc_interval(gc_interval)
-        // FIX: Ensure safety buffer doesn't prevent pruning in this short test
+        // FIX: Ensure aggressive pruning occurs
         .with_min_finality_depth(0)
         // --- UPDATED: Using GenesisBuilder API ---
         .with_genesis_modifier(|builder, keys| {
             let keypair = &keys[0];
-
             // 1. Identity
             let account_id = builder.add_identity(keypair);
             let acct_hash = account_id.0;
