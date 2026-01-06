@@ -40,3 +40,6 @@ hex = { workspace = true }
 dashmap = { workspace = true }
 zeroize = { workspace = true }
 arc-swap = { workspace = true }
+
+# [FIX] Added rand for slicing nonce generation
+rand = { workspace = true }

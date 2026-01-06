@@ -9,7 +9,6 @@ use ioi_api::{
     chain::ChainStateMachine, commitment::CommitmentScheme, consensus::ConsensusEngine,
     state::StateManager,
 };
-// [FIX] Update import
 use ioi_crypto::sign::dilithium::MldsaKeyPair;
 use ioi_ipc::public::TxStatus;
 use ioi_networking::libp2p::SwarmCommand;
@@ -22,6 +21,9 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Debug;
 use std::sync::{atomic::AtomicBool, Arc};
 use tokio::sync::{mpsc, watch, Mutex};
+
+// [NEW] Import LocalSafetyModel trait
+use crate::firewall::inference::LocalSafetyModel;
 
 /// A type alias for the thread-safe, dynamically dispatched chain state machine.
 pub type ChainFor<CS, ST> = Arc<
@@ -64,7 +66,6 @@ where
         + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
-    // FIX: Added `Debug` bound to `CS::Proof` to satisfy trait bounds in worker functions.
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
 {
@@ -81,7 +82,7 @@ where
     pub consensus_engine_ref: Arc<Mutex<CE>>,
     pub node_state: Arc<Mutex<NodeState>>,
     pub local_keypair: identity::Keypair,
-    pub pqc_signer: Option<MldsaKeyPair>, // [FIX] Updated type
+    pub pqc_signer: Option<MldsaKeyPair>,
     pub known_peers_ref: Arc<Mutex<HashSet<PeerId>>>,
     pub is_quarantined: Arc<AtomicBool>,
     pub pending_attestations: HashMap<u64, Vec<OracleAttestation>>,
@@ -91,6 +92,9 @@ where
     pub nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
     pub signer: Arc<dyn GuardianSigner>,
     pub batch_verifier: Arc<dyn BatchVerifier>,
+
+    // [NEW] Shared handle to the loaded safety model
+    pub safety_model: Arc<dyn LocalSafetyModel>,
 
     // --- Ingestion & Async Status Tracking ---
     /// Cache for tracking transaction fate (PENDING -> MEMPOOL -> COMMITTED/REJECTED).

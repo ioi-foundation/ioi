@@ -1,12 +1,24 @@
 // Path: crates/validator/src/standard/orchestration/grpc_public.rs
 
 use crate::standard::orchestration::context::{MainLoopContext, TxStatusEntry};
-use ioi_api::chain::WorkloadClientApi;
+// [FIX] Import ChainStateMachine to enable access to .status() method on the ExecutionMachine
+use ioi_api::chain::{ChainStateMachine, WorkloadClientApi};
 use ioi_api::{commitment::CommitmentScheme, state::StateManager};
 use ioi_client::WorkloadClient;
 use ioi_ipc::blockchain::{
-    GetStatusRequest, GetStatusResponse, QueryRawStateRequest, QueryRawStateResponse,
-    QueryStateAtRequest, QueryStateAtResponse,
+    CheckResult,
+    // [FIX] Added missing imports for the StateQuery and System services
+    CheckTransactionsRequest,
+    CheckTransactionsResponse,
+    GetStatusRequest,
+    GetStatusResponse,
+    KeyValuePair,
+    PrefixScanRequest,
+    PrefixScanResponse,
+    QueryRawStateRequest,
+    QueryRawStateResponse,
+    QueryStateAtRequest,
+    QueryStateAtResponse,
 };
 use ioi_ipc::public::public_api_server::PublicApi;
 use ioi_ipc::public::{
@@ -302,5 +314,133 @@ where
         metrics().inc_requests_total("get_block_by_height", 200);
 
         Ok(Response::new(GetBlockByHeightResponse { block_bytes }))
+    }
+}
+
+// -----------------------------------------------------------------------------
+// StateQuery Implementation
+// -----------------------------------------------------------------------------
+
+/// Implementation of the `StateQuery` gRPC service for state queries and pre-checks.
+pub struct StateQueryImpl<CS, ST>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
+{
+    /// Shared RPC context.
+    pub ctx: Arc<crate::standard::workload::ipc::RpcContext<CS, ST>>,
+}
+
+#[tonic::async_trait]
+impl<CS, ST> ioi_ipc::blockchain::state_query_server::StateQuery for StateQueryImpl<CS, ST>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + std::fmt::Debug,
+    <CS as CommitmentScheme>::Proof: serde::Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + AsRef<[u8]>
+        + std::fmt::Debug,
+    <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync + From<Vec<u8>>,
+    <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
+{
+    async fn check_transactions(
+        &self,
+        request: Request<CheckTransactionsRequest>,
+    ) -> Result<Response<CheckTransactionsResponse>, Status> {
+        let _req = request.into_inner();
+
+        let (_services, _chain_id, _height) = {
+            let chain_guard = self.ctx.machine.lock().await;
+            (
+                chain_guard.services.clone(),
+                chain_guard.state.chain_id,
+                // [FIX] Now works because ChainStateMachine trait is in scope
+                chain_guard.status().height,
+            )
+        };
+
+        // Placeholder for internal transaction pre-checks
+        Ok(Response::new(CheckTransactionsResponse { results: vec![] }))
+    }
+
+    async fn query_state_at(
+        &self,
+        request: Request<QueryStateAtRequest>,
+    ) -> Result<Response<QueryStateAtResponse>, Status> {
+        let req = request.into_inner();
+        let root = StateRoot(req.root);
+
+        let state_tree = self.ctx.workload.state_tree();
+        let state = state_tree.read().await;
+        let root_commitment = state
+            .commitment_from_bytes(&root.0)
+            .map_err(|e| Status::internal(e.to_string()))?;
+        let (membership, proof) = state
+            .get_with_proof_at(&root_commitment, &req.key)
+            .map_err(|e| Status::internal(e.to_string()))?;
+
+        let proof_bytes = codec::to_bytes_canonical(&proof).map_err(|e| Status::internal(e))?;
+        let resp_struct = ioi_api::chain::QueryStateResponse {
+            msg_version: 1,
+            scheme_id: 1,
+            scheme_version: 1,
+            membership,
+            proof_bytes,
+        };
+        let response_bytes =
+            codec::to_bytes_canonical(&resp_struct).map_err(|e| Status::internal(e))?;
+
+        Ok(Response::new(QueryStateAtResponse { response_bytes }))
+    }
+
+    async fn query_raw_state(
+        &self,
+        request: Request<QueryRawStateRequest>,
+    ) -> Result<Response<QueryRawStateResponse>, Status> {
+        let req = request.into_inner();
+        let state_tree = self.ctx.workload.state_tree();
+        let state = state_tree.read().await;
+        match state.get(&req.key) {
+            Ok(Some(val)) => Ok(Response::new(QueryRawStateResponse {
+                value: val,
+                found: true,
+            })),
+            Ok(None) => Ok(Response::new(QueryRawStateResponse {
+                value: vec![],
+                found: false,
+            })),
+            Err(e) => Err(Status::internal(e.to_string())),
+        }
+    }
+
+    async fn prefix_scan(
+        &self,
+        request: Request<PrefixScanRequest>,
+    ) -> Result<Response<PrefixScanResponse>, Status> {
+        let req = request.into_inner();
+        let state_tree = self.ctx.workload.state_tree();
+        let state = state_tree.read().await;
+        let iter = state
+            .prefix_scan(&req.prefix)
+            .map_err(|e| Status::internal(e.to_string()))?;
+
+        let mut pairs = Vec::new();
+        for res in iter {
+            let (k, v) = res.map_err(|e| Status::internal(e.to_string()))?;
+            pairs.push(KeyValuePair {
+                key: k.to_vec(),
+                value: v.to_vec(),
+            });
+        }
+        Ok(Response::new(PrefixScanResponse { pairs }))
     }
 }

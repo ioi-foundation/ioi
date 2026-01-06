@@ -2,21 +2,26 @@
 
 use super::metric::{DistanceMetric, Vector};
 use super::node::{GraphNode, NodeId};
+use super::proof::{TraversalProof, VisitedNode};
 use ioi_types::error::StateError;
 use rand::Rng;
 use std::cmp::Ordering;
-use std::collections::HashMap; // [FIX] Removed BinaryHeap import
+use std::collections::HashMap;
 
-#[derive(Clone, Debug)] // [FIX] Added Clone and Debug
+#[derive(Clone, Debug)]
 pub struct HnswGraph<M: DistanceMetric> {
     pub(crate) metric: M,
     pub(crate) nodes: HashMap<NodeId, GraphNode>,
     pub(crate) entry_point: Option<NodeId>,
 
     // Hyperparameters
+    #[allow(dead_code)]
     pub(crate) m: usize,
+    #[allow(dead_code)]
     pub(crate) m_max: usize,
+    #[allow(dead_code)]
     pub(crate) m_max0: usize,
+    #[allow(dead_code)]
     pub(crate) ef_construction: usize,
     pub(crate) level_mult: f64,
 
@@ -25,6 +30,7 @@ pub struct HnswGraph<M: DistanceMetric> {
 }
 
 #[derive(PartialEq)]
+#[allow(dead_code)] // Helper for future search impl
 struct Candidate {
     id: NodeId,
     distance: f32,
@@ -104,21 +110,20 @@ impl<M: DistanceMetric> HnswGraph<M> {
             let mut changed = true;
             while changed {
                 changed = false;
-                let neighbors = self.nodes[&curr_obj].neighbors[l].clone();
-                for neighbor_id in neighbors {
-                    let d = self.dist(&vector, &self.get_vector(neighbor_id));
-                    if d < curr_dist {
-                        curr_dist = d;
-                        curr_obj = neighbor_id;
-                        changed = true;
+                if let Some(node) = self.nodes.get(&curr_obj) {
+                    if l < node.neighbors.len() {
+                        let neighbors = &node.neighbors[l];
+                        for &neighbor_id in neighbors {
+                            let d = self.dist(&vector, &self.get_vector(neighbor_id));
+                            if d < curr_dist {
+                                curr_dist = d;
+                                curr_obj = neighbor_id;
+                                changed = true;
+                            }
+                        }
                     }
                 }
             }
-        }
-
-        // [FIX] Prefix unused variables
-        for _l in (0..=std::cmp::min(level, self.max_layer)).rev() {
-            // Simplified insertion logic
         }
 
         if level > self.max_layer {
@@ -132,25 +137,58 @@ impl<M: DistanceMetric> HnswGraph<M> {
         Ok(())
     }
 
-    pub fn search(&self, query: &Vector, _k: usize) -> Result<Vec<(Vec<u8>, f32)>, StateError> {
+    pub fn search(&self, query: &Vector, k: usize) -> Result<Vec<(Vec<u8>, f32)>, StateError> {
+        let (results, _) = self.search_with_proof(query, k)?;
+        Ok(results)
+    }
+
+    pub fn search_with_proof(
+        &self,
+        query: &Vector,
+        _k: usize,
+    ) -> Result<(Vec<(Vec<u8>, f32)>, TraversalProof), StateError> {
         if self.entry_point.is_none() {
-            return Ok(vec![]);
+            return Ok((
+                vec![],
+                TraversalProof {
+                    entry_point_id: 0,
+                    entry_point_hash: [0; 32],
+                    trace: vec![],
+                    results: vec![],
+                },
+            ));
         }
 
-        let mut curr_obj = self.entry_point.unwrap();
+        let entry_id = self.entry_point.unwrap();
+        let entry_node = self.nodes.get(&entry_id).ok_or(StateError::KeyNotFound)?;
+        let mut curr_obj = entry_id;
         let mut curr_dist = self.dist(query, &self.get_vector(curr_obj));
+
+        let mut trace = Vec::new();
 
         for l in (1..=self.max_layer).rev() {
             let mut changed = true;
             while changed {
                 changed = false;
-                let neighbors = &self.nodes[&curr_obj].neighbors[l];
-                for &neighbor_id in neighbors {
-                    let d = self.dist(query, &self.get_vector(neighbor_id));
-                    if d < curr_dist {
-                        curr_dist = d;
-                        curr_obj = neighbor_id;
-                        changed = true;
+
+                let curr_node_ref = &self.nodes[&curr_obj];
+
+                if l < curr_node_ref.neighbors.len() {
+                    trace.push(VisitedNode {
+                        id: curr_obj,
+                        hash: curr_node_ref.hash,
+                        vector: curr_node_ref.vector.clone(),
+                        neighbors_at_layer: curr_node_ref.neighbors[l].clone(),
+                    });
+
+                    let neighbors = &curr_node_ref.neighbors[l];
+                    for &neighbor_id in neighbors {
+                        let d = self.dist(query, &self.get_vector(neighbor_id));
+                        if d < curr_dist {
+                            curr_dist = d;
+                            curr_obj = neighbor_id;
+                            changed = true;
+                        }
                     }
                 }
             }
@@ -158,6 +196,13 @@ impl<M: DistanceMetric> HnswGraph<M> {
 
         let payload = self.nodes[&curr_obj].payload.clone();
 
-        Ok(vec![(payload, curr_dist)])
+        let proof = TraversalProof {
+            entry_point_id: entry_id,
+            entry_point_hash: entry_node.hash,
+            trace,
+            results: vec![curr_obj],
+        };
+
+        Ok((vec![(payload, curr_dist)], proof))
     }
 }

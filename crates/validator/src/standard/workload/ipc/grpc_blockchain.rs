@@ -259,21 +259,33 @@ where
 
         let mut results = Vec::with_capacity(txs.len());
         for tx in txs {
-            // [FIX] Updated import
-            use crate::firewall::enforce_firewall;
-            
-            // [FIX] Use enforce_firewall instead of check_tx
-            let check_result: Result<(), ioi_types::error::TransactionError> = enforce_firewall(
-                &mut overlay,
-                &services,
-                &tx,
+            // [FIX] REMOVED enforce_firewall from Workload side.
+            // Workload only performs execution pre-checks (nonce, balance, signature).
+            // Safety checks happen in Orchestrator ingestion.
+
+            // Use the standard transaction model validation
+            let mut ctx = ioi_api::transaction::context::TxContext {
+                block_height: height + 1,
+                // Approximate timestamp for check
+                block_timestamp: ibc_primitives::Timestamp::from_nanoseconds(
+                    req.expected_timestamp_secs * 1_000_000_000,
+                ),
                 chain_id,
-                height + 1,
-                req.expected_timestamp_secs,
-                false,
-                true, // is_simulation
-            )
-            .await;
+                signer_account_id: ioi_types::app::AccountId::default(), // Will be set by apply/verify
+                services: &services,
+                simulation: true,
+                is_internal: false,
+            };
+
+            // Use system validation helpers directly instead of full model execution for speed
+            use ioi_tx::system::{nonce, validation};
+
+            let check_result = (|| -> Result<(), ioi_types::error::TransactionError> {
+                validation::verify_stateless_signature(&tx)?;
+                validation::verify_stateful_authorization(&overlay, &services, &tx, &ctx)?;
+                nonce::assert_next_nonce(&overlay, &tx)?;
+                Ok(())
+            })();
 
             results.push(match check_result {
                 Ok(_) => CheckResult {

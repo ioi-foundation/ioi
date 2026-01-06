@@ -25,6 +25,20 @@ interface context {
     block-height: func() -> u64;
 }
 
+/// Interface for agentic AI inference.
+interface inference {
+    /// Executes a model inference.
+    /// 
+    /// # Arguments
+    /// * `model-id` - The CID or hash of the model to use.
+    /// * `input-data` - Serialized input context (e.g. AgentContext or raw bytes).
+    /// * `params` - Serialized SamplingParams (temperature, seed, etc.).
+    ///
+    /// # Returns
+    /// * `list<u8>` - The serialized inference output.
+    execute: func(model-id: string, input-data: list<u8>, params: list<u8>) -> result<list<u8>, string>;
+}
+
 /// Interface for calling other services (Host Capabilities).
 interface host {
     /// Calls a method on another service or a host capability.
@@ -36,6 +50,7 @@ world service {
     import state;
     import context;
     import host;
+    import inference;
 
     /// The main entrypoint for dynamic dispatch.
     export handle-service-call: func(method: string, params: list<u8>) -> result<list<u8>, string>;

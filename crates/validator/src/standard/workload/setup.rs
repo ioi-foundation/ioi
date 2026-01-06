@@ -7,12 +7,13 @@ use ioi_api::{
     state::{ProofProvider, StateManager},
     storage::NodeStore,
     validator::WorkloadContainer,
-    vm::inference::mock::MockInferenceRuntime,
+    vm::inference::InferenceRuntime, // [FIX] Import trait
 };
 use ioi_consensus::util::engine_from_config;
 use ioi_execution::{util::load_state_from_genesis_file, ExecutionMachine};
-// [FIX] Updated import
-use ioi_services::{governance::GovernanceModule, identity::IdentityHub, provider_registry::ProviderRegistryService};
+use ioi_services::{
+    governance::GovernanceModule, identity::IdentityHub, provider_registry::ProviderRegistryService,
+};
 use ioi_storage::RedbEpochStore;
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::{
@@ -25,6 +26,11 @@ use ioi_vm_wasm::WasmRuntime;
 use rand::{thread_rng, Rng};
 use std::{path::Path, sync::Arc, time::Duration};
 use tokio::{sync::Mutex, time::interval};
+
+// [NEW] Imports for Inference Stack
+use crate::standard::workload::driver_cpu::CpuDriver;
+use crate::standard::workload::hydration::ModelHydrator;
+use crate::standard::workload::runtime::StandardInferenceRuntime;
 
 #[cfg(feature = "ibc-deps")]
 use ioi_services::ibc::{
@@ -115,6 +121,22 @@ where
         }
     }
 
+    // --- Inference Stack Setup ---
+
+    // 1. Initialize Hardware Driver (CPU for now)
+    let driver = Arc::new(CpuDriver::new());
+
+    // 2. Initialize Model Hydrator
+    // Ensure the models directory exists relative to CWD
+    let models_dir = Path::new("models");
+    std::fs::create_dir_all(models_dir).ok();
+
+    let hydrator = Arc::new(ModelHydrator::new(models_dir.to_path_buf(), driver.clone()));
+
+    // 3. Initialize Runtime
+    // Note: StandardInferenceRuntime holds Arcs, so cloning it is cheap and safe.
+    let inference_runtime = Arc::new(StandardInferenceRuntime::new(hydrator, driver));
+
     // --- VM Setup ---
 
     #[cfg(feature = "vm-wasm")]
@@ -138,8 +160,11 @@ where
     #[cfg(feature = "vm-wasm")]
     let (wasm_runtime_arc, vm): (Arc<WasmRuntime>, Box<dyn ioi_api::vm::VirtualMachine>) = {
         let runtime = WasmRuntime::new(config.fuel_costs.clone())?;
+
+        // [NEW] Link the real inference runtime!
+        runtime.link_inference(inference_runtime.clone());
+
         let arc = Arc::new(runtime);
-        // Correctly wrap the Arc in the adapter struct
         (arc.clone(), Box::new(VmWrapper(arc)))
     };
 
@@ -148,11 +173,6 @@ where
     let vm: Box<dyn ioi_api::vm::VirtualMachine> = {
         panic!("vm-wasm feature is required for Workload setup");
     };
-
-    // [NEW] Instantiate the Mock Inference Runtime
-    let _inference: Box<dyn ioi_api::vm::inference::InferenceRuntime> =
-        Box::new(MockInferenceRuntime::default());
-    tracing::info!(target: "workload", "Initialized Mock Inference Runtime for agentic tasks.");
 
     let _temp_orch_config = OrchestrationConfig {
         chain_id: 1.into(),
@@ -166,6 +186,8 @@ where
         default_query_gas_limit: 0,
         ibc_gateway_listen_address: None,
         validator_role: ValidatorRole::Consensus,
+        safety_model_path: None,
+        tokenizer_path: None,
     };
     let _consensus_engine = engine_from_config(&_temp_orch_config)?;
 
@@ -191,7 +213,6 @@ where
             }
             InitialServiceConfig::Oracle(_params) => {
                 tracing::info!(target: "workload", event = "service_init", name = "ProviderRegistry", impl="native", capabilities="");
-                // [FIX] Use ProviderRegistryService
                 let _registry = ProviderRegistryService::default();
                 initial_services
                     .push(Arc::new(_registry) as Arc<dyn ioi_api::services::UpgradableService>);
@@ -200,11 +221,9 @@ where
             InitialServiceConfig::Ibc(ibc_config) => {
                 tracing::info!(target: "workload", event = "service_init", name = "IBC", impl="native", capabilities="");
 
-                // [FIX] Pass the WasmRuntime Arc to the registry constructor
                 #[cfg(feature = "vm-wasm")]
                 let mut verifier_registry = VerifierRegistry::new(wasm_runtime_arc.clone());
 
-                // [FIX] Fallback if vm-wasm is disabled (though setup panics earlier)
                 #[cfg(not(feature = "vm-wasm"))]
                 let mut verifier_registry = {
                     panic!("vm-wasm feature is required for IBC setup");
@@ -280,12 +299,43 @@ where
         .collect();
     let _service_directory = ServiceDirectory::new(_services_for_dir);
 
-    // [FIX] Pass Some(inference) to WorkloadContainer
+    // [UPDATED] Pass the real inference runtime wrapped in a struct that delegates
+    // to the Arc (because WorkloadContainer expects Option<Box<dyn...>>)
+    // We create a simple wrapper struct here.
+
+    struct RuntimeWrapper(Arc<StandardInferenceRuntime>);
+
+    #[async_trait::async_trait]
+    impl InferenceRuntime for RuntimeWrapper {
+        async fn execute_inference(
+            &self,
+            model_hash: [u8; 32],
+            input_context: &[u8],
+        ) -> Result<Vec<u8>, ioi_types::error::VmError> {
+            self.0.execute_inference(model_hash, input_context).await
+        }
+
+        async fn load_model(
+            &self,
+            model_hash: [u8; 32],
+            path: &Path,
+        ) -> Result<(), ioi_types::error::VmError> {
+            self.0.load_model(model_hash, path).await
+        }
+
+        async fn unload_model(
+            &self,
+            model_hash: [u8; 32],
+        ) -> Result<(), ioi_types::error::VmError> {
+            self.0.unload_model(model_hash).await
+        }
+    }
+
     let _workload_container = Arc::new(WorkloadContainer::new(
         config.clone(),
         state_tree,
         vm,
-        Some(_inference), // [CHANGED]
+        Some(Box::new(RuntimeWrapper(inference_runtime))), // [FIXED]
         _service_directory,
         store,
     )?);

@@ -487,6 +487,9 @@ fn run_config(args: ConfigCmdArgs) -> Result<()> {
                 round_robin_view_timeout_secs: 20,
                 default_query_gas_limit: 1_000_000,
                 ibc_gateway_listen_address: Some("127.0.0.1:9876".into()),
+                // [FIX] Initialize new fields to None
+                safety_model_path: None,
+                tokenizer_path: None,
             };
 
             let workload_cfg = WorkloadConfig {

@@ -9,7 +9,6 @@ use std::collections::BTreeMap;
 pub mod consensus;
 pub use consensus::*;
 
-// [NEW]
 /// Configuration structures for validator roles and capabilities.
 pub mod validator_role;
 pub use validator_role::*;
@@ -25,7 +24,7 @@ pub enum StateTreeType {
     /// A Verkle Tree, offering smaller proof sizes.
     Verkle,
     /// A Jellyfish Merkle Tree, optimized for parallel hashing.
-    Jellyfish, // [NEW]
+    Jellyfish,
 }
 
 /// Selects the cryptographic commitment primitive to use with the state tree.
@@ -211,11 +210,6 @@ impl WorkloadConfig {
 }
 
 /// Generates the default set of service security policies.
-///
-/// This function returns a map containing the standard permissions and system key
-/// access rules for the core services (Governance, Identity, ProviderRegistry, IBC, Penalties).
-/// It is used as the default value for `WorkloadConfig::service_policies` and by
-/// testing harnesses to replicate the standard environment.
 pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
     let mut map = BTreeMap::new();
 
@@ -243,7 +237,6 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
     // Identity Hub
     let mut id_methods = BTreeMap::new();
     id_methods.insert("rotate_key@v1".into(), MethodPermission::User);
-    // [NEW] Allow binary attestation registration
     id_methods.insert("register_attestation@v1".into(), MethodPermission::User);
 
     map.insert(
@@ -252,7 +245,7 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
             methods: id_methods,
             allowed_system_prefixes: vec![
                 "system::validators::".to_string(),
-                "identity::pubkey::".to_string(), // <--- ADDED: Allow access to global pubkey registry
+                "identity::pubkey::".to_string(),
             ],
         },
     );
@@ -274,10 +267,8 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
     ibc_methods.insert("verify_header@v1".into(), MethodPermission::User);
     ibc_methods.insert("recv_packet@v1".into(), MethodPermission::User);
     ibc_methods.insert("msg_dispatch@v1".into(), MethodPermission::User);
-    // [NEW] ZK Methods
     ibc_methods.insert("submit_header@v1".into(), MethodPermission::User);
     ibc_methods.insert("verify_state@v1".into(), MethodPermission::User);
-    // [NEW] Dynamic Verifier Registration (Governance Only)
     ibc_methods.insert("register_verifier@v1".into(), MethodPermission::Governance);
 
     map.insert(
@@ -325,7 +316,7 @@ fn default_chain_id() -> ChainId {
 /// Configuration for the RPC server's hardening and DDoS protection layer.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RpcHardeningConfig {
-    /// Enables all RPC hardening middleware. Defaults to `true`.
+    /// If true, enables all RPC hardening middleware.
     #[serde(default = "default_true")]
     pub enabled: bool,
     /// Maximum number of concurrent in-flight RPC requests.
@@ -337,21 +328,19 @@ pub struct RpcHardeningConfig {
     /// Maximum request body size in bytes.
     #[serde(default = "default_max_body_bytes")]
     pub max_body_bytes: u64,
-    /// Per-IP rate limit for `submit_transaction` calls (requests per second).
+    /// Per-IP rate limit for transaction submission (requests per second).
     #[serde(default = "default_submit_rps")]
     pub submit_rps: u32,
-    /// Per-IP burst allowance for `submit_transaction` calls.
+    /// Per-IP burst allowance for transaction submission.
     #[serde(default = "default_submit_burst")]
     pub submit_burst: u32,
-    /// Per-IP rate limit for all other query calls (requests per second).
+    /// Per-IP rate limit for general query calls (requests per second).
     #[serde(default = "default_query_rps")]
     pub query_rps: u32,
-    /// Per-IP burst allowance for all other query calls.
+    /// Per-IP burst allowance for general query calls.
     #[serde(default = "default_query_burst")]
     pub query_burst: u32,
-    /// A list of trusted proxy IP addresses or CIDR blocks. If a request comes
-    /// from a trusted proxy, the `X-Forwarded-For` header is used for rate limiting.
-    /// e.g. ["127.0.0.1/32","10.0.0.0/8","172.16.0.0/12"]
+    /// A list of trusted proxy IP addresses or CIDR blocks.
     #[serde(default)]
     pub trusted_proxy_cidrs: Vec<String>,
     /// The maximum number of transactions allowed in the mempool.
@@ -370,7 +359,7 @@ fn default_timeout_ms() -> u64 {
 }
 fn default_max_body_bytes() -> u64 {
     128 * 1024
-} // 128 KiB
+}
 fn default_submit_rps() -> u32 {
     5
 }
@@ -415,29 +404,36 @@ pub struct OrchestrationConfig {
     pub config_schema_version: u16,
     /// The functional role of this validator node (Consensus vs Compute).
     #[serde(default)]
-    pub validator_role: ValidatorRole, // [NEW]
-    /// The consensus engine to use.
+    pub validator_role: ValidatorRole,
+    /// The consensus engine type.
     pub consensus_type: ConsensusType,
-    /// The network address and port for the JSON-RPC server.
+    /// The network address for the JSON-RPC server to listen on.
     pub rpc_listen_address: String,
-    /// Hardening and DDoS protection configuration.
+    /// Configuration for RPC hardening and rate limiting.
     #[serde(default)]
     pub rpc_hardening: RpcHardeningConfig,
-    /// The number of seconds to wait for initial peer discovery.
+    /// Number of seconds to wait for initial peer discovery.
     #[serde(default = "default_sync_timeout_secs")]
     pub initial_sync_timeout_secs: u64,
-    /// The interval, in seconds, at which the node attempts to produce a new block.
+    /// Interval in seconds at which the node attempts to produce a block.
     #[serde(default = "default_block_production_interval_secs")]
     pub block_production_interval_secs: u64,
-    /// The timeout, in seconds, before a node proposes a view change.
+    /// Timeout in seconds before proposing a BFT view change.
     #[serde(default = "default_round_robin_view_timeout_secs")]
     pub round_robin_view_timeout_secs: u64,
-    /// The default gas limit for read-only `query_contract` RPC calls.
+    /// Default gas limit for read-only contract queries.
     #[serde(default = "default_query_gas_limit")]
     pub default_query_gas_limit: u64,
-    /// Optional: The listen address for the IBC HTTP gateway.
+    /// Optional listen address for the IBC HTTP gateway.
     #[serde(default)]
     pub ibc_gateway_listen_address: Option<String>,
+
+    /// Optional: Path to the quantized GGUF model for the Safety Firewall.
+    #[serde(default)]
+    pub safety_model_path: Option<String>,
+    /// Optional: Path to the tokenizer.json file.
+    #[serde(default)]
+    pub tokenizer_path: Option<String>,
 }
 
 impl OrchestrationConfig {

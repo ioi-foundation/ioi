@@ -28,3 +28,36 @@ pub struct CommitteeCertificate {
     /// Used to reconstruct the aggregate public key for verification.
     pub signers_bitfield: Vec<u8>,
 }
+
+/// The type of data being redacted from a Context Slice.
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum RedactionType {
+    /// Personally Identifiable Information (e.g., Email, Phone).
+    Pii,
+    /// High-entropy secrets (e.g., API Keys, Private Keys).
+    Secret,
+    /// Custom pattern match (e.g., proprietary project names).
+    Custom(String),
+}
+
+/// A specific redaction applied to a text segment.
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct RedactionEntry {
+    /// Start byte index in the original UTF-8 buffer.
+    pub start_index: u32,
+    /// End byte index in the original UTF-8 buffer.
+    pub end_index: u32,
+    /// The type of data removed.
+    pub redaction_type: RedactionType,
+    /// SHA-256 hash of the original redacted content.
+    /// Allows verifying that the rehydrated data matches the original scrubbed data.
+    pub original_hash: [u8; 32],
+}
+
+/// A map of all redactions applied to a `ContextSlice`.
+/// Used by the Orchestrator to "rehydrate" responses or verify the integrity of the scrubbing process.
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct RedactionMap {
+    /// A chronological list of redactions applied to the source text.
+    pub entries: Vec<RedactionEntry>,
+}

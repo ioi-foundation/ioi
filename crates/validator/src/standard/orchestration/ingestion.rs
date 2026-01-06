@@ -23,7 +23,9 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, watch, Mutex};
-use tracing::{error, info}; // Removed unused imports
+use tracing::{error, info};
+
+use crate::firewall::inference::{LocalSafetyModel, SafetyVerdict};
 
 /// Configuration for the ingestion worker.
 #[derive(Debug, Clone)]
@@ -82,6 +84,7 @@ pub async fn run_ingestion_worker<CS>(
     tip_watcher: watch::Receiver<ChainTipInfo>,
     status_cache: Arc<Mutex<lru::LruCache<String, TxStatusEntry>>>,
     receipt_map: Arc<Mutex<lru::LruCache<TxHash, String>>>,
+    safety_model: Arc<dyn LocalSafetyModel>,
     config: IngestionConfig,
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -97,15 +100,13 @@ pub async fn run_ingestion_worker<CS>(
     let mut processed_batch = Vec::with_capacity(config.batch_size);
     let mut timing_cache: Option<TimingCache> = None;
 
-    // Local cache of committed nonces to avoid repeated DB hits for the same account in a burst.
     let mut nonce_cache: lru::LruCache<AccountId, u64> =
         lru::LruCache::new(std::num::NonZeroUsize::new(10000).unwrap());
 
     loop {
-        // --- 1. Collect Batch ---
         let first_item = match rx.recv().await {
             Some(item) => item,
-            None => break, // Channel closed
+            None => break,
         };
 
         batch.push(first_item);
@@ -124,7 +125,6 @@ pub async fn run_ingestion_worker<CS>(
             }
         }
 
-        // --- 2. Stateless Processing (Deserialize & Hash) ---
         processed_batch.clear();
         let mut accounts_needing_nonce = HashSet::new();
 
@@ -196,7 +196,6 @@ pub async fn run_ingestion_worker<CS>(
             continue;
         }
 
-        // --- 3. Context & Nonce Resolution ---
         let tip = tip_watcher.borrow().clone();
         let root_struct = StateRoot(if tip.height > 0 {
             tip.state_root.clone()
@@ -231,7 +230,6 @@ pub async fn run_ingestion_worker<CS>(
             }
         }
 
-        // Timing Parameter Refresh (every 2s)
         if timing_cache
             .as_ref()
             .map_or(true, |c| c.last_fetched.elapsed() > Duration::from_secs(2))
@@ -274,10 +272,78 @@ pub async fn run_ingestion_worker<CS>(
             .unwrap_or(0);
 
         let anchor = root_struct.to_anchor().unwrap_or_default();
-        let txs_to_check: Vec<ChainTransaction> =
-            processed_batch.iter().map(|p| p.tx.clone()).collect();
 
-        // --- 4. Workload Validation ---
+        // --- 4. Validation ---
+        // Step A: Semantic Safety Check (Orchestrator Local CPU)
+        let mut semantically_valid_indices = Vec::new();
+        let mut status_guard = status_cache.lock().await;
+
+        for (idx, p_tx) in processed_batch.iter().enumerate() {
+            let mut is_safe = true;
+            if let ChainTransaction::System(sys) = &p_tx.tx {
+                let ioi_types::app::SystemPayload::CallService {
+                    service_id, params, ..
+                } = &sys.payload;
+
+                if service_id == "agentic" || service_id == "decentralized_cloud" {
+                    if let Ok(input_str) = std::str::from_utf8(params) {
+                        // Run safety check
+                        let result = safety_model.classify_intent(input_str).await;
+                        match result {
+                            Ok(SafetyVerdict::Safe) => {}
+                            Ok(v) => {
+                                is_safe = false;
+                                // [FIX] Map enum variants to strings expected by test assertions.
+                                let reason = match v {
+                                    SafetyVerdict::Unsafe(r) => {
+                                        format!("Blocked by Safety Firewall: {}", r)
+                                    }
+                                    SafetyVerdict::ContainsPII => "PII detected".to_string(),
+                                    SafetyVerdict::Safe => unreachable!(), // Handled by outer arm
+                                };
+
+                                status_guard.put(
+                                    p_tx.receipt_hash_hex.clone(),
+                                    TxStatusEntry {
+                                        status: TxStatus::Rejected,
+                                        error: Some(format!("Firewall: {}", reason)),
+                                        block_height: None,
+                                    },
+                                );
+                            }
+                            Err(e) => {
+                                // If model fails, fail closed
+                                is_safe = false;
+                                status_guard.put(
+                                    p_tx.receipt_hash_hex.clone(),
+                                    TxStatusEntry {
+                                        status: TxStatus::Rejected,
+                                        error: Some(format!("Firewall Error: {}", e)),
+                                        block_height: None,
+                                    },
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
+            if is_safe {
+                semantically_valid_indices.push(idx);
+            }
+        }
+        drop(status_guard);
+
+        if semantically_valid_indices.is_empty() {
+            continue;
+        }
+
+        // Step B: Workload Validation (Execution Pre-checks)
+        let txs_to_check: Vec<ChainTransaction> = semantically_valid_indices
+            .iter()
+            .map(|&i| processed_batch[i].tx.clone())
+            .collect();
+
         let check_results = match workload_client
             .check_transactions_at(anchor, expected_ts, txs_to_check)
             .await
@@ -294,8 +360,10 @@ pub async fn run_ingestion_worker<CS>(
         let mut receipt_guard = receipt_map.lock().await;
         let mut accepted_count = 0;
 
-        for (idx, result) in check_results.into_iter().enumerate() {
-            let p_tx = &processed_batch[idx];
+        for (res_idx, result) in check_results.into_iter().enumerate() {
+            let original_idx = semantically_valid_indices[res_idx];
+            let p_tx = &processed_batch[original_idx];
+
             match result {
                 Ok(_) => {
                     let tx_info = p_tx.account_id.map(|acc| (acc, p_tx.nonce.unwrap()));

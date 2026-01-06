@@ -7,10 +7,12 @@
 use async_trait::async_trait;
 use ioi_api::state::VmStateAccessor;
 use ioi_api::vm::{ExecutionContext, ExecutionOutput, VirtualMachine};
+// [NEW] Import InferenceRuntime trait
+use ioi_api::vm::inference::InferenceRuntime;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::{config::VmFuelCosts, error::VmError};
 use std::collections::HashMap;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 use wasmtime::component::{Component, Linker};
 use wasmtime::{Config, Engine, Store};
 use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiView};
@@ -31,6 +33,8 @@ struct HostState {
     table: ResourceTable,
     wasi_ctx: WasiCtx,
     _fuel_costs: VmFuelCosts,
+    // [NEW] Optional handle to the inference runtime
+    inference: Option<Arc<dyn InferenceRuntime>>,
 }
 
 impl WasiView for HostState {
@@ -53,6 +57,8 @@ pub struct WasmRuntime {
     /// Pre-configured linker with all host bindings and WASI registered.
     /// Cloning this is cheap and avoids expensive re-registration per tx.
     linker: Linker<HostState>,
+    // [NEW] Storage for the inference runtime (lazy linking)
+    inference: RwLock<Option<Arc<dyn InferenceRuntime>>>,
 }
 
 impl WasmRuntime {
@@ -80,7 +86,14 @@ impl WasmRuntime {
             fuel_costs,
             component_cache: RwLock::new(HashMap::new()),
             linker,
+            inference: RwLock::new(None),
         })
+    }
+
+    /// Link an inference runtime to this VM instance.
+    pub fn link_inference(&self, runtime: Arc<dyn InferenceRuntime>) {
+        let mut guard = self.inference.write().unwrap();
+        *guard = Some(runtime);
     }
 
     /// Returns a reference to the underlying Wasmtime Engine.
@@ -200,6 +213,34 @@ impl ioi::system::context::Host for HostState {
     }
 }
 
+// [NEW] Implement the inference interface
+#[async_trait]
+impl ioi::system::inference::Host for HostState {
+    async fn execute(
+        &mut self,
+        model_id: String,
+        input_data: Vec<u8>,
+        _params: Vec<u8>,
+    ) -> Result<Vec<u8>, String> {
+        let inference = self
+            .inference
+            .as_ref()
+            .ok_or("Inference runtime not available")?;
+
+        // Hash the model ID string to the expected 32-byte format
+        let model_hash_bytes = sha256(model_id.as_bytes()).map_err(|e| e.to_string())?;
+        let model_hash: [u8; 32] = model_hash_bytes
+            .try_into()
+            .map_err(|_| "Invalid model hash length")?;
+
+        // Delegate to the IAL
+        inference
+            .execute_inference(model_hash, &input_data)
+            .await
+            .map_err(|e| e.to_string())
+    }
+}
+
 #[async_trait]
 impl ioi::system::host::Host for HostState {
     async fn call(&mut self, _capability: String, _request: Vec<u8>) -> Result<Vec<u8>, String> {
@@ -235,8 +276,6 @@ impl VirtualMachine for WasmRuntime {
             }
         };
 
-        // [OPTIMIZATION] Clone the pre-configured linker instead of creating a new one.
-        // This avoids rebuilding the entire import table for every execution.
         let linker = self.linker.clone();
 
         let state_accessor_static: &'static dyn VmStateAccessor =
@@ -248,6 +287,8 @@ impl VirtualMachine for WasmRuntime {
             table: ResourceTable::new(),
             wasi_ctx: WasiCtxBuilder::new().build(),
             _fuel_costs: self.fuel_costs.clone(),
+            // [NEW] Inject the current inference runtime snapshot into the host state
+            inference: self.inference.read().unwrap().clone(),
         };
 
         let mut store = Store::new(&self.engine, host_state);

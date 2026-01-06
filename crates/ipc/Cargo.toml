@@ -7,7 +7,6 @@ license-file = "../../LICENSE-BBSL"
 repository = "https://github.com/ioi-foundation/ioi"
 
 [dependencies]
-
 # Control Plane (gRPC)
 tonic = "0.11"
 prost = "0.12"
@@ -24,8 +23,6 @@ serde_json = { workspace = true }
 # Utilities
 bytes = { workspace = true }
 thiserror = { workspace = true }
-
-# [FIX] Added for security.rs
 anyhow = { workspace = true }
 zeroize = { workspace = true }
 dcrypt = { workspace = true }

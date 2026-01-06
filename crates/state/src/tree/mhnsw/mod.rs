@@ -5,6 +5,7 @@
 pub mod graph;
 pub mod metric;
 pub mod node;
+pub mod proof;
 
 use self::graph::HnswGraph;
 use self::metric::{DistanceMetric, Vector};
@@ -201,7 +202,7 @@ where
         Ok(CS::Commitment::from(bytes.to_vec()))
     }
     fn commitment_to_bytes(&self, _c: &Self::Commitment) -> Vec<u8> {
-        vec![] // Placeholder
+        vec![]
     }
 }
 
@@ -221,19 +222,7 @@ where
         Ok(0)
     }
     fn commit_version(&mut self, _height: u64) -> Result<RootHash, StateError> {
-        let root = self.root_commitment();
-
-        // Convert CS::Commitment to RootHash via dyn Any downcast
-        // Since we don't have AsRef<[u8]> bound on CS::Commitment here (except in VerifiableState impl),
-        // we use Any.
-        // Assuming CS::Commitment wraps Vec<u8> or [u8; 32].
-        // For HashCommitment (which MHnsw is intended for), it is a wrapper.
-        // However, generic code is safer with a dummy or strict type check.
-        // Given Phase 6 context, returning 0 hash is acceptable for this stub impl.
-
-        let _root_any = &root as &dyn std::any::Any;
-        // Logic to extract bytes would go here in full implementation.
-
+        let _root = self.root_commitment();
         Ok([0u8; 32])
     }
 

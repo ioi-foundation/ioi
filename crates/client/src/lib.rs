@@ -22,7 +22,9 @@
 
 pub mod security;
 pub mod shmem;
-pub mod workload_client; // [FIX] Exported the shmem module
+pub mod slicing; // [NEW]
+pub mod workload_client;
 
 // Re-export for convenience
+pub use slicing::{SlicePackager, SlicerConfig};
 pub use workload_client::WorkloadClient;

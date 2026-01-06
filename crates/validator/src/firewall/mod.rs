@@ -2,12 +2,18 @@
 
 //! The Agency Firewall: Pre-execution policy enforcement and validation.
 
+/// The inference engine interface for intent classification.
+pub mod inference;
 /// The policy engine logic for evaluating rules.
 pub mod policy;
 /// Definitions for ActionRules and policy configuration.
 pub mod rules;
+/// The semantic scrubber for PII redaction.
+pub mod scrubber;
 
+use crate::firewall::inference::LocalSafetyModel;
 use crate::firewall::policy::PolicyEngine;
+use crate::firewall::scrubber::SemanticScrubber;
 use ibc_primitives::Timestamp;
 use ioi_api::state::namespaced::{NamespacedStateAccess, ReadOnlyNamespacedStateAccess};
 use ioi_api::state::{service_namespace_prefix, StateAccess, StateOverlay};
@@ -17,6 +23,7 @@ use ioi_types::app::{ChainTransaction, SystemPayload};
 use ioi_types::error::TransactionError;
 use ioi_types::keys::active_service_key;
 use ioi_types::service_configs::ActiveServiceMeta;
+use std::sync::Arc;
 
 /// The main firewall entry point.
 /// Replaces the old `check_tx` function.
@@ -28,9 +35,12 @@ pub async fn enforce_firewall(
     next_block_height: u64,
     expected_timestamp_secs: u64,
     skip_stateless_checks: bool,
-    is_simulation: bool, // True for mempool/RPC, False for block execution
+    is_simulation: bool,
+    safety_model: Arc<dyn LocalSafetyModel>, // [NEW] Argument injected from context
 ) -> Result<(), TransactionError> {
     let mut overlay = StateOverlay::new(state);
+
+    let scrubber = SemanticScrubber::new(safety_model.clone());
 
     // 1. Identify Signer
     let signer_account_id = match tx {
@@ -76,20 +86,52 @@ pub async fn enforce_firewall(
         nonce::assert_next_nonce(&overlay, tx)?;
     }
 
-    // --- LAYER 3: POLICY ENGINE (The Firewall) ---
-    // If this is a System transaction invoking a service, we check permissions.
-    // If this is an Agentic transaction, we inspect the ActionRequest.
+    // --- LAYER 3: POLICY ENGINE & SEMANTIC SCRUBBING ---
     if let ChainTransaction::System(sys) = tx {
-        // [FIX] Changed `if let` to `let` as SystemPayload currently has only one variant (irrefutable pattern).
         let SystemPayload::CallService {
-            service_id, method, ..
+            service_id,
+            method,
+            params, // We will inspect these
         } = &sys.payload;
 
-        // Policy check for service calls
+        // Policy check for service permissions
         PolicyEngine::check_service_call(&overlay, service_id, method, false)?;
+
+        // [NEW] Semantic Inspection for Agentic Intents
+        // If this is an agentic request (e.g., to the `agentic` service), scrub inputs.
+        if service_id == "agentic" || service_id == "decentralized_cloud" {
+            // Convert params to UTF-8 string for analysis (best effort)
+            if let Ok(input_str) = std::str::from_utf8(params) {
+                // Check intent safety using the injected model
+                // Note: We use `safety_model` directly for classification here,
+                // `scrubber` is available for future use (e.g. rewriting params).
+                let verdict = safety_model
+                    .classify_intent(input_str)
+                    .await
+                    .map_err(|e| TransactionError::Invalid(format!("Safety check failed: {}", e)))?;
+
+                match verdict {
+                    crate::firewall::inference::SafetyVerdict::Unsafe(reason) => {
+                        return Err(TransactionError::Invalid(format!(
+                            "Blocked by Safety Firewall: {}",
+                            reason
+                        )));
+                    }
+                    crate::firewall::inference::SafetyVerdict::ContainsPII => {
+                        // In Phase 2.2, we block PII.
+                        // In Phase 3, we might use `scrubber.scrub()` to redact and proceed.
+                        tracing::warn!(target: "firewall", "Transaction contains PII. Scrubbing required.");
+                        return Err(TransactionError::Invalid(
+                            "PII detected in transaction payload.".into(),
+                        ));
+                    }
+                    crate::firewall::inference::SafetyVerdict::Safe => {}
+                }
+            }
+        }
     }
 
-    // --- LAYER 4: SERVICE DECORATORS (Custom Logic) ---
+    // --- LAYER 4: SERVICE DECORATORS ---
     let decorators: Vec<(&str, &dyn ioi_api::transaction::decorator::TxDecorator)> = services
         .services_in_deterministic_order()
         .filter_map(|s| s.as_tx_decorator().map(|d| (s.id(), d)))
@@ -101,7 +143,6 @@ pub async fn enforce_firewall(
             TransactionError::Unsupported(format!("Service '{}' is not active", id))
         })?;
         let meta: ActiveServiceMeta = ioi_types::codec::from_bytes_canonical(&meta_bytes)?;
-
         let prefix = service_namespace_prefix(id);
         let namespaced_view = ReadOnlyNamespacedStateAccess::new(&overlay, prefix, &meta);
 
@@ -110,9 +151,9 @@ pub async fn enforce_firewall(
             .await?;
     }
 
-    // --- LAYER 5: STATE MUTATION (Fee/Nonce) ---
+    // --- LAYER 5: STATE MUTATION ---
     if !is_simulation {
-        for (id, decorator) in &decorators {
+        for (id, decorator) in decorators {
             let meta_key = active_service_key(id);
             let meta_bytes = overlay.get(&meta_key)?.unwrap();
             let meta: ActiveServiceMeta = ioi_types::codec::from_bytes_canonical(&meta_bytes)?;
