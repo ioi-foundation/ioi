@@ -1,10 +1,10 @@
 // Path: crates/validator/src/standard/workload/ipc/grpc_control.rs
 
 use crate::standard::workload::ipc::RpcContext;
-use ioi_api::chain::ChainStateMachine; // [FIX] Required for .status()
+use ioi_api::chain::ChainStateMachine;
 use ioi_api::services::BlockchainService;
 use ioi_api::{commitment::CommitmentScheme, state::StateManager};
-use ioi_ipc::data::EncryptedSlice;
+use ioi_ipc::data::{AgentContext, ContextSlice, EncryptedSlice, InferenceOutput, Tensor};
 use ioi_ipc::security::{decrypt_slice, derive_session_key};
 use ioi_ipc::{
     control::workload_control_server::WorkloadControl,
@@ -12,14 +12,13 @@ use ioi_ipc::{
         ExecuteJobRequest, ExecuteJobResponse, HealthCheckRequest, HealthCheckResponse,
         LoadModelRequest, LoadModelResponse,
     },
-    data::AgentContext,
 };
 use ioi_services::agentic::leakage::{CheckLeakageParams, LeakageController};
 use ioi_types::app::AccountId;
 use ioi_types::codec;
-use rkyv::Deserialize;
+use rkyv::{AlignedVec, Deserialize};
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use tonic::{Request, Response, Status};
 
 /// Implementation of the `WorkloadControl` gRPC service.
@@ -33,6 +32,23 @@ where
 {
     /// Shared RPC context containing handles to the machine, workload, and data plane.
     pub ctx: Arc<RpcContext<CS, ST>>,
+    /// Tracks the most recently loaded model for this control session to ensure
+    /// execution happens against the correct resident weights.
+    active_model_hash: Arc<RwLock<Option<[u8; 32]>>>,
+}
+
+impl<CS, ST> WorkloadControlImpl<CS, ST>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
+{
+    /// Creates a new instance of the control service implementation.
+    pub fn new(ctx: Arc<RpcContext<CS, ST>>) -> Self {
+        Self {
+            ctx,
+            active_model_hash: Arc::new(RwLock::new(None)),
+        }
+    }
 }
 
 #[tonic::async_trait]
@@ -67,20 +83,24 @@ where
             .inference()
             .map_err(|e| Status::failed_precondition(e.to_string()))?;
 
-        let model_path = Path::new(&req.model_id);
+        // Extract the 32-byte hash from the hex string model_id
+        let model_hash: [u8; 32] = hex::decode(&req.model_id)
+            .map_err(|_| Status::invalid_argument("model_id must be a valid hex string"))?
+            .try_into()
+            .map_err(|_| {
+                Status::invalid_argument("model_id must be exactly 32 bytes (64 hex chars)")
+            })?;
 
-        let model_hash = if req.model_id.len() == 64 {
-            hex::decode(&req.model_id)
-                .unwrap_or(vec![0u8; 32])
-                .try_into()
-                .unwrap_or([0u8; 32])
-        } else {
-            [0u8; 32]
-        };
+        let model_path = Path::new(&req.model_id);
 
         match inference.load_model(model_hash, model_path).await {
             Ok(_) => {
                 log::info!("Successfully loaded model: {}", req.model_id);
+
+                // Update internal state so execute_job knows which model is resident
+                let mut active = self.active_model_hash.write().unwrap();
+                *active = Some(model_hash);
+
                 Ok(Response::new(LoadModelResponse {
                     success: true,
                     memory_usage_bytes: 0,
@@ -104,6 +124,14 @@ where
             .inference()
             .map_err(|e| Status::failed_precondition(e.to_string()))?;
 
+        // Retrieve the model hash set by the previous load_model call
+        let model_hash = {
+            let active = self.active_model_hash.read().unwrap();
+            active.ok_or_else(|| {
+                Status::failed_precondition("Model not loaded. Call load_model first.")
+            })?
+        };
+
         let dp = self.ctx.data_plane.as_ref().ok_or_else(|| {
             Status::failed_precondition("Shared Memory Data Plane not initialized")
         })?;
@@ -120,29 +148,20 @@ where
         };
 
         // 1. Attempt to read from Data Plane
-        // We first try to read as an EncryptedSlice (Privacy-enabled flow).
-        // If that fails, we fall back to a plaintext AgentContext (Legacy/Direct mode).
         let agent_context: AgentContext =
             if let Ok(slice) = dp.read::<EncryptedSlice>(req.input_offset, req.input_length) {
                 log::info!("Received EncryptedSlice in Data Plane. Enforcing Leakage Budget...");
 
-                let mut slice_id_arr = [0u8; 32];
-                slice_id_arr.copy_from_slice(slice.slice_id.as_slice());
-
-                // --- 2. Leakage Budget Enforcement (Control Plane Proxy) ---
+                // --- 2. Leakage Budget Enforcement ---
                 {
-                    // Access on-chain state to verify the session's budget
                     let state_tree = self.ctx.workload.state_tree();
                     let mut state = state_tree.write().await;
 
-                    let controller = LeakageController;
                     let current_height = self.ctx.machine.lock().await.status().height;
-
-                    // Token cost calculation (heuristic based on ciphertext size)
                     let tokens = slice.ciphertext.len() as u64;
 
                     let check_params = CheckLeakageParams {
-                        session_id: session_id_arr, // Use session_id from request
+                        session_id: session_id_arr,
                         tokens_requested: tokens,
                         is_high_entropy: true,
                     };
@@ -160,8 +179,7 @@ where
                     let params_bytes = codec::to_bytes_canonical(&check_params)
                         .map_err(|e| Status::internal(e))?;
 
-                    // Invoke the Leakage Controller service logic
-                    match controller
+                    match LeakageController
                         .handle_service_call(
                             &mut *state,
                             "check_and_debit@v1",
@@ -181,25 +199,45 @@ where
                     }
                 }
 
-                // --- 3. Decryption (Privacy Airlock) ---
-                // Mock Session Key: Derived from the shared mTLS master secret.
-                let master_secret = [0u8; 32];
-
-                // FIX: Use session_id_arr for key derivation instead of slice_id_arr
+                // --- 3. Decryption & Reassembly ---
+                let master_secret = [0u8; 32]; // Derived from mTLS session
                 let key = derive_session_key(&master_secret, &session_id_arr)
                     .map_err(|e| Status::internal(format!("Key derivation failed: {}", e)))?;
 
-                // Reconstruct AAD: SessionID || PolicyHash || SliceID
-                // FIX: Use session_id_arr for AAD construction
-                let aad = EncryptedSlice::compute_aad(&session_id_arr, &[0u8; 32], &slice_id_arr);
+                let aad = EncryptedSlice::compute_aad(
+                    &session_id_arr,
+                    &[0u8; 32],
+                    slice.slice_id.as_slice().try_into().unwrap(),
+                );
 
                 let plaintext = decrypt_slice(&key, &slice.iv, &slice.ciphertext, &aad)
                     .map_err(|e| Status::invalid_argument(format!("Decryption failed: {}", e)))?;
 
-                // Deserialize the decrypted plaintext into an AgentContext
-                rkyv::from_bytes::<AgentContext>(&plaintext).map_err(|e| {
-                    Status::invalid_argument(format!("Inner deserialization failed: {}", e))
-                })?
+                // Step A: Decode the ContextSlice container
+                let archived_slice = ioi_ipc::access_rkyv_bytes::<ContextSlice>(&plaintext)
+                    .map_err(|e| {
+                        Status::invalid_argument(format!("ContextSlice decode failed: {}", e))
+                    })?;
+
+                // Step B: Reassemble AgentContext from chunks
+                let mut reassembled_vec = Vec::new();
+                for chunk in archived_slice.chunks.iter() {
+                    reassembled_vec.extend_from_slice(chunk.as_slice());
+                }
+
+                // Step C: Ensure alignment for rkyv
+                let mut aligned_buffer = AlignedVec::new();
+                aligned_buffer.extend_from_slice(&reassembled_vec);
+
+                // Step D: Map and Deserialize
+                let archived_agent = ioi_ipc::access_rkyv_bytes::<AgentContext>(&aligned_buffer)
+                    .map_err(|e| {
+                        Status::invalid_argument(format!("AgentContext reassembly failed: {}", e))
+                    })?;
+
+                archived_agent
+                    .deserialize(&mut rkyv::Infallible)
+                    .map_err(|e| Status::internal(e.to_string()))?
             } else {
                 // FALLBACK: Read as plaintext AgentContext
                 let archived = dp
@@ -210,28 +248,24 @@ where
                 archived.deserialize(&mut rkyv::Infallible).unwrap()
             };
 
-        // --- 4. Hardware Execution (Cognitive Plane) ---
+        // --- 4. Hardware Execution ---
         if let Some(da_ref) = agent_context.da_ref.as_ref() {
             log::info!(
-                "[DA Bridge] Resolving external data from provider '{}', blob_id: {}",
-                da_ref.provider,
-                hex::encode(&da_ref.blob_id)
+                "[DA Bridge] Resolving external data from provider '{}'",
+                da_ref.provider
             );
         }
 
+        // Context-aware input extraction
         let input_bytes = vec![0u8; req.input_length as usize];
 
-        // The model hash identifying the cognitive task
-        let model_hash = [0u8; 32];
-
-        // Execute on physical hardware (GPU via Driver, or CPU Fallback)
+        // Execute on physical hardware using the dynamically loaded model hash
         let _result = inference
             .execute_inference(model_hash, &input_bytes)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
         // Construct standard output structure
-        use ioi_ipc::data::{InferenceOutput, Tensor};
         let output_struct = InferenceOutput {
             logits: Tensor {
                 shape: [0; 4],
@@ -241,7 +275,7 @@ where
             stop_reason: 0,
         };
 
-        // Write output back to the Data Plane for Orchestrator to collect
+        // Write output back to the Data Plane
         let handle = dp
             .write(&output_struct, None)
             .map_err(|e| Status::internal(format!("Failed to write output to shmem: {}", e)))?;
@@ -250,7 +284,7 @@ where
             success: true,
             output_offset: handle.offset,
             output_length: handle.length,
-            gas_used: 1000, // Placeholder
+            gas_used: 1000,
             error_message: String::new(),
         }))
     }

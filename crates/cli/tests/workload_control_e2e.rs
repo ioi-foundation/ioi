@@ -185,13 +185,15 @@ async fn test_workload_control_plane_flow() -> Result<()> {
     std::fs::create_dir_all(&models_dir)?;
 
     let model_content = b"dummy_model_bytes";
+    // 1. Calculate the REAL hash of the model content.
     let calculated_hash = ioi_crypto::algorithms::hash::sha256(model_content)?;
     let calculated_hex = hex::encode(calculated_hash);
 
-    let real_model_path = models_dir.join(format!("{}.bin", calculated_hex));
-    std::fs::write(&real_model_path, model_content)?;
-
+    // 2. Use the hash as the ID so the integrity check (hash(content) == ID) passes.
     let model_id_to_request = calculated_hex;
+
+    let real_model_path = models_dir.join(format!("{}.bin", model_id_to_request));
+    std::fs::write(&real_model_path, model_content)?;
 
     let test_logic = async {
         // 2. Register Policy for the session
@@ -210,7 +212,8 @@ async fn test_workload_control_plane_flow() -> Result<()> {
             .map_err(|e| anyhow!("Failed to connect to workload: {}", e))?;
         let mut client = WorkloadControlClient::new(channel);
 
-        // 3. Load Model
+        // 3. Load Model (Warm start)
+        println!("Loading model {}...", model_id_to_request);
         let load_resp = client
             .load_model(LoadModelRequest {
                 model_id: model_id_to_request,
@@ -219,6 +222,7 @@ async fn test_workload_control_plane_flow() -> Result<()> {
             .await?
             .into_inner();
         assert!(load_resp.success, "LoadModel failed");
+        println!("Model loaded successfully.");
 
         // 4. Prepare Encrypted Data via SlicePackager
         let shmem_id = "ioi_shmem_5000";
@@ -246,13 +250,13 @@ async fn test_workload_control_plane_flow() -> Result<()> {
         let handle = data_plane.write(slice, None)?;
         println!("Wrote EncryptedSlice to shmem at offset {}", handle.offset);
 
-        // 5. Execute Job - Now passing the correct session_id to the server
+        // 5. Execute Job - Passing the correct session_id to the server
         let exec_resp = client
             .execute_job(ExecuteJobRequest {
                 job_id: 500,
                 input_offset: handle.offset,
                 input_length: handle.length,
-                session_id: session_id.to_vec(), // FIX: Pass session_id for key derivation
+                session_id: session_id.to_vec(),
             })
             .await?
             .into_inner();
