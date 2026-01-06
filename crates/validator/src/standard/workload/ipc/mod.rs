@@ -198,10 +198,9 @@ where
         let system_svc = SystemControlImpl {
             ctx: shared_ctx.clone(),
         };
-        // [NEW] Initialize Control service
-        let control_svc = WorkloadControlImpl {
-            ctx: shared_ctx.clone(),
-        };
+
+        // [FIX] Initialize Control service using the stateful constructor.
+        let control_svc = WorkloadControlImpl::new(shared_ctx.clone());
 
         Server::builder()
             .add_service(ChainControlServer::new(chain_svc))
