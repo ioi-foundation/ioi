@@ -4,6 +4,7 @@
 use ioi_api::impl_service_base;
 
 pub mod firewall;
+pub mod leakage;
 pub mod normaliser;
 pub mod prompt_wrapper;
 pub mod session; // [NEW]

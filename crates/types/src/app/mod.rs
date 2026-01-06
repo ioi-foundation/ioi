@@ -18,8 +18,8 @@ pub mod timing;
 
 pub use action::*;
 pub use consensus::*;
-// Only re-export types that are actually defined in identity.rs
-pub use agentic::*;
+// Explicitly re-export the new agentic types
+pub use agentic::{CommitteeCertificate, RedactionEntry, RedactionMap, RedactionType};
 pub use identity::{
     account_id_from_key_material, AccountId, ActiveKeyRecord, BinaryMeasurement, BootAttestation,
     ChainId, Credential, GuardianReport, SignatureSuite,
@@ -28,6 +28,7 @@ pub use penalties::*;
 pub use settlement::*;
 pub use timing::*;
 
+// ... (rest of the file unchanged)
 use crate::error::{CoreError, StateError};
 use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
 use dcrypt::algorithms::ByteSerializable;
@@ -548,7 +549,7 @@ pub struct SettlementSummary {
     pub final_seq: u64,
     /// The final amount to be paid.
     pub final_amount: u128,
-    /// The Merkle root of all receipts in the session.
+    /// The Merkle root of the receipt history included in this payment step.
     pub final_receipt_root: [u8; 32],
     /// The close mode (0 = Cooperative, 1 = Unilateral).
     pub mode: u8,

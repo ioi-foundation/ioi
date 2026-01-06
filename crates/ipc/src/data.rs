@@ -36,6 +36,34 @@ pub struct AgentContext {
     pub da_ref: Option<DaReference>,
 }
 
+/// Deterministic parameters for LLM sampling.
+#[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
+#[archive(check_bytes)]
+pub struct SamplingParams {
+    /// Controls randomness (0.0 = deterministic, >0.0 = random).
+    pub temperature: f32,
+    /// Nucleus sampling probability.
+    pub top_p: f32,
+    /// The specific random seed used for this generation (must be pinned by Orchestrator).
+    pub seed: u64,
+    /// Maximum tokens to generate.
+    pub max_tokens: u32,
+    /// Sequences that stop generation.
+    pub stop_tokens: Vec<u32>,
+}
+
+/// A full request for inference, packaging context and parameters.
+#[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
+#[archive(check_bytes)]
+pub struct InferenceRequest {
+    /// The target model identifier (CID or Hash).
+    pub model_id: String,
+    /// The context/input data.
+    pub context: AgentContext,
+    /// Sampling configuration.
+    pub sampling: SamplingParams,
+}
+
 /// The result returned by the inference engine.
 #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
 #[archive(check_bytes)]

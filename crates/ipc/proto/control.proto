@@ -34,6 +34,8 @@ message ExecuteJobRequest {
   uint64 input_offset = 2;
   // Length of the input data
   uint64 input_length = 3;
+  // The session ID used for key derivation (32 bytes)
+  bytes session_id = 4;
 }
 
 message ExecuteJobResponse {

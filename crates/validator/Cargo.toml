@@ -89,6 +89,12 @@ atty = "0.2"
 ahash = "0.8"
 parking_lot = "0.12"
 
+# [NEW] Candle ML Framework (Optional)
+candle-core = { version = "0.3.3", optional = true }
+candle-nn = { version = "0.3.3", optional = true }
+candle-transformers = { version = "0.3.3", optional = true }
+tokenizers = { version = "0.15.2", optional = true }
+
 [dev-dependencies]
 tempfile = "3.3"
 
@@ -121,3 +127,11 @@ ibc-deps = ["ioi-services/ibc-deps"]
 
 # [FIX] Added ethereum-zk feature
 ethereum-zk = ["ioi-services/ethereum-zk", "dep:zk-driver-succinct"]
+
+# [NEW] Real AI Feature: Enables Candle dependencies for real inference
+real-ai = [
+    "dep:candle-core",
+    "dep:candle-nn",
+    "dep:candle-transformers",
+    "dep:tokenizers",
+]

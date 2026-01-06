@@ -1,10 +1,13 @@
-// Path: crates/api/src/vm/inference.rs
+// Path: crates/api/src/vm/inference/mod.rs
 
 use async_trait::async_trait;
 use ioi_types::error::VmError;
 use std::path::Path;
 
-pub mod mock;
+pub mod driver;
+pub mod mock; // [NEW]
+
+pub use driver::{AcceleratorType, DeviceCapabilities, HardwareDriver, ModelHandle};
 
 /// A runtime capable of executing deterministic AI inference.
 ///

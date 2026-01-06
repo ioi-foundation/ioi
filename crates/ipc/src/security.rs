@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use dcrypt::algorithms::aead::chacha20poly1305::ChaCha20Poly1305;
 use dcrypt::algorithms::hash::Sha256;
 use dcrypt::algorithms::kdf::Hkdf;
-use dcrypt::algorithms::kdf::KeyDerivationFunction;
+// REMOVED: use dcrypt::algorithms::kdf::KeyDerivationFunction;
 use dcrypt::algorithms::types::Nonce;
 use dcrypt::api::traits::symmetric::{DecryptOperation, EncryptOperation, SymmetricCipher};
 

@@ -5,11 +5,7 @@ use ioi_api::{
     state::StateAccess,
 };
 use ioi_crypto::sign::eddsa::{Ed25519PublicKey, Ed25519Signature};
-use ioi_types::{
-    app::{AccountId, SignatureSuite},
-    codec,
-    error::TransactionError,
-};
+use ioi_types::{app::AccountId, codec, error::TransactionError};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 

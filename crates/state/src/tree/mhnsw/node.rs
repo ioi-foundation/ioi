@@ -6,6 +6,8 @@ use parity_scale_codec::{Decode, Encode};
 
 pub type NodeId = u64;
 pub type LayerId = u8;
+// [FIX] Added type alias
+pub type NodeHash = [u8; 32];
 
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct GraphNode {
@@ -19,7 +21,7 @@ pub struct GraphNode {
     /// Neighbors per layer.
     pub neighbors: Vec<Vec<NodeId>>,
     /// The Merkle hash of this node.
-    pub hash: [u8; 32],
+    pub hash: NodeHash,
 }
 
 impl GraphNode {

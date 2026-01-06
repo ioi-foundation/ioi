@@ -170,8 +170,16 @@ IOI agents are "Trace-First". You define logic, and the system auto-generates th
     export PYTHONPATH=$PYTHONPATH:$(pwd)/agent-sdk/python/src
     python3 examples/test_agent.py
     ```
+    ```bash
+    cargo test -p ioi-cli --test infra_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
+    ```
 
-    
+    ```bash
+    cargo test --package ioi-cli --test sync_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
+    ```
+    ```bash
+    cargo test --package ioi-cli --test scrubber_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
+    ```
 ---
 
 ## 🔐 Cryptography & Security

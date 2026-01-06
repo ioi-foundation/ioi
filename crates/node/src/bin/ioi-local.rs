@@ -20,6 +20,7 @@ use ioi_types::config::{
 };
 use ioi_types::service_configs::MigrationConfig;
 use ioi_validator::common::{GuardianContainer, LocalSigner};
+use ioi_validator::firewall::inference::MockBitNet;
 use ioi_validator::standard::orchestration::verifier_select::DefaultVerifier;
 use ioi_validator::standard::orchestration::OrchestrationDependencies;
 use ioi_validator::standard::workload::setup::setup_workload;
@@ -78,6 +79,9 @@ async fn main() -> Result<()> {
         round_robin_view_timeout_secs: 10,
         default_query_gas_limit: u64::MAX,
         ibc_gateway_listen_address: None,
+        // [FIX] Initialize new fields to None for local mode
+        safety_model_path: None,
+        tokenizer_path: None,
     };
 
     let workload_config = WorkloadConfig {
@@ -224,6 +228,9 @@ async fn main() -> Result<()> {
     let internal_kp = ioi_crypto::sign::eddsa::Ed25519KeyPair::from_private_key(&internal_sk)?;
     let signer = Arc::new(LocalSigner::new(internal_kp));
 
+    // [FIX] Initialize MockBitNet for local mode as no model is provided
+    let safety_model = Arc::new(MockBitNet);
+
     let deps = OrchestrationDependencies {
         syncer,
         network_event_receiver: network_events,
@@ -236,6 +243,8 @@ async fn main() -> Result<()> {
         verifier: DefaultVerifier::default(),
         signer,
         batch_verifier: Arc::new(ioi_crypto::sign::batch::CpuBatchVerifier::new()),
+        // [FIX] Pass safety_model
+        safety_model: safety_model,
     };
 
     let orchestrator = Arc::new(Orchestrator::new(&config, deps, scheme)?);

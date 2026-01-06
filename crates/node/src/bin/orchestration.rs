@@ -10,7 +10,6 @@ use ioi_api::validator::container::Container;
 use ioi_client::WorkloadClient;
 use ioi_consensus::util::engine_from_config;
 use ioi_crypto::sign::batch::CpuBatchVerifier;
-// [FIX] Update import to MldsaKeyPair
 use ioi_crypto::sign::dilithium::MldsaKeyPair;
 use ioi_execution::ExecutionMachine;
 use ioi_networking::libp2p::Libp2pSync;
@@ -28,7 +27,6 @@ use ioi_services::identity::IdentityHub;
 use ioi_services::provider_registry::ProviderRegistryService; // Replaced OracleService
 use ioi_storage::RedbEpochStore;
 use ioi_tx::unified::UnifiedTransactionModel;
-// [FIX] Removed unused ValidatorRole
 use ioi_types::config::{InitialServiceConfig, OrchestrationConfig, WorkloadConfig};
 use ioi_validator::metrics as validator_metrics;
 use ioi_validator::standard::orchestration::OrchestrationDependencies;
@@ -68,14 +66,10 @@ use ioi_crypto::algorithms::hash::sha256;
 // [NEW] Import GuardianSigner types
 use async_trait::async_trait;
 use ioi_types::app::ChainTransaction;
-// [FIX] Added GuardianContainer back
 use ioi_validator::common::{GuardianContainer, GuardianSigner, LocalSigner, RemoteSigner};
 use ioi_validator::standard::orchestration::mempool::Mempool;
 use serde::Serialize;
 use std::fmt::Debug;
-// [FIX] Re-added Mutex since it's used by OrchestrationDependencies builder implicitly via Arc<Mutex<...>>
-// actually, looking at `new` it constructs Arc<Mutex<...>> internally, but let's check usage.
-// `Arc::new(Mutex::new(...))` is used extensively.
 use tokio::sync::Mutex;
 
 #[derive(Parser, Debug)]
@@ -122,7 +116,7 @@ fn check_features() {
     }
     if cfg!(feature = "state-jellyfish") {
         enabled_features.push("state-jellyfish");
-    } // [NEW]
+    }
 
     if enabled_features.len() != 1 {
         panic!(
@@ -236,8 +230,6 @@ where
         Arc::new(WorkloadClient::new(&workload_ipc_addr, &ca_path, &cert_path, &key_path).await?)
     };
 
-    // INCREASED TIMEOUT: Was 20s. Increased to 180s to allow slow Workload initialization
-    // (e.g. Verkle/KZG parameter generation) on resource-constrained CI environments.
     let workload_probe_deadline = std::time::Instant::now() + std::time::Duration::from_secs(180);
     loop {
         match workload_client.get_status().await {
@@ -272,7 +264,6 @@ where
             }
         };
 
-    // Load optional Dilithium PQC keypair from the specified file.
     let pqc_keypair: Option<MldsaKeyPair> = if let Some(path) = opts.pqc_key_file.as_ref() {
         let content = fs::read_to_string(path)?;
 
@@ -311,7 +302,6 @@ where
     let verifier = create_default_verifier(kzg_params);
     let is_quarantined = Arc::new(AtomicBool::new(false));
 
-    // [NEW] Determine Signing Strategy based on CLI arguments.
     let signer: Arc<dyn GuardianSigner> = if let Some(oracle_url) = &opts.oracle_url {
         tracing::info!(target: "orchestration", "Using REMOTE Signing Oracle at {}", oracle_url);
 
@@ -332,8 +322,36 @@ where
         Arc::new(LocalSigner::new(internal_kp))
     };
 
-    // [NEW] Initialize Batch Verifier
     let batch_verifier = Arc::new(CpuBatchVerifier::new());
+
+    // [NEW] Initialize Safety Model
+    let safety_model: Arc<dyn ioi_validator::firewall::inference::LocalSafetyModel> = if let (
+        Some(model_path),
+        Some(tok_path),
+    ) =
+        (&config.safety_model_path, &config.tokenizer_path)
+    {
+        #[cfg(feature = "real-ai")]
+        {
+            tracing::info!(target: "orchestration", "Loading Real Safety Model from {}", model_path);
+            let model = ioi_validator::firewall::inference::CandleSafetyModel::new(
+                &PathBuf::from(model_path),
+                &PathBuf::from(tok_path),
+            )
+            .map_err(|e| anyhow!("Failed to load safety model: {}", e))?;
+            Arc::new(model)
+        }
+        #[cfg(not(feature = "real-ai"))]
+        {
+            tracing::warn!(
+                "Safety model configured but 'real-ai' feature not enabled. Using Mock."
+            );
+            Arc::new(ioi_validator::firewall::inference::MockBitNet)
+        }
+    } else {
+        tracing::info!(target: "orchestration", "No safety model configured. Using Mock.");
+        Arc::new(ioi_validator::firewall::inference::MockBitNet)
+    };
 
     let deps = OrchestrationDependencies {
         syncer,
@@ -347,19 +365,18 @@ where
         verifier: verifier.clone(),
         signer,
         batch_verifier,
+        // [FIX] Inject safety_model here
+        safety_model: safety_model.clone(),
     };
 
-    // [FIX] Pass commitment scheme into constructor
     let orchestration = Arc::new(Orchestrator::new(&config, deps, commitment_scheme.clone())?);
 
-    // Share the same consensus engine instance between Orchestrator and ExecutionMachine.
     let consensus_for_chain = consensus_engine.clone();
     let chain_ref = {
         let tm = UnifiedTransactionModel::new(commitment_scheme.clone());
 
         let mut initial_services = Vec::new();
 
-        // --- WIRE PENALTIES SERVICE ---
         let penalty_engine: Arc<dyn ioi_consensus::PenaltyEngine> =
             Arc::new(consensus_engine.clone());
         let penalties_service = Arc::new(ioi_consensus::PenaltiesService::new(penalty_engine));
@@ -580,7 +597,8 @@ where
         orchestration.task_handles.lock().await.push(gateway_handle);
     }
 
-    orchestration.start("").await?;
+    // [FIX] Updated start call with only address
+    orchestration.start(&config.rpc_listen_address).await?;
     eprintln!("ORCHESTRATION_STARTUP_COMPLETE");
 
     tokio::select! {
@@ -590,7 +608,10 @@ where
     }
 
     tracing::info!(target: "orchestration", "Shutdown signal received.");
-    orchestration.stop().await?;
+
+    // [FIX] Explicitly use the Container trait method to avoid ambiguity/visibility issues
+    Container::stop(&*orchestration).await?;
+
     let data_dir = opts.config.parent().unwrap_or_else(|| Path::new("."));
     let _ = fs::remove_file(data_dir.join("orchestrator_dummy_store.db"));
     tracing::info!(target: "orchestration", event = "shutdown", reason = "complete");

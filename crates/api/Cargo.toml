@@ -10,6 +10,7 @@ repository = "https://github.com/ioi-foundation/ioi"
 
 [dependencies]
 ioi-types = { path = "../types" }
+# REVERTED: ioi-crypto = { path = "../crypto" }
 async-trait = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
@@ -33,6 +34,8 @@ ibc-primitives = { workspace = true }
 [dev-dependencies]
 rand = { workspace = true }
 futures-util = { workspace = true }
+# [FIX] Allow tests to use the mock commitment helpers
+ioi-test-utils = { path = "../test_utils" }
 
 [features]
 default = []

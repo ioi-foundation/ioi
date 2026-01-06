@@ -21,7 +21,7 @@ use ioi_api::{
     consensus::ConsensusEngine,
     crypto::SigningKeyPair,
     state::{StateManager, Verifier},
-    validator::Container,
+    validator::container::Container,
 };
 use ioi_client::WorkloadClient;
 use ioi_crypto::sign::dilithium::MldsaKeyPair;
@@ -60,6 +60,8 @@ use crate::standard::orchestration::grpc_public::PublicApiImpl;
 use ioi_ipc::public::public_api_server::PublicApiServer;
 use tonic::transport::Server;
 
+use crate::firewall::inference::LocalSafetyModel;
+
 // --- Submodule Declarations ---
 mod consensus;
 mod context;
@@ -85,8 +87,7 @@ use futures::FutureExt;
 use ingestion::{run_ingestion_worker, ChainTipInfo, IngestionConfig};
 use operator_tasks::run_oracle_operator_task;
 
-/// A struct to hold the numerous dependencies for the Orchestrator,
-/// improving constructor readability and maintainability.
+/// A struct to hold the numerous dependencies for the Orchestrator.
 pub struct OrchestrationDependencies<CE, V> {
     /// The network synchronization engine.
     pub syncer: Arc<Libp2pSync>,
@@ -110,14 +111,15 @@ pub struct OrchestrationDependencies<CE, V> {
     pub signer: Arc<dyn GuardianSigner>,
     /// The batch verifier for parallel signature verification.
     pub batch_verifier: Arc<dyn BatchVerifier>,
+    /// [NEW] The local safety model for the semantic firewall.
+    pub safety_model: Arc<dyn LocalSafetyModel>,
 }
 
 type ProofCache = Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>;
 type NetworkEventReceiver = Mutex<Option<mpsc::Receiver<NetworkEvent>>>;
 type ConsensusKickReceiver = Mutex<Option<mpsc::UnboundedReceiver<()>>>;
 
-/// The Orchestrator is the central component of a validator node, responsible for
-/// coordinating consensus, networking, and state transitions.
+/// The Orchestrator is the central component of a validator node.
 pub struct Orchestrator<CS, ST, CE, V>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -165,11 +167,12 @@ where
     pub nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
     /// The signer for block headers (Local or Remote Oracle).
     pub signer: Arc<dyn GuardianSigner>,
-    #[allow(dead_code)]
     _cpu_pool: Arc<rayon::ThreadPool>,
     /// The batch verifier for parallel signature verification.
     pub batch_verifier: Arc<dyn BatchVerifier>,
     scheme: CS,
+    /// [NEW] The safety model for semantic firewall.
+    pub safety_model: Arc<dyn LocalSafetyModel>,
 }
 
 impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
@@ -235,11 +238,11 @@ where
             _cpu_pool: cpu_pool,
             batch_verifier: deps.batch_verifier,
             scheme,
+            safety_model: deps.safety_model,
         })
     }
 
-    /// Sets the `Chain` and `WorkloadClient` references, which are initialized
-    /// after the container is created.
+    /// Sets the `Chain` and `WorkloadClient` references initialized after container creation.
     pub fn set_chain_and_workload_client(
         &self,
         chain_ref: ChainFor<CS, ST>,
@@ -404,8 +407,8 @@ where
                     }
                 }
                 Some(()) = kick_rx.recv() => {
-                    let mut count = 1;
-                    while let Ok(_) = kick_rx.try_recv() { count += 1; }
+                    let mut _count = 1;
+                    while let Ok(_) = kick_rx.try_recv() { _count += 1; }
                     let cause = "kick";
                     let is_quarantined = context_arc.lock().await.is_quarantined.load(Ordering::SeqCst);
                     if is_quarantined || last_tick.elapsed() < min_block_time {
@@ -476,7 +479,6 @@ where
             ctx.config.initial_sync_timeout_secs
         };
 
-        // Unified 0 semantics: Immediate transition to Synced
         if sync_timeout == 0 {
             let context = context_arc.lock().await;
             let mut ns = context.node_state.lock().await;
@@ -491,7 +493,6 @@ where
             tracing::info!(target: "orchestration", "State -> Syncing.");
         }
 
-        // Only create the timer if timeout is non-zero
         let mut sync_check_interval_opt = if sync_timeout > 0 {
             let mut i = time::interval(Duration::from_secs(sync_timeout));
             i.set_missed_tick_behavior(MissedTickBehavior::Delay);
@@ -518,7 +519,6 @@ where
                     }
                 }
 
-                // Conditional Tick: Only runs if interval exists
                 _ = async {
                     if let Some(ref mut i) = sync_check_interval_opt {
                         i.tick().await
@@ -543,40 +543,10 @@ where
             }
         }
     }
-}
 
-#[async_trait]
-impl<CS, ST, CE, V> Container for Orchestrator<CS, ST, CE, V>
-where
-    CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Send
-        + Sync
-        + 'static
-        + Clone
-        + Debug,
-    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
-    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Clone
-        + Send
-        + Sync
-        + 'static
-        + Debug,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
-    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-{
-    fn id(&self) -> &'static str {
-        "orchestration_container"
-    }
-
-    fn is_running(&self) -> bool {
-        self.is_running.load(Ordering::SeqCst)
-    }
-
-    async fn start(&self, _listen_addr: &str) -> Result<(), ValidatorError> {
+    async fn start_internal(&self, _listen_addr: &str) -> Result<(), ValidatorError> {
         if self.is_running.load(Ordering::SeqCst) {
-            return Err(ValidatorError::AlreadyRunning(self.id().to_string()));
+            return Err(ValidatorError::AlreadyRunning("orchestration".to_string()));
         }
         tracing::info!(target: "orchestration", "Orchestrator starting...");
 
@@ -652,6 +622,7 @@ where
             tip_rx,
             tx_status_cache.clone(),
             receipt_map.clone(),
+            self.safety_model.clone(),
             IngestionConfig::default(),
         ));
         handles.push(ingestion_handle);
@@ -742,6 +713,7 @@ where
             tx_status_cache,
             tip_sender: tip_tx,
             receipt_map,
+            safety_model: self.safety_model.clone(),
         };
 
         let mut receiver_opt = self.network_event_receiver.lock().await;
@@ -778,11 +750,10 @@ where
         )));
 
         self.is_running.store(true, Ordering::SeqCst);
-        eprintln!("ORCHESTRATION_STARTUP_COMPLETE");
         Ok(())
     }
 
-    async fn stop(&self) -> Result<(), ValidatorError> {
+    async fn stop_internal(&self) -> Result<(), ValidatorError> {
         if !self.is_running.load(Ordering::SeqCst) {
             return Ok(());
         }
@@ -805,6 +776,44 @@ where
                 .map_err(|e| ValidatorError::Other(format!("Task panicked: {e}")))?;
         }
         Ok(())
+    }
+}
+
+#[async_trait]
+impl<CS, ST, CE, V> Container for Orchestrator<CS, ST, CE, V>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Clone
+        + Debug,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    fn id(&self) -> &'static str {
+        "orchestration"
+    }
+
+    fn is_running(&self) -> bool {
+        self.is_running.load(Ordering::SeqCst)
+    }
+
+    async fn start(&self, listen_addr: &str) -> Result<(), ValidatorError> {
+        self.start_internal(listen_addr).await
+    }
+
+    async fn stop(&self) -> Result<(), ValidatorError> {
+        self.stop_internal().await
     }
 }
 

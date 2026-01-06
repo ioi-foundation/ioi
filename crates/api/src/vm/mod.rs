@@ -3,13 +3,14 @@
 use crate::state::VmStateAccessor;
 use async_trait::async_trait;
 use ioi_types::error::VmError;
-use parity_scale_codec::{Decode, Encode}; // [FIX] Added imports
+use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 mod overlay;
 pub use overlay::VmStateOverlay;
 
 pub mod inference;
+pub mod randomness; // [NEW]
 
 /// A trait representing a sandboxed execution environment for smart contracts.
 #[async_trait]
@@ -32,7 +33,7 @@ pub trait VirtualMachine: Send + Sync {
 }
 
 /// Contains the results of a successful contract execution.
-#[derive(Debug, Default, Serialize, Deserialize, Encode, Decode)] // [FIX] Added Encode, Decode
+#[derive(Debug, Default, Serialize, Deserialize, Encode, Decode)]
 pub struct ExecutionOutput {
     /// The amount of gas consumed by the execution.
     pub gas_used: u64,
@@ -41,7 +42,7 @@ pub struct ExecutionOutput {
 }
 
 /// Provides contextual information to the smart contract during execution.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Encode, Decode)] // [FIX] Added Encode, Decode
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Encode, Decode)]
 pub struct ExecutionContext {
     /// The address of the entity that initiated the contract call.
     pub caller: Vec<u8>,
