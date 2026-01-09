@@ -285,7 +285,7 @@ pub async fn run_ingestion_worker<CS>(
                     service_id, params, ..
                 } = &sys.payload;
 
-                if service_id == "agentic" || service_id == "decentralized_cloud" {
+                if service_id == "agentic" || service_id == "compute_market" {
                     if let Ok(input_str) = std::str::from_utf8(params) {
                         // Run safety check
                         let result = safety_model.classify_intent(input_str).await;
