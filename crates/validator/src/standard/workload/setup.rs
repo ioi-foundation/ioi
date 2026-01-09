@@ -1,6 +1,7 @@
 // Path: crates/validator/src/standard/workload/setup.rs
 
 use anyhow::{anyhow, Result};
+use ioi_api::vm::drivers::gui::GuiDriver; // [NEW]
 use ioi_api::{
     commitment::CommitmentScheme,
     services::{access::ServiceDirectory, BlockchainService, UpgradableService},
@@ -10,9 +11,13 @@ use ioi_api::{
     vm::inference::InferenceRuntime, // [FIX] Import trait
 };
 use ioi_consensus::util::engine_from_config;
+use ioi_drivers::browser::BrowserDriver; // [NEW]
 use ioi_execution::{util::load_state_from_genesis_file, ExecutionMachine};
 use ioi_services::{
-    governance::GovernanceModule, identity::IdentityHub, provider_registry::ProviderRegistryService,
+    agentic::desktop::DesktopAgentService, // [NEW] Import DesktopAgent
+    governance::GovernanceModule,
+    identity::IdentityHub,
+    provider_registry::ProviderRegistryService,
 };
 use ioi_storage::RedbEpochStore;
 use ioi_tx::unified::UnifiedTransactionModel;
@@ -50,6 +55,8 @@ pub async fn setup_workload<CS, ST>(
     mut state_tree: ST,
     commitment_scheme: CS,
     config: WorkloadConfig,
+    gui_driver: Option<Arc<dyn GuiDriver>>, // [NEW] Argument for optional GUI Driver
+    browser_driver: Option<Arc<BrowserDriver>>, // [NEW] Argument for optional Browser Driver
 ) -> Result<(
     Arc<WorkloadContainer<ST>>,
     Arc<Mutex<ExecutionMachine<CS, ST>>>,
@@ -163,6 +170,18 @@ where
 
         // [NEW] Link the real inference runtime!
         runtime.link_inference(inference_runtime.clone());
+
+        // [NEW] Link GUI Driver if provided
+        if let Some(driver) = &gui_driver {
+            runtime.link_gui_driver(driver.clone());
+            tracing::info!(target: "workload", "GUI Driver linked to WasmRuntime (Eyes & Hands Active)");
+        }
+
+        // [NEW] Link Browser Driver if provided
+        if let Some(driver) = &browser_driver {
+            runtime.link_browser_driver(Arc::clone(driver)); // Explicit Arc clone
+            tracing::info!(target: "workload", "Browser Driver linked to WasmRuntime");
+        }
 
         let arc = Arc::new(runtime);
         (arc.clone(), Box::new(VmWrapper(arc)))
@@ -291,6 +310,13 @@ where
                 ));
             }
         }
+    }
+
+    // [NEW] Initialize Desktop Agent if GUI driver is present
+    if let Some(gui) = gui_driver {
+        tracing::info!(target: "workload", event = "service_init", name = "DesktopAgent", impl="native");
+        let agent = DesktopAgentService::new(gui, inference_runtime.clone());
+        initial_services.push(Arc::new(agent) as Arc<dyn UpgradableService>);
     }
 
     let _services_for_dir: Vec<Arc<dyn BlockchainService>> = initial_services

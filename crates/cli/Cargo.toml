@@ -1,4 +1,5 @@
 # Path: crates/cli/Cargo.toml
+
 [package]
 name = "ioi-cli"
 version = "0.1.0"
@@ -35,8 +36,8 @@ ioi-system = { path = "../system" }
 ioi-state = { path = "../state", default-features = false }
 ioi-client = { path = "../client" }
 ioi-tx = { path = "../tx" }
-# [FIX] Added ioi-ipc for control plane tests
 ioi-ipc = { path = "../ipc" }
+ioi-services = { path = "../services" }                             # [NEW] Added ioi-services
 toml = { workspace = true }
 
 # Dependencies for testing helpers that are now part of the library
@@ -72,7 +73,6 @@ rkyv = { version = "0.7", features = ["validation", "std", "alloc"] }
 
 [dev-dependencies]
 ioi-relayer = { path = "../relayer" }
-ioi-services = { path = "../services" }
 ioi-execution = { path = "../execution" }
 ioi-networking = { path = "../networking" }
 once_cell = { workspace = true }
@@ -118,8 +118,8 @@ state-sparse-merkle = ["ioi-validator/state-sparse-merkle"]
 state-verkle = ["ioi-validator/state-verkle"]
 # [NEW] Add Jellyfish feature
 state-jellyfish = ["ioi-validator/state-jellyfish"]
-commitment-hash = ["ioi-validator/commitment-hash"]
-commitment-kzg = ["ioi-validator/commitment-kzg"]
+commitment-hash = ["ioi-state/commitment-hash", "ioi-validator/commitment-hash"]
+commitment-kzg = ["ioi-state/commitment-kzg", "ioi-validator/commitment-kzg"]
 
 # Other features also propagate to the validator lib
 vm-wasm = ["ioi-validator/vm-wasm"]
