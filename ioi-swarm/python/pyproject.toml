@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ioi-swarm"
-version = "0.1.0"
+version = "0.1.2"
 description = "The Agent Swarm Framework for the Internet of Intelligence"
 readme = "README.md"
 requires-python = ">=3.10"
