@@ -19,7 +19,10 @@ pub mod timing;
 pub use action::*;
 pub use consensus::*;
 // Explicitly re-export the new agentic types
-pub use agentic::{CommitteeCertificate, RedactionEntry, RedactionMap, RedactionType};
+pub use agentic::{
+    AgentSkill, CommitteeCertificate, InferenceOptions, LlmToolDefinition, RedactionEntry,
+    RedactionMap, RedactionType, StepTrace,
+};
 pub use identity::{
     account_id_from_key_material, AccountId, ActiveKeyRecord, BinaryMeasurement, BootAttestation,
     ChainId, Credential, GuardianReport, SignatureSuite,
@@ -28,12 +31,27 @@ pub use penalties::*;
 pub use settlement::*;
 pub use timing::*;
 
-// ... (rest of the file unchanged)
+// [NEW] Moved ContextSlice here from drivers
+use parity_scale_codec::{Decode, Encode};
+use serde::{Deserialize, Serialize};
+
+/// The atomic unit of data within the Sovereign Context Substrate (SCS).
+/// Unlike a file, a Context Slice is intent-bound and carries its own provenance.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct ContextSlice {
+    /// Unique content-addressed identifier for this slice.
+    pub slice_id: [u8; 32],
+    /// The actual data chunks (e.g. XML fragments, JSON objects).
+    pub data: Vec<u8>,
+    /// Cryptographic proof linking this slice to the root substrate state.
+    pub provenance_proof: Vec<u8>,
+    /// The hash of the intent that authorized this retrieval.
+    pub intent_id: [u8; 32],
+}
+
 use crate::error::{CoreError, StateError};
 use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
 use dcrypt::algorithms::ByteSerializable;
-use parity_scale_codec::{Decode, Encode};
-use serde::{Deserialize, Serialize};
 
 /// A fixed-size, 32-byte hash of a transaction.
 pub type TxHash = [u8; 32];

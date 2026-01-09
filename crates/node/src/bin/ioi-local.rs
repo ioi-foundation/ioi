@@ -269,7 +269,7 @@ async fn main() -> Result<()> {
 
     println!("\n✅ IOI User Node (Mode 0) configuration is valid.");
     println!("   - Agency Firewall: Active");
-    println!("   - Semantic FS: Mounted at {}", opts.data_dir.display());
+    println!("   - The Substrate: Mounted at {}", opts.data_dir.display());
     println!("   - GUI Automation: Enabled"); // [NEW]
     println!("   - Browser Automation: Enabled"); // [NEW]
     println!(

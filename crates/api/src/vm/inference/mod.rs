@@ -1,35 +1,35 @@
 // Path: crates/api/src/vm/inference/mod.rs
 
 use async_trait::async_trait;
+use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::error::VmError;
 use std::path::Path;
 
 pub mod driver;
-pub mod mock; // [NEW]
+pub mod http_adapter;
+pub mod mock; // [NEW] Export the new module
 
 pub use driver::{AcceleratorType, DeviceCapabilities, HardwareDriver, ModelHandle};
+pub use http_adapter::HttpInferenceRuntime; // [NEW] Re-export for easier usage
 
 /// A runtime capable of executing deterministic AI inference.
-///
-/// Implementations (e.g., ONNX Runtime, Llama.cpp) must ensure:
-/// 1. Fixed floating point modes (if supported).
-/// 2. Fixed RNG seeds.
-/// 3. Identical output across heterogeneous hardware (CPU vs GPU) if required by the consensus protocol.
 #[async_trait]
 pub trait InferenceRuntime: Send + Sync {
-    /// Executes a model against an input context.
-    ///
-    /// # Arguments
-    /// * `model_hash` - The SHA-256 identifier of the model snapshot.
-    /// * `input_context` - The serialized input data (e.g., prompt tokens, embeddings).
-    ///
-    /// # Returns
-    /// * `Vec<u8>` - The raw output tensor or text bytes.
+    /// Executes a model against an input context with specific generation options.
     async fn execute_inference(
         &self,
         model_hash: [u8; 32],
         input_context: &[u8],
+        options: InferenceOptions,
     ) -> Result<Vec<u8>, VmError>;
+
+    /// Generates a vector embedding for a given text input.
+    async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+        // Default implementation returns an empty vector or error if not supported.
+        Err(VmError::HostError(
+            "Embedding not supported by this runtime".into(),
+        ))
+    }
 
     /// Pre-loads a model into memory/VRAM to reduce latency for subsequent calls.
     async fn load_model(&self, model_hash: [u8; 32], path: &Path) -> Result<(), VmError>;

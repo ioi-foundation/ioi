@@ -36,7 +36,7 @@ The IOI protocol solves the **"Sandboxing Paradox"**—where agents are either s
 1.  **Agency Firewall:** A deterministic policy engine that intercepts agent I/O (`net::fetch`, `fs::write`, `wallet::sign`), enforcing user-defined constraints before execution.
 2.  **Verification Ladder:** A spectrum of trust. Agents execute locally for free (**Rung 0**), execute optimistically in sessions (**Rung 1**), and escalate to on-chain ZK proofs or arbitration only when high-value settlement is required (**Rung 3/4**).
 3.  **Labor Gas:** The currency of the network. Unlike blockspace gas, Labor Gas pays for *inference*, *readiness*, and *liability insurance*.
-4.  **Semantic File System (SFS):** Privacy-preserving context injection. Agents work against encrypted slices of user data, ensuring the full corpus never leaves the device.
+4.  **Sovereign Context Substrate (SCS):** Privacy-preserving context injection. Agents work against encrypted slices of user data, ensuring the full corpus never leaves the device.
 
 ---
 
@@ -188,6 +188,10 @@ IOI agents are "Trace-First". You define logic, and the system auto-generates th
     ```bash
     cargo test --package ioi-cli --test agentic_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
     ```
+    ```bash
+    cargo test --package ioi-cli --test agent_trace_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
+    ```
+
 ---
 
 ## 🔐 Cryptography & Security

@@ -98,7 +98,7 @@ pub struct ZeroCopyBlock {
 pub struct ContextSlice {
     pub slice_id: [u8; 32],
     pub chunks: Vec<Vec<u8>>,
-    /// Optional proof of retrieval from the local SFS mHNSW.
+    /// Optional proof of retrieval from the local SCS mHNSW.
     pub traversal_proof: Option<Vec<u8>>,
 }
 

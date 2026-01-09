@@ -1,20 +1,20 @@
 // Path: crates/validator/src/standard/workload/setup.rs
 
 use anyhow::{anyhow, Result};
-use ioi_api::vm::drivers::gui::GuiDriver; // [NEW]
+use ioi_api::vm::drivers::gui::GuiDriver;
 use ioi_api::{
     commitment::CommitmentScheme,
     services::{access::ServiceDirectory, BlockchainService, UpgradableService},
     state::{ProofProvider, StateManager},
     storage::NodeStore,
     validator::WorkloadContainer,
-    vm::inference::InferenceRuntime, // [FIX] Import trait
+    vm::inference::InferenceRuntime,
 };
 use ioi_consensus::util::engine_from_config;
-use ioi_drivers::browser::BrowserDriver; // [NEW]
+use ioi_drivers::browser::BrowserDriver;
 use ioi_execution::{util::load_state_from_genesis_file, ExecutionMachine};
 use ioi_services::{
-    agentic::desktop::DesktopAgentService, // [NEW] Import DesktopAgent
+    agentic::desktop::DesktopAgentService,
     governance::GovernanceModule,
     identity::IdentityHub,
     provider_registry::ProviderRegistryService,
@@ -23,6 +23,7 @@ use ioi_storage::RedbEpochStore;
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::{
     app::{to_root_hash, Membership},
+    app::agentic::InferenceOptions, // [FIX] Added import
     config::{InitialServiceConfig, OrchestrationConfig, ValidatorRole, WorkloadConfig},
     keys::{STATUS_KEY, VALIDATOR_SET_KEY},
 };
@@ -32,7 +33,6 @@ use rand::{thread_rng, Rng};
 use std::{path::Path, sync::Arc, time::Duration};
 use tokio::{sync::Mutex, time::interval};
 
-// [NEW] Imports for Inference Stack
 use crate::standard::workload::driver_cpu::CpuDriver;
 use crate::standard::workload::hydration::ModelHydrator;
 use crate::standard::workload::runtime::StandardInferenceRuntime;
@@ -55,8 +55,8 @@ pub async fn setup_workload<CS, ST>(
     mut state_tree: ST,
     commitment_scheme: CS,
     config: WorkloadConfig,
-    gui_driver: Option<Arc<dyn GuiDriver>>, // [NEW] Argument for optional GUI Driver
-    browser_driver: Option<Arc<BrowserDriver>>, // [NEW] Argument for optional Browser Driver
+    gui_driver: Option<Arc<dyn GuiDriver>>,
+    browser_driver: Option<Arc<BrowserDriver>>,
 ) -> Result<(
     Arc<WorkloadContainer<ST>>,
     Arc<Mutex<ExecutionMachine<CS, ST>>>,
@@ -134,14 +134,12 @@ where
     let driver = Arc::new(CpuDriver::new());
 
     // 2. Initialize Model Hydrator
-    // Ensure the models directory exists relative to CWD
     let models_dir = Path::new("models");
     std::fs::create_dir_all(models_dir).ok();
 
     let hydrator = Arc::new(ModelHydrator::new(models_dir.to_path_buf(), driver.clone()));
 
     // 3. Initialize Runtime
-    // Note: StandardInferenceRuntime holds Arcs, so cloning it is cheap and safe.
     let inference_runtime = Arc::new(StandardInferenceRuntime::new(hydrator, driver));
 
     // --- VM Setup ---
@@ -168,18 +166,15 @@ where
     let (wasm_runtime_arc, vm): (Arc<WasmRuntime>, Box<dyn ioi_api::vm::VirtualMachine>) = {
         let runtime = WasmRuntime::new(config.fuel_costs.clone())?;
 
-        // [NEW] Link the real inference runtime!
         runtime.link_inference(inference_runtime.clone());
 
-        // [NEW] Link GUI Driver if provided
         if let Some(driver) = &gui_driver {
             runtime.link_gui_driver(driver.clone());
             tracing::info!(target: "workload", "GUI Driver linked to WasmRuntime (Eyes & Hands Active)");
         }
 
-        // [NEW] Link Browser Driver if provided
         if let Some(driver) = &browser_driver {
-            runtime.link_browser_driver(Arc::clone(driver)); // Explicit Arc clone
+            runtime.link_browser_driver(Arc::clone(driver));
             tracing::info!(target: "workload", "Browser Driver linked to WasmRuntime");
         }
 
@@ -187,7 +182,6 @@ where
         (arc.clone(), Box::new(VmWrapper(arc)))
     };
 
-    // Fallback if VM-WASM is not enabled
     #[cfg(not(feature = "vm-wasm"))]
     let vm: Box<dyn ioi_api::vm::VirtualMachine> = {
         panic!("vm-wasm feature is required for Workload setup");
@@ -312,7 +306,6 @@ where
         }
     }
 
-    // [NEW] Initialize Desktop Agent if GUI driver is present
     if let Some(gui) = gui_driver {
         tracing::info!(target: "workload", event = "service_init", name = "DesktopAgent", impl="native");
         let agent = DesktopAgentService::new(gui, inference_runtime.clone());
@@ -325,10 +318,7 @@ where
         .collect();
     let _service_directory = ServiceDirectory::new(_services_for_dir);
 
-    // [UPDATED] Pass the real inference runtime wrapped in a struct that delegates
-    // to the Arc (because WorkloadContainer expects Option<Box<dyn...>>)
-    // We create a simple wrapper struct here.
-
+    // Wrapper for Runtime to satisfy the generic Arc<dyn InferenceRuntime> trait object
     struct RuntimeWrapper(Arc<StandardInferenceRuntime>);
 
     #[async_trait::async_trait]
@@ -337,8 +327,9 @@ where
             &self,
             model_hash: [u8; 32],
             input_context: &[u8],
+            options: InferenceOptions, // [FIX] Updated signature
         ) -> Result<Vec<u8>, ioi_types::error::VmError> {
-            self.0.execute_inference(model_hash, input_context).await
+            self.0.execute_inference(model_hash, input_context, options).await
         }
 
         async fn load_model(
@@ -361,7 +352,7 @@ where
         config.clone(),
         state_tree,
         vm,
-        Some(Box::new(RuntimeWrapper(inference_runtime))), // [FIXED]
+        Some(Box::new(RuntimeWrapper(inference_runtime))),
         _service_directory,
         store,
     )?);
@@ -382,7 +373,6 @@ where
             tracing::info!(target: "workload", "Registering WasmRuntime for service upgrades.");
             #[cfg(feature = "vm-wasm")]
             {
-                // We reuse the runtime created earlier for the registry to ensure resource sharing
                 _machine
                     .service_manager
                     .register_runtime("wasm", wasm_runtime_arc.clone());

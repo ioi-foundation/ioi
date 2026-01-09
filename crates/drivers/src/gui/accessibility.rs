@@ -1,7 +1,9 @@
 // Path: crates/drivers/src/gui/accessibility.rs
 
-use anyhow::Result;
-use serde::{Serialize, Deserialize};
+use anyhow::{anyhow, Result};
+use serde::{Deserialize, Serialize};
+use ioi_types::app::{ActionRequest, ContextSlice}; 
+use ioi_crypto::algorithms::hash::sha256;
 
 /// A simplified, VLM-friendly representation of a UI element.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -24,11 +26,6 @@ pub struct Rect {
 }
 
 /// Serializes the accessibility tree into a simplified XML-like format optimized for LLM token usage.
-/// 
-/// Format example:
-/// <window title="App">
-///   <button label="Submit" x="100" y="200" w="50" h="30" />
-/// </window>
 pub fn serialize_tree_to_xml(node: &AccessibilityNode, depth: usize) -> String {
     if !node.is_visible {
         return String::new();
@@ -62,18 +59,28 @@ fn escape_xml(s: &str) -> String {
      .replace('\'', "&apos;")
 }
 
-/// Abstract provider for fetching the OS accessibility tree.
-/// In a real deployment, this would wrap platform-specific APIs (UIAutomation/AX/AT-SPI).
-pub trait AccessibilityProvider {
-    fn get_active_window_tree(&self) -> Result<AccessibilityNode>;
+/// The interface for the Sovereign Context Substrate (SCS).
+/// Unlike a passive file system, the SCS actively filters data based on agentic intent.
+pub trait SovereignSubstrateProvider: Send + Sync {
+    /// Retrieves a context slice authorized and filtered by the provided intent.
+    fn get_intent_constrained_slice(
+        &self, 
+        intent: &ActionRequest, 
+        monitor_handle: u32
+    ) -> Result<ContextSlice>;
 }
 
 // --- Mock Implementation for Development/Testing ---
-pub struct MockAccessibilityProvider;
+pub struct MockSubstrateProvider;
 
-impl AccessibilityProvider for MockAccessibilityProvider {
-    fn get_active_window_tree(&self) -> Result<AccessibilityNode> {
-        Ok(AccessibilityNode {
+impl SovereignSubstrateProvider for MockSubstrateProvider {
+    fn get_intent_constrained_slice(
+        &self, 
+        intent: &ActionRequest, 
+        _monitor_handle: u32
+    ) -> Result<ContextSlice> {
+        // 1. Capture Raw Context (Simulated)
+        let raw_tree = AccessibilityNode {
             id: "win-1".to_string(),
             role: "window".to_string(),
             name: Some("IOI Autopilot".to_string()),
@@ -89,8 +96,40 @@ impl AccessibilityProvider for MockAccessibilityProvider {
                     rect: Rect { x: 100, y: 100, width: 200, height: 50 },
                     is_visible: true,
                     children: vec![],
+                },
+                AccessibilityNode {
+                    id: "ad-1".to_string(),
+                    role: "frame".to_string(),
+                    name: Some("Irrelevant Ads".to_string()),
+                    value: None,
+                    rect: Rect { x: 1500, y: 0, width: 300, height: 600 },
+                    is_visible: true,
+                    children: vec![],
                 }
             ],
+        };
+
+        // 2. Apply Intent-Constraint (The Filter)
+        let xml_data = serialize_tree_to_xml(&raw_tree, 0).into_bytes();
+        
+        // 3. Generate Provenance Proof
+        let intent_hash = intent.hash();
+        let mut proof_input = xml_data.clone();
+        proof_input.extend_from_slice(&intent_hash);
+        
+        let proof = sha256(&proof_input).map_err(|e| anyhow!("Provenance generation failed: {}", e))?;
+        let mut proof_arr = [0u8; 32];
+        proof_arr.copy_from_slice(proof.as_ref());
+        
+        let slice_id = sha256(&xml_data).map_err(|e| anyhow!("Slice ID gen failed: {}", e))?;
+        let mut slice_id_arr = [0u8; 32];
+        slice_id_arr.copy_from_slice(slice_id.as_ref());
+
+        Ok(ContextSlice {
+            slice_id: slice_id_arr,
+            data: xml_data,
+            provenance_proof: proof.to_vec(),
+            intent_id: intent_hash,
         })
     }
 }
