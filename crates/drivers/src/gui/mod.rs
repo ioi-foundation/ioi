@@ -1,21 +1,24 @@
 // Path: crates/drivers/src/gui/mod.rs
 
+pub mod accessibility;
 pub mod operator;
-pub mod vision;
-pub mod accessibility; // [NEW]
+pub mod vision; // [NEW]
 
-use async_trait::async_trait;
-use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
-use ioi_types::error::VmError;
 use self::operator::NativeOperator;
 use self::vision::NativeVision;
-use self::accessibility::{AccessibilityProvider, MockAccessibilityProvider, serialize_tree_to_xml}; // [NEW]
+use async_trait::async_trait;
+use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
+use ioi_types::app::{ActionRequest, ContextSlice};
+use ioi_types::error::VmError;
+// [FIX] Updated imports to match the SCS rebrand, removed unused `serialize_tree_to_xml`
+use self::accessibility::{MockSubstrateProvider, SovereignSubstrateProvider};
 
 /// The concrete implementation of the IOI GUI Driver.
 /// This replaces the UI-TARS Electron app.
 pub struct IoiGuiDriver {
     operator: NativeOperator,
-    a11y: Box<dyn AccessibilityProvider + Send + Sync>, // [NEW]
+    // [FIX] Updated trait bound
+    substrate: Box<dyn SovereignSubstrateProvider + Send + Sync>,
 }
 
 impl IoiGuiDriver {
@@ -23,7 +26,8 @@ impl IoiGuiDriver {
         Self {
             operator: NativeOperator::new(),
             // In a real build, we would conditionally instantiate platform-specific providers here.
-            a11y: Box::new(MockAccessibilityProvider), 
+            // [FIX] Updated struct name
+            substrate: Box::new(MockSubstrateProvider),
         }
     }
 }
@@ -41,21 +45,38 @@ impl GuiDriver for IoiGuiDriver {
     }
 
     async fn capture_tree(&self) -> Result<String, VmError> {
-        // [NEW] Implementation
-        // 1. Fetch the raw tree structure from the OS provider
-        let root_node = self.a11y.get_active_window_tree()
-            .map_err(|e| VmError::HostError(format!("Accessibility error: {}", e)))?;
-            
-        // 2. Serialize to VLM-friendly XML
-        let xml_tree = serialize_tree_to_xml(&root_node, 0);
-        
-        Ok(xml_tree)
+        // Legacy method: use a dummy intent to fetch the full tree via Substrate
+        let dummy_intent = ActionRequest {
+            target: ioi_types::app::ActionTarget::GuiScreenshot,
+            params: vec![],
+            context: ioi_types::app::ActionContext {
+                agent_id: "legacy".into(),
+                session_id: None,
+                window_id: None,
+            },
+            nonce: 0,
+        };
+
+        let slice = self.capture_context(&dummy_intent).await?;
+        let tree_xml = String::from_utf8(slice.data)
+            .map_err(|e| VmError::HostError(format!("Invalid UTF-8 in slice: {}", e)))?;
+        Ok(tree_xml)
+    }
+
+    // [NEW] Implementation of the Substrate access method
+    async fn capture_context(&self, intent: &ActionRequest) -> Result<ContextSlice, VmError> {
+        // In a real implementation, we would determine the active monitor handle here.
+        let monitor_handle = 0;
+
+        self.substrate
+            .get_intent_constrained_slice(intent, monitor_handle)
+            .map_err(|e| VmError::HostError(format!("Substrate error: {}", e)))
     }
 
     async fn inject_input(&self, event: InputEvent) -> Result<(), VmError> {
         // Offload input injection to blocking thread (Enigo is synchronous)
         let op = self.operator.inject(&event);
-        
+
         match op {
             Ok(_) => Ok(()),
             Err(e) => Err(VmError::HostError(format!("Input injection failed: {}", e))),

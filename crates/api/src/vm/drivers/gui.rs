@@ -1,6 +1,7 @@
 // Path: crates/api/src/vm/drivers/gui.rs
 
 use async_trait::async_trait;
+use ioi_types::app::{ActionRequest, ContextSlice}; // [FIX] Import ContextSlice
 use ioi_types::error::VmError;
 
 /// Represents the type of mouse button.
@@ -41,6 +42,10 @@ pub trait GuiDriver: Send + Sync {
 
     /// Captures the semantic state (Accessibility Tree) for grounding.
     async fn capture_tree(&self) -> Result<String, VmError>;
+
+    /// [NEW] Captures an intent-constrained slice of the context.
+    /// This is the primary "Observe" method for the SCS.
+    async fn capture_context(&self, intent: &ActionRequest) -> Result<ContextSlice, VmError>;
 
     /// Executes a physical input.
     /// MUST be gated by the Agency Firewall before calling.

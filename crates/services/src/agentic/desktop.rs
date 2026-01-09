@@ -5,18 +5,25 @@ use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::inference::InferenceRuntime;
+use ioi_crypto::algorithms::hash::sha256;
+use ioi_types::app::agentic::{AgentSkill, InferenceOptions, LlmToolDefinition, StepTrace};
+use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
 use ioi_types::codec;
 use ioi_types::error::{TransactionError, UpgradeError};
+use ioi_types::keys::UPGRADE_ACTIVE_SERVICE_PREFIX;
+use ioi_types::service_configs::ActiveServiceMeta;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use std::any::Any;
 use std::sync::Arc;
-// [FIX] Removed unused import
-// use serde_json::json;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::agentic::grounding::parse_vlm_action;
 
 const AGENT_STATE_PREFIX: &[u8] = b"agent::state::";
+const SKILL_INDEX_PREFIX: &[u8] = b"skills::vector::";
+const TRACE_PREFIX: &[u8] = b"agent::trace::";
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 pub enum AgentStatus {
@@ -60,6 +67,102 @@ impl DesktopAgentService {
 
     fn get_state_key(session_id: &[u8; 32]) -> Vec<u8> {
         [AGENT_STATE_PREFIX, session_id.as_slice()].concat()
+    }
+
+    fn get_trace_key(session_id: &[u8; 32], step: u32) -> Vec<u8> {
+        [TRACE_PREFIX, session_id.as_slice(), &step.to_le_bytes()].concat()
+    }
+
+    /// Dynamically discovers all active services and projects them as LLM tools.
+    fn discover_tools(&self, state: &dyn StateAccess) -> Vec<LlmToolDefinition> {
+        let mut tools = Vec::new();
+
+        // Scan for all active services
+        if let Ok(iter) = state.prefix_scan(UPGRADE_ACTIVE_SERVICE_PREFIX) {
+            for item in iter {
+                if let Ok((_, val_bytes)) = item {
+                    if let Ok(meta) = codec::from_bytes_canonical::<ActiveServiceMeta>(&val_bytes) {
+                        for (method, perm) in &meta.methods {
+                            if *perm == ioi_types::service_configs::MethodPermission::User {
+                                let simple_name = method.split('@').next().unwrap_or(method);
+                                let tool_name = format!("{}__{}", meta.id, simple_name);
+
+                                let params_json = json!({
+                                    "type": "object",
+                                    "properties": {
+                                        "params": { "type": "string", "description": "JSON encoded parameters" }
+                                    }
+                                });
+
+                                let tool_def = LlmToolDefinition {
+                                    name: tool_name,
+                                    description: format!(
+                                        "Call method {} on service {}",
+                                        simple_name, meta.id
+                                    ),
+                                    parameters: params_json.to_string(),
+                                };
+                                tools.push(tool_def);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Add native GUI tools (Drivers)
+        let gui_params = json!({
+            "type": "object",
+            "properties": {
+                "x": { "type": "integer" },
+                "y": { "type": "integer" },
+                "button": { "type": "string", "enum": ["left", "right"] }
+            },
+            "required": ["x", "y"]
+        });
+
+        tools.push(LlmToolDefinition {
+            name: "gui__click".to_string(),
+            description: "Click on UI element at coordinates".to_string(),
+            parameters: gui_params.to_string(),
+        });
+
+        tools
+    }
+
+    /// Simulates semantic search over the Substrate's Skill Index.
+    async fn recall_skills(
+        &self,
+        state: &dyn StateAccess,
+        goal: &str,
+    ) -> Result<Vec<AgentSkill>, TransactionError> {
+        let mut relevant_skills = Vec::new();
+        let goal_lower = goal.to_lowercase();
+
+        if let Ok(iter) = state.prefix_scan(SKILL_INDEX_PREFIX) {
+            for item in iter {
+                if let Ok((_, val_bytes)) = item {
+                    if let Ok(skill) = codec::from_bytes_canonical::<AgentSkill>(&val_bytes) {
+                        let name_lower = skill.name.to_lowercase();
+                        let desc_lower = skill.description.to_lowercase();
+
+                        // [FIX] Improved keyword matching for MVP
+                        // Match if:
+                        // 1. Goal contains Skill Name (Explicit invocation)
+                        // 2. Skill Name contains Goal (Keyword search)
+                        // 3. Skill Description contains Goal (Keyword search)
+                        if goal_lower.contains(&name_lower)
+                            || name_lower.contains(&goal_lower)
+                            || desc_lower.contains(&goal_lower)
+                        {
+                            relevant_skills.push(skill);
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(relevant_skills)
     }
 }
 
@@ -131,70 +234,153 @@ impl BlockchainService for DesktopAgentService {
                     return Err(TransactionError::Invalid("Agent not running".into()));
                 }
 
-                // 1. OBSERVE
-                // Note: We ignore the return value (screenshot bytes) here because
-                // in Phase 7 MVP we don't hash/verify it yet.
-                let _screenshot = self
-                    .gui
-                    .capture_screen()
-                    .await
-                    .map_err(|e| TransactionError::Invalid(format!("Vision error: {}", e)))?;
-                let tree_xml = self
-                    .gui
-                    .capture_tree()
-                    .await
-                    .map_err(|e| TransactionError::Invalid(format!("A11y error: {}", e)))?;
+                // 1. OBSERVE (via The Substrate)
+                let observation_intent = ActionRequest {
+                    target: ActionTarget::GuiScreenshot,
+                    params: agent_state.goal.as_bytes().to_vec(),
+                    context: ActionContext {
+                        agent_id: "desktop_agent".to_string(),
+                        session_id: Some(p.session_id),
+                        window_id: None,
+                    },
+                    nonce: agent_state.step_count as u64,
+                };
 
-                // 2. ORIENT (Prompt Construction)
+                let context_slice = self
+                    .gui
+                    .capture_context(&observation_intent)
+                    .await
+                    .map_err(|e| {
+                        TransactionError::Invalid(format!("Substrate access failed: {}", e))
+                    })?;
+
+                let tree_xml = String::from_utf8_lossy(&context_slice.data);
+
+                let visual_hash = sha256(&context_slice.data)
+                    .map_err(|e| TransactionError::Invalid(format!("Hashing failed: {}", e)))?;
+                let mut visual_hash_arr = [0u8; 32];
+                visual_hash_arr.copy_from_slice(visual_hash.as_ref());
+
+                // 2. DISCOVER TOOLS (Capabilities)
+                let available_tools = self.discover_tools(state);
+
+                // 3. RECALL SKILLS (Procedural Memory)
+                let skills = self.recall_skills(state, &agent_state.goal).await?;
+
+                let mut skills_prompt = String::new();
+                if !skills.is_empty() {
+                    skills_prompt.push_str("\n### Relevant Agent Skills (Procedural Memory)\n");
+                    skills_prompt.push_str("Use these patterns to complete the task:\n");
+                    for skill in skills {
+                        skills_prompt.push_str(&format!(
+                            "\n#### Skill: {}\nDescription: {}\nInstructions:\n{}\n",
+                            skill.name, skill.description, skill.content
+                        ));
+                    }
+                }
+
+                // 4. ORIENT & DECIDE
                 let user_prompt = format!(
-                    "Goal: {}\nHistory: {:?}\nScreen: [IMAGE]\nA11y Tree: {}",
-                    agent_state.goal, agent_state.history, tree_xml
+                    "Goal: {}\n\n{}{}\n\nHistory: {:?}\nScreen: [IMAGE]\nThe Substrate Context: {}",
+                    agent_state.goal,
+                    skills_prompt,
+                    "Available Tools: (See tool definitions)",
+                    agent_state.history,
+                    tree_xml
                 );
 
-                // 3. DECIDE (Inference)
                 let model_hash = [0u8; 32];
+                let options = InferenceOptions {
+                    tools: available_tools,
+                    temperature: 0.0,
+                };
+
                 let output_bytes = self
                     .inference
-                    .execute_inference(model_hash, user_prompt.as_bytes())
+                    .execute_inference(model_hash, user_prompt.as_bytes(), options)
                     .await
                     .map_err(|e| TransactionError::Invalid(format!("Inference error: {}", e)))?;
 
-                let output_str = String::from_utf8_lossy(&output_bytes);
+                let output_str = String::from_utf8_lossy(&output_bytes).to_string();
                 agent_state.history.push(format!("Action: {}", output_str));
 
-                // 4. PARSE & ACT
-                let (w, h) = (1920, 1080);
+                // 5. ACT (Tool Output Handling)
+                let mut action_success = false;
+                let mut action_error = None;
 
-                if let Some(req) = parse_vlm_action(
+                if let Ok(tool_call) = serde_json::from_str::<Value>(&output_str) {
+                    if let Some(name) = tool_call.get("name").and_then(|n| n.as_str()) {
+                        if name == "gui__click" {
+                            let x = tool_call["arguments"]["x"].as_u64().unwrap_or(0) as u32;
+                            let y = tool_call["arguments"]["y"].as_u64().unwrap_or(0) as u32;
+                            match self
+                                .gui
+                                .inject_input(InputEvent::Click {
+                                    button: ioi_api::vm::drivers::gui::MouseButton::Left,
+                                    x,
+                                    y,
+                                    expected_visual_hash: None,
+                                })
+                                .await
+                            {
+                                Ok(_) => action_success = true,
+                                Err(e) => action_error = Some(e.to_string()),
+                            }
+                        }
+                    }
+                } else if let Some(req) = parse_vlm_action(
                     &output_str,
-                    w,
-                    h,
+                    1920,
+                    1080,
                     "desktop-agent".into(),
                     Some(p.session_id),
                     agent_state.step_count as u64,
-                    None, // [FIX] No visual hash verification for MVP
+                    None,
                 ) {
                     let params: serde_json::Value = serde_json::from_slice(&req.params).unwrap();
-
                     if req.target == ioi_types::app::ActionTarget::GuiClick {
                         let x = params["x"].as_u64().unwrap_or(0) as u32;
                         let y = params["y"].as_u64().unwrap_or(0) as u32;
 
-                        self.gui
+                        match self
+                            .gui
                             .inject_input(InputEvent::Click {
                                 button: ioi_api::vm::drivers::gui::MouseButton::Left,
                                 x,
                                 y,
-                                expected_visual_hash: None, // [FIX]
+                                expected_visual_hash: None,
                             })
                             .await
-                            .map_err(|e| {
-                                TransactionError::Invalid(format!("Action failed: {}", e))
-                            })?;
+                        {
+                            Ok(_) => action_success = true,
+                            Err(e) => action_error = Some(e.to_string()),
+                        }
                     }
                 }
 
-                // Update State
+                // 6. RECORD TRACE (Black Box Recorder)
+                let trace = StepTrace {
+                    session_id: p.session_id,
+                    step_index: agent_state.step_count,
+                    visual_hash: visual_hash_arr,
+                    full_prompt: user_prompt,
+                    raw_output: output_str,
+                    success: action_success,
+                    error: action_error.clone(),
+                    timestamp: SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs(),
+                };
+
+                let trace_key = Self::get_trace_key(&p.session_id, agent_state.step_count);
+                state.insert(&trace_key, &codec::to_bytes_canonical(&trace)?)?;
+
+                // Fail transaction if action failed, but only after logging trace
+                if let Some(e) = action_error {
+                    return Err(TransactionError::Invalid(format!("Action failed: {}", e)));
+                }
+
                 agent_state.step_count += 1;
                 if agent_state.step_count >= agent_state.max_steps {
                     agent_state.status = AgentStatus::Completed;

@@ -2,11 +2,11 @@
 
 use crate::vm::inference::InferenceRuntime;
 use async_trait::async_trait;
+use ioi_types::app::agentic::InferenceOptions; // [UPDATED]
 use ioi_types::error::VmError;
 use std::path::Path;
 
 /// A mock implementation of the InferenceRuntime for testing and development.
-/// It effectively echoes inputs or returns deterministic dummy data.
 #[derive(Debug, Default, Clone)]
 pub struct MockInferenceRuntime;
 
@@ -16,6 +16,7 @@ impl InferenceRuntime for MockInferenceRuntime {
         &self,
         model_hash: [u8; 32],
         input_context: &[u8],
+        _options: InferenceOptions, // [UPDATED] Add options parameter
     ) -> Result<Vec<u8>, VmError> {
         // Log the execution request
         log::info!(
@@ -24,24 +25,19 @@ impl InferenceRuntime for MockInferenceRuntime {
             input_context.len()
         );
 
-        // Simulate processing time
-        // tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-
         // Return a deterministic response based on the input.
-        // For E2E tests, we often check if the output matches a specific pattern.
-        // Here we just return a JSON-like byte string wrapping the input size.
         let response = format!(
             r#"{{"status": "success", "processed_bytes": {}, "model": "{}"}}"#,
             input_context.len(),
             hex::encode(model_hash)
         );
-        
+
         Ok(response.into_bytes())
     }
 
     async fn load_model(&self, model_hash: [u8; 32], path: &Path) -> Result<(), VmError> {
         if !path.exists() {
-             return Err(VmError::HostError(format!(
+            return Err(VmError::HostError(format!(
                 "MockInference: Model file not found at {:?}",
                 path
             )));

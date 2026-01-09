@@ -4,6 +4,7 @@ use crate::standard::workload::hydration::ModelHydrator;
 use anyhow::Result;
 use async_trait::async_trait;
 use ioi_api::vm::inference::{HardwareDriver, InferenceRuntime};
+use ioi_types::app::agentic::InferenceOptions; // [FIX] Import
 use ioi_types::error::VmError;
 use std::path::Path;
 use std::sync::Arc;
@@ -49,6 +50,7 @@ impl InferenceRuntime for StandardInferenceRuntime {
         &self,
         model_hash: [u8; 32],
         _input_context: &[u8],
+        _options: InferenceOptions, // [FIX] Added parameter
     ) -> Result<Vec<u8>, VmError> {
         // 1. Ensure model is loaded
         if !self.driver.is_model_loaded(&model_hash).await {

@@ -1,6 +1,7 @@
 // Path: crates/types/src/app/agentic.rs
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
+// [REMOVED] use serde_json::Value;
 
 /// The cryptographic proof that a distributed committee converged on a specific meaning.
 /// This forms the "Proof of Meaning" verified by Type A (Consensus) validators.
@@ -60,4 +61,68 @@ pub struct RedactionEntry {
 pub struct RedactionMap {
     /// A chronological list of redactions applied to the source text.
     pub entries: Vec<RedactionEntry>,
+}
+
+/// Represents a tool definition compatible with LLM function calling schemas (e.g. OpenAI/Anthropic).
+/// This allows the Kernel to project on-chain services as tools into the model's context window.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)] // [FIX] Added Encode, Decode
+pub struct LlmToolDefinition {
+    /// The name of the function to be called.
+    /// Typically namespaced, e.g., "browser__navigate" or "calculator__add".
+    pub name: String,
+
+    /// A description of what the function does, used by the model to decide when to call it.
+    pub description: String,
+
+    /// The parameters the function accepts, described as a JSON Schema string.
+    /// [CHANGED] Value -> String to support SCALE encoding.
+    pub parameters: String,
+}
+
+/// Defines the configuration for a single inference request, including tool availability.
+#[derive(Serialize, Deserialize, Debug, Clone, Default, Encode, Decode)] // [FIX] Added Encode, Decode
+pub struct InferenceOptions {
+    /// The list of tools available for the model to call during this inference generation.
+    #[serde(default)]
+    pub tools: Vec<LlmToolDefinition>,
+
+    /// Controls randomness in output generation.
+    pub temperature: f32,
+}
+
+/// A structured representation of an Agent Skill following the agentskills.io standard.
+/// This represents Procedural Memory (Know-How) stored in the Substrate.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct AgentSkill {
+    /// Unique identifier (e.g., "webapp-testing"). From YAML frontmatter.
+    pub name: String,
+    /// Detailed description for semantic search/recall. From YAML frontmatter.
+    pub description: String,
+    /// The raw Markdown content containing instructions and examples.
+    pub content: String,
+    /// Optional list of relative paths to auxiliary resources (scripts, templates) in the skill folder.
+    #[serde(default)]
+    pub resources: Vec<String>,
+}
+
+/// A debug trace of a single agent step.
+/// This is the "Black Box Recording" used to debug failures.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct StepTrace {
+    /// The unique session ID this step belongs to.
+    pub session_id: [u8; 32],
+    /// The sequence number of this step.
+    pub step_index: u32,
+    /// The SHA-256 hash of the visual context (screenshot) seen by the agent.
+    pub visual_hash: [u8; 32],
+    /// The full, constructed prompt sent to the LLM (including injected skills).
+    pub full_prompt: String,
+    /// The raw string output received from the LLM.
+    pub raw_output: String,
+    /// Whether the action was successfully parsed and executed.
+    pub success: bool,
+    /// Error message if the step failed.
+    pub error: Option<String>,
+    /// UNIX timestamp of this step.
+    pub timestamp: u64,
 }

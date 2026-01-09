@@ -14,6 +14,7 @@ use ioi_ipc::{
     },
 };
 use ioi_services::agentic::leakage::{CheckLeakageParams, LeakageController};
+use ioi_types::app::agentic::InferenceOptions; // [FIX] Import
 use ioi_types::app::AccountId;
 use ioi_types::codec;
 use rkyv::{AlignedVec, Deserialize};
@@ -23,17 +24,18 @@ use tonic::{Request, Response, Status};
 
 /// Implementation of the `WorkloadControl` gRPC service.
 ///
-/// This service handles high-frequency commands from the Orchestrator.
-/// It coordinates model loading, hardware acceleration, and data privacy (slicing).
+/// This service handles high-frequency control plane commands from the Orchestrator,
+/// such as loading models into accelerator memory and triggering inference jobs.
+/// It coordinates the "Data Plane" (Shared Memory) access for zero-copy I/O.
 pub struct WorkloadControlImpl<CS, ST>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
 {
-    /// Shared RPC context containing handles to the machine, workload, and data plane.
+    /// Shared RPC context containing handles to the core machine, workload container, and data plane.
     pub ctx: Arc<RpcContext<CS, ST>>,
-    /// Tracks the most recently loaded model for this control session to ensure
-    /// execution happens against the correct resident weights.
+    /// Tracks the most recently loaded model hash for this control session.
+    /// This ensures that execution requests are routed to the correct resident model weights.
     active_model_hash: Arc<RwLock<Option<[u8; 32]>>>,
 }
 
@@ -42,7 +44,11 @@ where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
 {
-    /// Creates a new instance of the control service implementation.
+    /// Creates a new instance of the `WorkloadControlImpl` service.
+    ///
+    /// # Arguments
+    ///
+    /// * `ctx` - A shared reference to the RPC context, providing access to the Workload backend.
     pub fn new(ctx: Arc<RpcContext<CS, ST>>) -> Self {
         Self {
             ctx,
@@ -83,7 +89,6 @@ where
             .inference()
             .map_err(|e| Status::failed_precondition(e.to_string()))?;
 
-        // Extract the 32-byte hash from the hex string model_id
         let model_hash: [u8; 32] = hex::decode(&req.model_id)
             .map_err(|_| Status::invalid_argument("model_id must be a valid hex string"))?
             .try_into()
@@ -96,11 +101,8 @@ where
         match inference.load_model(model_hash, model_path).await {
             Ok(_) => {
                 log::info!("Successfully loaded model: {}", req.model_id);
-
-                // Update internal state so execute_job knows which model is resident
                 let mut active = self.active_model_hash.write().unwrap();
                 *active = Some(model_hash);
-
                 Ok(Response::new(LoadModelResponse {
                     success: true,
                     memory_usage_bytes: 0,
@@ -124,7 +126,6 @@ where
             .inference()
             .map_err(|e| Status::failed_precondition(e.to_string()))?;
 
-        // Retrieve the model hash set by the previous load_model call
         let model_hash = {
             let active = self.active_model_hash.read().unwrap();
             active.ok_or_else(|| {
@@ -136,7 +137,6 @@ where
             Status::failed_precondition("Shared Memory Data Plane not initialized")
         })?;
 
-        // Extract session_id from request
         let session_id_arr: [u8; 32] = if req.session_id.len() == 32 {
             let mut arr = [0u8; 32];
             arr.copy_from_slice(&req.session_id);
@@ -260,8 +260,10 @@ where
         let input_bytes = vec![0u8; req.input_length as usize];
 
         // Execute on physical hardware using the dynamically loaded model hash
+        // [FIX] Pass default InferenceOptions
+        let options = InferenceOptions::default();
         let _result = inference
-            .execute_inference(model_hash, &input_bytes)
+            .execute_inference(model_hash, &input_bytes, options)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 

@@ -11,24 +11,21 @@ use ioi_api::{
 };
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_crypto::sign::eddsa::{Ed25519PublicKey, Ed25519Signature};
-use ioi_networking::libp2p::SwarmCommand;
-// [REBRANDED] Using compute_market module from services
-use ioi_services::compute_market::{ComputeSpecs, JobTicket, ProvisioningReceipt};
+use ioi_services::compute_market::{JobTicket, ProvisioningReceipt};
 use ioi_types::{
     app::{
-        account_id_from_key_material, AccountId, ChainTransaction, OracleAttestation, SignHeader,
-        SignatureProof, SignatureSuite, StateEntry, SystemPayload, SystemTransaction,
+        account_id_from_key_material, AccountId, ChainTransaction, SignHeader, SignatureProof,
+        SignatureSuite, SystemPayload, SystemTransaction,
     },
     codec,
-    keys::{active_service_key, ORACLE_PENDING_REQUEST_PREFIX},
+    keys::active_service_key,
 };
 use once_cell::sync::Lazy;
 use parity_scale_codec::{Decode, Encode};
-use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::Mutex;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
+use std::time::Instant;
 
 // --- Compute Market Canonical Definitions ---
 

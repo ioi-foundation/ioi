@@ -6,15 +6,15 @@
 
 use async_trait::async_trait;
 use ioi_api::state::VmStateAccessor;
-use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent, MouseButton}; // [NEW]
-use ioi_api::vm::{ExecutionContext, ExecutionOutput, VirtualMachine};
-// [NEW] Import InferenceRuntime trait
+use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent, MouseButton};
 use ioi_api::vm::inference::InferenceRuntime;
-// [NEW] Import BrowserDriver (assumed exposed from ioi-drivers)
+use ioi_api::vm::{ExecutionContext, ExecutionOutput, VirtualMachine};
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_drivers::browser::BrowserDriver;
+use ioi_types::app::agentic::InferenceOptions; // [FIX] Import InferenceOptions
+use ioi_types::codec; // [FIX] Import codec for deserialization
 use ioi_types::{config::VmFuelCosts, error::VmError};
-use serde_json::Value; // [NEW]
+use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use wasmtime::component::{Component, Linker};
@@ -37,11 +37,8 @@ struct HostState {
     table: ResourceTable,
     wasi_ctx: WasiCtx,
     _fuel_costs: VmFuelCosts,
-    // [NEW] Optional handle to the inference runtime
     inference: Option<Arc<dyn InferenceRuntime>>,
-    // [NEW] Optional handle to the GUI driver
     gui_driver: Option<Arc<dyn GuiDriver>>,
-    // [NEW] Optional handle to the Browser driver
     browser_driver: Option<Arc<BrowserDriver>>,
 }
 
@@ -62,14 +59,9 @@ pub struct WasmRuntime {
     engine: Engine,
     fuel_costs: VmFuelCosts,
     component_cache: RwLock<HashMap<[u8; 32], Component>>,
-    /// Pre-configured linker with all host bindings and WASI registered.
-    /// Cloning this is cheap and avoids expensive re-registration per tx.
     linker: Linker<HostState>,
-    // [NEW] Storage for the inference runtime (lazy linking)
     inference: RwLock<Option<Arc<dyn InferenceRuntime>>>,
-    // [NEW] Storage for the GUI driver (lazy linking)
     gui_driver: RwLock<Option<Arc<dyn GuiDriver>>>,
-    // [NEW] Storage for the Browser driver (lazy linking)
     browser_driver: RwLock<Option<Arc<BrowserDriver>>>,
 }
 
@@ -82,14 +74,11 @@ impl WasmRuntime {
 
         let engine = Engine::new(&config).map_err(|e| VmError::Initialization(e.to_string()))?;
 
-        // [OPTIMIZATION] Initialize the Linker once at startup.
         let mut linker = Linker::new(&engine);
 
-        // Register IOI Service bindings
         Service::add_to_linker(&mut linker, |state: &mut HostState| state)
             .map_err(|e| VmError::Initialization(e.to_string()))?;
 
-        // Register WASI bindings (Expensive operation moved to constructor)
         wasmtime_wasi::add_to_linker_async(&mut linker)
             .map_err(|e| VmError::Initialization(e.to_string()))?;
 
@@ -104,25 +93,21 @@ impl WasmRuntime {
         })
     }
 
-    /// Link an inference runtime to this VM instance.
     pub fn link_inference(&self, runtime: Arc<dyn InferenceRuntime>) {
         let mut guard = self.inference.write().unwrap();
         *guard = Some(runtime);
     }
 
-    /// Link a GUI driver to this VM instance. [NEW]
     pub fn link_gui_driver(&self, driver: Arc<dyn GuiDriver>) {
         let mut guard = self.gui_driver.write().unwrap();
         *guard = Some(driver);
     }
 
-    /// Link a Browser driver to this VM instance. [NEW]
     pub fn link_browser_driver(&self, driver: Arc<BrowserDriver>) {
         let mut guard = self.browser_driver.write().unwrap();
         *guard = Some(driver);
     }
 
-    /// Returns a reference to the underlying Wasmtime Engine.
     pub fn engine(&self) -> &Engine {
         &self.engine
     }
@@ -131,8 +116,6 @@ impl WasmRuntime {
 #[async_trait]
 impl ioi::system::state::Host for HostState {
     async fn get(&mut self, key: Vec<u8>) -> Result<Option<Vec<u8>>, String> {
-        // If contract_address is 32 bytes, it's a hash address -> namespace it.
-        // If it's a short string (Service ID), it's already namespaced by the ExecutionMachine.
         let ns_key = if self.context.contract_address.len() == 32 {
             [
                 self.context.contract_address.as_slice(),
@@ -239,14 +222,13 @@ impl ioi::system::context::Host for HostState {
     }
 }
 
-// [NEW] Implement the inference interface
 #[async_trait]
 impl ioi::system::inference::Host for HostState {
     async fn execute(
         &mut self,
         model_id: String,
         input_data: Vec<u8>,
-        _params: Vec<u8>,
+        params: Vec<u8>, // [FIX] Use params argument
     ) -> Result<Vec<u8>, String> {
         let inference = self
             .inference
@@ -259,9 +241,17 @@ impl ioi::system::inference::Host for HostState {
             .try_into()
             .map_err(|_| "Invalid model hash length")?;
 
+        // [FIX] Deserialize options or use default
+        let options: InferenceOptions = if params.is_empty() {
+            InferenceOptions::default()
+        } else {
+            // Try to deserialize params as InferenceOptions
+            codec::from_bytes_canonical(&params).unwrap_or_else(|_| InferenceOptions::default())
+        };
+
         // Delegate to the IAL
         inference
-            .execute_inference(model_hash, &input_data)
+            .execute_inference(model_hash, &input_data, options)
             .await
             .map_err(|e| e.to_string())
     }
@@ -272,10 +262,8 @@ impl ioi::system::host::Host for HostState {
     async fn call(&mut self, capability: String, request: Vec<u8>) -> Result<Vec<u8>, String> {
         match capability.as_str() {
             "gui" => {
-                // [NEW] GUI Driver Dispatch
                 let driver = self.gui_driver.as_ref().ok_or("GUI driver not available")?;
 
-                // Parse generic JSON request from guest
                 let req: Value = serde_json::from_slice(&request)
                     .map_err(|e| format!("Invalid GUI request JSON: {}", e))?;
 
@@ -296,7 +284,7 @@ impl ioi::system::host::Host for HostState {
                                 button: btn,
                                 x,
                                 y,
-                                expected_visual_hash: None, // [PHASE 8] Add logic here
+                                expected_visual_hash: None,
                             })
                             .await
                             .map_err(|e| e.to_string())?;
@@ -324,7 +312,6 @@ impl ioi::system::host::Host for HostState {
                 }
             }
             "browser" => {
-                // [NEW] Browser Driver Dispatch
                 let driver = self
                     .browser_driver
                     .as_ref()
@@ -406,11 +393,8 @@ impl VirtualMachine for WasmRuntime {
             table: ResourceTable::new(),
             wasi_ctx: WasiCtxBuilder::new().build(),
             _fuel_costs: self.fuel_costs.clone(),
-            // [NEW] Inject the current inference runtime snapshot into the host state
             inference: self.inference.read().unwrap().clone(),
-            // [NEW] Inject the current GUI driver snapshot into the host state
             gui_driver: self.gui_driver.read().unwrap().clone(),
-            // [NEW] Inject the current Browser driver snapshot into the host state
             browser_driver: self.browser_driver.read().unwrap().clone(),
         };
 
@@ -419,7 +403,6 @@ impl VirtualMachine for WasmRuntime {
             .set_fuel(execution_context.gas_limit)
             .map_err(|e| VmError::Initialization(e.to_string()))?;
 
-        // Instantiate using the cached linker
         let (service, _) = Service::instantiate_async(&mut store, &component, &linker)
             .await
             .map_err(|e| VmError::Initialization(e.to_string()))?;
