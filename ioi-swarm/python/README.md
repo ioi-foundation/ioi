@@ -1,8 +1,66 @@
-# IOI Agent SDK
+# 🤖 IOI Swarm SDK (`ioi-swarm`)
 
-The official framework for building autonomous, verifiable agents on the Internet of Intelligence (IOI) Network.
+**The Official Python Framework for the Internet of Intelligence (IOI) Protocol.**
 
-## Installation
+`ioi-swarm` is a high-performance library for building **sovereign, autonomous agents** that run on the IOI Network. Unlike standard agent frameworks, IOI agents are cryptographically tied to **The Substrate** (Sovereign Context Substrate), ensuring that every observation, decision, and action is verifiable and tamper-proof.
+
+[![PyPI version](https://badge.fury.io/py/ioi-swarm.svg)](https://pypi.org/project/ioi-swarm/)
+[![License: BBSL](https://img.shields.io/badge/License-BBSL-blue.svg)](https://github.com/ioi-foundation/ioi/blob/master/LICENSE-BBSL)
+
+---
+
+## 🚀 Key Features
+
+*   **Sovereign Context Substrate (SCS):** Direct integration with the IOI Substrate for intent-constrained memory and provenance proofs.
+*   **Distributed Inference Mesh (DIM):** Seamlessly burst agent reasoning to a decentralized network of GPU providers.
+*   **Verifiable Agency:** Every tool call generates a cryptographic receipt, providing an immutable audit trail of agent behavior.
+*   **Ghost Mode:** Record agent traces locally to synthesize security policies for the IOI Semantic Firewall.
+*   **Post-Quantum Secure:** Built-in support for hybrid classical/PQ cryptographic identities.
+
+## 📦 Installation
+
 ```bash
-pip install ioi-agent
+pip install ioi-swarm
 ```
+
+*Note: Requires a running [IOI Node](https://github.com/ioi-foundation/ioi) (`ioi-local`) for full verification and settlement capabilities.*
+
+## 🛠 Quickstart
+
+```python
+from ioi_swarm import Agent, tool, ActionTarget
+
+# 1. Initialize your Sovereign Agent
+agent = Agent(name="Autopilot", policy_id="finance-restricted")
+
+# 2. Define a Verifiable Tool
+@tool(name="get_balance", target=ActionTarget.FS_READ)
+def check_vault_balance(vault_id: str):
+    """Checks the balance of a specific on-chain vault."""
+    # Logic intercepted by the IOI Kernel for policy enforcement
+    return 100.0
+
+# 3. Register and Run
+agent.register_tool(check_vault_balance)
+agent.run("Check my vault balance and alert me if it's below 50")
+```
+
+## 🧠 The Triad of Agency
+
+IOI agents operate within a strict architectural boundary:
+
+1.  **Drivers:** Native hardware capabilities (Eyes & Hands).
+2.  **Tools:** Extensible WASM-based instruments (Utility).
+3.  **Skills:** Procedural memory stored in the Substrate (Know-How).
+
+## 📄 Documentation
+
+For full protocol specifications, whitepaper details, and advanced swarming patterns, visit [docs.ioi.network](https://docs.ioi.network).
+
+## 🛡 Security
+
+The `ioi-swarm` SDK is designed to be "Secure by Default." All outbound requests are gated by the **IOI Agency Firewall**, which performs real-time PII scrubbing and intent validation.
+
+---
+
+© 2026 IOI Foundation. Built for the Internet of Intelligence.
