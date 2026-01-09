@@ -6,11 +6,15 @@
 
 use async_trait::async_trait;
 use ioi_api::state::VmStateAccessor;
+use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent, MouseButton}; // [NEW]
 use ioi_api::vm::{ExecutionContext, ExecutionOutput, VirtualMachine};
 // [NEW] Import InferenceRuntime trait
 use ioi_api::vm::inference::InferenceRuntime;
+// [NEW] Import BrowserDriver (assumed exposed from ioi-drivers)
 use ioi_crypto::algorithms::hash::sha256;
+use ioi_drivers::browser::BrowserDriver;
 use ioi_types::{config::VmFuelCosts, error::VmError};
+use serde_json::Value; // [NEW]
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use wasmtime::component::{Component, Linker};
@@ -35,6 +39,10 @@ struct HostState {
     _fuel_costs: VmFuelCosts,
     // [NEW] Optional handle to the inference runtime
     inference: Option<Arc<dyn InferenceRuntime>>,
+    // [NEW] Optional handle to the GUI driver
+    gui_driver: Option<Arc<dyn GuiDriver>>,
+    // [NEW] Optional handle to the Browser driver
+    browser_driver: Option<Arc<BrowserDriver>>,
 }
 
 impl WasiView for HostState {
@@ -59,6 +67,10 @@ pub struct WasmRuntime {
     linker: Linker<HostState>,
     // [NEW] Storage for the inference runtime (lazy linking)
     inference: RwLock<Option<Arc<dyn InferenceRuntime>>>,
+    // [NEW] Storage for the GUI driver (lazy linking)
+    gui_driver: RwLock<Option<Arc<dyn GuiDriver>>>,
+    // [NEW] Storage for the Browser driver (lazy linking)
+    browser_driver: RwLock<Option<Arc<BrowserDriver>>>,
 }
 
 impl WasmRuntime {
@@ -87,6 +99,8 @@ impl WasmRuntime {
             component_cache: RwLock::new(HashMap::new()),
             linker,
             inference: RwLock::new(None),
+            gui_driver: RwLock::new(None),
+            browser_driver: RwLock::new(None),
         })
     }
 
@@ -94,6 +108,18 @@ impl WasmRuntime {
     pub fn link_inference(&self, runtime: Arc<dyn InferenceRuntime>) {
         let mut guard = self.inference.write().unwrap();
         *guard = Some(runtime);
+    }
+
+    /// Link a GUI driver to this VM instance. [NEW]
+    pub fn link_gui_driver(&self, driver: Arc<dyn GuiDriver>) {
+        let mut guard = self.gui_driver.write().unwrap();
+        *guard = Some(driver);
+    }
+
+    /// Link a Browser driver to this VM instance. [NEW]
+    pub fn link_browser_driver(&self, driver: Arc<BrowserDriver>) {
+        let mut guard = self.browser_driver.write().unwrap();
+        *guard = Some(driver);
     }
 
     /// Returns a reference to the underlying Wasmtime Engine.
@@ -243,8 +269,101 @@ impl ioi::system::inference::Host for HostState {
 
 #[async_trait]
 impl ioi::system::host::Host for HostState {
-    async fn call(&mut self, _capability: String, _request: Vec<u8>) -> Result<Vec<u8>, String> {
-        Err("Host calls not implemented".to_string())
+    async fn call(&mut self, capability: String, request: Vec<u8>) -> Result<Vec<u8>, String> {
+        match capability.as_str() {
+            "gui" => {
+                // [NEW] GUI Driver Dispatch
+                let driver = self.gui_driver.as_ref().ok_or("GUI driver not available")?;
+
+                // Parse generic JSON request from guest
+                let req: Value = serde_json::from_slice(&request)
+                    .map_err(|e| format!("Invalid GUI request JSON: {}", e))?;
+
+                let action = req["action"].as_str().ok_or("Missing action field")?;
+
+                match action {
+                    "click" => {
+                        let x = req["x"].as_u64().ok_or("Missing x")? as u32;
+                        let y = req["y"].as_u64().ok_or("Missing y")? as u32;
+                        let btn = match req["button"].as_str().unwrap_or("left") {
+                            "right" => MouseButton::Right,
+                            "middle" => MouseButton::Middle,
+                            _ => MouseButton::Left,
+                        };
+
+                        driver
+                            .inject_input(InputEvent::Click {
+                                button: btn,
+                                x,
+                                y,
+                                expected_visual_hash: None, // [PHASE 8] Add logic here
+                            })
+                            .await
+                            .map_err(|e| e.to_string())?;
+                        Ok(vec![])
+                    }
+                    "type" => {
+                        let text = req["text"].as_str().ok_or("Missing text")?;
+                        driver
+                            .inject_input(InputEvent::Type {
+                                text: text.to_string(),
+                            })
+                            .await
+                            .map_err(|e| e.to_string())?;
+                        Ok(vec![])
+                    }
+                    "screenshot" => {
+                        let png_bytes = driver.capture_screen().await.map_err(|e| e.to_string())?;
+                        Ok(png_bytes)
+                    }
+                    "tree" => {
+                        let tree = driver.capture_tree().await.map_err(|e| e.to_string())?;
+                        Ok(tree.into_bytes())
+                    }
+                    _ => Err(format!("Unknown GUI action: {}", action)),
+                }
+            }
+            "browser" => {
+                // [NEW] Browser Driver Dispatch
+                let driver = self
+                    .browser_driver
+                    .as_ref()
+                    .ok_or("Browser driver not available")?;
+
+                let req: Value = serde_json::from_slice(&request)
+                    .map_err(|e| format!("Invalid Browser request JSON: {}", e))?;
+
+                let action = req["action"].as_str().ok_or("Missing action field")?;
+
+                match action {
+                    "navigate" => {
+                        let url = req["url"].as_str().ok_or("Missing url")?;
+                        let content = driver
+                            .navigate(url)
+                            .await
+                            .map_err(|e: anyhow::Error| e.to_string())?;
+                        Ok(content.into_bytes())
+                    }
+                    "extract_dom" => {
+                        let dom = driver
+                            .extract_dom()
+                            .await
+                            .map_err(|e: anyhow::Error| e.to_string())?;
+                        Ok(dom.into_bytes())
+                    }
+                    "click_selector" => {
+                        let selector = req["selector"].as_str().ok_or("Missing selector")?;
+                        driver
+                            .click_selector(selector)
+                            .await
+                            .map_err(|e: anyhow::Error| e.to_string())?;
+                        Ok(vec![])
+                    }
+                    _ => Err(format!("Unknown Browser action: {}", action)),
+                }
+            }
+            _ => Err(format!("Capability '{}' not supported", capability)),
+        }
     }
 }
 
@@ -289,6 +408,10 @@ impl VirtualMachine for WasmRuntime {
             _fuel_costs: self.fuel_costs.clone(),
             // [NEW] Inject the current inference runtime snapshot into the host state
             inference: self.inference.read().unwrap().clone(),
+            // [NEW] Inject the current GUI driver snapshot into the host state
+            gui_driver: self.gui_driver.read().unwrap().clone(),
+            // [NEW] Inject the current Browser driver snapshot into the host state
+            browser_driver: self.browser_driver.read().unwrap().clone(),
         };
 
         let mut store = Store::new(&self.engine, host_state);

@@ -29,6 +29,7 @@ http-rpc-gateway = { path = "../http-rpc-gateway" }
 ibc-host = { path = "../ibc-host" }
 ioi-ipc = { path = "../ipc" }
 zk-driver-succinct = { path = "../zk-driver-succinct", optional = true }
+ioi-drivers = { path = "../drivers" }                                    # [NEW] Added drivers crate for GUI/Browser automation
 
 bincode = { workspace = true }
 uuid = { version = "1.8.0", features = ["v4"] }

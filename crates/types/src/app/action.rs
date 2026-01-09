@@ -33,6 +33,32 @@ pub enum ActionTarget {
     /// Request a transaction send from the user's wallet.
     #[serde(rename = "wallet::send")]
     WalletSend,
+
+    // --- New GUI Primitives (UI-TARS Port) ---
+    /// Move the mouse cursor to specific coordinates.
+    #[serde(rename = "gui::mouse_move")]
+    GuiMouseMove,
+    /// Perform a mouse click operation.
+    #[serde(rename = "gui::click")]
+    GuiClick,
+    /// Simulate typing text on the keyboard.
+    #[serde(rename = "gui::type")]
+    GuiType,
+    /// Capture a screenshot of the current display.
+    #[serde(rename = "gui::screenshot")]
+    GuiScreenshot,
+    /// Scroll the active window or element.
+    #[serde(rename = "gui::scroll")]
+    GuiScroll,
+
+    // --- New Browser Primitives (CDP) ---
+    /// Navigate the controlled browser to a specific URL.
+    #[serde(rename = "browser::navigate")]
+    BrowserNavigate,
+    /// Extract the DOM or accessibility tree from the current browser page.
+    #[serde(rename = "browser::extract")]
+    BrowserExtract,
+
     /// Catch-all for application-specific or plugin-defined actions.
     Custom(String),
 }

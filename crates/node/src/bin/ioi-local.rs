@@ -9,6 +9,8 @@ use ioi_api::validator::container::Container;
 use ioi_consensus::util::engine_from_config;
 use ioi_consensus::Consensus;
 use ioi_crypto::sign::eddsa::Ed25519PrivateKey;
+use ioi_drivers::browser::BrowserDriver; // [NEW]
+use ioi_drivers::gui::IoiGuiDriver; // [NEW]
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::{
@@ -177,10 +179,25 @@ async fn main() -> Result<()> {
         )?;
     }
 
+    // [NEW] Initialize the Native GUI Driver (The "Eyes & Hands")
+    let gui_driver = Arc::new(IoiGuiDriver::new());
+    println!("   - Native GUI Driver: Initialized (enigo/xcap/accesskit)");
+
+    // [NEW] Initialize Browser Driver
+    let browser_driver = Arc::new(BrowserDriver::new());
+    println!("   - Browser Driver: Initialized (chromiumoxide)");
+
+    // Pass driver to workload setup
     let scheme = HashCommitmentScheme::new();
     let tree = IAVLTree::new(scheme.clone());
-    let (workload_container, machine) =
-        setup_workload(tree, scheme.clone(), workload_config.clone()).await?;
+    let (workload_container, machine) = setup_workload(
+        tree,
+        scheme.clone(),
+        workload_config.clone(),
+        Some(gui_driver),
+        Some(browser_driver), // [NEW] Inject browser driver
+    )
+    .await?;
 
     let workload_ipc_addr = "127.0.0.1:8555";
     std::env::set_var("IPC_SERVER_ADDR", workload_ipc_addr);
@@ -253,6 +270,8 @@ async fn main() -> Result<()> {
     println!("\n✅ IOI User Node (Mode 0) configuration is valid.");
     println!("   - Agency Firewall: Active");
     println!("   - Semantic FS: Mounted at {}", opts.data_dir.display());
+    println!("   - GUI Automation: Enabled"); // [NEW]
+    println!("   - Browser Automation: Enabled"); // [NEW]
     println!(
         "   - RPC will listen on http://{}",
         config.rpc_listen_address

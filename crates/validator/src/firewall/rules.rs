@@ -66,4 +66,14 @@ pub struct RuleConditions {
     pub max_spend: Option<u64>,
     /// Rate limit specification (e.g., "10/minute").
     pub rate_limit: Option<String>,
+    
+    // --- Phase 3 Additions ---
+    
+    /// List of allowed application names/window titles for GUI interaction.
+    /// Used to prevent "click-jacking" into sensitive apps like password managers.
+    pub allow_apps: Option<Vec<String>>,
+    
+    /// Regex pattern for sensitive content detection in keystrokes.
+    /// If the text matches this pattern, the action is BLOCKED.
+    pub block_text_pattern: Option<String>,
 }

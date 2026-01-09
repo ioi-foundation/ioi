@@ -9,8 +9,9 @@ use serde::{Deserialize, Serialize};
 mod overlay;
 pub use overlay::VmStateOverlay;
 
+pub mod drivers;
 pub mod inference;
-pub mod randomness; // [NEW]
+pub mod randomness; // [NEW] Hardware drivers
 
 /// A trait representing a sandboxed execution environment for smart contracts.
 #[async_trait]

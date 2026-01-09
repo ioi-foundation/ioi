@@ -8,6 +8,7 @@ edition = "2021"
 ioi-api = { path = "../../api" }
 ioi-types = { path = "../../types" }
 ioi-crypto = { path = "../../crypto" }
+ioi-drivers = { path = "../../drivers" } # [NEW]
 
 # Explicitly set wasmtime to 21.0.0 to match wasmtime-wasi 21.0.0
 wasmtime = { version = "21.0.0", features = ["component-model", "async"] }
@@ -23,4 +24,5 @@ log = { workspace = true }
 # Dependencies added for wasm_service
 parity-scale-codec = { workspace = true, features = ["derive", "std"] }
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }                                       # [NEW]
 toml = { workspace = true }

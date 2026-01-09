@@ -54,8 +54,9 @@ where
     CS::Commitment: Debug + From<Vec<u8>>,
 {
     // 1. Run Shared Initialization
+    // [FIX] Pass None for GUI and Browser drivers, as server-side workloads don't have a display.
     let (workload_container, machine_arc) =
-        setup_workload(state_tree, commitment_scheme, config).await?;
+        setup_workload(state_tree, commitment_scheme, config, None, None).await?;
 
     // 2. Start the Standard IPC Server
     // The IPC server now internally handles both Legacy JSON-RPC and the new gRPC Data Plane

@@ -17,14 +17,15 @@
 
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
-use ioi_api::crypto::{SerializableKey, SigningKeyPair};
+use ioi_api::crypto::{SerializableKey, SigningKey, SigningKeyPair};
 // [FIX] Update to MldsaScheme
 use ioi_cli::{build_test_artifacts, TestCluster};
 use ioi_crypto::sign::{dilithium::MldsaScheme, eddsa::Ed25519KeyPair};
+use ioi_services::agentic::desktop::{StartAgentParams, StepAgentParams}; // [NEW]
 use ioi_types::{
     app::{
         account_id_from_key_material, ActiveKeyRecord, BlockTimingParams, BlockTimingRuntime,
-        SignatureSuite, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        SignatureSuite, SystemPayload, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     config::{
         CommitmentSchemeType, ConsensusType, InitialServiceConfig, OrchestrationConfig,
@@ -74,6 +75,9 @@ enum Commands {
 
     /// Query a running node's state or status.
     Query(QueryArgs),
+
+    /// Interact with the local Desktop Agent (Jarvis Mode).
+    Agent(AgentArgs), // [NEW]
 }
 
 // -----------------------------------------------------------------------------
@@ -211,6 +215,21 @@ enum QueryCommands {
     State { key: String },
 }
 
+#[derive(Parser, Debug)]
+struct AgentArgs {
+    /// The natural language goal (e.g. "Buy a red t-shirt").
+    #[clap(index = 1)]
+    goal: String,
+
+    /// RPC address of the local node.
+    #[clap(long, default_value = "127.0.0.1:9000")]
+    rpc: String,
+
+    /// Max steps to execute.
+    #[clap(long, default_value = "10")]
+    steps: u32,
+}
+
 // -----------------------------------------------------------------------------
 // Logic Implementation
 // -----------------------------------------------------------------------------
@@ -244,6 +263,9 @@ async fn main() -> Result<()> {
 
         // --- Query ---
         Commands::Query(args) => run_query(args).await,
+
+        // --- Agent ---
+        Commands::Agent(args) => run_agent(args).await, // [NEW]
     }
 }
 
@@ -740,4 +762,134 @@ async fn run_query(args: QueryArgs) -> Result<()> {
     }
 
     Ok(())
+}
+
+// -----------------------------------------------------------------------------
+// Agent Handler (Jarvis Mode)
+// -----------------------------------------------------------------------------
+
+async fn run_agent(args: AgentArgs) -> Result<()> {
+    use ioi_types::app::{
+        ChainTransaction, SignHeader, SignatureProof, SystemPayload, SystemTransaction,
+    };
+
+    println!("🤖 IOI Desktop Agent Client");
+    println!("   Target Node: http://{}", args.rpc);
+    println!("   Goal: \"{}\"", args.goal);
+
+    // 1. Generate a Session ID
+    let session_id: [u8; 32] = rand::random();
+    println!("   Session ID: 0x{}", hex::encode(session_id));
+
+    // 2. Load Local Identity (Client-side)
+    // In a real app, this would use the user's wallet.
+    // For CLI dev, we generate a temp key.
+    let keypair = ioi_crypto::sign::eddsa::Ed25519KeyPair::generate().unwrap();
+
+    // 3. Construct "Start Agent" Transaction
+    let params = StartAgentParams {
+        session_id,
+        goal: args.goal,
+        max_steps: args.steps,
+    };
+
+    let payload = SystemPayload::CallService {
+        service_id: "desktop_agent".to_string(),
+        method: "start@v1".to_string(),
+        params: ioi_types::codec::to_bytes_canonical(&params).unwrap(),
+    };
+
+    // Helper to wrap in SystemTransaction and sign
+    let tx = create_cli_tx(&keypair, payload, 0);
+
+    // 4. Submit
+    let channel = tonic::transport::Channel::from_shared(format!("http://{}", args.rpc))?
+        .connect()
+        .await
+        .context("Failed to connect to node RPC")?;
+    let mut client = ioi_ipc::public::public_api_client::PublicApiClient::new(channel);
+
+    let req = ioi_ipc::public::SubmitTransactionRequest {
+        transaction_bytes: ioi_types::codec::to_bytes_canonical(&tx).unwrap(),
+    };
+
+    match client.submit_transaction(req).await {
+        Ok(resp) => {
+            println!("✅ Agent Started! TxHash: {}", resp.into_inner().tx_hash);
+        }
+        Err(e) => {
+            return Err(anyhow!("Failed to start agent: {}", e.message()));
+        }
+    }
+
+    // 5. Trigger the Loop (The Heartbeat)
+    // The DesktopAgent is designed to step when triggered (or via OnEndBlock).
+    // To see it run immediately, we can trigger steps.
+    println!("   Triggering execution loop...");
+
+    for i in 1..=args.steps {
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        print!("   Step {}/{}... ", i, args.steps);
+
+        let step_params = StepAgentParams { session_id };
+        let step_payload = SystemPayload::CallService {
+            service_id: "desktop_agent".to_string(),
+            method: "step@v1".to_string(),
+            params: ioi_types::codec::to_bytes_canonical(&step_params).unwrap(),
+        };
+        let step_tx = create_cli_tx(&keypair, step_payload, i as u64);
+
+        let step_req = ioi_ipc::public::SubmitTransactionRequest {
+            transaction_bytes: ioi_types::codec::to_bytes_canonical(&step_tx).unwrap(),
+        };
+
+        match client.submit_transaction(step_req).await {
+            Ok(_) => println!("OK"),
+            Err(e) => println!("Error: {}", e.message()),
+        }
+    }
+
+    Ok(())
+}
+
+// Helper to sign tx for CLI
+fn create_cli_tx(
+    kp: &ioi_crypto::sign::eddsa::Ed25519KeyPair,
+    payload: ioi_types::app::SystemPayload,
+    nonce: u64,
+) -> ioi_types::app::ChainTransaction {
+    use ioi_api::crypto::{SerializableKey, SigningKey, SigningKeyPair};
+    let pk = kp.public_key().to_bytes();
+    // Hash PK to get AccountId (simplified)
+    let acc_id = ioi_types::app::AccountId(
+        ioi_crypto::algorithms::hash::sha256(&pk)
+            .unwrap()
+            .try_into()
+            .unwrap(),
+    );
+
+    let header = ioi_types::app::SignHeader {
+        account_id: acc_id,
+        nonce,
+        chain_id: ioi_types::app::ChainId(0),
+        tx_version: 1,
+        session_auth: None,
+    };
+
+    let mut tx = ioi_types::app::SystemTransaction {
+        header,
+        payload,
+        signature_proof: Default::default(),
+    };
+
+    let bytes = ioi_types::codec::to_bytes_canonical(&tx).unwrap();
+    let sig = kp.private_key().sign(&bytes).unwrap();
+
+    tx.signature_proof = ioi_types::app::SignatureProof {
+        suite: ioi_types::app::SignatureSuite::ED25519,
+        public_key: pk,
+        signature: sig.to_bytes(),
+    };
+
+    ioi_types::app::ChainTransaction::System(Box::new(tx))
 }
