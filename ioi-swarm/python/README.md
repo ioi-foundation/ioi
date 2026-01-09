@@ -2,7 +2,7 @@
 
 **The Official Python Framework for the Internet of Intelligence (IOI) Protocol.**
 
-`ioi-swarm` is a high-performance library for building **sovereign, autonomous agents** that run on the IOI Network. Unlike standard agent frameworks, IOI agents are cryptographically tied to **The Substrate** (Sovereign Context Substrate), ensuring that every observation, decision, and action is verifiable and tamper-proof.
+`ioi-swarm` is a high-performance library for building **sovereign, autonomous agents** that run on the Internet of Intelligence. Unlike standard agent frameworks, IOI agents are cryptographically tied to **The Substrate** (Sovereign Context Substrate), ensuring that every observation, decision, and action is verifiable and tamper-proof.
 
 [![PyPI version](https://badge.fury.io/py/ioi-swarm.svg)](https://pypi.org/project/ioi-swarm/)
 [![License: BBSL](https://img.shields.io/badge/License-BBSL-blue.svg)](https://github.com/ioi-foundation/ioi/blob/master/LICENSE-BBSL)
