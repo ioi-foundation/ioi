@@ -6,15 +6,14 @@ use async_trait::async_trait;
 use ioi_api::{
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
-    // [FIX] Add VerifyingKey to imports
     crypto::{SerializableKey, VerifyingKey},
     state::{service_namespace_prefix, StateManager, Verifier},
 };
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_crypto::sign::eddsa::{Ed25519PublicKey, Ed25519Signature};
 use ioi_networking::libp2p::SwarmCommand;
-// [FIX] Updated import
-use ioi_services::provider_registry::ProviderRegistryService; 
+// [REBRANDED] Using compute_market module from services
+use ioi_services::compute_market::{ComputeSpecs, JobTicket, ProvisioningReceipt};
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ChainTransaction, OracleAttestation, SignHeader,
@@ -31,51 +30,19 @@ use std::fmt::Debug;
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-// --- DCPP Canonical Definitions ---
+// --- Compute Market Canonical Definitions ---
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct HardwareSpecs {
-    pub provider_type: String, // e.g. "akash", "aws"
-    pub region: String,
-    pub instance_type: String, // e.g. "gpu-h100"
-    pub image: String,         // Docker image hash
-}
-
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
-pub struct JobTicket {
-    pub request_id: u64,
-    pub owner: AccountId,
-    pub specs: HardwareSpecs,
-    pub max_bid: u64,
-    pub expiry_height: u64, // Consensus block height deadline
-    pub security_tier: u8,
-    pub nonce: u64, // Anti-replay within the service
-}
-
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
-pub struct ProvisioningReceipt {
-    pub request_id: u64,
-    /// The Hash of the canonical JobTicket.
-    /// The Provider MUST include this in their signed acknowledgment.
-    pub ticket_root: [u8; 32],
-    pub provider_id: Vec<u8>, // Provider's public key identifier
-    pub endpoint_uri: String,
-    pub machine_id: String, // Unique hardware ID / instance ID
-    pub expiry_height: u64,
-    pub lease_id: String,
-    pub provider_signature: Vec<u8>,
-}
-
+/// Data required to reconstruct the provider's signature payload for verification.
 #[derive(Encode, Decode, Debug, Clone)]
 pub struct ProviderAckPayload {
     pub ticket_root: [u8; 32],
-    pub machine_id: Vec<u8>,
+    pub instance_id: Vec<u8>,
     pub endpoint_uri_hash: [u8; 32],
     pub expiry_height: u64,
     pub lease_id_hash: [u8; 32],
 }
 
-// On-chain representation of a registered provider
+/// On-chain representation of a registered provider in the market.
 #[derive(Encode, Decode, Debug, Clone)]
 pub struct ProviderInfo {
     pub public_key: Vec<u8>,
@@ -85,21 +52,24 @@ pub struct ProviderInfo {
     pub provider_type: String,
 }
 
-const DECENTRALIZED_CLOUD_TICKET_PREFIX: &[u8] = b"tickets::";
-const DECENTRALIZED_CLOUD_PROVIDER_PREFIX: &[u8] = b"providers::";
+// [REBRANDED] Constants updated to match new service nomenclature
+const COMPUTE_MARKET_TICKET_PREFIX: &[u8] = b"tickets::";
+const COMPUTE_MARKET_PROVIDER_PREFIX: &[u8] = b"providers::";
 const DCPP_ACK_DOMAIN_BASE: &[u8] = b"IOI_DCPP_PROVIDER_ACK_V1";
 
 // Helper to compute typed hash
 fn sha256_32(data: &[u8]) -> Result<[u8; 32]> {
     let digest = sha256(data)?;
     let mut arr = [0u8; 32];
-    arr.copy_from_slice(&digest);
+    arr.copy_from_slice(digest.as_ref());
     Ok(arr)
 }
 
 // --- Provider Client Abstraction ---
+
+/// Data returned from a remote provider after a successful provisioning request.
 pub struct ProvisioningReceiptData {
-    pub machine_id: String,
+    pub instance_id: String,
     pub endpoint_uri: String,
     pub lease_id: String,
     pub signature: Vec<u8>,
@@ -128,7 +98,6 @@ impl ProviderClient for MockProviderClient {
         _ticket_root: &[u8; 32],
     ) -> Result<ProvisioningReceiptData> {
         // Fail explicitly until real HTTP backend is wired in via feature flag or dependency update.
-        // This prevents misleading "success" logs in production/testing without actual provisioning.
         Err(anyhow!(
             "ProviderClient not implemented (HTTP backend required)"
         ))
@@ -169,33 +138,10 @@ where
         return Ok(());
     }
 
-    // [FIX] Stub out old OracleService fetch logic for now, as fetching price feeds 
-    // is replaced by Provider Registry logic in Phase 5.
-    // To keep it compiling, we just return Ok.
-    
-    /*
-    let oracle_service = OracleService::new();
-    let ns_prefix = service_namespace_prefix("oracle");
-    let pending_prefix: Vec<u8> = [ns_prefix.as_slice(), ORACLE_PENDING_REQUEST_PREFIX].concat();
-
-    let pending_requests = match workload_client.prefix_scan(&pending_prefix).await {
-        Ok(kvs) => kvs,
-        Err(e) => {
-            log::error!(
-                "Oracle Operator: Failed to scan for pending requests: {}",
-                e
-            );
-            return Ok(());
-        }
-    };
-    
-    // ... (rest of old logic omitted)
-    */
-
     Ok(())
 }
 
-// Helper for selecting a provider
+// Helper for selecting a provider from the registry
 fn select_provider(
     providers: &[(Vec<u8>, ProviderInfo)],
     ticket: &JobTicket,
@@ -229,7 +175,7 @@ fn should_run_solver() -> bool {
     }
 }
 
-/// The Infrastructure Solver Task.
+/// The Universal Compute Market Solver Task.
 /// This runs periodically (throttled) to process new compute requests.
 pub async fn run_infra_solver_task<CS, ST, CE, V>(
     context: &MainLoopContext<CS, ST, CE, V>,
@@ -260,8 +206,8 @@ where
 
     let workload_client = context.view_resolver.workload_client();
 
-    // 1. Check if the service is active
-    let cloud_service_key = active_service_key("decentralized_cloud");
+    // 1. Check if the Rebranded Compute Market Service is active
+    let cloud_service_key = active_service_key("compute_market");
     if workload_client
         .query_raw_state(&cloud_service_key)
         .await?
@@ -270,10 +216,10 @@ where
         return Ok(());
     }
 
-    let ns_prefix = service_namespace_prefix("decentralized_cloud");
+    let ns_prefix = service_namespace_prefix("compute_market");
 
-    // 2. Fetch Provider Registry
-    let provider_prefix = [ns_prefix.as_slice(), DECENTRALIZED_CLOUD_PROVIDER_PREFIX].concat();
+    // 2. Fetch Provider Registry from the market namespace
+    let provider_prefix = [ns_prefix.as_slice(), COMPUTE_MARKET_PROVIDER_PREFIX].concat();
     let provider_kvs = match workload_client.prefix_scan(&provider_prefix).await {
         Ok(kvs) => kvs,
         Err(_) => return Ok(()),
@@ -302,7 +248,7 @@ where
     // 3. Scan Tickets with Cursor
     // WARNING: Ticket keys MUST use fixed-width big-endian request_ids (u64_be)
     // to ensure lexicographical order matches numeric order.
-    let ticket_prefix = [ns_prefix.as_slice(), DECENTRALIZED_CLOUD_TICKET_PREFIX].concat();
+    let ticket_prefix = [ns_prefix.as_slice(), COMPUTE_MARKET_TICKET_PREFIX].concat();
     let all_tickets = match workload_client.prefix_scan(&ticket_prefix).await {
         Ok(kvs) => kvs,
         Err(_) => return Ok(()),
@@ -321,12 +267,11 @@ where
     if pending_tickets.is_empty() {
         if cursor.is_some() {
             *LAST_SEEN_TICKET_KEY.lock().unwrap() = None;
-            log::debug!("Infra Solver: Cursor wrapped around, rescanning from start.");
+            log::debug!("Compute Market: Cursor wrapped around, rescanning from start.");
         }
         return Ok(());
     }
 
-    // This can be swapped for a real client implementation later
     let provider_client = MockProviderClient;
 
     for (key, val_bytes) in pending_tickets {
@@ -338,26 +283,26 @@ where
             Err(_) => continue,
         };
 
-        log::info!("Infra Solver: Processing job {}", ticket.request_id);
+        log::info!(target: "market", "Compute Market: Processing job {}", ticket.request_id);
 
-        // 4. Select Provider
+        // 4. Select Provider (Matches Task to Capability)
         let (provider_id, provider_info) = match select_provider(&providers, &ticket) {
             Some(p) => p,
             None => {
-                log::warn!("No suitable provider found for job {}", ticket.request_id);
+                log::warn!(target: "market", "No suitable provider found for job {}", ticket.request_id);
                 continue;
             }
         };
 
         log::info!(
-            "Infra Solver: selected provider {} at {} for job {}",
+            target: "market",
+            "Compute Market: selected provider {} at {} for job {}",
             hex::encode(&provider_id),
             provider_info.endpoint,
             ticket.request_id
         );
 
         // 5. Construct Canonical Payload for Signing
-        // TicketRoot = H(canonical_ticket)
         let canonical_ticket = codec::to_bytes_canonical(&ticket).map_err(|e| anyhow!(e))?;
         let ticket_root = sha256_32(&canonical_ticket)?;
 
@@ -366,29 +311,29 @@ where
         domain.extend_from_slice(&context.chain_id.0.to_le_bytes());
         domain.extend_from_slice(&context.genesis_hash);
 
-        // 6. Request Provisioning & Signature
+        // 6. Request Provisioning & Signature from the selected Provider
         let provider_response = match provider_client
             .request_provisioning(&provider_info.endpoint, &ticket, &domain, &ticket_root)
             .await
         {
             Ok(r) => r,
             Err(e) => {
-                log::warn!("Provider request failed: {}", e);
+                log::warn!(target: "market", "Market Provider request failed: {}", e);
                 continue;
             }
         };
 
-        // 7. Local Verification (Sanity Check)
+        // 7. Local Verification (Sanity Check before submitting to chain)
         let payload = ProviderAckPayload {
             ticket_root,
-            machine_id: provider_response.machine_id.as_bytes().to_vec(),
+            instance_id: provider_response.instance_id.as_bytes().to_vec(),
             endpoint_uri_hash: sha256_32(provider_response.endpoint_uri.as_bytes())?,
             expiry_height: ticket.expiry_height,
+            // [REBRANDED] Using instance_id and lease_id nomenclature
             lease_id_hash: sha256_32(provider_response.lease_id.as_bytes())?,
         };
 
         // Verify that the signature we got matches the provider we selected.
-        // This prevents us from submitting bad transactions and wasting gas.
         let payload_bytes = codec::to_bytes_canonical(&payload).map_err(|e| anyhow!(e))?;
         let mut signing_input = Vec::new();
         signing_input.extend_from_slice(&domain);
@@ -398,7 +343,7 @@ where
         let pk_bytes_arr: [u8; 32] = match provider_info.public_key.as_slice().try_into() {
             Ok(b) => b,
             Err(_) => {
-                log::warn!("Infra Solver: Provider pubkey is not 32 bytes");
+                log::warn!(target: "market", "Compute Market: Provider pubkey is not 32 bytes");
                 continue;
             }
         };
@@ -406,7 +351,7 @@ where
         let sig_bytes_arr: [u8; 64] = match provider_response.signature.as_slice().try_into() {
             Ok(b) => b,
             Err(_) => {
-                log::warn!("Infra Solver: Provider signature is not 64 bytes");
+                log::warn!(target: "market", "Compute Market: Provider signature is not 64 bytes");
                 continue;
             }
         };
@@ -415,33 +360,32 @@ where
             if let Ok(sig) = Ed25519Signature::from_bytes(&sig_bytes_arr) {
                 if pk.verify(&signing_input, &sig).is_err() {
                     log::warn!(
-                        "Infra Solver: Provider signature verification failed for job {}",
+                        target: "market",
+                        "Compute Market: Provider signature verification failed for job {}",
                         ticket.request_id
                     );
                     continue;
                 }
             } else {
-                log::warn!("Infra Solver: Invalid signature format from provider");
+                log::warn!(target: "market", "Compute Market: Invalid signature format from provider");
                 continue;
             }
         } else {
-            log::warn!("Infra Solver: Unsupported provider key type");
+            log::warn!(target: "market", "Compute Market: Unsupported provider key type");
             continue;
         }
 
-        // 8. Submit Receipt
+        // 8. Construct Settlement Receipt
         let receipt = ProvisioningReceipt {
             request_id: ticket.request_id,
             ticket_root,
             provider_id,
             endpoint_uri: provider_response.endpoint_uri,
-            machine_id: provider_response.machine_id,
-            expiry_height: ticket.expiry_height,
-            lease_id: provider_response.lease_id,
+            instance_id: provider_response.instance_id,
             provider_signature: provider_response.signature,
         };
 
-        // 9. Submit Transaction
+        // 9. Submit Settlement Transaction to Mainnet
         let our_pk = context.local_keypair.public().encode_protobuf();
         let our_account_id = AccountId(account_id_from_key_material(
             SignatureSuite::ED25519,
@@ -459,7 +403,7 @@ where
         };
 
         let sys_payload = SystemPayload::CallService {
-            service_id: "decentralized_cloud".into(),
+            service_id: "compute_market".into(),
             method: "finalize_provisioning@v1".into(),
             params: codec::to_bytes_canonical(&receipt).map_err(|e| anyhow!(e))?,
         };
@@ -470,7 +414,7 @@ where
                 nonce,
                 chain_id: context.chain_id,
                 tx_version: 1,
-                session_auth: None, // [FIX] Added session_auth
+                session_auth: None,
             },
             payload: sys_payload,
             signature_proof: SignatureProof::default(),
@@ -493,7 +437,8 @@ where
             .add(tx, tx_hash, Some((our_account_id, nonce)), 0);
 
         log::info!(
-            "Infra Solver: Submitted receipt for job {}, provider {}",
+            target: "market",
+            "Compute Market: Submitted settlement for job {}, provider {}",
             ticket.request_id,
             hex::encode(&receipt.provider_id)
         );
