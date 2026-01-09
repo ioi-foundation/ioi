@@ -1,4 +1,4 @@
-# sdk/python/src/ioi/client.py
+# sdk/python/src/ioi_swarm/client.py
 import grpc
 import json
 import time
@@ -8,8 +8,8 @@ import os
 
 # Robust import strategy for generated protobufs
 try:
-    # 1. Try absolute import (works when installed as package 'ioi')
-    from ioi.proto import public_pb2, public_pb2_grpc
+    # 1. Try absolute import (works when installed as package 'ioi_swarm')
+    from ioi_swarm.proto import public_pb2, public_pb2_grpc
 except ImportError:
     try:
         # 2. Try relative import (works during local development within the package)
@@ -25,9 +25,9 @@ except ImportError:
             import public_pb2
             import public_pb2_grpc
         except ImportError as e2:
-            print(f"[IOI-Py] CRITICAL IMPORT ERROR: {e}")
-            print(f"[IOI-Py] SECONDARY IMPORT ERROR: {e2}")
-            print("[IOI-Py] WARNING: Protobuf files not found or failed to load. Please run codegen.")
+            print(f"[IOI-Swarm] CRITICAL IMPORT ERROR: {e}")
+            print(f"[IOI-Swarm] SECONDARY IMPORT ERROR: {e2}")
+            print("[IOI-Swarm] WARNING: Protobuf files not found or failed to load. Please run codegen.")
             public_pb2 = None
             public_pb2_grpc = None
 
@@ -55,7 +55,7 @@ class IoiClient:
         Maps to Whitepaper §2.4.1.
         """
         if not self.stub:
-            print("[IOI-Py] Error: Client not initialized (missing protos).")
+            print("[IOI-Swarm] Error: Client not initialized (missing protos).")
             return "0x0000"
 
         # 1. Construct the Payload (Canonical JSON)
@@ -73,8 +73,8 @@ class IoiClient:
         
         canonical_bytes = self._canonicalize_json(payload_dict)
         
-        print(f"[IOI-Py] Connecting to Node at {self.address}...")
-        print(f"[IOI-Py] Sending Action: {request.target.value}")
+        print(f"[IOI-Swarm] Connecting to Node at {self.address}...")
+        print(f"[IOI-Swarm] Sending Action: {request.target.value}")
 
         # 2. Call the Node
         try:
@@ -83,18 +83,18 @@ class IoiClient:
             
             response = self.stub.SubmitTransaction(req)
             
-            print(f"[IOI-Py] Node Accepted Transaction!")
-            print(f"[IOI-Py] TxHash: {response.tx_hash}")
+            print(f"[IOI-Swarm] Node Accepted Transaction!")
+            print(f"[IOI-Swarm] TxHash: {response.tx_hash}")
             
             return response.tx_hash
             
         except grpc.RpcError as e:
             # If the node is offline, this catches the connection error
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                 print(f"[IOI-Py] Error: Could not connect to IOI Node at {self.address}")
-                 print(f"         Is 'ioi-local' running?")
+                 print(f"[IOI-Swarm] Error: Could not connect to IOI Node at {self.address}")
+                 print(f"            Is 'ioi-local' running?")
             else:
-                print(f"[IOI-Py] RPC Failed: {e.code()} - {e.details()}")
+                print(f"[IOI-Swarm] RPC Failed: {e.code()} - {e.details()}")
             return "0x0000"
 
     def wait_for_commit(self, tx_hash: str, timeout=5.0):

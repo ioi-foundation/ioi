@@ -27,12 +27,12 @@ jobs:
 
     - name: Build distribution
       # Tell Hatch to build from the directory where pyproject.toml is
-      working-directory: agent-sdk/python
+      working-directory: ioi-swarm/python
       run: hatch build
 
     - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         # Tell the action where Hatch put the files
-        packages-dir: agent-sdk/python/dist/
+        packages-dir: ioi-swarm/python/dist/
         print-hash: true
