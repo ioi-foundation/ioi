@@ -1,6 +1,10 @@
 // Path: crates/services/src/compute_market/mod.rs
-use ioi_api::{impl_service_base, services::BlockchainService, state::StateAccess};
+use async_trait::async_trait;
+use ioi_api::services::{BlockchainService, UpgradableService};
+use ioi_api::state::StateAccess;
+use ioi_api::transaction::context::TxContext;
 use ioi_crypto::algorithms::hash::sha256;
+use ioi_macros::service_interface;
 use ioi_types::{
     app::{AccountId, ChainTransaction},
     codec,
@@ -42,66 +46,80 @@ pub struct ProvisioningReceipt {
     pub ticket_root: [u8; 32],
     pub provider_id: Vec<u8>,
     pub endpoint_uri: String,
-    pub instance_id: String, // Unique execution ID from AWS/Akash
+    pub instance_id: String,
     pub provider_signature: Vec<u8>,
 }
 
+#[derive(Default, Debug)]
 pub struct ComputeMarketService;
-impl_service_base!(ComputeMarketService, "compute_market");
 
-#[async_trait::async_trait]
-impl ioi_api::services::UpgradableService for ComputeMarketService {
-    async fn prepare_upgrade(&self, _: &[u8]) -> Result<Vec<u8>, ioi_types::error::UpgradeError> {
-        Ok(vec![])
+#[async_trait]
+impl UpgradableService for ComputeMarketService {
+    async fn prepare_upgrade(
+        &self,
+        _new_module_wasm: &[u8],
+    ) -> Result<Vec<u8>, ioi_types::error::UpgradeError> {
+        Ok(Vec::new())
     }
-    async fn complete_upgrade(&self, _: &[u8]) -> Result<(), ioi_types::error::UpgradeError> {
+    async fn complete_upgrade(
+        &self,
+        _snapshot: &[u8],
+    ) -> Result<(), ioi_types::error::UpgradeError> {
         Ok(())
     }
 }
 
-impl BlockchainService for ComputeMarketService {
-    async fn handle_service_call(
+#[service_interface(id = "compute_market", abi_version = 1, state_schema = "v1")]
+impl ComputeMarketService {
+    /// Dispatches a new task request to the market.
+    #[method]
+    pub fn request_task(
         &self,
         state: &mut dyn StateAccess,
-        method: &str,
-        params: &[u8],
-        ctx: &mut ioi_api::transaction::context::TxContext<'_>,
+        params: ComputeSpecs,
+        ctx: &TxContext,
     ) -> Result<(), TransactionError> {
-        match method {
-            "request_task@v1" => {
-                let req: ComputeSpecs = codec::from_bytes_canonical(params)?;
-                let id = self.next_id(state)?;
-                let ticket = JobTicket {
-                    request_id: id,
-                    owner: ctx.signer_account_id,
-                    specs: req,
-                    max_bid: 1000,
-                    expiry_height: ctx.block_height + 600,
-                    security_tier: 1,
-                    nonce: 0,
-                };
-                let key = format!("tickets::{}", id).into_bytes();
-                state.insert(&key, &codec::to_bytes_canonical(&ticket)?)?;
-                Ok(())
-            }
-            "finalize_provisioning@v1" => {
-                let receipt: ProvisioningReceipt = codec::from_bytes_canonical(params)?;
-                let key = format!("tickets::{}", receipt.request_id).into_bytes();
-                state.delete(&key)?; // Atomic settlement
-                Ok(())
-            }
-            _ => Err(TransactionError::Unsupported(method.into())),
-        }
+        let id = self.next_id(state)?;
+        let ticket = JobTicket {
+            request_id: id,
+            owner: ctx.signer_account_id,
+            specs: params,
+            max_bid: 1000,
+            expiry_height: ctx.block_height + 600,
+            security_tier: 1,
+            nonce: 0,
+        };
+        let key = format!("tickets::{}", id).into_bytes();
+        state.insert(&key, &codec::to_bytes_canonical(&ticket)?)?;
+        Ok(())
     }
-}
 
-impl ComputeMarketService {
+    /// Settles a completed provisioning request.
+    #[method]
+    pub fn finalize_provisioning(
+        &self,
+        state: &mut dyn StateAccess,
+        params: ProvisioningReceipt,
+        _ctx: &TxContext,
+    ) -> Result<(), TransactionError> {
+        let key = format!("tickets::{}", params.request_id).into_bytes();
+        // Atomic settlement: ticket is removed when provisioning is finalized.
+        state.delete(&key)?;
+        Ok(())
+    }
+
+    // Internal helper for ID generation
     fn next_id(&self, state: &mut dyn StateAccess) -> Result<u64, TransactionError> {
         let key = b"compute::next_id";
         let id = state
             .get(key)?
-            .map(|b| u64::from_le_bytes(b.try_into().unwrap()))
+            .map(|b| {
+                let mut arr = [0u8; 8];
+                arr.copy_from_slice(&b);
+                u64::from_le_bytes(arr)
+            })
             .unwrap_or(1);
+
         state.insert(key, &(id + 1).to_le_bytes())?;
         Ok(id)
     }
