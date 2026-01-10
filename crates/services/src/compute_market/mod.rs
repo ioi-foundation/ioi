@@ -3,13 +3,13 @@ use async_trait::async_trait;
 use ioi_api::services::{BlockchainService, UpgradableService};
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
-use ioi_crypto::algorithms::hash::sha256;
+// [FIX] Removed unused hash import
 use ioi_macros::service_interface;
 use ioi_types::{
-    app::{AccountId, ChainTransaction},
+    app::AccountId, // [FIX] Removed ChainTransaction
     codec,
     error::TransactionError,
-    keys::active_service_key,
+    // [FIX] Removed unused active_service_key
 };
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};

@@ -13,8 +13,8 @@ use ioi_client::WorkloadClient;
 use ioi_crypto::sign::dilithium::{MldsaKeyPair, MldsaScheme};
 use ioi_state::primitives::kzg::KZGParams;
 use ioi_types::config::{
-    CommitmentSchemeType, ConsensusType, InitialServiceConfig, OrchestrationConfig, ServicePolicy,
-    StateTreeType, ValidatorRole, VmFuelCosts, WorkloadConfig,
+    CommitmentSchemeType, ConsensusType, InferenceConfig, InitialServiceConfig,
+    OrchestrationConfig, ServicePolicy, StateTreeType, ValidatorRole, VmFuelCosts, WorkloadConfig,
 };
 use ioi_validator::common::generate_certificates_if_needed;
 use libp2p::{identity, Multiaddr, PeerId};
@@ -386,6 +386,10 @@ impl TestValidator {
             epoch_size: epoch_size.unwrap_or(50_000),
             gc_interval_secs: gc_interval_secs.unwrap_or(3600),
             zk_config: Default::default(),
+            // [FIX] Initialize new inference fields
+            inference: InferenceConfig::default(),
+            fast_inference: None,
+            reasoning_inference: None,
         };
 
         if state_tree_type == "Verkle" {

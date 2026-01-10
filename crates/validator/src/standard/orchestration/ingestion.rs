@@ -25,7 +25,8 @@ use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, watch, Mutex};
 use tracing::{error, info};
 
-use crate::firewall::inference::{LocalSafetyModel, SafetyVerdict};
+// [FIX] Import LocalSafetyModel and SafetyVerdict from ioi_api
+use ioi_api::vm::inference::{LocalSafetyModel, SafetyVerdict};
 
 /// Configuration for the ingestion worker.
 #[derive(Debug, Clone)]
@@ -293,7 +294,7 @@ pub async fn run_ingestion_worker<CS>(
                             Ok(SafetyVerdict::Safe) => {}
                             Ok(v) => {
                                 is_safe = false;
-                                // [FIX] Map enum variants to strings expected by test assertions.
+                                // [FIX] Updated enum variants usage
                                 let reason = match v {
                                     SafetyVerdict::Unsafe(r) => {
                                         format!("Blocked by Safety Firewall: {}", r)

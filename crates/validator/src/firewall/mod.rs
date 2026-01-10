@@ -9,11 +9,16 @@ pub mod policy;
 /// Definitions for ActionRules and policy configuration.
 pub mod rules;
 /// The semantic scrubber for PII redaction.
-pub mod scrubber;
+// pub mod scrubber; // [REMOVED] Moved to ioi-services
+/// [NEW] Policy Synthesizer for Ghost Mode.
+pub mod synthesizer;
 
-use crate::firewall::inference::LocalSafetyModel;
+// use crate::firewall::inference::LocalSafetyModel; // [FIX] Now in ioi_api
 use crate::firewall::policy::PolicyEngine;
-use crate::firewall::scrubber::SemanticScrubber;
+use ioi_api::vm::inference::LocalSafetyModel;
+// use crate::firewall::scrubber::SemanticScrubber; // [FIX] Now in ioi_services
+use ioi_services::agentic::scrubber::SemanticScrubber;
+
 use ibc_primitives::Timestamp;
 use ioi_api::state::namespaced::{NamespacedStateAccess, ReadOnlyNamespacedStateAccess};
 use ioi_api::state::{service_namespace_prefix, StateAccess, StateOverlay};
@@ -40,6 +45,7 @@ pub async fn enforce_firewall(
 ) -> Result<(), TransactionError> {
     let mut overlay = StateOverlay::new(state);
 
+    // [FIX] Scrubber uses the moved implementation
     let scrubber = SemanticScrubber::new(safety_model.clone());
 
     // 1. Identify Signer
@@ -105,19 +111,19 @@ pub async fn enforce_firewall(
                 // Check intent safety using the injected model
                 // Note: We use `safety_model` directly for classification here,
                 // `scrubber` is available for future use (e.g. rewriting params).
-                let verdict = safety_model
-                    .classify_intent(input_str)
-                    .await
-                    .map_err(|e| TransactionError::Invalid(format!("Safety check failed: {}", e)))?;
+                let verdict = safety_model.classify_intent(input_str).await.map_err(|e| {
+                    TransactionError::Invalid(format!("Safety check failed: {}", e))
+                })?;
 
+                // [FIX] Updated enum path
                 match verdict {
-                    crate::firewall::inference::SafetyVerdict::Unsafe(reason) => {
+                    ioi_api::vm::inference::SafetyVerdict::Unsafe(reason) => {
                         return Err(TransactionError::Invalid(format!(
                             "Blocked by Safety Firewall: {}",
                             reason
                         )));
                     }
-                    crate::firewall::inference::SafetyVerdict::ContainsPII => {
+                    ioi_api::vm::inference::SafetyVerdict::ContainsPII => {
                         // In Phase 2.2, we block PII.
                         // In Phase 3, we might use `scrubber.scrub()` to redact and proceed.
                         tracing::warn!(target: "firewall", "Transaction contains PII. Scrubbing required.");
@@ -125,7 +131,7 @@ pub async fn enforce_firewall(
                             "PII detected in transaction payload.".into(),
                         ));
                     }
-                    crate::firewall::inference::SafetyVerdict::Safe => {}
+                    ioi_api::vm::inference::SafetyVerdict::Safe => {}
                 }
             }
         }

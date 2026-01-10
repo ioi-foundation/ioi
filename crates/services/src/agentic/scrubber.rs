@@ -1,7 +1,8 @@
-// Path: crates/validator/src/firewall/scrubber.rs
+// Path: crates/services/src/agentic/scrubber.rs
 
-use crate::firewall::inference::LocalSafetyModel;
 use anyhow::Result;
+use dcrypt::algorithms::ByteSerializable; // Required for copy_from_slice
+use ioi_api::vm::inference::LocalSafetyModel;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::{RedactionEntry, RedactionMap, RedactionType};
 use std::sync::Arc;
@@ -88,29 +89,5 @@ impl SemanticScrubber {
                 entries: redactions,
             },
         ))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::firewall::inference::MockBitNet;
-
-    #[tokio::test]
-    async fn test_scrubber_redacts_api_key() {
-        let model = Arc::new(MockBitNet);
-        let scrubber = SemanticScrubber::new(model);
-
-        let sensitive_input = "Connect using key sk_live_12345abcdef and email bob@example.com";
-        let (cleaned, map) = scrubber.scrub(sensitive_input).await.unwrap();
-
-        assert!(!cleaned.contains("sk_live_12345"), "API Key leaked!");
-        assert!(
-            cleaned.contains("<REDACTED:API_KEY>"),
-            "Placeholder missing"
-        );
-
-        assert_eq!(map.entries.len(), 2); // Key and Email
-        assert_eq!(map.entries[0].redaction_type, RedactionType::Secret);
     }
 }

@@ -23,8 +23,8 @@ use ioi_storage::RedbEpochStore;
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::{
     app::{to_root_hash, Membership},
-    app::agentic::InferenceOptions, // [FIX] Added import
-    config::{InitialServiceConfig, OrchestrationConfig, ValidatorRole, WorkloadConfig},
+    app::agentic::InferenceOptions,
+    config::{InferenceConfig, InitialServiceConfig, OrchestrationConfig, ValidatorRole, WorkloadConfig}, // Added InferenceConfig
     keys::{STATUS_KEY, VALIDATOR_SET_KEY},
 };
 #[cfg(feature = "vm-wasm")]
@@ -36,6 +36,9 @@ use tokio::{sync::Mutex, time::interval};
 use crate::standard::workload::driver_cpu::CpuDriver;
 use crate::standard::workload::hydration::ModelHydrator;
 use crate::standard::workload::runtime::StandardInferenceRuntime;
+
+// Imports for HttpInferenceRuntime and MockInferenceRuntime
+use ioi_api::vm::inference::{HttpInferenceRuntime, mock::MockInferenceRuntime};
 
 #[cfg(feature = "ibc-deps")]
 use ioi_services::ibc::{
@@ -49,6 +52,43 @@ use {
     ioi_services::ibc::light_clients::ethereum_zk::EthereumZkLightClient, std::fs,
     zk_driver_succinct::config::SuccinctDriverConfig,
 };
+
+/// Helper to build a runtime from a config block
+fn build_runtime_from_config(
+    cfg: &InferenceConfig, 
+    hydrator: Arc<ModelHydrator>,
+    driver: Arc<dyn ioi_api::vm::inference::HardwareDriver>
+) -> Result<Arc<dyn InferenceRuntime>> {
+    match cfg.provider.as_str() {
+        "openai" | "local" => {
+            let api_url = cfg.api_url.clone().ok_or_else(|| {
+                anyhow!("API URL required for 'openai' or 'local' inference provider")
+            })?;
+            let api_key = cfg.api_key.clone().unwrap_or_default();
+            let model_name = cfg.model_name.clone().unwrap_or_else(|| "gpt-3.5-turbo".to_string());
+            
+            tracing::info!(
+                target: "workload", 
+                "Initializing HTTP Inference Runtime (Provider: {}, URL: {}, Model: {})", 
+                cfg.provider, api_url, model_name
+            );
+            
+            Ok(Arc::new(HttpInferenceRuntime::new(api_url, api_key, model_name)))
+        },
+        "mock" => {
+             tracing::info!(target: "workload", "Initializing Mock Inference Runtime");
+             Ok(Arc::new(MockInferenceRuntime))
+        },
+        other => {
+             if other == "standard" {
+                 tracing::info!(target: "workload", "Initializing Standard Inference Runtime (Local Hardware)");
+                 Ok(Arc::new(StandardInferenceRuntime::new(hydrator, driver)))
+             } else {
+                 Err(anyhow!("Unknown inference provider: {}", other))
+             }
+        }
+    }
+}
 
 /// Sets up the Workload components: State, VM, Services, ExecutionMachine, and background tasks.
 pub async fn setup_workload<CS, ST>(
@@ -139,8 +179,22 @@ where
 
     let hydrator = Arc::new(ModelHydrator::new(models_dir.to_path_buf(), driver.clone()));
 
-    // 3. Initialize Runtime
-    let inference_runtime = Arc::new(StandardInferenceRuntime::new(hydrator, driver));
+    // 3. Initialize Primary (Legacy) Runtime
+    let inference_runtime = build_runtime_from_config(&config.inference, hydrator.clone(), driver.clone())?;
+
+    // 4. [NEW] Initialize Hybrid Runtimes
+    // If specific configs are present, use them. Otherwise, fallback to the primary one.
+    let fast_runtime = if let Some(cfg) = &config.fast_inference {
+        build_runtime_from_config(cfg, hydrator.clone(), driver.clone())?
+    } else {
+        inference_runtime.clone()
+    };
+
+    let reasoning_runtime = if let Some(cfg) = &config.reasoning_inference {
+        build_runtime_from_config(cfg, hydrator.clone(), driver.clone())?
+    } else {
+        inference_runtime.clone()
+    };
 
     // --- VM Setup ---
 
@@ -166,6 +220,7 @@ where
     let (wasm_runtime_arc, vm): (Arc<WasmRuntime>, Box<dyn ioi_api::vm::VirtualMachine>) = {
         let runtime = WasmRuntime::new(config.fuel_costs.clone())?;
 
+        // Link the primary runtime to the VM (legacy support for simple contracts)
         runtime.link_inference(inference_runtime.clone());
 
         if let Some(driver) = &gui_driver {
@@ -308,7 +363,8 @@ where
 
     if let Some(gui) = gui_driver {
         tracing::info!(target: "workload", event = "service_init", name = "DesktopAgent", impl="native");
-        let agent = DesktopAgentService::new(gui, inference_runtime.clone());
+        // [NEW] Inject both runtimes into the DesktopAgentService
+        let agent = DesktopAgentService::new_hybrid(gui, fast_runtime, reasoning_runtime);
         initial_services.push(Arc::new(agent) as Arc<dyn UpgradableService>);
     }
 
@@ -319,7 +375,9 @@ where
     let _service_directory = ServiceDirectory::new(_services_for_dir);
 
     // Wrapper for Runtime to satisfy the generic Arc<dyn InferenceRuntime> trait object
-    struct RuntimeWrapper(Arc<StandardInferenceRuntime>);
+    struct RuntimeWrapper {
+        inner: Arc<dyn InferenceRuntime>,
+    }
 
     #[async_trait::async_trait]
     impl InferenceRuntime for RuntimeWrapper {
@@ -327,9 +385,9 @@ where
             &self,
             model_hash: [u8; 32],
             input_context: &[u8],
-            options: InferenceOptions, // [FIX] Updated signature
+            options: InferenceOptions,
         ) -> Result<Vec<u8>, ioi_types::error::VmError> {
-            self.0.execute_inference(model_hash, input_context, options).await
+            self.inner.execute_inference(model_hash, input_context, options).await
         }
 
         async fn load_model(
@@ -337,22 +395,25 @@ where
             model_hash: [u8; 32],
             path: &Path,
         ) -> Result<(), ioi_types::error::VmError> {
-            self.0.load_model(model_hash, path).await
+            self.inner.load_model(model_hash, path).await
         }
 
         async fn unload_model(
             &self,
             model_hash: [u8; 32],
         ) -> Result<(), ioi_types::error::VmError> {
-            self.0.unload_model(model_hash).await
+            self.inner.unload_model(model_hash).await
         }
     }
 
+    // Note: WorkloadContainer's inference handle is mainly for IPC.
+    // We pass the "Reasoning" runtime as the default for external callers for now,
+    // but the DesktopAgent service uses both internally.
     let _workload_container = Arc::new(WorkloadContainer::new(
         config.clone(),
         state_tree,
         vm,
-        Some(Box::new(RuntimeWrapper(inference_runtime))),
+        Some(Box::new(RuntimeWrapper { inner: inference_runtime })),
         _service_directory,
         store,
     )?);

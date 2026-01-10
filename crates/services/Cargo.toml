@@ -36,6 +36,10 @@ byte-slice-cast = "1.2"
 bincode = { workspace = true }
 dcrypt = { workspace = true }
 
+# [NEW] Visual Perceptual Hashing for Desktop Agent
+image = "0.25"
+image_hasher = "2.0"
+
 ibc-client-tendermint = { workspace = true, features = [
     "std",
 ], optional = true }

@@ -11,6 +11,10 @@ use ioi_services::agentic::desktop::{StartAgentParams, StepAgentParams};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::{error::VmError, keys::*};
+// [FIX] Added ContextSlice import
+use image::{ImageBuffer, Rgba};
+use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, ContextSlice};
+use std::io::Cursor;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
@@ -24,11 +28,28 @@ struct MockGuiDriver {
 #[async_trait]
 impl GuiDriver for MockGuiDriver {
     async fn capture_screen(&self) -> Result<Vec<u8>, VmError> {
-        Ok(vec![0; 100]) // Dummy screenshot
+        let mut img = ImageBuffer::<Rgba<u8>, Vec<u8>>::new(1, 1);
+        img.put_pixel(0, 0, Rgba([255, 0, 0, 255]));
+        let mut bytes: Vec<u8> = Vec::new();
+        img.write_to(&mut Cursor::new(&mut bytes), image::ImageFormat::Png)
+            .map_err(|e| VmError::HostError(format!("Mock PNG encoding failed: {}", e)))?;
+        Ok(bytes)
     }
+
     async fn capture_tree(&self) -> Result<String, VmError> {
         Ok("<root><window title='Amazon' /></root>".to_string())
     }
+
+    // [FIX] Implemented capture_context
+    async fn capture_context(&self, _intent: &ActionRequest) -> Result<ContextSlice, VmError> {
+        Ok(ContextSlice {
+            slice_id: [0u8; 32],
+            data: b"<root><window title='Amazon' /></root>".to_vec(),
+            provenance_proof: vec![],
+            intent_id: [0u8; 32],
+        })
+    }
+
     async fn inject_input(&self, event: InputEvent) -> Result<(), VmError> {
         let mut log = self.actions.lock().unwrap();
         match event {
@@ -43,7 +64,12 @@ impl GuiDriver for MockGuiDriver {
 struct MockBrain;
 #[async_trait]
 impl InferenceRuntime for MockBrain {
-    async fn execute_inference(&self, _hash: [u8; 32], _input: &[u8]) -> Result<Vec<u8>, VmError> {
+    async fn execute_inference(
+        &self,
+        _hash: [u8; 32],
+        _input: &[u8],
+        _opts: ioi_types::app::agentic::InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
         // Deterministic "Zombie" Brain
         // Output format must match what `grounding::parse_vlm_action` expects
         // The simple parser expects "click x y"
@@ -69,10 +95,10 @@ async fn test_agentic_loop_end_to_end() -> Result<()> {
 
     // 1. Setup Service with Mocks
     use ioi_services::agentic::desktop::DesktopAgentService;
-    let service = DesktopAgentService::new(mock_gui, Arc::new(MockBrain));
+    let service =
+        DesktopAgentService::new_hybrid(mock_gui, Arc::new(MockBrain), Arc::new(MockBrain));
 
     // 2. Mock State Access
-    // We can use `ioi_state::tree::iavl::IAVLTree` (real state) in memory.
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
 
     // 3. Initialize Session (Start)
@@ -81,10 +107,11 @@ async fn test_agentic_loop_end_to_end() -> Result<()> {
         session_id,
         goal: "Buy t-shirt".into(),
         max_steps: 5,
+        // [FIX] Added missing fields for delegation
+        parent_session_id: None,
+        initial_budget: 1000,
     };
 
-    // We need to call `handle_service_call`.
-    // We need a dummy TxContext.
     use ioi_api::services::access::ServiceDirectory;
     use ioi_api::transaction::context::TxContext;
 

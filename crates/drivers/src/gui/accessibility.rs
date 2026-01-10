@@ -17,6 +17,24 @@ pub struct AccessibilityNode {
     pub is_visible: bool,
 }
 
+impl AccessibilityNode {
+    /// Heuristic to determine if a node is relevant for interaction.
+    /// Used for semantic filtering (Phase 1.1).
+    pub fn is_interactive(&self) -> bool {
+        // Common interactive roles
+        matches!(
+            self.role.as_str(),
+            "button" | "link" | "checkbox" | "radio" | "slider" | "textbox" | "combobox" | "menuitem" | "listitem"
+        )
+    }
+
+    /// Checks if the node carries meaningful text content.
+    pub fn has_content(&self) -> bool {
+        self.name.as_ref().map_or(false, |s| !s.trim().is_empty()) ||
+        self.value.as_ref().map_or(false, |s| !s.trim().is_empty())
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub struct Rect {
     pub x: i32,
@@ -26,25 +44,59 @@ pub struct Rect {
 }
 
 /// Serializes the accessibility tree into a simplified XML-like format optimized for LLM token usage.
+/// Applies semantic filtering to reduce noise.
 pub fn serialize_tree_to_xml(node: &AccessibilityNode, depth: usize) -> String {
+    // 1. Prune invisible nodes immediately
     if !node.is_visible {
         return String::new();
     }
 
+    // 2. Recursively serialize children first.
+    // This allows us to detect if a container has interesting content.
+    let mut children_xml = String::new();
+    for child in &node.children {
+        children_xml.push_str(&serialize_tree_to_xml(child, depth + 1));
+    }
+
+    // 3. Semantic Filter Logic
+    // Keep node IF:
+    // - It is interactive (button, input)
+    // - OR it has text content
+    // - OR it is a structural root (window)
+    // - OR it has interesting children (non-empty children_xml)
+    let is_interesting = node.is_interactive() 
+        || node.has_content() 
+        || !children_xml.is_empty() 
+        || node.role == "window" 
+        || node.role == "root";
+
+    if !is_interesting {
+        // If it's a boring leaf (empty div), prune it.
+        return String::new();
+    }
+
+    // 4. Construct XML
     let indent = "  ".repeat(depth);
-    let name_attr = node.name.as_ref().map(|n| format!(" name=\"{}\"", escape_xml(n))).unwrap_or_default();
-    let value_attr = node.value.as_ref().map(|v| format!(" value=\"{}\"", escape_xml(v))).unwrap_or_default();
-    let coords_attr = format!(" x=\"{}\" y=\"{}\" w=\"{}\" h=\"{}\"", node.rect.x, node.rect.y, node.rect.width, node.rect.height);
+    
+    // Only include name/value attributes if they exist
+    let name_attr = node.name.as_ref()
+        .map(|n| format!(" name=\"{}\"", escape_xml(n)))
+        .unwrap_or_default();
+    
+    let value_attr = node.value.as_ref()
+        .map(|v| format!(" value=\"{}\"", escape_xml(v)))
+        .unwrap_or_default();
+        
+    // Compact coordinate string to save tokens
+    let coords_attr = format!(" rect=\"{},{},{},{}\"", node.rect.x, node.rect.y, node.rect.width, node.rect.height);
     
     let mut output = format!("{}<{} id=\"{}\"{}{}{}", indent, node.role, node.id, name_attr, value_attr, coords_attr);
 
-    if node.children.is_empty() {
+    if children_xml.is_empty() {
         output.push_str(" />\n");
     } else {
         output.push_str(">\n");
-        for child in &node.children {
-            output.push_str(&serialize_tree_to_xml(child, depth + 1));
-        }
+        output.push_str(&children_xml);
         output.push_str(&format!("{}</{}>\n", indent, node.role));
     }
 
@@ -94,6 +146,16 @@ impl SovereignSubstrateProvider for MockSubstrateProvider {
                     name: Some("Connect Wallet".to_string()),
                     value: None,
                     rect: Rect { x: 100, y: 100, width: 200, height: 50 },
+                    is_visible: true,
+                    children: vec![],
+                },
+                // This node should be filtered out by logic if it has no content and isn't interactive
+                AccessibilityNode {
+                    id: "div-empty".to_string(),
+                    role: "group".to_string(),
+                    name: None,
+                    value: None,
+                    rect: Rect { x: 0, y: 0, width: 10, height: 10 },
                     is_visible: true,
                     children: vec![],
                 },

@@ -135,6 +135,27 @@ pub struct ZkConfig {
     pub state_vk_path: Option<String>,
 }
 
+/// Configuration for an AI Inference Runtime.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct InferenceConfig {
+    /// The provider type: "mock", "local" (e.g. llama.cpp), or "openai" (external).
+    #[serde(default = "default_inference_provider")]
+    pub provider: String,
+    
+    /// The base URL for the inference API (required for "local" and "openai").
+    pub api_url: Option<String>,
+    
+    /// The API key (optional, for "openai" or secured local endpoints).
+    pub api_key: Option<String>,
+    
+    /// The model name to request (e.g. "gpt-4", "llama-3-8b").
+    pub model_name: Option<String>,
+}
+
+fn default_inference_provider() -> String {
+    "mock".to_string()
+}
+
 /// Configuration for the Workload container (`workload.toml`).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WorkloadConfig {
@@ -183,6 +204,18 @@ pub struct WorkloadConfig {
     /// Configuration for Zero-Knowledge Light Clients.
     #[serde(default)]
     pub zk_config: ZkConfig,
+    
+    /// Default Configuration for AI Inference (Legacy Support).
+    #[serde(default)]
+    pub inference: InferenceConfig,
+
+    /// [NEW] Dedicated Configuration for Fast/Local Inference (The "Reflexes").
+    #[serde(default)]
+    pub fast_inference: Option<InferenceConfig>,
+
+    /// [NEW] Dedicated Configuration for Reasoning/Cloud Inference (The "Brain").
+    #[serde(default)]
+    pub reasoning_inference: Option<InferenceConfig>,
 }
 
 impl WorkloadConfig {
@@ -203,6 +236,25 @@ impl WorkloadConfig {
             return Err(
                 "Configuration Error: 'gc_interval_secs' must be greater than 0.".to_string(),
             );
+        }
+        
+        // Validate legacy inference block if present
+        if self.inference.provider != "mock" {
+             if self.inference.api_url.is_none() {
+                 return Err("Configuration Error: 'api_url' is required for non-mock inference providers.".to_string());
+             }
+        }
+
+        // Validate new specialized blocks
+        if let Some(fast) = &self.fast_inference {
+            if fast.provider != "mock" && fast.api_url.is_none() {
+                 return Err("Configuration Error: 'fast_inference.api_url' is required.".to_string());
+            }
+        }
+        if let Some(reasoning) = &self.reasoning_inference {
+            if reasoning.provider != "mock" && reasoning.api_url.is_none() {
+                 return Err("Configuration Error: 'reasoning_inference.api_url' is required.".to_string());
+            }
         }
 
         Ok(())
