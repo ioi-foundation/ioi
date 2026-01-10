@@ -60,7 +60,8 @@ use crate::standard::orchestration::grpc_public::PublicApiImpl;
 use ioi_ipc::public::public_api_server::PublicApiServer;
 use tonic::transport::Server;
 
-use crate::firewall::inference::LocalSafetyModel;
+// [FIX] Import from ioi_api directly
+use ioi_api::vm::inference::LocalSafetyModel;
 
 // --- Submodule Declarations ---
 mod consensus;

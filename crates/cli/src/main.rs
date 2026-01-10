@@ -21,15 +21,17 @@ use ioi_api::crypto::{SerializableKey, SigningKey, SigningKeyPair};
 // [FIX] Update to MldsaScheme
 use ioi_cli::{build_test_artifacts, TestCluster};
 use ioi_crypto::sign::{dilithium::MldsaScheme, eddsa::Ed25519KeyPair};
-use ioi_services::agentic::desktop::{StartAgentParams, StepAgentParams}; // [NEW]
+use ioi_services::agentic::desktop::{StartAgentParams, StepAgentParams};
+use ioi_types::app::agentic::StepTrace;
 use ioi_types::{
     app::{
         account_id_from_key_material, ActiveKeyRecord, BlockTimingParams, BlockTimingRuntime,
         SignatureSuite, SystemPayload, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     config::{
-        CommitmentSchemeType, ConsensusType, InitialServiceConfig, OrchestrationConfig,
-        RpcHardeningConfig, StateTreeType, ValidatorRole, VmFuelCosts, WorkloadConfig, ZkConfig,
+        CommitmentSchemeType, ConsensusType, InferenceConfig, InitialServiceConfig,
+        OrchestrationConfig, RpcHardeningConfig, StateTreeType, ValidatorRole, VmFuelCosts,
+        WorkloadConfig, ZkConfig,
     },
     service_configs::{GovernanceParams, MigrationConfig},
 };
@@ -37,6 +39,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tokio::signal;
+
+// [NEW] Import Synthesizer
+use ioi_validator::firewall::synthesizer::PolicySynthesizer;
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -77,7 +82,13 @@ enum Commands {
     Query(QueryArgs),
 
     /// Interact with the local Desktop Agent (Jarvis Mode).
-    Agent(AgentArgs), // [NEW]
+    Agent(AgentArgs),
+
+    /// Visualize agent execution traces.
+    Trace(TraceArgs),
+
+    /// Policy management tools.
+    Policy(PolicyArgs), // [NEW]
 }
 
 // -----------------------------------------------------------------------------
@@ -118,7 +129,7 @@ enum TreeType {
     Iavl,
     Smt,
     Verkle,
-    Jellyfish, // [NEW]
+    Jellyfish,
 }
 
 #[derive(Parser, Debug)]
@@ -230,6 +241,40 @@ struct AgentArgs {
     steps: u32,
 }
 
+#[derive(Parser, Debug)]
+struct TraceArgs {
+    /// The session ID to trace (hex).
+    session_id: String,
+
+    /// RPC address of the local node.
+    #[clap(long, default_value = "127.0.0.1:8555")]
+    rpc: String,
+}
+
+#[derive(Parser, Debug)]
+struct PolicyArgs {
+    #[clap(subcommand)]
+    command: PolicyCommands,
+}
+
+#[derive(Subcommand, Debug)]
+enum PolicyCommands {
+    /// Generate a security policy from a session's execution trace.
+    Generate {
+        /// The session ID to analyze.
+        session_id: String,
+        /// The ID to assign to the new policy.
+        #[clap(long, default_value = "auto-policy-v1")]
+        policy_id: String,
+        /// Output file path (defaults to stdout).
+        #[clap(long)]
+        output: Option<PathBuf>,
+        /// RPC address of the local node.
+        #[clap(long, default_value = "127.0.0.1:8555")]
+        rpc: String,
+    },
+}
+
 // -----------------------------------------------------------------------------
 // Logic Implementation
 // -----------------------------------------------------------------------------
@@ -265,7 +310,13 @@ async fn main() -> Result<()> {
         Commands::Query(args) => run_query(args).await,
 
         // --- Agent ---
-        Commands::Agent(args) => run_agent(args).await, // [NEW]
+        Commands::Agent(args) => run_agent(args).await,
+
+        // --- Trace ---
+        Commands::Trace(args) => run_trace(args).await,
+
+        // --- Policy ---
+        Commands::Policy(args) => run_policy(args).await,
     }
 }
 
@@ -415,10 +466,6 @@ fn titlecase(s: &str) -> String {
     }
 }
 
-// -----------------------------------------------------------------------------
-// Keys Handlers
-// -----------------------------------------------------------------------------
-
 fn run_keys(args: KeysArgs) -> Result<()> {
     match args.command {
         KeysCommands::Generate { suite } => {
@@ -469,16 +516,13 @@ fn run_keys(args: KeysArgs) -> Result<()> {
             let bytes = hex::decode(&hex_key).context("Invalid hex")?;
             match suite {
                 KeySuite::Ed25519 => {
-                    // For Ed25519, we must wrap in libp2p protobuf to match system derivation
                     let libp2p_pk = libp2p::identity::ed25519::PublicKey::try_from_bytes(&bytes)
                         .context("Invalid Ed25519 key bytes")?;
                     let proto_pk = libp2p::identity::PublicKey::from(libp2p_pk).encode_protobuf();
-                    // [FIX] Use SignatureSuite::ED25519
                     let acct = account_id_from_key_material(SignatureSuite::ED25519, &proto_pk)?;
                     println!("Account ID: 0x{}", hex::encode(acct));
                 }
                 KeySuite::Dilithium2 => {
-                    // [FIX] Use SignatureSuite::ML_DSA_44
                     let acct = account_id_from_key_material(SignatureSuite::ML_DSA_44, &bytes)?;
                     println!("Account ID: 0x{}", hex::encode(acct));
                 }
@@ -530,6 +574,10 @@ fn run_config(args: ConfigCmdArgs) -> Result<()> {
                 epoch_size: 5000,
                 gc_interval_secs: 3600,
                 zk_config: ZkConfig::default(),
+                inference: InferenceConfig::default(), // [NEW] Added default inference config
+                // [FIX] Initialize missing fields
+                fast_inference: None,
+                reasoning_inference: None,
             };
 
             fs::write(
@@ -791,6 +839,9 @@ async fn run_agent(args: AgentArgs) -> Result<()> {
         session_id,
         goal: args.goal,
         max_steps: args.steps,
+        // [FIX] Initialize new fields
+        parent_session_id: None,
+        initial_budget: 1000, // Default budget
     };
 
     let payload = SystemPayload::CallService {
@@ -849,6 +900,151 @@ async fn run_agent(args: AgentArgs) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+// -----------------------------------------------------------------------------
+// Trace Handler (NEW)
+// -----------------------------------------------------------------------------
+
+async fn run_trace(args: TraceArgs) -> Result<()> {
+    use ioi_ipc::public::public_api_client::PublicApiClient;
+    use ioi_types::codec;
+
+    println!("🔍 Inspecting trace for session: {}", args.session_id);
+    let session_bytes = hex::decode(&args.session_id).context("Invalid session ID hex")?;
+    if session_bytes.len() != 32 {
+        return Err(anyhow!("Session ID must be 32 bytes"));
+    }
+
+    // Connect to Node (Using Public API which proxies to Workload)
+    let channel = tonic::transport::Channel::from_shared(format!("http://{}", args.rpc))?
+        .connect()
+        .await
+        .context("Failed to connect to node RPC")?;
+    let mut client = PublicApiClient::new(channel);
+
+    // Iterate through steps 0..N
+    let mut step = 0;
+    println!("\n--- Trace Log ---");
+
+    loop {
+        // Construct trace key: `agent::trace::{session_id}::{step}`
+        // Defined in desktop.rs as TRACE_PREFIX + session + step_le_bytes
+        let prefix = b"agent::trace::";
+        let mut key = Vec::new();
+        key.extend_from_slice(prefix);
+        key.extend_from_slice(&session_bytes);
+        key.extend_from_slice(&(step as u32).to_le_bytes());
+
+        let req = ioi_ipc::blockchain::QueryRawStateRequest { key };
+        let resp = client.query_raw_state(req).await?.into_inner();
+
+        if !resp.found || resp.value.is_empty() {
+            if step == 0 {
+                println!("No trace found for this session.");
+            } else {
+                println!("--- End of Trace ({} steps) ---", step);
+            }
+            break;
+        }
+
+        // Deserialize
+        let trace: StepTrace = codec::from_bytes_canonical(&resp.value)
+            .map_err(|e| anyhow!("Failed to decode trace step {}: {}", step, e))?;
+
+        // Print Step details
+        println!("\n[Step {}]", trace.step_index);
+        println!("  Timestamp:   {}", trace.timestamp);
+        println!("  Success:     {}", trace.success);
+        if let Some(err) = &trace.error {
+            println!("  Error:       {}", err);
+        }
+
+        // Print Prompt (Truncated for readability)
+        let prompt_preview = if trace.full_prompt.len() > 200 {
+            format!("{}...", &trace.full_prompt[..200].replace('\n', " "))
+        } else {
+            trace.full_prompt.replace('\n', " ")
+        };
+        println!("  Prompt:      \"{}\"", prompt_preview);
+
+        // Print Output
+        println!("  Output:      {}", trace.raw_output.trim());
+        println!("  Visual Hash: 0x{}", hex::encode(trace.visual_hash));
+
+        step += 1;
+    }
+
+    Ok(())
+}
+
+// -----------------------------------------------------------------------------
+// Policy Handler (NEW)
+// -----------------------------------------------------------------------------
+
+async fn run_policy(args: PolicyArgs) -> Result<()> {
+    use ioi_ipc::public::public_api_client::PublicApiClient;
+    use ioi_types::codec;
+
+    match args.command {
+        PolicyCommands::Generate {
+            session_id,
+            policy_id,
+            output,
+            rpc,
+        } => {
+            println!("🔍 Fetching trace for session: {}", session_id);
+            let session_bytes = hex::decode(&session_id).context("Invalid session ID hex")?;
+            if session_bytes.len() != 32 {
+                return Err(anyhow!("Session ID must be 32 bytes"));
+            }
+
+            let channel = tonic::transport::Channel::from_shared(format!("http://{}", rpc))?
+                .connect()
+                .await
+                .context("Failed to connect to node RPC")?;
+            let mut client = PublicApiClient::new(channel);
+
+            // Fetch Traces
+            let mut traces = Vec::new();
+            let mut step = 0;
+            loop {
+                let prefix = b"agent::trace::";
+                let mut key = Vec::new();
+                key.extend_from_slice(prefix);
+                key.extend_from_slice(&session_bytes);
+                key.extend_from_slice(&(step as u32).to_le_bytes());
+
+                let req = ioi_ipc::blockchain::QueryRawStateRequest { key };
+                let resp = client.query_raw_state(req).await?.into_inner();
+
+                if !resp.found || resp.value.is_empty() {
+                    break;
+                }
+                let trace: StepTrace = codec::from_bytes_canonical(&resp.value)
+                    .map_err(|e| anyhow!("Failed to decode trace step {}: {}", step, e))?;
+                traces.push(trace);
+                step += 1;
+            }
+
+            if traces.is_empty() {
+                return Err(anyhow!("No traces found for session {}", session_id));
+            }
+
+            // Synthesize
+            println!("⚙️ Synthesizing policy from {} traces...", traces.len());
+            let policy = PolicySynthesizer::synthesize(&policy_id, &traces);
+            let policy_json = serde_json::to_string_pretty(&policy)?;
+
+            if let Some(path) = output {
+                fs::write(&path, policy_json)?;
+                println!("✅ Policy saved to {}", path.display());
+            } else {
+                println!("{}", policy_json);
+            }
+        }
+    }
     Ok(())
 }
 

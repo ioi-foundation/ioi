@@ -2,7 +2,8 @@
 
 pub mod accessibility;
 pub mod operator;
-pub mod vision; // [NEW]
+pub mod platform;
+pub mod vision; // [NEW] Module for native provider
 
 use self::operator::NativeOperator;
 use self::vision::NativeVision;
@@ -10,24 +11,31 @@ use async_trait::async_trait;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_types::app::{ActionRequest, ContextSlice};
 use ioi_types::error::VmError;
-// [FIX] Updated imports to match the SCS rebrand, removed unused `serialize_tree_to_xml`
+
 use self::accessibility::{MockSubstrateProvider, SovereignSubstrateProvider};
+use self::platform::NativeSubstrateProvider; // [NEW] Import Native Provider
 
 /// The concrete implementation of the IOI GUI Driver.
 /// This replaces the UI-TARS Electron app.
 pub struct IoiGuiDriver {
     operator: NativeOperator,
-    // [FIX] Updated trait bound
     substrate: Box<dyn SovereignSubstrateProvider + Send + Sync>,
 }
 
 impl IoiGuiDriver {
     pub fn new() -> Self {
+        // [FIX] Conditionally use Native provider in non-test builds, or based on a feature flag.
+        // For now, we default to the Native provider (which currently has a mock impl inside)
+        // to exercise the new code paths. In production, this would switch based on `cfg!(target_os)`.
+        let substrate: Box<dyn SovereignSubstrateProvider + Send + Sync> = if cfg!(test) {
+            Box::new(MockSubstrateProvider)
+        } else {
+            Box::new(NativeSubstrateProvider::new())
+        };
+
         Self {
             operator: NativeOperator::new(),
-            // In a real build, we would conditionally instantiate platform-specific providers here.
-            // [FIX] Updated struct name
-            substrate: Box::new(MockSubstrateProvider),
+            substrate,
         }
     }
 }
@@ -63,7 +71,7 @@ impl GuiDriver for IoiGuiDriver {
         Ok(tree_xml)
     }
 
-    // [NEW] Implementation of the Substrate access method
+    // Implementation of the Substrate access method
     async fn capture_context(&self, intent: &ActionRequest) -> Result<ContextSlice, VmError> {
         // In a real implementation, we would determine the active monitor handle here.
         let monitor_handle = 0;

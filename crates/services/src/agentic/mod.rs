@@ -5,11 +5,13 @@ use ioi_api::impl_service_base;
 
 pub mod desktop;
 pub mod firewall;
-pub mod grounding; // [NEW] Visual Grounding logic
+pub mod grounding;
 pub mod leakage;
 pub mod normaliser;
 pub mod prompt_wrapper;
-pub mod session; // [NEW] Desktop Agent Service
+pub mod session;
+pub mod scrub_adapter; // [NEW] Registered
+pub mod scrubber;      // [NEW] Registered
 
 /// A service for agentic operations.
 pub struct AgenticService {

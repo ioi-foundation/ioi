@@ -45,3 +45,17 @@ pub trait LightClient: Send + Sync {
     /// Returns the latest block height that has been successfully verified and stored.
     async fn latest_verified_height(&self) -> u64;
 }
+
+// [NEW] Trait for Verifiable Inference (Agentic ZK)
+// This lives here because it shares the ZK infrastructure pattern.
+#[async_trait]
+pub trait AgentZkVerifier: Send + Sync {
+    /// Verifies that `output = Model(input)` for a specific model hash.
+    async fn verify_inference(
+        &self,
+        proof: &[u8],
+        model_hash: [u8; 32],
+        input: &[u8],
+        output: &[u8],
+    ) -> Result<bool, CoreError>;
+}

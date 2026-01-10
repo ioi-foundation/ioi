@@ -28,6 +28,11 @@ pub struct CommitteeCertificate {
     /// A bitfield representing which committee members contributed to the signature.
     /// Used to reconstruct the aggregate public key for verification.
     pub signers_bitfield: Vec<u8>,
+
+    /// [NEW] Optional ZK Proof of Inference Correctness.
+    /// If present, this replaces the need for a committee quorum in some contexts,
+    /// or acts as a fraud proof.
+    pub zk_proof: Option<Vec<u8>>,
 }
 
 /// The type of data being redacted from a Context Slice.

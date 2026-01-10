@@ -22,8 +22,8 @@ use std::fmt::Debug;
 use std::sync::{atomic::AtomicBool, Arc};
 use tokio::sync::{mpsc, watch, Mutex};
 
-// [NEW] Import LocalSafetyModel trait
-use crate::firewall::inference::LocalSafetyModel;
+// [FIX] Import LocalSafetyModel trait from API
+use ioi_api::vm::inference::LocalSafetyModel;
 
 /// A type alias for the thread-safe, dynamically dispatched chain state machine.
 pub type ChainFor<CS, ST> = Arc<

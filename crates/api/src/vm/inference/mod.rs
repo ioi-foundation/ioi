@@ -7,10 +7,10 @@ use std::path::Path;
 
 pub mod driver;
 pub mod http_adapter;
-pub mod mock; // [NEW] Export the new module
+pub mod mock;
 
 pub use driver::{AcceleratorType, DeviceCapabilities, HardwareDriver, ModelHandle};
-pub use http_adapter::HttpInferenceRuntime; // [NEW] Re-export for easier usage
+pub use http_adapter::HttpInferenceRuntime;
 
 /// A runtime capable of executing deterministic AI inference.
 #[async_trait]
@@ -36,4 +36,29 @@ pub trait InferenceRuntime: Send + Sync {
 
     /// Offloads a model from memory.
     async fn unload_model(&self, model_hash: [u8; 32]) -> Result<(), VmError>;
+}
+
+// --- NEW: Safety Traits Moved from Validator to resolve circular dependency ---
+
+/// Represents the output of a safety check by the local BitNet engine.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SafetyVerdict {
+    /// The content is safe to proceed.
+    Safe,
+    /// The content violates safety guidelines (e.g., jailbreak attempt, malicious intent).
+    Unsafe(String),
+    /// The content contains PII that must be scrubbed.
+    ContainsPII,
+}
+
+/// Abstract interface for the local CPU-based inference engine (BitNet b1.58).
+/// This engine is optimized for low-latency classification and scrubbing.
+#[async_trait]
+pub trait LocalSafetyModel: Send + Sync {
+    /// Classifies the intent of a prompt or action payload.
+    async fn classify_intent(&self, input: &str) -> anyhow::Result<SafetyVerdict>;
+
+    /// Identifies spans of text that contain PII or secrets.
+    /// Returns a list of (start_index, end_index, category).
+    async fn detect_pii(&self, input: &str) -> anyhow::Result<Vec<(usize, usize, String)>>;
 }

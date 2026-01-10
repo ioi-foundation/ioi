@@ -29,6 +29,8 @@ enigo = "0.2.1"
 xcap = { version = "0.0.14", default-features = false }
 # [FIX] Bump image to 0.25 to match xcap
 image = "0.25"
+# [NEW] Visual Perceptual Hashing
+image_hasher = "2.0"
 
 # Replacement for DOM/Accessibility Parsing
 accesskit = "0.16.0"
