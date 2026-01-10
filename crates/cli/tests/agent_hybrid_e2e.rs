@@ -7,7 +7,7 @@ use ioi_api::services::BlockchainService;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_cli::testing::build_test_artifacts;
-use ioi_services::agentic::desktop::{AgentState, StartAgentParams, StepAgentParams};
+use ioi_services::agentic::desktop::{StartAgentParams, StepAgentParams};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::{
@@ -19,13 +19,25 @@ use serde_json::json;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
+// [FIX] Imports for valid PNG generation
+use image::{ImageBuffer, ImageFormat, Rgba};
+use std::io::Cursor;
+
 // Mocks
 #[derive(Clone)]
 struct MockGuiDriver;
 #[async_trait]
 impl GuiDriver for MockGuiDriver {
     async fn capture_screen(&self) -> Result<Vec<u8>, VmError> {
-        Ok(vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+        // [FIX] Generate a valid 1x1 PNG image to satisfy image::load_from_memory
+        let mut img = ImageBuffer::<Rgba<u8>, Vec<u8>>::new(1, 1);
+        img.put_pixel(0, 0, Rgba([255, 0, 0, 255]));
+
+        let mut bytes: Vec<u8> = Vec::new();
+        img.write_to(&mut Cursor::new(&mut bytes), ImageFormat::Png)
+            .map_err(|e| VmError::HostError(format!("Mock PNG encoding failed: {}", e)))?;
+
+        Ok(bytes)
     }
     async fn capture_tree(&self) -> Result<String, VmError> {
         Ok("".into())
