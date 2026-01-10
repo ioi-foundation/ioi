@@ -21,21 +21,18 @@ use std::any::Any;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-// [FIX] Imports: remove unused and fix paths
 use crate::agentic::grounding::parse_vlm_action;
 use crate::agentic::scrub_adapter::RuntimeAsSafetyModel;
 use crate::agentic::scrubber::SemanticScrubber;
 
 use ioi_api::ibc::AgentZkVerifier;
-// [FIX] Use dcrypt directly for ByteSerializable trait
-use dcrypt::algorithms::ByteSerializable; // Needed for copy_from_slice
 
 const AGENT_STATE_PREFIX: &[u8] = b"agent::state::";
 const SKILL_INDEX_PREFIX: &[u8] = b"skills::vector::";
 const TRACE_PREFIX: &[u8] = b"agent::trace::";
 
 const CHARS_PER_TOKEN: u64 = 4;
-// ... (rest of file unchanged)
+
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 pub enum AgentStatus {
     Idle,
@@ -392,7 +389,7 @@ impl BlockchainService for DesktopAgentService {
                 }
 
                 if agent_state.budget == 0 {
-                    agent_state.status = AgentStatus::Failed("Budget Exhausted".into());
+                    agent_state.status = AgentStatus::Failed("Budget Exhausted during step".into());
                     state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
                     return Err(TransactionError::Invalid("Budget Exhausted".into()));
                 }
@@ -467,12 +464,11 @@ impl BlockchainService for DesktopAgentService {
                     tree_xml
                 );
 
-                // [FIX] Explicit type for user_prompt to satisfy E0282
                 let (scrubbed_prompt, _redaction_map) =
                     self.scrubber.scrub(&raw_user_prompt).await.map_err(|e| {
                         TransactionError::Invalid(format!("Scrubbing failed: {}", e))
                     })?;
-                let user_prompt: String = scrubbed_prompt; // Explicit type
+                let user_prompt: String = scrubbed_prompt;
 
                 let estimated_input_tokens = (user_prompt.len() as u64) / CHARS_PER_TOKEN;
 
@@ -688,16 +684,10 @@ impl BlockchainService for DesktopAgentService {
                     agent_state.consecutive_failures += 1;
                     agent_state
                         .history
-                        .push(format!("Action: {} -> FAILED: {}", output_str, e));
+                        .push(format!("System: Action Failed: {}", e));
                 } else {
                     agent_state.consecutive_failures = 0;
-                    if !agent_state
-                        .history
-                        .last()
-                        .map_or(false, |h| h.starts_with("Action:"))
-                    {
-                        agent_state.history.push(format!("Action: {}", output_str));
-                    }
+                    // Action already logged at start of step.
                 }
 
                 agent_state.step_count += 1;
