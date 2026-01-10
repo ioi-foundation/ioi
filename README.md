@@ -199,7 +199,7 @@ IOI agents are "Trace-First". You define logic, and the system auto-generates th
     cargo test --package ioi-cli --test agent_hybrid_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
     ```
     ```bash
-    cargo test --package ioi-cli --test agent_pause_resume_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
+    cargo test --package ioi-cli --test agent_pause_resume --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
     ```
     ```bash
     cargo test --package ioi-cli --test agent_resilience_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
