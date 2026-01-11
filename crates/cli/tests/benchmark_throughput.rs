@@ -97,7 +97,7 @@ fn create_transfer_tx(
 #[tokio::test(flavor = "multi_thread")]
 async fn test_benchmark_100k_throughput() -> Result<()> {
     // 0. Environment Setup
-    println!("--- Starting IOI SDK Throughput Benchmark (Corrected) ---");
+    println!("--- Starting IOI Kernel Throughput Benchmark (Corrected) ---");
     println!("Configuration:");
     println!("  - Consensus: Admft");
     println!("  - State Tree: Jellyfish Merkle Tree");

@@ -1,5 +1,5 @@
 // Path: crates/ipc/src/lib.rs
-//! # IOI SDK IPC
+//! # IOI Kernel IPC
 //!
 //! Implements the hybrid communication architecture:
 //! 1. **Control Plane**: gRPC via `tonic` for signals and consensus.

@@ -4,7 +4,7 @@
 name = "ioi-test-utils"
 version = "0.1.0"
 edition = "2021"
-description = "Utilities for testing the IOI SDK components"
+description = "Utilities for testing the IOI Kernel components"
 license-file = "../../LICENSE-BBSL"
 repository = "https://github.com/ioi-foundation/ioi"
 

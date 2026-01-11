@@ -201,7 +201,7 @@ pub fn generate_certificates_if_needed(certs_dir: &Path) -> Result<()> {
     std::fs::create_dir_all(certs_dir)?;
 
     // [FIX] rcgen 0.13 changes: CertificateParams::new returns Result
-    let mut ca_params = CertificateParams::new(vec!["IOI SDK Local CA".to_string()])?;
+    let mut ca_params = CertificateParams::new(vec!["IOI Kernel Local CA".to_string()])?;
     ca_params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
     ca_params.key_usages = vec![KeyUsagePurpose::KeyCertSign, KeyUsagePurpose::CrlSign];
 
@@ -529,7 +529,7 @@ impl GuardianContainer {
             if content.len() == 32 {
                 return Err(anyhow!(
                     "SECURITY ERROR: Found unsafe raw key at {:?}. \
-                    The IOI SDK requires all validator keys to be encrypted. \
+                    The IOI Kernel requires all validator keys to be encrypted. \
                     Please delete this file to generate a new secure key, or migrate it manually.",
                     path
                 ));

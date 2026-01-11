@@ -59,6 +59,9 @@ dcrypt = { workspace = true }
 # [+] Added missing dependency for GenesisBuilder
 parity-scale-codec = { workspace = true, features = ["derive", "std"] }
 
+# [FIX] Added missing rpassword for ioi keys provision
+rpassword = "7.0"
+
 # HTTP body helpers for hyper v1 (bollard expects these shapes)
 bytes = "1"
 http-body-util = "0.1"

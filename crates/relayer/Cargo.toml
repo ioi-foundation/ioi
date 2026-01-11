@@ -3,7 +3,7 @@
 name = "ioi-relayer"
 version = "0.1.0"
 edition = "2021"
-description = "A native IBC relayer implementation for the IOI SDK test suite"
+description = "A native IBC relayer implementation for the IOI Kernel test suite"
 license-file = "../../LICENSE-BBSL"
 repository = "https://github.com/ioi-foundation/ioi"
 

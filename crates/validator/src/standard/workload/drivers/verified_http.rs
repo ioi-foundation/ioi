@@ -2,15 +2,21 @@
 
 use anyhow::Result;
 use async_trait::async_trait;
-use ioi_api::vm::inference::{InferenceRuntime, InferenceOptions};
-use ioi_ipc::control::guardian_control_client::GuardianControlClient; 
+use ioi_api::vm::inference::InferenceRuntime;
+use ioi_ipc::control::guardian_control_client::GuardianControlClient;
 use ioi_ipc::control::SecureEgressRequest;
+use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::error::VmError;
+use serde_json::json;
 use std::path::Path;
 use tonic::transport::Channel;
-use serde_json::json;
 
 /// A runtime driver that routes inference requests through the Guardian's secure egress.
+///
+/// This implementation fulfills the "Bring Your Own Key" (BYO-Key) model where the
+/// Workload container never sees the raw API credentials. Instead, it delegates
+/// the network call to the Guardian, which injects the key and returns a signed
+/// attestation of the traffic.
 pub struct VerifiedHttpRuntime {
     /// gRPC client to the local Guardian container.
     guardian_client: GuardianControlClient<Channel>,
@@ -23,12 +29,15 @@ pub struct VerifiedHttpRuntime {
 }
 
 impl VerifiedHttpRuntime {
-    pub fn new(
-        channel: Channel,
-        provider: String,
-        key_ref: String,
-        model_name: String,
-    ) -> Self {
+    /// Creates a new `VerifiedHttpRuntime`.
+    ///
+    /// # Arguments
+    ///
+    /// * `channel` - The secure gRPC channel to the Guardian.
+    /// * `provider` - The name of the AI provider (e.g. "openai").
+    /// * `key_ref` - The reference ID of the API key stored in the Guardian's secure store.
+    /// * `model_name` - The specific model to request (e.g. "gpt-4-turbo").
+    pub fn new(channel: Channel, provider: String, key_ref: String, model_name: String) -> Self {
         Self {
             guardian_client: GuardianControlClient::new(channel),
             provider,
@@ -41,7 +50,6 @@ impl VerifiedHttpRuntime {
         match self.provider.as_str() {
             "openai" => "api.openai.com".to_string(),
             "anthropic" => "api.anthropic.com".to_string(),
-            // Add other providers here
             _ => "unknown".to_string(),
         }
     }
@@ -50,38 +58,45 @@ impl VerifiedHttpRuntime {
         match self.provider.as_str() {
             "openai" => "/v1/chat/completions".to_string(),
             "anthropic" => "/v1/messages".to_string(),
-             // Add other providers here
             _ => "/".to_string(),
         }
     }
 
-    fn build_openai_body(&self, input: &[u8], options: &InferenceOptions) -> Result<Vec<u8>, VmError> {
+    fn build_openai_body(
+        &self,
+        input: &[u8],
+        options: &InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
         let prompt_str = String::from_utf8(input.to_vec())
             .map_err(|e| VmError::InvalidBytecode(format!("Input context must be UTF-8: {}", e)))?;
-        
-        // Basic mapping for MVP
+
+        // Basic mapping for OpenAI Chat Completion API
         let body = json!({
             "model": self.model_name,
             "messages": [{"role": "user", "content": prompt_str}],
             "temperature": options.temperature,
-            // "tools": ... (map tools if present)
         });
-        
-        Ok(serde_json::to_vec(&body).map_err(|e| VmError::HostError(e.to_string()))?)
+
+        serde_json::to_vec(&body).map_err(|e| VmError::HostError(e.to_string()))
     }
 
-    fn build_anthropic_body(&self, input: &[u8], options: &InferenceOptions) -> Result<Vec<u8>, VmError> {
+    fn build_anthropic_body(
+        &self,
+        input: &[u8],
+        options: &InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
         let prompt_str = String::from_utf8(input.to_vec())
-             .map_err(|e| VmError::InvalidBytecode(format!("Input context must be UTF-8: {}", e)))?;
+            .map_err(|e| VmError::InvalidBytecode(format!("Input context must be UTF-8: {}", e)))?;
 
+        // Basic mapping for Anthropic Messages API
         let body = json!({
             "model": self.model_name,
             "messages": [{"role": "user", "content": prompt_str}],
-            "max_tokens": 1024, 
+            "max_tokens": 1024,
             "temperature": options.temperature,
         });
 
-        Ok(serde_json::to_vec(&body).map_err(|e| VmError::HostError(e.to_string()))?)
+        serde_json::to_vec(&body).map_err(|e| VmError::HostError(e.to_string()))
     }
 
     fn parse_provider_response(&self, data: &[u8]) -> Result<Vec<u8>, VmError> {
@@ -94,14 +109,16 @@ impl VerifiedHttpRuntime {
                     .as_str()
                     .ok_or_else(|| VmError::HostError("OpenAI response missing content".into()))?;
                 Ok(content.as_bytes().to_vec())
-            },
-             "anthropic" => {
-                let content = json["content"][0]["text"]
-                    .as_str()
-                    .ok_or_else(|| VmError::HostError("Anthropic response missing content".into()))?;
+            }
+            "anthropic" => {
+                let content = json["content"][0]["text"].as_str().ok_or_else(|| {
+                    VmError::HostError("Anthropic response missing content".into())
+                })?;
                 Ok(content.as_bytes().to_vec())
-             },
-            _ => Err(VmError::HostError("Unknown provider response format".into())),
+            }
+            _ => Err(VmError::HostError(
+                "Unknown provider response format".into(),
+            )),
         }
     }
 }
@@ -110,46 +127,43 @@ impl VerifiedHttpRuntime {
 impl InferenceRuntime for VerifiedHttpRuntime {
     async fn execute_inference(
         &self,
-        _model_hash: [u8; 32], 
-        input_context: &[u8], 
-        options: InferenceOptions
+        _model_hash: [u8; 32],
+        input_context: &[u8],
+        options: InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
-        
         // 1. Transform input to Provider-Specific JSON (Stateless)
-        // The driver formats the body but does NOT add headers/keys.
         let request_body = match self.provider.as_str() {
             "openai" => self.build_openai_body(input_context, &options)?,
             "anthropic" => self.build_anthropic_body(input_context, &options)?,
-            _ => return Err(VmError::Config("Unknown provider".into())),
+            _ => return Err(VmError::Initialization("Unknown provider".into())),
         };
 
-        // 2. Delegate to Guardian via IPC
-        // The Workload sends the body and the ID of the key to use.
-        // NOTE: self.guardian_client is a Clone of the client, so mutability is handled by the underlying channel.
+        // 2. Delegate to Guardian via IPC Secure Egress
         let mut client = self.guardian_client.clone();
-        
+
         let req = SecureEgressRequest {
             domain: self.get_provider_domain(),
             path: self.get_provider_path(),
             method: "POST".into(),
             body: request_body,
-            secret_id: self.key_ref.clone(), 
+            secret_id: self.key_ref.clone(),
         };
 
-        let resp = client.secure_egress(req).await
+        let resp = client
+            .secure_egress(req)
+            .await
             .map_err(|e| VmError::HostError(format!("Guardian Egress Failed: {}", e)))?;
 
-        // 3. Unpack Response & Proof
+        // 3. Unpack Response
         let inner = resp.into_inner();
         let data = inner.body;
-        // In a full implementation, we would verify the guardian_signature here if the Workload distrusts the channel.
-        
+
         // 4. Parse and return text
         self.parse_provider_response(&data)
     }
 
     async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
-        // Stateless HTTP runtime, no loading needed
+        // Stateless HTTP runtime, no local loading needed
         Ok(())
     }
 

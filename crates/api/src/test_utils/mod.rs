@@ -1,3 +1,3 @@
-//! Test utilities for the IOI SDK Core
+//! Test utilities for the IOI Kernel Core
 
 pub mod mock_commitment;

@@ -2,7 +2,7 @@
 name = "identity-service-contract"
 version = "0.1.0"
 edition = "2021"
-description = "On-chain WASM component for the IOI SDK Identity service"
+description = "On-chain WASM component for the IOI Kernel Identity service"
 license-file = "../../../../LICENSE-BBSL"
 repository = "https://github.com/ioi-foundation/ioi"
 

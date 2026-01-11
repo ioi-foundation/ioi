@@ -1,7 +1,7 @@
 // Path: crates/api/src/types/mod.rs
 // Change: Removed the `where` clause from the StateManagerFor type alias.
 
-//! Type aliases and common types for the IOI SDK
+//! Type aliases and common types for the IOI Kernel
 
 use crate::commitment::CommitmentScheme;
 use crate::state::StateManager;

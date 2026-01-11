@@ -1,5 +1,5 @@
 // Path: crates/types/src/error/mod.rs
-//! Core error types for the IOI SDK.
+//! Core error types for the IOI Kernel.
 
 use crate::app::AccountId;
 use thiserror::Error;

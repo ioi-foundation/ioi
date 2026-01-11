@@ -17,7 +17,7 @@ native = ["dep:sp1-verifier"]
 [dependencies]
 ioi-api = { path = "../api" }
 ioi-types = { path = "../types" }
-zk-types = { path = "../zk-types" }                 # [NEW]
+zk-types = { path = "../zk-types" }
 anyhow = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
@@ -25,6 +25,7 @@ hex = { workspace = true }
 dcrypt = { workspace = true }
 thiserror = { workspace = true }
 bincode = { workspace = true }
+async-trait = { workspace = true }
 
 # Optional dependencies for native SP1 verification
 sp1-verifier = { version = "3.4.0", optional = true }

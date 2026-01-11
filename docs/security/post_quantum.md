@@ -1,6 +1,6 @@
-# 🧬 IOI SDK — Post-Quantum Security Architecture
+# 🧬 IOI Kernel — Post-Quantum Security Architecture
 
-The IOI SDK is designed to be secure in a post-quantum computing era. This document outlines the framework’s cryptographic strategy, its hybrid key exchange for transport security, and the on-chain governance mechanisms for migrating cryptographic primitives.
+The IOI Kernel is designed to be secure in a post-quantum computing era. This document outlines the framework’s cryptographic strategy, its hybrid key exchange for transport security, and the on-chain governance mechanisms for migrating cryptographic primitives.
 
 _Last updated: 2025-11-10_
 
@@ -8,7 +8,7 @@ _Last updated: 2025-11-10_
 
 ## 1. Overview
 
-The IOI SDK employs a **hybrid classical + post-quantum** security model, focusing on providing forward secrecy for network communications and cryptographic agility for on-chain identity and consensus.
+The IOI Kernel employs a **hybrid classical + post-quantum** security model, focusing on providing forward secrecy for network communications and cryptographic agility for on-chain identity and consensus.
 
 **Goals**
 
@@ -59,7 +59,7 @@ This ensures that the channel's confidentiality is secure as long as **at least 
 
 ## 4. Consensus & Identity Layer
 
-The IOI SDK supports cryptographic agility for validator identities through the **`IdentityHub`** service. This enables a seamless, on-chain migration from classical to post-quantum signatures without requiring a hard fork.
+The IOI Kernel supports cryptographic agility for validator identities through the **`IdentityHub`** service. This enables a seamless, on-chain migration from classical to post-quantum signatures without requiring a hard fork.
 
 The process is as follows:
 1.  **Initial State:** A validator's on-chain identity is initially represented by an `Ed25519` key.

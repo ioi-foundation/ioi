@@ -1,5 +1,5 @@
 // Path: crates/services/src/governance/mod.rs
-//! Governance module implementations for the IOI SDK
+//! Governance module implementations for the IOI Kernel
 
 use async_trait::async_trait;
 use ioi_api::identity::CredentialsView;

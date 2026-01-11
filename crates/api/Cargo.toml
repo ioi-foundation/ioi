@@ -4,8 +4,8 @@ name = "ioi-api"
 version = "0.1.0"
 rust-version = "1.78"
 edition = "2021"
-description = "Core traits and APIs for the IOI SDK"
-license-file = "../../LICENSE-BBSL"
+description = "Core traits and APIs for the IOI Kernel"
+license.workspace = true
 repository = "https://github.com/ioi-foundation/ioi"
 
 [dependencies]

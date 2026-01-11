@@ -1,5 +1,5 @@
 // Path: crates/client/src/lib.rs
-//! # IOI SDK Client Crate Lints
+//! # IOI Kernel Client Crate Lints
 //!
 //! This crate enforces a strict set of lints to ensure high-quality,
 //! panic-free, and well-documented code. Panics are disallowed in non-test
@@ -16,7 +16,7 @@
     )
 )]
 
-//! # IOI SDK Client
+//! # IOI Kernel Client
 //!
 //! Provides client-side logic for interacting with validator containers via IPC.
 

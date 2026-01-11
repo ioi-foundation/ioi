@@ -11,9 +11,9 @@
     )
 )]
 
-//! # IOI SDK Test Utilities
+//! # IOI Kernel Test Utilities
 //!
-//! Utilities for testing the IOI SDK components.
+//! Utilities for testing the IOI Kernel components.
 
 pub mod agentic_mock;
 pub mod assertions;

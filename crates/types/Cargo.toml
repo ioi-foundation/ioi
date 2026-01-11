@@ -3,8 +3,8 @@
 name = "ioi-types"
 version = "0.1.0"
 edition = "2021"
-description = "Core data structures and error types for the IOI SDK"
-license-file = "../../LICENSE-BBSL"
+description = "Core data structures and error types for the IOI Kernel"
+license.workspace = true
 repository = "https://github.com/ioi-foundation/ioi"
 
 [dependencies]

@@ -4,7 +4,7 @@ name = "ioi-networking"
 version = "0.1.0"
 rust-version = "1.78"
 edition = "2021"
-description = "Block synchronization and networking components for the IOI SDK"
+description = "Block synchronization and networking components for the IOI Kernel"
 license-file = "../../LICENSE-BBSL"
 repository = "https://github.com/ioi-foundation/ioi"
 
