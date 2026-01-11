@@ -251,21 +251,46 @@ pub fn verify_stateful_authorization(
         };
 
         // [FIX] Prefix unused var
-        let _active_cred = creds[0]
+        let active_cred = creds[0]
             .as_ref()
             .ok_or(TransactionError::UnauthorizedByCredentials)?;
 
         // Reconstruct the payload signed by the Master Identity (the auth struct itself).
-        // Since `signer_sig` is inside the struct, we zero it out or serialize the fields individually.
-        // A robust way is to define a "SignableSessionAuth" or serialize fields manually.
-        // For now, assume a canonical serialization excluding the signature field exists.
-        // NOTE: This logic assumes `SessionAuthorization::to_sign_bytes` is implemented.
-        // We need to implement this in `types/app/identity.rs`.
-        // For this scaffold, we'll placeholder the verification logic:
+        // To avoid including the signature field in its own verification, we create a copy
+        // with `signer_sig` cleared.
+        let mut auth_to_sign = auth.clone();
+        auth_to_sign.signer_sig = Vec::new();
+        let auth_sign_bytes = ioi_types::codec::to_bytes_canonical(&auth_to_sign)
+            .map_err(TransactionError::Serialization)?;
 
-        // Placeholder: Verify auth.signer_sig against active_cred.public_key
-        // This requires retrieving the actual public key bytes from the `identity::pubkey` map if we only have the hash in `active_cred`.
-        // The IdentityHub stores the full pubkey in a separate map.
+        // In IdentityHub, we only store the hash of the public key in active_cred.
+        // We need the full public key to verify the signature.
+        // The full key is stored in the `ACCOUNT_ID_TO_PUBKEY_PREFIX` map.
+        // This map is global and accessible here.
+        let pubkey_map_key = [
+            ioi_types::keys::ACCOUNT_ID_TO_PUBKEY_PREFIX,
+            header.account_id.as_ref(),
+        ]
+        .concat();
+
+        let master_pubkey = state.get(&pubkey_map_key)?.ok_or_else(|| {
+            TransactionError::Invalid("Master public key not found in registry".into())
+        })?;
+
+        // Verify that the retrieved key matches the hash in active_cred
+        // (Double check to ensure no key rotation race condition)
+        let derived_hash = account_id_from_key_material(active_cred.suite, &master_pubkey)?;
+        if derived_hash != active_cred.public_key_hash {
+             return Err(TransactionError::Invalid("Master public key does not match active credential hash".into()));
+        }
+
+        // Verify the Master's signature on the Session Authorization
+        verify_signature(
+            active_cred.suite,
+            &master_pubkey,
+            &auth_sign_bytes,
+            &auth.signer_sig,
+        ).map_err(|e| TransactionError::Invalid(format!("Session authorization signature invalid: {}", e)))?;
 
         // 3. Enforce Session Constraints
         if ctx.block_height > auth.expiry {

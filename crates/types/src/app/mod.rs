@@ -7,6 +7,8 @@ pub mod action;
 pub mod agentic;
 /// Data structures related to consensus, such as the canonical validator set
 pub mod consensus;
+/// Data structures for unified kernel events.
+pub mod events;
 /// Data structures for on-chain identity, including the canonical AccountId.
 pub mod identity;
 /// Data structures for reporting and penalizing misbehavior.
@@ -14,7 +16,7 @@ pub mod penalties;
 /// Data structures for economic settlement.
 pub mod settlement;
 /// Data structures for deterministic block timing.
-pub mod timing;
+pub mod timing; // [NEW]
 
 pub use action::*;
 pub use consensus::*;
@@ -23,13 +25,14 @@ pub use agentic::{
     AgentSkill, CommitteeCertificate, InferenceOptions, LlmToolDefinition, RedactionEntry,
     RedactionMap, RedactionType, StepTrace,
 };
+pub use events::*;
 pub use identity::{
     account_id_from_key_material, AccountId, ActiveKeyRecord, BinaryMeasurement, BootAttestation,
     ChainId, Credential, GuardianReport, SignatureSuite,
 };
 pub use penalties::*;
 pub use settlement::*;
-pub use timing::*;
+pub use timing::*; // [NEW]
 
 // [NEW] Moved ContextSlice here from drivers
 use parity_scale_codec::{Decode, Encode};

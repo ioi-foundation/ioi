@@ -327,6 +327,9 @@ pub enum TransactionError {
     /// The transaction type requires a service that is not enabled on the chain.
     #[error("Unsupported transaction type: {0}")]
     Unsupported(String),
+    /// The transaction requires explicit user approval.
+    #[error("Approval required for request: {0}")]
+    PendingApproval(String),
 }
 
 impl ErrorCode for TransactionError {
@@ -350,6 +353,7 @@ impl ErrorCode for TransactionError {
             Self::UnauthorizedByCredentials => "TX_UNAUTHORIZED_BY_CREDENTIALS",
             Self::AccountIdMismatch => "TX_ACCOUNT_ID_MISMATCH",
             Self::Unsupported(_) => "TX_UNSUPPORTED",
+            Self::PendingApproval(_) => "TX_PENDING_APPROVAL",
         }
     }
 }

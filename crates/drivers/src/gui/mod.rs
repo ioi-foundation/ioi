@@ -14,6 +14,11 @@ use ioi_types::error::VmError;
 
 use self::accessibility::{MockSubstrateProvider, SovereignSubstrateProvider};
 use self::platform::NativeSubstrateProvider; // [NEW] Import Native Provider
+                                             // [NEW]
+use ioi_scs::SovereignContextStore;
+use ioi_types::app::KernelEvent;
+use std::sync::{Arc, Mutex};
+use tokio::sync::broadcast::Sender;
 
 /// The concrete implementation of the IOI GUI Driver.
 /// This replaces the UI-TARS Electron app.
@@ -24,19 +29,28 @@ pub struct IoiGuiDriver {
 
 impl IoiGuiDriver {
     pub fn new() -> Self {
-        // [FIX] Conditionally use Native provider in non-test builds, or based on a feature flag.
-        // For now, we default to the Native provider (which currently has a mock impl inside)
-        // to exercise the new code paths. In production, this would switch based on `cfg!(target_os)`.
-        let substrate: Box<dyn SovereignSubstrateProvider + Send + Sync> = if cfg!(test) {
-            Box::new(MockSubstrateProvider)
-        } else {
-            Box::new(NativeSubstrateProvider::new())
-        };
+        // [FIX] Always default to Mock.
+        // The real provider requires the SCS handle, which must be injected.
+        // We add a method `with_scs` to upgrade to the Native provider.
+        let substrate: Box<dyn SovereignSubstrateProvider + Send + Sync> =
+            Box::new(MockSubstrateProvider);
 
         Self {
             operator: NativeOperator::new(),
             substrate,
         }
+    }
+
+    // [NEW] Builder method to inject event sender into operator
+    pub fn with_event_sender(mut self, sender: Sender<KernelEvent>) -> Self {
+        self.operator = self.operator.with_event_sender(sender);
+        self
+    }
+
+    // [NEW] Builder method to inject SCS and switch to Native provider
+    pub fn with_scs(mut self, scs: Arc<Mutex<SovereignContextStore>>) -> Self {
+        self.substrate = Box::new(NativeSubstrateProvider::new(scs));
+        self
     }
 }
 

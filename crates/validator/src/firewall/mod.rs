@@ -147,11 +147,9 @@ pub async fn enforce_firewall(
                     return Err(TransactionError::Invalid("Blocked by Policy".into()));
                 }
                 Verdict::RequireApproval => {
-                    // [FIX] Return a structured error that the RPC layer can detect
-                    // to trigger the PENDING_APPROVAL status in the response.
-                    return Err(TransactionError::Invalid(
-                        "Requires Approval Token (2FA)".into(),
-                    ));
+                    let req_hash = hex::encode(dummy_request.hash());
+                    // Return structured error so UI can prompt user
+                    return Err(TransactionError::PendingApproval(req_hash));
                 }
             }
 

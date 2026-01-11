@@ -11,8 +11,10 @@ use ioi_api::{
 };
 use ioi_crypto::sign::dilithium::MldsaKeyPair;
 use ioi_ipc::public::TxStatus;
-// [NEW] Import ChainEvent
-use ioi_ipc::public::ChainEvent;
+// [NEW] Import ChainEvent - Note: The instruction mentions KernelEvent, but the plan used KernelEvent.
+// The file previously imported ioi_ipc::public::ChainEvent.
+// I will import KernelEvent from ioi_types based on step 1.1.
+use ioi_types::app::KernelEvent;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::traits::NodeState;
 use ioi_types::app::{AccountId, Block, ChainTransaction, OracleAttestation, TxHash};
@@ -116,7 +118,7 @@ where
     // [NEW] Global event bus for the GUI (Capacity ~1000)
     // Used to stream live updates (Thought process, Firewall interceptions, Block commits)
     // to the Desktop Agent frontend.
-    pub event_broadcaster: tokio::sync::broadcast::Sender<ChainEvent>,
+    pub event_broadcaster: tokio::sync::broadcast::Sender<KernelEvent>,
 
     // [NEW] Handle to the Sovereign Context Substrate.
     // Allows the Orchestrator to serve raw blobs (screenshots) to the GUI.
