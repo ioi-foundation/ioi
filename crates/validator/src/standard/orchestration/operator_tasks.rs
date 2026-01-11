@@ -27,6 +27,9 @@ use std::sync::Mutex;
 use std::time::Duration;
 use std::time::Instant;
 
+// [FIX] Import reqwest for HTTP Client
+use reqwest::Client;
+
 // --- Compute Market Canonical Definitions ---
 
 /// Data required to reconstruct the provider's signature payload for verification.
@@ -65,10 +68,13 @@ fn sha256_32(data: &[u8]) -> Result<[u8; 32]> {
 // --- Provider Client Abstraction ---
 
 /// Data returned from a remote provider after a successful provisioning request.
+#[derive(serde::Deserialize)] // [FIX] Added Deserialize derive
 pub struct ProvisioningReceiptData {
     pub instance_id: String,
     pub endpoint_uri: String,
     pub lease_id: String,
+    // [FIX] Use hex decoding for byte fields in JSON
+    #[serde(deserialize_with = "hex::serde::deserialize")]
     pub signature: Vec<u8>,
 }
 
@@ -83,21 +89,67 @@ pub trait ProviderClient: Send + Sync {
     ) -> Result<ProvisioningReceiptData>;
 }
 
-// Mock Implementation for simulation/testing
-pub struct MockProviderClient;
+// Real HTTP Implementation
+pub struct HttpProviderClient {
+    client: Client,
+}
+
+impl HttpProviderClient {
+    pub fn new() -> Self {
+        Self {
+            client: Client::builder()
+                .timeout(Duration::from_secs(10))
+                .build()
+                .expect("Failed to build HTTP client"),
+        }
+    }
+}
+
 #[async_trait]
-impl ProviderClient for MockProviderClient {
+impl ProviderClient for HttpProviderClient {
     async fn request_provisioning(
         &self,
-        _endpoint: &str,
-        _ticket: &JobTicket,
-        _domain: &[u8],
-        _ticket_root: &[u8; 32],
+        endpoint: &str,
+        ticket: &JobTicket,
+        domain: &[u8],
+        ticket_root: &[u8; 32],
     ) -> Result<ProvisioningReceiptData> {
-        // Fail explicitly until real HTTP backend is wired in via feature flag or dependency update.
-        Err(anyhow!(
-            "ProviderClient not implemented (HTTP backend required)"
-        ))
+        let url = format!("{}/v1/provision", endpoint.trim_end_matches('/'));
+
+        // Serialize ticket for transport.
+        // In a real implementation, we might send the full struct JSON or the canonical bytes.
+        // Sending canonical bytes + metadata ensures the provider sees exactly what we signed on-chain.
+        let ticket_bytes = codec::to_bytes_canonical(ticket).map_err(|e| anyhow!(e))?;
+
+        let request_body = serde_json::json!({
+            "ticket_bytes_hex": hex::encode(ticket_bytes),
+            "domain_hex": hex::encode(domain),
+            "ticket_root_hex": hex::encode(ticket_root),
+        });
+
+        let response = self
+            .client
+            .post(&url)
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| anyhow!("Provider connection failed: {}", e))?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(anyhow!(
+                "Provider rejected provisioning: HTTP {} - {}",
+                response.status(),
+                error_text
+            ));
+        }
+
+        let receipt_data: ProvisioningReceiptData = response
+            .json()
+            .await
+            .map_err(|e| anyhow!("Failed to parse provider receipt: {}", e))?;
+
+        Ok(receipt_data)
     }
 }
 
@@ -269,7 +321,8 @@ where
         return Ok(());
     }
 
-    let provider_client = MockProviderClient;
+    // [FIX] Use real HTTP client
+    let provider_client = HttpProviderClient::new();
 
     for (key, val_bytes) in pending_tickets {
         // ALWAYS update cursor to ensure progress, even on failure/skip

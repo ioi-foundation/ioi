@@ -3,7 +3,7 @@
 use crate::firewall::rules::{ActionRules, DefaultPolicy, Rule, RuleConditions, Verdict};
 use ioi_types::app::agentic::StepTrace;
 use serde_json::Value;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 /// Synthesizes a security policy from a recorded execution trace.
 pub struct PolicySynthesizer;
@@ -23,7 +23,7 @@ impl PolicySynthesizer {
             if let Ok(tool_call) = serde_json::from_str::<Value>(&trace.raw_output) {
                 if let Some(name) = tool_call.get("name").and_then(|n| n.as_str()) {
                     let conditions = rules_map.entry(name.to_string()).or_default();
-                    
+
                     // Extract parameters to refine conditions
                     // For MVP, we extract domains from URLs and App names if available.
                     // This logic mirrors the Python SDK's GhostRecorder heuristics.
@@ -37,6 +37,10 @@ impl PolicySynthesizer {
                                 }
                             }
                         }
+                    } else if name == "gui__click" || name == "gui__type" {
+                        // [NEW] Suggest blocking high-risk intents for GUI actions if observed in unsafe contexts (heuristic)
+                        // For now, we just ensure the rule exists.
+                        // Future: integrate SafetyModel hints if trace contains them.
                     }
                 }
             }
@@ -99,14 +103,25 @@ mod tests {
         };
 
         let policy = PolicySynthesizer::synthesize("test-policy", &[trace1, trace2]);
-        
+
         assert_eq!(policy.defaults, DefaultPolicy::DenyAll);
         assert_eq!(policy.rules.len(), 2);
 
-        let nav_rule = policy.rules.iter().find(|r| r.target == "browser__navigate").unwrap();
-        assert_eq!(nav_rule.conditions.allow_domains, Some(vec!["google.com".to_string()]));
+        let nav_rule = policy
+            .rules
+            .iter()
+            .find(|r| r.target == "browser__navigate")
+            .unwrap();
+        assert_eq!(
+            nav_rule.conditions.allow_domains,
+            Some(vec!["google.com".to_string()])
+        );
 
-        let click_rule = policy.rules.iter().find(|r| r.target == "gui__click").unwrap();
+        let click_rule = policy
+            .rules
+            .iter()
+            .find(|r| r.target == "gui__click")
+            .unwrap();
         assert!(click_rule.conditions.allow_domains.is_none());
     }
 }

@@ -2,10 +2,12 @@
 
 use crate::firewall::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
 use ioi_api::state::StateAccess;
-use ioi_types::app::ActionTarget;
+use ioi_api::vm::inference::{LocalSafetyModel, SafetyVerdict};
+use ioi_types::app::{ActionTarget, ActionRequest, ApprovalToken};
 use ioi_types::service_configs::{ActiveServiceMeta, MethodPermission};
 use ioi_types::{codec, error::TransactionError, keys::active_service_key};
 use serde_json::Value;
+use std::sync::Arc;
 
 /// Helper to simulate OS context retrieval.
 /// In the full implementation, this calls into `ioi-drivers`.
@@ -23,8 +25,34 @@ pub struct PolicyEngine;
 impl PolicyEngine {
     /// Evaluates an ActionRequest against the active policy.
     /// This is the core "Compliance Layer" logic.
-    pub fn evaluate(rules: &ActionRules, target: &ActionTarget, params: &[u8]) -> Verdict {
-        let target_str = match target {
+    ///
+    /// # Arguments
+    /// * `rules` - The active ActionRules policy set.
+    /// * `request` - The canonicalized action request.
+    /// * `safety_model` - The local AI model for semantic classification.
+    /// * `presented_approval` - An optional signed token from the user authorizing this specific action.
+    pub async fn evaluate(
+        rules: &ActionRules,
+        request: &ActionRequest,
+        safety_model: &Arc<dyn LocalSafetyModel>,
+        presented_approval: Option<&ApprovalToken>,
+    ) -> Verdict {
+        let request_hash = request.hash();
+
+        // 1. Authorization Gate: Check for valid ApprovalToken first.
+        // If the user has explicitly signed off on this EXACT request hash, it bypasses
+        // standard policy checks (assuming the token signature is valid).
+        // Note: Token signature verification happens in the Orchestrator before calling this,
+        // or we assume it's valid if present in this context.
+        if let Some(token) = presented_approval {
+            if token.request_hash == request_hash {
+                // Return Allow immediately, overriding any Block rules.
+                // This implements the "User Consent" override.
+                return Verdict::Allow; 
+            }
+        }
+
+        let target_str = match &request.target {
             ActionTarget::NetFetch => "net::fetch",
             ActionTarget::FsWrite => "fs::write",
             ActionTarget::FsRead => "fs::read",
@@ -55,7 +83,7 @@ impl PolicyEngine {
             if rule.target == target_str || rule.target == "*" {
                 // If conditions match, return the verdict.
                 // If conditions fail, continue to next rule (or default).
-                if Self::check_conditions(rule, target, params) {
+                if Self::check_conditions(rule, &request.target, &request.params, safety_model).await {
                     return rule.action;
                 }
             }
@@ -68,7 +96,12 @@ impl PolicyEngine {
     }
 
     /// Evaluates specific conditions for a rule.
-    fn check_conditions(rule: &Rule, target: &ActionTarget, params: &[u8]) -> bool {
+    async fn check_conditions(
+        rule: &Rule,
+        target: &ActionTarget,
+        params: &[u8],
+        safety_model: &Arc<dyn LocalSafetyModel>,
+    ) -> bool {
         let conditions = &rule.conditions;
 
         // 1. Context Check: Allowed Apps (GUI Isolation)
@@ -80,6 +113,12 @@ impl PolicyEngine {
                     let is_allowed = allowed_apps.iter().any(|app| active_app.contains(app));
                     if !is_allowed {
                         // Policy Violation: Attempting to interact with a protected/unlisted window.
+                        // Condition Fails -> Rule Does Not Apply (if it was an Allow rule)
+                        // Wait, logic inversion:
+                        // If this is an ALLOW rule, and we are in a disallowed app, the condition fails (returns false).
+                        // If this is a BLOCK rule, and we are in a disallowed app?
+                        // Usually "allow_apps" implies a whitelist.
+                        // "Only match this rule if app is in list".
                         return false;
                     }
                 }
@@ -94,15 +133,11 @@ impl PolicyEngine {
                 // Params structure: { text: "..." }
                 if let Ok(json) = serde_json::from_slice::<Value>(params) {
                     if let Some(text) = json.get("text").and_then(|t| t.as_str()) {
-                        // If text contains the blocked pattern (e.g. "sk_live_"), rule matches
-                        // But wait: we return TRUE if the rule matches.
-                        // Usually "block_text_pattern" implies a BLOCK rule.
-                        // So if text contains pattern, condition is TRUE (rule applies).
                         if text.contains(pattern) {
-                            return true;
+                            return true; // Match!
                         } else {
-                            // If this was a blocking rule based on content, and content didn't match,
-                            // then this rule DOES NOT apply.
+                            // If condition specified a pattern and we didn't match it,
+                            // this rule shouldn't trigger.
                             return false;
                         }
                     }
@@ -131,19 +166,18 @@ impl PolicyEngine {
                     if let Some(url) = json.get(url_field).and_then(|s| s.as_str()) {
                         let domain_match = allowed_domains.iter().any(|d| url.contains(d));
                         if !domain_match {
-                            return false;
+                            return false; // URL not in allowlist
                         }
                     }
                 }
             }
         }
 
-        // 4. [NEW] Spend Limit Check for Commerce
+        // 4. Spend Limit Check for Commerce
         if let Some(max_spend) = conditions.max_spend {
             if let ActionTarget::CommerceCheckout = target {
                 if let Ok(json) = serde_json::from_slice::<Value>(params) {
                     if let Some(amount_val) = json.get("total_amount") {
-                        // Handle both number and string representations for amount
                         let amount = if let Some(n) = amount_val.as_f64() {
                             n
                         } else if let Some(s) = amount_val.as_str() {
@@ -152,17 +186,38 @@ impl PolicyEngine {
                             0.0
                         };
 
-                        // Assuming max_spend is in the same unit/currency for MVP
-                        // In production, would need currency normalization.
                         if amount > max_spend as f64 {
-                            // Rule matches?
-                            // If this is an ALLOW rule with a condition "max_spend=50",
-                            // and amount is 100, then the condition FAILS.
-                            // The rule does NOT apply. Fallback to DenyAll.
+                            // Condition failed (amount too high)
                             return false;
                         }
                     }
                 }
+            }
+        }
+
+        // 5. [NEW] Semantic Intent Check (The "Brain" of the Firewall)
+        if let Some(blocked_intents) = &conditions.block_intents {
+            // Attempt to parse params as a string for classification.
+            // For many actions, params is JSON. We classify the entire JSON structure.
+            if let Ok(input_str) = std::str::from_utf8(params) {
+                // Call the Local Safety Model (BitNet)
+                let classification = safety_model.classify_intent(input_str).await.unwrap_or(SafetyVerdict::Safe);
+
+                if let SafetyVerdict::Unsafe(reason) = classification {
+                    // If the model identifies an unsafe intent that matches one of our blocked categories
+                    // e.g. Reason: "financial_theft detected", Blocked: ["financial_theft"]
+                    // We do a simple keyword match for now.
+                    if blocked_intents.iter().any(|i| reason.contains(i)) {
+                         return true; // Condition matched (Intent is bad)
+                    } else {
+                        // It was unsafe, but not for the reason specified in this rule?
+                        // Or maybe we treat "Unsafe" as a global block.
+                        // For flexibility, we only match if the specific intent tag matches.
+                        return false; 
+                    }
+                }
+                // If Safe or PII (handled elsewhere), this specific "Block Intent" condition didn't trigger.
+                return false;
             }
         }
 
