@@ -1,6 +1,6 @@
 // Path: crates/validator/src/firewall/policy.rs
 
-use crate::firewall::rules::{ActionRules, DefaultPolicy, Verdict, Rule};
+use crate::firewall::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
 use ioi_api::state::StateAccess;
 use ioi_types::app::ActionTarget;
 use ioi_types::service_configs::{ActiveServiceMeta, MethodPermission};
@@ -23,11 +23,7 @@ pub struct PolicyEngine;
 impl PolicyEngine {
     /// Evaluates an ActionRequest against the active policy.
     /// This is the core "Compliance Layer" logic.
-    pub fn evaluate(
-        rules: &ActionRules,
-        target: &ActionTarget,
-        params: &[u8], 
-    ) -> Verdict {
+    pub fn evaluate(rules: &ActionRules, target: &ActionTarget, params: &[u8]) -> Verdict {
         let target_str = match target {
             ActionTarget::NetFetch => "net::fetch",
             ActionTarget::FsWrite => "fs::write",
@@ -37,7 +33,7 @@ impl PolicyEngine {
             ActionTarget::SysExec => "sys::exec",
             ActionTarget::WalletSign => "wallet::sign",
             ActionTarget::WalletSend => "wallet::send",
-            
+
             // Phase 1/3 Additions
             ActionTarget::GuiMouseMove => "gui::mouse_move",
             ActionTarget::GuiClick => "gui::click",
@@ -46,7 +42,11 @@ impl PolicyEngine {
             ActionTarget::GuiScroll => "gui::scroll",
             ActionTarget::BrowserNavigate => "browser::navigate",
             ActionTarget::BrowserExtract => "browser::extract",
-            
+
+            // [NEW] UCP Support
+            ActionTarget::CommerceDiscovery => "ucp::discovery",
+            ActionTarget::CommerceCheckout => "ucp::checkout",
+
             ActionTarget::Custom(s) => s.as_str(),
         };
 
@@ -80,7 +80,7 @@ impl PolicyEngine {
                     let is_allowed = allowed_apps.iter().any(|app| active_app.contains(app));
                     if !is_allowed {
                         // Policy Violation: Attempting to interact with a protected/unlisted window.
-                        return false; 
+                        return false;
                     }
                 }
                 _ => {} // Not a GUI action, skip app check
@@ -99,7 +99,7 @@ impl PolicyEngine {
                         // Usually "block_text_pattern" implies a BLOCK rule.
                         // So if text contains pattern, condition is TRUE (rule applies).
                         if text.contains(pattern) {
-                            return true; 
+                            return true;
                         } else {
                             // If this was a blocking rule based on content, and content didn't match,
                             // then this rule DOES NOT apply.
@@ -109,19 +109,61 @@ impl PolicyEngine {
                 }
             }
         }
-        
+
         // 3. Network Domain Check
         if let Some(allowed_domains) = &conditions.allow_domains {
-             if let ActionTarget::NetFetch | ActionTarget::BrowserNavigate = target {
-                 if let Ok(json) = serde_json::from_slice::<Value>(params) {
-                    if let Some(url) = json.get("url").and_then(|s| s.as_str()) {
+            if let ActionTarget::NetFetch
+            | ActionTarget::BrowserNavigate
+            | ActionTarget::CommerceDiscovery
+            | ActionTarget::CommerceCheckout = target
+            {
+                if let Ok(json) = serde_json::from_slice::<Value>(params) {
+                    // For UCP, check merchant_url or url
+                    let url_field = if matches!(
+                        target,
+                        ActionTarget::CommerceDiscovery | ActionTarget::CommerceCheckout
+                    ) {
+                        "merchant_url"
+                    } else {
+                        "url"
+                    };
+
+                    if let Some(url) = json.get(url_field).and_then(|s| s.as_str()) {
                         let domain_match = allowed_domains.iter().any(|d| url.contains(d));
                         if !domain_match {
                             return false;
                         }
                     }
-                 }
-             }
+                }
+            }
+        }
+
+        // 4. [NEW] Spend Limit Check for Commerce
+        if let Some(max_spend) = conditions.max_spend {
+            if let ActionTarget::CommerceCheckout = target {
+                if let Ok(json) = serde_json::from_slice::<Value>(params) {
+                    if let Some(amount_val) = json.get("total_amount") {
+                        // Handle both number and string representations for amount
+                        let amount = if let Some(n) = amount_val.as_f64() {
+                            n
+                        } else if let Some(s) = amount_val.as_str() {
+                            s.parse::<f64>().unwrap_or(0.0)
+                        } else {
+                            0.0
+                        };
+
+                        // Assuming max_spend is in the same unit/currency for MVP
+                        // In production, would need currency normalization.
+                        if amount > max_spend as f64 {
+                            // Rule matches?
+                            // If this is an ALLOW rule with a condition "max_spend=50",
+                            // and amount is 100, then the condition FAILS.
+                            // The rule does NOT apply. Fallback to DenyAll.
+                            return false;
+                        }
+                    }
+                }
+            }
         }
 
         // Default: If no specific conditions failed, the rule applies.

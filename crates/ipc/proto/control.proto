@@ -68,6 +68,11 @@ message SecureEgressRequest {
   // The identifier of the secret to use (e.g., "openai_primary")
   // This maps to a file in the Guardian's secure keystore.
   string secret_id = 5; 
+  
+  // [NEW] JSON path for payload injection (e.g. "payment.handlers[0].token")
+  // If present, the Guardian parses the body as JSON and injects the secret here
+  // instead of (or in addition to) the Authorization header.
+  string json_patch_path = 6;
 }
 
 message SecureEgressResponse {

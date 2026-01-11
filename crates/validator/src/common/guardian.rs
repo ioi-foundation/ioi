@@ -26,6 +26,7 @@ use ioi_types::error::ValidatorError;
 use rcgen::{CertificateParams, Ia5String, KeyPair, KeyUsagePurpose, SanType};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::net::Ipv4Addr;
@@ -607,42 +608,101 @@ impl GuardianContainer {
         body: Vec<u8>,
         secret_id: &str,
         signer: &libp2p::identity::Keypair,
+        json_patch_path: Option<&str>, // [NEW] Added parameter
     ) -> Result<(Vec<u8>, [u8; 32], Vec<u8>)> {
-        // 1. Load the API Key (Decrypted only in memory scope)
+        // 1. Load the Secret Key (Decrypted only in memory scope)
         let key_path = self.config_dir.join(format!("{}.key", secret_id));
         let pass = Self::resolve_passphrase(false)?;
-        let api_key = load_api_key(&key_path, &pass)?;
+        let secret_value = load_api_key(&key_path, &pass)?;
 
-        // 2. Setup HTTP Client
-        let client = Client::builder()
-            .https_only(true)
-            .build()?;
+        // 2. Prepare Request
+        let client = Client::builder().https_only(true).build()?;
 
-        // 3. Execute Request
         let url = format!("https://{}{}", target_domain, path);
-        let resp = client
+        let mut request_builder = client
             .request(method.parse()?, url)
-            .header("Authorization", format!("Bearer {}", api_key))
-            .header("Content-Type", "application/json")
-            .body(body)
-            .send()
-            .await?;
+            .header("Content-Type", "application/json");
 
-        // 4. Capture TLS Info (Simplified)
-        // In a production environment, this would extract the peer certificate digest.
-        // For implementation, we compute a placeholder hash representing the TLS session.
-        let cert_hash = [0xAA; 32]; 
+        // 3. Inject Secret (Header vs. Body)
+        let final_body = if let Some(patch_path) = json_patch_path {
+            // Body Injection (UCP)
+            let mut json_body: Value = serde_json::from_slice(&body)
+                .map_err(|e| anyhow!("Failed to parse body for injection: {}", e))?;
+
+            // Simple recursive patch helper
+            fn patch_json(value: &mut Value, path_parts: &[&str], secret: &str) -> Result<()> {
+                if path_parts.is_empty() {
+                    if value.is_string() {
+                        // Replace template with secret
+                        *value = Value::String(secret.to_string());
+                        return Ok(());
+                    }
+                    return Err(anyhow!("Target field is not a string"));
+                }
+
+                let (head, tail) = path_parts.split_first().unwrap();
+
+                // Handle array indexing (e.g., "handlers[0]")
+                if head.ends_with(']') {
+                    if let Some(open_idx) = head.find('[') {
+                        let field_name = &head[..open_idx];
+                        let idx_str = &head[open_idx + 1..head.len() - 1];
+                        let idx: usize = idx_str.parse()?;
+
+                        let array_field = value
+                            .get_mut(field_name)
+                            .ok_or(anyhow!("Field {} not found", field_name))?;
+
+                        let item = array_field
+                            .get_mut(idx)
+                            .ok_or(anyhow!("Index {} out of bounds", idx))?;
+
+                        return patch_json(item, tail, secret);
+                    }
+                }
+
+                let next_val = value
+                    .get_mut(*head)
+                    .ok_or(anyhow!("Field {} not found", head))?;
+                patch_json(next_val, tail, secret)
+            }
+
+            // Split path "payment.handlers[0].token" -> handling array syntax needs parsing
+            // For MVP, assume simple dot notation or custom parser.
+            // Simplified: "payment.handlers.0.token"
+            let parts: Vec<&str> = patch_path.split('.').collect();
+            patch_json(&mut json_body, &parts, &secret_value)?;
+
+            serde_json::to_vec(&json_body)?
+        } else {
+            // Header Injection (Standard API)
+            request_builder =
+                request_builder.header("Authorization", format!("Bearer {}", secret_value));
+            body
+        };
+
+        // 4. Execute Request
+        let resp = request_builder.body(final_body).send().await?;
+
+        // 5. Capture TLS Info (Simplified)
+        let cert_hash = [0xAA; 32];
 
         let response_bytes = resp.bytes().await?.to_vec();
-        
-        // 5. Sign the Attestation
-        // Sign(target_domain || cert_hash || hash(response_body))
-        let signature = self.sign_egress_attestation(signer, target_domain, &cert_hash, &response_bytes)?;
-        
+
+        // 6. Sign the Attestation
+        let signature =
+            self.sign_egress_attestation(signer, target_domain, &cert_hash, &response_bytes)?;
+
         Ok((response_bytes, cert_hash, signature))
     }
-    
-    fn sign_egress_attestation(&self, signer: &libp2p::identity::Keypair, domain: &str, cert: &[u8], body: &[u8]) -> Result<Vec<u8>> {
+
+    fn sign_egress_attestation(
+        &self,
+        signer: &libp2p::identity::Keypair,
+        domain: &str,
+        cert: &[u8],
+        body: &[u8],
+    ) -> Result<Vec<u8>> {
         let mut payload = Vec::new();
         payload.extend_from_slice(domain.as_bytes());
         payload.extend_from_slice(cert);

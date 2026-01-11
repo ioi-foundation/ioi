@@ -7,3 +7,4 @@
 
 pub mod gui;
 pub mod browser;
+pub mod ucp; // [NEW] Export UCP driver

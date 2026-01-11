@@ -9,8 +9,9 @@ use ioi_api::validator::container::Container;
 use ioi_consensus::util::engine_from_config;
 use ioi_consensus::Consensus;
 use ioi_crypto::sign::eddsa::Ed25519PrivateKey;
-use ioi_drivers::browser::BrowserDriver; // [NEW]
-use ioi_drivers::gui::IoiGuiDriver; // [NEW]
+use ioi_drivers::browser::BrowserDriver;
+use ioi_drivers::gui::IoiGuiDriver;
+use ioi_scs::{SovereignContextStore, StoreConfig}; // [NEW] Import SCS
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::{
@@ -30,7 +31,7 @@ use ioi_validator::standard::Orchestrator;
 use libp2p::identity;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{atomic::AtomicBool, Arc};
+use std::sync::{atomic::AtomicBool, Arc, Mutex}; // [FIX] Reverted to std Mutex for SCS
 use tokio::time::Duration;
 
 #[derive(Parser, Debug)]
@@ -66,6 +67,26 @@ async fn main() -> Result<()> {
         &local_key.public().encode_protobuf(),
     )?);
 
+    // [NEW] Initialize the Sovereign Context Store (SCS)
+    let scs_path = opts.data_dir.join("context.scs");
+    let scs_config = StoreConfig {
+        chain_id: 0,
+        owner_id: local_account_id.0,
+    };
+
+    let scs = if scs_path.exists() {
+        println!(
+            "Opening existing Sovereign Context Substrate at {:?}",
+            scs_path
+        );
+        SovereignContextStore::open(&scs_path)?
+    } else {
+        println!("Creating new Sovereign Context Substrate at {:?}", scs_path);
+        SovereignContextStore::create(&scs_path, scs_config)?
+    };
+    // Wrap in Arc<Mutex> for shared access using STD MUTEX
+    let scs_arc: Arc<Mutex<SovereignContextStore>> = Arc::new(Mutex::new(scs));
+
     let rpc_addr = std::env::var("ORCHESTRATION_RPC_LISTEN_ADDRESS")
         .unwrap_or_else(|_| "0.0.0.0:9000".to_string());
 
@@ -81,7 +102,6 @@ async fn main() -> Result<()> {
         round_robin_view_timeout_secs: 10,
         default_query_gas_limit: u64::MAX,
         ibc_gateway_listen_address: None,
-        // [FIX] Initialize new fields to None for local mode
         safety_model_path: None,
         tokenizer_path: None,
     };
@@ -116,6 +136,10 @@ async fn main() -> Result<()> {
         epoch_size: 1000,
         gc_interval_secs: 3600,
         zk_config: Default::default(),
+        inference: Default::default(),
+        fast_inference: None,
+        reasoning_inference: None,
+        connectors: Default::default(),
     };
 
     if !Path::new(&workload_config.genesis_file).exists() {
@@ -187,7 +211,7 @@ async fn main() -> Result<()> {
     let browser_driver = Arc::new(BrowserDriver::new());
     println!("   - Browser Driver: Initialized (chromiumoxide)");
 
-    // Pass driver to workload setup
+    // Pass driver and SCS to workload setup
     let scheme = HashCommitmentScheme::new();
     let tree = IAVLTree::new(scheme.clone());
     let (workload_container, machine) = setup_workload(
@@ -195,7 +219,8 @@ async fn main() -> Result<()> {
         scheme.clone(),
         workload_config.clone(),
         Some(gui_driver),
-        Some(browser_driver), // [NEW] Inject browser driver
+        Some(browser_driver),
+        Some(scs_arc.clone()), // [NEW] Pass SCS
     )
     .await?;
 
@@ -245,7 +270,6 @@ async fn main() -> Result<()> {
     let internal_kp = ioi_crypto::sign::eddsa::Ed25519KeyPair::from_private_key(&internal_sk)?;
     let signer = Arc::new(LocalSigner::new(internal_kp));
 
-    // [FIX] Initialize MockBitNet for local mode as no model is provided
     let safety_model = Arc::new(MockBitNet);
 
     let deps = OrchestrationDependencies {
@@ -260,7 +284,6 @@ async fn main() -> Result<()> {
         verifier: DefaultVerifier::default(),
         signer,
         batch_verifier: Arc::new(ioi_crypto::sign::batch::CpuBatchVerifier::new()),
-        // [FIX] Pass safety_model
         safety_model: safety_model,
     };
 
@@ -270,21 +293,20 @@ async fn main() -> Result<()> {
     println!("\n✅ IOI User Node (Mode 0) configuration is valid.");
     println!("   - Agency Firewall: Active");
     println!("   - The Substrate: Mounted at {}", opts.data_dir.display());
-    println!("   - GUI Automation: Enabled"); // [NEW]
-    println!("   - Browser Automation: Enabled"); // [NEW]
+    println!("   - SCS Storage: Active (.scs)"); // [NEW]
+    println!("   - GUI Automation: Enabled");
+    println!("   - Browser Automation: Enabled");
     println!(
         "   - RPC will listen on http://{}",
         config.rpc_listen_address
     );
     println!("Starting main components (press Ctrl+C to exit)...");
 
-    // 1. Actually trigger the startup (this emits ORCHESTRATION_STARTUP_COMPLETE)
     orchestrator
         .start(&config.rpc_listen_address)
         .await
         .map_err(|e| anyhow!("Failed to start: {}", e))?;
 
-    // 2. Monitoring loop: Fail if the background Workload server dies
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
             println!("\nShutdown signal received.");

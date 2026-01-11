@@ -13,6 +13,7 @@ use ioi_api::{
 use ioi_consensus::util::engine_from_config;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_execution::{util::load_state_from_genesis_file, ExecutionMachine};
+use ioi_scs::SovereignContextStore; // [NEW] Import SCS
 use ioi_services::{
     agentic::desktop::DesktopAgentService, governance::GovernanceModule, identity::IdentityHub,
     provider_registry::ProviderRegistryService,
@@ -179,6 +180,9 @@ pub async fn setup_workload<CS, ST>(
     config: WorkloadConfig,
     gui_driver: Option<Arc<dyn GuiDriver>>,
     browser_driver: Option<Arc<BrowserDriver>>,
+    // [NEW] Optional SCS for Desktop Agent
+    // Using std::sync::Mutex to match DesktopAgentService expectations
+    scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
 ) -> Result<(
     Arc<WorkloadContainer<ST>>,
     Arc<Mutex<ExecutionMachine<CS, ST>>>,
@@ -448,7 +452,14 @@ where
     if let Some(gui) = gui_driver {
         tracing::info!(target: "workload", event = "service_init", name = "DesktopAgent", impl="native");
         // [NEW] Inject both runtimes into the DesktopAgentService
-        let agent = DesktopAgentService::new_hybrid(gui, fast_runtime, reasoning_runtime);
+        let mut agent = DesktopAgentService::new_hybrid(gui, fast_runtime, reasoning_runtime);
+
+        // [NEW] Inject SCS if provided
+        if let Some(store) = scs {
+            agent = agent.with_scs(store);
+            tracing::info!(target: "workload", "SCS injected into DesktopAgent.");
+        }
+
         initial_services.push(Arc::new(agent) as Arc<dyn UpgradableService>);
     }
 
