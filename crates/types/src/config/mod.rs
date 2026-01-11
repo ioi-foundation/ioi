@@ -5,6 +5,7 @@ use crate::app::ChainId;
 use crate::service_configs::{GovernanceParams, MethodPermission, MigrationConfig};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 pub mod consensus;
 pub use consensus::*;
@@ -150,10 +151,22 @@ pub struct InferenceConfig {
     
     /// The model name to request (e.g. "gpt-4", "llama-3-8b").
     pub model_name: Option<String>,
+
+    /// The connector to use for this provider.
+    pub connector_ref: Option<String>,
 }
 
 fn default_inference_provider() -> String {
     "mock".to_string()
+}
+
+/// Configuration for a secure connector.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ConnectorConfig {
+    /// Whether the connector is enabled.
+    pub enabled: bool,
+    /// The filename of the encrypted key in the certs directory (e.g. "openai_primary").
+    pub key_ref: String,
 }
 
 /// Configuration for the Workload container (`workload.toml`).
@@ -216,6 +229,10 @@ pub struct WorkloadConfig {
     /// [NEW] Dedicated Configuration for Reasoning/Cloud Inference (The "Brain").
     #[serde(default)]
     pub reasoning_inference: Option<InferenceConfig>,
+
+    /// Connectors for secure egress.
+    #[serde(default)]
+    pub connectors: HashMap<String, ConnectorConfig>,
 }
 
 impl WorkloadConfig {

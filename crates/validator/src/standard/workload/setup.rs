@@ -14,17 +14,17 @@ use ioi_consensus::util::engine_from_config;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_execution::{util::load_state_from_genesis_file, ExecutionMachine};
 use ioi_services::{
-    agentic::desktop::DesktopAgentService,
-    governance::GovernanceModule,
-    identity::IdentityHub,
+    agentic::desktop::DesktopAgentService, governance::GovernanceModule, identity::IdentityHub,
     provider_registry::ProviderRegistryService,
 };
 use ioi_storage::RedbEpochStore;
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::{
-    app::{to_root_hash, Membership},
     app::agentic::InferenceOptions,
-    config::{InferenceConfig, InitialServiceConfig, OrchestrationConfig, ValidatorRole, WorkloadConfig}, // Added InferenceConfig
+    app::{to_root_hash, Membership},
+    config::{
+        InferenceConfig, InitialServiceConfig, OrchestrationConfig, ValidatorRole, WorkloadConfig,
+    },
     keys::{STATUS_KEY, VALIDATOR_SET_KEY},
 };
 #[cfg(feature = "vm-wasm")]
@@ -33,12 +33,18 @@ use rand::{thread_rng, Rng};
 use std::{path::Path, sync::Arc, time::Duration};
 use tokio::{sync::Mutex, time::interval};
 
-use crate::standard::workload::driver_cpu::CpuDriver;
+// [UPDATED] Import from drivers module
+use crate::standard::workload::drivers::cpu::CpuDriver;
 use crate::standard::workload::hydration::ModelHydrator;
 use crate::standard::workload::runtime::StandardInferenceRuntime;
 
 // Imports for HttpInferenceRuntime and MockInferenceRuntime
-use ioi_api::vm::inference::{HttpInferenceRuntime, mock::MockInferenceRuntime};
+use ioi_api::vm::inference::{mock::MockInferenceRuntime, HttpInferenceRuntime};
+
+// [NEW] Import VerifiedHttpRuntime
+use crate::standard::workload::drivers::verified_http::VerifiedHttpRuntime;
+use crate::standard::workload::ipc::create_ipc_server_config;
+use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
 
 #[cfg(feature = "ibc-deps")]
 use ioi_services::ibc::{
@@ -53,39 +59,115 @@ use {
     zk_driver_succinct::config::SuccinctDriverConfig,
 };
 
+/// Helper to create a secure channel to the Guardian.
+/// Reuses logic similar to `ioi_client::WorkloadClient` but targets the Guardian port.
+async fn create_guardian_channel(certs_dir: &str) -> Result<Channel> {
+    let ca_pem = std::fs::read(format!("{}/ca.pem", certs_dir))?;
+    let client_pem = std::fs::read(format!("{}/workload.pem", certs_dir))?;
+    let client_key = std::fs::read(format!("{}/workload.key", certs_dir))?;
+
+    let ca = Certificate::from_pem(ca_pem);
+    let identity = Identity::from_pem(client_pem, client_key);
+
+    let tls = ClientTlsConfig::new()
+        .domain_name("guardian") // Server name in cert
+        .ca_certificate(ca)
+        .identity(identity);
+
+    // Guardian listens on 8443 by default
+    let guardian_addr =
+        std::env::var("GUARDIAN_ADDR").unwrap_or_else(|_| "http://127.0.0.1:8443".to_string());
+
+    // Check if GUARDIAN_GRPC_ADDR is set (for the separate control plane port)
+    let endpoint = std::env::var("GUARDIAN_GRPC_ADDR").unwrap_or(guardian_addr);
+
+    let channel = Channel::from_shared(endpoint)?
+        .tls_config(tls)?
+        .connect()
+        .await?;
+
+    Ok(channel)
+}
+
 /// Helper to build a runtime from a config block
-fn build_runtime_from_config(
-    cfg: &InferenceConfig, 
+async fn build_runtime_from_config(
+    cfg: &InferenceConfig,
     hydrator: Arc<ModelHydrator>,
-    driver: Arc<dyn ioi_api::vm::inference::HardwareDriver>
+    driver: Arc<dyn ioi_api::vm::inference::HardwareDriver>,
+    workload_config: &WorkloadConfig,
 ) -> Result<Arc<dyn InferenceRuntime>> {
+    // [NEW] Check for connector reference
+    if let Some(key_ref) = &cfg.connector_ref {
+        // Ensure the connector is defined and enabled
+        if let Some(conn_cfg) = workload_config.connectors.get(key_ref) {
+            if !conn_cfg.enabled {
+                return Err(anyhow!("Connector '{}' is disabled", key_ref));
+            }
+
+            // Verify we have a key_ref in the connector config
+            let secret_id = &conn_cfg.key_ref;
+
+            tracing::info!(
+                target: "workload",
+                "Initializing Verified HTTP Runtime (Provider: {}, Secret: {})",
+                cfg.provider, secret_id
+            );
+
+            let certs_dir = std::env::var("CERTS_DIR").map_err(|_| anyhow!("CERTS_DIR not set"))?;
+            let channel = create_guardian_channel(&certs_dir).await?;
+
+            // Explicitly cast to trait object to guide type inference
+            return Ok(Arc::new(VerifiedHttpRuntime::new(
+                channel,
+                cfg.provider.clone(),
+                secret_id.clone(),
+                cfg.model_name.clone().unwrap_or_default(),
+            )) as Arc<dyn InferenceRuntime>);
+        } else {
+            return Err(anyhow!(
+                "Connector '{}' not found in configuration",
+                key_ref
+            ));
+        }
+    }
+
     match cfg.provider.as_str() {
         "openai" | "local" => {
             let api_url = cfg.api_url.clone().ok_or_else(|| {
                 anyhow!("API URL required for 'openai' or 'local' inference provider")
             })?;
             let api_key = cfg.api_key.clone().unwrap_or_default();
-            let model_name = cfg.model_name.clone().unwrap_or_else(|| "gpt-3.5-turbo".to_string());
-            
+            let model_name = cfg
+                .model_name
+                .clone()
+                .unwrap_or_else(|| "gpt-3.5-turbo".to_string());
+
             tracing::info!(
-                target: "workload", 
-                "Initializing HTTP Inference Runtime (Provider: {}, URL: {}, Model: {})", 
+                target: "workload",
+                "Initializing HTTP Inference Runtime (Provider: {}, URL: {}, Model: {})",
                 cfg.provider, api_url, model_name
             );
-            
-            Ok(Arc::new(HttpInferenceRuntime::new(api_url, api_key, model_name)))
-        },
+
+            // Explicitly cast to trait object
+            Ok(
+                Arc::new(HttpInferenceRuntime::new(api_url, api_key, model_name))
+                    as Arc<dyn InferenceRuntime>,
+            )
+        }
         "mock" => {
-             tracing::info!(target: "workload", "Initializing Mock Inference Runtime");
-             Ok(Arc::new(MockInferenceRuntime))
-        },
+            tracing::info!(target: "workload", "Initializing Mock Inference Runtime");
+            // Explicitly cast to trait object
+            Ok(Arc::new(MockInferenceRuntime) as Arc<dyn InferenceRuntime>)
+        }
         other => {
-             if other == "standard" {
-                 tracing::info!(target: "workload", "Initializing Standard Inference Runtime (Local Hardware)");
-                 Ok(Arc::new(StandardInferenceRuntime::new(hydrator, driver)))
-             } else {
-                 Err(anyhow!("Unknown inference provider: {}", other))
-             }
+            if other == "standard" {
+                tracing::info!(target: "workload", "Initializing Standard Inference Runtime (Local Hardware)");
+                // Explicitly cast to trait object
+                Ok(Arc::new(StandardInferenceRuntime::new(hydrator, driver))
+                    as Arc<dyn InferenceRuntime>)
+            } else {
+                Err(anyhow!("Unknown inference provider: {}", other))
+            }
         }
     }
 }
@@ -180,18 +262,20 @@ where
     let hydrator = Arc::new(ModelHydrator::new(models_dir.to_path_buf(), driver.clone()));
 
     // 3. Initialize Primary (Legacy) Runtime
-    let inference_runtime = build_runtime_from_config(&config.inference, hydrator.clone(), driver.clone())?;
+    let inference_runtime =
+        build_runtime_from_config(&config.inference, hydrator.clone(), driver.clone(), &config)
+            .await?;
 
     // 4. [NEW] Initialize Hybrid Runtimes
     // If specific configs are present, use them. Otherwise, fallback to the primary one.
     let fast_runtime = if let Some(cfg) = &config.fast_inference {
-        build_runtime_from_config(cfg, hydrator.clone(), driver.clone())?
+        build_runtime_from_config(cfg, hydrator.clone(), driver.clone(), &config).await?
     } else {
         inference_runtime.clone()
     };
 
     let reasoning_runtime = if let Some(cfg) = &config.reasoning_inference {
-        build_runtime_from_config(cfg, hydrator.clone(), driver.clone())?
+        build_runtime_from_config(cfg, hydrator.clone(), driver.clone(), &config).await?
     } else {
         inference_runtime.clone()
     };
@@ -387,7 +471,9 @@ where
             input_context: &[u8],
             options: InferenceOptions,
         ) -> Result<Vec<u8>, ioi_types::error::VmError> {
-            self.inner.execute_inference(model_hash, input_context, options).await
+            self.inner
+                .execute_inference(model_hash, input_context, options)
+                .await
         }
 
         async fn load_model(
@@ -413,7 +499,9 @@ where
         config.clone(),
         state_tree,
         vm,
-        Some(Box::new(RuntimeWrapper { inner: inference_runtime })),
+        Some(Box::new(RuntimeWrapper {
+            inner: inference_runtime,
+        })),
         _service_directory,
         store,
     )?);

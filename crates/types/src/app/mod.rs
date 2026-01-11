@@ -486,6 +486,20 @@ impl SettlementTransaction {
 // Universal Artifacts (Receipts & Intent Contracts)
 // -----------------------------------------------------------------------------
 
+/// A cryptographic proof of external network activity performed by the Guardian.
+/// This matches Whitepaper §4.3: Sovereign Connectors.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct ExternalTrafficProof {
+    /// The DNS name of the remote server (e.g., "api.openai.com").
+    pub domain: String,
+    /// The SHA-256 hash of the server's TLS certificate leaf.
+    pub server_cert_hash: [u8; 32],
+    /// The timestamp of the TLS handshake.
+    pub handshake_time: u64,
+    /// Signature by the local Guardian confirming it performed this connection.
+    pub guardian_signature: Vec<u8>,
+}
+
 /// A canonical receipt proving the execution of a unit of work.
 /// This matches Whitepaper §8: Proof of Execution.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
@@ -508,6 +522,8 @@ pub struct Receipt {
     pub signer_id: AccountId,
     /// Cryptographic signature over the above fields.
     pub signature: Vec<u8>,
+    /// Optional proof if this receipt resulted from an external API call via the Guardian.
+    pub external_proof: Option<ExternalTrafficProof>,
 }
 
 /// The types of outcomes an Intent Contract can specify.

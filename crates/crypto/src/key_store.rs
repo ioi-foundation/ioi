@@ -19,6 +19,7 @@ use dcrypt::algorithms::kdf::{Argon2, KdfOperation, KeyDerivationFunction};
 use dcrypt::algorithms::types::Nonce;
 use dcrypt::api::traits::symmetric::{DecryptOperation, EncryptOperation, SymmetricCipher};
 use rand::{rngs::OsRng, RngCore};
+use std::path::Path;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 // Header Constants
@@ -161,6 +162,24 @@ pub fn decrypt_key(data: &[u8], passphrase: &str) -> Result<SensitiveBytes, Cryp
         })?;
 
     Ok(SensitiveBytes(plaintext))
+}
+
+/// Loads an API key from disk, decrypting it into a String.
+///
+/// This function is intended for loading credentials used by connectors (e.g. OpenAI keys).
+/// The key is decrypted into process memory and returned as a UTF-8 string.
+/// The caller is responsible for zeroing the string if needed, although Rust Strings
+/// do not support secure zeroing.
+pub fn load_api_key(path: &Path, passphrase: &str) -> Result<String, CryptoError> {
+    let encrypted_bytes = std::fs::read(path)
+        .map_err(|e| CryptoError::InvalidInput(format!("Failed to read key file: {}", e)))?;
+
+    let decrypted = decrypt_key(&encrypted_bytes, passphrase)?;
+
+    // Convert the SensitiveBytes vector to a String.
+    // Note: SensitiveBytes.0 is the inner Vec<u8>.
+    String::from_utf8(decrypted.0.clone())
+        .map_err(|_| CryptoError::Deserialization("API Key is not valid UTF-8".into()))
 }
 
 #[cfg(test)]

@@ -14,6 +14,8 @@
 use anyhow::Result;
 use clap::Parser;
 use ioi_api::validator::Container;
+use ioi_ipc::control::guardian_control_server::{GuardianControl, GuardianControlServer};
+use ioi_ipc::control::{SecureEgressRequest, SecureEgressResponse};
 use ioi_types::app::GuardianReport;
 use ioi_validator::common::{generate_certificates_if_needed, GuardianContainer};
 use ioi_validator::config::GuardianConfig;
@@ -21,6 +23,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::AsyncWriteExt;
+use tonic::{Request, Response, Status, transport::Server};
 
 #[derive(Parser, Debug)]
 struct GuardianOpts {
@@ -34,6 +37,39 @@ struct GuardianOpts {
         help = "Overrides listen_addr in guardian.toml"
     )]
     listen_addr: Option<String>,
+}
+
+struct GuardianControlImpl {
+    container: Arc<GuardianContainer>,
+    keypair: libp2p::identity::Keypair,
+}
+
+#[tonic::async_trait]
+impl GuardianControl for GuardianControlImpl {
+    async fn secure_egress(
+        &self,
+        request: Request<SecureEgressRequest>,
+    ) -> Result<Response<SecureEgressResponse>, Status> {
+        let req = request.into_inner();
+        
+        let (body, cert_hash, signature) = self.container
+            .secure_http_call(
+                &req.domain,
+                &req.path,
+                &req.method,
+                req.body,
+                &req.secret_id,
+                &self.keypair
+            )
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
+
+        Ok(Response::new(SecureEgressResponse {
+            body,
+            cert_hash: cert_hash.to_vec(),
+            guardian_signature: signature,
+        }))
+    }
 }
 
 #[tokio::main]
@@ -57,8 +93,9 @@ async fn main() -> Result<()> {
         .map_err(|_| anyhow::anyhow!("CERTS_DIR environment variable must be set"))?;
     generate_certificates_if_needed(Path::new(&certs_dir))?;
 
+    let config_dir_path = Path::new(&opts.config_dir);
     let config: GuardianConfig = toml::from_str(&std::fs::read_to_string(
-        Path::new(&opts.config_dir).join("guardian.toml"),
+        config_dir_path.join("guardian.toml"),
     )?)?;
 
     let listen_addr = opts
@@ -66,7 +103,7 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|| "127.0.0.1:8443".to_string());
     tracing::info!(target: "guardian", listen_addr = %listen_addr);
 
-    let guardian = Arc::new(GuardianContainer::new(config.clone())?);
+    let guardian = Arc::new(GuardianContainer::new(config_dir_path.to_path_buf(), config.clone())?);
 
     // --- PHASE 2 IMPLEMENTATION: Boot Measurement ---
     // Verify binaries immediately upon instantiation, before starting network services.
@@ -86,6 +123,31 @@ async fn main() -> Result<()> {
         .parent()
         .ok_or(anyhow::anyhow!("Invalid certs dir path"))?
         .join("identity.key");
+
+    let keypair_bytes = GuardianContainer::load_encrypted_file(&identity_key_path)?;
+    let keypair = libp2p::identity::Keypair::from_protobuf_encoding(&keypair_bytes)?;
+
+    // Spawn gRPC server for Control Plane (Secure Egress)
+    // NOTE: This assumes the Guardian listens on a separate port/interface for gRPC commands
+    // or multiplexes on the existing channel. For now, we assume a separate port defined in config or env.
+    // In a real mTLS setup, this would be part of the `workload_channel` logic.
+    // For simplicity in this scaffold, we launch a separate tonic server if GUARDIAN_GRPC_ADDR is set.
+    if let Ok(grpc_addr_str) = std::env::var("GUARDIAN_GRPC_ADDR") {
+        let grpc_addr = grpc_addr_str.parse()?;
+        let control_service = GuardianControlImpl {
+            container: guardian.clone(),
+            keypair: keypair.clone(),
+        };
+        
+        tokio::spawn(async move {
+            tracing::info!("Guardian Control gRPC listening on {}", grpc_addr);
+            Server::builder()
+                .add_service(GuardianControlServer::new(control_service))
+                .serve(grpc_addr)
+                .await
+                .expect("Guardian gRPC server failed");
+        });
+    }
 
     let guardian_clone = guardian.clone();
     tokio::spawn(async move {
@@ -115,9 +177,6 @@ async fn main() -> Result<()> {
         };
 
         // 2. Binary Boot Attestation
-        let keypair_bytes = GuardianContainer::load_encrypted_file(&identity_key_path)?;
-        let keypair = libp2p::identity::Keypair::from_protobuf_encoding(&keypair_bytes)?;
-
         let boot_attestation =
             match guardian_clone.generate_boot_attestation(&keypair, &config) {
                 Ok(att) => att,
