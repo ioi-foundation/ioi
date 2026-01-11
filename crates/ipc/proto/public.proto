@@ -56,7 +56,7 @@ message SubmitTransactionResponse {
 
 enum SubmissionStatus {
     ACCEPTED = 0;
-    REJECTED = 1;
+    SUBMISSION_REJECTED = 1; // Renamed from REJECTED to avoid conflict
     PENDING_APPROVAL = 2; // "Suspended" state requiring user signature
 }
 
