@@ -183,6 +183,12 @@ enum KeysCommands {
         suite: KeySuite,
         hex_key: String,
     },
+    /// Provision a new API key for external connectors.
+    Provision {
+        /// The identifier for this key (e.g., "openai").
+        #[clap(long)]
+        name: String,
+    },
 }
 
 #[derive(Clone, Debug, ValueEnum)]
@@ -528,6 +534,38 @@ fn run_keys(args: KeysArgs) -> Result<()> {
                 }
             }
         }
+        KeysCommands::Provision { name } => {
+            // Helper to get certs dir
+            let certs_dir = std::env::var("CERTS_DIR")
+                .map(PathBuf::from)
+                .or_else(|_| std::env::current_dir().map(|p| p.join("certs")))
+                .map_err(|_| anyhow!("Could not determine CERTS_DIR"))?;
+
+            if !certs_dir.exists() {
+                fs::create_dir_all(&certs_dir)?;
+            }
+
+            let key_path = certs_dir.join(format!("{}.key", name));
+
+            println!("Enter API Key for '{}': ", name);
+            let secret = rpassword::read_password()?;
+
+            if secret.trim().is_empty() {
+                return Err(anyhow!("API Key cannot be empty"));
+            }
+
+            // We use the same secure save function as for Guardian identity keys
+            // This will prompt for the Guardian passphrase to encrypt the API key
+            ioi_validator::common::GuardianContainer::save_encrypted_file(
+                &key_path,
+                secret.as_bytes(),
+            )?;
+            println!("✅ Key encrypted and saved to {}", key_path.display());
+            println!(
+                "Use key_ref = \"{}\" in your workload.toml connectors config.",
+                name
+            );
+        }
     }
     Ok(())
 }
@@ -558,6 +596,15 @@ fn run_config(args: ConfigCmdArgs) -> Result<()> {
                 tokenizer_path: None,
             };
 
+            let mut connectors = std::collections::HashMap::new();
+            connectors.insert(
+                "openai_primary".to_string(),
+                ioi_types::config::ConnectorConfig {
+                    enabled: true,
+                    key_ref: "openai".to_string(),
+                },
+            );
+
             let workload_cfg = WorkloadConfig {
                 runtimes: vec!["wasm".into()],
                 state_tree: StateTreeType::IAVL,
@@ -578,6 +625,7 @@ fn run_config(args: ConfigCmdArgs) -> Result<()> {
                 // [FIX] Initialize missing fields
                 fast_inference: None,
                 reasoning_inference: None,
+                connectors,
             };
 
             fs::write(

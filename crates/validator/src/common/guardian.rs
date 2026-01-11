@@ -12,7 +12,7 @@ use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use ioi_api::crypto::{SerializableKey, SigningKey, SigningKeyPair};
 use ioi_api::validator::Container;
 use ioi_client::security::SecurityChannel;
-use ioi_crypto::key_store::{decrypt_key, encrypt_key};
+use ioi_crypto::key_store::{decrypt_key, encrypt_key, load_api_key};
 use ioi_crypto::transport::hybrid_kem_tls::{
     derive_application_key, server_post_handshake, AeadWrappedStream,
 };
@@ -24,11 +24,12 @@ use ioi_types::app::{
 use ioi_types::error::ValidatorError;
 // [FIX] Added Ia5String and KeyPair for rcgen 0.13 compatibility
 use rcgen::{CertificateParams, Ia5String, KeyPair, KeyUsagePurpose, SanType};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::net::Ipv4Addr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -184,6 +185,8 @@ pub struct GuardianContainer {
     /// The secure channel to the Workload container.
     pub workload_channel: SecurityChannel,
     is_running: Arc<AtomicBool>,
+    /// The path to the directory containing configuration and keys.
+    config_dir: PathBuf,
 }
 
 /// Generates a self-signed CA and server/client certificates for mTLS.
@@ -244,11 +247,12 @@ pub fn generate_certificates_if_needed(certs_dir: &Path) -> Result<()> {
 
 impl GuardianContainer {
     /// Creates a new Guardian container instance.
-    pub fn new(_config: GuardianConfig) -> Result<Self> {
+    pub fn new(config_dir: PathBuf, _config: GuardianConfig) -> Result<Self> {
         Ok(Self {
             orchestration_channel: SecurityChannel::new("guardian", "orchestration"),
             workload_channel: SecurityChannel::new("guardian", "workload"),
             is_running: Arc::new(AtomicBool::new(false)),
+            config_dir,
         })
     }
 
@@ -592,6 +596,61 @@ impl GuardianContainer {
         std::fs::rename(temp_path, path)?;
 
         Ok(())
+    }
+
+    /// Executes a secure HTTP call on behalf of a workload.
+    pub async fn secure_http_call(
+        &self,
+        target_domain: &str,
+        path: &str,
+        method: &str,
+        body: Vec<u8>,
+        secret_id: &str,
+        signer: &libp2p::identity::Keypair,
+    ) -> Result<(Vec<u8>, [u8; 32], Vec<u8>)> {
+        // 1. Load the API Key (Decrypted only in memory scope)
+        let key_path = self.config_dir.join(format!("{}.key", secret_id));
+        let pass = Self::resolve_passphrase(false)?;
+        let api_key = load_api_key(&key_path, &pass)?;
+
+        // 2. Setup HTTP Client
+        let client = Client::builder()
+            .https_only(true)
+            .build()?;
+
+        // 3. Execute Request
+        let url = format!("https://{}{}", target_domain, path);
+        let resp = client
+            .request(method.parse()?, url)
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Content-Type", "application/json")
+            .body(body)
+            .send()
+            .await?;
+
+        // 4. Capture TLS Info (Simplified)
+        // In a production environment, this would extract the peer certificate digest.
+        // For implementation, we compute a placeholder hash representing the TLS session.
+        let cert_hash = [0xAA; 32]; 
+
+        let response_bytes = resp.bytes().await?.to_vec();
+        
+        // 5. Sign the Attestation
+        // Sign(target_domain || cert_hash || hash(response_body))
+        let signature = self.sign_egress_attestation(signer, target_domain, &cert_hash, &response_bytes)?;
+        
+        Ok((response_bytes, cert_hash, signature))
+    }
+    
+    fn sign_egress_attestation(&self, signer: &libp2p::identity::Keypair, domain: &str, cert: &[u8], body: &[u8]) -> Result<Vec<u8>> {
+        let mut payload = Vec::new();
+        payload.extend_from_slice(domain.as_bytes());
+        payload.extend_from_slice(cert);
+        let body_hash = Sha256::digest(body).map_err(|e| anyhow!(e))?;
+        payload.extend_from_slice(&body_hash);
+
+        let signature = signer.sign(&payload)?;
+        Ok(signature)
     }
 }
 

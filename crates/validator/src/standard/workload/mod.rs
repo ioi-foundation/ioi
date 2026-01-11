@@ -11,8 +11,8 @@ pub mod setup;
 /// Logic for securely loading and verifying AI models (JIT Hydration).
 pub mod hydration;
 
-/// Hardware drivers for AI accelerators.
-pub mod driver_cpu;
-
 /// The high-level inference runtime orchestration.
 pub mod runtime;
+
+/// Workload runtime and hardware drivers.
+pub mod drivers;

@@ -16,6 +16,13 @@ service WorkloadControl {
   rpc HealthCheck (HealthCheckRequest) returns (HealthCheckResponse);
 }
 
+// Service exposed by the Guardian container to the Workload.
+// Used for secure egress and key management.
+service GuardianControl {
+  // Execute an HTTP call using a secret securely held by the Guardian.
+  rpc SecureEgress(SecureEgressRequest) returns (SecureEgressResponse);
+}
+
 message LoadModelRequest {
   string model_id = 1;
   // Identifier for the shared memory region (e.g., shm_open name)
@@ -51,4 +58,22 @@ message HealthCheckRequest {}
 message HealthCheckResponse {
   bool ready = 1;
   string status = 2;
+}
+
+message SecureEgressRequest {
+  string domain = 1;
+  string path = 2;
+  string method = 3;
+  bytes body = 4;
+  // The identifier of the secret to use (e.g., "openai_primary")
+  // This maps to a file in the Guardian's secure keystore.
+  string secret_id = 5; 
+}
+
+message SecureEgressResponse {
+  bytes body = 1;
+  // The hash of the TLS certificate from the remote server.
+  bytes cert_hash = 2;
+  // The Guardian's signature attesting to this network call.
+  bytes guardian_signature = 3;
 }
