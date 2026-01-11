@@ -1,6 +1,6 @@
 // Path: crates/services/src/ibc/core/context.rs
 #![forbid(unsafe_code)]
-//! IBC <-> IOI SDK context adapter (ibc-rs v0.57+ compatible)
+//! IBC <-> IOI Kernel context adapter (ibc-rs v0.57+ compatible)
 
 use core::fmt::Display;
 use std::collections::BTreeMap;

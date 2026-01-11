@@ -2,9 +2,9 @@
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
-//! # IOI SDK Types
+//! # IOI Kernel Types
 //!
-//! This crate is the foundational library for the IOI SDK, containing all core
+//! This crate is the foundational library for the IOI Kernel, containing all core
 //! data structures, error types, and configuration objects.
 //!
 //! ## Architectural Role

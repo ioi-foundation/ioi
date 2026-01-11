@@ -10,7 +10,7 @@
         clippy::indexing_slicing
     )
 )]
-//! Consensus module implementations for the IOI SDK
+//! Consensus module implementations for the IOI Kernel
 
 pub mod admft;
 pub mod common;

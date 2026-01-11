@@ -4,8 +4,8 @@ name = "ioi-client"
 version = "0.2.0"
 rust-version = "1.78"
 edition = "2021"
-description = "IPC Client for IOI SDK validator containers"
-license-file = "../../LICENSE-BBSL"
+description = "IPC Client for IOI Kernel validator containers"
+license.workspace = true
 repository = "https://github.com/ioi-foundation/ioi"
 
 [dependencies]

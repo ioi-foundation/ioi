@@ -11,7 +11,7 @@
     )
 )]
 
-//! # IOI SDK CLI
+//! # IOI Kernel CLI
 //!
 //! The primary developer toolchain for building, testing, and interacting with IOI chains.
 
@@ -47,7 +47,7 @@ use ioi_validator::firewall::synthesizer::PolicySynthesizer;
 #[clap(
     name = "cli",
     version,
-    about = "The IOI SDK Developer Toolchain",
+    about = "The IOI CLI (the management interface for the IOI Kernel).",
     long_about = "CLI provides tools for scaffolding chains, managing keys, running local devnets, and interacting with the IOI network."
 )]
 struct Cli {
@@ -58,7 +58,7 @@ struct Cli {
 #[derive(Subcommand, Debug)]
 enum Commands {
     // --- Core Workflow ---
-    /// Initialize a new IOI SDK project structure.
+    /// Initialize a new IOI Kernel project structure.
     Init(InitArgs),
 
     /// Scaffold new components (services, contracts).

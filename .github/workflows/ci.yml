@@ -1,4 +1,4 @@
-name: IOI SDK CI
+name: IOI Kernel CI
 
 on:
   push:

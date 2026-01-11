@@ -1,6 +1,6 @@
-# 🔐 IOI SDK Security Policy
+# 🔐 IOI Kernel Security Policy
 
-The IOI SDK is a foundational framework for decentralized intelligence networks.  
+The IOI Kernel is a foundational framework for decentralized intelligence networks.  
 Security, determinism, and verifiable correctness are treated as first-class design goals.
 
 ---
@@ -19,7 +19,7 @@ Older tags remain available for audit reference but are **not patched retroactiv
 
 ## 📣 Reporting a Vulnerability
 
-If you discover a vulnerability in the IOI SDK, please follow responsible disclosure procedures:
+If you discover a vulnerability in the IOI Kernel, please follow responsible disclosure procedures:
 
 1. **Do not disclose publicly.**  
    Contact the IOI Security Team directly.
@@ -50,7 +50,7 @@ For encrypted communication, use the IOI Security Team’s PGP key available at
 
 ## 🧬 Post-Quantum Security
 
-The IOI SDK implements hybrid post-quantum cryptography for both transport and consensus layers.
+The IOI Kernel implements hybrid post-quantum cryptography for both transport and consensus layers.
 
 | Category | Algorithm | Purpose |
 |-----------|------------|----------|
@@ -89,7 +89,7 @@ Example:
 
 ---
 
-**Thank you for helping secure the IOI SDK and the Internet of Intelligence.**  
+**Thank you for helping secure the IOI Kernel and the Internet of Intelligence.**  
 Together we uphold transparency, verifiability, and resilience across decentralized systems.
 
 _Last updated: 2025-11-10_

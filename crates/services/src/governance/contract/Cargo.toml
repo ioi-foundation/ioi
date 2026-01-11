@@ -2,7 +2,7 @@
 name = "governance-service-contract"
 version = "0.1.0"
 edition = "2021"
-description = "On-chain WASM component for the IOI SDK Governance service"
+description = "On-chain WASM component for the IOI Kernel Governance service"
 license-file = "../../../../LICENSE-BBSL"
 repository = "https://github.com/ioi-foundation/ioi"
 

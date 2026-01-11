@@ -1,6 +1,6 @@
 // Path: crates/api/src/lib.rs
 
-//! # IOI SDK API Crate Lints
+//! # IOI Kernel API Crate Lints
 //!
 //! This crate enforces a strict set of lints to ensure high-quality,
 //! panic-free, and well-documented code. Panics are disallowed in non-test
@@ -16,9 +16,9 @@
         clippy::indexing_slicing
     )
 )]
-//! # IOI SDK API
+//! # IOI Kernel API
 //!
-//! Core traits and interfaces for the IOI SDK. This crate defines the
+//! Core traits and interfaces for the IOI Kernel. This crate defines the
 //! stable contract for all modular components.
 
 /// Core application-level data structures like Blocks and Transactions.

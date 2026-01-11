@@ -237,7 +237,7 @@ pub fn service_interface(args: TokenStream, input: TokenStream) -> TokenStream {
     TokenStream::from(output)
 }
 
-/// Procedural macro to drastically simplify writing WASM smart contracts for the IOI SDK.
+/// Procedural macro to drastically simplify writing WASM smart contracts for the IOI Kernel.
 ///
 /// This macro automatically:
 /// 1. Injects a lightweight bump allocator and panic handler.

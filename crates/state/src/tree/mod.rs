@@ -1,5 +1,5 @@
 // Path: crates/commitment/src/tree/mod.rs
-//! # IOI SDK State Tree Crate Lints
+//! # IOI Kernel State Tree Crate Lints
 //!
 //! This module enforces a strict set of lints to ensure high-quality,
 //! panic-free, and well-documented code. Panics are disallowed in non-test

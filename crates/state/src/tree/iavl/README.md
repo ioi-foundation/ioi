@@ -1,10 +1,10 @@
 # Canonical IAVL Leaf Hashing Profile (ICS-23 Compliant)
 
-This document is the **single source of truth** for the byte-for-byte canonical representation of IAVL tree leaf nodes within the IOI SDK. A deterministic hashing profile is critical for consensus, as all nodes must compute identical state root hashes. It is also essential for interoperability, as external verifiers (like IBC relayers) must know the exact preimage to verify Merkle proofs.
+This document is the **single source of truth** for the byte-for-byte canonical representation of IAVL tree leaf nodes within the IOI Kernel. A deterministic hashing profile is critical for consensus, as all nodes must compute identical state root hashes. It is also essential for interoperability, as external verifiers (like IBC relayers) must know the exact preimage to verify Merkle proofs.
 
 ## IOI IAVL Leaf Profile
 
-To ensure interoperability with the broader Cosmos ecosystem, the IOI SDK's IAVL implementation aligns with the common profile used by the Cosmos SDK. This involves pre-hashing the value before including it in the final leaf preimage.
+To ensure interoperability with the broader Cosmos ecosystem, the IOI Kernel's IAVL implementation aligns with the common profile used by the Cosmos SDK. This involves pre-hashing the value before including it in the final leaf preimage.
 
 The [`LeafOp` parameters](https://github.com/cosmos/ics23/blob/main/go/ics23.go) for an ICS-23 proof are as follows:
 

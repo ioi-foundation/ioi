@@ -1,6 +1,6 @@
 ### **Universal Interoperability (IBC)**
 
-The IOI SDK implements the Inter-Blockchain Communication (IBC) protocol to enable trustless communication with other IBC-enabled chains, including those in the Cosmos ecosystem. Interoperability is facilitated through a dedicated **HTTP Gateway** that exposes a stable, JSON-RPC-based API for relayers and off-chain tools.
+The IOI Kernel implements the Inter-Blockchain Communication (IBC) protocol to enable trustless communication with other IBC-enabled chains, including those in the Cosmos ecosystem. Interoperability is facilitated through a dedicated **HTTP Gateway** that exposes a stable, JSON-RPC-based API for relayers and off-chain tools.
 
 #### **HTTP Gateway API**
 

@@ -1,4 +1,4 @@
-# IOI SDK
+# IOI Kernel
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/your-org/ioi/rust.yml?branch=main)](https://github.com/your-org/ioi/actions)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](LICENSE)
@@ -6,7 +6,7 @@
 
 **The Framework for Sovereign Web4 Blockchains**
 
-The IOI SDK is a next-generation blockchain framework written entirely in Rust, designed to build high-performance, sovereign, and secure decentralized networks. It evolves beyond the Web3 paradigm of "read, write, own" to enable **Web4**: chains that can also **understand** user intent through a native, distributed AI agentic layer.
+The IOI Kernel is a next-generation blockchain framework written entirely in Rust, designed to build high-performance, sovereign, and secure decentralized networks. It evolves beyond the Web3 paradigm of "read, write, own" to enable **Web4**: chains that can also **understand** user intent through a native, distributed AI agentic layer.
 
 > 🎯 **Mission**: Provide the tools to build chains that are not just decentralized ledgers, but intelligent, autonomous partners in achieving complex goals.
 
@@ -50,7 +50,7 @@ A robust security model that provides strong guarantees through cryptography, re
 
 ## Architectural Overview
 
-The IOI SDK follows an SDK-first methodology. Core components are provided as composable Rust crates, allowing developers to build custom, sovereign chains tailored to their specific use case. The foundation is the **Triple-Container Architecture**, ensuring strict separation of concerns and enhanced security.
+The IOI Kernel follows an SDK-first methodology. Core components are provided as composable Rust crates, allowing developers to build custom, sovereign chains tailored to their specific use case. The foundation is the **Triple-Container Architecture**, ensuring strict separation of concerns and enhanced security.
 
 📖 **For detailed architecture information, see the [Architectural Documentation](./docs)**
 
@@ -79,7 +79,7 @@ The IOI SDK follows an SDK-first methodology. Core components are provided as co
 
 ### CLI Guide
 
-The `cli` toolchain is your primary interface for developing with the IOI SDK.
+The `cli` toolchain is your primary interface for developing with the IOI Kernel.
 
 #### 1. Project Scaffolding
 Initialize a new project and scaffold components.
@@ -434,7 +434,7 @@ We welcome community contributions! 🎉
 
 ## License
 
-The IOI SDK is released under a **hybrid open-source model** designed to balance transparency, community adoption, and protection against direct framework cloning.
+The IOI Kernel is released under a **hybrid open-source model** designed to balance transparency, community adoption, and protection against direct framework cloning.
 
 ### 🧩 Licensing Overview
 
@@ -446,12 +446,12 @@ The IOI SDK is released under a **hybrid open-source model** designed to balance
 
 ### ⚖️ Summary of Terms
 
-* The **BBSL** grants broad rights to use, modify, and deploy the IOI SDK for any purpose, **including**:
+* The **BBSL** grants broad rights to use, modify, and deploy the IOI Kernel for any purpose, **including**:
 
   * Building and launching **sovereign Layer-1 or Layer-2 blockchains**.
   * Developing **agentic**, **DePIN**, **AI**, or **application-specific** chains.
   * Running validators, governance systems, or distributed AI networks.
-* The **only restriction** is that the IOI SDK **may not be used to create or distribute a competing blockchain development framework or SDK** whose primary purpose is to enable third parties to build blockchains or validator frameworks in direct competition with IOI.
+* The **only restriction** is that the IOI Kernel **may not be used to create or distribute a competing blockchain development framework or SDK** whose primary purpose is to enable third parties to build blockchains or validator frameworks in direct competition with IOI.
 * All restrictions automatically terminate, and the license converts to **Apache 2.0**, on **November 6, 2029**.
 * All cryptographic and protocol crates are **already Apache 2.0 today** and can be freely reused or audited.
 

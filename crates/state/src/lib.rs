@@ -1,5 +1,5 @@
 // Path: crates/commitment/src/lib.rs
-//! # IOI SDK Commitment Crate Lints
+//! # IOI Kernel Commitment Crate Lints
 //!
 //! This crate enforces a strict set of lints to ensure high-quality,
 //! panic-free, and well-documented code. Panics are disallowed in non-test
@@ -13,7 +13,7 @@
         clippy::indexing_slicing
     )
 )]
-//! # IOI SDK Commitment
+//! # IOI Kernel Commitment
 //!
 //! This crate provides a unified interface and implementations for state commitments,
 //! including both cryptographic primitives and the state trees that use them.

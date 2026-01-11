@@ -3,7 +3,7 @@
 name = "ioi-tx"
 version = "0.1.0"
 edition = "2021"
-description = "Transaction model implementations for the IOI SDK"
+description = "Transaction model implementations for the IOI Kernel"
 license-file = "../../LICENSE-BBSL"
 repository = "https://github.com/ioi-foundation/ioi"
 

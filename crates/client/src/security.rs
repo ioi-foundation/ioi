@@ -38,7 +38,7 @@ pub type SecureStream = AeadWrappedStream<BaseTlsStream>;
 /*
 NOTE on Hybrid KEM Integration:
 
-The IOI SDK architecture specifies a hybrid key exchange (e.g., ECDH + Kyber)
+The IOI Kernel architecture specifies a hybrid key exchange (e.g., ECDH + Kyber)
 for quantum resistance. Integrating a custom KEM into `rustls` requires implementing
 the `rustls::crypto::CryptoProvider` trait, which is a significant undertaking.
 

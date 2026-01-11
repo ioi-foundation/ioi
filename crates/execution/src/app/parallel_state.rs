@@ -48,7 +48,7 @@ impl<'a> StateAccess for ParallelStateAccess<'a> {
         // Fallback to base state for now to satisfy trait.
         // A full MV-Scan is complex.
         // Warning: This breaks isolation if new keys were inserted by lower indices.
-        // In IOI SDK, scans are mostly used by system txs (governance), which are rare.
+        // In IOI Kernel, scans are mostly used by system txs (governance), which are rare.
         // Ideally, force system txs to run sequentially.
         Err(StateError::Backend(
             "Prefix scan not supported in parallel mode".into(),

@@ -11,7 +11,7 @@
     )
 )]
 
-//! # IOI SDK Network
+//! # IOI Kernel Network
 //!
 //! This crate provides traits and implementations for block synchronization
 //! and network communication logic.

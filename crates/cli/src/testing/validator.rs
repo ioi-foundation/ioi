@@ -18,7 +18,7 @@ use ioi_types::config::{
 };
 use ioi_validator::common::generate_certificates_if_needed;
 use libp2p::{identity, Multiaddr, PeerId};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Arc;
@@ -210,7 +210,6 @@ impl TestValidator {
         service_policies: BTreeMap<String, ServicePolicy>,
         role: ValidatorRole,
     ) -> Result<ValidatorGuard> {
-        // ... (feature check same as before) ...
         let features = BinaryFeatureConfig {
             consensus_type,
             state_tree_type,
@@ -353,7 +352,6 @@ impl TestValidator {
             round_robin_view_timeout_secs: 20,
             default_query_gas_limit: 1_000_000_000,
             ibc_gateway_listen_address: ibc_gateway_addr.map(String::from),
-            // [FIX] Initialize new fields to None
             safety_model_path: None,
             tokenizer_path: None,
         };
@@ -365,7 +363,6 @@ impl TestValidator {
             runtimes: vec!["WASM".to_string()],
             state_tree: state_tree_enum,
             commitment_scheme: commitment_scheme_enum,
-            // FIX: Use the `consensus_enum` variable instead of the non-existent `config`
             consensus_type: consensus_enum,
             genesis_file: if use_docker {
                 "/tmp/test-data/genesis.json".to_string()
@@ -386,10 +383,10 @@ impl TestValidator {
             epoch_size: epoch_size.unwrap_or(50_000),
             gc_interval_secs: gc_interval_secs.unwrap_or(3600),
             zk_config: Default::default(),
-            // [FIX] Initialize new inference fields
             inference: InferenceConfig::default(),
             fast_inference: None,
             reasoning_inference: None,
+            connectors: HashMap::new(),
         };
 
         if state_tree_type == "Verkle" {
@@ -555,6 +552,7 @@ impl TestValidator {
             }
             if let Some(url) = oracle_url_arg {
                 orch_args.push("--oracle-url".to_string());
+                oracle_url_arg = Some(url.clone()); // Shadow to keep handle
                 orch_args.push(url);
             }
 

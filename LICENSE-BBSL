@@ -1,7 +1,7 @@
 Bootstrap Business Source License 1.1
 
 Licensor: IOI Foundation
-Licensed Work: The IOI Blockchain Framework (the “IOI SDK”) as defined in this repository.
+Licensed Work: The IOI Blockchain Framework (the “IOI Kernel”) as defined in this repository.
 Change Date: November 6, 2029
 Change License: Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
 
@@ -23,13 +23,13 @@ You may not use the Licensed Work, in whole or in part, to create, market, or
 distribute a **blockchain development framework, software development kit (SDK),
 or similar product** whose primary purpose is to enable third parties to build,
 deploy, or operate independent blockchain networks or validator frameworks that
-compete with the IOI SDK.
+compete with the IOI Kernel.
 
 For the avoidance of doubt, **the following activities are NOT restricted** by this
 Use Limitation:
 
   a. Building, deploying, and operating **sovereign Layer-1 or Layer-2 blockchains**
-     that utilize the IOI SDK or its components.
+     that utilize the IOI Kernel or its components.
 
   b. Creating **application-specific blockchains**, **AI or agentic networks**, **DePIN
      platforms**, **data or oracle networks**, or **research testnets**.
@@ -44,7 +44,7 @@ Use Limitation:
      audit, or experimental purposes.
 
 The intention of this Use Limitation is solely to prevent direct competitors from
-replicating and redistributing the IOI SDK or its core framework components as a
+replicating and redistributing the IOI Kernel or its core framework components as a
 substitute product.
 
 --------------------------------------------------------------------------------
@@ -66,7 +66,7 @@ conversion to the Change License on the Change Date.
 5. Trademarks
 --------------------------------------------------------------------------------
 This License does not grant you any rights to use the Licensor’s trademarks,
-service marks, or logos, including the names “IOI,” “IOI Network,” or “IOI SDK,”
+service marks, or logos, including the names “IOI,” “IOI Network,” or “IOI Kernel,”
 except as required for reasonable and customary use in describing the origin of
 the Licensed Work and reproducing the content of notices.
 

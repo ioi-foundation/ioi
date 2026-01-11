@@ -4,7 +4,7 @@ name = "ioi-telemetry"
 version = "0.1.0"
 rust-version = "1.78"
 edition = "2021"
-description = "Observability, metrics, and structured logging for the IOI SDK."
+description = "Observability, metrics, and structured logging for the IOI Kernel."
 license-file = "../../LICENSE-BBSL"
 repository = "https://github.com/ioi-foundation/ioi"
 

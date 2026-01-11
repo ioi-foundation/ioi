@@ -3,7 +3,7 @@
 name = "ibc-host"
 version = "0.1.0"
 edition = "2021"
-description = "Transport-agnostic, byte-oriented IBC host trait for the IOI SDK"
+description = "Transport-agnostic, byte-oriented IBC host trait for the IOI Kernel"
 license-file = "../../LICENSE-BBSL"
 repository = "https://github.com/ioi-foundation/ioi"
 

@@ -11,14 +11,14 @@
     )
 )]
 
-//! # IOI SDK CLI Library
+//! # IOI Kernel CLI Library
 //!
 //! This library provides high-level APIs and helper functions to facilitate
-//! testing and interaction with chains built on the IOI SDK.
+//! testing and interaction with chains built on the IOI Kernel.
 //!
 //! ## Architectural Boundary and Purpose
 //!
-//! **`cli` is designed to be the primary *external consumer* of the IOI SDK.**
+//! **`cli` is designed to be the primary *external consumer* of the IOI Kernel.**
 //! Its purpose is to simulate the developer experience of someone building on,
 //! or with, the SDK. To maintain this crucial role, this crate must adhere
 //! to a strict architectural boundary:

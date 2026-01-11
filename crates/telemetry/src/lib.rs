@@ -11,9 +11,9 @@
     )
 )]
 
-//! # IOI SDK Telemetry
+//! # IOI Kernel Telemetry
 //!
-//! This crate provides the observability infrastructure for the IOI SDK,
+//! This crate provides the observability infrastructure for the IOI Kernel,
 //! including structured logging initialization, a Prometheus metrics endpoint,
 //! and abstract sinks for decoupling metric instrumentation from the backend.
 

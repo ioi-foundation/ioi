@@ -12,9 +12,9 @@
 )]
 #![deny(missing_docs)]
 
-//! # IOI SDK Validator
+//! # IOI Kernel Validator
 //!
-//! Validator implementation with container architecture for the IOI SDK.
+//! Validator implementation with container architecture for the IOI Kernel.
 
 pub mod common;
 pub mod config;

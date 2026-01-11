@@ -1,6 +1,6 @@
-# IOI SDK Crypto Module
+# IOI Kernel Crypto Module
 
-Quantum-resistant cryptographic primitives for the IOI SDK, built on top of the [dcrypt](https://github.com/dcrypt-rs/dcrypt) library.
+Quantum-resistant cryptographic primitives for the IOI Kernel, built on top of the [dcrypt](https://github.com/dcrypt-rs/dcrypt) library.
 
 ## Features
 
