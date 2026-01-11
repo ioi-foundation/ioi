@@ -8,8 +8,6 @@ pub mod inference;
 pub mod policy;
 /// Definitions for ActionRules and policy configuration.
 pub mod rules;
-/// The semantic scrubber for PII redaction.
-// pub mod scrubber; // [REMOVED] Moved to ioi-services
 /// [NEW] Policy Synthesizer for Ghost Mode.
 pub mod synthesizer;
 
@@ -23,7 +21,7 @@ use ioi_api::state::namespaced::{NamespacedStateAccess, ReadOnlyNamespacedStateA
 use ioi_api::state::{service_namespace_prefix, StateAccess, StateOverlay};
 use ioi_api::transaction::context::TxContext;
 use ioi_tx::system::{nonce, validation};
-use ioi_types::app::{ChainTransaction, SystemPayload, ActionRequest, action::ApprovalToken}; // [FIX] Import ApprovalToken
+use ioi_types::app::{action::ApprovalToken, ActionRequest, ChainTransaction, SystemPayload}; // [FIX] Import ApprovalToken
 use ioi_types::error::TransactionError;
 use ioi_types::keys::active_service_key;
 use ioi_types::service_configs::ActiveServiceMeta;
@@ -57,7 +55,9 @@ pub async fn enforce_firewall(
                 (header.account_id, header.session_auth.as_ref())
             }
         },
-        ChainTransaction::Semantic { header, .. } => (header.account_id, header.session_auth.as_ref()),
+        ChainTransaction::Semantic { header, .. } => {
+            (header.account_id, header.session_auth.as_ref())
+        }
     };
 
     // 2. Context
@@ -107,14 +107,14 @@ pub async fn enforce_firewall(
             // NOTE: The true PolicyEngine architecture would load ActionRules from the state
             // (e.g. from `policy::{account_id}`) and iterate them.
             // For this implementation scope, we focus on the wiring.
-            
+
             // Assume we can construct a lightweight ActionRequest from this call
             // In a real system, the service SDK would emit ActionRequests.
             // Here we do a best-effort check on raw params if possible.
-            
+
             // [MOCK] Creating dummy rules for the sake of wiring the new `evaluate` signature.
             // In production, these rules come from the Account's policy in state.
-            let rules = crate::firewall::rules::ActionRules::default(); 
+            let rules = crate::firewall::rules::ActionRules::default();
 
             let dummy_request = ioi_types::app::ActionRequest {
                 target: ioi_types::app::ActionTarget::Custom(method.clone()),
@@ -133,24 +133,39 @@ pub async fn enforce_firewall(
             // (The Whitepaper implies ApprovalToken is a specific artifact signed by user key).
             let approval_token: Option<ApprovalToken> = None; // Placeholder until SessionAuthorization includes it explicitly
 
-            let verdict = PolicyEngine::evaluate(&rules, &dummy_request, &safety_model, approval_token.as_ref()).await;
+            let verdict = PolicyEngine::evaluate(
+                &rules,
+                &dummy_request,
+                &safety_model,
+                approval_token.as_ref(),
+            )
+            .await;
 
             match verdict {
-                Verdict::Allow => {}, // Proceed
+                Verdict::Allow => {} // Proceed
                 Verdict::Block => {
-                     return Err(TransactionError::Invalid("Blocked by Policy".into()));
-                },
+                    return Err(TransactionError::Invalid("Blocked by Policy".into()));
+                }
                 Verdict::RequireApproval => {
-                     return Err(TransactionError::Invalid("Action requires explicit Approval Token".into()));
+                    // [FIX] Return a structured error that the RPC layer can detect
+                    // to trigger the PENDING_APPROVAL status in the response.
+                    return Err(TransactionError::Invalid(
+                        "Requires Approval Token (2FA)".into(),
+                    ));
                 }
             }
 
             // PII Check (Fallback if not handled by Policy)
             if let Ok(input_str) = std::str::from_utf8(params) {
-                let classification = safety_model.classify_intent(input_str).await.unwrap_or(ioi_api::vm::inference::SafetyVerdict::Safe);
+                let classification = safety_model
+                    .classify_intent(input_str)
+                    .await
+                    .unwrap_or(ioi_api::vm::inference::SafetyVerdict::Safe);
                 if let ioi_api::vm::inference::SafetyVerdict::ContainsPII = classification {
                     tracing::warn!(target: "firewall", "Transaction contains PII. Scrubbing required.");
-                    return Err(TransactionError::Invalid("PII detected in transaction payload.".into()));
+                    return Err(TransactionError::Invalid(
+                        "PII detected in transaction payload.".into(),
+                    ));
                 }
             }
         }

@@ -37,7 +37,7 @@ use ioi_types::{
     codec,
     error::ValidatorError,
 };
-use libp2p::identity;
+use libp2p::{identity, PeerId};
 use lru::LruCache;
 use rand::seq::SliceRandom;
 use serde::Serialize;
@@ -62,6 +62,8 @@ use tonic::transport::Server;
 
 // [FIX] Import from ioi_api directly
 use ioi_api::vm::inference::LocalSafetyModel;
+// [NEW] Import SCS
+use ioi_scs::SovereignContextStore;
 
 // --- Submodule Declarations ---
 mod consensus;
@@ -114,6 +116,8 @@ pub struct OrchestrationDependencies<CE, V> {
     pub batch_verifier: Arc<dyn BatchVerifier>,
     /// [NEW] The local safety model for the semantic firewall.
     pub safety_model: Arc<dyn LocalSafetyModel>,
+    /// [NEW] The Sovereign Context Store handle (optional, for local nodes).
+    pub scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
 }
 
 type ProofCache = Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>;
@@ -174,6 +178,8 @@ where
     scheme: CS,
     /// [NEW] The safety model for semantic firewall.
     pub safety_model: Arc<dyn LocalSafetyModel>,
+    /// [NEW] The SCS handle.
+    pub scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
 }
 
 impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
@@ -240,6 +246,7 @@ where
             batch_verifier: deps.batch_verifier,
             scheme,
             safety_model: deps.safety_model,
+            scs: deps.scs, // [NEW] Store SCS
         })
     }
 
@@ -690,6 +697,9 @@ where
             .await
             .insert(local_account_id, initial_nonce);
 
+        // [FIX] Create event broadcaster
+        let (event_tx, _event_rx) = tokio::sync::broadcast::channel(1000);
+
         let context = MainLoopContext::<CS, ST, CE, V> {
             chain_ref: chain,
             tx_pool_ref: self.tx_pool.clone(),
@@ -715,6 +725,8 @@ where
             tip_sender: tip_tx,
             receipt_map,
             safety_model: self.safety_model.clone(),
+            scs: self.scs.clone(), // [NEW] Pass the SCS handle
+            event_broadcaster: event_tx, // [NEW] Pass the event broadcaster
         };
 
         let mut receiver_opt = self.network_event_receiver.lock().await;
