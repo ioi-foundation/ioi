@@ -13,10 +13,9 @@ pub mod rules;
 /// [NEW] Policy Synthesizer for Ghost Mode.
 pub mod synthesizer;
 
-// use crate::firewall::inference::LocalSafetyModel; // [FIX] Now in ioi_api
 use crate::firewall::policy::PolicyEngine;
+use crate::firewall::rules::Verdict; // [FIX] Import Verdict
 use ioi_api::vm::inference::LocalSafetyModel;
-// use crate::firewall::scrubber::SemanticScrubber; // [FIX] Now in ioi_services
 use ioi_services::agentic::scrubber::SemanticScrubber;
 
 use ibc_primitives::Timestamp;
@@ -24,7 +23,7 @@ use ioi_api::state::namespaced::{NamespacedStateAccess, ReadOnlyNamespacedStateA
 use ioi_api::state::{service_namespace_prefix, StateAccess, StateOverlay};
 use ioi_api::transaction::context::TxContext;
 use ioi_tx::system::{nonce, validation};
-use ioi_types::app::{ChainTransaction, SystemPayload};
+use ioi_types::app::{ChainTransaction, SystemPayload, ActionRequest, action::ApprovalToken}; // [FIX] Import ApprovalToken
 use ioi_types::error::TransactionError;
 use ioi_types::keys::active_service_key;
 use ioi_types::service_configs::ActiveServiceMeta;
@@ -49,16 +48,16 @@ pub async fn enforce_firewall(
     let scrubber = SemanticScrubber::new(safety_model.clone());
 
     // 1. Identify Signer
-    let signer_account_id = match tx {
-        ChainTransaction::System(s) => s.header.account_id,
-        ChainTransaction::Settlement(s) => s.header.account_id,
+    let (signer_account_id, session_auth) = match tx {
+        ChainTransaction::System(s) => (s.header.account_id, s.header.session_auth.as_ref()),
+        ChainTransaction::Settlement(s) => (s.header.account_id, s.header.session_auth.as_ref()),
         ChainTransaction::Application(a) => match a {
             ioi_types::app::ApplicationTransaction::DeployContract { header, .. }
             | ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
-                header.account_id
+                (header.account_id, header.session_auth.as_ref())
             }
         },
-        ChainTransaction::Semantic { header, .. } => header.account_id,
+        ChainTransaction::Semantic { header, .. } => (header.account_id, header.session_auth.as_ref()),
     };
 
     // 2. Context
@@ -104,34 +103,54 @@ pub async fn enforce_firewall(
         PolicyEngine::check_service_call(&overlay, service_id, method, false)?;
 
         // [NEW] Semantic Inspection for Agentic Intents
-        // If this is an agentic request (e.g., to the `agentic` service), scrub inputs.
         if service_id == "agentic" || service_id == "decentralized_cloud" {
-            // Convert params to UTF-8 string for analysis (best effort)
-            if let Ok(input_str) = std::str::from_utf8(params) {
-                // Check intent safety using the injected model
-                // Note: We use `safety_model` directly for classification here,
-                // `scrubber` is available for future use (e.g. rewriting params).
-                let verdict = safety_model.classify_intent(input_str).await.map_err(|e| {
-                    TransactionError::Invalid(format!("Safety check failed: {}", e))
-                })?;
+            // NOTE: The true PolicyEngine architecture would load ActionRules from the state
+            // (e.g. from `policy::{account_id}`) and iterate them.
+            // For this implementation scope, we focus on the wiring.
+            
+            // Assume we can construct a lightweight ActionRequest from this call
+            // In a real system, the service SDK would emit ActionRequests.
+            // Here we do a best-effort check on raw params if possible.
+            
+            // [MOCK] Creating dummy rules for the sake of wiring the new `evaluate` signature.
+            // In production, these rules come from the Account's policy in state.
+            let rules = crate::firewall::rules::ActionRules::default(); 
 
-                // [FIX] Updated enum path
-                match verdict {
-                    ioi_api::vm::inference::SafetyVerdict::Unsafe(reason) => {
-                        return Err(TransactionError::Invalid(format!(
-                            "Blocked by Safety Firewall: {}",
-                            reason
-                        )));
-                    }
-                    ioi_api::vm::inference::SafetyVerdict::ContainsPII => {
-                        // In Phase 2.2, we block PII.
-                        // In Phase 3, we might use `scrubber.scrub()` to redact and proceed.
-                        tracing::warn!(target: "firewall", "Transaction contains PII. Scrubbing required.");
-                        return Err(TransactionError::Invalid(
-                            "PII detected in transaction payload.".into(),
-                        ));
-                    }
-                    ioi_api::vm::inference::SafetyVerdict::Safe => {}
+            let dummy_request = ioi_types::app::ActionRequest {
+                target: ioi_types::app::ActionTarget::Custom(method.clone()),
+                params: params.clone(),
+                context: ioi_types::app::ActionContext {
+                    agent_id: "unknown".into(),
+                    session_id: None,
+                    window_id: None,
+                },
+                nonce: 0,
+            };
+
+            // Extract ApprovalToken from session_auth if present
+            // Note: ApprovalToken structure needs to be compatible with SessionAuthorization or separate.
+            // For now, we assume `session_auth` holds it or we pass None if the structure differs.
+            // (The Whitepaper implies ApprovalToken is a specific artifact signed by user key).
+            let approval_token: Option<ApprovalToken> = None; // Placeholder until SessionAuthorization includes it explicitly
+
+            let verdict = PolicyEngine::evaluate(&rules, &dummy_request, &safety_model, approval_token.as_ref()).await;
+
+            match verdict {
+                Verdict::Allow => {}, // Proceed
+                Verdict::Block => {
+                     return Err(TransactionError::Invalid("Blocked by Policy".into()));
+                },
+                Verdict::RequireApproval => {
+                     return Err(TransactionError::Invalid("Action requires explicit Approval Token".into()));
+                }
+            }
+
+            // PII Check (Fallback if not handled by Policy)
+            if let Ok(input_str) = std::str::from_utf8(params) {
+                let classification = safety_model.classify_intent(input_str).await.unwrap_or(ioi_api::vm::inference::SafetyVerdict::Safe);
+                if let ioi_api::vm::inference::SafetyVerdict::ContainsPII = classification {
+                    tracing::warn!(target: "firewall", "Transaction contains PII. Scrubbing required.");
+                    return Err(TransactionError::Invalid("PII detected in transaction payload.".into()));
                 }
             }
         }

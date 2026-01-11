@@ -76,4 +76,10 @@ pub struct RuleConditions {
     /// Regex pattern for sensitive content detection in keystrokes.
     /// If the text matches this pattern, the action is BLOCKED.
     pub block_text_pattern: Option<String>,
+
+    /// [NEW] Whitepaper 9.4: Semantic Integrity
+    /// List of semantic intent tags that are ALLOWED or BLOCKED.
+    /// e.g. block_intents: ["exfiltration", "financial_transfer"]
+    /// This relies on the LocalSafetyModel to classify the input.
+    pub block_intents: Option<Vec<String>>,
 }

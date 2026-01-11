@@ -108,10 +108,18 @@ impl<CS: CommitmentScheme, M: DistanceMetric> StateAccess for MHnswIndex<CS, M> 
         ))
     }
 
-    fn delete(&mut self, _key: &[u8]) -> Result<(), StateError> {
-        Err(StateError::Backend(
-            "HNSW deletion not supported in this version".into(),
-        ))
+    fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
+        if key.len() != 8 {
+            return Err(StateError::Backend(
+                "Invalid key length for HNSW node ID".into(),
+            ));
+        }
+        let id = u64::from_be_bytes(key.try_into().unwrap());
+
+        // Delegate deletion to the graph implementation
+        self.graph
+            .delete(id)
+            .map_err(|e| StateError::Backend(e.to_string()))
     }
 
     fn prefix_scan(&self, _prefix: &[u8]) -> Result<StateScanIter<'_>, StateError> {
@@ -133,9 +141,19 @@ impl<CS: CommitmentScheme, M: DistanceMetric> StateAccess for MHnswIndex<CS, M> 
     fn batch_apply(
         &mut self,
         _inserts: &[(Vec<u8>, Vec<u8>)],
-        _deletes: &[Vec<u8>],
+        deletes: &[Vec<u8>],
     ) -> Result<(), StateError> {
-        Err(StateError::Backend("Use batch_insert_vector".into()))
+        // Support batch delete
+        for k in deletes {
+            self.delete(k)?;
+        }
+        // Inserts require vectors, which standard batch_apply doesn't provide.
+        if !_inserts.is_empty() {
+            return Err(StateError::Backend(
+                "Batch insert not supported via standard trait; use insert_vector".into(),
+            ));
+        }
+        Ok(())
     }
 }
 

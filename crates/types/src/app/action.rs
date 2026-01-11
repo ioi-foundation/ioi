@@ -4,6 +4,7 @@ use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 // [FIX] Import HashFunction trait so Sha256::digest is available
 use dcrypt::algorithms::hash::HashFunction;
+use crate::app::SignatureSuite;
 
 /// The target capability domain of an action.
 /// This enum maps directly to the `cap:*` scopes defined in the Agency Firewall policy.
@@ -119,4 +120,61 @@ impl ActionRequest {
         out.copy_from_slice(digest.as_ref());
         out
     }
+}
+
+// -----------------------------------------------------------------------------
+// Agency Firewall Artifacts
+// -----------------------------------------------------------------------------
+
+/// Constraints on a user approval.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct ApprovalScope {
+    /// UNIX timestamp when this approval expires.
+    pub expires_at: u64,
+    /// Optional: Usage count remaining (for session approvals).
+    pub max_usages: Option<u32>,
+}
+
+/// A scoped, time-bounded authorization for an ActionRequest (User Consent).
+/// Acts as a "2FA Token" for high-risk actions blocked by default policy.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct ApprovalToken {
+    /// Hash of the specific ActionRequest being approved.
+    pub request_hash: [u8; 32],
+    /// Constraints on the approval (e.g., max times usage, expiration).
+    pub scope: ApprovalScope,
+    /// Signature by the user's Local DID (Device Key).
+    pub approver_sig: Vec<u8>,
+    /// The cryptographic suite used for the signature.
+    pub approver_suite: SignatureSuite,
+}
+
+/// The verdict rendered by the firewall policy engine.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub enum PolicyVerdict {
+    /// Action matches an ALLOW rule.
+    Allow,
+    /// Action matches a BLOCK rule or Default Deny. Contains reason.
+    Block(String),
+    /// Action matches a REQUIRE_APPROVAL rule and a valid token was provided.
+    /// Contains the hash of the ApprovalToken used.
+    Approved([u8; 32]),
+}
+
+/// A Guardian-attested record of the firewall's decision.
+/// This serves as the "Audit Log" or "Black Box" evidence in case of disputes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct FirewallDecisionReceipt {
+    /// Hash of the canonical ActionRequest.
+    pub request_hash: [u8; 32],
+    /// Hash of the active policy ruleset used for evaluation.
+    pub policy_hash: [u8; 32],
+    /// The verdict rendered.
+    pub verdict: PolicyVerdict,
+    /// Monotonic sequence number for the local audit chain.
+    pub seq: u64,
+    /// Hash link to the previous receipt (Tamper-evident log).
+    pub prev_receipt_hash: [u8; 32],
+    /// Guardian attestation over the fields above.
+    pub guardian_sig: Vec<u8>,
 }
