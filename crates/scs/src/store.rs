@@ -20,6 +20,7 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::collections::HashMap; // [NEW] Import HashMap
 
 /// Configuration for opening or creating a store.
 #[derive(Debug, Clone)]
@@ -40,6 +41,8 @@ pub struct SovereignContextStore {
     mmap: Option<Mmap>,
     /// In-memory vector index (lazy loaded).
     vec_index: Arc<Mutex<Option<VectorIndex>>>,
+    /// [NEW] In-memory index for fast lookup of frames by their visual hash (checksum).
+    pub visual_index: HashMap<[u8; 32], FrameId>,
 }
 
 impl SovereignContextStore {
@@ -86,6 +89,7 @@ impl SovereignContextStore {
             toc,
             mmap: None,
             vec_index: Arc::new(Mutex::new(None)),
+            visual_index: HashMap::new(), // [NEW] Initialize empty
         })
     }
 
@@ -112,6 +116,13 @@ impl SovereignContextStore {
         // Mmap the file for reading
         let mmap = unsafe { Mmap::map(&file)? };
 
+        // [NEW] Rebuild visual index
+        let mut visual_index = HashMap::new();
+        for frame in &toc.frames {
+            // Map checksum -> FrameId. This assumes payload checksum IS the visual hash for Observation frames.
+            visual_index.insert(frame.checksum, frame.id);
+        }
+
         Ok(Self {
             file,
             path: path.to_path_buf(),
@@ -119,6 +130,7 @@ impl SovereignContextStore {
             toc,
             mmap: Some(mmap),
             vec_index: Arc::new(Mutex::new(None)),
+            visual_index, // [NEW]
         })
     }
 
@@ -165,6 +177,9 @@ impl SovereignContextStore {
             is_encrypted: false, // Default unencrypted locally
         };
         self.toc.frames.push(frame);
+
+        // [NEW] Update In-Memory Visual Index
+        self.visual_index.insert(checksum_arr, next_id);
 
         // 5. Serialize and Append New TOC
         let toc_bytes = bincode::serialize(&self.toc)?;

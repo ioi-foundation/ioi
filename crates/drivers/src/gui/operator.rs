@@ -10,10 +10,14 @@ use ioi_api::vm::drivers::gui::{InputEvent, MouseButton as ApiButton};
 use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
+// [NEW] Import for events
+use ioi_types::app::KernelEvent;
+use tokio::sync::broadcast::Sender;
 
 /// A native driver for controlling mouse and keyboard input.
 pub struct NativeOperator {
     enigo: Mutex<Enigo>,
+    event_sender: Option<Sender<KernelEvent>>, // [NEW]
 }
 
 impl NativeOperator {
@@ -21,7 +25,14 @@ impl NativeOperator {
         let enigo = Enigo::new(&Settings::default()).expect("Failed to initialize Enigo");
         Self {
             enigo: Mutex::new(enigo),
+            event_sender: None,
         }
+    }
+
+    // [NEW] Builder method to inject sender
+    pub fn with_event_sender(mut self, sender: Sender<KernelEvent>) -> Self {
+        self.event_sender = Some(sender);
+        self
     }
 
     /// Computes a Perceptual Hash (Gradient) of the image bytes.
@@ -75,7 +86,7 @@ impl NativeOperator {
 
                     // [NEW] Use Hamming Distance instead of exact match
                     let dist = Self::hamming_distance(&current_hash, expected);
-                    
+
                     // Threshold: 5 bits out of 64 (allows for minor clock changes, cursor blink)
                     if dist > 5 {
                         return Err(anyhow!(
@@ -117,6 +128,15 @@ impl NativeOperator {
                     .scroll(*dy, Axis::Vertical)
                     .map_err(|e| anyhow!("Scroll failed: {:?}", e))?;
             }
+        }
+
+        // [NEW] Emit GhostInput event for feedback loop
+        if let Some(tx) = &self.event_sender {
+            let desc = format!("{:?}", event);
+            let _ = tx.send(KernelEvent::GhostInput {
+                device: "gui".into(),
+                description: desc,
+            });
         }
 
         thread::sleep(Duration::from_millis(10));

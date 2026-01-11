@@ -9,7 +9,7 @@ use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::inference::InferenceRuntime;
 
 use ioi_types::app::agentic::{AgentSkill, InferenceOptions, LlmToolDefinition, StepTrace};
-use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
+use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, KernelEvent}; // [FIX] Import KernelEvent
 use ioi_types::codec;
 use ioi_types::error::{TransactionError, UpgradeError};
 use ioi_types::keys::UPGRADE_ACTIVE_SERVICE_PREFIX;
@@ -86,6 +86,7 @@ pub struct DesktopAgentService {
     scrubber: SemanticScrubber,
     zk_verifier: Option<Arc<dyn AgentZkVerifier>>,
     scs: Option<Arc<Mutex<SovereignContextStore>>>,
+    event_sender: Option<tokio::sync::broadcast::Sender<KernelEvent>>, // [NEW] Event sender
 }
 
 impl DesktopAgentService {
@@ -100,6 +101,7 @@ impl DesktopAgentService {
             scrubber,
             zk_verifier: None,
             scs: None,
+            event_sender: None, // [NEW] Initialize to None
         }
     }
 
@@ -118,6 +120,7 @@ impl DesktopAgentService {
             scrubber,
             zk_verifier: None,
             scs: None,
+            event_sender: None, // [NEW] Initialize to None
         }
     }
 
@@ -128,6 +131,12 @@ impl DesktopAgentService {
     
     pub fn with_scs(mut self, scs: Arc<Mutex<SovereignContextStore>>) -> Self {
         self.scs = Some(scs);
+        self
+    }
+
+    // [NEW] Builder method for event sender
+    pub fn with_event_sender(mut self, sender: tokio::sync::broadcast::Sender<KernelEvent>) -> Self {
+        self.event_sender = Some(sender);
         self
     }
 
@@ -759,6 +768,11 @@ impl BlockchainService for DesktopAgentService {
                 };
                 let trace_key = Self::get_trace_key(&p.session_id, agent_state.step_count);
                 state.insert(&trace_key, &codec::to_bytes_canonical(&trace)?)?;
+
+                // [NEW] Emit Kernel Event
+                if let Some(tx) = &self.event_sender {
+                    let _ = tx.send(KernelEvent::AgentStep(trace.clone()));
+                }
 
                 if let Some(e) = action_error {
                     agent_state.consecutive_failures += 1;

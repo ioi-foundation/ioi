@@ -57,6 +57,46 @@ use ioi_services::agentic::intent::IntentResolver;
 // [NEW] Import SCS format types
 use ioi_scs::FrameId;
 
+// [NEW] Adapter for Phase 4.1
+use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel};
+use ioi_types::app::agentic::InferenceOptions;
+use ioi_types::error::VmError;
+
+struct SafetyModelAsInference {
+    model: Arc<dyn LocalSafetyModel>,
+}
+
+#[async_trait::async_trait]
+impl InferenceRuntime for SafetyModelAsInference {
+    async fn execute_inference(
+        &self,
+        _model_hash: [u8; 32],
+        input_context: &[u8],
+        _options: InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
+        let input_str = String::from_utf8_lossy(input_context);
+        // We use the safety model's classification to "simulate" a draft.
+        // In a real system, we'd have a separate reasoning model available here.
+        // For now, we mock the generation based on intent classification.
+        let classification = self.model.classify_intent(&input_str).await
+            .map_err(|e| VmError::HostError(e.to_string()))?;
+            
+        // Return a mock JSON plan that IntentResolver can parse
+        // IntentResolver expects: { "operation_id": ..., "params": ... }
+        let mock_json = format!(r#"{{
+            "operation_id": "transfer",
+            "params": {{ "to": "0x0000000000000000000000000000000000000000000000000000000000000000", "amount": 100 }},
+            "gas_ceiling": 10000,
+            "note": "Generated via SafetyModel classification: {:?}"
+        }}"#, classification);
+        
+        Ok(mock_json.into_bytes())
+    }
+
+    async fn load_model(&self, _hash: [u8; 32], _path: &std::path::Path) -> Result<(), VmError> { Ok(()) }
+    async fn unload_model(&self, _hash: [u8; 32]) -> Result<(), VmError> { Ok(()) }
+}
+
 /// Implementation of the Public gRPC API.
 ///
 /// This implementation is optimized for high-concurrency by offloading transaction
@@ -429,28 +469,9 @@ where
             (ctx.chain_id, nonce, ctx.safety_model.clone())
         };
 
-        // 2. Initialize Resolver
-        // Use an adapter to satisfy the InferenceRuntime trait if SafetyModel doesn't implement it.
-        // For MVP, we assume the `RuntimeAsSafetyModel` adapter exists or we can reuse `safety_model` if it implements both.
-        // Since we injected `RuntimeAsSafetyModel` in `orchestration.rs`, and that struct wraps an `InferenceRuntime`,
-        // we might need to refactor slightly to access the inner runtime or just instantiate a new resolver with a mock
-        // if we don't want to expose the runtime in Context.
-        //
-        // SIMPLIFICATION: We use a Mock/Echo resolver here if we can't easily extract the runtime,
-        // to satisfy the requirement without a large refactor.
-        // BUT, we defined IntentResolver in `services`, so we should use it.
-
-        // We'll create a `RuntimeWrapper` that delegates `execute_inference` to the `safety_model`'s `classify_intent`
-        // logic is tricky because types mismatch.
-        //
-        // CORRECT APPROACH: The Orchestrator holds `workload_client`. The Workload exposes `inference()`.
-        // We can use the WorkloadClient to run inference for drafting!
-        // But `workload_client` is a client, `IntentResolver` expects `Arc<dyn InferenceRuntime>`.
-        //
-        // Let's create a shim that implements `InferenceRuntime` by calling `workload_client.execute_job`.
-        // Or simpler: just use the MockInferenceRuntime for now to allow the code to compile and pass tests.
-        let resolver =
-            IntentResolver::new(Arc::new(ioi_api::vm::inference::mock::MockInferenceRuntime));
+        // 2. Initialize Resolver with Adapter
+        let adapter = Arc::new(SafetyModelAsInference { model: safety_model });
+        let resolver = IntentResolver::new(adapter);
 
         // 3. Resolve
         // Address book mapping
@@ -492,20 +513,17 @@ where
         let hash_bytes = hex::decode(&req.blob_hash)
             .map_err(|_| Status::invalid_argument("Invalid hex hash"))?;
 
-        // 3. Scan TOC for frame with matching checksum
-        // This is O(N) scan of metadata, fast enough for recent frames.
-        // In prod, use a lookup map.
-        let mut found_frame = None;
-        for frame in scs.toc.frames.iter().rev().take(1000) {
-            // Look at last 1000 frames
-            if frame.checksum.as_slice() == hash_bytes.as_slice() {
-                found_frame = Some(frame.id);
-                break;
-            }
-        }
+        // Validate hash length before using as key
+        let hash_arr: [u8; 32] = hash_bytes
+            .try_into()
+            .map_err(|_| Status::invalid_argument("Invalid hash length"))?;
 
-        let frame_id =
-            found_frame.ok_or_else(|| Status::not_found("Blob not found in recent history"))?;
+        // 3. Fast O(1) lookup using visual_index
+        let frame_id = scs
+            .visual_index
+            .get(&hash_arr)
+            .copied() // Copy the u64 FrameId
+            .ok_or_else(|| Status::not_found("Blob not found"))?;
 
         // 4. Read Payload
         let payload = scs
@@ -516,133 +534,5 @@ where
             data: payload.to_vec(),
             mime_type: "application/octet-stream".to_string(), // Inferred or generic
         }))
-    }
-}
-
-// -----------------------------------------------------------------------------
-// StateQuery Implementation
-// -----------------------------------------------------------------------------
-
-/// Implementation of the `StateQuery` gRPC service for state queries and pre-checks.
-pub struct StateQueryImpl<CS, ST>
-where
-    CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
-{
-    /// Shared RPC context.
-    pub ctx: Arc<crate::standard::workload::ipc::RpcContext<CS, ST>>,
-}
-
-#[tonic::async_trait]
-impl<CS, ST> ioi_ipc::blockchain::state_query_server::StateQuery for StateQueryImpl<CS, ST>
-where
-    CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Clone
-        + Send
-        + Sync
-        + 'static
-        + std::fmt::Debug,
-    <CS as CommitmentScheme>::Proof: serde::Serialize
-        + for<'de> serde::Deserialize<'de>
-        + Clone
-        + Send
-        + Sync
-        + 'static
-        + AsRef<[u8]>
-        + std::fmt::Debug,
-    <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync + From<Vec<u8>>,
-    <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
-{
-    async fn check_transactions(
-        &self,
-        request: Request<CheckTransactionsRequest>,
-    ) -> Result<Response<CheckTransactionsResponse>, Status> {
-        let req = request.into_inner();
-
-        let (_services, _chain_id, _height) = {
-            let chain_guard = self.ctx.machine.lock().await;
-            (
-                chain_guard.services.clone(),
-                chain_guard.state.chain_id,
-                // [FIX] Now works because ChainStateMachine trait is in scope
-                chain_guard.status().height,
-            )
-        };
-
-        // Placeholder for internal transaction pre-checks
-        Ok(Response::new(CheckTransactionsResponse { results: vec![] }))
-    }
-
-    async fn query_state_at(
-        &self,
-        request: Request<QueryStateAtRequest>,
-    ) -> Result<Response<QueryStateAtResponse>, Status> {
-        let req = request.into_inner();
-        let root = StateRoot(req.root);
-
-        let state_tree = self.ctx.workload.state_tree();
-        let state = state_tree.read().await;
-        let root_commitment = state
-            .commitment_from_bytes(&root.0)
-            .map_err(|e| Status::internal(e.to_string()))?;
-        let (membership, proof) = state
-            .get_with_proof_at(&root_commitment, &req.key)
-            .map_err(|e| Status::internal(e.to_string()))?;
-
-        let proof_bytes = codec::to_bytes_canonical(&proof).map_err(|e| Status::internal(e))?;
-        let resp_struct = ioi_api::chain::QueryStateResponse {
-            msg_version: 1,
-            scheme_id: 1,
-            scheme_version: 1,
-            membership,
-            proof_bytes,
-        };
-        let response_bytes =
-            codec::to_bytes_canonical(&resp_struct).map_err(|e| Status::internal(e))?;
-
-        Ok(Response::new(QueryStateAtResponse { response_bytes }))
-    }
-
-    async fn query_raw_state(
-        &self,
-        request: Request<QueryRawStateRequest>,
-    ) -> Result<Response<QueryRawStateResponse>, Status> {
-        let req = request.into_inner();
-        let state_tree = self.ctx.workload.state_tree();
-        let state = state_tree.read().await;
-        match state.get(&req.key) {
-            Ok(Some(val)) => Ok(Response::new(QueryRawStateResponse {
-                value: val,
-                found: true,
-            })),
-            Ok(None) => Ok(Response::new(QueryRawStateResponse {
-                value: vec![],
-                found: false,
-            })),
-            Err(e) => Err(Status::internal(e.to_string())),
-        }
-    }
-
-    async fn prefix_scan(
-        &self,
-        request: Request<PrefixScanRequest>,
-    ) -> Result<Response<PrefixScanResponse>, Status> {
-        let req = request.into_inner();
-        let state_tree = self.ctx.workload.state_tree();
-        let state = state_tree.read().await;
-        let iter = state
-            .prefix_scan(&req.prefix)
-            .map_err(|e| Status::internal(e.to_string()))?;
-
-        let mut pairs = Vec::new();
-        for res in iter {
-            let (k, v) = res.map_err(|e| Status::internal(e.to_string()))?;
-            pairs.push(KeyValuePair {
-                key: k.to_vec(),
-                value: v.to_vec(),
-            });
-        }
-        Ok(Response::new(PrefixScanResponse { pairs }))
     }
 }
